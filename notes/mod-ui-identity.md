@@ -11,7 +11,7 @@ the shared panel. `slopworld` and `slopworld-warm` are the complete house tables
 remaining entries are named palettes adapted to the UI's semantic roles.
 
 The catalog deliberately uses stable IDs for persisted settings and human labels for the
-picker. Unknown or retired IDs resolve to SlopWorld.
+picker. Unknown IDs resolve to SlopWorld.
 
 Named palette values are adapted to SlopWorld's semantic roles rather than assuming that an
 external palette defines every widget color. The adapter keeps text and structural roles

@@ -18,9 +18,8 @@ The current views are `OptionsView`, `SessionsView`, `ProjectsView` and
   handles vanilla dialogs opened from pages. Main tabs remain under the pane.
 - The top bar names the current view instead of the agent.
 
-This structure is also an input fix: an absorbing window below the chrome never gets
-`MouseDown`, so drawing Options inside the chrome left the sidebar visible but dead.
-Nothing now absorbs above the chrome.
+Windows below the chrome do not absorb `MouseDown`; Options therefore draws inside the
+chrome while the sidebar remains interactive. No window absorbs above the chrome.
 
 ## `OptionsView`
 

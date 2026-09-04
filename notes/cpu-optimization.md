@@ -1,6 +1,6 @@
-# CPU optimizations
+# CPU hot-path reductions
 
-Implemented hot-path reductions in the C# mod:
+The C# mod reduces work in these hot paths:
 
 - `RealClock` samples wall time once per 60 frames.
 - `Plague` walks the lister's plant list directly, shares one cached game tick
@@ -11,6 +11,3 @@ Implemented hot-path reductions in the C# mod:
 - `Sgr.Autolink` rejects rows without `://` before building a full-row string.
 - `MarkdownPreview` caches selection geometry between reflows and skips off-screen placements,
   text lines and table rows before issuing IMGUI draw calls.
-
-These came from tracing `Root.Update`, component update/tick, and `OnGUI` paths.
-The list records implemented reductions; it is not a benchmark or a current profile.

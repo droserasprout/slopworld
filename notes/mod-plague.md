@@ -18,7 +18,7 @@ monuments use `Bloom`, gated by `Worksite.Patch_ErrandDone`.
   It uses salted `Grit`, disables `Patch_NoRegrowth`, and selects Beauty plants
   excluding trees.
 - State is scribed with `MapExposeUtility.ExposeUshort` as a signed seconds offset
-  and rebased in `FinalizeInit`; old saves restore only the core region.
+  and rebased in `FinalizeInit`.
 
 ## Defs
 

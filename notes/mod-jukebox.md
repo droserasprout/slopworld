@@ -6,7 +6,7 @@ click target. `Sim/Jukebox.cs` owns the building and menus; `Sim/Radio.cs` owns
 selection and reports it to `slopd`. The daemon owns the station catalog. There are no
 shipped radio stations: user files are one-station TOMLs under
 `$XDG_DATA_HOME/slopworld/jukebox/` (`SLOPD_JUKEBOX` overrides). A matching `id`
-replaces an earlier user entry; new ids append in filename order.
+replaces the existing user entry; new ids append in filename order.
 
 ```toml
 id = "example"

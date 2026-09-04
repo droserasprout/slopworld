@@ -13,10 +13,9 @@ for the book, not a draft to copy without checking the current implementation.
 - FAQ contains recurring questions rather than serving as the complete reference.
 - Give FAQ questions explicit anchors (`### ... {#not-patched}`) so wording can
   change without breaking tour links and bookmarks.
-- Troubleshooting is one page: `reference/troubleshooting.md`. It absorbs the
-  former FAQ setup section and known-limitations page. A "Known limitations"
+- Troubleshooting is one page: `reference/troubleshooting.md`. A "Known limitations"
   heading at the bottom groups limitations that are not actionable symptoms.
-- `tour/integrations.md` was removed; `reference/integrations.md` is canonical.
+- Integration reference material lives in `reference/integrations.md`.
 - macOS has its own guide at `guides/macos.md`, not a section in `install.md`.
 - Sidecar worker setup has its own guide at `guides/sidecar.md`; keep it separate from
   the macOS client workflow.

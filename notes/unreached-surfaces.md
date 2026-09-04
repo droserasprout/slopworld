@@ -9,7 +9,7 @@ the only clients, so a handler with no caller in either is reachable by hand onl
 caller. `Sessions::mint_grant` is reached only from the `api/handlers.rs` handler, so a
 grant exists only after someone POSTs with the root token. The handler comment at
 `api/handlers.rs` calls revocation "the mod's revoke"; that UI was never built. The
-model in [agent-grants](agent-grants.md) is implemented and untriggered.
+model in [agent-grants](agent-grants.md) exists but has no in-repo caller.
 
 `GET /api/health` reports the live grant count and is called by `slopctl status` and by
 `ConfigPage` when the configuration page loads or reloads.
