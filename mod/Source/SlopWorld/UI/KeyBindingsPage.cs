@@ -185,7 +185,7 @@ namespace SlopWorld
 
                 TooltipHandler.TipRegion(keyRect,
                     "Click to set the main key, right-click for the alternate.\n\n" +
-                    "Esc cancels, Delete clears the slot.");
+                    "Esc cancels, Delete clears the slot. Modifiers are not configurable.");
             }
 
             Text.Anchor = TextAnchor.UpperLeft;
@@ -219,6 +219,9 @@ namespace SlopWorld
                 return;
             }
 
+            // Unity emits a separate KeyDown for each modifier before the key at the end of
+            // a chord. KeyPrefs stores only the key code, so modifiers are prefixes rather
+            // than bindings of their own; keep listening until the actual key arrives.
             if (IgnoredKeys.Contains(e.keyCode)) return;
 
             var data = KeyPrefs.KeyPrefsData;
@@ -295,6 +298,11 @@ namespace SlopWorld
             KeyCode.Escape,
             KeyCode.Mouse0, KeyCode.Mouse1, KeyCode.Mouse2,
             KeyCode.Mouse3, KeyCode.Mouse4, KeyCode.Mouse5, KeyCode.Mouse6,
+            KeyCode.LeftShift, KeyCode.RightShift,
+            KeyCode.LeftControl, KeyCode.RightControl,
+            KeyCode.LeftAlt, KeyCode.RightAlt,
+            KeyCode.LeftCommand, KeyCode.RightCommand,
+            KeyCode.LeftWindows, KeyCode.RightWindows,
         };
     }
 }

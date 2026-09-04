@@ -148,12 +148,6 @@ namespace SlopWorld
                 e.Use();
                 return;
             }
-
-            if (e.alt && (e.keyCode == KeyCode.Comma || e.keyCode == KeyCode.Period))
-            {
-                WalkSession(e.keyCode == KeyCode.Period ? 1 : -1);
-                e.Use();
-            }
         }
 
         public void CaptureSemicolonInput()
@@ -284,15 +278,6 @@ namespace SlopWorld
             if (TryTabWalkDirection(e, out var dir))
             {
                 WalkSession(dir);
-                e.Use();
-                return;
-            }
-
-            // Alt+comma/Alt+period: walk the session list while a pane is open. Bare
-            // comma/dot belong to the agent; the alt prefix is the chrome's own walk.
-            if (e.alt && (e.keyCode == KeyCode.Comma || e.keyCode == KeyCode.Period))
-            {
-                WalkSession(e.keyCode == KeyCode.Period ? 1 : -1);
                 e.Use();
                 return;
             }
@@ -509,10 +494,9 @@ namespace SlopWorld
             _window.SwitchTo(name);
         }
 
-        // Walk the session list by dir (-1 or 1). Used from Alt+Z/Alt+X and
-        // Alt+comma/Alt+period in both ChromeKeys (content view up) and HandleKey (pane
-        // open). Sets the current session and switches the pane, including when the target
-        // has no process.
+        // Walk the session list by dir (-1 or 1). Used from Alt+Z/Alt+X in both ChromeKeys
+        // (content view up) and HandleKey (pane open). Sets the current session and switches
+        // the pane, including when the target has no process.
         internal static void WalkSession(int dir)
         {
             var order = TabOrder();

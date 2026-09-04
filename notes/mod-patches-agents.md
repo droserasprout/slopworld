@@ -19,11 +19,9 @@
 
 ## Session cycling and action gizmos
 
-- **`ShortcutKeysPatch`** replaces vanilla comma/dot colonist cycling with the
-  sidebar's walk order. On the map layer it reads `SlopPrevSession`/`SlopNextSession`
-  keybindings directly; over a pane, bare comma/dot belong to the agent so the patch
-  falls through. An empty walk order in a non-Agents tab falls back to the hub's
-  live session list.
+- **`ShortcutKeysPatch`** replaces vanilla colonist cycling with the hardcoded Alt+Z/Alt+X
+  session walk. The map layer handles those chords before vanilla and the terminal chrome
+  handles them over a pane. Comma and period remain ordinary agent input.
 - **`SlopCommandAction`** is the `Command_Action` subclass for agent gizmo buttons.
   It draws a clear background with `ActionButtonBackground` and normalizes six icon
   glyphs to a common 23px visual size through per-icon scale factors. Terminal mode reruns

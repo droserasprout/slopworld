@@ -63,12 +63,6 @@ namespace SlopWorld
         /// F7: focus the Library view in the sidebar.
         public static KeyBindingDef SlopSidebarLibrary;
 
-        /// Comma: walk to the previous session in the sidebar order.
-        public static KeyBindingDef SlopPrevSession;
-
-        /// Period: walk to the next session in the sidebar order.
-        public static KeyBindingDef SlopNextSession;
-
         /// Player pawn action: path to the cursor.
         public static KeyBindingDef SlopPlayerGo;
 

@@ -167,22 +167,4 @@
     <defaultKeyCodeA>F7</defaultKeyCodeA>
   </KeyBindingDef>
 
-  <!-- Walk the session list. Comma and period otherwise walked the colonist bar,
-       which is replaced by the sidebar. Prefixing ShortcutKeys.ShortcutKeysOnGUI
-       handles the walk; these bindings replace the vanilla PreviousColonist /
-       NextColonist. -->
-  <KeyBindingDef>
-    <defName>SlopPrevSession</defName>
-    <label>Previous session</label>
-    <category>SlopNavigation</category>
-    <defaultKeyCodeA>Comma</defaultKeyCodeA>
-  </KeyBindingDef>
-
-  <KeyBindingDef>
-    <defName>SlopNextSession</defName>
-    <label>Next session</label>
-    <category>SlopNavigation</category>
-    <defaultKeyCodeA>Period</defaultKeyCodeA>
-  </KeyBindingDef>
-
 </Defs>
