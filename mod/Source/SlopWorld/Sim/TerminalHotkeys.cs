@@ -3,9 +3,8 @@ using Verse;
 
 namespace SlopWorld
 {
-    // GameComponentOnGUI opens F12's selected/last live agent and handles the no-window path.
-    // TerminalWindow delegates the same toggle here because absorbing windows consume the key
-    // before this component gets it.
+    // GameComponentOnGUI owns the map-only Alt+number path. Interface function keys are
+    // dispatched by Patch_InterfaceFunctionKeys before this component or any widget runs.
     public class TerminalHotkeys : GameComponent
     {
         public TerminalHotkeys(Game game) { }
@@ -15,37 +14,6 @@ namespace SlopWorld
             // A scene hides the rest of the UI to read as a cutscene, and a fullscreen pane
             // over it would be the loudest thing on screen.
             if (Cutscene.Playing) return;
-
-            if (SlopDefOf.SlopCommandPalette != null && SlopDefOf.SlopCommandPalette.KeyDownEvent)
-            {
-                Event.current.Use();
-                SlopMenu.CloseAll();
-                SearchView.ReleaseFocus();
-                CommandPalette.Toggle();
-                return;
-            }
-
-            if (SlopDefOf.SlopQuickTerminal != null && SlopDefOf.SlopQuickTerminal.KeyDownEvent)
-            {
-                // KeyDownEvent already refuses a search widget that has focus, so this cannot
-                // steal the key from someone typing a session name.
-                Event.current.Use();
-                SlopMenu.CloseAll();
-                Toggle();
-                return;
-            }
-
-            // All F-keys go through one gate: bare = ours, Shift+F = agent.
-            var e = Event.current;
-            // A focused Unity text field marks F1 Used before this component runs. rawType
-            // retains the function-key press, so the palette still gets its chrome key while
-            // ordinary text input remains untouched by the same gate.
-            if (e.type == EventType.KeyDown
-                || (e.type == EventType.Used && e.rawType == EventType.KeyDown))
-            {
-                if (TerminalWindow.HandleFunctionKey(e))
-                { e.Use(); return; }
-            }
 
             // Map-layer number keys mirror portrait selection because components run before the window stack; ask TerminalWindow first, then handle Alt+number with no pane.
             if (Find.WindowStack?.WindowOfType<TerminalWindow>() != null) return;
