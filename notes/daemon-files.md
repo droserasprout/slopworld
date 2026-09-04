@@ -46,7 +46,12 @@
 | `git.rs` | What a working tree has that its last commit does not. |
 | `open.rs` | Opening a URL on the host. |
 | `bin/slopworld.rs` | The launcher - see [profile](profile.md). |
-| `bin/slopctl.rs` | The host/task CLI; `slopctl logs` reads the game file and daemon journal locally. |
+| `bin/slopctl.rs` | `slopctl` entry point and global dispatch; its `slopctl/` siblings split commands, local logs, HTTP, formatting, and tests. |
+| `bin/slopctl/commands.rs` | Task/session command parsing, handlers, inbox filtering, and command help. |
+| `bin/slopctl/logs.rs` | Local game/journal log selection, subprocesses, following, and rendering inputs. |
+| `bin/slopctl/http.rs` | Endpoint loading, authenticated daemon requests, and status snapshots. |
+| `bin/slopctl/format.rs` | Human/JSON task, status, and age formatting. |
+| `bin/slopctl/tests.rs` | `slopctl` parser, log, HTTP, and command behavior tests. |
 | `bin/slopmod.rs` | The tested host-side mod installer; stages `Mods/SlopWorld` and refuses unsafe roots or source overlap. |
 | `version.rs` | Pure build-version policy shared by Cargo's build script and its tests. |
 
