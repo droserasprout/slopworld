@@ -25,13 +25,43 @@ namespace SlopWorld
             else if (Event.current.type == EventType.Repaint)
             {
                 // History views carry one overscan row assembled from overlapping daemon
-                // snapshots, so translating the local fractional position never exposes the
-                // pane background at either edge.
-                GUI.BeginGroup(body);
-                SyncSnap();
-                var localBody = new Rect(0f, 0f, body.width, body.height);
-                Paint(localBody, buf, cw, ch, shift);
-                GUI.EndGroup();
+                // snapshots, so translating the cached texture never exposes the pane
+                // background at either edge. The group clips the extra row at the body.
+                bool drawn = false;
+                if (!_noCache)
+                {
+                    try
+                    {
+                        if (EnsureCache(body, buf, cw, ch))
+                        {
+                            float extra = shift < -0.01f ? ch : 0f;
+                            GUI.BeginGroup(body);
+                            try
+                            {
+                                drawn = DrawCached(
+                                    new Rect(0f, shift, body.width, body.height + extra),
+                                    body, extra);
+                            }
+                            finally
+                            {
+                                GUI.EndGroup();
+                            }
+                        }
+                    }
+                    catch (System.Exception e)
+                    {
+                        DisableCache(e);
+                    }
+                }
+
+                if (!drawn)
+                {
+                    GUI.BeginGroup(body);
+                    SyncSnap();
+                    var localBody = new Rect(0f, 0f, body.width, body.height);
+                    Paint(localBody, buf, cw, ch, shift);
+                    GUI.EndGroup();
+                }
             }
 
             // Not cached: the pointer moves over a still pane, and the cursor blinks under one.
@@ -39,6 +69,7 @@ namespace SlopWorld
             TrackHover(body, buf);
             DrawHover(body, shift);
             DrawCursor(body, buf, cw, ch);
+            ScrollDebugFrame(buf, shift);
 
             GUI.color = Color.white;
         }
@@ -154,6 +185,7 @@ namespace SlopWorld
         // cache possible.
         void Paint(Rect body, ScreenBuf buf, float cw, float ch, float yShift = 0f)
         {
+            float debugStarted = ScrollDebugTimer();
             var style = TerminalFont.Style;
 
             for (int row = 0; row < buf.Runs.Length; row++)
@@ -196,6 +228,7 @@ namespace SlopWorld
                     }
                 }
             }
+            ScrollDebugPaint(debugStarted);
         }
 
         // ------------------------------------------------------------- pane cache
@@ -219,65 +252,88 @@ namespace SlopWorld
 
             try
             {
-                int pw = Screen.width, ph = Screen.height;
-                if (pw <= 0 || ph <= 0) return false;
-
-                if (_cache != null && (_cache.width != pw || _cache.height != ph)) Drop();
-
-                bool fresh = _cache == null;
-                if (fresh)
-                    _cache = new RenderTexture(pw, ph, 0, RenderTextureFormat.ARGB32)
-                    {
-                        name = "SlopWorldPane",
-                        filterMode = FilterMode.Point,
-                        hideFlags = HideFlags.DontUnloadUnusedAsset, // see TerminalFont
-                    };
-
-                if (!_cache.IsCreated()) { _cache.Create(); fresh = true; }
-
-                if (fresh
-                    || _cacheName != _name
-                    || _cacheSeq != buf.Seq || _cacheOff != buf.Off
-                    || _cacheBody != body
-                    || _cacheCw != cw || _cacheCh != ch
-                    || _cacheRev != TerminalTheme.Rev
-                    || _cacheFontRev != TerminalFont.Rev)
-                {
-                    // Keep the pre-paint revision. RequestCharactersInTexture can rebuild the
-                    // atlas while Paint is running; retaining the old revision forces one clean
-                    // repaint after that rebuild instead of caching a half-drawn first frame.
-                    int fontRev = TerminalFont.Rev;
-                    var was = RenderTexture.active;
-                    RenderTexture.active = _cache;
-                    GL.Clear(false, true, SolidTerminalBackground);
-                    Paint(body, buf, cw, ch);
-                    RenderTexture.active = was;
-
-                    _cacheName = _name;
-                    _cacheSeq = buf.Seq;
-                    _cacheOff = buf.Off;
-                    _cacheRev = TerminalTheme.Rev;
-                    _cacheFontRev = fontRev;
-                    _cacheBody = body;
-                    _cacheCw = cw;
-                    _cacheCh = ch;
-                }
-
+                if (!EnsureCache(body, buf, cw, ch)) return false;
                 return BlitCached(body);
             }
             catch (System.Exception e)
             {
-                _noCache = true;
-                Drop();
-                Log.Warning($"[SlopWorld] pane cache off, drawing straight to the screen: {e}");
+                DisableCache(e);
                 return false;
             }
+        }
+
+        bool EnsureCache(Rect body, ScreenBuf buf, float cw, float ch)
+        {
+            int pw = Screen.width, ph = Screen.height;
+            if (pw <= 0 || ph <= 0) return false;
+
+            if (_cache != null && (_cache.width != pw || _cache.height != ph)) Drop();
+
+            bool fresh = _cache == null;
+            if (fresh)
+                _cache = new RenderTexture(pw, ph, 0, RenderTextureFormat.ARGB32)
+                {
+                    name = "SlopWorldPane",
+                    filterMode = FilterMode.Point,
+                    hideFlags = HideFlags.DontUnloadUnusedAsset, // see TerminalFont
+                };
+
+            if (!_cache.IsCreated()) { _cache.Create(); fresh = true; }
+
+            if (fresh
+                || _cacheName != _name
+                || _cacheSeq != buf.Seq || _cacheOff != buf.Off
+                || _cacheBody != body
+                || _cacheCw != cw || _cacheCh != ch
+                || _cacheRev != TerminalTheme.Rev
+                || _cacheFontRev != TerminalFont.Rev)
+            {
+                // Keep the pre-paint revision. RequestCharactersInTexture can rebuild the
+                // atlas while Paint is running; retaining the old revision forces one clean
+                // repaint after that rebuild instead of caching a half-drawn first frame.
+                int fontRev = TerminalFont.Rev;
+                var was = RenderTexture.active;
+                try
+                {
+                    RenderTexture.active = _cache;
+                    GL.Clear(false, true, SolidTerminalBackground);
+                    Paint(body, buf, cw, ch);
+                }
+                finally
+                {
+                    RenderTexture.active = was;
+                }
+
+                _cacheName = _name;
+                _cacheSeq = buf.Seq;
+                _cacheOff = buf.Off;
+                _cacheRev = TerminalTheme.Rev;
+                _cacheFontRev = fontRev;
+                _cacheBody = body;
+                _cacheCw = cw;
+                _cacheCh = ch;
+            }
+
+            return true;
+        }
+
+        void DisableCache(System.Exception e)
+        {
+            _noCache = true;
+            Drop();
+            Log.Warning($"[SlopWorld] pane cache off, drawing straight to the screen: {e}");
         }
 
         // Draw the last complete pane frame. During a session handoff the new reader can exist
         // before its first screen arrives; keeping this frame avoids exposing that transport gap
         // as a close-and-reopen of the terminal.
         bool BlitCached(Rect body)
+        {
+            SyncSnap();
+            return DrawCached(body, body, 0f);
+        }
+
+        bool DrawCached(Rect destination, Rect source, float sourceExtraBottom)
         {
             if (_cache == null || !_cache.IsCreated()) return false;
             // The shared texture is only a valid fallback while this session remains active.
@@ -286,6 +342,9 @@ namespace SlopWorld
             if (_cacheName != _name) return false;
             if (Event.current.type != EventType.Repaint) return true;
 
+            float debugStarted = ScrollDebugTimer();
+            bool drawn = false;
+
             int pw = Screen.width, ph = Screen.height;
             if (pw <= 0 || ph <= 0 || _cache.width != pw || _cache.height != ph)
             {
@@ -293,11 +352,10 @@ namespace SlopWorld
                 return false;
             }
 
-            SyncSnap();
-            float x0 = body.x * _snapSx + _snapOx;
-            float y0 = body.y * _snapSy + _snapOy;
-            float w = body.width * _snapSx;
-            float h = body.height * _snapSy;
+            float x0 = source.x * _snapSx + _snapOx;
+            float y0 = source.y * _snapSy + _snapOy;
+            float w = source.width * _snapSx;
+            float h = (source.height + sourceExtraBottom) * _snapSy;
             float u0 = x0 / pw, u1 = (x0 + w) / pw;
 
             // texCoords y counts from the destination's bottom either way; which end of
@@ -317,8 +375,10 @@ namespace SlopWorld
             var tint = GUI.color;
             GUI.color = Color.white;
             GUI.DrawTextureWithTexCoords(
-                body, _cache, new Rect(u0, v0, u1 - u0, v1 - v0));
+                destination, _cache, new Rect(u0, v0, u1 - u0, v1 - v0));
             GUI.color = tint;
+            drawn = true;
+            ScrollDebugBlit(debugStarted, drawn);
             return true;
         }
 

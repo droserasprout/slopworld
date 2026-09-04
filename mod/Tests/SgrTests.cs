@@ -241,6 +241,10 @@ namespace SlopWorld.Tests
 
         static void AutolinksAcrossColorsAndRows()
         {
+            AssertEx.False(Sgr.MayContainLink(new[] { "plain output", "with ANSI \x1b[31mred" }),
+                           "plain screens bypass URL-grid construction");
+            AssertEx.True(Sgr.MayContainLink(new[] { "https:", "//example.com" }),
+                          "candidate scan carries across physical rows");
             var colored = Sgr.ParseLine(
                 "\x1b[31mhttps://example\x1b[32m.com");
             AssertEx.Equal(2, colored.Count, "URL keeps the two source colors");
@@ -264,6 +268,20 @@ namespace SlopWorld.Tests
                            "empty screen has no rows");
             AssertEx.Equal(1, Sgr.ParseLines(new[] { "plain" }, 0)[0].Count,
                            "zero width falls back to row width");
+
+            var cache = new TerminalRunCache();
+            var first = cache.Parse(new[] { "plain", "\x1b[31mred", "界" }, 16, 1, 1,
+                                    out int hits, out int misses);
+            AssertEx.Equal(0, hits, "new rows miss the parsed-row cache");
+            AssertEx.Equal(3, misses, "every new row is parsed");
+            var second = cache.Parse(new[] { "\x1b[31mred", "界" }, 16, 1, 1,
+                                     out hits, out misses);
+            AssertEx.Equal(2, hits, "ANSI and wide rows are reused at a new anchor");
+            AssertEx.True(object.ReferenceEquals(first[1], second[0]), "cached runs are shared");
+            cache.Parse(new[] { "plain" }, 16, 2, 1, out hits, out misses);
+            AssertEx.Equal(1, misses, "theme changes reparse cached rows");
+            cache.Parse(new[] { "plain" }, 16, 2, 2, out hits, out misses);
+            AssertEx.Equal(1, misses, "font changes reparse cached rows");
         }
 
         static void PreservesExplicitHyperlink()

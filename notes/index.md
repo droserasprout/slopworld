@@ -53,7 +53,6 @@ short subject per note and remove stale entries.
 
 - [mod-client](mod-client.md) - `Client/`: hub, socket, JSON, config mirror.
 - [mod-performance-bottlenecks](mod-performance-bottlenecks.md) - static C# hot-path review and profiling order.
-- [mod-terminal-performance-plan](mod-terminal-performance-plan.md) - measure and optimize terminal scrolling in stages.
 - [csharp-tests](csharp-tests.md) - why the mod has no test harness yet, and the useful first layer.
 - [mod-sim](mod-sim.md) - `Sim/`: colony reconcile, clock, intro, restart.
 - [mod-patches-strip](mod-patches-strip.md) - stripping the sim, the UI and the options menu.

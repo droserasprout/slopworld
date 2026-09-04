@@ -90,16 +90,22 @@ namespace SlopWorld
         int _historyTopOff = -1;
         bool _historyViewReady;
         bool _historyRefreshPending;
+        // A shallow history window is kept ready while the active pane is at the live bottom,
+        // making the first wheel movement a local transition instead of a capture round trip.
+        bool _historyWarmed;
         readonly TerminalHistory _history = new TerminalHistory();
+        readonly TerminalRunCache _runCache = new TerminalRunCache();
         struct HistoryRequest
         {
             public int Offset;
             public int CoordinateShift;
+            public bool Warm;
 
-            public HistoryRequest(int offset, int coordinateShift)
+            public HistoryRequest(int offset, int coordinateShift, bool warm = false)
             {
                 Offset = offset;
                 CoordinateShift = coordinateShift;
+                Warm = warm;
             }
         }
 
@@ -344,6 +350,7 @@ namespace SlopWorld
             _historyTopOff = -1;
             _historyViewReady = false;
             _historyRefreshPending = false;
+            _historyWarmed = false;
             _history.Reset();
             _historyRequests.Clear();
             _historyCoordinateShift = 0;
@@ -451,6 +458,7 @@ namespace SlopWorld
         public override void PostClose()
         {
             base.PostClose();
+            ScrollDebugEnd();
             _covering = false;
             Drop(); // a screen's worth of VRAM, held for a window that is gone
             // The window is what the view was being shown in, so it is closed with it.
@@ -519,6 +527,8 @@ namespace SlopWorld
             var hub = SessionHub.Instance;
             var live = hub.Screen(_name);
             NoteLiveFrame(live);
+            if (_scrollOff <= 0) WarmHistory(live);
+            DrainHistoryReplies(hub, live);
             if (_scrollOff <= 0)
             {
                 _historyViewReady = false;
@@ -526,6 +536,22 @@ namespace SlopWorld
                 return live;
             }
 
+            float cellH = TerminalFont.CellH;
+            float lines = cellH > 0.01f ? HistoryOffsetPixels() / cellH : _scrollOff;
+            int anchor = Mathf.Max(0, Mathf.CeilToInt(lines - 0.0001f));
+            bool extra = Mathf.Abs(lines - Mathf.Round(lines)) > 0.0001f;
+            float viewStarted = ScrollDebugTimer();
+            _historyViewReady = _history.TryView(anchor, extra, out var displayed);
+            ScrollDebugTryView(viewStarted);
+            ScrollDebugDisplayable(anchor, displayed, _historyViewReady);
+            displayed = displayed ?? _historyDisplayedFrame ?? live;
+            if (displayed != null) _historyDisplayedFrame = displayed;
+            if (displayed != null) SyncSelectionOffset(displayed.Off);
+            return displayed;
+        }
+
+        void DrainHistoryReplies(SessionHub hub, ScreenBuf live)
+        {
             // Several prefetched replies can arrive during one Unity frame. Drain all of
             // them: replacing one reply with the next strands the discarded request id in
             // `_historyRequests`, which can suppress the exact deep-history fetch now needed.
@@ -535,15 +561,16 @@ namespace SlopWorld
                 bool pending = sb.ScrollRequestId != 0 &&
                     _historyRequests.TryGetValue(sb.ScrollRequestId, out request);
                 bool current = live == null || sb.Seq == live.Seq;
+                ScrollDebugReply(pending, current);
                 if (pending)
                 {
                     _historyRequests.Remove(sb.ScrollRequestId);
                     int shift = _historyCoordinateShift - request.CoordinateShift;
-                    _history.Add(sb, live, _scrollOff, shift, allowStale: !current);
+                    _history.Add(sb, live, request.Offset, shift, allowStale: !current);
                     if (sb.History >= 0)
                     {
                         _historyTopOff = Mathf.Clamp(sb.History + shift, 0, MaxScrollLines);
-                        ClampHistoryTarget();
+                        if (!request.Warm) ClampHistoryTarget();
                     }
                     else if (sb.Off + shift < request.Offset)
                     {
@@ -551,21 +578,30 @@ namespace SlopWorld
                         // offset is still authoritative when the requested point was above
                         // the real top.
                         _historyTopOff = Mathf.Max(0, sb.Off + shift);
-                        ClampHistoryTarget();
+                        if (!request.Warm) ClampHistoryTarget();
                     }
                     _historyRefreshPending = false;
                 }
             }
+        }
 
-            float cellH = TerminalFont.CellH;
-            float lines = cellH > 0.01f ? HistoryOffsetPixels() / cellH : _scrollOff;
-            int anchor = Mathf.Max(0, Mathf.CeilToInt(lines - 0.0001f));
-            bool extra = Mathf.Abs(lines - Mathf.Round(lines)) > 0.0001f;
-            _historyViewReady = _history.TryView(anchor, extra, out var displayed);
-            displayed = displayed ?? _historyDisplayedFrame ?? live;
-            if (displayed != null) _historyDisplayedFrame = displayed;
-            if (displayed != null) SyncSelectionOffset(displayed.Off);
-            return displayed;
+        void WarmHistory(ScreenBuf live)
+        {
+            if (_historyWarmed || live == null || live.Lines == null || live.Lines.Length == 0 ||
+                !SessionHub.Instance.Online || _sizeDirty || _scrollPending ||
+                _historyRequests.Count > 0 || !HistoryInputEnabled(live))
+                return;
+            if (_cols > 0 && _rows > 0 && (live.Cols != _cols || live.Rows != _rows)) return;
+
+            _history.Reset(live);
+            _historyCoordinateShift = 0;
+            _historyTopOff = -1;
+            _historyWarmed = true;
+
+            int offset = Mathf.Max(2, live.Rows / 2);
+            ulong id = ++_nextScrollRequestId;
+            _historyRequests[id] = new HistoryRequest(offset, 0, warm: true);
+            SessionHub.Instance.RequestScroll(_name, offset, id);
         }
 
         void ClampHistoryTarget()
@@ -613,6 +649,8 @@ namespace SlopWorld
             if (!_historyScrollReady || cellH <= 0.01f) return;
 
             float pixels = HistoryOffsetPixels();
+            if (Mathf.Abs(pixels - _historyLastPixels) > 0.01f)
+                ScrollDebugInput();
             int target = pixels <= 0.01f
                 ? 0
                 : Mathf.Clamp(Mathf.CeilToInt(pixels / cellH - 0.0001f), 1, MaxScrollLines);
@@ -630,24 +668,25 @@ namespace SlopWorld
             bool fromLive = previous <= 0 && target > 0;
             if (fromLive)
             {
-                _history.Reset(live);
-                _historyRequests.Clear();
-                _historyCoordinateShift = 0;
+                if (!_historyWarmed)
+                {
+                    _history.Reset(live);
+                    _historyRequests.Clear();
+                    _historyCoordinateShift = 0;
+                    _historyTopOff = -1;
+                }
                 _historyDisplayedFrame = live?.Snapshot();
-                _historyTopOff = -1;
+                _historyWarmed = true;
             }
 
             if (target == 0)
             {
                 if (previous > 0)
                 {
-                    _history.Reset();
-                    _historyRequests.Clear();
-                    _historyCoordinateShift = 0;
                     _historyDisplayedFrame = null;
-                    _historyTopOff = -1;
                 }
                 _scrollOff = 0;
+                ScrollDebugEnd();
                 return;
             }
 
@@ -819,6 +858,7 @@ namespace SlopWorld
             _historyRequests[id] = new HistoryRequest(
                 _sentScrollOff, _historyCoordinateShift);
             SessionHub.Instance.RequestScroll(_name, _sentScrollOff, id);
+            ScrollDebugSent(_sentScrollOff);
         }
 
         public override void WindowUpdate()

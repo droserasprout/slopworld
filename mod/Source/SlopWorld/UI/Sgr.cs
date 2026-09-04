@@ -68,8 +68,45 @@ namespace SlopWorld
             for (int i = 0; i < lines.Length; i++)
                 parsed[i] = ParseLineCore(lines[i]);
 
-            Autolink(parsed, cols);
+            if (MayContainLink(lines)) Autolink(parsed, cols);
             return parsed;
+        }
+
+        // Avoid the rows-by-columns URL grid for ordinary output. OSC 8 still takes the parser
+        // path above and already carries link metadata, while visible URLs necessarily contain
+        // this delimiter even when it is split across SGR runs or physical rows.
+        internal static bool MayContainLink(string[] lines)
+        {
+            int matched = 0;
+            const string needle = "://";
+            foreach (string line in lines)
+            {
+                if (line == null) continue;
+                for (int i = 0; i < line.Length; i++)
+                {
+                    char c = line[i];
+                    if (c == '\x1b')
+                    {
+                        // Escape payloads cannot contribute visible URL characters.
+                        if (i + 1 < line.Length && line[i + 1] == '[')
+                        {
+                            i += 2;
+                            while (i < line.Length && !(line[i] >= '@' && line[i] <= '~')) i++;
+                        }
+                        else if (i + 1 < line.Length && line[i + 1] == ']')
+                        {
+                            i += 2;
+                            while (i < line.Length && line[i] != '\x07' &&
+                                   !(line[i] == '\x1b' && i + 1 < line.Length && line[i + 1] == '\\')) i++;
+                            if (i < line.Length && line[i] == '\x1b') i++;
+                        }
+                        continue;
+                    }
+                    matched = c == needle[matched] ? matched + 1 : c == needle[0] ? 1 : 0;
+                    if (matched == needle.Length) return true;
+                }
+            }
+            return false;
         }
 
         static List<SgrRun> ParseLineCore(string line)

@@ -29,3 +29,8 @@ slopctl logs --follow
 ```
 
 `SLOPD_LOG=slopd=debug`; `SLOPD_CONFIG` points at another config file.
+
+Set `SLOPWORLD_SCROLL_DEBUG=1` before launching the game to emit one aggregate
+`scroll-debug` timing line per second while terminal history is active, plus a final line
+when it returns to live or the window closes. The line contains input/request/reply/display latency, view/parse/
+paint/blit totals, and the current history/cache state; it never includes terminal contents.
