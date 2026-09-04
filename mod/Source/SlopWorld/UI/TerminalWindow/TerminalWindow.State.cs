@@ -2,9 +2,8 @@ using System.Text;
 
 namespace SlopWorld
 {
-    // Per-window state for the session binding and terminal input. Runtime coordination lives
-    // in TerminalWindow.Runtime.cs; history, selection, and rendering state remain owned by
-    // their respective concerns as those collaborators are extracted.
+    // Per-window state for the session binding and terminal input. The TerminalWindow partials
+    // expose this state through concern-specific facades rather than owning it directly.
     sealed class TerminalWindowState
     {
         public string Name;

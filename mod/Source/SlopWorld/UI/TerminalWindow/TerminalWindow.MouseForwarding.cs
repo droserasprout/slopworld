@@ -5,6 +5,11 @@ namespace SlopWorld
     // TerminalWindow app-mouse forwarding.
     public partial class TerminalWindow
     {
+        // The press is forwarded provisionally. If the app does not claim drag input, the
+        // provisional press is closed and the gesture becomes a text selection.
+        bool _mouseFwd;
+        Vector2Int _fwdCell;
+
         // An app in click-reporting mode (Claude Code is one) said nothing about motion, so a
         // drag across its output was never its to receive - forwarded anyway, it left no way
         // to select text short of holding Shift. The press goes over as a press, and the

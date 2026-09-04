@@ -169,6 +169,150 @@ namespace SlopWorld
     // TerminalWindow selection, clipboard, and context-menu helpers.
     public partial class TerminalWindow
     {
+        // The selection endpoints belong to the displayed history offset. A live frame and a
+        // historical frame use the same row coordinates, translated by this offset.
+        int _selectionOff;
+        int _lastLiveSeq = -1;
+
+        // Compatibility aliases keep the gesture implementation readable while the storage is
+        // owned by TerminalSelectionState.
+        internal bool HasSelection
+        {
+            get => _state.Selection.HasSelection;
+            set => _state.Selection.HasSelection = value;
+        }
+        internal bool Dragging
+        {
+            get => _state.Selection.Dragging;
+            set => _state.Selection.Dragging = value;
+        }
+        internal bool SelectionMoved
+        {
+            get => _state.Selection.SelectionMoved;
+            set => _state.Selection.SelectionMoved = value;
+        }
+        internal bool MultiClickSelection
+        {
+            get => _state.Selection.MultiClickSelection;
+            set => _state.Selection.MultiClickSelection = value;
+        }
+        internal bool WordDragging
+        {
+            get => _state.Selection.WordDragging;
+            set => _state.Selection.WordDragging = value;
+        }
+        internal bool LineDragging
+        {
+            get => _state.Selection.LineDragging;
+            set => _state.Selection.LineDragging = value;
+        }
+        internal int LineStart
+        {
+            get => _state.Selection.LineStart;
+            set => _state.Selection.LineStart = value;
+        }
+        internal Vector2Int SelectionA
+        {
+            get => _state.Selection.A;
+            set => _state.Selection.A = value;
+        }
+        internal Vector2Int SelectionB
+        {
+            get => _state.Selection.B;
+            set => _state.Selection.B = value;
+        }
+        internal Vector2 SelectionMouse
+        {
+            get => _state.Selection.Mouse;
+            set => _state.Selection.Mouse = value;
+        }
+        internal int SelectionEdgeDirection
+        {
+            get => _state.Selection.EdgeDirection;
+            set => _state.Selection.EdgeDirection = value;
+        }
+        internal int SelectionEdgeFrame
+        {
+            get => _state.Selection.EdgeFrame;
+            set => _state.Selection.EdgeFrame = value;
+        }
+
+        bool _dragging
+        {
+            get => _state.Selection.Dragging;
+            set => _state.Selection.Dragging = value;
+        }
+        bool _selectionMoved
+        {
+            get => _state.Selection.SelectionMoved;
+            set => _state.Selection.SelectionMoved = value;
+        }
+        bool _multiClickSelection
+        {
+            get => _state.Selection.MultiClickSelection;
+            set => _state.Selection.MultiClickSelection = value;
+        }
+        bool _wordDragging
+        {
+            get => _state.Selection.WordDragging;
+            set => _state.Selection.WordDragging = value;
+        }
+        bool _lineDragging
+        {
+            get => _state.Selection.LineDragging;
+            set => _state.Selection.LineDragging = value;
+        }
+        Vector2Int _wordStart
+        {
+            get => _state.Selection.WordStart;
+            set => _state.Selection.WordStart = value;
+        }
+        Vector2Int _wordEnd
+        {
+            get => _state.Selection.WordEnd;
+            set => _state.Selection.WordEnd = value;
+        }
+        int _lineStart
+        {
+            get => _state.Selection.LineStart;
+            set => _state.Selection.LineStart = value;
+        }
+        int _selectionControl
+        {
+            get => _state.Selection.Control;
+            set => _state.Selection.Control = value;
+        }
+        bool _hasSel
+        {
+            get => _state.Selection.HasSelection;
+            set => _state.Selection.HasSelection = value;
+        }
+        Vector2Int _selA
+        {
+            get => _state.Selection.A;
+            set => _state.Selection.A = value;
+        }
+        Vector2Int _selB
+        {
+            get => _state.Selection.B;
+            set => _state.Selection.B = value;
+        }
+        Vector2 _selectionMouse
+        {
+            get => _state.Selection.Mouse;
+            set => _state.Selection.Mouse = value;
+        }
+        int _selectionEdgeDirection
+        {
+            get => _state.Selection.EdgeDirection;
+            set => _state.Selection.EdgeDirection = value;
+        }
+        int _selectionEdgeFrame
+        {
+            get => _state.Selection.EdgeFrame;
+            set => _state.Selection.EdgeFrame = value;
+        }
+
         void NoteLiveFrame(ScreenBuf live)
         {
             if (live == null || live.Seq == _lastLiveSeq) return;
