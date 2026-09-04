@@ -22,13 +22,10 @@
   whichever way it went.
 
   The wall is the tips wrapped into **one list of rows** (`Wall`) and `_top` is a
-  position in it, not a block per scroll position - it used to materialise the
-  whole stream again for every row of height. The rows on screen are seasoned
-  individually and kept in `_rows`; a scroll shifts that ring and seasons the one
-  row arriving at the bottom, and `Flicker` others are rolled again per tick. Zalgo
-  goes on a row rather than the joined block, or the noise travels with the words -
-  and the whole block seasoned fourteen times a second was `StringBuilder` churn
-  during map generation, which is when the collector is least welcome.
+  position in it. The rows on screen are seasoned individually and kept in `_rows`;
+  a scroll shifts that ring and seasons the one row arriving at the bottom, and
+  `Flicker` others are rolled again per tick. Zalgo goes on a row rather than the
+  joined block, avoiding `StringBuilder` churn during map generation.
 
   `Wall` is keyed on `grandmaMode` and on `Generation`: the tip filter runs once at
   the build, so turning the setting on has to rebuild, and the wrap is measured

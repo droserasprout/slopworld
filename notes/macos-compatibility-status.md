@@ -32,6 +32,6 @@ the nested user namespace with Docker's `no-new-privileges`, so that flag is omi
 
 Debian's official images publish both `linux/amd64` and `linux/arm64`; the launcher does not pin a
 platform, so Apple Silicon does not need emulation. Linux Docker amd64 is verified. The Makefile's
-native macOS workflow now covers mod build/install and Rust-mediated profile launch; Docker Desktop inside
+native macOS workflow covers mod build/install and Rust-mediated profile launch; Docker Desktop inside
 a QEMU macOS guest, native input/fullscreen, desktop file opening, and container-replacement
 reconnect remain compatibility work rather than verified support.

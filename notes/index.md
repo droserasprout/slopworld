@@ -21,7 +21,7 @@ short subject per note and remove stale entries.
 - [diagnostics](diagnostics.md) - logs, runtime checks, and daemon restart behavior.
 - [paths](paths.md) - where config, profile, logs and the tmux socket live.
 - [profile](profile.md) - the save-data folder, the launcher, the refusal gates.
-- [cpu-optimization](cpu-optimization.md) - implemented C# hot-path reductions.
+- [cpu-optimization](cpu-optimization.md) - C# hot-path reductions.
 - [debug-from-sandbox](debug-from-sandbox.md) - which daemon readings are sandbox artifacts, and how to get host truth.
 - [known-limitations](known-limitations.md) - network handover hangs and their safe recovery.
 - [host-terminals](host-terminals.md) - durable host tabs, tmux metadata and cwd recovery.
@@ -53,7 +53,7 @@ short subject per note and remove stale entries.
 
 - [mod-client](mod-client.md) - `Client/`: hub, socket, JSON, config mirror.
 - [mod-performance-bottlenecks](mod-performance-bottlenecks.md) - static C# hot-path review and profiling order.
-- [csharp-tests](csharp-tests.md) - why the mod has no test harness yet, and the useful first layer.
+- [csharp-tests](csharp-tests.md) - the C# test boundary and pure-logic test project.
 - [mod-sim](mod-sim.md) - `Sim/`: colony reconcile, clock, intro, restart.
 - [mod-patches-strip](mod-patches-strip.md) - stripping the sim, the UI and the options menu.
 - [mod-patches-agents](mod-patches-agents.md) - agents are not colonists; the colonist bar.
@@ -69,7 +69,7 @@ short subject per note and remove stale entries.
 - [mod-ui-git](mod-ui-git.md) - the git view, the diff pager, and the third tab.
 - [mod-ui-rowactions](mod-ui-rowactions.md) - view/edit/diff on a hovered row, in both trees.
 - [mod-terminal](mod-terminal.md) - terminal input, sizing, title bar, and key routing.
-- [mod-terminal-history-warmup](mod-terminal-history-warmup.md) - plan for warming the first scrollback window.
+- [mod-terminal-history-warmup](mod-terminal-history-warmup.md) - terminal history cache and warm-up behavior.
 - [mod-terminal-rendering](mod-terminal-rendering.md) - terminal themes, fonts, selection, and links.
 - [mod-content-views](mod-content-views.md) - one window, and what fills it.
 - [mod-ui-windows](mod-ui-windows.md) - the dialogs and Settings pages.

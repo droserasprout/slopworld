@@ -11,8 +11,8 @@ retain the old palette. Unknown names use the default. Cursor override accepts `
 `CursorText` redraws the glyph over an opaque block cursor.
 
 The picker contains the house palette plus named classic palettes. `Name` is the persisted
-ID and `Label` is the visible picker name. The old `slate` and `paper` entries are retired;
-their saved values use the normal unknown-theme fallback to SlopWorld.
+ID and `Label` is the visible picker name. Unknown saved values use the normal fallback to
+SlopWorld.
 
 The 16-color entries follow published palettes where one exists. Cursor, selection and link
 roles are pane adaptations rather than claims that a source palette defines those roles.
