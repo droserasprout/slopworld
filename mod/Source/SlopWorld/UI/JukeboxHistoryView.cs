@@ -48,34 +48,37 @@ namespace SlopWorld
 
         public void Draw(Rect body)
         {
-            Text.Font = GameFont.Small;
-
-            // Toolbar: the search field takes the middle, actions sit on the right.
-            var toolbar = new Rect(body.x, body.y, body.width, SlopWidgets.BtnH);
-            var bar = new SlopWidgets.Bar(toolbar);
-            if (bar.Right("Edit file", SlopWidgets.Btn.Ghost)) StoragePage.EditLikes();
-            if (bar.Right("Refresh", SlopWidgets.Btn.Ghost)) Reload();
-            string query = SlopWidgets.Field(bar.Rest(), "jukebox-history-search", _query);
-            if (query != _query)
+            using (WidgetState.Save())
             {
-                _query = query;
-                ApplyFilter();
+                Text.Font = GameFont.Small;
+
+                // Toolbar: the search field takes the middle, actions sit on the right.
+                var toolbar = new Rect(body.x, body.y, body.width, SlopWidgets.BtnH);
+                var bar = new SlopWidgets.Bar(toolbar);
+                if (bar.Right("Edit file", SlopWidgets.Btn.Ghost)) StoragePage.EditLikes();
+                if (bar.Right("Refresh", SlopWidgets.Btn.Ghost)) Reload();
+                string query = SlopWidgets.Field(bar.Rest(), "jukebox-history-search", _query);
+                if (query != _query)
+                {
+                    _query = query;
+                    ApplyFilter();
+                }
+
+                var status = new Rect(body.x, toolbar.yMax + SlopWidgets.GapXS,
+                    body.width, SlopWidgets.LineH);
+                DrawStatus(status);
+
+                // The detail panel reserves space at the bottom only while a row is selected.
+                float detailH = _selected == null
+                    ? 0f : Mathf.Clamp(body.height * 0.32f, 150f, 220f);
+                var detail = new Rect(body.x, body.yMax - detailH, body.width, detailH);
+
+                float tableTop = status.yMax + SlopWidgets.GapS;
+                float tableBottom = detailH > 0f ? detail.y - SlopWidgets.GapS : body.yMax;
+                DrawTable(new Rect(body.x, tableTop, body.width, Mathf.Max(0f, tableBottom - tableTop)));
+
+                if (detailH > 0f) DrawDetail(detail);
             }
-
-            var status = new Rect(body.x, toolbar.yMax + SlopWidgets.GapXS,
-                body.width, SlopWidgets.LineH);
-            DrawStatus(status);
-
-            // The detail panel reserves space at the bottom only while a row is selected.
-            float detailH = _selected == null
-                ? 0f : Mathf.Clamp(body.height * 0.32f, 150f, 220f);
-            var detail = new Rect(body.x, body.yMax - detailH, body.width, detailH);
-
-            float tableTop = status.yMax + SlopWidgets.GapS;
-            float tableBottom = detailH > 0f ? detail.y - SlopWidgets.GapS : body.yMax;
-            DrawTable(new Rect(body.x, tableTop, body.width, Mathf.Max(0f, tableBottom - tableTop)));
-
-            if (detailH > 0f) DrawDetail(detail);
         }
 
         void DrawStatus(Rect r)
@@ -126,18 +129,10 @@ namespace SlopWorld
             float contentH = Mathf.Max(list.height, _view.Count * RowH);
             var view = new Rect(0f, 0f,
                 list.width - (contentH > list.height ? SlopWidgets.ScrollbarW : 0f), contentH);
-            _scroll.Begin(list, view);
-            try
+            using (_scroll.Scope(list, view))
             {
                 for (int i = 0; i < _view.Count; i++)
                     DrawRow(new Rect(0f, i * RowH, view.width, RowH), _view[i], columns);
-            }
-            finally
-            {
-                _scroll.End();
-                Text.Font = GameFont.Small;
-                Text.Anchor = TextAnchor.UpperLeft;
-                GUI.color = Color.white;
             }
         }
 
@@ -253,7 +248,7 @@ namespace SlopWorld
         {
             if (height < 0f) height = RowH;
             var row = new Rect(area.x, y, area.width, height);
-            bool over = SlopWidgets.HoverRow(row);
+            bool over = RowChrome.Hover(row, false, true, RowHoverPolicy.OverlayAware);
 
             const float LabelW = 78f;
             GUI.color = SlopWidgets.Dim;

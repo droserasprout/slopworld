@@ -17,14 +17,15 @@ namespace SlopWorld
         public static void Empty(Rect body)
         {
             var r = new Rect(CellX, body.y + Pad, body.width - CellX * 2f, RowH * 3f);
-            GUI.color = SlopWidgets.Faint;
-            Text.Font = GameFont.Tiny;
-            Text.Anchor = TextAnchor.UpperLeft;
-            Widgets.Label(r, SessionHub.Instance.Online
-                ? "No project has a directory yet."
-                : $"daemon {SessionHub.Instance.Status}");
-            Text.Font = GameFont.Small;
-            GUI.color = Color.white;
+            using (WidgetState.Save())
+            {
+                GUI.color = SlopWidgets.Faint;
+                Text.Font = GameFont.Tiny;
+                Text.Anchor = TextAnchor.UpperLeft;
+                Widgets.Label(r, SessionHub.Instance.Online
+                    ? "No project has a directory yet."
+                    : $"daemon {SessionHub.Instance.Status}");
+            }
         }
 
         public static List<string> Projects()
@@ -40,14 +41,14 @@ namespace SlopWorld
         public static float Note(float width, float y, int depth, string text, Color color)
         {
             float x = CellX + depth * Indent;
-            GUI.color = color;
-            Text.Font = GameFont.Tiny;
-            Text.Anchor = TextAnchor.MiddleLeft;
-            var r = new Rect(x, y, width - x - Pad, RowH);
-            SlopWidgets.RowLabel(r, text);
-            Text.Anchor = TextAnchor.UpperLeft;
-            Text.Font = GameFont.Small;
-            GUI.color = Color.white;
+            using (WidgetState.Save())
+            {
+                GUI.color = color;
+                Text.Font = GameFont.Tiny;
+                Text.Anchor = TextAnchor.MiddleLeft;
+                var r = new Rect(x, y, width - x - Pad, RowH);
+                SlopWidgets.RowLabel(r, text);
+            }
             return y + RowH;
         }
     }

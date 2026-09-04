@@ -32,8 +32,7 @@ namespace SlopWorld
         static void DrawRoutedRow(Row row, SessionInfo info)
         {
             bool current = row.Session == TerminalWindow.CurrentName;
-            if (current) Slab.Fill(row.Line, SlopWidgets.RowOn);
-            else SlopWidgets.HoverRow(row.Line);
+            RowChrome.Hover(row.Line, current, true, RowHoverPolicy.OverlayAware);
 
             var text = row.Text;
             var act = RoutedAction(info);
@@ -132,8 +131,8 @@ namespace SlopWorld
         // and the parent row already supplies the normal portrait/state presentation.
         static void DrawWorkerRow(Row row, SessionInfo info)
         {
-            if (row.Session == TerminalWindow.CurrentName) Slab.Fill(row.Line, SlopWidgets.RowOn);
-            else SlopWidgets.HoverRow(row.Line);
+            RowChrome.Hover(row.Line, row.Session == TerminalWindow.CurrentName, true,
+                RowHoverPolicy.OverlayAware);
 
             float d = Mathf.Min(GhostMarkW, row.Text.height);
             Rect mark = new Rect(row.Text.x - TextGap - GhostMarkW,

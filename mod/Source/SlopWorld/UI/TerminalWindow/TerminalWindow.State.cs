@@ -268,6 +268,8 @@ namespace SlopWorld
         void SetContent(IContentView view)
         {
             if (_content == view) return;
+            _fieldLifetime.Cancel();
+            _fieldLifetime = new FieldLifetime();
             _content?.Closed();
             _content = view;
             _content?.Opened();
@@ -457,6 +459,7 @@ namespace SlopWorld
 
         public override void PostClose()
         {
+            _fieldLifetime.Cancel();
             base.PostClose();
             ScrollDebugEnd();
             _covering = false;

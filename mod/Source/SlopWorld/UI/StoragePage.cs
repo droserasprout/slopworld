@@ -119,7 +119,7 @@ namespace SlopWorld
 
         void DrawRow(Rect r, Entry e)
         {
-            bool over = SlopWidgets.HoverRow(r);
+            bool over = RowChrome.Hover(r, false, true, RowHoverPolicy.OverlayAware);
             if (over)
                 TooltipHandler.TipRegion(r, "Open this private directory in the Files sidebar.");
 

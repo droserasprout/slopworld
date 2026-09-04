@@ -111,56 +111,51 @@ namespace SlopWorld
 
         public void Draw(Rect body)
         {
-            _body = body;
-            _lines.Clear();
-
-            var groups = _source.Groups();
-            if (groups.Count == 0)
+            using (WidgetState.Save())
             {
-                ViewChrome.Empty(body);
-                return;
-            }
+                _body = body;
+                _lines.Clear();
 
-            bool scrollEvent = Event.current.type == EventType.ScrollWheel ||
-                (Event.current.type == EventType.Used &&
-                    Event.current.rawType == EventType.ScrollWheel);
-            // A wheel burst does not change tree shape. Reusing the last measured height
-            // avoids walking every expanded directory just to consume another input event.
-            float height = scrollEvent && _contentHeight >= 0f
-                ? _contentHeight : Measure(groups);
-            _contentHeight = height;
-            var view = new Rect(0f, 0f,
-                body.width - (height > body.height ? SlopWidgets.ScrollbarW : 0f), height);
-            if (_revealTop >= 0f)
-            {
-                _scroll.Reveal(_revealTop, RowH, body.height);
-                _revealTop = -1f;
-            }
-
-            // GUI rather than GUILayout: AgentSidebar calls this during its non-Layout back
-            // pass. The finally is important because a missed End would move every later
-            // window into the tree's scroll group.
-            _scroll.Begin(body, view);
-            _visibleTop = _scroll.Position.y - RowH;
-            _visibleBottom = _scroll.Position.y + body.height + RowH;
-            try
-            {
-                // Scroll events can arrive in a burst. They only need to update the offset;
-                // painting thousands of tree rows for each queued event makes the input queue
-                // take seconds to drain.
-                if (!scrollEvent)
+                var groups = _source.Groups();
+                if (groups.Count == 0)
                 {
-                    float y = Pad;
-                    foreach (var group in groups)
-                        y = DrawGroup(view.width, y, group);
+                    ViewChrome.Empty(body);
+                    return;
                 }
-            }
-            finally
-            {
-                _scroll.End();
-                Text.Font = GameFont.Small;
-                Text.Anchor = TextAnchor.UpperLeft;
-                GUI.color = Color.white;
+
+                bool scrollEvent = Event.current.type == EventType.ScrollWheel ||
+                    (Event.current.type == EventType.Used &&
+                        Event.current.rawType == EventType.ScrollWheel);
+                // A wheel burst does not change tree shape. Reusing the last measured height
+                // avoids walking every expanded directory just to consume another input event.
+                float height = scrollEvent && _contentHeight >= 0f
+                    ? _contentHeight : Measure(groups);
+                _contentHeight = height;
+                var view = new Rect(0f, 0f,
+                    body.width - (height > body.height ? SlopWidgets.ScrollbarW : 0f), height);
+                if (_revealTop >= 0f)
+                {
+                    _scroll.Reveal(_revealTop, RowH, body.height);
+                    _revealTop = -1f;
+                }
+
+                // GUI rather than GUILayout: AgentSidebar calls this during its non-Layout back
+                // pass. The finally is important because a missed End would move every later
+                // window into the tree's scroll group.
+                using (_scroll.Scope(body, view))
+                {
+                    _visibleTop = _scroll.Position.y - RowH;
+                    _visibleBottom = _scroll.Position.y + body.height + RowH;
+                    // Scroll events can arrive in a burst. They only need to update the offset;
+                    // painting thousands of tree rows for each queued event makes the input queue
+                    // take seconds to drain.
+                    if (!scrollEvent)
+                    {
+                        float y = Pad;
+                        foreach (var group in groups)
+                            y = DrawGroup(view.width, y, group);
+                    }
+                }
             }
         }
 
@@ -198,7 +193,7 @@ namespace SlopWorld
             var row = new Rect(0f, y, width, RowH);
             bool collapsed = _source.IsGroupCollapsed(group);
 
-            bool over = SlopWidgets.HoverRow(row);
+            bool over = RowChrome.Hover(row, false, true, RowHoverPolicy.OverlayAware);
             GUI.color = SlopWidgets.Faint;
             var arrow = new Rect(CellX, row.y + (RowH - ArrowW) / 2f, ArrowW, ArrowW);
             GUI.DrawTexture(arrow, collapsed ? TexButton.Reveal : TexButton.Collapse);

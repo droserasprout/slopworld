@@ -22,6 +22,7 @@ namespace SlopWorld
         }
 
         Action _acceptAction;
+        readonly FieldLifetime _fieldLifetime = new FieldLifetime();
 
         // Single-line forms can opt into the shared RimWorld accept binding without each
         // repeating the same event plumbing. Multiline editors leave this unset so Enter
@@ -45,42 +46,38 @@ namespace SlopWorld
 
         protected static float MessageHeight(string text, float width)
         {
-            var wasFont = Text.Font;
-            var wasWrap = Text.WordWrap;
-            try
+            using (WidgetState.Save())
             {
                 Text.Font = GameFont.Small;
                 Text.WordWrap = true;
                 return Mathf.Max(SlopWidgets.LineHOf(GameFont.Small),
                     Text.CalcHeight(string.IsNullOrEmpty(text) ? " " : text, width));
             }
-            finally
-            {
-                Text.WordWrap = wasWrap;
-                Text.Font = wasFont;
-            }
         }
 
         public override void DoWindowContents(Rect rect)
         {
-            // RimWorld's Accept binding normally covers Return, but keypad Enter is not
-            // present in every platform's binding. Accepted dialogs should treat both keys
-            // alike; multiline editors leave closeOnAccept false so Enter remains a newline.
-            var e = Event.current;
-            if (closeOnAccept && e != null && e.type == EventType.KeyDown &&
-                e.keyCode == KeyCode.KeypadEnter)
+            using (FieldLifetimeScope.Push(_fieldLifetime))
             {
-                OnAcceptKeyPressed();
-                return;
+                // RimWorld's Accept binding normally covers Return, but keypad Enter is not
+                // present in every platform's binding. Accepted dialogs should treat both keys
+                // alike; multiline editors leave closeOnAccept false so Enter remains a newline.
+                var e = Event.current;
+                if (closeOnAccept && e != null && e.type == EventType.KeyDown &&
+                    e.keyCode == KeyCode.KeypadEnter)
+                {
+                    OnAcceptKeyPressed();
+                    return;
+                }
+
+                Slab.Box(rect, SlopWidgets.WindowBg, SlopWidgets.Edge);
+
+                DoBody(rect.ContractedBy(Pad));
+
+                // After the body: the corner is over the title's line, and the press has to be
+                // taken in front of whatever the form drew there.
+                if (Closable) DoClose(rect);
             }
-
-            Slab.Box(rect, SlopWidgets.WindowBg, SlopWidgets.Edge);
-
-            DoBody(rect.ContractedBy(Pad));
-
-            // After the body: the corner is over the title's line, and the press has to be
-            // taken in front of whatever the form drew there.
-            if (Closable) DoClose(rect);
         }
 
         public override void OnAcceptKeyPressed()
@@ -91,6 +88,7 @@ namespace SlopWorld
 
         public override void PostClose()
         {
+            _fieldLifetime.Cancel();
             base.PostClose();
             // Pickers live on the window stack beside their form, so closing the form does
             // not close a picker automatically. Remove it before the form disappears.

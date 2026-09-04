@@ -173,17 +173,18 @@ namespace SlopWorld
 
         float WidestLabel()
         {
-            var was = Text.Font;
-            Text.Font = GameFont.Small;
-            float w = 0f;
-            foreach (var o in _options)
+            using (WidgetState.Save())
             {
-                if (o is SeparatorOption) continue;
-                w = Mathf.Max(w, SlopWidgets.Wide(o.Label) + o.extraPartWidth +
-                    (o is SlopSubmenu ? ArrowW + SlopWidgets.GapXS : 0f));
+                Text.Font = GameFont.Small;
+                float w = 0f;
+                foreach (var o in _options)
+                {
+                    if (o is SeparatorOption) continue;
+                    w = Mathf.Max(w, SlopWidgets.Wide(o.Label) + o.extraPartWidth +
+                        (o is SlopSubmenu ? ArrowW + SlopWidgets.GapXS : 0f));
+                }
+                return w;
             }
-            Text.Font = was;
-            return w;
         }
 
         public override Vector2 InitialSize =>
@@ -292,25 +293,21 @@ namespace SlopWorld
             // row that lights and for the row whose list opens.
             int hot = Hot(new Rect(inner.x, inner.y, view.width, inner.height));
 
-            var wasFont = Text.Font;
-            try
+            using (WidgetState.Save())
+            using (_scroll.Scope(inner, view))
             {
                 Text.Font = GameFont.Small;
-                using (_scroll.Scope(inner, view))
+                // Stops at the row that was pressed. The press closes the menu and may open
+                // another one, and drawing the rest of a list that is already gone is at best
+                // wasted and at worst a second option answering the same click.
+                float y = 0f;
+                for (int i = 0; i < _options.Count; i++)
                 {
-                    // Stops at the row that was pressed. The press closes the menu and may open
-                    // another one, and drawing the rest of a list that is already gone is at best
-                    // wasted and at worst a second option answering the same click.
-                    float y = 0f;
-                    for (int i = 0; i < _options.Count; i++)
-                    {
-                        float h = Height(_options[i]);
-                        if (Row(new Rect(0f, y, view.width, h), _options[i], i, hot == i)) break;
-                        y += h;
-                    }
+                    float h = Height(_options[i]);
+                    if (Row(new Rect(0f, y, view.width, h), _options[i], i, hot == i)) break;
+                    y += h;
                 }
             }
-            finally { Text.Font = wasFont; }
 
             if (Event.current.type == EventType.Repaint) Pointer(hot);
         }
@@ -421,20 +418,22 @@ namespace SlopWorld
             {
                 var mark = new Rect(r.xMax - PadX - ArrowW,
                     r.y + (r.height - ArrowW) / 2f, ArrowW, ArrowW);
-                GUI.color = !on ? SlopWidgets.Off : lit ? SlopWidgets.Lead : SlopWidgets.Faint;
-                GUI.DrawTexture(mark, TexButton.Reveal);
-                GUI.color = Color.white;
+                using (WidgetState.Save())
+                {
+                    GUI.color = !on ? SlopWidgets.Off : lit ? SlopWidgets.Lead : SlopWidgets.Faint;
+                    GUI.DrawTexture(mark, TexButton.Reveal);
+                }
             }
 
             var label = new Rect(r.x + PadX + (right ? 0f : extra), r.y,
                 r.width - PadX * 2f - extra - (nest ? ArrowW + SlopWidgets.GapXS : 0f),
                 r.height);
-            var wasAnchor = Text.Anchor;
-            Text.Anchor = TextAnchor.MiddleLeft;
-            GUI.color = !on ? SlopWidgets.Off : lit ? SlopWidgets.Lead : SlopWidgets.Name;
-            SlopWidgets.RowLabel(label, o.Label);
-            GUI.color = Color.white;
-            Text.Anchor = wasAnchor;
+            using (WidgetState.Save())
+            {
+                Text.Anchor = TextAnchor.MiddleLeft;
+                GUI.color = !on ? SlopWidgets.Off : lit ? SlopWidgets.Lead : SlopWidgets.Name;
+                SlopWidgets.RowLabel(label, o.Label);
+            }
 
             if (!on || !Widgets.ButtonInvisible(r)) return false;
 

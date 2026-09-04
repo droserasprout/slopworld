@@ -77,46 +77,41 @@ namespace SlopWorld
 
         public static void Draw(Rect body)
         {
-            // Builtins are daemon-owned and appear in their attached groups, so this list
-            // contains only editable library items.
-            // Filtered here rather than in [Group], so a filter that leaves nothing gets
-            // the empty line instead of a blank column.
-            _items = SessionHub.Instance.Library
-                .Where(s => !s.Builtin && AgentSidebar.Passes(s.Project)).ToList();
-            Lines.Clear();
-
-            if (_items.Count == 0)
+            using (WidgetState.Save())
             {
-                Empty(body);
-                return;
-            }
+                // Builtins are daemon-owned and appear in their attached groups, so this list
+                // contains only editable library items.
+                // Filtered here rather than in [Group], so a filter that leaves nothing gets
+                // the empty line instead of a blank column.
+                _items = SessionHub.Instance.Library
+                    .Where(s => !s.Builtin && AgentSidebar.Passes(s.Project)).ToList();
+                Lines.Clear();
 
-            Group();
+                if (_items.Count == 0)
+                {
+                    Empty(body);
+                    return;
+                }
 
-            var list = body;
-            float height = Measure();
-            var view = new Rect(0f, 0f,
-                list.width - (height > list.height ? SlopWidgets.ScrollbarW : 0f),
-                height);
+                Group();
 
-            // GUI rather than GUILayout, so this is safe in a pass that declines Layout
-            // events - see AgentSidebar.DrawBack. Closed from a finally the way the files
-            // view closes its own: a scroll view left open is every window drawn after it
-            // drawn somewhere else.
-            _scroll.Begin(list, view);
-            try
-            {
-                float y = Pad;
+                var list = body;
+                float height = Measure();
+                var view = new Rect(0f, 0f,
+                    list.width - (height > list.height ? SlopWidgets.ScrollbarW : 0f),
+                    height);
 
-                foreach (var key in Order)
-                    y += DrawGroup(view, y, key, Groups[key]);
-            }
-            finally
-            {
-                _scroll.End();
-                Text.Font = GameFont.Small;
-                Text.Anchor = TextAnchor.UpperLeft;
-                GUI.color = Color.white;
+                // GUI rather than GUILayout, so this is safe in a pass that declines Layout
+                // events - see AgentSidebar.DrawBack. Closed from a finally the way the files
+                // view closes its own: a scroll view left open is every window drawn after it
+                // drawn somewhere else.
+                using (_scroll.Scope(list, view))
+                {
+                    float y = Pad;
+
+                    foreach (var key in Order)
+                        y += DrawGroup(view, y, key, Groups[key]);
+                }
             }
         }
 
@@ -143,7 +138,7 @@ namespace SlopWorld
             // bucket's key is "" while its label reads "no project".
             Lines.Add(new Line { Head = true, Key = key, Rect = Screen(headRect) });
 
-            SlopWidgets.HoverRow(headRect);
+            RowChrome.Hover(headRect, false, true, RowHoverPolicy.OverlayAware);
 
             GUI.color = SlopWidgets.Faint;
             var arrow = new Rect(CellX, headRect.y + (HeadH - ArrowW) / 2f,
@@ -174,7 +169,7 @@ namespace SlopWorld
 
         static float DrawLibraryRow(Rect view, Rect r, LibraryItemInfo item)
         {
-            SlopWidgets.HoverRow(r);
+            RowChrome.Hover(r, false, true, RowHoverPolicy.OverlayAware);
 
             // The kind badge: prompt, shell, or an attached breadcrumb.
             float badgeW = 34f;

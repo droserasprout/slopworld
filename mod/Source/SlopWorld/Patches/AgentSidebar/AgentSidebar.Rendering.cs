@@ -603,8 +603,7 @@ namespace SlopWorld
             {
                 bool current = row.Session != null && row.Session == currentSession;
 
-                if (current) Slab.Fill(row.Line, SlopWidgets.RowOn);
-                else SlopWidgets.HoverRow(row.Line);
+                RowChrome.Hover(row.Line, current, true, RowHoverPolicy.OverlayAware);
             }
 
             foreach (var head in Layout.Heads) DrawHead(head);
@@ -622,6 +621,7 @@ namespace SlopWorld
 
             if (!Wanted())
             {
+                SearchView.Closed();
                 Interaction.Resizing = false;
                 return;
             }
@@ -922,7 +922,7 @@ namespace SlopWorld
         static void DrawHead(Head head)
         {
             var r = head.Rect;
-            SlopWidgets.HoverRow(r);
+            RowChrome.Hover(r, false, true, RowHoverPolicy.OverlayAware);
 
             GUI.color = SlopWidgets.Faint;
             var arrow = new Rect(CellX, r.y + (HeadH - ArrowW) / 2f, ArrowW, ArrowW);

@@ -8,22 +8,31 @@ namespace SlopWorld
     {
         public override void DoWindowContents(Rect rect)
         {
-            // A raised rectangular surface: this is an instrument panel, not a vanilla menu.
-            Slab.Box(rect, SlopWidgets.PopoverBg, SlopWidgets.Edge);
+            using (FieldLifetimeScope.Push(_fieldLifetime))
+            {
+                // A raised rectangular surface: this is an instrument panel, not a vanilla menu.
+                Slab.Box(rect, SlopWidgets.PopoverBg, SlopWidgets.Edge);
 
-            var inputRect = new Rect(rect.x + Pad, rect.y + Pad,
-                rect.width - Pad * 2, InputH);
+                var inputRect = new Rect(rect.x + Pad, rect.y + Pad,
+                    rect.width - Pad * 2, InputH);
 
-            float listTop = inputRect.yMax + SlopWidgets.GapXS;
-            var listRect = new Rect(rect.x + Pad, listTop,
-                rect.width - Pad * 2, rect.yMax - listTop - Pad);
-            // Set before DrawInput, which reads it when a key scrolls the selection.
-            _listH = listRect.height;
+                float listTop = inputRect.yMax + SlopWidgets.GapXS;
+                var listRect = new Rect(rect.x + Pad, listTop,
+                    rect.width - Pad * 2, rect.yMax - listTop - Pad);
+                // Set before DrawInput, which reads it when a key scrolls the selection.
+                _listH = listRect.height;
 
-            DrawInput(inputRect);
+                DrawInput(inputRect);
 
-            if (_mode == Mode.Sub) DrawSubList(listRect);
-            else DrawCommandList(listRect);
+                if (_mode == Mode.Sub) DrawSubList(listRect);
+                else DrawCommandList(listRect);
+            }
+        }
+
+        public override void PostClose()
+        {
+            _fieldLifetime.Cancel();
+            base.PostClose();
         }
 
         // --------------------------------------------------------------- command list
