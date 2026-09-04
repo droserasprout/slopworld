@@ -1,0 +1,45 @@
+using System;
+
+namespace SlopWorld
+{
+    // Clipboard replies arrive after the IMGUI pass that requested them. A control id and
+    // name are useful guards, but neither says whether the window that owned the field still
+    // exists. Owners get a lifetime token and cancel it when they close or change content.
+    public sealed class FieldLifetime
+    {
+        bool _alive = true;
+
+        public bool Alive => _alive;
+
+        public void Cancel() => _alive = false;
+    }
+
+    // IMGUI has no current Window argument while a control is being drawn. The window/content
+    // boundary pushes its token for the duration of the draw, so every field and every delayed
+    // clipboard operation below inherits the same owner without repeating it at each call site.
+    internal static class FieldLifetimeScope
+    {
+        static readonly FieldLifetime ProcessLifetime = new FieldLifetime();
+
+        [ThreadStatic]
+        static FieldLifetime _current;
+
+        public static FieldLifetime Current => _current ?? ProcessLifetime;
+
+        public static IDisposable Push(FieldLifetime lifetime)
+        {
+            var previous = _current;
+            _current = lifetime ?? ProcessLifetime;
+            return new Scope(previous);
+        }
+
+        sealed class Scope : IDisposable
+        {
+            readonly FieldLifetime _previous;
+
+            public Scope(FieldLifetime previous) { _previous = previous; }
+
+            public void Dispose() { _current = _previous; }
+        }
+    }
+}

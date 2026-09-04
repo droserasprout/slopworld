@@ -62,6 +62,7 @@ namespace SlopWorld
         static readonly List<LayoutRow> Layout = new List<LayoutRow>();
         static readonly SmoothScroll Scroll = new SmoothScroll();
         static readonly Pager Viewer = new Pager();
+        static FieldLifetime _fieldLifetime = new FieldLifetime();
 
         static string _query = "";
         static bool _regex;
@@ -77,17 +78,24 @@ namespace SlopWorld
         static bool _layoutDirty = true;
         static float _contentHeight;
 
-        public static void Entered() => _focus = true;
+        public static void Entered()
+        {
+            ResetFieldLifetime();
+            _focus = true;
+        }
 
         public static void Draw(Rect body)
         {
-            var tools = new Rect(body.x + CellX, body.y + Pad,
-                body.width - CellX * 2f, ToolsH);
-            DrawTools(tools);
+            using (FieldLifetimeScope.Push(_fieldLifetime))
+            {
+                var tools = new Rect(body.x + CellX, body.y + Pad,
+                    body.width - CellX * 2f, ToolsH);
+                DrawTools(tools);
 
-            var results = new Rect(body.x, tools.yMax + Pad,
-                body.width, Mathf.Max(0f, body.yMax - tools.yMax - Pad));
-            DrawResults(results);
+                var results = new Rect(body.x, tools.yMax + Pad,
+                    body.width, Mathf.Max(0f, body.yMax - tools.yMax - Pad));
+                DrawResults(results);
+            }
         }
 
         static void DrawTools(Rect r)
@@ -150,8 +158,21 @@ namespace SlopWorld
         // clearing it first, Unity keeps reporting a text field after that entry is gone.
         public static void ReleaseFocus()
         {
+            ResetFieldLifetime();
             _focus = false;
             if (Focused) GUI.FocusControl(null);
+        }
+
+        public static void Closed()
+        {
+            ReleaseViewer();
+            ReleaseFocus();
+        }
+
+        static void ResetFieldLifetime()
+        {
+            _fieldLifetime.Cancel();
+            _fieldLifetime = new FieldLifetime();
         }
 
         public static void Search()
@@ -263,8 +284,8 @@ namespace SlopWorld
             var view = new Rect(0f, 0f,
                 body.width - (height > body.height ? SlopWidgets.ScrollbarW : 0f),
                 Mathf.Max(body.height, height));
-            Scroll.Begin(body, view);
-            try
+            using (WidgetState.Save())
+            using (Scroll.Scope(body, view))
             {
                 float visibleTop = Scroll.Position.y;
                 float visibleBottom = visibleTop + body.height;
@@ -277,13 +298,6 @@ namespace SlopWorld
                     float y = Pad + i * RowH;
                     DrawRow(view.width, ref y, Layout[i]);
                 }
-            }
-            finally
-            {
-                Scroll.End();
-                Text.Font = GameFont.Small;
-                Text.Anchor = TextAnchor.UpperLeft;
-                GUI.color = Color.white;
             }
         }
 

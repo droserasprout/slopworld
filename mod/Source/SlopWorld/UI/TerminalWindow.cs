@@ -9,6 +9,7 @@ namespace SlopWorld
     public partial class TerminalWindow : Window
     {
         const float Pad = SlopWidgets.GapS;
+        FieldLifetime _fieldLifetime = new FieldLifetime();
 
         TerminalWindow(string name)
         {
@@ -41,16 +42,19 @@ namespace SlopWorld
 
         public override void DoWindowContents(Rect rect)
         {
-            var hub = SessionHub.Instance;
-            Widgets.DrawBoxSolid(rect, Background);
-            if (!EnsureSession(hub)) return;
+            using (FieldLifetimeScope.Push(_fieldLifetime))
+            {
+                var hub = SessionHub.Instance;
+                Widgets.DrawBoxSolid(rect, Background);
+                if (!EnsureSession(hub)) return;
 
-            bool input = Find.WindowStack == null || Find.WindowStack.GetsInput(this);
-            Rect body = DrawTopBar(rect, input);
-            bool pane = DrawBody(body, input, hub);
-            DrawStatus(body, hub, pane);
-            if (_content == null && _showStopped && _name != null && hub.Get(_name)?.Gone == true)
-                MapGizmoUtility.MapUIOnGUI();
+                bool input = Find.WindowStack == null || Find.WindowStack.GetsInput(this);
+                Rect body = DrawTopBar(rect, input);
+                bool pane = DrawBody(body, input, hub);
+                DrawStatus(body, hub, pane);
+                if (_content == null && _showStopped && _name != null && hub.Get(_name)?.Gone == true)
+                    MapGizmoUtility.MapUIOnGUI();
+            }
         }
 
         Rect DrawTopBar(Rect rect, bool input)

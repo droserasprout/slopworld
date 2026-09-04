@@ -1,0 +1,374 @@
+using System;
+using System.Collections.Generic;
+using RimWorld;
+using UnityEngine;
+using Verse;
+using Verse.Sound;
+
+namespace SlopWorld
+{
+    public abstract class SlopButtons : SlopText
+    {
+        public static bool Button(Rect r, string label, Btn kind = Btn.Default, bool on = true)
+        {
+            using (WidgetState.Save()) return ButtonCore(r, label, kind, on);
+        }
+
+        static bool ButtonCore(Rect r, string label, Btn kind, bool on)
+        {
+            bool over = on && Mouse.IsOver(r);
+            bool held = over && Input.GetMouseButton(0);
+            ButtonBackground(r, kind, on, over, held);
+
+            Color face, text;
+            switch (kind)
+            {
+                case Btn.Primary:
+                    face = Step(PrimeFace, over, held);
+                    text = over ? UIScheme.TextOn(face) : UIScheme.Current.AccentText;
+                    break;
+                case Btn.Danger:
+                    face = Step(DangerFace, over, held);
+                    text = over ? UIScheme.TextOn(face) : UIScheme.Current.DestructiveText;
+                    break;
+                case Btn.Ghost:
+                    face = held ? BtnDown : over ? BtnHover : GhostFace;
+                    text = over ? Lead : Name;
+                    break;
+                default:
+                    face = held ? BtnDown : over ? BtnHover : Well;
+                    text = Lead; break;
+            }
+
+            if (!on) text = Fade(text, 0.5f);
+
+            using (WidgetState.Save())
+            {
+                GUI.color = text;
+                RowLabel(r, label, TextAnchor.MiddleCenter);
+            }
+
+            if (!on || !Widgets.ButtonInvisible(r)) return false;
+            SoundDefOf.Click.PlayOneShotOnCamera();
+            return true;
+        }
+
+        public static void ButtonBackground(Rect r, Btn kind, bool on, bool over, bool held)
+        {
+            ButtonBackground(r, kind, on, over, held, Well);
+        }
+
+        // Session gizmos sit over the map beside the sidebar. Layer the hover wash over an
+        // opaque well: using BtnHover as the whole face would make the map show through as
+        // soon as the pointer entered the action strip.
+        public static void ActionButtonBackground(Rect r, Btn kind, bool on, bool over,
+                                                  bool held)
+        {
+            ButtonBackground(r, kind, on, over, held, Well, true);
+        }
+
+        static void ButtonBackground(Rect r, Btn kind, bool on, bool over, bool held,
+                                     Color defaultFace, bool opaqueHover = false)
+        {
+            Color face;
+            if (opaqueHover && kind == Btn.Default)
+            {
+                Slab.Fill(r, on ? defaultFace : Fade(defaultFace, 0.5f));
+                if (on && over) Slab.Fill(r, held ? BtnDown : BtnHover);
+                face = Clear;
+            }
+            else
+            {
+                switch (kind)
+                {
+                    case Btn.Primary:
+                        face = Step(PrimeFace, over, held);
+                        break;
+                    case Btn.Danger:
+                        face = Step(DangerFace, over, held);
+                        break;
+                    case Btn.Ghost:
+                        face = held ? BtnDown : over ? BtnHover : GhostFace;
+                        break;
+                    default:
+                        face = held ? BtnDown : over ? BtnHover : defaultFace;
+                        break;
+                }
+
+                if (!on) face = Fade(face, 0.5f);
+            }
+
+            bool solid = kind == Btn.Primary || kind == Btn.Danger;
+            var edge = solid || (kind == Btn.Ghost && !over && !held)
+                ? Clear
+                : on ? BtnEdge : Fade(BtnEdge, 0.5f);
+
+            Slab.Box(r, face, edge);
+        }
+    }
+
+    public abstract class SlopControls : SlopButtons
+    {
+        // Draw the checkbox indicator only; the row owns hit testing. Return its reserved width
+        // so callers can place the adjacent label.
+        public static float TickW => Mathf.Round(LineH * 0.8f);
+        public static float TickColW => TickW + GapS;
+
+        public static Rect TickBox(Rect r, bool on, bool locked = false)
+        {
+            using (WidgetState.Save()) return TickBoxCore(r, on, locked);
+        }
+
+        static Rect TickBoxCore(Rect r, bool on, bool locked)
+        {
+            float size = Mathf.Min(TickW, r.height - 2f);
+            var box = new Rect(r.x, r.y + (r.height - size) / 2f, size, size);
+            var face = on ? CheckFace : Well;
+            var edge = on ? Clear : BtnEdge;
+            if (locked) { face = Fade(face, 0.5f); edge = Fade(edge, 0.5f); }
+            Slab.Box(box, face, edge);
+            if (on)
+            {
+                using (WidgetState.Save())
+                {
+                    GUI.color = locked ? Faint : UIScheme.TextOn(face);
+                    GUI.DrawTexture(box.ContractedBy(IconInset), Icons.Check);
+                }
+            }
+            return box;
+        }
+
+        public static bool Checkbox(Rect r, string label, bool on, string tip = null,
+                                    bool locked = false, bool warn = false)
+        {
+            using (WidgetState.Save())
+                return CheckboxCore(r, label, on, tip, locked, warn);
+        }
+
+        static bool CheckboxCore(Rect r, string label, bool on, string tip,
+                                 bool locked, bool warn)
+        {
+            bool over = !locked && Mouse.IsOver(r);
+            if (over) Slab.Fill(r, Hover);
+            if (!string.IsNullOrEmpty(tip)) TooltipHandler.TipRegion(r, tip);
+            var box = TickBox(new Rect(r.x + 1f, r.y, TickW, r.height), on, locked);
+            using (WidgetState.Save())
+            {
+                GUI.color = locked ? Faint : warn ? Warn : over ? Lead : Name;
+                RowLabel(new Rect(box.xMax + GapS, r.y, r.xMax - box.xMax - GapS, r.height), label);
+            }
+            if (locked || !Widgets.ButtonInvisible(r)) return on;
+            SoundDefOf.Click.PlayOneShotOnCamera();
+            return !on;
+        }
+
+        public static string Field(Listing_Standard l, string name, string text, bool on = true) =>
+            Field(l.GetRect(FieldH), name, text, on);
+
+        public static bool Checkbox(Listing_Standard l, string label, bool on, string tip = null) =>
+            Checkbox(l.GetRect(RowH), label, on, tip);
+
+        // A dropdown caret. Collapse is vanilla's downward triangle. Keep the draw in the
+        // active GUI group; rotating through GUI.matrix makes a caret drift when that group
+        // has a scroll translation.
+        static void Chevron(Rect r, Color c, bool open)
+        {
+            var wasColor = GUI.color;
+            try
+            {
+                GUI.color = c;
+                GUI.DrawTextureWithTexCoords(r, TexButton.Collapse,
+                    open ? new Rect(0f, 1f, 1f, -1f) : new Rect(0f, 0f, 1f, 1f));
+            }
+            finally { GUI.color = wasColor; }
+        }
+
+        public static bool Select(Rect r, string caption, string value, out Rect box,
+                                  string tip = null, bool on = true, bool open = false,
+                                  float forcedWidth = 0f)
+        {
+            using (WidgetState.Save())
+                return SelectCore(r, caption, value, out box, tip, on, open, forcedWidth);
+        }
+
+        static bool SelectCore(Rect r, string caption, string value, out Rect box,
+                               string tip, bool on, bool open, float forcedWidth)
+        {
+            float labelH = LineH;
+            var label = new Rect(r.x, r.y, r.width, labelH);
+            float chevron = Mathf.Round(LineH * 0.55f);
+            float boxW = forcedWidth > 0f
+                ? Mathf.Min(r.width, forcedWidth)
+                : Mathf.Min(r.width,
+                    Mathf.Max(Wide(value) + ButtonPadX * 2f, ButtonMinW)
+                        + chevron + GapS);
+            box = new Rect(r.x, r.y + labelH + GapXS, boxW, CompactH);
+
+            using (WidgetState.Save())
+            {
+                GUI.color = on ? Name : Fade(Name, 0.5f);
+                RowLabel(label, caption);
+            }
+            bool over = on && Mouse.IsOver(box);
+            bool held = over && Input.GetMouseButton(0);
+            if (!string.IsNullOrEmpty(tip)) TooltipHandler.TipRegion(r, tip);
+            var face = !on ? Fade(Well, 0.5f) : held ? BtnDown : over ? BtnHover : Well;
+            Slab.Box(box, face, on ? BtnEdge : Fade(BtnEdge, 0.5f));
+            if (open) Slab.Ring(box, Accent);
+
+            float caretX = box.xMax - ButtonPadX - chevron;
+            Slab.VHairline(new Rect(caretX - GapS, box.y + GapXS, 1f, box.height - GapXS * 2f),
+                           on ? BtnEdge : Fade(BtnEdge, 0.5f));
+            Chevron(new Rect(caretX, box.y + (box.height - chevron) / 2f, chevron, chevron),
+                    !on ? Fade(Faint, 0.5f) : over ? Accent : Faint, open);
+
+            float textX = box.x + ButtonPadX;
+            using (WidgetState.Save())
+            {
+                GUI.color = !on ? Fade(Lead, 0.5f) : over ? Lead : Name;
+                RowLabel(new Rect(textX, box.y, Mathf.Max(0f, caretX - GapS - textX), box.height),
+                    value);
+            }
+            if (!on || !Widgets.ButtonInvisible(box)) return false;
+            SoundDefOf.Click.PlayOneShotOnCamera();
+            return true;
+        }
+
+        public static bool Select(Rect r, string caption, string value,
+                                  IEnumerable<SelectorOption> choices, out Rect box,
+                                  string tip = null, bool on = true, bool open = false,
+                                  Action<SlopMenu> openMenu = null) =>
+            SlopSelector.Draw(r, caption, value, choices, out box, tip, on, open, openMenu);
+
+        public static bool Select(Listing_Standard l, string caption, string value,
+                                  out Rect box, string tip = null, bool on = true) =>
+            Select(l.GetRect(LineH + GapXS + CompactH), caption, value, out box, tip, on);
+
+        public static bool Select(Listing_Standard l, string caption, string value,
+                                  IEnumerable<SelectorOption> choices, out Rect box,
+                                  string tip = null, bool on = true, bool open = false,
+                                  Action<SlopMenu> openMenu = null) =>
+            SlopSelector.Draw(l, caption, value, choices, out box, tip, on, open, openMenu);
+
+        public static Vector2 MenuAt(Rect r) =>
+            UI.GUIToScreenPoint(new Vector2(r.x, r.yMax));
+
+        public static float Slider(Listing_Standard l, string label, float value,
+                                   string tip = null) =>
+            Slider(l, label, value, 0f, 1f,
+                Mathf.RoundToInt(Mathf.Clamp01(value) * 100f) + "%", out _, out _, tip);
+
+        public static float Slider(Listing_Standard l, string label, float value,
+                                   float min, float max, string readout, string tip = null) =>
+            Slider(l, label, value, min, max, readout, out _, out _, tip);
+
+        public static float Slider(Listing_Standard l, string label, float value,
+                                   float min, float max, string readout, out bool held,
+                                   string tip = null) =>
+            Slider(l, label, value, min, max, readout, out held, out _, tip);
+
+        public static float Slider(Listing_Standard l, string label, float value,
+                                   float min, float max, string readout, out bool held,
+                                   out bool released, string tip = null)
+        {
+            using (WidgetState.Save())
+                return SliderCore(l, label, value, min, max, readout, out held,
+                    out released, tip);
+        }
+
+        static float SliderCore(Listing_Standard l, string label, float value,
+                                float min, float max, string readout, out bool held,
+                                out bool released, string tip)
+        {
+            var r = l.GetRect(RowH + GapS);
+            if (!string.IsNullOrEmpty(tip)) TooltipHandler.TipRegion(r, tip);
+            float span = max - min;
+            float at = span <= 0f ? 0f : Mathf.Clamp01((value - min) / span);
+            return min + Track(r, label, at, readout, out held, out released) * span;
+        }
+
+        sealed class SliderState
+        {
+            public float grab;
+            public bool dragging;
+        }
+
+        static float Track(Rect r, string label, float value, string readout, out bool held,
+                           out bool released)
+        {
+            const float valueW = 46f;
+            const float knobW = 12f;
+            float labelW = Mathf.Min(Mathf.Max(Wide(label) + GapM, 120f), r.width * 0.42f);
+            var labelRect = new Rect(r.x, r.y, labelW, RowH);
+            var valueRect = new Rect(r.xMax - valueW, r.y, valueW, RowH);
+            var track = new Rect(labelRect.xMax + GapS, r.y + (RowH - 8f) / 2f,
+                Mathf.Max(1f, valueRect.x - GapS - labelRect.xMax - GapS), 8f);
+
+            using (WidgetState.Save())
+            {
+                GUI.color = Name;
+                RowLabel(labelRect, label);
+                RowLabel(valueRect, readout, TextAnchor.MiddleRight);
+            }
+
+            int id = GUIUtility.GetControlID(FocusType.Passive, track);
+            var e = Event.current;
+            var hit = new Rect(track.x - knobW / 2f, r.y, track.width + knobW, RowH);
+            EventType mouseType = e.type == EventType.Used ? e.rawType : e.type;
+            var state = GUIUtility.GetStateObject(typeof(SliderState), id) as SliderState;
+            released = false;
+            if (mouseType == EventType.MouseDown && e.button == 0 && hit.Contains(e.mousePosition))
+            {
+                float clickKnobX = Mathf.Lerp(track.x, track.xMax, Mathf.Clamp01(value));
+                var knob = new Rect(clickKnobX - knobW / 2f, track.y - 3f, knobW,
+                    track.height + 6f);
+                state.grab = knob.Contains(e.mousePosition)
+                    ? e.mousePosition.x - clickKnobX
+                    : 0f;
+                state.dragging = true;
+                GUIUtility.hotControl = id;
+                value = Mathf.Clamp01(Mathf.InverseLerp(track.x, track.xMax,
+                    e.mousePosition.x - state.grab));
+                e.Use();
+            }
+            if (state.dragging)
+            {
+                if (mouseType == EventType.MouseDrag || mouseType == EventType.MouseDown)
+                {
+                    value = Mathf.Clamp01(Mathf.InverseLerp(track.x, track.xMax,
+                        e.mousePosition.x - state.grab));
+                    e.Use();
+                }
+                else if (mouseType == EventType.MouseUp && e.button == 0)
+                {
+                    value = Mathf.Clamp01(Mathf.InverseLerp(track.x, track.xMax,
+                        e.mousePosition.x - state.grab));
+                    if (GUIUtility.hotControl == id) GUIUtility.hotControl = 0;
+                    state.dragging = false;
+                    released = true;
+                    e.Use();
+                }
+            }
+
+            if (state.dragging && mouseType != EventType.MouseDown
+                && mouseType != EventType.MouseDrag && mouseType != EventType.MouseUp
+                && !Input.GetMouseButton(0))
+            {
+                if (GUIUtility.hotControl == id) GUIUtility.hotControl = 0;
+                state.dragging = false;
+                released = true;
+            }
+
+            Slab.Box(track, Well, BtnEdge);
+            var fill = new Rect(track.x, track.y, track.width * Mathf.Clamp01(value), track.height);
+            if (fill.width > 0f) Slab.Fill(fill, PrimeFace);
+            float knobX = Mathf.Lerp(track.x, track.xMax, Mathf.Clamp01(value));
+            bool grabbed = held = state.dragging;
+            Slab.Box(new Rect(knobX - knobW / 2f, track.y - 3f, knobW, track.height + 6f),
+                grabbed ? Lighten(KnobFace, -0.20f) : Mouse.IsOver(hit)
+                    ? Lighten(KnobFace, -0.08f) : KnobFace,
+                Clear);
+            return value;
+        }
+    }
+}

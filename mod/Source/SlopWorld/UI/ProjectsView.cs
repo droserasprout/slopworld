@@ -42,7 +42,7 @@ namespace SlopWorld
 
         protected override void DrawRow(Rect r, ProjectInfo p)
         {
-            SlopWidgets.RowChrome(r);
+            RowChrome.Hover(r, false, true, RowHoverPolicy.OverlayAware);
 
             // Said rather than inherited: the widths below are measured, and a measurement is
             // about whichever tier is current when it is taken.

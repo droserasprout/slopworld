@@ -45,6 +45,7 @@ namespace SlopWorld
         readonly List<SubFrame> _subStack = new List<SubFrame>();
 
         readonly SmoothScroll _scroll = new SmoothScroll();
+        readonly FieldLifetime _fieldLifetime = new FieldLifetime();
         int _selectedIndex;
         // Visible height of the list area, used by ScrollToSelection.
         float _listH;

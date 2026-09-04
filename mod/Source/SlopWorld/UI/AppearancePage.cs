@@ -131,11 +131,12 @@ namespace SlopWorld
             // Nothing to invalidate on the way out: every color in the mod is read through
             // SlopWidgets on the frame it is drawn, so the page under the dropdown has
             // already changed by the time the menu closes over it. See UIScheme.
-            if (SlopWidgets.Select(l, "Color scheme", UIScheme.Current.Label,
-                    UIScheme.All.Select(s => s.Label), out var schemeBox))
-                Find.WindowStack.Add(new SlopMenu(UIScheme.All
-                    .Select(s => new FloatMenuOption(s.Label, () => { S.uiScheme = s.Id; S.MarkDirty(); }))
-                    .ToList(), SlopWidgets.MenuAt(schemeBox)));
+            SlopWidgets.Select(l, "Color scheme", UIScheme.Current.Label,
+                UIScheme.All.Select(s => new SelectorOption(s.Label, () =>
+                {
+                    S.uiScheme = s.Id;
+                    S.MarkDirty();
+                })), out _);
 
             DrawSwatches(l.GetRect(18f));
             l.Gap(SlopWidgets.GapM);
@@ -150,28 +151,23 @@ namespace SlopWorld
             var l = new Listing_Standard { maxOneColumn = true };
             l.Begin(rect);
 
-            if (SlopWidgets.Select(l, "Font",
-                    S.uiFontName.NullOrEmpty() ? "Automatic" : S.uiFontName,
-                    new[] { "Automatic (system default)" }.Concat(SlopUIFont.All),
-                    out var fontBox))
+            var fontOptions = new List<SelectorOption>
             {
-                var opts = new List<FloatMenuOption>
+                new SelectorOption("Automatic (system default)", () =>
                 {
-                    new FloatMenuOption("Automatic (system default)", () =>
-                    {
-                        S.uiFontName = "";
-                        SlopUIFont.Apply();
-                        S.MarkDirty();
-                    }),
-                };
-                opts.AddRange(SlopWidgets.GroupedFontOptions(SlopUIFont.All, name =>
-                {
-                    S.uiFontName = name;
+                    S.uiFontName = "";
                     SlopUIFont.Apply();
                     S.MarkDirty();
-                }));
-                Find.WindowStack.Add(new SlopMenu(opts, SlopWidgets.MenuAt(fontBox)));
-            }
+                }),
+            };
+            fontOptions.AddRange(SlopUIFont.All.Select(name => new SelectorOption(name, () =>
+            {
+                S.uiFontName = name;
+                SlopUIFont.Apply();
+                S.MarkDirty();
+            })));
+            SlopWidgets.Select(l, "Font", S.uiFontName.NullOrEmpty() ? "Automatic" : S.uiFontName,
+                fontOptions, out _);
 
             l.Gap(SlopWidgets.GapS);
             int size = Mathf.RoundToInt(SlopWidgets.Slider(l, "Size", S.uiFontSize, 0, 24,
@@ -236,14 +232,13 @@ namespace SlopWorld
                 "Applies to every provider. Left is the amount remaining; spent is the " +
                 "provider-facing percentage or amount used.");
             string clockPosition = StatusbarClockMode.Normalize(S.statusbarClockPosition);
-            if (SlopWidgets.Select(l, "Clock position", StatusbarClockMode.Label(clockPosition),
-                    new[] { "Right", "Center", "Hidden" }, out var clockBox))
-                Find.WindowStack.Add(new SlopMenu(new List<FloatMenuOption>
+            SlopWidgets.Select(l, "Clock position", StatusbarClockMode.Label(clockPosition),
+                new[]
                 {
-                    new FloatMenuOption("Right", () => SetClockPosition(StatusbarClockMode.Right)),
-                    new FloatMenuOption("Center", () => SetClockPosition(StatusbarClockMode.Center)),
-                    new FloatMenuOption("Hidden", () => SetClockPosition(StatusbarClockMode.Hidden)),
-                }, SlopWidgets.MenuAt(clockBox)));
+                    new SelectorOption("Right", () => SetClockPosition(StatusbarClockMode.Right)),
+                    new SelectorOption("Center", () => SetClockPosition(StatusbarClockMode.Center)),
+                    new SelectorOption("Hidden", () => SetClockPosition(StatusbarClockMode.Hidden)),
+                }, out _);
             bool j = SlopWidgets.Checkbox(l, "Show Jukebox in statusbar", S.statusbarJukebox,
                 "Show the jukebox door when a jukebox is present.");
             bool g = SlopWidgets.Checkbox(l, "Show GM in statusbar", S.statusbarGM,

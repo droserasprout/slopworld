@@ -44,7 +44,7 @@ namespace SlopWorld
 
         protected override void DrawRow(Rect r, SessionInfo s)
         {
-            SlopWidgets.RowChrome(r);
+            RowChrome.Hover(r, false, true, RowHoverPolicy.OverlayAware);
 
             float y = r.y + DrawIdentity(r, s);
             DrawLocation(new Rect(r.x, y, r.width, SlopWidgets.LineH), s);

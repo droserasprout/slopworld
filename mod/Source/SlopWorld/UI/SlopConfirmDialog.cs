@@ -43,24 +43,13 @@ namespace SlopWorld
             float messageH = MessageHeight(_message, rect.width);
             var message = new Rect(rect.x, messageY, rect.width, messageH);
 
-            var wasFont = Text.Font;
-            var wasAnchor = Text.Anchor;
-            var wasWrap = Text.WordWrap;
-            var wasColor = GUI.color;
-            try
+            using (WidgetState.Save())
             {
                 Text.Font = GameFont.Small;
                 Text.Anchor = TextAnchor.UpperLeft;
                 Text.WordWrap = true;
                 GUI.color = SlopWidgets.Name;
                 Widgets.Label(message, _message);
-            }
-            finally
-            {
-                GUI.color = wasColor;
-                Text.WordWrap = wasWrap;
-                Text.Anchor = wasAnchor;
-                Text.Font = wasFont;
             }
 
             var foot = new SlopWidgets.Bar(SlopWidgets.FooterBar(rect));

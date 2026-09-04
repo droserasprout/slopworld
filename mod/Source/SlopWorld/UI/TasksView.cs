@@ -76,20 +76,11 @@ namespace SlopWorld
             float height = Pad + HeaderH + SlopWidgets.GapXS + tasks.Count * RowH + Pad;
             var list = new Rect(0f, 0f, body.width -
                 (height > body.height ? SlopWidgets.ScrollbarW : 0f), height);
-            bool scrollable = height > body.height;
             // XInput device discovery is disproportionately expensive on some Linux/X11
             // systems. Tasks use ordinary Unity wheel packets and thumb dragging instead;
             // unlike terminal history, this compact list does not need fractional gestures.
-            if (scrollable) Scroll.Begin(body, list, preciseInput: false);
-            else
-            {
-                // Keep the same local coordinate space and clipping as SmoothScroll.Begin,
-                // without sampling XInput for a list that cannot scroll.
-                Scroll.JumpTo(Vector2.zero);
-                GUI.BeginGroup(body);
-                GUI.BeginGroup(list);
-            }
-            try
+            using (WidgetState.Save())
+            using (Scroll.Scope(body, list, preciseInput: false))
             {
                 float y = Pad;
                 DrawHeader(new Rect(0f, y, list.width, HeaderH), tasks, allTasks.Count);
@@ -111,18 +102,6 @@ namespace SlopWorld
                     Lines.Add(new Line { Task = task, Rect = Screen(row) });
                     y += RowH;
                 }
-            }
-            finally
-            {
-                if (scrollable) Scroll.End();
-                else
-                {
-                    GUI.EndGroup();
-                    GUI.EndGroup();
-                }
-                Text.Font = GameFont.Small;
-                Text.Anchor = TextAnchor.UpperLeft;
-                GUI.color = Color.white;
             }
         }
 
@@ -506,19 +485,15 @@ namespace SlopWorld
             float y = rect.y + SlopWidgets.HeaderH + SlopWidgets.GapM;
             var targetRect = new Rect(rect.x, y, rect.width,
                 SlopWidgets.LineH + SlopWidgets.GapXS + SlopWidgets.CompactH);
-            var labels = _agents.Select(AgentLabel).ToList();
-            bool canChoose = labels.Count > 0;
-            string shown = AgentLabel(_to);
-            if (SlopWidgets.Select(targetRect, "Agent", shown, labels, out var box,
-                    canChoose ? "Choose the mailbox recipient." : "No agents are available.",
-                    canChoose))
+            var options = _agents.Select(agent => new SelectorOption(AgentLabel(agent), () =>
             {
-                var options = _agents.Select(agent => new FloatMenuOption(AgentLabel(agent), () =>
-                {
-                    _to = agent.Name;
-                })).ToList();
-                Find.WindowStack.Add(new SlopMenu(options, SlopWidgets.MenuAt(box)));
-            }
+                _to = agent.Name;
+            })).ToList();
+            bool canChoose = options.Count > 0;
+            string shown = AgentLabel(_to);
+            SlopWidgets.Select(targetRect, "Agent", shown, options, out _,
+                canChoose ? "Choose the mailbox recipient." : "No agents are available.",
+                canChoose);
 
             y = targetRect.yMax + SlopWidgets.GapM;
             GUI.color = SlopWidgets.Name;
@@ -729,9 +704,9 @@ namespace SlopWorld
             float contentH = SlopWidgets.TinyRowH + SlopWidgets.GapS + bodyH + noteH +
                 SlopWidgets.GapS;
 
-            _scroll.Begin(outer, new Rect(0f, 0f, width,
-                Mathf.Max(outer.height, contentH)));
-            try
+            using (WidgetState.Save())
+            using (_scroll.Scope(outer, new Rect(0f, 0f, width,
+                Mathf.Max(outer.height, contentH))))
             {
                 float y = 0f;
                 Text.Font = GameFont.Tiny;
@@ -752,13 +727,6 @@ namespace SlopWorld
                         _task.UpdatedMs, true);
                 }
                 DrawSelectableText(outer.height);
-            }
-            finally
-            {
-                _scroll.End();
-                Text.Font = GameFont.Small;
-                Text.Anchor = TextAnchor.UpperLeft;
-                GUI.color = Color.white;
             }
 
             HandleSelectionInput(outer);

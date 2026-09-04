@@ -25,17 +25,15 @@ namespace SlopWorld
     // width and screen anchor, including custom and disabled options.
     public static class SlopSelector
     {
-        public static bool Draw(Listing_Standard listing, string caption, string value,
+        public static bool Draw(Rect rect, string caption, string value,
                                 IEnumerable<SelectorOption> source, out Rect box,
                                 string tip = null, bool enabled = true, bool open = false,
                                 Action<SlopMenu> openMenu = null)
         {
             var options = (source ?? Enumerable.Empty<SelectorOption>()).ToList();
-            var labels = options.Select(option => option.Label).ToList();
-            var rect = listing.GetRect(SlopWidgets.LineH + SlopWidgets.GapXS +
-                SlopWidgets.CompactH);
-            bool pressed = SlopWidgets.Select(rect, caption, value, labels, out box,
-                tip, enabled, open);
+            bool pressed = SlopWidgets.Select(rect, caption, value, out box, tip, enabled,
+                open, SlopMenu.WidthFor(new[] { value }.Concat(
+                    options.Select(option => option.Label))));
             if (!pressed) return false;
 
             var menu = options.Select(option =>
@@ -48,6 +46,16 @@ namespace SlopWorld
             if (openMenu != null) openMenu(popup);
             else Find.WindowStack.Add(popup);
             return true;
+        }
+
+        public static bool Draw(Listing_Standard listing, string caption, string value,
+                                IEnumerable<SelectorOption> source, out Rect box,
+                                string tip = null, bool enabled = true, bool open = false,
+                                Action<SlopMenu> openMenu = null)
+        {
+            var rect = listing.GetRect(SlopWidgets.LineH + SlopWidgets.GapXS +
+                SlopWidgets.CompactH);
+            return Draw(rect, caption, value, source, out box, tip, enabled, open, openMenu);
         }
     }
 }

@@ -270,8 +270,7 @@ namespace SlopWorld
             if (tab != SidebarTab.Files) FilesView.ReleaseViewer();
             if (tab != SidebarTab.Search)
             {
-                SearchView.ReleaseViewer();
-                SearchView.ReleaseFocus();
+                SearchView.Closed();
             }
             if (tab != SidebarTab.Git) GitView.ReleaseViewer();
 
@@ -621,6 +620,7 @@ namespace SlopWorld
         public static void ToggleSidebar()
         {
             Settings.S.sidebarHidden = !Settings.S.sidebarHidden;
+            if (Settings.S.sidebarHidden) SearchView.Closed();
             Settings.S.Write();
             Patch_MainTabWindowShift.Reposition();
             RefreshPanels();
