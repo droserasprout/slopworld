@@ -656,7 +656,20 @@ namespace SlopWorld
         TaskInfo _task;
         readonly SmoothScroll _scroll = new SmoothScroll();
         readonly List<DialogueLine> _selectionLines = new List<DialogueLine>();
-        string _selectionSource = "";
+        readonly List<TextRange> _bodyRanges = new List<TextRange>();
+        readonly List<TextRange> _noteRanges = new List<TextRange>();
+        readonly Dictionary<char, float> _smallCharWidths =
+            new Dictionary<char, float>();
+        TaskInfo _layoutTask;
+        float _layoutWidth = -1f;
+        float _layoutScale = -1f;
+        int _layoutFontSize = -1;
+        string _layoutFontName = "";
+        float _bodyHeight;
+        float _noteHeight;
+        float _metricsScale = -1f;
+        int _metricsFontSize = -1;
+        string _metricsFontName = "";
         int _selectionStart, _selectionEnd;
         int _selectionControl;
         bool _draggingSelection;
@@ -709,17 +722,11 @@ namespace SlopWorld
             float bottom = rect.yMax - SlopWidgets.BtnH - SlopWidgets.GapS;
             var outer = new Rect(rect.x, top, rect.width, Mathf.Max(0f, bottom - top));
             float width = Mathf.Max(1f, outer.width - SlopWidgets.ScrollbarW);
-            string source = SelectionSource();
-            if (!string.Equals(_selectionSource, source, StringComparison.Ordinal))
-            {
-                _selectionSource = source;
-                if (_selectionStart > source.Length || _selectionEnd > source.Length)
-                    ClearSelection();
-            }
-            _selectionLines.Clear();
-            float bodyH = MessageCardHeight(_task.Body, width);
-            float noteH = string.IsNullOrEmpty(_task.Note) ? 0f
-                : SlopWidgets.GapM + MessageCardHeight(_task.Note, width);
+            string bodyText = _task?.Body ?? "";
+            string noteText = _task?.Note ?? "";
+            EnsureLayout(width, bodyText, noteText);
+            float bodyH = _bodyHeight;
+            float noteH = _noteHeight;
             float contentH = SlopWidgets.TinyRowH + SlopWidgets.GapS + bodyH + noteH +
                 SlopWidgets.GapS;
 
@@ -737,16 +744,15 @@ namespace SlopWorld
                 GUI.color = Color.white;
                 y += SlopWidgets.TinyRowH + SlopWidgets.GapS;
 
-                DrawMessage(new Rect(0f, y, width, bodyH), _task.From, _task.Body,
-                    _task.CreatedMs);
+                DrawMessage(new Rect(0f, y, width, bodyH), _task.From, _task.CreatedMs);
                 y += bodyH;
                 if (!string.IsNullOrEmpty(_task.Note))
                 {
                     y += SlopWidgets.GapM;
-                    DrawMessage(new Rect(0f, y, width, noteH - SlopWidgets.GapM),
-                        _task.To, _task.Note, _task.UpdatedMs, true);
+                    DrawMessage(new Rect(0f, y, width, noteH - SlopWidgets.GapM), _task.To,
+                        _task.UpdatedMs, true);
                 }
-                DrawSelectableText();
+                DrawSelectableText(outer.height);
             }
             finally
             {
@@ -772,18 +778,15 @@ namespace SlopWorld
                 Find.WindowStack?.WindowOfType<TerminalWindow>()?.Leave();
         }
 
-        static float MessageCardHeight(string text, float width)
+        static float MessageCardHeight(int lineCount)
         {
-            float cardWidth = Mathf.Max(1f, width - AvatarOverlap);
-            float textWidth = Mathf.Max(1f, cardWidth - MessageTextInset -
-                SlopWidgets.FieldPadX);
             float headerH = SlopWidgets.LineHOf(GameFont.Tiny);
             return Mathf.Max(AvatarSize + SlopWidgets.GapS,
                 SlopWidgets.FieldPadY * 2f + headerH + SlopWidgets.GapXS +
-                TextHeight(text, textWidth));
+                lineCount * SlopWidgets.LineHOf(GameFont.Small));
         }
 
-        void DrawMessage(Rect r, string sender, string text, long timestamp,
+        void DrawMessage(Rect r, string sender, long timestamp,
                          bool note = false)
         {
             var card = new Rect(r.x + AvatarOverlap, r.y,
@@ -811,12 +814,6 @@ namespace SlopWorld
                             Timestamp(timestamp)
                         : "Message from " + SenderLabel(sender) + "  ·  " +
                             Timestamp(timestamp));
-                y += SlopWidgets.LineHOf(GameFont.Tiny) + SlopWidgets.GapXS;
-
-                Text.Font = GameFont.Small;
-                GUI.color = SlopWidgets.Lead;
-                CollectSelectableText(text, card.x + MessageTextInset, y, textWidth,
-                    note ? (_task.Body ?? "").Length + 2 : 0);
             }
             finally
             {
@@ -827,12 +824,58 @@ namespace SlopWorld
             }
         }
 
-        static float TextHeight(string text, float width)
+        void EnsureLayout(float width, string body, string note)
         {
-            return WrappedRanges(text, width).Count * SlopWidgets.LineHOf(GameFont.Small);
+            string fontName = Settings.UIFontName ?? "";
+            bool fontChanged = _layoutFontSize != Settings.UIFontSize ||
+                _layoutFontName != fontName || !Mathf.Approximately(_layoutScale, Prefs.UIScale);
+            if (_layoutTask == _task && Mathf.Approximately(_layoutWidth, width) &&
+                !fontChanged) return;
+
+            _layoutTask = _task;
+            _layoutWidth = width;
+            _layoutScale = Prefs.UIScale;
+            _layoutFontSize = Settings.UIFontSize;
+            _layoutFontName = fontName;
+
+            int sourceLength = body.Length + (note.Length == 0 ? 0 : note.Length + 2);
+            if (_selectionStart > sourceLength || _selectionEnd > sourceLength)
+                ClearSelection();
+
+            _bodyRanges.Clear();
+            _bodyRanges.AddRange(WrappedRanges(body, TextWidth(width)));
+            _bodyHeight = MessageCardHeight(_bodyRanges.Count);
+
+            _noteRanges.Clear();
+            _noteHeight = 0f;
+            if (note.Length > 0)
+            {
+                _noteRanges.AddRange(WrappedRanges(note, TextWidth(width)));
+                _noteHeight = SlopWidgets.GapM + MessageCardHeight(_noteRanges.Count);
+            }
+
+            _selectionLines.Clear();
+            float bodyY = SlopWidgets.TinyRowH + SlopWidgets.GapS;
+            float textY = bodyY + SlopWidgets.FieldPadY +
+                SlopWidgets.LineHOf(GameFont.Tiny) + SlopWidgets.GapXS;
+            CollectSelectableText(body, MessageTextInset, textY, _bodyRanges, 0);
+            if (note.Length > 0)
+            {
+                float noteY = bodyY + _bodyHeight + SlopWidgets.GapM;
+                textY = noteY + SlopWidgets.FieldPadY +
+                    SlopWidgets.LineHOf(GameFont.Tiny) + SlopWidgets.GapXS;
+                CollectSelectableText(note, MessageTextInset, textY, _noteRanges,
+                    body.Length + 2);
+            }
         }
 
-        static List<TextRange> WrappedRanges(string text, float width)
+        static float TextWidth(float width)
+        {
+            float cardWidth = Mathf.Max(1f, width - AvatarOverlap);
+            return Mathf.Max(1f, cardWidth - MessageTextInset - SlopWidgets.FieldPadX);
+        }
+
+        List<TextRange> WrappedRanges(string text, float width)
         {
             text = text ?? "";
             var ranges = new List<TextRange>();
@@ -850,6 +893,7 @@ namespace SlopWorld
                 Text.WordWrap = false;
                 int start = 0;
                 int lastBreak = -1;
+                float lineWidth = 0f;
                 for (int i = 0; i < text.Length; i++)
                 {
                     if (text[i] == '\n')
@@ -857,12 +901,14 @@ namespace SlopWorld
                         ranges.Add(new TextRange(start, i));
                         start = i + 1;
                         lastBreak = -1;
+                        lineWidth = 0f;
                         continue;
                     }
 
-                    string candidate = text.Substring(start, i + 1 - start);
-                    if (Text.CalcSize(candidate).x <= width || i == start)
+                    float charWidth = SmallCharWidth(text[i]);
+                    if (lineWidth + charWidth <= width || i == start)
                     {
+                        lineWidth += charWidth;
                         if (char.IsWhiteSpace(text[i])) lastBreak = i + 1;
                         continue;
                     }
@@ -872,6 +918,7 @@ namespace SlopWorld
                     ranges.Add(new TextRange(start, split));
                     start = split;
                     lastBreak = -1;
+                    lineWidth = 0f;
                     i = start - 1;
                 }
 
@@ -885,10 +932,29 @@ namespace SlopWorld
             }
         }
 
-        void CollectSelectableText(string text, float x, float y, float width, int sourceOffset)
+        float SmallCharWidth(char value)
+        {
+            float scale = Prefs.UIScale;
+            string fontName = Settings.UIFontName ?? "";
+            if (!Mathf.Approximately(_metricsScale, scale) ||
+                _metricsFontSize != Settings.UIFontSize || _metricsFontName != fontName)
+            {
+                _metricsScale = scale;
+                _metricsFontSize = Settings.UIFontSize;
+                _metricsFontName = fontName;
+                _smallCharWidths.Clear();
+            }
+
+            if (_smallCharWidths.TryGetValue(value, out var width)) return width;
+            width = Text.CalcSize(value.ToString()).x;
+            _smallCharWidths[value] = width;
+            return width;
+        }
+
+        void CollectSelectableText(string text, float x, float y,
+                                   List<TextRange> ranges, int sourceOffset)
         {
             text = text ?? "";
-            var ranges = WrappedRanges(text, width);
             float lineH = SlopWidgets.LineHOf(GameFont.Small);
             var wasFont = Text.Font;
             var wasWrap = Text.WordWrap;
@@ -902,7 +968,7 @@ namespace SlopWorld
                     string lineText = text.Substring(range.Start, range.End - range.Start);
                     var edges = new float[lineText.Length + 1];
                     for (int i = 1; i < edges.Length; i++)
-                        edges[i] = Text.CalcSize(lineText.Substring(0, i)).x;
+                        edges[i] = edges[i - 1] + SmallCharWidth(lineText[i - 1]);
 
                     _selectionLines.Add(new DialogueLine
                     {
@@ -925,7 +991,7 @@ namespace SlopWorld
             }
         }
 
-        void DrawSelectableText()
+        void DrawSelectableText(float viewportHeight)
         {
             var wasFont = Text.Font;
             var wasWrap = Text.WordWrap;
@@ -935,10 +1001,16 @@ namespace SlopWorld
                 Text.Font = GameFont.Small;
                 Text.WordWrap = false;
                 Text.Anchor = TextAnchor.UpperLeft;
-                DrawSelectionHighlights();
+                DrawSelectionHighlights(viewportHeight);
                 GUI.color = SlopWidgets.Lead;
-                foreach (var line in _selectionLines)
+                int first = FirstVisibleSelectionLine(_scroll.Position.y);
+                float bottom = _scroll.Position.y + viewportHeight;
+                for (int i = first; i < _selectionLines.Count; i++)
+                {
+                    var line = _selectionLines[i];
+                    if (line.Y >= bottom) break;
                     Widgets.Label(new Rect(line.X, line.Y, line.Width, line.Height), line.Text);
+                }
             }
             finally
             {
@@ -949,13 +1021,31 @@ namespace SlopWorld
             }
         }
 
-        void DrawSelectionHighlights()
+        int FirstVisibleSelectionLine(float top)
+        {
+            int low = 0;
+            int high = _selectionLines.Count;
+            while (low < high)
+            {
+                int middle = low + (high - low) / 2;
+                var line = _selectionLines[middle];
+                if (line.Y + line.Height <= top) low = middle + 1;
+                else high = middle;
+            }
+            return low;
+        }
+
+        void DrawSelectionHighlights(float viewportHeight)
         {
             if (_selectionStart == _selectionEnd) return;
             int first = Mathf.Min(_selectionStart, _selectionEnd);
             int last = Mathf.Max(_selectionStart, _selectionEnd);
-            foreach (var line in _selectionLines)
+            int firstLine = FirstVisibleSelectionLine(_scroll.Position.y);
+            float bottom = _scroll.Position.y + viewportHeight;
+            for (int i = firstLine; i < _selectionLines.Count; i++)
             {
+                var line = _selectionLines[i];
+                if (line.Y >= bottom) break;
                 int start = Mathf.Max(first, line.Start);
                 int end = Mathf.Min(last, line.End);
                 if (end <= start) continue;
@@ -1033,9 +1123,12 @@ namespace SlopWorld
 
             float y = mouse.y - viewport.y + _scroll.Position.y;
             float x = mouse.x - viewport.x + _scroll.Position.x;
-            int lineIndex = 0;
+            int insertion = FirstVisibleSelectionLine(y);
+            int first = Mathf.Max(0, insertion - 1);
+            int last = Mathf.Min(_selectionLines.Count - 1, insertion);
+            int lineIndex = first;
             float best = float.MaxValue;
-            for (int i = 0; i < _selectionLines.Count; i++)
+            for (int i = first; i <= last; i++)
             {
                 var line = _selectionLines[i];
                 float vertical = y < line.Y ? line.Y - y :
@@ -1091,7 +1184,7 @@ namespace SlopWorld
         void SelectAll()
         {
             _selectionStart = 0;
-            _selectionEnd = _selectionSource.Length;
+            _selectionEnd = SelectionLength();
             _draggingSelection = false;
             ReleaseSelection();
         }
@@ -1103,8 +1196,9 @@ namespace SlopWorld
             if (!HasSelection) return;
             int start = Mathf.Min(_selectionStart, _selectionEnd);
             int end = Mathf.Max(_selectionStart, _selectionEnd);
-            if (start < 0 || end > _selectionSource.Length || end <= start) return;
-            SlopClipboard.Copy(_selectionSource.Substring(start, end - start));
+            string source = SelectionSource();
+            if (start < 0 || end > source.Length || end <= start) return;
+            SlopClipboard.Copy(source.Substring(start, end - start));
         }
 
         void OpenSelectionMenu()
@@ -1122,6 +1216,13 @@ namespace SlopWorld
             string body = _task.Body ?? "";
             if (string.IsNullOrEmpty(_task.Note)) return body;
             return body + "\n\n" + _task.Note;
+        }
+
+        int SelectionLength()
+        {
+            int body = (_task?.Body ?? "").Length;
+            string note = _task?.Note;
+            return body + (string.IsNullOrEmpty(note) ? 0 : note.Length + 2);
         }
 
         string DialogueText()
