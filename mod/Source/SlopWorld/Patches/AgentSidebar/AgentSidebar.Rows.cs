@@ -167,6 +167,27 @@ namespace SlopWorld
             Click(row, info);
         }
 
+        // Draw the status badge at the portrait's right edge, vertically aligned with the
+        // lower text band; the dark ring keeps it legible over hair and clothing.
+        static void DrawStateBadge(Rect face, Rect text, AgentState state)
+        {
+            if (CompactView) return;
+            if (face.width <= 0f) return;
+
+            float d = Mathf.Max(BadgeMin,
+                Mathf.Round(face.width * BadgeShare));
+            var portrait = Patch_SidebarPortraitDraw.PortraitRect(face);
+            var center = new Vector2(portrait.xMax - d / 2f - BadgeInset,
+                text.y + NameH + SubH * 1.5f + 3f);
+
+            GUI.color = SlopWidgets.ViewBg;
+            GUI.DrawTexture(Icons.DotBox(center, d + BadgeRing * 2f), Icons.Dot);
+            var stateColor = TerminalWindow.StateColor(state);
+            GUI.color = new Color(stateColor.r, stateColor.g, stateColor.b, BadgeAlpha);
+            GUI.DrawTexture(Icons.DotBox(center, d), Icons.Dot);
+            GUI.color = Color.white;
+        }
+
         // Draw: agent rows keep the badge, name/time, summary and click target ordered.
         static void DrawAgentRow(Row row, SessionInfo info, AgentState state, Color tint)
         {
