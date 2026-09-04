@@ -18,14 +18,15 @@ namespace SlopWorld
                 (_hasSel || _dragging || _wordDragging))
                 MoveSelectionRows(-live.LiveShift);
             _lastLiveSeq = live.Seq;
+            ScrollDebugLive(live);
 
             // History offsets are measured from this live bottom. Once the pane changes
             // (most visibly after a sidebar resize/redraw), snapshots captured for the old
             // sequence describe a different coordinate space. New rows moving off the live
             // pane extend the offset by the same amount, keeping the content under the user's
             // eyes anchored instead of pulling the viewport toward new output.
-            if (_scrollOff <= 0) return;
-            if (live.LiveShift > 0)
+            if (_scrollOff <= 0 && !_historyWarmed) return;
+            if (_scrollOff > 0 && live.LiveShift > 0)
             {
                 float cellH = TerminalFont.CellH;
                 float pixels = _historyScrollReady && cellH > 0.01f
@@ -47,7 +48,10 @@ namespace SlopWorld
             // change the scrollback coordinate, and detected terminal shifts are translated by
             // TerminalHistory; throwing the cache away on every live frame starves active panes
             // because their next history response is almost always one sequence behind.
-            if (_history.UpdateLive(live, live.LiveShift))
+            float historyStarted = ScrollDebugTimer();
+            bool retained = _history.UpdateLive(live, live.LiveShift);
+            ScrollDebugUpdateLive(historyStarted);
+            if (retained)
             {
                 _historyCoordinateShift = Mathf.Clamp(
                     _historyCoordinateShift + live.LiveShift, 0, MaxScrollLines);
@@ -60,6 +64,7 @@ namespace SlopWorld
             _historyCoordinateShift = 0;
             _historyTopOff = -1;
             _historyRefreshPending = true;
+            _historyWarmed = false;
         }
 
         void SyncSelectionOffset(int offset)
@@ -563,11 +568,14 @@ namespace SlopWorld
         // Colors are resolved into the runs at parse time, so a scheme change is a re-parse:
         // without it an idle pane keeps the old palette until the agent next writes, which on
         // an idle agent is never.
-        static void EnsureRuns(ScreenBuf buf)
+        void EnsureRuns(ScreenBuf buf)
         {
             if (buf.Runs != null && buf.RunsRev == TerminalTheme.Rev) return;
-            buf.Runs = Sgr.ParseLines(buf.Lines, buf.Cols);
+            float debugStarted = ScrollDebugTimer();
+            buf.Runs = _runCache.Parse(buf.Lines, buf.Cols, TerminalTheme.Rev, TerminalFont.Rev,
+                                       out int hits, out int misses);
             buf.RunsRev = TerminalTheme.Rev;
+            ScrollDebugParse(debugStarted, hits, misses);
         }
 
     }

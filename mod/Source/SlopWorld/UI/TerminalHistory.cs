@@ -14,7 +14,12 @@ namespace SlopWorld
         const int MaxHistoryRows = 10_000;
         const int MaxScreenRows = 200;
 
+        // Keys stay fixed while the live bottom advances. `_origin` translates the public
+        // coordinate space to storage coordinates, avoiding a dictionary-sized copy for every
+        // line the watched terminal scrolls.
         readonly Dictionary<int, string> _lines = new Dictionary<int, string>();
+        int _origin;
+        public int Count => _lines.Count;
         ScreenBuf _template;
         int _version;
         int _cachedAnchor = -1;
@@ -26,6 +31,7 @@ namespace SlopWorld
         public void Reset(ScreenBuf live = null)
         {
             _lines.Clear();
+            _origin = 0;
             _template = null;
             if (live != null)
             {
@@ -55,8 +61,16 @@ namespace SlopWorld
             if (shift > 0) Shift(shift);
 
             SetTemplate(live);
-            Index(live, 0, true);
-            Changed();
+            bool changed = Index(live, 0, true);
+            // A pure in-place live redraw cannot affect an already assembled history-only
+            // view. A real scroll changes its public anchor but the stored rows and cached
+            // ScreenBuf remain valid after their metadata is translated below.
+            if (shift > 0 && _cachedView != null && _cachedAnchor >= live.Rows)
+            {
+                _cachedAnchor += shift;
+                _cachedView.Off += shift;
+            }
+            else if (changed && (_cachedView == null || _cachedAnchor < live.Rows)) Changed();
             return true;
         }
 
@@ -82,8 +96,7 @@ namespace SlopWorld
             // response can still contribute its negative history rows, but must not overwrite
             // newer content that was redrawn in place while the request was in flight.
             int off = Math.Max(0, frame.Off + coordinateShift);
-            Index(frame, off, current);
-            Changed();
+            if (Index(frame, off, current)) Changed();
         }
 
         public bool TryView(int anchor, bool extraRow, out ScreenBuf view)
@@ -108,7 +121,7 @@ namespace SlopWorld
             for (int row = 0; row < count; row++)
             {
                 int globalRow = row - anchor;
-                if (!_lines.TryGetValue(globalRow, out lines[row]))
+                if (!_lines.TryGetValue(Storage(globalRow), out lines[row]))
                 {
                     view = null;
                     return false;
@@ -149,7 +162,7 @@ namespace SlopWorld
             if (_template == null) return false;
             int count = Math.Max(1, _template.Rows) + (extraRow ? 1 : 0);
             for (int row = 0; row < count; row++)
-                if (!_lines.ContainsKey(row - anchor)) return false;
+                if (!_lines.ContainsKey(Storage(row - anchor))) return false;
             return true;
         }
 
@@ -189,34 +202,39 @@ namespace SlopWorld
             _templateAltScreen = frame.AltScreen;
         }
 
-        void Index(ScreenBuf frame, int off, bool includeLive)
+        bool Index(ScreenBuf frame, int off, bool includeLive)
         {
             if (_template == null) SetTemplate(frame);
+            bool changed = false;
 
             for (int row = 0; row < frame.Lines.Length; row++)
             {
                 int globalRow = row - off;
                 if (!includeLive && globalRow >= 0) continue;
                 if (globalRow < -MaxHistoryRows || globalRow >= MaxScreenRows) continue;
-                _lines[globalRow] = frame.Lines[row];
+                int key = Storage(globalRow);
+                string line = frame.Lines[row];
+                if (!_lines.TryGetValue(key, out var old) || old != line)
+                {
+                    _lines[key] = line;
+                    changed = true;
+                }
             }
+            return changed;
         }
 
         void Shift(int rows)
         {
             if (rows <= 0 || _lines.Count == 0) return;
+            _origin += rows;
 
-            var moved = new Dictionary<int, string>();
-            foreach (var pair in _lines)
-            {
-                int global = pair.Key - rows;
-                if (global >= -MaxHistoryRows && global < MaxScreenRows)
-                    moved[global] = pair.Value;
-            }
-
-            _lines.Clear();
-            foreach (var pair in moved) _lines[pair.Key] = pair.Value;
+            // Only the coordinate slots that crossed the fixed lower bound can expire. Remove
+            // those directly: no full dictionary scan, copy, or temporary collection.
+            for (int delta = 1; delta <= rows; delta++)
+                _lines.Remove(Storage(-MaxHistoryRows - delta));
         }
+
+        int Storage(int global) => global + _origin;
 
         void Changed()
         {

@@ -480,8 +480,10 @@ namespace SlopWorld
         void QueueScroll(bool up, bool fromLive = false, int requestOff = -1)
         {
             float now = Time.realtimeSinceStartup;
+            ScrollDebugInput();
             _wantedScrollOff = requestOff >= 0 ? requestOff : _scrollOff;
             _scrollPending = true;
+            ScrollDebugQueued(_wantedScrollOff);
             bool fresh = fromLive || !_hasWheelDirection || up != _lastWheelUp ||
                 now >= _nextScrollSend;
             _lastWheelUp = up;
@@ -730,6 +732,7 @@ namespace SlopWorld
             _hasWheelDirection = false;
             JumpHistoryTo(0);
             ResetCursorBlink();
+            ScrollDebugEnd();
         }
 
         void ResetCursorBlink() => _cursorBlinkAt = Time.realtimeSinceStartup;

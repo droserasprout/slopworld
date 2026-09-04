@@ -11,9 +11,12 @@ namespace SlopWorld.Tests
             yield return ("requires a bridge across non-overlapping viewports", RequiresBridge);
             yield return ("rejects a frame from an older live sequence", RejectsOldSequence);
             yield return ("retains history across an in-place live refresh", RetainsLiveRefresh);
+            yield return ("preserves a deep assembled view across unrelated live refreshes",
+                PreservesDeepViewAcrossLiveRefresh);
             yield return ("translates history when live output scrolls", TranslatesLiveScroll);
             yield return ("keeps history anchored when a repeated live row scrolls",
                 KeepsHistoryAnchoredWhenTopRowRepeats);
+            yield return ("keeps bounded history across repeated live shifts", RepeatedLiveShifts);
             yield return ("plans covered views without replacing the cache", CoversViews);
             yield return ("ignores empty frames and retains indexed history", IgnoresEmptyAndRetainsRows);
             yield return ("quantizes prefetch windows in both directions", QuantizesPrefetch);
@@ -114,6 +117,32 @@ namespace SlopWorld.Tests
                 "cached rows move with the live bottom");
         }
 
+        static void PreservesDeepViewAcrossLiveRefresh()
+        {
+            var history = new TerminalHistory();
+            var live = Frame(0, "live-0", "live-1", "live-2");
+            history.Reset(live);
+            history.Add(Frame(4, "old-4", "old-3", "old-2"), live, 4);
+            history.Add(Frame(2, "old-2", "old-1", "live-0"), live, 2);
+            AssertEx.True(history.TryView(3, false, out var before), "deep view is assembled");
+
+            var redrawn = Frame(0, "new-0", "new-1", "new-2");
+            redrawn.Seq = 8;
+            AssertEx.True(history.UpdateLive(redrawn, 0), "in-place refresh is compatible");
+            AssertEx.True(history.TryView(3, false, out var after), "deep view stays covered");
+            AssertEx.True(object.ReferenceEquals(before, after),
+                "unrelated live rows preserve the assembled ScreenBuf and parsed runs");
+
+            var shifted = Frame(0, "new-1", "new-2", "new-3");
+            shifted.Seq = 9;
+            AssertEx.True(history.UpdateLive(shifted, 1), "live scroll is compatible");
+            AssertEx.True(history.TryView(4, false, out var translated),
+                "translated deep view stays covered");
+            AssertEx.True(object.ReferenceEquals(before, translated),
+                "logical coordinate maintenance preserves the assembled view");
+            AssertEx.Equal(4, translated.Off, "cached view metadata follows the live bottom");
+        }
+
         static void KeepsHistoryAnchoredWhenTopRowRepeats()
         {
             var live = new ScreenBuf
@@ -165,6 +194,29 @@ namespace SlopWorld.Tests
             AssertEx.True(history.TryView(0, false, out var first), "live view is built");
             AssertEx.True(history.TryView(0, false, out var cached), "live view is cached");
             AssertEx.True(object.ReferenceEquals(first, cached), "cached view is reused");
+        }
+
+        static void RepeatedLiveShifts()
+        {
+            var history = new TerminalHistory();
+            var live = Frame(0, "live-0", "live-1", "live-2");
+            history.Reset(live);
+            for (int off = 3; off <= 9_999; off += 3)
+                history.Add(Frame(off, "old-" + off, "old-" + (off - 1),
+                                  "old-" + (off - 2)), live, off);
+
+            for (int n = 1; n <= 250; n++)
+            {
+                var next = Frame(0, "live-" + n, "live-" + (n + 1), "live-" + (n + 2));
+                next.Seq = 7 + n;
+                AssertEx.True(history.UpdateLive(next, 1), "compatible shift is retained");
+            }
+
+            AssertEx.True(history.Count <= 10_200, "cache remains within its coordinate bounds");
+            AssertEx.True(history.TryView(252, false, out var view),
+                "rows remain addressable after many logical shifts");
+            AssertEx.Sequence(new[] { "old-2", "old-1", "live-0" }, view.Lines,
+                "logical shifts preserve row order without dictionary copies");
         }
 
         static void IgnoresEmptyAndRetainsRows()
