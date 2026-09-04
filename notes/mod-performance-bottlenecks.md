@@ -15,10 +15,10 @@ Static review of the committed C# mod at `a3c4c28` (`Fix F12 terminal opening fr
   - [SlopClient.cs:111](../mod/Source/SlopWorld/Client/SlopClient.cs#L111)
 
 - **Agent sidebar layout scales poorly with projects, agents, and workers.** Colonist-bar integration rebuilds layout data during GUI passes. `AgentCounts` scans all sessions once per project; `WorkerCount` scans all workers once per project; buckets are sorted every placement. Status filtering reparses the settings string for each check, and row drawing repeatedly measures and rebuilds title/status strings.
-  - [AgentSidebar.Rendering.cs:207](../mod/Source/SlopWorld/Patches/AgentSidebar/AgentSidebar.Rendering.cs#L207)
-  - [AgentSidebar.Rendering.cs:308](../mod/Source/SlopWorld/Patches/AgentSidebar/AgentSidebar.Rendering.cs#L308)
-  - [AgentSidebar.Rendering.cs:390](../mod/Source/SlopWorld/Patches/AgentSidebar/AgentSidebar.Rendering.cs#L390)
-  - [AgentSidebar.cs:168](../mod/Source/SlopWorld/Patches/AgentSidebar.cs#L168)
+  - [AgentSidebar.Layout.cs:48](../mod/Source/SlopWorld/Patches/AgentSidebar/AgentSidebar.Layout.cs#L48)
+  - [AgentSidebar.Layout.cs:149](../mod/Source/SlopWorld/Patches/AgentSidebar/AgentSidebar.Layout.cs#L149)
+  - [AgentSidebar.RowGeometry.cs:12](../mod/Source/SlopWorld/Patches/AgentSidebar/AgentSidebar.RowGeometry.cs#L12)
+  - [AgentSidebar.Views.cs:154](../mod/Source/SlopWorld/Patches/AgentSidebar/AgentSidebar.Views.cs#L154)
   - [SidebarRowRenderer.cs:72](../mod/Source/SlopWorld/Patches/AgentSidebar/SidebarRowRenderer.cs#L72)
 
 - **Terminal frames are reparsed on every screen update.** `ScreenBuf.FromJson` replaces the line array and invalidates runs. The next draw parses every row and performs URL scanning over the complete rows-by-columns buffer. The render-texture fallback disables caching permanently, after which each repaint performs a full terminal paint.
