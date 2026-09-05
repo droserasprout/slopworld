@@ -16,7 +16,7 @@ namespace SlopWorld
         static float HeadH => SlopWidgets.TinyRowH;
         const float Pad = SlopWidgets.GapS;
         const float CellX = SlopWidgets.GapS;
-        const float ArrowW = 11f;
+        const float ArrowW = SlopWidgets.DisclosureW;
 
         // These are identity colors, not status colors: every kind stays recognizable without
         // borrowing the green/yellow/red language used for agent health and actions.
@@ -140,21 +140,21 @@ namespace SlopWorld
 
             RowChrome.Hover(headRect, false, true, RowHoverPolicy.OverlayAware);
 
-            GUI.color = SlopWidgets.Faint;
-            var arrow = new Rect(CellX, headRect.y + (HeadH - ArrowW) / 2f,
-                ArrowW, ArrowW);
-            GUI.DrawTexture(arrow, folded ? TexButton.Reveal : TexButton.Collapse);
+            Rect arrow;
+            using (WidgetState.Save())
+            {
+                GUI.color = SlopWidgets.Faint;
+                arrow = new Rect(CellX, headRect.y + (HeadH - ArrowW) / 2f,
+                    ArrowW, ArrowW);
+                GUI.DrawTexture(arrow, folded ? TexButton.Reveal : TexButton.Collapse);
 
-            Text.Font = GameFont.Tiny;
-            Text.Anchor = TextAnchor.MiddleLeft;
-            float lx = arrow.xMax + 4f;
-            string tail = folded ? "  " + count : "";
-            var labelRect = new Rect(lx, headRect.y, view.width - lx - CellX, HeadH);
-            SlopWidgets.RowLabel(labelRect, label + tail);
-
-            GUI.color = Color.white;
-            Text.Anchor = TextAnchor.UpperLeft;
-            Text.Font = GameFont.Small;
+                Text.Font = GameFont.Tiny;
+                Text.Anchor = TextAnchor.MiddleLeft;
+                float lx = arrow.xMax + 4f;
+                string tail = folded ? "  " + count : "";
+                var labelRect = new Rect(lx, headRect.y, view.width - lx - CellX, HeadH);
+                SlopWidgets.RowLabel(labelRect, label + tail);
+            }
 
             Slab.Hairline(new Rect(CellX, headRect.yMax - 1f,
                 view.width - CellX * 2f, 1f), SlopWidgets.Edge);
@@ -174,35 +174,34 @@ namespace SlopWorld
             // The kind badge: prompt, shell, or an attached breadcrumb.
             float badgeW = 34f;
             var badge = new Rect(CellX, r.y, badgeW, RowH);
-            GUI.color = KindColor(item.Kind);
-            // The whole row is Tiny, the way a row of the other two trees is: the badge was,
-            // and the name and the sample beside it were Small in a row laid out for Tiny -
-            // which on any face taller than the one it was written against is a line with its
-            // descenders cut off.
-            Text.Font = GameFont.Tiny;
-            Text.Anchor = TextAnchor.MiddleLeft;
-            SlopWidgets.RowLabel(badge, KindCode(item.Kind));
-            TooltipHandler.TipRegion(badge, KindName(item.Kind));
-            GUI.color = Color.white;
+            Rect nameRect;
+            using (WidgetState.Save())
+            {
+                GUI.color = KindColor(item.Kind);
+                // The whole row is Tiny, the way a row of the other two trees is: the badge was,
+                // and the name and the sample beside it were Small in a row laid out for Tiny -
+                // which on any face taller than the one it was written against is a line with its
+                // descenders cut off.
+                Text.Font = GameFont.Tiny;
+                Text.Anchor = TextAnchor.MiddleLeft;
+                SlopWidgets.RowLabel(badge, KindCode(item.Kind));
+                TooltipHandler.TipRegion(badge, KindName(item.Kind));
 
-            float tx = CellX + badgeW + 4f;
-            // The name comes first, then a sample of the text truncated.
-            GUI.color = SlopWidgets.Lead;
-            var nameW = SlopWidgets.Wide(item.Name);
-            var nameRect = new Rect(tx, r.y, Mathf.Min(nameW + 6f,
-                view.width * 0.35f), RowH);
-            SlopWidgets.RowLabel(nameRect, item.Name);
-            GUI.color = SlopWidgets.Dim;
+                float tx = CellX + badgeW + 4f;
+                // The name comes first, then a sample of the text truncated.
+                GUI.color = SlopWidgets.Lead;
+                var nameW = SlopWidgets.Wide(item.Name);
+                nameRect = new Rect(tx, r.y, Mathf.Min(nameW + 6f,
+                    view.width * 0.35f), RowH);
+                SlopWidgets.RowLabel(nameRect, item.Name);
+                GUI.color = SlopWidgets.Dim;
 
-            float restX = nameRect.xMax + 2f;
-            var restW = r.xMax - 6f - restX;
-            if (restW > 20f)
-                SlopWidgets.RowLabel(new Rect(restX, r.y, restW, RowH),
-                    OneLine(item.Text));
-
-            GUI.color = Color.white;
-            Text.Anchor = TextAnchor.UpperLeft;
-            Text.Font = GameFont.Small;
+                float restX = nameRect.xMax + 2f;
+                var restW = r.xMax - 6f - restX;
+                if (restW > 20f)
+                    SlopWidgets.RowLabel(new Rect(restX, r.y, restW, RowH),
+                        OneLine(item.Text));
+            }
 
             Lines.Add(new Line { Item = item, Rect = Screen(r) });
             return RowH;
@@ -223,16 +222,17 @@ namespace SlopWorld
         static void Empty(Rect body)
         {
             var r = new Rect(CellX, body.y + Pad, body.width - CellX * 2f, RowH * 3f);
-            GUI.color = SlopWidgets.Faint;
-            Text.Font = GameFont.Tiny;
-            Text.Anchor = TextAnchor.UpperLeft;
-            Widgets.Label(r, !SessionHub.Instance.Online
-                ? $"daemon {SessionHub.Instance.Status}"
-                : AgentSidebar.Filtering
-                    ? $"No library entries in {AgentSidebar.FilterLabel}."
-                    : "No library entries yet. Press + at the foot of the panel.");
-            Text.Font = GameFont.Small;
-            GUI.color = Color.white;
+            using (WidgetState.Save())
+            {
+                GUI.color = SlopWidgets.Faint;
+                Text.Font = GameFont.Tiny;
+                Text.Anchor = TextAnchor.UpperLeft;
+                Widgets.Label(r, !SessionHub.Instance.Online
+                    ? $"daemon {SessionHub.Instance.Status}"
+                    : AgentSidebar.Filtering
+                        ? $"No library entries in {AgentSidebar.FilterLabel}."
+                        : "No library entries yet. Press + at the foot of the panel.");
+            }
         }
 
         static Color KindColor(LibraryItemKind kind)

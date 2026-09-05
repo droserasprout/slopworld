@@ -24,27 +24,11 @@ namespace SlopWorld
 
         protected override void DoBody(Rect rect)
         {
-            SlopWidgets.Title(rect, $"Commit '{_project}'");
+            _message = SlopTextDialog.Draw(rect, $"Commit '{_project}'",
+                "Only staged changes will be committed.", "git.commit.message", _message,
+                _error);
 
-            var note = new Rect(rect.x, rect.y + SlopWidgets.HeaderH + SlopWidgets.GapM,
-                rect.width, SlopWidgets.RowH);
-            GUI.color = SlopWidgets.Dim;
-            SlopWidgets.RowLabel(note, "Only staged changes will be committed.");
-            GUI.color = Color.white;
-
-            var field = new Rect(rect.x, note.yMax + SlopWidgets.GapS,
-                rect.width, SlopWidgets.FieldH);
-            _message = SlopWidgets.Field(field, "git.commit.message", _message ?? "");
-
-            if (!string.IsNullOrEmpty(_error))
-            {
-                GUI.color = SlopWidgets.Bad;
-                SlopWidgets.RowLabel(new Rect(rect.x, field.yMax + SlopWidgets.GapXS,
-                    rect.width, SlopWidgets.RowH), _error);
-                GUI.color = Color.white;
-            }
-
-            var foot = new SlopWidgets.Bar(SlopWidgets.FooterBar(rect));
+            var foot = SlopTextDialog.Footer(rect);
             if (foot.Left("Cancel", SlopWidgets.Btn.Ghost)) Close();
             if (foot.Right("Commit", SlopWidgets.Btn.Primary)) Save();
         }

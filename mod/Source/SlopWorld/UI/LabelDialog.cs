@@ -24,28 +24,11 @@ namespace SlopWorld
 
         protected override void DoBody(Rect rect)
         {
-            SlopWidgets.Title(rect, $"Label '{_session}'");
+            _label = SlopTextDialog.Draw(rect, $"Label '{_session}'",
+                "Set a manual third-line label. Leave it blank to resume automatic summaries.",
+                "agent.label", _label, _error, SlopWidgets.RowH * 2f);
 
-            var note = new Rect(rect.x, rect.y + SlopWidgets.HeaderH + SlopWidgets.GapM,
-                rect.width, SlopWidgets.RowH * 2f);
-            GUI.color = SlopWidgets.Dim;
-            SlopWidgets.RowLabel(note,
-                "Set a manual third-line label. Leave it blank to resume automatic summaries.");
-            GUI.color = Color.white;
-
-            var field = new Rect(rect.x, note.yMax + SlopWidgets.GapS,
-                rect.width, SlopWidgets.FieldH);
-            _label = SlopWidgets.Field(field, "agent.label", _label);
-
-            if (!string.IsNullOrEmpty(_error))
-            {
-                GUI.color = SlopWidgets.Bad;
-                SlopWidgets.RowLabel(new Rect(rect.x, field.yMax + SlopWidgets.GapXS,
-                    rect.width, SlopWidgets.RowH), _error);
-                GUI.color = Color.white;
-            }
-
-            var foot = new SlopWidgets.Bar(SlopWidgets.FooterBar(rect));
+            var foot = SlopTextDialog.Footer(rect);
             if (foot.Left("Cancel", SlopWidgets.Btn.Ghost)) Close();
             if (!string.IsNullOrWhiteSpace(_label) &&
                 foot.Left("Remove", SlopWidgets.Btn.Danger))

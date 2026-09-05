@@ -29,6 +29,7 @@ Architecture:
 - [mod-sim](notes/mod-sim.md) — Sim/: colony reconcile, clock, intro
 - [mod-ui-chrome](notes/mod-ui-chrome.md) — shared widgets, layout, top bar
 - [mod-ui-widgets-refactor](notes/mod-ui-widgets-refactor.md) — staged widget consolidation plan
+- [ui-reuse-consistency-plan](notes/plans/ui-reuse-consistency-plan.md) — implemented UI reuse and consistency phases
 - [mod-sidebar](notes/mod-sidebar.md) — AgentSidebar & colonist bar patching
 - [mod-terminal](notes/mod-terminal.md) — terminal pane: rendering, keys, theme
 - [mod-terminal-history-warmup](notes/mod-terminal-history-warmup.md) — first-scroll history warm-up plan

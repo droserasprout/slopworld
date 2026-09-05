@@ -16,15 +16,6 @@ namespace SlopWorld
     // popovers and other window-local controls must request Local deliberately.
     public static class RowChrome
     {
-        public static bool Draw(Rect rect, bool selected, bool enabled,
-                                RowHoverPolicy hoverPolicy, bool hitTest = false)
-        {
-            bool over = enabled && IsOver(rect, hoverPolicy);
-            Slab.Fill(rect, selected ? SlopWidgets.RowOn : SlopWidgets.RowBg);
-            if (over) Slab.Fill(rect, SlopWidgets.Hover);
-            return hitTest && enabled && Widgets.ButtonInvisible(rect);
-        }
-
         public static bool Hover(Rect rect, bool selected, bool enabled,
                                  RowHoverPolicy hoverPolicy,
                                  RowSelectionStyle selectionStyle = RowSelectionStyle.Standard)

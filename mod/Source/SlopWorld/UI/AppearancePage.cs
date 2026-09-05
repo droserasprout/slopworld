@@ -23,6 +23,11 @@ namespace SlopWorld
 
         public void Draw(Rect rect)
         {
+            using (WidgetState.Save()) DrawCore(rect);
+        }
+
+        void DrawCore(Rect rect)
+        {
             Text.Font = GameFont.Small;
             var body = SlopWidgets.PageBody(rect);
             body.height += SlopWidgets.BtnH + SlopWidgets.GapS;
@@ -39,8 +44,7 @@ namespace SlopWorld
 
             var form = new Rect(inner.x, inner.y, inner.width,
                 caption.y - inner.y - SlopWidgets.GapS);
-            var view = new Rect(0f, 0f, form.width - SlopWidgets.ScrollbarW,
-                Mathf.Max(_fieldsH, form.height));
+            var view = SlopScrollBody.View(form, _fieldsH);
             using (_scroll.Scope(form, view))
                 _fieldsH = DrawFields(view);
 
@@ -298,22 +302,15 @@ namespace SlopWorld
                 "Mouse cursor");
 
             var box = new Rect(row.x + col, row.y + (row.height - boxW) / 2f, boxW, boxW);
-            Slab.Box(box, SlopWidgets.Well, SlopWidgets.Edge);
-
             var choice = DeadCursor.ChoiceFor(DeadCursor.CurrentKey);
             var tex = choice != null ? DeadCursor.Preview(choice) : null;
-            if (tex != null)
+            var tip = new TipSignal(DeadCursor.LabelFor(DeadCursor.CurrentKey) +
+                ". Click to choose a cursor.", 0x51_0F_0100);
+            if (IconPickerCell.DrawBox(box, r =>
             {
-                GUI.DrawTexture(box.ContractedBy(2f), tex, ScaleMode.ScaleToFit, true);
-                GUI.color = Color.white;
-            }
-
-            RowChrome.Hover(box, false, true, RowHoverPolicy.Local);
-            TooltipHandler.TipRegion(box, new TipSignal(
-                DeadCursor.LabelFor(DeadCursor.CurrentKey) + ". Click to choose a cursor.",
-                0x51_0F_0100));
-
-            if (Widgets.ButtonInvisible(box)) _pickingCursor = true;
+                if (tex != null) GUI.DrawTexture(r, tex, ScaleMode.ScaleToFit, true);
+            }, tip, RowHoverPolicy.Local))
+                _pickingCursor = true;
         }
 
         // ----------------------------------------------------------------- picker
@@ -322,65 +319,20 @@ namespace SlopWorld
         {
             const float pickW = 430f;
             const float pickH = 360f;
-
-            var pickRect = new Rect(
-                pageRect.x + (pageRect.width - pickW) / 2f,
-                pageRect.y + 50f,
-                pickW, pickH);
-
-            if (pickRect.yMax > pageRect.yMax - 8f)
-                pickRect.y = pageRect.yMax - 8f - pickH;
-            if (pickRect.y < pageRect.y + 8f)
-                pickRect.y = pageRect.y + 8f;
-
-            Find.WindowStack.ImmediateWindow(0x51_0F_1100, pickRect, WindowLayer.Super,
-                () => DrawCursorPickerWindow(pickW, pickH), true, false, 1f);
+            SlopPickerWindow.Show(0x51_0F_1100, pageRect, pickW, pickH, "Mouse cursor",
+                () => _pickingCursor = false, DeadCursor.Choices.Length, _pickScroll,
+                grid => DrawCursorGrid(grid));
         }
 
-        void DrawCursorPickerWindow(float width, float height)
+        void DrawCursorGrid(SlopPickerWindow.Grid grid)
         {
-            var r = new Rect(0f, 0f, width, height);
-            Text.Font = GameFont.Small;
-            SlopWidgets.RowLabel(
-                new Rect(r.x + 8f, r.y + 4f, r.width - 60f, SlopWidgets.LineH),
-                "Mouse cursor");
-
-            if (SlopWidgets.Button(
-                    new Rect(r.width - 48f, r.y + 2f, 44f, SlopWidgets.RowBtnH),
-                    "X", SlopWidgets.Btn.Ghost))
-                _pickingCursor = false;
-
-            const float cell = 38f;
             int count = DeadCursor.Choices.Length;
-            int perLine = Mathf.Max(1, Mathf.FloorToInt(
-                (r.width - SlopWidgets.GapM) / cell));
-            float gridTop = r.y + 4f + SlopWidgets.LineH + SlopWidgets.GapS;
-            float gridH = r.height - gridTop - SlopWidgets.GapS;
-            int rows = Mathf.CeilToInt(count / (float)perLine);
-            float totalH = rows * cell;
-            bool scroll = totalH > gridH;
-            float gridW = scroll
-                ? perLine * cell - SlopWidgets.ScrollbarW
-                : perLine * cell;
-            perLine = Mathf.Max(1, Mathf.FloorToInt(gridW / cell));
-            rows = Mathf.CeilToInt(count / (float)perLine);
-            totalH = rows * cell;
-
-            var gridRect = new Rect(r.x + (r.width - gridW) / 2f, gridTop, gridW, gridH);
-            var view = new Rect(0f, 0f, gridW, Mathf.Max(totalH, gridH));
-            using (_pickScroll.Scope(gridRect, view))
-                DrawCursorGrid(view, perLine, count, cell);
-        }
-
-        void DrawCursorGrid(Rect view, int perLine, int count, float cell)
-        {
-            const float iconSize = 30f;
             for (int i = 0; i < count; i++)
             {
-                int col = i % perLine;
-                int row = i / perLine;
-                var slot = new Rect(view.x + col * cell, view.y + row * cell,
-                    cell, cell);
+                int col = i % grid.Columns;
+                int row = i / grid.Columns;
+                var slot = new Rect(grid.View.x + col * grid.Cell,
+                    grid.View.y + row * grid.Cell, grid.Cell, grid.Cell);
                 var choice = DeadCursor.Choices[i];
                 string key = choice.Key;
 
@@ -388,8 +340,9 @@ namespace SlopWorld
                     RowHoverPolicy.Local);
                 var tex = DeadCursor.Preview(choice);
                 if (tex != null)
-                    GUI.DrawTexture(new Rect(slot.x + (cell - iconSize) / 2f,
-                        slot.y + (cell - iconSize) / 2f, iconSize, iconSize),
+                    GUI.DrawTexture(new Rect(slot.x + (grid.Cell - grid.IconSize) / 2f,
+                        slot.y + (grid.Cell - grid.IconSize) / 2f,
+                        grid.IconSize, grid.IconSize),
                         tex, ScaleMode.ScaleToFit, true);
 
                 TooltipHandler.TipRegion(slot, new TipSignal(
@@ -408,12 +361,9 @@ namespace SlopWorld
         // face or size choice legible even when the current page happens to use only Small.
         static void DrawPreview(Rect r)
         {
-            Slab.Box(r, SlopWidgets.Well, SlopWidgets.Edge);
-
-            var wasFont = Text.Font;
-            var wasColor = GUI.color;
-            try
+            using (WidgetState.Save())
             {
+                Slab.Box(r, SlopWidgets.Well, SlopWidgets.Edge);
                 float x = r.x + 8f, y = r.y + 5f;
                 float w = r.width - 16f;
                 const float tagW = 52f;
@@ -447,11 +397,6 @@ namespace SlopWorld
                     DrawColorKey(new Rect(x + (chipW + gap) * 3f, y, chipW, chipH), "LINK",
                         SlopWidgets.Accent);
                 }
-            }
-            finally
-            {
-                Text.Font = wasFont;
-                GUI.color = wasColor;
             }
         }
 

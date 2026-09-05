@@ -42,43 +42,41 @@ namespace SlopWorld
                 });
                 all = all.OrderBy(s => s.Name, System.StringComparer.OrdinalIgnoreCase).ToList();
             }
-            Slab.Box(outer, SlopWidgets.Well, SlopWidgets.Edge);
-            var pad = outer.ContractedBy(4f);
             if (all.Count == 0)
             {
-                GUI.color = SlopWidgets.Dim;
-                SlopWidgets.RowLabel(new Rect(pad.x, pad.y, pad.width, SlopWidgets.LineH),
+                SlopChoiceList<Entry>.Draw(outer, new List<SlopChoice<Entry>>(), scroll,
                     "No breadcrumbs yet. Add one from Library.");
-                GUI.color = Color.white;
                 return;
             }
 
-            var inner = new Rect(0f, 0f, pad.width - SlopWidgets.ScrollbarW,
-                all.Count * SlopWidgets.RowH);
-            using (scroll.Scope(pad, inner))
+            var choices = new List<SlopChoice<Entry>>();
+            foreach (var b in all)
             {
-                float y = 0f;
-                foreach (var b in all)
+                bool forced = !b.Instructions && implied != null && implied.Contains(b.Name);
+                bool was = b.Instructions ? b.On : forced || chosen.Contains(b.Name);
+                string tip = b.Instructions
+                    ? "Used when this agent mounts SLOPWORLD.md and discovery is enabled in " +
+                      "Settings > Integrations > Instructions."
+                    : (b.Text ?? "").Replace("\n", " ");
+                choices.Add(new SlopChoice<Entry>
                 {
-                    var cell = new Rect(SlopWidgets.GapS, y, inner.width - SlopWidgets.GapS,
-                        SlopWidgets.RowH);
-                    y += SlopWidgets.RowH;
-                    bool forced = !b.Instructions && implied != null && implied.Contains(b.Name);
-                    bool was = b.Instructions ? b.On : forced || chosen.Contains(b.Name);
-                    string tip = b.Instructions
-                        ? "Used when this agent mounts SLOPWORLD.md and discovery is enabled in " +
-                          "Settings > Integrations > Instructions."
-                        : (b.Text ?? "").Replace("\n", " ");
-                    bool on = SlopWidgets.Checkbox(cell, b.Name, was, tip, forced);
-                    if (on != was)
+                    Value = b,
+                    Label = b.Name,
+                    Tip = tip,
+                    On = was,
+                    Locked = forced,
+                    Changed = next =>
                     {
                         if (b.Instructions)
-                            onInstructionsChanged?.Invoke(on);
-                        else if (on) chosen.Add(b.Name);
+                            onInstructionsChanged?.Invoke(next);
+                        else if (next) chosen.Add(b.Name);
                         else chosen.Remove(b.Name);
-                    }
-                }
+                    },
+                });
             }
+
+            SlopChoiceList<Entry>.Draw(outer, choices, scroll,
+                "No breadcrumbs yet. Add one from Library.");
         }
     }
 }

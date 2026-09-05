@@ -12,9 +12,11 @@ namespace SlopWorld
     {
         public enum Section { Presets, Commands }
 
-        string _error;
-        bool _loaded;
+        readonly AsyncLoadState<bool> _load = new AsyncLoadState<bool>();
         readonly Section _section;
+
+        string _error { get => _load.Error; set => _load.SetError(value); }
+        bool _loaded => _load.HasValue && !_load.Loading;
 
         readonly SmoothScroll _listScroll = new SmoothScroll();
         readonly SmoothScroll _editorScroll = new SmoothScroll();
@@ -31,18 +33,16 @@ namespace SlopWorld
 
         public void Load()
         {
-            _loaded = false;
-            SessionHub.Instance.LoadPresets(() =>
+            _load.Load((ok, fail) => SessionHub.Instance.LoadPresets(() => ok(true), fail), _ =>
             {
                 if (_preset != null && !_newEntry)
                     _preset = SessionHub.Instance.Presets.FirstOrDefault(p => p.Name == _preset.Name);
                 if (_command != null && !_newEntry)
                     _command = SessionHub.Instance.Commands.FirstOrDefault(c => c.Name == _command.Name);
-                _loaded = true;
                 _error = null;
                 if (_newPresetRequested) NewPreset();
                 else if (_newCommandRequested) NewCommand();
-            }, msg => { _error = msg; _loaded = false; });
+            });
         }
 
         public void NewPreset()

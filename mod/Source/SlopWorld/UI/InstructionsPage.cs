@@ -14,16 +14,18 @@ namespace SlopWorld
     {
         enum Tab { Editor, Preview }
 
-        SlopConfig _cfg;
-        string _error;
+        readonly DaemonConfigState _configState = new DaemonConfigState();
         string _previewError;
-        bool _loaded;
         bool _previewBusy;
         bool _previewSample;
         string _previewText;
         string _previewProject;
         int _previewRequest;
         Tab _tab;
+
+        SlopConfig _cfg => _configState.Config;
+        string _error { get => _configState.Error; set => _configState.Error = value; }
+        bool _loaded => _configState.Loaded;
 
         readonly SmoothScroll _scroll = new SmoothScroll();
         readonly MarkdownPreview _preview = new MarkdownPreview("", "SLOPWORLD.md");
@@ -36,19 +38,18 @@ namespace SlopWorld
 
         public void Load()
         {
-            SlopClient.Get("/api/config",
-                j =>
-                {
-                    _cfg = SlopConfig.FromJson(j["values"]);
-                    SessionHub.Instance.Config = _cfg;
-                    _loaded = true;
-                    _error = null;
-                    if (_tab == Tab.Preview) RequestPreview();
-                },
-                msg => { _error = msg; _loaded = false; });
+            _configState.Load(false, () =>
+            {
+                if (_tab == Tab.Preview) RequestPreview();
+            });
         }
 
         public void Draw(Rect rect)
+        {
+            using (WidgetState.Save()) DrawCore(rect);
+        }
+
+        void DrawCore(Rect rect)
         {
             var body = SlopWidgets.PageBody(rect).ContractedBy(SlopWidgets.GapM);
             Tab before = _tab;
@@ -88,8 +89,7 @@ namespace SlopWorld
 
         void DrawEditor(Rect r)
         {
-            var view = new Rect(0f, 0f, r.width - SlopWidgets.ScrollbarW,
-                Mathf.Max(_fieldsH, r.height));
+            var view = SlopScrollBody.View(r, _fieldsH);
             using (_scroll.Scope(r, view))
             {
 
@@ -292,16 +292,11 @@ namespace SlopWorld
             }
             _cfg.InstructionsMountPath = path;
 
-            SlopClient.Put("/api/config/patch", _cfg.ToPatchJson(),
-                _ =>
-                {
-                    _error = null;
-                    SessionHub.Instance.Config = _cfg;
-                    SlopOptions.Reread();
-                    Messages.Message("SlopWorld: instructions settings saved.",
-                        MessageTypeDefOf.TaskCompletion, false);
-                },
-                msg => _error = msg);
+            _configState.Save(null, () =>
+            {
+                Messages.Message("SlopWorld: instructions settings saved.",
+                    MessageTypeDefOf.TaskCompletion, false);
+            });
         }
 
         public void Dispose()
