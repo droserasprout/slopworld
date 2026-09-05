@@ -83,7 +83,7 @@ namespace SlopWorld
 
         // The mark on a row with a list under it, drawn in the arrow a folded project head
         // wears in the sidebar: one shape for "there is more here than this line".
-        const float ArrowW = 11f;
+        const float ArrowW = SlopWidgets.DisclosureW;
 
         // How long the pointer rests on a row before its list opens. Long enough that a
         // pointer crossing the menu on its way to a row further down does not leave a trail

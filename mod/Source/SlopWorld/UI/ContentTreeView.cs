@@ -81,7 +81,7 @@ namespace SlopWorld
         const float Indent = 11f;
         const float Pad = SlopWidgets.GapS;
         const float CellX = SlopWidgets.GapS;
-        const float ArrowW = 11f;
+        const float ArrowW = SlopWidgets.DisclosureW;
 
         readonly ContentTreeSource _source;
         readonly SmoothScroll _scroll = new SmoothScroll();
@@ -190,42 +190,42 @@ namespace SlopWorld
 
         float DrawGroup(float width, float y, ContentTreeGroup group)
         {
-            var row = new Rect(0f, y, width, RowH);
-            bool collapsed = _source.IsGroupCollapsed(group);
+            using (WidgetState.Save())
+            {
+                var row = new Rect(0f, y, width, RowH);
+                bool collapsed = _source.IsGroupCollapsed(group);
 
-            bool over = RowChrome.Hover(row, false, true, RowHoverPolicy.OverlayAware);
-            GUI.color = SlopWidgets.Faint;
-            var arrow = new Rect(CellX, row.y + (RowH - ArrowW) / 2f, ArrowW, ArrowW);
-            GUI.DrawTexture(arrow, collapsed ? TexButton.Reveal : TexButton.Collapse);
+                bool over = RowChrome.Hover(row, false, true, RowHoverPolicy.OverlayAware);
+                GUI.color = SlopWidgets.Faint;
+                var arrow = new Rect(CellX, row.y + (RowH - ArrowW) / 2f, ArrowW, ArrowW);
+                GUI.DrawTexture(arrow, collapsed ? TexButton.Reveal : TexButton.Collapse);
 
-            Text.Font = GameFont.Tiny;
-            Text.Anchor = TextAnchor.MiddleLeft;
-            GroupAct acts = over ? _source.GroupActions(group) : GroupAct.None;
-            float right = row.width - CellX;
-            if (acts != GroupAct.None)
-                right = GroupActions.Draw(row, right, acts) - 4f;
-            else
-                right = _source.DrawGroupTail(row, group, right);
-            float left = arrow.xMax + 4f;
-            var label = new Rect(left, row.y, Mathf.Max(0f, right - left), RowH);
-            SlopWidgets.RowLabel(label, group.Label);
+                Text.Font = GameFont.Tiny;
+                Text.Anchor = TextAnchor.MiddleLeft;
+                GroupAct acts = over ? _source.GroupActions(group) : GroupAct.None;
+                float right = row.width - CellX;
+                if (acts != GroupAct.None)
+                    right = GroupActions.Draw(row, right, acts) - 4f;
+                else
+                    right = _source.DrawGroupTail(row, group, right);
+                float left = arrow.xMax + 4f;
+                var label = new Rect(left, row.y, Mathf.Max(0f, right - left), RowH);
+                SlopWidgets.RowLabel(label, group.Label);
 
-            Slab.Hairline(new Rect(CellX, row.yMax - 1f, row.width - CellX * 2f, 1f),
-                SlopWidgets.Edge);
-            GUI.color = Color.white;
-            Text.Anchor = TextAnchor.UpperLeft;
-            Text.Font = GameFont.Small;
+                Slab.Hairline(new Rect(CellX, row.yMax - 1f, row.width - CellX * 2f, 1f),
+                    SlopWidgets.Edge);
 
-            string tip = _source.GroupTooltip(group);
-            if (!string.IsNullOrEmpty(tip) && GroupActions.Hit(row, row.width - CellX, acts)
-                == GroupAct.None)
-                TooltipHandler.TipRegion(row, tip + "\n\nClick to fold.");
-            _lines.Add(new Line { Group = group, Rect = row });
-            y += RowH;
+                string tip = _source.GroupTooltip(group);
+                if (!string.IsNullOrEmpty(tip) && GroupActions.Hit(row, row.width - CellX, acts)
+                    == GroupAct.None)
+                    TooltipHandler.TipRegion(row, tip + "\n\nClick to fold.");
+                _lines.Add(new Line { Group = group, Rect = row });
+                y += RowH;
 
-            if (collapsed) return y;
-            y = _source.DrawGroupBody(width, y, group);
-            return group.Root == null ? y : DrawRows(width, y, group.Root);
+                if (collapsed) return y;
+                y = _source.DrawGroupBody(width, y, group);
+                return group.Root == null ? y : DrawRows(width, y, group.Root);
+            }
         }
 
         float DrawRows(float width, float y, IContentTreeNode parent)
@@ -262,53 +262,52 @@ namespace SlopWorld
 
         float DrawRow(float width, float y, IContentTreeNode node)
         {
-            var row = new Rect(0f, y, width, RowH);
-            bool over = RowChrome.Hover(row, IsSelected(node), true,
-                RowHoverPolicy.OverlayAware, RowSelectionStyle.Hover);
-
-            float x = CellX + node.Depth * Indent;
-            if (node.IsDirectory && node.CanExpand)
+            using (WidgetState.Save())
             {
-                GUI.color = SlopWidgets.Faint;
-                GUI.DrawTexture(new Rect(x, y + (RowH - ArrowW) / 2f, ArrowW, ArrowW),
-                    _source.IsExpanded(node) ? TexButton.Collapse : TexButton.Reveal);
-                GUI.color = Color.white;
+                var row = new Rect(0f, y, width, RowH);
+                bool over = RowChrome.Hover(row, IsSelected(node), true,
+                    RowHoverPolicy.OverlayAware, RowSelectionStyle.Hover);
+
+                float x = CellX + node.Depth * Indent;
+                if (node.IsDirectory && node.CanExpand)
+                {
+                    GUI.color = SlopWidgets.Faint;
+                    GUI.DrawTexture(new Rect(x, y + (RowH - ArrowW) / 2f, ArrowW, ArrowW),
+                        _source.IsExpanded(node) ? TexButton.Collapse : TexButton.Reveal);
+                }
+                x += ArrowW + 3f;
+
+                var icon = FileIcons.Of(node.Name, node.IsDirectory);
+                if (icon != null)
+                    GUI.DrawTexture(new Rect(x, y + (RowH - IconW) / 2f, IconW, IconW), icon);
+                x += IconW + 5f;
+
+                Text.Font = GameFont.Tiny;
+                float right = width - Pad;
+                RowAct acts = over ? _source.Actions(node) : RowAct.None;
+                if (acts != RowAct.None)
+                    right = RowActions.Draw(row, right, acts) - 4f;
+                else
+                    right = _source.DrawRowTail(row, node, right);
+
+                Text.Anchor = TextAnchor.MiddleLeft;
+                GUI.color = node.IsDirectory ? SlopWidgets.Lead : SlopWidgets.Name;
+                SlopWidgets.RowLabel(new Rect(x, y, Mathf.Max(0f, right - x - 2f), RowH), node.Name);
+
+                if (!string.IsNullOrEmpty(_source.RowTooltip(node)) &&
+                    RowActions.Hit(row, width - Pad, acts) == RowAct.None)
+                    TooltipHandler.TipRegion(row, _source.RowTooltip(node));
+
+                _lines.Add(new Line { Node = node, Rect = row });
+                if (_reveal != null && _reveal == _source.SelectionKey(node))
+                {
+                    // Apply before Begin on the next pass. Changing the scroll transform inside
+                    // its GUI group would make this pass's drawing and hit testing disagree.
+                    _revealTop = row.y;
+                    _reveal = null;
+                }
+                return y + RowH;
             }
-            x += ArrowW + 3f;
-
-            var icon = FileIcons.Of(node.Name, node.IsDirectory);
-            if (icon != null)
-                GUI.DrawTexture(new Rect(x, y + (RowH - IconW) / 2f, IconW, IconW), icon);
-            x += IconW + 5f;
-
-            Text.Font = GameFont.Tiny;
-            float right = width - Pad;
-            RowAct acts = over ? _source.Actions(node) : RowAct.None;
-            if (acts != RowAct.None)
-                right = RowActions.Draw(row, right, acts) - 4f;
-            else
-                right = _source.DrawRowTail(row, node, right);
-
-            Text.Anchor = TextAnchor.MiddleLeft;
-            GUI.color = node.IsDirectory ? SlopWidgets.Lead : SlopWidgets.Name;
-            SlopWidgets.RowLabel(new Rect(x, y, Mathf.Max(0f, right - x - 2f), RowH), node.Name);
-            GUI.color = Color.white;
-            Text.Anchor = TextAnchor.UpperLeft;
-            Text.Font = GameFont.Small;
-
-            if (!string.IsNullOrEmpty(_source.RowTooltip(node)) &&
-                RowActions.Hit(row, width - Pad, acts) == RowAct.None)
-                TooltipHandler.TipRegion(row, _source.RowTooltip(node));
-
-            _lines.Add(new Line { Node = node, Rect = row });
-            if (_reveal != null && _reveal == _source.SelectionKey(node))
-            {
-                // Apply before Begin on the next pass. Changing the scroll transform inside
-                // its GUI group would make this pass's drawing and hit testing disagree.
-                _revealTop = row.y;
-                _reveal = null;
-            }
-            return y + RowH;
         }
 
         public bool IsSelected(IContentTreeNode node) =>

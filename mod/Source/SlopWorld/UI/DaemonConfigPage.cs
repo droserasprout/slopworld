@@ -8,10 +8,12 @@ namespace SlopWorld
     // concrete page supplies its fields and any save-time conversion it needs.
     public abstract class DaemonConfigPage : IOptionPage
     {
-        protected SlopConfig _cfg;
-        protected string _path = "";
-        protected string _error;
-        protected bool _loaded;
+        readonly DaemonConfigState _configState = new DaemonConfigState();
+
+        protected SlopConfig _cfg => _configState.Config;
+        protected string _path => _configState.Path;
+        protected string _error { get => _configState.Error; set => _configState.Error = value; }
+        protected bool _loaded => _configState.Loaded;
 
         readonly SmoothScroll _scroll = new SmoothScroll();
         float _fieldsH;
@@ -43,21 +45,15 @@ namespace SlopWorld
 
         public void Load()
         {
-            if (RefreshHealthOnLoad) SessionHub.Instance.RefreshHealth();
-            SlopClient.Get("/api/config",
-                j =>
-                {
-                    _cfg = SlopConfig.FromJson(j["values"]);
-                    SessionHub.Instance.Config = _cfg;
-                    AfterLoad();
-                    _path = j["path"].AsString();
-                    _loaded = true;
-                    _error = null;
-                },
-                msg => { _error = msg; _loaded = false; });
+            _configState.Load(RefreshHealthOnLoad, AfterLoad);
         }
 
         public void Draw(Rect rect)
+        {
+            using (WidgetState.Save()) DrawCore(rect);
+        }
+
+        void DrawCore(Rect rect)
         {
             var body = SlopWidgets.PageBody(rect);
             var inner = body.ContractedBy(SlopWidgets.GapM);
@@ -79,8 +75,7 @@ namespace SlopWorld
 
         void DrawFieldsBody(Rect r)
         {
-            var view = new Rect(0f, 0f, r.width - SlopWidgets.ScrollbarW,
-                Mathf.Max(_fieldsH, r.height));
+            var view = SlopScrollBody.View(r, _fieldsH);
             using (_scroll.Scope(r, view))
             {
                 var l = new Listing_Standard { maxOneColumn = true };
@@ -113,18 +108,13 @@ namespace SlopWorld
         void Save()
         {
             if (!_loaded) return;
-            BeforeSave();
-
-            SlopClient.Put("/api/config/patch", _cfg.ToPatchJson(),
-                _ =>
-                {
-                    _error = null;
-                    AfterSave();
-                    if (!string.IsNullOrEmpty(SavedMessage))
-                        Messages.Message("SlopWorld: " + SavedMessage,
-                            MessageTypeDefOf.TaskCompletion, false);
-                },
-                msg => _error = msg);
+            _configState.Save(BeforeSave, () =>
+            {
+                AfterSave();
+                if (!string.IsNullOrEmpty(SavedMessage))
+                    Messages.Message("SlopWorld: " + SavedMessage,
+                        MessageTypeDefOf.TaskCompletion, false);
+            });
         }
     }
 }

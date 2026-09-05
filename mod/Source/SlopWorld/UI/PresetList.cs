@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
-using Verse;
 
 namespace SlopWorld
 {
@@ -23,56 +22,52 @@ namespace SlopWorld
             var presets = allPresets
                 .Where(p => p.Name != "global")
                 .ToList();
-            Slab.Box(outer, SlopWidgets.Well, SlopWidgets.Edge);
-            var pad = outer.ContractedBy(4f);
-
             if (allPresets.Count == 0)
             {
-                GUI.color = SlopWidgets.Dim;
-                SlopWidgets.RowLabel(new Rect(pad.x, pad.y, pad.width, SlopWidgets.LineH),
+                SlopChoiceList<PresetInfo>.Draw(outer,
+                    new List<SlopChoice<PresetInfo>>(), scroll,
                     "The daemon has not sent its preset list yet.");
-                GUI.color = Color.white;
                 return;
             }
 
             if (presets.Count == 0)
             {
-                GUI.color = SlopWidgets.Dim;
-                SlopWidgets.RowLabel(new Rect(pad.x, pad.y, pad.width, SlopWidgets.LineH),
+                SlopChoiceList<PresetInfo>.Draw(outer,
+                    new List<SlopChoice<PresetInfo>>(), scroll,
                     "No optional presets are available.");
-                GUI.color = Color.white;
                 return;
             }
 
             presets = presets
                 .OrderBy(p => p.Name, System.StringComparer.OrdinalIgnoreCase)
                 .ToList();
-            float h = presets.Count * RowH;
-            var inner = new Rect(0f, 0f, pad.width - SlopWidgets.ScrollbarW, h);
-
-            using (scroll.Scope(pad, inner))
+            var roots = new List<string>(chosen);
+            if (implied != null) roots.AddRange(implied);
+            var required = RequiredBy(roots, presets);
+            var choices = new List<SlopChoice<PresetInfo>>();
+            foreach (var pr in presets)
             {
-                float y = 0f;
-                var roots = new List<string>(chosen);
-                if (implied != null) roots.AddRange(implied);
-                var required = RequiredBy(roots, presets);
-                foreach (var pr in presets)
+                bool forced = (implied != null && implied.Contains(pr.Name)) ||
+                              (required.Contains(pr.Name) && !chosen.Contains(pr.Name));
+                bool was = forced || chosen.Contains(pr.Name);
+                choices.Add(new SlopChoice<PresetInfo>
                 {
-                    var cell = new Rect(SlopWidgets.GapS, y,
-                        inner.width - SlopWidgets.GapS, RowH);
-                    y += RowH;
-
-                    bool forced = (implied != null && implied.Contains(pr.Name)) ||
-                                  (required.Contains(pr.Name) && !chosen.Contains(pr.Name));
-                    bool was = forced || chosen.Contains(pr.Name);
-                    bool on = SlopWidgets.Checkbox(cell, pr.Name, was, Tip(pr, forced), forced,
-                                                   pr.IsEscape);
-
-                    if (on == was) continue;
-                    if (on) chosen.Add(pr.Name);
-                    else chosen.Remove(pr.Name);
-                }
+                    Value = pr,
+                    Label = pr.Name,
+                    Tip = Tip(pr, forced),
+                    On = was,
+                    Locked = forced,
+                    Warn = pr.IsEscape,
+                    Changed = next =>
+                    {
+                        if (next) chosen.Add(pr.Name);
+                        else chosen.Remove(pr.Name);
+                    },
+                });
             }
+
+            SlopChoiceList<PresetInfo>.Draw(outer, choices, scroll,
+                "No optional presets are available.");
         }
 
         static HashSet<string> RequiredBy(IEnumerable<string> chosen, List<PresetInfo> presets)

@@ -273,7 +273,7 @@ namespace SlopWorld
             float listH = projects.Count * rowH;
             var listRect = new Rect(rect.x, y, rect.width, Mathf.Min(listH + 8f, rect.yMax - y));
             Slab.Box(listRect, SlopWidgets.Well, SlopWidgets.Edge);
-            var pad = listRect.ContractedBy(4f);
+            var pad = listRect.ContractedBy(SlopWidgets.ListInset);
             var inner = new Rect(0f, 0f, pad.width - SlopWidgets.ScrollbarW, listH);
 
             using (_mountsScroll.Scope(pad, inner))

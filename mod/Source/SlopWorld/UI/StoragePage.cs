@@ -33,30 +33,34 @@ namespace SlopWorld
         }
 
         readonly SmoothScroll _scroll = new SmoothScroll();
-        List<Entry> _entries = new List<Entry>();
-        string _error;
-        bool _loading;
+        readonly AsyncLoadState<List<Entry>> _load =
+            new AsyncLoadState<List<Entry>>();
+        static readonly List<Entry> EmptyEntries = new List<Entry>();
+
+        List<Entry> _entries => _load.Value ?? EmptyEntries;
+        string _error { get => _load.Error; set => _load.SetError(value); }
+        bool _loading => _load.Loading;
 
         const float Pitch = 58f;
         const float LikesIconW = 22f;
 
         public void Load()
         {
-            _loading = true;
-            SlopClient.Get("/api/state", j =>
-            {
-                _entries = j["entries"].Items.Select(Entry.FromJson)
+            _load.Load((ok, fail) => SlopClient.Get("/api/state", j => ok(
+                j["entries"].Items.Select(Entry.FromJson)
                     .OrderBy(e => KindRank(e.Kind))
                     .ThenByDescending(e => e.Modified)
                     .ThenBy(e => e.Session ?? e.Key, StringComparer.OrdinalIgnoreCase)
                     .ThenBy(e => e.Key, StringComparer.Ordinal)
-                    .ToList();
-                _loading = false;
-                _error = null;
-            }, msg => { _loading = false; _error = msg; });
+                    .ToList()), fail));
         }
 
         public void Draw(Rect rect)
+        {
+            using (WidgetState.Save()) DrawCore(rect);
+        }
+
+        void DrawCore(Rect rect)
         {
             var likes = new Rect(rect.xMax - LikesIconW,
                 rect.y + (SlopWidgets.RowH - LikesIconW) / 2f, LikesIconW, LikesIconW);

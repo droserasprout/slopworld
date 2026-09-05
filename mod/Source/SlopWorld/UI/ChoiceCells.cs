@@ -1,0 +1,162 @@
+using UnityEngine;
+using RimWorld;
+using Verse;
+using Verse.Sound;
+
+namespace SlopWorld
+{
+    // Small interactive cells use an explicit hover policy so local dialogs cannot answer
+    // map-overlay hover, while map rows can opt into OverlayAware at their call site.
+    public static class ToggleCell
+    {
+        public static bool Draw(Rect rect, string label, bool on, string tip = null,
+                                bool locked = false, bool warn = false,
+                                RowHoverPolicy hoverPolicy = RowHoverPolicy.Local)
+        {
+            using (WidgetState.Save())
+            {
+                bool over = RowChrome.Hover(rect, false, !locked, hoverPolicy);
+                if (!string.IsNullOrEmpty(tip)) TooltipHandler.TipRegion(rect, tip);
+                var box = SlopWidgets.TickBox(
+                    new Rect(rect.x + 1f, rect.y, SlopWidgets.TickW, rect.height), on, locked);
+                GUI.color = locked ? SlopWidgets.Faint : warn ? SlopWidgets.Warn
+                    : over ? SlopWidgets.Lead : SlopWidgets.Name;
+                SlopWidgets.RowLabel(new Rect(box.xMax + SlopWidgets.GapS, rect.y,
+                    rect.xMax - box.xMax - SlopWidgets.GapS, rect.height), label);
+                if (locked || !Widgets.ButtonInvisible(rect)) return on;
+                SoundDefOf.Click.PlayOneShotOnCamera();
+                return !on;
+            }
+        }
+
+        public static bool DrawCheck(Rect rect, bool on, string tip = null,
+                                     bool locked = false,
+                                     RowHoverPolicy hoverPolicy = RowHoverPolicy.Local)
+        {
+            using (WidgetState.Save())
+            {
+                RowChrome.Hover(rect, false, !locked, hoverPolicy);
+                if (!string.IsNullOrEmpty(tip)) TooltipHandler.TipRegion(rect, tip);
+                SlopWidgets.TickBox(new Rect(rect.center.x - SlopWidgets.TickW / 2f,
+                    rect.y, SlopWidgets.TickW, rect.height), on, locked);
+                if (locked || !Widgets.ButtonInvisible(rect)) return on;
+                SoundDefOf.Click.PlayOneShotOnCamera();
+                return !on;
+            }
+        }
+    }
+
+    // Icon picker cells own the standard well and hit target; the caller only supplies the
+    // icon drawing because cursor previews and ThingDefs have different render primitives.
+    public static class IconPickerCell
+    {
+        public static bool Draw(Rect area, System.Action<Rect> draw, string tip,
+                                RowHoverPolicy hoverPolicy = RowHoverPolicy.Local)
+        {
+            using (WidgetState.Save())
+            {
+                float boxW = Mathf.Min(area.height - 2f, area.width - SlopWidgets.GapS);
+                var box = new Rect(area.center.x - boxW / 2f,
+                    area.y + (area.height - boxW) / 2f, boxW, boxW);
+                return DrawBoxCore(box, draw,
+                    r => { if (!string.IsNullOrEmpty(tip)) TooltipHandler.TipRegion(r, tip); },
+                    hoverPolicy);
+            }
+        }
+
+        public static bool Draw(Rect area, System.Action<Rect> draw, TipSignal tip,
+                                RowHoverPolicy hoverPolicy = RowHoverPolicy.Local)
+        {
+            using (WidgetState.Save())
+            {
+                float boxW = Mathf.Min(area.height - 2f, area.width - SlopWidgets.GapS);
+                var box = new Rect(area.center.x - boxW / 2f,
+                    area.y + (area.height - boxW) / 2f, boxW, boxW);
+                return DrawBoxCore(box, draw, r => TooltipHandler.TipRegion(r, tip),
+                    hoverPolicy);
+            }
+        }
+
+        public static bool DrawBox(Rect box, System.Action<Rect> draw, string tip,
+                                   RowHoverPolicy hoverPolicy = RowHoverPolicy.Local)
+        {
+            using (WidgetState.Save())
+                return DrawBoxCore(box, draw,
+                    r => { if (!string.IsNullOrEmpty(tip)) TooltipHandler.TipRegion(r, tip); },
+                    hoverPolicy);
+        }
+
+        public static bool DrawBox(Rect box, System.Action<Rect> draw, TipSignal tip,
+                                   RowHoverPolicy hoverPolicy = RowHoverPolicy.Local)
+        {
+            using (WidgetState.Save())
+                return DrawBoxCore(box, draw, r => TooltipHandler.TipRegion(r, tip), hoverPolicy);
+        }
+
+        static bool DrawBoxCore(Rect box, System.Action<Rect> draw,
+                                System.Action<Rect> showTip, RowHoverPolicy hoverPolicy)
+        {
+            Slab.Box(box, SlopWidgets.Well, SlopWidgets.Edge);
+            draw?.Invoke(box.ContractedBy(SlopWidgets.IconInset));
+            RowChrome.Hover(box, false, true, hoverPolicy);
+            showTip?.Invoke(box);
+            return Widgets.ButtonInvisible(box);
+        }
+    }
+
+    public sealed class SlopChoice<T>
+    {
+        public T Value;
+        public string Label;
+        public string Tip;
+        public bool On;
+        public bool Locked;
+        public bool Warn;
+        public System.Action<bool> Changed;
+    }
+
+    // Framed choice-list contract: inset, empty state, scrolling, row pitch, and checkbox
+    // input are shared; adapters calculate dependency/implicit state and receive changes.
+    public static class SlopChoiceList<T>
+    {
+        public static void Draw(Rect outer, System.Collections.Generic.IList<SlopChoice<T>> choices,
+                                SmoothScroll scroll, string empty)
+        {
+            using (WidgetState.Save())
+            {
+                Slab.Box(outer, SlopWidgets.Well, SlopWidgets.Edge);
+                var pad = outer.ContractedBy(SlopWidgets.ListInset);
+                if (choices == null || choices.Count == 0)
+                {
+                    using (WidgetState.Save())
+                    {
+                        GUI.color = SlopWidgets.Dim;
+                        SlopWidgets.RowLabel(new Rect(pad.x, pad.y, pad.width,
+                            SlopWidgets.LineH), empty);
+                    }
+                    return;
+                }
+
+                var inner = new Rect(0f, 0f, pad.width - SlopWidgets.ScrollbarW,
+                    choices.Count * SlopWidgets.RowH);
+                using (scroll.Scope(pad, inner))
+                {
+                    float y = 0f;
+                    foreach (var choice in choices)
+                    {
+                        var cell = new Rect(SlopWidgets.GapS, y,
+                            inner.width - SlopWidgets.GapS, SlopWidgets.RowH);
+                        y += SlopWidgets.RowH;
+                        bool next = ToggleCell.Draw(cell, choice.Label, choice.On, choice.Tip,
+                            choice.Locked, choice.Warn, RowHoverPolicy.Local);
+                        if (next != choice.On)
+                        {
+                            choice.On = next;
+                            choice.Changed?.Invoke(next);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

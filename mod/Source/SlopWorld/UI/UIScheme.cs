@@ -24,7 +24,9 @@ namespace SlopWorld
 
         // Not in the table, because they are not choices: a well is the view's own surface
         // seen through a frame, and a selection is the accent at the one strength that lets
-        // the row under it still be read.
+        // the row under it still be read. Library kind badges are another deliberate fixed-
+        // palette exception: they are identity labels (prompt/shell/breadcrumb/file action),
+        // not scheme-owned semantic colors, so they remain stable while a scheme changes.
         public readonly Color Well, Sel;
 
         // The scheme drawn rather than described, for the swatch strip on the options page.

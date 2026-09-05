@@ -27,21 +27,9 @@ namespace SlopWorld
 
         protected override void DoBody(Rect rect)
         {
-            SlopWidgets.Title(rect, _title);
+            _name = SlopTextDialog.Draw(rect, _title, null, "file-name", _name, _error);
 
-            var field = new Rect(rect.x, rect.y + SlopWidgets.HeaderH + SlopWidgets.GapM,
-                rect.width, SlopWidgets.FieldH);
-            _name = SlopWidgets.Field(field, "file-name", _name);
-
-            if (!string.IsNullOrEmpty(_error))
-            {
-                GUI.color = SlopWidgets.Bad;
-                SlopWidgets.RowLabel(new Rect(rect.x, field.yMax + SlopWidgets.GapS,
-                    rect.width, SlopWidgets.RowH), _error);
-                GUI.color = Color.white;
-            }
-
-            var foot = new SlopWidgets.Bar(SlopWidgets.FooterBar(rect));
+            var foot = SlopTextDialog.Footer(rect);
             if (foot.Left("Cancel", SlopWidgets.Btn.Ghost)) Close();
             if (foot.Right("Save", SlopWidgets.Btn.Primary)) Save();
         }

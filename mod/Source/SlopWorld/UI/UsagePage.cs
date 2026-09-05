@@ -146,18 +146,9 @@ namespace SlopWorld
                 DrawIconButton(new Rect(iconX, row.y, iconW, row.height), key);
 
                 var poll = new Rect(pollX, row.y, pollW, row.height);
-                RowChrome.Hover(poll, false, true, RowHoverPolicy.OverlayAware);
-                SlopWidgets.TickBox(
-                    new Rect(poll.center.x - SlopWidgets.TickW / 2f, poll.y,
-                        SlopWidgets.TickW, poll.height), item.Poll);
-                TooltipHandler.TipRegion(poll, new TipSignal(
+                item.Poll = ToggleCell.DrawCheck(poll, item.Poll,
                     item.Poll ? "Stop polling this usage window." : "Poll this usage window.",
-                    0x51_0F_0010 ^ key.GetHashCode()));
-                if (Widgets.ButtonInvisible(poll))
-                {
-                    item.Poll = !item.Poll;
-                    SoundDefOf.Click.PlayOneShotOnCamera();
-                }
+                    false, RowHoverPolicy.OverlayAware);
 
                 var field = new Rect(intervalX + SlopWidgets.GapXS,
                     row.y + (row.height - SlopWidgets.FieldH) / 2f,
@@ -174,27 +165,17 @@ namespace SlopWorld
 
         void DrawIconButton(Rect area, string key)
         {
-            float boxW = Mathf.Min(area.height - 2f, area.width - SlopWidgets.GapS);
-            var box = new Rect(area.center.x - boxW / 2f,
-                area.y + (area.height - boxW) / 2f, boxW, boxW);
-            Slab.Box(box, SlopWidgets.Well, SlopWidgets.Edge);
-
             var icon = UsageReadout.IconFor(key);
-            if (icon != null)
+            var tip = new TipSignal(UsageReadout.Chosen(key) != null
+                ? "This row's icon, chosen. Click to change it."
+                : "This row's icon, picked automatically. Click to choose one.",
+                0x51_0F_0003 ^ key.GetHashCode());
+            if (IconPickerCell.Draw(area, r =>
             {
-                Widgets.ThingIcon(box.ContractedBy(2f), icon);
-                GUI.color = Color.white;
-            }
-            else
-                Slab.Fill(box.ContractedBy(SlopWidgets.GapS - 1f), SlopWidgets.Off);
-
-            RowChrome.Hover(box, false, true, RowHoverPolicy.Local);
-            TooltipHandler.TipRegion(box, new TipSignal(
-                UsageReadout.Chosen(key) != null
-                    ? "This row's icon, chosen. Click to change it."
-                    : "This row's icon, picked automatically. Click to choose one.",
-                0x51_0F_0003 ^ key.GetHashCode()));
-            if (Widgets.ButtonInvisible(box)) _pickingKey = key;
+                if (icon != null) Widgets.ThingIcon(r, icon);
+                else Slab.Fill(r, SlopWidgets.Off);
+            }, tip, RowHoverPolicy.Local))
+                _pickingKey = key;
         }
 
 
@@ -207,114 +188,62 @@ namespace SlopWorld
         {
             const float pickW = 380f;
             const float pickH = 360f;
-
-            var pickRect = new Rect(
-                pageRect.x + (pageRect.width - pickW) / 2f,
-                pageRect.y + 50f,
-                pickW, pickH);
-
-            // Clamp to the page so it never spills off the bottom.
-            if (pickRect.yMax > pageRect.yMax - 8f)
-                pickRect.y = pageRect.yMax - 8f - pickH;
-            if (pickRect.y < pageRect.y + 8f)
-                pickRect.y = pageRect.y + 8f;
-
-            Find.WindowStack.ImmediateWindow(0x51_0F_1000 ^ key.GetHashCode(),
-                pickRect, WindowLayer.Super, () => DrawPickerContents(
-                    new Rect(0f, 0f, pickW, pickH), key), true, false, 1f);
+            SlopPickerWindow.Show(0x51_0F_1000 ^ key.GetHashCode(), pageRect, pickW, pickH,
+                UsageReadout.Long(key), () => _pickingKey = null, Choices.Count + 1,
+                _pickScroll, grid => DrawPickerGrid(grid, key), SlopWidgets.GapXS, 8f);
         }
 
-        void DrawPickerContents(Rect r, string key)
+        void DrawPickerGrid(SlopPickerWindow.Grid grid, string key)
         {
-            // Title bar: the key name and an X button.
-            Text.Font = GameFont.Small;
-            SlopWidgets.RowLabel(
-                new Rect(r.x + 8f, r.y + 4f, r.width - 60f, SlopWidgets.LineH),
-                UsageReadout.Long(key));
-
-            if (SlopWidgets.Button(
-                    new Rect(r.width - 48f, r.y + 2f, 44f, SlopWidgets.RowBtnH), "X",
-                    SlopWidgets.Btn.Ghost))
-                _pickingKey = null;
-
-            DrawPickerGrid(r, key);
-        }
-
-        float DrawPickerGrid(Rect r, string key)
-        {
-            // Grid of icons.
-            const float Cell = 38f;
-            const float IconSize = 30f;
-            float gridTop = r.y + 4f + SlopWidgets.LineH + SlopWidgets.GapXS;
-            float gridH = r.height - gridTop - 8f;
-            int perLine = Mathf.Max(1, Mathf.FloorToInt(
-                (r.width - SlopWidgets.GapM) / Cell));
-            float gridW = perLine * Cell;
-
             // The automatic cell, then the palette.
             int count = Choices.Count + 1;
-            int rows = Mathf.CeilToInt(count / (float)perLine);
-            float totalH = rows * Cell;
-            bool scroll = totalH > gridH;
-            // If scrolling, shrink the grid by the scrollbar width.
-            float gridW2 = scroll ? gridW - SlopWidgets.ScrollbarW : gridW;
-            perLine = Mathf.Max(1, Mathf.FloorToInt(gridW2 / Cell));
-            gridW2 = perLine * Cell;
-
-            var view = new Rect(0f, 0f, gridW2, Mathf.Max(totalH, gridH));
-            using (_pickScroll.Scope(
-                new Rect(r.x + (r.width - gridW2) / 2f, gridTop, gridW2, gridH), view))
+            // Read once for the whole grid rather than per cell: it parses the settings
+            // string, and every cell asks the same question of it.
+            var chosen = UsageReadout.Chosen(key);
+            for (int i = 0; i < count; i++)
             {
+                // Null is the automatic cell, and is null all the way through - what it
+                // draws, what its tooltip says, and what the click writes.
+                var def = i == 0 ? null : Choices[i - 1];
+                int col = i % grid.Columns;
+                int row = i / grid.Columns;
+                var cell = new Rect(grid.View.x + col * grid.Cell,
+                    grid.View.y + row * grid.Cell, grid.Cell, grid.Cell);
 
-                // Read once for the whole grid rather than per cell: it parses the settings
-                // string, and every cell asks the same question of it.
-                var chosen = UsageReadout.Chosen(key);
+                RowChrome.Hover(cell, def == chosen, true, RowHoverPolicy.Local);
 
-                for (int i = 0; i < count; i++)
+                var box = new Rect(cell.x + (grid.Cell - grid.IconSize) / 2f,
+                    cell.y + (grid.Cell - grid.IconSize) / 2f,
+                    grid.IconSize, grid.IconSize);
+
+                if (def != null)
                 {
-                    // Null is the automatic cell, and is null all the way through - what it
-                    // draws, what its tooltip says, and what the click writes.
-                    var def = i == 0 ? null : Choices[i - 1];
-                    int col = i % perLine;
-                    int row = i / perLine;
-                    var cell = new Rect(view.x + col * Cell, view.y + row * Cell, Cell, Cell);
-
-                    RowChrome.Hover(cell, def == chosen, true, RowHoverPolicy.Local);
-
-                    var box = new Rect(cell.x + (Cell - IconSize) / 2f,
-                        cell.y + (Cell - IconSize) / 2f, IconSize, IconSize);
-
-                    if (def != null)
-                    {
-                        Widgets.ThingIcon(box, def);
-                    }
-                    else
-                    {
-                        // Grey, and drawn a little smaller than a thing: it is the one cell
-                        // here that is not an item, and it should not read as the loudest.
-                        GUI.color = SlopWidgets.Dim;
-                        GUI.DrawTexture(box.ContractedBy(3f), Icons.Cross);
-                    }
-                    GUI.color = Color.white;
-
-                    TooltipHandler.TipRegion(cell, new TipSignal(
-                        def != null
-                            ? def.LabelCap.ToString()
-                            : "Automatic - whichever icon this mod would have picked.",
-                        def != null
-                            ? 0x51_0F_0002 ^ (key.GetHashCode() * 31 + def.shortHash)
-                            : 0x51_0F_0004 ^ key.GetHashCode()));
-
-                    if (Widgets.ButtonInvisible(cell))
-                    {
-                        // Null on the automatic cell, which is exactly what clears the line.
-                        UsageReadout.Choose(key, def);
-                        _pickingKey = null;
-                    }
+                    Widgets.ThingIcon(box, def);
                 }
+                else
+                {
+                    // Grey, and drawn a little smaller than a thing: it is the one cell
+                    // here that is not an item, and it should not read as the loudest.
+                    GUI.color = SlopWidgets.Dim;
+                    GUI.DrawTexture(box.ContractedBy(SlopWidgets.IconInset + 1f), Icons.Cross);
+                }
+                GUI.color = Color.white;
 
+                TooltipHandler.TipRegion(cell, new TipSignal(
+                    def != null
+                        ? def.LabelCap.ToString()
+                        : "Automatic - whichever icon this mod would have picked.",
+                    def != null
+                        ? 0x51_0F_0002 ^ (key.GetHashCode() * 31 + def.shortHash)
+                        : 0x51_0F_0004 ^ key.GetHashCode()));
+
+                if (Widgets.ButtonInvisible(cell))
+                {
+                    // Null on the automatic cell, which is exactly what clears the line.
+                    UsageReadout.Choose(key, def);
+                    _pickingKey = null;
+                }
             }
-            return gridH;
         }
 
 

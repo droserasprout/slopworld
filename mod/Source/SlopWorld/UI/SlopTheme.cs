@@ -141,6 +141,10 @@ namespace SlopWorld
         public const float FieldPadY = 2f;
         public const float IconInset = 2f;
         public const float IconW = 18f;
+        public const float PickerCell = 38f;
+        public const float PickerIcon = 30f;
+        public const float ListInset = 4f;
+        public const float DisclosureW = 11f;
         public const float ScrollbarW = 18f;
         public const float ScrollTrackW = 10f;
         public const float ScrollThumbInset = 2f;

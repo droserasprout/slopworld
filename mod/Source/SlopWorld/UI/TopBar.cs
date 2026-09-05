@@ -44,6 +44,11 @@ namespace SlopWorld
 
         public static void Draw(bool interactive)
         {
+            using (WidgetState.Save()) DrawCore(interactive);
+        }
+
+        static void DrawCore(bool interactive)
+        {
             if (!SlopLayout.Shown || SlopLayout.Hidden) return;
             if (Event.current.type == EventType.Layout) return;
 
@@ -52,7 +57,6 @@ namespace SlopWorld
             // Keep the hairline inside the bar so adjoining chrome shares its boundary pixel.
             Slab.Hairline(new Rect(r.x, r.yMax - 1f, r.width, 1f), SlopWidgets.Edge);
 
-            var was = GUI.color;
             Text.Font = GameFont.Small;
             Text.Anchor = TextAnchor.MiddleLeft;
 
@@ -94,8 +98,6 @@ namespace SlopWorld
             // so the buttons have already had their refusal.
             if (interactive) Absorb(r);
 
-            Text.Anchor = TextAnchor.UpperLeft;
-            GUI.color = was;
         }
 
         // Consume only the initial press; the drag and release belong to its original target.

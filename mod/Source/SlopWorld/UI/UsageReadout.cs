@@ -49,10 +49,13 @@ namespace SlopWorld
         // in Right mode. Nothing is drawn where there is no room for it.
         public static void DrawStrip(Rect area, bool showUsage, bool showClock)
         {
+            using (WidgetState.Save()) DrawStripCore(area, showUsage, showClock);
+        }
+
+        static void DrawStripCore(Rect area, bool showUsage, bool showClock)
+        {
             var usage = showUsage ? SessionHub.Instance.Usage : null;
 
-            var was = GUI.color;
-            var anchor = Text.Anchor;
             Text.Font = GameFont.Small;
             Text.Anchor = TextAnchor.MiddleLeft;
             GUI.color = SlopWidgets.Name;
@@ -108,8 +111,6 @@ namespace SlopWorld
                 x -= ChipGap;
             }
 
-            Text.Anchor = anchor;
-            GUI.color = was;
         }
 
         const float ChipGap = 10f;

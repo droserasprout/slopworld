@@ -41,8 +41,7 @@ namespace SlopWorld
             // The fields scroll if the room is short; the preview stays put at the foot.
             var form = new Rect(inner.x, inner.y, inner.width,
                 caption.y - inner.y - SlopWidgets.GapS);
-            var view = new Rect(0f, 0f, form.width - SlopWidgets.ScrollbarW,
-                Mathf.Max(_fieldsH, form.height));
+            var view = SlopScrollBody.View(form, _fieldsH);
             using (_scroll.Scope(form, view))
                 _fieldsH = DrawFields(view, s);
 
