@@ -12,10 +12,12 @@ namespace SlopWorld
         const float AvatarSize = 38f;
         const float AvatarOverlap = 18f;
         const float MessageTextInset = AvatarSize - AvatarOverlap + SlopWidgets.GapS;
+        const float MessageTextX = AvatarOverlap + MessageTextInset;
 
         TaskInfo _task;
         readonly SmoothScroll _scroll = new SmoothScroll();
         readonly List<DialogueLine> _selectionLines = new List<DialogueLine>();
+        readonly List<SenderHit> _senderHits = new List<SenderHit>();
         readonly List<TextRange> _bodyRanges = new List<TextRange>();
         readonly List<TextRange> _noteRanges = new List<TextRange>();
         readonly Dictionary<char, float> _smallCharWidths =
@@ -51,6 +53,13 @@ namespace SlopWorld
             public float X, Y, Width, Height;
             public string Text;
             public float[] Edges;
+        }
+
+        struct SenderHit
+        {
+            public string Sender;
+            public Rect Avatar;
+            public Rect Name;
         }
 
         public TaskDetailView(TaskInfo task) { _task = task; }
@@ -94,6 +103,7 @@ namespace SlopWorld
             using (_scroll.Scope(outer, new Rect(0f, 0f, width,
                 Mathf.Max(outer.height, contentH))))
             {
+                _senderHits.Clear();
                 float y = 0f;
                 Text.Font = GameFont.Tiny;
                 GUI.color = SlopWidgets.Dim;
@@ -115,6 +125,7 @@ namespace SlopWorld
                 DrawSelectableText(outer.height);
             }
 
+            if (HandleSenderClicks(outer)) return;
             HandleSelectionInput(outer);
 
             var foot = new SlopWidgets.Bar(SlopWidgets.FooterBar(rect));
@@ -152,6 +163,8 @@ namespace SlopWorld
             float textWidth = Mathf.Max(1f, card.width - MessageTextInset -
                 SlopWidgets.FieldPadX);
             float y = card.y + SlopWidgets.FieldPadY;
+            var header = new Rect(card.x + MessageTextInset, y, textWidth,
+                SlopWidgets.LineHOf(GameFont.Tiny));
             var wrap = Text.WordWrap;
             var anchor = Text.Anchor;
             var font = Text.Font;
@@ -160,13 +173,44 @@ namespace SlopWorld
                 Text.Font = GameFont.Tiny;
                 Text.WordWrap = true;
                 Text.Anchor = TextAnchor.UpperLeft;
-                GUI.color = SlopWidgets.Dim;
-                SlopWidgets.RowLabel(new Rect(card.x + MessageTextInset, y, textWidth,
-                    SlopWidgets.LineHOf(GameFont.Tiny)), note
-                        ? "Latest note from " + SenderLabel(sender) + "  ·  " +
-                            Timestamp(timestamp)
-                        : "Message from " + SenderLabel(sender) + "  ·  " +
-                            Timestamp(timestamp));
+                string prefix = note ? "Latest note from " : "Message from ";
+                string label = SenderLabel(sender);
+                string suffix = "  ·  " + Timestamp(timestamp);
+                float prefixW = SlopWidgets.Wide(prefix);
+                float labelW = SlopWidgets.Wide(label);
+                float suffixW = SlopWidgets.Wide(suffix);
+                float nameX = header.x + prefixW;
+                float nameW = Mathf.Min(labelW, Mathf.Max(0f, header.xMax - nameX));
+                if (IsAgentSender(sender))
+                {
+                    var name = new Rect(nameX, header.y, nameW, header.height);
+                    _senderHits.Add(new SenderHit
+                    {
+                        Sender = sender,
+                        Avatar = icon,
+                        Name = name,
+                    });
+                    if (nameW > 0f)
+                        TooltipHandler.TipRegion(name,
+                            "Focus " + sender + " in the agents sidebar");
+                }
+
+                if (prefixW + labelW + suffixW <= header.width)
+                {
+                    GUI.color = SlopWidgets.Dim;
+                    SlopWidgets.RowLabel(new Rect(header.x, header.y, prefixW, header.height),
+                        prefix);
+                    GUI.color = IsAgentSender(sender) ? SlopWidgets.Lead : SlopWidgets.Dim;
+                    SlopWidgets.RowLabel(new Rect(nameX, header.y, labelW, header.height), label);
+                    GUI.color = SlopWidgets.Dim;
+                    SlopWidgets.RowLabel(new Rect(nameX + labelW, header.y, suffixW,
+                        header.height), suffix);
+                }
+                else
+                {
+                    GUI.color = SlopWidgets.Dim;
+                    SlopWidgets.RowLabel(header, prefix + label + suffix);
+                }
             }
             finally
             {
@@ -204,10 +248,15 @@ namespace SlopWorld
             }
             GUI.color = old;
 
-            TooltipHandler.TipRegion(r, "Message from " + SenderLabel(sender));
+            TooltipHandler.TipRegion(r, IsAgentSender(sender)
+                ? "Message from " + SenderLabel(sender) + "\nClick to focus in the agents sidebar"
+                : "Message from " + SenderLabel(sender));
         }
 
         static string SenderLabel(string sender) =>
             sender == TaskInfo.Host ? "you" : string.IsNullOrEmpty(sender) ? "unknown" : sender;
+
+        static bool IsAgentSender(string sender) => !string.IsNullOrEmpty(sender) &&
+            sender != TaskInfo.Host && SessionHub.Instance.Get(sender) != null;
     }
 }

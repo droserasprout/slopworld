@@ -12,6 +12,17 @@ namespace SlopWorld
         public static void FocusTerminal() => Show(SidebarTab.Agents);
 
         public static void ShowAgents() => Show(SidebarTab.Agents);
+
+        // Content views use the same focus path as an agent-row click: expose the agent tab,
+        // then put that agent's pane on show.
+        public static void FocusAgent(string name)
+        {
+            if (string.IsNullOrEmpty(name) || name == TaskInfo.Host ||
+                SessionHub.Instance.Get(name) == null) return;
+            Show(SidebarTab.Agents);
+            TerminalWindow.Open(name);
+        }
+
         public static void ShowFiles() => Show(SidebarTab.Files);
         public static void ShowSearch() => Show(SidebarTab.Search);
         public static void ShowGit() => Show(SidebarTab.Git);
