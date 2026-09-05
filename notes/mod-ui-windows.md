@@ -1,6 +1,6 @@
 # Dialogs and Settings pages
 
-Daemon-backed pages write through HTTP; `AppearancePage` and `TerminalPage` write
+Daemon-backed pages write through HTTP; `AppearancePage`, `TerminalPage` and `StatusbarPage` write
 [mod settings](mod-settings.md). Agents, projects and Library entries are content views;
 their editors open above the chrome with `TerminalWindow.OpenOverPane`.
 
@@ -24,7 +24,7 @@ their editors open above the chrome with `TerminalWindow.OpenOverPane`.
 - `Integrations` is a heading with a `Credentials` child for host-side credential paths.
   `UsagePage` owns one table of usage windows with name, icon picker, poll toggle and optional
   per-row interval; its global interval is the fallback for blank rows. Left/spent display is
-  an Appearance > Interface > Statusbar setting and works offline.
+  an Appearance > Statusbar setting and works offline.
   `SummariesPage` edits Codex/Pi title policy, host-command summaries and the shared summary
   model; it uses the OpenRouter key from Integrations.
   `InstructionsPage` edits and previews the templated `SLOPWORLD.md` document, its separate
@@ -32,10 +32,10 @@ their editors open above the chrome with `TerminalWindow.OpenOverPane`.
   discovery switch. The agent editor's Breadcrumbs tab shows that generated entry as a
   selectable default-on row. Body, breadcrumb, and worker prompt each offer an independent
   reset to the shipped default.
-  Appearance is a heading with `Interface`
-  and `Terminal` children: `AppearancePage` owns global scale, scheme, font and cursor,
-  while `TerminalPage` owns pane font, theme and cursor color. Scale applies on release
-  because live scaling moves the slider.
+  Appearance is a heading with `Interface`, `Terminal` and `Statusbar` children:
+  `AppearancePage` owns global scale, scheme, font and cursor, `TerminalPage` owns pane font,
+  theme and cursor color, and `StatusbarPage` owns statusbar visibility and placement. Scale
+  applies on release because live scaling moves the slider.
 - `AudioPage` keeps vanilla volume in `Prefs` and jukebox state in `ModSettings`.
   `LibraryView` runs daemon errands; ask-style errands choose a project or temp agent.
 

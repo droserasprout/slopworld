@@ -64,7 +64,6 @@ namespace SlopWorld
             y += DrawScheme(new Rect(rect.x, y, rect.width, 4000f));
             y += DrawFont(new Rect(rect.x, y, rect.width, 4000f));
             y += DrawCursor(new Rect(rect.x, y, rect.width, 4000f));
-            y += DrawStatusbar(new Rect(rect.x, y, rect.width, 4000f));
             return y - rect.y + UiWidgets.GapS;
         }
 
@@ -221,56 +220,6 @@ namespace SlopWorld
             float used = l.CurHeight;
             l.End();
             return used;
-        }
-
-        float DrawStatusbar(Rect rect)
-        {
-            var l = new Listing_Standard { maxOneColumn = true };
-            l.Begin(rect);
-
-            UiWidgets.SectionHeading(l, "Statusbar");
-            bool u = UiWidgets.Checkbox(l, "Show Usage in statusbar", S.statusbarUsage,
-                "Show quota readouts in the top statusbar.");
-            bool spent = UiWidgets.Checkbox(l, "Show spent instead of left",
-                Settings.UsageSpent,
-                "Applies to every provider. Left is the amount remaining; spent is the " +
-                "provider-facing percentage or amount used.");
-            string clockPosition = StatusbarClockMode.Normalize(S.statusbarClockPosition);
-            UiWidgets.Select(l, "Clock position", StatusbarClockMode.Label(clockPosition),
-                new[]
-                {
-                    new SelectorOption("Right", () => SetClockPosition(StatusbarClockMode.Right)),
-                    new SelectorOption("Center", () => SetClockPosition(StatusbarClockMode.Center)),
-                    new SelectorOption("Hidden", () => SetClockPosition(StatusbarClockMode.Hidden)),
-                }, out _);
-            bool j = UiWidgets.Checkbox(l, "Show Jukebox in statusbar", S.statusbarJukebox,
-                "Show the jukebox door when a jukebox is present.");
-            bool g = UiWidgets.Checkbox(l, "Show GM in statusbar", S.statusbarGM,
-                "Show the Computer Core door when the core is present.");
-            bool indicators = UiWidgets.Checkbox(l, "Show agent status indicators",
-                S.statusbarAgentIndicators,
-                "Show autostart, resume-on-start, and host-network flags in Agents.");
-            if (u != S.statusbarUsage || spent != Settings.UsageSpent
-                || j != S.statusbarJukebox || g != S.statusbarGM
-                || indicators != S.statusbarAgentIndicators)
-            {
-                S.statusbarUsage = u;
-                S.usageSpent = spent;
-                S.statusbarJukebox = j;
-                S.statusbarGM = g;
-                S.statusbarAgentIndicators = indicators;
-                S.MarkDirty();
-            }
-
-            float used = l.CurHeight;
-            l.End();
-            return used;
-        }
-
-        static void SetClockPosition(string position)
-        {
-            S.statusbarClockPosition = position;
-            S.MarkDirty();
         }
 
         // The scheme, drawn rather than described - the Terminal page's swatch strip, over
