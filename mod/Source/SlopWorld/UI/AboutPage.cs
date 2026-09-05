@@ -21,8 +21,6 @@ namespace SlopWorld
         const float GroupGap = SlopWidgets.GapS;
         const float RowGap = SlopWidgets.GapXS;
         const float ColumnGap = SlopWidgets.GapL;
-        const float DisclaimerGap = SlopWidgets.GapL * 2f;
-        const float DisclaimerRuleWidth = SlopWidgets.GapL * 3f;
         const float TailPadding = SlopWidgets.GapL;
         const int TitleTextSize = 28;
         const int SectionTextSize = 14;
@@ -30,6 +28,11 @@ namespace SlopWorld
         const int LeadTextSize = 22;
         const int MetaTextSize = 14;
         const int BodyTextSize = 15;
+
+        const string EulaDisclaimer =
+            "Portions of the materials used to create this content/mod are trademarks and/or " +
+            "copyrighted works of Ludeon Studios Inc. All rights reserved by Ludeon. This " +
+            "content/mod is not official and is not endorsed by Ludeon.";
 
         const float AutoScrollSpeed = 7f;
         const float FirstPassHeight = 2000f;
@@ -358,14 +361,22 @@ namespace SlopWorld
         {
             float y = r.y;
 
+            y = DrawEulaDisclaimer(r, y);
             y = DrawHero(r, y);
             y = DrawMusic(r, y);
             y = DrawBasedOn(r, y);
             y = DrawLibraries(r, y);
             y = DrawAssets(r, y);
-            y = DrawDisclaimer(r, y);
 
             return y + TailPadding;
+        }
+
+        float DrawEulaDisclaimer(Rect r, float y)
+        {
+            y += HeroMargin;
+            y = Paragraph(r, y, EulaDisclaimer, RegularFont, SlopWidgets.Dim,
+                TextAnchor.UpperCenter, BodyTextSize);
+            return y + HeroMargin;
         }
 
         float DrawHero(Rect r, float y)
@@ -433,19 +444,6 @@ namespace SlopWorld
             y = NextSection(y);
             y = SectionHeading(r, y, "Assets") + HeadingGap;
             return CreditGrid(r, y, Assets, 2);
-        }
-
-        float DrawDisclaimer(Rect r, float y)
-        {
-            y = NextSection(y) + DisclaimerGap;
-            float ruleWidth = Mathf.Min(DisclaimerRuleWidth, r.width);
-            Slab.Hairline(new Rect(r.center.x - ruleWidth / 2f, y, ruleWidth, 1f),
-                SlopWidgets.Dim);
-            y += GroupGap;
-            return Paragraph(r, y,
-                "An independent project; not affiliated with, endorsed by, etc.",
-                RegularFont, SlopWidgets.Dim, TextAnchor.UpperCenter,
-                BodyTextSize);
         }
 
         float NextSection(float y)
