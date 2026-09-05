@@ -19,6 +19,7 @@ namespace SlopWorld
         readonly HubCatalog _catalog;
         readonly TerminalIO _terminal;
         readonly AudioBus _audio;
+        int _connectionGeneration;
 
         // Defaults for transient host applications, refreshed on connect and after any settings
         // page saves. Settable because those pages write it back optimistically before the
@@ -37,6 +38,8 @@ namespace SlopWorld
             _audio = new AudioBus(_transport);
             _transport.OnConnected = () =>
             {
+                _connectionGeneration++;
+                _sessions.ResetConnectionScreens();
                 DaemonClipboard.Reset();
                 RefreshConfig();
                 RefreshHealth();
@@ -57,6 +60,7 @@ namespace SlopWorld
         public List<CommandInfo> Commands => _catalog.Commands;
         public string Status => _transport.Status;
         public bool Online => _transport.Connected;
+        public int ConnectionGeneration => _connectionGeneration;
 
         public SessionInfo Get(string name) => _sessions.Get(name);
         public bool TryPendingRename(string oldName, out string newName) =>

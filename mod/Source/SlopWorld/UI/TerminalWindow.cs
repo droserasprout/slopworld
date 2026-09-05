@@ -124,6 +124,7 @@ namespace SlopWorld
                 _input.Handle(body);
             }
 
+            SyncHistoryConnection();
             var live = hub.Screen(_name);
             // Invalidate history before planning this frame's request. A resize or redraw
             // can publish a new live sequence while the local scroll offset remains active.
@@ -132,7 +133,7 @@ namespace SlopWorld
             float cellH = TerminalFont.CellH;
             bool historyInput = HistoryInputEnabled(live);
             PrepareHistoryScroll(cellH);
-            if (historyInput)
+            if (input && historyInput)
             {
                 _historyScroll.BeginInput(body, new Vector2(0f, _historyMax));
                 // This pane has no nested scroll owner. Spend the claimed packet before
