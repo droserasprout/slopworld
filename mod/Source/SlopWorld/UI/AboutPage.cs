@@ -196,7 +196,8 @@ namespace SlopWorld
                 var content = new Rect(ContentPaddingX, ContentPaddingY,
                     Mathf.Max(1f, view.width - ContentPaddingX * 2f),
                     Mathf.Max(1f, view.height - ContentPaddingY * 2f));
-                float y = DrawRimWorldHeader(content, content.y);
+                float y = DrawEulaDisclaimer(content, content.y);
+                y = DrawRimWorldHeader(content, y);
                 y = DrawRimWorldSection(content, y, OptionCategoryDefOf.Graphics,
                     "DoVideoOptions");
                 y = DrawRimWorldSection(content, y, OptionCategoryDefOf.Interface,
