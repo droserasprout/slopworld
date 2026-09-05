@@ -165,7 +165,7 @@ namespace SlopWorld
             }
             else
             {
-                string keyLabel = BindingLabel(binding);
+                string keyLabel = ShortcutLabels.Binding(binding);
 
                 // Click side selects the main/alternate slot; do not choose the first empty
                 // slot or a populated primary key could never be replaced.
@@ -234,7 +234,7 @@ namespace SlopWorld
                 var clash = Conflict(code, _listening);
                 if (clash != null)
                     Messages.Message(
-                        $"SlopWorld: {LabelOf(code)} is also on \"{clash.label}\".",
+                        $"SlopWorld: {ShortcutLabels.Key(code)} is also on \"{clash.label}\".",
                         MessageTypeDefOf.CautionInput, false);
             }
 
@@ -258,40 +258,6 @@ namespace SlopWorld
             }
             return null;
         }
-
-        // Builds the display label from both key slots, so "F1 / Shift+F1" shows both.
-        static string BindingLabel(KeyBindingDef binding)
-        {
-            var data = KeyPrefs.KeyPrefsData;
-            KeyCode keyA = data.GetBoundKeyCode(binding, KeyPrefs.BindingSlot.A);
-            KeyCode keyB = data.GetBoundKeyCode(binding, KeyPrefs.BindingSlot.B);
-
-            bool hasA = keyA != KeyCode.None;
-            bool hasB = keyB != KeyCode.None;
-
-            if (!hasA && !hasB) return "(none)";
-            if (!hasB) return LabelOf(keyA);
-            if (!hasA) return LabelOf(keyB);
-            return $"{LabelOf(keyA)} / {LabelOf(keyB)}";
-        }
-
-        static string LabelOf(KeyCode key) => key switch
-        {
-            KeyCode.None => "",
-            KeyCode.Return => "Enter",
-            KeyCode.Escape => "Esc",
-            KeyCode.LeftShift => "Shift",
-            KeyCode.RightShift => "Shift",
-            KeyCode.LeftAlt => "Alt",
-            KeyCode.RightAlt => "Alt",
-            KeyCode.LeftControl => "Ctrl",
-            KeyCode.RightControl => "Ctrl",
-            KeyCode.LeftCommand => "Cmd",
-            KeyCode.RightCommand => "Cmd",
-            KeyCode.LeftWindows => "Win",
-            KeyCode.RightWindows => "Win",
-            _ => key.ToString()
-        };
 
         static readonly HashSet<KeyCode> IgnoredKeys = new HashSet<KeyCode>
         {

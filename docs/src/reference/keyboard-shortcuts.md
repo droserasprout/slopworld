@@ -10,6 +10,7 @@ key-bindings settings page. Hardcoded shortcuts are marked below and cannot be r
 | F1 | Command palette | yes |
 | F11 | Toggle window-manager fullscreen | yes |
 | F12 | Open/close terminal | yes |
+| ? | Show keyboard shortcuts on the map | no |
 
 ## Navigation
 
