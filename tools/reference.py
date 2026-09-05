@@ -92,6 +92,18 @@ def add_hit(index: dict[str, list[Hit]], name: str, item: Hit) -> None:
         index[name].append(item)
 
 
+def cli_name(path: Path) -> str:
+    """Return the public CLI name for a source file, including split modules."""
+
+    try:
+        bin_index = path.parts.index("bin")
+    except ValueError:
+        return path.stem
+    if len(path.parts) > bin_index + 2:
+        return path.parts[bin_index + 1]
+    return path.stem
+
+
 def env_inventory(files: dict[Path, str]) -> tuple[dict[str, list[Hit]], list[Hit]]:
     names: dict[str, list[Hit]] = defaultdict(list)
     dynamic: list[Hit] = []
@@ -223,6 +235,7 @@ def cli_inventory(files: dict[Path, str]) -> tuple[list[tuple[str, str, Hit]], l
 
         if path.suffix != ".rs" or "/bin/" not in str(path):
             continue
+        tool = cli_name(path)
         # Usage strings are the canonical public CLI surface. Looking only inside the
         # string avoids mistaking HTTP headers and status values for subcommands.
         in_usage = False
@@ -236,17 +249,17 @@ def cli_inventory(files: dict[Path, str]) -> tuple[list[tuple[str, str, Hit]], l
                 stripped = line.strip()
                 if stripped.startswith("usage: "):
                     invocation = stripped.removeprefix("usage: ").strip()
-                    commands.append((path.stem, invocation, hit(path, text, offset, stripped)))
+                    commands.append((tool, invocation, hit(path, text, offset, stripped)))
                 elif stripped.startswith(("slopctl ", "slopworld ")):
                     # The launcher banner is prose (`slopworld - launch ...`), not a command.
                     if not re.match(r"(?:slopctl|slopworld)\s+-\s", stripped):
-                        commands.append((path.stem, stripped, hit(path, text, offset, stripped)))
+                        commands.append((tool, stripped, hit(path, text, offset, stripped)))
                 option = re.match(
                     r"\s+((?:--[A-Za-z][A-Za-z0-9-]*(?:\s+[A-Z][A-Z0-9_<>.-]+)?|-h,\s+--help))\s{2,}(.+)$",
                     line.rstrip("\n"),
                 )
                 if option:
-                    options.append((path.stem, f"{option.group(1)} — {option.group(2).strip()}", hit(path, text, offset, stripped)))
+                    options.append((tool, f"{option.group(1)} — {option.group(2).strip()}", hit(path, text, offset, stripped)))
             offset += len(line)
 
     # The subcommands are also encoded in match arms; include one only if the usage text

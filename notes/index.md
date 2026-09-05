@@ -62,7 +62,6 @@ short subject per note and remove stale entries.
 - [mod-sidebar](mod-sidebar.md) - `AgentSidebar` and its core layout and selection behavior.
 - [mod-sidebar-navigation](mod-sidebar-navigation.md) - shared views, tabs, filtering, and vanilla chrome shifts.
 - [mod-ui-chrome](mod-ui-chrome.md) - shared widgets, layout, usage readout, top bar.
-- [mod-ui-widgets-refactor](mod-ui-widgets-refactor.md) - staged plan to consolidate widgets and remove UI duplication.
 - [ui-reuse-consistency-plan](plans/ui-reuse-consistency-plan.md) - implemented picker, dialog, state, cell, and IMGUI consistency refactors.
 - [mod-ui-identity](mod-ui-identity.md) - UI geometry, spacing, and color schemes.
 - [mod-ui-files](mod-ui-files.md) - the files view and its icons.

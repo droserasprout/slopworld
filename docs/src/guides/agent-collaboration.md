@@ -33,7 +33,7 @@ when a caller supplies a scoped endpoint.
 id, sender, recipient, state, body, optional note, and timestamps. Both participants
 can read a task; only the recipient changes its state.
 
-Task states: `pending`, `accepted`, `in_progress`, `finished`, `failed`.
+Task states: `queued`, `accepted`, `working`, `done`, `failed`.
 
 The `host` principal represents the user at the keyboard. A bare `slopctl` command
 (without `SLOPWORLD_SESSION`) acts as `host`, which the daemon accepts only from the
