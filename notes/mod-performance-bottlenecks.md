@@ -5,7 +5,7 @@ Static review of the committed C# mod at `a3c4c28` (`Fix F12 terminal opening fr
 ## Highest priority
 
 - **Synchronous reconnects can freeze the game.** `Root.Update` pumps `SessionHub` every frame. When the socket is down, `HubTransport.Update` calls `MiniWebSocket.Connect` on Unity's main thread. TCP connection and WebSocket handshake timeouts therefore block the menu or game frame.
-  - [ModEntry.cs:447](../mod/Source/SlopWorld/ModEntry.cs#L447)
+  - [ModBootstrap.cs:58](../mod/Source/SlopWorld/ModBootstrap.cs#L58)
   - [HubTransport.cs:70](../mod/Source/SlopWorld/Client/SessionHub/HubTransport.cs#L70)
   - [MiniWebSocket.cs:35](../mod/Source/SlopWorld/Client/MiniWebSocket.cs#L35)
 
@@ -23,10 +23,10 @@ Static review of the committed C# mod at `a3c4c28` (`Fix F12 terminal opening fr
 
 - **Terminal frames are reparsed on every screen update.** `ScreenBuf.FromJson` replaces the line array and invalidates runs. The next draw parses every row and performs URL scanning over the complete rows-by-columns buffer. The render-texture fallback disables caching permanently, after which each repaint performs a full terminal paint.
   - [ScreenBuf.Json.cs:7](../mod/Source/SlopWorld/Client/SessionHub/ScreenBuf.Json.cs#L7)
-  - [TerminalWindow.Selection.cs:882](../mod/Source/SlopWorld/UI/TerminalWindow/TerminalWindow.Selection.cs#L882)
+  - [TerminalWindow.Selection.cs:302](../mod/Source/SlopWorld/UI/TerminalWindow/TerminalWindow.Selection.cs#L302)
   - [Sgr.cs:65](../mod/Source/SlopWorld/UI/Sgr.cs#L65)
   - [Sgr.cs:322](../mod/Source/SlopWorld/UI/Sgr.cs#L322)
-  - [TerminalWindow.Rendering.cs:265](../mod/Source/SlopWorld/UI/TerminalWindow/TerminalWindow.Rendering.cs#L265)
+  - [TerminalWindow.Rendering.cs:188](../mod/Source/SlopWorld/UI/TerminalWindow/TerminalWindow.Rendering.cs#L188)
 
 ## Simulation and input hot paths
 
