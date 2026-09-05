@@ -52,7 +52,7 @@ namespace SlopWorld
 
     // Loading enables the mod unconditionally; settings cover daemon connection and UI
     // appearance, with terminal values sharing this settings file and endpoint discovery.
-    public class SlopSettings
+    public class ModSettings
     {
         int _dirtyAge = -1;
         const int FlushAfter = 120;
@@ -170,9 +170,9 @@ namespace SlopWorld
         // and not a constant. See Eco.Shade.
         public float ecoDim = 0.45f;
 
-        public static SlopSettings Load()
+        public static ModSettings Load()
         {
-            var settings = new SlopSettings();
+            var settings = new ModSettings();
             string path = FilePath();
             try
             {
@@ -329,7 +329,7 @@ namespace SlopWorld
     // Static shorthand so call sites don't reach through the Mod instance.
     public static class Settings
     {
-        public static SlopSettings S => SlopWorldMod.Instance.settings;
+        public static ModSettings S => ModEntry.Instance.settings;
 
         public static ConnectionInfo Connection => Endpoint.Resolve();
         public static bool AutoConnect => S.autoConnect;
@@ -371,11 +371,11 @@ namespace SlopWorld
         public static float EcoDim => S.ecoDim;
     }
 
-    public class SlopWorldMod : Mod
+    public class ModEntry : Mod
     {
         public static readonly string ClientVersion = ReadClientVersion();
-        public static SlopWorldMod Instance;
-        public readonly SlopSettings settings;
+        public static ModEntry Instance;
+        public readonly ModSettings settings;
 
         static string ReadClientVersion()
         {
@@ -390,24 +390,24 @@ namespace SlopWorld
             return "0.0.1";
         }
 
-        public SlopWorldMod(ModContentPack content) : base(content)
+        public ModEntry(ModContentPack content) : base(content)
         {
             Instance = this;
-            settings = SlopSettings.Load();
+            settings = ModSettings.Load();
         }
     }
 
     [StaticConstructorOnStartup]
-    public static class SlopWorldBootstrap
+    public static class ModBootstrap
     {
-        static SlopWorldBootstrap()
+        static ModBootstrap()
         {
             // First, and before anything is patched: this mod is only ever run in a save
             // folder of its own, and in anybody else's game it does nothing at all. See
-            // SlopProfile.
-            if (!SlopProfile.Ok)
+            // ModProfile.
+            if (!ModProfile.Ok)
             {
-                SlopProfile.Complain();
+                ModProfile.Complain();
                 return;
             }
 
@@ -436,11 +436,11 @@ namespace SlopWorld
             StripOptions.Hide();
             // And this is the category that arrives in its place, added to the database
             // rather than shipped as XML so a refusing mod leaves no empty tab behind.
-            SlopOptions.Install();
+            ModOptions.Install();
             // Intercepts Alt+F4 / window close to save and show a confirmation dialog.
             QuitInterceptor.Register();
-            Log.Message("[SlopWorld] patched; daemon at " + SlopClient.BaseUrl);
-            SlopUIFont.Apply();
+            Log.Message("[SlopWorld] patched; daemon at " + DaemonClient.BaseUrl);
+            UiFont.Apply();
         }
     }
 
@@ -462,7 +462,7 @@ namespace SlopWorld
             // it has to hold on the menu too, and because focus is a per-frame question.
             BackgroundFrames.Follow();
             WindowMaximizer.Follow();
-            SlopWorldMod.Instance?.settings.FlushIfDue();
+            ModEntry.Instance?.settings.FlushIfDue();
             DeadCursor.Tick();
             // Update and not OnGUI, so it fires per frame rather than per event, and below
             // HandleEventsHighPriority, where the clicks that count are used -
@@ -480,9 +480,9 @@ namespace SlopWorld
     {
         public sealed override void Activate()
         {
-            if (!SlopProfile.Ok)
+            if (!ModProfile.Ok)
             {
-                SlopProfile.Complain();
+                ModProfile.Complain();
                 return;
             }
             Open();
@@ -493,6 +493,6 @@ namespace SlopWorld
 
     public class MainButtonWorker_Config : MainButtonWorker_Slop
     {
-        protected override void Open() => SlopOptions.Toggle();
+        protected override void Open() => ModOptions.Toggle();
     }
 }

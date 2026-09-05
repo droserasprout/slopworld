@@ -8,7 +8,7 @@ namespace SlopWorld
 {
     // Replaces Tiny/Small/Medium with dynamic fonts and matching private line metrics. Keep
     // `GUIStyle.fontSize` zero so measurement and drawing use each tier's native baked size.
-    public static class SlopUIFont
+    public static class UiFont
     {
         // Unity's text generator can report a line one or two pixels shorter than the
         // dynamic font's actual ink. Keep that slack in the style so CalcSize/CalcHeight

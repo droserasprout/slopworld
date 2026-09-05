@@ -6,7 +6,7 @@ namespace SlopWorld
 {
     // Informational messages use the same surface as confirmations; even the safety alert
     // shown before the profile gate has finished must not fall back to RimWorld chrome.
-    public sealed class SlopAlertDialog : MessageDialog
+    public sealed class AlertDialog : MessageDialog
     {
         const float Width = 520f;
 
@@ -15,10 +15,10 @@ namespace SlopWorld
         readonly string _secondaryLabel;
         readonly Action _primary;
         readonly Action _secondary;
-        readonly SlopWidgets.Btn _primaryKind;
+        readonly UiWidgets.Btn _primaryKind;
 
-        SlopAlertDialog(string title, string message, string primaryLabel, Action primary,
-                        string secondaryLabel, Action secondary, SlopWidgets.Btn primaryKind)
+        AlertDialog(string title, string message, string primaryLabel, Action primary,
+                        string secondaryLabel, Action secondary, UiWidgets.Btn primaryKind)
             : base(message)
         {
             _title = title ?? "SlopWorld";
@@ -37,17 +37,17 @@ namespace SlopWorld
         public static Window Create(string title, string message, string primaryLabel,
                                     Action primary, string secondaryLabel = null,
                                     Action secondary = null,
-                                    SlopWidgets.Btn primaryKind = SlopWidgets.Btn.Primary) =>
-            new SlopAlertDialog(title, message, primaryLabel, primary, secondaryLabel,
+                                    UiWidgets.Btn primaryKind = UiWidgets.Btn.Primary) =>
+            new AlertDialog(title, message, primaryLabel, primary, secondaryLabel,
                 secondary, primaryKind);
 
         protected override string DialogTitle => _title;
         protected override float DialogWidth => Width;
 
-        protected override void DrawActions(SlopWidgets.Bar foot)
+        protected override void DrawActions(UiWidgets.Bar foot)
         {
             if (!string.IsNullOrEmpty(_secondaryLabel) &&
-                foot.Left(_secondaryLabel, SlopWidgets.Btn.Ghost))
+                foot.Left(_secondaryLabel, UiWidgets.Btn.Ghost))
             {
                 Close();
                 _secondary?.Invoke();

@@ -77,7 +77,7 @@ short subject per note and remove stale entries.
 - [mod-content-views](mod-content-views.md) - one window, and what fills it.
 - [mod-ui-windows](mod-ui-windows.md) - the dialogs and Settings pages.
 - [mod-ui-rework](mod-ui-rework.md) - shared flat UI controls and layout rules.
-- [mod-settings](mod-settings.md) - `SlopSettings`, and why a knob lives there.
+- [mod-settings](mod-settings.md) - `ModSettings`, and why a knob lives there.
 - [settings](settings.md) - the user-facing vocabulary and apply/confirmation rules.
 - [window-fullscreen](window-fullscreen.md) - the Unity popup and Xwayland fullscreen contract.
 - [vscode-registries](vscode-registries.md) - how VS Code wires actions, keys and settings into one system.

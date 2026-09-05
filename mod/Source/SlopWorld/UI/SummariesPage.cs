@@ -19,38 +19,38 @@ namespace SlopWorld
 
         protected override void DrawFields(Listing_Standard l)
         {
-            SlopWidgets.SectionHeading(l, "Codex");
-            if (SlopWidgets.Button(l,
+            UiWidgets.SectionHeading(l, "Codex");
+            if (UiWidgets.Button(l,
                     "Name sessions: " + PolicyLabel(_cfg.AgentTitles)))
                 OpenPolicyMenu(false);
-            SlopWidgets.Note(l, "Names a Codex session from its submitted prompt.");
+            UiWidgets.Note(l, "Names a Codex session from its submitted prompt.");
 
-            l.Gap(SlopWidgets.GapL);
-            SlopWidgets.SectionHeading(l, "Pi");
-            if (SlopWidgets.Button(l,
+            l.Gap(UiWidgets.GapL);
+            UiWidgets.SectionHeading(l, "Pi");
+            if (UiWidgets.Button(l,
                     "Name sessions: " + PolicyLabel(_cfg.PiTitles)))
                 OpenPolicyMenu(true);
-            SlopWidgets.Note(l, "Pi defaults to every prompt. The daemon applies this setting before input " +
+            UiWidgets.Note(l, "Pi defaults to every prompt. The daemon applies this setting before input " +
                 "reaches Pi, so it takes effect in the current session.");
 
-            l.Gap(SlopWidgets.GapL);
-            SlopWidgets.SectionHeading(l, "Host");
-            _cfg.HostTitles = SlopWidgets.Checkbox(l, "Summarize host commands", _cfg.HostTitles,
+            l.Gap(UiWidgets.GapL);
+            UiWidgets.SectionHeading(l, "Host");
+            _cfg.HostTitles = UiWidgets.Checkbox(l, "Summarize host commands", _cfg.HostTitles,
                 "Names commands submitted in host terminals. Off leaves host terminal titles to " +
                 "the terminal application.");
-            SlopWidgets.Note(l, "Host terminals summarize each submitted command, independently of " +
+            UiWidgets.Note(l, "Host terminals summarize each submitted command, independently of " +
                 "the Codex and Pi policies.");
 
-            l.Gap(SlopWidgets.GapL);
-            SlopWidgets.SectionHeading(l, "All summaries");
+            l.Gap(UiWidgets.GapL);
+            UiWidgets.SectionHeading(l, "All summaries");
             l.Label("Minimum prompt length");
-            _minPromptChars = SlopWidgets.Field(l, "usage.summary.minimum", _minPromptChars);
-            SlopWidgets.Note(l, "Prompts and host commands shorter than this many characters " +
+            _minPromptChars = UiWidgets.Field(l, "usage.summary.minimum", _minPromptChars);
+            UiWidgets.Note(l, "Prompts and host commands shorter than this many characters " +
                 "are not summarized. Short prompts do not use up a first-prompt title attempt.");
-            l.Gap(SlopWidgets.GapM);
+            l.Gap(UiWidgets.GapM);
             l.Label("Model");
-            _cfg.TitleModel = SlopWidgets.Field(l, "usage.summary.model", _cfg.TitleModel);
-            SlopWidgets.Note(l, "Up to 2,000 characters of each prompt or command go to OpenRouter. " +
+            _cfg.TitleModel = UiWidgets.Field(l, "usage.summary.model", _cfg.TitleModel);
+            UiWidgets.Note(l, "Up to 2,000 characters of each prompt or command go to OpenRouter. " +
                 "Summaries do not depend on credit polling.");
 
         }
@@ -68,7 +68,7 @@ namespace SlopWorld
 
         void OpenPolicyMenu(bool pi)
         {
-            Find.WindowStack.Add(new SlopMenu(new List<FloatMenuOption>
+            Find.WindowStack.Add(new UiMenu(new List<FloatMenuOption>
             {
                 new FloatMenuOption("Off", () => SetPolicy(pi, "never")),
                 new FloatMenuOption("First prompt in each conversation", () =>

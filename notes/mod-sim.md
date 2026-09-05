@@ -26,10 +26,10 @@
 - **`NextPlanet`** replaces the relevant option rows and drives the closing scene;
   Grandma mode skips to `Leave` but still discards the colony. **`Cutscene`** is the
   single board-ownership predicate and **`TerminalHotkeys`** supplies global F12.
-- **`SlopScenario`** removes Crashlanded starting assets. **`RobotFace`** supplies
+- **`ModScenario`** removes Crashlanded starting assets. **`RobotFace`** supplies
   dynamic agent render nodes, metal skin, generated looks and reroll actions;
   `tools/roboface.py` bakes its textures.
-- **`QuickStart`** and **`SlopDefOf`** provide the remaining glue.
+- **`QuickStart`** and **`ModDefOf`** provide the remaining glue.
 
 An exception in `AgentColony.GameComponentTick` aborts the whole reconcile, not just
 one pawn.

@@ -8,18 +8,18 @@ using Verse.Sound;
 namespace SlopWorld
 {
     // FloatMenuOption has no child collection; this subclass supplies the nesting data
-    // required by [SlopMenu]. Everything else is read from the base row, including `Disabled`.
-    public class SlopSubmenu : FloatMenuOption
+    // required by [UiMenu]. Everything else is read from the base row, including `Disabled`.
+    public class UiSubmenu : FloatMenuOption
     {
         // Asked when the pointer arrives rather than when the parent is built: a station's
         // presets carry which one is playing, and a tree built up front would say so once.
         public readonly Func<List<FloatMenuOption>> Children;
 
-        // The action is a stand-in and is never run: [SlopMenu] answers a row with a list on
+        // The action is a stand-in and is never run: [UiMenu] answers a row with a list on
         // it by opening the list. It cannot be null, because `Disabled` *is* `action == null`
         // on this class - setting the property nulls the action, and reading it asks whether
         // the action is there - so a submenu built without one arrives greyed out and dead.
-        public SlopSubmenu(string label, Func<List<FloatMenuOption>> children)
+        public UiSubmenu(string label, Func<List<FloatMenuOption>> children)
             : base(label, () => { })
         {
             Children = children;
@@ -30,7 +30,7 @@ namespace SlopWorld
     // relies on label, action, Disabled, and the checkbox extra-part used by this mod.
     // Submenus are sibling windows linked by parent/child references so closing a branch
     // removes every level above it.
-    public partial class SlopMenu : Window
+    public partial class UiMenu : Window
     {
         sealed class SeparatorOption : FloatMenuOption
         {
@@ -45,8 +45,8 @@ namespace SlopWorld
         // would otherwise walk across the screen behind the cursor. Null is the mouse.
         readonly Vector2? _at;
 
-        SlopMenu _parent;
-        SlopMenu _child;
+        UiMenu _parent;
+        UiMenu _child;
 
         // The row `_child` hangs off, kept lit for as long as it stands - the pointer has
         // moved on to the child by then, and an unlit row over an open list reads as a menu
@@ -74,8 +74,8 @@ namespace SlopWorld
 
         // The clear space either side of a label. Rows touch the frame vertically so a menu
         // does not grow a needless blank strip above and below its first and last action.
-        const float PadX = SlopWidgets.MenuPadX;
-        const float PadY = SlopWidgets.MenuPadY;
+        const float PadX = UiWidgets.MenuPadX;
+        const float PadY = UiWidgets.MenuPadY;
 
         // How much of the screen a menu may take before it scrolls instead of growing. The
         // jukebox's station list is the one that reaches it.
@@ -83,20 +83,20 @@ namespace SlopWorld
 
         // The mark on a row with a list under it, drawn in the arrow a folded project head
         // wears in the sidebar: one shape for "there is more here than this line".
-        const float ArrowW = SlopWidgets.DisclosureW;
+        const float ArrowW = UiWidgets.DisclosureW;
 
         // How long the pointer rests on a row before its list opens. Long enough that a
         // pointer crossing the menu on its way to a row further down does not leave a trail
         // of opened lists behind it, short enough not to read as waiting for the menu.
         const float OpenDelay = 0.18f;
 
-        static float RowH => SlopWidgets.MenuRowH;
+        static float RowH => UiWidgets.MenuRowH;
         const float SeparatorH = 8f;
 
         // The frame this menu was built on - see `HandleKeyboard`.
         readonly int _born = Time.frameCount;
 
-        public SlopMenu(List<FloatMenuOption> options, Vector2? at = null)
+        public UiMenu(List<FloatMenuOption> options, Vector2? at = null)
         {
             _options = options ?? new List<FloatMenuOption>();
             _at = at;
@@ -117,7 +117,7 @@ namespace SlopWorld
             onlyOneOfTypeAllowed = false;
         }
 
-        SlopMenu(List<FloatMenuOption> options, SlopMenu parent, float anchor)
+        UiMenu(List<FloatMenuOption> options, UiMenu parent, float anchor)
             : this(options)
         {
             _parent = parent;
@@ -127,7 +127,7 @@ namespace SlopWorld
         protected override float Margin => 0f;
 
         public static void Open(List<FloatMenuOption> options) =>
-            Find.WindowStack.Add(new SlopMenu(options));
+            Find.WindowStack.Add(new UiMenu(options));
 
         // Focus changes can happen before the window stack gets a chance to dismiss a menu.
         // Callers that replace the screen explicitly close the whole chain rather than
@@ -152,7 +152,7 @@ namespace SlopWorld
                 if (labels != null)
                 {
                     foreach (var label in labels)
-                        widest = Mathf.Max(widest, SlopWidgets.Wide(label));
+                        widest = Mathf.Max(widest, UiWidgets.Wide(label));
                 }
                 return Mathf.Clamp(widest + PadX * 2f, MinW, MaxW);
             }
@@ -180,8 +180,8 @@ namespace SlopWorld
                 foreach (var o in _options)
                 {
                     if (o is SeparatorOption) continue;
-                    w = Mathf.Max(w, SlopWidgets.Wide(o.Label) + o.extraPartWidth +
-                        (o is SlopSubmenu ? ArrowW + SlopWidgets.GapXS : 0f));
+                    w = Mathf.Max(w, UiWidgets.Wide(o.Label) + o.extraPartWidth +
+                        (o is UiSubmenu ? ArrowW + UiWidgets.GapXS : 0f));
                 }
                 return w;
             }
@@ -199,7 +199,7 @@ namespace SlopWorld
             if (_parent == null) Sweep(this);
         }
 
-        static void Sweep(SlopMenu keep)
+        static void Sweep(UiMenu keep)
         {
             var stack = Find.WindowStack;
             if (stack == null) return;
@@ -208,7 +208,7 @@ namespace SlopWorld
             // it. Nothing below the index being read moves, so the walk stays valid.
             for (int i = stack.Count - 1; i >= 0; i--)
             {
-                var m = stack[i] as SlopMenu;
+                var m = stack[i] as UiMenu;
                 if (m != null && m != keep) m.CloseBranch();
             }
         }
@@ -280,11 +280,11 @@ namespace SlopWorld
 
             if (HandleKeyboard()) return;
 
-            Slab.Box(rect, SlopWidgets.PopoverBg, SlopWidgets.Edge);
+            Slab.Box(rect, UiWidgets.PopoverBg, UiWidgets.Edge);
 
             var inner = new Rect(rect.x, rect.y + PadY, rect.width, rect.height - PadY * 2f);
             bool scrolls = ContentH > rect.height;
-            var view = new Rect(0f, 0f, inner.width - (scrolls ? SlopWidgets.ScrollbarW : 0f),
+            var view = new Rect(0f, 0f, inner.width - (scrolls ? UiWidgets.ScrollbarW : 0f),
                 ContentH - PadY * 2f);
 
             // One hit test for the whole list, before the scroll view opens its group and
@@ -367,8 +367,8 @@ namespace SlopWorld
 
         // Null where the row has no list or is disabled, which is the same answer as far as
         // the pointer is concerned: neither is a place a live list belongs beside.
-        SlopSubmenu Sub(int i) =>
-            _options[i].Disabled ? null : _options[i] as SlopSubmenu;
+        UiSubmenu Sub(int i) =>
+            _options[i].Disabled ? null : _options[i] as UiSubmenu;
 
         // The screen y a submenu opened from row `i` hangs at. Its first row begins at this
         // same y because menus have no vertical inset; only this menu knows the scroll offset.
@@ -391,20 +391,20 @@ namespace SlopWorld
             if (o is SeparatorOption)
             {
                 Slab.Hairline(new Rect(r.x + PadX, r.y + r.height / 2f,
-                    r.width - PadX * 2f, 1f), SlopWidgets.Edge);
+                    r.width - PadX * 2f, 1f), UiWidgets.Edge);
                 return false;
             }
 
             bool on = !o.Disabled;
             bool over = on && hot;
-            bool nest = o is SlopSubmenu;
+            bool nest = o is UiSubmenu;
             bool lit = over || _open == i || _selected == i;
 
             RowChrome.Hover(r, _selected == i, on, lit, RowHoverPolicy.Local,
                 RowSelectionStyle.Hover);
             if (o.tooltip.HasValue) TooltipHandler.TipRegion(r, o.tooltip.Value);
 
-            // The extra part is the checkbox [SlopWidgets.MenuToggle] draws, before the
+            // The extra part is the checkbox [UiWidgets.MenuToggle] draws, before the
             // label or after it as the option asks - a tick goes where a settings page
             // puts it, which is in front.
             float extra = o.extraPartWidth;
@@ -420,19 +420,19 @@ namespace SlopWorld
                     r.y + (r.height - ArrowW) / 2f, ArrowW, ArrowW);
                 using (WidgetState.Save())
                 {
-                    GUI.color = !on ? SlopWidgets.Off : lit ? SlopWidgets.Lead : SlopWidgets.Faint;
+                    GUI.color = !on ? UiWidgets.Off : lit ? UiWidgets.Lead : UiWidgets.Faint;
                     GUI.DrawTexture(mark, TexButton.Reveal);
                 }
             }
 
             var label = new Rect(r.x + PadX + (right ? 0f : extra), r.y,
-                r.width - PadX * 2f - extra - (nest ? ArrowW + SlopWidgets.GapXS : 0f),
+                r.width - PadX * 2f - extra - (nest ? ArrowW + UiWidgets.GapXS : 0f),
                 r.height);
             using (WidgetState.Save())
             {
                 Text.Anchor = TextAnchor.MiddleLeft;
-                GUI.color = !on ? SlopWidgets.Off : lit ? SlopWidgets.Lead : SlopWidgets.Name;
-                SlopWidgets.RowLabel(label, o.Label);
+                GUI.color = !on ? UiWidgets.Off : lit ? UiWidgets.Lead : UiWidgets.Name;
+                UiWidgets.RowLabel(label, o.Label);
             }
 
             if (!on || !Widgets.ButtonInvisible(r)) return false;
@@ -441,7 +441,7 @@ namespace SlopWorld
             // one is the pointer saying it will not wait out the delay. Opened here rather
             // than swallowed outright because clicking a window shuts every window above it,
             // this one's child included.
-            var sub = o as SlopSubmenu;
+            var sub = o as UiSubmenu;
             if (sub != null)
             {
                 _selected = i;
@@ -459,7 +459,7 @@ namespace SlopWorld
             return true;
         }
 
-        void OpenChild(int i, SlopSubmenu sub)
+        void OpenChild(int i, UiSubmenu sub)
         {
             CloseChild();
             // Claimed before the list is asked for, so a row that turns out to have nothing
@@ -469,7 +469,7 @@ namespace SlopWorld
             var kids = sub.Children != null ? sub.Children() : null;
             if (kids == null || kids.Count == 0) return;
 
-            _child = new SlopMenu(kids, this, RowTop(i));
+            _child = new UiMenu(kids, this, RowTop(i));
             Find.WindowStack.Add(_child);
         }
 

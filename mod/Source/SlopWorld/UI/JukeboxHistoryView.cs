@@ -25,7 +25,7 @@ namespace SlopWorld
 
         const float CellPad = 8f;
         const float HeaderH = 28f;
-        static float RowH => Mathf.Max(SlopWidgets.LineH + SlopWidgets.GapXS, 28f);
+        static float RowH => Mathf.Max(UiWidgets.LineH + UiWidgets.GapXS, 28f);
 
         readonly SmoothScroll _scroll = new SmoothScroll();
         readonly List<JukeboxHistory.Entry> _all = new List<JukeboxHistory.Entry>();
@@ -53,19 +53,19 @@ namespace SlopWorld
                 Text.Font = GameFont.Small;
 
                 // Toolbar: the search field takes the middle, actions sit on the right.
-                var toolbar = new Rect(body.x, body.y, body.width, SlopWidgets.BtnH);
-                var bar = new SlopWidgets.Bar(toolbar);
-                if (bar.Right("Edit file", SlopWidgets.Btn.Ghost)) StoragePage.EditLikes();
-                if (bar.Right("Refresh", SlopWidgets.Btn.Ghost)) Reload();
-                string query = SlopWidgets.Field(bar.Rest(), "jukebox-history-search", _query);
+                var toolbar = new Rect(body.x, body.y, body.width, UiWidgets.BtnH);
+                var bar = new UiWidgets.Bar(toolbar);
+                if (bar.Right("Edit file", UiWidgets.Btn.Ghost)) StoragePage.EditLikes();
+                if (bar.Right("Refresh", UiWidgets.Btn.Ghost)) Reload();
+                string query = UiWidgets.Field(bar.Rest(), "jukebox-history-search", _query);
                 if (query != _query)
                 {
                     _query = query;
                     ApplyFilter();
                 }
 
-                var status = new Rect(body.x, toolbar.yMax + SlopWidgets.GapXS,
-                    body.width, SlopWidgets.LineH);
+                var status = new Rect(body.x, toolbar.yMax + UiWidgets.GapXS,
+                    body.width, UiWidgets.LineH);
                 DrawStatus(status);
 
                 // The detail panel reserves space at the bottom only while a row is selected.
@@ -73,8 +73,8 @@ namespace SlopWorld
                     ? 0f : Mathf.Clamp(body.height * 0.32f, 150f, 220f);
                 var detail = new Rect(body.x, body.yMax - detailH, body.width, detailH);
 
-                float tableTop = status.yMax + SlopWidgets.GapS;
-                float tableBottom = detailH > 0f ? detail.y - SlopWidgets.GapS : body.yMax;
+                float tableTop = status.yMax + UiWidgets.GapS;
+                float tableBottom = detailH > 0f ? detail.y - UiWidgets.GapS : body.yMax;
                 DrawTable(new Rect(body.x, tableTop, body.width, Mathf.Max(0f, tableBottom - tableTop)));
 
                 if (detailH > 0f) DrawDetail(detail);
@@ -84,11 +84,11 @@ namespace SlopWorld
         void DrawStatus(Rect r)
         {
             string note;
-            Color color = SlopWidgets.Dim;
+            Color color = UiWidgets.Dim;
             if (_error != null)
             {
                 note = _error;
-                color = SlopWidgets.Bad;
+                color = UiWidgets.Bad;
             }
             else if (_all.Count == 0)
             {
@@ -104,18 +104,18 @@ namespace SlopWorld
             }
 
             GUI.color = color;
-            SlopWidgets.RowLabel(r, note);
+            UiWidgets.RowLabel(r, note);
             GUI.color = Color.white;
         }
 
         void DrawTable(Rect table)
         {
-            Slab.Box(table, SlopWidgets.Well, SlopWidgets.Edge);
+            Slab.Box(table, UiWidgets.Well, UiWidgets.Edge);
             var columns = Layout(table.width - 2f);
             var header = new Rect(table.x + 1f, table.y + 1f, table.width - 2f, HeaderH);
-            Slab.Fill(header, SlopWidgets.RowOn);
+            Slab.Fill(header, UiWidgets.RowOn);
             DrawHeader(header, columns);
-            Slab.Hairline(new Rect(header.x, header.yMax, header.width, 1f), SlopWidgets.Edge);
+            Slab.Hairline(new Rect(header.x, header.yMax, header.width, 1f), UiWidgets.Edge);
 
             var list = new Rect(table.x + 1f, header.yMax + 1f,
                 table.width - 2f, Mathf.Max(0f, table.yMax - header.yMax - 2f));
@@ -128,7 +128,7 @@ namespace SlopWorld
 
             float contentH = Mathf.Max(list.height, _view.Count * RowH);
             var view = new Rect(0f, 0f,
-                list.width - (contentH > list.height ? SlopWidgets.ScrollbarW : 0f), contentH);
+                list.width - (contentH > list.height ? UiWidgets.ScrollbarW : 0f), contentH);
             using (_scroll.Scope(list, view))
             {
                 for (int i = 0; i < _view.Count; i++)
@@ -145,9 +145,9 @@ namespace SlopWorld
                 : _all.Count == 0
                     ? "No jukebox history yet."
                     : "No tracks match \"" + _query.Trim() + "\".";
-            GUI.color = SlopWidgets.Dim;
-            SlopWidgets.RowLabel(new Rect(list.x + CellPad, list.y + CellPad,
-                list.width - CellPad * 2f, SlopWidgets.LineH), message);
+            GUI.color = UiWidgets.Dim;
+            UiWidgets.RowLabel(new Rect(list.x + CellPad, list.y + CellPad,
+                list.width - CellPad * 2f, UiWidgets.LineH), message);
             GUI.color = Color.white;
         }
 
@@ -180,8 +180,8 @@ namespace SlopWorld
 
         static void HeaderCell(Rect r, string label)
         {
-            GUI.color = SlopWidgets.Lead;
-            SlopWidgets.RowLabel(r.ContractedBy(CellPad, 0f), label);
+            GUI.color = UiWidgets.Lead;
+            UiWidgets.RowLabel(r.ContractedBy(CellPad, 0f), label);
             GUI.color = Color.white;
         }
 
@@ -191,11 +191,11 @@ namespace SlopWorld
             bool over = RowChrome.Hover(r, selected, true, RowHoverPolicy.OverlayAware);
 
             float x = r.x;
-            Cell(new Rect(x, r.y, c.At, r.height), DisplayAt(e.At), SlopWidgets.Dim); x += c.At;
-            Cell(new Rect(x, r.y, c.Source, r.height), e.Source, SlopWidgets.Name); x += c.Source;
-            Cell(new Rect(x, r.y, c.Artist, r.height), e.Artist, SlopWidgets.Name); x += c.Artist;
-            Cell(new Rect(x, r.y, c.Title, r.height), e.Title, SlopWidgets.Lead); x += c.Title;
-            Cell(new Rect(x, r.y, c.Original, r.height), e.Original, SlopWidgets.Faint);
+            Cell(new Rect(x, r.y, c.At, r.height), DisplayAt(e.At), UiWidgets.Dim); x += c.At;
+            Cell(new Rect(x, r.y, c.Source, r.height), e.Source, UiWidgets.Name); x += c.Source;
+            Cell(new Rect(x, r.y, c.Artist, r.height), e.Artist, UiWidgets.Name); x += c.Artist;
+            Cell(new Rect(x, r.y, c.Title, r.height), e.Title, UiWidgets.Lead); x += c.Title;
+            Cell(new Rect(x, r.y, c.Original, r.height), e.Original, UiWidgets.Faint);
 
             if (over)
                 TooltipHandler.TipRegion(r, DetailText(e) + "\n\nClick to inspect and copy.");
@@ -207,8 +207,8 @@ namespace SlopWorld
 
         static void Cell(Rect r, string text, Color color)
         {
-            GUI.color = string.IsNullOrEmpty(text) ? SlopWidgets.Faint : color;
-            SlopWidgets.RowLabel(r.ContractedBy(CellPad, 0f),
+            GUI.color = string.IsNullOrEmpty(text) ? UiWidgets.Faint : color;
+            UiWidgets.RowLabel(r.ContractedBy(CellPad, 0f),
                 string.IsNullOrEmpty(text) ? "-" : text);
             GUI.color = Color.white;
         }
@@ -220,17 +220,17 @@ namespace SlopWorld
             var e = _selected;
             if (e == null) return;
 
-            Slab.Box(r, SlopWidgets.Well, SlopWidgets.Edge);
+            Slab.Box(r, UiWidgets.Well, UiWidgets.Edge);
             var inner = r.ContractedBy(CellPad + 2f, CellPad);
 
-            var head = new Rect(inner.x, inner.y, inner.width, SlopWidgets.BtnH);
-            var headBar = new SlopWidgets.Bar(head);
-            if (headBar.Right("Copy line", SlopWidgets.Btn.Ghost)) Copy(e.Line, "\"" + e.Line + "\"");
-            GUI.color = SlopWidgets.Lead;
-            SlopWidgets.RowLabel(headBar.Rest(), "Details  -  click a field to copy it");
+            var head = new Rect(inner.x, inner.y, inner.width, UiWidgets.BtnH);
+            var headBar = new UiWidgets.Bar(head);
+            if (headBar.Right("Copy line", UiWidgets.Btn.Ghost)) Copy(e.Line, "\"" + e.Line + "\"");
+            GUI.color = UiWidgets.Lead;
+            UiWidgets.RowLabel(headBar.Rest(), "Details  -  click a field to copy it");
             GUI.color = Color.white;
 
-            float y = head.yMax + SlopWidgets.GapS;
+            float y = head.yMax + UiWidgets.GapS;
             y = CopyField(inner, y, "When", DisplayAt(e.At), e.At);
             y = CopyField(inner, y, "Source", e.Source, e.Source);
             y = CopyField(inner, y, "Artist", e.Artist, e.Artist);
@@ -251,13 +251,13 @@ namespace SlopWorld
             bool over = RowChrome.Hover(row, false, true, RowHoverPolicy.OverlayAware);
 
             const float LabelW = 78f;
-            GUI.color = SlopWidgets.Dim;
-            SlopWidgets.RowLabel(new Rect(row.x, row.y, LabelW, RowH), label);
+            GUI.color = UiWidgets.Dim;
+            UiWidgets.RowLabel(new Rect(row.x, row.y, LabelW, RowH), label);
             GUI.color = Color.white;
 
             var valueRect = new Rect(row.x + LabelW, row.y, row.width - LabelW, height);
             string text = string.IsNullOrEmpty(display) ? "-" : display;
-            GUI.color = string.IsNullOrEmpty(display) ? SlopWidgets.Faint : SlopWidgets.Name;
+            GUI.color = string.IsNullOrEmpty(display) ? UiWidgets.Faint : UiWidgets.Name;
             if (wrap)
             {
                 bool prior = Text.WordWrap;
@@ -267,7 +267,7 @@ namespace SlopWorld
             }
             else
             {
-                SlopWidgets.RowLabel(valueRect, text);
+                UiWidgets.RowLabel(valueRect, text);
             }
             GUI.color = Color.white;
 
@@ -276,7 +276,7 @@ namespace SlopWorld
                 if (over) TooltipHandler.TipRegion(row, "Click to copy");
                 if (Widgets.ButtonInvisible(row)) Copy(value, label.ToLowerInvariant());
             }
-            return row.yMax + SlopWidgets.GapXS;
+            return row.yMax + UiWidgets.GapXS;
         }
 
         static string DetailText(JukeboxHistory.Entry e)
@@ -302,9 +302,9 @@ namespace SlopWorld
         static void Copy(string text, string what)
         {
             if (string.IsNullOrEmpty(text)) return;
-            SlopClipboard.Copy(text,
+            DaemonClipboard.Copy(text,
                 () => Messages.Message($"Jukebox: copied {what}", MessageTypeDefOf.SilentInput,
-                    false), SlopWidgets.Fail);
+                    false), UiWidgets.Fail);
         }
 
         void Reload()

@@ -11,7 +11,7 @@ namespace SlopWorld
     {
         const float AvatarSize = 38f;
         const float AvatarOverlap = 18f;
-        const float MessageTextInset = AvatarSize - AvatarOverlap + SlopWidgets.GapS;
+        const float MessageTextInset = AvatarSize - AvatarOverlap + UiWidgets.GapS;
         const float MessageTextX = AvatarOverlap + MessageTextInset;
 
         TaskInfo _task;
@@ -83,21 +83,21 @@ namespace SlopWorld
             // maximized reader, while the band keeps message lines from stretching across
             // a wide monitor.
             var panel = OptionsView.Band(body);
-            Slab.Box(panel, SlopWidgets.WindowBg, SlopWidgets.Edge);
-            var rect = panel.ContractedBy(SlopWidgets.GapM);
-            SlopWidgets.Title(rect, Title);
+            Slab.Box(panel, UiWidgets.WindowBg, UiWidgets.Edge);
+            var rect = panel.ContractedBy(UiWidgets.GapM);
+            UiWidgets.Title(rect, Title);
 
-            float top = rect.y + SlopWidgets.HeaderH + SlopWidgets.GapS;
-            float bottom = rect.yMax - SlopWidgets.BtnH - SlopWidgets.GapS;
+            float top = rect.y + UiWidgets.HeaderH + UiWidgets.GapS;
+            float bottom = rect.yMax - UiWidgets.BtnH - UiWidgets.GapS;
             var outer = new Rect(rect.x, top, rect.width, Mathf.Max(0f, bottom - top));
-            float width = Mathf.Max(1f, outer.width - SlopWidgets.ScrollbarW);
+            float width = Mathf.Max(1f, outer.width - UiWidgets.ScrollbarW);
             string bodyText = _task?.Body ?? "";
             string noteText = _task?.Note ?? "";
             EnsureLayout(width, bodyText, noteText);
             float bodyH = _bodyHeight;
             float noteH = _noteHeight;
-            float contentH = SlopWidgets.TinyRowH + SlopWidgets.GapS + bodyH + noteH +
-                SlopWidgets.GapS;
+            float contentH = UiWidgets.TinyRowH + UiWidgets.GapS + bodyH + noteH +
+                UiWidgets.GapS;
 
             using (WidgetState.Save())
             using (_scroll.Scope(outer, new Rect(0f, 0f, width,
@@ -106,20 +106,20 @@ namespace SlopWorld
                 _senderHits.Clear();
                 float y = 0f;
                 Text.Font = GameFont.Tiny;
-                GUI.color = SlopWidgets.Dim;
-                SlopWidgets.RowLabel(new Rect(0f, y, width, SlopWidgets.TinyRowH),
+                GUI.color = UiWidgets.Dim;
+                UiWidgets.RowLabel(new Rect(0f, y, width, UiWidgets.TinyRowH),
                     _task.Direction + "  ·  " + TaskInfo.StatusText(_task.Status) +
                     "  ·  created " + Timestamp(_task.CreatedMs) +
                     "  ·  updated " + Timestamp(_task.UpdatedMs));
                 GUI.color = Color.white;
-                y += SlopWidgets.TinyRowH + SlopWidgets.GapS;
+                y += UiWidgets.TinyRowH + UiWidgets.GapS;
 
                 DrawMessage(new Rect(0f, y, width, bodyH), _task.From, _task.CreatedMs);
                 y += bodyH;
                 if (!string.IsNullOrEmpty(_task.Note))
                 {
-                    y += SlopWidgets.GapM;
-                    DrawMessage(new Rect(0f, y, width, noteH - SlopWidgets.GapM), _task.To,
+                    y += UiWidgets.GapM;
+                    DrawMessage(new Rect(0f, y, width, noteH - UiWidgets.GapM), _task.To,
                         _task.UpdatedMs, true);
                 }
                 DrawSelectableText(outer.height);
@@ -128,26 +128,26 @@ namespace SlopWorld
             if (HandleSenderClicks(outer)) return;
             HandleSelectionInput(outer);
 
-            var foot = new SlopWidgets.Bar(SlopWidgets.FooterBar(rect));
-            if (foot.Left("Copy all", SlopWidgets.Btn.Ghost))
-                SlopClipboard.Copy(DialogueText());
+            var foot = new UiWidgets.Bar(UiWidgets.FooterBar(rect));
+            if (foot.Left("Copy all", UiWidgets.Btn.Ghost))
+                DaemonClipboard.Copy(DialogueText());
 
             if (_task.Incoming && !_task.Terminal &&
-                foot.Left("Status", SlopWidgets.Btn.Default))
+                foot.Left("Status", UiWidgets.Btn.Default))
                 TaskActions.OpenMenu(_task, updated => _task = updated);
-            else if (_task.Terminal && foot.Left("Remove", SlopWidgets.Btn.Danger))
+            else if (_task.Terminal && foot.Left("Remove", UiWidgets.Btn.Danger))
                 TaskActions.RemoveTask(_task);
 
-            if (foot.Right("Close", SlopWidgets.Btn.Ghost))
+            if (foot.Right("Close", UiWidgets.Btn.Ghost))
                 Find.WindowStack?.WindowOfType<TerminalWindow>()?.Leave();
         }
 
         static float MessageCardHeight(int lineCount)
         {
-            float headerH = SlopWidgets.LineHOf(GameFont.Tiny);
-            return Mathf.Max(AvatarSize + SlopWidgets.GapS,
-                SlopWidgets.FieldPadY * 2f + headerH + SlopWidgets.GapXS +
-                lineCount * SlopWidgets.LineHOf(GameFont.Small));
+            float headerH = UiWidgets.LineHOf(GameFont.Tiny);
+            return Mathf.Max(AvatarSize + UiWidgets.GapS,
+                UiWidgets.FieldPadY * 2f + headerH + UiWidgets.GapXS +
+                lineCount * UiWidgets.LineHOf(GameFont.Small));
         }
 
         void DrawMessage(Rect r, string sender, long timestamp,
@@ -155,16 +155,16 @@ namespace SlopWorld
         {
             var card = new Rect(r.x + AvatarOverlap, r.y,
                 Mathf.Max(1f, r.width - AvatarOverlap), r.height);
-            Slab.Box(card, SlopWidgets.Well, SlopWidgets.Edge);
+            Slab.Box(card, UiWidgets.Well, UiWidgets.Edge);
 
-            var icon = new Rect(r.x, r.y + SlopWidgets.GapS, AvatarSize, AvatarSize);
+            var icon = new Rect(r.x, r.y + UiWidgets.GapS, AvatarSize, AvatarSize);
             DrawSenderIcon(icon, sender);
 
             float textWidth = Mathf.Max(1f, card.width - MessageTextInset -
-                SlopWidgets.FieldPadX);
-            float y = card.y + SlopWidgets.FieldPadY;
+                UiWidgets.FieldPadX);
+            float y = card.y + UiWidgets.FieldPadY;
             var header = new Rect(card.x + MessageTextInset, y, textWidth,
-                SlopWidgets.LineHOf(GameFont.Tiny));
+                UiWidgets.LineHOf(GameFont.Tiny));
             var wrap = Text.WordWrap;
             var anchor = Text.Anchor;
             var font = Text.Font;
@@ -176,9 +176,9 @@ namespace SlopWorld
                 string prefix = note ? "Latest note from " : "Message from ";
                 string label = SenderLabel(sender);
                 string suffix = "  ·  " + Timestamp(timestamp);
-                float prefixW = SlopWidgets.Wide(prefix);
-                float labelW = SlopWidgets.Wide(label);
-                float suffixW = SlopWidgets.Wide(suffix);
+                float prefixW = UiWidgets.Wide(prefix);
+                float labelW = UiWidgets.Wide(label);
+                float suffixW = UiWidgets.Wide(suffix);
                 float nameX = header.x + prefixW;
                 float nameW = Mathf.Min(labelW, Mathf.Max(0f, header.xMax - nameX));
                 if (IsAgentSender(sender))
@@ -197,19 +197,19 @@ namespace SlopWorld
 
                 if (prefixW + labelW + suffixW <= header.width)
                 {
-                    GUI.color = SlopWidgets.Dim;
-                    SlopWidgets.RowLabel(new Rect(header.x, header.y, prefixW, header.height),
+                    GUI.color = UiWidgets.Dim;
+                    UiWidgets.RowLabel(new Rect(header.x, header.y, prefixW, header.height),
                         prefix);
-                    GUI.color = IsAgentSender(sender) ? SlopWidgets.Lead : SlopWidgets.Dim;
-                    SlopWidgets.RowLabel(new Rect(nameX, header.y, labelW, header.height), label);
-                    GUI.color = SlopWidgets.Dim;
-                    SlopWidgets.RowLabel(new Rect(nameX + labelW, header.y, suffixW,
+                    GUI.color = IsAgentSender(sender) ? UiWidgets.Lead : UiWidgets.Dim;
+                    UiWidgets.RowLabel(new Rect(nameX, header.y, labelW, header.height), label);
+                    GUI.color = UiWidgets.Dim;
+                    UiWidgets.RowLabel(new Rect(nameX + labelW, header.y, suffixW,
                         header.height), suffix);
                 }
                 else
                 {
-                    GUI.color = SlopWidgets.Dim;
-                    SlopWidgets.RowLabel(header, prefix + label + suffix);
+                    GUI.color = UiWidgets.Dim;
+                    UiWidgets.RowLabel(header, prefix + label + suffix);
                 }
             }
             finally
@@ -236,13 +236,13 @@ namespace SlopWorld
             var portrait = Patch_SidebarPortraitDraw.PortraitFor(pawn);
             var old = GUI.color;
 
-            Slab.Box(r, SlopWidgets.Well, SlopWidgets.Edge);
+            Slab.Box(r, UiWidgets.Well, UiWidgets.Edge);
             GUI.color = Color.white;
             if (portrait != null)
                 GUI.DrawTexture(r.ContractedBy(2f), portrait, ScaleMode.ScaleToFit, true);
             else
             {
-                GUI.color = sender == TaskInfo.Host ? SlopWidgets.Lead : SlopWidgets.Info;
+                GUI.color = sender == TaskInfo.Host ? UiWidgets.Lead : UiWidgets.Info;
                 GUI.DrawTexture(r.ContractedBy(8f),
                     sender == TaskInfo.Host ? Icons.Terminal : Icons.Agents);
             }

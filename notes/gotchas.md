@@ -11,16 +11,16 @@
 - An exception in `AgentColony.GameComponentTick` aborts the full reconcile.
 - Draw order is map interface, window `ExtraOnGUI`, then window contents. The terminal
   fills the screen, so over-pane UI belongs in `DoWindowContents` after the fill.
-  F11 does not hide map components, window extras or map overlays; ask `SlopLayout.Hidden`
+  F11 does not hide map components, window extras or map overlays; ask `UiLayout.Hidden`
   except for intentional overlays such as `CoreTip`.
 - Keyboard dispatch precedes component input when a window absorbs keys. Read a hotkey
   in the window too if it must work there. An absorbing window also blocks lower-window
   `MouseDown`; sample `Input.GetMouseButton*`, latch drags through offscreen release,
   and remember that `Use()` does not prevent overlapping hit targets from firing.
-- `WindowStack.Add` removes standing same-type windows before `PreOpen`. `SlopMenu`
+- `WindowStack.Add` removes standing same-type windows before `PreOpen`. `UiMenu`
   disables that rule and sweeps standing menus so submenu levels coexist.
   `FloatMenuOption.Disabled` means `action == null`, so submenus need an action.
-- `GameFont.Tiny` may draw as Small. Measure through `SlopWidgets.LineHOf`/`TinyH`;
+- `GameFont.Tiny` may draw as Small. Measure through `UiWidgets.LineHOf`/`TinyH`;
   disable wrapping for one-line `Text.CalcSize` or use `RowLabel`/`Wide`.
   `Text.spaceBetweenLines` is extra leading, not line height.
 - `Window.Margin` is not padding; `TerminalWindow` uses margin 0 so GUI and screen
@@ -28,8 +28,8 @@
   rect and `maxOneColumn = true`.
 - Missing glyphs still advance a line; test with `Font.HasCharacter` and replace them
   before drawing. Dynamic fonts and generated textures need `DontUnloadUnusedAsset`.
-  `SlopUIFont` supplies bottom safety space and overflow clipping for label/field styles;
-  bake replacement fonts at display size and use `SlopUIFont`/`RowLabel`; snap labels
+  `UiFont` supplies bottom safety space and overflow clipping for label/field styles;
+  bake replacement fonts at display size and use `UiFont`/`RowLabel`; snap labels
   with `Slab.SnapY`.
 - `Prefs.UIScale` is reset by a resolution watchdog. `UnlockUIScale` removes vanilla's
   cap, but the slider must apply on release because live scale moves the track.

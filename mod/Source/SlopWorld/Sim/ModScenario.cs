@@ -8,7 +8,7 @@ namespace SlopWorld
     // Derived from Crashlanded to retain the 1.6 surface/faction/drop-pod setup, but supplies
     // no starting parts; IntroDirector owns the opening scene. Built once per process; saves
     // retain their scenario.
-    public static class SlopScenario
+    public static class ModScenario
     {
         // Remove starting items, animals, mechs, dialog and pawns by assignability. Leaving
         // the pawn part would preserve the -1 default that QuickStart indexes, so it writes

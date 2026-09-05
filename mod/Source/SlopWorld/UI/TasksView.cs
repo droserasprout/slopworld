@@ -10,12 +10,12 @@ namespace SlopWorld
     // Rows are deliberately compact: the full body and actions live in TaskDetailView.
     public static partial class TasksView
     {
-        const float Pad = SlopWidgets.GapS;
-        const float CellX = SlopWidgets.GapS;
-        static float HeaderH => SlopWidgets.TinyRowH;
-        static float NameH => SlopWidgets.LineHOf(GameFont.Tiny);
-        static float NoteH => SlopWidgets.LineHOf(GameFont.Tiny);
-        static float RowH => NameH + NoteH + SlopWidgets.GapXS + 2f;
+        const float Pad = UiWidgets.GapS;
+        const float CellX = UiWidgets.GapS;
+        static float HeaderH => UiWidgets.TinyRowH;
+        static float NameH => UiWidgets.LineHOf(GameFont.Tiny);
+        static float NoteH => UiWidgets.LineHOf(GameFont.Tiny);
+        static float RowH => NameH + NoteH + UiWidgets.GapXS + 2f;
 
         static readonly SmoothScroll Scroll = new SmoothScroll();
         static readonly List<Line> Lines = new List<Line>();
@@ -72,9 +72,9 @@ namespace SlopWorld
                 return;
             }
 
-            float height = Pad + HeaderH + SlopWidgets.GapXS + tasks.Count * RowH + Pad;
+            float height = Pad + HeaderH + UiWidgets.GapXS + tasks.Count * RowH + Pad;
             var list = new Rect(0f, 0f, body.width -
-                (height > body.height ? SlopWidgets.ScrollbarW : 0f), height);
+                (height > body.height ? UiWidgets.ScrollbarW : 0f), height);
             // XInput device discovery is disproportionately expensive on some Linux/X11
             // systems. Tasks use ordinary Unity wheel packets and thumb dragging instead;
             // unlike terminal history, this compact list does not need fractional gestures.
@@ -83,7 +83,7 @@ namespace SlopWorld
             {
                 float y = Pad;
                 DrawHeader(new Rect(0f, y, list.width, HeaderH), tasks, allTasks.Count);
-                y += HeaderH + SlopWidgets.GapXS;
+                y += HeaderH + UiWidgets.GapXS;
 
                 // The mailbox is durable and can grow indefinitely. Keep its complete model,
                 // but submit only rows intersecting the viewport to IMGUI.
@@ -115,12 +115,12 @@ namespace SlopWorld
                 (SelectedIds.Count > 0 ? "  ·  " + SelectedIds.Count + " selected" : "");
 
             Text.Font = GameFont.Tiny;
-            GUI.color = SlopWidgets.Faint;
-            SlopWidgets.RowLabel(new Rect(r.x + CellX, r.y, r.width - CellX * 2f, r.height), text);
+            GUI.color = UiWidgets.Faint;
+            UiWidgets.RowLabel(new Rect(r.x + CellX, r.y, r.width - CellX * 2f, r.height), text);
             GUI.color = Color.white;
             Text.Font = GameFont.Small;
             Slab.Hairline(new Rect(r.x + CellX, r.yMax - 1f, r.width - CellX * 2f, 1f),
-                SlopWidgets.Edge);
+                UiWidgets.Edge);
         }
 
         static void DrawTask(Rect r, TaskInfo task)
@@ -134,29 +134,29 @@ namespace SlopWorld
                 r.y + NameH / 2f + 1f), dot), Icons.Dot);
 
             Text.Font = GameFont.Tiny;
-            float left = r.x + CellX + dot + SlopWidgets.GapXS;
+            float left = r.x + CellX + dot + UiWidgets.GapXS;
             string ageText = task.Age(true);
-            float ageW = SlopWidgets.Wide(ageText);
+            float ageW = UiWidgets.Wide(ageText);
             var age = new Rect(r.xMax - CellX - ageW, r.y, ageW, NameH);
-            GUI.color = SlopWidgets.Dim;
-            SlopWidgets.RowLabel(age, ageText, TextAnchor.MiddleRight);
+            GUI.color = UiWidgets.Dim;
+            UiWidgets.RowLabel(age, ageText, TextAnchor.MiddleRight);
 
             string direction = task.Direction;
             string statusText = TaskInfo.StatusText(task.Status);
-            float statusW = SlopWidgets.Wide(statusText);
-            float right = age.x - SlopWidgets.GapS;
+            float statusW = UiWidgets.Wide(statusText);
+            float right = age.x - UiWidgets.GapS;
             var state = new Rect(Mathf.Max(left, right - statusW), r.y, statusW, NameH);
             GUI.color = status;
-            SlopWidgets.RowLabel(state, statusText, TextAnchor.MiddleRight);
+            UiWidgets.RowLabel(state, statusText, TextAnchor.MiddleRight);
 
-            float directionW = Mathf.Max(0f, state.x - SlopWidgets.GapS - left);
-            GUI.color = SlopWidgets.Lead;
-            SlopWidgets.RowLabel(new Rect(left, r.y, directionW, NameH), direction);
+            float directionW = Mathf.Max(0f, state.x - UiWidgets.GapS - left);
+            GUI.color = UiWidgets.Lead;
+            UiWidgets.RowLabel(new Rect(left, r.y, directionW, NameH), direction);
 
-            GUI.color = SlopWidgets.Dim;
-            var summary = new Rect(left, r.y + NameH + SlopWidgets.GapXS,
+            GUI.color = UiWidgets.Dim;
+            var summary = new Rect(left, r.y + NameH + UiWidgets.GapXS,
                 Mathf.Max(0f, r.width - left - CellX), NoteH);
-            SlopWidgets.RowLabel(summary, FittedSummary(task, summary.width));
+            UiWidgets.RowLabel(summary, FittedSummary(task, summary.width));
 
             GUI.color = Color.white;
             Text.Font = GameFont.Small;
@@ -175,7 +175,7 @@ namespace SlopWorld
             if (FittedSummaries.TryGetValue(task, out var fitted)) return fitted;
 
             string text = task.Summary;
-            if (SlopWidgets.Wide(text) <= width)
+            if (UiWidgets.Wide(text) <= width)
                 fitted = text;
             else
             {
@@ -186,7 +186,7 @@ namespace SlopWorld
                 {
                     int mid = (low + high + 1) / 2;
                     string probe = text.Substring(0, mid).TrimEnd() + ellipsis;
-                    if (SlopWidgets.Wide(probe) <= width) low = mid;
+                    if (UiWidgets.Wide(probe) <= width) low = mid;
                     else high = mid - 1;
                 }
                 fitted = text.Substring(0, low).TrimEnd() + ellipsis;
@@ -198,8 +198,8 @@ namespace SlopWorld
         static void Empty(Rect body, string text)
         {
             Text.Font = GameFont.Tiny;
-            GUI.color = SlopWidgets.Faint;
-            SlopWidgets.RowLabel(new Rect(CellX, body.y + Pad,
+            GUI.color = UiWidgets.Faint;
+            UiWidgets.RowLabel(new Rect(CellX, body.y + Pad,
                 body.width - CellX * 2f, RowH * 2f), text);
             GUI.color = Color.white;
             Text.Font = GameFont.Small;
@@ -209,11 +209,11 @@ namespace SlopWorld
         {
             switch (status)
             {
-                case DelegatedTaskStatus.Done: return SlopWidgets.Yes;
-                case DelegatedTaskStatus.Failed: return SlopWidgets.Bad;
-                case DelegatedTaskStatus.Working: return SlopWidgets.StateWorking;
-                case DelegatedTaskStatus.Accepted: return SlopWidgets.StateWaiting;
-                default: return SlopWidgets.Info;
+                case DelegatedTaskStatus.Done: return UiWidgets.Yes;
+                case DelegatedTaskStatus.Failed: return UiWidgets.Bad;
+                case DelegatedTaskStatus.Working: return UiWidgets.StateWorking;
+                case DelegatedTaskStatus.Accepted: return UiWidgets.StateWaiting;
+                default: return UiWidgets.Info;
             }
         }
     }

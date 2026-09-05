@@ -1,12 +1,12 @@
 # UI identity and color schemes
 
-`SlopWidgets` owns named chrome colors and semantic states; terminal ANSI colors stay in
+`UiWidgets` owns named chrome colors and semantic states; terminal ANSI colors stay in
 `TerminalTheme`.
 
 ## Color schemes
 
 The values behind those names are a `UIScheme`, picked on the Appearance page and held in
-`SlopSettings.uiScheme`. A scheme is a color table; geometry, spacing, and shapes come from
+`ModSettings.uiScheme`. A scheme is a color table; geometry, spacing, and shapes come from
 the shared panel. `slopworld` and `slopworld-warm` are the complete house tables. The
 remaining entries are named palettes adapted to the UI's semantic roles.
 
@@ -21,7 +21,7 @@ Schemes use `#rrggbb` or `#rrggbbaa` values parsed by `TerminalTheme.TryHex`. St
 lines, hovered rows, and text ramps use the scheme's foreground roles rather than a fixed
 white, so palettes retain their intended contrast.
 
-`SlopWidgets` reads `UIScheme.Current` per access and `Current` re-resolves against the
+`UiWidgets` reads `UIScheme.Current` per access and `Current` re-resolves against the
 setting, so a pick lands on the next frame with nothing to invalidate and nothing to tell.
 That works because no chrome color is ever baked into a texture — unlike the pane, whose
 row cache is keyed on `TerminalTheme.Rev`. Anything that starts baking one has to grow the

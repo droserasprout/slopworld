@@ -18,7 +18,7 @@ namespace SlopWorld
 
             // A binding listener is the one intentional exception: it owns the next key and
             // must be able to record an interface key instead of activating that key now.
-            if (SlopOptions.KeyboardCaptureActive) return;
+            if (ModOptions.KeyboardCaptureActive) return;
 
             if (TerminalWindow.HandleFunctionKey(e)) e.Use();
         }

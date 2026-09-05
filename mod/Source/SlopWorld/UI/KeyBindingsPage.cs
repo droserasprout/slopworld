@@ -15,13 +15,13 @@ namespace SlopWorld
         // A row holds a button, so it is a button's height; the category band is a tiny line.
         // Both off the font: written down, they crop their own labels on any face taller than
         // the one they were set against.
-        static float RowH => SlopWidgets.BtnH;
-        static float CatH => SlopWidgets.TinyRowH + 4f;
+        static float RowH => UiWidgets.BtnH;
+        static float CatH => UiWidgets.TinyRowH + 4f;
         const float Gap = 4f;
 
         // Room for the longest bind there is, measured rather than guessed: a chord with two
         // modifiers on it is what has to fit, and at a larger font 180 is not it.
-        static float KeyW => Mathf.Max(SlopWidgets.Wide("Ctrl + Shift + Backspace") + 24f, 180f);
+        static float KeyW => Mathf.Max(UiWidgets.Wide("Ctrl + Shift + Backspace") + 24f, 180f);
         const float Indent = 12f;
 
         // Which categories are folded. In-memory only, the way every other fold is.
@@ -41,8 +41,8 @@ namespace SlopWorld
 
         public void Draw(Rect rect)
         {
-            var body = SlopWidgets.PageBody(rect);
-            var inner = body.ContractedBy(SlopWidgets.GapM);
+            var body = UiWidgets.PageBody(rect);
+            var inner = body.ContractedBy(UiWidgets.GapM);
 
             // Build the content model once per frame.
             var cats = DefDatabase<KeyBindingCategoryDef>.AllDefs
@@ -57,10 +57,10 @@ namespace SlopWorld
             // Measure total content height.
             float totalH = MeasureCategories(cats, bindingsMap);
             // Room for the Restore Defaults button at the foot.
-            totalH += SlopWidgets.BtnH + SlopWidgets.GapS + SlopWidgets.GapS;
+            totalH += UiWidgets.BtnH + UiWidgets.GapS + UiWidgets.GapS;
 
             // Scroll view for the list area.
-            var innerRect = new Rect(0f, 0f, inner.width - SlopWidgets.ScrollbarW,
+            var innerRect = new Rect(0f, 0f, inner.width - UiWidgets.ScrollbarW,
                 Mathf.Max(totalH, inner.height));
             using (_scroll.Scope(inner, innerRect))
             {
@@ -76,8 +76,8 @@ namespace SlopWorld
                 }
 
                 // "Restore defaults" at the bottom of the scroll content.
-                y += SlopWidgets.GapS;
-                DrawRestoreDefaults(new Rect(0f, y, innerRect.width, SlopWidgets.BtnH));
+                y += UiWidgets.GapS;
+                DrawRestoreDefaults(new Rect(0f, y, innerRect.width, UiWidgets.BtnH));
 
             }
 
@@ -110,20 +110,20 @@ namespace SlopWorld
 
                 var headRect = new Rect(rect.x, y, rect.width, CatH);
                 bool overHead = Mouse.IsOver(headRect);
-                if (overHead) Slab.Fill(headRect, SlopWidgets.Hover);
+                if (overHead) Slab.Fill(headRect, UiWidgets.Hover);
 
                 float arrowSize = 10f;
                 var arrowRect = new Rect(headRect.x, headRect.y + (CatH - arrowSize) / 2f,
                     arrowSize, arrowSize);
-                GUI.color = SlopWidgets.Faint;
+                GUI.color = UiWidgets.Faint;
                 GUI.DrawTexture(arrowRect, folded ? TexButton.Reveal : TexButton.Collapse);
 
                 Text.Font = GameFont.Tiny;
                 Text.Anchor = TextAnchor.MiddleLeft;
                 float lx = arrowRect.xMax + 4f;
                 string tail = folded ? $"  {list.Count}" : "";
-                GUI.color = SlopWidgets.Dim;
-                SlopWidgets.RowLabel(
+                GUI.color = UiWidgets.Dim;
+                UiWidgets.RowLabel(
                     new Rect(lx, headRect.y, rect.width - lx - Gap, CatH),
                     cat.label + tail);
 
@@ -150,19 +150,19 @@ namespace SlopWorld
             {
                 bool over = Mouse.IsOver(rect);
                 if (over && _listening != binding)
-                    Slab.Fill(rect, SlopWidgets.RowBg);
+                    Slab.Fill(rect, UiWidgets.RowBg);
 
                 Text.Anchor = TextAnchor.MiddleLeft;
-                GUI.color = SlopWidgets.Name;
+                GUI.color = UiWidgets.Name;
                 float labelW = rect.width - KeyW - Gap;
-                SlopWidgets.RowLabel(new Rect(rect.x, rect.y, labelW, RowH), binding.label);
+                UiWidgets.RowLabel(new Rect(rect.x, rect.y, labelW, RowH), binding.label);
 
                 // Key button: click to rebind.
                 var keyRect = new Rect(rect.xMax - KeyW, rect.y, KeyW, RowH);
                 if (_listening == binding)
                 {
                     // Listening state: show a primary-style button asking for input.
-                    SlopWidgets.Button(keyRect, "Press a key...", SlopWidgets.Btn.Primary);
+                    UiWidgets.Button(keyRect, "Press a key...", UiWidgets.Btn.Primary);
                 }
                 else
                 {
@@ -178,7 +178,7 @@ namespace SlopWorld
                         _listening = binding;
                         ev.Use();
                     }
-                    else if (SlopWidgets.Button(keyRect, keyLabel, SlopWidgets.Btn.Default))
+                    else if (UiWidgets.Button(keyRect, keyLabel, UiWidgets.Btn.Default))
                     {
                         _bindingSlot = KeyPrefs.BindingSlot.A;
                         _listening = binding;
@@ -195,14 +195,14 @@ namespace SlopWorld
 
         float DrawRestoreDefaults(Rect rect)
         {
-            if (SlopWidgets.Button(rect, "Restore defaults", SlopWidgets.Btn.Ghost))
+            if (UiWidgets.Button(rect, "Restore defaults", UiWidgets.Btn.Ghost))
             {
                 KeyPrefs.KeyPrefsData.ResetToDefaults();
                 KeyPrefs.Save();
                 Messages.Message("SlopWorld: key bindings restored to defaults.",
                     MessageTypeDefOf.TaskCompletion, false);
             }
-            return SlopWidgets.BtnH;
+            return UiWidgets.BtnH;
         }
 
         // Called at the end of the frame when we are waiting for a key. The key press

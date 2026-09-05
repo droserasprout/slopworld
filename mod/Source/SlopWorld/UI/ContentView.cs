@@ -22,7 +22,7 @@ namespace SlopWorld
 
     // An options page is built lazily, loaded once, then handed its rect. Config-backed pages
     // use Load to read their source, while local pages can make it a no-op; the shared shape
-    // lets SlopOptions dispatch every category from the same tab table.
+    // lets ModOptions dispatch every category from the same tab table.
     public interface IOptionPage
     {
         void Load();

@@ -39,7 +39,7 @@ namespace SlopWorld
             if (act != RowAct.None)
             {
                 float d = Mathf.Min(GhostMarkW, text.height);
-                GUI.color = SlopWidgets.Off;
+                GUI.color = UiWidgets.Off;
                 GUI.DrawTexture(new Rect(text.x, text.y + (text.height - d) / 2f, d, d),
                     RowActions.Tex(act));
                 text.x += d + 4f;
@@ -114,7 +114,7 @@ namespace SlopWorld
             if (act != RowAct.None)
             {
                 float d = Mathf.Min(GhostMarkW, text.height);
-                GUI.color = SlopWidgets.Off;
+                GUI.color = UiWidgets.Off;
                 GUI.DrawTexture(
                     new Rect(text.x, text.y + (text.height - d) / 2f, d, d),
                     RowActions.Tex(act));
@@ -137,24 +137,24 @@ namespace SlopWorld
             float d = Mathf.Min(GhostMarkW, row.Text.height);
             Rect mark = new Rect(row.Text.x - TextGap - GhostMarkW,
                 row.Text.y + (row.Text.height - d) / 2f, d, d);
-            GUI.color = SlopWidgets.Off;
+            GUI.color = UiWidgets.Off;
             GUI.DrawTexture(mark, Icons.Agents);
             TooltipHandler.TipRegion(mark, "Task worker session");
 
             Text.Font = GameFont.Tiny;
             AgentState state = info?.State ?? AgentState.Down;
-            Color tint = info == null ? SlopWidgets.Dim : TerminalWindow.StateColor(state);
+            Color tint = info == null ? UiWidgets.Dim : TerminalWindow.StateColor(state);
             string ago = state == AgentState.Down ? "" : SidebarRowRenderer.Ago(info);
-            float ageW = ago.Length == 0 ? 0f : SlopWidgets.Wide(ago);
+            float ageW = ago.Length == 0 ? 0f : UiWidgets.Wide(ago);
             float nameW = Mathf.Max(0f, row.Text.width -
-                (ageW > 0f ? ageW + SlopWidgets.GapXS : 0f));
+                (ageW > 0f ? ageW + UiWidgets.GapXS : 0f));
             var name = new Rect(row.Text.x, row.Text.y, nameW, row.Text.height);
             GUI.color = tint;
-            SlopWidgets.RowLabel(name, info?.Name ?? row.Session);
+            UiWidgets.RowLabel(name, info?.Name ?? row.Session);
             if (ageW > 0f)
             {
                 var time = new Rect(row.Text.xMax - ageW, row.Text.y, ageW, row.Text.height);
-                SlopWidgets.RowLabel(time, ago, TextAnchor.MiddleRight);
+                UiWidgets.RowLabel(time, ago, TextAnchor.MiddleRight);
                 string stateName = state == AgentState.Waiting
                     ? "waiting for input"
                     : state.ToString().ToLowerInvariant();
@@ -180,7 +180,7 @@ namespace SlopWorld
             var center = new Vector2(portrait.xMax - d / 2f - BadgeInset,
                 text.y + NameH + SubH * 1.5f + 3f);
 
-            GUI.color = SlopWidgets.ViewBg;
+            GUI.color = UiWidgets.ViewBg;
             GUI.DrawTexture(Icons.DotBox(center, d + BadgeRing * 2f), Icons.Dot);
             var stateColor = TerminalWindow.StateColor(state);
             GUI.color = new Color(stateColor.r, stateColor.g, stateColor.b, BadgeAlpha);

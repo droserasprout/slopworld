@@ -107,11 +107,11 @@ namespace SlopWorld
 
         static PlayerAction ActionFor(Event e)
         {
-            if (Bound(SlopDefOf.SlopPlayerGo, e)) return PlayerAction.Go;
-            if (Bound(SlopDefOf.SlopPlayerFireball, e)) return PlayerAction.Fireball;
-            if (Bound(SlopDefOf.SlopPlayerRejuvenate, e)) return PlayerAction.Rejuvenate;
-            if (Bound(SlopDefOf.SlopPlayerTeleport, e)) return PlayerAction.Teleport;
-            if (Bound(SlopDefOf.SlopPlayerCatWhistle, e)) return PlayerAction.CatWhistle;
+            if (Bound(ModDefOf.SlopPlayerGo, e)) return PlayerAction.Go;
+            if (Bound(ModDefOf.SlopPlayerFireball, e)) return PlayerAction.Fireball;
+            if (Bound(ModDefOf.SlopPlayerRejuvenate, e)) return PlayerAction.Rejuvenate;
+            if (Bound(ModDefOf.SlopPlayerTeleport, e)) return PlayerAction.Teleport;
+            if (Bound(ModDefOf.SlopPlayerCatWhistle, e)) return PlayerAction.CatWhistle;
             return PlayerAction.None;
         }
 
@@ -151,12 +151,12 @@ namespace SlopWorld
 
         void CastFireball()
         {
-            Cast(SlopDefOf.SlopFireball);
+            Cast(ModDefOf.SlopFireball);
         }
 
         void CastWaterBall()
         {
-            Cast(SlopDefOf.SlopWaterBall);
+            Cast(ModDefOf.SlopWaterBall);
         }
 
         void TeleportToCursor()

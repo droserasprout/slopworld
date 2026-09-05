@@ -7,13 +7,13 @@ using Verse;
 
 namespace SlopWorld
 {
-    public sealed class SlopCommandAction : Command_Action
+    public sealed class UiCommandAction : Command_Action
     {
         const float IconBox = 36f;
 
-        readonly SlopWidgets.Btn _kind;
+        readonly UiWidgets.Btn _kind;
 
-        public SlopCommandAction(SlopWidgets.Btn kind)
+        public UiCommandAction(UiWidgets.Btn kind)
         {
             _kind = kind;
         }
@@ -44,7 +44,7 @@ namespace SlopWorld
         public override void DrawIcon(Rect rect, Material buttonMat, GizmoRenderParms parms)
         {
             bool over = !Disabled && Mouse.IsOver(rect);
-            SlopWidgets.ActionButtonBackground(rect, _kind, !Disabled, over,
+            UiWidgets.ActionButtonBackground(rect, _kind, !Disabled, over,
                 over && Input.GetMouseButton(0));
 
             // The icon PNGs share a canvas, not a visual ink box: terminal/edit are nearly
@@ -97,14 +97,14 @@ namespace SlopWorld
                     || !IsLocalLoad(code[i - 3], 5))
                     continue;
 
-                // Vanilla puts the shortcut label at y + 3. Move just SlopCommandAction's
+                // Vanilla puts the shortcut label at y + 3. Move just UiCommandAction's
                 // label two pixels higher, leaving every other command's layout untouched.
                 var skip = generator.DefineLabel();
                 code[i - 3].labels.Add(skip);
                 code.InsertRange(i - 3, new[]
                 {
                     new CodeInstruction(OpCodes.Ldarg_0),
-                    new CodeInstruction(OpCodes.Isinst, typeof(SlopCommandAction)),
+                    new CodeInstruction(OpCodes.Isinst, typeof(UiCommandAction)),
                     new CodeInstruction(OpCodes.Brfalse_S, skip),
                     new CodeInstruction(OpCodes.Ldloca_S, code[i - 3].operand),
                     new CodeInstruction(OpCodes.Dup),

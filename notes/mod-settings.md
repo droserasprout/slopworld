@@ -1,6 +1,6 @@
-# `SlopSettings`
+# `ModSettings`
 
-`SlopSettings` is RimWorld install/profile state, reached through the static `Settings`
+`ModSettings` is RimWorld install/profile state, reached through the static `Settings`
 shim. It is written to `Config/SlopWorld.toml`; it is not the daemon's machine-wide
 `config.toml`.
 
@@ -42,7 +42,7 @@ metadata displays `?`; it does not prevent the page from showing the online stat
 
 The connection comes from `endpoint.toml`. `AppearancePage` edits the global interface
 settings and `TerminalPage` edits pane settings; `ConfigPage` edits daemon configuration.
-Mod settings are written atomically by `SlopSettings.Write` when the Settings view closes,
+Mod settings are written atomically by `ModSettings.Write` when the Settings view closes,
 and dirty values also flush periodically.
 
 Font or size changes invalidate `TerminalFont`; terminal scheme changes invalidate

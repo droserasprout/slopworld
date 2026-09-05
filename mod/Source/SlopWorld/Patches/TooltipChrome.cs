@@ -13,12 +13,12 @@ namespace SlopWorld
     {
         static bool Prefix(Rect bgRect, string label)
         {
-            Slab.Box(bgRect, SlopWidgets.PopoverBg, SlopWidgets.Edge);
+            Slab.Box(bgRect, UiWidgets.PopoverBg, UiWidgets.Edge);
 
             var wasFont = Text.Font;
             var wasColor = GUI.color;
             Text.Font = GameFont.Small;
-            GUI.color = SlopWidgets.Lead;
+            GUI.color = UiWidgets.Lead;
             Widgets.Label(bgRect.ContractedBy(4f), label);
             Text.Font = wasFont;
             GUI.color = wasColor;

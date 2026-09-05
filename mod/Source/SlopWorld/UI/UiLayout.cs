@@ -8,7 +8,7 @@ using Verse.Sound;
 
 namespace SlopWorld
 {
-    public abstract class SlopLayout : SlopControls
+    public abstract class UiLayout : UiControls
     {
         // A scene has the board and everything else stands down, so the room goes back
         // rather than leaving a button row indented against nothing.
@@ -98,25 +98,25 @@ namespace SlopWorld
             public bool Left(string label, Btn kind = Btn.Default, bool on = true)
             {
                 float w = Wide(label);
-                var at = new Rect(_r.x + _left, _r.y, w, SlopWidgets.BtnH);
-                _left += w + SlopWidgets.GapS;
-                return SlopWidgets.Button(at, label, kind, on);
+                var at = new Rect(_r.x + _left, _r.y, w, UiWidgets.BtnH);
+                _left += w + UiWidgets.GapS;
+                return UiWidgets.Button(at, label, kind, on);
             }
 
             public bool Right(string label, Btn kind = Btn.Default, bool on = true)
             {
                 float w = Wide(label);
-                var at = new Rect(_r.xMax - _right - w, _r.y, w, SlopWidgets.BtnH);
-                _right += w + SlopWidgets.GapS;
-                return SlopWidgets.Button(at, label, kind, on);
+                var at = new Rect(_r.xMax - _right - w, _r.y, w, UiWidgets.BtnH);
+                _right += w + UiWidgets.GapS;
+                return UiWidgets.Button(at, label, kind, on);
             }
 
             public Rect Rest()
             {
                 float x = _r.x + _left;
                 return new Rect(x, _r.y,
-                    Mathf.Max(_r.xMax - _right - SlopWidgets.GapS - x, 0f),
-                    SlopWidgets.BtnH);
+                    Mathf.Max(_r.xMax - _right - UiWidgets.GapS - x, 0f),
+                    UiWidgets.BtnH);
             }
 
             // Measured at Small whatever the caller left the font at. [BtnH] is a fixed
@@ -127,7 +127,7 @@ namespace SlopWorld
                 using (WidgetState.Save())
                 {
                     Verse.Text.Font = GameFont.Small;
-                    return SlopWidgets.BtnW(label, SlopWidgets.ButtonMinW);
+                    return UiWidgets.BtnW(label, UiWidgets.ButtonMinW);
                 }
             }
         }
@@ -139,7 +139,7 @@ namespace SlopWorld
             Messages.Message($"SlopWorld: {msg}", MessageTypeDefOf.RejectInput, false);
 
         // A checked menu row wears the same box a settings page does, before the label
-        // rather than after it: `SlopMenu` reads `extraPartRightJustified` and puts the
+        // rather than after it: `UiMenu` reads `extraPartRightJustified` and puts the
         // part on the left when it is false. One checkbox everywhere, so a tick means the
         // same thing wherever it is read.
         public static FloatMenuOption MenuToggle(string label, bool on, Action act)
@@ -171,7 +171,7 @@ namespace SlopWorld
                 }
 
                 var family = group.Key;
-                yield return new SlopSubmenu(family, () => faces
+                yield return new UiSubmenu(family, () => faces
                     .Select(name => FontOption(name, choose))
                     .ToList());
             }
@@ -204,7 +204,7 @@ namespace SlopWorld
 
         static void Status(Rect line, SessionHub hub)
         {
-            string text = $"{SlopClient.BaseUrl} - {hub.Status}";
+            string text = $"{DaemonClient.BaseUrl} - {hub.Status}";
             float w = Wide(text);
 
             float h = RowH;

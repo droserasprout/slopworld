@@ -12,7 +12,7 @@ namespace SlopWorld
     // category column. Vanilla positions categories from window coordinates
     // (`Rect(0, i*50, 160, 48)`), so the centred band must be a GUI group; remapping its
     // rect would not move them. See OptionsView and ChromeShift.
-    public static class SlopOptions
+    public static class ModOptions
     {
         // The band, its width and the row taken off the foot for the OK button are
         // OptionsView's: they are about the shape the pages are drawn in, and this file is
@@ -375,7 +375,7 @@ namespace SlopWorld
         public static void Teardown()
         {
             foreach (var tab in Column) tab.Teardown();
-            SlopWorldMod.Instance.settings.Write();
+            ModEntry.Instance.settings.Write();
         }
 
         // The content view has no OK button; suppress only vanilla's translated OK button
@@ -411,10 +411,10 @@ namespace SlopWorld
         const float VanillaInset = 4f;
 
         // Vanilla reserves a 50px pitch, so top-level rows use the larger computed pitch.
-        static float RowH => Mathf.Round(SlopWidgets.LineH * 1.4f);
-        static float NestedRowH => Mathf.Round(SlopWidgets.LineH * 1.15f);
-        static float Pitch => RowH + SlopWidgets.GapXS;
-        static float NestedPitch => NestedRowH + SlopWidgets.GapXS;
+        static float RowH => Mathf.Round(UiWidgets.LineH * 1.4f);
+        static float NestedRowH => Mathf.Round(UiWidgets.LineH * 1.15f);
+        static float Pitch => RowH + UiWidgets.GapXS;
+        static float NestedPitch => NestedRowH + UiWidgets.GapXS;
 
         // Limit the icon box to the row height.
         static float IconBox => Mathf.Min(18f, RowH - 6f);
@@ -435,8 +435,8 @@ namespace SlopWorld
         // Draw selected and hovered rows with the mod's colors.
         static void CategoryRow(Rect r, bool selected)
         {
-            if (selected) Slab.Fill(r, SlopWidgets.Sel);
-            else if (Mouse.IsOver(r)) Slab.Fill(r, SlopWidgets.Hover);
+            if (selected) Slab.Fill(r, UiWidgets.Sel);
+            else if (Mouse.IsOver(r)) Slab.Fill(r, UiWidgets.Hover);
         }
 
         static void Select(Dialog_Options dlg, OptionCategoryDef category)
@@ -479,7 +479,7 @@ namespace SlopWorld
                                 IconBox, IconBox), icon);
                 }
 
-                SlopWidgets.RowLabel(new Rect(x, row.y, row.xMax - x, row.height),
+                UiWidgets.RowLabel(new Rect(x, row.y, row.xMax - x, row.height),
                     optionCategory.LabelCap);
                 return false;
             }
@@ -527,8 +527,8 @@ namespace SlopWorld
         {
             bool playing = Current.ProgramState == ProgramState.Playing
                            && Find.CurrentMap != null;
-            float left = playing ? SlopLayout.LeftInset : 0f;
-            float top = playing ? SlopLayout.TopInset : 0f;
+            float left = playing ? UiLayout.LeftInset : 0f;
+            float top = playing ? UiLayout.TopInset : 0f;
             return new Rect(left, top, UI.screenWidth - left, UI.screenHeight - top);
         }
 

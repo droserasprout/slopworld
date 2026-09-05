@@ -5,7 +5,7 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Shift vanilla bottom buttons and inspect panes by `SlopLayout.LeftInset`; zero leaves
+    // Shift vanilla bottom buttons and inspect panes by `UiLayout.LeftInset`; zero leaves
     // them untouched. Patch the stable button-rect seam rather than transpiling `DoButtons`.
 
     [HarmonyPatch(typeof(MainButtonWorker), nameof(MainButtonWorker.DoButton))]
@@ -13,7 +13,7 @@ namespace SlopWorld
     {
         static void Prefix(ref Rect rect)
         {
-            float inset = SlopLayout.LeftInset;
+            float inset = UiLayout.LeftInset;
             if (inset <= 0f) return;
 
             float full = UI.screenWidth;
@@ -32,7 +32,7 @@ namespace SlopWorld
     {
         static void Prefix(out bool __state)
         {
-            float inset = SlopLayout.LeftInset;
+            float inset = UiLayout.LeftInset;
             __state = inset > 0f;
             if (__state)
                 GUI.BeginGroup(new Rect(inset, 0f, UI.screenWidth - inset, UI.screenHeight));
@@ -50,7 +50,7 @@ namespace SlopWorld
     {
         static void Postfix(ref Rect __result)
         {
-            __result.x += SlopLayout.LeftInset;
+            __result.x += UiLayout.LeftInset;
         }
     }
 
@@ -76,8 +76,8 @@ namespace SlopWorld
             if (pane.Anchor != MainTabWindowAnchor.Left) return;
 
             var r = pane.windowRect;
-            r.x = SlopLayout.LeftInset > 0f
-                ? Mathf.Min(SlopLayout.LeftInset, Mathf.Max(0f, UI.screenWidth - r.width))
+            r.x = UiLayout.LeftInset > 0f
+                ? Mathf.Min(UiLayout.LeftInset, Mathf.Max(0f, UI.screenWidth - r.width))
                 : 0f;
             pane.windowRect = r;
         }

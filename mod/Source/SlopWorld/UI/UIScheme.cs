@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace SlopWorld
 {
-    // Named palette for `SlopWidgets`; geometry stays fixed while selected colors propagate on
+    // Named palette for `UiWidgets`; geometry stays fixed while selected colors propagate on
     // the next frame. Hex values are persisted in settings.
     public class UIScheme
     {

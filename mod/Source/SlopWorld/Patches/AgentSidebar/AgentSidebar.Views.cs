@@ -80,10 +80,10 @@ namespace SlopWorld
                 case SidebarTab.Search: SearchView.Search(); break;
                 case SidebarTab.Git: GitView.Refresh(); break;
                 case SidebarTab.Library:
-                    SessionHub.Instance.RefreshLibrary(SlopWidgets.Fail);
+                    SessionHub.Instance.RefreshLibrary(UiWidgets.Fail);
                     break;
                 case SidebarTab.Tasks:
-                    SessionHub.Instance.RefreshTasks(SlopWidgets.Fail);
+                    SessionHub.Instance.RefreshTasks(UiWidgets.Fail);
                     break;
             }
         }
@@ -226,14 +226,14 @@ namespace SlopWorld
         {
             // The tab is a new focus target even when it is already selected (Git refreshes
             // on that path), so a menu opened by the previous view must not survive it.
-            SlopMenu.CloseAll();
+            UiMenu.CloseAll();
 
             // Focusing Git is also the user's way to ask what changed since the last
             // focus, including when Git is already the selected tab.
             if (CurrentTab == tab)
             {
                 if (tab == SidebarTab.Git) GitView.Refresh();
-                else if (tab == SidebarTab.Tasks) SessionHub.Instance.RefreshTasks(SlopWidgets.Fail);
+                else if (tab == SidebarTab.Tasks) SessionHub.Instance.RefreshTasks(UiWidgets.Fail);
                 return;
             }
 
@@ -255,7 +255,7 @@ namespace SlopWorld
             if (tab == SidebarTab.Search) SearchView.Entered();
 
             if (tab == SidebarTab.Library) SessionHub.Instance.RefreshLibrary();
-            if (tab == SidebarTab.Tasks) SessionHub.Instance.RefreshTasks(SlopWidgets.Fail);
+            if (tab == SidebarTab.Tasks) SessionHub.Instance.RefreshTasks(UiWidgets.Fail);
         }
 
         static RowAct RoutedAction(SessionInfo info) => RowActions.Of(info);

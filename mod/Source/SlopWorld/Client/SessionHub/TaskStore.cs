@@ -50,7 +50,7 @@ namespace SlopWorld
             int serial = ++_refreshSerial;
             // The host UI is the operator's task board, so it needs agent-to-agent work too.
             // Scoped callers and the CLI keep using the default participant mailbox.
-            SlopClient.Get("/api/tasks?all=true", j =>
+            DaemonClient.Get("/api/tasks?all=true", j =>
             {
                 bool current = serial == _refreshSerial;
                 if (current)
@@ -71,7 +71,7 @@ namespace SlopWorld
                            Action<string> fail = null)
         {
             InvalidateRefresh();
-            SlopClient.Post("/api/tasks",
+            DaemonClient.Post("/api/tasks",
                 "{" + $"\"to\":{JVal.Q(to ?? "")}," +
                 $"\"body\":{JVal.Q(body ?? "")}" + "}",
                 j =>
@@ -86,7 +86,7 @@ namespace SlopWorld
                                  Action<TaskInfo> ok = null, Action<string> fail = null)
         {
             InvalidateRefresh();
-            SlopClient.Post($"/api/tasks/{HubWire.Esc(id)}",
+            DaemonClient.Post($"/api/tasks/{HubWire.Esc(id)}",
                 "{" + $"\"status\":{JVal.Q(TaskInfo.StatusText(status))}," +
                 $"\"note\":{(note == null ? "null" : JVal.Q(note))}" + "}",
                 j =>
@@ -130,7 +130,7 @@ namespace SlopWorld
             _removalInFlight = true;
             string body = "{\"ids\":[" +
                 string.Join(",", pending.Ids.Select(JVal.Q).ToArray()) + "]}";
-            SlopClient.Post("/api/tasks/remove", body, _ =>
+            DaemonClient.Post("/api/tasks/remove", body, _ =>
             {
                 _removalInFlight = false;
                 foreach (string id in pending.Ids) _removingIds.Remove(id);
@@ -158,7 +158,7 @@ namespace SlopWorld
         public void Prune(Action ok = null, Action<string> fail = null)
         {
             InvalidateRefresh();
-            SlopClient.Delete("/api/tasks", j =>
+            DaemonClient.Delete("/api/tasks", j =>
             {
                 Tasks = Tasks.Where(t => !t.Terminal).ToList();
                 ok?.Invoke();

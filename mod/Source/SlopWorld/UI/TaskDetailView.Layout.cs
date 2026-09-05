@@ -34,19 +34,19 @@ namespace SlopWorld
             if (note.Length > 0)
             {
                 _noteRanges.AddRange(WrappedRanges(note, TextWidth(width)));
-                _noteHeight = SlopWidgets.GapM + MessageCardHeight(_noteRanges.Count);
+                _noteHeight = UiWidgets.GapM + MessageCardHeight(_noteRanges.Count);
             }
 
             _selectionLines.Clear();
-            float bodyY = SlopWidgets.TinyRowH + SlopWidgets.GapS;
-            float textY = bodyY + SlopWidgets.FieldPadY +
-                SlopWidgets.LineHOf(GameFont.Tiny) + SlopWidgets.GapXS;
+            float bodyY = UiWidgets.TinyRowH + UiWidgets.GapS;
+            float textY = bodyY + UiWidgets.FieldPadY +
+                UiWidgets.LineHOf(GameFont.Tiny) + UiWidgets.GapXS;
             CollectSelectableText(body, MessageTextX, textY, _bodyRanges, 0);
             if (note.Length > 0)
             {
-                float noteY = bodyY + _bodyHeight + SlopWidgets.GapM;
-                textY = noteY + SlopWidgets.FieldPadY +
-                    SlopWidgets.LineHOf(GameFont.Tiny) + SlopWidgets.GapXS;
+                float noteY = bodyY + _bodyHeight + UiWidgets.GapM;
+                textY = noteY + UiWidgets.FieldPadY +
+                    UiWidgets.LineHOf(GameFont.Tiny) + UiWidgets.GapXS;
                 CollectSelectableText(note, MessageTextX, textY, _noteRanges,
                     body.Length + 2);
             }
@@ -54,7 +54,7 @@ namespace SlopWorld
 
         static float TextWidth(float width)
         {
-            return Mathf.Max(1f, width - MessageTextX - SlopWidgets.FieldPadX);
+            return Mathf.Max(1f, width - MessageTextX - UiWidgets.FieldPadX);
         }
 
         List<TextRange> WrappedRanges(string text, float width)
@@ -137,7 +137,7 @@ namespace SlopWorld
                                    List<TextRange> ranges, int sourceOffset)
         {
             text = text ?? "";
-            float lineH = SlopWidgets.LineHOf(GameFont.Small);
+            float lineH = UiWidgets.LineHOf(GameFont.Small);
             var wasFont = Text.Font;
             var wasWrap = Text.WordWrap;
             try

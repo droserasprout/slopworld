@@ -58,26 +58,26 @@ namespace SlopWorld
     {
         public static void Draw(Rect outer, ref SmoothScroll scroll, SandboxPreviewData data)
         {
-            Slab.Box(outer, SlopWidgets.Well, SlopWidgets.Edge);
-            var pad = outer.ContractedBy(SlopWidgets.GapS);
-            var view = new Rect(0f, 0f, pad.width - SlopWidgets.ScrollbarW,
-                Mathf.Max(Height(data, pad.width - SlopWidgets.ScrollbarW), pad.height));
+            Slab.Box(outer, UiWidgets.Well, UiWidgets.Edge);
+            var pad = outer.ContractedBy(UiWidgets.GapS);
+            var view = new Rect(0f, 0f, pad.width - UiWidgets.ScrollbarW,
+                Mathf.Max(Height(data, pad.width - UiWidgets.ScrollbarW), pad.height));
             using (scroll.Scope(pad, view))
             {
 
                 float y = 0f;
-                y = TextBlock(view.width, y, data.Title, SlopWidgets.Lead);
-                y += SlopWidgets.GapXS;
+                y = TextBlock(view.width, y, data.Title, UiWidgets.Lead);
+                y += UiWidgets.GapXS;
                 if (!string.IsNullOrEmpty(data.Subtitle))
                 {
-                    y = TextBlock(view.width, y, data.Subtitle, SlopWidgets.Dim);
-                    y += SlopWidgets.GapXS;
+                    y = TextBlock(view.width, y, data.Subtitle, UiWidgets.Dim);
+                    y += UiWidgets.GapXS;
                 }
                 if (data.Notes.Count > 0)
                 {
                     y = TextBlock(view.width, y, string.Join("\n", data.Notes.ToArray()),
-                        SlopWidgets.Faint);
-                    y += SlopWidgets.GapS;
+                        UiWidgets.Faint);
+                    y += UiWidgets.GapS;
                 }
 
                 foreach (var field in data.Fields)
@@ -89,34 +89,34 @@ namespace SlopWorld
         static float Height(SandboxPreviewData data, float width)
         {
             float y = 0f;
-            y += Text.CalcHeight(data.Title, width) + SlopWidgets.GapXS;
+            y += Text.CalcHeight(data.Title, width) + UiWidgets.GapXS;
             if (!string.IsNullOrEmpty(data.Subtitle))
-                y += Text.CalcHeight(data.Subtitle, width) + SlopWidgets.GapXS;
+                y += Text.CalcHeight(data.Subtitle, width) + UiWidgets.GapXS;
             if (data.Notes.Count > 0)
                 y += Text.CalcHeight(string.Join("\n", data.Notes.ToArray()), width) +
-                     SlopWidgets.GapS;
+                     UiWidgets.GapS;
             foreach (var field in data.Fields)
             {
                 string text = field.Values.Count == 0
                     ? "(nothing)"
                     : string.Join("\n", field.Values.ToArray());
-                y += SlopWidgets.RowH + SlopWidgets.GapXS +
-                     Text.CalcHeight(text, width) + SlopWidgets.GapM;
+                y += UiWidgets.RowH + UiWidgets.GapXS +
+                     Text.CalcHeight(text, width) + UiWidgets.GapM;
             }
-            return y + SlopWidgets.GapM;
+            return y + UiWidgets.GapM;
         }
 
         static float Field(float width, float y, SandboxPreviewField field)
         {
-            SlopWidgets.SectionHeading(new Rect(0f, y, width, SlopWidgets.RowH), field.Label);
-            y += SlopWidgets.RowH + SlopWidgets.GapXS;
+            UiWidgets.SectionHeading(new Rect(0f, y, width, UiWidgets.RowH), field.Label);
+            y += UiWidgets.RowH + UiWidgets.GapXS;
             string text = field.Values.Count == 0
                 ? "(nothing)"
                 : string.Join("\n", field.Values.ToArray());
-            GUI.color = field.Values.Count == 0 ? SlopWidgets.Faint : SlopWidgets.Name;
+            GUI.color = field.Values.Count == 0 ? UiWidgets.Faint : UiWidgets.Name;
             Widgets.Label(new Rect(0f, y, width, Text.CalcHeight(text, width)), text);
             GUI.color = Color.white;
-            return y + Text.CalcHeight(text, width) + SlopWidgets.GapM;
+            return y + Text.CalcHeight(text, width) + UiWidgets.GapM;
         }
 
         static float TextBlock(float width, float y, string text, Color color)

@@ -10,7 +10,7 @@ namespace SlopWorld
 {
     // Requests run on the thread pool; completions are queued and replayed on Unity's
     // main thread, because callers touch game state and IMGUI from them.
-    public static class SlopClient
+    public static class DaemonClient
     {
         static readonly ConcurrentQueue<Action> Completions = new ConcurrentQueue<Action>();
 

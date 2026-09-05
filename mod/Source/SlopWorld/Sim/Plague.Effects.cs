@@ -76,7 +76,7 @@ namespace SlopWorld
                 if (BandAt(pawn.Position, now) == Band.None) continue;
                 if (Marked(pawn)) continue;
                 if (Spared(pawn)) continue; // the cat has it, for now
-                pawn.health.AddHediff(SlopDefOf.SlopPlague);
+                pawn.health.AddHediff(ModDefOf.SlopPlague);
                 PlagueFx.Mark(pawn);
             }
         }
@@ -124,7 +124,7 @@ namespace SlopWorld
         // hour of somebody's tokens.
         List<Thing> Untouchable()
         {
-            var spared = map.listerThings.ThingsOfDef(SlopDefOf.Ship_ComputerCore).ToList();
+            var spared = map.listerThings.ThingsOfDef(ModDefOf.Ship_ComputerCore).ToList();
             spared.AddRange(Pets.On(map).Cast<Thing>());
             spared.AddRange(map.listerBuildings.allBuildingsColonist.Cast<Thing>());
             spared.AddRange(map.listerThings.ThingsInGroup(ThingRequestGroup.BuildingFrame));
@@ -166,7 +166,7 @@ namespace SlopWorld
         }
 
         static bool Marked(Pawn pawn) =>
-            pawn.health?.hediffSet?.GetFirstHediffOfDef(SlopDefOf.SlopPlague) != null;
+            pawn.health?.hediffSet?.GetFirstHediffOfDef(ModDefOf.SlopPlague) != null;
 
         static bool Infectable(Pawn pawn)
         {

@@ -29,8 +29,8 @@ namespace SlopWorld
         static SteadyHands()
         {
             // A part welded onto a vanilla stat is exactly the sort of thing that has no
-            // business happening in somebody's own game. See SlopProfile.
-            if (!SlopProfile.Ok) return;
+            // business happening in somebody's own game. See ModProfile.
+            if (!ModProfile.Ok) return;
 
             var stat = StatDefOf.ConstructSuccessChance;
             if (stat == null) return;

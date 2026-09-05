@@ -9,7 +9,7 @@ Where each half keeps its knobs, and the three places they rub. See
 | Path from | `dirs::config_dir()`, `SLOPD_CONFIG` overrides | `GenFilePaths.SaveDataFolderPath` |
 | Format | TOML, one `toml::from_str` | TOML, flat scalar settings |
 | Scope | this **machine** | this **install** |
-| Written by | `Config::save`, and the HTTP routes | `SlopSettings.Write` |
+| Written by | `Config::save`, and the HTTP routes | `ModSettings.Write` |
 | Sidecar | `presets/*.toml` (`SLOPD_PRESETS`), `$XDG_DATA_HOME/slopworld/jukebox/*.toml` (`SLOPD_JUKEBOX`), `endpoint.toml` (`SLOPD_ENDPOINT`), `tasks.toml`, `prompt-summaries.toml`, `session-activity.toml` | none; the mod mirrors the daemon catalog |
 
 The mod does not open daemon TOML. It uses HTTP (`GET /api/config`,
@@ -24,7 +24,7 @@ authenticated WebSocket and sends only station/stream keys. See [wire-protocol](
    and `token`; the mod reads it instead of storing another connection config.
 2. **Patches:** settings pages send their read-model fields; the daemon deep-merges,
    validates TOML, and replaces the file atomically, preserving unknown fields.
-3. **Read model:** `SlopConfig` contains fields used by config, Commands, and usage
+3. **Read model:** `DaemonConfig` contains fields used by config, Commands, and usage
    pages, not endpoint, project, session, state-rule, or sandbox-preset data.
 4. **Lifetime:** daemon TOML survives profile rebuilds; profile TOML settings remain editable
    while the socket is down.

@@ -3,7 +3,7 @@
 ## The mod refuses to patch
 
 The mod's refusal dialog means the game was started without the launcher.
-`SlopWorldBootstrap` checks for a `slopworld.profile` marker written by the launcher
+`ModBootstrap` checks for a `slopworld.profile` marker written by the launcher
 into the save-data folder. Launch with `slopworld` (or `make run`) instead of running
 `RimWorldLinux` directly.
 

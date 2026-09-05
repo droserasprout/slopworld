@@ -6,7 +6,7 @@ using Verse;
 namespace SlopWorld
 {
     // The colony overview: every session, its state, and the buttons to act on it.
-    public class SessionsView : SlopListView<SessionInfo>
+    public class SessionsView : UiListView<SessionInfo>
     {
         public override void Opened()
         {
@@ -21,7 +21,7 @@ namespace SlopWorld
         // so the pitch is measured off what is actually in it. At two line heights the
         // buttons on the bottom line hung a few pixels past the row they belong to.
         protected override float RowH =>
-            SlopWidgets.GapXS + SlopWidgets.LineH + SlopWidgets.RowBtnH + SlopWidgets.GapXS + 4f;
+            UiWidgets.GapXS + UiWidgets.LineH + UiWidgets.RowBtnH + UiWidgets.GapXS + 4f;
 
         protected override string EmptyNote =>
             "No sessions yet. Add one and it will show up as a colonist.";
@@ -30,15 +30,15 @@ namespace SlopWorld
 
         protected override void DoFooter(Rect bar, SessionHub hub)
         {
-            var row = new SlopWidgets.Bar(bar);
+            var row = new UiWidgets.Bar(bar);
 
-            if (row.Left("Add agent", SlopWidgets.Btn.Primary))
+            if (row.Left("Add agent", UiWidgets.Btn.Primary))
                 TerminalWindow.OpenOverPane(new EditSessionDialog(null));
 
             // Library is not here: it is a window of its own in the bottom bar, and an
             // errand is not something you do to an agent on this list. Nor is "New colony",
             // for the same reason - it is "Next planet" in the menu behind Escape now.
-            if (row.Right("Reconnect", SlopWidgets.Btn.Ghost))
+            if (row.Right("Reconnect", UiWidgets.Btn.Ghost))
                 hub.Connect();
         }
 
@@ -47,9 +47,9 @@ namespace SlopWorld
             RowChrome.Hover(r, false, true, RowHoverPolicy.OverlayAware);
 
             float y = r.y + DrawIdentity(r, s);
-            DrawLocation(new Rect(r.x, y, r.width, SlopWidgets.LineH), s);
+            DrawLocation(new Rect(r.x, y, r.width, UiWidgets.LineH), s);
             DrawDialogActions(r, s);
-            DrawSessionActions(new Rect(r.x, y, r.width, SlopWidgets.RowBtnH), s);
+            DrawSessionActions(new Rect(r.x, y, r.width, UiWidgets.RowBtnH), s);
         }
 
         float DrawIdentity(Rect r, SessionInfo s)
@@ -59,24 +59,24 @@ namespace SlopWorld
             Slab.Fill(chip, TerminalWindow.StateColor(s.State));
 
             Text.Font = GameFont.Small;
-            float l1 = r.y + SlopWidgets.GapXS;
+            float l1 = r.y + UiWidgets.GapXS;
 
             // The name's column and the state's beside it, off the font: at 200 and 230 the
             // pair held for one face at one size and overlapped at the next.
-            float nameW = Mathf.Max(SlopWidgets.Wide("mmmmmmmmmmmmmmmm"), 200f);
-            float stateX = r.x + 24f + nameW + SlopWidgets.GapM;
+            float nameW = Mathf.Max(UiWidgets.Wide("mmmmmmmmmmmmmmmm"), 200f);
+            float stateX = r.x + 24f + nameW + UiWidgets.GapM;
 
-            GUI.color = SlopWidgets.Lead;
-            SlopWidgets.RowLabel(new Rect(r.x + 24f, l1, nameW, SlopWidgets.LineH), s.Name);
+            GUI.color = UiWidgets.Lead;
+            UiWidgets.RowLabel(new Rect(r.x + 24f, l1, nameW, UiWidgets.LineH), s.Name);
 
             // The state in words next to the name, so the row scans without decoding the
             // color of the chip beside it.
             GUI.color = TerminalWindow.StateColor(s.State);
-            SlopWidgets.RowLabel(new Rect(stateX, l1, SlopWidgets.Wide("connecting") + 4f,
-                SlopWidgets.LineH), s.State.ToString().ToLower());
-            GUI.color = SlopWidgets.Dim;
+            UiWidgets.RowLabel(new Rect(stateX, l1, UiWidgets.Wide("connecting") + 4f,
+                UiWidgets.LineH), s.State.ToString().ToLower());
+            GUI.color = UiWidgets.Dim;
 
-            return SlopWidgets.GapXS + SlopWidgets.LineH;
+            return UiWidgets.GapXS + UiWidgets.LineH;
         }
 
         float DrawLocation(Rect r, SessionInfo s)
@@ -100,12 +100,12 @@ namespace SlopWorld
             // Cut rather than wrapped: this is the one line here with spaces in it, and a
             // sentence that wrapped inside a one-line slot lost the bottom half of both lines
             // and the buttons' row with them.
-            SlopWidgets.RowLabel(
-                new Rect(r.x + 24f, r.y, Mathf.Max(60f, r.width - 340f), SlopWidgets.LineH),
+            UiWidgets.RowLabel(
+                new Rect(r.x + 24f, r.y, Mathf.Max(60f, r.width - 340f), UiWidgets.LineH),
                 where);
             GUI.color = Color.white;
 
-            return SlopWidgets.LineH;
+            return UiWidgets.LineH;
         }
 
         float DrawDialogActions(Rect r, SessionInfo s)
@@ -118,15 +118,15 @@ namespace SlopWorld
             // Every width here is measured, floored at the figure it used to be written as:
             // "Duplicate" in a box counted off one font is a word with both ends cut off in
             // the next, a press being centred in what it was given.
-            float dupW = SlopWidgets.BtnW("Duplicate", 74f);
-            float editW = SlopWidgets.BtnW("Edit", 96f);
+            float dupW = UiWidgets.BtnW("Duplicate", 74f);
+            float editW = UiWidgets.BtnW("Edit", 96f);
 
             // Nothing in config.toml stands behind a temporary agent, so the dialog would
             // write an entry the daemon has never had and the save would be refused.
             if (!s.Ephemeral && !s.Host &&
-                SlopWidgets.Button(
-                    new Rect(right - dupW - SlopWidgets.GapXS - editW, top, editW,
-                        SlopWidgets.RowBtnH), "Edit"))
+                UiWidgets.Button(
+                    new Rect(right - dupW - UiWidgets.GapXS - editW, top, editW,
+                        UiWidgets.RowBtnH), "Edit"))
                 TerminalWindow.OpenOverPane(new EditSessionDialog(s));
 
             // Next to Edit rather than down with Del and Start, because what it does is open
@@ -134,72 +134,72 @@ namespace SlopWorld
             // temporary agent - "keep this one".
             if (!s.Host && !string.IsNullOrEmpty(s.Project))
             {
-                var dup = new Rect(right - dupW, top, dupW, SlopWidgets.RowBtnH);
+                var dup = new Rect(right - dupW, top, dupW, UiWidgets.RowBtnH);
                 TooltipHandler.TipRegion(dup, s.Ephemeral
                     ? $"A permanent agent in {s.Project}, like the one running this errand."
                     : $"New agent with '{s.Name}'s project and command, under a new name.");
-                if (SlopWidgets.Button(dup, "Duplicate"))
+                if (UiWidgets.Button(dup, "Duplicate"))
                     TerminalWindow.OpenOverPane(EditSessionDialog.Copy(s));
             }
 
-            return SlopWidgets.RowBtnH;
+            return UiWidgets.RowBtnH;
         }
 
         float DrawSessionActions(Rect r, SessionInfo s)
         {
             float bottom = r.y;
             float right = r.xMax - 6f;
-            float termW = SlopWidgets.RowBtnH;
+            float termW = UiWidgets.RowBtnH;
 
-            var term = new Rect(right - termW, bottom, termW, SlopWidgets.RowBtnH);
+            var term = new Rect(right - termW, bottom, termW, UiWidgets.RowBtnH);
             TooltipHandler.TipRegion(term, s.Gone
                 ? $"'{s.Name}' is not running - start it first."
                 : $"Open the terminal for '{s.Name}'.");
-            if (SlopWidgets.IconButton(term, Icons.Terminal, SlopWidgets.Name, !s.Gone))
+            if (UiWidgets.IconButton(term, Icons.Terminal, UiWidgets.Name, !s.Gone))
                 TerminalWindow.Open(s.Name);
 
             float x = right - termW;
 
-            float runW = SlopWidgets.BtnW(s.Alive ? "Stop" : "Start", 58f);
-            x -= runW + SlopWidgets.GapXS;
+            float runW = UiWidgets.BtnW(s.Alive ? "Stop" : "Start", 58f);
+            x -= runW + UiWidgets.GapXS;
             if (s.Alive)
             {
-                if (SlopWidgets.Button(new Rect(x, bottom, runW, SlopWidgets.RowBtnH), "Stop"))
-                    SessionHub.Instance.Stop(s.Name, SlopWidgets.Fail);
+                if (UiWidgets.Button(new Rect(x, bottom, runW, UiWidgets.RowBtnH), "Stop"))
+                    SessionHub.Instance.Stop(s.Name, UiWidgets.Fail);
             }
-            else if (SlopWidgets.Button(new Rect(x, bottom, runW, SlopWidgets.RowBtnH), "Start",
-                         SlopWidgets.Btn.Primary))
+            else if (UiWidgets.Button(new Rect(x, bottom, runW, UiWidgets.RowBtnH), "Start",
+                         UiWidgets.Btn.Primary))
             {
-                SessionHub.Instance.Start(s.Name, SlopWidgets.Fail);
+                SessionHub.Instance.Start(s.Name, UiWidgets.Fail);
             }
 
             // Stop is Del for a temporary agent: killing the process is what removes it.
-            float resetW = SlopWidgets.BtnW("Reset", 58f);
-            x -= resetW + SlopWidgets.GapXS;
-            if (!s.Ephemeral && SlopWidgets.Button(new Rect(x, bottom, resetW, SlopWidgets.RowBtnH),
-                                    "Reset", SlopWidgets.Btn.Ghost))
+            float resetW = UiWidgets.BtnW("Reset", 58f);
+            x -= resetW + UiWidgets.GapXS;
+            if (!s.Ephemeral && UiWidgets.Button(new Rect(x, bottom, resetW, UiWidgets.RowBtnH),
+                                    "Reset", UiWidgets.Btn.Ghost))
             {
                 var name = s.Name;
-                TerminalWindow.OpenOverPane(SlopConfirmDialog.Create(
+                TerminalWindow.OpenOverPane(ConfirmDialog.Create(
                     $"Reset private state for '{name}'? This stops the agent and gives its tools " +
                     "a fresh state on next start. The old state stays recoverable for 14 days.",
-                    () => SessionHub.Instance.ResetState(name, SlopWidgets.Fail), destructive: true));
+                    () => SessionHub.Instance.ResetState(name, UiWidgets.Fail), destructive: true));
             }
 
-            float delW = SlopWidgets.BtnW("Del", 48f);
-            x -= delW + SlopWidgets.GapXS;
-            if (!s.Ephemeral && SlopWidgets.Button(new Rect(x, bottom, delW, SlopWidgets.RowBtnH),
-                                    "Del", SlopWidgets.Btn.Danger))
+            float delW = UiWidgets.BtnW("Del", 48f);
+            x -= delW + UiWidgets.GapXS;
+            if (!s.Ephemeral && UiWidgets.Button(new Rect(x, bottom, delW, UiWidgets.RowBtnH),
+                                    "Del", UiWidgets.Btn.Danger))
             {
                 var name = s.Name;
-                TerminalWindow.OpenOverPane(SlopConfirmDialog.Create(
+                TerminalWindow.OpenOverPane(ConfirmDialog.Create(
                     $"Remove session '{name}'? This kills it, drops it from config.toml, and moves " +
                     "its private state to recoverable trash for 14 days.",
-                    () => SessionHub.Instance.Remove(name, SlopWidgets.Fail),
+                    () => SessionHub.Instance.Remove(name, UiWidgets.Fail),
                     destructive: true));
             }
 
-            return SlopWidgets.RowBtnH;
+            return UiWidgets.RowBtnH;
         }
     }
 }

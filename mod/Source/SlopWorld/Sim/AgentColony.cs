@@ -221,7 +221,7 @@ namespace SlopWorld
                 Bind(s.Name, pawn);
 
                 // Only now is this pawn an agent, and the faceplate hangs off that answer:
-                // SlopFaceRenderNodes asks IsAgent while the render tree is built, and a loaded
+                // RobotFaceRenderNodes asks IsAgent while the render tree is built, and a loaded
                 // colony builds every tree before this runs. Also the portrait cache.
                 pawn.Drawer?.renderer?.SetAllGraphicsDirty();
             }
@@ -316,18 +316,18 @@ namespace SlopWorld
         {
             var health = pawn.health;
             if (health?.hediffSet == null) return;
-            if (health.hediffSet.GetFirstHediffOfDef(SlopDefOf.SlopOffline) != null) return;
+            if (health.hediffSet.GetFirstHediffOfDef(ModDefOf.SlopOffline) != null) return;
 
-            health.AddHediff(SlopDefOf.SlopOffline);
+            health.AddHediff(ModDefOf.SlopOffline);
 
-            if (loud) SlopDefOf.LetterArrive_BadUrgent.PlayOneShotOnCamera(pawn.Map);
+            if (loud) ModDefOf.LetterArrive_BadUrgent.PlayOneShotOnCamera(pawn.Map);
         }
 
         static void Revive(Pawn pawn)
         {
             var health = pawn.health;
             if (health?.hediffSet == null) return;
-            var h = health.hediffSet.GetFirstHediffOfDef(SlopDefOf.SlopOffline);
+            var h = health.hediffSet.GetFirstHediffOfDef(ModDefOf.SlopOffline);
             if (h != null) health.RemoveHediff(h);
 
             // For colonists already chewed on when NoHarmAgents arrived.
@@ -410,7 +410,7 @@ namespace SlopWorld
             // one reconcile or a reload with pods still in flight from adding duplicates.
             if (!_jukeboxSent && !Jukebox.On(map))
             {
-                cargo.Add(ThingMaker.MakeThing(SlopDefOf.SlopJukebox));
+                cargo.Add(ThingMaker.MakeThing(ModDefOf.SlopJukebox));
                 _jukeboxSent = true;
             }
 
@@ -447,7 +447,7 @@ namespace SlopWorld
             foreach (var p in _pawns.Values)
                 if (p != null && p.Spawned && p.Map == map) return p.Position;
 
-            var core = map.listerThings.ThingsOfDef(SlopDefOf.Ship_ComputerCore);
+            var core = map.listerThings.ThingsOfDef(ModDefOf.Ship_ComputerCore);
             if (core.Count > 0) return core[0].Position;
 
             return map.Center;

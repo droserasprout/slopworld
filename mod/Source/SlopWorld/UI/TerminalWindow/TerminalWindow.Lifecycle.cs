@@ -323,10 +323,10 @@ namespace SlopWorld
         {
             switch (s)
             {
-                case AgentState.Working: return SlopWidgets.StateWorking;
-                case AgentState.Waiting: return SlopWidgets.StateWaiting;
-                case AgentState.Idle: return SlopWidgets.StateIdle;
-                default: return SlopWidgets.StateDown;
+                case AgentState.Working: return UiWidgets.StateWorking;
+                case AgentState.Waiting: return UiWidgets.StateWaiting;
+                case AgentState.Idle: return UiWidgets.StateIdle;
+                default: return UiWidgets.StateDown;
             }
         }
     }

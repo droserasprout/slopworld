@@ -99,17 +99,17 @@ namespace SlopWorld
 
                 case PlacementKind.Code:
                     Slab.Box(new Rect(placement.X, placement.Y, placement.Width, placement.Height),
-                        TerminalTheme.Current.Bg, SlopWidgets.Edge);
+                        TerminalTheme.Current.Bg, UiWidgets.Edge);
                     break;
 
                 case PlacementKind.Rule:
                     Slab.Hairline(new Rect(placement.X, placement.Y,
-                        placement.Width, placement.Height), SlopWidgets.Edge);
+                        placement.Width, placement.Height), UiWidgets.Edge);
                     break;
 
                 case PlacementKind.Quote:
                     Slab.Fill(new Rect(placement.X, placement.Y, 3f, placement.Height),
-                        SlopWidgets.Accent);
+                        UiWidgets.Accent);
                     break;
 
                 case PlacementKind.Table:
@@ -134,7 +134,7 @@ namespace SlopWorld
                 {
                     if (piece.Run.Code)
                         Slab.Fill(new Rect(at, lineY, piece.Width, line.Height).ContractedBy(1f),
-                            SlopWidgets.RowBg);
+                            UiWidgets.RowBg);
                     at += piece.Width;
                 }
             }
@@ -152,8 +152,8 @@ namespace SlopWorld
                 float x = placement.X;
                 for (int cellIndex = 0; cellIndex < row.Cells.Count; cellIndex++)
                 {
-                    DrawInlineCodeBackgrounds(row.Cells[cellIndex], x + SlopWidgets.GapS,
-                        y + SlopWidgets.GapS);
+                    DrawInlineCodeBackgrounds(row.Cells[cellIndex], x + UiWidgets.GapS,
+                        y + UiWidgets.GapS);
                     x += placement.Table.Widths[cellIndex];
                 }
             }
@@ -178,18 +178,18 @@ namespace SlopWorld
                         var label = placement.Label.Trim();
                         if (label.Length > 0)
                         {
-                            GUI.color = SlopWidgets.Dim;
+                            GUI.color = UiWidgets.Dim;
                             Text.Font = GameFont.Tiny;
-                            Widgets.Label(new Rect(placement.X + SlopWidgets.GapS,
-                                placement.Y + SlopWidgets.GapS, placement.Width, SlopWidgets.TinyH),
+                            Widgets.Label(new Rect(placement.X + UiWidgets.GapS,
+                                placement.Y + UiWidgets.GapS, placement.Width, UiWidgets.TinyH),
                                 label);
                             GUI.color = Color.white;
                         }
                     }
-                    DrawText(placement.Text, placement.X + SlopWidgets.GapS,
-                        placement.Y + SlopWidgets.GapS +
+                    DrawText(placement.Text, placement.X + UiWidgets.GapS,
+                        placement.Y + UiWidgets.GapS +
                         (string.IsNullOrWhiteSpace(placement.Label)
-                            ? 0f : SlopWidgets.TinyH + SlopWidgets.GapXS), false);
+                            ? 0f : UiWidgets.TinyH + UiWidgets.GapXS), false);
                     break;
 
                 case PlacementKind.Table:
@@ -223,11 +223,11 @@ namespace SlopWorld
                         else
                         {
                             Slab.Box(new Rect(at, lineY, piece.Width, piece.Height),
-                                SlopWidgets.Well, SlopWidgets.Edge);
-                            GUI.color = SlopWidgets.Dim;
+                                UiWidgets.Well, UiWidgets.Edge);
+                            GUI.color = UiWidgets.Dim;
                             Text.Font = GameFont.Tiny;
-                            Widgets.Label(new Rect(at + SlopWidgets.GapXS, lineY,
-                                Mathf.Max(1f, piece.Width - SlopWidgets.GapXS * 2f), piece.Height),
+                            Widgets.Label(new Rect(at + UiWidgets.GapXS, lineY,
+                                Mathf.Max(1f, piece.Width - UiWidgets.GapXS * 2f), piece.Height),
                                 piece.Run.ImageFailed ? "image unavailable" : "image loading…");
                             GUI.color = Color.white;
                         }
@@ -236,28 +236,28 @@ namespace SlopWorld
                     }
                     if (piece.Run.IsTask)
                     {
-                        SlopWidgets.TickBox(rect, piece.Run.TaskChecked);
+                        UiWidgets.TickBox(rect, piece.Run.TaskChecked);
                         at += piece.Width;
                         continue;
                     }
 
                     var old = GUI.color;
                     GUI.color = piece.Run.Link != null || piece.Run.LocalLink != null
-                        ? SlopWidgets.Accent
-                        : piece.Run.Faint ? SlopWidgets.Dim
+                        ? UiWidgets.Accent
+                        : piece.Run.Faint ? UiWidgets.Dim
                         : piece.Run.Code && piece.Run.HasColor ? piece.Run.Color
-                        : piece.Run.Code ? SlopWidgets.Lead
-                        : heading ? SlopWidgets.Lead : SlopWidgets.Name;
+                        : piece.Run.Code ? UiWidgets.Lead
+                        : heading ? UiWidgets.Lead : UiWidgets.Name;
                     GUI.Label(rect, piece.Text, piece.Style);
                     if (piece.Run.Link != null || piece.Run.LocalLink != null)
                     {
                         Slab.Hairline(new Rect(rect.x, rect.yMax - 1f, rect.width, 1f),
-                            SlopWidgets.Accent);
+                            UiWidgets.Accent);
                         _links.Add(new LinkHit(rect, piece.Run.Link, piece.Run.LocalLink));
                     }
                     if (piece.Run.Strike)
                         Slab.Hairline(new Rect(rect.x, rect.y + line.Height * .55f,
-                            rect.width, 1f), SlopWidgets.Dim);
+                            rect.width, 1f), UiWidgets.Dim);
                     GUI.color = old;
                     at += piece.Width;
                 }
@@ -275,8 +275,8 @@ namespace SlopWorld
                 return;
             }
 
-            Slab.Box(rect, SlopWidgets.Well, SlopWidgets.Edge);
-            GUI.color = SlopWidgets.Dim;
+            Slab.Box(rect, UiWidgets.Well, UiWidgets.Edge);
+            GUI.color = UiWidgets.Dim;
             Text.Font = GameFont.Tiny;
             Text.Anchor = TextAnchor.MiddleCenter;
             Widgets.Label(rect, placement.Image.ImageFailed ? "image unavailable" : "image loading…");
@@ -295,14 +295,14 @@ namespace SlopWorld
 
                 float x = placement.X;
                 if (row.Header) Slab.Fill(new Rect(x, y, placement.Width, row.Height),
-                    SlopWidgets.RowBg);
+                    UiWidgets.RowBg);
                 for (int cellIndex = 0; cellIndex < row.Cells.Count; cellIndex++)
                 {
-                    Slab.Hairline(new Rect(x, y, 1f, row.Height), SlopWidgets.Edge);
+                    Slab.Hairline(new Rect(x, y, 1f, row.Height), UiWidgets.Edge);
                     x += placement.Table.Widths[cellIndex];
                 }
                 Slab.Hairline(new Rect(placement.X, y + row.Height - 1f,
-                    placement.Width, 1f), SlopWidgets.Edge);
+                    placement.Width, 1f), UiWidgets.Edge);
             }
         }
 
@@ -318,8 +318,8 @@ namespace SlopWorld
                 float x = placement.X;
                 for (int cellIndex = 0; cellIndex < row.Cells.Count; cellIndex++)
                 {
-                    DrawText(row.Cells[cellIndex], x + SlopWidgets.GapS,
-                        y + SlopWidgets.GapS, row.Header);
+                    DrawText(row.Cells[cellIndex], x + UiWidgets.GapS,
+                        y + UiWidgets.GapS, row.Header);
                     x += placement.Table.Widths[cellIndex];
                 }
             }

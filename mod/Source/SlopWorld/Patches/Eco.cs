@@ -251,8 +251,8 @@ namespace SlopWorld
             _drawingThings = true;
             try
             {
-                DrawThingDef(map, SlopDefOf.SlopJukebox, view);
-                DrawThingDef(map, SlopDefOf.Ship_ComputerCore, view);
+                DrawThingDef(map, ModDefOf.SlopJukebox, view);
+                DrawThingDef(map, ModDefOf.Ship_ComputerCore, view);
                 DrawAgents(map, view);
                 foreach (var pet in Pets.On(map)) DrawPawn(pet, view, map);
             }

@@ -1,6 +1,6 @@
 # Mod `Client/`
 
-Patches are applied from `SlopWorldBootstrap`, most by attribute.
+Patches are applied from `ModBootstrap`, most by attribute.
 `Patch_HideGui`, `Patch_MainButtons`, `Patch_InspectTabs` and
 `Patch_NoRelateAgents` are manual because their target sets are data or
 reflection.
@@ -18,8 +18,8 @@ reflection.
 - `MiniWebSocket` - speaks RFC6455 by hand, because Unity's mono cannot be trusted
   with `ClientWebSocket`.
 - `Json` - a minimal reader, because RimWorld ships none.
-- `SlopClient` - the HTTP half; completions replayed on the main thread.
-- `SlopConfig` - the small read model used by the settings GUI; writes go through
+- `DaemonClient` - the HTTP half; completions replayed on the main thread.
+- `DaemonConfig` - the small read model used by the settings GUI; writes go through
   the daemon's patch endpoint.
 - `InstructionsPage` uses the root-only instructions preview route to render unsaved
   Markdown through the shared native `MarkdownPreview` renderer.

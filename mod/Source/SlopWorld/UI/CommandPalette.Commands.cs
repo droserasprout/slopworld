@@ -29,20 +29,20 @@ namespace SlopWorld
                 {
                     if (s.Ephemeral || s.Host) return;
                     var name = s.Name;
-                    TerminalWindow.OpenOverPane(SlopConfirmDialog.Create(
+                    TerminalWindow.OpenOverPane(ConfirmDialog.Create(
                         $"Reset private state for '{name}'? This stops the agent and gives its tools " +
                         "a fresh state on next start. The old state stays recoverable for 14 days.",
-                        () => SessionHub.Instance.ResetState(name, SlopWidgets.Fail), destructive: true));
+                        () => SessionHub.Instance.ResetState(name, UiWidgets.Fail), destructive: true));
                 }),
             CommandDef.ForAgent("agent.start", "Agent: Start",
                 () => AgentsSub(AgentState.Down),
-                s => SessionHub.Instance.Start(s.Name, SlopWidgets.Fail)),
+                s => SessionHub.Instance.Start(s.Name, UiWidgets.Fail)),
             CommandDef.ForAgent("agent.stop", "Agent: Stop",
                 () => AgentsSub(AgentState.Working, AgentState.Waiting, AgentState.Idle),
-                s => SessionHub.Instance.Stop(s.Name, SlopWidgets.Fail)),
+                s => SessionHub.Instance.Stop(s.Name, UiWidgets.Fail)),
             CommandDef.ForAgent("agent.restart", "Agent: Restart",
                 () => AgentsSub(AgentState.Working, AgentState.Waiting, AgentState.Idle),
-                s => SessionHub.Instance.Restart(s.Name, SlopWidgets.Fail)),
+                s => SessionHub.Instance.Restart(s.Name, UiWidgets.Fail)),
             CommandDef.ForAgent("agent.edit", "Agent: Edit", AgentsSubEditable,
                 s => Find.WindowStack.Add(new EditSessionDialog(s))),
             CommandDef.ForAgent("agent.terminal", "Agent: Open Terminal",
@@ -51,10 +51,10 @@ namespace SlopWorld
             CommandDef.ForAgent("agent.delete", "Agent: Delete", AgentsSubAll, s =>
             {
                 var name = s.Name;
-                Find.WindowStack.Add(SlopConfirmDialog.Create(
+                Find.WindowStack.Add(ConfirmDialog.Create(
                     $"Remove session '{name}'? This kills it, drops it from config.toml, and moves " +
                     "its private state to recoverable trash for 14 days.",
-                    () => SessionHub.Instance.Remove(name, SlopWidgets.Fail), destructive: true));
+                    () => SessionHub.Instance.Remove(name, UiWidgets.Fail), destructive: true));
             }),
             CommandDef.ForAgent("agent.duplicate", "Agent: Duplicate", AgentsSubWithProject,
                 s =>
@@ -67,7 +67,7 @@ namespace SlopWorld
                 {
                     if (!string.IsNullOrEmpty(s.Project))
                         SessionHub.Instance.Run(s.Project, "", "", session => TerminalWindow.Open(session),
-                            SlopWidgets.Fail, like: s.Name);
+                            UiWidgets.Fail, like: s.Name);
                 }),
 
             new CommandDef("project.new", "Project: New", "Project",
@@ -77,16 +77,16 @@ namespace SlopWorld
             CommandDef.ForProject("project.delete", "Project: Delete", DeletableProjectsSub, p =>
             {
                 var name = p.Name;
-                Find.WindowStack.Add(SlopConfirmDialog.Create(
+                Find.WindowStack.Add(ConfirmDialog.Create(
                     $"Remove project '{name}'? The directory is left alone; only the entry in config.toml goes.",
-                    () => SessionHub.Instance.RemoveProject(name, SlopWidgets.Fail), destructive: true));
+                    () => SessionHub.Instance.RemoveProject(name, UiWidgets.Fail), destructive: true));
             }),
             CommandDef.ForProject("project.duplicate", "Project: Duplicate", ProjectsSub,
                 p => TerminalWindow.OpenOverPane(EditProjectDialog.Copy(p))),
             CommandDef.ForProject("project.host-terminal", "Project: Open Host Terminal",
                 ProjectsSub,
                 p => SessionHub.Instance.RunHostShell(p.Name,
-                    session => TerminalWindow.Open(session), SlopWidgets.Fail)),
+                    session => TerminalWindow.Open(session), UiWidgets.Fail)),
 
             new CommandDef("task.new", "Task: New", "Task",
                 _ => TerminalWindow.OpenOverPane(new DelegateTaskDialog(null)),
@@ -105,9 +105,9 @@ namespace SlopWorld
             CommandDef.ForLibraryItem("library.delete", "Library: Delete", LibraryManageSub, s =>
             {
                 var name = s.Name;
-                TerminalWindow.OpenOverPane(SlopConfirmDialog.Create(
+                TerminalWindow.OpenOverPane(ConfirmDialog.Create(
                     $"Remove library entry '{name}'? Anything it already started keeps running.",
-                    () => SessionHub.Instance.RemoveLibraryItem(name, SlopWidgets.Fail), destructive: true));
+                    () => SessionHub.Instance.RemoveLibraryItem(name, UiWidgets.Fail), destructive: true));
             }),
             CommandDef.ForLibraryItem("library.duplicate", "Library: Duplicate", LibraryManageSub,
                 s => TerminalWindow.OpenOverPane(EditLibraryItemDialog.Copy(s))),
@@ -119,10 +119,10 @@ namespace SlopWorld
                 if (!s.Host) return;
                 var name = s.Name;
                 var terminal = SessionHub.Instance.Capabilities.TerminalName;
-                TerminalWindow.OpenOverPane(SlopConfirmDialog.Create(
+                TerminalWindow.OpenOverPane(ConfirmDialog.Create(
                     $"Remove {terminal} '{name}'? This kills its tmux pane and forgets " +
                     "the saved sidebar tab.",
-                    () => SessionHub.Instance.Remove(name, SlopWidgets.Fail), destructive: true));
+                    () => SessionHub.Instance.Remove(name, UiWidgets.Fail), destructive: true));
             }),
 
             new CommandDef("daemon.reconnect", "Daemon: Reconnect", "Daemon",
@@ -130,11 +130,11 @@ namespace SlopWorld
             new CommandDef("agents.refresh", "Agents: Refresh", "Refresh",
                 _ => SessionHub.Instance.Refresh()),
             new CommandDef("projects.refresh", "Projects: Refresh", "Refresh",
-                _ => SessionHub.Instance.RefreshProjects(SlopWidgets.Fail)),
+                _ => SessionHub.Instance.RefreshProjects(UiWidgets.Fail)),
             new CommandDef("library.refresh", "Library: Refresh", "Refresh",
-                _ => SessionHub.Instance.RefreshLibrary(SlopWidgets.Fail)),
+                _ => SessionHub.Instance.RefreshLibrary(UiWidgets.Fail)),
             new CommandDef("tasks.refresh", "Tasks: Refresh", "Refresh",
-                _ => SessionHub.Instance.RefreshTasks(SlopWidgets.Fail)),
+                _ => SessionHub.Instance.RefreshTasks(UiWidgets.Fail)),
             new CommandDef("files.reload", "Files: Reload", "Refresh",
                 _ => FilesView.Reload()),
             new CommandDef("search.open", "Search: Find in Files", "View",
@@ -182,49 +182,49 @@ namespace SlopWorld
                 _ => AgentSidebar.ToggleSidebar()),
 
             new CommandDef("view.config", "Settings: General", "Settings",
-                _ => SlopOptions.OpenCategory(SlopOptions.CategoryFor(SlopOptions.PageId.Config))),
+                _ => ModOptions.OpenCategory(ModOptions.CategoryFor(ModOptions.PageId.Config))),
             new CommandDef("view.storage", "Settings: Storage", "Settings",
-                _ => SlopOptions.OpenCategory(SlopOptions.CategoryFor(SlopOptions.PageId.Storage))),
+                _ => ModOptions.OpenCategory(ModOptions.CategoryFor(ModOptions.PageId.Storage))),
             new CommandDef("view.commands", "Settings: Commands - Defaults", "Settings",
-                _ => SlopOptions.OpenCategory(SlopOptions.CategoryFor(SlopOptions.PageId.CommandDefaults))),
+                _ => ModOptions.OpenCategory(ModOptions.CategoryFor(ModOptions.PageId.CommandDefaults))),
             new CommandDef("view.command-presets", "Settings: Commands - Presets", "Settings",
-                _ => SlopOptions.OpenCategory(SlopOptions.CategoryFor(SlopOptions.PageId.CommandPresets))),
+                _ => ModOptions.OpenCategory(ModOptions.CategoryFor(ModOptions.PageId.CommandPresets))),
             new CommandDef("view.terminal-settings", "Settings: Terminal", "Settings",
-                _ => SlopOptions.OpenCategory(SlopOptions.CategoryFor(SlopOptions.PageId.Terminal))),
+                _ => ModOptions.OpenCategory(ModOptions.CategoryFor(ModOptions.PageId.Terminal))),
             new CommandDef("view.appearance", "Settings: Appearance", "Settings",
-                _ => SlopOptions.OpenCategory(SlopOptions.CategoryFor(SlopOptions.PageId.Appearance))),
+                _ => ModOptions.OpenCategory(ModOptions.CategoryFor(ModOptions.PageId.Appearance))),
             new CommandDef("view.audio", "Settings: Audio", "Settings",
-                _ => SlopOptions.OpenCategory(SlopOptions.CategoryFor(SlopOptions.PageId.Audio))),
+                _ => ModOptions.OpenCategory(ModOptions.CategoryFor(ModOptions.PageId.Audio))),
             new CommandDef("view.integrations", "Settings: Integrations", "Settings",
-                _ => SlopOptions.OpenCategory(SlopOptions.CategoryFor(SlopOptions.PageId.Integrations))),
+                _ => ModOptions.OpenCategory(ModOptions.CategoryFor(ModOptions.PageId.Integrations))),
             new CommandDef("view.credentials", "Settings: Integrations - Credentials", "Settings",
-                _ => SlopOptions.OpenCategory(SlopOptions.CategoryFor(SlopOptions.PageId.Credentials))),
+                _ => ModOptions.OpenCategory(ModOptions.CategoryFor(ModOptions.PageId.Credentials))),
             new CommandDef("view.usage", "Settings: Integrations - Usage", "Settings",
-                _ => SlopOptions.OpenCategory(SlopOptions.CategoryFor(SlopOptions.PageId.Usage))),
+                _ => ModOptions.OpenCategory(ModOptions.CategoryFor(ModOptions.PageId.Usage))),
             new CommandDef("view.summaries", "Settings: Integrations - Summaries", "Settings",
-                _ => SlopOptions.OpenCategory(SlopOptions.CategoryFor(SlopOptions.PageId.Summaries))),
+                _ => ModOptions.OpenCategory(ModOptions.CategoryFor(ModOptions.PageId.Summaries))),
             new CommandDef("view.instructions", "Settings: Integrations - Instructions", "Settings",
-                _ => SlopOptions.OpenCategory(SlopOptions.CategoryFor(SlopOptions.PageId.Instructions))),
+                _ => ModOptions.OpenCategory(ModOptions.CategoryFor(ModOptions.PageId.Instructions))),
             new CommandDef("view.sandbox", "Settings: Sandbox", "Settings",
-                _ => SlopOptions.OpenCategory(SlopOptions.CategoryFor(SlopOptions.PageId.Sandbox))),
+                _ => ModOptions.OpenCategory(ModOptions.CategoryFor(ModOptions.PageId.Sandbox))),
             new CommandDef("view.keyboard-settings", "Settings: Keyboard", "Settings",
-                _ => SlopOptions.OpenCategory(SlopOptions.CategoryFor(SlopOptions.PageId.Keyboard))),
+                _ => ModOptions.OpenCategory(ModOptions.CategoryFor(ModOptions.PageId.Keyboard))),
             new CommandDef("view.rimworld-settings", "Settings: RimWorld", "Settings",
-                _ => SlopOptions.OpenCategory(SlopOptions.CategoryFor(SlopOptions.PageId.RimWorld))),
+                _ => ModOptions.OpenCategory(ModOptions.CategoryFor(ModOptions.PageId.RimWorld))),
             new CommandDef("view.about", "Settings: About", "Settings",
-                _ => SlopOptions.OpenCategory(SlopOptions.CategoryFor(SlopOptions.PageId.About))),
+                _ => ModOptions.OpenCategory(ModOptions.CategoryFor(ModOptions.PageId.About))),
             new CommandDef("sandbox.new-preset", "Sandbox: New Preset", "Sandbox",
-                _ => SlopOptions.OpenNewSandboxPreset()),
+                _ => ModOptions.OpenNewSandboxPreset()),
             new CommandDef("command.new", "Command: New", "Commands",
-                _ => SlopOptions.OpenNewCommand()),
+                _ => ModOptions.OpenNewCommand()),
             new CommandDef("config.toml", "Configuration: Edit config.toml", "Configuration",
                 _ => ConfigWindow.Open()),
             new CommandDef("view.filter", "View: Filter Projects", "View",
                 v => { if (v != null) AgentSidebar.ToggleFilter(v); }, subAction: () => FilterSub()),
             new CommandDef("view.zoom-in", "View: Zoom In", "View",
-                _ => SlopUIScale.Zoom(1)),
+                _ => UiScale.Zoom(1)),
             new CommandDef("view.zoom-out", "View: Zoom Out", "View",
-                _ => SlopUIScale.Zoom(-1)),
+                _ => UiScale.Zoom(-1)),
             new CommandDef("window.fullscreen", "Window: Toggle Fullscreen", "View",
                 _ => WindowMaximizer.Toggle()),
 

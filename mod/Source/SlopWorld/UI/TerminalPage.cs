@@ -6,7 +6,7 @@ using Verse;
 namespace SlopWorld
 {
     // Terminal appearance page with a live preview; controls invalidate the pane theme and save
-    // on dialog close. SlopOptions hosts it as an `OptionCategoryDef` page.
+    // on dialog close. ModOptions hosts it as an `OptionCategoryDef` page.
     public class TerminalPage : IOptionPage
     {
         readonly SmoothScroll _scroll = new SmoothScroll();
@@ -15,7 +15,7 @@ namespace SlopWorld
 
         public void Load() { }
 
-        static SlopSettings S => SlopWorldMod.Instance.settings;
+        static ModSettings S => ModEntry.Instance.settings;
 
         public void Draw(Rect rect)
         {
@@ -25,9 +25,9 @@ namespace SlopWorld
             // The one page of the four with no footer - nothing here is saved by a press, the
             // settings file is written when the dialog closes - so its body takes the bar's
             // room as well.
-            var body = SlopWidgets.PageBody(rect);
-            body.height += SlopWidgets.BtnH + SlopWidgets.GapS;
-            var inner = body.ContractedBy(SlopWidgets.GapM);
+            var body = UiWidgets.PageBody(rect);
+            body.height += UiWidgets.BtnH + UiWidgets.GapS;
+            var inner = body.ContractedBy(UiWidgets.GapM);
 
             // Taken first: the cell size the preview is laid out from is settled inside the
             // style's getter, and on the first frame there is no cell yet.
@@ -35,13 +35,13 @@ namespace SlopWorld
 
             float ph = Mathf.Clamp(TerminalFont.CellH * PreviewRows + 10f, 70f, 190f);
             var preview = new Rect(inner.x, inner.yMax - ph, inner.width, ph);
-            var caption = new Rect(inner.x, preview.y - SlopWidgets.RowH - SlopWidgets.GapXS,
-                inner.width, SlopWidgets.RowH);
+            var caption = new Rect(inner.x, preview.y - UiWidgets.RowH - UiWidgets.GapXS,
+                inner.width, UiWidgets.RowH);
 
             // The fields scroll if the room is short; the preview stays put at the foot.
             var form = new Rect(inner.x, inner.y, inner.width,
-                caption.y - inner.y - SlopWidgets.GapS);
-            var view = SlopScrollBody.View(form, _fieldsH);
+                caption.y - inner.y - UiWidgets.GapS);
+            var view = UiScrollBody.View(form, _fieldsH);
             using (_scroll.Scope(form, view))
                 _fieldsH = DrawFields(view, s);
 
@@ -51,26 +51,26 @@ namespace SlopWorld
             style = TerminalFont.Style;
 
             Text.Font = GameFont.Small;
-            SlopWidgets.SectionHeading(caption, "Preview");
+            UiWidgets.SectionHeading(caption, "Preview");
 
             DrawPreview(preview, style);
         }
 
-        float DrawFields(Rect rect, SlopSettings s)
+        float DrawFields(Rect rect, ModSettings s)
         {
             float y = rect.y;
             y += DrawFont(new Rect(rect.x, y, rect.width, 4000f), s);
             y += DrawTheme(new Rect(rect.x, y, rect.width, 4000f), s);
             y += DrawCursor(new Rect(rect.x, y, rect.width, 4000f), s);
-            return y - rect.y + SlopWidgets.GapS;
+            return y - rect.y + UiWidgets.GapS;
         }
 
-        float DrawFont(Rect rect, SlopSettings s)
+        float DrawFont(Rect rect, ModSettings s)
         {
             var l = new Listing_Standard { maxOneColumn = true };
             l.Begin(rect);
 
-            if (SlopWidgets.Button(l,
+            if (UiWidgets.Button(l,
                     $"Font: {(s.fontName.NullOrEmpty() ? "Automatic" : s.fontName)}"))
             {
                 var opts = new List<FloatMenuOption>
@@ -82,17 +82,17 @@ namespace SlopWorld
                         s.MarkDirty();
                     }),
                 };
-                opts.AddRange(SlopWidgets.GroupedFontOptions(TerminalFont.Mono, name =>
+                opts.AddRange(UiWidgets.GroupedFontOptions(TerminalFont.Mono, name =>
                 {
                     s.fontName = name;
                     TerminalFont.Invalidate();
                     s.MarkDirty();
                 }));
-                Find.WindowStack.Add(new SlopMenu(opts));
+                Find.WindowStack.Add(new UiMenu(opts));
             }
 
-            l.Gap(SlopWidgets.GapM);
-            int size = Mathf.RoundToInt(SlopWidgets.Slider(l, "Font size", s.fontSize,
+            l.Gap(UiWidgets.GapM);
+            int size = Mathf.RoundToInt(UiWidgets.Slider(l, "Font size", s.fontSize,
                 8, 28, s.fontSize.ToString()));
             if (size != s.fontSize)
             {
@@ -100,21 +100,21 @@ namespace SlopWorld
                 TerminalFont.Invalidate();
                 s.MarkDirty();
             }
-            l.Gap(SlopWidgets.GapM);
+            l.Gap(UiWidgets.GapM);
 
             float used = l.CurHeight;
             l.End();
             return used;
         }
 
-        float DrawTheme(Rect rect, SlopSettings s)
+        float DrawTheme(Rect rect, ModSettings s)
         {
             var l = new Listing_Standard { maxOneColumn = true };
             l.Begin(rect);
 
-            if (SlopWidgets.Button(l,
+            if (UiWidgets.Button(l,
                     $"Color scheme: {TerminalTheme.Current.Label}"))
-                Find.WindowStack.Add(new SlopMenu(TerminalTheme.All
+                Find.WindowStack.Add(new UiMenu(TerminalTheme.All
                     .Select(t => new FloatMenuOption(t.Label, () =>
                     {
                         s.theme = t.Name;
@@ -124,21 +124,21 @@ namespace SlopWorld
                     .ToList()));
 
             DrawSwatches(l.GetRect(18f));
-            l.Gap(SlopWidgets.GapM);
+            l.Gap(UiWidgets.GapM);
 
             float used = l.CurHeight;
             l.End();
             return used;
         }
 
-        float DrawCursor(Rect rect, SlopSettings s)
+        float DrawCursor(Rect rect, ModSettings s)
         {
             var l = new Listing_Standard { maxOneColumn = true };
             l.Begin(rect);
 
             l.Label("Cursor color, #rrggbb (blank = the scheme's)");
             string prevColor = s.cursorColor;
-            s.cursorColor = SlopWidgets.Field(l, "term.cursor", s.cursorColor ?? "");
+            s.cursorColor = UiWidgets.Field(l, "term.cursor", s.cursorColor ?? "");
             if (s.cursorColor != prevColor) s.MarkDirty();
 
             // Said rather than corrected: a half-typed "#8" is not a mistake yet, and a field
@@ -146,7 +146,7 @@ namespace SlopWorld
             if (!string.IsNullOrEmpty(s.cursorColor) &&
                 !TerminalTheme.TryHex(s.cursorColor, out _))
             {
-                GUI.color = SlopWidgets.Bad;
+                GUI.color = UiWidgets.Bad;
                 l.Label("Not a color - the scheme's own cursor is being used.");
                 GUI.color = Color.white;
             }

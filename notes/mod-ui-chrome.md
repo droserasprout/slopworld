@@ -1,6 +1,6 @@
 # Shared UI chrome
 
-`SlopWidgets` owns shared window/view chrome: scheme colors, font-derived geometry,
+`UiWidgets` owns shared window/view chrome: scheme colors, font-derived geometry,
 spacing, buttons, fields, headings and errors. Color names resolve through
 `UIScheme` ([mod-ui-identity](mod-ui-identity.md)); terminal colors stay in
 `TerminalTheme`.
@@ -8,7 +8,7 @@ spacing, buttons, fields, headings and errors. Color names resolve through
 - Measure text with `LineHOf`, `Wide` and `RowLabel`. `GameFont.Tiny` may draw as
   Small, and wrapping changes its measurement. `RowLabel` supplies the middle anchor
   and disables wrapping; use `Widgets.Label` directly only for wrapped or top-aligned
-  blocks. `SlopUIFont` gives every UI tier bottom safety space and overflow clipping so
+  blocks. `UiFont` gives every UI tier bottom safety space and overflow clipping so
   dynamic-font descenders survive tight label, tooltip and field rects. Shared gaps are
   `GapXS`, `GapS`, `GapM` and `GapL`.
 - Single-line fields, menu rows and compact row buttons use `CompactH`; the field's
@@ -32,14 +32,14 @@ spacing, buttons, fields, headings and errors. Color names resolve through
 - `ContentTreeView` keeps complete row geometry for scrolling but paints and hit-tests only
   rows near the viewport; scroll-event passes reuse the measured height, update the offset and
   skip repainting the tree.
-- `SlopWindow` supplies the frame, border and close corner. `Margin` is zero because
+- `UiWindow` supplies the frame, border and close corner. `Margin` is zero because
   vanilla translates contents into a group instead of providing padding; bodies use
   `Pad`.
-- `SlopMenu` replaces `FloatMenu` and reads only the label, action, `Disabled` and
+- `UiMenu` replaces `FloatMenu` and reads only the label, action, `Disabled` and
   right-side extra text from `FloatMenuOption`; rows touch the frame vertically and
   use the darker `PopoverBg`. Up/Down, Home/End and PageUp/PageDown move a keyboard
   selection; Enter opens or chooses it, and Left/Right move through submenu levels.
-- `SlopSubmenu` keeps one window per level and builds its rows when opened. Hover opens
+- `UiSubmenu` keeps one window per level and builds its rows when opened. Hover opens
   after `OpenDelay`; the child follows a scrolling/clamped parent, chooses the roomier
   side without covering it, and shares its border. Selecting a row or pressing Escape
   closes the chain before the action. Unhandled keys dismiss it via `rawType` in the
@@ -49,7 +49,7 @@ spacing, buttons, fields, headings and errors. Color names resolve through
   keyboard navigation.
 - `ActiveTip.DrawInner` is patched once per tooltip. `TooltipHandler.TipRegion` still
   owns delay, placement, stacking and size; only the final surface/text draw changes.
-- `SlopLayout` is the source of sidebar/top-bar insets. `Hidden` is separate from layout
+- `UiLayout` is the source of sidebar/top-bar insets. `Hidden` is separate from layout
   selection so hidden chrome does not move other UI.
 
 ## Usage and top bar
@@ -75,7 +75,7 @@ spacing, buttons, fields, headings and errors. Color names resolve through
 
 - `TickBox` draws the checkbox while the surrounding row handles the click. It precedes
   labels in settings, menus and palette sublists.
-- `SlopListView<T>` shares the agents/projects/Library window structure.
+- `UiListView<T>` shares the agents/projects/Library window structure.
 - `CoreTip` draws the persona-core hint over the map or an opaque terminal.
 - `MenuBackground` bakes and caches menu/loading frames; its patch hooks drawing because
   the loading screen bypasses main-menu initialization ([mod-background](mod-background.md)).

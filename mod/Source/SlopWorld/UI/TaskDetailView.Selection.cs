@@ -18,7 +18,7 @@ namespace SlopWorld
                 Text.WordWrap = false;
                 Text.Anchor = TextAnchor.UpperLeft;
                 DrawSelectionHighlights(viewportHeight);
-                GUI.color = SlopWidgets.Lead;
+                GUI.color = UiWidgets.Lead;
                 int first = FirstVisibleSelectionLine(_scroll.Position.y);
                 float bottom = _scroll.Position.y + viewportHeight;
                 for (int i = first; i < _selectionLines.Count; i++)
@@ -70,7 +70,7 @@ namespace SlopWorld
                 int to = Mathf.Clamp(end - line.Start, from, line.Edges.Length - 1);
                 Slab.Fill(new Rect(line.X + line.Edges[from], line.Y,
                     Mathf.Max(1f, line.Edges[to] - line.Edges[from]), line.Height),
-                    SlopWidgets.Sel);
+                    UiWidgets.Sel);
             }
         }
 
@@ -239,7 +239,7 @@ namespace SlopWorld
             int end = Mathf.Max(_selectionStart, _selectionEnd);
             string source = SelectionSource();
             if (start < 0 || end > source.Length || end <= start) return;
-            SlopClipboard.Copy(source.Substring(start, end - start));
+            DaemonClipboard.Copy(source.Substring(start, end - start));
         }
 
         void OpenSelectionMenu()
@@ -249,7 +249,7 @@ namespace SlopWorld
             copy.Disabled = !HasSelection;
             options.Add(copy);
             options.Add(new FloatMenuOption("Select all", SelectAll));
-            TerminalWindow.OpenOverPane(new SlopMenu(options));
+            TerminalWindow.OpenOverPane(new UiMenu(options));
         }
 
         string SelectionSource()

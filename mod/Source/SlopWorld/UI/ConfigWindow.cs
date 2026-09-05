@@ -6,7 +6,7 @@ namespace SlopWorld
 {
     // The daemon parses on save and rejects the write if it does not round-trip, so a
     // typo cannot leave slopd with no config.
-    public class ConfigWindow : SlopWindow
+    public class ConfigWindow : UiWindow
     {
         string _text = "loading...";
         string _path = "";
@@ -33,7 +33,7 @@ namespace SlopWorld
 
         void Load()
         {
-            SlopClient.Get("/api/config",
+            DaemonClient.Get("/api/config",
                 j =>
                 {
                     _text = j["text"].AsString();
@@ -49,38 +49,38 @@ namespace SlopWorld
             using (WidgetState.Save())
             {
                 Text.Font = GameFont.Small;
-                SlopWidgets.PageCaption(rect, string.IsNullOrEmpty(_path) ? "config.toml" : _path);
+                UiWidgets.PageCaption(rect, string.IsNullOrEmpty(_path) ? "config.toml" : _path);
 
                 // The caption above and the footer below, both off the font: the figures here
                 // were 24, 28 and 100, and the last of them left the error line lying across
                 // the footer as soon as a line grew.
-                float top = rect.y + SlopWidgets.RowH + SlopWidgets.GapXS;
-                float foot = SlopWidgets.BtnH + SlopWidgets.GapS + SlopWidgets.LineH
-                             + SlopWidgets.GapXS;
+                float top = rect.y + UiWidgets.RowH + UiWidgets.GapXS;
+                float foot = UiWidgets.BtnH + UiWidgets.GapS + UiWidgets.LineH
+                             + UiWidgets.GapXS;
                 var area = new Rect(rect.x, top, rect.width, rect.yMax - foot - top);
-                var view = new Rect(0f, 0f, area.width - SlopWidgets.ScrollbarW,
+                var view = new Rect(0f, 0f, area.width - UiWidgets.ScrollbarW,
                     Mathf.Max(area.height, Text.CalcHeight(_text, area.width - 24f) + 40f));
 
                 // The box is the scroll view's frame, so it is drawn round the outside and the
                 // area inside it draws none of its own: a well as tall as the content would put
                 // its border somewhere off the bottom of the window.
-                Slab.Box(area, SlopWidgets.Well, SlopWidgets.Edge);
+                Slab.Box(area, UiWidgets.Well, UiWidgets.Edge);
                 using (_scroll.Scope(area, view))
-                    _text = SlopWidgets.Area(view.ContractedBy(6f, 4f), "config.toml", _text,
+                    _text = UiWidgets.Area(view.ContractedBy(6f, 4f), "config.toml", _text,
                         _loaded, frame: false);
 
                 if (_error != null)
                 {
-                    GUI.color = SlopWidgets.Bad;
-                    SlopWidgets.RowLabel(
-                        new Rect(rect.x, area.yMax + SlopWidgets.GapXS, rect.width,
-                            SlopWidgets.LineH), _error);
+                    GUI.color = UiWidgets.Bad;
+                    UiWidgets.RowLabel(
+                        new Rect(rect.x, area.yMax + UiWidgets.GapXS, rect.width,
+                            UiWidgets.LineH), _error);
                     GUI.color = Color.white;
                 }
 
-                var bar = new SlopWidgets.Bar(SlopWidgets.FooterBar(rect));
-                if (bar.Left("Reload", SlopWidgets.Btn.Ghost)) Load();
-                if (bar.Right("Save", SlopWidgets.Btn.Primary, _loaded)) Save();
+                var bar = new UiWidgets.Bar(UiWidgets.FooterBar(rect));
+                if (bar.Left("Reload", UiWidgets.Btn.Ghost)) Load();
+                if (bar.Right("Save", UiWidgets.Btn.Primary, _loaded)) Save();
             }
         }
 
@@ -88,7 +88,7 @@ namespace SlopWorld
         {
             if (!_loaded) return;
 
-            SlopClient.Put("/api/config", $"{{\"text\":{JVal.Q(_text)}}}",
+            DaemonClient.Put("/api/config", $"{{\"text\":{JVal.Q(_text)}}}",
                 _ =>
                 {
                     _error = null;

@@ -74,7 +74,7 @@ namespace SlopWorld
             }
         }
 
-        Color Background => _content == null ? SolidTerminalBackground : SlopWidgets.WindowBg;
+        Color Background => _content == null ? SolidTerminalBackground : UiWidgets.WindowBg;
 
         public override void WindowUpdate()
         {

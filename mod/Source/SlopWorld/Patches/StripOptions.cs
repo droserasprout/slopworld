@@ -29,7 +29,7 @@ namespace SlopWorld
             () => "KeyboardConfig".Translate(),
             // Interface's UI scale row, a float menu over a fixed ladder with the rungs its
             // own guard rejects left out. Appearance has the slider, over the whole range
-            // (see SlopUIScale); two doors to one pref, disagreeing about its span, is one
+            // (see UiScale); two doors to one pref, disagreeing about its span, is one
             // door too many.
             () => "UIScale".Translate(),
 

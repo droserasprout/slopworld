@@ -140,18 +140,18 @@ namespace SlopWorld
                 var repo = (Repo)group.Value;
                 if (Shut.Contains(group.Key) && repo.IsRepo && repo.Changed > 0)
                 {
-                    GUI.color = SlopWidgets.Dim;
+                    GUI.color = UiWidgets.Dim;
                     var count = new Rect(row.width * 0.5f, row.y,
                         right - row.width * 0.5f, row.height);
-                    SlopWidgets.RowLabel(count, repo.Changed.ToString(), TextAnchor.MiddleRight);
-                    GUI.color = SlopWidgets.Faint;
+                    UiWidgets.RowLabel(count, repo.Changed.ToString(), TextAnchor.MiddleRight);
+                    GUI.color = UiWidgets.Faint;
                     return count.x - 4f;
                 }
                 return right;
             }
 
             public override float GroupBodyHeight(ContentTreeGroup group) =>
-                SlopWidgets.TinyRowH;
+                UiWidgets.TinyRowH;
 
             public override float DrawGroupBody(float width, float y, ContentTreeGroup group) =>
                 Body(width, y, (Repo)group.Value);
@@ -245,7 +245,7 @@ namespace SlopWorld
             repo.Error = null;
 
             string dir = repo.Dir;
-            SlopClient.Get("/api/git?path=" + System.Uri.EscapeDataString(dir),
+            DaemonClient.Get("/api/git?path=" + System.Uri.EscapeDataString(dir),
                 j =>
                 {
                     repo.Loading = false;

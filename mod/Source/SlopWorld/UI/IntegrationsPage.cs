@@ -10,29 +10,29 @@ namespace SlopWorld
 
         protected override void DrawFields(Listing_Standard l)
         {
-            SlopWidgets.SectionHeading(l, "Anthropic");
-            l.Gap(SlopWidgets.GapS);
+            UiWidgets.SectionHeading(l, "Anthropic");
+            l.Gap(UiWidgets.GapS);
             l.Label("Credentials file");
-            _cfg.ClaudeCredentials = SlopWidgets.Field(l, "integrations.anthropic.credentials",
+            _cfg.ClaudeCredentials = UiWidgets.Field(l, "integrations.anthropic.credentials",
                 _cfg.ClaudeCredentials);
 
-            l.Gap(SlopWidgets.GapL);
-            SlopWidgets.SectionHeading(l, "OpenRouter");
-            l.Gap(SlopWidgets.GapS);
+            l.Gap(UiWidgets.GapL);
+            UiWidgets.SectionHeading(l, "OpenRouter");
+            l.Gap(UiWidgets.GapS);
             l.Label("Key file");
-            _cfg.OpenrouterKeyFile = SlopWidgets.Field(l, "integrations.openrouter.key",
+            _cfg.OpenrouterKeyFile = UiWidgets.Field(l, "integrations.openrouter.key",
                 _cfg.OpenrouterKeyFile);
-            SlopWidgets.Note(l, "Blank uses $OPENROUTER_API_KEY. The key stays on the host.");
+            UiWidgets.Note(l, "Blank uses $OPENROUTER_API_KEY. The key stays on the host.");
 
-            l.Gap(SlopWidgets.GapL);
-            SlopWidgets.SectionHeading(l, "OpenAI / Codex");
-            l.Gap(SlopWidgets.GapS);
+            l.Gap(UiWidgets.GapL);
+            UiWidgets.SectionHeading(l, "OpenAI / Codex");
+            l.Gap(UiWidgets.GapS);
             l.Label("Credentials file");
-            _cfg.OpenaiCredentials = SlopWidgets.Field(l, "integrations.openai.credentials",
+            _cfg.OpenaiCredentials = UiWidgets.Field(l, "integrations.openai.credentials",
                 _cfg.OpenaiCredentials);
 
-            l.Gap(SlopWidgets.GapL);
-            SlopWidgets.Note(l, "Credential files stay on the host.");
+            l.Gap(UiWidgets.GapL);
+            UiWidgets.Note(l, "Credential files stay on the host.");
         }
     }
 }

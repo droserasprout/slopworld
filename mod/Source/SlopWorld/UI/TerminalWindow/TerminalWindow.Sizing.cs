@@ -52,12 +52,12 @@ namespace SlopWorld
         internal static bool TryPanelShape(out int cols, out int rows)
         {
             cols = rows = 0;
-            if (!SlopLayout.Shown || UI.screenWidth <= 0 || UI.screenHeight <= 0) return false;
+            if (!UiLayout.Shown || UI.screenWidth <= 0 || UI.screenHeight <= 0) return false;
 
             var style = TerminalFont.Style;
             if (style == null || TerminalFont.CellH <= 0.01f) return false;
 
-            float width = UI.screenWidth - SlopLayout.LeftInset - Pad * 2f;
+            float width = UI.screenWidth - UiLayout.LeftInset - Pad * 2f;
             float height = UI.screenHeight - TopBar.H - Pad * 2f;
             float cw = TerminalFont.CellWAtScreenScale(Prefs.UIScale);
             if (width <= 0.01f || height <= 0.01f || cw <= 0.01f) return false;

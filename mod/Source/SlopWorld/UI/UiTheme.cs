@@ -5,7 +5,7 @@ namespace SlopWorld
 {
     // Shared scheme-driven opaque chrome; Slab owns fills/edges and fixed gaps keep controls
     // on the screen pixel grid.
-    public abstract class SlopTheme
+    public abstract class UiTheme
     {
         // ---- Surfaces and semantic colors. These are named for SlopWorld's jobs rather
         // than for a borrowed toolkit's widgets, and they are the only names anything else

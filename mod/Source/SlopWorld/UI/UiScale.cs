@@ -4,7 +4,7 @@ using Verse;
 namespace SlopWorld
 {
     // Exposes continuous Prefs.UIScale from 0.5x to 4x after removing vanilla's discrete ladder and low-resolution reset.
-    public static class SlopUIScale
+    public static class UiScale
     {
         public const float Min = 0.5f;
         public const float Max = 4f;

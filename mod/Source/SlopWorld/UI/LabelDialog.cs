@@ -4,7 +4,7 @@ using UnityEngine;
 namespace SlopWorld
 {
     // A blank label is meaningful: it returns the session to automatic title summaries.
-    public sealed class LabelDialog : SlopWindow
+    public sealed class LabelDialog : UiWindow
     {
         readonly string _session;
         string _label;
@@ -24,16 +24,16 @@ namespace SlopWorld
 
         protected override void DoBody(Rect rect)
         {
-            _label = SlopTextDialog.Draw(rect, $"Label '{_session}'",
+            _label = TextDialog.Draw(rect, $"Label '{_session}'",
                 "Set a manual third-line label. Leave it blank to resume automatic summaries.",
-                "agent.label", _label, _error, SlopWidgets.RowH * 2f);
+                "agent.label", _label, _error, UiWidgets.RowH * 2f);
 
-            var foot = SlopTextDialog.Footer(rect);
-            if (foot.Left("Cancel", SlopWidgets.Btn.Ghost)) Close();
+            var foot = TextDialog.Footer(rect);
+            if (foot.Left("Cancel", UiWidgets.Btn.Ghost)) Close();
             if (!string.IsNullOrWhiteSpace(_label) &&
-                foot.Left("Remove", SlopWidgets.Btn.Danger))
+                foot.Left("Remove", UiWidgets.Btn.Danger))
                 Save("");
-            if (foot.Right("Save", SlopWidgets.Btn.Primary)) Save(_label);
+            if (foot.Right("Save", UiWidgets.Btn.Primary)) Save(_label);
         }
 
         void Save(string value)
@@ -46,7 +46,7 @@ namespace SlopWorld
             }
 
             string session = _session;
-            SessionHub.Instance.SetLabel(session, label, () => Close(), SlopWidgets.Fail);
+            SessionHub.Instance.SetLabel(session, label, () => Close(), UiWidgets.Fail);
         }
     }
 }

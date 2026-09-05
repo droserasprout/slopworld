@@ -6,7 +6,7 @@ using Verse;
 namespace SlopWorld
 {
     // One persisted cutscene per fresh colony: block map/UI input while placing the hillside,
-    // core, plague and clankers. SlopScenario supplies no pawns; this scene adds everything.
+    // core, plague and clankers. ModScenario supplies no pawns; this scene adds everything.
     // The phase persists but work lists do not, so a reload mid-intro skips ahead.
     public class IntroDirector : GameComponent
     {
@@ -216,7 +216,7 @@ namespace SlopWorld
 
             try
             {
-                var core = ThingMaker.MakeThing(SlopDefOf.Ship_ComputerCore);
+                var core = ThingMaker.MakeThing(ModDefOf.Ship_ComputerCore);
                 GenSpawn.Spawn(
                     SkyfallerMaker.MakeSkyfaller(ThingDefOf.ShipChunkIncoming, core),
                     cell, map);
@@ -232,7 +232,7 @@ namespace SlopWorld
         {
             try
             {
-                GenSpawn.Spawn(ThingMaker.MakeThing(SlopDefOf.Ship_ComputerCore),
+                GenSpawn.Spawn(ThingMaker.MakeThing(ModDefOf.Ship_ComputerCore),
                     map.Center, map);
             }
             catch (System.Exception e)
@@ -291,7 +291,7 @@ namespace SlopWorld
 
         static Thing TheCore(Map map)
         {
-            var found = map?.listerThings.ThingsOfDef(SlopDefOf.Ship_ComputerCore);
+            var found = map?.listerThings.ThingsOfDef(ModDefOf.Ship_ComputerCore);
             return found != null && found.Count > 0 ? found[0] : null;
         }
 

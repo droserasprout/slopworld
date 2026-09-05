@@ -24,7 +24,7 @@ namespace SlopWorld
             {
                 float d = Mathf.Min(markWidth, r.height);
                 var icon = new Rect(r.x, r.y + (r.height - d) / 2f, d, d);
-                GUI.color = SlopWidgets.Off;
+                GUI.color = UiWidgets.Off;
                 GUI.DrawTexture(icon, Icons.Terminal);
                 string project = info.Project ?? "";
                 TooltipHandler.TipRegion(icon, project.Length > 0
@@ -38,10 +38,10 @@ namespace SlopWorld
             // font when it fits, but reclaim the compact font's width before truncating it.
             if (hostRow)
             {
-                float contextWidth = SlopWidgets.Wide(context);
-                float titleW = SlopWidgets.Wide(title);
+                float contextWidth = UiWidgets.Wide(context);
+                float titleW = UiWidgets.Wide(title);
                 float available = context.Length > 0
-                    ? r.width - contextWidth - SlopWidgets.GapS
+                    ? r.width - contextWidth - UiWidgets.GapS
                     : r.width;
                 if (titleW > available) Text.Font = GameFont.Tiny;
             }
@@ -49,22 +49,22 @@ namespace SlopWorld
             Text.Anchor = TextAnchor.MiddleLeft;
             if (context.Length == 0)
             {
-                GUI.color = SlopWidgets.Lead;
-                SlopWidgets.RowLabel(r, title);
+                GUI.color = UiWidgets.Lead;
+                UiWidgets.RowLabel(r, title);
                 Text.Anchor = TextAnchor.UpperLeft;
                 Text.Font = oldFont;
                 return;
             }
 
-            float contextW = Mathf.Min(SlopWidgets.Wide(context), r.width * 0.42f);
+            float contextW = Mathf.Min(UiWidgets.Wide(context), r.width * 0.42f);
             var quiet = new Rect(r.xMax - contextW, r.y, contextW, r.height);
-            var strong = new Rect(r.x, r.y, Mathf.Max(0f, quiet.x - SlopWidgets.GapS - r.x),
+            var strong = new Rect(r.x, r.y, Mathf.Max(0f, quiet.x - UiWidgets.GapS - r.x),
                 r.height);
 
-            GUI.color = SlopWidgets.Lead;
-            SlopWidgets.RowLabel(strong, title);
-            GUI.color = SlopWidgets.Dim;
-            SlopWidgets.RowLabel(quiet, context);
+            GUI.color = UiWidgets.Lead;
+            UiWidgets.RowLabel(strong, title);
+            GUI.color = UiWidgets.Dim;
+            UiWidgets.RowLabel(quiet, context);
             Text.Anchor = TextAnchor.UpperLeft;
             Text.Font = oldFont;
         }
@@ -77,19 +77,19 @@ namespace SlopWorld
 
             Text.Font = GameFont.Small;
             string ago = state == AgentState.Down ? "" : Ago(info);
-            float ageW = ago.Length == 0 ? 0f : SlopWidgets.Wide(ago);
+            float ageW = ago.Length == 0 ? 0f : UiWidgets.Wide(ago);
 
             float bell = info != null && info.Bell ? Mathf.Min(bellW, nameH) : 0f;
             float timeX = line.xMax - ageW;
-            float bellX = timeX - (bell > 0f ? SlopWidgets.GapXS + bell : 0f);
+            float bellX = timeX - (bell > 0f ? UiWidgets.GapXS + bell : 0f);
             float nameRight = bell > 0f ? bellX : timeX;
             var name = new Rect(line.x, line.y,
                 Mathf.Max(0f, nameRight - line.x -
-                    (ageW > 0f || bell > 0f ? SlopWidgets.GapXS : 0f)), line.height);
+                    (ageW > 0f || bell > 0f ? UiWidgets.GapXS : 0f)), line.height);
 
             if (info != null && info.Bell)
             {
-                GUI.color = SlopWidgets.Warn;
+                GUI.color = UiWidgets.Warn;
                 GUI.DrawTexture(new Rect(bellX, line.y + (nameH - bell) / 2f, bell, bell),
                     Icons.Bell);
             }
@@ -98,7 +98,7 @@ namespace SlopWorld
             {
                 var time = new Rect(timeX, line.y, ageW, line.height);
                 GUI.color = tint;
-                SlopWidgets.RowLabel(time, ago, TextAnchor.MiddleRight);
+                UiWidgets.RowLabel(time, ago, TextAnchor.MiddleRight);
 
                 string stateName = state == AgentState.Waiting
                     ? "waiting for input"
@@ -108,22 +108,22 @@ namespace SlopWorld
 
             Text.Font = GameFont.Small;
             GUI.color = tint;
-            SlopWidgets.RowLabel(name, session ?? "?");
+            UiWidgets.RowLabel(name, session ?? "?");
 
             Text.Font = GameFont.Tiny;
             string indicators = Settings.StatusbarAgentIndicators
                 ? AgentIndicators(info) : "";
-            float indicatorW = indicators.Length == 0 ? 0f : SlopWidgets.Wide(indicators);
+            float indicatorW = indicators.Length == 0 ? 0f : UiWidgets.Wide(indicators);
             var line2 = new Rect(text.x, text.y + nameH, text.width, subH);
             if (indicatorW > 0f)
             {
                 var indicator = new Rect(line2.xMax - indicatorW, line2.y,
                     indicatorW, line2.height);
-                GUI.color = SlopWidgets.Faint;
-                SlopWidgets.RowLabel(indicator, indicators, TextAnchor.MiddleRight);
+                GUI.color = UiWidgets.Faint;
+                UiWidgets.RowLabel(indicator, indicators, TextAnchor.MiddleRight);
                 TooltipHandler.TipRegion(indicator,
                     "a autostart · r resume on start · h host-mode networking · t persistent /tmp");
-                line2.width = Mathf.Max(0f, line2.width - indicatorW - SlopWidgets.GapXS);
+                line2.width = Mathf.Max(0f, line2.width - indicatorW - UiWidgets.GapXS);
             }
 
             if (state != AgentState.Down)
@@ -131,9 +131,9 @@ namespace SlopWorld
                 string title = Title(info);
                 if (title.Length > 0)
                 {
-                    GUI.color = SlopWidgets.Dim;
-                    SlopWidgets.RowLabel(line2, title);
-                    if (SlopWidgets.Wide(title) > line2.width)
+                    GUI.color = UiWidgets.Dim;
+                    UiWidgets.RowLabel(line2, title);
+                    if (UiWidgets.Wide(title) > line2.width)
                         TooltipHandler.TipRegion(line2, title);
                 }
             }

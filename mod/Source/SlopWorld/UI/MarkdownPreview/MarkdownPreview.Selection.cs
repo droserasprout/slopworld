@@ -46,10 +46,10 @@ namespace SlopWorld
                         break;
 
                     case PlacementKind.Code:
-                        CollectText(placement.Text, placement.X + SlopWidgets.GapS,
-                            placement.Y + SlopWidgets.GapS +
+                        CollectText(placement.Text, placement.X + UiWidgets.GapS,
+                            placement.Y + UiWidgets.GapS +
                             (string.IsNullOrWhiteSpace(placement.Label)
-                                ? 0f : SlopWidgets.TinyH + SlopWidgets.GapXS));
+                                ? 0f : UiWidgets.TinyH + UiWidgets.GapXS));
                         break;
 
                     case PlacementKind.Table:
@@ -194,7 +194,7 @@ namespace SlopWorld
             paste.Disabled = !TerminalWindow.CanPasteClipboardToAgent;
             options.Add(paste);
             options.Add(new FloatMenuOption("Select all", SelectAll));
-            TerminalWindow.OpenOverPane(new SlopMenu(options));
+            TerminalWindow.OpenOverPane(new UiMenu(options));
         }
 
         public void DrawHighlights(float clipTop, float clipBottom)
@@ -217,7 +217,7 @@ namespace SlopWorld
 
                 float left = line.X + line.Edges[start];
                 float right = line.X + line.Edges[end];
-                Slab.Fill(new Rect(left, line.Y, right - left, line.Height), SlopWidgets.Sel);
+                Slab.Fill(new Rect(left, line.Y, right - left, line.Height), UiWidgets.Sel);
             }
         }
 
@@ -505,8 +505,8 @@ namespace SlopWorld
                     {
                         var cell = row.Cells[i];
                         if (lineIndex < cell.Lines.Count)
-                            CollectTextLine(_lines, cell.Lines[lineIndex], x + SlopWidgets.GapS,
-                                placement.Y + row.Offset + SlopWidgets.GapS);
+                            CollectTextLine(_lines, cell.Lines[lineIndex], x + UiWidgets.GapS,
+                                placement.Y + row.Offset + UiWidgets.GapS);
                         x += placement.Table.Widths[i];
                     }
                 }
@@ -531,7 +531,7 @@ namespace SlopWorld
         static void CopyText(string text)
         {
             if (string.IsNullOrEmpty(text)) return;
-            SlopClipboard.Copy(text, null,
+            DaemonClipboard.Copy(text, null,
                 msg => Log.Warning($"[SlopWorld] clipboard: {msg}"));
         }
     }

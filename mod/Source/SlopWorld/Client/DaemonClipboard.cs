@@ -7,7 +7,7 @@ namespace SlopWorld
     // Sidecar playback and terminals stay in the container, but the clipboard belongs to the
     // native game. Native Linux still mirrors through slopd because Unity's buffer is unreliable
     // under some compositors.
-    public static class SlopClipboard
+    public static class DaemonClipboard
     {
         static readonly HashSet<string> Pending = new HashSet<string>();
         static readonly HashSet<string> PendingPrimary = new HashSet<string>();
@@ -40,7 +40,7 @@ namespace SlopWorld
                 return;
             }
 
-            SlopClient.Post("/api/clipboard", "{\"text\":" + JVal.Q(text) + "}",
+            DaemonClient.Post("/api/clipboard", "{\"text\":" + JVal.Q(text) + "}",
                 _ =>
                 {
                     Pending.Remove(text);
@@ -71,7 +71,7 @@ namespace SlopWorld
                 return;
             }
 
-            SlopClient.Post("/api/clipboard/primary", "{\"text\":" + JVal.Q(text) + "}",
+            DaemonClient.Post("/api/clipboard/primary", "{\"text\":" + JVal.Q(text) + "}",
                 _ =>
                 {
                     PendingPrimary.Remove(text);

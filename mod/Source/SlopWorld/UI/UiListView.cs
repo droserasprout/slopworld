@@ -5,7 +5,7 @@ using Verse;
 
 namespace SlopWorld
 {
-    public abstract class SlopListView<T> : IContentView
+    public abstract class UiListView<T> : IContentView
     {
         readonly SmoothScroll _scroll = new SmoothScroll();
 
@@ -29,21 +29,21 @@ namespace SlopWorld
         {
             var hub = SessionHub.Instance;
 
-            SlopWidgets.Header(rect, Title, hub);
+            UiWidgets.Header(rect, Title, hub);
 
-            float top = rect.y + SlopWidgets.HeaderH + SlopWidgets.GapS;
-            float foot = SlopWidgets.BtnH + SlopWidgets.GapS;
+            float top = rect.y + UiWidgets.HeaderH + UiWidgets.GapS;
+            float foot = UiWidgets.BtnH + UiWidgets.GapS;
             DrawList(new Rect(rect.x, top, rect.width, rect.yMax - foot - top), hub);
 
-            DoFooter(new Rect(rect.x, rect.yMax - SlopWidgets.BtnH, rect.width,
-                SlopWidgets.BtnH), hub);
+            DoFooter(new Rect(rect.x, rect.yMax - UiWidgets.BtnH, rect.width,
+                UiWidgets.BtnH), hub);
         }
 
         void DrawList(Rect rect, SessionHub hub)
         {
             var items = Rows.ToList();
-            var view = new Rect(0f, 0f, rect.width - SlopWidgets.ScrollbarW,
-                items.Count * RowH + SlopWidgets.GapXS);
+            var view = new Rect(0f, 0f, rect.width - UiWidgets.ScrollbarW,
+                items.Count * RowH + UiWidgets.GapXS);
 
             using (_scroll.Scope(rect, view))
             {
@@ -51,12 +51,12 @@ namespace SlopWorld
                 {
                     using (WidgetState.Save())
                     {
-                        GUI.color = SlopWidgets.Dim;
-                        string note = hub.Online ? EmptyNote : SlopWidgets.Unreachable;
+                        GUI.color = UiWidgets.Dim;
+                        string note = hub.Online ? EmptyNote : UiWidgets.Unreachable;
                         Widgets.Label(
-                            new Rect(SlopWidgets.GapXS, SlopWidgets.GapS,
-                                view.width - SlopWidgets.GapS,
-                                Text.CalcHeight(note, view.width - SlopWidgets.GapS)),
+                            new Rect(UiWidgets.GapXS, UiWidgets.GapS,
+                                view.width - UiWidgets.GapS,
+                                Text.CalcHeight(note, view.width - UiWidgets.GapS)),
                             note);
                     }
                 }
@@ -64,7 +64,7 @@ namespace SlopWorld
                 float y = 0f;
                 foreach (var item in items)
                 {
-                    DrawRow(new Rect(0f, y, view.width, RowH - SlopWidgets.GapXS), item);
+                    DrawRow(new Rect(0f, y, view.width, RowH - UiWidgets.GapXS), item);
                     y += RowH;
                 }
             }

@@ -4,7 +4,7 @@ using Verse;
 namespace SlopWorld
 {
     [DefOf]
-    public static class SlopDefOf
+    public static class ModDefOf
     {
         /// Collapses an agent's colonist while its process is stopped.
         public static HediffDef SlopOffline;
@@ -97,6 +97,6 @@ namespace SlopWorld
         // gets a field here.
         public static SoundDef LetterArrive_BadUrgent;
 
-        static SlopDefOf() => DefOfHelper.EnsureInitializedInCtor(typeof(SlopDefOf));
+        static ModDefOf() => DefOfHelper.EnsureInitializedInCtor(typeof(ModDefOf));
     }
 }

@@ -44,7 +44,7 @@ namespace SlopWorld
                     bool over = RowChrome.Hover(rect, false, true,
                         RowHoverPolicy.OverlayAware);
                     if (over) TooltipHandler.TipRegion(rect, tip(flag));
-                    GUI.color = over ? Color.white : SlopWidgets.Dim;
+                    GUI.color = over ? Color.white : UiWidgets.Dim;
                     GUI.DrawTexture(rect, icon(flag));
                 }
             }

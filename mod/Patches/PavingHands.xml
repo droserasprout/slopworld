@@ -28,7 +28,7 @@
   Wrapped, like every operation of ours that rewrites a def the base game
   shipped: outside a SlopWorld profile it is not applied at all - the steel tile
   somebody else is saving up their smithing research for stays as it was. See
-  Source/SlopWorld/SlopProfile.cs.
+  Source/SlopWorld/ModProfile.cs.
 -->
 <Patch>
   <Operation Class="SlopWorld.PatchOperationInProfile">

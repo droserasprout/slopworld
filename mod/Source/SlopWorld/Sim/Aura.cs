@@ -189,7 +189,7 @@ namespace SlopWorld
             if (pawn.Dead) return;
             _grace[pawn.thingIDNumber] = now;
 
-            var mark = pawn.health?.hediffSet?.GetFirstHediffOfDef(SlopDefOf.SlopPlague);
+            var mark = pawn.health?.hediffSet?.GetFirstHediffOfDef(ModDefOf.SlopPlague);
             if (mark != null) pawn.health.RemoveHediff(mark);
         }
 
@@ -285,7 +285,7 @@ namespace SlopWorld
         // Small: it marks a single plant, and a cloud over its neighbours would say the pat
         // mended the patch.
         static void Puff(Thing t) =>
-            PlagueFx.At(SlopDefOf.SlopCleanAir, t, 10, 0.85f, 0.20f, 0.28f);
+            PlagueFx.At(ModDefOf.SlopCleanAir, t, 10, 0.85f, 0.20f, 0.28f);
 
         static AccessTools.FieldRef<Plant, int> BindLeafless()
         {

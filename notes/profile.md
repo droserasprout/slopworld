@@ -40,11 +40,11 @@ is the only connection it inherits. A sidecar profile's first settings file sele
 
 ## Refusing to patch outside the profile
 
-`SlopProfile.Ok` = is there a `slopworld.profile` marker in
+`ModProfile.Ok` = is there a `slopworld.profile` marker in
 `GenFilePaths.SaveDataFolderPath`. The launcher writes it, not the mod. Refusal
 happens before anything is touched:
 
-- `SlopWorldBootstrap` returns before `PatchAll`.
+- `ModBootstrap` returns before `PatchAll`.
 - `SteadyHands` returns before welding a `StatPart` onto a vanilla stat.
 - `PatchOperationInProfile` wraps every XML op of ours that rewrites a vanilla def
   and answers true without running its `operations`; false would make the game log

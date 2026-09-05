@@ -10,7 +10,7 @@ namespace SlopWorld
     {
         readonly DaemonConfigState _configState = new DaemonConfigState();
 
-        protected SlopConfig _cfg => _configState.Config;
+        protected DaemonConfig _cfg => _configState.Config;
         protected string _path => _configState.Path;
         protected string _error { get => _configState.Error; set => _configState.Error = value; }
         protected bool _loaded => _configState.Loaded;
@@ -40,7 +40,7 @@ namespace SlopWorld
         protected virtual void AfterSave()
         {
             SessionHub.Instance.Config = _cfg;
-            SlopOptions.Reread();
+            ModOptions.Reread();
         }
 
         public void Load()
@@ -55,12 +55,12 @@ namespace SlopWorld
 
         void DrawCore(Rect rect)
         {
-            var body = SlopWidgets.PageBody(rect);
-            var inner = body.ContractedBy(SlopWidgets.GapM);
+            var body = UiWidgets.PageBody(rect);
+            var inner = body.ContractedBy(UiWidgets.GapM);
 
             if (!_loaded && (!DrawFieldsWhenOffline || _cfg == null))
             {
-                GUI.color = _error != null ? SlopWidgets.Bad : SlopWidgets.Dim;
+                GUI.color = _error != null ? UiWidgets.Bad : UiWidgets.Dim;
                 Widgets.Label(inner, _error ?? "Waiting for the daemon...");
                 GUI.color = Color.white;
             }
@@ -69,13 +69,13 @@ namespace SlopWorld
                 DrawFieldsBody(inner);
             }
 
-            DrawFooter(SlopWidgets.FooterBar(rect));
+            DrawFooter(UiWidgets.FooterBar(rect));
             DrawOverlay(rect);
         }
 
         void DrawFieldsBody(Rect r)
         {
-            var view = SlopScrollBody.View(r, _fieldsH);
+            var view = UiScrollBody.View(r, _fieldsH);
             using (_scroll.Scope(r, view))
             {
                 var l = new Listing_Standard { maxOneColumn = true };
@@ -84,23 +84,23 @@ namespace SlopWorld
                 float y = l.CurHeight;
                 l.End();
 
-                _fieldsH = DrawTrailingFields(view, y) + SlopWidgets.GapS;
+                _fieldsH = DrawTrailingFields(view, y) + UiWidgets.GapS;
             }
         }
 
         void DrawFooter(Rect bar)
         {
-            var foot = new SlopWidgets.Bar(bar);
-            if (foot.Left("Reload", SlopWidgets.Btn.Ghost)) Load();
-            if (ShowEditButton && foot.Left("Edit", SlopWidgets.Btn.Ghost,
+            var foot = new UiWidgets.Bar(bar);
+            if (foot.Left("Reload", UiWidgets.Btn.Ghost)) Load();
+            if (ShowEditButton && foot.Left("Edit", UiWidgets.Btn.Ghost,
                     _loaded && !string.IsNullOrEmpty(_path)))
                 FilesView.EditFile(null, _path, "edit-config.toml");
-            if (ShowSaveButton && foot.Right("Save", SlopWidgets.Btn.Primary, _loaded)) Save();
+            if (ShowSaveButton && foot.Right("Save", UiWidgets.Btn.Primary, _loaded)) Save();
 
             if (_error != null && _loaded)
             {
-                GUI.color = SlopWidgets.Bad;
-                SlopWidgets.RowLabel(foot.Rest(), _error);
+                GUI.color = UiWidgets.Bad;
+                UiWidgets.RowLabel(foot.Rest(), _error);
                 GUI.color = Color.white;
             }
         }

@@ -76,12 +76,12 @@ namespace SlopWorld
 
     public sealed class ContentTreeView
     {
-        static float RowH => SlopWidgets.TinyRowH;
+        static float RowH => UiWidgets.TinyRowH;
         const float IconW = 16f;
         const float Indent = 11f;
-        const float Pad = SlopWidgets.GapS;
-        const float CellX = SlopWidgets.GapS;
-        const float ArrowW = SlopWidgets.DisclosureW;
+        const float Pad = UiWidgets.GapS;
+        const float CellX = UiWidgets.GapS;
+        const float ArrowW = UiWidgets.DisclosureW;
 
         readonly ContentTreeSource _source;
         readonly SmoothScroll _scroll = new SmoothScroll();
@@ -132,7 +132,7 @@ namespace SlopWorld
                     ? _contentHeight : Measure(groups);
                 _contentHeight = height;
                 var view = new Rect(0f, 0f,
-                    body.width - (height > body.height ? SlopWidgets.ScrollbarW : 0f), height);
+                    body.width - (height > body.height ? UiWidgets.ScrollbarW : 0f), height);
                 if (_revealTop >= 0f)
                 {
                     _scroll.Reveal(_revealTop, RowH, body.height);
@@ -196,7 +196,7 @@ namespace SlopWorld
                 bool collapsed = _source.IsGroupCollapsed(group);
 
                 bool over = RowChrome.Hover(row, false, true, RowHoverPolicy.OverlayAware);
-                GUI.color = SlopWidgets.Faint;
+                GUI.color = UiWidgets.Faint;
                 var arrow = new Rect(CellX, row.y + (RowH - ArrowW) / 2f, ArrowW, ArrowW);
                 GUI.DrawTexture(arrow, collapsed ? TexButton.Reveal : TexButton.Collapse);
 
@@ -210,10 +210,10 @@ namespace SlopWorld
                     right = _source.DrawGroupTail(row, group, right);
                 float left = arrow.xMax + 4f;
                 var label = new Rect(left, row.y, Mathf.Max(0f, right - left), RowH);
-                SlopWidgets.RowLabel(label, group.Label);
+                UiWidgets.RowLabel(label, group.Label);
 
                 Slab.Hairline(new Rect(CellX, row.yMax - 1f, row.width - CellX * 2f, 1f),
-                    SlopWidgets.Edge);
+                    UiWidgets.Edge);
 
                 string tip = _source.GroupTooltip(group);
                 if (!string.IsNullOrEmpty(tip) && GroupActions.Hit(row, row.width - CellX, acts)
@@ -239,7 +239,7 @@ namespace SlopWorld
                 return Visible(y)
                     ? ViewChrome.Note(width, y, parent.Depth + 1,
                         parent.Error ?? "...",
-                        parent.Error != null ? SlopWidgets.Bad : SlopWidgets.Faint)
+                        parent.Error != null ? UiWidgets.Bad : UiWidgets.Faint)
                     : y + RowH;
             }
 
@@ -253,7 +253,7 @@ namespace SlopWorld
             if (parent.More)
                 y = Visible(y)
                     ? ViewChrome.Note(width, y, parent.Depth + 1,
-                        "... more, not listed", SlopWidgets.Faint)
+                        "... more, not listed", UiWidgets.Faint)
                     : y + RowH;
             return y;
         }
@@ -271,7 +271,7 @@ namespace SlopWorld
                 float x = CellX + node.Depth * Indent;
                 if (node.IsDirectory && node.CanExpand)
                 {
-                    GUI.color = SlopWidgets.Faint;
+                    GUI.color = UiWidgets.Faint;
                     GUI.DrawTexture(new Rect(x, y + (RowH - ArrowW) / 2f, ArrowW, ArrowW),
                         _source.IsExpanded(node) ? TexButton.Collapse : TexButton.Reveal);
                 }
@@ -291,8 +291,8 @@ namespace SlopWorld
                     right = _source.DrawRowTail(row, node, right);
 
                 Text.Anchor = TextAnchor.MiddleLeft;
-                GUI.color = node.IsDirectory ? SlopWidgets.Lead : SlopWidgets.Name;
-                SlopWidgets.RowLabel(new Rect(x, y, Mathf.Max(0f, right - x - 2f), RowH), node.Name);
+                GUI.color = node.IsDirectory ? UiWidgets.Lead : UiWidgets.Name;
+                UiWidgets.RowLabel(new Rect(x, y, Mathf.Max(0f, right - x - 2f), RowH), node.Name);
 
                 if (!string.IsNullOrEmpty(_source.RowTooltip(node)) &&
                     RowActions.Hit(row, width - Pad, acts) == RowAct.None)
@@ -389,7 +389,7 @@ namespace SlopWorld
 
         void OpenMenu(List<FloatMenuOption> options)
         {
-            if (options != null) TerminalWindow.OpenOverPane(new SlopMenu(options));
+            if (options != null) TerminalWindow.OpenOverPane(new UiMenu(options));
         }
 
         Rect Screen(Rect row)

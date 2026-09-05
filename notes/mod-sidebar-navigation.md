@@ -39,7 +39,7 @@ Space toggling without closing.
 
 Context menus run in the back pass because vanilla consumes portrait right-clicks. A
 project menu's unsandboxed terminal uses `SessionHub.RunHostShell` and `/api/run` with
-`host`; row hover is gated while either `FloatMenu` or `SlopMenu` is open without
+`host`; row hover is gated while either `FloatMenu` or `UiMenu` is open without
 disabling status-bar click-through.
 
 ## Shifting vanilla chrome

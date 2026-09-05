@@ -6,14 +6,14 @@ namespace SlopWorld
 {
     // The confirmation surface belongs to SlopWorld rather than RimWorld's message box, so
     // destructive actions keep the same frame, typography and buttons as the forms that ask.
-    public sealed class SlopConfirmDialog : MessageDialog
+    public sealed class ConfirmDialog : MessageDialog
     {
         const float Width = 480f;
 
         readonly Action _confirmed;
         readonly bool _destructive;
 
-        SlopConfirmDialog(string message, Action confirmed, bool destructive) : base(message)
+        ConfirmDialog(string message, Action confirmed, bool destructive) : base(message)
         {
             _confirmed = confirmed;
             _destructive = destructive;
@@ -25,21 +25,21 @@ namespace SlopWorld
         }
 
         public static Window Create(string message, Action confirmed, bool destructive = false) =>
-            new SlopConfirmDialog(message, confirmed, destructive);
+            new ConfirmDialog(message, confirmed, destructive);
 
         protected override string DialogTitle => "Confirm";
         protected override float DialogWidth => Width;
 
-        protected override void DrawActions(SlopWidgets.Bar foot)
+        protected override void DrawActions(UiWidgets.Bar foot)
         {
-            if (foot.Left("Cancel", SlopWidgets.Btn.Ghost))
+            if (foot.Left("Cancel", UiWidgets.Btn.Ghost))
             {
                 Close();
                 return;
             }
 
-            if (foot.Right("Confirm", _destructive ? SlopWidgets.Btn.Danger :
-                                     SlopWidgets.Btn.Primary))
+            if (foot.Right("Confirm", _destructive ? UiWidgets.Btn.Danger :
+                                     UiWidgets.Btn.Primary))
             {
                 Close();
                 _confirmed?.Invoke();

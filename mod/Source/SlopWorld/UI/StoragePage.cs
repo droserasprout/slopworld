@@ -46,7 +46,7 @@ namespace SlopWorld
 
         public void Load()
         {
-            _load.Load((ok, fail) => SlopClient.Get("/api/state", j => ok(
+            _load.Load((ok, fail) => DaemonClient.Get("/api/state", j => ok(
                 j["entries"].Items.Select(Entry.FromJson)
                     .OrderBy(e => KindRank(e.Kind))
                     .ThenByDescending(e => e.Modified)
@@ -63,27 +63,27 @@ namespace SlopWorld
         void DrawCore(Rect rect)
         {
             var likes = new Rect(rect.xMax - LikesIconW,
-                rect.y + (SlopWidgets.RowH - LikesIconW) / 2f, LikesIconW, LikesIconW);
-            if (Mouse.IsOver(likes)) Slab.Fill(likes, SlopWidgets.Hover);
+                rect.y + (UiWidgets.RowH - LikesIconW) / 2f, LikesIconW, LikesIconW);
+            if (Mouse.IsOver(likes)) Slab.Fill(likes, UiWidgets.Hover);
             var was = GUI.color;
-            GUI.color = Mouse.IsOver(likes) ? Color.white : SlopWidgets.Dim;
-            Widgets.ThingIcon(likes, SlopDefOf.SlopJukebox);
+            GUI.color = Mouse.IsOver(likes) ? Color.white : UiWidgets.Dim;
+            Widgets.ThingIcon(likes, ModDefOf.SlopJukebox);
             GUI.color = was;
             TooltipHandler.TipRegion(likes, "Open jukebox history.");
             if (Widgets.ButtonInvisible(likes)) JukeboxHistoryView.Open();
 
-            var body = SlopWidgets.PageBody(rect);
-            var inner = body.ContractedBy(SlopWidgets.GapM);
+            var body = UiWidgets.PageBody(rect);
+            var inner = body.ContractedBy(UiWidgets.GapM);
 
-            GUI.color = SlopWidgets.Dim;
-            SlopWidgets.RowLabel(new Rect(inner.x, inner.y, inner.width, SlopWidgets.LineH),
+            GUI.color = UiWidgets.Dim;
+            UiWidgets.RowLabel(new Rect(inner.x, inner.y, inner.width, UiWidgets.LineH),
                 $"{Human(_entries.Sum(e => e.Bytes))} total. Configured agents are retained; " +
                 "deleted/reset state expires after 14 days.");
             GUI.color = Color.white;
 
-            var list = new Rect(inner.x, inner.y + SlopWidgets.LineH + SlopWidgets.GapS,
-                inner.width, inner.yMax - inner.y - SlopWidgets.LineH - SlopWidgets.GapS);
-            var view = new Rect(0f, 0f, list.width - SlopWidgets.ScrollbarW,
+            var list = new Rect(inner.x, inner.y + UiWidgets.LineH + UiWidgets.GapS,
+                inner.width, inner.yMax - inner.y - UiWidgets.LineH - UiWidgets.GapS);
+            var view = new Rect(0f, 0f, list.width - UiWidgets.ScrollbarW,
                 Mathf.Max(list.height, _entries.Count * Pitch));
             using (_scroll.Scope(list, view))
                 for (int i = 0; i < _entries.Count; i++)
@@ -91,17 +91,17 @@ namespace SlopWorld
 
             if (_entries.Count == 0)
             {
-                GUI.color = _error != null ? SlopWidgets.Bad : SlopWidgets.Dim;
+                GUI.color = _error != null ? UiWidgets.Bad : UiWidgets.Dim;
                 Widgets.Label(list, _error ?? (_loading ? "Scanning..." : "No private state on disk."));
                 GUI.color = Color.white;
             }
 
-            var foot = new SlopWidgets.Bar(SlopWidgets.FooterBar(rect));
-            if (foot.Left("Refresh", SlopWidgets.Btn.Ghost, !_loading)) Load();
+            var foot = new UiWidgets.Bar(UiWidgets.FooterBar(rect));
+            if (foot.Left("Refresh", UiWidgets.Btn.Ghost, !_loading)) Load();
             if (_error != null && _entries.Count > 0)
             {
-                GUI.color = SlopWidgets.Bad;
-                SlopWidgets.RowLabel(foot.Rest(), _error);
+                GUI.color = UiWidgets.Bad;
+                UiWidgets.RowLabel(foot.Rest(), _error);
                 GUI.color = Color.white;
             }
         }
@@ -117,7 +117,7 @@ namespace SlopWorld
             catch (Exception e)
             {
                 Log.Error("[SlopWorld] jukebox: could not open liked songs: " + e);
-                SlopWidgets.Fail("could not open liked songs");
+                UiWidgets.Fail("could not open liked songs");
             }
         }
 
@@ -136,33 +136,33 @@ namespace SlopWorld
             if (Widgets.ButtonInvisible(new Rect(r.x, r.y, labelW + 20f, r.height)))
                 Focus(e);
 
-            GUI.color = SlopWidgets.Lead;
-            SlopWidgets.RowLabel(new Rect(r.x + 10f, r.y + 5f, labelW, SlopWidgets.LineH),
+            GUI.color = UiWidgets.Lead;
+            UiWidgets.RowLabel(new Rect(r.x + 10f, r.y + 5f, labelW, UiWidgets.LineH),
                 e.Session ?? e.Key);
-            GUI.color = SlopWidgets.Dim;
+            GUI.color = UiWidgets.Dim;
             string note = e.Kind == "active" ? "configured agent" :
                 e.Kind == "orphan" ? "unclaimed orphan state" :
                 e.Session != null ? $"trash for {e.Session}" : "trash (agent removed)";
-            SlopWidgets.RowLabel(new Rect(r.x + 10f, r.y + 5f + SlopWidgets.LineH,
-                labelW, SlopWidgets.LineH), $"{note}  -  {Human(e.Bytes)}  -  {When(e.Modified)}");
+            UiWidgets.RowLabel(new Rect(r.x + 10f, r.y + 5f + UiWidgets.LineH,
+                labelW, UiWidgets.LineH), $"{note}  -  {Human(e.Bytes)}  -  {When(e.Modified)}");
             GUI.color = Color.white;
 
             if (e.Kind == "active")
             {
-                if (SlopWidgets.Button(new Rect(right - actionW, r.y + 10f, actionW,
-                        SlopWidgets.RowBtnH), "Reset", SlopWidgets.Btn.Ghost))
+                if (UiWidgets.Button(new Rect(right - actionW, r.y + 10f, actionW,
+                        UiWidgets.RowBtnH), "Reset", UiWidgets.Btn.Ghost))
                     ConfirmReset(e);
                 return;
             }
 
             if (e.Kind == "trash" && e.Session != null)
             {
-                if (SlopWidgets.Button(new Rect(right - actionW * 2f - SlopWidgets.GapXS,
-                        r.y + 10f, actionW, SlopWidgets.RowBtnH), "Restore"))
+                if (UiWidgets.Button(new Rect(right - actionW * 2f - UiWidgets.GapXS,
+                        r.y + 10f, actionW, UiWidgets.RowBtnH), "Restore"))
                     Restore(e);
             }
-            if (SlopWidgets.Button(new Rect(right - actionW, r.y + 10f, actionW,
-                    SlopWidgets.RowBtnH), "Delete", SlopWidgets.Btn.Danger))
+            if (UiWidgets.Button(new Rect(right - actionW, r.y + 10f, actionW,
+                    UiWidgets.RowBtnH), "Delete", UiWidgets.Btn.Danger))
                 ConfirmDelete(e);
         }
 
@@ -170,7 +170,7 @@ namespace SlopWorld
         {
             if (string.IsNullOrEmpty(e.Path))
             {
-                SlopWidgets.Fail("private-state path is unavailable");
+                UiWidgets.Fail("private-state path is unavailable");
                 return;
             }
             FilesView.FocusDirectory(e.Path, e.Session ?? e.Key);
@@ -178,42 +178,42 @@ namespace SlopWorld
 
         public static void FocusAgent(string name)
         {
-            SlopClient.Get("/api/state", j =>
+            DaemonClient.Get("/api/state", j =>
             {
                 var entry = j["entries"].Items
                     .Select(Entry.FromJson)
                     .FirstOrDefault(e => e.Kind == "active" && e.Session == name);
                 if (entry == null)
                 {
-                    SlopWidgets.Fail($"private storage for '{name}' is unavailable");
+                    UiWidgets.Fail($"private storage for '{name}' is unavailable");
                     return;
                 }
                 Focus(entry);
-            }, SlopWidgets.Fail);
+            }, UiWidgets.Fail);
         }
 
         void ConfirmReset(Entry e)
         {
-            Find.WindowStack.Add(SlopConfirmDialog.Create(
+            Find.WindowStack.Add(ConfirmDialog.Create(
                 $"Reset private state for '{e.Session}'? The agent stops and this {Human(e.Bytes)} " +
                 "copy moves to recoverable trash for 14 days.",
-                () => SlopClient.Post($"/api/sessions/{Uri.EscapeDataString(e.Session)}/state/reset",
+                () => DaemonClient.Post($"/api/sessions/{Uri.EscapeDataString(e.Session)}/state/reset",
                     null, _ => { SessionHub.Instance.Refresh(); Load(); }, msg => _error = msg),
                 destructive: true));
         }
 
         void ConfirmDelete(Entry e)
         {
-            Find.WindowStack.Add(SlopConfirmDialog.Create(
+            Find.WindowStack.Add(ConfirmDialog.Create(
                 $"Permanently delete {Human(e.Bytes)} of {e.Kind} private state? This cannot be undone.",
-                () => SlopClient.Delete($"/api/state/{Uri.EscapeDataString(e.Kind)}/" +
+                () => DaemonClient.Delete($"/api/state/{Uri.EscapeDataString(e.Kind)}/" +
                         Uri.EscapeDataString(e.Key), _ => Load(), msg => _error = msg),
                 destructive: true));
         }
 
         void Restore(Entry e)
         {
-            SlopClient.Post($"/api/state/trash/{Uri.EscapeDataString(e.Key)}/restore", null,
+            DaemonClient.Post($"/api/state/trash/{Uri.EscapeDataString(e.Key)}/restore", null,
                 _ => { SessionHub.Instance.Refresh(); Load(); }, msg => _error = msg);
         }
 
