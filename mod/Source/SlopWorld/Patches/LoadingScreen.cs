@@ -13,7 +13,6 @@ namespace SlopWorld
     {
         const float WordsPerSecond = 100f;
         const int MaxWordsPerFrame = 48;
-        const int ScrollLines = 10;
 
         // Text sits inside a full-height panel. Keep the width narrow enough to read as a
         // terminal instead of turning the loading screen into a wall of tiny type.
@@ -99,7 +98,7 @@ namespace SlopWorld
         }
 
         // The visible stream is a line buffer, not a pre-wrapped wall. Keeping lines explicitly
-        // lets a full panel jump ten rows at once and leaves the newly exposed rows empty.
+        // lets a full panel scroll one row at a time while the newly exposed row is populated.
         static readonly List<string> Stream = new List<string>();
         static readonly List<string> Tokens = new List<string>();
         static readonly System.Text.StringBuilder PaintedBuilder = new System.Text.StringBuilder();
@@ -167,8 +166,7 @@ namespace SlopWorld
         {
             if (Stream.Count < Lines) return;
 
-            int remove = Mathf.Min(ScrollLines, Stream.Count);
-            Stream.RemoveRange(0, remove);
+            Stream.RemoveAt(0);
         }
 
         static void AppendToken(string token, float width)
