@@ -10,7 +10,7 @@ Static review of the committed C# mod at `a3c4c28` (`Fix F12 terminal opening fr
   - [MiniWebSocket.cs:35](../mod/Source/SlopWorld/Client/MiniWebSocket.cs#L35)
 
 - **Inbound work is drained without a per-frame budget.** WebSocket events are parsed and dispatched in a `while` loop on the main thread. HTTP completions are drained the same way. A burst of screen events or responses can consume an entire frame and amplify the cost of the UI callbacks.
-  - [SessionHub.cs:76](../mod/Source/SlopWorld/Client/SessionHub.cs#L76)
+  - [SessionHub.cs:80](../mod/Source/SlopWorld/Client/SessionHub.cs#L80)
   - [HubTransport.cs:92](../mod/Source/SlopWorld/Client/SessionHub/HubTransport.cs#L92)
   - [DaemonClient.cs:111](../mod/Source/SlopWorld/Client/DaemonClient.cs#L111)
 
@@ -18,15 +18,15 @@ Static review of the committed C# mod at `a3c4c28` (`Fix F12 terminal opening fr
   - [AgentSidebar.Layout.cs:48](../mod/Source/SlopWorld/Patches/AgentSidebar/AgentSidebar.Layout.cs#L48)
   - [AgentSidebar.Layout.cs:149](../mod/Source/SlopWorld/Patches/AgentSidebar/AgentSidebar.Layout.cs#L149)
   - [AgentSidebar.RowGeometry.cs:12](../mod/Source/SlopWorld/Patches/AgentSidebar/AgentSidebar.RowGeometry.cs#L12)
-  - [AgentSidebar.Views.cs:154](../mod/Source/SlopWorld/Patches/AgentSidebar/AgentSidebar.Views.cs#L154)
+  - [AgentSidebar.Views.cs:145](../mod/Source/SlopWorld/Patches/AgentSidebar/AgentSidebar.Views.cs#L145)
   - [SidebarRowRenderer.cs:72](../mod/Source/SlopWorld/Patches/AgentSidebar/SidebarRowRenderer.cs#L72)
 
 - **Terminal frames are reparsed on every screen update.** `ScreenBuf.FromJson` replaces the line array and invalidates runs. The next draw parses every row and performs URL scanning over the complete rows-by-columns buffer. The render-texture fallback disables caching permanently, after which each repaint performs a full terminal paint.
   - [ScreenBuf.Json.cs:7](../mod/Source/SlopWorld/Client/SessionHub/ScreenBuf.Json.cs#L7)
-  - [TerminalWindow.Selection.cs:566](../mod/Source/SlopWorld/UI/TerminalWindow/TerminalWindow.Selection.cs#L566)
+  - [TerminalWindow.Selection.cs:882](../mod/Source/SlopWorld/UI/TerminalWindow/TerminalWindow.Selection.cs#L882)
   - [Sgr.cs:65](../mod/Source/SlopWorld/UI/Sgr.cs#L65)
   - [Sgr.cs:322](../mod/Source/SlopWorld/UI/Sgr.cs#L322)
-  - [TerminalWindow.Rendering.cs:214](../mod/Source/SlopWorld/UI/TerminalWindow/TerminalWindow.Rendering.cs#L214)
+  - [TerminalWindow.Rendering.cs:265](../mod/Source/SlopWorld/UI/TerminalWindow/TerminalWindow.Rendering.cs#L265)
 
 ## Simulation and input hot paths
 

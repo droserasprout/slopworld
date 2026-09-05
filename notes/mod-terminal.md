@@ -19,7 +19,7 @@ window services until the next extraction pass.
 
 `NegotiateSize` divides the body by cell size and sends a debounced `resize` (0.2s).
 It retries once per second while returned frames disagree, which is needed because a
-socket can drop during redeploy. `session.rs`'s `BOOT_COLS`/`BOOT_ROWS` are the initial
+socket can drop during redeploy. `session/mod.rs`'s `BOOT_COLS`/`BOOT_ROWS` are the initial
 size.
 The measured font advance is snapped to screen pixels after `Prefs.UIScale`; rendering,
 cursor geometry, hit-testing and resize negotiation all use that same snapped cell.
