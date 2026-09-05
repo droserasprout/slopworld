@@ -11,14 +11,12 @@ namespace SlopWorld
         protected override void DrawFields(Listing_Standard l)
         {
             UiWidgets.SectionHeading(l, "Anthropic");
-            l.Gap(UiWidgets.GapS);
             l.Label("Credentials file");
             _cfg.ClaudeCredentials = UiWidgets.Field(l, "integrations.anthropic.credentials",
                 _cfg.ClaudeCredentials);
 
             l.Gap(UiWidgets.GapL);
             UiWidgets.SectionHeading(l, "OpenRouter");
-            l.Gap(UiWidgets.GapS);
             l.Label("Key file");
             _cfg.OpenrouterKeyFile = UiWidgets.Field(l, "integrations.openrouter.key",
                 _cfg.OpenrouterKeyFile);
@@ -26,7 +24,6 @@ namespace SlopWorld
 
             l.Gap(UiWidgets.GapL);
             UiWidgets.SectionHeading(l, "OpenAI / Codex");
-            l.Gap(UiWidgets.GapS);
             l.Label("Credentials file");
             _cfg.OpenaiCredentials = UiWidgets.Field(l, "integrations.openai.credentials",
                 _cfg.OpenaiCredentials);

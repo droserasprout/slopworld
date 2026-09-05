@@ -42,8 +42,10 @@ namespace SlopWorld
         void DrawList(Rect rect, SessionHub hub)
         {
             var items = Rows.ToList();
-            var view = new Rect(0f, 0f, rect.width - UiWidgets.ScrollbarW,
-                items.Count * RowH + UiWidgets.GapXS);
+            float contentH = items.Count * RowH + UiWidgets.GapXS;
+            bool scrolls = contentH > rect.height;
+            float contentW = rect.width - (scrolls ? UiWidgets.ScrollbarW : 0f);
+            var view = new Rect(0f, 0f, contentW, Mathf.Max(contentH, rect.height));
 
             using (_scroll.Scope(rect, view))
             {

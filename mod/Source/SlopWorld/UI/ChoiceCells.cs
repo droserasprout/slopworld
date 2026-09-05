@@ -131,14 +131,18 @@ namespace SlopWorld
                     using (WidgetState.Save())
                     {
                         GUI.color = UiWidgets.Dim;
-                        UiWidgets.RowLabel(new Rect(pad.x, pad.y, pad.width,
+                        UiWidgets.RowLabel(new Rect(pad.x + UiWidgets.GapS, pad.y,
+                            pad.width - UiWidgets.GapS,
                             UiWidgets.LineH), empty);
                     }
                     return;
                 }
 
-                var inner = new Rect(0f, 0f, pad.width - UiWidgets.ScrollbarW,
-                    choices.Count * UiWidgets.RowH);
+                float contentH = choices.Count * UiWidgets.RowH;
+                bool scrolls = contentH > pad.height;
+                float contentW = pad.width - (scrolls ? UiWidgets.ScrollbarW : 0f);
+                var inner = new Rect(0f, 0f, contentW,
+                    Mathf.Max(contentH, pad.height));
                 using (scroll.Scope(pad, inner))
                 {
                     float y = 0f;
