@@ -55,8 +55,8 @@ impl Manager {
             cfg: RwLock::new(cfg),
             cfg_mtime: Mutex::new(mtime),
             cfg_persist: tokio::sync::Mutex::new(()),
-            presets_mtime: Mutex::new(crate::presets::dir_stamp()),
-            jukebox_mtime: Mutex::new(crate::jukebox::dir_stamp()),
+            presets_mtime: Mutex::new(crate::paths::dir_stamp(&crate::presets::Table::dir())),
+            jukebox_mtime: Mutex::new(crate::paths::dir_stamp(&crate::jukebox::Catalog::dir())),
             cfg_checked: AtomicU64::new(0),
             usage: RwLock::new(crate::usage::Snapshot::default()),
             clients: AtomicUsize::new(0),
@@ -196,7 +196,7 @@ impl Manager {
     }
 
     pub async fn reload_presets_if_changed(self: &Arc<Self>) -> bool {
-        let disk = crate::presets::dir_stamp();
+        let disk = crate::paths::dir_stamp(&crate::presets::Table::dir());
         {
             let mut seen = self.presets_mtime.lock().unwrap();
             if *seen == disk {
@@ -213,7 +213,7 @@ impl Manager {
     }
 
     pub async fn reload_jukebox_if_changed(self: &Arc<Self>) -> bool {
-        let disk = crate::jukebox::dir_stamp();
+        let disk = crate::paths::dir_stamp(&crate::jukebox::Catalog::dir());
         {
             let mut seen = self.jukebox_mtime.lock().unwrap();
             if *seen == disk {

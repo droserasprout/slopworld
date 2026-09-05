@@ -6,95 +6,53 @@ using Verse;
 namespace SlopWorld
 {
     // Title policies and models; see notes/agent-titles.md.
-    public class SummariesPage : IOptionPage
+    public class SummariesPage : DaemonConfigPage
     {
-        SlopConfig _cfg;
-        string _error;
-        bool _loaded;
         string _minPromptChars;
 
-        readonly SmoothScroll _scroll = new SmoothScroll();
-        float _fieldsH;
+        protected override string SavedMessage => "title settings saved.";
 
-        public void Load()
+        protected override void AfterLoad()
         {
-            SlopClient.Get("/api/config",
-                j =>
-                {
-                    _cfg = SlopConfig.FromJson(j["values"]);
-                    _minPromptChars = _cfg.TitleMinChars.ToString();
-                    _loaded = true;
-                    _error = null;
-                },
-                msg => { _error = msg; _loaded = false; });
+            _minPromptChars = _cfg.TitleMinChars.ToString();
         }
 
-        public void Draw(Rect rect)
+        protected override void DrawFields(Listing_Standard l)
         {
-            var body = SlopWidgets.PageBody(rect);
-            DoFields(body.ContractedBy(SlopWidgets.GapM));
+            SlopWidgets.SectionHeading(l, "Codex");
+            if (SlopWidgets.Button(l,
+                    "Name sessions: " + PolicyLabel(_cfg.AgentTitles)))
+                OpenPolicyMenu(false);
+            SlopWidgets.Note(l, "Names a Codex session from its submitted prompt.");
 
-            DoFooter(SlopWidgets.FooterBar(rect));
-        }
+            l.Gap(SlopWidgets.GapL);
+            SlopWidgets.SectionHeading(l, "Pi");
+            if (SlopWidgets.Button(l,
+                    "Name sessions: " + PolicyLabel(_cfg.PiTitles)))
+                OpenPolicyMenu(true);
+            SlopWidgets.Note(l, "Pi defaults to every prompt. The daemon applies this setting before input " +
+                "reaches Pi, so it takes effect in the current session.");
 
-        void DoFields(Rect r)
-        {
-            if (!_loaded)
-            {
-                GUI.color = _error != null ? SlopWidgets.Bad : SlopWidgets.Dim;
-                Widgets.Label(r, _error ?? "Waiting for the daemon...");
-                GUI.color = Color.white;
-                return;
-            }
+            l.Gap(SlopWidgets.GapL);
+            SlopWidgets.SectionHeading(l, "Host");
+            _cfg.HostTitles = SlopWidgets.Checkbox(l, "Summarize host commands", _cfg.HostTitles,
+                "Names commands submitted in host terminals. Off leaves host terminal titles to " +
+                "the terminal application.");
+            SlopWidgets.Note(l, "Host terminals summarize each submitted command, independently of " +
+                "the Codex and Pi policies.");
 
-            var view = new Rect(0f, 0f, r.width - SlopWidgets.ScrollbarW,
-                Mathf.Max(_fieldsH, r.height));
-            using (_scroll.Scope(r, view))
-            {
+            l.Gap(SlopWidgets.GapL);
+            SlopWidgets.SectionHeading(l, "All summaries");
+            l.Label("Minimum prompt length");
+            _minPromptChars = SlopWidgets.Field(l, "usage.summary.minimum", _minPromptChars);
+            SlopWidgets.Note(l, "Prompts and host commands shorter than this many characters " +
+                "are not summarized. Short prompts do not use up a first-prompt title attempt.");
+            l.Gap(SlopWidgets.GapM);
+            l.Label("Model");
+            _cfg.TitleModel = SlopWidgets.Field(l, "usage.summary.model", _cfg.TitleModel);
+            SlopWidgets.Note(l, "Up to 2,000 characters of each prompt or command go to OpenRouter. " +
+                "Summaries do not depend on credit polling.");
 
-                // Begun far taller than it is, so a control that would cross the bottom does not
-                // start a second column and drop the rest of the form on top of itself.
-                var l = new Listing_Standard { maxOneColumn = true };
-                l.Begin(new Rect(0f, 0f, view.width, 4000f));
-
-                SlopWidgets.SectionHeading(l, "Codex");
-                if (SlopWidgets.Button(l,
-                        "Name sessions: " + PolicyLabel(_cfg.AgentTitles)))
-                    OpenPolicyMenu(false);
-                SlopWidgets.Note(l, "Names a Codex session from its submitted prompt.");
-
-                l.Gap(SlopWidgets.GapL);
-                SlopWidgets.SectionHeading(l, "Pi");
-                if (SlopWidgets.Button(l,
-                        "Name sessions: " + PolicyLabel(_cfg.PiTitles)))
-                    OpenPolicyMenu(true);
-                SlopWidgets.Note(l, "Pi defaults to every prompt. The daemon applies this setting before input " +
-                    "reaches Pi, so it takes effect in the current session.");
-
-                l.Gap(SlopWidgets.GapL);
-                SlopWidgets.SectionHeading(l, "Host");
-                _cfg.HostTitles = SlopWidgets.Checkbox(l, "Summarize host commands", _cfg.HostTitles,
-                    "Names commands submitted in host terminals. Off leaves host terminal titles to " +
-                    "the terminal application.");
-                SlopWidgets.Note(l, "Host terminals summarize each submitted command, independently of " +
-                    "the Codex and Pi policies.");
-
-                l.Gap(SlopWidgets.GapL);
-                SlopWidgets.SectionHeading(l, "All summaries");
-                l.Label("Minimum prompt length");
-                _minPromptChars = SlopWidgets.Field(l, "usage.summary.minimum", _minPromptChars);
-                SlopWidgets.Note(l, "Prompts and host commands shorter than this many characters " +
-                    "are not summarized. Short prompts do not use up a first-prompt title attempt.");
-                l.Gap(SlopWidgets.GapM);
-                l.Label("Model");
-                _cfg.TitleModel = SlopWidgets.Field(l, "usage.summary.model", _cfg.TitleModel);
-                SlopWidgets.Note(l, "Up to 2,000 characters of each prompt or command go to OpenRouter. " +
-                    "Summaries do not depend on credit polling.");
-
-                _fieldsH = l.CurHeight + SlopWidgets.GapS;
-                l.End();
-
-            }
         }
 
 
@@ -125,37 +83,10 @@ namespace SlopWorld
             else _cfg.AgentTitles = policy;
         }
 
-        void DoFooter(Rect bar)
+        protected override void BeforeSave()
         {
-            var foot = new SlopWidgets.Bar(bar);
-
-            if (foot.Left("Reload", SlopWidgets.Btn.Ghost)) Load();
-            if (foot.Right("Save", SlopWidgets.Btn.Primary, _loaded)) Save();
-
-            if (_error != null && _loaded)
-            {
-                GUI.color = SlopWidgets.Bad;
-                SlopWidgets.RowLabel(foot.Rest(), _error);
-                GUI.color = Color.white;
-            }
-        }
-
-        void Save()
-        {
-            if (!_loaded) return;
-
             if (int.TryParse(_minPromptChars, out int minimum))
                 _cfg.TitleMinChars = Mathf.Clamp(minimum, 0, 2000);
-
-            SlopClient.Put("/api/config/patch", _cfg.ToPatchJson(),
-                _ =>
-                {
-                    _error = null;
-                    SlopOptions.Reread();
-                    Messages.Message("SlopWorld: title settings saved.",
-                        MessageTypeDefOf.TaskCompletion, false);
-                },
-                msg => _error = msg);
         }
     }
 }

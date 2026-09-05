@@ -6,89 +6,46 @@ using Verse.Sound;
 
 namespace SlopWorld
 {
-    public class UsagePage : IOptionPage
+    public class UsagePage : DaemonConfigPage
     {
-        SlopConfig _cfg;
-        string _error;
-        bool _loaded;
-
         // A free-text mirror, so a half-typed number is not clamped out from under the
         // player mid-keystroke.
         string _pollSecs;
         readonly Dictionary<string, string> _itemIntervals =
             new Dictionary<string, string>();
 
-        readonly SmoothScroll _scroll = new SmoothScroll();
-        float _fieldsH;
-
         // Which key's icon picker is open, or null.
         string _pickingKey;
         readonly SmoothScroll _pickScroll = new SmoothScroll();
 
-        public void Load()
+        protected override bool DrawFieldsWhenOffline => true;
+        protected override string SavedMessage => "usage settings saved.";
+
+        protected override void AfterLoad()
         {
-            SlopClient.Get("/api/config",
-                j =>
-                {
-                    _cfg = SlopConfig.FromJson(j["values"]);
-                    SessionHub.Instance.Config = _cfg;
-                    _pollSecs = _cfg.UsagePollSecs.ToString();
-                    _itemIntervals.Clear();
-                    EnsureBaseItems();
-                    _loaded = true;
-                    _error = null;
-                },
-                msg => { _error = msg; _loaded = false; });
+            _pollSecs = _cfg.UsagePollSecs.ToString();
+            _itemIntervals.Clear();
+            EnsureBaseItems();
         }
 
-        public void Draw(Rect rect)
+        protected override void DrawFields(Listing_Standard l)
         {
-            var body = SlopWidgets.PageBody(rect);
-            var inner = body.ContractedBy(SlopWidgets.GapM);
-
-            // The icons are not the daemon's, so the fields are drawn whether or not it
-            // answered: a socket that is down is exactly when somebody is in here reading
-            // rather than configuring.
-            DoFields(inner);
-
-            DoFooter(SlopWidgets.FooterBar(rect));
-
-            // Picker overlay, drawn last so it sits on top of everything else.
-            if (_pickingKey != null)
-                DrawPicker(rect, _pickingKey);
-        }
-
-        float DoFields(Rect r)
-        {
-            if (!_loaded)
-            {
-                GUI.color = _error != null ? SlopWidgets.Bad : SlopWidgets.Dim;
-                Widgets.Label(r, _error ?? "Waiting for the daemon...");
-                GUI.color = Color.white;
-                return 0f;
-            }
-
-            var view = new Rect(0f, 0f, r.width - SlopWidgets.ScrollbarW,
-                Mathf.Max(_fieldsH, r.height));
-            using (_scroll.Scope(r, view))
-                _fieldsH = DrawUsageFields(view);
-            return _fieldsH;
-        }
-
-        float DrawUsageFields(Rect rect)
-        {
-            var l = new Listing_Standard { maxOneColumn = true };
-            l.Begin(new Rect(rect.x, rect.y, rect.width, 4000f));
             SlopWidgets.SectionHeading(l, "Usage");
             l.Label("Global poll interval (s)");
             _pollSecs = SlopWidgets.Field(l, "usage.poll", _pollSecs);
             SlopWidgets.Note(l, "Every row uses this interval unless its interval is set below. " +
                 "A failed poll backs off on its own, doubling to half an hour.");
-            float y = rect.y + l.CurHeight + SlopWidgets.GapM;
-            l.End();
+        }
 
-            y += DrawTable(new Rect(rect.x, y, rect.width, 4000f));
-            return y - rect.y + SlopWidgets.GapS;
+        protected override float DrawTrailingFields(Rect rect, float y)
+        {
+            return y + DrawTable(new Rect(rect.x, y, rect.width, 4000f));
+        }
+
+        protected override void DrawOverlay(Rect rect)
+        {
+            // Picker overlay, drawn last so it sits on top of everything else.
+            if (_pickingKey != null) DrawPicker(rect, _pickingKey);
         }
 
         static readonly string[] BaseKeys =
@@ -415,30 +372,8 @@ namespace SlopWorld
         }
 
 
-        // ------------------------------------------------------------------ footer
-
-        void DoFooter(Rect bar)
+        protected override void BeforeSave()
         {
-            var foot = new SlopWidgets.Bar(bar);
-
-            if (foot.Left("Reload", SlopWidgets.Btn.Ghost)) Load();
-
-            // Greyed and shown rather than hidden: with no config loaded there is nothing to
-            // write back, and a button that vanished would read as a page with no save.
-            if (foot.Right("Save", SlopWidgets.Btn.Primary, _loaded)) Save();
-
-            if (_error != null && _loaded)
-            {
-                GUI.color = SlopWidgets.Bad;
-                SlopWidgets.RowLabel(foot.Rest(), _error);
-                GUI.color = Color.white;
-            }
-        }
-
-        void Save()
-        {
-            if (!_loaded) return;
-
             // Floored at the same 10s the poller enforces, so what the GUI shows after a save
             // is what the daemon is actually doing.
             if (int.TryParse(_pollSecs, out int s))
@@ -453,16 +388,6 @@ namespace SlopWorld
                 else if (int.TryParse(text, out int seconds))
                     item.IntervalSecs = Mathf.Clamp(seconds, 10, 3600);
             }
-
-            SlopClient.Put("/api/config/patch", _cfg.ToPatchJson(),
-                _ =>
-                {
-                    _error = null;
-                    SlopOptions.Reread();
-                    Messages.Message("SlopWorld: usage settings saved.",
-                        MessageTypeDefOf.TaskCompletion, false);
-                },
-                msg => _error = msg);
         }
 
     }

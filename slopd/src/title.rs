@@ -211,22 +211,12 @@ fn set_latest(latest: &mut Vec<LatestEntry>, session: &str, title: &str) {
 }
 
 fn save_cache(path: &Path, entries: &[CacheEntry], latest: &[LatestEntry]) -> Result<()> {
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent)?;
-    }
-    let tmp = path.with_extension("toml.tmp");
     let file = CacheFile {
         version: CACHE_VERSION,
         entries: entries.to_vec(),
         latest: latest.to_vec(),
     };
-    fs::write(&tmp, toml::to_string_pretty(&file)?)?;
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        fs::set_permissions(&tmp, fs::Permissions::from_mode(0o600))?;
-    }
-    fs::rename(&tmp, path).with_context(|| format!("installing {}", path.display()))
+    crate::paths::write_private_toml(path, &toml::to_string_pretty(&file)?)
 }
 
 fn cache_key(prompt: &str, model: &str) -> String {

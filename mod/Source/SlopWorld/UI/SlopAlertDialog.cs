@@ -6,12 +6,11 @@ namespace SlopWorld
 {
     // Informational messages use the same surface as confirmations; even the safety alert
     // shown before the profile gate has finished must not fall back to RimWorld chrome.
-    public sealed class SlopAlertDialog : SlopWindow
+    public sealed class SlopAlertDialog : MessageDialog
     {
         const float Width = 520f;
 
         readonly string _title;
-        readonly string _message;
         readonly string _primaryLabel;
         readonly string _secondaryLabel;
         readonly Action _primary;
@@ -20,9 +19,9 @@ namespace SlopWorld
 
         SlopAlertDialog(string title, string message, string primaryLabel, Action primary,
                         string secondaryLabel, Action secondary, SlopWidgets.Btn primaryKind)
+            : base(message)
         {
             _title = title ?? "SlopWorld";
-            _message = message ?? "";
             _primaryLabel = primaryLabel ?? "OK";
             _secondaryLabel = secondaryLabel;
             _primary = primary;
@@ -42,30 +41,11 @@ namespace SlopWorld
             new SlopAlertDialog(title, message, primaryLabel, primary, secondaryLabel,
                 secondary, primaryKind);
 
-        public override Vector2 InitialSize => new Vector2(Width,
-            4f * SlopWidgets.GapM + SlopWidgets.HeaderH +
-            MessageHeight(_message, Width - 2f * SlopWidgets.GapM) + SlopWidgets.BtnH);
+        protected override string DialogTitle => _title;
+        protected override float DialogWidth => Width;
 
-        protected override bool Closable => false;
-
-        protected override void DoBody(Rect rect)
+        protected override void DrawActions(SlopWidgets.Bar foot)
         {
-            SlopWidgets.Title(rect, _title);
-
-            float messageY = rect.y + SlopWidgets.HeaderH + SlopWidgets.GapM;
-            float messageH = MessageHeight(_message, rect.width);
-            var message = new Rect(rect.x, messageY, rect.width, messageH);
-
-            using (WidgetState.Save())
-            {
-                Text.Font = GameFont.Small;
-                Text.Anchor = TextAnchor.UpperLeft;
-                Text.WordWrap = true;
-                GUI.color = SlopWidgets.Name;
-                Widgets.Label(message, _message);
-            }
-
-            var foot = new SlopWidgets.Bar(SlopWidgets.FooterBar(rect));
             if (!string.IsNullOrEmpty(_secondaryLabel) &&
                 foot.Left(_secondaryLabel, SlopWidgets.Btn.Ghost))
             {
