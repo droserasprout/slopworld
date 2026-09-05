@@ -41,21 +41,20 @@ namespace SlopWorld
             float bodyY = SlopWidgets.TinyRowH + SlopWidgets.GapS;
             float textY = bodyY + SlopWidgets.FieldPadY +
                 SlopWidgets.LineHOf(GameFont.Tiny) + SlopWidgets.GapXS;
-            CollectSelectableText(body, MessageTextInset, textY, _bodyRanges, 0);
+            CollectSelectableText(body, MessageTextX, textY, _bodyRanges, 0);
             if (note.Length > 0)
             {
                 float noteY = bodyY + _bodyHeight + SlopWidgets.GapM;
                 textY = noteY + SlopWidgets.FieldPadY +
                     SlopWidgets.LineHOf(GameFont.Tiny) + SlopWidgets.GapXS;
-                CollectSelectableText(note, MessageTextInset, textY, _noteRanges,
+                CollectSelectableText(note, MessageTextX, textY, _noteRanges,
                     body.Length + 2);
             }
         }
 
         static float TextWidth(float width)
         {
-            float cardWidth = Mathf.Max(1f, width - AvatarOverlap);
-            return Mathf.Max(1f, cardWidth - MessageTextInset - SlopWidgets.FieldPadX);
+            return Mathf.Max(1f, width - MessageTextX - SlopWidgets.FieldPadX);
         }
 
         List<TextRange> WrappedRanges(string text, float width)

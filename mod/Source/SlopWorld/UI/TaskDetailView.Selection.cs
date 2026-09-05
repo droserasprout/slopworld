@@ -74,6 +74,31 @@ namespace SlopWorld
             }
         }
 
+        bool HandleSenderClicks(Rect viewport)
+        {
+            var e = Event.current;
+            if (e == null || e.button != 0 ||
+                (e.type == EventType.Used ? e.rawType : e.type) != EventType.MouseDown)
+                return false;
+
+            foreach (var hit in _senderHits)
+            {
+                var avatar = ScreenRect(viewport, hit.Avatar);
+                var name = ScreenRect(viewport, hit.Name);
+                if (!avatar.Contains(e.mousePosition) && !name.Contains(e.mousePosition)) continue;
+
+                AgentSidebar.FocusAgent(hit.Sender);
+                e.Use();
+                return true;
+            }
+            return false;
+        }
+
+        Rect ScreenRect(Rect viewport, Rect content) => new Rect(
+            viewport.x + content.x - _scroll.Position.x,
+            viewport.y + content.y - _scroll.Position.y,
+            content.width, content.height);
+
         void HandleSelectionInput(Rect viewport)
         {
             var e = Event.current;
