@@ -32,6 +32,31 @@ namespace SlopWorld
         float _historyJumpPixels = -1f;
         float _historyMax;
         float _historyLastPixels;
+        int _historyConnectionGeneration = -1;
+
+        // A socket reconnect starts a new daemon screen stream. Keep the current visual
+        // fallback, but discard request bookkeeping and indexed rows so a response or sequence
+        // from the previous connection cannot satisfy the new terminal's history view.
+        void SyncHistoryConnection()
+        {
+            int generation = SessionHub.Instance.ConnectionGeneration;
+            if (_historyConnectionGeneration == generation) return;
+            _historyConnectionGeneration = generation;
+
+            _historyRequests.Clear();
+            _scrollPending = false;
+            _wantedScrollOff = 0;
+            _sentScrollOff = 0;
+            _nextScrollSend = 0f;
+            _hasWheelDirection = false;
+            _historyCoordinateShift = 0;
+            _historyTopOff = -1;
+            _historyViewReady = false;
+            _historyRefreshPending = false;
+            _historyWarmed = false;
+            _history.Reset();
+            _lastLiveSeq = -1;
+        }
 
         internal void JumpToLive()
         {
@@ -127,6 +152,11 @@ namespace SlopWorld
                 {
                     _historyDisplayedFrame = null;
                 }
+                // There is no reason to send a coalesced prefetch after the live view has
+                // become authoritative. An already-running request may still drain and seed
+                // the warm cache; only the not-yet-sent request is cancelled here.
+                _scrollPending = false;
+                _wantedScrollOff = 0;
                 _scrollOff = 0;
                 ScrollDebugEnd();
                 return;

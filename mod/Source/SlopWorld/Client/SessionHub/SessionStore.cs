@@ -39,6 +39,14 @@ namespace SlopWorld
         public ScreenBuf Screen(string name) =>
             _screens.TryGetValue(name, out var s) ? s : null;
 
+        // A reconnect gets a new stream of screen sequences. Do not let the first frame on the
+        // new socket be compared with, or history replies be mixed into, the old stream.
+        public void ResetConnectionScreens()
+        {
+            _screens.Clear();
+            _scrolls.Clear();
+        }
+
         public bool TryScrollScreen(string name, out ScreenBuf screen)
         {
             screen = null;
