@@ -76,8 +76,11 @@ namespace SlopWorld
         public static bool IconButton(Rect r, Texture2D icon, bool on = true) =>
             IconButton(r, icon, Name, on);
 
-        public static void SectionHeading(Listing_Standard l, string text) =>
+        public static void SectionHeading(Listing_Standard l, string text)
+        {
             SectionHeading(l.GetRect(RowH), text);
+            l.Gap(GapS);
+        }
 
         public static void Note(Listing_Standard l, string text)
         {

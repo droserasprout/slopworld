@@ -75,21 +75,25 @@ namespace SlopWorld
             float cell = UiWidgets.PickerCell;
             float gridTop = r.y + UiWidgets.GapXS + UiWidgets.LineH + titleGap;
             float gridH = r.height - gridTop - bottomGap;
-            int columns = Mathf.Max(1, Mathf.FloorToInt(
-                (r.width - UiWidgets.GapM) / cell));
-            float gridW = columns * cell;
+            float availableW = r.width - UiWidgets.GapM;
+            int columns = Mathf.Max(1, Mathf.FloorToInt(availableW / cell));
             int rows = Mathf.CeilToInt(count / (float)columns);
             float totalH = rows * cell;
-            if (totalH > gridH)
-                gridW -= UiWidgets.ScrollbarW;
+            bool scrolls = totalH > gridH;
+            if (scrolls)
+            {
+                // The scrollbar is drawn beside the view, inside the frame. Keep its
+                // reserve out of the cell grid rather than letting it cover the last cell.
+                columns = Mathf.Max(1, Mathf.FloorToInt(
+                    (availableW - UiWidgets.ScrollbarW) / cell));
+                rows = Mathf.CeilToInt(count / (float)columns);
+                totalH = rows * cell;
+            }
 
-            columns = Mathf.Max(1, Mathf.FloorToInt(gridW / cell));
-            gridW = columns * cell;
-            rows = Mathf.CeilToInt(count / (float)columns);
-            totalH = rows * cell;
-
-            var frame = new Rect(r.x + (r.width - gridW) / 2f, gridTop, gridW, gridH);
-            var view = new Rect(0f, 0f, gridW, Mathf.Max(totalH, gridH));
+            float contentW = columns * cell;
+            float frameW = contentW + (scrolls ? UiWidgets.ScrollbarW : 0f);
+            var frame = new Rect(r.x + (r.width - frameW) / 2f, gridTop, frameW, gridH);
+            var view = new Rect(0f, 0f, contentW, Mathf.Max(totalH, gridH));
             return new Grid(frame, view, columns);
         }
     }

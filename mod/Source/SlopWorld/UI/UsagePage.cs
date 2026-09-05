@@ -190,7 +190,7 @@ namespace SlopWorld
             const float pickH = 360f;
             UiPickerWindow.Show(0x51_0F_1000 ^ key.GetHashCode(), pageRect, pickW, pickH,
                 UsageReadout.Long(key), () => _pickingKey = null, Choices.Count + 1,
-                _pickScroll, grid => DrawPickerGrid(grid, key), UiWidgets.GapXS, 8f);
+                _pickScroll, grid => DrawPickerGrid(grid, key));
         }
 
         void DrawPickerGrid(UiPickerWindow.Grid grid, string key)
