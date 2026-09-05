@@ -35,6 +35,7 @@ identifies the software so the sandbox can mount its configuration paths.
 | `slopworld_md` | Mount generated `SLOPWORLD.md` read-only at the Instructions mount path and exclude the source file through the repository's `.git/info/exclude`. |
 | `instructions_breadcrumb` | Add the configured discovery breadcrumb when the manifest is mounted. Defaults to `true`; the agent editor's Breadcrumbs tab can turn it off. |
 | `persistent_tmp` | Keep a private `/tmp` for this agent across restarts. It lives in the agent's durable state and moves with reset/delete. |
+| `breadcrumb_yolo` | Automatically paste effective breadcrumbs before the first Enter after startup. Defaults to `true`; disable it when breadcrumbs should remain pending for manual use. |
 | `autostart` | Start this agent automatically when the daemon starts. |
 | `auto_resume` | When enabled, the daemon pastes `/resume` and submits after the agent settles on startup. |
 | `breadcrumbs` | Named breadcrumb blocks delivered alongside the first prompt. |
@@ -109,7 +110,7 @@ Network and DNS changes take effect on the next agent start.
 | Network mode, DNS | Next start. |
 | Resource limits | Next start. |
 | Mounts | Next start. |
-| Autostart, auto-resume, breadcrumbs, `slopworld_md`, `persistent_tmp`, Instructions mount path | Next start. |
+| Autostart, auto-resume, breadcrumbs, `breadcrumb_yolo`, `slopworld_md`, `persistent_tmp`, Instructions mount path | Next start. |
 | Project directory | Immediately for new agents; running agents keep their current mount. |
 
 Running agents are not rebuilt from changed defaults. Restart the agent to apply

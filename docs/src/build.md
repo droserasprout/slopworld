@@ -3,7 +3,8 @@
 ## Toolchain
 
 - **Rust** stable toolchain — builds the daemon and launcher.
-- **Mono** (`csc`) — compiles the mod. The .NET SDK is optional and used only for `dotnet format`.
+- **Mono** (`csc`) — compiles the mod. The .NET SDK is optional for builds, but required by
+  `format-mod` and `lint-mod` for `dotnet format`.
 - **GNU Make** — all targets go through the Makefile. On macOS, install GNU Make with `brew install make` and use `gmake`.
 
 Set `RIMWORLD` to the Linux game directory (the folder containing `RimWorldLinux`). The mod links against assemblies in `Managed/`, so a real install is required.
@@ -36,7 +37,7 @@ target RimWorld installation before staging it.
 
 ## Formatting
 
-C# formatting uses `dotnet format` in folder mode; `.editorconfig` preserves single-line statements. Override `CSC` or `CSC_API` when the compiler or Mono reference assemblies are elsewhere. `format-mod` requires the .NET SDK; `lint-mod` does not.
+C# formatting uses `dotnet format` in folder mode; `.editorconfig` preserves single-line statements. Override `CSC` or `CSC_API` when the compiler or Mono reference assemblies are elsewhere. Both `format-mod` and `lint-mod` require the .NET SDK; `make mod` does not.
 
 Rust formatting and linting use `cargo fmt` and `cargo clippy`.
 
