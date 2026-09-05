@@ -71,7 +71,7 @@ session list, which is why the bell is asked about ahead of `apply_frame`'s earl
 way out: it is a list event on a screen that never moved. A title is read off the
 last frame, so a session `mark_down` has dropped the screen of states none.
 
-`BOOT_COLS`/`BOOT_ROWS` in `session.rs` is what a pane wears until someone looks
+`BOOT_COLS`/`BOOT_ROWS` in `session/mod.rs` is what a pane wears until someone looks
 at it - see [mod-terminal](mod-terminal.md) for `NegotiateSize`.
 
 `SessionView.slopworld_md` echoes the durable opt-in that gives an agent the generated
