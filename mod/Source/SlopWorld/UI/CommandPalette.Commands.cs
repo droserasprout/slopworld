@@ -191,6 +191,9 @@ namespace SlopWorld
                 _ => ModOptions.OpenCategory(ModOptions.CategoryFor(ModOptions.PageId.CommandPresets))),
             new CommandDef("view.terminal-settings", "Settings: Terminal", "Settings",
                 _ => ModOptions.OpenCategory(ModOptions.CategoryFor(ModOptions.PageId.Terminal))),
+            new CommandDef("view.statusbar-settings", "Settings: Appearance - Statusbar", "Settings",
+                _ => ModOptions.OpenCategory(ModOptions.CategoryFor(
+                    ModOptions.PageId.AppearanceStatusbar))),
             new CommandDef("view.appearance", "Settings: Appearance", "Settings",
                 _ => ModOptions.OpenCategory(ModOptions.CategoryFor(ModOptions.PageId.Appearance))),
             new CommandDef("view.audio", "Settings: Audio", "Settings",

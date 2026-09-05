@@ -41,7 +41,8 @@ metadata displays `?`; it does not prevent the page from showing the online stat
 ## Writing and invalidation
 
 The connection comes from `endpoint.toml`. `AppearancePage` edits the global interface
-settings and `TerminalPage` edits pane settings; `ConfigPage` edits daemon configuration.
+settings, `TerminalPage` edits pane settings, and `StatusbarPage` edits statusbar
+presentation; `ConfigPage` edits daemon configuration.
 Mod settings are written atomically by `ModSettings.Write` when the Settings view closes,
 and dirty values also flush periodically.
 
