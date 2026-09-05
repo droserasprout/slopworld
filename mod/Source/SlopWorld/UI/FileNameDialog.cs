@@ -5,7 +5,7 @@ namespace SlopWorld
 {
     // The file tree only needs one small form: a single path component, followed by an
     // operation that is already named by the menu row which opened it.
-    public sealed class FileNameDialog : SlopWindow
+    public sealed class FileNameDialog : UiWindow
     {
         readonly string _title;
         readonly Action<string> _done;
@@ -27,11 +27,11 @@ namespace SlopWorld
 
         protected override void DoBody(Rect rect)
         {
-            _name = SlopTextDialog.Draw(rect, _title, null, "file-name", _name, _error);
+            _name = TextDialog.Draw(rect, _title, null, "file-name", _name, _error);
 
-            var foot = SlopTextDialog.Footer(rect);
-            if (foot.Left("Cancel", SlopWidgets.Btn.Ghost)) Close();
-            if (foot.Right("Save", SlopWidgets.Btn.Primary)) Save();
+            var foot = TextDialog.Footer(rect);
+            if (foot.Left("Cancel", UiWidgets.Btn.Ghost)) Close();
+            if (foot.Right("Save", UiWidgets.Btn.Primary)) Save();
         }
 
         void Save()

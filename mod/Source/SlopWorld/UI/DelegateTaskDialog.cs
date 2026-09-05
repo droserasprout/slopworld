@@ -7,7 +7,7 @@ using Verse;
 namespace SlopWorld
 {
     // Dialog for sending a durable task to an agent.
-    public sealed class DelegateTaskDialog : SlopWindow
+    public sealed class DelegateTaskDialog : UiWindow
     {
         readonly List<SessionInfo> _agents;
         string _to;
@@ -27,48 +27,48 @@ namespace SlopWorld
 
         protected override void DoBody(Rect rect)
         {
-            SlopWidgets.Title(rect, string.IsNullOrEmpty(_to)
+            UiWidgets.Title(rect, string.IsNullOrEmpty(_to)
                 ? "Delegate task" : $"Delegate task to '{_to}'");
 
-            float y = rect.y + SlopWidgets.HeaderH + SlopWidgets.GapM;
+            float y = rect.y + UiWidgets.HeaderH + UiWidgets.GapM;
             var targetRect = new Rect(rect.x, y, rect.width,
-                SlopWidgets.LineH + SlopWidgets.GapXS + SlopWidgets.CompactH);
+                UiWidgets.LineH + UiWidgets.GapXS + UiWidgets.CompactH);
             var options = _agents.Select(agent => new SelectorOption(AgentLabel(agent), () =>
             {
                 _to = agent.Name;
             })).ToList();
             bool canChoose = options.Count > 0;
             string shown = AgentLabel(_to);
-            SlopWidgets.Select(targetRect, "Agent", shown, options, out _,
+            UiWidgets.Select(targetRect, "Agent", shown, options, out _,
                 canChoose ? "Choose the mailbox recipient." : "No agents are available.",
                 canChoose);
 
-            y = targetRect.yMax + SlopWidgets.GapM;
-            GUI.color = SlopWidgets.Name;
-            SlopWidgets.RowLabel(new Rect(rect.x, y, rect.width, SlopWidgets.LineH), "Task");
+            y = targetRect.yMax + UiWidgets.GapM;
+            GUI.color = UiWidgets.Name;
+            UiWidgets.RowLabel(new Rect(rect.x, y, rect.width, UiWidgets.LineH), "Task");
             GUI.color = Color.white;
-            y += SlopWidgets.LineH + SlopWidgets.GapXS;
+            y += UiWidgets.LineH + UiWidgets.GapXS;
 
-            float footerY = rect.yMax - SlopWidgets.BtnH;
-            float errorH = string.IsNullOrEmpty(_error) ? 0f : SlopWidgets.RowH;
-            float areaH = Mathf.Max(72f, footerY - y - SlopWidgets.GapS - errorH);
-            _body = SlopWidgets.Area(new Rect(rect.x, y, rect.width, areaH),
+            float footerY = rect.yMax - UiWidgets.BtnH;
+            float errorH = string.IsNullOrEmpty(_error) ? 0f : UiWidgets.RowH;
+            float areaH = Mathf.Max(72f, footerY - y - UiWidgets.GapS - errorH);
+            _body = UiWidgets.Area(new Rect(rect.x, y, rect.width, areaH),
                 "delegate.task", _body, !_sending);
 
             if (!string.IsNullOrEmpty(_error))
             {
-                GUI.color = SlopWidgets.Bad;
-                SlopWidgets.RowLabel(new Rect(rect.x, y + areaH + SlopWidgets.GapXS,
+                GUI.color = UiWidgets.Bad;
+                UiWidgets.RowLabel(new Rect(rect.x, y + areaH + UiWidgets.GapXS,
                     rect.width, errorH), _error);
                 GUI.color = Color.white;
             }
 
-            var foot = new SlopWidgets.Bar(SlopWidgets.FooterBar(rect));
-            if (foot.Left("Cancel", SlopWidgets.Btn.Ghost, !_sending)) Close();
+            var foot = new UiWidgets.Bar(UiWidgets.FooterBar(rect));
+            if (foot.Left("Cancel", UiWidgets.Btn.Ghost, !_sending)) Close();
 
             bool ready = canChoose && !string.IsNullOrEmpty(_to) &&
                 !string.IsNullOrWhiteSpace(_body) && !_sending;
-            if (foot.Right("Delegate", SlopWidgets.Btn.Primary, ready)) Send();
+            if (foot.Right("Delegate", UiWidgets.Btn.Primary, ready)) Send();
         }
 
         string AgentLabel(string name)

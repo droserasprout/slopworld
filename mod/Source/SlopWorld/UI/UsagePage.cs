@@ -30,10 +30,10 @@ namespace SlopWorld
 
         protected override void DrawFields(Listing_Standard l)
         {
-            SlopWidgets.SectionHeading(l, "Usage");
+            UiWidgets.SectionHeading(l, "Usage");
             l.Label("Global poll interval (s)");
-            _pollSecs = SlopWidgets.Field(l, "usage.poll", _pollSecs);
-            SlopWidgets.Note(l, "Every row uses this interval unless its interval is set below. " +
+            _pollSecs = UiWidgets.Field(l, "usage.poll", _pollSecs);
+            UiWidgets.Note(l, "Every row uses this interval unless its interval is set below. " +
                 "A failed poll backs off on its own, doubling to half an hour.");
         }
 
@@ -60,11 +60,11 @@ namespace SlopWorld
                 EnsureItem(key);
         }
 
-        SlopConfig.UsageItemConfig EnsureItem(string key)
+        DaemonConfig.UsageItemConfig EnsureItem(string key)
         {
             if (!_cfg.UsageItems.TryGetValue(key, out var item) || item == null)
             {
-                item = new SlopConfig.UsageItemConfig { Poll = DefaultPoll(key) };
+                item = new DaemonConfig.UsageItemConfig { Poll = DefaultPoll(key) };
                 _cfg.UsageItems[key] = item;
             }
 
@@ -111,7 +111,7 @@ namespace SlopWorld
         float DrawTable(Rect rect)
         {
             var keys = TableKeys();
-            float rowH = SlopWidgets.RowH;
+            float rowH = UiWidgets.RowH;
             float headerH = rowH;
             float intervalW = Mathf.Min(120f, Mathf.Max(92f, rect.width * .16f));
             float pollW = 64f;
@@ -122,17 +122,17 @@ namespace SlopWorld
             float intervalX = pollX + pollW;
 
             var header = new Rect(rect.x, rect.y, rect.width, headerH);
-            Slab.Fill(header, SlopWidgets.RowBg);
-            SlopWidgets.RowLabel(new Rect(rect.x + SlopWidgets.GapS, rect.y,
-                nameW - SlopWidgets.GapS, headerH), "Name");
-            SlopWidgets.RowLabel(new Rect(iconX, rect.y, iconW, headerH), "Icon",
+            Slab.Fill(header, UiWidgets.RowBg);
+            UiWidgets.RowLabel(new Rect(rect.x + UiWidgets.GapS, rect.y,
+                nameW - UiWidgets.GapS, headerH), "Name");
+            UiWidgets.RowLabel(new Rect(iconX, rect.y, iconW, headerH), "Icon",
                 TextAnchor.MiddleCenter);
-            SlopWidgets.RowLabel(new Rect(pollX, rect.y, pollW, headerH), "Poll",
+            UiWidgets.RowLabel(new Rect(pollX, rect.y, pollW, headerH), "Poll",
                 TextAnchor.MiddleCenter);
-            SlopWidgets.RowLabel(new Rect(intervalX, rect.y, intervalW, headerH), "Interval (s)",
+            UiWidgets.RowLabel(new Rect(intervalX, rect.y, intervalW, headerH), "Interval (s)",
                 TextAnchor.MiddleCenter);
             Slab.Hairline(new Rect(rect.x, header.yMax - 1f, rect.width, 1f),
-                SlopWidgets.Edge);
+                UiWidgets.Edge);
 
             float y = header.yMax;
             foreach (string key in keys)
@@ -141,8 +141,8 @@ namespace SlopWorld
                 var row = new Rect(rect.x, y, rect.width, rowH);
                 RowChrome.Hover(row, false, true, RowHoverPolicy.OverlayAware);
 
-                SlopWidgets.RowLabel(new Rect(row.x + SlopWidgets.GapS, row.y,
-                    nameW - SlopWidgets.GapS, row.height), UsageReadout.Long(key));
+                UiWidgets.RowLabel(new Rect(row.x + UiWidgets.GapS, row.y,
+                    nameW - UiWidgets.GapS, row.height), UsageReadout.Long(key));
                 DrawIconButton(new Rect(iconX, row.y, iconW, row.height), key);
 
                 var poll = new Rect(pollX, row.y, pollW, row.height);
@@ -150,17 +150,17 @@ namespace SlopWorld
                     item.Poll ? "Stop polling this usage window." : "Poll this usage window.",
                     false, RowHoverPolicy.OverlayAware);
 
-                var field = new Rect(intervalX + SlopWidgets.GapXS,
-                    row.y + (row.height - SlopWidgets.FieldH) / 2f,
-                    intervalW - SlopWidgets.GapXS * 2f, SlopWidgets.FieldH);
-                _itemIntervals[key] = SlopWidgets.Field(field, "usage.item." + key,
+                var field = new Rect(intervalX + UiWidgets.GapXS,
+                    row.y + (row.height - UiWidgets.FieldH) / 2f,
+                    intervalW - UiWidgets.GapXS * 2f, UiWidgets.FieldH);
+                _itemIntervals[key] = UiWidgets.Field(field, "usage.item." + key,
                     _itemIntervals[key], true);
 
                 Slab.Hairline(new Rect(row.x, row.yMax - 1f, row.width, 1f),
-                    SlopWidgets.Edge);
+                    UiWidgets.Edge);
                 y = row.yMax;
             }
-            return y - rect.y + SlopWidgets.GapS;
+            return y - rect.y + UiWidgets.GapS;
         }
 
         void DrawIconButton(Rect area, string key)
@@ -173,7 +173,7 @@ namespace SlopWorld
             if (IconPickerCell.Draw(area, r =>
             {
                 if (icon != null) Widgets.ThingIcon(r, icon);
-                else Slab.Fill(r, SlopWidgets.Off);
+                else Slab.Fill(r, UiWidgets.Off);
             }, tip, RowHoverPolicy.Local))
                 _pickingKey = key;
         }
@@ -188,12 +188,12 @@ namespace SlopWorld
         {
             const float pickW = 380f;
             const float pickH = 360f;
-            SlopPickerWindow.Show(0x51_0F_1000 ^ key.GetHashCode(), pageRect, pickW, pickH,
+            UiPickerWindow.Show(0x51_0F_1000 ^ key.GetHashCode(), pageRect, pickW, pickH,
                 UsageReadout.Long(key), () => _pickingKey = null, Choices.Count + 1,
-                _pickScroll, grid => DrawPickerGrid(grid, key), SlopWidgets.GapXS, 8f);
+                _pickScroll, grid => DrawPickerGrid(grid, key), UiWidgets.GapXS, 8f);
         }
 
-        void DrawPickerGrid(SlopPickerWindow.Grid grid, string key)
+        void DrawPickerGrid(UiPickerWindow.Grid grid, string key)
         {
             // The automatic cell, then the palette.
             int count = Choices.Count + 1;
@@ -224,8 +224,8 @@ namespace SlopWorld
                 {
                     // Grey, and drawn a little smaller than a thing: it is the one cell
                     // here that is not an item, and it should not read as the loudest.
-                    GUI.color = SlopWidgets.Dim;
-                    GUI.DrawTexture(box.ContractedBy(SlopWidgets.IconInset + 1f), Icons.Cross);
+                    GUI.color = UiWidgets.Dim;
+                    GUI.DrawTexture(box.ContractedBy(UiWidgets.IconInset + 1f), Icons.Cross);
                 }
                 GUI.color = Color.white;
 

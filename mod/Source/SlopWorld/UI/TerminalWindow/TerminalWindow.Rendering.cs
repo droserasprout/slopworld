@@ -96,8 +96,8 @@ namespace SlopWorld
         // is indistinguishable from an agent that has stopped answering.
         void DrawOfflineBanner(Rect body)
         {
-            var r = new Rect(body.x, body.y, body.width, SlopWidgets.LineH + 3f);
-            Slab.Box(r, SlopWidgets.OfflineBg, SlopWidgets.Edge);
+            var r = new Rect(body.x, body.y, body.width, UiWidgets.LineH + 3f);
+            Slab.Box(r, UiWidgets.OfflineBg, UiWidgets.Edge);
 
             string tail = _droppedKeys > 0
                 ? $" - {_droppedKeys} keystroke{(_droppedKeys == 1 ? "" : "s")} not delivered"
@@ -113,7 +113,7 @@ namespace SlopWorld
         void DrawCentered(Rect r, string msg)
         {
             Text.Anchor = TextAnchor.MiddleCenter;
-            GUI.color = SlopWidgets.Dim;
+            GUI.color = UiWidgets.Dim;
             Widgets.Label(r, msg);
             GUI.color = Color.white;
             Text.Anchor = TextAnchor.UpperLeft;
@@ -163,8 +163,8 @@ namespace SlopWorld
         void DrawScrollHint(Rect body)
         {
             Text.Font = GameFont.Tiny;
-            GUI.color = SlopWidgets.Warn;
-            SlopWidgets.RowLabel(new Rect(body.x, body.y, body.width - 6f, SlopWidgets.TinyH),
+            GUI.color = UiWidgets.Warn;
+            UiWidgets.RowLabel(new Rect(body.x, body.y, body.width - 6f, UiWidgets.TinyH),
                 $"scrollback -{_scrollOff}   type or scroll down to resume",
                 TextAnchor.MiddleRight);
             GUI.color = Color.white;
@@ -195,8 +195,8 @@ namespace SlopWorld
             var rail = new Rect(track.x + 1f, track.y, 1f, track.height);
             var thumb = new Rect(track.x, track.y + travel * fromTop, track.width, thumbH);
 
-            Widgets.DrawBoxSolid(rail, SlopWidgets.ScrollTrough);
-            Widgets.DrawBoxSolid(thumb, SlopWidgets.ScrollThumb);
+            Widgets.DrawBoxSolid(rail, UiWidgets.ScrollTrough);
+            Widgets.DrawBoxSolid(thumb, UiWidgets.ScrollThumb);
         }
 
         // A pure function of the buffer, the rect and the font, which is what makes Blit's

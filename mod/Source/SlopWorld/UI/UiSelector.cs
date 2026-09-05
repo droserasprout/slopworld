@@ -23,16 +23,16 @@ namespace SlopWorld
 
     // One labelled selector pattern for forms. The same box determines both measured menu
     // width and screen anchor, including custom and disabled options.
-    public static class SlopSelector
+    public static class UiSelector
     {
         public static bool Draw(Rect rect, string caption, string value,
                                 IEnumerable<SelectorOption> source, out Rect box,
                                 string tip = null, bool enabled = true, bool open = false,
-                                Action<SlopMenu> openMenu = null)
+                                Action<UiMenu> openMenu = null)
         {
             var options = (source ?? Enumerable.Empty<SelectorOption>()).ToList();
-            bool pressed = SlopWidgets.Select(rect, caption, value, out box, tip, enabled,
-                open, SlopMenu.WidthFor(new[] { value }.Concat(
+            bool pressed = UiWidgets.Select(rect, caption, value, out box, tip, enabled,
+                open, UiMenu.WidthFor(new[] { value }.Concat(
                     options.Select(option => option.Label))));
             if (!pressed) return false;
 
@@ -42,7 +42,7 @@ namespace SlopWorld
                 item.Disabled = !option.Enabled;
                 return item;
             }).ToList();
-            var popup = new SlopMenu(menu, SlopWidgets.MenuAt(box));
+            var popup = new UiMenu(menu, UiWidgets.MenuAt(box));
             if (openMenu != null) openMenu(popup);
             else Find.WindowStack.Add(popup);
             return true;
@@ -51,10 +51,10 @@ namespace SlopWorld
         public static bool Draw(Listing_Standard listing, string caption, string value,
                                 IEnumerable<SelectorOption> source, out Rect box,
                                 string tip = null, bool enabled = true, bool open = false,
-                                Action<SlopMenu> openMenu = null)
+                                Action<UiMenu> openMenu = null)
         {
-            var rect = listing.GetRect(SlopWidgets.LineH + SlopWidgets.GapXS +
-                SlopWidgets.CompactH);
+            var rect = listing.GetRect(UiWidgets.LineH + UiWidgets.GapXS +
+                UiWidgets.CompactH);
             return Draw(rect, caption, value, source, out box, tip, enabled, open, openMenu);
         }
     }

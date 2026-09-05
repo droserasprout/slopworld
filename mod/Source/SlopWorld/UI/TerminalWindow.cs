@@ -9,7 +9,7 @@ namespace SlopWorld
     // keystrokes back as tmux keys.
     public partial class TerminalWindow : Window
     {
-        const float Pad = SlopWidgets.GapS;
+        const float Pad = UiWidgets.GapS;
         FieldLifetime _fieldLifetime = new FieldLifetime();
         readonly TerminalInputController _input;
         readonly TerminalSelectionInput _selectionInput;
@@ -89,7 +89,7 @@ namespace SlopWorld
             ColonistBarStrip.Draw(input);
 
             float top = TopBar.H;
-            float left = SlopLayout.LeftInset;
+            float left = UiLayout.LeftInset;
             return new Rect(
                 rect.x + left + Pad,
                 top + Pad,

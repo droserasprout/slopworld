@@ -41,7 +41,7 @@ namespace SlopWorld
                 GUIStyle style = _styles.For(run, heading);
                 if (run.IsTask)
                 {
-                    float taskWidth = SlopWidgets.TickColW;
+                    float taskWidth = UiWidgets.TickColW;
                     if (line.Pieces.Count > 0 && line.Width + taskWidth > width)
                     {
                         layout.Lines.Add(line);
@@ -76,7 +76,7 @@ namespace SlopWorld
                     piece.Text = piece.TextBuilder.ToString();
                     piece.TextBuilder = null;
                 }
-                if (item.Height <= 0f) item.Height = SlopWidgets.LineH;
+                if (item.Height <= 0f) item.Height = UiWidgets.LineH;
                 item.Offset = layout.Height;
                 layout.Height += item.Height;
             }
@@ -85,7 +85,7 @@ namespace SlopWorld
 
         TextLine NewLine(GUIStyle style) => new TextLine
         {
-            Height = Mathf.Max(SlopWidgets.LineH, style?.lineHeight ?? SlopWidgets.LineH),
+            Height = Mathf.Max(UiWidgets.LineH, style?.lineHeight ?? UiWidgets.LineH),
         };
 
         void AppendWrapped(ref TextLine line, TextLayout layout, InlineRun run, string text,

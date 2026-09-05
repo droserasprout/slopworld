@@ -97,7 +97,7 @@ namespace SlopWorld
                 if (project != null && SessionHub.Instance.Project(project) != null)
                     opts.Add(new FloatMenuOption("Terminal (host)", () =>
                         SessionHub.Instance.RunHostShell(project,
-                        session => TerminalWindow.Open(session), SlopWidgets.Fail)));
+                        session => TerminalWindow.Open(session), UiWidgets.Fail)));
 
                 FilesView.AddFileActions(opts, node.Project, node.Path, node.Name,
                     FilesView.Relative(node));
@@ -117,7 +117,7 @@ namespace SlopWorld
 
                 if (!FilesView.IsRoot(node))
                 {
-                    opts.Add(SlopMenu.Separator());
+                    opts.Add(UiMenu.Separator());
                     opts.Add(new FloatMenuOption("Rename", () => FilesView.Rename(node)));
                     opts.Add(new FloatMenuOption("Remove", () => FilesView.Remove(node)));
                 }
@@ -129,7 +129,7 @@ namespace SlopWorld
 
                 if (node.IsDir)
                 {
-                    opts.Add(SlopMenu.Separator());
+                    opts.Add(UiMenu.Separator());
                     opts.Add(new FloatMenuOption("New file", () => FilesView.Create(node, "file")));
                     opts.Add(new FloatMenuOption("New folder", () => FilesView.Create(node, "folder")));
                     opts.Add(new FloatMenuOption("Terminal here", () => FilesView.TerminalHere(node)));
@@ -145,7 +145,7 @@ namespace SlopWorld
         public static void AddOpenIn(List<FloatMenuOption> opts, string path)
         {
             if (!SessionHub.Instance.Capabilities.DesktopOpen) return;
-            opts.Add(new SlopSubmenu("Open in...", () => OpenInOptions(path)));
+            opts.Add(new UiSubmenu("Open in...", () => OpenInOptions(path)));
         }
 
         static List<FloatMenuOption> OpenInOptions(string path)
@@ -155,7 +155,7 @@ namespace SlopWorld
                 new FloatMenuOption("Loading applications...", null),
             };
 
-            SlopClient.Get("/api/open-apps?path=" + System.Uri.EscapeDataString(path), j =>
+            DaemonClient.Get("/api/open-apps?path=" + System.Uri.EscapeDataString(path), j =>
             {
                 options.Clear();
                 foreach (var app in j["apps"].Items)
@@ -173,14 +173,14 @@ namespace SlopWorld
 
                 if (options.Count == 0)
                     options.Add(new FloatMenuOption("No associated applications", null));
-                options.Add(SlopMenu.Separator());
+                options.Add(UiMenu.Separator());
                 options.Add(new FloatMenuOption("Other...", () => OpenInOther(path)));
             }, msg =>
             {
                 options.Clear();
-                SlopWidgets.Fail("Open in: " + msg);
+                UiWidgets.Fail("Open in: " + msg);
                 options.Add(new FloatMenuOption("Could not load applications", null));
-                options.Add(SlopMenu.Separator());
+                options.Add(UiMenu.Separator());
                 options.Add(new FloatMenuOption("Other...", () => OpenInOther(path)));
             });
             return options;
@@ -213,11 +213,11 @@ namespace SlopWorld
 
         static void HostFileAction(string path, string command)
         {
-            SlopClient.Post("/api/file-action", "{" +
+            DaemonClient.Post("/api/file-action", "{" +
                 $"\"path\":{JVal.Q(path)}," +
                 $"\"command\":{JVal.Q(command)}," +
                 "\"host\":true" +
-                "}", null, SlopWidgets.Fail);
+                "}", null, UiWidgets.Fail);
         }
 
         // File actions can come from any sidebar tree. Project paths run in that project's
@@ -232,7 +232,7 @@ namespace SlopWorld
             if (actions.Count == 0) return;
             if (relative == null) relative = ProjectRelative(project, path);
 
-            opts.Add(new SlopSubmenu("File actions", () => FileActionOptions(
+            opts.Add(new UiSubmenu("File actions", () => FileActionOptions(
                 project, path, name, relative, actions)));
         }
 
@@ -264,7 +264,7 @@ namespace SlopWorld
                 return;
             }
 
-            TerminalWindow.OpenOverPane(new SlopMenu(new List<FloatMenuOption>
+            TerminalWindow.OpenOverPane(new UiMenu(new List<FloatMenuOption>
             {
                 new FloatMenuOption("Show result", () =>
                     ShowFileActionResult(project, path, command, host, action.Name)),
@@ -276,7 +276,7 @@ namespace SlopWorld
         static void ShowFileActionResult(string project, string path, string command, bool host,
             string actionName)
         {
-            SlopClient.Post("/api/file-action", "{" +
+            DaemonClient.Post("/api/file-action", "{" +
                 $"\"project\":{JVal.Q(project)}," +
                 $"\"path\":{JVal.Q(path)}," +
                 $"\"command\":{JVal.Q(command)}," +
@@ -285,20 +285,20 @@ namespace SlopWorld
                 {
                     RefreshAfterFileAction();
                     string output = j["output"].AsString("(no output)");
-                    TerminalWindow.OpenOverPane(SlopAlertDialog.Create(
+                    TerminalWindow.OpenOverPane(AlertDialog.Create(
                         "File action: " + actionName, output, "Close", null));
                 }, msg =>
                 {
                     RefreshAfterFileAction();
-                    TerminalWindow.OpenOverPane(SlopAlertDialog.Create(
+                    TerminalWindow.OpenOverPane(AlertDialog.Create(
                         "File action failed", msg, "Close", null,
-                        primaryKind: SlopWidgets.Btn.Danger));
+                        primaryKind: UiWidgets.Btn.Danger));
                 });
         }
 
         static void RunFileActionSilently(string project, string path, string command, bool host)
         {
-            SlopClient.Post("/api/file-action", "{" +
+            DaemonClient.Post("/api/file-action", "{" +
                 $"\"project\":{JVal.Q(project)}," +
                 $"\"path\":{JVal.Q(path)}," +
                 $"\"command\":{JVal.Q(command)}," +
@@ -306,7 +306,7 @@ namespace SlopWorld
                 "}", _ => RefreshAfterFileAction(), msg =>
                 {
                     RefreshAfterFileAction();
-                    SlopWidgets.Fail("File action: " + msg);
+                    UiWidgets.Fail("File action: " + msg);
                 });
         }
 
@@ -327,7 +327,7 @@ namespace SlopWorld
             // exist for an interactive command.
             RefreshAfterFileAction();
             SessionHub.Instance.Run(project, command, "fa-" + name,
-                session => TerminalWindow.Open(session), SlopWidgets.Fail,
+                session => TerminalWindow.Open(session), UiWidgets.Fail,
                 host: host, temp: host, path: path, hold: true);
         }
 
@@ -348,19 +348,19 @@ namespace SlopWorld
         static void Rename(Node node) => FileNameDialog.Open(
             "Rename " + node.Name, node.Name, name =>
             {
-                SlopClient.Put("/api/files",
+                DaemonClient.Put("/api/files",
                     "{" + $"\"path\":{JVal.Q(node.Path)},\"name\":{JVal.Q(name)}" + "}",
-                    _ => Reload(), SlopWidgets.Fail);
+                    _ => Reload(), UiWidgets.Fail);
             });
 
         static void Remove(Node node)
         {
             string what = node.IsDir ? "folder and everything inside it" : "file";
-            TerminalWindow.OpenOverPane(SlopConfirmDialog.Create(
+            TerminalWindow.OpenOverPane(ConfirmDialog.Create(
                 $"Remove {what} '{node.Name}'?",
-                () => SlopClient.Delete("/api/files",
+                () => DaemonClient.Delete("/api/files",
                     "{\"path\":" + JVal.Q(node.Path) + "}",
-                    _ => Reload(), SlopWidgets.Fail),
+                    _ => Reload(), UiWidgets.Fail),
                 destructive: true));
         }
 
@@ -369,10 +369,10 @@ namespace SlopWorld
             string fallback = kind == "folder" ? "new-folder" : "untitled";
             FileNameDialog.Open(kind == "folder" ? "New folder" : "New file", fallback, name =>
             {
-                SlopClient.Post("/api/files",
+                DaemonClient.Post("/api/files",
                     "{" + $"\"path\":{JVal.Q(node.Path)},\"name\":{JVal.Q(name)}," +
                     $"\"kind\":{JVal.Q(kind)}" + "}",
-                    _ => Reload(), SlopWidgets.Fail);
+                    _ => Reload(), UiWidgets.Fail);
             });
         }
 
@@ -387,7 +387,7 @@ namespace SlopWorld
             bool host = string.IsNullOrEmpty(node.Project);
             SessionHub.Instance.Run(host ? "" : node.Project, command,
                 "terminal-" + node.Name,
-                session => TerminalWindow.Open(session), SlopWidgets.Fail,
+                session => TerminalWindow.Open(session), UiWidgets.Fail,
                 host: host, temp: host);
         }
 
@@ -405,9 +405,9 @@ namespace SlopWorld
             return node.Path.StartsWith(root + "/") ? node.Path.Substring(root.Length + 1) : null;
         }
 
-        static void Copy(string text) => SlopClipboard.Copy(text,
+        static void Copy(string text) => DaemonClipboard.Copy(text,
             () => Messages.Message($"SlopWorld: copied {text}", MessageTypeDefOf.SilentInput,
-                false), SlopWidgets.Fail);
+                false), UiWidgets.Fail);
 
         // A temporary agent running one command in the project's own sandbox, which is what
         // makes `micro` see the file the way the agents working on it do. Untracked, unlike
@@ -419,13 +419,13 @@ namespace SlopWorld
             // is clearer said here.
             if (SessionHub.Instance.Project(node.Project) == null)
             {
-                SlopWidgets.Fail($"project '{node.Project}' has gone");
+                UiWidgets.Fail($"project '{node.Project}' has gone");
                 return;
             }
 
             SessionHub.Instance.Run(node.Project, cmd + " " + Pager.Quote(node.Path),
                 label + "-" + node.Name,
-                session => TerminalWindow.Open(session), SlopWidgets.Fail);
+                session => TerminalWindow.Open(session), UiWidgets.Fail);
         }
 
         // ------------------------------------------------------------------ viewer
@@ -473,17 +473,17 @@ namespace SlopWorld
             if (string.IsNullOrEmpty(project))
             {
                 SessionHub.Instance.Run("", Pager.EditorCommand(path, line), label,
-                    session => TerminalWindow.Open(session), SlopWidgets.Fail,
+                    session => TerminalWindow.Open(session), UiWidgets.Fail,
                     host: true, temp: true);
                 return;
             }
             if (SessionHub.Instance.Project(project) == null)
             {
-                SlopWidgets.Fail($"project '{project}' has gone");
+                UiWidgets.Fail($"project '{project}' has gone");
                 return;
             }
             SessionHub.Instance.Run(project, Pager.EditorCommand(path, line), label,
-                session => TerminalWindow.Open(session), SlopWidgets.Fail);
+                session => TerminalWindow.Open(session), UiWidgets.Fail);
         }
 
         public static void ReleaseViewer()

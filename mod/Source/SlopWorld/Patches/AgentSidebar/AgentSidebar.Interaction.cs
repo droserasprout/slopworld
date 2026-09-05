@@ -66,11 +66,11 @@ namespace SlopWorld
             bool lit = over || Interaction.Resizing;
 
             // The panel's right edge and the grip's own tell are the same line, and it is
-            // drawn here alone: a second draw of [SlopWidgets.Edge] over this one composites
+            // drawn here alone: a second draw of [UiWidgets.Edge] over this one composites
             // into a heavier boundary than the palette's, on the sidebar only. At rest it is
             // one screen pixel like every other rule; lit it is a bar and may be a GUI one.
-            if (lit) Slab.Fill(new Rect(w - 1f, 0f, 2f, UI.screenHeight), SlopWidgets.EdgeLit);
-            else Slab.VHairline(new Rect(w - 1f, 0f, 1f, UI.screenHeight), SlopWidgets.Edge);
+            if (lit) Slab.Fill(new Rect(w - 1f, 0f, 2f, UI.screenHeight), UiWidgets.EdgeLit);
+            else Slab.VHairline(new Rect(w - 1f, 0f, 1f, UI.screenHeight), UiWidgets.Edge);
 
             if (!ColonistBarStrip.Interactive) return;
 

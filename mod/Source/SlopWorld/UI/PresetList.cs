@@ -9,7 +9,7 @@ namespace SlopWorld
     public static class PresetList
     {
         // The pitch of a row here, off the font like every other height in this mod.
-        public static float RowH => SlopWidgets.RowH;
+        public static float RowH => UiWidgets.RowH;
 
         // Ticked and refused: what a preset is handed anyway, by its command or its project.
         // Drawn rather than hidden - "why is ~/.claude bound" is the question this answers.
@@ -24,16 +24,16 @@ namespace SlopWorld
                 .ToList();
             if (allPresets.Count == 0)
             {
-                SlopChoiceList<PresetInfo>.Draw(outer,
-                    new List<SlopChoice<PresetInfo>>(), scroll,
+                UiChoiceList<PresetInfo>.Draw(outer,
+                    new List<UiChoice<PresetInfo>>(), scroll,
                     "The daemon has not sent its preset list yet.");
                 return;
             }
 
             if (presets.Count == 0)
             {
-                SlopChoiceList<PresetInfo>.Draw(outer,
-                    new List<SlopChoice<PresetInfo>>(), scroll,
+                UiChoiceList<PresetInfo>.Draw(outer,
+                    new List<UiChoice<PresetInfo>>(), scroll,
                     "No optional presets are available.");
                 return;
             }
@@ -44,13 +44,13 @@ namespace SlopWorld
             var roots = new List<string>(chosen);
             if (implied != null) roots.AddRange(implied);
             var required = RequiredBy(roots, presets);
-            var choices = new List<SlopChoice<PresetInfo>>();
+            var choices = new List<UiChoice<PresetInfo>>();
             foreach (var pr in presets)
             {
                 bool forced = (implied != null && implied.Contains(pr.Name)) ||
                               (required.Contains(pr.Name) && !chosen.Contains(pr.Name));
                 bool was = forced || chosen.Contains(pr.Name);
-                choices.Add(new SlopChoice<PresetInfo>
+                choices.Add(new UiChoice<PresetInfo>
                 {
                     Value = pr,
                     Label = pr.Name,
@@ -66,7 +66,7 @@ namespace SlopWorld
                 });
             }
 
-            SlopChoiceList<PresetInfo>.Draw(outer, choices, scroll,
+            UiChoiceList<PresetInfo>.Draw(outer, choices, scroll,
                 "No optional presets are available.");
         }
 

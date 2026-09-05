@@ -9,8 +9,8 @@ namespace SlopWorld
         {
             // One entry round the whole line, prompt included: in sub-mode the prompt is part
             // of what is being typed into, not a label beside a second box.
-            SlopWidgets.FieldFrame(r, GUI.GetNameOfFocusedControl() == "paletteInput");
-            var inner = r.ContractedBy(SlopWidgets.FieldPadX, SlopWidgets.FieldPadY);
+            UiWidgets.FieldFrame(r, GUI.GetNameOfFocusedControl() == "paletteInput");
+            var inner = r.ContractedBy(UiWidgets.FieldPadX, UiWidgets.FieldPadY);
 
             var e = Event.current;
             bool isKeyDown = e.type == EventType.KeyDown;
@@ -128,18 +128,18 @@ namespace SlopWorld
         {
             // Prompt on the left, filter input on the right.
             string prompt = _subPrompt + " ";
-            float promptW = SlopWidgets.Wide(prompt);
+            float promptW = UiWidgets.Wide(prompt);
             var labelRect = new Rect(inner.x, inner.y, promptW, inner.height);
             var fieldRect = new Rect(inner.x + promptW, inner.y,
                 inner.width - promptW, inner.height);
 
-            GUI.color = SlopWidgets.Dim;
-            SlopWidgets.RowLabel(labelRect, prompt);
+            GUI.color = UiWidgets.Dim;
+            UiWidgets.RowLabel(labelRect, prompt);
             GUI.color = Color.white;
 
             bool hadFilter = _subHasFilter;
             string wasSub = _subFilter;
-            _subFilter = SlopWidgets.BareField(fieldRect, "paletteInput", _subFilter);
+            _subFilter = UiWidgets.BareField(fieldRect, "paletteInput", _subFilter);
             _subHasFilter = !string.IsNullOrEmpty(_subFilter);
             if (_subFilter != wasSub)
             {
@@ -163,7 +163,7 @@ namespace SlopWorld
         float DrawCommandInput(Rect inner)
         {
             string was = _input;
-            _input = SlopWidgets.BareField(inner, "paletteInput", _input);
+            _input = UiWidgets.BareField(inner, "paletteInput", _input);
             if (_input != was)
             {
                 _filter = _input.ToLowerInvariant();

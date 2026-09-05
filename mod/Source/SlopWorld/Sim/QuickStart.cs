@@ -5,7 +5,7 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Reproduce vanilla quick-start with `SlopScenario`, but skip setup pages and starting pawns.
+    // Reproduce vanilla quick-start with `ModScenario`, but skip setup pages and starting pawns.
     // The sequence is copied because scenario hooks are interleaved with setup; mark a real
     // entry start and set `startingPawnCount` after those hooks run.
     public static class QuickStart
@@ -36,7 +36,7 @@ namespace SlopWorld
             Game.ClearCaches();
             Current.Game = new Game { InitData = new GameInitData() };
 
-            Current.Game.Scenario = SlopScenario.Get();
+            Current.Game.Scenario = ModScenario.Get();
             Find.Scenario.PreConfigure();
 
             Current.Game.storyteller =

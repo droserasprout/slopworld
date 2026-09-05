@@ -6,7 +6,7 @@ using Verse;
 
 namespace SlopWorld
 {
-    public abstract class SlopText : SlopTheme
+    public abstract class UiText : UiTheme
     {
         public static void RowLabel(Rect r, string text, TextAnchor anchor = TextAnchor.MiddleLeft)
         {
@@ -17,7 +17,7 @@ namespace SlopWorld
                 string label = (text ?? "").Truncate(Mathf.Max(1f, r.width));
 
                 Verse.Text.Anchor = UpperAnchor(anchor);
-                // Text.LineHeightOf is the box SlopUIFont sized to hold the face. Drawing
+                // Text.LineHeightOf is the box UiFont sized to hold the face. Drawing
                 // into a fresh CalcHeight box was shorter for some dynamic sizes, cutting
                 // descenders despite the row itself having enough space for them.
                 float lineH = LineHOf(Verse.Text.Font);
@@ -334,7 +334,7 @@ namespace SlopWorld
             }
 
             string path = primary ? "/api/clipboard/primary/text" : "/api/clipboard/text";
-            SlopClient.Get(path,
+            DaemonClient.Get(path,
                 j => QueuePaste(name, controlId, j["text"].AsString(), area, owner),
                 _ =>
                 {
@@ -356,13 +356,13 @@ namespace SlopWorld
 
             var cut = new FloatMenuOption("Cut", () =>
             {
-                SlopClipboard.Copy(selected);
+                DaemonClipboard.Copy(selected);
                 QueueEdit(name, controlId, e => e.DeleteSelection(), lifetime);
             });
             cut.Disabled = selected.Length == 0;
             options.Add(cut);
 
-            var copy = new FloatMenuOption("Copy", () => SlopClipboard.Copy(selected));
+            var copy = new FloatMenuOption("Copy", () => DaemonClipboard.Copy(selected));
             copy.Disabled = selected.Length == 0;
             options.Add(copy);
 
@@ -371,7 +371,7 @@ namespace SlopWorld
             options.Add(new FloatMenuOption("Select all", () =>
                 QueueEdit(name, controlId, e => e.SelectAll(), lifetime)));
 
-            SlopMenu.Open(options);
+            UiMenu.Open(options);
         }
 
         static GUIStyle Bare(GUIStyle of, bool area)

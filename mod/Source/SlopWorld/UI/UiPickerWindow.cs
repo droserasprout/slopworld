@@ -6,7 +6,7 @@ namespace SlopWorld
 {
     // Shared picker contract: placement, title/close chrome, and fixed-cell grid geometry
     // belong to the popup; callers own choice lookup, selection, tooltips, and local hover.
-    public static class SlopPickerWindow
+    public static class UiPickerWindow
     {
         public struct Grid
         {
@@ -21,15 +21,15 @@ namespace SlopWorld
                 Frame = frame;
                 View = view;
                 Columns = columns;
-                Cell = SlopWidgets.PickerCell;
-                IconSize = SlopWidgets.PickerIcon;
+                Cell = UiWidgets.PickerCell;
+                IconSize = UiWidgets.PickerIcon;
             }
         }
 
         public static void Show(int id, Rect page, float width, float height, string title,
                                 Action close, int count, SmoothScroll scroll,
-                                Action<Grid> drawGrid, float titleGap = SlopWidgets.GapS,
-                                float bottomGap = SlopWidgets.GapS)
+                                Action<Grid> drawGrid, float titleGap = UiWidgets.GapS,
+                                float bottomGap = UiWidgets.GapS)
         {
             var window = Place(page, width, height);
             Find.WindowStack.ImmediateWindow(id, window, WindowLayer.Super,
@@ -41,10 +41,10 @@ namespace SlopWorld
         {
             var window = new Rect(page.x + (page.width - width) / 2f,
                 page.y + 50f, width, height);
-            if (window.yMax > page.yMax - SlopWidgets.GapS)
-                window.y = page.yMax - SlopWidgets.GapS - height;
-            if (window.y < page.y + SlopWidgets.GapS)
-                window.y = page.y + SlopWidgets.GapS;
+            if (window.yMax > page.yMax - UiWidgets.GapS)
+                window.y = page.yMax - UiWidgets.GapS - height;
+            if (window.y < page.y + UiWidgets.GapS)
+                window.y = page.y + UiWidgets.GapS;
             return window;
         }
 
@@ -56,12 +56,12 @@ namespace SlopWorld
             {
                 var r = new Rect(0f, 0f, width, height);
                 Text.Font = GameFont.Small;
-                SlopWidgets.RowLabel(new Rect(r.x + SlopWidgets.GapS, r.y + SlopWidgets.GapXS,
-                    r.width - 60f, SlopWidgets.LineH), title);
+                UiWidgets.RowLabel(new Rect(r.x + UiWidgets.GapS, r.y + UiWidgets.GapXS,
+                    r.width - 60f, UiWidgets.LineH), title);
 
-                if (SlopWidgets.Button(
-                        new Rect(r.width - 48f, r.y + 2f, 44f, SlopWidgets.RowBtnH),
-                        "X", SlopWidgets.Btn.Ghost))
+                if (UiWidgets.Button(
+                        new Rect(r.width - 48f, r.y + 2f, 44f, UiWidgets.RowBtnH),
+                        "X", UiWidgets.Btn.Ghost))
                     close?.Invoke();
 
                 var grid = Layout(r, count, titleGap, bottomGap);
@@ -72,16 +72,16 @@ namespace SlopWorld
 
         static Grid Layout(Rect r, int count, float titleGap, float bottomGap)
         {
-            float cell = SlopWidgets.PickerCell;
-            float gridTop = r.y + SlopWidgets.GapXS + SlopWidgets.LineH + titleGap;
+            float cell = UiWidgets.PickerCell;
+            float gridTop = r.y + UiWidgets.GapXS + UiWidgets.LineH + titleGap;
             float gridH = r.height - gridTop - bottomGap;
             int columns = Mathf.Max(1, Mathf.FloorToInt(
-                (r.width - SlopWidgets.GapM) / cell));
+                (r.width - UiWidgets.GapM) / cell));
             float gridW = columns * cell;
             int rows = Mathf.CeilToInt(count / (float)columns);
             float totalH = rows * cell;
             if (totalH > gridH)
-                gridW -= SlopWidgets.ScrollbarW;
+                gridW -= UiWidgets.ScrollbarW;
 
             columns = Mathf.Max(1, Mathf.FloorToInt(gridW / cell));
             gridW = columns * cell;

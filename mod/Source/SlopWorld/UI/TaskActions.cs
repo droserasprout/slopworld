@@ -43,14 +43,14 @@ namespace SlopWorld
             }
 
             if (options.Count > 0)
-                TerminalWindow.OpenOverPane(new SlopMenu(options));
+                TerminalWindow.OpenOverPane(new UiMenu(options));
         }
 
         static void AddStatus(List<FloatMenuOption> options, TaskInfo task,
                               DelegatedTaskStatus status, Action<TaskInfo> updated)
         {
             var option = new FloatMenuOption(TaskInfo.StatusText(status), () =>
-                SessionHub.Instance.UpdateTask(task.Id, status, null, updated, SlopWidgets.Fail));
+                SessionHub.Instance.UpdateTask(task.Id, status, null, updated, UiWidgets.Fail));
             option.Disabled = task.Status == status;
             options.Add(option);
         }
@@ -58,9 +58,9 @@ namespace SlopWorld
         public static void RemoveTask(TaskInfo task)
         {
             if (task == null || !task.Terminal) return;
-            TerminalWindow.OpenOverPane(SlopConfirmDialog.Create(
+            TerminalWindow.OpenOverPane(ConfirmDialog.Create(
                 $"Remove task '{task.Id}'? It will disappear for both participants.",
-                () => SessionHub.Instance.RemoveTask(task.Id, null, SlopWidgets.Fail),
+                () => SessionHub.Instance.RemoveTask(task.Id, null, UiWidgets.Fail),
                 destructive: true));
         }
 
@@ -71,10 +71,10 @@ namespace SlopWorld
             string prompt = tasks.Count == 1
                 ? $"Remove task '{tasks[0].Id}'? It will disappear for both participants."
                 : $"Remove {tasks.Count} selected tasks? They will disappear for both participants.";
-            TerminalWindow.OpenOverPane(SlopConfirmDialog.Create(prompt, () =>
+            TerminalWindow.OpenOverPane(ConfirmDialog.Create(prompt, () =>
             {
                 SessionHub.Instance.RemoveTasks(tasks.Select(task => task.Id), null,
-                    SlopWidgets.Fail);
+                    UiWidgets.Fail);
             }, destructive: true));
         }
     }

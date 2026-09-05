@@ -1,6 +1,6 @@
 # Flat UI
 
-`SlopWidgets` owns the flat, scheme-driven controls, `Slab` owns shapes, and
+`UiWidgets` owns the flat, scheme-driven controls, `Slab` owns shapes, and
 `TerminalTheme` remains the terminal's separate colour system. Use those helpers for new UI;
 `Listing_Standard`, `Widgets.Label`, and IMGUI fields are only layout/text/input primitives
 behind the shared styling.

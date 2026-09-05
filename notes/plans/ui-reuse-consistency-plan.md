@@ -2,8 +2,8 @@
 
 Status: implemented. Scope: `mod/Source/SlopWorld/UI/`.
 
-The UI already has a useful shared foundation in `SlopTheme`, `SlopWidgets`,
-`SlopWindow`, `DaemonConfigPage`, `MessageDialog`, `SlopListView`,
+The UI already has a useful shared foundation in `UiTheme`, `UiWidgets`,
+`UiWindow`, `DaemonConfigPage`, `MessageDialog`, `UiListView`,
 `ContentTreeView`, `RowActions`, and `RowChrome`. The next work should be
 compositional and behavior-preserving. Do not introduce a large base class just
 to make similar-looking screens share code.
@@ -14,7 +14,7 @@ to make similar-looking screens share code.
   `Local` hover policies.
 - Keep Markdown, terminal rendering, About, Tasks, Search, and the Files/Git
   domain wrappers specialized unless a shared contract becomes clear.
-- Use `SlopTheme` geometry and colors instead of new literals.
+- Use `UiTheme` geometry and colors instead of new literals.
 - Public drawing helpers that change IMGUI state must use `WidgetState.Save()`.
 - After each phase, compile the mod, run the existing checks, and run the strict
   duplication scan:
@@ -36,7 +36,7 @@ Targets:
 
 Both pages independently implement a centered and clamped `ImmediateWindow`,
 title/close chrome, a fixed-cell grid, and a scroll view. Extract a small
-`SlopPickerWindow` or equivalent helper that owns:
+`UiPickerWindow` or equivalent helper that owns:
 
 - popup placement and page-boundary clamping;
 - title and close-button layout;
@@ -102,7 +102,7 @@ Targets:
 - ad hoc cells in `UsagePage`, `StoragePage`, `AppearancePage`, and
   `KeyBindingsPage`.
 
-Extract a generic `SlopChoiceList<T>` for the shared framed list, inset, empty
+Extract a generic `UiChoiceList<T>` for the shared framed list, inset, empty
 state, scrollbar, row pitch, and checkbox rendering. Preserve preset dependency
 and escape semantics, plus the special instructions entry in the breadcrumb
 list, in adapters supplied by the callers.
@@ -123,7 +123,7 @@ Audit the remaining custom drawing after the structural refactors.
 
 - Decide whether `LibraryView` identity badge colors are intentionally fixed. If
   they should follow custom schemes, add named identity colors to `UIScheme` and
-  expose them through `SlopTheme`; otherwise document the fixed-palette
+  expose them through `UiTheme`; otherwise document the fixed-palette
   exception beside the scheme contract.
 - Replace repeated `ArrowW`, inset, and `ContractedBy(4f)` literals with shared
   tokens where the value represents a common UI rule. Keep domain-specific tree
@@ -144,10 +144,10 @@ Acceptance criteria: changing the active scheme updates every scheme-owned
 After Phases 1–5, reassess repeated `PageBody`/`SmoothScroll`/`Listing_Standard`
 hosts in `AppearancePage`, `TerminalPage`, `InstructionsPage`, and
 `DaemonConfigPage`. If the remaining shapes are still materially identical,
-extract a `SlopScrollBody` geometry helper. Do not create a page base class for
+extract a `UiScrollBody` geometry helper. Do not create a page base class for
 pages with different fixed previews, tab rails, or footer placement.
 
-Reassessment: the shared `SlopScrollBody.View` geometry is extracted. The
+Reassessment: the shared `UiScrollBody.View` geometry is extracted. The
 scroll lifetimes and content measurement remain local because the four pages
 have different previews, tabs, trailing fields, and footer contracts.
 

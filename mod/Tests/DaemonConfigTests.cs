@@ -4,7 +4,7 @@ using System.Linq;
 
 namespace SlopWorld.Tests
 {
-    static class SlopConfigTests
+    static class DaemonConfigTests
     {
         public static IEnumerable<(string Name, Action Body)> Cases()
         {
@@ -16,7 +16,7 @@ namespace SlopWorld.Tests
 
         static void ReadsDaemonDefaults()
         {
-            var config = SlopConfig.FromJson(JVal.Parse("{}"));
+            var config = DaemonConfig.FromJson(JVal.Parse("{}"));
 
             AssertEx.Equal(60, config.UsagePollSecs, "usage poll default");
             AssertEx.Equal(0, config.UsageItems.Count, "usage item defaults");
@@ -31,14 +31,14 @@ namespace SlopWorld.Tests
             AssertEx.Equal(20, config.TitleMinChars, "title minimum prompt length default");
             AssertEx.Equal("always", config.PiTitles, "Pi title default");
             AssertEx.True(config.HostTitles, "host title default");
-            AssertEx.Equal(SlopConfig.DefaultInstructionsTemplate, config.InstructionsTemplate,
+            AssertEx.Equal(DaemonConfig.DefaultInstructionsTemplate, config.InstructionsTemplate,
                            "instructions template default");
             AssertEx.Equal("SLOPWORLD.md", config.InstructionsMountPath,
                            "instructions mount path default");
-            AssertEx.Equal(SlopConfig.DefaultInstructionsBreadcrumb, config.InstructionsBreadcrumb,
+            AssertEx.Equal(DaemonConfig.DefaultInstructionsBreadcrumb, config.InstructionsBreadcrumb,
                            "instructions breadcrumb text default");
             AssertEx.True(config.InstructionsBreadcrumbEnabled, "instructions breadcrumb default");
-            AssertEx.Equal(SlopConfig.DefaultWorkerPrompt, config.WorkerPrompt,
+            AssertEx.Equal(DaemonConfig.DefaultWorkerPrompt, config.WorkerPrompt,
                            "worker prompt default");
             AssertEx.Equal("claude", config.Agent, "agent command default");
             AssertEx.Equal("bash", config.Shell, "shell command default");
@@ -50,17 +50,17 @@ namespace SlopWorld.Tests
 
         static void RoundTripsEveryPatchField()
         {
-            var expected = new SlopConfig
+            var expected = new DaemonConfig
             {
                 UsagePollSecs = 17,
-                UsageItems = new Dictionary<string, SlopConfig.UsageItemConfig>
+                UsageItems = new Dictionary<string, DaemonConfig.UsageItemConfig>
                 {
-                    ["claude_session"] = new SlopConfig.UsageItemConfig
+                    ["claude_session"] = new DaemonConfig.UsageItemConfig
                     {
                         Poll = false,
                         IntervalSecs = 15,
                     },
-                    ["openrouter_balance"] = new SlopConfig.UsageItemConfig
+                    ["openrouter_balance"] = new DaemonConfig.UsageItemConfig
                     {
                         Poll = true,
                         IntervalSecs = 0,
@@ -85,7 +85,7 @@ namespace SlopWorld.Tests
                 Editor = "micro --no-help",
                 Highlighter = "highlight --out-format=xterm256",
             };
-            var actual = SlopConfig.FromJson(JVal.Parse(expected.ToPatchJson()));
+            var actual = DaemonConfig.FromJson(JVal.Parse(expected.ToPatchJson()));
 
             AssertEx.Equal(expected.UsagePollSecs, actual.UsagePollSecs, "poll round trip");
             AssertEx.False(actual.UsageItems["claude_session"].Poll,
@@ -130,15 +130,15 @@ namespace SlopWorld.Tests
         {
             var lines = new List<string> { "first", "second", "third" };
 
-            AssertEx.Equal("first\nsecond\nthird", SlopConfig.Lines(lines), "line join");
-            AssertEx.Sequence(lines, SlopConfig.Split(" first \n\nsecond\n third \n"),
+            AssertEx.Equal("first\nsecond\nthird", DaemonConfig.Lines(lines), "line join");
+            AssertEx.Sequence(lines, DaemonConfig.Split(" first \n\nsecond\n third \n"),
                               "line split and trim");
-            AssertEx.True(!SlopConfig.Split(null).Any(), "null line list");
+            AssertEx.True(!DaemonConfig.Split(null).Any(), "null line list");
         }
 
         static void RendersInstructionsBreadcrumb()
         {
-            var config = new SlopConfig
+            var config = new DaemonConfig
             {
                 InstructionsBreadcrumb =
                     "Read {{ mount_path }} ({{project}}; {{ file }}) {{ unknown }}",

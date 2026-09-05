@@ -29,6 +29,6 @@ replaces checks for `currentlyDrawnWindow is Dialog_Options`, including OK suppr
 and stripped vanilla rows.
 
 The main menu still uses the real options window, so its size/place/band patches remain;
-the band patch skips itself while the chrome is drawing the pages. `SlopOptions.Teardown`
+the band patch skips itself while the chrome is drawing the pages. `ModOptions.Teardown`
 drops cached pages and is called on either close path. The last selected category is
 remembered in memory; explicit `OpenCategory` requests win.

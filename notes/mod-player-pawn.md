@@ -27,4 +27,4 @@ A user-controlled human colonist, separate from the agent system.
 - The pawn reference is saved with the colony (`Scribe_References`); if it dies
   or is destroyed, `EnsurePawn` respawns it at map centre.
 - Defs: `mod/Defs/PlayerPawn.xml` (`SlopFireball`, `SlopWaterBall`).
-  `SlopDefOf` holds both references.
+  `ModDefOf` holds both references.

@@ -21,7 +21,7 @@ namespace SlopWorld
             {
                 float strength = 0.12f + 0.12f * i;
                 Slab.Fill(new Rect(0f, add.y - Height + i * band, Width, band),
-                    SlopWidgets.Fade(SlopWidgets.Scrim, strength));
+                    UiWidgets.Fade(UiWidgets.Scrim, strength));
             }
         }
 
@@ -32,13 +32,13 @@ namespace SlopWorld
             // press, but the pointer is still visibly over the control that opened it.
             bool over = ColonistBarStrip.MouseOver(AddHitBar);
 
-            Slab.Fill(r, over ? SlopWidgets.Hover : SlopWidgets.Panel);
+            Slab.Fill(r, over ? UiWidgets.Hover : UiWidgets.Panel);
             TooltipHandler.TipRegion(r,
                 "Add a project, an agent, a library item, a sandbox preset, a command or a host shell");
-            Slab.Hairline(new Rect(r.x, r.y, r.width, 1f), SlopWidgets.Edge);
+            Slab.Hairline(new Rect(r.x, r.y, r.width, 1f), UiWidgets.Edge);
 
             float d = AddIcon;
-            GUI.color = over ? Color.white : SlopWidgets.Lead;
+            GUI.color = over ? Color.white : UiWidgets.Lead;
             GUI.DrawTexture(
                 new Rect(r.center.x - d / 2f, r.center.y - d / 2f, d, d), Icons.Add);
             GUI.color = Color.white;
@@ -48,7 +48,7 @@ namespace SlopWorld
         {
             var strip = new Rect(0f, 0f, Width, TabH);
             Slab.Hairline(new Rect(CellX, TabH - 1f, Width - CellX * 2f, 1f),
-                SlopWidgets.Edge);
+                UiWidgets.Edge);
 
             float y = (TabRowH - TabIcon) / 2f;
 
@@ -136,7 +136,7 @@ namespace SlopWorld
             {
                 Tab(r, Icons.Refresh, false,
                     "Read the task mailbox again.", () =>
-                        SessionHub.Instance.RefreshTasks(SlopWidgets.Fail));
+                        SessionHub.Instance.RefreshTasks(UiWidgets.Fail));
                 r.x -= TabIcon + 3f;
                 TasksView.FilterButton(r);
             }
@@ -185,7 +185,7 @@ namespace SlopWorld
         static void Tab(Rect r, Texture2D icon, bool on, string tip, System.Action go)
         {
             TooltipHandler.TipRegion(r, tip);
-            if (SlopWidgets.IconButton(r, icon, on ? SlopWidgets.Lead : SlopWidgets.Off)
+            if (UiWidgets.IconButton(r, icon, on ? UiWidgets.Lead : UiWidgets.Off)
                 && ColonistBarStrip.Interactive)
                 go();
 
@@ -193,7 +193,7 @@ namespace SlopWorld
             // at the foot of whichever of the strip's rows the button sits in.
             if (on)
                 Slab.Fill(new Rect(r.x, (r.y < TabRowH ? TabRowH : TabH) - 2f, r.width, 2f),
-                    SlopWidgets.Accent);
+                    UiWidgets.Accent);
         }
 
         static void DrawHead(Head head)
@@ -201,7 +201,7 @@ namespace SlopWorld
             var r = head.Rect;
             RowChrome.Hover(r, false, true, RowHoverPolicy.OverlayAware);
 
-            GUI.color = SlopWidgets.Faint;
+            GUI.color = UiWidgets.Faint;
             var arrow = new Rect(CellX, r.y + (HeadH - ArrowW) / 2f, ArrowW, ArrowW);
             GUI.DrawTexture(arrow, head.Folded ? TexButton.Reveal : TexButton.Collapse);
 
@@ -209,18 +209,18 @@ namespace SlopWorld
 
             float lx = arrow.xMax + 4f;
             string count = $"{head.Active}/{head.Total}";
-            float countW = SlopWidgets.Wide(count);
+            float countW = UiWidgets.Wide(count);
             var countRect = new Rect(r.xMax - CellX - countW, r.y, countW, HeadH);
-            GUI.color = SlopWidgets.Faint;
-            SlopWidgets.RowLabel(countRect, count, TextAnchor.MiddleRight);
+            GUI.color = UiWidgets.Faint;
+            UiWidgets.RowLabel(countRect, count, TextAnchor.MiddleRight);
 
             Text.Font = GameFont.Small;
-            GUI.color = SlopWidgets.Faint;
+            GUI.color = UiWidgets.Faint;
             var label = new Rect(lx, r.y, Mathf.Max(0f, countRect.x - Pad - lx), HeadH);
-            SlopWidgets.RowLabel(label, head.Label);
+            UiWidgets.RowLabel(label, head.Label);
 
             Slab.Hairline(new Rect(CellX, r.yMax - 1f, r.width - CellX * 2f, 1f),
-                SlopWidgets.Edge);
+                UiWidgets.Edge);
 
             GUI.color = Color.white;
             Text.Anchor = TextAnchor.UpperLeft;

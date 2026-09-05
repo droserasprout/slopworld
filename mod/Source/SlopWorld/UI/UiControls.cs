@@ -7,7 +7,7 @@ using Verse.Sound;
 
 namespace SlopWorld
 {
-    public abstract class SlopButtons : SlopText
+    public abstract class UiButtons : UiText
     {
         public static bool Button(Rect r, string label, Btn kind = Btn.Default, bool on = true)
         {
@@ -107,7 +107,7 @@ namespace SlopWorld
         }
     }
 
-    public abstract class SlopControls : SlopButtons
+    public abstract class UiControls : UiButtons
     {
         // Draw the checkbox indicator only; the row owns hit testing. Return its reserved width
         // so callers can place the adjacent label.
@@ -237,8 +237,8 @@ namespace SlopWorld
         public static bool Select(Rect r, string caption, string value,
                                   IEnumerable<SelectorOption> choices, out Rect box,
                                   string tip = null, bool on = true, bool open = false,
-                                  Action<SlopMenu> openMenu = null) =>
-            SlopSelector.Draw(r, caption, value, choices, out box, tip, on, open, openMenu);
+                                  Action<UiMenu> openMenu = null) =>
+            UiSelector.Draw(r, caption, value, choices, out box, tip, on, open, openMenu);
 
         public static bool Select(Listing_Standard l, string caption, string value,
                                   out Rect box, string tip = null, bool on = true) =>
@@ -247,8 +247,8 @@ namespace SlopWorld
         public static bool Select(Listing_Standard l, string caption, string value,
                                   IEnumerable<SelectorOption> choices, out Rect box,
                                   string tip = null, bool on = true, bool open = false,
-                                  Action<SlopMenu> openMenu = null) =>
-            SlopSelector.Draw(l, caption, value, choices, out box, tip, on, open, openMenu);
+                                  Action<UiMenu> openMenu = null) =>
+            UiSelector.Draw(l, caption, value, choices, out box, tip, on, open, openMenu);
 
         public static Vector2 MenuAt(Rect r) =>
             UI.GUIToScreenPoint(new Vector2(r.x, r.yMax));

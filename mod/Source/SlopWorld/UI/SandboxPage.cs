@@ -91,12 +91,12 @@ namespace SlopWorld
 
         public void Draw(Rect rect)
         {
-            var body = SlopWidgets.PageBody(rect);
-            var inner = body.ContractedBy(SlopWidgets.GapM);
+            var body = UiWidgets.PageBody(rect);
+            var inner = body.ContractedBy(UiWidgets.GapM);
 
             if (!_loaded)
             {
-                GUI.color = _error != null ? SlopWidgets.Bad : SlopWidgets.Dim;
+                GUI.color = _error != null ? UiWidgets.Bad : UiWidgets.Dim;
                 Widgets.Label(inner, _error ?? "Waiting for the daemon...");
                 GUI.color = Color.white;
             }
@@ -105,45 +105,45 @@ namespace SlopWorld
                 if (_section == Section.Presets) DoPresets(inner);
                 else DoCommands(inner);
             }
-            DoFooter(SlopWidgets.FooterBar(rect));
+            DoFooter(UiWidgets.FooterBar(rect));
         }
 
         void DoPresets(Rect r)
         {
-            SlopWidgets.SectionHeading(new Rect(r.x, r.y, r.width, SlopWidgets.RowH), "Presets");
+            UiWidgets.SectionHeading(new Rect(r.x, r.y, r.width, UiWidgets.RowH), "Presets");
             var caption = "System presets are supplied by slopd. Copy one to the user list to edit it; user presets can also be new entries.";
-            GUI.color = SlopWidgets.Dim;
-            float y = r.y + SlopWidgets.RowH + SlopWidgets.GapXS;
+            GUI.color = UiWidgets.Dim;
+            float y = r.y + UiWidgets.RowH + UiWidgets.GapXS;
             float h = Text.CalcHeight(caption, r.width);
-            float newW = SlopWidgets.BtnW("New user preset", 142f);
-            Widgets.Label(new Rect(r.x, y, r.width - newW - SlopWidgets.GapS, h), caption);
+            float newW = UiWidgets.BtnW("New user preset", 142f);
+            Widgets.Label(new Rect(r.x, y, r.width - newW - UiWidgets.GapS, h), caption);
             GUI.color = Color.white;
-            if (SlopWidgets.Button(new Rect(r.xMax - newW, y, newW, SlopWidgets.BtnH),
-                    "New user preset", SlopWidgets.Btn.Primary))
+            if (UiWidgets.Button(new Rect(r.xMax - newW, y, newW, UiWidgets.BtnH),
+                    "New user preset", UiWidgets.Btn.Primary))
                 NewPreset();
-            y += h + SlopWidgets.GapS;
+            y += h + UiWidgets.GapS;
             var content = new Rect(r.x, y, r.width, r.yMax - y);
             float detailW = Mathf.Min(590f, content.width * .60f);
-            float listW = content.width - detailW - SlopWidgets.GapM;
+            float listW = content.width - detailW - UiWidgets.GapM;
             DrawPresetList(new Rect(content.x, content.y, listW, content.height));
-            DrawPresetEditor(new Rect(content.x + listW + SlopWidgets.GapM, content.y, detailW, content.height));
+            DrawPresetEditor(new Rect(content.x + listW + UiWidgets.GapM, content.y, detailW, content.height));
         }
 
         void DoCommands(Rect r)
         {
-            SlopWidgets.SectionHeading(new Rect(r.x, r.y, r.width, SlopWidgets.RowH), "Commands");
+            UiWidgets.SectionHeading(new Rect(r.x, r.y, r.width, UiWidgets.RowH), "Commands");
             var caption = "Commands say what an agent runs and which presets it requires. Copy a system command to make a user override.";
-            GUI.color = SlopWidgets.Dim;
-            float y = r.y + SlopWidgets.RowH + SlopWidgets.GapXS;
+            GUI.color = UiWidgets.Dim;
+            float y = r.y + UiWidgets.RowH + UiWidgets.GapXS;
             float h = Text.CalcHeight(caption, r.width);
             Widgets.Label(new Rect(r.x, y, r.width, h), caption);
             GUI.color = Color.white;
-            y += h + SlopWidgets.GapS;
+            y += h + UiWidgets.GapS;
             var content = new Rect(r.x, y, r.width, r.yMax - y);
             float detailW = Mathf.Min(590f, content.width * .60f);
-            float listW = content.width - detailW - SlopWidgets.GapM;
+            float listW = content.width - detailW - UiWidgets.GapM;
             DrawCommandList(new Rect(content.x, content.y, listW, content.height));
-            DrawCommandEditor(new Rect(content.x + listW + SlopWidgets.GapM, content.y, detailW, content.height));
+            DrawCommandEditor(new Rect(content.x + listW + UiWidgets.GapM, content.y, detailW, content.height));
         }
 
         void DrawPresetList(Rect r)
@@ -155,8 +155,8 @@ namespace SlopWorld
             var user = all.Where(p => p.Source != "system")
                 .OrderBy(p => p.Name == "global" ? 0 : 1)
                 .ThenBy(p => p.Name, System.StringComparer.OrdinalIgnoreCase).ToList();
-            float h = (system.Count + user.Count + 3) * SlopWidgets.RowH;
-            var view = new Rect(0f, 0f, r.width - SlopWidgets.ScrollbarW,
+            float h = (system.Count + user.Count + 3) * UiWidgets.RowH;
+            var view = new Rect(0f, 0f, r.width - UiWidgets.ScrollbarW,
                 Mathf.Max(h, r.height));
             using (_listScroll.Scope(r, view))
             {
@@ -172,13 +172,13 @@ namespace SlopWorld
         float DrawLibraryGroup<T>(Rect view, float y, string heading, List<T> items,
                                   Func<T, string> label, Action<T> pick)
         {
-            SlopWidgets.SectionHeading(new Rect(0f, y, view.width, SlopWidgets.RowH), heading);
-            y += SlopWidgets.RowH;
+            UiWidgets.SectionHeading(new Rect(0f, y, view.width, UiWidgets.RowH), heading);
+            y += UiWidgets.RowH;
             foreach (var item in items)
             {
                 bool child = item is PresetInfo preset && IsOptionalChild(preset);
-                float inset = child ? SlopWidgets.GapM : SlopWidgets.GapS;
-                var cell = new Rect(inset, y, view.width - inset, SlopWidgets.RowH);
+                float inset = child ? UiWidgets.GapM : UiWidgets.GapS;
+                var cell = new Rect(inset, y, view.width - inset, UiWidgets.RowH);
                 string name = label(item);
                 bool selected = (item is PresetInfo p && p == _preset) ||
                                 (item is CommandInfo c && c == _command);
@@ -188,25 +188,25 @@ namespace SlopWorld
                 // library, not only after opening its editor.
                 bool dangerous = item is PresetInfo dangerousPreset && dangerousPreset.IsEscape;
                 bool global = item is PresetInfo globalPreset && globalPreset.Name == "global";
-                GUI.color = dangerous ? SlopWidgets.Warn
-                    : global ? SlopWidgets.Global
-                    : selected ? SlopWidgets.Lead : SlopWidgets.Name;
-                SlopWidgets.RowLabel(cell, name);
+                GUI.color = dangerous ? UiWidgets.Warn
+                    : global ? UiWidgets.Global
+                    : selected ? UiWidgets.Lead : UiWidgets.Name;
+                UiWidgets.RowLabel(cell, name);
                 GUI.color = Color.white;
                 string description = item is PresetInfo info ? info.Description
                     : item is CommandInfo command ? command.Description : "";
                 if (!string.IsNullOrEmpty(description)) TooltipHandler.TipRegion(cell, description);
                 if (Widgets.ButtonInvisible(cell)) pick(item);
-                y += SlopWidgets.RowH;
+                y += UiWidgets.RowH;
             }
             if (items.Count == 0)
             {
-                GUI.color = SlopWidgets.Dim;
-                SlopWidgets.RowLabel(new Rect(SlopWidgets.GapS, y, view.width, SlopWidgets.RowH), "(none)");
+                GUI.color = UiWidgets.Dim;
+                UiWidgets.RowLabel(new Rect(UiWidgets.GapS, y, view.width, UiWidgets.RowH), "(none)");
                 GUI.color = Color.white;
-                y += SlopWidgets.RowH;
+                y += UiWidgets.RowH;
             }
-            return y + SlopWidgets.GapS;
+            return y + UiWidgets.GapS;
         }
 
         // The optional half of one integration follows its read-only essential by name and
@@ -221,8 +221,8 @@ namespace SlopWorld
             var all = SessionHub.Instance.Commands;
             var system = all.Where(c => c.Source == "system").ToList();
             var user = all.Where(c => c.Source != "system").ToList();
-            float h = (system.Count + user.Count + 3) * SlopWidgets.RowH;
-            var view = new Rect(0f, 0f, r.width - SlopWidgets.ScrollbarW,
+            float h = (system.Count + user.Count + 3) * UiWidgets.RowH;
+            var view = new Rect(0f, 0f, r.width - UiWidgets.ScrollbarW,
                 Mathf.Max(h, r.height));
             using (_listScroll.Scope(r, view))
             {
@@ -232,8 +232,8 @@ namespace SlopWorld
                 y = DrawLibraryGroup(view, y, "User", user,
                     c => c.Name + (c.Source == "override" ? "  (override)" : ""),
                     c => { _command = c; _newEntry = false; });
-                if (SlopWidgets.Button(new Rect(0f, y + SlopWidgets.GapS, view.width, SlopWidgets.BtnH),
-                        "+ New command", SlopWidgets.Btn.Ghost))
+                if (UiWidgets.Button(new Rect(0f, y + UiWidgets.GapS, view.width, UiWidgets.BtnH),
+                        "+ New command", UiWidgets.Btn.Ghost))
                 {
                     _command = new CommandInfo { Name = "new-command", Source = "user" };
                     _newEntry = true;
@@ -250,8 +250,8 @@ namespace SlopWorld
             }
             var p = _preset;
             bool editable = _newEntry || p.Source != "system";
-            var view = new Rect(0f, 0f, r.width - SlopWidgets.ScrollbarW,
-                Mathf.Max(PresetEditorHeight(p, r.width - SlopWidgets.ScrollbarW), r.height));
+            var view = new Rect(0f, 0f, r.width - UiWidgets.ScrollbarW,
+                Mathf.Max(PresetEditorHeight(p, r.width - UiWidgets.ScrollbarW), r.height));
             using (_editorScroll.Scope(r, view))
             {
                 float y = DrawPresetFields(view, 0f, p, editable);
@@ -266,12 +266,12 @@ namespace SlopWorld
             // Keep an escape warning above the identity so a long editor does not hide it.
             if (!string.IsNullOrEmpty(p.Escapes))
             {
-                GUI.color = SlopWidgets.Warn;
+                GUI.color = UiWidgets.Warn;
                 string warning = $"Escape path: {p.Escapes}.";
                 float warningH = Text.CalcHeight(warning, view.width);
                 Widgets.Label(new Rect(0f, y, view.width, warningH), warning);
                 GUI.color = Color.white;
-                y += warningH + SlopWidgets.GapM;
+                y += warningH + UiWidgets.GapM;
             }
             EditorTitle(view, ref y, p.Name, p.Source, editable, "sandbox");
             y = EditorField(view, y, "Name", "preset.name", p.Name, _newEntry,
@@ -279,7 +279,7 @@ namespace SlopWorld
             y = EditorArea(view, y, "Description", "preset.description", p.Description,
                 editable, 44f, v => p.Description = v);
             y = EditorList(view, y, "Requires", "preset.requires", p.Requires, editable);
-            y = Rule(view.width, y + SlopWidgets.GapXS);
+            y = Rule(view.width, y + UiWidgets.GapXS);
             y = DrawBindFields(view, y, p, editable);
             y = DrawPathFields(view, y, p, editable);
             y = Rule(view.width, y);
@@ -309,7 +309,7 @@ namespace SlopWorld
         void ParseSetenv(PresetInfo p)
         {
             p.Setenv.Clear();
-            foreach (var line in SlopConfig.Split(_setenvText))
+            foreach (var line in DaemonConfig.Split(_setenvText))
             {
                 int at = line.IndexOf('=');
                 if (at > 0) p.Setenv[line.Substring(0, at).Trim()] = line.Substring(at + 1);
@@ -335,8 +335,8 @@ namespace SlopWorld
             }
             var c = _command;
             bool editable = _newEntry || c.Source != "system";
-            var view = new Rect(0f, 0f, r.width - SlopWidgets.ScrollbarW,
-                Mathf.Max(CommandEditorHeight(c, r.width - SlopWidgets.ScrollbarW), r.height));
+            var view = new Rect(0f, 0f, r.width - UiWidgets.ScrollbarW,
+                Mathf.Max(CommandEditorHeight(c, r.width - UiWidgets.ScrollbarW), r.height));
             using (_editorScroll.Scope(r, view))
             {
                 float y = 0f;
@@ -344,27 +344,27 @@ namespace SlopWorld
                 y = EditorField(view, y, "Name", "command.name", c.Name, _newEntry, v => c.Name = v);
                 y = EditorArea(view, y, "Description", "command.description", c.Description, editable, 44f, v => c.Description = v);
                 y = EditorArea(view, y, "Command line", "command.cmd", c.Cmd, editable, 52f, v => c.Cmd = v);
-                y += SlopWidgets.GapS;
-                SlopWidgets.SectionHeading(new Rect(0f, y, view.width, SlopWidgets.RowH), "Sandbox dependencies");
-                y += SlopWidgets.RowH;
-                GUI.color = SlopWidgets.Dim;
-                SlopWidgets.RowLabel(new Rect(0f, y, view.width, SlopWidgets.LineH),
+                y += UiWidgets.GapS;
+                UiWidgets.SectionHeading(new Rect(0f, y, view.width, UiWidgets.RowH), "Sandbox dependencies");
+                y += UiWidgets.RowH;
+                GUI.color = UiWidgets.Dim;
+                UiWidgets.RowLabel(new Rect(0f, y, view.width, UiWidgets.LineH),
                     "These presets are added whenever this command runs.");
                 GUI.color = Color.white;
-                y += SlopWidgets.LineH + SlopWidgets.GapXS;
+                y += UiWidgets.LineH + UiWidgets.GapXS;
                 foreach (var p in SessionHub.Instance.Presets.Where(p => p.Name != "global"))
                 {
                     bool on = c.Sandbox.Contains(p.Name);
                     bool was = on;
-                    bool next = SlopWidgets.Checkbox(new Rect(0f, y, view.width, SlopWidgets.RowH), p.Name, on,
+                    bool next = UiWidgets.Checkbox(new Rect(0f, y, view.width, UiWidgets.RowH), p.Name, on,
                         p.Description, !editable, p.IsEscape);
                     if (editable && next != was)
                     {
                         if (next) c.Sandbox.Add(p.Name); else c.Sandbox.Remove(p.Name);
                     }
-                    y += SlopWidgets.RowH;
+                    y += UiWidgets.RowH;
                 }
-                EditorButtons(view, y + SlopWidgets.GapS, editable, c.Source, "command", c.Name,
+                EditorButtons(view, y + UiWidgets.GapS, editable, c.Source, "command", c.Name,
                     () => SessionHub.Instance.SaveCommand(c, () => { _newEntry = false; _error = null; }, msg => _error = msg),
                     () => Remove("command", c.Name));
             }
@@ -372,90 +372,90 @@ namespace SlopWorld
 
         void EditorTitle(Rect view, ref float y, string name, string source, bool editable, string kind)
         {
-            GUI.color = SlopWidgets.Lead;
-            SlopWidgets.RowLabel(new Rect(0f, y, view.width, SlopWidgets.RowH),
+            GUI.color = UiWidgets.Lead;
+            UiWidgets.RowLabel(new Rect(0f, y, view.width, UiWidgets.RowH),
                 name + (source == "override" ? "  (override)" : ""));
             GUI.color = Color.white;
-            y += SlopWidgets.RowH;
-            GUI.color = source == "system" ? SlopWidgets.Faint : SlopWidgets.Yes;
-            SlopWidgets.RowLabel(new Rect(0f, y, view.width, SlopWidgets.LineH),
+            y += UiWidgets.RowH;
+            GUI.color = source == "system" ? UiWidgets.Faint : UiWidgets.Yes;
+            UiWidgets.RowLabel(new Rect(0f, y, view.width, UiWidgets.LineH),
                 source == "system" ? "System preset (read-only)" : "User preset");
             GUI.color = Color.white;
-            y += SlopWidgets.LineH + SlopWidgets.GapS;
+            y += UiWidgets.LineH + UiWidgets.GapS;
             if (source == "system")
             {
-                if (SlopWidgets.Button(new Rect(0f, y, view.width, SlopWidgets.BtnH), "Copy to user", SlopWidgets.Btn.Primary))
+                if (UiWidgets.Button(new Rect(0f, y, view.width, UiWidgets.BtnH), "Copy to user", UiWidgets.Btn.Primary))
                     Copy(kind, name);
-                y += SlopWidgets.BtnH + SlopWidgets.GapM;
+                y += UiWidgets.BtnH + UiWidgets.GapM;
             }
         }
 
         float EditorField(Rect view, float y, string label, string name, string value, bool editable, Action<string> set)
         {
             if (!editable && string.IsNullOrWhiteSpace(value)) return y;
-            GUI.color = SlopWidgets.Dim;
-            SlopWidgets.RowLabel(new Rect(0f, y, view.width, SlopWidgets.LineH), label);
+            GUI.color = UiWidgets.Dim;
+            UiWidgets.RowLabel(new Rect(0f, y, view.width, UiWidgets.LineH), label);
             GUI.color = Color.white;
-            y += SlopWidgets.LineH + SlopWidgets.GapXS;
-            set(SlopWidgets.Field(new Rect(0f, y, view.width, SlopWidgets.FieldH), name, value, editable));
-            return y + SlopWidgets.FieldH + SlopWidgets.GapS;
+            y += UiWidgets.LineH + UiWidgets.GapXS;
+            set(UiWidgets.Field(new Rect(0f, y, view.width, UiWidgets.FieldH), name, value, editable));
+            return y + UiWidgets.FieldH + UiWidgets.GapS;
         }
 
         float EditorArea(Rect view, float y, string label, string name, string value, bool editable,
                          float height, Action<string> set)
         {
             if (!editable && string.IsNullOrWhiteSpace(value)) return y;
-            GUI.color = SlopWidgets.Dim;
-            SlopWidgets.RowLabel(new Rect(0f, y, view.width, SlopWidgets.LineH), label);
+            GUI.color = UiWidgets.Dim;
+            UiWidgets.RowLabel(new Rect(0f, y, view.width, UiWidgets.LineH), label);
             GUI.color = Color.white;
-            y += SlopWidgets.LineH + SlopWidgets.GapXS;
+            y += UiWidgets.LineH + UiWidgets.GapXS;
             float actual = AreaHeight(view.width, value, height);
-            set(SlopWidgets.Area(new Rect(0f, y, view.width, actual), name, value, editable));
-            return y + actual + SlopWidgets.GapS;
+            set(UiWidgets.Area(new Rect(0f, y, view.width, actual), name, value, editable));
+            return y + actual + UiWidgets.GapS;
         }
 
         static float AreaHeight(float width, string text, float minimum) =>
             Mathf.Max(minimum, Text.CalcHeight(string.IsNullOrEmpty(text) ? " " : text,
                                                 width - 12f) + 8f);
 
-        static float FieldHeight() => SlopWidgets.LineH + SlopWidgets.GapXS +
-                                      SlopWidgets.FieldH + SlopWidgets.GapS;
+        static float FieldHeight() => UiWidgets.LineH + UiWidgets.GapXS +
+                                      UiWidgets.FieldH + UiWidgets.GapS;
 
         static float AreaEditorHeight(float width, string text, float minimum) =>
-            SlopWidgets.LineH + SlopWidgets.GapXS + AreaHeight(width, text, minimum) + SlopWidgets.GapS;
+            UiWidgets.LineH + UiWidgets.GapXS + AreaHeight(width, text, minimum) + UiWidgets.GapS;
 
         static float OptionalAreaEditorHeight(float width, string text, float minimum, bool editable) =>
             !editable && string.IsNullOrWhiteSpace(text) ? 0f : AreaEditorHeight(width, text, minimum);
 
         static float OptionalListEditorHeight(float width, List<string> items, bool editable) =>
-            OptionalAreaEditorHeight(width, SlopConfig.Lines(items), 48f, editable);
+            OptionalAreaEditorHeight(width, DaemonConfig.Lines(items), 48f, editable);
 
-        static float TitleHeight(string source) => SlopWidgets.RowH + SlopWidgets.LineH +
-            SlopWidgets.GapS + (source == "system" ? SlopWidgets.BtnH + SlopWidgets.GapM : 0f);
+        static float TitleHeight(string source) => UiWidgets.RowH + UiWidgets.LineH +
+            UiWidgets.GapS + (source == "system" ? UiWidgets.BtnH + UiWidgets.GapM : 0f);
 
         static float PresetEditorHeight(PresetInfo p, float width)
         {
             bool editable = p.Source != "system";
             float y = string.IsNullOrEmpty(p.Escapes) ? 0f
-                : Text.CalcHeight($"Escape path: {p.Escapes}.", width) + SlopWidgets.GapM;
+                : Text.CalcHeight($"Escape path: {p.Escapes}.", width) + UiWidgets.GapM;
             y += TitleHeight(p.Source) + FieldHeight();
             y += OptionalAreaEditorHeight(width, p.Description, 44f, editable) +
                  OptionalListEditorHeight(width, p.Requires, editable);
-            y += SlopWidgets.GapXS + 1f + SlopWidgets.GapM;
+            y += UiWidgets.GapXS + 1f + UiWidgets.GapM;
             y += OptionalListEditorHeight(width, p.Ro, editable) +
                  OptionalListEditorHeight(width, p.Rw, editable) +
                  OptionalListEditorHeight(width, p.Dev, editable);
-            y += 1f + SlopWidgets.GapM;
+            y += 1f + UiWidgets.GapM;
             y += OptionalListEditorHeight(width, p.Private, editable) +
                  OptionalListEditorHeight(width, p.Seed, editable) +
                  OptionalListEditorHeight(width, p.Skip, editable) +
                  OptionalListEditorHeight(width, p.Shared, editable);
-            y += 1f + SlopWidgets.GapM;
+            y += 1f + UiWidgets.GapM;
             y += OptionalListEditorHeight(width, p.Env, editable) +
                  OptionalAreaEditorHeight(width,
                      string.Join("\n", p.Setenv.Select(x => x.Key + "=" + x.Value).ToArray()),
                      48f, editable);
-            return y + SlopWidgets.BtnH + SlopWidgets.GapM;
+            return y + UiWidgets.BtnH + UiWidgets.GapM;
         }
 
         static float CommandEditorHeight(CommandInfo c, float width)
@@ -464,18 +464,18 @@ namespace SlopWorld
             return TitleHeight(c.Source) + FieldHeight() +
             OptionalAreaEditorHeight(width, c.Description, 44f, editable) +
             OptionalAreaEditorHeight(width, c.Cmd, 52f, editable) +
-            SlopWidgets.GapS + SlopWidgets.RowH + SlopWidgets.LineH + SlopWidgets.GapXS +
-            SessionHub.Instance.Presets.Count(p => p.Name != "global") * SlopWidgets.RowH +
-            SlopWidgets.BtnH + SlopWidgets.GapM;
+            UiWidgets.GapS + UiWidgets.RowH + UiWidgets.LineH + UiWidgets.GapXS +
+            SessionHub.Instance.Presets.Count(p => p.Name != "global") * UiWidgets.RowH +
+            UiWidgets.BtnH + UiWidgets.GapM;
         }
 
         float EditorList(Rect view, float y, string label, string name, List<string> items, bool editable)
         {
-            string text = SlopConfig.Lines(items);
+            string text = DaemonConfig.Lines(items);
             y = EditorArea(view, y, label, name, text, editable, 48f, v =>
             {
                 items.Clear();
-                items.AddRange(SlopConfig.Split(v));
+                items.AddRange(DaemonConfig.Split(v));
             });
             return y;
         }
@@ -483,24 +483,24 @@ namespace SlopWorld
         void EditorButtons(Rect view, float y, bool editable, string source, string kind, string name,
                            Action save, Action remove)
         {
-            if (editable && SlopWidgets.Button(new Rect(0f, y, view.width * .48f, SlopWidgets.BtnH), "Save", SlopWidgets.Btn.Primary))
+            if (editable && UiWidgets.Button(new Rect(0f, y, view.width * .48f, UiWidgets.BtnH), "Save", UiWidgets.Btn.Primary))
                 save();
-            if (source != "system" && SlopWidgets.Button(new Rect(view.width * .52f, y, view.width * .48f, SlopWidgets.BtnH),
-                    source == "override" ? "Reset to system" : "Remove", SlopWidgets.Btn.Danger))
+            if (source != "system" && UiWidgets.Button(new Rect(view.width * .52f, y, view.width * .48f, UiWidgets.BtnH),
+                    source == "override" ? "Reset to system" : "Remove", UiWidgets.Btn.Danger))
                 remove();
         }
 
         void EmptyEditor(Rect r, string text)
         {
-            GUI.color = SlopWidgets.Dim;
-            Widgets.Label(new Rect(r.x, r.y, r.width, SlopWidgets.LineH * 2f), text);
+            GUI.color = UiWidgets.Dim;
+            Widgets.Label(new Rect(r.x, r.y, r.width, UiWidgets.LineH * 2f), text);
             GUI.color = Color.white;
         }
 
         static float Rule(float width, float y)
         {
-            Slab.Hairline(new Rect(0f, y, width, 1f), SlopWidgets.Edge);
-            return y + SlopWidgets.GapM;
+            Slab.Hairline(new Rect(0f, y, width, 1f), UiWidgets.Edge);
+            return y + UiWidgets.GapM;
         }
 
         void Copy(string kind, string name)
@@ -514,7 +514,7 @@ namespace SlopWorld
 
         void Remove(string kind, string name)
         {
-            Find.WindowStack.Add(SlopConfirmDialog.Create(
+            Find.WindowStack.Add(ConfirmDialog.Create(
                 kind == "sandbox" && SessionHub.Instance.Presets.Any(p => p.Name == name && p.Source == "override")
                     ? "Reset this user override and return to the system preset?"
                     : "Remove this user preset?",
@@ -526,12 +526,12 @@ namespace SlopWorld
 
         void DoFooter(Rect bar)
         {
-            var foot = new SlopWidgets.Bar(bar);
-            if (foot.Left("Reload", SlopWidgets.Btn.Ghost)) Load();
+            var foot = new UiWidgets.Bar(bar);
+            if (foot.Left("Reload", UiWidgets.Btn.Ghost)) Load();
             if (_error != null)
             {
-                GUI.color = SlopWidgets.Bad;
-                SlopWidgets.RowLabel(foot.Rest(), _error);
+                GUI.color = UiWidgets.Bad;
+                UiWidgets.RowLabel(foot.Rest(), _error);
                 GUI.color = Color.white;
             }
         }

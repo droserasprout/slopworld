@@ -31,7 +31,7 @@ namespace SlopWorld
 
         public override void GameComponentOnGUI()
         {
-            if (Eco.Bare || SlopLayout.Hidden) return;
+            if (Eco.Bare || UiLayout.Hidden) return;
             if (Find.WindowStack?.WindowOfType<TerminalWindow>() != null) return;
 
             var map = Find.CurrentMap;
@@ -67,7 +67,7 @@ namespace SlopWorld
                 if (pawn.def?.defName != CapybaraDefName) continue;
 
                 _immune.Add(pawn);
-                var plague = pawn.health?.hediffSet?.GetFirstHediffOfDef(SlopDefOf.SlopPlague);
+                var plague = pawn.health?.hediffSet?.GetFirstHediffOfDef(ModDefOf.SlopPlague);
                 if (plague != null) pawn.health.RemoveHediff(plague);
             }
 

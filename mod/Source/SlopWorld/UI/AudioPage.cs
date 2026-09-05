@@ -13,30 +13,30 @@ namespace SlopWorld
         public void Draw(Rect rect)
         {
             Text.Font = GameFont.Small;
-            var body = SlopWidgets.PageBody(rect);
-            body.height += SlopWidgets.BtnH + SlopWidgets.GapS;
-            var inner = body.ContractedBy(SlopWidgets.GapM);
+            var body = UiWidgets.PageBody(rect);
+            body.height += UiWidgets.BtnH + UiWidgets.GapS;
+            var inner = body.ContractedBy(UiWidgets.GapM);
 
             var l = new Listing_Standard { maxOneColumn = true };
             l.Begin(inner);
 
-            SlopWidgets.SectionHeading(l, "Volume");
-            Prefs.VolumeMaster = SlopWidgets.Slider(l, "MasterVolume".Translate(),
+            UiWidgets.SectionHeading(l, "Volume");
+            Prefs.VolumeMaster = UiWidgets.Slider(l, "MasterVolume".Translate(),
                 Prefs.VolumeMaster, "MasterVolumeTooltip".Translate());
-            Prefs.VolumeGame = SlopWidgets.Slider(l, "GameVolume".Translate(),
+            Prefs.VolumeGame = UiWidgets.Slider(l, "GameVolume".Translate(),
                 Prefs.VolumeGame, "GameVolumeTooltip".Translate());
-            Prefs.VolumeMusic = SlopWidgets.Slider(l, "MusicVolume".Translate(),
+            Prefs.VolumeMusic = UiWidgets.Slider(l, "MusicVolume".Translate(),
                 Prefs.VolumeMusic, "MusicVolumeTooltip".Translate());
-            Prefs.VolumeAmbient = SlopWidgets.Slider(l, "AmbientVolume".Translate(),
+            Prefs.VolumeAmbient = UiWidgets.Slider(l, "AmbientVolume".Translate(),
                 Prefs.VolumeAmbient, "AmbientVolumeTooltip".Translate());
-            Prefs.VolumeUI = SlopWidgets.Slider(l, "UIVolume".Translate(),
+            Prefs.VolumeUI = UiWidgets.Slider(l, "UIVolume".Translate(),
                 Prefs.VolumeUI, "UIVolumeTooltip".Translate());
 
-            l.Gap(SlopWidgets.GapL);
-            SlopWidgets.SectionHeading(l, "Jukebox");
+            l.Gap(UiWidgets.GapL);
+            UiWidgets.SectionHeading(l, "Jukebox");
             if (!SessionHub.Instance.Capabilities.AudioPlayback)
             {
-                SlopWidgets.Note(l,
+                UiWidgets.Note(l,
                     "Jukebox playback is unavailable in slopcar. The native game keeps audio " +
                     "on this Mac; radio streaming will return in a later compatibility release.");
                 l.End();
@@ -46,41 +46,41 @@ namespace SlopWorld
             var picked = Radio.Picked;
             string source = Radio.Muted ? "Muted" : picked == null
                 ? "OST" : $"{picked.Name} {Radio.RateLabel(picked.Rate)}";
-            if (SlopWidgets.Button(l, "Tune: " + source))
-                Find.WindowStack.Add(new SlopMenu(Jukebox.StationOptions()));
+            if (UiWidgets.Button(l, "Tune: " + source))
+                Find.WindowStack.Add(new UiMenu(Jukebox.StationOptions()));
 
             // Show the station's own line and any Shazam match as two rows, so a recognized
             // track never silently overwrites what the station actually reported.
             if (Radio.Muted)
             {
-                SlopWidgets.Note(l, "Muted.");
+                UiWidgets.Note(l, "Muted.");
             }
             else
             {
                 string station = Radio.StationLine;
-                SlopWidgets.Note(l, "Now playing: "
+                UiWidgets.Note(l, "Now playing: "
                     + (string.IsNullOrEmpty(station) ? "nothing" : station));
                 if (Radio.Recognized)
-                    SlopWidgets.Note(l, "Recognized: " + Radio.RecognizedLine);
+                    UiWidgets.Note(l, "Recognized: " + Radio.RecognizedLine);
             }
 
-            l.Gap(SlopWidgets.GapS);
+            l.Gap(UiWidgets.GapS);
             DrawRecognition(l);
 
-            l.Gap(SlopWidgets.GapS);
-            if (SlopWidgets.Button(l, "Random"))
+            l.Gap(UiWidgets.GapS);
+            if (UiWidgets.Button(l, "Random"))
                 Radio.PickRandom();
-            if (SlopWidgets.Button(l, "Like current song"))
+            if (UiWidgets.Button(l, "Like current song"))
                 Radio.Like();
-            if (SlopWidgets.Button(l, "History"))
+            if (UiWidgets.Button(l, "History"))
                 JukeboxHistoryView.Open();
 
-            l.Gap(SlopWidgets.GapS);
-            bool mute = SlopWidgets.Checkbox(l, "Mute", Radio.Muted,
+            l.Gap(UiWidgets.GapS);
+            bool mute = UiWidgets.Checkbox(l, "Mute", Radio.Muted,
                 "Stop playback without downloading unheard audio.");
             if (mute != Radio.Muted) Radio.ToggleMute();
 
-            bool stop = SlopWidgets.Checkbox(l, "Stop on exit", Radio.StopOnExit,
+            bool stop = UiWidgets.Checkbox(l, "Stop on exit", Radio.StopOnExit,
                 "Stop the daemon's playback when RimWorld exits normally.");
             if (stop != Radio.StopOnExit) Radio.ToggleStopOnExit();
 
@@ -94,29 +94,29 @@ namespace SlopWorld
         {
             if (Radio.Recognizing)
             {
-                if (SlopWidgets.Button(l, "Cancel recognition"))
+                if (UiWidgets.Button(l, "Cancel recognition"))
                     Radio.CancelRecognition();
                 string input = Radio.RecognizingInput;
-                SlopWidgets.Note(l, string.IsNullOrEmpty(input)
+                UiWidgets.Note(l, string.IsNullOrEmpty(input)
                     ? "Recognizing…"
                     : "Recognizing via " + input + "…");
                 return;
             }
 
             string error = Radio.RecognitionError;
-            if (SlopWidgets.Button(l,
+            if (UiWidgets.Button(l,
                     string.IsNullOrEmpty(error) ? "Recognize" : "Retry recognition"))
                 Radio.Recognize();
 
             if (!string.IsNullOrEmpty(error))
             {
-                GUI.color = SlopWidgets.Bad;
+                GUI.color = UiWidgets.Bad;
                 l.Label(error);
                 GUI.color = Color.white;
             }
             else if (!string.IsNullOrEmpty(Radio.RecognizingInput))
             {
-                SlopWidgets.Note(l, "Input: " + Radio.RecognizingInput);
+                UiWidgets.Note(l, "Input: " + Radio.RecognizingInput);
             }
         }
     }

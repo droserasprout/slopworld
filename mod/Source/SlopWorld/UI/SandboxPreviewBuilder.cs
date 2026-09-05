@@ -92,7 +92,7 @@ namespace SlopWorld
         // the first occurrence of a name. Show the resulting text block, including the generated
         // instructions discovery entry when it is enabled for this agent.
         static List<string> JoinedBreadcrumbs(ProjectInfo project, SessionInfo agent,
-                                              List<LibraryItemInfo> library, SlopConfig config)
+                                              List<LibraryItemInfo> library, DaemonConfig config)
         {
             var names = new List<string>();
             AddBreadcrumbNames(names, project?.Breadcrumbs);

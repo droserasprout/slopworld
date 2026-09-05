@@ -23,7 +23,7 @@ namespace SlopWorld
         // Defaults for transient host applications, refreshed on connect and after any settings
         // page saves. Settable because those pages write it back optimistically before the
         // daemon answers; the initial object keeps file actions usable before the first response.
-        public SlopConfig Config = new SlopConfig();
+        public DaemonConfig Config = new DaemonConfig();
         public DaemonCapabilities Capabilities = new DaemonCapabilities();
         // Never null: an empty one draws as "no numbers", which is what a daemon that has not
         // answered yet means.
@@ -37,7 +37,7 @@ namespace SlopWorld
             _audio = new AudioBus(_transport);
             _transport.OnConnected = () =>
             {
-                SlopClipboard.Reset();
+                DaemonClipboard.Reset();
                 RefreshConfig();
                 RefreshHealth();
                 _tasks.Refresh();
@@ -76,7 +76,7 @@ namespace SlopWorld
         // Called every frame from the Root.Update patch.
         public void Update()
         {
-            SlopClient.PumpCompletions();
+            DaemonClient.PumpCompletions();
             _transport.Update();
             _tasks.Update();
         }
@@ -121,11 +121,11 @@ namespace SlopWorld
         // Mutations go over HTTP rather than the socket: they rewrite config.toml, and the
         // error body matters.
         public void RefreshConfig(Action<string> fail = null) =>
-            SlopClient.Get("/api/config",
-                j => Config = SlopConfig.FromJson(j["values"]), fail);
+            DaemonClient.Get("/api/config",
+                j => Config = DaemonConfig.FromJson(j["values"]), fail);
 
         public void RefreshHealth(Action<string> fail = null) =>
-            SlopClient.Get("/api/health", j => Health = DaemonHealth.FromJson(j), fail);
+            DaemonClient.Get("/api/health", j => Health = DaemonHealth.FromJson(j), fail);
 
         // ---- sessions ------------------------------------------------------------------
 

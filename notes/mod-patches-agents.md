@@ -22,7 +22,7 @@
 - **`ShortcutKeysPatch`** replaces vanilla colonist cycling with the hardcoded Alt+Z/Alt+X
   session walk. The map layer handles those chords before vanilla and the terminal chrome
   handles them over a pane. Comma and period remain ordinary agent input.
-- **`SlopCommandAction`** is the `Command_Action` subclass for agent gizmo buttons.
+- **`UiCommandAction`** is the `Command_Action` subclass for agent gizmo buttons.
   It draws a clear background with `ActionButtonBackground` and normalizes six icon
   glyphs to a common 23px visual size through per-icon scale factors. Terminal mode reruns
   the map gizmo pass after the opaque pane, so a stopped selected agent's Start action stays

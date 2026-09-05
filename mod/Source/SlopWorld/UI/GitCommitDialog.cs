@@ -5,7 +5,7 @@ namespace SlopWorld
     // A short commit message is enough for the first writable Git pass. The commit itself still
     // runs on the host, where the Git view read its repository and where the agent worktrees do
     // not hide the repository metadata from the user.
-    public sealed class GitCommitDialog : SlopWindow
+    public sealed class GitCommitDialog : UiWindow
     {
         readonly string _project;
         string _message;
@@ -24,13 +24,13 @@ namespace SlopWorld
 
         protected override void DoBody(Rect rect)
         {
-            _message = SlopTextDialog.Draw(rect, $"Commit '{_project}'",
+            _message = TextDialog.Draw(rect, $"Commit '{_project}'",
                 "Only staged changes will be committed.", "git.commit.message", _message,
                 _error);
 
-            var foot = SlopTextDialog.Footer(rect);
-            if (foot.Left("Cancel", SlopWidgets.Btn.Ghost)) Close();
-            if (foot.Right("Commit", SlopWidgets.Btn.Primary)) Save();
+            var foot = TextDialog.Footer(rect);
+            if (foot.Left("Cancel", UiWidgets.Btn.Ghost)) Close();
+            if (foot.Right("Commit", UiWidgets.Btn.Primary)) Save();
         }
 
         void Save()

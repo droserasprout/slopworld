@@ -24,7 +24,7 @@ url = "https://stream.example.org/example-128"
 ```
 
 The wire catalog calls the array `streams`; the mod drops stations with no matching
-stream. Stable station/stream keys are saved in `SlopSettings.radio`; URLs stay in
+stream. Stable station/stream keys are saved in `ModSettings.radio`; URLs stay in
 the daemon. Catalogs arrive as the root `jukebox`
 WebSocket event and through `GET /api/jukebox`; the mod retains the last catalog while
 reconnecting. `metadata.title_regex` normalizes ICY titles; `donate` is retained for

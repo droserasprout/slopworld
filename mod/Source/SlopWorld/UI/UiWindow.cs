@@ -7,9 +7,9 @@ namespace SlopWorld
 {
     // Shared dialog frame: draw background/border on the window rect, keep `Margin = 0`, and
     // pad only contents. Draw the close control over the body so existing forms gain no header row.
-    public abstract class SlopWindow : Window
+    public abstract class UiWindow : Window
     {
-        protected SlopWindow()
+        protected UiWindow()
         {
             doWindowBackground = false;
             doCloseX = false;
@@ -36,7 +36,7 @@ namespace SlopWorld
         protected override float Margin => 0f;
 
         // A form group starts on the shared sixteen-pixel rhythm.
-        protected virtual float Pad => SlopWidgets.GapM;
+        protected virtual float Pad => UiWidgets.GapM;
 
         // Whether the corner carries a cross. Off for a window that has a Cancel in its
         // footer and nothing else to dismiss.
@@ -50,7 +50,7 @@ namespace SlopWorld
             {
                 Text.Font = GameFont.Small;
                 Text.WordWrap = true;
-                return Mathf.Max(SlopWidgets.LineHOf(GameFont.Small),
+                return Mathf.Max(UiWidgets.LineHOf(GameFont.Small),
                     Text.CalcHeight(string.IsNullOrEmpty(text) ? " " : text, width));
             }
         }
@@ -70,7 +70,7 @@ namespace SlopWorld
                     return;
                 }
 
-                Slab.Box(rect, SlopWidgets.WindowBg, SlopWidgets.Edge);
+                Slab.Box(rect, UiWidgets.WindowBg, UiWidgets.Edge);
 
                 DoBody(rect.ContractedBy(Pad));
 
@@ -92,7 +92,7 @@ namespace SlopWorld
             base.PostClose();
             // Pickers live on the window stack beside their form, so closing the form does
             // not close a picker automatically. Remove it before the form disappears.
-            SlopMenu.CloseAll();
+            UiMenu.CloseAll();
         }
 
         protected abstract void DoBody(Rect body);
@@ -102,8 +102,8 @@ namespace SlopWorld
             var r = new Rect(rect.xMax - Pad - CloseSize, rect.y + Pad,
                 CloseSize, CloseSize);
 
-            if (SlopWidgets.IconButton(r, Icons.Cross, SlopWidgets.Dim,
-                SlopWidgets.FieldPadX)) Close();
+            if (UiWidgets.IconButton(r, Icons.Cross, UiWidgets.Dim,
+                UiWidgets.FieldPadX)) Close();
         }
     }
 }

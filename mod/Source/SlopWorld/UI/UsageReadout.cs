@@ -28,14 +28,14 @@ namespace SlopWorld
         static ThingDef[] _pool;
 
         public static float ClockWidth(DateTime now) =>
-            ClockIconSize + 2f + SlopWidgets.Wide(TimeFormat.Short(now)) + 2f;
+            ClockIconSize + 2f + UiWidgets.Wide(TimeFormat.Short(now)) + 2f;
 
         public static void DrawClock(Rect row, DateTime now)
         {
             var icon = new Rect(row.x, row.y + (row.height - ClockIconSize) / 2f,
                 ClockIconSize, ClockIconSize);
             GUI.DrawTexture(icon, Icons.Time);
-            SlopWidgets.RowLabel(new Rect(icon.xMax + 2f, row.y,
+            UiWidgets.RowLabel(new Rect(icon.xMax + 2f, row.y,
                 row.width - ClockIconSize - 2f, row.height), TimeFormat.Short(now));
 
             TooltipHandler.TipRegion(row, new TipSignal(
@@ -58,7 +58,7 @@ namespace SlopWorld
 
             Text.Font = GameFont.Small;
             Text.Anchor = TextAnchor.MiddleLeft;
-            GUI.color = SlopWidgets.Name;
+            GUI.color = UiWidgets.Name;
 
             var rows = showUsage ? Rows(usage) : new List<string>();
 
@@ -69,7 +69,7 @@ namespace SlopWorld
             {
                 x -= clockNeed;
                 // Usage health belongs to quota rows, not to the wall clock.
-                GUI.color = SlopWidgets.Name;
+                GUI.color = UiWidgets.Name;
                 DrawClock(new Rect(x, area.y, clockNeed, area.height), now);
                 x -= ChipGap;
             }
@@ -80,7 +80,7 @@ namespace SlopWorld
                 var w = Window(usage, key);
                 string count = w != null ? Count(w) : Unsaid;
 
-                float need = IconSize + 2f + SlopWidgets.Wide(count) + 2f;
+                float need = IconSize + 2f + UiWidgets.Wide(count) + 2f;
                 if (x - need < area.x) break;
 
                 x -= need;
@@ -101,8 +101,8 @@ namespace SlopWorld
                 }
 
                 // After the icon: ThingIcon leaves GUI.color on the def's own tint.
-                GUI.color = SlopWidgets.Fade(SlopWidgets.Name, a);
-                SlopWidgets.RowLabel(
+                GUI.color = UiWidgets.Fade(UiWidgets.Name, a);
+                UiWidgets.RowLabel(
                     new Rect(chip.x + IconSize + 2f, chip.y,
                         chip.width - IconSize - 2f, chip.height),
                     count);

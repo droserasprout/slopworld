@@ -20,7 +20,7 @@ namespace SlopWorld
 
         static void Prefix()
         {
-            if (SlopLayout.Shown) Active = true;
+            if (UiLayout.Shown) Active = true;
         }
 
         static void Postfix()
@@ -43,11 +43,11 @@ namespace SlopWorld
         static void Prefix(ref float startX)
         {
             if (!Patch_GizmoGridFlag.Active) return;
-            float inset = SlopLayout.LeftInset;
+            float inset = UiLayout.LeftInset;
             if (inset <= 0f) return;
             startX = InspectPaneAgent.AgentSelectionActive
-                ? inset + SlopWidgets.GapM
-                : Mathf.Max(startX, inset + SlopWidgets.GapM);
+                ? inset + UiWidgets.GapM
+                : Mathf.Max(startX, inset + UiWidgets.GapM);
         }
 
         static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)

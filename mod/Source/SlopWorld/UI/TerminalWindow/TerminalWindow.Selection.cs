@@ -664,7 +664,7 @@ namespace SlopWorld
         {
             if (string.IsNullOrEmpty(text)) return;
 
-            SlopClipboard.Copy(text, null,
+            DaemonClipboard.Copy(text, null,
                 msg => Log.Warning($"[SlopWorld] clipboard: {msg}"));
         }
 
@@ -672,7 +672,7 @@ namespace SlopWorld
         {
             if (string.IsNullOrEmpty(text)) return;
 
-            SlopClipboard.CopyPrimary(text, null,
+            DaemonClipboard.CopyPrimary(text, null,
                 msg => Log.Warning($"[SlopWorld] primary selection: {msg}"));
         }
 
@@ -711,7 +711,7 @@ namespace SlopWorld
             options.Add(copy);
             options.Add(new FloatMenuOption("Paste", () => { JumpToLive(); PasteClipboard(); }));
             var breadcrumbs = AllBreadcrumbs();
-            var breadcrumbMenu = new SlopSubmenu("Breadcrumbs",
+            var breadcrumbMenu = new UiSubmenu("Breadcrumbs",
                 () => BreadcrumbOptions(breadcrumbs));
             breadcrumbMenu.Disabled = info == null || !info.Alive || breadcrumbs.Count == 0;
             options.Add(breadcrumbMenu);
@@ -724,7 +724,7 @@ namespace SlopWorld
                     ClearSelection();
                 }));
 
-            OpenOverPane(new SlopMenu(options));
+            OpenOverPane(new UiMenu(options));
         }
 
         void ResolvePath(string project, string path, System.Action<string> action)
@@ -734,11 +734,11 @@ namespace SlopWorld
                 string absolute = FilesView.ResolveProjectPath(project, path, cwd);
                 if (absolute == null)
                 {
-                    SlopWidgets.Fail($"path is outside project: {path}");
+                    UiWidgets.Fail($"path is outside project: {path}");
                     return;
                 }
                 action(absolute);
-            }, SlopWidgets.Fail);
+            }, UiWidgets.Fail);
         }
 
         static string Leaf(string path)
@@ -794,7 +794,7 @@ namespace SlopWorld
                 // Codex's image handler claims Ctrl+V even when the clipboard only has text,
                 // then reports "no image". Read the text format first and reserve Ctrl+V for an
                 // image (or another non-text clipboard format).
-                SlopClient.Get("/api/clipboard/text",
+                DaemonClient.Get("/api/clipboard/text",
                     j =>
                     {
                         string text = j["text"].AsString();
@@ -812,7 +812,7 @@ namespace SlopWorld
                 return;
             }
             string path = HostClipboardTextOnly ? "/api/clipboard/text" : "/api/clipboard";
-            SlopClient.Get(path,
+            DaemonClient.Get(path,
                 j => Deliver(name, j["text"].AsString()),
                 _ => Deliver(name, null));
         }
@@ -827,7 +827,7 @@ namespace SlopWorld
             string path = HostClipboardTextOnly
                 ? "/api/clipboard/primary/text"
                 : "/api/clipboard/primary";
-            SlopClient.Get(path,
+            DaemonClient.Get(path,
                 j => DeliverPrimary(name, j["text"].AsString()),
                 _ => { });
         }

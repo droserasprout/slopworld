@@ -6,7 +6,7 @@ using Verse;
 namespace SlopWorld
 {
     // Appearance page for global UI scale, scheme, fonts, and cursor; font changes affect every
-    // `Widgets.Label`/`Text.CalcSize`, including vanilla dialogs. SlopOptions hosts the page.
+    // `Widgets.Label`/`Text.CalcSize`, including vanilla dialogs. ModOptions hosts the page.
     public class AppearancePage : IOptionPage
     {
         readonly SmoothScroll _scroll = new SmoothScroll();
@@ -19,7 +19,7 @@ namespace SlopWorld
         // The scale under the hand, while the hand is on it. Null when nothing is dragging.
         float? _scaleHeld;
 
-        static SlopSettings S => SlopWorldMod.Instance.settings;
+        static ModSettings S => ModEntry.Instance.settings;
 
         public void Draw(Rect rect)
         {
@@ -29,27 +29,27 @@ namespace SlopWorld
         void DrawCore(Rect rect)
         {
             Text.Font = GameFont.Small;
-            var body = SlopWidgets.PageBody(rect);
-            body.height += SlopWidgets.BtnH + SlopWidgets.GapS;
-            var inner = body.ContractedBy(SlopWidgets.GapM);
+            var body = UiWidgets.PageBody(rect);
+            body.height += UiWidgets.BtnH + UiWidgets.GapS;
+            var inner = body.ContractedBy(UiWidgets.GapM);
 
             // The preview sits at the foot; the form scrolls above it.
             float ph = Mathf.Clamp(
-                SlopWidgets.LineHOf(GameFont.Tiny) + SlopWidgets.LineHOf(GameFont.Small)
-                    + SlopWidgets.LineHOf(GameFont.Medium) + SlopWidgets.GapS * 5 + 36f,
+                UiWidgets.LineHOf(GameFont.Tiny) + UiWidgets.LineHOf(GameFont.Small)
+                    + UiWidgets.LineHOf(GameFont.Medium) + UiWidgets.GapS * 5 + 36f,
                 104f, 190f);
             var preview = new Rect(inner.x, inner.yMax - ph, inner.width, ph);
-            var caption = new Rect(inner.x, preview.y - SlopWidgets.RowH - SlopWidgets.GapXS,
-                inner.width, SlopWidgets.RowH);
+            var caption = new Rect(inner.x, preview.y - UiWidgets.RowH - UiWidgets.GapXS,
+                inner.width, UiWidgets.RowH);
 
             var form = new Rect(inner.x, inner.y, inner.width,
-                caption.y - inner.y - SlopWidgets.GapS);
-            var view = SlopScrollBody.View(form, _fieldsH);
+                caption.y - inner.y - UiWidgets.GapS);
+            var view = UiScrollBody.View(form, _fieldsH);
             using (_scroll.Scope(form, view))
                 _fieldsH = DrawFields(view);
 
             // ---- preview
-            SlopWidgets.SectionHeading(caption, "Preview");
+            UiWidgets.SectionHeading(caption, "Preview");
             DrawPreview(preview);
 
             if (_pickingCursor)
@@ -65,7 +65,7 @@ namespace SlopWorld
             y += DrawFont(new Rect(rect.x, y, rect.width, 4000f));
             y += DrawCursor(new Rect(rect.x, y, rect.width, 4000f));
             y += DrawStatusbar(new Rect(rect.x, y, rect.width, 4000f));
-            return y - rect.y + SlopWidgets.GapS;
+            return y - rect.y + UiWidgets.GapS;
         }
 
         float DrawScale(Rect rect)
@@ -75,10 +75,10 @@ namespace SlopWorld
 
             // The knob and the readout follow the hand; the scale itself is not moved until
             // the slider reports an actual mouse-up, because this is the one row whose value
-            // decides where the row is drawn. See SlopWidgets.Slider.
-            float shown = _scaleHeld ?? SlopUIScale.Current;
-            float scale = SlopWidgets.Slider(l, "UI scale", shown,
-                SlopUIScale.Min, SlopUIScale.Max, SlopUIScale.Readout(shown), out bool held,
+            // decides where the row is drawn. See UiWidgets.Slider.
+            float shown = _scaleHeld ?? UiScale.Current;
+            float scale = UiWidgets.Slider(l, "UI scale", shown,
+                UiScale.Min, UiScale.Max, UiScale.Readout(shown), out bool held,
                 out bool released, "Zooms the whole interface, ours and the game's. Vanilla's own row stops "
                 + "where the scaled screen would fall under 1024x768; this one does not.");
             if (held)
@@ -88,15 +88,15 @@ namespace SlopWorld
             else if (released && _scaleHeld.HasValue)
             {
                 _scaleHeld = null;
-                SlopUIScale.Set(scale);
+                UiScale.Set(scale);
             }
-            SlopUIScale.Flush();
+            UiScale.Flush();
 
-            l.Gap(SlopWidgets.GapM);
-            bool fullscreen = SlopWidgets.Checkbox(l, "Fullscreen", S.fullscreen,
+            l.Gap(UiWidgets.GapM);
+            bool fullscreen = UiWidgets.Checkbox(l, "Fullscreen", S.fullscreen,
                 "Use window-manager fullscreen without changing Unity's render mode.");
             if (fullscreen != S.fullscreen) WindowMaximizer.Set(fullscreen);
-            l.Gap(SlopWidgets.GapM);
+            l.Gap(UiWidgets.GapM);
 
             float used = l.CurHeight;
             l.End();
@@ -108,7 +108,7 @@ namespace SlopWorld
             var l = new Listing_Standard { maxOneColumn = true };
             l.Begin(rect);
 
-            bool disableTiny = SlopWidgets.Checkbox(l, "DisableTinyText".Translate(),
+            bool disableTiny = UiWidgets.Checkbox(l, "DisableTinyText".Translate(),
                 Prefs.DisableTinyText,
                 "Use the Small font everywhere instead of the game's Tiny font.");
             if (disableTiny != Prefs.DisableTinyText)
@@ -120,7 +120,7 @@ namespace SlopWorld
                     Find.ColonistBar.drawer.ClearLabelCache();
             }
 
-            l.Gap(SlopWidgets.GapM);
+            l.Gap(UiWidgets.GapM);
 
             float used = l.CurHeight;
             l.End();
@@ -133,9 +133,9 @@ namespace SlopWorld
             l.Begin(rect);
 
             // Nothing to invalidate on the way out: every color in the mod is read through
-            // SlopWidgets on the frame it is drawn, so the page under the dropdown has
+            // UiWidgets on the frame it is drawn, so the page under the dropdown has
             // already changed by the time the menu closes over it. See UIScheme.
-            SlopWidgets.Select(l, "Color scheme", UIScheme.Current.Label,
+            UiWidgets.Select(l, "Color scheme", UIScheme.Current.Label,
                 UIScheme.All.Select(s => new SelectorOption(s.Label, () =>
                 {
                     S.uiScheme = s.Id;
@@ -143,7 +143,7 @@ namespace SlopWorld
                 })), out _);
 
             DrawSwatches(l.GetRect(18f));
-            l.Gap(SlopWidgets.GapM);
+            l.Gap(UiWidgets.GapM);
 
             float used = l.CurHeight;
             l.End();
@@ -160,41 +160,41 @@ namespace SlopWorld
                 new SelectorOption("Automatic (system default)", () =>
                 {
                     S.uiFontName = "";
-                    SlopUIFont.Apply();
+                    UiFont.Apply();
                     S.MarkDirty();
                 }),
             };
-            fontOptions.AddRange(SlopUIFont.All.Select(name => new SelectorOption(name, () =>
+            fontOptions.AddRange(UiFont.All.Select(name => new SelectorOption(name, () =>
             {
                 S.uiFontName = name;
-                SlopUIFont.Apply();
+                UiFont.Apply();
                 S.MarkDirty();
             })));
-            SlopWidgets.Select(l, "Font", S.uiFontName.NullOrEmpty() ? "Automatic" : S.uiFontName,
+            UiWidgets.Select(l, "Font", S.uiFontName.NullOrEmpty() ? "Automatic" : S.uiFontName,
                 fontOptions, out _);
 
-            l.Gap(SlopWidgets.GapS);
-            int size = Mathf.RoundToInt(SlopWidgets.Slider(l, "Size", S.uiFontSize, 0, 24,
+            l.Gap(UiWidgets.GapS);
+            int size = Mathf.RoundToInt(UiWidgets.Slider(l, "Size", S.uiFontSize, 0, 24,
                 S.uiFontSize > 0 ? $"{S.uiFontSize}pt" : "auto"));
             if (size != S.uiFontSize)
             {
                 S.uiFontSize = size;
-                SlopUIFont.Apply();
+                UiFont.Apply();
                 S.MarkDirty();
             }
 
-            l.Gap(SlopWidgets.GapXS);
-            GUI.color = SlopWidgets.Faint;
+            l.Gap(UiWidgets.GapXS);
+            GUI.color = UiWidgets.Faint;
             l.Label(S.uiFontSize == 0
                 ? "At 0pt the original per-tier sizes are kept (Tiny=11, Small=13, Medium=15); "
                     + "only the face changes."
                 : "Custom size anchors Small; Tiny and Medium stay 2pt below and above it.");
             GUI.color = Color.white;
 
-            l.Gap(SlopWidgets.GapS);
-            if (SlopWidgets.Button(l, "Rescan installed fonts"))
-                SlopUIFont.Rescan();
-            l.Gap(SlopWidgets.GapM);
+            l.Gap(UiWidgets.GapS);
+            if (UiWidgets.Button(l, "Rescan installed fonts"))
+                UiFont.Rescan();
+            l.Gap(UiWidgets.GapM);
 
             float used = l.CurHeight;
             l.End();
@@ -207,8 +207,8 @@ namespace SlopWorld
             l.Begin(rect);
 
             CursorRow(l);
-            l.Gap(SlopWidgets.GapS);
-            bool grayscale = SlopWidgets.Checkbox(l, "Grayscale cursor", S.cursorGrayscale,
+            l.Gap(UiWidgets.GapS);
+            bool grayscale = UiWidgets.Checkbox(l, "Grayscale cursor", S.cursorGrayscale,
                 "Use neutral grey instead of each asset's original colors.");
             if (grayscale != S.cursorGrayscale)
             {
@@ -216,7 +216,7 @@ namespace SlopWorld
                 DeadCursor.Apply();
                 S.MarkDirty();
             }
-            l.Gap(SlopWidgets.GapM);
+            l.Gap(UiWidgets.GapM);
 
             float used = l.CurHeight;
             l.End();
@@ -228,26 +228,26 @@ namespace SlopWorld
             var l = new Listing_Standard { maxOneColumn = true };
             l.Begin(rect);
 
-            SlopWidgets.SectionHeading(l, "Statusbar");
-            bool u = SlopWidgets.Checkbox(l, "Show Usage in statusbar", S.statusbarUsage,
+            UiWidgets.SectionHeading(l, "Statusbar");
+            bool u = UiWidgets.Checkbox(l, "Show Usage in statusbar", S.statusbarUsage,
                 "Show quota readouts in the top statusbar.");
-            bool spent = SlopWidgets.Checkbox(l, "Show spent instead of left",
+            bool spent = UiWidgets.Checkbox(l, "Show spent instead of left",
                 Settings.UsageSpent,
                 "Applies to every provider. Left is the amount remaining; spent is the " +
                 "provider-facing percentage or amount used.");
             string clockPosition = StatusbarClockMode.Normalize(S.statusbarClockPosition);
-            SlopWidgets.Select(l, "Clock position", StatusbarClockMode.Label(clockPosition),
+            UiWidgets.Select(l, "Clock position", StatusbarClockMode.Label(clockPosition),
                 new[]
                 {
                     new SelectorOption("Right", () => SetClockPosition(StatusbarClockMode.Right)),
                     new SelectorOption("Center", () => SetClockPosition(StatusbarClockMode.Center)),
                     new SelectorOption("Hidden", () => SetClockPosition(StatusbarClockMode.Hidden)),
                 }, out _);
-            bool j = SlopWidgets.Checkbox(l, "Show Jukebox in statusbar", S.statusbarJukebox,
+            bool j = UiWidgets.Checkbox(l, "Show Jukebox in statusbar", S.statusbarJukebox,
                 "Show the jukebox door when a jukebox is present.");
-            bool g = SlopWidgets.Checkbox(l, "Show GM in statusbar", S.statusbarGM,
+            bool g = UiWidgets.Checkbox(l, "Show GM in statusbar", S.statusbarGM,
                 "Show the Computer Core door when the core is present.");
-            bool indicators = SlopWidgets.Checkbox(l, "Show agent status indicators",
+            bool indicators = UiWidgets.Checkbox(l, "Show agent status indicators",
                 S.statusbarAgentIndicators,
                 "Show autostart, resume-on-start, and host-network flags in Agents.");
             if (u != S.statusbarUsage || spent != Settings.UsageSpent
@@ -294,11 +294,11 @@ namespace SlopWorld
         // readable while retaining the complete game-asset design pool.
         void CursorRow(Listing_Standard l)
         {
-            var row = l.GetRect(SlopWidgets.RowH);
-            float boxW = SlopWidgets.RowH - 2f;
-            float col = Mathf.Min(230f, row.width - boxW - SlopWidgets.GapXS);
+            var row = l.GetRect(UiWidgets.RowH);
+            float boxW = UiWidgets.RowH - 2f;
+            float col = Mathf.Min(230f, row.width - boxW - UiWidgets.GapXS);
 
-            SlopWidgets.RowLabel(new Rect(row.x, row.y, col - SlopWidgets.GapXS, row.height),
+            UiWidgets.RowLabel(new Rect(row.x, row.y, col - UiWidgets.GapXS, row.height),
                 "Mouse cursor");
 
             var box = new Rect(row.x + col, row.y + (row.height - boxW) / 2f, boxW, boxW);
@@ -319,12 +319,12 @@ namespace SlopWorld
         {
             const float pickW = 430f;
             const float pickH = 360f;
-            SlopPickerWindow.Show(0x51_0F_1100, pageRect, pickW, pickH, "Mouse cursor",
+            UiPickerWindow.Show(0x51_0F_1100, pageRect, pickW, pickH, "Mouse cursor",
                 () => _pickingCursor = false, DeadCursor.Choices.Length, _pickScroll,
                 grid => DrawCursorGrid(grid));
         }
 
-        void DrawCursorGrid(SlopPickerWindow.Grid grid)
+        void DrawCursorGrid(UiPickerWindow.Grid grid)
         {
             int count = DeadCursor.Choices.Length;
             for (int i = 0; i < count; i++)
@@ -363,39 +363,39 @@ namespace SlopWorld
         {
             using (WidgetState.Save())
             {
-                Slab.Box(r, SlopWidgets.Well, SlopWidgets.Edge);
+                Slab.Box(r, UiWidgets.Well, UiWidgets.Edge);
                 float x = r.x + 8f, y = r.y + 5f;
                 float w = r.width - 16f;
                 const float tagW = 52f;
 
                 y = DrawTier(new Rect(x, y, w,
-                        SlopWidgets.LineHOf(GameFont.Medium) + 2f),
-                    GameFont.Medium, "Medium", "Agents  ~/project  main", SlopWidgets.Lead,
+                        UiWidgets.LineHOf(GameFont.Medium) + 2f),
+                    GameFont.Medium, "Medium", "Agents  ~/project  main", UiWidgets.Lead,
                     tagW);
-                y += SlopWidgets.GapXS;
+                y += UiWidgets.GapXS;
                 y = DrawTier(new Rect(x, y, w,
-                        SlopWidgets.LineHOf(GameFont.Small) + 2f),
-                    GameFont.Small, "Small", "claude  working  +12 -3", SlopWidgets.Name,
+                        UiWidgets.LineHOf(GameFont.Small) + 2f),
+                    GameFont.Small, "Small", "claude  working  +12 -3", UiWidgets.Name,
                     tagW);
-                y += SlopWidgets.GapXS;
+                y += UiWidgets.GapXS;
                 y = DrawTier(new Rect(x, y, w,
-                        SlopWidgets.LineHOf(GameFont.Tiny) + 2f),
-                    GameFont.Tiny, "Tiny", "last output 14m ago  ·  metadata", SlopWidgets.Dim,
+                        UiWidgets.LineHOf(GameFont.Tiny) + 2f),
+                    GameFont.Tiny, "Tiny", "last output 14m ago  ·  metadata", UiWidgets.Dim,
                     tagW);
-                y += SlopWidgets.GapS;
+                y += UiWidgets.GapS;
 
-                float gap = SlopWidgets.GapXS;
+                float gap = UiWidgets.GapXS;
                 float chipW = (w - gap * 3f) / 4f;
                 float chipH = Mathf.Min(22f, r.yMax - y - 5f);
                 if (chipH > 0f)
                 {
-                    DrawColorKey(new Rect(x, y, chipW, chipH), "OK", SlopWidgets.Yes);
+                    DrawColorKey(new Rect(x, y, chipW, chipH), "OK", UiWidgets.Yes);
                     DrawColorKey(new Rect(x + chipW + gap, y, chipW, chipH), "WARN",
-                        SlopWidgets.Warn);
+                        UiWidgets.Warn);
                     DrawColorKey(new Rect(x + (chipW + gap) * 2f, y, chipW, chipH), "ERROR",
-                        SlopWidgets.Bad);
+                        UiWidgets.Bad);
                     DrawColorKey(new Rect(x + (chipW + gap) * 3f, y, chipW, chipH), "LINK",
-                        SlopWidgets.Accent);
+                        UiWidgets.Accent);
                 }
             }
         }
@@ -403,24 +403,24 @@ namespace SlopWorld
         static float DrawTier(Rect r, GameFont font, string label, string sample, Color color,
             float tagW)
         {
-            Slab.Fill(r, SlopWidgets.RowBg);
+            Slab.Fill(r, UiWidgets.RowBg);
 
             Text.Font = font;
-            GUI.color = SlopWidgets.Faint;
-            SlopWidgets.RowLabel(new Rect(r.x + 6f, r.y, tagW - 6f, r.height), label);
+            GUI.color = UiWidgets.Faint;
+            UiWidgets.RowLabel(new Rect(r.x + 6f, r.y, tagW - 6f, r.height), label);
 
             GUI.color = color;
-            SlopWidgets.RowLabel(new Rect(r.x + tagW, r.y, r.width - tagW - 6f, r.height),
+            UiWidgets.RowLabel(new Rect(r.x + tagW, r.y, r.width - tagW - 6f, r.height),
                 sample);
             return r.yMax;
         }
 
         static void DrawColorKey(Rect r, string label, Color color)
         {
-            Slab.Box(r, SlopWidgets.RowBg, SlopWidgets.Edge);
+            Slab.Box(r, UiWidgets.RowBg, UiWidgets.Edge);
             Text.Font = GameFont.Tiny;
             GUI.color = color;
-            SlopWidgets.RowLabel(r.ContractedBy(2f), label, TextAnchor.MiddleCenter);
+            UiWidgets.RowLabel(r.ContractedBy(2f), label, TextAnchor.MiddleCenter);
         }
     }
 }

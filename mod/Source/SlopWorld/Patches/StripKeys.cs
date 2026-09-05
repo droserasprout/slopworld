@@ -40,8 +40,8 @@ namespace SlopWorld
         public static bool Kept(KeyBindingDef def) =>
             def != null
             && (Keep.Contains(def.defName)
-                || (SlopWorldMod.Instance != null
-                    && def.modContentPack == SlopWorldMod.Instance.Content));
+                || (ModEntry.Instance != null
+                    && def.modContentPack == ModEntry.Instance.Content));
 
         // The four ways vanilla asks whether a binding is down, patched from a table the
         // way Patch_HideGui's targets are. MainKey is left off it: that is what a label is

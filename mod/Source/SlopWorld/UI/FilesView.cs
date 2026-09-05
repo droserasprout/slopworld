@@ -12,7 +12,7 @@ namespace SlopWorld
     public static partial class FilesView
     {
         // A directory is a rung above a file, which is the whole of the distinction this view
-        // draws between them; both, and the greys around them, are SlopWidgets'.
+        // draws between them; both, and the greys around them, are UiWidgets'.
 
         // One directory, once it has been asked about. `Kids` null is "never asked", which is
         // what makes the tree lazy: a project root is a hundred thousand files deep and the
@@ -292,10 +292,10 @@ namespace SlopWorld
             {
                 if (version != _focusVersion || parent.Kids == null) return;
                 var child = parent.Kids.FirstOrDefault(n => n.Name == parts[at]);
-                if (child == null) { SlopWidgets.Fail($"path not found: {string.Join("/", parts)}"); return; }
+                if (child == null) { UiWidgets.Fail($"path not found: {string.Join("/", parts)}"); return; }
                 if (at + 1 < parts.Count)
                 {
-                    if (!child.IsDir) { SlopWidgets.Fail($"not a directory: {child.Name}"); return; }
+                    if (!child.IsDir) { UiWidgets.Fail($"not a directory: {child.Name}"); return; }
                     Reveal(child, parts, at + 1, version);
                     return;
                 }
@@ -467,7 +467,7 @@ namespace SlopWorld
                 if (!Current(request)) continue;
 
                 BrowseInFlight++;
-                SlopClient.Get(
+                DaemonClient.Get(
                     "/api/browse?files=1&path=" + System.Uri.EscapeDataString(request.Path) +
                     "&hidden=" + (Settings.SidebarShowHidden ? "1" : "0") +
                     "&gitignore=" + (Settings.SidebarShowGitignored ? "0" : "1"),

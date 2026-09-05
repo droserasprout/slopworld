@@ -123,7 +123,7 @@ namespace SlopWorld
 
             // A pending Keyboard-page binding owns the next key, including keys normally
             // claimed by the sidebar or terminal chrome. Escape remains the chrome escape.
-            if (SlopOptions.KeyboardCaptureActive && e.keyCode != KeyCode.Escape) return;
+            if (ModOptions.KeyboardCaptureActive && e.keyCode != KeyCode.Escape) return;
 
             if (HandleFunctionKey(e)) { e.Use(); return; }
 
@@ -158,61 +158,61 @@ namespace SlopWorld
             // Shift+key = pass through to the agent/tui.
             if (e.shift || e.keyCode == KeyCode.None) return false;
 
-            if (Bound(SlopDefOf.SlopCommandPalette, e))
+            if (Bound(ModDefOf.SlopCommandPalette, e))
             {
-                SlopMenu.CloseAll();
+                UiMenu.CloseAll();
                 SearchView.ReleaseFocus();
                 CommandPalette.Toggle();
                 return true;
             }
-            if (Bound(SlopDefOf.SlopSidebarAgents, e))
+            if (Bound(ModDefOf.SlopSidebarAgents, e))
             {
-                SlopMenu.CloseAll();
+                UiMenu.CloseAll();
                 AgentSidebar.FocusTerminal();
                 return true;
             }
-            if (Bound(SlopDefOf.SlopSidebarFiles, e))
+            if (Bound(ModDefOf.SlopSidebarFiles, e))
             {
-                SlopMenu.CloseAll();
+                UiMenu.CloseAll();
                 AgentSidebar.ShowFiles();
                 return true;
             }
-            if (Bound(SlopDefOf.SlopSidebarSearch, e))
+            if (Bound(ModDefOf.SlopSidebarSearch, e))
             {
-                SlopMenu.CloseAll();
+                UiMenu.CloseAll();
                 AgentSidebar.ShowSearch();
                 return true;
             }
-            if (Bound(SlopDefOf.SlopSidebarGit, e))
+            if (Bound(ModDefOf.SlopSidebarGit, e))
             {
-                SlopMenu.CloseAll();
+                UiMenu.CloseAll();
                 AgentSidebar.ShowGit();
                 return true;
             }
-            if (Bound(SlopDefOf.SlopSidebarTasks, e))
+            if (Bound(ModDefOf.SlopSidebarTasks, e))
             {
-                SlopMenu.CloseAll();
+                UiMenu.CloseAll();
                 AgentSidebar.ShowTasks();
                 return true;
             }
-            if (Bound(SlopDefOf.SlopSidebarLibrary, e))
+            if (Bound(ModDefOf.SlopSidebarLibrary, e))
             {
-                SlopMenu.CloseAll();
+                UiMenu.CloseAll();
                 AgentSidebar.ShowLibrary();
                 return true;
             }
-            if (Bound(SlopDefOf.SlopQuickTerminal, e))
+            if (Bound(ModDefOf.SlopQuickTerminal, e))
             {
                 // Use the same toggle as the map-layer component. In particular, a settings
                 // view is content inside this window, so F12 must reveal/open its terminal
                 // rather than close the host and stop there.
-                SlopMenu.CloseAll();
+                UiMenu.CloseAll();
                 TerminalHotkeys.Toggle();
                 return true;
             }
-            if (Bound(SlopDefOf.SlopToggleFullscreen, e))
+            if (Bound(ModDefOf.SlopToggleFullscreen, e))
             {
-                SlopMenu.CloseAll();
+                UiMenu.CloseAll();
                 WindowMaximizer.Toggle();
                 return true;
             }

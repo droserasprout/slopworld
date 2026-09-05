@@ -24,9 +24,9 @@ namespace SlopWorld
             {
                 switch (Rand.Range(0, 3))
                 {
-                    case 0: return SlopDefOf.SlopPlagueGasDeep;
-                    case 1: return SlopDefOf.SlopPlagueGasWarm;
-                    default: return SlopDefOf.SlopPlagueGas;
+                    case 0: return ModDefOf.SlopPlagueGasDeep;
+                    case 1: return ModDefOf.SlopPlagueGasWarm;
+                    default: return ModDefOf.SlopPlagueGas;
                 }
             }
         }
@@ -41,7 +41,7 @@ namespace SlopWorld
         // Wither's opposite number, and the only one of these in the cat's green rather than
         // the violet: a flowerbed opening where grandma is visiting. The same size as the wisp
         // it stands in for, and for the same reason - there are thousands of them over a colony.
-        public static void Sprout(Thing t) => At(SlopDefOf.SlopCleanAir, t, 6, 1.3f, 0.16f, 0.3f);
+        public static void Sprout(Thing t) => At(ModDefOf.SlopCleanAir, t, 6, 1.3f, 0.16f, 0.3f);
 
         // Bleeding, retching and seizing look nothing alike; the haze says one cause.
         public static void Act(Thing t) => At(Gas, t, 12, 2.2f, 0.35f, 0.6f);

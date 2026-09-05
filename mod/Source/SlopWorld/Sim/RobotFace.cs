@@ -153,7 +153,7 @@ namespace SlopWorld
     // Every non-abstract DynamicPawnRenderNodeSetup is found by AllSubclassesNonAbstract and
     // AllSubclassesNonAbstract instantiates this setup without a def or patch. AddChild resolves
     // the parent through parentTagDef against nodesByTag.
-    public class SlopFaceRenderNodes : DynamicPawnRenderNodeSetup
+    public class RobotFaceRenderNodes : DynamicPawnRenderNodeSetup
     {
         public override bool HumanlikeOnly => true;
 

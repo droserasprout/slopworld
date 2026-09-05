@@ -5,14 +5,14 @@ Static review of the committed C# mod at `a3c4c28` (`Fix F12 terminal opening fr
 ## Highest priority
 
 - **Synchronous reconnects can freeze the game.** `Root.Update` pumps `SessionHub` every frame. When the socket is down, `HubTransport.Update` calls `MiniWebSocket.Connect` on Unity's main thread. TCP connection and WebSocket handshake timeouts therefore block the menu or game frame.
-  - [SlopWorldMod.cs:447](../mod/Source/SlopWorld/SlopWorldMod.cs#L447)
+  - [ModEntry.cs:447](../mod/Source/SlopWorld/ModEntry.cs#L447)
   - [HubTransport.cs:70](../mod/Source/SlopWorld/Client/SessionHub/HubTransport.cs#L70)
   - [MiniWebSocket.cs:35](../mod/Source/SlopWorld/Client/MiniWebSocket.cs#L35)
 
 - **Inbound work is drained without a per-frame budget.** WebSocket events are parsed and dispatched in a `while` loop on the main thread. HTTP completions are drained the same way. A burst of screen events or responses can consume an entire frame and amplify the cost of the UI callbacks.
   - [SessionHub.cs:76](../mod/Source/SlopWorld/Client/SessionHub.cs#L76)
   - [HubTransport.cs:92](../mod/Source/SlopWorld/Client/SessionHub/HubTransport.cs#L92)
-  - [SlopClient.cs:111](../mod/Source/SlopWorld/Client/SlopClient.cs#L111)
+  - [DaemonClient.cs:111](../mod/Source/SlopWorld/Client/DaemonClient.cs#L111)
 
 - **Agent sidebar layout scales poorly with projects, agents, and workers.** Colonist-bar integration rebuilds layout data during GUI passes. `AgentCounts` scans all sessions once per project; `WorkerCount` scans all workers once per project; buckets are sorted every placement. Status filtering reparses the settings string for each check, and row drawing repeatedly measures and rebuilds title/status strings.
   - [AgentSidebar.Layout.cs:48](../mod/Source/SlopWorld/Patches/AgentSidebar/AgentSidebar.Layout.cs#L48)

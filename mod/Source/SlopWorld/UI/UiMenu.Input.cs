@@ -7,7 +7,7 @@ namespace SlopWorld
 {
     // Keyboard navigation is kept separate from the pointer renderer so the menu's two
     // input models can evolve without making the layout path harder to follow.
-    public partial class SlopMenu
+    public partial class UiMenu
     {
         // Keyboard selection is independent of the pointer: a menu opened from a focused
         // control may have no useful mouse position at all, and moving an arrow key should
@@ -178,7 +178,7 @@ namespace SlopWorld
         {
             if (!IsSelectable(_selected)) return;
 
-            var sub = _options[_selected] as SlopSubmenu;
+            var sub = _options[_selected] as UiSubmenu;
             if (sub != null)
             {
                 OpenChild(_selected, sub);

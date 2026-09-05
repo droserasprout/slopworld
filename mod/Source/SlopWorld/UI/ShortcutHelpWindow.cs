@@ -9,7 +9,7 @@ namespace SlopWorld
     // A map-only reference for both live key bindings and shortcuts that deliberately do not
     // go through KeyBindingDef. It is a window so it can sit over the map, but it never opens
     // over TerminalWindow: `?` remains a character the agent can receive there.
-    public sealed class ShortcutHelpWindow : SlopWindow
+    public sealed class ShortcutHelpWindow : UiWindow
     {
         sealed class ShortcutRow
         {
@@ -40,8 +40,8 @@ namespace SlopWorld
         const float MinHeight = 360f;
         const float KeyColumnMin = 104f;
         const float KeyColumnMax = 160f;
-        const float PairGap = SlopWidgets.GapM;
-        const float GroupGap = SlopWidgets.GapXS;
+        const float PairGap = UiWidgets.GapM;
+        const float GroupGap = UiWidgets.GapXS;
 
         readonly SmoothScroll _scroll = new SmoothScroll();
 
@@ -62,7 +62,7 @@ namespace SlopWorld
                 return;
             }
 
-            if (!SlopProfile.Ok || Cutscene.Playing ||
+            if (!ModProfile.Ok || Cutscene.Playing ||
                 Current.ProgramState != ProgramState.Playing ||
                 Find.CurrentMap == null ||
                 Find.WindowStack?.WindowOfType<TerminalWindow>() != null)
@@ -76,7 +76,7 @@ namespace SlopWorld
         public static bool HandleMapKey(Event e)
         {
             if (e == null || e.type != EventType.KeyDown ||
-                !SlopProfile.Ok || Cutscene.Playing ||
+                !ModProfile.Ok || Cutscene.Playing ||
                 Current.ProgramState != ProgramState.Playing ||
                 Find.CurrentMap == null ||
                 Find.WindowStack?.WindowOfType<TerminalWindow>() != null || !IsHelpKey(e))
@@ -119,7 +119,7 @@ namespace SlopWorld
             float keyWidth = KeyWidth(groups, list.width);
             float total = ContentHeight(groups);
             var view = new Rect(0f, 0f,
-                Mathf.Max(1f, list.width - SlopWidgets.ScrollbarW), Mathf.Max(total, list.height));
+                Mathf.Max(1f, list.width - UiWidgets.ScrollbarW), Mathf.Max(total, list.height));
 
             using (_scroll.Scope(list, view))
             {
@@ -139,8 +139,8 @@ namespace SlopWorld
                 Text.Font = GameFont.Small;
                 foreach (var group in groups)
                     foreach (var row in group.Rows)
-                        widest = Mathf.Max(widest, SlopWidgets.Wide(row.Key) +
-                            SlopWidgets.FieldPadX * 2f);
+                        widest = Mathf.Max(widest, UiWidgets.Wide(row.Key) +
+                            UiWidgets.FieldPadX * 2f);
             }
             float pairWidth = Mathf.Max(1f, (available - PairGap) / 2f);
             return Mathf.Clamp(widest, KeyColumnMin,
@@ -151,33 +151,33 @@ namespace SlopWorld
         {
             float total = 0f;
             foreach (var group in groups)
-                total += SlopWidgets.TinyRowH +
-                    ((group.Rows.Count + 1) / 2) * SlopWidgets.PaletteRowH + GroupGap;
+                total += UiWidgets.TinyRowH +
+                    ((group.Rows.Count + 1) / 2) * UiWidgets.PaletteRowH + GroupGap;
             return total;
         }
 
         static float DrawGroup(ShortcutGroup group, float y, float width, float keyWidth)
         {
-            var heading = new Rect(0f, y, width, SlopWidgets.TinyRowH);
+            var heading = new Rect(0f, y, width, UiWidgets.TinyRowH);
             using (WidgetState.Save())
             {
                 Text.Font = GameFont.Tiny;
-                GUI.color = SlopWidgets.Faint;
-                SlopWidgets.RowLabel(heading, group.Title.ToUpperInvariant());
-                Slab.Hairline(new Rect(0f, heading.yMax - 1f, width, 1f), SlopWidgets.Edge);
+                GUI.color = UiWidgets.Faint;
+                UiWidgets.RowLabel(heading, group.Title.ToUpperInvariant());
+                Slab.Hairline(new Rect(0f, heading.yMax - 1f, width, 1f), UiWidgets.Edge);
             }
-            y += SlopWidgets.TinyRowH;
+            y += UiWidgets.TinyRowH;
 
             float pairWidth = (width - PairGap) / 2f;
             int rowCount = (group.Rows.Count + 1) / 2;
             for (int i = 0; i < rowCount; i++)
             {
                 DrawPair(group.Rows[i * 2], new Rect(0f, y, pairWidth,
-                    SlopWidgets.PaletteRowH), keyWidth);
+                    UiWidgets.PaletteRowH), keyWidth);
                 if (i * 2 + 1 < group.Rows.Count)
                     DrawPair(group.Rows[i * 2 + 1], new Rect(pairWidth + PairGap, y,
-                        pairWidth, SlopWidgets.PaletteRowH), keyWidth);
-                y += SlopWidgets.PaletteRowH;
+                        pairWidth, UiWidgets.PaletteRowH), keyWidth);
+                y += UiWidgets.PaletteRowH;
             }
 
             return y + GroupGap;
@@ -185,19 +185,19 @@ namespace SlopWorld
 
         static void DrawPair(ShortcutRow shortcut, Rect row, float keyWidth)
         {
-            if (Mouse.IsOver(row)) Slab.Fill(row, SlopWidgets.RowBg);
+            if (Mouse.IsOver(row)) Slab.Fill(row, UiWidgets.RowBg);
 
             var key = new Rect(row.x, row.y + 2f, keyWidth, row.height - 4f);
-            Slab.Box(key, SlopWidgets.Well, SlopWidgets.Edge);
+            Slab.Box(key, UiWidgets.Well, UiWidgets.Edge);
             using (WidgetState.Save())
             {
                 Text.Font = GameFont.Small;
-                GUI.color = SlopWidgets.Lead;
-                SlopWidgets.RowLabel(key.ContractedBy(SlopWidgets.FieldPadX, 0f), shortcut.Key);
-                GUI.color = SlopWidgets.Name;
-                var action = new Rect(key.xMax + SlopWidgets.GapS, row.y,
-                    row.xMax - key.xMax - SlopWidgets.GapS, row.height);
-                SlopWidgets.RowLabel(action, shortcut.Action);
+                GUI.color = UiWidgets.Lead;
+                UiWidgets.RowLabel(key.ContractedBy(UiWidgets.FieldPadX, 0f), shortcut.Key);
+                GUI.color = UiWidgets.Name;
+                var action = new Rect(key.xMax + UiWidgets.GapS, row.y,
+                    row.xMax - key.xMax - UiWidgets.GapS, row.height);
+                UiWidgets.RowLabel(action, shortcut.Action);
             }
         }
 

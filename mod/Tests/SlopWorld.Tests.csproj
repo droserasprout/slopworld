@@ -16,7 +16,7 @@
     <!-- Keep the tests independent of the game-bound mod assembly. -->
     <Compile Include="../Source/SlopWorld/Client/Json.cs" Link="Source/Client/Json.cs" />
     <Compile Include="../Source/SlopWorld/Client/Toml.cs" Link="Source/Client/Toml.cs" />
-    <Compile Include="../Source/SlopWorld/Client/SlopConfig.cs" Link="Source/Client/SlopConfig.cs" />
+    <Compile Include="../Source/SlopWorld/Client/DaemonConfig.cs" Link="Source/Client/DaemonConfig.cs" />
     <Compile Include="../Source/SlopWorld/Client/Endpoint.cs" Link="Source/Client/Endpoint.cs" />
     <Compile Include="../Source/SlopWorld/Client/SessionHub/MountEntry.cs" Link="Source/Client/SessionHub/MountEntry.cs" />
     <Compile Include="../Source/SlopWorld/Client/SessionHub/NetworkMode.cs" Link="Source/Client/SessionHub/NetworkMode.cs" />

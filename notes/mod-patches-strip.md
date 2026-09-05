@@ -33,12 +33,12 @@
   Interface and Controls are merged into the RimWorld page under small section
   headings; Mods is the remaining separate vanilla category.
 
-## `SlopOptions` - our categories in vanilla's options window
+## `ModOptions` - our categories in vanilla's options window
 
 SlopWorld pages are inserted as one group before the remaining RimWorld categories;
 daemon and mod settings therefore have one home.
 
-- The window is drawn inside the chrome at `SlopLayout.LeftInset`/`TopInset`. The inset
+- The window is drawn inside the chrome at `UiLayout.LeftInset`/`TopInset`. The inset
   is omitted without a colony because the sidebar/top bar have no map-layer owner.
   Placement is a `Window.SetInitialSizeAndPosition` postfix for this instance;
   `Reposition` is the explicit layout toggle.

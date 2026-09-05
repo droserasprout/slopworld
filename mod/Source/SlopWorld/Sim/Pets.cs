@@ -42,7 +42,7 @@ namespace SlopWorld
         {
             if (map == null) return;
 
-            // SlopScenario takes the scenario's own starting animal off at source; this closes
+            // ModScenario takes the scenario's own starting animal off at source; this closes
             // the rest, including this method running twice, IntroDirector._armed being
             // runtime state under a persisted phase.
             foreach (var other in On(map))
@@ -51,7 +51,7 @@ namespace SlopWorld
                 other.Destroy(DestroyMode.Vanish);
             }
 
-            var cat = SlopDefOf.Cat;
+            var cat = ModDefOf.Cat;
             if (cat == null)
             {
                 Log.Warning("[SlopWorld] no Cat def; colony starts with nothing living on it");

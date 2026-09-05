@@ -46,7 +46,7 @@ namespace SlopWorld
             Read();
             if (_muted || !_playing || string.IsNullOrEmpty(NowPlaying))
             {
-                SlopWidgets.Fail("nothing is playing");
+                UiWidgets.Fail("nothing is playing");
                 return;
             }
 
@@ -57,7 +57,7 @@ namespace SlopWorld
             {
                 if (_recognizing)
                 {
-                    SlopWidgets.Fail("recognition is already running");
+                    UiWidgets.Fail("recognition is already running");
                     return;
                 }
                 _recognizing = true;
@@ -95,7 +95,7 @@ namespace SlopWorld
                 // Choose the input first and publish its label so the recognizing state can
                 // name where it is listening while the slow lookup runs.
                 AudioInput input = recognizer.SelectInput(token);
-                SlopClient.OnMainThread(() => SetRecognitionInput(input.Label));
+                DaemonClient.OnMainThread(() => SetRecognitionInput(input.Label));
                 result = recognizer.Recognize(input, token);
             }
             catch (Exception e)
@@ -107,7 +107,7 @@ namespace SlopWorld
                 };
             }
 
-            SlopClient.OnMainThread(() => FinishRecognition(version, source, result));
+            DaemonClient.OnMainThread(() => FinishRecognition(version, source, result));
         }
 
         static void SetRecognitionInput(string label)
@@ -153,7 +153,7 @@ namespace SlopWorld
         static void SetRecognitionError(string message)
         {
             lock (RecognitionGate) _recognitionError = message;
-            SlopWidgets.Fail(message);
+            UiWidgets.Fail(message);
         }
     }
 }

@@ -165,7 +165,7 @@ namespace SlopWorld
         {
             if (_runtime.Core == null || _runtime.Core.Destroyed || !_runtime.Core.Spawned)
             {
-                var found = map.listerThings.ThingsOfDef(SlopDefOf.Ship_ComputerCore);
+                var found = map.listerThings.ThingsOfDef(ModDefOf.Ship_ComputerCore);
                 _runtime.Core = found != null && found.Count > 0 ? found[0] : null;
                 if (_runtime.Core == null) return;
             }

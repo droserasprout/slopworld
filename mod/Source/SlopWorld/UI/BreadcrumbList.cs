@@ -44,12 +44,12 @@ namespace SlopWorld
             }
             if (all.Count == 0)
             {
-                SlopChoiceList<Entry>.Draw(outer, new List<SlopChoice<Entry>>(), scroll,
+                UiChoiceList<Entry>.Draw(outer, new List<UiChoice<Entry>>(), scroll,
                     "No breadcrumbs yet. Add one from Library.");
                 return;
             }
 
-            var choices = new List<SlopChoice<Entry>>();
+            var choices = new List<UiChoice<Entry>>();
             foreach (var b in all)
             {
                 bool forced = !b.Instructions && implied != null && implied.Contains(b.Name);
@@ -58,7 +58,7 @@ namespace SlopWorld
                     ? "Used when this agent mounts SLOPWORLD.md and discovery is enabled in " +
                       "Settings > Integrations > Instructions."
                     : (b.Text ?? "").Replace("\n", " ");
-                choices.Add(new SlopChoice<Entry>
+                choices.Add(new UiChoice<Entry>
                 {
                     Value = b,
                     Label = b.Name,
@@ -75,7 +75,7 @@ namespace SlopWorld
                 });
             }
 
-            SlopChoiceList<Entry>.Draw(outer, choices, scroll,
+            UiChoiceList<Entry>.Draw(outer, choices, scroll,
                 "No breadcrumbs yet. Add one from Library.");
         }
     }

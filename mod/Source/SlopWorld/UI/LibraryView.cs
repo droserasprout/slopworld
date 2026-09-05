@@ -12,11 +12,11 @@ namespace SlopWorld
     public static class LibraryView
     {
         // Off the font, for the reason the other two trees' are.
-        static float RowH => SlopWidgets.TinyRowH;
-        static float HeadH => SlopWidgets.TinyRowH;
-        const float Pad = SlopWidgets.GapS;
-        const float CellX = SlopWidgets.GapS;
-        const float ArrowW = SlopWidgets.DisclosureW;
+        static float RowH => UiWidgets.TinyRowH;
+        static float HeadH => UiWidgets.TinyRowH;
+        const float Pad = UiWidgets.GapS;
+        const float CellX = UiWidgets.GapS;
+        const float ArrowW = UiWidgets.DisclosureW;
 
         // These are identity colors, not status colors: every kind stays recognizable without
         // borrowing the green/yellow/red language used for agent health and actions.
@@ -98,7 +98,7 @@ namespace SlopWorld
                 var list = body;
                 float height = Measure();
                 var view = new Rect(0f, 0f,
-                    list.width - (height > list.height ? SlopWidgets.ScrollbarW : 0f),
+                    list.width - (height > list.height ? UiWidgets.ScrollbarW : 0f),
                     height);
 
                 // GUI rather than GUILayout, so this is safe in a pass that declines Layout
@@ -143,7 +143,7 @@ namespace SlopWorld
             Rect arrow;
             using (WidgetState.Save())
             {
-                GUI.color = SlopWidgets.Faint;
+                GUI.color = UiWidgets.Faint;
                 arrow = new Rect(CellX, headRect.y + (HeadH - ArrowW) / 2f,
                     ArrowW, ArrowW);
                 GUI.DrawTexture(arrow, folded ? TexButton.Reveal : TexButton.Collapse);
@@ -153,11 +153,11 @@ namespace SlopWorld
                 float lx = arrow.xMax + 4f;
                 string tail = folded ? "  " + count : "";
                 var labelRect = new Rect(lx, headRect.y, view.width - lx - CellX, HeadH);
-                SlopWidgets.RowLabel(labelRect, label + tail);
+                UiWidgets.RowLabel(labelRect, label + tail);
             }
 
             Slab.Hairline(new Rect(CellX, headRect.yMax - 1f,
-                view.width - CellX * 2f, 1f), SlopWidgets.Edge);
+                view.width - CellX * 2f, 1f), UiWidgets.Edge);
 
             TooltipHandler.TipRegion(headRect,
                 key.Length == 0
@@ -184,22 +184,22 @@ namespace SlopWorld
                 // descenders cut off.
                 Text.Font = GameFont.Tiny;
                 Text.Anchor = TextAnchor.MiddleLeft;
-                SlopWidgets.RowLabel(badge, KindCode(item.Kind));
+                UiWidgets.RowLabel(badge, KindCode(item.Kind));
                 TooltipHandler.TipRegion(badge, KindName(item.Kind));
 
                 float tx = CellX + badgeW + 4f;
                 // The name comes first, then a sample of the text truncated.
-                GUI.color = SlopWidgets.Lead;
-                var nameW = SlopWidgets.Wide(item.Name);
+                GUI.color = UiWidgets.Lead;
+                var nameW = UiWidgets.Wide(item.Name);
                 nameRect = new Rect(tx, r.y, Mathf.Min(nameW + 6f,
                     view.width * 0.35f), RowH);
-                SlopWidgets.RowLabel(nameRect, item.Name);
-                GUI.color = SlopWidgets.Dim;
+                UiWidgets.RowLabel(nameRect, item.Name);
+                GUI.color = UiWidgets.Dim;
 
                 float restX = nameRect.xMax + 2f;
                 var restW = r.xMax - 6f - restX;
                 if (restW > 20f)
-                    SlopWidgets.RowLabel(new Rect(restX, r.y, restW, RowH),
+                    UiWidgets.RowLabel(new Rect(restX, r.y, restW, RowH),
                         OneLine(item.Text));
             }
 
@@ -224,7 +224,7 @@ namespace SlopWorld
             var r = new Rect(CellX, body.y + Pad, body.width - CellX * 2f, RowH * 3f);
             using (WidgetState.Save())
             {
-                GUI.color = SlopWidgets.Faint;
+                GUI.color = UiWidgets.Faint;
                 Text.Font = GameFont.Tiny;
                 Text.Anchor = TextAnchor.UpperLeft;
                 Widgets.Label(r, !SessionHub.Instance.Online
@@ -368,9 +368,9 @@ namespace SlopWorld
 
             opts.Add(new FloatMenuOption("Terminal (host)", () =>
                 SessionHub.Instance.RunHostShell(project,
-                    session => TerminalWindow.Open(session), SlopWidgets.Fail)));
+                    session => TerminalWindow.Open(session), UiWidgets.Fail)));
 
-            TerminalWindow.OpenOverPane(new SlopMenu(opts));
+            TerminalWindow.OpenOverPane(new UiMenu(opts));
         }
 
         static void RowMenu(LibraryItemInfo s)
@@ -383,7 +383,7 @@ namespace SlopWorld
 
             var where = Where(s);
             if (s.Link == LibraryItemLink.Ask)
-                opts.Add(new SlopSubmenu("Run in", () => WhereOptions(s)));
+                opts.Add(new UiSubmenu("Run in", () => WhereOptions(s)));
 
             opts.Add(new FloatMenuOption("Edit...", () =>
                 TerminalWindow.OpenOverPane(new EditLibraryItemDialog(s))));
@@ -394,13 +394,13 @@ namespace SlopWorld
             opts.Add(new FloatMenuOption("Delete", () =>
             {
                 var name = s.Name;
-                TerminalWindow.OpenOverPane(SlopConfirmDialog.Create(
+                TerminalWindow.OpenOverPane(ConfirmDialog.Create(
                     $"Remove library entry '{name}'? Anything it already started keeps running.",
-                    () => SessionHub.Instance.RemoveLibraryItem(name, SlopWidgets.Fail),
+                    () => SessionHub.Instance.RemoveLibraryItem(name, UiWidgets.Fail),
                     destructive: true));
             }));
 
-            TerminalWindow.OpenOverPane(new SlopMenu(opts));
+            TerminalWindow.OpenOverPane(new UiMenu(opts));
         }
 
         // ------------------------------------------------------------------ actions
@@ -419,7 +419,7 @@ namespace SlopWorld
             bool scratch = temp || s.Link == LibraryItemLink.Temp;
             SessionHub.Instance.RunLibraryItem(s.Name,
                 session => TerminalWindow.Open(session),
-                SlopWidgets.Fail,
+                UiWidgets.Fail,
                 // A project named outright wins; a temporary run has none, whichever of
                 // the two said so; otherwise the entry's own.
                 project ?? (scratch ? null : s.Project),
@@ -444,7 +444,7 @@ namespace SlopWorld
         }
 
         static void AskWhere(LibraryItemInfo s) =>
-            TerminalWindow.OpenOverPane(new SlopMenu(WhereOptions(s)));
+            TerminalWindow.OpenOverPane(new UiMenu(WhereOptions(s)));
 
         // Where an errand runs, in the few words a row and a tooltip have.
         static string Where(LibraryItemInfo s)
@@ -471,7 +471,7 @@ namespace SlopWorld
 
     // The command box is greyed rather than hidden when it is empty, so the thing
     // that will run is on screen even when nothing here chose it.
-    public class EditLibraryItemDialog : SlopWindow
+    public class EditLibraryItemDialog : UiWindow
     {
         sealed class LibraryItemKindDescriptor
         {
@@ -582,12 +582,12 @@ namespace SlopWorld
             _copiedFrom = copy ? existing.Name : null;
             _s = existing?.Copy() ?? new LibraryItemInfo();
             if (copy)
-                _s.Name = SlopWidgets.FreeName(_s.Name,
+                _s.Name = UiWidgets.FreeName(_s.Name,
                     SessionHub.Instance.Library.Select(s => s.Name), "library");
 
 
             SessionHub.Instance.RefreshProjects();
-            SlopClient.Get("/api/config", j =>
+            DaemonClient.Get("/api/config", j =>
             {
                 var d = j["values"]["defaults"];
                 _agentDefault = d["agent"].AsString("claude");
@@ -615,13 +615,13 @@ namespace SlopWorld
             // for its contents does not overflow, it breaks to a column off the right-hand
             // edge and puts CurHeight back to nearly zero - and the prompt box below is
             // placed and sized from that number. See EditProjectDialog.DoFields.
-            SlopWidgets.Title(rect, _copiedFrom != null
+            UiWidgets.Title(rect, _copiedFrom != null
                 ? $"Copy of '{_copiedFrom}'"
                 : _isNew ? "New library entry" : $"Edit '{_origName}'");
 
-            float head = SlopWidgets.HeaderH + SlopWidgets.GapS;
+            float head = UiWidgets.HeaderH + UiWidgets.GapS;
             float used = DrawFields(new Rect(rect.x, rect.y + head, rect.width, rect.height - head));
-            float y = rect.y + head + used + SlopWidgets.GapL;
+            float y = rect.y + head + used + UiWidgets.GapL;
             DrawTextEditor(rect, y);
             DrawFooter(rect);
         }
@@ -647,18 +647,18 @@ namespace SlopWorld
         void DrawName(Listing_Standard l)
         {
             l.Label("Name (also what the temporary colonist is called)");
-            _s.Name = SlopWidgets.Field(l, "library.name", _s.Name);
+            _s.Name = UiWidgets.Field(l, "library.name", _s.Name);
         }
 
         void DrawKindAndLink(Listing_Standard l, LibraryItemKindDescriptor kind)
         {
-            l.Gap(SlopWidgets.GapS);
-            SlopWidgets.Select(l, "Kind", kind.ButtonLabel, KindOptions(), out _,
+            l.Gap(UiWidgets.GapS);
+            UiWidgets.Select(l, "Kind", kind.ButtonLabel, KindOptions(), out _,
                 openMenu: TerminalWindow.OpenOverPane);
 
             if (!kind.ShowWhere) return;
-            l.Gap(SlopWidgets.GapS);
-            SlopWidgets.Select(l, "Where it runs", LinkLabel(_s.Link), LinkOptions(), out _,
+            l.Gap(UiWidgets.GapS);
+            UiWidgets.Select(l, "Where it runs", LinkLabel(_s.Link), LinkOptions(), out _,
                 openMenu: TerminalWindow.OpenOverPane);
         }
 
@@ -667,8 +667,8 @@ namespace SlopWorld
             // The project dropdown stays up for every kind that uses a project. In temp mode
             // it still answers which sandbox the scratch project is given.
             if (!kind.ShowProject(this)) return;
-            l.Gap(SlopWidgets.GapS);
-            SlopWidgets.Select(l, kind.ProjectLabel(this), kind.ProjectValue(this),
+            l.Gap(UiWidgets.GapS);
+            UiWidgets.Select(l, kind.ProjectLabel(this), kind.ProjectValue(this),
                 ProjectOptions(_s.Kind == LibraryItemKind.Breadcrumb), out _,
                 openMenu: TerminalWindow.OpenOverPane);
         }
@@ -676,8 +676,8 @@ namespace SlopWorld
         void DrawFileActionMode(Listing_Standard l)
         {
             if (_s.Kind != LibraryItemKind.FileAction) return;
-            l.Gap(SlopWidgets.GapS);
-            SlopWidgets.Select(l, "After choosing the file action",
+            l.Gap(UiWidgets.GapS);
+            UiWidgets.Select(l, "After choosing the file action",
                 FileActionModeText.Label(_s.Mode), FileActionModeOptions(), out _,
                 openMenu: TerminalWindow.OpenOverPane);
         }
@@ -685,14 +685,14 @@ namespace SlopWorld
         void DrawExplanation(Listing_Standard l, LibraryItemKindDescriptor kind)
         {
             var project = SessionHub.Instance.Project(_s.Project);
-            GUI.color = SlopWidgets.Dim;
+            GUI.color = UiWidgets.Dim;
             l.Label(kind.ExplainText(this, project));
             GUI.color = Color.white;
         }
 
         void DrawCommand(Listing_Standard l, LibraryItemKindDescriptor kind)
         {
-            l.Gap(SlopWidgets.GapS);
+            l.Gap(UiWidgets.GapS);
             if (kind.CommandLabel == null)
             {
                 // Breadcrumbs have one text editor below, just like prompts. Keeping a
@@ -702,32 +702,32 @@ namespace SlopWorld
             }
 
             l.Label(kind.CommandLabel);
-            var box = l.GetRect(SlopWidgets.FieldH);
+            var box = l.GetRect(UiWidgets.FieldH);
             if (!string.IsNullOrEmpty((_s.Command ?? "").Trim()))
             {
-                _s.Command = SlopWidgets.Field(box, "library.command", _s.Command);
+                _s.Command = UiWidgets.Field(box, "library.command", _s.Command);
                 return;
             }
 
             string placeholder = kind.CommandPlaceholder(this);
-            GUI.color = SlopWidgets.Faint;
-            string shown = SlopWidgets.Field(box, "library.command", placeholder);
+            GUI.color = UiWidgets.Faint;
+            string shown = UiWidgets.Field(box, "library.command", placeholder);
             GUI.color = Color.white;
             if (shown != placeholder) _s.Command = shown;
         }
 
         float DrawTextEditor(Rect rect, float y)
         {
-            SlopWidgets.SectionHeading(new Rect(rect.x, y, rect.width, SlopWidgets.RowH),
+            UiWidgets.SectionHeading(new Rect(rect.x, y, rect.width, UiWidgets.RowH),
                 _s.Kind == LibraryItemKind.Shell || _s.Kind == LibraryItemKind.FileAction ? "Command line" :
                 _s.Kind == LibraryItemKind.Breadcrumb ? "Breadcrumb text" : "Prompt");
-            y += SlopWidgets.RowH + SlopWidgets.GapXS;
+            y += UiWidgets.RowH + UiWidgets.GapXS;
 
             if (_s.Kind != LibraryItemKind.FileAction)
             {
                 var area = new Rect(rect.x, y, rect.width,
-                    rect.yMax - SlopWidgets.BtnH - SlopWidgets.GapS - y);
-                _s.Text = SlopWidgets.Area(area, "library.text", _s.Text ?? "");
+                    rect.yMax - UiWidgets.BtnH - UiWidgets.GapS - y);
+                _s.Text = UiWidgets.Area(area, "library.text", _s.Text ?? "");
             }
             else
             {
@@ -738,9 +738,9 @@ namespace SlopWorld
 
         void DrawFooter(Rect rect)
         {
-            var foot = new SlopWidgets.Bar(SlopWidgets.FooterBar(rect));
-            if (foot.Left("Cancel", SlopWidgets.Btn.Ghost)) Close();
-            if (foot.Right("Save", SlopWidgets.Btn.Primary)) Save();
+            var foot = new UiWidgets.Bar(UiWidgets.FooterBar(rect));
+            if (foot.Left("Cancel", UiWidgets.Btn.Ghost)) Close();
+            if (foot.Right("Save", UiWidgets.Btn.Primary)) Save();
         }
 
         // The three answers, in the words the dropdown shows them in.

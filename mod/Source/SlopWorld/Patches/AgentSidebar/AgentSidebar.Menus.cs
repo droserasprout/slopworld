@@ -17,17 +17,17 @@ namespace SlopWorld
             var selected = StatusFilter;
             var opts = new List<FloatMenuOption>
             {
-                SlopWidgets.MenuToggle("All", selected == AgentStatusFilter.All,
+                UiWidgets.MenuToggle("All", selected == AgentStatusFilter.All,
                     () => SetAgentStatusAndReopen(AgentStatusFilter.All)),
-                SlopWidgets.MenuToggle("Active", (selected & AgentStatusFilter.Active) != 0,
+                UiWidgets.MenuToggle("Active", (selected & AgentStatusFilter.Active) != 0,
                     () => ToggleAgentStatus(AgentStatusFilter.Active)),
-                SlopWidgets.MenuToggle("Idle", (selected & AgentStatusFilter.Idle) != 0,
+                UiWidgets.MenuToggle("Idle", (selected & AgentStatusFilter.Idle) != 0,
                     () => ToggleAgentStatus(AgentStatusFilter.Idle)),
-                SlopWidgets.MenuToggle("Down", (selected & AgentStatusFilter.Down) != 0,
+                UiWidgets.MenuToggle("Down", (selected & AgentStatusFilter.Down) != 0,
                     () => ToggleAgentStatus(AgentStatusFilter.Down)),
             };
             TerminalWindow.OpenOverPane(
-                new SlopMenu(opts, new Vector2(_agentVisibilityRect.x, _agentVisibilityRect.yMax)));
+                new UiMenu(opts, new Vector2(_agentVisibilityRect.x, _agentVisibilityRect.yMax)));
         }
 
         static void SetAgentStatusAndReopen(AgentStatusFilter filter)
@@ -51,13 +51,13 @@ namespace SlopWorld
         {
             var opts = new List<FloatMenuOption>
             {
-                SlopWidgets.MenuToggle("Dotfiles", Settings.SidebarShowHidden,
+                UiWidgets.MenuToggle("Dotfiles", Settings.SidebarShowHidden,
                     () => { ToggleDotfiles(); OpenVisibilityMenu(); }),
-                SlopWidgets.MenuToggle("Gitignored", Settings.SidebarShowGitignored,
+                UiWidgets.MenuToggle("Gitignored", Settings.SidebarShowGitignored,
                     () => { ToggleGitignored(); OpenVisibilityMenu(); }),
             };
             TerminalWindow.OpenOverPane(
-                new SlopMenu(opts, new Vector2(_visibilityRect.x, _visibilityRect.yMax)));
+                new UiMenu(opts, new Vector2(_visibilityRect.x, _visibilityRect.yMax)));
         }
 
         static void Menus()
@@ -100,8 +100,8 @@ namespace SlopWorld
             bool alive = info != null && info.Alive;
             opts.Add(new FloatMenuOption(alive ? "Stop" : "Start", () =>
             {
-                if (alive) hub.Stop(name, SlopWidgets.Fail);
-                else hub.Start(name, SlopWidgets.Fail);
+                if (alive) hub.Stop(name, UiWidgets.Fail);
+                else hub.Start(name, UiWidgets.Fail);
             }));
 
             var term = new FloatMenuOption("Terminal", () => TerminalWindow.Open(name));
@@ -130,7 +130,7 @@ namespace SlopWorld
             if (info != null && !info.Host && !info.Worker && !string.IsNullOrEmpty(info.Project))
                 opts.Add(new FloatMenuOption("Shell", () =>
                     hub.Run(info.Project, "", "", session => TerminalWindow.Open(session),
-                        SlopWidgets.Fail, like: name)));
+                        UiWidgets.Fail, like: name)));
 
             if (info != null && !info.Ephemeral && !info.Host)
                 opts.Add(new FloatMenuOption("Storage", () => StoragePage.FocusAgent(name)));
@@ -139,19 +139,19 @@ namespace SlopWorld
                 opts.Add(new FloatMenuOption("Remove", () =>
                 {
                     var terminal = hub.Capabilities.TerminalName;
-                    TerminalWindow.OpenOverPane(SlopConfirmDialog.Create(
+                    TerminalWindow.OpenOverPane(ConfirmDialog.Create(
                         $"Remove {terminal} '{name}'? This kills its tmux pane and forgets " +
                         "the saved sidebar tab.",
-                        () => hub.Remove(name, SlopWidgets.Fail),
+                        () => hub.Remove(name, UiWidgets.Fail),
                         destructive: true));
                 }));
 
             if (info != null && !info.Ephemeral && !info.Host)
                 opts.Add(new FloatMenuOption("Remove", () =>
-                    TerminalWindow.OpenOverPane(SlopConfirmDialog.Create(
+                    TerminalWindow.OpenOverPane(ConfirmDialog.Create(
                         $"Remove session '{name}'? This kills it, drops it from config.toml, and moves " +
                         "its private state to recoverable trash for 14 days.",
-                        () => hub.Remove(name, SlopWidgets.Fail),
+                        () => hub.Remove(name, UiWidgets.Fail),
                         destructive: true))));
 
             // Unlike the core's colony-wide reroll, a row owns one particular agent.
@@ -161,7 +161,7 @@ namespace SlopWorld
                     if (!pawn.Destroyed) AgentLook.Reroll(pawn);
                 }));
 
-            TerminalWindow.OpenOverPane(new SlopMenu(opts));
+            TerminalWindow.OpenOverPane(new UiMenu(opts));
         }
 
         static void HeadMenu(Head head)
@@ -179,7 +179,7 @@ namespace SlopWorld
                     TerminalWindow.OpenOverPane(EditProjectDialog.Copy(p))),
                 new FloatMenuOption("Terminal (host)", () =>
                     hub.RunHostShell(name, session => TerminalWindow.Open(session),
-                        SlopWidgets.Fail)),
+                        UiWidgets.Fail)),
             };
 
             int agents = 0;
@@ -188,15 +188,15 @@ namespace SlopWorld
 
             var del = new FloatMenuOption(
                 agents > 0 ? $"Delete ({agents} agent{(agents == 1 ? "" : "s")} in it)" : "Delete",
-                () => TerminalWindow.OpenOverPane(SlopConfirmDialog.Create(
+                () => TerminalWindow.OpenOverPane(ConfirmDialog.Create(
                     $"Remove project '{name}'? The directory is left alone; only the entry " +
                     "in config.toml goes.",
-                    () => hub.RemoveProject(name, SlopWidgets.Fail),
+                    () => hub.RemoveProject(name, UiWidgets.Fail),
                     destructive: true)));
             del.Disabled = agents > 0;
             opts.Add(del);
 
-            TerminalWindow.OpenOverPane(new SlopMenu(opts));
+            TerminalWindow.OpenOverPane(new UiMenu(opts));
         }
 
         static bool AddClick()
@@ -217,12 +217,12 @@ namespace SlopWorld
                     TerminalWindow.OpenOverPane(new EditSessionDialog(null))),
                 new FloatMenuOption("Task", () =>
                     TerminalWindow.OpenOverPane(new DelegateTaskDialog(null))),
-                new SlopSubmenu("Library", LibraryItemOptions),
-                new FloatMenuOption("Sandbox preset...", SlopOptions.OpenNewSandboxPreset),
-                new FloatMenuOption("Command...", SlopOptions.OpenNewCommand),
-                new SlopSubmenu("Host shell", HostShellOptions),
+                new UiSubmenu("Library", LibraryItemOptions),
+                new FloatMenuOption("Sandbox preset...", ModOptions.OpenNewSandboxPreset),
+                new FloatMenuOption("Command...", ModOptions.OpenNewCommand),
+                new UiSubmenu("Host shell", HostShellOptions),
             };
-            TerminalWindow.OpenOverPane(new SlopMenu(opts));
+            TerminalWindow.OpenOverPane(new UiMenu(opts));
             return true;
         }
 
@@ -244,7 +244,7 @@ namespace SlopWorld
             {
                 new FloatMenuOption("~", () =>
                     SessionHub.Instance.RunHostShell("",
-                        session => TerminalWindow.Open(session), SlopWidgets.Fail)),
+                        session => TerminalWindow.Open(session), UiWidgets.Fail)),
             };
             foreach (var p in SessionHub.Instance.Projects)
             {
@@ -252,7 +252,7 @@ namespace SlopWorld
                 string name = p.Name;
                 options.Add(new FloatMenuOption($"{name}  -  {p.Dir}", () =>
                     SessionHub.Instance.RunHostShell(name,
-                        session => TerminalWindow.Open(session), SlopWidgets.Fail)));
+                        session => TerminalWindow.Open(session), UiWidgets.Fail)));
             }
             return options;
         }
@@ -261,7 +261,7 @@ namespace SlopWorld
         {
             var opts = new List<FloatMenuOption>
             {
-                SlopWidgets.MenuToggle("All projects", !Filtering, () => Tick("")),
+                UiWidgets.MenuToggle("All projects", !Filtering, () => Tick("")),
             };
 
             // Ordered the way every view orders its headings, so the menu and the column
@@ -272,14 +272,14 @@ namespace SlopWorld
             foreach (var name in names)
             {
                 var key = name;
-                opts.Add(SlopWidgets.MenuToggle(key, Ticked(key), () => Tick(key)));
+                opts.Add(UiWidgets.MenuToggle(key, Ticked(key), () => Tick(key)));
             }
 
-            opts.Add(SlopWidgets.MenuToggle(NoProject, Ticked(NoProject),
+            opts.Add(UiWidgets.MenuToggle(NoProject, Ticked(NoProject),
                 () => Tick(NoProject)));
 
             TerminalWindow.OpenOverPane(
-                new SlopMenu(opts, new Vector2(FilterRect.x, FilterRect.yMax)));
+                new UiMenu(opts, new Vector2(FilterRect.x, FilterRect.yMax)));
         }
 
         static void Tick(string key)

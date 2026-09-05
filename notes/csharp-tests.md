@@ -13,7 +13,7 @@ to stay out of the mod's `Assemblies/` directory because RimWorld loads every
 DLL there.
 
 The useful first layer is a separate C# test project for code that does not need
-the game: `JVal`, `SlopConfig`, `Fuzzy`, SGR parsing, color/theme parsing,
+the game: `JVal`, `DaemonConfig`, `Fuzzy`, SGR parsing, color/theme parsing,
 endpoint normalization, and layout calculations. Keep those helpers separate
 from Unity/game calls and run them in CI. Patch binding, critical `GameComponent`
 behavior, pixel layout, and most Harmony details remain in-game checks.
@@ -31,7 +31,7 @@ tests reference; do that only once the linked-file project proves the units wort
 keeping.
 
 The project covers, all linked into `mod/Tests/`: `Client/Json.cs` (`JVal` round-trip),
-`Client/Toml.cs`, `Client/SlopConfig.cs`, `Client/Endpoint.cs` (normalization),
+`Client/Toml.cs`, `Client/DaemonConfig.cs`, `Client/Endpoint.cs` (normalization),
 `UI/Fuzzy.cs` (match scoring/ranking), the split `Client/SessionHub/` DTOs
 (`DnsConfig.TryParseServers`, `NetworkModeText.Parse`, `SessionLimits.FromJson`/`ToJson`,
 `SessionInfo`/`ScreenBuf` JSON parsing), and — carved out to make them game-free —

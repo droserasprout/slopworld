@@ -8,7 +8,7 @@ namespace SlopWorld
     // The runner marks its own `-savedatafolder=`. Refuse unmarked installs before Harmony,
     // stat or XML work; this mod replaces the sim and adds defs, faction/calendar changes and
     // music changes that must not touch a vanilla game.
-    public static class SlopProfile
+    public static class ModProfile
     {
         // Written by `slopworld`; see slopd/src/bin/slopworld.rs.
         public const string Marker = "slopworld.profile";
@@ -79,9 +79,9 @@ namespace SlopWorld
                     "starts the game there. `make install` puts the runner on your PATH.\n\n" +
                     "This folder: " + Folder;
 
-                Find.WindowStack.Add(SlopAlertDialog.Create(
+                Find.WindowStack.Add(AlertDialog.Create(
                     "SlopWorld", text, "Quit", Root.Shutdown, "Close", null,
-                    SlopWidgets.Btn.Danger));
+                    UiWidgets.Btn.Danger));
             });
         }
     }
@@ -93,6 +93,6 @@ namespace SlopWorld
     {
         // True either way - a false is what makes the game log a failed patch.
         protected override bool ApplyWorker(XmlDocument xml) =>
-            !SlopProfile.Ok || base.ApplyWorker(xml);
+            !ModProfile.Ok || base.ApplyWorker(xml);
     }
 }

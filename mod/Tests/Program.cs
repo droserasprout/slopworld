@@ -14,8 +14,8 @@ namespace SlopWorld.Tests
                 tests.Add(("Fuzzy: " + test.Name, test.Body));
             foreach (var test in TomlTests.Cases())
                 tests.Add(("TOML: " + test.Name, test.Body));
-            foreach (var test in SlopConfigTests.Cases())
-                tests.Add(("SlopConfig: " + test.Name, test.Body));
+            foreach (var test in DaemonConfigTests.Cases())
+                tests.Add(("DaemonConfig: " + test.Name, test.Body));
             foreach (var test in EndpointTests.Cases())
                 tests.Add(("Endpoint: " + test.Name, test.Body));
             foreach (var test in NetworkModeTests.Cases())

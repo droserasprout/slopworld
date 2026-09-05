@@ -82,7 +82,7 @@ namespace SlopWorld
                 return;
             }
 
-            SlopClient.Get("/api/read?path=" + Uri.EscapeDataString(_path),
+            DaemonClient.Get("/api/read?path=" + Uri.EscapeDataString(_path),
                 j =>
                 {
                     if (!IsCurrent(request)) return;
@@ -119,7 +119,7 @@ namespace SlopWorld
             if (_loading || _blocks == null)
             {
                 Status(body, _error ?? "Loading Markdown…", _error == null
-                    ? SlopWidgets.Dim : SlopWidgets.Bad);
+                    ? UiWidgets.Dim : UiWidgets.Bad);
                 return;
             }
 
@@ -138,7 +138,7 @@ namespace SlopWorld
                 _layout.Reflow(_blocks, body.width);
                 _selection.Rebuild(_layout.Placements);
                 float settledWidth = _layout.Height > body.height
-                    ? Mathf.Max(1f, body.width - SlopWidgets.ScrollbarW)
+                    ? Mathf.Max(1f, body.width - UiWidgets.ScrollbarW)
                     : body.width;
                 _layout.Reflow(_blocks, settledWidth);
                 _selection.Rebuild(_layout.Placements);
@@ -185,7 +185,7 @@ namespace SlopWorld
             string name = System.IO.Path.GetFileName(path);
             if (!FilesView.IsText(name))
             {
-                SlopWidgets.Fail("binary local links are not previewable");
+                UiWidgets.Fail("binary local links are not previewable");
                 return;
             }
             if (FilesView.IsMarkdown(name))

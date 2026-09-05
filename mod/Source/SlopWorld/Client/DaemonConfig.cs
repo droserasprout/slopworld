@@ -8,7 +8,7 @@ namespace SlopWorld
     // to speak TOML. This is a read model for the settings pages, not a second schema for
     // the whole daemon config. Writes are partial patches, so fields not represented here
     // remain untouched on the server.
-    public class SlopConfig
+    public class DaemonConfig
     {
         public const string DefaultInstructionsTemplate =
             "# SlopWorld agent context\n\n" +
@@ -100,13 +100,13 @@ namespace SlopWorld
         public string Editor = "micro";
         public string Highlighter = "highlight --out-format=xterm256";
 
-        public static SlopConfig FromJson(JVal v)
+        public static DaemonConfig FromJson(JVal v)
         {
             var d = v["daemon"];
             var f = v["defaults"];
             var c = v["commands"];
             var i = d["instructions"];
-            return new SlopConfig
+            return new DaemonConfig
             {
                 UsagePollSecs = d["usage_poll_secs"].AsInt(60),
                 UsageItems = UsageItemsFromJson(d["usage_items"]),

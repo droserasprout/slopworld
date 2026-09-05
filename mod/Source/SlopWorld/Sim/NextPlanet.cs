@@ -220,7 +220,7 @@ namespace SlopWorld
 
         static Thing TheCore(Map map)
         {
-            var found = map?.listerThings.ThingsOfDef(SlopDefOf.Ship_ComputerCore);
+            var found = map?.listerThings.ThingsOfDef(ModDefOf.Ship_ComputerCore);
             return found != null && found.Count > 0 ? found[0] : null;
         }
 

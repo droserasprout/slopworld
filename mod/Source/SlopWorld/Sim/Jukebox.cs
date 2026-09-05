@@ -14,7 +14,7 @@ namespace SlopWorld
         // Keep one box on load; AgentColony's latch prevents new duplicates.
         public override void FinalizeInit()
         {
-            var boxes = map.listerThings.ThingsOfDef(SlopDefOf.SlopJukebox);
+            var boxes = map.listerThings.ThingsOfDef(ModDefOf.SlopJukebox);
             if (boxes.Count < 2) return;
 
             int extra = boxes.Count - 1;
@@ -31,7 +31,7 @@ namespace SlopWorld
             if (Cutscene.Playing || TerminalWindow.Covering) return;
 
             var cell = UI.MouseCell();
-            var box = map.thingGrid.ThingAt(cell, SlopDefOf.SlopJukebox);
+            var box = map.thingGrid.ThingAt(cell, ModDefOf.SlopJukebox);
             if (box == null) return;
 
             Tip(cell);
@@ -47,7 +47,7 @@ namespace SlopWorld
         // map or terminal rendering.
         public static void OpenMenu()
         {
-            TerminalWindow.OpenOverPane(new SlopMenu(MenuOptions()));
+            TerminalWindow.OpenOverPane(new UiMenu(MenuOptions()));
         }
 
         static List<FloatMenuOption> MenuOptions()
@@ -59,20 +59,20 @@ namespace SlopWorld
             {
                 return new List<FloatMenuOption>
                 {
-                    SlopWidgets.MenuToggle("Mute", Radio.Muted, Radio.ToggleMute),
-                    new FloatMenuOption("Settings", SlopOptions.OpenAudioTab),
+                    UiWidgets.MenuToggle("Mute", Radio.Muted, Radio.ToggleMute),
+                    new FloatMenuOption("Settings", ModOptions.OpenAudioTab),
                 };
             }
 
             return new List<FloatMenuOption>
             {
-                new SlopSubmenu(PlayRow(), StationOptions),
+                new UiSubmenu(PlayRow(), StationOptions),
                 RecognizeRow(),
                 new FloatMenuOption("Like", Radio.Like),
                 new FloatMenuOption("History", JukeboxHistoryView.Open),
-                SlopWidgets.MenuToggle("Mute", Radio.Muted, Radio.ToggleMute),
-                SlopWidgets.MenuToggle("Stop on exit", Radio.StopOnExit, Radio.ToggleStopOnExit),
-                new FloatMenuOption("Settings", SlopOptions.OpenAudioTab),
+                UiWidgets.MenuToggle("Mute", Radio.Muted, Radio.ToggleMute),
+                UiWidgets.MenuToggle("Stop on exit", Radio.StopOnExit, Radio.ToggleStopOnExit),
+                new FloatMenuOption("Settings", ModOptions.OpenAudioTab),
             };
         }
 
@@ -148,7 +148,7 @@ namespace SlopWorld
             foreach (var station in Radio.Stations)
             {
                 var s = station; // the closure outlives the loop
-                options.Add(new SlopSubmenu(StationRow(s), () => Presets(s)));
+                options.Add(new UiSubmenu(StationRow(s), () => Presets(s)));
             }
             return options;
         }
@@ -183,6 +183,6 @@ namespace SlopWorld
         // Whether the colony has its jukebox already. AgentColony asks before it packs
         // another into a pod.
         public static bool On(Map map) =>
-            map != null && map.listerThings.ThingsOfDef(SlopDefOf.SlopJukebox).Count > 0;
+            map != null && map.listerThings.ThingsOfDef(ModDefOf.SlopJukebox).Count > 0;
     }
 }

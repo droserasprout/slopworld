@@ -70,7 +70,7 @@ namespace SlopWorld
             if (Cutscene.Playing || TerminalWindow.Covering) return;
 
             var cell = UI.MouseCell();
-            var core = map.thingGrid.ThingAt(cell, SlopDefOf.Ship_ComputerCore);
+            var core = map.thingGrid.ThingAt(cell, ModDefOf.Ship_ComputerCore);
             bool over = core != null;
 
             // LMB on the core opens the context menu. Only if no float menu is already up.
@@ -108,7 +108,7 @@ namespace SlopWorld
 
             // The core's own cell, not the cell under the mouse: the hint must
             // survive the cursor leaving it.
-            var still = map.thingGrid.ThingAt(_stickyCell, SlopDefOf.Ship_ComputerCore);
+            var still = map.thingGrid.ThingAt(_stickyCell, ModDefOf.Ship_ComputerCore);
             if (still == null)
             {
                 _sticky = false;
@@ -135,7 +135,7 @@ namespace SlopWorld
 
             // A floating rectangular panel, not vanilla's window: this is a hint over the
             // map, on the same surface the command palette uses.
-            Slab.Box(tipRect, SlopWidgets.PopoverBg, SlopWidgets.Edge);
+            Slab.Box(tipRect, UiWidgets.PopoverBg, UiWidgets.Edge);
             var inner = tipRect.ContractedBy(8f);
             Widgets.Label(inner, _stickyTip);
             Text.WordWrap = false;
@@ -204,21 +204,21 @@ namespace SlopWorld
 
             // OpenOverPane rather than a plain Add: the status bar is drawn over a terminal
             // as well as over the map, and a menu opened from it belongs above both.
-            TerminalWindow.OpenOverPane(new SlopMenu(options));
+            TerminalWindow.OpenOverPane(new UiMenu(options));
         }
 
         // Where the core stands, or Invalid with none - which is a hint that dismisses itself
         // on the next frame and two rows that never wanted a cell.
         static IntVec3 Cell(Map map)
         {
-            var cores = map.listerThings.ThingsOfDef(SlopDefOf.Ship_ComputerCore);
+            var cores = map.listerThings.ThingsOfDef(ModDefOf.Ship_ComputerCore);
             return cores.Count > 0 ? cores[0].Position : IntVec3.Invalid;
         }
 
         // Whether this map has one. The status bar asks before it draws the icon: a door onto
         // a thing that is not there is not a door.
         public static bool On(Map map) =>
-            map != null && map.listerThings.ThingsOfDef(SlopDefOf.Ship_ComputerCore).Count > 0;
+            map != null && map.listerThings.ThingsOfDef(ModDefOf.Ship_ComputerCore).Count > 0;
 
         // Show or refresh the sticky hint. Called from the context menu.
         void HintAction()

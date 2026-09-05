@@ -9,17 +9,17 @@ namespace SlopWorld
     static class ViewChrome
     {
         const float Indent = 11f;
-        const float Pad = SlopWidgets.GapS;
-        const float CellX = SlopWidgets.GapS;
+        const float Pad = UiWidgets.GapS;
+        const float CellX = UiWidgets.GapS;
 
-        static float RowH => SlopWidgets.TinyRowH;
+        static float RowH => UiWidgets.TinyRowH;
 
         public static void Empty(Rect body)
         {
             var r = new Rect(CellX, body.y + Pad, body.width - CellX * 2f, RowH * 3f);
             using (WidgetState.Save())
             {
-                GUI.color = SlopWidgets.Faint;
+                GUI.color = UiWidgets.Faint;
                 Text.Font = GameFont.Tiny;
                 Text.Anchor = TextAnchor.UpperLeft;
                 Widgets.Label(r, SessionHub.Instance.Online
@@ -47,7 +47,7 @@ namespace SlopWorld
                 Text.Font = GameFont.Tiny;
                 Text.Anchor = TextAnchor.MiddleLeft;
                 var r = new Rect(x, y, width - x - Pad, RowH);
-                SlopWidgets.RowLabel(r, text);
+                UiWidgets.RowLabel(r, text);
             }
             return y + RowH;
         }

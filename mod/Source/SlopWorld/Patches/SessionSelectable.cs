@@ -95,57 +95,57 @@ namespace SlopWorld
 
         Gizmo BuildTerminalGizmo(AgentState state)
         {
-            return new SlopCommandAction(SlopWidgets.Btn.Default)
+            return new UiCommandAction(UiWidgets.Btn.Default)
             {
                 defaultLabel = "Terminal",
                 defaultDesc = $"Open the terminal for '{Session}'.\nState: {state.ToString().ToLower()}",
                 icon = Icons.Terminal,
                 defaultIconColor = TerminalWindow.StateColor(state),
-                hotKey = SlopDefOf.SlopOpenTerminal,
+                hotKey = ModDefOf.SlopOpenTerminal,
                 action = () => TerminalWindow.Open(Session),
             };
         }
 
         Gizmo BuildStopGizmo()
         {
-            return new SlopCommandAction(SlopWidgets.Btn.Default)
+            return new UiCommandAction(UiWidgets.Btn.Default)
             {
                 defaultLabel = "Stop",
                 defaultDesc = $"Stop '{Session}'. The colonist stays on the floor "
                             + "until the process runs again.",
                 icon = Icons.Stop,
-                defaultIconColor = SlopWidgets.Bad,
-                hotKey = SlopDefOf.SlopToggleSession,
-                action = () => Find.WindowStack.Add(SlopConfirmDialog.Create(
+                defaultIconColor = UiWidgets.Bad,
+                hotKey = ModDefOf.SlopToggleSession,
+                action = () => Find.WindowStack.Add(ConfirmDialog.Create(
                     $"Stop '{Session}'? This kills the tmux session; whatever the agent "
                   + "is in the middle of goes with it.",
-                    () => SessionHub.Instance.Stop(Session, SlopWidgets.Fail),
+                    () => SessionHub.Instance.Stop(Session, UiWidgets.Fail),
                     destructive: true)),
             };
         }
 
         Gizmo BuildStartGizmo()
         {
-            return new SlopCommandAction(SlopWidgets.Btn.Default)
+            return new UiCommandAction(UiWidgets.Btn.Default)
             {
                 defaultLabel = "Start",
                 defaultDesc = $"Start '{Session}' and put its colonist back on its feet.",
                 icon = Icons.Play,
-                defaultIconColor = SlopWidgets.Yes,
-                hotKey = SlopDefOf.SlopToggleSession,
-                action = () => SessionHub.Instance.Start(Session, SlopWidgets.Fail),
+                defaultIconColor = UiWidgets.Yes,
+                hotKey = ModDefOf.SlopToggleSession,
+                action = () => SessionHub.Instance.Start(Session, UiWidgets.Fail),
             };
         }
 
         Gizmo BuildEditGizmo()
         {
-            return new SlopCommandAction(SlopWidgets.Btn.Default)
+            return new UiCommandAction(UiWidgets.Btn.Default)
             {
                 defaultLabel = "Edit",
                 defaultDesc = $"Edit '{Session}': name, project, command, or sandbox.",
                 icon = Icons.Edit,
-                defaultIconColor = SlopWidgets.Accent,
-                hotKey = SlopDefOf.SlopEditSession,
+                defaultIconColor = UiWidgets.Accent,
+                hotKey = ModDefOf.SlopEditSession,
                 action = () =>
                 {
                     var current = SessionHub.Instance.Get(Session);
@@ -158,44 +158,44 @@ namespace SlopWorld
 
         Gizmo BuildLabelGizmo(string label)
         {
-            return new SlopCommandAction(SlopWidgets.Btn.Default)
+            return new UiCommandAction(UiWidgets.Btn.Default)
             {
                 defaultLabel = "Label",
                 defaultDesc = string.IsNullOrWhiteSpace(label)
                     ? $"Set a manual summary label for '{Session}'. This disables automatic summaries."
                     : $"Change or remove '{Session}'s manual label. Removing it re-enables automatic summaries.",
                 icon = Icons.Type,
-                defaultIconColor = SlopWidgets.Accent,
+                defaultIconColor = UiWidgets.Accent,
                 action = () => LabelDialog.Open(Session, label),
             };
         }
 
         Gizmo BuildDuplicateGizmo(SessionInfo info)
         {
-            return new SlopCommandAction(SlopWidgets.Btn.Default)
+            return new UiCommandAction(UiWidgets.Btn.Default)
             {
                 defaultLabel = "Duplicate",
                 defaultDesc = $"Duplicate '{Session}' as a new agent in {info.Project}.",
                 icon = Icons.Add,
-                defaultIconColor = SlopWidgets.Accent,
-                hotKey = SlopDefOf.SlopDuplicateSession,
+                defaultIconColor = UiWidgets.Accent,
+                hotKey = ModDefOf.SlopDuplicateSession,
                 action = () => TerminalWindow.OpenOverPane(EditSessionDialog.Copy(info)),
             };
         }
 
         Gizmo BuildRemoveGizmo()
         {
-            return new SlopCommandAction(SlopWidgets.Btn.Default)
+            return new UiCommandAction(UiWidgets.Btn.Default)
             {
                 defaultLabel = "Remove",
                 defaultDesc = $"Remove '{Session}' and its private state.",
                 icon = Icons.Cross,
-                defaultIconColor = SlopWidgets.Bad,
-                hotKey = SlopDefOf.SlopRemoveSession,
-                action = () => Find.WindowStack.Add(SlopConfirmDialog.Create(
+                defaultIconColor = UiWidgets.Bad,
+                hotKey = ModDefOf.SlopRemoveSession,
+                action = () => Find.WindowStack.Add(ConfirmDialog.Create(
                     $"Remove session '{Session}'? This kills it, drops it from config.toml, and moves " +
                     "its private state to recoverable trash for 14 days.",
-                    () => SessionHub.Instance.Remove(Session, SlopWidgets.Fail), destructive: true)),
+                    () => SessionHub.Instance.Remove(Session, UiWidgets.Fail), destructive: true)),
             };
         }
 

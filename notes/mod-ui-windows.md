@@ -11,7 +11,7 @@ their editors open above the chrome with `TerminalWindow.OpenOverPane`.
   `Sandbox` edits copied/user sandbox presets; builtins are read-only until copied.
   `Commands > Defaults` edits machine-wide command defaults; `Commands > Presets` edits the
   daemon's command definitions, which choose the sandbox presets an agent receives.
-- `SlopConfirmDialog` and `SlopAlertDialog` own mod message surfaces instead of vanilla
+- `ConfirmDialog` and `AlertDialog` own mod message surfaces instead of vanilla
   message boxes. They use the shared window/buttons and wrapped text; Enter activates the
   primary action and Escape cancels. Single-line editors use the same accept/cancel path;
   multiline editors keep Enter for newlines. Confirmations retain `OpenOverPane` layering
@@ -36,12 +36,12 @@ their editors open above the chrome with `TerminalWindow.OpenOverPane`.
   and `Terminal` children: `AppearancePage` owns global scale, scheme, font and cursor,
   while `TerminalPage` owns pane font, theme and cursor color. Scale applies on release
   because live scaling moves the slider.
-- `AudioPage` keeps vanilla volume in `Prefs` and jukebox state in `SlopSettings`.
+- `AudioPage` keeps vanilla volume in `Prefs` and jukebox state in `ModSettings`.
   `LibraryView` runs daemon errands; ask-style errands choose a project or temp agent.
 
 ## Settings column
 
-`SlopOptions.Column` is the row table: def, icon, page delegate and optional parent.
+`ModOptions.Column` is the row table: def, icon, page delegate and optional parent.
 One prefix draws categories and one dispatches pages; unknown categories fall through
 to vanilla. Children indent and an empty parent opens its first child.
 
@@ -63,5 +63,5 @@ redraw from command state: Space toggles and stays open, Enter toggles and close
 `Fuzzy` matches every query term as an ordered subsequence and ranks heads, boundaries,
 runs and whole terms.
 
-`View: Zoom In/Out` changes `SlopUIScale` by 0.25 and saves immediately. There is no
+`View: Zoom In/Out` changes `UiScale` by 0.25 and saves immediately. There is no
 separate sandbox toggle: all agents are sandboxed and project presets define access.

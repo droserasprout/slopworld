@@ -34,15 +34,15 @@ namespace SlopWorld
         const float Floor = 0.3f;
         const float Ceiling = 1f;
 
-        static float HeadH => SlopWidgets.TinyRowH;
+        static float HeadH => UiWidgets.TinyRowH;
         static float AddH => TopBar.H;
 
-        const float AddIcon = SlopWidgets.IconW;
-        const float Pad = SlopWidgets.GapS;
+        const float AddIcon = UiWidgets.IconW;
+        const float Pad = UiWidgets.GapS;
         // Portraits touch the screen edge; CellX remains the inset for labels and chrome.
         const float PortraitX = 0f;
-        const float CellX = SlopWidgets.GapS;
-        const float TextGap = SlopWidgets.GapS;
+        const float CellX = UiWidgets.GapS;
+        const float TextGap = UiWidgets.GapS;
 
         // The shared tabs/filter row is followed by an optional right-aligned view-action row;
         // `TabH` includes both when present.
@@ -50,14 +50,14 @@ namespace SlopWorld
         public static float TabH => TabRowH + (HasActions ? TabRowH : 0f);
         const float TabIcon = 20f;
 
-        const float RowGap = SlopWidgets.GapXS;
+        const float RowGap = UiWidgets.GapXS;
 
         static float GhostH => NameH + 2f;
         // Child workers get a single compact line and a small robot mark instead of a portrait.
-        static float WorkerH => SlopWidgets.LineHOf(GameFont.Tiny) + 2f;
+        static float WorkerH => UiWidgets.LineHOf(GameFont.Tiny) + 2f;
 
-        static float NameH => SlopWidgets.LineHOf(GameFont.Small);
-        static float SubH => SlopWidgets.TinyH;
+        static float NameH => UiWidgets.LineHOf(GameFont.Small);
+        static float SubH => UiWidgets.TinyH;
 
         // Compact rows keep the name and summary, but do not reserve the unused third line.
         static float TextH => NameH + SubH * (CompactView ? 1f : 2f);

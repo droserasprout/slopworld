@@ -20,7 +20,7 @@ namespace SlopWorld
 
         static string OstPath()
         {
-            var root = SlopWorldMod.Instance?.Content?.RootDir;
+            var root = ModEntry.Instance?.Content?.RootDir;
             return string.IsNullOrEmpty(root)
                 ? null
                 : System.IO.Path.Combine(root, "Sounds", "SlopWorld", "OST");
@@ -212,7 +212,7 @@ namespace SlopWorld
             string now = NowPlaying;
             if (string.IsNullOrEmpty(now))
             {
-                SlopWidgets.Fail("nothing is playing");
+                UiWidgets.Fail("nothing is playing");
                 return;
             }
 
@@ -239,7 +239,7 @@ namespace SlopWorld
             catch (Exception e)
             {
                 Log.Error("[SlopWorld] jukebox: could not save liked song: " + e);
-                SlopWidgets.Fail("could not save liked song");
+                UiWidgets.Fail("could not save liked song");
             }
         }
 
