@@ -7,6 +7,7 @@ Keep this file concise. Update its curated links when notes are added, moved, or
 
 Essentials:
 
+- Use `make` for all project commands.
 - [overview](notes/overview.md) — what this is
 - [index](notes/index.md) — all devnotes
 - [build-commands](notes/build-commands.md) — make, format, debug
