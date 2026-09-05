@@ -12,11 +12,15 @@ Project directories are read-write, and agents can modify anything inside them.
 | Agent private state | `~/.local/share/slopworld/sessions/` | Per-agent tool state, history, configuration copies. |
 | Game profile | `~/.local/share/slopworld/profile` | Saves, screenshots, mod settings. |
 | Jukebox data | `~/.local/share/slopworld/jukebox/` | User-defined radio stations. |
+| Jukebox likes | `~/.local/share/slopworld/jukebox.toml` | Liked songs. |
 | Task mailbox | `~/.config/slopworld/tasks.toml` | Delegated task state. |
 
-The daemon token lives in `~/.config/slopworld/endpoint.toml` and is regenerated on
-first run if missing. Prompt summaries and session activity are cached and can be
-regenerated.
+The daemon token is stored authoritatively in `[daemon].token` in
+`~/.config/slopworld/config.toml`. The daemon generates
+`~/.config/slopworld/endpoint.toml` as a 0600 URL-and-token descriptor; if that descriptor
+is missing, it is recreated from the configuration while the daemon starts. Back up
+`config.toml`, not just the endpoint descriptor. Prompt summaries and session activity are
+cached and can be regenerated.
 
 ## Restart vs. reset vs. delete
 
