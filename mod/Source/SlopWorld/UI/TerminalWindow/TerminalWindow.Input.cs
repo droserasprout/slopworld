@@ -134,20 +134,7 @@ namespace SlopWorld
                 return;
             }
 
-            int slot = TerminalHotkeys.SlotKey(e);
-            if (slot >= 0 && e.alt)
-            {
-                SwitchToSlot(slot);
-                e.Use();
-                return;
-            }
-
-            if (TryTabWalkDirection(e, out var dir))
-            {
-                WalkSession(dir);
-                e.Use();
-                return;
-            }
+            if (TryHandleSessionNavigation(e)) return;
         }
 
         public void CaptureSemicolonInput()
@@ -267,20 +254,7 @@ namespace SlopWorld
 
             // Ahead of the offline check: switching is local and the subscription survives a
             // dead socket, so a pane that will not change during a redeploy reads as hung.
-            int slot = TerminalHotkeys.SlotKey(e);
-            if (slot >= 0 && e.alt)
-            {
-                SwitchToSlot(slot);
-                e.Use();
-                return;
-            }
-
-            if (TryTabWalkDirection(e, out var dir))
-            {
-                WalkSession(dir);
-                e.Use();
-                return;
-            }
+            if (TryHandleSessionNavigation(e)) return;
 
             // Offline the hub drops sends, so count them for the banner rather than letting
             // the terminal silently eat what was typed.
@@ -327,6 +301,27 @@ namespace SlopWorld
 
             if (e.keyCode != KeyCode.None)
                 e.Use(); // swallow it so RimWorld hotkeys don't fire behind us
+        }
+
+        // Session changes are local and remain available while the daemon is offline. Both the
+        // chrome and pane handlers call this only after their own distinct gates have run.
+        internal bool TryHandleSessionNavigation(Event e)
+        {
+            int slot = TerminalHotkeys.SlotKey(e);
+            if (slot >= 0 && e.alt)
+            {
+                SwitchToSlot(slot);
+                e.Use();
+                return true;
+            }
+
+            if (TryTabWalkDirection(e, out var dir))
+            {
+                WalkSession(dir);
+                e.Use();
+                return true;
+            }
+            return false;
         }
 
         internal bool HandleEscapeKey(Event e)

@@ -1,6 +1,6 @@
 //! Fallback daemon-side state ages for sessions that outlive a daemon restart.
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -175,21 +175,11 @@ fn trim_entries_in_place(entries: &mut Vec<CacheEntry>) {
 }
 
 fn save_cache(path: &Path, entries: &[CacheEntry]) -> Result<()> {
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent)?;
-    }
-    let tmp = path.with_extension("toml.tmp");
     let file = CacheFile {
         version: CACHE_VERSION,
         entries: entries.to_vec(),
     };
-    fs::write(&tmp, toml::to_string_pretty(&file)?)?;
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        fs::set_permissions(&tmp, fs::Permissions::from_mode(0o600))?;
-    }
-    fs::rename(&tmp, path).with_context(|| format!("installing {}", path.display()))
+    crate::paths::write_private_toml(path, &toml::to_string_pretty(&file)?)
 }
 
 #[cfg(test)]

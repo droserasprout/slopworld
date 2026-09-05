@@ -3,7 +3,6 @@
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::sync::{OnceLock, RwLock};
-use std::time::SystemTime;
 
 use anyhow::{bail, Context, Result};
 use serde::{Deserialize, Serialize};
@@ -227,21 +226,6 @@ pub fn catalog() -> Catalog {
 
 pub fn reload() {
     *cell().write().unwrap() = Catalog::load();
-}
-
-pub fn dir_stamp() -> Option<SystemTime> {
-    let dir = Catalog::dir();
-    let entries = std::fs::read_dir(&dir).ok()?;
-    let newest = entries
-        .filter_map(|e| e.ok())
-        .filter_map(|e| e.metadata().ok())
-        .filter_map(|m| m.modified().ok())
-        .max();
-    let own = std::fs::metadata(&dir).ok().and_then(|m| m.modified().ok());
-    match (newest, own) {
-        (Some(a), Some(b)) => Some(a.max(b)),
-        (a, b) => a.or(b),
-    }
 }
 
 #[cfg(test)]

@@ -10,6 +10,7 @@ Essentials:
 - [overview](notes/overview.md) — what this is
 - [index](notes/index.md) — all devnotes
 - [build-commands](notes/build-commands.md) — make, format, debug
+- [duplication-refactor-plan](notes/duplication-refactor-plan.md) — static-analysis findings and refactor order
 - [paths](notes/paths.md) — config, logs, tmux socket
 - [config-stores](notes/config-stores.md) — daemon & mod config files
 - [wire-protocol](notes/wire-protocol.md) — WS events & HTTP routes

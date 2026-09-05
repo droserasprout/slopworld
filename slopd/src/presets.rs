@@ -411,24 +411,6 @@ pub fn reload() {
     *cell().write().unwrap() = fresh;
 }
 
-/// The newest mtime in the user directory, so the caller can reload on the same terms
-/// `config.toml` is re-read on. `None` when there is no directory to watch.
-pub fn dir_stamp() -> Option<std::time::SystemTime> {
-    let dir = Table::dir();
-    let entries = std::fs::read_dir(&dir).ok()?;
-    let newest = entries
-        .filter_map(|e| e.ok())
-        .filter_map(|e| e.metadata().ok())
-        .filter_map(|m| m.modified().ok())
-        .max();
-    // The directory's own mtime as well, or a deleted file reads as no change at all.
-    let own = std::fs::metadata(&dir).ok().and_then(|m| m.modified().ok());
-    match (newest, own) {
-        (Some(a), Some(b)) => Some(a.max(b)),
-        (a, b) => a.or(b),
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
