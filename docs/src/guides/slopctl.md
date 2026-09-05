@@ -24,10 +24,10 @@ slopctl inbox                                       # unfinished work, both dire
 slopctl inbox --all                                 # include finished and failed
 slopctl inbox --sent                                # only tasks you sent
 slopctl inbox --received                            # only tasks sent to you
-slopctl inbox --status pending                      # filter by state
+slopctl inbox --status queued                       # filter by state
 slopctl task ID                                     # show one task
 slopctl wait ID                                     # wait for done or failed
-slopctl accept ID                                   # accept a pending task
+slopctl accept ID                                   # accept a queued task
 slopctl accept ID "starting now"                    # accept with a note
 slopctl progress ID "halfway done"                  # mark in progress
 slopctl finish ID "done, see commit abc123"         # complete a task
