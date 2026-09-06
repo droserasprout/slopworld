@@ -62,17 +62,6 @@ namespace SlopWorld
         static readonly HashSet<string> ScalpHair =
             new HashSet<string> { "Bald", "Shaved", "Mohawk" };
 
-        const float WildHairChance = 0.35f;
-        static readonly Color[] WildHairColors =
-        {
-            new Color(0.95f, 0.12f, 0.55f), // hot pink
-            new Color(0.10f, 0.55f, 1.00f), // electric blue
-            new Color(0.35f, 0.95f, 0.15f), // neon green
-            new Color(0.65f, 0.20f, 1.00f), // vivid purple
-            new Color(1.00f, 0.35f, 0.05f), // orange
-            new Color(0.05f, 0.90f, 0.85f), // cyan
-        };
-
         // Once at generation rather than from the reconcile: nothing takes an agent's hair away
         // later, and a pawn whose every option is refused would be rerolled forever.
         public static void FitHair(Pawn pawn)
@@ -94,10 +83,9 @@ namespace SlopWorld
         {
             if (pawn?.story == null) return;
 
-            pawn.story.HairColor = Rand.Chance(WildHairChance)
-                ? WildHairColors.RandomElement()
-                : PawnHairColors.RandomHairColor(
-                    pawn, pawn.story.SkinColor, pawn.ageTracker.AgeBiologicalYears);
+            // Hair is part of the terminal's visual language: use the active ANSI palette so
+            // a theme change is reflected by new agents and explicit appearance rerolls.
+            pawn.story.HairColor = TerminalTheme.Current.Ansi.RandomElement();
         }
 
         // Assigns an eye color to the pawn, once. Called at generation time; the color is
