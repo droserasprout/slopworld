@@ -34,6 +34,8 @@
 | `emu.rs` | `SessionEmu`, an `alacritty_terminal` per session. |
 | `tmux.rs` | Async wrapper over the tmux CLI. |
 | `sandbox/` | The bubblewrap argv, network modes, bind guard and pasta wrapper - see [sandbox-isolation](sandbox-isolation.md). |
+| `sandbox/bind/policy.rs` | Effective preset path resolution, private/shared state sources, resolver targets, and the final refused-path guard. |
+| `sandbox/bind/mounts.rs` | Ordered bwrap mounts, environment, DNS/pasta wrapping, and resource-limit argv emission. |
 | `presets.rs` | The preset tables: builtin TOML plus the user's. |
 | `jukebox.rs` | The user station catalog: TOML, metadata, and daemon-side URL resolution. |
 | `config.rs` | Effective config lookup, inheritance, expansion, and the public config façade. |
@@ -47,8 +49,9 @@
 | `title.rs` | Prompt summaries - see [agent-titles](agent-titles.md). |
 | `tasks.rs` | Durable task mailboxes - see [agent-tasks](agent-tasks.md). |
 | `activity.rs` | Persists the fallback file for state ages when the tmux server has no activity options. |
-| `usage.rs` | Usage snapshot types, window parsing, scheduling, and provider-result merging. |
-| `usage/providers.rs` | Provider credentials, HTTP polling, response parsing, caching, and retry handling. |
+| `usage.rs` | Usage snapshot types, provider polling/scheduling, per-item filtering, and provider-result merging. |
+| `usage/parsing.rs` | Anthropic, OpenRouter, and OpenAI response parsing, window families, spending, and reset timestamps. |
+| `usage/providers.rs` | Provider credentials, HTTP polling, shared Anthropic caching, and retry handling. |
 | `audio/mod.rs` | The public audio handle, command worker, generation control and state events. |
 | `audio/station.rs` | Local playlists, URL/file decoding, stream reconnects and ICY metadata. |
 | `audio/playback.rs` | Output-device selection, feeder pacing and callback-safe sample rings. |
