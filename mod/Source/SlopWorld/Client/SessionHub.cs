@@ -90,8 +90,17 @@ namespace SlopWorld
 
         // ---- terminal I/O --------------------------------------------------------------
 
-        public void Subscribe(string name) => _terminal.Subscribe(name);
-        public void Unsubscribe(string name) => _terminal.Unsubscribe(name);
+        public void Subscribe(string name)
+        {
+            _sessions.BeginSubscription(name);
+            _terminal.Subscribe(name);
+        }
+
+        public void Unsubscribe(string name)
+        {
+            _sessions.EndSubscription(name);
+            _terminal.Unsubscribe(name);
+        }
 
         public void SendKeys(string name, IEnumerable<string> keys, bool literal) =>
             _terminal.SendKeys(name, keys, literal);

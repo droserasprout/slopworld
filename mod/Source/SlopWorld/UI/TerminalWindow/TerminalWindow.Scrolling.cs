@@ -68,6 +68,12 @@ namespace SlopWorld
             _scrollPending = false;
             _nextScrollSend = 0f;
             _hasWheelDirection = false;
+            // Input is allowed to leave history immediately. Waiting for the next draw pass
+            // to apply `_historyJumpPending` leaves `UpdateHistoryTarget` looking at the old
+            // wheel position and can put the pane straight back into the frozen snapshot.
+            if (_historyScrollReady)
+                _historyScroll.JumpTo(new Vector2(0f, _historyMax));
+            _historyLastPixels = 0f;
             JumpHistoryTo(0);
             ResetCursorBlink();
             ScrollDebugEnd();
@@ -208,9 +214,17 @@ namespace SlopWorld
 
         internal void JumpHistoryTo(int off)
         {
+            off = Mathf.Clamp(off, 0, MaxScrollLines);
             _historyJumpPending = true;
-            _historyJumpOff = Mathf.Max(0, off);
+            _historyJumpOff = off;
             _historyJumpPixels = -1f;
+            float cellH = TerminalFont.CellH;
+            if (_historyScrollReady && cellH > 0.01f)
+            {
+                float pixels = Mathf.Min(_historyMax, off * cellH);
+                _historyScroll.JumpTo(new Vector2(0f, _historyMax - pixels));
+                _historyLastPixels = pixels;
+            }
         }
 
 

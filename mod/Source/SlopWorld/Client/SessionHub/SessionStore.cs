@@ -45,6 +45,23 @@ namespace SlopWorld
         public ScreenBuf Screen(string name) =>
             _screens.TryGetValue(name, out var s) ? s : null;
 
+        public void BeginSubscription(string name)
+        {
+            if (string.IsNullOrEmpty(name)) return;
+            // A live ScreenBuf is only comparable inside one continuous subscription. Do not
+            // retain the old frame across a tab gap: the first frame after the sub is a fresh
+            // baseline, and an unseen redraw must not become a local history delta.
+            _screens.Remove(name);
+            _scrolls.Remove(name);
+        }
+
+        public void EndSubscription(string name)
+        {
+            if (string.IsNullOrEmpty(name)) return;
+            _screens.Remove(name);
+            _scrolls.Remove(name);
+        }
+
         // A reconnect gets a new stream of screen sequences. Do not let the first frame on the
         // new socket be compared with, or history replies be mixed into, the old stream.
         public void ResetConnectionScreens()
@@ -155,6 +172,10 @@ namespace SlopWorld
             var store = _screens;
             if (!store.TryGetValue(name, out var buf))
                 store[name] = buf = new ScreenBuf();
+            // A frame already queued before an unsubscribe can race the direct snapshot sent
+            // by the new subscription. Never let that older frame overwrite the new baseline;
+            // doing so would make the following current frame look like a one-row scroll.
+            if (buf.Seq >= 0 && screen["seq"].AsInt() < buf.Seq) return;
             buf.FromJson(screen);
         }
 

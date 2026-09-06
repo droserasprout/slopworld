@@ -193,7 +193,7 @@ namespace SlopWorld
             {
                 if (!hub.Online) DrawOfflineBanner(body);
                 else _droppedKeys = 0;
-                if (_scrollOff > 0) DrawScrollLock(body);
+                if (HistoryBarAvailable()) DrawScrollLock(body);
             }
 
             // The pane is opaque; a hint drawn from the map layer is behind it.

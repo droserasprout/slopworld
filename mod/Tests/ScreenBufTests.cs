@@ -14,6 +14,10 @@ namespace SlopWorld.Tests
                 DetectsRepeatedRowShift);
             yield return ("uses live history growth for a large row shift",
                 UsesLiveHistoryGrowth);
+            yield return ("does not treat unknown history as one row",
+                UnknownHistoryIsNotGrowth);
+            yield return ("does not treat a replayed frame as a row shift",
+                ReplayIsNotGrowth);
             yield return ("does not call a bottom edit a row shift", IgnoresBottomEdit);
             yield return ("does not call an ambiguous repeated-content edit a row shift",
                 IgnoresAmbiguousRepeatedEdit);
@@ -114,6 +118,34 @@ namespace SlopWorld.Tests
 
             AssertEx.Equal(4, screen.LiveShift,
                 "history growth reports a shift when no visible rows overlap");
+        }
+
+        static void UnknownHistoryIsNotGrowth()
+        {
+            var screen = new ScreenBuf();
+            screen.FromJson(JVal.Parse(
+                "{\"seq\":1,\"cols\":20,\"rows\":3,\"cy\":2," +
+                "\"off\":0,\"lines\":[\"one\",\"two\",\"three\"]}"));
+            screen.FromJson(JVal.Parse(
+                "{\"seq\":2,\"cols\":20,\"rows\":3,\"cy\":2,\"history\":0," +
+                "\"off\":0,\"lines\":[\"one\",\"two\",\"three\"]}"));
+
+            AssertEx.Equal(0, screen.LiveShift,
+                "hydrating an unknown zero history extent does not add a row");
+        }
+
+        static void ReplayIsNotGrowth()
+        {
+            var screen = new ScreenBuf();
+            screen.FromJson(JVal.Parse(
+                "{\"seq\":7,\"cols\":20,\"rows\":3,\"cy\":2," +
+                "\"history\":0,\"off\":0,\"lines\":[\"one\",\"two\",\"three\"]}"));
+            screen.FromJson(JVal.Parse(
+                "{\"seq\":7,\"cols\":20,\"rows\":3,\"cy\":2," +
+                "\"history\":1,\"off\":0,\"lines\":[\"two\",\"three\",\"four\"]}"));
+
+            AssertEx.Equal(0, screen.LiveShift,
+                "a same-sequence resubscription replay does not add a row");
         }
 
         static void IgnoresBottomEdit()

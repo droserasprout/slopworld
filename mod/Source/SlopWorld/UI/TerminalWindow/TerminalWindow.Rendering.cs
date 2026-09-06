@@ -169,7 +169,12 @@ namespace SlopWorld
             Widgets.DrawBoxSolid(new Rect(x + 4.5f, y + 7f, 2f, 3f), hole);
         }
 
-        bool HistoryBarAvailable() => _scrollOff > 0 || _historyTopOff > 0;
+        // A request is not evidence that history exists. Keep the bar and lock hidden until
+        // the first snapshot either assembles a view or reports a positive top offset; this
+        // prevents an empty terminal from flashing a one-line scrollbar while off=0 is being
+        // confirmed.
+        bool HistoryBarAvailable() => _scrollOff > 0 &&
+            (_historyTopOff > 0 || _historyViewReady);
 
         void HistoryBarGeometry(Rect body, out Rect hit, out Rect track, out Rect thumb)
         {
