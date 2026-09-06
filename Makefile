@@ -336,7 +336,7 @@ install-runner: daemon ## Install the launcher beside the daemon
 	@echo "installed to $(BIN)/slopworld"
 
 install-mod: mod       ## Install the mod into the game's Mods folder
-	"$(TARGET)/slopmod" --source mod --mods "$(MODS)"
+	"$(RUNNER)" mod install --source mod --mods "$(MODS)"
 
 mac-mod: mac-game-check mod ## Build SlopWorld.dll against native macOS RimWorld
 mac-mod: override CSC := $(MAC_CSC)
@@ -371,7 +371,7 @@ uninstall-runner:  ## Remove the launcher
 	@echo "removed $(BIN)/slopworld"
 
 uninstall-mod: daemon ## Remove the installed mod folder
-	"$(TARGET)/slopmod" --mods "$(MODS)" --uninstall
+	"$(RUNNER)" mod uninstall --mods "$(MODS)"
 
 ##
 ##-> Run

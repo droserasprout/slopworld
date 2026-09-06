@@ -56,10 +56,10 @@ the target RimWorld installation before staging it.
 coverage also needs `llvm-cov` and `llvm-profdata` from the same LLVM release as
 the compiler.
 
-`install-mod` uses the tested `slopmod` Rust helper. It stages the six shipped mod
-directories beside the destination, replaces only `Mods/SlopWorld`, and refuses a
-filesystem root or a destination inside the source tree. Update `slopd/src/bin/slopmod.rs`
-if the mod gains another top-level directory.
+`install-mod` uses `slopworld mod install`, the tested host-side Rust command. It stages the six
+shipped mod directories beside the destination, replaces only `Mods/SlopWorld`, and refuses a
+filesystem root or a destination inside the source tree. Update
+`slopd/src/bin/slopworld/mod_install.rs` if the mod gains another top-level directory.
 
 `devloop-sidecar` passes `SLOPCAR_CONFIG_DIR` to `slopcar start`, keeping the container's
 `endpoint.toml` in the same sidecar config directory that the game launcher reads.
