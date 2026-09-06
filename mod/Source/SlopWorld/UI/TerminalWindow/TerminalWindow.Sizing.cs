@@ -57,8 +57,8 @@ namespace SlopWorld
             var style = TerminalFont.Style;
             if (style == null || TerminalFont.CellH <= 0.01f) return false;
 
-            float width = UI.screenWidth - UiLayout.LeftInset - Pad * 2f;
-            float height = UI.screenHeight - TopBar.H - Pad * 2f;
+            float width = UI.screenWidth - UiLayout.LeftInset;
+            float height = UI.screenHeight - TopBar.H;
             float cw = TerminalFont.CellWAtScreenScale(Prefs.UIScale);
             if (width <= 0.01f || height <= 0.01f || cw <= 0.01f) return false;
 

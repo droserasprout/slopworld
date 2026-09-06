@@ -76,6 +76,15 @@ namespace SlopWorld
 
         Color Background => _content == null ? SolidTerminalBackground : UiWidgets.WindowBg;
 
+        // Background faces overlap their boundary by one screen pixel. The terminal cache
+        // and IMGUI clipping can each round an edge in the opposite direction, and a face
+        // that only reaches the nominal rect can therefore expose a hairline seam.
+        static Rect OverdrawBackground(Rect r)
+        {
+            float p = Slab.LineW;
+            return new Rect(r.x - p, r.y - p, r.width + p * 2f, r.height + p * 2f);
+        }
+
         public override void WindowUpdate()
         {
             base.WindowUpdate();
@@ -110,9 +119,9 @@ namespace SlopWorld
             // right edge and nothing covers or repaints the last column, PaneOverDraw having
             // stood the map down. Here rather than by widening the window, which would be a
             // wider pane.
-            Widgets.DrawBoxSolid(new Rect(0f, 0f,
+            Slab.Fill(OverdrawBackground(new Rect(0f, 0f,
                 Mathf.Ceil(Screen.width / Prefs.UIScale),
-                Mathf.Ceil(Screen.height / Prefs.UIScale)), Background);
+                Mathf.Ceil(Screen.height / Prefs.UIScale))), Background);
 
             Flush();
         }

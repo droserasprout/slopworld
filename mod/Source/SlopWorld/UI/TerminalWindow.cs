@@ -9,7 +9,7 @@ namespace SlopWorld
     // keystrokes back as tmux keys.
     public partial class TerminalWindow : Window
     {
-        const float Pad = UiWidgets.GapS;
+        const float ContentPad = UiWidgets.GapS;
         FieldLifetime _fieldLifetime = new FieldLifetime();
         readonly TerminalInputController _input;
         readonly TerminalSelectionInput _selectionInput;
@@ -69,7 +69,7 @@ namespace SlopWorld
             using (FieldLifetimeScope.Push(_fieldLifetime))
             {
                 var hub = SessionHub.Instance;
-                Widgets.DrawBoxSolid(rect, Background);
+                Slab.Fill(OverdrawBackground(rect), Background);
                 if (!EnsureSession(hub)) return;
 
                 bool input = Find.WindowStack == null || Find.WindowStack.GetsInput(this);
@@ -90,11 +90,12 @@ namespace SlopWorld
 
             float top = TopBar.H;
             float left = UiLayout.LeftInset;
+            float pad = _content == null ? 0f : ContentPad;
             return new Rect(
-                rect.x + left + Pad,
-                top + Pad,
-                rect.width - left - Pad * 2,
-                rect.height - top - Pad * 2);
+                rect.x + left + pad,
+                top + pad,
+                rect.width - left - pad * 2,
+                rect.height - top - pad * 2);
         }
 
         bool DrawBody(Rect body, bool input, SessionHub hub)
@@ -113,7 +114,7 @@ namespace SlopWorld
             if (_showStopped && hub.Get(_name)?.Gone == true)
             {
                 if (input) _input.HandleChrome(Event.current);
-                Widgets.DrawBoxSolid(body, SolidTerminalBackground);
+                Slab.Fill(OverdrawBackground(body), SolidTerminalBackground);
                 DrawCentered(body, "Agent is stopped");
                 return false;
             }
