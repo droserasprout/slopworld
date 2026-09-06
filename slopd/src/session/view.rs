@@ -148,6 +148,7 @@ mod tests {
     fn frame_metadata_is_preserved_on_the_wire_view() {
         let frame = Frame {
             lines: vec!["one".into(), "two".into()],
+            history: 0,
             cx: 7,
             cy: 3,
             cursor_shape: 2,

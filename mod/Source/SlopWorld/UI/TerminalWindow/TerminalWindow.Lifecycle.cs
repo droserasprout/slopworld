@@ -295,6 +295,8 @@ namespace SlopWorld
                 // handoff steals focus from the agent being renamed.
                 if (hub.TryPendingRename(_name, out _)) return true;
 
+                ResetHistoryForNewRun();
+
                 if (_content == null)
                 {
                     // Keep a durable agent's pane in place after its process exits. Do not

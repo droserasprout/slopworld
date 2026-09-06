@@ -12,6 +12,8 @@ namespace SlopWorld.Tests
             yield return ("detects a live row shift", DetectsLiveRowShift);
             yield return ("detects a live row shift with a repeated outgoing row",
                 DetectsRepeatedRowShift);
+            yield return ("uses live history growth for a large row shift",
+                UsesLiveHistoryGrowth);
             yield return ("does not call a bottom edit a row shift", IgnoresBottomEdit);
             yield return ("does not call an ambiguous repeated-content edit a row shift",
                 IgnoresAmbiguousRepeatedEdit);
@@ -96,6 +98,20 @@ namespace SlopWorld.Tests
 
             AssertEx.Equal(1, screen.LiveShift,
                 "a scroll remains detectable when the outgoing top rows repeat");
+        }
+
+        static void UsesLiveHistoryGrowth()
+        {
+            var screen = new ScreenBuf();
+            screen.FromJson(JVal.Parse(
+                "{\"seq\":1,\"cols\":20,\"rows\":3,\"cy\":2,\"history\":4," +
+                "\"off\":0,\"lines\":[\"one\",\"two\",\"three\"]}"));
+            screen.FromJson(JVal.Parse(
+                "{\"seq\":2,\"cols\":20,\"rows\":3,\"cy\":2,\"history\":8," +
+                "\"off\":0,\"lines\":[\"new-a\",\"new-b\",\"new-c\"]}"));
+
+            AssertEx.Equal(4, screen.LiveShift,
+                "history growth reports a shift when no visible rows overlap");
         }
 
         static void IgnoresBottomEdit()

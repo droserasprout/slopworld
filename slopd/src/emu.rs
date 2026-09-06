@@ -33,6 +33,8 @@ impl Dimensions for Dims {
 /// redraws those runs at their absolute column.
 pub struct Frame {
     pub lines: Vec<String>,
+    /// Number of rows currently available above the primary live viewport.
+    pub history: u32,
     pub cx: u16,
     pub cy: u16,
     /// 0 = block, 1 = underline, 2 = beam.
@@ -331,6 +333,7 @@ impl SessionEmu {
     pub fn frame_from_grid(grid: Vec<Vec<Slot>>, _cols: u16, rows: u16, title: String) -> Frame {
         Frame {
             lines: grid.iter().map(|r| serialize_row(r)).collect(),
+            history: 0,
             cx: 0,
             cy: rows,
             cursor_shape: 0,
@@ -402,6 +405,11 @@ impl SessionEmu {
 
         Frame {
             lines,
+            history: self
+                .term
+                .total_lines()
+                .saturating_sub(self.term.screen_lines())
+                .min(u32::MAX as usize) as u32,
             cx,
             cy,
             cursor_shape,
@@ -941,5 +949,13 @@ mod tests {
         let f = e.render();
         assert_eq!(f.lines, ["\x1b[0m", "\x1b[0m"]);
         assert_eq!((f.cx, f.cy), (0, 0));
+    }
+
+    #[test]
+    fn seeding_a_full_viewport_does_not_create_spurious_history() {
+        let mut e = SessionEmu::new(20, 4);
+        e.feed(b"\x1b[H\x1b[0mline-0\r\nline-1\r\nline-2\r\nline-3\x1b[4;1H");
+
+        assert_eq!(e.render().history, 0);
     }
 }

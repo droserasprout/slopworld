@@ -31,7 +31,7 @@ impl Manager {
             let visible = if cap.alt_screen {
                 let split = cap.lines.len().saturating_sub(rows as usize);
                 if split > 0 {
-                    seed.push_str("\x1b[2J\x1b[H\x1b[0m");
+                    seed.push_str("\x1b[H\x1b[0m");
                     seed.push_str(&cap.lines[..split].join("\r\n"));
                     seed.push_str("\r\n");
                 }
@@ -40,7 +40,7 @@ impl Manager {
             } else {
                 &cap.lines[..]
             };
-            seed.push_str("\x1b[2J\x1b[H\x1b[0m");
+            seed.push_str("\x1b[H\x1b[0m");
             seed.push_str(&visible.join("\r\n"));
             seed.push_str(&format!("\x1b[{};{}H", cap.cy + 1, cap.cx + 1));
             if !cap.title.is_empty() {
