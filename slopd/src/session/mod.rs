@@ -34,6 +34,7 @@ pub use view::{ScreenView, SessionView};
 use input::{merge_input, Input};
 use template::{render_template, render_template_with, TemplateVars};
 pub use text::strip_sgr;
+pub(crate) use text::strip_sgr_lines;
 use title::{
     begin_title_request, is_dialog_answer, prompt_is_long_enough, title_settings, Composer,
     Submission, TitleCapture, TitleRequest,
@@ -67,8 +68,8 @@ const TAIL_LINES: usize = 12;
 // Unwatched panes still need classification, but not reader-rate rendering.
 const UNWATCHED_MS: u64 = 200;
 
-// Host cwd/process metadata is display state, not frame classification. Keep it fresh while
-// avoiding two tmux subprocess waves on every state tick.
+// Host cwd/process metadata is display state, not frame classification. Keep it fresh with one
+// combined tmux query per host rather than two subprocess waves on every state tick.
 const HOST_METADATA_POLL_MS: u64 = 2_000;
 
 const FILE_ACTION_TIMEOUT: Duration = Duration::from_secs(15);
@@ -214,18 +215,24 @@ fn hash_lines(lines: &[String]) -> u64 {
 }
 
 fn match_rules(rules: &[(State, Regex)], text: &str) -> Option<State> {
-    let lines: Vec<&str> = text.lines().collect();
-    let end = lines
-        .iter()
-        .rposition(|l| !l.trim().is_empty())
-        .map_or(0, |i| i + 1);
-    // The lowest matching line wins; config order only breaks ties on that line.
-    for line in lines[end.saturating_sub(TAIL_LINES)..end].iter().rev() {
+    // The lowest matching line wins; config order only breaks ties on that line. Skip only
+    // trailing blanks when finding the screen's end: blanks within the tail still consume one
+    // of its TAIL_LINES, just as the screen's physical rows do.
+    let mut lines = text.lines().rev();
+    let mut line = lines.find(|line| !line.trim().is_empty())?;
+    for index in 0..TAIL_LINES {
         for (state, re) in rules {
             if re.is_match(line) {
                 return Some(*state);
             }
         }
+        if index + 1 == TAIL_LINES {
+            break;
+        }
+        let Some(next) = lines.next() else {
+            break;
+        };
+        line = next;
     }
     None
 }
@@ -266,7 +273,7 @@ mod tests {
         merge_toml, normalize_action_command, normalize_path, project_action_path,
         prompt_is_long_enough, read_action_output, render_template, render_template_with, settle,
         slug, strip_sgr, title_agent, title_settings, Composer, Input, Live, State, Submission,
-        TemplateVars, TitleAgent, TitleCapture, BOOT_COLS, BOOT_ROWS, INPUT_BATCH,
+        TemplateVars, TitleAgent, TitleCapture, BOOT_COLS, BOOT_ROWS, INPUT_BATCH, TAIL_LINES,
     };
     use crate::config::{
         Config, LibraryItemCfg, LibraryItemKind, ProjectCfg, SessionCfg, TitlePolicy,
@@ -500,6 +507,19 @@ pattern = '(?i)(esc to interrupt|to interrupt\))'
         }
         screen.push_str("> \n");
         assert_eq!(match_rules(&seeded_rules(), &screen), None);
+    }
+
+    #[test]
+    fn blank_rows_inside_the_tail_count_toward_its_limit() {
+        let mut screen = String::from("  Do you want to make this edit?\n");
+        screen.push_str(&"\n".repeat(TAIL_LINES - 1));
+        screen.push_str("ordinary output\n");
+        assert_eq!(match_rules(&seeded_rules(), &screen), None);
+    }
+
+    #[test]
+    fn an_all_blank_screen_has_no_rule_match() {
+        assert_eq!(match_rules(&seeded_rules(), "\n\n\n"), None);
     }
 
     #[test]

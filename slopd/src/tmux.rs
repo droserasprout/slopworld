@@ -27,6 +27,12 @@ pub struct WorkerMetadata {
     pub durable: bool,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct HostMetadata {
+    pub path: Option<String>,
+    pub command: Option<String>,
+}
+
 pub struct Screen {
     pub lines: Vec<String>,
     pub cx: u16,
@@ -278,6 +284,22 @@ impl Tmux {
         })
     }
 
+    /// Read the cwd and foreground command together so a host metadata poll needs one tmux
+    /// query per pane. Empty fields stay independently absent: a usable path should still be
+    /// persisted when tmux gives us no command, and vice versa.
+    pub async fn current_host_metadata(&self, name: &str) -> Option<HostMetadata> {
+        self.run(&[
+            "display-message",
+            "-p",
+            "-t",
+            &format!("{name}:.0"),
+            "#{pane_current_path}\t#{pane_current_command}",
+        ])
+        .await
+        .ok()
+        .and_then(|metadata| parse_host_metadata(&metadata))
+    }
+
     pub async fn current_path(&self, name: &str) -> Option<String> {
         self.run(&[
             "display-message",
@@ -290,24 +312,6 @@ impl Tmux {
         .ok()
         .map(|path| path.trim().to_string())
         .filter(|path| !path.is_empty())
-    }
-
-    /// Returns the command currently holding the pane's foreground terminal job. The shell
-    /// itself is intentionally included: callers can distinguish an idle prompt from a command
-    /// running silently without inspecting the pane's output.
-    pub async fn current_command(&self, name: &str) -> Option<String> {
-        let target = format!("{name}:.0");
-        self.run(&[
-            "display-message",
-            "-p",
-            "-t",
-            &target,
-            "#{pane_current_command}",
-        ])
-        .await
-        .ok()
-        .map(|command| command.trim().to_string())
-        .filter(|command| !command.is_empty())
     }
 
     async fn option(&self, name: &str, option: &str) -> Option<String> {
@@ -574,9 +578,19 @@ fn clean_title(s: &str) -> String {
     s.chars().filter(|c| !c.is_control()).take(512).collect()
 }
 
+fn parse_host_metadata(metadata: &str) -> Option<HostMetadata> {
+    let (path, command) = metadata.lines().next()?.split_once('\t')?;
+    let path = (!path.trim().is_empty()).then(|| path.trim().to_string());
+    let command = (!command.trim().is_empty()).then(|| command.trim().to_string());
+    if path.is_none() && command.is_none() {
+        return None;
+    }
+    Some(HostMetadata { path, command })
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{clean_title, parse_pos};
+    use super::{clean_title, parse_host_metadata, parse_pos, HostMetadata};
 
     #[test]
     fn a_title_cannot_carry_an_escape() {
@@ -597,5 +611,43 @@ mod tests {
         );
         // No answer at all: the pane is gone, and none of this is worth failing over.
         assert_eq!(parse_pos(""), (0, 0, false, String::new()));
+    }
+
+    #[test]
+    fn host_metadata_parses_path_and_command_from_one_answer() {
+        assert_eq!(
+            parse_host_metadata("/work/repo\tbash\n"),
+            Some(HostMetadata {
+                path: Some("/work/repo".into()),
+                command: Some("bash".into()),
+            })
+        );
+        assert_eq!(
+            parse_host_metadata("/work/repo\tpython -m server\n"),
+            Some(HostMetadata {
+                path: Some("/work/repo".into()),
+                command: Some("python -m server".into()),
+            })
+        );
+    }
+
+    #[test]
+    fn host_metadata_keeps_fields_independent_and_rejects_empty_answers() {
+        assert_eq!(
+            parse_host_metadata("/work/repo\t\n"),
+            Some(HostMetadata {
+                path: Some("/work/repo".into()),
+                command: None,
+            })
+        );
+        assert_eq!(
+            parse_host_metadata("\tpython\n"),
+            Some(HostMetadata {
+                path: None,
+                command: Some("python".into()),
+            })
+        );
+        assert_eq!(parse_host_metadata("\t\n"), None);
+        assert_eq!(parse_host_metadata(""), None);
     }
 }

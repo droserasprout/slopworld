@@ -6,6 +6,15 @@ use futures::{stream, StreamExt};
 
 const HOST_QUERY_CONCURRENCY: usize = 4;
 
+fn update_host_process(l: &mut Live, command: &str) -> bool {
+    let process_running = !crate::sandbox::is_shell_command(command);
+    if l.process_running == process_running {
+        return false;
+    }
+    l.process_running = process_running;
+    true
+}
+
 impl Manager {
     pub(super) async fn session_cfg(&self, name: &str) -> Option<SessionCfg> {
         if let Some(s) = self.cfg.read().await.session(name) {
@@ -131,7 +140,7 @@ impl Manager {
         live_changed || cfg_changed
     }
 
-    pub(super) async fn refresh_host_paths(&self) -> bool {
+    pub(super) async fn refresh_host_metadata(&self) -> bool {
         let names: Vec<String> = self
             .live
             .read()
@@ -143,50 +152,25 @@ impl Manager {
         let tmux = self.tmux.clone();
         let results = stream::iter(names.into_iter().map(|name| {
             let tmux = tmux.clone();
-            async move { (name.clone(), tmux.current_path(&name).await) }
+            async move { (name.clone(), tmux.current_host_metadata(&name).await) }
         }))
         .buffer_unordered(HOST_QUERY_CONCURRENCY)
         .collect::<Vec<_>>()
         .await;
 
         let mut changed = false;
-        for (name, path) in results {
-            let Some(path) = path else { continue };
-            changed |= self.remember_host_path(&name, &path).await;
-        }
-        changed
-    }
-
-    pub(super) async fn refresh_host_processes(&self) -> bool {
-        let names: Vec<String> = self
-            .live
-            .read()
-            .await
-            .values()
-            .filter(|l| l.host && l.state != State::Down)
-            .map(|l| l.cfg.name.clone())
-            .collect();
-        let tmux = self.tmux.clone();
-        let results = stream::iter(names.into_iter().map(|name| {
-            let tmux = tmux.clone();
-            async move { (name.clone(), tmux.current_command(&name).await) }
-        }))
-        .buffer_unordered(HOST_QUERY_CONCURRENCY)
-        .collect::<Vec<_>>()
-        .await;
-
-        let mut changed = false;
-        for (name, command) in results {
-            let Some(command) = command else { continue };
-            let process_running = !crate::sandbox::is_shell_command(&command);
-            let mut live = self.live.write().await;
-            if let Some(l) = live
-                .get_mut(&name)
-                .filter(|l| l.host && l.state != State::Down)
-            {
-                if l.process_running != process_running {
-                    l.process_running = process_running;
-                    changed = true;
+        for (name, metadata) in results {
+            let Some(metadata) = metadata else { continue };
+            if let Some(path) = metadata.path {
+                changed |= self.remember_host_path(&name, &path).await;
+            }
+            if let Some(command) = metadata.command {
+                let mut live = self.live.write().await;
+                if let Some(l) = live
+                    .get_mut(&name)
+                    .filter(|l| l.host && l.state != State::Down)
+                {
+                    changed |= update_host_process(l, &command);
                 }
             }
         }
@@ -766,5 +750,15 @@ mod tests {
         assert_eq!(views[1].dir, "/tmp/host-cwd");
         assert!(views[1].host && views[1].ephemeral);
         assert!(views[1].process_running);
+    }
+
+    #[test]
+    fn host_commands_update_foreground_process_state() {
+        let mut live = Live::new(SessionCfg::default(), TitleCapture::default());
+        assert!(update_host_process(&mut live, "python"));
+        assert!(live.process_running);
+        assert!(update_host_process(&mut live, "/bin/bash"));
+        assert!(!live.process_running);
+        assert!(!update_host_process(&mut live, "/bin/bash"));
     }
 }

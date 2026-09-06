@@ -116,13 +116,8 @@ impl Manager {
             self.host_metadata_checked
                 .store(now, std::sync::atomic::Ordering::Relaxed);
         }
-        let host_paths_changed = if host_poll_due {
-            self.refresh_host_paths().await
-        } else {
-            false
-        };
-        let host_processes_changed = if host_poll_due {
-            self.refresh_host_processes().await
+        let host_metadata_changed = if host_poll_due {
+            self.refresh_host_metadata().await
         } else {
             false
         };
@@ -169,7 +164,7 @@ impl Manager {
             }
         }
 
-        if dirty_list || host_paths_changed || host_processes_changed {
+        if dirty_list || host_metadata_changed {
             let _ = self.events.send(Event::Sessions {
                 sessions: self.views().await,
             });

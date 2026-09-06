@@ -57,7 +57,7 @@ impl Manager {
         // terminal viewport again.
         let content_changed = previous.initial || hash != previous.hash;
         let plain = if content_changed {
-            Arc::new(strip_sgr(&frame.lines.join("\n")))
+            Arc::new(strip_sgr_lines(&frame.lines))
         } else {
             previous.plain.clone()
         };
