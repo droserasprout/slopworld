@@ -11,7 +11,6 @@ Essentials:
 - [overview](notes/overview.md) — what this is
 - [index](notes/index.md) — all devnotes
 - [build-commands](notes/build-commands.md) — make, format, debug
-- [duplication-refactor-plan](notes/duplication-refactor-plan.md) — static-analysis findings and refactor order
 - [paths](notes/paths.md) — config, logs, tmux socket
 - [config-stores](notes/config-stores.md) — daemon & mod config files
 - [wire-protocol](notes/wire-protocol.md) — WS events & HTTP routes
@@ -26,10 +25,8 @@ Architecture:
 - [daemon-presets](notes/daemon-presets.md) — sandbox argv & presets
 - [sandbox-isolation](notes/sandbox-isolation.md) — bind guard, private state
 - [mod-client](notes/mod-client.md) — Client/: hub, socket, config mirror
-- [performance-bottlenecks-plan](notes/plans/performance-bottlenecks-plan.md) — staged mod and daemon hot-path work
 - [mod-sim](notes/mod-sim.md) — Sim/: colony reconcile, clock, intro
 - [mod-ui-chrome](notes/mod-ui-chrome.md) — shared widgets, layout, top bar
-- [ui-reuse-consistency-plan](notes/plans/ui-reuse-consistency-plan.md) — implemented UI reuse and consistency phases
 - [mod-sidebar](notes/mod-sidebar.md) — AgentSidebar & colonist bar patching
 - [mod-terminal](notes/mod-terminal.md) — terminal pane: rendering, keys, theme
 - [mod-terminal-history-warmup](notes/mod-terminal-history-warmup.md) — first-scroll history warm-up plan

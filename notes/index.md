@@ -22,7 +22,6 @@ short subject per note and remove stale entries.
 - [paths](paths.md) - where config, profile, logs and the tmux socket live.
 - [profile](profile.md) - the save-data folder, the launcher, the refusal gates.
 - [cpu-optimization](cpu-optimization.md) - C# hot-path reductions.
-- [duplication-refactor-plan](duplication-refactor-plan.md) - static-analysis findings and refactor order.
 - [debug-from-sandbox](debug-from-sandbox.md) - which daemon readings are sandbox artifacts, and how to get host truth.
 - [known-limitations](known-limitations.md) - network handover hangs and their safe recovery.
 - [host-terminals](host-terminals.md) - durable host tabs, tmux metadata and cwd recovery.
@@ -53,7 +52,6 @@ short subject per note and remove stale entries.
 ## Mod, simulation, and UI
 
 - [mod-client](mod-client.md) - `Client/`: hub, socket, JSON, config mirror.
-- [performance-bottlenecks-plan](plans/performance-bottlenecks-plan.md) - staged mod and daemon hot-path work.
 - [csharp-tests](csharp-tests.md) - the C# test boundary and pure-logic test project.
 - [mod-sim](mod-sim.md) - `Sim/`: colony reconcile, clock, intro, restart.
 - [mod-patches-strip](mod-patches-strip.md) - stripping the sim, the UI and the options menu.
@@ -62,7 +60,6 @@ short subject per note and remove stale entries.
 - [mod-sidebar](mod-sidebar.md) - `AgentSidebar` and its core layout and selection behavior.
 - [mod-sidebar-navigation](mod-sidebar-navigation.md) - shared views, tabs, filtering, and vanilla chrome shifts.
 - [mod-ui-chrome](mod-ui-chrome.md) - shared widgets, layout, usage readout, top bar.
-- [ui-reuse-consistency-plan](plans/ui-reuse-consistency-plan.md) - implemented picker, dialog, state, cell, and IMGUI consistency refactors.
 - [mod-ui-identity](mod-ui-identity.md) - UI geometry, spacing, and color schemes.
 - [mod-ui-files](mod-ui-files.md) - the files view and its icons.
 - [mod-markdown](mod-markdown.md) - native Markdown previews and their file boundary.
