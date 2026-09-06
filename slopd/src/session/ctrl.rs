@@ -19,8 +19,9 @@ pub struct Manager {
     pub(super) presets_mtime: Mutex<Option<SystemTime>>,
     pub(super) jukebox_mtime: Mutex<Option<SystemTime>>,
     pub(super) cfg_checked: AtomicU64,
-    /// Host panes need cwd/process refreshes, but not at the one-second state-classification
-    /// cadence. The timestamp is also a cheap guard if another maintenance caller is added.
+    /// Host panes need combined cwd/process refreshes, but not at the one-second
+    /// state-classification cadence. The timestamp is also a cheap guard if another maintenance
+    /// caller is added.
     pub(super) host_metadata_checked: AtomicU64,
     pub(super) usage: RwLock<crate::usage::Snapshot>,
     pub(super) clients: AtomicUsize,
