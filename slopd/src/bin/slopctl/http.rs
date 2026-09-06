@@ -115,7 +115,12 @@ pub(crate) fn status_value(endpoint: &Endpoint, session: &str) -> Value {
                 .and_then(Value::as_array)
                 .cloned()
                 .unwrap_or_default();
-            let open = |t: &Value| !matches!(t["status"].as_str().unwrap_or(""), "done" | "failed");
+            let open = |t: &Value| {
+                !matches!(
+                    t["status"].as_str().unwrap_or(""),
+                    "done" | "failed" | "canceled"
+                )
+            };
             out["waiting"] = json!(tasks
                 .iter()
                 .filter(|t| t["to"].as_str() == Some(session) && open(t))

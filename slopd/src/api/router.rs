@@ -31,6 +31,7 @@ pub(crate) fn router(m: Mgr) -> Router {
             "/api/tasks",
             get(list_tasks).post(create_task).delete(prune_tasks),
         )
+        .route("/api/tasks/cancel", post(cancel_tasks))
         .route("/api/tasks/remove", post(remove_tasks))
         .route(
             "/api/tasks/:id",

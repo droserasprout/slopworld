@@ -24,11 +24,11 @@ This command is available to the root caller only.
 pub(crate) const INBOX_USAGE: &str = "usage:
   slopctl inbox [--all] [--sent] [--received] [--status STATUS]
 
-list tasks involving the current caller, newest first. Finished and failed
+list tasks involving the current caller, newest first. Finished, failed and canceled
 tasks are hidden unless --all or --status is supplied.
 
 options:
-  --all             include finished and failed tasks
+  --all             include finished, failed and canceled tasks
   --sent            show only tasks sent by you
   --received        show only tasks sent to you
   --status STATUS   show only tasks with this status
@@ -43,7 +43,7 @@ show one task by its exact id.
 pub(crate) const WAIT_USAGE: &str = "usage:
   slopctl wait ID
 
-poll one task until it reaches the done or failed state, then show it.
+poll one task until it reaches a terminal state, then show it.
 ";
 
 pub(crate) const ACCEPT_USAGE: &str = "usage:
@@ -79,7 +79,7 @@ remove one task that has stopped moving.
 pub(crate) const PRUNE_USAGE: &str = "usage:
   slopctl prune [--all]
 
-remove finished and failed tasks. --all removes every task and is root-only.
+remove terminal tasks. --all removes every task and is root-only.
 ";
 
 pub(crate) const PEERS_USAGE: &str = "usage:
@@ -113,8 +113,8 @@ usage:
   slopctl logs [game|daemon|all] [--lines N] [--follow]
 
 inbox shows unfinished work in both directions, newest first; --all adds what is
-done and failed. wait polls until a task is done or failed. rm takes a finished
-task, prune takes all of them. --json is accepted anywhere and prints the answer
+done, failed and canceled. wait polls until a task reaches a terminal state. rm takes a
+terminal task, prune takes all of them. --json is accepted anywhere and prints the answer
 as JSON instead of for a reader.
 
 SLOPWORLD_SESSION identifies the caller, and defaults to `host` - the user at the
@@ -435,7 +435,7 @@ pub(crate) fn task_is_terminal(v: &Value) -> Result<bool, String> {
         .ok_or_else(|| "response task is missing status".to_string())?;
     match status {
         "queued" | "accepted" | "working" => Ok(false),
-        "done" | "failed" => Ok(true),
+        "done" | "failed" | "canceled" => Ok(true),
         status => Err(format!("unknown task status: {status}")),
     }
 }
@@ -550,7 +550,7 @@ impl InboxFilter {
         match &self.status {
             Some(want) => status == want,
             // Finished work is still readable by id; it just stops crowding the list.
-            None => self.all || !matches!(status, "done" | "failed"),
+            None => self.all || !matches!(status, "done" | "failed" | "canceled"),
         }
     }
 

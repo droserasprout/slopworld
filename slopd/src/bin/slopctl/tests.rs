@@ -281,7 +281,7 @@ fn task_completion_accepts_only_known_terminal_states() {
         }))
         .unwrap());
     }
-    for status in ["done", "failed"] {
+    for status in ["done", "failed", "canceled"] {
         assert!(task_is_terminal(&json!({
             "task": { "status": status }
         }))

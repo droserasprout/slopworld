@@ -135,6 +135,11 @@ namespace SlopWorld
             if (_task.Incoming && !_task.Terminal &&
                 foot.Left("Status", UiWidgets.Btn.Default))
                 TaskActions.OpenMenu(_task, updated => _task = updated);
+
+            if ((_task.Status == DelegatedTaskStatus.Queued ||
+                 _task.Status == DelegatedTaskStatus.Accepted) &&
+                foot.Left("Cancel", UiWidgets.Btn.Danger))
+                TaskActions.CancelTask(_task, updated => _task = updated);
             else if (_task.Terminal && foot.Left("Remove", UiWidgets.Btn.Danger))
                 TaskActions.RemoveTask(_task);
 

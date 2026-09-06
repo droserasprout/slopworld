@@ -174,6 +174,19 @@ pub(crate) async fn prune_tasks(
     Ok(Json(json!({ "removed": removed })))
 }
 
+pub(crate) async fn cancel_tasks(
+    State(m): State<Mgr>,
+    Extension(cap): Extension<Cap>,
+    headers: HeaderMap,
+    Json(q): Json<RemoveTasksReq>,
+) -> ApiResult {
+    let who = task_principal(&cap, &headers)?;
+    let tasks = m
+        .cancel_tasks(&who, &q.ids, cap.may_create())
+        .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
+    Ok(Json(json!({ "tasks": tasks })))
+}
+
 pub(crate) async fn remove_task(
     State(m): State<Mgr>,
     Extension(cap): Extension<Cap>,
