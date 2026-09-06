@@ -324,10 +324,10 @@ namespace SlopWorld
                 GroupAct acts = over ? _source.GroupActions(group) : GroupAct.None;
                 float right = row.width - CellX;
                 if (acts != GroupAct.None)
-                    right = GroupActions.Draw(row, right, acts) - 4f;
+                    right = GroupActions.Draw(row, right, acts) - UiWidgets.GapXS;
                 else
                     right = _source.DrawGroupTail(row, group, right);
-                float left = arrow.xMax + 4f;
+                float left = arrow.xMax + UiWidgets.GapXS;
                 var label = new Rect(left, row.y, Mathf.Max(0f, right - left), RowH);
                 UiWidgets.RowLabel(label, group.Label);
 
@@ -370,7 +370,7 @@ namespace SlopWorld
                 float right = width - Pad;
                 RowAct acts = over ? _source.Actions(node) : RowAct.None;
                 if (acts != RowAct.None)
-                    right = RowActions.Draw(row, right, acts) - 4f;
+                    right = RowActions.Draw(row, right, acts) - UiWidgets.GapXS;
                 else
                     right = _source.DrawRowTail(row, node, right);
 

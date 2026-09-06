@@ -10,6 +10,10 @@ namespace SlopWorld
 {
     public abstract class UiLayout : UiControls
     {
+        // Listing_Standard uses this oversized rect so a scroll body can measure its content
+        // without constraining the listing to the current viewport.
+        public const float ListingHeight = 4000f;
+
         // A scene has the board and everything else stands down, so the room goes back
         // rather than leaving a button row indented against nothing.
         public static bool Shown => !Cutscene.Playing;

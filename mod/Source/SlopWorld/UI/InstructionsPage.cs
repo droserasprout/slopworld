@@ -94,7 +94,7 @@ namespace SlopWorld
             {
 
                 var l = new Listing_Standard { maxOneColumn = true };
-                l.Begin(new Rect(0f, 0f, view.width, 4000f));
+                l.Begin(new Rect(0f, 0f, view.width, UiWidgets.ListingHeight));
 
                 UiWidgets.SectionHeading(l, "SLOPWORLD.md");
                 UiWidgets.Note(l, "Generated runtime context is read-only in agent sandboxes. " +

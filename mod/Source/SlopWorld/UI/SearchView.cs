@@ -353,7 +353,7 @@ namespace SlopWorld
             float prefixW = Mathf.Min(width * 0.55f, UiWidgets.Wide(prefix) + 8f);
             float rx = width - Pad;
             var acts = over ? RowAct.View | RowAct.Edit : RowAct.None;
-            if (acts != RowAct.None) rx = RowActions.Draw(r, rx, acts) - 4f;
+            if (acts != RowAct.None) rx = RowActions.Draw(r, rx, acts) - UiWidgets.GapXS;
 
             Text.Font = GameFont.Tiny;
             Text.Anchor = TextAnchor.MiddleLeft;

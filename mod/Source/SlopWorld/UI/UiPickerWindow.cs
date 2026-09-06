@@ -8,6 +8,12 @@ namespace SlopWorld
     // belong to the popup; callers own choice lookup, selection, tooltips, and local hover.
     public static class UiPickerWindow
     {
+        const float WindowTopOffset = 50f;
+        const float TitleWidthInset = 60f;
+        const float CloseButtonRightInset = 48f;
+        const float CloseButtonWidth = 44f;
+        const float CloseButtonTopInset = 2f;
+
         public struct Grid
         {
             public readonly Rect Frame;
@@ -40,7 +46,7 @@ namespace SlopWorld
         public static Rect Place(Rect page, float width, float height)
         {
             var window = new Rect(page.x + (page.width - width) / 2f,
-                page.y + 50f, width, height);
+                page.y + WindowTopOffset, width, height);
             if (window.yMax > page.yMax - UiWidgets.GapS)
                 window.y = page.yMax - UiWidgets.GapS - height;
             if (window.y < page.y + UiWidgets.GapS)
@@ -57,10 +63,11 @@ namespace SlopWorld
                 var r = new Rect(0f, 0f, width, height);
                 Text.Font = GameFont.Small;
                 UiWidgets.RowLabel(new Rect(r.x + UiWidgets.GapS, r.y + UiWidgets.GapXS,
-                    r.width - 60f, UiWidgets.LineH), title);
+                    r.width - TitleWidthInset, UiWidgets.LineH), title);
 
                 if (UiWidgets.Button(
-                        new Rect(r.width - 48f, r.y + 2f, 44f, UiWidgets.RowBtnH),
+                        new Rect(r.width - CloseButtonRightInset, r.y + CloseButtonTopInset,
+                            CloseButtonWidth, UiWidgets.RowBtnH),
                         "X", UiWidgets.Btn.Ghost))
                     close?.Invoke();
 

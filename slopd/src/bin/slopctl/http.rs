@@ -3,6 +3,9 @@ use serde_json::{json, Value};
 use std::io::Read;
 use std::path::PathBuf;
 
+const TOKEN_HEADER: &str = "x-slop-token";
+const SESSION_HEADER: &str = "x-slop-session";
+
 #[derive(Deserialize)]
 pub(crate) struct Endpoint {
     pub(crate) url: String,
@@ -49,22 +52,22 @@ pub(crate) fn request(
             .config()
             .http_status_as_error(false)
             .build()
-            .header("x-slop-token", &endpoint.token)
-            .header("x-slop-session", session)
+            .header(TOKEN_HEADER, &endpoint.token)
+            .header(SESSION_HEADER, session)
             .call(),
         ("DELETE", None) => ureq::delete(&url)
             .config()
             .http_status_as_error(false)
             .build()
-            .header("x-slop-token", &endpoint.token)
-            .header("x-slop-session", session)
+            .header(TOKEN_HEADER, &endpoint.token)
+            .header(SESSION_HEADER, session)
             .call(),
         ("POST", Some(value)) => ureq::post(&url)
             .config()
             .http_status_as_error(false)
             .build()
-            .header("x-slop-token", &endpoint.token)
-            .header("x-slop-session", session)
+            .header(TOKEN_HEADER, &endpoint.token)
+            .header(SESSION_HEADER, session)
             .send_json(value),
         _ => return Err(format!("unsupported request: {method}")),
     }

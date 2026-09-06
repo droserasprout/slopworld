@@ -10,6 +10,10 @@ namespace SlopWorld
     // for every dialog that draws them, so one can arrive without slopd being rebuilt.
     class HubCatalog
     {
+        const string ProjectsPath = "/api/projects";
+        const string LibraryPath = "/api/library";
+        const string PresetsPath = "/api/presets";
+
         public List<ProjectInfo> Projects = new List<ProjectInfo>();
         public List<LibraryItemInfo> Library = new List<LibraryItemInfo>();
         public List<PresetInfo> Presets = new List<PresetInfo>();
@@ -55,7 +59,7 @@ namespace SlopWorld
         public void RefreshProjects(Action<string> fail = null)
         {
             int revision = ++_projectsRevision;
-            DaemonClient.Get("/api/projects",
+            DaemonClient.Get(ProjectsPath,
                 j =>
                 {
                     if (revision == _projectsRevision)
@@ -73,7 +77,7 @@ namespace SlopWorld
         public void RefreshLibrary(Action<string> fail = null)
         {
             int revision = ++_libraryRevision;
-            DaemonClient.Get("/api/library",
+            DaemonClient.Get(LibraryPath,
                 j =>
                 {
                     if (revision == _libraryRevision)
@@ -90,14 +94,14 @@ namespace SlopWorld
         {
             _libraryRevision++;
             Action<JVal> done = _ => { RefreshLibrary(); ok?.Invoke(); };
-            if (isNew) DaemonClient.Post("/api/library", s.ToJson(), done, fail);
-            else DaemonClient.Put($"/api/library/{HubWire.Esc(origName)}", s.ToJson(), done, fail);
+            if (isNew) DaemonClient.Post(LibraryPath, s.ToJson(), done, fail);
+            else DaemonClient.Put($"{LibraryPath}/{HubWire.Esc(origName)}", s.ToJson(), done, fail);
         }
 
         public void RemoveLibraryItem(string name, Action<string> fail = null)
         {
             _libraryRevision++;
-            DaemonClient.Delete($"/api/library/{HubWire.Esc(name)}",
+            DaemonClient.Delete($"{LibraryPath}/{HubWire.Esc(name)}",
                 _ => RefreshLibrary(), fail);
         }
 
@@ -106,7 +110,7 @@ namespace SlopWorld
         public void LoadPresets(Action ok = null, Action<string> fail = null)
         {
             int revision = ++_presetsRevision;
-            DaemonClient.Get("/api/presets", j =>
+            DaemonClient.Get(PresetsPath, j =>
             {
                 if (revision != _presetsRevision) return;
                 Presets = j["presets"].Items.Select(PresetInfo.FromJson).ToList();
@@ -122,7 +126,7 @@ namespace SlopWorld
                                Action ok, Action<string> fail)
         {
             _presetsRevision++;
-            DaemonClient.Post($"/api/presets/{kind}/{Uri.EscapeDataString(name)}/copy",
+            DaemonClient.Post($"{PresetsPath}/{kind}/{Uri.EscapeDataString(name)}/copy",
                 $"{{\"name\":{JVal.Q(newName ?? "")}}}", _ =>
                 {
                     // The write completed even if another catalog GET supersedes this reload;
@@ -135,7 +139,7 @@ namespace SlopWorld
         public void SavePreset(PresetInfo p, Action ok, Action<string> fail)
         {
             _presetsRevision++;
-            DaemonClient.Put($"/api/presets/sandbox/{Uri.EscapeDataString(p.Name)}", p.ToJson(),
+            DaemonClient.Put($"{PresetsPath}/sandbox/{Uri.EscapeDataString(p.Name)}", p.ToJson(),
                 _ =>
                 {
                     LoadPresets(fail: fail);
@@ -146,7 +150,7 @@ namespace SlopWorld
         public void RemovePreset(string kind, string name, Action ok, Action<string> fail)
         {
             _presetsRevision++;
-            DaemonClient.Delete($"/api/presets/{kind}/{Uri.EscapeDataString(name)}",
+            DaemonClient.Delete($"{PresetsPath}/{kind}/{Uri.EscapeDataString(name)}",
                 _ =>
                 {
                     LoadPresets(fail: fail);
@@ -157,7 +161,7 @@ namespace SlopWorld
         public void SaveCommand(CommandInfo c, Action ok, Action<string> fail)
         {
             _presetsRevision++;
-            DaemonClient.Put($"/api/presets/command/{Uri.EscapeDataString(c.Name)}", c.ToJson(),
+            DaemonClient.Put($"{PresetsPath}/command/{Uri.EscapeDataString(c.Name)}", c.ToJson(),
                 _ =>
                 {
                     LoadPresets(fail: fail);
@@ -176,13 +180,13 @@ namespace SlopWorld
             // the catalog while this edit is settling.
             _projectsRevision++;
             Action<JVal> done = _ => { RefreshProjects(); _refreshSessions(); ok?.Invoke(); };
-            if (isNew) DaemonClient.Post("/api/projects", p.ToJson(), done, fail);
-            else DaemonClient.Put($"/api/projects/{HubWire.Esc(origName)}", p.ToJson(), done, fail);
+            if (isNew) DaemonClient.Post(ProjectsPath, p.ToJson(), done, fail);
+            else DaemonClient.Put($"{ProjectsPath}/{HubWire.Esc(origName)}", p.ToJson(), done, fail);
         }
 
         // The daemon refuses this while agents still work there, and says which ones.
         public void RemoveProject(string name, Action<string> fail = null) =>
-            DeleteProject($"/api/projects/{HubWire.Esc(name)}", fail);
+            DeleteProject($"{ProjectsPath}/{HubWire.Esc(name)}", fail);
 
         void DeleteProject(string path, Action<string> fail)
         {

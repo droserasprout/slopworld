@@ -8,6 +8,13 @@ use std::sync::OnceLock;
 use anyhow::{bail, Result};
 use serde::{Deserialize, Serialize};
 
+const DEFAULT_BIND: &str = "127.0.0.1:7717";
+const DEFAULT_USAGE_POLL_SECS: u64 = 60;
+const DEFAULT_CLAUDE_CREDENTIALS: &str = "~/.claude/.credentials.json";
+const DEFAULT_OPENAI_CREDENTIALS: &str = "~/.codex/auth.json";
+const DEFAULT_TITLE_MODEL: &str = "google/gemini-3.1-flash-lite";
+const DEFAULT_TITLE_MIN_CHARS: usize = 20;
+
 /// One TOML file, which the mod reads and writes back verbatim, so hand-edits and
 /// in-game edits use the same format.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -252,23 +259,23 @@ pub enum TitlePolicy {
 }
 
 fn default_usage_poll() -> u64 {
-    60
+    DEFAULT_USAGE_POLL_SECS
 }
 
 fn default_credentials() -> String {
-    "~/.claude/.credentials.json".into()
+    DEFAULT_CLAUDE_CREDENTIALS.into()
 }
 
 fn default_openai_credentials() -> String {
-    "~/.codex/auth.json".into()
+    DEFAULT_OPENAI_CREDENTIALS.into()
 }
 
 fn default_title_model() -> String {
-    "google/gemini-3.1-flash-lite".into()
+    DEFAULT_TITLE_MODEL.into()
 }
 
 fn default_title_min_chars() -> usize {
-    20
+    DEFAULT_TITLE_MIN_CHARS
 }
 
 fn default_pi_title_policy() -> TitlePolicy {
@@ -278,7 +285,7 @@ fn default_pi_title_policy() -> TitlePolicy {
 impl Default for Daemon {
     fn default() -> Self {
         Self {
-            bind: "127.0.0.1:7717".into(),
+            bind: DEFAULT_BIND.into(),
             token: String::new(),
             usage_poll_secs: default_usage_poll(),
             usage_items: BTreeMap::new(),

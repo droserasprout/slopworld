@@ -16,8 +16,8 @@ namespace SlopWorld
         // Both off the font: written down, they crop their own labels on any face taller than
         // the one they were set against.
         static float RowH => UiWidgets.BtnH;
-        static float CatH => UiWidgets.TinyRowH + 4f;
-        const float Gap = 4f;
+        static float CatH => UiWidgets.TinyRowH + UiWidgets.GapXS;
+        const float Gap = UiWidgets.GapXS;
 
         // Room for the longest bind there is, measured rather than guessed: a chord with two
         // modifiers on it is what has to fit, and at a larger font 180 is not it.
@@ -120,7 +120,7 @@ namespace SlopWorld
 
                 Text.Font = GameFont.Tiny;
                 Text.Anchor = TextAnchor.MiddleLeft;
-                float lx = arrowRect.xMax + 4f;
+                float lx = arrowRect.xMax + Gap;
                 string tail = folded ? $"  {list.Count}" : "";
                 GUI.color = UiWidgets.Dim;
                 UiWidgets.RowLabel(

@@ -59,9 +59,9 @@ namespace SlopWorld
         float DrawFields(Rect rect, ModSettings s)
         {
             float y = rect.y;
-            y += DrawFont(new Rect(rect.x, y, rect.width, 4000f), s);
-            y += DrawTheme(new Rect(rect.x, y, rect.width, 4000f), s);
-            y += DrawCursor(new Rect(rect.x, y, rect.width, 4000f), s);
+            y += DrawFont(new Rect(rect.x, y, rect.width, UiWidgets.ListingHeight), s);
+            y += DrawTheme(new Rect(rect.x, y, rect.width, UiWidgets.ListingHeight), s);
+            y += DrawCursor(new Rect(rect.x, y, rect.width, UiWidgets.ListingHeight), s);
             return y - rect.y + UiWidgets.GapS;
         }
 

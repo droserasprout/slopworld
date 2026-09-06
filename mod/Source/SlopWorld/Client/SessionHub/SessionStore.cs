@@ -10,6 +10,10 @@ namespace SlopWorld
     // here and from the socket, so the coordinator hands screen/session events straight in.
     class SessionStore
     {
+        const string SessionsPath = "/api/sessions";
+        const string LibraryPath = "/api/library";
+        const string RunPath = "/api/run";
+
         public List<SessionInfo> Sessions = new List<SessionInfo>();
 
         // Session names are the handle used by nearly every UI and simulation caller. Keep
@@ -179,7 +183,7 @@ namespace SlopWorld
         {
             long version = _sessionsVersion;
             int serial = ++_refreshSerial;
-            DaemonClient.Get("/api/sessions", j =>
+            DaemonClient.Get(SessionsPath, j =>
             {
                 // A websocket event is newer than an HTTP snapshot requested before it, and a
                 // later refresh supersedes an earlier one. Applying either stale answer can
@@ -193,7 +197,7 @@ namespace SlopWorld
         // A terminal path is relative to the shell's current directory, not necessarily the
         // project's configured root. Ask tmux at action time so a recent `cd` is respected.
         public void CurrentPath(string name, Action<string> done, Action<string> fail = null) =>
-            DaemonClient.Get($"/api/sessions/{HubWire.Esc(name)}/cwd",
+            DaemonClient.Get($"{SessionsPath}/{HubWire.Esc(name)}/cwd",
                 j => done?.Invoke(j["path"].AsString()), fail);
 
         // Run an ephemeral shell/prompt without creating a library item; refresh Sessions before
@@ -202,7 +206,7 @@ namespace SlopWorld
                         Action<string> started, Action<string> fail = null,
                         bool shell = true, string text = "", bool host = false, bool temp = false,
                         string path = "", bool hold = false, string like = "") =>
-            DaemonClient.Post("/api/run",
+            DaemonClient.Post(RunPath,
                 "{" + $"\"project\":{JVal.Q(project ?? "")}," +
                 $"\"kind\":{JVal.Q(shell ? "shell" : "prompt")}," +
                 $"\"command\":{JVal.Q(command ?? "")}," +
@@ -228,7 +232,7 @@ namespace SlopWorld
         public void RunLibraryItem(string name, Action<string> started, Action<string> fail = null,
                                 string project = null, bool temp = false,
                                 List<string> randomTips = null) =>
-            DaemonClient.Post($"/api/library/{HubWire.Esc(name)}/run",
+            DaemonClient.Post($"{LibraryPath}/{HubWire.Esc(name)}/run",
                 "{" + $"\"project\":{(string.IsNullOrEmpty(project) ? "null" : JVal.Q(project))}," +
                 $"\"temp\":{JVal.B(temp)}," +
                 $"\"random_tips\":{HubWire.Tips(randomTips)}" + "}",
@@ -244,26 +248,26 @@ namespace SlopWorld
         }
 
         public void Start(string name, Action<string> fail = null) =>
-            DaemonClient.Post($"/api/sessions/{HubWire.Esc(name)}/start", null, _ => Refresh(), fail);
+            DaemonClient.Post($"{SessionsPath}/{HubWire.Esc(name)}/start", null, _ => Refresh(), fail);
 
         public void Stop(string name, Action<string> fail = null) =>
-            DaemonClient.Post($"/api/sessions/{HubWire.Esc(name)}/stop", null, _ => Refresh(), fail);
+            DaemonClient.Post($"{SessionsPath}/{HubWire.Esc(name)}/stop", null, _ => Refresh(), fail);
 
         public void Restart(string name, Action<string> fail = null) =>
-            DaemonClient.Post($"/api/sessions/{HubWire.Esc(name)}/restart", null, _ => Refresh(), fail);
+            DaemonClient.Post($"{SessionsPath}/{HubWire.Esc(name)}/restart", null, _ => Refresh(), fail);
 
         public void ResetState(string name, Action<string> fail = null) =>
-            DaemonClient.Post($"/api/sessions/{HubWire.Esc(name)}/state/reset", null, _ => Refresh(), fail);
+            DaemonClient.Post($"{SessionsPath}/{HubWire.Esc(name)}/state/reset", null, _ => Refresh(), fail);
 
         public void SetLabel(string name, string label, Action ok = null, Action<string> fail = null)
         {
-            DaemonClient.Put($"/api/sessions/{HubWire.Esc(name)}/label",
+            DaemonClient.Put($"{SessionsPath}/{HubWire.Esc(name)}/label",
                 $"{{\"label\":{JVal.Q(label ?? "")}}}",
                 _ => { Refresh(); ok?.Invoke(); }, fail);
         }
 
         public void Remove(string name, Action<string> fail = null) =>
-            DaemonClient.Delete($"/api/sessions/{HubWire.Esc(name)}", _ => Refresh(), fail);
+            DaemonClient.Delete($"{SessionsPath}/{HubWire.Esc(name)}", _ => Refresh(), fail);
 
         // `origName` addresses the edit: the name in `s` may be a new one the daemon has not
         // heard of, which is how a rename is spelled.
@@ -287,8 +291,8 @@ namespace SlopWorld
                 if (renamed) _pendingRenames.Remove(origName);
                 fail?.Invoke(message);
             };
-            if (isNew) DaemonClient.Post("/api/sessions", s.ToJson(), done, error);
-            else DaemonClient.Put($"/api/sessions/{HubWire.Esc(origName)}", s.ToJson(), done, error);
+            if (isNew) DaemonClient.Post(SessionsPath, s.ToJson(), done, error);
+            else DaemonClient.Put($"{SessionsPath}/{HubWire.Esc(origName)}", s.ToJson(), done, error);
         }
     }
 }

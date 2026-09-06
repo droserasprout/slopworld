@@ -9,6 +9,13 @@ namespace SlopWorld
 {
     public abstract class UiButtons : UiText
     {
+        protected const float SliderValueWidth = 46f;
+        protected const float SliderKnobWidth = 12f;
+        protected const float SliderLabelMinWidth = 120f;
+        protected const float SliderLabelMaxShare = 0.42f;
+        protected const float SliderTrackHeight = 8f;
+        protected const float SliderKnobVerticalInset = 3f;
+
         public static bool Button(Rect r, string label, Btn kind = Btn.Default, bool on = true)
         {
             using (WidgetState.Save()) return ButtonCore(r, label, kind, on);
@@ -296,13 +303,13 @@ namespace SlopWorld
         static float Track(Rect r, string label, float value, string readout, out bool held,
                            out bool released)
         {
-            const float valueW = 46f;
-            const float knobW = 12f;
-            float labelW = Mathf.Min(Mathf.Max(Wide(label) + GapM, 120f), r.width * 0.42f);
+            float labelW = Mathf.Min(Mathf.Max(Wide(label) + GapM, SliderLabelMinWidth),
+                r.width * SliderLabelMaxShare);
             var labelRect = new Rect(r.x, r.y, labelW, RowH);
-            var valueRect = new Rect(r.xMax - valueW, r.y, valueW, RowH);
-            var track = new Rect(labelRect.xMax + GapS, r.y + (RowH - 8f) / 2f,
-                Mathf.Max(1f, valueRect.x - GapS - labelRect.xMax - GapS), 8f);
+            var valueRect = new Rect(r.xMax - SliderValueWidth, r.y, SliderValueWidth, RowH);
+            var track = new Rect(labelRect.xMax + GapS,
+                r.y + (RowH - SliderTrackHeight) / 2f,
+                Mathf.Max(1f, valueRect.x - GapS - labelRect.xMax - GapS), SliderTrackHeight);
 
             using (WidgetState.Save())
             {
@@ -313,15 +320,17 @@ namespace SlopWorld
 
             int id = GUIUtility.GetControlID(FocusType.Passive, track);
             var e = Event.current;
-            var hit = new Rect(track.x - knobW / 2f, r.y, track.width + knobW, RowH);
+            var hit = new Rect(track.x - SliderKnobWidth / 2f, r.y,
+                track.width + SliderKnobWidth, RowH);
             EventType mouseType = e.type == EventType.Used ? e.rawType : e.type;
             var state = GUIUtility.GetStateObject(typeof(SliderState), id) as SliderState;
             released = false;
             if (mouseType == EventType.MouseDown && e.button == 0 && hit.Contains(e.mousePosition))
             {
                 float clickKnobX = Mathf.Lerp(track.x, track.xMax, Mathf.Clamp01(value));
-                var knob = new Rect(clickKnobX - knobW / 2f, track.y - 3f, knobW,
-                    track.height + 6f);
+                var knob = new Rect(clickKnobX - SliderKnobWidth / 2f,
+                    track.y - SliderKnobVerticalInset, SliderKnobWidth,
+                    track.height + SliderKnobVerticalInset * 2f);
                 state.grab = knob.Contains(e.mousePosition)
                     ? e.mousePosition.x - clickKnobX
                     : 0f;
@@ -364,7 +373,9 @@ namespace SlopWorld
             if (fill.width > 0f) Slab.Fill(fill, PrimeFace);
             float knobX = Mathf.Lerp(track.x, track.xMax, Mathf.Clamp01(value));
             bool grabbed = held = state.dragging;
-            Slab.Box(new Rect(knobX - knobW / 2f, track.y - 3f, knobW, track.height + 6f),
+            Slab.Box(new Rect(knobX - SliderKnobWidth / 2f,
+                track.y - SliderKnobVerticalInset, SliderKnobWidth,
+                track.height + SliderKnobVerticalInset * 2f),
                 grabbed ? Lighten(KnobFace, -0.20f) : Mouse.IsOver(hit)
                     ? Lighten(KnobFace, -0.08f) : KnobFace,
                 Clear);

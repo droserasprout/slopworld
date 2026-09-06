@@ -15,6 +15,7 @@ use crate::session::Manager;
 
 pub(super) type Mgr = Arc<Manager>;
 pub(super) type ApiResult = Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)>;
+pub(crate) const TOKEN_HEADER: &str = "x-slop-token";
 
 pub(super) fn err(
     code: StatusCode,
@@ -28,7 +29,7 @@ pub(super) fn err(
 /// rides only on the upgrade request.
 pub(crate) fn presented_token(headers: &HeaderMap) -> Option<String> {
     headers
-        .get("x-slop-token")
+        .get(TOKEN_HEADER)
         .and_then(|v| v.to_str().ok())
         .map(str::to_string)
 }
@@ -50,11 +51,11 @@ mod tests {
         let mut headers = HeaderMap::new();
         assert_eq!(presented_token(&headers), None);
 
-        headers.insert("x-slop-token", HeaderValue::from_static("secret"));
+        headers.insert(TOKEN_HEADER, HeaderValue::from_static("secret"));
         assert_eq!(presented_token(&headers).as_deref(), Some("secret"));
 
         headers.insert(
-            "x-slop-token",
+            TOKEN_HEADER,
             HeaderValue::from_bytes(&[0xff]).expect("opaque header value"),
         );
         assert_eq!(presented_token(&headers), None);

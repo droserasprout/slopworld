@@ -79,7 +79,7 @@ namespace SlopWorld
             using (_scroll.Scope(r, view))
             {
                 var l = new Listing_Standard { maxOneColumn = true };
-                l.Begin(new Rect(0f, 0f, view.width, 4000f));
+                l.Begin(new Rect(0f, 0f, view.width, UiWidgets.ListingHeight));
                 DrawFields(l);
                 float y = l.CurHeight;
                 l.End();
