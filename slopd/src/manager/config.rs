@@ -285,6 +285,15 @@ impl Manager {
         self.tasks.lock().unwrap().update(who, id, status, note)
     }
 
+    pub fn cancel_tasks(
+        &self,
+        who: &str,
+        ids: &[String],
+        force: bool,
+    ) -> Result<Vec<crate::tasks::Task>> {
+        self.tasks.lock().unwrap().cancel_many(who, ids, force)
+    }
+
     pub fn remove_task(&self, who: &str, id: &str, force: bool) -> Result<crate::tasks::Task> {
         self.tasks.lock().unwrap().remove(who, id, force)
     }

@@ -13,6 +13,9 @@ namespace SlopWorld
         bool _loading;
         long _nextPoll;
         int _refreshSerial;
+        readonly Queue<CancellationBatch> _cancellations = new Queue<CancellationBatch>();
+        readonly HashSet<string> _cancelingIds = new HashSet<string>();
+        bool _cancellationInFlight;
         readonly Queue<RemovalBatch> _removals = new Queue<RemovalBatch>();
         readonly HashSet<string> _removingIds = new HashSet<string>();
         bool _removalInFlight;
@@ -24,6 +27,20 @@ namespace SlopWorld
             public readonly Action<string> Fail;
 
             public RemovalBatch(List<string> ids, Action ok, Action<string> fail)
+            {
+                Ids = ids;
+                Ok = ok;
+                Fail = fail;
+            }
+        }
+
+        sealed class CancellationBatch
+        {
+            public readonly List<string> Ids;
+            public readonly Action Ok;
+            public readonly Action<string> Fail;
+
+            public CancellationBatch(List<string> ids, Action ok, Action<string> fail)
             {
                 Ids = ids;
                 Ok = ok;
@@ -100,6 +117,54 @@ namespace SlopWorld
         public void Remove(string id, Action ok = null, Action<string> fail = null)
         {
             RemoveMany(new[] { id }, ok, fail);
+        }
+
+        public void CancelMany(IEnumerable<string> ids, Action ok = null,
+                               Action<string> fail = null)
+        {
+            if (ids == null) return;
+
+            var batchIds = new List<string>();
+            foreach (string id in ids.Where(value => !string.IsNullOrEmpty(value)).Distinct())
+            {
+                if (!_cancelingIds.Add(id)) continue;
+                batchIds.Add(id);
+            }
+
+            if (batchIds.Count == 0) return;
+            _cancellations.Enqueue(new CancellationBatch(batchIds, ok, fail));
+            InvalidateRefresh();
+            PumpCancellations();
+        }
+
+        void PumpCancellations()
+        {
+            if (_cancellationInFlight || _cancellations.Count == 0) return;
+
+            var pending = _cancellations.Dequeue();
+            _cancellationInFlight = true;
+            string body = "{\"ids\":[" +
+                string.Join(",", pending.Ids.Select(JVal.Q).ToArray()) + "]}";
+            DaemonClient.Post("/api/tasks/cancel", body, j =>
+            {
+                _cancellationInFlight = false;
+                foreach (string id in pending.Ids) _cancelingIds.Remove(id);
+                foreach (var task in j["tasks"].Items.Select(TaskInfo.FromJson)) Upsert(task);
+                pending.Ok?.Invoke();
+                FinishCancellations();
+            }, error =>
+            {
+                _cancellationInFlight = false;
+                foreach (string id in pending.Ids) _cancelingIds.Remove(id);
+                pending.Fail?.Invoke(error);
+                FinishCancellations();
+            }, TaskInfo.Host);
+        }
+
+        void FinishCancellations()
+        {
+            if (_cancellations.Count == 0) Refresh();
+            PumpCancellations();
         }
 
         public void RemoveMany(IEnumerable<string> ids, Action ok = null,

@@ -51,7 +51,9 @@ The agent context menu offers Start/Stop, Terminal, Label, Delegate task, Edit, 
 Storage, Remove, and New look. The Tasks tab lists the complete root task board, refreshes it through the
 daemon, filters by status/direction/agent, and opens task detail/status actions; plain clicks open
 task detail, Ctrl+Click toggles task rows, and Shift+Click selects a visible range. Remove applies
-to all selected finished tasks. Storage resolves the agent's active private-state entry through the
+to all selected terminal tasks, while Cancel marks selected queued or accepted tasks as canceled.
+Canceled tasks can then be removed like other finished tasks. Storage resolves the
+agent's active private-state entry through the
 same daemon inventory as Settings and opens it as the focused root of Files. Shell spawns an
 ephemeral shell errand that clones the agent's
 sandbox config (presets, network, dns, limits, mounts) via the `like` field on

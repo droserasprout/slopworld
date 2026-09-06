@@ -36,10 +36,14 @@ namespace SlopWorld.Tests
                            "unknown status fallback");
             AssertEx.Equal(DelegatedTaskStatus.Failed, TaskInfo.ParseStatus("FAILED"),
                            "status is case-insensitive");
+            AssertEx.Equal(DelegatedTaskStatus.Canceled, TaskInfo.ParseStatus("canceled"),
+                           "canceled status");
             AssertEx.Equal("one two three", TaskInfo.OneLine("one\n\ttwo\r\nthree"),
                            "body is one line");
             AssertEx.Equal("done", TaskInfo.StatusText(DelegatedTaskStatus.Done),
                            "wire status");
+            AssertEx.True(new TaskInfo { Status = DelegatedTaskStatus.Canceled }.Terminal,
+                          "canceled is terminal");
         }
 
         static void BoundsSummary()

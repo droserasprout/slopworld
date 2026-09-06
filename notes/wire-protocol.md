@@ -35,9 +35,10 @@ sidebar parent. The child gets fresh identity and daemon-owned worker metadata p
 The task's optional `worker` object carries the explicit child session, parent, and durable flag.
 Session snapshots likewise carry `worker`, `parent`, `task_id`, and `durable`; clients must not
 infer hierarchy from names.
-Task mutations include `POST /api/tasks/remove` with `{ "ids": ["..."] }`, which validates and
-removes a selected set atomically; single-task `DELETE /api/tasks/:id` remains available to the
-CLI and other clients.
+Task mutations include `POST /api/tasks/cancel` with `{ "ids": ["..."] }`, which atomically marks
+queued or accepted tasks as `canceled`, and `POST /api/tasks/remove` with the same shape, which
+validates and removes a selected terminal set atomically; single-task `DELETE /api/tasks/:id`
+remains available to the CLI and other clients.
 `GET /api/clipboard` reads CLIPBOARD for non-Codex agent paste; `GET /api/clipboard/text` is
 the text-only host-terminal counterpart and is also used to distinguish Codex text pastes from
 its image-paste shortcut. The `/primary` variants do the same for

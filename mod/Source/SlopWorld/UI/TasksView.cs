@@ -211,6 +211,7 @@ namespace SlopWorld
             {
                 case DelegatedTaskStatus.Done: return UiWidgets.Yes;
                 case DelegatedTaskStatus.Failed: return UiWidgets.Bad;
+                case DelegatedTaskStatus.Canceled: return UiWidgets.Dim;
                 case DelegatedTaskStatus.Working: return UiWidgets.StateWorking;
                 case DelegatedTaskStatus.Accepted: return UiWidgets.StateWaiting;
                 default: return UiWidgets.Info;

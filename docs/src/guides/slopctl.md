@@ -21,27 +21,28 @@ slopctl delegate AGENT "review the auth module"   # create a task
 slopctl spawn PARENT "inspect the build"          # root-only one-shot child worker
 slopctl spawn --durable PARENT "run the checks"   # keep the child in config after exit
 slopctl inbox                                       # unfinished work, both directions
-slopctl inbox --all                                 # include finished and failed
+slopctl inbox --all                                 # include terminal tasks
 slopctl inbox --sent                                # only tasks you sent
 slopctl inbox --received                            # only tasks sent to you
 slopctl inbox --status queued                       # filter by state
 slopctl task ID                                     # show one task
-slopctl wait ID                                     # wait for done or failed
+slopctl wait ID                                     # wait for a terminal result
 slopctl accept ID                                   # accept a queued task
 slopctl accept ID "starting now"                    # accept with a note
 slopctl progress ID "halfway done"                  # mark in progress
 slopctl finish ID "done, see commit abc123"         # complete a task
 slopctl fail ID "blocked on missing config"         # mark failed
-slopctl rm ID                                       # remove a finished task
-slopctl prune                                       # remove all finished tasks
+slopctl rm ID                                       # remove a terminal task
+slopctl prune                                       # remove all terminal tasks
 slopctl prune --all                                 # remove all tasks (root only)
 ```
 
-`inbox` shows unfinished work in both directions, newest first. Removal is shared:
+`inbox` shows unfinished work in both directions, newest first. Cancellation marks queued or
+accepted work as `canceled`; removal is shared:
 the store holds one copy of a task, and a participant can only drop tasks that have
 stopped moving. The root token can remove tasks still in flight.
 
-`wait` polls the task until it reaches the terminal `done` or `failed` state, then
+`wait` polls the task until it reaches a terminal `done`, `failed` or `canceled` state, then
 prints that final task. It is useful after delegating work when the caller needs to
 continue only once the result is available.
 

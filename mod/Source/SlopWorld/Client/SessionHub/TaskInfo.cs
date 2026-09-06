@@ -10,6 +10,7 @@ namespace SlopWorld
         Working,
         Done,
         Failed,
+        Canceled,
     }
 
     // The daemon's durable mailbox record. Task state is deliberately separate from a session's
@@ -43,7 +44,8 @@ namespace SlopWorld
         string _summary;
 
         public bool Terminal => Status == DelegatedTaskStatus.Done ||
-            Status == DelegatedTaskStatus.Failed;
+            Status == DelegatedTaskStatus.Failed ||
+            Status == DelegatedTaskStatus.Canceled;
 
         public bool Incoming => To == Host;
         public bool Outgoing => From == Host;
@@ -79,6 +81,7 @@ namespace SlopWorld
                 case "working": return DelegatedTaskStatus.Working;
                 case "done": return DelegatedTaskStatus.Done;
                 case "failed": return DelegatedTaskStatus.Failed;
+                case "canceled": return DelegatedTaskStatus.Canceled;
                 default: return DelegatedTaskStatus.Queued;
             }
         }

@@ -19,12 +19,13 @@ pub enum Status {
     Working,
     Done,
     Failed,
+    Canceled,
 }
 
 impl Status {
     /// Where a task stops moving. What `prune` may drop, and what an inbox leaves out until asked.
     pub fn is_terminal(self) -> bool {
-        matches!(self, Status::Done | Status::Failed)
+        matches!(self, Status::Done | Status::Failed | Status::Canceled)
     }
 }
 
@@ -205,12 +206,55 @@ impl Tasks {
         if task.to != who {
             bail!("only the task recipient may update it");
         }
+        if task.status == Status::Canceled {
+            bail!("a canceled task cannot be updated: {id}");
+        }
         task.status = status;
         task.note = note;
         task.updated_ms = now_ms();
         let result = task.clone();
         self.save()?;
         Ok(result)
+    }
+
+    /// Cancel queued or accepted work. The recipient may cancel its own task; the root may
+    /// cancel any task so the host task board can stop work it sent before it was picked up.
+    pub fn cancel_many(&mut self, who: &str, ids: &[String], force: bool) -> Result<Vec<Task>> {
+        let wanted: HashSet<String> = ids
+            .iter()
+            .filter(|id| !id.trim().is_empty())
+            .cloned()
+            .collect();
+        if wanted.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        for id in &wanted {
+            let task = self
+                .file
+                .tasks
+                .iter()
+                .find(|t| t.id == *id)
+                .with_context(|| format!("no such task: {id}"))?;
+            if !force && task.to != who {
+                bail!("only the task recipient may cancel it: {id}");
+            }
+            if !matches!(task.status, Status::Queued | Status::Accepted) {
+                bail!("only queued or accepted tasks can be canceled: {id}");
+            }
+        }
+
+        let now = now_ms();
+        let mut canceled = Vec::new();
+        for task in &mut self.file.tasks {
+            if wanted.contains(&task.id) {
+                task.status = Status::Canceled;
+                task.updated_ms = now;
+                canceled.push(task.clone());
+            }
+        }
+        self.save()?;
+        Ok(canceled)
     }
 
     /// Drop one task. The store holds a single copy of a task rather than one per side, so a
@@ -339,6 +383,18 @@ mod tests {
             .create("alice".into(), "bob".into(), "over".into())
             .unwrap();
         s.update("bob", &over.id, Status::Done, None).unwrap();
+
+        let accepted = s
+            .create("alice".into(), "bob".into(), "accepted".into())
+            .unwrap();
+        s.update("bob", &accepted.id, Status::Accepted, None)
+            .unwrap();
+        let canceled = s
+            .cancel_many("bob", std::slice::from_ref(&accepted.id), false)
+            .unwrap();
+        assert_eq!(canceled[0].status, Status::Canceled);
+        assert!(s.update("bob", &accepted.id, Status::Done, None).is_err());
+        assert!(s.remove("alice", &accepted.id, false).is_ok());
 
         assert!(s.remove("eve", &over.id, false).is_err()); // not a participant
         assert!(s.remove("alice", &live.id, false).is_err()); // still in flight

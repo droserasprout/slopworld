@@ -16,7 +16,8 @@ slopctl status
 ```
 
 Every task has an opaque id, sender, recipient, state, body, optional latest note
-and timestamps. Both participants may read it; only the recipient changes its state.
+and timestamps. Both participants may read it; the recipient changes its state, while the
+root task board can cancel queued or accepted work.
 A scoped grant supplies the caller identity and must cover the recipient to delegate.
 
 `host` is the user at the keyboard: a principal that is not a session and never one.
