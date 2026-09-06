@@ -21,6 +21,8 @@ their editors open above the chrome with `TerminalWindow.OpenOverPane`.
   owns the agent/shell preset defaults plus pager, editor and highlighter
   templates. Undrawn daemon fields survive serialization. `StoragePage` inventories
   private state and owns reset/restore/delete actions.
+- `Commands > Binaries` checks the host PATH for the runtime, agent, command-tool, integration,
+  and development executables the project uses or recommends.
 - `Integrations` is a heading with a `Credentials` child for host-side credential paths.
   `UsagePage` owns one table of usage windows with name, icon picker, poll toggle and optional
   per-row interval; its global interval is the fallback for blank rows. Left/spent display is

@@ -24,17 +24,6 @@ namespace SlopWorld
             bool eco = UiWidgets.Checkbox(l, "Eco mode", s.ecoMode);
             UiWidgets.Note(l, "80% less CPU. 0.1% less guilt. You're welcome, Earth.");
 
-            l.Gap(UiWidgets.GapS);
-            bool gm = UiWidgets.Checkbox(l, "Grandma's visiting", s.grandmaMode);
-            UiWidgets.Note(l, "No fun allowed! Disable gore, vomit, and offensive/harmful tips.");
-
-            if (gm != s.grandmaMode || eco != s.ecoMode)
-            {
-                s.grandmaMode = gm;
-                s.ecoMode = eco;
-                s.MarkDirty();
-            }
-
             // Only with the mode on: a slider for a backdrop nothing is drawing is a knob that
             // does nothing, and the note above is what says so. Stepped to twentieths because
             // the value keys a material - see Eco.Shade.
@@ -44,6 +33,17 @@ namespace SlopWorld
                 float dim = Mathf.Round(UiWidgets.Slider(l, "Backdrop dimming", s.ecoDim,
                     0f, 0.8f, Mathf.RoundToInt(s.ecoDim * 100f) + "%") * 20f) / 20f;
                 if (dim != s.ecoDim) { s.ecoDim = dim; s.MarkDirty(); }
+            }
+
+            l.Gap(UiWidgets.GapS);
+            bool gm = UiWidgets.Checkbox(l, "Grandma's visiting", s.grandmaMode);
+            UiWidgets.Note(l, "No fun allowed! Disable gore, vomit, and offensive/harmful tips.");
+
+            if (gm != s.grandmaMode || eco != s.ecoMode)
+            {
+                s.grandmaMode = gm;
+                s.ecoMode = eco;
+                s.MarkDirty();
             }
 
             l.Gap(UiWidgets.GapL);

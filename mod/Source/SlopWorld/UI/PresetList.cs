@@ -39,7 +39,8 @@ namespace SlopWorld
             }
 
             presets = presets
-                .OrderBy(p => p.Name, System.StringComparer.OrdinalIgnoreCase)
+                .OrderBy(p => p.Source == "system" ? 0 : 1)
+                .ThenBy(p => p.Name, System.StringComparer.OrdinalIgnoreCase)
                 .ToList();
             var roots = new List<string>(chosen);
             if (implied != null) roots.AddRange(implied);

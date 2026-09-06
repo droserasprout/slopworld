@@ -187,6 +187,8 @@ namespace SlopWorld
                 _ => ModOptions.OpenCategory(ModOptions.CategoryFor(ModOptions.PageId.Storage))),
             new CommandDef("view.commands", "Settings: Commands - Defaults", "Settings",
                 _ => ModOptions.OpenCategory(ModOptions.CategoryFor(ModOptions.PageId.CommandDefaults))),
+            new CommandDef("view.command-binaries", "Settings: Commands - Binaries", "Settings",
+                _ => ModOptions.OpenCategory(ModOptions.CategoryFor(ModOptions.PageId.CommandBinaries))),
             new CommandDef("view.command-presets", "Settings: Commands - Presets", "Settings",
                 _ => ModOptions.OpenCategory(ModOptions.CategoryFor(ModOptions.PageId.CommandPresets))),
             new CommandDef("view.terminal-settings", "Settings: Terminal", "Settings",
