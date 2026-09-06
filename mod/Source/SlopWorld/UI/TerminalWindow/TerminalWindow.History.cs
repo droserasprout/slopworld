@@ -104,7 +104,19 @@ namespace SlopWorld
                     if (sb.History >= 0)
                     {
                         _historyTopOff = Mathf.Clamp(sb.History + shift, 0, MaxScrollLines);
-                        if (!request.Warm) ClampHistoryTarget();
+                        // A warm capture is deliberately not allowed to clamp a newer
+                        // gesture, except when it proves that there is no history at all.
+                        // Without this, a fresh pane can remain locally scrolled until the
+                        // next input pass even though the daemon answered with history=0.
+                        if (!request.Warm || sb.History == 0)
+                        {
+                            ClampHistoryTarget();
+                            if (request.Warm && sb.History == 0)
+                            {
+                                _scrollPending = false;
+                                _wantedScrollOff = 0;
+                            }
+                        }
                     }
                     else if (sb.Off + shift < request.Offset)
                     {
@@ -112,7 +124,15 @@ namespace SlopWorld
                         // offset is still authoritative when the requested point was above
                         // the real top.
                         _historyTopOff = Mathf.Max(0, sb.Off + shift);
-                        if (!request.Warm) ClampHistoryTarget();
+                        if (!request.Warm || sb.Off + shift <= 0)
+                        {
+                            ClampHistoryTarget();
+                            if (request.Warm && sb.Off + shift <= 0)
+                            {
+                                _scrollPending = false;
+                                _wantedScrollOff = 0;
+                            }
+                        }
                     }
                     _historyRefreshPending = false;
                 }
@@ -149,7 +169,41 @@ namespace SlopWorld
 
         bool HistoryInputEnabled(ScreenBuf live) =>
             _scrollOff > 0 || live == null ||
-            (!live.AppMouse && !live.AltScreen && !IsEditorSession());
+                (!live.AppMouse && !live.AltScreen && !IsEditorSession());
+
+        // A durable session name can be reused for a new process. Do not let the new
+        // emulator inherit the old run's indexed rows, request ids, or fractional position.
+        // The stopped branch calls this before the replacement process publishes its first
+        // frame, so the first frame is treated as a new live bottom even when the tab stays
+        // open throughout a restart/auto-resume.
+        internal void ResetHistoryForNewRun()
+        {
+            if (_lastLiveSeq < 0 && !_historyWarmed && _historyRequests.Count == 0 &&
+                _scrollOff == 0)
+                return;
+
+            _lastLiveSeq = -1;
+            _history.Reset();
+            _historyRequests.Clear();
+            _scrollPending = false;
+            _wantedScrollOff = 0;
+            _sentScrollOff = 0;
+            _nextScrollSend = 0f;
+            _scrollOff = 0;
+            _historyJumpPending = true;
+            _historyJumpOff = 0;
+            _historyJumpPixels = -1f;
+            _historyLastPixels = 0f;
+            _renderHistoryShift = 0f;
+            _historyCoordinateShift = 0;
+            _historyTopOff = -1;
+            _historyViewReady = false;
+            _historyRefreshPending = false;
+            _historyWarmed = false;
+            _historyDisplayedFrame = null;
+            _selectionOff = 0;
+            ClearSelection();
+        }
 
         bool IsEditorSession()
         {

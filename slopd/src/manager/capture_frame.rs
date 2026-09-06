@@ -81,7 +81,7 @@ impl Manager {
                 cols: previous.cols,
                 rows: previous.rows,
                 off: 0,
-                history: 0,
+                history: frame.history,
                 request_id: 0,
             },
             frame,

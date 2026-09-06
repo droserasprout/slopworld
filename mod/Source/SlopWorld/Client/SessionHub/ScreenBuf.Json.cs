@@ -9,6 +9,7 @@ namespace SlopWorld
             string[] previousLines = Lines;
             int previousRows = Rows;
             int previousCy = Cy;
+            int previousHistory = History;
             bool previousAltScreen = AltScreen;
             int previousSeq = Seq;
 
@@ -27,9 +28,18 @@ namespace SlopWorld
             Title = s["title"].AsString();
             ScrollRequestId = (ulong)s["request_id"].AsLong(0);
             Lines = s["lines"].Items.Select(l => l.AsString()).ToArray();
-            LiveShift = Off == 0 && previousSeq >= 0 && !previousAltScreen && !AltScreen
+            int visibleShift = Off == 0 && previousSeq >= 0 &&
+                !previousAltScreen && !AltScreen
                 ? VerticalShift(previousLines, Lines, previousRows, Rows, previousCy)
                 : 0;
+            int historyShift = Off == 0 && previousSeq >= 0 &&
+                !previousAltScreen && !AltScreen && History > previousHistory
+                ? History - previousHistory : 0;
+            // Visible-row overlap is precise for small shifts, but it cannot identify a
+            // burst that scrolls an entire viewport. The daemon's live history extent supplies
+            // that missing signal while the buffer still has room to grow; once full, the
+            // overlap detector remains the fallback.
+            LiveShift = System.Math.Max(visibleShift, historyShift);
             Runs = null; // force a re-parse on next draw
         }
 

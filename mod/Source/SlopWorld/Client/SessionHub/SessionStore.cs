@@ -96,7 +96,19 @@ namespace SlopWorld
 
         void ReplaceSessions(JVal ev)
         {
-            Sessions = ev["sessions"].Items.Select(SessionInfo.FromJson).ToList();
+            var next = ev["sessions"].Items.Select(SessionInfo.FromJson).ToList();
+            foreach (var session in next)
+            {
+                if (session == null || !_byName.TryGetValue(session.Name, out var previous) ||
+                    previous.Alive == session.Alive)
+                    continue;
+
+                // A durable name can outlive several processes. Its next live frame belongs
+                // to a new emulator, not to the screen/history retained for the old process.
+                _screens.Remove(session.Name);
+                _scrolls.Remove(session.Name);
+            }
+            Sessions = next;
             Reindex();
             ForgetScreens();
         }

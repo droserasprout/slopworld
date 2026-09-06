@@ -429,6 +429,7 @@ mod tests {
         let mut events = manager.events.subscribe();
         let frame = Frame {
             lines: vec!["hello".into()],
+            history: 0,
             cx: 2,
             cy: 0,
             cursor_shape: 1,
@@ -456,6 +457,7 @@ mod tests {
                 "agent",
                 Frame {
                     lines: vec!["hello".into()],
+                    history: 0,
                     cx: 2,
                     cy: 0,
                     cursor_shape: 1,
