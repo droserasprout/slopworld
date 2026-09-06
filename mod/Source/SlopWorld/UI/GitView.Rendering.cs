@@ -51,7 +51,8 @@ namespace SlopWorld
 
             GUI.color = UiWidgets.Dim;
             Text.Anchor = TextAnchor.MiddleLeft;
-            var branch = new Rect(x, y, Mathf.Max(0f, rx - x - 4f), UiWidgets.TinyRowH);
+            var branch = new Rect(x, y, Mathf.Max(0f, rx - x - UiWidgets.GapXS),
+                UiWidgets.TinyRowH);
             UiWidgets.RowLabel(branch, repo.Branch ?? "");
 
             GUI.color = Color.white;

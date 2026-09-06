@@ -9,6 +9,9 @@ namespace SlopWorld
     // `Widgets.Label`/`Text.CalcSize`, including vanilla dialogs. ModOptions hosts the page.
     public class AppearancePage : IOptionPage
     {
+        const float PickerWidth = 430f;
+        const float PickerHeight = 360f;
+
         readonly SmoothScroll _scroll = new SmoothScroll();
         readonly SmoothScroll _pickScroll = new SmoothScroll();
         float _fieldsH;
@@ -59,11 +62,11 @@ namespace SlopWorld
         float DrawFields(Rect rect)
         {
             float y = rect.y;
-            y += DrawScale(new Rect(rect.x, y, rect.width, 4000f));
-            y += DrawInterface(new Rect(rect.x, y, rect.width, 4000f));
-            y += DrawScheme(new Rect(rect.x, y, rect.width, 4000f));
-            y += DrawFont(new Rect(rect.x, y, rect.width, 4000f));
-            y += DrawCursor(new Rect(rect.x, y, rect.width, 4000f));
+            y += DrawScale(new Rect(rect.x, y, rect.width, UiWidgets.ListingHeight));
+            y += DrawInterface(new Rect(rect.x, y, rect.width, UiWidgets.ListingHeight));
+            y += DrawScheme(new Rect(rect.x, y, rect.width, UiWidgets.ListingHeight));
+            y += DrawFont(new Rect(rect.x, y, rect.width, UiWidgets.ListingHeight));
+            y += DrawCursor(new Rect(rect.x, y, rect.width, UiWidgets.ListingHeight));
             return y - rect.y + UiWidgets.GapS;
         }
 
@@ -266,9 +269,7 @@ namespace SlopWorld
 
         void DrawCursorPicker(Rect pageRect)
         {
-            const float pickW = 430f;
-            const float pickH = 360f;
-            UiPickerWindow.Show(0x51_0F_1100, pageRect, pickW, pickH, "Mouse cursor",
+            UiPickerWindow.Show(0x51_0F_1100, pageRect, PickerWidth, PickerHeight, "Mouse cursor",
                 () => _pickingCursor = false, DeadCursor.Choices.Length, _pickScroll,
                 grid => DrawCursorGrid(grid));
         }

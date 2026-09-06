@@ -19,8 +19,8 @@ namespace SlopWorld
                     Session = info.Name,
                     Ghost = true,
                     Line = new Rect(body.x, y, body.width, GhostH),
-                    Text = new Rect(body.x + CellX + ArrowW + 4f, y + 1f,
-                        body.width - CellX - ArrowW - 4f - Pad, NameH),
+                    Text = new Rect(body.x + CellX + ArrowW + UiWidgets.GapXS, y + 1f,
+                        body.width - CellX - ArrowW - UiWidgets.GapXS - Pad, NameH),
                     Face = Rect.zero,
                 };
                 Layout.ViewRows.Add(row);
@@ -42,8 +42,8 @@ namespace SlopWorld
                 GUI.color = UiWidgets.Off;
                 GUI.DrawTexture(new Rect(text.x, text.y + (text.height - d) / 2f, d, d),
                     RowActions.Tex(act));
-                text.x += d + 4f;
-                text.width -= d + 4f;
+                text.x += d + UiWidgets.GapXS;
+                text.width -= d + UiWidgets.GapXS;
             }
 
             Text.Font = GameFont.Small;
@@ -118,8 +118,8 @@ namespace SlopWorld
                 GUI.DrawTexture(
                     new Rect(text.x, text.y + (text.height - d) / 2f, d, d),
                     RowActions.Tex(act));
-                text.x += d + 4f;
-                text.width -= d + 4f;
+                text.x += d + UiWidgets.GapXS;
+                text.width -= d + UiWidgets.GapXS;
             }
 
             SidebarRowRenderer.DrawGhostLabel(text, info, row.Session, true, GhostMarkW);

@@ -8,6 +8,9 @@ namespace SlopWorld
 {
     public class UsagePage : DaemonConfigPage
     {
+        const float PickerWidth = 380f;
+        const float PickerHeight = 360f;
+
         // A free-text mirror, so a half-typed number is not clamped out from under the
         // player mid-keystroke.
         string _pollSecs;
@@ -39,7 +42,7 @@ namespace SlopWorld
 
         protected override float DrawTrailingFields(Rect rect, float y)
         {
-            return y + DrawTable(new Rect(rect.x, y, rect.width, 4000f));
+            return y + DrawTable(new Rect(rect.x, y, rect.width, UiWidgets.ListingHeight));
         }
 
         protected override void DrawOverlay(Rect rect)
@@ -186,9 +189,8 @@ namespace SlopWorld
         // answers - this one, or whichever you would have picked - are the same gesture.
         void DrawPicker(Rect pageRect, string key)
         {
-            const float pickW = 380f;
-            const float pickH = 360f;
-            UiPickerWindow.Show(0x51_0F_1000 ^ key.GetHashCode(), pageRect, pickW, pickH,
+            UiPickerWindow.Show(0x51_0F_1000 ^ key.GetHashCode(), pageRect,
+                PickerWidth, PickerHeight,
                 UsageReadout.Long(key), () => _pickingKey = null, Choices.Count + 1,
                 _pickScroll, grid => DrawPickerGrid(grid, key));
         }

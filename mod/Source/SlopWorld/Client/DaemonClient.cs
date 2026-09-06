@@ -12,33 +12,45 @@ namespace SlopWorld
     // main thread, because callers touch game state and IMGUI from them.
     public static class DaemonClient
     {
+        const string GetMethod = "GET";
+        const string PostMethod = "POST";
+        const string PutMethod = "PUT";
+        const string DeleteMethod = "DELETE";
+        const string EmptyJsonObject = "{}";
+        const int DefaultTimeoutMs = 5000;
+        const string TokenHeader = "X-Slop-Token";
+        const string SessionHeader = "X-Slop-Session";
+        const string JsonContentType = "application/json";
+        const int MaxCompletionsPerFrame = 32;
+        const string CompletionTraceName = "http-completions";
+
         static readonly ConcurrentQueue<Action> Completions = new ConcurrentQueue<Action>();
 
         public static string BaseUrl => Settings.Connection.BaseUrl;
 
         public static void Get(string path, Action<JVal> ok, Action<string> fail = null,
                                string session = null) =>
-            Send("GET", path, null, ok, fail, session);
+            Send(GetMethod, path, null, ok, fail, session);
 
         public static void Get(string path, Action<JVal> ok, Action<string> fail,
                                string session, int timeoutMs) =>
-            Send("GET", path, null, ok, fail, session, timeoutMs);
+            Send(GetMethod, path, null, ok, fail, session, timeoutMs);
 
         public static void Post(string path, string body, Action<JVal> ok, Action<string> fail = null,
                                 string session = null) =>
-            Send("POST", path, body ?? "{}", ok, fail, session);
+            Send(PostMethod, path, body ?? EmptyJsonObject, ok, fail, session);
 
         public static void Put(string path, string body, Action<JVal> ok, Action<string> fail = null,
                                string session = null) =>
-            Send("PUT", path, body ?? "{}", ok, fail, session);
+            Send(PutMethod, path, body ?? EmptyJsonObject, ok, fail, session);
 
         public static void Delete(string path, Action<JVal> ok, Action<string> fail = null,
                                   string session = null) =>
-            Send("DELETE", path, null, ok, fail, session);
+            Send(DeleteMethod, path, null, ok, fail, session);
 
         public static void Delete(string path, string body, Action<JVal> ok,
                                   Action<string> fail = null, string session = null) =>
-            Send("DELETE", path, body ?? "{}", ok, fail, session);
+            Send(DeleteMethod, path, body ?? EmptyJsonObject, ok, fail, session);
 
         // Background integrations use the same completion lane as HTTP so their callbacks
         // can safely update Unity and RimWorld state.
@@ -49,7 +61,7 @@ namespace SlopWorld
 
         public static void Send(string method, string path, string body,
                                 Action<JVal> ok, Action<string> fail, string session = null,
-                                int timeoutMs = 5000)
+                                int timeoutMs = DefaultTimeoutMs)
         {
             ThreadPool.QueueUserWorkItem(_ =>
             {
@@ -62,13 +74,13 @@ namespace SlopWorld
                     req.ReadWriteTimeout = timeoutMs;
                     req.Proxy = null;
                     if (!string.IsNullOrEmpty(connection.Token))
-                        req.Headers["X-Slop-Token"] = connection.Token;
+                        req.Headers[TokenHeader] = connection.Token;
                     if (!string.IsNullOrEmpty(session))
-                        req.Headers["X-Slop-Session"] = session;
+                        req.Headers[SessionHeader] = session;
 
                     if (body != null)
                     {
-                        req.ContentType = "application/json";
+                        req.ContentType = JsonContentType;
                         var data = Encoding.UTF8.GetBytes(body);
                         req.ContentLength = data.Length;
                         using (var s = req.GetRequestStream())
@@ -111,8 +123,6 @@ namespace SlopWorld
         // Drained once per frame from the main thread. HTTP callbacks are non-replaceable, so
         // leave the remainder queued for a later frame instead of allowing a response burst to
         // monopolize Unity's update loop.
-        const int MaxCompletionsPerFrame = 32;
-
         public static int PendingCompletions => Completions.Count;
 
         public static int PumpCompletions()
@@ -125,7 +135,7 @@ namespace SlopWorld
                 try { a(); }
                 catch (Exception e) { Log.Error($"[SlopWorld] completion: {e}"); }
             }
-            PerfTrace.End("http-completions", started, count, Completions.Count);
+            PerfTrace.End(CompletionTraceName, started, count, Completions.Count);
             return count;
         }
     }

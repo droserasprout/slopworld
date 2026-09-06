@@ -8,6 +8,8 @@ namespace SlopWorld
     // Agent editor fields, tab bodies, and their tab-specific option lists.
     public partial class EditSessionDialog
     {
+        const float MountButtonWidth = 100f;
+
         // The agent itself: what it is called, where it works and what it runs. Everything a
         // new agent must have to start; the other tabs only refine it.
         float DrawGeneral(Rect rect)
@@ -95,7 +97,6 @@ namespace SlopWorld
             using (_mountsScroll.Scope(pad, inner))
             {
                 float ry = 0f;
-                const float btnW = 100f;
                 foreach (var p in projects.OrderBy(pr => pr.Name, System.StringComparer.OrdinalIgnoreCase))
                 {
                     var row = new Rect(0f, ry, inner.width, rowH);
@@ -107,13 +108,14 @@ namespace SlopWorld
                         ? (mount?.Mode ?? MountMode.Rw)
                         : (mount?.Mode ?? MountMode.None);
 
-                    float labelW = row.width - btnW - UiWidgets.GapS;
+                    float labelW = row.width - MountButtonWidth - UiWidgets.GapS;
                     GUI.color = isPrimary ? UiWidgets.Lead : UiWidgets.Name;
                     UiWidgets.RowLabel(new Rect(row.x + UiWidgets.GapS, row.y, labelW, row.height),
                         isPrimary ? p.Name + "  (primary)" : p.Name);
                     GUI.color = Color.white;
 
-                    var btnRect = new Rect(row.xMax - btnW, row.y, btnW, row.height);
+                    var btnRect = new Rect(row.xMax - MountButtonWidth, row.y,
+                        MountButtonWidth, row.height);
                     if (UiWidgets.Button(btnRect, MountEntry.ModeLabel(mode),
                             isPrimary ? UiWidgets.Btn.Default : UiWidgets.Btn.Ghost))
                         PickMountMode(p.Name, isPrimary);

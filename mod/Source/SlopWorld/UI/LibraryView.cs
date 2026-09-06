@@ -150,7 +150,7 @@ namespace SlopWorld
 
                 Text.Font = GameFont.Tiny;
                 Text.Anchor = TextAnchor.MiddleLeft;
-                float lx = arrow.xMax + 4f;
+                float lx = arrow.xMax + UiWidgets.GapXS;
                 string tail = folded ? "  " + count : "";
                 var labelRect = new Rect(lx, headRect.y, view.width - lx - CellX, HeadH);
                 UiWidgets.RowLabel(labelRect, label + tail);
@@ -187,7 +187,7 @@ namespace SlopWorld
                 UiWidgets.RowLabel(badge, KindCode(item.Kind));
                 TooltipHandler.TipRegion(badge, KindName(item.Kind));
 
-                float tx = CellX + badgeW + 4f;
+                float tx = CellX + badgeW + UiWidgets.GapXS;
                 // The name comes first, then a sample of the text truncated.
                 GUI.color = UiWidgets.Lead;
                 var nameW = UiWidgets.Wide(item.Name);

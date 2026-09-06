@@ -31,8 +31,8 @@ namespace SlopWorld
                 TooltipHandler.TipRegion(icon, project.Length > 0
                     ? "Host session in " + project
                     : "Host session");
-                r.x += d + 4f;
-                r.width -= d + 4f;
+                r.x += d + UiWidgets.GapXS;
+                r.width -= d + UiWidgets.GapXS;
             }
 
             // Host paths are useful even when the sidebar is narrow. Keep the normal row
