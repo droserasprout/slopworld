@@ -198,7 +198,7 @@ mac-sidecar-logs: mac-docker-check ## Show macOS sidecar logs; pass LOG_ARGS='--
 all: daemon mod   ## Build both halves
 
 daemon:            ## Build the daemon and the launcher
-	cd slopd && $(if $(VERSION),SLOPWORLD_BUILD_VERSION="$(VERSION)",) $(CARGO) build $(CARGOFLAGS)
+	@cd slopd && $(if $(VERSION),SLOPWORLD_BUILD_VERSION="$(VERSION)",) $(CARGO) build $(CARGOFLAGS)
 
 mod: daemon        ## Build the mod against the game's assemblies
 	@test -f "$(CSC_API)/mscorlib.dll" || { echo "missing Mono reference assemblies under $(CSC_API)" >&2; exit 1; }
@@ -211,37 +211,37 @@ mod: daemon        ## Build the mod against the game's assemblies
 			'using System.Reflection;' \
 			"[assembly: AssemblyInformationalVersion(\"$$version\")]"; \
 	} > "$(MOD_ASSEMBLY_INFO)"
-	$(CSC) -nologo -noconfig -target:library -langversion:latest \
+	@$(CSC) -nologo -noconfig -target:library -langversion:latest \
 		-out:"$(MOD_DLL)" $(CSC_OPTIMIZE) $(CSC_WARNINGS) \
 		$(CSC_REFS) "$(MOD_ASSEMBLY_INFO)" $(CSC_SOURCES)
 
 ##
 
 debug:             ## Alias for BUILD=debug all
-	$(MAKE) BUILD=debug all
+	@$(MAKE) BUILD=debug all
 
 release:           ## Alias for BUILD=release all
-	$(MAKE) BUILD=release all
+	@$(MAKE) BUILD=release all
 
 daemon-debug:      ## Alias for BUILD=debug daemon
-	$(MAKE) BUILD=debug daemon
+	@$(MAKE) BUILD=debug daemon
 
 daemon-release:    ## Alias for BUILD=release daemon
-	$(MAKE) BUILD=release daemon
+	@$(MAKE) BUILD=release daemon
 
 mod-debug:         ## Alias for BUILD=debug mod
-	$(MAKE) BUILD=debug mod
+	@$(MAKE) BUILD=debug mod
 
 mod-release:       ## Alias for BUILD=release mod
-	$(MAKE) BUILD=release mod
+	@$(MAKE) BUILD=release mod
 
 test: test-daemon test-mod test-prose ## Run the daemon and game-free mod tests
 
 test-daemon:
-	cd slopd && $(CARGO) test
+	@cd slopd && $(CARGO) test --quiet
 
 test-mod:
-	$(DOTNET) run --project "$(TEST_PROJECT)" --configuration Release
+	@$(DOTNET) run --project "$(TEST_PROJECT)" --configuration Release -- --quiet
 
 coverage: coverage-daemon coverage-mod ## Measure Rust and game-free C# test coverage
 
@@ -249,49 +249,49 @@ coverage-daemon:   ## Write Rust coverage to coverage/rust.cobertura.xml
 	@command -v cargo-llvm-cov >/dev/null || { echo "missing cargo-llvm-cov; install it with: cargo install cargo-llvm-cov --locked" >&2; exit 1; }
 	@command -v llvm-cov >/dev/null && command -v llvm-profdata >/dev/null || { echo "missing LLVM coverage tools" >&2; exit 1; }
 	@mkdir -p "$(COVERAGE_DIR)"
-	cd slopd && LLVM_COV="$$(command -v llvm-cov)" LLVM_PROFDATA="$$(command -v llvm-profdata)" \
+	@cd slopd && LLVM_COV="$$(command -v llvm-cov)" LLVM_PROFDATA="$$(command -v llvm-profdata)" \
 		$(CARGO) llvm-cov --cobertura --output-path "../$(COVERAGE_DIR)/rust.cobertura.xml"
-	$(PYTHON) tools/coverage_summary.py "$(COVERAGE_DIR)/rust.cobertura.xml" Rust
+	@$(PYTHON) tools/coverage_summary.py "$(COVERAGE_DIR)/rust.cobertura.xml" Rust
 
 coverage-mod:      ## Write game-free C# coverage to coverage/csharp.cobertura.xml
-	$(DOTNET) tool restore
+	@$(DOTNET) tool restore
 	@mkdir -p "$(COVERAGE_DIR)"
-	$(DOTNET) build "$(TEST_PROJECT)" --configuration Release -p:Coverage=true
-	$(DOTNET) tool run coverlet -- "$(TEST_DLL)" \
-		--target dotnet --targetargs "$(TEST_DLL)" \
+	@$(DOTNET) build "$(TEST_PROJECT)" --configuration Release -p:Coverage=true
+	@$(DOTNET) tool run coverlet -- "$(TEST_DLL)" \
+		--target dotnet --targetargs "$(TEST_DLL) --quiet" \
 		--include-test-assembly --exclude-by-file '**/mod/Tests/**/*.cs' \
 		--format cobertura --output "$(COVERAGE_DIR)/csharp.cobertura.xml"
-	$(PYTHON) tools/coverage_summary.py "$(COVERAGE_DIR)/csharp.cobertura.xml" C\#
+	@$(PYTHON) tools/coverage_summary.py "$(COVERAGE_DIR)/csharp.cobertura.xml" C\#
 
 test-prose:        ## Test the prose linter
-	$(PYTHON) tools/test_prose_lint.py
+	@$(PYTHON) tools/test_prose_lint.py --quiet
 
 appicon:           ## Regenerate the app icon (robot face + wilted rose)
-	$(PYTHON) tools/appicon.py
+	@$(PYTHON) tools/appicon.py
 
 icons:             ## Rebake the action icons from a Nerd Font's Codicons
-	$(PYTHON) tools/icons.py
+	@$(PYTHON) tools/icons.py
 
 emoji-atlas:       ## Rebake the legacy terminal's emoji atlas with Pango
-	$(PYTHON) tools/emoji_atlas.py
+	@$(PYTHON) tools/emoji_atlas.py
 
 reference:         ## Generate the environment/API/CLI reference
-	$(PYTHON) tools/reference.py
+	@$(PYTHON) tools/reference.py
 
 api-docs:          ## Generate the mdBook API route inventory
-	$(PYTHON) tools/api_docs.py
+	@$(PYTHON) tools/api_docs.py
 
 scheme-report:     ## Analyze the complete UI schemes and check Warm's luminance hierarchy
-	$(PYTHON) tools/analyze_ui_schemes.py --check-warm
+	@$(PYTHON) tools/analyze_ui_schemes.py --check-warm
 
 harmony:           ## Fetch the latest Harmony release into the mod
-	tools/fetch-harmony.sh
+	@tools/fetch-harmony.sh
 
 clean:             ## Drop build output
-	cd slopd && $(CARGO) clean
-	rm -f "$(MOD_DLL)"
-	rm -rf mod/Source/SlopWorld/obj
-	rm -rf "$(COVERAGE_DIR)"
+	@cd slopd && $(CARGO) clean
+	@rm -f "$(MOD_DLL)"
+	@rm -rf mod/Source/SlopWorld/obj
+	@rm -rf "$(COVERAGE_DIR)"
 
 ##
 ##-> Format and lint
@@ -300,26 +300,26 @@ clean:             ## Drop build output
 format: format-daemon format-mod ## Format both halves
 
 format-daemon:     ## rustfmt the daemon
-	cd slopd && $(CARGO) fmt
+	@cd slopd && $(CARGO) fmt
 
 format-mod:        ## Format the mod's C# (needs the .NET SDK)
-	$(DOTNET) format whitespace mod/Source/SlopWorld --folder --exclude obj
+	@$(DOTNET) format whitespace mod/Source/SlopWorld --folder --exclude obj
 
 ##
 
 lint: lint-daemon lint-mod ## Lint both halves
 
 lint-daemon:       ## Check the daemon's formatting, then clippy, warnings as errors
-	cd slopd && $(CARGO) fmt --check
-	cd slopd && $(CARGO) clippy --all-targets -- -D warnings
+	@cd slopd && $(CARGO) fmt --check
+	@cd slopd && $(CARGO) clippy --all-targets -- -D warnings
 
 lint-mod: override BUILD := release
 lint-mod: override CSC_WARNINGS := -warnaserror
 lint-mod: mod       ## Build the mod with warnings as errors, then check its formatting
-	$(DOTNET) format whitespace mod/Source/SlopWorld --folder --exclude obj --verify-no-changes
+	@$(DOTNET) format whitespace mod/Source/SlopWorld --folder --exclude obj --verify-no-changes
 
 lint-prose:        ## Find LLM cliches in prose and source comments
-	$(PYTHON) tools/prose_lint.py $(PROSE_LINT_ARGS)
+	@$(PYTHON) tools/prose_lint.py $(PROSE_LINT_ARGS)
 
 ##
 ##-> Install

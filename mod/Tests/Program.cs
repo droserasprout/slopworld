@@ -5,8 +5,12 @@ namespace SlopWorld.Tests
 {
     static class Program
     {
-        static int Main()
+        static int Main(string[] args)
         {
+            bool quiet = false;
+            foreach (var arg in args)
+                quiet |= arg == "--quiet";
+
             var tests = new List<(string Name, Action Body)>();
             foreach (var test in JsonTests.Cases())
                 tests.Add(("JVal: " + test.Name, test.Body));
@@ -69,7 +73,8 @@ namespace SlopWorld.Tests
                 try
                 {
                     test.Body();
-                    Console.WriteLine($"PASS {test.Name}");
+                    if (!quiet)
+                        Console.WriteLine($"PASS {test.Name}");
                 }
                 catch (Exception exception)
                 {
