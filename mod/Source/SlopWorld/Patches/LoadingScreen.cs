@@ -16,15 +16,18 @@ namespace SlopWorld
 
         // Text sits inside a full-height panel. Keep the width narrow enough to read as a
         // terminal instead of turning the loading screen into a wall of tiny type.
-        const float WidthRatio = 0.6f;
-        const float MaxWidth = 720f;
-        const float MinWidth = 360f;
+        const float WidthRatio = 0.45f;
+        const float MaxWidth = 540f;
+        const float MinWidth = 280f;
+        internal const float LoadingSideMargin = 32f;
+        const int LoadingFontBump = 10;
 
         // This is the same padding on both sides of the panel: the stream begins at its
         // top-left inner corner, rather than inheriting GameplayTipWindow's centred label.
         internal static readonly Vector2 Margin = new Vector2(16f, 16f);
-        internal static readonly Color ContainerBackground = new Color(0.13f, 0.14f, 0.15f);
+        internal static readonly Color ContainerBackground = Color.black;
         internal static readonly Color StreamText = new Color(0.86f, 0.87f, 0.88f);
+        const string LoadingFontName = "Classic Console";
 
         // Not Verse.Rand: this screen is up during map generation, so drawing a tip must not
         // consume the game's deterministic sequence for terrain and pawns.
@@ -33,8 +36,12 @@ namespace SlopWorld
         // The box is measured against the current screen because both the wrapped stream and
         // GameplayTipWindow's immediate window need the same dimensions.
         static int _measuredW, _measuredH;
+        static int _measuredFontSize = -1;
         static Vector2 _box;
         static int _lineCount;
+        static GUIStyle _loadingStyle;
+        static Font _loadingFont;
+        static int _loadingFontSize = -1;
 
         // Bumped per re-measure. A geometry change rewraps the existing stream rather than
         // discarding it; only a new load or mode change starts a fresh stream.
@@ -54,18 +61,45 @@ namespace SlopWorld
                 probe.Append('A');
             }
 
-            GameFont font = Text.Font;
-            bool wrap = Text.WordWrap;
-            Text.Font = GameFont.Small;
-            Text.WordWrap = false;
-            try
+            return LoadingStyle.CalcHeight(new GUIContent(probe.ToString()), width);
+        }
+
+        internal static GUIStyle LoadingStyle
+        {
+            get
             {
-                return Text.CalcHeight(probe.ToString(), width);
-            }
-            finally
-            {
-                Text.Font = font;
-                Text.WordWrap = wrap;
+                int size = Mathf.Clamp(Settings.FontSize + LoadingFontBump, 8, 32);
+                if (_loadingStyle != null && _loadingFont != null && _loadingFontSize == size)
+                    return _loadingStyle;
+
+                Font old = _loadingFont;
+                _loadingFont = Font.CreateDynamicFontFromOSFont(LoadingFontName, size);
+                if (_loadingFont == null)
+                {
+                    Log.Warning("[SlopWorld] loading screen font unavailable: " +
+                        LoadingFontName);
+                    _loadingFont = Font.CreateDynamicFontFromOSFont("Courier New", size);
+                }
+
+                if (_loadingFont != null)
+                    _loadingFont.hideFlags = HideFlags.DontUnloadUnusedAsset;
+                _loadingFontSize = size;
+                _loadingStyle = new GUIStyle
+                {
+                    font = _loadingFont,
+                    fontSize = size,
+                    fontStyle = FontStyle.Normal,
+                    richText = false,
+                    wordWrap = false,
+                    clipping = TextClipping.Overflow,
+                    alignment = TextAnchor.UpperLeft,
+                    normal = new GUIStyleState { textColor = Color.white },
+                    padding = new RectOffset(0, 0, 0, 0),
+                    margin = new RectOffset(0, 0, 0, 0),
+                };
+
+                if (old != null && old != _loadingFont) UnityEngine.Object.Destroy(old);
+                return _loadingStyle;
             }
         }
 
@@ -73,10 +107,14 @@ namespace SlopWorld
         {
             get
             {
-                if (_measuredW == UI.screenWidth && _measuredH == UI.screenHeight) return _box;
+                int fontSize = Mathf.Clamp(Settings.FontSize + LoadingFontBump, 8, 32);
+                if (_measuredW == UI.screenWidth && _measuredH == UI.screenHeight
+                    && _measuredFontSize == fontSize)
+                    return _box;
 
                 _measuredW = UI.screenWidth;
                 _measuredH = UI.screenHeight;
+                _measuredFontSize = fontSize;
                 Generation++;
 
                 float w = Mathf.Min(MaxWidth, Mathf.Max(MinWidth, UI.screenWidth * WidthRatio));
@@ -98,8 +136,8 @@ namespace SlopWorld
 
         // The visible stream is a line buffer, not a pre-wrapped wall. Keeping lines explicitly
         // lets a full panel scroll one row at a time while the newly exposed row is populated.
-        // A new stream remains empty until its container has completed a real repaint; the
-        // paced stream then fills it naturally before scrolling begins.
+        // Advance runs after the panel background is issued during Repaint, so a new stream
+        // starts only with a visible container and fills naturally before scrolling begins.
         static readonly List<string> Stream = new List<string>();
         static readonly List<string> Tokens = new List<string>();
         static readonly System.Text.StringBuilder PaintedBuilder = new System.Text.StringBuilder();
@@ -109,18 +147,11 @@ namespace SlopWorld
         static float _lastAdvancedAt = -1f;
         static bool _modeKnown;
         static bool _grandma;
-        static object _loadingEvent;
-        static object _streamEvent;
+        static bool _loadingSession;
+        static bool _newLoadingSession;
         static int _streamGeneration = -1;
-        static bool _containerVisible;
 
         internal static string Painted => _painted;
-
-        internal static void MarkContainerVisible()
-        {
-            if (Event.current == null || Event.current.type == EventType.Repaint)
-                _containerVisible = true;
-        }
 
         static void ResetStream()
         {
@@ -132,13 +163,19 @@ namespace SlopWorld
             _lastAdvancedAt = -1f;
         }
 
-        // LongEventHandler owns one event object for a loading operation. A new object marks a
-        // fresh stream, even when RimWorld loads several maps during one process; Advance folds
-        // that reset together with any same-frame layout or mode reset.
+        // One loading screen can move through several QueuedLongEvent objects. Keep one stream
+        // across those queue handoffs; null currentEvent is the boundary between load sessions.
         internal static void Begin(object loadingEvent)
         {
-            if (ReferenceEquals(_loadingEvent, loadingEvent)) return;
-            _loadingEvent = loadingEvent;
+            if (loadingEvent == null)
+            {
+                _loadingSession = false;
+                return;
+            }
+
+            if (_loadingSession) return;
+            _loadingSession = true;
+            _newLoadingSession = true;
         }
 
         static string NextTip()
@@ -197,7 +234,7 @@ namespace SlopWorld
             }
 
             string candidate = current + " " + token;
-            if (Text.CalcSize(candidate).x <= width)
+            if (LoadingStyle.CalcSize(new GUIContent(candidate)).x <= width)
             {
                 Stream[Stream.Count - 1] = candidate;
                 return;
@@ -240,7 +277,7 @@ namespace SlopWorld
                     }
 
                     string candidate = line + " " + word;
-                    if (Text.CalcSize(candidate).x <= width)
+                    if (LoadingStyle.CalcSize(new GUIContent(candidate)).x <= width)
                     {
                         line = candidate;
                         continue;
@@ -259,33 +296,23 @@ namespace SlopWorld
             _painted = JoinStream();
         }
 
-        static void Advance()
+        internal static void Advance()
         {
             Vector2 box = Box;
             int generation = Generation;
             bool grandma = Settings.GrandmaMode;
-            bool fresh = !ReferenceEquals(_streamEvent, _loadingEvent)
-                || !_modeKnown || _grandma != grandma;
+            bool fresh = _newLoadingSession || !_modeKnown || _grandma != grandma;
             bool resized = _streamGeneration != generation;
             if (fresh)
             {
-                _streamEvent = _loadingEvent;
-                _streamGeneration = generation;
+                _newLoadingSession = false;
                 _modeKnown = true;
                 _grandma = grandma;
-                _containerVisible = false;
+                _streamGeneration = generation;
                 ResetStream();
             }
 
-            if (fresh)
-            {
-                return;
-            }
             if (Event.current != null && Event.current.type != EventType.Repaint)
-            {
-                return;
-            }
-            if (!_containerVisible)
             {
                 return;
             }
@@ -306,31 +333,19 @@ namespace SlopWorld
             if (count <= 0) return;
             _wordBudget -= count;
 
-            GameFont font = Text.Font;
-            bool wrap = Text.WordWrap;
-            Text.Font = GameFont.Small;
-            Text.WordWrap = false;
-            try
+            float width = Mathf.Max(1f, box.x - Margin.x * 2f);
+            if (resized)
             {
-                float width = Mathf.Max(1f, box.x - Margin.x * 2f);
-                if (resized)
-                {
-                    ReflowStream(width);
-                    _streamGeneration = generation;
-                }
+                ReflowStream(width);
+                _streamGeneration = generation;
+            }
 
-                for (int i = 0; i < count; i++)
-                {
-                    if (_tokenAt >= Tokens.Count) LoadTip();
-                    AppendToken(Tokens[_tokenAt++], width);
-                }
-                _painted = JoinStream();
-            }
-            finally
+            for (int i = 0; i < count; i++)
             {
-                Text.Font = font;
-                Text.WordWrap = wrap;
+                if (_tokenAt >= Tokens.Count) LoadTip();
+                AppendToken(Tokens[_tokenAt++], width);
             }
+            _painted = JoinStream();
         }
 
         static readonly FieldInfo LastRotated =
@@ -338,8 +353,6 @@ namespace SlopWorld
 
         static void Prefix()
         {
-            Advance();
-
             // Holding the vanilla timer at now keeps it from changing its own one-line tip while
             // our word stream is being painted.
             if (LastRotated != null) LastRotated.SetValue(null, Time.realtimeSinceStartup);
@@ -358,29 +371,20 @@ namespace SlopWorld
                 Mathf.Max(1f, rect.height - margin.y * 2f));
 
             Widgets.DrawBoxSolid(rect, Patch_LoadingTips.ContainerBackground);
+            Patch_LoadingTips.Advance();
 
-            GameFont font = Text.Font;
-            bool wrap = Text.WordWrap;
-            TextAnchor anchor = Text.Anchor;
             Color guiColor = GUI.color;
-            Text.Font = GameFont.Small;
-            Text.Anchor = TextAnchor.UpperLeft;
-            Text.WordWrap = false;
             GUI.color = Patch_LoadingTips.StreamText;
 
             try
             {
                 Widgets.BeginGroup(inner);
-                Widgets.Label(new Rect(0f, 0f, inner.width, inner.height),
-                    Patch_LoadingTips.Painted);
+                GUI.Label(new Rect(0f, 0f, inner.width, inner.height),
+                    Patch_LoadingTips.Painted, Patch_LoadingTips.LoadingStyle);
                 Widgets.EndGroup();
-                Patch_LoadingTips.MarkContainerVisible();
             }
             finally
             {
-                Text.WordWrap = wrap;
-                Text.Font = font;
-                Text.Anchor = anchor;
                 GUI.color = guiColor;
             }
 
@@ -447,7 +451,9 @@ namespace SlopWorld
             EnsureSize();
             Vector2 size = GameplayTipWindow.WindowSize;
             GameplayTipWindow.DrawWindow(
-                new Vector2((UI.screenWidth - size.x) / 2f, (UI.screenHeight - size.y) / 2f), false);
+                new Vector2(
+                    Mathf.Max(0f, UI.screenWidth - size.x - Patch_LoadingTips.LoadingSideMargin),
+                    (UI.screenHeight - size.y) / 2f), false);
             return false;
         }
     }
