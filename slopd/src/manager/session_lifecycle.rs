@@ -210,6 +210,7 @@ impl Manager {
             if let Some(l) = live.get_mut(name) {
                 let had_title = l.title.override_title.is_some();
                 l.state = State::Down;
+                l.process_running = false;
                 l.last_change = 0;
                 l.state_since = 0;
                 l.title = TitleCapture::default();
@@ -291,6 +292,7 @@ impl Manager {
         }
         if let Some(l) = self.live.write().await.get_mut(name) {
             l.set_state(State::Down);
+            l.process_running = false;
             l.auto_resume_pending = false;
             l.screen = None;
             l.emu = None;

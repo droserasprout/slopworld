@@ -150,6 +150,41 @@ pub fn host_shell() -> Option<String> {
         .filter(|s| !s.is_empty())
 }
 
+/// tmux reports the foreground command by name. Treat the login shell, and the common shell
+/// names it may exec into, as the idle prompt; every other foreground command is work even when
+/// it has not written anything recently.
+pub fn is_shell_command(command: &str) -> bool {
+    let name = Path::new(command)
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or(command);
+    let name = name.strip_prefix('-').unwrap_or(name);
+    if host_shell()
+        .as_deref()
+        .and_then(|shell| Path::new(shell).file_name())
+        .and_then(|shell| shell.to_str())
+        .is_some_and(|shell| shell == name)
+    {
+        return true;
+    }
+    matches!(
+        name,
+        "ash"
+            | "bash"
+            | "csh"
+            | "dash"
+            | "fish"
+            | "ksh"
+            | "mksh"
+            | "nu"
+            | "pwsh"
+            | "sh"
+            | "tcsh"
+            | "xonsh"
+            | "zsh"
+    )
+}
+
 /// An unnamed host errand uses `$SHELL`; a preset or command line runs as configured.
 fn host_command(cfg: &Config, s: &SessionCfg, shell: Option<&str>) -> String {
     let asked = s.cmd.is_some() || s.command.trim() != cfg.defaults.shell.trim();
@@ -805,6 +840,15 @@ mod tests {
             ..Default::default()
         };
         assert_eq!(host_command(&cfg, &own, Some("/bin/bash")), "htop");
+    }
+
+    #[test]
+    fn foreground_shell_commands_mean_an_idle_host_prompt() {
+        assert!(is_shell_command("/bin/bash"));
+        assert!(is_shell_command("-zsh"));
+        assert!(is_shell_command("fish"));
+        assert!(!is_shell_command("python"));
+        assert!(!is_shell_command("codex"));
     }
 
     /// The name the sidebar shows, and the tmux target behind it: the project, then the

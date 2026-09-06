@@ -61,6 +61,7 @@ impl Manager {
                     durable: l.cfg.worker && !l.ephemeral,
                     ephemeral: l.ephemeral,
                     host: l.host,
+                    process_running: l.process_running,
                     last_change: l.last_change,
                     state_since: l.state_since,
                     title: l
@@ -106,6 +107,7 @@ impl Manager {
         self.reload_if_due().await;
 
         let host_paths_changed = self.refresh_host_paths().await;
+        let host_processes_changed = self.refresh_host_processes().await;
 
         let now = now_ms();
 
@@ -150,7 +152,7 @@ impl Manager {
             }
         }
 
-        if dirty_list || host_paths_changed {
+        if dirty_list || host_paths_changed || host_processes_changed {
             let _ = self.events.send(Event::Sessions {
                 sessions: self.views().await,
             });

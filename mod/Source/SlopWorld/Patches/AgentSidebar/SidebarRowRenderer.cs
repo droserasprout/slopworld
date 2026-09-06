@@ -19,6 +19,7 @@ namespace SlopWorld
             string context = GhostContext(info, title, act);
             GameFont oldFont = Text.Font;
             bool hostRow = hostIcon && info != null && (info.Host || info.Ephemeral);
+            bool hostTerminal = hostIcon && info != null && info.Host;
 
             if (hostRow)
             {
@@ -46,10 +47,11 @@ namespace SlopWorld
                 if (titleW > available) Text.Font = GameFont.Tiny;
             }
 
+            Color titleColor = hostTerminal ? HostTerminalColor(info) : UiWidgets.Lead;
             Text.Anchor = TextAnchor.MiddleLeft;
             if (context.Length == 0)
             {
-                GUI.color = UiWidgets.Lead;
+                GUI.color = titleColor;
                 UiWidgets.RowLabel(r, title);
                 Text.Anchor = TextAnchor.UpperLeft;
                 Text.Font = oldFont;
@@ -61,7 +63,7 @@ namespace SlopWorld
             var strong = new Rect(r.x, r.y, Mathf.Max(0f, quiet.x - UiWidgets.GapS - r.x),
                 r.height);
 
-            GUI.color = UiWidgets.Lead;
+            GUI.color = titleColor;
             UiWidgets.RowLabel(strong, title);
             GUI.color = UiWidgets.Dim;
             UiWidgets.RowLabel(quiet, context);
@@ -196,6 +198,15 @@ namespace SlopWorld
                 return project.Length > 0 ? name + "  ·  " + project : name;
             }
             return project;
+        }
+
+        // Host rows use foreground process state rather than pane output activity: a live
+        // process is white, an unchanged shell is grey, and a stopped tab is red.
+        static Color HostTerminalColor(SessionInfo info)
+        {
+            if (info.State == AgentState.Down) return UiWidgets.StateDown;
+            if (info.ProcessRunning) return Color.white;
+            return UiWidgets.StateIdle;
         }
 
         static string StripActionPrefix(string name, RowAct act)

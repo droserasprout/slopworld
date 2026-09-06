@@ -136,6 +136,8 @@ struct Live {
     // Host shells keep their last tmux cwd separately from the project's configured root.
     host_path: String,
     state: State,
+    // Host-only: whether tmux currently has a foreground command other than the login shell.
+    process_running: bool,
     seq: u64,
     // Last sequence classified by retick; equal means only idle decay can change state.
     retick_seq: u64,
@@ -579,6 +581,7 @@ pattern = '(?i)(esc to interrupt|to interrupt\))'
             host: false,
             host_path: String::new(),
             state: State::Down,
+            process_running: false,
             seq: 0,
             retick_seq: 0,
             hash: 0,

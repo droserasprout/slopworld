@@ -57,6 +57,8 @@ pub struct SessionView {
     pub ephemeral: bool,
     // Host terminals are sidebar tabs backed by host-terminal records, not sandboxed agents.
     pub host: bool,
+    // Host-only foreground-job state. False for an idle shell prompt and for ordinary agents.
+    pub process_running: bool,
     pub last_change: u64,
     // Separate from output activity so a continuously-redrawing worker can still age.
     pub state_since: u64,

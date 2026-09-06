@@ -10,6 +10,7 @@ impl Live {
             host: false,
             host_path: String::new(),
             state: State::Down,
+            process_running: false,
             seq: 0,
             retick_seq: 0,
             hash: 0,
