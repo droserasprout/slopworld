@@ -114,9 +114,10 @@ namespace SlopWorld
             var caption = "System presets are supplied by slopd. Copy one to the user list to edit it; user presets can also be new entries.";
             GUI.color = UiWidgets.Dim;
             float y = r.y + UiWidgets.RowH + UiWidgets.GapXS;
-            float h = Text.CalcHeight(caption, r.width);
             float newW = UiWidgets.BtnW("New user preset", 142f);
-            Widgets.Label(new Rect(r.x, y, r.width - newW - UiWidgets.GapS, h), caption);
+            float captionW = r.width - newW - UiWidgets.GapS;
+            float h = Text.CalcHeight(caption, captionW);
+            Widgets.Label(new Rect(r.x, y, captionW, h), caption);
             GUI.color = Color.white;
             if (UiWidgets.Button(new Rect(r.xMax - newW, y, newW, UiWidgets.BtnH),
                     "New user preset", UiWidgets.Btn.Primary))

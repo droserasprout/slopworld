@@ -1,7 +1,7 @@
 # Icons
 
 Action icons are 64px PNGs baked from VS Code [Codicons][c] by `tools/icons.py` and
-loaded through `UI/Icons.cs`. The 27 slot names are semantic (`Icons.Agents`, not
+loaded through `UI/Icons.cs`. The 28 slot names are semantic (`Icons.Agents`, not
 `Icons.Robot`) so artwork can change without changing call sites.
 
 [c]: https://github.com/microsoft/vscode-codicons
@@ -24,5 +24,5 @@ and the menu background.
 
 Notable aliases: `gear` serves options/config, `eye` serves hidden/view, `debug-stop`
 is the stop icon, `circle-filled` is the state dot, `symbol-event` is the Library icon,
-`text-size` is type, and `credit-card` is usage. `RobotFace_south` is a pawn
+`text-size` is type, `credit-card` is usage, and `link` is Integrations. `RobotFace_south` is a pawn
 faceplate, not a sidebar icon; `FileIcons` is a separate Material Icon Theme bake.

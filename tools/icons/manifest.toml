@@ -77,6 +77,11 @@ glyph = "cod-credit_card"
 code = "eac9"
 note = "the Usage options row, which used to draw a lump of ThingDefOf.Silver: money, but the game's money, on a page about what an API bills"
 
+[link]
+glyph = "cod-link"
+code = "eb15"
+note = "the Integrations options row: host services and credentials are links between systems"
+
 [time]
 glyph = "cod-clockface"
 code = "ec75"

@@ -98,6 +98,10 @@ namespace SlopWorld
         // those are the game's own resource icons on purpose, and this row is a tab.
         public static Texture2D Usage => Get("usage");
 
+        // The options column's Integrations row. A link names host services and credentials;
+        // the credit card is reserved for the Usage page itself.
+        public static Texture2D Link => Get("link");
+
         public static Texture2D Time => Get("time");
 
         // The sidebar's one add button, which used to be a "+" in GameFont.Medium: a

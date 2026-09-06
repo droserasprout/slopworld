@@ -24,10 +24,10 @@ namespace SlopWorld
             using (_listScroll.Scope(r, view))
             {
                 float y = 0f;
-                y = DrawLibraryGroup(view, y, "System", system, p => p.Name,
-                    p => { _preset = p; _newEntry = false; });
-                DrawLibraryGroup(view, y, "User", user,
+                y = DrawLibraryGroup(view, y, "User", user,
                     p => p.Name + (p.Source == "override" ? "  (override)" : ""),
+                    p => { _preset = p; _newEntry = false; });
+                DrawLibraryGroup(view, y, "System", system, p => p.Name,
                     p => { _preset = p; _newEntry = false; });
             }
         }
