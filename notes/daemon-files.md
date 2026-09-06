@@ -9,7 +9,12 @@
 | `api/handlers_*.rs` | Focused HTTP boundaries for tasks, config, files, clipboard, system usage, and audio. |
 | `api/types.rs` | HTTP and WebSocket wire request types. |
 | `api/ws.rs` | WebSocket upgrade, message handling, and frame pump. |
-| `session/mod.rs` | Session state/data types, terminal input helpers and config validation façade. |
+| `session/mod.rs` | Session state/data types and the public façade for session helpers. |
+| `session/input.rs` | Ordered terminal input batching and input-item merging. |
+| `session/template.rs` | Runtime template variables and expansion. |
+| `session/text.rs` | Terminal text cleanup and UTF-8 helpers. |
+| `session/title.rs` | Automatic-title settings, prompt composition, and title requests. |
+| `session/validation.rs` | Session config, path, mount, and file-action validation helpers. |
 | `session/view.rs` | `SessionView` and `ScreenView` wire serialization. |
 | `session/ctrl.rs` | `Manager` storage and client/watch guards. |
 | `manager/config.rs` | `Manager` construction, configuration synchronization, clocks and activity persistence. |
@@ -19,7 +24,12 @@
 | `manager/session_state.rs` | Session views, state classification, and the manager retick loop. |
 | `manager/library.rs` | Projects, library items, file actions and temporary errands. |
 | `manager/workers.rs` | Root-only task-owned worker construction and explicit child metadata. |
-| `manager/capture.rs` | `Manager` terminal input, emulator readers, screen frames and scroll capture. |
+| `manager/capture.rs` | Capture façade, shared frame metadata, attach helpers, and capture tests. |
+| `manager/capture_input.rs` | Ordered terminal keys, mouse input, paste, and resizing. |
+| `manager/capture_title.rs` | Automatic-title capture and title-agent reconciliation. |
+| `manager/capture_reader.rs` | Emulator reader and control-channel workers. |
+| `manager/capture_frame.rs` | Screen-frame rendering, state updates, and broadcasts. |
+| `manager/capture_scroll.rs` | Scrollback capture and scroll-state cleanup. |
 | `manager/caps.rs` | `Manager` capability and grant checks. |
 | `emu.rs` | `SessionEmu`, an `alacritty_terminal` per session. |
 | `tmux.rs` | Async wrapper over the tmux CLI. |
