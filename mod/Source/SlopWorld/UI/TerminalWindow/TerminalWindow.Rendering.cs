@@ -145,43 +145,123 @@ namespace SlopWorld
             }
         }
 
-        void DrawScrollHint(Rect body)
+        void DrawScrollLock(Rect body)
         {
-            Text.Font = GameFont.Tiny;
-            GUI.color = UiWidgets.Warn;
-            UiWidgets.RowLabel(new Rect(body.x, body.y, body.width - 6f, UiWidgets.TinyH),
-                $"scrollback -{_scrollOff}   type or scroll down to resume",
-                TextAnchor.MiddleRight);
-            GUI.color = Color.white;
-            Text.Font = GameFont.Small;
+            if (Event.current.type != EventType.Repaint) return;
+
+            // The history view is a frozen terminal frame. A small vector lock keeps that
+            // state visible without covering the first row with a warning-colored sentence.
+            const float w = 11f;
+            const float h = 12f;
+            float x = body.xMax - 30f;
+            float y = body.y + 5f;
+            var ink = new Color(0.55f, 0.55f, 0.55f, 1f);
+
+            Widgets.DrawBoxSolid(new Rect(x + 2f, y, 7f, 1.5f), ink);
+            Widgets.DrawBoxSolid(new Rect(x + 1f, y + 1f, 1.5f, 5f), ink);
+            Widgets.DrawBoxSolid(new Rect(x + 8.5f, y + 1f, 1.5f, 5f), ink);
+            Widgets.DrawBoxSolid(new Rect(x, y + 5f, w, h - 5f), ink);
+
+            // Keep the keyhole monochrome and cut it from the terminal surface instead of
+            // using the scheme's warning color or a potentially colorful terminal palette.
+            var hole = SolidTerminalBackground;
+            hole.a = 1f;
+            Widgets.DrawBoxSolid(new Rect(x + 4.5f, y + 7f, 2f, 3f), hole);
         }
 
-        // A quiet position cue rather than another terminal control. The wheel/touchpad owns
-        // history movement; this stays narrow enough to sit over the last cell without taking
-        // a column from the negotiated terminal shape.
-        void DrawHistoryBar(Rect body)
-        {
-            if (_scrollOff <= 0 || Event.current.type != EventType.Repaint) return;
+        bool HistoryBarAvailable() => _scrollOff > 0 || _historyTopOff > 0;
 
+        void HistoryBarGeometry(Rect body, out Rect hit, out Rect track, out Rect thumb)
+        {
             float ch = TerminalFont.CellH;
             int rows = Mathf.Max(1, _rows);
-            float off = ch > 0.01f ? HistoryOffsetPixels() / ch : _scrollOff;
+            float off = ch > 0.01f && _historyScrollReady
+                ? HistoryOffsetPixels() / ch : _scrollOff;
             float history = _historyTopOff >= 0
                 ? Mathf.Max(1f, _historyTopOff)
                 : Mathf.Max(off + rows, Mathf.Max(_sentScrollOff, rows));
 
             const float pad = 5f;
-            var track = new Rect(body.xMax - 5f, body.y + pad, 3f,
+            track = new Rect(body.xMax - 5f, body.y + pad, 3f,
                 Mathf.Max(1f, body.height - pad * 2f));
             float thumbH = Mathf.Clamp(
                 track.height * rows / (history + rows), 10f, track.height);
             float travel = track.height - thumbH;
             float fromTop = 1f - Mathf.Clamp01(off / history);
+            thumb = new Rect(track.x, track.y + travel * fromTop, track.width, thumbH);
+            // The visible chip stays narrow, but its hit target is large enough to grab at
+            // the pane edge without stealing any terminal column from the negotiated shape.
+            hit = new Rect(body.xMax - 16f, track.y, 16f, track.height);
+        }
+
+        internal bool HandleHistoryBarInput(Rect body, Event e)
+        {
+            if (!HistoryInputEnabled(SessionHub.Instance.Screen(_name)) ||
+                !HistoryBarAvailable() || !_historyScrollReady) return false;
+
+            HistoryBarGeometry(body, out var hit, out var track, out var thumb);
+            EventType type = MouseType(e);
+            if (_historyBarDragging)
+            {
+                if (type == EventType.MouseDrag)
+                {
+                    DragHistoryBar(e.mousePosition.y, track, thumb.height);
+                    e.Use();
+                    return true;
+                }
+                if (type == EventType.MouseUp && e.button == 0)
+                {
+                    _historyBarDragging = false;
+                    GUIUtility.hotControl = 0;
+                    e.Use();
+                    return true;
+                }
+                return false;
+            }
+
+            if (type != EventType.MouseDown || e.button != 0 || !hit.Contains(e.mousePosition))
+                return false;
+
+            _historyBarDragging = true;
+            _historyBarGrab = thumb.Contains(e.mousePosition)
+                ? e.mousePosition.y - thumb.y : thumb.height / 2f;
+            GUIUtility.hotControl = GUIUtility.GetControlID(FocusType.Passive, hit);
+            DragHistoryBar(e.mousePosition.y, track, thumb.height);
+            e.Use();
+            return true;
+        }
+
+        void DragHistoryBar(float mouseY, Rect track, float thumbH)
+        {
+            float span = track.height - thumbH;
+            float t = span <= 0f
+                ? 0f : Mathf.Clamp01((mouseY - _historyBarGrab - track.y) / span);
+            float ch = TerminalFont.CellH;
+            if (ch <= 0.01f) return;
+
+            float history = _historyTopOff >= 0
+                ? Mathf.Max(1f, _historyTopOff)
+                : Mathf.Max(1f, Mathf.Max(_scrollOff, _sentScrollOff));
+            float off = (1f - t) * history;
+            _historyScroll.JumpTo(new Vector2(0f,
+                Mathf.Clamp(_historyMax - off * ch, 0f, _historyMax)));
+        }
+
+        // A quiet position cue over the pane rather than another terminal column. The chip is
+        // shown whenever the daemon has confirmed history or the user is already reading it.
+        void DrawHistoryBar(Rect body, bool historyInput)
+        {
+            if (!historyInput || !HistoryBarAvailable() || Event.current.type != EventType.Repaint)
+                return;
+
+            HistoryBarGeometry(body, out var hit, out var track, out var thumb);
             var rail = new Rect(track.x + 1f, track.y, 1f, track.height);
-            var thumb = new Rect(track.x, track.y + travel * fromTop, track.width, thumbH);
 
             Widgets.DrawBoxSolid(rail, UiWidgets.ScrollTrough);
-            Widgets.DrawBoxSolid(thumb, UiWidgets.ScrollThumb);
+            bool over = hit.Contains(Event.current.mousePosition);
+            Widgets.DrawBoxSolid(thumb, _historyBarDragging
+                ? UiWidgets.ScrollThumbHeld
+                : over ? UiWidgets.ScrollThumbHover : UiWidgets.ScrollThumb);
         }
 
         // A pure function of the buffer, the rect and the font, which is what makes Blit's

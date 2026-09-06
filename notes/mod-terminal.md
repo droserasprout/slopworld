@@ -54,9 +54,10 @@ window is warmed while the active pane is still at the live bottom and retained 
 between live and scrollback, so the first small gesture does not wait for capture. The daemon's
 10,000-line history limit is the initial coordinate range; reaching the real top clamps it to
 the offset the daemon achieved. Live rows that scroll off the bottom advance the local offset,
-keeping the content being read anchored while fresh history is fetched. While scrolled back, a three-unit overlay bar at the pane's
-right edge shows the current offset against the daemon-reported history extent without changing
-the negotiated terminal width.
+keeping the content being read anchored while fresh history is fetched. When history exists, a
+three-unit overlay bar at the pane's right edge shows the current offset against the daemon-
+reported history extent without changing the negotiated terminal width; it can be dragged
+directly. A monochrome lock marks the frozen view while scrolled back.
 
 These terminal-specific modifier behaviors are hardcoded: Alt+Z/Alt+X walk the terminal tab
 list, including host and ephemeral tabs,

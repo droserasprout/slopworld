@@ -189,6 +189,7 @@ namespace SlopWorld
             _renderHistoryShift = 0f;
             _historyLastPixels = 0f;
             _historyTopOff = -1;
+            _historyBarDragging = false;
             _historyViewReady = false;
             _historyRefreshPending = false;
             _historyWarmed = false;

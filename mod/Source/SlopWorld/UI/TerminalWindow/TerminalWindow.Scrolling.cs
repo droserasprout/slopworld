@@ -33,6 +33,8 @@ namespace SlopWorld
         float _historyMax;
         float _historyLastPixels;
         int _historyConnectionGeneration = -1;
+        bool _historyBarDragging;
+        float _historyBarGrab;
 
         // A socket reconnect starts a new daemon screen stream. Keep the current visual
         // fallback, but discard request bookkeeping and indexed rows so a response or sequence
@@ -54,6 +56,7 @@ namespace SlopWorld
             _historyViewReady = false;
             _historyRefreshPending = false;
             _historyWarmed = false;
+            _historyBarDragging = false;
             _history.Reset();
             _lastLiveSeq = -1;
         }
