@@ -218,14 +218,6 @@ namespace SlopWorld
                 DeadCursor.Apply();
                 S.MarkDirty();
             }
-            l.Gap(UiWidgets.GapS);
-            bool debug = UiWidgets.Checkbox(l, "Debug", S.cursorDebug,
-                "Draw a bright green pixel at the actual pointer position.");
-            if (debug != S.cursorDebug)
-            {
-                S.cursorDebug = debug;
-                S.MarkDirty();
-            }
             l.Gap(UiWidgets.GapM);
 
             float used = l.CurHeight;
