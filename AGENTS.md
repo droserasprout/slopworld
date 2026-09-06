@@ -26,6 +26,7 @@ Architecture:
 - [daemon-presets](notes/daemon-presets.md) — sandbox argv & presets
 - [sandbox-isolation](notes/sandbox-isolation.md) — bind guard, private state
 - [mod-client](notes/mod-client.md) — Client/: hub, socket, config mirror
+- [performance-bottlenecks-plan](notes/plans/performance-bottlenecks-plan.md) — staged mod and daemon hot-path work
 - [mod-sim](notes/mod-sim.md) — Sim/: colony reconcile, clock, intro
 - [mod-ui-chrome](notes/mod-ui-chrome.md) — shared widgets, layout, top bar
 - [ui-reuse-consistency-plan](notes/plans/ui-reuse-consistency-plan.md) — implemented UI reuse and consistency phases

@@ -53,7 +53,7 @@ short subject per note and remove stale entries.
 ## Mod, simulation, and UI
 
 - [mod-client](mod-client.md) - `Client/`: hub, socket, JSON, config mirror.
-- [mod-performance-bottlenecks](mod-performance-bottlenecks.md) - static C# hot-path review and profiling order.
+- [performance-bottlenecks-plan](plans/performance-bottlenecks-plan.md) - staged mod and daemon hot-path work.
 - [csharp-tests](csharp-tests.md) - the C# test boundary and pure-logic test project.
 - [mod-sim](mod-sim.md) - `Sim/`: colony reconcile, clock, intro, restart.
 - [mod-patches-strip](mod-patches-strip.md) - stripping the sim, the UI and the options menu.
