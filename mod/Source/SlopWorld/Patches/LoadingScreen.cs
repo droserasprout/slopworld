@@ -36,8 +36,8 @@ namespace SlopWorld
         static Vector2 _box;
         static int _lineCount;
 
-        // Bumped per re-measure. The loading stream is discarded when its wrapping width or
-        // available height changes.
+        // Bumped per re-measure. A geometry change rewraps the existing stream rather than
+        // discarding it; only a new load or mode change starts a fresh stream.
         internal static int Generation;
 
         internal static int Lines
@@ -92,13 +92,14 @@ namespace SlopWorld
                 _lineCount = Mathf.Max(1, Mathf.FloorToInt((textHeight - one) / step) + 1);
                 _box = new Vector2(w, h);
 
-                ResetStream();
                 return _box;
             }
         }
 
         // The visible stream is a line buffer, not a pre-wrapped wall. Keeping lines explicitly
         // lets a full panel scroll one row at a time while the newly exposed row is populated.
+        // A new stream remains empty until its container has completed a real repaint; the
+        // paced stream then fills it naturally before scrolling begins.
         static readonly List<string> Stream = new List<string>();
         static readonly List<string> Tokens = new List<string>();
         static readonly System.Text.StringBuilder PaintedBuilder = new System.Text.StringBuilder();
@@ -109,8 +110,17 @@ namespace SlopWorld
         static bool _modeKnown;
         static bool _grandma;
         static object _loadingEvent;
+        static object _streamEvent;
+        static int _streamGeneration = -1;
+        static bool _containerVisible;
 
         internal static string Painted => _painted;
+
+        internal static void MarkContainerVisible()
+        {
+            if (Event.current == null || Event.current.type == EventType.Repaint)
+                _containerVisible = true;
+        }
 
         static void ResetStream()
         {
@@ -122,14 +132,13 @@ namespace SlopWorld
             _lastAdvancedAt = -1f;
         }
 
-        // LongEventHandler owns one event object for a loading operation. A new object means a
-        // fresh stream, even when RimWorld loads several maps during one process.
+        // LongEventHandler owns one event object for a loading operation. A new object marks a
+        // fresh stream, even when RimWorld loads several maps during one process; Advance folds
+        // that reset together with any same-frame layout or mode reset.
         internal static void Begin(object loadingEvent)
         {
             if (ReferenceEquals(_loadingEvent, loadingEvent)) return;
             _loadingEvent = loadingEvent;
-            _modeKnown = false;
-            ResetStream();
         }
 
         static string NextTip()
@@ -209,14 +218,76 @@ namespace SlopWorld
             return PaintedBuilder.ToString();
         }
 
+        static void ReflowStream(float width)
+        {
+            var reflowed = new List<string>();
+            foreach (string oldLine in Stream)
+            {
+                if (oldLine.Length == 0)
+                {
+                    reflowed.Add(string.Empty);
+                    continue;
+                }
+
+                string line = string.Empty;
+                string[] words = oldLine.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+                foreach (string word in words)
+                {
+                    if (line.Length == 0)
+                    {
+                        line = word;
+                        continue;
+                    }
+
+                    string candidate = line + " " + word;
+                    if (Text.CalcSize(candidate).x <= width)
+                    {
+                        line = candidate;
+                        continue;
+                    }
+
+                    reflowed.Add(line);
+                    line = word;
+                }
+
+                if (line.Length > 0) reflowed.Add(line);
+            }
+
+            while (reflowed.Count > Lines) reflowed.RemoveAt(0);
+            Stream.Clear();
+            Stream.AddRange(reflowed);
+            _painted = JoinStream();
+        }
+
         static void Advance()
         {
+            Vector2 box = Box;
+            int generation = Generation;
             bool grandma = Settings.GrandmaMode;
-            if (!_modeKnown || _grandma != grandma)
+            bool fresh = !ReferenceEquals(_streamEvent, _loadingEvent)
+                || !_modeKnown || _grandma != grandma;
+            bool resized = _streamGeneration != generation;
+            if (fresh)
             {
+                _streamEvent = _loadingEvent;
+                _streamGeneration = generation;
                 _modeKnown = true;
                 _grandma = grandma;
+                _containerVisible = false;
                 ResetStream();
+            }
+
+            if (fresh)
+            {
+                return;
+            }
+            if (Event.current != null && Event.current.type != EventType.Repaint)
+            {
+                return;
+            }
+            if (!_containerVisible)
+            {
+                return;
             }
 
             float now = Time.realtimeSinceStartup;
@@ -241,7 +312,13 @@ namespace SlopWorld
             Text.WordWrap = false;
             try
             {
-                float width = Mathf.Max(1f, Box.x - Margin.x * 2f);
+                float width = Mathf.Max(1f, box.x - Margin.x * 2f);
+                if (resized)
+                {
+                    ReflowStream(width);
+                    _streamGeneration = generation;
+                }
+
                 for (int i = 0; i < count; i++)
                 {
                     if (_tokenAt >= Tokens.Count) LoadTip();
@@ -297,6 +374,7 @@ namespace SlopWorld
                 Widgets.Label(new Rect(0f, 0f, inner.width, inner.height),
                     Patch_LoadingTips.Painted);
                 Widgets.EndGroup();
+                Patch_LoadingTips.MarkContainerVisible();
             }
             finally
             {
