@@ -80,12 +80,21 @@ namespace SlopWorld
             // needs candidate checks in rows that changed.
             HasLinks = previousHasLinks;
             LinksKnown = !contentChanged && previousSeq >= 0;
-            int visibleShift = Off == 0 && previousSeq >= 0 &&
+            // A subscription replay can update the retained buffer without advancing the
+            // daemon sequence. It is a new observation of the same live epoch, not rows that
+            // scrolled while this tab was away; only a strictly newer frame may move history.
+            bool newer = previousSeq >= 0 && Seq > previousSeq;
+            int visibleShift = Off == 0 && newer &&
                 !previousAltScreen && !AltScreen
                 ? VerticalShift(previousLines, Lines, previousRows, Rows, previousCy)
                 : 0;
-            int historyShift = Off == 0 && previousSeq >= 0 &&
-                !previousAltScreen && !AltScreen && History > previousHistory
+            // `-1` means the daemon did not provide a history extent. Learning that an
+            // otherwise unchanged live frame has zero history is metadata hydration, not one
+            // row of terminal scrollback. This matters when a tab is subscribed again and its
+            // retained frame is updated by the first reply from the current daemon.
+            int historyShift = Off == 0 && newer &&
+                !previousAltScreen && !AltScreen && previousHistory >= 0 &&
+                History > previousHistory
                 ? History - previousHistory : 0;
             // Visible-row overlap is precise for small shifts, but it cannot identify a
             // burst that scrolls an entire viewport. The daemon's live history extent supplies

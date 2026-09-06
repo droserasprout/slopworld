@@ -28,8 +28,8 @@ namespace SlopWorld
         bool _historyViewReady;
         bool _historyRefreshPending;
         int _historyTopOff = -1;
-        // A shallow history window is kept ready while the active pane is at the live bottom,
-        // making the first wheel movement a local transition instead of a capture round trip.
+        // The history cache is seeded only when the user leaves the live bottom, so merely
+        // opening or revisiting a tab never issues a scroll capture.
         bool _historyWarmed;
 
         readonly TerminalHistory _history = new TerminalHistory();
@@ -38,13 +38,11 @@ namespace SlopWorld
         {
             public int Offset;
             public int CoordinateShift;
-            public bool Warm;
 
-            public HistoryRequest(int offset, int coordinateShift, bool warm = false)
+            public HistoryRequest(int offset, int coordinateShift)
             {
                 Offset = offset;
                 CoordinateShift = coordinateShift;
-                Warm = warm;
             }
         }
 
@@ -61,7 +59,6 @@ namespace SlopWorld
             var hub = SessionHub.Instance;
             var live = hub.Screen(_name);
             NoteLiveFrame(live);
-            if (_scrollOff <= 0) WarmHistory(live);
             DrainHistoryReplies(hub, live);
             if (_scrollOff <= 0)
             {
@@ -103,59 +100,31 @@ namespace SlopWorld
                     _history.Add(sb, live, request.Offset, shift, allowStale: !current);
                     if (sb.History >= 0)
                     {
-                        _historyTopOff = Mathf.Clamp(sb.History + shift, 0, MaxScrollLines);
-                        // A warm capture is deliberately not allowed to clamp a newer
-                        // gesture, except when it proves that there is no history at all.
-                        // Without this, a fresh pane can remain locally scrolled until the
-                        // next input pass even though the daemon answered with history=0.
-                        if (!request.Warm || sb.History == 0)
-                        {
-                            ClampHistoryTarget();
-                            if (request.Warm && sb.History == 0)
-                            {
-                                _scrollPending = false;
-                                _wantedScrollOff = 0;
-                            }
-                        }
+                        // The reply's extent is translated for live rows that arrived while
+                        // the capture was in flight. Once the live frame is at least as new as
+                        // that reply, its daemon-owned extent is authoritative. In particular,
+                        // do not turn a zero-history warm reply plus a stale one-row shift into
+                        // a phantom history row after returning to a tab.
+                        int history = sb.History + shift;
+                        if (live != null && live.History >= 0 && live.Seq >= sb.Seq)
+                            history = live.History;
+                        _historyTopOff = Mathf.Clamp(history, 0, MaxScrollLines);
+                        ClampHistoryTarget();
                     }
                     else if (sb.Off + shift < request.Offset)
                     {
                         // Older daemons do not report the history extent. Their achieved
                         // offset is still authoritative when the requested point was above
                         // the real top.
-                        _historyTopOff = Mathf.Max(0, sb.Off + shift);
-                        if (!request.Warm || sb.Off + shift <= 0)
-                        {
-                            ClampHistoryTarget();
-                            if (request.Warm && sb.Off + shift <= 0)
-                            {
-                                _scrollPending = false;
-                                _wantedScrollOff = 0;
-                            }
-                        }
+                        int achieved = sb.Off + shift;
+                        if (live != null && live.History >= 0 && live.Seq >= sb.Seq)
+                            achieved = live.History;
+                        _historyTopOff = Mathf.Max(0, achieved);
+                        ClampHistoryTarget();
                     }
                     _historyRefreshPending = false;
                 }
             }
-        }
-
-        void WarmHistory(ScreenBuf live)
-        {
-            if (_historyWarmed || live == null || live.Lines == null || live.Lines.Length == 0 ||
-                !SessionHub.Instance.Online || _sizeDirty || _scrollPending ||
-                _historyRequests.Count > 0 || !HistoryInputEnabled(live))
-                return;
-            if (_cols > 0 && _rows > 0 && (live.Cols != _cols || live.Rows != _rows)) return;
-
-            _history.Reset(live);
-            _historyCoordinateShift = 0;
-            _historyTopOff = -1;
-            _historyWarmed = true;
-
-            int offset = Mathf.Max(2, live.Rows / 2);
-            ulong id = ++_nextScrollRequestId;
-            _historyRequests[id] = new HistoryRequest(offset, 0, warm: true);
-            SessionHub.Instance.RequestScroll(_name, offset, id);
         }
 
         void ClampHistoryTarget()
