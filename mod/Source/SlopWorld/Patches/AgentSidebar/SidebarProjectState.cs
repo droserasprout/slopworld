@@ -12,16 +12,32 @@ namespace SlopWorld
 
         HashSet<string> _folded;
         HashSet<string> _filter;
+        string _foldedSource;
+        string _filterSource;
+        int _revision;
+
+        public int Revision
+        {
+            get
+            {
+                _ = Folded;
+                _ = Filter;
+                return _revision;
+            }
+        }
 
         public HashSet<string> Folded
         {
             get
             {
-                if (_folded == null)
+                string source = Settings.FoldedProjects;
+                if (_folded == null || _foldedSource != source)
                 {
                     _folded = new HashSet<string>();
-                    foreach (var name in Settings.FoldedProjects.Split('\n'))
+                    foreach (var name in source.Split('\n'))
                         if (name.Length > 0) _folded.Add(name);
+                    _foldedSource = source;
+                    _revision++;
                 }
                 return _folded;
             }
@@ -31,11 +47,14 @@ namespace SlopWorld
         {
             get
             {
-                if (_filter == null)
+                string source = Settings.SidebarFilter;
+                if (_filter == null || _filterSource != source)
                 {
                     _filter = new HashSet<string>();
-                    foreach (var name in Settings.SidebarFilter.Split('\n'))
+                    foreach (var name in source.Split('\n'))
                         if (name.Length > 0) _filter.Add(name);
+                    _filterSource = source;
+                    _revision++;
                 }
                 return _filter;
             }

@@ -14,6 +14,7 @@ namespace SlopWorld
     public class MiniWebSocket : IDisposable
     {
         public readonly ConcurrentQueue<string> Incoming = new ConcurrentQueue<string>();
+        readonly ConcurrentQueue<string> _outgoing = new ConcurrentQueue<string>();
 
         // A frame is one screen's worth of SGR text, and the daemon clamps a pane to 500x200,
         // so the widest thing it can send is orders of magnitude under this.
@@ -22,20 +23,26 @@ namespace SlopWorld
         // as well as each allocation so fragmentation cannot grow the buffer without limit.
         const long MaxFragmentedMessage = 32L * 1024 * 1024;
 
-        public bool Connected { get; private set; }
+        volatile bool _connected;
+        public bool Connected => _connected;
         public string LastError { get; private set; }
+        public int OutgoingCount => _outgoing.Count;
 
         TcpClient _tcp;
         NetworkStream _net;
         Thread _reader;
+        Thread _writer;
         volatile bool _closing;
         readonly object _sendLock = new object();
+        readonly AutoResetEvent _sendSignal = new AutoResetEvent(false);
         readonly RNGCryptoServiceProvider _rng = new RNGCryptoServiceProvider();
 
         public bool Connect(string host, int port, string path, string token, int timeoutMs = 3000)
         {
             try
             {
+                LastError = null;
+                _closing = false;
                 _tcp = new TcpClient { NoDelay = true };
                 var ar = _tcp.BeginConnect(host, port, null, null);
                 if (!ar.AsyncWaitHandle.WaitOne(timeoutMs) || !_tcp.Connected)
@@ -78,14 +85,18 @@ namespace SlopWorld
                     return false;
                 }
 
-                // An established websocket is expected to sit quiet indefinitely. Keep the
-                // write timeout, since game-thread sends must still be bounded, but let the
+                // An established websocket is expected to sit quiet indefinitely. Let the
                 // background reader wait for the next event without reconnecting every few
-                // seconds.
+                // seconds; the writer uses the same bounded socket timeout for queued frames.
                 _tcp.ReceiveTimeout = 0;
-                Connected = true;
-                _closing = false;
+                _connected = true;
+                _writer = new Thread(WriteLoop)
+                {
+                    IsBackground = true,
+                    Name = "SlopWorld WS writer",
+                };
                 _reader = new Thread(ReadLoop) { IsBackground = true, Name = "SlopWorld WS" };
+                _writer.Start();
                 _reader.Start();
                 return true;
             }
@@ -159,19 +170,44 @@ namespace SlopWorld
 
         public void SendText(string text)
         {
-            if (!Connected) return;
+            if (!Connected || string.IsNullOrEmpty(text)) return;
+            _outgoing.Enqueue(text);
+            _sendSignal.Set();
+        }
+
+        void WriteLoop()
+        {
             try
             {
-                var payload = Encoding.UTF8.GetBytes(text);
-                lock (_sendLock)
+                while (!_closing)
                 {
-                    WriteFrame(0x1, payload);
+                    if (!_outgoing.TryDequeue(out var text))
+                    {
+                        _sendSignal.WaitOne(250);
+                        continue;
+                    }
+
+                    if (_closing) break;
+                    var payload = Encoding.UTF8.GetBytes(text);
+                    lock (_sendLock)
+                    {
+                        if (_net == null) break;
+                        WriteFrame(0x1, payload);
+                    }
                 }
             }
             catch (Exception e)
             {
-                LastError = e.Message;
-                Connected = false;
+                if (!_closing) LastError = e.Message;
+            }
+            finally
+            {
+                if (!_closing)
+                {
+                    _closing = true;
+                    _connected = false;
+                    _sendSignal.Set();
+                }
             }
         }
 
@@ -311,7 +347,9 @@ namespace SlopWorld
             }
             finally
             {
-                Connected = false;
+                _closing = true;
+                _connected = false;
+                _sendSignal.Set();
             }
         }
 
@@ -338,13 +376,8 @@ namespace SlopWorld
         public void Dispose()
         {
             _closing = true;
-            Connected = false;
-            try
-            {
-                if (_net != null && _tcp != null && _tcp.Connected)
-                    lock (_sendLock) WriteFrame(0x8, new byte[0]);
-            }
-            catch { /* the socket is going away regardless */ }
+            _connected = false;
+            _sendSignal.Set();
             Cleanup();
         }
 

@@ -32,21 +32,75 @@ namespace SlopWorld
         public List<SgrRun>[] Parse(string[] lines, int cols, int themeRev, int fontRev,
                                     out int hits, out int misses)
         {
+            lines = lines ?? Array.Empty<string>();
+            var changed = new int[lines.Length];
+            for (int i = 0; i < changed.Length; i++) changed[i] = i;
+            return Parse(new ScreenBuf
+            {
+                Lines = lines,
+                Cols = cols,
+                Rows = lines.Length,
+                ChangedRows = changed,
+                ContentRevision = 1,
+            }, themeRev, fontRev, out hits, out misses);
+        }
+
+        public List<SgrRun>[] Parse(ScreenBuf screen, int themeRev, int fontRev,
+                                    out int hits, out int misses)
+        {
             hits = 0;
             misses = 0;
-            lines = lines ?? Array.Empty<string>();
+            var lines = screen?.Lines ?? Array.Empty<string>();
+            int cols = screen?.Cols ?? 0;
+
+            bool reuseRows = screen?.Runs != null && screen.Runs.Length == lines.Length &&
+                screen.RunsRev == themeRev;
+            bool hasLink = screen != null && screen.HasLinks;
+            if (screen != null && !screen.LinksKnown)
+            {
+                if (hasLink)
+                {
+                    // A previous link may have been removed or moved by a changed row. Keep
+                    // the conservative global path until this frame establishes the new state.
+                    hasLink = Sgr.MayContainLink(lines);
+                }
+                else
+                {
+                    var changed = screen.ChangedRows;
+                    if (changed == null || changed.Length == 0 || changed.Length >= lines.Length)
+                        hasLink = Sgr.MayContainLink(lines);
+                    else
+                        foreach (int row in changed)
+                            if (row >= 0 && row < lines.Length && LinkCandidate(lines[row]))
+                            {
+                                // A URL may start or end at a physical row boundary. A changed
+                                // ':' or '/' therefore makes neighboring unchanged rows part of
+                                // the candidate scan, while ordinary ANSI text stays row-local.
+                                hasLink = Sgr.MayContainLink(lines);
+                                break;
+                            }
+                }
+                screen.HasLinks = hasLink;
+                screen.LinksKnown = true;
+            }
 
             // Autolinking can join rows and split color runs, so link candidates are parsed as
             // one unit. Plain and ANSI-only output takes the reusable row path.
-            if (Sgr.MayContainLink(lines))
+            if (hasLink)
             {
                 misses = lines.Length;
                 return Sgr.ParseLines(lines, cols);
             }
 
-            var parsed = new List<SgrRun>[lines.Length];
+            var parsed = reuseRows ? screen.Runs : new List<SgrRun>[lines.Length];
             for (int i = 0; i < lines.Length; i++)
             {
+                if (parsed[i] != null)
+                {
+                    hits++;
+                    continue;
+                }
+
                 var key = new Key
                 {
                     Line = lines[i] ?? "",
@@ -69,5 +123,8 @@ namespace SlopWorld
         }
 
         public int Count => _rows.Count;
+
+        static bool LinkCandidate(string line) => line != null &&
+            (line.IndexOf(':') >= 0 || line.IndexOf('/') >= 0);
     }
 }

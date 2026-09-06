@@ -2,6 +2,9 @@
 
 use super::super::*;
 use anyhow::anyhow;
+use futures::{stream, StreamExt};
+
+const HOST_QUERY_CONCURRENCY: usize = 4;
 
 impl Manager {
     pub(super) async fn session_cfg(&self, name: &str) -> Option<SessionCfg> {
@@ -137,11 +140,18 @@ impl Manager {
             .filter(|l| l.host && l.state != State::Down)
             .map(|l| l.cfg.name.clone())
             .collect();
+        let tmux = self.tmux.clone();
+        let results = stream::iter(names.into_iter().map(|name| {
+            let tmux = tmux.clone();
+            async move { (name.clone(), tmux.current_path(&name).await) }
+        }))
+        .buffer_unordered(HOST_QUERY_CONCURRENCY)
+        .collect::<Vec<_>>()
+        .await;
+
         let mut changed = false;
-        for name in names {
-            let Some(path) = self.tmux.current_path(&name).await else {
-                continue;
-            };
+        for (name, path) in results {
+            let Some(path) = path else { continue };
             changed |= self.remember_host_path(&name, &path).await;
         }
         changed
@@ -156,14 +166,24 @@ impl Manager {
             .filter(|l| l.host && l.state != State::Down)
             .map(|l| l.cfg.name.clone())
             .collect();
+        let tmux = self.tmux.clone();
+        let results = stream::iter(names.into_iter().map(|name| {
+            let tmux = tmux.clone();
+            async move { (name.clone(), tmux.current_command(&name).await) }
+        }))
+        .buffer_unordered(HOST_QUERY_CONCURRENCY)
+        .collect::<Vec<_>>()
+        .await;
+
         let mut changed = false;
-        for name in names {
-            let Some(command) = self.tmux.current_command(&name).await else {
-                continue;
-            };
+        for (name, command) in results {
+            let Some(command) = command else { continue };
             let process_running = !crate::sandbox::is_shell_command(&command);
             let mut live = self.live.write().await;
-            if let Some(l) = live.get_mut(&name).filter(|l| l.host && l.state != State::Down) {
+            if let Some(l) = live
+                .get_mut(&name)
+                .filter(|l| l.host && l.state != State::Down)
+            {
                 if l.process_running != process_running {
                     l.process_running = process_running;
                     changed = true;

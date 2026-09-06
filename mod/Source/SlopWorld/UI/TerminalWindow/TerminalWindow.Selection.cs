@@ -297,11 +297,13 @@ namespace SlopWorld
         // an idle agent is never.
         void EnsureRuns(ScreenBuf buf)
         {
-            if (buf.Runs != null && buf.RunsRev == TerminalTheme.Rev) return;
+            if (buf.Runs != null && buf.RunsRev == TerminalTheme.Rev && buf.RunsComplete)
+                return;
             float debugStarted = ScrollDebugTimer();
-            buf.Runs = _runCache.Parse(buf.Lines, buf.Cols, TerminalTheme.Rev, TerminalFont.Rev,
+            buf.Runs = _runCache.Parse(buf, TerminalTheme.Rev, TerminalFont.Rev,
                                        out int hits, out int misses);
             buf.RunsRev = TerminalTheme.Rev;
+            buf.RunsComplete = true;
             ScrollDebugParse(debugStarted, hits, misses);
         }
 

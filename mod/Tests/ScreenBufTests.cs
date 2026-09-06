@@ -18,6 +18,8 @@ namespace SlopWorld.Tests
             yield return ("does not call an ambiguous repeated-content edit a row shift",
                 IgnoresAmbiguousRepeatedEdit);
             yield return ("does not shift across a changed viewport", IgnoresChangedViewport);
+            yield return ("retains unchanged row metadata", RetainsUnchangedRows);
+            yield return ("cursor-only frames retain the content revision", CursorOnlyRevision);
         }
 
         static void HydratesScreenFrame()
@@ -152,6 +154,48 @@ namespace SlopWorld.Tests
                 "\"off\":0,\"lines\":[\"two\",\"three\",\"four\",\"five\"]}"));
 
             AssertEx.Equal(0, screen.LiveShift, "a resize does not look like a scroll");
+        }
+
+        static void RetainsUnchangedRows()
+        {
+            var screen = new ScreenBuf();
+            screen.FromJson(JVal.Parse(
+                "{\"seq\":1,\"cols\":20,\"rows\":3," +
+                "\"lines\":[\"one\",\"two\",\"three\"]}"));
+            var first = new List<SgrRun>();
+            var second = new List<SgrRun>();
+            var third = new List<SgrRun>();
+            screen.Runs = new[] { first, second, third };
+            screen.RunsRev = 1;
+            screen.RunsComplete = true;
+            int revision = screen.ContentRevision;
+
+            screen.FromJson(JVal.Parse(
+                "{\"seq\":2,\"cols\":20,\"rows\":3," +
+                "\"lines\":[\"one\",\"changed\",\"three\"]}"));
+
+            AssertEx.Equal(revision + 1, screen.ContentRevision, "content revision");
+            AssertEx.Equal(1, screen.ChangedRows.Length, "changed row count");
+            AssertEx.Equal(1, screen.ChangedRows[0], "changed row index");
+            AssertEx.True(object.ReferenceEquals(first, screen.Runs[0]),
+                "unchanged row runs are retained");
+            AssertEx.True(screen.Runs[1] == null, "changed row runs are invalidated");
+            AssertEx.False(screen.RunsComplete, "partial runs are not complete");
+        }
+
+        static void CursorOnlyRevision()
+        {
+            var screen = new ScreenBuf();
+            screen.FromJson(JVal.Parse(
+                "{\"seq\":1,\"cols\":20,\"rows\":2,\"cx\":1," +
+                "\"lines\":[\"one\",\"two\"]}"));
+            int revision = screen.ContentRevision;
+            screen.FromJson(JVal.Parse(
+                "{\"seq\":2,\"cols\":20,\"rows\":2,\"cx\":2," +
+                "\"lines\":[\"one\",\"two\"]}"));
+
+            AssertEx.Equal(revision, screen.ContentRevision, "content revision is stable");
+            AssertEx.Equal(0, screen.ChangedRows.Length, "no changed rows");
         }
     }
 }

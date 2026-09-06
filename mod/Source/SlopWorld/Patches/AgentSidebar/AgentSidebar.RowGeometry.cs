@@ -11,6 +11,17 @@ namespace SlopWorld
     {
         static void Bucket(List<ColonistBar.Entry> entries, List<Vector2> locs, int count)
         {
+            // Build the header totals and worker counts once for this layout instead of
+            // rescanning every session and worker list once per project below.
+            foreach (var info in SessionHub.Instance.Sessions)
+            {
+                if (info == null || info.Worker || info.Ephemeral || info.Host || IsRouted(info))
+                    continue;
+                string key = string.IsNullOrEmpty(info.Project) ? Loose : info.Project;
+                Increment(Layout.TotalCounts, key);
+                if (IsActive(info.State)) Increment(Layout.ActiveCounts, key);
+            }
+
             for (int i = 0; i < count && i < entries.Count; i++)
             {
                 var pawn = entries[i].pawn;
@@ -82,6 +93,7 @@ namespace SlopWorld
                     if (!Layout.Workers.TryGetValue(s.Parent, out var children))
                         Layout.Workers[s.Parent] = children = new List<SessionInfo>();
                     children.Add(s);
+                    Increment(Layout.WorkerCounts, s.Project);
                     continue;
                 }
                 if ((!s.Ephemeral && !s.Host) || IsRouted(s) || !Passes(s.Project) ||
@@ -150,6 +162,12 @@ namespace SlopWorld
 
         static int ByName(SessionInfo a, SessionInfo b) =>
             string.CompareOrdinal(a?.Name ?? "", b?.Name ?? "");
+
+        static void Increment(Dictionary<string, int> counts, string key)
+        {
+            if (counts.TryGetValue(key, out int current)) counts[key] = current + 1;
+            else counts[key] = 1;
+        }
 
 
         static string Session(Pawn pawn) =>

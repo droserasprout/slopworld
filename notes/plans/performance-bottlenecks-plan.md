@@ -1,6 +1,6 @@
 # Performance bottlenecks plan
 
-Status: proposed. Scope: the Unity mod and `slopd` daemon.
+Status: code implemented; runtime performance evidence pending. Scope: the Unity mod and `slopd` daemon.
 
 The current review is static, not a runtime profile. The most credible risks
 are Unity-main-thread I/O and unbounded queue drains, the full terminal-frame
@@ -8,12 +8,18 @@ pipeline, repeated sidebar/worksite scans, expanded-tree traversal, and
 sequential host polling in the daemon. Keep the wire protocol and visible
 behavior unchanged while reducing work and allocation pressure.
 
-Baseline verified 2026-09-06: `make test`, `make lint-mod`, and
-`make lint-prose` pass. The aggregate `make lint` gate currently stops in
-`cargo fmt --check` at `slopd/src/manager/sessions.rs:163`; this is an
-existing daemon formatting mismatch, before the mod lint target runs. Add
-runtime measurements before changing the larger hot paths;
+Baseline verified 2026-09-06: `make test`, `make lint`, and `make lint-prose`
+pass. Add runtime measurements before changing the larger hot paths;
 `SLOPWORLD_SCROLL_DEBUG=1` already provides aggregate scroll timing.
+
+Implementation update 2026-09-06: the planned paths now have bounded client
+queues and background WebSocket I/O, changed-row terminal parsing/painting,
+indexed sidebar and Worksite scans, cached content-tree row indexes, bounded
+Worksite sweeps, batched daemon host probes, and an ordered bounded scroll
+capture lane. `SLOPWORLD_PERF_DEBUG=1` aggregates client timings; daemon
+timings are available at `slopd::perf=debug`. The acceptance measurements below
+still need a representative active-colony/runtime run before this note can
+claim a measured improvement.
 
 ## Phase 0: instrument the hot paths
 

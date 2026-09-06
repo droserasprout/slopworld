@@ -56,6 +56,10 @@ namespace SlopWorld
 
         sealed class TreeSource : ContentTreeSource
         {
+            public override int Revision => unchecked(_treeRevision * 397
+                ^ (int)SessionHub.Instance.SessionsVersion
+                ^ SessionHub.Instance.ProjectsRevision);
+
             public override IList<ContentTreeGroup> Groups()
             {
                 if (_focusedRoot != null)
@@ -80,6 +84,7 @@ namespace SlopWorld
             public override void ToggleGroup(ContentTreeGroup group)
             {
                 if (!Shut.Remove(group.Key)) Shut.Add(group.Key);
+                BumpTree();
             }
 
             public override string GroupTooltip(ContentTreeGroup group) => group.Path;
@@ -103,6 +108,7 @@ namespace SlopWorld
                 // single directory does not wait behind the rest of an unfold-all walk.
                 CancelQueuedBrowse();
                 if (file.Expanded && file.Kids != null) RefreshLoaded(file, false);
+                BumpTree();
             }
 
             public override RowAct Actions(IContentTreeNode node) => Acts((Node)node);
@@ -157,6 +163,7 @@ namespace SlopWorld
                     RefreshLoaded(Root(project), false);
                 if (_focusedRoot != null) RefreshLoaded(_focusedRoot, false);
             }
+            BumpTree();
         }
 
         static void SetExpanded(Node node, bool expanded)
@@ -208,12 +215,20 @@ namespace SlopWorld
         }
 
         static readonly ContentTreeView Tree = new ContentTreeView(new TreeSource());
+        static int _treeRevision;
         static int _focusVersion;
         const float AutoRefreshSeconds = 2f;
         const int MaxConcurrentBrowse = 4;
         static float _nextAutoRefresh;
         static readonly Queue<BrowseRequest> BrowseQueue = new Queue<BrowseRequest>();
         static int BrowseInFlight;
+
+        internal static int TreeRevision => _treeRevision;
+
+        static void BumpTree()
+        {
+            unchecked { _treeRevision++; }
+        }
 
         // Resolve against the session's project root, then open only the ancestor listings
         // needed to reveal the row. No filesystem work happens until the click asks for it.
@@ -235,6 +250,7 @@ namespace SlopWorld
 
             int version = ++_focusVersion;
             Reveal(Root(project), parts, 0, version);
+            BumpTree();
             return true;
         }
 
@@ -312,6 +328,7 @@ namespace SlopWorld
             ClearSelection();
             foreach (var root in Roots.Values) Forget(root);
             if (_focusedRoot != null) Forget(_focusedRoot);
+            BumpTree();
         }
 
         // The daemon deliberately has no filesystem event stream. Keep the visible tree fresh
@@ -337,6 +354,7 @@ namespace SlopWorld
 
             node.Loading = true;
             node.Error = null;
+            BumpTree();
             QueueBrowse(node, descend);
         }
 
@@ -369,6 +387,7 @@ namespace SlopWorld
                 Depth = 0,
             };
             Tree.JumpTo(Vector2.zero);
+            BumpTree();
             AgentSidebar.ShowFiles();
         }
 
@@ -376,6 +395,7 @@ namespace SlopWorld
         {
             _focusedRoot = null;
             _focusedKey = null;
+            BumpTree();
         }
 
         static void Forget(Node n)
@@ -415,6 +435,7 @@ namespace SlopWorld
                 Depth = 0,
             };
             Roots[project] = root;
+            BumpTree();
             return root;
         }
 
@@ -444,6 +465,7 @@ namespace SlopWorld
             if (node.Loading) return;
             node.Loading = true;
             node.Error = null;
+            BumpTree();
             QueueBrowse(node, false);
         }
 
@@ -493,11 +515,13 @@ namespace SlopWorld
                 {
                     node.Error = error;
                     node.Loaded = null;
+                    BumpTree();
                     return;
                 }
 
                 node.Kids = Listed(node, j);
                 node.More = j["truncated"].AsBool();
+                BumpTree();
                 var loaded = node.Loaded;
                 node.Loaded = null;
                 if (loaded != null)

@@ -4,8 +4,16 @@ namespace SlopWorld
 {
     public partial class ScreenBuf
     {
+        static readonly int[] NoChangedRows = new int[0];
+
         public int Seq = -1;
         public int Cols, Rows, Cx, Cy;
+        // ContentRevision changes only when visible row text or the terminal shape changes;
+        // cursor-only frames can therefore reuse the cached paint surface.
+        public int ContentRevision;
+        public int[] ChangedRows = NoChangedRows;
+        public bool HasLinks;
+        public bool LinksKnown;
         // Lines scrolled up into scrollback; 0 for a live bottom frame.
         public int Off;
         // Total available history rows; -1 when talking to a daemon predating this field.
@@ -33,6 +41,7 @@ namespace SlopWorld
         public List<SgrRun>[] Runs;
         // Which palette the runs were parsed against; a scheme change re-parses them.
         public int RunsRev = -1;
+        public bool RunsComplete;
 
         // The history row cache needs a stable live frame while the streamed buffer continues
         // to receive output. Keep parsed runs shared; FromJson replaces them only on the mutable
@@ -44,6 +53,10 @@ namespace SlopWorld
                 Seq = Seq,
                 Cols = Cols,
                 Rows = Rows,
+                ContentRevision = ContentRevision,
+                ChangedRows = ChangedRows,
+                HasLinks = HasLinks,
+                LinksKnown = LinksKnown,
                 Cx = Cx,
                 Cy = Cy,
                 Off = Off,
@@ -59,6 +72,7 @@ namespace SlopWorld
                 Lines = Lines == null ? new string[0] : (string[])Lines.Clone(),
                 Runs = Runs,
                 RunsRev = RunsRev,
+                RunsComplete = RunsComplete,
             };
         }
     }

@@ -61,6 +61,8 @@ namespace SlopWorld
         public string Status => _transport.Status;
         public bool Online => _transport.Connected;
         public int ConnectionGeneration => _connectionGeneration;
+        public long SessionsVersion => _sessions.Version;
+        public int ProjectsRevision => _catalog.ProjectsRevision;
 
         public SessionInfo Get(string name) => _sessions.Get(name);
         public bool TryPendingRename(string oldName, out string newName) =>
@@ -83,6 +85,7 @@ namespace SlopWorld
             DaemonClient.PumpCompletions();
             _transport.Update();
             _tasks.Update();
+            PerfTrace.Report();
         }
 
         // ---- terminal I/O --------------------------------------------------------------

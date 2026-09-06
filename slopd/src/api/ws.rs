@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -9,14 +9,13 @@ use axum::extract::State;
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::IntoResponse;
 use futures::{SinkExt, StreamExt};
-use tokio::sync::{broadcast, Mutex};
+use tokio::sync::{broadcast, Mutex, Semaphore};
 use tokio::task::JoinHandle;
 
-use crate::session::{Event, WatchGuard};
+use crate::session::{Event, ScreenView, WatchGuard};
 
 use super::types::{
     AudioReq, AudioSelection, BreadcrumbReq, ClientMsg, KeysReq, MouseReq, PasteReq, ResizeReq,
-    ScrollReq,
 };
 use super::{err, presented_token, Mgr};
 
@@ -82,16 +81,64 @@ async fn ws_run(socket: WebSocket, m: Mgr, cap: Cap) {
     }
 
     let pump = spawn_frame_pump(events, tx.clone(), subs.clone(), cap.clone());
+    // Scrollback is an emulator snapshot and can be expensive on a large pane. Keep a small
+    // bounded lane for it so one wheel request does not stop intake of keys, resize, or newer
+    // wheel requests. Results stay in request order below.
+    let scroll_slots = Arc::new(Semaphore::new(4));
+    let mut pending_scrolls: VecDeque<JoinHandle<Option<ScreenView>>> = VecDeque::new();
 
-    while let Some(Ok(msg)) = rx.next().await {
-        let Message::Text(text) = msg else { continue };
-        let Ok(cm) = serde_json::from_str::<ClientMsg>(&text) else {
-            tracing::debug!("unparseable ws message: {text}");
-            continue;
-        };
-        if !handle_client_msg(cm, &m, &cap, &tx, &subs).await {
-            break;
+    loop {
+        tokio::select! {
+            biased;
+            result = async {
+                match pending_scrolls.front_mut() {
+                    Some(task) => Some(task.await),
+                    None => std::future::pending().await,
+                }
+            } => {
+                let Some(result) = result else { unreachable!() };
+                pending_scrolls.pop_front();
+                match result {
+                    Ok(Some(screen)) => {
+                        if send(&tx, &Event::Screen { screen }).await.is_err() { break; }
+                    }
+                    Ok(None) => {}
+                    Err(error) => tracing::debug!("scroll task ended: {error}"),
+                }
+            }
+            msg = rx.next() => {
+                let Some(Ok(msg)) = msg else { break };
+                let Message::Text(text) = msg else { continue };
+                let Ok(cm) = serde_json::from_str::<ClientMsg>(&text) else {
+                    tracing::debug!("unparseable ws message: {text}");
+                    continue;
+                };
+
+                if let ClientMsg::Scroll(req) = cm {
+                    if !m.cap_ok(&cap, &req.name, Level::Ro).await { continue; }
+                    let permit = match scroll_slots.clone().try_acquire_owned() {
+                        Ok(permit) => permit,
+                        Err(_) => continue,
+                    };
+                    let manager = m.clone();
+                    pending_scrolls.push_back(tokio::spawn(async move {
+                        let _permit = permit;
+                        manager.scroll_capture(&req.name, req.off, req.request_id).await
+                    }));
+                    continue;
+                }
+
+                // `Sub` can answer immediately with a screen. Drain older scroll responses first
+                // so direct responses retain the same order as the incoming commands.
+                if matches!(&cm, ClientMsg::Sub { .. })
+                    && !flush_scrolls(&tx, &mut pending_scrolls).await { break; }
+                if !handle_client_msg(cm, &m, &cap, &tx, &subs).await { break; }
+            }
         }
+    }
+
+    for pending in pending_scrolls {
+        pending.abort();
     }
 
     // Explicitly, rather than with the table: the pump holds the other half of that `Arc` and
@@ -247,7 +294,9 @@ async fn handle_client_msg(cm: ClientMsg, m: &Mgr, cap: &Cap, tx: &WsTx, subs: &
         ClientMsg::Unsub { name } => handle_unsub(name, subs).await,
         ClientMsg::Keys(req) => handle_keys(req, m, cap).await,
         ClientMsg::Resize(req) => handle_resize(req, m, cap).await,
-        ClientMsg::Scroll(req) => handle_scroll(req, m, cap, tx).await,
+        // Scroll requests are intercepted by ws_run so capture work can run in its bounded
+        // lane without stopping command intake.
+        ClientMsg::Scroll(_) => true,
         ClientMsg::Mouse(req) => handle_mouse(req, m, cap).await,
         ClientMsg::Paste(req) => handle_paste(req, m, cap).await,
         ClientMsg::Breadcrumb(req) => handle_breadcrumb(req, m, cap).await,
@@ -301,18 +350,6 @@ async fn handle_resize(req: ResizeReq, m: &Mgr, cap: &Cap) -> bool {
     }
     if let Err(e) = m.resize(&req.name, req.cols, req.rows).await {
         tracing::debug!("resize: {e:#}");
-    }
-    true
-}
-
-async fn handle_scroll(req: ScrollReq, m: &Mgr, cap: &Cap, tx: &WsTx) -> bool {
-    if !m.cap_ok(cap, &req.name, Level::Ro).await {
-        return true;
-    }
-    // Answer this socket alone: a scrolled frame is private to the wheel request and must not
-    // reach live subscribers.
-    if let Some(s) = m.scroll_capture(&req.name, req.off, req.request_id).await {
-        return send(tx, &Event::Screen { screen: s }).await.is_ok();
     }
     true
 }
@@ -390,8 +427,31 @@ fn resolve_audio_source(selection: AudioSelection) -> anyhow::Result<String> {
 }
 
 async fn send(tx: &WsTx, ev: &Event) -> Result<(), axum::Error> {
+    let started = std::time::Instant::now();
     let text = serde_json::to_string(ev).unwrap_or_default();
-    tx.lock().await.send(Message::Text(text)).await
+    let result = tx.lock().await.send(Message::Text(text)).await;
+    tracing::debug!(
+        target: "slopd::perf",
+        lane = "websocket-send",
+        elapsed_us = started.elapsed().as_micros() as u64,
+        "websocket event sent"
+    );
+    result
+}
+
+async fn flush_scrolls(tx: &WsTx, pending: &mut VecDeque<JoinHandle<Option<ScreenView>>>) -> bool {
+    while let Some(task) = pending.pop_front() {
+        match task.await {
+            Ok(Some(screen)) => {
+                if send(tx, &Event::Screen { screen }).await.is_err() {
+                    return false;
+                }
+            }
+            Ok(None) => {}
+            Err(error) => tracing::debug!("scroll task ended: {error}"),
+        }
+    }
+    true
 }
 
 #[cfg(test)]

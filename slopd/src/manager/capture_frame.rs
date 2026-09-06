@@ -21,11 +21,19 @@ impl Manager {
     }
 
     pub(crate) async fn render_and_broadcast(&self, name: &str, emu: &Mutex<SessionEmu>) {
+        let started = std::time::Instant::now();
         let frame = match emu.lock() {
             Ok(e) => e.render(),
             Err(_) => return,
         };
         self.apply_frame(name, frame).await;
+        tracing::debug!(
+            target: "slopd::perf",
+            lane = "frame",
+            session = name,
+            elapsed_us = started.elapsed().as_micros() as u64,
+            "render and apply frame"
+        );
     }
 
     /// Derive all consequences of a frame before taking the write lock. This keeps frame
@@ -44,7 +52,15 @@ impl Manager {
             && (hash != previous.hash
                 || (frame.cx, frame.cy) != previous.cursor
                 || meta != previous.meta);
-        let plain = strip_sgr(&frame.lines.join("\n"));
+        // Cursor/mode/title-only frames still need classification, but their visible text is
+        // unchanged. Reuse the last stripped text instead of joining and stripping the full
+        // terminal viewport again.
+        let content_changed = previous.initial || hash != previous.hash;
+        let plain = if content_changed {
+            Arc::new(strip_sgr(&frame.lines.join("\n")))
+        } else {
+            previous.plain.clone()
+        };
         let next_state = if previous.initial {
             self.classify_initial(previous.state, &plain).await
         } else {

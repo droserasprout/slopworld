@@ -48,16 +48,28 @@ namespace SlopWorld
         public static float Place(
             List<ColonistBar.Entry> entries, List<Vector2> locs, int count, bool plus)
         {
-            Layout.BeginFrame();
             Interaction.BeginFrame();
-            Bucket(entries, locs, count);
 
             if (CurrentTab != SidebarTab.Agents)
             {
+                Layout.BeginFrame();
                 // Skipping entries would leave invisible vanilla hit targets over the tree.
                 for (int i = 0; i < count && i < locs.Count; i++) locs[i] = Parked;
                 return Nominal;
             }
+
+            var hub = SessionHub.Instance;
+            var status = StatusFilter;
+            if (Layout.Matches(entries, count, plus, CurrentTab, hub.SessionsVersion,
+                               hub.ProjectsRevision, Projects.Revision, status, Width,
+                               UI.screenHeight, Body.height, TextH))
+            {
+                Layout.RestoreLocations(locs, count);
+                return Layout.LastScale;
+            }
+
+            Layout.BeginFrame();
+            Bucket(entries, locs, count);
 
             // Measure.
             var measure = MeasurePlacement();
@@ -65,6 +77,10 @@ namespace SlopWorld
             // Layout.
             float y = LayoutAgents(entries, locs, measure);
             Layout.AgentContentH = Mathf.Max(Body.height, y + Pad);
+            Layout.LastScale = measure.Scale;
+            Layout.RememberInputs(entries, count, plus, CurrentTab, hub.SessionsVersion,
+                hub.ProjectsRevision, Projects.Revision, status, Width, UI.screenHeight,
+                Body.height, TextH, locs);
 
             return measure.Scale;
         }
@@ -148,27 +164,13 @@ namespace SlopWorld
 
         static void AgentCounts(string project, out int active, out int total)
         {
-            active = 0;
-            total = 0;
-            foreach (var info in SessionHub.Instance.Sessions)
-            {
-                if (info == null || info.Worker || info.Ephemeral || info.Host || IsRouted(info))
-                    continue;
-                string key = string.IsNullOrEmpty(info.Project) ? Loose : info.Project;
-                if (key != project) continue;
-
-                total++;
-                if (IsActive(info.State)) active++;
-            }
+            Layout.ActiveCounts.TryGetValue(project, out active);
+            Layout.TotalCounts.TryGetValue(project, out total);
         }
 
         static int WorkerCount(string project)
         {
-            int count = 0;
-            foreach (var workers in Layout.Workers.Values)
-                foreach (var worker in workers)
-                    if (worker != null && worker.Project == project) count++;
-            return count;
+            return Layout.WorkerCounts.TryGetValue(project, out int count) ? count : 0;
         }
 
         static float LayoutWorkers(string parent, float width, float y, int depth)

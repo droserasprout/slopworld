@@ -34,6 +34,7 @@ namespace SlopWorld
                 if (WorkFor(what) <= 0f) return;
 
                 var map = __instance.Map;
+                map?.GetComponent<Worksite>()?.MarkFramesDirty();
                 var rect = __instance.OccupiedRect();
                 map?.GetComponent<Worksite>()?.Count(rect.Area);
 

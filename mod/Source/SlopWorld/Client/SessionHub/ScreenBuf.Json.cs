@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Linq;
 
 namespace SlopWorld
@@ -8,10 +9,15 @@ namespace SlopWorld
         {
             string[] previousLines = Lines;
             int previousRows = Rows;
+            int previousCols = Cols;
             int previousCy = Cy;
             int previousHistory = History;
             bool previousAltScreen = AltScreen;
             int previousSeq = Seq;
+            var previousRuns = Runs;
+            int previousRunsRev = RunsRev;
+            bool previousRunsComplete = RunsComplete;
+            bool previousHasLinks = HasLinks;
 
             Seq = s["seq"].AsInt();
             Cols = s["cols"].AsInt(80);
@@ -27,7 +33,53 @@ namespace SlopWorld
             AltScreen = s["alt_screen"].AsBool(false);
             Title = s["title"].AsString();
             ScrollRequestId = (ulong)s["request_id"].AsLong(0);
-            Lines = s["lines"].Items.Select(l => l.AsString()).ToArray();
+            var nextLines = s["lines"].Items.Select(l => l.AsString()).ToArray();
+            bool sameShape = previousLines != null && previousLines.Length == nextLines.Length &&
+                previousCols == Cols && previousRows == Rows;
+            var changed = new List<int>();
+            if (sameShape)
+            {
+                for (int i = 0; i < nextLines.Length; i++)
+                    if (!string.Equals(previousLines[i], nextLines[i],
+                                       System.StringComparison.Ordinal))
+                        changed.Add(i);
+            }
+            else
+            {
+                for (int i = 0; i < nextLines.Length; i++) changed.Add(i);
+            }
+
+            Lines = nextLines;
+            bool contentChanged = !sameShape || changed.Count > 0;
+            if (ContentRevision == 0) ContentRevision = 1;
+            else if (contentChanged) ContentRevision++;
+            ChangedRows = changed.Count == 0 ? NoChangedRows : changed.ToArray();
+
+            // Keep parsed rows whose source text did not change. Changed rows are left null so
+            // the terminal parser can fill only those rows on the next draw.
+            if (sameShape && previousRuns != null && previousRuns.Length == nextLines.Length)
+            {
+                var retained = new List<SgrRun>[nextLines.Length];
+                for (int i = 0; i < nextLines.Length; i++)
+                    if (string.Equals(previousLines[i], nextLines[i],
+                                      System.StringComparison.Ordinal))
+                        retained[i] = previousRuns[i];
+                Runs = retained;
+                RunsRev = previousRunsRev;
+                RunsComplete = previousRunsComplete && changed.Count == 0;
+            }
+            else
+            {
+                Runs = null;
+                RunsRev = -1;
+                RunsComplete = false;
+            }
+
+            // A known URL screen is reparsed globally when its text changes so links spanning
+            // physical rows remain correct. A screen previously known to contain no URL only
+            // needs candidate checks in rows that changed.
+            HasLinks = previousHasLinks;
+            LinksKnown = !contentChanged && previousSeq >= 0;
             int visibleShift = Off == 0 && previousSeq >= 0 &&
                 !previousAltScreen && !AltScreen
                 ? VerticalShift(previousLines, Lines, previousRows, Rows, previousCy)
@@ -40,7 +92,6 @@ namespace SlopWorld
             // that missing signal while the buffer still has room to grow; once full, the
             // overlap detector remains the fallback.
             LiveShift = System.Math.Max(visibleShift, historyShift);
-            Runs = null; // force a re-parse on next draw
         }
 
         static int VerticalShift(string[] before, string[] after,

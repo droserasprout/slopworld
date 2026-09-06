@@ -247,9 +247,9 @@ namespace SlopWorld
             Frame best = null;
             float nearest = float.MaxValue;
 
-            foreach (var thing in map.listerThings.ThingsInGroup(ThingRequestGroup.BuildingFrame))
+            EnsureFrameIndex();
+            foreach (var frame in _frames)
             {
-                var frame = thing as Frame;
                 if (frame == null || !frame.Spawned) continue;
                 if (WorkFor(frame.def?.entityDefToBuild) <= 0f) continue;
                 if (_shunned.Contains(frame)) continue;
@@ -266,9 +266,9 @@ namespace SlopWorld
             return best;
         }
 
-        // Exclude frames blocked by vanilla's first blocking thing: they would consume MaxOpen
-        // forever, and no agent or hauler can remove the blocker.
-        void Sweep()
+        // Start a bounded sweep. Exclude frames blocked by vanilla's first blocking thing:
+        // they would consume MaxOpen forever, and no agent or hauler can remove the blocker.
+        void BeginSweep()
         {
             // A frame nobody on the map is skilled enough for is rubbish the same way.
             _hands.Clear();
@@ -281,32 +281,45 @@ namespace SlopWorld
                         _hands.Add(agent);
                 }
 
-            List<Thing> doomed = null;
+            _sweepDoomed.Clear();
+            _runtime.SweepCursor = 0;
+            _runtime.SweepLimit = _frames.Count;
+            _runtime.SweepPending = true;
+        }
 
-            foreach (var thing in map.listerThings.ThingsInGroup(ThingRequestGroup.BuildingFrame))
+        const int SweepBudget = 64;
+
+        void SweepSlice()
+        {
+            int end = Mathf.Min(_runtime.SweepLimit,
+                _runtime.SweepCursor + SweepBudget);
+
+            for (int i = _runtime.SweepCursor; i < end; i++)
             {
-                var frame = thing as Frame;
+                var frame = _frames[i];
                 if (frame == null || !frame.Spawned) continue;
                 var what = frame.def?.entityDefToBuild;
                 if (WorkFor(what) <= 0f) continue;
 
                 if (GenConstruct.FirstBlockingThing(frame, null) == null && Anyone(what)) continue;
-
-                if (doomed == null) doomed = new List<Thing>();
-                doomed.Add(frame);
+                _sweepDoomed.Add(frame);
             }
+
+            _runtime.SweepCursor = end;
+            if (end < _runtime.SweepLimit) return;
 
             // The ones that deserved shunning for good have just been destroyed.
             _shunned.Clear();
             Prune();
 
-            if (doomed == null) return;
-
-            for (int i = 0; i < doomed.Count; i++)
-                if (!doomed[i].Destroyed) doomed[i].Destroy(DestroyMode.Vanish);
+            for (int i = 0; i < _sweepDoomed.Count; i++)
+                if (!_sweepDoomed[i].Destroyed) _sweepDoomed[i].Destroy(DestroyMode.Vanish);
 
             // Room where there was none; the last round of darts is out of date.
             _blocked = 0;
+            _sweepDoomed.Clear();
+            _runtime.SweepPending = false;
+            _runtime.FrameIndexDirty = true;
         }
 
         // An empty colony is not the same answer as a colony of clumsy hands.

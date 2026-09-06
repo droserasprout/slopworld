@@ -22,6 +22,8 @@ namespace SlopWorld
         int _libraryRevision;
         int _presetsRevision;
 
+        public int ProjectsRevision => _projectsRevision;
+
         // A project edit also changes which sessions exist, so the catalog asks the session
         // store to refresh without owning it.
         readonly Action _refreshSessions;
