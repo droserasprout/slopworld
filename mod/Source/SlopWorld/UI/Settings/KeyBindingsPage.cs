@@ -52,7 +52,8 @@ namespace SlopWorld
             var bindingsMap = DefDatabase<KeyBindingDef>.AllDefs
                 .Where(b => b.category != null && StripKeys.Kept(b))
                 .GroupBy(b => b.category)
-                .ToDictionary(g => g.Key, g => g.OrderBy(b => b.defName).ToList());
+                .ToDictionary(g => g.Key, g => g.OrderBy(b => b.defaultKeyCodeA)
+                    .ThenBy(b => b.defName).ToList());
 
             // Measure total content height.
             float totalH = MeasureCategories(cats, bindingsMap);
