@@ -14,6 +14,7 @@ namespace SlopWorld
 
         void DrawScreen(Rect body, ScreenBuf buf, float shift)
         {
+            Slab.Fill(body, SolidTerminalBackground);
             EnsureRuns(buf);
             SyncSnap();
             float cw = DisplayCellW();
@@ -187,50 +188,75 @@ namespace SlopWorld
         // cache possible.
         void Paint(Rect body, ScreenBuf buf, float cw, float ch, float yShift = 0f)
         {
+            PaintRows(body, buf, cw, ch, null, yShift);
+        }
+
+        void PaintRows(Rect body, ScreenBuf buf, float cw, float ch, int[] rows,
+                       float yShift = 0f)
+        {
             float debugStarted = ScrollDebugTimer();
             var style = TerminalFont.Style;
 
-            for (int row = 0; row < buf.Runs.Length; row++)
+            if (rows == null)
             {
-                float y = body.y + yShift + row * ch;
-                if (y + ch < body.y) continue;
-                if (y > body.yMax) break;
-
-                // Snapped so it meets its neighbours' on a pixel rather than near one; see SnapY.
-                float bgTop = SnapY(y);
-                float bgBot = SnapY(y + ch);
-
-                foreach (var run in buf.Runs[row])
+                for (int row = 0; row < buf.Runs.Length; row++) PaintRow(
+                    body, buf.Runs[row], row, cw, ch, yShift, style, body.y);
+            }
+            else
+            {
+                foreach (int row in rows)
                 {
-                    // At the run's true column, so wide chars (which the daemon re-anchors
-                    // with CHA) do not shift the rest of the line.
-                    float x = body.x + run.Col * cw;
-
-                    if (run.HasBg)
-                    {
-                        float bgL = SnapX(x);
-                        float bgR = SnapX(body.x + (run.Col + run.Text.Length) * cw);
-                        Widgets.DrawBoxSolid(
-                            new Rect(bgL, bgTop, bgR - bgL, bgBot - bgTop), run.Bg);
-                    }
-
-                    style.normal.textColor = run.Fg;
-                    DrawRun(run.Text, x, y, cw, ch, style);
-
-                    // Half strength in the text's own color; the pointer is what makes a
-                    // link loud.
-                    if (run.Url != null)
-                    {
-                        var u = run.Fg;
-                        u.a *= 0.5f;
-                        Widgets.DrawBoxSolid(
-                            new Rect(SnapX(x), bgBot - 1f,
-                                     SnapX(body.x + (run.Col + run.Text.Length) * cw) - SnapX(x), 1f),
-                            u);
-                    }
+                    if (row < 0 || row >= buf.Runs.Length) continue;
+                    float y = body.y + yShift + row * ch;
+                    if (y + ch < body.y || y > body.yMax) continue;
+                    Widgets.DrawBoxSolid(new Rect(body.x, SnapY(y), body.width,
+                                                   SnapY(y + ch) - SnapY(y)), SolidTerminalBackground);
+                    PaintRow(body, buf.Runs[row], row, cw, ch, yShift, style, body.y);
                 }
             }
+
             ScrollDebugPaint(debugStarted);
+        }
+
+        static void PaintRow(Rect body, List<SgrRun> runs, int row, float cw, float ch,
+                             float yShift, GUIStyle style, float clipTop)
+        {
+            float y = body.y + yShift + row * ch;
+            if (y + ch < clipTop || y > body.yMax) return;
+
+            // Snapped so it meets its neighbours' on a pixel rather than near one; see SnapY.
+            float bgTop = SnapY(y);
+            float bgBot = SnapY(y + ch);
+
+            foreach (var run in runs)
+            {
+                // At the run's true column, so wide chars (which the daemon re-anchors
+                // with CHA) do not shift the rest of the line.
+                float x = body.x + run.Col * cw;
+
+                if (run.HasBg)
+                {
+                    float bgL = SnapX(x);
+                    float bgR = SnapX(body.x + (run.Col + run.Text.Length) * cw);
+                    Widgets.DrawBoxSolid(
+                        new Rect(bgL, bgTop, bgR - bgL, bgBot - bgTop), run.Bg);
+                }
+
+                style.normal.textColor = run.Fg;
+                DrawRun(run.Text, x, y, cw, ch, style);
+
+                // Half strength in the text's own color; the pointer is what makes a
+                // link loud.
+                if (run.Url != null)
+                {
+                    var u = run.Fg;
+                    u.a *= 0.5f;
+                    Widgets.DrawBoxSolid(
+                        new Rect(SnapX(x), bgBot - 1f,
+                                 SnapX(body.x + (run.Col + run.Text.Length) * cw) - SnapX(x), 1f),
+                        u);
+                }
+            }
         }
 
         // The GUI-to-screen transform, sampled once a draw; see SnapX.

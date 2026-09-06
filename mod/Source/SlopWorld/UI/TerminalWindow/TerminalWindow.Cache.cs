@@ -12,6 +12,8 @@ namespace SlopWorld
         RenderTexture _cache;
         string _cacheName;
         int _cacheSeq = -1, _cacheOff = -1, _cacheRev = -1, _cacheFontRev = -1;
+        int _cacheContentRevision = -1;
+        ScreenBuf _cacheBuffer;
         Rect _cacheBody;
         float _cacheCw, _cacheCh, _cacheLead;
         bool _noCache;
@@ -55,14 +57,17 @@ namespace SlopWorld
 
             if (!_cache.IsCreated()) { _cache.Create(); fresh = true; }
 
-            if (fresh
+            bool repaintAll = fresh
+                || _cacheBuffer != buf
                 || _cacheName != _name
-                || _cacheSeq != buf.Seq || _cacheOff != buf.Off
+                || _cacheOff != buf.Off
                 || _cacheBody != body
                 || _cacheCw != cw || _cacheCh != ch
                 || _cacheLead != CacheLead(body, ch)
                 || _cacheRev != TerminalTheme.Rev
-                || _cacheFontRev != TerminalFont.Rev)
+                || _cacheFontRev != TerminalFont.Rev;
+            bool contentChanged = _cacheContentRevision != buf.ContentRevision;
+            if (repaintAll)
             {
                 // Keep the pre-paint revision. RequestCharactersInTexture can rebuild the
                 // atlas while Paint is running; retaining the old revision forces one clean
@@ -91,6 +96,37 @@ namespace SlopWorld
                 _cacheCw = cw;
                 _cacheCh = ch;
             }
+            else if (contentChanged && buf.ChangedRows != null && buf.ChangedRows.Length > 0)
+            {
+                // Small live edits only invalidate their rows. A broad terminal scroll changes
+                // most rows, where one full paint is cheaper and avoids many GUI draw calls.
+                int lineCount = buf.Lines == null ? 0 : buf.Lines.Length;
+                bool broad = buf.ChangedRows.Length * 2 >= Mathf.Max(1, lineCount);
+                var was = RenderTexture.active;
+                try
+                {
+                    RenderTexture.active = _cache;
+                    if (broad)
+                    {
+                        GL.Clear(false, true, SolidTerminalBackground);
+                        Paint(new Rect(body.x, body.y - _cacheLead, body.width,
+                                       body.height + _cacheLead), buf, cw, ch);
+                    }
+                    else
+                    {
+                        PaintRows(new Rect(body.x, body.y - _cacheLead, body.width,
+                                           body.height + _cacheLead), buf, cw, ch,
+                                  buf.ChangedRows);
+                    }
+                }
+                finally
+                {
+                    RenderTexture.active = was;
+                }
+            }
+
+            _cacheBuffer = buf;
+            _cacheContentRevision = buf.ContentRevision;
 
             return true;
         }
@@ -172,6 +208,8 @@ namespace SlopWorld
             Object.Destroy(_cache);
             _cache = null;
             _cacheSeq = _cacheOff = _cacheRev = _cacheFontRev = -1;
+            _cacheContentRevision = -1;
+            _cacheBuffer = null;
             _cacheName = null;
             _cacheLead = 0f;
         }

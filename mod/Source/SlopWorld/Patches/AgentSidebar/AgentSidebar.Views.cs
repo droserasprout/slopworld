@@ -136,7 +136,24 @@ namespace SlopWorld
         const AgentStatusFilter EveryStatus = AgentStatusFilter.Active |
             AgentStatusFilter.Idle | AgentStatusFilter.Down;
 
-        public static AgentStatusFilter StatusFilter => ParseStatusFilter(Settings.SidebarAgentStatus);
+        static string _statusFilterSource;
+        static AgentStatusFilter _statusFilter;
+        static bool _statusFilterReady;
+
+        public static AgentStatusFilter StatusFilter
+        {
+            get
+            {
+                string source = Settings.SidebarAgentStatus;
+                if (!_statusFilterReady || _statusFilterSource != source)
+                {
+                    _statusFilterSource = source;
+                    _statusFilter = ParseStatusFilter(source);
+                    _statusFilterReady = true;
+                }
+                return _statusFilter;
+            }
+        }
 
         public static bool StatusFiltering => StatusFilter != AgentStatusFilter.All;
 

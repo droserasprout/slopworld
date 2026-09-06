@@ -104,15 +104,31 @@ impl Manager {
     }
 
     pub async fn retick(self: &Arc<Self>) {
+        let started = std::time::Instant::now();
         self.reload_if_due().await;
 
-        let host_paths_changed = self.refresh_host_paths().await;
-        let host_processes_changed = self.refresh_host_processes().await;
-
         let now = now_ms();
+        let host_poll_due = now.saturating_sub(
+            self.host_metadata_checked
+                .load(std::sync::atomic::Ordering::Relaxed),
+        ) >= HOST_METADATA_POLL_MS;
+        if host_poll_due {
+            self.host_metadata_checked
+                .store(now, std::sync::atomic::Ordering::Relaxed);
+        }
+        let host_paths_changed = if host_poll_due {
+            self.refresh_host_paths().await
+        } else {
+            false
+        };
+        let host_processes_changed = if host_poll_due {
+            self.refresh_host_processes().await
+        } else {
+            false
+        };
 
         // Classification awaits the rules lock, so snapshot before releasing the live lock.
-        let snapshot: Vec<(String, u64, String)> = {
+        let snapshot: Vec<(String, u64, Arc<String>)> = {
             let live = self.live.read().await;
             live.iter()
                 .filter(|(_, l)| l.state != State::Down)
@@ -132,9 +148,10 @@ impl Manager {
                 .collect()
         };
 
+        let classified = snapshot.len();
         let mut dirty_list = false;
         for (name, last_change, plain) in snapshot {
-            let state = self.classify(false, last_change, &plain).await;
+            let state = self.classify(false, last_change, plain.as_str()).await;
             let mut activity = None;
             let mut live = self.live.write().await;
             if let Some(l) = live.get_mut(&name) {
@@ -157,5 +174,13 @@ impl Manager {
                 sessions: self.views().await,
             });
         }
+        tracing::debug!(
+            target: "slopd::perf",
+            lane = "retick",
+            elapsed_us = started.elapsed().as_micros() as u64,
+            classified,
+            host_poll = host_poll_due,
+            "daemon retick"
+        );
     }
 }

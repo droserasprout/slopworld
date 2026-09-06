@@ -27,6 +27,8 @@ namespace SlopWorld
         long _sessionsVersion;
         int _refreshSerial;
 
+        public long Version => _sessionsVersion;
+
         public SessionInfo Get(string name)
         {
             if (name == null) return null;
@@ -90,12 +92,12 @@ namespace SlopWorld
         // that no longer exist.
         public void ApplySessions(JVal ev)
         {
-            _sessionsVersion++;
             ReplaceSessions(ev);
         }
 
         void ReplaceSessions(JVal ev)
         {
+            _sessionsVersion++;
             var next = ev["sessions"].Items.Select(SessionInfo.FromJson).ToList();
             foreach (var session in next)
             {

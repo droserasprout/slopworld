@@ -91,6 +91,7 @@ namespace SlopWorld
                 repo.Shut.Clear();
                 if (folded && repo.Tree != null) FoldDirectories(repo.Tree, repo.Shut);
             }
+            BumpTree();
         }
 
         static void FoldDirectories(Node node, HashSet<string> shut)
@@ -111,9 +112,21 @@ namespace SlopWorld
         static RowAct _showing;
 
         static readonly ContentTreeView Tree = new ContentTreeView(new TreeSource());
+        static int _treeRevision;
+
+        internal static int TreeRevision => _treeRevision;
+
+        static void BumpTree()
+        {
+            unchecked { _treeRevision++; }
+        }
 
         sealed class TreeSource : ContentTreeSource
         {
+            public override int Revision => unchecked(_treeRevision * 397
+                ^ (int)SessionHub.Instance.SessionsVersion
+                ^ SessionHub.Instance.ProjectsRevision);
+
             public override IList<ContentTreeGroup> Groups()
             {
                 var groups = new List<ContentTreeGroup>();
@@ -131,6 +144,7 @@ namespace SlopWorld
             public override void ToggleGroup(ContentTreeGroup group)
             {
                 if (!Shut.Remove(group.Key)) Shut.Add(group.Key);
+                BumpTree();
             }
 
             public override string GroupTooltip(ContentTreeGroup group) => group.Path;
@@ -181,6 +195,7 @@ namespace SlopWorld
             {
                 var git = (Node)node;
                 if (!git.Owner.Shut.Remove(git.Rel)) git.Owner.Shut.Add(git.Rel);
+                BumpTree();
             }
 
             public override RowAct Actions(IContentTreeNode node) => Acts((Node)node);
@@ -233,6 +248,7 @@ namespace SlopWorld
 
             repo = new Repo { Project = project, Dir = dir };
             Repos[project] = repo;
+            BumpTree();
             return repo;
         }
 
@@ -243,6 +259,7 @@ namespace SlopWorld
 
             repo.Loading = true;
             repo.Error = null;
+            BumpTree();
 
             string dir = repo.Dir;
             DaemonClient.Get("/api/git?path=" + System.Uri.EscapeDataString(dir),
@@ -260,6 +277,7 @@ namespace SlopWorld
                     {
                         repo.Tree = null;
                         repo.Changed = repo.Added = repo.Deleted = 0;
+                        BumpTree();
                         return;
                     }
 
@@ -270,6 +288,7 @@ namespace SlopWorld
                     repo.Deleted = j["deleted"].AsInt();
                     repo.Truncated = j["truncated"].AsBool(false);
                     repo.Tree = Fold(repo, j["files"]);
+                    BumpTree();
                 },
                 msg =>
                 {
@@ -288,6 +307,7 @@ namespace SlopWorld
                     repo.Truncated = false;
                     repo.Tree = null;
                     repo.Changes.Clear();
+                    BumpTree();
                 }, null, GitRequestTimeoutMs);
         }
 

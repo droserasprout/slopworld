@@ -46,6 +46,7 @@ struct FrameMeta {
 
 struct FrameSnapshot {
     hash: u64,
+    plain: Arc<String>,
     state: State,
     last_change: u64,
     seq: u64,
@@ -78,6 +79,8 @@ impl FrameSnapshot {
 
         Self {
             hash: l.hash,
+            // Strings are immutable; keep the prior value without copying it for every frame.
+            plain: l.plain.clone(),
             state: l.state,
             last_change: l.last_change,
             seq: l.seq,
@@ -97,7 +100,7 @@ struct ActivityDelta {
 
 struct FrameDelta {
     hash: u64,
-    plain: String,
+    plain: Arc<String>,
     screen_changed: bool,
     next_state: State,
     title_moved: bool,

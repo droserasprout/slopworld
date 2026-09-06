@@ -108,14 +108,25 @@ namespace SlopWorld
             });
         }
 
-        // Drained once per frame from the main thread.
-        public static void PumpCompletions()
+        // Drained once per frame from the main thread. HTTP callbacks are non-replaceable, so
+        // leave the remainder queued for a later frame instead of allowing a response burst to
+        // monopolize Unity's update loop.
+        const int MaxCompletionsPerFrame = 32;
+
+        public static int PendingCompletions => Completions.Count;
+
+        public static int PumpCompletions()
         {
-            while (Completions.TryDequeue(out var a))
+            long started = PerfTrace.Start();
+            int count = 0;
+            while (count < MaxCompletionsPerFrame && Completions.TryDequeue(out var a))
             {
+                count++;
                 try { a(); }
                 catch (Exception e) { Log.Error($"[SlopWorld] completion: {e}"); }
             }
+            PerfTrace.End("http-completions", started, count, Completions.Count);
+            return count;
         }
     }
 }

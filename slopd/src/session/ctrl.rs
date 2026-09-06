@@ -19,6 +19,9 @@ pub struct Manager {
     pub(super) presets_mtime: Mutex<Option<SystemTime>>,
     pub(super) jukebox_mtime: Mutex<Option<SystemTime>>,
     pub(super) cfg_checked: AtomicU64,
+    /// Host panes need cwd/process refreshes, but not at the one-second state-classification
+    /// cadence. The timestamp is also a cheap guard if another maintenance caller is added.
+    pub(super) host_metadata_checked: AtomicU64,
     pub(super) usage: RwLock<crate::usage::Snapshot>,
     pub(super) clients: AtomicUsize,
     pub(super) clients_since: AtomicU64,
@@ -88,6 +91,7 @@ pub(crate) fn test_manager(config: Config) -> Arc<Manager> {
         presets_mtime: Mutex::new(None),
         jukebox_mtime: Mutex::new(None),
         cfg_checked: AtomicU64::new(0),
+        host_metadata_checked: AtomicU64::new(0),
         usage: RwLock::new(crate::usage::Snapshot::default()),
         clients: AtomicUsize::new(0),
         clients_since: AtomicU64::new(0),

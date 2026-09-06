@@ -115,6 +115,8 @@ namespace SlopWorld
         int _blocked { get => _runtime.Blocked; set => _runtime.Blocked = value; }
         int _swept { get => _runtime.Swept; set => _runtime.Swept = value; }
         HashSet<Thing> _mine => _runtime.Mine;
+        List<Frame> _frames => _runtime.Frames;
+        List<Thing> _sweepDoomed => _runtime.SweepDoomed;
 
         // Passes between sweeps - once a second.
         const int SweepEvery = 4;
@@ -136,7 +138,13 @@ namespace SlopWorld
             _plague = map.GetComponent<Plague>();
             if (_plague == null || !_plague.Active) return;
 
-            if (++_swept >= SweepEvery) { _swept = 0; Sweep(); }
+            EnsureFrameIndex();
+            if (++_swept >= SweepEvery)
+            {
+                _swept = 0;
+                if (!_runtime.SweepPending) BeginSweep();
+            }
+            if (_runtime.SweepPending) SweepSlice();
 
             var colony = AgentColony.Current;
             if (colony == null) return;
@@ -188,10 +196,42 @@ namespace SlopWorld
 
         int Standing()
         {
-            int n = 0;
-            foreach (var thing in map.listerThings.ThingsInGroup(ThingRequestGroup.BuildingFrame))
-                if (WorkFor((thing as Frame)?.def?.entityDefToBuild) > 0f) n++;
-            return n;
+            EnsureFrameIndex();
+            int count = 0;
+            foreach (var frame in _frames)
+                if (frame != null && frame.Spawned) count++;
+            return count;
+        }
+
+        void EnsureFrameIndex()
+        {
+            var things = map.listerThings.ThingsInGroup(ThingRequestGroup.BuildingFrame);
+            if ((!_runtime.FrameIndexDirty && things.Count == _runtime.FrameSourceCount) ||
+                _runtime.SweepPending) return;
+
+            _frames.Clear();
+            _runtime.FrameSourceCount = things.Count;
+            foreach (var thing in things)
+            {
+                var frame = thing as Frame;
+                if (frame != null && frame.Spawned &&
+                    WorkFor(frame.def?.entityDefToBuild) > 0f)
+                    _frames.Add(frame);
+            }
+            _runtime.FrameIndexDirty = false;
+        }
+
+        internal void MarkFramesDirty() => _runtime.FrameIndexDirty = true;
+
+        void RegisterFrame(Frame frame)
+        {
+            if (frame == null) return;
+            if (_runtime.FrameIndexDirty) return;
+            if (!_frames.Contains(frame))
+            {
+                _frames.Add(frame);
+                _runtime.FrameSourceCount++;
+            }
         }
 
         public static int LaidOn(Map map) => map?.GetComponent<Worksite>()?._laid ?? 0;
@@ -372,6 +412,7 @@ namespace SlopWorld
             frame.SetFactionDirect(Faction.OfPlayer);
             GenSpawn.Spawn(frame, at, map, rot);
             Fill(frame);
+            RegisterFrame(frame);
             return frame;
         }
 

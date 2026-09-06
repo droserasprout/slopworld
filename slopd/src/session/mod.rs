@@ -67,6 +67,10 @@ const TAIL_LINES: usize = 12;
 // Unwatched panes still need classification, but not reader-rate rendering.
 const UNWATCHED_MS: u64 = 200;
 
+// Host cwd/process metadata is display state, not frame classification. Keep it fresh while
+// avoiding two tmux subprocess waves on every state tick.
+const HOST_METADATA_POLL_MS: u64 = 2_000;
+
 const FILE_ACTION_TIMEOUT: Duration = Duration::from_secs(15);
 const FILE_ACTION_STREAM_LIMIT: usize = 4096;
 const MAX_MANUAL_LABEL_CHARS: usize = 60;
@@ -149,7 +153,7 @@ struct Live {
     bell: bool,
     cols: u16,
     rows: u16,
-    plain: String,
+    plain: Arc<String>,
     screen: Option<ScreenView>,
     emu: Option<Arc<Mutex<SessionEmu>>>,
     reader: Option<JoinHandle<()>>,
@@ -254,6 +258,7 @@ fn compile_rules(cfg: &Config) -> Vec<(State, Regex)> {
 mod tests {
     use std::collections::HashMap;
     use std::path::{Path, PathBuf};
+    use std::sync::Arc;
 
     use super::{
         breadcrumb_block, check_breadcrumbs, check_library_item, check_name, compile_rules,
@@ -590,7 +595,7 @@ pattern = '(?i)(esc to interrupt|to interrupt\))'
             bell: false,
             cols: BOOT_COLS,
             rows: BOOT_ROWS,
-            plain: String::new(),
+            plain: Arc::new(String::new()),
             screen: None,
             emu: None,
             reader: None,

@@ -48,6 +48,11 @@ namespace SlopWorld
     {
         public abstract IList<ContentTreeGroup> Groups();
 
+        // A source increments this when the visible tree shape or any cached row state changes.
+        // ContentTreeView keeps the flattened row index until then, so a large expanded tree is
+        // not recursively measured and walked again on every repaint.
+        public virtual int Revision => 0;
+
         public virtual bool IsGroupCollapsed(ContentTreeGroup group) => false;
         public virtual void ToggleGroup(ContentTreeGroup group) { }
         public virtual string GroupTooltip(ContentTreeGroup group) => group.Path;
@@ -86,6 +91,9 @@ namespace SlopWorld
         readonly ContentTreeSource _source;
         readonly SmoothScroll _scroll = new SmoothScroll();
         readonly List<Line> _lines = new List<Line>();
+        readonly List<Item> _items = new List<Item>();
+        readonly List<ContentTreeGroup> _layoutGroups = new List<ContentTreeGroup>();
+        IList<ContentTreeGroup> _groups;
         Rect _body;
         string _selected;
         string _reveal;
@@ -93,6 +101,27 @@ namespace SlopWorld
         float _visibleTop;
         float _visibleBottom;
         float _contentHeight = -1f;
+        int _layoutRevision = int.MinValue;
+        int _groupsRevision = int.MinValue;
+
+        enum ItemKind
+        {
+            Group,
+            Body,
+            Node,
+            Note,
+        }
+
+        struct Item
+        {
+            public ItemKind Kind;
+            public ContentTreeGroup Group;
+            public IContentTreeNode Node;
+            public string Note;
+            public Color NoteColor;
+            public int Depth;
+            public float Y;
+        }
 
         struct Line
         {
@@ -116,21 +145,18 @@ namespace SlopWorld
                 _body = body;
                 _lines.Clear();
 
-                var groups = _source.Groups();
+                var groups = Groups();
                 if (groups.Count == 0)
                 {
                     ViewChrome.Empty(body);
                     return;
                 }
 
+                EnsureLayout(groups);
                 bool scrollEvent = Event.current.type == EventType.ScrollWheel ||
                     (Event.current.type == EventType.Used &&
                         Event.current.rawType == EventType.ScrollWheel);
-                // A wheel burst does not change tree shape. Reusing the last measured height
-                // avoids walking every expanded directory just to consume another input event.
-                float height = scrollEvent && _contentHeight >= 0f
-                    ? _contentHeight : Measure(groups);
-                _contentHeight = height;
+                float height = _contentHeight;
                 var view = new Rect(0f, 0f,
                     body.width - (height > body.height ? UiWidgets.ScrollbarW : 0f), height);
                 if (_revealTop >= 0f)
@@ -151,44 +177,137 @@ namespace SlopWorld
                     // take seconds to drain.
                     if (!scrollEvent)
                     {
-                        float y = Pad;
-                        foreach (var group in groups)
-                            y = DrawGroup(view.width, y, group);
+                        foreach (var item in _items)
+                            DrawItem(view.width, item);
                     }
                 }
             }
         }
 
-        float Measure(IList<ContentTreeGroup> groups)
+        IList<ContentTreeGroup> Groups()
         {
-            float height = Pad * 2f;
+            int revision = _source.Revision;
+            if (_groups == null || _groupsRevision != revision)
+            {
+                _groups = _source.Groups();
+                _groupsRevision = _source.Revision;
+            }
+            return _groups;
+        }
+
+        void EnsureLayout(IList<ContentTreeGroup> groups)
+        {
+            int revision = _source.Revision;
+            bool same = revision == _layoutRevision && groups.Count == _layoutGroups.Count;
+            if (same)
+            {
+                for (int i = 0; i < groups.Count; i++)
+                {
+                    var old = _layoutGroups[i];
+                    var next = groups[i];
+                    if (old.Key != next.Key || old.Label != next.Label || old.Path != next.Path ||
+                        !Equals(old.Value, next.Value) || old.Root != next.Root)
+                    {
+                        same = false;
+                        break;
+                    }
+                }
+            }
+
+            if (same) return;
+
+            _items.Clear();
+            _layoutGroups.Clear();
+            foreach (var group in groups) _layoutGroups.Add(group);
+
+            float y = Pad;
             foreach (var group in groups)
             {
-                height += RowH;
+                _items.Add(new Item { Kind = ItemKind.Group, Group = group, Y = y });
+                y += RowH;
                 if (_source.IsGroupCollapsed(group)) continue;
-                height += _source.GroupBodyHeight(group);
-                if (group.Root != null) height += Count(group.Root) * RowH;
+
+                float bodyHeight = _source.GroupBodyHeight(group);
+                if (bodyHeight > 0f)
+                {
+                    _items.Add(new Item { Kind = ItemKind.Body, Group = group, Y = y });
+                    y += bodyHeight;
+                }
+
+                if (group.Root != null) BuildRows(group.Root, ref y);
             }
-            return height;
+
+            _contentHeight = y + Pad;
+            _layoutRevision = revision;
         }
 
-        float Count(IContentTreeNode node)
+        void BuildRows(IContentTreeNode parent, ref float y)
         {
-            if (!_source.IsExpanded(node)) return 0f;
-            var children = node.Children;
-            if (children == null) return 1f;
+            _source.EnsureLoaded(parent);
+            if (!_source.IsExpanded(parent)) return;
 
-            float count = 0f;
+            var children = parent.Children;
+            if (children == null)
+            {
+                _items.Add(new Item
+                {
+                    Kind = ItemKind.Note,
+                    Note = parent.Error ?? "...",
+                    NoteColor = parent.Error != null ? UiWidgets.Bad : UiWidgets.Faint,
+                    Depth = parent.Depth + 1,
+                    Y = y,
+                });
+                y += RowH;
+                return;
+            }
+
             foreach (var child in children)
             {
-                count += 1f;
-                if (child.IsDirectory) count += Count(child);
+                _items.Add(new Item { Kind = ItemKind.Node, Node = child, Y = y });
+                y += RowH;
+                if (child.IsDirectory) BuildRows(child, ref y);
             }
-            if (node.More) count += 1f;
-            return count;
+
+            if (parent.More)
+            {
+                _items.Add(new Item
+                {
+                    Kind = ItemKind.Note,
+                    Note = "... more, not listed",
+                    NoteColor = UiWidgets.Faint,
+                    Depth = parent.Depth + 1,
+                    Y = y,
+                });
+                y += RowH;
+            }
         }
 
-        float DrawGroup(float width, float y, ContentTreeGroup group)
+        void DrawItem(float width, Item item)
+        {
+            if (item.Kind == ItemKind.Group)
+            {
+                if (Visible(item.Y)) DrawGroup(width, item.Y, item.Group);
+                return;
+            }
+            if (item.Kind == ItemKind.Body)
+            {
+                float bodyHeight = _source.GroupBodyHeight(item.Group);
+                if (item.Y + bodyHeight > _visibleTop && item.Y < _visibleBottom)
+                    _source.DrawGroupBody(width, item.Y, item.Group);
+                return;
+            }
+            if (item.Kind == ItemKind.Note)
+            {
+                if (Visible(item.Y))
+                    ViewChrome.Note(width, item.Y, item.Depth, item.Note, item.NoteColor);
+                return;
+            }
+
+            bool reveal = _reveal != null && _reveal == _source.SelectionKey(item.Node);
+            if (Visible(item.Y) || reveal) DrawRow(width, item.Y, item.Node);
+        }
+
+        void DrawGroup(float width, float y, ContentTreeGroup group)
         {
             using (WidgetState.Save())
             {
@@ -220,42 +339,7 @@ namespace SlopWorld
                     == GroupAct.None)
                     TooltipHandler.TipRegion(row, tip + "\n\nClick to fold.");
                 _lines.Add(new Line { Group = group, Rect = row });
-                y += RowH;
-
-                if (collapsed) return y;
-                y = _source.DrawGroupBody(width, y, group);
-                return group.Root == null ? y : DrawRows(width, y, group.Root);
             }
-        }
-
-        float DrawRows(float width, float y, IContentTreeNode parent)
-        {
-            _source.EnsureLoaded(parent);
-            if (!_source.IsExpanded(parent)) return y;
-
-            var children = parent.Children;
-            if (children == null)
-            {
-                return Visible(y)
-                    ? ViewChrome.Note(width, y, parent.Depth + 1,
-                        parent.Error ?? "...",
-                        parent.Error != null ? UiWidgets.Bad : UiWidgets.Faint)
-                    : y + RowH;
-            }
-
-            foreach (var node in children)
-            {
-                bool reveal = _reveal != null && _reveal == _source.SelectionKey(node);
-                if (Visible(y) || reveal) DrawRow(width, y, node);
-                y += RowH;
-                if (node.IsDirectory) y = DrawRows(width, y, node);
-            }
-            if (parent.More)
-                y = Visible(y)
-                    ? ViewChrome.Note(width, y, parent.Depth + 1,
-                        "... more, not listed", UiWidgets.Faint)
-                    : y + RowH;
-            return y;
         }
 
         bool Visible(float y) => y + RowH > _visibleTop && y < _visibleBottom;
