@@ -293,7 +293,7 @@ impl Tmux {
             "-p",
             "-t",
             &format!("{name}:.0"),
-            "#{pane_current_path}\t#{pane_current_command}",
+            "#{n:pane_current_path}:#{pane_current_path}#{n:pane_current_command}:#{pane_current_command}",
         ])
         .await
         .ok()
@@ -579,13 +579,28 @@ fn clean_title(s: &str) -> String {
 }
 
 fn parse_host_metadata(metadata: &str) -> Option<HostMetadata> {
-    let (path, command) = metadata.lines().next()?.split_once('\t')?;
-    let path = (!path.trim().is_empty()).then(|| path.trim().to_string());
-    let command = (!command.trim().is_empty()).then(|| command.trim().to_string());
+    let (path, metadata) = parse_length_framed_field(metadata)?;
+    let (command, trailing) = parse_length_framed_field(metadata)?;
+    if trailing != "\n" && !trailing.is_empty() {
+        return None;
+    }
     if path.is_none() && command.is_none() {
         return None;
     }
     Some(HostMetadata { path, command })
+}
+
+/// tmux's `n:` format modifier reports a field's byte length. Framing values by that length
+/// keeps tabs, newlines and colons inside either value from changing where the next field starts.
+fn parse_length_framed_field(input: &str) -> Option<(Option<String>, &str)> {
+    let colon = input.find(':')?;
+    let length = input[..colon].parse::<usize>().ok()?;
+    let value_start = colon + 1;
+    let value_end = value_start.checked_add(length)?;
+    let value = input.get(value_start..value_end)?;
+    let rest = input.get(value_end..)?;
+    let value = (!value.trim().is_empty()).then(|| value.trim().to_string());
+    Some((value, rest))
 }
 
 #[cfg(test)]
@@ -616,14 +631,14 @@ mod tests {
     #[test]
     fn host_metadata_parses_path_and_command_from_one_answer() {
         assert_eq!(
-            parse_host_metadata("/work/repo\tbash\n"),
+            parse_host_metadata("10:/work/repo4:bash\n"),
             Some(HostMetadata {
                 path: Some("/work/repo".into()),
                 command: Some("bash".into()),
             })
         );
         assert_eq!(
-            parse_host_metadata("/work/repo\tpython -m server\n"),
+            parse_host_metadata("10:/work/repo16:python -m server\n"),
             Some(HostMetadata {
                 path: Some("/work/repo".into()),
                 command: Some("python -m server".into()),
@@ -634,20 +649,34 @@ mod tests {
     #[test]
     fn host_metadata_keeps_fields_independent_and_rejects_empty_answers() {
         assert_eq!(
-            parse_host_metadata("/work/repo\t\n"),
+            parse_host_metadata("10:/work/repo0:\n"),
             Some(HostMetadata {
                 path: Some("/work/repo".into()),
                 command: None,
             })
         );
         assert_eq!(
-            parse_host_metadata("\tpython\n"),
+            parse_host_metadata("0:6:python\n"),
             Some(HostMetadata {
                 path: None,
                 command: Some("python".into()),
             })
         );
-        assert_eq!(parse_host_metadata("\t\n"), None);
+        assert_eq!(parse_host_metadata("0:0:\n"), None);
         assert_eq!(parse_host_metadata(""), None);
+    }
+
+    #[test]
+    fn host_metadata_parses_length_framed_fields_with_delimiters() {
+        let path = "/work\trepo\nç";
+        let command = "python\t-x\n";
+        let answer = format!("{}:{}{}:{}\n", path.len(), path, command.len(), command);
+        assert_eq!(
+            parse_host_metadata(&answer),
+            Some(HostMetadata {
+                path: Some(path.into()),
+                command: Some(command.trim().into()),
+            })
+        );
     }
 }
