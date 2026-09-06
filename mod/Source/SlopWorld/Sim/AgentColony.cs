@@ -398,6 +398,7 @@ namespace SlopWorld
             var pawn = PawnGenerator.GeneratePawn(req);
             pawn.Name = new NameSingle(name);
             RobotFace.FitHair(pawn);
+            RobotFace.RandomizeHairColor(pawn);
             RobotFace.Assign(pawn);
             AgentLook.Roll(pawn);
 
