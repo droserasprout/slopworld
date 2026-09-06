@@ -11,6 +11,9 @@ use std::process::{Command, ExitCode};
 use nix::errno::Errno;
 use nix::fcntl::{Flock, FlockArg};
 
+#[path = "slopworld/mod_install.rs"]
+mod mod_install;
+
 /// Written by us, read by the mod. Its content is for a human reading the folder;
 /// only its existence is a promise.
 const MARKER: &str = "slopworld.profile";
@@ -57,6 +60,10 @@ options:
   --no-window-fix  omit SlopWorld's default X11/OpenGL window arguments
   -h, --help       this
 
+commands:
+  mod install      install the SlopWorld mod from a source tree
+  mod uninstall    remove the installed SlopWorld mod
+
 Anything else is passed to the game. A `--` ends our options for good, for a game
 argument that looks like one of ours.
 ";
@@ -73,6 +80,15 @@ fn main() -> ExitCode {
 
 fn run() -> Result<ExitCode, String> {
     let args: Vec<String> = std::env::args().skip(1).collect();
+    if let Some(message) = mod_install::try_run(&args)? {
+        if !message.is_empty() {
+            print!("{message}");
+            if !message.ends_with('\n') {
+                println!();
+            }
+        }
+        return Ok(ExitCode::SUCCESS);
+    }
     if args.len() == 1 && args[0] == "--version" {
         println!("{}", env!("SLOPWORLD_VERSION"));
         return Ok(ExitCode::SUCCESS);

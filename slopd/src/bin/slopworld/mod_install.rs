@@ -1,8 +1,6 @@
-use std::env;
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
-use std::process::ExitCode;
 
 const MOD_NAME: &str = "SlopWorld";
 const MOD_DIRS: &[&str] = &[
@@ -14,103 +12,86 @@ const MOD_DIRS: &[&str] = &[
     "Assemblies",
 ];
 
-const USAGE: &str = "slopmod - safely install or remove the SlopWorld mod
+const USAGE: &str = "slopworld mod - install or remove the SlopWorld mod
 
 usage:
-  slopmod --source MOD_SOURCE --mods GAME_MODS
-  slopmod --mods GAME_MODS --uninstall
+  slopworld mod install --source MOD_SOURCE --mods GAME_MODS
+  slopworld mod uninstall --mods GAME_MODS
 
 The destination is always GAME_MODS/SlopWorld. Existing destination content is replaced
 only after the new copy has completed in a temporary sibling directory.
 ";
 
-fn main() -> ExitCode {
-    match run() {
-        Ok(message) => {
-            if !message.is_empty() {
-                println!("{message}");
-            }
-            ExitCode::SUCCESS
-        }
-        Err(error) => {
-            eprintln!("slopmod: {error}");
-            ExitCode::FAILURE
-        }
+const INSTALL_USAGE: &str = "usage:
+  slopworld mod install --source MOD_SOURCE --mods GAME_MODS
+
+The destination is always GAME_MODS/SlopWorld. Existing destination content is replaced
+only after the new copy has completed in a temporary sibling directory.
+";
+
+const UNINSTALL_USAGE: &str = "usage:
+  slopworld mod uninstall --mods GAME_MODS
+
+The destination is always GAME_MODS/SlopWorld.
+";
+
+pub(crate) fn try_run(args: &[String]) -> Result<Option<String>, String> {
+    if args.first().map(String::as_str) != Some("mod") {
+        return Ok(None);
+    }
+
+    match args.get(1).map(String::as_str) {
+        None | Some("-h") | Some("--help") | Some("help") => Ok(Some(USAGE.to_string())),
+        Some("install") => run_install(&args[2..]),
+        Some("uninstall") => run_uninstall(&args[2..]),
+        Some(command) => Err(format!("unknown mod command {command}\n\n{USAGE}")),
     }
 }
 
-fn run() -> Result<String, String> {
-    let args = parse(&env::args().skip(1).collect::<Vec<_>>())?;
+fn run_install(args: &[String]) -> Result<Option<String>, String> {
+    let args = parse(args, true)?;
     if args.help {
-        print!("{USAGE}");
-        return Ok(String::new());
+        return Ok(Some(INSTALL_USAGE.to_string()));
+    }
+
+    let mods = args.mods.ok_or_else(|| "--mods is required".to_string())?;
+    let mods = safe_directory(&mods, "game Mods directory")?;
+    let source = args
+        .source
+        .ok_or_else(|| "--source is required".to_string())?;
+    let source = safe_directory(&source, "mod source directory")?;
+    Ok(Some(install(&source, &mods)?))
+}
+
+fn run_uninstall(args: &[String]) -> Result<Option<String>, String> {
+    let args = parse(args, false)?;
+    if args.help {
+        return Ok(Some(UNINSTALL_USAGE.to_string()));
     }
 
     let mods = args.mods.ok_or_else(|| "--mods is required".to_string())?;
     let mods = safe_directory(&mods, "game Mods directory")?;
     let destination = mods.join(MOD_NAME);
-
-    if args.uninstall {
-        remove_existing(&destination)?;
-        return Ok(format!("removed {}", destination.display()));
-    }
-
-    let source = args
-        .source
-        .ok_or_else(|| "--source is required unless --uninstall is used".to_string())?;
-    let source = safe_directory(&source, "mod source directory")?;
-    install(&source, &mods)
-}
-
-fn install(source: &Path, mods: &Path) -> Result<String, String> {
-    let destination = mods.join(MOD_NAME);
-    ensure_non_overlapping(source, &destination)?;
-    for directory in MOD_DIRS {
-        let path = source.join(directory);
-        if !path.is_dir() {
-            return Err(format!(
-                "mod source is missing directory {}",
-                path.display()
-            ));
-        }
-    }
-
-    let staging = mods.join(format!(".{MOD_NAME}.tmp-{}", std::process::id()));
-    remove_existing(&staging)?;
-    fs::create_dir(&staging).map_err(|e| format!("creating {}: {e}", staging.display()))?;
-
-    if let Err(error) = copy_mod(source, &staging) {
-        let _ = fs::remove_dir_all(&staging);
-        return Err(error);
-    }
-
     remove_existing(&destination)?;
-    if let Err(error) = fs::rename(&staging, &destination) {
-        let _ = fs::remove_dir_all(&staging);
-        return Err(format!("installing {}: {error}", destination.display()));
-    }
-
-    Ok(format!("installed to {}", destination.display()))
+    Ok(Some(format!("removed {}\n", destination.display())))
 }
 
 #[derive(Debug, Default, PartialEq, Eq)]
 struct Args {
     source: Option<PathBuf>,
     mods: Option<PathBuf>,
-    uninstall: bool,
     help: bool,
 }
 
-fn parse(args: &[String]) -> Result<Args, String> {
+fn parse(args: &[String], allow_source: bool) -> Result<Args, String> {
     let mut out = Args::default();
     let mut it = args.iter();
     while let Some(arg) = it.next() {
         match arg.as_str() {
             "-h" | "--help" => out.help = true,
-            "--uninstall" => out.uninstall = true,
-            "--source" => out.source = Some(next_path(&mut it, "--source")?),
+            "--source" if allow_source => out.source = Some(next_path(&mut it, "--source")?),
             "--mods" => out.mods = Some(next_path(&mut it, "--mods")?),
-            value if value.starts_with("--source=") => {
+            value if allow_source && value.starts_with("--source=") => {
                 out.source = Some(PathBuf::from(&value[9..]));
             }
             value if value.starts_with("--mods=") => {
@@ -142,6 +123,37 @@ fn safe_directory(path: &Path, label: &str) -> Result<PathBuf, String> {
         return Err(format!("refusing to use the filesystem root as {label}"));
     }
     Ok(path)
+}
+
+fn install(source: &Path, mods: &Path) -> Result<String, String> {
+    let destination = mods.join(MOD_NAME);
+    ensure_non_overlapping(source, &destination)?;
+    for directory in MOD_DIRS {
+        let path = source.join(directory);
+        if !path.is_dir() {
+            return Err(format!(
+                "mod source is missing directory {}",
+                path.display()
+            ));
+        }
+    }
+
+    let staging = mods.join(format!(".{MOD_NAME}.tmp-{}", std::process::id()));
+    remove_existing(&staging)?;
+    fs::create_dir(&staging).map_err(|e| format!("creating {}: {e}", staging.display()))?;
+
+    if let Err(error) = copy_mod(source, &staging) {
+        let _ = fs::remove_dir_all(&staging);
+        return Err(error);
+    }
+
+    remove_existing(&destination)?;
+    if let Err(error) = fs::rename(&staging, &destination) {
+        let _ = fs::remove_dir_all(&staging);
+        return Err(format!("installing {}: {error}", destination.display()));
+    }
+
+    Ok(format!("installed to {}\n", destination.display()))
 }
 
 fn ensure_non_overlapping(source: &Path, destination: &Path) -> Result<(), String> {
@@ -212,7 +224,7 @@ fn copy_tree(source: &Path, destination: &Path) -> Result<(), String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{ensure_non_overlapping, install, parse, Args, MOD_DIRS, MOD_NAME};
+    use super::{ensure_non_overlapping, install, parse, try_run, Args, MOD_DIRS, MOD_NAME, USAGE};
     use std::fs;
     use std::path::PathBuf;
     use std::sync::atomic::{AtomicU32, Ordering};
@@ -220,7 +232,7 @@ mod tests {
     fn scratch(name: &str) -> PathBuf {
         static NEXT: AtomicU32 = AtomicU32::new(0);
         let path = std::env::temp_dir().join(format!(
-            "slopworld-slopmod-test-{}-{name}-{}",
+            "slopworld-mod-install-test-{}-{name}-{}",
             std::process::id(),
             NEXT.fetch_add(1, Ordering::Relaxed)
         ));
@@ -234,9 +246,19 @@ mod tests {
     }
 
     #[test]
+    fn command_dispatch_is_opt_in() {
+        assert_eq!(try_run(&args(&["--help"])).unwrap(), None);
+        assert_eq!(
+            try_run(&args(&["mod", "--help"])).unwrap(),
+            Some(USAGE.to_string())
+        );
+        assert!(try_run(&args(&["mod", "unknown"])).is_err());
+    }
+
+    #[test]
     fn parser_accepts_install_and_uninstall_shapes() {
         assert_eq!(
-            parse(&args(&["--source", "/src", "--mods=/mods"])),
+            parse(&args(&["--source", "/src", "--mods=/mods"]), true),
             Ok(Args {
                 source: Some(PathBuf::from("/src")),
                 mods: Some(PathBuf::from("/mods")),
@@ -244,10 +266,9 @@ mod tests {
             })
         );
         assert_eq!(
-            parse(&args(&["--mods", "/mods", "--uninstall"])),
+            parse(&args(&["--mods", "/mods"]), false),
             Ok(Args {
                 mods: Some(PathBuf::from("/mods")),
-                uninstall: true,
                 ..Default::default()
             })
         );

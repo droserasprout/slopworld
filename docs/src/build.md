@@ -21,7 +21,7 @@ Set `RIMWORLD` to the Linux game directory (the folder containing `RimWorldLinux
 | `test` | Runs `cargo test`, the game-free C# tests, and the prose linter tests. |
 | `format` | Formats both halves. `-daemon` and `-mod` variants exist. |
 | `lint` | Lints both halves. `-daemon` and `-mod` variants exist. |
-| `install` | Installs the daemon binary, systemd unit, runner, and mod using the tested Rust mod installer. |
+| `install` | Installs the daemon binary, systemd unit, runner, and mod using `slopworld mod install`. |
 | `clean` | Removes build output. |
 
 ## Build modes
