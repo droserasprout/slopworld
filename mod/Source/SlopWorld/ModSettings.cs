@@ -125,6 +125,7 @@ namespace SlopWorld
         // so an asset can move without invalidating somebody's preference.
         public string cursor = "tame";
         public bool cursorGrayscale = true;
+        public bool cursorDebug;
 
         // Which station the jukebox is on: "ost", or "station-id:stream-key" from the
         // daemon's catalog. Here rather than in a save for the reason the theme is: it is
@@ -216,6 +217,7 @@ namespace SlopWorld
             String(text, "cursorColor", cursorColor);
             String(text, "cursor", cursor);
             String(text, "cursorGrayscale", cursorGrayscale);
+            String(text, "cursorDebug", cursorDebug);
             String(text, "radio", radio);
             String(text, "radioMute", radioMute);
             String(text, "statusbarUsage", statusbarUsage);
@@ -267,6 +269,7 @@ namespace SlopWorld
             cursorColor = Text(values, "cursorColor", cursorColor);
             cursor = Text(values, "cursor", cursor);
             cursorGrayscale = Bool(values, "cursorGrayscale", cursorGrayscale);
+            cursorDebug = Bool(values, "cursorDebug", cursorDebug);
             radio = Text(values, "radio", radio);
             radioMute = Bool(values, "radioMute", radioMute);
             statusbarUsage = Bool(values, "statusbarUsage", statusbarUsage);
@@ -352,6 +355,7 @@ namespace SlopWorld
         public static string CursorColor => S.cursorColor ?? "";
         public static string Cursor => S.cursor ?? "tame";
         public static bool CursorGrayscale => S.cursorGrayscale;
+        public static bool CursorDebug => S.cursorDebug;
         public static string Radio => S.radio ?? "";
         public static bool RadioMute => S.radioMute;
         public static bool StatusbarUsage => S.statusbarUsage;
