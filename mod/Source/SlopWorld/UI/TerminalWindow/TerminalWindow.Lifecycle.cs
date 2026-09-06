@@ -198,7 +198,22 @@ namespace SlopWorld
             _historyDisplayedFrame = null;
             RestoreScrollbackState(_name);
             if (_scrollOff > 0)
+            {
                 _historyDisplayedFrame = CachedDisplayedFrame(_name);
+                // The cached frame is already at the saved integer anchor. Seed the fallback
+                // with its fractional translation so the first switched-tab repaint does not
+                // briefly snap to the line boundary while history is reassembled.
+                if (_historyDisplayedFrame != null && _historyJumpPixels >= 0f)
+                {
+                    float cellH = TerminalFont.CellH;
+                    if (cellH > 0.01f)
+                    {
+                        float shift = _historyJumpPixels - _historyDisplayedFrame.Off * cellH;
+                        if (Mathf.Abs(shift) < cellH)
+                            _renderHistoryShift = shift;
+                    }
+                }
+            }
             _selectionOff = 0;
             _lastLiveSeq = -1;
             ClearSelection();
