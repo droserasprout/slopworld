@@ -103,6 +103,10 @@ pub struct SessionEmu {
     cols: u16,
     rows: u16,
     side: Arc<Mutex<Side>>,
+    // The first game resize reconciles the daemon's boot shape with the pane's real shape. If
+    // the tmux capture had no history, a smaller boot viewport would otherwise turn one blank
+    // row from that handoff into scrollback before the session has produced any output.
+    initial_capture_history: Option<usize>,
 }
 
 const TMUX_TITLE_MAX: usize = 512;
@@ -131,7 +135,14 @@ impl SessionEmu {
             cols,
             rows,
             side,
+            initial_capture_history: None,
         }
+    }
+
+    /// Mark the tmux snapshot as complete so its first UI-driven resize can distinguish real
+    /// captured history from rows introduced solely by reconciling the boot dimensions.
+    pub fn complete_initial_capture(&mut self) {
+        self.initial_capture_history = Some(self.history_lines());
     }
 
     pub fn feed(&mut self, bytes: &[u8]) {
@@ -238,16 +249,27 @@ impl SessionEmu {
             .unwrap_or_default()
     }
 
+    fn history_lines(&self) -> usize {
+        self.term
+            .total_lines()
+            .saturating_sub(self.term.screen_lines())
+    }
+
     pub fn resize(&mut self, cols: u16, rows: u16) {
         if cols == self.cols && rows == self.rows {
             return;
         }
+        let history_before = self.history_lines();
+        let initial_capture_history = self.initial_capture_history.take();
         self.cols = cols;
         self.rows = rows;
         self.term.resize(Dims {
             cols: cols as usize,
             rows: rows as usize,
         });
+        if initial_capture_history == Some(0) && history_before == 0 {
+            self.term.grid_mut().clear_history();
+        }
     }
 
     pub fn render(&self) -> Frame {
@@ -957,5 +979,43 @@ mod tests {
         e.feed(b"\x1b[H\x1b[0mline-0\r\nline-1\r\nline-2\r\nline-3\x1b[4;1H");
 
         assert_eq!(e.render().history, 0);
+    }
+
+    #[test]
+    fn resizing_a_seeded_viewport_does_not_create_spurious_history() {
+        let rows = 34;
+        let mut e = SessionEmu::new(20, rows);
+        let mut seed = String::from("\x1b[H\x1b[0m");
+        for row in 0..rows {
+            if row > 0 {
+                seed.push_str("\r\n");
+            }
+            seed.push_str(&format!("line-{row}"));
+        }
+        seed.push_str(&format!("\x1b[{rows};1H"));
+        e.feed(seed.as_bytes());
+        e.complete_initial_capture();
+
+        e.resize(20, rows - 1);
+        assert_eq!(e.render().history, 0);
+    }
+
+    #[test]
+    fn resizing_an_initial_capture_preserves_real_history() {
+        let rows = 34;
+        let mut e = SessionEmu::new(20, rows);
+        let mut seed = String::from("\x1b[H\x1b[0m");
+        for row in 0..=rows {
+            if row > 0 {
+                seed.push_str("\r\n");
+            }
+            seed.push_str(&format!("line-{row}"));
+        }
+        e.feed(seed.as_bytes());
+        assert_eq!(e.render().history, 1);
+        e.complete_initial_capture();
+
+        e.resize(20, rows - 1);
+        assert!(e.render().history >= 1);
     }
 }
