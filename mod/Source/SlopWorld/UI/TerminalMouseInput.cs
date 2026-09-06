@@ -75,6 +75,10 @@ namespace SlopWorld
 
         internal void HandleMouse(Rect body, Event e)
         {
+            // The scrollbar sits over the terminal's rightmost cells. Give it first refusal
+            // so a click or drag there cannot start a text selection underneath it.
+            if (_window.HandleHistoryBarInput(body, e)) return;
+
             // The pane's own menu is reachable in every mode, including a full-screen TUI.
             if (IsContextMenuEvent(e))
             {

@@ -119,12 +119,6 @@ namespace SlopWorld
                 return false;
             }
 
-            if (input)
-            {
-                _input.CaptureSemicolonInput();
-                _input.Handle(body);
-            }
-
             SyncHistoryConnection();
             var live = hub.Screen(_name);
             // Invalidate history before planning this frame's request. A resize or redraw
@@ -134,12 +128,23 @@ namespace SlopWorld
             float cellH = TerminalFont.CellH;
             bool historyInput = HistoryInputEnabled(live);
             PrepareHistoryScroll(cellH);
-            if (input && historyInput)
+            bool historyGesture = historyInput || _historyBarDragging;
+            if (input && historyGesture)
             {
                 _historyScroll.BeginInput(body, new Vector2(0f, _historyMax));
-                // This pane has no nested scroll owner. Spend the claimed packet before
-                // choosing a history window so the request and repaint both see this event's
-                // position instead of trailing the touchpad by one IMGUI pass.
+            }
+
+            if (input)
+            {
+                _input.CaptureSemicolonInput();
+                _input.Handle(body);
+            }
+
+            if (input && historyGesture)
+            {
+                // This pane has no nested scroll owner. Spend the claimed packet after the
+                // input controller has had a chance to claim the scrollbar drag, so the
+                // request and repaint both see this event's position.
                 _historyScroll.EndInput();
             }
 
@@ -178,7 +183,7 @@ namespace SlopWorld
             DrawScreen(body, buf, shift);
             ExtendSelectionToEdge(body, buf);
             DrawSelection(body, buf, shift);
-            DrawHistoryBar(body);
+            DrawHistoryBar(body, historyInput);
             return true;
         }
 
@@ -186,9 +191,9 @@ namespace SlopWorld
         {
             if (pane)
             {
-                if (_scrollOff > 0) DrawScrollHint(body);
                 if (!hub.Online) DrawOfflineBanner(body);
                 else _droppedKeys = 0;
+                if (_scrollOff > 0) DrawScrollLock(body);
             }
 
             // The pane is opaque; a hint drawn from the map layer is behind it.
