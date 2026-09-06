@@ -292,6 +292,24 @@ impl Tmux {
         .filter(|path| !path.is_empty())
     }
 
+    /// Returns the command currently holding the pane's foreground terminal job. The shell
+    /// itself is intentionally included: callers can distinguish an idle prompt from a command
+    /// running silently without inspecting the pane's output.
+    pub async fn current_command(&self, name: &str) -> Option<String> {
+        let target = format!("{name}:.0");
+        self.run(&[
+            "display-message",
+            "-p",
+            "-t",
+            &target,
+            "#{pane_current_command}",
+        ])
+        .await
+        .ok()
+        .map(|command| command.trim().to_string())
+        .filter(|command| !command.is_empty())
+    }
+
     async fn option(&self, name: &str, option: &str) -> Option<String> {
         self.run(&["show-options", "-qv", "-t", name, option])
             .await

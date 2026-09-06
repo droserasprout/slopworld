@@ -72,6 +72,9 @@ namespace SlopWorld
         // A durable host shell tab. It uses the ghost-row presentation but is not a sandboxed
         // agent and remains in the sidebar when its shell is down.
         public bool Host;
+        // Read-only here: for host rows, true means tmux has a foreground command other than
+        // the login shell. It stays false for ordinary agent sessions.
+        public bool ProcessRunning;
 
         // Read-only here: the terminal window measures itself and sends the resize.
         public int Cols;

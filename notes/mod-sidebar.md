@@ -41,6 +41,8 @@ ghost rows emphasize the title/action/file identity and dim context. Viewer, edi
 diff sessions use explicit prefixes because native titles are often `bash` or `less`, and
 route to Files/Git. Permanent routed sessions are parked immediately; reconciliation may
 otherwise leave their pawn for one tick.
+Host terminal titles are white while a foreground process is running, grey at a shell prompt,
+and red when the terminal is down.
 
 The grip polls `Input.GetMouseButton*`, not IMGUI events: absorbing windows can hide the
 initial press and off-screen release. It saves settings on release, owns the panel's

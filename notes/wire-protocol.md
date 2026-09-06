@@ -2,10 +2,12 @@
 
 ## WebSocket
 
-Server events are `capabilities`, `sessions` (state/title/bell), `screen`, `usage`, `projects`,
+Server events are `capabilities`, `sessions` (state/title/bell/process_running), `screen`, `usage`, `projects`,
 `library` and `jukebox`. Capabilities and catalogs arrive on connect; catalogs are resent when
 changed. Capabilities describe runtime integration such as native audio, per-agent limits, and
 whether host networking means the sidecar rather than macOS.
+`process_running` is host-only: it is true while a host terminal has a foreground command other
+than its shell, including commands that are not currently producing output.
 Clients send `redraw`, `sub`, `unsub`, `keys`, `resize`, `scroll`, `mouse`, `paste` and `audio`.
 The root client sends `redraw` after a sidebar layout change, optionally with the new `cols` and
 `rows`; slopd applies that shape and asynchronously nudges every live tmux-backed pane one column

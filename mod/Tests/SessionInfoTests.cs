@@ -33,7 +33,7 @@ namespace SlopWorld.Tests
                 "\"worker\":true,\"parent\":\"caller\",\"task_id\":\"task-7\",\"durable\":true, " +
                 "\"breadcrumb_yolo\":false, " +
                 "\"breadcrumbs\":[\"tip one\"],\"breadcrumbs_pending\":true, " +
-                "\"ephemeral\":true,\"cols\":120,\"rows\":40, " +
+                "\"ephemeral\":true,\"host\":true,\"process_running\":true,\"cols\":120,\"rows\":40, " +
                 "\"title\":\"working title\",\"label\":\"manual label\",\"bell\":true, " +
                 "\"last_change\":123,\"state_since\":456}"));
 
@@ -72,6 +72,8 @@ namespace SlopWorld.Tests
             AssertEx.Sequence(new[] { "tip one" }, session.Breadcrumbs, "breadcrumbs");
             AssertEx.True(session.BreadcrumbsPending, "breadcrumbs pending");
             AssertEx.True(session.Ephemeral, "ephemeral");
+            AssertEx.True(session.Host, "host terminal");
+            AssertEx.True(session.ProcessRunning, "foreground host process");
             AssertEx.Equal(120, session.Cols, "columns");
             AssertEx.Equal(40, session.Rows, "rows");
             AssertEx.Equal("working title", session.Title, "title");
@@ -140,6 +142,7 @@ namespace SlopWorld.Tests
             AssertEx.Equal(0, session.Rows, "missing rows default");
             AssertEx.False(session.AutoResume, "auto resume default");
             AssertEx.False(session.PersistentTmp, "persistent /tmp default");
+            AssertEx.False(session.ProcessRunning, "foreground host process default");
             AssertEx.True(session.BreadcrumbYolo, "breadcrumb yolo default");
             AssertEx.True(session.InstructionsBreadcrumb, "instructions breadcrumb default");
         }

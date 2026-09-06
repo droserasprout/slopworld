@@ -440,6 +440,7 @@ mod tests {
             durable: false,
             ephemeral: false,
             host: false,
+            process_running: false,
             last_change: 0,
             state_since: 0,
             title: String::new(),

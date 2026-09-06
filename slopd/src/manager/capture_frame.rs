@@ -161,6 +161,7 @@ impl Manager {
                 worker_task = Some(l.cfg.task_id.clone());
             }
             l.set_state(State::Down);
+            l.process_running = false;
             l.auto_resume_pending = false;
             l.bell = false;
             l.screen = None;
