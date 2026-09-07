@@ -108,7 +108,9 @@ namespace SlopWorld
             // A double click selects a word and a triple click replaces it with a row. Do not
             // copy the intermediate word to CLIPBOARD; the completed triple-click line is
             // published to PRIMARY by TripleClickSelect.
-            bool copy = !_window.MultiClickSelection || _window.SelectionMoved;
+            // Mouse selection belongs to the host PRIMARY surface. Ordinary drag selection
+            // must not overwrite CLIPBOARD; explicit Ctrl+C and the menu still use it.
+            bool copyPrimary = !_window.MultiClickSelection || _window.SelectionMoved;
             if (_window.LineDragging)
             {
                 _window.SelectLineRange(_window.LineStart, cell.y);
@@ -116,7 +118,7 @@ namespace SlopWorld
                 _window.Dragging = false;
                 _window.SelectionMoved = false;
                 _window.ReleaseSelection();
-                if (copy) _window.CopySelection();
+                if (copyPrimary) _window.CopyPrimarySelection();
             }
             else if (_window.WordDragging)
             {
@@ -124,7 +126,7 @@ namespace SlopWorld
                 _window.WordDragging = false;
                 _window.Dragging = false;
                 _window.ReleaseSelection();
-                if (_window.HasSelection && copy) _window.CopySelection();
+                if (_window.HasSelection && copyPrimary) _window.CopyPrimarySelection();
             }
             else
             {
@@ -133,7 +135,7 @@ namespace SlopWorld
                 if (_window.SelectionMoved || _window.SelectionA != _window.SelectionB)
                 {
                     _window.HasSelection = true;
-                    if (copy) _window.CopySelection();
+                    _window.CopyPrimarySelection();
                 }
                 else _window.HasSelection = false;
                 _window.SelectionMoved = false;

@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using System.Text;
 using UnityEngine;
@@ -13,8 +12,6 @@ namespace SlopWorld
         readonly List<SelectionLine> _lines = new List<SelectionLine>();
         StyleSet _styles;
         bool _dragging;
-        bool _selectionMoved;
-        bool _multiClickSelection;
         bool _wordDragging;
         bool _lineDragging;
         bool _hasSelection;
@@ -35,6 +32,9 @@ namespace SlopWorld
 
         public void Rebuild(List<Placement> placements)
         {
+            // Layout changes rewrite visual line indices and character edges. A stale range
+            // would otherwise select different text after a resize or resource reflow.
+            Clear();
             _lines.Clear();
             foreach (var placement in placements)
             {
@@ -63,8 +63,6 @@ namespace SlopWorld
         {
             _hasSelection = false;
             _dragging = false;
-            _selectionMoved = false;
-            _multiClickSelection = false;
             _wordDragging = false;
             _lineDragging = false;
             ReleaseSelection();
@@ -93,8 +91,6 @@ namespace SlopWorld
             _selectionStart = extend ? _selectionStart : point;
             _selectionEnd = point;
             _dragging = true;
-            _selectionMoved = false;
-            _multiClickSelection = false;
             _wordDragging = false;
             _lineDragging = false;
             _hasSelection = extend && _selectionStart != _selectionEnd;
@@ -105,7 +101,6 @@ namespace SlopWorld
         public void DragMouse(Rect body, Event e, Vector2 scroll)
         {
             if (!_dragging) return;
-            _selectionMoved = true;
             var drag = PointAt(body, e.mousePosition, scroll);
             if (_lineDragging) SelectLineRange(_lineStart, drag.y);
             else if (_wordDragging) UpdateWordSelection(drag);
@@ -121,17 +116,15 @@ namespace SlopWorld
         {
             if (!_dragging) return;
             var up = PointAt(body, e.mousePosition, scroll);
-            // A double click selects a word and a triple click replaces it with a line. Do not
-            // copy the intermediate word; multi-click selection is visual until Ctrl+C or the
-            // Copy menu is used, otherwise one gesture starts multiple wl-copy owners.
-            bool copy = !_multiClickSelection || _selectionMoved;
+            // Mouse selection belongs to the host PRIMARY surface. Ordinary drag selection
+            // must not overwrite CLIPBOARD; explicit Ctrl+C and the menu still use it.
             if (_lineDragging)
             {
                 SelectLineRange(_lineStart, up.y);
                 _lineDragging = false;
                 _dragging = false;
                 ReleaseSelection();
-                if (copy) CopySelection();
+                CopyPrimarySelection();
             }
             else if (_wordDragging)
             {
@@ -139,7 +132,7 @@ namespace SlopWorld
                 _wordDragging = false;
                 _dragging = false;
                 ReleaseSelection();
-                if (_hasSelection && copy) CopySelection();
+                if (_hasSelection) CopyPrimarySelection();
             }
             else
             {
@@ -148,13 +141,11 @@ namespace SlopWorld
                 if (_selectionStart != _selectionEnd)
                 {
                     _hasSelection = true;
-                    if (copy) CopySelection();
+                    CopyPrimarySelection();
                 }
                 else _hasSelection = false;
                 ReleaseSelection();
             }
-            _selectionMoved = false;
-            _multiClickSelection = false;
             e.Use();
         }
 
@@ -322,12 +313,9 @@ namespace SlopWorld
             if (line.Text.Length == 0) { Clear(); return; }
 
             int index = Mathf.Clamp(point.x, 0, line.Text.Length - 1);
-            char anchor = line.Text[index];
-            bool word = IsWordChar(anchor);
-            int start = index;
-            int end = index + 1;
-            while (start > 0 && SameClass(line.Text[start - 1], anchor, word)) start--;
-            while (end < line.Text.Length && SameClass(line.Text[end], anchor, word)) end++;
+            var range = TextSelectionRules.WordRange(line.Text, index);
+            int start = range.Start;
+            int end = range.End;
 
             _wordStart = new Vector2Int(start, point.y);
             _wordEnd = new Vector2Int(end, point.y);
@@ -335,8 +323,6 @@ namespace SlopWorld
             _selectionEnd = _wordEnd;
             _hasSelection = true;
             _dragging = true;
-            _selectionMoved = false;
-            _multiClickSelection = true;
             _wordDragging = true;
             _lineDragging = false;
         }
@@ -349,12 +335,9 @@ namespace SlopWorld
             if (line.Text.Length == 0) return;
 
             int index = Mathf.Clamp(point.x, 0, line.Text.Length - 1);
-            char anchor = line.Text[index];
-            bool word = IsWordChar(anchor);
-            int start = index;
-            int end = index + 1;
-            while (start > 0 && SameClass(line.Text[start - 1], anchor, word)) start--;
-            while (end < line.Text.Length && SameClass(line.Text[end], anchor, word)) end++;
+            var range = TextSelectionRules.WordRange(line.Text, index);
+            int start = range.Start;
+            int end = range.End;
 
             var destinationStart = new Vector2Int(start, lineIndex);
             var destinationEnd = new Vector2Int(end, lineIndex);
@@ -381,8 +364,6 @@ namespace SlopWorld
             _selectionEnd = new Vector2Int(length, line);
             _hasSelection = true;
             _dragging = true;
-            _selectionMoved = false;
-            _multiClickSelection = true;
             _wordDragging = false;
             _lineDragging = true;
         }
@@ -402,13 +383,6 @@ namespace SlopWorld
         static bool Before(Vector2Int a, Vector2Int b) =>
             a.y < b.y || (a.y == b.y && a.x < b.x);
 
-        static bool SameClass(char c, char anchor, bool word) =>
-            word ? IsWordChar(c) : c == anchor;
-
-        static bool IsWordChar(char c) =>
-            (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
-            (c >= '0' && c <= '9') || c == '_';
-
         void SelectAll()
         {
             if (_lines.Count == 0) return;
@@ -417,8 +391,6 @@ namespace SlopWorld
             _selectionEnd = new Vector2Int(_lines[last].Text.Length, last);
             _hasSelection = true;
             _dragging = false;
-            _selectionMoved = false;
-            _multiClickSelection = false;
             _wordDragging = false;
             _lineDragging = false;
             ReleaseSelection();
@@ -428,6 +400,11 @@ namespace SlopWorld
         void CopySelection()
         {
             if (_hasSelection) CopyText(SelectionText());
+        }
+
+        void CopyPrimarySelection()
+        {
+            if (_hasSelection) CopyPrimaryText(SelectionText());
         }
 
         string SelectionText()
@@ -533,6 +510,13 @@ namespace SlopWorld
             if (string.IsNullOrEmpty(text)) return;
             DaemonClipboard.Copy(text, null,
                 msg => Log.Warning($"[SlopWorld] clipboard: {msg}"));
+        }
+
+        static void CopyPrimaryText(string text)
+        {
+            if (string.IsNullOrEmpty(text)) return;
+            DaemonClipboard.CopyPrimary(text, null,
+                msg => Log.Warning($"[SlopWorld] primary selection: {msg}"));
         }
     }
 }

@@ -23,14 +23,13 @@ namespace SlopWorld
             var e = Event.current;
             if (e == null) return;
 
-            if (e.type == EventType.KeyDown ||
-                (e.type == EventType.Used && e.rawType == EventType.KeyDown))
+            if (UiEvent.RawType(e) == EventType.KeyDown)
             {
                 _selection.HandleKey(e);
                 return;
             }
 
-            if (e.button == 1 && MouseType(e) == EventType.MouseDown &&
+            if (e.button == 1 && UiEvent.RawType(e) == EventType.MouseDown &&
                 body.Contains(e.mousePosition))
             {
                 _selection.OpenMenu();
@@ -39,7 +38,7 @@ namespace SlopWorld
             }
 
             if (e.button != 0) return;
-            EventType type = MouseType(e);
+            EventType type = UiEvent.RawType(e);
             if (type == EventType.MouseDown && body.Contains(e.mousePosition))
             {
                 int clickCount = _clicks.Observe(e, Time.realtimeSinceStartup);
@@ -84,7 +83,7 @@ namespace SlopWorld
                 if (Mouse.IsOver(screen))
                     TooltipHandler.TipRegion(screen, (hit.Url ?? hit.LocalPath) +
                         "\n\nCtrl+click to open it");
-                if (MouseType(e) == EventType.MouseDown && e.button == 0 && e.control &&
+                if (UiEvent.RawType(e) == EventType.MouseDown && e.button == 0 && e.control &&
                     screen.Contains(e.mousePosition))
                 {
                     if (hit.LocalPath != null) _openLocalLink(hit.LocalPath);
@@ -97,8 +96,6 @@ namespace SlopWorld
 
         // The containing fullscreen window can consume a mouse event before this view draws.
         // Keep the original gesture type so selection still sees MouseDown/Drag/Up, just as
-        // the terminal pane does.
-        static EventType MouseType(Event e) =>
-            e.type == EventType.Used ? e.rawType : e.type;
+        // the terminal pane does. UiEvent centralizes the Used/rawType recovery.
     }
 }

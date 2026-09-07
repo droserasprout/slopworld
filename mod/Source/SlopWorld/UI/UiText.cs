@@ -210,8 +210,7 @@ namespace SlopWorld
                 TextFieldSelection.ShouldReplay(name, e, FieldLifetimeScope.Current))
                 replay = true;
             var oldType = replay ? e.type : EventType.Ignore;
-            EventType replayType = e == null ? EventType.Ignore
-                : e.type == EventType.Used ? e.rawType : e.type;
+            EventType replayType = UiEvent.RawType(e);
             var beforeEditor = mouseDown && button == 1 ? CurrentEditor(name) : null;
             bool keepSelection = beforeEditor != null && beforeEditor.IsOverSelection(e.mousePosition);
             int beforeCursor = keepSelection ? beforeEditor.cursorIndex : 0;
@@ -245,6 +244,10 @@ namespace SlopWorld
                     editor.selectIndex = Mathf.Clamp(select, 0, source.Length);
                 }
                 if (editor != null) result = readOnly ? source : editor.text;
+
+                if (prepared == TextFieldSelection.PrepareResult.MultiClick)
+                    TextFieldSelection.FinishMultiClick(name, editor,
+                        FieldLifetimeScope.Current);
 
                 if (prepared == TextFieldSelection.PrepareResult.None ||
                     prepared == TextFieldSelection.PrepareResult.SelectionDrag)
@@ -281,7 +284,7 @@ namespace SlopWorld
             button = e == null ? -1 : e.button;
             if (e == null) return false;
 
-            var type = e.type == EventType.Used ? e.rawType : e.type;
+            var type = UiEvent.RawType(e);
             if (type == EventType.ContextClick)
             {
                 button = 1;
@@ -292,9 +295,11 @@ namespace SlopWorld
 
         static bool MouseUp(Event e)
         {
-            if (e == null || e.button != 0) return false;
-            var type = e.type == EventType.Used ? e.rawType : e.type;
-            return type == EventType.MouseUp;
+            // A consumed IMGUI mouse-up can report button -1 while rawType still preserves
+            // the original left-button event. Do not lose PRIMARY publication in that case;
+            // still reject the right/middle buttons when Unity leaves their button intact.
+            if (e == null || e.button > 0) return false;
+            return UiEvent.RawType(e) == EventType.MouseUp;
         }
 
         static TextEditor CurrentEditor(string name)
@@ -350,6 +355,14 @@ namespace SlopWorld
             return text.Replace("\r\n", " ").Replace('\n', ' ').Replace('\r', ' ');
         }
 
+        static void CopyPrimarySelection(TextEditor editor)
+        {
+            // Like the terminal, a completed mouse selection becomes the host PRIMARY
+            // selection. Keep it separate from the ordinary Copy action and CLIPBOARD.
+            string selected = editor == null ? null : editor.SelectedText;
+            if (!string.IsNullOrEmpty(selected)) DaemonClipboard.CopyPrimary(selected);
+        }
+
         static void QueuePaste(string name, int controlId, string text, bool area,
                                FieldLifetime lifetime = null)
         {
@@ -393,14 +406,6 @@ namespace SlopWorld
                     if (!primary)
                         QueuePaste(name, controlId, GUIUtility.systemCopyBuffer, area, owner);
                 });
-        }
-
-        static void CopyPrimarySelection(TextEditor editor)
-        {
-            // Like the terminal, a completed mouse selection becomes the host PRIMARY
-            // selection. Keep it separate from the ordinary Copy action and CLIPBOARD.
-            string selected = editor == null ? null : editor.SelectedText;
-            if (!string.IsNullOrEmpty(selected)) DaemonClipboard.CopyPrimary(selected);
         }
 
         static void OpenContextMenu(string name, bool area, TextEditor editor,

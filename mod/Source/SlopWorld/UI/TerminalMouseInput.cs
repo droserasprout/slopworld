@@ -176,7 +176,7 @@ namespace SlopWorld
         // original type for all terminal gesture dispatch; otherwise Ctrl+clicks (and ordinary
         // selection presses) disappear before the pane sees them.
         internal static EventType MouseType(Event e) =>
-            e.type == EventType.Used ? e.rawType : e.type;
+            UiEvent.RawType(e);
 
         static bool ControlHeld(Event e) =>
             e.control || e.command || Input.GetKey(KeyCode.LeftControl) ||

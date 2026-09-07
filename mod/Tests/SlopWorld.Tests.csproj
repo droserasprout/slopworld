@@ -41,6 +41,7 @@
     <Compile Include="../Source/SlopWorld/UI/TerminalColumns.cs" Link="Source/UI/TerminalColumns.cs" />
     <Compile Include="../Source/SlopWorld/UI/TerminalHistory.cs" Link="Source/UI/TerminalHistory.cs" />
     <Compile Include="../Source/SlopWorld/UI/TerminalRunCache.cs" Link="Source/UI/TerminalRunCache.cs" />
+    <Compile Include="../Source/SlopWorld/UI/TextSelectionRules.cs" Link="Source/UI/TextSelectionRules.cs" />
     <Compile Include="../Source/SlopWorld/UI/PagerCommands.cs" Link="Source/UI/PagerCommands.cs" />
     <Compile Include="../Source/SlopWorld/UI/NameTools.cs" Link="Source/UI/NameTools.cs" />
     <Compile Include="../Source/SlopWorld/Sim/SongRecognizer.cs" Link="Source/Sim/SongRecognizer.cs" />
