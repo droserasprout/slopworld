@@ -20,12 +20,6 @@ namespace SlopWorld
         {
             // Please mark offensive/harmful/depressive quotes with `(` and too happy ones with `)`.
             //
-            // keyboard shortcuts
-            "Press `F1` to show Command Pallette.",
-            "Press `F12` to toggle terminal.",
-            "Press `Alt+Num` to switch terminal tab.",
-            "Press `Alt+Z`/`Alt+X` to walk terminal tabs.",
-            "Press `Alt+F4` to quit the game.",
             // Mozilla's `about:robots`
             "Welcome Humans! We have come to visit you in peace and with goodwill!",
             "Robots may not injure a human being or, through inaction, allow a human being to come to harm.",
@@ -202,14 +196,16 @@ namespace SlopWorld
             // Misc
             "Your carbon footprint doesn't matter. (",
             "You can only watch. (",
-            "Coding is largely solved. (",  // boriska
+            "Coding is largely solved. (",
             "Clanker always with a hard R. (",
             "Did you just say the C-word? (",
-            "Squish that cat!",  // @HelpfulVancouverVet and call to action
+            "Squish that cat!",  // @HelpfulVancouverVet
             "A fridge is a database.",
             "Within a few months, four patients recognize the man as a frequent presence in their own dreams.",
             "Lowkirkenuinely!",
+			//
             // Only happy stuff below
+            //
             // Bob Ross
             "We don't make mistakes, just happy little accidents. )",
             "There's nothing wrong with having a tree as a friend. )",
