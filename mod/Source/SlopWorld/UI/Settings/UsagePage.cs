@@ -119,15 +119,29 @@ namespace SlopWorld
             float intervalW = Mathf.Min(120f, Mathf.Max(92f, rect.width * .16f));
             float pollW = 64f;
             float iconW = 54f;
-            float nameW = Mathf.Max(120f, rect.width - intervalW - pollW - iconW);
+            float fixedW = intervalW + pollW + iconW;
+            float availableW = Mathf.Max(0f, rect.width);
+            if (fixedW > availableW && fixedW > 0f)
+            {
+                // The settings column can be narrower than the desktop layout. Shrink the
+                // fixed columns together before assigning the remainder to Name, so every
+                // cell still ends at the table's right edge instead of spilling out of it.
+                float scale = availableW / fixedW;
+                intervalW *= scale;
+                pollW *= scale;
+                iconW *= scale;
+                fixedW = availableW;
+            }
+            float nameW = Mathf.Max(0f, availableW - fixedW);
             float iconX = rect.x + nameW;
             float pollX = iconX + iconW;
             float intervalX = pollX + pollW;
+            float namePad = Mathf.Min(UiWidgets.GapS, nameW);
 
             var header = new Rect(rect.x, rect.y, rect.width, headerH);
             Slab.Fill(header, UiWidgets.RowBg);
-            UiWidgets.RowLabel(new Rect(rect.x + UiWidgets.GapS, rect.y,
-                nameW - UiWidgets.GapS, headerH), "Name");
+            UiWidgets.RowLabel(new Rect(rect.x + namePad, rect.y,
+                Mathf.Max(0f, nameW - namePad), headerH), "Name");
             UiWidgets.RowLabel(new Rect(iconX, rect.y, iconW, headerH), "Icon",
                 TextAnchor.MiddleCenter);
             UiWidgets.RowLabel(new Rect(pollX, rect.y, pollW, headerH), "Poll",
@@ -144,8 +158,8 @@ namespace SlopWorld
                 var row = new Rect(rect.x, y, rect.width, rowH);
                 RowChrome.Hover(row, false, true, RowHoverPolicy.OverlayAware);
 
-                UiWidgets.RowLabel(new Rect(row.x + UiWidgets.GapS, row.y,
-                    nameW - UiWidgets.GapS, row.height), UsageReadout.Long(key));
+                UiWidgets.RowLabel(new Rect(row.x + namePad, row.y,
+                    Mathf.Max(0f, nameW - namePad), row.height), UsageReadout.Long(key));
                 DrawIconButton(new Rect(iconX, row.y, iconW, row.height), key);
 
                 var poll = new Rect(pollX, row.y, pollW, row.height);
@@ -153,9 +167,10 @@ namespace SlopWorld
                     item.Poll ? "Stop polling this usage window." : "Poll this usage window.",
                     false, RowHoverPolicy.OverlayAware);
 
-                var field = new Rect(intervalX + UiWidgets.GapXS,
+                float fieldPad = Mathf.Min(UiWidgets.GapXS, intervalW / 2f);
+                var field = new Rect(intervalX + fieldPad,
                     row.y + (row.height - UiWidgets.FieldH) / 2f,
-                    intervalW - UiWidgets.GapXS * 2f, UiWidgets.FieldH);
+                    Mathf.Max(0f, intervalW - fieldPad * 2f), UiWidgets.FieldH);
                 _itemIntervals[key] = UiWidgets.Field(field, "usage.item." + key,
                     _itemIntervals[key], true);
 
@@ -212,7 +227,9 @@ namespace SlopWorld
                 var cell = new Rect(grid.View.x + col * grid.Cell,
                     grid.View.y + row * grid.Cell, grid.Cell, grid.Cell);
 
-                RowChrome.Hover(cell, def == chosen, true, RowHoverPolicy.Local);
+                Slab.Box(cell, UiWidgets.Well, UiWidgets.Edge);
+                RowChrome.Hover(cell, def == chosen, true, RowHoverPolicy.Local,
+                    RowSelectionStyle.Palette);
 
                 var box = new Rect(cell.x + (grid.Cell - grid.IconSize) / 2f,
                     cell.y + (grid.Cell - grid.IconSize) / 2f,

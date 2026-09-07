@@ -27,7 +27,8 @@ namespace SlopWorld
 
         protected override void DoBody(Rect rect)
         {
-            _name = TextDialog.Draw(rect, _title, null, "file-name", _name, _error);
+            _name = TextDialog.Draw(rect, _title, null, "file-name", _name, _error,
+                titleRect: TitleRect(rect));
 
             var foot = TextDialog.Footer(rect);
             if (foot.Left("Cancel", UiWidgets.Btn.Ghost)) Close();

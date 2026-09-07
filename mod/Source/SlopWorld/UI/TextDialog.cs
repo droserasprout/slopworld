@@ -8,11 +8,12 @@ namespace SlopWorld
     public static class TextDialog
     {
         public static string Draw(Rect rect, string title, string note, string fieldName,
-                                  string value, string error, float noteHeight = -1f)
+                                  string value, string error, float noteHeight = -1f,
+                                  Rect? titleRect = null)
         {
             using (WidgetState.Save())
             {
-                UiWidgets.Title(rect, title);
+                UiWidgets.Title(titleRect ?? rect, title);
                 float y = rect.y + UiWidgets.HeaderH + UiWidgets.GapM;
                 if (!string.IsNullOrEmpty(note))
                 {

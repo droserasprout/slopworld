@@ -170,7 +170,7 @@ namespace SlopWorld
 
         protected override void DoBody(Rect rect)
         {
-            UiWidgets.Title(rect, _copiedFrom != null
+            UiWidgets.Title(TitleRect(rect), _copiedFrom != null
                 ? $"Copy of '{_copiedFrom}'"
                 : _isNew ? "New project" : $"Edit '{_origName}'");
 

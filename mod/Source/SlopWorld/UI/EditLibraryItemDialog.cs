@@ -153,7 +153,7 @@ namespace SlopWorld
             // for its contents does not overflow, it breaks to a column off the right-hand
             // edge and puts CurHeight back to nearly zero - and the prompt box below is
             // placed and sized from that number. See EditProjectDialog.DoFields.
-            UiWidgets.Title(rect, _copiedFrom != null
+            UiWidgets.Title(TitleRect(rect), _copiedFrom != null
                 ? $"Copy of '{_copiedFrom}'"
                 : _isNew ? "New library entry" : $"Edit '{_origName}'");
 

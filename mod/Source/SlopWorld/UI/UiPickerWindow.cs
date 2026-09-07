@@ -47,11 +47,20 @@ namespace SlopWorld
         {
             var window = new Rect(page.x + (page.width - width) / 2f,
                 page.y + WindowTopOffset, width, height);
-            if (window.yMax > page.yMax - UiWidgets.GapS)
-                window.y = page.yMax - UiWidgets.GapS - height;
-            if (window.y < page.y + UiWidgets.GapS)
-                window.y = page.y + UiWidgets.GapS;
+            window.x = ClampStart(window.x, page.x, page.xMax, width);
+            window.y = ClampStart(window.y, page.y, page.yMax, height);
             return window;
+        }
+
+        static float ClampStart(float start, float pageStart, float pageEnd, float size)
+        {
+            float min = pageStart + UiWidgets.GapS;
+            float max = pageEnd - UiWidgets.GapS - size;
+            // A picker can be wider or taller than a narrow settings page. In that case no
+            // placement fits both edges; anchor it to the page's leading inset rather than
+            // letting the ordinary clamp produce an inverted range.
+            if (max < min) return min;
+            return Mathf.Clamp(start, min, max);
         }
 
         static void DrawContents(float width, float height, string title, Action close,
@@ -61,9 +70,13 @@ namespace SlopWorld
             using (WidgetState.Save())
             {
                 var r = new Rect(0f, 0f, width, height);
+                Slab.Box(r, UiWidgets.PopoverBg, UiWidgets.Edge);
+
                 Text.Font = GameFont.Small;
+                GUI.color = UiWidgets.Lead;
                 UiWidgets.RowLabel(new Rect(r.x + UiWidgets.GapS, r.y + UiWidgets.GapXS,
                     r.width - TitleWidthInset, UiWidgets.LineH), title);
+                GUI.color = Color.white;
 
                 if (UiWidgets.Button(
                         new Rect(r.width - CloseButtonRightInset, r.y + CloseButtonTopInset,

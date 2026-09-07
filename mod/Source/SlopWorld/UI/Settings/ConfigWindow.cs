@@ -49,7 +49,7 @@ namespace SlopWorld
             using (WidgetState.Save())
             {
                 Text.Font = GameFont.Small;
-                UiWidgets.PageCaption(rect, string.IsNullOrEmpty(_path) ? "config.toml" : _path);
+                UiWidgets.PageCaption(TitleRect(rect), string.IsNullOrEmpty(_path) ? "config.toml" : _path);
 
                 // The caption above and the footer below, both off the font: the figures here
                 // were 24, 28 and 100, and the last of them left the error line lying across

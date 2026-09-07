@@ -14,6 +14,7 @@ slopworld
 `RIMWORLD` is the directory containing the native Linux game executable. The launcher
 must be used so SlopWorld gets its own game profile. The install also places the bundled
 UI font in `$XDG_DATA_HOME/fonts` (`~/.local/share/fonts` by default).
+Restart RimWorld after installing so Unity rescans the operating system's fonts.
 
 ## macOS
 
