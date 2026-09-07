@@ -63,7 +63,7 @@ agents cannot be restarted.
 
 ## Titles
 
-The daemon can generate short summaries of agent prompts and host commands using an
-OpenRouter model. Title policies for agent CLIs are `never`, `once` (first prompt only),
-or `always` (follows the current task). Host terminal titles are on or off. The title
-is a daemon-level override separate from the terminal's own OSC title.
+The daemon can generate short summaries of agent prompts using an OpenRouter model. Title
+policies for agent CLIs are `never`, `once` (first prompt only), or `always` (follows the
+current task). Host terminal titles come from the terminal application unless a fixed label is
+set. An agent title is a daemon-level override separate from the terminal's own OSC title.

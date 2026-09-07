@@ -30,7 +30,6 @@ namespace SlopWorld.Tests
                            "title model default");
             AssertEx.Equal(20, config.TitleMinChars, "title minimum prompt length default");
             AssertEx.Equal("always", config.PiTitles, "Pi title default");
-            AssertEx.True(config.HostTitles, "host title default");
             AssertEx.Equal(DaemonConfig.DefaultInstructionsTemplate, config.InstructionsTemplate,
                            "instructions template default");
             AssertEx.Equal("SLOPWORLD.md", config.InstructionsMountPath,
@@ -73,7 +72,6 @@ namespace SlopWorld.Tests
                 TitleModel = "provider/model:flash",
                 TitleMinChars = 42,
                 PiTitles = "never",
-                HostTitles = false,
                 InstructionsTemplate = "# {{ project }}\n\n{{ runtime_context }}",
                 InstructionsMountPath = "docs/SLOPWORLD.md",
                 InstructionsBreadcrumb = "Read {{ mount_path }} for {{ project }}",
@@ -106,7 +104,6 @@ namespace SlopWorld.Tests
             AssertEx.Equal(expected.TitleMinChars, actual.TitleMinChars,
                            "title minimum prompt length round trip");
             AssertEx.Equal(expected.PiTitles, actual.PiTitles, "Pi titles round trip");
-            AssertEx.Equal(expected.HostTitles, actual.HostTitles, "host titles round trip");
             AssertEx.Equal(expected.InstructionsTemplate, actual.InstructionsTemplate,
                            "instructions template round trip");
             AssertEx.Equal(expected.InstructionsMountPath, actual.InstructionsMountPath,

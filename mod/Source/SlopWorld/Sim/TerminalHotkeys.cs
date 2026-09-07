@@ -18,6 +18,7 @@ namespace SlopWorld
             // Map-layer number keys mirror portrait selection because components run before the window stack; ask TerminalWindow first, then handle Alt+number with no pane.
             if (Find.WindowStack?.WindowOfType<TerminalWindow>() != null) return;
             if (ShortcutHelpWindow.HandleMapKey(Event.current)) return;
+
             if (Event.current.type != EventType.KeyDown || !Event.current.alt) return;
             int slot = SlotKey(Event.current);
             if (slot < 0) return;

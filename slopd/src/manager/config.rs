@@ -471,6 +471,7 @@ impl Manager {
             }
             let mut session = SessionCfg {
                 name: tab.name.clone(),
+                label: tab.label.clone(),
                 project: tab.project.clone(),
                 command: cfg.defaults.shell.clone(),
                 ..Default::default()
@@ -483,9 +484,9 @@ impl Manager {
                 crate::config::expand(&tab.path)
             };
             session.autostart = tab.autostart;
-            let mut title = TitleCapture::default();
-            title.override_title = self.title_cache.latest(&tab.name);
-            title.once_requested = title.override_title.is_some();
+            // Host tabs use their fixed label or the native terminal title. Never restore an
+            // automatic prompt-summary cache entry for a shell.
+            let title = TitleCapture::default();
             live.entry(tab.name.clone())
                 .and_modify(|l| {
                     if l.host {
@@ -571,6 +572,7 @@ impl Manager {
                     let mut l = Live::new(
                         worker_session.clone().unwrap_or_else(|| SessionCfg {
                             name: name.clone(),
+                            label: saved_host.and_then(|tab| tab.label.clone()),
                             project: host_project.clone(),
                             command: if host {
                                 cfg.defaults.shell.clone()
@@ -970,6 +972,7 @@ mod tests {
                 },
                 HostTerminalCfg {
                     name: "shell".into(),
+                    label: None,
                     project: "repo".into(),
                     path: "~/repo".into(),
                     autostart: true,

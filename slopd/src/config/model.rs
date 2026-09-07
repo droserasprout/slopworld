@@ -134,10 +134,10 @@ pub struct Daemon {
     /// OpenRouter. `once` names the first real prompt in each Codex conversation.
     #[serde(default)]
     pub agent_titles: TitlePolicy,
-    /// The OpenRouter model used for every prompt summary, including host commands.
+    /// The OpenRouter model used for automatic agent prompt titles.
     #[serde(default = "default_title_model")]
     pub title_model: String,
-    /// Prompts and host commands shorter than this are not worth an external title request.
+    /// Prompts shorter than this are not worth an external title request.
     /// Count Unicode characters so the setting does not depend on UTF-8 byte width.
     #[serde(default = "default_title_min_chars")]
     pub title_min_chars: usize,
@@ -145,10 +145,6 @@ pub struct Daemon {
     /// remains its default.
     #[serde(default = "default_pi_title_policy")]
     pub pi_titles: TitlePolicy,
-    /// Host terminals summarize each submitted command when enabled. This is separate from
-    /// agent title policies because a host terminal has no conversation boundary.
-    #[serde(default = "yes")]
-    pub host_titles: bool,
     /// The generated SLOPWORLD.md template and the discovery settings for opted-in agents.
     #[serde(default)]
     pub instructions: InstructionsCfg,
@@ -296,7 +292,6 @@ impl Default for Daemon {
             title_model: default_title_model(),
             title_min_chars: default_title_min_chars(),
             pi_titles: default_pi_title_policy(),
-            host_titles: true,
             instructions: InstructionsCfg::default(),
         }
     }
@@ -647,6 +642,9 @@ pub struct SessionCfg {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HostTerminalCfg {
     pub name: String,
+    /// A fixed sidebar label. Empty means the terminal application's title is shown.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub label: Option<String>,
     #[serde(default)]
     pub project: String,
     /// The last directory observed from tmux. It is kept separately from the project's root so
@@ -662,6 +660,7 @@ impl Default for HostTerminalCfg {
     fn default() -> Self {
         Self {
             name: String::new(),
+            label: None,
             project: String::new(),
             path: String::new(),
             autostart: true,

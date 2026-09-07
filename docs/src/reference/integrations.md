@@ -31,9 +31,10 @@ source dims only its own rows in the top bar.
 
 ## Prompt summaries
 
-The daemon generates short titles for agent prompts and host commands using an
-OpenRouter model. The Summaries settings page controls per-CLI policies (`never` /
-`once` / `always`), the host-command toggle, minimum prompt length, and the model.
+The daemon can generate short titles for agent prompts using an OpenRouter model. The Summaries
+settings page controls per-CLI policies (`never` / `once` / `always`), minimum prompt length,
+and the model. Host terminal titles come from the terminal application unless a fixed label is set
+from the host terminal's context menu.
 The OpenRouter key is the one from the Usage page.
 
 ## Instructions

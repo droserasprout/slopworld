@@ -15,7 +15,8 @@ Sidebar title rendering restores a host cwd from the durable `Dir` when tmux sup
 width-truncated path title; command and application titles are left alone.
 
 Host tabs deliberately remain ghost rows: they have no colonist or sandboxed
-agent config. Start, stop, terminal and Remove actions remain available; agent
-edit, label and duplicate actions are not valid for them. Stopping a host tab
+agent config. Start, stop, terminal, Label and Remove actions remain available; agent
+edit and duplicate actions are not valid for them. Label stores a fixed title in the
+host-terminal record; clearing it returns to the terminal application's title. Stopping a host tab
 kills its pane but keeps the tab and its saved path. Remove kills the pane and
 deletes the durable tab record.

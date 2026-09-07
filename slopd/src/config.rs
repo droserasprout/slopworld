@@ -380,17 +380,14 @@ mod tests {
     fn automatic_titles_are_opt_in_and_once_parses() {
         assert_eq!(Config::default().daemon.agent_titles, TitlePolicy::Never);
         assert_eq!(Config::default().daemon.pi_titles, TitlePolicy::Always);
-        assert!(Config::default().daemon.host_titles);
         assert_eq!(Config::default().daemon.title_min_chars, 20);
         let mut cfg = Config::default();
         cfg.daemon.agent_titles = TitlePolicy::Once;
         cfg.daemon.pi_titles = TitlePolicy::Never;
-        cfg.daemon.host_titles = false;
         cfg.daemon.title_min_chars = 42;
         let back = Config::parse(&toml::to_string_pretty(&cfg).unwrap()).unwrap();
         assert_eq!(back.daemon.agent_titles, TitlePolicy::Once);
         assert_eq!(back.daemon.pi_titles, TitlePolicy::Never);
-        assert!(!back.daemon.host_titles);
         assert_eq!(back.daemon.title_model, cfg.daemon.title_model);
         assert_eq!(back.daemon.title_min_chars, 42);
     }
@@ -983,6 +980,7 @@ token = \"not-a-daemon-token\"
         let cfg = Config {
             host_terminals: vec![HostTerminalCfg {
                 name: "repo-bash".into(),
+                label: Some("Repository shell".into()),
                 project: "repo".into(),
                 path: "/home/you/repo/src".into(),
                 ..Default::default()
@@ -996,6 +994,7 @@ token = \"not-a-daemon-token\"
         let back = Config::parse(&text).unwrap();
         let tab = &back.host_terminals[0];
         assert_eq!(tab.name, "repo-bash");
+        assert_eq!(tab.label.as_deref(), Some("Repository shell"));
         assert_eq!(tab.project, "repo");
         assert_eq!(tab.path, "/home/you/repo/src");
         assert!(tab.autostart);

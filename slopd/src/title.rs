@@ -1,4 +1,4 @@
-//! Small, optional OpenRouter request used to name agent work or host commands.
+//! Small, optional OpenRouter request used to name agent work.
 
 use anyhow::{bail, Context, Result};
 use serde::{Deserialize, Serialize};
@@ -265,7 +265,7 @@ pub fn summarize(prompt: &str, key_file: &str, model: &str) -> Result<String> {
 fn summarize_with_key(prompt: &str, key: &str, model: &str, endpoint: &str) -> Result<String> {
     let prompt: String = prompt.chars().take(MAX_PROMPT_CHARS).collect();
     let instruction = format!(
-        "Summarise this coding request or shell command in at most 6 words for a session title. \
+        "Summarise this coding request in at most 6 words for a session title. \
          Reply with only the title, without quotes, punctuation, or commentary.\n\n{prompt}"
     );
     let body = json!({

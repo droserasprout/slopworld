@@ -42,19 +42,18 @@ pub(super) fn title_settings(
     session: &SessionCfg,
     host: bool,
 ) -> Option<(TitlePolicy, String)> {
+    // Host terminal names come from their native OSC title or an explicit fixed label. They
+    // never send shell commands to the title service.
+    if host {
+        return None;
+    }
+
     if session
         .label
         .as_deref()
         .is_some_and(|label| !label.trim().is_empty())
     {
         return None;
-    }
-
-    if host {
-        return cfg
-            .daemon
-            .host_titles
-            .then(|| (TitlePolicy::Always, cfg.daemon.title_model.clone()));
     }
 
     let agent = title_agent(cfg, session)?;

@@ -5,16 +5,14 @@ The daemon already sees input before tmux and OSC 0/2 titles after it, and alrea
 how to read the OpenRouter key without exposing it inside an agent sandbox.
 
 `[daemon] agent_titles` selects the Codex policy and defaults to `never`, because enabling it
-sends prompt text to OpenRouter. `[daemon] host_titles` defaults to `true` and controls
-summaries for commands entered in host terminals. `title_model` is the one model used by all
-summaries; `openrouter_key_file`, or slopd's `OPENROUTER_API_KEY` when it is blank, supplies
-the key. `title_min_chars` defaults to 20 Unicode characters and skips shorter prompts and host
-commands before they consume a `once` attempt or make a request.
+sends prompt text to OpenRouter. `title_model` is shared by the agent title policies;
+`openrouter_key_file`, or slopd's `OPENROUTER_API_KEY` when it is blank, supplies the key.
+`title_min_chars` defaults to 20 Unicode characters and skips shorter prompts before they
+consume a `once` attempt or make a request.
 
-The Summaries settings page exposes the Codex and Pi title policies, the host-command toggle,
-minimum prompt length, and one shared model field. Its key is the Usage page's OpenRouter key
-file, which is editable with credit polling off because title generation does not need polling.
-Pi defaults to `always`.
+The Summaries settings page exposes the Codex and Pi title policies, minimum prompt length, and
+one shared model field. Its key is the Usage page's OpenRouter key file, which is editable with
+credit polling off because title generation does not need polling. Pi defaults to `always`.
 
 Both Codex and Pi use the daemon path. Explicit command lines such as `codex --yolo` and
 `pi --model …` are recognized as well as named presets:
@@ -23,9 +21,8 @@ Both Codex and Pi use the daemon path. Explicit command lines such as `codex --y
 - `once`: summarize the first real prompt in each conversation.
 - `always`: summarize every real prompt, so the title follows the current task.
 
-When `host_titles` is enabled, host terminals summarize every substantive command submission.
-Host commands have no agent conversation boundary, so the toggle is on/off rather than
-never/once/always.
+Host terminals do not send shell commands to the title service. Their sidebar title is the
+terminal application's OSC title unless the user sets a fixed label.
 
 The generated title is a `Live` override separate from the emulator's OSC title. The session
 view prefers the override, so an agent redraw cannot replace it. Successful summaries are cached
@@ -38,8 +35,7 @@ never prevents a title from being applied.
 
 ## Input and conversation boundaries
 
-Input is mirrored while being forwarded normally; the summary request never delays the agent
-or host terminal.
+Input is mirrored while being forwarded normally; the summary request never delays the agent.
 Printable keys, paste, backspace/delete, cursor movement, common line kills and multiline
 input need enough composer state to recover the submitted prompt. Common readline aliases are
 handled too; an unsupported editing control clears the mirror and marks the capture uncertain,

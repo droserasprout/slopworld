@@ -108,7 +108,7 @@ namespace SlopWorld
             term.Disabled = !alive;
             opts.Add(term);
 
-            if (info != null && !info.Host)
+            if (info != null)
                 opts.Add(new FloatMenuOption("Label", () =>
                 {
                     var current = hub.Get(name);

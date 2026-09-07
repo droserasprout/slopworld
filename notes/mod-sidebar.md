@@ -49,7 +49,8 @@ initial press and off-screen release. It saves settings on release, owns the pan
 right edge, keeps tab/add hit gates short of that edge, and sends the measured pane shape with
 the background redraw request so every live tmux pane is ready before an inactive tab opens.
 
-The agent context menu offers Start/Stop, Terminal, Label, Delegate task, Edit, Duplicate, Shell,
+The agent and host-terminal context menus offer Start/Stop, Terminal and Label; agents also have
+Delegate task, Edit, Duplicate, Shell,
 Storage, Remove, and New look. The Tasks tab lists the complete root task board, refreshes it through the
 daemon, filters by status/direction/agent, and opens task detail/status actions; plain clicks open
 task detail, Ctrl+Click toggles task rows, and Shift+Click selects a visible range. Remove applies

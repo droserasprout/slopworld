@@ -214,6 +214,8 @@ namespace SlopWorld
             GUI.color = UiWidgets.Faint;
             UiWidgets.RowLabel(countRect, count, TextAnchor.MiddleRight);
 
+            var p = SessionHub.Instance.Project(head.Label);
+
             Text.Font = GameFont.Small;
             GUI.color = UiWidgets.Faint;
             var label = new Rect(lx, r.y, Mathf.Max(0f, countRect.x - Pad - lx), HeadH);
@@ -226,7 +228,6 @@ namespace SlopWorld
             Text.Anchor = TextAnchor.UpperLeft;
             Text.Font = GameFont.Small;
 
-            var p = SessionHub.Instance.Project(head.Label);
             TooltipHandler.TipRegion(r, p == null
                 ? "Agents whose project has gone, and anyone here who is not an agent.\n\n" +
                   "Click to fold."

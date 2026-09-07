@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace SlopWorld
 {
-    // A blank label is meaningful: it returns the session to automatic title summaries.
+    // A blank label is meaningful: it returns the session to its native or generated title.
     public sealed class LabelDialog : UiWindow
     {
         readonly string _session;
@@ -20,12 +20,17 @@ namespace SlopWorld
         public static void Open(string session, string initial) =>
             TerminalWindow.OpenOverPane(new LabelDialog(session, initial));
 
-        public override Vector2 InitialSize => new Vector2(500f, 204f);
+        // Leave room for the two-line note, the field, a validation row, and the footer;
+        // the error row is conditional but must not collide with the footer when shown.
+        public override Vector2 InitialSize => new Vector2(500f, 240f);
 
         protected override void DoBody(Rect rect)
         {
+            bool host = SessionHub.Instance.Get(_session)?.Host == true;
             _label = TextDialog.Draw(rect, $"Label '{_session}'",
-                "Set a manual third-line label. Leave it blank to resume automatic summaries.",
+                host
+                    ? "Set a fixed label for this host terminal. Leave it blank to use its terminal title."
+                    : "Set a fixed label. Leave it blank to use the generated title.",
                 "agent.label", _label, _error, UiWidgets.RowH * 2f);
 
             var foot = TextDialog.Footer(rect);

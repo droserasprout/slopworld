@@ -27,8 +27,8 @@ their editors open above the chrome with `TerminalWindow.OpenOverPane`.
   `UsagePage` owns one table of usage windows with name, icon picker, poll toggle and optional
   per-row interval; its global interval is the fallback for blank rows. Left/spent display is
   an Appearance > Statusbar setting and works offline.
-  `SummariesPage` edits Codex/Pi title policy, host-command summaries and the shared summary
-  model; it uses the OpenRouter key from Integrations.
+  `SummariesPage` edits Codex/Pi title policy and the shared summary model; it uses the
+  OpenRouter key from Integrations.
   `InstructionsPage` edits and previews the templated `SLOPWORLD.md` document, its separate
   first-prompt discovery breadcrumb, worker bootstrap prompt, sandbox mount path, and global
   discovery switch. The agent editor's Breadcrumbs tab shows that generated entry as a

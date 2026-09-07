@@ -34,23 +34,15 @@ namespace SlopWorld
                 "reaches Pi, so it takes effect in the current session.");
 
             l.Gap(UiWidgets.GapL);
-            UiWidgets.SectionHeading(l, "Host");
-            _cfg.HostTitles = UiWidgets.Checkbox(l, "Summarize host commands", _cfg.HostTitles,
-                "Names commands submitted in host terminals. Off leaves host terminal titles to " +
-                "the terminal application.");
-            UiWidgets.Note(l, "Host terminals summarize each submitted command, independently of " +
-                "the Codex and Pi policies.");
-
-            l.Gap(UiWidgets.GapL);
-            UiWidgets.SectionHeading(l, "All summaries");
+            UiWidgets.SectionHeading(l, "Automatic titles");
             l.Label("Minimum prompt length");
             _minPromptChars = UiWidgets.Field(l, "usage.summary.minimum", _minPromptChars);
-            UiWidgets.Note(l, "Prompts and host commands shorter than this many characters " +
-                "are not summarized. Short prompts do not use up a first-prompt title attempt.");
+            UiWidgets.Note(l, "Prompts shorter than this many characters are not summarized. " +
+                "Short prompts do not use up a first-prompt title attempt.");
             l.Gap(UiWidgets.GapM);
             l.Label("Model");
             _cfg.TitleModel = UiWidgets.Field(l, "usage.summary.model", _cfg.TitleModel);
-            UiWidgets.Note(l, "Up to 2,000 characters of each prompt or command go to OpenRouter. " +
+            UiWidgets.Note(l, "Up to 2,000 characters of each prompt go to OpenRouter. " +
                 "Summaries do not depend on credit polling.");
 
         }

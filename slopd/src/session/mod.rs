@@ -275,9 +275,7 @@ mod tests {
         slug, strip_sgr, title_agent, title_settings, Composer, Input, Live, State, Submission,
         TemplateVars, TitleAgent, TitleCapture, BOOT_COLS, BOOT_ROWS, INPUT_BATCH, TAIL_LINES,
     };
-    use crate::config::{
-        Config, LibraryItemCfg, LibraryItemKind, ProjectCfg, SessionCfg, TitlePolicy,
-    };
+    use crate::config::{Config, LibraryItemCfg, LibraryItemKind, ProjectCfg, SessionCfg};
 
     #[test]
     fn file_action_paths_normalize_the_absolute_placeholder() {
@@ -394,11 +392,6 @@ mod tests {
             cmd: Some("bash".into()),
             ..Default::default()
         };
-        assert_eq!(
-            title_settings(&cfg, &host, true).unwrap().0,
-            TitlePolicy::Always
-        );
-        cfg.daemon.host_titles = false;
         assert!(title_settings(&cfg, &host, true).is_none());
 
         let other = SessionCfg {

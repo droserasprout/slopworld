@@ -106,6 +106,13 @@
     <defaultKeyCodeA>Delete</defaultKeyCodeA>
   </KeyBindingDef>
 
+  <KeyBindingDef>
+    <defName>SlopLabelSession</defName>
+    <label>Label selected session</label>
+    <category>SlopAgent</category>
+    <defaultKeyCodeA>L</defaultKeyCodeA>
+  </KeyBindingDef>
+
   <!-- In and out of the terminal from anywhere. F12 because vanilla spends
        nothing on it; see TerminalHotkeys.cs. -->
   <KeyBindingDef>

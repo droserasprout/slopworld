@@ -16,7 +16,8 @@ drop pods with a short opening delay.
 ## Agent titles
 
 The daemon can summarize agent prompts into short titles using an OpenRouter model. The
-Summaries settings page controls per-CLI policies and host terminal commands separately.
+Summaries settings page controls per-CLI policies; host terminals can use their native title
+or a fixed label.
 Titles are cached in `prompt-summaries.toml` and survive daemon restarts.
 
 ## Jukebox
