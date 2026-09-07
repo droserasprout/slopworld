@@ -31,15 +31,21 @@ namespace SlopWorld
         sealed class BinaryResult
         {
             public readonly BinarySpec Spec;
-            public readonly string Path;
+            public string Path { get; private set; }
+            public bool Resolved { get; private set; }
 
-            public BinaryResult(BinarySpec spec, string path)
+            public BinaryResult(BinarySpec spec)
             {
                 Spec = spec;
-                Path = path;
             }
 
-            public bool Found => !string.IsNullOrEmpty(Path);
+            public bool Found => Resolved && !string.IsNullOrEmpty(Path);
+
+            public void SetPath(string path)
+            {
+                Path = path;
+                Resolved = true;
+            }
         }
 
         // Keep this inventory in step with check-reqs.json, the daemon's command defaults, and
@@ -112,6 +118,7 @@ namespace SlopWorld
         string _error;
         bool _loading;
         int _scanGeneration;
+        int _resolved;
 
         public void Load() => Scan();
 
@@ -120,32 +127,45 @@ namespace SlopWorld
             int generation = ++_scanGeneration;
             _loading = true;
             _error = null;
-            _results = null;
+            _resolved = 0;
+            _results = Inventory.Select(spec => new BinaryResult(spec)).ToList();
 
             ThreadPool.QueueUserWorkItem(_ =>
             {
                 try
                 {
-                    var results = Inventory
-                        .Select(spec => new BinaryResult(spec, Locate(spec.Name)))
-                        .ToList();
-                    DaemonClient.OnMainThread(() =>
+                    foreach (var result in _results)
                     {
-                        if (generation != _scanGeneration) return;
-                        _results = results;
-                        _loading = false;
-                    });
+                        string path = null;
+                        try { path = Locate(result.Spec.Name); }
+                        catch { /* an unavailable host command is just not found */ }
+
+                        BinaryResult completed = result;
+                        DaemonClient.OnMainThread(() => Resolve(generation, completed, path));
+                    }
                 }
                 catch (Exception e)
                 {
-                    DaemonClient.OnMainThread(() =>
-                    {
-                        if (generation != _scanGeneration) return;
-                        _error = e.Message;
-                        _loading = false;
-                    });
+                    DaemonClient.OnMainThread(() => Fail(generation, e.Message));
                 }
             });
+        }
+
+        void Resolve(int generation, BinaryResult result, string path)
+        {
+            if (generation != _scanGeneration || result.Resolved) return;
+            result.SetPath(path);
+            _resolved++;
+            if (_resolved >= _results.Count) _loading = false;
+        }
+
+        void Fail(int generation, string message)
+        {
+            if (generation != _scanGeneration) return;
+            _error = message;
+            foreach (var result in _results)
+                if (!result.Resolved) result.SetPath(null);
+            _loading = false;
         }
 
         public void Draw(Rect rect)
@@ -200,12 +220,12 @@ namespace SlopWorld
         void DrawHeader(Rect r)
         {
             Slab.Fill(r, UiWidgets.RowBg);
-            float nameW, useW, pathX;
-            Columns(r.width, out nameW, out useW, out pathX);
+            float nameW, pathW, useX, useW;
+            Columns(r.width, out nameW, out pathW, out useX, out useW);
             UiWidgets.RowLabel(new Rect(r.x + UiWidgets.GapS, r.y, 28f, r.height), "", TextAnchor.MiddleCenter);
             UiWidgets.RowLabel(new Rect(r.x + 28f, r.y, nameW - 28f, r.height), "Binary");
-            UiWidgets.RowLabel(new Rect(r.x + nameW, r.y, useW, r.height), "Use");
-            UiWidgets.RowLabel(new Rect(r.x + pathX, r.y, r.width - pathX, r.height), "Path");
+            UiWidgets.RowLabel(new Rect(r.x + nameW, r.y, pathW, r.height), "Path");
+            UiWidgets.RowLabel(new Rect(r.x + useX, r.y, useW, r.height), "Use");
             Slab.Hairline(new Rect(r.x, r.yMax - 1f, r.width, 1f), UiWidgets.Edge);
         }
 
@@ -228,20 +248,36 @@ namespace SlopWorld
         void DrawRow(Rect r, BinaryResult result)
         {
             RowChrome.Hover(r, false, true, RowHoverPolicy.OverlayAware);
-            float nameW, useW, pathX;
-            Columns(r.width, out nameW, out useW, out pathX);
+            float nameW, pathW, useX, useW;
+            Columns(r.width, out nameW, out pathW, out useX, out useW);
 
             var mark = new Rect(r.x + UiWidgets.GapS, r.y + (r.height - 16f) / 2f, 16f, 16f);
-            GUI.color = result.Found ? UiWidgets.Yes : UiWidgets.Bad;
-            GUI.DrawTexture(mark, result.Found ? Icons.Check : Icons.Cross);
+            if (result.Found)
+            {
+                GUI.color = UiWidgets.Yes;
+                GUI.DrawTexture(mark, Icons.Check);
+            }
 
             GUI.color = result.Found ? UiWidgets.Name : UiWidgets.Dim;
             UiWidgets.RowLabel(new Rect(r.x + 28f, r.y, nameW - 28f, r.height), result.Spec.Name);
             GUI.color = UiWidgets.Dim;
-            UiWidgets.RowLabel(new Rect(r.x + nameW, r.y, useW, r.height), result.Spec.Use);
+            UiWidgets.RowLabel(new Rect(r.x + useX, r.y, useW, r.height), result.Spec.Use);
             GUI.color = result.Found ? UiWidgets.Lead : UiWidgets.Bad;
-            UiWidgets.RowLabel(new Rect(r.x + pathX, r.y, r.width - pathX, r.height),
-                result.Found ? result.Path : "not found");
+            var path = new Rect(r.x + nameW, r.y, pathW, r.height);
+            if (!result.Resolved)
+            {
+                GUI.color = UiWidgets.Dim;
+                UiWidgets.RowLabel(path, "checking...");
+            }
+            else if (result.Found)
+            {
+                UiWidgets.ReadOnlyField(path, "binaries.path." + result.Spec.Name,
+                    result.Path);
+            }
+            else
+            {
+                UiWidgets.RowLabel(path, "not found");
+            }
             GUI.color = Color.white;
         }
 
@@ -253,11 +289,13 @@ namespace SlopWorld
             return Mathf.Max(rows, UiWidgets.LineH);
         }
 
-        static void Columns(float width, out float nameW, out float useW, out float pathX)
+        static void Columns(float width, out float nameW, out float pathW,
+                            out float useX, out float useW)
         {
             nameW = Mathf.Min(170f, width * 0.28f);
             useW = Mathf.Min(235f, width * 0.38f);
-            pathX = nameW + useW;
+            pathW = Mathf.Max(0f, width - nameW - useW);
+            useX = nameW + pathW;
         }
 
         static string Locate(string command)
