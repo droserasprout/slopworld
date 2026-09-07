@@ -13,6 +13,8 @@ namespace SlopWorld.Tests
             yield return ("retains history across an in-place live refresh", RetainsLiveRefresh);
             yield return ("preserves a deep assembled view across unrelated live refreshes",
                 PreservesDeepViewAcrossLiveRefresh);
+            yield return ("freezes a shallow view across an in-place live refresh",
+                FreezesShallowViewAcrossLiveRefresh);
             yield return ("translates history when live output scrolls", TranslatesLiveScroll);
             yield return ("keeps history anchored when a repeated live row scrolls",
                 KeepsHistoryAnchoredWhenTopRowRepeats);
@@ -141,6 +143,36 @@ namespace SlopWorld.Tests
             AssertEx.True(object.ReferenceEquals(before, translated),
                 "logical coordinate maintenance preserves the assembled view");
             AssertEx.Equal(4, translated.Off, "cached view metadata follows the live bottom");
+        }
+
+        static void FreezesShallowViewAcrossLiveRefresh()
+        {
+            var live = Frame(0, "live-0", "live-1", "live-2");
+            var history = new TerminalHistory();
+            history.Reset(live);
+            history.Add(Frame(2, "old-2", "old-1", "live-0"), live, 2);
+
+            AssertEx.True(history.TryView(1, false, out var before),
+                "shallow history view is assembled");
+            AssertEx.Sequence(
+                new[] { "old-1", "live-0", "live-1" }, before.Lines,
+                "view overlaps cached history and live rows");
+
+            var refresh = Frame(0, "new-0", "new-1", "new-2");
+            refresh.Seq = 8;
+            AssertEx.True(history.UpdateLive(refresh, 0),
+                "in-place live refresh is compatible");
+            AssertEx.True(history.TryView(1, false, out var after),
+                "shallow view remains assembled");
+            AssertEx.Sequence(
+                new[] { "old-1", "live-0", "live-1" }, after.Lines,
+                "scrollback view stays frozen while live output refreshes");
+
+            AssertEx.True(history.TryView(0, false, out var liveView),
+                "moving to the live edge rebuilds the view");
+            AssertEx.Sequence(
+                new[] { "new-0", "new-1", "new-2" }, liveView.Lines,
+                "the live edge sees the latest in-place refresh");
         }
 
         static void KeepsHistoryAnchoredWhenTopRowRepeats()

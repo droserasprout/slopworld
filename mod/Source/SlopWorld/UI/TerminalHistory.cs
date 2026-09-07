@@ -62,15 +62,17 @@ namespace SlopWorld
 
             SetTemplate(live);
             bool changed = Index(live, 0, true);
-            // A pure in-place live redraw cannot affect an already assembled history-only
-            // view. A real scroll changes its public anchor but the stored rows and cached
-            // ScreenBuf remain valid after their metadata is translated below.
+            // A pure in-place live redraw cannot affect an already assembled scrollback view.
+            // Keep indexing the new live rows so a later anchor change sees them, but leave the
+            // currently displayed ScreenBuf intact until that view is no longer being shown.
+            // A real scroll changes its public anchor, so a shallow view must be rebuilt while
+            // a deep history-only view remains valid after its metadata is translated below.
             if (shift > 0 && _cachedView != null && _cachedAnchor >= live.Rows)
             {
                 _cachedAnchor += shift;
                 _cachedView.Off += shift;
             }
-            else if (changed && (_cachedView == null || _cachedAnchor < live.Rows)) Changed();
+            else if (changed && (shift > 0 || _cachedView == null)) Changed();
             return true;
         }
 
