@@ -288,6 +288,9 @@ fn render_runtime_context(cfg: &Config, project: &ProjectCfg, sessions: &[Sessio
     out.push_str("  - `slopctl accept ID`, `slopctl progress ID \"note\"`\n");
     out.push_str("  - `slopctl finish ID \"result\"` or `slopctl fail ID \"reason\"`\n");
     out.push_str(
+        "- Delegate once, keep the returned task ID, and use `slopctl wait ID` for the result. `task`, `inbox`, and `status` are for inspection, not a replacement for `wait`.\n",
+    );
+    out.push_str(
         "- Peer and task information can change after this snapshot; use `slopctl` for the live answer when available.\n",
     );
     out

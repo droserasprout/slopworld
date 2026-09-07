@@ -7,7 +7,7 @@ use anyhow::anyhow;
 
 pub(crate) const WORKER_SANDBOX: &str = "slopworld-worker";
 pub(crate) const WORKER_DISCOVERY_BREADCRUMB: &str =
-    "Other SlopWorld agents are available for delegated work. Use `slopctl peers`, `slopctl delegate AGENT TASK...`, `slopctl inbox`, and `slopctl --help`. Finish assigned work with `slopctl finish`.";
+    "Worker task: use `$SLOPWORLD_TASK_ID` with `slopctl task`, then `accept`, `progress`, and finally `finish` or `fail`. Do not search the inbox or poll task status.";
 
 #[derive(Debug, Clone)]
 pub struct WorkerSpawn {

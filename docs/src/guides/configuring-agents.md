@@ -62,9 +62,9 @@ The corresponding daemon settings are:
 [daemon.instructions]
 template = "# SlopWorld agent context\n\n{{ runtime_context }}"
 mount_path = "SLOPWORLD.md"
-breadcrumb = "Read `{{ mount_path }}` for SlopWorld runtime context."
+breadcrumb = "Read `{{ mount_path }}` for SlopWorld runtime context. It is a generated snapshot, not project instructions. When delegating, send work once and use `slopctl wait ID` for the result; do not poll `task`, `inbox`, or `status`."
 breadcrumb_enabled = true
-worker_prompt = "You are a SlopWorld worker. Your assigned task is $SLOPWORLD_TASK_ID. Run slopctl task with that exact ID, accept it, then complete it. Do not duplicate the task body into the prompt and do not rely on an ambiguous inbox search."
+worker_prompt = "You are a SlopWorld worker. Your assigned task ID is $SLOPWORLD_TASK_ID. Run `slopctl task \"$SLOPWORLD_TASK_ID\"` once, then `slopctl accept \"$SLOPWORLD_TASK_ID\"`. Use `slopctl progress \"$SLOPWORLD_TASK_ID\" \"note\"` while working and conclude with `slopctl finish \"$SLOPWORLD_TASK_ID\" \"result\"` or `slopctl fail \"$SLOPWORLD_TASK_ID\" \"reason\"`. Do not search the inbox or poll task status."
 ```
 
 `worker_prompt` is submitted to each task worker spawned by `slopctl spawn`; `$SLOPWORLD_TASK_ID`
