@@ -132,7 +132,7 @@ namespace SlopWorld
                     opts.Add(UiMenu.Separator());
                     opts.Add(new FloatMenuOption("New file", () => FilesView.Create(node, "file")));
                     opts.Add(new FloatMenuOption("New folder", () => FilesView.Create(node, "folder")));
-                    opts.Add(new FloatMenuOption("Terminal here", () => FilesView.TerminalHere(node)));
+                    opts.Add(new FloatMenuOption("Shell here", () => FilesView.ShellHere(node)));
                 }
 
                 return opts;
@@ -376,19 +376,20 @@ namespace SlopWorld
             });
         }
 
-        static void TerminalHere(Node node)
+        static void ShellHere(Node node)
         {
             // Errands are argv, not shell command lines. Invoke bash explicitly so the
             // directory change and the final interactive shell happen in one process, while
             // keeping the selected path quoted for both the daemon splitter and bash itself.
+            // This is intentionally a host errand: the Files tree can show a project path,
+            // but "Shell here" is for the host filesystem rather than that project's sandbox.
             string script = "cd -- " + Pager.Quote(node.Path) +
                 " && exec \"${SHELL:-bash}\"";
             string command = "bash -lc " + Pager.Quote(script);
-            bool host = string.IsNullOrEmpty(node.Project);
-            SessionHub.Instance.Run(host ? "" : node.Project, command,
-                "terminal-" + node.Name,
+            SessionHub.Instance.Run("", command,
+                "shell-" + node.Name,
                 session => TerminalWindow.Open(session), UiWidgets.Fail,
-                host: host, temp: host);
+                host: true, temp: true);
         }
 
         // Against the project's own directory. Null for the root itself, which has no relative
