@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using UnityEngine;
 
 namespace SlopWorld
@@ -63,18 +64,19 @@ namespace SlopWorld
             var state = GetState(name, lifetime);
             if (editor != null) state.Editor = editor;
             EventType type = RawType(e);
+            if (type == EventType.MouseDown && e.button == 0 &&
+                !rect.Contains(e.mousePosition))
+            {
+                if (_activeName == name) ClearActive(state);
+                if (_lastClickName == name) state.Clicks.Reset();
+                return PrepareResult.None;
+            }
+
             int controlId = ControlId(name, editor, state);
             if (controlId == 0) return PrepareResult.None;
 
             if (type == EventType.MouseDown && e.button == 0)
             {
-                if (!rect.Contains(e.mousePosition))
-                {
-                    if (_activeName == name) ClearActive(state);
-                    if (_lastClickName == name) state.Clicks.Reset();
-                    return PrepareResult.None;
-                }
-
                 if (_lastClickName != name || _lastClickLifetime != lifetime)
                     state.Clicks.Reset();
 
@@ -159,9 +161,6 @@ namespace SlopWorld
 
             var state = GetState(name, lifetime);
             if (editor != null) state.Editor = editor;
-            int controlId = ControlId(name, editor, state);
-            if (controlId == 0) return;
-
             var activeEditor = editor ?? state.Editor;
             EventType type = RawType(e);
             bool inside = rect.Contains(e.mousePosition);
@@ -175,6 +174,9 @@ namespace SlopWorld
                     return;
                 }
 
+                int mouseControlId = ControlId(name, editor, state);
+                if (mouseControlId == 0) return;
+
                 if (_lastClickName != name || _lastClickLifetime != lifetime)
                     state.Clicks.Reset();
 
@@ -183,7 +185,7 @@ namespace SlopWorld
                 _lastClickLifetime = lifetime;
                 _activeName = name;
                 _activeState = state;
-                state.ControlId = controlId;
+                state.ControlId = mouseControlId;
                 state.Dragging = true;
                 state.WordDragging = false;
                 state.LineDragging = false;
@@ -205,11 +207,14 @@ namespace SlopWorld
                     Select(activeEditor, state.WordStart, state.WordEnd);
                 }
 
-                if (controlId != 0) GUIUtility.hotControl = controlId;
+                if (mouseControlId != 0) GUIUtility.hotControl = mouseControlId;
                 GUI.changed = true;
                 e.Use();
                 return;
             }
+
+            int controlId = ControlId(name, editor, state);
+            if (controlId == 0) return;
 
             if (_activeName != name || _activeState != state || !state.Dragging) return;
 
@@ -327,20 +332,20 @@ namespace SlopWorld
             return Mathf.Clamp(editor.cursorIndex, 0, text.Length);
         }
 
-        static void Select(TextEditor editor, int start, int end)
+        static void Select(TextEditor editor, int anchor, int active)
         {
             int length = editor.text == null ? 0 : editor.text.Length;
-            start = Mathf.Clamp(start, 0, length);
-            end = Mathf.Clamp(end, start, length);
-            editor.selectIndex = start;
-            editor.cursorIndex = end;
+            anchor = Mathf.Clamp(anchor, 0, length);
+            active = Mathf.Clamp(active, 0, length);
+            editor.selectIndex = anchor;
+            editor.cursorIndex = active;
         }
 
         static void UpdateWord(TextEditor editor, string text, int index, State state)
         {
             WordRange(text, index, out int start, out int end);
             if (start < state.WordStart)
-                Select(editor, start, state.WordEnd);
+                Select(editor, state.WordEnd, start);
             else if (start > state.WordStart)
                 Select(editor, state.WordStart, end);
             else
@@ -351,42 +356,96 @@ namespace SlopWorld
         {
             LineRange(text, index, out int start, out int end);
             if (start < state.LineStart)
-                Select(editor, start, state.LineEnd);
+                Select(editor, state.LineEnd, start);
             else if (start > state.LineStart)
                 Select(editor, state.LineStart, end);
             else
                 Select(editor, state.LineStart, state.LineEnd);
         }
 
-        // Match the terminal's word rule: alphanumeric/underscore words, otherwise a run of
-        // identical non-word characters. This makes punctuation and whitespace useful targets.
+        // Match the terminal's word rule: Unicode letters/digits/marks and underscore words,
+        // otherwise a run of identical non-word code points. Keep indices on code-point
+        // boundaries so a supplementary character can never be split by a selection.
         static void WordRange(string text, int index, out int start, out int end)
         {
             if (string.IsNullOrEmpty(text)) { start = end = 0; return; }
-            int at = Mathf.Clamp(index, 0, text.Length - 1);
-            char anchor = text[at];
-            bool word = IsWordChar(anchor);
+            int at = CodePointIndex(text, index);
+            int anchor = CodePointAt(text, at);
+            bool word = IsWordChar(text, at);
             start = at;
-            end = at + 1;
-            while (start > 0 && SameClass(text[start - 1], anchor, word)) start--;
-            while (end < text.Length && SameClass(text[end], anchor, word)) end++;
+            end = NextCodePoint(text, at);
+            while (start > 0)
+            {
+                int previous = PreviousCodePoint(text, start);
+                if (!SameClass(text, previous, anchor, word)) break;
+                start = previous;
+            }
+            while (end < text.Length && SameClass(text, end, anchor, word))
+                end = NextCodePoint(text, end);
         }
 
         static void LineRange(string text, int index, out int start, out int end)
         {
             if (string.IsNullOrEmpty(text)) { start = end = 0; return; }
             int at = Mathf.Clamp(index, 0, text.Length - 1);
-            start = text.LastIndexOf('\n', at) + 1;
-            end = text.IndexOf('\n', at);
-            if (end < 0) end = text.Length;
-            if (end > start && text[end - 1] == '\r') end--;
+            start = at == 0 ? 0 : text.LastIndexOf('\n', at - 1) + 1;
+            int newline = text.IndexOf('\n', at);
+            end = newline < 0 ? text.Length : newline + 1;
         }
 
-        static bool SameClass(char c, char anchor, bool word) =>
-            word ? IsWordChar(c) : c == anchor;
+        static bool SameClass(string text, int index, int anchor, bool word) =>
+            word ? IsWordChar(text, index) : CodePointAt(text, index) == anchor;
 
-        static bool IsWordChar(char c) =>
-            (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
-            (c >= '0' && c <= '9') || c == '_';
+        static bool IsWordChar(string text, int index)
+        {
+            if (text[index] == '_') return true;
+            switch (CharUnicodeInfo.GetUnicodeCategory(text, index))
+            {
+                case UnicodeCategory.UppercaseLetter:
+                case UnicodeCategory.LowercaseLetter:
+                case UnicodeCategory.TitlecaseLetter:
+                case UnicodeCategory.ModifierLetter:
+                case UnicodeCategory.OtherLetter:
+                case UnicodeCategory.DecimalDigitNumber:
+                case UnicodeCategory.LetterNumber:
+                case UnicodeCategory.OtherNumber:
+                case UnicodeCategory.NonSpacingMark:
+                case UnicodeCategory.SpacingCombiningMark:
+                case UnicodeCategory.EnclosingMark:
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+        static int CodePointIndex(string text, int index)
+        {
+            int at = Mathf.Clamp(index, 0, text.Length - 1);
+            if (at > 0 && char.IsLowSurrogate(text[at]) &&
+                char.IsHighSurrogate(text[at - 1]))
+                at--;
+            return at;
+        }
+
+        static int CodePointAt(string text, int index) =>
+            char.ConvertToUtf32(text, index);
+
+        static int NextCodePoint(string text, int index)
+        {
+            int next = index + 1;
+            if (next < text.Length && char.IsHighSurrogate(text[index]) &&
+                char.IsLowSurrogate(text[next]))
+                return next + 1;
+            return next;
+        }
+
+        static int PreviousCodePoint(string text, int index)
+        {
+            int previous = index - 1;
+            if (previous > 0 && char.IsLowSurrogate(text[previous]) &&
+                char.IsHighSurrogate(text[previous - 1]))
+                previous--;
+            return previous;
+        }
     }
 }
