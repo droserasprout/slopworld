@@ -664,7 +664,7 @@ mod tests {
             .await;
         let live = manager.live.read().await;
         assert!(String::from_utf8_lossy(&live["agent"].breadcrumbs)
-            .contains("Other SlopWorld agents are available"));
+            .contains("Worker task: use `$SLOPWORLD_TASK_ID`"));
         assert!(live["agent"].breadcrumbs_pending);
         drop(live);
 

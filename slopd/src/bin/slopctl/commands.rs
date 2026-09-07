@@ -43,7 +43,8 @@ show one task by its exact id.
 pub(crate) const WAIT_USAGE: &str = "usage:
   slopctl wait ID
 
-poll one task until it reaches a terminal state, then show it.
+block until one task reaches a terminal state, then show it. This command checks
+the task internally; do not replace it with a status loop or a short timeout.
 ";
 
 pub(crate) const ACCEPT_USAGE: &str = "usage:
@@ -96,6 +97,13 @@ show the current caller, endpoint, daemon reachability, and pending task counts.
 
 pub(crate) const USAGE: &str = "slopctl - delegate work and inspect SlopWorld diagnostics
 
+common delegation flow:
+  slopctl delegate AGENT TASK...  # create a task and keep its ID
+  slopctl wait ID                # block for its terminal result
+
+wait performs the polling internally and has no short completion timeout. Do not
+loop over task, inbox or status while waiting.
+
 usage:
   slopctl delegate AGENT TASK...
   slopctl spawn [--durable] PARENT TASK...
@@ -113,9 +121,8 @@ usage:
   slopctl logs [game|daemon|all] [--lines N] [--follow]
 
 inbox shows unfinished work in both directions, newest first; --all adds what is
-done, failed and canceled. wait polls until a task reaches a terminal state. rm takes a
-terminal task, prune takes all of them. --json is accepted anywhere and prints the answer
-as JSON instead of for a reader.
+done, failed and canceled. rm takes a terminal task, prune takes all of them. --json is
+accepted anywhere and prints the answer as JSON instead of for a reader.
 
 SLOPWORLD_SESSION identifies the caller, and defaults to `host` - the user at the
 keyboard - which the daemon accepts only from the root token. SLOPD_ENDPOINT
@@ -349,6 +356,7 @@ fn run_delegate(
         Some(json!({ "to": to, "body": body })),
     )?;
     emit(&v, json);
+    print_wait_hint(&v, json);
     Ok(())
 }
 
@@ -376,7 +384,21 @@ pub(crate) fn run_spawn(
         })),
     )?;
     emit(&v, json);
+    print_wait_hint(&v, json);
     Ok(())
+}
+
+fn print_wait_hint(v: &Value, json: bool) {
+    if json {
+        return;
+    }
+    if let Some(id) = v
+        .get("task")
+        .and_then(|task| task.get("id"))
+        .and_then(Value::as_str)
+    {
+        println!("next     slopctl wait {id}");
+    }
 }
 
 fn run_inbox(

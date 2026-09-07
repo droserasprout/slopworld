@@ -16,6 +16,13 @@ Essentials:
 - [wire-protocol](notes/wire-protocol.md) — WS events & HTTP routes
 - [gotchas](notes/gotchas.md) — the traps
 - [house-rules](notes/house-rules.md) — commit rules & note discipline
+- [agent-tasks](notes/agent-tasks.md) — task mailboxes and delegation
+
+Delegation quick reference:
+
+- Send work once with `slopctl delegate AGENT "task"` or `slopctl spawn ...`; keep the returned task ID.
+- Wait for the result with `slopctl wait ID`. It blocks until terminal; do not loop over `task`, `inbox`, or `status`, or use a short timeout.
+- Assigned work uses `task ID`, `accept`, `progress`, then `finish` or `fail`.
 
 Architecture:
 

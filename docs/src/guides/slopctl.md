@@ -42,9 +42,10 @@ accepted work as `canceled`; removal is shared:
 the store holds one copy of a task, and a participant can only drop tasks that have
 stopped moving. The root token can remove tasks still in flight.
 
-`wait` polls the task until it reaches a terminal `done`, `failed` or `canceled` state, then
-prints that final task. It is useful after delegating work when the caller needs to
-continue only once the result is available.
+`wait` blocks until the task reaches a terminal `done`, `failed` or `canceled` state, then
+prints that final task. It performs the polling internally, so it is the correct replacement
+for a caller loop over `task`, `inbox`, or `status`. It is useful after delegating work when
+the caller needs to continue only once the result is available.
 
 `spawn` creates the task and child session in one daemon operation. `PARENT` must be an existing
 agent session to clone; the caller named by `SLOPWORLD_SESSION` owns the task and sidebar child.
