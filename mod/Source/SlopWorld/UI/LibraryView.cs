@@ -98,7 +98,7 @@ namespace SlopWorld
                 var list = body;
                 float height = Measure();
                 var view = new Rect(0f, 0f,
-                    list.width - (height > list.height ? UiWidgets.ScrollbarW : 0f),
+                    UiScrollBody.ContentWidth(list, height),
                     height);
 
                 // GUI rather than GUILayout, so this is safe in a pass that declines Layout

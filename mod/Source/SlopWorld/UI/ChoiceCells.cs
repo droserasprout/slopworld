@@ -139,10 +139,7 @@ namespace SlopWorld
                 }
 
                 float contentH = choices.Count * UiWidgets.RowH;
-                bool scrolls = contentH > pad.height;
-                float contentW = pad.width - (scrolls ? UiWidgets.ScrollbarW : 0f);
-                var inner = new Rect(0f, 0f, contentW,
-                    Mathf.Max(contentH, pad.height));
+                var inner = UiScrollBody.ConditionalView(pad, contentH);
                 using (scroll.Scope(pad, inner))
                 {
                     float y = 0f;

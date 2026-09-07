@@ -127,8 +127,7 @@ namespace SlopWorld
             }
 
             float contentH = Mathf.Max(list.height, _view.Count * RowH);
-            var view = new Rect(0f, 0f,
-                list.width - (contentH > list.height ? UiWidgets.ScrollbarW : 0f), contentH);
+            var view = UiScrollBody.ConditionalView(list, contentH);
             using (_scroll.Scope(list, view))
             {
                 for (int i = 0; i < _view.Count; i++)
