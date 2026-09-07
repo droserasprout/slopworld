@@ -4,6 +4,7 @@
 slopd/*
 !slopd/Cargo.toml
 !slopd/Cargo.lock
+!slopd/build.rs
 !slopd/src/
 !slopd/src/**
 !slopd/presets/

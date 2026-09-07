@@ -27,7 +27,15 @@ namespace SlopWorld
         internal static readonly Vector2 Margin = new Vector2(16f, 16f);
         internal static readonly Color ContainerBackground = Color.black;
         internal static readonly Color StreamText = new Color(0.86f, 0.87f, 0.88f);
-        const string LoadingFontName = "Classic Console Neue";
+        // The package name is the first lookup key; the embedded family name keeps the same
+        // font working on platforms whose font APIs ignore the filename.
+        static readonly string[] LoadingFontNames =
+        {
+            "slopworld_clacon2",
+            "Classic Console Neue",
+            "Classic Console",
+            "Courier New",
+        };
 
         // Not Verse.Rand: this screen is up during map generation, so drawing a tip must not
         // consume the game's deterministic sequence for terrain and pawns.
@@ -77,7 +85,7 @@ namespace SlopWorld
                 if (_loadingFont == null)
                 {
                     Log.Warning("[SlopWorld] loading screen font unavailable: " +
-                        LoadingFontName);
+                        string.Join(", ", LoadingFontNames));
                     _loadingFont = Font.CreateDynamicFontFromOSFont("Courier New", size);
                 }
 
@@ -104,8 +112,7 @@ namespace SlopWorld
         }
 
         static Font CreateLoadingFont(int size)
-            => Font.CreateDynamicFontFromOSFont(
-                new[] { LoadingFontName, "Classic Console", "Courier New" }, size);
+            => Font.CreateDynamicFontFromOSFont(LoadingFontNames, size);
 
         internal static Vector2 Box
         {
