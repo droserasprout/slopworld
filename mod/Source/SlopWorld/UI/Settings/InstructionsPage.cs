@@ -81,10 +81,16 @@ namespace SlopWorld
             float w = Mathf.Min(150f, (r.width - UiWidgets.GapS) / 2f);
             if (UiWidgets.Button(new Rect(r.x, r.y, w, r.height), "Template",
                     _tab == Tab.Editor ? UiWidgets.Btn.Primary : UiWidgets.Btn.Ghost))
+            {
+                if (_tab != Tab.Editor) TextFieldSelection.ReleaseFocus();
                 _tab = Tab.Editor;
+            }
             if (UiWidgets.Button(new Rect(r.x + w + UiWidgets.GapS, r.y, w, r.height),
                     "Preview", _tab == Tab.Preview ? UiWidgets.Btn.Primary : UiWidgets.Btn.Ghost))
+            {
+                if (_tab != Tab.Preview) TextFieldSelection.ReleaseFocus();
                 _tab = Tab.Preview;
+            }
         }
 
         void DrawEditor(Rect r)

@@ -41,7 +41,12 @@ namespace SlopWorld
         public OptionCategoryDef Category
         {
             get { return _dlg.selectedCategory; }
-            set { _dlg.selectedCategory = value; _dlg.selectedMod = null; }
+            set
+            {
+                if (_dlg.selectedCategory != value) TextFieldSelection.ReleaseFocus();
+                _dlg.selectedCategory = value;
+                _dlg.selectedMod = null;
+            }
         }
 
         // The centred band inside whatever room the pages are given, and the rect handed to

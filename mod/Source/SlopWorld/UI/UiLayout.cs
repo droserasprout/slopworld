@@ -297,7 +297,11 @@ namespace SlopWorld
         {
             if (Button(new Rect(r.x, y, r.width, BtnH), label,
                     EqualityComparer<T>.Default.Equals(active, tab) ? Btn.Primary : Btn.Ghost))
+            {
+                if (!EqualityComparer<T>.Default.Equals(active, tab))
+                    TextFieldSelection.ReleaseFocus();
                 active = tab;
+            }
             return y + BtnH + GapS;
         }
     }
