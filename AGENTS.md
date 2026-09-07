@@ -5,9 +5,13 @@ This project is a RimWorld mod (C#, Harmony) and `slopd` daemon (Rust).
 
 Keep this file concise. Update its curated links when notes are added, moved, or renamed; keep the complete list in `notes/index.md`. Keep short notes in separate files in `notes/` and read/update them when needed.
 
-Essentials:
+Rules:
 
 - Use `make` for all project commands.
+- Do not run game, take screenshots, or watch pictures unless asked directly.
+
+Essentials:
+
 - [overview](notes/overview.md) — what this is
 - [index](notes/index.md) — all devnotes
 - [build-commands](notes/build-commands.md) — make, format, debug
