@@ -102,6 +102,9 @@ package() {
   find "$_mod" -type d -exec chmod 755 {} +
   find "$_mod" -type f -exec chmod 644 {} +
 
+  install -Dm644 assets/fonts/clacon2.ttf \
+    "$pkgdir/usr/share/fonts/TTF/slopworld_clacon2.ttf"
+
   install -Dm644 packaging/slopworld.desktop \
     "$pkgdir/usr/share/applications/slopworld.desktop"
   # The colonists' own face, with a wilted rose growing from the skull.

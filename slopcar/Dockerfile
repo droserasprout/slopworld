@@ -3,7 +3,7 @@
 # platform and Apple Silicon runs the image without emulation. slopd's sandbox skeleton reads the
 # host's own usr-merge layout at runtime, so this multiarch tree works the same as Arch's did.
 
-FROM rust:1-trixie AS build
+FROM rust:1-trixie@sha256:620dbcd124499c59e2406d3741574b5c5838cf9eb9656f0c3a03948f79b02959 AS build
 WORKDIR /build/slopd
 RUN apt-get update && apt-get install -y --no-install-recommends \
         libasound2-dev \
@@ -14,6 +14,7 @@ RUN mkdir src \
     && printf 'fn main() {}\n' > src/main.rs \
     && cargo build --release --locked --bin slopd \
     && rm -rf src
+COPY slopd/build.rs ./build.rs
 COPY slopd/src ./src
 COPY slopd/presets ./presets
 RUN touch src/main.rs src/bin/slopctl.rs \
@@ -23,10 +24,11 @@ RUN touch src/main.rs src/bin/slopctl.rs \
 # (amd64 + arm64, no emulation). npm's `--allow-scripts` allowlist below needs npm 12, which in
 # turn needs node >= 22 — newer than trixie's own nodejs — so we take node from this base rather
 # than apt.
-FROM node:22-trixie-slim
+FROM node:22-trixie-slim@sha256:7b8a0c89c54499bee567618f96578e1a12a800f062fbdbfd1fb6a443fa6f6284
 
 ARG CLAUDE_CODE_VERSION=2.1.245
 ARG CODEX_VERSION=0.149.1
+ARG NPM_VERSION=12.0.2
 ARG OPENCODE_VERSION=1.18.23
 ARG PI_VERSION=0.84.3
 
@@ -43,7 +45,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         python3 \
         ripgrep \
         tmux \
-    && npm install --global npm@latest \
+    && npm install --global "npm@${NPM_VERSION}" \
     && npm install --global \
         --allow-scripts=@anthropic-ai/claude-code,opencode-ai,@google/genai,protobufjs,koffi \
         "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}" \
