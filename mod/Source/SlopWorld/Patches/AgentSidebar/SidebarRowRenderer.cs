@@ -244,7 +244,8 @@ namespace SlopWorld
         static string Title(SessionInfo info)
         {
             if (info == null) return "";
-            var value = string.IsNullOrWhiteSpace(info.Label) ? info.Title : info.Label;
+            bool fixedLabel = !string.IsNullOrWhiteSpace(info.Label);
+            var value = fixedLabel ? info.Label : info.Title;
             value = value ?? "";
             var font = Text.CurFontStyle?.font;
             var clean = new System.Text.StringBuilder(value.Length);
@@ -252,8 +253,8 @@ namespace SlopWorld
                 clean.Append(char.IsControl(c) || (font != null && !font.HasCharacter(c))
                     ? ' ' : c);
             string title = clean.ToString().Trim();
-            title = RestoreHostPath(info, title);
-            return title.Length == 0 || IsHostTitle(title) ? "" : title;
+            if (!fixedLabel) title = RestoreHostPath(info, title);
+            return title.Length == 0 || (!fixedLabel && IsHostTitle(title)) ? "" : title;
         }
 
         // tmux can hand us zsh's width-limited cwd title ("..it/repo" or "..pository")

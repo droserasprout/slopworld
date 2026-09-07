@@ -36,6 +36,9 @@ namespace SlopWorld
         /// Hotkey on the selected agent's Remove gizmo.
         public static KeyBindingDef SlopRemoveSession;
 
+        /// Hotkey on the selected session's Label gizmo.
+        public static KeyBindingDef SlopLabelSession;
+
         /// Opens and closes the terminal from anywhere, agent selected or not.
         public static KeyBindingDef SlopQuickTerminal;
 

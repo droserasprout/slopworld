@@ -80,7 +80,12 @@ namespace SlopWorld
                 yield return BuildStartGizmo();
             }
 
-            if (info.Host) yield break;
+            if (info.Host)
+            {
+                if (info.Alive)
+                    yield return BuildLabelGizmo(info.Label);
+                yield break;
+            }
 
             yield return BuildEditGizmo();
             yield return BuildLabelGizmo(info.Label);
@@ -162,10 +167,11 @@ namespace SlopWorld
             {
                 defaultLabel = "Label",
                 defaultDesc = string.IsNullOrWhiteSpace(label)
-                    ? $"Set a manual summary label for '{Session}'. This disables automatic summaries."
-                    : $"Change or remove '{Session}'s manual label. Removing it re-enables automatic summaries.",
+                    ? $"Set a fixed label for '{Session}'. Leave it blank to use the generated title."
+                    : $"Change or remove '{Session}'s fixed label. Removing it restores the generated title.",
                 icon = Icons.Type,
                 defaultIconColor = UiWidgets.Accent,
+                hotKey = ModDefOf.SlopLabelSession,
                 action = () => LabelDialog.Open(Session, label),
             };
         }

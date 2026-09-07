@@ -199,7 +199,7 @@ impl Manager {
 
     /// A settings change must invalidate title work already captured for a session. Otherwise a
     /// request queued just before turning summaries off can still reach OpenRouter or overwrite
-    /// the host terminal's native title after the save has completed.
+    /// a terminal's native title after the save has completed.
     pub(crate) async fn reconcile_title_settings(&self, cfg: &Config) -> bool {
         let mut clear = Vec::new();
         let mut changed = false;

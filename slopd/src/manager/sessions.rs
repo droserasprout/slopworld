@@ -82,6 +82,7 @@ impl Manager {
             } else {
                 cfg.host_terminals.push(crate::config::HostTerminalCfg {
                     name: name.to_string(),
+                    label: None,
                     project: project.to_string(),
                     path: path.to_string(),
                     autostart: true,
@@ -270,9 +271,8 @@ impl Manager {
     }
 
     /// Set the optional manual sidebar label without making the edit dialog round-trip
-    /// read-only session fields. A non-empty label also invalidates a title request already
-    /// in flight; clearing it leaves any existing generated title in place and lets the next
-    /// prompt use the configured title policy again.
+    /// read-only session fields. Host labels live in the durable host-terminal record even
+    /// though host rows use the ephemeral presentation internally.
     pub async fn set_label(self: &Arc<Self>, name: &str, label: String) -> Result<()> {
         self.reload_if_changed().await;
         let label = label.trim().to_string();
@@ -281,14 +281,23 @@ impl Manager {
         }
 
         let saved = (!label.is_empty()).then_some(label.clone());
-        if !self.is_ephemeral(name).await {
+        let host = self.is_host(name).await;
+        if host || !self.is_ephemeral(name).await {
             self.update_cfg(|cfg| {
-                let session = cfg
-                    .sessions
-                    .iter_mut()
-                    .find(|session| session.name == name)
-                    .ok_or_else(|| anyhow!("no such session: {name}"))?;
-                session.label = saved.clone();
+                if host {
+                    // Runtime-only host errands have no host_terminal record. Their label is
+                    // still useful for the current pane, but there is nothing to persist.
+                    if let Some(tab) = cfg.host_terminals.iter_mut().find(|tab| tab.name == name) {
+                        tab.label = saved.clone();
+                    }
+                } else {
+                    let session = cfg
+                        .sessions
+                        .iter_mut()
+                        .find(|session| session.name == name)
+                        .ok_or_else(|| anyhow!("no such session: {name}"))?;
+                    session.label = saved.clone();
+                }
                 Ok(())
             })
             .await?;
@@ -302,6 +311,10 @@ impl Manager {
             live.cfg.label = saved;
             live.title.generation = live.title.generation.wrapping_add(1);
             live.title.pending = false;
+            if host {
+                live.title.composer = Composer::ready();
+                live.title.override_title = None;
+            }
         }
         let _ = self.events.send(Event::Sessions {
             sessions: self.views().await,

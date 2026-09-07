@@ -35,6 +35,7 @@ Bare F-keys are the mod's; Shift+F-key passes the F-key through to the agent.
 | S | Start/stop agent | yes |
 | E | Edit agent | yes |
 | D | Duplicate agent | yes |
+| L | Label selected session | yes |
 | Delete | Remove agent | yes |
 
 ## Terminal (hardcoded)

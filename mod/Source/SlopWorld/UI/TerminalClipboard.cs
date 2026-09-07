@@ -92,6 +92,15 @@ namespace SlopWorld
             var copy = new FloatMenuOption("Copy", CopySelection);
             copy.Disabled = !_hasSel;
             options.Add(copy);
+            if (info != null)
+            {
+                string name = _name;
+                options.Add(new FloatMenuOption("Label", () =>
+                {
+                    var current = SessionHub.Instance.Get(name);
+                    if (current != null) LabelDialog.Open(name, current.Label);
+                }));
+            }
             options.Add(new FloatMenuOption("Paste", () => { JumpToLive(); PasteClipboard(); }));
             var breadcrumbs = AllBreadcrumbs();
             var breadcrumbMenu = new UiSubmenu("Breadcrumbs",
