@@ -79,6 +79,21 @@ namespace SlopWorld
             return TextEntry(inner, text, false, focused, name);
         }
 
+        // A native text field is used deliberately: its TextEditor supplies familiar drag,
+        // Ctrl+C and right-click selection behavior. The value is restored after each draw,
+        // so callers can expose a copyable value without making it editable state.
+        public static void ReadOnlyField(Rect r, string name, string text)
+        {
+            bool released = ReleaseFunctionKeyFocus(name);
+            bool focused = !released && GUI.GetNameOfFocusedControl() == name;
+            InputBackground(r, true, focused);
+
+            if (released) return;
+            var inner = r.ContractedBy(FieldPadX, FieldPadY);
+            GUI.SetNextControlName(name);
+            TextEntry(inner, text, false, focused, name, true);
+        }
+
         public static string Area(Rect r, string name, string text, bool on = true,
                                   bool frame = true)
         {
@@ -168,8 +183,10 @@ namespace SlopWorld
         static readonly Queue<PendingFieldEdit> PendingEdits =
             new Queue<PendingFieldEdit>();
 
-        static string TextEntry(Rect r, string text, bool area, bool focused, string name)
+        static string TextEntry(Rect r, string text, bool area, bool focused, string name,
+                                bool readOnly = false)
         {
+            string source = text ?? "";
             var wasColor = GUI.color;
             bool over = Mouse.IsOver(r);
             // Most callers leave GUI.color white. Give ordinary entries the same quiet text
@@ -199,8 +216,8 @@ namespace SlopWorld
                 var style = Bare(area ? Verse.Text.CurTextAreaStyle
                                       : Verse.Text.CurTextFieldStyle, area);
                 var result = area
-                    ? GUI.TextArea(r, text ?? "", style)
-                    : GUI.TextField(r, text ?? "", style);
+                    ? GUI.TextArea(r, source, style)
+                    : GUI.TextField(r, source, style);
 
                 var editor = CurrentEditor(name);
                 if (keepSelection && editor != null)
@@ -209,16 +226,24 @@ namespace SlopWorld
                     editor.selectIndex = beforeSelect;
                 }
                 ApplyPendingEdits(name, editor, FieldLifetimeScope.Current);
-                if (editor != null) result = editor.text;
+                if (readOnly && editor != null && editor.text != source)
+                {
+                    int cursor = editor.cursorIndex;
+                    int select = editor.selectIndex;
+                    editor.text = source;
+                    editor.cursorIndex = Mathf.Clamp(cursor, 0, source.Length);
+                    editor.selectIndex = Mathf.Clamp(select, 0, source.Length);
+                }
+                if (editor != null) result = readOnly ? source : editor.text;
 
-                if (mouseDown && button == 2)
+                if (mouseDown && button == 2 && !readOnly)
                 {
                     RequestPaste(name, area, primary: true, lifetime: FieldLifetimeScope.Current);
                     e.Use();
                 }
                 else if (mouseDown && button == 1)
                 {
-                    OpenContextMenu(name, area, editor, FieldLifetimeScope.Current);
+                    OpenContextMenu(name, area, editor, FieldLifetimeScope.Current, readOnly);
                     e.Use();
                 }
 
@@ -344,7 +369,7 @@ namespace SlopWorld
         }
 
         static void OpenContextMenu(string name, bool area, TextEditor editor,
-                                    FieldLifetime lifetime)
+                                    FieldLifetime lifetime, bool readOnly = false)
         {
             if (string.IsNullOrEmpty(name)) return;
             int controlId = GUIUtility.keyboardControl;
@@ -360,14 +385,15 @@ namespace SlopWorld
                 QueueEdit(name, controlId, e => e.DeleteSelection(), lifetime);
             });
             cut.Disabled = selected.Length == 0;
-            options.Add(cut);
+            if (!readOnly) options.Add(cut);
 
             var copy = new FloatMenuOption("Copy", () => DaemonClipboard.Copy(selected));
             copy.Disabled = selected.Length == 0;
             options.Add(copy);
 
-            options.Add(new FloatMenuOption("Paste", () =>
-                RequestPaste(name, controlId, area, false, lifetime)));
+            if (!readOnly)
+                options.Add(new FloatMenuOption("Paste", () =>
+                    RequestPaste(name, controlId, area, false, lifetime)));
             options.Add(new FloatMenuOption("Select all", () =>
                 QueueEdit(name, controlId, e => e.SelectAll(), lifetime)));
 
