@@ -31,7 +31,7 @@ namespace SlopWorld
                 host
                     ? "Set a fixed label for this host terminal. Leave it blank to use its terminal title."
                     : "Set a fixed label. Leave it blank to use the generated title.",
-                "agent.label", _label, _error, UiWidgets.RowH * 2f);
+                "agent.label", _label, _error, UiWidgets.RowH * 2f, TitleRect(rect));
 
             var foot = TextDialog.Footer(rect);
             if (foot.Left("Cancel", UiWidgets.Btn.Ghost)) Close();

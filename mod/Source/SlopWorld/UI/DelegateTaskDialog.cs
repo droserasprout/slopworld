@@ -27,7 +27,7 @@ namespace SlopWorld
 
         protected override void DoBody(Rect rect)
         {
-            UiWidgets.Title(rect, string.IsNullOrEmpty(_to)
+            UiWidgets.Title(TitleRect(rect), string.IsNullOrEmpty(_to)
                 ? "Delegate task" : $"Delegate task to '{_to}'");
 
             float y = rect.y + UiWidgets.HeaderH + UiWidgets.GapM;

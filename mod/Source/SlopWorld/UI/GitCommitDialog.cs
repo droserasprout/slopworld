@@ -26,7 +26,7 @@ namespace SlopWorld
         {
             _message = TextDialog.Draw(rect, $"Commit '{_project}'",
                 "Only staged changes will be committed.", "git.commit.message", _message,
-                _error);
+                _error, titleRect: TitleRect(rect));
 
             var foot = TextDialog.Footer(rect);
             if (foot.Left("Cancel", UiWidgets.Btn.Ghost)) Close();

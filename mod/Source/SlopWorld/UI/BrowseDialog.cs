@@ -12,6 +12,9 @@ namespace SlopWorld
         string _path;
         string _parent;
         string[] _dirs = new string[0];
+        string _error;
+        bool _pending;
+        int _requestGeneration;
         readonly SmoothScroll _scroll = new SmoothScroll();
 
         // One row and the clearance under it, so the list has a pitch rather than two figures
@@ -21,11 +24,7 @@ namespace SlopWorld
         public BrowseDialog(string start, System.Action<string> pick)
         {
             _pick = pick;
-            AcceptOnEnter(() =>
-            {
-                _pick?.Invoke(_path);
-                Close();
-            });
+            AcceptOnEnter(UseCurrent);
             Load(start ?? "");
         }
 
@@ -33,30 +32,62 @@ namespace SlopWorld
 
         void Load(string path)
         {
+            int generation = ++_requestGeneration;
+            _pending = true;
+            _error = null;
+            _path = null;
+            _parent = null;
+            _dirs = new string[0];
+
             DaemonClient.Get($"/api/browse?path={System.Uri.EscapeDataString(path)}",
                 j =>
                 {
-                    _path = j["path"].AsString();
+                    if (generation != _requestGeneration) return;
+
+                    string resolved = j == null ? null : j["path"].AsString(null);
+                    if (resolved == null)
+                    {
+                        _pending = false;
+                        _error = "The daemon returned no directory path.";
+                        return;
+                    }
+
+                    _path = resolved;
                     _parent = j["parent"].IsNull ? null : j["parent"].AsString();
                     _dirs = j["dirs"].Items.Select(d => d.AsString()).ToArray();
+                    _pending = false;
                 },
-                UiWidgets.Fail);
+                msg =>
+                {
+                    if (generation != _requestGeneration) return;
+                    _pending = false;
+                    _error = msg;
+                    UiWidgets.Fail(msg);
+                });
+        }
+
+        void UseCurrent()
+        {
+            if (_pending || _path == null) return;
+            _pick?.Invoke(_path);
+            Close();
         }
 
         protected override void DoBody(Rect rect)
         {
-            UiWidgets.PageCaption(rect, _path ?? "loading...");
+            UiWidgets.PageCaption(TitleRect(rect), _path ?? (_pending ? "loading..." :
+                _error ?? "no directory selected"));
 
             float top = rect.y + UiWidgets.RowH + UiWidgets.GapXS;
             var list = new Rect(rect.x, top, rect.width,
                 rect.yMax - UiWidgets.BtnH - UiWidgets.GapS - top);
-            int count = _dirs.Length + (_parent != null ? 1 : 0);
+            int count = _pending ? 0 : _dirs.Length + (_parent != null ? 1 : 0);
             var view = new Rect(0f, 0f, list.width - UiWidgets.ScrollbarW, count * Pitch);
 
             using (_scroll.Scope(list, view))
             {
                 float y = 0f;
-                if (_parent != null)
+                if (!_pending && _parent != null)
                 {
                     // Ghost the whole way down: forty directories in forty raised slabs is a wall
                     // of buttons, and what this is is a list that answers to a click.
@@ -66,24 +97,28 @@ namespace SlopWorld
                     y += Pitch;
                 }
 
-                foreach (var d in _dirs)
-                {
-                    if (UiWidgets.Button(new Rect(0f, y, view.width, UiWidgets.RowH), d,
-                            UiWidgets.Btn.Ghost))
+                if (!_pending) foreach (var d in _dirs)
                     {
-                        Load(System.IO.Path.Combine(_path ?? "", d).Replace('\\', '/'));
-                        break; // _dirs is about to be replaced under us
+                        if (UiWidgets.Button(new Rect(0f, y, view.width, UiWidgets.RowH), d,
+                                UiWidgets.Btn.Ghost))
+                        {
+                            Load(System.IO.Path.Combine(_path ?? "", d).Replace('\\', '/'));
+                            break; // _dirs is about to be replaced under us
+                        }
+                        y += Pitch;
                     }
-                    y += Pitch;
-                }
             }
 
             if (UiWidgets.Button(UiWidgets.FooterBar(rect),
-                    "Use this directory", UiWidgets.Btn.Primary))
-            {
-                _pick(_path);
-                Close();
-            }
+                    "Use this directory", UiWidgets.Btn.Primary, !_pending && _path != null))
+                UseCurrent();
+        }
+
+        public override void PostClose()
+        {
+            ++_requestGeneration;
+            _pending = false;
+            base.PostClose();
         }
     }
 }

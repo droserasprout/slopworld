@@ -25,7 +25,7 @@ namespace SlopWorld
 
         protected override void DoBody(Rect rect)
         {
-            UiWidgets.Title(rect, DialogTitle);
+            UiWidgets.Title(TitleRect(rect), DialogTitle);
 
             float messageY = rect.y + UiWidgets.HeaderH + UiWidgets.GapM;
             float messageH = MessageHeight(Message, rect.width);

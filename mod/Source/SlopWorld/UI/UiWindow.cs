@@ -44,6 +44,16 @@ namespace SlopWorld
 
         const float CloseSize = 22f;
 
+        // Titles and captions share the close corner's horizontal lane. Keep their text out
+        // of that lane without narrowing the form below it; RowLabel then truncates long names
+        // at the edge where the close control begins.
+        protected Rect TitleRect(Rect rect)
+        {
+            if (!Closable) return rect;
+            return new Rect(rect.x, rect.y,
+                Mathf.Max(0f, rect.width - CloseSize - UiWidgets.GapS), rect.height);
+        }
+
         protected static float MessageHeight(string text, float width)
         {
             using (WidgetState.Save())
