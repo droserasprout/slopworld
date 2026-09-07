@@ -199,8 +199,19 @@ namespace SlopWorld
             bool eventOver = e != null && r.Contains(e.mousePosition);
             int button = -1;
             bool mouseDown = eventOver && MouseDown(e, out button);
-            bool replay = mouseDown && (e.type == EventType.Used || e.type == EventType.ContextClick);
+            var style = Bare(area ? Verse.Text.CurTextAreaStyle
+                                  : Verse.Text.CurTextFieldStyle, area);
+            var prepared = TextFieldSelection.Prepare(r, name, source, style,
+                CurrentEditor(name), FieldLifetimeScope.Current);
+            bool replay = (prepared == TextFieldSelection.PrepareResult.None ||
+                prepared == TextFieldSelection.PrepareResult.TrackedMouseDown) &&
+                (mouseDown && (e.type == EventType.Used || e.type == EventType.ContextClick));
+            if (!replay && prepared == TextFieldSelection.PrepareResult.None &&
+                TextFieldSelection.ShouldReplay(name, e, FieldLifetimeScope.Current))
+                replay = true;
             var oldType = replay ? e.type : EventType.Ignore;
+            EventType replayType = e == null ? EventType.Ignore
+                : e.type == EventType.Used ? e.rawType : e.type;
             var beforeEditor = mouseDown && button == 1 ? CurrentEditor(name) : null;
             bool keepSelection = beforeEditor != null && beforeEditor.IsOverSelection(e.mousePosition);
             int beforeCursor = keepSelection ? beforeEditor.cursorIndex : 0;
@@ -209,12 +220,11 @@ namespace SlopWorld
             // WindowStack may have consumed the event before this window's contents run. Give
             // the native editor its mouse-down once, then leave the event Used as before. This
             // is what lets a click focus a field even when it sits below an absorbing window.
-            if (replay) e.type = EventType.MouseDown;
+            if (replay) e.type = replayType == EventType.ContextClick
+                ? EventType.MouseDown : replayType;
 
             try
             {
-                var style = Bare(area ? Verse.Text.CurTextAreaStyle
-                                      : Verse.Text.CurTextFieldStyle, area);
                 var result = area
                     ? GUI.TextArea(r, source, style)
                     : GUI.TextField(r, source, style);
@@ -235,6 +245,11 @@ namespace SlopWorld
                     editor.selectIndex = Mathf.Clamp(select, 0, source.Length);
                 }
                 if (editor != null) result = readOnly ? source : editor.text;
+
+                if (prepared == TextFieldSelection.PrepareResult.None ||
+                    prepared == TextFieldSelection.PrepareResult.SelectionDrag)
+                    TextFieldSelection.Handle(r, name, source, style, editor,
+                        FieldLifetimeScope.Current);
 
                 if (mouseDown && button == 2 && !readOnly)
                 {
