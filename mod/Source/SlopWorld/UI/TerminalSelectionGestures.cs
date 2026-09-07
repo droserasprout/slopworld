@@ -136,6 +136,7 @@ namespace SlopWorld
             _multiClickSelection = true;
             _wordDragging = true;
             _lineDragging = false;
+            CopyPrimarySelection();
         }
 
         internal void UpdateWordSelection(Vector2Int cell)

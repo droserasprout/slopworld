@@ -56,7 +56,7 @@ These shortcuts are active inside the terminal pane and cannot be rebound.
 | Shift+F1..F12 | Forward the F-key to the agent. |
 | Ctrl+click | Open a URL printed in the terminal, or navigate to a file path in Files. |
 | Right-click | Terminal context menu. |
-| Double-click | Select a word. |
+| Double-click | Select a word and publish it to the host's PRIMARY selection. |
 | Triple-click | Select a line and publish it to the host's PRIMARY selection. |
 
 ## Mouse wheel (terminal)

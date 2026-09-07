@@ -62,9 +62,10 @@ directly. A monochrome lock marks the frozen view while scrolled back.
 These terminal-specific modifier behaviors are hardcoded: Alt+Z/Alt+X walk the terminal tab
 list, including host and ephemeral tabs,
 Shift+Enter sends `\e[13;2u` so an agent inserts a newline instead of submitting, Ctrl+C
-copies when text is selected and otherwise falls through as SIGINT, Ctrl+V pastes, triple-click
-publishes its line to the host's Wayland/X11 PRIMARY selection, and middle-click pastes that
-selection (even when an app reports mouse input). Non-Codex agent panes use the normal
+copies when text is selected and otherwise falls through as SIGINT, Ctrl+V pastes, double-click
+publishes its word and triple-click publishes its line to the host's Wayland/X11 PRIMARY
+selection, and middle-click pastes that selection (even when an app reports mouse input).
+Non-Codex agent panes use the normal
 clipboard read; host panes use a text-only read. Codex panes probe the text-only clipboard first,
 because Codex's image-paste handler
 otherwise reports a missing image for ordinary text; they forward Ctrl+V only for image (or
