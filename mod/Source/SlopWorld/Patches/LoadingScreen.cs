@@ -73,7 +73,7 @@ namespace SlopWorld
                     return _loadingStyle;
 
                 Font old = _loadingFont;
-                _loadingFont = Font.CreateDynamicFontFromOSFont(LoadingFontName, size);
+                _loadingFont = CreateLoadingFont(size);
                 if (_loadingFont == null)
                 {
                     Log.Warning("[SlopWorld] loading screen font unavailable: " +
@@ -102,6 +102,10 @@ namespace SlopWorld
                 return _loadingStyle;
             }
         }
+
+        static Font CreateLoadingFont(int size)
+            => Font.CreateDynamicFontFromOSFont(
+                new[] { LoadingFontName, "Classic Console", "Courier New" }, size);
 
         internal static Vector2 Box
         {
