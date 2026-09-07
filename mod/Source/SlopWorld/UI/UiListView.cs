@@ -43,9 +43,7 @@ namespace SlopWorld
         {
             var items = Rows.ToList();
             float contentH = items.Count * RowH + UiWidgets.GapXS;
-            bool scrolls = contentH > rect.height;
-            float contentW = rect.width - (scrolls ? UiWidgets.ScrollbarW : 0f);
-            var view = new Rect(0f, 0f, contentW, Mathf.Max(contentH, rect.height));
+            var view = UiScrollBody.ConditionalView(rect, contentH);
 
             using (_scroll.Scope(rect, view))
             {

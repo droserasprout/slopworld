@@ -73,8 +73,7 @@ namespace SlopWorld
             }
 
             float height = Pad + HeaderH + UiWidgets.GapXS + tasks.Count * RowH + Pad;
-            var list = new Rect(0f, 0f, body.width -
-                (height > body.height ? UiWidgets.ScrollbarW : 0f), height);
+            var list = new Rect(0f, 0f, UiScrollBody.ContentWidth(body, height), height);
             // XInput device discovery is disproportionately expensive on some Linux/X11
             // systems. Tasks use ordinary Unity wheel packets and thumb dragging instead;
             // unlike terminal history, this compact list does not need fractional gestures.

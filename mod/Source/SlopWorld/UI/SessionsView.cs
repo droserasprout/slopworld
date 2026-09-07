@@ -20,8 +20,7 @@ namespace SlopWorld
         // Two lines, and the second of them holds a row button rather than a bare line -
         // so the pitch is measured off what is actually in it. At two line heights the
         // buttons on the bottom line hung a few pixels past the row they belong to.
-        protected override float RowH =>
-            UiWidgets.GapXS + UiWidgets.LineH + UiWidgets.RowBtnH + UiWidgets.GapXS + 4f;
+        protected override float RowH => UiListRow.TwoLineH;
 
         protected override string EmptyNote =>
             "No sessions yet. Add one and it will show up as a colonist.";
@@ -44,22 +43,22 @@ namespace SlopWorld
 
         protected override void DrawRow(Rect r, SessionInfo s)
         {
-            RowChrome.Hover(r, false, true, RowHoverPolicy.OverlayAware);
+            UiListRow.Prepare(r);
 
-            float y = r.y + DrawIdentity(r, s);
+            DrawIdentity(r, s);
+            float y = UiListRow.LineY(r, 1);
             DrawLocation(new Rect(r.x, y, r.width, UiWidgets.LineH), s);
             DrawDialogActions(r, s);
             DrawSessionActions(new Rect(r.x, y, r.width, UiWidgets.RowBtnH), s);
         }
 
-        float DrawIdentity(Rect r, SessionInfo s)
+        void DrawIdentity(Rect r, SessionInfo s)
         {
             // State chip, so the list scans the same way the map overlay does.
             var chip = new Rect(r.x + 6f, r.y + 6f, 10f, r.height - 12f);
             Slab.Fill(chip, TerminalWindow.StateColor(s.State));
 
-            Text.Font = GameFont.Small;
-            float l1 = r.y + UiWidgets.GapXS;
+            float l1 = UiListRow.LineY(r, 0);
 
             // The name's column and the state's beside it, off the font: at 200 and 230 the
             // pair held for one face at one size and overlapped at the next.
@@ -76,7 +75,6 @@ namespace SlopWorld
                 UiWidgets.LineH), s.State.ToString().ToLower());
             GUI.color = UiWidgets.Dim;
 
-            return UiWidgets.GapXS + UiWidgets.LineH;
         }
 
         float DrawLocation(Rect r, SessionInfo s)
@@ -111,7 +109,7 @@ namespace SlopWorld
         float DrawDialogActions(Rect r, SessionInfo s)
         {
             float top = r.y + 1f;
-            float right = r.xMax - 6f;
+            float right = UiListRow.Right(r);
 
             // The top line is the two buttons that open a dialog, the bottom one everything
             // that acts on the agent directly, terminal last.
@@ -148,7 +146,7 @@ namespace SlopWorld
         float DrawSessionActions(Rect r, SessionInfo s)
         {
             float bottom = r.y;
-            float right = r.xMax - 6f;
+            float right = UiListRow.Right(r);
             float termW = UiWidgets.RowBtnH;
 
             var term = new Rect(right - termW, bottom, termW, UiWidgets.RowBtnH);
