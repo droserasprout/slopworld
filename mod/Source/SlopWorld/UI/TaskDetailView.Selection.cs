@@ -77,8 +77,7 @@ namespace SlopWorld
         bool HandleSenderClicks(Rect viewport)
         {
             var e = Event.current;
-            if (e == null || e.button != 0 ||
-                (e.type == EventType.Used ? e.rawType : e.type) != EventType.MouseDown)
+            if (e == null || e.button != 0 || UiEvent.RawType(e) != EventType.MouseDown)
                 return false;
 
             foreach (var hit in _senderHits)
@@ -104,8 +103,7 @@ namespace SlopWorld
             var e = Event.current;
             if (e == null) return;
 
-            if (e.type == EventType.KeyDown ||
-                (e.type == EventType.Used && e.rawType == EventType.KeyDown))
+            if (UiEvent.RawType(e) == EventType.KeyDown)
             {
                 if (e.control && !e.alt)
                 {
@@ -125,7 +123,7 @@ namespace SlopWorld
                 return;
             }
 
-            EventType type = e.type == EventType.Used ? e.rawType : e.type;
+            EventType type = UiEvent.RawType(e);
             if (e.button == 1 && type == EventType.MouseDown &&
                 viewport.Contains(e.mousePosition))
             {

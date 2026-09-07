@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using UnityEngine;
 
 namespace SlopWorld
@@ -51,6 +50,47 @@ namespace SlopWorld
         static string _activeName;
         static State _activeState;
 
+        static int BeginMouse(string name, FieldLifetime lifetime, State state, Event e,
+                              int controlId)
+        {
+            if (_lastClickName != name || _lastClickLifetime != lifetime)
+                state.Clicks.Reset();
+
+            int clicks = state.Clicks.Observe(e, Time.realtimeSinceStartup);
+            _lastClickName = name;
+            _lastClickLifetime = lifetime;
+            _activeName = name;
+            _activeState = state;
+            state.ControlId = controlId;
+            state.Dragging = true;
+            state.WordDragging = false;
+            state.LineDragging = false;
+            return clicks;
+        }
+
+        static void ApplyMultiClick(Rect rect, string text, GUIStyle style, TextEditor editor,
+                                    State state, int clicks, Event e, int controlId)
+        {
+            int index = IndexAt(editor, rect, style, text, e.mousePosition);
+            if (clicks >= 3)
+            {
+                LineRange(text, index, out state.LineStart, out state.LineEnd);
+                state.LineDragging = true;
+                Select(editor, state.LineStart, state.LineEnd);
+                state.Clicks.Reset();
+            }
+            else
+            {
+                WordRange(text, index, out state.WordStart, out state.WordEnd);
+                state.WordDragging = true;
+                Select(editor, state.WordStart, state.WordEnd);
+            }
+
+            GUIUtility.hotControl = controlId;
+            GUI.changed = true;
+            e.Use();
+        }
+
         // Run before GUI.TextField. Unity's TextEditor treats a drag that starts on a
         // selection as text drag-and-drop, which changes the value instead of extending the
         // selection. Multi-clicks also need to be claimed before the native editor sees them;
@@ -63,7 +103,7 @@ namespace SlopWorld
 
             var state = GetState(name, lifetime);
             if (editor != null) state.Editor = editor;
-            EventType type = RawType(e);
+            EventType type = UiEvent.RawType(e);
             if (type == EventType.MouseDown && e.button == 0 &&
                 !rect.Contains(e.mousePosition))
             {
@@ -77,42 +117,14 @@ namespace SlopWorld
 
             if (type == EventType.MouseDown && e.button == 0)
             {
-                if (_lastClickName != name || _lastClickLifetime != lifetime)
-                    state.Clicks.Reset();
-
-                int clicks = state.Clicks.Observe(e, Time.realtimeSinceStartup);
-                _lastClickName = name;
-                _lastClickLifetime = lifetime;
-                _activeName = name;
-                _activeState = state;
-                state.ControlId = controlId;
-                state.Dragging = true;
-                state.WordDragging = false;
-                state.LineDragging = false;
+                int clicks = BeginMouse(name, lifetime, state, e, controlId);
 
                 if (clicks < 2) return PrepareResult.TrackedMouseDown;
 
                 var activeEditor = editor ?? state.Editor;
                 if (activeEditor == null) return PrepareResult.TrackedMouseDown;
 
-                int index = IndexAt(activeEditor, rect, style, text, e.mousePosition);
-                if (clicks >= 3)
-                {
-                    LineRange(text, index, out state.LineStart, out state.LineEnd);
-                    state.LineDragging = true;
-                    Select(activeEditor, state.LineStart, state.LineEnd);
-                    state.Clicks.Reset();
-                }
-                else
-                {
-                    WordRange(text, index, out state.WordStart, out state.WordEnd);
-                    state.WordDragging = true;
-                    Select(activeEditor, state.WordStart, state.WordEnd);
-                }
-
-                GUIUtility.hotControl = controlId;
-                GUI.changed = true;
-                e.Use();
+                ApplyMultiClick(rect, text, style, activeEditor, state, clicks, e, controlId);
                 return PrepareResult.MultiClick;
             }
 
@@ -142,7 +154,27 @@ namespace SlopWorld
                 e.type != EventType.Used)
                 return false;
 
-            return RawType(e) == EventType.MouseDrag || RawType(e) == EventType.MouseUp;
+            return UiEvent.RawType(e) == EventType.MouseDrag ||
+                UiEvent.RawType(e) == EventType.MouseUp;
+        }
+
+        // GUI.TextField still runs for a consumed multi-click event so it can draw and keep
+        // focus. Some Unity versions nevertheless rewrite the TextEditor range during that
+        // call. Put our word/line range back before the next drag event is processed.
+        public static void FinishMultiClick(string name, TextEditor editor,
+                                             FieldLifetime lifetime)
+        {
+            if (string.IsNullOrEmpty(name)) return;
+            var state = GetState(name, lifetime);
+            if (_activeName != name || _activeState != state || !state.Dragging) return;
+
+            var activeEditor = editor ?? state.Editor;
+            if (activeEditor == null) return;
+            state.Editor = activeEditor;
+            if (state.LineDragging)
+                Select(activeEditor, state.LineStart, state.LineEnd);
+            else if (state.WordDragging)
+                Select(activeEditor, state.WordStart, state.WordEnd);
         }
 
         public static void ReleaseFocus()
@@ -162,7 +194,7 @@ namespace SlopWorld
             var state = GetState(name, lifetime);
             if (editor != null) state.Editor = editor;
             var activeEditor = editor ?? state.Editor;
-            EventType type = RawType(e);
+            EventType type = UiEvent.RawType(e);
             bool inside = rect.Contains(e.mousePosition);
 
             if (type == EventType.MouseDown && e.button == 0)
@@ -177,39 +209,12 @@ namespace SlopWorld
                 int mouseControlId = ControlId(name, editor, state);
                 if (mouseControlId == 0) return;
 
-                if (_lastClickName != name || _lastClickLifetime != lifetime)
-                    state.Clicks.Reset();
-
-                int clicks = state.Clicks.Observe(e, Time.realtimeSinceStartup);
-                _lastClickName = name;
-                _lastClickLifetime = lifetime;
-                _activeName = name;
-                _activeState = state;
-                state.ControlId = mouseControlId;
-                state.Dragging = true;
-                state.WordDragging = false;
-                state.LineDragging = false;
+                int clicks = BeginMouse(name, lifetime, state, e, mouseControlId);
 
                 if (activeEditor == null || clicks < 2) return;
 
-                int index = IndexAt(activeEditor, rect, style, text, e.mousePosition);
-                if (clicks >= 3)
-                {
-                    LineRange(text, index, out state.LineStart, out state.LineEnd);
-                    state.LineDragging = true;
-                    Select(activeEditor, state.LineStart, state.LineEnd);
-                    state.Clicks.Reset();
-                }
-                else
-                {
-                    WordRange(text, index, out state.WordStart, out state.WordEnd);
-                    state.WordDragging = true;
-                    Select(activeEditor, state.WordStart, state.WordEnd);
-                }
-
-                if (mouseControlId != 0) GUIUtility.hotControl = mouseControlId;
-                GUI.changed = true;
-                e.Use();
+                ApplyMultiClick(rect, text, style, activeEditor, state, clicks, e,
+                    mouseControlId);
                 return;
             }
 
@@ -308,9 +313,6 @@ namespace SlopWorld
             }
         }
 
-        static EventType RawType(Event e) =>
-            e.type == EventType.Used ? e.rawType : e.type;
-
         static int ControlId(string name, TextEditor editor, State state)
         {
             if (editor != null && GUI.GetNameOfFocusedControl() == name)
@@ -344,12 +346,10 @@ namespace SlopWorld
         static void UpdateWord(TextEditor editor, string text, int index, State state)
         {
             WordRange(text, index, out int start, out int end);
-            if (start < state.WordStart)
-                Select(editor, state.WordEnd, start);
-            else if (start > state.WordStart)
-                Select(editor, state.WordStart, end);
-            else
-                Select(editor, state.WordStart, state.WordEnd);
+            var selection = TextSelectionRules.ExpandWordSelection(
+                new TextSelectionRange(state.WordStart, state.WordEnd),
+                new TextSelectionRange(start, end));
+            Select(editor, selection.Anchor, selection.Focus);
         }
 
         static void UpdateLine(TextEditor editor, string text, int index, State state)
@@ -363,89 +363,21 @@ namespace SlopWorld
                 Select(editor, state.LineStart, state.LineEnd);
         }
 
-        // Match the terminal's word rule: Unicode letters/digits/marks and underscore words,
+        // Use the shared text rule: Unicode letters/digits/marks and underscore words,
         // otherwise a run of identical non-word code points. Keep indices on code-point
         // boundaries so a supplementary character can never be split by a selection.
         static void WordRange(string text, int index, out int start, out int end)
         {
-            if (string.IsNullOrEmpty(text)) { start = end = 0; return; }
-            int at = CodePointIndex(text, index);
-            int anchor = CodePointAt(text, at);
-            bool word = IsWordChar(text, at);
-            start = at;
-            end = NextCodePoint(text, at);
-            while (start > 0)
-            {
-                int previous = PreviousCodePoint(text, start);
-                if (!SameClass(text, previous, anchor, word)) break;
-                start = previous;
-            }
-            while (end < text.Length && SameClass(text, end, anchor, word))
-                end = NextCodePoint(text, end);
+            var range = TextSelectionRules.WordRange(text, index);
+            start = range.Start;
+            end = range.End;
         }
 
         static void LineRange(string text, int index, out int start, out int end)
         {
-            if (string.IsNullOrEmpty(text)) { start = end = 0; return; }
-            int at = Mathf.Clamp(index, 0, text.Length - 1);
-            start = at == 0 ? 0 : text.LastIndexOf('\n', at - 1) + 1;
-            int newline = text.IndexOf('\n', at);
-            end = newline < 0 ? text.Length : newline + 1;
-        }
-
-        static bool SameClass(string text, int index, int anchor, bool word) =>
-            word ? IsWordChar(text, index) : CodePointAt(text, index) == anchor;
-
-        static bool IsWordChar(string text, int index)
-        {
-            if (text[index] == '_') return true;
-            switch (CharUnicodeInfo.GetUnicodeCategory(text, index))
-            {
-                case UnicodeCategory.UppercaseLetter:
-                case UnicodeCategory.LowercaseLetter:
-                case UnicodeCategory.TitlecaseLetter:
-                case UnicodeCategory.ModifierLetter:
-                case UnicodeCategory.OtherLetter:
-                case UnicodeCategory.DecimalDigitNumber:
-                case UnicodeCategory.LetterNumber:
-                case UnicodeCategory.OtherNumber:
-                case UnicodeCategory.NonSpacingMark:
-                case UnicodeCategory.SpacingCombiningMark:
-                case UnicodeCategory.EnclosingMark:
-                    return true;
-                default:
-                    return false;
-            }
-        }
-
-        static int CodePointIndex(string text, int index)
-        {
-            int at = Mathf.Clamp(index, 0, text.Length - 1);
-            if (at > 0 && char.IsLowSurrogate(text[at]) &&
-                char.IsHighSurrogate(text[at - 1]))
-                at--;
-            return at;
-        }
-
-        static int CodePointAt(string text, int index) =>
-            char.ConvertToUtf32(text, index);
-
-        static int NextCodePoint(string text, int index)
-        {
-            int next = index + 1;
-            if (next < text.Length && char.IsHighSurrogate(text[index]) &&
-                char.IsLowSurrogate(text[next]))
-                return next + 1;
-            return next;
-        }
-
-        static int PreviousCodePoint(string text, int index)
-        {
-            int previous = index - 1;
-            if (previous > 0 && char.IsLowSurrogate(text[previous]) &&
-                char.IsHighSurrogate(text[previous - 1]))
-                previous--;
-            return previous;
+            var range = TextSelectionRules.LineRange(text, index);
+            start = range.Start;
+            end = range.End;
         }
     }
 }
