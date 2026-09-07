@@ -11,7 +11,7 @@ namespace SlopWorld
     [HarmonyPatch(typeof(GameplayTipWindow), nameof(GameplayTipWindow.DrawWindow))]
     public static partial class Patch_LoadingTips
     {
-        const float WordsPerSecond = 100f;
+        const float WordsPerSecond = 50f;
         const int MaxWordsPerFrame = 48;
 
         // Text sits inside a full-height panel. Keep the width narrow enough to read as a
