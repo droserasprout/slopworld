@@ -32,8 +32,8 @@ the target RimWorld installation before staging it.
 | `coverage` | Cobertura reports and line/branch summaries for the Rust and game-free C# tests. Requires `cargo-llvm-cov`; restores Coverlet from the repository tool manifest. |
 | `format` / `lint` | Both halves; `-daemon` and `-mod` variants exist. |
 | `lint-prose` | Find LLM cliches in Markdown and code comments; set `PROSE_LINT_ARGS` to pass paths or CLI options. |
-| `install` | `install-daemon` (binary, unit, conditional restart), `install-runner`, `install-mod`. |
-| `uninstall` | Undoes those three. Config and profile are left alone. |
+| `install` | `install-daemon` (binary, unit, conditional restart), `install-runner`, `install-mod`, and the bundled UI font. |
+| `uninstall` | Undoes the install, including the bundled font. Config and profile are left alone. |
 | `gogdl-login` | Opens GOG's login page and saves the gogdl token. |
 | `gogdl-install` | Installs the native Linux RimWorld copy from GOG with gogdl. |
 | `gogdl-update` | Updates the existing native Linux RimWorld copy with gogdl. |
@@ -60,6 +60,10 @@ the compiler.
 shipped mod directories beside the destination, replaces only `Mods/SlopWorld`, and refuses a
 filesystem root or a destination inside the source tree. Update
 `slopd/src/bin/slopworld/mod_install.rs` if the mod gains another top-level directory.
+
+`install-font` puts `assets/fonts/clacon2.ttf` in the current user's
+`$XDG_DATA_HOME/fonts` directory (`~/.local/share/fonts` by default) and refreshes fontconfig
+when `fc-cache` is available. Override `FONT_DIR` or `FONT_SOURCE` when needed.
 
 `devloop-sidecar` passes `SLOPCAR_CONFIG_DIR` to `slopcar start`, keeping the container's
 `endpoint.toml` in the same sidecar config directory that the game launcher reads.

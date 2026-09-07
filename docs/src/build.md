@@ -21,7 +21,7 @@ Set `RIMWORLD` to the Linux game directory (the folder containing `RimWorldLinux
 | `test` | Runs `cargo test`, the game-free C# tests, and the prose linter tests. |
 | `format` | Formats both halves. `-daemon` and `-mod` variants exist. |
 | `lint` | Lints both halves. `-daemon` and `-mod` variants exist. |
-| `install` | Installs the daemon binary, systemd unit, runner, and mod using `slopworld mod install`. |
+| `install` | Installs the daemon binary, systemd unit, runner, mod using `slopworld mod install`, and the bundled UI font. |
 | `clean` | Removes build output. |
 
 ## Build modes
@@ -34,6 +34,9 @@ without Git keep the `0.0.1` fallback.
 The mod assembly is a local build output and is not checked into Git. The release workflow
 publishes the daemon archive; source-based installs and Arch packages build the mod against the
 target RimWorld installation before staging it.
+
+The bundled `assets/fonts/clacon2.ttf` is installed to the current user's
+`$XDG_DATA_HOME/fonts` directory by `make install` (`~/.local/share/fonts` by default).
 
 ## Formatting
 

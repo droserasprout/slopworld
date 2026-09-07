@@ -5,8 +5,8 @@
 	test test-daemon test-mod coverage coverage-daemon coverage-mod test-prose \
 	appicon icons emoji-atlas reference scheme-report harmony clean \
 	format format-daemon format-mod lint lint-daemon lint-mod lint-prose \
-	install install-daemon install-runner install-mod mac-setup mac-mod mac-install mac-profile \
-	uninstall uninstall-daemon uninstall-runner uninstall-mod \
+	install install-daemon install-runner install-mod install-font mac-setup mac-mod mac-install mac-profile \
+	uninstall uninstall-daemon uninstall-runner uninstall-mod uninstall-font \
 	run run-slopcar mac-run mac install-mac run-mac \
 	logs check-reqs slopcar-build slopcar-doctor mac-docker-check mac-game-check \
 	mac-check mac-sidecar-build mac-sidecar-doctor mac-sidecar-start \
@@ -36,6 +36,9 @@ MANAGED    ?= $(RIMWORLD)/RimWorldLinux_Data/Managed
 MODS       ?= $(RIMWORLD)/Mods
 BIN        ?= $(HOME)/.local/bin
 UNITS      ?= $(HOME)/.config/systemd/user
+FONT_SOURCE ?= assets/fonts/clacon2.ttf
+FONT_DIR   ?= $(data_home)/fonts
+FONT_DEST  := $(FONT_DIR)/$(notdir $(FONT_SOURCE))
 LOG        ?= $(HOME)/.config/unity3d/Ludeon Studios/RimWorld by Ludeon Studios/Player.log
 # Save data folder, defaults to `$XDG_DATA_HOME/slopworld/profile`.
 PROFILE    ?=
@@ -325,7 +328,7 @@ lint-prose:        ## Find LLM cliches in prose and source comments
 ##-> Install
 ##
 
-install: install-daemon install-runner install-mod ## Install all three
+install: install-daemon install-runner install-mod install-font ## Install the daemon, runner, mod and bundled font
 
 install-daemon: daemon ## Install the binary and the unit, restarting only when needed
 	TARGET="$(TARGET)" BIN="$(BIN)" UNITS="$(UNITS)" BUILD="$(BUILD)" \
@@ -337,6 +340,12 @@ install-runner: daemon ## Install the launcher beside the daemon
 
 install-mod: mod       ## Install the mod into the game's Mods folder
 	"$(RUNNER)" mod install --source mod --mods "$(MODS)"
+
+install-font:           ## Install the bundled UI font into the current user's font directory
+	@test -f "$(FONT_SOURCE)" || { echo "missing bundled font: $(FONT_SOURCE)" >&2; exit 1; }
+	install -Dm644 "$(FONT_SOURCE)" "$(FONT_DEST)"
+	@if command -v fc-cache >/dev/null 2>&1; then fc-cache -f "$(FONT_DIR)"; fi
+	@echo "installed font to $(FONT_DEST)"
 
 mac-mod: mac-game-check mod ## Build SlopWorld.dll against native macOS RimWorld
 mac-mod: override CSC := $(MAC_CSC)
@@ -354,7 +363,7 @@ mac-profile: daemon ## Create the isolated native macOS sidecar profile if it is
 
 ##
 
-uninstall: uninstall-daemon uninstall-runner uninstall-mod ## Remove all three, keeping config and saves
+uninstall: uninstall-daemon uninstall-runner uninstall-mod uninstall-font ## Remove installed files, keeping config and saves
 	@echo "left alone: ~/.config/slopworld, the profile (saves), any tmux server"
 	@echo "under the slopworld socket; \`tmux -L slopworld kill-server\` ends the agents."
 
@@ -372,6 +381,11 @@ uninstall-runner:  ## Remove the launcher
 
 uninstall-mod: daemon ## Remove the installed mod folder
 	"$(RUNNER)" mod uninstall --mods "$(MODS)"
+
+uninstall-font:        ## Remove the bundled UI font from the current user's font directory
+	rm -f "$(FONT_DEST)"
+	@if command -v fc-cache >/dev/null 2>&1; then fc-cache -f "$(FONT_DIR)"; fi
+	@echo "removed font $(FONT_DEST)"
 
 ##
 ##-> Run

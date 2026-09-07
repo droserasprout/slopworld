@@ -27,7 +27,7 @@ namespace SlopWorld
         internal static readonly Vector2 Margin = new Vector2(16f, 16f);
         internal static readonly Color ContainerBackground = Color.black;
         internal static readonly Color StreamText = new Color(0.86f, 0.87f, 0.88f);
-        const string LoadingFontName = "Classic Console";
+        const string LoadingFontName = "Classic Console Neue";
 
         // Not Verse.Rand: this screen is up during map generation, so drawing a tip must not
         // consume the game's deterministic sequence for terrain and pawns.

@@ -10,10 +10,10 @@ git pull
 RIMWORLD=/path/to/RimWorld/game make install
 ```
 
-`make install` rebuilds the daemon, runner, and mod, installs them, and restarts the
-systemd service only when the daemon binary changed. Tmux sessions and the game survive
-a daemon restart; the daemon rebuilds each running agent's terminal emulator from the
-surviving tmux pane.
+`make install` rebuilds the daemon, runner, and mod, installs them and the bundled UI font,
+and restarts the systemd service only when the daemon binary changed. Tmux sessions and the
+game survive a daemon restart; the daemon rebuilds each running agent's terminal emulator
+from the surviving tmux pane.
 
 Release versions follow the SemVer tag at `HEAD`. An untagged checkout appends the UTC build date
 and short hash to the package version.
@@ -67,8 +67,8 @@ the image does not remove the configured data or endpoint directories.
 make uninstall
 ```
 
-This removes the daemon binary, systemd unit, runner, and the mod from the game's Mods
-folder. Configuration and profile data are left alone.
+This removes the daemon binary, systemd unit, runner, bundled UI font, and the mod from the
+game's Mods folder. Configuration and profile data are left alone.
 
 To remove configuration and data:
 
