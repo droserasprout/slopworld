@@ -251,6 +251,8 @@ namespace SlopWorld
                     TextFieldSelection.Handle(r, name, source, style, editor,
                         FieldLifetimeScope.Current);
 
+                if (MouseUp(e)) CopyPrimarySelection(editor);
+
                 if (mouseDown && button == 2 && !readOnly)
                 {
                     RequestPaste(name, area, primary: true, lifetime: FieldLifetimeScope.Current);
@@ -286,6 +288,13 @@ namespace SlopWorld
                 return true;
             }
             return type == EventType.MouseDown;
+        }
+
+        static bool MouseUp(Event e)
+        {
+            if (e == null || e.button != 0) return false;
+            var type = e.type == EventType.Used ? e.rawType : e.type;
+            return type == EventType.MouseUp;
         }
 
         static TextEditor CurrentEditor(string name)
@@ -367,9 +376,12 @@ namespace SlopWorld
 
             if (!SessionHub.Instance.Capabilities.Clipboard)
             {
-                // The daemon is unavailable in sidecar mode; Unity's local buffer is the only
-                // clipboard surface the game can access there.
-                QueuePaste(name, controlId, GUIUtility.systemCopyBuffer, area, owner);
+                if (!primary)
+                {
+                    // The daemon is unavailable in sidecar mode; Unity's local buffer is the
+                    // only ordinary clipboard surface the game can access there.
+                    QueuePaste(name, controlId, GUIUtility.systemCopyBuffer, area, owner);
+                }
                 return;
             }
 
@@ -381,6 +393,14 @@ namespace SlopWorld
                     if (!primary)
                         QueuePaste(name, controlId, GUIUtility.systemCopyBuffer, area, owner);
                 });
+        }
+
+        static void CopyPrimarySelection(TextEditor editor)
+        {
+            // Like the terminal, a completed mouse selection becomes the host PRIMARY
+            // selection. Keep it separate from the ordinary Copy action and CLIPBOARD.
+            string selected = editor == null ? null : editor.SelectedText;
+            if (!string.IsNullOrEmpty(selected)) DaemonClipboard.CopyPrimary(selected);
         }
 
         static void OpenContextMenu(string name, bool area, TextEditor editor,
