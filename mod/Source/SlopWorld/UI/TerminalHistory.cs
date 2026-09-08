@@ -23,6 +23,39 @@ namespace SlopWorld
         public int Cols => _template?.Cols ?? 0;
         public int Rows => _template?.Rows ?? 0;
         public bool AltScreen => _templateAltScreen;
+
+        // Fill overlapping windows progressively, nearest first. The caller sends only one
+        // request at a time, so a gesture can replace speculative work after the next reply.
+        public int WarmupOffset(ScreenBuf live, int knownTop)
+        {
+            if (live == null || live.AltScreen || live.AppMouse || live.Off != 0 ||
+                live.Rows < 2 || live.Cols <= 0 || live.Lines == null ||
+                live.Lines.Length == 0) return 0;
+            int extent = live.History >= 0 ? live.History : knownTop;
+            if (extent == 0) return 0;
+            int offset = PrefetchOffset(0, live.Rows, true,
+                extent > 0 ? extent : MaxHistoryRows);
+            return Math.Max(0, offset);
+        }
+
+        public int PrefetchOffset(int target, int rows, bool up, int max)
+        {
+            max = Math.Max(0, Math.Min(MaxHistoryRows, max));
+            if (max == 0) return -1;
+            int span = Math.Max(1, Math.Min(MaxScreenRows, rows) / 2);
+            target = Math.Max(0, Math.Min(max, target));
+            int boundary = up ? target / span * span : (target + span - 1) / span * span;
+            // Sixteen half-viewport windows cover roughly eight screens ahead. Checking the
+            // fractional edge preserves a bridge between each pair of captures.
+            for (int step = 1; step <= 16; step++)
+            {
+                int offset = up ? Math.Min(max, boundary + step * span)
+                    : Math.Max(1, boundary - step * span);
+                if (!Covers(offset, true)) return offset;
+                if (up ? offset == max : offset == 1) break;
+            }
+            return -1;
+        }
         ScreenBuf _template;
         int _version;
         int _cachedAnchor = -1;

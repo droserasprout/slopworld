@@ -10,7 +10,7 @@ lint: lint-daemon lint-mod ## Lint both halves
 
 test: test-daemon test-mod test-prose ## Run the daemon and game-free mod tests
 
-bench: bench-daemon ## Run the game-free daemon performance benchmark
+bench: bench-daemon bench-mod ## Run the game-free daemon and C# performance benchmarks
 
 install: install-daemon install-runner install-mod install-font ## Install the daemon, runner, mod and bundled font
 

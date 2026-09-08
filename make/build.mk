@@ -9,6 +9,10 @@ daemon: api-contract ## Build the daemon and the launcher
 bench-daemon: api-contract ## Run the game-free daemon performance benchmark
 	@cd slopd && $(CARGO) run --quiet --bin slopd $(CARGOFLAGS) -- --perf-bench
 
+.PHONY: bench-mod
+bench-mod: api-contract ## Benchmark C# helpers without RimWorld or Unity
+	@DOTNET_TieredCompilation=0 $(DOTNET) run --project "$(TEST_PROJECT)" --configuration $(if $(filter release,$(BUILD)),Release,Debug) -- --perf-bench
+
 mod: daemon        ## Build the mod against the game's assemblies
 	@test -f "$(CSC_API)/mscorlib.dll" || { echo "missing Mono reference assemblies under $(CSC_API)" >&2; exit 1; }
 	@test -f "$(MANAGED)/Assembly-CSharp.dll" || { echo "missing RimWorld assemblies under $(MANAGED)" >&2; exit 1; }
