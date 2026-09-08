@@ -63,6 +63,11 @@ namespace SlopWorld
                                 Action<JVal> ok, Action<string> fail, string session = null,
                                 int timeoutMs = DefaultTimeoutMs)
         {
+            // Only start a request trace when this route has a bucket. Starting traces for
+            // untracked routes leaves a null name, and the completion callback can fail in
+            // PerfTrace.End before the caller's clipboard/paste callback runs.
+            string trace = TraceName(path);
+            long started = trace == null ? 0L : PerfTrace.Start();
             ThreadPool.QueueUserWorkItem(_ =>
             {
                 try
@@ -92,7 +97,11 @@ namespace SlopWorld
                     {
                         var text = sr.ReadToEnd();
                         var val = JVal.Parse(text);
-                        Completions.Enqueue(() => ok?.Invoke(val));
+                        Completions.Enqueue(() =>
+                        {
+                            if (started != 0L) PerfTrace.End(trace, started, 1, Completions.Count);
+                            ok?.Invoke(val);
+                        });
                     }
                 }
                 catch (WebException we)
@@ -111,13 +120,32 @@ namespace SlopWorld
                         }
                         catch { /* fall back to we.Message */ }
                     }
-                    Completions.Enqueue(() => fail?.Invoke(msg));
+                    Completions.Enqueue(() =>
+                    {
+                        if (started != 0L) PerfTrace.End(trace, started, 1, Completions.Count);
+                        fail?.Invoke(msg);
+                    });
                 }
                 catch (Exception e)
                 {
-                    Completions.Enqueue(() => fail?.Invoke(e.Message));
+                    Completions.Enqueue(() =>
+                    {
+                        if (started != 0L) PerfTrace.End(trace, started, 1, Completions.Count);
+                        fail?.Invoke(e.Message);
+                    });
                 }
             });
+        }
+
+        static string TraceName(string path)
+        {
+            if (path.StartsWith(WireContract.Routes.Browse, StringComparison.Ordinal))
+                return "http-browse";
+            if (path.StartsWith(WireContract.Routes.Git, StringComparison.Ordinal))
+                return "http-git";
+            if (path.StartsWith(WireContract.Routes.Search, StringComparison.Ordinal))
+                return "http-search";
+            return null;
         }
 
         // Drained once per frame from the main thread. HTTP callbacks are non-replaceable, so

@@ -1,15 +1,14 @@
-using System;
 using UnityEngine;
 using Verse;
 
 namespace SlopWorld
 {
     // Aggregate scroll timings for one terminal window. Enable with
-    // SLOPWORLD_SCROLL_DEBUG=1 in the game's environment; the normal path does no timing or
+    // SLOPWORLD_DEBUG=1 in the game's environment; the normal path does no timing or
     // string work beyond a few predictable branches.
     public partial class TerminalWindow
     {
-        static readonly bool ScrollDebugEnabled = ScrollDebugFlag();
+        static readonly bool ScrollDebugEnabled = PerfTrace.Enabled;
 
         struct ScrollDebugState
         {
@@ -27,12 +26,6 @@ namespace SlopWorld
         }
 
         ScrollDebugState _scrollDebug;
-
-        static bool ScrollDebugFlag()
-        {
-            string value = Environment.GetEnvironmentVariable("SLOPWORLD_SCROLL_DEBUG");
-            return value == "1" || string.Equals(value, "true", StringComparison.OrdinalIgnoreCase);
-        }
 
         static float ScrollDebugNow() => Time.realtimeSinceStartup;
 

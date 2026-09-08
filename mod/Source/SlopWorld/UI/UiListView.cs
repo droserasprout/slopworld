@@ -42,6 +42,7 @@ namespace SlopWorld
         void DrawList(Rect rect, SessionHub hub)
         {
             var items = Rows.ToList();
+            PerfTrace.Count("ui-list-rows-copied", items.Count);
             float contentH = items.Count * RowH + UiWidgets.GapXS;
             var view = UiScrollBody.ConditionalView(rect, contentH);
 
@@ -55,6 +56,7 @@ namespace SlopWorld
                 }
 
                 float y = 0f;
+                PerfTrace.Count("ui-list-rows-drawn", items.Count);
                 foreach (var item in items)
                 {
                     DrawRow(new Rect(0f, y, view.width, RowH - UiWidgets.GapXS), item);

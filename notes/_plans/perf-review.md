@@ -19,6 +19,10 @@ Add or extend measurements that can run through `make` and record median and p95
 - routed-sidebar rebuilds and terminal cache repaints;
 - HTTP/WebSocket completion backlog and per-frame allocations where practical.
 
+The deterministic daemon benchmark is available through `make bench-daemon` (or `make bench`);
+use `BUILD=release` for release timings. Runtime counters and diagnostic timing add overhead only
+when `SLOPWORLD_DEBUG=1` is set.
+
 Use the existing `slopd::perf` lanes for `frame`, `websocket-send`, and `retick`, and extend the
 opt-in mod diagnostics rather than logging every frame by default. Keep the wire format and the
 current client-side row cache unchanged during the baseline.

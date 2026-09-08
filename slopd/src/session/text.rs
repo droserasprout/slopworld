@@ -33,6 +33,7 @@ pub(crate) fn strip_sgr_lines<S: AsRef<str>>(lines: &[S]) -> String {
 /// the result, while blank rows between the last non-blank row and the tail's upper edge remain
 /// physical separators and therefore still consume a classification slot.
 pub(crate) fn strip_sgr_tail<S: AsRef<str>>(lines: &[S], tail_lines: usize) -> String {
+    let _perf = crate::perf::timer("ansi-strip");
     let Some(last) = lines.iter().rposition(|line| {
         let plain = strip_sgr(line.as_ref());
         !plain.trim().is_empty()
