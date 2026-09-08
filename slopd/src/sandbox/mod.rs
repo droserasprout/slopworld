@@ -22,6 +22,8 @@ pub(crate) struct ResolvedMount {
 
 /// Resolve configuration and build the complete sandbox command through the bind layer.
 pub fn build_argv(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result<Vec<String>> {
+    crate::config::validate_project_names(&cfg.projects)?;
+    crate::config::project_name_component(&p.name)?;
     crate::config::state_id_component(&s.state_id)?;
     let network = cfg.network_of(s, p);
     let dns = cfg.dns_of(s, p);

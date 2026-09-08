@@ -686,6 +686,24 @@ mod tests {
     }
 
     #[test]
+    fn sandbox_rejects_unsafe_project_aliases() {
+        let cfg = Config::default();
+        let s = SessionCfg {
+            name: "a".into(),
+            project: "../escape".into(),
+            ..Default::default()
+        };
+        let p = ProjectCfg {
+            name: "../escape".into(),
+            dir: "/tmp".into(),
+            ..Default::default()
+        };
+
+        let error = build_argv(&cfg, &s, &p).unwrap_err().to_string();
+        assert!(error.contains("path component"), "{error}");
+    }
+
+    #[test]
     fn mounting_the_primary_project_ro_overrides_its_mode() {
         use crate::config::{Mount, MountMode};
 
