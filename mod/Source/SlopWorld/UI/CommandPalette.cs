@@ -141,6 +141,11 @@ namespace SlopWorld
                 Func<List<SubOption>> filter, Action<LibraryItemInfo> action, Func<bool> enabled = null) =>
                 For(id, label, "Library", filter, v => SessionHub.Instance.LibraryItem(v), action, enabled);
 
+            public static CommandDef ForTask(string id, string label,
+                Func<List<SubOption>> filter, Action<TaskInfo> action, Func<bool> enabled = null) =>
+                For(id, label, "Task", filter, v => SessionHub.Instance.Tasks
+                    .FirstOrDefault(task => task != null && task.Id == v), action, enabled);
+
             static CommandDef For<T>(string id, string label, string group,
                 Func<List<SubOption>> filter, Func<string, T> resolve, Action<T> action,
                 Func<bool> enabled)

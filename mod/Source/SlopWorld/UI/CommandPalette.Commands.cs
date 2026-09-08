@@ -45,6 +45,8 @@ namespace SlopWorld
             CommandDef.ForAgent("agent.terminal", "Agent: Open Terminal",
                 () => AgentsSub(AgentState.Working, AgentState.Waiting, AgentState.Idle),
                 s => { if (!s.Gone) TerminalWindow.Open(s.Name); }),
+            CommandDef.ForAgent("agent.storage", "Agent: Open Storage", AgentsSubAll,
+                s => StoragePage.FocusAgent(s.Name)),
             CommandDef.ForAgent("agent.delete", "Agent: Delete", AgentsSubAll, s =>
                 Find.WindowStack.Add(CatalogActions.RemoveSession(s.Name))),
             CommandDef.ForAgent("agent.duplicate", "Agent: Duplicate", AgentsSubWithProject,
@@ -77,6 +79,16 @@ namespace SlopWorld
             new CommandDef("task.new", "Task: New", "Task",
                 _ => TerminalWindow.OpenOverPane(new DelegateTaskDialog(null)),
                 enabled: HasTaskRecipients),
+            CommandDef.ForTask("task.open", "Task: Open", TasksSub,
+                t => TaskDetailView.Open(t), enabled: HasTasks),
+            CommandDef.ForTask("task.cancel", "Task: Cancel", CancelableTasksSub,
+                t => TaskActions.CancelTask(t), enabled: HasCancelableTasks),
+            CommandDef.ForTask("task.remove", "Task: Remove", TerminalTasksSub,
+                t => TaskActions.RemoveTask(t), enabled: HasTerminalTasks),
+            new CommandDef("task.status", "Task: Set Status", "Task", _ => { },
+                enabled: HasStatusTasks, subAction: TaskStatusSub),
+            new CommandDef("task.filter", "Task: Filter", "Task",
+                _ => TasksView.OpenFilterMenu()),
 
             CommandDef.ForLibraryItem("library.run", "Library: Run", LibraryItemsSub, s =>
             {
@@ -208,12 +220,17 @@ namespace SlopWorld
                 _ => ConfigWindow.Open()),
             new CommandDef("view.filter", "View: Filter Projects", "View",
                 v => { if (v != null) AgentSidebar.ToggleFilter(v); }, subAction: () => FilterSub()),
+            new CommandDef("view.agent-status", "View: Filter Agents by Status", "View",
+                SetAgentStatusFromPalette, subAction: AgentStatusSub),
             new CommandDef("view.zoom-in", "View: Zoom In", "View",
                 _ => UiScale.Zoom(1)),
             new CommandDef("view.zoom-out", "View: Zoom Out", "View",
                 _ => UiScale.Zoom(-1)),
             new CommandDef("window.fullscreen", "Window: Toggle Fullscreen", "View",
                 _ => WindowMaximizer.Toggle()),
+
+            new CommandDef("help.shortcuts", "Help: Keyboard Shortcuts", "Help",
+                _ => ShortcutHelpWindow.Toggle(), enabled: Playing),
 
             new CommandDef("jukebox.mute", "Jukebox: Mute", "Jukebox",
                 _ => Radio.ToggleMute()),
