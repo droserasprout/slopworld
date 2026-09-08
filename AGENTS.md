@@ -34,7 +34,6 @@ Architecture:
 - [daemon-session-state](notes/daemon-session-state.md) — state machine, clocks, emulator
 - [daemon-workers](notes/daemon-workers.md) — task-owned child workers and lifecycle
 - [daemon-presets](notes/daemon-presets.md) — sandbox argv & presets
-- [large-file-hotspots-plan](notes/plans/large-file-hotspots-plan.md) — worst large-file offenders and refactor order
 - [sandbox-isolation](notes/sandbox-isolation.md) — bind guard, private state
 - [mod-client](notes/mod-client.md) — Client/: hub, socket, config mirror
 - [mod-sim](notes/mod-sim.md) — Sim/: colony reconcile, clock, intro
