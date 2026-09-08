@@ -141,6 +141,7 @@ namespace SlopWorld
             var hub = SessionHub.Instance;
             foreach (var row in Layout.Rows)
             {
+                if (SkipAgentPaint(row.Line)) continue;
                 var info = row.Session == null ? null : hub.Get(row.Session);
                 var state = info?.State ?? AgentState.Down;
                 var tint = TerminalWindow.StateColor(state);

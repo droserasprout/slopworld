@@ -3,6 +3,10 @@
 The terminal pane's sizing, title bar, and key routing are in
 [mod-terminal](mod-terminal.md).
 
+The pane caches text in a render texture; cursor-only updates reuse it. Cursor and selection
+painting run only during Repaint, while input and hover tracking remain live. Debug counters
+include terminal cache hits, full invalidations and changed-row paints.
+
 ## `TerminalTheme`
 
 `Sgr.DefaultFg`/`DefaultBg` resolve from the scheme. Parsed runs carry resolved colors,

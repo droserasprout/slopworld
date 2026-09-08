@@ -315,18 +315,19 @@ namespace SlopWorld
                 ContentFinder<Texture2D>.Get("UI/HeroArt/BGPlanet", false));
         }
 
-        // Vanilla's solid edge quads would clip the backdrop back to the map bounds.
+        // Edge quads clip Eco's backdrop; an opaque terminal also makes them unnecessary.
         [HarmonyPatch(typeof(MapEdgeClipDrawer), nameof(MapEdgeClipDrawer.DrawClippers))]
         public static class Patch_Clippers
         {
-            static bool Prefix() => !Resting;
+            static bool Prefix() => !Resting && !TerminalWindow.Covering;
         }
 
         // Weather draws from CameraDriver.OnPreCull, outside PaneOverDraw's gates.
+        // Keep weather updates and audio, but skip pixels hidden by the terminal or Eco.
         [HarmonyPatch(typeof(WeatherManager), nameof(WeatherManager.DrawAllWeather))]
         public static class Patch_Weather
         {
-            static bool Prefix() => !Resting;
+            static bool Prefix() => !Resting && !TerminalWindow.Covering;
         }
 
         // Suppress world-space overlays; keep UI-space gizmos available.

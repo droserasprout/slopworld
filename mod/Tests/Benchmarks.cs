@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
@@ -36,8 +37,43 @@ namespace SlopWorld.Tests
             Projects();
             Routing();
             Terminal();
+            IdleWork();
             GC.KeepAlive(_sink);
             return 0;
+        }
+
+        static void IdleWork()
+        {
+            var incoming = new ConcurrentQueue<string>();
+            var batch = new HubEventBatch();
+            Action<Exception> onError = _ => { };
+            Compare("idle socket batch", () =>
+            {
+                var events = new List<JVal>(32);
+                while (events.Count < 32 && incoming.TryDequeue(out var text))
+                    events.Add(JVal.Parse(text));
+                var latest = new Dictionary<string, int>(StringComparer.Ordinal);
+                // The empty-frame reference is the old allocation pattern, with no messages to dispatch.
+                GC.KeepAlive(events);
+                GC.KeepAlive(latest);
+                return events.Count;
+            }, () => batch.Read(incoming, onError));
+
+            var titles = new SidebarTitleCache();
+            var info = new SessionInfo { Title = "agent: compiling a project and checking its tests" };
+            var font = new object();
+            Func<SessionInfo, string> clean = s =>
+            {
+                var text = new System.Text.StringBuilder(s.Title.Length);
+                foreach (char c in s.Title) text.Append(char.IsControl(c) ? ' ' : c);
+                return text.ToString().Trim();
+            };
+            Compare("sidebar unchanged title cleanup", () => clean(info).Length,
+                () => titles.Get(info, font, 0, clean).Length);
+
+            var screen = new ScreenBuf { Lines = new[] { "unchanged" }, ContentRevision = 1 };
+            Measure("terminal idle/cursor repaint decision", () =>
+                (int)TerminalRepaintPolicy.Choose(false, 1, screen));
         }
 
         static void Measure(string name, Func<long> operation)

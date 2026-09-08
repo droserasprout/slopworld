@@ -81,8 +81,9 @@ namespace SlopWorld
             var music = NativeMusic();
             if (music == null) return;
 
+            bool changed = music.disabled != muted;
             music.disabled = muted;
-            if (muted) music.Stop();
+            if (muted && (changed || music.IsPlaying)) music.Stop();
         }
 
         // Stop leaves the native manager with no current source. Clearing `disabled` only lets
@@ -379,10 +380,10 @@ namespace SlopWorld
         }
 
         // Every frame, menu and game alike, from Patch_Root_Update. Pending selections go out
-        // immediately; steady-state work runs one frame in ten because volume changes slowly.
+        // immediately; steady-state work runs six times per second regardless of display FPS.
         // `Read()` stays above it, being the answer to what the daemon is playing.
-        static int _updateSkip;
-        const int UpdateInterval = 10;
+        static PeriodicWork _steadyUpdate;
+        const double UpdateInterval = 1.0 / 6.0;
 
         public static void Update()
         {
@@ -429,13 +430,12 @@ namespace SlopWorld
                 _sent = pending;
                 _told = true;
                 _sentVolume = pendingVolume;
-                _updateSkip = 0;
+                _steadyUpdate.Delay(Time.realtimeSinceStartupAsDouble, UpdateInterval);
                 return;
             }
 
             // Throttle steady-state work: most frames change nothing.
-            if (++_updateSkip < UpdateInterval) return;
-            _updateSkip = 0;
+            if (!_steadyUpdate.Due(Time.realtimeSinceStartupAsDouble, UpdateInterval)) return;
 
             string want = Selection();
             if (want != _sent)
@@ -443,7 +443,6 @@ namespace SlopWorld
                 SendSelection(hub, Volume(), want);
                 _sent = want;
                 _sentVolume = Volume();
-                _updateSkip = 0;
                 return;
             }
 

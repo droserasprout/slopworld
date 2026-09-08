@@ -112,6 +112,7 @@ namespace SlopWorld
 
         void DrawSelection(Rect body, ScreenBuf buf, float shift)
         {
+            if (Event.current.type != EventType.Repaint) return;
             // Not `_selA == _selB`: a one-character word is a selection, and drawn.
             if (!_hasSel) return;
             EnsureRuns(buf);
@@ -413,6 +414,7 @@ namespace SlopWorld
         // Blinks on a half-second beat unless the app asked for a steady cursor.
         void DrawCursor(Rect body, ScreenBuf buf, float cw, float ch)
         {
+            if (Event.current.type != EventType.Repaint) return;
             // No cursor on a historical frame: the daemon hides it, but the frame still
             // carries cursor coordinates from the render snapshot.
             if (buf.Off > 0) return;

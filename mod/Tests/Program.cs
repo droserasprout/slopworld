@@ -73,6 +73,9 @@ namespace SlopWorld.Tests
                 tests.Add(("JukeboxHistory: " + test.Name, test.Body));
             tests.Add(("ModSettings: persistence", ModSettingsTests.Persistence));
             tests.Add(("FramePolicy: focus and settings transitions", FramePolicyTests.Transitions));
+            tests.Add(("Idle work: message ordering and bounded batches", IdleWorkTests.Messages));
+            tests.Add(("Idle work: elapsed-time scheduling", IdleWorkTests.Scheduling));
+            tests.Add(("Idle work: sidebar title invalidation", IdleWorkTests.Titles));
             tests.Add(("HubCatalog: ordering", HubCatalogTests.Ordering));
             int failed = 0;
 
