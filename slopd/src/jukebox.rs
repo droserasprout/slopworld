@@ -85,6 +85,12 @@ impl Catalog {
         catalog
     }
 
+    fn try_load_from(dir: &Path) -> Result<Self> {
+        let mut catalog = Self::default();
+        catalog.merge_dir_checked(dir)?;
+        Ok(catalog)
+    }
+
     /// User-owned station definitions live in application data rather than the installed daemon
     /// or game mod. `SLOPD_JUKEBOX` is useful for tests and an alternate daemon instance.
     pub fn dir() -> PathBuf {
@@ -119,6 +125,32 @@ impl Catalog {
                 }
             }
         }
+    }
+
+    fn merge_dir_checked(&mut self, dir: &Path) -> Result<()> {
+        let entries = match std::fs::read_dir(dir) {
+            Ok(entries) => entries,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+            Err(e) => return Err(e).with_context(|| format!("reading {}", dir.display())),
+        };
+        let mut files: Vec<PathBuf> = entries
+            .map(|e| e.map(|e| e.path()))
+            .collect::<std::io::Result<Vec<_>>>()?
+            .into_iter()
+            .filter(|p| {
+                p.extension()
+                    .is_some_and(|x| x.to_string_lossy().eq_ignore_ascii_case("toml"))
+            })
+            .collect();
+        files.sort();
+
+        for path in files {
+            let text = std::fs::read_to_string(&path)
+                .with_context(|| format!("reading jukebox definition {}", path.display()))?;
+            let station = parse(&text, &path)?;
+            self.merge(station);
+        }
+        Ok(())
     }
 
     /// A later user file with an existing id replaces the earlier entry in place; a new id is
@@ -224,8 +256,16 @@ pub fn catalog() -> Catalog {
     cell().read().unwrap().clone()
 }
 
-pub fn reload() {
-    *cell().write().unwrap() = Catalog::load();
+pub fn reload() -> bool {
+    let fresh = match Catalog::try_load_from(&Catalog::dir()) {
+        Ok(catalog) => catalog,
+        Err(e) => {
+            tracing::warn!("jukebox definitions changed on disk but are not reloadable: {e:#}");
+            return false;
+        }
+    };
+    *cell().write().unwrap() = fresh;
+    true
 }
 
 #[cfg(test)]
