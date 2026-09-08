@@ -63,6 +63,7 @@ pub(crate) fn router(m: Mgr) -> Router {
         .route("/api/grants", get(list_grants).post(mint_grant))
         .route("/api/grants/:grantor", delete(revoke_grants))
         .route("/api/state", get(stored_states))
+        .route("/api/state/trash", delete(empty_trash))
         .route("/api/state/:kind/:key", delete(delete_stored_state))
         .route("/api/state/trash/:key/restore", post(restore_stored_state))
         .route("/api/presets", get(presets))

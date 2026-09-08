@@ -40,9 +40,9 @@ namespace SlopWorld
         List<Entry> _entries => _load.Value ?? EmptyEntries;
         string _error { get => _load.Error; set => _load.SetError(value); }
         bool _loading => _load.Loading;
+        bool _hasTrash => _entries.Any(e => e.Kind == "trash");
 
         const float Pitch = 58f;
-        const float LikesIconW = 22f;
 
         public void Load()
         {
@@ -62,16 +62,6 @@ namespace SlopWorld
 
         void DrawCore(Rect rect)
         {
-            var likes = new Rect(rect.xMax - LikesIconW,
-                rect.y + (UiWidgets.RowH - LikesIconW) / 2f, LikesIconW, LikesIconW);
-            if (Mouse.IsOver(likes)) Slab.Fill(likes, UiWidgets.Hover);
-            var was = GUI.color;
-            GUI.color = Mouse.IsOver(likes) ? Color.white : UiWidgets.Dim;
-            Widgets.ThingIcon(likes, ModDefOf.SlopJukebox);
-            GUI.color = was;
-            TooltipHandler.TipRegion(likes, "Open jukebox history.");
-            if (Widgets.ButtonInvisible(likes)) JukeboxHistoryView.Open();
-
             var body = UiWidgets.PageBody(rect);
             var inner = body.ContractedBy(UiWidgets.GapM);
 
@@ -98,6 +88,8 @@ namespace SlopWorld
 
             var foot = new UiWidgets.Bar(UiWidgets.FooterBar(rect));
             if (foot.Left("Refresh", UiWidgets.Btn.Ghost, !_loading)) Load();
+            if (foot.Left("Empty trash", UiWidgets.Btn.Danger, !_loading && _hasTrash))
+                ConfirmEmptyTrash();
             if (_error != null && _entries.Count > 0)
             {
                 GUI.color = UiWidgets.Bad;
@@ -150,7 +142,7 @@ namespace SlopWorld
             if (e.Kind == "active")
             {
                 if (UiWidgets.Button(new Rect(right - actionW, r.y + 10f, actionW,
-                        UiWidgets.RowBtnH), "Reset", UiWidgets.Btn.Ghost))
+                        UiWidgets.RowBtnH), "Reset", UiWidgets.Btn.Danger))
                     ConfirmReset(e);
                 return;
             }
@@ -208,6 +200,14 @@ namespace SlopWorld
                 $"Permanently delete {Human(e.Bytes)} of {e.Kind} private state? This cannot be undone.",
                 () => DaemonClient.Delete($"/api/state/{Uri.EscapeDataString(e.Kind)}/" +
                         Uri.EscapeDataString(e.Key), _ => Load(), msg => _error = msg),
+                destructive: true));
+        }
+
+        void ConfirmEmptyTrash()
+        {
+            Find.WindowStack.Add(ConfirmDialog.Create(
+                "Permanently delete all private state in trash? This cannot be undone.",
+                () => DaemonClient.Delete("/api/state/trash", _ => Load(), msg => _error = msg),
                 destructive: true));
         }
 

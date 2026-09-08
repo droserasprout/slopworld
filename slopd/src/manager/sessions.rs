@@ -461,6 +461,13 @@ impl Manager {
             .map_err(|e| anyhow!("scanning private state: {e}"))
     }
 
+    pub async fn empty_trash(&self) -> Result<()> {
+        tokio::task::spawn_blocking(crate::sandbox::empty_trash)
+            .await
+            .map_err(|e| anyhow!("emptying private-state trash: {e}"))??;
+        Ok(())
+    }
+
     pub async fn delete_stored_state(&self, kind: &str, key: &str) -> Result<()> {
         let sessions = self.config().await.sessions;
         let kind = kind.to_string();

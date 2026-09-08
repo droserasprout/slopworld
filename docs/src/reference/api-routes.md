@@ -62,6 +62,7 @@ grant-visible router; handler guards can impose a stricter access requirement.
 | `POST` | `/api/sessions/:name/stop` | `scoped` | `stop` |
 | `GET` | `/api/state` | `root-only` | `stored_states` |
 | `DELETE` | `/api/state/:kind/:key` | `root-only` | `delete_stored_state` |
+| `DELETE` | `/api/state/trash` | `root-only` | `empty_trash` |
 | `POST` | `/api/state/trash/:key/restore` | `root-only` | `restore_stored_state` |
 | `DELETE` | `/api/tasks` | `scoped` | `prune_tasks` |
 | `GET` | `/api/tasks` | `scoped` | `list_tasks` |

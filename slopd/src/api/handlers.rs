@@ -171,6 +171,10 @@ pub(super) async fn stored_states(State(m): State<Mgr>) -> ApiResult {
         .map_err(|e| err(StatusCode::INTERNAL_SERVER_ERROR, e))
 }
 
+pub(super) async fn empty_trash(State(m): State<Mgr>) -> ApiResult {
+    ok_json(m.empty_trash().await)
+}
+
 pub(super) async fn delete_stored_state(
     State(m): State<Mgr>,
     Path((kind, key)): Path<(String, String)>,
