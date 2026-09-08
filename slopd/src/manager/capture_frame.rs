@@ -23,7 +23,7 @@ impl Manager {
     pub(crate) async fn render_and_broadcast(&self, name: &str, emu: &Mutex<SessionEmu>) {
         let started = std::time::Instant::now();
         let frame = match emu.lock() {
-            Ok(e) => e.render(),
+            Ok(mut e) => e.render(),
             Err(_) => return,
         };
         self.apply_frame(name, frame).await;
@@ -39,7 +39,7 @@ impl Manager {
     /// Derive all consequences of a frame before taking the write lock. This keeps frame
     /// comparison and classification separate from live-state mutation and its side effects.
     async fn frame_delta(&self, previous: &FrameSnapshot, frame: &Frame) -> FrameDelta {
-        let hash = hash_lines(&frame.lines);
+        let content_hash = frame.content_hash;
         let meta = FrameMeta {
             cursor_shape: frame.cursor_shape,
             cursor_blink: frame.cursor_blink,
@@ -49,15 +49,15 @@ impl Manager {
             title: frame.title.clone(),
         };
         let changed = !previous.initial
-            && (hash != previous.hash
+            && (content_hash != previous.content_hash
                 || (frame.cx, frame.cy) != previous.cursor
                 || meta != previous.meta);
         // Cursor/mode/title-only frames still need classification, but their visible text is
         // unchanged. Reuse the last stripped text instead of joining and stripping the full
         // terminal viewport again.
-        let content_changed = previous.initial || hash != previous.hash;
+        let content_changed = previous.initial || content_hash != previous.content_hash;
         let plain = if content_changed {
-            Arc::new(strip_sgr_lines(&frame.lines))
+            Arc::new(strip_sgr_tail(&frame.lines, TAIL_LINES))
         } else {
             previous.plain.clone()
         };
@@ -68,7 +68,7 @@ impl Manager {
         };
 
         FrameDelta {
-            hash,
+            content_hash,
             plain,
             screen_changed: previous.initial || changed,
             next_state,
@@ -108,7 +108,7 @@ impl Manager {
         {
             let mut live = self.live.write().await;
             let Some(l) = live.get_mut(name) else { return };
-            l.hash = delta.hash;
+            l.hash = delta.content_hash;
             l.seq += 1;
             if delta.screen_changed && !previous.initial {
                 l.last_change = now_ms();

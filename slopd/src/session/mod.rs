@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::hash::{Hash, Hasher};
 use std::path::{Component, Path, PathBuf};
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
@@ -34,7 +33,7 @@ pub use view::{ScreenView, SessionView};
 use input::{merge_input, Input};
 use template::{render_template, render_template_with, TemplateVars};
 pub use text::strip_sgr;
-pub(crate) use text::strip_sgr_lines;
+pub(crate) use text::strip_sgr_tail;
 use title::{
     begin_title_request, is_dialog_answer, prompt_is_long_enough, title_settings, Composer,
     Submission, TitleCapture, TitleRequest,
@@ -263,12 +262,6 @@ fn now_ms() -> u64 {
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_millis() as u64)
         .unwrap_or(0)
-}
-
-fn hash_lines(lines: &[String]) -> u64 {
-    let mut h = std::collections::hash_map::DefaultHasher::new();
-    lines.hash(&mut h);
-    h.finish()
 }
 
 fn match_rules(rules: &[(State, Regex)], text: &str) -> Option<State> {
