@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::path::{Component, Path, PathBuf};
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use anyhow::{bail, Context, Result};
@@ -174,6 +174,35 @@ impl Serialize for Event {
     }
 }
 
+/// One immutable event shared by all WebSocket pumps. The event itself remains separate from
+/// its cached wire representation because scoped session lists may need a filtered envelope.
+pub(crate) struct EventMessage {
+    event: Event,
+    encoded: OnceLock<Arc<str>>,
+}
+
+impl EventMessage {
+    pub(crate) fn new(event: Event) -> Arc<Self> {
+        Arc::new(Self {
+            event,
+            encoded: OnceLock::new(),
+        })
+    }
+
+    pub(crate) fn event(&self) -> &Event {
+        &self.event
+    }
+
+    pub(crate) fn encoded(&self) -> Arc<str> {
+        self.encoded
+            .get_or_init(|| {
+                let _perf = crate::perf::timer("websocket-serialize");
+                Arc::from(serde_json::to_string(&self.event).unwrap_or_default())
+            })
+            .clone()
+    }
+}
+
 #[derive(Debug, Clone)]
 pub(crate) enum AuthChange {
     GrantorRevoked(String),
@@ -323,10 +352,22 @@ mod tests {
         match_rules, merge_input, merge_toml, normalize_action_command, normalize_path,
         project_action_path, prompt_is_long_enough, read_action_output, render_template,
         render_template_with, settle, slug, strip_sgr, title_agent, title_settings, Composer,
-        Input, Live, State, Submission, TemplateVars, TitleAgent, TitleCapture, BOOT_COLS,
-        BOOT_ROWS, INPUT_BATCH, TAIL_LINES,
+        Event, EventMessage, Input, Live, State, Submission, TemplateVars, TitleAgent,
+        TitleCapture, BOOT_COLS, BOOT_ROWS, INPUT_BATCH, TAIL_LINES,
     };
     use crate::config::{Config, LibraryItemCfg, LibraryItemKind, ProjectCfg, SessionCfg};
+
+    #[test]
+    fn event_message_reuses_its_encoded_json() {
+        let event = EventMessage::new(Event::Usage {
+            usage: Default::default(),
+        });
+        let first = event.encoded();
+        let second = event.encoded();
+
+        assert!(Arc::ptr_eq(&first, &second));
+        assert!(first.starts_with("{\"t\":\"usage\""));
+    }
 
     #[test]
     fn file_action_paths_normalize_the_absolute_placeholder() {

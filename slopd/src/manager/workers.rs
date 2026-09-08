@@ -124,7 +124,7 @@ impl Manager {
             return Err(error);
         }
 
-        let _ = self.events.send(Event::Sessions {
+        self.emit(Event::Sessions {
             sessions: self.views().await,
         });
         let manager = self.clone();

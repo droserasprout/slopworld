@@ -121,7 +121,7 @@ impl Manager {
                     )
                     .await;
                 }
-                let _ = self.events.send(Event::Sessions {
+                self.emit(Event::Sessions {
                     sessions: self.views().await,
                 });
                 return;

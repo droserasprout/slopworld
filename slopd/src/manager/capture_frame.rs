@@ -15,7 +15,7 @@ impl Manager {
                 _ => return,
             }
         }
-        let _ = self.events.send(Event::Sessions {
+        self.emit(Event::Sessions {
             sessions: self.views().await,
         });
     }
@@ -157,10 +157,10 @@ impl Manager {
         }
         if delta.screen_changed {
             crate::perf::count("frame-screen-events", 1);
-            let _ = self.events.send(Event::Screen { screen: view });
+            self.emit(Event::Screen { screen: view });
         }
         if dirty_list {
-            let _ = self.events.send(Event::Sessions {
+            self.emit(Event::Sessions {
                 sessions: self.views().await,
             });
         }
@@ -207,7 +207,7 @@ impl Manager {
         // The process is already gone. Publish that fact before cleanup: clearing activity
         // may ask tmux about a session that disappeared with the process, and must not delay
         // the client's next session snapshot.
-        let _ = self.events.send(Event::Sessions {
+        self.emit(Event::Sessions {
             sessions: self.views().await,
         });
         self.clear_activity(name).await;

@@ -54,6 +54,11 @@ Acceptance criteria:
 - coalescing and reconnect behavior remain unchanged;
 - serialization work scales with changed frames rather than client count where possible.
 
+The event bus now carries immutable shared envelopes, and each broadcast event caches its JSON
+encoding after the first WebSocket send. Scoped session-list events receive a separately filtered
+envelope; screen events remain shareable only after the existing capability and subscription
+checks.
+
 ## Priority 1: mod repaint work
 
 ### Content trees

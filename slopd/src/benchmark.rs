@@ -7,7 +7,7 @@ use anyhow::Result;
 
 use crate::emu::{benchmark_content_hash as hash_content, Frame, SessionEmu};
 use crate::perf;
-use crate::session::{Event, ScreenView};
+use crate::session::{Event, EventMessage, ScreenView};
 
 const COLS: u16 = 120;
 const ROWS: u16 = 34;
@@ -16,7 +16,7 @@ const SAMPLES: usize = 200;
 
 pub(crate) fn run() -> Result<()> {
     println!("SlopWorld daemon benchmark ({COLS}x{ROWS}, {SAMPLES} samples)");
-    println!("timings are milliseconds; warmup={WARMUP}");
+    println!("timings are microseconds; warmup={WARMUP}");
 
     benchmark_render_cases();
     benchmark_ansi_strip();
@@ -102,8 +102,10 @@ fn benchmark_content_hash_rows(frame: &Frame) -> usize {
 fn benchmark_websocket_serialization() {
     for sessions in [1usize, 4, 8] {
         let events = (0..sessions)
-            .map(|index| Event::Screen {
-                screen: screen_view(&format!("bench-{index}"), &seeded_frame()),
+            .map(|index| {
+                EventMessage::new(Event::Screen {
+                    screen: screen_view(&format!("bench-{index}"), &seeded_frame()),
+                })
             })
             .collect::<Vec<_>>();
         for clients in [1usize, 4, 8] {
@@ -113,10 +115,7 @@ fn benchmark_websocket_serialization() {
                     let mut bytes = 0usize;
                     for _ in 0..clients {
                         for event in &events {
-                            let encoded = {
-                                let _perf = perf::timer("websocket-serialize");
-                                serde_json::to_string(event).expect("event serializes")
-                            };
+                            let encoded = event.encoded();
                             perf::count("websocket-bytes", encoded.len() as u64);
                             bytes += encoded.len();
                         }
@@ -144,14 +143,14 @@ where
     }
     timings.sort_unstable();
     println!(
-        "{name:<44} p50={:.3} p95={:.3}",
-        nanos_ms(timings[(timings.len() - 1) * 50 / 100]),
-        nanos_ms(timings[(timings.len() - 1) * 95 / 100]),
+        "{name:<44} p50={:.2} p95={:.2}",
+        nanos_us(timings[(timings.len() - 1) * 50 / 100]),
+        nanos_us(timings[(timings.len() - 1) * 95 / 100]),
     );
 }
 
-fn nanos_ms(nanos: u128) -> f64 {
-    nanos as f64 / 1_000_000.0
+fn nanos_us(nanos: u128) -> f64 {
+    nanos as f64 / 1_000.0
 }
 
 fn seeded() -> SessionEmu {

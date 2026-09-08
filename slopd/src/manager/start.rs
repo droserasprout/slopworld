@@ -234,7 +234,7 @@ impl Manager {
             );
         }
         if title_was_cleared || auto_resume_pending {
-            let _ = self.events.send(Event::Sessions {
+            self.emit(Event::Sessions {
                 sessions: self.views().await,
             });
         }

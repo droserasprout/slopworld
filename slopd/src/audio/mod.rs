@@ -137,7 +137,7 @@ pub fn spawn(m: std::sync::Arc<crate::session::Manager>) -> tokio::task::JoinHan
                 continue;
             }
             last = Some(now.clone());
-            let _ = m.events.send(crate::session::Event::Audio { audio: now });
+            m.emit(crate::session::Event::Audio { audio: now });
         }
     })
 }

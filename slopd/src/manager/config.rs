@@ -192,7 +192,7 @@ impl Manager {
             tracing::warn!("config reloaded but endpoint descriptor was not updated: {e:#}");
         }
         self.sync_from_config().await;
-        let _ = self.events.send(Event::Sessions {
+        self.emit(Event::Sessions {
             sessions: self.views().await,
         });
         self.announce_projects().await;
@@ -233,7 +233,7 @@ impl Manager {
             return false;
         }
         tracing::info!("presets changed on disk, reloading");
-        let _ = self.events.send(Event::Sessions {
+        self.emit(Event::Sessions {
             sessions: self.views().await,
         });
         true
@@ -254,7 +254,7 @@ impl Manager {
             return false;
         }
         tracing::info!("jukebox definitions changed on disk, reloading");
-        let _ = self.events.send(Event::Jukebox {
+        self.emit(Event::Jukebox {
             jukebox: crate::jukebox::catalog(),
         });
         true
@@ -298,7 +298,7 @@ impl Manager {
             }
             *cur = snap.clone();
         }
-        let _ = self.events.send(Event::Usage { usage: snap });
+        self.emit(Event::Usage { usage: snap });
     }
 
     pub async fn sync_from_config(self: &Arc<Self>) {
@@ -318,7 +318,7 @@ impl Manager {
 
         let adopted = self.adopt_orphans(&cfg).await;
         if titles_changed || adopted {
-            let _ = self.events.send(Event::Sessions {
+            self.emit(Event::Sessions {
                 sessions: self.views().await,
             });
         }
@@ -736,7 +736,7 @@ mod tests {
         };
         manager.set_usage(changed.clone()).await;
         let event = events.try_recv().expect("usage event");
-        assert!(matches!(event, Event::Usage { usage } if usage == changed));
+        assert!(matches!(event.event(), Event::Usage { usage } if usage == &changed));
         assert_eq!(manager.usage().await, changed);
     }
 

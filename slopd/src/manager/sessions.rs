@@ -316,7 +316,7 @@ impl Manager {
                 live.title.override_title = None;
             }
         }
-        let _ = self.events.send(Event::Sessions {
+        self.emit(Event::Sessions {
             sessions: self.views().await,
         });
         Ok(())
@@ -396,7 +396,7 @@ impl Manager {
             // Host rows have no private agent state to trash. Forget both durable tabs and
             // unnamed runtime-only host errands after the pane has been stopped.
             self.forget(name).await;
-            let _ = self.events.send(Event::Sessions {
+            self.emit(Event::Sessions {
                 sessions: self.views().await,
             });
             return Ok(());

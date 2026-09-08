@@ -462,8 +462,12 @@ mod tests {
             ["hello"]
         );
 
-        assert!(matches!(events.try_recv(), Ok(Event::Screen { .. })));
-        assert!(matches!(events.try_recv(), Ok(Event::Sessions { .. })));
+        assert!(
+            matches!(events.try_recv(), Ok(event) if matches!(event.event(), Event::Screen { .. }))
+        );
+        assert!(
+            matches!(events.try_recv(), Ok(event) if matches!(event.event(), Event::Sessions { .. }))
+        );
 
         manager
             .apply_frame(
@@ -527,8 +531,12 @@ mod tests {
         assert_eq!((screen.cx, screen.cy), (4, 0));
         assert_eq!(screen.title, "new");
         assert!(screen.app_mouse);
-        assert!(matches!(events.try_recv(), Ok(Event::Screen { .. })));
-        assert!(matches!(events.try_recv(), Ok(Event::Sessions { .. })));
+        assert!(
+            matches!(events.try_recv(), Ok(event) if matches!(event.event(), Event::Screen { .. }))
+        );
+        assert!(
+            matches!(events.try_recv(), Ok(event) if matches!(event.event(), Event::Sessions { .. }))
+        );
         assert!(events.try_recv().is_err());
     }
 
@@ -566,7 +574,9 @@ mod tests {
         manager.apply_frame("agent", frame(22)).await;
 
         assert_eq!(manager.live.read().await["agent"].seq, 2);
-        assert!(matches!(events.try_recv(), Ok(Event::Screen { .. })));
+        assert!(
+            matches!(events.try_recv(), Ok(event) if matches!(event.event(), Event::Screen { .. }))
+        );
     }
 
     #[tokio::test]
@@ -585,7 +595,9 @@ mod tests {
 
         manager.clear_bell("agent").await;
         assert!(!manager.live.read().await["agent"].bell);
-        assert!(matches!(events.try_recv(), Ok(Event::Sessions { .. })));
+        assert!(
+            matches!(events.try_recv(), Ok(event) if matches!(event.event(), Event::Sessions { .. }))
+        );
         manager.clear_bell("agent").await;
         assert!(events.try_recv().is_err());
     }
