@@ -549,6 +549,8 @@ namespace SlopWorld
 
         public static void CloseViewerIf(string session) => Viewers.CloseIf(session);
 
+        public static bool CloseViewerTab(string session) => Viewers.CloseTab(session);
+
         static void ClearSelection()
         {
             Tree.ClearSelection();

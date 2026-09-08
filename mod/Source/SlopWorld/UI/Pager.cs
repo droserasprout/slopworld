@@ -227,6 +227,15 @@ namespace SlopWorld
             if (!_locked && session != null && session == _session) Release();
         }
 
+        // Explicit tab dismissal also releases pinned previews and cancels pending handoffs.
+        public bool CloseTab(string session)
+        {
+            if (session == null || session != _session) return false;
+            _locked = false;
+            Release();
+            return true;
+        }
+
         // Stop a session if it's still alive, swallowing any error.
         static void StopIf(string session)
         {

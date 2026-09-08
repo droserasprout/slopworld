@@ -51,7 +51,6 @@ short subject per note and remove stale entries.
 
 ## Mod, simulation, and UI
 
-- [terminal and input bug review](_plans/bugs-review.md) - five fixes, reverted submenu change, and validation status.
 - [mod-client](mod-client.md) - `Client/`: hub, socket, JSON, config mirror.
 - [csharp-tests](csharp-tests.md) - the C# test boundary and pure-logic test project.
 - [mod-sim](mod-sim.md) - `Sim/`: colony reconcile, clock, intro, restart.
@@ -61,6 +60,7 @@ short subject per note and remove stale entries.
 - [mod-sidebar](mod-sidebar.md) - `AgentSidebar` and its core layout and selection behavior.
 - [mod-sidebar-navigation](mod-sidebar-navigation.md) - shared views, tabs, filtering, and vanilla chrome shifts.
 - [mod-ui-chrome](mod-ui-chrome.md) - shared widgets, layout, usage readout, top bar.
+- [ui-color-review](_plans/ui-color-review.md) - widget layout and color consistency findings.
 - [mod-ui-identity](mod-ui-identity.md) - UI geometry, spacing, and color schemes.
 - [mod-ui-files](mod-ui-files.md) - the files view and its icons.
 - [mod-markdown](mod-markdown.md) - native Markdown previews and their file boundary.

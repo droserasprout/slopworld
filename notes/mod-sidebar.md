@@ -73,6 +73,9 @@ sandbox config (presets, network, dns, limits, mounts) via the `like` field on
 
 Shared views, navigation, filtering, context menus, and vanilla chrome shifts are
 covered in [sidebar views and chrome](mod-sidebar-navigation.md).
+- Middle-click closes Files/Git preview headers without confirmation, including pinned
+  pagers, diffs and native Markdown previews. Editor rows are unaffected. Explicit dismissal
+  releases pinned previews; ordinary focus changes still preserve them.
 - The Tasks list keeps the complete mailbox but virtualizes off-screen rows. Its scroll view
   deliberately avoids Linux XInput precision polling; Unity wheel events and thumb dragging are
   sufficient here and avoid a severe frame-time regression on some X11 systems.
