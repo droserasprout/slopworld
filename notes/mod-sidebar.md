@@ -9,6 +9,9 @@ Entries keep their original indices for vanilla reordering. Project- or status-f
 folded entries are parked off-screen because the colonist bar shares locations for drawing
 and hit testing.
 `Rows` is the geometry source for labels, portraits, clicks and keyboard order.
+Files/Git routed sessions are prepared once per draw pass in a reused list; the resulting height
+is passed into tree geometry. Per-pass rebuilding includes native-preview and viewer-handoff
+changes even when the daemon session revision is unchanged.
 
 Portrait scale is derived from text: `Nominal` makes the drawn square portrait match the
 row's normal three-line height, while compact view reserves only the name and summary;

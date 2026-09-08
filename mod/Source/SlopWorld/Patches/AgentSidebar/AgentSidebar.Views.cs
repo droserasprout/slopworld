@@ -291,33 +291,22 @@ namespace SlopWorld
                 : tab == SidebarTab.Git && (act & RowAct.Diff) != 0;
         }
 
-        static List<SessionInfo> RoutedFor(SidebarTab tab)
+        static float PrepareRouted(SidebarTab tab)
         {
             PerfTrace.Count("sidebar-routed-rebuilds");
-            Layout.Routed.Clear();
-            foreach (var info in SessionHub.Instance.Sessions)
-            {
-                if (!InTab(info, tab) || !Passes(info.Project)) continue;
-                // Git owns one replaceable pager. Keep its old routed row until the new session
-                // is handed to the terminal, so replacing a diff cannot resize the tree twice.
-                if (tab == SidebarTab.Git && !GitView.IsViewerSession(info.Name)) continue;
-                Layout.Routed.Add(info);
-            }
-            if (tab == SidebarTab.Files) FilesView.AddRoutedPreviews(Layout.Routed);
-            Layout.Routed.Sort(ByName);
+            // Git owns one replaceable pager; include it until the replacement is handed off.
+            float height = RoutedSessionRows.Rebuild(Layout.Routed, SessionHub.Instance.Sessions,
+                info => InTab(info, tab) && Passes(info.Project) &&
+                    (tab != SidebarTab.Git || GitView.IsViewerSession(info.Name)),
+                tab == SidebarTab.Files ? (Action<List<SessionInfo>>)FilesView.AddRoutedPreviews
+                    : null, GhostH);
             PerfTrace.Count("sidebar-routed-rows", Layout.Routed.Count);
-            return Layout.Routed;
+            return height;
         }
 
-        public static float RoutedHeight(SidebarTab tab)
-        {
-            PerfTrace.Count("sidebar-routed-height-queries");
-            return RoutedFor(tab).Count * GhostH;
-        }
-
-        public static Rect TreeBody(Rect body, SidebarTab tab) =>
-            new Rect(body.x, body.y + RoutedHeight(tab), body.width,
-                Mathf.Max(0f, body.height - RoutedHeight(tab)));
+        public static Rect TreeBody(Rect body, float routedHeight) =>
+            new Rect(body.x, body.y + routedHeight, body.width,
+                Mathf.Max(0f, body.height - routedHeight));
 
         public static List<string> Sessions()
         {

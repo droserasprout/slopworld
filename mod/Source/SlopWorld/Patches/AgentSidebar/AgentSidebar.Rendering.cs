@@ -92,15 +92,15 @@ namespace SlopWorld
                     DrawAgentTab();
                     return;
                 case SidebarTab.Files:
-                    DrawRouted(Body, SidebarTab.Files);
-                    FilesView.Draw(TreeBody(Body, SidebarTab.Files));
+                    float filesHeight = DrawRouted(Body, SidebarTab.Files);
+                    FilesView.Draw(TreeBody(Body, filesHeight));
                     break;
                 case SidebarTab.Search:
                     SearchView.Draw(Body);
                     break;
                 case SidebarTab.Git:
-                    DrawRouted(Body, SidebarTab.Git);
-                    GitView.Draw(TreeBody(Body, SidebarTab.Git));
+                    float gitHeight = DrawRouted(Body, SidebarTab.Git);
+                    GitView.Draw(TreeBody(Body, gitHeight));
                     break;
                 case SidebarTab.Library:
                     LibraryView.Draw(Body);

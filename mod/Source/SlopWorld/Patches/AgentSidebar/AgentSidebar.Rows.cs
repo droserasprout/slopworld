@@ -8,11 +8,12 @@ namespace SlopWorld
     // AgentSidebar row rendering and routed-row interaction.
     public static partial class AgentSidebar
     {
-        public static void DrawRouted(Rect body, SidebarTab tab)
+        public static float DrawRouted(Rect body, SidebarTab tab)
         {
             Layout.ViewRows.Clear();
             float y = body.y;
-            foreach (var info in RoutedFor(tab))
+            float height = PrepareRouted(tab);
+            foreach (var info in Layout.Routed)
             {
                 var row = new Row
                 {
@@ -27,6 +28,7 @@ namespace SlopWorld
                 DrawRoutedRow(row, info, tab);
                 y += GhostH;
             }
+            return height;
         }
 
         static void DrawRoutedRow(Row row, SessionInfo info, SidebarTab tab)

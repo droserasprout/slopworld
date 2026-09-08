@@ -13,6 +13,11 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="../Source/SlopWorld/UI/VisibleRows.cs" Link="Source/UI/VisibleRows.cs" />
+    <Compile Include="../Source/SlopWorld/UI/ContentTreeIndex.cs" Link="Source/UI/ContentTreeIndex.cs" />
+    <Compile Include="../Source/SlopWorld/UI/ProjectSessionCounts.cs" Link="Source/UI/ProjectSessionCounts.cs" />
+    <Compile Include="../Source/SlopWorld/UI/RoutedSessionRows.cs" Link="Source/UI/RoutedSessionRows.cs" />
+    <Compile Include="../Source/SlopWorld/UI/TerminalRepaint.cs" Link="Source/UI/TerminalRepaint.cs" />
     <!-- Keep the tests independent of the game-bound mod assembly. -->
     <Compile Include="../Source/SlopWorld/Client/Json.cs" Link="Source/Client/Json.cs" />
     <Compile Include="../Source/SlopWorld/Client/Toml.cs" Link="Source/Client/Toml.cs" />

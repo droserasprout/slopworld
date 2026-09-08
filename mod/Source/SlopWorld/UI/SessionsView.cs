@@ -25,7 +25,7 @@ namespace SlopWorld
         protected override string EmptyNote =>
             "No sessions yet. Add one and it will show up as a colonist.";
 
-        protected override IEnumerable<SessionInfo> Rows => SessionHub.Instance.Sessions;
+        protected override IList<SessionInfo> Rows => SessionHub.Instance.Sessions;
 
         protected override void DoFooter(Rect bar, SessionHub hub)
         {
