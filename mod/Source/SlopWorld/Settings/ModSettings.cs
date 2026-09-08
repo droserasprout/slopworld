@@ -194,40 +194,7 @@ namespace SlopWorld
             Directory.CreateDirectory(directory);
 
             var text = new StringBuilder();
-            String(text, "autoConnect", autoConnect);
-            String(text, "fullscreen", fullscreen);
-            String(text, "sidebarHidden", sidebarHidden);
-            Number(text, "sidebarWidth", sidebarWidth);
-            String(text, "foldedProjects", foldedProjects);
-            String(text, "sidebarTab", sidebarTab);
-            String(text, "sidebarShowHidden", sidebarShowHidden);
-            String(text, "sidebarShowGitignored", sidebarShowGitignored);
-            String(text, "sidebarAgentStatus", sidebarAgentStatus);
-            String(text, "sidebarFilter", sidebarFilter);
-            String(text, "commandPaletteHistory", commandPaletteHistory);
-            String(text, "usageIcons", usageIcons);
-            String(text, "usageSpent", usageSpent);
-            Number(text, "fontSize", fontSize);
-            String(text, "fontName", fontName);
-            Number(text, "uiFontSize", uiFontSize);
-            String(text, "uiFontName", uiFontName);
-            String(text, "uiScheme", uiScheme);
-            String(text, "theme", theme);
-            String(text, "cursorColor", cursorColor);
-            String(text, "cursor", cursor);
-            String(text, "cursorGrayscale", cursorGrayscale);
-            String(text, "radio", radio);
-            String(text, "radioMute", radioMute);
-            String(text, "statusbarUsage", statusbarUsage);
-            String(text, "statusbarClockPosition", statusbarClockPosition);
-            String(text, "timeFormat", timeFormat);
-            String(text, "statusbarJukebox", statusbarJukebox);
-            String(text, "statusbarGM", statusbarGM);
-            String(text, "statusbarAgentIndicators", statusbarAgentIndicators);
-            String(text, "radioStopOnExit", radioStopOnExit);
-            String(text, "grandmaMode", grandmaMode);
-            String(text, "ecoMode", ecoMode);
-            Number(text, "ecoDim", ecoDim);
+            foreach (var field in Fields) field(this, null, text);
 
             string temporary = path + ".tmp";
             File.WriteAllText(temporary, text.ToString(), new UTF8Encoding(false));
@@ -243,43 +210,58 @@ namespace SlopWorld
             }
         }
 
+        static readonly Action<ModSettings, Dictionary<string, string>, StringBuilder>[] Fields =
+        {
+            Field("autoConnect", (ModSettings s) => ref s.autoConnect, Bool, String),
+            Field("fullscreen", (ModSettings s) => ref s.fullscreen, Bool, String),
+            Field("sidebarHidden", (ModSettings s) => ref s.sidebarHidden, Bool, String),
+            Field("sidebarWidth", (ModSettings s) => ref s.sidebarWidth, Float, Number),
+            Field("foldedProjects", (ModSettings s) => ref s.foldedProjects, Text, String),
+            Field("sidebarTab", (ModSettings s) => ref s.sidebarTab, Text, String),
+            Field("sidebarShowHidden", (ModSettings s) => ref s.sidebarShowHidden, Bool, String),
+            Field("sidebarShowGitignored", (ModSettings s) => ref s.sidebarShowGitignored, Bool, String),
+            Field("sidebarAgentStatus", (ModSettings s) => ref s.sidebarAgentStatus, Text, String),
+            Field("sidebarFilter", (ModSettings s) => ref s.sidebarFilter, Text, String),
+            Field("commandPaletteHistory", (ModSettings s) => ref s.commandPaletteHistory, Text, String),
+            Field("usageIcons", (ModSettings s) => ref s.usageIcons, Text, String),
+            Field("usageSpent", (ModSettings s) => ref s.usageSpent, Bool, String),
+            Field("fontSize", (ModSettings s) => ref s.fontSize, Int, Number),
+            Field("fontName", (ModSettings s) => ref s.fontName, Text, String),
+            Field("uiFontSize", (ModSettings s) => ref s.uiFontSize, Int, Number),
+            Field("uiFontName", (ModSettings s) => ref s.uiFontName, Text, String),
+            Field("uiScheme", (ModSettings s) => ref s.uiScheme, Text, String),
+            Field("theme", (ModSettings s) => ref s.theme, Text, String),
+            Field("cursorColor", (ModSettings s) => ref s.cursorColor, Text, String),
+            Field("cursor", (ModSettings s) => ref s.cursor, Text, String),
+            Field("cursorGrayscale", (ModSettings s) => ref s.cursorGrayscale, Bool, String),
+            Field("radio", (ModSettings s) => ref s.radio, Text, String),
+            Field("radioMute", (ModSettings s) => ref s.radioMute, Bool, String),
+            Field("statusbarUsage", (ModSettings s) => ref s.statusbarUsage, Bool, String),
+            Field("statusbarClockPosition", (ModSettings s) => ref s.statusbarClockPosition, Text, String),
+            Field("timeFormat", (ModSettings s) => ref s.timeFormat, Text, String),
+            Field("statusbarJukebox", (ModSettings s) => ref s.statusbarJukebox, Bool, String),
+            Field("statusbarGM", (ModSettings s) => ref s.statusbarGM, Bool, String),
+            Field("statusbarAgentIndicators", (ModSettings s) => ref s.statusbarAgentIndicators, Bool, String),
+            Field("radioStopOnExit", (ModSettings s) => ref s.radioStopOnExit, Bool, String),
+            Field("grandmaMode", (ModSettings s) => ref s.grandmaMode, Bool, String),
+            Field("ecoMode", (ModSettings s) => ref s.ecoMode, Bool, String),
+            Field("ecoDim", (ModSettings s) => ref s.ecoDim, Float, Number),
+        };
+
+        delegate ref T Setting<T>(ModSettings settings);
+
+        static Action<ModSettings, Dictionary<string, string>, StringBuilder> Field<T>(
+            string key, Setting<T> field, Func<Dictionary<string, string>, string, T, T> read,
+            Action<StringBuilder, string, T> write) => (settings, values, text) =>
+        {
+            ref T value = ref field(settings);
+            if (values != null) value = read(values, key, value);
+            else write(text, key, value);
+        };
+
         void Apply(Dictionary<string, string> values)
         {
-            autoConnect = Bool(values, "autoConnect", autoConnect);
-            fullscreen = Bool(values, "fullscreen", fullscreen);
-            sidebarHidden = Bool(values, "sidebarHidden", sidebarHidden);
-            sidebarWidth = Float(values, "sidebarWidth", sidebarWidth);
-            foldedProjects = Text(values, "foldedProjects", foldedProjects);
-            sidebarTab = Text(values, "sidebarTab", sidebarTab);
-            sidebarShowHidden = Bool(values, "sidebarShowHidden", sidebarShowHidden);
-            sidebarShowGitignored = Bool(values, "sidebarShowGitignored", sidebarShowGitignored);
-            sidebarAgentStatus = Text(values, "sidebarAgentStatus", sidebarAgentStatus);
-            sidebarFilter = Text(values, "sidebarFilter", sidebarFilter);
-            commandPaletteHistory = Text(values, "commandPaletteHistory", commandPaletteHistory);
-            usageIcons = Text(values, "usageIcons", usageIcons);
-            usageSpent = Bool(values, "usageSpent", usageSpent);
-            fontSize = Int(values, "fontSize", fontSize);
-            fontName = Text(values, "fontName", fontName);
-            uiFontSize = Int(values, "uiFontSize", uiFontSize);
-            uiFontName = Text(values, "uiFontName", uiFontName);
-            uiScheme = Text(values, "uiScheme", uiScheme);
-            theme = Text(values, "theme", theme);
-            cursorColor = Text(values, "cursorColor", cursorColor);
-            cursor = Text(values, "cursor", cursor);
-            cursorGrayscale = Bool(values, "cursorGrayscale", cursorGrayscale);
-            radio = Text(values, "radio", radio);
-            radioMute = Bool(values, "radioMute", radioMute);
-            statusbarUsage = Bool(values, "statusbarUsage", statusbarUsage);
-            statusbarClockPosition = Text(values, "statusbarClockPosition", statusbarClockPosition);
-            timeFormat = Text(values, "timeFormat", timeFormat);
-            statusbarJukebox = Bool(values, "statusbarJukebox", statusbarJukebox);
-            statusbarGM = Bool(values, "statusbarGM", statusbarGM);
-            statusbarAgentIndicators = Bool(values, "statusbarAgentIndicators",
-                statusbarAgentIndicators);
-            radioStopOnExit = Bool(values, "radioStopOnExit", radioStopOnExit);
-            grandmaMode = Bool(values, "grandmaMode", grandmaMode);
-            ecoMode = Bool(values, "ecoMode", ecoMode);
-            ecoDim = Float(values, "ecoDim", ecoDim);
+            foreach (var field in Fields) field(this, values, null);
         }
 
         static string FilePath()

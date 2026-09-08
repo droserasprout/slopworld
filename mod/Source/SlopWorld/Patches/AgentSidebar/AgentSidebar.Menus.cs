@@ -138,21 +138,12 @@ namespace SlopWorld
             if (info != null && info.Host)
                 opts.Add(new FloatMenuOption("Remove", () =>
                 {
-                    var terminal = hub.Capabilities.TerminalName;
-                    TerminalWindow.OpenOverPane(ConfirmDialog.Create(
-                        $"Remove {terminal} '{name}'? This kills its tmux pane and forgets " +
-                        "the saved sidebar tab.",
-                        () => hub.Remove(name, UiWidgets.Fail),
-                        destructive: true));
+                    TerminalWindow.OpenOverPane(CatalogActions.RemoveHost(name));
                 }));
 
             if (info != null && !info.Ephemeral && !info.Host)
                 opts.Add(new FloatMenuOption("Remove", () =>
-                    TerminalWindow.OpenOverPane(ConfirmDialog.Create(
-                        $"Remove session '{name}'? This kills it, drops it from config.toml, and moves " +
-                        "its private state to recoverable trash for 14 days.",
-                        () => hub.Remove(name, UiWidgets.Fail),
-                        destructive: true))));
+                    TerminalWindow.OpenOverPane(CatalogActions.RemoveSession(name))));
 
             // Unlike the core's colony-wide reroll, a row owns one particular agent.
             if (pawn != null)
@@ -188,11 +179,7 @@ namespace SlopWorld
 
             var del = new FloatMenuOption(
                 agents > 0 ? $"Delete ({agents} agent{(agents == 1 ? "" : "s")} in it)" : "Delete",
-                () => TerminalWindow.OpenOverPane(ConfirmDialog.Create(
-                    $"Remove project '{name}'? The directory is left alone; only the entry " +
-                    "in config.toml goes.",
-                    () => hub.RemoveProject(name, UiWidgets.Fail),
-                    destructive: true)));
+                () => TerminalWindow.OpenOverPane(CatalogActions.RemoveProject(name)));
             del.Disabled = agents > 0;
             opts.Add(del);
 

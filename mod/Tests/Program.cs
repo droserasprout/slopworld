@@ -71,6 +71,8 @@ namespace SlopWorld.Tests
                 tests.Add(("SongRecognizer: " + test.Name, test.Body));
             foreach (var test in JukeboxHistoryTests.Cases())
                 tests.Add(("JukeboxHistory: " + test.Name, test.Body));
+            tests.Add(("ModSettings: persistence", ModSettingsTests.Persistence));
+            tests.Add(("HubCatalog: ordering", HubCatalogTests.Ordering));
             int failed = 0;
 
             foreach (var test in tests)

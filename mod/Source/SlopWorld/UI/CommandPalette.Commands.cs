@@ -29,10 +29,7 @@ namespace SlopWorld
                 {
                     if (s.Ephemeral || s.Host) return;
                     var name = s.Name;
-                    TerminalWindow.OpenOverPane(ConfirmDialog.Create(
-                        $"Reset private state for '{name}'? This stops the agent and gives its tools " +
-                        "a fresh state on next start. The old state stays recoverable for 14 days.",
-                        () => SessionHub.Instance.ResetState(name, UiWidgets.Fail), destructive: true));
+                    TerminalWindow.OpenOverPane(CatalogActions.ResetState(name));
                 }),
             CommandDef.ForAgent("agent.start", "Agent: Start",
                 () => AgentsSub(AgentState.Down),
@@ -49,13 +46,7 @@ namespace SlopWorld
                 () => AgentsSub(AgentState.Working, AgentState.Waiting, AgentState.Idle),
                 s => { if (!s.Gone) TerminalWindow.Open(s.Name); }),
             CommandDef.ForAgent("agent.delete", "Agent: Delete", AgentsSubAll, s =>
-            {
-                var name = s.Name;
-                Find.WindowStack.Add(ConfirmDialog.Create(
-                    $"Remove session '{name}'? This kills it, drops it from config.toml, and moves " +
-                    "its private state to recoverable trash for 14 days.",
-                    () => SessionHub.Instance.Remove(name, UiWidgets.Fail), destructive: true));
-            }),
+                Find.WindowStack.Add(CatalogActions.RemoveSession(s.Name))),
             CommandDef.ForAgent("agent.duplicate", "Agent: Duplicate", AgentsSubWithProject,
                 s =>
                 {
@@ -75,12 +66,7 @@ namespace SlopWorld
             CommandDef.ForProject("project.edit", "Project: Edit", ProjectsSub,
                 p => TerminalWindow.OpenOverPane(new EditProjectDialog(p))),
             CommandDef.ForProject("project.delete", "Project: Delete", DeletableProjectsSub, p =>
-            {
-                var name = p.Name;
-                Find.WindowStack.Add(ConfirmDialog.Create(
-                    $"Remove project '{name}'? The directory is left alone; only the entry in config.toml goes.",
-                    () => SessionHub.Instance.RemoveProject(name, UiWidgets.Fail), destructive: true));
-            }),
+                Find.WindowStack.Add(CatalogActions.RemoveProject(p.Name))),
             CommandDef.ForProject("project.duplicate", "Project: Duplicate", ProjectsSub,
                 p => TerminalWindow.OpenOverPane(EditProjectDialog.Copy(p))),
             CommandDef.ForProject("project.host-terminal", "Project: Open Host Terminal",
@@ -118,11 +104,7 @@ namespace SlopWorld
             {
                 if (!s.Host) return;
                 var name = s.Name;
-                var terminal = SessionHub.Instance.Capabilities.TerminalName;
-                TerminalWindow.OpenOverPane(ConfirmDialog.Create(
-                    $"Remove {terminal} '{name}'? This kills its tmux pane and forgets " +
-                    "the saved sidebar tab.",
-                    () => SessionHub.Instance.Remove(name, UiWidgets.Fail), destructive: true));
+                TerminalWindow.OpenOverPane(CatalogActions.RemoveHost(name));
             }),
 
             new CommandDef("daemon.reconnect", "Daemon: Reconnect", "Daemon",
