@@ -80,6 +80,8 @@ spacing, buttons, fields, headings and errors. Color names resolve through
 - `TickBox` draws the checkbox while the surrounding row handles the click. It precedes
   labels in settings, menus and palette sublists.
 - `UiListView<T>` shares the agents/projects/Library window structure.
+- `UiTable` shares the fixed-column settings-table chrome between Usage and Summaries;
+  flexible columns absorb remaining width and fixed columns shrink together when needed.
 - `CoreTip` draws the persona-core hint over the map or an opaque terminal.
 - `MenuBackground` bakes and caches menu/loading frames; its patch hooks drawing because
   the loading screen bypasses main-menu initialization ([mod-background](mod-background.md)).

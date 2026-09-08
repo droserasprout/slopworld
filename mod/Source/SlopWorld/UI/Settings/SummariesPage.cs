@@ -8,6 +8,20 @@ namespace SlopWorld
     // Title policies and models; see notes/agent-titles.md.
     public class SummariesPage : DaemonConfigPage
     {
+        enum SummaryTarget
+        {
+            Codex,
+            Pi,
+            Tasks,
+        }
+
+        static readonly SummaryTarget[] Targets =
+        {
+            SummaryTarget.Codex,
+            SummaryTarget.Pi,
+            SummaryTarget.Tasks,
+        };
+
         string _minPromptChars;
 
         protected override string SavedMessage => "title settings saved.";
@@ -19,22 +33,14 @@ namespace SlopWorld
 
         protected override void DrawFields(Listing_Standard l)
         {
-            UiWidgets.SectionHeading(l, "Codex");
-            if (UiWidgets.Button(l,
-                    "Name sessions: " + PolicyLabel(_cfg.AgentTitles)))
-                OpenPolicyMenu(false);
-            UiWidgets.Note(l, "Names a Codex session from its submitted prompt.");
+            float rowH = UiWidgets.FieldH + UiWidgets.GapS;
+            var table = l.GetRect(rowH * (Targets.Length + 1) + UiWidgets.GapS);
+            UiTable.Draw(table, Targets, rowH, PolicyColumns(), DrawPolicyRow);
+            l.Gap(UiWidgets.GapM);
+            UiWidgets.Note(l, "Choose which submitted prompts or delegated tasks receive an " +
+                "OpenRouter summary. Task summaries are generated once per task.");
 
             l.Gap(UiWidgets.GapL);
-            UiWidgets.SectionHeading(l, "Pi");
-            if (UiWidgets.Button(l,
-                    "Name sessions: " + PolicyLabel(_cfg.PiTitles)))
-                OpenPolicyMenu(true);
-            UiWidgets.Note(l, "Pi defaults to every prompt. The daemon applies this setting before input " +
-                "reaches Pi, so it takes effect in the current session.");
-
-            l.Gap(UiWidgets.GapL);
-            UiWidgets.SectionHeading(l, "Automatic titles");
             l.Label("Minimum prompt length");
             _minPromptChars = UiWidgets.Field(l, "usage.summary.minimum", _minPromptChars);
             UiWidgets.Note(l, "Prompts shorter than this many characters are not summarized. " +
@@ -47,32 +53,74 @@ namespace SlopWorld
 
         }
 
+        static List<UiTable.Column> PolicyColumns()
+        {
+            return new List<UiTable.Column>
+            {
+                new UiTable.Column("Source", 0f, true, TextAnchor.MiddleLeft, UiWidgets.GapS),
+                new UiTable.Column("Summarize", 220f, false, TextAnchor.MiddleCenter),
+            };
+        }
+
+        void DrawPolicyRow(SummaryTarget target, Rect row, Rect[] cells)
+        {
+            UiWidgets.RowLabel(cells[0], TargetLabel(target));
+            var button = cells[1].ContractedBy(UiWidgets.GapXS, UiWidgets.GapXS);
+            if (UiWidgets.Button(button, PolicyLabel(Policy(target))))
+                OpenPolicyMenu(target);
+        }
+
+        static string TargetLabel(SummaryTarget target)
+        {
+            switch (target)
+            {
+                case SummaryTarget.Codex: return "Codex sessions";
+                case SummaryTarget.Pi: return "Pi sessions";
+                default: return "Tasks in sidebar";
+            }
+        }
+
+        string Policy(SummaryTarget target)
+        {
+            switch (target)
+            {
+                case SummaryTarget.Codex: return _cfg.AgentTitles;
+                case SummaryTarget.Pi: return _cfg.PiTitles;
+                default: return _cfg.TaskSummaries;
+            }
+        }
+
 
         public static string PolicyLabel(string policy)
         {
             switch (policy)
             {
-                case "once": return "First prompt in each conversation";
-                case "always": return "Every prompt";
-                default: return "Off";
+                case "once": return "Once";
+                case "always": return "Always";
+                default: return "Never";
             }
         }
 
-        void OpenPolicyMenu(bool pi)
+        void OpenPolicyMenu(SummaryTarget target)
         {
-            Find.WindowStack.Add(new UiMenu(new List<FloatMenuOption>
+            var options = new List<FloatMenuOption>
             {
-                new FloatMenuOption("Off", () => SetPolicy(pi, "never")),
-                new FloatMenuOption("First prompt in each conversation", () =>
-                    SetPolicy(pi, "once")),
-                new FloatMenuOption("Every prompt", () => SetPolicy(pi, "always")),
-            }));
+                new FloatMenuOption("Never", () => SetPolicy(target, "never")),
+                new FloatMenuOption("Once", () => SetPolicy(target, "once")),
+            };
+            if (target != SummaryTarget.Tasks)
+                options.Add(new FloatMenuOption("Always", () => SetPolicy(target, "always")));
+            Find.WindowStack.Add(new UiMenu(options));
         }
 
-        void SetPolicy(bool pi, string policy)
+        void SetPolicy(SummaryTarget target, string policy)
         {
-            if (pi) _cfg.PiTitles = policy;
-            else _cfg.AgentTitles = policy;
+            switch (target)
+            {
+                case SummaryTarget.Codex: _cfg.AgentTitles = policy; break;
+                case SummaryTarget.Pi: _cfg.PiTitles = policy; break;
+                default: _cfg.TaskSummaries = policy; break;
+            }
         }
 
         protected override void BeforeSave()

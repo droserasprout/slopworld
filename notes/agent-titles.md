@@ -1,6 +1,6 @@
 # Generated agent titles
 
-Put automatic prompt summaries in `slopd`, not in each agent's extension system.
+Put automatic prompt and task summaries in `slopd`, not in each agent's extension system.
 The daemon already sees input before tmux and OSC 0/2 titles after it, and already knows
 how to read the OpenRouter key without exposing it inside an agent sandbox.
 
@@ -10,9 +10,11 @@ sends prompt text to OpenRouter. `title_model` is shared by the agent title poli
 `title_min_chars` defaults to 20 Unicode characters and skips shorter prompts before they
 consume a `once` attempt or make a request.
 
-The Summaries settings page exposes the Codex and Pi title policies, minimum prompt length, and
-one shared model field. Its key is the Usage page's OpenRouter key file, which is editable with
-credit polling off because title generation does not need polling. Pi defaults to `always`.
+The Summaries settings page exposes the Codex and Pi title policies, one task-summary policy,
+minimum prompt length, and one shared model field. Its key is the Usage page's OpenRouter key
+file, which is editable with credit polling off because title generation does not need polling.
+Pi defaults to `always`; task summaries default to `never` and support `never` or `once`, one
+summary per delegated task.
 
 Both Codex and Pi use the daemon path. Explicit command lines such as `codex --yolo` and
 `pi --model …` are recognized as well as named presets:

@@ -26,6 +26,7 @@
 | `manager/start.rs` | Session target resolution, preflight/argv construction, tmux launch, and reader/state wiring. |
 | `manager/session_state.rs` | Session views, state classification, and the manager retick loop. |
 | `manager/tasks.rs` | The locked durable task store and Manager's task façade. |
+| `manager/task_summary.rs` | Background OpenRouter summaries for newly created durable tasks. |
 | `manager/library.rs` | Projects, library items, file actions and temporary errands. |
 | `manager/workers.rs` | Root-only task-owned worker construction and explicit child metadata. |
 | `manager/capture.rs` | Capture façade, shared frame metadata, attach helpers, and capture tests. |

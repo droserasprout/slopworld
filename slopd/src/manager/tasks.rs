@@ -56,6 +56,10 @@ impl TaskStore {
         self.with(|tasks| tasks.update(who, id, status, note))
     }
 
+    fn set_summary(&self, id: &str, summary: String) -> Result<Option<crate::tasks::Task>> {
+        self.with(|tasks| tasks.set_summary(id, summary))
+    }
+
     fn cancel_many(
         &self,
         who: &str,
@@ -112,6 +116,14 @@ impl Manager {
         note: Option<String>,
     ) -> Result<crate::tasks::Task> {
         self.tasks.update(who, id, status, note)
+    }
+
+    pub(crate) fn set_task_summary(
+        &self,
+        id: &str,
+        summary: String,
+    ) -> Result<Option<crate::tasks::Task>> {
+        self.tasks.set_summary(id, summary)
     }
 
     pub fn cancel_tasks(

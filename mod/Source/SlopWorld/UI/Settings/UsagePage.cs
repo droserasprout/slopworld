@@ -119,69 +119,36 @@ namespace SlopWorld
             // The interval editor is a full control, not a one-line label. Give the table
             // enough height for the shared vertical inset around it.
             float rowH = UiWidgets.FieldH + UiWidgets.GapS;
-            float headerH = rowH;
             float intervalW = Mathf.Min(120f, Mathf.Max(92f, rect.width * .16f));
             float pollW = 64f;
             float iconW = 54f;
-            float fixedW = intervalW + pollW + iconW;
-            float availableW = Mathf.Max(0f, rect.width);
-            if (fixedW > availableW && fixedW > 0f)
+            var columns = new List<UiTable.Column>
             {
-                // The settings column can be narrower than the desktop layout. Shrink the
-                // fixed columns together before assigning the remainder to Name, so every
-                // cell still ends at the table's right edge instead of spilling out of it.
-                float scale = availableW / fixedW;
-                intervalW *= scale;
-                pollW *= scale;
-                iconW *= scale;
-                fixedW = availableW;
-            }
-            float nameW = Mathf.Max(0f, availableW - fixedW);
-            float iconX = rect.x + nameW;
-            float pollX = iconX + iconW;
-            float intervalX = pollX + pollW;
-            float namePad = Mathf.Min(UiWidgets.GapS, nameW);
-
-            var header = new Rect(rect.x, rect.y, rect.width, headerH);
-            Slab.Fill(header, UiWidgets.RowBg);
-            UiWidgets.RowLabel(new Rect(rect.x + namePad, rect.y,
-                Mathf.Max(0f, nameW - namePad), headerH), "Name");
-            UiWidgets.RowLabel(new Rect(iconX, rect.y, iconW, headerH), "Icon",
-                TextAnchor.MiddleCenter);
-            UiWidgets.RowLabel(new Rect(pollX, rect.y, pollW, headerH), "Poll",
-                TextAnchor.MiddleCenter);
-            UiWidgets.RowLabel(new Rect(intervalX, rect.y, intervalW, headerH), "Interval (s)",
-                TextAnchor.MiddleCenter);
-            Slab.Hairline(new Rect(rect.x, header.yMax - 1f, rect.width, 1f),
-                UiWidgets.Edge);
-
-            float y = header.yMax;
-            foreach (string key in keys)
+                new UiTable.Column("Name", 0f, true, TextAnchor.MiddleLeft, UiWidgets.GapS),
+                new UiTable.Column("Icon", iconW, false, TextAnchor.MiddleCenter),
+                new UiTable.Column("Poll", pollW, false, TextAnchor.MiddleCenter),
+                new UiTable.Column("Interval (s)", intervalW, false, TextAnchor.MiddleCenter),
+            };
+            return UiTable.Draw(rect, keys, rowH, columns, (key, row, cells) =>
             {
                 var item = EnsureItem(key);
-                var row = new Rect(rect.x, y, rect.width, rowH);
-                RowChrome.Hover(row, false, true, RowHoverPolicy.OverlayAware);
+                var name = cells[0];
+                float namePad = Mathf.Min(UiWidgets.GapS, name.width);
+                UiWidgets.RowLabel(new Rect(name.x + namePad, name.y,
+                    Mathf.Max(0f, name.width - namePad), name.height), UsageReadout.Long(key));
+                DrawIconButton(cells[1], key);
 
-                UiWidgets.RowLabel(new Rect(row.x + namePad, row.y,
-                    Mathf.Max(0f, nameW - namePad), row.height), UsageReadout.Long(key));
-                DrawIconButton(new Rect(iconX, row.y, iconW, row.height), key);
-
-                var poll = new Rect(pollX, row.y, pollW, row.height);
-                item.Poll = ToggleCell.DrawCheck(poll, item.Poll,
+                item.Poll = ToggleCell.DrawCheck(cells[2], item.Poll,
                     item.Poll ? "Stop polling this usage window." : "Poll this usage window.",
                     false, RowHoverPolicy.OverlayAware);
 
-                float fieldPad = Mathf.Min(UiWidgets.GapXS, intervalW / 2f);
-                var field = new Rect(intervalX + fieldPad, row.y + UiWidgets.GapXS,
-                    Mathf.Max(0f, intervalW - fieldPad * 2f), UiWidgets.FieldH);
+                var interval = cells[3];
+                float fieldPad = Mathf.Min(UiWidgets.GapXS, interval.width / 2f);
+                var field = new Rect(interval.x + fieldPad, interval.y + UiWidgets.GapXS,
+                    Mathf.Max(0f, interval.width - fieldPad * 2f), UiWidgets.FieldH);
                 _itemIntervals[key] = UiWidgets.Field(field, "usage.item." + key,
                     _itemIntervals[key], true);
-
-                Slab.Hairline(new Rect(row.x, row.yMax - 1f, row.width, 1f),
-                    UiWidgets.Edge);
-                y = row.yMax;
-            }
-            return y - rect.y + UiWidgets.GapS;
+            });
         }
 
         void DrawIconButton(Rect area, string key)

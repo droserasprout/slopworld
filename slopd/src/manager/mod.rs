@@ -11,6 +11,7 @@ mod session_lifecycle;
 mod session_state;
 mod sessions;
 mod start;
+mod task_summary;
 mod tasks;
 mod workers;
 

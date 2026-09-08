@@ -44,6 +44,8 @@ cloned, while `x-slop-session` identifies the caller that becomes the task sende
 sidebar parent. The child gets fresh identity and daemon-owned worker metadata plus the
 `slopworld-worker` API sandbox. It returns `{ "task": Task, "worker": { "name": "...", "session": "..." } }`.
 The task's optional `worker` object carries the explicit child session, parent, and durable flag.
+Task records may also carry an optional daemon-generated `summary`; clients should fall back to
+the body when it is absent while a background summary is disabled or still pending.
 Session snapshots likewise carry `worker`, `parent`, `task_id`, and `durable`; clients must not
 infer hierarchy from names.
 Task mutations include `POST /api/tasks/cancel` with `{ "ids": ["..."] }`, which atomically marks

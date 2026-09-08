@@ -10,6 +10,7 @@ namespace SlopWorld.Tests
             yield return ("reads task mailbox records", ReadsTask);
             yield return ("normalizes task status and body", NormalizesTaskValues);
             yield return ("bounds mailbox row summaries", BoundsSummary);
+            yield return ("uses daemon task summaries", UsesGeneratedSummary);
         }
 
         static void ReadsTask()
@@ -55,6 +56,15 @@ namespace SlopWorld.Tests
             AssertEx.Equal(new string('y', TaskInfo.SummaryChars),
                 new TaskInfo { Body = new string('y', TaskInfo.SummaryChars) }.Summary,
                 "boundary is preserved");
+        }
+
+        static void UsesGeneratedSummary()
+        {
+            var task = TaskInfo.FromJson(JVal.Parse(
+                "{\"body\":\"a much longer original task body\",\"summary\":\"plan " +
+                "sidebar fix\"}"));
+
+            AssertEx.Equal("plan sidebar fix", task.Summary, "daemon summary wins");
         }
     }
 }

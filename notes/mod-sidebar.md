@@ -61,6 +61,9 @@ same daemon inventory as Settings and opens it as the focused root of Files. She
 ephemeral shell errand that clones the agent's
 sandbox config (presets, network, dns, limits, mounts) via the `like` field on
 `/api/run`, so the shell sees the same filesystem as the agent.
+- Task rows prefer the daemon's optional OpenRouter summary when task summaries are set to
+  `once`, and fall back to the bounded one-line task body preview when summaries are disabled,
+  too short, unavailable, or still being generated.
 
 Shared views, navigation, filtering, context menus, and vanilla chrome shifts are
 covered in [sidebar views and chrome](mod-sidebar-navigation.md).
