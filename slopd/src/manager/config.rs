@@ -77,7 +77,7 @@ impl Manager {
             auth_generation: AtomicU64::new(0),
             auth_changes,
             grants: RwLock::new(crate::grant::Grants::default()),
-            tasks: Mutex::new(tasks),
+            tasks: crate::session::manager::TaskStore::new(tasks),
             worker_spawn: tokio::sync::Mutex::new(()),
             title_cache,
         });
@@ -283,73 +283,6 @@ impl Manager {
 
     pub async fn config(&self) -> Config {
         self.cfg.read().await.clone()
-    }
-
-    pub fn create_task(
-        &self,
-        from: String,
-        to: String,
-        body: String,
-    ) -> Result<crate::tasks::Task> {
-        self.tasks.lock().unwrap().create(from, to, body)
-    }
-
-    pub fn tasks_for(&self, who: &str) -> Vec<crate::tasks::Task> {
-        self.tasks.lock().unwrap().visible(who)
-    }
-
-    pub fn all_tasks(&self) -> Vec<crate::tasks::Task> {
-        self.tasks.lock().unwrap().all()
-    }
-
-    pub fn task_for(&self, who: &str, id: &str) -> Option<crate::tasks::Task> {
-        self.tasks.lock().unwrap().get(who, id)
-    }
-
-    pub fn update_task(
-        &self,
-        who: &str,
-        id: &str,
-        status: crate::tasks::Status,
-        note: Option<String>,
-    ) -> Result<crate::tasks::Task> {
-        self.tasks.lock().unwrap().update(who, id, status, note)
-    }
-
-    pub fn cancel_tasks(
-        &self,
-        who: &str,
-        ids: &[String],
-        force: bool,
-    ) -> Result<Vec<crate::tasks::Task>> {
-        self.tasks.lock().unwrap().cancel_many(who, ids, force)
-    }
-
-    pub fn remove_task(&self, who: &str, id: &str, force: bool) -> Result<crate::tasks::Task> {
-        self.tasks.lock().unwrap().remove(who, id, force)
-    }
-
-    pub fn remove_tasks(&self, who: &str, ids: &[String], force: bool) -> Result<usize> {
-        self.tasks.lock().unwrap().remove_many(who, ids, force)
-    }
-
-    pub fn prune_tasks(&self, who: &str, all: bool) -> Result<usize> {
-        self.tasks.lock().unwrap().prune(who, all)
-    }
-
-    pub fn fail_worker_task(&self, task_id: &str, note: impl Into<String>) {
-        if task_id.trim().is_empty() {
-            return;
-        }
-        match self.tasks.lock().unwrap().fail_worker(task_id, note.into()) {
-            Ok(Some(task)) if task.status == crate::tasks::Status::Failed => {
-                tracing::info!(task = %task.id, "task-owned worker task marked failed")
-            }
-            Ok(_) => {}
-            Err(error) => {
-                tracing::error!(task = %task_id, "could not persist worker task failure: {error:#}")
-            }
-        }
     }
 
     pub async fn usage(&self) -> crate::usage::Snapshot {

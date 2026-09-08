@@ -77,7 +77,7 @@ impl Manager {
             bail!("worker parent {parent} does not resolve to an executable command");
         }
 
-        let task = self.tasks.lock().unwrap().create_worker(
+        let task = self.tasks.create_worker(
             caller.clone(),
             session.name.clone(),
             body,

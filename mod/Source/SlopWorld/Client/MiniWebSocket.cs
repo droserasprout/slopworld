@@ -11,7 +11,7 @@ namespace SlopWorld
     // Text frames, ping/pong, close. ClientWebSocket is not dependable on Unity's
     // mono and less so under Wine, so we speak the protocol over a plain TcpClient.
     // Reads happen on a background thread; callers drain Incoming.
-    public class MiniWebSocket : IDisposable
+    public partial class MiniWebSocket : IDisposable
     {
         public readonly ConcurrentQueue<string> Incoming = new ConcurrentQueue<string>();
         readonly ConcurrentQueue<string> _outgoing = new ConcurrentQueue<string>();
@@ -258,58 +258,16 @@ namespace SlopWorld
 
                 while (!_closing)
                 {
-                    int b0 = _net.ReadByte();
-                    if (b0 < 0) break;
-                    int b1 = _net.ReadByte();
-                    if (b1 < 0) break;
+                    var frame = ReadFrame(fragOpcode, frag.Length);
+                    if (frame == null) break;
 
-                    bool fin = (b0 & 0x80) != 0;
-                    int opcode = b0 & 0x0f;
-                    if ((b0 & 0x70) != 0)
-                        throw new IOException("websocket extensions are not supported");
-                    // Server frames are never masked, so bit 7 of b1 is always 0 here.
-                    if ((b1 & 0x80) != 0)
-                        throw new IOException("masked server frame");
-                    long len = b1 & 0x7f;
+                    var payload = frame.Payload;
 
-                    if (len == 126)
-                    {
-                        len = (ReadByteOrThrow() << 8) | ReadByteOrThrow();
-                    }
-                    else if (len == 127)
-                    {
-                        len = 0;
-                        for (int i = 0; i < 8; i++)
-                            len = (len << 8) | (uint)ReadByteOrThrow();
-                    }
-
-                    // The length arrives as 64 bits and is about to become an allocation
-                    // size. Unchecked, a desynced or corrupt header asks for gigabytes, or
-                    // casts negative and throws somewhere further from the cause than here.
-                    if (len < 0 || len > MaxFrame)
-                        throw new IOException($"frame length out of range: {len}");
-
-                    if ((opcode & 0x8) != 0 && (!fin || len > 125))
-                        throw new IOException("malformed control frame");
-                    if ((opcode >= 0x2 && opcode <= 0x7) ||
-                        ((opcode & 0x8) != 0 && opcode != 0x8 && opcode != 0x9 && opcode != 0xA))
-                        throw new IOException($"unsupported websocket opcode: {opcode}");
-                    if (opcode == 0x0 && fragOpcode == 0)
-                        throw new IOException("unexpected continuation frame");
-                    if (opcode == 0x1 && fragOpcode != 0)
-                        throw new IOException("new text frame while fragmented message is pending");
-                    if (opcode == 0x0 && (long)frag.Length + len > MaxFragmentedMessage)
-                        throw new IOException("fragmented message is too large");
-                    if (opcode == 0x1 && !fin && len > MaxFragmentedMessage)
-                        throw new IOException("fragmented message is too large");
-
-                    var payload = ReadExactly((int)len);
-
-                    switch (opcode)
+                    switch (frame.Opcode)
                     {
                         case 0x0: // continuation
                             frag.Write(payload, 0, payload.Length);
-                            if (fin)
+                            if (frame.Fin)
                             {
                                 if (fragOpcode == 0x1)
                                     Incoming.Enqueue(Encoding.UTF8.GetString(frag.ToArray()));
@@ -319,7 +277,7 @@ namespace SlopWorld
                             break;
 
                         case 0x1: // text
-                            if (fin)
+                            if (frame.Fin)
                             {
                                 Incoming.Enqueue(Encoding.UTF8.GetString(payload));
                             }
@@ -351,26 +309,6 @@ namespace SlopWorld
                 _connected = false;
                 _sendSignal.Set();
             }
-        }
-
-        int ReadByteOrThrow()
-        {
-            int b = _net.ReadByte();
-            if (b < 0) throw new IOException("socket closed mid-frame");
-            return b;
-        }
-
-        byte[] ReadExactly(int n)
-        {
-            var buf = new byte[n];
-            int got = 0;
-            while (got < n)
-            {
-                int r = _net.Read(buf, got, n - got);
-                if (r <= 0) throw new IOException("socket closed mid-payload");
-                got += r;
-            }
-            return buf;
         }
 
         public void Dispose()
