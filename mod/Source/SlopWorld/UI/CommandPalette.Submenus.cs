@@ -255,6 +255,170 @@ namespace SlopWorld
             return list;
         }
 
+        static bool HasTasks() => SessionHub.Instance.Tasks.Any(task =>
+            task != null && !string.IsNullOrEmpty(task.Id));
+
+        static bool HasCancelableTasks() => SessionHub.Instance.Tasks.Any(task =>
+            task != null && !string.IsNullOrEmpty(task.Id) &&
+            (task.Status == DelegatedTaskStatus.Queued ||
+             task.Status == DelegatedTaskStatus.Accepted));
+
+        static bool HasTerminalTasks() => SessionHub.Instance.Tasks.Any(task =>
+            task != null && !string.IsNullOrEmpty(task.Id) && task.Terminal);
+
+        static bool HasStatusTasks() => SessionHub.Instance.Tasks.Any(task =>
+            task != null && !string.IsNullOrEmpty(task.Id) && task.Incoming && !task.Terminal);
+
+        static string TaskLabel(TaskInfo task) =>
+            $"{task.Id}  ({TaskInfo.StatusText(task.Status)})  -  {task.Direction}";
+
+        static List<SubOption> TasksSub()
+        {
+            var list = SessionHub.Instance.Tasks
+                .Where(task => task != null && !string.IsNullOrEmpty(task.Id))
+                .Select(task => new SubOption
+                {
+                    Label = TaskLabel(task),
+                    Value = task.Id,
+                })
+                .ToList();
+
+            if (list.Count == 0)
+                list.Add(new SubOption { Label = "(no tasks)", Enabled = false });
+            return list;
+        }
+
+        static List<SubOption> CancelableTasksSub()
+        {
+            var list = SessionHub.Instance.Tasks
+                .Where(task => task != null && !string.IsNullOrEmpty(task.Id) &&
+                    (task.Status == DelegatedTaskStatus.Queued ||
+                     task.Status == DelegatedTaskStatus.Accepted))
+                .Select(task => new SubOption
+                {
+                    Label = TaskLabel(task),
+                    Value = task.Id,
+                })
+                .ToList();
+
+            if (list.Count == 0)
+                list.Add(new SubOption { Label = "(no cancelable tasks)", Enabled = false });
+            return list;
+        }
+
+        static List<SubOption> TerminalTasksSub()
+        {
+            var list = SessionHub.Instance.Tasks
+                .Where(task => task != null && !string.IsNullOrEmpty(task.Id) && task.Terminal)
+                .Select(task => new SubOption
+                {
+                    Label = TaskLabel(task),
+                    Value = task.Id,
+                })
+                .ToList();
+
+            if (list.Count == 0)
+                list.Add(new SubOption { Label = "(no completed tasks)", Enabled = false });
+            return list;
+        }
+
+        static List<SubOption> TaskStatusSub()
+        {
+            var list = SessionHub.Instance.Tasks
+                .Where(task => task != null && !string.IsNullOrEmpty(task.Id) &&
+                    task.Incoming && !task.Terminal)
+                .Select(task =>
+                {
+                    var selected = task;
+                    return new SubOption
+                    {
+                        Label = TaskLabel(selected),
+                        Children = () => TaskStatusChoices(selected),
+                    };
+                })
+                .ToList();
+
+            if (list.Count == 0)
+                list.Add(new SubOption { Label = "(no incoming tasks to update)", Enabled = false });
+            return list;
+        }
+
+        static List<SubOption> TaskStatusChoices(TaskInfo task)
+        {
+            var list = new List<SubOption>();
+            var statuses = new[]
+            {
+                DelegatedTaskStatus.Accepted,
+                DelegatedTaskStatus.Working,
+                DelegatedTaskStatus.Done,
+                DelegatedTaskStatus.Failed,
+            };
+            foreach (var value in statuses)
+            {
+                var status = value;
+                list.Add(new SubOption
+                {
+                    Label = TaskInfo.StatusText(status),
+                    Enabled = task.Status != status,
+                    Select = () => SessionHub.Instance.TaskStore.UpdateStatus(
+                        task.Id, status, null, null, UiWidgets.Fail),
+                });
+            }
+            return list;
+        }
+
+        static List<SubOption> AgentStatusSub() => new List<SubOption>
+        {
+            new SubOption
+            {
+                Label = "All",
+                Value = "all",
+                Checked = !AgentSidebar.StatusFiltering,
+            },
+            new SubOption
+            {
+                Label = "Active",
+                Value = "active",
+                Checked = (AgentSidebar.StatusFilter & AgentStatusFilter.Active) != 0,
+            },
+            new SubOption
+            {
+                Label = "Idle",
+                Value = "idle",
+                Checked = (AgentSidebar.StatusFilter & AgentStatusFilter.Idle) != 0,
+            },
+            new SubOption
+            {
+                Label = "Down",
+                Value = "down",
+                Checked = (AgentSidebar.StatusFilter & AgentStatusFilter.Down) != 0,
+            },
+        };
+
+        static void SetAgentStatusFromPalette(string value)
+        {
+            if (string.Equals(value, "all", StringComparison.Ordinal))
+            {
+                AgentSidebar.SetStatusFilter(AgentStatusFilter.All);
+                return;
+            }
+
+            AgentStatusFilter status;
+            switch (value)
+            {
+                case "active": status = AgentStatusFilter.Active; break;
+                case "idle": status = AgentStatusFilter.Idle; break;
+                case "down": status = AgentStatusFilter.Down; break;
+                default: return;
+            }
+
+            var selected = AgentSidebar.StatusFilter;
+            var next = selected == AgentStatusFilter.All
+                ? status
+                : (selected & status) != 0 ? selected & ~status : selected | status;
+            AgentSidebar.SetStatusFilter(next);
+        }
+
         static List<SubOption> JukeboxSub()
         {
             var list = new List<SubOption>
