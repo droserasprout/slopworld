@@ -1,6 +1,6 @@
 # No sandbox preset of its own: a shell reaches whatever its project does.
 [[command]]
-name = "zsh"
+name = "sh"
 kind = "shell"
-description = "an interactive zsh shell in the project's sandbox"
-cmd = "zsh"
+description = "an interactive POSIX shell in the project's sandbox"
+cmd = "sh"

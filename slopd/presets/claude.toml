@@ -47,6 +47,7 @@ env = ["ANTHROPIC_API_KEY", "ANTHROPIC_BASE_URL"]
 
 [[command]]
 name = "claude"
+kind = "agent"
 description = "Claude Code"
 cmd = "claude"
 sandbox = ["claude"]

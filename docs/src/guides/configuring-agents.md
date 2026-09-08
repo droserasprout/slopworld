@@ -79,9 +79,11 @@ body and breadcrumb; reset changes the pending form and **Save** applies it.
 
 ## Command presets
 
-A command preset names a piece of software. The Settings > Commands page lists the
-built-in agent and shell presets. User presets in `~/.config/slopworld/presets/*.toml`
-replace builtins by name.
+A command preset names a piece of software and declares `kind = "agent"` or
+`kind = "shell"`. The Settings > Commands page uses that field to keep the Agent and
+Shell defaults separate while sourcing both lists from the live command catalog. User
+presets in `~/.config/slopworld/presets/*.toml` replace builtins by name; an omitted kind
+is treated as `agent` for compatibility.
 
 A file may define `[[command]]`, `[[sandbox]]`, or both. The `global.toml` sandbox
 preset is implicit and precedes all others. See
