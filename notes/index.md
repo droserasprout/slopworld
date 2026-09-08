@@ -51,6 +51,7 @@ short subject per note and remove stale entries.
 
 ## Mod, simulation, and UI
 
+- [terminal and input bug review](_plans/bugs-review.md) - five fixes, reverted submenu change, and validation status.
 - [mod-client](mod-client.md) - `Client/`: hub, socket, JSON, config mirror.
 - [csharp-tests](csharp-tests.md) - the C# test boundary and pure-logic test project.
 - [mod-sim](mod-sim.md) - `Sim/`: colony reconcile, clock, intro, restart.

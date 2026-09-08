@@ -8,7 +8,11 @@ namespace SlopWorld
         // The press is forwarded provisionally. If the app does not claim drag input, the
         // provisional press is closed and the gesture becomes a text selection.
         bool _mouseFwd;
+        int _fwdButton;
         Vector2Int _fwdCell;
+
+        internal bool OwnsForwardedMouse(Event e) => _mouseFwd && e.button == _fwdButton &&
+            (MouseType(e) == EventType.MouseDrag || MouseType(e) == EventType.MouseUp);
 
         // An app in click-reporting mode (Claude Code is one) said nothing about motion, so a
         // drag across its output was never its to receive - forwarded anyway, it left no way
@@ -28,6 +32,7 @@ namespace SlopWorld
                     ClearSelection();
                     SessionHub.Instance.SendMouse(_name, "press", btn, cell.x, cell.y);
                     _mouseFwd = true;
+                    _fwdButton = btn;
                     _fwdCell = cell;
                     e.Use();
                     return true;

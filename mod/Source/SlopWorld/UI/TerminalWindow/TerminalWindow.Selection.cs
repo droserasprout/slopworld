@@ -1,4 +1,3 @@
-using System.Text;
 using UnityEngine;
 
 namespace SlopWorld
@@ -276,28 +275,7 @@ namespace SlopWorld
 
         string SelectionText(ScreenBuf buf)
         {
-            EnsureRuns(buf);
-            OrderedSel(out var a, out var b);
-            int rows = buf.Runs.Length;
-            if (rows == 0) return "";
-
-            var sb = new StringBuilder();
-            int r0 = Mathf.Clamp(a.y, 0, rows - 1);
-            int r1 = Mathf.Clamp(b.y, 0, rows - 1);
-            for (int row = r0; row <= r1; row++)
-            {
-                var cells = TerminalColumns.Cells(buf.Runs[row]);
-                int len = TerminalColumns.ContentColumns(cells);
-                int startCol = row == a.y ? Mathf.Max(0, a.x) : 0;
-                // The head cell is inclusive, matching the highlight.
-                int endCol = row == b.y ? b.x + 1 : len;
-                startCol = Mathf.Clamp(startCol, 0, len);
-                endCol = Mathf.Clamp(endCol, 0, len);
-                // Slice takes an inclusive last column and drops reserved wide-char columns.
-                if (endCol > startCol) sb.Append(TerminalColumns.Slice(cells, startCol, endCol - 1));
-                if (row < r1) sb.Append('\n');
-            }
-            return sb.ToString();
+            return _history.SelectionText(buf, _selA.x, _selA.y, _selB.x, _selB.y);
         }
 
         // Colors are resolved into the runs at parse time, so a scheme change is a re-parse:

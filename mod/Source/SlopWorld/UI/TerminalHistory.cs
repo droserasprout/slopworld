@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Text;
 
 namespace SlopWorld
 {
@@ -21,6 +22,33 @@ namespace SlopWorld
         int _origin;
         public int Count => _lines.Count;
         public int Cols => _template?.Cols ?? 0;
+        public bool TryLine(int globalRow, out string line) =>
+            _lines.TryGetValue(Storage(globalRow), out line);
+
+        // Copy the entire range, including rows outside the displayed viewport. Refuse an
+        // incomplete range rather than silently publishing truncated text to the clipboard.
+        public string SelectionText(ScreenBuf displayed, int ax, int ay, int bx, int by)
+        {
+            if (by < ay || (by == ay && bx < ax))
+            {
+                int x = ax, y = ay;
+                ax = bx; ay = by; bx = x; by = y;
+            }
+            var text = new StringBuilder();
+            for (int row = ay; row <= by; row++)
+            {
+                string line;
+                if (row >= 0 && row < displayed.Lines.Length) line = displayed.Lines[row];
+                else if (!TryLine(row - displayed.Off, out line)) return "";
+                var cells = TerminalColumns.Cells(Sgr.ParseLine(line));
+                int len = TerminalColumns.ContentColumns(cells);
+                int start = row == ay ? Math.Max(0, ax) : 0;
+                int end = row == by ? Math.Min(bx + 1, len) : len;
+                if (end > start) text.Append(TerminalColumns.Slice(cells, start, end - 1));
+                if (row < by) text.Append('\n');
+            }
+            return text.ToString();
+        }
         public int Rows => _template?.Rows ?? 0;
         public bool AltScreen => _templateAltScreen;
 
