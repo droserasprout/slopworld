@@ -4,9 +4,8 @@ Reduce the largest recurring costs found in the daemon and mod without changing 
 contract or visible behavior. This is an implementation plan, not a runtime profile: the first
 step is to establish measurements before changing hot paths.
 
-The detailed watched-terminal rendering design lives in
-[terminal-frame-rendering-plan](terminal-frame-rendering-plan.md). This plan owns the broader
-ordering, WebSocket cost, UI repaint work, and interaction-time operations.
+The watched-terminal rendering work is covered by the daemon frame-path items below. This plan
+owns the broader ordering, WebSocket cost, UI repaint work, and interaction-time operations.
 
 ## Baseline
 
@@ -26,7 +25,7 @@ current client-side row cache unchanged during the baseline.
 
 ## Priority 1: daemon frame path
 
-Implement the work in [terminal-frame-rendering-plan](terminal-frame-rendering-plan.md):
+Implement the daemon frame-path work:
 
 1. Cache serialized rows, row hashes, and the aggregate content hash in `SessionEmu`.
 2. Consume terminal damage ranges and rebuild only affected rows.

@@ -45,7 +45,7 @@ struct FrameMeta {
 }
 
 struct FrameSnapshot {
-    hash: u64,
+    content_hash: u64,
     plain: Arc<String>,
     state: State,
     last_change: u64,
@@ -78,7 +78,7 @@ impl FrameSnapshot {
             .unwrap_or_default();
 
         Self {
-            hash: l.hash,
+            content_hash: l.hash,
             // Strings are immutable; keep the prior value without copying it for every frame.
             plain: l.plain.clone(),
             state: l.state,
@@ -99,7 +99,7 @@ struct ActivityDelta {
 }
 
 struct FrameDelta {
-    hash: u64,
+    content_hash: u64,
     plain: Arc<String>,
     screen_changed: bool,
     next_state: State,
@@ -432,6 +432,7 @@ mod tests {
         let mut events = manager.events.subscribe();
         let frame = Frame {
             lines: vec!["hello".into()],
+            content_hash: 0,
             history: 0,
             cx: 2,
             cy: 0,
@@ -450,7 +451,16 @@ mod tests {
         assert_eq!(live.state, State::Working);
         assert_eq!(live.seq, 1);
         assert!(live.bell);
-        assert_eq!(live.screen.as_ref().unwrap().lines, ["hello"]);
+        assert_eq!(
+            live.screen
+                .as_ref()
+                .unwrap()
+                .lines
+                .iter()
+                .map(AsRef::as_ref)
+                .collect::<Vec<&str>>(),
+            ["hello"]
+        );
 
         assert!(matches!(events.try_recv(), Ok(Event::Screen { .. })));
         assert!(matches!(events.try_recv(), Ok(Event::Sessions { .. })));
@@ -460,6 +470,7 @@ mod tests {
                 "agent",
                 Frame {
                     lines: vec!["hello".into()],
+                    content_hash: 0,
                     history: 0,
                     cx: 2,
                     cy: 0,
@@ -474,6 +485,88 @@ mod tests {
             )
             .await;
         assert_eq!(manager.live.read().await["agent"].seq, 1);
+        assert!(events.try_recv().is_err());
+    }
+
+    #[tokio::test]
+    async fn metadata_only_frame_updates_the_screen_and_emits_no_content_change() {
+        let manager = crate::session::test_manager(Config::default());
+        manager.live.write().await.insert(
+            "agent".into(),
+            Live::new(
+                SessionCfg {
+                    name: "agent".into(),
+                    ..Default::default()
+                },
+                TitleCapture::default(),
+            ),
+        );
+        let mut events = manager.events.subscribe();
+        let frame = |cx: u16, title: &str, app_mouse: bool| Frame {
+            lines: vec!["same".into()],
+            content_hash: 7,
+            history: 0,
+            cx,
+            cy: 0,
+            cursor_shape: 2,
+            cursor_blink: false,
+            app_mouse,
+            app_drag: false,
+            alt_screen: false,
+            title: title.into(),
+            bell: false,
+        };
+
+        manager.apply_frame("agent", frame(1, "old", false)).await;
+        while events.try_recv().is_ok() {}
+        manager.apply_frame("agent", frame(4, "new", true)).await;
+
+        let live = manager.live.read().await;
+        let screen = live["agent"].screen.as_ref().unwrap();
+        assert_eq!(live["agent"].seq, 2);
+        assert_eq!((screen.cx, screen.cy), (4, 0));
+        assert_eq!(screen.title, "new");
+        assert!(screen.app_mouse);
+        assert!(matches!(events.try_recv(), Ok(Event::Screen { .. })));
+        assert!(matches!(events.try_recv(), Ok(Event::Sessions { .. })));
+        assert!(events.try_recv().is_err());
+    }
+
+    #[tokio::test]
+    async fn applying_a_frame_uses_the_emulator_content_hash() {
+        let manager = crate::session::test_manager(Config::default());
+        manager.live.write().await.insert(
+            "agent".into(),
+            Live::new(
+                SessionCfg {
+                    name: "agent".into(),
+                    ..Default::default()
+                },
+                TitleCapture::default(),
+            ),
+        );
+        let mut events = manager.events.subscribe();
+        let frame = |content_hash| Frame {
+            lines: vec!["same".into()],
+            content_hash,
+            history: 0,
+            cx: 0,
+            cy: 0,
+            cursor_shape: 0,
+            cursor_blink: false,
+            app_mouse: false,
+            app_drag: false,
+            alt_screen: false,
+            title: String::new(),
+            bell: false,
+        };
+
+        manager.apply_frame("agent", frame(11)).await;
+        while events.try_recv().is_ok() {}
+        manager.apply_frame("agent", frame(22)).await;
+
+        assert_eq!(manager.live.read().await["agent"].seq, 2);
+        assert!(matches!(events.try_recv(), Ok(Event::Screen { .. })));
     }
 
     #[tokio::test]

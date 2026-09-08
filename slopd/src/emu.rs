@@ -2,12 +2,16 @@
 //! raw bytes tmux control mode gives us and serialising back into the SGR-colored line
 //! format the mod speaks.
 
+use std::hash::{Hash, Hasher};
 use std::sync::{Arc, Mutex};
 
 use alacritty_terminal::event::{Event, EventListener};
 use alacritty_terminal::grid::{Dimensions, Scroll};
-use alacritty_terminal::term::cell::{Flags, Hyperlink};
-use alacritty_terminal::term::{ClipboardType, Config, Term, TermMode};
+use alacritty_terminal::index::{Column, Line, Point};
+use alacritty_terminal::term::cell::{Cell, Flags, Hyperlink};
+use alacritty_terminal::term::{
+    ClipboardType, Config, LineDamageBounds, Term, TermDamage, TermMode,
+};
 use alacritty_terminal::vte::ansi::{Color, CursorShape, CursorStyle, Processor};
 
 /// Our own `Dimensions`, so we don't depend on the test-gated `TermSize`.
@@ -32,7 +36,10 @@ impl Dimensions for Dims {
 /// column diverges from the pen - which is where a wide char skipped a cell - and the mod
 /// redraws those runs at their absolute column.
 pub struct Frame {
-    pub lines: Vec<String>,
+    pub lines: Vec<Arc<str>>,
+    /// Equality accelerator for the complete visible content. It is derived from cached row
+    /// hashes, rather than by scanning the serialized rows in the manager.
+    pub content_hash: u64,
     /// Number of rows currently available above the primary live viewport.
     pub history: u32,
     pub cx: u16,
@@ -52,6 +59,38 @@ pub struct Frame {
     /// The app rang BEL since the last live render. An event rather than a state, so it is
     /// true on exactly one frame and the session table is what holds it after that.
     pub bell: bool,
+}
+
+struct RenderCache {
+    cols: u16,
+    rows: u16,
+    cells: Vec<Vec<Slot>>,
+    lines: Vec<Arc<str>>,
+    row_hashes: Vec<u64>,
+    content_hash: u64,
+    display_offset: usize,
+    alt_screen: Option<bool>,
+    valid: bool,
+}
+
+impl RenderCache {
+    fn new() -> Self {
+        Self {
+            cols: 0,
+            rows: 0,
+            cells: Vec::new(),
+            lines: Vec::new(),
+            row_hashes: Vec::new(),
+            content_hash: 0,
+            display_offset: 0,
+            alt_screen: None,
+            valid: false,
+        }
+    }
+
+    fn invalidate(&mut self) {
+        self.valid = false;
+    }
 }
 
 /// Everything the VT engine hands *back* rather than draws.
@@ -103,6 +142,7 @@ pub struct SessionEmu {
     cols: u16,
     rows: u16,
     side: Arc<Mutex<Side>>,
+    render_cache: RenderCache,
     // The first game resize reconciles the daemon's boot shape with the pane's real shape. If
     // the tmux capture had no history, a smaller boot viewport would otherwise turn one blank
     // row from that handoff into scrollback before the session has produced any output.
@@ -135,6 +175,7 @@ impl SessionEmu {
             cols,
             rows,
             side,
+            render_cache: RenderCache::new(),
             initial_capture_history: None,
         }
     }
@@ -263,6 +304,7 @@ impl SessionEmu {
         let initial_capture_history = self.initial_capture_history.take();
         self.cols = cols;
         self.rows = rows;
+        self.render_cache.invalidate();
         self.term.resize(Dims {
             cols: cols as usize,
             rows: rows as usize,
@@ -272,7 +314,7 @@ impl SessionEmu {
         }
     }
 
-    pub fn render(&self) -> Frame {
+    pub fn render(&mut self) -> Frame {
         let mut frame = self.render_frame(false);
         // Taken here rather than in render_frame: a wheel asks for a scroll snapshot off the
         // same emulator, and a bell swallowed by somebody's scrollback never reaches the
@@ -347,14 +389,18 @@ impl SessionEmu {
         let grid = self.capture_visible_grid();
         let title = self.title();
         self.term.scroll_display(Scroll::Bottom);
+        self.render_cache.invalidate();
         (grid, achieved, history, title)
     }
 
     /// Builds a scrollback frame from a grid captured by `scroll_snapshot`. Runs outside
     /// the emulator lock. The cursor is parked off-screen; a history view has no cursor.
     pub fn frame_from_grid(grid: Vec<Vec<Slot>>, _cols: u16, rows: u16, title: String) -> Frame {
+        let lines: Vec<Arc<str>> = grid.iter().map(|r| Arc::from(serialize_row(r))).collect();
+        let row_hashes = lines.iter().map(hash_row).collect::<Vec<_>>();
         Frame {
-            lines: grid.iter().map(|r| serialize_row(r)).collect(),
+            content_hash: hash_rows(&row_hashes),
+            lines,
             history: 0,
             cx: 0,
             cy: rows,
@@ -389,44 +435,137 @@ impl SessionEmu {
                 continue;
             }
             let cell = ind.cell;
-            if cell.flags.contains(Flags::WIDE_CHAR_SPACER) {
-                grid[row][col] = Slot::Spacer;
-            } else {
-                grid[row][col] = Slot::Ch(cell.c, cell.fg, cell.bg, cell.flags, cell.hyperlink());
-            }
+            grid[row][col] = slot_from_cell(cell);
         }
         grid
     }
 
-    fn render_frame(&self, hide_cursor: bool) -> Frame {
-        let _cols = self.cols as usize;
+    fn render_frame(&mut self, hide_cursor: bool) -> Frame {
+        let damage = match self.term.damage() {
+            TermDamage::Full => Damage::Full,
+            TermDamage::Partial(bounds) => Damage::Partial(bounds.collect()),
+        };
         let rows = self.rows as usize;
-        let content = self.term.renderable_content();
-        let offset = content.display_offset as i32;
-        let grid = self.capture_visible_grid();
-        let lines = grid.iter().map(|r| serialize_row(r)).collect();
+        let (offset, mode, cursor, alt_screen) = {
+            let content = self.term.renderable_content();
+            let display_offset = content.display_offset;
+            let offset = display_offset as i32;
+            let mode = content.mode;
+            let cursor = content.cursor;
+            let alt_screen = mode.contains(TermMode::ALT_SCREEN);
+            let full = matches!(&damage, Damage::Full)
+                || !self.render_cache.valid
+                || self.render_cache.cols != self.cols
+                || self.render_cache.rows != self.rows
+                || self.render_cache.display_offset != display_offset
+                || self.render_cache.alt_screen != Some(alt_screen)
+                || display_offset != 0;
 
-        let cur = content.cursor;
-        let crow = cur.point.line.0 + offset;
+            if full {
+                let grid = self.capture_visible_grid();
+                let mut lines = Vec::with_capacity(rows);
+                let mut row_hashes = Vec::with_capacity(rows);
+                for row in &grid {
+                    let line: Arc<str> = Arc::from(serialize_row(row));
+                    row_hashes.push(hash_row(&line));
+                    lines.push(line);
+                }
+                self.render_cache = RenderCache {
+                    cols: self.cols,
+                    rows: self.rows,
+                    cells: grid,
+                    lines,
+                    content_hash: hash_rows(&row_hashes),
+                    row_hashes,
+                    display_offset,
+                    alt_screen: Some(alt_screen),
+                    valid: true,
+                };
+            } else if let Damage::Partial(bounds) = damage {
+                let cols = self.cols as usize;
+                let mut changed = vec![false; rows];
+                for bound in bounds {
+                    let Some(row) = bound.line.checked_sub(display_offset) else {
+                        self.render_cache.invalidate();
+                        break;
+                    };
+                    if row >= rows || bound.left >= cols || bound.right >= cols {
+                        self.render_cache.invalidate();
+                        break;
+                    }
+                    // A write over one half of a wide character updates the other half too,
+                    // while terminal damage may report only the cell under the cursor. Inspect
+                    // both neighbors so the cached leading glyph and spacer cannot diverge from
+                    // the terminal grid.
+                    let left = bound.left.saturating_sub(1);
+                    let right = bound.right.saturating_add(1).min(cols - 1);
+                    for col in left..=right {
+                        let point =
+                            Point::new(Line(row as i32 - display_offset as i32), Column(col));
+                        let current = slot_from_cell(&self.term.grid()[point]);
+                        if self.render_cache.cells[row][col] != current {
+                            self.render_cache.cells[row][col] = current;
+                            changed[row] = true;
+                        }
+                    }
+                }
+                if !self.render_cache.valid {
+                    let grid = self.capture_visible_grid();
+                    let mut lines = Vec::with_capacity(rows);
+                    let mut row_hashes = Vec::with_capacity(rows);
+                    for row in &grid {
+                        let line: Arc<str> = Arc::from(serialize_row(row));
+                        row_hashes.push(hash_row(&line));
+                        lines.push(line);
+                    }
+                    self.render_cache = RenderCache {
+                        cols: self.cols,
+                        rows: self.rows,
+                        cells: grid,
+                        content_hash: hash_rows(&row_hashes),
+                        lines,
+                        row_hashes,
+                        display_offset,
+                        alt_screen: Some(alt_screen),
+                        valid: true,
+                    };
+                } else {
+                    for (row, changed) in changed.into_iter().enumerate() {
+                        if changed {
+                            let line: Arc<str> =
+                                Arc::from(serialize_row(&self.render_cache.cells[row]));
+                            self.render_cache.row_hashes[row] = hash_row(&line);
+                            self.render_cache.lines[row] = line;
+                        }
+                    }
+                    self.render_cache.content_hash = hash_rows(&self.render_cache.row_hashes);
+                }
+            }
+            (offset, mode, cursor, alt_screen)
+        };
+        self.term.reset_damage();
+
+        let crow = cursor.point.line.0 + offset;
         let hidden = hide_cursor
-            || cur.shape == CursorShape::Hidden
-            || !content.mode.contains(TermMode::SHOW_CURSOR)
+            || cursor.shape == CursorShape::Hidden
+            || !mode.contains(TermMode::SHOW_CURSOR)
             || crow < 0
             || crow as usize >= rows;
         let (cx, cy) = if hidden {
             (0u16, self.rows)
         } else {
-            (cur.point.column.0 as u16, crow as u16)
+            (cursor.point.column.0 as u16, crow as u16)
         };
 
-        let cursor_shape = match cur.shape {
+        let cursor_shape = match cursor.shape {
             CursorShape::Underline => 1,
             CursorShape::Beam => 2,
             _ => 0,
         };
 
         Frame {
-            lines,
+            content_hash: self.render_cache.content_hash,
+            lines: self.render_cache.lines.clone(),
             history: self
                 .term
                 .total_lines()
@@ -436,15 +575,38 @@ impl SessionEmu {
             cy,
             cursor_shape,
             cursor_blink: self.term.cursor_style().blinking,
-            app_mouse: content.mode.intersects(TermMode::MOUSE_MODE),
-            app_drag: content
-                .mode
-                .intersects(TermMode::MOUSE_MOTION | TermMode::MOUSE_DRAG),
-            alt_screen: content.mode.contains(TermMode::ALT_SCREEN),
+            app_mouse: mode.intersects(TermMode::MOUSE_MODE),
+            app_drag: mode.intersects(TermMode::MOUSE_MOTION | TermMode::MOUSE_DRAG),
+            alt_screen,
             title: self.title(),
             bell: false,
         }
     }
+}
+
+enum Damage {
+    Full,
+    Partial(Vec<LineDamageBounds>),
+}
+
+fn slot_from_cell(cell: &Cell) -> Slot {
+    if cell.flags.contains(Flags::WIDE_CHAR_SPACER) {
+        Slot::Spacer
+    } else {
+        Slot::Ch(cell.c, cell.fg, cell.bg, cell.flags, cell.hyperlink())
+    }
+}
+
+fn hash_row(row: &Arc<str>) -> u64 {
+    let mut h = std::collections::hash_map::DefaultHasher::new();
+    row.hash(&mut h);
+    h.finish()
+}
+
+fn hash_rows(rows: &[u64]) -> u64 {
+    let mut h = std::collections::hash_map::DefaultHasher::new();
+    rows.hash(&mut h);
+    h.finish()
 }
 
 fn recover_tmux_title(plain: &mut Vec<u8>, title: Vec<u8>, suffix: &[u8]) {
@@ -455,6 +617,7 @@ fn recover_tmux_title(plain: &mut Vec<u8>, title: Vec<u8>, suffix: &[u8]) {
     plain.extend_from_slice(suffix);
 }
 
+#[derive(Clone, PartialEq, Eq)]
 pub(crate) enum Slot {
     /// Never-touched cell: a default-attribute space.
     Blank,
@@ -728,10 +891,195 @@ mod tests {
         e.feed(b"hello");
         let f = e.render();
         assert_eq!(f.lines.len(), 3);
-        assert_eq!(f.lines[0], "\x1b[0mhello");
+        assert_eq!(f.lines[0].as_ref(), "\x1b[0mhello");
         assert_eq!((f.cx, f.cy), (5, 0));
         assert_eq!(f.cursor_shape, 0);
         assert!(f.cursor_blink);
+    }
+
+    #[test]
+    fn repeated_renders_reuse_cached_rows() {
+        let mut e = SessionEmu::new(20, 3);
+        e.feed(b"hello");
+        let first = e.render();
+        let second = e.render();
+
+        assert_eq!(first.content_hash, second.content_hash);
+        assert!(first
+            .lines
+            .iter()
+            .zip(&second.lines)
+            .all(|(old, new)| Arc::ptr_eq(old, new)));
+    }
+
+    #[test]
+    fn cursor_only_damage_does_not_rebuild_rows() {
+        let mut e = SessionEmu::new(20, 3);
+        e.feed(b"hello");
+        let first = e.render();
+        e.feed(b"\x1b[2;8H");
+        let second = e.render();
+
+        assert!(first
+            .lines
+            .iter()
+            .zip(&second.lines)
+            .all(|(old, new)| Arc::ptr_eq(old, new)));
+        assert_eq!(first.content_hash, second.content_hash);
+        assert_eq!((second.cx, second.cy), (7, 1));
+    }
+
+    #[test]
+    fn one_cell_damage_rebuilds_only_its_row() {
+        let mut e = SessionEmu::new(20, 3);
+        e.feed(b"row zero\r\nrow one");
+        let first = e.render();
+        e.feed(b"\x1b[2;4HX");
+        let second = e.render();
+
+        assert!(Arc::ptr_eq(&first.lines[0], &second.lines[0]));
+        assert!(!Arc::ptr_eq(&first.lines[1], &second.lines[1]));
+        assert_ne!(first.content_hash, second.content_hash);
+    }
+
+    #[test]
+    fn hyperlink_damage_rebuilds_a_row_when_the_uri_changes() {
+        let mut e = SessionEmu::new(20, 2);
+        e.feed(b"\x1b]8;;https://a.example\x1b\\linked\x1b]8;;\x1b\\");
+        let first = e.render();
+        e.feed(b"\x1b[1;1H\x1b]8;;https://b.example\x1b\\linked\x1b]8;;\x1b\\");
+        let second = e.render();
+
+        assert!(!Arc::ptr_eq(&first.lines[0], &second.lines[0]));
+        assert!(second.lines[0].contains("https://b.example"));
+        assert!(!second.lines[0].contains("https://a.example"));
+    }
+
+    #[test]
+    fn wide_character_damage_updates_the_spacer_cell() {
+        let mut actual = SessionEmu::new(20, 2);
+        actual.feed("你X".as_bytes());
+        let first = actual.render();
+        actual.feed(b"\x1b[1;2HY");
+        let actual_frame = actual.render();
+
+        // Force a full refresh in the reference emulator so the cached partial path is compared
+        // with the complete grid after writing over the wide character's spacer.
+        let mut expected = SessionEmu::new(20, 2);
+        expected.feed("你X".as_bytes());
+        let _ = expected.render();
+        let _ = expected.scroll_snapshot(1);
+        expected.feed(b"\x1b[1;2HY");
+        let expected_frame = expected.render();
+
+        assert!(!Arc::ptr_eq(&first.lines[0], &actual_frame.lines[0]));
+        assert_eq!(actual_frame.lines, expected_frame.lines);
+    }
+
+    #[test]
+    fn accumulated_damage_is_compared_against_the_final_grid() {
+        let mut e = SessionEmu::new(20, 2);
+        e.feed(b"start");
+        let first = e.render();
+        e.feed(b"\x1b[1;1HA");
+        e.feed(b"\x1b[1;2HB");
+        let frame = e.render();
+
+        assert!(!Arc::ptr_eq(&first.lines[0], &frame.lines[0]));
+        assert!(frame.lines[0].contains("AB"));
+    }
+
+    #[test]
+    fn style_only_damage_changes_content_hash() {
+        let mut e = SessionEmu::new(20, 2);
+        e.feed(b"X");
+        let first = e.render();
+        e.feed(b"\x1b[1;1H\x1b[31mX");
+        let second = e.render();
+
+        assert!(!Arc::ptr_eq(&first.lines[0], &second.lines[0]));
+        assert_ne!(first.lines[0], second.lines[0]);
+        assert_ne!(first.content_hash, second.content_hash);
+    }
+
+    #[test]
+    fn erasing_text_rebuilds_the_row_to_blank() {
+        let mut e = SessionEmu::new(20, 2);
+        e.feed(b"text");
+        let first = e.render();
+        e.feed(b"\x1b[1;1H\x1b[2K");
+        let frame = e.render();
+
+        assert!(!Arc::ptr_eq(&first.lines[0], &frame.lines[0]));
+        assert_eq!(frame.lines[0].as_ref(), "\x1b[0m");
+    }
+
+    #[test]
+    fn resize_and_scroll_force_full_refreshes() {
+        let mut e = SessionEmu::new(20, 3);
+        e.feed(b"one\r\ntwo\r\nthree\r\nfour");
+        let before_resize = e.render();
+
+        e.resize(20, 2);
+        let resized = e.render();
+        assert_eq!(resized.lines.len(), 2);
+        assert!(before_resize
+            .lines
+            .iter()
+            .take(2)
+            .zip(&resized.lines)
+            .all(|(old, new)| !Arc::ptr_eq(old, new)));
+
+        let _ = e.scroll_snapshot(1);
+        let after_scroll = e.render();
+        assert!(resized
+            .lines
+            .iter()
+            .zip(&after_scroll.lines)
+            .all(|(old, new)| !Arc::ptr_eq(old, new)));
+    }
+
+    #[test]
+    fn alternate_screen_transitions_force_full_refreshes() {
+        let mut e = SessionEmu::new(20, 2);
+        e.feed(b"primary");
+        let primary_before = e.render();
+
+        e.feed(b"\x1b[?1049halt");
+        let alternate = e.render();
+        assert!(alternate.alt_screen);
+        assert!(primary_before
+            .lines
+            .iter()
+            .zip(&alternate.lines)
+            .all(|(old, new)| !Arc::ptr_eq(old, new)));
+
+        e.feed(b"\x1b[?1049l");
+        let primary = e.render();
+        assert!(!primary.alt_screen);
+        assert!(alternate
+            .lines
+            .iter()
+            .zip(&primary.lines)
+            .all(|(old, new)| !Arc::ptr_eq(old, new)));
+    }
+
+    #[test]
+    fn metadata_only_damage_reuses_rows() {
+        let mut e = SessionEmu::new(20, 2);
+        e.feed(b"stable");
+        let first = e.render();
+        e.feed(b"\x1b]0;new title\x07\x1b[?1000h");
+        let second = e.render();
+
+        assert!(first
+            .lines
+            .iter()
+            .zip(&second.lines)
+            .all(|(old, new)| Arc::ptr_eq(old, new)));
+        assert_eq!(first.content_hash, second.content_hash);
+        assert_eq!(second.title, "new title");
+        assert!(second.app_mouse);
     }
 
     #[test]
@@ -739,7 +1087,7 @@ mod tests {
         let mut e = SessionEmu::new(20, 2);
         e.feed(b"\x1b[1;31mX\x1b[0m");
         let f = e.render();
-        assert_eq!(f.lines[0], "\x1b[0m\x1b[0;1;31mX");
+        assert_eq!(f.lines[0].as_ref(), "\x1b[0m\x1b[0;1;31mX");
     }
 
     // Faint is an attribute rather than a color, so dropping it here left the mod nothing to
@@ -749,7 +1097,7 @@ mod tests {
         let mut e = SessionEmu::new(20, 2);
         e.feed(b"\x1b[2mhint\x1b[0m");
         let f = e.render();
-        assert_eq!(f.lines[0], "\x1b[0m\x1b[0;2mhint");
+        assert_eq!(f.lines[0].as_ref(), "\x1b[0m\x1b[0;2mhint");
     }
 
     #[test]
@@ -757,8 +1105,8 @@ mod tests {
         let mut e = SessionEmu::new(20, 2);
         e.feed(b"ab");
         let f = e.render();
-        assert_eq!(f.lines[0], "\x1b[0mab");
-        assert_eq!(f.lines[1], "\x1b[0m");
+        assert_eq!(f.lines[0].as_ref(), "\x1b[0mab");
+        assert_eq!(f.lines[1].as_ref(), "\x1b[0m");
     }
 
     #[test]
@@ -768,7 +1116,7 @@ mod tests {
         // to column 3.
         e.feed("\u{4f60}X".as_bytes());
         let f = e.render();
-        assert_eq!(f.lines[0], "\x1b[0m\u{4f60}\x1b[3GX");
+        assert_eq!(f.lines[0].as_ref(), "\x1b[0m\u{4f60}\x1b[3GX");
     }
 
     #[test]
@@ -778,7 +1126,7 @@ mod tests {
         let f = e.render();
         assert_eq!(
             f.lines[0],
-            "\x1b[0mgo \x1b]8;;https://example.com\x1b\\here\x1b]8;;\x1b\\ now"
+            "\x1b[0mgo \x1b]8;;https://example.com\x1b\\here\x1b]8;;\x1b\\ now".into()
         );
     }
 
@@ -969,7 +1317,10 @@ mod tests {
         // tmux, not this mirror, owns the pane and answers both queries.
         e.feed(b"\x1b[c\x1b[6n");
         let f = e.render();
-        assert_eq!(f.lines, ["\x1b[0m", "\x1b[0m"]);
+        assert_eq!(
+            f.lines.iter().map(AsRef::as_ref).collect::<Vec<&str>>(),
+            ["\x1b[0m", "\x1b[0m"]
+        );
         assert_eq!((f.cx, f.cy), (0, 0));
     }
 

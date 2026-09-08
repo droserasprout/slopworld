@@ -2,6 +2,7 @@ use super::State;
 use crate::config::{DnsConfig, Limits, Mount, NetworkMode};
 use crate::emu::Frame;
 use serde::Serialize;
+use std::sync::Arc;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct SessionView {
@@ -100,7 +101,7 @@ pub struct ScreenView {
     // Echoes a one-off scroll request; live broadcasts use zero.
     #[serde(default)]
     pub request_id: u64,
-    pub lines: Vec<String>,
+    pub lines: Vec<Arc<str>>,
 }
 
 pub(crate) struct FrameViewArgs<'a> {
@@ -153,6 +154,7 @@ mod tests {
     fn frame_metadata_is_preserved_on_the_wire_view() {
         let frame = Frame {
             lines: vec!["one".into(), "two".into()],
+            content_hash: 0,
             history: 0,
             cx: 7,
             cy: 3,
@@ -185,6 +187,43 @@ mod tests {
         assert_eq!(view.cursor_shape, 2);
         assert!(view.cursor_blink && view.app_mouse && view.app_drag && view.alt_screen);
         assert_eq!(view.title, "editor");
-        assert_eq!(view.lines, ["one", "two"]);
+        assert_eq!(
+            view.lines.iter().map(AsRef::as_ref).collect::<Vec<&str>>(),
+            ["one", "two"]
+        );
+    }
+
+    #[test]
+    fn shared_rows_keep_the_existing_json_shape() {
+        let frame = Frame {
+            lines: vec!["one".into(), "two".into()],
+            content_hash: 0,
+            history: 0,
+            cx: 0,
+            cy: 0,
+            cursor_shape: 0,
+            cursor_blink: false,
+            app_mouse: false,
+            app_drag: false,
+            alt_screen: false,
+            title: String::new(),
+            bell: false,
+        };
+        let view = ScreenView::from_frame(
+            FrameViewArgs {
+                name: "agent",
+                seq: 1,
+                cols: 20,
+                rows: 2,
+                off: 0,
+                history: 0,
+                request_id: 0,
+            },
+            frame,
+        );
+
+        let json = serde_json::to_value(view).unwrap();
+        assert_eq!(json["lines"], serde_json::json!(["one", "two"]));
+        assert!(json.get("content_hash").is_none());
     }
 }

@@ -11,21 +11,36 @@ pub fn strip_sgr(s: &str) -> String {
 ///
 /// Keeping the row boundaries here avoids allocating a temporary joined screen in the frame
 /// path. The output is intentionally the same as `strip_sgr(&lines.join("\n"))`.
-pub(crate) fn strip_sgr_lines(lines: &[String]) -> String {
+pub(crate) fn strip_sgr_lines<S: AsRef<str>>(lines: &[S]) -> String {
     let capacity = lines
         .iter()
         .fold(lines.len().saturating_sub(1), |size, line| {
-            size.saturating_add(line.len())
+            size.saturating_add(line.as_ref().len())
         });
     let mut out = String::with_capacity(capacity);
     let bytes = lines.iter().enumerate().flat_map(|(index, line)| {
-        line.as_bytes()
+        line.as_ref()
+            .as_bytes()
             .iter()
             .copied()
             .chain((index + 1 < lines.len()).then_some(b'\n'))
     });
     strip_sgr_into(&mut out, bytes);
     out
+}
+
+/// Strip only the physical tail used by state classification. Trailing blank rows do not enter
+/// the result, while blank rows between the last non-blank row and the tail's upper edge remain
+/// physical separators and therefore still consume a classification slot.
+pub(crate) fn strip_sgr_tail<S: AsRef<str>>(lines: &[S], tail_lines: usize) -> String {
+    let Some(last) = lines.iter().rposition(|line| {
+        let plain = strip_sgr(line.as_ref());
+        !plain.trim().is_empty()
+    }) else {
+        return String::new();
+    };
+    let start = last.saturating_sub(tail_lines.saturating_sub(1));
+    strip_sgr_lines(&lines[start..=last])
 }
 
 fn strip_sgr_into<I>(out: &mut String, mut bytes: I)
@@ -85,7 +100,7 @@ fn utf8_len(first: u8) -> usize {
 
 #[cfg(test)]
 mod tests {
-    use super::{strip_sgr, strip_sgr_lines};
+    use super::{strip_sgr, strip_sgr_lines, strip_sgr_tail};
 
     #[test]
     fn linewise_stripping_preserves_joined_screen_text() {
@@ -95,5 +110,29 @@ mod tests {
             "blank".to_string(),
         ];
         assert_eq!(strip_sgr_lines(&lines), strip_sgr(&lines.join("\n")));
+    }
+
+    #[test]
+    fn tail_stripping_omits_trailing_blank_rows() {
+        let lines = vec!["old", "prompt", "", ""];
+        assert_eq!(strip_sgr_tail(&lines, 3), "old\nprompt");
+    }
+
+    #[test]
+    fn tail_stripping_preserves_blank_rows_inside_the_tail() {
+        let lines = vec!["old", "", "prompt", "", "next"];
+        assert_eq!(strip_sgr_tail(&lines, 4), "\nprompt\n\nnext");
+    }
+
+    #[test]
+    fn tail_stripping_drops_stale_prompts_above_the_tail() {
+        let lines = vec!["stale prompt", "one", "two", "three", "current"];
+        assert_eq!(strip_sgr_tail(&lines, 3), "two\nthree\ncurrent");
+    }
+
+    #[test]
+    fn tail_stripping_returns_empty_for_a_blank_screen() {
+        let lines = vec!["", "\x1b[31m", "   "];
+        assert!(strip_sgr_tail(&lines, 12).is_empty());
     }
 }
