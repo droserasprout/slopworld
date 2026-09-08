@@ -143,13 +143,15 @@ namespace SlopWorld
             }
         }
 
-        public static string Field(Rect r, string name, string text, bool on = true)
+        public static string Field(Rect r, string name, string text, bool on = true,
+                                   string defaultValue = null)
         {
             bool released = on && ReleaseFunctionKeyFocus(name);
             bool focused = on && !released && GUI.GetNameOfFocusedControl() == name;
             InputBackground(r, on, focused);
 
             var inner = r.ContractedBy(FieldPadX, FieldPadY);
+            text = ResetDefault(r, ref inner, name, text, defaultValue, on);
             // Do not create a control that accepts input only to discard it next frame.
             if (!on) return Stated(inner, text, TextAnchor.MiddleLeft);
             if (released) return text;
@@ -174,7 +176,7 @@ namespace SlopWorld
         }
 
         public static string Area(Rect r, string name, string text, bool on = true,
-                                  bool frame = true)
+                                  bool frame = true, string defaultValue = null)
         {
             bool released = on && ReleaseFunctionKeyFocus(name);
             bool focused = on && !released && GUI.GetNameOfFocusedControl() == name;
@@ -184,11 +186,40 @@ namespace SlopWorld
             }
 
             var inner = frame ? r.ContractedBy(FieldPadX, FieldPadY * 2f) : r;
+            text = ResetDefault(r, ref inner, name, text, defaultValue, on);
             if (!on) return Stated(inner, text, TextAnchor.UpperLeft);
             if (released) return text;
 
             GUI.SetNextControlName(name);
             return TextEntry(inner, text, true, focused, name);
+        }
+
+        // Null means no default; an empty string is a real default. Reserve a right-hand
+        // gutter so wrapped text and selection never overlap the reset hit target.
+        static string ResetDefault(Rect r, ref Rect inner, string name, string text,
+                                   string defaultValue, bool on)
+        {
+            if (defaultValue == null) return text;
+            float size = Mathf.Min(CompactH, Mathf.Min(r.height, r.width));
+            var button = new Rect(r.xMax - size, r.y, size, size);
+            inner.width = Mathf.Max(0f, button.x - FieldPadX - inner.x);
+            TooltipHandler.TipRegion(button, "Reset to default\n\n" +
+                (defaultValue.Length == 0 ? "(empty)" : defaultValue));
+            if (!UiWidgets.IconButton(button, Icons.Refresh, Name,
+                    size / 4f + IconInset / 2f,
+                    on && (text ?? "") != defaultValue)) return text;
+
+            // Update Unity's focused editor as well as the form value; otherwise its cached
+            // text can restore the old value on the next draw.
+            var editor = CurrentEditor(name);
+            if (editor != null)
+            {
+                editor.text = defaultValue;
+                editor.cursorIndex = editor.selectIndex = 0;
+                editor.scrollOffset = Vector2.zero;
+            }
+            GUI.changed = true;
+            return defaultValue;
         }
 
         // The entry's frame on its own, for a caller drawing one box round more than one

@@ -107,9 +107,7 @@ namespace SlopWorld
                 l.Gap(UiWidgets.GapS);
                 l.Label("Content template");
                 _cfg.InstructionsTemplate = UiWidgets.Area(l, 320f, "instructions.template",
-                    _cfg.InstructionsTemplate);
-                if (UiWidgets.Button(l, "Reset to default", UiWidgets.Btn.Ghost))
-                    _cfg.InstructionsTemplate = DaemonConfig.DefaultInstructionsTemplate;
+                    _cfg.InstructionsTemplate, defaultValue: DaemonConfig.DefaultInstructionsTemplate);
                 UiWidgets.Note(l, "Variables: {{ runtime_context }}, {{ project }}, " +
                     "{{ mount_path }}, and {{ file }}. Unknown variables are left unchanged.");
 
@@ -119,9 +117,7 @@ namespace SlopWorld
                     "is mounted. It is separate from the generated file body.");
                 l.Label("Breadcrumb template");
                 _cfg.InstructionsBreadcrumb = UiWidgets.Area(l, 120f, "instructions.breadcrumb",
-                    _cfg.InstructionsBreadcrumb);
-                if (UiWidgets.Button(l, "Reset to default", UiWidgets.Btn.Ghost))
-                    _cfg.InstructionsBreadcrumb = DaemonConfig.DefaultInstructionsBreadcrumb;
+                    _cfg.InstructionsBreadcrumb, defaultValue: DaemonConfig.DefaultInstructionsBreadcrumb);
                 UiWidgets.Note(l, "Variables: {{ project }}, {{ mount_path }}, and {{ file }}. " +
                     "Unknown variables are left unchanged.");
                 _cfg.InstructionsBreadcrumbEnabled = UiWidgets.Checkbox(l,
@@ -135,9 +131,7 @@ namespace SlopWorld
                     "Use $SLOPWORLD_TASK_ID to refer to its exact mailbox task.");
                 l.Label("Worker prompt");
                 _cfg.WorkerPrompt = UiWidgets.Area(l, 180f, "instructions.worker_prompt",
-                    _cfg.WorkerPrompt);
-                if (UiWidgets.Button(l, "Reset to default", UiWidgets.Btn.Ghost))
-                    _cfg.WorkerPrompt = DaemonConfig.DefaultWorkerPrompt;
+                    _cfg.WorkerPrompt, defaultValue: DaemonConfig.DefaultWorkerPrompt);
                 UiWidgets.Note(l, "The task body stays in the mailbox; this prompt tells the worker " +
                     "how to retrieve and finish it. Reset changes the form only; press Save to apply it.");
 
@@ -145,7 +139,7 @@ namespace SlopWorld
                 UiWidgets.SectionHeading(l, "Sandbox delivery");
                 l.Label("Mount path (relative to the project)");
                 _cfg.InstructionsMountPath = UiWidgets.Field(l, "instructions.mount_path",
-                    _cfg.InstructionsMountPath);
+                    _cfg.InstructionsMountPath, defaultValue: WireContract.DefaultInstructionsMountPath);
                 UiWidgets.Note(l, "The generated source remains the project-root " +
                     "SLOPWORLD.md; this is where its read-only copy appears to the agent.");
                 UiWidgets.Note(l, "Agents still opt in per session with Mount SLOPWORLD.md.");

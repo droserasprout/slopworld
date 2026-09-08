@@ -18,7 +18,11 @@ spacing, buttons, fields, headings and errors. Color names resolve through
   fields replay mouse-downs consumed by an absorbing window, expose Cut/Copy/Paste/Select all
   on right-click, and use the daemon's PRIMARY selection for middle-click paste.
 - Listing fields and areas reserve `GapXS` after their captions and `GapS` after their control
-  through the shared overloads; checkboxes and selectors use the same trailing `GapS`.
+  through the shared overloads. Pass `defaultValue` for a monochrome reset icon in the top
+  right, with the complete default in its tooltip (`null` omits reset; `""` resets to empty).
+  The icon has a reserved gutter and updates the focused native editor along with the form.
+  Reset follows the caller's normal save/dirty behavior.
+  Checkboxes and selectors use the same trailing `GapS`.
   Fixed-rectangle composite rows own their internal spacing.
   Caption gaps subtract the listing's automatic vertical spacing so fields and selectors
   have the same visible caption-to-control margin.

@@ -41,24 +41,29 @@ namespace SlopWorld
             UiWidgets.SectionHeading(l, "Session defaults");
             ChoiceRow(l, "Agent", "commands.agent",
                 _cfg.Agent, Commands(CommandInfo.AgentKind, _cfg.Agent),
-                _agentCustom, value => _cfg.Agent = value, value => _agentCustom = value);
+                _agentCustom, value => _cfg.Agent = value, value => _agentCustom = value,
+                defaultValue: WireContract.DefaultAgent);
             ChoiceRow(l, "Agent shell", "commands.agent-shell", _cfg.AgentShell,
                 Commands(CommandInfo.ShellKind, _cfg.AgentShell),
                 _agentShellCustom, value => _cfg.AgentShell = value,
-                value => _agentShellCustom = value, "Custom executable");
+                value => _agentShellCustom = value, "Custom executable",
+                WireContract.DefaultAgentShell);
             ChoiceRow(l, "Shell", "commands.shell", _cfg.Shell,
                 Commands(CommandInfo.ShellKind, _cfg.Shell),
-                _shellCustom, value => _cfg.Shell = value, value => _shellCustom = value);
+                _shellCustom, value => _cfg.Shell = value, value => _shellCustom = value,
+                defaultValue: WireContract.DefaultShell);
 
             l.Gap(UiWidgets.GapL);
             UiWidgets.SectionHeading(l, "Default apps");
             ChoiceRow(l, "Pager", "commands.pager", _cfg.Pager, PagerChoices(),
-                _pagerCustom, value => _cfg.Pager = value, value => _pagerCustom = value);
+                _pagerCustom, value => _cfg.Pager = value, value => _pagerCustom = value,
+                defaultValue: WireContract.DefaultPager);
             ChoiceRow(l, "Editor", "commands.editor", _cfg.Editor, EditorChoices(),
-                _editorCustom, value => _cfg.Editor = value, value => _editorCustom = value);
+                _editorCustom, value => _cfg.Editor = value, value => _editorCustom = value,
+                defaultValue: WireContract.DefaultEditor);
             ChoiceRow(l, "Syntax highlighter", "commands.highlighter", _cfg.Highlighter,
                 HighlighterChoices(), _highlighterCustom, value => _cfg.Highlighter = value,
-                value => _highlighterCustom = value);
+                value => _highlighterCustom = value, defaultValue: WireContract.DefaultHighlighter);
 
             l.Gap(UiWidgets.GapL);
             UiWidgets.SectionHeading(l, "Template legend");
@@ -107,7 +112,8 @@ namespace SlopWorld
 
         void ChoiceRow(Listing_Standard l, string label, string fieldName, string value,
                        List<Choice> choices, bool custom, Action<string> set,
-                       Action<bool> setCustom, string customLabel = "Custom template")
+                       Action<bool> setCustom, string customLabel = "Custom template",
+                       string defaultValue = null)
         {
             bool isCustom = custom || !choices.Any(c => c.Value == value);
             string shown = isCustom
@@ -132,7 +138,7 @@ namespace SlopWorld
                     customRow.height), customLabel);
                 GUI.color = Color.white;
                 set(UiWidgets.Field(new Rect(rightX, customRow.y, rightW, customRow.height),
-                    fieldName + ".custom", value));
+                    fieldName + ".custom", value, defaultValue: defaultValue));
             }
         }
     }

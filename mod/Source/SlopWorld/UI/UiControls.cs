@@ -186,18 +186,19 @@ namespace SlopWorld
             return l.GetRect(FieldH);
         }
 
-        public static string Field(Listing_Standard l, string name, string text, bool on = true)
+        public static string Field(Listing_Standard l, string name, string text, bool on = true,
+                                   string defaultValue = null)
         {
-            string value = Field(FieldRect(l), name, text, on);
+            string value = Field(FieldRect(l), name, text, on, defaultValue);
             l.Gap(GapS);
             return value;
         }
 
         public static string Area(Listing_Standard l, float height, string name, string text,
-                                  bool on = true, bool frame = true)
+                                  bool on = true, bool frame = true, string defaultValue = null)
         {
             l.Gap(GapXS - l.verticalSpacing);
-            string value = Area(l.GetRect(height), name, text, on, frame);
+            string value = Area(l.GetRect(height), name, text, on, frame, defaultValue);
             l.Gap(GapS);
             return value;
         }
