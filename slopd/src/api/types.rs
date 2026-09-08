@@ -208,7 +208,7 @@ pub(crate) struct SearchReq {
     pub(crate) word: bool,
     #[serde(default, deserialize_with = "flag")]
     pub(crate) hidden: bool,
-    #[serde(deserialize_with = "flag")]
+    #[serde(default, deserialize_with = "flag")]
     pub(crate) gitignore: bool,
     #[serde(default)]
     pub(crate) limit: Option<usize>,
