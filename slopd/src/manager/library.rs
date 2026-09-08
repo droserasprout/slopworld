@@ -7,7 +7,7 @@ use crate::sandbox::build_argv;
 use anyhow::anyhow;
 use tokio::process::Command;
 
-fn routed_action_label(name: &str) -> Option<String> {
+pub(super) fn routed_action_label(name: &str) -> Option<String> {
     ["view-", "search-", "link-", "edit-", "diff-"]
         .iter()
         .any(|prefix| name.starts_with(prefix))
@@ -444,126 +444,6 @@ impl Manager {
             );
         }
         Ok(())
-    }
-
-    async fn create_errand_session(
-        &self,
-        cfg: &Config,
-        sc: &LibraryItemCfg,
-        want: &RunWhere,
-        host: bool,
-        persistent_host: bool,
-        like: &str,
-    ) -> Result<String> {
-        let name = sc.name.as_str();
-        let asked = match want.project.as_deref().map(str::trim) {
-            Some(p) if !p.is_empty() => Some(p.to_string()),
-            _ => None,
-        };
-        let fresh = want.temp || (asked.is_none() && sc.link == LibraryItemLink::Temp);
-        let named = match (&asked, sc.link) {
-            _ if fresh => String::new(),
-            (Some(p), _) => p.clone(),
-            (None, LibraryItemLink::Ask) => {
-                bail!(
-                    "library item {name} asks where to run; name a project or ask for a temporary one"
-                )
-            }
-            (None, _) => sc.project.clone(),
-        };
-        if !fresh && cfg.project(&named).is_none() {
-            bail!("no such project: {named}");
-        }
-        let template = cfg.project(&sc.project).cloned().unwrap_or_default();
-
-        let name = if persistent_host {
-            let live = self.live.read().await;
-            free_name(&live, cfg, &crate::sandbox::host_session_name(&named))
-        } else {
-            let live = self.live.read().await;
-            free_name(&live, cfg, &slug(&sc.name))
-        };
-        check_name(&name)?;
-
-        {
-            let live = self.live.read().await;
-            if let Some(existing) = live.get(&name) {
-                if existing.host == host {
-                    if persistent_host {
-                        let path = cfg
-                            .project(&named)
-                            .map(|p| crate::config::expand(&p.dir))
-                            .unwrap_or_default();
-                        drop(live);
-                        self.remember_host_terminal(&name, &named, &path).await?;
-                    }
-                    return Ok(name);
-                }
-                bail!("session {name} already exists");
-            }
-        }
-
-        if persistent_host {
-            let path = cfg
-                .project(&named)
-                .map(|p| crate::config::expand(&p.dir))
-                .ok_or_else(|| anyhow!("no such project: {named}"))?;
-            self.remember_host_terminal(&name, &named, &path).await?;
-        }
-
-        let mut live = self.live.write().await;
-        if let Some(existing) = live.get(&name) {
-            if existing.host == host {
-                return Ok(name);
-            }
-            bail!("session {name} already exists");
-        }
-
-        let project = if fresh {
-            let mut temp = self.temp.write().await;
-            let pname = free_project_name(cfg, &temp, &name);
-            temp.insert(
-                pname.clone(),
-                ProjectCfg {
-                    name: pname.clone(),
-                    dir: crate::config::temp_dir(&pname),
-                    temp: true,
-                    ..template
-                },
-            );
-            pname
-        } else {
-            named
-        };
-
-        let mut scfg = cfg.session_for(sc, name.clone(), project);
-        // The tmux-safe session name is slugged, which turns a file extension's dot into a
-        // dash. Keep the original routed-tab label in the ephemeral session metadata so the
-        // client can display the filename exactly as Files supplied it.
-        scfg.label = routed_action_label(&sc.name);
-        if !like.is_empty() {
-            if let Some(src) = cfg.session(like) {
-                scfg.sandbox = src.sandbox.clone();
-                scfg.persistent_tmp = src.persistent_tmp;
-                scfg.network = src.network;
-                scfg.dns = src.dns.clone();
-                scfg.limits = src.limits;
-                scfg.mounts = src.mounts.clone();
-            } else {
-                bail!("no such session to clone sandbox from: {like}");
-            }
-        }
-        let mut l = Live::new(scfg, TitleCapture::default());
-        l.ephemeral = true;
-        l.host = host;
-        if persistent_host {
-            l.host_path = cfg
-                .project(&l.cfg.project)
-                .map(|p| crate::config::expand(&p.dir))
-                .unwrap_or_default();
-        }
-        live.insert(name.clone(), l);
-        Ok(name)
     }
 
     fn queue_errand_delivery(

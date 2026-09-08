@@ -6,7 +6,7 @@
 | `api/mod.rs` | API module façade and shared request helpers. |
 | `api/router.rs` | Axum routes and root-only middleware. |
 | `api/handlers.rs` | Shared HTTP guards, common helpers, core session/project/preset/grant handlers, and co-located tests. |
-| `api/handlers_*.rs` | Focused HTTP boundaries for tasks, config, files, clipboard, system usage, and audio. |
+| `api/handlers_*.rs` | Focused HTTP boundaries for tasks, config, files, presets, clipboard, system usage, and audio. |
 | `api/types.rs` | HTTP and WebSocket wire request types. |
 | `api/ws.rs` | WebSocket upgrade, message handling, and frame pump. |
 | `session/mod.rs` | Session state/data types and the public façade for session helpers. |
@@ -18,9 +18,12 @@
 | `session/view.rs` | `SessionView` and `ScreenView` wire serialization. |
 | `session/ctrl.rs` | `Manager` storage and client/watch guards. |
 | `manager/config.rs` | `Manager` construction, configuration synchronization, clocks and activity persistence. |
+| `manager/adoption.rs` | Recovery of tmux sessions that outlived config, including worker metadata and activity restoration. |
 | `manager/desktop.rs` | Host MIME associations, desktop-file names and launch paths for Files' Open in menu. |
+| `manager/errands.rs` | Temporary and host errand session reservation, project allocation, and sandbox cloning. |
 | `manager/sessions.rs` | Session config edits, host-terminal persistence, stored state, and session lookup. |
-| `manager/session_lifecycle.rs` | Session target resolution and process start/stop/forget/restart lifecycle. |
+| `manager/session_lifecycle.rs` | Session stop/forget/restart lifecycle; startup preparation and launch live in `manager/start.rs`. |
+| `manager/start.rs` | Session target resolution, preflight/argv construction, tmux launch, and reader/state wiring. |
 | `manager/session_state.rs` | Session views, state classification, and the manager retick loop. |
 | `manager/library.rs` | Projects, library items, file actions and temporary errands. |
 | `manager/workers.rs` | Root-only task-owned worker construction and explicit child metadata. |
