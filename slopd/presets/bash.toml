@@ -1,5 +1,6 @@
 # No sandbox preset of its own: a shell reaches whatever its project does.
 [[command]]
 name = "bash"
+kind = "shell"
 description = "an interactive Bash shell in the project's sandbox"
 cmd = "bash"

@@ -7,9 +7,8 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Machine-wide command defaults. Preset names stay separate from executable templates:
-    // Agent and Shell select daemon command files, Agent shell controls the shell advertised
-    // inside agent sandboxes, and the remaining fields are host apps for file actions.
+    // Machine-wide command defaults. Agent and shell choices come from the daemon's live command
+    // catalog; the remaining fields are host apps for file actions.
     public class CommandsPage : ListEditorPage
     {
         bool _agentCustom, _agentShellCustom, _shellCustom, _pagerCustom, _editorCustom;
@@ -39,12 +38,15 @@ namespace SlopWorld
         protected override void DrawFields(Listing_Standard l)
         {
             UiWidgets.SectionHeading(l, "Session defaults");
-            ChoiceRow(l, "Agent", "commands.agent", _cfg.Agent, Presets(_cfg.Agent),
+            ChoiceRow(l, "Agent", "commands.agent",
+                _cfg.Agent, Commands(CommandInfo.AgentKind, _cfg.Agent),
                 _agentCustom, value => _cfg.Agent = value, value => _agentCustom = value);
-            ChoiceRow(l, "Agent shell", "commands.agent-shell", _cfg.AgentShell, Shells(),
+            ChoiceRow(l, "Agent shell", "commands.agent-shell", _cfg.AgentShell,
+                Commands(CommandInfo.ShellKind, _cfg.AgentShell),
                 _agentShellCustom, value => _cfg.AgentShell = value,
-                value => _agentShellCustom = value);
-            ChoiceRow(l, "Shell", "commands.shell", _cfg.Shell, Presets(_cfg.Shell),
+                value => _agentShellCustom = value, "Custom executable");
+            ChoiceRow(l, "Shell", "commands.shell", _cfg.Shell,
+                Commands(CommandInfo.ShellKind, _cfg.Shell),
                 _shellCustom, value => _cfg.Shell = value, value => _shellCustom = value);
 
             l.Gap(UiWidgets.GapL);
@@ -66,9 +68,10 @@ namespace SlopWorld
             UiWidgets.Note(l, "Templates are split into arguments without a shell.");
         }
 
-        static List<Choice> Presets(string current)
+        static List<Choice> Commands(string kind, string current)
         {
             var choices = SessionHub.Instance.Commands
+                .Where(c => c.Kind == kind)
                 .OrderBy(c => c.Name, StringComparer.OrdinalIgnoreCase)
                 .Select(c => new Choice(c.Name, c.Name))
                 .ToList();
@@ -77,16 +80,6 @@ namespace SlopWorld
                 choices.Insert(0, new Choice(current, current));
             return choices;
         }
-
-        static List<Choice> Shells() => new List<Choice>
-        {
-            new Choice("Bash", "bash"),
-            new Choice("Zsh", "zsh"),
-            new Choice("Fish", "fish"),
-            new Choice("Nushell", "nu"),
-            new Choice("PowerShell", "pwsh"),
-            new Choice("POSIX sh", "sh"),
-        };
 
         static List<Choice> PagerChoices() => new List<Choice>
         {
@@ -113,7 +106,7 @@ namespace SlopWorld
 
         void ChoiceRow(Listing_Standard l, string label, string fieldName, string value,
                        List<Choice> choices, bool custom, Action<string> set,
-                       Action<bool> setCustom)
+                       Action<bool> setCustom, string customLabel = "Custom template")
         {
             bool isCustom = custom || !choices.Any(c => c.Value == value);
             string shown = isCustom
@@ -135,7 +128,7 @@ namespace SlopWorld
                 float rightW = customRow.width - leftW - UiWidgets.GapM;
                 GUI.color = UiWidgets.Dim;
                 UiWidgets.RowLabel(new Rect(customRow.x, customRow.y, leftW,
-                    customRow.height), "Custom template");
+                    customRow.height), customLabel);
                 GUI.color = Color.white;
                 set(UiWidgets.Field(new Rect(rightX, customRow.y, rightW, customRow.height),
                     fieldName + ".custom", value));

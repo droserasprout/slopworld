@@ -18,6 +18,7 @@ env = [
 
 [[command]]
 name = "codex"
+kind = "agent"
 description = "OpenAI Codex CLI"
 cmd = "codex"
 sandbox = ["codex"]

@@ -21,6 +21,7 @@ env = [
 
 [[command]]
 name = "opencode"
+kind = "agent"
 description = "OpenCode"
 cmd = "opencode"
 sandbox = ["opencode"]

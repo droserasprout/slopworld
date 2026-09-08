@@ -2,9 +2,10 @@
 
 ## Agent CLIs
 
-Command presets cover the installed agent CLIs and common shells. The Settings > Commands
-page lists them. Each preset names the software so the sandbox can hand it the right
-configuration paths, seeded state, and environment.
+Command presets cover the installed agent CLIs and common shells. Each has a `kind` of
+`agent` or `shell`; the Settings > Commands page uses it to keep the corresponding defaults
+separate while reading both lists from the live catalog. Each preset names the software so
+the sandbox can hand it the right configuration paths, seeded state, and environment.
 
 Shell presets have matching `*-userdata` sandbox presets that are separate and opt-in.
 When enabled, they expose startup and configuration files read-only and history and

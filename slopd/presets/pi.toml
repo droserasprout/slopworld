@@ -25,6 +25,7 @@ env = [
 
 [[command]]
 name = "pi"
+kind = "agent"
 description = "pi coding agent"
 cmd = "pi"
 sandbox = ["pi"]

@@ -61,12 +61,23 @@ pub struct SandboxPreset {
     pub daemon_config: bool,
 }
 
-/// What an agent runs, and the sandbox presets that come with it: knowing a session is
+/// Whether a command is an agent CLI or an interactive shell.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum CommandKind {
+    #[default]
+    Agent,
+    Shell,
+}
+
+/// What a session runs, and the sandbox presets that come with it: knowing a session is
 /// Claude Code is what lets the sandbox hand it `~/.claude`.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CommandPreset {
     pub name: String,
+    #[serde(default)]
+    pub kind: CommandKind,
     #[serde(default)]
     pub description: String,
     pub cmd: String,
@@ -99,6 +110,7 @@ const BUILTIN: &[(&str, &str)] = &[
     ("fish", include_str!("../presets/fish.toml")),
     ("nu", include_str!("../presets/nu.toml")),
     ("pwsh", include_str!("../presets/pwsh.toml")),
+    ("sh", include_str!("../presets/sh.toml")),
     (
         "bash-userdata",
         include_str!("../presets/bash-userdata.toml"),
@@ -456,7 +468,7 @@ mod tests {
 
         // The command presets used by built-in library, including the shells.
         for name in [
-            "claude", "opencode", "pi", "bash", "zsh", "fish", "nu", "pwsh",
+            "claude", "opencode", "pi", "bash", "zsh", "fish", "nu", "pwsh", "sh",
         ] {
             assert!(t.command(name).is_some(), "no {name} command preset");
         }
@@ -466,6 +478,12 @@ mod tests {
         );
         assert_eq!(t.command("claude").unwrap().sandbox, vec!["claude"]);
         assert_eq!(t.command("codex").unwrap().sandbox, vec!["codex"]);
+        for name in ["claude", "codex", "opencode", "pi"] {
+            assert_eq!(t.command(name).unwrap().kind, CommandKind::Agent);
+        }
+        for name in ["bash", "zsh", "fish", "nu", "pwsh", "sh"] {
+            assert_eq!(t.command(name).unwrap().kind, CommandKind::Shell);
+        }
         assert_eq!(t.sandbox("codex").unwrap().requires, vec!["x11", "wayland"]);
         assert_eq!(
             t.sandbox("systemd").unwrap().setenv["SYSTEMCTL_FORCE_BUS"],
@@ -727,6 +745,20 @@ mod tests {
                 "{name} forwards {forbidden}, bypassing its private state"
             );
         }
+    }
+
+    #[test]
+    fn command_kind_defaults_to_agent_for_legacy_files() {
+        let file: PresetFile = toml::from_str(
+            r#"
+            [[command]]
+            name = "legacy"
+            cmd = "legacy"
+            "#,
+        )
+        .unwrap();
+
+        assert_eq!(file.command[0].kind, CommandKind::Agent);
     }
 
     /// A user file replaces the builtin of the same name in place, and adds what it names

@@ -76,6 +76,7 @@ pub(crate) fn command_json(
 ) -> serde_json::Value {
     json!({
         "name": c.name,
+        "kind": c.kind,
         "source": source(builtins.command(&c.name).is_some(), users.command(&c.name).is_some()),
         "description": c.description,
         "cmd": c.cmd,

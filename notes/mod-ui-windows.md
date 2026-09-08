@@ -9,8 +9,8 @@ their editors open above the chrome with `TerminalWindow.OpenOverPane`.
   default is never saved. `EditProjectDialog` previews the resolved sandbox.
 - `PresetList` draws daemon presets in one uncategorized list, refreshes on open, and locks required entries.
   `Sandbox` edits copied/user sandbox presets; builtins are read-only until copied.
-  `Commands > Defaults` edits machine-wide command defaults, including the shell advertised
-  to sandboxed agents; `Commands > Presets` edits the
+  `Commands > Defaults` edits machine-wide command defaults from the command catalog, including
+  the shell advertised to sandboxed agents; `Commands > Presets` edits the
   daemon's command definitions, which choose the sandbox presets an agent receives.
 - `ConfirmDialog` and `AlertDialog` own mod message surfaces instead of vanilla
   message boxes. They use the shared window/buttons and wrapped text; Enter activates the

@@ -5,7 +5,9 @@
 user files live under `~/.config/slopworld/presets/*.toml` (`SLOPD_PRESETS` overrides)
 and replace builtins by entry name, in place.
 
-Preset categories are not part of either table. Unknown fields reject a preset file so
+Sandbox presets are intentionally uncategorized. Command presets have a `kind` of `agent`
+or `shell`, which lets Settings offer one live source for the two executable lists. An omitted
+command kind is treated as `agent` for older user files. Unknown fields reject a preset file so
 stale definitions cannot be silently rewritten into the current shape.
 
 `global.toml` is implicit and precedes command, project and session presets. It is not
@@ -44,13 +46,14 @@ a project checkbox; copying it creates the user `global` override.
   `shared` binds a host-owned file read-write into private state; `skip` removes paths
   from seed and private top-level files ([sandbox-isolation](sandbox-isolation.md)).
 - Unknown preset names from files are warned and dropped; names entered in a dialog are
-  rejected by `check_presets`. `[defaults] agent` and `shell` must name command presets,
-  while `[defaults].agent_shell` controls the sandboxed agents' `SHELL` environment and
-  defaults to `bash`; `start` refuses a session whose command preset is missing.
+  rejected by `check_presets`. `[defaults] agent` and `shell` must name command presets;
+  the command `kind` keeps them in the matching Settings list. `[defaults].agent_shell`
+  controls the sandboxed agents' `SHELL` environment and defaults to `bash`; `start` refuses
+  a session whose command preset is missing.
 - The mod learns both tables from `GET /api/presets`; files added while the game runs
   become settings-page entries without rebuilding. `global` is shown first/highlighted,
   followed by uncategorized sandbox and command definitions with dependencies.
-- Builtin shell commands are `bash`, `zsh`, `fish`, `nu` (Nushell), and `pwsh`; their matching
+- Builtin shell commands are `bash`, `zsh`, `fish`, `nu` (Nushell), `pwsh`, and `sh`; their matching
   `*-userdata` sandbox presets are separate and opt-in. They expose startup/config files
   read-only and history/data paths read-write, so choosing a shell does not share host dotfiles.
 

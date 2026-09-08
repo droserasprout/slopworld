@@ -204,6 +204,7 @@ namespace SlopWorld
                 float y = 0f;
                 EditorTitle(view, ref y, c.Name, c.Source, editable, "command");
                 y = EditorField(view, y, "Name", "command.name", c.Name, _newEntry, v => c.Name = v);
+                DrawCommandKind(view, ref y, c, editable);
                 y = EditorArea(view, y, "Description", "command.description", c.Description, editable, 44f, v => c.Description = v);
                 y = EditorArea(view, y, "Command line", "command.cmd", c.Cmd, editable, 52f, v => c.Cmd = v);
                 y += UiWidgets.GapS;
@@ -230,6 +231,19 @@ namespace SlopWorld
                     () => SessionHub.Instance.SaveCommand(c, () => { _newEntry = false; _error = null; }, msg => _error = msg),
                     () => Remove("command", c.Name));
             }
+        }
+
+        static void DrawCommandKind(Rect view, ref float y, CommandInfo c, bool editable)
+        {
+            string label = c.Kind == CommandInfo.ShellKind ? "Shell" : "Agent";
+            var options = new[]
+            {
+                new SelectorOption("Agent", () => c.Kind = CommandInfo.AgentKind, editable),
+                new SelectorOption("Shell", () => c.Kind = CommandInfo.ShellKind, editable),
+            };
+            var row = new Rect(0f, y, view.width, FieldHeight());
+            UiWidgets.Select(row, "Kind", label, options, out _, on: editable);
+            y += row.height;
         }
 
         void EditorTitle(Rect view, ref float y, string name, string source, bool editable, string kind)
@@ -324,7 +338,7 @@ namespace SlopWorld
         static float CommandEditorHeight(CommandInfo c, float width)
         {
             bool editable = c.Source != "system";
-            return TitleHeight(c.Source) + FieldHeight() +
+            return TitleHeight(c.Source) + FieldHeight() + FieldHeight() +
             OptionalAreaEditorHeight(width, c.Description, 44f, editable) +
             OptionalAreaEditorHeight(width, c.Cmd, 52f, editable) +
             UiWidgets.GapS + UiWidgets.RowH + UiWidgets.LineH + UiWidgets.GapXS +
