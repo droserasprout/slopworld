@@ -21,6 +21,10 @@
     <Compile Include="../Source/SlopWorld/Settings/FramePolicy.cs" Link="Source/Settings/FramePolicy.cs" />
     <Compile Include="../Source/SlopWorld/Client/HubEventBatch.cs" Link="Source/Client/HubEventBatch.cs" />
     <Compile Include="../Source/SlopWorld/Sim/PeriodicWork.cs" Link="Source/Sim/PeriodicWork.cs" />
+    <Compile Include="../Source/SlopWorld/Sim/HiddenWorkCadence.cs" Link="Source/Sim/HiddenWorkCadence.cs" />
+    <Compile Include="../Source/SlopWorld/Sim/ColonySessionIndex.cs" Link="Source/Sim/ColonySessionIndex.cs" />
+    <Compile Include="../Source/SlopWorld/UI/UsageRowsCache.cs" Link="Source/UI/UsageRowsCache.cs" />
+    <Compile Include="../Source/SlopWorld/UI/ClockTextCache.cs" Link="Source/UI/ClockTextCache.cs" />
     <Compile Include="../Source/SlopWorld/UI/SidebarTitleCache.cs" Link="Source/UI/SidebarTitleCache.cs" />
     <Compile Include="../Source/SlopWorld/UI/VisibleRows.cs" Link="Source/UI/VisibleRows.cs" />
     <Compile Include="../Source/SlopWorld/UI/ContentTreeIndex.cs" Link="Source/UI/ContentTreeIndex.cs" />

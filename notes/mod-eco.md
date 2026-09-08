@@ -7,15 +7,20 @@ beside grandma.
 
 What it does, one owner each:
 
-- **The clock**: `TimeKeeper` holds `TimeSpeed.Paused` every frame instead of
+- **The clock**: a `TickManagerUpdate` prefix enforces the pause before any tick batch;
+  vanilla still clears `ticksThisFrame`. `TimeKeeper` holds `TimeSpeed.Paused` every frame instead of
   lifting it, so eco does not have to fight the resume from somewhere else. `_ours`
   keeps the "something paused the game" line for pauses nobody here asked for.
-- **The map**: `PaneOverDraw.Wanted` suppresses the four calls a pane already hides.
+- **The map**: `PaneOverDraw.Wanted` suppresses map painting, including condition overlays,
+  designations, temporary things and lord stencils. Lord orphan aging remains active.
   Eco also suppresses weather, edge clippers, map-interface overlays/gizmo hover,
   and map clicks; those paths sit outside `MapUpdate` or remain interactive without
   a visible board.
   A full terminal also suppresses weather and edge drawing, even outside Eco. Mesh
-  maintenance stays active so returning to the board does not require a cold rebuild.
+  and sky maintenance run at a 0.25-second hidden cadence, with immediate full-rate updates
+  on reveal. Real-time flecks keep aging and expiring while hidden.
+- Player input and creation stop while resting. Pending core lightning
+  strikes are cancelled in Eco or Grandma mode, so disabling destruction cannot defer a strike.
 - **The frames**: Eco leaves foreground frame pacing alone. The independent Display
   settings apply in both modes; only an unfocused window gets the 15 FPS cap.
 - **The backdrop**: with no pane up, [the baked frame](mod-background.md) is a
@@ -44,6 +49,8 @@ What it does, one owner each:
 - **The reconcile**: because ticks stop, `AgentColony.GameComponentUpdate` invokes
   the same `Reconcile` body from wall time each second. Eco arrivals spawn directly
   at the pod's destination; a pod cannot count down its opening delay while paused.
+  Membership sets follow session revisions; pawn binding changes trigger display-order sorting.
+  Health, appearance and missing-pawn repair still run each sweep.
 
 During an eco spell, an arriving agent appears directly at the pod's destination
 and the arrival effect is skipped. `AutoSaver` also skips autosaves because the

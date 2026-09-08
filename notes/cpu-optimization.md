@@ -21,9 +21,21 @@ The C# mod reduces work in these hot paths:
 - Terminal cursor and selection painting run only on Repaint; input and hover tracking remain
   live. Text already uses a render-texture cache and changed-row repaint policy.
 - Full terminal coverage suppresses weather and map-edge drawing as well as the existing map
-  mesh, dynamic things, flecks and overlays. Mesh maintenance continues to avoid a reveal hitch.
+  mesh, dynamic things, flecks and overlays. Hidden mesh/sky maintenance runs at 4 Hz and
+  resumes each frame on reveal; condition, designation, temporary-thing and stencil draws
+  also skip hidden painting. Fleck expiry stays active.
+- `UsageReadout` retains rows/counts by usage snapshot and mutable polling settings. Clock and
+  expiry text refresh each second; width caches invalidate on font, atlas and UI scale changes.
+  A hidden clock does no date formatting or measurement.
+- `AgentColony` retains membership across unchanged revisions, reuses removal/order buffers,
+  and sorts only after binding changes. Repair and state transitions still run each sweep.
+- `Eco.Things` draws pets directly from the colony animal list without a per-frame list copy;
+  visible pawn animation retains every render phase.
 
 `make BUILD=release bench-mod` includes idle socket allocation and unchanged-title comparisons
 against the previous allocation/cleanup patterns, plus the idle terminal repaint decision.
 These measure helpers under .NET, not Unity CPU load or input latency. Opt-in `PerfTrace`
 adds sidebar layout hits/rebuilds, title rebuilds, and terminal cache hits for runtime checking.
+The suite also compares unchanged colony membership and clock formatting, plus cold/warm
+quota row caches. Runtime counters cover hidden maintenance skips, mesh/sky/fleck update time,
+Eco pawn drawing, colony reconciliation, and top-bar rebuilds/draw time.
