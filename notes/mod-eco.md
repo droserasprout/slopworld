@@ -23,8 +23,8 @@ What it does, one owner each:
   strikes are cancelled in Eco or Grandma mode, so disabling destruction cannot defer a strike.
 - **The frames**: Eco leaves foreground frame pacing alone. The independent Display
   settings apply in both modes; only an unfocused window gets the 15 FPS cap.
-- **The backdrop**: with no pane up, [the baked frame](mod-background.md) is a
-  ScaleAndCrop world-space quad covering the screen, so agents draw above it.
+- **The backdrop**: with no pane up, [the baked frame](mod-background.md) is the
+  only map output: a ScaleAndCrop world-space quad covering the screen.
   `ShaderDatabase.Cutout` queue 1000 fixes the ordering. `Frame()` passes a null
   source when a set is resident to reuse the menu's cached expansion art.
 - **The drift**: `Zoom` (1.05) adds margin on both axes; `PanX` and `PanZ` move the
@@ -32,20 +32,15 @@ What it does, one owner each:
 - **The dimming**: `ecoDim` (default 0.45) is the quad's grey `_Color` multiply;
   menu and loading frames remain undimmed. The slider steps by twentieths because
   `MaterialPool` keys on color.
-- **The things**: `Eco.Things` restores visible agent pawns and the colony cat through
-  vanilla's three `DrawPhase`s, then draws the jukebox and computer core directly because
-  their map-mesh draw is stood down. Each thing gets a stable phase, direction and speed for
-  its 60-degree sway; pawn render-tree nodes rotate around the pawn root, so heads stay attached
-  to bodies. Saved `Rot4`s do not change.
-- **The labels**: `ThingOverlays` is *not* in the draw chain that stands down - it
-  runs off `MapInterfaceOnGUI_BeforeMainTabs` and writes out every name on the map.
-  A prefix on `Pawn.DrawGUIOverlay` keeps the agents' and drops the rest, which
-  would otherwise be words hanging in the picture with nothing under them.
-- **The map's cosmetics**: `Eco.Bare` (`Cutscene.Playing || Resting`) is what
-  `CoreTip` and `Jukebox` ask - the agents' name colors and the column say
-  between them what a state plate would. `UsageReadout` keeps asking
-  `Cutscene.Playing` alone: the top bar is chrome, and in eco it is most of what is
-  left.
+- **The map contents**: Eco redraws no pawns, animals, buildings, or other map things;
+  the jukebox and computer-core map click/hover components also stand down.
+  `ThingOverlays` is *not* in the draw chain that stands down - it runs off
+  `MapInterfaceOnGUI_BeforeMainTabs` - so a prefix on `Pawn.DrawGUIOverlay` suppresses
+  every map label too.
+- **The map's cosmetics**: `Eco.Bare` (`Cutscene.Playing || Resting`) keeps the remaining
+  map-adjacent effects quiet, while `CoreTip` and `Jukebox` also stop their map click/hover
+  components in Eco. `UsageReadout` keeps asking `Cutscene.Playing` alone: the top bar is
+  chrome, and in eco it is most of what is left.
 - **The reconcile**: because ticks stop, `AgentColony.GameComponentUpdate` invokes
   the same `Reconcile` body from wall time each second. Eco arrivals spawn directly
   at the pod's destination; a pod cannot count down its opening delay while paused.

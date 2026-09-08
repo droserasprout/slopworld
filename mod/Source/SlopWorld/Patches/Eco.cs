@@ -14,11 +14,11 @@ namespace SlopWorld
         // Hide map cosmetics during either stripped-board state.
         public static bool Bare => Cutscene.Playing || Resting;
 
-        // Draw in world space so the restored agents stand over the backdrop.
+        // Draw the Loading-screen frames in world space where the map used to be.
         [HarmonyPatch(typeof(Map), nameof(Map.MapUpdate))]
         public static class Patch_Board
         {
-            static void Postfix(Map __instance)
+            static void Postfix()
             {
                 if (!Resting) return;
                 // The pane is screen-sized and opaque, so a board under it is drawn for
@@ -27,7 +27,6 @@ namespace SlopWorld
                 if (!WorldRendererUtility.DrawingMap) return;
 
                 Backdrop();
-                Things(__instance);
             }
         }
 
@@ -42,168 +41,8 @@ namespace SlopWorld
             }
         }
 
-        // Render before pawn cutouts regardless of their altitude.
+        // Keep the frame below any unexpected world draw regardless of its altitude.
         const int Underneath = 1000;
-
-        // A barely visible sway for the objects eco puts back on the board. This is an
-        // extra draw angle, not a Thing rotation, so save data and gameplay-facing facing stay
-        // unchanged. The seed is stable per thing, so a redraw cannot reshuffle the scene.
-        const float WobbleDegrees = 60f;
-        const float WobbleSeconds = 20f;
-        const float WobbleSlow = 0.65f;
-        const float WobbleFast = 1.45f;
-        const float TwoPi = Mathf.PI * 2f;
-        static bool _drawingThings;
-        static bool _drawingPawnTree;
-        static Pawn _activePawn;
-        static float _activePawnWobble;
-
-        static uint Mix(uint value)
-        {
-            unchecked
-            {
-                value ^= value >> 16;
-                value *= 0x7feb352d;
-                value ^= value >> 15;
-                value *= 0x846ca68b;
-                return value ^ (value >> 16);
-            }
-        }
-
-        static float Unit(ref uint seed)
-        {
-            seed = Mix(seed + 0x9e3779b9);
-            return (seed & 0x00ffffff) / 16777215f;
-        }
-
-        static float Wobble(Thing thing)
-        {
-            if (thing == null) return 0f;
-
-            uint seed = (uint)thing.thingIDNumber;
-            if (seed == 0) seed = (uint)thing.GetHashCode();
-
-            float phase = Unit(ref seed) * TwoPi;
-            float speed = Mathf.Lerp(WobbleSlow, WobbleFast, Unit(ref seed));
-            float direction = Unit(ref seed) < 0.5f ? -1f : 1f;
-            return WobbleDegrees * direction *
-                Mathf.Sin(Time.realtimeSinceStartup * TwoPi * speed / WobbleSeconds + phase);
-        }
-
-        static float Wobble(Pawn pawn) => Wobble((Thing)pawn);
-
-        static float PawnWobble(Pawn pawn) => pawn == _activePawn ? _activePawnWobble : Wobble(pawn);
-
-        static Matrix4x4 RotateAround(Matrix4x4 matrix, Vector3 pivot, float angle)
-        {
-            return Matrix4x4.TRS(pivot, Quaternion.AngleAxis(angle, Vector3.up), Vector3.one)
-                * Matrix4x4.Translate(-pivot) * matrix;
-        }
-
-        [HarmonyPatch(typeof(Graphic), nameof(Graphic.Draw))]
-        public static class Patch_ThingWobble
-        {
-            static void Prefix(Thing thing, ref float extraRotation)
-            {
-                if (_drawingThings && thing != null) extraRotation += Wobble(thing);
-            }
-        }
-
-        // PawnRenderTree has already made one matrix per body/head/apparel node by this point.
-        // Rotate each around the pawn's root, rather than rotating each node around its own
-        // center. That keeps the head attached to the body while preserving node offsets.
-        [HarmonyPatch(typeof(PawnRenderTree), nameof(PawnRenderTree.TryGetMatrix))]
-        public static class Patch_PawnTreeMatrixWobble
-        {
-            static void Postfix(PawnRenderTree __instance, PawnDrawParms parms,
-                ref Matrix4x4 matrix, bool __result)
-            {
-                if (!_drawingThings || !__result || __instance.pawn == null) return;
-
-                Vector3 pivot = parms.matrix.GetColumn(3);
-                matrix = RotateAround(matrix, pivot, PawnWobble(__instance.pawn));
-            }
-        }
-
-        // The matrices above already contain the pawn's complete sway. Leave the low-level
-        // hooks alone for the cached single-mesh path, but do not apply them a second time to
-        // every node in the render tree.
-        [HarmonyPatch(typeof(PawnRenderTree), nameof(PawnRenderTree.Draw))]
-        public static class Patch_PawnTreeDraw
-        {
-            static void Prefix(ref bool __state)
-            {
-                __state = _drawingThings;
-                if (__state) _drawingPawnTree = true;
-            }
-
-            static void Finalizer(bool __state)
-            {
-                if (__state) _drawingPawnTree = false;
-            }
-        }
-
-        // DynamicDrawPhaseAt wraps both the pre-draw matrix build and the draw. Its context
-        // gives the cached path a pawn identity without changing the pawn's saved rotation.
-        [HarmonyPatch(typeof(PawnRenderer), nameof(PawnRenderer.DynamicDrawPhaseAt))]
-        public static class Patch_PawnDrawContext
-        {
-            static void Prefix(PawnRenderer __instance, ref PawnDrawState __state)
-            {
-                if (!_drawingThings) return;
-
-                __state = new PawnDrawState
-                {
-                    PreviousPawn = _activePawn,
-                    PreviousTree = _drawingPawnTree,
-                    PreviousWobble = _activePawnWobble
-                };
-                _activePawn = __instance.renderTree?.pawn;
-                _activePawnWobble = Wobble(_activePawn);
-                _drawingPawnTree = false;
-            }
-
-            static void Finalizer(PawnDrawState __state)
-            {
-                if (__state == null) return;
-                _activePawn = __state.PreviousPawn;
-                _drawingPawnTree = __state.PreviousTree;
-                _activePawnWobble = __state.PreviousWobble;
-            }
-
-            sealed class PawnDrawState
-            {
-                public Pawn PreviousPawn;
-                public bool PreviousTree;
-                public float PreviousWobble;
-            }
-        }
-
-        [HarmonyPatch(typeof(GenDraw), nameof(GenDraw.DrawMeshNowOrLater),
-            new[] { typeof(Mesh), typeof(Vector3), typeof(Quaternion), typeof(Material),
-                typeof(bool) })]
-        public static class Patch_PawnMeshWobble
-        {
-            static void Prefix(ref Quaternion quat)
-            {
-                if (_drawingThings && !_drawingPawnTree && _activePawn != null)
-                    quat = Quaternion.AngleAxis(_activePawnWobble, Vector3.up) * quat;
-            }
-        }
-
-        [HarmonyPatch(typeof(GenDraw), nameof(GenDraw.DrawMeshNowOrLater),
-            new[] { typeof(Mesh), typeof(Matrix4x4), typeof(Material), typeof(bool),
-                typeof(MaterialPropertyBlock) })]
-        public static class Patch_PawnMatrixWobble
-        {
-            static void Prefix(ref Matrix4x4 matrix)
-            {
-                if (!_drawingThings || _drawingPawnTree || _activePawn == null) return;
-
-                var at = matrix.GetColumn(3);
-                matrix = RotateAround(matrix, at, _activePawnWobble);
-            }
-        }
 
         // Oversize past what the crop needs, so both axes have margin to drift inside; the
         // crop alone leaves one of them exactly on the view. Laps are long and incommensurate.
@@ -242,69 +81,12 @@ namespace SlopWorld
                 MaterialPool.MatFrom(tex, ShaderDatabase.Cutout, Shade, Underneath), 0);
         }
 
-        // DynamicDrawManager is disabled, so replay its phases for the visible agents and cat;
-        // map-mesh things need their graphics drawn directly. The wobble patch is scoped to this
-        // pass, keeping UI ThingIcons and all other graphics at their normal angle.
-        static void Things(Map map)
-        {
-            long started = PerfTrace.Start();
-            var view = Find.CameraDriver.CurrentViewRect;
-            _drawingThings = true;
-            try
-            {
-                DrawThingDef(map, ModDefOf.SlopJukebox, view);
-                DrawThingDef(map, ModDefOf.Ship_ComputerCore, view);
-                DrawAgents(map, view);
-                // This draw runs every frame; do not materialize Pets.On's filtered list.
-                var animals = map.mapPawns.SpawnedColonyAnimals;
-                for (int i = 0; i < animals.Count; i++)
-                    if (Pets.Is(animals[i])) DrawPawn(animals[i], view, map);
-            }
-            finally
-            {
-                _drawingThings = false;
-                PerfTrace.End("eco-pawn-draw", started, 1);
-            }
-        }
-
-        static void DrawAgents(Map map, CellRect view)
-        {
-            var colony = AgentColony.Current;
-            if (colony == null) return;
-
-            foreach (var kv in colony.All) DrawPawn(kv.Value, view, map);
-        }
-
-        static void DrawPawn(Pawn pawn, CellRect view, Map map)
-        {
-            if (pawn == null || !pawn.Spawned || pawn.Map != map) return;
-            if (!view.Contains(pawn.Position)) return;
-
-            pawn.DynamicDrawPhase(DrawPhase.EnsureInitialized);
-            pawn.DynamicDrawPhase(DrawPhase.ParallelPreDraw);
-            pawn.DynamicDrawPhase(DrawPhase.Draw);
-        }
-
-        static void DrawThingDef(Map map, ThingDef def, CellRect view)
-        {
-            if (def == null) return;
-
-            foreach (var thing in map.listerThings.ThingsOfDef(def))
-            {
-                if (thing == null || !thing.Spawned || thing.Map != map) continue;
-                if (!view.Contains(thing.Position)) continue;
-
-                var graphic = thing.Graphic;
-                if (graphic != null)
-                    graphic.Draw(thing.DrawPos, thing.Rotation, thing, 0f);
-            }
-        }
-
-        // ThingOverlays survives the disabled draw chain; retain only restored agents' labels.
+        // ThingOverlays survives the disabled draw chain; suppress all map labels along with
+        // the pawns and other map things.
         [HarmonyPatch(typeof(Pawn), nameof(Pawn.DrawGUIOverlay))]
         public static class Patch_PawnLabels
         {
-            static bool Prefix(Pawn __instance) => !Resting || AgentColony.IsAgent(__instance);
+            static bool Prefix() => !Resting;
         }
 
         static bool _offered;
