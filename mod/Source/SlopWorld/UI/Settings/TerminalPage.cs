@@ -131,7 +131,7 @@ namespace SlopWorld
 
             l.Label("Cursor color, #rrggbb (blank = the scheme's)");
             UiWidgets.SetSetting(s, ref s.cursorColor,
-                UiWidgets.Field(l, "term.cursor", s.cursorColor ?? ""));
+                UiWidgets.Field(l, "term.cursor", s.cursorColor ?? "", defaultValue: ""));
 
             // Said rather than corrected: a half-typed "#8" is not a mistake yet, and a field
             // that rewrote itself under the cursor would be unusable.

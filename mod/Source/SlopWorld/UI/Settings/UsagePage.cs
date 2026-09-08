@@ -35,7 +35,8 @@ namespace SlopWorld
         {
             UiWidgets.SectionHeading(l, "Usage");
             l.Label("Global poll interval (s)");
-            _pollSecs = UiWidgets.Field(l, "usage.poll", _pollSecs);
+            _pollSecs = UiWidgets.Field(l, "usage.poll", _pollSecs,
+                defaultValue: WireContract.UsagePollSecs.ToString());
             UiWidgets.Note(l, "Every row uses this interval unless its interval is set below. " +
                 "A failed poll backs off on its own, doubling to half an hour.");
         }
@@ -147,7 +148,7 @@ namespace SlopWorld
                 var field = new Rect(interval.x + fieldPad, interval.y + UiWidgets.GapXS,
                     Mathf.Max(0f, interval.width - fieldPad * 2f), UiWidgets.FieldH);
                 _itemIntervals[key] = UiWidgets.Field(field, "usage.item." + key,
-                    _itemIntervals[key], true);
+                    _itemIntervals[key], defaultValue: "");
             });
         }
 

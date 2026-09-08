@@ -14,20 +14,20 @@ namespace SlopWorld
             UiWidgets.SectionHeading(l, "Anthropic");
             l.Label("Credentials file");
             _cfg.ClaudeCredentials = UiWidgets.Field(l, "integrations.anthropic.credentials",
-                _cfg.ClaudeCredentials);
+                _cfg.ClaudeCredentials, defaultValue: WireContract.DefaultClaudeCredentials);
 
             l.Gap(UiWidgets.GapL);
             UiWidgets.SectionHeading(l, "OpenRouter");
             l.Label("Key file");
             _cfg.OpenrouterKeyFile = UiWidgets.Field(l, "integrations.openrouter.key",
-                _cfg.OpenrouterKeyFile);
+                _cfg.OpenrouterKeyFile, defaultValue: "");
             UiWidgets.Note(l, "Blank uses $OPENROUTER_API_KEY. The key stays on the host.");
 
             l.Gap(UiWidgets.GapL);
             UiWidgets.SectionHeading(l, "OpenAI / Codex");
             l.Label("Credentials file");
             _cfg.OpenaiCredentials = UiWidgets.Field(l, "integrations.openai.credentials",
-                _cfg.OpenaiCredentials);
+                _cfg.OpenaiCredentials, defaultValue: WireContract.DefaultOpenaiCredentials);
 
             l.Gap(UiWidgets.GapL);
             UiWidgets.Note(l, "Credential files stay on the host.");
