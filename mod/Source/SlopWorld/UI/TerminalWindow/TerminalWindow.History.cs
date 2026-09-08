@@ -52,8 +52,7 @@ namespace SlopWorld
         bool _historyViewReady;
         bool _historyRefreshPending;
         int _historyTopOff = -1;
-        // The history cache is seeded only when the user leaves the live bottom, so merely
-        // opening or revisiting a tab never issues a scroll capture.
+        // Seed once per compatible history epoch, either by active-pane warmup or a gesture.
         bool _historyWarmed;
 
         TerminalHistory _history = new TerminalHistory();

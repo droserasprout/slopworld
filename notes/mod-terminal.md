@@ -50,7 +50,9 @@ fractional local position. `TerminalHistory` indexes the overlapping rows in dae
 snapshots by their offset and assembles a local view with one overscan row; requests prefetch
 on overlapping half-viewport boundaries in the gesture direction, so skipped integer offsets
 remain local without issuing a new capture for every fractional movement. The first shallow
-window is warmed while the active pane is still at the live bottom and retained when switching
+window is warmed while the active pane is still at the live bottom, followed by overlapping
+captures up to roughly eight viewports deep. Scrolling extends this lookahead in the gesture
+direction after fetching missing visible rows first. Cached history is retained when switching
 between live and scrollback, so the first small gesture does not wait for capture. The daemon's
 10,000-line history limit is the initial coordinate range; reaching the real top clamps it to
 the offset the daemon achieved. Live rows that scroll off the bottom advance the local offset,

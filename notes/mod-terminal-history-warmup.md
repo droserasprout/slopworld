@@ -9,10 +9,13 @@ drops rows that leave the range.
 
 ## First scroll
 
-The live pane does not request history merely because it is displayed or
-revisited. On the first user scroll, the current live frame seeds the cache and
-the ordinary overlapping snapshot request supplies the requested history.
-This avoids turning an unseen tab transition into a scroll operation.
+The active live pane seeds its cache and progressively fills roughly eight viewports
+before the first gesture, using sixteen overlapping half-viewport captures, nearest first.
+These captures do not move the displayed pane. Warmup
+waits for an online connection and matching negotiated dimensions, and skips
+editors, alternate screens, mouse-reporting applications, and known-empty history.
+Covered windows are skipped and captures stop at the known history extent. A fast gesture
+prioritizes its missing visible rows, then extends the same lookahead in the scroll direction.
 
 History replies are drained while the pane remains live. They populate history
 and record the real top while the requested scroll position is being assembled.
@@ -23,13 +26,13 @@ Returning to live clears only the displayed history fallback, keeping indexed ro
 ready for the next transition. Switching tabs detaches the indexed cache under the
 session name and reuses it only when the run identity, viewport, connection generation,
 and primary/alternate screen mode still match. Pending requests are never retained across
-the subscription gap. An incompatible cache is discarded and the next user gesture seeds
-the new epoch. Deeper history remains lazy and uses the ordinary coalesced planner.
+the subscription gap. An incompatible cache is discarded and the active pane warms
+the new epoch. History beyond the eight-viewport lookahead remains lazy.
 
 ## Invariants
 
-- the live bottom never issues a scroll capture;
-- only a user scroll seeds the history cache or issues a capture;
+- warmup never changes the local scroll offset or displayed live frame;
+- only the active pane warms; speculative work is limited to eight viewports ahead;
 - only one capture request is in flight;
 - session and viewport epochs cannot share rows;
 - history remains bounded to `-10,000..199`.

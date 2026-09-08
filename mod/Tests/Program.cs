@@ -7,6 +7,7 @@ namespace SlopWorld.Tests
     {
         static int Main(string[] args)
         {
+            if (Array.IndexOf(args, "--perf-bench") >= 0) return Benchmarks.Run();
             bool quiet = false;
             foreach (var arg in args)
                 quiet |= arg == "--quiet";

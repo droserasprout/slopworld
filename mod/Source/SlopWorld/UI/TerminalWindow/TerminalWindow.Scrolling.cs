@@ -176,14 +176,14 @@ namespace SlopWorld
                 _wantedScrollOff = 0;
                 _scrollOff = 0;
                 ScrollDebugEnd();
+                WarmHistory(live);
                 return;
             }
 
             _scrollOff = target;
 
-            // Prefetch half a viewport in the gesture direction. Every daemon reply overlaps
-            // the preceding window, so TerminalHistory can serve all intervening line offsets
-            // locally instead of requiring one websocket round trip per row.
+            // Fetch missing visible rows first, then progressively fill eight viewports in
+            // the gesture direction. Each capture overlaps the preceding cached window.
             int rows = Mathf.Max(2, live?.Rows ?? (_rows > 0 ? _rows : 24));
             int lookahead = Mathf.Max(2, rows / 2);
             int probe = TerminalHistory.PrefetchAnchor(
@@ -200,13 +200,14 @@ namespace SlopWorld
                 else if (!_history.Covers(target, false)) request = target;
                 else request = Mathf.Max(1, target - lookahead);
             }
-            else if (!_history.Covers(probe, false))
-                request = probe;
+            else
+                request = _history.PrefetchOffset(target, rows, up,
+                    _historyTopOff >= 0 ? _historyTopOff : MaxScrollLines);
 
             // A new live frame makes the old snapshots stale, but they are still the best
             // frame to show until this offset has been captured again. Request a replacement
             // without tearing down the visible bridge.
-            if (_historyRefreshPending && request < 0 && !HistoryRequestPending(target))
+            if (_historyRefreshPending && !HistoryRequestPending(target))
                 request = target;
 
             if (request > 0 && !HistoryRequestPending(request))
@@ -218,6 +219,29 @@ namespace SlopWorld
             foreach (var requested in _historyRequests.Values)
                 if (requested.Offset == off) return true;
             return _scrollPending && _wantedScrollOff == off;
+        }
+
+        void WarmHistory(ScreenBuf live)
+        {
+            var hub = SessionHub.Instance;
+            if (!hub.Online || _sizeDirty || IsEditorSession() ||
+                _historyRequests.Count > 0 || live == null ||
+                (_cols > 0 && live.Cols != _cols) || (_rows > 0 && live.Rows != _rows))
+                return;
+
+            int offset = _history.WarmupOffset(live, _historyTopOff);
+            if (offset <= 0) return;
+            if (!_historyWarmed)
+            {
+                _history.Reset(live);
+                _historyCoordinateShift = 0;
+                _historyWarmed = true;
+            }
+            // Use capture bookkeeping without QueueScroll's gesture/direction state. Neither
+            // the local offset nor the displayed live frame changes when the reply arrives.
+            _wantedScrollOff = offset;
+            _scrollPending = true;
+            SendPendingScroll();
         }
 
         internal void JumpHistoryTo(int off)

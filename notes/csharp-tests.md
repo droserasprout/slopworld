@@ -48,3 +48,18 @@ public APIs as thin wrappers. See [mod-client](mod-client.md) and
 counts, routed-row preparation, and terminal repaint policy/key. It checks large-tree lookup
 cost, interval boundaries, cache invalidation, and selective versus full repaint decisions
 without constructing game state. It does not exercise Unity drawing or event dispatch.
+
+`make bench-mod BUILD=release` runs the same linked production helpers through the test
+executable's separate `--perf-bench` mode. It reports warmed batch p50/p95 microseconds and
+managed bytes per operation for tree/list traversal at three sizes, project totals, routed
+sessions, terminal parsing/repaint decisions, and cold/warm history view assembly. History cases
+exclude daemon capture and network latency. Setup is outside measurements; changed-revision
+and cold-cache cases explicitly include rebuilding. Tiered compilation is disabled for stable
+code generation. Reference cases model the prior scan/copy/recount patterns and check matching
+results before timing; they are not measurements of a historical build. The list reference
+omits offscreen GUI drawing and therefore understates the old repaint cost.
+
+Use the same machine, build mode, and quiet host for comparisons. Timing includes delegate and
+loop overhead, and allocation counts cover the current thread. These .NET 8 helper timings do
+not predict Unity/Mono frame time or texture performance. Benchmarks have no timing thresholds
+and do not run during `make test`; `make bench` runs both language suites.
