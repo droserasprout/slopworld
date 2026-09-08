@@ -193,7 +193,7 @@ namespace SlopWorld
                     var view = new Rect(0f, 0f, body.width - UiWidgets.ScrollbarW,
                         Mathf.Max(_sandboxH, body.height));
                     using (_sandboxScroll.Scope(body, view))
-                        _sandboxH = DrawSandbox(view);
+                        _sandboxH = DrawSandbox(view, body.height);
                     break;
                 }
                 case Tab.Breadcrumbs:
@@ -257,7 +257,7 @@ namespace SlopWorld
         }
 
         // The sandbox every agent in this project gets by default: network, DNS and the extra presets.
-        float DrawSandbox(Rect rect)
+        float DrawSandbox(Rect rect, float availableHeight)
         {
             var l = new Listing_Standard { maxOneColumn = true };
             l.Begin(rect);
@@ -310,8 +310,10 @@ namespace SlopWorld
                 "Sandbox presets");
             y += UiWidgets.RowH + UiWidgets.GapXS;
 
-            PresetList.Draw(new Rect(rect.x, y, rect.width, PresetsH), _p.Sandbox, _presetScroll);
-            y += PresetsH + UiWidgets.GapS;
+            // The viewport stays stable even when the form needs an outer scroll view.
+            float height = Mathf.Max(PresetsH, rect.y + availableHeight - y - UiWidgets.GapS);
+            PresetList.Draw(new Rect(rect.x, y, rect.width, height), _p.Sandbox, _presetScroll);
+            y += height;
 
             return y - rect.y + UiWidgets.GapS;
         }

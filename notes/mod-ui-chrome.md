@@ -20,6 +20,8 @@ spacing, buttons, fields, headings and errors. Color names resolve through
 - Listing fields and areas reserve `GapXS` after their captions and `GapS` after their control
   through the shared overloads; checkboxes and selectors use the same trailing `GapS`.
   Fixed-rectangle composite rows own their internal spacing.
+  Caption gaps subtract the listing's automatic vertical spacing so fields and selectors
+  have the same visible caption-to-control margin.
 - `Slab` draws every control (fill, outline, focus ring and hairline). It is texture-free
   and snaps to the screen pixel grid; GUI-coordinate snapping seams at non-integer UI
   scales. `TerminalWindow.SyncSnap` uses the same arithmetic. Rules sit inside the

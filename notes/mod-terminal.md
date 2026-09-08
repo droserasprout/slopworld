@@ -53,9 +53,10 @@ remain local without issuing a new capture for every fractional movement. The fi
 window is warmed while the active pane is still at the live bottom, followed by overlapping
 captures up to roughly eight viewports deep. Scrolling extends this lookahead in the gesture
 direction after fetching missing visible rows first. Cached history is retained when switching
-between live and scrollback, so the first small gesture does not wait for capture. The daemon's
-10,000-line history limit is the initial coordinate range; reaching the real top clamps it to
-the offset the daemon achieved. Live rows that scroll off the bottom advance the local offset,
+between live and scrollback, so the first small gesture does not wait for capture. The live
+frame's history count bounds local scrolling, including a zero range for empty history.
+Legacy frames without that count use the 10,000-line limit until a capture finds the real top.
+Live rows that scroll off the bottom advance the local offset,
 keeping the content being read anchored while fresh history is fetched. When history exists, a
 three-unit overlay bar at the pane's right edge shows the current offset against the daemon-
 reported history extent without changing the negotiated terminal width; it can be dragged

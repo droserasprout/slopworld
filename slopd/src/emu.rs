@@ -14,6 +14,8 @@ use alacritty_terminal::term::{
 };
 use alacritty_terminal::vte::ansi::{Color, CursorShape, CursorStyle, Processor};
 
+mod handler;
+
 /// Our own `Dimensions`, so we don't depend on the test-gated `TermSize`.
 struct Dims {
     cols: usize,
@@ -143,10 +145,6 @@ pub struct SessionEmu {
     rows: u16,
     side: Arc<Mutex<Side>>,
     render_cache: RenderCache,
-    // The first game resize reconciles the daemon's boot shape with the pane's real shape. If
-    // the tmux capture had no history, a smaller boot viewport would otherwise turn one blank
-    // row from that handoff into scrollback before the session has produced any output.
-    initial_capture_history: Option<usize>,
 }
 
 const TMUX_TITLE_MAX: usize = 512;
@@ -176,14 +174,7 @@ impl SessionEmu {
             rows,
             side,
             render_cache: RenderCache::new(),
-            initial_capture_history: None,
         }
-    }
-
-    /// Mark the tmux snapshot as complete so its first UI-driven resize can distinguish real
-    /// captured history from rows introduced solely by reconciling the boot dimensions.
-    pub fn complete_initial_capture(&mut self) {
-        self.initial_capture_history = Some(self.history_lines());
     }
 
     pub fn feed(&mut self, bytes: &[u8]) {
@@ -252,7 +243,13 @@ impl SessionEmu {
 
     fn feed_plain(&mut self, bytes: &[u8]) {
         if !bytes.is_empty() {
-            self.parser.advance(&mut self.term, bytes);
+            self.parser.advance(
+                &mut handler::Mirror {
+                    term: &mut self.term,
+                    cache: &mut self.render_cache,
+                },
+                bytes,
+            );
         }
     }
 
@@ -296,12 +293,27 @@ impl SessionEmu {
             .saturating_sub(self.term.screen_lines())
     }
 
+    fn history_extent(&self) -> u32 {
+        // Inline TUIs can scroll untouched top padding into history while inserting
+        // their first header (Codex uses a short DECSTBM region plus a leading LF).
+        // Keep the VT grid intact, but don't offer that empty prefix as scrollback.
+        // Blank separators after actual text and styled cells remain accessible.
+        let blank = Cell::default();
+        let mut extent = self.history_lines();
+        while extent > 0
+            && (0..self.cols as usize)
+                .all(|col| self.term.grid()[Line(-(extent as i32))][Column(col)] == blank)
+        {
+            extent -= 1;
+        }
+        extent.min(u32::MAX as usize) as u32
+    }
+
     pub fn resize(&mut self, cols: u16, rows: u16) {
         if cols == self.cols && rows == self.rows {
             return;
         }
         let history_before = self.history_lines();
-        let initial_capture_history = self.initial_capture_history.take();
         self.cols = cols;
         self.rows = rows;
         self.render_cache.invalidate();
@@ -309,7 +321,18 @@ impl SessionEmu {
             cols: cols as usize,
             rows: rows as usize,
         });
-        if initial_capture_history == Some(0) && history_before == 0 {
+        // A bottom-positioned prompt can push blank top padding into history on each
+        // shrink, not just the first boot-size negotiation. Discard only an entirely
+        // blank history created by this resize; existing history and displaced text stay.
+        let history_after = self.history_lines();
+        let blank = Cell::default();
+        if history_before == 0
+            && history_after > 0
+            && (1..=history_after).all(|row| {
+                (0..cols as usize)
+                    .all(|col| self.term.grid()[Line(-(row as i32))][Column(col)] == blank)
+            })
+        {
             self.term.grid_mut().clear_history();
         }
     }
@@ -378,15 +401,11 @@ impl SessionEmu {
     pub fn scroll_snapshot(&mut self, off: u32) -> (Vec<Vec<Slot>>, u32, u32, String) {
         // u32 off the wire, but the alacritty grid counts in isize; a history beyond
         // i32::MAX lines is not a thing a terminal holds.
-        let off = off.min(i32::MAX as u32) as i32;
+        let history = self.history_extent();
+        let off = off.min(history).min(i32::MAX as u32) as i32;
         let cur = self.term.grid().display_offset() as i32;
         self.term.scroll_display(Scroll::Delta(off - cur));
         let achieved = self.term.grid().display_offset() as u32;
-        let history = self
-            .term
-            .total_lines()
-            .saturating_sub(self.term.screen_lines())
-            .min(u32::MAX as usize) as u32;
         let grid = self.capture_visible_grid();
         let title = self.title();
         self.term.scroll_display(Scroll::Bottom);
@@ -582,11 +601,7 @@ impl SessionEmu {
         Frame {
             content_hash: self.render_cache.content_hash,
             lines: self.render_cache.lines.clone(),
-            history: self
-                .term
-                .total_lines()
-                .saturating_sub(self.term.screen_lines())
-                .min(u32::MAX as usize) as u32,
+            history: self.history_extent(),
             cx,
             cy,
             cursor_shape,
@@ -885,6 +900,51 @@ pub fn unescape(b: &[u8]) -> Vec<u8> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn inline_header_insertion_does_not_expose_initial_blank_padding() {
+        // Reduced from a recorded fresh Codex startup: insert a six-row header in
+        // an eight-row scrolling region, with a blank row before and after it.
+        let bytes = b"\x1b[?2026h\x1b[1;8r\x1b[H\r\none\r\ntwo\r\nthree\r\nfour\r\nfive\r\nsix\r\n\r\n\x1b[r\x1b[?2026l";
+        let mut e = SessionEmu::new(20, 12);
+        for byte in bytes {
+            e.feed(std::slice::from_ref(byte));
+        }
+        assert_eq!(e.history_lines(), 1, "VT padding stays in the raw grid");
+        let live = e.render();
+        assert_eq!(live.history, 0);
+        assert!(live.lines[0].contains("one"));
+        let (_, achieved, history, _) = e.scroll_snapshot(1);
+        assert_eq!((achieved, history), (0, 0));
+        assert_eq!(e.render().content_hash, live.content_hash);
+
+        e.feed(b"\x1b[12;1Htail\r\nnext");
+        assert_eq!(e.render().history, 1, "real output becomes accessible");
+        let (_, achieved, history, _) = e.scroll_snapshot(100);
+        assert_eq!(
+            (achieved, history),
+            (1, 1),
+            "the padding prefix stays hidden"
+        );
+    }
+
+    #[test]
+    fn history_keeps_blank_separators_and_styled_spaces() {
+        let mut e = SessionEmu::new(20, 2);
+        e.feed(b"old\r\n\r\nlive\r\nnext");
+        assert_eq!(
+            e.render().history,
+            2,
+            "blank separator follows real history"
+        );
+        let mut e = SessionEmu::new(20, 2);
+        e.feed(b"\x1b[41m  \x1b[0m\r\nlive\r\nnext");
+        assert_eq!(
+            e.render().history,
+            1,
+            "colored space is not untouched padding"
+        );
+    }
 
     #[test]
     fn unescapes_octal_and_backslash() {
@@ -1347,6 +1407,79 @@ mod tests {
     }
 
     #[test]
+    fn clear_viewport_erases_in_place_without_creating_history() {
+        let mut e = SessionEmu::new(20, 3);
+        e.feed(b"startup\r\nsecond\r\nthird\x1b[2;4H\x1b7");
+        let before = e.render();
+        // Split the CSI across control-mode packets, as happens during startup.
+        e.feed(b"\x1b[2");
+        e.feed(b"J");
+        let cleared = e.render();
+        assert_eq!(cleared.history, 0);
+        assert_eq!((cleared.cx, cleared.cy), (3, 1));
+        assert_ne!(before.content_hash, cleared.content_hash);
+        assert!(cleared.lines.iter().all(|line| line.as_ref() == "\x1b[0m"));
+        e.feed(b"\x1b[Hnew\x1b8!");
+        let redraw = e.render();
+        assert!(redraw.lines[0].contains("new"));
+        assert!(redraw.lines[1].contains("!"));
+        assert_eq!((redraw.cx, redraw.cy), (4, 1));
+    }
+
+    #[test]
+    fn clear_viewport_preserves_existing_history_and_background() {
+        let mut e = SessionEmu::new(20, 2);
+        e.feed(b"history\r\none\r\ntwo");
+        assert_eq!(e.render().history, 1);
+        e.feed(b"\x1b[41m\x1b[2J");
+        assert_eq!(e.render().history, 1);
+        assert_eq!(e.term.grid()[Line(0)][Column(0)].c, ' ');
+        assert_eq!(
+            e.term.grid()[Line(0)][Column(0)].bg,
+            e.term.grid().cursor.template.bg
+        );
+        e.feed(b"\x1b[3J");
+        assert_eq!(e.render().history, 0);
+    }
+
+    #[test]
+    fn synchronized_clear_waits_for_end_and_keeps_primary_history() {
+        let mut e = SessionEmu::new(20, 2);
+        e.feed(b"history\r\none\r\ntwo");
+        let before = e.render();
+        e.feed(b"\x1b[?2026h\x1b[2J\x1b[Hredraw");
+        assert_eq!(e.render().content_hash, before.content_hash);
+        e.feed(b"\x1b[?2026l");
+        let after = e.render();
+        assert_eq!(after.history, 1);
+        assert!(after.lines[0].contains("redraw"));
+        assert_eq!(after.lines[1].as_ref(), "\x1b[0m");
+
+        e.feed(b"\x1b[?1049hfullscreen\x1b[2J");
+        assert!(e
+            .render()
+            .lines
+            .iter()
+            .all(|line| line.as_ref() == "\x1b[0m"));
+        e.feed(b"\x1b[?1049l");
+        let primary = e.render();
+        assert_eq!(primary.history, 1);
+        assert!(primary.lines[0].contains("redraw"));
+    }
+
+    #[test]
+    fn erase_above_on_second_row_updates_cached_first_row() {
+        let mut e = SessionEmu::new(20, 3);
+        e.feed(b"first\r\nsecond\r\nthird");
+        e.render();
+        e.feed(b"\x1b[2;3H\x1b[1J");
+        let frame = e.render();
+        assert_eq!(frame.lines[0].as_ref(), "\x1b[0m");
+        assert!(frame.lines[1].contains("ond"));
+        assert!(frame.lines[2].contains("third"));
+    }
+
+    #[test]
     fn seeding_a_full_viewport_does_not_create_spurious_history() {
         let mut e = SessionEmu::new(20, 4);
         e.feed(b"\x1b[H\x1b[0mline-0\r\nline-1\r\nline-2\r\nline-3\x1b[4;1H");
@@ -1355,7 +1488,7 @@ mod tests {
     }
 
     #[test]
-    fn resizing_a_seeded_viewport_does_not_create_spurious_history() {
+    fn resizing_a_full_viewport_preserves_displaced_text() {
         let rows = 34;
         let mut e = SessionEmu::new(20, rows);
         let mut seed = String::from("\x1b[H\x1b[0m");
@@ -1367,10 +1500,31 @@ mod tests {
         }
         seed.push_str(&format!("\x1b[{rows};1H"));
         e.feed(seed.as_bytes());
-        e.complete_initial_capture();
 
         e.resize(20, rows - 1);
+        assert_eq!(e.render().history, 1);
+        assert_eq!(e.term.grid()[Line(-1)][Column(0)].c, 'l');
+    }
+
+    #[test]
+    fn repeated_resizes_do_not_turn_blank_padding_into_history() {
+        let mut e = SessionEmu::new(20, 4);
+        e.feed(b"\x1b[4;1Hprompt");
+        e.resize(20, 3);
         assert_eq!(e.render().history, 0);
+        e.resize(20, 2);
+        let frame = e.render();
+        assert_eq!(frame.history, 0);
+        assert!(frame.lines[1].contains("prompt"));
+    }
+
+    #[test]
+    fn resizing_preserves_existing_blank_history() {
+        let mut e = SessionEmu::new(20, 4);
+        e.feed(b"\x1b[4;1H\r\nprompt");
+        assert_eq!(e.history_lines(), 1);
+        e.resize(20, 3);
+        assert!(e.history_lines() >= 1);
     }
 
     #[test]
@@ -1386,7 +1540,6 @@ mod tests {
         }
         e.feed(seed.as_bytes());
         assert_eq!(e.render().history, 1);
-        e.complete_initial_capture();
 
         e.resize(20, rows - 1);
         assert!(e.render().history >= 1);

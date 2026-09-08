@@ -3,6 +3,8 @@
 Daemon-backed pages write through HTTP; `AppearancePage`, `TerminalPage` and `StatusbarPage` write
 [mod settings](mod-settings.md). Agents, projects and Library entries are content views;
 their editors open above the chrome with `TerminalWindow.OpenOverPane`.
+Agent mounts fill their tab; agent and project sandbox lists expand to the remaining
+viewport, retaining a minimum height when the surrounding form needs scrolling.
 
 - `ProjectsView` lists projects before agents. `EditSessionDialog` chooses a command
   preset or literal command; an empty command uses `[defaults] agent`, and the resolved

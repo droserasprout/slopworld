@@ -101,15 +101,18 @@ namespace SlopWorld
             if (fresh) SendPendingScroll();
         }
 
-        void PrepareHistoryScroll(float cellH)
+        void PrepareHistoryScroll(float cellH, ScreenBuf live)
         {
             if (cellH <= 0.01f) return;
 
-            float max = cellH * MaxScrollLines;
+            float max = cellH * TerminalHistory.ScrollLimit(live, _historyTopOff);
             if (!_historyScrollReady || Mathf.Abs(_historyMax - max) > 0.01f)
             {
+                // Growing history moves the bottom coordinate; keep the reader's offset
+                // from that bottom, rather than resetting it whenever the extent changes.
+                float pixels = _historyScrollReady ? HistoryOffsetPixels() : 0f;
                 _historyMax = max;
-                _historyScroll.JumpTo(new Vector2(0f, max));
+                _historyScroll.JumpTo(new Vector2(0f, Mathf.Max(0f, max - pixels)));
                 _historyScrollReady = true;
             }
 
@@ -138,9 +141,10 @@ namespace SlopWorld
             int target = pixels <= 0.01f
                 ? 0
                 : Mathf.Clamp(Mathf.CeilToInt(pixels / cellH - 0.0001f), 1, MaxScrollLines);
-            if (_historyTopOff >= 0 && target > _historyTopOff)
+            int limit = TerminalHistory.ScrollLimit(live, _historyTopOff);
+            if (target > limit)
             {
-                target = _historyTopOff;
+                target = limit;
                 JumpHistoryTo(target);
             }
 
@@ -157,7 +161,7 @@ namespace SlopWorld
                     _history.Reset(live);
                     _historyRequests.Clear();
                     _historyCoordinateShift = 0;
-                    _historyTopOff = -1;
+                    _historyTopOff = live != null && live.History >= 0 ? live.History : -1;
                 }
                 _historyDisplayedFrame = live?.Snapshot();
                 _historyWarmed = true;
@@ -187,8 +191,7 @@ namespace SlopWorld
             int rows = Mathf.Max(2, live?.Rows ?? (_rows > 0 ? _rows : 24));
             int lookahead = Mathf.Max(2, rows / 2);
             int probe = TerminalHistory.PrefetchAnchor(
-                target, lookahead, up, MaxScrollLines);
-            if (_historyTopOff >= 0) probe = Mathf.Min(probe, _historyTopOff);
+                target, lookahead, up, limit);
             bool fractional = Mathf.Abs(pixels / cellH - Mathf.Round(pixels / cellH)) > 0.0001f;
             int request = -1;
             if (!_history.Covers(target, fractional))
@@ -201,8 +204,7 @@ namespace SlopWorld
                 else request = Mathf.Max(1, target - lookahead);
             }
             else
-                request = _history.PrefetchOffset(target, rows, up,
-                    _historyTopOff >= 0 ? _historyTopOff : MaxScrollLines);
+                request = _history.PrefetchOffset(target, rows, up, limit);
 
             // A new live frame makes the old snapshots stale, but they are still the best
             // frame to show until this offset has been captured again. Request a replacement
@@ -246,7 +248,8 @@ namespace SlopWorld
 
         internal void JumpHistoryTo(int off)
         {
-            off = Mathf.Clamp(off, 0, MaxScrollLines);
+            off = Mathf.Clamp(off, 0,
+                TerminalHistory.ScrollLimit(SessionHub.Instance.Screen(_name), _historyTopOff));
             _historyJumpPending = true;
             _historyJumpOff = off;
             _historyJumpPixels = -1f;

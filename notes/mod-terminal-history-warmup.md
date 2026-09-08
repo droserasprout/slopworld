@@ -16,6 +16,9 @@ waits for an online connection and matching negotiated dimensions, and skips
 editors, alternate screens, mouse-reporting applications, and known-empty history.
 Covered windows are skipped and captures stop at the known history extent. A fast gesture
 prioritizes its missing visible rows, then extends the same lookahead in the scroll direction.
+The live frame's history extent also bounds local wheel and keyboard movement before
+warmup. Zero history has zero scroll range; legacy frames without an extent use capture
+discovery. Changes to the extent preserve the reader's offset from the live bottom.
 
 History replies are drained while the pane remains live. They populate history
 and record the real top while the requested scroll position is being assembled.

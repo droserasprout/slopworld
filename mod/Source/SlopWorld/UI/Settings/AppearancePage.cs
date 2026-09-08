@@ -94,11 +94,9 @@ namespace SlopWorld
             }
             UiScale.Flush();
 
-            l.Gap(UiWidgets.GapM);
             bool fullscreen = UiWidgets.Checkbox(l, "Fullscreen", S.fullscreen,
                 "Use window-manager fullscreen without changing Unity's render mode.");
             if (fullscreen != S.fullscreen) WindowMaximizer.Set(fullscreen);
-            l.Gap(UiWidgets.GapM);
 
             float used = l.CurHeight;
             l.End();

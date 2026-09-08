@@ -52,6 +52,14 @@ namespace SlopWorld
         public int Rows => _template?.Rows ?? 0;
         public bool AltScreen => _templateAltScreen;
 
+        // Live metadata is authoritative even before warmup, and after an application
+        // clears history. Only older daemons need a capture to discover the scroll limit.
+        public static int ScrollLimit(ScreenBuf live, int knownTop)
+        {
+            int extent = live != null && live.History >= 0 ? live.History : knownTop;
+            return extent < 0 ? MaxHistoryRows : Math.Min(MaxHistoryRows, extent);
+        }
+
         // Fill overlapping windows progressively, nearest first. The caller sends only one
         // request at a time, so a gesture can replace speculative work after the next reply.
         public int WarmupOffset(ScreenBuf live, int knownTop)
@@ -59,10 +67,9 @@ namespace SlopWorld
             if (live == null || live.AltScreen || live.AppMouse || live.Off != 0 ||
                 live.Rows < 2 || live.Cols <= 0 || live.Lines == null ||
                 live.Lines.Length == 0) return 0;
-            int extent = live.History >= 0 ? live.History : knownTop;
+            int extent = ScrollLimit(live, knownTop);
             if (extent == 0) return 0;
-            int offset = PrefetchOffset(0, live.Rows, true,
-                extent > 0 ? extent : MaxHistoryRows);
+            int offset = PrefetchOffset(0, live.Rows, true, extent);
             return Math.Max(0, offset);
         }
 
