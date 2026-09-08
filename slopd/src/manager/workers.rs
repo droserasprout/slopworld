@@ -84,6 +84,7 @@ impl Manager {
             caller,
             durable,
         )?;
+        self.spawn_task_summary_request(task.clone());
         session.task_id = task.id.clone();
 
         if durable {

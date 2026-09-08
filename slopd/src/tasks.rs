@@ -45,6 +45,10 @@ pub struct Task {
     pub body: String,
     pub status: Status,
     pub note: Option<String>,
+    /// Optional OpenRouter preview for the compact sidebar. The task body remains the source
+    /// of truth and older task files simply deserialize this as absent.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub summary: Option<String>,
     pub created_ms: u64,
     pub updated_ms: u64,
     /// Present only for a task that owns a daemon-spawned worker. The task body remains the
@@ -145,6 +149,7 @@ impl Tasks {
             body,
             status: Status::Queued,
             note: None,
+            summary: None,
             created_ms: now,
             updated_ms: now,
             worker,
@@ -223,6 +228,20 @@ impl Tasks {
         let result = task.clone();
         self.save()?;
         Ok(result)
+    }
+
+    pub fn set_summary(&mut self, id: &str, summary: String) -> Result<Option<Task>> {
+        let Some(task) = self.file.tasks.iter_mut().find(|task| task.id == id) else {
+            return Ok(None);
+        };
+        let summary = summary.trim().to_string();
+        if summary.is_empty() {
+            return Ok(Some(task.clone()));
+        }
+        task.summary = Some(summary);
+        let result = task.clone();
+        self.save()?;
+        Ok(Some(result))
     }
 
     /// Cancel queued or accepted work. The recipient may cancel its own task; the root may
@@ -371,6 +390,34 @@ mod tests {
                 .unwrap()
                 .status,
             Status::Done
+        );
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn summary_round_trips_without_changing_task_age() {
+        let dir = std::env::temp_dir().join(format!("slopd-task-summary-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        let config = dir.join("config.toml");
+        let mut tasks = Tasks::load(&config).unwrap();
+        let task = tasks
+            .create(
+                "host".into(),
+                "agent".into(),
+                "inspect the sidebar layout".into(),
+            )
+            .unwrap();
+        let updated = tasks
+            .set_summary(&task.id, "Inspect sidebar layout".into())
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(updated.summary.as_deref(), Some("Inspect sidebar layout"));
+        assert_eq!(updated.updated_ms, task.updated_ms);
+        assert_eq!(
+            Tasks::load(&config).unwrap().all()[0].summary.as_deref(),
+            Some("Inspect sidebar layout")
         );
         let _ = fs::remove_dir_all(dir);
     }

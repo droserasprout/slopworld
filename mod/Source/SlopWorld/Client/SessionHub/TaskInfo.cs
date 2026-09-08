@@ -32,6 +32,7 @@ namespace SlopWorld
         public string Body = "";
         public DelegatedTaskStatus Status;
         public string Note;
+        public string GeneratedSummary;
         public long CreatedMs;
         public long UpdatedMs;
         public string WorkerSession = "";
@@ -59,6 +60,7 @@ namespace SlopWorld
                 To = v["to"].AsString(),
                 Body = v["body"].AsString(),
                 Note = v["note"].IsNull ? null : v["note"].AsString(),
+                GeneratedSummary = v["summary"].IsNull ? null : v["summary"].AsString(),
                 CreatedMs = v["created_ms"].AsLong(),
                 UpdatedMs = v["updated_ms"].AsLong(),
             };
@@ -137,6 +139,11 @@ namespace SlopWorld
             {
                 if (_summary == null)
                 {
+                    if (!string.IsNullOrWhiteSpace(GeneratedSummary))
+                    {
+                        _summary = OneLine(GeneratedSummary);
+                        return _summary;
+                    }
                     string one = OneLine(Body);
                     _summary = one.Length <= SummaryChars
                         ? one

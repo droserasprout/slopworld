@@ -131,12 +131,41 @@ impl SummaryCache {
         if entries.len() > MAX_CACHE_ENTRIES {
             entries.remove(0);
         }
+        self.save_entries(&entries, session, title)
+    }
+
+    /// Store a summary that belongs to a durable task rather than a live session. It shares the
+    /// prompt/model cache but deliberately does not add a session-title `latest` entry.
+    pub fn insert_cached(&self, prompt: &str, model: &str, title: &str) -> Result<()> {
+        let key = cache_key(prompt, model);
+        let mut entries = self
+            .entries
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        if let Some(at) = entries.iter().position(|entry| entry.key == key) {
+            entries.remove(at);
+        }
+        entries.push(CacheEntry {
+            key,
+            title: title.to_string(),
+        });
+        if entries.len() > MAX_CACHE_ENTRIES {
+            entries.remove(0);
+        }
+        let latest = self
+            .latest
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        save_cache(&self.path, &entries, &latest)
+    }
+
+    fn save_entries(&self, entries: &[CacheEntry], session: &str, title: &str) -> Result<()> {
         let mut latest = self
             .latest
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
         set_latest(&mut latest, session, title);
-        save_cache(&self.path, &entries, &latest)
+        save_cache(&self.path, entries, &latest)
     }
 
     pub fn remember(&self, session: &str, title: &str) -> Result<()> {

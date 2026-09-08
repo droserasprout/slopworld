@@ -76,6 +76,7 @@ pub(crate) async fn create_task(
     let task = m
         .create_task(from, q.to, q.body)
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
+    m.spawn_task_summary_request(task.clone());
     Ok(Json(json!({ "task": task })))
 }
 

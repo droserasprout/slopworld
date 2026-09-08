@@ -145,6 +145,10 @@ pub struct Daemon {
     /// remains its default.
     #[serde(default = "default_pi_title_policy")]
     pub pi_titles: TitlePolicy,
+    /// Delegated tasks are separate one-shot conversations, so `once` summarizes each task
+    /// body at most once and `never` leaves the sidebar with its local preview.
+    #[serde(default)]
+    pub task_summaries: TitlePolicy,
     /// The generated SLOPWORLD.md template and the discovery settings for opted-in agents.
     #[serde(default)]
     pub instructions: InstructionsCfg,
@@ -296,6 +300,7 @@ impl Default for Daemon {
             title_model: default_title_model(),
             title_min_chars: default_title_min_chars(),
             pi_titles: default_pi_title_policy(),
+            task_summaries: TitlePolicy::Never,
             instructions: InstructionsCfg::default(),
         }
     }
