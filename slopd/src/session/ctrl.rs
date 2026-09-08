@@ -1,7 +1,7 @@
 use super::*;
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::SystemTime;
 use tokio::sync::{broadcast, RwLock};
@@ -32,6 +32,8 @@ pub struct Manager {
     pub(super) activity_cache: crate::activity::ActivityCache,
     pub audio: crate::audio::Audio,
     pub events: broadcast::Sender<Event>,
+    pub(super) auth_generation: AtomicU64,
+    pub(super) auth_changes: broadcast::Sender<AuthChange>,
     pub(super) grants: RwLock<crate::grant::Grants>,
     pub(super) tasks: Mutex<crate::tasks::Tasks>,
     /// Serializes daemon-owned worker creation so two root requests cannot reserve one child name
@@ -72,6 +74,21 @@ impl Drop for WatchGuard {
     }
 }
 
+impl Manager {
+    pub(crate) fn auth_generation(&self) -> u64 {
+        self.auth_generation.load(Ordering::Acquire)
+    }
+
+    pub(crate) fn auth_changes(&self) -> broadcast::Receiver<AuthChange> {
+        self.auth_changes.subscribe()
+    }
+
+    pub(crate) fn invalidate_auth(&self, change: AuthChange) {
+        self.auth_generation.fetch_add(1, Ordering::AcqRel);
+        let _ = self.auth_changes.send(change);
+    }
+}
+
 #[cfg(test)]
 pub(crate) fn test_manager(config: Config) -> Arc<Manager> {
     let cfg_path = std::env::temp_dir().join(format!(
@@ -80,6 +97,7 @@ pub(crate) fn test_manager(config: Config) -> Arc<Manager> {
         uuid::Uuid::new_v4()
     ));
     let (events, _) = broadcast::channel(16);
+    let (auth_changes, _) = broadcast::channel(16);
     Arc::new(Manager {
         tmux: Tmux::new("slopworld-unit-test"),
         cfg_path: cfg_path.clone(),
@@ -104,6 +122,8 @@ pub(crate) fn test_manager(config: Config) -> Arc<Manager> {
         )),
         audio: crate::audio::Audio::new(),
         events,
+        auth_generation: AtomicU64::new(0),
+        auth_changes,
         grants: RwLock::new(crate::grant::Grants::default()),
         tasks: Mutex::new(crate::tasks::Tasks::load(&cfg_path).expect("test task store")),
         worker_spawn: tokio::sync::Mutex::new(()),

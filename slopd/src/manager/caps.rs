@@ -58,6 +58,9 @@ impl Manager {
 
     pub async fn revoke_grants(&self, grantor: &str) {
         self.grants.write().await.revoke_grantor(grantor);
+        self.invalidate_auth(crate::session::AuthChange::GrantorRevoked(
+            grantor.to_string(),
+        ));
     }
 
     pub async fn grant_count(&self) -> usize {

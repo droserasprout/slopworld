@@ -37,6 +37,7 @@ impl Live {
 impl Manager {
     pub async fn new(cfg: Config, cfg_path: PathBuf) -> Arc<Self> {
         let (events, _) = broadcast::channel(256);
+        let (auth_changes, _) = broadcast::channel(16);
         let mtime = disk_mtime(&cfg_path).await;
         let tasks = crate::tasks::Tasks::load(&cfg_path)
             .unwrap_or_else(|e| panic!("task store {}: {e:#}", cfg_path.display()));
@@ -69,6 +70,8 @@ impl Manager {
             activity_cache,
             audio: crate::audio::Audio::new(),
             events,
+            auth_generation: AtomicU64::new(0),
+            auth_changes,
             grants: RwLock::new(crate::grant::Grants::default()),
             tasks: Mutex::new(tasks),
             worker_spawn: tokio::sync::Mutex::new(()),
@@ -110,10 +113,14 @@ impl Manager {
         update: impl FnOnce(&mut Config) -> Result<T>,
     ) -> Result<T> {
         let _persist = self.cfg_persist.lock().await;
+        let old_token = self.cfg.read().await.daemon.token.clone();
         let mut candidate = self.cfg.read().await.clone();
         let result = update(&mut candidate)?;
         self.persist_cfg(&candidate).await?;
         *self.cfg.write().await = candidate;
+        if old_token != self.cfg.read().await.daemon.token {
+            self.invalidate_auth(crate::session::AuthChange::RootTokenChanged);
+        }
         Ok(result)
     }
 
@@ -122,11 +129,15 @@ impl Manager {
         update: impl FnOnce(&mut Config) -> Result<(T, bool)>,
     ) -> Result<T> {
         let _persist = self.cfg_persist.lock().await;
+        let old_token = self.cfg.read().await.daemon.token.clone();
         let mut candidate = self.cfg.read().await.clone();
         let (result, changed) = update(&mut candidate)?;
         if changed {
             self.persist_cfg(&candidate).await?;
             *self.cfg.write().await = candidate;
+            if old_token != self.cfg.read().await.daemon.token {
+                self.invalidate_auth(crate::session::AuthChange::RootTokenChanged);
+            }
         }
         Ok(result)
     }
@@ -163,9 +174,13 @@ impl Manager {
         };
 
         tracing::info!("config changed on disk, reloading");
+        let root_token_changed = self.cfg.read().await.daemon.token != new.daemon.token;
         *self.rules.write().await = compile_rules(&new);
         let token = new.daemon.token.clone();
         *self.cfg.write().await = new;
+        if root_token_changed {
+            self.invalidate_auth(crate::session::AuthChange::RootTokenChanged);
+        }
         drop(persist);
         if let Err(e) = crate::endpoint::update_token(&token).await {
             tracing::warn!("config reloaded but endpoint descriptor was not updated: {e:#}");
@@ -343,11 +358,8 @@ impl Manager {
         let cfg = self.config().await;
         let removed = self.prune_removed(&cfg).await;
 
-        if !removed.is_empty() {
-            let mut grants = self.grants.write().await;
-            for name in &removed {
-                grants.revoke_grantor(name);
-            }
+        for name in &removed {
+            self.revoke_grants(name).await;
         }
 
         self.upsert_sessions(&cfg).await;
@@ -819,7 +831,7 @@ impl Manager {
                 .get_mut("daemon")
                 .and_then(toml::Value::as_table_mut)
             {
-                daemon.insert("token".into(), toml::Value::String(old_token));
+                daemon.insert("token".into(), toml::Value::String(old_token.clone()));
             }
         }
         validate_config(&new)?;
@@ -827,8 +839,12 @@ impl Manager {
         let text = toml::to_string_pretty(&document)?;
         self.persist_cfg_text(&new, &text).await?;
 
+        let root_token_changed = old_token != new.daemon.token;
         *self.rules.write().await = compile_rules(&new);
         *self.cfg.write().await = new;
+        if root_token_changed {
+            self.invalidate_auth(crate::session::AuthChange::RootTokenChanged);
+        }
         drop(_persist);
         self.sync_from_config().await;
         self.announce_projects().await;
@@ -839,13 +855,18 @@ impl Manager {
     pub async fn replace_config(self: &Arc<Self>, text: &str) -> Result<()> {
         let mut new = Config::parse(text)?;
         let _persist = self.cfg_persist.lock().await;
+        let old_token = self.cfg.read().await.daemon.token.clone();
         if new.daemon.token == crate::config::TOKEN_REDACTED {
-            new.daemon.token = self.cfg.read().await.daemon.token.clone();
+            new.daemon.token = old_token.clone();
         }
         validate_config(&new)?;
         self.persist_cfg(&new).await?;
+        let root_token_changed = old_token != new.daemon.token;
         *self.rules.write().await = compile_rules(&new);
         *self.cfg.write().await = new;
+        if root_token_changed {
+            self.invalidate_auth(crate::session::AuthChange::RootTokenChanged);
+        }
         drop(_persist);
         self.sync_from_config().await;
         self.announce_projects().await;

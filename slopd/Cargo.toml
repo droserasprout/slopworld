@@ -29,6 +29,7 @@ ureq = { version = "3.3.0", default-features = false, features = ["rustls", "jso
 uuid = { version = "1", features = ["v4"] }
 
 [dev-dependencies]
+tokio-tungstenite = "0.24"
 tower = { version = "0.5", features = ["util"] }
 
 [profile.release]
