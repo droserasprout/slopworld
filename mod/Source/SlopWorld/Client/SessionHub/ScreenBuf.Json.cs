@@ -1,10 +1,11 @@
 using System.Collections.Generic;
-using System.Linq;
 
 namespace SlopWorld
 {
     public partial class ScreenBuf
     {
+        List<int> _changedRows;
+        int[] _overlapPrefix = NoChangedRows;
         public void FromJson(JVal s)
         {
             string[] previousLines = Lines;
@@ -33,20 +34,21 @@ namespace SlopWorld
             AltScreen = s["alt_screen"].AsBool(false);
             Title = s["title"].AsString();
             ScrollRequestId = (ulong)s["request_id"].AsLong(0);
-            var nextLines = s["lines"].Items.Select(l => l.AsString()).ToArray();
-            bool sameShape = previousLines != null && previousLines.Length == nextLines.Length &&
+            var values = s["lines"];
+            bool sameShape = previousLines != null && previousLines.Length == values.Count &&
                 previousCols == Cols && previousRows == Rows;
-            var changed = new List<int>();
-            if (sameShape)
+            var nextLines = sameShape ? previousLines : new string[values.Count];
+            var changed = _changedRows ?? (_changedRows = new List<int>());
+            changed.Clear();
+            for (int i = 0; i < values.Count; i++)
             {
-                for (int i = 0; i < nextLines.Length; i++)
-                    if (!string.Equals(previousLines[i], nextLines[i],
-                                       System.StringComparison.Ordinal))
-                        changed.Add(i);
-            }
-            else
-            {
-                for (int i = 0; i < nextLines.Length; i++) changed.Add(i);
+                string line = values[i].AsString();
+                if (sameShape && string.Equals(previousLines[i], line,
+                                              System.StringComparison.Ordinal)) continue;
+                // Keep old strings/arrays intact for scroll detection and retained views.
+                if (sameShape && changed.Count == 0) nextLines = (string[])previousLines.Clone();
+                nextLines[i] = line;
+                changed.Add(i);
             }
 
             Lines = nextLines;
@@ -59,11 +61,10 @@ namespace SlopWorld
             // the terminal parser can fill only those rows on the next draw.
             if (sameShape && previousRuns != null && previousRuns.Length == nextLines.Length)
             {
-                var retained = new List<SgrRun>[nextLines.Length];
-                for (int i = 0; i < nextLines.Length; i++)
-                    if (string.Equals(previousLines[i], nextLines[i],
-                                      System.StringComparison.Ordinal))
-                        retained[i] = previousRuns[i];
+                // Snapshots share this array, so copy only when invalidating rows.
+                var retained = changed.Count == 0 ? previousRuns :
+                    (List<SgrRun>[])previousRuns.Clone();
+                foreach (int row in changed) retained[row] = null;
                 Runs = retained;
                 RunsRev = previousRunsRev;
                 RunsComplete = previousRunsComplete && changed.Count == 0;
@@ -103,11 +104,12 @@ namespace SlopWorld
             LiveShift = System.Math.Max(visibleShift, historyShift);
         }
 
-        static int VerticalShift(string[] before, string[] after,
+        internal int VerticalShift(string[] before, string[] after,
             int beforeRows, int afterRows, int beforeCy)
         {
             if (before == null || after == null || beforeRows < 2 || beforeRows != afterRows ||
-                before.Length != after.Length || beforeCy < beforeRows - 1)
+                before.Length != after.Length || before.Length < beforeRows ||
+                beforeCy < beforeRows - 1 || before[beforeRows - 1] == after[afterRows - 1])
                 return 0;
 
             // A real terminal scroll leaves the old tail at the new top. The incoming bottom
@@ -123,29 +125,29 @@ namespace SlopWorld
                 }
             }
 
-            int max = beforeRows - 1;
-            for (int shift = 1; shift <= max; shift++)
+            if (!changedBeforeBottom) return 0;
+
+            // Match the longest old suffix to the new prefix in linear row comparisons.
+            // Repeated blank/progress rows otherwise retry nearly every candidate shift.
+            if (_overlapPrefix.Length < beforeRows) _overlapPrefix = new int[beforeRows];
+            _overlapPrefix[0] = 0;
+            int matched = 0;
+            for (int row = 1; row < beforeRows; row++)
             {
-                bool overlap = true;
-                for (int row = 0; row < beforeRows - shift; row++)
-                {
-                    if (before[row + shift] != after[row])
-                    {
-                        overlap = false;
-                        break;
-                    }
-                }
-                // An unchanged top row is not enough to reject a scroll: the row that
-                // leaves the viewport may be repeated, while the rows below it still prove
-                // that the screen moved. Keep the old ambiguity guard when the only change is
-                // the bottom row, where a normal in-place edit is indistinguishable from a
-                // scroll through identical content.
-                if (!overlap || !changedBeforeBottom ||
-                    before[beforeRows - 1] == after[afterRows - 1])
-                    continue;
-                return shift;
+                while (matched > 0 && after[row] != after[matched])
+                    matched = _overlapPrefix[matched - 1];
+                if (after[row] == after[matched]) matched++;
+                _overlapPrefix[row] = matched;
             }
-            return 0;
+            matched = 0;
+            // Skip the old first row: a zero shift is not a scroll.
+            for (int row = 1; row < beforeRows; row++)
+            {
+                while (matched > 0 && before[row] != after[matched])
+                    matched = _overlapPrefix[matched - 1];
+                if (before[row] == after[matched]) matched++;
+            }
+            return matched == 0 ? 0 : beforeRows - matched;
         }
     }
 }

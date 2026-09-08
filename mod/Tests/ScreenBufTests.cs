@@ -7,6 +7,7 @@ namespace SlopWorld.Tests
     {
         public static IEnumerable<(string Name, Action Body)> Cases()
         {
+            yield return ("scroll overlap matches exhaustive reference", OverlapReference);
             yield return ("hydrates a screen frame", HydratesScreenFrame);
             yield return ("uses wire defaults", UsesWireDefaults);
             yield return ("detects a live row shift", DetectsLiveRowShift);
@@ -24,6 +25,36 @@ namespace SlopWorld.Tests
             yield return ("does not shift across a changed viewport", IgnoresChangedViewport);
             yield return ("retains unchanged row metadata", RetainsUnchangedRows);
             yield return ("cursor-only frames retain the content revision", CursorOnlyRevision);
+        }
+
+        static void OverlapReference()
+        {
+            var screen = new ScreenBuf();
+            for (int rows = 2; rows <= 6; rows++)
+                for (int a = 0; a < (1 << rows); a++)
+                    for (int b = 0; b < (1 << rows); b++)
+                    {
+                        var before = new string[rows];
+                        var after = new string[rows];
+                        bool changed = false;
+                        for (int i = 0; i < rows; i++)
+                        {
+                            before[i] = (a & (1 << i)) == 0 ? "" : "repeat";
+                            after[i] = (b & (1 << i)) == 0 ? "" : "repeat";
+                            if (i < rows - 1 && before[i] != after[i]) changed = true;
+                        }
+                        int expected = 0;
+                        if (changed && before[rows - 1] != after[rows - 1])
+                            for (int shift = 1; shift < rows; shift++)
+                            {
+                                bool overlap = true;
+                                for (int i = 0; i < rows - shift; i++)
+                                    if (before[i + shift] != after[i]) { overlap = false; break; }
+                                if (overlap) { expected = shift; break; }
+                            }
+                        AssertEx.Equal(expected, screen.VerticalShift(before, after, rows, rows, rows - 1),
+                            "reference overlap for repeated rows");
+                    }
         }
 
         static void HydratesScreenFrame()
@@ -200,6 +231,7 @@ namespace SlopWorld.Tests
             screen.Runs = new[] { first, second, third };
             screen.RunsRev = 1;
             screen.RunsComplete = true;
+            var snapshot = screen.Snapshot();
             int revision = screen.ContentRevision;
 
             screen.FromJson(JVal.Parse(
@@ -212,6 +244,8 @@ namespace SlopWorld.Tests
             AssertEx.True(object.ReferenceEquals(first, screen.Runs[0]),
                 "unchanged row runs are retained");
             AssertEx.True(screen.Runs[1] == null, "changed row runs are invalidated");
+            AssertEx.True(object.ReferenceEquals(second, snapshot.Runs[1]),
+                "invalidation preserves snapshot rows");
             AssertEx.False(screen.RunsComplete, "partial runs are not complete");
         }
 

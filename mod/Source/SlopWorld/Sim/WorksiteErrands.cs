@@ -253,12 +253,14 @@ namespace SlopWorld
                 if (frame == null || !frame.Spawned) continue;
                 if (WorkFor(frame.def?.entityDefToBuild) <= 0f) continue;
                 if (_shunned.Contains(frame)) continue;
+                // Farther frames cannot replace the current choice. Reject them before
+                // asking vanilla to check reservations and construction eligibility.
+                float d = frame.Position.DistanceToSquared(pawn.Position);
+                if (d >= nearest) continue;
                 // Cheap first: a dictionary lookup before a path.
                 if (!pawn.CanReserve(frame)) continue;
                 if (!Buildable(frame, pawn)) continue;
 
-                float d = frame.Position.DistanceToSquared(pawn.Position);
-                if (d >= nearest) continue;
                 nearest = d;
                 best = frame;
             }

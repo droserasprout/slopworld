@@ -117,8 +117,19 @@ namespace SlopWorld
 
         static string ParseString(string s, ref int i)
         {
-            var sb = new StringBuilder();
             i++; // opening quote
+            // Object keys and plain terminal rows need no escape decoding. Avoid the
+            // builder and its growing buffers until an actual escape is encountered.
+            int start = i;
+            while (i < s.Length && s[i] != '"' && s[i] != '\\') i++;
+            if (i == s.Length || s[i] == '"')
+            {
+                string plain = s.Substring(start, i - start);
+                i++;
+                return plain;
+            }
+            var sb = new StringBuilder();
+            sb.Append(s, start, i - start);
             while (i < s.Length && s[i] != '"')
             {
                 if (s[i] == '\\' && i + 1 < s.Length)
