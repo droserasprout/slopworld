@@ -25,10 +25,8 @@ namespace SlopWorld
 
         public override void MapComponentOnGUI()
         {
-            // Cutscenes and an opaque terminal have no map box to click. Eco still draws this
-            // box, so leave its map click path alive; the general map click patch only blocks
-            // vanilla selection underneath it.
-            if (Cutscene.Playing || TerminalWindow.Covering) return;
+            // Cutscenes, Eco's frame-only map, and an opaque terminal have no map box to click.
+            if (Cutscene.Playing || Eco.Resting || TerminalWindow.Covering) return;
 
             var cell = UI.MouseCell();
             var box = map.thingGrid.ThingAt(cell, ModDefOf.SlopJukebox);

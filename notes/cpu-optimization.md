@@ -29,8 +29,6 @@ The C# mod reduces work in these hot paths:
   A hidden clock does no date formatting or measurement.
 - `AgentColony` retains membership across unchanged revisions, reuses removal/order buffers,
   and sorts only after binding changes. Repair and state transitions still run each sweep.
-- `Eco.Things` draws pets directly from the colony animal list without a per-frame list copy;
-  visible pawn animation retains every render phase.
 
 `make BUILD=release bench-mod` includes idle socket allocation and unchanged-title comparisons
 against the previous allocation/cleanup patterns, plus the idle terminal repaint decision.
@@ -38,4 +36,4 @@ These measure helpers under .NET, not Unity CPU load or input latency. Opt-in `P
 adds sidebar layout hits/rebuilds, title rebuilds, and terminal cache hits for runtime checking.
 The suite also compares unchanged colony membership and clock formatting, plus cold/warm
 quota row caches. Runtime counters cover hidden maintenance skips, mesh/sky/fleck update time,
-Eco pawn drawing, colony reconciliation, and top-bar rebuilds/draw time.
+colony reconciliation, and top-bar rebuilds/draw time.
