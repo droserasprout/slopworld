@@ -80,13 +80,13 @@ namespace SlopWorld
                 _ => TerminalWindow.OpenOverPane(new DelegateTaskDialog(null)),
                 enabled: HasTaskRecipients),
             CommandDef.ForTask("task.open", "Task: Open", TasksSub,
-                t => TaskDetailView.Open(t), enabled: HasTasks),
+                t => TaskDetailView.Open(t)),
             CommandDef.ForTask("task.cancel", "Task: Cancel", CancelableTasksSub,
-                t => TaskActions.CancelTask(t), enabled: HasCancelableTasks),
+                t => TaskActions.CancelTask(t)),
             CommandDef.ForTask("task.remove", "Task: Remove", TerminalTasksSub,
-                t => TaskActions.RemoveTask(t), enabled: HasTerminalTasks),
+                t => TaskActions.RemoveTask(t)),
             new CommandDef("task.status", "Task: Set Status", "Task", _ => { },
-                enabled: HasStatusTasks, subAction: TaskStatusSub),
+                subAction: TaskStatusSub),
             new CommandDef("task.filter", "Task: Filter", "Task",
                 _ => TasksView.OpenFilterMenu()),
 
@@ -230,7 +230,7 @@ namespace SlopWorld
                 _ => WindowMaximizer.Toggle()),
 
             new CommandDef("help.shortcuts", "Help: Keyboard Shortcuts", "Help",
-                _ => ShortcutHelpWindow.Toggle(), enabled: Playing),
+                _ => ShortcutHelpWindow.Toggle(), enabled: () => ShortcutHelpWindow.CanOpen),
 
             new CommandDef("jukebox.mute", "Jukebox: Mute", "Jukebox",
                 _ => Radio.ToggleMute()),

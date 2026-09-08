@@ -255,22 +255,8 @@ namespace SlopWorld
             return list;
         }
 
-        static bool HasTasks() => SessionHub.Instance.Tasks.Any(task =>
-            task != null && !string.IsNullOrEmpty(task.Id));
-
-        static bool HasCancelableTasks() => SessionHub.Instance.Tasks.Any(task =>
-            task != null && !string.IsNullOrEmpty(task.Id) &&
-            (task.Status == DelegatedTaskStatus.Queued ||
-             task.Status == DelegatedTaskStatus.Accepted));
-
-        static bool HasTerminalTasks() => SessionHub.Instance.Tasks.Any(task =>
-            task != null && !string.IsNullOrEmpty(task.Id) && task.Terminal);
-
-        static bool HasStatusTasks() => SessionHub.Instance.Tasks.Any(task =>
-            task != null && !string.IsNullOrEmpty(task.Id) && task.Incoming && !task.Terminal);
-
         static string TaskLabel(TaskInfo task) =>
-            $"{task.Id}  ({TaskInfo.StatusText(task.Status)})  -  {task.Direction}";
+            $"{task.Summary}  ({TaskInfo.StatusText(task.Status)}, {task.Direction})  -  {task.Id}";
 
         static List<SubOption> TasksSub()
         {
