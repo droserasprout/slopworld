@@ -20,7 +20,6 @@ namespace SlopWorld
             l.Label("Name (also the colonist's name)");
             _s.Name = UiWidgets.Field(l, "agent.name", _s.Name);
 
-            l.Gap(UiWidgets.GapS);
             var projectOptions = SessionHub.Instance.Projects
                 .Select(p => new SelectorOption($"{p.Name}  -  {p.Dir}",
                     () => _s.Project = p.Name)).ToList();

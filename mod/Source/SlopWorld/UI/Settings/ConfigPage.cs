@@ -35,7 +35,6 @@ namespace SlopWorld
                 if (dim != s.ecoDim) { s.ecoDim = dim; s.MarkDirty(); }
             }
 
-            l.Gap(UiWidgets.GapS);
             bool gm = UiWidgets.Checkbox(l, "Grandma's visiting", s.grandmaMode);
             UiWidgets.Note(l, "No fun allowed! Disable gore, vomit, and offensive/harmful tips.");
 

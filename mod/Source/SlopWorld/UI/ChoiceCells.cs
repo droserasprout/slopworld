@@ -55,7 +55,8 @@ namespace SlopWorld
         {
             using (WidgetState.Save())
             {
-                float boxW = Mathf.Min(area.height - 2f, area.width - UiWidgets.GapS);
+                float boxW = Mathf.Min(UiWidgets.FieldH,
+                    Mathf.Max(0f, area.width - UiWidgets.GapS));
                 var box = new Rect(area.center.x - boxW / 2f,
                     area.y + (area.height - boxW) / 2f, boxW, boxW);
                 return DrawBoxCore(box, draw,
@@ -69,7 +70,8 @@ namespace SlopWorld
         {
             using (WidgetState.Save())
             {
-                float boxW = Mathf.Min(area.height - 2f, area.width - UiWidgets.GapS);
+                float boxW = Mathf.Min(UiWidgets.FieldH,
+                    Mathf.Max(0f, area.width - UiWidgets.GapS));
                 var box = new Rect(area.center.x - boxW / 2f,
                     area.y + (area.height - boxW) / 2f, boxW, boxW);
                 return DrawBoxCore(box, draw, r => TooltipHandler.TipRegion(r, tip),

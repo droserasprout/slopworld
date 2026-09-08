@@ -55,7 +55,10 @@ namespace SlopWorld
         {
             var rect = listing.GetRect(UiWidgets.LineH + UiWidgets.GapXS +
                 UiWidgets.CompactH);
-            return Draw(rect, caption, value, source, out box, tip, enabled, open, openMenu);
+            bool pressed = Draw(rect, caption, value, source, out box, tip, enabled, open,
+                openMenu);
+            listing.Gap(UiWidgets.GapS);
+            return pressed;
         }
     }
 }

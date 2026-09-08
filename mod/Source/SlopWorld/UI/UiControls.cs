@@ -170,25 +170,36 @@ namespace SlopWorld
         }
 
         // A caption and its field are separate listing rows. Keep the shared label-to-control
-        // gap here so every form does not have to add it by hand.
+        // gap here, and leave the same standard gap after every listing control, so forms do
+        // not have to add either margin by hand.
         public static Rect FieldRect(Listing_Standard l)
         {
             l.Gap(GapXS);
             return l.GetRect(FieldH);
         }
 
-        public static string Field(Listing_Standard l, string name, string text, bool on = true) =>
-            Field(FieldRect(l), name, text, on);
+        public static string Field(Listing_Standard l, string name, string text, bool on = true)
+        {
+            string value = Field(FieldRect(l), name, text, on);
+            l.Gap(GapS);
+            return value;
+        }
 
         public static string Area(Listing_Standard l, float height, string name, string text,
                                   bool on = true, bool frame = true)
         {
             l.Gap(GapXS);
-            return Area(l.GetRect(height), name, text, on, frame);
+            string value = Area(l.GetRect(height), name, text, on, frame);
+            l.Gap(GapS);
+            return value;
         }
 
-        public static bool Checkbox(Listing_Standard l, string label, bool on, string tip = null) =>
-            Checkbox(l.GetRect(RowH), label, on, tip);
+        public static bool Checkbox(Listing_Standard l, string label, bool on, string tip = null)
+        {
+            bool value = Checkbox(l.GetRect(RowH), label, on, tip);
+            l.Gap(GapS);
+            return value;
+        }
 
         // A dropdown caret. Collapse is vanilla's downward triangle. Keep the draw in the
         // active GUI group; rotating through GUI.matrix makes a caret drift when that group
@@ -263,8 +274,13 @@ namespace SlopWorld
             UiSelector.Draw(r, caption, value, choices, out box, tip, on, open, openMenu);
 
         public static bool Select(Listing_Standard l, string caption, string value,
-                                  out Rect box, string tip = null, bool on = true) =>
-            Select(l.GetRect(LineH + GapXS + CompactH), caption, value, out box, tip, on);
+                                  out Rect box, string tip = null, bool on = true)
+        {
+            bool pressed = Select(l.GetRect(LineH + GapXS + CompactH), caption, value,
+                out box, tip, on);
+            l.Gap(GapS);
+            return pressed;
+        }
 
         public static bool Select(Listing_Standard l, string caption, string value,
                                   IEnumerable<SelectorOption> choices, out Rect box,

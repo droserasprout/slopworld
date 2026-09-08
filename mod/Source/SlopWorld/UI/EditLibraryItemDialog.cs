@@ -190,12 +190,10 @@ namespace SlopWorld
 
         void DrawKindAndLink(Listing_Standard l, LibraryItemKindDescriptor kind)
         {
-            l.Gap(UiWidgets.GapS);
             UiWidgets.Select(l, "Kind", kind.ButtonLabel, KindOptions(), out _,
                 openMenu: TerminalWindow.OpenOverPane);
 
             if (!kind.ShowWhere) return;
-            l.Gap(UiWidgets.GapS);
             UiWidgets.Select(l, "Where it runs", LinkLabel(_s.Link), LinkOptions(), out _,
                 openMenu: TerminalWindow.OpenOverPane);
         }
@@ -205,7 +203,6 @@ namespace SlopWorld
             // The project dropdown stays up for every kind that uses a project. In temp mode
             // it still answers which sandbox the scratch project is given.
             if (!kind.ShowProject(this)) return;
-            l.Gap(UiWidgets.GapS);
             UiWidgets.Select(l, kind.ProjectLabel(this), kind.ProjectValue(this),
                 ProjectOptions(_s.Kind == LibraryItemKind.Breadcrumb), out _,
                 openMenu: TerminalWindow.OpenOverPane);
@@ -214,7 +211,6 @@ namespace SlopWorld
         void DrawFileActionMode(Listing_Standard l)
         {
             if (_s.Kind != LibraryItemKind.FileAction) return;
-            l.Gap(UiWidgets.GapS);
             UiWidgets.Select(l, "After choosing the file action",
                 FileActionModeText.Label(_s.Mode), FileActionModeOptions(), out _,
                 openMenu: TerminalWindow.OpenOverPane);

@@ -8,7 +8,8 @@ namespace SlopWorld
     public static class UiListRow
     {
         public static float TwoLineH =>
-            UiWidgets.GapXS + UiWidgets.LineH + UiWidgets.RowBtnH + UiWidgets.GapXS + 4f;
+                UiWidgets.GapXS + UiWidgets.LineH + UiWidgets.RowBtnH + UiWidgets.GapXS +
+                UiWidgets.GapXS;
 
         public static void Prepare(Rect rect)
         {
@@ -19,6 +20,6 @@ namespace SlopWorld
         public static float LineY(Rect rect, int line) =>
             rect.y + UiWidgets.GapXS + line * UiWidgets.LineH;
 
-        public static float Right(Rect rect) => rect.xMax - 6f;
+        public static float Right(Rect rect) => rect.xMax - UiWidgets.GapS;
     }
 }

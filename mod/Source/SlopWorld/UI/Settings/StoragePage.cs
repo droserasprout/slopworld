@@ -42,8 +42,6 @@ namespace SlopWorld
         bool _loading => _load.Loading;
         bool _hasTrash => _entries.Any(e => e.Kind == "trash");
 
-        const float Pitch = 58f;
-
         public void Load()
         {
             _load.Load((ok, fail) => DaemonClient.Get("/api/state", j => ok(
@@ -73,11 +71,13 @@ namespace SlopWorld
 
             var list = new Rect(inner.x, inner.y + UiWidgets.LineH + UiWidgets.GapS,
                 inner.width, inner.yMax - inner.y - UiWidgets.LineH - UiWidgets.GapS);
+            float rowH = UiListRow.TwoLineH;
             var view = new Rect(0f, 0f, list.width - UiWidgets.ScrollbarW,
-                Mathf.Max(list.height, _entries.Count * Pitch));
+                Mathf.Max(list.height, _entries.Count * rowH + UiWidgets.GapXS));
             using (_scroll.Scope(list, view))
                 for (int i = 0; i < _entries.Count; i++)
-                    DrawRow(new Rect(0f, i * Pitch, view.width, Pitch - 4f), _entries[i]);
+                    DrawRow(new Rect(0f, i * rowH, view.width, rowH - UiWidgets.GapXS),
+                        _entries[i]);
 
             if (_entries.Count == 0)
             {
@@ -119,29 +119,33 @@ namespace SlopWorld
             if (over)
                 TooltipHandler.TipRegion(r, "Open this private directory in the Files sidebar.");
 
-            float actionW = 78f;
-            float right = r.xMax - 6f;
-            float labelW = Mathf.Max(80f, r.width - 190f);
+            float actionW = UiWidgets.BtnW("Delete", 78f);
+            float right = UiListRow.Right(r);
+            float labelW = Mathf.Max(80f,
+                r.width - actionW * 2f - UiWidgets.GapXS - UiWidgets.GapM);
+            float actionY = r.y + (r.height - UiWidgets.RowBtnH) / 2f;
 
             // Leave the action buttons out of the selection hit target. The whole label side
             // is one row, so an entry does not require a tiny click on its name.
-            if (Widgets.ButtonInvisible(new Rect(r.x, r.y, labelW + 20f, r.height)))
+            if (Widgets.ButtonInvisible(new Rect(r.x, r.y, labelW, r.height)))
                 Focus(e);
 
+            float line1 = UiListRow.LineY(r, 0);
+            float line2 = UiListRow.LineY(r, 1);
             GUI.color = UiWidgets.Lead;
-            UiWidgets.RowLabel(new Rect(r.x + 10f, r.y + 5f, labelW, UiWidgets.LineH),
+            UiWidgets.RowLabel(new Rect(r.x + UiWidgets.GapS, line1, labelW, UiWidgets.LineH),
                 e.Session ?? e.Key);
             GUI.color = UiWidgets.Dim;
             string note = e.Kind == "active" ? "configured agent" :
                 e.Kind == "orphan" ? "unclaimed orphan state" :
                 e.Session != null ? $"trash for {e.Session}" : "trash (agent removed)";
-            UiWidgets.RowLabel(new Rect(r.x + 10f, r.y + 5f + UiWidgets.LineH,
-                labelW, UiWidgets.LineH), $"{note}  -  {Human(e.Bytes)}  -  {When(e.Modified)}");
+            UiWidgets.RowLabel(new Rect(r.x + UiWidgets.GapS, line2, labelW, UiWidgets.LineH),
+                $"{note}  -  {Human(e.Bytes)}  -  {When(e.Modified)}");
             GUI.color = Color.white;
 
             if (e.Kind == "active")
             {
-                if (UiWidgets.Button(new Rect(right - actionW, r.y + 10f, actionW,
+                if (UiWidgets.Button(new Rect(right - actionW, actionY, actionW,
                         UiWidgets.RowBtnH), "Reset", UiWidgets.Btn.Danger))
                     ConfirmReset(e);
                 return;
@@ -150,10 +154,10 @@ namespace SlopWorld
             if (e.Kind == "trash" && e.Session != null)
             {
                 if (UiWidgets.Button(new Rect(right - actionW * 2f - UiWidgets.GapXS,
-                        r.y + 10f, actionW, UiWidgets.RowBtnH), "Restore"))
+                        actionY, actionW, UiWidgets.RowBtnH), "Restore"))
                     Restore(e);
             }
-            if (UiWidgets.Button(new Rect(right - actionW, r.y + 10f, actionW,
+            if (UiWidgets.Button(new Rect(right - actionW, actionY, actionW,
                     UiWidgets.RowBtnH), "Delete", UiWidgets.Btn.Danger))
                 ConfirmDelete(e);
         }
