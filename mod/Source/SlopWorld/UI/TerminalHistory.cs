@@ -133,17 +133,17 @@ namespace SlopWorld
 
             SetTemplate(live);
             bool changed = Index(live, 0, true);
-            // A pure in-place live redraw cannot affect an already assembled scrollback view.
-            // Keep indexing the new live rows so a later anchor change sees them, but leave the
-            // currently displayed ScreenBuf intact until that view is no longer being shown.
-            // A real scroll changes its public anchor, so a shallow view must be rebuilt while
-            // a deep history-only view remains valid after its metadata is translated below.
-            if (shift > 0 && _cachedView != null && _cachedAnchor >= live.Rows)
+            // Shallow views still contain live rows, including the fractional overscan row.
+            // Refresh those in-place edits without discarding a history-only view. A real
+            // scroll can preserve that deep view by translating its anchor instead.
+            bool historyOnly = _cachedView != null &&
+                _cachedAnchor >= _cachedView.Lines.Length;
+            if (shift > 0 && historyOnly)
             {
                 _cachedAnchor += shift;
                 _cachedView.Off += shift;
             }
-            else if (changed && (shift > 0 || _cachedView == null)) Changed();
+            else if (changed && (shift > 0 || !historyOnly)) Changed();
             return true;
         }
 
@@ -179,6 +179,7 @@ namespace SlopWorld
                 _cachedExtra == extraRow && _cachedVersion == _version)
             {
                 view = _cachedView;
+                SetViewCursor(view);
                 return true;
             }
 
@@ -223,7 +224,19 @@ namespace SlopWorld
             _cachedExtra = extraRow;
             _cachedVersion = _version;
             _cachedView = view;
+            SetViewCursor(view);
             return true;
+        }
+
+        // Cursor updates do not invalidate row textures. Translate only a visible live
+        // cursor; Cy == Rows is the daemon's hidden-cursor sentinel.
+        void SetViewCursor(ScreenBuf view)
+        {
+            view.Cx = _template.Cx;
+            view.Cy = _template.Cy >= 0 && _template.Cy < _template.Rows
+                ? _template.Cy + view.Off : view.Lines.Length;
+            view.CursorShape = _template.CursorShape;
+            view.CursorBlink = _template.CursorBlink;
         }
 
         // Request planning asks about a lookahead anchor on every GUI pass. Do not build that
@@ -269,7 +282,10 @@ namespace SlopWorld
                 Seq = frame.Seq,
                 Cols = frame.Cols,
                 Rows = frame.Rows,
+                Cx = frame.Cx,
+                Cy = frame.Cy,
                 CursorShape = frame.CursorShape,
+                CursorBlink = frame.CursorBlink,
                 Title = frame.Title,
             };
             _templateAltScreen = frame.AltScreen;

@@ -16,8 +16,11 @@ namespace SlopWorld.Tests
             yield return ("retains history across an in-place live refresh", RetainsLiveRefresh);
             yield return ("preserves a deep assembled view across unrelated live refreshes",
                 PreservesDeepViewAcrossLiveRefresh);
-            yield return ("freezes a shallow view across an in-place live refresh",
-                FreezesShallowViewAcrossLiveRefresh);
+            yield return ("refreshes live rows in a shallow history view",
+                RefreshesShallowViewAcrossLiveRefresh);
+            yield return ("refreshes the live overscan row at the history boundary",
+                RefreshesLiveOverscanRow);
+            yield return ("tracks the live cursor in cached scrollback views", TracksLiveCursor);
             yield return ("translates history when live output scrolls", TranslatesLiveScroll);
             yield return ("keeps history anchored when a repeated live row scrolls",
                 KeepsHistoryAnchoredWhenTopRowRepeats);
@@ -293,7 +296,7 @@ namespace SlopWorld.Tests
             AssertEx.Equal(4, translated.Off, "cached view metadata follows the live bottom");
         }
 
-        static void FreezesShallowViewAcrossLiveRefresh()
+        static void RefreshesShallowViewAcrossLiveRefresh()
         {
             var live = Frame(0, "live-0", "live-1", "live-2");
             var history = new TerminalHistory();
@@ -313,14 +316,87 @@ namespace SlopWorld.Tests
             AssertEx.True(history.TryView(1, false, out var after),
                 "shallow view remains assembled");
             AssertEx.Sequence(
-                new[] { "old-1", "live-0", "live-1" }, after.Lines,
-                "scrollback view stays frozen while live output refreshes");
+                new[] { "old-1", "new-0", "new-1" }, after.Lines,
+                "historical rows stay anchored while visible live rows refresh");
+            AssertEx.False(object.ReferenceEquals(before, after),
+                "the changed view invalidates the rendering cache");
 
             AssertEx.True(history.TryView(0, false, out var liveView),
                 "moving to the live edge rebuilds the view");
             AssertEx.Sequence(
                 new[] { "new-0", "new-1", "new-2" }, liveView.Lines,
                 "the live edge sees the latest in-place refresh");
+        }
+
+        static void RefreshesLiveOverscanRow()
+        {
+            var live = Frame(0, "live-0", "live-1", "live-2");
+            var history = new TerminalHistory();
+            history.Reset(live);
+            history.Add(Frame(3, "old-3", "old-2", "old-1"), live, 3);
+            AssertEx.True(history.TryView(3, true, out var before),
+                "fractional view includes the first live row as overscan");
+
+            var refresh = Frame(0, "timer-1", "live-1", "live-2");
+            refresh.Seq = 8;
+            history.UpdateLive(refresh, 0);
+            AssertEx.True(history.TryView(3, true, out var after),
+                "fractional view stays covered");
+            AssertEx.Sequence(new[] { "old-3", "old-2", "old-1", "timer-1" },
+                after.Lines, "the overscan row refreshes without moving history");
+
+            var next = Frame(0, "live-1", "live-2", "live-3");
+            next.Seq = 9;
+            history.UpdateLive(next, 1);
+            AssertEx.True(history.TryView(4, true, out var shifted),
+                "fractional view remains covered after a real scroll");
+            AssertEx.Sequence(after.Lines, shifted.Lines,
+                "a real scroll keeps the refreshed rows anchored");
+        }
+
+        static void TracksLiveCursor()
+        {
+            var live = Frame(0, "live-0", "live-1", "live-2");
+            live.Cx = 2;
+            live.Cy = 0;
+            live.CursorBlink = true;
+            var history = new TerminalHistory();
+            history.Reset(live);
+            history.Add(Frame(3, "old-3", "old-2", "old-1"), live, 3);
+            AssertEx.True(history.TryView(1, false, out var view), "shallow view is ready");
+            AssertEx.Equal(2, view.Cx, "cursor column stays in live coordinates");
+            AssertEx.Equal(1, view.Cy, "cursor row includes the history offset");
+            AssertEx.True(view.CursorBlink, "live cursor blink remains enabled");
+
+            live.Seq++;
+            live.Cx = 4;
+            live.Cy = 1;
+            live.CursorShape = 2;
+            live.CursorBlink = false;
+            history.UpdateLive(live, 0);
+            AssertEx.True(history.TryView(1, false, out var moved), "cached view is ready");
+            AssertEx.True(object.ReferenceEquals(view, moved),
+                "cursor-only updates keep the row rendering cache");
+            AssertEx.Equal(4, moved.Cx, "cursor-only movement updates the column");
+            AssertEx.Equal(2, moved.Cy, "cursor-only movement updates the translated row");
+            AssertEx.Equal(2, moved.CursorShape, "cursor shape follows the live frame");
+            AssertEx.False(moved.CursorBlink, "steady cursor follows the live frame");
+
+            live.Cy = 0;
+            history.UpdateLive(live, 0);
+            AssertEx.True(history.TryView(3, true, out var edge), "overscan view is ready");
+            AssertEx.Equal(3, edge.Cy, "cursor can occupy the partially visible overscan row");
+            live.Cy = live.Rows;
+            history.UpdateLive(live, 0);
+            AssertEx.True(history.TryView(3, true, out var hidden), "hidden cursor view is ready");
+            AssertEx.True(hidden.Cy >= hidden.Lines.Length,
+                "daemon-hidden cursor stays outside even the overscan row");
+
+            live.Cy = 0;
+            history.UpdateLive(live, 0);
+            AssertEx.True(history.TryView(3, false, out var deep), "deep view is ready");
+            AssertEx.True(deep.Cy >= deep.Lines.Length,
+                "history-only views keep the live cursor outside the pane");
         }
 
         static void KeepsHistoryAnchoredWhenTopRowRepeats()
