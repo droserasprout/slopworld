@@ -39,15 +39,19 @@ impl Manager {
         let (events, _) = broadcast::channel(256);
         let (auth_changes, _) = broadcast::channel(16);
         let mtime = disk_mtime(&cfg_path).await;
+        let presets_mtime = crate::paths::dir_stamp(&crate::presets::Table::dir());
+        let presets_loaded = crate::presets::reload();
+        let jukebox_mtime = crate::paths::dir_stamp(&crate::jukebox::Catalog::dir());
         let tasks = crate::tasks::Tasks::load(&cfg_path)
             .unwrap_or_else(|e| panic!("task store {}: {e:#}", cfg_path.display()));
         let title_cache = crate::title::SummaryCache::load(crate::title::cache_path(&cfg_path));
         let activity_cache =
             crate::activity::ActivityCache::load(crate::activity::cache_path(&cfg_path));
-        // `main` logs the catalog before constructing the manager. Refresh here as well so a
-        // definition copied between those two reads cannot leave the static catalog empty while
-        // the watcher starts with the directory's already-current timestamp.
-        crate::jukebox::reload();
+        // `main` logs the catalogs before constructing the manager. Refresh them here as well so
+        // a definition copied between those two reads cannot leave a static catalog stale while
+        // the watcher starts with the directory's already-current timestamp. A failed reload
+        // leaves its stamp unset so the watcher retries it.
+        let jukebox_loaded = crate::jukebox::reload();
         let m = Arc::new(Self {
             tmux: Tmux::new(crate::config::tmux_socket()),
             cfg_path,
@@ -57,8 +61,8 @@ impl Manager {
             cfg: RwLock::new(cfg),
             cfg_mtime: Mutex::new(mtime),
             cfg_persist: tokio::sync::Mutex::new(()),
-            presets_mtime: Mutex::new(crate::paths::dir_stamp(&crate::presets::Table::dir())),
-            jukebox_mtime: Mutex::new(crate::paths::dir_stamp(&crate::jukebox::Catalog::dir())),
+            presets_mtime: Mutex::new(presets_loaded.then_some(presets_mtime).flatten()),
+            jukebox_mtime: Mutex::new(jukebox_loaded.then_some(jukebox_mtime).flatten()),
             cfg_checked: AtomicU64::new(0),
             host_metadata_checked: AtomicU64::new(0),
             usage: RwLock::new(crate::usage::Snapshot::default()),
@@ -148,11 +152,10 @@ impl Manager {
         let persist = self.cfg_persist.lock().await;
         let disk = disk_mtime(&self.cfg_path).await;
         {
-            let mut seen = self.cfg_mtime.lock().unwrap();
+            let seen = self.cfg_mtime.lock().unwrap();
             if *seen == disk {
                 return false;
             }
-            *seen = disk;
         }
 
         let text = match tokio::fs::read_to_string(&self.cfg_path).await {
@@ -181,6 +184,9 @@ impl Manager {
         if root_token_changed {
             self.invalidate_auth(crate::session::AuthChange::RootTokenChanged);
         }
+        // Do not mark a disk state as seen until its contents have been accepted and published.
+        // This keeps a corrected file retryable even when it retains the failed state's mtime.
+        *self.cfg_mtime.lock().unwrap() = disk;
         drop(persist);
         if let Err(e) = crate::endpoint::update_token(&token).await {
             tracing::warn!("config reloaded but endpoint descriptor was not updated: {e:#}");
@@ -214,15 +220,19 @@ impl Manager {
 
     pub async fn reload_presets_if_changed(self: &Arc<Self>) -> bool {
         let disk = crate::paths::dir_stamp(&crate::presets::Table::dir());
-        {
+        let reloaded = {
             let mut seen = self.presets_mtime.lock().unwrap();
-            if *seen == disk {
-                return false;
+            if *seen == disk || !crate::presets::reload() {
+                false
+            } else {
+                *seen = disk;
+                true
             }
-            *seen = disk;
+        };
+        if !reloaded {
+            return false;
         }
         tracing::info!("presets changed on disk, reloading");
-        crate::presets::reload();
         let _ = self.events.send(Event::Sessions {
             sessions: self.views().await,
         });
@@ -231,15 +241,19 @@ impl Manager {
 
     pub async fn reload_jukebox_if_changed(self: &Arc<Self>) -> bool {
         let disk = crate::paths::dir_stamp(&crate::jukebox::Catalog::dir());
-        {
+        let reloaded = {
             let mut seen = self.jukebox_mtime.lock().unwrap();
-            if *seen == disk {
-                return false;
+            if *seen == disk || !crate::jukebox::reload() {
+                false
+            } else {
+                *seen = disk;
+                true
             }
-            *seen = disk;
+        };
+        if !reloaded {
+            return false;
         }
         tracing::info!("jukebox definitions changed on disk, reloading");
-        crate::jukebox::reload();
         let _ = self.events.send(Event::Jukebox {
             jukebox: crate::jukebox::catalog(),
         });
@@ -904,6 +918,7 @@ mod tests {
     use super::*;
     use crate::config::HostTerminalCfg;
     use crate::session::test_manager;
+    use std::time::{Duration, UNIX_EPOCH};
 
     #[test]
     fn new_live_starts_as_a_boot_placeholder() {
@@ -1011,6 +1026,33 @@ mod tests {
         assert_eq!(live["shell"].host_path, crate::config::expand("~/repo"));
         assert!(!live.contains_key("bad name"));
         assert_eq!(live.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn invalid_config_does_not_consume_its_disk_stamp() {
+        let manager = test_manager(Config::default());
+        let path = manager.cfg_path.clone();
+        let old_stamp = UNIX_EPOCH;
+        let failed_stamp = UNIX_EPOCH + Duration::from_secs(1);
+        *manager.cfg_mtime.lock().unwrap() = Some(old_stamp);
+
+        std::fs::write(&path, "[daemon\n").unwrap();
+        std::fs::File::open(&path)
+            .unwrap()
+            .set_modified(failed_stamp)
+            .unwrap();
+        assert!(!manager.reload_if_changed().await);
+        assert_eq!(*manager.cfg_mtime.lock().unwrap(), Some(old_stamp));
+
+        std::fs::write(&path, toml::to_string_pretty(&Config::default()).unwrap()).unwrap();
+        std::fs::File::open(&path)
+            .unwrap()
+            .set_modified(failed_stamp)
+            .unwrap();
+        assert!(manager.reload_if_changed().await);
+        assert_eq!(*manager.cfg_mtime.lock().unwrap(), Some(failed_stamp));
+
+        let _ = std::fs::remove_file(path);
     }
 
     #[test]

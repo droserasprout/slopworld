@@ -1,5 +1,5 @@
 use std::collections::{BTreeMap, HashSet};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, OnceLock, RwLock};
 
 use serde::{Deserialize, Serialize};
@@ -181,6 +181,14 @@ impl Table {
         t
     }
 
+    fn try_load_from(dir: &Path) -> anyhow::Result<Self> {
+        let mut t = Self::builtins();
+        for (_, file) in read_user_files(dir)? {
+            t.merge(file);
+        }
+        Ok(t)
+    }
+
     /// The compiled table without user files. The settings page needs this distinction:
     /// an effective entry can be a system preset, a user-only preset, or a user override of
     /// one of these. Keeping the answer here avoids making the mod guess from filenames.
@@ -273,11 +281,15 @@ fn valid_name(name: &str) -> anyhow::Result<()> {
 }
 
 fn read_user_files(dir: &std::path::Path) -> anyhow::Result<Vec<(PathBuf, PresetFile)>> {
-    let Ok(entries) = std::fs::read_dir(dir) else {
-        return Ok(Vec::new());
+    let entries = match std::fs::read_dir(dir) {
+        Ok(entries) => entries,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
+        Err(e) => return Err(anyhow::anyhow!("reading {}: {e}", dir.display())),
     };
     let mut paths: Vec<PathBuf> = entries
-        .filter_map(|e| e.ok().map(|e| e.path()))
+        .map(|e| e.map(|e| e.path()))
+        .collect::<std::io::Result<Vec<_>>>()?
+        .into_iter()
         .filter(|p| p.extension().is_some_and(|x| x == "toml"))
         .collect();
     paths.sort();
@@ -406,9 +418,16 @@ pub fn table() -> Arc<Table> {
     cell().read().unwrap().clone()
 }
 
-pub fn reload() {
-    let fresh = Arc::new(Table::load());
+pub fn reload() -> bool {
+    let fresh = match Table::try_load_from(&Table::dir()) {
+        Ok(table) => Arc::new(table),
+        Err(e) => {
+            tracing::warn!("presets changed on disk but are not reloadable: {e:#}");
+            return false;
+        }
+    };
     *cell().write().unwrap() = fresh;
+    true
 }
 
 #[cfg(test)]
