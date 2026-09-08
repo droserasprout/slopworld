@@ -19,10 +19,10 @@ sidecar_env=(
 )
 
 while true; do
-	"$make_cmd" slopcar-build
+	"$make_cmd" sidecar-build
 	"$make_cmd" install-mod
 	"${sidecar_env[@]}" "$slopcar" rm >/dev/null 2>&1 || true
 	"${sidecar_env[@]}" "$slopcar" start "$@"
-	"$make_cmd" run-slopcar
+	"$make_cmd" sidecar-run
 	sleep 1
 done

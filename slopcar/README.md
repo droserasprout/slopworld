@@ -54,7 +54,7 @@ the mod reads is ready the moment the container is up. The mod discovers the dae
 `$SLOPD_ENDPOINT` first, so any client points at the sidecar by exporting that path; no native
 `slopd` has to run.
 
-For the Linux dev game, `make run-slopcar` launches RimWorld into
+For the Linux dev game, `make sidecar-run` launches RimWorld into
 `…/slopworld-car/profile`, kept wholly apart from the native profile but inside the state root the
 debug sandbox already mounts, with `SLOPD_ENDPOINT` set to the sidecar's descriptor. Start the
 sidecar first. Override `SLOPCAR_CONFIG` if you started it with a non-default
@@ -73,7 +73,7 @@ config/data dirs — the daemon binds that port inside the container and writes 
 ```sh
 SLOPCAR_CONFIG_DIR=~/.config/slopworld-car SLOPCAR_DATA_DIR=~/.local/share/slopworld-car \
   ./slopcar/slopcar start --workspace "$HOME/git" --port 7719
-make run-slopcar SLOPCAR_CONFIG=~/.config/slopworld-car
+make sidecar-run SLOPCAR_CONFIG=~/.config/slopworld-car
 ```
 
 `--port` (or `SLOPCAR_PORT`) fixes both the host publish and the daemon's bind. It takes effect when

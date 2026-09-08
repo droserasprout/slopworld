@@ -1,12 +1,7 @@
-.PHONY: all daemon mod \
-	test test-daemon test-mod coverage coverage-daemon coverage-mod test-prose \
+.PHONY: daemon mod test-daemon test-mod coverage coverage-daemon coverage-mod test-prose \
 	appicon icons emoji-atlas reference api-docs scheme-report harmony clean
 
 ##
-##-> Build
-##
-
-all: daemon mod   ## Build both halves
 
 daemon:            ## Build the daemon and the launcher
 	@cd slopd && $(if $(VERSION),SLOPWORLD_BUILD_VERSION="$(VERSION)",) $(CARGO) build $(CARGOFLAGS)
@@ -26,8 +21,6 @@ mod: daemon        ## Build the mod against the game's assemblies
 		-out:"$(MOD_DLL)" $(CSC_OPTIMIZE) $(CSC_WARNINGS) \
 		$(CSC_REFS) "$(MOD_ASSEMBLY_INFO)" $(CSC_SOURCES)
 
-test: test-daemon test-mod test-prose ## Run the daemon and game-free mod tests
-
 test-daemon:
 	@cd slopd && $(CARGO) test --quiet
 
@@ -36,7 +29,7 @@ test-mod:
 
 coverage: coverage-daemon coverage-mod ## Measure Rust and game-free C# test coverage
 
-coverage-daemon:   ## Write Rust coverage to coverage/rust.cobertura.xml
+coverage-daemon:
 	@command -v cargo-llvm-cov >/dev/null || { echo "missing cargo-llvm-cov; install it with: cargo install cargo-llvm-cov --locked" >&2; exit 1; }
 	@command -v llvm-cov >/dev/null && command -v llvm-profdata >/dev/null || { echo "missing LLVM coverage tools" >&2; exit 1; }
 	@mkdir -p "$(COVERAGE_DIR)"
@@ -44,7 +37,7 @@ coverage-daemon:   ## Write Rust coverage to coverage/rust.cobertura.xml
 		$(CARGO) llvm-cov --cobertura --output-path "../$(COVERAGE_DIR)/rust.cobertura.xml"
 	@$(PYTHON) tools/coverage_summary.py "$(COVERAGE_DIR)/rust.cobertura.xml" Rust
 
-coverage-mod:      ## Write game-free C# coverage to coverage/csharp.cobertura.xml
+coverage-mod:
 	@$(DOTNET) tool restore
 	@mkdir -p "$(COVERAGE_DIR)"
 	@$(DOTNET) build "$(TEST_PROJECT)" --configuration Release -p:Coverage=true

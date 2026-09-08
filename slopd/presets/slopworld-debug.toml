@@ -39,7 +39,7 @@ rw = [
     # debug agent can read the token/url and inspect or reset the sidecar's sessions. Skipped when
     # absent, so this costs nothing when no sidecar is in use.
     "~/.config/slopworld-car",
-    # `make run-slopcar` keeps the Linux comparison game's profile under this already-mounted
+    # `make sidecar-run` keeps the Linux comparison game's profile under this already-mounted
     # sidecar state root, so its saves and settings survive the debug agent sandbox.
     "~/.local/share/slopworld-car",
 ]
