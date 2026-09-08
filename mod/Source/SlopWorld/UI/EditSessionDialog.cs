@@ -149,7 +149,7 @@ namespace SlopWorld
                     var view = new Rect(0f, 0f, body.width - UiWidgets.ScrollbarW,
                         Mathf.Max(_sandboxH, body.height));
                     using (_sandboxScroll.Scope(body, view))
-                        _sandboxH = DrawSandbox(view);
+                        _sandboxH = DrawSandbox(view, body.height);
                     break;
                 }
                 case Tab.ResourceLimits:

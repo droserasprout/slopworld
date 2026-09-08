@@ -88,7 +88,7 @@ namespace SlopWorld
 
             float rowH = UiWidgets.RowH;
             float listH = projects.Count * rowH;
-            var listRect = new Rect(rect.x, y, rect.width, Mathf.Min(listH + 8f, rect.yMax - y));
+            var listRect = new Rect(rect.x, y, rect.width, Mathf.Max(0f, rect.yMax - y));
             Slab.Box(listRect, UiWidgets.Well, UiWidgets.Edge);
             var pad = listRect.ContractedBy(UiWidgets.ListInset);
             var inner = new Rect(0f, 0f, pad.width - UiWidgets.ScrollbarW, listH);
@@ -146,7 +146,7 @@ namespace SlopWorld
 
         // Reach and the extra sandbox presets this agent adds on top of its command's and
         // project's.
-        float DrawSandbox(Rect rect)
+        float DrawSandbox(Rect rect, float availableHeight)
         {
             var project = SessionHub.Instance.Project(_s.Project);
             string commandName = string.IsNullOrEmpty(_s.Command) ? _s.CommandPreset : _s.Command;
@@ -159,7 +159,7 @@ namespace SlopWorld
             l.End();
 
             float y = rect.y + used + UiWidgets.GapL;
-            y = DrawExtraPresets(rect, y, project, preset);
+            y = DrawExtraPresets(rect, y, project, preset, availableHeight);
 
             return y - rect.y + UiWidgets.GapS;
         }
@@ -214,7 +214,8 @@ namespace SlopWorld
             }
         }
 
-        float DrawExtraPresets(Rect rect, float y, ProjectInfo project, CommandInfo preset)
+        float DrawExtraPresets(Rect rect, float y, ProjectInfo project, CommandInfo preset,
+            float availableHeight)
         {
             UiWidgets.SectionHeading(new Rect(rect.x, y, rect.width, UiWidgets.RowH),
                 "Extra sandbox presets");
@@ -223,9 +224,12 @@ namespace SlopWorld
             var inheritedPresets = new List<string>();
             if (preset != null) inheritedPresets.AddRange(preset.Sandbox);
             if (project != null) inheritedPresets.AddRange(project.Sandbox);
-            PresetList.Draw(new Rect(rect.x, y, rect.width, PresetsH), _s.Sandbox,
+            // Size from the viewport, not the previous scroll content height, to avoid
+            // growing the content on every layout pass.
+            float height = Mathf.Max(PresetsH, rect.y + availableHeight - y - UiWidgets.GapS);
+            PresetList.Draw(new Rect(rect.x, y, rect.width, height), _s.Sandbox,
                 _presetScroll, inheritedPresets);
-            return y + PresetsH + UiWidgets.GapL;
+            return y + height;
         }
 
         // Per-agent resource caps the daemon enforces with a systemd scope. Edited as strings;

@@ -48,7 +48,6 @@ impl Manager {
             }
             e.feed(seed.as_bytes());
         }
-        e.complete_initial_capture();
         let emu = Arc::new(Mutex::new(e));
         let reader_token = Arc::new(());
         let (ready_tx, ready_rx) = tokio::sync::oneshot::channel();

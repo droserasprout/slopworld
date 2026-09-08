@@ -128,7 +128,7 @@ namespace SlopWorld
             var style = TerminalFont.Style;
             float cellH = TerminalFont.CellH;
             bool historyInput = HistoryInputEnabled(live);
-            PrepareHistoryScroll(cellH);
+            PrepareHistoryScroll(cellH, live);
             bool historyGesture = historyInput || _historyBarDragging;
             if (input && historyGesture)
             {

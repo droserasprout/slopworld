@@ -32,6 +32,18 @@ tmux is the pane's terminal and answers terminal queries itself. The local mirro
 VT engine's `PtyWrite` events: injecting a second device-attributes response after tmux's answer
 leaves the duplicate in the shell input queue (visible as `?6c`).
 
+`emu/handler.rs` forwards VT operations with tmux-compatible erasure: `CSI 2 J`
+clears the viewport in place rather than adding Alacritty's erased rows to history.
+It also fixes Alacritty 0.26's erase-above omission on the second row and invalidates
+the render cache for direct grid edits.
+Resizing an empty-history pane discards newly displaced padding only when every
+history cell is blank and unstyled. This applies to every resize; displaced text
+and pre-existing history, including blank rows, are retained.
+Live history counts and scroll captures exclude an untouched blank prefix in the
+raw history grid. Codex's initial header insertion scrolls one such row through a
+short DECSTBM region; the prefix stays inaccessible after later text scrolls too.
+Blank separators after real history and styled spaces remain visible.
+
 The emulator captures OSC titles, clipboard writes, and bells. Title changes dirty
 the frame even when screen text is unchanged. OSC 52 is write-only
 (`Osc52::OnlyCopy`) and handles CLIPBOARD; PRIMARY is read separately by host

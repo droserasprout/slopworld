@@ -180,7 +180,9 @@ namespace SlopWorld
         // not have to add either margin by hand.
         public static Rect FieldRect(Listing_Standard l)
         {
-            l.Gap(GapXS);
+            // Label already advanced by verticalSpacing; selectors draw caption and
+            // control in one rect, so adding the full gap here makes fields looser.
+            l.Gap(GapXS - l.verticalSpacing);
             return l.GetRect(FieldH);
         }
 
@@ -194,7 +196,7 @@ namespace SlopWorld
         public static string Area(Listing_Standard l, float height, string name, string text,
                                   bool on = true, bool frame = true)
         {
-            l.Gap(GapXS);
+            l.Gap(GapXS - l.verticalSpacing);
             string value = Area(l.GetRect(height), name, text, on, frame);
             l.Gap(GapS);
             return value;

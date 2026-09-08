@@ -27,6 +27,7 @@ namespace SlopWorld.Tests
             yield return ("quantizes prefetch windows in both directions", QuantizesPrefetch);
             yield return ("warms a shallow viewport before the first gesture", WarmsFirstGesture);
             yield return ("warmup skips empty and application-owned history", WarmupEligibility);
+            yield return ("live history bounds scrolling before warmup and after clears", LiveScrollLimit);
             yield return ("warmup retains coverage across redraws and resets", WarmupInvalidation);
             yield return ("aggressive prefetch covers fast gestures without gaps", AggressivePrefetch);
         }
@@ -39,6 +40,27 @@ namespace SlopWorld.Tests
             Off = off,
             Lines = lines,
         };
+
+        static void LiveScrollLimit()
+        {
+            var live = Frame(0, "codex", "", "prompt");
+            live.History = 0;
+            AssertEx.Equal(0, TerminalHistory.ScrollLimit(live, -1),
+                "fresh pane cannot move while waiting for its first capture");
+            AssertEx.Equal(0, TerminalHistory.ScrollLimit(live, 1),
+                "a stale one-row extent cannot override an empty live frame");
+            live.History = 12;
+            AssertEx.Equal(12, TerminalHistory.ScrollLimit(live, 0),
+                "new output can extend a previously empty history");
+            live.History = 0;
+            AssertEx.Equal(0, TerminalHistory.ScrollLimit(live, 12),
+                "clearing history immediately removes the old scroll range");
+            live.History = -1;
+            AssertEx.Equal(5, TerminalHistory.ScrollLimit(live, 5),
+                "legacy frames use the last capture extent");
+            AssertEx.Equal(WireContract.ScrollbackLines, TerminalHistory.ScrollLimit(live, -1),
+                "unknown legacy history retains discovery through capture");
+        }
 
         static void CopiesSelection()
         {
