@@ -568,6 +568,30 @@ mod tests {
     }
 
     #[test]
+    fn agent_shell_overrides_the_host_shell() {
+        let mut cfg = Config::default();
+        cfg.defaults.agent_shell = "bash".into();
+        let s = SessionCfg {
+            name: "a".into(),
+            project: "p".into(),
+            ..Default::default()
+        };
+        let p = ProjectCfg {
+            name: "p".into(),
+            dir: "/tmp".into(),
+            ..Default::default()
+        };
+
+        let a = build_argv(&cfg, &s, &p).expect("sandbox argv");
+        let shell = a
+            .windows(3)
+            .filter(|w| w[0] == "--setenv" && w[1] == "SHELL")
+            .map(|w| w[2].as_str())
+            .next_back();
+        assert_eq!(shell, Some("bash"));
+    }
+
+    #[test]
     fn pi_extension_is_disabled_when_daemon_owns_titles() {
         let mut cfg = Config::default();
         cfg.daemon.pi_titles = crate::config::TitlePolicy::Once;

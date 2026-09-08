@@ -8,11 +8,11 @@ using Verse;
 namespace SlopWorld
 {
     // Machine-wide command defaults. Preset names stay separate from executable templates:
-    // Agent and Shell select daemon command files, while the other fields are host apps the
-    // mod starts for file actions.
+    // Agent and Shell select daemon command files, Agent shell controls the shell advertised
+    // inside agent sandboxes, and the remaining fields are host apps for file actions.
     public class CommandsPage : ListEditorPage
     {
-        bool _agentCustom, _shellCustom, _pagerCustom, _editorCustom;
+        bool _agentCustom, _agentShellCustom, _shellCustom, _pagerCustom, _editorCustom;
         bool _highlighterCustom;
 
         protected override string SavedMessage => "command settings saved.";
@@ -32,7 +32,7 @@ namespace SlopWorld
         protected override void AfterLoad()
         {
             SessionHub.Instance.LoadPresets();
-            _agentCustom = _shellCustom = _pagerCustom = _editorCustom = false;
+            _agentCustom = _agentShellCustom = _shellCustom = _pagerCustom = _editorCustom = false;
             _highlighterCustom = false;
         }
 
@@ -41,6 +41,9 @@ namespace SlopWorld
             UiWidgets.SectionHeading(l, "Session defaults");
             ChoiceRow(l, "Agent", "commands.agent", _cfg.Agent, Presets(_cfg.Agent),
                 _agentCustom, value => _cfg.Agent = value, value => _agentCustom = value);
+            ChoiceRow(l, "Agent shell", "commands.agent-shell", _cfg.AgentShell, Shells(),
+                _agentShellCustom, value => _cfg.AgentShell = value,
+                value => _agentShellCustom = value);
             ChoiceRow(l, "Shell", "commands.shell", _cfg.Shell, Presets(_cfg.Shell),
                 _shellCustom, value => _cfg.Shell = value, value => _shellCustom = value);
 
@@ -74,6 +77,16 @@ namespace SlopWorld
                 choices.Insert(0, new Choice(current, current));
             return choices;
         }
+
+        static List<Choice> Shells() => new List<Choice>
+        {
+            new Choice("Bash", "bash"),
+            new Choice("Zsh", "zsh"),
+            new Choice("Fish", "fish"),
+            new Choice("Nushell", "nu"),
+            new Choice("PowerShell", "pwsh"),
+            new Choice("POSIX sh", "sh"),
+        };
 
         static List<Choice> PagerChoices() => new List<Choice>
         {
