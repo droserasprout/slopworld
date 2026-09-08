@@ -30,6 +30,56 @@ namespace SlopWorld
             }
         }
 
+        // A preview tab uses italic text to signal that a single click may replace it. Keep
+        // this as a row-label variant rather than changing Text.Font globally: the sidebar's
+        // action icon and its project context are still rendered with their normal face.
+        public static void RowLabel(Rect r, string text, TextAnchor anchor, bool italic)
+        {
+            if (!italic)
+            {
+                RowLabel(r, text, anchor);
+                return;
+            }
+
+            using (WidgetState.Save())
+            {
+                Verse.Text.WordWrap = false;
+                string label = (text ?? "").Truncate(Mathf.Max(1f, r.width));
+                Verse.Text.Anchor = UpperAnchor(anchor);
+                float lineH = LineHOf(Verse.Text.Font);
+                float y = Slab.SnapY(r.y + (r.height - lineH) * VerticalFactor(anchor));
+                float yMax = Slab.SnapY(y + lineH);
+                float h = Mathf.Max(lineH, yMax - y);
+
+                var source = Verse.Text.CurFontStyle;
+                if (source == null)
+                {
+                    Widgets.Label(new Rect(r.x, y, r.width, h), label);
+                    return;
+                }
+
+                var style = new GUIStyle(source)
+                {
+                    fontStyle = Italic(source.fontStyle),
+                    alignment = UpperAnchor(anchor),
+                    wordWrap = false,
+                };
+                GUI.Label(new Rect(r.x, y, r.width, h), label, style);
+            }
+        }
+
+        static FontStyle Italic(FontStyle style)
+        {
+            switch (style)
+            {
+                case FontStyle.Bold:
+                case FontStyle.BoldAndItalic:
+                    return FontStyle.BoldAndItalic;
+                default:
+                    return FontStyle.Italic;
+            }
+        }
+
         static TextAnchor UpperAnchor(TextAnchor anchor)
         {
             switch (anchor)

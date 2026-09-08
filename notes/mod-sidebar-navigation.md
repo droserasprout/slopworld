@@ -7,7 +7,8 @@ The core sidebar geometry, selection behavior, and row rendering are in
 
 Agents, Files, Search, Git, Tasks and Library share the panel, tabs, width, add strip and
 input absorption. Their default F2–F7 shortcuts follow that left-to-right order. Leaving a
-view closes its readers. Files/Search/Git park colonist-bar
+view releases its unlocked preview readers; pinned previews remain routed like edit sessions.
+Files/Search/Git park colonist-bar
 locations but still build buckets so Alt+number can return to an agent; folding removes
 agents from visible order.
 

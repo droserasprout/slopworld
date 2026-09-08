@@ -24,12 +24,12 @@ namespace SlopWorld
                     Face = Rect.zero,
                 };
                 Layout.ViewRows.Add(row);
-                DrawRoutedRow(row, info);
+                DrawRoutedRow(row, info, tab);
                 y += GhostH;
             }
         }
 
-        static void DrawRoutedRow(Row row, SessionInfo info)
+        static void DrawRoutedRow(Row row, SessionInfo info, SidebarTab tab)
         {
             bool current = row.Session == TerminalWindow.CurrentName;
             RowChrome.Hover(row.Line, current, true, RowHoverPolicy.OverlayAware);
@@ -47,9 +47,23 @@ namespace SlopWorld
             }
 
             Text.Font = GameFont.Small;
-            SidebarRowRenderer.DrawGhostLabel(text, info, row.Session, false, GhostMarkW);
+            bool preview = tab == SidebarTab.Files
+                ? FilesView.IsViewerSession(row.Session)
+                : tab == SidebarTab.Git && GitView.IsViewerSession(row.Session);
+            bool locked = tab == SidebarTab.Files
+                ? FilesView.IsViewerLocked(row.Session)
+                : tab == SidebarTab.Git && GitView.IsViewerLocked(row.Session);
+            SidebarRowRenderer.DrawGhostLabel(text, info, row.Session, false, GhostMarkW,
+                preview && !locked);
+            if (preview)
+                TooltipHandler.TipRegion(row.Line, locked
+                    ? "Pinned preview tab. Click to show it."
+                    : "Preview tab. Double-click its header to keep it open.");
             GUI.color = Color.white;
         }
+
+        static readonly MouseClickSequence RoutedClicks = new MouseClickSequence();
+        static string _routedClickSession;
 
         public static bool ClickRouted()
         {
@@ -62,20 +76,61 @@ namespace SlopWorld
                 if (!ColonistBarStrip.MouseOver(row.Line)) continue;
                 if (e.button == 1)
                 {
-                    RowMenu(row.Session);
+                    RoutedClicks.Reset();
+                    _routedClickSession = null;
+                    if (!(CurrentTab == SidebarTab.Files &&
+                          SessionHub.Instance.Get(row.Session) == null &&
+                          FilesView.IsNativeViewerHeader(row.Session)))
+                        RowMenu(row.Session);
                 }
                 else
                 {
+                    int clickCount;
+                    if (_routedClickSession == row.Session)
+                        clickCount = RoutedClicks.Observe(e, Time.realtimeSinceStartup);
+                    else
+                    {
+                        RoutedClicks.Reset();
+                        _routedClickSession = row.Session;
+                        clickCount = RoutedClicks.Observe(e, Time.realtimeSinceStartup);
+                    }
+
+                    bool locked = clickCount >= 2 || e.clickCount >= 2;
+                    if (locked && LockRouted(row.Session))
+                    {
+                        RoutedClicks.Reset();
+                        SessionSelectable.Current = row.Session;
+                        OpenRouted(row.Session);
+                        e.Use();
+                        return true;
+                    }
+
                     SessionSelectable.Current = row.Session;
                     var info = SessionHub.Instance.Get(row.Session);
                     if (info != null && info.Gone && !ColonistBarStrip.Drawing)
                         SessionHub.Instance.Start(row.Session);
-                    else TerminalWindow.Open(row.Session);
+                    else OpenRouted(row.Session);
                 }
                 e.Use();
                 return true;
             }
             return false;
+        }
+
+        static bool LockRouted(string session)
+        {
+            switch (CurrentTab)
+            {
+                case SidebarTab.Files: return FilesView.LockViewer(session);
+                case SidebarTab.Git: return GitView.LockViewer(session);
+                default: return false;
+            }
+        }
+
+        static void OpenRouted(string session)
+        {
+            if (CurrentTab == SidebarTab.Files && FilesView.OpenViewerHeader(session)) return;
+            TerminalWindow.Open(session);
         }
 
 

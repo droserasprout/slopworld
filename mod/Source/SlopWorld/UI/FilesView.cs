@@ -113,6 +113,8 @@ namespace SlopWorld
 
             public override RowAct Actions(IContentTreeNode node) => Acts((Node)node);
             public override void Open(IContentTreeNode node) => FilesView.Open((Node)node);
+            public override void DoubleClick(IContentTreeNode node) =>
+                FilesView.LockViewerFile(((Node)node).Project, ((Node)node).Path);
             public override void Action(IContentTreeNode node, RowAct action) =>
                 FilesView.Act((Node)node, action);
 
@@ -174,9 +176,35 @@ namespace SlopWorld
                 if (child.IsDir) SetExpanded(child, expanded);
         }
 
-        // The file the reader is looking at, and the ephemeral session running `less` on it.
-        // The tree owns the selected row; the pager owns the ephemeral session showing it.
-        static readonly Pager Viewer = new Pager();
+        // One replaceable preview and any previews the user pinned by double-clicking a
+        // routed header. The tree owns selection; each pager owns its ephemeral session.
+        static readonly PagerTabs Viewers = new PagerTabs();
+
+        // Markdown is a native content view rather than a daemon session, so keep the same
+        // preview/pinned distinction here and expose a synthetic routed header for it.
+        sealed class MarkdownTab
+        {
+            public MarkdownPreview View;
+            public string Header;
+            public bool Locked;
+
+            public SessionInfo HeaderInfo()
+            {
+                return new SessionInfo
+                {
+                    Name = Header,
+                    Project = View.Project,
+                    Label = "view-" + System.IO.Path.GetFileName(View.Path),
+                    Ephemeral = true,
+                    Alive = true,
+                };
+            }
+        }
+
+        static MarkdownTab _markdownPreview;
+        static MarkdownTab _activeMarkdown;
+        static readonly List<MarkdownTab> LockedMarkdown = new List<MarkdownTab>();
+        static int _markdownHeader;
 
         // And which of the two things about that file it is showing: the file, or its diff.
         // The row and its buttons open different things about the same path, so "click the one

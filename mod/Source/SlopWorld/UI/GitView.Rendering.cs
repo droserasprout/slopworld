@@ -297,7 +297,14 @@ namespace SlopWorld
         // the reader opens or closes directories around it.
         public static void Clicks() => Tree.Clicks();
 
-        public static bool IsViewerSession(string session) => Viewer.Session == session;
+        public static bool IsViewerSession(string session) => Viewers.IsSession(session);
+
+        public static bool IsViewerLocked(string session) => Viewers.IsLocked(session);
+
+        public static bool LockViewer(string session) => Viewers.Lock(session);
+
+        public static bool LockViewerFile(string project, string rel) =>
+            Viewers.LockPreview(project, rel);
 
         // Left on a change: mark it and read its diff. Clicking the one already open just
         // brings its pane back - a focus change is a *different* row, and only that replaces
@@ -306,7 +313,7 @@ namespace SlopWorld
         {
             bool same = Tree.IsSelected(node) && _showing == RowAct.Diff;
             Tree.Select(node);
-            if (!same || !Viewer.Reopen()) Diff(node, repo);
+            if (!same || !Viewers.Reopen(repo.Project, node.Rel)) Diff(node, repo);
         }
 
         // One of the hover strip's three, done. The diff is what the row itself does; the
@@ -394,7 +401,7 @@ namespace SlopWorld
             }
 
             ClearSelection();
-            Viewer.Open(project, DiffCmd(repo, null, null), "diff-" + project);
+            Viewers.ForPreview().Open(project, DiffCmd(repo, null, null), "diff-" + project);
         }
 
         // ------------------------------------------------------------------ menus
@@ -425,7 +432,7 @@ namespace SlopWorld
                     opts.Add(new FloatMenuOption("Diff all", () =>
                     {
                         ClearSelection();
-                        Viewer.Open(project, DiffCmd(repo, null, null), "diff-" + project);
+                        Viewers.ForPreview().Open(project, DiffCmd(repo, null, null), "diff-" + project);
                     }));
             }
 
@@ -498,14 +505,15 @@ namespace SlopWorld
             }
             Tree.SelectKey(ContentTreeView.SelectionKey(project, rel));
             _showing = RowAct.Diff;
-            Viewer.Open(project, DiffCmd(repo, rel, status), label);
+            Viewers.ForPreview().Open(project, DiffCmd(repo, rel, status), label, rel);
         }
 
         static void Diff(Node node, Repo repo)
         {
             Tree.Select(node);
             _showing = RowAct.Diff;
-            Viewer.Open(repo.Project, DiffCmd(repo, node.Rel, node.Status), "diff-" + node.Name);
+            Viewers.ForPreview().Open(repo.Project, DiffCmd(repo, node.Rel, node.Status),
+                "diff-" + node.Name, node.Rel);
         }
 
         // Use delta as git's pager because daemon errands are argv, not shell pipelines. Force
@@ -536,10 +544,10 @@ namespace SlopWorld
         public static void ReleaseViewer()
         {
             ClearSelection();
-            Viewer.Release();
+            Viewers.ReleasePreview();
         }
 
-        public static void CloseViewerIf(string session) => Viewer.CloseIf(session);
+        public static void CloseViewerIf(string session) => Viewers.CloseIf(session);
 
         static void ClearSelection()
         {

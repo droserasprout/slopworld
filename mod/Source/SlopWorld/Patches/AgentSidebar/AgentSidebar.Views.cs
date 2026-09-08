@@ -302,6 +302,7 @@ namespace SlopWorld
                 if (tab == SidebarTab.Git && !GitView.IsViewerSession(info.Name)) continue;
                 Layout.Routed.Add(info);
             }
+            if (tab == SidebarTab.Files) FilesView.AddRoutedPreviews(Layout.Routed);
             Layout.Routed.Sort(ByName);
             return Layout.Routed;
         }
