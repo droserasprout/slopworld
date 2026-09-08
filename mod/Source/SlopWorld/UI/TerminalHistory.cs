@@ -20,6 +20,9 @@ namespace SlopWorld
         readonly Dictionary<int, string> _lines = new Dictionary<int, string>();
         int _origin;
         public int Count => _lines.Count;
+        public int Cols => _template?.Cols ?? 0;
+        public int Rows => _template?.Rows ?? 0;
+        public bool AltScreen => _templateAltScreen;
         ScreenBuf _template;
         int _version;
         int _cachedAnchor = -1;

@@ -20,9 +20,11 @@ Live output keeps the cache in the newest coordinate space; a delayed reply uses
 its request's coordinate shift and can therefore contribute valid old rows.
 
 Returning to live clears only the displayed history fallback, keeping indexed rows
-ready for the next transition. An incompatible viewport change or session switch
-clears the cache; the next user gesture seeds the new epoch. Deeper history remains
-lazy and uses the ordinary coalesced planner.
+ready for the next transition. Switching tabs detaches the indexed cache under the
+session name and reuses it only when the run identity, viewport, connection generation,
+and primary/alternate screen mode still match. Pending requests are never retained across
+the subscription gap. An incompatible cache is discarded and the next user gesture seeds
+the new epoch. Deeper history remains lazy and uses the ordinary coalesced planner.
 
 ## Invariants
 

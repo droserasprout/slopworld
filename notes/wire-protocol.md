@@ -2,19 +2,22 @@
 
 ## WebSocket
 
-Server events are `capabilities`, `sessions` (state/title/bell/process_running), `screen`, `usage`, `projects`,
+Server events are `capabilities`, `sessions` (state/title/bell/process_running/run_id), `screen`, `usage`, `projects`,
 `library` and `jukebox`. Capabilities and catalogs arrive on connect; catalogs are resent when
 changed. Capabilities describe runtime integration such as native audio, per-agent limits, and
 whether host networking means the sidecar rather than macOS.
 `process_running` is host-only: it is true while a host terminal has a foreground command other
 than its shell, including commands that are not currently producing output.
+`run_id` changes when a session's process is replaced under the same durable name; clients use it
+to reject cached terminal history from the previous process.
 Clients send `redraw`, `sub`, `unsub`, `keys`, `resize`, `scroll`, `mouse`, `paste` and `audio`.
 The root client sends `redraw` after a sidebar layout change, optionally with the new `cols` and
 `rows`; slopd applies that shape and asynchronously nudges every live tmux-backed pane one column
 smaller and restores it so agents, viewers and editors repaint before an inactive tab is opened.
 Scrolled `screen` replies carry `off`, the echoed `request_id`, and `history`, the emulator's
-current total scrollback rows. Live broadcasts leave `history` at zero; the mod uses the value
-from a scroll reply to size its terminal position indicator.
+current total scrollback rows. Live broadcasts carry the current `history` extent too; the mod
+uses it to translate a retained per-session history cache after a tab switch and to size its
+terminal position indicator.
 
 `audio` always includes `volume`; `selection` is a station/stream key, local file,
 `null` to stop, or absent for volume-only changes. Unknown audio fields are rejected. Audio

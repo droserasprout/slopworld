@@ -123,7 +123,8 @@ namespace SlopWorld
             var live = hub.Screen(_name);
             // Invalidate history before planning this frame's request. A resize or redraw
             // can publish a new live sequence while the local scroll offset remains active.
-            NoteLiveFrame(live);
+            int restoredShift = RestoredHistoryShift(live);
+            NoteLiveFrame(live, restoredShift);
             var style = TerminalFont.Style;
             float cellH = TerminalFont.CellH;
             bool historyInput = HistoryInputEnabled(live);

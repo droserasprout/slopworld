@@ -54,6 +54,7 @@ namespace SlopWorld
             (s, j) => s.Bell = j["bell"].AsBool(false),
             (s, j) => s.LastChange = j["last_change"].AsLong(0),
             (s, j) => s.StateSince = j["state_since"].AsLong(0),
+            (s, j) => s.RunId = j["run_id"].AsLong(0),
         };
 
         public static SessionInfo FromJson(JVal j)

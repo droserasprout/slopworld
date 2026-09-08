@@ -35,6 +35,7 @@ namespace SlopWorld.Tests
                 "\"breadcrumbs\":[\"tip one\"],\"breadcrumbs_pending\":true, " +
                 "\"ephemeral\":true,\"host\":true,\"process_running\":true,\"cols\":120,\"rows\":40, " +
                 "\"title\":\"working title\",\"label\":\"manual label\",\"bell\":true, " +
+                "\"run_id\":9, " +
                 "\"last_change\":123,\"state_since\":456}"));
 
             AssertEx.Equal("agent", session.Name, "name");
@@ -79,6 +80,7 @@ namespace SlopWorld.Tests
             AssertEx.Equal("working title", session.Title, "title");
             AssertEx.Equal("manual label", session.Label, "label");
             AssertEx.True(session.Bell, "bell");
+            AssertEx.Equal(9L, session.RunId, "run identity");
             AssertEx.Equal(123L, session.LastChange, "last change");
             AssertEx.Equal(456L, session.StateSince, "state since");
             AssertEx.False(session.Gone, "alive session is not gone");

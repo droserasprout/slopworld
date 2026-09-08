@@ -106,6 +106,10 @@ namespace SlopWorld
         // to keep them in step: an age is the difference and not a countdown the daemon owns.
         static readonly DateTime Epoch = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
+        // Distinguishes successive processes under one durable session name. Terminal history
+        // caches may be reused only inside one run.
+        public long RunId;
+
         public static long NowMs => (long)(DateTime.UtcNow - Epoch).TotalMilliseconds;
 
         public static AgentState ParseState(string s)
