@@ -381,14 +381,36 @@ pub fn delete_stored_state(kind: &str, key: &str, sessions: &[SessionCfg]) -> Re
     if kind == "orphan" && sessions.iter().any(|s| state_dir(s) == path) {
         anyhow::bail!("private state is still owned by a configured agent");
     }
+    remove_stored_path(&path)
+}
+
+fn remove_stored_path(path: &Path) -> Result<()> {
     let meta =
-        std::fs::symlink_metadata(&path).with_context(|| format!("reading {}", path.display()))?;
+        std::fs::symlink_metadata(path).with_context(|| format!("reading {}", path.display()))?;
     if meta.is_dir() {
-        std::fs::remove_dir_all(&path)
+        std::fs::remove_dir_all(path)
     } else {
-        std::fs::remove_file(&path)
+        std::fs::remove_file(path)
     }
     .with_context(|| format!("removing {}", path.display()))
+}
+
+/// Permanently remove every entry in the daemon-owned trash. The trash root remains in place so
+/// future resets can move state there without another special case.
+pub fn empty_trash() -> Result<usize> {
+    let root = trash_root();
+    let entries = match std::fs::read_dir(&root) {
+        Ok(entries) => entries,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(0),
+        Err(e) => return Err(e).with_context(|| format!("reading {}", root.display())),
+    };
+    let mut removed = 0;
+    for entry in entries {
+        let entry = entry.with_context(|| format!("reading {}", root.display()))?;
+        remove_stored_path(&entry.path())?;
+        removed += 1;
+    }
+    Ok(removed)
 }
 
 pub fn restore_stored_state(key: &str, sessions: &[SessionCfg]) -> Result<String> {
@@ -554,12 +576,7 @@ pub fn purge_trash() -> Result<usize> {
             continue;
         }
         let path = entry.path();
-        let removed = if meta.is_dir() {
-            std::fs::remove_dir_all(&path)
-        } else {
-            std::fs::remove_file(&path)
-        };
-        match removed {
+        match remove_stored_path(&path) {
             Ok(()) => purged += 1,
             Err(e) => tracing::warn!("purging private-state trash {}: {e:#}", path.display()),
         }

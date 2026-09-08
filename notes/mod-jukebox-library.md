@@ -24,5 +24,5 @@ and presents the recognized pair beside the station's own line rather than repla
 `History` opens a maximized, newest-first table with search, per-field copy, a detail panel for
 long original metadata, local-time stamps and empty/error states; its file reader is
 `JukeboxHistory` (UI/), which reads the current structured `[[like]]` tables apart from
-rendering. Storage settings has a button to open the likes file in the configured editor. The
-map texture is generated with `tools/emoji.py`; it is unrelated to station configuration.
+rendering. Its `Edit file` action opens the likes file in the configured editor. The map texture
+is generated with `tools/emoji.py`; it is unrelated to station configuration.

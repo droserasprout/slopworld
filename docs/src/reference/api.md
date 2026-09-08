@@ -43,6 +43,7 @@ entries. Restore works only while the agent exists without a replacement tree.
 
 The list is returned by `GET /api/state`. Reset uses the session state route; deletion and
 restore use the `/api/state` routes in the generated inventory.
+`DELETE /api/state/trash` permanently removes all retained trash entries.
 
 ### Configuration patching
 
