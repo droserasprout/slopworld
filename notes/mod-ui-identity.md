@@ -7,11 +7,11 @@
 
 The values behind those names are a `UIScheme`, picked on the Appearance page and held in
 `ModSettings.uiScheme`. A scheme is a color table; geometry, spacing, and shapes come from
-the shared panel. The six `slopworld*` entries are complete house tables. The remaining
+the shared panel. The three SlopWorld Warm, Cold, and Calm entries are complete house tables. The remaining
 entries are named palettes adapted to the UI's semantic roles.
 
 The catalog deliberately uses stable IDs for persisted settings and human labels for the
-picker. Unknown IDs resolve to the default Cold scheme.
+picker. Unknown IDs resolve to the default Warm scheme.
 
 Named palette values are adapted to SlopWorld's semantic roles rather than assuming that an
 external palette defines every widget color. The adapter keeps text and structural roles
@@ -38,3 +38,7 @@ derive their layout from those tokens rather than reserving nearby values.
 Focus rings appear only around real text input. Status uses a rectangular outlined badge and
 square marker. An agent's state badge is the sole circular marker, placed in the corner of
 its sidebar portrait.
+
+Warm uses dark brown surfaces and a muted amber accent; Cold uses charcoal and blue;
+Calm keeps Cold surfaces with a muted steel accent. New settings default to Warm with
+the terminal set to Match UI.

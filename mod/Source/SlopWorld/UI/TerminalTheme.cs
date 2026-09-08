@@ -73,7 +73,7 @@ namespace SlopWorld
         {
             // House palettes come first. The other entries are named palettes with published
             // values, kept here as terminal-ready 16-color adaptations.
-            new TerminalTheme("slopworld", "Warm",
+            new TerminalTheme("slopworld-warm", "SlopWorld Warm",
                 fg: "#d3cbb8", bg: "#14120e",
                 cursor: "#e0b64a", cursorText: "#14120e",
                 selection: "#3d4c64", link: "#86a9c4",
@@ -85,7 +85,7 @@ namespace SlopWorld
                     "#7b9ebd", "#ae87b3", "#8cb6b1", "#efe7d4",
                 }),
 
-            new TerminalTheme("slopworld-cold-1", "Cold",
+            new TerminalTheme("slopworld-cold", "SlopWorld Cold",
                 fg: "#c4cbd4", bg: "#12171e",
                 cursor: "#8bb8d6", cursorText: "#12171e",
                 selection: "#394b60", link: "#8eb7dd",
@@ -97,16 +97,17 @@ namespace SlopWorld
                     "#88add8", "#b093c1", "#91c5c3", "#e3e8ed",
                 }),
 
-            new TerminalTheme("slopworld-warm-2", "Warm-sat",
-                fg: "#e0c39b", bg: "#1a110c",
-                cursor: "#e5a84b", cursorText: "#1a110c",
-                selection: "#5a3d2b", link: "#d29a6b",
+            // Calm softens chroma while retaining Cold's text and surface brightness.
+            new TerminalTheme("slopworld-calm", "SlopWorld Calm",
+                fg: "#c4cbd4", bg: "#12171e",
+                cursor: "#9bafbe", cursorText: "#12171e",
+                selection: "#394b60", link: "#9aafc7",
                 ansi: new[]
                 {
-                    "#20140e", "#c45a43", "#8c9a50", "#d39a44",
-                    "#6887a1", "#ad7789", "#719b8e", "#d8c7a9",
-                    "#634538", "#e2785d", "#abb66a", "#efc35c",
-                    "#89a9bd", "#c193a5", "#9bc9ad", "#f2dfc1",
+                    "#171c23", "#ac6a71", "#88998a", "#b6aa86",
+                    "#748aab", "#93849f", "#7c9b9e", "#c4cbd4",
+                    "#5d6975", "#c38187", "#a6b8a4", "#d3c99e",
+                    "#96adca", "#ad99b9", "#a0c1c0", "#e3e8ed",
                 }),
 
             new TerminalTheme("onedark", "One Dark",
@@ -260,7 +261,11 @@ namespace SlopWorld
             return All[0];
         }
 
-        public static int Rev { get; private set; }
+        public const string MatchUI = "match-ui";
+
+        // Cache readers must observe UI changes even before another theme property is read.
+        static int _rev;
+        public static int Rev { get { Resolve(); return _rev; } }
 
         static TerminalTheme _current;
         static string _name, _cursorHex;
@@ -287,6 +292,11 @@ namespace SlopWorld
         static void Resolve()
         {
             string name = Settings.Theme;
+            if (name == MatchUI)
+            {
+                name = UIScheme.Current.Id;
+                if (name == "solarized-dark") name = "solarized";
+            }
             string hex = Settings.CursorColor;
             if (_current != null && _name == name && _cursorHex == hex) return;
 
@@ -294,13 +304,13 @@ namespace SlopWorld
             _cursor = TryHex(hex, out var c) ? c : _current.Cursor;
             _name = name;
             _cursorHex = hex;
-            Rev++;
+            _rev++;
         }
 
         public static void Invalidate()
         {
             _current = null;
-            Rev++;
+            _rev++;
         }
     }
 }

@@ -14,7 +14,10 @@ so `Rev` keys both `ScreenBuf.RunsRev` and the pane render cache; idle panes oth
 retain the old palette. Unknown names use the default. Cursor override accepts `#rrggbb`;
 `CursorText` redraws the glyph over an opaque block cursor.
 
-The picker contains the house palette plus named classic palettes. `Name` is the persisted
+The picker contains Match UI, SlopWorld Warm/Cold/Calm, and named classic palettes.
+Match UI is the default and follows the resolved UI scheme, including classic palettes.
+UI changes advance the terminal revision before cached rows are reused. Explicit terminal
+choices stay independent. `Name` is the persisted
 ID and `Label` is the visible picker name. Unknown saved values use the normal fallback to
 SlopWorld.
 
