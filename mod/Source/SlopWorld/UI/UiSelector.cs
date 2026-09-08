@@ -36,7 +36,7 @@ namespace SlopWorld
                     options.Select(option => option.Label))));
             if (!pressed) return false;
 
-            var popup = new UiMenu(options, UiWidgets.MenuAt(box));
+            var popup = new UiMenu(options, UiWidgets.MenuAt(box), selector: true);
             if (openMenu != null) openMenu(popup);
             else Find.WindowStack.Add(popup);
             return true;
@@ -59,7 +59,7 @@ namespace SlopWorld
                 item.Disabled = !option.Enabled;
                 return item;
             }).ToList();
-            var popup = new UiMenu(menu, UiWidgets.MenuAt(box));
+            var popup = new UiMenu(menu, UiWidgets.MenuAt(box), selector: true);
             if (openMenu != null) openMenu(popup);
             else Find.WindowStack.Add(popup);
             return true;

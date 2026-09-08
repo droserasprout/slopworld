@@ -45,6 +45,11 @@ namespace SlopWorld
         // would otherwise walk across the screen behind the cursor. Null is the mouse.
         readonly Vector2? _at;
 
+        // Selector menus own a control underneath them. Keep that distinction so the
+        // control can show its open state and a click on its source closes the menu without
+        // falling through and opening it again.
+        readonly bool _selector;
+
         UiMenu _parent;
         UiMenu _child;
 
@@ -96,10 +101,11 @@ namespace SlopWorld
         // The frame this menu was built on - see `HandleKeyboard`.
         readonly int _born = Time.frameCount;
 
-        public UiMenu(List<FloatMenuOption> options, Vector2? at = null)
+        public UiMenu(List<FloatMenuOption> options, Vector2? at = null, bool selector = false)
         {
             _options = options ?? new List<FloatMenuOption>();
             _at = at;
+            _selector = selector;
 
             doWindowBackground = false;
             doCloseX = false;
@@ -108,7 +114,7 @@ namespace SlopWorld
             closeOnCancel = true;
             closeOnAccept = true;
             drawShadow = false;
-            absorbInputAroundWindow = false;
+            absorbInputAroundWindow = selector;
             preventCameraMotion = false;
             layer = WindowLayer.Super;
 
@@ -133,6 +139,22 @@ namespace SlopWorld
         // Callers that replace the screen explicitly close the whole chain rather than
         // leaving a menu owned by the old focus standing behind it.
         public static void CloseAll() => Sweep(null);
+
+        public static bool IsSelectorOpenAt(Vector2 at)
+        {
+            var stack = Find.WindowStack;
+            if (stack == null) return false;
+
+            for (int i = 0; i < stack.Count; i++)
+            {
+                var menu = stack[i] as UiMenu;
+                if (menu == null || !menu._selector || menu._parent != null || !menu._at.HasValue)
+                    continue;
+                if ((menu._at.Value - at).sqrMagnitude < 0.25f) return true;
+            }
+
+            return false;
+        }
 
         // A separator is a structural row, not a disabled action. It needs its own type
         // because FloatMenuOption turns an empty label into "(missing label)" in its setter.

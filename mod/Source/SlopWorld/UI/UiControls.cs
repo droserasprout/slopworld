@@ -201,17 +201,15 @@ namespace SlopWorld
             return value;
         }
 
-        // A dropdown caret. Collapse is vanilla's downward triangle. Keep the draw in the
-        // active GUI group; rotating through GUI.matrix makes a caret drift when that group
-        // has a scroll translation.
+        // A dropdown caret. Use the same disclosure textures as the other foldables: a
+        // closed control points toward its contents, while an open one points down.
         static void Chevron(Rect r, Color c, bool open)
         {
             var wasColor = GUI.color;
             try
             {
                 GUI.color = c;
-                GUI.DrawTextureWithTexCoords(r, TexButton.Collapse,
-                    open ? new Rect(0f, 1f, 1f, -1f) : new Rect(0f, 0f, 1f, 1f));
+                GUI.DrawTexture(r, open ? TexButton.Collapse : TexButton.Reveal);
             }
             finally { GUI.color = wasColor; }
         }
@@ -236,6 +234,7 @@ namespace SlopWorld
                     Mathf.Max(Wide(value) + ButtonPadX * 2f, ButtonMinW)
                         + chevron + GapS);
             box = new Rect(r.x, r.y + labelH + GapXS, boxW, CompactH);
+            bool shownOpen = open || UiMenu.IsSelectorOpenAt(MenuAt(box));
 
             using (WidgetState.Save())
             {
@@ -247,13 +246,13 @@ namespace SlopWorld
             if (!string.IsNullOrEmpty(tip)) TooltipHandler.TipRegion(r, tip);
             var face = !on ? Fade(Well, 0.5f) : held ? BtnDown : over ? BtnHover : Well;
             Slab.Box(box, face, on ? BtnEdge : Fade(BtnEdge, 0.5f));
-            if (open) Slab.Ring(box, Accent);
+            if (shownOpen) Slab.Ring(box, Accent);
 
             float caretX = box.xMax - ButtonPadX - chevron;
             Slab.VHairline(new Rect(caretX - GapS, box.y + GapXS, 1f, box.height - GapXS * 2f),
                            on ? BtnEdge : Fade(BtnEdge, 0.5f));
             Chevron(new Rect(caretX, box.y + (box.height - chevron) / 2f, chevron, chevron),
-                    !on ? Fade(Faint, 0.5f) : over ? Accent : Faint, open);
+                    !on ? Fade(Faint, 0.5f) : over ? Accent : Faint, shownOpen);
 
             float textX = box.x + ButtonPadX;
             using (WidgetState.Save())
