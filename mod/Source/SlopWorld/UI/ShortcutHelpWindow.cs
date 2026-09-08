@@ -53,6 +53,8 @@ namespace SlopWorld
             layer = WindowLayer.Super;
         }
 
+        protected override bool Closable => false;
+
         public static void Toggle()
         {
             var open = Find.WindowStack?.WindowOfType<ShortcutHelpWindow>();
