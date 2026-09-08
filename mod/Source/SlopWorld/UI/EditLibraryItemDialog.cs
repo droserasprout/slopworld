@@ -240,7 +240,7 @@ namespace SlopWorld
             }
 
             l.Label(kind.CommandLabel);
-            var box = l.GetRect(UiWidgets.FieldH);
+            var box = UiWidgets.FieldRect(l);
             if (!string.IsNullOrEmpty((_s.Command ?? "").Trim()))
             {
                 _s.Command = UiWidgets.Field(box, "library.command", _s.Command);

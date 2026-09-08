@@ -38,7 +38,11 @@ namespace SlopWorld
         {
             var r = l.GetRect(BtnH);
             r.width = Mathf.Min(r.width, BtnW(label, ButtonMinW));
-            return Button(r, label, kind, on);
+            bool clicked = Button(r, label, kind, on);
+            // Keep consecutive form buttons legible without making each caller remember
+            // the minimum gap. Callers can still add a larger group gap when needed.
+            l.Gap(GapS);
+            return clicked;
         }
 
         // An icon that answers to a press, in the chrome's own rectangular hover surface.

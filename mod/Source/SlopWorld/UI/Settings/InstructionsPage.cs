@@ -107,7 +107,7 @@ namespace SlopWorld
                     "The template is rendered once for each project snapshot.");
                 l.Gap(UiWidgets.GapS);
                 l.Label("Content template");
-                _cfg.InstructionsTemplate = UiWidgets.Area(l.GetRect(320f), "instructions.template",
+                _cfg.InstructionsTemplate = UiWidgets.Area(l, 320f, "instructions.template",
                     _cfg.InstructionsTemplate);
                 if (UiWidgets.Button(l, "Reset to default", UiWidgets.Btn.Ghost))
                     _cfg.InstructionsTemplate = DaemonConfig.DefaultInstructionsTemplate;
@@ -119,8 +119,8 @@ namespace SlopWorld
                 UiWidgets.Note(l, "This text is added to the agent's first prompt when the manifest " +
                     "is mounted. It is separate from the generated file body.");
                 l.Label("Breadcrumb template");
-                _cfg.InstructionsBreadcrumb = UiWidgets.Area(l.GetRect(120f),
-                    "instructions.breadcrumb", _cfg.InstructionsBreadcrumb);
+                _cfg.InstructionsBreadcrumb = UiWidgets.Area(l, 120f, "instructions.breadcrumb",
+                    _cfg.InstructionsBreadcrumb);
                 if (UiWidgets.Button(l, "Reset to default", UiWidgets.Btn.Ghost))
                     _cfg.InstructionsBreadcrumb = DaemonConfig.DefaultInstructionsBreadcrumb;
                 UiWidgets.Note(l, "Variables: {{ project }}, {{ mount_path }}, and {{ file }}. " +
@@ -135,7 +135,7 @@ namespace SlopWorld
                 UiWidgets.Note(l, "This prompt is submitted to each worker spawned with slopctl spawn. " +
                     "Use $SLOPWORLD_TASK_ID to refer to its exact mailbox task.");
                 l.Label("Worker prompt");
-                _cfg.WorkerPrompt = UiWidgets.Area(l.GetRect(180f), "instructions.worker_prompt",
+                _cfg.WorkerPrompt = UiWidgets.Area(l, 180f, "instructions.worker_prompt",
                     _cfg.WorkerPrompt);
                 if (UiWidgets.Button(l, "Reset to default", UiWidgets.Btn.Ghost))
                     _cfg.WorkerPrompt = DaemonConfig.DefaultWorkerPrompt;

@@ -42,6 +42,7 @@ namespace SlopWorld
 
         protected override float DrawTrailingFields(Rect rect, float y)
         {
+            y += UiWidgets.GapS;
             return y + DrawTable(new Rect(rect.x, y, rect.width, UiWidgets.ListingHeight));
         }
 
@@ -114,7 +115,9 @@ namespace SlopWorld
         float DrawTable(Rect rect)
         {
             var keys = TableKeys();
-            float rowH = UiWidgets.RowH;
+            // The interval editor is a full control, not a one-line label. Give the table
+            // enough height for the shared vertical inset around it.
+            float rowH = UiWidgets.FieldH + UiWidgets.GapS;
             float headerH = rowH;
             float intervalW = Mathf.Min(120f, Mathf.Max(92f, rect.width * .16f));
             float pollW = 64f;
@@ -168,8 +171,7 @@ namespace SlopWorld
                     false, RowHoverPolicy.OverlayAware);
 
                 float fieldPad = Mathf.Min(UiWidgets.GapXS, intervalW / 2f);
-                var field = new Rect(intervalX + fieldPad,
-                    row.y + (row.height - UiWidgets.FieldH) / 2f,
+                var field = new Rect(intervalX + fieldPad, row.y + UiWidgets.GapXS,
                     Mathf.Max(0f, intervalW - fieldPad * 2f), UiWidgets.FieldH);
                 _itemIntervals[key] = UiWidgets.Field(field, "usage.item." + key,
                     _itemIntervals[key], true);
