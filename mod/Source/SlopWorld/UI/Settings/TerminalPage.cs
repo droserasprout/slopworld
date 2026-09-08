@@ -72,28 +72,24 @@ namespace SlopWorld
             var l = new Listing_Standard { maxOneColumn = true };
             l.Begin(rect);
 
-            if (UiWidgets.Button(l,
-                    $"Font: {(s.fontName.NullOrEmpty() ? "Automatic" : s.fontName)}"))
+            var fontOptions = new List<FloatMenuOption>
             {
-                var opts = new List<FloatMenuOption>
+                new FloatMenuOption("Automatic", () =>
                 {
-                    new FloatMenuOption("Automatic", () =>
-                    {
-                        s.fontName = "";
-                        TerminalFont.Invalidate();
-                        s.MarkDirty();
-                    }),
-                };
-                opts.AddRange(UiWidgets.GroupedFontOptions(TerminalFont.Mono, name =>
-                {
-                    s.fontName = name;
+                    s.fontName = "";
                     TerminalFont.Invalidate();
                     s.MarkDirty();
-                }));
-                Find.WindowStack.Add(new UiMenu(opts));
-            }
+                }),
+            };
+            fontOptions.AddRange(UiWidgets.GroupedFontOptions(TerminalFont.Mono, name =>
+            {
+                s.fontName = name;
+                TerminalFont.Invalidate();
+                s.MarkDirty();
+            }));
+            UiWidgets.Select(l, "Font", s.fontName.NullOrEmpty() ? "Automatic" : s.fontName,
+                fontOptions, out _);
 
-            l.Gap(UiWidgets.GapM);
             int size = Mathf.RoundToInt(UiWidgets.Slider(l, "Font size", s.fontSize,
                 8, 28, s.fontSize.ToString()));
             if (size != s.fontSize)

@@ -26,6 +26,23 @@ namespace SlopWorld
     public static class UiSelector
     {
         public static bool Draw(Rect rect, string caption, string value,
+                                IEnumerable<FloatMenuOption> source, out Rect box,
+                                string tip = null, bool enabled = true, bool open = false,
+                                Action<UiMenu> openMenu = null)
+        {
+            var options = (source ?? Enumerable.Empty<FloatMenuOption>()).ToList();
+            bool pressed = UiWidgets.Select(rect, caption, value, out box, tip, enabled,
+                open, UiMenu.WidthFor(new[] { value }.Concat(
+                    options.Select(option => option.Label))));
+            if (!pressed) return false;
+
+            var popup = new UiMenu(options, UiWidgets.MenuAt(box));
+            if (openMenu != null) openMenu(popup);
+            else Find.WindowStack.Add(popup);
+            return true;
+        }
+
+        public static bool Draw(Rect rect, string caption, string value,
                                 IEnumerable<SelectorOption> source, out Rect box,
                                 string tip = null, bool enabled = true, bool open = false,
                                 Action<UiMenu> openMenu = null)
@@ -46,6 +63,19 @@ namespace SlopWorld
             if (openMenu != null) openMenu(popup);
             else Find.WindowStack.Add(popup);
             return true;
+        }
+
+        public static bool Draw(Listing_Standard listing, string caption, string value,
+                                IEnumerable<FloatMenuOption> source, out Rect box,
+                                string tip = null, bool enabled = true, bool open = false,
+                                Action<UiMenu> openMenu = null)
+        {
+            var rect = listing.GetRect(UiWidgets.LineH + UiWidgets.GapXS +
+                UiWidgets.CompactH);
+            bool pressed = Draw(rect, caption, value, source, out box, tip, enabled, open,
+                openMenu);
+            listing.Gap(UiWidgets.GapS);
+            return pressed;
         }
 
         public static bool Draw(Listing_Standard listing, string caption, string value,
