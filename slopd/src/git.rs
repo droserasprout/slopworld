@@ -67,6 +67,7 @@ async fn warm(dir: &Path) -> std::io::Result<()> {
 /// repository" - a plain answer rather than an error, because half the projects on a machine
 /// are not one and the view says so in a line.
 pub async fn status(dir: &Path) -> std::io::Result<Option<Status>> {
+    let _perf = crate::perf::timer("git-refresh");
     let Some(root) = toplevel(dir).await? else {
         return Ok(None);
     };
@@ -79,6 +80,7 @@ pub async fn status(dir: &Path) -> std::io::Result<Option<Status>> {
     // directories are expanded in one batch below; a nested repository remains a boundary row
     // and its own working tree is never inspected as part of the parent.
     let (rows, truncated) = status_rows(&root).await?;
+    crate::perf::count("git-status-rows", rows.len() as u64);
     let branch = branch(&root).await;
     // A truncated status has no complete count to report. More importantly, running a full
     // diff or one no-index diff per untracked path here would undo the status stream's cap.
@@ -327,6 +329,7 @@ async fn numstat(
         .filter(|path| !path.ends_with('/') && !is_directory(root, path))
         .cloned()
         .collect::<Vec<_>>();
+    crate::perf::count("git-no-index-files", untracked.len() as u64);
     let no_index = stream::iter(untracked.into_iter().map(|path| async move {
         let count = no_index_numstat(root, &path).await;
         (path, count)

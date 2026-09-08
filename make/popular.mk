@@ -1,4 +1,4 @@
-.PHONY: all format lint test install run
+.PHONY: all format lint test bench bench-daemon install run
 
 ##
 
@@ -9,6 +9,8 @@ format: format-daemon format-mod ## Format both halves
 lint: lint-daemon lint-mod ## Lint both halves
 
 test: test-daemon test-mod test-prose ## Run the daemon and game-free mod tests
+
+bench: bench-daemon ## Run the game-free daemon performance benchmark
 
 install: install-daemon install-runner install-mod install-font ## Install the daemon, runner, mod and bundled font
 

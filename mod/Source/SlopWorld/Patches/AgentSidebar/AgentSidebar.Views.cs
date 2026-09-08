@@ -293,6 +293,7 @@ namespace SlopWorld
 
         static List<SessionInfo> RoutedFor(SidebarTab tab)
         {
+            PerfTrace.Count("sidebar-routed-rebuilds");
             Layout.Routed.Clear();
             foreach (var info in SessionHub.Instance.Sessions)
             {
@@ -304,10 +305,15 @@ namespace SlopWorld
             }
             if (tab == SidebarTab.Files) FilesView.AddRoutedPreviews(Layout.Routed);
             Layout.Routed.Sort(ByName);
+            PerfTrace.Count("sidebar-routed-rows", Layout.Routed.Count);
             return Layout.Routed;
         }
 
-        public static float RoutedHeight(SidebarTab tab) => RoutedFor(tab).Count * GhostH;
+        public static float RoutedHeight(SidebarTab tab)
+        {
+            PerfTrace.Count("sidebar-routed-height-queries");
+            return RoutedFor(tab).Count * GhostH;
+        }
 
         public static Rect TreeBody(Rect body, SidebarTab tab) =>
             new Rect(body.x, body.y + RoutedHeight(tab), body.width,

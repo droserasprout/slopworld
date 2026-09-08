@@ -154,6 +154,7 @@ async fn filter_gitignored(base: &std::path::Path, listing: &mut Listing) {
 /// the mod touching the host filesystem itself. `dirs` is what it always was; `files`
 /// is asked for.
 pub(crate) async fn browse(State(_m): State<Mgr>, Query(q): Query<BrowseReq>) -> ApiResult {
+    let _perf = crate::perf::timer("http-browse");
     let base = if q.path.is_empty() {
         dirs::home_dir().unwrap_or_else(|| "/".into())
     } else {
@@ -168,6 +169,10 @@ pub(crate) async fn browse(State(_m): State<Mgr>, Query(q): Query<BrowseReq>) ->
     if q.gitignore {
         filter_gitignored(&base, &mut out).await;
     }
+    crate::perf::count(
+        "http-browse-rows",
+        (out.dirs.len() + out.files.len()) as u64,
+    );
 
     Ok(Json(json!({
         "path": base,
@@ -582,6 +587,7 @@ pub(crate) fn build_rg_command(path: &std::path::Path, q: &SearchReq) -> tokio::
 /// stop the process once the UI-sized answer is full rather than collecting an unbounded
 /// repository search in memory.
 pub(crate) async fn search(State(_m): State<Mgr>, Query(q): Query<SearchReq>) -> ApiResult {
+    let _perf = crate::perf::timer("http-search");
     use tokio::io::{AsyncBufReadExt, BufReader};
 
     if q.path.is_empty() {
@@ -653,6 +659,8 @@ pub(crate) async fn search(State(_m): State<Mgr>, Query(q): Query<SearchReq>) ->
         }
     }
 
+    crate::perf::count("http-search-matches", matches.len() as u64);
+
     Ok(Json(json!({
         "path": dir,
         "matches": matches,
@@ -663,6 +671,7 @@ pub(crate) async fn search(State(_m): State<Mgr>, Query(q): Query<SearchReq>) ->
 /// Returns a project's changed files for the git view; the game cannot run `git` inside agent
 /// mount namespaces. Non-repositories return 200 with `repo: false`.
 pub(crate) async fn git_status(State(_m): State<Mgr>, Query(q): Query<GitReq>) -> ApiResult {
+    let _perf = crate::perf::timer("http-git");
     if q.path.is_empty() {
         return Err(err(StatusCode::BAD_REQUEST, "no path"));
     }
@@ -675,6 +684,7 @@ pub(crate) async fn git_status(State(_m): State<Mgr>, Query(q): Query<GitReq>) -
     let Some(st) = out else {
         return Ok(Json(json!({ "repo": false, "path": dir })));
     };
+    crate::perf::count("http-git-rows", st.changes.len() as u64);
 
     Ok(Json(json!({
         "repo": true,

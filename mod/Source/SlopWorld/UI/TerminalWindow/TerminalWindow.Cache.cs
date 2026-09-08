@@ -69,6 +69,8 @@ namespace SlopWorld
             bool contentChanged = _cacheContentRevision != buf.ContentRevision;
             if (repaintAll)
             {
+                PerfTrace.Count("terminal-cache-misses");
+                PerfTrace.Count("terminal-cache-repaints");
                 // Keep the pre-paint revision. RequestCharactersInTexture can rebuild the
                 // atlas while Paint is running; retaining the old revision forces one clean
                 // repaint after that rebuild instead of caching a half-drawn first frame.
@@ -98,6 +100,7 @@ namespace SlopWorld
             }
             else if (contentChanged && buf.ChangedRows != null && buf.ChangedRows.Length > 0)
             {
+                PerfTrace.Count("terminal-cache-repaints");
                 // Small live edits only invalidate their rows. A broad terminal scroll changes
                 // most rows, where one full paint is cheaper and avoids many GUI draw calls.
                 int lineCount = buf.Lines == null ? 0 : buf.Lines.Length;
@@ -108,12 +111,14 @@ namespace SlopWorld
                     RenderTexture.active = _cache;
                     if (broad)
                     {
+                        PerfTrace.Count("terminal-cache-broad-repaints");
                         GL.Clear(false, true, SolidTerminalBackground);
                         Paint(new Rect(body.x, body.y - _cacheLead, body.width,
                                        body.height + _cacheLead), buf, cw, ch);
                     }
                     else
                     {
+                        PerfTrace.Count("terminal-cache-rows-repainted", buf.ChangedRows.Length);
                         PaintRows(new Rect(body.x, body.y - _cacheLead, body.width,
                                            body.height + _cacheLead), buf, cw, ch,
                                   buf.ChangedRows);

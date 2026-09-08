@@ -12,9 +12,8 @@ namespace SlopWorld
     // does not need a live switch for diagnostics.
     static class PerfTrace
     {
-        static readonly bool Enabled =
-            string.Equals(Environment.GetEnvironmentVariable("SLOPWORLD_PERF_DEBUG"), "1",
-                          StringComparison.Ordinal);
+        internal static readonly bool Enabled = DebugFlag();
+        const int MaxSamples = 512;
         static readonly Dictionary<string, Sample> Samples =
             new Dictionary<string, Sample>(StringComparer.Ordinal);
         static float _nextReport;
@@ -25,6 +24,13 @@ namespace SlopWorld
             public int Work;
             public int PeakBacklog;
             public long Ticks;
+            public List<long> Durations;
+        }
+
+        static bool DebugFlag()
+        {
+            string value = Environment.GetEnvironmentVariable("SLOPWORLD_DEBUG");
+            return value == "1" || string.Equals(value, "true", StringComparison.OrdinalIgnoreCase);
         }
 
         public static long Start() => Enabled ? Stopwatch.GetTimestamp() : 0L;
@@ -36,7 +42,19 @@ namespace SlopWorld
             sample.Calls++;
             sample.Work += work;
             sample.PeakBacklog = Math.Max(sample.PeakBacklog, backlog);
-            sample.Ticks += Stopwatch.GetTimestamp() - started;
+            long elapsed = Stopwatch.GetTimestamp() - started;
+            sample.Ticks += elapsed;
+            if (sample.Durations == null) sample.Durations = new List<long>();
+            if (sample.Durations.Count < MaxSamples) sample.Durations.Add(elapsed);
+            Samples[name] = sample;
+        }
+
+        public static void Count(string name, int work = 1)
+        {
+            if (!Enabled) return;
+            if (!Samples.TryGetValue(name, out var sample)) sample = new Sample();
+            sample.Calls++;
+            sample.Work += work;
             Samples[name] = sample;
         }
 
@@ -55,12 +73,26 @@ namespace SlopWorld
                 text.Append(' ').Append(pair.Key).Append(" calls=").Append(sample.Calls)
                     .Append(" work=").Append(sample.Work).Append(" ms=")
                     .Append(ms.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture));
+                if (sample.Durations != null && sample.Durations.Count > 0)
+                {
+                    sample.Durations.Sort();
+                    text.Append(" p50=").Append(Millis(sample.Durations, 50)
+                        .ToString("0.###", System.Globalization.CultureInfo.InvariantCulture));
+                    text.Append(" p95=").Append(Millis(sample.Durations, 95)
+                        .ToString("0.###", System.Globalization.CultureInfo.InvariantCulture));
+                }
                 if (sample.PeakBacklog > 0)
                     text.Append(" backlog=").Append(sample.PeakBacklog);
                 text.Append(';');
             }
             Log.Message(text.ToString());
             Samples.Clear();
+        }
+
+        static double Millis(List<long> samples, int percentile)
+        {
+            int index = (samples.Count - 1) * percentile / 100;
+            return samples[index] * 1000.0 / Stopwatch.Frequency;
         }
     }
 }

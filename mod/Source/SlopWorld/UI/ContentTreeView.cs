@@ -182,7 +182,10 @@ namespace SlopWorld
                     if (!scrollEvent)
                     {
                         foreach (var item in _items)
+                        {
+                            PerfTrace.Count("content-tree-rows-visited");
                             DrawItem(view.width, item);
+                        }
                     }
                 }
             }
@@ -290,25 +293,39 @@ namespace SlopWorld
         {
             if (item.Kind == ItemKind.Group)
             {
-                if (Visible(item.Y)) DrawGroup(width, item.Y, item.Group);
+                if (Visible(item.Y))
+                {
+                    PerfTrace.Count("content-tree-rows-drawn");
+                    DrawGroup(width, item.Y, item.Group);
+                }
                 return;
             }
             if (item.Kind == ItemKind.Body)
             {
                 float bodyHeight = _source.GroupBodyHeight(item.Group);
                 if (item.Y + bodyHeight > _visibleTop && item.Y < _visibleBottom)
+                {
+                    PerfTrace.Count("content-tree-rows-drawn");
                     _source.DrawGroupBody(width, item.Y, item.Group);
+                }
                 return;
             }
             if (item.Kind == ItemKind.Note)
             {
                 if (Visible(item.Y))
+                {
+                    PerfTrace.Count("content-tree-rows-drawn");
                     ViewChrome.Note(width, item.Y, item.Depth, item.Note, item.NoteColor);
+                }
                 return;
             }
 
             bool reveal = _reveal != null && _reveal == _source.SelectionKey(item.Node);
-            if (Visible(item.Y) || reveal) DrawRow(width, item.Y, item.Node);
+            if (Visible(item.Y) || reveal)
+            {
+                PerfTrace.Count("content-tree-rows-drawn");
+                DrawRow(width, item.Y, item.Node);
+            }
         }
 
         void DrawGroup(float width, float y, ContentTreeGroup group)

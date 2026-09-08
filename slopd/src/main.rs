@@ -1,6 +1,7 @@
 mod activity;
 mod api;
 mod audio;
+mod benchmark;
 mod clipboard;
 mod config;
 mod emu;
@@ -10,6 +11,7 @@ mod grant;
 mod jukebox;
 mod manifest;
 mod paths;
+mod perf;
 mod presets;
 mod runtime;
 mod sandbox;
@@ -36,6 +38,10 @@ use crate::session::Manager;
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    if std::env::args().any(|arg| arg == "--perf-bench") {
+        return benchmark::run();
+    }
+
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::try_from_env("SLOPD_LOG")

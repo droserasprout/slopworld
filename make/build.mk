@@ -1,10 +1,13 @@
-.PHONY: daemon mod test-daemon test-mod coverage coverage-daemon coverage-mod test-prose \
+.PHONY: daemon mod bench-daemon test-daemon test-mod coverage coverage-daemon coverage-mod test-prose \
 	appicon icons emoji-atlas reference api-contract api-docs scheme-report harmony clean
 
 ##
 
 daemon: api-contract ## Build the daemon and the launcher
 	@cd slopd && $(if $(VERSION),SLOPWORLD_BUILD_VERSION="$(VERSION)",) $(CARGO) build $(CARGOFLAGS)
+
+bench-daemon: api-contract ## Run the game-free daemon performance benchmark
+	@cd slopd && $(CARGO) run --quiet --bin slopd $(CARGOFLAGS) -- --perf-bench
 
 mod: daemon        ## Build the mod against the game's assemblies
 	@test -f "$(CSC_API)/mscorlib.dll" || { echo "missing Mono reference assemblies under $(CSC_API)" >&2; exit 1; }

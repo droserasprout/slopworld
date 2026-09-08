@@ -457,15 +457,22 @@ fn resolve_audio_source(selection: AudioSelection) -> anyhow::Result<String> {
 }
 
 async fn send(tx: &WsTx, ev: &Event) -> Result<(), axum::Error> {
-    let started = std::time::Instant::now();
-    let text = serde_json::to_string(ev).unwrap_or_default();
+    let _perf = crate::perf::timer("websocket-send");
+    let started = crate::perf::enabled().then(std::time::Instant::now);
+    let text = {
+        let _perf = crate::perf::timer("websocket-serialize");
+        serde_json::to_string(ev).unwrap_or_default()
+    };
+    crate::perf::count("websocket-bytes", text.len() as u64);
     let result = tx.lock().await.send(Message::Text(text)).await;
-    tracing::debug!(
-        target: "slopd::perf",
-        lane = "websocket-send",
-        elapsed_us = started.elapsed().as_micros() as u64,
-        "websocket event sent"
-    );
+    if let Some(started) = started {
+        tracing::debug!(
+            target: "slopd::perf",
+            lane = "websocket-send",
+            elapsed_us = started.elapsed().as_micros() as u64,
+            "websocket event sent"
+        );
+    }
     result
 }
 

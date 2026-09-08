@@ -27,6 +27,7 @@ the target RimWorld installation before staging it.
 | --- | --- |
 | `all` | Both halves. |
 | `daemon` | `cargo build` in `slopd/`, `--release` under `BUILD=release`. |
+| `bench` / `bench-daemon` | Run the deterministic game-free daemon performance benchmark; use `BUILD=release` for release timings. |
 | `mod` | Direct Mono `csc` into `mod/Assemblies/SlopWorld.dll`. |
 | `api-contract` | Generate Rust and C# wire bindings from `protocol/wire.yaml`. Requires PyYAML. |
 | `test` | `cargo test`, the game-free C# tests in `mod/Tests/`, and the prose-linter tests. |

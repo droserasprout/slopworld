@@ -105,7 +105,8 @@ impl Manager {
     }
 
     pub async fn retick(self: &Arc<Self>) {
-        let started = std::time::Instant::now();
+        let _perf = crate::perf::timer("retick");
+        let started = crate::perf::enabled().then(std::time::Instant::now);
         self.reload_if_due().await;
 
         let now = now_ms();
@@ -170,13 +171,18 @@ impl Manager {
                 sessions: self.views().await,
             });
         }
-        tracing::debug!(
-            target: "slopd::perf",
-            lane = "retick",
-            elapsed_us = started.elapsed().as_micros() as u64,
-            classified,
-            host_poll = host_poll_due,
-            "daemon retick"
-        );
+        crate::perf::count("retick-classified", classified as u64);
+        if let Some(started) = started {
+            tracing::debug!(
+                target: "slopd::perf",
+                lane = "retick",
+                elapsed_us = started.elapsed().as_micros() as u64,
+                classified,
+                host_poll = host_poll_due,
+                "daemon retick"
+            );
+        }
+        drop(_perf);
+        crate::perf::maybe_report();
     }
 }

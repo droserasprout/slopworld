@@ -315,6 +315,7 @@ impl SessionEmu {
     }
 
     pub fn render(&mut self) -> Frame {
+        let _perf = crate::perf::timer("emulator-render");
         let mut frame = self.render_frame(false);
         // Taken here rather than in render_frame: a wheel asks for a scroll snapshot off the
         // same emulator, and a bell swallowed by somebody's scrollback never reaches the
@@ -446,6 +447,8 @@ impl SessionEmu {
             TermDamage::Partial(bounds) => Damage::Partial(bounds.collect()),
         };
         let rows = self.rows as usize;
+        let mut serialized_rows = 0u64;
+        let mut cells_inspected = 0u64;
         let (offset, mode, cursor, alt_screen) = {
             let content = self.term.renderable_content();
             let display_offset = content.display_offset;
@@ -462,11 +465,13 @@ impl SessionEmu {
                 || display_offset != 0;
 
             if full {
+                crate::perf::count("frame-full-renders", 1);
                 let grid = self.capture_visible_grid();
                 let mut lines = Vec::with_capacity(rows);
                 let mut row_hashes = Vec::with_capacity(rows);
                 for row in &grid {
                     let line: Arc<str> = Arc::from(serialize_row(row));
+                    serialized_rows += 1;
                     row_hashes.push(hash_row(&line));
                     lines.push(line);
                 }
@@ -482,6 +487,7 @@ impl SessionEmu {
                     valid: true,
                 };
             } else if let Damage::Partial(bounds) = damage {
+                crate::perf::count("frame-partial-renders", 1);
                 let cols = self.cols as usize;
                 let mut changed = vec![false; rows];
                 for bound in bounds {
@@ -500,6 +506,7 @@ impl SessionEmu {
                     let left = bound.left.saturating_sub(1);
                     let right = bound.right.saturating_add(1).min(cols - 1);
                     for col in left..=right {
+                        cells_inspected += 1;
                         let point =
                             Point::new(Line(row as i32 - display_offset as i32), Column(col));
                         let current = slot_from_cell(&self.term.grid()[point]);
@@ -510,11 +517,13 @@ impl SessionEmu {
                     }
                 }
                 if !self.render_cache.valid {
+                    crate::perf::count("frame-full-renders", 1);
                     let grid = self.capture_visible_grid();
                     let mut lines = Vec::with_capacity(rows);
                     let mut row_hashes = Vec::with_capacity(rows);
                     for row in &grid {
                         let line: Arc<str> = Arc::from(serialize_row(row));
+                        serialized_rows += 1;
                         row_hashes.push(hash_row(&line));
                         lines.push(line);
                     }
@@ -534,6 +543,7 @@ impl SessionEmu {
                         if changed {
                             let line: Arc<str> =
                                 Arc::from(serialize_row(&self.render_cache.cells[row]));
+                            serialized_rows += 1;
                             self.render_cache.row_hashes[row] = hash_row(&line);
                             self.render_cache.lines[row] = line;
                         }
@@ -543,6 +553,12 @@ impl SessionEmu {
             }
             (offset, mode, cursor, alt_screen)
         };
+        if serialized_rows > 0 {
+            crate::perf::count("frame-rows-serialized", serialized_rows);
+        }
+        if cells_inspected > 0 {
+            crate::perf::count("frame-cells-inspected", cells_inspected);
+        }
         self.term.reset_damage();
 
         let crow = cursor.point.line.0 + offset;
@@ -604,9 +620,15 @@ fn hash_row(row: &Arc<str>) -> u64 {
 }
 
 fn hash_rows(rows: &[u64]) -> u64 {
+    let _perf = crate::perf::timer("frame-hash");
     let mut h = std::collections::hash_map::DefaultHasher::new();
     rows.hash(&mut h);
     h.finish()
+}
+
+pub(crate) fn benchmark_content_hash(lines: &[Arc<str>]) -> u64 {
+    let row_hashes = lines.iter().map(hash_row).collect::<Vec<_>>();
+    hash_rows(&row_hashes)
 }
 
 fn recover_tmux_title(plain: &mut Vec<u8>, title: Vec<u8>, suffix: &[u8]) {

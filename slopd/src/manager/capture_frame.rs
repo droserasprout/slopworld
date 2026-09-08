@@ -21,19 +21,22 @@ impl Manager {
     }
 
     pub(crate) async fn render_and_broadcast(&self, name: &str, emu: &Mutex<SessionEmu>) {
-        let started = std::time::Instant::now();
+        let _perf = crate::perf::timer("frame");
+        let started = crate::perf::enabled().then(std::time::Instant::now);
         let frame = match emu.lock() {
             Ok(mut e) => e.render(),
             Err(_) => return,
         };
         self.apply_frame(name, frame).await;
-        tracing::debug!(
-            target: "slopd::perf",
-            lane = "frame",
-            session = name,
-            elapsed_us = started.elapsed().as_micros() as u64,
-            "render and apply frame"
-        );
+        if let Some(started) = started {
+            tracing::debug!(
+                target: "slopd::perf",
+                lane = "frame",
+                session = name,
+                elapsed_us = started.elapsed().as_micros() as u64,
+                "render and apply frame"
+            );
+        }
     }
 
     /// Derive all consequences of a frame before taking the write lock. This keeps frame
@@ -56,6 +59,14 @@ impl Manager {
         // unchanged. Reuse the last stripped text instead of joining and stripping the full
         // terminal viewport again.
         let content_changed = previous.initial || content_hash != previous.content_hash;
+        crate::perf::count(
+            if content_changed {
+                "frame-content-changed"
+            } else {
+                "frame-content-unchanged"
+            },
+            1,
+        );
         let plain = if content_changed {
             Arc::new(strip_sgr_tail(&frame.lines, TAIL_LINES))
         } else {
@@ -145,6 +156,7 @@ impl Manager {
             self.persist_activity(name, state, state_since).await;
         }
         if delta.screen_changed {
+            crate::perf::count("frame-screen-events", 1);
             let _ = self.events.send(Event::Screen { screen: view });
         }
         if dirty_list {
