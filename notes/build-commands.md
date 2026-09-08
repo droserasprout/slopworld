@@ -12,7 +12,7 @@ file is elsewhere; the default is Heroic's `heroic/gog_store/auth.json`. Run
 the token before downloading.
 
 `BUILD` is `debug` (default) or `release`; `make BUILD=release install` installs
-the release build. Suffixed targets are aliases. Both builds write
+the release build. Build mode is selected with `BUILD`, rather than target aliases. Both builds write
 `mod/Assemblies/SlopWorld.dll`, and `lint-mod` always rebuilds it in Release.
 
 The first release uses the canonical `v0.0.1` tag, which embeds `0.0.1` in the daemon and mod

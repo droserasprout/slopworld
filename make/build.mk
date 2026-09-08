@@ -1,0 +1,85 @@
+.PHONY: all daemon mod \
+	test test-daemon test-mod coverage coverage-daemon coverage-mod test-prose \
+	appicon icons emoji-atlas reference api-docs scheme-report harmony clean
+
+##
+##-> Build
+##
+
+all: daemon mod   ## Build both halves
+
+daemon:            ## Build the daemon and the launcher
+	@cd slopd && $(if $(VERSION),SLOPWORLD_BUILD_VERSION="$(VERSION)",) $(CARGO) build $(CARGOFLAGS)
+
+mod: daemon        ## Build the mod against the game's assemblies
+	@test -f "$(CSC_API)/mscorlib.dll" || { echo "missing Mono reference assemblies under $(CSC_API)" >&2; exit 1; }
+	@test -f "$(MANAGED)/Assembly-CSharp.dll" || { echo "missing RimWorld assemblies under $(MANAGED)" >&2; exit 1; }
+	@version="$(VERSION)"; \
+	if test -z "$$version"; then version="$$($(RUNNER) --version)"; fi; \
+	mkdir -p "$(dir $(MOD_ASSEMBLY_INFO))"; \
+	{ \
+		printf '%s\n' \
+			'using System.Reflection;' \
+			"[assembly: AssemblyInformationalVersion(\"$$version\")]"; \
+	} > "$(MOD_ASSEMBLY_INFO)"
+	@$(CSC) -nologo -noconfig -target:library -langversion:latest \
+		-out:"$(MOD_DLL)" $(CSC_OPTIMIZE) $(CSC_WARNINGS) \
+		$(CSC_REFS) "$(MOD_ASSEMBLY_INFO)" $(CSC_SOURCES)
+
+test: test-daemon test-mod test-prose ## Run the daemon and game-free mod tests
+
+test-daemon:
+	@cd slopd && $(CARGO) test --quiet
+
+test-mod:
+	@$(DOTNET) run --project "$(TEST_PROJECT)" --configuration Release -- --quiet
+
+coverage: coverage-daemon coverage-mod ## Measure Rust and game-free C# test coverage
+
+coverage-daemon:   ## Write Rust coverage to coverage/rust.cobertura.xml
+	@command -v cargo-llvm-cov >/dev/null || { echo "missing cargo-llvm-cov; install it with: cargo install cargo-llvm-cov --locked" >&2; exit 1; }
+	@command -v llvm-cov >/dev/null && command -v llvm-profdata >/dev/null || { echo "missing LLVM coverage tools" >&2; exit 1; }
+	@mkdir -p "$(COVERAGE_DIR)"
+	@cd slopd && LLVM_COV="$$(command -v llvm-cov)" LLVM_PROFDATA="$$(command -v llvm-profdata)" \
+		$(CARGO) llvm-cov --cobertura --output-path "../$(COVERAGE_DIR)/rust.cobertura.xml"
+	@$(PYTHON) tools/coverage_summary.py "$(COVERAGE_DIR)/rust.cobertura.xml" Rust
+
+coverage-mod:      ## Write game-free C# coverage to coverage/csharp.cobertura.xml
+	@$(DOTNET) tool restore
+	@mkdir -p "$(COVERAGE_DIR)"
+	@$(DOTNET) build "$(TEST_PROJECT)" --configuration Release -p:Coverage=true
+	@$(DOTNET) tool run coverlet -- "$(TEST_DLL)" \
+		--target dotnet --targetargs "$(TEST_DLL) --quiet" \
+		--include-test-assembly --exclude-by-file '**/mod/Tests/**/*.cs' \
+		--format cobertura --output "$(COVERAGE_DIR)/csharp.cobertura.xml"
+	@$(PYTHON) tools/coverage_summary.py "$(COVERAGE_DIR)/csharp.cobertura.xml" C\#
+
+test-prose:        ## Test the prose linter
+	@$(PYTHON) tools/test_prose_lint.py --quiet
+
+appicon:           ## Regenerate the app icon (robot face + wilted rose)
+	@$(PYTHON) tools/appicon.py
+
+icons:             ## Rebake the action icons from a Nerd Font's Codicons
+	@$(PYTHON) tools/icons.py
+
+emoji-atlas:       ## Rebake the legacy terminal's emoji atlas with Pango
+	@$(PYTHON) tools/emoji_atlas.py
+
+reference:         ## Generate the environment/API/CLI reference
+	@$(PYTHON) tools/reference.py
+
+api-docs:          ## Generate the mdBook API route inventory
+	@$(PYTHON) tools/api_docs.py
+
+scheme-report:     ## Analyze the complete UI schemes and check Warm's luminance hierarchy
+	@$(PYTHON) tools/analyze_ui_schemes.py --check-warm
+
+harmony:           ## Fetch the latest Harmony release into the mod
+	@tools/fetch-harmony.sh
+
+clean:             ## Drop build output
+	@cd slopd && $(CARGO) clean
+	@rm -f "$(MOD_DLL)"
+	@rm -rf mod/Source/SlopWorld/obj
+	@rm -rf "$(COVERAGE_DIR)"
