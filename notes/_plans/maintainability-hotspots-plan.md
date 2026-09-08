@@ -56,5 +56,4 @@ serialization is a lower-risk candidate than one coordinating lifecycle or frame
 1. Extract one stable concept at a time; do not refactor by line count alone.
 2. Keep security, lifecycle, UI event-ordering, and state-transition tests with their owner.
 3. Run `make format`, `make test`, and `make lint` after each behavior-preserving extraction.
-4. Refresh this note and [large-file-hotspots-plan](large-file-hotspots-plan.md) when ownership
-   or hotspot rankings materially change.
+4. Refresh this note when ownership or hotspot rankings materially change.
