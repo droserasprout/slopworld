@@ -16,6 +16,12 @@ namespace SlopWorld
         protected const float SliderTrackHeight = 8f;
         protected const float SliderKnobVerticalInset = 3f;
 
+        // Custom rows draw their own face and use RimWorld only for its event semantics. Keep
+        // that adapter in one place so row callers do not accidentally add native chrome or
+        // reorder hit testing around their hover/selection pass.
+        public static bool RowButton(Rect r, bool on = true) =>
+            on && Widgets.ButtonInvisible(r);
+
         public static bool Button(Rect r, string label, Btn kind = Btn.Default, bool on = true)
         {
             using (WidgetState.Save()) return ButtonCore(r, label, kind, on);
@@ -55,7 +61,7 @@ namespace SlopWorld
                 RowLabel(r, label, TextAnchor.MiddleCenter);
             }
 
-            if (!on || !Widgets.ButtonInvisible(r)) return false;
+            if (!RowButton(r, on)) return false;
             SoundDefOf.Click.PlayOneShotOnCamera();
             return true;
         }
@@ -164,7 +170,7 @@ namespace SlopWorld
                 GUI.color = locked ? Faint : warn ? Warn : over ? Lead : Name;
                 RowLabel(new Rect(box.xMax + GapS, r.y, r.xMax - box.xMax - GapS, r.height), label);
             }
-            if (locked || !Widgets.ButtonInvisible(r)) return on;
+            if (locked || !RowButton(r)) return on;
             SoundDefOf.Click.PlayOneShotOnCamera();
             return !on;
         }
@@ -261,7 +267,7 @@ namespace SlopWorld
                 RowLabel(new Rect(textX, box.y, Mathf.Max(0f, caretX - GapS - textX), box.height),
                     value);
             }
-            if (!on || !Widgets.ButtonInvisible(box)) return false;
+            if (!RowButton(box, on)) return false;
             SoundDefOf.Click.PlayOneShotOnCamera();
             return true;
         }

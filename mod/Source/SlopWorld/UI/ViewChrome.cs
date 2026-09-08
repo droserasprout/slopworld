@@ -17,15 +17,9 @@ namespace SlopWorld
         public static void Empty(Rect body)
         {
             var r = new Rect(CellX, body.y + Pad, body.width - CellX * 2f, RowH * 3f);
-            using (WidgetState.Save())
-            {
-                GUI.color = UiWidgets.Faint;
-                Text.Font = GameFont.Tiny;
-                Text.Anchor = TextAnchor.UpperLeft;
-                Widgets.Label(r, SessionHub.Instance.Online
-                    ? "No project has a directory yet."
-                    : $"daemon {SessionHub.Instance.Status}");
-            }
+            UiWidgets.StatusLabel(r, SessionHub.Instance.Online
+                ? "No project has a directory yet."
+                : $"daemon {SessionHub.Instance.Status}", UiWidgets.Faint, GameFont.Tiny);
         }
 
         public static List<string> Projects()

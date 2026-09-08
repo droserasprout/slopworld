@@ -59,7 +59,7 @@ namespace SlopWorld
                 string description = item is PresetInfo info ? info.Description
                     : item is CommandInfo command ? command.Description : "";
                 if (!string.IsNullOrEmpty(description)) TooltipHandler.TipRegion(cell, description);
-                if (Widgets.ButtonInvisible(cell)) pick(item);
+                if (UiWidgets.RowButton(cell)) pick(item);
                 y += UiWidgets.RowH;
             }
             if (items.Count == 0)
@@ -129,11 +129,10 @@ namespace SlopWorld
             // Keep an escape warning above the identity so a long editor does not hide it.
             if (!string.IsNullOrEmpty(p.Escapes))
             {
-                GUI.color = UiWidgets.Warn;
                 string warning = $"Escape path: {p.Escapes}.";
-                float warningH = Text.CalcHeight(warning, view.width);
-                Widgets.Label(new Rect(0f, y, view.width, warningH), warning);
-                GUI.color = Color.white;
+                float warningH = UiWidgets.StatusLabelHeight(warning, view.width);
+                UiWidgets.StatusLabel(new Rect(0f, y, view.width, warningH), warning,
+                    UiWidgets.Warn);
                 y += warningH + UiWidgets.GapM;
             }
             EditorTitle(view, ref y, p.Name, p.Source, editable, "sandbox");
@@ -358,9 +357,8 @@ namespace SlopWorld
 
         void EmptyEditor(Rect r, string text)
         {
-            GUI.color = UiWidgets.Dim;
-            Widgets.Label(new Rect(r.x, r.y, r.width, UiWidgets.LineH * 2f), text);
-            GUI.color = Color.white;
+            UiWidgets.StatusLabel(new Rect(r.x, r.y, r.width, UiWidgets.LineH * 2f), text,
+                UiWidgets.Dim);
         }
 
         static float Rule(float width, float y)

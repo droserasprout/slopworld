@@ -60,9 +60,8 @@ namespace SlopWorld
                 body.width, Mathf.Max(0f, body.height - UiWidgets.BtnH - UiWidgets.GapM));
             if (!_loaded)
             {
-                GUI.color = _error != null ? UiWidgets.Bad : UiWidgets.Dim;
-                Widgets.Label(content, _error ?? "Waiting for the daemon...");
-                GUI.color = Color.white;
+                UiWidgets.StatusLabel(content, _error ?? "Waiting for the daemon...",
+                    _error != null ? UiWidgets.Bad : UiWidgets.Dim);
             }
             else if (_tab == Tab.Editor)
             {
@@ -172,25 +171,22 @@ namespace SlopWorld
 
             if (_previewBusy)
             {
-                GUI.color = UiWidgets.Dim;
-                Widgets.Label(new Rect(r.x, y, r.width, UiWidgets.LineH),
-                    "Rendering preview...");
-                GUI.color = Color.white;
+                UiWidgets.StatusLabel(new Rect(r.x, y, r.width, UiWidgets.LineH),
+                    "Rendering preview...", UiWidgets.Dim);
                 return;
             }
             if (_previewError != null)
             {
-                GUI.color = UiWidgets.Bad;
-                Widgets.Label(new Rect(r.x, y, r.width, UiWidgets.LineH), _previewError);
-                GUI.color = Color.white;
+                float h = UiWidgets.StatusLabelHeight(_previewError, r.width);
+                UiWidgets.StatusLabel(new Rect(r.x, y, r.width, h), _previewError,
+                    UiWidgets.Bad);
                 return;
             }
             if (_previewText == null)
             {
-                GUI.color = UiWidgets.Dim;
-                Widgets.Label(new Rect(r.x, y, r.width, UiWidgets.LineH),
-                    "Choose Preview or Refresh to render the document.");
-                GUI.color = Color.white;
+                const string note = "Choose Preview or Refresh to render the document.";
+                float h = UiWidgets.StatusLabelHeight(note, r.width);
+                UiWidgets.StatusLabel(new Rect(r.x, y, r.width, h), note, UiWidgets.Dim);
                 return;
             }
 

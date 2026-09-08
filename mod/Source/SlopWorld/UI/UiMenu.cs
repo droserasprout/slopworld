@@ -457,7 +457,7 @@ namespace SlopWorld
                 UiWidgets.RowLabel(label, o.Label);
             }
 
-            if (!on || !Widgets.ButtonInvisible(r)) return false;
+            if (!UiWidgets.RowButton(r, on)) return false;
 
             // A row with a list under it is an address rather than an answer, and a press on
             // one is the pointer saying it will not wait out the delay. Opened here rather

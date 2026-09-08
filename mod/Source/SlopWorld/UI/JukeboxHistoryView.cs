@@ -200,7 +200,7 @@ namespace SlopWorld
                 TooltipHandler.TipRegion(r, DetailText(e) + "\n\nClick to inspect and copy.");
 
             // Clicking a row opens its detail; clicking the open one closes it again.
-            if (Widgets.ButtonInvisible(r))
+            if (UiWidgets.RowButton(r))
                 _selected = selected ? null : e;
         }
 
@@ -259,10 +259,8 @@ namespace SlopWorld
             GUI.color = string.IsNullOrEmpty(display) ? UiWidgets.Faint : UiWidgets.Name;
             if (wrap)
             {
-                bool prior = Text.WordWrap;
-                Text.WordWrap = true;
-                Widgets.Label(valueRect, text);
-                Text.WordWrap = prior;
+                UiWidgets.StatusLabel(valueRect, text,
+                    string.IsNullOrEmpty(display) ? UiWidgets.Faint : UiWidgets.Name);
             }
             else
             {
@@ -273,7 +271,7 @@ namespace SlopWorld
             if (!string.IsNullOrEmpty(value))
             {
                 if (over) TooltipHandler.TipRegion(row, "Click to copy");
-                if (Widgets.ButtonInvisible(row)) Copy(value, label.ToLowerInvariant());
+                if (UiWidgets.RowButton(row)) Copy(value, label.ToLowerInvariant());
             }
             return row.yMax + UiWidgets.GapXS;
         }

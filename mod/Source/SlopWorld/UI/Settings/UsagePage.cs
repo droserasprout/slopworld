@@ -259,7 +259,7 @@ namespace SlopWorld
                         ? 0x51_0F_0002 ^ (key.GetHashCode() * 31 + def.shortHash)
                         : 0x51_0F_0004 ^ key.GetHashCode()));
 
-                if (Widgets.ButtonInvisible(cell))
+                if (UiWidgets.RowButton(cell))
                 {
                     // Null on the automatic cell, which is exactly what clears the line.
                     UsageReadout.Choose(key, def);

@@ -31,14 +31,7 @@ namespace SlopWorld
             float messageH = MessageHeight(Message, rect.width);
             var message = new Rect(rect.x, messageY, rect.width, messageH);
 
-            using (WidgetState.Save())
-            {
-                Text.Font = GameFont.Small;
-                Text.Anchor = TextAnchor.UpperLeft;
-                Text.WordWrap = true;
-                GUI.color = UiWidgets.Name;
-                Widgets.Label(message, Message);
-            }
+            UiWidgets.StatusLabel(message, Message, UiWidgets.Name);
 
             DrawActions(new UiWidgets.Bar(UiWidgets.FooterBar(rect)));
         }

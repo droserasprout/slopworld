@@ -23,7 +23,7 @@ namespace SlopWorld
                     : over ? UiWidgets.Lead : UiWidgets.Name;
                 UiWidgets.RowLabel(new Rect(box.xMax + UiWidgets.GapS, rect.y,
                     rect.xMax - box.xMax - UiWidgets.GapS, rect.height), label);
-                if (locked || !Widgets.ButtonInvisible(rect)) return on;
+                if (locked || !UiWidgets.RowButton(rect)) return on;
                 SoundDefOf.Click.PlayOneShotOnCamera();
                 return !on;
             }
@@ -39,7 +39,7 @@ namespace SlopWorld
                 if (!string.IsNullOrEmpty(tip)) TooltipHandler.TipRegion(rect, tip);
                 UiWidgets.TickBox(new Rect(rect.center.x - UiWidgets.TickW / 2f,
                     rect.y, UiWidgets.TickW, rect.height), on, locked);
-                if (locked || !Widgets.ButtonInvisible(rect)) return on;
+                if (locked || !UiWidgets.RowButton(rect)) return on;
                 SoundDefOf.Click.PlayOneShotOnCamera();
                 return !on;
             }
@@ -102,7 +102,7 @@ namespace SlopWorld
             draw?.Invoke(box.ContractedBy(UiWidgets.IconInset));
             RowChrome.Hover(box, false, true, hoverPolicy);
             showTip?.Invoke(box);
-            return Widgets.ButtonInvisible(box);
+            return UiWidgets.RowButton(box);
         }
     }
 

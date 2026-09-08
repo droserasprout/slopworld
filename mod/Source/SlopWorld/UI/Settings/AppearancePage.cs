@@ -296,7 +296,7 @@ namespace SlopWorld
                 TooltipHandler.TipRegion(slot, new TipSignal(
                     choice.Label + "\n" + choice.TexturePath,
                     0x51_0F_0120 ^ key.GetHashCode()));
-                if (Widgets.ButtonInvisible(slot))
+                if (UiWidgets.RowButton(slot))
                 {
                     DeadCursor.Choose(key);
                     _pickingCursor = false;

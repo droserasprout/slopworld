@@ -179,10 +179,9 @@ namespace SlopWorld
             var inner = body.ContractedBy(UiWidgets.GapM);
             string caption = "Host commands used, integrated, or recommended by SlopWorld. " +
                 "A checkmark means the executable is on the game's PATH.";
-            float captionH = Text.CalcHeight(caption, inner.width);
-            GUI.color = UiWidgets.Dim;
-            Widgets.Label(new Rect(inner.x, inner.y, inner.width, captionH), caption);
-            GUI.color = Color.white;
+            float captionH = UiWidgets.StatusLabelHeight(caption, inner.width);
+            UiWidgets.StatusLabel(new Rect(inner.x, inner.y, inner.width, captionH), caption,
+                UiWidgets.Dim);
 
             float y = inner.y + captionH + UiWidgets.GapS;
             float headerH = UiWidgets.RowH;
@@ -197,10 +196,9 @@ namespace SlopWorld
             {
                 if (_results == null)
                 {
-                    GUI.color = _error != null ? UiWidgets.Bad : UiWidgets.Dim;
-                    Widgets.Label(new Rect(0f, 0f, view.width, UiWidgets.LineH),
-                        _error ?? (_loading ? "Checking host PATH..." : "No scan results."));
-                    GUI.color = Color.white;
+                    UiWidgets.StatusLabel(new Rect(0f, 0f, view.width, view.height),
+                        _error ?? (_loading ? "Checking host PATH..." : "No scan results."),
+                        _error != null ? UiWidgets.Bad : UiWidgets.Dim);
                 }
                 else
                 {

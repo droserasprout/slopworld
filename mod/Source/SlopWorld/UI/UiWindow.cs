@@ -55,15 +55,7 @@ namespace SlopWorld
         }
 
         protected static float MessageHeight(string text, float width)
-        {
-            using (WidgetState.Save())
-            {
-                Text.Font = GameFont.Small;
-                Text.WordWrap = true;
-                return Mathf.Max(UiWidgets.LineHOf(GameFont.Small),
-                    Text.CalcHeight(string.IsNullOrEmpty(text) ? " " : text, width));
-            }
-        }
+            => UiWidgets.StatusLabelHeight(text, width);
 
         public override void DoWindowContents(Rect rect)
         {

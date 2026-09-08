@@ -60,9 +60,8 @@ namespace SlopWorld
 
             if (!_loaded && (!DrawFieldsWhenOffline || _cfg == null))
             {
-                GUI.color = _error != null ? UiWidgets.Bad : UiWidgets.Dim;
-                Widgets.Label(inner, _error ?? "Waiting for the daemon...");
-                GUI.color = Color.white;
+                UiWidgets.StatusLabel(inner, _error ?? "Waiting for the daemon...",
+                    _error != null ? UiWidgets.Bad : UiWidgets.Dim);
             }
             else
             {
