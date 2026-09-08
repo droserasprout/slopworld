@@ -101,12 +101,19 @@ namespace SlopWorld
             l.Begin(rect);
 
             if (UiWidgets.Button(l,
-                    $"Color scheme: {TerminalTheme.Current.Label}"))
-                Find.WindowStack.Add(new UiMenu(TerminalTheme.All
+                    $"Color scheme: {(s.theme == TerminalTheme.MatchUI ? "Match UI" : TerminalTheme.Current.Label)}"))
+                Find.WindowStack.Add(new UiMenu(new[]
+                    {
+                        new FloatMenuOption("Match UI", () =>
+                        {
+                            if (UiWidgets.SetSetting(s, ref s.theme, TerminalTheme.MatchUI))
+                                TerminalTheme.Invalidate();
+                        }),
+                    }.Concat(TerminalTheme.All
                     .Select(t => new FloatMenuOption(t.Label, () =>
                     {
                         if (UiWidgets.SetSetting(s, ref s.theme, t.Name)) TerminalTheme.Invalidate();
-                    }))
+                    })))
                     .ToList()));
 
             DrawSwatches(l.GetRect(18f));

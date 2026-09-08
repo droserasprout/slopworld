@@ -20,15 +20,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 SOURCE = ROOT / "mod/Source/SlopWorld/UI/UIScheme.cs"
-SCHEME_IDS = (
-    "slopworld",
-    "slopworld-cold-2",
-    "slopworld-cold-sat",
-    "slopworld-warm",
-    "slopworld-warm-bg",
-    "slopworld-warm-2",
-    "onedark",
-)
+SCHEME_IDS = ("slopworld-warm", "slopworld-cold", "slopworld-calm", "onedark")
 
 SURFACES = ("windowBg", "viewBg", "popoverBg")
 TEXT = ("lead", "name", "dim", "faint", "off")
@@ -189,7 +181,7 @@ def print_report(schemes: dict[str, dict[str, str]]) -> None:
 
     print()
     print("Warm vs Cold (relative metric delta)")
-    regular = metrics(schemes["slopworld"])
+    regular = metrics(schemes["slopworld-cold"])
     warm = metrics(schemes["slopworld-warm"])
     for role in CHECK_ROLES:
         metric = metric_name(role)
@@ -204,7 +196,7 @@ def print_report(schemes: dict[str, dict[str, str]]) -> None:
 
 
 def check_warm(schemes: dict[str, dict[str, str]], tolerance: float) -> int:
-    regular = metrics(schemes["slopworld"])
+    regular = metrics(schemes["slopworld-cold"])
     warm = metrics(schemes["slopworld-warm"])
     failures = []
     for role in CHECK_ROLES:
@@ -226,7 +218,7 @@ def check_warm(schemes: dict[str, dict[str, str]], tolerance: float) -> int:
             print(f"  {failure}", file=sys.stderr)
         return 1
 
-    print(f"Warm check: PASS (all measured roles within {tolerance:.1%} of SlopWorld)")
+    print(f"Warm check: PASS (all measured roles within {tolerance:.1%} of SlopWorld Cold)")
     return 0
 
 

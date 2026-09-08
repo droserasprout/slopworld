@@ -44,7 +44,7 @@ namespace SlopWorld.Tests
                 AssertEx.Equal(210f, loaded.sidebarWidth, "malformed float default");
                 AssertEx.Equal(true, loaded.autoConnect, "malformed boolean default");
                 File.WriteAllText(path, "theme = \"unterminated");
-                AssertEx.Equal("slopworld", ModSettings.Load().theme, "malformed TOML defaults");
+                AssertEx.Equal("match-ui", ModSettings.Load().theme, "malformed TOML defaults");
                 AssertEx.Equal("right", StatusbarClockMode.Normalize("unknown"), "clock normalization");
                 AssertEx.Equal("24-hour", TimeFormat.Normalize("unknown"), "time normalization");
             }

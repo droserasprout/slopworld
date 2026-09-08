@@ -111,11 +111,10 @@ namespace SlopWorld
 
         // Named chrome palette, separate from the terminal's `theme`; unknown schemes fall back
         // through `UIScheme`.
-        public string uiScheme = "slopworld";
+        public string uiScheme = "slopworld-warm";
 
-        // The pane's palette, by name. A scheme this build no longer ships reads as the
-        // default rather than as no colors at all.
-        public string theme = "slopworld";
+        // Match UI follows the chrome palette; a named terminal palette is an override.
+        public string theme = "match-ui";
         // "#rrggbb", or blank for the scheme's own. The one color worth overriding on
         // its own: everything else is the scheme's business, and a cursor you cannot find
         // is about the screen it is on.
