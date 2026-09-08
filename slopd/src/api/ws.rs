@@ -12,7 +12,7 @@ use futures::{SinkExt, StreamExt};
 use tokio::sync::{broadcast, Mutex, Semaphore};
 use tokio::task::JoinHandle;
 
-use crate::session::{Event, ScreenView, WatchGuard};
+use crate::session::{AuthChange, Event, ScreenView, WatchGuard};
 
 use super::types::{
     AudioReq, AudioSelection, BreadcrumbReq, ClientMsg, KeysReq, MouseReq, PasteReq, ResizeReq,
@@ -30,11 +30,16 @@ pub(super) async fn ws_upgrade(
     // The header rides on the upgrade only, so the capability is resolved here and carried into
     // the pump rather than read off a request per message. A grant drives what it may from the
     // same socket the mod uses; a bad token never upgrades.
+    let generation_before = m.auth_generation();
     let cap = match m.resolve_cap(presented_token(&headers).as_deref()).await {
         Some(c) => c,
         None => return err(StatusCode::UNAUTHORIZED, "bad token").into_response(),
     };
-    ws.on_upgrade(move |socket| ws_run(socket, m, cap))
+    let generation = m.auth_generation();
+    if generation != generation_before {
+        return err(StatusCode::UNAUTHORIZED, "capability changed").into_response();
+    }
+    ws.on_upgrade(move |socket| ws_run(socket, m, cap, generation))
         .into_response()
 }
 
@@ -61,13 +66,17 @@ fn scope_event(cap: &Cap, ev: Event) -> Option<Event> {
     }
 }
 
-async fn ws_run(socket: WebSocket, m: Mgr, cap: Cap) {
+async fn ws_run(socket: WebSocket, m: Mgr, cap: Cap, generation: u64) {
     // Held for the life of the pump so the manager knows how many clients are
     // attached.
     let _client = m.client_joined();
 
     let (tx, mut rx) = socket.split();
     let tx = Arc::new(Mutex::new(tx));
+    let mut auth_changes = m.auth_changes();
+    if m.auth_generation() != generation {
+        return;
+    }
     // A `WatchGuard` apiece rather than bare names: the daemon renders a pane at a reader's
     // rate only while somebody is holding one, and this socket has several ways out.
     let subs: WsSubs = Arc::new(Mutex::new(HashMap::new()));
@@ -90,6 +99,9 @@ async fn ws_run(socket: WebSocket, m: Mgr, cap: Cap) {
     loop {
         tokio::select! {
             biased;
+            invalidated = auth_invalidated(&mut auth_changes, &cap) => {
+                if invalidated { break; }
+            }
             result = async {
                 match pending_scrolls.front_mut() {
                     Some(task) => Some(task.await),
@@ -146,6 +158,24 @@ async fn ws_run(socket: WebSocket, m: Mgr, cap: Cap) {
     // agent stopped being watched.
     subs.lock().await.clear();
     pump.abort();
+}
+
+async fn auth_invalidated(changes: &mut broadcast::Receiver<AuthChange>, cap: &Cap) -> bool {
+    loop {
+        match changes.recv().await {
+            Ok(AuthChange::GrantorRevoked(grantor)) => {
+                if cap.principal() == Some(grantor.as_str()) {
+                    return true;
+                }
+            }
+            Ok(AuthChange::RootTokenChanged) => {
+                if cap.may_create() {
+                    return true;
+                }
+            }
+            Err(_) => return true,
+        }
+    }
 }
 
 /// Usage, projects and library ride along because they speak only on a change: a mod

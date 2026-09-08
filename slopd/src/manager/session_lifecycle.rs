@@ -365,7 +365,7 @@ impl Manager {
             tracing::warn!("removing temporary private state for {name}: {e:#}");
         }
         self.temp.write().await.remove(&project);
-        self.grants.write().await.revoke_grantor(name);
+        self.revoke_grants(name).await;
         if reader_token.is_none() {
             if let Some(h) = handle {
                 h.abort();

@@ -165,6 +165,8 @@ mod tests {
     use crate::grant::Level;
     use axum::body::Body;
     use axum::http::Request;
+    use futures::{SinkExt, StreamExt};
+    use tokio_tungstenite::tungstenite::client::IntoClientRequest;
     use tower::ServiceExt;
 
     fn manager() -> Arc<Manager> {
@@ -240,5 +242,84 @@ mod tests {
             get(&app, "/api/usage", Some("root-secret")).await,
             StatusCode::OK
         );
+    }
+
+    #[tokio::test]
+    async fn revoking_a_grant_closes_an_existing_websocket_before_read_or_write() {
+        let manager = manager();
+        manager.sync_from_config().await;
+        let scoped = manager
+            .mint_grant("grantor".into(), vec!["target".into()], Level::Rw)
+            .await
+            .unwrap();
+        let app = app(manager.clone());
+        let revoke_app = app.clone();
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            axum::serve(listener, app).await.unwrap();
+        });
+
+        let mut request = format!("ws://{address}/ws").into_client_request().unwrap();
+        request
+            .headers_mut()
+            .insert("x-slop-token", scoped.parse().unwrap());
+        let (mut socket, _) = tokio_tungstenite::connect_async(request).await.unwrap();
+
+        let initial = tokio::time::timeout(std::time::Duration::from_secs(1), socket.next())
+            .await
+            .expect("websocket initial snapshot timed out")
+            .expect("websocket closed before its initial snapshot")
+            .expect("websocket initial snapshot failed");
+        assert!(
+            matches!(initial, tokio_tungstenite::tungstenite::Message::Text(text) if text.contains("target"))
+        );
+
+        socket
+            .send(tokio_tungstenite::tungstenite::Message::Text(
+                r#"{"t":"sub","name":"target"}"#.into(),
+            ))
+            .await
+            .unwrap();
+        socket
+            .send(tokio_tungstenite::tungstenite::Message::Text(
+                r#"{"t":"keys","name":"target","keys":["Enter"]}"#.into(),
+            ))
+            .await
+            .unwrap();
+
+        let revoke = Request::builder()
+            .method("DELETE")
+            .uri("/api/grants/grantor")
+            .header("x-slop-token", "root-secret")
+            .body(Body::empty())
+            .unwrap();
+        assert_eq!(
+            revoke_app.oneshot(revoke).await.unwrap().status(),
+            StatusCode::OK
+        );
+
+        let terminal = tokio::time::timeout(std::time::Duration::from_secs(1), socket.next())
+            .await
+            .expect("revoked websocket stayed open")
+            .expect("revoked websocket did not terminate");
+        assert!(matches!(
+            terminal,
+            Err(_) | Ok(tokio_tungstenite::tungstenite::Message::Close(_))
+        ));
+        assert!(socket
+            .send(tokio_tungstenite::tungstenite::Message::Text(
+                r#"{"t":"sub","name":"target"}"#.into(),
+            ))
+            .await
+            .is_err());
+        assert!(socket
+            .send(tokio_tungstenite::tungstenite::Message::Text(
+                r#"{"t":"keys","name":"target","keys":["Enter"]}"#.into(),
+            ))
+            .await
+            .is_err());
+
+        server.abort();
     }
 }

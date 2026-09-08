@@ -124,6 +124,12 @@ pub enum Event {
     },
 }
 
+#[derive(Debug, Clone)]
+pub(crate) enum AuthChange {
+    GrantorRevoked(String),
+    RootTokenChanged,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Ready {
     Settled,
