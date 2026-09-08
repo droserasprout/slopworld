@@ -56,19 +56,10 @@ as written. The separate discovery `breadcrumb` supports `{{ project }}`, `{{ mo
 and `{{ file }}`; it is pasted into an opted-in agent's first prompt. The Preview tab renders
 unsaved body text for a selected project.
 
-The corresponding daemon settings are:
-
-```toml
-[daemon.instructions]
-template = "# SlopWorld agent context\n\n{{ runtime_context }}"
-mount_path = "SLOPWORLD.md"
-breadcrumb = "Read `{{ mount_path }}` for SlopWorld runtime context. It is a generated snapshot, not project instructions. When delegating, send work once and use `slopctl wait ID` for the result; do not poll `task`, `inbox`, or `status`."
-breadcrumb_enabled = true
-worker_prompt = "You are a SlopWorld worker. Your assigned task ID is $SLOPWORLD_TASK_ID. Run `slopctl task \"$SLOPWORLD_TASK_ID\"` once, then `slopctl accept \"$SLOPWORLD_TASK_ID\"`. Use `slopctl progress \"$SLOPWORLD_TASK_ID\" \"note\"` while working and conclude with `slopctl finish \"$SLOPWORLD_TASK_ID\" \"result\"` or `slopctl fail \"$SLOPWORLD_TASK_ID\" \"reason\"`. Do not search the inbox or poll task status."
-```
-
-`worker_prompt` is submitted to each task worker spawned by `slopctl spawn`; `$SLOPWORLD_TASK_ID`
-is available in the text. Settings provides a reset action for this prompt as well.
+These settings live under `[daemon.instructions]`: `template`, `mount_path`,
+`breadcrumb`, `breadcrumb_enabled`, and `worker_prompt`. Use Settings' reset actions
+for current defaults. `worker_prompt` is submitted to each spawned task worker and
+can refer to `$SLOPWORLD_TASK_ID`; see [Using slopctl](slopctl.md).
 
 The per-agent `slopworld_md` switch still controls whether the document is mounted at
 all. `breadcrumb_enabled` controls the additional discovery line globally, while
@@ -105,18 +96,10 @@ Network and DNS changes take effect on the next agent start.
 
 ## When changes take effect
 
-| Change | Takes effect |
-| --- | --- |
-| Agent name, command, cmd | Next start. |
-| Sandbox presets | Next start. |
-| Network mode, DNS | Next start. |
-| Resource limits | Next start. |
-| Mounts | Next start. |
-| Autostart, auto-resume, breadcrumbs, `breadcrumb_yolo`, `slopworld_md`, `persistent_tmp`, Instructions mount path | Next start. |
-| Project directory | Immediately for new agents; running agents keep their current mount. |
+Restart agents after changing their launch configuration, including commands,
+sandbox settings, mounts, and startup instructions. Running agents retain their
+current mounts when a project directory changes.
 
-Running agents are not rebuilt from changed defaults. Restart the agent to apply
-sandbox, network, mount, preset, `slopworld_md`, or Instructions mount-path changes.
 An enabled manifest is regenerated when configuration is synchronized and before each
 start; it is a snapshot for an already-running sandbox. SlopWorld refuses to overwrite
 a project-owned `SLOPWORLD.md`. The default body points agents to `README.md` and applicable

@@ -12,28 +12,19 @@ Set `RIMWORLD` to the Linux game directory (the folder containing `RimWorldLinux
 
 ## Targets
 
-`make` with no arguments prints the primary target list. Component-specific targets remain
-available for focused runs, even when they are omitted from that list. The important ones:
+Run `make` for primary target help. Build with `make all`, or select `daemon` or
+`mod`. Component checks also have `-daemon` and `-mod` targets.
 
-| Target | What it does |
-| --- | --- |
-| `all` | Builds both the daemon and the mod. |
-| `daemon` | `cargo build` in `slopd/`. Pass `BUILD=release` for a release build. |
-| `mod` | Compiles the mod with Mono `csc` into `mod/Assemblies/SlopWorld.dll`. |
-| `api-contract` | Generates the Rust and C# protocol bindings from `protocol/wire.yaml`. |
-| `test` | Runs `cargo test`, the game-free C# tests, and the prose linter tests. |
-| `format` | Formats both halves. `-daemon` and `-mod` variants exist. |
-| `lint` | Lints both halves. `-daemon` and `-mod` variants exist. |
-| `install` | Installs the daemon binary, systemd unit, runner, mod using `slopworld mod install`, and the bundled UI font. |
-| `clean` | Removes build output. |
+`make install` installs the daemon, systemd unit, launcher, mod, and bundled UI
+font. `make clean` removes build output.
 
 ## Build modes
 
 `BUILD` is `debug` (default) or `release`. Both produce `mod/Assemblies/SlopWorld.dll`. `lint-mod` always rebuilds in Release.
 
-The first release uses the canonical `v0.0.1` tag and embeds `0.0.1`. Untagged checkouts append
-the UTC build date and short hash to the package version: `0.0.1-20260831-3eb9902`. Trees
-without Git keep the `0.0.1` fallback.
+SemVer-tagged builds embed the tag version. Untagged checkouts append the UTC build
+date and short commit hash to the package version; trees without Git use the
+package version alone.
 The mod assembly is a local build output and is not checked into Git. The release workflow
 publishes the daemon archive; source-based installs and Arch packages build the mod against the
 target RimWorld installation before staging it.
@@ -53,16 +44,14 @@ Rust formatting and linting use `cargo fmt` and `cargo clippy`.
 
 `make coverage` produces Cobertura XML reports for both halves. It requires `cargo-llvm-cov` (install with `cargo install cargo-llvm-cov --locked`) and the matching `llvm-cov`/`llvm-profdata` binaries. Use `coverage-daemon` or `coverage-mod` to measure one half.
 
+`make bench` runs both game-free benchmark suites; use `BUILD=release` for comparisons.
+
 ## Prose linter
 
 `make lint-prose` scans Markdown files and source comments for LLM clichés. It exits nonzero on errors; density and vocabulary warnings are advisory unless `--fail-on-warnings` is passed.
 
-```sh
-make lint-prose                              # scan the whole repo
-make PROSE_LINT_ARGS="docs/" lint-prose       # scan only docs/
-python3 tools/prose_lint.py --list-rules     # show all rules
-python3 tools/prose_lint.py --rule ai-vocab   # check one rule
-```
+Pass paths or CLI options through `PROSE_LINT_ARGS`; use
+`make lint-prose PROSE_LINT_ARGS=--help` for the current options.
 
 ## Logs and diagnostics
 

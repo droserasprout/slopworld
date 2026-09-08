@@ -16,41 +16,30 @@ a different endpoint file; `SLOPD_URL` and `SLOPD_TOKEN` override it entirely.
 
 ## Task commands
 
+Send work once and keep its returned task ID:
+
 ```sh
-slopctl delegate AGENT "review the auth module"   # create a task
-slopctl spawn PARENT "inspect the build"          # root-only one-shot child worker
-slopctl spawn --durable PARENT "run the checks"   # keep the child in config after exit
-slopctl inbox                                       # unfinished work, both directions
-slopctl inbox --all                                 # include terminal tasks
-slopctl inbox --sent                                # only tasks you sent
-slopctl inbox --received                            # only tasks sent to you
-slopctl inbox --status queued                       # filter by state
-slopctl task ID                                     # show one task
-slopctl wait ID                                     # wait for a terminal result
-slopctl accept ID                                   # accept a queued task
-slopctl accept ID "starting now"                    # accept with a note
-slopctl progress ID "halfway done"                  # mark in progress
-slopctl finish ID "done, see commit abc123"         # complete a task
-slopctl fail ID "blocked on missing config"         # mark failed
-slopctl rm ID                                       # remove a terminal task
-slopctl prune                                       # remove all terminal tasks
-slopctl prune --all                                 # remove all tasks (root only)
+slopctl delegate AGENT "task description"
+slopctl wait ID
 ```
+
+Recipients use `task ID`, `accept ID`, `progress ID "note"`, then
+`finish ID "result"` or `fail ID "reason"`. Use `inbox` to discover work,
+`rm ID` to remove a terminal task, and `prune` to remove terminal tasks in bulk.
+`prune --all` is root-only and also removes unfinished tasks. CLI help lists the
+current filters and options.
 
 `inbox` shows unfinished work in both directions, newest first. Cancellation marks queued or
 accepted work as `canceled`; removal is shared:
 the store holds one copy of a task, and a participant can only drop tasks that have
 stopped moving. The root token can remove tasks still in flight.
 
-`wait` blocks until the task reaches a terminal `done`, `failed` or `canceled` state, then
-prints that final task. It performs the polling internally, so it is the correct replacement
-for a caller loop over `task`, `inbox`, or `status`. It is useful after delegating work when
-the caller needs to continue only once the result is available.
+`wait` blocks until `done`, `failed`, or `canceled`, then prints the final task.
+It polls internally; do not loop over `task`, `inbox`, or `status`.
 
-`spawn` creates the task and child session in one daemon operation. `PARENT` must be an existing
+`spawn [--durable] PARENT "task description"` creates the task and child session in one daemon operation. `PARENT` must be an existing
 agent session to clone; the caller named by `SLOPWORLD_SESSION` owns the task and sidebar child.
-The child clones the parent's project, command, sandbox, prompts, network, limits, mounts, and
-lifecycle settings, then adds the worker API capability. The worker receives its exact task id
+The child clones the parent's session configuration and adds the worker API capability. The worker receives its exact task id
 in `SLOPWORLD_TASK_ID`, so it should run `slopctl task ID`, accept it, and report progress with
 the normal lifecycle commands. Spawning is root-only. One-shot workers disappear on exit; durable
 workers remain as stopped, inspectable sessions. Exit, stop, removal, or startup failure marks an
@@ -65,15 +54,9 @@ slopctl peers                                       # sessions visible to this c
 
 ## Logs
 
-```sh
-slopctl logs                                        # last 200 lines, game + daemon
-slopctl logs game                                   # game log only (Player.log)
-slopctl logs daemon                                 # daemon journal only
-slopctl logs all                                    # both, prefixed by source
-slopctl logs --lines 500                            # more lines
-slopctl logs --follow                               # tail mode
-slopctl logs --follow | grep -iE 'error|exception'  # filter live output
-```
+`slopctl logs` shows the last 200 lines from the game and daemon. Select `game` or
+`daemon` to narrow the source; `--lines N` controls the count and `--follow` tails
+new output.
 
 The game source reads `Player.log` (override with `SLOPWORLD_GAME_LOG`). The daemon
 source reads the `slopd.service` user journal (override with `SLOPWORLD_DAEMON_UNIT`).
