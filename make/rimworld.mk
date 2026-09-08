@@ -1,8 +1,6 @@
 .PHONY: gogdl-login gogdl-install gogdl-update
 
 ##
-##-> RimWorld
-##
 
 gogdl-login:       ## Log into GOG interactively and save the gogdl token
 	@mkdir -p "$(dir $(GOGDL_AUTH))"; \

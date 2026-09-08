@@ -51,7 +51,7 @@ Build the Linux launcher, then point it at the worker's endpoint and profile:
 
 ```sh
 RIMWORLD=/path/to/RimWorld/game \
-SLOPCAR_CONFIG="$HOME/.config/slopworld-car" make run-slopcar
+SLOPCAR_CONFIG="$HOME/.config/slopworld-car" make sidecar-run
 ```
 
 The sidecar profile is separate from the native profile. Start the worker before running

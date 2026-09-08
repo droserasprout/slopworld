@@ -20,7 +20,7 @@ LOG        ?= $(HOME)/.config/unity3d/Ludeon Studios/RimWorld by Ludeon Studios/
 # Save data folder, defaults to `$XDG_DATA_HOME/slopworld/profile`.
 PROFILE    ?=
 
-# `run-slopcar` wiring: the sidecar's config dir holds the endpoint descriptor its daemon
+# `sidecar-run` wiring: the sidecar's config dir holds the endpoint descriptor its daemon
 # writes (url http://127.0.0.1:7718 + token, bind-mounted to the host), and the game runs into
 # a profile kept wholly apart from the native one. Point SLOPCAR_CONFIG at whatever
 # SLOPCAR_CONFIG_DIR the sidecar was started with; SLOPCAR_DATA keeps its session state separate

@@ -11,7 +11,8 @@ Set `RIMWORLD` to the Linux game directory (the folder containing `RimWorldLinux
 
 ## Targets
 
-`make` with no arguments prints the full target list. The important ones:
+`make` with no arguments prints the primary target list. Component-specific targets remain
+available for focused runs, even when they are omitted from that list. The important ones:
 
 | Target | What it does |
 | --- | --- |

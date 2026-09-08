@@ -1,6 +1,6 @@
 # Building and running
 
-Use the Makefile; `make` prints its target list. On macOS, install GNU Make with
+Use the Makefile; `make` prints its primary target list. On macOS, install GNU Make with
 `brew install make` and use it as `gmake`. `RIMWORLD` defaults to
 `~/GOG Games/RimWorld/game` and must point to a real install because the mod uses its assemblies.
 
@@ -38,12 +38,12 @@ the target RimWorld installation before staging it.
 | `gogdl-install` | Installs the native Linux RimWorld copy from GOG with gogdl. |
 | `gogdl-update` | Updates the existing native Linux RimWorld copy with gogdl. |
 | `run` | Launches through the runner. `PROFILE` picks the folder. |
-| `devloop-sidecar` | Rebuilds/redeploys the sidecar, reinstalls the mod, then runs the game; repeats after the game closes. `SLOPCAR_WORKSPACE` customizes the workspace mount. |
+| `sidecar-devloop` | Rebuilds/redeploys the sidecar, reinstalls the mod, then runs the game; repeats after the game closes. `SLOPCAR_WORKSPACE` customizes the workspace mount. |
 | `mac-setup` | Installs the macOS toolchain and Docker Desktop with Homebrew. |
 | `mac-check` | Checks Docker, Mono and the native macOS RimWorld paths. |
 | `mac-install` | Builds the sidecar image, runs its doctor, and installs the mod into the configured native macOS app bundle. |
 | `mac-run` | Starts the sidecar and launches the configured native macOS game with its isolated profile. |
-| `mac-sidecar-stop` / `mac-sidecar-status` / `mac-sidecar-logs` | Manages or inspects the macOS sidecar. |
+| `mac-stop` / `mac-status` / `mac-logs` | Manages or inspects the macOS sidecar. |
 | `logs` | Tails `Player.log`. |
 | `check-reqs` | Reports required host dependencies and detected optional integrations/tools. |
 | `harmony` | Fetches the latest official Harmony release into `mod/Assemblies/`. |
@@ -65,7 +65,7 @@ filesystem root or a destination inside the source tree. Update
 `$XDG_DATA_HOME/fonts` directory (`~/.local/share/fonts` by default) and refreshes fontconfig
 when `fc-cache` is available. Override `FONT_DIR` or `FONT_SOURCE` when needed.
 
-`devloop-sidecar` passes `SLOPCAR_CONFIG_DIR` to `slopcar start`, keeping the container's
+`sidecar-devloop` passes `SLOPCAR_CONFIG_DIR` to `slopcar start`, keeping the container's
 `endpoint.toml` in the same sidecar config directory that the game launcher reads.
 
 For formatting and auxiliary tools, see [build-tools](build-tools.md). For logs

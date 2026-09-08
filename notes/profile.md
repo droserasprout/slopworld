@@ -33,7 +33,7 @@ run beside it. The lock is released automatically when the owner exits. Before l
 refuses a live `RimWorldLinux` pinned to the same profile, including one started outside the
 launcher; a game with no readable `-savedatafolder` remains fail-closed.
 
-`make run-slopcar` uses `~/.local/share/slopworld-car/profile`, whose parent is already exposed by
+`make sidecar-run` uses `~/.local/share/slopworld-car/profile`, whose parent is already exposed by
 the debug preset. Its saves and settings are separate from the native profile; the daemon endpoint
 is the only connection it inherits. A sidecar profile's first settings file selects the
 `slopworld-warm` UI scheme; later launches leave that file alone.

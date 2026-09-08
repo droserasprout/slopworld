@@ -1,12 +1,7 @@
-.PHONY: install install-daemon install-runner install-mod install-font \
-	mac-mod mac-install mac-profile \
+.PHONY: install-daemon install-runner install-mod install-font \
 	uninstall uninstall-daemon uninstall-runner uninstall-mod uninstall-font
 
 ##
-##-> Install
-##
-
-install: install-daemon install-runner install-mod install-font ## Install the daemon, runner, mod and bundled font
 
 install-daemon: daemon ## Install the binary and the unit, restarting only when needed
 	TARGET="$(TARGET)" BIN="$(BIN)" UNITS="$(UNITS)" BUILD="$(BUILD)" \
@@ -24,20 +19,6 @@ install-font:           ## Install the bundled UI font into the current user's f
 	install -Dm644 "$(FONT_SOURCE)" "$(FONT_DEST)"
 	@if command -v fc-cache >/dev/null 2>&1; then fc-cache -f "$(FONT_DIR)"; fi
 	@echo "installed font to $(FONT_DEST)"
-
-mac-mod: mac-game-check mod ## Build SlopWorld.dll against native macOS RimWorld
-mac-mod: override CSC := $(MAC_CSC)
-mac-mod: override CSC_API := $(MAC_CSC_API)
-mac-mod: override MANAGED := $(MAC_MANAGED)
-
-mac-install: mac-game-check mac-sidecar-doctor install-mod ## Build the sidecar and install the mod into native macOS RimWorld
-mac-install: override CSC := $(MAC_CSC)
-mac-install: override CSC_API := $(MAC_CSC_API)
-mac-install: override MANAGED := $(MAC_MANAGED)
-mac-install: override MODS := $(MAC_MODS)
-
-mac-profile: daemon ## Create the isolated native macOS sidecar profile if it is absent
-	"$(RUNNER)" --profile "$(MAC_PROFILE)" --init-profile --sidecar
 
 ##
 
