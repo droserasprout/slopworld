@@ -55,6 +55,11 @@ namespace SlopWorld
 
         protected override bool Closable => false;
 
+        public static bool CanOpen => ModProfile.Ok && !Cutscene.Playing &&
+            Current.ProgramState == ProgramState.Playing && Find.CurrentMap != null &&
+            Find.WindowStack != null &&
+            Find.WindowStack.WindowOfType<TerminalWindow>() == null;
+
         public static void Toggle()
         {
             var open = Find.WindowStack?.WindowOfType<ShortcutHelpWindow>();
@@ -64,11 +69,7 @@ namespace SlopWorld
                 return;
             }
 
-            if (!ModProfile.Ok || Cutscene.Playing ||
-                Current.ProgramState != ProgramState.Playing ||
-                Find.CurrentMap == null ||
-                Find.WindowStack?.WindowOfType<TerminalWindow>() != null)
-                return;
+            if (!CanOpen) return;
 
             Find.WindowStack.Add(new ShortcutHelpWindow());
         }
@@ -77,11 +78,7 @@ namespace SlopWorld
         // vanilla control. The terminal check is repeated here as a guard for future callers.
         public static bool HandleMapKey(Event e)
         {
-            if (e == null || e.type != EventType.KeyDown ||
-                !ModProfile.Ok || Cutscene.Playing ||
-                Current.ProgramState != ProgramState.Playing ||
-                Find.CurrentMap == null ||
-                Find.WindowStack?.WindowOfType<TerminalWindow>() != null || !IsHelpKey(e))
+            if (e == null || e.type != EventType.KeyDown || !CanOpen || !IsHelpKey(e))
                 return false;
 
             Toggle();
