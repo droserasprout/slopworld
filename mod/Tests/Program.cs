@@ -12,6 +12,8 @@ namespace SlopWorld.Tests
                 quiet |= arg == "--quiet";
 
             var tests = new List<(string Name, Action Body)>();
+            foreach (var test in RepaintTests.Cases())
+                tests.Add(("Repaint: " + test.Name, test.Body));
             foreach (var test in JsonTests.Cases())
                 tests.Add(("JVal: " + test.Name, test.Body));
             foreach (var test in FuzzyTests.Cases())

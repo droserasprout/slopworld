@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.Linq;
 using UnityEngine;
 using Verse;
 
@@ -15,7 +14,7 @@ namespace SlopWorld
 
         protected abstract string EmptyNote { get; }
 
-        protected abstract IEnumerable<T> Rows { get; }
+        protected abstract IList<T> Rows { get; }
 
         protected abstract void DrawRow(Rect r, T item);
 
@@ -41,8 +40,7 @@ namespace SlopWorld
 
         void DrawList(Rect rect, SessionHub hub)
         {
-            var items = Rows.ToList();
-            PerfTrace.Count("ui-list-rows-copied", items.Count);
+            var items = Rows;
             float contentH = items.Count * RowH + UiWidgets.GapXS;
             var view = UiScrollBody.ConditionalView(rect, contentH);
 
@@ -55,12 +53,12 @@ namespace SlopWorld
                             view.width - UiWidgets.GapS, view.height), note, UiWidgets.Dim);
                 }
 
-                float y = 0f;
-                PerfTrace.Count("ui-list-rows-drawn", items.Count);
-                foreach (var item in items)
+                VisibleRows.Uniform(items.Count, RowH, _scroll.Position.y, rect.height,
+                    out int first, out int end);
+                PerfTrace.Count("ui-list-rows-drawn", end - first);
+                for (int i = first; i < end; i++)
                 {
-                    DrawRow(new Rect(0f, y, view.width, RowH - UiWidgets.GapXS), item);
-                    y += RowH;
+                    DrawRow(new Rect(0f, i * RowH, view.width, RowH - UiWidgets.GapXS), items[i]);
                 }
             }
         }

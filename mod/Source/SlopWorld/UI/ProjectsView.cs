@@ -26,7 +26,9 @@ namespace SlopWorld
         protected override string EmptyNote =>
             "No projects yet. Add one, then put an agent in it.";
 
-        protected override IEnumerable<ProjectInfo> Rows => SessionHub.Instance.Projects;
+        protected override IList<ProjectInfo> Rows => SessionHub.Instance.Projects;
+
+        readonly ProjectSessionCounts _counts = new ProjectSessionCounts();
 
         protected override void DoFooter(Rect bar, SessionHub hub)
         {
@@ -56,7 +58,8 @@ namespace SlopWorld
                 new Rect(r.x + UiWidgets.GapS, l1, nameW, UiWidgets.LineH), p.Name);
 
             // The number that decides whether this project can be deleted at all.
-            int agents = SessionHub.Instance.Sessions.Count(s => s.Project == p.Name);
+            var hub = SessionHub.Instance;
+            int agents = _counts.Get(hub.Sessions, hub.SessionsVersion, p.Name);
             GUI.color = UiWidgets.Dim;
             UiWidgets.RowLabel(
                 new Rect(r.x + UiWidgets.GapS + nameW + UiWidgets.GapS, l1,

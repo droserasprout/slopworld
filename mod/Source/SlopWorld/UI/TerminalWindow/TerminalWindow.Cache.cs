@@ -10,12 +10,9 @@ namespace SlopWorld
 
         // What the pane looked like last time it changed.
         RenderTexture _cache;
-        string _cacheName;
-        int _cacheSeq = -1, _cacheOff = -1, _cacheRev = -1, _cacheFontRev = -1;
+        TerminalCacheKey _cacheKey;
         int _cacheContentRevision = -1;
-        ScreenBuf _cacheBuffer;
-        Rect _cacheBody;
-        float _cacheCw, _cacheCh, _cacheLead;
+        float _cacheLead;
         bool _noCache;
 
         // Cache the pane between screen frames: the daemon updates more slowly than the monitor.
@@ -57,16 +54,23 @@ namespace SlopWorld
 
             if (!_cache.IsCreated()) { _cache.Create(); fresh = true; }
 
-            bool repaintAll = fresh
-                || _cacheBuffer != buf
-                || _cacheName != _name
-                || _cacheOff != buf.Off
-                || _cacheBody != body
-                || _cacheCw != cw || _cacheCh != ch
-                || _cacheLead != CacheLead(body, ch)
-                || _cacheRev != TerminalTheme.Rev
-                || _cacheFontRev != TerminalFont.Rev;
-            bool contentChanged = _cacheContentRevision != buf.ContentRevision;
+            var key = new TerminalCacheKey
+            {
+                Buffer = buf,
+                Session = _name,
+                Offset = buf.Off,
+                X = body.x,
+                Y = body.y,
+                Width = body.width,
+                Height = body.height,
+                CellW = cw,
+                CellH = ch,
+                Lead = CacheLead(body, ch),
+                Theme = TerminalTheme.Rev,
+                Font = TerminalFont.Rev,
+            };
+            bool repaintAll = fresh || !_cacheKey.Matches(key);
+            var repaint = TerminalRepaintPolicy.Choose(repaintAll, _cacheContentRevision, buf);
             if (repaintAll)
             {
                 PerfTrace.Count("terminal-cache-misses");
@@ -74,7 +78,6 @@ namespace SlopWorld
                 // Keep the pre-paint revision. RequestCharactersInTexture can rebuild the
                 // atlas while Paint is running; retaining the old revision forces one clean
                 // repaint after that rebuild instead of caching a half-drawn first frame.
-                int fontRev = TerminalFont.Rev;
                 var was = RenderTexture.active;
                 try
                 {
@@ -89,22 +92,14 @@ namespace SlopWorld
                     RenderTexture.active = was;
                 }
 
-                _cacheName = _name;
-                _cacheSeq = buf.Seq;
-                _cacheOff = buf.Off;
-                _cacheRev = TerminalTheme.Rev;
-                _cacheFontRev = fontRev;
-                _cacheBody = body;
-                _cacheCw = cw;
-                _cacheCh = ch;
+                _cacheKey = key;
             }
-            else if (contentChanged && buf.ChangedRows != null && buf.ChangedRows.Length > 0)
+            else if (repaint != TerminalRepaint.None)
             {
                 PerfTrace.Count("terminal-cache-repaints");
                 // Small live edits only invalidate their rows. A broad terminal scroll changes
                 // most rows, where one full paint is cheaper and avoids many GUI draw calls.
-                int lineCount = buf.Lines == null ? 0 : buf.Lines.Length;
-                bool broad = buf.ChangedRows.Length * 2 >= Mathf.Max(1, lineCount);
+                bool broad = repaint == TerminalRepaint.Full;
                 var was = RenderTexture.active;
                 try
                 {
@@ -130,7 +125,6 @@ namespace SlopWorld
                 }
             }
 
-            _cacheBuffer = buf;
             _cacheContentRevision = buf.ContentRevision;
 
             return true;
@@ -158,7 +152,7 @@ namespace SlopWorld
             // The shared texture is only a valid fallback while this session remains active.
             // A switched tab must use its own displayed-frame snapshot or wait for its first
             // screen; showing the previous tab for one frame reads as terminal flicker.
-            if (_cacheName != _name) return false;
+            if (_cacheKey.Session != _name) return false;
             if (Event.current.type != EventType.Repaint) return true;
 
             float debugStarted = ScrollDebugTimer();
@@ -212,10 +206,8 @@ namespace SlopWorld
             _cache.Release();
             Object.Destroy(_cache);
             _cache = null;
-            _cacheSeq = _cacheOff = _cacheRev = _cacheFontRev = -1;
+            _cacheKey = default(TerminalCacheKey);
             _cacheContentRevision = -1;
-            _cacheBuffer = null;
-            _cacheName = null;
             _cacheLead = 0f;
         }
 

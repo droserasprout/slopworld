@@ -43,3 +43,8 @@ command shapes; `UI/UrlScan.cs` handles URL/scheme scanning, trailing-punctuatio
 trimming, and OSC 8 parsing. Both are linked and tested while the shells keep their
 public APIs as thin wrappers. See [mod-client](mod-client.md) and
 [mod-ui-search](mod-ui-search.md).
+
+`RepaintTests` links the tree/list viewport geometry, revision/reveal index, project session
+counts, routed-row preparation, and terminal repaint policy/key. It checks large-tree lookup
+cost, interval boundaries, cache invalidation, and selective versus full repaint decisions
+without constructing game state. It does not exercise Unity drawing or event dispatch.

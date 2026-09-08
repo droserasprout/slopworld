@@ -95,7 +95,7 @@ namespace SlopWorld
         readonly MouseClickSequence _clicks = new MouseClickSequence();
         readonly List<Line> _lines = new List<Line>();
         readonly List<Item> _items = new List<Item>();
-        readonly List<ContentTreeGroup> _layoutGroups = new List<ContentTreeGroup>();
+        readonly ContentTreeIndex _index = new ContentTreeIndex();
         IList<ContentTreeGroup> _groups;
         Rect _body;
         string _selected;
@@ -105,7 +105,6 @@ namespace SlopWorld
         float _visibleTop;
         float _visibleBottom;
         float _contentHeight = -1f;
-        int _layoutRevision = int.MinValue;
         int _groupsRevision = int.MinValue;
 
         enum ItemKind
@@ -125,6 +124,7 @@ namespace SlopWorld
             public Color NoteColor;
             public int Depth;
             public float Y;
+            public float Height;
         }
 
         struct Line
@@ -157,6 +157,11 @@ namespace SlopWorld
                 }
 
                 EnsureLayout(groups);
+                if (_reveal != null && _index.Reveal(_reveal, out float revealTop))
+                {
+                    _revealTop = revealTop;
+                    _reveal = null;
+                }
                 bool scrollEvent = Event.current.type == EventType.ScrollWheel ||
                     (Event.current.type == EventType.Used &&
                         Event.current.rawType == EventType.ScrollWheel);
@@ -181,10 +186,11 @@ namespace SlopWorld
                     // take seconds to drain.
                     if (!scrollEvent)
                     {
-                        foreach (var item in _items)
+                        for (int i = _index.First(_visibleTop);
+                             i < _items.Count && _items[i].Y < _visibleBottom; i++)
                         {
                             PerfTrace.Count("content-tree-rows-visited");
-                            DrawItem(view.width, item);
+                            DrawItem(view.width, _items[i]);
                         }
                     }
                 }
@@ -205,27 +211,10 @@ namespace SlopWorld
         void EnsureLayout(IList<ContentTreeGroup> groups)
         {
             int revision = _source.Revision;
-            bool same = revision == _layoutRevision && groups.Count == _layoutGroups.Count;
-            if (same)
-            {
-                for (int i = 0; i < groups.Count; i++)
-                {
-                    var old = _layoutGroups[i];
-                    var next = groups[i];
-                    if (old.Key != next.Key || old.Label != next.Label || old.Path != next.Path ||
-                        !Equals(old.Value, next.Value) || old.Root != next.Root)
-                    {
-                        same = false;
-                        break;
-                    }
-                }
-            }
-
-            if (same) return;
+            if (_index.IsCurrent(revision)) return;
 
             _items.Clear();
-            _layoutGroups.Clear();
-            foreach (var group in groups) _layoutGroups.Add(group);
+            _index.Clear();
 
             float y = Pad;
             foreach (var group in groups)
@@ -245,7 +234,16 @@ namespace SlopWorld
             }
 
             _contentHeight = y + Pad;
-            _layoutRevision = revision;
+            for (int i = 0; i < _items.Count; i++)
+            {
+                float end = i + 1 < _items.Count ? _items[i + 1].Y : y;
+                var item = _items[i];
+                item.Height = end - item.Y;
+                _items[i] = item;
+                _index.Add(item.Y, end,
+                    item.Node == null ? null : _source.SelectionKey(item.Node));
+            }
+            _index.Commit(revision);
         }
 
         void BuildRows(IContentTreeNode parent, ref float y)
@@ -302,8 +300,7 @@ namespace SlopWorld
             }
             if (item.Kind == ItemKind.Body)
             {
-                float bodyHeight = _source.GroupBodyHeight(item.Group);
-                if (item.Y + bodyHeight > _visibleTop && item.Y < _visibleBottom)
+                if (item.Y + item.Height > _visibleTop && item.Y < _visibleBottom)
                 {
                     PerfTrace.Count("content-tree-rows-drawn");
                     _source.DrawGroupBody(width, item.Y, item.Group);
@@ -320,8 +317,7 @@ namespace SlopWorld
                 return;
             }
 
-            bool reveal = _reveal != null && _reveal == _source.SelectionKey(item.Node);
-            if (Visible(item.Y) || reveal)
+            if (Visible(item.Y))
             {
                 PerfTrace.Count("content-tree-rows-drawn");
                 DrawRow(width, item.Y, item.Node);
@@ -404,13 +400,6 @@ namespace SlopWorld
                     TooltipHandler.TipRegion(row, _source.RowTooltip(node));
 
                 _lines.Add(new Line { Node = node, Rect = row });
-                if (_reveal != null && _reveal == _source.SelectionKey(node))
-                {
-                    // Apply before Begin on the next pass. Changing the scroll transform inside
-                    // its GUI group would make this pass's drawing and hit testing disagree.
-                    _revealTop = row.y;
-                    _reveal = null;
-                }
                 return y + RowH;
             }
         }
