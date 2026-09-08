@@ -82,14 +82,7 @@ namespace SlopWorld
 
             if (UiWidgets.Button(new Rect(right - actW, l2, actW, UiWidgets.RowBtnH), "Delete",
                     UiWidgets.Btn.Danger))
-            {
-                var name = p.Name;
-                TerminalWindow.OpenOverPane(ConfirmDialog.Create(
-                    $"Remove project '{name}'? The directory is left alone; only the entry " +
-                    "in config.toml goes.",
-                    () => SessionHub.Instance.RemoveProject(name, UiWidgets.Fail),
-                    destructive: true));
-            }
+                TerminalWindow.OpenOverPane(CatalogActions.RemoveProject(p.Name));
         }
 
         // The sandbox in one line, the way the agent rows read it.

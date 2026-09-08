@@ -6,7 +6,7 @@ shim. It is written to `Config/SlopWorld.toml`; it is not the daemon's machine-w
 
 The fields cover connection, sidebar state, command-palette history, quota display,
 terminal/UI fonts and themes, cursor, radio, status-bar readouts, Grandma mode and
-Eco mode. Adding one requires a field, a TOML read/write entry, a shim property and
+Eco mode. Adding one requires a field, one typed `Fields` table entry, a shim property and
 a widget unless it is a screen cache such as command-palette history.
 
 ## Fields without a Settings-page widget
@@ -45,8 +45,12 @@ settings, `TerminalPage` edits pane settings, and `StatusbarPage` edits statusba
 presentation; `ConfigPage` edits daemon configuration.
 Mod settings are written atomically by `ModSettings.Write` when the Settings view closes,
 and dirty values also flush periodically.
+The table uses typed field references with the existing parsers and formatters; runtime
+dirty state is excluded. Game-free tests round-trip every public setting through disk.
 
 Font or size changes invalidate `TerminalFont`; terminal scheme changes invalidate
 `TerminalTheme`. Cursor and UI scheme resolve on read and need no cache invalidation.
 The open terminal belongs to the colony save and is handled by `TerminalRecall`, not
 by writing mod settings on every selection.
+`UiWidgets.SetSetting`, `CheckboxSetting`, and the integer `SliderSetting` assign and
+mark dirty only on changes. Callers explicitly invalidate font/theme caches when needed.

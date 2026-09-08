@@ -171,13 +171,7 @@ namespace SlopWorld
 
             var foot = new UiWidgets.Bar(UiWidgets.FooterBar(rect));
             if (!_isNew && foot.Left("Reset private state", UiWidgets.Btn.Danger))
-            {
-                string name = _origName;
-                Find.WindowStack.Add(ConfirmDialog.Create(
-                    $"Reset private state for '{name}'? This stops the agent and gives its tools " +
-                    "a fresh state on next start. The old state stays recoverable for 14 days.",
-                    () => SessionHub.Instance.ResetState(name, UiWidgets.Fail), destructive: true));
-            }
+                Find.WindowStack.Add(CatalogActions.ResetState(_origName));
             if (foot.Left("Cancel", UiWidgets.Btn.Ghost)) Close();
             if (foot.Right("Save", UiWidgets.Btn.Primary)) Save();
         }

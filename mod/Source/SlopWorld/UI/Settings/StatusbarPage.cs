@@ -24,10 +24,9 @@ namespace SlopWorld
                 l.Begin(inner);
 
                 UiWidgets.SectionHeading(l, "Statusbar");
-                bool usage = UiWidgets.Checkbox(l, "Show Usage in statusbar", S.statusbarUsage,
+                UiWidgets.CheckboxSetting(l, "Show Usage in statusbar", S, ref S.statusbarUsage,
                     "Show quota readouts in the top statusbar.");
-                bool spent = UiWidgets.Checkbox(l, "Show spent instead of left",
-                    Settings.UsageSpent,
+                UiWidgets.CheckboxSetting(l, "Show spent instead of left", S, ref S.usageSpent,
                     "Applies to every provider. Left is the amount remaining; spent is the " +
                     "provider-facing percentage or amount used.");
                 string clockPosition = StatusbarClockMode.Normalize(S.statusbarClockPosition);
@@ -38,34 +37,18 @@ namespace SlopWorld
                         new SelectorOption("Center", () => SetClockPosition(StatusbarClockMode.Center)),
                         new SelectorOption("Hidden", () => SetClockPosition(StatusbarClockMode.Hidden)),
                     }, out _);
-                bool jukebox = UiWidgets.Checkbox(l, "Show Jukebox in statusbar",
-                    S.statusbarJukebox,
+                UiWidgets.CheckboxSetting(l, "Show Jukebox in statusbar", S, ref S.statusbarJukebox,
                     "Show the jukebox door when a jukebox is present.");
-                bool gm = UiWidgets.Checkbox(l, "Show GM in statusbar", S.statusbarGM,
+                UiWidgets.CheckboxSetting(l, "Show GM in statusbar", S, ref S.statusbarGM,
                     "Show the Computer Core door when the core is present.");
-                bool indicators = UiWidgets.Checkbox(l, "Show agent status indicators",
-                    S.statusbarAgentIndicators,
+                UiWidgets.CheckboxSetting(l, "Show agent status indicators", S, ref S.statusbarAgentIndicators,
                     "Show autostart, resume-on-start, and host-network flags in Agents.");
-                if (usage != S.statusbarUsage || spent != Settings.UsageSpent
-                    || jukebox != S.statusbarJukebox || gm != S.statusbarGM
-                    || indicators != S.statusbarAgentIndicators)
-                {
-                    S.statusbarUsage = usage;
-                    S.usageSpent = spent;
-                    S.statusbarJukebox = jukebox;
-                    S.statusbarGM = gm;
-                    S.statusbarAgentIndicators = indicators;
-                    S.MarkDirty();
-                }
 
                 l.End();
             }
         }
 
         static void SetClockPosition(string position)
-        {
-            S.statusbarClockPosition = position;
-            S.MarkDirty();
-        }
+            => UiWidgets.SetSetting(S, ref S.statusbarClockPosition, position);
     }
 }

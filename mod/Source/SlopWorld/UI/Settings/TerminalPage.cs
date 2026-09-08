@@ -76,28 +76,18 @@ namespace SlopWorld
             {
                 new FloatMenuOption("Automatic", () =>
                 {
-                    s.fontName = "";
-                    TerminalFont.Invalidate();
-                    s.MarkDirty();
+                    if (UiWidgets.SetSetting(s, ref s.fontName, "")) TerminalFont.Invalidate();
                 }),
             };
             fontOptions.AddRange(UiWidgets.GroupedFontOptions(TerminalFont.Mono, name =>
             {
-                s.fontName = name;
-                TerminalFont.Invalidate();
-                s.MarkDirty();
+                if (UiWidgets.SetSetting(s, ref s.fontName, name)) TerminalFont.Invalidate();
             }));
             UiWidgets.Select(l, "Font", s.fontName.NullOrEmpty() ? "Automatic" : s.fontName,
                 fontOptions, out _);
 
-            int size = Mathf.RoundToInt(UiWidgets.Slider(l, "Font size", s.fontSize,
-                8, 28, s.fontSize.ToString()));
-            if (size != s.fontSize)
-            {
-                s.fontSize = size;
+            if (UiWidgets.SliderSetting(l, "Font size", s, ref s.fontSize, 8, 28))
                 TerminalFont.Invalidate();
-                s.MarkDirty();
-            }
             l.Gap(UiWidgets.GapM);
 
             float used = l.CurHeight;
@@ -115,9 +105,7 @@ namespace SlopWorld
                 Find.WindowStack.Add(new UiMenu(TerminalTheme.All
                     .Select(t => new FloatMenuOption(t.Label, () =>
                     {
-                        s.theme = t.Name;
-                        TerminalTheme.Invalidate();
-                        s.MarkDirty();
+                        if (UiWidgets.SetSetting(s, ref s.theme, t.Name)) TerminalTheme.Invalidate();
                     }))
                     .ToList()));
 
@@ -135,9 +123,8 @@ namespace SlopWorld
             l.Begin(rect);
 
             l.Label("Cursor color, #rrggbb (blank = the scheme's)");
-            string prevColor = s.cursorColor;
-            s.cursorColor = UiWidgets.Field(l, "term.cursor", s.cursorColor ?? "");
-            if (s.cursorColor != prevColor) s.MarkDirty();
+            UiWidgets.SetSetting(s, ref s.cursorColor,
+                UiWidgets.Field(l, "term.cursor", s.cursorColor ?? ""));
 
             // Said rather than corrected: a half-typed "#8" is not a mistake yet, and a field
             // that rewrote itself under the cursor would be unusable.

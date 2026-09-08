@@ -176,26 +176,13 @@ namespace SlopWorld
             x -= resetW + UiWidgets.GapXS;
             if (!s.Ephemeral && UiWidgets.Button(new Rect(x, bottom, resetW, UiWidgets.RowBtnH),
                                     "Reset", UiWidgets.Btn.Ghost))
-            {
-                var name = s.Name;
-                TerminalWindow.OpenOverPane(ConfirmDialog.Create(
-                    $"Reset private state for '{name}'? This stops the agent and gives its tools " +
-                    "a fresh state on next start. The old state stays recoverable for 14 days.",
-                    () => SessionHub.Instance.ResetState(name, UiWidgets.Fail), destructive: true));
-            }
+                TerminalWindow.OpenOverPane(CatalogActions.ResetState(s.Name));
 
             float delW = UiWidgets.BtnW("Del", 48f);
             x -= delW + UiWidgets.GapXS;
             if (!s.Ephemeral && UiWidgets.Button(new Rect(x, bottom, delW, UiWidgets.RowBtnH),
                                     "Del", UiWidgets.Btn.Danger))
-            {
-                var name = s.Name;
-                TerminalWindow.OpenOverPane(ConfirmDialog.Create(
-                    $"Remove session '{name}'? This kills it, drops it from config.toml, and moves " +
-                    "its private state to recoverable trash for 14 days.",
-                    () => SessionHub.Instance.Remove(name, UiWidgets.Fail),
-                    destructive: true));
-            }
+                TerminalWindow.OpenOverPane(CatalogActions.RemoveSession(s.Name));
 
             return UiWidgets.RowBtnH;
         }

@@ -20,6 +20,10 @@ behavior, pixel layout, and most Harmony details remain in-game checks.
 
 ## First project
 
+`ModSettingsTests` exercises the real profile-file persistence with test-only path/log
+bindings. `HubCatalogTests` links the real catalog against a queued fake HTTP transport
+to reorder GETs, socket snapshots, and write completions without a daemon or game.
+
 The lighter path needs no source restructure: `mod/Tests/` is a project that *links*
 the specific pure source files (`<Compile Include="../Source/.../Fuzzy.cs" />`)
 rather than referencing the mod DLL — the DLL only loads against a live install.

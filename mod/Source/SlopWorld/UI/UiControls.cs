@@ -200,6 +200,23 @@ namespace SlopWorld
             return value;
         }
 
+        public static bool SetSetting<T>(ModSettings settings, ref T field, T value)
+        {
+            if (System.Collections.Generic.EqualityComparer<T>.Default.Equals(field, value)) return false;
+            field = value;
+            settings.MarkDirty();
+            return true;
+        }
+
+        public static void CheckboxSetting(Listing_Standard l, string label, ModSettings settings,
+            ref bool field, string tip = null) =>
+            SetSetting(settings, ref field, Checkbox(l, label, field, tip));
+
+        public static bool SliderSetting(Listing_Standard l, string label, ModSettings settings,
+            ref int field, int min, int max) =>
+            SetSetting(settings, ref field, Mathf.RoundToInt(Slider(l, label, field,
+                min, max, field.ToString())));
+
         public static bool Checkbox(Listing_Standard l, string label, bool on, string tip = null)
         {
             bool value = Checkbox(l.GetRect(RowH), label, on, tip);

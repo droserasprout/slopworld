@@ -87,41 +87,20 @@ pub(crate) async fn destroy(
     super::ok_json(m.remove(&name).await)
 }
 
-pub(crate) async fn start(
-    State(m): State<Mgr>,
-    Extension(cap): Extension<Cap>,
-    Path(name): Path<String>,
-) -> ApiResult {
-    super::guard(&m, &cap, &name, Level::Rw).await?;
-    super::ok_json(m.start(&name).await)
+macro_rules! session_action {
+    ($($action:ident),+ $(,)?) => {
+        $(pub(crate) async fn $action(
+            State(m): State<Mgr>,
+            Extension(cap): Extension<Cap>,
+            Path(name): Path<String>,
+        ) -> ApiResult {
+            super::guard(&m, &cap, &name, Level::Rw).await?;
+            super::ok_json(m.$action(&name).await)
+        })+
+    };
 }
 
-pub(crate) async fn stop(
-    State(m): State<Mgr>,
-    Extension(cap): Extension<Cap>,
-    Path(name): Path<String>,
-) -> ApiResult {
-    super::guard(&m, &cap, &name, Level::Rw).await?;
-    super::ok_json(m.stop(&name).await)
-}
-
-pub(crate) async fn reset_state(
-    State(m): State<Mgr>,
-    Extension(cap): Extension<Cap>,
-    Path(name): Path<String>,
-) -> ApiResult {
-    super::guard(&m, &cap, &name, Level::Rw).await?;
-    super::ok_json(m.reset_state(&name).await)
-}
-
-pub(crate) async fn restart(
-    State(m): State<Mgr>,
-    Extension(cap): Extension<Cap>,
-    Path(name): Path<String>,
-) -> ApiResult {
-    super::guard(&m, &cap, &name, Level::Rw).await?;
-    super::ok_json(m.restart(&name).await)
-}
+session_action!(start, stop, reset_state, restart);
 
 pub(crate) async fn stored_states(State(m): State<Mgr>) -> ApiResult {
     m.stored_states()
@@ -159,4 +138,49 @@ pub(crate) async fn set_label(
 ) -> ApiResult {
     super::guard(&m, &cap, &name, Level::Rw).await?;
     super::ok_json(m.set_label(&name, q.label).await)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::grant::Grant;
+
+    #[tokio::test]
+    async fn session_actions_require_write_access_and_keep_response_shapes() {
+        let manager = crate::session::test_manager(crate::config::Config::default());
+        let name = format!("missing-{}", uuid::Uuid::new_v4());
+        macro_rules! check {
+            ($action:ident, $status:expr) => {
+                for level in [Level::Ro, Level::Rw] {
+                    let cap = Cap::Scoped(Grant {
+                        grantor: "caller".into(),
+                        sessions: if level == Level::Ro { [name.clone()].into() } else { Default::default() },
+                        level,
+                    });
+                    let (status, Json(body)) = $action(State(manager.clone()), Extension(cap), Path(name.clone())).await.unwrap_err();
+                    assert_eq!(status, StatusCode::FORBIDDEN);
+                    assert_eq!(body, json!({ "error": format!("not allowed: {name}") }));
+                }
+                for cap in [Cap::Root, Cap::Scoped(Grant {
+                    grantor: "caller".into(), sessions: [name.clone()].into(), level: Level::Rw,
+                })] {
+                    let response = $action(State(manager.clone()), Extension(cap), Path(name.clone())).await;
+                    match response {
+                        Ok(Json(body)) => {
+                            assert_eq!($status, StatusCode::OK);
+                            assert_eq!(body, json!({ "ok": true }));
+                        }
+                        Err((status, Json(body))) => {
+                            assert_eq!(status, $status);
+                            assert!(body["error"].as_str().unwrap().contains(&name));
+                        }
+                    }
+                }
+            };
+        }
+        check!(start, StatusCode::BAD_REQUEST);
+        check!(stop, StatusCode::OK);
+        check!(restart, StatusCode::BAD_REQUEST);
+        check!(reset_state, StatusCode::BAD_REQUEST);
+    }
 }
