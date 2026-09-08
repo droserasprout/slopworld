@@ -86,7 +86,8 @@ sends SIGINT to the agent.
 ### Eco mode {#eco-mode}
 
 Eco mode stops the game simulation while the daemon and agents continue running. Enable it
-from Settings > Appearance.
+from Settings under "Game". Eco leaves foreground responsiveness unchanged. Frame pacing
+is controlled separately under "Display"; unfocused windows use 15 FPS.
 
 ## Contributing
 

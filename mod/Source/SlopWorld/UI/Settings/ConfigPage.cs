@@ -22,10 +22,10 @@ namespace SlopWorld
             UiWidgets.SectionHeading(l, "Game");
             var s = ModEntry.Instance.settings;
             bool eco = UiWidgets.Checkbox(l, "Eco mode", s.ecoMode);
-            UiWidgets.Note(l, "80% less CPU. 0.1% less guilt. You're welcome, Earth.");
+            UiWidgets.Note(l, "Pause gameplay and hide the map. Agents and terminal stay responsive.");
 
             // Only with the mode on: a slider for a backdrop nothing is drawing is a knob that
-            // does nothing, and the note above is what says so. Stepped to twentieths because
+            // does nothing. Stepped to twentieths because
             // the value keys a material - see Eco.Shade.
             if (s.ecoMode)
             {
@@ -45,6 +45,8 @@ namespace SlopWorld
                 s.MarkDirty();
             }
 
+            l.Gap(UiWidgets.GapL);
+            DrawDisplay(l, s);
             l.Gap(UiWidgets.GapL);
             UiWidgets.SectionHeading(l, "Locale");
             if (UiWidgets.Button(l,
@@ -66,6 +68,35 @@ namespace SlopWorld
             }.ToList()));
             }
 
+        }
+
+        static void DrawDisplay(Listing_Standard l, ModSettings s)
+        {
+            UiWidgets.SectionHeading(l, "Display");
+            if (UiWidgets.Button(l, "Frame pacing: " + FramePolicy.Label(s.displayMode)))
+                Find.WindowStack.Add(new UiMenu(new[] { FramePolicy.Game, FramePolicy.Sync, FramePolicy.Limit }
+                    .Select(mode => new FloatMenuOption(FramePolicy.Label(mode), () =>
+                    {
+                        s.displayMode = mode;
+                        s.MarkDirty();
+                    })).ToList()));
+            if (FramePolicy.Normalize(s.displayMode) == FramePolicy.Limit)
+            {
+                if (UiWidgets.Button(l, "FPS limit: " + FramePolicy.Clamp(s.foregroundFps)))
+                    Find.WindowStack.Add(new UiMenu(new[] { 30, 60, 90, 120, 144 }
+                        .Select(fps => new FloatMenuOption(fps + " FPS", () =>
+                        {
+                            s.foregroundFps = fps;
+                            s.MarkDirty();
+                        })).ToList()));
+                UiWidgets.SliderSetting(l, "Custom FPS", s, ref s.foregroundFps, 30, 360);
+                UiWidgets.Note(l, "Disables VSync. Lower limits save power; higher limits improve responsiveness.");
+            }
+            else
+                UiWidgets.Note(l, FramePolicy.Normalize(s.displayMode) == FramePolicy.Sync
+                    ? "VSync follows the display refresh rate for smooth presentation."
+                    : "Preserve the game's frame rate and VSync settings.");
+            UiWidgets.Note(l, "Applies with or without Eco mode. Unfocused windows use 15 FPS.");
         }
 
         static void DrawConnectionSummary(Listing_Standard l)

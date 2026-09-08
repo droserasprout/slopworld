@@ -9,6 +9,11 @@ terminal/UI fonts and themes, cursor, radio, status-bar readouts, Grandma mode a
 Eco mode. Adding one requires a field, one typed `Fields` table entry, a shim property and
 a widget unless it is a screen cache such as command-palette history.
 
+General > Display stores `displayMode` (`game`, `sync`, `limit`) and `foregroundFps`
+(default 60, effective range 30–360). Missing or unknown modes use Game default,
+preserving existing foreground settings. Changes apply live in both Eco and gameplay;
+unfocused windows use 15 FPS. `FramePolicy` saves and restores the game's pacing pair.
+
 ## Fields without a Settings-page widget
 
 Sidebar width, folds, selected tab, agent status filtering and hidden-row filtering are

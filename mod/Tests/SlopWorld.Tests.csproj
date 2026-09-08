@@ -18,6 +18,7 @@
     <Compile Include="../Source/SlopWorld/Client/SessionHub/PresetInfo.cs" Link="Source/Client/SessionHub/PresetInfo.cs" />
     <Compile Include="../Source/SlopWorld/Client/SessionHub/CommandInfo.cs" Link="Source/Client/SessionHub/CommandInfo.cs" />
     <Compile Include="../Source/SlopWorld/Settings/ModSettings.cs" Link="Source/Settings/ModSettings.cs" />
+    <Compile Include="../Source/SlopWorld/Settings/FramePolicy.cs" Link="Source/Settings/FramePolicy.cs" />
     <Compile Include="../Source/SlopWorld/UI/VisibleRows.cs" Link="Source/UI/VisibleRows.cs" />
     <Compile Include="../Source/SlopWorld/UI/ContentTreeIndex.cs" Link="Source/UI/ContentTreeIndex.cs" />
     <Compile Include="../Source/SlopWorld/UI/ProjectSessionCounts.cs" Link="Source/UI/ProjectSessionCounts.cs" />

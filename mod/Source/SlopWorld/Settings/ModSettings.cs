@@ -157,10 +157,14 @@ namespace SlopWorld
         public bool grandmaMode;
 
         // Eco mode: the board stops. The clock is held paused, the map's draw chain stands
-        // down, the frames are capped, and with the pane closed the menu's own background is
+        // down, and with the pane closed the menu's own background is
         // drawn where the board was. Everything the terminal is made of keeps running. See
         // Eco.
         public bool ecoMode;
+
+        // Keep the game's foreground policy unless the user chooses a display override.
+        public string displayMode = FramePolicy.Game;
+        public int foregroundFps = 60;
 
         // How far the eco backdrop is taken down behind the agents, 0 being the picture as the
         // menu draws it. Eco is a mode somebody leaves the game sitting in, so this is taste
@@ -245,6 +249,8 @@ namespace SlopWorld
             Field("radioStopOnExit", (ModSettings s) => ref s.radioStopOnExit, Bool, String),
             Field("grandmaMode", (ModSettings s) => ref s.grandmaMode, Bool, String),
             Field("ecoMode", (ModSettings s) => ref s.ecoMode, Bool, String),
+            Field("displayMode", (ModSettings s) => ref s.displayMode, Text, String),
+            Field("foregroundFps", (ModSettings s) => ref s.foregroundFps, Int, Number),
             Field("ecoDim", (ModSettings s) => ref s.ecoDim, Float, Number),
         };
 
@@ -347,6 +353,8 @@ namespace SlopWorld
         public static bool RadioStopOnExit => S.radioStopOnExit;
         public static bool GrandmaMode => S.grandmaMode;
         public static bool EcoMode => S.ecoMode;
+        public static string DisplayMode => FramePolicy.Normalize(S.displayMode);
+        public static int ForegroundFps => FramePolicy.Clamp(S.foregroundFps);
         public static float EcoDim => S.ecoDim;
     }
 }
