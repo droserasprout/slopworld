@@ -516,7 +516,7 @@ impl Manager {
                 return Err(e);
             }
         }
-        crate::sandbox::finish_restored_state(&session);
+        crate::sandbox::finish_restored_state(&session)?;
         self.sync_from_config().await;
         Ok(session.name)
     }

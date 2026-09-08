@@ -572,7 +572,7 @@ pub struct SessionCfg {
     /// A non-empty manual sidebar label disables automatic title summaries for this agent.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub label: Option<String>,
-    /// Stable, daemon-owned identity of this agent's private state.  Names are UI and tmux
+    /// Stable, daemon-owned UUID identity of this agent's private state. Names are UI and tmux
     /// handles and may change or be reused; this is deliberately neither.
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub state_id: String,

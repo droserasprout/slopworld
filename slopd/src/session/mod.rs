@@ -952,7 +952,7 @@ pattern = '(?i)(esc to interrupt|to interrupt\))'
             [[session]]
             name = "a"
             project = "main"
-            state_id = "test-id"
+            state_id = "44444444-4444-4444-8444-444444444444"
 
             [[session.mounts]]
             project = "lib"
