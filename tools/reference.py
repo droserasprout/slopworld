@@ -200,13 +200,40 @@ def matching_close(text: str, open_at: int) -> int:
 
 def api_routes(files: dict[Path, str]) -> list[Route]:
     routes: list[Route] = []
+    wire_paths: dict[str, str] = {}
+    route_paths: dict[str, str] = {}
+    for path, text in files.items():
+        if path.name != "wire.rs":
+            continue
+        for match in re.finditer(
+            r"\bconst\s+([A-Z][A-Z0-9_]*)\s*:\s*&str\s*=\s*['\"]([^'\"]+)['\"]",
+            text,
+        ):
+            wire_paths[match.group(1)] = match.group(2)
+        routes_block = re.search(
+            r"pub\(crate\)\s+mod\s+routes\s*\{(.*?)\n\}", text, re.DOTALL
+        )
+        if routes_block:
+            for match in re.finditer(
+                r"\bconst\s+([A-Z][A-Z0-9_]*)\s*:\s*&str\s*=\s*['\"]([^'\"]+)['\"]",
+                routes_block.group(1),
+            ):
+                route_paths[match.group(1)] = match.group(2)
     method_pattern = re.compile(r"\b(get|post|put|delete|patch|head|options|trace)\s*\(\s*([A-Za-z_][A-Za-z0-9_]*)")
     for path, text in files.items():
         for match in re.finditer(r"\.route\s*\(", text):
             end = matching_close(text, text.find("(", match.start()))
             body = text[match.end() : end]
             path_match = re.search(r"['\"]([^'\"]+)['\"]", body)
-            if not path_match:
+            path_value = path_match.group(1) if path_match else None
+            if path_value is None:
+                route_const = re.search(r"routes::([A-Z][A-Z0-9_]*)", body)
+                if route_const:
+                    path_value = route_paths.get(route_const.group(1))
+                else:
+                    const_match = re.search(r"wire::([A-Z][A-Z0-9_]*)", body)
+                    path_value = wire_paths.get(const_match.group(1)) if const_match else None
+            if path_value is None:
                 continue
             before = text[: match.start()]
             scope = "root-only" if before.rfind("let root = Router::new()") > before.rfind("let scoped = Router::new()") else "scoped"
@@ -215,7 +242,7 @@ def api_routes(files: dict[Path, str]) -> list[Route]:
                 routes.append(
                     Route(
                         method=method_match.group(1).upper(),
-                        path=path_match.group(1),
+                        path=path_value,
                         handler=method_match.group(2),
                         scope=scope,
                         hit=route_hit,

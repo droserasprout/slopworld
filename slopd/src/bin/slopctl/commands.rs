@@ -2,6 +2,7 @@ use super::format::{emit, print_json, print_status, print_task};
 use super::http::{request, status_value, Endpoint};
 use super::logs::LOGS_USAGE;
 use super::{HOST, TASK_WAIT_INTERVAL};
+use crate::wire::{enums::task_status, routes};
 use serde_json::{json, Value};
 use std::thread;
 use std::time::Duration;
@@ -352,7 +353,7 @@ fn run_delegate(
         endpoint,
         session,
         "POST",
-        "/api/tasks",
+        routes::TASKS,
         Some(json!({ "to": to, "body": body })),
     )?;
     emit(&v, json);
@@ -376,7 +377,7 @@ pub(crate) fn run_spawn(
         endpoint,
         session,
         "POST",
-        "/api/workers",
+        routes::WORKERS,
         Some(json!({
             "parent": args.parent,
             "body": args.body,
@@ -407,7 +408,7 @@ fn run_inbox(
     json: bool,
     filter: InboxFilter,
 ) -> Result<(), String> {
-    let v = request(endpoint, session, "GET", "/api/tasks", None)?;
+    let v = request(endpoint, session, "GET", routes::TASKS, None)?;
     let tasks = filter.apply(&v, session);
     if json {
         print_json(&Value::Array(tasks.into_iter().cloned().collect()));
@@ -421,7 +422,13 @@ fn run_inbox(
 }
 
 fn run_task(endpoint: &Endpoint, session: &str, json: bool, id: &str) -> Result<(), String> {
-    let v = request(endpoint, session, "GET", &format!("/api/tasks/{id}"), None)?;
+    let v = request(
+        endpoint,
+        session,
+        "GET",
+        &format!("{}/{id}", routes::TASKS),
+        None,
+    )?;
     emit(&v, json);
     Ok(())
 }
@@ -439,7 +446,13 @@ pub(crate) fn wait_for_task(
     interval: Duration,
 ) -> Result<Value, String> {
     loop {
-        let v = request(endpoint, session, "GET", &format!("/api/tasks/{id}"), None)?;
+        let v = request(
+            endpoint,
+            session,
+            "GET",
+            &format!("{}/{id}", routes::TASKS),
+            None,
+        )?;
         if task_is_terminal(&v)? {
             return Ok(v);
         }
@@ -457,7 +470,7 @@ pub(crate) fn task_is_terminal(v: &Value) -> Result<bool, String> {
         .ok_or_else(|| "response task is missing status".to_string())?;
     match status {
         "queued" | "accepted" | "working" => Ok(false),
-        "done" | "failed" | "canceled" => Ok(true),
+        task_status::DONE | task_status::FAILED | task_status::CANCELED => Ok(true),
         status => Err(format!("unknown task status: {status}")),
     }
 }
@@ -474,7 +487,7 @@ fn run_update(
         endpoint,
         session,
         "POST",
-        &format!("/api/tasks/{id}"),
+        &format!("{}/{id}", routes::TASKS),
         Some(json!({ "status": action.status(), "note": note })),
     )?;
     emit(&v, json);
@@ -486,7 +499,7 @@ fn run_remove(endpoint: &Endpoint, session: &str, json: bool, id: &str) -> Resul
         endpoint,
         session,
         "DELETE",
-        &format!("/api/tasks/{id}"),
+        &format!("{}/{id}", routes::TASKS),
         None,
     )?;
     emit(&v, json);
@@ -495,11 +508,11 @@ fn run_remove(endpoint: &Endpoint, session: &str, json: bool, id: &str) -> Resul
 
 fn run_prune(endpoint: &Endpoint, session: &str, json: bool, all: bool) -> Result<(), String> {
     let path = if all {
-        "/api/tasks?all=true"
+        format!("{}?all=true", routes::TASKS)
     } else {
-        "/api/tasks"
+        routes::TASKS.to_string()
     };
-    let v = request(endpoint, session, "DELETE", path, None)?;
+    let v = request(endpoint, session, "DELETE", &path, None)?;
     if json {
         print_json(&v);
     } else {
@@ -509,7 +522,7 @@ fn run_prune(endpoint: &Endpoint, session: &str, json: bool, all: bool) -> Resul
 }
 
 fn run_peers(endpoint: &Endpoint, session: &str, json: bool) -> Result<(), String> {
-    let v = request(endpoint, session, "GET", "/api/sessions", None)?;
+    let v = request(endpoint, session, "GET", routes::SESSIONS, None)?;
     let names = peer_names(&v);
     if json {
         print_json(&json!(names));

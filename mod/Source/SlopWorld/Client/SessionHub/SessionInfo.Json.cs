@@ -23,7 +23,7 @@ namespace SlopWorld
             (s, j) => s.Agent = j["agent"].AsString(),
             (s, j) => s.State = ParseState(j["state"].AsString()),
             (s, j) => s.Alive = j["alive"].AsBool(),
-            (s, j) => s.Network = NetworkModeText.Parse(j["network"].AsString("private")),
+            (s, j) => s.Network = NetworkModeText.Parse(j["network"].AsString(WireContract.NetworkMode.Private)),
             (s, j) => s.NetworkOverride = j["network_override"].IsNull
                 ? (NetworkMode?)null
                 : NetworkModeText.Parse(j["network_override"].AsString()),

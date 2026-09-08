@@ -220,13 +220,9 @@ pub(crate) struct GitReq {
     pub(crate) path: String,
 }
 
-#[derive(Deserialize)]
-#[serde(tag = "t", rename_all = "lowercase")]
 pub(crate) enum ClientMsg {
     Redraw {
-        #[serde(default)]
         cols: Option<u16>,
-        #[serde(default)]
         rows: Option<u16>,
     },
     Sub {
@@ -242,6 +238,74 @@ pub(crate) enum ClientMsg {
     Paste(PasteReq),
     Breadcrumb(BreadcrumbReq),
     Audio(AudioReq),
+}
+
+#[derive(Deserialize)]
+struct NameReq {
+    name: String,
+}
+
+#[derive(Deserialize)]
+struct RedrawReq {
+    #[serde(default)]
+    cols: Option<u16>,
+    #[serde(default)]
+    rows: Option<u16>,
+}
+
+impl<'de> Deserialize<'de> for ClientMsg {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        use serde::de::Error;
+
+        let value = serde_json::Value::deserialize(deserializer)?;
+        let tag = value
+            .get("t")
+            .and_then(serde_json::Value::as_str)
+            .map(str::to_owned)
+            .ok_or_else(|| D::Error::custom("websocket message is missing tag t"))?;
+        match tag.as_str() {
+            crate::wire::messages::REDRAW => {
+                let req: RedrawReq = serde_json::from_value(value).map_err(D::Error::custom)?;
+                Ok(Self::Redraw {
+                    cols: req.cols,
+                    rows: req.rows,
+                })
+            }
+            crate::wire::messages::SUB => {
+                let req: NameReq = serde_json::from_value(value).map_err(D::Error::custom)?;
+                Ok(Self::Sub { name: req.name })
+            }
+            crate::wire::messages::UNSUB => {
+                let req: NameReq = serde_json::from_value(value).map_err(D::Error::custom)?;
+                Ok(Self::Unsub { name: req.name })
+            }
+            crate::wire::messages::KEYS => Ok(Self::Keys(
+                serde_json::from_value(value).map_err(D::Error::custom)?,
+            )),
+            crate::wire::messages::RESIZE => Ok(Self::Resize(
+                serde_json::from_value(value).map_err(D::Error::custom)?,
+            )),
+            crate::wire::messages::SCROLL => Ok(Self::Scroll(
+                serde_json::from_value(value).map_err(D::Error::custom)?,
+            )),
+            crate::wire::messages::MOUSE => Ok(Self::Mouse(
+                serde_json::from_value(value).map_err(D::Error::custom)?,
+            )),
+            crate::wire::messages::PASTE => Ok(Self::Paste(
+                serde_json::from_value(value).map_err(D::Error::custom)?,
+            )),
+            crate::wire::messages::BREADCRUMB => Ok(Self::Breadcrumb(
+                serde_json::from_value(value).map_err(D::Error::custom)?,
+            )),
+            crate::wire::messages::AUDIO => Ok(Self::Audio(
+                serde_json::from_value(value).map_err(D::Error::custom)?,
+            )),
+            other => Err(D::Error::unknown_variant(other, &[])),
+        }
+    }
 }
 
 /// The jukebox. `selection` is absent for a volume-only update, null for silence, a station

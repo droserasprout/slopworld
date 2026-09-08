@@ -765,7 +765,18 @@ impl Manager {
     /// This is detached from the WebSocket handler because each nudge waits briefly between the
     /// temporary shrink and restore, and viewer/editor errands live in the same table as agents.
     pub fn request_redraw(self: &Arc<Self>, shape: Option<(u16, u16)>) {
-        let shape = shape.map(|(cols, rows)| (cols.clamp(20, 500), rows.clamp(5, 200)));
+        let shape = shape.map(|(cols, rows)| {
+            (
+                cols.clamp(
+                    crate::wire::TERMINAL_MIN_COLS,
+                    crate::wire::TERMINAL_MAX_COLS,
+                ),
+                rows.clamp(
+                    crate::wire::TERMINAL_MIN_ROWS,
+                    crate::wire::TERMINAL_MAX_ROWS,
+                ),
+            )
+        });
         let m = self.clone();
         tokio::spawn(async move {
             // Preserve redraws that arrive while an earlier nudge is sleeping. In particular,

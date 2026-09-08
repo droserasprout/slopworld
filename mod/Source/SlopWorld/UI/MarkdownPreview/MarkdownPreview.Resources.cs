@@ -51,7 +51,7 @@ namespace SlopWorld
             {
                 string body = "{" + $"\"text\":{JVal.Q(block.Code ?? "")}," +
                     $"\"language\":{JVal.Q(block.Info)}" + "}";
-                DaemonClient.Post("/api/highlight", body,
+                DaemonClient.Post(WireContract.Routes.Highlight, body,
                     j =>
                     {
                         if (!isCurrent(request)) return;
@@ -97,7 +97,7 @@ namespace SlopWorld
                     _failedImages.Contains(path)) continue;
 
                 _pendingImages.Add(path);
-                DaemonClient.Send("GET", "/api/image?path=" + Uri.EscapeDataString(path), null,
+                DaemonClient.Send("GET", WireContract.Routes.Image + "?path=" + Uri.EscapeDataString(path), null,
                     j =>
                     {
                         if (!isCurrent(request)) return;

@@ -54,8 +54,9 @@ namespace SlopWorld
 
         static readonly string[] BaseKeys =
         {
-            "claude_session", "claude_week", "claude_spend",
-            "openrouter_balance", "openai_session", "openai_week",
+            WireContract.UsageKeys.ClaudeSession, WireContract.UsageKeys.ClaudeWeek,
+            WireContract.UsageKeys.ClaudeSpend, WireContract.UsageKeys.OpenrouterBalance,
+            WireContract.UsageKeys.OpenaiSession, WireContract.UsageKeys.OpenaiWeek,
         };
 
         void EnsureBaseItems()
@@ -102,13 +103,13 @@ namespace SlopWorld
 
         static int UsageRank(string key)
         {
-            if (key == "claude_session") return 0;
-            if (key == "claude_week") return 1;
+            if (key == WireContract.UsageKeys.ClaudeSession) return 0;
+            if (key == WireContract.UsageKeys.ClaudeWeek) return 1;
             if (key.StartsWith("claude_week_")) return 2;
-            if (key == "claude_spend") return 3;
-            if (key == "openrouter_balance") return 4;
-            if (key == "openai_session") return 5;
-            if (key == "openai_week") return 6;
+            if (key == WireContract.UsageKeys.ClaudeSpend) return 3;
+            if (key == WireContract.UsageKeys.OpenrouterBalance) return 4;
+            if (key == WireContract.UsageKeys.OpenaiSession) return 5;
+            if (key == WireContract.UsageKeys.OpenaiWeek) return 6;
             return 7;
         }
 

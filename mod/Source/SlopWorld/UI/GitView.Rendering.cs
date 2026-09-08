@@ -117,7 +117,7 @@ namespace SlopWorld
             }
 
             string full = "git -C " + Pager.Quote(repo.Root) + " " + command;
-            DaemonClient.Post("/api/file-action", "{" +
+            DaemonClient.Post(WireContract.Routes.FileAction, "{" +
                 $"\"path\":{JVal.Q(repo.Root)}," +
                 $"\"command\":{JVal.Q(full)}," +
                 "\"host\":true" +

@@ -19,7 +19,7 @@ namespace SlopWorld
 
         // The daemon coins the path and is the only thing that writes it; this is so the dialog
         // can show what a name is about to become before anything is saved.
-        public const string TempRoot = "/tmp/slopworld";
+        public const string TempRoot = WireContract.TempRoot;
 
         // The same rule as the daemon's `slug`.
         public static string TempDir(string name)
@@ -43,7 +43,7 @@ namespace SlopWorld
             Temp = j["temp"].AsBool(false),
             Sandbox = Strings(j["sandbox"]),
             Breadcrumbs = Strings(j["breadcrumbs"]),
-            Network = NetworkModeText.Parse(j["network"].AsString("private")),
+            Network = NetworkModeText.Parse(j["network"].AsString(WireContract.NetworkMode.Private)),
             Dns = DnsConfig.FromJson(j["dns"]),
         };
 

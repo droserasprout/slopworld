@@ -1,5 +1,11 @@
 # Wire protocol
 
+The shared vocabulary lives in [`protocol/wire.yaml`](../protocol/wire.yaml). Run `make
+api-contract` after changing it; the checked-in generated bindings are `slopd/src/wire.rs` and
+`mod/Source/SlopWorld/Client/Generated/WireContract.cs`. Routes, headers, WebSocket tags, wire
+enum values, endpoint/terminal limits, selected defaults, and usage keys should be changed there,
+not retyped in either half. UI labels/icons and daemon-owned dynamic catalogs remain local.
+
 ## WebSocket
 
 Server events are `capabilities`, `sessions` (state/title/bell/process_running/run_id), `screen`, `usage`, `projects`,

@@ -34,6 +34,7 @@
     <Compile Include="../Source/SlopWorld/Client/SessionHub/ScreenBuf.Json.cs" Link="Source/Client/SessionHub/ScreenBuf.Json.cs" />
     <Compile Include="../Source/SlopWorld/Client/SessionHub/UsageWindow.cs" Link="Source/Client/SessionHub/UsageWindow.cs" />
     <Compile Include="../Source/SlopWorld/Client/SessionHub/UsageInfo.cs" Link="Source/Client/SessionHub/UsageInfo.cs" />
+    <Compile Include="../Source/SlopWorld/Client/Generated/WireContract.cs" Link="Source/Client/Generated/WireContract.cs" />
     <Compile Include="../Source/SlopWorld/UI/Fuzzy.cs" Link="Source/UI/Fuzzy.cs" />
     <Compile Include="../Source/SlopWorld/UI/UrlScan.cs" Link="Source/UI/UrlScan.cs" />
     <Compile Include="../Source/SlopWorld/UI/PathScan.cs" Link="Source/UI/PathScan.cs" />

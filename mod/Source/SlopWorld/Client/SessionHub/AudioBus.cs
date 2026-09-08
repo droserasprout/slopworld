@@ -23,13 +23,13 @@ namespace SlopWorld
                 selection = $"{{\"station\":{JVal.Q(station)},\"stream\":{JVal.Q(stream)}}}";
             else
                 selection = "null";
-            _transport.Send($"{{\"t\":\"audio\",\"selection\":{selection}," +
+            _transport.Send($"{{\"t\":\"{WireContract.Messages.Audio}\",\"selection\":{selection}," +
                             $"\"volume\":{HubWire.Num(volume)}}}");
         }
 
         public void SendVolume(float volume)
         {
-            _transport.Send($"{{\"t\":\"audio\",\"volume\":{HubWire.Num(volume)}}}");
+            _transport.Send($"{{\"t\":\"{WireContract.Messages.Audio}\",\"volume\":{HubWire.Num(volume)}}}");
         }
     }
 }

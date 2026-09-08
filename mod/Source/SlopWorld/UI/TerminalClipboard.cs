@@ -186,7 +186,7 @@ namespace SlopWorld
                 // Codex's image handler claims Ctrl+V even when the clipboard only has text,
                 // then reports "no image". Read the text format first and reserve Ctrl+V for an
                 // image (or another non-text clipboard format).
-                DaemonClient.Get("/api/clipboard/text",
+                DaemonClient.Get(WireContract.Routes.ClipboardText,
                     j =>
                     {
                         string text = j["text"].AsString();
@@ -203,7 +203,7 @@ namespace SlopWorld
                 Deliver(name, GUIUtility.systemCopyBuffer);
                 return;
             }
-            string path = HostClipboardTextOnly ? "/api/clipboard/text" : "/api/clipboard";
+            string path = HostClipboardTextOnly ? WireContract.Routes.ClipboardText : WireContract.Routes.Clipboard;
             DaemonClient.Get(path,
                 j => Deliver(name, j["text"].AsString()),
                 _ => Deliver(name, null));
@@ -217,8 +217,8 @@ namespace SlopWorld
             if (!SessionHub.Instance.Capabilities.Clipboard) return;
             string name = _name;
             string path = HostClipboardTextOnly
-                ? "/api/clipboard/primary/text"
-                : "/api/clipboard/primary";
+                ? WireContract.Routes.ClipboardPrimaryText
+                : WireContract.Routes.ClipboardPrimary;
             DaemonClient.Get(path,
                 j => DeliverPrimary(name, j["text"].AsString()),
                 _ => { });

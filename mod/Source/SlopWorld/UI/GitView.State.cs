@@ -262,7 +262,7 @@ namespace SlopWorld
             BumpTree();
 
             string dir = repo.Dir;
-            DaemonClient.Get("/api/git?path=" + System.Uri.EscapeDataString(dir),
+            DaemonClient.Get(WireContract.Routes.Git + "?path=" + System.Uri.EscapeDataString(dir),
                 j =>
                 {
                     repo.Loading = false;

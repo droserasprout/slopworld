@@ -246,7 +246,7 @@ namespace SlopWorld
                 $"\"template\":{JVal.Q(_cfg.InstructionsTemplate)}," +
                 $"\"mount_path\":{JVal.Q(_cfg.InstructionsMountPath)}" +
                 "}";
-            DaemonClient.Post("/api/instructions/preview", body,
+            DaemonClient.Post(WireContract.Routes.InstructionsPreview, body,
                 j =>
                 {
                     if (request != _previewRequest) return;

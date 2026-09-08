@@ -9,14 +9,14 @@ namespace SlopWorld
         {
             switch ((text ?? "").Trim().ToLowerInvariant())
             {
-                case "none": return NetworkMode.None;
-                case "host": return NetworkMode.Host;
+                case WireContract.NetworkMode.None: return NetworkMode.None;
+                case WireContract.NetworkMode.Host: return NetworkMode.Host;
                 default: return NetworkMode.Private;
             }
         }
 
-        public static string Name(NetworkMode mode) => mode == NetworkMode.None ? "none" :
-            mode == NetworkMode.Host ? "host" : "private";
+        public static string Name(NetworkMode mode) => mode == NetworkMode.None ? WireContract.NetworkMode.None :
+            mode == NetworkMode.Host ? WireContract.NetworkMode.Host : WireContract.NetworkMode.Private;
 
         public static string Label(NetworkMode mode) => mode == NetworkMode.None
             ? "No network"

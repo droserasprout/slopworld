@@ -19,22 +19,22 @@ namespace SlopWorld
         public void Subscribe(string name)
         {
             _subs.Add(name);
-            _transport.Send($"{{\"t\":\"sub\",\"name\":{JVal.Q(name)}}}");
+            _transport.Send($"{{\"t\":\"{WireContract.Messages.Sub}\",\"name\":{JVal.Q(name)}}}");
         }
 
         public void Unsubscribe(string name)
         {
             _subs.Remove(name);
-            _transport.Send($"{{\"t\":\"unsub\",\"name\":{JVal.Q(name)}}}");
+            _transport.Send($"{{\"t\":\"{WireContract.Messages.Unsub}\",\"name\":{JVal.Q(name)}}}");
         }
 
         public void Rename(string oldName, string newName)
         {
             if (oldName == newName) return;
             if (_subs.Remove(oldName))
-                _transport.Send($"{{\"t\":\"unsub\",\"name\":{JVal.Q(oldName)}}}");
+                _transport.Send($"{{\"t\":\"{WireContract.Messages.Unsub}\",\"name\":{JVal.Q(oldName)}}}");
             if (_subs.Add(newName))
-                _transport.Send($"{{\"t\":\"sub\",\"name\":{JVal.Q(newName)}}}");
+                _transport.Send($"{{\"t\":\"{WireContract.Messages.Sub}\",\"name\":{JVal.Q(newName)}}}");
         }
 
         // A reconnect must not silently drop the terminal the player has open, so every live
@@ -42,7 +42,7 @@ namespace SlopWorld
         public void Resubscribe()
         {
             foreach (var name in _subs.ToList())
-                _transport.Send($"{{\"t\":\"sub\",\"name\":{JVal.Q(name)}}}");
+                _transport.Send($"{{\"t\":\"{WireContract.Messages.Sub}\",\"name\":{JVal.Q(name)}}}");
         }
 
         public void SendKeys(string name, IEnumerable<string> keys, bool literal)
@@ -57,13 +57,13 @@ namespace SlopWorld
                              List<string> randomTips)
         {
             var arr = string.Join(",", keys.Select(JVal.Q).ToArray());
-            _transport.Send($"{{\"t\":\"keys\",\"name\":{JVal.Q(name)},\"keys\":[{arr}]," +
+            _transport.Send($"{{\"t\":\"{WireContract.Messages.Keys}\",\"name\":{JVal.Q(name)},\"keys\":[{arr}]," +
                             $"\"literal\":{JVal.B(literal)},\"random_tips\":{HubWire.Tips(randomTips)}}}");
         }
 
         public void RequestScroll(string name, int off, ulong requestId)
         {
-            _transport.Send($"{{\"t\":\"scroll\",\"name\":{JVal.Q(name)},\"off\":{off}," +
+            _transport.Send($"{{\"t\":\"{WireContract.Messages.Scroll}\",\"name\":{JVal.Q(name)},\"off\":{off}," +
                             $"\"request_id\":{requestId}}}");
         }
 
@@ -74,7 +74,7 @@ namespace SlopWorld
         public void SendMouse(string name, string action, int button, int col, int row,
                               int count = 1)
         {
-            _transport.Send($"{{\"t\":\"mouse\",\"name\":{JVal.Q(name)},\"action\":{JVal.Q(action)}," +
+            _transport.Send($"{{\"t\":\"{WireContract.Messages.Mouse}\",\"name\":{JVal.Q(name)},\"action\":{JVal.Q(action)}," +
                             $"\"button\":{button},\"col\":{col},\"row\":{row}," +
                             $"\"count\":{count}}}");
         }
@@ -83,27 +83,27 @@ namespace SlopWorld
         // intentionally left raw because its Ink frontend renders those markers literally.
         public void Paste(string name, string text)
         {
-            _transport.Send($"{{\"t\":\"paste\",\"name\":{JVal.Q(name)},\"text\":{JVal.Q(text)}}}");
+            _transport.Send($"{{\"t\":\"{WireContract.Messages.Paste}\",\"name\":{JVal.Q(name)},\"text\":{JVal.Q(text)}}}");
         }
 
         public void PasteBreadcrumb(string name, string breadcrumb, List<string> randomTips)
         {
-            _transport.Send($"{{\"t\":\"breadcrumb\",\"name\":{JVal.Q(name)}," +
+            _transport.Send($"{{\"t\":\"{WireContract.Messages.Breadcrumb}\",\"name\":{JVal.Q(name)}," +
                             $"\"breadcrumb\":{JVal.Q(breadcrumb)}," +
                             $"\"random_tips\":{HubWire.Tips(randomTips)}}}");
         }
 
         public void Resize(string name, int cols, int rows)
         {
-            _transport.Send($"{{\"t\":\"resize\",\"name\":{JVal.Q(name)}," +
+            _transport.Send($"{{\"t\":\"{WireContract.Messages.Resize}\",\"name\":{JVal.Q(name)}," +
                             $"\"cols\":{cols},\"rows\":{rows}}}");
         }
 
         // A sidebar layout change affects every TUI, including viewer/editor tabs that are not
         // the pane currently visible in the game. The daemon performs the redraw in background.
-        public void RefreshPanels() => _transport.Send("{\"t\":\"redraw\"}");
+        public void RefreshPanels() => _transport.Send($"{{\"t\":\"{WireContract.Messages.Redraw}\"}}");
 
         public void RefreshPanels(int cols, int rows) =>
-            _transport.Send($"{{\"t\":\"redraw\",\"cols\":{cols},\"rows\":{rows}}}");
+            _transport.Send($"{{\"t\":\"{WireContract.Messages.Redraw}\",\"cols\":{cols},\"rows\":{rows}}}");
     }
 }

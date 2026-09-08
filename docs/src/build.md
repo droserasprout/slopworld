@@ -6,6 +6,7 @@
 - **Mono** (`csc`) — compiles the mod. The .NET SDK is optional for builds, but required by
   `format-mod` and `lint-mod` for `dotnet format`.
 - **GNU Make** — all targets go through the Makefile. On macOS, install GNU Make with `brew install make` and use `gmake`.
+- **PyYAML** — parses the compact shared wire contract used by `make api-contract`.
 
 Set `RIMWORLD` to the Linux game directory (the folder containing `RimWorldLinux`). The mod links against assemblies in `Managed/`, so a real install is required.
 
@@ -19,6 +20,7 @@ available for focused runs, even when they are omitted from that list. The impor
 | `all` | Builds both the daemon and the mod. |
 | `daemon` | `cargo build` in `slopd/`. Pass `BUILD=release` for a release build. |
 | `mod` | Compiles the mod with Mono `csc` into `mod/Assemblies/SlopWorld.dll`. |
+| `api-contract` | Generates the Rust and C# protocol bindings from `protocol/wire.yaml`. |
 | `test` | Runs `cargo test`, the game-free C# tests, and the prose linter tests. |
 | `format` | Formats both halves. `-daemon` and `-mod` variants exist. |
 | `lint` | Lints both halves. `-daemon` and `-mod` variants exist. |

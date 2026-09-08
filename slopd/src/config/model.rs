@@ -8,12 +8,12 @@ use std::sync::OnceLock;
 use anyhow::{bail, Result};
 use serde::{Deserialize, Serialize};
 
-const DEFAULT_BIND: &str = "127.0.0.1:7717";
-const DEFAULT_USAGE_POLL_SECS: u64 = 60;
-const DEFAULT_CLAUDE_CREDENTIALS: &str = "~/.claude/.credentials.json";
-const DEFAULT_OPENAI_CREDENTIALS: &str = "~/.codex/auth.json";
-const DEFAULT_TITLE_MODEL: &str = "google/gemini-3.1-flash-lite";
-const DEFAULT_TITLE_MIN_CHARS: usize = 20;
+const DEFAULT_BIND: &str = crate::wire::DEFAULT_BIND;
+const DEFAULT_USAGE_POLL_SECS: u64 = crate::wire::USAGE_POLL_SECS;
+const DEFAULT_CLAUDE_CREDENTIALS: &str = crate::wire::DEFAULT_CLAUDE_CREDENTIALS;
+const DEFAULT_OPENAI_CREDENTIALS: &str = crate::wire::DEFAULT_OPENAI_CREDENTIALS;
+const DEFAULT_TITLE_MODEL: &str = crate::wire::DEFAULT_TITLE_MODEL;
+const DEFAULT_TITLE_MIN_CHARS: usize = crate::wire::DEFAULT_TITLE_MIN_CHARS as usize;
 
 /// One TOML file, which the mod reads and writes back verbatim, so hand-edits and
 /// in-game edits use the same format.
@@ -56,7 +56,7 @@ pub const TOKEN_REDACTED: &str = "<redacted>";
 // These are daemon identity and scheduling policy, not user configuration. The private tmux
 // name is part of the sandbox/debug contract; the state tick only drives idle reclassification.
 pub const STATE_TICK_MS: u64 = 1_000;
-pub const SCROLLBACK_LINES: u32 = 10_000;
+pub const SCROLLBACK_LINES: u32 = crate::wire::SCROLLBACK_LINES;
 
 /// The private tmux socket name (`tmux -L <name>`). `SLOPD_TMUX_SOCKET` overrides it so a
 /// throwaway daemon can run beside the real one without sharing its tmux server; production
@@ -164,7 +164,7 @@ pub struct InstructionsCfg {
     #[serde(default = "default_instructions_breadcrumb")]
     pub breadcrumb: String,
     /// Add the manifest discovery breadcrumb to agents that mount the file.
-    #[serde(default = "yes")]
+    #[serde(default = "default_instructions_breadcrumb_enabled")]
     pub breadcrumb_enabled: bool,
     /// Prompt submitted to a newly spawned task worker before it retrieves its mailbox task.
     #[serde(default = "default_worker_prompt")]
@@ -178,7 +178,7 @@ Read the project's `README.md` and any applicable `AGENTS.md` files for project 
 
 {{ runtime_context }}
 ";
-pub const DEFAULT_INSTRUCTIONS_MOUNT_PATH: &str = "SLOPWORLD.md";
+pub const DEFAULT_INSTRUCTIONS_MOUNT_PATH: &str = crate::wire::DEFAULT_INSTRUCTIONS_MOUNT_PATH;
 pub const DEFAULT_INSTRUCTIONS_BREADCRUMB: &str = "Read `{{ mount_path }}` for SlopWorld runtime context. It is a generated snapshot, not project instructions. When delegating, send work once and use `slopctl wait ID` for the result; do not poll `task`, `inbox`, or `status`.";
 pub const DEFAULT_WORKER_PROMPT: &str = "You are a SlopWorld worker. Your assigned task ID is $SLOPWORLD_TASK_ID. Run `slopctl task \"$SLOPWORLD_TASK_ID\"` once, then `slopctl accept \"$SLOPWORLD_TASK_ID\"`. Use `slopctl progress \"$SLOPWORLD_TASK_ID\" \"note\"` while working and conclude with `slopctl finish \"$SLOPWORLD_TASK_ID\" \"result\"` or `slopctl fail \"$SLOPWORLD_TASK_ID\" \"reason\"`. Do not search the inbox or poll task status.";
 
@@ -188,6 +188,10 @@ fn default_instructions_template() -> String {
 
 fn default_instructions_mount_path() -> String {
     DEFAULT_INSTRUCTIONS_MOUNT_PATH.into()
+}
+
+fn default_instructions_breadcrumb_enabled() -> bool {
+    crate::wire::DEFAULT_INSTRUCTIONS_BREADCRUMB_ENABLED
 }
 
 fn default_instructions_breadcrumb() -> String {
@@ -204,7 +208,7 @@ impl Default for InstructionsCfg {
             template: default_instructions_template(),
             mount_path: default_instructions_mount_path(),
             breadcrumb: default_instructions_breadcrumb(),
-            breadcrumb_enabled: true,
+            breadcrumb_enabled: default_instructions_breadcrumb_enabled(),
             worker_prompt: default_worker_prompt(),
         }
     }
@@ -313,15 +317,15 @@ pub struct Defaults {
 }
 
 pub(crate) fn default_agent() -> String {
-    "claude".into()
+    crate::wire::DEFAULT_AGENT.into()
 }
 
 fn default_agent_shell() -> String {
-    "bash".into()
+    crate::wire::DEFAULT_AGENT_SHELL.into()
 }
 
 fn default_shell() -> String {
-    "bash".into()
+    crate::wire::DEFAULT_SHELL.into()
 }
 
 impl Default for Defaults {
@@ -350,15 +354,15 @@ pub struct CommandDefaults {
 }
 
 fn default_pager() -> String {
-    "less".into()
+    crate::wire::DEFAULT_PAGER.into()
 }
 
 fn default_editor() -> String {
-    "micro".into()
+    crate::wire::DEFAULT_EDITOR.into()
 }
 
 fn default_highlighter() -> String {
-    "highlight --out-format=xterm256".into()
+    crate::wire::DEFAULT_HIGHLIGHTER.into()
 }
 
 impl Default for CommandDefaults {
@@ -373,7 +377,7 @@ impl Default for CommandDefaults {
 
 /// Under `/tmp` deliberately: the machine clears it, so nothing here has to decide
 /// when scratch work has outlived its use.
-pub const TEMP_ROOT: &str = "/tmp/slopworld";
+pub const TEMP_ROOT: &str = crate::wire::TEMP_ROOT;
 
 /// Coined rather than typed, which is the whole point of the flag.
 pub fn temp_dir(name: &str) -> String {
@@ -382,8 +386,7 @@ pub fn temp_dir(name: &str) -> String {
 
 /// The network a sandbox may use. A project supplies the default and an agent may
 /// override it with any of the three modes.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum NetworkMode {
     None,
     #[default]
@@ -391,14 +394,24 @@ pub enum NetworkMode {
     Host,
 }
 
+crate::wire_enum!(NetworkMode, {
+    NetworkMode::None => crate::wire::enums::network_mode::NONE,
+    NetworkMode::Private => crate::wire::enums::network_mode::PRIVATE,
+    NetworkMode::Host => crate::wire::enums::network_mode::HOST,
+});
+
 /// Read-only or read-write access for a project mount.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum MountMode {
     Ro,
     #[default]
     Rw,
 }
+
+crate::wire_enum!(MountMode, {
+    MountMode::Ro => crate::wire::enums::mount_mode::RO,
+    MountMode::Rw => crate::wire::enums::mount_mode::RW,
+});
 
 /// An additional project directory mounted into the agent's sandbox at `/mnt/<project-name>`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -411,14 +424,67 @@ pub struct Mount {
 /// How private or host-mode sandboxes resolve names. The implicit answer follows the daemon's
 /// current `/etc/resolv.conf`, including Docker's embedded resolver in slopcar. Explicit servers
 /// are an opt-in for machines or projects that deliberately do not use the system resolver.
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "mode", rename_all = "lowercase")]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub enum DnsConfig {
     #[default]
     Resolved,
     Servers {
         servers: Vec<Ipv4Addr>,
     },
+}
+
+#[derive(Deserialize)]
+struct DnsWire {
+    mode: String,
+    #[serde(default)]
+    servers: Vec<Ipv4Addr>,
+}
+
+impl Serialize for DnsConfig {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeStruct;
+
+        match self {
+            Self::Resolved => {
+                let mut out = serializer.serialize_struct("DnsConfig", 1)?;
+                out.serialize_field("mode", crate::wire::enums::dns_mode::RESOLVED)?;
+                out.end()
+            }
+            Self::Servers { servers } => {
+                let mut out = serializer.serialize_struct("DnsConfig", 2)?;
+                out.serialize_field("mode", crate::wire::enums::dns_mode::SERVERS)?;
+                out.serialize_field("servers", servers)?;
+                out.end()
+            }
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for DnsConfig {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        use serde::de::Error;
+
+        let wire = DnsWire::deserialize(deserializer)?;
+        match wire.mode.as_str() {
+            crate::wire::enums::dns_mode::RESOLVED => Ok(Self::Resolved),
+            crate::wire::enums::dns_mode::SERVERS => Ok(Self::Servers {
+                servers: wire.servers,
+            }),
+            other => Err(D::Error::unknown_variant(
+                other,
+                &[
+                    crate::wire::enums::dns_mode::RESOLVED,
+                    crate::wire::enums::dns_mode::SERVERS,
+                ],
+            )),
+        }
+    }
 }
 
 impl DnsConfig {
@@ -707,8 +773,7 @@ impl Default for SessionCfg {
 
 /// The only thing the two kinds disagree about at the far end: an agent's input
 /// field, or a shell's prompt.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum LibraryItemKind {
     /// Claude Code unless the entry says otherwise, which is what makes it a prompt
     /// rather than a command.
@@ -719,13 +784,18 @@ pub enum LibraryItemKind {
     /// A named piece of guidance pasted into an agent's first prompt.
     Breadcrumb,
     /// A command offered for the selected path in the Files sidebar.
-    #[serde(rename = "fa")]
     FileAction,
 }
 
+crate::wire_enum!(LibraryItemKind, {
+    LibraryItemKind::Prompt => crate::wire::enums::library_kind::PROMPT,
+    LibraryItemKind::Shell => crate::wire::enums::library_kind::SHELL,
+    LibraryItemKind::Breadcrumb => crate::wire::enums::library_kind::BREADCRUMB,
+    LibraryItemKind::FileAction => crate::wire::enums::library_kind::FA,
+});
+
 /// The one thing about a library item allowed not to be decided in advance.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum LibraryItemLink {
     /// The default, because it is what every library item written before this existed
     /// meant.
@@ -738,10 +808,15 @@ pub enum LibraryItemLink {
     Ask,
 }
 
+crate::wire_enum!(LibraryItemLink, {
+    LibraryItemLink::Project => crate::wire::enums::library_link::PROJECT,
+    LibraryItemLink::Temp => crate::wire::enums::library_link::TEMP,
+    LibraryItemLink::Ask => crate::wire::enums::library_link::ASK,
+});
+
 /// What the Files sidebar does after a file action is selected. `Ask` is the compatibility
 /// default for entries written before file actions had a saved mode.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum FileActionMode {
     #[default]
     Ask,
@@ -749,6 +824,13 @@ pub enum FileActionMode {
     OpenTerminal,
     Nothing,
 }
+
+crate::wire_enum!(FileActionMode, {
+    FileActionMode::Ask => crate::wire::enums::file_action_mode::ASK,
+    FileActionMode::ShowResult => crate::wire::enums::file_action_mode::SHOW_RESULT,
+    FileActionMode::OpenTerminal => crate::wire::enums::file_action_mode::OPEN_TERMINAL,
+    FileActionMode::Nothing => crate::wire::enums::file_action_mode::NOTHING,
+});
 
 /// A session template with a line of text attached. Spelled out rather than pointing at an
 /// existing session, which would stop working the day that session was deleted.

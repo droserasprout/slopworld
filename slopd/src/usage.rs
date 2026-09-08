@@ -27,8 +27,7 @@ use providers::{
 
 /// Rides on the wire rather than being worked out from the key: the one thing this
 /// must never do is let a percentage and a sum of money look alike.
-#[derive(Debug, Clone, Copy, Serialize, PartialEq, Default)]
-#[serde(rename_all = "lowercase")]
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub enum Unit {
     /// Percent of a window spent, which is every rate limit.
     #[default]
@@ -36,6 +35,11 @@ pub enum Unit {
     /// Dollars spent, which is only ever the extra-usage budget.
     Usd,
 }
+
+crate::wire_enum!(Unit, {
+    Unit::Pct => crate::wire::enums::usage_unit::PCT,
+    Unit::Usd => crate::wire::enums::usage_unit::USD,
+});
 
 /// Every rate-limit window is one of these, and so is the extra-usage budget -
 /// same shape, told apart by `unit`.
@@ -642,14 +646,14 @@ mod tests {
         assert!(provider_enabled(&daemon, "openai"));
 
         daemon.usage_items.insert(
-            "openrouter_balance".into(),
+            crate::wire::usage::OPENROUTER_BALANCE.into(),
             crate::config::UsageItem {
                 poll: true,
                 interval_secs: None,
             },
         );
         daemon.usage_items.insert(
-            "claude_session".into(),
+            crate::wire::usage::CLAUDE_SESSION.into(),
             crate::config::UsageItem {
                 poll: false,
                 interval_secs: None,

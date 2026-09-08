@@ -18,8 +18,8 @@ namespace SlopWorld
         const string DeleteMethod = "DELETE";
         const string EmptyJsonObject = "{}";
         const int DefaultTimeoutMs = 5000;
-        const string TokenHeader = "X-Slop-Token";
-        const string SessionHeader = "X-Slop-Session";
+        const string TokenHeader = WireContract.TokenHeader;
+        const string SessionHeader = WireContract.SessionHeader;
         const string JsonContentType = "application/json";
         const int MaxCompletionsPerFrame = 32;
         const string CompletionTraceName = "http-completions";

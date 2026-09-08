@@ -252,7 +252,7 @@ namespace SlopWorld
             {
                 case LibraryItemKind.Shell: return "sh";
                 case LibraryItemKind.Breadcrumb: return "bc";
-                case LibraryItemKind.FileAction: return "fa";
+                case LibraryItemKind.FileAction: return WireContract.LibraryKind.Fa;
                 default: return "pt";
             }
         }

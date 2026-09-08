@@ -33,7 +33,7 @@ namespace SlopWorld
 
         void Load()
         {
-            DaemonClient.Get("/api/config",
+            DaemonClient.Get(WireContract.Routes.Config,
                 j =>
                 {
                     _text = j["text"].AsString();
@@ -91,7 +91,7 @@ namespace SlopWorld
         {
             if (!_loaded) return;
 
-            DaemonClient.Put("/api/config", $"{{\"text\":{JVal.Q(_text)}}}",
+            DaemonClient.Put(WireContract.Routes.Config, $"{{\"text\":{JVal.Q(_text)}}}",
                 _ =>
                 {
                     _error = null;

@@ -6,6 +6,7 @@ use axum::{Extension, Json};
 use serde_json::{json, Value};
 
 use crate::grant::{Cap, Level};
+use crate::wire::SESSION_HEADER;
 
 use super::super::types::*;
 use super::{err, guard, guard_create, ApiResult, Mgr};
@@ -19,7 +20,7 @@ pub(crate) fn task_principal(
         .map(str::to_string)
         .or_else(|| {
             headers
-                .get("x-slop-session")
+                .get(SESSION_HEADER)
                 .and_then(|v| v.to_str().ok())
                 .map(str::to_string)
         })
@@ -27,7 +28,7 @@ pub(crate) fn task_principal(
         .ok_or_else(|| {
             err(
                 StatusCode::BAD_REQUEST,
-                "root task requests need x-slop-session",
+                format!("root task requests need {SESSION_HEADER}"),
             )
         })?;
     // The root token is the only thing that speaks for the user at the keyboard. A grant resolves
@@ -221,7 +222,7 @@ mod tests {
     #[test]
     fn root_worker_requests_use_the_explicit_session_caller() {
         let mut headers = HeaderMap::new();
-        headers.insert("x-slop-session", HeaderValue::from_static("caller"));
+        headers.insert(SESSION_HEADER, HeaderValue::from_static("caller"));
 
         assert_eq!(task_principal(&Cap::Root, &headers).unwrap(), "caller");
     }

@@ -67,7 +67,7 @@ namespace SlopWorld
             int serial = ++_refreshSerial;
             // The host UI is the operator's task board, so it needs agent-to-agent work too.
             // Scoped callers and the CLI keep using the default participant mailbox.
-            DaemonClient.Get("/api/tasks?all=true", j =>
+            DaemonClient.Get(WireContract.Routes.Tasks + "?all=true", j =>
             {
                 bool current = serial == _refreshSerial;
                 if (current)
@@ -88,7 +88,7 @@ namespace SlopWorld
                            Action<string> fail = null)
         {
             InvalidateRefresh();
-            DaemonClient.Post("/api/tasks",
+            DaemonClient.Post(WireContract.Routes.Tasks,
                 "{" + $"\"to\":{JVal.Q(to ?? "")}," +
                 $"\"body\":{JVal.Q(body ?? "")}" + "}",
                 j =>
@@ -103,7 +103,7 @@ namespace SlopWorld
                                  Action<TaskInfo> ok = null, Action<string> fail = null)
         {
             InvalidateRefresh();
-            DaemonClient.Post($"/api/tasks/{HubWire.Esc(id)}",
+            DaemonClient.Post($"{WireContract.Routes.Tasks}/{HubWire.Esc(id)}",
                 "{" + $"\"status\":{JVal.Q(TaskInfo.StatusText(status))}," +
                 $"\"note\":{(note == null ? "null" : JVal.Q(note))}" + "}",
                 j =>
@@ -145,7 +145,7 @@ namespace SlopWorld
             _cancellationInFlight = true;
             string body = "{\"ids\":[" +
                 string.Join(",", pending.Ids.Select(JVal.Q).ToArray()) + "]}";
-            DaemonClient.Post("/api/tasks/cancel", body, j =>
+            DaemonClient.Post(WireContract.Routes.TasksCancel, body, j =>
             {
                 _cancellationInFlight = false;
                 foreach (string id in pending.Ids) _cancelingIds.Remove(id);
@@ -195,7 +195,7 @@ namespace SlopWorld
             _removalInFlight = true;
             string body = "{\"ids\":[" +
                 string.Join(",", pending.Ids.Select(JVal.Q).ToArray()) + "]}";
-            DaemonClient.Post("/api/tasks/remove", body, _ =>
+            DaemonClient.Post(WireContract.Routes.TasksRemove, body, _ =>
             {
                 _removalInFlight = false;
                 foreach (string id in pending.Ids) _removingIds.Remove(id);
@@ -223,7 +223,7 @@ namespace SlopWorld
         public void Prune(Action ok = null, Action<string> fail = null)
         {
             InvalidateRefresh();
-            DaemonClient.Delete("/api/tasks", j =>
+            DaemonClient.Delete(WireContract.Routes.Tasks, j =>
             {
                 Tasks = Tasks.Where(t => !t.Terminal).ToList();
                 ok?.Invoke();

@@ -231,8 +231,14 @@ impl Manager {
     }
 
     pub async fn resize(&self, name: &str, cols: u16, rows: u16) -> Result<()> {
-        let cols = cols.clamp(20, 500);
-        let rows = rows.clamp(5, 200);
+        let cols = cols.clamp(
+            crate::wire::TERMINAL_MIN_COLS,
+            crate::wire::TERMINAL_MAX_COLS,
+        );
+        let rows = rows.clamp(
+            crate::wire::TERMINAL_MIN_ROWS,
+            crate::wire::TERMINAL_MAX_ROWS,
+        );
         {
             let live = self.live.read().await;
             let l = live
