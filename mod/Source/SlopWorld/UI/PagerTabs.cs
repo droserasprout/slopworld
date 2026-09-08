@@ -97,6 +97,15 @@ namespace SlopWorld
             RetireDead();
         }
 
+        public bool CloseTab(string session)
+        {
+            RetireDead();
+            bool closed = _preview.CloseTab(session);
+            foreach (var pager in _locked) closed |= pager.CloseTab(session);
+            RetireDead();
+            return closed;
+        }
+
         void RetireDead()
         {
             for (int i = _locked.Count - 1; i >= 0; i--)

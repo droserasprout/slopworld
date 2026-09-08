@@ -666,6 +666,22 @@ namespace SlopWorld
 
         public static void CloseViewerIf(string session) => Viewers.CloseIf(session);
 
+        public static bool CloseViewerTab(string session)
+        {
+            if (Viewers.CloseTab(session)) return true;
+            var tab = _markdownPreview?.Header == session ? _markdownPreview
+                : LockedMarkdown.Find(item => item.Header == session);
+            if (tab == null) return false;
+
+            bool showing = Showing(tab);
+            LockedMarkdown.Remove(tab);
+            if (_markdownPreview == tab) _markdownPreview = null;
+            if (_activeMarkdown == tab) _activeMarkdown = null;
+            if (showing)
+                Find.WindowStack?.WindowOfType<TerminalWindow>()?.Leave();
+            return true;
+        }
+
         static void ClearSelection()
         {
             Tree.ClearSelection();

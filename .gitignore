@@ -8,6 +8,8 @@ mod/Assemblies/SlopWorld.dll
 .tokensave
 .ost-staging/
 docs/book/
+# Temporary implementation plans and review scratch notes.
+_plans/
 # User-owned jukebox definitions; never include station sources in the project.
 /slopd/jukebox/
 __pycache__/

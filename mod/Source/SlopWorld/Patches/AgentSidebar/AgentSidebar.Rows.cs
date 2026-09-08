@@ -59,8 +59,8 @@ namespace SlopWorld
                 preview && !locked);
             if (preview)
                 TooltipHandler.TipRegion(row.Line, locked
-                    ? "Pinned preview tab. Click to show it."
-                    : "Preview tab. Double-click its header to keep it open.");
+                    ? "Pinned preview tab. Click to show it. Middle-click to close."
+                    : "Preview tab. Double-click its header to keep it open. Middle-click to close.");
             GUI.color = Color.white;
         }
 
@@ -71,12 +71,20 @@ namespace SlopWorld
         {
             if (!ColonistBarStrip.Interactive) return false;
             var e = Event.current;
-            if (e.rawType != EventType.MouseDown || (e.button != 0 && e.button != 1))
+            if (e.rawType != EventType.MouseDown || (e.button != 0 && e.button != 1 && e.button != 2))
                 return false;
             foreach (var row in Layout.ViewRows)
             {
                 if (!ColonistBarStrip.MouseOver(row.Line)) continue;
-                if (e.button == 1)
+                if (e.button == 2)
+                {
+                    RoutedClicks.Reset();
+                    _routedClickSession = null;
+                    // Only view-owned previews are closable here; editor rows own live work.
+                    if (CurrentTab == SidebarTab.Files) FilesView.CloseViewerTab(row.Session);
+                    else if (CurrentTab == SidebarTab.Git) GitView.CloseViewerTab(row.Session);
+                }
+                else if (e.button == 1)
                 {
                     RoutedClicks.Reset();
                     _routedClickSession = null;

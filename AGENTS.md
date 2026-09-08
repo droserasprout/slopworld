@@ -38,6 +38,7 @@ Architecture:
 - [mod-client](notes/mod-client.md) — Client/: hub, socket, config mirror
 - [mod-sim](notes/mod-sim.md) — Sim/: colony reconcile, clock, intro
 - [mod-ui-chrome](notes/mod-ui-chrome.md) — shared widgets, layout, top bar
+- [ui-color-review](notes/_plans/ui-color-review.md) — widget layout and color consistency findings
 - [mod-sidebar](notes/mod-sidebar.md) — AgentSidebar & colonist bar patching
 - [mod-terminal](notes/mod-terminal.md) — terminal pane: rendering, keys, theme
 - [mod-terminal-history-warmup](notes/mod-terminal-history-warmup.md) — first-scroll history warm-up plan
