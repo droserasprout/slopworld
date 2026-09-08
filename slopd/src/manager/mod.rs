@@ -11,4 +11,7 @@ mod session_lifecycle;
 mod session_state;
 mod sessions;
 mod start;
+mod tasks;
 mod workers;
+
+pub(crate) use tasks::TaskStore;

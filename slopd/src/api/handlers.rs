@@ -1,13 +1,9 @@
-use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
-use axum::{Extension, Json};
+use axum::Json;
 use serde_json::json;
 
-use crate::config::{LibraryItemCfg, ProjectCfg, SessionCfg};
 use crate::grant::{Cap, Level};
-use crate::session::RunWhere;
 
-use super::types::*;
 use super::{err, ApiResult, Mgr};
 
 #[path = "handlers_clipboard.rs"]
@@ -16,8 +12,14 @@ mod handlers_clipboard;
 mod handlers_config;
 #[path = "handlers_files.rs"]
 mod handlers_files;
+#[path = "handlers_grants.rs"]
+mod handlers_grants;
+#[path = "handlers_library.rs"]
+mod handlers_library;
 #[path = "handlers_presets.rs"]
 mod handlers_presets;
+#[path = "handlers_sessions.rs"]
+mod handlers_sessions;
 #[path = "handlers_system.rs"]
 mod handlers_system;
 #[path = "handlers_tasks.rs"]
@@ -26,37 +28,15 @@ mod handlers_tasks;
 pub(crate) use handlers_clipboard::*;
 pub(crate) use handlers_config::*;
 pub(crate) use handlers_files::*;
+pub(crate) use handlers_grants::*;
+pub(crate) use handlers_library::*;
 pub(crate) use handlers_presets::*;
+pub(crate) use handlers_sessions::*;
 pub(crate) use handlers_system::*;
 pub(crate) use handlers_tasks::*;
 fn ok_json(r: anyhow::Result<()>) -> ApiResult {
     r.map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
     Ok(Json(json!({ "ok": true })))
-}
-
-macro_rules! rw_action {
-    ($($handler:ident => $method:ident),+ $(,)?) => {
-        $(
-            pub(super) async fn $handler(
-                State(m): State<Mgr>,
-                Extension(cap): Extension<Cap>,
-                Path(name): Path<String>,
-            ) -> ApiResult {
-                guard(&m, &cap, &name, Level::Rw).await?;
-                ok_json(m.$method(&name).await)
-            }
-        )+
-    };
-}
-
-macro_rules! root_action {
-    ($($handler:ident => $method:ident),+ $(,)?) => {
-        $(
-            pub(super) async fn $handler(State(m): State<Mgr>, Path(name): Path<String>) -> ApiResult {
-                ok_json(m.$method(&name).await)
-            }
-        )+
-    };
 }
 
 /// 403 unless `cap` may touch `name` at `need` - the check every per-session route makes. Root
@@ -89,326 +69,16 @@ pub(super) fn guard_create(cap: &Cap) -> Result<(), (StatusCode, Json<serde_json
     }
 }
 
-pub(super) async fn health(State(_m): State<Mgr>) -> ApiResult {
-    Ok(Json(json!({
-        "ok": true,
-        "version": env!("SLOPWORLD_VERSION"),
-        "hostname": crate::runtime::hostname(),
-        "tmux_socket": crate::config::tmux_socket(),
-    })))
-}
-
-pub(super) async fn list(State(m): State<Mgr>, Extension(cap): Extension<Cap>) -> ApiResult {
-    // Filtered to what the caller may see: a grant lists the sessions it names and no others, so
-    // a name it cannot touch is a name it never learns. Host-ness is not carried on a view and
-    // is not needed here - a grant never names a host session, so `can_see` refuses it by
-    // membership alone.
-    let sessions: Vec<_> = m
-        .views()
-        .await
-        .into_iter()
-        .filter(|s| cap.can_see(&s.name, s.host))
-        .collect();
-    Ok(Json(json!({ "sessions": sessions })))
-}
-
-pub(super) async fn one(
-    State(m): State<Mgr>,
-    Extension(cap): Extension<Cap>,
-    Path(name): Path<String>,
-) -> ApiResult {
-    guard(&m, &cap, &name, Level::Ro).await?;
-    m.views()
-        .await
-        .into_iter()
-        .find(|s| s.name == name)
-        .map(|s| Json(json!(s)))
-        .ok_or_else(|| err(StatusCode::NOT_FOUND, format!("no such session: {name}")))
-}
-
-pub(super) async fn cwd(
-    State(m): State<Mgr>,
-    Extension(cap): Extension<Cap>,
-    Path(name): Path<String>,
-) -> ApiResult {
-    guard(&m, &cap, &name, Level::Ro).await?;
-    let path = m
-        .tmux
-        .current_path(&name)
-        .await
-        .ok_or_else(|| err(StatusCode::NOT_FOUND, format!("no such session: {name}")))?;
-    Ok(Json(json!({ "path": path })))
-}
-
-pub(super) async fn create(
-    State(m): State<Mgr>,
-    Extension(cap): Extension<Cap>,
-    Json(s): Json<SessionCfg>,
-) -> ApiResult {
-    guard_create(&cap)?;
-    ok_json(m.add(s).await)
-}
-
-pub(super) async fn update(
-    State(m): State<Mgr>,
-    Extension(cap): Extension<Cap>,
-    Path(name): Path<String>,
-    Json(s): Json<SessionCfg>,
-) -> ApiResult {
-    guard(&m, &cap, &name, Level::Rw).await?;
-    ok_json(m.update(&name, s).await)
-}
-
-rw_action!(
-    destroy => remove,
-    start => start,
-    stop => stop,
-    reset_state => reset_state,
-    restart => restart,
-);
-
-pub(super) async fn stored_states(State(m): State<Mgr>) -> ApiResult {
-    m.stored_states()
-        .await
-        .map(|entries| Json(json!({ "entries": entries })))
-        .map_err(|e| err(StatusCode::INTERNAL_SERVER_ERROR, e))
-}
-
-pub(super) async fn empty_trash(State(m): State<Mgr>) -> ApiResult {
-    ok_json(m.empty_trash().await)
-}
-
-pub(super) async fn delete_stored_state(
-    State(m): State<Mgr>,
-    Path((kind, key)): Path<(String, String)>,
-) -> ApiResult {
-    ok_json(m.delete_stored_state(&kind, &key).await)
-}
-
-pub(super) async fn restore_stored_state(
-    State(m): State<Mgr>,
-    Path(key): Path<String>,
-) -> ApiResult {
-    m.restore_stored_state(&key)
-        .await
-        .map(|session| Json(json!({ "ok": true, "session": session })))
-        .map_err(|e| err(StatusCode::BAD_REQUEST, e))
-}
-
-pub(super) async fn set_label(
-    State(m): State<Mgr>,
-    Extension(cap): Extension<Cap>,
-    Path(name): Path<String>,
-    Json(q): Json<LabelReq>,
-) -> ApiResult {
-    guard(&m, &cap, &name, Level::Rw).await?;
-    ok_json(m.set_label(&name, q.label).await)
-}
-
-pub(super) async fn list_projects(State(m): State<Mgr>) -> ApiResult {
-    Ok(Json(json!({ "projects": m.projects().await })))
-}
-
-pub(super) async fn one_project(State(m): State<Mgr>, Path(name): Path<String>) -> ApiResult {
-    m.projects()
-        .await
-        .into_iter()
-        .find(|p| p.name == name)
-        .map(|p| Json(json!(p)))
-        .ok_or_else(|| err(StatusCode::NOT_FOUND, format!("no such project: {name}")))
-}
-
-pub(super) async fn create_project(State(m): State<Mgr>, Json(p): Json<ProjectCfg>) -> ApiResult {
-    ok_json(m.add_project(p).await)
-}
-
-pub(super) async fn update_project(
-    State(m): State<Mgr>,
-    Path(name): Path<String>,
-    Json(p): Json<ProjectCfg>,
-) -> ApiResult {
-    ok_json(m.update_project(&name, p).await)
-}
-
-root_action!(destroy_project => remove_project, destroy_library_item => remove_library_item);
-
-pub(super) async fn list_library(State(m): State<Mgr>) -> ApiResult {
-    Ok(Json(json!({ "library": m.library().await })))
-}
-
-pub(super) async fn create_library_item(
-    State(m): State<Mgr>,
-    Json(sc): Json<LibraryItemCfg>,
-) -> ApiResult {
-    ok_json(m.add_library_item(sc).await)
-}
-
-pub(super) async fn update_library_item(
-    State(m): State<Mgr>,
-    Path(name): Path<String>,
-    Json(sc): Json<LibraryItemCfg>,
-) -> ApiResult {
-    ok_json(m.update_library_item(&name, sc).await)
-}
-
-/// Answers with the temporary agent's name as soon as it is up; the text lands well past the
-/// point this client would have given up waiting. The body says where to run -
-/// `{"project":"..."}` or `{"temp":true}` - and `Option<Json<_>>` is so a bodyless curl still
-/// runs the errands that already know.
-pub(super) async fn run_library_item(
-    State(m): State<Mgr>,
-    Path(name): Path<String>,
-    want: Option<Json<RunWhere>>,
-) -> ApiResult {
-    let session = m
-        .run_library_item(&name, want.map(|Json(w)| w).unwrap_or_default())
-        .await
-        .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
-    Ok(Json(json!({ "ok": true, "session": session })))
-}
-
-pub(super) async fn run(State(m): State<Mgr>, Json(q): Json<RunReq>) -> ApiResult {
-    let project = q.project.trim();
-    let command = if q.path.trim().is_empty() {
-        q.command.trim().to_string()
-    } else {
-        m.file_action_command(project, &q.path, q.command.trim(), q.host)
-            .await
-            .map_err(|e| err(StatusCode::BAD_REQUEST, e))?
-    };
-    let command = command.trim();
-    let command = if q.hold && !q.path.trim().is_empty() {
-        crate::session::hold_action_command(command)
-    } else {
-        command.to_string()
-    };
-    // A shell errand with nothing to run is a shell - `[defaults] shell` inside the sandbox,
-    // `$SHELL` on the host - and saying so again here would be the caller guessing at this
-    // machine's answer. Every other kind has to say: a prompt with no command is an agent
-    // nobody named.
-    if command.is_empty() && q.kind != crate::config::LibraryItemKind::Shell {
-        return Err(err(
-            StatusCode::BAD_REQUEST,
-            "an errand must say what to run",
-        ));
-    }
-    if project.is_empty() && !q.temp && !q.host {
-        return Err(err(
-            StatusCode::BAD_REQUEST,
-            "an errand must name a project or ask for a temporary one",
-        ));
-    }
-
-    let label = match q.label.trim() {
-        // A host errand names itself for the project it opened on and the shell it opens -
-        // `slopworld-zsh`. The game cannot know which shell that is, so it sends no label and
-        // reads the name back off the answer, the same as it does for the session itself.
-        "" if q.host => crate::sandbox::host_session_name(project),
-        "" => "run".to_string(),
-        l => l.to_string(),
-    };
-    let sc = LibraryItemCfg {
-        name: label,
-        kind: q.kind,
-        link: crate::config::LibraryItemLink::Project,
-        project: project.to_string(),
-        text: q.text,
-        // None rather than an empty string: `session_for` reads "no command of its own" off
-        // the Option, and that is what falls through to the preset.
-        command: (!command.is_empty()).then_some(command),
-        mode: crate::config::FileActionMode::Ask,
-        builtin: false,
-    };
-
-    // The project is checked by `run_errand` itself, which is also where a temporary one is
-    // coined - so `temp` rides over as the override it already is rather than a second road.
-    let want = RunWhere {
-        project: None,
-        // A host reader for a private-state directory has no project to attach to. Give it a
-        // disposable project only so the existing errand/session machinery can own its cwd;
-        // the command itself carries the selected absolute path.
-        temp: q.temp || (q.host && project.is_empty()),
-        random_tips: q.random_tips,
-    };
-    let persistent_host = q.host
-        && q.kind == crate::config::LibraryItemKind::Shell
-        && !project.is_empty()
-        && q.path.trim().is_empty()
-        && !q.temp;
-    let like = q.like.trim().to_string();
-    let session = m
-        .run_errand(sc, want, q.host, persistent_host, &like)
-        .await
-        .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
-    Ok(Json(json!({ "ok": true, "session": session })))
-}
-
-/// Run a non-interactive Files or Git action and return a small result for a game message. Project
-/// paths use their normal sandbox; private-state and Git paths explicitly ask for the host.
-/// Interactive actions use `/api/run`, since their terminal needs a tmux session and a persistent
-/// screen.
-pub(super) async fn file_action(State(m): State<Mgr>, Json(q): Json<FileActionReq>) -> ApiResult {
-    let output = m
-        .file_action(&q.project, &q.path, &q.command, q.host)
-        .await
-        .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
-    Ok(Json(json!({ "ok": true, "output": output })))
-}
-
-/// List the host desktop applications associated with a file. This is root-only because the
-/// query runs outside every project sandbox, in the same desktop environment that will launch
-/// the selected application.
-pub(super) async fn open_apps(State(m): State<Mgr>, Query(q): Query<OpenAppsQuery>) -> ApiResult {
-    let apps = m
-        .open_apps(&q.path)
-        .await
-        .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
-    Ok(Json(json!({ "apps": apps })))
-}
-
-/// Mint a grant: let `grantor` watch or drive the named `sessions`. Root-only by the router,
-/// so only the mod asks. The daemon refuses a host session in the scope - the one line the
-/// whole scheme is for - and refuses a grantor or target that is not there. The token comes
-/// back once and is never stored on the file; losing it means minting another.
-pub(super) async fn mint_grant(State(m): State<Mgr>, Json(q): Json<GrantReq>) -> ApiResult {
-    let level = match q.level.trim() {
-        "ro" => Level::Ro,
-        "rw" => Level::Rw,
-        other => {
-            return Err(err(
-                StatusCode::BAD_REQUEST,
-                format!("level must be \"ro\" or \"rw\", not {other:?}"),
-            ))
-        }
-    };
-    let token = m
-        .mint_grant(q.grantor, q.sessions, level)
-        .await
-        .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
-    Ok(Json(json!({ "ok": true, "token": token })))
-}
-
-/// How many grants are live, for the mod's readout. Not the tokens themselves: those are
-/// bearer secrets and leave the daemon once, at the mint.
-pub(super) async fn list_grants(State(m): State<Mgr>) -> ApiResult {
-    Ok(Json(json!({ "grants": m.grant_count().await })))
-}
-
-/// Drop every grant a session minted, by hand rather than by its exit. The mod's revoke.
-pub(super) async fn revoke_grants(State(m): State<Mgr>, Path(grantor): Path<String>) -> ApiResult {
-    m.revoke_grants(&grantor).await;
-    Ok(Json(json!({ "ok": true })))
-}
-
 /// Text for the raw editor, parsed for the settings GUI, so a mod can offer either
 /// without parsing TOML.
 #[cfg(test)]
 mod tests {
     use std::path::{Path, PathBuf};
 
+    use super::super::types::SearchReq;
     use super::{
         browse_limit, entry_name, file_path, highlighter_argv, list_dir, read_highlight_output,
-        read_image_bytes, read_preview, search_preview, source, valid_kind, SearchReq, IMAGE_LIMIT,
+        read_image_bytes, read_preview, search_preview, source, valid_kind, IMAGE_LIMIT,
         READ_LIMIT, SEARCH_TEXT_LIMIT,
     };
     use axum::http::StatusCode;

@@ -11,6 +11,14 @@ namespace SlopWorld
     {
         static void Bucket(List<ColonistBar.Entry> entries, List<Vector2> locs, int count)
         {
+            CountAgents();
+            BucketEntries(entries, locs, count);
+            BucketRuntimeSessions();
+            OrderBuckets();
+        }
+
+        static void CountAgents()
+        {
             // Build the header totals and worker counts once for this layout instead of
             // rescanning every session and worker list once per project below.
             foreach (var info in SessionHub.Instance.Sessions)
@@ -21,7 +29,10 @@ namespace SlopWorld
                 Increment(Layout.TotalCounts, key);
                 if (IsActive(info.State)) Increment(Layout.ActiveCounts, key);
             }
+        }
 
+        static void BucketEntries(List<ColonistBar.Entry> entries, List<Vector2> locs, int count)
+        {
             for (int i = 0; i < count && i < entries.Count; i++)
             {
                 var pawn = entries[i].pawn;
@@ -74,7 +85,10 @@ namespace SlopWorld
             // pawn at each new location and hit-testing remains aligned.
             foreach (var list in Layout.Buckets.Values)
                 list.Sort((a, b) => AgentColony.CompareNames(Layout.Named[a], Layout.Named[b]));
+        }
 
+        static void BucketRuntimeSessions()
+        {
             foreach (var s in SessionHub.Instance.Sessions)
             {
                 if (s.Worker)
@@ -104,7 +118,10 @@ namespace SlopWorld
                     Layout.Ghosts[s.Project] = list = new List<SessionInfo>();
                 list.Add(s);
             }
+        }
 
+        static void OrderBuckets()
+        {
             foreach (var kv in Layout.Buckets)
                 if (kv.Value.Count > 0) Layout.Order.Add(kv.Key);
             foreach (var kv in Layout.Ghosts)

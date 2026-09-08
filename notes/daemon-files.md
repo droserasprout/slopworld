@@ -5,8 +5,8 @@
 | `main.rs` | Startup, the retick loop, the token middleware. |
 | `api/mod.rs` | API module façade and shared request helpers. |
 | `api/router.rs` | Axum routes and root-only middleware. |
-| `api/handlers.rs` | Shared HTTP guards, common helpers, core session/project/preset/grant handlers, and co-located tests. |
-| `api/handlers_*.rs` | Focused HTTP boundaries for tasks, config, files, presets, clipboard, system usage, and audio. |
+| `api/handlers.rs` | Shared HTTP guards, common helpers, route-facing façade exports, and co-located tests. |
+| `api/handlers_*.rs` | Focused HTTP boundaries for sessions, projects/library/errands, grants, tasks, config, files, presets, clipboard, system usage, and audio. |
 | `api/types.rs` | HTTP and WebSocket wire request types. |
 | `api/ws.rs` | WebSocket upgrade, message handling, and frame pump. |
 | `session/mod.rs` | Session state/data types and the public façade for session helpers. |
@@ -25,6 +25,7 @@
 | `manager/session_lifecycle.rs` | Session stop/forget/restart lifecycle; startup preparation and launch live in `manager/start.rs`. |
 | `manager/start.rs` | Session target resolution, preflight/argv construction, tmux launch, and reader/state wiring. |
 | `manager/session_state.rs` | Session views, state classification, and the manager retick loop. |
+| `manager/tasks.rs` | The locked durable task store and Manager's task façade. |
 | `manager/library.rs` | Projects, library items, file actions and temporary errands. |
 | `manager/workers.rs` | Root-only task-owned worker construction and explicit child metadata. |
 | `manager/capture.rs` | Capture façade, shared frame metadata, attach helpers, and capture tests. |
@@ -37,6 +38,9 @@
 | `emu.rs` | `SessionEmu`, an `alacritty_terminal` per session. |
 | `tmux.rs` | Async wrapper over the tmux CLI. |
 | `sandbox/` | The bubblewrap argv, network modes, bind guard and pasta wrapper - see [sandbox-isolation](sandbox-isolation.md). |
+| `sandbox/host.rs` | Host-terminal argv, shell identity/name policy, and shell command splitting. |
+| `sandbox/network.rs` | Resolver preparation, persistent `/tmp`, and one-time private-state seeding. |
+| `sandbox/state.rs` | Private/persistent sandbox state roots, trash, restore, and cleanup. |
 | `sandbox/bind/policy.rs` | Effective preset path resolution, private/shared state sources, resolver targets, and the final refused-path guard. |
 | `sandbox/bind/mounts.rs` | Ordered bwrap mounts, environment, DNS/pasta wrapping, and resource-limit argv emission. |
 | `presets.rs` | The preset tables: builtin TOML plus the user's. |

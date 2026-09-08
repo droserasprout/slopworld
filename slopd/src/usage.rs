@@ -502,120 +502,142 @@ const LOOK: Duration = Duration::from_secs(30);
 
 /// Started from main once, and quiet in the log unless something is wrong: this
 /// runs every minute forever.
+struct UsagePollers {
+    anth: Poller,
+    cred: Poller,
+    openai: Poller,
+    creds_stamp: Option<SystemTime>,
+}
+
+impl UsagePollers {
+    fn new() -> Self {
+        Self {
+            anth: Poller::new("Anthropic"),
+            cred: Poller::new("OpenRouter"),
+            openai: Poller::new("OpenAI"),
+            creds_stamp: None,
+        }
+    }
+
+    async fn poll_once(&mut self, m: &Arc<Manager>) -> Duration {
+        let cfg = m.config().await;
+        let d = &cfg.daemon;
+        let now = Instant::now();
+        let mut moved = false;
+        let UsagePollers {
+            anth,
+            cred,
+            openai,
+            creds_stamp,
+        } = self;
+
+        let mut providers = [
+            Provider {
+                source: "anthropic",
+                enabled: anthropic_enabled,
+                poller: anth,
+                read: read_anthropic,
+                fetch: fetch_anthropic,
+                parse: parse_anthropic,
+                prepare: Some(watch_anthropic_stamp),
+            },
+            Provider {
+                source: "openrouter",
+                enabled: openrouter_enabled,
+                poller: cred,
+                read: read_openrouter,
+                fetch: fetch_openrouter,
+                parse: parse_openrouter,
+                prepare: None,
+            },
+            Provider {
+                source: "openai",
+                enabled: openai_enabled,
+                poller: openai,
+                read: read_openai,
+                fetch: fetch_openai_provider,
+                parse: parse_openai_response,
+                prepare: None,
+            },
+        ];
+
+        for provider in &mut providers {
+            if let Some(prepare) = provider.prepare {
+                prepare(d, provider.poller, creds_stamp, now);
+            }
+
+            if !(provider.enabled)(d) {
+                // Off is a setting that can be turned back on without a restart, so this
+                // drops the rows rather than returning.
+                moved |= provider.poller.clear();
+                continue;
+            }
+
+            // A row toggle should disappear from the wire immediately, even when this
+            // provider is between network polls. Its next enabled poll will repopulate it.
+            let before = provider.poller.snap.windows.len();
+            provider
+                .poller
+                .item_due
+                .retain(|key, _| item_enabled(d, provider.source, key));
+            provider
+                .poller
+                .snap
+                .windows
+                .retain(|window| item_enabled(d, provider.source, &window.key));
+            moved |= before != provider.poller.snap.windows.len();
+
+            let interval = provider_interval(d, provider.source, provider.poller);
+            // A newly shortened interval should take effect on the next loop rather than
+            // waiting out the old, longer due time. Increasing it naturally takes effect
+            // after the next poll.
+            if provider.poller.due > now + Duration::from_secs(interval) {
+                provider.poller.due = now;
+            }
+
+            moved |= poll_one(provider, d, now, interval).await;
+        }
+
+        // One event for both, and only when something actually moved: `set_usage`
+        // re-announces to every client.
+        if moved {
+            let mut out = merge(
+                providers
+                    .iter()
+                    .map(|provider| (provider.source, &provider.poller.snap)),
+            );
+            // Said here rather than in `merge`, which knows about snapshots and not about
+            // switches. A seller that is on but has never answered is exactly the case
+            // this is for, so it goes on the list whatever its snapshot holds.
+            out.sources.extend(
+                providers
+                    .iter()
+                    .filter(|provider| (provider.enabled)(d))
+                    .map(|provider| provider.source.into()),
+            );
+            m.set_usage(out).await;
+        }
+
+        let due = providers
+            .iter()
+            .filter(|provider| (provider.enabled)(d))
+            .map(|provider| provider.poller.due)
+            .min();
+
+        due.map(|at| at.saturating_duration_since(Instant::now()))
+            .unwrap_or(LOOK)
+            .min(LOOK)
+            // A poll that came back instantly must not spin the loop on a due time
+            // already in the past.
+            .max(Duration::from_secs(1))
+    }
+}
+
 pub fn spawn(m: Arc<Manager>) -> tokio::task::JoinHandle<()> {
     tokio::spawn(async move {
-        let mut anth = Poller::new("Anthropic");
-        let mut cred = Poller::new("OpenRouter");
-        let mut openai = Poller::new("OpenAI");
-        let mut creds_stamp: Option<SystemTime> = None;
-
+        let mut pollers = UsagePollers::new();
         loop {
-            let cfg = m.config().await;
-            let d = &cfg.daemon;
-            let now = Instant::now();
-            let mut moved = false;
-
-            let mut providers = [
-                Provider {
-                    source: "anthropic",
-                    enabled: anthropic_enabled,
-                    poller: &mut anth,
-                    read: read_anthropic,
-                    fetch: fetch_anthropic,
-                    parse: parse_anthropic,
-                    prepare: Some(watch_anthropic_stamp),
-                },
-                Provider {
-                    source: "openrouter",
-                    enabled: openrouter_enabled,
-                    poller: &mut cred,
-                    read: read_openrouter,
-                    fetch: fetch_openrouter,
-                    parse: parse_openrouter,
-                    prepare: None,
-                },
-                Provider {
-                    source: "openai",
-                    enabled: openai_enabled,
-                    poller: &mut openai,
-                    read: read_openai,
-                    fetch: fetch_openai_provider,
-                    parse: parse_openai_response,
-                    prepare: None,
-                },
-            ];
-
-            for provider in &mut providers {
-                if let Some(prepare) = provider.prepare {
-                    prepare(d, provider.poller, &mut creds_stamp, now);
-                }
-
-                if !(provider.enabled)(d) {
-                    // Off is a setting that can be turned back on without a restart, so this
-                    // drops the rows rather than returning.
-                    moved |= provider.poller.clear();
-                    continue;
-                }
-
-                // A row toggle should disappear from the wire immediately, even when this
-                // provider is between network polls. Its next enabled poll will repopulate it.
-                let before = provider.poller.snap.windows.len();
-                provider
-                    .poller
-                    .item_due
-                    .retain(|key, _| item_enabled(d, provider.source, key));
-                provider
-                    .poller
-                    .snap
-                    .windows
-                    .retain(|window| item_enabled(d, provider.source, &window.key));
-                moved |= before != provider.poller.snap.windows.len();
-
-                let interval = provider_interval(d, provider.source, provider.poller);
-                // A newly shortened interval should take effect on the next loop rather than
-                // waiting out the old, longer due time. Increasing it naturally takes effect
-                // after the next poll.
-                if provider.poller.due > now + Duration::from_secs(interval) {
-                    provider.poller.due = now;
-                }
-
-                moved |= poll_one(provider, d, now, interval).await;
-            }
-
-            // One event for both, and only when something actually moved: `set_usage`
-            // re-announces to every client.
-            if moved {
-                let mut out = merge(
-                    providers
-                        .iter()
-                        .map(|provider| (provider.source, &provider.poller.snap)),
-                );
-                // Said here rather than in `merge`, which knows about snapshots and not about
-                // switches. A seller that is on but has never answered is exactly the case
-                // this is for, so it goes on the list whatever its snapshot holds.
-                out.sources.extend(
-                    providers
-                        .iter()
-                        .filter(|provider| (provider.enabled)(d))
-                        .map(|provider| provider.source.into()),
-                );
-                m.set_usage(out).await;
-            }
-
-            let due = providers
-                .iter()
-                .filter(|provider| (provider.enabled)(d))
-                .map(|provider| provider.poller.due)
-                .min();
-
-            let wait = due
-                .map(|at| at.saturating_duration_since(Instant::now()))
-                .unwrap_or(LOOK)
-                .min(LOOK)
-                // A poll that came back instantly must not spin the loop on a due time
-                // already in the past.
-                .max(Duration::from_secs(1));
-
+            let wait = pollers.poll_once(&m).await;
             tokio::time::sleep(wait).await;
         }
     })

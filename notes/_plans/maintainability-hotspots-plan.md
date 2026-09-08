@@ -17,39 +17,55 @@ The existing `TerminalWindow` history, selection, link, and rendering services, 
 layout model, usage/sandbox seams, and resource-specific HTTP modules remain the next owners to
 touch only when a behavior change gives them a sharper boundary.
 
+The follow-up pass has since put Manager's durable task mutex behind `manager/tasks.rs`, split
+session/library/grant HTTP handlers into focused modules, moved persistent sandbox state into
+`sandbox/state.rs`, and given usage polling, websocket frames, sidebar buckets, and terminal
+links, host-terminal policy, and sandbox network/seeding their own implementation owners. The
+remaining work below is the deeper lifecycle and rendering ownership, not another broad file
+split.
+
 ## Risk order
 
 1. **Manager ownership.** `Manager` spans roughly 4,000 lines of `impl` blocks across
    configuration, session lifecycle, capture, library, workers, tasks, and broadcasts.
-   Keep its public façade, but move cohesive mutable state and orchestration behind narrower
-   owners. Start with `manager/config.rs`, `Manager::start`, `adopt_orphans`, and worker/session
-   construction. Preserve event ordering and keep state-transition tests beside each owner.
+   The startup, orphan-adoption, errand, worker, and durable-task owners are now extracted.
+   Remaining work is the deeper configuration synchronization and shared live/session state;
+   keep the public façade, preserve event ordering, and keep state-transition tests beside each
+   owner.
 2. **TerminalWindow.** The 15 partial definitions are easier to navigate but still share one
-   stateful fullscreen coordinator. Finish extracting history, selection, links, and rendering
+   stateful fullscreen coordinator. Link hit testing now has a `TerminalLinkService`; history,
+   selection, and rendering still remain coupled to the fullscreen coordinator. Extract those
    services without adding more cross-partial state. Keep input ordering, resize negotiation,
    and stopped-pane behavior covered by focused tests.
 3. **AgentSidebar.** Keep the Harmony adapter thin and make the row/layout model the source of
-   drawing, hit-testing, and keyboard order. Preserve the parked-entry/index invariant and the
-   back/front draw timing while extracting behavior.
+   drawing, hit-testing, and keyboard order. The layout model and bucket helpers now provide that
+   source while preserving the parked-entry/index invariant and back/front draw timing; this
+   hotspot's planned extraction is complete unless a behavior change exposes a sharper seam.
 4. **HTTP handlers.** Split `api/handlers.rs` by resource or policy boundary while retaining
-   shared authentication and error helpers. Avoid changing route behavior during the move.
+   shared authentication and error helpers. Session, library, grant, task, config, file, preset,
+   clipboard, usage, and audio boundaries now live in focused modules; `handlers.rs` is the
+   shared façade and test home.
 5. **Sandbox.** `sandbox/mod.rs` is both a broad subsystem and a security boundary. Extract only
-   seams with clear ownership and tests; keep refused-path checks and ordered argv construction
-   central. Do not optimize for file size at the expense of reviewability.
+   seams with clear ownership and tests; state, host-terminal policy, network/seeding, and
+   bind policy/mounts now have separate owners. The remaining `mod.rs` code is argv orchestration,
+   preset resolution, and its boundary tests. Keep refused-path checks and ordered argv
+   construction central. Do not optimize for file size at the expense of reviewability.
 
 ## Secondary hotspots
 
 `audio/mod.rs`, `bin/slopworld.rs`, `session/mod.rs`, and `emu.rs` are large but mostly cohesive.
-`usage.rs` and `sandbox/bind.rs` already have parsing/provider and policy/mount seams; revisit
-them only when a behavior change exposes a sharper boundary. `MenuBackgroundBake.cs`,
+`usage.rs` and `sandbox/bind.rs` now have parsing/provider/scheduler and policy/mount seams;
+revisit them only when a behavior change exposes a sharper boundary. `MenuBackgroundBake.cs`,
 `AboutPage.cs`, and `config/model.rs` are low-priority size outliers.
 
 ## Long-method queue
 
-Review these first when touching their surrounding behavior: `Manager::start`,
-`Manager::adopt_orphans`, `Manager::create_errand_session`, `usage::spawn`,
-`AgentSidebar.Bucket`, and `MiniWebSocket.ReadLoop`. A long method that is pure formatting or
-serialization is a lower-risk candidate than one coordinating lifecycle or framework state.
+The queued extractions for `Manager::start`, `Manager::adopt_orphans`,
+`Manager::create_errand_session`, `usage::spawn`, `AgentSidebar.Bucket`, and
+`MiniWebSocket.ReadLoop` are complete. The next long-method reviews are the TerminalWindow
+history/rendering coordination and Manager configuration synchronization when their behavior is
+touched. A long method that is pure formatting or serialization is a lower-risk candidate than
+one coordinating lifecycle or framework state.
 
 ## Refactor guardrails
 

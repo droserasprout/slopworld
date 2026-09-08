@@ -35,7 +35,7 @@ pub struct Manager {
     pub(super) auth_generation: AtomicU64,
     pub(super) auth_changes: broadcast::Sender<AuthChange>,
     pub(super) grants: RwLock<crate::grant::Grants>,
-    pub(super) tasks: Mutex<crate::tasks::Tasks>,
+    pub(super) tasks: super::manager::TaskStore,
     /// Serializes daemon-owned worker creation so two root requests cannot reserve one child name
     /// or split task/session persistence between each other.
     pub(super) worker_spawn: tokio::sync::Mutex<()>,
@@ -125,7 +125,9 @@ pub(crate) fn test_manager(config: Config) -> Arc<Manager> {
         auth_generation: AtomicU64::new(0),
         auth_changes,
         grants: RwLock::new(crate::grant::Grants::default()),
-        tasks: Mutex::new(crate::tasks::Tasks::load(&cfg_path).expect("test task store")),
+        tasks: super::manager::TaskStore::new(
+            crate::tasks::Tasks::load(&cfg_path).expect("test task store"),
+        ),
         worker_spawn: tokio::sync::Mutex::new(()),
         title_cache: crate::title::SummaryCache::load(crate::title::cache_path(&cfg_path)),
     })
