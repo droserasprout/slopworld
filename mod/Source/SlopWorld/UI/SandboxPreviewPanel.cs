@@ -89,11 +89,11 @@ namespace SlopWorld
         static float Height(SandboxPreviewData data, float width)
         {
             float y = 0f;
-            y += Text.CalcHeight(data.Title, width) + UiWidgets.GapXS;
+            y += UiWidgets.StatusLabelHeight(data.Title, width) + UiWidgets.GapXS;
             if (!string.IsNullOrEmpty(data.Subtitle))
-                y += Text.CalcHeight(data.Subtitle, width) + UiWidgets.GapXS;
+                y += UiWidgets.StatusLabelHeight(data.Subtitle, width) + UiWidgets.GapXS;
             if (data.Notes.Count > 0)
-                y += Text.CalcHeight(string.Join("\n", data.Notes.ToArray()), width) +
+                y += UiWidgets.StatusLabelHeight(string.Join("\n", data.Notes.ToArray()), width) +
                      UiWidgets.GapS;
             foreach (var field in data.Fields)
             {
@@ -101,7 +101,7 @@ namespace SlopWorld
                     ? "(nothing)"
                     : string.Join("\n", field.Values.ToArray());
                 y += UiWidgets.RowH + UiWidgets.GapXS +
-                     Text.CalcHeight(text, width) + UiWidgets.GapM;
+                     UiWidgets.StatusLabelHeight(text, width) + UiWidgets.GapM;
             }
             return y + UiWidgets.GapM;
         }
@@ -113,18 +113,17 @@ namespace SlopWorld
             string text = field.Values.Count == 0
                 ? "(nothing)"
                 : string.Join("\n", field.Values.ToArray());
-            GUI.color = field.Values.Count == 0 ? UiWidgets.Faint : UiWidgets.Name;
-            Widgets.Label(new Rect(0f, y, width, Text.CalcHeight(text, width)), text);
-            GUI.color = Color.white;
-            return y + Text.CalcHeight(text, width) + UiWidgets.GapM;
+            float h = UiWidgets.StatusLabelHeight(text, width);
+            UiWidgets.StatusLabel(new Rect(0f, y, width, h), text,
+                field.Values.Count == 0 ? UiWidgets.Faint : UiWidgets.Name);
+            return y + h + UiWidgets.GapM;
         }
 
         static float TextBlock(float width, float y, string text, Color color)
         {
-            GUI.color = color;
-            Widgets.Label(new Rect(0f, y, width, Text.CalcHeight(text, width)), text);
-            GUI.color = Color.white;
-            return y + Text.CalcHeight(text, width);
+            float h = UiWidgets.StatusLabelHeight(text, width);
+            UiWidgets.StatusLabel(new Rect(0f, y, width, h), text, color);
+            return y + h;
         }
     }
 }

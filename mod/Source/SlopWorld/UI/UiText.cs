@@ -8,6 +8,35 @@ namespace SlopWorld
 {
     public abstract class UiText : UiTheme
     {
+        // Wrapped status and empty-state text has the same font/anchor/color contract across
+        // pages. Keep its measurement beside the draw path so dynamic fonts do not make a
+        // caller reserve a height from a different face.
+        public static float StatusLabelHeight(string text, float width,
+                                               GameFont font = GameFont.Small)
+        {
+            using (WidgetState.Save())
+            {
+                Verse.Text.Font = Real(font);
+                Verse.Text.WordWrap = true;
+                return Mathf.Max(LineHOf(font), Verse.Text.CalcHeight(
+                    string.IsNullOrEmpty(text) ? " " : text, Mathf.Max(1f, width)));
+            }
+        }
+
+        public static void StatusLabel(Rect r, string text, Color color,
+                                       GameFont font = GameFont.Small,
+                                       TextAnchor anchor = TextAnchor.UpperLeft)
+        {
+            using (WidgetState.Save())
+            {
+                Verse.Text.Font = Real(font);
+                Verse.Text.WordWrap = true;
+                Verse.Text.Anchor = anchor;
+                GUI.color = color;
+                Widgets.Label(r, text ?? "");
+            }
+        }
+
         public static void RowLabel(Rect r, string text, TextAnchor anchor = TextAnchor.MiddleLeft)
         {
             using (WidgetState.Save())

@@ -75,7 +75,7 @@ namespace SlopWorld
                 GUI.DrawTexture(r.ContractedBy(inset), icon);
             }
 
-            if (!on || !Widgets.ButtonInvisible(r)) return false;
+            if (!RowButton(r, on)) return false;
 
             SoundDefOf.Click.PlayOneShotOnCamera();
             return true;

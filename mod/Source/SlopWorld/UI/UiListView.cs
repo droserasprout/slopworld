@@ -49,16 +49,9 @@ namespace SlopWorld
             {
                 if (items.Count == 0)
                 {
-                    using (WidgetState.Save())
-                    {
-                        GUI.color = UiWidgets.Dim;
-                        string note = hub.Online ? EmptyNote : UiWidgets.Unreachable;
-                        Widgets.Label(
-                            new Rect(UiWidgets.GapXS, UiWidgets.GapS,
-                                view.width - UiWidgets.GapS,
-                                Text.CalcHeight(note, view.width - UiWidgets.GapS)),
-                            note);
-                    }
+                    string note = hub.Online ? EmptyNote : UiWidgets.Unreachable;
+                    UiWidgets.StatusLabel(new Rect(UiWidgets.GapXS, UiWidgets.GapS,
+                            view.width - UiWidgets.GapS, view.height), note, UiWidgets.Dim);
                 }
 
                 float y = 0f;

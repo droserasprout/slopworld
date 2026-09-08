@@ -91,7 +91,7 @@ namespace SlopWorld
                     RowChrome.Hover(row, selected, true, RowHoverPolicy.Local,
                         RowSelectionStyle.Palette);
 
-                    if (Widgets.ButtonInvisible(row))
+                    if (UiWidgets.RowButton(row))
                     {
                         _selectedIndex = i;
                         if (_matches[i].Command.SubAction != null) EnterSub(_matches[i].Command);
@@ -153,7 +153,7 @@ namespace SlopWorld
                     RowChrome.Hover(row, selected, true, RowHoverPolicy.Local,
                         RowSelectionStyle.Palette);
 
-                    if (Widgets.ButtonInvisible(row))
+                    if (UiWidgets.RowButton(row))
                     {
                         _subIndex = i;
                         ExecuteSub();

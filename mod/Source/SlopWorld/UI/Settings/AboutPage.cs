@@ -615,7 +615,7 @@ namespace SlopWorld
             bool over = Mouse.IsOver(rect);
             GUI.color = over ? UiWidgets.Lead : UiWidgets.Accent;
             UiWidgets.RowLabel(rect, label, TextAnchor.UpperLeft);
-            if (Widgets.ButtonInvisible(rect))
+            if (UiWidgets.RowButton(rect))
             {
                 SoundDefOf.Click.PlayOneShotOnCamera();
                 Application.OpenURL(url);
@@ -679,15 +679,13 @@ namespace SlopWorld
             Text.Font = font;
             Text.WordWrap = true;
             Text.Anchor = anchor;
-            GUI.color = color;
-            float h = Mathf.Max(UiWidgets.LineHOf(font), Text.CalcHeight(text, r.width)) +
-                RowGap;
-            Widgets.Label(new Rect(r.x, y, r.width, h), text);
+            float h = UiWidgets.StatusLabelHeight(text, r.width, font);
+            UiWidgets.StatusLabel(new Rect(r.x, y, r.width, h), text, color, font, anchor);
             Text.Anchor = wasAnchor;
             Text.WordWrap = wasWrap;
             GUI.color = wasColor;
             Text.Font = wasFont;
-            return y + h;
+            return y + h + RowGap;
         }
 
         float Link(Rect r, float y, string label, string url, GameFont font,
@@ -713,7 +711,7 @@ namespace SlopWorld
             GUI.color = over ? UiWidgets.Lead : UiWidgets.Accent;
             if (textSize > 0) GUI.Label(hit, label ?? "", style);
             else UiWidgets.RowLabel(hit, label, TextAnchor.UpperLeft);
-            if (Widgets.ButtonInvisible(hit))
+            if (UiWidgets.RowButton(hit))
             {
                 SoundDefOf.Click.PlayOneShotOnCamera();
                 Application.OpenURL(url);

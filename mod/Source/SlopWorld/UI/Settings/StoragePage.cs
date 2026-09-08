@@ -81,9 +81,9 @@ namespace SlopWorld
 
             if (_entries.Count == 0)
             {
-                GUI.color = _error != null ? UiWidgets.Bad : UiWidgets.Dim;
-                Widgets.Label(list, _error ?? (_loading ? "Scanning..." : "No private state on disk."));
-                GUI.color = Color.white;
+                UiWidgets.StatusLabel(list,
+                    _error ?? (_loading ? "Scanning..." : "No private state on disk."),
+                    _error != null ? UiWidgets.Bad : UiWidgets.Dim);
             }
 
             var foot = new UiWidgets.Bar(UiWidgets.FooterBar(rect));
@@ -127,7 +127,7 @@ namespace SlopWorld
 
             // Leave the action buttons out of the selection hit target. The whole label side
             // is one row, so an entry does not require a tiny click on its name.
-            if (Widgets.ButtonInvisible(new Rect(r.x, r.y, labelW, r.height)))
+            if (UiWidgets.RowButton(new Rect(r.x, r.y, labelW, r.height)))
                 Focus(e);
 
             float line1 = UiListRow.LineY(r, 0);

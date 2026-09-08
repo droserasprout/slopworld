@@ -222,17 +222,12 @@ namespace SlopWorld
         static void Empty(Rect body)
         {
             var r = new Rect(CellX, body.y + Pad, body.width - CellX * 2f, RowH * 3f);
-            using (WidgetState.Save())
-            {
-                GUI.color = UiWidgets.Faint;
-                Text.Font = GameFont.Tiny;
-                Text.Anchor = TextAnchor.UpperLeft;
-                Widgets.Label(r, !SessionHub.Instance.Online
-                    ? $"daemon {SessionHub.Instance.Status}"
-                    : AgentSidebar.Filtering
-                        ? $"No library entries in {AgentSidebar.FilterLabel}."
-                        : "No library entries yet. Press + at the foot of the panel.");
-            }
+            UiWidgets.StatusLabel(r, !SessionHub.Instance.Online
+                ? $"daemon {SessionHub.Instance.Status}"
+                : AgentSidebar.Filtering
+                    ? $"No library entries in {AgentSidebar.FilterLabel}."
+                    : "No library entries yet. Press + at the foot of the panel.",
+                UiWidgets.Faint, GameFont.Tiny);
         }
 
         static Color KindColor(LibraryItemKind kind)

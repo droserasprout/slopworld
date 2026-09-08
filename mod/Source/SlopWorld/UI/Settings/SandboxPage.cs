@@ -96,9 +96,8 @@ namespace SlopWorld
 
             if (!_loaded)
             {
-                GUI.color = _error != null ? UiWidgets.Bad : UiWidgets.Dim;
-                Widgets.Label(inner, _error ?? "Waiting for the daemon...");
-                GUI.color = Color.white;
+                UiWidgets.StatusLabel(inner, _error ?? "Waiting for the daemon...",
+                    _error != null ? UiWidgets.Bad : UiWidgets.Dim);
             }
             else
             {
@@ -112,13 +111,11 @@ namespace SlopWorld
         {
             UiWidgets.SectionHeading(new Rect(r.x, r.y, r.width, UiWidgets.RowH), "Presets");
             var caption = "System presets are supplied by slopd. Copy one to the user list to edit it; user presets can also be new entries.";
-            GUI.color = UiWidgets.Dim;
             float y = r.y + UiWidgets.RowH + UiWidgets.GapXS;
             float newW = UiWidgets.BtnW("New user preset", 142f);
             float captionW = r.width - newW - UiWidgets.GapS;
-            float h = Text.CalcHeight(caption, captionW);
-            Widgets.Label(new Rect(r.x, y, captionW, h), caption);
-            GUI.color = Color.white;
+            float h = UiWidgets.StatusLabelHeight(caption, captionW);
+            UiWidgets.StatusLabel(new Rect(r.x, y, captionW, h), caption, UiWidgets.Dim);
             if (UiWidgets.Button(new Rect(r.xMax - newW, y, newW, UiWidgets.BtnH),
                     "New user preset", UiWidgets.Btn.Primary))
                 NewPreset();
@@ -134,11 +131,9 @@ namespace SlopWorld
         {
             UiWidgets.SectionHeading(new Rect(r.x, r.y, r.width, UiWidgets.RowH), "Commands");
             var caption = "Commands say what an agent runs and which presets it requires. Copy a system command to make a user override.";
-            GUI.color = UiWidgets.Dim;
             float y = r.y + UiWidgets.RowH + UiWidgets.GapXS;
-            float h = Text.CalcHeight(caption, r.width);
-            Widgets.Label(new Rect(r.x, y, r.width, h), caption);
-            GUI.color = Color.white;
+            float h = UiWidgets.StatusLabelHeight(caption, r.width);
+            UiWidgets.StatusLabel(new Rect(r.x, y, r.width, h), caption, UiWidgets.Dim);
             y += h + UiWidgets.GapS;
             var content = new Rect(r.x, y, r.width, r.yMax - y);
             float detailW = Mathf.Min(590f, content.width * .60f);
