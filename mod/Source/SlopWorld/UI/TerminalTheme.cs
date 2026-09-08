@@ -71,9 +71,9 @@ namespace SlopWorld
 
         public static readonly List<TerminalTheme> All = new List<TerminalTheme>
         {
-            // SlopWorld is the only house palette. The other entries are named palettes with
-            // published values, kept here as terminal-ready 16-color adaptations.
-            new TerminalTheme("slopworld", "SlopWorld",
+            // House palettes come first. The other entries are named palettes with published
+            // values, kept here as terminal-ready 16-color adaptations.
+            new TerminalTheme("slopworld", "Warm",
                 fg: "#d3cbb8", bg: "#14120e",
                 cursor: "#e0b64a", cursorText: "#14120e",
                 selection: "#3d4c64", link: "#86a9c4",
@@ -83,6 +83,30 @@ namespace SlopWorld
                     "#6889a6", "#99739e", "#6e9490", "#c2baa6",
                     "#5b5549", "#c86a50", "#9bb066", "#e0b64a",
                     "#7b9ebd", "#ae87b3", "#8cb6b1", "#efe7d4",
+                }),
+
+            new TerminalTheme("slopworld-cold-1", "Cold",
+                fg: "#c4cbd4", bg: "#12171e",
+                cursor: "#8bb8d6", cursorText: "#12171e",
+                selection: "#394b60", link: "#8eb7dd",
+                ansi: new[]
+                {
+                    "#171c23", "#b8646d", "#819d85", "#c1a875",
+                    "#6689b7", "#927fa5", "#6f9fa3", "#c4cbd4",
+                    "#5d6975", "#d17b83", "#a0bc9d", "#dec68a",
+                    "#88add8", "#b093c1", "#91c5c3", "#e3e8ed",
+                }),
+
+            new TerminalTheme("slopworld-warm-2", "Warm-sat",
+                fg: "#e0c39b", bg: "#1a110c",
+                cursor: "#e5a84b", cursorText: "#1a110c",
+                selection: "#5a3d2b", link: "#d29a6b",
+                ansi: new[]
+                {
+                    "#20140e", "#c45a43", "#8c9a50", "#d39a44",
+                    "#6887a1", "#ad7789", "#719b8e", "#d8c7a9",
+                    "#634538", "#e2785d", "#abb66a", "#efc35c",
+                    "#89a9bd", "#c193a5", "#9bc9ad", "#f2dfc1",
                 }),
 
             new TerminalTheme("onedark", "One Dark",

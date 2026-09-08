@@ -7,11 +7,11 @@
 
 The values behind those names are a `UIScheme`, picked on the Appearance page and held in
 `ModSettings.uiScheme`. A scheme is a color table; geometry, spacing, and shapes come from
-the shared panel. `slopworld` and `slopworld-warm` are the complete house tables. The
-remaining entries are named palettes adapted to the UI's semantic roles.
+the shared panel. The six `slopworld*` entries are complete house tables. The remaining
+entries are named palettes adapted to the UI's semantic roles.
 
 The catalog deliberately uses stable IDs for persisted settings and human labels for the
-picker. Unknown IDs resolve to SlopWorld.
+picker. Unknown IDs resolve to the default Cold scheme.
 
 Named palette values are adapted to SlopWorld's semantic roles rather than assuming that an
 external palette defines every widget color. The adapter keeps text and structural roles

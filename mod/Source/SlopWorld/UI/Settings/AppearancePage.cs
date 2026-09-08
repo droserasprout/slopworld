@@ -39,8 +39,8 @@ namespace SlopWorld
             // The preview sits at the foot; the form scrolls above it.
             float ph = Mathf.Clamp(
                 UiWidgets.LineHOf(GameFont.Tiny) + UiWidgets.LineHOf(GameFont.Small)
-                    + UiWidgets.LineHOf(GameFont.Medium) + UiWidgets.GapS * 5 + 36f,
-                104f, 190f);
+                    + UiWidgets.LineHOf(GameFont.Medium) + UiWidgets.GapS * 8 + 90f,
+                200f, 230f);
             var preview = new Rect(inner.x, inner.yMax - ph, inner.width, ph);
             var caption = new Rect(inner.x, preview.y - UiWidgets.RowH - UiWidgets.GapXS,
                 inner.width, UiWidgets.RowH);
@@ -304,7 +304,7 @@ namespace SlopWorld
             }
         }
 
-        // A live preview of the three UI tiers and the semantic colors they carry, drawn
+        // A live preview of the UI tiers, controls, list chrome and semantic colors, drawn
         // over the same surfaces used by the sidebar, top bar and list views. This makes a
         // face or size choice legible even when the current page happens to use only Small.
         static void DrawPreview(Rect r)
@@ -333,6 +333,39 @@ namespace SlopWorld
                 y += UiWidgets.GapS;
 
                 float gap = UiWidgets.GapXS;
+                float buttonH = Mathf.Min(24f, r.yMax - y - 5f);
+                if (buttonH > 0f)
+                {
+                    float buttonW = (w - gap * 2f) / 3f;
+                    DrawButtonExample(new Rect(x, y, buttonW, buttonH), "OPEN",
+                        UiWidgets.Accent, UIScheme.Current.AccentText, Color.clear);
+                    DrawButtonExample(new Rect(x + buttonW + gap, y, buttonW, buttonH),
+                        "DEFAULT", UiWidgets.Well, UiWidgets.Lead, UiWidgets.Edge);
+                    DrawButtonExample(new Rect(x + (buttonW + gap) * 2f, y, buttonW, buttonH),
+                        "DELETE", UiWidgets.Destructive, UIScheme.Current.DestructiveText,
+                        Color.clear);
+                    y += buttonH;
+                }
+                y += UiWidgets.GapS;
+
+                float controlH = Mathf.Min(24f, r.yMax - y - 5f);
+                if (controlH > 0f)
+                {
+                    float controlW = (w - gap) / 2f;
+                    DrawFieldExample(new Rect(x, y, controlW, controlH));
+                    DrawCheckExample(new Rect(x + controlW + gap, y, controlW, controlH));
+                    y += controlH;
+                }
+                y += UiWidgets.GapS;
+
+                float rowH = Mathf.Min(UiWidgets.RowH, r.yMax - y - 5f);
+                if (rowH > 0f)
+                {
+                    DrawListExample(new Rect(x, y, w, rowH));
+                    y += rowH;
+                }
+                y += UiWidgets.GapS;
+
                 float chipW = (w - gap * 3f) / 4f;
                 float chipH = Mathf.Min(22f, r.yMax - y - 5f);
                 if (chipH > 0f)
@@ -345,6 +378,65 @@ namespace SlopWorld
                     DrawColorKey(new Rect(x + (chipW + gap) * 3f, y, chipW, chipH), "LINK",
                         UiWidgets.Accent);
                 }
+            }
+        }
+
+        static void DrawButtonExample(Rect r, string label, Color face, Color text, Color edge)
+        {
+            Slab.Box(r, face, edge);
+            using (WidgetState.Save())
+            {
+                Text.Font = GameFont.Tiny;
+                GUI.color = text;
+                UiWidgets.RowLabel(r.ContractedBy(2f), label, TextAnchor.MiddleCenter);
+            }
+        }
+
+        static void DrawFieldExample(Rect r)
+        {
+            Slab.Box(r, UiWidgets.Well, UiWidgets.Edge);
+            float labelW = Mathf.Min(54f, r.width * 0.32f);
+            using (WidgetState.Save())
+            {
+                Text.Font = GameFont.Tiny;
+                GUI.color = UiWidgets.Faint;
+                UiWidgets.RowLabel(new Rect(r.x + 6f, r.y, labelW, r.height), "command");
+                Text.Font = GameFont.Small;
+                GUI.color = UiWidgets.Name;
+                UiWidgets.RowLabel(new Rect(r.x + labelW + 4f, r.y,
+                    r.width - labelW - 10f, r.height), "make test");
+            }
+        }
+
+        static void DrawCheckExample(Rect r)
+        {
+            Slab.Box(r, UiWidgets.RowBg, UiWidgets.Edge);
+            var box = UiWidgets.TickBox(new Rect(r.x + 6f, r.y, UiWidgets.TickW, r.height), true);
+            using (WidgetState.Save())
+            {
+                Text.Font = GameFont.Small;
+                GUI.color = UiWidgets.Name;
+                UiWidgets.RowLabel(new Rect(box.xMax + UiWidgets.GapS, r.y,
+                    r.xMax - box.xMax - UiWidgets.GapS - 4f, r.height), "Enabled");
+            }
+        }
+
+        static void DrawListExample(Rect r)
+        {
+            Slab.Box(r, UiWidgets.RowOn, UiWidgets.EdgeLit);
+            float marker = Mathf.Min(UiWidgets.StatusMarker, r.height - 8f);
+            Slab.Fill(new Rect(r.x + 6f, r.y + (r.height - marker) / 2f, marker, marker),
+                UiWidgets.StateWorking);
+            using (WidgetState.Save())
+            {
+                Text.Font = GameFont.Small;
+                GUI.color = UiWidgets.Name;
+                UiWidgets.RowLabel(new Rect(r.x + marker + 14f, r.y,
+                    r.width * 0.52f, r.height), "agent terminal");
+                Text.Font = GameFont.Tiny;
+                GUI.color = UiWidgets.StateWorking;
+                UiWidgets.RowLabel(new Rect(r.x + r.width * 0.52f, r.y,
+                    r.width * 0.48f - 8f, r.height), "working", TextAnchor.MiddleRight);
             }
         }
 
