@@ -58,6 +58,7 @@ namespace SlopWorld
         }
 
         public string Path => _path;
+        public string Project => _project;
         public string Title => "Preview · " + _name;
 
         public static void Open(string project, string path, string name) =>
@@ -190,7 +191,7 @@ namespace SlopWorld
             }
             if (FilesView.IsMarkdown(name))
             {
-                Open(_project, path, name);
+                FilesView.ViewFile(_project, path, name);
                 return;
             }
 

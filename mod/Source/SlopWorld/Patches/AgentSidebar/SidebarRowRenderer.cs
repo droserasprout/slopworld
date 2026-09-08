@@ -12,7 +12,7 @@ namespace SlopWorld
         static readonly string[] DiffPrefixes = { "diff-" };
 
         public static void DrawGhostLabel(Rect r, SessionInfo info, string fallback,
-                                           bool hostIcon, float markWidth)
+                                           bool hostIcon, float markWidth, bool italic = false)
         {
             RowAct act = RowActions.Of(info);
             string title = GhostTitle(info, fallback, act);
@@ -52,7 +52,7 @@ namespace SlopWorld
             if (context.Length == 0)
             {
                 GUI.color = titleColor;
-                UiWidgets.RowLabel(r, title);
+                UiWidgets.RowLabel(r, title, TextAnchor.MiddleLeft, italic);
                 Text.Anchor = TextAnchor.UpperLeft;
                 Text.Font = oldFont;
                 return;
@@ -64,7 +64,7 @@ namespace SlopWorld
                 r.height);
 
             GUI.color = titleColor;
-            UiWidgets.RowLabel(strong, title);
+            UiWidgets.RowLabel(strong, title, TextAnchor.MiddleLeft, italic);
             GUI.color = UiWidgets.Dim;
             UiWidgets.RowLabel(quiet, context);
             Text.Anchor = TextAnchor.UpperLeft;

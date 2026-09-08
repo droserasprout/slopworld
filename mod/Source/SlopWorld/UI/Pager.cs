@@ -7,11 +7,19 @@ namespace SlopWorld
         string _session;
         string _project;      // which project the persistent session serves
         string _filePath;     // the file named by the persistent viewer
+        string _openProject;  // project for the current one-off command
+        string _key;          // path identity for a one-off command, when it has one
         int _operation;
+        bool _locked;
 
         // Who is showing, or null. Read rather than acted on - the two views use it to tell
         // "click the row that is already open" from "click a different one".
         public string Session => _session;
+
+        // A single-click preview is replaceable until its routed header is double-clicked.
+        // Locked previews deliberately remain ephemeral daemon sessions; "locked" is a UI
+        // lifetime choice, not a request to persist a generated session in config.toml.
+        public bool Locked => _locked;
 
         public bool Alive
         {
@@ -20,6 +28,25 @@ namespace SlopWorld
                 var info = _session == null ? null : SessionHub.Instance.Get(_session);
                 return info != null && info.Alive;
             }
+        }
+
+        public bool Matches(string project, string key)
+        {
+            return Alive && _openProject == project && _key == key;
+        }
+
+        public bool LockPreview(string project, string key)
+        {
+            if (_openProject != project || _key != key) return false;
+            _locked = true;
+            return true;
+        }
+
+        public bool Lock()
+        {
+            if (!Alive) return false;
+            _locked = true;
+            return true;
         }
 
         // Git feeds its diff to the pager on stdin, so it needs the configured command
@@ -75,6 +102,8 @@ namespace SlopWorld
             // row disappear before the new one arrives and causes a layout jump.
             _project = null;
             _filePath = null;
+            _openProject = project;
+            _key = filePath;
 
             string cmd = PagerCommand(filePath);
             SessionHub.Instance.Run(project, cmd, label,
@@ -112,7 +141,12 @@ namespace SlopWorld
         }
 
         // Open one temporary agent in the project's sandbox to run the pager command; replacing an open pager closes its tmux session.
-        public void Open(string project, string command, string label)
+        public void Open(string project, string command, string label) =>
+            Open(project, command, label, null);
+
+        // Open a one-off command and retain a caller-supplied identity so a click on a pinned
+        // routed header can focus that exact diff instead of creating a second tab.
+        public void Open(string project, string command, string label, string key)
         {
             // The project may have been renamed or deleted since the listing that put the row
             // on screen; the daemon would refuse either way, but the reason is clearer here.
@@ -131,6 +165,8 @@ namespace SlopWorld
             // matching handoff in ViewFile above.
             _project = null;
             _filePath = null;
+            _openProject = project;
+            _key = key;
 
             SessionHub.Instance.Run(project, command, label,
                 session =>
@@ -171,11 +207,14 @@ namespace SlopWorld
         // itself.
         public void Release()
         {
+            if (_locked) return;
             ++_operation;
             string s = _session;
             _session = null;
             _project = null;
             _filePath = null;
+            _openProject = null;
+            _key = null;
             if (s == null) return;
             var info = SessionHub.Instance.Get(s);
             if (info != null && info.Alive) SessionHub.Instance.Stop(s);
@@ -185,7 +224,7 @@ namespace SlopWorld
         // only home, so closing it is the same focus change as leaving the view.
         public void CloseIf(string session)
         {
-            if (session != null && session == _session) Release();
+            if (!_locked && session != null && session == _session) Release();
         }
 
         // Stop a session if it's still alive, swallowing any error.

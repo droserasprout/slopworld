@@ -53,8 +53,10 @@ Untracked files need their individual row diff because one `git diff` cannot inc
 
 ## `Pager`
 
-The tracked ephemeral pager is an instance. `Open` replaces it, `Reopen` restores the
-current row, `Release` follows focus, and `CloseIf` follows pane close. Git owns diffs
+The diff reader has one replaceable preview pager plus any pinned preview pagers. `Open`
+replaces the unlocked preview, `Reopen` restores the current row, and a double-click on its
+italic routed header or its tree row pins it like an edit session. Leaving Git or closing a pinned pane keeps
+its header and session available; `CloseIf` releases only an unlocked preview. Git owns diffs
 even when opened from Files; Files owns viewers/editors. `Pager.Quote` supplies the
 single-quoting both command lines need.
 

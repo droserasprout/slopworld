@@ -101,9 +101,9 @@ namespace SlopWorld
             foreach (var child in node.Kids) FoldDirectories(child, shut);
         }
 
-        // The change the reader is looking at, and the ephemeral session paging its diff.
-        // The tree owns the selected row; the project remains part of its identity.
-        static readonly Pager Viewer = new Pager();
+        // One replaceable diff preview and any diffs the user pinned by double-clicking a
+        // routed header. The tree owns the selected row; each pager owns its session.
+        static readonly PagerTabs Viewers = new PagerTabs();
 
         // And which of the two things about that change it is showing: the diff, or the file
         // the diff is about. The row and its buttons open different things about the same
@@ -199,6 +199,12 @@ namespace SlopWorld
             }
 
             public override RowAct Actions(IContentTreeNode node) => Acts((Node)node);
+
+            public override void DoubleClick(IContentTreeNode node)
+            {
+                var git = (Node)node;
+                GitView.LockViewerFile(git.Owner.Project, git.Rel);
+            }
 
             public override float DrawRowTail(Rect row, IContentTreeNode node, float right) =>
                 RowTail(row, (Node)node, right);

@@ -72,6 +72,8 @@ namespace SlopWorld
         public virtual string RowTooltip(IContentTreeNode node) => null;
 
         public virtual void Open(IContentTreeNode node) { }
+        // Sources may use a second body click to pin the preview just opened by Open.
+        public virtual void DoubleClick(IContentTreeNode node) { }
         public virtual void Action(IContentTreeNode node, RowAct action) { }
         public virtual List<FloatMenuOption> GroupMenu(ContentTreeGroup group) => null;
         public virtual List<FloatMenuOption> RowMenu(IContentTreeNode node) => null;
@@ -90,12 +92,14 @@ namespace SlopWorld
 
         readonly ContentTreeSource _source;
         readonly SmoothScroll _scroll = new SmoothScroll();
+        readonly MouseClickSequence _clicks = new MouseClickSequence();
         readonly List<Line> _lines = new List<Line>();
         readonly List<Item> _items = new List<Item>();
         readonly List<ContentTreeGroup> _layoutGroups = new List<ContentTreeGroup>();
         IList<ContentTreeGroup> _groups;
         Rect _body;
         string _selected;
+        string _clickKey;
         string _reveal;
         float _revealTop = -1f;
         float _visibleTop;
@@ -426,6 +430,7 @@ namespace SlopWorld
 
                 if (line.Group != null)
                 {
+                    ResetClicks();
                     if (e.button == 0)
                     {
                         var screen = Screen(line.Rect);
@@ -442,6 +447,7 @@ namespace SlopWorld
                 }
                 else if (e.button == 1)
                 {
+                    ResetClicks();
                     OpenMenu(_source.RowMenu(line.Node));
                 }
                 else
@@ -450,9 +456,13 @@ namespace SlopWorld
                     var action = RowActions.Hit(screen, screen.xMax - Pad,
                         _source.Actions(line.Node));
                     if (action != RowAct.None)
+                    {
+                        ResetClicks();
                         _source.Action(line.Node, action);
+                    }
                     else if (line.Node.IsDirectory)
                     {
+                        ResetClicks();
                         _source.ToggleNode(line.Node);
                         ClearSelection();
                         // Expanding or collapsing a directory only changes the tree shape;
@@ -460,15 +470,38 @@ namespace SlopWorld
                     }
                     else
                     {
+                        int clickCount = ObserveClick(line.Node, e);
                         // The source owns selection because its Open method needs to compare
                         // the old row with the clicked one before replacing the viewer.
                         _source.Open(line.Node);
+                        if (clickCount >= 2)
+                        {
+                            _source.DoubleClick(line.Node);
+                            ResetClicks();
+                        }
                     }
                 }
 
                 e.Use();
                 return;
             }
+        }
+
+        int ObserveClick(IContentTreeNode node, Event e)
+        {
+            string key = _source.SelectionKey(node);
+            if (_clickKey != key)
+            {
+                _clicks.Reset();
+                _clickKey = key;
+            }
+            return _clicks.Observe(e, Time.realtimeSinceStartup);
+        }
+
+        void ResetClicks()
+        {
+            _clicks.Reset();
+            _clickKey = null;
         }
 
         void OpenMenu(List<FloatMenuOption> options)

@@ -33,11 +33,12 @@ A Markdown-file click opens a native `MarkdownPreview` in the body; the daemon s
 bounded UTF-8 text through `/api/read`, and Markdig provides the CommonMark/GFM parse tree.
 Local HTML `<img>` tags resolve relative to the Markdown file through the bounded `/api/image`
 route and support width/height plus right or center alignment.
-Other text files still start or reopen one tracked `less -R --` pager above the tree.
-Binary extensions are excluded. Markdown's context menu exposes `View in pager` for the raw
-source when needed.
-Changing file, directory, project, view, terminal or pane closes the reader; Files owns
-view/edit sessions, while Git owns diffs opened from here.
+Other text files use a replaceable `less -R --` preview pager above the tree; binary extensions
+are excluded. The preview header is italic until its routed row or the previewed file row is
+double-clicked, which pins that pager like an edit session. Opening another file or leaving Files releases only the
+replaceable preview; pinned readers remain available from their headers. Markdown's context
+menu exposes `View in pager` for the raw source when needed, and native Markdown previews use
+the same preview/pin behavior.
 
 ## Icons
 

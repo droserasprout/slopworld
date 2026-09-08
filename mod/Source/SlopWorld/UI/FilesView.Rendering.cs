@@ -29,16 +29,22 @@ namespace SlopWorld
             bool same = Tree.IsSelected(node) && _showing == RowAct.View;
             Tree.Select(node);
             // Marked, and nobody showing it: whatever was in the pane is not about this row.
-            if (!IsText(node.Name)) { _showing = RowAct.None; Viewer.Release(); return; }
-            if (IsMarkdown(node.Name))
+            if (!IsText(node.Name))
             {
-                if (same && MarkdownPreview.IsShowing(node.Path)) return;
-                Viewer.Release();
-                _showing = RowAct.View;
-                MarkdownPreview.Open(node.Project, node.Path, node.Name);
+                _showing = RowAct.None;
+                Viewers.ReleasePreview();
+                ReleaseMarkdownPreview();
                 return;
             }
-            if (!same || !Viewer.Reopen()) View(node);
+            if (IsMarkdown(node.Name))
+            {
+                if (same && ReopenMarkdown(node.Project, node.Path)) return;
+                Viewers.ReleasePreview();
+                _showing = RowAct.View;
+                OpenMarkdown(node.Project, node.Path, node.Name);
+                return;
+            }
+            if (!same || !Viewers.Reopen(node.Project, node.Path)) View(node);
         }
 
         // One of the hover strip's three, done. Nothing here is new: the same three errands
@@ -436,7 +442,7 @@ namespace SlopWorld
 
         static void ViewSource(Node node)
         {
-            MarkdownPreview.CloseIfShowing();
+            ReleaseMarkdownPreview();
             ViewSourceFile(node.Project, node.Path, "view-" + node.Name);
         }
 
@@ -455,18 +461,99 @@ namespace SlopWorld
             }
             if (IsMarkdown(System.IO.Path.GetFileName(path)))
             {
-                Viewer.Release();
-                MarkdownPreview.Open(project, path, System.IO.Path.GetFileName(path));
+                if (ReopenMarkdown(project, path)) return;
+                Viewers.ReleasePreview();
+                OpenMarkdown(project, path, System.IO.Path.GetFileName(path));
                 return;
             }
-            Viewer.ViewFile(project, path, label);
+            ReleaseMarkdownPreview();
+            Viewers.ForPreview().ViewFile(project, path, label);
+        }
+
+        static bool Showing(MarkdownTab tab) => tab != null &&
+            ReferenceEquals(TerminalWindow.ShowingAs<MarkdownPreview>(), tab.View);
+
+        static void OpenMarkdown(string project, string path, string name)
+        {
+            ReleaseMarkdownPreview();
+            _markdownPreview = new MarkdownTab
+            {
+                View = new MarkdownPreview(project, path, name),
+                Header = "view-markdown-" + (++_markdownHeader),
+            };
+            ShowMarkdown(_markdownPreview);
+        }
+
+        static void ShowMarkdown(MarkdownTab tab)
+        {
+            _activeMarkdown = tab;
+            TerminalWindow.OpenContent(tab.View);
+        }
+
+        static bool ReopenMarkdown(string project, string path)
+        {
+            if (_markdownPreview != null && _markdownPreview.View.Project == (project ?? "") &&
+                _markdownPreview.View.Path == path &&
+                (_markdownPreview.Locked || Showing(_markdownPreview)))
+            {
+                ShowMarkdown(_markdownPreview);
+                return true;
+            }
+
+            for (int i = 0; i < LockedMarkdown.Count; i++)
+            {
+                var tab = LockedMarkdown[i];
+                if (tab.View.Project != (project ?? "") || tab.View.Path != path) continue;
+                ShowMarkdown(tab);
+                return true;
+            }
+            return false;
+        }
+
+        // The native Markdown preview has no daemon session to appear in the routed list, so
+        // give it the same lightweight header identity as a pager tab.
+        public static void AddRoutedPreviews(List<SessionInfo> result)
+        {
+            if (_markdownPreview != null &&
+                (_markdownPreview.Locked || Showing(_markdownPreview)) &&
+                AgentSidebar.Passes(_markdownPreview.View.Project))
+                result.Add(_markdownPreview.HeaderInfo());
+
+            foreach (var tab in LockedMarkdown)
+                if (AgentSidebar.Passes(tab.View.Project)) result.Add(tab.HeaderInfo());
+        }
+
+        public static bool OpenViewerHeader(string session)
+        {
+            if (_markdownPreview != null && _markdownPreview.Header == session)
+            {
+                ShowMarkdown(_markdownPreview);
+                return true;
+            }
+
+            for (int i = 0; i < LockedMarkdown.Count; i++)
+            {
+                var tab = LockedMarkdown[i];
+                if (tab.Header != session) continue;
+                ShowMarkdown(tab);
+                return true;
+            }
+            return false;
+        }
+
+        public static bool IsNativeViewerHeader(string session)
+        {
+            if (_markdownPreview != null && _markdownPreview.Header == session) return true;
+            foreach (var tab in LockedMarkdown)
+                if (tab.Header == session) return true;
+            return false;
         }
 
         static void ViewSourceFile(string project, string path, string label)
         {
             Tree.SelectKey(ContentTreeView.SelectionKey(project, path));
             _showing = RowAct.View;
-            Viewer.ViewFile(project, path, label);
+            Viewers.ForPreview().ViewFile(project, path, label);
         }
 
         public static void EditFile(string project, string path, string label, int line = 0)
@@ -490,18 +577,94 @@ namespace SlopWorld
         public static void ReleaseViewer()
         {
             ClearSelection();
-            Viewer.Release();
-            MarkdownPreview.CloseIfShowing();
+            Viewers.ReleasePreview();
+            ReleaseMarkdownPreview();
         }
 
         static void ReleaseViewerForTree()
         {
             _showing = RowAct.None;
-            Viewer.Release();
-            MarkdownPreview.CloseIfShowing();
+            Viewers.ReleasePreview();
+            ReleaseMarkdownPreview();
         }
 
-        public static void CloseViewerIf(string session) => Viewer.CloseIf(session);
+        static void ReleaseMarkdownPreview()
+        {
+            if (_activeMarkdown != null && Showing(_activeMarkdown))
+            {
+                if (_activeMarkdown.Locked)
+                    AddLockedMarkdown(_activeMarkdown);
+                else
+                {
+                    Find.WindowStack?.WindowOfType<TerminalWindow>()?.Leave();
+                    _activeMarkdown = null;
+                }
+            }
+            else _activeMarkdown = null;
+
+            if (_markdownPreview == null) return;
+            if (_markdownPreview.Locked) AddLockedMarkdown(_markdownPreview);
+            _markdownPreview = null;
+        }
+
+        static void AddLockedMarkdown(MarkdownTab tab)
+        {
+            if (tab != null && !LockedMarkdown.Contains(tab)) LockedMarkdown.Add(tab);
+        }
+
+        public static bool IsViewerSession(string session)
+        {
+            if (Viewers.IsSession(session)) return true;
+            if (_markdownPreview != null && _markdownPreview.Header == session &&
+                (_markdownPreview.Locked || Showing(_markdownPreview))) return true;
+            foreach (var tab in LockedMarkdown)
+                if (tab.Header == session) return true;
+            return false;
+        }
+
+        public static bool IsViewerLocked(string session)
+        {
+            if (Viewers.IsLocked(session)) return true;
+            if (_markdownPreview != null && _markdownPreview.Header == session)
+                return _markdownPreview.Locked;
+            foreach (var tab in LockedMarkdown)
+                if (tab.Header == session) return tab.Locked;
+            return false;
+        }
+
+        public static bool LockViewer(string session)
+        {
+            if (Viewers.Lock(session)) return true;
+            if (_markdownPreview != null && _markdownPreview.Header == session)
+            {
+                _markdownPreview.Locked = true;
+                return true;
+            }
+            foreach (var tab in LockedMarkdown)
+                if (tab.Header == session)
+                {
+                    tab.Locked = true;
+                    return true;
+                }
+            return false;
+        }
+
+        public static bool LockViewerFile(string project, string path)
+        {
+            if (Viewers.LockPreview(project, path)) return true;
+            if (_markdownPreview != null && _markdownPreview.View.Project == (project ?? "") &&
+                _markdownPreview.View.Path == path &&
+                (_markdownPreview.Locked || Showing(_markdownPreview)))
+            {
+                _markdownPreview.Locked = true;
+                return true;
+            }
+            foreach (var tab in LockedMarkdown)
+                if (tab.View.Project == (project ?? "") && tab.View.Path == path) return true;
+            return false;
+        }
+
+        public static void CloseViewerIf(string session) => Viewers.CloseIf(session);
 
         static void ClearSelection()
         {
