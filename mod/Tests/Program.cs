@@ -72,6 +72,7 @@ namespace SlopWorld.Tests
             foreach (var test in JukeboxHistoryTests.Cases())
                 tests.Add(("JukeboxHistory: " + test.Name, test.Body));
             tests.Add(("ModSettings: persistence", ModSettingsTests.Persistence));
+            tests.Add(("FramePolicy: focus and settings transitions", FramePolicyTests.Transitions));
             tests.Add(("HubCatalog: ordering", HubCatalogTests.Ordering));
             int failed = 0;
 

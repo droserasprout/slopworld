@@ -23,45 +23,19 @@ namespace SlopWorld
         });
     }
 
-    // Use a background cap for catch-up and a gentler Eco cap for pane input; restore target FPS
-    // and vSync together when leaving either state.
+    // Foreground pacing is independent of Eco; only loss of focus forces the background cap.
     public static class BackgroundFrames
     {
-        const int Away = 15;
-        const int Rest = 30;
+        static readonly FramePolicy Policy = new FramePolicy();
 
-        // The cap in force, or zero for the machine's own setting.
-        static int _capped;
-        static int _wasTarget;
-        static int _wasVSync;
-
-        // Off Root.Update, menu and game alike. Only the edges do anything.
+        // Off Root.Update, menu and game alike. Write only when the effective pair changes.
         public static void Follow()
         {
-            int want = !Application.isFocused ? Away : (Eco.Resting ? Rest : 0);
-            if (want == _capped) return;
-
-            // Whatever was found is worth keeping only on the way in from uncapped: the
-            // second edge of an eco spell that began behind another window would otherwise
-            // save the cap over the setting it is meant to go back to.
-            if (_capped == 0)
-            {
-                _wasTarget = Application.targetFrameRate;
-                _wasVSync = QualitySettings.vSyncCount;
-            }
-
-            if (want == 0)
-            {
-                Application.targetFrameRate = _wasTarget;
-                QualitySettings.vSyncCount = _wasVSync;
-            }
-            else
-            {
-                QualitySettings.vSyncCount = 0;
-                Application.targetFrameRate = want;
-            }
-
-            _capped = want;
+            int target = Application.targetFrameRate, sync = QualitySettings.vSyncCount;
+            if (!Policy.Follow(Application.isFocused, Settings.DisplayMode, Settings.ForegroundFps,
+                    ref target, ref sync)) return;
+            QualitySettings.vSyncCount = sync;
+            Application.targetFrameRate = target;
         }
     }
 }

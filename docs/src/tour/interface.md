@@ -45,4 +45,10 @@ The top bar provides:
 ## Eco mode
 
 Eco mode pauses the game simulation while the daemon and agents continue running. Toggle it
-from Settings under "Game".
+from Settings under "Game". It leaves terminal responsiveness and foreground frame pacing
+unchanged.
+
+The independent "Display" section offers Game default (preserve the game's settings),
+Sync to display (VSync), or an FPS limit with presets and a custom 30–360 FPS slider.
+FPS limits disable VSync; lower limits save power at the cost of responsiveness.
+All modes use 15 FPS while the window is unfocused and restore foreground pacing on return.

@@ -14,9 +14,8 @@ What it does, one owner each:
   Eco also suppresses weather, edge clippers, map-interface overlays/gizmo hover,
   and map clicks; those paths sit outside `MapUpdate` or remain interactive without
   a visible board.
-- **The frames**: `BackgroundFrames` caps at 30 rather than the unfocused 15 -
-  nothing is banking, the clock being stopped, so the number only has to be kind
-  to somebody typing. One owner, because the saved target and vSync are one pair.
+- **The frames**: Eco leaves foreground frame pacing alone. The independent Display
+  settings apply in both modes; only an unfocused window gets the 15 FPS cap.
 - **The backdrop**: with no pane up, [the baked frame](mod-background.md) is a
   ScaleAndCrop world-space quad covering the screen, so agents draw above it.
   `ShaderDatabase.Cutout` queue 1000 fixes the ordering. `Frame()` passes a null
