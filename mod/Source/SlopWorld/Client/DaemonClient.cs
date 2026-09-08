@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Concurrent;
 using System.IO;
 using System.Net;
 using System.Text;
@@ -21,10 +20,22 @@ namespace SlopWorld
         const string TokenHeader = "X-Slop-Token";
         const string SessionHeader = "X-Slop-Session";
         const string JsonContentType = "application/json";
+        const int MaxRequestBodyBytes = 4 * 1024 * 1024;
+        const int MaxResponseBytes = 12 * 1024 * 1024;
+        const int MaxInFlightRequests = 8;
+        const int MaxCompletions = 64;
+        const int MaxCompletionBytes = 32 * 1024 * 1024;
+        const int CompletionOverheadBytes = 256;
+        const int MaxHttpCompletionReservation = MaxResponseBytes + CompletionOverheadBytes;
+        const int DefaultActionBytes = 4096;
+        const int MaxErrorMessageChars = 4096;
         const int MaxCompletionsPerFrame = 32;
         const string CompletionTraceName = "http-completions";
 
-        static readonly ConcurrentQueue<Action> Completions = new ConcurrentQueue<Action>();
+        static readonly BoundedActionQueue Completions =
+            new BoundedActionQueue(MaxCompletions, MaxCompletionBytes);
+        static int _inFlightRequests;
+        static int _droppedCompletions;
 
         public static string BaseUrl => Settings.Connection.BaseUrl;
 
@@ -54,16 +65,62 @@ namespace SlopWorld
 
         // Background integrations use the same completion lane as HTTP so their callbacks
         // can safely update Unity and RimWorld state.
-        public static void OnMainThread(Action action)
+        public static void OnMainThread(Action action, int estimatedBytes = DefaultActionBytes)
         {
-            if (action != null) Completions.Enqueue(action);
+            if (action == null) return;
+            if (!Completions.TryEnqueue(action, estimatedBytes))
+                Interlocked.Increment(ref _droppedCompletions);
         }
 
         public static void Send(string method, string path, string body,
                                 Action<JVal> ok, Action<string> fail, string session = null,
                                 int timeoutMs = DefaultTimeoutMs)
         {
-            ThreadPool.QueueUserWorkItem(_ =>
+            int bodyBytes = body == null ? 0 : Encoding.UTF8.GetByteCount(body);
+            if (bodyBytes > MaxRequestBodyBytes)
+            {
+                Reject(fail, "request body exceeds the client limit");
+                return;
+            }
+
+            bool needsCompletion = ok != null || fail != null;
+            if (needsCompletion && !Completions.TryReserve(MaxHttpCompletionReservation))
+            {
+                Reject(fail, "HTTP completion queue is full");
+                return;
+            }
+
+            if (!TryAcquireRequestSlot())
+            {
+                if (needsCompletion) Completions.ReleaseReservation(MaxHttpCompletionReservation);
+                Reject(fail, "too many HTTP requests are in flight");
+                return;
+            }
+
+            bool queued;
+            try
+            {
+                queued = ThreadPool.QueueUserWorkItem(_ => RunRequest(
+                    method, path, body, ok, fail, session, timeoutMs, needsCompletion));
+            }
+            catch
+            {
+                queued = false;
+            }
+
+            if (queued) return;
+            Interlocked.Decrement(ref _inFlightRequests);
+            if (needsCompletion)
+                QueueReservedFailure(fail, "could not queue HTTP request",
+                                      MaxHttpCompletionReservation);
+        }
+
+        static void RunRequest(string method, string path, string body,
+                               Action<JVal> ok, Action<string> fail, string session,
+                               int timeoutMs, bool needsCompletion)
+        {
+            bool reservationHeld = needsCompletion;
+            try
             {
                 try
                 {
@@ -88,11 +145,16 @@ namespace SlopWorld
                     }
 
                     using (var resp = (HttpWebResponse)req.GetResponse())
-                    using (var sr = new StreamReader(resp.GetResponseStream() ?? Stream.Null))
+                    using (var stream = resp.GetResponseStream() ?? Stream.Null)
                     {
-                        var text = sr.ReadToEnd();
+                        var text = ReadBody(stream);
                         var val = JVal.Parse(text);
-                        Completions.Enqueue(() => ok?.Invoke(val));
+                        if (ok != null)
+                        {
+                            EnqueueReserved(() => ok(val), CompletionBytes(text),
+                                             MaxHttpCompletionReservation);
+                            reservationHeld = false;
+                        }
                     }
                 }
                 catch (WebException we)
@@ -103,21 +165,108 @@ namespace SlopWorld
                     {
                         try
                         {
-                            using (var sr = new StreamReader(r.GetResponseStream() ?? Stream.Null))
+                            using (r)
+                            using (var stream = r.GetResponseStream() ?? Stream.Null)
                             {
-                                var parsed = JVal.Parse(sr.ReadToEnd())["error"].Str;
+                                var parsed = JVal.Parse(ReadBody(stream))["error"].Str;
                                 if (!string.IsNullOrEmpty(parsed)) msg = parsed;
                             }
                         }
                         catch { /* fall back to we.Message */ }
                     }
-                    Completions.Enqueue(() => fail?.Invoke(msg));
+                    QueueFailure(fail, msg, ref reservationHeld);
                 }
                 catch (Exception e)
                 {
-                    Completions.Enqueue(() => fail?.Invoke(e.Message));
+                    QueueFailure(fail, e.Message, ref reservationHeld);
                 }
-            });
+            }
+            finally
+            {
+                if (reservationHeld)
+                    Completions.ReleaseReservation(MaxHttpCompletionReservation);
+                Interlocked.Decrement(ref _inFlightRequests);
+            }
+        }
+
+        static bool TryAcquireRequestSlot()
+        {
+            while (true)
+            {
+                int current = Volatile.Read(ref _inFlightRequests);
+                if (current >= MaxInFlightRequests) return false;
+                if (Interlocked.CompareExchange(ref _inFlightRequests, current + 1, current) == current)
+                    return true;
+            }
+        }
+
+        static void Reject(Action<string> fail, string message)
+        {
+            if (fail != null) QueueCompletion(() => fail(LimitError(message)), message);
+        }
+
+        static void QueueFailure(Action<string> fail, string message, ref bool reservationHeld)
+        {
+            if (fail == null) return;
+            message = LimitError(message);
+            EnqueueReserved(() => fail(message), CompletionBytes(message),
+                            MaxHttpCompletionReservation);
+            reservationHeld = false;
+        }
+
+        static void QueueReservedFailure(Action<string> fail, string message, int reservedBytes)
+        {
+            if (fail == null)
+            {
+                Completions.ReleaseReservation(reservedBytes);
+                return;
+            }
+            message = LimitError(message);
+            EnqueueReserved(() => fail(message), CompletionBytes(message), reservedBytes);
+        }
+
+        static void EnqueueReserved(Action action, int actualBytes, int reservedBytes)
+        {
+            if (!Completions.EnqueueReserved(action, reservedBytes, actualBytes))
+                Interlocked.Increment(ref _droppedCompletions);
+        }
+
+        static void QueueCompletion(Action action, string sizeSource)
+        {
+            if (Completions.TryEnqueue(action, CompletionBytes(sizeSource))) return;
+            Interlocked.Increment(ref _droppedCompletions);
+        }
+
+        static string ReadBody(Stream stream)
+        {
+            using (var ms = new MemoryStream())
+            {
+                var buffer = new byte[8192];
+                int total = 0;
+                int read;
+                while ((read = stream.Read(buffer, 0, buffer.Length)) > 0)
+                {
+                    if (read > MaxResponseBytes - total)
+                        throw new InvalidDataException("HTTP response exceeds the client limit");
+                    ms.Write(buffer, 0, read);
+                    total += read;
+                }
+                return Encoding.UTF8.GetString(ms.ToArray());
+            }
+        }
+
+        static int CompletionBytes(string value)
+        {
+            long bytes = (value == null ? 0 : Encoding.UTF8.GetByteCount(value)) +
+                         CompletionOverheadBytes;
+            return (int)Math.Min(MaxHttpCompletionReservation, bytes);
+        }
+
+        static string LimitError(string message)
+        {
+            if (string.IsNullOrEmpty(message)) return "HTTP request failed";
+            return message.Length <= MaxErrorMessageChars
+                ? message : message.Substring(0, MaxErrorMessageChars);
         }
 
         // Drained once per frame from the main thread. HTTP callbacks are non-replaceable, so
@@ -135,6 +284,9 @@ namespace SlopWorld
                 try { a(); }
                 catch (Exception e) { Log.Error($"[SlopWorld] completion: {e}"); }
             }
+            int dropped = Interlocked.Exchange(ref _droppedCompletions, 0);
+            if (dropped > 0)
+                Log.Warning($"[SlopWorld] dropped {dropped} main-thread completions at queue limit");
             PerfTrace.End(CompletionTraceName, started, count, Completions.Count);
             return count;
         }

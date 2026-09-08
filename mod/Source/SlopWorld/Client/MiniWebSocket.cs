@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Concurrent;
 using System.IO;
 using System.Net.Sockets;
 using System.Security.Cryptography;
@@ -13,15 +12,23 @@ namespace SlopWorld
     // Reads happen on a background thread; callers drain Incoming.
     public class MiniWebSocket : IDisposable
     {
-        public readonly ConcurrentQueue<string> Incoming = new ConcurrentQueue<string>();
-        readonly ConcurrentQueue<string> _outgoing = new ConcurrentQueue<string>();
+        const int MaxIncomingMessages = 256;
+        const int MaxIncomingBytes = 8 * 1024 * 1024;
+        const int MaxOutgoingMessages = 256;
+        const int MaxOutgoingBytes = 1 * 1024 * 1024;
+
+        public readonly BoundedStringQueue Incoming =
+            new BoundedStringQueue(MaxIncomingMessages, MaxIncomingBytes);
+        readonly BoundedStringQueue _outgoing =
+            new BoundedStringQueue(MaxOutgoingMessages, MaxOutgoingBytes);
 
         // A frame is one screen's worth of SGR text, and the daemon clamps a pane to 500x200,
-        // so the widest thing it can send is orders of magnitude under this.
-        const long MaxFrame = 32L * 1024 * 1024;
+        // so the widest normal frame is orders of magnitude under this. The queue budget is
+        // smaller still, and a non-replaceable message that cannot fit forces a reconnect.
+        const long MaxFrame = 4L * 1024 * 1024;
         // A peer can split one text message across arbitrarily many frames. Bound the message
         // as well as each allocation so fragmentation cannot grow the buffer without limit.
-        const long MaxFragmentedMessage = 32L * 1024 * 1024;
+        const long MaxFragmentedMessage = MaxFrame;
 
         volatile bool _connected;
         public bool Connected => _connected;
@@ -171,7 +178,11 @@ namespace SlopWorld
         public void SendText(string text)
         {
             if (!Connected || string.IsNullOrEmpty(text)) return;
-            _outgoing.Enqueue(text);
+            if (!_outgoing.TryEnqueue(text))
+            {
+                Fail("outgoing websocket queue limit reached");
+                return;
+            }
             _sendSignal.Set();
         }
 
@@ -312,7 +323,9 @@ namespace SlopWorld
                             if (fin)
                             {
                                 if (fragOpcode == 0x1)
-                                    Incoming.Enqueue(Encoding.UTF8.GetString(frag.ToArray()));
+                                {
+                                    if (!QueueIncoming(Encoding.UTF8.GetString(frag.ToArray()))) return;
+                                }
                                 frag.SetLength(0);
                                 fragOpcode = 0;
                             }
@@ -321,7 +334,7 @@ namespace SlopWorld
                         case 0x1: // text
                             if (fin)
                             {
-                                Incoming.Enqueue(Encoding.UTF8.GetString(payload));
+                                if (!QueueIncoming(Encoding.UTF8.GetString(payload))) return;
                             }
                             else
                             {
@@ -381,8 +394,50 @@ namespace SlopWorld
             Cleanup();
         }
 
+        bool QueueIncoming(string text)
+        {
+            string replaceKey = ReplaceableScreenKey(text);
+            if (Incoming.TryEnqueue(text, replaceKey)) return true;
+
+            // A live screen is a latest-value stream. Dropping one while the game thread is
+            // stalled is safe; history replies and control events must not be silently lost.
+            if (replaceKey != null) return true;
+            Fail("incoming websocket queue limit reached");
+            return false;
+        }
+
+        static string ReplaceableScreenKey(string text)
+        {
+            try
+            {
+                var ev = JVal.Parse(text);
+                if (!string.Equals(ev["t"].AsString(), "screen", StringComparison.Ordinal))
+                    return null;
+                var screen = ev["screen"];
+                if (screen["off"].AsInt(0) != 0 || screen["request_id"].AsLong(0) != 0)
+                    return null;
+                string name = screen["name"].AsString(null);
+                return string.IsNullOrEmpty(name) ? null : name;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        void Fail(string error)
+        {
+            if (string.IsNullOrEmpty(LastError)) LastError = error;
+            _closing = true;
+            _connected = false;
+            _sendSignal.Set();
+            Cleanup();
+        }
+
         void Cleanup()
         {
+            Incoming.Clear();
+            _outgoing.Clear();
             try { _net?.Close(); } catch { }
             try { _tcp?.Close(); } catch { }
             _net = null;

@@ -14,6 +14,8 @@ namespace SlopWorld.Tests
             var tests = new List<(string Name, Action Body)>();
             foreach (var test in JsonTests.Cases())
                 tests.Add(("JVal: " + test.Name, test.Body));
+            foreach (var test in BoundedQueueTests.Cases())
+                tests.Add(("BoundedQueue: " + test.Name, test.Body));
             foreach (var test in FuzzyTests.Cases())
                 tests.Add(("Fuzzy: " + test.Name, test.Body));
             foreach (var test in TomlTests.Cases())
