@@ -31,7 +31,7 @@ impl Manager {
                 outcome = "applied",
                 "session title applied"
             );
-            let _ = self.events.send(Event::Sessions {
+            self.emit(Event::Sessions {
                 sessions: self.views().await,
             });
         }
@@ -186,7 +186,7 @@ impl Manager {
         match action {
             Some(TitleCaptureAction::New(native)) => {
                 self.persist_title_boundary(name, native.as_deref());
-                let _ = self.events.send(Event::Sessions {
+                self.emit(Event::Sessions {
                     sessions: self.views().await,
                 });
             }

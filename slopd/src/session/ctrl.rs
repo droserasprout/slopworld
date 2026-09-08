@@ -31,7 +31,7 @@ pub struct Manager {
     pub(super) scroll_cache: Mutex<HashMap<String, CachedScroll>>,
     pub(super) activity_cache: crate::activity::ActivityCache,
     pub audio: crate::audio::Audio,
-    pub events: broadcast::Sender<Event>,
+    pub events: broadcast::Sender<Arc<EventMessage>>,
     pub(super) auth_generation: AtomicU64,
     pub(super) auth_changes: broadcast::Sender<AuthChange>,
     pub(super) grants: RwLock<crate::grant::Grants>,
@@ -75,6 +75,10 @@ impl Drop for WatchGuard {
 }
 
 impl Manager {
+    pub(crate) fn emit(&self, event: Event) {
+        let _ = self.events.send(EventMessage::new(event));
+    }
+
     pub(crate) fn auth_generation(&self) -> u64 {
         self.auth_generation.load(Ordering::Acquire)
     }

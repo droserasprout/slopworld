@@ -167,7 +167,7 @@ impl Manager {
         }
 
         if dirty_list || host_metadata_changed {
-            let _ = self.events.send(Event::Sessions {
+            self.emit(Event::Sessions {
                 sessions: self.views().await,
             });
         }

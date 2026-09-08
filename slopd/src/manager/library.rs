@@ -20,7 +20,7 @@ impl Manager {
     }
 
     pub(super) async fn announce_projects(&self) {
-        let _ = self.events.send(Event::Projects {
+        self.emit(Event::Projects {
             projects: self.projects().await,
         });
     }
@@ -84,7 +84,7 @@ impl Manager {
         let current = self.config().await;
         self.sync_manifests(&current).await;
         self.announce_projects().await;
-        let _ = self.events.send(Event::Sessions {
+        self.emit(Event::Sessions {
             sessions: self.views().await,
         });
         Ok(())
@@ -131,7 +131,7 @@ impl Manager {
     }
 
     pub(super) async fn announce_library(&self) {
-        let _ = self.events.send(Event::Library {
+        self.emit(Event::Library {
             library: self.library().await,
         });
     }
@@ -486,7 +486,7 @@ impl Manager {
             }
         }
 
-        let _ = self.events.send(Event::Sessions {
+        self.emit(Event::Sessions {
             sessions: self.views().await,
         });
         self.queue_errand_delivery(&session, &sc, &want);
@@ -527,7 +527,7 @@ impl Manager {
                 )
                 .await;
             }
-            let _ = self.events.send(Event::Sessions {
+            self.emit(Event::Sessions {
                 sessions: self.views().await,
             });
         }
@@ -591,7 +591,7 @@ impl Manager {
             }
         };
         if changed {
-            let _ = self.events.send(Event::Sessions {
+            self.emit(Event::Sessions {
                 sessions: self.views().await,
             });
         }

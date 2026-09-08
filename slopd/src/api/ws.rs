@@ -12,7 +12,7 @@ use futures::{SinkExt, StreamExt};
 use tokio::sync::{broadcast, Mutex, Semaphore};
 use tokio::task::JoinHandle;
 
-use crate::session::{AuthChange, Event, ScreenView, WatchGuard};
+use crate::session::{AuthChange, Event, EventMessage, ScreenView, WatchGuard};
 
 use super::types::{
     AudioReq, AudioSelection, BreadcrumbReq, ClientMsg, KeysReq, MouseReq, PasteReq, ResizeReq,
@@ -45,16 +45,17 @@ pub(super) async fn ws_upgrade(
 
 /// Filters events for a socket capability. Root sees all; scoped grants see named sessions and
 /// screens, but not projects, library, usage, audio, or jukebox catalog data.
-fn scope_event(cap: &Cap, ev: Event) -> Option<Event> {
+fn scope_event(cap: &Cap, ev: Arc<EventMessage>) -> Option<Arc<EventMessage>> {
     match cap {
         Cap::Root => Some(ev),
-        Cap::Scoped(_) => match ev {
-            Event::Sessions { sessions } => Some(Event::Sessions {
+        Cap::Scoped(_) => match ev.event() {
+            Event::Sessions { sessions } => Some(EventMessage::new(Event::Sessions {
                 sessions: sessions
-                    .into_iter()
+                    .iter()
                     .filter(|s| cap.can_see(&s.name, s.host))
+                    .cloned()
                     .collect(),
-            }),
+            })),
             Event::Screen { .. } => Some(ev),
             Event::Capabilities { .. }
             | Event::Projects { .. }
@@ -112,7 +113,7 @@ async fn ws_run(socket: WebSocket, m: Mgr, cap: Cap, generation: u64) {
                 pending_scrolls.pop_front();
                 match result {
                     Ok(Some(screen)) => {
-                        if send(&tx, &Event::Screen { screen }).await.is_err() { break; }
+                        if send(&tx, &EventMessage::new(Event::Screen { screen })).await.is_err() { break; }
                     }
                     Ok(None) => {}
                     Err(error) => tracing::debug!("scroll task ended: {error}"),
@@ -185,9 +186,9 @@ async fn auth_invalidated(changes: &mut broadcast::Receiver<AuthChange>, cap: &C
 async fn send_initial_snapshot(tx: &WsTx, m: &Mgr, cap: &Cap) -> bool {
     if let Some(ev) = scope_event(
         cap,
-        Event::Capabilities {
+        EventMessage::new(Event::Capabilities {
             capabilities: crate::runtime::capabilities(),
-        },
+        }),
     ) {
         if send(tx, &ev).await.is_err() {
             return false;
@@ -195,32 +196,32 @@ async fn send_initial_snapshot(tx: &WsTx, m: &Mgr, cap: &Cap) -> bool {
     }
     if let Some(ev) = scope_event(
         cap,
-        Event::Sessions {
+        EventMessage::new(Event::Sessions {
             sessions: m.views().await,
-        },
+        }),
     ) {
         if send(tx, &ev).await.is_err() {
             return false;
         }
     }
     for ev in [
-        Event::Usage {
+        EventMessage::new(Event::Usage {
             usage: m.usage().await,
-        },
-        Event::Projects {
+        }),
+        EventMessage::new(Event::Projects {
             projects: m.projects().await,
-        },
-        Event::Library {
+        }),
+        EventMessage::new(Event::Library {
             library: m.library().await,
-        },
+        }),
         // On connect too, and for the same reason: a game that has just come up has to learn
         // whether the music it asked for last time is playing.
-        Event::Audio {
+        EventMessage::new(Event::Audio {
             audio: m.audio.state(),
-        },
-        Event::Jukebox {
+        }),
+        EventMessage::new(Event::Jukebox {
             jukebox: crate::jukebox::catalog(),
-        },
+        }),
     ] {
         if let Some(ev) = scope_event(cap, ev) {
             let _ = send(tx, &ev).await;
@@ -232,7 +233,7 @@ async fn send_initial_snapshot(tx: &WsTx, m: &Mgr, cap: &Cap) -> bool {
 /// Coalesce screen frames per client to the monitor cadence: newest wins, and the pending
 /// frame flushes on the beat. Other event types remain uncoalesced.
 fn spawn_frame_pump(
-    mut events: broadcast::Receiver<Event>,
+    mut events: broadcast::Receiver<Arc<EventMessage>>,
     tx: WsTx,
     subs: WsSubs,
     cap: Cap,
@@ -245,7 +246,7 @@ fn spawn_frame_pump(
         let mut last_screen = TokioInstant::now() - FRAME_COALESCE;
         // One slot per pane, not one global slot: a socket can subscribe to several
         // panes, and a frame for one must not overwrite a held frame for another.
-        let mut pending: HashMap<String, Event> = HashMap::new();
+        let mut pending: HashMap<String, Arc<EventMessage>> = HashMap::new();
         loop {
             // Only arm the beat when a frame is being held; otherwise the timer would
             // fire on a past deadline and spin while nothing is pending.
@@ -262,7 +263,7 @@ fn spawn_frame_pump(
                         // Filtered to this socket's capability before anything else looks at
                         // it: a grant's pump never even coalesces a frame it may not see.
                         let Some(ev) = scope_event(&cap, ev) else { continue };
-                        if let Event::Screen { ref screen } = ev {
+                        if let Event::Screen { ref screen } = *ev.event() {
                             if !subs.lock().await.contains_key(&screen.name) {
                                 continue;
                             }
@@ -355,7 +356,9 @@ async fn handle_sub(name: String, m: &Mgr, cap: &Cap, tx: &WsTx, subs: &WsSubs) 
     // Broadcast, not answered here: every client draws the mark.
     m.clear_bell(&name).await;
     if let Some(s) = m.screen(&name).await {
-        return send(tx, &Event::Screen { screen: s }).await.is_ok();
+        return send(tx, &EventMessage::new(Event::Screen { screen: s }))
+            .await
+            .is_ok();
     }
     true
 }
@@ -456,13 +459,10 @@ fn resolve_audio_source(selection: AudioSelection) -> anyhow::Result<String> {
     }
 }
 
-async fn send(tx: &WsTx, ev: &Event) -> Result<(), axum::Error> {
+async fn send(tx: &WsTx, ev: &EventMessage) -> Result<(), axum::Error> {
     let _perf = crate::perf::timer("websocket-send");
     let started = crate::perf::enabled().then(std::time::Instant::now);
-    let text = {
-        let _perf = crate::perf::timer("websocket-serialize");
-        serde_json::to_string(ev).unwrap_or_default()
-    };
+    let text = ev.encoded().to_string();
     crate::perf::count("websocket-bytes", text.len() as u64);
     let result = tx.lock().await.send(Message::Text(text)).await;
     if let Some(started) = started {
@@ -480,7 +480,10 @@ async fn flush_scrolls(tx: &WsTx, pending: &mut VecDeque<JoinHandle<Option<Scree
     while let Some(task) = pending.pop_front() {
         match task.await {
             Ok(Some(screen)) => {
-                if send(tx, &Event::Screen { screen }).await.is_err() {
+                if send(tx, &EventMessage::new(Event::Screen { screen }))
+                    .await
+                    .is_err()
+                {
                     return false;
                 }
             }
@@ -558,8 +561,12 @@ mod tests {
         })
     }
 
-    fn names(ev: &Event) -> Vec<String> {
-        match ev {
+    fn message(event: Event) -> Arc<EventMessage> {
+        EventMessage::new(event)
+    }
+
+    fn names(ev: &EventMessage) -> Vec<String> {
+        match ev.event() {
             Event::Sessions { sessions } => sessions.iter().map(|s| s.name.clone()).collect(),
             other => panic!("expected a sessions event, got {other:?}"),
         }
@@ -568,9 +575,9 @@ mod tests {
     /// Root is the mod: every event reaches it, and a session list is handed on whole.
     #[test]
     fn root_sees_every_event_unfiltered() {
-        let sessions = Event::Sessions {
+        let sessions = message(Event::Sessions {
             sessions: vec![view("a"), view("b")],
-        };
+        });
         assert_eq!(
             names(&scope_event(&Cap::Root, sessions).expect("root keeps the event")),
             vec!["a".to_string(), "b".to_string()]
@@ -578,15 +585,15 @@ mod tests {
 
         // Categories a scoped grant never sees still reach root untouched.
         for ev in [
-            Event::Projects {
+            message(Event::Projects {
                 projects: Vec::new(),
-            },
-            Event::Usage {
+            }),
+            message(Event::Usage {
                 usage: Default::default(),
-            },
-            Event::Jukebox {
+            }),
+            message(Event::Jukebox {
                 jukebox: Default::default(),
-            },
+            }),
         ] {
             assert!(scope_event(&Cap::Root, ev).is_some());
         }
@@ -597,9 +604,9 @@ mod tests {
     #[test]
     fn a_scoped_grant_sees_only_the_sessions_it_names() {
         let cap = scoped(&["a", "c"], Level::Ro);
-        let ev = Event::Sessions {
+        let ev = message(Event::Sessions {
             sessions: vec![view("a"), view("b"), view("c"), view("d")],
-        };
+        });
         assert_eq!(
             names(&scope_event(&cap, ev).expect("a filtered list is still an event")),
             vec!["a".to_string(), "c".to_string()]
@@ -611,9 +618,9 @@ mod tests {
     #[test]
     fn a_scoped_grant_with_no_matches_gets_an_empty_list() {
         let cap = scoped(&["x"], Level::Rw);
-        let ev = Event::Sessions {
+        let ev = message(Event::Sessions {
             sessions: vec![view("a"), view("b")],
-        };
+        });
         assert!(names(&scope_event(&cap, ev).expect("still an event")).is_empty());
     }
 
@@ -640,7 +647,7 @@ mod tests {
             request_id: 0,
             lines: Vec::new(),
         };
-        assert!(scope_event(&cap, Event::Screen { screen }).is_some());
+        assert!(scope_event(&cap, message(Event::Screen { screen })).is_some());
     }
 
     /// Everything that is neither a session nor a screen - projects, library, usage, audio,
@@ -649,21 +656,21 @@ mod tests {
     fn a_scoped_grant_is_denied_host_wide_categories() {
         let cap = scoped(&["a"], Level::Ro);
         let denied = [
-            Event::Projects {
+            message(Event::Projects {
                 projects: Vec::new(),
-            },
-            Event::Library {
+            }),
+            message(Event::Library {
                 library: Vec::new(),
-            },
-            Event::Usage {
+            }),
+            message(Event::Usage {
                 usage: Default::default(),
-            },
-            Event::Audio {
+            }),
+            message(Event::Audio {
                 audio: Default::default(),
-            },
-            Event::Jukebox {
+            }),
+            message(Event::Jukebox {
                 jukebox: Default::default(),
-            },
+            }),
         ];
         for ev in denied {
             assert!(scope_event(&cap, ev).is_none());
