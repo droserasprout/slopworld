@@ -383,14 +383,17 @@ mod tests {
     fn automatic_titles_are_opt_in_and_once_parses() {
         assert_eq!(Config::default().daemon.agent_titles, TitlePolicy::Never);
         assert_eq!(Config::default().daemon.pi_titles, TitlePolicy::Always);
+        assert_eq!(Config::default().daemon.task_summaries, TitlePolicy::Never);
         assert_eq!(Config::default().daemon.title_min_chars, 20);
         let mut cfg = Config::default();
         cfg.daemon.agent_titles = TitlePolicy::Once;
         cfg.daemon.pi_titles = TitlePolicy::Never;
+        cfg.daemon.task_summaries = TitlePolicy::Once;
         cfg.daemon.title_min_chars = 42;
         let back = Config::parse(&toml::to_string_pretty(&cfg).unwrap()).unwrap();
         assert_eq!(back.daemon.agent_titles, TitlePolicy::Once);
         assert_eq!(back.daemon.pi_titles, TitlePolicy::Never);
+        assert_eq!(back.daemon.task_summaries, TitlePolicy::Once);
         assert_eq!(back.daemon.title_model, cfg.daemon.title_model);
         assert_eq!(back.daemon.title_min_chars, 42);
     }
