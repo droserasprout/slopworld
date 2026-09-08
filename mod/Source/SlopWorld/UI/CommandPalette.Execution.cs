@@ -152,7 +152,7 @@ namespace SlopWorld
 
         static void RunLibraryItemWith(string name, string project = null, bool temp = false)
         {
-            SessionHub.Instance.RunLibraryItem(name,
+            SessionHub.Instance.SessionStore.RunLibraryItem(name,
                 session => { TerminalWindow.Open(session); }, UiWidgets.Fail, project, temp,
                 Patch_LoadingTips.RandomTips(Patch_LoadingTips.TipBatch));
         }

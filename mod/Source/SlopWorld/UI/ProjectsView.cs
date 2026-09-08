@@ -13,8 +13,8 @@ namespace SlopWorld
     {
         public override void Opened()
         {
-            SessionHub.Instance.RefreshProjects();
-            SessionHub.Instance.LoadPresets();
+            SessionHub.Instance.Catalog.RefreshProjects();
+            SessionHub.Instance.Catalog.LoadPresets();
         }
 
         public override string Title => "Projects";
@@ -38,7 +38,7 @@ namespace SlopWorld
                 TerminalWindow.OpenOverPane(new EditProjectDialog(null));
 
             if (row.Right("Reload", UiWidgets.Btn.Ghost))
-                hub.RefreshProjects(UiWidgets.Fail);
+                hub.Catalog.RefreshProjects(UiWidgets.Fail);
         }
 
         protected override void DrawRow(Rect r, ProjectInfo p)
@@ -157,7 +157,7 @@ namespace SlopWorld
             resizeable = true;
             AcceptOnEnter(Save);
 
-            SessionHub.Instance.LoadPresets(fail: UiWidgets.Fail);
+            SessionHub.Instance.Catalog.LoadPresets(fail: UiWidgets.Fail);
         }
 
         // A left rail of short pages rather than one long form: the project, its sandbox, its
@@ -356,7 +356,7 @@ namespace SlopWorld
             if (_p.Dns.Mode == DnsMode.Servers)
                 _p.Dns.Servers = dnsServers;
 
-            SessionHub.Instance.SaveProject(_p, _isNew, _origName,
+            SessionHub.Instance.Catalog.SaveProject(_p, _isNew, _origName,
                 ok: () => Close(),
                 fail: UiWidgets.Fail);
         }

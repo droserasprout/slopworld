@@ -110,7 +110,7 @@ namespace SlopWorld
                     SessionSelectable.Current = row.Session;
                     var info = SessionHub.Instance.Get(row.Session);
                     if (info != null && info.Gone && !ColonistBarStrip.Drawing)
-                        SessionHub.Instance.Start(row.Session);
+                        SessionHub.Instance.SessionStore.Start(row.Session);
                     else OpenRouted(row.Session);
                 }
                 e.Use();

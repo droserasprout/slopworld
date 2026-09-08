@@ -81,13 +81,14 @@ impl Catalog {
 
     fn load_from(dir: &Path) -> Self {
         let mut catalog = Self::default();
-        catalog.merge_dir(dir);
+        // Startup keeps valid stations even when another definition is broken.
+        let _ = catalog.merge_dir(dir, false);
         catalog
     }
 
     fn try_load_from(dir: &Path) -> Result<Self> {
         let mut catalog = Self::default();
-        catalog.merge_dir_checked(dir)?;
+        catalog.merge_dir(dir, true)?;
         Ok(catalog)
     }
 
@@ -97,43 +98,15 @@ impl Catalog {
         crate::paths::dir("SLOPD_JUKEBOX", dirs::data_dir(), "jukebox")
     }
 
-    fn merge_dir(&mut self, dir: &Path) {
-        let Ok(entries) = std::fs::read_dir(dir) else {
-            return;
-        };
-        let mut files: Vec<PathBuf> = entries
-            .filter_map(|e| e.ok().map(|e| e.path()))
-            .filter(|p| {
-                p.extension()
-                    .is_some_and(|x| x.to_string_lossy().eq_ignore_ascii_case("toml"))
-            })
-            .collect();
-        files.sort();
-
-        for path in files {
-            let text = match std::fs::read_to_string(&path) {
-                Ok(text) => text,
-                Err(e) => {
-                    tracing::warn!("reading jukebox definition {}: {e}", path.display());
-                    continue;
-                }
-            };
-            match parse(&text, &path) {
-                Ok(station) => self.merge(station),
-                Err(e) => {
-                    tracing::warn!("jukebox definition {} does not parse: {e}", path.display())
-                }
-            }
-        }
-    }
-
-    fn merge_dir_checked(&mut self, dir: &Path) -> Result<()> {
+    // Reload rejects a partial catalog so the caller can retain the last good snapshot.
+    fn merge_dir(&mut self, dir: &Path, strict: bool) -> Result<()> {
         let entries = match std::fs::read_dir(dir) {
             Ok(entries) => entries,
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+            Err(e) if !strict || e.kind() == std::io::ErrorKind::NotFound => return Ok(()),
             Err(e) => return Err(e).with_context(|| format!("reading {}", dir.display())),
         };
         let mut files: Vec<PathBuf> = entries
+            .filter(|entry| strict || entry.is_ok())
             .map(|e| e.map(|e| e.path()))
             .collect::<std::io::Result<Vec<_>>>()?
             .into_iter()
@@ -145,10 +118,14 @@ impl Catalog {
         files.sort();
 
         for path in files {
-            let text = std::fs::read_to_string(&path)
-                .with_context(|| format!("reading jukebox definition {}", path.display()))?;
-            let station = parse(&text, &path)?;
-            self.merge(station);
+            let station = std::fs::read_to_string(&path)
+                .with_context(|| format!("reading jukebox definition {}", path.display()))
+                .and_then(|text| parse(&text, &path));
+            match station {
+                Ok(station) => self.merge(station),
+                Err(error) if strict => return Err(error),
+                Err(error) => tracing::warn!("jukebox definition {}: {error:#}", path.display()),
+            }
         }
         Ok(())
     }
@@ -402,6 +379,25 @@ url = "https://example.org/personal"
         assert_eq!(personal.streams[0].key, "96");
 
         std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn startup_keeps_valid_stations_but_reload_rejects_partial_catalogs() {
+        let dir = temp_dir("partial");
+        std::fs::write(dir.join("a-broken.toml"), "[invalid").unwrap();
+        std::fs::write(
+            dir.join("b-valid.TOML"),
+            "[metadata]\nname = \"Valid\"\n[[stream]]\nrate = 96\nurl = \"https://example.org/radio\"\n",
+        )
+        .unwrap();
+        let startup = Catalog::load_from(&dir);
+        assert_eq!(startup.stations.len(), 1);
+        assert_eq!(startup.stations[0].metadata.name, "Valid");
+        assert!(Catalog::try_load_from(&dir).is_err());
+        std::fs::remove_file(dir.join("a-broken.toml")).unwrap();
+        assert_eq!(Catalog::try_load_from(&dir).unwrap().stations.len(), 1);
+        std::fs::remove_dir_all(&dir).unwrap();
+        assert!(Catalog::try_load_from(&dir).unwrap().stations.is_empty());
     }
 
     fn temp_dir(label: &str) -> PathBuf {

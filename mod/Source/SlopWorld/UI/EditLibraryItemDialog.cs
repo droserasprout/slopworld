@@ -124,7 +124,7 @@ namespace SlopWorld
                     SessionHub.Instance.Library.Select(s => s.Name), "library");
 
 
-            SessionHub.Instance.RefreshProjects();
+            SessionHub.Instance.Catalog.RefreshProjects();
             DaemonClient.Get(WireContract.Routes.Config, j =>
             {
                 var d = j["values"]["defaults"];
@@ -393,7 +393,7 @@ namespace SlopWorld
                 return;
             }
 
-            SessionHub.Instance.SaveLibraryItem(_s, _isNew, _origName,
+            SessionHub.Instance.Catalog.SaveLibraryItem(_s, _isNew, _origName,
                 ok: () => Close(),
                 fail: msg => Messages.Message($"SlopWorld: {msg}",
                     MessageTypeDefOf.RejectInput, false));

@@ -282,7 +282,7 @@ namespace SlopWorld
             ulong id = ++_nextScrollRequestId;
             _historyRequests[id] = new HistoryRequest(
                 _sentScrollOff, _historyCoordinateShift);
-            SessionHub.Instance.RequestScroll(_name, _sentScrollOff, id);
+            SessionHub.Instance.Terminal.RequestScroll(_name, _sentScrollOff, id);
             ScrollDebugSent(_sentScrollOff);
         }
     }

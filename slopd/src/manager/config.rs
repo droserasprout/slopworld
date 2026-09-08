@@ -93,20 +93,21 @@ impl Manager {
 
     async fn persist_cfg(&self, cfg: &Config) -> Result<()> {
         cfg.save(&self.cfg_path).await?;
-        *self.cfg_mtime.lock().unwrap() = disk_mtime(&self.cfg_path).await;
-        if let Err(e) = crate::endpoint::update_token(&cfg.daemon.token).await {
-            tracing::warn!("config saved but endpoint descriptor was not updated: {e:#}");
-        }
+        self.config_saved(cfg).await;
         Ok(())
     }
 
     async fn persist_cfg_text(&self, cfg: &Config, text: &str) -> Result<()> {
         Config::save_text(&self.cfg_path, text).await?;
+        self.config_saved(cfg).await;
+        Ok(())
+    }
+
+    async fn config_saved(&self, cfg: &Config) {
         *self.cfg_mtime.lock().unwrap() = disk_mtime(&self.cfg_path).await;
         if let Err(e) = crate::endpoint::update_token(&cfg.daemon.token).await {
             tracing::warn!("config saved but endpoint descriptor was not updated: {e:#}");
         }
-        Ok(())
     }
 
     /// Apply a config mutation to a private snapshot, persist it without holding `cfg`, then
@@ -116,16 +117,8 @@ impl Manager {
         &self,
         update: impl FnOnce(&mut Config) -> Result<T>,
     ) -> Result<T> {
-        let _persist = self.cfg_persist.lock().await;
-        let old_token = self.cfg.read().await.daemon.token.clone();
-        let mut candidate = self.cfg.read().await.clone();
-        let result = update(&mut candidate)?;
-        self.persist_cfg(&candidate).await?;
-        *self.cfg.write().await = candidate;
-        if old_token != self.cfg.read().await.daemon.token {
-            self.invalidate_auth(crate::session::AuthChange::RootTokenChanged);
-        }
-        Ok(result)
+        self.update_cfg_if_changed(|cfg| update(cfg).map(|result| (result, true)))
+            .await
     }
 
     pub(super) async fn update_cfg_if_changed<T>(

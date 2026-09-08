@@ -97,10 +97,10 @@ namespace SlopWorld
             var open = Find.WindowStack.WindowOfType<CommandPalette>();
             if (open != null) { open.Close(); return; }
 
-            SessionHub.Instance.Refresh();
-            SessionHub.Instance.RefreshProjects();
-            SessionHub.Instance.RefreshLibrary();
-            SessionHub.Instance.LoadPresets();
+            SessionHub.Instance.SessionStore.Refresh();
+            SessionHub.Instance.Catalog.RefreshProjects();
+            SessionHub.Instance.Catalog.RefreshLibrary();
+            SessionHub.Instance.Catalog.LoadPresets();
 
             Find.WindowStack.Add(new CommandPalette());
         }

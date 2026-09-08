@@ -14,8 +14,8 @@ viewport, retaining a minimum height when the surrounding form needs scrolling.
   `Commands > Defaults` edits machine-wide command defaults from the command catalog, including
   the shell advertised to sandboxed agents; `Commands > Presets` edits the
   daemon's command definitions, which choose the sandbox presets an agent receives.
-- `ConfirmDialog` and `AlertDialog` own mod message surfaces instead of vanilla
-  message boxes. They use the shared window/buttons and wrapped text; Enter activates the
+- `AlertDialog` owns the message surface; `ConfirmDialog.Create` supplies confirmation
+  labels, width, and button styling. They use shared window/buttons and wrapped text; Enter activates the
   primary action and Escape cancels. Single-line editors use the same accept/cancel path;
   multiline editors keep Enter for newlines. Confirmations retain `OpenOverPane` layering
   and mark destructive actions with the danger button.

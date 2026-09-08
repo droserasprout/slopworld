@@ -127,9 +127,9 @@ namespace SlopWorld
         static void RefreshPanels()
         {
             if (TerminalWindow.TryPanelShape(out int cols, out int rows))
-                SessionHub.Instance.RefreshPanels(cols, rows);
+                SessionHub.Instance.Terminal.RefreshPanels(cols, rows);
             else
-                SessionHub.Instance.RefreshPanels();
+                SessionHub.Instance.Terminal.RefreshPanels();
         }
 
         static void Absorb()

@@ -216,7 +216,7 @@ namespace SlopWorld
                 {
                     Label = "~",
                     Value = "",
-                    Select = () => SessionHub.Instance.RunHostShell("",
+                    Select = () => SessionHub.Instance.SessionStore.RunHostShell("",
                         session => TerminalWindow.Open(session), UiWidgets.Fail),
                 },
             };
@@ -228,7 +228,7 @@ namespace SlopWorld
                 {
                     Label = $"{name}  -  {p.Dir}",
                     Value = name,
-                    Select = () => SessionHub.Instance.RunHostShell(name,
+                    Select = () => SessionHub.Instance.SessionStore.RunHostShell(name,
                         session => TerminalWindow.Open(session), UiWidgets.Fail),
                 });
             }

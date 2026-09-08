@@ -136,7 +136,7 @@ namespace SlopWorld
             {
                 Tab(r, Icons.Refresh, false,
                     "Read the task mailbox again.", () =>
-                        SessionHub.Instance.RefreshTasks(UiWidgets.Fail));
+                        SessionHub.Instance.TaskStore.Refresh(fail: UiWidgets.Fail));
                 r.x -= TabIcon + 3f;
                 TasksView.FilterButton(r);
             }

@@ -10,9 +10,9 @@ namespace SlopWorld
     {
         public override void Opened()
         {
-            SessionHub.Instance.Refresh();
+            SessionHub.Instance.SessionStore.Refresh();
             // The rows name a project, and the dialog they open picks one.
-            SessionHub.Instance.RefreshProjects();
+            SessionHub.Instance.Catalog.RefreshProjects();
         }
 
         public override string Title => "Agents";
@@ -163,12 +163,12 @@ namespace SlopWorld
             if (s.Alive)
             {
                 if (UiWidgets.Button(new Rect(x, bottom, runW, UiWidgets.RowBtnH), "Stop"))
-                    SessionHub.Instance.Stop(s.Name, UiWidgets.Fail);
+                    SessionHub.Instance.SessionStore.Stop(s.Name, UiWidgets.Fail);
             }
             else if (UiWidgets.Button(new Rect(x, bottom, runW, UiWidgets.RowBtnH), "Start",
                          UiWidgets.Btn.Primary))
             {
-                SessionHub.Instance.Start(s.Name, UiWidgets.Fail);
+                SessionHub.Instance.SessionStore.Start(s.Name, UiWidgets.Fail);
             }
 
             // Stop is Del for a temporary agent: killing the process is what removes it.

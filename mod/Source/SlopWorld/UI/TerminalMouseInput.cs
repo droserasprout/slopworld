@@ -36,7 +36,7 @@ namespace SlopWorld
                 _window.ClearSelection();
                 var cell = _window.CellAt(body, e.mousePosition);
                 string act = e.delta.y < 0f ? "wheelup" : "wheeldown";
-                SessionHub.Instance.SendMouse(_window.SessionName, act, 0, cell.x, cell.y, step);
+                SessionHub.Instance.Terminal.SendMouse(_window.SessionName, act, 0, cell.x, cell.y, step);
                 e.Use();
                 return;
             }
@@ -60,7 +60,7 @@ namespace SlopWorld
                 _window.ClearSelection();
                 var keys = new string[step];
                 for (int k = 0; k < step; k++) keys[k] = key;
-                SessionHub.Instance.SendKeys(_window.SessionName, keys, false);
+                SessionHub.Instance.Terminal.SendKeys(_window.SessionName, keys, false);
                 e.Use();
                 return;
             }

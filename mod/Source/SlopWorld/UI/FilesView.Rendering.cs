@@ -102,7 +102,7 @@ namespace SlopWorld
 
                 if (project != null && SessionHub.Instance.Project(project) != null)
                     opts.Add(new FloatMenuOption("Terminal (host)", () =>
-                        SessionHub.Instance.RunHostShell(project,
+                        SessionHub.Instance.SessionStore.RunHostShell(project,
                         session => TerminalWindow.Open(session), UiWidgets.Fail)));
 
                 FilesView.AddFileActions(opts, node.Project, node.Path, node.Name,
@@ -332,7 +332,7 @@ namespace SlopWorld
             // its session is launched rather than waiting for a completion that does not
             // exist for an interactive command.
             RefreshAfterFileAction();
-            SessionHub.Instance.Run(project, command, "fa-" + name,
+            SessionHub.Instance.SessionStore.Run(project, command, "fa-" + name,
                 session => TerminalWindow.Open(session), UiWidgets.Fail,
                 host: host, temp: host, path: path, hold: true);
         }
@@ -392,7 +392,7 @@ namespace SlopWorld
             string script = "cd -- " + Pager.Quote(node.Path) +
                 " && exec \"${SHELL:-bash}\"";
             string command = "bash -lc " + Pager.Quote(script);
-            SessionHub.Instance.Run("", command,
+            SessionHub.Instance.SessionStore.Run("", command,
                 "shell-" + node.Name,
                 session => TerminalWindow.Open(session), UiWidgets.Fail,
                 host: true, temp: true);
@@ -430,7 +430,7 @@ namespace SlopWorld
                 return;
             }
 
-            SessionHub.Instance.Run(node.Project, cmd + " " + Pager.Quote(node.Path),
+            SessionHub.Instance.SessionStore.Run(node.Project, cmd + " " + Pager.Quote(node.Path),
                 label + "-" + node.Name,
                 session => TerminalWindow.Open(session), UiWidgets.Fail);
         }
@@ -560,7 +560,7 @@ namespace SlopWorld
         {
             if (string.IsNullOrEmpty(project))
             {
-                SessionHub.Instance.Run("", Pager.EditorCommand(path, line), label,
+                SessionHub.Instance.SessionStore.Run("", Pager.EditorCommand(path, line), label,
                     session => TerminalWindow.Open(session), UiWidgets.Fail,
                     host: true, temp: true);
                 return;
@@ -570,7 +570,7 @@ namespace SlopWorld
                 UiWidgets.Fail($"project '{project}' has gone");
                 return;
             }
-            SessionHub.Instance.Run(project, Pager.EditorCommand(path, line), label,
+            SessionHub.Instance.SessionStore.Run(project, Pager.EditorCommand(path, line), label,
                 session => TerminalWindow.Open(session), UiWidgets.Fail);
         }
 
