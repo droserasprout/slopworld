@@ -40,6 +40,7 @@ namespace SlopWorld.Tests
             AssertEx.Equal(DaemonConfig.DefaultWorkerPrompt, config.WorkerPrompt,
                            "worker prompt default");
             AssertEx.Equal("claude", config.Agent, "agent command default");
+            AssertEx.Equal("bash", config.AgentShell, "agent shell default");
             AssertEx.Equal("bash", config.Shell, "shell command default");
             AssertEx.Equal("less", config.Pager, "pager default");
             AssertEx.Equal("micro", config.Editor, "editor default");
@@ -78,6 +79,7 @@ namespace SlopWorld.Tests
                 InstructionsBreadcrumbEnabled = false,
                 WorkerPrompt = "Retrieve $SLOPWORLD_TASK_ID, accept it, and finish it.",
                 Agent = "codex --full-auto",
+                AgentShell = "zsh",
                 Shell = "bash -lc",
                 Pager = "less -R",
                 Editor = "micro --no-help",
@@ -116,6 +118,7 @@ namespace SlopWorld.Tests
             AssertEx.Equal(expected.WorkerPrompt, actual.WorkerPrompt,
                            "worker prompt round trip");
             AssertEx.Equal(expected.Agent, actual.Agent, "agent round trip");
+            AssertEx.Equal(expected.AgentShell, actual.AgentShell, "agent shell round trip");
             AssertEx.Equal(expected.Shell, actual.Shell, "shell round trip");
             AssertEx.Equal(expected.Pager, actual.Pager, "pager round trip");
             AssertEx.Equal(expected.Editor, actual.Editor, "editor round trip");

@@ -303,6 +303,9 @@ impl Default for Daemon {
 pub struct Defaults {
     /// What an agent that names no command of its own runs.
     pub agent: String,
+    /// The shell agents should advertise to tools that run commands inside the sandbox.
+    #[serde(default = "default_agent_shell")]
+    pub agent_shell: String,
     /// What a shell errand runs. Here rather than in every library item: which shell this
     /// machine has is the machine's answer.
     #[serde(default = "default_shell")]
@@ -313,6 +316,10 @@ pub(crate) fn default_agent() -> String {
     "claude".into()
 }
 
+fn default_agent_shell() -> String {
+    "bash".into()
+}
+
 fn default_shell() -> String {
     "bash".into()
 }
@@ -321,6 +328,7 @@ impl Default for Defaults {
     fn default() -> Self {
         Self {
             agent: default_agent(),
+            agent_shell: default_agent_shell(),
             shell: default_shell(),
         }
     }

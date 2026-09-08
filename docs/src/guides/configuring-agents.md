@@ -128,3 +128,8 @@ Right-click an agent and select **Shell** to open a shell inside the same sandbo
 The shell inherits the agent's sandbox presets, network mode, DNS, resource limits,
 and mounts, so it sees the same filesystem the agent does. Host shells from the
 project heading do not carry per-agent overrides.
+
+Settings > Commands > Defaults > **Agent shell** controls the `SHELL` environment
+variable inside sandboxed agent sessions. It defaults to `bash`, independently of
+the **Shell** default used by shell errands. This avoids passing a host login shell
+such as zsh to agent tools; restart an agent after changing it.

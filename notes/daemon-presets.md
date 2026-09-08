@@ -45,7 +45,8 @@ a project checkbox; copying it creates the user `global` override.
   from seed and private top-level files ([sandbox-isolation](sandbox-isolation.md)).
 - Unknown preset names from files are warned and dropped; names entered in a dialog are
   rejected by `check_presets`. `[defaults] agent` and `shell` must name command presets,
-  and `start` refuses a session whose command preset is missing.
+  while `[defaults].agent_shell` controls the sandboxed agents' `SHELL` environment and
+  defaults to `bash`; `start` refuses a session whose command preset is missing.
 - The mod learns both tables from `GET /api/presets`; files added while the game runs
   become settings-page entries without rebuilding. `global` is shown first/highlighted,
   followed by uncategorized sandbox and command definitions with dependencies.

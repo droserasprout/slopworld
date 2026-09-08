@@ -90,9 +90,10 @@ namespace SlopWorld
             return output.ToString();
         }
 
-        // Both name a command preset: what an agent that names none of its own runs, and
-        // what a shell errand runs. What each one *is* is a TOML file the daemon reads.
+        // Agent and Shell name command presets. AgentShell is the shell advertised inside
+        // sandboxed agent sessions; it is separate from the shell errand preset.
         public string Agent = "claude";
+        public string AgentShell = "bash";
         public string Shell = "bash";
         public string Pager = "less";
         public string Editor = "micro";
@@ -124,6 +125,7 @@ namespace SlopWorld
                 WorkerPrompt = i["worker_prompt"].AsString(DefaultWorkerPrompt),
 
                 Agent = f["agent"].AsString("claude"),
+                AgentShell = f["agent_shell"].AsString("bash"),
                 Shell = f["shell"].AsString("bash"),
                 Pager = c["pager"].AsString("less"),
                 Editor = c["editor"].AsString("micro"),
@@ -174,7 +176,8 @@ namespace SlopWorld
             "}" +
             "}," +
             "\"defaults\":{" +
-            $"\"agent\":{JVal.Q(Agent)},\"shell\":{JVal.Q(Shell)}" +
+            $"\"agent\":{JVal.Q(Agent)},\"agent_shell\":{JVal.Q(AgentShell)}," +
+            $"\"shell\":{JVal.Q(Shell)}" +
             "}," +
             "\"commands\":{" +
             $"\"pager\":{JVal.Q(Pager)},\"editor\":{JVal.Q(Editor)}," +

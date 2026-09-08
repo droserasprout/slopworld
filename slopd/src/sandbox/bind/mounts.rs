@@ -239,6 +239,12 @@ pub(super) fn push_env(a: &mut Vec<String>, args: EnvArgs<'_>) {
         }
     }
 
+    // Agents must not inherit the daemon's login shell: zsh's terminal behavior and startup
+    // files are not a reliable default for agent CLIs. The setting comes last so it wins over
+    // both the host environment and a preset literal; shell errands still execute the command
+    // selected by `[defaults] shell`.
+    push_args(a, &["--setenv", "SHELL", cfg.defaults.agent_shell.trim()]);
+
     // slopd captures Pi prompts before tmux, just as it does Codex prompts. Disable the
     // project-local extension in managed sessions so it cannot race the daemon or require
     // project trust and a sandbox-visible OpenRouter key.
