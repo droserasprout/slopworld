@@ -51,7 +51,7 @@ namespace SlopWorld
             }
 
             string session = _session;
-            SessionHub.Instance.SetLabel(session, label, () => Close(), UiWidgets.Fail);
+            SessionHub.Instance.SessionStore.SetLabel(session, label, () => Close(), UiWidgets.Fail);
         }
     }
 }

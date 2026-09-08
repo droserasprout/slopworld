@@ -33,7 +33,7 @@ namespace SlopWorld
 
         public void Load()
         {
-            _load.Load((ok, fail) => SessionHub.Instance.LoadPresets(() => ok(true), fail), _ =>
+            _load.Load((ok, fail) => SessionHub.Instance.Catalog.LoadPresets(() => ok(true), fail), _ =>
             {
                 if (_preset != null && !_newEntry)
                     _preset = SessionHub.Instance.Presets.FirstOrDefault(p => p.Name == _preset.Name);

@@ -6,14 +6,16 @@ Patches are applied from `ModBootstrap`, most by attribute.
 reflection.
 
 - `SessionHub` - the singleton and single source of truth, pumped once a frame
-  from a `Root.Update` postfix. It is a thin coordinator: the public surface (~50
-  members, unchanged so call sites need not move) delegates to six services under
-  `Client/SessionHub/` — `HubTransport` (the socket, reconnect/backoff, guarded
+  from a `Root.Update` postfix. It coordinates six services under
+  `Client/SessionHub/`: `HubTransport` (the socket, reconnect/backoff, guarded
   `Send`), `TerminalIO` (subs + keys/mouse/paste/scroll/resize/redraw), `AudioBus`
   (jukebox channel), `SessionStore` (sessions list + screen buffers + their HTTP
   mutations), `TaskStore` (the host's polled all-task board and HTTP mutations), and
-  `HubCatalog` (projects/library/presets/commands). `Config` stays
-  a settable field on the facade because the settings pages write it back. `Handle`
+  `HubCatalog` (projects/library/presets/commands). Callers use the internal
+  `SessionStore`, `TaskStore`, `Catalog`, `Terminal`, and `Audio` properties for
+  independent operations. Subscription bookkeeping and session-save rename handling
+  stay on the hub because they span services. `Config` stays
+  a settable field because the settings pages write it back. `Handle`
   routes each socket event to the owning service; `HubWire` holds shared JSON helpers.
 - `MiniWebSocket` - speaks RFC6455 by hand, because Unity's mono cannot be trusted
   with `ClientWebSocket`.

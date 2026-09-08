@@ -4,8 +4,9 @@ using Verse;
 
 namespace SlopWorld
 {
-    public class IntegrationsPage : ListEditorPage
+    public class IntegrationsPage : DaemonConfigPage
     {
+        protected override bool ShowEditButton => true;
         protected override string SavedMessage => "integration settings saved.";
 
         protected override void DrawFields(Listing_Standard l)

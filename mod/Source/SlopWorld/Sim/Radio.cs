@@ -448,7 +448,7 @@ namespace SlopWorld
 
             float volume = Volume();
             if (Mathf.Abs(volume - _sentVolume) < VolumeStep) return;
-            hub.SendVolume(volume);
+            hub.Audio.SendVolume(volume);
             _sentVolume = volume;
         }
 
@@ -471,15 +471,15 @@ namespace SlopWorld
         {
             if (selection == "stop")
             {
-                hub.SendAudio(null, null, null, volume);
+                hub.Audio.SendAudio(null, null, null, volume);
                 return;
             }
             if (_station != null)
             {
-                hub.SendAudio(_station.Id, _station.Path(_station.Rate), null, volume);
+                hub.Audio.SendAudio(_station.Id, _station.Path(_station.Rate), null, volume);
                 return;
             }
-            hub.SendAudio(null, null, OstPath(), volume);
+            hub.Audio.SendAudio(null, null, OstPath(), volume);
         }
 
         // The daemon's answer to what was asked of it. A station that will not play is
@@ -531,7 +531,7 @@ namespace SlopWorld
             var hub = SessionHub.Instance;
             if (hub == null || !hub.Online) return;
             if (!hub.Capabilities.AudioPlayback) return;
-            hub.SendAudio(null, null, null, Volume());
+            hub.Audio.SendAudio(null, null, null, Volume());
         }
 
         // Forces the next Update to send, rather than sending from here: one place puts

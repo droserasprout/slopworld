@@ -106,7 +106,7 @@ namespace SlopWorld
             _key = filePath;
 
             string cmd = PagerCommand(filePath);
-            SessionHub.Instance.Run(project, cmd, label,
+            SessionHub.Instance.SessionStore.Run(project, cmd, label,
                 session =>
                 {
                     if (operation != _operation)
@@ -168,7 +168,7 @@ namespace SlopWorld
             _openProject = project;
             _key = key;
 
-            SessionHub.Instance.Run(project, command, label,
+            SessionHub.Instance.SessionStore.Run(project, command, label,
                 session =>
                 {
                     if (operation != _operation)
@@ -217,7 +217,7 @@ namespace SlopWorld
             _key = null;
             if (s == null) return;
             var info = SessionHub.Instance.Get(s);
-            if (info != null && info.Alive) SessionHub.Instance.Stop(s);
+            if (info != null && info.Alive) SessionHub.Instance.SessionStore.Stop(s);
         }
 
         // The terminal's own close, for the session it was showing. The pane is the pager's
@@ -232,7 +232,7 @@ namespace SlopWorld
         {
             if (session == null) return;
             var info = SessionHub.Instance.Get(session);
-            if (info != null && info.Alive) SessionHub.Instance.Stop(session);
+            if (info != null && info.Alive) SessionHub.Instance.SessionStore.Stop(session);
         }
 
         public static string Quote(string s) => PagerCommands.Quote(s);

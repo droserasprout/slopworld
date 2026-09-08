@@ -121,7 +121,7 @@ namespace SlopWorld
 
         void ResolvePath(string project, string path, System.Action<string> action)
         {
-            SessionHub.Instance.CurrentPath(_name, cwd =>
+            SessionHub.Instance.SessionStore.CurrentPath(_name, cwd =>
             {
                 string absolute = FilesView.ResolveProjectPath(project, path, cwd);
                 if (absolute == null)
@@ -153,7 +153,7 @@ namespace SlopWorld
                 options.Add(new FloatMenuOption(picked, () =>
                 {
                     JumpToLive();
-                    SessionHub.Instance.PasteBreadcrumb(_name, picked,
+                    SessionHub.Instance.Terminal.PasteBreadcrumb(_name, picked,
                         Patch_LoadingTips.RandomTips(Patch_LoadingTips.TipBatch));
                 }));
             }
@@ -174,7 +174,7 @@ namespace SlopWorld
 
         static void ForwardCodexImagePaste(string name)
         {
-            SessionHub.Instance.SendKeys(name, new[] { "C-v" }, false);
+            SessionHub.Instance.Terminal.SendKeys(name, new[] { "C-v" }, false);
         }
 
         internal void PasteClipboard()
@@ -191,7 +191,7 @@ namespace SlopWorld
                     {
                         string text = j["text"].AsString();
                         if (!string.IsNullOrEmpty(text))
-                            SessionHub.Instance.Paste(name, text);
+                            SessionHub.Instance.Terminal.Paste(name, text);
                         else
                             ForwardCodexImagePaste(name);
                     },
@@ -227,12 +227,12 @@ namespace SlopWorld
         static void Deliver(string name, string text)
         {
             if (string.IsNullOrEmpty(text)) text = GUIUtility.systemCopyBuffer;
-            if (!string.IsNullOrEmpty(text)) SessionHub.Instance.Paste(name, text);
+            if (!string.IsNullOrEmpty(text)) SessionHub.Instance.Terminal.Paste(name, text);
         }
 
         static void DeliverPrimary(string name, string text)
         {
-            if (!string.IsNullOrEmpty(text)) SessionHub.Instance.Paste(name, text);
+            if (!string.IsNullOrEmpty(text)) SessionHub.Instance.Terminal.Paste(name, text);
         }
     }
 }

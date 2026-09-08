@@ -445,7 +445,7 @@ namespace SlopWorld
             string path = match.Root.TrimEnd('/') + "/" + match.Path;
             if (ReferenceEquals(match, _showing) && Viewer.Reopen())
             {
-                SessionHub.Instance.SendKeys(Viewer.Session,
+                SessionHub.Instance.Terminal.SendKeys(Viewer.Session,
                     new[] { match.Line.ToString() + "g" }, true);
                 return;
             }

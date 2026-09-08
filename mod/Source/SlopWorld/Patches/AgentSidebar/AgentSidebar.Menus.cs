@@ -100,8 +100,8 @@ namespace SlopWorld
             bool alive = info != null && info.Alive;
             opts.Add(new FloatMenuOption(alive ? "Stop" : "Start", () =>
             {
-                if (alive) hub.Stop(name, UiWidgets.Fail);
-                else hub.Start(name, UiWidgets.Fail);
+                if (alive) hub.SessionStore.Stop(name, UiWidgets.Fail);
+                else hub.SessionStore.Start(name, UiWidgets.Fail);
             }));
 
             var term = new FloatMenuOption("Terminal", () => TerminalWindow.Open(name));
@@ -129,7 +129,7 @@ namespace SlopWorld
 
             if (info != null && !info.Host && !info.Worker && !string.IsNullOrEmpty(info.Project))
                 opts.Add(new FloatMenuOption("Shell", () =>
-                    hub.Run(info.Project, "", "", session => TerminalWindow.Open(session),
+                    hub.SessionStore.Run(info.Project, "", "", session => TerminalWindow.Open(session),
                         UiWidgets.Fail, like: name)));
 
             if (info != null && !info.Ephemeral && !info.Host)
@@ -169,7 +169,7 @@ namespace SlopWorld
                 new FloatMenuOption("Duplicate...", () =>
                     TerminalWindow.OpenOverPane(EditProjectDialog.Copy(p))),
                 new FloatMenuOption("Terminal (host)", () =>
-                    hub.RunHostShell(name, session => TerminalWindow.Open(session),
+                    hub.SessionStore.RunHostShell(name, session => TerminalWindow.Open(session),
                         UiWidgets.Fail)),
             };
 
@@ -230,7 +230,7 @@ namespace SlopWorld
             var options = new List<FloatMenuOption>
             {
                 new FloatMenuOption("~", () =>
-                    SessionHub.Instance.RunHostShell("",
+                    SessionHub.Instance.SessionStore.RunHostShell("",
                         session => TerminalWindow.Open(session), UiWidgets.Fail)),
             };
             foreach (var p in SessionHub.Instance.Projects)
@@ -238,7 +238,7 @@ namespace SlopWorld
                 if (!Passes(p.Name)) continue;
                 string name = p.Name;
                 options.Add(new FloatMenuOption($"{name}  -  {p.Dir}", () =>
-                    SessionHub.Instance.RunHostShell(name,
+                    SessionHub.Instance.SessionStore.RunHostShell(name,
                         session => TerminalWindow.Open(session), UiWidgets.Fail)));
             }
             return options;

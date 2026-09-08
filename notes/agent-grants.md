@@ -1,7 +1,8 @@
 # Scoped grants
 
 A scoped grant lets one caller watch or drive selected non-host sessions without
-exposing host sessions. Grants are bearer tokens minted in memory by the root token.
+exposing host sessions. Grants are bearer tokens minted in memory by root-authorized
+requests or by the daemon when it starts a worker.
 See [wire-protocol](wire-protocol.md) and [agent-tasks](agent-tasks.md).
 
 ## Permissions
@@ -22,8 +23,9 @@ The root token retains access to every session.
 the bearer token once. `GET /api/grants` returns the active count, and
 `DELETE /api/grants/:grantor` revokes grants for a grantor.
 
-The daemon does not inject grant credentials into sandboxes. Callers must arrange delivery
-of the daemon URL and token, and the sandbox must reach the configured HTTP listener.
+Workers receive a fresh scoped credential through `SLOPD_URL` and `SLOPD_TOKEN` at startup;
+see [daemon-workers](daemon-workers.md). For manually minted grants, callers arrange delivery
+of the daemon URL and token. The sandbox must reach the configured HTTP listener.
 `network = "none"` therefore cannot use grants; no Unix-socket transport is available.
 `endpoint.toml` remains the root mod and `slopctl` URL-token handoff, not grant injection.
 

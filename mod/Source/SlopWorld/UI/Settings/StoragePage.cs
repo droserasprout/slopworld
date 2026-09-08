@@ -194,7 +194,7 @@ namespace SlopWorld
                 $"Reset private state for '{e.Session}'? The agent stops and this {Human(e.Bytes)} " +
                 "copy moves to recoverable trash for 14 days.",
                 () => DaemonClient.Post($"{WireContract.Routes.Sessions}/{Uri.EscapeDataString(e.Session)}/state/reset",
-                    null, _ => { SessionHub.Instance.Refresh(); Load(); }, msg => _error = msg),
+                    null, _ => { SessionHub.Instance.SessionStore.Refresh(); Load(); }, msg => _error = msg),
                 destructive: true));
         }
 
@@ -218,7 +218,7 @@ namespace SlopWorld
         void Restore(Entry e)
         {
             DaemonClient.Post($"{WireContract.Routes.StateTrash}/{Uri.EscapeDataString(e.Key)}/restore", null,
-                _ => { SessionHub.Instance.Refresh(); Load(); }, msg => _error = msg);
+                _ => { SessionHub.Instance.SessionStore.Refresh(); Load(); }, msg => _error = msg);
         }
 
         static string Human(long bytes)

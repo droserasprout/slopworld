@@ -30,7 +30,7 @@ namespace SlopWorld
                     if (!body.Contains(e.mousePosition)) return true;
                     JumpToLive();
                     ClearSelection();
-                    SessionHub.Instance.SendMouse(_name, "press", btn, cell.x, cell.y);
+                    SessionHub.Instance.Terminal.SendMouse(_name, "press", btn, cell.x, cell.y);
                     _mouseFwd = true;
                     _fwdButton = btn;
                     _fwdCell = cell;
@@ -41,12 +41,12 @@ namespace SlopWorld
                     if (!_mouseFwd) return false;
                     if (live != null && live.AppDrag)
                     {
-                        SessionHub.Instance.SendMouse(_name, "drag", btn, cell.x, cell.y);
+                        SessionHub.Instance.Terminal.SendMouse(_name, "drag", btn, cell.x, cell.y);
                         e.Use();
                         return true;
                     }
                     // Only the left button selects; anything else is swallowed.
-                    SessionHub.Instance.SendMouse(_name, "release", btn, _fwdCell.x, _fwdCell.y);
+                    SessionHub.Instance.Terminal.SendMouse(_name, "release", btn, _fwdCell.x, _fwdCell.y);
                     _mouseFwd = false;
                     if (btn != 0) { e.Use(); return true; }
                     _selA = _fwdCell;
@@ -56,7 +56,7 @@ namespace SlopWorld
 
                 case EventType.MouseUp:
                     if (!_mouseFwd) return false;
-                    SessionHub.Instance.SendMouse(_name, "release", btn, cell.x, cell.y);
+                    SessionHub.Instance.Terminal.SendMouse(_name, "release", btn, cell.x, cell.y);
                     _mouseFwd = false;
                     e.Use();
                     return true;

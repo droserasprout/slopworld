@@ -78,7 +78,7 @@ namespace SlopWorld
         internal void Flush()
         {
             if (_literal.Length == 0) return;
-            SessionHub.Instance.SendKeys(_name, new[] { _literal.ToString() }, true);
+            SessionHub.Instance.Terminal.SendKeys(_name, new[] { _literal.ToString() }, true);
             _literal.Length = 0;
         }
     }

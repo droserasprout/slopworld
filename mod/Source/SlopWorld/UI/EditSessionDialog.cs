@@ -91,10 +91,10 @@ namespace SlopWorld
                 };
 
 
-            SessionHub.Instance.RefreshProjects();
+            SessionHub.Instance.Catalog.RefreshProjects();
             // Both tables are files the daemon reads, so they are asked for on every open
             // rather than once per process.
-            SessionHub.Instance.LoadPresets();
+            SessionHub.Instance.Catalog.LoadPresets();
             if (string.IsNullOrEmpty(_s.CommandPreset) && string.IsNullOrEmpty(_s.Command) &&
                 string.IsNullOrWhiteSpace(_s.Cmd))
                 DaemonClient.Get(WireContract.Routes.Config,

@@ -6,9 +6,10 @@ namespace SlopWorld
 {
     // Informational messages use the same surface as confirmations; even the safety alert
     // shown before the profile gate has finished must not fall back to RimWorld chrome.
-    public sealed class AlertDialog : MessageDialog
+    public sealed class AlertDialog : UiWindow
     {
-        const float Width = 520f;
+        readonly string _message;
+        readonly float _width;
 
         readonly string _title;
         readonly string _primaryLabel;
@@ -18,9 +19,10 @@ namespace SlopWorld
         readonly UiWidgets.Btn _primaryKind;
 
         AlertDialog(string title, string message, string primaryLabel, Action primary,
-                        string secondaryLabel, Action secondary, UiWidgets.Btn primaryKind)
-            : base(message)
+                        string secondaryLabel, Action secondary, UiWidgets.Btn primaryKind, float width)
         {
+            _message = message ?? "";
+            _width = width;
             _title = title ?? "SlopWorld";
             _primaryLabel = primaryLabel ?? "OK";
             _secondaryLabel = secondaryLabel;
@@ -37,14 +39,29 @@ namespace SlopWorld
         public static Window Create(string title, string message, string primaryLabel,
                                     Action primary, string secondaryLabel = null,
                                     Action secondary = null,
-                                    UiWidgets.Btn primaryKind = UiWidgets.Btn.Primary) =>
+                                    UiWidgets.Btn primaryKind = UiWidgets.Btn.Primary, float width = 520f) =>
             new AlertDialog(title, message, primaryLabel, primary, secondaryLabel,
-                secondary, primaryKind);
+                secondary, primaryKind, width);
+        public override Vector2 InitialSize => new Vector2(_width,
+            4f * UiWidgets.GapM + UiWidgets.HeaderH +
+            MessageHeight(_message, _width - 2f * UiWidgets.GapM) + UiWidgets.BtnH);
 
-        protected override string DialogTitle => _title;
-        protected override float DialogWidth => Width;
+        protected override bool Closable => false;
 
-        protected override void DrawActions(UiWidgets.Bar foot)
+        protected override void DoBody(Rect rect)
+        {
+            UiWidgets.Title(TitleRect(rect), _title);
+
+            float messageY = rect.y + UiWidgets.HeaderH + UiWidgets.GapM;
+            float messageH = MessageHeight(_message, rect.width);
+            var message = new Rect(rect.x, messageY, rect.width, messageH);
+
+            UiWidgets.StatusLabel(message, _message, UiWidgets.Name);
+
+            DrawActions(new UiWidgets.Bar(UiWidgets.FooterBar(rect)));
+        }
+
+        void DrawActions(UiWidgets.Bar foot)
         {
             if (!string.IsNullOrEmpty(_secondaryLabel) &&
                 foot.Left(_secondaryLabel, UiWidgets.Btn.Ghost))

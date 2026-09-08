@@ -124,7 +124,7 @@ namespace SlopWorld
                 action = () => Find.WindowStack.Add(ConfirmDialog.Create(
                     $"Stop '{Session}'? This kills the tmux session; whatever the agent "
                   + "is in the middle of goes with it.",
-                    () => SessionHub.Instance.Stop(Session, UiWidgets.Fail),
+                    () => SessionHub.Instance.SessionStore.Stop(Session, UiWidgets.Fail),
                     destructive: true)),
             };
         }
@@ -138,7 +138,7 @@ namespace SlopWorld
                 icon = Icons.Play,
                 defaultIconColor = UiWidgets.Yes,
                 hotKey = ModDefOf.SlopToggleSession,
-                action = () => SessionHub.Instance.Start(Session, UiWidgets.Fail),
+                action = () => SessionHub.Instance.SessionStore.Start(Session, UiWidgets.Fail),
             };
         }
 
@@ -201,7 +201,7 @@ namespace SlopWorld
                 action = () => Find.WindowStack.Add(ConfirmDialog.Create(
                     $"Remove session '{Session}'? This kills it, drops it from config.toml, and moves " +
                     "its private state to recoverable trash for 14 days.",
-                    () => SessionHub.Instance.Remove(Session, UiWidgets.Fail), destructive: true)),
+                    () => SessionHub.Instance.SessionStore.Remove(Session, UiWidgets.Fail), destructive: true)),
             };
         }
 

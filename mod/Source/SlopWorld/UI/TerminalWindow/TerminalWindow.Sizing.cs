@@ -81,7 +81,7 @@ namespace SlopWorld
             // A pending geometry change still needs its debounce; otherwise a new session
             // would get both the old request and this one.
             if (_name == null || _sizeDirty || _cols <= 0 || !SessionHub.Instance.Online) return;
-            SessionHub.Instance.Resize(_name, _cols, _rows);
+            SessionHub.Instance.Terminal.Resize(_name, _cols, _rows);
         }
 
         // A loop rather than a statement: a resize is one fire-and-forget message over a

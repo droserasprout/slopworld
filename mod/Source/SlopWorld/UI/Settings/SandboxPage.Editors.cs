@@ -119,7 +119,7 @@ namespace SlopWorld
             {
                 float y = DrawPresetFields(view, 0f, p, editable);
                 EditorButtons(view, y, editable, p.Source, "sandbox", p.Name,
-                    () => SessionHub.Instance.SavePreset(p, () => { _newEntry = false; _error = null; }, msg => _error = msg),
+                    () => SessionHub.Instance.Catalog.SavePreset(p, () => { _newEntry = false; _error = null; }, msg => _error = msg),
                     () => Remove("sandbox", p.Name));
             }
         }
@@ -228,7 +228,7 @@ namespace SlopWorld
                     y += UiWidgets.RowH;
                 }
                 EditorButtons(view, y + UiWidgets.GapS, editable, c.Source, "command", c.Name,
-                    () => SessionHub.Instance.SaveCommand(c, () => { _newEntry = false; _error = null; }, msg => _error = msg),
+                    () => SessionHub.Instance.Catalog.SaveCommand(c, () => { _newEntry = false; _error = null; }, msg => _error = msg),
                     () => Remove("command", c.Name));
             }
         }
@@ -383,7 +383,7 @@ namespace SlopWorld
 
         void Copy(string kind, string name)
         {
-            SessionHub.Instance.CopyPreset(kind, name, name, () =>
+            SessionHub.Instance.Catalog.CopyPreset(kind, name, name, () =>
             {
                 _error = null;
                 Load();
@@ -396,7 +396,7 @@ namespace SlopWorld
                 kind == "sandbox" && SessionHub.Instance.Presets.Any(p => p.Name == name && p.Source == "override")
                     ? "Reset this user override and return to the system preset?"
                     : "Remove this user preset?",
-                () => SessionHub.Instance.RemovePreset(kind, name, () =>
+                () => SessionHub.Instance.Catalog.RemovePreset(kind, name, () =>
                 {
                     _preset = null; _command = null; _error = null; Load();
                 }, msg => _error = msg)));

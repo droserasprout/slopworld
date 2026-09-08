@@ -95,7 +95,7 @@ namespace SlopWorld
                 _ =>
                 {
                     _error = null;
-                    SessionHub.Instance.Refresh();
+                    SessionHub.Instance.SessionStore.Refresh();
                     Messages.Message("SlopWorld: config saved.",
                         MessageTypeDefOf.TaskCompletion, false);
                     Close();

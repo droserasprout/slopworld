@@ -75,15 +75,15 @@ namespace SlopWorld
         {
             switch (CurrentTab)
             {
-                case SidebarTab.Agents: SessionHub.Instance.Refresh(); break;
+                case SidebarTab.Agents: SessionHub.Instance.SessionStore.Refresh(); break;
                 case SidebarTab.Files: FilesView.Reload(); break;
                 case SidebarTab.Search: SearchView.Search(); break;
                 case SidebarTab.Git: GitView.Refresh(); break;
                 case SidebarTab.Library:
-                    SessionHub.Instance.RefreshLibrary(UiWidgets.Fail);
+                    SessionHub.Instance.Catalog.RefreshLibrary(UiWidgets.Fail);
                     break;
                 case SidebarTab.Tasks:
-                    SessionHub.Instance.RefreshTasks(UiWidgets.Fail);
+                    SessionHub.Instance.TaskStore.Refresh(fail: UiWidgets.Fail);
                     break;
             }
         }
@@ -250,7 +250,7 @@ namespace SlopWorld
             if (CurrentTab == tab)
             {
                 if (tab == SidebarTab.Git) GitView.Refresh();
-                else if (tab == SidebarTab.Tasks) SessionHub.Instance.RefreshTasks(UiWidgets.Fail);
+                else if (tab == SidebarTab.Tasks) SessionHub.Instance.TaskStore.Refresh(fail: UiWidgets.Fail);
                 return;
             }
 
@@ -271,8 +271,8 @@ namespace SlopWorld
 
             if (tab == SidebarTab.Search) SearchView.Entered();
 
-            if (tab == SidebarTab.Library) SessionHub.Instance.RefreshLibrary();
-            if (tab == SidebarTab.Tasks) SessionHub.Instance.RefreshTasks(UiWidgets.Fail);
+            if (tab == SidebarTab.Library) SessionHub.Instance.Catalog.RefreshLibrary();
+            if (tab == SidebarTab.Tasks) SessionHub.Instance.TaskStore.Refresh(fail: UiWidgets.Fail);
         }
 
         static RowAct RoutedAction(SessionInfo info) => RowActions.Of(info);

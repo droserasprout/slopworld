@@ -88,7 +88,7 @@ namespace SlopWorld
         {
             _sending = true;
             _error = null;
-            SessionHub.Instance.CreateTask(_to, _body.Trim(), _ => Close(), error =>
+            SessionHub.Instance.TaskStore.Create(_to, _body.Trim(), _ => Close(), error =>
             {
                 _sending = false;
                 _error = error;

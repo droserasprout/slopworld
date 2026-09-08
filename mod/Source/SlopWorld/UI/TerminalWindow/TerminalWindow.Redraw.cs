@@ -130,7 +130,7 @@ namespace SlopWorld
                 return;
             }
 
-            SessionHub.Instance.Resize(_name, _cols, _rows);
+            SessionHub.Instance.Terminal.Resize(_name, _cols, _rows);
             _sizeDirty = false;
         }
 

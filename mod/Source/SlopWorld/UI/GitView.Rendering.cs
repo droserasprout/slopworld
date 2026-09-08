@@ -439,7 +439,7 @@ namespace SlopWorld
             FilesView.AddFileActions(opts, project, repo.Dir, project);
 
             opts.Add(new FloatMenuOption("Terminal (host)", () =>
-                SessionHub.Instance.RunHostShell(project,
+                SessionHub.Instance.SessionStore.RunHostShell(project,
                     session => TerminalWindow.Open(session), UiWidgets.Fail)));
 
             return opts;

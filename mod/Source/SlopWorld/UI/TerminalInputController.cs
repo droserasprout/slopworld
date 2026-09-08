@@ -351,7 +351,7 @@ namespace SlopWorld
             if (!e.shift) return false;
             _window.JumpToLive();
             _window.Flush();
-            SessionHub.Instance.SendKeys(_window.SessionName, new[] { "\u001b[13;2u" }, true);
+            SessionHub.Instance.Terminal.SendKeys(_window.SessionName, new[] { "\u001b[13;2u" }, true);
             e.Use();
             return true;
         }
@@ -438,7 +438,7 @@ namespace SlopWorld
             // Enter.
             var info = SessionHub.Instance.Get(_window.SessionName);
             bool crumbs = key == "Enter" && info != null && info.BreadcrumbsPending;
-            SessionHub.Instance.SendKeys(_window.SessionName, new[] { key }, false,
+            SessionHub.Instance.Terminal.SendKeys(_window.SessionName, new[] { key }, false,
                 crumbs ? Patch_LoadingTips.RandomTips(Patch_LoadingTips.TipBatch) : null);
             e.Use();
             return true;
@@ -460,7 +460,7 @@ namespace SlopWorld
 
             _window.JumpToLive();
             _window.Flush();
-            SessionHub.Instance.Paste(_window.SessionName, new string(';', count > 0 ? count : 1));
+            SessionHub.Instance.Terminal.Paste(_window.SessionName, new string(';', count > 0 ? count : 1));
             _window.SemicolonFrame = Time.frameCount;
         }
 
@@ -469,7 +469,7 @@ namespace SlopWorld
             if (_window.SemicolonFrame == Time.frameCount) return;
             _window.JumpToLive();
             _window.Flush();
-            SessionHub.Instance.Paste(_window.SessionName, ";");
+            SessionHub.Instance.Terminal.Paste(_window.SessionName, ";");
             _window.SemicolonFrame = Time.frameCount;
         }
 

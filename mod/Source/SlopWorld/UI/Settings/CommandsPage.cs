@@ -9,11 +9,12 @@ namespace SlopWorld
 {
     // Machine-wide command defaults. Agent and shell choices come from the daemon's live command
     // catalog; the remaining fields are host apps for file actions.
-    public class CommandsPage : ListEditorPage
+    public class CommandsPage : DaemonConfigPage
     {
         bool _agentCustom, _agentShellCustom, _shellCustom, _pagerCustom, _editorCustom;
         bool _highlighterCustom;
 
+        protected override bool ShowEditButton => true;
         protected override string SavedMessage => "command settings saved.";
 
         class Choice
@@ -30,7 +31,7 @@ namespace SlopWorld
 
         protected override void AfterLoad()
         {
-            SessionHub.Instance.LoadPresets();
+            SessionHub.Instance.Catalog.LoadPresets();
             _agentCustom = _agentShellCustom = _shellCustom = _pagerCustom = _editorCustom = false;
             _highlighterCustom = false;
         }

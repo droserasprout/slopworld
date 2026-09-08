@@ -362,7 +362,7 @@ namespace SlopWorld
             };
 
             opts.Add(new FloatMenuOption("Terminal (host)", () =>
-                SessionHub.Instance.RunHostShell(project,
+                SessionHub.Instance.SessionStore.RunHostShell(project,
                     session => TerminalWindow.Open(session), UiWidgets.Fail)));
 
             TerminalWindow.OpenOverPane(new UiMenu(opts));
@@ -391,7 +391,7 @@ namespace SlopWorld
                 var name = s.Name;
                 TerminalWindow.OpenOverPane(ConfirmDialog.Create(
                     $"Remove library entry '{name}'? Anything it already started keeps running.",
-                    () => SessionHub.Instance.RemoveLibraryItem(name, UiWidgets.Fail),
+                    () => SessionHub.Instance.Catalog.RemoveLibraryItem(name, UiWidgets.Fail),
                     destructive: true));
             }));
 
@@ -412,7 +412,7 @@ namespace SlopWorld
             }
 
             bool scratch = temp || s.Link == LibraryItemLink.Temp;
-            SessionHub.Instance.RunLibraryItem(s.Name,
+            SessionHub.Instance.SessionStore.RunLibraryItem(s.Name,
                 session => TerminalWindow.Open(session),
                 UiWidgets.Fail,
                 // A project named outright wins; a temporary run has none, whichever of
