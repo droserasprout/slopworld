@@ -891,11 +891,12 @@ mod tests {
 
     #[test]
     pub(super) fn search_filters_gitignored_files_by_default() {
-        let missing: Result<SearchReq, _> = serde_json::from_value(serde_json::json!({
+        let missing: SearchReq = serde_json::from_value(serde_json::json!({
             "path": "/tmp/project",
             "q": "needle"
-        }));
-        assert!(missing.is_err());
+        }))
+        .unwrap();
+        assert!(!missing.gitignore);
 
         let respect: SearchReq = serde_json::from_value(serde_json::json!({
             "path": "/tmp/project",
