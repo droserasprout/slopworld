@@ -185,7 +185,7 @@ namespace SlopWorld
             GUI.color = Color.white;
 
             float y = inner.y + captionH + UiWidgets.GapS;
-            const float headerH = 28f;
+            float headerH = UiWidgets.RowH;
             var header = new Rect(inner.x, y, inner.width, headerH);
             DrawHeader(header);
             y = header.yMax;
@@ -235,7 +235,7 @@ namespace SlopWorld
             foreach (var group in _results.GroupBy(result => result.Spec.Group))
             {
                 UiWidgets.SectionHeading(new Rect(0f, y, view.width, UiWidgets.RowH), group.Key);
-                y += UiWidgets.RowH;
+                y += UiWidgets.RowH + UiWidgets.GapS;
                 foreach (var result in group)
                 {
                     DrawRow(new Rect(0f, y, view.width, UiWidgets.RowH), result);
@@ -271,7 +271,11 @@ namespace SlopWorld
             }
             else if (result.Found)
             {
-                UiWidgets.ReadOnlyField(path, "binaries.path." + result.Spec.Name,
+                float fieldPad = Mathf.Min(UiWidgets.GapXS, path.width / 2f);
+                var field = new Rect(path.x + fieldPad,
+                    path.y + (path.height - UiWidgets.FieldH) / 2f,
+                    Mathf.Max(0f, path.width - fieldPad * 2f), UiWidgets.FieldH);
+                UiWidgets.ReadOnlyField(field, "binaries.path." + result.Spec.Name,
                     result.Path);
             }
             else
@@ -285,7 +289,8 @@ namespace SlopWorld
         {
             float rows = Inventory
                 .GroupBy(spec => spec.Group)
-                .Sum(group => UiWidgets.RowH + group.Count() * UiWidgets.RowH + UiWidgets.GapS);
+                .Sum(group => UiWidgets.RowH + UiWidgets.GapS +
+                    group.Count() * UiWidgets.RowH + UiWidgets.GapS);
             return Mathf.Max(rows, UiWidgets.LineH);
         }
 

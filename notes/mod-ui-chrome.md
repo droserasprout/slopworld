@@ -16,8 +16,9 @@ spacing, buttons, fields, headings and errors. Color names resolve through
   edge and focus ring. `FieldFrame`/`BareField` are the composite-input escape hatch. Shared
   fields replay mouse-downs consumed by an absorbing window, expose Cut/Copy/Paste/Select all
   on right-click, and use the daemon's PRIMARY selection for middle-click paste.
-- Listing fields and areas reserve `GapXS` after their captions through the shared overloads;
-  fixed-rectangle composite rows own their internal spacing.
+- Listing fields and areas reserve `GapXS` after their captions and `GapS` after their control
+  through the shared overloads; checkboxes and selectors use the same trailing `GapS`.
+  Fixed-rectangle composite rows own their internal spacing.
 - `Slab` draws every control (fill, outline, focus ring and hairline). It is texture-free
   and snaps to the screen pixel grid; GUI-coordinate snapping seams at non-integer UI
   scales. `TerminalWindow.SyncSnap` uses the same arithmetic. Rules sit inside the

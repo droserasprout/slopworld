@@ -235,8 +235,8 @@ namespace SlopWorld
 
             var listing = new Listing_Standard { maxOneColumn = true };
             listing.Begin(new Rect(rect.x, y, rect.width, 10000f));
-            listing.verticalSpacing = 5f;
-            listing.Gap(12f);
+            listing.verticalSpacing = UiWidgets.GapXS;
+            listing.Gap(UiWidgets.GapS + UiWidgets.GapXS);
             try
             {
                 method.Invoke(_rimWorldOptions, new object[] { listing });
@@ -271,22 +271,22 @@ namespace SlopWorld
 
             if (SteamManager.Initialized)
             {
-                y += 4f;
+                y += UiWidgets.GapXS;
                 UiWidgets.RowLabel(new Rect(rect.x, y, rect.width, line),
                     "LoggedIntoSteamAs".Translate(
                         (NamedArgument)SteamUtility.SteamPersonaName));
                 y += step;
             }
 
-            y += 8f;
+            y += UiWidgets.GapS;
             var lvg = Current.Root?.gameObject.GetComponent<LatestVersionGetter>();
             if (lvg != null)
             {
                 lvg.DrawAt(new Rect(rect.x, y, rect.width, 50f));
-                y += 54f;
+                y += 50f + UiWidgets.GapXS;
             }
 
-            return y + 12f;
+            return y + UiWidgets.GapS + UiWidgets.GapXS;
         }
 
         float DrawWebLinks(Rect rect, float y)

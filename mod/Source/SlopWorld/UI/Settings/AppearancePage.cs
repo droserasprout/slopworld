@@ -175,7 +175,6 @@ namespace SlopWorld
             UiWidgets.Select(l, "Font", S.uiFontName.NullOrEmpty() ? "Automatic" : S.uiFontName,
                 fontOptions, out _);
 
-            l.Gap(UiWidgets.GapS);
             int size = Mathf.RoundToInt(UiWidgets.Slider(l, "Size", S.uiFontSize, 0, 24,
                 S.uiFontSize > 0 ? $"{S.uiFontSize}pt" : "auto"));
             if (size != S.uiFontSize)
@@ -185,7 +184,6 @@ namespace SlopWorld
                 S.MarkDirty();
             }
 
-            l.Gap(UiWidgets.GapXS);
             GUI.color = UiWidgets.Faint;
             l.Label(S.uiFontSize == 0
                 ? "At 0pt the original per-tier sizes are kept (Tiny=11, Small=13, Medium=15); "

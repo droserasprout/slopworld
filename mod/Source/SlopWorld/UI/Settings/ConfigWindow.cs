@@ -59,15 +59,18 @@ namespace SlopWorld
                              + UiWidgets.GapXS;
                 var area = new Rect(rect.x, top, rect.width, rect.yMax - foot - top);
                 var view = new Rect(0f, 0f, area.width - UiWidgets.ScrollbarW,
-                    Mathf.Max(area.height, Text.CalcHeight(_text, area.width - 24f) + 40f));
+                    Mathf.Max(area.height, Text.CalcHeight(_text,
+                        area.width - UiWidgets.ScrollbarW - UiWidgets.FieldPadX * 2f)
+                        + UiWidgets.GapL + UiWidgets.GapM));
 
                 // The box is the scroll view's frame, so it is drawn round the outside and the
                 // area inside it draws none of its own: a well as tall as the content would put
                 // its border somewhere off the bottom of the window.
                 Slab.Box(area, UiWidgets.Well, UiWidgets.Edge);
                 using (_scroll.Scope(area, view))
-                    _text = UiWidgets.Area(view.ContractedBy(6f, 4f), "config.toml", _text,
-                        _loaded, frame: false);
+                    _text = UiWidgets.Area(view.ContractedBy(UiWidgets.FieldPadX,
+                        UiWidgets.FieldPadY * 2f), "config.toml", _text, _loaded,
+                        frame: false);
 
                 if (_error != null)
                 {

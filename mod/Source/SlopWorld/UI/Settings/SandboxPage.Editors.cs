@@ -279,7 +279,8 @@ namespace SlopWorld
 
         static float AreaHeight(float width, string text, float minimum) =>
             Mathf.Max(minimum, Text.CalcHeight(string.IsNullOrEmpty(text) ? " " : text,
-                                                width - 12f) + 8f);
+                                                width - UiWidgets.FieldPadX * 2f)
+                                      + UiWidgets.FieldPadY * 4f);
 
         static float FieldHeight() => UiWidgets.LineH + UiWidgets.GapXS +
                                       UiWidgets.FieldH + UiWidgets.GapS;
@@ -346,9 +347,11 @@ namespace SlopWorld
         void EditorButtons(Rect view, float y, bool editable, string source, string kind, string name,
                            Action save, Action remove)
         {
-            if (editable && UiWidgets.Button(new Rect(0f, y, view.width * .48f, UiWidgets.BtnH), "Save", UiWidgets.Btn.Primary))
+            float gap = UiWidgets.GapS;
+            float width = Mathf.Max(0f, (view.width - gap) / 2f);
+            if (editable && UiWidgets.Button(new Rect(0f, y, width, UiWidgets.BtnH), "Save", UiWidgets.Btn.Primary))
                 save();
-            if (source != "system" && UiWidgets.Button(new Rect(view.width * .52f, y, view.width * .48f, UiWidgets.BtnH),
+            if (source != "system" && UiWidgets.Button(new Rect(width + gap, y, width, UiWidgets.BtnH),
                     source == "override" ? "Reset to system" : "Remove", UiWidgets.Btn.Danger))
                 remove();
         }

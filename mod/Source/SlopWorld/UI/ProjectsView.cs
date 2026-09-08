@@ -236,13 +236,11 @@ namespace SlopWorld
             l.Label("Name");
             _p.Name = UiWidgets.Field(l, "project.name", _p.Name);
 
-            l.Gap(UiWidgets.GapS);
             _p.Temp = UiWidgets.Checkbox(l, "Temporary - scratch space under /tmp", _p.Temp,
                 "The directory is made for you under " + ProjectInfo.TempRoot + ", named after " +
                 "this project, and it is there the first time an agent starts. Nothing " +
                 "deletes it; the machine clears /tmp.");
 
-            l.Gap(UiWidgets.GapS);
             l.Label("Directory");
             if (_p.Temp)
             {
