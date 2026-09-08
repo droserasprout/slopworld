@@ -2,6 +2,11 @@
 
 The C# mod reduces work in these hot paths:
 
+- `Worksite.Free` rejects farther frames before vanilla reservation/construction checks.
+- JSON string parsing avoids builder allocations for unescaped keys and terminal text.
+- Screen ingestion retains unchanged line/run arrays, copies changed arrays for snapshot safety,
+  and reuses its changed-row scratch list. Scroll overlap uses linear row matching and rejects
+  unchanged-bottom/ambiguous edits before searching.
 - `RealClock` samples wall time once per elapsed second, independent of FPS.
 - `Plague` walks the lister's plant list directly, shares one cached game tick
   across each batch, and reduces background work.
@@ -37,3 +42,5 @@ adds sidebar layout hits/rebuilds, title rebuilds, and terminal cache hits for r
 The suite also compares unchanged colony membership and clock formatting, plus cold/warm
 quota row caches. Runtime counters cover hidden maintenance skips, mesh/sky/fleck update time,
 colony reconciliation, and top-bar rebuilds/draw time.
+Screen ingestion cases cover JSON parsing and unchanged/changed repeated-row viewports at
+200x160. They separate decoding from applying an already parsed payload.

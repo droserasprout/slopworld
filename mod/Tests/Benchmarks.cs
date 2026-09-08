@@ -37,10 +37,37 @@ namespace SlopWorld.Tests
             Projects();
             Routing();
             Terminal();
+            ScreenIngestion();
             IdleWork();
             EcoWork();
             GC.KeepAlive(_sink);
             return 0;
+        }
+
+        static void ScreenIngestion()
+        {
+            var lines = Enumerable.Repeat(new string('x', 160), 200).ToArray();
+            string json = "{\"seq\":1,\"rows\":200,\"cols\":160,\"cy\":199,\"lines\":[" +
+                string.Join(",", lines.Select(JVal.Q)) + "]}";
+            var payload = JVal.Parse(json);
+            var screen = new ScreenBuf();
+            screen.FromJson(payload);
+            Measure("screen JSON parse 200x160", () => JVal.Parse(json)["lines"].Count);
+            Measure("screen unchanged 200 repeated rows", () =>
+            {
+                screen.Seq = 0;
+                screen.FromJson(payload);
+                return screen.LiveShift;
+            });
+            var other = JVal.Parse(json);
+            other["lines"].Arr[198].Str = "different";
+            bool flip = false;
+            Measure("screen changed 200 repeated rows", () =>
+            {
+                screen.Seq = 0;
+                screen.FromJson((flip = !flip) ? other : payload);
+                return screen.LiveShift;
+            });
         }
 
         static void IdleWork()
