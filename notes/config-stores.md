@@ -1,7 +1,6 @@
 # Configuration stores
 
-Where each half keeps its knobs, and the three places they rub. See
-[paths](paths.md) for the bare list of locations.
+See [paths](paths.md) for file locations and overrides.
 
 | | Daemon | Mod |
 | --- | --- | --- |
@@ -10,7 +9,6 @@ Where each half keeps its knobs, and the three places they rub. See
 | Format | TOML, one `toml::from_str` | TOML, flat scalar settings |
 | Scope | this **machine** | this **install** |
 | Written by | `Config::save`, and the HTTP routes | `ModSettings.Write` |
-| Sidecar | `presets/*.toml` (`SLOPD_PRESETS`), `$XDG_DATA_HOME/slopworld/jukebox/*.toml` (`SLOPD_JUKEBOX`), `endpoint.toml` (`SLOPD_ENDPOINT`), `tasks.toml`, `prompt-summaries.toml`, `session-activity.toml` | none; the mod mirrors the daemon catalog |
 
 The mod does not open daemon TOML. It uses HTTP (`GET /api/config`,
 `PUT /api/config/patch`), the raw-text route, and per-list routes. `slopd` reads
@@ -18,7 +16,10 @@ The mod does not open daemon TOML. It uses HTTP (`GET /api/config`,
 authenticated WebSocket and sends only station/stream keys. See [wire-protocol](wire-protocol.md),
 [mod-client](mod-client.md), and [mod-settings](mod-settings.md).
 
-## Where it rubs
+## Cross-store contracts
+
+The daemon checks `config.toml` mtime every two seconds and before mutations.
+A parse failure is reported once until the file changes.
 
 1. **Endpoint:** the daemon atomically writes `endpoint.toml` (`0600`) with `url`
    and `token`; the mod reads it instead of storing another connection config.

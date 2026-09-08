@@ -1,48 +1,21 @@
 # Agent task mailboxes
 
-`slopctl` is the product-neutral delegation interface. `slopd` owns a durable
-`tasks.toml` beside `config.toml`; sandboxes never share or edit that file.
+For commands and lifecycle, see [Using slopctl](../docs/src/guides/slopctl.md).
+For access rules, see [Agent collaboration](../docs/src/guides/agent-collaboration.md).
 
-```
-slopctl delegate AGENT TASK...
-slopctl spawn [--durable] PARENT TASK...
-slopctl inbox [--all] [--sent] [--received] [--status STATUS]
-slopctl task ID
-slopctl accept|progress|finish|fail ID [NOTE...]
-slopctl rm ID
-slopctl prune [--all]
-slopctl peers
-slopctl status
-```
+`slopd` owns durable `tasks.toml` beside `config.toml`; sandboxes never edit it.
+Each task has one shared record. Participant removal affects both sides and is
+limited to terminal tasks; root can remove unfinished work.
 
-Every task has an opaque id, sender, recipient, state, body, optional latest note
-and timestamps. Both participants may read it; the recipient changes its state, while the
-root task board can cancel queued or accepted work.
-A scoped grant supplies the caller identity and must cover the recipient to delegate.
+`host` is a reserved principal, accepted only with the root token. A session named
+`host` does not gain that identity through a grant. Recipient validation permits
+reports to the host without putting host sessions in a grant's scope.
 
-`host` is the user at the keyboard: a principal that is not a session and never one.
-`SLOPWORLD_SESSION` unset means it, which is what makes the host path a bare `slopctl`
-rather than an identity the user has to invent. Only the root token may claim it, so a
-session that happens to be *called* `host` may hold a grant and still not wear it.
-The recipient check skips `guard` for it alone - it is in no grant's scope and names
-nothing a scoped caller could learn from - which is how an agent reports back.
+The store returns tasks visible to the caller. CLI filters shape that result;
+`--json` serializes the same shaped answer as human-readable output.
+Task authority is separate from terminal-input authority; the grant's session
+scope is the delegation allowlist.
 
-`inbox` shows unfinished work in both directions, newest first; the shaping is the CLI's,
-not the store's, which still answers with everything the caller is party to. `--json` is
-global and renders the shaped answer rather than the raw reply - a filtered task array,
-a name list, a status object - so a script gets what the reader got. Removal is
-shared, because the store holds one copy of a task and not one per side: a participant
-drops only what has stopped moving, the root reaches a task still in flight, and
-`prune --all` (root) is what stops `tasks.toml` being append-only.
-
-The CLI reads `endpoint.toml`, or `SLOPD_URL` and `SLOPD_TOKEN` when a caller supplies a
-scoped endpoint. This works from the host and from agents whose network can reach the
-configured HTTP listener; `network = "none"` cannot use the mailbox API.
-
-The grant's session scope is the delegation allowlist. Task authority is separate from
-terminal input authority in storage and routes.
-
-`slopctl spawn` is different from delegation: only the root token may create a daemon-owned
-worker session, and the daemon returns both its task and generated session identity. See
-[daemon-workers](daemon-workers.md) for the task bootstrap, sidebar metadata, and exit/retry
-policy. A worker still uses the ordinary exact-ID lifecycle commands shown above.
+Root-only worker creation returns both task and session identity. See
+[daemon-workers](daemon-workers.md) for bootstrap, sidebar metadata, and exit/retry
+policy, and [agent-task-discovery](agent-task-discovery.md) for arrival notices.

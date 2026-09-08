@@ -98,7 +98,7 @@ if the mod's defs have changed since the save was created.
 ## `dotnet format` fails but `make mod` works
 
 `format-mod` requires the .NET SDK. The mod compiler uses Mono `csc` directly, so
-`lint-mod` and `make mod` work without the SDK.
+`make mod` works without the SDK. `lint-mod` also verifies formatting and requires the SDK.
 
 ## Known limitations
 
@@ -126,14 +126,10 @@ The `slopworld-debug` preset is an intentionally broad host escape for game
 development. It mounts the game install, profile, tmux socket, `/proc`, `/sys`,
 X11/Wayland devices, and several development caches read-write.
 
-## Diagnostic commands
+## Diagnostics
 
-```sh
-slopctl status                                # daemon and session summary
-slopctl logs --follow                         # combined game + daemon tail
-curl -s localhost:7717/api/sessions | python3 -m json.tool
-tmux -L slopworld list-sessions
-journalctl --user -u slopd -f
-```
+Use `slopctl status` for daemon and session health and `slopctl logs --follow` for
+combined logs. See [Using slopctl](../guides/slopctl.md) for source selection and
+[Attaching from a terminal](../guides/terminal.md) for tmux access.
 
-Set `SLOPD_LOG=slopd=debug` to enable debug logging for the daemon.
+Set `SLOPD_LOG=slopd=debug` to enable daemon debug logging.

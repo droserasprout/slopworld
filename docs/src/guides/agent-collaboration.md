@@ -15,9 +15,7 @@ Session creation is root-only (the mod's token). Host sessions are never in a gr
 scope; only the root token can touch them.
 
 Grants live in daemon memory and are dropped when the daemon restarts or the grantor
-session disappears. The daemon resolves tokens to capabilities at each request; five
-enforcement points cover REST handlers, WebSocket subscriptions, session visibility,
-host-session filtering, and root-token passthrough.
+session disappears. The daemon checks token capabilities on each request.
 
 ## Delivery
 
@@ -34,10 +32,6 @@ id, sender, recipient, state, body, optional note, and timestamps. Both particip
 can read a task; only the recipient changes its state.
 
 Task states: `queued`, `accepted`, `working`, `done`, `failed`, `canceled`.
-
-The `host` principal represents the user at the keyboard. A bare `slopctl` command
-(without `SLOPWORLD_SESSION`) acts as `host`, which the daemon accepts only from the
-root token. An agent in a sandbox identifies itself through `SLOPWORLD_SESSION`.
 
 A scoped grant supplies the caller identity and must cover the recipient to delegate.
 Task authority is deliberately narrower than terminal authority; the grant's session

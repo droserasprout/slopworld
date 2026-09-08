@@ -2,88 +2,35 @@
 
 ## Repository layout
 
-```text
-slopd/          Rust daemon and launcher
-  src/
-    bin/        slopworld (launcher), slopctl (delegation CLI)
-  presets/      builtin sandbox and command presets (TOML)
-mod/            C# RimWorld mod (Harmony, 1.6)
-  Source/       mod source
-  Assemblies/   local mod output plus Harmony and Markdig references
-  Tests/        game-free C# tests
-  Defs/         XML defs
-  Textures/     baked icons and faceplates
-  Sounds/       soundtrack OGGs
-docs/           mdBook documentation
-  src/          Markdown source
-  book/         build output (gitignored)
-tools/          Python and shell build tools
-notes/          developer notes (not user-facing)
-```
+`slopd/` contains the Rust daemon and host CLIs; `mod/` contains the C# mod,
+assets, and game-free tests. Build tooling lives in `tools/` and `make/`.
+User documentation lives in `docs/`, implementation notes in `notes/`.
 
 ## Development workflow
 
-All targets go through the Makefile. `make` prints the full list.
+Use the Makefile for project commands. See [Build from source](../build.md) for
+setup, build modes, formatting, tests, and coverage. Before finishing code changes,
+run the relevant tests and `make lint`; it treats compiler and clippy warnings as
+errors and verifies formatting.
 
-```sh
-RIMWORLD=/path/to/RimWorld/game make all      # build both halves
-make test                                      # cargo test + C# tests + prose linter
-make format                                    # format both halves
-make lint                                      # lint both halves
-make install                                   # install daemon, runner, mod
-make run                                       # launch through the runner
-```
+All work lands on `main`. Branches are used only for work that will be merged back;
+see the [house rules](https://github.com/droserasprout/slopworld/blob/main/notes/house-rules.md).
 
-Set `BUILD=release` for release builds. See [Build from source](../build.md) for
-the full reference.
+## Generated output
 
-## Checks
-
-`make test` runs Rust unit tests, game-free C# tests under `mod/Tests/`, and the
-prose linter's own tests.
-
-`make lint` checks Rust formatting and clippy warnings (warnings as errors), then
-rebuilds the mod in Release with warnings as errors and verifies C# formatting.
-
-`make lint-prose` scans Markdown and source comments for LLM clichés. Errors fail the
-check; density and vocabulary warnings are advisory unless `--fail-on-warnings` is
-passed.
-
-`make coverage` produces Cobertura XML reports for both halves; it requires
-`cargo-llvm-cov` and the matching LLVM tools.
-
-## Generated assets
-
-Several `tools/` scripts produce committed output:
-
-| Script | Target | Output |
-| --- | --- | --- |
-| `tools/appicon.py` | `make appicon` | App icon |
-| `tools/icons.py` | `make icons` | Action icons from Nerd Font Codicons |
-| `tools/roboface.py` | (manual) | Agent faceplates |
-| `tools/fileicons.py` | (manual) | File-sidebar icons |
-| `tools/emoji_atlas.py` | `make emoji-atlas` | Supplementary-plane emoji atlas |
-| `tools/reference.py` | `make reference` | Environment/API/CLI reference |
-| `tools/api_docs.py` | `make api-docs` | Generated mdBook API route inventory |
-
-## Devnotes
-
-The `notes/` directory holds short developer notes, one subject per file. Notes record
-cross-file architecture, non-obvious constraints, and operational facts that the code
-or git history does not show. The [notes index](https://github.com/droserasprout/slopworld/blob/main/notes/index.md)
-is the complete list.
-
-Notes are internal. When a note disagrees with a published doc page, the note is wrong.
-See the [prose guide](https://github.com/droserasprout/slopworld/blob/main/notes/prose-guide.md)
-for writing rules and [house rules](https://github.com/droserasprout/slopworld/blob/main/notes/house-rules.md)
-for commit policy.
-
-## Commit policy
-
-All work lands on `main`. The repository has one author and a linear history. Branches
-are used only for work that will be merged back.
+Edit `protocol/wire.yaml` and run `make api-contract` to update shared wire bindings.
+`make api-docs` generates the API route inventory from the router;
+`make reference` generates the developer environment/API/CLI reference.
+Asset-generation targets are listed in `make` help; their implementations live in
+`tools/`.
 
 ## Documentation
 
-`make docs` builds the mdBook; `make docs-serve` serves it locally. Build output
-under `docs/book/` is gitignored.
+`make docs` builds the mdBook; `make docs-serve` serves it locally. Output under
+`docs/book/` is ignored. Run `make lint-prose` on prose changes.
+
+Devnotes preserve cross-file architecture and constraints that code cannot show.
+Use the [notes index](https://github.com/droserasprout/slopworld/blob/main/notes/index.md)
+to find a topic and the
+[prose guide](https://github.com/droserasprout/slopworld/blob/main/notes/prose-guide.md)
+for writing rules. Published docs take precedence over devnotes.

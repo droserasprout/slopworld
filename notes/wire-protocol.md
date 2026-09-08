@@ -6,17 +6,16 @@ api-contract` after changing it; the checked-in generated bindings are `slopd/sr
 enum values, endpoint/terminal limits, selected defaults, and usage keys should be changed there,
 not retyped in either half. UI labels/icons and daemon-owned dynamic catalogs remain local.
 
+The [API reference](../docs/src/reference/api.md) owns the public overview and
+[generated route inventory](../docs/src/reference/api-routes.md). This note records
+client/daemon coordination constraints.
+
 ## WebSocket
 
-Server events are `capabilities`, `sessions` (state/title/bell/process_running/run_id), `screen`, `usage`, `projects`,
-`library` and `jukebox`. Capabilities and catalogs arrive on connect; catalogs are resent when
-changed. Capabilities describe runtime integration such as native audio, per-agent limits, and
-whether host networking means the sidecar rather than macOS.
 `process_running` is host-only: it is true while a host terminal has a foreground command other
 than its shell, including commands that are not currently producing output.
 `run_id` changes when a session's process is replaced under the same durable name; clients use it
 to reject cached terminal history from the previous process.
-Clients send `redraw`, `sub`, `unsub`, `keys`, `resize`, `scroll`, `mouse`, `paste` and `audio`.
 The root client sends `redraw` after a sidebar layout change, optionally with the new `cols` and
 `rows`; slopd applies that shape and asynchronously nudges every live tmux-backed pane one column
 smaller and restores it so agents, viewers and editors repaint before an inactive tab is opened.
@@ -32,9 +31,7 @@ come from metadata and stream URLs never cross the wire to the mod.
 
 ## HTTP conventions
 
-The mod uses HTTP for writes so it can show daemon error bodies:
-`/api/sessions`, `/api/projects`, `/api/library`, `/api/config`,
-`PUT /api/config/patch`, library-item runs, `/api/run`, and root-only Files mutations.
+The mod uses HTTP writes to display daemon error bodies.
 `POST /api/instructions/preview` accepts an unsaved template, project name, and mount path;
 it returns the generated Markdown text without changing daemon configuration.
 
@@ -66,9 +63,6 @@ Project JSON also carries optional tagged `dns` (`{"mode":"resolved"}` or
 `dns` plus nullable `dns_override`; session writes send only the nullable raw
 override. A missing DNS setting follows the daemon's current system resolver.
 
-Query routes are `/api/health`, `/api/capabilities`, `/api/usage`, `/api/presets`, `/api/jukebox`,
-`/api/sessions/:name/cwd`, `/api/browse`, `/api/read`, `/api/image`, `/api/open-apps`, `/api/search`, `/api/git`
-and `/api/audio`. `/api/health` returns daemon version, hostname and runtime health metadata.
 `/api/read` is root-only and returns bounded UTF-8 file text for native
 Markdown previews. `/api/image` is root-only and returns bounded base64 image bytes for local
 Markdown images. `/api/open-apps` lists the host

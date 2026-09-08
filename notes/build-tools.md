@@ -2,26 +2,12 @@
 
 The build targets and install workflows are in [build-commands](build-commands.md).
 
-## Formatting
-
-For C#, run `dotnet format` in folder mode with whitespace-only changes;
-`.editorconfig` preserves single-line statements. It needs SDK reference
-assemblies, while the mod compiler uses direct Mono `csc`: `format-mod` stops without
-an SDK, and `lint-mod` still runs compiler warnings. Override `CSC` or `CSC_API` when
-the compiler or Mono reference assemblies live elsewhere.
+Formatting and prose-linter usage live in [Build from source](../docs/src/build.md).
+The prose linter skips Markdown code fences and inline code; its `--commit-msg`
+mode also ignores Git template comments and verbose diffs.
 
 ## Auxiliary tools
 
-None of these tools run as part of a build:
-
-- `python3 tools/prose_lint.py` (`make lint-prose`) - reports LLM cliches as
-  `path:line:column` diagnostics and exits nonzero on an error. Broader density
-  and vocabulary rules are advisory unless `--fail-on-warnings` is passed. It
-  scans Markdown and only the comments in source files; pass paths, `-` for stdin,
-  `--list-rules`, `--rule ID`, `--exclude GLOB`, or `--format json` to narrow or
-  integrate it. Code fences and inline code in Markdown are skipped.
-  `--commit-msg FILE` accepts the path passed to a Git `commit-msg` hook (or `-`
-  for stdin) and ignores Git template comments and verbose diff content.
 - `make scheme-report` - measures the three complete UI schemes, including alpha compositing,
   and checks that Warm stays within 5% of SlopWorld's luminance/contrast hierarchy.
 - `tools/shot.sh` - grabs the game window. Needs the `x11` preset.
