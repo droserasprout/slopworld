@@ -15,7 +15,6 @@
   <ItemGroup>
     <!-- Keep the tests independent of the game-bound mod assembly. -->
     <Compile Include="../Source/SlopWorld/Client/Json.cs" Link="Source/Client/Json.cs" />
-    <Compile Include="../Source/SlopWorld/Client/BoundedQueues.cs" Link="Source/Client/BoundedQueues.cs" />
     <Compile Include="../Source/SlopWorld/Client/Toml.cs" Link="Source/Client/Toml.cs" />
     <Compile Include="../Source/SlopWorld/Client/DaemonConfig.cs" Link="Source/Client/DaemonConfig.cs" />
     <Compile Include="../Source/SlopWorld/Client/Endpoint.cs" Link="Source/Client/Endpoint.cs" />
