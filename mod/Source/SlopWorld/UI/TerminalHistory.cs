@@ -11,8 +11,8 @@ namespace SlopWorld
         // The client never asks beyond the daemon's 10,000-line history limit, and negotiated
         // panes top out at 200 rows. Bounding coordinates keeps a malformed reply from turning
         // this persistent per-window cache into an unbounded dictionary.
-        const int MaxHistoryRows = 10_000;
-        const int MaxScreenRows = 200;
+        const int MaxHistoryRows = WireContract.ScrollbackLines;
+        const int MaxScreenRows = WireContract.TerminalMaxRows;
 
         // Keys stay fixed while the live bottom advances. `_origin` translates the public
         // coordinate space to storage coordinates, avoiding a dictionary-sized copy for every

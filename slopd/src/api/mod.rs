@@ -3,6 +3,7 @@ mod router;
 mod types;
 mod ws;
 
+pub(crate) use crate::wire::TOKEN_HEADER;
 pub(crate) use router::router;
 
 use std::sync::Arc;
@@ -15,7 +16,6 @@ use crate::session::Manager;
 
 pub(super) type Mgr = Arc<Manager>;
 pub(super) type ApiResult = Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)>;
-pub(crate) const TOKEN_HEADER: &str = "x-slop-token";
 
 pub(super) fn err(
     code: StatusCode,

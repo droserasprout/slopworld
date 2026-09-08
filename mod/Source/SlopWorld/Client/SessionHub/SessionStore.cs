@@ -10,9 +10,9 @@ namespace SlopWorld
     // here and from the socket, so the coordinator hands screen/session events straight in.
     class SessionStore
     {
-        const string SessionsPath = "/api/sessions";
-        const string LibraryPath = "/api/library";
-        const string RunPath = "/api/run";
+        const string SessionsPath = WireContract.Routes.Sessions;
+        const string LibraryPath = WireContract.Routes.Library;
+        const string RunPath = WireContract.Routes.Run;
 
         public List<SessionInfo> Sessions = new List<SessionInfo>();
 

@@ -130,7 +130,7 @@ namespace SlopWorld
             // A successful weekly-only Codex response identifies the plan. Do not add the
             // provisional session placeholder after the daemon has told us that this plan has
             // no five-hour window.
-            bool openAiWeekly = usage.Windows.Any(w => w.Key == "openai_week");
+            bool openAiWeekly = usage.Windows.Any(w => w.Key == WireContract.UsageKeys.OpenaiWeek);
             foreach (string seller in usage.Sources)
             {
                 if (seller == "openai" && openAiWeekly) continue;
@@ -173,9 +173,11 @@ namespace SlopWorld
             return new string[0];
         }
 
-        static readonly string[] AnthropicRows = { "claude_session", "claude_week" };
-        static readonly string[] OpenRouterRows = { "openrouter_balance" };
-        static readonly string[] OpenAiRows = { "openai_session" };
+        static readonly string[] AnthropicRows = {
+            WireContract.UsageKeys.ClaudeSession, WireContract.UsageKeys.ClaudeWeek,
+        };
+        static readonly string[] OpenRouterRows = { WireContract.UsageKeys.OpenrouterBalance };
+        static readonly string[] OpenAiRows = { WireContract.UsageKeys.OpenaiSession };
 
         // Slots a held place next to its own kind rather than on the end: a session window that
         // turned up after the weekly one would otherwise sit to the right of it, and the strip
@@ -196,12 +198,12 @@ namespace SlopWorld
         // pools, so it cannot shove OpenAI or the OpenRouter balance out of their usual place.
         static int Rank(string key)
         {
-            if (key == "claude_session") return 0;
-            if (key == "claude_week") return 1;
-            if (key == "openai_session") return 2;
-            if (key == "openai_week") return 3;
-            if (key == "openrouter_balance") return 4;
-            if (key == "claude_spend") return 5;
+            if (key == WireContract.UsageKeys.ClaudeSession) return 0;
+            if (key == WireContract.UsageKeys.ClaudeWeek) return 1;
+            if (key == WireContract.UsageKeys.OpenaiSession) return 2;
+            if (key == WireContract.UsageKeys.OpenaiWeek) return 3;
+            if (key == WireContract.UsageKeys.OpenrouterBalance) return 4;
+            if (key == WireContract.UsageKeys.ClaudeSpend) return 5;
             return 6;
         }
 
@@ -330,12 +332,12 @@ namespace SlopWorld
         // currently reporting - the whole point of choosing an icon for it in advance.
         public static string Long(string key, string fallback = null)
         {
-            if (key == "claude_session") return "Claude session";
-            if (key == "claude_week") return "Claude weekly";
-            if (key == "openai_session") return "OpenAI session";
-            if (key == "openai_week") return "OpenAI weekly";
-            if (key == "claude_spend") return "Claude balance";
-            if (key == "openrouter_balance") return "OpenRouter balance";
+            if (key == WireContract.UsageKeys.ClaudeSession) return "Claude session";
+            if (key == WireContract.UsageKeys.ClaudeWeek) return "Claude weekly";
+            if (key == WireContract.UsageKeys.OpenaiSession) return "OpenAI session";
+            if (key == WireContract.UsageKeys.OpenaiWeek) return "OpenAI weekly";
+            if (key == WireContract.UsageKeys.ClaudeSpend) return "Claude balance";
+            if (key == WireContract.UsageKeys.OpenrouterBalance) return "OpenRouter balance";
             if (key.StartsWith("claude_week_"))
                 return "Claude weekly " + key.Substring(12).Replace('_', ' ');
             return string.IsNullOrEmpty(fallback) ? key : fallback;
@@ -416,15 +418,15 @@ namespace SlopWorld
         {
             switch (key)
             {
-                case "claude_session": return ThingDefOf.Chemfuel;
-                case "claude_week": return ThingDefOf.Steel;
+                case WireContract.UsageKeys.ClaudeSession: return ThingDefOf.Chemfuel;
+                case WireContract.UsageKeys.ClaudeWeek: return ThingDefOf.Steel;
                 case "claude_week_opus": return ThingDefOf.Plasteel;
                 case "claude_week_sonnet": return ThingDefOf.ComponentIndustrial;
                 case "claude_week_cowork": return ThingDefOf.Jade;
-                case "claude_spend": return ThingDefOf.Silver;
+                case WireContract.UsageKeys.ClaudeSpend: return ThingDefOf.Silver;
                 // Money like the row above it, and the two are never the same coin: what is
                 // left of a budget and what is left of a wallet are different questions.
-                case "openrouter_balance": return ThingDefOf.Gold;
+                case WireContract.UsageKeys.OpenrouterBalance: return ThingDefOf.Gold;
                 default: return null;
             }
         }

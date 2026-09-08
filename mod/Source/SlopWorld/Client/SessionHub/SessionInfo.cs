@@ -116,9 +116,9 @@ namespace SlopWorld
         {
             switch (s)
             {
-                case "working": return AgentState.Working;
-                case "waiting": return AgentState.Waiting;
-                case "idle": return AgentState.Idle;
+                case WireContract.AgentState.Working: return AgentState.Working;
+                case WireContract.AgentState.Waiting: return AgentState.Waiting;
+                case WireContract.AgentState.Idle: return AgentState.Idle;
                 default: return AgentState.Down;
             }
         }

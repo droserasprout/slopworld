@@ -327,7 +327,7 @@ namespace SlopWorld
                 {
                     _s.Command = "";
                     _s.Cmd = "";
-                    DaemonClient.Get("/api/config",
+                    DaemonClient.Get(WireContract.Routes.Config,
                         j => _s.CommandPreset = j["values"]["defaults"]["agent"].AsString("claude"),
                         UiWidgets.Fail);
                 }),

@@ -1,9 +1,9 @@
 .PHONY: daemon mod test-daemon test-mod coverage coverage-daemon coverage-mod test-prose \
-	appicon icons emoji-atlas reference api-docs scheme-report harmony clean
+	appicon icons emoji-atlas reference api-contract api-docs scheme-report harmony clean
 
 ##
 
-daemon:            ## Build the daemon and the launcher
+daemon: api-contract ## Build the daemon and the launcher
 	@cd slopd && $(if $(VERSION),SLOPWORLD_BUILD_VERSION="$(VERSION)",) $(CARGO) build $(CARGOFLAGS)
 
 mod: daemon        ## Build the mod against the game's assemblies
@@ -21,10 +21,10 @@ mod: daemon        ## Build the mod against the game's assemblies
 		-out:"$(MOD_DLL)" $(CSC_OPTIMIZE) $(CSC_WARNINGS) \
 		$(CSC_REFS) "$(MOD_ASSEMBLY_INFO)" $(CSC_SOURCES)
 
-test-daemon:
+test-daemon: api-contract
 	@cd slopd && $(CARGO) test --quiet
 
-test-mod:
+test-mod: api-contract
 	@$(DOTNET) run --project "$(TEST_PROJECT)" --configuration Release -- --quiet
 
 coverage: coverage-daemon coverage-mod ## Measure Rust and game-free C# test coverage
@@ -62,7 +62,10 @@ emoji-atlas:       ## Rebake the legacy terminal's emoji atlas with Pango
 reference:         ## Generate the environment/API/CLI reference
 	@$(PYTHON) tools/reference.py
 
-api-docs:          ## Generate the mdBook API route inventory
+api-contract: protocol/wire.yaml tools/wire_contract.py ## Generate shared client/daemon wire bindings
+	@$(PYTHON) tools/wire_contract.py
+
+api-docs: api-contract ## Generate the mdBook API route inventory
 	@$(PYTHON) tools/api_docs.py
 
 scheme-report:     ## Analyze the complete UI schemes and check Warm's luminance hierarchy

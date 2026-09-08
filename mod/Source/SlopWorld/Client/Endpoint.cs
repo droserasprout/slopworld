@@ -23,8 +23,8 @@ namespace SlopWorld
     // endpoint.toml instead of keeping a second connection configuration.
     public static class Endpoint
     {
-        const string DefaultHost = "127.0.0.1";
-        const int DefaultPort = 7717;
+        const string DefaultHost = WireContract.EndpointHost;
+        const int DefaultPort = WireContract.EndpointPort;
 
         public static ConnectionInfo Resolve()
         {

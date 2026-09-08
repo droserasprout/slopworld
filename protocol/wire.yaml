@@ -1,0 +1,105 @@
+version: 1
+
+http:
+  headers:
+    token: x-slop-token
+    session: x-slop-session
+  routes:
+    health: { path: "/api/health", methods: [GET], scope: scoped }
+    sessions: { path: "/api/sessions", methods: [GET, POST], scope: scoped }
+    session: { path: "/api/sessions/:name", methods: [GET, PUT, DELETE], scope: scoped }
+    session_cwd: { path: "/api/sessions/:name/cwd", methods: [GET], scope: scoped }
+    session_start: { path: "/api/sessions/:name/start", methods: [POST], scope: scoped }
+    session_stop: { path: "/api/sessions/:name/stop", methods: [POST], scope: scoped }
+    session_restart: { path: "/api/sessions/:name/restart", methods: [POST], scope: scoped }
+    session_label: { path: "/api/sessions/:name/label", methods: [PUT], scope: scoped }
+    session_state_reset: { path: "/api/sessions/:name/state/reset", methods: [POST], scope: scoped }
+    tasks: { path: "/api/tasks", methods: [GET, POST, DELETE], scope: scoped }
+    tasks_cancel: { path: "/api/tasks/cancel", methods: [POST], scope: scoped }
+    tasks_remove: { path: "/api/tasks/remove", methods: [POST], scope: scoped }
+    task: { path: "/api/tasks/:id", methods: [GET, POST, DELETE], scope: scoped }
+    capabilities: { path: "/api/capabilities", methods: [GET], scope: root }
+    projects: { path: "/api/projects", methods: [GET, POST], scope: root }
+    project: { path: "/api/projects/:name", methods: [GET, PUT, DELETE], scope: root }
+    library: { path: "/api/library", methods: [GET, POST], scope: root }
+    library_item: { path: "/api/library/:name", methods: [PUT, DELETE], scope: root }
+    library_item_run: { path: "/api/library/:name/run", methods: [POST], scope: root }
+    run: { path: "/api/run", methods: [POST], scope: root }
+    workers: { path: "/api/workers", methods: [POST], scope: root }
+    file_action: { path: "/api/file-action", methods: [POST], scope: root }
+    open_apps: { path: "/api/open-apps", methods: [GET], scope: root }
+    grants: { path: "/api/grants", methods: [GET, POST], scope: root }
+    grantor: { path: "/api/grants/:grantor", methods: [DELETE], scope: root }
+    state: { path: "/api/state", methods: [GET], scope: root }
+    state_trash: { path: "/api/state/trash", methods: [DELETE], scope: root }
+    state_item: { path: "/api/state/:kind/:key", methods: [DELETE], scope: root }
+    state_trash_restore: { path: "/api/state/trash/:key/restore", methods: [POST], scope: root }
+    presets: { path: "/api/presets", methods: [GET], scope: root }
+    preset: { path: "/api/presets/:kind/:name", methods: [PUT, DELETE], scope: root }
+    preset_copy: { path: "/api/presets/:kind/:name/copy", methods: [POST], scope: root }
+    config: { path: "/api/config", methods: [GET, PUT], scope: root }
+    config_patch: { path: "/api/config/patch", methods: [PUT], scope: root }
+    instructions_preview: { path: "/api/instructions/preview", methods: [POST], scope: root }
+    clipboard: { path: "/api/clipboard", methods: [GET, POST], scope: root }
+    clipboard_text: { path: "/api/clipboard/text", methods: [GET], scope: root }
+    clipboard_primary: { path: "/api/clipboard/primary", methods: [GET, POST], scope: root }
+    clipboard_primary_text: { path: "/api/clipboard/primary/text", methods: [GET], scope: root }
+    usage: { path: "/api/usage", methods: [GET], scope: root }
+    audio: { path: "/api/audio", methods: [GET], scope: root }
+    jukebox: { path: "/api/jukebox", methods: [GET], scope: root }
+    browse: { path: "/api/browse", methods: [GET], scope: root }
+    read: { path: "/api/read", methods: [GET], scope: root }
+    highlight: { path: "/api/highlight", methods: [POST], scope: root }
+    image: { path: "/api/image", methods: [GET], scope: root }
+    files: { path: "/api/files", methods: [POST, PUT, DELETE], scope: root }
+    search: { path: "/api/search", methods: [GET], scope: root }
+    git: { path: "/api/git", methods: [GET], scope: root }
+  websocket: { path: "/ws", methods: [GET], scope: scoped }
+
+websocket:
+  events: [capabilities, sessions, projects, library, screen, usage, audio, jukebox]
+  messages: [redraw, sub, unsub, keys, resize, scroll, mouse, paste, breadcrumb, audio]
+
+enums:
+  agent_state: [down, working, waiting, idle]
+  network_mode: [none, private, host]
+  mount_mode: [ro, rw]
+  dns_mode: [resolved, servers]
+  library_kind: [prompt, shell, breadcrumb, fa]
+  library_link: [project, temp, ask]
+  file_action_mode: [ask, show_result, open_terminal, nothing]
+  task_status: [queued, accepted, working, done, failed, canceled]
+  usage_unit: [pct, usd]
+
+constants:
+  host_identity: host
+  endpoint_host: 127.0.0.1
+  endpoint_port: 7717
+  temp_root: /tmp/slopworld
+  scrollback_lines: 10000
+  terminal_min_cols: 20
+  terminal_max_cols: 500
+  terminal_min_rows: 5
+  terminal_max_rows: 200
+  usage_poll_secs: 60
+  default_claude_credentials: ~/.claude/.credentials.json
+  default_openai_credentials: ~/.codex/auth.json
+  default_title_model: google/gemini-3.1-flash-lite
+  default_title_min_chars: 20
+  default_agent: claude
+  default_agent_shell: bash
+  default_shell: bash
+  default_pager: less
+  default_editor: micro
+  default_highlighter: "highlight --out-format=xterm256"
+  default_instructions_mount_path: SLOPWORLD.md
+  default_instructions_breadcrumb_enabled: true
+
+usage:
+  keys:
+    claude_session: { provider: anthropic, unit: pct, rank: 0 }
+    claude_week: { provider: anthropic, unit: pct, rank: 1 }
+    claude_spend: { provider: anthropic, unit: pct, rank: 5 }
+    openai_session: { provider: openai, unit: pct, rank: 2 }
+    openai_week: { provider: openai, unit: pct, rank: 3 }
+    openrouter_balance: { provider: openrouter, unit: usd, rank: 4 }

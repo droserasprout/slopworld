@@ -125,7 +125,7 @@ namespace SlopWorld
 
 
             SessionHub.Instance.RefreshProjects();
-            DaemonClient.Get("/api/config", j =>
+            DaemonClient.Get(WireContract.Routes.Config, j =>
             {
                 var d = j["values"]["defaults"];
                 _agentDefault = d["agent"].AsString("claude");

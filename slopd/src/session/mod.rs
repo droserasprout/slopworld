@@ -76,14 +76,20 @@ const FILE_ACTION_TIMEOUT: Duration = Duration::from_secs(15);
 const FILE_ACTION_STREAM_LIMIT: usize = 4096;
 const MAX_MANUAL_LABEL_CHARS: usize = 60;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum State {
     Down,
     Working,
     Waiting,
     Idle,
 }
+
+crate::wire_enum!(State, {
+    State::Down => crate::wire::enums::agent_state::DOWN,
+    State::Working => crate::wire::enums::agent_state::WORKING,
+    State::Waiting => crate::wire::enums::agent_state::WAITING,
+    State::Idle => crate::wire::enums::agent_state::IDLE,
+});
 
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct RunWhere {
@@ -95,8 +101,7 @@ pub struct RunWhere {
     pub random_tips: Vec<String>,
 }
 
-#[derive(Debug, Clone, Serialize)]
-#[serde(tag = "t", rename_all = "lowercase")]
+#[derive(Debug, Clone)]
 pub enum Event {
     Capabilities {
         capabilities: crate::runtime::Capabilities,
@@ -122,6 +127,52 @@ pub enum Event {
     Jukebox {
         jukebox: crate::jukebox::Catalog,
     },
+}
+
+impl Serialize for Event {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeStruct;
+
+        let mut out = serializer.serialize_struct("Event", 2)?;
+        match self {
+            Self::Capabilities { capabilities } => {
+                out.serialize_field("t", crate::wire::events::CAPABILITIES)?;
+                out.serialize_field("capabilities", capabilities)?;
+            }
+            Self::Sessions { sessions } => {
+                out.serialize_field("t", crate::wire::events::SESSIONS)?;
+                out.serialize_field("sessions", sessions)?;
+            }
+            Self::Projects { projects } => {
+                out.serialize_field("t", crate::wire::events::PROJECTS)?;
+                out.serialize_field("projects", projects)?;
+            }
+            Self::Library { library } => {
+                out.serialize_field("t", crate::wire::events::LIBRARY)?;
+                out.serialize_field("library", library)?;
+            }
+            Self::Screen { screen } => {
+                out.serialize_field("t", crate::wire::events::SCREEN)?;
+                out.serialize_field("screen", screen)?;
+            }
+            Self::Usage { usage } => {
+                out.serialize_field("t", crate::wire::events::USAGE)?;
+                out.serialize_field("usage", usage)?;
+            }
+            Self::Audio { audio } => {
+                out.serialize_field("t", crate::wire::events::AUDIO)?;
+                out.serialize_field("audio", audio)?;
+            }
+            Self::Jukebox { jukebox } => {
+                out.serialize_field("t", crate::wire::events::JUKEBOX)?;
+                out.serialize_field("jukebox", jukebox)?;
+            }
+        }
+        out.end()
+    }
 }
 
 #[derive(Debug, Clone)]

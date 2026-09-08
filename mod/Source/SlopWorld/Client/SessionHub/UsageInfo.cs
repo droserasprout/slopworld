@@ -60,7 +60,7 @@ namespace SlopWorld
                 Key = w["key"].AsString(),
                 Label = w["label"].AsString(),
                 Pct = w["pct"].AsFloat(),
-                Unit = w["unit"].AsString("pct"),
+                Unit = w["unit"].AsString(WireContract.UsageUnit.Pct),
                 Amount = w["amount"].AsFloat(-1f),
                 Limit = w["limit"].AsFloat(-1f),
                 ResetsIn = w["resets_in"].IsNull ? -1 : w["resets_in"].AsLong(-1),

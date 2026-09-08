@@ -136,7 +136,7 @@ namespace SlopWorld
             ThreadPool.QueueUserWorkItem(_ =>
             {
                 var socket = new MiniWebSocket();
-                bool connected = socket.Connect(connection.Host, connection.Port, "/ws",
+                bool connected = socket.Connect(connection.Host, connection.Port, WireContract.WsPath,
                                                 connection.Token);
                 _connectResults.Enqueue(new ConnectResult
                 {
@@ -177,7 +177,7 @@ namespace SlopWorld
         static bool IsReplaceableScreen(JVal ev, out string name)
         {
             name = null;
-            if (!string.Equals(ev["t"].AsString(), "screen", StringComparison.Ordinal)) return false;
+            if (!string.Equals(ev["t"].AsString(), WireContract.Events.Screen, StringComparison.Ordinal)) return false;
             var screen = ev["screen"];
             if (screen["off"].AsInt(0) != 0 || screen["request_id"].AsLong(0) != 0) return false;
             name = screen["name"].AsString(null);

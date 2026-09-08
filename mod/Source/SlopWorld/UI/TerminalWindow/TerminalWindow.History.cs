@@ -8,7 +8,7 @@ namespace SlopWorld
     {
         // History coordinates are owned by the daemon, but the window keeps overlapping
         // snapshots so fractional scrolling can be served locally.
-        const int MaxScrollLines = 10_000;
+        const int MaxScrollLines = WireContract.ScrollbackLines;
 
         struct ScrollbackState
         {

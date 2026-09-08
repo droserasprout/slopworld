@@ -35,14 +35,14 @@ namespace SlopWorld
         public static LibraryItemInfo FromJson(JVal j) => new LibraryItemInfo
         {
             Name = j["name"].AsString(),
-            Kind = j["kind"].AsString() == "shell" ? LibraryItemKind.Shell :
-                   j["kind"].AsString() == "breadcrumb" ? LibraryItemKind.Breadcrumb :
-                   j["kind"].AsString() == "fa" ? LibraryItemKind.FileAction : LibraryItemKind.Prompt,
-            Link = ParseLink(j["link"].AsString()),
+            Kind = j["kind"].AsString() == WireContract.LibraryKind.Shell ? LibraryItemKind.Shell :
+                   j["kind"].AsString() == WireContract.LibraryKind.Breadcrumb ? LibraryItemKind.Breadcrumb :
+                   j["kind"].AsString() == WireContract.LibraryKind.Fa ? LibraryItemKind.FileAction : LibraryItemKind.Prompt,
+            Link = ParseLink(j["link"].AsString(WireContract.LibraryLink.Project)),
             Project = j["project"].AsString(),
             Text = j["text"].AsString(),
             Command = j["command"].IsNull ? "" : j["command"].AsString(),
-            Mode = FileActionModeText.Parse(j["mode"].AsString("ask")),
+            Mode = FileActionModeText.Parse(j["mode"].AsString(WireContract.FileActionMode.Ask)),
             Builtin = j["builtin"].AsBool(false),
         };
 
@@ -52,19 +52,20 @@ namespace SlopWorld
         {
             switch (s)
             {
-                case "temp": return LibraryItemLink.Temp;
-                case "ask": return LibraryItemLink.Ask;
+                case WireContract.LibraryLink.Temp: return LibraryItemLink.Temp;
+                case WireContract.LibraryLink.Ask: return LibraryItemLink.Ask;
                 default: return LibraryItemLink.Project;
             }
         }
 
         public static string LinkName(LibraryItemLink l) =>
-            l == LibraryItemLink.Temp ? "temp" : l == LibraryItemLink.Ask ? "ask" : "project";
+            l == LibraryItemLink.Temp ? WireContract.LibraryLink.Temp :
+            l == LibraryItemLink.Ask ? WireContract.LibraryLink.Ask : WireContract.LibraryLink.Project;
 
         static string KindName(LibraryItemKind k) =>
-            k == LibraryItemKind.Shell ? "shell" :
-            k == LibraryItemKind.Breadcrumb ? "breadcrumb" :
-            k == LibraryItemKind.FileAction ? "fa" : "prompt";
+            k == LibraryItemKind.Shell ? WireContract.LibraryKind.Shell :
+            k == LibraryItemKind.Breadcrumb ? WireContract.LibraryKind.Breadcrumb :
+            k == LibraryItemKind.FileAction ? WireContract.LibraryKind.Fa : WireContract.LibraryKind.Prompt;
 
         public string ToJson() =>
             "{" +

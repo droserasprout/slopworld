@@ -9,6 +9,8 @@ mod logs;
 #[cfg(test)]
 #[path = "slopctl/tests.rs"]
 mod tests;
+#[path = "../wire.rs"]
+mod wire;
 
 use commands::{parse_command, Command, USAGE};
 use http::load_endpoint;
@@ -16,9 +18,7 @@ use logs::{run_logs, LOGS_USAGE};
 use std::process::ExitCode;
 use std::time::Duration;
 
-/// Mirrors `tasks::HOST` in the daemon. `src/bin` is its own crate root and this crate has no
-/// library target, so the name is restated rather than imported; it is the whole of the contract.
-const HOST: &str = "host";
+const HOST: &str = wire::HOST_IDENTITY;
 const TASK_WAIT_INTERVAL: Duration = Duration::from_secs(1);
 
 fn main() -> ExitCode {

@@ -44,7 +44,7 @@ namespace SlopWorld
 
         public void Load()
         {
-            _load.Load((ok, fail) => DaemonClient.Get("/api/state", j => ok(
+            _load.Load((ok, fail) => DaemonClient.Get(WireContract.Routes.State, j => ok(
                 j["entries"].Items.Select(Entry.FromJson)
                     .OrderBy(e => KindRank(e.Kind))
                     .ThenByDescending(e => e.Modified)
@@ -174,7 +174,7 @@ namespace SlopWorld
 
         public static void FocusAgent(string name)
         {
-            DaemonClient.Get("/api/state", j =>
+            DaemonClient.Get(WireContract.Routes.State, j =>
             {
                 var entry = j["entries"].Items
                     .Select(Entry.FromJson)
@@ -193,7 +193,7 @@ namespace SlopWorld
             Find.WindowStack.Add(ConfirmDialog.Create(
                 $"Reset private state for '{e.Session}'? The agent stops and this {Human(e.Bytes)} " +
                 "copy moves to recoverable trash for 14 days.",
-                () => DaemonClient.Post($"/api/sessions/{Uri.EscapeDataString(e.Session)}/state/reset",
+                () => DaemonClient.Post($"{WireContract.Routes.Sessions}/{Uri.EscapeDataString(e.Session)}/state/reset",
                     null, _ => { SessionHub.Instance.Refresh(); Load(); }, msg => _error = msg),
                 destructive: true));
         }
@@ -202,7 +202,7 @@ namespace SlopWorld
         {
             Find.WindowStack.Add(ConfirmDialog.Create(
                 $"Permanently delete {Human(e.Bytes)} of {e.Kind} private state? This cannot be undone.",
-                () => DaemonClient.Delete($"/api/state/{Uri.EscapeDataString(e.Kind)}/" +
+                () => DaemonClient.Delete($"{WireContract.Routes.State}/{Uri.EscapeDataString(e.Kind)}/" +
                         Uri.EscapeDataString(e.Key), _ => Load(), msg => _error = msg),
                 destructive: true));
         }
@@ -211,13 +211,13 @@ namespace SlopWorld
         {
             Find.WindowStack.Add(ConfirmDialog.Create(
                 "Permanently delete all private state in trash? This cannot be undone.",
-                () => DaemonClient.Delete("/api/state/trash", _ => Load(), msg => _error = msg),
+                () => DaemonClient.Delete(WireContract.Routes.StateTrash, _ => Load(), msg => _error = msg),
                 destructive: true));
         }
 
         void Restore(Entry e)
         {
-            DaemonClient.Post($"/api/state/trash/{Uri.EscapeDataString(e.Key)}/restore", null,
+            DaemonClient.Post($"{WireContract.Routes.StateTrash}/{Uri.EscapeDataString(e.Key)}/restore", null,
                 _ => { SessionHub.Instance.Refresh(); Load(); }, msg => _error = msg);
         }
 

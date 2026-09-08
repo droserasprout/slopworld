@@ -14,7 +14,7 @@ namespace SlopWorld
         public void Load(bool refreshHealth, Action loaded)
         {
             if (refreshHealth) SessionHub.Instance.RefreshHealth();
-            DaemonClient.Get("/api/config",
+            DaemonClient.Get(WireContract.Routes.Config,
                 j =>
                 {
                     Config = DaemonConfig.FromJson(j["values"]);
@@ -31,7 +31,7 @@ namespace SlopWorld
         {
             if (!Loaded || Config == null) return;
             beforeSave?.Invoke();
-            DaemonClient.Put("/api/config/patch", Config.ToPatchJson(),
+            DaemonClient.Put(WireContract.Routes.ConfigPatch, Config.ToPatchJson(),
                 _ =>
                 {
                     Error = null;

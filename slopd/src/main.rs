@@ -20,6 +20,7 @@ mod tmux;
 mod usage;
 #[cfg(test)]
 mod version;
+mod wire;
 
 use std::sync::Arc;
 use std::time::Duration;
@@ -198,7 +199,7 @@ mod tests {
         if let Some(token) = token {
             request
                 .headers_mut()
-                .insert("x-slop-token", token.parse().unwrap());
+                .insert(wire::TOKEN_HEADER, token.parse().unwrap());
         }
         app.clone().oneshot(request).await.unwrap().status()
     }
@@ -208,15 +209,15 @@ mod tests {
         let app = app(manager());
 
         assert_eq!(
-            get(&app, "/api/health", None).await,
+            get(&app, wire::routes::HEALTH, None).await,
             StatusCode::UNAUTHORIZED
         );
         assert_eq!(
-            get(&app, "/api/health", Some("wrong")).await,
+            get(&app, wire::routes::HEALTH, Some("wrong")).await,
             StatusCode::UNAUTHORIZED
         );
         assert_eq!(
-            get(&app, "/api/health", Some("root-secret")).await,
+            get(&app, wire::routes::HEALTH, Some("root-secret")).await,
             StatusCode::OK
         );
     }
@@ -231,15 +232,15 @@ mod tests {
         let app = app(manager);
 
         assert_eq!(
-            get(&app, "/api/health", Some(&scoped)).await,
+            get(&app, wire::routes::HEALTH, Some(&scoped)).await,
             StatusCode::OK
         );
         assert_eq!(
-            get(&app, "/api/usage", Some(&scoped)).await,
+            get(&app, wire::routes::USAGE, Some(&scoped)).await,
             StatusCode::FORBIDDEN
         );
         assert_eq!(
-            get(&app, "/api/usage", Some("root-secret")).await,
+            get(&app, wire::routes::USAGE, Some("root-secret")).await,
             StatusCode::OK
         );
     }
@@ -260,10 +261,12 @@ mod tests {
             axum::serve(listener, app).await.unwrap();
         });
 
-        let mut request = format!("ws://{address}/ws").into_client_request().unwrap();
+        let mut request = format!("ws://{address}{}", wire::WS_PATH)
+            .into_client_request()
+            .unwrap();
         request
             .headers_mut()
-            .insert("x-slop-token", scoped.parse().unwrap());
+            .insert(wire::TOKEN_HEADER, scoped.parse().unwrap());
         let (mut socket, _) = tokio_tungstenite::connect_async(request).await.unwrap();
 
         let initial = tokio::time::timeout(std::time::Duration::from_secs(1), socket.next())
@@ -290,8 +293,8 @@ mod tests {
 
         let revoke = Request::builder()
             .method("DELETE")
-            .uri("/api/grants/grantor")
-            .header("x-slop-token", "root-secret")
+            .uri(format!("{}/grantor", wire::routes::GRANTS))
+            .header(wire::TOKEN_HEADER, "root-secret")
             .body(Body::empty())
             .unwrap();
         assert_eq!(

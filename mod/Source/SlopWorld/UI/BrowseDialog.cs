@@ -39,7 +39,7 @@ namespace SlopWorld
             _parent = null;
             _dirs = new string[0];
 
-            DaemonClient.Get($"/api/browse?path={System.Uri.EscapeDataString(path)}",
+            DaemonClient.Get($"{WireContract.Routes.Browse}?path={System.Uri.EscapeDataString(path)}",
                 j =>
                 {
                     if (generation != _requestGeneration) return;

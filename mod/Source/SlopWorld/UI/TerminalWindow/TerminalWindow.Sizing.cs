@@ -43,7 +43,10 @@ namespace SlopWorld
         }
 
         // The daemon's own limits, so what we ask for is always something it can answer with.
-        const int MinCols = 20, MaxCols = 500, MinRows = 5, MaxRows = 200;
+        const int MinCols = WireContract.TerminalMinCols;
+        const int MaxCols = WireContract.TerminalMaxCols;
+        const int MinRows = WireContract.TerminalMinRows;
+        const int MaxRows = WireContract.TerminalMaxRows;
 
         // Sidebar changes happen outside the terminal window, so there may be no instance from
         // which to reuse NegotiateSize. Compute the fullscreen pane's shape directly and attach
