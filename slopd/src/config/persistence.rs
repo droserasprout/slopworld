@@ -51,6 +51,7 @@ impl Config {
     }
 
     pub async fn save(&self, path: &Path) -> Result<()> {
+        super::validation::validate_loaded(self)?;
         Self::save_text(path, &toml::to_string_pretty(self)?).await
     }
 

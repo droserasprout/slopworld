@@ -109,8 +109,10 @@ pub(super) fn push_private_binds(
     // Replace the skeleton tmpfs before mounting private preset subdirectories, so paths such
     // as Claude's `/tmp/claude-0` can still overlay their own private copies on this tree.
     if bind.s.persistent_tmp {
-        let path = persistent_tmp_path(bind.s).to_string_lossy().into_owned();
-        push_args(a, &["--bind", &path, "/tmp"]);
+        if let Ok(path) = persistent_tmp_path(bind.s) {
+            let path = path.to_string_lossy().into_owned();
+            push_args(a, &["--bind", &path, "/tmp"]);
+        }
     }
 
     // Last of the binds under $HOME, so the private copy wins over an ordinary preset bind:
@@ -265,7 +267,8 @@ pub(super) fn resolver_bind(
     state_id: &str,
 ) -> Option<(String, String)> {
     if network == NetworkMode::Host {
-        resolver_target().map(|target| match dns {
+        let target = resolver_target()?;
+        Some(match dns {
             DnsConfig::Resolved => {
                 let stub = "/run/systemd/resolve/stub-resolv.conf";
                 let src = if Path::new(stub).exists() {
@@ -277,6 +280,7 @@ pub(super) fn resolver_bind(
             }
             DnsConfig::Servers { .. } => (
                 private_resolver_path(state_id)
+                    .ok()?
                     .to_string_lossy()
                     .into_owned(),
                 target,
@@ -285,6 +289,7 @@ pub(super) fn resolver_bind(
     } else if network == NetworkMode::Private {
         Some((
             private_resolver_path(state_id)
+                .ok()?
                 .to_string_lossy()
                 .into_owned(),
             resolver_target().unwrap_or_else(|| "/etc/resolv.conf".into()),

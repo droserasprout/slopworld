@@ -319,6 +319,7 @@ mod tests {
         };
         let a = build_argv(&cfg, &s, &p).expect("private sandbox argv");
         let source = private_resolver_path(&s.state_id)
+            .unwrap()
             .to_string_lossy()
             .into_owned();
 
@@ -452,7 +453,10 @@ mod tests {
         };
         let a = build_argv(&cfg, &s, &p).expect("sandbox argv");
 
-        let copy = private_path("a", &claude).to_string_lossy().into_owned();
+        let copy = private_path("a", &claude)
+            .unwrap()
+            .to_string_lossy()
+            .into_owned();
         assert!(a.contains(&copy), "no private bind in {a:?}");
         // Every mention of the host path is before the private one that lands on top.
         let last = a.iter().rposition(|x| x == &claude).expect("the target");
@@ -487,7 +491,10 @@ mod tests {
         };
         let a = build_argv(&cfg, &s, &p).expect("sandbox argv");
 
-        let copy = private_path("a", &claude).to_string_lossy().into_owned();
+        let copy = private_path("a", &claude)
+            .unwrap()
+            .to_string_lossy()
+            .into_owned();
         let private_at = at(&a, &copy);
         let shared_at = a.iter().rposition(|x| x == &creds).expect("no shared bind");
         assert!(
@@ -779,7 +786,10 @@ mod tests {
             ..Default::default()
         };
         let a = build_argv(&cfg, &s, &p).expect("persistent tmp sandbox argv");
-        let source = persistent_tmp_path(&s).to_string_lossy().to_string();
+        let source = persistent_tmp_path(&s)
+            .unwrap()
+            .to_string_lossy()
+            .to_string();
         assert!(a
             .windows(3)
             .any(|w| w[0] == "--bind" && w[1] == source && w[2] == "/tmp"));

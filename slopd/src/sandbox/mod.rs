@@ -22,6 +22,7 @@ pub(crate) struct ResolvedMount {
 
 /// Resolve configuration and build the complete sandbox command through the bind layer.
 pub fn build_argv(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result<Vec<String>> {
+    crate::config::state_id_component(&s.state_id)?;
     let network = cfg.network_of(s, p);
     let dns = cfg.dns_of(s, p);
     let agent_argv = shell_split(&cfg.command_of(s));
@@ -234,29 +235,30 @@ pub fn state_root() -> PathBuf {
 /// The copy of `host` this session gets. The original's shape is kept rather than its
 /// basename, so `~/.config/opencode` and `~/.local/share/opencode` - one preset, two
 /// directories, one name - never land on each other.
-fn private_path(state_id: &str, host: &str) -> PathBuf {
+fn private_path(state_id: &str, host: &str) -> Result<PathBuf> {
     let host = Path::new(host);
-    let root = state_root().join(state_id);
+    let root = state_root().join(crate::config::state_id_component(state_id)?);
     if let Some(home) = dirs::home_dir() {
         if let Ok(rel) = host.strip_prefix(&home) {
-            return root.join("home").join(rel);
+            return Ok(root.join("home").join(rel));
         }
     }
-    root.join("root")
-        .join(host.strip_prefix("/").unwrap_or(host))
+    Ok(root
+        .join("root")
+        .join(host.strip_prefix("/").unwrap_or(host)))
 }
 
 /// The durable `/tmp` for an opted-in agent. It lives beside private preset copies so the
 /// whole tree follows the same identity through rename, reset, trash and restore.
-fn persistent_tmp_path(s: &SessionCfg) -> PathBuf {
-    state_dir(s).join("tmp")
+fn persistent_tmp_path(s: &SessionCfg) -> Result<PathBuf> {
+    Ok(state_dir(s)?.join("tmp"))
 }
 
 /// The durable, private directory for a configured agent.  `state_id` is not supplied by
 /// clients; the manager assigns it, so a name reused after deletion cannot inherit another
 /// agent's transcripts or tool configuration.
-pub fn state_dir(s: &SessionCfg) -> PathBuf {
-    state_root().join(&s.state_id)
+pub fn state_dir(s: &SessionCfg) -> Result<PathBuf> {
+    Ok(state_root().join(crate::config::state_id_component(&s.state_id)?))
 }
 
 fn trash_root() -> PathBuf {
@@ -326,7 +328,7 @@ pub fn stored_states(sessions: &[SessionCfg]) -> Vec<StoredState> {
                     let item_key = item.file_name().to_string_lossy().into_owned();
                     let owner = sessions
                         .iter()
-                        .filter(|s| !s.state_id.is_empty())
+                        .filter(|s| crate::config::state_id_component(&s.state_id).is_ok())
                         .find(|s| item_key.ends_with(&format!("-{}", s.state_id)))
                         .map(|s| s.name.clone())
                         .or_else(|| read_trashed_session(&item.path()).ok().map(|s| s.name));
@@ -335,14 +337,12 @@ pub fn stored_states(sessions: &[SessionCfg]) -> Vec<StoredState> {
             }
             continue;
         }
-        let owner = sessions
-            .iter()
-            .find(|s| {
-                state_dir(s)
-                    .file_name()
-                    .is_some_and(|n| n == entry.file_name())
-            })
-            .map(|s| s.name.clone());
+        let owner = sessions.iter().find_map(|s| {
+            state_dir(s)
+                .ok()
+                .filter(|path| path.file_name().is_some_and(|n| n == entry.file_name()))
+                .map(|_| s.name.clone())
+        });
         out.push(stored_entry(
             if owner.is_some() { "active" } else { "orphan" },
             key,
@@ -378,7 +378,11 @@ pub fn delete_stored_state(kind: &str, key: &str, sessions: &[SessionCfg]) -> Re
         state_root()
     };
     let path = direct_child(&root, key)?;
-    if kind == "orphan" && sessions.iter().any(|s| state_dir(s) == path) {
+    if kind == "orphan"
+        && sessions
+            .iter()
+            .any(|s| state_dir(s).is_ok_and(|state| state == path))
+    {
         anyhow::bail!("private state is still owned by a configured agent");
     }
     remove_stored_path(&path)
@@ -419,15 +423,14 @@ pub fn restore_stored_state(key: &str, sessions: &[SessionCfg]) -> Result<String
         anyhow::bail!("no such private-state trash entry");
     }
     let archived = read_trashed_session(&source)?;
-    if archived.state_id.is_empty() {
-        anyhow::bail!("trash entry has no private-state identity");
-    }
+    crate::config::validate_state_id(&archived.state_id)
+        .context("invalid private-state identity in trash metadata")?;
     let session = sessions
         .iter()
-        .filter(|s| !s.state_id.is_empty())
+        .filter(|s| crate::config::state_id_component(&s.state_id).is_ok())
         .find(|s| s.state_id == archived.state_id)
         .unwrap_or(&archived);
-    let destination = state_dir(session);
+    let destination = state_dir(session)?;
     if destination.exists() {
         anyhow::bail!(
             "agent {:?} already has fresh state; reset it before restoring this copy",
@@ -457,7 +460,7 @@ pub fn trashed_session(key: &str) -> Result<SessionCfg> {
 }
 
 pub fn rollback_restored_state(key: &str, session: &SessionCfg) -> Result<()> {
-    let source = state_dir(session);
+    let source = state_dir(session)?;
     let destination = direct_child(&trash_root(), key)?;
     std::fs::rename(&source, &destination).with_context(|| {
         format!(
@@ -468,8 +471,8 @@ pub fn rollback_restored_state(key: &str, session: &SessionCfg) -> Result<()> {
     })
 }
 
-pub fn finish_restored_state(session: &SessionCfg) {
-    let metadata = state_dir(session).join(TRASH_SESSION);
+pub fn finish_restored_state(session: &SessionCfg) -> Result<()> {
+    let metadata = state_dir(session)?.join(TRASH_SESSION);
     if let Err(e) = std::fs::remove_file(&metadata) {
         if e.kind() != std::io::ErrorKind::NotFound {
             tracing::warn!(
@@ -478,15 +481,14 @@ pub fn finish_restored_state(session: &SessionCfg) {
             );
         }
     }
+    Ok(())
 }
 
 /// Move state out of the live namespace.  The caller owns configuration consistency; the
 /// returned path lets it restore the tree if saving the corresponding config change fails.
 pub fn trash_state(s: &SessionCfg, label: &str) -> Result<Option<PathBuf>> {
-    if s.state_id.is_empty() {
-        anyhow::bail!("session {:?} has no private-state identity", s.name);
-    }
-    let source = state_dir(s);
+    let state_id = crate::config::state_id_component(&s.state_id)?;
+    let source = state_dir(s)?;
     if !source.exists() {
         return Ok(None);
     }
@@ -506,7 +508,7 @@ pub fn trash_state(s: &SessionCfg, label: &str) -> Result<Option<PathBuf>> {
             }
         })
         .collect::<String>();
-    let destination = root.join(format!("{stamp}-{safe}-{}", s.state_id));
+    let destination = root.join(format!("{stamp}-{safe}-{state_id}"));
     std::fs::rename(&source, &destination)
         .with_context(|| format!("moving {} to {}", source.display(), destination.display()))?;
     let metadata = destination.join(TRASH_SESSION);
@@ -523,29 +525,20 @@ pub fn trash_state(s: &SessionCfg, label: &str) -> Result<Option<PathBuf>> {
 }
 
 pub fn restore_trashed_state(s: &SessionCfg, trash: &Path) -> Result<()> {
-    if s.state_id.is_empty() {
-        anyhow::bail!("session {:?} has no private-state identity", s.name);
-    }
-    let destination = state_dir(s);
+    let destination = state_dir(s)?;
     if !trash.exists() {
         return Ok(());
     }
     std::fs::rename(trash, &destination)
         .with_context(|| format!("restoring {} to {}", trash.display(), destination.display()))?;
-    finish_restored_state(s);
+    finish_restored_state(s)?;
     Ok(())
 }
 
 /// Temporary errands have no durable agent to restore this state to. Their ids are always
 /// daemon-minted, so this can remove exactly one leaf without ever falling back to a name.
 pub fn remove_ephemeral_state(s: &SessionCfg) -> Result<()> {
-    if s.state_id.is_empty() {
-        anyhow::bail!(
-            "temporary session {:?} has no private-state identity",
-            s.name
-        );
-    }
-    let path = state_dir(s);
+    let path = state_dir(s)?;
     if !path.exists() {
         return Ok(());
     }
@@ -589,7 +582,7 @@ pub fn purge_trash() -> Result<usize> {
 /// DNS list in host mode needs a generated `/etc/resolv.conf` source too.
 pub fn prepare_network(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result<()> {
     if s.persistent_tmp {
-        let path = persistent_tmp_path(s);
+        let path = persistent_tmp_path(s)?;
         if path.exists() && !path.is_dir() {
             anyhow::bail!("persistent /tmp path {} is not a directory", path.display());
         }
@@ -614,7 +607,7 @@ pub fn prepare_network(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result<(
             if host.is_empty() {
                 continue;
             }
-            let copy = private_path(&s.state_id, &host);
+            let copy = private_path(&s.state_id, &host)?;
             if copy.exists() {
                 continue;
             }
@@ -634,12 +627,14 @@ pub fn prepare_network(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result<(
     Ok(())
 }
 
-fn private_resolver_path(session: &str) -> PathBuf {
-    state_root().join(session).join("network/resolv.conf")
+fn private_resolver_path(session: &str) -> Result<PathBuf> {
+    Ok(state_root()
+        .join(crate::config::state_id_component(session)?)
+        .join("network/resolv.conf"))
 }
 
 fn prepare_resolver(session: &str, servers: &[String]) -> Result<()> {
-    let path = private_resolver_path(session);
+    let path = private_resolver_path(session)?;
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent).with_context(|| format!("making {}", parent.display()))?;
     }
@@ -887,22 +882,43 @@ mod tests {
     /// paths that happen to share a basename.
     #[test]
     fn a_private_path_is_per_session_and_keeps_its_shape() {
-        let a = private_path("one", "/home/u/.config/opencode");
-        let b = private_path("one", "/home/u/.local/share/opencode");
+        let a = private_path("one", "/home/u/.config/opencode").unwrap();
+        let b = private_path("one", "/home/u/.local/share/opencode").unwrap();
         assert_ne!(a, b);
 
-        assert_ne!(private_path("one", "/etc/x"), private_path("two", "/etc/x"));
-        assert!(private_path("one", "/etc/x").starts_with(state_root().join("one")));
+        assert_ne!(
+            private_path("one", "/etc/x").unwrap(),
+            private_path("two", "/etc/x").unwrap()
+        );
+        assert!(private_path("one", "/etc/x")
+            .unwrap()
+            .starts_with(state_root().join("one")));
 
         // Under the home it keeps the relative path; outside it, the absolute one.
         if let Some(home) = dirs::home_dir() {
-            let mine = private_path("one", &home.join(".claude").to_string_lossy());
+            let mine = private_path("one", &home.join(".claude").to_string_lossy()).unwrap();
             assert_eq!(mine, state_root().join("one/home/.claude"));
         }
         assert_eq!(
-            private_path("one", "/etc/x"),
+            private_path("one", "/etc/x").unwrap(),
             state_root().join("one/root/etc/x")
         );
+    }
+
+    #[test]
+    fn private_state_paths_reject_traversal_and_absolute_identities() {
+        for state_id in ["../escape", "one/two", "/tmp/escape", ".", ".trash"] {
+            let s = SessionCfg {
+                name: "bad-state".into(),
+                state_id: state_id.into(),
+                ..Default::default()
+            };
+            assert!(state_dir(&s).is_err(), "accepted state id {state_id:?}");
+            assert!(
+                private_path(state_id, "/etc/tool").is_err(),
+                "accepted private path state id {state_id:?}"
+            );
+        }
     }
 
     #[test]
@@ -917,8 +933,11 @@ mod tests {
             ..before.clone()
         };
 
-        assert_eq!(state_dir(&before), state_dir(&after));
-        assert_eq!(state_dir(&before), state_root().join("stable-agent-state"));
+        assert_eq!(state_dir(&before).unwrap(), state_dir(&after).unwrap());
+        assert_eq!(
+            state_dir(&before).unwrap(),
+            state_root().join("stable-agent-state")
+        );
     }
 
     #[test]
@@ -938,8 +957,8 @@ mod tests {
         };
 
         prepare_network(&Config::default(), &s, &p).expect("persistent tmp preparation");
-        assert!(persistent_tmp_path(&s).is_dir());
-        std::fs::remove_dir_all(state_dir(&s)).unwrap();
+        assert!(persistent_tmp_path(&s).unwrap().is_dir());
+        std::fs::remove_dir_all(state_dir(&s).unwrap()).unwrap();
     }
 
     #[test]

@@ -24,7 +24,13 @@ pub(super) fn private_bind_paths(
             if host.is_empty() {
                 continue;
             }
-            let copy = private_path(&s.state_id, &host);
+            let Ok(copy) = private_path(&s.state_id, &host) else {
+                tracing::warn!(
+                    "not preparing private path for session {:?}: invalid state identity",
+                    s.name
+                );
+                continue;
+            };
             // The host path or the prepared session-state copy must exist. Paths under /tmp/
             // never exist on the host (the skeleton mounts its own tmpfs there), but
             // prepare_network creates the copy beforehand.

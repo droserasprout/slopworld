@@ -3,6 +3,7 @@ mod persistence;
 mod validation;
 
 pub use model::*;
+pub(crate) use validation::{state_id_component, validate_state_id};
 
 #[cfg(test)]
 use model::resolvers_from;
@@ -275,7 +276,7 @@ mod tests {
             [[session]]
             name = "agent"
             project = "repo"
-            state_id = "agent-state"
+            state_id = "11111111-1111-4111-8111-111111111111"
 
             [session.dns]
             mode = "resolved"
@@ -721,13 +722,13 @@ token = \"not-a-daemon-token\"
             name = "safe"
             project = "repo"
             network = "none"
-            state_id = "safe-state"
+            state_id = "22222222-2222-4222-8222-222222222222"
 
             [[session]]
             name = "too-wide"
             project = "repo"
             network = "host"
-            state_id = "too-wide-state"
+            state_id = "33333333-3333-4333-8333-333333333333"
             "#,
         )
         .expect("network modes should parse");
@@ -1001,7 +1002,7 @@ token = \"not-a-daemon-token\"
     }
 
     #[test]
-    fn config_rejects_sessions_without_a_state_identity() {
+    fn config_rejects_sessions_without_a_valid_state_identity() {
         let result = Config::parse(
             r#"
                 [[project]]
@@ -1017,6 +1018,32 @@ token = \"not-a-daemon-token\"
 
         // New in-memory sessions, including short-lived errands, always have an identity.
         assert!(!SessionCfg::default().state_id.is_empty());
+    }
+
+    #[test]
+    fn config_rejects_state_id_path_traversal_absolute_paths_and_non_uuids() {
+        for state_id in ["../escape", "one/two", "/tmp/escape", ".", "safe-state"] {
+            let text = format!("[[session]]\nname = \"agent\"\nstate_id = \"{state_id}\"\n");
+            assert!(
+                Config::parse(&text).is_err(),
+                "unsafe state id {state_id:?} should fail"
+            );
+        }
+    }
+
+    #[test]
+    fn config_rejects_duplicate_state_ids() {
+        let text = r#"
+            [[session]]
+            name = "one"
+            state_id = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+
+            [[session]]
+            name = "two"
+            state_id = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+        "#;
+        let error = Config::parse(text).unwrap_err().to_string();
+        assert!(error.contains("duplicate"), "{error}");
     }
 
     #[test]
