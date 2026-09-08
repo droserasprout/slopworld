@@ -64,11 +64,13 @@ namespace SlopWorld
                                hub.ProjectsRevision, Projects.Revision, status, Width,
                                UI.screenHeight, Body.height, TextH))
             {
+                PerfTrace.Count("sidebar-layout-hits");
                 Layout.RestoreLocations(locs, count);
                 return Layout.LastScale;
             }
 
             Layout.BeginFrame();
+            PerfTrace.Count("sidebar-layout-rebuilds");
             Bucket(entries, locs, count);
 
             // Measure.

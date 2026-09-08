@@ -23,11 +23,10 @@ namespace SlopWorld
         long _epoch;
 
         // The sun moves ~0.4° per real minute; recalculating 60 times a second is wasteful.
-        // We cache the solar tick for a real second (60 frames) before calling DateTime.Now
+        // We cache the solar tick for a real second before calling DateTime.Now
         // again. Between recalculations, gameStartAbsTick drifts correctly because it is
         // recomputed every frame from the cached solar tick minus the current TicksGame.
-        const int SolarRecalcInterval = 60;
-        int _solarSkip;
+        PeriodicWork _solarRecalc;
         int? _cachedSolar;
 
         public RealClock(Game game) { }
@@ -82,13 +81,12 @@ namespace SlopWorld
             var ticks = Find.TickManager;
             if (ticks == null) return;
 
-            // Recalculate the solar tick only every SolarRecalcInterval frames.
+            // Recalculate the solar tick once per elapsed second, independent of FPS.
             // Between recalculations the cached value stays correct: the formula
             // gameStartAbsTick = solarTick - TicksGame is evaluated every frame,
             // and only solarTick is cached — TicksGame is always current.
-            if (_cachedSolar == null || ++_solarSkip >= SolarRecalcInterval)
+            if (_solarRecalc.Due(Time.realtimeSinceStartupAsDouble, 1.0) || _cachedSolar == null)
             {
-                _solarSkip = 0;
                 _cachedSolar = SolarTick();
                 if (_cachedSolar == null) return;
             }

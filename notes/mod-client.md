@@ -17,6 +17,9 @@ reflection.
   routes each socket event to the owning service; `HubWire` holds shared JSON helpers.
 - `MiniWebSocket` - speaks RFC6455 by hand, because Unity's mono cannot be trusted
   with `ClientWebSocket`.
+- `HubEventBatch` - reuses scratch buffers for up to 32 incoming messages per frame. Only
+  unsolicited live screens coalesce; history, request replies and other events preserve order.
+  Dispatch releases payload references and uses the captured queue if a callback reconnects.
 - `Json` - a minimal reader, because RimWorld ships none.
 - `DaemonClient` - the HTTP half; completions replayed on the main thread.
 - `DaemonConfig` - the small read model used by the settings GUI; writes go through

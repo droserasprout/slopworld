@@ -11,6 +11,12 @@ namespace SlopWorld
     {
         public static bool AgentScrollOpen => Interaction.AgentScrollOpen;
 
+        // Clip CPU-side row work as well as pixels. Input passes retain their control order.
+        static bool SkipAgentPaint(Rect rect) => Event.current.type == EventType.Repaint &&
+            Interaction.AgentScrollOpen &&
+            (rect.yMax <= Interaction.AgentScroll.Position.y ||
+             rect.y >= Interaction.AgentScroll.Position.y + Body.height);
+
         static void BeginAgentScroll()
         {
             var body = Body;

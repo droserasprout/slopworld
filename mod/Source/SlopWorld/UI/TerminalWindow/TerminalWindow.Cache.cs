@@ -71,6 +71,7 @@ namespace SlopWorld
             };
             bool repaintAll = fresh || !_cacheKey.Matches(key);
             var repaint = TerminalRepaintPolicy.Choose(repaintAll, _cacheContentRevision, buf);
+            if (repaint == TerminalRepaint.None) PerfTrace.Count("terminal-cache-hits");
             if (repaintAll)
             {
                 PerfTrace.Count("terminal-cache-misses");

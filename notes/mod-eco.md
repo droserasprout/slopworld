@@ -14,6 +14,8 @@ What it does, one owner each:
   Eco also suppresses weather, edge clippers, map-interface overlays/gizmo hover,
   and map clicks; those paths sit outside `MapUpdate` or remain interactive without
   a visible board.
+  A full terminal also suppresses weather and edge drawing, even outside Eco. Mesh
+  maintenance stays active so returning to the board does not require a cold rebuild.
 - **The frames**: Eco leaves foreground frame pacing alone. The independent Display
   settings apply in both modes; only an unfocused window gets the 15 FPS cap.
 - **The backdrop**: with no pane up, [the baked frame](mod-background.md) is a

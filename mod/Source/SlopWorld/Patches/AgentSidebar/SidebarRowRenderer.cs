@@ -10,6 +10,15 @@ namespace SlopWorld
         static readonly string[] ViewPrefixes = { "view-", "search-", "link-" };
         static readonly string[] EditPrefixes = { "edit-" };
         static readonly string[] DiffPrefixes = { "diff-" };
+        static readonly SidebarTitleCache Titles = new SidebarTitleCache();
+        static readonly System.Func<SessionInfo, string> BuildTitleText = BuildTitle;
+        static int _titleFontRevision;
+
+        static SidebarRowRenderer()
+        {
+            // Glyph availability can change on an atlas rebuild even when the font is the same.
+            Font.textureRebuilt += _ => _titleFontRevision++;
+        }
 
         public static void DrawGhostLabel(Rect r, SessionInfo info, string fallback,
                                            bool hostIcon, float markWidth, bool italic = false)
@@ -241,8 +250,12 @@ namespace SlopWorld
                 : name;
         }
 
-        static string Title(SessionInfo info)
+        static string Title(SessionInfo info) =>
+            Titles.Get(info, Text.CurFontStyle?.font, _titleFontRevision, BuildTitleText);
+
+        static string BuildTitle(SessionInfo info)
         {
+            PerfTrace.Count("sidebar-title-rebuilds");
             if (info == null) return "";
             bool fixedLabel = !string.IsNullOrWhiteSpace(info.Label);
             var value = fixedLabel ? info.Label : info.Title;
