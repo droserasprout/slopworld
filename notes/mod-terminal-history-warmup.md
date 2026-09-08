@@ -24,6 +24,10 @@ History replies are drained while the pane remains live. They populate history
 and record the real top while the requested scroll position is being assembled.
 Live output keeps the cache in the newest coordinate space; a delayed reply uses
 its request's coordinate shift and can therefore contribute valid old rows.
+Shallow views refresh their visible live rows, including fractional overscan, on
+in-place redraws. Views containing only history retain their assembled frame.
+The live cursor keeps its blink and shape when visible in a shallow view; its
+translated overlay is clipped with the same fractional shift as the rows.
 
 Returning to live clears only the displayed history fallback, keeping indexed rows
 ready for the next transition. Switching tabs detaches the indexed cache under the

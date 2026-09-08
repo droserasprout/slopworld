@@ -71,7 +71,17 @@ namespace SlopWorld
             SyncSnap();
             TrackHover(body, buf);
             DrawHover(body, shift);
-            DrawCursor(body, buf, cw, ch);
+            GUI.BeginGroup(body);
+            try
+            {
+                SyncSnap();
+                DrawCursor(new Rect(0f, 0f, body.width, body.height), buf, cw, ch, shift);
+            }
+            finally
+            {
+                GUI.EndGroup();
+                SyncSnap();
+            }
             ScrollDebugFrame(buf, shift);
 
             GUI.color = Color.white;
@@ -412,13 +422,10 @@ namespace SlopWorld
 
 
         // Blinks on a half-second beat unless the app asked for a steady cursor.
-        void DrawCursor(Rect body, ScreenBuf buf, float cw, float ch)
+        void DrawCursor(Rect body, ScreenBuf buf, float cw, float ch, float shift)
         {
             if (Event.current.type != EventType.Repaint) return;
-            // No cursor on a historical frame: the daemon hides it, but the frame still
-            // carries cursor coordinates from the render snapshot.
-            if (buf.Off > 0) return;
-            if (buf.Cy >= buf.Rows) return;
+            if (buf.Cy < 0 || buf.Cy >= buf.Lines.Length) return;
             // Keyboard activity restarts the visible half of the blink cycle, so typing or
             // moving the cursor never leaves it hidden until the next global beat.
             if (buf.CursorBlink &&
@@ -426,8 +433,9 @@ namespace SlopWorld
                 return;
 
             float x = body.x + buf.Cx * cw;
-            float y = body.y + buf.Cy * ch;
-            if (!body.Contains(new Vector2(x, y))) return;
+            float y = body.y + buf.Cy * ch + shift;
+            if (x < body.x || x >= body.xMax || y >= body.yMax || y + ch <= body.y)
+                return;
 
             float l = SnapX(x), r = SnapX(x + cw);
             float t = SnapY(y), b = SnapY(y + ch);
