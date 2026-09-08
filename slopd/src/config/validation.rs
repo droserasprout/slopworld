@@ -8,7 +8,37 @@ use std::{
 use anyhow::{bail, Result};
 use uuid::Uuid;
 
-use super::Config;
+use super::{Config, ProjectCfg};
+
+/// A project name is also the guest-side alias under `/mnt`. Keep it to one normal path
+/// component so a config edit cannot change the mount target through separators or traversal.
+pub(crate) fn project_name_component(name: &str) -> Result<&str> {
+    if name.trim().is_empty() {
+        bail!("project name must not be empty");
+    }
+    if name.bytes().any(|b| matches!(b, b'/' | b'\\' | 0)) || name.chars().any(|c| c.is_control()) {
+        bail!("project name must be one safe path component");
+    }
+
+    let mut components = Path::new(name).components();
+    match (components.next(), components.next()) {
+        (Some(Component::Normal(_)), None) => Ok(name),
+        _ => bail!("project name must be one safe path component"),
+    }
+}
+
+pub(crate) fn validate_project_names(projects: &[ProjectCfg]) -> Result<()> {
+    let mut names = HashSet::new();
+    for project in projects {
+        if let Err(error) = project_name_component(&project.name) {
+            bail!("project {:?} has invalid name: {error}", project.name);
+        }
+        if !names.insert(project.name.as_str()) {
+            bail!("projects contain duplicate name {:?}", project.name);
+        }
+    }
+    Ok(())
+}
 
 /// Check the part of a session identity that is required before it can become a path
 /// component. The persisted form adds the stronger UUID check below, while this shared
@@ -41,6 +71,8 @@ pub(crate) fn validate_state_id(state_id: &str) -> Result<()> {
 }
 
 pub(super) fn validate_loaded(cfg: &Config) -> Result<()> {
+    validate_project_names(&cfg.projects)?;
+
     let mut state_ids = HashSet::new();
     for session in &cfg.sessions {
         if let Err(error) = validate_state_id(&session.state_id) {

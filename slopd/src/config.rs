@@ -3,7 +3,9 @@ mod persistence;
 mod validation;
 
 pub use model::*;
-pub(crate) use validation::{state_id_component, validate_state_id};
+pub(crate) use validation::{
+    project_name_component, state_id_component, validate_project_names, validate_state_id,
+};
 
 #[cfg(test)]
 use model::resolvers_from;
@@ -1029,6 +1031,31 @@ token = \"not-a-daemon-token\"
                 "unsafe state id {state_id:?} should fail"
             );
         }
+    }
+
+    #[test]
+    fn config_rejects_unsafe_or_duplicate_project_names() {
+        for name in ["../escape", "one/two", "/tmp/escape", ".", "..", r"one\two"] {
+            let text = format!("[[project]]\nname = {:?}\ndir = \"/tmp\"\n", name);
+            assert!(
+                Config::parse(&text).is_err(),
+                "unsafe project name {name:?} should fail"
+            );
+        }
+
+        let duplicate = r#"
+            [[project]]
+            name = "repo"
+            dir = "/tmp/one"
+
+            [[project]]
+            name = "repo"
+            dir = "/tmp/two"
+        "#;
+        let error = Config::parse(duplicate).unwrap_err().to_string();
+        assert!(error.contains("duplicate"), "{error}");
+
+        assert!(Config::parse("[[project]]\nname = \"repo.v2\"\ndir = \"/tmp\"\n").is_ok());
     }
 
     #[test]

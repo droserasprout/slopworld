@@ -26,6 +26,7 @@ pub fn prepare(
     project: &ProjectCfg,
     sessions: &[SessionView],
 ) -> Result<PathBuf> {
+    crate::config::project_name_component(&project.name)?;
     let path = dir.join(FILE_NAME);
     ensure_writable_generated_target(&path)?;
 

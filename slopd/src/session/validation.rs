@@ -45,9 +45,7 @@ pub(super) fn free_name(live: &HashMap<String, Live>, cfg: &Config, base: &str) 
 }
 
 pub(super) fn check_project(p: &ProjectCfg) -> Result<()> {
-    if p.name.trim().is_empty() {
-        bail!("project name must not be empty");
-    }
+    crate::config::project_name_component(&p.name)?;
     if p.dir.trim().is_empty() {
         bail!("project {} needs a directory", p.name);
     }
@@ -285,6 +283,7 @@ pub(super) async fn read_action_output<R: AsyncRead + Unpin>(
 }
 
 pub(crate) fn validate_config(cfg: &Config) -> Result<()> {
+    crate::config::validate_project_names(&cfg.projects)?;
     cfg.daemon
         .bind
         .parse::<std::net::SocketAddr>()
