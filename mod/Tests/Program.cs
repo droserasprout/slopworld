@@ -76,6 +76,10 @@ namespace SlopWorld.Tests
             tests.Add(("Idle work: message ordering and bounded batches", IdleWorkTests.Messages));
             tests.Add(("Idle work: elapsed-time scheduling", IdleWorkTests.Scheduling));
             tests.Add(("Idle work: sidebar title invalidation", IdleWorkTests.Titles));
+            tests.Add(("Eco: maintenance transitions", EcoWorkTests.Maintenance));
+            tests.Add(("Eco: colony membership revisions", EcoWorkTests.Membership));
+            tests.Add(("Eco: usage snapshot and settings invalidation", EcoWorkTests.Usage));
+            tests.Add(("Eco: clock boundaries and locale", EcoWorkTests.Clock));
             tests.Add(("HubCatalog: ordering", HubCatalogTests.Ordering));
             int failed = 0;
 

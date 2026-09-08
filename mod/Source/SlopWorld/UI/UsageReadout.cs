@@ -8,7 +8,7 @@ namespace SlopWorld
 {
     // TopBar quota readout. The daemon supplies the figures while this class computes remaining
     // amounts and the off-frame countdown; TopBarMapComponent owns the map-layer draw call.
-    public static class UsageReadout
+    public static partial class UsageReadout
     {
         const float IconSize = 27f;
 
@@ -27,19 +27,23 @@ namespace SlopWorld
 
         static ThingDef[] _pool;
 
-        public static float ClockWidth(DateTime now) =>
-            ClockIconSize + 2f + UiWidgets.Wide(TimeFormat.Short(now)) + 2f;
+        public static float ClockWidth(DateTime now)
+        {
+            PrepareClock(now);
+            return ClockIconSize + 2f + Width(Clock.Short) + 2f;
+        }
 
         public static void DrawClock(Rect row, DateTime now)
         {
+            PrepareClock(now);
             var icon = new Rect(row.x, row.y + (row.height - ClockIconSize) / 2f,
                 ClockIconSize, ClockIconSize);
             GUI.DrawTexture(icon, Icons.Time);
             UiWidgets.RowLabel(new Rect(icon.xMax + 2f, row.y,
-                row.width - ClockIconSize - 2f, row.height), TimeFormat.Short(now));
+                row.width - ClockIconSize - 2f, row.height), Clock.Short);
 
             TooltipHandler.TipRegion(row, new TipSignal(
-                now.ToString("dddd, d MMMM yyyy") + "\n" + TimeFormat.Long(now),
+                Clock.Tooltip,
                 0x51_0F_0001));
         }
 
@@ -49,7 +53,9 @@ namespace SlopWorld
         // in Right mode. Nothing is drawn where there is no room for it.
         public static void DrawStrip(Rect area, bool showUsage, bool showClock)
         {
-            using (WidgetState.Save()) DrawStripCore(area, showUsage, showClock);
+            long started = PerfTrace.Start();
+            try { using (WidgetState.Save()) DrawStripCore(area, showUsage, showClock); }
+            finally { PerfTrace.End("topbar-usage", started, showUsage ? Quotas.Count : 0); }
         }
 
         static void DrawStripCore(Rect area, bool showUsage, bool showClock)
@@ -60,11 +66,11 @@ namespace SlopWorld
             Text.Anchor = TextAnchor.MiddleLeft;
             GUI.color = UiWidgets.Name;
 
-            var rows = showUsage ? Rows(usage) : new List<string>();
+            if (showUsage) PrepareQuotas(usage);
 
             float x = area.xMax;
-            DateTime now = DateTime.Now;
-            float clockNeed = ClockWidth(now);
+            DateTime now = showClock ? DateTime.Now : default;
+            float clockNeed = showClock ? ClockWidth(now) : 0f;
             if (showClock && x - clockNeed >= area.x)
             {
                 x -= clockNeed;
@@ -74,13 +80,14 @@ namespace SlopWorld
                 x -= ChipGap;
             }
 
-            for (int i = rows.Count - 1; i >= 0; i--)
+            for (int i = showUsage ? Quotas.Count - 1 : -1; i >= 0; i--)
             {
-                string key = rows[i];
-                var w = Window(usage, key);
-                string count = w != null ? Count(w) : Unsaid;
+                var cached = Quotas[i];
+                string key = cached.Key;
+                var w = cached.Window;
+                string count = cached.Count;
 
-                float need = IconSize + 2f + UiWidgets.Wide(count) + 2f;
+                float need = IconSize + 2f + Width(count) + 2f;
                 if (x - need < area.x) break;
 
                 x -= need;
@@ -106,7 +113,7 @@ namespace SlopWorld
                     new Rect(chip.x + IconSize + 2f, chip.y,
                         chip.width - IconSize - 2f, chip.height),
                     count);
-                Tip(chip, usage, key, w);
+                CachedTip(chip, usage, cached);
 
                 x -= ChipGap;
             }
@@ -118,94 +125,6 @@ namespace SlopWorld
         // What a row draws where the daemon has sent no figure for it. Not "0" and not "-":
         // one reads as a spent window and the other as a row that has been switched off.
         const string Unsaid = "...";
-
-        // Include returned windows plus placeholders for enabled sources' expected rows, so a
-        // stale login remains visible without making the strip reflow.
-        static List<string> Rows(UsageInfo usage)
-        {
-            var rows = new List<string>();
-            foreach (var w in usage.Windows)
-                if (ItemPolled(w.Key) && !rows.Contains(w.Key)) rows.Add(w.Key);
-
-            // A successful weekly-only Codex response identifies the plan. Do not add the
-            // provisional session placeholder after the daemon has told us that this plan has
-            // no five-hour window.
-            bool openAiWeekly = usage.Windows.Any(w => w.Key == WireContract.UsageKeys.OpenaiWeek);
-            foreach (string seller in usage.Sources)
-            {
-                if (seller == "openai" && openAiWeekly) continue;
-                foreach (string key in Owed(seller))
-                    if (ItemPolled(key) && !rows.Contains(key)) Place(rows, key);
-            }
-
-            // Pollers answer independently, so arrival order is not display order. Keep the
-            // shared pools in one fixed left-to-right run even when a source comes back late.
-            rows.Sort((a, b) => Rank(a).CompareTo(Rank(b)));
-            return rows;
-        }
-
-        // The daemon may still be holding a previous snapshot when a Settings row is toggled,
-        // and enabled sources also contribute placeholder rows. Filter both paths from the
-        // client-side config so the status bar reacts immediately instead of waiting for the
-        // next provider poll.
-        static bool ItemPolled(string key)
-        {
-            var cfg = SessionHub.Instance.Config;
-            if (cfg == null) return true;
-
-            if (cfg.UsageItems != null && cfg.UsageItems.TryGetValue(key, out var item)
-                && item != null)
-                return item.Poll;
-
-            if (key.StartsWith("openrouter_")) return false;
-            return key.StartsWith("claude_") || key.StartsWith("openai_");
-        }
-
-        // The rows a seller is expected to answer with. Only the ones every account of that
-        // kind has: a per-model weekly limit or an extra-usage budget that this plan has not
-        // got is a row that would never fill in, and an icon that stays blank forever is worse
-        // than no icon at all.
-        static string[] Owed(string seller)
-        {
-            if (seller == "anthropic") return AnthropicRows;
-            if (seller == "openrouter") return OpenRouterRows;
-            if (seller == "openai") return OpenAiRows;
-            return new string[0];
-        }
-
-        static readonly string[] AnthropicRows = {
-            WireContract.UsageKeys.ClaudeSession, WireContract.UsageKeys.ClaudeWeek,
-        };
-        static readonly string[] OpenRouterRows = { WireContract.UsageKeys.OpenrouterBalance };
-        static readonly string[] OpenAiRows = { WireContract.UsageKeys.OpenaiSession };
-
-        // Slots a held place next to its own kind rather than on the end: a session window that
-        // turned up after the weekly one would otherwise sit to the right of it, and the strip
-        // would re-order itself the moment the numbers came back.
-        static void Place(List<string> rows, string key)
-        {
-            int rank = Rank(key);
-            for (int i = 0; i < rows.Count; i++)
-            {
-                if (Rank(rows[i]) <= rank) continue;
-                rows.Insert(i, key);
-                return;
-            }
-            rows.Add(key);
-        }
-
-        // The strip's fixed left-to-right order. Anything plan-specific comes after the common
-        // pools, so it cannot shove OpenAI or the OpenRouter balance out of their usual place.
-        static int Rank(string key)
-        {
-            if (key == WireContract.UsageKeys.ClaudeSession) return 0;
-            if (key == WireContract.UsageKeys.ClaudeWeek) return 1;
-            if (key == WireContract.UsageKeys.OpenaiSession) return 2;
-            if (key == WireContract.UsageKeys.OpenaiWeek) return 3;
-            if (key == WireContract.UsageKeys.OpenrouterBalance) return 4;
-            if (key == WireContract.UsageKeys.ClaudeSpend) return 5;
-            return 6;
-        }
 
         static UsageWindow Window(UsageInfo usage, string key)
         {
@@ -248,7 +167,7 @@ namespace SlopWorld
 
         // With no label on the row, this is also where a window is named - as the game's own
         // resources work.
-        static void Tip(Rect row, UsageInfo usage, string key, UsageWindow w)
+        static string TipText(UsageInfo usage, string key, UsageWindow w)
         {
             var lines = new List<string>();
 
@@ -282,10 +201,7 @@ namespace SlopWorld
                     : usage.Error);
             }
 
-            // Keyed off the row so two of them don't share one tooltip.
-            TooltipHandler.TipRegion(row, new TipSignal(
-                string.Join("\n", lines.ToArray()),
-                0x51_0F_0000 ^ (key?.GetHashCode() ?? 0)));
+            return string.Join("\n", lines);
         }
 
         // The global setting chooses the one quota view shown in the tooltip. The other figure

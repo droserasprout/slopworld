@@ -38,6 +38,7 @@ namespace SlopWorld.Tests
             Routing();
             Terminal();
             IdleWork();
+            EcoWork();
             GC.KeepAlive(_sink);
             return 0;
         }
@@ -74,6 +75,49 @@ namespace SlopWorld.Tests
             var screen = new ScreenBuf { Lines = new[] { "unchanged" }, ContentRevision = 1 };
             Measure("terminal idle/cursor repaint decision", () =>
                 (int)TerminalRepaintPolicy.Choose(false, 1, screen));
+        }
+
+        static void EcoWork()
+        {
+            var sessions = new List<SessionInfo>();
+            for (int i = 0; i < 32; i++) sessions.Add(new SessionInfo { Name = "agent-" + i });
+            var membership = new ColonySessionIndex();
+            membership.Refresh(sessions, 1);
+            Compare("colony unchanged membership (32)", () =>
+                new HashSet<string>(sessions.Where(s => !s.Ephemeral && !s.Worker).Select(s => s.Name)).Count,
+                () => { membership.Refresh(sessions, 1); return membership.Contains("agent-0") ? 32 : 0; });
+
+            var now = new DateTime(2026, 9, 8, 23, 59, 59);
+            var clock = new ClockTextCache();
+            Compare("topbar unchanged clock text", () =>
+            {
+                string shortText = now.ToString("HH:mm");
+                string tip = now.ToString("dddd, d MMMM yyyy") + "\n" + now.ToString("HH:mm:ss");
+                return shortText.Length + tip.Length;
+            }, () =>
+            {
+                clock.Prepare(now, TimeFormat.TwentyFourHour, CultureInfo.InvariantCulture);
+                return clock.Short.Length + clock.Tooltip.Length;
+            });
+
+            var usage = new UsageInfo();
+            usage.Sources.Add("anthropic");
+            usage.Sources.Add("openai");
+            var config = new DaemonConfig();
+            config.UsageItems[WireContract.UsageKeys.ClaudeSession] = new DaemonConfig.UsageItemConfig { Poll = true };
+            var rows = new UsageRowsCache();
+            // Cold uses the production row builder, to isolate reuse from row-policy changes.
+            Measure("topbar quota rows / cold cache", () =>
+            {
+                var cold = new UsageRowsCache();
+                cold.Prepare(usage, config);
+                return cold.Rows.Count;
+            });
+            Measure("topbar quota rows / unchanged", () =>
+            {
+                rows.Prepare(usage, config);
+                return rows.Rows.Count;
+            });
         }
 
         static void Measure(string name, Func<long> operation)

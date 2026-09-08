@@ -65,6 +65,9 @@ spacing, buttons, fields, headings and errors. Color names resolve through
   source dims only its own rows. The clock is independent of usage health, and is right-aligned
   beside colony doors by default, or reserved at the bar centre / omitted by the Appearance
   setting. The selected session's status shows its state marker, name and task title.
+- Quota rows and counts cache by usage snapshot, mutable poll flags, display mode and culture.
+  Clock/expiry text refreshes each second; measured widths invalidate on font, atlas or UI scale
+  changes. Hidden clocks skip formatting and measurement; hover registration remains per draw.
 - `TopBar` draws from a map component and, over a terminal, from `TerminalWindow`; only
   one copy handles input. Appearance settings can hide Usage, place or hide Clock, or hide
   the Jukebox or Computer Core (`GM`) independently. Doors lay out right-to-left before

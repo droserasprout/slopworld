@@ -38,6 +38,7 @@ namespace SlopWorld
         public override void GameComponentUpdate()
         {
             if (Verse.Current.ProgramState != ProgramState.Playing) return;
+            if (Eco.Resting) return;
             var map = Find.CurrentMap;
             if (map == null) return;
 
@@ -48,7 +49,7 @@ namespace SlopWorld
         {
             if (Verse.Current.ProgramState != ProgramState.Playing) return;
             if (_pawn == null || !_pawn.Spawned) return;
-            if (Cutscene.Playing) return;
+            if (Eco.Bare) return;
             if (Find.WindowStack?.WindowOfType<TerminalWindow>() != null) return;
 
             var e = Event.current;

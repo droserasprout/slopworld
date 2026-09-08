@@ -44,6 +44,12 @@ namespace SlopWorld
         // Real-time, so the sequence runs even when the game is paused.
         public override void MapComponentUpdate()
         {
+            // Cancel, rather than defer, destruction disabled after a sequence was armed.
+            if (Settings.EcoMode || Settings.GrandmaMode)
+            {
+                _strikesLeft = 0;
+                return;
+            }
             if (_strikesLeft <= 0) return;
             if (Time.realtimeSinceStartup < _nextStrikeAt) return;
 

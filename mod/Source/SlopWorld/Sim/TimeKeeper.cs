@@ -4,6 +4,18 @@ using Verse;
 
 namespace SlopWorld
 {
+    // GameComponentUpdate runs after ticking. Enforce Eco at the tick boundary as well,
+    // letting vanilla clear ticksThisFrame and take its normal paused return.
+    [HarmonyPatch(typeof(TickManager), nameof(TickManager.TickManagerUpdate))]
+    public static class Patch_EcoTickBoundary
+    {
+        [HarmonyPriority(Priority.Last)]
+        static void Prefix(TickManager __instance)
+        {
+            if (Eco.Resting) __instance.CurTimeSpeed = TimeSpeed.Paused;
+        }
+    }
+
     // Own the game clock: start fresh colonies, hold Eco paused, and resume only pauses this
     // component owns. Vanilla time controls are hidden, so an external pause needs this fallback.
     public class TimeKeeper : GameComponent

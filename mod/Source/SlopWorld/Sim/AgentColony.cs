@@ -17,6 +17,10 @@ namespace SlopWorld
         const int PodOpenDelay = 60;
 
         Dictionary<string, Pawn> _pawns = new Dictionary<string, Pawn>();
+        readonly ColonySessionIndex _membership = new ColonySessionIndex();
+        readonly List<string> _retiring = new List<string>();
+        readonly List<string> _ordered = new List<string>();
+        bool _orderDirty = true;
 
         // An index rather than a convenience: IsAgent is asked on the way past by most of
         // Patches/ - a validator inside BestAttackTarget, the IsIdle the bar reads per
@@ -77,13 +81,14 @@ namespace SlopWorld
         {
             Unbind(name);
             _pawns[name] = pawn;
+            _orderDirty = true;
             if (pawn != null) Names[pawn] = name;
         }
 
         void Unbind(string name)
         {
             if (_pawns.TryGetValue(name, out var had) && had != null) Names.Remove(had);
-            _pawns.Remove(name);
+            if (_pawns.Remove(name)) _orderDirty = true;
         }
 
         public string SessionOf(Pawn p) =>
@@ -129,8 +134,7 @@ namespace SlopWorld
             return AgentSidebar.Sessions();
         }
 
-        // How often the sweep runs on a stopped clock, in seconds of wall time. The tick
-        // reconcile's own second, near enough, and eco is drawing at 30 frames anyway.
+        // Match the tick reconcile's cadence even while Eco holds the simulation paused.
         const float SweepSecs = 1f;
         static float _swept;
 
@@ -154,31 +158,27 @@ namespace SlopWorld
         {
             if (sessions.Count == 0 && !SessionHub.Instance.Online) return false;
 
-            // Reconcile colony-owned sessions only; ephemeral viewer/editor/host sessions and
-            // task workers are sidebar rows, not pawns, and are excluded from `live`.
-            var live = new HashSet<string>(
-                sessions.Where(s => !s.Ephemeral && !s.Worker).Select(s => s.Name));
+            if (_membership.Refresh(sessions, SessionHub.Instance.SessionsVersion))
+                PerfTrace.Count("colony-membership-rebuilds");
 
-            foreach (var name in _pawns.Keys.ToList())
+            // Keep the repair sweep even on unchanged snapshots; deaths/destruction need no
+            // daemon revision. Gather removals first so callbacks can safely change bindings.
+            _retiring.Clear();
+            foreach (var pair in _pawns)
             {
-                var p = _pawns[name];
-                if (!live.Contains(name))
-                {
-                    Retire(p);
-                    Unbind(name);
-                    _seen.Remove(name);
-                }
-                else if (p == null || p.Destroyed)
-                {
-                    Unbind(name);
-                }
-                else if (p.Dead)
-                {
-                    // Its corpse would hold the session's slot in the bar forever.
-                    Retire(p);
-                    Unbind(name);
-                }
+                var pawn = pair.Value;
+                if (!_membership.Contains(pair.Key) || pawn == null || pawn.Destroyed || pawn.Dead)
+                    _retiring.Add(pair.Key);
             }
+            foreach (var name in _retiring)
+            {
+                if (!_pawns.TryGetValue(name, out var pawn)) continue;
+                bool removed = !_membership.Contains(name);
+                if (removed || (pawn != null && pawn.Dead)) Retire(pawn);
+                Unbind(name);
+                if (removed) _seen.Remove(name);
+            }
+            _retiring.Clear();
 
             return true;
         }
@@ -198,6 +198,13 @@ namespace SlopWorld
         // rests - from wall time. One body, because "which colonists are there" is the same
         // question whichever of the two asked it.
         void Reconcile()
+        {
+            long started = PerfTrace.Start();
+            try { ReconcileCore(); }
+            finally { PerfTrace.End("colony-reconcile", started, _pawns.Count); }
+        }
+
+        void ReconcileCore()
         {
             var map = Find.CurrentMap ?? Find.AnyPlayerHomeMap;
             if (map == null) return;
@@ -248,13 +255,17 @@ namespace SlopWorld
 
         void Reorder()
         {
-            var names = _pawns.Keys.ToList();
-            names.Sort(CompareNames);
-            for (int i = 0; i < names.Count; i++)
+            if (!_orderDirty) return;
+            _ordered.Clear();
+            _ordered.AddRange(_pawns.Keys);
+            _ordered.Sort(CompareNames);
+            for (int i = 0; i < _ordered.Count; i++)
             {
-                var settings = _pawns[names[i]]?.playerSettings;
-                if (settings != null) settings.displayOrder = i;
+                var settings = _pawns[_ordered[i]]?.playerSettings;
+                if (settings != null && settings.displayOrder != i) settings.displayOrder = i;
             }
+            _orderDirty = false;
+            PerfTrace.Count("colony-order-rebuilds");
         }
 
         internal static int CompareNames(string a, string b)
@@ -471,6 +482,7 @@ namespace SlopWorld
             if (_seen == null) _seen = new Dictionary<string, AgentState>();
             Scribe_Values.Look(ref _jukeboxSent, "jukeboxSent", false);
             _reindex = true; // whatever the table is now, it is not what the index holds
+            _orderDirty = true;
         }
     }
 }

@@ -247,6 +247,7 @@ namespace SlopWorld
         // pass, keeping UI ThingIcons and all other graphics at their normal angle.
         static void Things(Map map)
         {
+            long started = PerfTrace.Start();
             var view = Find.CameraDriver.CurrentViewRect;
             _drawingThings = true;
             try
@@ -254,11 +255,15 @@ namespace SlopWorld
                 DrawThingDef(map, ModDefOf.SlopJukebox, view);
                 DrawThingDef(map, ModDefOf.Ship_ComputerCore, view);
                 DrawAgents(map, view);
-                foreach (var pet in Pets.On(map)) DrawPawn(pet, view, map);
+                // This draw runs every frame; do not materialize Pets.On's filtered list.
+                var animals = map.mapPawns.SpawnedColonyAnimals;
+                for (int i = 0; i < animals.Count; i++)
+                    if (Pets.Is(animals[i])) DrawPawn(animals[i], view, map);
             }
             finally
             {
                 _drawingThings = false;
+                PerfTrace.End("eco-pawn-draw", started, 1);
             }
         }
 
