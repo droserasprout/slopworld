@@ -169,8 +169,23 @@ namespace SlopWorld
             return !on;
         }
 
+        // A caption and its field are separate listing rows. Keep the shared label-to-control
+        // gap here so every form does not have to add it by hand.
+        public static Rect FieldRect(Listing_Standard l)
+        {
+            l.Gap(GapXS);
+            return l.GetRect(FieldH);
+        }
+
         public static string Field(Listing_Standard l, string name, string text, bool on = true) =>
-            Field(l.GetRect(FieldH), name, text, on);
+            Field(FieldRect(l), name, text, on);
+
+        public static string Area(Listing_Standard l, float height, string name, string text,
+                                  bool on = true, bool frame = true)
+        {
+            l.Gap(GapXS);
+            return Area(l.GetRect(height), name, text, on, frame);
+        }
 
         public static bool Checkbox(Listing_Standard l, string label, bool on, string tip = null) =>
             Checkbox(l.GetRect(RowH), label, on, tip);
