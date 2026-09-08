@@ -12,6 +12,13 @@ The first extraction pass is complete. The two outliers now have focused seams:
   final `refused` checks live in `sandbox/bind/policy.rs`, while ordered bwrap argv emission
   lives in `sandbox/bind/mounts.rs`.
 
+The maintainability pass then gave the manager and API their next seams: tmux orphan recovery,
+session startup, and errand reservation now live in `manager/adoption.rs`, `manager/start.rs`,
+and `manager/errands.rs`; preset policy handlers live in `api/handlers_presets.rs`. Their largest
+focused modules are now `manager/library.rs` at 871 lines / 810 code, `manager/config.rs` at
+864 / 779, and `api/handlers.rs` at 647 / 548 (`tokei 15.0.0`, 2026-09-08). The new extraction
+modules remain below the existing hotspot threshold.
+
 The refreshed focused inventory is `tokei 14.0.0`: `usage.rs` is 962 lines / 740 code and
 `sandbox/bind.rs` is 787 / 700 code. The extracted files are 620 / 494, 520 / 419, 143 / 108,
 and 383 / 291 respectively, so no extraction module is itself a new hotspot.
