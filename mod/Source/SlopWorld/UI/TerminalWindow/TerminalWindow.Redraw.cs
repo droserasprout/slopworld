@@ -13,9 +13,16 @@ namespace SlopWorld
             set => _state.CursorBlinkAt = value;
         }
 
+        sealed class DisplayedFrameState
+        {
+            public ScreenBuf Frame;
+            public long RunId;
+            public int ConnectionGeneration;
+        }
+
         // Keep a complete frame for each tab while its subscription catches up after a switch.
-        readonly Dictionary<string, ScreenBuf> _displayedFrames =
-            new Dictionary<string, ScreenBuf>();
+        readonly Dictionary<string, DisplayedFrameState> _displayedFrames =
+            new Dictionary<string, DisplayedFrameState>();
         float _renderHistoryShift;
 
         internal void ResetCursorBlink() => _cursorBlinkAt = Time.realtimeSinceStartup;
@@ -44,7 +51,15 @@ namespace SlopWorld
         ScreenBuf CachedDisplayedFrame(string name)
         {
             if (string.IsNullOrEmpty(name)) return null;
-            return _displayedFrames.TryGetValue(name, out var frame) ? frame : null;
+            if (!_displayedFrames.TryGetValue(name, out var state)) return null;
+            var info = SessionHub.Instance.Get(name);
+            if (info == null || state.RunId != info.RunId ||
+                state.ConnectionGeneration != SessionHub.Instance.ConnectionGeneration)
+            {
+                _displayedFrames.Remove(name);
+                return null;
+            }
+            return state.Frame;
         }
 
         void RememberDisplayedFrame(string name, ScreenBuf frame)
@@ -53,12 +68,21 @@ namespace SlopWorld
                 frame.Lines.Length == 0)
                 return;
 
+            var info = SessionHub.Instance.Get(name);
+            if (info == null) return;
             if (_displayedFrames.TryGetValue(name, out var previous) &&
-                previous.Seq == frame.Seq && previous.Off == frame.Off &&
-                previous.Cols == frame.Cols && previous.Rows == frame.Rows)
+                previous.Frame.Seq == frame.Seq && previous.Frame.Off == frame.Off &&
+                previous.Frame.Cols == frame.Cols && previous.Frame.Rows == frame.Rows &&
+                previous.RunId == info.RunId &&
+                previous.ConnectionGeneration == SessionHub.Instance.ConnectionGeneration)
                 return;
 
-            _displayedFrames[name] = frame.Snapshot();
+            _displayedFrames[name] = new DisplayedFrameState
+            {
+                Frame = frame.Snapshot(),
+                RunId = info.RunId,
+                ConnectionGeneration = SessionHub.Instance.ConnectionGeneration,
+            };
         }
 
         // The window is also the host for settings and other content views. Those views are

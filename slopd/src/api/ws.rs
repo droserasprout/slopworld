@@ -535,6 +535,7 @@ mod tests {
             state_since: 0,
             title: String::new(),
             bell: false,
+            run_id: 0,
             seq: 0,
         }
     }

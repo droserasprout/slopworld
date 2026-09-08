@@ -65,6 +65,9 @@ pub struct SessionView {
     pub title: String,
     // Sticky until someone subscribes, rather than tied to the frame that rang.
     pub bell: bool,
+    // Distinguishes successive processes under one durable session name. Clients use it to
+    // reject cached terminal history from a previous run.
+    pub run_id: u64,
     pub seq: u64,
 }
 

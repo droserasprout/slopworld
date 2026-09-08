@@ -45,6 +45,9 @@ namespace SlopWorld
             if (_historyConnectionGeneration == generation) return;
             _historyConnectionGeneration = generation;
 
+            _historyCaches.Clear();
+            _activeHistoryCache = null;
+            _historyRestorePending = false;
             _historyRequests.Clear();
             _scrollPending = false;
             _wantedScrollOff = 0;
@@ -57,8 +60,13 @@ namespace SlopWorld
             _historyRefreshPending = false;
             _historyWarmed = false;
             _historyBarDragging = false;
-            _history.Reset();
+            _history = new TerminalHistory();
             _lastLiveSeq = -1;
+            _historyLiveSeq = -1;
+            _historyLiveHistory = -1;
+            _historyLiveCols = 0;
+            _historyLiveRows = 0;
+            _historyLiveAltScreen = false;
         }
 
         internal void JumpToLive()

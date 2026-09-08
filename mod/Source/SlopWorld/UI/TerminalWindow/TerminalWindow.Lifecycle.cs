@@ -166,6 +166,7 @@ namespace SlopWorld
             SetContent(null);
             if (name == _name) return;
             SaveScrollbackState(_name);
+            SaveHistoryCache(_name);
             // A window opened on content alone has no pane to let go of, and a subscription
             // named null is one the daemon would have to answer.
             if (_name != null) SessionHub.Instance.Unsubscribe(_name);
@@ -193,11 +194,19 @@ namespace SlopWorld
             _historyViewReady = false;
             _historyRefreshPending = false;
             _historyWarmed = false;
-            _history.Reset();
+            _activeHistoryCache = null;
+            _historyRestorePending = false;
+            _history = new TerminalHistory();
             _historyRequests.Clear();
             _historyCoordinateShift = 0;
             _historyDisplayedFrame = null;
+            _historyLiveSeq = -1;
+            _historyLiveHistory = -1;
+            _historyLiveCols = 0;
+            _historyLiveRows = 0;
+            _historyLiveAltScreen = false;
             RestoreScrollbackState(_name);
+            RestoreHistoryCache(_name);
             if (_scrollOff > 0)
             {
                 _historyDisplayedFrame = CachedDisplayedFrame(_name);
@@ -238,7 +247,9 @@ namespace SlopWorld
                     pixels = cellH > 0.01f ? _scrollOff * cellH : -1f;
                 }
             }
-            _scrollbackStates[name] = new ScrollbackState(Mathf.Max(0, _scrollOff), pixels);
+            var info = SessionHub.Instance.Get(name);
+            _scrollbackStates[name] = new ScrollbackState(
+                Mathf.Max(0, _scrollOff), pixels, info?.RunId ?? 0L);
         }
 
         void RestoreScrollbackState(string name)
@@ -246,6 +257,14 @@ namespace SlopWorld
             if (string.IsNullOrEmpty(name) ||
                 !_scrollbackStates.TryGetValue(name, out var state))
             {
+                _scrollOff = 0;
+                return;
+            }
+
+            var info = SessionHub.Instance.Get(name);
+            if (info == null || state.RunId != info.RunId)
+            {
+                _scrollbackStates.Remove(name);
                 _scrollOff = 0;
                 return;
             }

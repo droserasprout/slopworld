@@ -14,16 +14,40 @@ namespace SlopWorld
         {
             public int Offset;
             public float Pixels;
+            public long RunId;
 
-            public ScrollbackState(int offset, float pixels)
+            public ScrollbackState(int offset, float pixels, long runId)
             {
                 Offset = offset;
                 Pixels = pixels;
+                RunId = runId;
             }
+        }
+
+        sealed class HistoryCacheState
+        {
+            public TerminalHistory History;
+            public int TopOffset;
+            public int CoordinateShift;
+            public bool Warmed;
+            public bool RefreshPending;
+            public long RunId;
+            public int ConnectionGeneration;
+            public int LiveSeq;
+            public int LiveHistory;
+            public int Cols;
+            public int Rows;
+            public bool AltScreen;
         }
 
         readonly Dictionary<string, ScrollbackState> _scrollbackStates =
             new Dictionary<string, ScrollbackState>();
+        // Inactive tabs retain their indexed rows, but not pending requests. A subscription
+        // clears the daemon's reply queue, so requests must be planned again when the tab
+        // returns; the rows themselves can still satisfy the restored viewport immediately.
+        readonly Dictionary<string, HistoryCacheState> _historyCaches =
+            new Dictionary<string, HistoryCacheState>();
+        HistoryCacheState _activeHistoryCache;
 
         bool _historyViewReady;
         bool _historyRefreshPending;
@@ -32,7 +56,13 @@ namespace SlopWorld
         // opening or revisiting a tab never issues a scroll capture.
         bool _historyWarmed;
 
-        readonly TerminalHistory _history = new TerminalHistory();
+        TerminalHistory _history = new TerminalHistory();
+        bool _historyRestorePending;
+        int _historyLiveSeq = -1;
+        int _historyLiveHistory = -1;
+        int _historyLiveCols;
+        int _historyLiveRows;
+        bool _historyLiveAltScreen;
 
         struct HistoryRequest
         {
@@ -79,6 +109,121 @@ namespace SlopWorld
             if (displayed != null) _historyDisplayedFrame = displayed;
             if (displayed != null) SyncSelectionOffset(displayed.Off);
             return displayed;
+        }
+
+        void SaveHistoryCache(string name)
+        {
+            if (string.IsNullOrEmpty(name)) return;
+            PruneHistoryCaches();
+            var info = SessionHub.Instance.Get(name);
+            if (info == null) return;
+
+            _historyCaches[name] = new HistoryCacheState
+            {
+                History = _history,
+                TopOffset = _historyTopOff,
+                CoordinateShift = _historyCoordinateShift,
+                Warmed = _historyWarmed,
+                RefreshPending = _historyRefreshPending,
+                RunId = info.RunId,
+                ConnectionGeneration = SessionHub.Instance.ConnectionGeneration,
+                LiveSeq = _historyLiveSeq,
+                LiveHistory = _historyLiveHistory,
+                Cols = _historyLiveCols > 0 ? _historyLiveCols : _history.Cols,
+                Rows = _historyLiveRows > 0 ? _historyLiveRows : _history.Rows,
+                AltScreen = _historyLiveSeq >= 0 ? _historyLiveAltScreen : _history.AltScreen,
+            };
+        }
+
+        void PruneHistoryCaches()
+        {
+            if (_historyCaches.Count == 0) return;
+            List<string> gone = null;
+            foreach (var name in _historyCaches.Keys)
+            {
+                if (SessionHub.Instance.Get(name) == null)
+                    (gone ?? (gone = new List<string>())).Add(name);
+            }
+            if (gone == null) return;
+            foreach (var name in gone) _historyCaches.Remove(name);
+        }
+
+        void RestoreHistoryCache(string name)
+        {
+            _activeHistoryCache = null;
+            _historyRestorePending = false;
+            if (string.IsNullOrEmpty(name) ||
+                !_historyCaches.TryGetValue(name, out var cache))
+                return;
+
+            var info = SessionHub.Instance.Get(name);
+            if (info == null || cache.RunId != info.RunId ||
+                cache.ConnectionGeneration != SessionHub.Instance.ConnectionGeneration)
+            {
+                _historyCaches.Remove(name);
+                return;
+            }
+
+            _activeHistoryCache = cache;
+            _history = cache.History ?? new TerminalHistory();
+            _historyTopOff = cache.TopOffset;
+            _historyCoordinateShift = cache.CoordinateShift;
+            _historyWarmed = cache.Warmed;
+            _historyRefreshPending = cache.RefreshPending;
+            _historyLiveSeq = cache.LiveSeq;
+            _historyLiveHistory = cache.LiveHistory;
+            _historyLiveCols = cache.Cols;
+            _historyLiveRows = cache.Rows;
+            _historyLiveAltScreen = cache.AltScreen;
+            _historyRestorePending = true;
+        }
+
+        // A switched tab has no comparable live frame until its subscription catches up. Once
+        // it arrives, translate the retained rows by the daemon's history growth and reject the
+        // cache if the run, viewport, or terminal screen mode no longer matches.
+        int RestoredHistoryShift(ScreenBuf live)
+        {
+            if (!_historyRestorePending || live == null) return int.MinValue;
+            _historyRestorePending = false;
+
+            var info = SessionHub.Instance.Get(_name);
+            bool compatible = info != null && _activeHistoryCache != null &&
+                _activeHistoryCache.RunId == info.RunId &&
+                _activeHistoryCache.ConnectionGeneration == SessionHub.Instance.ConnectionGeneration &&
+                (_historyLiveCols <= 0 || live.Cols <= 0 || _historyLiveCols == live.Cols) &&
+                (_historyLiveRows <= 0 || live.Rows <= 0 || _historyLiveRows == live.Rows) &&
+                _historyLiveAltScreen == live.AltScreen;
+
+            int shift = 0;
+            if (compatible && _historyLiveSeq >= 0 && live.Seq == _historyLiveSeq)
+            {
+                // A same-sequence subscription replay can hydrate metadata without adding
+                // scrollback rows. Treat it as unchanged even if the history field differs.
+                compatible = _historyLiveHistory < 0 || live.History < 0 ||
+                    live.History == _historyLiveHistory;
+            }
+            else if (compatible && _historyLiveHistory >= 0 && live.History >= 0)
+            {
+                shift = live.History - _historyLiveHistory;
+                compatible = shift >= 0;
+            }
+            else if (compatible && _historyLiveSeq >= 0 && live.Seq != _historyLiveSeq)
+            {
+                // Without both history extents there is no safe way to translate rows that
+                // may have scrolled while the tab was inactive.
+                compatible = false;
+            }
+
+            if (compatible) return shift;
+
+            _activeHistoryCache = null;
+            _history = new TerminalHistory();
+            _historyTopOff = -1;
+            _historyCoordinateShift = 0;
+            _historyWarmed = false;
+            _historyRefreshPending = false;
+            _historyDisplayedFrame = null;
+            return 0;
         }
 
         void DrainHistoryReplies(SessionHub hub, ScreenBuf live)
@@ -152,7 +297,10 @@ namespace SlopWorld
                 return;
 
             _lastLiveSeq = -1;
-            _history.Reset();
+            _historyCaches.Remove(_name);
+            _scrollbackStates.Remove(_name);
+            _activeHistoryCache = null;
+            _history = new TerminalHistory();
             _historyRequests.Clear();
             _scrollPending = false;
             _wantedScrollOff = 0;
@@ -171,6 +319,12 @@ namespace SlopWorld
             _historyRefreshPending = false;
             _historyWarmed = false;
             _historyDisplayedFrame = null;
+            _historyRestorePending = false;
+            _historyLiveSeq = -1;
+            _historyLiveHistory = -1;
+            _historyLiveCols = 0;
+            _historyLiveRows = 0;
+            _historyLiveAltScreen = false;
             _selectionOff = 0;
             ClearSelection();
         }

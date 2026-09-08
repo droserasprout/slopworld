@@ -73,6 +73,7 @@ impl Manager {
                         .or_else(|| l.screen.as_ref().map(|s| s.title.clone()))
                         .unwrap_or_default(),
                     bell: l.bell,
+                    run_id: l.run_id,
                     seq: l.seq,
                 }
             })

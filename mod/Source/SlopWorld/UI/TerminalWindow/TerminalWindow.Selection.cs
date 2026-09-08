@@ -151,14 +151,21 @@ namespace SlopWorld
             set => _state.Selection.EdgeFrame = value;
         }
 
-        void NoteLiveFrame(ScreenBuf live)
+        void NoteLiveFrame(ScreenBuf live, int restoredShift = int.MinValue)
         {
             if (live == null || live.Seq == _lastLiveSeq) return;
 
+            int liveShift = restoredShift == int.MinValue ? live.LiveShift : restoredShift;
+
             if (_lastLiveSeq >= 0 && _selectionOff == 0 &&
                 (_hasSel || _dragging || _wordDragging))
-                MoveSelectionRows(-live.LiveShift);
+                MoveSelectionRows(-liveShift);
             _lastLiveSeq = live.Seq;
+            _historyLiveSeq = live.Seq;
+            _historyLiveHistory = live.History;
+            _historyLiveCols = live.Cols;
+            _historyLiveRows = live.Rows;
+            _historyLiveAltScreen = live.AltScreen;
             ScrollDebugLive(live);
 
             // History offsets are measured from this live bottom. Once the pane changes
@@ -167,22 +174,22 @@ namespace SlopWorld
             // pane extend the offset by the same amount, keeping the content under the user's
             // eyes anchored instead of pulling the viewport toward new output.
             if (_scrollOff <= 0 && !_historyWarmed) return;
-            if (_scrollOff > 0 && live.LiveShift > 0)
+            if (_scrollOff > 0 && liveShift > 0)
             {
                 float cellH = TerminalFont.CellH;
                 float pixels = _historyScrollReady && cellH > 0.01f
                     ? HistoryOffsetPixels()
                     : _historyJumpPixels >= 0f ? _historyJumpPixels
                     : cellH > 0.01f ? _scrollOff * cellH : -1f;
-                _scrollOff = Mathf.Min(MaxScrollLines, _scrollOff + live.LiveShift);
+                _scrollOff = Mathf.Min(MaxScrollLines, _scrollOff + liveShift);
                 _historyJumpPending = true;
                 _historyJumpOff = _scrollOff;
                 _historyJumpPixels = pixels >= 0f && cellH > 0.01f
-                    ? Mathf.Min(MaxScrollLines * cellH, pixels + live.LiveShift * cellH)
+                    ? Mathf.Min(MaxScrollLines * cellH, pixels + liveShift * cellH)
                     : -1f;
                 if (_historyTopOff >= 0)
                     _historyTopOff = Mathf.Min(MaxScrollLines,
-                        _historyTopOff + live.LiveShift);
+                        _historyTopOff + liveShift);
             }
 
             // Keep history available while a watched agent redraws. In-place refreshes do not
@@ -190,12 +197,12 @@ namespace SlopWorld
             // TerminalHistory; throwing the cache away on every live frame starves active panes
             // because their next history response is almost always one sequence behind.
             float historyStarted = ScrollDebugTimer();
-            bool retained = _history.UpdateLive(live, live.LiveShift);
+            bool retained = _history.UpdateLive(live, liveShift);
             ScrollDebugUpdateLive(historyStarted);
             if (retained)
             {
                 _historyCoordinateShift = Mathf.Clamp(
-                    _historyCoordinateShift + live.LiveShift, 0, MaxScrollLines);
+                    _historyCoordinateShift + liveShift, 0, MaxScrollLines);
                 return;
             }
 
@@ -206,6 +213,7 @@ namespace SlopWorld
             _historyTopOff = -1;
             _historyRefreshPending = true;
             _historyWarmed = false;
+            _activeHistoryCache = null;
         }
 
         void SyncSelectionOffset(int offset)
