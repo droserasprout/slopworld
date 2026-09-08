@@ -268,6 +268,12 @@ namespace SlopWorld
         }
 
         public static bool Select(Rect r, string caption, string value,
+                                  IEnumerable<FloatMenuOption> choices, out Rect box,
+                                  string tip = null, bool on = true, bool open = false,
+                                  Action<UiMenu> openMenu = null) =>
+            UiSelector.Draw(r, caption, value, choices, out box, tip, on, open, openMenu);
+
+        public static bool Select(Rect r, string caption, string value,
                                   IEnumerable<SelectorOption> choices, out Rect box,
                                   string tip = null, bool on = true, bool open = false,
                                   Action<UiMenu> openMenu = null) =>
@@ -281,6 +287,12 @@ namespace SlopWorld
             l.Gap(GapS);
             return pressed;
         }
+
+        public static bool Select(Listing_Standard l, string caption, string value,
+                                  IEnumerable<FloatMenuOption> choices, out Rect box,
+                                  string tip = null, bool on = true, bool open = false,
+                                  Action<UiMenu> openMenu = null) =>
+            UiSelector.Draw(l, caption, value, choices, out box, tip, on, open, openMenu);
 
         public static bool Select(Listing_Standard l, string caption, string value,
                                   IEnumerable<SelectorOption> choices, out Rect box,

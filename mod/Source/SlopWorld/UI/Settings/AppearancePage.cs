@@ -157,21 +157,21 @@ namespace SlopWorld
             var l = new Listing_Standard { maxOneColumn = true };
             l.Begin(rect);
 
-            var fontOptions = new List<SelectorOption>
+            var fontOptions = new List<FloatMenuOption>
             {
-                new SelectorOption("Automatic (system default)", () =>
+                new FloatMenuOption("Automatic", () =>
                 {
                     S.uiFontName = "";
                     UiFont.Apply();
                     S.MarkDirty();
                 }),
             };
-            fontOptions.AddRange(UiFont.All.Select(name => new SelectorOption(name, () =>
+            fontOptions.AddRange(UiWidgets.GroupedFontOptions(UiFont.All, name =>
             {
                 S.uiFontName = name;
                 UiFont.Apply();
                 S.MarkDirty();
-            })));
+            }));
             UiWidgets.Select(l, "Font", S.uiFontName.NullOrEmpty() ? "Automatic" : S.uiFontName,
                 fontOptions, out _);
 
