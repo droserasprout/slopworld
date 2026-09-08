@@ -8,11 +8,6 @@
 - **passt (pasta)** - for networking
 - **tmux** - terminal multiplexer.
 
-## Build toolchain
-
-- **Rust** toolchain for daemon and launcher
-- **Mono** (`csc`) for building the mod (the .NET SDK is optional for formatting)
-
 ## RimWorld
 
 Native Linux RimWorld build. Set the $RIMWORLD env var to the path to the game.
@@ -32,3 +27,5 @@ See [macOS](guides/macos.md) for the installation steps.
 - A SlopWorld checkout.
 
 See [Sidecar worker](guides/sidecar.md) for setup and workspace mounts.
+
+For the build toolchain and contributor checks, see [Build from source](build.md).
