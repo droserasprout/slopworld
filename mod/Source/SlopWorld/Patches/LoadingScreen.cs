@@ -26,7 +26,10 @@ namespace SlopWorld
         // top-left inner corner, rather than inheriting GameplayTipWindow's centred label.
         internal static readonly Vector2 Margin = new Vector2(16f, 16f);
         internal static readonly Color ContainerBackground = Color.black;
-        internal static readonly Color StreamText = new Color(0.86f, 0.87f, 0.88f);
+        internal static readonly Color StreamText = new Color(0.82f, 0.88f, 0.93f);
+        // Keep the typewriter tail visible: word n-1 is muted and word n is deepest.
+        internal static readonly Color PreviousWordText = ScaleRgb(StreamText, 0.75f);
+        internal static readonly Color LatestWordText = ScaleRgb(StreamText, 0.55f);
         // The package name is the first lookup key; the embedded family name keeps the same
         // font working on platforms whose font APIs ignore the filename.
         static readonly string[] LoadingFontNames =
@@ -40,6 +43,9 @@ namespace SlopWorld
         // Not Verse.Rand: this screen is up during map generation, so drawing a tip must not
         // consume the game's deterministic sequence for terrain and pawns.
         static readonly System.Random Dice = new System.Random();
+
+        static Color ScaleRgb(Color color, float scale)
+            => new Color(color.r * scale, color.g * scale, color.b * scale, color.a);
 
         // The box is measured against the current screen because both the wrapped stream and
         // GameplayTipWindow's immediate window need the same dimensions.
@@ -163,6 +169,58 @@ namespace SlopWorld
         static int _streamGeneration = -1;
 
         internal static string Painted => _painted;
+
+        static int WordCount()
+        {
+            int count = 0;
+            foreach (string line in Stream)
+            {
+                if (line.Length == 0) continue;
+                count += line.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries).Length;
+            }
+            return count;
+        }
+
+        internal static void DrawStream(Rect rect)
+        {
+            GUIStyle style = LoadingStyle;
+            int wordCount = WordCount();
+            if (wordCount == 0) return;
+
+            float lineHeight = Mathf.Max(1f, style.lineHeight);
+            int wordAt = 0;
+            Color oldGuiColor = GUI.color;
+
+            try
+            {
+                for (int lineAt = 0; lineAt < Stream.Count; lineAt++)
+                {
+                    string line = Stream[lineAt];
+                    if (line.Length == 0) continue;
+
+                    string[] words = line.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+                    float x = 0f;
+                    float y = lineAt * lineHeight;
+                    for (int i = 0; i < words.Length; i++)
+                    {
+                        string word = words[i];
+                        string segment = i + 1 < words.Length ? word + " " : word;
+                        float width = style.CalcSize(new GUIContent(segment)).x;
+                        GUI.color = wordAt == wordCount - 1
+                            ? LatestWordText
+                            : wordAt == wordCount - 2 ? PreviousWordText : StreamText;
+                        GUI.Label(new Rect(x, y, Mathf.Max(1f, width + 2f), lineHeight),
+                            segment, style);
+                        x += width;
+                        wordAt++;
+                    }
+                }
+            }
+            finally
+            {
+                GUI.color = oldGuiColor;
+            }
+        }
 
         static void ResetStream()
         {
@@ -384,19 +442,14 @@ namespace SlopWorld
             Widgets.DrawBoxSolid(rect, Patch_LoadingTips.ContainerBackground);
             Patch_LoadingTips.Advance();
 
-            Color guiColor = GUI.color;
-            GUI.color = Patch_LoadingTips.StreamText;
-
+            Widgets.BeginGroup(inner);
             try
             {
-                Widgets.BeginGroup(inner);
-                GUI.Label(new Rect(0f, 0f, inner.width, inner.height),
-                    Patch_LoadingTips.Painted, Patch_LoadingTips.LoadingStyle);
-                Widgets.EndGroup();
+                Patch_LoadingTips.DrawStream(inner);
             }
             finally
             {
-                GUI.color = guiColor;
+                Widgets.EndGroup();
             }
 
             return false;
