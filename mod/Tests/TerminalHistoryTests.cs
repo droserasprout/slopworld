@@ -8,6 +8,8 @@ namespace SlopWorld.Tests
     {
         public static IEnumerable<(string Name, Action Body)> Cases()
         {
+            yield return ("copies a selection across viewports in either direction", CopiesSelection);
+            yield return ("refuses selection gaps and preserves displayed text", SelectionGaps);
             yield return ("stitches skipped offsets from overlapping viewports", StitchesOverlap);
             yield return ("requires a bridge across non-overlapping viewports", RequiresBridge);
             yield return ("rejects a frame from an older live sequence", RejectsOldSequence);
@@ -37,6 +39,38 @@ namespace SlopWorld.Tests
             Off = off,
             Lines = lines,
         };
+
+        static void CopiesSelection()
+        {
+            var live = Frame(0, "live-0", "live-1", "live-2");
+            var history = new TerminalHistory();
+            history.Reset(live);
+            history.Add(Frame(3, "old-3", "old-2", "old-1"), live, 3);
+            history.Add(Frame(6, "old-6", "old-5", "old-4"), live, 6);
+            var middle = Frame(3, "old-3", "old-2", "old-1");
+            const string expected = "d-5\nold-4\nold-3\nold-2\nold-1\nlive-0\nliv";
+            AssertEx.Equal(expected, history.SelectionText(middle, 2, -2, 2, 4),
+                "both offscreen ends and their partial columns are copied");
+            AssertEx.Equal(expected, history.SelectionText(middle, 2, 4, 2, -2),
+                "backwards drag copies in reading order");
+            var next = Frame(0, "live-1", "live-2", "live-3");
+            history.UpdateLive(next, 1);
+            middle.Off++;
+            AssertEx.Equal(expected, history.SelectionText(middle, 2, -2, 2, 4),
+                "history translation preserves the selected rows");
+        }
+
+        static void SelectionGaps()
+        {
+            var live = Frame(0, "live-0", "live-1", "live-2");
+            var history = new TerminalHistory();
+            history.Reset(live);
+            AssertEx.Equal("", history.SelectionText(live, 0, -1, 2, 1),
+                "a missing row never produces a silently truncated copy");
+            var frozen = Frame(0, "\u001b[31mfrozen\u001b[0m", "", "tail");
+            AssertEx.Equal("frozen\n\nta", history.SelectionText(frozen, 0, 0, 1, 2),
+                "displayed text wins over cache, strips SGR, and keeps blank lines");
+        }
 
         static void WarmsFirstGesture()
         {

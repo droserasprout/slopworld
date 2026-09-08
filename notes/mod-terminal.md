@@ -74,6 +74,13 @@ otherwise reports a missing image for ordinary text; they forward Ctrl+V only fo
 other non-text) clipboard data. The built-in Codex sandbox therefore includes the X11 and
 Wayland display capabilities it needs.
 Shift+F1..F12 forwards the F-key to the agent while a bare F-key is the mod's.
+Non-letter control chords include Ctrl+Space/@, Ctrl+[, Ctrl+backslash, Ctrl+],
+Ctrl+^, and Ctrl+_. Historical clicks stay local; forwarded mouse gestures retain
+their release even when Shift changes. In alternate-screen apps without mouse reporting,
+horizontal wheel gestures send Left/Right; the dominant axis suppresses touchpad drift.
+Mouse-reporting apps still receive only vertical wheel reports.
+Selection copy combines displayed text with cached offscreen history rows; if the
+range contains a missing row, it leaves the clipboard unchanged.
 
 Unity can lose the semicolon IMGUI event. The terminal therefore checks both the
 character stream and named key, deduplicated per frame; Shift suppresses the `;` fallback

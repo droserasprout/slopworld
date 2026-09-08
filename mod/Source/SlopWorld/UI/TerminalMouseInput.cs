@@ -11,12 +11,10 @@ namespace SlopWorld
     {
         internal void HandleWheel(Rect body, Event e)
         {
-            if (!body.Contains(e.mousePosition)) return;
+            if (!body.Contains(e.mousePosition) || (e.delta.x == 0f && e.delta.y == 0f)) return;
 
             var live = SessionHub.Instance.Screen(_window.SessionName);
             bool editor = IsEditorSession();
-            int step = Mathf.Clamp(Mathf.RoundToInt(Mathf.Abs(e.delta.y)), 1, 5);
-            bool up = e.delta.y < 0;
 
             // Already in scrollback: stay there, whatever the live app is doing.
             // The app mode check below would otherwise hijack the wheel and send it
@@ -33,9 +31,11 @@ namespace SlopWorld
             // is one tmux write, not one tmux process per scrolled line.
             if (live != null && live.AppMouse)
             {
+                if (e.delta.y == 0f) return;
+                int step = Mathf.Clamp(Mathf.RoundToInt(Mathf.Abs(e.delta.y)), 1, 5);
                 _window.ClearSelection();
                 var cell = _window.CellAt(body, e.mousePosition);
-                string act = up ? "wheelup" : "wheeldown";
+                string act = e.delta.y < 0f ? "wheelup" : "wheeldown";
                 SessionHub.Instance.SendMouse(_window.SessionName, act, 0, cell.x, cell.y, step);
                 e.Use();
                 return;
@@ -50,9 +50,16 @@ namespace SlopWorld
             // while the shell is handing control to it.
             if (editor || (live != null && live.AltScreen))
             {
+                // Use the dominant axis so slight touchpad drift does not mix vertical
+                // movement into a sideways gesture. Pagers receive their normal arrow keys.
+                bool horizontal = Mathf.Abs(e.delta.x) > Mathf.Abs(e.delta.y);
+                float delta = horizontal ? e.delta.x : e.delta.y;
+                int step = Mathf.Clamp(Mathf.RoundToInt(Mathf.Abs(delta)), 1, 5);
+                string key = horizontal ? (delta < 0f ? "Left" : "Right")
+                    : (delta < 0f ? "Up" : "Down");
                 _window.ClearSelection();
                 var keys = new string[step];
-                for (int k = 0; k < step; k++) keys[k] = up ? "Up" : "Down";
+                for (int k = 0; k < step; k++) keys[k] = key;
                 SessionHub.Instance.SendKeys(_window.SessionName, keys, false);
                 e.Use();
                 return;
@@ -75,6 +82,13 @@ namespace SlopWorld
 
         internal void HandleMouse(Rect body, Event e)
         {
+            // A forwarded press owns its continuation even if Shift or app mode changes.
+            if (_window.OwnsForwardedMouse(e))
+            {
+                if (_window.HandleMouseForward(body, e)) return;
+                _window.SelectionInput.Handle(body, e);
+                return;
+            }
             // The scrollbar sits over the terminal's rightmost cells. Give it first refusal
             // so a click or drag there cannot start a text selection underneath it.
             if (_window.HandleHistoryBarInput(body, e)) return;
@@ -167,7 +181,8 @@ namespace SlopWorld
 
         static bool IsRelativePath(string path) => !string.IsNullOrEmpty(path) && path[0] != '/';
 
-        static bool ShouldForwardMouse(ScreenBuf live, Event e) =>
+        bool ShouldForwardMouse(ScreenBuf live, Event e) =>
+            MouseType(e) == EventType.MouseDown && _window.ScrollOffset == 0 &&
             live != null && live.AppMouse && !e.shift;
 
         static bool IsPrimaryMouse(Event e) => e.button == 0;
@@ -225,6 +240,23 @@ namespace SlopWorld
 
             // Ctrl+V is a paste, handled by the caller, not a key to forward.
             if (e.control && e.keyCode == KeyCode.V) return null;
+
+            if (e.control)
+            {
+                switch (e.keyCode)
+                {
+                    case KeyCode.Space:
+                    case KeyCode.At: return "C-@";
+                    case KeyCode.LeftBracket: return "C-[";
+                    case KeyCode.Backslash: return "C-\\";
+                    case KeyCode.RightBracket: return "C-]";
+                    case KeyCode.Caret: return "C-^";
+                    case KeyCode.Underscore: return "C-_";
+                    case KeyCode.Alpha2: if (e.shift) return "C-@"; break;
+                    case KeyCode.Alpha6: if (e.shift) return "C-^"; break;
+                    case KeyCode.Minus: if (e.shift) return "C-_"; break;
+                }
+            }
 
             if (e.keyCode >= KeyCode.A && e.keyCode <= KeyCode.Z)
             {
