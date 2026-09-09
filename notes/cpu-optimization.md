@@ -44,3 +44,22 @@ quota row caches. Runtime counters cover hidden maintenance skips, mesh/sky/flec
 colony reconciliation, and top-bar rebuilds/draw time.
 Screen ingestion cases cover JSON parsing and unchanged/changed repeated-row viewports at
 200x160. They separate decoding from applying an already parsed payload.
+
+## Remaining terminal costs
+
+`TerminalHotspots` in `mod/Tests/Benchmarks.cs` measures alternating one-row edits
+with and without a static URL, plus same-session socket batches. A September 2026
+Release .NET run measured 200-row ingestion plus ANSI parsing at 4.3 us / 3.3 KB
+without a URL and 283 us / 462 KB with one. `TerminalRunCache.Parse` sends link
+screens through whole-screen parsing to preserve links across physical rows.
+At 60 changed frames/second, that fixture allocates about 28 MB/second before Unity
+drawing. Cache link spans and invalidate affected neighboring rows to reduce this.
+
+`HubEventBatch.Read` parses before coalescing: a 32-frame, one-session batch measured
+2.1 ms / 2.7 MB while dispatching only its last frame. This represents backlog after
+a stall, not normal single-pane traffic. Coalescing before full payload decoding
+must retain history replies and control-event ordering.
+
+`make BUILD=release bench-daemon` now distinguishes fresh screen JSON encoding from
+cached fan-out. The cached cases reuse encoded messages even during warmup and do
+not measure serialization. All these measurements exclude live Unity costs.

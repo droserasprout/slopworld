@@ -38,6 +38,7 @@ namespace SlopWorld.Tests
             Routing();
             Terminal();
             ScreenIngestion();
+            TerminalHotspots();
             IdleWork();
             EcoWork();
             GC.KeepAlive(_sink);
@@ -68,6 +69,51 @@ namespace SlopWorld.Tests
                 screen.FromJson((flip = !flip) ? other : payload);
                 return screen.LiveShift;
             });
+        }
+
+        static void TerminalHotspots()
+        {
+            foreach (int rows in new[] { 34, 200 })
+            {
+                foreach (bool link in new[] { false, true })
+                {
+                    var lines = Enumerable.Range(0, rows)
+                        .Select(i => "\x1b[31mrow " + i + "\x1b[0m " + new string('x', 80)).ToArray();
+                    if (link) lines[0] = "https://example.com/static-link";
+                    Func<string, JVal> payload = tail => JVal.Parse(
+                        "{\"rows\":" + rows + ",\"cols\":120,\"lines\":[" +
+                        string.Join(",", lines.Take(rows - 1).Concat(new[] { tail }).Select(JVal.Q)) + "]}");
+                    var a = payload("progress A");
+                    var b = payload("progress B");
+                    var screen = new ScreenBuf();
+                    var cache = new TerminalRunCache();
+                    bool flip = false;
+                    Measure($"sparse ingest+ANSI {rows} rows / {(link ? "URL" : "plain")}", () =>
+                    {
+                        screen.FromJson((flip = !flip) ? a : b);
+                        screen.Runs = cache.Parse(screen, 1, 1, out _, out _);
+                        screen.RunsRev = 1;
+                        screen.RunsComplete = true;
+                        return screen.Runs.Length;
+                    });
+                }
+            }
+
+            string json = "{\"t\":\"screen\",\"screen\":{\"name\":\"bench\",\"lines\":[" +
+                string.Join(",", Enumerable.Repeat(JVal.Q(new string('x', 160)), 200)) + "]}}";
+            var incoming = new ConcurrentQueue<string>();
+            var batch = new HubEventBatch();
+            Action<Exception> onError = error => throw error;
+            foreach (int count in new[] { 1, 8, 32 })
+                Measure($"screen batch {count} frames / one session", () =>
+                {
+                    for (int i = 0; i < count; i++) incoming.Enqueue(json);
+                    batch.Read(incoming, onError);
+                    int dispatched = 0;
+                    for (int i = 0; i < batch.Count; i++)
+                        if (batch.ShouldDispatch(i)) dispatched++;
+                    return dispatched;
+                });
         }
 
         static void IdleWork()

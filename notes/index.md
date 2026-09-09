@@ -22,6 +22,8 @@ short subject per note and remove stale entries.
 - [paths](paths.md) - where config, profile, logs and the tmux socket live.
 - [profile](profile.md) - the save-data folder, the launcher, the refusal gates.
 - [cpu-optimization](cpu-optimization.md) - C# hot-path reductions.
+- [cpu-fixes](_plans/cpu-fixes.md) - prioritized CPU fixes, correctness checks and benchmark targets.
+- [memory-leaks-plan](_plans/memory-leaks-plan.md) - texture cleanup and bounded terminal buffering.
 - [debug-from-sandbox](debug-from-sandbox.md) - which daemon readings are sandbox artifacts, and how to get host truth.
 - [known-limitations](known-limitations.md) - network handover hangs and their safe recovery.
 - [host-terminals](host-terminals.md) - durable host tabs, tmux metadata and cwd recovery.
