@@ -6,11 +6,15 @@ filesystem access because sessions have private mount namespaces; the mod uses
 `/api/browse` and `/api/files`. A selected daemon-resolved private-state directory
 can temporarily become the tree root.
 
-- `Kids == null` means not fetched. Fetches begin in the draw pass; errors stop retries
-  until the directory is reopened. While Files is visible, expanded loaded directories are
-  reread every two seconds and entries are merged by name/type, preserving expanded branches.
+- `Children == null` means not fetched. The browse reply also identifies returned directories that
+  have no children, so an unopened empty directory does not get a disclosure arrow. Fetches begin in the
+  draw pass; errors stop retries until the directory is reopened. While Files is visible,
+  expanded loaded directories are reread every two seconds and entries are merged by name/type,
+  preserving expanded branches.
   Browse requests are limited to four at once; folding or manually opening a directory drops
   queued background work so the foreground path stays responsive.
+- When gitignored entries are shown by the filter, the Files tree dims their icons and labels
+  while leaving their row behavior unchanged.
 - `Lines` is the post-layout hit-test table. `ContentTreeView` keeps the full height but paints
   only rows near the viewport, while `Screen` applies scroll offset and omits offscreen rows;
   do not hit-test against drawing-time geometry.

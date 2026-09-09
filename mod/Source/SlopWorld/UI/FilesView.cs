@@ -14,7 +14,7 @@ namespace SlopWorld
         // A directory is a rung above a file, which is the whole of the distinction this view
         // draws between them; both, and the greys around them, are UiWidgets'.
 
-        // One directory, once it has been asked about. `Kids` null is "never asked", which is
+        // One directory, once it has been asked about. `Children` null is "never asked", which is
         // what makes the tree lazy: a project root is a hundred thousand files deep and the
         // column shows thirty rows.
         class Node : IContentTreeNode
@@ -26,7 +26,9 @@ namespace SlopWorld
             public bool Loading;
             public string Error;
             public bool More;          // the daemon's cap cut the listing short
-            public List<Node> Kids;
+            public List<Node> Children;
+            public bool HasChildren;
+            public bool Gitignored;
             public string Root;        // the project dir this hangs off, for a relative path
             public string Project;     // and the project that owns it, for an errand
             public int Depth;
@@ -39,11 +41,11 @@ namespace SlopWorld
             string IContentTreeNode.Project => Project;
             bool IContentTreeNode.IsDirectory => IsDir;
             int IContentTreeNode.Depth => Depth;
-            bool IContentTreeNode.CanExpand => IsDir && (Kids == null || Kids.Count > 0);
+            bool IContentTreeNode.CanExpand => IsDir && HasChildren;
             bool IContentTreeNode.Loading => Loading;
             string IContentTreeNode.Error => Error;
             bool IContentTreeNode.More => More;
-            IEnumerable<IContentTreeNode> IContentTreeNode.Children => Kids;
+            IEnumerable<IContentTreeNode> IContentTreeNode.Children => Children;
         }
 
         sealed class BrowseRequest
@@ -56,6 +58,12 @@ namespace SlopWorld
 
         sealed class TreeSource : ContentTreeSource
         {
+            public override Color RowIconColor(IContentTreeNode node) =>
+                ((Node)node).Gitignored ? UiWidgets.Dim : Color.white;
+
+            public override Color RowLabelColor(IContentTreeNode node) =>
+                ((Node)node).Gitignored ? UiWidgets.Dim : base.RowLabelColor(node);
+
             public override int Revision => unchecked(_treeRevision * 397
                 ^ (int)SessionHub.Instance.SessionsVersion
                 ^ SessionHub.Instance.ProjectsRevision);
@@ -92,7 +100,7 @@ namespace SlopWorld
             public override void EnsureLoaded(IContentTreeNode node)
             {
                 var file = (Node)node;
-                if (file.Expanded && file.Kids == null && !file.Loading && file.Error == null)
+                if (file.Expanded && file.Children == null && !file.Loading && file.Error == null)
                     Fetch(file);
             }
 
@@ -107,7 +115,7 @@ namespace SlopWorld
                 // A manual expand is a foreground request. Drop queued background work so a
                 // single directory does not wait behind the rest of an unfold-all walk.
                 CancelQueuedBrowse();
-                if (file.Expanded && file.Kids != null) RefreshLoaded(file, false);
+                if (file.Expanded && file.Children != null) RefreshLoaded(file, false);
                 BumpTree();
             }
 
@@ -171,8 +179,8 @@ namespace SlopWorld
         static void SetExpanded(Node node, bool expanded)
         {
             if (node.Depth > 0) node.Expanded = expanded;
-            if (node.Kids == null) return;
-            foreach (var child in node.Kids)
+            if (node.Children == null) return;
+            foreach (var child in node.Children)
                 if (child.IsDir) SetExpanded(child, expanded);
         }
 
@@ -334,8 +342,8 @@ namespace SlopWorld
             parent.Expanded = true;
             Fetch(parent, () =>
             {
-                if (version != _focusVersion || parent.Kids == null) return;
-                var child = parent.Kids.FirstOrDefault(n => n.Name == parts[at]);
+                if (version != _focusVersion || parent.Children == null) return;
+                var child = parent.Children.FirstOrDefault(n => n.Name == parts[at]);
                 if (child == null) { UiWidgets.Fail($"path not found: {string.Join("/", parts)}"); return; }
                 if (at + 1 < parts.Count)
                 {
@@ -378,7 +386,7 @@ namespace SlopWorld
 
         static void RefreshLoaded(Node node, bool descend = true)
         {
-            if (node == null || node.Kids == null || node.Loading || !node.Expanded) return;
+            if (node == null || node.Children == null || node.Loading || !node.Expanded) return;
 
             node.Loading = true;
             node.Error = null;
@@ -428,10 +436,10 @@ namespace SlopWorld
 
         static void Forget(Node n)
         {
-            if (n.Kids != null)
-                foreach (var kid in n.Kids)
-                    Forget(kid);
-            n.Kids = null;
+            if (n.Children != null)
+                foreach (var child in n.Children)
+                    Forget(child);
+            n.Children = null;
             n.More = false;
             n.Error = null;
             n.Loading = false;
@@ -484,7 +492,7 @@ namespace SlopWorld
 
         static void Fetch(Node node, System.Action done = null)
         {
-            if (node.Kids != null) { done?.Invoke(); return; }
+            if (node.Children != null) { done?.Invoke(); return; }
             if (done != null)
             {
                 if (node.Loaded == null) node.Loaded = new List<System.Action>();
@@ -547,8 +555,9 @@ namespace SlopWorld
                     return;
                 }
 
-                node.Kids = Listed(node, j);
+                node.Children = Listed(node, j);
                 node.More = j["truncated"].AsBool();
+                node.HasChildren = node.Children.Count > 0 || node.More;
                 BumpTree();
                 var loaded = node.Loaded;
                 node.Loaded = null;
@@ -558,8 +567,8 @@ namespace SlopWorld
                 if (!request.Descend) return;
                 // Walk the fresh children, rather than the old list, and only while branches
                 // remain expanded. Folded work is picked up when the branch is reopened.
-                foreach (var child in node.Kids)
-                    if (child.IsDir && child.Kids != null && child.Expanded)
+                foreach (var child in node.Children)
+                    if (child.IsDir && child.Children != null && child.Expanded)
                         RefreshLoaded(child);
             }
             finally
@@ -571,19 +580,34 @@ namespace SlopWorld
         static List<Node> Listed(Node parent, JVal j)
         {
             var previous = new Dictionary<string, Node>();
-            if (parent.Kids != null)
-                foreach (var child in parent.Kids)
+            if (parent.Children != null)
+                foreach (var child in parent.Children)
                     previous[child.Name] = child;
 
-            var kids = new List<Node>();
+            var children = new List<Node>();
+            var empty = new HashSet<string>(j["empty_dirs"].Items.Select(d => d.AsString()),
+                StringComparer.Ordinal);
+            var ignoredDirs = new HashSet<string>(
+                j["gitignored_dirs"].Items.Select(d => d.AsString()), StringComparer.Ordinal);
+            var ignoredFiles = new HashSet<string>(
+                j["gitignored_files"].Items.Select(f => f.AsString()), StringComparer.Ordinal);
             foreach (var d in j["dirs"].Items)
-                kids.Add(ReuseOrKid(parent, d.AsString(), true, previous));
+            {
+                string name = d.AsString();
+                children.Add(ReuseOrChild(parent, name, true, previous, !empty.Contains(name),
+                    ignoredDirs.Contains(name)));
+            }
             foreach (var f in j["files"].Items)
-                kids.Add(ReuseOrKid(parent, f.AsString(), false, previous));
-            return kids;
+            {
+                string name = f.AsString();
+                children.Add(ReuseOrChild(parent, name, false, previous, false,
+                    ignoredFiles.Contains(name)));
+            }
+            return children;
         }
 
-        static Node ReuseOrKid(Node parent, string name, bool dir, Dictionary<string, Node> previous)
+        static Node ReuseOrChild(Node parent, string name, bool dir, Dictionary<string, Node> previous,
+            bool hasChildren, bool gitignored)
         {
             if (previous.TryGetValue(name, out var child) && child.IsDir == dir)
             {
@@ -591,12 +615,21 @@ namespace SlopWorld
                 child.Root = parent.Root;
                 child.Project = parent.Project;
                 child.Depth = parent.Depth + 1;
+                child.HasChildren = hasChildren;
+                child.Gitignored = gitignored;
+                if (dir && !hasChildren)
+                {
+                    // A parent refresh can learn that a previously expanded directory was
+                    // emptied. Drop its old rows immediately instead of waiting for a click.
+                    child.Children = new List<Node>();
+                    child.More = false;
+                }
                 return child;
             }
-            return Kid(parent, name, dir);
+            return Child(parent, name, dir, hasChildren, gitignored);
         }
 
-        static Node Kid(Node parent, string name, bool dir) => new Node
+        static Node Child(Node parent, string name, bool dir, bool hasChildren, bool gitignored) => new Node
         {
             Name = name,
             Path = parent.Path.TrimEnd('/') + "/" + name,
@@ -604,6 +637,8 @@ namespace SlopWorld
             Root = parent.Root,
             Project = parent.Project,
             Depth = parent.Depth + 1,
+            HasChildren = hasChildren,
+            Gitignored = gitignored,
         };
 
     }

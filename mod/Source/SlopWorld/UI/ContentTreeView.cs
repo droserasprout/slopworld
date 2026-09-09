@@ -68,6 +68,9 @@ namespace SlopWorld
         public virtual void ToggleNode(IContentTreeNode node) { }
 
         public virtual RowAct Actions(IContentTreeNode node) => RowAct.None;
+        public virtual Color RowIconColor(IContentTreeNode node) => Color.white;
+        public virtual Color RowLabelColor(IContentTreeNode node) =>
+            node.IsDirectory ? UiWidgets.Lead : UiWidgets.Name;
         public virtual float DrawRowTail(Rect row, IContentTreeNode node, float right) => right;
         public virtual string RowTooltip(IContentTreeNode node) => null;
 
@@ -378,6 +381,7 @@ namespace SlopWorld
                 }
                 x += ArrowW + 3f;
 
+                GUI.color = _source.RowIconColor(node);
                 var icon = FileIcons.Of(node.Name, node.IsDirectory);
                 if (icon != null)
                     GUI.DrawTexture(new Rect(x, y + (RowH - IconW) / 2f, IconW, IconW), icon);
@@ -392,7 +396,7 @@ namespace SlopWorld
                     right = _source.DrawRowTail(row, node, right);
 
                 Text.Anchor = TextAnchor.MiddleLeft;
-                GUI.color = node.IsDirectory ? UiWidgets.Lead : UiWidgets.Name;
+                GUI.color = _source.RowLabelColor(node);
                 UiWidgets.RowLabel(new Rect(x, y, Mathf.Max(0f, right - x - 2f), RowH), node.Name);
 
                 if (!string.IsNullOrEmpty(_source.RowTooltip(node)) &&
