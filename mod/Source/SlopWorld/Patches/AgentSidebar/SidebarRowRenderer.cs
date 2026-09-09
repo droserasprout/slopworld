@@ -152,7 +152,9 @@ namespace SlopWorld
                 line2.width = Mathf.Max(0f, line2.width - indicatorW - UiWidgets.GapXS);
             }
 
-            if (state != AgentState.Down)
+            // Generated terminal titles can be stale once an agent is down, but a custom
+            // label is durable identity and should remain visible in that state.
+            if (state != AgentState.Down || !string.IsNullOrWhiteSpace(info?.Label))
             {
                 string title = Title(info);
                 if (title.Length > 0)
