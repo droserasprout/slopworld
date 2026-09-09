@@ -64,6 +64,8 @@ namespace SlopWorld
                 : repo.Truncated
                     ? $"{repo.Root}\n\nAt least {repo.Changed} changes.\n\n" +
                       "The tree shows the first 2,000 changes."
+                    : !repo.CountsComplete
+                        ? $"{repo.Root}\n\n{repo.Changed} changed. Line counts unavailable."
                     : $"{repo.Root}\n\n{repo.Changed} changed, " +
                       $"{repo.Added} insertions(+), {repo.Deleted} deletions(-)");
             return y + UiWidgets.TinyRowH;

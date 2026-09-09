@@ -51,6 +51,8 @@ namespace SlopWorld
             public string Branch;
             public bool IsRepo = true;
             public bool Loading;
+            public int Generation;
+            public bool CountsComplete;
             public string Error;
             public bool Asked;          // whether an answer has ever landed
             public bool Truncated;      // the daemon capped both the tree and its partial summary
@@ -268,7 +270,9 @@ namespace SlopWorld
             BumpTree();
 
             string dir = repo.Dir;
-            DaemonClient.Get(WireContract.Routes.Git + "?path=" + System.Uri.EscapeDataString(dir),
+            int generation = ++repo.Generation;
+            repo.CountsComplete = false;
+            DaemonClient.Get(WireContract.Routes.Git + "?counts=false&path=" + System.Uri.EscapeDataString(dir),
                 j =>
                 {
                     repo.Loading = false;
@@ -295,6 +299,7 @@ namespace SlopWorld
                     repo.Truncated = j["truncated"].AsBool(false);
                     repo.Tree = Fold(repo, j["files"]);
                     BumpTree();
+                    if (!repo.Truncated && repo.Changed > 0) FetchCounts(repo, generation);
                 },
                 msg =>
                 {
@@ -315,6 +320,41 @@ namespace SlopWorld
                     repo.Changes.Clear();
                     BumpTree();
                 }, null, GitRequestTimeoutMs);
+        }
+
+        // Keep the usable status tree if counting fails. A newer refresh owns its own
+        // generation, and expanding/collapsing rows while counts arrive must survive.
+        static void FetchCounts(Repo repo, int generation)
+        {
+            DaemonClient.Get(WireContract.Routes.Git + "?path=" + System.Uri.EscapeDataString(repo.Dir),
+                j =>
+                {
+                    if (repo.Generation != generation || !j["counts_complete"].AsBool(false)) return;
+                    var files = new Dictionary<string, JVal>();
+                    foreach (var f in j["files"].Items)
+                    {
+                        string path = f["path"].AsString();
+                        if (!repo.Changes.TryGetValue(path, out var status) || status != f["status"].AsString()) return;
+                        files[path] = f;
+                    }
+                    // The checkout may have changed between the two requests.
+                    if (files.Count != repo.Changes.Count) return;
+                    ApplyCounts(repo.Tree, files);
+                    repo.Added = j["added"].AsInt();
+                    repo.Deleted = j["deleted"].AsInt();
+                    repo.CountsComplete = true;
+                    BumpTree();
+                }, null, null, GitRequestTimeoutMs);
+        }
+
+        static void ApplyCounts(Node node, Dictionary<string, JVal> files)
+        {
+            if (node == null) return;
+            if (node.Kids != null)
+                foreach (var child in node.Kids) ApplyCounts(child, files);
+            if (!files.TryGetValue(node.Rel, out var f)) return;
+            node.Added = f["added"].IsNull ? -1 : f["added"].AsInt();
+            node.Deleted = f["deleted"].IsNull ? -1 : f["deleted"].AsInt();
         }
 
         // The flat list of changed paths, folded into the tree it describes. The daemon sends

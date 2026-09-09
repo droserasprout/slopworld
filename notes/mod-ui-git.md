@@ -28,6 +28,11 @@ namespaces isolate sessions from the game; `/api/browse` exists for the same bou
   whole repository, and commit staged changes with a short message. These call host-side Git
   through `/api/file-action`, then refresh the project; destructive reset/discard and remote
   operations are deliberately not part of this first writable pass.
+- Status requests use `counts=false` and display the tree before a separate line-count request.
+  Count replies update existing nodes, preserve expansion, and are ignored after a newer refresh
+  or when paths/statuses have changed. Failures leave the status tree usable. The daemon caps
+  the counting pass at two seconds and kills cancelled Git children; missing counts stay unknown.
+  `git-status` and `git-numstat` performance timers distinguish scanning from counting.
 - Rows show the porcelain pair, numstat and right-aligned figures. Untracked text files use a
   no-index diff against `/dev/null`, so their additions count too; binaries remain uncounted.
   Green is staged, amber unstaged, red unmerged and faint untracked. Heading status shows the

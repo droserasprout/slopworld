@@ -218,6 +218,7 @@ pub(crate) struct SearchReq {
 pub(crate) struct GitReq {
     #[serde(default)]
     pub(crate) path: String,
+    pub(crate) counts: Option<bool>,
 }
 
 pub(crate) enum ClientMsg {

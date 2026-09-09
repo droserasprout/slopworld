@@ -677,7 +677,7 @@ pub(crate) async fn git_status(State(_m): State<Mgr>, Query(q): Query<GitReq>) -
     }
     let dir = std::path::PathBuf::from(crate::config::expand(&q.path));
 
-    let out = crate::git::status(&dir)
+    let out = crate::git::status_with_counts(&dir, q.counts.unwrap_or(true))
         .await
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
 
@@ -694,6 +694,7 @@ pub(crate) async fn git_status(State(_m): State<Mgr>, Query(q): Query<GitReq>) -
         "added": st.added,
         "deleted": st.deleted,
         "truncated": st.truncated,
+        "counts_complete": st.counts_complete,
         "files": st.changes.iter().map(|c| json!({
             "path": c.path,
             "status": c.status,
