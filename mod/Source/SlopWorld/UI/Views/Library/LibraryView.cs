@@ -14,8 +14,8 @@ namespace SlopWorld
         // Off the font, for the reason the other two trees' are.
         static float RowH => UiWidgets.TinyRowH;
         static float HeadH => UiWidgets.TinyRowH;
-        const float Pad = UiWidgets.GapS;
-        const float CellX = UiWidgets.GapS;
+        static float Pad => UiWidgets.GapS;
+        static float CellX => UiWidgets.GapS;
         const float ArrowW = UiWidgets.DisclosureW;
 
         // These are identity colors, not status colors: every kind stays recognizable without

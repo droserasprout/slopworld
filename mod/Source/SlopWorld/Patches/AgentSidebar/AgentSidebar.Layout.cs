@@ -9,14 +9,14 @@ namespace SlopWorld
     // Panel geometry, placement sizing, and grouped row layout.
     public static partial class AgentSidebar
     {
-        public static Rect Panel => new Rect(0f, 0f, Width, UI.screenHeight);
+        public static Rect Panel => WorkspaceLayout.Current.Navigation;
 
         public static Rect AddBar
         {
             get
             {
                 float y = UI.screenHeight - AddH;
-                return new Rect(0f, y, Width, AddH);
+                return new Rect(Panel.x, y, Width, AddH);
             }
         }
 
@@ -24,7 +24,7 @@ namespace SlopWorld
             new Rect(AddBar.x, AddBar.y, Mathf.Max(0f, Width - GripW), AddBar.height);
 
         public static Rect Body =>
-            new Rect(0f, TabH, Width,
+            new Rect(Panel.x, TabH, Width,
                 Mathf.Max(0f, UI.screenHeight - TabH - AddH));
 
 
@@ -60,9 +60,10 @@ namespace SlopWorld
 
             var hub = SessionHub.Instance;
             var status = StatusFilter;
+            int workspaceRevision = WorkspaceLayout.Revision;
             if (Layout.Matches(entries, count, plus, CurrentTab, hub.SessionsVersion,
                                hub.ProjectsRevision, Projects.Revision, status, Width,
-                               UI.screenHeight, Body.height, TextH))
+                               UI.screenHeight, Body.height, TextH, workspaceRevision))
             {
                 PerfTrace.Count("sidebar-layout-hits");
                 Layout.RestoreLocations(locs, count);
@@ -82,7 +83,7 @@ namespace SlopWorld
             Layout.LastScale = measure.Scale;
             Layout.RememberInputs(entries, count, plus, CurrentTab, hub.SessionsVersion,
                 hub.ProjectsRevision, Projects.Revision, status, Width, UI.screenHeight,
-                Body.height, TextH, locs);
+                Body.height, TextH, locs, workspaceRevision);
 
             return measure.Scale;
         }

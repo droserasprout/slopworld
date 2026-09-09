@@ -89,8 +89,8 @@ namespace SlopWorld
         static float RowH => UiWidgets.TinyRowH;
         const float IconW = 16f;
         const float Indent = 11f;
-        const float Pad = UiWidgets.GapS;
-        const float CellX = UiWidgets.GapS;
+        static float Pad => UiWidgets.GapS;
+        static float CellX => UiWidgets.GapS;
         const float ArrowW = UiWidgets.DisclosureW;
 
         readonly ContentTreeSource _source;
@@ -109,6 +109,7 @@ namespace SlopWorld
         float _visibleBottom;
         float _contentHeight = -1f;
         int _groupsRevision = int.MinValue;
+        int _workspaceRevision = int.MinValue;
 
         enum ItemKind
         {
@@ -219,7 +220,9 @@ namespace SlopWorld
         void EnsureLayout(IList<ContentTreeGroup> groups)
         {
             int revision = _source.Revision;
-            if (_index.IsCurrent(revision)) return;
+            int workspaceRevision = WorkspaceLayout.Revision;
+            if (_index.IsCurrent(revision) && _workspaceRevision == workspaceRevision)
+                return;
 
             _items.Clear();
             _index.Clear();
@@ -252,6 +255,7 @@ namespace SlopWorld
                     item.Node == null ? null : _source.SelectionKey(item.Node));
             }
             _index.Commit(revision);
+            _workspaceRevision = workspaceRevision;
         }
 
         void BuildRows(IContentTreeNode parent, ref float y)

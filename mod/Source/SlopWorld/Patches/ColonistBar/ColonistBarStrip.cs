@@ -142,6 +142,37 @@ namespace SlopWorld
                 locs.AddRange(Saved);
             }
         }
+
+        // Draw passes run inside the sidebar's scroll group, so cached locations are local to
+        // that group. Selector.TryGetEntryAt runs outside it and needs screen coordinates.
+        static bool _hitTranslated;
+
+        public static bool BeginHitTest()
+        {
+            if (_hitTranslated || !_applied || AgentSidebar.Panel.x <= 0f) return false;
+            var bar = Find.ColonistBar;
+            if (bar == null) return false;
+            if (!(DrawLocsField.GetValue(bar) is List<Vector2> locs)) return false;
+            for (int i = 0; i < locs.Count; i++)
+                locs[i] = new Vector2(locs[i].x + AgentSidebar.Panel.x, locs[i].y);
+            _hitTranslated = true;
+            return true;
+        }
+
+        public static void EndHitTest()
+        {
+            if (!_hitTranslated) return;
+            var bar = Find.ColonistBar;
+            if (bar == null) { _hitTranslated = false; return; }
+            if (!(DrawLocsField.GetValue(bar) is List<Vector2> locs))
+            {
+                _hitTranslated = false;
+                return;
+            }
+            for (int i = 0; i < locs.Count; i++)
+                locs[i] = new Vector2(locs[i].x - AgentSidebar.Panel.x, locs[i].y);
+            _hitTranslated = false;
+        }
     }
 
     // A finalizer rather than a last-priority postfix, so an exception out of the bar cannot
@@ -175,17 +206,26 @@ namespace SlopWorld
     [HarmonyPatch(typeof(ColonistBar), nameof(ColonistBar.TryGetEntryAt))]
     public static class Patch_StripHitTest
     {
-        // Only the outermost call owns the swap: the bar asks this of itself from inside its
-        // own OnGUI, and restoring there would undo the layout being drawn.
-        static void Prefix(out bool __state)
+        struct HitState
         {
-            __state = !ColonistBarStrip.Applied;
-            if (__state) ColonistBarStrip.Apply();
+            public bool Restore;
+            public bool Translated;
         }
 
-        static void Finalizer(bool __state)
+        // Only the outermost call owns the swap: the bar asks this of itself from inside its
+        // own OnGUI, and restoring there would undo the layout being drawn.
+        static void Prefix(out HitState __state)
         {
-            if (__state) ColonistBarStrip.Restore();
+            __state = new HitState { Restore = !ColonistBarStrip.Applied };
+            if (__state.Restore) ColonistBarStrip.Apply();
+            if (!ColonistBarStrip.Drawing)
+                __state.Translated = ColonistBarStrip.BeginHitTest();
+        }
+
+        static void Finalizer(HitState __state)
+        {
+            if (__state.Translated) ColonistBarStrip.EndHitTest();
+            if (__state.Restore) ColonistBarStrip.Restore();
         }
     }
 

@@ -10,8 +10,8 @@ namespace SlopWorld
     // Rows are deliberately compact: the full body and actions live in TaskDetailView.
     public static partial class TasksView
     {
-        const float Pad = UiWidgets.GapS;
-        const float CellX = UiWidgets.GapS;
+        static float Pad => UiWidgets.GapS;
+        static float CellX => UiWidgets.GapS;
         static float HeaderH => UiWidgets.TinyRowH;
         static float NameH => UiWidgets.LineHOf(GameFont.Tiny);
         static float NoteH => UiWidgets.LineHOf(GameFont.Tiny);

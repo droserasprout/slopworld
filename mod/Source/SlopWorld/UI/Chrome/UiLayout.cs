@@ -18,9 +18,14 @@ namespace SlopWorld
         // rather than leaving a button row indented against nothing.
         public static bool Shown => !Cutscene.Playing;
 
-        public static float LeftInset => Shown && !Settings.SidebarHidden ? AgentSidebar.Width : 0f;
-
-        public static float TopInset => Shown ? TopBar.H : 0f;
+        // Compatibility accessors for callers that only need an inset. New geometry code
+        // should consume Snapshot so right-side navigation cannot be mistaken for a left
+        // margin.
+        public static WorkspaceGeometry Snapshot => WorkspaceLayout.Current;
+        public static float LeftInset => Snapshot.LeftInset;
+        public static float RightInset => Snapshot.RightInset;
+        public static float TopInset => Snapshot.TopInset;
+        public static Rect ContentRect => Snapshot.Content;
 
         // Screenshot mode filters vanilla chrome separately; the top bar and inspect controls
         // run before that filter, so Hidden is independent of layout insets.

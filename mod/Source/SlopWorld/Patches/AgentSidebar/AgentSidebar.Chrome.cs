@@ -20,7 +20,7 @@ namespace SlopWorld
             for (int i = 0; i < Steps; i++)
             {
                 float strength = 0.12f + 0.12f * i;
-                Slab.Fill(new Rect(0f, add.y - Height + i * band, Width, band),
+                Slab.Fill(new Rect(add.x, add.y - Height + i * band, Width, band),
                     UiWidgets.Fade(UiWidgets.Scrim, strength));
             }
         }
@@ -49,14 +49,14 @@ namespace SlopWorld
 
         static void Tabs()
         {
-            var strip = new Rect(0f, 0f, Width, TabH);
-            Slab.Hairline(new Rect(CellX, TabH - 1f, Width - CellX * 2f, 1f),
+            var strip = new Rect(Panel.x, 0f, Width, TabH);
+            Slab.Hairline(new Rect(Panel.x + CellX, TabH - 1f, Width - CellX * 2f, 1f),
                 UiWidgets.Edge);
 
             float y = (TabRowH - TabIcon) / 2f;
 
             const float Gap = 3f;
-            float x = CellX;
+            float x = Panel.x + CellX;
             Tab(new Rect(x, y, TabIcon, TabIcon), Icons.Agents,
                 CurrentTab == SidebarTab.Agents,
                 "Agents - every session, under the project it runs in",
@@ -94,7 +94,7 @@ namespace SlopWorld
 
             if (ColonistBarStrip.MouseOver(strip) && Event.current.rawType == EventType.MouseDown
                 && ColonistBarStrip.Interactive
-                && Event.current.mousePosition.x < Width - GripW)
+                && Event.current.mousePosition.x < Panel.x + Width - GripW)
                 Event.current.Use();
         }
 
@@ -169,7 +169,7 @@ namespace SlopWorld
         // than taken from the mouse, so a menu that reopens itself after each tick reopens
         // in the place it was.
         static Rect FilterRect =>
-            new Rect(Width - CellX - TabIcon,
+            new Rect(Panel.x + Width - CellX - TabIcon,
                 (TabRowH - TabIcon) / 2f, TabIcon, TabIcon);
 
         static void FilterButton()

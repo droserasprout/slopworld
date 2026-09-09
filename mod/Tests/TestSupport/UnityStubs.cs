@@ -30,11 +30,28 @@ namespace UnityEngine
         public static int Max(int a, int b) => a > b ? a : b;
         public static int Min(int a, int b) => a < b ? a : b;
         public static float Min(float a, float b) => a < b ? a : b;
+        public static float Max(float a, float b) => a > b ? a : b;
+        public static float Clamp(float v, float min, float max) =>
+            v < min ? min : v > max ? max : v;
         public static int Clamp(int v, int min, int max) => v < min ? min : v > max ? max : v;
+    }
+
+    public struct Rect
+    {
+        public float x, y, width, height;
+
+        public Rect(float x, float y, float width, float height)
+        {
+            this.x = x; this.y = y; this.width = width; this.height = height;
+        }
+
+        public float xMax => x + width;
+        public float yMax => y + height;
     }
 
     public static class Time
     {
         public static float realtimeSinceStartup;
+        public static int frameCount;
     }
 }

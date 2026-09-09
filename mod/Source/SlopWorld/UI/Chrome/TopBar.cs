@@ -22,9 +22,9 @@ namespace SlopWorld
     public static class TopBar
     {
         // Fit the current row height while preserving the shipped 26px minimum.
-        public static float H => Mathf.Max(UiWidgets.RowH, 26f);
+        public static float H => Mathf.Max(UiWidgets.RowH, UiMetrics.Compact ? 24f : 26f);
 
-        const float Pad = UiWidgets.GapS;
+        static float Pad => UiWidgets.GapS;
 
         // Door icons use the shared glyph size; ThingIcon already fills its slot more densely.
         const float IconW = UiWidgets.IconW;
@@ -32,8 +32,7 @@ namespace SlopWorld
         // Give the jukebox tip a stable id so changing song text does not restart its fade.
         const int JukeboxTipId = 0x51_0C_02;
 
-        public static Rect Rect =>
-            new Rect(UiLayout.LeftInset, 0f, UI.screenWidth - UiLayout.LeftInset, H);
+        public static Rect Rect => WorkspaceLayout.Current.TopBar;
 
         // From the map component above, which sits behind every window.
         public static void DrawOnMap()

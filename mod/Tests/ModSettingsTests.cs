@@ -30,7 +30,7 @@ namespace SlopWorld.Tests
                 settings.Write();
                 string path = Path.Combine(profile, "Config", "SlopWorld.toml");
                 string saved = File.ReadAllText(path);
-                AssertEx.Equal(36, Toml.ParseFlat(saved).Count, "persisted key count excludes runtime state");
+                AssertEx.Equal(38, Toml.ParseFlat(saved).Count, "persisted key count excludes runtime state");
                 AssertEx.True(saved.Contains("ecoDim = 0.375"), "invariant float");
                 var loaded = ModSettings.Load();
                 foreach (var field in typeof(ModSettings).GetFields(BindingFlags.Instance | BindingFlags.Public))

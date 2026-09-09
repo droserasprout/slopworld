@@ -43,11 +43,11 @@ namespace SlopWorld
         static void Prefix(ref float startX)
         {
             if (!Patch_GizmoGridFlag.Active) return;
-            float inset = UiLayout.LeftInset;
-            if (inset <= 0f) return;
+            var content = WorkspaceLayout.Current.Content;
+            float start = content.x + UiWidgets.GapM;
+            if (content.width >= UI.screenWidth - 0.01f) return;
             startX = InspectPaneAgent.AgentSelectionActive
-                ? inset + UiWidgets.GapM
-                : Mathf.Max(startX, inset + UiWidgets.GapM);
+                ? start : Mathf.Max(startX, start);
         }
 
         static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)

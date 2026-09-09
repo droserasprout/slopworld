@@ -34,9 +34,11 @@ namespace SlopWorld
 
         public static void Show(int id, Rect page, float width, float height, string title,
                                 Action close, int count, SmoothScroll scroll,
-                                Action<Grid> drawGrid, float titleGap = UiWidgets.GapS,
-                                float bottomGap = UiWidgets.GapS)
+                                Action<Grid> drawGrid, float titleGap = -1f,
+                                float bottomGap = -1f)
         {
+            if (titleGap < 0f) titleGap = UiWidgets.GapS;
+            if (bottomGap < 0f) bottomGap = UiWidgets.GapS;
             var window = Place(page, width, height);
             Find.WindowStack.ImmediateWindow(id, window, WindowLayer.Super,
                 () => DrawContents(width, height, title, close, count, scroll, drawGrid,

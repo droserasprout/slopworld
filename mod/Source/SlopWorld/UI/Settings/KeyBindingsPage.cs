@@ -17,7 +17,7 @@ namespace SlopWorld
         // the one they were set against.
         static float RowH => UiWidgets.BtnH;
         static float CatH => UiWidgets.TinyRowH + UiWidgets.GapXS;
-        const float Gap = UiWidgets.GapXS;
+        static float Gap => UiWidgets.GapXS;
 
         // Room for the longest bind there is, measured rather than guessed: a chord with two
         // modifiers on it is what has to fit, and at a larger font 180 is not it.

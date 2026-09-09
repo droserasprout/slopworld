@@ -12,8 +12,8 @@ namespace SlopWorld
     public static partial class SearchView
     {
         static float RowH => UiWidgets.TinyRowH;
-        const float Pad = UiWidgets.GapS;
-        const float CellX = UiWidgets.GapS;
+        static float Pad => UiWidgets.GapS;
+        static float CellX => UiWidgets.GapS;
         static float ToolsH => UiWidgets.FieldH + UiWidgets.GapS + UiWidgets.RowH;
 
         sealed class Match
@@ -77,6 +77,7 @@ namespace SlopWorld
         static bool _focus;
         static bool _layoutDirty = true;
         static float _contentHeight;
+        static int _layoutRevision = int.MinValue;
 
         public static void Entered()
         {

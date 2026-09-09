@@ -47,6 +47,7 @@ namespace SlopWorld
             int _entryCount = -1;
             bool _plus;
             float _width = -1f, _screenHeight = -1f, _bodyHeight = -1f, _textHeight = -1f;
+            int _workspaceRevision = -1;
             SidebarTab _tab;
             AgentStatusFilter _status;
 
@@ -54,13 +55,14 @@ namespace SlopWorld
                                 SidebarTab tab, long sessionsVersion, int projectsRevision,
                                 int projectStateRevision, AgentStatusFilter status,
                                 float width, float screenHeight, float bodyHeight,
-                                float textHeight)
+                                float textHeight, int workspaceRevision)
             {
                 if (_sessionsVersion != sessionsVersion || _projectsRevision != projectsRevision ||
                     _projectStateRevision != projectStateRevision || _entryCount != count ||
                     _plus != plus || _tab != tab || _status != status ||
                     _width != width || _screenHeight != screenHeight ||
                     _bodyHeight != bodyHeight || _textHeight != textHeight ||
+                    _workspaceRevision != workspaceRevision ||
                     EntryPawns.Count != count)
                     return false;
 
@@ -74,7 +76,7 @@ namespace SlopWorld
                                        int projectsRevision, int projectStateRevision,
                                        AgentStatusFilter status, float width,
                                        float screenHeight, float bodyHeight, float textHeight,
-                                       List<Vector2> locs)
+                                       List<Vector2> locs, int workspaceRevision)
             {
                 EntryPawns.Clear();
                 EntryLocations.Clear();
@@ -94,6 +96,7 @@ namespace SlopWorld
                 _screenHeight = screenHeight;
                 _bodyHeight = bodyHeight;
                 _textHeight = textHeight;
+                _workspaceRevision = workspaceRevision;
             }
 
             public void RestoreLocations(List<Vector2> locs, int count)

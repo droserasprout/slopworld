@@ -12,7 +12,7 @@ namespace SlopWorld
     {
         const float Width = 520f;
         const float MaxH = 440f;
-        const float Pad = UiWidgets.GapS;
+        static float Pad => UiWidgets.GapS;
 
         // The three heights this list is built from, off the font rather than written down:
         // an input is a field, a row is a line with room round it, and a group heading is a

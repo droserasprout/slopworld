@@ -18,6 +18,6 @@ namespace SlopWorld
         public int DroppedKeys;
         public readonly TerminalSelectionState Selection = new TerminalSelectionState();
 
-        public static int CachedCols, CachedRows;
+        public static int CachedCols, CachedRows, CachedLayoutRevision;
     }
 }

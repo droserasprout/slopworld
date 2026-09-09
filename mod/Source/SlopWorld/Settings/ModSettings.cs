@@ -77,6 +77,10 @@ namespace SlopWorld
         // Folds are one name per line; a project that has gone is a name nothing matches.
         public bool sidebarHidden;
         public float sidebarWidth = 210f;
+        // Navigation placement and density are workspace preferences. Unknown values are
+        // normalized by Settings so older or hand-edited files remain safe.
+        public string sidebarSide = NavigationSide.Left;
+        public string uiDensity = UiDensityPreset.Default;
         public string foldedProjects = "";
         // Which of the column's two views is up, and whether its tree says anything about
         // dotfiles. Same argument: about this screen, not about a colony. A name this build
@@ -219,6 +223,8 @@ namespace SlopWorld
             Field("fullscreen", (ModSettings s) => ref s.fullscreen, Bool, String),
             Field("sidebarHidden", (ModSettings s) => ref s.sidebarHidden, Bool, String),
             Field("sidebarWidth", (ModSettings s) => ref s.sidebarWidth, Float, Number),
+            Field("sidebarSide", (ModSettings s) => ref s.sidebarSide, Text, String),
+            Field("uiDensity", (ModSettings s) => ref s.uiDensity, Text, String),
             Field("foldedProjects", (ModSettings s) => ref s.foldedProjects, Text, String),
             Field("sidebarTab", (ModSettings s) => ref s.sidebarTab, Text, String),
             Field("sidebarShowHidden", (ModSettings s) => ref s.sidebarShowHidden, Bool, String),
@@ -321,6 +327,8 @@ namespace SlopWorld
         // Unclamped: AgentSidebar owns what a usable column is, and it is the only reader.
         public static bool SidebarHidden => S.sidebarHidden;
         public static float SidebarWidth => S.sidebarWidth;
+        public static string SidebarSide => NavigationSide.Normalize(S.sidebarSide);
+        public static string UiDensity => UiDensityPreset.Normalize(S.uiDensity);
         public static string FoldedProjects => S.foldedProjects ?? "";
         public static string SidebarTab => S.sidebarTab ?? "";
         public static bool SidebarShowHidden => S.sidebarShowHidden;

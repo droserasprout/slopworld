@@ -159,9 +159,8 @@ namespace SlopWorld
         {
             bool playing = Current.ProgramState == ProgramState.Playing
                            && Find.CurrentMap != null;
-            float left = playing ? UiLayout.LeftInset : 0f;
-            float top = playing ? UiLayout.TopInset : 0f;
-            return new Rect(left, top, UI.screenWidth - left, UI.screenHeight - top);
+            if (!playing) return new Rect(0f, 0f, UI.screenWidth, UI.screenHeight);
+            return WorkspaceLayout.Current.Content;
         }
 
         [HarmonyPatch(typeof(Dialog_Options), nameof(Dialog_Options.InitialSize),
