@@ -20,6 +20,7 @@ namespace SlopWorld
 
         protected virtual bool RefreshHealthOnLoad => false;
         protected virtual bool DrawFieldsWhenOffline => false;
+        protected virtual bool DrawFieldsBeforeLoad => false;
         protected virtual bool ShowEditButton => false;
         protected virtual bool ShowSaveButton => true;
         protected virtual string SavedMessage => null;
@@ -37,11 +38,7 @@ namespace SlopWorld
 
         protected virtual void DrawOverlay(Rect rect) { }
 
-        protected virtual void AfterSave()
-        {
-            SessionHub.Instance.Config = _cfg;
-            ModOptions.Reread();
-        }
+        protected virtual void AfterSave() { }
 
         public void Load()
         {
@@ -58,7 +55,7 @@ namespace SlopWorld
             var body = UiWidgets.PageBody(rect);
             var inner = body.ContractedBy(UiWidgets.GapM);
 
-            if (!_loaded && (!DrawFieldsWhenOffline || _cfg == null))
+            if (!_loaded && !DrawFieldsBeforeLoad && (!DrawFieldsWhenOffline || _cfg == null))
             {
                 UiWidgets.StatusLabel(inner, _error ?? "Waiting for the daemon...",
                     _error != null ? UiWidgets.Bad : UiWidgets.Dim);
@@ -90,11 +87,12 @@ namespace SlopWorld
         void DrawFooter(Rect bar)
         {
             var foot = new UiWidgets.Bar(bar);
-            if (foot.Left("Reload", UiWidgets.Btn.Ghost)) Load();
+            if (foot.Left("Reload", UiWidgets.Btn.Ghost, !_configState.Saving)) Load();
             if (ShowEditButton && foot.Left("Edit", UiWidgets.Btn.Ghost,
                     _loaded && !string.IsNullOrEmpty(_path)))
                 FilesView.EditFile(null, _path, "edit-config.toml");
-            if (ShowSaveButton && foot.Right("Save", UiWidgets.Btn.Primary, _loaded)) Save();
+            if (ShowSaveButton && foot.Right("Save", UiWidgets.Btn.Primary,
+                    _loaded && !_configState.Saving)) Save();
 
             if (_error != null && _loaded)
             {

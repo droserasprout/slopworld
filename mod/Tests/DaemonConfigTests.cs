@@ -10,8 +10,54 @@ namespace SlopWorld.Tests
         {
             yield return ("reads daemon defaults", ReadsDaemonDefaults);
             yield return ("round trips every patch field", RoundTripsEveryPatchField);
+            yield return ("independent page saves preserve drafts and saved values", IndependentPageSaves);
+            yield return ("patches retain nested resets and pending edits", NestedPatchChanges);
             yield return ("splits and joins line lists", SplitsAndJoinsLineLists);
             yield return ("renders instructions breadcrumb variables", RendersInstructionsBreadcrumb);
+        }
+
+        static void IndependentPageSaves()
+        {
+            var credentials = DaemonConfig.FromJson(JVal.Parse("{}"));
+            var summaries = DaemonConfig.FromJson(JVal.Parse("{}"));
+            string baseline = credentials.ToPatchJson();
+            credentials.ClaudeCredentials = "/draft/credentials";
+            summaries.TitleModel = "new-model";
+
+            var summaryPatch = JVal.Parse(summaries.ToPatchJson(baseline));
+            AssertEx.Equal("new-model", summaryPatch["daemon"]["title_model"].AsString(), "summary saved");
+            AssertEx.True(summaryPatch["daemon"]["claude_credentials"].IsNull, "credentials untouched");
+            AssertEx.Equal("/draft/credentials", credentials.ClaudeCredentials, "other draft survives");
+            var credentialPatch = JVal.Parse(credentials.ToPatchJson(baseline));
+            AssertEx.Equal("/draft/credentials", credentialPatch["daemon"]["claude_credentials"].AsString(), "draft saved later");
+            AssertEx.True(credentialPatch["daemon"]["title_model"].IsNull, "later save cannot restore stale model");
+            AssertEx.Equal("{}", summaries.ToPatchJson(summaries.ToPatchJson()), "saved page has no changes");
+        }
+
+        static void NestedPatchChanges()
+        {
+            var config = DaemonConfig.FromJson(JVal.Parse("{}"));
+            config.Experimental = true;
+            config.UsageItems["test"] = new DaemonConfig.UsageItemConfig { Poll = true, IntervalSecs = 90 };
+            string baseline = config.ToPatchJson();
+            config.Experimental = false;
+            config.UsageItems["test"].IntervalSecs = 0;
+            config.InstructionsBreadcrumbEnabled = false;
+            config.InstructionsTemplate = "a quoted \"draft\"\nnext line";
+            var patch = JVal.Parse(config.ToPatchJson(baseline));
+            AssertEx.True(!patch["daemon"]["experimental"].IsNull, "false reset included");
+            AssertEx.Equal(false, patch["daemon"]["experimental"].AsBool(true), "false reset preserved");
+            AssertEx.Equal(0, patch["daemon"]["usage_items"]["test"]["interval_secs"].AsInt(-1), "zero reset preserved");
+            AssertEx.True(patch["daemon"]["usage_items"]["test"]["poll"].IsNull, "unchanged nested sibling omitted");
+            AssertEx.Equal(config.InstructionsTemplate, patch["daemon"]["instructions"]["template"].AsString(), "escaped text preserved");
+            AssertEx.True(patch["daemon"]["instructions"]["mount_path"].IsNull, "unchanged instruction omitted");
+            AssertEx.True(patch["commands"].IsNull, "unchanged section omitted");
+
+            string submitted = config.ToPatchJson();
+            config.Editor = "new-editor";
+            patch = JVal.Parse(config.ToPatchJson(submitted));
+            AssertEx.Equal("new-editor", patch["commands"]["editor"].AsString(), "edit during save remains pending");
+            AssertEx.True(patch["daemon"].IsNull, "submitted changes are clean");
         }
 
         static void ReadsDaemonDefaults()

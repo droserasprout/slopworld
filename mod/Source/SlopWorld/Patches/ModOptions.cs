@@ -165,8 +165,6 @@ namespace SlopWorld
 
             public T PageOf<T>() where T : class, IOptionPage => Page as T;
 
-            public void Reread() => _page?.Load();
-
             public void Teardown()
             {
                 if (_page is IDisposable disposable) disposable.Dispose();
@@ -366,15 +364,6 @@ namespace SlopWorld
                 return;
             }
             if (category != null) v.Category = category;
-        }
-
-        // A save is a write of the *whole* file - every page here PUTs the sections it knows
-        // about - so a page holding a copy read before that write would put the old figures
-        // back the next time its own Save was pressed. Both re-read instead, including the
-        // one that just saved, which costs a request and closes the hole.
-        public static void Reread()
-        {
-            foreach (var tab in Column) tab.Reread();
         }
 
         // Drop page instances and persist settings when the view/window closes.
