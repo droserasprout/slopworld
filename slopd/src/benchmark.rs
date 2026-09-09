@@ -100,6 +100,14 @@ fn benchmark_content_hash_rows(frame: &Frame) -> usize {
 }
 
 fn benchmark_websocket_serialization() {
+    let screen = screen_view("bench-fresh", &seeded_frame());
+    measure("websocket-json fresh screen", |_| {
+        EventMessage::new(Event::Screen {
+            screen: screen.clone(),
+        })
+        .encoded()
+        .len()
+    });
     for sessions in [1usize, 4, 8] {
         let events = (0..sessions)
             .map(|index| {
@@ -110,7 +118,7 @@ fn benchmark_websocket_serialization() {
             .collect::<Vec<_>>();
         for clients in [1usize, 4, 8] {
             measure(
-                &format!("websocket-json sessions={sessions} clients={clients}"),
+                &format!("websocket-cached sessions={sessions} clients={clients}"),
                 |_| {
                     let mut bytes = 0usize;
                     for _ in 0..clients {

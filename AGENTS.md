@@ -19,6 +19,8 @@ Essentials:
 - [config-stores](notes/config-stores.md) — daemon & mod config files
 - [wire-protocol](notes/wire-protocol.md) — WS events & HTTP routes
 - [gotchas](notes/gotchas.md) — the traps
+- [cpu-fixes](notes/_plans/cpu-fixes.md) — prioritized CPU fix plan and validation targets
+- [memory-leaks-plan](notes/_plans/memory-leaks-plan.md) — texture cleanup and bounded terminal buffering
 - [house-rules](notes/house-rules.md) — commit rules & note discipline
 - [agent-tasks](notes/agent-tasks.md) — task mailboxes and delegation
 
