@@ -301,9 +301,18 @@ impl<'de> Deserialize<'de> for ClientMsg {
             crate::wire::messages::BREADCRUMB => Ok(Self::Breadcrumb(
                 serde_json::from_value(value).map_err(D::Error::custom)?,
             )),
-            crate::wire::messages::AUDIO => Ok(Self::Audio(
-                serde_json::from_value(value).map_err(D::Error::custom)?,
-            )),
+            crate::wire::messages::AUDIO => {
+                // AudioReq deliberately rejects stale fields such as the old `source` shape.
+                // The message discriminator belongs to the envelope, not the strict payload.
+                let mut payload = value;
+                payload
+                    .as_object_mut()
+                    .expect("websocket message tag came from a JSON object")
+                    .remove("t");
+                Ok(Self::Audio(
+                    serde_json::from_value(payload).map_err(D::Error::custom)?,
+                ))
+            }
             other => Err(D::Error::unknown_variant(other, &[])),
         }
     }
@@ -444,6 +453,15 @@ mod tests {
         assert!(
             serde_json::from_str::<AudioReq>(r#"{"source":"/tmp/old.ogg","volume":0.5}"#).is_err()
         );
+
+        let wire: ClientMsg = serde_json::from_str(r#"{"t":"audio","volume":0.5}"#).unwrap();
+        match wire {
+            ClientMsg::Audio(req) => {
+                assert!(req.selection.is_none());
+                assert_eq!(req.volume, 0.5);
+            }
+            _ => panic!("expected an audio message"),
+        }
     }
 
     #[test]
