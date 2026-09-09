@@ -61,7 +61,7 @@ namespace SlopWorld
             _historyWarmed = false;
             _historyBarDragging = false;
             _history = new TerminalHistory();
-            _lastLiveSeq = -1;
+            _selectionCoordinator.ResetLiveSequence();
             _historyLiveSeq = -1;
             _historyLiveHistory = -1;
             _historyLiveCols = 0;

@@ -1,6 +1,3 @@
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -10,8 +7,6 @@ namespace SlopWorld
     // TerminalWindow pane rendering, cache, and pointer-overlays.
     public partial class TerminalWindow
     {
-        readonly TerminalRunCache _runCache = new TerminalRunCache();
-
         void DrawScreen(Rect body, ScreenBuf buf, float shift)
         {
             Slab.Fill(body, SolidTerminalBackground);
@@ -121,64 +116,9 @@ namespace SlopWorld
         void DrawHint() => Find.CurrentMap?.GetComponent<CoreTip>()?.DrawHint();
 
         void DrawSelection(Rect body, ScreenBuf buf, float shift)
-        {
-            if (Event.current.type != EventType.Repaint) return;
-            // Not `_selA == _selB`: a one-character word is a selection, and drawn.
-            if (!_hasSel) return;
-            EnsureRuns(buf);
-            SyncSnap();
+            => _renderer.DrawSelection(body, buf, shift);
 
-            float cw = DisplayCellW(), ch = TerminalFont.CellH;
-            OrderedSel(out var a, out var b);
-            int rows = buf.Runs.Length;
-
-            for (int row = Mathf.Max(0, a.y); row <= Mathf.Min(rows - 1, b.y); row++)
-            {
-                int lineLen = TerminalColumns.ContentColumns(TerminalColumns.Cells(buf.Runs[row]));
-                int startCol = Mathf.Max(0, row == a.y ? a.x : 0);
-                int endCol = row == b.y ? b.x + 1 : lineLen;
-                endCol = Mathf.Clamp(endCol, startCol, lineLen);
-
-                float y = body.y + shift + row * ch;
-                if (y + ch < body.y) continue;
-                if (y > body.yMax) break;
-                if (endCol <= startCol) continue;
-
-                float l = SnapX(body.x + startCol * cw);
-                float r = SnapX(body.x + endCol * cw);
-                float t = SnapY(y);
-                float bot = SnapY(body.y + shift + (row + 1) * ch);
-                if (bot <= body.y || t >= body.yMax) continue;
-                t = Mathf.Max(t, body.y);
-                bot = Mathf.Min(bot, body.yMax);
-                Widgets.DrawBoxSolid(new Rect(l, t, r - l, bot - t),
-                    TerminalTheme.Current.Selection);
-            }
-        }
-
-        void DrawScrollLock(Rect body)
-        {
-            if (Event.current.type != EventType.Repaint) return;
-
-            // The history view is a frozen terminal frame. A small vector lock keeps that
-            // state visible without covering the first row with a warning-colored sentence.
-            const float w = 11f;
-            const float h = 12f;
-            float x = body.xMax - 30f;
-            float y = body.y + 5f;
-            var ink = new Color(0.55f, 0.55f, 0.55f, 1f);
-
-            Widgets.DrawBoxSolid(new Rect(x + 2f, y, 7f, 1.5f), ink);
-            Widgets.DrawBoxSolid(new Rect(x + 1f, y + 1f, 1.5f, 5f), ink);
-            Widgets.DrawBoxSolid(new Rect(x + 8.5f, y + 1f, 1.5f, 5f), ink);
-            Widgets.DrawBoxSolid(new Rect(x, y + 5f, w, h - 5f), ink);
-
-            // Keep the keyhole monochrome and cut it from the terminal surface instead of
-            // using the scheme's warning color or a potentially colorful terminal palette.
-            var hole = SolidTerminalBackground;
-            hole.a = 1f;
-            Widgets.DrawBoxSolid(new Rect(x + 4.5f, y + 7f, 2f, 3f), hole);
-        }
+        void DrawScrollLock(Rect body) => _renderer.DrawScrollLock(body);
 
         // A request is not evidence that history exists. Keep the bar and lock hidden until
         // the first snapshot either assembles a view or reports a positive top offset; this
@@ -265,95 +205,16 @@ namespace SlopWorld
 
         // A quiet position cue over the pane rather than another terminal column. The chip is
         // shown whenever the daemon has confirmed history or the user is already reading it.
-        void DrawHistoryBar(Rect body, bool historyInput)
-        {
-            if (!historyInput || !HistoryBarAvailable() || Event.current.type != EventType.Repaint)
-                return;
-
-            HistoryBarGeometry(body, out var hit, out var track, out var thumb);
-            var rail = new Rect(track.x + 1f, track.y, 1f, track.height);
-
-            Widgets.DrawBoxSolid(rail, UiWidgets.ScrollTrough);
-            bool over = hit.Contains(Event.current.mousePosition);
-            Widgets.DrawBoxSolid(thumb, _historyBarDragging
-                ? UiWidgets.ScrollThumbHeld
-                : over ? UiWidgets.ScrollThumbHover : UiWidgets.ScrollThumb);
-        }
+        void DrawHistoryBar(Rect body, bool historyInput) =>
+            _renderer.DrawHistoryBar(body, historyInput);
 
         // A pure function of the buffer, the rect and the font, which is what makes Blit's
         // cache possible.
-        void Paint(Rect body, ScreenBuf buf, float cw, float ch, float yShift = 0f)
-        {
-            PaintRows(body, buf, cw, ch, null, yShift);
-        }
+        void Paint(Rect body, ScreenBuf buf, float cw, float ch, float yShift = 0f) =>
+            _renderer.Paint(body, buf, cw, ch, yShift);
 
         void PaintRows(Rect body, ScreenBuf buf, float cw, float ch, int[] rows,
-                       float yShift = 0f)
-        {
-            float debugStarted = ScrollDebugTimer();
-            var style = TerminalFont.Style;
-
-            if (rows == null)
-            {
-                for (int row = 0; row < buf.Runs.Length; row++) PaintRow(
-                    body, buf.Runs[row], row, cw, ch, yShift, style, body.y);
-            }
-            else
-            {
-                foreach (int row in rows)
-                {
-                    if (row < 0 || row >= buf.Runs.Length) continue;
-                    float y = body.y + yShift + row * ch;
-                    if (y + ch < body.y || y > body.yMax) continue;
-                    Widgets.DrawBoxSolid(new Rect(body.x, SnapY(y), body.width,
-                                                   SnapY(y + ch) - SnapY(y)), SolidTerminalBackground);
-                    PaintRow(body, buf.Runs[row], row, cw, ch, yShift, style, body.y);
-                }
-            }
-
-            ScrollDebugPaint(debugStarted);
-        }
-
-        static void PaintRow(Rect body, List<SgrRun> runs, int row, float cw, float ch,
-                             float yShift, GUIStyle style, float clipTop)
-        {
-            float y = body.y + yShift + row * ch;
-            if (y + ch < clipTop || y > body.yMax) return;
-
-            // Snapped so it meets its neighbours' on a pixel rather than near one; see SnapY.
-            float bgTop = SnapY(y);
-            float bgBot = SnapY(y + ch);
-
-            foreach (var run in runs)
-            {
-                // At the run's true column, so wide chars (which the daemon re-anchors
-                // with CHA) do not shift the rest of the line.
-                float x = body.x + run.Col * cw;
-
-                if (run.HasBg)
-                {
-                    float bgL = SnapX(x);
-                    float bgR = SnapX(body.x + (run.Col + run.Text.Length) * cw);
-                    Widgets.DrawBoxSolid(
-                        new Rect(bgL, bgTop, bgR - bgL, bgBot - bgTop), run.Bg);
-                }
-
-                style.normal.textColor = run.Fg;
-                DrawRun(run.Text, x, y, cw, ch, style);
-
-                // Half strength in the text's own color; the pointer is what makes a
-                // link loud.
-                if (run.Url != null)
-                {
-                    var u = run.Fg;
-                    u.a *= 0.5f;
-                    Widgets.DrawBoxSolid(
-                        new Rect(SnapX(x), bgBot - 1f,
-                                 SnapX(body.x + (run.Col + run.Text.Length) * cw) - SnapX(x), 1f),
-                        u);
-                }
-            }
-        }
+                       float yShift = 0f) => _renderer.PaintRows(body, buf, cw, ch, rows, yShift);
 
         // The GUI-to-screen transform, sampled once a draw; see SnapX.
         static float _snapSx = 1f, _snapSy = 1f, _snapOx, _snapOy;
@@ -384,7 +245,7 @@ namespace SlopWorld
         // Every char the face cannot advance by exactly one cell is placed alone on its own
         // column. Claude Code's prompt chevron is in no mono face here, and drawn inline it
         // took no width and slid the whole input line a cell left.
-        static void DrawRun(string text, float x, float y, float cw, float ch, GUIStyle style)
+        internal static void DrawRun(string text, float x, float y, float cw, float ch, GUIStyle style)
         {
             TerminalFont.Prepare(text, style.fontStyle);
             int start = 0;

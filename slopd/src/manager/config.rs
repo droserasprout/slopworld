@@ -1,6 +1,7 @@
 //! Manager construction and configuration synchronization.
 
 use super::super::*;
+use super::{reconcile::ConfigReconciler, ConfigState, Signals};
 
 impl Live {
     pub(super) fn new(cfg: SessionCfg, title: TitleCapture) -> Self {
@@ -59,17 +60,13 @@ impl Manager {
             live: RwLock::new(HashMap::new()),
             temp: RwLock::new(HashMap::new()),
             cfg: RwLock::new(cfg),
-            cfg_mtime: Mutex::new(mtime),
-            cfg_persist: tokio::sync::Mutex::new(()),
-            presets_mtime: Mutex::new(presets_loaded.then_some(presets_mtime).flatten()),
-            jukebox_mtime: Mutex::new(jukebox_loaded.then_some(jukebox_mtime).flatten()),
-            cfg_checked: AtomicU64::new(0),
+            config_state: ConfigState::new(
+                mtime,
+                presets_loaded.then_some(presets_mtime).flatten(),
+                jukebox_loaded.then_some(jukebox_mtime).flatten(),
+            ),
             host_metadata_checked: AtomicU64::new(0),
-            usage: RwLock::new(crate::usage::Snapshot::default()),
-            clients: AtomicUsize::new(0),
-            clients_since: AtomicU64::new(0),
-            watchers: Mutex::new(HashMap::new()),
-            redraw_nudge: Arc::new(tokio::sync::Semaphore::new(1)),
+            signals: Signals::new(),
             scroll_cache: Mutex::new(HashMap::new()),
             activity_cache,
             audio: crate::audio::Audio::new(),
@@ -104,7 +101,7 @@ impl Manager {
     }
 
     async fn config_saved(&self, cfg: &Config) {
-        *self.cfg_mtime.lock().unwrap() = disk_mtime(&self.cfg_path).await;
+        *self.config_state.cfg_mtime.lock().unwrap() = disk_mtime(&self.cfg_path).await;
         if let Err(e) = crate::endpoint::update_token(&cfg.daemon.token).await {
             tracing::warn!("config saved but endpoint descriptor was not updated: {e:#}");
         }
@@ -125,7 +122,7 @@ impl Manager {
         &self,
         update: impl FnOnce(&mut Config) -> Result<(T, bool)>,
     ) -> Result<T> {
-        let _persist = self.cfg_persist.lock().await;
+        let _persist = self.config_state.persist.lock().await;
         let old_token = self.cfg.read().await.daemon.token.clone();
         let mut candidate = self.cfg.read().await.clone();
         let (result, changed) = update(&mut candidate)?;
@@ -142,10 +139,10 @@ impl Manager {
     pub async fn reload_if_changed(self: &Arc<Self>) -> bool {
         // Keep the disk read and in-memory replacement together with config saves. The lock is
         // deliberately not held while the rest of synchronization runs below.
-        let persist = self.cfg_persist.lock().await;
+        let persist = self.config_state.persist.lock().await;
         let disk = disk_mtime(&self.cfg_path).await;
         {
-            let seen = self.cfg_mtime.lock().unwrap();
+            let seen = self.config_state.cfg_mtime.lock().unwrap();
             if *seen == disk {
                 return false;
             }
@@ -179,7 +176,7 @@ impl Manager {
         }
         // Do not mark a disk state as seen until its contents have been accepted and published.
         // This keeps a corrected file retryable even when it retains the failed state's mtime.
-        *self.cfg_mtime.lock().unwrap() = disk;
+        *self.config_state.cfg_mtime.lock().unwrap() = disk;
         drop(persist);
         if let Err(e) = crate::endpoint::update_token(&token).await {
             tracing::warn!("config reloaded but endpoint descriptor was not updated: {e:#}");
@@ -195,12 +192,13 @@ impl Manager {
 
     pub(super) async fn reload_if_due(self: &Arc<Self>) {
         let now = now_ms();
-        let last = self.cfg_checked.load(Ordering::Relaxed);
+        let last = self.config_state.checked.load(Ordering::Relaxed);
         if now.saturating_sub(last) < CFG_CHECK_MS {
             return;
         }
         if self
-            .cfg_checked
+            .config_state
+            .checked
             .compare_exchange(last, now, Ordering::Relaxed, Ordering::Relaxed)
             .is_err()
         {
@@ -214,7 +212,7 @@ impl Manager {
     pub async fn reload_presets_if_changed(self: &Arc<Self>) -> bool {
         let disk = crate::paths::dir_stamp(&crate::presets::Table::dir());
         let reloaded = {
-            let mut seen = self.presets_mtime.lock().unwrap();
+            let mut seen = self.config_state.presets_mtime.lock().unwrap();
             if *seen == disk || !crate::presets::reload() {
                 false
             } else {
@@ -235,7 +233,7 @@ impl Manager {
     pub async fn reload_jukebox_if_changed(self: &Arc<Self>) -> bool {
         let disk = crate::paths::dir_stamp(&crate::jukebox::Catalog::dir());
         let reloaded = {
-            let mut seen = self.jukebox_mtime.lock().unwrap();
+            let mut seen = self.config_state.jukebox_mtime.lock().unwrap();
             if *seen == disk || !crate::jukebox::reload() {
                 false
             } else {
@@ -254,21 +252,24 @@ impl Manager {
     }
 
     pub fn client_joined(self: &Arc<Self>) -> ClientGuard {
-        if self.clients.fetch_add(1, Ordering::Relaxed) == 0 {
-            self.clients_since.store(now_ms(), Ordering::Relaxed);
+        if self.signals.clients.fetch_add(1, Ordering::Relaxed) == 0 {
+            self.signals
+                .clients_since
+                .store(now_ms(), Ordering::Relaxed);
         }
         ClientGuard(self.clone())
     }
 
     pub fn watching(self: &Arc<Self>, name: &str) -> WatchGuard {
-        if let Ok(mut w) = self.watchers.lock() {
+        if let Ok(mut w) = self.signals.watchers.lock() {
             *w.entry(name.to_string()).or_insert(0) += 1;
         }
         WatchGuard(self.clone(), name.to_string())
     }
 
     pub(super) fn watched(&self, name: &str) -> bool {
-        self.watchers
+        self.signals
+            .watchers
             .lock()
             .map(|w| w.contains_key(name))
             .unwrap_or(true)
@@ -279,12 +280,12 @@ impl Manager {
     }
 
     pub async fn usage(&self) -> crate::usage::Snapshot {
-        self.usage.read().await.clone()
+        self.signals.usage.read().await.clone()
     }
 
     pub async fn set_usage(&self, snap: crate::usage::Snapshot) {
         {
-            let mut cur = self.usage.write().await;
+            let mut cur = self.signals.usage.write().await;
             if cur.same_readout(&snap) {
                 *cur = snap;
                 return;
@@ -295,197 +296,7 @@ impl Manager {
     }
 
     pub async fn sync_from_config(self: &Arc<Self>) {
-        let cfg = self.config().await;
-        let removed = self.prune_removed(&cfg).await;
-
-        for name in &removed {
-            self.revoke_grants(name).await;
-        }
-
-        self.upsert_sessions(&cfg).await;
-        self.upsert_host_terminals(&cfg).await;
-        self.sync_manifests(&cfg).await;
-        let titles_changed = self.reconcile_title_settings(&cfg).await;
-        self.autostart(&cfg).await;
-        self.autostart_host_terminals(&cfg).await;
-
-        let adopted = self.adopt_orphans(&cfg).await;
-        if titles_changed || adopted {
-            self.emit(Event::Sessions {
-                sessions: self.views().await,
-            });
-        }
-    }
-
-    /// Keep generated project manifests in step with the durable configuration. The file is
-    /// project-scoped because agents share a project tree; the session option controls whether
-    /// an agent receives its read-only overlay, while daemon instructions control its destination
-    /// and optional discovery breadcrumb.
-    pub(super) async fn sync_manifests(&self, cfg: &Config) {
-        let views = self.views().await;
-        for project in &cfg.projects {
-            let dir = crate::config::expand(&project.dir);
-            let path = std::path::Path::new(&dir);
-            if !path.is_dir() {
-                continue;
-            }
-            let enabled = cfg.daemon.experimental
-                && cfg
-                    .sessions
-                    .iter()
-                    .any(|session| session.project == project.name && session.slopworld_md);
-            let result = if enabled {
-                crate::manifest::prepare(path, cfg, project, &views).map(|_| ())
-            } else {
-                crate::manifest::remove(path)
-            };
-            if let Err(error) = result {
-                tracing::warn!(
-                    project = %project.name,
-                    error = %error,
-                    "could not synchronize generated SLOPWORLD.md"
-                );
-            }
-        }
-    }
-
-    async fn prune_removed(&self, cfg: &Config) -> Vec<String> {
-        // Dropping a `Live` only *detaches* its reader: `JoinHandle`'s own `Drop` lets the
-        // task run on, and it would keep a control-mode attach open against a session
-        // nothing points at any more. Every other removal path aborts, so this one does too.
-        let mut live = self.live.write().await;
-        let mut removed = Vec::new();
-        let mut worker_tasks = Vec::new();
-        live.retain(|name, l| {
-            let saved_host = l.host && cfg.host_terminals.iter().any(|tab| tab.name == *name);
-            if (l.ephemeral && (!l.host || saved_host)) || cfg.session(name).is_some() {
-                return true;
-            }
-            tracing::info!("agent {name} is gone from the config, ending its reader");
-            if l.cfg.worker && !l.cfg.task_id.trim().is_empty() {
-                worker_tasks.push((l.cfg.task_id.clone(), name.clone()));
-            }
-            if let Some(h) = l.reader.take() {
-                h.abort();
-            }
-            self.forget_scroll(name);
-            if let Err(error) = self.title_cache.clear_latest(name) {
-                tracing::warn!(
-                    target: "slopd::titles",
-                    session = %name,
-                    error = %error,
-                    outcome = "cache_write_failed",
-                    "could not clear session title"
-                );
-            }
-            removed.push(name.clone());
-            false
-        });
-        drop(live);
-        for (task_id, name) in worker_tasks {
-            self.fail_worker_task(&task_id, format!("worker session {name} was removed"));
-        }
-        for name in &removed {
-            self.clear_activity(name).await;
-        }
-        removed
-    }
-
-    async fn upsert_sessions(&self, cfg: &Config) {
-        let mut live = self.live.write().await;
-        if !cfg.daemon.experimental {
-            // Include temporary workers, which have no durable session entry.
-            for session in live.values_mut() {
-                session.breadcrumbs_pending = false;
-                session.breadcrumbs.clear();
-            }
-        }
-        for s in &cfg.sessions {
-            let mut title = TitleCapture::default();
-            title.override_title = self.title_cache.latest(&s.name);
-            title.once_requested = title.override_title.is_some();
-            live.entry(s.name.clone())
-                .and_modify(|l| {
-                    l.cfg = s.clone();
-                    if !s.breadcrumb_yolo {
-                        l.breadcrumbs_pending = false;
-                    }
-                })
-                .or_insert(Live::new(s.clone(), title));
-        }
-    }
-
-    async fn upsert_host_terminals(&self, cfg: &Config) {
-        let mut live = self.live.write().await;
-        for tab in &cfg.host_terminals {
-            if let Err(error) = crate::session::check_name(&tab.name) {
-                tracing::warn!("ignoring invalid host terminal {}: {error:#}", tab.name);
-                continue;
-            }
-            if cfg.session(&tab.name).is_some() {
-                tracing::warn!(
-                    "ignoring host terminal {} because an agent has the same name",
-                    tab.name
-                );
-                continue;
-            }
-            let mut session = SessionCfg {
-                name: tab.name.clone(),
-                label: tab.label.clone(),
-                project: tab.project.clone(),
-                command: cfg.defaults.shell.clone(),
-                ..Default::default()
-            };
-            let path = if tab.path.trim().is_empty() {
-                cfg.project(&tab.project)
-                    .map(|p| crate::config::expand(&p.dir))
-                    .unwrap_or_default()
-            } else {
-                crate::config::expand(&tab.path)
-            };
-            session.autostart = tab.autostart;
-            // Host tabs use their fixed label or the native terminal title. Never restore an
-            // automatic prompt-summary cache entry for a shell.
-            let title = TitleCapture::default();
-            live.entry(tab.name.clone())
-                .and_modify(|l| {
-                    if l.host {
-                        l.cfg = session.clone();
-                        l.host_path = path.clone();
-                    }
-                })
-                .or_insert_with(|| {
-                    let mut l = Live::new(session, title);
-                    // Host tabs use the ghost-row presentation but remain in the durable
-                    // host-terminal catalog rather than disappearing when the shell exits.
-                    l.ephemeral = true;
-                    l.host = true;
-                    l.host_path = path;
-                    l
-                });
-        }
-    }
-
-    async fn autostart(self: &Arc<Self>, cfg: &Config) {
-        // Task workers are explicit, one-shot work. Older configs may still carry autostart=true
-        // from before worker lifecycle settings were normalized, so guard the policy here too.
-        for s in cfg.sessions.iter().filter(|s| s.autostart && !s.worker) {
-            if !self.tmux.exists(&s.name).await {
-                if let Err(e) = self.start(&s.name).await {
-                    tracing::error!("autostart {}: {e:#}", s.name);
-                }
-            }
-        }
-    }
-
-    async fn autostart_host_terminals(self: &Arc<Self>, cfg: &Config) {
-        for tab in cfg.host_terminals.iter().filter(|tab| tab.autostart) {
-            if !self.tmux.exists(&tab.name).await {
-                if let Err(error) = self.start(&tab.name).await {
-                    tracing::error!("autostart host terminal {}: {error:#}", tab.name);
-                }
-            }
-        }
+        ConfigReconciler::sync(self).await;
     }
 
     pub(super) async fn clear_activity(&self, name: &str) {
@@ -547,7 +358,7 @@ impl Manager {
             // Preserve redraws that arrive while an earlier nudge is sleeping. In particular,
             // the last sidebar drag carries the authoritative panel shape and must not be
             // discarded merely because a preceding layout change is still repainting.
-            let Ok(permit) = m.redraw_nudge.clone().acquire_owned().await else {
+            let Ok(permit) = m.signals.redraw_nudge.clone().acquire_owned().await else {
                 return;
             };
             let _permit = permit;
@@ -602,7 +413,7 @@ impl Manager {
     pub async fn patch_config(self: &Arc<Self>, patch: Value) -> Result<()> {
         self.reload_if_changed().await;
 
-        let _persist = self.cfg_persist.lock().await;
+        let _persist = self.config_state.persist.lock().await;
         let text = tokio::fs::read_to_string(&self.cfg_path)
             .await
             .with_context(|| format!("reading {}", self.cfg_path.display()))?;
@@ -644,7 +455,7 @@ impl Manager {
 
     pub async fn replace_config(self: &Arc<Self>, text: &str) -> Result<()> {
         let mut new = Config::parse(text)?;
-        let _persist = self.cfg_persist.lock().await;
+        let _persist = self.config_state.persist.lock().await;
         let old_token = self.cfg.read().await.daemon.token.clone();
         if new.daemon.token == crate::config::TOKEN_REDACTED {
             new.daemon.token = old_token.clone();
@@ -706,12 +517,12 @@ mod tests {
 
         let first_client = manager.client_joined();
         let second_client = manager.client_joined();
-        assert_eq!(manager.clients.load(Ordering::Relaxed), 2);
-        assert!(manager.clients_since.load(Ordering::Relaxed) > 0);
+        assert_eq!(manager.signals.clients.load(Ordering::Relaxed), 2);
+        assert!(manager.signals.clients_since.load(Ordering::Relaxed) > 0);
         drop(second_client);
-        assert_eq!(manager.clients.load(Ordering::Relaxed), 1);
+        assert_eq!(manager.signals.clients.load(Ordering::Relaxed), 1);
         drop(first_client);
-        assert_eq!(manager.clients.load(Ordering::Relaxed), 0);
+        assert_eq!(manager.signals.clients.load(Ordering::Relaxed), 0);
 
         let first_watch = manager.watching("agent");
         let second_watch = manager.watching("agent");
@@ -739,6 +550,27 @@ mod tests {
         let event = events.try_recv().expect("usage event");
         assert!(matches!(event.event(), Event::Usage { usage } if usage == &changed));
         assert_eq!(manager.usage().await, changed);
+    }
+
+    #[tokio::test]
+    async fn persisted_root_token_changes_invalidate_existing_auth() {
+        let manager = test_manager(Config::default());
+        let mut changes = manager.auth_changes();
+
+        manager
+            .update_cfg(|cfg| {
+                cfg.daemon.token = "rotated-root".into();
+                Ok(())
+            })
+            .await
+            .expect("persist token rotation");
+
+        assert_eq!(manager.auth_generation(), 1);
+        assert!(matches!(
+            changes.try_recv().expect("auth invalidation"),
+            AuthChange::RootTokenChanged
+        ));
+        assert_eq!(manager.config().await.daemon.token, "rotated-root");
     }
 
     #[tokio::test]
@@ -786,7 +618,7 @@ mod tests {
         let path = manager.cfg_path.clone();
         let old_stamp = UNIX_EPOCH;
         let failed_stamp = UNIX_EPOCH + Duration::from_secs(1);
-        *manager.cfg_mtime.lock().unwrap() = Some(old_stamp);
+        *manager.config_state.cfg_mtime.lock().unwrap() = Some(old_stamp);
 
         std::fs::write(&path, "[daemon\n").unwrap();
         std::fs::File::open(&path)
@@ -794,7 +626,10 @@ mod tests {
             .set_modified(failed_stamp)
             .unwrap();
         assert!(!manager.reload_if_changed().await);
-        assert_eq!(*manager.cfg_mtime.lock().unwrap(), Some(old_stamp));
+        assert_eq!(
+            *manager.config_state.cfg_mtime.lock().unwrap(),
+            Some(old_stamp)
+        );
 
         std::fs::write(&path, toml::to_string_pretty(&Config::default()).unwrap()).unwrap();
         std::fs::File::open(&path)
@@ -802,7 +637,10 @@ mod tests {
             .set_modified(failed_stamp)
             .unwrap();
         assert!(manager.reload_if_changed().await);
-        assert_eq!(*manager.cfg_mtime.lock().unwrap(), Some(failed_stamp));
+        assert_eq!(
+            *manager.config_state.cfg_mtime.lock().unwrap(),
+            Some(failed_stamp)
+        );
 
         let _ = std::fs::remove_file(path);
     }

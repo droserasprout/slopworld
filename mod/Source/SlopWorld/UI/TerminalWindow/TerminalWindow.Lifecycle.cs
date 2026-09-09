@@ -166,7 +166,7 @@ namespace SlopWorld
             SetContent(null);
             if (name == _name) return;
             SaveScrollbackState(_name);
-            SaveHistoryCache(_name);
+            _historyCoordinator.SaveCache(_name);
             // A window opened on content alone has no pane to let go of, and a subscription
             // named null is one the daemon would have to answer.
             if (_name != null) SessionHub.Instance.Unsubscribe(_name);
@@ -179,34 +179,9 @@ namespace SlopWorld
             }
             _showStopped = _name != null && SessionHub.Instance.Get(_name)?.Gone == true;
             PrimeCachedSize();
-            _scrollOff = 0;
-            _wantedScrollOff = 0;
-            _scrollPending = false;
-            _nextScrollSend = 0f;
-            _hasWheelDirection = false;
-            _historyScrollReady = false;
-            _historyJumpPending = false;
-            _historyJumpPixels = -1f;
-            _renderHistoryShift = 0f;
-            _historyLastPixels = 0f;
-            _historyTopOff = -1;
-            _historyBarDragging = false;
-            _historyViewReady = false;
-            _historyRefreshPending = false;
-            _historyWarmed = false;
-            _activeHistoryCache = null;
-            _historyRestorePending = false;
-            _history = new TerminalHistory();
-            _historyRequests.Clear();
-            _historyCoordinateShift = 0;
-            _historyDisplayedFrame = null;
-            _historyLiveSeq = -1;
-            _historyLiveHistory = -1;
-            _historyLiveCols = 0;
-            _historyLiveRows = 0;
-            _historyLiveAltScreen = false;
+            _historyCoordinator.ResetForSession();
             RestoreScrollbackState(_name);
-            RestoreHistoryCache(_name);
+            _historyCoordinator.RestoreCache(_name);
             if (_scrollOff > 0)
             {
                 _historyDisplayedFrame = CachedDisplayedFrame(_name);
@@ -224,8 +199,7 @@ namespace SlopWorld
                     }
                 }
             }
-            _selectionOff = 0;
-            _lastLiveSeq = -1;
+            _selectionCoordinator.ResetForNewRun();
             ClearSelection();
             ResetCursorBlink();
         }

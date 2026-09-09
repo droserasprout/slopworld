@@ -8,9 +8,6 @@ namespace SlopWorld
     {
         // The selection endpoints belong to the displayed history offset. A live frame and a
         // historical frame use the same row coordinates, translated by this offset.
-        int _selectionOff;
-        int _lastLiveSeq = -1;
-
         // Compatibility aliases keep the gesture implementation readable while the storage is
         // owned by TerminalSelectionState.
         internal bool HasSelection
@@ -152,14 +149,10 @@ namespace SlopWorld
 
         void NoteLiveFrame(ScreenBuf live, int restoredShift = int.MinValue)
         {
-            if (live == null || live.Seq == _lastLiveSeq) return;
+            if (live == null || live.Seq == _selectionCoordinator.LastLiveSeq) return;
 
             int liveShift = restoredShift == int.MinValue ? live.LiveShift : restoredShift;
-
-            if (_lastLiveSeq >= 0 && _selectionOff == 0 &&
-                (_hasSel || _dragging || _wordDragging))
-                MoveSelectionRows(-liveShift);
-            _lastLiveSeq = live.Seq;
+            _selectionCoordinator.NoteLiveFrame(live.Seq, liveShift);
             _historyLiveSeq = live.Seq;
             _historyLiveHistory = live.History;
             _historyLiveCols = live.Cols;
@@ -217,27 +210,7 @@ namespace SlopWorld
 
         void SyncSelectionOffset(int offset)
         {
-            if (offset == _selectionOff) return;
-            MoveSelectionRows(offset - _selectionOff);
-            _selectionOff = offset;
-        }
-
-        void MoveSelectionRows(int delta)
-        {
-            if (delta == 0) return;
-            var a = _selA;
-            var b = _selB;
-            var wordStart = _wordStart;
-            var wordEnd = _wordEnd;
-            a.y += delta;
-            b.y += delta;
-            wordStart.y += delta;
-            wordEnd.y += delta;
-            _selA = a;
-            _selB = b;
-            _wordStart = wordStart;
-            _wordEnd = wordEnd;
-            if (_lineDragging) _lineStart += delta;
+            _selectionCoordinator.SyncOffset(offset);
         }
 
         internal void ClearSelection()
@@ -255,13 +228,7 @@ namespace SlopWorld
 
         internal Vector2Int CellAt(Rect body, Vector2 m)
         {
-            SyncSnap();
-            float cw = DisplayCellW(), ch = TerminalFont.CellH;
-            if (cw <= 0.01f || ch <= 0.01f) return Vector2Int.zero;
-            int col = Mathf.FloorToInt((m.x - body.x) / cw);
-            int row = Mathf.FloorToInt(
-                (m.y - body.y - DisplayedHistoryShift(ch)) / ch);
-            return new Vector2Int(col, row);
+            return _selectionCoordinator.CellAt(body, m);
         }
 
         ScreenBuf DisplayedBuf() => DisplayedScreen();
@@ -275,23 +242,14 @@ namespace SlopWorld
 
         string SelectionText(ScreenBuf buf)
         {
-            return _history.SelectionText(buf, _selA.x, _selA.y, _selB.x, _selB.y);
+            return _selectionCoordinator.SelectionText(buf);
         }
 
         // Colors are resolved into the runs at parse time, so a scheme change is a re-parse:
         // without it an idle pane keeps the old palette until the agent next writes, which on
         // an idle agent is never.
         void EnsureRuns(ScreenBuf buf)
-        {
-            if (buf.Runs != null && buf.RunsRev == TerminalTheme.Rev && buf.RunsComplete)
-                return;
-            float debugStarted = ScrollDebugTimer();
-            buf.Runs = _runCache.Parse(buf, TerminalTheme.Rev, TerminalFont.Rev,
-                                       out int hits, out int misses);
-            buf.RunsRev = TerminalTheme.Rev;
-            buf.RunsComplete = true;
-            ScrollDebugParse(debugStarted, hits, misses);
-        }
+            => _renderer.EnsureRuns(buf);
 
     }
 }
