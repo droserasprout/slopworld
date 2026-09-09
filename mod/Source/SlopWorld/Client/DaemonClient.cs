@@ -74,6 +74,9 @@ namespace SlopWorld
                 {
                     var connection = Settings.Connection;
                     var req = (HttpWebRequest)WebRequest.Create(connection.BaseUrl + path);
+                    // Sidebar refreshes fan out over projects. The framework default can
+                    // leave fast status reads queued behind two slow workspace requests.
+                    req.ServicePoint.ConnectionLimit = 16;
                     req.Method = method;
                     req.Timeout = timeoutMs;
                     req.ReadWriteTimeout = timeoutMs;

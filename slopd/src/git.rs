@@ -34,6 +34,7 @@ pub struct Status {
     pub added: u32,
     pub deleted: u32,
     pub truncated: bool,
+    pub counts_complete: bool,
     pub changes: Vec<Change>,
 }
 
@@ -66,7 +67,16 @@ async fn warm(dir: &Path) -> std::io::Result<()> {
 /// Whether `dir` is inside a repository, and what has changed in it. `Ok(None)` is "not a
 /// repository" - a plain answer rather than an error, because half the projects on a machine
 /// are not one and the view says so in a line.
+#[cfg(test)]
 pub async fn status(dir: &Path) -> std::io::Result<Option<Status>> {
+    status_with_counts(dir, true).await
+}
+
+/// Status-only reads let the sidebar display paths before computing line counts.
+pub async fn status_with_counts(
+    dir: &Path,
+    include_counts: bool,
+) -> std::io::Result<Option<Status>> {
     let _perf = crate::perf::timer("git-refresh");
     let Some(root) = toplevel(dir).await? else {
         return Ok(None);
@@ -79,16 +89,22 @@ pub async fn status(dir: &Path) -> std::io::Result<Option<Status>> {
     // matters for projects that contain build outputs or nested checkouts. Ordinary untracked
     // directories are expanded in one batch below; a nested repository remains a boundary row
     // and its own working tree is never inspected as part of the parent.
-    let (rows, truncated) = status_rows(&root).await?;
+    let (rows_result, branch) = tokio::join!(status_rows(&root), branch(&root));
+    let (rows, truncated) = rows_result?;
     crate::perf::count("git-status-rows", rows.len() as u64);
-    let branch = branch(&root).await;
     // A truncated status has no complete count to report. More importantly, running a full
     // diff or one no-index diff per untracked path here would undo the status stream's cap.
-    let counts = if truncated {
-        HashMap::new()
+    // Counts are optional decoration. Bound the whole pass, including per-file child
+    // processes, so a huge file or slow diff cannot hold the request indefinitely.
+    let counts = if truncated || !include_counts {
+        None
     } else {
-        numstat(&root, &rows).await
+        tokio::time::timeout(std::time::Duration::from_secs(2), numstat(&root, &rows))
+            .await
+            .ok()
     };
+    let counts_complete = counts.is_some();
+    let counts = counts.unwrap_or_default();
     let changed = rows.len();
     let added = counts.values().filter_map(|c| c.0).sum();
     let deleted = counts.values().filter_map(|c| c.1).sum();
@@ -111,6 +127,7 @@ pub async fn status(dir: &Path) -> std::io::Result<Option<Status>> {
         added,
         deleted,
         truncated,
+        counts_complete,
         changes,
     }))
 }
@@ -119,6 +136,7 @@ pub async fn status(dir: &Path) -> std::io::Result<Option<Status>> {
 /// name of a rename/copy in a second NUL-delimited field, so consume that field before deciding
 /// whether the next row crossed the cap.
 async fn status_rows(root: &Path) -> std::io::Result<(Vec<(String, String)>, bool)> {
+    let _perf = crate::perf::timer("git-status");
     let (mut rows, truncated) = status_rows_command(root, &[], "normal").await?;
     if truncated {
         return Ok((rows, true));
@@ -250,6 +268,7 @@ async fn toplevel(dir: &Path) -> std::io::Result<Option<PathBuf>> {
         .arg("-C")
         .arg(dir)
         .args(["rev-parse", "--show-toplevel"])
+        .kill_on_drop(true)
         .output()
         .await?;
     if !out.status.success() {
@@ -284,6 +303,7 @@ async fn numstat(
     root: &Path,
     rows: &[(String, String)],
 ) -> HashMap<String, (Option<u32>, Option<u32>)> {
+    let _perf = crate::perf::timer("git-numstat");
     if rows.is_empty() {
         return HashMap::new();
     }
@@ -367,6 +387,7 @@ async fn no_index_numstat(root: &Path, path: &str) -> Option<(Option<u32>, Optio
         .env("GIT_PAGER", "cat")
         .env("GIT_OPTIONAL_LOCKS", "0")
         .env("LC_ALL", "C")
+        .kill_on_drop(true)
         .output()
         .await
         .ok()?;
@@ -391,6 +412,7 @@ async fn run(root: &Path, args: &[&str]) -> std::io::Result<String> {
         .env("GIT_PAGER", "cat")
         .env("GIT_OPTIONAL_LOCKS", "0")
         .env("LC_ALL", "C")
+        .kill_on_drop(true)
         .output()
         .await?;
     if !out.status.success() {
@@ -417,6 +439,7 @@ where
         .env("GIT_PAGER", "cat")
         .env("GIT_OPTIONAL_LOCKS", "0")
         .env("LC_ALL", "C")
+        .kill_on_drop(true)
         .output()
         .await?;
     if !out.status.success() {
@@ -592,7 +615,16 @@ mod tests {
             .await
             .unwrap();
 
+        let paths = status_with_counts(&dir, false).await.unwrap().unwrap();
+        assert_eq!(paths.changes.len(), 4);
+        assert!(!paths.counts_complete);
+        assert!(paths
+            .changes
+            .iter()
+            .all(|c| c.added.is_none() && c.deleted.is_none()));
+
         let answer = status(&dir).await.unwrap().unwrap();
+        assert!(answer.counts_complete);
         assert_eq!(answer.changes.len(), 4);
         let text = answer
             .changes

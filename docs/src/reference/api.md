@@ -24,6 +24,8 @@ entries, accepts file, hidden, gitignore, and limit flags, and caps the limit at
 returns bounded UTF-8 text; image returns bounded image bytes. Search requires a project path
 and query, supports regex, case, word, hidden, and gitignore flags, and caps results at 200.
 Git returns repository status or `repo: false` when the path is not a repository.
+Use `counts=false` to skip line counting; the default includes counts with a two-second
+budget. `counts_complete` is false when counting was skipped or exceeded its budget.
 
 ### Ephemeral errands
 
