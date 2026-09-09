@@ -38,6 +38,15 @@ pub struct Status {
     pub changes: Vec<Change>,
 }
 
+/// A status row before it is exposed to the client. Git emits a rename's old path in a
+/// second NUL-delimited field; it is not drawn, but numstat needs it as a pathspec for Git to
+/// recognize the rename instead of treating the new path as a full-file addition.
+struct StatusRow {
+    path: String,
+    status: String,
+    source: Option<String>,
+}
+
 /// Enough for any working tree a person is actually reading. Past it the tree is not a tree
 /// any more, and a `git status` that long is a build directory somebody forgot to ignore.
 const LIMIT: usize = 2000;
@@ -109,11 +118,11 @@ pub async fn status_with_counts(
     let added = counts.values().filter_map(|c| c.0).sum();
     let deleted = counts.values().filter_map(|c| c.1).sum();
     let mut changes = Vec::new();
-    for (path, status) in rows.into_iter().take(LIMIT) {
-        let (added, deleted) = counts.get(&path).copied().unwrap_or((None, None));
+    for row in rows.into_iter().take(LIMIT) {
+        let (added, deleted) = counts.get(&row.path).copied().unwrap_or((None, None));
         changes.push(Change {
-            path,
-            status,
+            path: row.path,
+            status: row.status,
             added,
             deleted,
         });
@@ -135,7 +144,7 @@ pub async fn status_with_counts(
 /// Read the status stream only far enough to fill the sidebar tree. `status -z` puts the old
 /// name of a rename/copy in a second NUL-delimited field, so consume that field before deciding
 /// whether the next row crossed the cap.
-async fn status_rows(root: &Path) -> std::io::Result<(Vec<(String, String)>, bool)> {
+async fn status_rows(root: &Path) -> std::io::Result<(Vec<StatusRow>, bool)> {
     let _perf = crate::perf::timer("git-status");
     let (mut rows, truncated) = status_rows_command(root, &[], "normal").await?;
     if truncated {
@@ -148,13 +157,13 @@ async fn status_rows(root: &Path) -> std::io::Result<(Vec<(String, String)>, boo
     // into a child checkout.
     let directories: HashSet<String> = rows
         .iter()
-        .filter(|(path, status)| status == "??" && path.ends_with('/'))
-        .map(|(path, _)| path.clone())
+        .filter(|row| row.status == "??" && row.path.ends_with('/'))
+        .map(|row| row.path.clone())
         .collect();
     if !directories.is_empty() {
         let paths: Vec<String> = directories.iter().cloned().collect();
         let (expanded, expanded_truncated) = status_rows_command(root, &paths, "all").await?;
-        rows.retain(|(path, status)| !(status == "??" && directories.contains(path)));
+        rows.retain(|row| !(row.status == "??" && directories.contains(&row.path)));
         rows.extend(expanded);
         if rows.len() > LIMIT {
             rows.truncate(LIMIT);
@@ -173,7 +182,7 @@ async fn status_rows_command(
     root: &Path,
     paths: &[String],
     untracked_files: &str,
-) -> std::io::Result<(Vec<(String, String)>, bool)> {
+) -> std::io::Result<(Vec<StatusRow>, bool)> {
     let mut command = Command::new("git");
     command
         // Keep Git's filesystem watcher and directory-mtime cache in the repository index. These
@@ -230,15 +239,29 @@ async fn status_rows_command(
             fields.pop();
         }
         let record = String::from_utf8_lossy(&fields);
-        let Some((row, renamed)) = parse_porcelain_record(&record) else {
+        let Some(((path, status), renamed)) = parse_porcelain_record(&record) else {
             continue;
         };
-        if renamed {
-            // The source path is not drawn, but it is part of this status record.
+        let source = if renamed {
+            // The source path is not drawn, but it is part of this status record and is
+            // required as a pathspec for numstat to retain rename detection.
             fields.clear();
-            let _ = stdout.read_until(0, &mut fields).await?;
-        }
-        rows.push(row);
+            if stdout.read_until(0, &mut fields).await? == 0 {
+                None
+            } else {
+                if fields.last() == Some(&0) {
+                    fields.pop();
+                }
+                Some(String::from_utf8_lossy(&fields).into_owned())
+            }
+        } else {
+            None
+        };
+        rows.push(StatusRow {
+            path,
+            status,
+            source,
+        });
         if rows.len() > LIMIT {
             let _ = child.kill().await;
             let _ = child.wait().await;
@@ -299,20 +322,19 @@ async fn branch(root: &Path) -> String {
 /// comparison, so each gets the same no-index reading used by the diff pager. In an unborn
 /// repository, staged additions also need the no-index reading so later worktree edits are not
 /// lost behind the cached version.
-async fn numstat(
-    root: &Path,
-    rows: &[(String, String)],
-) -> HashMap<String, (Option<u32>, Option<u32>)> {
+async fn numstat(root: &Path, rows: &[StatusRow]) -> HashMap<String, (Option<u32>, Option<u32>)> {
     let _perf = crate::perf::timer("git-numstat");
     if rows.is_empty() {
         return HashMap::new();
     }
 
-    let tracked = rows
-        .iter()
-        .filter(|(_, status)| status != "??")
-        .map(|(path, _)| path.as_str())
-        .collect::<Vec<_>>();
+    let mut tracked = Vec::new();
+    for row in rows.iter().filter(|row| row.status != "??") {
+        tracked.push(row.path.as_str());
+        if let Some(source) = row.source.as_deref() {
+            tracked.push(source);
+        }
+    }
     let (out, has_head) = if tracked.is_empty() {
         // An untracked-only answer has no index-side diff to read. Its paths are counted by the
         // no-index pass below, and skipping this command matters when a directory expands to
@@ -321,7 +343,7 @@ async fn numstat(
     } else {
         match run_paths(
             root,
-            &["diff", "--numstat", "-z", "HEAD"],
+            &["diff", "--find-renames", "--numstat", "-z", "HEAD"],
             tracked.iter().copied(),
         )
         .await
@@ -330,7 +352,7 @@ async fn numstat(
             Err(_) => (
                 run_paths(
                     root,
-                    &["diff", "--numstat", "-z", "--cached"],
+                    &["diff", "--find-renames", "--numstat", "-z", "--cached"],
                     tracked.iter().copied(),
                 )
                 .await
@@ -343,8 +365,8 @@ async fn numstat(
 
     let untracked = rows
         .iter()
-        .filter_map(|(path, status)| {
-            (status == "??" || (!has_head && status.contains('A'))).then_some(path)
+        .filter_map(|row| {
+            (row.status == "??" || (!has_head && row.status.contains('A'))).then_some(&row.path)
         })
         .filter(|path| !path.ends_with('/') && !is_directory(root, path))
         .cloned()
@@ -564,6 +586,67 @@ mod tests {
     fn numstat_keeps_tabs_in_a_filename() {
         let map = parse_numstat("2\t0\ttab\tname.txt\0");
         assert_eq!(map["tab\tname.txt"], (Some(2), Some(0)));
+    }
+
+    #[tokio::test]
+    async fn a_pure_rename_keeps_zero_line_counts() {
+        let dir = std::env::temp_dir().join(format!("slopd-git-rename-{}", std::process::id()));
+        let _ = tokio::fs::remove_dir_all(&dir).await;
+        tokio::fs::create_dir_all(&dir).await.unwrap();
+        tokio::fs::write(dir.join("old.txt"), "unchanged\n")
+            .await
+            .unwrap();
+
+        let init = Command::new("git")
+            .args(["init", "-q"])
+            .current_dir(&dir)
+            .status()
+            .await
+            .unwrap();
+        assert!(init.success());
+        let add = Command::new("git")
+            .args(["add", "old.txt"])
+            .current_dir(&dir)
+            .status()
+            .await
+            .unwrap();
+        assert!(add.success());
+        let commit = Command::new("git")
+            .args([
+                "-c",
+                "user.name=slopd-test",
+                "-c",
+                "user.email=slopd-test@example.invalid",
+                "-c",
+                "commit.gpgsign=false",
+                "commit",
+                "-qm",
+                "initial",
+            ])
+            .current_dir(&dir)
+            .status()
+            .await
+            .unwrap();
+        assert!(commit.success());
+        let rename = Command::new("git")
+            .args(["mv", "old.txt", "new.txt"])
+            .current_dir(&dir)
+            .status()
+            .await
+            .unwrap();
+        assert!(rename.success());
+
+        let answer = status(&dir).await.unwrap().unwrap();
+        assert_eq!(answer.added, 0);
+        assert_eq!(answer.deleted, 0);
+        assert_eq!(answer.changes.len(), 1);
+        let change = &answer.changes[0];
+        assert_eq!(change.path, "new.txt");
+        assert_eq!(change.status, "R ");
+        assert_eq!(change.added, Some(0));
+        assert_eq!(change.deleted, Some(0));
+
+        tokio::fs::remove_dir_all(&dir).await.unwrap();
     }
 
     #[tokio::test]
