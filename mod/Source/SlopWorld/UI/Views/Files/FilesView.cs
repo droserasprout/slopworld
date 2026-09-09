@@ -214,11 +214,6 @@ namespace SlopWorld
         static readonly List<MarkdownTab> LockedMarkdown = new List<MarkdownTab>();
         static int _markdownHeader;
 
-        // And which of the two things about that file it is showing: the file, or its diff.
-        // The row and its buttons open different things about the same path, so "click the one
-        // already open and its pane comes back" has to be about the one that was clicked.
-        static RowAct _showing;
-
         // Extensions `less` would rather not be handed: the viewer is for reading, and an
         // image or a zip in a text pager is a listing nobody asked for. Everything else is
         // text enough to try.

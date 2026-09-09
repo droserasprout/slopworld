@@ -5,6 +5,9 @@ namespace SlopWorld
     // Geometry and reveal lookup share the flattened order, including variable-height bodies.
     internal sealed class ContentTreeIndex
     {
+        public static float AnchoredScroll(float scroll, float previousTop, float nextTop) =>
+            System.Math.Max(0f, scroll + nextTop - previousTop);
+
         readonly List<float> _ends = new List<float>();
         readonly Dictionary<string, float> _tops = new Dictionary<string, float>();
         int _revision;

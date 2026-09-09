@@ -313,9 +313,8 @@ namespace SlopWorld
         // the pager.
         static void Open(Node node, Repo repo)
         {
-            bool same = Tree.IsSelected(node) && _showing == RowAct.Diff;
             Tree.Select(node);
-            if (!same || !Viewers.Reopen(repo.Project, node.Rel)) Diff(node, repo);
+            if (!Viewers.Reopen(repo.Project, node.Rel)) Diff(node, repo);
         }
 
         // One of the hover strip's three, done. The diff is what the row itself does; the
@@ -506,14 +505,14 @@ namespace SlopWorld
                 return;
             }
             Tree.SelectKey(ContentTreeView.SelectionKey(project, rel));
-            _showing = RowAct.Diff;
+            if (Viewers.Reopen(project, rel)) return;
             Viewers.ForPreview().Open(project, DiffCmd(repo, rel, status), label, rel);
         }
 
         static void Diff(Node node, Repo repo)
         {
             Tree.Select(node);
-            _showing = RowAct.Diff;
+            if (Viewers.Reopen(repo.Project, node.Rel)) return;
             Viewers.ForPreview().Open(repo.Project, DiffCmd(repo, node.Rel, node.Status),
                 "diff-" + node.Name, node.Rel);
         }
@@ -567,7 +566,6 @@ namespace SlopWorld
         static void ClearSelection()
         {
             Tree.ClearSelection();
-            _showing = RowAct.None;
         }
     }
 }

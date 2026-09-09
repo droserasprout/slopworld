@@ -1,7 +1,7 @@
 namespace SlopWorld
 {
     // Each view owns one ephemeral pager session for files or git diffs; a new selection replaces
-    // it, and leaving that view or pane closes it without affecting the other view.
+    // it. Sidebar tab changes preserve it; an explicit pane close releases it.
     public class Pager
     {
         string _session;
@@ -11,10 +11,12 @@ namespace SlopWorld
         string _key;          // path identity for a one-off command, when it has one
         int _operation;
         bool _locked;
+        bool _openingFile;
 
         // Who is showing, or null. Read rather than acted on - the two views use it to tell
         // "click the row that is already open" from "click a different one".
         public string Session => _session;
+        public string FilePath => _filePath;
 
         // A single-click preview is replaceable until its routed header is double-clicked.
         // Locked previews deliberately remain ephemeral daemon sessions; "locked" is a UI
@@ -32,7 +34,7 @@ namespace SlopWorld
 
         public bool Matches(string project, string key)
         {
-            return Alive && _openProject == project && _key == key;
+            return !_openingFile && Alive && _openProject == project && _key == key;
         }
 
         public bool LockPreview(string project, string key)
@@ -75,6 +77,7 @@ namespace SlopWorld
         // so the sidebar's one-line title follows the file instead of keeping the old name.
         public void ViewFile(string project, string filePath, string label)
         {
+            if (_openingFile && _openProject == project && _key == filePath) return;
             bool host = string.IsNullOrEmpty(project);
             if (!host && SessionHub.Instance.Project(project) == null)
             {
@@ -104,6 +107,7 @@ namespace SlopWorld
             _filePath = null;
             _openProject = project;
             _key = filePath;
+            _openingFile = true;
 
             string cmd = PagerCommand(filePath);
             SessionHub.Instance.SessionStore.Run(project, cmd, label,
@@ -115,6 +119,7 @@ namespace SlopWorld
                         return;
                     }
                     _session = session;
+                    _openingFile = false;
                     _project = project;
                     _filePath = filePath;
                     TerminalWindow.Open(session);
@@ -124,6 +129,7 @@ namespace SlopWorld
                 {
                     if (operation != _operation) return;
                     _session = null;
+                    _openingFile = false;
                     _project = null;
                     _filePath = null;
                     StopIf(oldSession);
@@ -148,6 +154,7 @@ namespace SlopWorld
         // routed header can focus that exact diff instead of creating a second tab.
         public void Open(string project, string command, string label, string key)
         {
+            _openingFile = false;
             // The project may have been renamed or deleted since the listing that put the row
             // on screen; the daemon would refuse either way, but the reason is clearer here.
             if (SessionHub.Instance.Project(project) == null)
@@ -209,6 +216,7 @@ namespace SlopWorld
         {
             if (_locked) return;
             ++_operation;
+            _openingFile = false;
             string s = _session;
             _session = null;
             _project = null;

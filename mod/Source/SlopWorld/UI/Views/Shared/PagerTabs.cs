@@ -60,6 +60,14 @@ namespace SlopWorld
             return false;
         }
 
+        public string FilePath(string session)
+        {
+            if (_preview.Session == session) return _preview.FilePath;
+            foreach (var pager in _locked)
+                if (pager.Session == session) return pager.FilePath;
+            return null;
+        }
+
         public bool IsSession(string session)
         {
             RetireDead();

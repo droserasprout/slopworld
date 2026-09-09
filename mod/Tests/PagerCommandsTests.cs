@@ -12,6 +12,14 @@ namespace SlopWorld.Tests
             yield return ("templates file actions with the requested path", FileActionPaths);
             yield return ("builds pager and editor invocations", BuildsPagerAndEditor);
             yield return ("recognizes configured pager and editor commands", RecognizesCommands);
+            yield return ("displays original routed filenames", DisplayNames);
+        }
+
+        static void DisplayNames()
+        {
+            AssertEx.Equal("mod/Defs/PlayerPawn.xml", PagerCommands.RelativeFilePath("/repo", "/repo/mod/Defs/PlayerPawn.xml"), "preserve relative path");
+            AssertEx.Equal("/repo-other/file", PagerCommands.RelativeFilePath("/repo", "/repo-other/file"), "respect root boundary");
+            AssertEx.Equal("/storage/file", PagerCommands.RelativeFilePath(null, "/storage/file"), "storage path remains absolute");
         }
 
         static void QuotesArgv()

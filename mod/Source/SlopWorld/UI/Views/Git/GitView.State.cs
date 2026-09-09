@@ -107,12 +107,6 @@ namespace SlopWorld
         // routed header. The tree owns the selected row; each pager owns its session.
         static readonly PagerTabs Viewers = new PagerTabs();
 
-        // And which of the two things about that change it is showing: the diff, or the file
-        // the diff is about. The row and its buttons open different things about the same
-        // path, so "click the one already open and its pane comes back" has to be about the
-        // one that was clicked.
-        static RowAct _showing;
-
         static readonly ContentTreeView Tree = new ContentTreeView(new TreeSource());
         static int _treeRevision;
 

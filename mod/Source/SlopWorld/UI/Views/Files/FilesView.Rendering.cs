@@ -26,25 +26,22 @@ namespace SlopWorld
         // only that replaces the viewer.
         static void Open(Node node)
         {
-            bool same = Tree.IsSelected(node) && _showing == RowAct.View;
             Tree.Select(node);
             // Marked, and nobody showing it: whatever was in the pane is not about this row.
             if (!IsText(node.Name))
             {
-                _showing = RowAct.None;
                 Viewers.ReleasePreview();
                 ReleaseMarkdownPreview();
                 return;
             }
             if (IsMarkdown(node.Name))
             {
-                if (same && ReopenMarkdown(node.Project, node.Path)) return;
+                if (ReopenMarkdown(node.Project, node.Path)) return;
                 Viewers.ReleasePreview();
-                _showing = RowAct.View;
                 OpenMarkdown(node.Project, node.Path, node.Name);
                 return;
             }
-            if (!same || !Viewers.Reopen(node.Project, node.Path)) View(node);
+            if (!Viewers.Reopen(node.Project, node.Path)) View(node);
         }
 
         // One of the hover strip's three, done. Nothing here is new: the same three errands
@@ -457,7 +454,6 @@ namespace SlopWorld
             else
             {
                 Tree.SelectKey(ContentTreeView.SelectionKey(project, path));
-                _showing = RowAct.View;
             }
             if (IsMarkdown(System.IO.Path.GetFileName(path)))
             {
@@ -467,6 +463,7 @@ namespace SlopWorld
                 return;
             }
             ReleaseMarkdownPreview();
+            if (Viewers.Reopen(project, path)) return;
             Viewers.ForPreview().ViewFile(project, path, label);
         }
 
@@ -493,8 +490,7 @@ namespace SlopWorld
         static bool ReopenMarkdown(string project, string path)
         {
             if (_markdownPreview != null && _markdownPreview.View.Project == (project ?? "") &&
-                _markdownPreview.View.Path == path &&
-                (_markdownPreview.Locked || Showing(_markdownPreview)))
+                _markdownPreview.View.Path == path)
             {
                 ShowMarkdown(_markdownPreview);
                 return true;
@@ -515,7 +511,6 @@ namespace SlopWorld
         public static void AddRoutedPreviews(List<SessionInfo> result)
         {
             if (_markdownPreview != null &&
-                (_markdownPreview.Locked || Showing(_markdownPreview)) &&
                 AgentSidebar.Passes(_markdownPreview.View.Project))
                 result.Add(_markdownPreview.HeaderInfo());
 
@@ -552,7 +547,7 @@ namespace SlopWorld
         static void ViewSourceFile(string project, string path, string label)
         {
             Tree.SelectKey(ContentTreeView.SelectionKey(project, path));
-            _showing = RowAct.View;
+            if (Viewers.Reopen(project, path)) return;
             Viewers.ForPreview().ViewFile(project, path, label);
         }
 
@@ -574,6 +569,8 @@ namespace SlopWorld
                 session => TerminalWindow.Open(session), UiWidgets.Fail);
         }
 
+        public static string ViewerPath(string session) => Viewers.FilePath(session);
+
         public static void ReleaseViewer()
         {
             ClearSelection();
@@ -583,7 +580,6 @@ namespace SlopWorld
 
         static void ReleaseViewerForTree()
         {
-            _showing = RowAct.None;
             Viewers.ReleasePreview();
             ReleaseMarkdownPreview();
         }
@@ -696,7 +692,6 @@ namespace SlopWorld
         static void ClearSelection()
         {
             Tree.ClearSelection();
-            _showing = RowAct.None;
         }
 
     }
