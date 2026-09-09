@@ -18,7 +18,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 EMOJI_TOOL = os.path.join(HERE, "emoji.py")
 DEFAULT_TEXTURE = os.path.join(ROOT, "mod", "Textures", "SlopWorld", "TerminalEmoji.png")
-DEFAULT_DATA = os.path.join(ROOT, "mod", "Source", "SlopWorld", "UI", "TerminalEmojiData.cs")
+DEFAULT_DATA = os.path.join(ROOT, "mod", "Source", "SlopWorld", "UI", "Terminal", "TerminalEmojiData.cs")
 
 SIZE = 32
 PROBE = 256

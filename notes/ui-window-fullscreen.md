@@ -3,7 +3,7 @@
 The `slopworld` runner passes `-popupwindow -screen-fullscreen 0 -force-opengl` by
 default. Unity's Linux fullscreen path is avoided because it can freeze on Alt+Tab
 and produce a stretched client surface. `--no-window-fix` omits those arguments for
-an alternate windowing setup. After the popup is mapped, `Patches/MaximizeWindow.cs`
+an alternate windowing setup. After the popup is mapped, `Patches/Chrome/MaximizeWindow.cs`
 sends the X11 EWMH `_NET_WM_STATE_FULLSCREEN` request to the game's Xwayland
 client; that lets the window manager resize the client and its input coordinates
 together while still presenting as fullscreen to GNOME. The first request fires

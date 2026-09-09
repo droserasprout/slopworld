@@ -1,6 +1,6 @@
 # The mod's action icons, and which glyph each slot wears.
 #
-# The key is the slot - the name UI/Icons.cs looks up and the name the bake writes -
+# The key is the slot - the name UI/Chrome/Icons.cs looks up and the name the bake writes -
 # and a row added here is a row added there and nowhere else.
 #
 # Every glyph is a Codicon, VS Code's icon set, taken out of a Nerd Font. `glyph` is

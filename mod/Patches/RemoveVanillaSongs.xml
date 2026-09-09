@@ -3,7 +3,7 @@
   Wrapped, like every operation of ours that rewrites a def the base game
   shipped: outside a SlopWorld profile it is not applied at all. SlopWorld's own
   SongDefs remain: the daemon plays them on the host, and MusicManagerPlay plays
-  them in sidecar mode. See Source/SlopWorld/ModProfile.cs.
+  them in sidecar mode. See Source/SlopWorld/Bootstrap/ModProfile.cs.
 -->
 <Patch>
   <Operation Class="SlopWorld.PatchOperationInProfile">

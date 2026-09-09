@@ -13,6 +13,7 @@ Rules:
 Essentials:
 
 - [overview](notes/core-overview.md) — what this is
+- [source-layout](notes/mod-source-layout.md) — mod source directories
 - [build-commands](notes/build-commands.md) — make, format, debug
 - [paths](notes/ops-paths.md) — config, logs, tmux socket
 - [config-stores](notes/daemon-config-stores.md) — daemon & mod config files

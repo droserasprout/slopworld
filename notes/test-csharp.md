@@ -34,16 +34,16 @@ to first carve the pure logic into a `SlopWorld.Core` assembly both the mod and 
 tests reference; do that only once the linked-file project proves the units worth
 keeping.
 
-The project covers, all linked into `mod/Tests/`: `Client/Json.cs` (`JVal` round-trip),
-`Client/Toml.cs`, `Client/DaemonConfig.cs`, `Client/Endpoint.cs` (normalization),
-`UI/Fuzzy.cs` (match scoring/ranking), the split `Client/SessionHub/` DTOs
+The project covers, all linked into `mod/Tests/`: `Client/Daemon/Json.cs` (`JVal` round-trip),
+`Client/Daemon/Toml.cs`, `Client/Daemon/DaemonConfig.cs`, `Client/Daemon/Endpoint.cs` (normalization),
+`UI/Utilities/Fuzzy.cs` (match scoring/ranking), the split `Client/SessionHub/` DTOs
 (`DnsConfig.TryParseServers`, `NetworkModeText.Parse`, `SessionLimits.FromJson`/`ToJson`,
 `SessionInfo`/`ScreenBuf` JSON parsing), and — carved out to make them game-free —
-`UI/UrlScan.cs` and `UI/PagerCommands.cs`.
+`UI/Terminal/UrlScan.cs` and `UI/Views/Shared/PagerCommands.cs`.
 
 `Pager` and `Sgr` remain game-bound shells. Their game-free logic lives in sibling
-classes: `UI/PagerCommands.cs` handles quoting, argv templating, and pager/editor
-command shapes; `UI/UrlScan.cs` handles URL/scheme scanning, trailing-punctuation
+classes: `UI/Views/Shared/PagerCommands.cs` handles quoting, argv templating, and pager/editor
+command shapes; `UI/Terminal/UrlScan.cs` handles URL/scheme scanning, trailing-punctuation
 trimming, and OSC 8 parsing. Both are linked and tested while the shells keep their
 public APIs as thin wrappers. See [mod-client](mod-client.md) and
 [mod-ui-search](mod-ui-search.md).

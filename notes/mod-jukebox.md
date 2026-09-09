@@ -2,7 +2,7 @@
 
 `Defs/Jukebox.xml` defines `SlopJukebox`: a non-selectable, non-edifice building
 with no hit points, zero flammability and `Standable` passability — scenery with one
-click target. `Sim/Jukebox.cs` owns the building and menus; `Sim/Radio.cs` owns
+click target. `Sim/Jukebox/Jukebox.cs` owns the building and menus; `Sim/Jukebox/Radio.cs` owns
 selection and reports it to `slopd`. The daemon owns the station catalog. There are no
 shipped radio stations: user files are one-station TOMLs under
 `$XDG_DATA_HOME/slopworld/jukebox/` (`SLOPD_JUKEBOX` overrides). A matching `id`
