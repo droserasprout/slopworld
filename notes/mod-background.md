@@ -1,6 +1,6 @@
 # The baked background
 
-`UI/MenuBackground.cs` bakes the menu and loading-screen frames from whatever
+`UI/MenuBackground/MenuBackground.cs` bakes the menu and loading-screen frames from whatever
 background this install shows, and caches them under
 `$XDG_CACHE_HOME/slopworld/bg/<key>` as q10 JPEGs — the encoder's 8x8 blocking is
 most of the look. Nothing here ships art. `Patch_MenuBackgroundRot` hooks the draw,
