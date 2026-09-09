@@ -250,6 +250,7 @@ namespace SlopWorld
             if (CurrentTab == tab)
             {
                 if (tab == SidebarTab.Git) GitView.Refresh();
+                else if (tab == SidebarTab.Files) FilesView.Entered();
                 else if (tab == SidebarTab.Tasks) SessionHub.Instance.TaskStore.Refresh(fail: UiWidgets.Fail);
                 return;
             }
@@ -267,7 +268,11 @@ namespace SlopWorld
             s.Write();
 
             if (tab == SidebarTab.Git) GitView.Refresh();
-            else if (tab == SidebarTab.Files) GitView.Entered();
+            else if (tab == SidebarTab.Files)
+            {
+                FilesView.Entered();
+                GitView.Entered();
+            }
 
             if (tab == SidebarTab.Search) SearchView.Entered();
 
