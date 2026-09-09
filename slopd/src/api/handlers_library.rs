@@ -140,6 +140,8 @@ pub(crate) async fn run(State(m): State<Mgr>, Json(q): Json<RunReq>) -> ApiResul
     // The project is checked by `run_errand` itself, which is also where a temporary one is
     // coined - so `temp` rides over as the override it already is rather than a second road.
     let want = RunWhere {
+        cols: q.cols,
+        rows: q.rows,
         project: None,
         // A host reader for a private-state directory has no project to attach to. Give it a
         // disposable project only so the existing errand/session machinery can own its cwd;

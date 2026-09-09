@@ -82,6 +82,8 @@ replacement tree.
 
 ## Ephemeral run
 
+`POST /api/run` accepts optional `cols` and `rows` together to set the initial PTY and
+emulator geometry, clamped to terminal limits; omitted dimensions keep the boot size.
 `POST /api/run` creates an unnamed errand. `host` runs outside bwrap with the tmux
 environment plus `TERM`, `COLORTERM` and `SLOPWORLD_*`. A project shell opened through
 the host-shell route becomes a durable `[[host_terminal]]` tab; file actions, temporary

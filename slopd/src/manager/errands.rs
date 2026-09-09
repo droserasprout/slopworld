@@ -115,6 +115,18 @@ impl Manager {
             }
         }
         let mut state = Live::new(session, TitleCapture::default());
+        // less can retain blank leading rows when SIGWINCH arrives during LESSOPEN.
+        // Create the PTY and emulator at the viewer's size before starting the command.
+        if let (Some(cols), Some(rows)) = (want.cols, want.rows) {
+            state.cols = cols.clamp(
+                crate::wire::TERMINAL_MIN_COLS,
+                crate::wire::TERMINAL_MAX_COLS,
+            );
+            state.rows = rows.clamp(
+                crate::wire::TERMINAL_MIN_ROWS,
+                crate::wire::TERMINAL_MAX_ROWS,
+            );
+        }
         state.ephemeral = true;
         state.host = host;
         if persistent_host {

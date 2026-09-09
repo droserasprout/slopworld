@@ -68,9 +68,10 @@ namespace SlopWorld
         public static string LessEnv(string highlighter)
         {
             string h = (highlighter ?? "").Trim();
-            if (h.Length == 0) return "LESS=-R";
+            // Paint from the top instead of scrolling a short first screen into place.
+            if (h.Length == 0) return "LESS=-Rc";
             if (!h.Contains("%s")) h += " %s";
-            return "LESSOPEN=" + Quote("|" + h) + " LESS=-R";
+            return "LESSOPEN=" + Quote("|" + h) + " LESS=-Rc";
         }
 
         // Git feeds its diff to the pager on stdin, so it needs the configured command
