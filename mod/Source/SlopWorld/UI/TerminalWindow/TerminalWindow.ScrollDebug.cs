@@ -188,7 +188,7 @@ namespace SlopWorld
                 $"size={_scrollDebug.Cols}x{_scrollDebug.Rows}," +
                 $"offset={_scrollDebug.OffsetPixels:F1},liveShift={_scrollDebug.LiveShift}," +
                 $"historyRows={_history.Count},pending={_historyRequests.Count + (_scrollPending ? 1 : 0)}," +
-                $"parsedRows={_runCache.Count},noCache={_noCache})");
+                $"parsedRows={_renderer.RunCount},noCache={_noCache})");
 
             if (final) _scrollDebug.Active = false;
         }

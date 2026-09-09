@@ -13,6 +13,9 @@ namespace SlopWorld
         FieldLifetime _fieldLifetime = new FieldLifetime();
         readonly TerminalInputController _input;
         readonly TerminalSelectionInput _selectionInput;
+        readonly TerminalSelectionCoordinator _selectionCoordinator;
+        readonly TerminalRenderer _renderer;
+        readonly TerminalHistoryCoordinator _historyCoordinator;
 
         internal TerminalSelectionInput SelectionInput => _selectionInput;
 
@@ -20,6 +23,9 @@ namespace SlopWorld
         {
             _name = name;
             ResetCursorBlink();
+            _selectionCoordinator = new TerminalSelectionCoordinator(this);
+            _renderer = new TerminalRenderer(this);
+            _historyCoordinator = new TerminalHistoryCoordinator(this);
             _input = new TerminalInputController(this);
             _selectionInput = new TerminalSelectionInput(this);
             doWindowBackground = false;
