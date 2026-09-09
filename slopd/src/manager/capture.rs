@@ -182,6 +182,7 @@ fn title_capture_action(
                     prompt,
                     cfg.daemon.openrouter_key_file.clone(),
                     model,
+                    cfg.daemon.summary_prompt.clone(),
                 )))
             }
         },

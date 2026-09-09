@@ -259,8 +259,8 @@ mod tests {
         expand, redact_token_text, resolvers_from, temp_dir, Config, DnsConfig, FileActionMode,
         HostTerminalCfg, InstructionsCfg, LibraryItemCfg, LibraryItemKind, LibraryItemLink, Limits,
         NetworkMode, ProjectCfg, SessionCfg, TitlePolicy, DEFAULT_INSTRUCTIONS_BREADCRUMB,
-        DEFAULT_INSTRUCTIONS_MOUNT_PATH, DEFAULT_INSTRUCTIONS_TEMPLATE, DEFAULT_WORKER_PROMPT,
-        TOKEN_REDACTED,
+        DEFAULT_INSTRUCTIONS_MOUNT_PATH, DEFAULT_INSTRUCTIONS_TEMPLATE, DEFAULT_SUMMARY_PROMPT,
+        DEFAULT_WORKER_BREADCRUMB, DEFAULT_WORKER_PROMPT, TOKEN_REDACTED,
     };
 
     #[test]
@@ -395,6 +395,7 @@ mod tests {
         assert_eq!(back.daemon.pi_titles, TitlePolicy::Never);
         assert_eq!(back.daemon.task_summaries, TitlePolicy::Once);
         assert_eq!(back.daemon.title_model, cfg.daemon.title_model);
+        assert_eq!(back.daemon.summary_prompt, cfg.daemon.summary_prompt);
         assert_eq!(back.daemon.title_min_chars, 42);
     }
 
@@ -406,6 +407,11 @@ mod tests {
         assert_eq!(instructions.breadcrumb, DEFAULT_INSTRUCTIONS_BREADCRUMB);
         assert!(instructions.breadcrumb_enabled);
         assert_eq!(instructions.worker_prompt, DEFAULT_WORKER_PROMPT);
+        assert_eq!(instructions.worker_breadcrumb, DEFAULT_WORKER_BREADCRUMB);
+        assert_eq!(
+            Config::default().daemon.summary_prompt,
+            DEFAULT_SUMMARY_PROMPT
+        );
 
         for mount_path in [
             "",

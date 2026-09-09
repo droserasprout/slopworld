@@ -55,7 +55,7 @@ impl Manager {
     ) -> (Result<String>, bool) {
         let prompt = &request.prompt;
         let model = &request.model;
-        if let Some(title) = self.title_cache.get(prompt, model) {
+        if let Some(title) = self.title_cache.get(prompt, &request.summary_prompt, model) {
             tracing::debug!(
                 target: "slopd::titles",
                 session = %name,
@@ -76,10 +76,16 @@ impl Manager {
             "generating session title"
         );
         let request_prompt = prompt.clone();
+        let request_summary_prompt = request.summary_prompt.clone();
         let request_key = request.key_file.clone();
         let request_model = model.clone();
         let result = tokio::task::spawn_blocking(move || {
-            crate::title::summarize(&request_prompt, &request_key, &request_model)
+            crate::title::summarize(
+                &request_prompt,
+                &request_summary_prompt,
+                &request_key,
+                &request_model,
+            )
         })
         .await;
         let result = match result {
@@ -130,8 +136,13 @@ impl Manager {
             let cache_result = if cache_hit {
                 self.title_cache.remember(name, title)
             } else {
-                self.title_cache
-                    .insert(name, &request.prompt, &request.model, title)
+                self.title_cache.insert(
+                    name,
+                    &request.prompt,
+                    &request.summary_prompt,
+                    &request.model,
+                    title,
+                )
             };
             if let Err(error) = cache_result {
                 tracing::warn!(

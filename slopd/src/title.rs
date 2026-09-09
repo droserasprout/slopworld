@@ -102,8 +102,8 @@ impl SummaryCache {
             .map(|entry| entry.title.clone())
     }
 
-    pub fn get(&self, prompt: &str, model: &str) -> Option<String> {
-        let key = cache_key(prompt, model);
+    pub fn get(&self, prompt: &str, summary_prompt: &str, model: &str) -> Option<String> {
+        let key = cache_key(prompt, summary_prompt, model);
         let mut entries = self
             .entries
             .lock()
@@ -115,8 +115,15 @@ impl SummaryCache {
         Some(title)
     }
 
-    pub fn insert(&self, session: &str, prompt: &str, model: &str, title: &str) -> Result<()> {
-        let key = cache_key(prompt, model);
+    pub fn insert(
+        &self,
+        session: &str,
+        prompt: &str,
+        summary_prompt: &str,
+        model: &str,
+        title: &str,
+    ) -> Result<()> {
+        let key = cache_key(prompt, summary_prompt, model);
         let mut entries = self
             .entries
             .lock()
@@ -135,9 +142,16 @@ impl SummaryCache {
     }
 
     /// Store a summary that belongs to a durable task rather than a live session. It shares the
-    /// prompt/model cache but deliberately does not add a session-title `latest` entry.
-    pub fn insert_cached(&self, prompt: &str, model: &str, title: &str) -> Result<()> {
-        let key = cache_key(prompt, model);
+    /// prompt/instruction/model cache but deliberately does not add a session-title `latest`
+    /// entry.
+    pub fn insert_cached(
+        &self,
+        prompt: &str,
+        summary_prompt: &str,
+        model: &str,
+        title: &str,
+    ) -> Result<()> {
+        let key = cache_key(prompt, summary_prompt, model);
         let mut entries = self
             .entries
             .lock()
@@ -248,11 +262,13 @@ fn save_cache(path: &Path, entries: &[CacheEntry], latest: &[LatestEntry]) -> Re
     crate::paths::write_private_toml(path, &toml::to_string_pretty(&file)?)
 }
 
-fn cache_key(prompt: &str, model: &str) -> String {
+fn cache_key(prompt: &str, summary_prompt: &str, model: &str) -> String {
     let prompt: String = prompt.chars().take(MAX_PROMPT_CHARS).collect();
-    let mut input = Vec::with_capacity(model.len() + prompt.len() + 32);
+    let mut input = Vec::with_capacity(model.len() + summary_prompt.len() + prompt.len() + 32);
     input.extend_from_slice(b"slopworld-prompt-summary\0");
     input.extend_from_slice(model.as_bytes());
+    input.push(0);
+    input.extend_from_slice(summary_prompt.as_bytes());
     input.push(0);
     input.extend_from_slice(prompt.as_bytes());
     format!(
@@ -286,17 +302,29 @@ fn read_key(file: &str) -> Result<String> {
     Ok(key.to_string())
 }
 
-pub fn summarize(prompt: &str, key_file: &str, model: &str) -> Result<String> {
+pub fn summarize(
+    prompt: &str,
+    summary_prompt: &str,
+    key_file: &str,
+    model: &str,
+) -> Result<String> {
     let key = read_key(key_file)?;
-    summarize_with_key(prompt, &key, model, &endpoint())
+    summarize_with_key(prompt, summary_prompt, &key, model, &endpoint())
 }
 
-fn summarize_with_key(prompt: &str, key: &str, model: &str, endpoint: &str) -> Result<String> {
+fn summarize_with_key(
+    prompt: &str,
+    summary_prompt: &str,
+    key: &str,
+    model: &str,
+    endpoint: &str,
+) -> Result<String> {
     let prompt: String = prompt.chars().take(MAX_PROMPT_CHARS).collect();
-    let instruction = format!(
-        "Summarise this coding request in at most 6 words for a session title. \
-         Reply with only the title, without quotes, punctuation, or commentary.\n\n{prompt}"
-    );
+    let instruction = if summary_prompt.trim().is_empty() {
+        prompt
+    } else {
+        format!("{summary_prompt}\n\n{prompt}")
+    };
     let body = json!({
         "model": model,
         "messages": [{"role": "user", "content": instruction}],
@@ -501,7 +529,13 @@ mod tests {
                 "{\"choices\":[{\"message\":{\"content\":\"Fix parser\"}}]}",
             ),
         ]);
-        let title = summarize_with_key("fix the parser", "test-key", "test/model", &endpoint);
+        let title = summarize_with_key(
+            "fix the parser",
+            "Summarise in six words.",
+            "test-key",
+            "test/model",
+            &endpoint,
+        );
         server.join().unwrap();
         assert_eq!(title.unwrap(), "Fix parser");
     }
@@ -514,30 +548,51 @@ mod tests {
 
         let cache = SummaryCache::load(path.clone());
         cache
-            .insert("codex", "fix the parser", "test/model", "Fix parser")
+            .insert(
+                "codex",
+                "fix the parser",
+                "Summarise in six words.",
+                "test/model",
+                "Fix parser",
+            )
             .unwrap();
         let raw = fs::read_to_string(&path).unwrap();
         assert!(!raw.contains("fix the parser"));
         assert_eq!(
-            cache.get("fix the parser", "test/model").as_deref(),
+            cache
+                .get("fix the parser", "Summarise in six words.", "test/model")
+                .as_deref(),
             Some("Fix parser")
         );
         assert_eq!(cache.latest("codex").as_deref(), Some("Fix parser"));
 
         let restored = SummaryCache::load(path.clone());
         assert_eq!(
-            restored.get("fix the parser", "test/model").as_deref(),
+            restored
+                .get("fix the parser", "Summarise in six words.", "test/model")
+                .as_deref(),
             Some("Fix parser")
         );
         assert_eq!(restored.latest("codex").as_deref(), Some("Fix parser"));
-        assert!(restored.get("fix the parser", "other/model").is_none());
+        assert!(restored
+            .get("fix the parser", "Summarise in six words.", "other/model")
+            .is_none());
+        assert!(restored
+            .get(
+                "fix the parser",
+                "Use a different instruction.",
+                "test/model"
+            )
+            .is_none());
 
         cache.clear_latest("codex").unwrap();
         assert!(cache.latest("codex").is_none());
         let cleared = SummaryCache::load(path.clone());
         assert!(cleared.latest("codex").is_none());
         assert_eq!(
-            cleared.get("fix the parser", "test/model").as_deref(),
+            cleared
+                .get("fix the parser", "Summarise in six words.", "test/model")
+                .as_deref(),
             Some("Fix parser")
         );
         let _ = fs::remove_file(path);
