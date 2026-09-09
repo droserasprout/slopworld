@@ -755,6 +755,10 @@ mod tests {
             dir: dir.to_string_lossy().into_owned(),
             ..Default::default()
         };
+        let gated = build_argv(&cfg, &s, &p).expect("disabled manifest sandbox argv");
+        assert!(!gated.iter().any(|arg| arg == &manifest.to_string_lossy()));
+        let mut cfg = cfg;
+        cfg.daemon.experimental = true;
         let a = build_argv(&cfg, &s, &p).expect("manifest sandbox argv");
         let source = manifest.to_string_lossy().to_string();
         let target = manifest.to_string_lossy().to_string();
@@ -784,6 +788,7 @@ mod tests {
 
         let mut cfg = Config::default();
         cfg.daemon.instructions.mount_path = "docs/SLOPWORLD.md".into();
+        cfg.daemon.experimental = true;
         let s = SessionCfg {
             name: "a".into(),
             project: "p".into(),

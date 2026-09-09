@@ -11,7 +11,7 @@ namespace SlopWorld
     {
         protected override bool RefreshHealthOnLoad => true;
         protected override bool ShowEditButton => true;
-        protected override bool ShowSaveButton => false;
+        protected override bool ShowSaveButton => true;
 
         protected override void DrawFields(Listing_Standard l)
         {
@@ -47,6 +47,11 @@ namespace SlopWorld
 
             l.Gap(UiWidgets.GapL);
             DrawDisplay(l, s);
+            l.Gap(UiWidgets.GapL);
+            UiWidgets.SectionHeading(l, "Experimental");
+            _cfg.Experimental = UiWidgets.Checkbox(l, "Enable experimental features", _cfg.Experimental);
+            UiWidgets.Note(l, "Unlock YOLO breadcrumbs and SLOPWORLD.md instructions. Save to apply. " +
+                "Agent preferences are preserved while disabled; mount changes require an agent restart.");
             l.Gap(UiWidgets.GapL);
             UiWidgets.SectionHeading(l, "Locale");
             if (UiWidgets.Button(l,

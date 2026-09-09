@@ -151,7 +151,7 @@ impl Manager {
         }
 
         crate::sandbox::prepare_network(cfg, session, project)?;
-        if session.slopworld_md {
+        if cfg.daemon.experimental && session.slopworld_md {
             let sessions = self.views().await;
             crate::manifest::prepare(&std::path::PathBuf::from(dir), cfg, project, &sessions)?;
         }
@@ -295,6 +295,7 @@ impl Manager {
             .map(|text| render_template_with(&text, &[], Some(&vars)))
             .collect();
         if !host
+            && cfg.daemon.experimental
             && session.slopworld_md
             && session.instructions_breadcrumb
             && cfg.daemon.instructions.breadcrumb_enabled
@@ -315,7 +316,7 @@ impl Manager {
         if let Some(live) = live.get_mut(name) {
             live.breadcrumbs.clear();
             live.breadcrumbs_pending = false;
-            if !host && session.breadcrumb_yolo && !crumbs.is_empty() {
+            if !host && cfg.daemon.experimental && session.breadcrumb_yolo && !crumbs.is_empty() {
                 live.breadcrumbs = breadcrumb_block(&crumbs).into_bytes();
                 live.breadcrumbs_pending = true;
             }

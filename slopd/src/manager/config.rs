@@ -329,10 +329,11 @@ impl Manager {
             if !path.is_dir() {
                 continue;
             }
-            let enabled = cfg
-                .sessions
-                .iter()
-                .any(|session| session.project == project.name && session.slopworld_md);
+            let enabled = cfg.daemon.experimental
+                && cfg
+                    .sessions
+                    .iter()
+                    .any(|session| session.project == project.name && session.slopworld_md);
             let result = if enabled {
                 crate::manifest::prepare(path, cfg, project, &views).map(|_| ())
             } else {
@@ -392,6 +393,13 @@ impl Manager {
 
     async fn upsert_sessions(&self, cfg: &Config) {
         let mut live = self.live.write().await;
+        if !cfg.daemon.experimental {
+            // Include temporary workers, which have no durable session entry.
+            for session in live.values_mut() {
+                session.breadcrumbs_pending = false;
+                session.breadcrumbs.clear();
+            }
+        }
         for s in &cfg.sessions {
             let mut title = TitleCapture::default();
             title.override_title = self.title_cache.latest(&s.name);

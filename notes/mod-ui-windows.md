@@ -38,6 +38,8 @@ viewport, retaining a minimum height when the surrounding form needs scrolling.
   discovery switch. The agent editor's Breadcrumbs tab shows that generated entry as a
   selectable default-on row. Body, breadcrumb, and worker prompt each offer an independent
   reset to the shipped default.
+  General's default-off Experimental switch gates YOLO breadcrumbs and manifest controls;
+  Instructions keeps worker bootstrap editing available while the gate is off.
   Appearance is a heading with `Interface`, `Terminal` and `Statusbar` children:
   `AppearancePage` owns global scale, scheme, font and cursor, `TerminalPage` owns pane font,
   theme and cursor color, and `StatusbarPage` owns statusbar visibility and placement. Scale

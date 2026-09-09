@@ -104,7 +104,7 @@ namespace SlopWorld
                 .Where(value => !string.IsNullOrWhiteSpace(value))
                 .Select(value => value.Trim())
                 .ToList();
-            if (agent.SlopworldMd && agent.InstructionsBreadcrumb &&
+            if (config.Experimental && agent.SlopworldMd && agent.InstructionsBreadcrumb &&
                 config.InstructionsBreadcrumbEnabled)
             {
                 string discovery = config.RenderInstructionsBreadcrumb(project?.Name);

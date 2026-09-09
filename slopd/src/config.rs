@@ -801,6 +801,15 @@ token = \"not-a-daemon-token\"
     }
 
     #[test]
+    fn experimental_defaults_off_and_round_trips() {
+        let mut cfg = Config::parse("[daemon]\nbind = '127.0.0.1:7777'\n").unwrap();
+        assert!(!cfg.daemon.experimental);
+        cfg.daemon.experimental = true;
+        let restored = Config::parse(&toml::to_string(&cfg).unwrap()).unwrap();
+        assert!(restored.daemon.experimental);
+    }
+
+    #[test]
     fn auto_resume_is_an_opt_in_session_setting() {
         let old: SessionCfg = toml::from_str("name = 'Ada'").unwrap();
         assert!(!old.auto_resume);

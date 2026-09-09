@@ -52,6 +52,7 @@ namespace SlopWorld
         void DrawCore(Rect rect)
         {
             var body = UiWidgets.PageBody(rect).ContractedBy(UiWidgets.GapM);
+            if (_loaded && !_cfg.Experimental) _tab = Tab.Editor;
             Tab before = _tab;
             DrawTabs(new Rect(body.x, body.y, body.width, UiWidgets.BtnH));
             if (before != _tab && _tab == Tab.Preview) RequestPreview();
@@ -85,7 +86,8 @@ namespace SlopWorld
                 _tab = Tab.Editor;
             }
             if (UiWidgets.Button(new Rect(r.x + w + UiWidgets.GapS, r.y, w, r.height),
-                    "Preview", _tab == Tab.Preview ? UiWidgets.Btn.Primary : UiWidgets.Btn.Ghost))
+                    "Preview", _tab == Tab.Preview ? UiWidgets.Btn.Primary : UiWidgets.Btn.Ghost,
+                    _loaded && _cfg.Experimental))
             {
                 if (_tab != Tab.Preview) TextFieldSelection.ReleaseFocus();
                 _tab = Tab.Preview;
@@ -101,13 +103,15 @@ namespace SlopWorld
                 var l = new Listing_Standard { maxOneColumn = true };
                 l.Begin(new Rect(0f, 0f, view.width, UiWidgets.ListingHeight));
 
+                if (!_cfg.Experimental)
+                    UiWidgets.Note(l, "Enable experimental features in Settings > General to edit SLOPWORLD.md instructions.");
                 UiWidgets.SectionHeading(l, "SLOPWORLD.md");
                 UiWidgets.Note(l, "Generated runtime context is read-only in agent sandboxes. " +
                     "The template is rendered once for each project snapshot.");
                 l.Gap(UiWidgets.GapS);
                 l.Label("Content template");
                 _cfg.InstructionsTemplate = UiWidgets.Area(l, 320f, "instructions.template",
-                    _cfg.InstructionsTemplate, defaultValue: DaemonConfig.DefaultInstructionsTemplate);
+                    _cfg.InstructionsTemplate, on: _cfg.Experimental, defaultValue: DaemonConfig.DefaultInstructionsTemplate);
                 UiWidgets.Note(l, "Variables: {{ runtime_context }}, {{ project }}, " +
                     "{{ mount_path }}, and {{ file }}. Unknown variables are left unchanged.");
 
@@ -117,29 +121,21 @@ namespace SlopWorld
                     "is mounted. It is separate from the generated file body.");
                 l.Label("Breadcrumb template");
                 _cfg.InstructionsBreadcrumb = UiWidgets.Area(l, 120f, "instructions.breadcrumb",
-                    _cfg.InstructionsBreadcrumb, defaultValue: DaemonConfig.DefaultInstructionsBreadcrumb);
+                    _cfg.InstructionsBreadcrumb, on: _cfg.Experimental, defaultValue: DaemonConfig.DefaultInstructionsBreadcrumb);
                 UiWidgets.Note(l, "Variables: {{ project }}, {{ mount_path }}, and {{ file }}. " +
                     "Unknown variables are left unchanged.");
                 _cfg.InstructionsBreadcrumbEnabled = UiWidgets.Checkbox(l,
                     "Add discovery breadcrumb", _cfg.InstructionsBreadcrumbEnabled,
-                    "Adds the configured discovery text to opted-in agents.");
+                    "Adds the configured discovery text to opted-in agents.", locked: !_cfg.Experimental);
                 UiWidgets.Note(l, "Reset changes the form only; press Save to apply it.");
 
-                l.Gap(UiWidgets.GapL);
-                UiWidgets.SectionHeading(l, "Worker bootstrap");
-                UiWidgets.Note(l, "This prompt is submitted to each worker spawned with slopctl spawn. " +
-                    "Use $SLOPWORLD_TASK_ID to refer to its exact mailbox task.");
-                l.Label("Worker prompt");
-                _cfg.WorkerPrompt = UiWidgets.Area(l, 180f, "instructions.worker_prompt",
-                    _cfg.WorkerPrompt, defaultValue: DaemonConfig.DefaultWorkerPrompt);
-                UiWidgets.Note(l, "The task body stays in the mailbox; this prompt tells the worker " +
-                    "how to retrieve and finish it. Reset changes the form only; press Save to apply it.");
+                DrawWorker(l);
 
                 l.Gap(UiWidgets.GapL);
                 UiWidgets.SectionHeading(l, "Sandbox delivery");
                 l.Label("Mount path (relative to the project)");
                 _cfg.InstructionsMountPath = UiWidgets.Field(l, "instructions.mount_path",
-                    _cfg.InstructionsMountPath, defaultValue: WireContract.DefaultInstructionsMountPath);
+                    _cfg.InstructionsMountPath, on: _cfg.Experimental, defaultValue: WireContract.DefaultInstructionsMountPath);
                 UiWidgets.Note(l, "The generated source remains the project-root " +
                     "SLOPWORLD.md; this is where its read-only copy appears to the agent.");
                 UiWidgets.Note(l, "Agents still opt in per session with Mount SLOPWORLD.md.");
@@ -147,6 +143,19 @@ namespace SlopWorld
                 _fieldsH = l.CurHeight + UiWidgets.GapS;
                 l.End();
             }
+        }
+
+        void DrawWorker(Listing_Standard l)
+        {
+            l.Gap(UiWidgets.GapL);
+            UiWidgets.SectionHeading(l, "Worker bootstrap");
+            UiWidgets.Note(l, "This prompt is submitted to each worker spawned with slopctl spawn. " +
+                "Use $SLOPWORLD_TASK_ID to refer to its exact mailbox task.");
+            l.Label("Worker prompt");
+            _cfg.WorkerPrompt = UiWidgets.Area(l, 180f, "instructions.worker_prompt",
+                _cfg.WorkerPrompt, defaultValue: DaemonConfig.DefaultWorkerPrompt);
+            UiWidgets.Note(l, "The task body stays in the mailbox; this prompt tells the worker " +
+                "how to retrieve and finish it. Reset changes the form only; press Save to apply it.");
         }
 
         void DrawPreview(Rect r)
@@ -225,7 +234,7 @@ namespace SlopWorld
 
         void RequestPreview()
         {
-            if (!_loaded || _cfg == null) return;
+            if (!_loaded || _cfg == null || !_cfg.Experimental) return;
 
             string project = PreviewProjectName();
             int request = ++_previewRequest;
@@ -257,7 +266,7 @@ namespace SlopWorld
         {
             var foot = new UiWidgets.Bar(bar);
             if (foot.Left("Reload", UiWidgets.Btn.Ghost)) Load();
-            if (_tab == Tab.Editor && foot.Left("Preview", UiWidgets.Btn.Ghost))
+            if (_tab == Tab.Editor && foot.Left("Preview", UiWidgets.Btn.Ghost, _loaded && _cfg.Experimental))
             {
                 _tab = Tab.Preview;
                 RequestPreview();

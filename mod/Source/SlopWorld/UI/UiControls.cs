@@ -220,9 +220,10 @@ namespace SlopWorld
             SetSetting(settings, ref field, Mathf.RoundToInt(Slider(l, label, field,
                 min, max, field.ToString())));
 
-        public static bool Checkbox(Listing_Standard l, string label, bool on, string tip = null)
+        public static bool Checkbox(Listing_Standard l, string label, bool on, string tip = null,
+                                    bool locked = false)
         {
-            bool value = Checkbox(l.GetRect(RowH), label, on, tip);
+            bool value = Checkbox(l.GetRect(RowH), label, on, tip, locked);
             l.Gap(GapS);
             return value;
         }

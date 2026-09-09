@@ -44,6 +44,7 @@ namespace SlopWorld
         public string PiTitles = "always";
         // Task summaries are generated once for each durable delegated task.
         public string TaskSummaries = "never";
+        public bool Experimental;
         // The generated project-root runtime manifest. The body is a Markdown template, with
         // {{ runtime_context }} expanding to the daemon's live snapshot.
         public string InstructionsTemplate = DefaultInstructionsTemplate;
@@ -109,6 +110,7 @@ namespace SlopWorld
             var i = d["instructions"];
             return new DaemonConfig
             {
+                Experimental = d["experimental"].AsBool(false),
                 UsagePollSecs = d["usage_poll_secs"].AsInt(WireContract.UsagePollSecs),
                 UsageItems = UsageItemsFromJson(d["usage_items"]),
                 ClaudeCredentials =
@@ -161,6 +163,7 @@ namespace SlopWorld
         // presets. The daemon deep-merges this object before validating it.
         public string ToPatchJson() =>
             "{\"daemon\":{" +
+            $"\"experimental\":{JVal.B(Experimental)}," +
             $"\"usage_poll_secs\":{UsagePollSecs}," +
             $"\"usage_items\":{UsageItemsJson()}," +
             $"\"claude_credentials\":{JVal.Q(ClaudeCredentials)}," +
