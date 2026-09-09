@@ -27,4 +27,4 @@ override its destination and source.
 writes the endpoint descriptor where the game launcher expects it.
 
 See [build-tools](build-tools.md) for auxiliary tools and
-[diagnostics](diagnostics.md) for runtime checks.
+[diagnostics](ops-diagnostics.md) for runtime checks.

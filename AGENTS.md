@@ -12,13 +12,13 @@ Rules:
 
 Essentials:
 
-- [overview](notes/overview.md) — what this is
+- [overview](notes/core-overview.md) — what this is
 - [build-commands](notes/build-commands.md) — make, format, debug
-- [paths](notes/paths.md) — config, logs, tmux socket
-- [config-stores](notes/config-stores.md) — daemon & mod config files
-- [wire-protocol](notes/wire-protocol.md) — WS events & HTTP routes
-- [gotchas](notes/gotchas.md) — the traps
-- [house-rules](notes/house-rules.md) — commit rules & note discipline
+- [paths](notes/ops-paths.md) — config, logs, tmux socket
+- [config-stores](notes/daemon-config-stores.md) — daemon & mod config files
+- [wire-protocol](notes/protocol-wire.md) — WS events & HTTP routes
+- [gotchas](notes/core-gotchas.md) — the traps
+- [house-rules](notes/core-house-rules.md) — commit rules & note discipline
 - [agent-tasks](notes/agent-tasks.md) — task mailboxes and delegation
 
 Delegation quick reference:

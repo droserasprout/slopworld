@@ -35,7 +35,7 @@ The tmux server also carries each durable session's state and `state_since` in p
 Host terminal tabs carry their project and last cwd in the same way, using
 `@slopworld_host_project` and `@slopworld_host_path`. The daemon also polls the live pane cwd
 and saves it in each `[[host_terminal]]` config record, so a machine reboot can recreate the
-tab in the same project and directory. See [host-terminals](host-terminals.md).
+tab in the same project and directory. See [host-terminals](daemon-host-terminals.md).
 
 Running task workers carry `@slopworld_worker`, `@slopworld_worker_parent`,
 `@slopworld_worker_task`, and `@slopworld_worker_durable`. This lets a one-shot worker that

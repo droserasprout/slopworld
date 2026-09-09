@@ -10,4 +10,4 @@ Developer constraints:
 - Agent state uses opaque IDs so renames and name reuse cannot inherit another
   agent's storage. See [sandbox isolation](sandbox-isolation.md).
 - Unity's game log is shared across profiles; the launcher does not redirect it.
-  See [profile](profile.md).
+  See [profile](ops-profile.md).

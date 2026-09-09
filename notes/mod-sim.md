@@ -1,7 +1,7 @@
 # Mod `Sim/`
 
 `GameComponent` and `MapComponent` subclasses need no defs. See also
-[plague](mod-plague.md), [worksite](mod-worksite.md) and [skyfallers](skyfallers.md).
+[plague](mod-plague.md), [worksite](mod-worksite.md) and [skyfallers](mod-skyfallers.md).
 
 - **`AgentColony`** reconciles sessions to colonists each second, except during
   `Cutscene.AgentsHeld`; Down posture and idle-transition bells are its only posture
@@ -9,7 +9,7 @@
   task-owned workers remain sidebar-only.
 - **`TimeKeeper`** unpauses. **`RealClock`** makes Normal speed mean real seconds and
   rewrites `gameStartAbsTick` so calendar effects track one real day per game day.
-  The epoch is scribed; tick units differ ([gotchas](gotchas.md)).
+  The epoch is scribed; tick units differ ([gotchas](core-gotchas.md)).
 - **`ColonyNames`**, **`SpawnSpot`** and **`LandingSite`** answer naming and legal spawn
   choices. `Patches/NoMountains.xml` removes `RocksFromGrid` from the player map
   generator (profile-gated by `PatchOperationInProfile`). **`IntroDirector`** owns

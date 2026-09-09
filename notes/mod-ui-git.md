@@ -4,7 +4,7 @@ The Git body in the sidebar ([mod-sidebar](mod-sidebar.md)) shows each project's
 working-tree changes as the same nested tree as Files, using the same `AgentSidebar`
 back pass. The daemon runs git through `GET /api/git?path=` because sandbox mount
 namespaces isolate sessions from the game; `/api/browse` exists for the same boundary
-([wire-protocol](wire-protocol.md)).
+([wire-protocol](protocol-wire.md)).
 
 - Git is not lazy: changed paths are requested as one flat list, capped by the daemon while it
   is reading Git's status stream. `Fold` builds interior nodes; `Squash` collapses single-child

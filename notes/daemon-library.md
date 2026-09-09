@@ -42,7 +42,7 @@ Temporary `Live.ephemeral` entries are never written to config and have no `Down
 `mark_down` and `stop` remove them because killing tmux aborts the control reader first.
 Durable host tabs also use `ephemeral` for their sidebar ghost presentation, but have a
 `[[host_terminal]]` record, retain `Down`, and survive a stopped or exited shell; see
-[host-terminals](host-terminals.md). `remove` writes nothing for a temporary entry;
+[host-terminals](daemon-host-terminals.md). `remove` writes nothing for a temporary entry;
 `Manager::session_cfg` reads config or the live table.
 
 Unknown sessions under the daemon socket are adopted as projectless ephemeral agents unless

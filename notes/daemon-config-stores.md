@@ -1,6 +1,6 @@
 # Configuration stores
 
-See [paths](paths.md) for file locations and overrides.
+See [paths](ops-paths.md) for file locations and overrides.
 
 | | Daemon | Mod |
 | --- | --- | --- |
@@ -13,7 +13,7 @@ See [paths](paths.md) for file locations and overrides.
 The mod does not open daemon TOML. It uses HTTP (`GET /api/config`,
 `PUT /api/config/patch`), the raw-text route, and per-list routes. `slopd` reads
 `$XDG_DATA_HOME/slopworld/jukebox/*.toml`; `Radio` receives the catalog over the
-authenticated WebSocket and sends only station/stream keys. See [wire-protocol](wire-protocol.md),
+authenticated WebSocket and sends only station/stream keys. See [wire-protocol](protocol-wire.md),
 [mod-client](mod-client.md), and [mod-settings](mod-settings.md).
 
 ## Cross-store contracts
