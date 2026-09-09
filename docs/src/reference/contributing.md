@@ -30,7 +30,6 @@ Asset-generation targets are listed in `make` help; their implementations live i
 `docs/book/` is ignored. Run `make lint-prose` on prose changes.
 
 Devnotes preserve cross-file architecture and constraints that code cannot show.
-Use the [notes index](https://github.com/droserasprout/slopworld/blob/main/notes/index.md)
-to find a topic and the
+Use the notes in the repository's `notes/` directory to find a topic and the
 [prose guide](https://github.com/droserasprout/slopworld/blob/main/notes/prose-guide.md)
 for writing rules. Published docs take precedence over devnotes.

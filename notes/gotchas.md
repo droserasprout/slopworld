@@ -44,7 +44,7 @@
 - **Dropping a tokio `JoinHandle` detaches the task, it does not abort it.** A `Live`
   removed from the session map must `.take()` and `.abort()` its reader first, or the
   control-mode tmux attach outlives the session it was reading. Assigning over an
-  existing handle detaches the old one the same way; `Option::replace` and abort.
+  existing handle detaches its predecessor the same way; `Option::replace` and abort.
   After the control loop reports `%exit`, kill and reap its `Child` before `mark_down` runs
   tmux cleanup. `kill_on_drop` only starts the kill, so dropping alone still races cleanup.
 - Unset variables must expand to an empty path, never an empty component. This prevents

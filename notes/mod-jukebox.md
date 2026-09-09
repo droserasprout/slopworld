@@ -46,7 +46,7 @@ deterministic fixtures or a loopback server for decoder, ICY, buffering, and rec
 
 The daemon decodes MP3 with Symphonia, resamples to the device format and feeds a bounded
 CPAL queue; live playback builds one second of decoded headroom at startup and again after an
-underrun, and the callback never blocks. A selection generation prevents an old decoder from
+underrun, and the callback never blocks. A selection generation prevents a stale decoder from
 publishing after replacement. ICY headers and in-stream metadata become audio status events.
 Tests use local deterministic fixtures and loopback only, never stations.
 

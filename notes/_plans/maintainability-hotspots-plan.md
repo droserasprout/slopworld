@@ -1,16 +1,13 @@
 # Maintainability hotspots plan
 
-Track remaining work by coupling and change risk, not line count alone. The current inventory is
-a read-only source scan from 2026-09-08: physical lines from `wc -l`, code lines from `tokei`,
-with build output and assets excluded.
+Track work by coupling and change risk, not line count alone.
 
 ## Remaining work
 
 ### 1. Manager configuration and shared session state
 
-The startup, lifecycle, worker, task, library, and capture concerns already have implementation
-owners. The remaining coupling is concentrated in `slopd/src/manager/config.rs` (808 lines) and
-the `Manager` state declared in `slopd/src/session/ctrl.rs`.
+The remaining coupling is concentrated in `slopd/src/manager/config.rs` and the `Manager` state
+declared in `slopd/src/session/ctrl.rs`.
 
 `manager/config.rs` still combines:
 
@@ -30,16 +27,14 @@ release, and usage/redraw broadcasts.
 
 ### 2. TerminalWindow coordination
 
-The terminal is split into partial definitions, but the fullscreen coordinator still owns the
-cross-cutting history, selection, scrolling, and rendering state. The largest remaining pieces
-are:
+The fullscreen coordinator owns cross-cutting history, selection, scrolling, and rendering state
+across these partial definitions:
 
-- `TerminalWindow.History.cs` — 341 lines of history caches, request replies, displayed-frame
-  selection, and live-frame translation;
-- `TerminalWindow.Selection.cs` — 319 lines of offset translation and selection text/model
-  coordination;
-- `TerminalWindow.Rendering.cs` — 470 lines of screen/selection painting and history-bar UI;
-- `TerminalWindow.Scrolling.cs` — 262 lines of scroll negotiation and request planning.
+- `TerminalWindow.History.cs` — history caches, request replies, displayed-frame selection, and
+  live-frame translation;
+- `TerminalWindow.Selection.cs` — offset translation and selection text/model coordination;
+- `TerminalWindow.Rendering.cs` — screen/selection painting and history-bar UI;
+- `TerminalWindow.Scrolling.cs` — scroll negotiation and request planning.
 
 The existing history cache, selection state/input, run cache, and link hit-testing helpers are
 useful primitive owners. The next extraction should own coordination around those primitives,

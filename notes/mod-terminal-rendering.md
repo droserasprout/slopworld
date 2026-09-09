@@ -10,8 +10,8 @@ include terminal cache hits, full invalidations and changed-row paints.
 ## `TerminalTheme`
 
 `Sgr.DefaultFg`/`DefaultBg` resolve from the scheme. Parsed runs carry resolved colors,
-so `Rev` keys both `ScreenBuf.RunsRev` and the pane render cache; idle panes otherwise
-retain the old palette. Unknown names use the default. Cursor override accepts `#rrggbb`;
+so `Rev` keys both `ScreenBuf.RunsRev` and the pane render cache; idle panes retain their
+resolved palette. Unknown names use the default. Cursor override accepts `#rrggbb`;
 `CursorText` redraws the glyph over an opaque block cursor.
 
 The picker contains Match UI, SlopWorld Warm/Cold/Calm, and named classic palettes.
@@ -25,10 +25,11 @@ The 16-color entries follow published palettes where one exists. Cursor, selecti
 roles are pane adaptations rather than claims that a source palette defines those roles.
 
 `TerminalFont` keeps the selected mono face for the grid and adds installed emoji faces before
-the broad symbol fallbacks. Legacy IMGUI cannot read Noto Color Emoji's bitmap tables reliably,
-so `TerminalEmoji` draws supplementary-plane glyphs from the Pango-baked atlas before the font
-path gets a chance. The generated atlas covers the codepoints advertised by the build machine's
-Noto Color Emoji face; a rebuild is `make emoji-atlas`. The complete UTF-16 surrogate pair is
+the broad symbol fallbacks. The available IMGUI path cannot read Noto Color Emoji's bitmap
+tables reliably, so `TerminalEmoji` draws supplementary-plane glyphs from the Pango-baked atlas
+before Unity's font path gets a chance. The generated atlas covers the codepoints advertised by
+the build machine's Noto Color Emoji face; a rebuild is `make emoji-atlas`. The complete UTF-16
+surrogate pair is
 also requested from Unity's dynamic atlas for codepoints not in that atlas, and the pane cache
 keys on font-atlas rebuilds.
 

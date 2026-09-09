@@ -31,13 +31,12 @@ and short hash to the package version.
 | Prompt summaries | Yes |
 | Daemon token | Yes (regenerated only on first run or manual delete) |
 
-Unknown config fields are dropped on the next write. SlopWorld is still before its first stable
-release; wire formats, config names, and path layouts may change between versions without
-migration.
+Unknown config fields are dropped on the next write. Wire formats, config names, and path
+layouts may change between versions without migration.
 
 ## Compatibility
 
-Old daemon switches and removed config fields are rejected, not silently converted.
+Unsupported daemon switches and removed config fields are rejected, not silently converted.
 If the daemon fails to start after an update, check its log for parse errors:
 
 ```sh

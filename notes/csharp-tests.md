@@ -59,9 +59,8 @@ managed bytes per operation for tree/list traversal at three sizes, project tota
 sessions, terminal parsing/repaint decisions, and cold/warm history view assembly. History cases
 exclude daemon capture and network latency. Setup is outside measurements; changed-revision
 and cold-cache cases explicitly include rebuilding. Tiered compilation is disabled for stable
-code generation. Reference cases model the prior scan/copy/recount patterns and check matching
-results before timing; they are not measurements of a historical build. The list reference
-omits offscreen GUI drawing and therefore understates the old repaint cost.
+code generation. Reference cases check matching results before timing; they omit offscreen GUI
+drawing and therefore do not predict Unity repaint cost.
 
 Use the same machine, build mode, and quiet host for comparisons. Timing includes delegate and
 loop overhead, and allocation counts cover the current thread. These .NET 8 helper timings do

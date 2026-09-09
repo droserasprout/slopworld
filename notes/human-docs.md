@@ -17,4 +17,4 @@ platform-specific guides.
 Keep the API route inventory generated with `make api-docs`; describe contracts
 that the inventory cannot express in the API reference and
 [wire-protocol](wire-protocol.md). New or moved book pages belong in
-`docs/src/SUMMARY.md`; devnotes belong in [index](index.md).
+`docs/src/SUMMARY.md`; devnotes belong in focused files in `notes/`.

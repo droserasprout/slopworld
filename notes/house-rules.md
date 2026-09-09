@@ -4,7 +4,7 @@
   Use branches only for work that will be merged back; pull requests are outside
   the workflow.
 - **Keep `AGENTS.md` concise.** Keep topical facts in a file here, and update its
-  curated links and [index](index.md) when notes are added, moved, or renamed.
+  focused note when its ownership or behavior changes.
 - Notes here are **short**, one subject a file. Delete what goes stale rather than
   keeping it hedged.
 - A note distills a source comment; it does not replace one. The comment stays

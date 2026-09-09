@@ -16,7 +16,7 @@ must be outside slopd's cgroup:
 `capture-pane -e -S -10000` and nudges the pane to trigger SIGWINCH.
 This restores modes that capture cannot carry: alternate screen, mouse reporting,
 cursor shape, and bracketed paste. Renames rebuild the reader and input sender
-because both are bound to the old name.
+because both are bound to the same name.
 
 Alt-screen seeding must happen on both sides of the `1049` switch. Capture returns
 primary scrollback plus visible rows; seed scrollback into the primary buffer and
