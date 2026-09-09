@@ -256,12 +256,10 @@ namespace SlopWorld
             }
 
             if (tab != SidebarTab.Files) FilesView.ClearFocus();
-            if (tab != SidebarTab.Files) FilesView.ReleaseViewer();
             if (tab != SidebarTab.Search)
             {
                 SearchView.Closed();
             }
-            if (tab != SidebarTab.Git) GitView.ReleaseViewer();
 
             var s = Settings.S;
             s.sidebarTab = TabName(tab);

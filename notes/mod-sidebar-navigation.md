@@ -6,8 +6,8 @@ The core sidebar geometry, selection behavior, and row rendering are in
 ## Views and navigation
 
 Agents, Files, Search, Git, Tasks and Library share the panel, tabs, width, add strip and
-input absorption. Their default F2–F7 shortcuts follow that left-to-right order. Leaving a
-view releases its unlocked preview readers; pinned previews remain routed like edit sessions.
+input absorption. Their default F2–F7 shortcuts follow that left-to-right order. Switching
+tabs preserves preview readers; replacing a preview or explicitly closing it ends the session.
 Files/Search/Git park colonist-bar
 locations but still build buckets so Alt+number can return to an agent; folding removes
 agents from visible order.

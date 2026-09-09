@@ -65,6 +65,8 @@ namespace SlopWorld.Tests
                 tests.Add(("TextSelection: " + test.Name, test.Body));
             foreach (var test in PagerCommandsTests.Cases())
                 tests.Add(("PagerCommands: " + test.Name, test.Body));
+            foreach (var test in PagerLifecycleTests.Cases())
+                tests.Add(("PagerLifecycle: " + test.Name, test.Body));
             foreach (var test in NameToolsTests.Cases())
                 tests.Add(("NameTools: " + test.Name, test.Body));
             foreach (var test in SongRecognizerTests.Cases())

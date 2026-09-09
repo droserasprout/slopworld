@@ -47,8 +47,13 @@ Local HTML `<img>` tags resolve relative to the Markdown file through the bounde
 route and support width/height plus right or center alignment.
 Other text files use a replaceable `less -Rc --` preview pager above the tree; binary extensions
 are excluded. The preview header is italic until its routed row or the previewed file row is
-double-clicked, which pins that pager like an edit session. Opening another file or leaving Files releases only the
-replaceable preview; pinned readers remain available from their headers. Markdown's context
+double-clicked, which pins that pager like an edit session. Opening another file replaces only the
+unlocked preview; sidebar tab switches preserve readers. Clicking an open file reuses its
+preview or pinned session regardless of tree selection. Pending clicks share one startup request.
+Adding or removing routed headers adjusts tree scroll to preserve row screen positions,
+within the available scroll range. The top bar shows the actual session name followed by
+the project-relative file path (or an absolute path for storage readers). Markdown previews
+are reused by project/path even when hidden or when tree selection changes. Markdown's context
 menu exposes `View in pager` for the raw source when needed, and native Markdown previews use
 the same preview/pin behavior.
 

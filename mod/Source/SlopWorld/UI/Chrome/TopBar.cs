@@ -265,6 +265,14 @@ namespace SlopWorld
         // Prefer slopd's task title, falling back to the pane's OSC title.
         static string Tail(string session, AgentState state)
         {
+            string path = FilesView.ViewerPath(session);
+            if (!string.IsNullOrEmpty(path))
+            {
+                var hub = SessionHub.Instance;
+                string project = hub.Get(session)?.Project;
+                string root = string.IsNullOrEmpty(project) ? null : hub.Project(project)?.Dir;
+                return PagerCommands.RelativeFilePath(root, path);
+            }
             string title = SessionHub.Instance.Get(session)?.Title;
             return string.IsNullOrEmpty(title) ? state.ToString().ToLower() : title;
         }

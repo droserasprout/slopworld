@@ -12,6 +12,7 @@ namespace SlopWorld.Tests
             yield return ("tree lookup agrees with linear visibility", TreeVisibility);
             yield return ("large tree lookup is logarithmic", LargeTree);
             yield return ("tree revisions and offscreen reveal", TreeRevision);
+            yield return ("tree rows stay anchored as pager headers change", TreeAnchoring);
             yield return ("project totals enumerate once per session revision", ProjectCounts);
             yield return ("routing preserves filtering sorting and preview height", Routing);
             yield return ("routing refreshes local changes without a session revision", RoutingRefresh);
@@ -27,6 +28,16 @@ namespace SlopWorld.Tests
             VisibleRows.Uniform(count, 10f, top, height, out int actualFirst, out int actualEnd);
             AssertEx.Equal(first, actualFirst, "first row");
             AssertEx.Equal(end, actualEnd, "exclusive end");
+        }
+
+        static void TreeAnchoring()
+        {
+            float before = 80f + 300f - 120f;
+            float added = ContentTreeIndex.AnchoredScroll(120f, 80f, 110f);
+            AssertEx.Equal(before, 110f + 300f - added, "new header preserves row screen position");
+            float removed = ContentTreeIndex.AnchoredScroll(added, 110f, 80f);
+            AssertEx.Equal(120f, removed, "closing header restores scroll");
+            AssertEx.Equal(0f, ContentTreeIndex.AnchoredScroll(10f, 110f, 80f), "top boundary clamps");
         }
 
         static void Uniform()

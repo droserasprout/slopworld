@@ -165,7 +165,6 @@ namespace SlopWorld
 
         public static void Closed()
         {
-            ReleaseViewer();
             ReleaseFocus();
         }
 

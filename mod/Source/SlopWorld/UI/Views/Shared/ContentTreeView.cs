@@ -149,6 +149,11 @@ namespace SlopWorld
         {
             using (WidgetState.Save())
             {
+                // Routed pager headers grow above this viewport. Keep tree rows at their
+                // previous screen positions as that space is added or removed.
+                if (_body.height > 0f && body.y != _body.y)
+                    _scroll.JumpTo(new Vector2(_scroll.Position.x,
+                        ContentTreeIndex.AnchoredScroll(_scroll.Position.y, _body.y, body.y)));
                 _body = body;
                 _lines.Clear();
 

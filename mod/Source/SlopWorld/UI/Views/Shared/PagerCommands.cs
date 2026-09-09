@@ -9,6 +9,13 @@ namespace SlopWorld
     // without a live daemon. Pager keeps thin wrappers that supply the config.
     public static class PagerCommands
     {
+        public static string RelativeFilePath(string root, string path)
+        {
+            if (string.IsNullOrEmpty(root) || string.IsNullOrEmpty(path)) return path;
+            string prefix = root.TrimEnd('/') + "/";
+            return path.StartsWith(prefix, StringComparison.Ordinal) ? path.Substring(prefix.Length) : path;
+        }
+
         // The daemon splits a command line into an argv the way a shell would, so a path with
         // a space in it is two arguments unless it says otherwise. Both views build command
         // lines out of paths they were handed, so the quoting lives here.
