@@ -551,7 +551,18 @@ namespace SlopWorld
 
         public static void CloseViewerIf(string session) => Viewers.CloseIf(session);
 
-        public static bool CloseViewerTab(string session) => Viewers.CloseTab(session);
+        public static bool CloseViewerTab(string session)
+        {
+            if (Viewers.CloseTab(session)) return true;
+
+            // PagerTabs is UI-lifetime state. A game restart loses the owner of an ephemeral
+            // diff, but the daemon still owns the routed session and can stop it directly.
+            var info = SessionHub.Instance.Get(session);
+            if (info == null || !info.Ephemeral) return false;
+            if ((RowActions.Of(info) & RowAct.Diff) == 0) return false;
+            SessionHub.Instance.SessionStore.Stop(session);
+            return true;
+        }
 
         static void ClearSelection()
         {

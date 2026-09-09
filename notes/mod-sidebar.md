@@ -74,9 +74,10 @@ sandbox config (presets, network, dns, limits, mounts) via the `like` field on
 
 Shared views, navigation, filtering, context menus, and vanilla chrome shifts are
 covered in [sidebar views and chrome](mod-sidebar-navigation.md).
-- Middle-click closes Files/Git preview headers without confirmation, including pinned
-  pagers, diffs and native Markdown previews. Editor rows are unaffected. Explicit dismissal
-  releases pinned previews; ordinary focus changes still preserve them.
+- Middle-click closes Files/Git routed headers without confirmation, including restored
+  pager/editor sessions, pinned diffs and native Markdown previews. Ordinary durable agent rows
+  remain unaffected. Explicit dismissal releases pinned previews; ordinary focus changes still
+  preserve them.
 - The Tasks list keeps the complete mailbox but virtualizes off-screen rows. Its scroll view
   uses the shared fractional wheel path and thumb dragging.
 - Task rows cap their one-line preview before passing it to RimWorld's quadratic `Truncate`; the
