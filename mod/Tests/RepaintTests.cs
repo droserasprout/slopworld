@@ -17,6 +17,7 @@ namespace SlopWorld.Tests
             yield return ("routing refreshes local changes without a session revision", RoutingRefresh);
             yield return ("terminal keeps cursor-only pixels and repaints sparse damage", TerminalDamage);
             yield return ("terminal broad and missing damage repaint completely", TerminalFallback);
+            yield return ("terminal repaints damage from frames skipped between paints", TerminalSkippedFrames);
             yield return ("terminal invalidation overrides unchanged content", TerminalInvalidation);
             yield return ("terminal cache key checks every pixel dependency", TerminalKeys);
         }
@@ -156,6 +157,25 @@ namespace SlopWorld.Tests
             screen.Seq++;
             AssertEx.Equal(TerminalRepaint.None, TerminalRepaintPolicy.Choose(false, 2, screen),
                 "cursor and sequence changes reuse pixels");
+        }
+
+        static void TerminalSkippedFrames()
+        {
+            var screen = new ScreenBuf();
+            screen.FromJson(JVal.Parse(
+                "{\"seq\":1,\"rows\":4,\"lines\":[\"old\",\"prompt\",\"\",\"\"]}"));
+            int painted = screen.ContentRevision;
+            screen.FromJson(JVal.Parse(
+                "{\"seq\":2,\"rows\":4,\"lines\":[\"new\",\"prompt\",\"\",\"\"]}"));
+            screen.FromJson(JVal.Parse(
+                "{\"seq\":3,\"rows\":4,\"lines\":[\"new\",\"pasted\",\"\",\"\"]}"));
+
+            AssertEx.Equal(TerminalRepaint.Full,
+                TerminalRepaintPolicy.Choose(false, painted, screen),
+                "latest row damage omits the unpainted change to row zero");
+            AssertEx.Equal(TerminalRepaint.Rows,
+                TerminalRepaintPolicy.Choose(false, screen.ContentRevision - 1, screen),
+                "damage is sufficient when the immediately preceding revision was painted");
         }
 
         static void TerminalFallback()

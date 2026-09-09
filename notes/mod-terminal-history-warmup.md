@@ -23,7 +23,9 @@ discovery. Changes to the extent preserve the reader's offset from the live bott
 History replies are drained while the pane remains live. They populate history
 and record the real top while the requested scroll position is being assembled.
 Live output keeps the cache in the newest coordinate space; a delayed reply uses
-its request's coordinate shift and can therefore contribute valid old rows.
+the difference between its captured history extent and the live extent. A reply
+matching the live sequence needs no translation. Request-time shifts are only a
+fallback for legacy frames without history metadata.
 Shallow views refresh their visible live rows, including fractional overscan, on
 in-place redraws. Views containing only history retain their assembled frame.
 The live cursor keeps its blink and shape when visible in a shallow view; its

@@ -250,7 +250,8 @@ namespace SlopWorld
                     if (!pending) continue;
 
                     _window._historyRequests.Remove(sb.ScrollRequestId);
-                    int shift = _window._historyCoordinateShift - request.CoordinateShift;
+                    int shift = TerminalHistory.CaptureShift(sb, live,
+                        _window._historyCoordinateShift - request.CoordinateShift);
                     _window._history.Add(sb, live, request.Offset, shift, allowStale: !current);
                     if (sb.History >= 0)
                     {

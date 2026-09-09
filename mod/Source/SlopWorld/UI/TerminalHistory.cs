@@ -168,8 +168,19 @@ namespace SlopWorld
             // The overlap at global row zero belongs to the current live frame. An older
             // response can still contribute its negative history rows, but must not overwrite
             // newer content that was redrawn in place while the request was in flight.
-            int off = Math.Max(0, frame.Off + coordinateShift);
+            int off = Math.Max(0, frame.Off + CaptureShift(frame, live, coordinateShift));
             if (Index(frame, off, current)) Changed();
+        }
+
+        // Off belongs to the daemon's capture time, not the time we sent the request.
+        // Output before capture is already represented in the reply; translating it again
+        // overwrites neighboring cached rows and makes input/answer lines disappear.
+        public static int CaptureShift(ScreenBuf frame, ScreenBuf live, int requestShift)
+        {
+            if (live == null || frame.Seq == live.Seq) return 0;
+            if (frame.History >= 0 && live.History >= 0)
+                return Math.Max(0, live.History - frame.History);
+            return requestShift;
         }
 
         public bool TryView(int anchor, bool extraRow, out ScreenBuf view)

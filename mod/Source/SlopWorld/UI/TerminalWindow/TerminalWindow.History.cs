@@ -77,8 +77,8 @@ namespace SlopWorld
 
         readonly Dictionary<ulong, HistoryRequest> _historyRequests =
             new Dictionary<ulong, HistoryRequest>();
-        // Total live rows translated since the current history cache was seeded. Requests
-        // captured before a live terminal scroll need the same translation before indexing.
+        // Total live rows translated since the cache was seeded. Retain request-time values
+        // only for legacy replies; current replies carry their capture-time history extent.
         int _historyCoordinateShift;
         // Stable fallback while the first prefetched window for a new position is in flight.
         ScreenBuf _historyDisplayedFrame;
