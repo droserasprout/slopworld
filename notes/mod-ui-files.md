@@ -35,11 +35,17 @@ can temporarily become the tree root.
 
 ## Viewer
 
+Preview errands receive the measured terminal columns/rows before process startup.
+Resizing while LESSOPEN starts can strand leading `~` rows in less; `-c` also paints
+short files from the top. Alternate-screen mode remains enabled for wheel routing.
+`make test-pager` checks short-file wheel input followed by a full-height long preview
+using an isolated tmux server, without running the game.
+
 A Markdown-file click opens a native `MarkdownPreview` in the body; the daemon supplies
 bounded UTF-8 text through `/api/read`, and Markdig provides the CommonMark/GFM parse tree.
 Local HTML `<img>` tags resolve relative to the Markdown file through the bounded `/api/image`
 route and support width/height plus right or center alignment.
-Other text files use a replaceable `less -R --` preview pager above the tree; binary extensions
+Other text files use a replaceable `less -Rc --` preview pager above the tree; binary extensions
 are excluded. The preview header is italic until its routed row or the previewed file row is
 double-clicked, which pins that pager like an edit session. Opening another file or leaving Files releases only the
 replaceable preview; pinned readers remain available from their headers. Markdown's context

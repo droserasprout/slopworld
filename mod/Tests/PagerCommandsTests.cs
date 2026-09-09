@@ -48,9 +48,9 @@ namespace SlopWorld.Tests
 
         static void BuildsPagerAndEditor()
         {
-            AssertEx.Equal("env LESS=-R less -- '/f'", PagerCommands.PagerCommand("less", "", "/f"),
-                           "no highlighter yields a plain -R env");
-            AssertEx.Equal("LESSOPEN='|highlight %s' LESS=-R", PagerCommands.LessEnv("highlight"),
+            AssertEx.Equal("env LESS=-Rc less -- '/f'", PagerCommands.PagerCommand("less", "", "/f"),
+                           "pager paints from the top and retains the alternate screen");
+            AssertEx.Equal("LESSOPEN='|highlight %s' LESS=-Rc", PagerCommands.LessEnv("highlight"),
                            "a highlighter without %s gets one appended");
             AssertEx.Equal("less", PagerCommands.PipePager("less {file}"),
                            "the pipe pager strips file/line placeholders");

@@ -92,6 +92,8 @@ crate::wire_enum!(State, {
 
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct RunWhere {
+    pub cols: Option<u16>,
+    pub rows: Option<u16>,
     #[serde(default)]
     pub project: Option<String>,
     #[serde(default)]

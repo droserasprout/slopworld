@@ -226,9 +226,12 @@ namespace SlopWorld
         public void Run(string project, string command, string label,
                         Action<string> started, Action<string> fail = null,
                         bool shell = true, string text = "", bool host = false, bool temp = false,
-                        string path = "", bool hold = false, string like = "") =>
+                        string path = "", bool hold = false, string like = "")
+        {
+            string shape = TerminalWindow.TryPanelShape(out int cols, out int rows)
+                ? $"\"cols\":{cols},\"rows\":{rows}," : "";
             DaemonClient.Post(RunPath,
-                "{" + $"\"project\":{JVal.Q(project ?? "")}," +
+                "{" + shape + $"\"project\":{JVal.Q(project ?? "")}," +
                 $"\"kind\":{JVal.Q(shell ? "shell" : "prompt")}," +
                 $"\"command\":{JVal.Q(command ?? "")}," +
                 $"\"path\":{JVal.Q(path ?? "")}," +
@@ -240,6 +243,7 @@ namespace SlopWorld
                 $"\"like\":{JVal.Q(like ?? "")}" + "}",
                 j => Started(j, started, fail),
                 fail);
+        }
 
         // Host terminal leaves command/label empty: slopd chooses `$SHELL` and returns the
         // generated project-shell session name.

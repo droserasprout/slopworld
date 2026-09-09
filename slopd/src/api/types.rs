@@ -54,6 +54,8 @@ pub(crate) struct LabelReq {
 /// required of an entry - `less` on a file is a command with nothing to type after it.
 #[derive(Deserialize)]
 pub(crate) struct RunReq {
+    pub(crate) cols: Option<u16>,
+    pub(crate) rows: Option<u16>,
     #[serde(default)]
     pub(crate) project: String,
     #[serde(default)]

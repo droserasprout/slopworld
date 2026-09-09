@@ -34,6 +34,10 @@ test-daemon: api-contract
 test-mod: api-contract
 	@$(DOTNET) run --project "$(TEST_PROJECT)" --configuration Release -- --quiet
 
+.PHONY: test-pager
+test-pager:       ## Test pager geometry with isolated tmux and less (no game)
+	@$(PYTHON) tools/test_pager_geometry.py
+
 coverage: coverage-daemon coverage-mod ## Measure Rust and game-free C# test coverage
 
 coverage-daemon:
