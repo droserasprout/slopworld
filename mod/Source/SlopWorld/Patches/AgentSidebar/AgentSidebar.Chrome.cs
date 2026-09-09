@@ -38,10 +38,13 @@ namespace SlopWorld
             Slab.Hairline(new Rect(r.x, r.y, r.width, 1f), UiWidgets.Edge);
 
             float d = AddIcon;
-            GUI.color = over ? Color.white : UiWidgets.Lead;
-            GUI.DrawTexture(
-                new Rect(r.center.x - d / 2f, r.center.y - d / 2f, d, d), Icons.Add);
-            GUI.color = Color.white;
+            if (Event.current.type == EventType.Repaint)
+            {
+                GUI.color = over ? Color.white : UiWidgets.Lead;
+                GUI.DrawTexture(
+                    new Rect(r.center.x - d / 2f, r.center.y - d / 2f, d, d), Icons.Add);
+                GUI.color = Color.white;
+            }
         }
 
         static void Tabs()
@@ -203,7 +206,8 @@ namespace SlopWorld
 
             GUI.color = UiWidgets.Faint;
             var arrow = new Rect(CellX, r.y + (HeadH - ArrowW) / 2f, ArrowW, ArrowW);
-            GUI.DrawTexture(arrow, head.Folded ? TexButton.Reveal : TexButton.Collapse);
+            if (Event.current.type == EventType.Repaint)
+                GUI.DrawTexture(arrow, head.Folded ? TexButton.Reveal : TexButton.Collapse);
 
             Text.Font = GameFont.Tiny;
 

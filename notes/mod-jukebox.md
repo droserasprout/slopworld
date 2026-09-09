@@ -38,6 +38,8 @@ SlopWorld OST. Vanilla SongDefs are stripped in both modes.
 Stop-on-exit sends the same during shutdown; `Radio.Quit` latches because Unity may run frames
 after `Application.Quit`. A killed process cannot send it. Volume multiplies RimWorld's existing
 audio settings.
+Top-bar and map-cell now-playing tooltips use a cache refreshed at the radio update cadence or
+when the track version changes, avoiding repeated native music-manager queries in sidecar mode.
 
 ## Daemon audio
 

@@ -41,9 +41,14 @@ namespace SlopWorld
             if (act != RowAct.None)
             {
                 float d = Mathf.Min(GhostMarkW, text.height);
-                GUI.color = UiWidgets.Off;
-                GUI.DrawTexture(new Rect(text.x, text.y + (text.height - d) / 2f, d, d),
-                    RowActions.Tex(act));
+                if (Event.current.type == EventType.Repaint)
+                {
+                    var was = GUI.color;
+                    GUI.color = UiWidgets.Off;
+                    GUI.DrawTexture(new Rect(text.x, text.y + (text.height - d) / 2f, d, d),
+                        RowActions.Tex(act));
+                    GUI.color = was;
+                }
                 text.x += d + UiWidgets.GapXS;
                 text.width -= d + UiWidgets.GapXS;
             }
@@ -180,10 +185,15 @@ namespace SlopWorld
             if (act != RowAct.None)
             {
                 float d = Mathf.Min(GhostMarkW, text.height);
-                GUI.color = UiWidgets.Off;
-                GUI.DrawTexture(
-                    new Rect(text.x, text.y + (text.height - d) / 2f, d, d),
-                    RowActions.Tex(act));
+                if (Event.current.type == EventType.Repaint)
+                {
+                    var was = GUI.color;
+                    GUI.color = UiWidgets.Off;
+                    GUI.DrawTexture(
+                        new Rect(text.x, text.y + (text.height - d) / 2f, d, d),
+                        RowActions.Tex(act));
+                    GUI.color = was;
+                }
                 text.x += d + UiWidgets.GapXS;
                 text.width -= d + UiWidgets.GapXS;
             }
@@ -203,8 +213,13 @@ namespace SlopWorld
             float d = Mathf.Min(GhostMarkW, row.Text.height);
             Rect mark = new Rect(row.Text.x - TextGap - GhostMarkW,
                 row.Text.y + (row.Text.height - d) / 2f, d, d);
-            GUI.color = UiWidgets.Off;
-            GUI.DrawTexture(mark, Icons.Agents);
+            if (Event.current.type == EventType.Repaint)
+            {
+                var was = GUI.color;
+                GUI.color = UiWidgets.Off;
+                GUI.DrawTexture(mark, Icons.Agents);
+                GUI.color = was;
+            }
             TooltipHandler.TipRegion(mark, "Task worker session");
 
             Text.Font = GameFont.Tiny;
@@ -221,9 +236,7 @@ namespace SlopWorld
             {
                 var time = new Rect(row.Text.xMax - ageW, row.Text.y, ageW, row.Text.height);
                 UiWidgets.RowLabel(time, ago, TextAnchor.MiddleRight);
-                string stateName = state == AgentState.Waiting
-                    ? "waiting for input"
-                    : state.ToString().ToLowerInvariant();
+                string stateName = SidebarRowRenderer.StateName(state);
                 TooltipHandler.TipRegion(time, $"{stateName} for {ago}");
             }
             GUI.color = Color.white;
@@ -239,6 +252,7 @@ namespace SlopWorld
         {
             if (CompactView) return;
             if (face.width <= 0f) return;
+            if (Event.current.type != EventType.Repaint) return;
 
             float d = Mathf.Max(BadgeMin,
                 Mathf.Round(face.width * BadgeShare));

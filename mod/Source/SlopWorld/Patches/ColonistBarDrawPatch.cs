@@ -162,6 +162,7 @@ namespace SlopWorld
 
             Rect face;
             if (!AgentSidebar.FaceBox(colonist, out face)) return true;
+            if (Event.current == null || Event.current.type != EventType.Repaint) return false;
 
             // Preserve vanilla's entry fade and drag fade.
             var bar = Find.ColonistBar;
