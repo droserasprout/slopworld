@@ -10,4 +10,4 @@ on the host is one colonist; select a colonist to type at the agent.
 HTTP + WebSocket on `127.0.0.1:7717`. The daemon is the source of truth; the mod
 mirrors it and keeps no session state.
 
-Start with [index](index.md).
+Start with the focused note for the area you are changing.

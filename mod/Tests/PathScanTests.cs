@@ -18,7 +18,7 @@ namespace SlopWorld.Tests
 
         static void FindsPaths()
         {
-            AssertEx.Equal("notes/index.md", PathScan.At("see notes/index.md now", 8),
+            AssertEx.Equal("notes/README.md", PathScan.At("see notes/README.md now", 8),
                 "a path with a directory is found");
             AssertEx.Equal("../src/main.rs", PathScan.At("../src/main.rs", 5),
                 "an explicit parent-relative path is found");

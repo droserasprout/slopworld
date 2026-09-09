@@ -6,8 +6,8 @@ text (SGR stripped); with no hit, a pane that moved inside `IDLE_MS` is working.
 Down is not a rule - it comes from the control reader ending on `%exit` or EOF.
 
 Rules scan the last `TAIL_LINES` non-blank lines upward. The lowest matching line
-wins; configuration order breaks ties within a line. This prevents an old prompt
-higher on the screen from keeping a working agent in `waiting`.
+wins; configuration order breaks ties within a line. This prevents a higher prompt from
+keeping a working agent in `waiting`.
 
 ## State clocks
 

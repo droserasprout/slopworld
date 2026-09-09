@@ -30,12 +30,12 @@ reflection.
   Markdown through the shared native `MarkdownPreview` renderer.
 
 The settings pages use `PUT /api/config/patch` with nested partial JSON. A field
-missing from the client remains untouched in `config.toml`, so adding a daemon
-setting no longer requires adding a hidden round-trip field to the mod.
+missing from the client remains untouched in `config.toml`; daemon settings do not
+require hidden round-trip fields in the mod.
 
 The mod's connection is resolved from the daemon's `endpoint.toml` descriptor.
 
 `HubCatalog` revisions invalidate project-list requests already in flight before a project
 save or delete; only the newest response may replace the catalog. `SessionStore` similarly
 holds a pending old-to-new name during an HTTP session rename, because the pushed sessions
-event can remove the old name before the write response retargets the terminal window.
+event can remove a stale name before the write response retargets the terminal window.

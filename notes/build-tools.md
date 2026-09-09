@@ -24,7 +24,7 @@ mode also ignores Git template comments and verbose diffs.
   for the caller to tint; `--color` keeps the face's own colors, which is what a
   thing standing on the map wants - see [mod-jukebox](mod-jukebox.md).
 - `tools/emoji_atlas.py` - bakes the supplementary-plane emoji atlas and its generated
-  C# code table for the legacy terminal renderer (`make emoji-atlas`).
+  C# code table for the terminal renderer (`make emoji-atlas`).
 - `tools/split_ost.py` - crops the newest Bitwig FLAC export at the fixed OST
   boundaries into 192 kbps OGGs in `.ost-staging/`.
 - `tools/install_ost.py` - copies the newest staged dated tracks into

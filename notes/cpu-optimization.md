@@ -35,8 +35,8 @@ The C# mod reduces work in these hot paths:
 - `AgentColony` retains membership across unchanged revisions, reuses removal/order buffers,
   and sorts only after binding changes. Repair and state transitions still run each sweep.
 
-`make BUILD=release bench-mod` includes idle socket allocation and unchanged-title comparisons
-against the previous allocation/cleanup patterns, plus the idle terminal repaint decision.
+`make BUILD=release bench-mod` includes idle socket allocation and unchanged-title comparisons,
+plus the idle terminal repaint decision.
 These measure helpers under .NET, not Unity CPU load or input latency. Opt-in `PerfTrace`
 adds sidebar layout hits/rebuilds, title rebuilds, and terminal cache hits for runtime checking.
 The suite also compares unchanged colony membership and clock formatting, plus cold/warm

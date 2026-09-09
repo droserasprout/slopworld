@@ -1,9 +1,7 @@
 # TOML data review plan
 
-Baseline: source audit on 2026-09-08. The daemon already has a good TOML boundary for
-machine configuration, sandbox/command presets, jukebox stations, and persisted projects,
-sessions and library items. The remaining question is which embedded records are better
-owned as shipped or user-editable data rather than Rust/C# literals.
+Move suitable embedded records into shipped or user-editable data without weakening the
+existing configuration and content boundaries.
 
 ## Boundary
 
@@ -20,10 +18,8 @@ daemon TOML for built-in themes, tips, simulation behavior, or appearance data.
 ## Priority order
 
 1. **Theme catalogs.** Move the records in `UI/UIScheme.cs` and `UI/TerminalTheme.cs`
-   into structured theme data. These are the clearest candidates: IDs, labels, color
-   roles, and terminal palettes are pure records, and the current UI-scheme analyzer has
-   to parse C# constructors. Preserve a compiled house fallback and reject incomplete or
-   invalid palettes.
+   into structured theme data: IDs, labels, color roles, and terminal palettes. Preserve a
+   compiled house fallback and reject incomplete or invalid palettes.
 2. **Tips and small flavor catalogs.** Move `Patches/LoadingScreen.Tips.cs` to records
    with text and Grandma-mode visibility. Decide whether the single built-in
    `Useful tips` breadcrumb also becomes a shipped TOML entry. Keep attribution and the
@@ -39,10 +35,9 @@ daemon TOML for built-in themes, tips, simulation behavior, or appearance data.
 5. **Launcher profiles.** Consider TOML for expansion IDs, default game arguments, and
    sidecar launch preferences. Keep executable names, SlopWorld/Core mod identity, path
    validation, and process/lifetime safety in code.
-6. **Build-time manifest cleanup.** `tools/fileicons/manifest.toml` already describes the
-   file-icon data, but `FileIcons.cs` carries a runtime copy. Prefer generating that lookup
-   from the manifest or validating the two representations rather than adding another
-   hand-maintained source. Treat `tools/icons/manifest.toml` similarly where applicable.
+6. **Build-time manifest cleanup.** Generate the `FileIcons.cs` lookup from
+   `tools/fileicons/manifest.toml`, or validate both representations. Treat
+   `tools/icons/manifest.toml` similarly where applicable.
 
 ## Explicit non-goals
 

@@ -93,7 +93,7 @@ is controlled separately under "Display"; unfocused windows use 15 FPS.
 
 ### Where are the developer notes? {#devnotes}
 
-In `notes/`, indexed at `notes/index.md`. They are internal; published documentation
+In `notes/`. They are internal; published documentation
 under `docs/` is authoritative. See [Contributing](reference/contributing.md).
 
 For setup and installation problems, see [Troubleshooting](reference/troubleshooting.md).

@@ -11,7 +11,7 @@ The window uses `Margin` 0 so GUI-group and screen coordinates agree
 
 `TerminalWindow` is the fullscreen host and lifecycle coordinator. `TerminalInputController`
 owns key/mouse event ordering and chrome navigation, while `TerminalWindowState` holds the
-session and input state that used to sit directly on the partial class. Selection gesture
+session and input state. Selection gesture
 routing lives in `TerminalSelectionInput`; the selection model and terminal rendering remain
 window services until the next extraction pass.
 

@@ -25,7 +25,7 @@ mute and stop-on-exit are also exposed on Audio. Status-bar flags only hide read
 and doors; they do not disable polling, audio or map objects.
 
 Command-palette history stores up to eight command IDs, newest first, in the mod profile;
-the palette drops IDs that are no longer in its catalogue when it loads.
+the palette drops IDs absent from its catalogue when it loads.
 
 `statusbarClockPosition` is `right`, `center` or `hidden`. `timeFormat` is `24-hour`
 or `12-hour` and controls the status-bar clock and its tooltip.
