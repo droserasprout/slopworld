@@ -11,7 +11,8 @@ and hit testing.
 `Rows` is the geometry source for labels, portraits, clicks and keyboard order.
 Layout reuses revision/geometry keys. Title cleanup caches its text and font inputs with weak
 session ownership; font atlas rebuilds invalidate it. Off-screen rows and headings skip repaint
-work while input passes retain their control order.
+work while input passes retain their control order. Row ages sample the clock once per frame,
+and row marks/badges are Repaint-only while row labels, hover checks and tooltips still run.
 Files/Git routed sessions are prepared once per draw pass in a reused list; the resulting height
 is passed into tree geometry. Per-pass rebuilding includes native-preview and viewer-handoff
 changes even when the daemon session revision is unchanged.

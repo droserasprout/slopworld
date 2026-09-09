@@ -60,6 +60,9 @@ namespace SlopWorld
         static string _recognizedArtist;
         static string _recognizedTitle;
         static int _trackVersion;
+        static string _cachedNowPlaying;
+        static double _cachedNowPlayingAt = double.NegativeInfinity;
+        static int _cachedNowPlayingVersion = -1;
 
         // A slider moved by a hair is not worth a packet.
         const float VolumeStep = 0.01f;
@@ -156,6 +159,27 @@ namespace SlopWorld
                 if (SidecarAudio) return NativeNowPlaying();
                 if (HasRecognition()) return _recognizedArtist + " - " + _recognizedTitle;
                 return StationNowPlaying();
+            }
+        }
+
+        // Tooltip draws can happen several times for one IMGUI event. Sidecar mode makes this
+        // especially costly because the uncached query reaches the native music manager; keep
+        // it on the same six-Hz cadence as steady radio work and refresh immediately on a new
+        // track version.
+        public static string CachedNowPlaying
+        {
+            get
+            {
+                Read();
+                double now = Time.realtimeSinceStartupAsDouble;
+                if (_cachedNowPlayingVersion != _trackVersion
+                    || now - _cachedNowPlayingAt >= UpdateInterval)
+                {
+                    _cachedNowPlaying = NowPlaying;
+                    _cachedNowPlayingVersion = _trackVersion;
+                    _cachedNowPlayingAt = now;
+                }
+                return _cachedNowPlaying;
             }
         }
 

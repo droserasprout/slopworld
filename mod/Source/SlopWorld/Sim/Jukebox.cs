@@ -100,7 +100,7 @@ namespace SlopWorld
         // restart its fade every time the station moved on. The cell is the box.
         void Tip(IntVec3 cell)
         {
-            string now = Radio.NowPlaying;
+            string now = Radio.CachedNowPlaying;
             if (string.IsNullOrEmpty(now)) return;
 
             TooltipHandler.TipRegion(CellRect(cell), new TipSignal(Note + now, cell.GetHashCode()));
@@ -109,7 +109,7 @@ namespace SlopWorld
         // The status-bar door uses the same current-track label.
         public static string IconTip()
         {
-            string now = Radio.NowPlaying;
+            string now = Radio.CachedNowPlaying;
             return string.IsNullOrEmpty(now) ? "" : Note + now;
         }
 

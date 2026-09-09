@@ -66,13 +66,17 @@ namespace SlopWorld
         {
             bool over = on && Mouse.IsOver(r);
             bool held = over && Input.GetMouseButton(0);
+            bool repaint = Event.current != null && Event.current.type == EventType.Repaint;
 
-            if (over) Slab.Fill(r, held ? BtnDown : BtnHover);
+            if (repaint && over) Slab.Fill(r, held ? BtnDown : BtnHover);
 
-            using (WidgetState.Save())
+            if (repaint)
             {
-                GUI.color = on ? (over ? Lead : tint) : Fade(tint, 0.5f);
-                GUI.DrawTexture(r.ContractedBy(inset), icon);
+                using (WidgetState.Save())
+                {
+                    GUI.color = on ? (over ? Lead : tint) : Fade(tint, 0.5f);
+                    GUI.DrawTexture(r.ContractedBy(inset), icon);
+                }
             }
 
             if (!RowButton(r, on)) return false;

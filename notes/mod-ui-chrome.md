@@ -48,6 +48,9 @@ spacing, buttons, fields, headings and errors. Color names resolve through
 - `UiWindow` supplies the frame, border and close corner. `Margin` is zero because
   vanilla translates contents into a group instead of providing padding; bodies use
   `Pad`.
+- `UiTheme.Wide` and `TruncateText` use bounded caches keyed by text metrics, UI scale and
+  dynamic-font atlas revision. Labels still run on every IMGUI event; direct icon and ThingIcon
+  draws in shared buttons and top-bar doors are Repaint-only while their hit paths remain live.
 - `UiMenu` replaces `FloatMenu` and reads only the label, action, `Disabled` and
   right-side extra text from `FloatMenuOption`; rows touch the frame vertically and
   use the darker `PopoverBg`. Up/Down, Home/End and PageUp/PageDown move a keyboard

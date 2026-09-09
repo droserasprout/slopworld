@@ -12,6 +12,13 @@ namespace SlopWorld
         static readonly string[] DiffPrefixes = { "diff-" };
         static readonly SidebarTitleCache Titles = new SidebarTitleCache();
         static readonly System.Func<SessionInfo, string> BuildTitleText = BuildTitle;
+        static readonly string[] IndicatorText =
+        {
+            "", "a", "r", "ar", "h", "ah", "rh", "arh",
+            "t", "at", "rt", "art", "ht", "aht", "rht", "arht",
+        };
+        static int _ageFrame = -1;
+        static long _ageNowMs;
         static int _titleFontRevision;
 
         static SidebarRowRenderer()
@@ -34,8 +41,13 @@ namespace SlopWorld
             {
                 float d = Mathf.Min(markWidth, r.height);
                 var icon = new Rect(r.x, r.y + (r.height - d) / 2f, d, d);
-                GUI.color = UiWidgets.Off;
-                GUI.DrawTexture(icon, Icons.Terminal);
+                if (Event.current.type == EventType.Repaint)
+                {
+                    var was = GUI.color;
+                    GUI.color = UiWidgets.Off;
+                    GUI.DrawTexture(icon, Icons.Terminal);
+                    GUI.color = was;
+                }
                 string project = info.Project ?? "";
                 TooltipHandler.TipRegion(icon, project.Length > 0
                     ? "Host session in " + project
@@ -100,9 +112,14 @@ namespace SlopWorld
 
             if (info != null && info.Bell)
             {
-                GUI.color = UiWidgets.Warn;
-                GUI.DrawTexture(new Rect(bellX, line.y + (nameH - bell) / 2f, bell, bell),
-                    Icons.Bell);
+                if (Event.current.type == EventType.Repaint)
+                {
+                    var was = GUI.color;
+                    GUI.color = UiWidgets.Warn;
+                    GUI.DrawTexture(new Rect(bellX, line.y + (nameH - bell) / 2f, bell, bell),
+                        Icons.Bell);
+                    GUI.color = was;
+                }
             }
 
             if (ageW > 0f)
@@ -111,9 +128,7 @@ namespace SlopWorld
                 GUI.color = tint;
                 UiWidgets.RowLabel(time, ago, TextAnchor.MiddleRight);
 
-                string stateName = state == AgentState.Waiting
-                    ? "waiting for input"
-                    : state.ToString().ToLowerInvariant();
+                string stateName = StateName(state);
                 TooltipHandler.TipRegion(time, $"{stateName} for {ago}");
             }
 
@@ -154,24 +169,39 @@ namespace SlopWorld
         {
             if (info == null) return "";
 
-            bool host = info.Network == NetworkMode.Host;
-            string indicators = "";
-            if (info.Autostart) indicators += "a";
-            if (info.AutoResume) indicators += "r";
-            if (host) indicators += "h";
-            if (info.PersistentTmp) indicators += "t";
-            return indicators;
+            int mask = (info.Autostart ? 1 : 0)
+                | (info.AutoResume ? 2 : 0)
+                | (info.Network == NetworkMode.Host ? 4 : 0)
+                | (info.PersistentTmp ? 8 : 0);
+            return IndicatorText[mask];
         }
 
         internal static string Ago(SessionInfo info)
         {
             if (info == null || info.StateSince <= 0) return "";
-            long seconds = (SessionInfo.NowMs - info.StateSince) / 1000L;
+            int frame = Time.frameCount;
+            if (_ageFrame != frame)
+            {
+                _ageFrame = frame;
+                _ageNowMs = SessionInfo.NowMs;
+            }
+            long seconds = (_ageNowMs - info.StateSince) / 1000L;
             if (seconds < 0L) return "";
             if (seconds < 60L) return "<1m";
             if (seconds < 3600L) return seconds / 60L + "m";
             if (seconds < 86400L) return seconds / 3600L + "h";
             return seconds / 86400L + "d";
+        }
+
+        internal static string StateName(AgentState state)
+        {
+            switch (state)
+            {
+                case AgentState.Working: return "working";
+                case AgentState.Waiting: return "waiting for input";
+                case AgentState.Idle: return "idle";
+                default: return "down";
+            }
         }
 
         static string GhostTitle(SessionInfo info, string fallback, RowAct act)

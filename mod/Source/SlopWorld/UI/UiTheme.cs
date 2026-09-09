@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using UnityEngine;
 using Verse;
 
@@ -7,6 +9,71 @@ namespace SlopWorld
     // on the screen pixel grid.
     public abstract class UiTheme
     {
+        const int TextCacheLimit = 512;
+        static readonly Dictionary<TextCacheKey, float> WidthCache =
+            new Dictionary<TextCacheKey, float>();
+        static readonly Dictionary<TextCacheKey, string> TruncateCache =
+            new Dictionary<TextCacheKey, string>();
+        static int _atlasRevision;
+
+        static UiTheme()
+        {
+            Font.textureRebuilt += _ => _atlasRevision++;
+        }
+
+        readonly struct TextCacheKey : IEquatable<TextCacheKey>
+        {
+            readonly string _text;
+            readonly float _width;
+            readonly GameFont _gameFont;
+            readonly GUIStyle _style;
+            readonly Font _font;
+            readonly int _fontSize;
+            readonly FontStyle _fontStyle;
+            readonly float _scale;
+            readonly int _atlas;
+
+            public TextCacheKey(string text, float width)
+            {
+                _text = text;
+                _width = width;
+                _gameFont = Text.Font;
+                _style = Text.CurFontStyle;
+                _font = _style == null ? null : _style.font;
+                _fontSize = _style == null ? 0 : _style.fontSize;
+                _fontStyle = _style == null ? FontStyle.Normal : _style.fontStyle;
+                _scale = Prefs.UIScale;
+                _atlas = _atlasRevision;
+            }
+
+            public bool Equals(TextCacheKey other) =>
+                _width == other._width && _gameFont == other._gameFont
+                && ReferenceEquals(_style, other._style)
+                && ReferenceEquals(_font, other._font)
+                && _fontSize == other._fontSize && _fontStyle == other._fontStyle
+                && _scale == other._scale && _atlas == other._atlas
+                && string.Equals(_text, other._text, StringComparison.Ordinal);
+
+            public override bool Equals(object obj) =>
+                obj is TextCacheKey && Equals((TextCacheKey)obj);
+
+            public override int GetHashCode()
+            {
+                unchecked
+                {
+                    int hash = _text == null ? 0 : _text.GetHashCode();
+                    hash = hash * 397 ^ _width.GetHashCode();
+                    hash = hash * 397 ^ (int)_gameFont;
+                    hash = hash * 397 ^ (_style == null ? 0 : _style.GetHashCode());
+                    hash = hash * 397 ^ (_font == null ? 0 : _font.GetHashCode());
+                    hash = hash * 397 ^ _fontSize;
+                    hash = hash * 397 ^ (int)_fontStyle;
+                    hash = hash * 397 ^ _scale.GetHashCode();
+                    return hash * 397 ^ _atlas;
+                }
+            }
+        }
+
         // ---- Surfaces and semantic colors. These are named for SlopWorld's jobs rather
         // than for a borrowed toolkit's widgets, and they are the only names anything else
         // in the mod knows: the values behind them belong to the scheme the player picked,
@@ -105,7 +172,28 @@ namespace SlopWorld
             using (WidgetState.Save())
             {
                 Verse.Text.WordWrap = false;
-                return Verse.Text.CalcSize(text ?? "").x;
+                string value = text ?? "";
+                var key = new TextCacheKey(value, 0f);
+                if (WidthCache.TryGetValue(key, out float cached)) return cached;
+                if (WidthCache.Count >= TextCacheLimit) WidthCache.Clear();
+                return WidthCache[key] = Verse.Text.CalcSize(value).x;
+            }
+        }
+
+        // RimWorld's Truncate repeatedly measures the current font while it removes
+        // characters. Keep the result tied to every input that can change that measurement,
+        // including dynamic-font atlas rebuilds and UI scale.
+        public static string TruncateText(string text, float width)
+        {
+            using (WidgetState.Save())
+            {
+                Verse.Text.WordWrap = false;
+                string value = text ?? "";
+                float max = Mathf.Max(1f, width);
+                var key = new TextCacheKey(value, max);
+                if (TruncateCache.TryGetValue(key, out string cached)) return cached;
+                if (TruncateCache.Count >= TextCacheLimit) TruncateCache.Clear();
+                return TruncateCache[key] = value.Truncate(max);
             }
         }
 

@@ -44,7 +44,7 @@ namespace SlopWorld
             {
                 // Truncate measures incorrectly while wrapping is enabled.
                 Verse.Text.WordWrap = false;
-                string label = (text ?? "").Truncate(Mathf.Max(1f, r.width));
+                string label = TruncateText(text, r.width);
 
                 Verse.Text.Anchor = UpperAnchor(anchor);
                 // Text.LineHeightOf is the box UiFont sized to hold the face. Drawing
@@ -74,7 +74,7 @@ namespace SlopWorld
             using (WidgetState.Save())
             {
                 Verse.Text.WordWrap = false;
-                string label = (text ?? "").Truncate(Mathf.Max(1f, r.width));
+                string label = TruncateText(text, r.width);
                 Verse.Text.Anchor = UpperAnchor(anchor);
                 float lineH = LineHOf(Verse.Text.Font);
                 float y = Slab.SnapY(r.y + (r.height - lineH) * VerticalFactor(anchor));

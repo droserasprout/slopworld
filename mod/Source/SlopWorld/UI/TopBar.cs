@@ -150,12 +150,16 @@ namespace SlopWorld
             TooltipHandler.TipRegion(r, tip);
 
             bool over = ColonistBarStrip.Hover(r);
+            bool repaint = Event.current != null && Event.current.type == EventType.Repaint;
 
             var was = GUI.color;
-            if (over) Slab.Fill(r, UiWidgets.Hover);
-            GUI.color = over ? Color.white : UiWidgets.Off;
-            GUI.DrawTexture(r, icon);
-            GUI.color = was;
+            if (repaint)
+            {
+                if (over) Slab.Fill(r, UiWidgets.Hover);
+                GUI.color = over ? Color.white : UiWidgets.Off;
+                GUI.DrawTexture(r, icon);
+                GUI.color = was;
+            }
 
             Press(over, go, live);
         }
@@ -168,15 +172,19 @@ namespace SlopWorld
             if (!string.IsNullOrEmpty(tip.text)) TooltipHandler.TipRegion(r, tip);
 
             bool over = ColonistBarStrip.Hover(r);
+            bool repaint = Event.current != null && Event.current.type == EventType.Repaint;
 
             // Both of these read the ambient color and only one of them puts it back, so the
             // pair is bracketed: the highlight would wear whatever the last thing on the line
             // left behind, and ThingIcon hands back the def's own tint.
             var was = GUI.color;
-            GUI.color = Color.white;
-            if (over) Slab.Fill(r, UiWidgets.Hover);
-            Widgets.ThingIcon(r, def);
-            GUI.color = was;
+            if (repaint)
+            {
+                GUI.color = Color.white;
+                if (over) Slab.Fill(r, UiWidgets.Hover);
+                Widgets.ThingIcon(r, def);
+                GUI.color = was;
+            }
 
             Press(over, go, live);
         }
