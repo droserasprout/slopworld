@@ -77,8 +77,7 @@ covered in [sidebar views and chrome](mod-sidebar-navigation.md).
   pagers, diffs and native Markdown previews. Editor rows are unaffected. Explicit dismissal
   releases pinned previews; ordinary focus changes still preserve them.
 - The Tasks list keeps the complete mailbox but virtualizes off-screen rows. Its scroll view
-  deliberately avoids Linux XInput precision polling; Unity wheel events and thumb dragging are
-  sufficient here and avoid a severe frame-time regression on some X11 systems.
+  uses the shared fractional wheel path and thumb dragging.
 - Task rows cap their one-line preview before passing it to RimWorld's quadratic `Truncate`; the
   click-through reader uses the maximized content host and a centred bounded panel. It shows
   the complete available dialogue (the original message and latest note) as timestamped
