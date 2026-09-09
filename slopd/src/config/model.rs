@@ -15,8 +15,8 @@ const DEFAULT_OPENAI_CREDENTIALS: &str = crate::wire::DEFAULT_OPENAI_CREDENTIALS
 const DEFAULT_TITLE_MODEL: &str = crate::wire::DEFAULT_TITLE_MODEL;
 const DEFAULT_TITLE_MIN_CHARS: usize = crate::wire::DEFAULT_TITLE_MIN_CHARS as usize;
 
-pub const DEFAULT_SUMMARY_PROMPT: &str = "Summarise this coding request in at most 6 words for a session title. Reply with only the title, without quotes, punctuation, or commentary.";
-pub const DEFAULT_WORKER_BREADCRUMB: &str = "Worker task: use `$SLOPWORLD_TASK_ID` with `slopctl task`, then `accept`, `progress`, and finally `finish` or `fail`. Do not search the inbox or poll task status.";
+pub const DEFAULT_SUMMARY_PROMPT: &str = crate::wire::DEFAULT_SUMMARY_PROMPT;
+pub const DEFAULT_WORKER_BREADCRUMB: &str = crate::wire::DEFAULT_WORKER_BREADCRUMB;
 
 /// One TOML file, which the mod reads and writes back verbatim, so hand-edits and
 /// in-game edits use the same format.
@@ -195,8 +195,8 @@ Read the project's `README.md` and any applicable `AGENTS.md` files for project 
 {{ runtime_context }}
 ";
 pub const DEFAULT_INSTRUCTIONS_MOUNT_PATH: &str = crate::wire::DEFAULT_INSTRUCTIONS_MOUNT_PATH;
-pub const DEFAULT_INSTRUCTIONS_BREADCRUMB: &str = "Read `{{ mount_path }}` for SlopWorld runtime context. It is a generated snapshot, not project instructions. When delegating, send work once and use `slopctl wait ID` for the result; do not poll `task`, `inbox`, or `status`.";
-pub const DEFAULT_WORKER_PROMPT: &str = "You are a SlopWorld worker. Your assigned task ID is $SLOPWORLD_TASK_ID. Run `slopctl task \"$SLOPWORLD_TASK_ID\"` once, then `slopctl accept \"$SLOPWORLD_TASK_ID\"`. Use `slopctl progress \"$SLOPWORLD_TASK_ID\" \"note\"` while working and conclude with `slopctl finish \"$SLOPWORLD_TASK_ID\" \"result\"` or `slopctl fail \"$SLOPWORLD_TASK_ID\" \"reason\"`. Do not search the inbox or poll task status.";
+pub const DEFAULT_INSTRUCTIONS_BREADCRUMB: &str = crate::wire::DEFAULT_INSTRUCTIONS_BREADCRUMB;
+pub const DEFAULT_WORKER_PROMPT: &str = crate::wire::DEFAULT_WORKER_PROMPT;
 
 fn default_instructions_template() -> String {
     DEFAULT_INSTRUCTIONS_TEMPLATE.into()
