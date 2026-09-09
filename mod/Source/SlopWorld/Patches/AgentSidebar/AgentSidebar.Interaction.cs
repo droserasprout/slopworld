@@ -62,7 +62,7 @@ namespace SlopWorld
         static void Grip()
         {
             float w = Width;
-            var grip = new Rect(w - GripW, 0f, GripW * 2f, UI.screenHeight);
+            var grip = new Rect(Panel.x + w - GripW, 0f, GripW * 2f, UI.screenHeight);
             if (!ColonistBarStrip.Interactive && Interaction.Resizing)
             {
                 EndResize();
@@ -75,8 +75,8 @@ namespace SlopWorld
             // drawn here alone: a second draw of [UiWidgets.Edge] over this one composites
             // into a heavier boundary than the palette's, on the sidebar only. At rest it is
             // one screen pixel like every other rule; lit it is a bar and may be a GUI one.
-            if (lit) Slab.Fill(new Rect(w - 1f, 0f, 2f, UI.screenHeight), UiWidgets.EdgeLit);
-            else Slab.VHairline(new Rect(w - 1f, 0f, 1f, UI.screenHeight), UiWidgets.Edge);
+            if (lit) Slab.Fill(new Rect(Panel.x + w - 1f, 0f, 2f, UI.screenHeight), UiWidgets.EdgeLit);
+            else Slab.VHairline(new Rect(Panel.x + w - 1f, 0f, 1f, UI.screenHeight), UiWidgets.Edge);
 
             if (!ColonistBarStrip.Interactive) return;
 
@@ -88,11 +88,11 @@ namespace SlopWorld
                 if (!over || !Input.GetMouseButtonDown(0)) return;
                 Interaction.Resizing = true;
                 Interaction.WidthChanged = false;
-                Interaction.Grab = w - e.mousePosition.x;
+                Interaction.Grab = Panel.x + w - e.mousePosition.x;
             }
             else if (Input.GetMouseButton(0))
             {
-                SetWidth(e.mousePosition.x + Interaction.Grab);
+                SetWidth(e.mousePosition.x + Interaction.Grab - Panel.x);
             }
             else
             {
@@ -132,6 +132,14 @@ namespace SlopWorld
                 SessionHub.Instance.Terminal.RefreshPanels();
         }
 
+        // Appearance changes invalidate workspace geometry but must leave content-view
+        // instances, field focus, and scroll positions alive.
+        public static void LayoutChanged()
+        {
+            Patch_MainTabWindowShift.Reposition();
+            RefreshPanels();
+        }
+
         static void Absorb()
         {
             if (!ColonistBarStrip.Interactive) return;
@@ -152,8 +160,7 @@ namespace SlopWorld
             Settings.S.sidebarHidden = !Settings.S.sidebarHidden;
             if (Settings.S.sidebarHidden) SearchView.Closed();
             Settings.S.Write();
-            Patch_MainTabWindowShift.Reposition();
-            RefreshPanels();
+            LayoutChanged();
         }
     }
 }

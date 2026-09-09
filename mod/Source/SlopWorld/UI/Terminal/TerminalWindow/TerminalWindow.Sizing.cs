@@ -41,6 +41,11 @@ namespace SlopWorld
             get => TerminalWindowState.CachedRows;
             set => TerminalWindowState.CachedRows = value;
         }
+        static int _cachedLayoutRevision
+        {
+            get => TerminalWindowState.CachedLayoutRevision;
+            set => TerminalWindowState.CachedLayoutRevision = value;
+        }
 
         // The daemon's own limits, so what we ask for is always something it can answer with.
         const int MinCols = WireContract.TerminalMinCols;
@@ -60,8 +65,9 @@ namespace SlopWorld
             var style = TerminalFont.Style;
             if (style == null || TerminalFont.CellH <= 0.01f) return false;
 
-            float width = UI.screenWidth - UiLayout.LeftInset;
-            float height = UI.screenHeight - TopBar.H;
+            var content = WorkspaceLayout.Current.Content;
+            float width = content.width;
+            float height = content.height;
             float cw = TerminalFont.CellWAtScreenScale(Prefs.UIScale);
             if (width <= 0.01f || height <= 0.01f || cw <= 0.01f) return false;
 
@@ -72,7 +78,8 @@ namespace SlopWorld
 
         void PrimeCachedSize()
         {
-            if (_cols <= 0 && _cachedCols > 0 && _cachedRows > 0)
+            if (_cols <= 0 && _cachedLayoutRevision == WorkspaceLayout.Revision
+                && _cachedCols > 0 && _cachedRows > 0)
             {
                 _cols = _cachedCols;
                 _rows = _cachedRows;
@@ -108,6 +115,7 @@ namespace SlopWorld
                 _rows = rows;
                 _cachedCols = cols;
                 _cachedRows = rows;
+                _cachedLayoutRevision = WorkspaceLayout.Revision;
                 // Debounce: dragging the game window otherwise spams SIGWINCH, and Claude Code
                 // redraws its whole TUI on every one.
                 _resizeAt = Time.realtimeSinceStartup + 0.2f;

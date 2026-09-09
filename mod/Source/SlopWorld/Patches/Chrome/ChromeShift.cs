@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using HarmonyLib;
 using RimWorld;
 using UnityEngine;
@@ -5,22 +6,20 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Shift vanilla bottom buttons and inspect panes by `UiLayout.LeftInset`; zero leaves
-    // them untouched. Patch the stable button-rect seam rather than transpiling `DoButtons`.
+    // Map vanilla chrome into the workspace content region. Patch stable rectangle seams so
+    // the same bounds are used by drawing and input on either navigation side.
 
     [HarmonyPatch(typeof(MainButtonWorker), nameof(MainButtonWorker.DoButton))]
     public static class Patch_MainButtonShift
     {
         static void Prefix(ref Rect rect)
         {
-            float inset = UiLayout.LeftInset;
-            if (inset <= 0f) return;
-
+            var content = WorkspaceLayout.Current.Content;
             float full = UI.screenWidth;
-            if (full <= inset + 1f) return;
+            if (content.width >= full - 0.01f || full <= 0.01f) return;
 
-            float squeeze = (full - inset) / full;
-            rect.x = inset + rect.x * squeeze;
+            float squeeze = content.width / full;
+            rect.x = content.x + rect.x * squeeze;
             rect.width *= squeeze;
         }
     }
@@ -32,10 +31,10 @@ namespace SlopWorld
     {
         static void Prefix(out bool __state)
         {
-            float inset = UiLayout.LeftInset;
-            __state = inset > 0f;
+            var content = WorkspaceLayout.Current.Content;
+            __state = content.x > 0f || content.width < UI.screenWidth - 0.01f;
             if (__state)
-                GUI.BeginGroup(new Rect(inset, 0f, UI.screenWidth - inset, UI.screenHeight));
+                GUI.BeginGroup(new Rect(content.x, 0f, content.width, UI.screenHeight));
         }
 
         static void Finalizer(bool __state)
@@ -50,7 +49,9 @@ namespace SlopWorld
     {
         static void Postfix(ref Rect __result)
         {
-            __result.x += UiLayout.LeftInset;
+            var content = WorkspaceLayout.Current.Content;
+            if (content.width >= UI.screenWidth - 0.01f) return;
+            __result.x += content.x;
         }
     }
 
@@ -59,6 +60,9 @@ namespace SlopWorld
     [HarmonyPatch(typeof(MainTabWindow), "SetInitialSizeAndPosition")]
     public static class Patch_MainTabWindowShift
     {
+        static readonly Dictionary<MainTabWindow, float> NaturalWidths =
+            new Dictionary<MainTabWindow, float>();
+
         static void Postfix(MainTabWindow __instance)
         {
             ShiftPane(__instance);
@@ -73,12 +77,19 @@ namespace SlopWorld
 
         static void ShiftPane(MainTabWindow pane)
         {
-            if (pane.Anchor != MainTabWindowAnchor.Left) return;
-
+            var content = WorkspaceLayout.Current.Content;
             var r = pane.windowRect;
-            r.x = UiLayout.LeftInset > 0f
-                ? Mathf.Min(UiLayout.LeftInset, Mathf.Max(0f, UI.screenWidth - r.width))
-                : 0f;
+            if (pane.Anchor == MainTabWindowAnchor.Left)
+                r.x = content.x;
+            else if (pane.Anchor == MainTabWindowAnchor.Right)
+                r.x = Mathf.Max(content.x, content.xMax - r.width);
+            else return;
+            if (!NaturalWidths.TryGetValue(pane, out float natural))
+            {
+                natural = r.width;
+                NaturalWidths[pane] = natural;
+            }
+            r.width = Mathf.Min(natural, content.width);
             pane.windowRect = r;
         }
     }

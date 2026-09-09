@@ -9,7 +9,7 @@ namespace SlopWorld
     // keystrokes back as tmux keys.
     public partial class TerminalWindow : Window
     {
-        const float ContentPad = UiWidgets.GapS;
+        static float ContentPad => UiWidgets.GapS;
         FieldLifetime _fieldLifetime = new FieldLifetime();
         readonly TerminalInputController _input;
         readonly TerminalSelectionInput _selectionInput;
@@ -94,14 +94,12 @@ namespace SlopWorld
             TopBar.Draw(input);
             ColonistBarStrip.Draw(input);
 
-            float top = TopBar.H;
-            float left = UiLayout.LeftInset;
+            var workspace = WorkspaceLayout.Current;
             float pad = _content == null ? 0f : ContentPad;
-            return new Rect(
-                rect.x + left + pad,
-                top + pad,
-                rect.width - left - pad * 2,
-                rect.height - top - pad * 2);
+            var body = workspace.Content;
+            return new Rect(body.x + pad, body.y + pad,
+                Mathf.Max(0f, body.width - pad * 2f),
+                Mathf.Max(0f, body.height - pad * 2f));
         }
 
         bool DrawBody(Rect body, bool input, SessionHub hub)

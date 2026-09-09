@@ -20,8 +20,7 @@ namespace SlopWorld
         public const float MinWidth = 150f;
         public const float MaxWidth = 460f;
 
-        public static float Width => Mathf.Clamp(Settings.SidebarWidth, MinWidth,
-            Mathf.Max(MinWidth, Mathf.Min(MaxWidth, UI.screenWidth * 0.4f)));
+        public static float Width => WorkspaceLayout.Current.Navigation.width;
 
         // Size square portraits from the text row, then clamp them so the cached texture is
         // neither upsampled nor reduced to a thumbnail.
@@ -38,11 +37,11 @@ namespace SlopWorld
         static float AddH => TopBar.H;
 
         const float AddIcon = UiWidgets.IconW;
-        const float Pad = UiWidgets.GapS;
+        static float Pad => UiWidgets.GapS;
         // Portraits touch the screen edge; CellX remains the inset for labels and chrome.
         const float PortraitX = 0f;
-        const float CellX = UiWidgets.GapS;
-        const float TextGap = UiWidgets.GapS;
+        static float CellX => UiWidgets.GapS;
+        static float TextGap => UiWidgets.GapS;
 
         // The shared tabs/filter row is followed by an optional right-aligned view-action row;
         // `TabH` includes both when present.
@@ -50,7 +49,7 @@ namespace SlopWorld
         public static float TabH => TabRowH + (HasActions ? TabRowH : 0f);
         const float TabIcon = 20f;
 
-        const float RowGap = UiWidgets.GapXS;
+        static float RowGap => UiWidgets.GapXS;
 
         static float GhostH => NameH + 2f;
         // Child workers get a single compact line and a small robot mark instead of a portrait.

@@ -5,6 +5,41 @@ using Verse;
 
 namespace SlopWorld
 {
+    // Shared spacing and control sizes. The default values are the existing arrangement;
+    // compact only tightens chrome where the font-derived minimum still fits the glyphs.
+    public static class UiMetrics
+    {
+        static string _density;
+        static int _revision;
+
+        public static string Density => UiDensityPreset.Normalize(Settings.UiDensity);
+        public static bool Compact => Density == UiDensityPreset.Compact;
+
+        public static int Revision
+        {
+            get
+            {
+                string density = Density;
+                if (_density == null) _density = density;
+                else if (_density != density)
+                {
+                    _density = density;
+                    unchecked { _revision++; }
+                }
+                return _revision;
+            }
+        }
+
+        public static float GapXS => Compact ? 3f : 4f;
+        public static float GapS => Compact ? 6f : 8f;
+        public static float GapM => Compact ? 12f : 16f;
+        public static float GapL => Compact ? 18f : 24f;
+        public static float ButtonH(float lineH) =>
+            Mathf.Max(lineH + GapXS + 2f, Compact ? 26f : 30f);
+        public static float CompactMinH => Compact ? 20f : 22f;
+        public static float PaletteMinH => Compact ? 24f : 26f;
+    }
+
     // Shared scheme-driven opaque chrome; Slab owns fills/edges and fixed gaps keep controls
     // on the screen pixel grid.
     public abstract class UiTheme
@@ -222,11 +257,11 @@ namespace SlopWorld
         protected static Color PrimeFace => Accent;
         protected static Color DangerFace => Destructive;
 
-        public const float BtnH = 30f;
-        public const float ButtonPadX = 12f;
-        public const float ButtonMinW = 76f;
-        public const float FieldPadX = 6f;
-        public const float FieldPadY = 2f;
+        public static float BtnH => UiMetrics.ButtonH(LineH);
+        public static float ButtonPadX => UiMetrics.Compact ? 10f : 12f;
+        public static float ButtonMinW => UiMetrics.Compact ? 72f : 76f;
+        public static float FieldPadX => UiMetrics.Compact ? 5f : 6f;
+        public static float FieldPadY => UiMetrics.Compact ? 1f : 2f;
         public const float IconInset = 2f;
         public const float IconW = 18f;
         public const float PickerCell = 38f;
@@ -243,18 +278,18 @@ namespace SlopWorld
         // Single-line controls share one compact hit target. Menus, fields and small row
         // buttons used to differ by a pixel, which was enough to make a form and the menu
         // opened from it feel like two widget kits.
-        public static float CompactH => Mathf.Max(LineH + GapXS, 22f);
+        public static float CompactH => Mathf.Max(LineH + GapXS, UiMetrics.CompactMinH);
         public static float RowBtnH => CompactH;
 
         // A dropdown's rows carry one line each and are read as a block, so they sit as close
         // as the line will let them - a gap step tighter than the palette's, which is a list
         // scrolled and stepped through with the keyboard and wants the hit target.
         public static float MenuRowH => CompactH;
-        public static float PaletteRowH => Mathf.Max(LineH + GapS, 26f);
+        public static float PaletteRowH => Mathf.Max(LineH + GapS, UiMetrics.PaletteMinH);
 
-        public const float GapXS = 4f;   // a label and the box it names
-        public const float GapS = 8f;    // one control and the next
-        public const float GapM = 16f;   // one group of controls and the next
-        public const float GapL = 24f;   // one section and the next
+        public static float GapXS => UiMetrics.GapXS;   // a label and the box it names
+        public static float GapS => UiMetrics.GapS;     // one control and the next
+        public static float GapM => UiMetrics.GapM;     // one group of controls and the next
+        public static float GapL => UiMetrics.GapL;     // one section and the next
     }
 }

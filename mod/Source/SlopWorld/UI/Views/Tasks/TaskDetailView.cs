@@ -11,8 +11,8 @@ namespace SlopWorld
     {
         const float AvatarSize = 38f;
         const float AvatarOverlap = 18f;
-        const float MessageTextInset = AvatarSize - AvatarOverlap + UiWidgets.GapS;
-        const float MessageTextX = AvatarOverlap + MessageTextInset;
+        static float MessageTextInset => AvatarSize - AvatarOverlap + UiWidgets.GapS;
+        static float MessageTextX => AvatarOverlap + MessageTextInset;
 
         TaskInfo _task;
         readonly SmoothScroll _scroll = new SmoothScroll();
@@ -27,6 +27,7 @@ namespace SlopWorld
         float _layoutScale = -1f;
         int _layoutFontSize = -1;
         string _layoutFontName = "";
+        int _layoutRevision = int.MinValue;
         float _bodyHeight;
         float _noteHeight;
         float _metricsScale = -1f;

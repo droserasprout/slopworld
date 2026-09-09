@@ -9,8 +9,8 @@ namespace SlopWorld
     static class ViewChrome
     {
         const float Indent = 11f;
-        const float Pad = UiWidgets.GapS;
-        const float CellX = UiWidgets.GapS;
+        static float Pad => UiWidgets.GapS;
+        static float CellX => UiWidgets.GapS;
 
         static float RowH => UiWidgets.TinyRowH;
 

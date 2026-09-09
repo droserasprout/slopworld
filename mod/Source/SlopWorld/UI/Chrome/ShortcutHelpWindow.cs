@@ -40,8 +40,8 @@ namespace SlopWorld
         const float MinHeight = 360f;
         const float KeyColumnMin = 104f;
         const float KeyColumnMax = 160f;
-        const float PairGap = UiWidgets.GapM;
-        const float GroupGap = UiWidgets.GapXS;
+        static float PairGap => UiWidgets.GapM;
+        static float GroupGap => UiWidgets.GapXS;
 
         readonly SmoothScroll _scroll = new SmoothScroll();
 

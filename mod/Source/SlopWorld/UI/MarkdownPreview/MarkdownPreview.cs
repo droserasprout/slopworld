@@ -27,6 +27,7 @@ namespace SlopWorld
         int _request;
         float _viewportWidth = -1f;
         float _viewportHeight = -1f;
+        int _metricsRevision = int.MinValue;
 
         public MarkdownPreview(string project, string path, string name)
             : this(project, path,
@@ -132,8 +133,11 @@ namespace SlopWorld
             // wheel movement does not remeasure the whole file.
             bool viewportChanged = !Mathf.Approximately(body.width, _viewportWidth) ||
                 !Mathf.Approximately(body.height, _viewportHeight);
-            if (_layout.Width < 0f || viewportChanged)
+            int metricsRevision = UiMetrics.Revision;
+            bool metricsChanged = metricsRevision != _metricsRevision;
+            if (_layout.Width < 0f || viewportChanged || metricsChanged)
             {
+                if (metricsChanged) _layout.Invalidate();
                 _viewportWidth = body.width;
                 _viewportHeight = body.height;
                 _layout.Reflow(_blocks, body.width);
@@ -143,6 +147,7 @@ namespace SlopWorld
                     : body.width;
                 _layout.Reflow(_blocks, settledWidth);
                 _selection.Rebuild(_layout.Placements);
+                _metricsRevision = metricsRevision;
             }
 
             _scroll.Draw(body, _layout.Width, _layout.Height,

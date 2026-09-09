@@ -63,11 +63,71 @@ namespace SlopWorld
         {
             float y = rect.y;
             y += DrawScale(new Rect(rect.x, y, rect.width, UiWidgets.ListingHeight));
+            y += DrawLayout(new Rect(rect.x, y, rect.width, UiWidgets.ListingHeight));
             y += DrawInterface(new Rect(rect.x, y, rect.width, UiWidgets.ListingHeight));
             y += DrawScheme(new Rect(rect.x, y, rect.width, UiWidgets.ListingHeight));
             y += DrawFont(new Rect(rect.x, y, rect.width, UiWidgets.ListingHeight));
             y += DrawCursor(new Rect(rect.x, y, rect.width, UiWidgets.ListingHeight));
             return y - rect.y + UiWidgets.GapS;
+        }
+
+        float DrawLayout(Rect rect)
+        {
+            var l = new Listing_Standard { maxOneColumn = true };
+            l.Begin(rect);
+            UiWidgets.SectionHeading(l, "Workspace");
+
+            string side = NavigationSide.Normalize(S.sidebarSide);
+            UiWidgets.Select(l, "Navigation side", NavigationSide.Label(side),
+                new[]
+                {
+                    new SelectorOption("Left", () => SetLayout(ref S.sidebarSide,
+                        NavigationSide.Left)),
+                    new SelectorOption("Right", () => SetLayout(ref S.sidebarSide,
+                        NavigationSide.Right)),
+                }, out _);
+
+            string density = UiDensityPreset.Normalize(S.uiDensity);
+            UiWidgets.Select(l, "Density", UiDensityPreset.Label(density),
+                new[]
+                {
+                    new SelectorOption("Default", () => SetLayout(ref S.uiDensity,
+                        UiDensityPreset.Default)),
+                    new SelectorOption("Compact", () => SetLayout(ref S.uiDensity,
+                        UiDensityPreset.Compact)),
+                }, out _);
+
+            bool visible = UiWidgets.Checkbox(l, "Show navigation", !S.sidebarHidden,
+                "Keep the workspace navigation visible. Hidden navigation consumes no width.");
+            if (visible == S.sidebarHidden)
+            {
+                S.sidebarHidden = !visible;
+                S.MarkDirty();
+                AgentSidebar.LayoutChanged();
+            }
+
+            if (UiWidgets.Button(l, "Reset workspace layout", UiWidgets.Btn.Ghost))
+            {
+                S.sidebarSide = NavigationSide.Left;
+                S.uiDensity = UiDensityPreset.Default;
+                S.sidebarHidden = false;
+                S.sidebarWidth = WorkspaceLayout.DefaultNavigationWidth;
+                S.MarkDirty();
+                AgentSidebar.LayoutChanged();
+            }
+            UiWidgets.Note(l, "The navigation width is still resized from its edge.");
+
+            float used = l.CurHeight;
+            l.End();
+            return used;
+        }
+
+        static void SetLayout(ref string field, string value)
+        {
+            if (field == value) return;
+            field = value;
+            S.MarkDirty();
+            AgentSidebar.LayoutChanged();
         }
 
         float DrawScale(Rect rect)

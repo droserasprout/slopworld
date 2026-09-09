@@ -10,16 +10,18 @@ namespace SlopWorld
         void EnsureLayout(float width, string body, string note)
         {
             string fontName = Settings.UIFontName ?? "";
+            int layoutRevision = WorkspaceLayout.Revision;
             bool fontChanged = _layoutFontSize != Settings.UIFontSize ||
                 _layoutFontName != fontName || !Mathf.Approximately(_layoutScale, Prefs.UIScale);
             if (_layoutTask == _task && Mathf.Approximately(_layoutWidth, width) &&
-                !fontChanged) return;
+                !fontChanged && _layoutRevision == layoutRevision) return;
 
             _layoutTask = _task;
             _layoutWidth = width;
             _layoutScale = Prefs.UIScale;
             _layoutFontSize = Settings.UIFontSize;
             _layoutFontName = fontName;
+            _layoutRevision = layoutRevision;
 
             int sourceLength = body.Length + (note.Length == 0 ? 0 : note.Length + 2);
             if (_selectionStart > sourceLength || _selectionEnd > sourceLength)

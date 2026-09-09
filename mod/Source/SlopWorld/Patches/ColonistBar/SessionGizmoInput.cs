@@ -53,8 +53,9 @@ namespace SlopWorld
                 // events use the exact rects above, including wrapped rows.
                 if (RectFrame == Time.frameCount) return false;
 
-                var firstRow = new Rect(0f, AgentSidebar.AddBar.y - GizmoH,
-                    UI.screenWidth, GizmoH + AbsorbBottom);
+                var content = WorkspaceLayout.Current.Content;
+                var firstRow = new Rect(content.x, AgentSidebar.AddBar.y - GizmoH,
+                    content.width, GizmoH + AbsorbBottom);
                 return firstRow.Contains(e.mousePosition);
             }
         }

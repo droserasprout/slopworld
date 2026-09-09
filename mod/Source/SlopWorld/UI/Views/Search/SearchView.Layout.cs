@@ -5,7 +5,8 @@ namespace SlopWorld
     {
         static void EnsureLayout()
         {
-            if (!_layoutDirty) return;
+            int layoutRevision = WorkspaceLayout.Revision;
+            if (!_layoutDirty && _layoutRevision == layoutRevision) return;
 
             Layout.Clear();
             bool hasRows = false;
@@ -75,6 +76,7 @@ namespace SlopWorld
 
             _contentHeight = Pad * 2f + Layout.Count * RowH;
             _layoutDirty = false;
+            _layoutRevision = layoutRevision;
         }
 
     }

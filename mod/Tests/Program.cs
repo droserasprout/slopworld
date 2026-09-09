@@ -83,6 +83,7 @@ namespace SlopWorld.Tests
             tests.Add(("Eco: usage snapshot and settings invalidation", EcoWorkTests.Usage));
             tests.Add(("Eco: clock boundaries and locale", EcoWorkTests.Clock));
             tests.Add(("HubCatalog: ordering", HubCatalogTests.Ordering));
+            tests.Add(("Workspace: geometry", WorkspaceLayoutTests.Geometry));
             int failed = 0;
 
             foreach (var test in tests)
