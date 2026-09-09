@@ -6,6 +6,8 @@ The terminal pane's sizing, title bar, and key routing are in
 The pane caches text in a render texture; cursor-only updates reuse it. Cursor and selection
 painting run only during Repaint, while input and hover tracking remain live. Debug counters
 include terminal cache hits, full invalidations and changed-row paints.
+Changed-row paints require the immediately preceding content revision to have been
+painted; skipped revisions force a full repaint because damage is per received frame.
 
 ## `TerminalTheme`
 

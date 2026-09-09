@@ -24,6 +24,10 @@ namespace SlopWorld
         {
             if (invalidated) return TerminalRepaint.Full;
             if (previousRevision == screen.ContentRevision) return TerminalRepaint.None;
+            // ChangedRows describes only the latest received frame. If painting skipped a
+            // content revision, earlier damage is no longer represented by that row list.
+            if (screen.ContentRevision != unchecked(previousRevision + 1))
+                return TerminalRepaint.Full;
             // Missing damage metadata cannot establish which pixels are still valid.
             int changed = screen.ChangedRows?.Length ?? 0;
             if (changed == 0 || changed * 2 >= Math.Max(1, screen.Lines?.Length ?? 0))

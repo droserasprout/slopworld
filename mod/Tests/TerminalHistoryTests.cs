@@ -31,6 +31,8 @@ namespace SlopWorld.Tests
             yield return ("warms a shallow viewport before the first gesture", WarmsFirstGesture);
             yield return ("warmup skips empty and application-owned history", WarmupEligibility);
             yield return ("live history bounds scrolling before warmup and after clears", LiveScrollLimit);
+            yield return ("capture after output does not translate that output twice", CaptureAfterOutput);
+            yield return ("delayed capture translates only output after capture", DelayedCapture);
             yield return ("warmup retains coverage across redraws and resets", WarmupInvalidation);
             yield return ("aggressive prefetch covers fast gestures without gaps", AggressivePrefetch);
         }
@@ -63,6 +65,43 @@ namespace SlopWorld.Tests
                 "legacy frames use the last capture extent");
             AssertEx.Equal(WireContract.ScrollbackLines, TerminalHistory.ScrollLimit(live, -1),
                 "unknown legacy history retains discovery through capture");
+        }
+
+        static void CaptureAfterOutput()
+        {
+            var history = new TerminalHistory();
+            var live = Frame(0, "input", "answer-0", "answer-1");
+            live.History = 10;
+            history.Reset(live);
+            // A request is sent now, but the daemon captures after two more rows arrive.
+            var next = Frame(0, "answer-1", "answer-2", "prompt");
+            next.Seq++;
+            next.History = 12;
+            history.UpdateLive(next, 2);
+            var reply = Frame(2, "input", "answer-0", "answer-1");
+            reply.Seq = next.Seq;
+            reply.History = next.History;
+            history.Add(reply, next, 2, coordinateShift: 2);
+
+            AssertEx.True(history.TryView(2, false, out var view), "requested rows are covered");
+            AssertEx.Sequence(reply.Lines, view.Lines,
+                "a current capture is already in the current coordinate space");
+        }
+
+        static void DelayedCapture()
+        {
+            var history = new TerminalHistory();
+            var live = Frame(0, "answer-2", "answer-3", "prompt");
+            live.Seq = 10;
+            live.History = 13;
+            history.Reset(live);
+            var reply = Frame(2, "input", "answer-0", "answer-1");
+            reply.Seq = 9;
+            reply.History = 12;
+            // Three rows since request, but only one since this reply was captured.
+            history.Add(reply, live, 2, coordinateShift: 3, allowStale: true);
+            AssertEx.True(history.TryLine(-3, out var input), "captured input has a known coordinate");
+            AssertEx.Equal("input", input, "translation starts at capture, not request");
         }
 
         static void CopiesSelection()
