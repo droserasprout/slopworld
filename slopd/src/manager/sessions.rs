@@ -672,11 +672,14 @@ mod tests {
             slopworld_md: false,
             ..session.clone()
         };
+        cfg.daemon.instructions.worker_breadcrumb = "Configured worker breadcrumb".into();
         manager
             .wire_live_state("agent", &cfg, &worker, &project, false)
             .await;
         let live = manager.live.read().await;
         assert!(String::from_utf8_lossy(&live["agent"].breadcrumbs)
+            .contains("Configured worker breadcrumb"));
+        assert!(!String::from_utf8_lossy(&live["agent"].breadcrumbs)
             .contains("Worker task: use `$SLOPWORLD_TASK_ID`"));
         assert!(live["agent"].breadcrumbs_pending);
         drop(live);

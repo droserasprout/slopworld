@@ -43,6 +43,13 @@ identifies the software so the sandbox can mount its configuration paths.
 An agent with a raw `cmd` and no `command` gets the sandbox but none of the
 CLI-specific wiring.
 
+## Summaries
+
+Settings > Integrations > Summaries controls the title and delegated-task summary policies,
+model, minimum submitted-prompt length, and the shared `summary_prompt`. The configured
+instruction is sent before the submitted prompt; changing it also selects a separate summary
+cache entry.
+
 ## Instructions
 
 Settings > Integrations > Instructions edits the generated `SLOPWORLD.md` document.
@@ -57,9 +64,10 @@ and `{{ file }}`; it is pasted into an opted-in agent's first prompt. The Previe
 unsaved body text for a selected project.
 
 These settings live under `[daemon.instructions]`: `template`, `mount_path`,
-`breadcrumb`, `breadcrumb_enabled`, and `worker_prompt`. Use Settings' reset actions
+`breadcrumb`, `breadcrumb_enabled`, `worker_prompt`, and `worker_breadcrumb`. Use Settings' reset actions
 for current defaults. `worker_prompt` is submitted to each spawned task worker and
-can refer to `$SLOPWORLD_TASK_ID`; see [Using slopctl](slopctl.md).
+can refer to `$SLOPWORLD_TASK_ID`; `worker_breadcrumb` is pasted before its first prompt when
+breadcrumb delivery is enabled and may be blank. See [Using slopctl](slopctl.md).
 
 The per-agent `slopworld_md` switch still controls whether the document is mounted at
 all. `breadcrumb_enabled` controls the additional discovery line globally, while

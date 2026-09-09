@@ -11,8 +11,10 @@ sends prompt text to OpenRouter. `title_model` is shared by the agent title poli
 consume a `once` attempt or make a request.
 
 The Summaries settings page exposes the Codex and Pi title policies, one task-summary policy,
-minimum prompt length, and one shared model field. Its key is the Usage page's OpenRouter key
-file, which is editable with credit polling off because title generation does not need polling.
+minimum prompt length, shared model, and shared summarizer prompt. Its key is the Usage page's
+OpenRouter key file, which is editable with credit polling off because title generation does not
+need polling. The submitted prompt is appended to the configured summarizer prompt, and changing
+that setting invalidates cache matches by changing the prompt/instruction/model digest.
 Pi defaults to `always`; task summaries default to `never` and support `never` or `once`, one
 summary per delegated task.
 
@@ -29,7 +31,7 @@ terminal application's OSC title unless the user sets a fixed label.
 The generated title is a `Live` override separate from the emulator's OSC title. The session
 view prefers the override, so an agent redraw cannot replace it. Successful summaries are cached
 in the daemon config directory as `prompt-summaries.toml` (or beside the configured
-`SLOPD_CONFIG`), with a stable prompt/model digest rather than prompt text. The cache also keeps
+`SLOPD_CONFIG`), with a stable prompt/instruction/model digest rather than prompt text. The cache also keeps
 the latest title for each durable session, restoring it after a daemon restart and clearing it
 when the agent stops, starts a new conversation, or is removed as an ephemeral session. It keeps
 the newest 1024 prompt summaries and is written atomically with mode `0600`; a cache failure

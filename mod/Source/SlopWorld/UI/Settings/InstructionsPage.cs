@@ -156,6 +156,13 @@ namespace SlopWorld
                 _cfg.WorkerPrompt, defaultValue: DaemonConfig.DefaultWorkerPrompt);
             UiWidgets.Note(l, "The task body stays in the mailbox; this prompt tells the worker " +
                 "how to retrieve and finish it. Reset changes the form only; press Save to apply it.");
+
+            l.Gap(UiWidgets.GapM);
+            l.Label("Worker discovery breadcrumb");
+            _cfg.WorkerBreadcrumb = UiWidgets.Area(l, 120f, "instructions.worker_breadcrumb",
+                _cfg.WorkerBreadcrumb, defaultValue: DaemonConfig.DefaultWorkerBreadcrumb);
+            UiWidgets.Note(l, "This text is pasted before a worker's first prompt when breadcrumb " +
+                "delivery is enabled. Leave it blank to disable it.");
         }
 
         void DrawPreview(Rect r)

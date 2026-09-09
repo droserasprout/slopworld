@@ -309,8 +309,8 @@ impl Manager {
                 crumbs.push(discovery);
             }
         }
-        if !host && session.worker {
-            crumbs.push(super::workers::WORKER_DISCOVERY_BREADCRUMB.to_string());
+        if !host && session.worker && !cfg.daemon.instructions.worker_breadcrumb.trim().is_empty() {
+            crumbs.push(cfg.daemon.instructions.worker_breadcrumb.clone());
         }
         let mut live = self.live.write().await;
         if let Some(live) = live.get_mut(name) {

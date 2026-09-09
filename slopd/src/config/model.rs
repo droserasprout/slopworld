@@ -15,6 +15,9 @@ const DEFAULT_OPENAI_CREDENTIALS: &str = crate::wire::DEFAULT_OPENAI_CREDENTIALS
 const DEFAULT_TITLE_MODEL: &str = crate::wire::DEFAULT_TITLE_MODEL;
 const DEFAULT_TITLE_MIN_CHARS: usize = crate::wire::DEFAULT_TITLE_MIN_CHARS as usize;
 
+pub const DEFAULT_SUMMARY_PROMPT: &str = "Summarise this coding request in at most 6 words for a session title. Reply with only the title, without quotes, punctuation, or commentary.";
+pub const DEFAULT_WORKER_BREADCRUMB: &str = "Worker task: use `$SLOPWORLD_TASK_ID` with `slopctl task`, then `accept`, `progress`, and finally `finish` or `fail`. Do not search the inbox or poll task status.";
+
 /// One TOML file, which the mod reads and writes back verbatim, so hand-edits and
 /// in-game edits use the same format.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -140,6 +143,9 @@ pub struct Daemon {
     /// The OpenRouter model used for automatic agent prompt titles.
     #[serde(default = "default_title_model")]
     pub title_model: String,
+    /// Instruction prepended to prompts sent to OpenRouter for session and task summaries.
+    #[serde(default = "default_summary_prompt")]
+    pub summary_prompt: String,
     /// Prompts shorter than this are not worth an external title request.
     /// Count Unicode characters so the setting does not depend on UTF-8 byte width.
     #[serde(default = "default_title_min_chars")]
@@ -176,6 +182,9 @@ pub struct InstructionsCfg {
     /// Prompt submitted to a newly spawned task worker before it retrieves its mailbox task.
     #[serde(default = "default_worker_prompt")]
     pub worker_prompt: String,
+    /// Breadcrumb pasted before a worker's first prompt when breadcrumb delivery is enabled.
+    #[serde(default = "default_worker_breadcrumb")]
+    pub worker_breadcrumb: String,
 }
 
 pub const DEFAULT_INSTRUCTIONS_TEMPLATE: &str = "\
@@ -209,6 +218,10 @@ fn default_worker_prompt() -> String {
     DEFAULT_WORKER_PROMPT.into()
 }
 
+fn default_worker_breadcrumb() -> String {
+    DEFAULT_WORKER_BREADCRUMB.into()
+}
+
 impl Default for InstructionsCfg {
     fn default() -> Self {
         Self {
@@ -217,6 +230,7 @@ impl Default for InstructionsCfg {
             breadcrumb: default_instructions_breadcrumb(),
             breadcrumb_enabled: default_instructions_breadcrumb_enabled(),
             worker_prompt: default_worker_prompt(),
+            worker_breadcrumb: default_worker_breadcrumb(),
         }
     }
 }
@@ -281,6 +295,10 @@ fn default_title_model() -> String {
     DEFAULT_TITLE_MODEL.into()
 }
 
+fn default_summary_prompt() -> String {
+    DEFAULT_SUMMARY_PROMPT.into()
+}
+
 fn default_title_min_chars() -> usize {
     DEFAULT_TITLE_MIN_CHARS
 }
@@ -302,6 +320,7 @@ impl Default for Daemon {
             openai_credentials: default_openai_credentials(),
             agent_titles: TitlePolicy::Never,
             title_model: default_title_model(),
+            summary_prompt: default_summary_prompt(),
             title_min_chars: default_title_min_chars(),
             pi_titles: default_pi_title_policy(),
             task_summaries: TitlePolicy::Never,

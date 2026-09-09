@@ -23,7 +23,9 @@ re-adopted under its parent. Ordinary session creation and editing cannot set it
 receives a fresh private-state identity, the exact
 `SLOPWORLD_TASK_ID`, and the configured `[daemon.instructions] worker_prompt`, then uses
 `slopctl task ID`, `accept`, `progress`, and `finish` against its own mailbox. The default prompt
-describes that exact-task workflow; Settings > Integrations > Instructions can edit or reset it.
+describes that exact-task workflow. Its separate `[daemon.instructions] worker_breadcrumb` is
+pasted before the first prompt when breadcrumb delivery is enabled and can be edited or reset in
+Settings > Integrations > Instructions. Settings can leave it blank to disable that extra line.
 The `slopworld-worker` sandbox preset supplies
 a run-scoped API credential through `SLOPD_URL` and `SLOPD_TOKEN`; it does not expose the daemon
 config or root endpoint token. A network-capable parent is required so this API path works;

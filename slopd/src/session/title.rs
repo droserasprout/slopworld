@@ -259,6 +259,7 @@ pub(crate) struct TitleRequest {
     pub(super) generation: u64,
     pub(super) key_file: String,
     pub(super) model: String,
+    pub(super) summary_prompt: String,
 }
 
 pub(super) fn begin_title_request(
@@ -266,6 +267,7 @@ pub(super) fn begin_title_request(
     prompt: String,
     key_file: String,
     model: String,
+    summary_prompt: String,
 ) -> TitleRequest {
     live.title.generation = live.title.generation.wrapping_add(1);
     live.title.pending = true;
@@ -275,5 +277,6 @@ pub(super) fn begin_title_request(
         generation: live.title.generation,
         key_file,
         model,
+        summary_prompt,
     }
 }

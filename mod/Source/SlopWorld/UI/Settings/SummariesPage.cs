@@ -53,6 +53,13 @@ namespace SlopWorld
             UiWidgets.Note(l, "Up to 2,000 characters of each prompt go to OpenRouter. " +
                 "Summaries do not depend on credit polling.");
 
+            l.Gap(UiWidgets.GapM);
+            l.Label("Summarizer prompt");
+            _cfg.SummaryPrompt = UiWidgets.Area(l, 150f, "usage.summary.prompt",
+                _cfg.SummaryPrompt, defaultValue: DaemonConfig.DefaultSummaryPrompt);
+            UiWidgets.Note(l, "This instruction is sent before the submitted prompt for both " +
+                "session titles and task summaries. The submitted prompt is appended automatically.");
+
         }
 
         static List<UiTable.Column> PolicyColumns()

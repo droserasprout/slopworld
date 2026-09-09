@@ -35,14 +35,14 @@ locale controls remain available before the daemon config loads or when it is of
   `UsagePage` owns one table of usage windows with name, icon picker, poll toggle and optional
   per-row interval; its global interval is the fallback for blank rows. Left/spent display is
   an Appearance > Statusbar setting and works offline.
-  `SummariesPage` edits Codex/Pi title policy, the task-summary Never/Once policy, and the
-  shared summary model; its policy table shares the Usage table widget and it uses the
+  `SummariesPage` edits Codex/Pi title policy, the task-summary Never/Once policy, the
+  shared summary model and summarizer prompt; its policy table shares the Usage table widget and it uses the
   OpenRouter key from Integrations.
   `InstructionsPage` edits and previews the templated `SLOPWORLD.md` document, its separate
   first-prompt discovery breadcrumb, worker bootstrap prompt, sandbox mount path, and global
   discovery switch. The agent editor's Breadcrumbs tab shows that generated entry as a
-  selectable default-on row. Body, breadcrumb, and worker prompt each offer an independent
-  reset to the shipped default.
+  selectable default-on row. Body, breadcrumb, worker prompt, and worker breadcrumb each offer
+  an independent reset to the shipped default.
   General's default-off Experimental switch gates YOLO breadcrumbs and manifest controls;
   Instructions keeps worker bootstrap editing available while the gate is off.
   Appearance is a heading with `Interface`, `Terminal` and `Statusbar` children:
