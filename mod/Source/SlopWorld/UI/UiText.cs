@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -293,6 +294,15 @@ namespace SlopWorld
         static readonly Queue<PendingFieldEdit> PendingEdits =
             new Queue<PendingFieldEdit>();
 
+        delegate void NativeTextField(Rect rect, int id, GUIContent content, bool multiline,
+                                      int maxLength, GUIStyle style);
+
+        static readonly NativeTextField DrawNativeTextField = (NativeTextField)Delegate.CreateDelegate(
+            typeof(NativeTextField), typeof(GUI).GetMethod("DoTextField",
+                BindingFlags.Static | BindingFlags.NonPublic, null,
+                new[] { typeof(Rect), typeof(int), typeof(GUIContent), typeof(bool),
+                        typeof(int), typeof(GUIStyle) }, null));
+
         static string TextEntry(Rect r, string text, bool area, bool focused, string name,
                                 bool readOnly = false)
         {
@@ -311,8 +321,14 @@ namespace SlopWorld
             bool mouseDown = eventOver && MouseDown(e, out button);
             var style = Bare(area ? Verse.Text.CurTextAreaStyle
                                   : Verse.Text.CurTextFieldStyle, area);
+            // Bind selection and read-only restoration to the exact control we draw rather
+            // than resolving it through the global focus name. Touching another row's
+            // editor would clamp its cursor to our text length.
+            int controlId = GUIUtility.GetControlID(name.GetHashCode(), FocusType.Keyboard, r);
+            var fieldEditor = (TextEditor)GUIUtility.GetStateObject(typeof(TextEditor), controlId);
+            var focusedEditor = GUIUtility.keyboardControl == controlId ? fieldEditor : null;
             var prepared = TextFieldSelection.Prepare(r, name, source, style,
-                CurrentEditor(name), FieldLifetimeScope.Current);
+                focusedEditor, FieldLifetimeScope.Current);
             bool replay = (prepared == TextFieldSelection.PrepareResult.None ||
                 prepared == TextFieldSelection.PrepareResult.TrackedMouseDown) &&
                 (mouseDown && (e.type == EventType.Used || e.type == EventType.ContextClick));
@@ -321,7 +337,7 @@ namespace SlopWorld
                 replay = true;
             var oldType = replay ? e.type : EventType.Ignore;
             EventType replayType = UiEvent.RawType(e);
-            var beforeEditor = mouseDown && button == 1 ? CurrentEditor(name) : null;
+            var beforeEditor = mouseDown && button == 1 ? focusedEditor : null;
             bool keepSelection = beforeEditor != null && beforeEditor.IsOverSelection(e.mousePosition);
             int beforeCursor = keepSelection ? beforeEditor.cursorIndex : 0;
             int beforeSelect = keepSelection ? beforeEditor.selectIndex : 0;
@@ -334,11 +350,11 @@ namespace SlopWorld
 
             try
             {
-                var result = area
-                    ? GUI.TextArea(r, source, style)
-                    : GUI.TextField(r, source, style);
+                var content = new GUIContent(source);
+                DrawNativeTextField(r, controlId, content, area, -1, style);
+                var result = content.text;
 
-                var editor = CurrentEditor(name);
+                var editor = GUIUtility.keyboardControl == controlId ? fieldEditor : null;
                 if (keepSelection && editor != null)
                 {
                     editor.cursorIndex = beforeCursor;
