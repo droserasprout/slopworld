@@ -10,6 +10,7 @@ namespace SlopWorld
     public class ConfigPage : DaemonConfigPage
     {
         protected override bool RefreshHealthOnLoad => true;
+        protected override bool DrawFieldsBeforeLoad => true;
         protected override bool ShowEditButton => true;
         protected override bool ShowSaveButton => true;
 
@@ -49,9 +50,14 @@ namespace SlopWorld
             DrawDisplay(l, s);
             l.Gap(UiWidgets.GapL);
             UiWidgets.SectionHeading(l, "Experimental");
-            _cfg.Experimental = UiWidgets.Checkbox(l, "Enable experimental features", _cfg.Experimental);
-            UiWidgets.Note(l, "Unlock YOLO breadcrumbs and SLOPWORLD.md instructions. Save to apply. " +
-                "Agent preferences are preserved while disabled; mount changes require an agent restart.");
+            if (_loaded)
+            {
+                _cfg.Experimental = UiWidgets.Checkbox(l, "Enable experimental features", _cfg.Experimental);
+                UiWidgets.Note(l, "Unlock YOLO breadcrumbs and SLOPWORLD.md instructions. Save to apply. " +
+                    "Agent preferences are preserved while disabled; mount changes require an agent restart.");
+            }
+            else
+                UiWidgets.Note(l, _error ?? "Waiting for the daemon...");
             l.Gap(UiWidgets.GapL);
             UiWidgets.SectionHeading(l, "Locale");
             if (UiWidgets.Button(l,

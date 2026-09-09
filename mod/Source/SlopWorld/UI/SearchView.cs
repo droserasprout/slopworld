@@ -383,6 +383,9 @@ namespace SlopWorld
             if (!ColonistBarStrip.Interactive) return;
             var e = Event.current;
             if (e.rawType != EventType.MouseDown || (e.button != 0 && e.button != 1)) return;
+            // Partially visible rows retain their full geometry for action placement.
+            // Only the portion inside the scroll viewport may receive clicks.
+            if (!ResultsBody().Contains(e.mousePosition)) return;
             foreach (var hit in Hits)
             {
                 var scr = Screen(hit.Rect);

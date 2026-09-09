@@ -7,6 +7,8 @@ next run; Include ignored starts off, so files ignored by Git are filtered by de
 number drops replies from an older query that arrive after a newer one. The result list measures
 every row for scrolling but only draws rows in the viewport, since a common term can fill the
 per-project cap many times over.
+Clicks are gated by the results viewport so clipped row portions cannot intercept
+input above or below the list.
 
 The daemon spawns `rg` directly in the project directory and reads `--json` a line at a
 time. It kills the process at 200 matches, excludes `.git`, and returns relative path,

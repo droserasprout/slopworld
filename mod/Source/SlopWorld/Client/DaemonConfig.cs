@@ -161,37 +161,60 @@ namespace SlopWorld
 
         // This deliberately omits bind, token, projects, sessions, state rules and sandbox
         // presets. The daemon deep-merges this object before validating it.
-        public string ToPatchJson() =>
-            "{\"daemon\":{" +
-            $"\"experimental\":{JVal.B(Experimental)}," +
-            $"\"usage_poll_secs\":{UsagePollSecs}," +
-            $"\"usage_items\":{UsageItemsJson()}," +
-            $"\"claude_credentials\":{JVal.Q(ClaudeCredentials)}," +
-            $"\"openrouter_key_file\":{JVal.Q(OpenrouterKeyFile)}," +
-            $"\"openai_credentials\":{JVal.Q(OpenaiCredentials)}," +
-            $"\"agent_titles\":{JVal.Q(AgentTitles)}," +
-            $"\"title_model\":{JVal.Q(TitleModel)}," +
-            $"\"title_min_chars\":{TitleMinChars}," +
-            $"\"pi_titles\":{JVal.Q(PiTitles)}," +
-            $"\"task_summaries\":{JVal.Q(TaskSummaries)}," +
-            "\"instructions\":{" +
-            $"\"template\":{JVal.Q(InstructionsTemplate)}," +
-                $"\"mount_path\":{JVal.Q(InstructionsMountPath)}," +
-                $"\"breadcrumb\":{JVal.Q(InstructionsBreadcrumb)}," +
-                $"\"breadcrumb_enabled\":{JVal.B(InstructionsBreadcrumbEnabled)}," +
-                $"\"worker_prompt\":{JVal.Q(WorkerPrompt)}" +
-            "}" +
-            "}," +
-            "\"defaults\":{" +
-            $"\"agent\":{JVal.Q(Agent)},\"agent_shell\":{JVal.Q(AgentShell)}," +
-            $"\"shell\":{JVal.Q(Shell)}" +
-            "}," +
-            "\"commands\":{" +
-            $"\"pager\":{JVal.Q(Pager)},\"editor\":{JVal.Q(Editor)}," +
-            $"\"highlighter\":{JVal.Q(Highlighter)}" +
-            "}}";
+        public string ToPatchJson(string baseline = null)
+        {
+            var before = baseline == null ? null : JVal.Parse(baseline);
+            var daemon = before?["daemon"];
+            return PatchObject(before,
+                "daemon", PatchObject(daemon,
+                    "experimental", JVal.B(Experimental),
+                    "usage_poll_secs", UsagePollSecs.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                    "usage_items", UsageItemsJson(daemon?["usage_items"]),
+                    "claude_credentials", JVal.Q(ClaudeCredentials),
+                    "openrouter_key_file", JVal.Q(OpenrouterKeyFile),
+                    "openai_credentials", JVal.Q(OpenaiCredentials),
+                    "agent_titles", JVal.Q(AgentTitles),
+                    "title_model", JVal.Q(TitleModel),
+                    "title_min_chars", TitleMinChars.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                    "pi_titles", JVal.Q(PiTitles),
+                    "task_summaries", JVal.Q(TaskSummaries),
+                    "instructions", PatchObject(daemon?["instructions"],
+                        "template", JVal.Q(InstructionsTemplate),
+                        "mount_path", JVal.Q(InstructionsMountPath),
+                        "breadcrumb", JVal.Q(InstructionsBreadcrumb),
+                        "breadcrumb_enabled", JVal.B(InstructionsBreadcrumbEnabled),
+                        "worker_prompt", JVal.Q(WorkerPrompt))),
+                "defaults", PatchObject(before?["defaults"],
+                    "agent", JVal.Q(Agent), "agent_shell", JVal.Q(AgentShell),
+                    "shell", JVal.Q(Shell)),
+                "commands", PatchObject(before?["commands"],
+                    "pager", JVal.Q(Pager), "editor", JVal.Q(Editor),
+                    "highlighter", JVal.Q(Highlighter)));
+        }
 
-        string UsageItemsJson()
+        // Nested objects have already been reduced to changed leaves. Retain the original
+        // scalar JSON so booleans, numbers and escaped strings keep their wire types.
+        static string PatchObject(JVal baseline, params string[] fields)
+        {
+            var parts = new List<string>();
+            for (int i = 0; i < fields.Length; i += 2)
+            {
+                string value = fields[i + 1];
+                var current = JVal.Parse(value);
+                if (baseline != null)
+                {
+                    var previous = baseline[fields[i]];
+                    if (current.Obj != null ? current.Obj.Count == 0 :
+                        !previous.IsNull && current.Str == previous.Str &&
+                        current.Num == previous.Num && current.Bool == previous.Bool)
+                        continue;
+                }
+                parts.Add(JVal.Q(fields[i]) + ":" + value);
+            }
+            return "{" + string.Join(",", parts.ToArray()) + "}";
+        }
+
+        string UsageItemsJson(JVal baseline)
         {
             var parts = new List<string>();
             foreach (var pair in UsageItems)
@@ -202,8 +225,10 @@ namespace SlopWorld
                 string interval = item.IntervalSecs > 0
                     ? item.IntervalSecs.ToString(System.Globalization.CultureInfo.InvariantCulture)
                     : "0";
-                parts.Add(JVal.Q(pair.Key) + ":{\"poll\":" + JVal.B(item.Poll) +
-                    ",\"interval_secs\":" + interval + "}");
+                string changes = PatchObject(baseline?[pair.Key],
+                    "poll", JVal.B(item.Poll), "interval_secs", interval);
+                if (baseline == null || changes != "{}")
+                    parts.Add(JVal.Q(pair.Key) + ":" + changes);
             }
             return "{" + string.Join(",", parts.ToArray()) + "}";
         }

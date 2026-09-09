@@ -6,6 +6,11 @@ their editors open above the chrome with `TerminalWindow.OpenOverPane`.
 Agent mounts fill their tab; agent and project sandbox lists expand to the remaining
 viewport, retaining a minimum height when the surrounding form needs scrolling.
 
+Daemon config pages keep independent drafts and save only fields changed since their
+last load or successful save. Saving refreshes the live mirror without reloading other
+pages; Reload explicitly replaces that page's draft. General's local game, display and
+locale controls remain available before the daemon config loads or when it is offline.
+
 - `ProjectsView` lists projects before agents. `EditSessionDialog` chooses a command
   preset or literal command; an empty command uses `[defaults] agent`, and the resolved
   default is never saved. `EditProjectDialog` previews the resolved sandbox.
