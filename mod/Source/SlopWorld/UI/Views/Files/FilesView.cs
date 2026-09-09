@@ -367,6 +367,15 @@ namespace SlopWorld
             BumpTree();
         }
 
+        public static void Entered()
+        {
+            // Tab focus must not reuse the polling deadline or a cached layout: visible
+            // unloaded paths need fetching too, including after a file mutation.
+            _nextAutoRefresh = 0f;
+            BumpTree();
+            RefreshIfDue();
+        }
+
         // The daemon deliberately has no filesystem event stream. Keep the visible tree fresh
         // while Files is open, but leave unopened directories lazy and preserve the old nodes
         // when a listing lands so an external change does not fold the user's tree.
@@ -374,14 +383,18 @@ namespace SlopWorld
         {
             float now = Time.realtimeSinceStartup;
             if (now < _nextAutoRefresh) return;
-            _nextAutoRefresh = now + AutoRefreshSeconds;
             if (!SessionHub.Instance.Online) return;
             // Do not add another generation while an unfold or refresh is still draining.
             if (BrowseInFlight > 0 || BrowseQueue.Count > 0) return;
+            _nextAutoRefresh = now + AutoRefreshSeconds;
 
+            if (_focusedRoot != null)
+            {
+                if (!Shut.Contains(_focusedKey)) RefreshLoaded(_focusedRoot);
+                return;
+            }
             foreach (var project in ViewChrome.Projects())
                 if (!Shut.Contains(project)) RefreshLoaded(Root(project));
-            if (_focusedRoot != null) RefreshLoaded(_focusedRoot);
         }
 
         static void RefreshLoaded(Node node, bool descend = true)

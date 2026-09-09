@@ -11,6 +11,8 @@ can temporarily become the tree root.
   draw pass; errors stop retries until the directory is reopened. While Files is visible,
   expanded loaded directories are reread every two seconds and entries are merged by name/type,
   preserving expanded branches.
+  Selecting Files also refreshes expanded paths immediately, even when already selected;
+  a pending browse defers that refresh until it drains without consuming the polling deadline.
   Browse requests are limited to four at once; folding or manually opening a directory drops
   queued background work so the foreground path stays responsive.
 - When gitignored entries are shown by the filter, the Files tree dims their icons and labels
