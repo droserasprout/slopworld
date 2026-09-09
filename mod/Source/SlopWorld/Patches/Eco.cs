@@ -18,11 +18,14 @@ namespace SlopWorld
         [HarmonyPatch(typeof(Map), nameof(Map.MapUpdate))]
         public static class Patch_Board
         {
-            static void Postfix()
+            static void Postfix(Map __instance)
             {
                 if (!Resting) return;
-                // The pane is screen-sized and opaque, so a board under it is drawn for
-                // nobody; the world view paints its own globe and is not ours to cover.
+                // MapUpdate runs for every loaded map. Only the displayed map submits a
+                // backdrop; frame lookup and drift math both stay behind the visibility gate.
+                if (__instance != Find.CurrentMap) return;
+                // TerminalWindow also hosts every maximized content view, including views
+                // opened without an agent. All of them cover the animated background.
                 if (TerminalWindow.Covering) return;
                 if (!WorldRendererUtility.DrawingMap) return;
 

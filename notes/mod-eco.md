@@ -16,6 +16,9 @@ What it does, one owner each:
   Eco also suppresses weather, edge clippers, map-interface overlays/gizmo hover,
   and map clicks; those paths sit outside `MapUpdate` or remain interactive without
   a visible board.
+  `EcoMapInput` also blocks Selector's map clicks and cancels its drag rectangle without
+  clearing the selected agent or gizmos. Camera input (edge, keyboard, drag and zoom)
+  is blocked and pending drag inertia is cleared; projection updates remain active.
   A full terminal also suppresses weather and edge drawing, even outside Eco. Mesh
   and sky maintenance run at a 0.25-second hidden cadence, with immediate full-rate updates
   on reveal. Real-time flecks keep aging and expiring while hidden.
@@ -27,6 +30,8 @@ What it does, one owner each:
   only map output: a ScaleAndCrop world-space quad covering the screen.
   `ShaderDatabase.Cutout` queue 1000 fixes the ordering. `Frame()` passes a null
   source when a set is resident to reuse the menu's cached expansion art.
+  Only the current map submits the backdrop. Frame lookup and drift math are skipped
+  while a terminal or maximized content view covers it; both use `TerminalWindow.Covering`.
 - **The drift**: `Zoom` (1.05) adds margin on both axes; `PanX` and `PanZ` move the
   quad within it on long, incommensurate periods, adding motion without new frames.
 - **The dimming**: `ecoDim` (default 0.45) is the quad's grey `_Color` multiply;
