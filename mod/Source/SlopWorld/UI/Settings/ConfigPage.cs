@@ -23,7 +23,7 @@ namespace SlopWorld
             UiWidgets.SectionHeading(l, "Game");
             var s = ModEntry.Instance.settings;
             bool eco = UiWidgets.Checkbox(l, "Eco mode", s.ecoMode);
-            UiWidgets.Note(l, "Pause gameplay and hide the map. Agents and terminal stay responsive.");
+            UiWidgets.Note(l, "80% less CPU, 0.1% less guilt. You're welcome, Earth!");
 
             // Only with the mode on: a slider for a backdrop nothing is drawing is a knob that
             // does nothing. Stepped to twentieths because
@@ -37,7 +37,7 @@ namespace SlopWorld
             }
 
             bool gm = UiWidgets.Checkbox(l, "Grandma's visiting", s.grandmaMode);
-            UiWidgets.Note(l, "No fun allowed! Disable gore, vomit, and offensive/harmful tips.");
+            UiWidgets.Note(l, "No fun allowed! Disable violence and offensive/harmful tips.");
 
             if (gm != s.grandmaMode || eco != s.ecoMode)
             {
@@ -53,8 +53,7 @@ namespace SlopWorld
             if (_loaded)
             {
                 _cfg.Experimental = UiWidgets.Checkbox(l, "Enable experimental features", _cfg.Experimental);
-                UiWidgets.Note(l, "Unlock YOLO breadcrumbs and SLOPWORLD.md instructions. Save to apply. " +
-                    "Agent preferences are preserved while disabled; mount changes require an agent restart.");
+                UiWidgets.Note(l, "Unlock YOLO breadcrumbs and SLOPWORLD.md instructions. Save to apply. ");
             }
             else
                 UiWidgets.Note(l, _error ?? "Waiting for the daemon...");
@@ -107,7 +106,6 @@ namespace SlopWorld
                 UiWidgets.Note(l, FramePolicy.Normalize(s.displayMode) == FramePolicy.Sync
                     ? "VSync follows the display refresh rate for smooth presentation."
                     : "Preserve the game's frame rate and VSync settings.");
-            UiWidgets.Note(l, "Applies with or without Eco mode. Unfocused windows use 15 FPS.");
         }
 
         static void DrawConnectionSummary(Listing_Standard l)
