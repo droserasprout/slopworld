@@ -96,8 +96,10 @@ share an agent's exact filesystem view.
 ## Browse, Files, Git and Search
 
 - Browse always returns directories; files require `files=1`, dotfiles require
-  `hidden=1`, and `limit` is capped at 500. `lstat` classifies symlinks without
-  following them; dangling links are omitted.
+  `hidden=1`, and `limit` is capped at 500. Files listings additionally return `empty_dirs` for
+  returned directories with no visible children, and classify visible gitignored entries in
+  `gitignored_dirs` and `gitignored_files` when gitignore filtering is disabled. `lstat`
+  classifies symlinks without following them; dangling links are omitted.
 - Files mutations are root-only: create, one-component rename, and recursive delete.
   Names cannot contain slash, backslash, `.` or `..`; existing targets are preserved.
 - Git returns repository root, branch, and per-file porcelain/numstat. Large status streams are

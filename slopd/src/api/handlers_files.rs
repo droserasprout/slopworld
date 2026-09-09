@@ -35,7 +35,10 @@ pub(crate) fn browse_limit(requested: Option<usize>) -> usize {
 /// manager and a router up around them.
 pub(crate) struct Listing {
     pub(crate) dirs: Vec<String>,
+    pub(crate) empty_dirs: Vec<String>,
+    pub(crate) gitignored_dirs: Vec<String>,
     pub(crate) files: Vec<String>,
+    pub(crate) gitignored_files: Vec<String>,
     pub(crate) truncated: bool,
 }
 
@@ -47,7 +50,10 @@ pub(crate) async fn list_dir(
 ) -> std::io::Result<Listing> {
     let mut out = Listing {
         dirs: Vec::new(),
+        empty_dirs: Vec::new(),
+        gitignored_dirs: Vec::new(),
         files: Vec::new(),
+        gitignored_files: Vec::new(),
         truncated: false,
     };
 
@@ -87,6 +93,12 @@ pub(crate) async fn list_dir(
         }
 
         if is_dir {
+            // The Files tree needs to distinguish a directory that has not been opened yet
+            // from one that is genuinely empty. Probe only when files are requested: the
+            // project-dir picker asks for directories alone and does not need this metadata.
+            if want_files && matches!(directory_is_empty(&e.path(), hidden).await, Ok(true)) {
+                out.empty_dirs.push(name.clone());
+            }
             out.dirs.push(name);
         } else {
             out.files.push(name);
@@ -94,13 +106,36 @@ pub(crate) async fn list_dir(
     }
 
     out.dirs.sort();
+    out.empty_dirs.sort();
     out.files.sort();
     Ok(out)
 }
 
-/// Filter entries that `.gitignore` rules cover. Runs `git check-ignore` in the listed
-/// directory; silently skips filtering when git is absent or the path is outside a repo.
-async fn filter_gitignored(base: &std::path::Path, listing: &mut Listing) {
+/// Whether a directory has any child the Files tree would show. A failed child stat is left as
+/// an unknown result by the caller, so a permission problem keeps the disclosure arrow rather
+/// than falsely claiming that the directory is empty.
+async fn directory_is_empty(path: &std::path::Path, hidden: bool) -> std::io::Result<bool> {
+    let mut rd = tokio::fs::read_dir(path).await?;
+    while let Some(e) = rd.next_entry().await? {
+        let name = e.file_name().to_string_lossy().into_owned();
+        if !hidden && name.starts_with('.') {
+            continue;
+        }
+
+        let t = e.file_type().await?;
+        if t.is_symlink() && tokio::fs::metadata(e.path()).await.is_err() {
+            continue;
+        }
+        return Ok(false);
+    }
+    Ok(true)
+}
+
+/// Classify entries that `.gitignore` rules cover. Runs `git check-ignore` in the listed
+/// directory; silently skips classification when git is absent or the path is outside a repo.
+/// When `hide` is false, the classified entries stay in the listing so the Files tab can tint
+/// them while showing them.
+pub(crate) async fn filter_gitignored(base: &std::path::Path, listing: &mut Listing, hide: bool) {
     use tokio::io::AsyncWriteExt;
 
     if listing.dirs.is_empty() && listing.files.is_empty() {
@@ -146,8 +181,24 @@ async fn filter_gitignored(base: &std::path::Path, listing: &mut Listing) {
         }
     }
 
-    listing.dirs.retain(|n| !ignored.contains(n));
-    listing.files.retain(|n| !ignored.contains(n));
+    listing.gitignored_dirs = listing
+        .dirs
+        .iter()
+        .filter(|n| ignored.contains(*n))
+        .cloned()
+        .collect();
+    listing.gitignored_files = listing
+        .files
+        .iter()
+        .filter(|n| ignored.contains(*n))
+        .cloned()
+        .collect();
+
+    if hide {
+        listing.dirs.retain(|n| !ignored.contains(n));
+        listing.empty_dirs.retain(|n| !ignored.contains(n));
+        listing.files.retain(|n| !ignored.contains(n));
+    }
 }
 
 /// So the dialog can pick a project dir, and the files view can draw a tree, without
@@ -166,9 +217,7 @@ pub(crate) async fn browse(State(_m): State<Mgr>, Query(q): Query<BrowseReq>) ->
         .await
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
 
-    if q.gitignore {
-        filter_gitignored(&base, &mut out).await;
-    }
+    filter_gitignored(&base, &mut out, q.gitignore).await;
     crate::perf::count(
         "http-browse-rows",
         (out.dirs.len() + out.files.len()) as u64,
@@ -178,7 +227,10 @@ pub(crate) async fn browse(State(_m): State<Mgr>, Query(q): Query<BrowseReq>) ->
         "path": base,
         "parent": base.parent(),
         "dirs": out.dirs,
+        "empty_dirs": out.empty_dirs,
+        "gitignored_dirs": out.gitignored_dirs,
         "files": out.files,
+        "gitignored_files": out.gitignored_files,
         "truncated": out.truncated,
     })))
 }

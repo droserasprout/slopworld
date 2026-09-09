@@ -77,9 +77,9 @@ mod tests {
 
     use super::super::types::SearchReq;
     use super::{
-        browse_limit, entry_name, file_path, highlighter_argv, list_dir, read_highlight_output,
-        read_image_bytes, read_preview, search_preview, source, valid_kind, IMAGE_LIMIT,
-        READ_LIMIT, SEARCH_TEXT_LIMIT,
+        browse_limit, entry_name, file_path, filter_gitignored, highlighter_argv, list_dir,
+        read_highlight_output, read_image_bytes, read_preview, search_preview, source, valid_kind,
+        IMAGE_LIMIT, READ_LIMIT, SEARCH_TEXT_LIMIT,
     };
     use axum::http::StatusCode;
 
@@ -107,15 +107,19 @@ mod tests {
     pub(super) async fn files_are_opt_in() {
         let dir = fixture("optin");
         subdir(&dir, "src");
+        subdir(&dir, "empty");
+        touch(&dir.join("src"), "lib.rs");
         touch(&dir, "Cargo.toml");
         touch(&dir, "README.md");
 
         let quiet = list_dir(&dir, false, false, 500).await.unwrap();
-        assert_eq!(quiet.dirs, ["src"]);
+        assert_eq!(quiet.dirs, ["empty", "src"]);
+        assert!(quiet.empty_dirs.is_empty());
         assert!(quiet.files.is_empty());
 
         let full = list_dir(&dir, true, false, 500).await.unwrap();
-        assert_eq!(full.dirs, ["src"]);
+        assert_eq!(full.dirs, ["empty", "src"]);
+        assert_eq!(full.empty_dirs, ["empty"]);
         assert_eq!(full.files, ["Cargo.toml", "README.md"]);
 
         let _ = std::fs::remove_dir_all(&dir);
@@ -208,11 +212,45 @@ mod tests {
 
         let shy = list_dir(&dir, true, false, 500).await.unwrap();
         assert_eq!(shy.dirs, ["src"]);
+        assert_eq!(shy.empty_dirs, ["src"]);
         assert_eq!(shy.files, ["main.rs"]);
 
         let all = list_dir(&dir, true, true, 500).await.unwrap();
         assert_eq!(all.dirs, [".git", "src"]);
+        assert_eq!(all.empty_dirs, [".git", "src"]);
         assert_eq!(all.files, [".gitignore", "main.rs"]);
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[tokio::test]
+    pub(super) async fn gitignored_entries_are_classified_before_optional_filtering() {
+        let dir = fixture("gitignored");
+        subdir(&dir, "ignored-dir");
+        subdir(&dir, "visible-dir");
+        touch(&dir, "ignored.log");
+        touch(&dir, "visible.txt");
+        std::fs::write(dir.join(".gitignore"), "ignored.log\nignored-dir\n").unwrap();
+        let status = std::process::Command::new("git")
+            .current_dir(&dir)
+            .args(["init", "-q"])
+            .status()
+            .unwrap();
+        assert!(status.success());
+
+        let mut visible = list_dir(&dir, true, false, 500).await.unwrap();
+        filter_gitignored(&dir, &mut visible, false).await;
+        assert_eq!(visible.gitignored_dirs, ["ignored-dir"]);
+        assert_eq!(visible.gitignored_files, ["ignored.log"]);
+        assert!(visible.dirs.contains(&"ignored-dir".to_owned()));
+        assert!(visible.files.contains(&"ignored.log".to_owned()));
+
+        let mut hidden = list_dir(&dir, true, false, 500).await.unwrap();
+        filter_gitignored(&dir, &mut hidden, true).await;
+        assert_eq!(hidden.gitignored_dirs, ["ignored-dir"]);
+        assert_eq!(hidden.gitignored_files, ["ignored.log"]);
+        assert!(!hidden.dirs.contains(&"ignored-dir".to_owned()));
+        assert!(!hidden.files.contains(&"ignored.log".to_owned()));
 
         let _ = std::fs::remove_dir_all(&dir);
     }
@@ -232,6 +270,7 @@ mod tests {
 
         let out = list_dir(&dir, true, false, 500).await.unwrap();
         assert_eq!(out.dirs, ["real", "to-dir"]);
+        assert_eq!(out.empty_dirs, ["real", "to-dir"]);
         assert_eq!(out.files, ["file.txt", "to-file"]);
 
         let _ = std::fs::remove_dir_all(&dir);
