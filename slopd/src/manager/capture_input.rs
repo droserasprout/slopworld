@@ -168,8 +168,14 @@ impl Manager {
         name: &str,
         random_tips: &[String],
     ) -> Option<Vec<u8>> {
+        let experimental = self.config().await.daemon.experimental;
         let mut live = self.live.write().await;
         let session = live.get_mut(name)?;
+        if !experimental {
+            session.breadcrumbs_pending = false;
+            session.breadcrumbs.clear();
+            return None;
+        }
         if !session.breadcrumbs_pending {
             return None;
         }

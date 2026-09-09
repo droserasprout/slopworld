@@ -24,7 +24,7 @@ namespace SlopWorld
         public static void Draw(Rect outer, List<string> chosen, SmoothScroll scroll,
                                 ICollection<string> implied = null,
                                 string instructionsText = null, bool instructionsOn = false,
-                                Action<bool> onInstructionsChanged = null)
+                                Action<bool> onInstructionsChanged = null, bool instructionsLocked = false)
         {
             var all = SessionHub.Instance.Library
                 .Where(s => s.Kind == LibraryItemKind.Breadcrumb)
@@ -64,7 +64,7 @@ namespace SlopWorld
                     Label = b.Name,
                     Tip = tip,
                     On = was,
-                    Locked = forced,
+                    Locked = forced || (b.Instructions && instructionsLocked),
                     Changed = next =>
                     {
                         if (b.Instructions)

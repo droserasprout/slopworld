@@ -655,6 +655,12 @@ mod tests {
         manager
             .wire_live_state("agent", &cfg, &session, &project, false)
             .await;
+        assert!(!manager.live.read().await["agent"].breadcrumbs_pending);
+        cfg.daemon.experimental = true;
+
+        manager
+            .wire_live_state("agent", &cfg, &session, &project, false)
+            .await;
         let live = manager.live.read().await;
         assert!(live["agent"].breadcrumbs_pending);
         assert!(String::from_utf8_lossy(&live["agent"].breadcrumbs)

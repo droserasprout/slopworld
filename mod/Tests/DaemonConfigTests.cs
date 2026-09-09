@@ -17,6 +17,7 @@ namespace SlopWorld.Tests
         static void ReadsDaemonDefaults()
         {
             var config = DaemonConfig.FromJson(JVal.Parse("{}"));
+            AssertEx.Equal(false, config.Experimental, "experimental defaults off");
 
             AssertEx.Equal(60, config.UsagePollSecs, "usage poll default");
             AssertEx.Equal(0, config.UsageItems.Count, "usage item defaults");
@@ -52,6 +53,7 @@ namespace SlopWorld.Tests
         {
             var expected = new DaemonConfig
             {
+                Experimental = true,
                 UsagePollSecs = 17,
                 UsageItems = new Dictionary<string, DaemonConfig.UsageItemConfig>
                 {
@@ -86,6 +88,7 @@ namespace SlopWorld.Tests
                 Highlighter = "highlight --out-format=xterm256",
             };
             var actual = DaemonConfig.FromJson(JVal.Parse(expected.ToPatchJson()));
+            AssertEx.Equal(expected.Experimental, actual.Experimental, "experimental round trip");
 
             AssertEx.Equal(expected.UsagePollSecs, actual.UsagePollSecs, "poll round trip");
             AssertEx.False(actual.UsageItems["claude_session"].Poll,
