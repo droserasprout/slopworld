@@ -2,7 +2,7 @@
 
 - **1.6 only.** Tick methods and patch targets differ from 1.5. Launch through the
   launcher: starting `RimWorldLinux` directly bypasses the profile and uses the game's
-  own saves ([profile](profile.md)).
+  own saves ([profile](ops-profile.md)).
 - **Verify against the game.** Harmony failures appear only in `Player.log`; grep for
   `patching incomplete:`. Disassemble `$RIMWORLD/RimWorldLinux_Data/Managed/Assembly-CSharp.dll`
   with `ikdasm` rather than guessing. The source tree under `$RIMWORLD/Source` helps too.

@@ -7,7 +7,7 @@ game components run before the window stack in `UIRootOnGUI`. `SnapX`/`SnapY` pu
 on screen pixels.
 
 The window uses `Margin` 0 so GUI-group and screen coordinates agree
-([gotchas](gotchas.md)).
+([gotchas](core-gotchas.md)).
 
 `TerminalWindow` is the fullscreen host and lifecycle coordinator. `TerminalInputController`
 owns key/mouse event ordering and chrome navigation, while `TerminalWindowState` holds the
@@ -44,7 +44,7 @@ layout the window draws no header: `TopBar` owns the name, state and buttons.
 
 `MapKey` uses tmux names (`C-Left`, `M-Up`, `S-Right`). Shift is sent only on the alt
 screen: editors use shifted arrows and page keys, while zsh/bash treat those sequences as
-undefined ([zsh-terminal](zsh-terminal.md)). On the primary screen, Shift+PgUp/PgDn move
+undefined ([zsh-terminal](ops-zsh-terminal.md)). On the primary screen, Shift+PgUp/PgDn move
 the mod's own scrollback by one viewport. Mouse-wheel scrollback uses `SmoothScroll`'s
 fractional local position. `TerminalHistory` indexes the overlapping rows in daemon viewport
 snapshots by their offset and assembles a local view with one overscan row; requests prefetch

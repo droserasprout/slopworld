@@ -19,7 +19,7 @@ See [agent-grants](agent-grants.md) and [daemon-workers](daemon-workers.md).
 `GET /api/usage`, `/api/audio` and `/api/jukebox` have no mod caller. The mod
 takes those payloads from the WS events of the same name, in
 `SessionHub.Handle`. All three remain for external tools -
-[wire-protocol](wire-protocol.md) lists them as query routes.
+[wire-protocol](protocol-wire.md) lists them as query routes.
 
 Before adding a route for the mod, check whether the payload already rides the
 socket.

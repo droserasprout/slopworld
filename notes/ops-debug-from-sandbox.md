@@ -31,7 +31,7 @@ Run on the host (not in the sandbox):
 Empty `ss` => startup never bound (look at the pre-bind path). A listener present =>
 the daemon serves and the mod side is the suspect: `endpoint.toml` url/token vs the
 config token, read by `Client/Endpoint.cs` with an empty-token fallback to
-`127.0.0.1:7717`. See [paths](paths.md) and [wire-protocol](wire-protocol.md).
+`127.0.0.1:7717`. See [paths](ops-paths.md) and [wire-protocol](protocol-wire.md).
 
 `systemd-run --user` would run on the host and sidestep the namespaces, but the
 harness classifier blocks it as a sandbox escape; widen the preset instead.

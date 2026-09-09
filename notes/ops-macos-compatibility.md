@@ -78,4 +78,4 @@ Unity's native API. Containerized `slopd` has no CoreAudio device, so the first 
 reports jukebox playback as unsupported. Later playback can stream decoded local audio to the mod.
 
 Implementation order and verified support are tracked separately in
-[macOS compatibility status](macos-compatibility-status.md).
+[macOS compatibility status](ops-macos-compatibility-status.md).

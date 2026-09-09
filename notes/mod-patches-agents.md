@@ -57,7 +57,7 @@ finalizer puts them back, so toggling a pane moves nothing.
 - `Blocked` is the strip declining clicks while something is stacked over the
   pane; on the map layer that never arises, `HandleEventsHighPriority` having
   already Used the event. It is not a *choice* under an absorbing window - the
-  press never arrives there at all ([gotchas](gotchas.md)) - which is why the
+  press never arrives there at all ([gotchas](core-gotchas.md)) - which is why the
   options menu is content in the chrome rather than a window over it
   ([mod-content-views](mod-content-views.md)).
 - The same swap has to go round **`ColonistBar.TryGetEntryAt`**: `Selector` asks

@@ -3,7 +3,7 @@
 A scoped grant lets one caller watch or drive selected non-host sessions without
 exposing host sessions. Grants are bearer tokens minted in memory by root-authorized
 requests or by the daemon when it starts a worker.
-See [wire-protocol](wire-protocol.md) and [agent-tasks](agent-tasks.md).
+See [wire-protocol](protocol-wire.md) and [agent-tasks](agent-tasks.md).
 
 ## Permissions
 

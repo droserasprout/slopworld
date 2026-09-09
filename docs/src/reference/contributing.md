@@ -14,7 +14,7 @@ run the relevant tests and `make lint`; it treats compiler and clippy warnings a
 errors and verifies formatting.
 
 All work lands on `main`. Branches are used only for work that will be merged back;
-see the [house rules](https://github.com/droserasprout/slopworld/blob/main/notes/house-rules.md).
+see the [house rules](https://github.com/droserasprout/slopworld/blob/main/notes/core-house-rules.md).
 
 ## Generated output
 
@@ -31,5 +31,5 @@ Asset-generation targets are listed in `make` help; their implementations live i
 
 Devnotes preserve cross-file architecture and constraints that code cannot show.
 Use the notes in the repository's `notes/` directory to find a topic and the
-[prose guide](https://github.com/droserasprout/slopworld/blob/main/notes/prose-guide.md)
+[prose guide](https://github.com/droserasprout/slopworld/blob/main/notes/docs-prose-guide.md)
 for writing rules. Published docs take precedence over devnotes.

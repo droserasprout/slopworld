@@ -18,5 +18,5 @@ file inventory; this map identifies subsystem boundaries.
 | `bin/` | Launcher, installer, and `slopctl` CLI. |
 
 See [session state](daemon-session-state.md), [sandbox isolation](sandbox-isolation.md),
-[configuration stores](config-stores.md), and [workers](daemon-workers.md) for the
+[configuration stores](daemon-config-stores.md), and [workers](daemon-workers.md) for the
 contracts that edits must preserve.

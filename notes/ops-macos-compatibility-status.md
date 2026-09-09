@@ -1,7 +1,7 @@
 # macOS compatibility status
 
 The compatibility model and sidecar contract are in
-[macOS compatibility](macos-compatibility.md). This note tracks implementation
+[macOS compatibility](ops-macos-compatibility.md). This note tracks implementation
 order and what has been verified.
 
 ## Implementation order
