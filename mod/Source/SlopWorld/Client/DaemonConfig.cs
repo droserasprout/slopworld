@@ -16,20 +16,10 @@ namespace SlopWorld
             "instructions. This generated `{{ file }}` is mounted at `{{ mount_path }}` and is " +
             "runtime context, not a replacement for them.\n\n" +
             "{{ runtime_context }}\n";
-        public const string DefaultInstructionsBreadcrumb =
-            "Read `{{ mount_path }}` for SlopWorld runtime context. It is a generated snapshot, " +
-            "not project instructions.";
-        public const string DefaultWorkerPrompt =
-            "You are a SlopWorld worker. Your assigned task is $SLOPWORLD_TASK_ID. " +
-            "Run slopctl task with that exact ID, accept it, then complete it. " +
-            "Do not duplicate the task body into the prompt and do not rely on an ambiguous " +
-            "inbox search.";
-        public const string DefaultSummaryPrompt =
-            "Summarise this coding request in at most 6 words for a session title. " +
-            "Reply with only the title, without quotes, punctuation, or commentary.";
-        public const string DefaultWorkerBreadcrumb =
-            "Worker task: use `$SLOPWORLD_TASK_ID` with `slopctl task`, then `accept`, " +
-            "`progress`, and finally `finish` or `fail`. Do not search the inbox or poll task status.";
+        public const string DefaultInstructionsBreadcrumb = WireContract.DefaultInstructionsBreadcrumb;
+        public const string DefaultWorkerPrompt = WireContract.DefaultWorkerPrompt;
+        public const string DefaultSummaryPrompt = WireContract.DefaultSummaryPrompt;
+        public const string DefaultWorkerBreadcrumb = WireContract.DefaultWorkerBreadcrumb;
 
         public int UsagePollSecs = WireContract.UsagePollSecs;
         // One entry per usage window. A zero interval means the global interval applies.
