@@ -19,7 +19,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parent.parent
-SOURCE = ROOT / "mod/Source/SlopWorld/UI/UIScheme.cs"
+SOURCE = ROOT / "mod/Source/SlopWorld/UI/Chrome/UIScheme.cs"
 SCHEME_IDS = ("slopworld-warm", "slopworld-cold", "slopworld-calm", "onedark")
 
 SURFACES = ("windowBg", "viewBg", "popoverBg")

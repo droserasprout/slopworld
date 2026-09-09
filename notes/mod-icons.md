@@ -1,13 +1,13 @@
 # Icons
 
 Action icons are 64px PNGs baked from VS Code [Codicons][c] by `tools/icons.py` and
-loaded through `UI/Icons.cs`. The 28 slot names are semantic (`Icons.Agents`, not
+loaded through `UI/Chrome/Icons.cs`. The 28 slot names are semantic (`Icons.Agents`, not
 `Icons.Robot`) so artwork can change without changing call sites.
 
 [c]: https://github.com/microsoft/vscode-codicons
 
 `tools/icons/manifest.toml` maps slots to glyph names and codepoints; the generated
-files live in `mod/Textures/SlopWorld/Icons/`. The manifest and `UI/Icons.cs` are
+files live in `mod/Textures/SlopWorld/Icons/`. The manifest and `UI/Chrome/Icons.cs` are
 kept in sync by hand because the mod has no TOML parser. Run `make icons`; `--report`
 prints glyph size and ink coverage.
 

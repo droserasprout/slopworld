@@ -1,4 +1,9 @@
-# Flat UI
+# UI source layout
+
+Shared controls live in `UI/Chrome/`; body views live under `UI/Views/` by feature, and terminal
+rendering lives in `UI/Terminal/`. The remaining feature folders (`CommandPalette`, `Dialogs`,
+`Jukebox`, `MarkdownPreview`, `MenuBackground`, `Settings`, `Text`, `Usage`, and `Utilities`)
+keep their own code together.
 
 `UiWidgets` owns the flat, scheme-driven controls, `Slab` owns shapes, and
 `TerminalTheme` remains the terminal's separate colour system. Use those helpers for new UI;
