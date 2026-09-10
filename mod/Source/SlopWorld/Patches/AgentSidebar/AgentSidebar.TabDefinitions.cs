@@ -101,6 +101,8 @@ namespace SlopWorld
                         Click = LibraryView.Clicks,
                         DrawActions = DrawLibraryActions,
                         Refresh = () => SessionHub.Instance.Catalog.RefreshLibrary(UiWidgets.Fail),
+                        // Fetch on entry as well, including when socket updates are unavailable.
+                        Entered = () => SessionHub.Instance.Catalog.RefreshLibrary(),
                         SetAllFolds = LibraryView.SetAllFolded,
                         AllFolded = () => LibraryView.AllFolded,
                     }));

@@ -22,7 +22,7 @@ can temporarily become the tree root.
   do not hit-test against drawing-time geometry.
 - `ContentTreeController` owns Files' project-heading folds, semantic selection key, group
   pruning and tree revision. A refresh can replace nodes without losing the selected path or
-  surviving project folds; a temporary storage root does not discard project fold state.
+  surviving project folds; filtering and temporary storage roots preserve project fold state.
   Lazy loading, node expansion, browse invalidation and viewer storage remain Files-owned.
 - `FilesStore` is the owner of roots, focused storage state, browse requests and refresh
   scheduling. `FilesViewerController` owns the replaceable/pinned pager set and Markdown

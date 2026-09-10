@@ -35,7 +35,8 @@ namespaces isolate sessions from the game; `/api/browse` exists for the same bou
   the counting pass at two seconds and kills cancelled Git children; missing counts stay unknown.
   `git-status` and `git-numstat` performance timers distinguish scanning from counting.
 - `ContentTreeController` owns Git's project-heading folds, semantic selection key, group
-  pruning and tree revision. Repository directory folds, status/count state and the diff pager
+  pruning and tree revision. Project filters preserve folds; catalog removal prunes them.
+  Repository directory folds, status/count state and the diff pager
   remain Git-owned, so rebuilding a status tree preserves the selected path and per-repository
   expansion choices.
 - `GitStore` owns the repository map and its status/count snapshots, while
