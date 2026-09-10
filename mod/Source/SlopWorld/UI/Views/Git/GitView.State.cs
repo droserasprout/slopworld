@@ -117,9 +117,8 @@ namespace SlopWorld
                 var repo = Get(project);
                 groups.Add(new ContentTreeGroup(project, project, repo.Dir, repo, repo.Tree));
             }
-            var keys = new List<string>();
-            foreach (var group in groups) keys.Add(group.Key);
-            TreeController.SyncGroups(keys);
+            // Filtering hides headings temporarily; only catalog removal forgets a fold.
+            TreeController.SyncGroups(SessionHub.Instance.Projects.Select(p => p.Name));
             return groups;
         }
 

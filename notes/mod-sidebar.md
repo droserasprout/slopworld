@@ -86,7 +86,7 @@ draw/click/action handlers, refresh and fold delegates, and separate close/enter
 lifecycle callbacks. Unknown saved names fall back to Agents. Switching closes menus first,
 then closes non-target view state, persists the target, and enters it; reselecting runs only
 the target's refresh callback. Files re-entry also initializes Git status, while Git and Tasks
-refresh on reselection.
+refresh on reselection. Library fetches its catalog on entry, even without socket updates.
 
 - Middle-click closes Files/Git routed headers without confirmation, including restored
   pager/editor sessions, pinned diffs and native Markdown previews. Ordinary durable agent rows
