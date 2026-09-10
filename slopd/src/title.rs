@@ -297,6 +297,22 @@ fn read_key(file: &str) -> Result<String> {
     Ok(key.to_string())
 }
 
+/// Run a summary off the async executor. Only join failures receive the caller's worker
+/// label; provider errors pass through unchanged. Cache and policy decisions stay with callers.
+pub async fn summarize_async(
+    prompt: &str,
+    summary_prompt: &str,
+    key_file: &str,
+    model: &str,
+    worker: &str,
+) -> Result<String> {
+    let [prompt, summary_prompt, key_file, model] =
+        [prompt, summary_prompt, key_file, model].map(str::to_owned);
+    tokio::task::spawn_blocking(move || summarize(&prompt, &summary_prompt, &key_file, &model))
+        .await
+        .map_err(|error| anyhow::anyhow!("{worker}: {error}"))?
+}
+
 pub fn summarize(
     prompt: &str,
     summary_prompt: &str,
