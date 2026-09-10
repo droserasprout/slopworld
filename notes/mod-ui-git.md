@@ -38,6 +38,10 @@ namespaces isolate sessions from the game; `/api/browse` exists for the same bou
   pruning and tree revision. Repository directory folds, status/count state and the diff pager
   remain Git-owned, so rebuilding a status tree preserves the selected path and per-repository
   expansion choices.
+- `GitStore` owns the repository map and its status/count snapshots, while
+  `GitViewerController` owns the replaceable/pinned diff pager set. The static `GitView` API
+  remains a compatibility facade; status requests and count replies still mutate only the
+  repository owner and retain a usable status tree when counts fail.
 - Rows show the porcelain pair, numstat and right-aligned figures. Untracked text files use a
   no-index diff against `/dev/null`, so their additions count too; binaries remain uncounted.
   Green is staged, amber unstaged, red unmerged and faint untracked. Heading status shows the
