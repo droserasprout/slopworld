@@ -261,7 +261,7 @@ namespace SlopWorld
             }
 
             int w = src.width, h = src.height;
-            var srcPx = ReadBack(src);
+            var srcPx = TextureReadback.ReadBack(src);
 
             var px = new Color[N * N];
             float sx = (float)w / N, sy = (float)h / N;
@@ -345,27 +345,6 @@ namespace SlopWorld
             _spinUntil = -1f;
             _clickUntil = -1f;
             _shown = 0;
-        }
-
-        // Core textures come out of the bundles unreadable.
-        static Color[] ReadBack(Texture2D src)
-        {
-            var rt = RenderTexture.GetTemporary(src.width, src.height, 0, RenderTextureFormat.ARGB32);
-            var prev = RenderTexture.active;
-
-            Graphics.Blit(src, rt);
-            RenderTexture.active = rt;
-
-            var copy = new Texture2D(src.width, src.height, TextureFormat.ARGB32, false);
-            copy.ReadPixels(new Rect(0, 0, src.width, src.height), 0, 0);
-            copy.Apply();
-
-            RenderTexture.active = prev;
-            RenderTexture.ReleaseTemporary(rt);
-
-            var px = copy.GetPixels();
-            Object.Destroy(copy);
-            return px;
         }
 
         // The solid pixel nearest the top-left corner, which is the fingertip and exactly
