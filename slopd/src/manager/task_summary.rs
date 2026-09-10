@@ -22,23 +22,18 @@ impl Manager {
 
         let model = cfg.daemon.title_model.clone();
         let summary_prompt = cfg.daemon.summary_prompt.clone();
-        let (result, cache_hit) = if let Some(summary) =
-            self.title_cache.get(&task.body, &summary_prompt, &model)
-        {
-            (Ok(summary), true)
-        } else {
-            let prompt = task.body.clone();
-            let request_summary_prompt = summary_prompt.clone();
-            let key_file = cfg.daemon.openrouter_key_file.clone();
-            let request_model = model.clone();
-            let result = tokio::task::spawn_blocking(move || {
-                crate::title::summarize(&prompt, &request_summary_prompt, &key_file, &request_model)
-            })
-            .await
-            .map_err(|error| anyhow::anyhow!("task summary worker: {error}"))
-            .and_then(|result| result);
-            (result, false)
-        };
+        let (result, cache_hit) =
+            if let Some(summary) = self.title_cache.get(&task.body, &summary_prompt, &model) {
+                (Ok(summary), true)
+            } else {
+                let key_file = cfg.daemon.openrouter_key_file.clone();
+                let result = self
+                    .summarize_request(&task.body, &summary_prompt, &key_file, &model)
+                    .await
+                    .map_err(|error| anyhow::anyhow!("task summary worker: {error}"))
+                    .and_then(|result| result);
+                (result, false)
+            };
 
         let Ok(summary) = result else {
             tracing::debug!(
@@ -70,7 +65,7 @@ impl Manager {
             }
         }
 
-        match self.set_task_summary(&task.id, summary) {
+        match self.tasks.set_task_summary(&task.id, summary) {
             Ok(Some(_)) => tracing::debug!(
                 target: "slopd::task_summaries",
                 task = %task.id,

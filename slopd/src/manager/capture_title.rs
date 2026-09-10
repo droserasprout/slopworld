@@ -73,19 +73,9 @@ impl Manager {
             outcome = "request_started",
             "generating session title"
         );
-        let request_prompt = prompt.clone();
-        let request_summary_prompt = request.summary_prompt.clone();
-        let request_key = request.key_file.clone();
-        let request_model = model.clone();
-        let result = tokio::task::spawn_blocking(move || {
-            crate::title::summarize(
-                &request_prompt,
-                &request_summary_prompt,
-                &request_key,
-                &request_model,
-            )
-        })
-        .await;
+        let result = self
+            .summarize_request(prompt, &request.summary_prompt, &request.key_file, model)
+            .await;
         let result = match result {
             Ok(r) => r,
             Err(e) => Err(anyhow!("title worker: {e}")),

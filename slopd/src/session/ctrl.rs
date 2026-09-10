@@ -25,7 +25,7 @@ pub struct Manager {
     pub(super) auth_generation: AtomicU64,
     pub(super) auth_changes: broadcast::Sender<AuthChange>,
     pub(super) grants: RwLock<crate::grant::Grants>,
-    pub(super) tasks: super::manager::TaskStore,
+    pub(crate) tasks: super::manager::TaskStore,
     /// Serializes daemon-owned worker creation so two root requests cannot reserve one child name
     /// or split task/session persistence between each other.
     pub(super) worker_spawn: tokio::sync::Mutex<()>,
