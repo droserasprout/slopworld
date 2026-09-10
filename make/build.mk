@@ -1,4 +1,4 @@
-.PHONY: daemon mod bench-daemon test-wire-contract test-daemon test-mod coverage coverage-daemon coverage-mod test-prose \
+.PHONY: daemon mod bench-daemon bench-report test-wire-contract test-daemon test-mod coverage coverage-daemon coverage-mod test-prose \
 	appicon icons emoji-atlas reference api-contract api-docs scheme-report harmony clean
 
 ##
@@ -8,6 +8,10 @@ daemon: api-contract ## Build the daemon and the launcher
 
 bench-daemon: api-contract ## Run the game-free daemon performance benchmark
 	@cd slopd && $(CARGO) run --quiet --bin slopd $(CARGOFLAGS) -- --perf-bench
+
+bench-report: BUILD := release
+bench-report:        ## Run the full performance suite three times and write an averaged note
+	@$(PYTHON) tools/bench-report.py --build "$(BUILD)"
 
 .PHONY: bench-mod
 bench-mod: api-contract ## Benchmark C# helpers without RimWorld or Unity
