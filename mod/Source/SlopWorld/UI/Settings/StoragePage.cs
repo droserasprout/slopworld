@@ -60,33 +60,33 @@ namespace SlopWorld
 
         void DrawCore(Rect rect)
         {
-            var body = UiWidgets.PageBody(rect);
-            var inner = body.ContractedBy(UiWidgets.GapM);
+            var inner = SettingsPageLayout.Body(rect);
 
-            GUI.color = UiWidgets.Dim;
-            UiWidgets.RowLabel(new Rect(inner.x, inner.y, inner.width, UiWidgets.LineH),
-                $"{Human(_entries.Sum(e => e.Bytes))} total. Configured agents are retained; " +
-                "deleted/reset state expires after 14 days.");
-            GUI.color = Color.white;
-
-            var list = new Rect(inner.x, inner.y + UiWidgets.LineH + UiWidgets.GapS,
-                inner.width, inner.yMax - inner.y - UiWidgets.LineH - UiWidgets.GapS);
-            float rowH = UiListRow.TwoLineH;
-            var view = new Rect(0f, 0f, list.width - UiWidgets.ScrollbarW,
-                Mathf.Max(list.height, _entries.Count * rowH + UiWidgets.GapXS));
+            string caption = $"{Human(_entries.Sum(e => e.Bytes))} total. Configured agents are retained; " +
+                "deleted/reset state expires after 14 days.";
+            float width = Mathf.Max(0f, inner.width - UiWidgets.ScrollbarW);
+            float captionH = UiWidgets.StatusLabelHeight(caption, width);
+            float rowH = StorageRowHeight(width);
+            var list = inner;
+            var view = UiScrollBody.View(list,
+                captionH + UiWidgets.GapS + _entries.Count * rowH + UiWidgets.GapXS);
             using (_scroll.Scope(list, view))
+            {
+                UiWidgets.StatusLabel(new Rect(0f, 0f, view.width, captionH), caption, UiWidgets.Dim);
                 for (int i = 0; i < _entries.Count; i++)
-                    DrawRow(new Rect(0f, i * rowH, view.width, rowH - UiWidgets.GapXS),
+                    DrawRow(new Rect(0f, captionH + UiWidgets.GapS + i * rowH, view.width, rowH - UiWidgets.GapXS),
                         _entries[i]);
+            }
 
             if (_entries.Count == 0)
             {
-                UiWidgets.StatusLabel(list,
+                UiWidgets.StatusLabel(new Rect(list.x, list.y + captionH + UiWidgets.GapS,
+                        list.width, Mathf.Max(0f, list.height - captionH - UiWidgets.GapS)),
                     _error ?? (_loading ? "Scanning..." : "No private state on disk."),
                     _error != null ? UiWidgets.Bad : UiWidgets.Dim);
             }
 
-            var foot = new UiWidgets.Bar(UiWidgets.FooterBar(rect));
+            var foot = new UiWidgets.Bar(SettingsPageLayout.Footer(rect));
             if (foot.Left("Refresh", UiWidgets.Btn.Ghost, !_loading)) Load();
             if (foot.Left("Empty trash", UiWidgets.Btn.Danger, !_loading && _hasTrash))
                 ConfirmEmptyTrash();
@@ -113,24 +113,33 @@ namespace SlopWorld
             }
         }
 
+        static bool StackActions(float width) => width < UiWidgets.BtnW("Restore", 78f) * 2f + 180f;
+
+        static float StorageRowHeight(float width) => UiListRow.TwoLineH +
+            (StackActions(width) ? UiWidgets.RowBtnH + UiWidgets.GapS : 0f);
+
         void DrawRow(Rect r, Entry e)
         {
             bool over = RowChrome.Hover(r, false, true, RowHoverPolicy.OverlayAware);
             if (over)
                 TooltipHandler.TipRegion(r, "Open this private directory in the Files sidebar.");
 
-            float actionW = UiWidgets.BtnW("Delete", 78f);
+            bool stacked = StackActions(r.width);
+            float actionW = Mathf.Min(UiWidgets.BtnW("Restore", 78f),
+                Mathf.Max(0f, (r.width - UiWidgets.GapS * 2f - UiWidgets.GapXS) / 2f));
             float right = UiListRow.Right(r);
-            float labelW = Mathf.Max(80f,
+            float labelW = Mathf.Max(0f, stacked ? r.width - UiWidgets.GapS * 2f :
                 r.width - actionW * 2f - UiWidgets.GapXS - UiWidgets.GapM);
-            float actionY = r.y + (r.height - UiWidgets.RowBtnH) / 2f;
+            float actionY = stacked ? r.yMax - UiWidgets.RowBtnH : r.y + (r.height - UiWidgets.RowBtnH) / 2f;
+            var textRect = new Rect(r.x, r.y, r.width,
+                stacked ? UiListRow.TwoLineH - UiWidgets.GapXS : r.height);
 
             // Leave the action buttons out of the selection hit target. The whole label side
             // is one row, so an entry does not require a tiny click on its name.
-            if (UiWidgets.RowButton(new Rect(r.x, r.y, labelW, r.height)))
+            if (UiWidgets.RowButton(new Rect(r.x, r.y, labelW, textRect.height)))
                 Focus(e);
 
-            float line1 = UiListRow.LineY(r, 0);
+            float line1 = UiListRow.LineY(textRect, 0);
             float line2 = UiListRow.LineY(r, 1);
             GUI.color = UiWidgets.Lead;
             UiWidgets.RowLabel(new Rect(r.x + UiWidgets.GapS, line1, labelW, UiWidgets.LineH),

@@ -29,7 +29,7 @@ namespace SlopWorld
 
         readonly SmoothScroll _scroll = new SmoothScroll();
         readonly MarkdownPreview _preview = new MarkdownPreview("", "SLOPWORLD.md");
-        float _fieldsH = 520f;
+        readonly SettingsContentHeight _height = new SettingsContentHeight(520f);
 
         public InstructionsPage()
         {
@@ -51,7 +51,7 @@ namespace SlopWorld
 
         void DrawCore(Rect rect)
         {
-            var body = UiWidgets.PageBody(rect).ContractedBy(UiWidgets.GapM);
+            var body = SettingsPageLayout.Body(rect);
             if (_loaded && !_cfg.Experimental) _tab = Tab.Editor;
             Tab before = _tab;
             DrawTabs(new Rect(body.x, body.y, body.width, UiWidgets.BtnH));
@@ -73,7 +73,7 @@ namespace SlopWorld
                 DrawPreview(content);
             }
 
-            DoFooter(UiWidgets.FooterBar(rect));
+            DoFooter(SettingsPageLayout.Footer(rect));
         }
 
         void DrawTabs(Rect r)
@@ -96,7 +96,7 @@ namespace SlopWorld
 
         void DrawEditor(Rect r)
         {
-            var view = UiScrollBody.View(r, _fieldsH);
+            var view = UiScrollBody.View(r, _height.BeginFrame(Time.frameCount));
             using (_scroll.Scope(r, view))
             {
 
@@ -140,7 +140,7 @@ namespace SlopWorld
                     "SLOPWORLD.md; this is where its read-only copy appears to the agent.");
                 UiWidgets.Note(l, "Agents still opt in per session with Mount SLOPWORLD.md.");
 
-                _fieldsH = l.CurHeight + UiWidgets.GapS;
+                _height.Measure(l.CurHeight + UiWidgets.GapS);
                 l.End();
             }
         }
@@ -202,7 +202,7 @@ namespace SlopWorld
 
             var box = new Rect(r.x, y, r.width, Mathf.Max(0f, r.yMax - y));
             Slab.Box(box, UiWidgets.Well, UiWidgets.Edge);
-            _preview.Draw(box.ContractedBy(UiWidgets.GapS));
+            _preview.Draw(SettingsPageLayout.Inset(box, UiWidgets.GapS));
         }
 
         string PreviewProjectName()

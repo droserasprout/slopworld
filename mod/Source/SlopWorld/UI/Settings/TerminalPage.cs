@@ -10,8 +10,8 @@ namespace SlopWorld
     public class TerminalPage : IOptionPage
     {
         readonly SmoothScroll _scroll = new SmoothScroll();
-        // Last frame's measured height for the field column, for the scroll view.
-        float _fieldsH;
+        readonly SettingsContentHeight _height = new SettingsContentHeight(400f);
+        readonly SettingsPreviewLayout _layout = new SettingsPreviewLayout();
 
         public void Load() { }
 
@@ -19,43 +19,50 @@ namespace SlopWorld
 
         public void Draw(Rect rect)
         {
-            var s = S;
+            using (WidgetState.Save()) DrawCore(rect);
+        }
+
+        void DrawCore(Rect rect)
+        {
             Text.Font = GameFont.Small;
-
-            // The one page of the four with no footer - nothing here is saved by a press, the
-            // settings file is written when the dialog closes - so its body takes the bar's
-            // room as well.
-            var body = UiWidgets.PageBody(rect);
-            body.height += UiWidgets.BtnH + UiWidgets.GapS;
-            var inner = body.ContractedBy(UiWidgets.GapM);
-
-            // Taken first: the cell size the preview is laid out from is settled inside the
-            // style's getter, and on the first frame there is no cell yet.
+            var inner = SettingsPageLayout.Body(rect, false);
             var style = TerminalFont.Style;
-
             float ph = Mathf.Clamp(
                 Mathf.Max(TerminalFont.CellH * PreviewRows + 10f, MatrixPreviewH),
                 MatrixPreviewH, MatrixPreviewMaxH);
-            var preview = new Rect(inner.x, inner.yMax - ph, inner.width, ph);
-            var caption = new Rect(inner.x, preview.y - UiWidgets.RowH - UiWidgets.GapXS,
-                inner.width, UiWidgets.RowH);
+            float formH = _height.BeginFrame(Time.frameCount);
+            float blockH = UiWidgets.RowH + UiWidgets.GapXS + ph;
+            bool stacked = inner.height < UiWidgets.RowH + UiWidgets.GapM + blockH;
+            float width = Mathf.Max(0f, inner.width - UiWidgets.ScrollbarW);
+            _layout.Arrange(stacked ? width : inner.width, inner.height, stacked, formH, ph, 0);
+            if (stacked)
+            {
+                var view = UiScrollBody.View(inner, formH + UiWidgets.GapM + blockH);
+                using (_scroll.Scope(inner, view))
+                {
+                    _height.Measure(DrawFields(SettingsPageLayout.ToRect(_layout.Form), S));
+                    DrawPreviewBlock(SettingsPageLayout.ToRect(_layout.PreviewCaption),
+                        SettingsPageLayout.ToRect(_layout.Preview));
+                }
+            }
+            else
+            {
+                var form = Place(inner, _layout.Form);
+                var view = UiScrollBody.View(form, formH);
+                using (_scroll.Scope(form, view))
+                    _height.Measure(DrawFields(view, S));
+                DrawPreviewBlock(Place(inner, _layout.PreviewCaption), Place(inner, _layout.Preview));
+            }
+        }
 
-            // The fields scroll if the room is short; the preview stays put at the foot.
-            var form = new Rect(inner.x, inner.y, inner.width,
-                caption.y - inner.y - UiWidgets.GapS);
-            var view = UiScrollBody.View(form, _fieldsH);
-            using (_scroll.Scope(form, view))
-                _fieldsH = DrawFields(view, s);
+        static Rect Place(Rect origin, UiLayoutRect local) =>
+            new Rect(origin.x + local.X, origin.y + local.Y, local.Width, local.Height);
 
-            // Re-taken: moving the slider invalidated the style a few lines up, so the one
-            // from before it is a size out of date and the preview would sit a frame behind
-            // the number over it.
-            style = TerminalFont.Style;
-
+        static void DrawPreviewBlock(Rect caption, Rect preview)
+        {
             Text.Font = GameFont.Small;
             UiWidgets.SectionHeading(caption, "Preview");
-
-            DrawPreview(preview, style);
+            DrawPreview(preview, TerminalFont.Style);
         }
 
         float DrawFields(Rect rect, ModSettings s)
@@ -179,6 +186,11 @@ namespace SlopWorld
         {
             var th = TerminalTheme.Current;
             Widgets.DrawBoxSolid(r, th.Bg);
+            if (r.width < 280f)
+            {
+                DrawTextPreview(r, style, th);
+                return;
+            }
 
             float cell = Mathf.Min(12f, (r.height - 8f) / (AnsiColors + 1f));
             cell = Mathf.Min(cell, (r.width - 160f) / (AnsiColors + 1f));

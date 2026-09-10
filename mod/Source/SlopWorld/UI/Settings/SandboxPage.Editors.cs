@@ -18,8 +18,10 @@ namespace SlopWorld
             var user = all.Where(p => p.Source != "system")
                 .OrderBy(p => p.Name == "global" ? 0 : 1)
                 .ThenBy(p => p.Name, System.StringComparer.OrdinalIgnoreCase).ToList();
-            float h = (system.Count + user.Count + 3) * UiWidgets.RowH;
-            var view = new Rect(0f, 0f, r.width - UiWidgets.ScrollbarW,
+            float h = (system.Count + user.Count + 2 +
+                (system.Count == 0 ? 1 : 0) + (user.Count == 0 ? 1 : 0)) * UiWidgets.RowH
+                + UiWidgets.GapS * 2f;
+            var view = new Rect(0f, 0f, Mathf.Max(0f, r.width - UiWidgets.ScrollbarW),
                 Mathf.Max(h, r.height));
             using (_listScroll.Scope(r, view))
             {
@@ -85,8 +87,9 @@ namespace SlopWorld
             var system = all.Where(c => c.Source == "system").ToList();
             var user = all.Where(c => c.Source != "system").ToList();
             float h = (system.Count + user.Count + 3) * UiWidgets.RowH;
-            var view = new Rect(0f, 0f, r.width - UiWidgets.ScrollbarW,
+            var view = new Rect(0f, 0f, Mathf.Max(0f, r.width - UiWidgets.ScrollbarW),
                 Mathf.Max(h, r.height));
+            view.height = Mathf.Max(r.height, h + UiWidgets.GapS + UiWidgets.BtnH);
             using (_listScroll.Scope(r, view))
             {
                 float y = 0f;
@@ -112,8 +115,8 @@ namespace SlopWorld
             }
             var p = _preset;
             bool editable = _newEntry || p.Source != "system";
-            var view = new Rect(0f, 0f, r.width - UiWidgets.ScrollbarW,
-                Mathf.Max(PresetEditorHeight(p, r.width - UiWidgets.ScrollbarW), r.height));
+            var view = new Rect(0f, 0f, Mathf.Max(0f, r.width - UiWidgets.ScrollbarW),
+                Mathf.Max(PresetEditorHeight(p, Mathf.Max(0f, r.width - UiWidgets.ScrollbarW)), r.height));
             using (_editorScroll.Scope(r, view))
             {
                 float y = DrawPresetFields(view, 0f, p, editable);
@@ -196,8 +199,8 @@ namespace SlopWorld
             }
             var c = _command;
             bool editable = _newEntry || c.Source != "system";
-            var view = new Rect(0f, 0f, r.width - UiWidgets.ScrollbarW,
-                Mathf.Max(CommandEditorHeight(c, r.width - UiWidgets.ScrollbarW), r.height));
+            var view = new Rect(0f, 0f, Mathf.Max(0f, r.width - UiWidgets.ScrollbarW),
+                Mathf.Max(CommandEditorHeight(c, Mathf.Max(0f, r.width - UiWidgets.ScrollbarW)), r.height));
             using (_editorScroll.Scope(r, view))
             {
                 float y = 0f;
