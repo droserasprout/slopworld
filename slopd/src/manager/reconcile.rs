@@ -1,7 +1,7 @@
 //! Configuration-to-live reconciliation.
 
 use super::super::*;
-use super::session_lifecycle::DetachCause;
+use super::session_lifecycle::{finish_reader, DetachCause, ReaderDisposition};
 
 /// Keeps the ordering of durable configuration reconciliation in one named owner. The manager
 /// remains the public façade because callers must not be able to skip pruning, manifest updates,
@@ -61,7 +61,7 @@ impl Manager {
     }
 
     pub(super) async fn prune_removed(self: &Arc<Self>, cfg: &Config) {
-        let plans = {
+        let mut plans = {
             let mut live = self.live.write().await;
             let names: Vec<String> = live
                 .iter()
@@ -85,6 +85,11 @@ impl Manager {
                 .collect::<Vec<_>>()
         };
 
+        // Abort the entire batch before cleanup can yield. Cancellation during one cleanup
+        // must not drop the remaining JoinHandles and detach readers with no live rows.
+        for plan in &mut plans {
+            finish_reader(std::mem::replace(&mut plan.reader, ReaderDisposition::None));
+        }
         for plan in plans {
             self.execute_cleanup(plan).await;
         }
@@ -178,6 +183,48 @@ impl Manager {
                     tracing::error!("autostart host terminal {}: {error:#}", tab.name);
                 }
             }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn cancelling_batch_cleanup_aborts_all_removed_readers() {
+        let manager = crate::session::test_manager(Config::default());
+        let mut completions = Vec::new();
+        for name in ["first", "second"] {
+            let (done, completion) = tokio::sync::oneshot::channel::<()>();
+            let mut live = Live::new(
+                SessionCfg {
+                    name: name.into(),
+                    ..Default::default()
+                },
+                TitleCapture::default(),
+            );
+            live.reader = Some(tokio::spawn(async move {
+                let _done = done;
+                std::future::pending::<()>().await;
+            }));
+            manager.live.write().await.insert(name.into(), live);
+            completions.push(completion);
+        }
+
+        // Keep cleanup from completing even if tmux activity clearing returns immediately.
+        let _temp = manager.temp.write().await;
+        let cfg = Config::default();
+        let mut pruning = Box::pin(manager.prune_removed(&cfg));
+        assert!(futures::poll!(pruning.as_mut()).is_pending());
+        assert!(manager.live.read().await.is_empty());
+        drop(pruning);
+
+        for completion in completions {
+            assert!(tokio::time::timeout(Duration::from_secs(1), completion)
+                .await
+                .expect("removed reader survived cancellation of batch cleanup")
+                .is_err());
         }
     }
 }
