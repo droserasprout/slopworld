@@ -211,8 +211,11 @@ pub(crate) fn command_help(command: &str) -> Option<&'static str> {
 }
 
 fn has_help(args: &[String]) -> bool {
-    args.iter()
-        .any(|arg| matches!(arg.as_str(), "-h" | "--help" | "help"))
+    // Everything after a task recipient or id may be literal task text.
+    matches!(
+        args.first().map(String::as_str),
+        Some("-h" | "--help" | "help")
+    )
 }
 
 pub(crate) fn parse_command(args: &[String]) -> Result<Command, String> {
@@ -286,7 +289,6 @@ pub(crate) fn parse_command(args: &[String]) -> Result<Command, String> {
 
 fn parse_spawn(args: &[String]) -> Result<Command, String> {
     let mut durable = false;
-    let mut positional = Vec::new();
     let mut i = 1;
     while i < args.len() {
         match args[i].as_str() {
@@ -294,17 +296,18 @@ fn parse_spawn(args: &[String]) -> Result<Command, String> {
             flag if flag.starts_with('-') => {
                 return Err(format!("unknown spawn option: {flag}\n\n{USAGE}"));
             }
-            value => positional.push(value.to_string()),
+            // The parent ends option parsing; the remainder is the task body.
+            _ => break,
         }
         i += 1;
     }
-    if positional.len() < 2 {
+    if args.len() < i + 2 {
         return Err(format!("spawn needs a parent and a task body\n\n{USAGE}"));
     }
     Ok(Command::Spawn {
-        parent: positional.remove(0),
+        parent: args[i].clone(),
         durable,
-        body: positional.join(" "),
+        body: args[i + 1..].join(" "),
     })
 }
 
