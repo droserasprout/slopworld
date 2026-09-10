@@ -370,6 +370,7 @@ namespace SlopWorld
                     editor.selectIndex = Mathf.Clamp(select, 0, source.Length);
                 }
                 if (editor != null) result = readOnly ? source : editor.text;
+                if (!readOnly) FieldFocusScope.Register(name, controlId, r);
 
                 if (prepared == TextFieldSelection.PrepareResult.MultiClick)
                     TextFieldSelection.FinishMultiClick(name, editor,

@@ -46,6 +46,7 @@ namespace SlopWorld
         // The bar's own geometry, kept from `Begin` because it is drawn in `End` - outside
         // the scroll view's group, which is the only place the outer rect means what it says.
         Rect _outer;
+        IDisposable _focusRegion;
         Vector2 _max;
         bool _bar;
         bool _preciseInput;
@@ -85,6 +86,7 @@ namespace SlopWorld
 
             BeginInput(outer, max, preciseInput);
             _bar = showScrollbars;
+            _focusRegion = FieldFocusScope.TrackScroll(this, outer);
 
             // Do the clip and translation ourselves. Unity's scroll view processes wheel
             // input inside its native implementation, and can write a one-notch position
@@ -114,6 +116,8 @@ namespace SlopWorld
 
         public void End()
         {
+            _focusRegion?.Dispose();
+            _focusRegion = null;
             EndInput();
             GUI.EndGroup();
             GUI.EndGroup();
