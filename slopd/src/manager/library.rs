@@ -1,8 +1,8 @@
 //! Projects, library, file actions and errands.
 
 use super::super::*;
-use std::process::Stdio;
 
+use crate::process::{self, CaptureLimits};
 use crate::sandbox::build_argv;
 use anyhow::anyhow;
 use tokio::process::Command;
@@ -310,43 +310,25 @@ impl Manager {
         Ok((p, s))
     }
 
-    async fn run_file_action_command(
-        argv: &[String],
-    ) -> Result<((Vec<u8>, bool), (Vec<u8>, bool), std::process::ExitStatus)> {
-        let mut child = Command::new(&argv[0])
-            .args(&argv[1..])
-            .kill_on_drop(true)
-            .stdin(Stdio::null())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()
-            .context("starting file action")?;
-        let stdout = child
-            .stdout
-            .take()
-            .context("capturing file action stdout")?;
-        let stderr = child
-            .stderr
-            .take()
-            .context("capturing file action stderr")?;
-
-        let collected = tokio::time::timeout(FILE_ACTION_TIMEOUT, async {
-            let stdout = read_action_output(stdout);
-            let stderr = read_action_output(stderr);
-            let status = child.wait();
-            let (stdout, stderr, status) = tokio::join!(stdout, stderr, status);
-            Ok::<_, anyhow::Error>((stdout?, stderr?, status?))
-        })
-        .await;
-
-        match collected {
-            Ok(result) => result,
-            Err(_) => {
-                let _ = child.kill().await;
-                let _ = child.wait().await;
-                bail!("file action timed out")
+    async fn run_file_action_command(argv: &[String]) -> Result<process::BoundedOutput> {
+        let mut command = Command::new(&argv[0]);
+        command.args(&argv[1..]);
+        process::run_bounded(
+            &mut command,
+            FILE_ACTION_TIMEOUT,
+            CaptureLimits {
+                stdout: FILE_ACTION_STREAM_LIMIT,
+                stderr: FILE_ACTION_STREAM_LIMIT,
+            },
+        )
+        .await
+        .map_err(|error| {
+            if error.downcast_ref::<process::TimedOut>().is_some() {
+                anyhow!("file action timed out")
+            } else {
+                error.context("starting file action")
             }
-        }
+        })
     }
 
     fn format_file_action_result(
@@ -388,9 +370,14 @@ impl Manager {
             crate::sandbox::prepare_network(cfg, s, p)?;
             build_argv(cfg, s, p)?
         };
-        let ((stdout, stdout_truncated), (stderr, stderr_truncated), status) =
-            Self::run_file_action_command(&argv).await?;
-        Self::format_file_action_result(stdout, stderr, stdout_truncated, stderr_truncated, status)
+        let output = Self::run_file_action_command(&argv).await?;
+        Self::format_file_action_result(
+            output.stdout,
+            output.stderr,
+            output.stdout_truncated,
+            output.stderr_truncated,
+            output.status,
+        )
     }
 
     pub async fn file_action(

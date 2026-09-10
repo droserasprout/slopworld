@@ -13,6 +13,7 @@ mod manifest;
 mod paths;
 mod perf;
 mod presets;
+mod process;
 mod runtime;
 mod sandbox;
 mod session;

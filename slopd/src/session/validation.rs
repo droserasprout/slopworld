@@ -261,27 +261,6 @@ pub(super) fn normalize_action_command(path: &Path, command: &str) -> String {
     command.replace("{{ absolute_path }}", &absolute)
 }
 
-pub(super) async fn read_action_output<R: AsyncRead + Unpin>(
-    mut stream: R,
-) -> Result<(Vec<u8>, bool)> {
-    let mut output = Vec::new();
-    let mut truncated = false;
-    let mut buffer = [0u8; 4096];
-    loop {
-        let read = stream.read(&mut buffer).await?;
-        if read == 0 {
-            break;
-        }
-        let room = FILE_ACTION_STREAM_LIMIT.saturating_sub(output.len());
-        let take = room.min(read);
-        output.extend_from_slice(&buffer[..take]);
-        if take < read {
-            truncated = true;
-        }
-    }
-    Ok((output, truncated))
-}
-
 pub(crate) fn validate_config(cfg: &Config) -> Result<()> {
     crate::config::validate_project_names(&cfg.projects)?;
     cfg.daemon
