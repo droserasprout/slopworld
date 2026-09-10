@@ -90,6 +90,9 @@ Color names resolve through `UIScheme` ([mod-ui-identity](mod-ui-identity.md)); 
   invalidate layout separately while scheme colors only repaint. `UiComposition` provides the
   pure row/column measure-and-arrange math; Appearance caches its arranged form/preview bounds
   and switches to one scrollable column when the viewport is short.
+- `SandboxEditorLayout` owns the sandbox preset/command editor's row geometry and final content
+  extent. `SandboxPage` owns deferred control painting, draft setenv text, list parsing and
+  catalog actions.
 - Appearance and Terminal both use `SettingsPreviewLayout` for form/preview arrangement. Their
   scroll lifetimes and preview drawing remain feature-owned because they have different content
   measurement and rendering policy; no duplicate preview host lifecycle remains to extract.
