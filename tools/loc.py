@@ -216,19 +216,15 @@ def tracked(paths):
     return [Path(p) for p in out.split("\0") if p]
 
 
-def main(argv):
-    docs = "--docs" in argv
-    least = next((int(a.split("=")[1]) for a in argv if a.startswith("--min=")), 1)
-    paths = [a for a in argv if not a.startswith("-")]
-    if "--comments" in argv:
-        return show(paths, least)
+def measure(paths, docs=False, languages=None):
+    """Returns per-language ``[files, lines, blank, comment, code]`` totals."""
     rows = {}
     for path in tracked(paths):
         found = syntax_for(path)
         if not found:
             continue
         lang, syn = found
-        if lang in DOCS and not docs:
+        if (lang in DOCS and not docs) or (languages is not None and lang not in languages):
             continue
         if not path.is_file():  # a symlink to something outside the tree
             continue
@@ -236,6 +232,16 @@ def main(argv):
         row[0] += 1
         for i, n in enumerate(count(path, syn)):
             row[i + 1] += n
+    return rows
+
+
+def main(argv):
+    docs = "--docs" in argv
+    least = next((int(a.split("=")[1]) for a in argv if a.startswith("--min=")), 1)
+    paths = [a for a in argv if not a.startswith("-")]
+    if "--comments" in argv:
+        return show(paths, least)
+    rows = measure(paths, docs=docs)
 
     head = ("language", "files", "lines", "blank", "comment", "code")
     width = max([len(head[0])] + [len(l) for l in rows]) if rows else len(head[0])

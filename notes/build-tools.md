@@ -24,6 +24,8 @@ are house-style heuristics, not calibrated measures of prose quality.
   stripped and neighbouring lines joined, and `--min=N` keeps only blocks of N
   lines or more - which is how the paragraphs that have grown into documentation
   are found and moved here.
+- `make loc-report` records the tracked Python, C#, and Rust counts in a dated note under
+  `notes/`. `LOC_REPORT_ARGS=--output path.md` selects a custom output path.
 - `tools/roboface.py` - draws the agent faceplates into `mod/Textures/`.
 - `tools/fileicons.py` - bakes the files view's icons into `mod/Textures/`.
 - `tools/icons.py` (`make icons`) - bakes the action icons out of a Nerd Font's
