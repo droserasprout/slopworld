@@ -39,6 +39,9 @@ spacing, buttons, fields, headings and errors. Color names resolve through
   jumps a selected row into view. Brief frame stalls preserve cumulative touchpad movement;
   a logical wheel packet is suppressed only after a precise sample was claimed, or when it
   is the matching delayed packet from the preceding frame. Vertical scroll only.
+- `ScrollableListing` retains a `SmoothScroll` and frame-stable `SettingsContentHeight` for
+  `Listing_Standard` forms. Its optional trailing callback is measured inside the same view;
+  footers, overlays and page data remain with their hosts.
 - Sidebar resizing, scrollbars and the terminal divider honor Unity's `hotControl` capture.
   Replaying a consumed mouse-down cannot start a second drag; hiding the sidebar releases
   its resize capture.
