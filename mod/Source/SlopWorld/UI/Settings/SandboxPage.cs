@@ -101,46 +101,51 @@ namespace SlopWorld
             }
             else
             {
-                if (_section == Section.Presets) DoPresets(inner);
-                else DoCommands(inner);
+                DoSection(inner);
             }
             DoFooter(UiWidgets.FooterBar(rect));
         }
 
-        void DoPresets(Rect r)
+        void DoSection(Rect r)
         {
-            UiWidgets.SectionHeading(new Rect(r.x, r.y, r.width, UiWidgets.RowH), "Presets");
-            var caption = "System presets are supplied by slopd. Copy one to the user list to edit it; user presets can also be new entries.";
+            bool presets = _section == Section.Presets;
+            string heading = presets ? "Presets" : "Commands";
+            string caption = presets
+                ? "System presets are supplied by slopd. Copy one to the user list to edit it; user presets can also be new entries."
+                : "Commands say what an agent runs and which presets it requires. Copy a system command to make a user override.";
+            UiWidgets.SectionHeading(new Rect(r.x, r.y, r.width, UiWidgets.RowH), heading);
+
             float y = r.y + UiWidgets.RowH + UiWidgets.GapXS;
-            float newW = UiWidgets.BtnW("New user preset", 142f);
-            float captionW = r.width - newW - UiWidgets.GapS;
-            float h = UiWidgets.StatusLabelHeight(caption, captionW);
-            UiWidgets.StatusLabel(new Rect(r.x, y, captionW, h), caption, UiWidgets.Dim);
-            if (UiWidgets.Button(new Rect(r.xMax - newW, y, newW, UiWidgets.BtnH),
+            float actionWidth = presets ? UiWidgets.BtnW("New user preset", 142f) : 0f;
+            float captionWidth = presets
+                ? Mathf.Max(0f, r.width - actionWidth - UiWidgets.GapS)
+                : r.width;
+            float captionHeight = UiWidgets.StatusLabelHeight(caption, captionWidth);
+            float rowHeight = Mathf.Max(captionHeight, presets ? UiWidgets.BtnH : 0f);
+            UiWidgets.StatusLabel(new Rect(r.x, y, captionWidth, captionHeight), caption,
+                UiWidgets.Dim);
+            if (presets && UiWidgets.Button(
+                    new Rect(r.xMax - actionWidth, y, actionWidth, UiWidgets.BtnH),
                     "New user preset", UiWidgets.Btn.Primary))
                 NewPreset();
-            y += h + UiWidgets.GapS;
-            var content = new Rect(r.x, y, r.width, r.yMax - y);
-            float detailW = Mathf.Min(590f, content.width * .60f);
-            float listW = content.width - detailW - UiWidgets.GapM;
-            DrawPresetList(new Rect(content.x, content.y, listW, content.height));
-            DrawPresetEditor(new Rect(content.x + listW + UiWidgets.GapM, content.y, detailW, content.height));
+
+            y += rowHeight + UiWidgets.GapS;
+            var content = new UiLayoutRect(r.x, y, r.width, Mathf.Max(0f, r.yMax - y));
+            var split = SandboxLayout.Arrange(content, UiWidgets.GapM);
+
+            if (presets)
+            {
+                DrawPresetList(ToRect(split.List));
+                DrawPresetEditor(ToRect(split.Editor));
+            }
+            else
+            {
+                DrawCommandList(ToRect(split.List));
+                DrawCommandEditor(ToRect(split.Editor));
+            }
         }
 
-        void DoCommands(Rect r)
-        {
-            UiWidgets.SectionHeading(new Rect(r.x, r.y, r.width, UiWidgets.RowH), "Commands");
-            var caption = "Commands say what an agent runs and which presets it requires. Copy a system command to make a user override.";
-            float y = r.y + UiWidgets.RowH + UiWidgets.GapXS;
-            float h = UiWidgets.StatusLabelHeight(caption, r.width);
-            UiWidgets.StatusLabel(new Rect(r.x, y, r.width, h), caption, UiWidgets.Dim);
-            y += h + UiWidgets.GapS;
-            var content = new Rect(r.x, y, r.width, r.yMax - y);
-            float detailW = Mathf.Min(590f, content.width * .60f);
-            float listW = content.width - detailW - UiWidgets.GapM;
-            DrawCommandList(new Rect(content.x, content.y, listW, content.height));
-            DrawCommandEditor(new Rect(content.x + listW + UiWidgets.GapM, content.y, detailW, content.height));
-        }
+        static Rect ToRect(UiLayoutRect r) => new Rect(r.X, r.Y, r.Width, r.Height);
 
     }
 }
