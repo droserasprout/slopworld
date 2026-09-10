@@ -8,7 +8,9 @@ spacing, buttons, fields, headings and errors. Color names resolve through
 - Measure text with `LineHOf`, `Wide`, `RowLabel` and `StatusLabelHeight`. `GameFont.Tiny` may
   draw as Small, and wrapping changes its measurement. `RowLabel` supplies the middle anchor
   and disables wrapping; `StatusLabel` supplies scheme color, font, anchor and wrapping for
-  ordinary status blocks. Use `Widgets.Label` directly only for custom Markdown, terminal,
+  ordinary status blocks. `RowLabel` has one geometry path for truncation, vertical placement,
+  pixel snapping and widget-state restoration; italic preview labels only replace the final
+  draw style. Use `Widgets.Label` directly only for custom Markdown, terminal,
   tooltip or selection rendering. `UiFont` gives every UI tier bottom safety space and overflow
   clipping so dynamic-font descenders survive tight label, tooltip and field rects. Shared gaps
   are `GapXS`, `GapS`, `GapM` and `GapL`.
