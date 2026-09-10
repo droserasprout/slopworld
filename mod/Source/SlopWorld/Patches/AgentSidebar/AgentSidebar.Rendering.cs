@@ -18,27 +18,7 @@ namespace SlopWorld
 
             Grip();
             if (AddClick()) return;
-            switch (CurrentTab)
-            {
-                case SidebarTab.Files:
-                    if (!ClickRouted()) FilesView.Clicks();
-                    break;
-                case SidebarTab.Search:
-                    SearchView.Clicks();
-                    break;
-                case SidebarTab.Git:
-                    if (!ClickRouted()) GitView.Clicks();
-                    break;
-                case SidebarTab.Library:
-                    LibraryView.Clicks();
-                    break;
-                case SidebarTab.Tasks:
-                    TasksView.Clicks();
-                    break;
-                default:
-                    Menus();
-                    break;
-            }
+            CurrentDefinition.Click();
             Absorb();
         }
 
@@ -88,29 +68,8 @@ namespace SlopWorld
             var panel = Panel;
             Slab.Fill(panel, UiWidgets.Panel);
 
-            switch (CurrentTab)
-            {
-                case SidebarTab.Agents:
-                    DrawAgentTab();
-                    return;
-                case SidebarTab.Files:
-                    float filesHeight = DrawRouted(Body, SidebarTab.Files);
-                    FilesView.Draw(TreeBody(Body, filesHeight));
-                    break;
-                case SidebarTab.Search:
-                    SearchView.Draw(Body);
-                    break;
-                case SidebarTab.Git:
-                    float gitHeight = DrawRouted(Body, SidebarTab.Git);
-                    GitView.Draw(TreeBody(Body, gitHeight));
-                    break;
-                case SidebarTab.Library:
-                    LibraryView.Draw(Body);
-                    break;
-                case SidebarTab.Tasks:
-                    TasksView.Draw(Body);
-                    break;
-            }
+            CurrentDefinition.Draw();
+            if (CurrentTab == SidebarTab.Agents) return;
 
             DrawChromeAndClicks();
         }
