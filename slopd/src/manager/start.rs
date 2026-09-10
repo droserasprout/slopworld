@@ -1,6 +1,9 @@
 //! Session target preparation and process startup.
 
 use super::super::*;
+use super::session_lifecycle::{
+    finish_reader, reset_process_state, take_reader_for_abort, ReaderDisposition,
+};
 use crate::sandbox::build_argv;
 use anyhow::{anyhow, Context};
 
@@ -208,31 +211,23 @@ impl Manager {
 
         self.clear_activity(name).await;
         let auto_resume_pending = !plan.host && plan.session.auto_resume && !plan.is_worker();
-        let (title_was_cleared, run_id) = {
+        let (title_was_cleared, run_id, replaced_reader) = {
             let mut live = self.live.write().await;
             if let Some(live) = live.get_mut(name) {
                 let had_title = live.title.override_title.is_some();
-                live.state = State::Down;
-                live.process_running = false;
+                let replaced_reader = take_reader_for_abort(live);
+                reset_process_state(live);
                 live.last_change = 0;
                 live.state_since = 0;
-                live.title = TitleCapture::default();
                 live.auto_resume_pending = auto_resume_pending;
                 live.run_id = live.run_id.wrapping_add(1);
-                (had_title, live.run_id)
+                (had_title, live.run_id, replaced_reader)
             } else {
-                (false, 0)
+                (false, 0, ReaderDisposition::None)
             }
         };
-        if let Err(error) = self.title_cache.clear_latest(name) {
-            tracing::warn!(
-                target: "slopd::titles",
-                session = %name,
-                error = %error,
-                outcome = "cache_write_failed",
-                "could not clear session title before start"
-            );
-        }
+        finish_reader(replaced_reader);
+        self.clear_latest_title(name);
         if title_was_cleared || auto_resume_pending {
             self.emit(Event::Sessions {
                 sessions: self.views().await,

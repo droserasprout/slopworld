@@ -275,6 +275,7 @@ fn spawn_control_reader(master: std::fs::File) -> mpsc::UnboundedReceiver<Vec<u8
 
 #[cfg(test)]
 mod tests {
+    use super::super::session_lifecycle::{DetachCause, ReaderDisposition};
     use super::*;
     use std::io::Write;
     use std::os::fd::OwnedFd;
@@ -411,6 +412,54 @@ mod tests {
             .reader_token
             .as_ref()
             .is_some_and(|token| Arc::ptr_eq(token, &current)));
+    }
+
+    #[tokio::test]
+    async fn current_reader_exit_resets_durable_process_state_once() {
+        let manager = crate::session::test_manager(Config::default());
+        let reader_token = Arc::new(());
+        let mut live = Live::new(
+            SessionCfg {
+                name: "agent".into(),
+                ..Default::default()
+            },
+            TitleCapture::default(),
+        );
+        live.state = State::Working;
+        live.bell = true;
+        live.auto_resume_pending = true;
+        live.emu = Some(Arc::new(Mutex::new(SessionEmu::new(80, 24))));
+        live.reader_token = Some(reader_token.clone());
+        live.reader = Some(tokio::spawn(std::future::pending()));
+        live.input = Some(mpsc::unbounded_channel().0);
+        manager.live.write().await.insert("agent".into(), live);
+
+        let plan = {
+            let mut live = manager.live.write().await;
+            manager.detach_live_locked(
+                &mut live,
+                "agent",
+                DetachCause::ProcessExit { reader_token },
+            )
+        };
+        assert!(matches!(
+            plan.as_ref().map(|plan| &plan.reader),
+            Some(ReaderDisposition::CompletingCurrent(_))
+        ));
+
+        {
+            let live = manager.live.read().await;
+            let live = &live["agent"];
+            assert_eq!(live.state, State::Down);
+            assert!(!live.bell);
+            assert!(!live.auto_resume_pending);
+            assert!(live.emu.is_none());
+            assert!(live.reader_token.is_none());
+            assert!(live.input.is_none());
+        }
+
+        manager.execute_cleanup(plan.unwrap()).await;
+        assert!(manager.live.read().await.contains_key("agent"));
     }
 
     #[test]

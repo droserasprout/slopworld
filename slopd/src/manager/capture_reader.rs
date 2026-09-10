@@ -1,5 +1,8 @@
 //! tmux control-mode reader lifecycle.
 
+use super::super::session_lifecycle::{
+    finish_reader, reader_owned_by, replace_reader, ReaderDisposition,
+};
 use super::*;
 use std::sync::atomic::AtomicBool;
 use std::time::Instant;
@@ -65,7 +68,7 @@ impl Manager {
             })
         };
 
-        {
+        let replaced_reader = {
             let mut live = self.live.write().await;
             match live.get_mut(name) {
                 // Recheck under the write lock because capture awaits; abort this attach if
@@ -74,16 +77,15 @@ impl Manager {
                 Some(l) if l.emu.is_none() => {
                     l.emu = Some(emu.clone());
                     l.reader_token = Some(reader_token.clone());
-                    if let Some(stale) = l.reader.replace(handle) {
-                        stale.abort();
-                    }
+                    replace_reader(l, handle)
                 }
                 _ => {
-                    handle.abort();
+                    finish_reader(ReaderDisposition::Abort(handle));
                     return Ok(false);
                 }
             }
-        }
+        };
+        finish_reader(replaced_reader);
 
         let _ = start_tx.send(());
         match ready_rx.await {
@@ -94,8 +96,7 @@ impl Manager {
                     .read()
                     .await
                     .get(name)
-                    .and_then(|l| l.reader_token.as_ref())
-                    .is_some_and(|current| Arc::ptr_eq(current, &reader_token))
+                    .is_some_and(|live| reader_owned_by(live, &reader_token))
                 {
                     Ok(true)
                 } else {

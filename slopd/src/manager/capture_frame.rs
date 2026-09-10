@@ -1,5 +1,6 @@
 //! Emulator frames, state transitions, and session-down cleanup.
 
+use super::super::session_lifecycle::DetachCause;
 use super::*;
 
 impl Manager {
@@ -167,62 +168,18 @@ impl Manager {
     }
 
     pub(crate) async fn mark_down(self: &Arc<Self>, name: &str, reader_token: &Arc<()>) {
-        if self.is_ephemeral(name).await && !self.is_host(name).await {
-            self.forget_from_reader(name, reader_token).await;
-            return;
-        }
-
-        let mut worker_task = None;
-        {
+        let plan = {
             let mut live = self.live.write().await;
-            let Some(l) = live.get_mut(name) else {
-                return;
-            };
-            if !l
-                .reader_token
-                .as_ref()
-                .is_some_and(|current| Arc::ptr_eq(current, reader_token))
-            {
-                return;
-            }
-            if l.cfg.worker {
-                worker_task = Some(l.cfg.task_id.clone());
-            }
-            l.set_state(State::Down);
-            l.process_running = false;
-            l.auto_resume_pending = false;
-            l.bell = false;
-            l.screen = None;
-            l.emu = None;
-            // The generated title belongs to the process that just exited;
-            // the downed session should fall back to its ordinary label.
-            // Resetting the generation also rejects a late worker result.
-            l.title = TitleCapture::default();
-            l.reader_token = None;
-            // This is the reader's own task. Taking and dropping its JoinHandle releases
-            // the slot without aborting the task before the cleanup below can finish.
-            drop(l.reader.take());
-        }
-        self.forget_scroll(name);
-        // The process is already gone. Publish that fact before cleanup: clearing activity
-        // may ask tmux about a session that disappeared with the process, and must not delay
-        // the client's next session snapshot.
-        self.emit(Event::Sessions {
-            sessions: self.views().await,
-        });
-        self.clear_activity(name).await;
-        if let Err(error) = self.title_cache.clear_latest(name) {
-            tracing::warn!(
-                target: "slopd::titles",
-                session = %name,
-                error = %error,
-                outcome = "cache_write_failed",
-                "could not clear session title"
-            );
-        }
-        if let Some(task_id) = worker_task {
-            self.fail_worker_task(&task_id, format!("worker session {name} exited"));
-            self.revoke_grants(name).await;
+            self.detach_live_locked(
+                &mut live,
+                name,
+                DetachCause::ProcessExit {
+                    reader_token: reader_token.clone(),
+                },
+            )
+        };
+        if let Some(plan) = plan {
+            self.execute_cleanup(plan).await;
         }
     }
 }
