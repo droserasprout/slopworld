@@ -20,6 +20,10 @@ can temporarily become the tree root.
 - `Lines` is the post-layout hit-test table. `ContentTreeView` keeps the full height but paints
   only rows near the viewport, while `Screen` applies scroll offset and omits offscreen rows;
   do not hit-test against drawing-time geometry.
+- `ContentTreeController` owns Files' project-heading folds, semantic selection key, group
+  pruning and tree revision. A refresh can replace nodes without losing the selected path or
+  surviving project folds; a temporary storage root does not discard project fold state.
+  Lazy loading, node expansion, browse invalidation and viewer storage remain Files-owned.
 - Empty directories remain right-clickable rows. Hover exposes view/edit/diff actions;
   diff is offered only for paths already present in Git's working-tree result.
 - Context menus support copy paths, MIME-associated host applications for files and
