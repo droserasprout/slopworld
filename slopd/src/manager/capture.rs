@@ -101,6 +101,7 @@ struct ActivityDelta {
 struct FrameDelta {
     content_hash: u64,
     plain: Arc<String>,
+    activity_changed: bool,
     screen_changed: bool,
     next_state: State,
     title_moved: bool,
@@ -610,6 +611,50 @@ mod tests {
             matches!(events.try_recv(), Ok(event) if matches!(event.event(), Event::Sessions { .. }))
         );
         assert!(events.try_recv().is_err());
+    }
+
+    #[tokio::test]
+    async fn cursor_only_frame_does_not_keep_a_quiet_session_working() {
+        let manager = crate::session::test_manager(Config::default());
+        manager.live.write().await.insert(
+            "agent".into(),
+            Live::new(
+                SessionCfg {
+                    name: "agent".into(),
+                    ..Default::default()
+                },
+                TitleCapture::default(),
+            ),
+        );
+
+        let frame = |cx| Frame {
+            lines: vec!["same".into()],
+            content_hash: 7,
+            history: 0,
+            cx,
+            cy: 0,
+            cursor_shape: 2,
+            cursor_blink: false,
+            app_mouse: false,
+            app_drag: false,
+            alt_screen: false,
+            title: "agent".into(),
+            bell: false,
+        };
+
+        manager.apply_frame("agent", frame(1)).await;
+        {
+            let mut live = manager.live.write().await;
+            live.get_mut("agent").unwrap().last_change = 0;
+        }
+        manager.apply_frame("agent", frame(4)).await;
+
+        let live = manager.live.read().await;
+        let live = live.get("agent").unwrap();
+        assert_eq!(live.state, State::Idle);
+        assert_eq!(live.last_change, 0);
+        assert_eq!(live.seq, 2);
+        assert_eq!(live.screen.as_ref().unwrap().cx, 4);
     }
 
     #[tokio::test]

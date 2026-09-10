@@ -11,7 +11,8 @@ keeping a working agent in `waiting`.
 
 ## State clocks
 
-`last_change` records pane redraws and decides when a quiet pane becomes idle.
+`last_change` records pane content, mode, or title redraws and decides when a quiet pane becomes
+idle. Cursor-position-only redraws update the screen but do not reset that activity clock.
 `state_since` tracks time in the current state. All transitions must use
 `Live::set_state` so frequent redraws cannot reset the state age.
 

@@ -52,14 +52,17 @@ impl Manager {
             alt_screen: frame.alt_screen,
             title: frame.title.clone(),
         };
-        let changed = !previous.initial
-            && (content_hash != previous.content_hash
-                || (frame.cx, frame.cy) != previous.cursor
-                || meta != previous.meta);
+        let content_changed = previous.initial || content_hash != previous.content_hash;
+        let cursor_changed = !previous.initial && (frame.cx, frame.cy) != previous.cursor;
+        let metadata_changed = !previous.initial && meta != previous.meta;
+        // Cursor movement is presentation state, not pane activity. It is common for a TUI to
+        // reposition its cursor while otherwise quiet; counting that as a redraw keeps resetting
+        // the idle clock without changing the visible terminal content.
+        let activity_changed = content_changed || metadata_changed;
+        let screen_changed = content_changed || cursor_changed || metadata_changed;
         // Cursor/mode/title-only frames still need classification, but their visible text is
         // unchanged. Reuse the last stripped text instead of joining and stripping the full
         // terminal viewport again.
-        let content_changed = previous.initial || content_hash != previous.content_hash;
         crate::perf::count(
             if content_changed {
                 "frame-content-changed"
@@ -76,13 +79,15 @@ impl Manager {
         let next_state = if previous.initial {
             self.classify_initial(previous.state, &plain).await
         } else {
-            self.classify(changed, previous.last_change, &plain).await
+            self.classify(activity_changed, previous.last_change, &plain)
+                .await
         };
 
         FrameDelta {
             content_hash,
             plain,
-            screen_changed: previous.initial || changed,
+            activity_changed,
+            screen_changed,
             next_state,
             title_moved: meta.title != previous.meta.title,
             bell: frame.bell,
@@ -122,7 +127,7 @@ impl Manager {
             let Some(l) = live.get_mut(name) else { return };
             l.hash = delta.content_hash;
             l.seq += 1;
-            if delta.screen_changed && !previous.initial {
+            if delta.activity_changed && !previous.initial {
                 l.last_change = now_ms();
             } else if previous.initial {
                 // The first capture is a snapshot, not a new pane update. Keep the cached
