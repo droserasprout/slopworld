@@ -14,12 +14,19 @@ namespace SlopWorld
             var data = KeyPrefs.KeyPrefsData;
             if (binding == null || data == null) return "(none)";
 
-            string a = Key(data.GetBoundKeyCode(binding, KeyPrefs.BindingSlot.A));
-            string b = Key(data.GetBoundKeyCode(binding, KeyPrefs.BindingSlot.B));
+            string a = Format(binding, data.GetBoundKeyCode(binding, KeyPrefs.BindingSlot.A));
+            string b = Format(binding, data.GetBoundKeyCode(binding, KeyPrefs.BindingSlot.B));
             if (string.IsNullOrEmpty(a) && string.IsNullOrEmpty(b)) return "(none)";
             if (string.IsNullOrEmpty(b)) return a;
             if (string.IsNullOrEmpty(a)) return b;
             return $"{a} / {b}";
+        }
+
+        static string Format(KeyBindingDef binding, KeyCode key)
+        {
+            string label = Key(key);
+            if (string.IsNullOrEmpty(label)) return "";
+            return binding == ModDefOf.SlopCommandPalette ? "Ctrl+" + label : label;
         }
 
         public static string Key(KeyCode key)
@@ -45,6 +52,7 @@ namespace SlopWorld
                 case KeyCode.Period: return ".";
                 case KeyCode.Slash: return "/";
                 case KeyCode.Semicolon: return ";";
+                case KeyCode.BackQuote: return "`";
                 case KeyCode.LeftShift:
                 case KeyCode.RightShift: return "Shift";
                 case KeyCode.LeftAlt:

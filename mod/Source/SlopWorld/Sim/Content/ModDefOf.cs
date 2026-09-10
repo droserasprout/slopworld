@@ -45,25 +45,25 @@ namespace SlopWorld
         /// Toggles the window-manager fullscreen state.
         public static KeyBindingDef SlopToggleFullscreen;
 
-        /// F1: command palette, VSCode-style.
+        /// Ctrl+backquote: command palette, VSCode-style.
         public static KeyBindingDef SlopCommandPalette;
 
-        /// F2: focus the agents view in the sidebar.
+        /// F1: focus the agents view in the sidebar.
         public static KeyBindingDef SlopSidebarAgents;
 
-        /// F3: focus the files view in the sidebar.
+        /// F2: focus the files view in the sidebar.
         public static KeyBindingDef SlopSidebarFiles;
 
-        /// F4: focus the search view in the sidebar.
+        /// F3: focus the search view in the sidebar.
         public static KeyBindingDef SlopSidebarSearch;
 
-        /// F5: focus the git view in the sidebar.
+        /// F4: focus the git view in the sidebar.
         public static KeyBindingDef SlopSidebarGit;
 
-        /// F6: focus the tasks view in the sidebar.
+        /// F5: focus the tasks view in the sidebar.
         public static KeyBindingDef SlopSidebarTasks;
 
-        /// F7: focus the Library view in the sidebar.
+        /// F6: focus the Library view in the sidebar.
         public static KeyBindingDef SlopSidebarLibrary;
 
         /// Player pawn action: path to the cursor.

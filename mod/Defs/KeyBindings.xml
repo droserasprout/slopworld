@@ -69,12 +69,12 @@
     <defaultKeyCodeA>T</defaultKeyCodeA>
   </KeyBindingDef>
 
-  <!-- F1: command palette, VSCode-style. -->
+  <!-- Ctrl+backquote: command palette, VSCode-style. The key portion remains rebindable. -->
   <KeyBindingDef>
     <defName>SlopCommandPalette</defName>
     <label>Command palette</label>
     <category>SlopInterface</category>
-    <defaultKeyCodeA>F1</defaultKeyCodeA>
+    <defaultKeyCodeA>BackQuote</defaultKeyCodeA>
   </KeyBindingDef>
 
   <!-- S is free after StripKeys leaves only arrow keys on the camera. -->
@@ -130,48 +130,48 @@
     <defaultKeyCodeA>F11</defaultKeyCodeA>
   </KeyBindingDef>
 
-  <!-- F2 through F7: focus the sidebar views in their left-to-right order. Bare key = sidebar;
+  <!-- F1 through F6: focus the sidebar views in their left-to-right order. Bare key = sidebar;
        Shift+F = that F-key passes through to the agent/tui. -->
   <KeyBindingDef>
     <defName>SlopSidebarAgents</defName>
     <label>Sidebar: agents view</label>
     <category>SlopNavigation</category>
-    <defaultKeyCodeA>F2</defaultKeyCodeA>
+    <defaultKeyCodeA>F1</defaultKeyCodeA>
   </KeyBindingDef>
 
   <KeyBindingDef>
     <defName>SlopSidebarFiles</defName>
     <label>Sidebar: files view</label>
     <category>SlopNavigation</category>
-    <defaultKeyCodeA>F3</defaultKeyCodeA>
+    <defaultKeyCodeA>F2</defaultKeyCodeA>
   </KeyBindingDef>
 
   <KeyBindingDef>
     <defName>SlopSidebarSearch</defName>
     <label>Sidebar: search view</label>
     <category>SlopNavigation</category>
-    <defaultKeyCodeA>F4</defaultKeyCodeA>
+    <defaultKeyCodeA>F3</defaultKeyCodeA>
   </KeyBindingDef>
 
   <KeyBindingDef>
     <defName>SlopSidebarGit</defName>
     <label>Sidebar: Git view</label>
     <category>SlopNavigation</category>
-    <defaultKeyCodeA>F5</defaultKeyCodeA>
+    <defaultKeyCodeA>F4</defaultKeyCodeA>
   </KeyBindingDef>
 
   <KeyBindingDef>
     <defName>SlopSidebarTasks</defName>
     <label>Sidebar: tasks view</label>
     <category>SlopNavigation</category>
-    <defaultKeyCodeA>F6</defaultKeyCodeA>
+    <defaultKeyCodeA>F5</defaultKeyCodeA>
   </KeyBindingDef>
 
   <KeyBindingDef>
     <defName>SlopSidebarLibrary</defName>
     <label>Sidebar: library view</label>
     <category>SlopNavigation</category>
-    <defaultKeyCodeA>F7</defaultKeyCodeA>
+    <defaultKeyCodeA>F6</defaultKeyCodeA>
   </KeyBindingDef>
 
 </Defs>

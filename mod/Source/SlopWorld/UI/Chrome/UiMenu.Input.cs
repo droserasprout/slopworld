@@ -19,7 +19,7 @@ namespace SlopWorld
         // Keyboard navigation belongs to the menu rather than the control that opened it.
         // Use rawType because an absorbing window may consume event.type before this body
         // runs. Unhandled keys still dismiss the menu and remain unused, so a global shortcut
-        // such as F1 can act on the same press.
+        // such as an interface shortcut can act on the same press.
         bool HandleKeyboard()
         {
             // Accept is dispatched by WindowStack before window contents. The menu handles

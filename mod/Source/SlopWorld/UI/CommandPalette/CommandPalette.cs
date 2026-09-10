@@ -7,7 +7,7 @@ using Verse;
 
 namespace SlopWorld
 {
-    // F1 opens a filtered command palette; all window and button actions, including nested selections, are registered here.
+    // Ctrl+backquote opens a filtered command palette; all window and button actions, including nested selections, are registered here.
     public partial class CommandPalette : Window
     {
         const float Width = 520f;
