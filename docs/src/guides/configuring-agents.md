@@ -64,12 +64,11 @@ and `{{ file }}`; it is pasted into an opted-in agent's first prompt. The Previe
 unsaved body text for a selected project.
 
 These settings live under `[daemon.instructions]`: `template`, `mount_path`,
-`breadcrumb`, `breadcrumb_enabled`, `worker_prompt`, and `worker_breadcrumb`. Use Settings'
-reset actions for current defaults. `worker_prompt` is submitted to each spawned task worker
-and can refer to `$SLOPWORLD_TASK_ID`; `worker_breadcrumb` is pasted before its first prompt
-when breadcrumb delivery is enabled and may be blank. The feature switches live under
-`[daemon]` as `experimental_instructions` and `experimental_breadcrumbs`; Settings >
-Integrations > Workers places the two worker fields under their respective gates. See
+`breadcrumb`, `breadcrumb_enabled`, and `worker_prompt`. Use Settings' reset actions for
+current defaults. `worker_prompt` is submitted to each spawned task worker and can refer to
+`$SLOPWORLD_TASK_ID`; its default includes the worker task workflow. The feature switches live
+under `[daemon]` as `experimental_instructions` and `experimental_breadcrumbs`; Settings >
+Integrations > Workers contains the worker prompt. See
 [Using slopctl](slopctl.md).
 
 The per-agent `slopworld_md` switch still controls whether the document is mounted at

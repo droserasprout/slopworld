@@ -46,13 +46,11 @@ their feature-specific actions and preview/preset/breadcrumb state remain local.
   OpenRouter key from Integrations.
   `InstructionsPage` edits and previews the templated `SLOPWORLD.md` document, its separate
   first-prompt discovery breadcrumb, sandbox mount path, and global discovery switch.
-  `WorkersPage` owns the worker bootstrap prompt and worker discovery breadcrumb. The agent
-  editor's Breadcrumbs tab shows that generated entry as a selectable default-on row. Body,
-  breadcrumb, worker prompt, and worker breadcrumb each offer an independent reset to the
-  shipped default.
+  `WorkersPage` owns the worker bootstrap prompt. The agent editor's Breadcrumbs tab shows the
+  generated manifest entry as a selectable default-on row. Body, breadcrumb, and worker prompt
+  each offer an independent reset to the shipped default.
   General's default-off Experimental switches independently gate breadcrumb and manifest
-  controls; Integrations > Workers owns the worker prompt and worker discovery breadcrumb,
-  each greyed out by its corresponding switch.
+  controls; Integrations > Workers owns the worker prompt, greyed out by the Instructions switch.
   Appearance is a heading with `Interface`, `Terminal` and `Statusbar` children:
   `AppearancePage` owns global scale, scheme, font and cursor, `TerminalPage` owns pane font,
   theme and cursor color, and `StatusbarPage` owns statusbar visibility and placement. Scale

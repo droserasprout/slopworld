@@ -42,7 +42,7 @@ generation/mounting, its agent control, and the Instructions editor/preview. Gat
 stay visible but greyed out, and preferences remain stored while disabled. Generated
 instruction discovery needs both switches. Pending injection is cancelled immediately;
 existing mounts last until agent restart. Settings > Integrations > Workers owns the worker
-prompt (Instructions gate) and worker discovery breadcrumb (Breadcrumbs gate).
+prompt (Instructions gate).
 
 Confirmation dialogs are reserved for destructive or externally consequential
 operations: killing/removing agents or projects, and resetting, restoring, or

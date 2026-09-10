@@ -98,8 +98,6 @@ namespace SlopWorld.Tests
             AssertEx.True(config.InstructionsBreadcrumbEnabled, "instructions breadcrumb default");
             AssertEx.Equal(DaemonConfig.DefaultWorkerPrompt, config.WorkerPrompt,
                            "worker prompt default");
-            AssertEx.Equal(DaemonConfig.DefaultWorkerBreadcrumb, config.WorkerBreadcrumb,
-                           "worker breadcrumb default");
             AssertEx.Equal("claude", config.Agent, "agent command default");
             AssertEx.Equal("bash", config.AgentShell, "agent shell default");
             AssertEx.Equal("bash", config.Shell, "shell command default");
@@ -150,7 +148,6 @@ namespace SlopWorld.Tests
                 InstructionsBreadcrumb = "Read {{ mount_path }} for {{ project }}",
                 InstructionsBreadcrumbEnabled = false,
                 WorkerPrompt = "Retrieve $SLOPWORLD_TASK_ID, accept it, and finish it.",
-                WorkerBreadcrumb = "Read the worker task breadcrumb.",
                 Agent = "codex --full-auto",
                 AgentShell = "zsh",
                 Shell = "bash -lc",
@@ -196,8 +193,6 @@ namespace SlopWorld.Tests
                            "instructions breadcrumb round trip");
             AssertEx.Equal(expected.WorkerPrompt, actual.WorkerPrompt,
                            "worker prompt round trip");
-            AssertEx.Equal(expected.WorkerBreadcrumb, actual.WorkerBreadcrumb,
-                           "worker breadcrumb round trip");
             AssertEx.Equal(expected.Agent, actual.Agent, "agent round trip");
             AssertEx.Equal(expected.AgentShell, actual.AgentShell, "agent shell round trip");
             AssertEx.Equal(expected.Shell, actual.Shell, "shell round trip");
