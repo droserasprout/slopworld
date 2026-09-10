@@ -3,7 +3,7 @@
 use super::super::*;
 
 /// The task file has one synchronous boundary. Keep its mutex and concrete store out of the
-/// manager's configuration owner; manager operations decide whether to read or mutate it.
+/// manager's configuration owner; callers use typed operations on this owner instead.
 pub(crate) struct TaskStore(std::sync::Mutex<crate::tasks::Tasks>);
 
 impl TaskStore {
@@ -11,17 +11,16 @@ impl TaskStore {
         Self(std::sync::Mutex::new(tasks))
     }
 
-    fn mutate<T>(&self, f: impl FnOnce(&mut crate::tasks::Tasks) -> T) -> T {
-        f(&mut self.0.lock().unwrap())
+    pub(crate) fn create_task(
+        &self,
+        from: String,
+        to: String,
+        body: String,
+    ) -> Result<crate::tasks::Task> {
+        self.0.lock().unwrap().create(from, to, body)
     }
 
-    fn read<T>(&self, f: impl FnOnce(&crate::tasks::Tasks) -> T) -> T {
-        f(&self.0.lock().unwrap())
-    }
-}
-
-impl Manager {
-    pub(super) fn create_worker(
+    pub(crate) fn create_worker(
         &self,
         from: String,
         to: String,
@@ -29,40 +28,32 @@ impl Manager {
         parent: String,
         durable: bool,
     ) -> Result<crate::tasks::Task> {
-        self.tasks
-            .mutate(|tasks| tasks.create_worker(from, to, body, parent, durable))
+        self.0
+            .lock()
+            .unwrap()
+            .create_worker(from, to, body, parent, durable)
     }
 
-    pub fn create_task(
-        &self,
-        from: String,
-        to: String,
-        body: String,
-    ) -> Result<crate::tasks::Task> {
-        self.tasks.mutate(|tasks| tasks.create(from, to, body))
+    pub(crate) fn tasks_for(&self, who: &str) -> Vec<crate::tasks::Task> {
+        self.0.lock().unwrap().visible(who)
     }
 
-    pub fn tasks_for(&self, who: &str) -> Vec<crate::tasks::Task> {
-        self.tasks.read(|tasks| tasks.visible(who))
+    pub(crate) fn all_tasks(&self) -> Vec<crate::tasks::Task> {
+        self.0.lock().unwrap().all()
     }
 
-    pub fn all_tasks(&self) -> Vec<crate::tasks::Task> {
-        self.tasks.read(crate::tasks::Tasks::all)
+    pub(crate) fn task_for(&self, who: &str, id: &str) -> Option<crate::tasks::Task> {
+        self.0.lock().unwrap().get(who, id)
     }
 
-    pub fn task_for(&self, who: &str, id: &str) -> Option<crate::tasks::Task> {
-        self.tasks.read(|tasks| tasks.get(who, id))
-    }
-
-    pub fn update_task(
+    pub(crate) fn update_task(
         &self,
         who: &str,
         id: &str,
         status: crate::tasks::Status,
         note: Option<String>,
     ) -> Result<crate::tasks::Task> {
-        self.tasks
-            .mutate(|tasks| tasks.update(who, id, status, note))
+        self.0.lock().unwrap().update(who, id, status, note)
     }
 
     pub(crate) fn set_task_summary(
@@ -70,40 +61,46 @@ impl Manager {
         id: &str,
         summary: String,
     ) -> Result<Option<crate::tasks::Task>> {
-        self.tasks.mutate(|tasks| tasks.set_summary(id, summary))
+        self.0.lock().unwrap().set_summary(id, summary)
     }
 
-    pub fn cancel_tasks(
+    pub(crate) fn cancel_tasks(
         &self,
         who: &str,
         ids: &[String],
         force: bool,
     ) -> Result<Vec<crate::tasks::Task>> {
-        self.tasks
-            .mutate(|tasks| tasks.cancel_many(who, ids, force))
+        self.0.lock().unwrap().cancel_many(who, ids, force)
     }
 
-    pub fn remove_task(&self, who: &str, id: &str, force: bool) -> Result<crate::tasks::Task> {
-        self.tasks.mutate(|tasks| tasks.remove(who, id, force))
+    pub(crate) fn remove_task(
+        &self,
+        who: &str,
+        id: &str,
+        force: bool,
+    ) -> Result<crate::tasks::Task> {
+        self.0.lock().unwrap().remove(who, id, force)
     }
 
-    pub fn remove_tasks(&self, who: &str, ids: &[String], force: bool) -> Result<usize> {
-        self.tasks
-            .mutate(|tasks| tasks.remove_many(who, ids, force))
+    pub(crate) fn remove_tasks(&self, who: &str, ids: &[String], force: bool) -> Result<usize> {
+        self.0.lock().unwrap().remove_many(who, ids, force)
     }
 
-    pub fn prune_tasks(&self, who: &str, all: bool) -> Result<usize> {
-        self.tasks.mutate(|tasks| tasks.prune(who, all))
+    pub(crate) fn prune_tasks(&self, who: &str, all: bool) -> Result<usize> {
+        self.0.lock().unwrap().prune(who, all)
     }
 
-    pub fn fail_worker_task(&self, task_id: &str, note: impl Into<String>) {
+    fn fail_worker(&self, task_id: &str, note: String) -> Result<Option<crate::tasks::Task>> {
+        self.0.lock().unwrap().fail_worker(task_id, note)
+    }
+}
+
+impl Manager {
+    pub(crate) fn fail_worker_task(&self, task_id: &str, note: impl Into<String>) {
         if task_id.trim().is_empty() {
             return;
         }
-        match self
-            .tasks
-            .mutate(|tasks| tasks.fail_worker(task_id, note.into()))
-        {
+        match self.tasks.fail_worker(task_id, note.into()) {
             Ok(Some(task)) if task.status == crate::tasks::Status::Failed => {
                 tracing::info!(task = %task.id, "task-owned worker task marked failed")
             }

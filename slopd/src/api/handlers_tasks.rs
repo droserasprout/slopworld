@@ -74,6 +74,7 @@ pub(crate) async fn create_task(
         guard(&m, &cap, &q.to, Level::Ro).await?;
     }
     let task = m
+        .tasks
         .create_task(from, q.to, q.body)
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
     m.spawn_task_summary_request(task.clone());
@@ -124,9 +125,9 @@ pub(crate) async fn list_tasks(
         ));
     }
     let tasks = if q.all {
-        m.all_tasks()
+        m.tasks.all_tasks()
     } else {
-        m.tasks_for(&who)
+        m.tasks.tasks_for(&who)
     };
     Ok(Json(json!({ "tasks": tasks })))
 }
@@ -138,7 +139,8 @@ pub(crate) async fn one_task(
     Path(id): Path<String>,
 ) -> ApiResult {
     let who = task_principal(&cap, &headers)?;
-    m.task_for(&who, &id)
+    m.tasks
+        .task_for(&who, &id)
         .map(|task| Json(json!({ "task": task })))
         .ok_or_else(|| err(StatusCode::NOT_FOUND, format!("no such task: {id}")))
 }
@@ -152,6 +154,7 @@ pub(crate) async fn update_task(
 ) -> ApiResult {
     let who = task_principal(&cap, &headers)?;
     let task = m
+        .tasks
         .update_task(&who, &id, q.status, q.note)
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
     Ok(Json(json!({ "task": task })))
@@ -171,6 +174,7 @@ pub(crate) async fn prune_tasks(
         ));
     }
     let removed = m
+        .tasks
         .prune_tasks(&who, q.all)
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
     Ok(Json(json!({ "removed": removed })))
@@ -184,6 +188,7 @@ pub(crate) async fn cancel_tasks(
 ) -> ApiResult {
     let who = task_principal(&cap, &headers)?;
     let tasks = m
+        .tasks
         .cancel_tasks(&who, &q.ids, cap.may_create())
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
     Ok(Json(json!({ "tasks": tasks })))
@@ -197,6 +202,7 @@ pub(crate) async fn remove_task(
 ) -> ApiResult {
     let who = task_principal(&cap, &headers)?;
     let task = m
+        .tasks
         .remove_task(&who, &id, cap.may_create())
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
     Ok(Json(json!({ "task": task })))
@@ -210,6 +216,7 @@ pub(crate) async fn remove_tasks(
 ) -> ApiResult {
     let who = task_principal(&cap, &headers)?;
     let removed = m
+        .tasks
         .remove_tasks(&who, &q.ids, cap.may_create())
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
     Ok(Json(json!({ "removed": removed })))
