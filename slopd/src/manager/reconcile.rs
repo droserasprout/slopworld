@@ -1,6 +1,7 @@
 //! Configuration-to-live reconciliation.
 
 use super::super::*;
+use super::session_lifecycle::DetachCause;
 
 /// Keeps the ordering of durable configuration reconciliation in one named owner. The manager
 /// remains the public façade because callers must not be able to skip pruning, manifest updates,
@@ -10,11 +11,7 @@ pub(super) struct ConfigReconciler;
 impl ConfigReconciler {
     pub(super) async fn sync(manager: &Arc<Manager>) {
         let cfg = manager.config().await;
-        let removed = manager.prune_removed(&cfg).await;
-
-        for name in &removed {
-            manager.revoke_grants(name).await;
-        }
+        manager.prune_removed(&cfg).await;
 
         manager.upsert_sessions(&cfg).await;
         manager.upsert_host_terminals(&cfg).await;
@@ -63,45 +60,34 @@ impl Manager {
         }
     }
 
-    pub(super) async fn prune_removed(&self, cfg: &Config) -> Vec<String> {
-        // Dropping a `Live` only detaches its reader; abort it so a removed session cannot keep
-        // a control-mode attach open against a name nothing points at any more.
-        let mut live = self.live.write().await;
-        let mut removed = Vec::new();
-        let mut worker_tasks = Vec::new();
-        live.retain(|name, l| {
-            let saved_host = l.host && cfg.host_terminals.iter().any(|tab| tab.name == *name);
-            if (l.ephemeral && (!l.host || saved_host)) || cfg.session(name).is_some() {
-                return true;
-            }
-            tracing::info!("agent {name} is gone from the config, ending its reader");
-            if l.cfg.worker && !l.cfg.task_id.trim().is_empty() {
-                worker_tasks.push((l.cfg.task_id.clone(), name.clone()));
-            }
-            if let Some(h) = l.reader.take() {
-                h.abort();
-            }
-            self.forget_scroll(name);
-            if let Err(error) = self.title_cache.clear_latest(name) {
-                tracing::warn!(
-                    target: "slopd::titles",
-                    session = %name,
-                    error = %error,
-                    outcome = "cache_write_failed",
-                    "could not clear session title"
-                );
-            }
-            removed.push(name.clone());
-            false
-        });
-        drop(live);
-        for (task_id, name) in worker_tasks {
-            self.fail_worker_task(&task_id, format!("worker session {name} was removed"));
+    pub(super) async fn prune_removed(self: &Arc<Self>, cfg: &Config) {
+        let plans = {
+            let mut live = self.live.write().await;
+            let names: Vec<String> = live
+                .iter()
+                .filter(|(name, l)| {
+                    let saved_host = l.host
+                        && cfg
+                            .host_terminals
+                            .iter()
+                            .any(|tab| tab.name == (*name).as_str());
+                    !((l.ephemeral && (!l.host || saved_host))
+                        || cfg.session((*name).as_str()).is_some())
+                })
+                .map(|(name, _)| name.clone())
+                .collect();
+            names
+                .iter()
+                .filter_map(|name| {
+                    tracing::info!("agent {name} is gone from the config, ending its reader");
+                    self.detach_live_locked(&mut live, name, DetachCause::ConfigRemoval)
+                })
+                .collect::<Vec<_>>()
+        };
+
+        for plan in plans {
+            self.execute_cleanup(plan).await;
         }
-        for name in &removed {
-            self.clear_activity(name).await;
-        }
-        removed
     }
 
     pub(super) async fn upsert_sessions(&self, cfg: &Config) {

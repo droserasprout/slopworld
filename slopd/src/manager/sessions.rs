@@ -1,6 +1,7 @@
 //! Session targets, lifecycle, stored state and views.
 
 use super::super::*;
+use super::session_lifecycle::{finish_reader, take_reader_for_abort};
 use anyhow::anyhow;
 use futures::{stream, StreamExt};
 
@@ -324,25 +325,25 @@ impl Manager {
 
     pub(super) async fn readopt(self: &Arc<Self>, old: &str, new: &str) {
         // The control reader is attached by tmux name; renaming requires a fresh capture/emulator.
-        let (running, title) = {
+        let (running, title, reader) = {
             let mut live = self.live.write().await;
             let mut l = match live.remove(old) {
                 Some(l) => l,
                 None => return,
             };
-            if let Some(h) = l.reader.take() {
-                h.abort();
-            }
+            let reader = take_reader_for_abort(&mut l);
             // The input consumer captures the tmux target when it is spawned. Drop its
             // sender so the next key creates a consumer addressed to the new name; keeping
             // it would silently route every later key to the vanished old session.
             l.input = None;
             let running = l.emu.take().is_some();
+            l.reader_token = None;
             let title = l.title.override_title.clone();
             l.cfg.name = new.to_string();
             live.insert(new.to_string(), l);
-            (running, title)
+            (running, title, reader)
         };
+        finish_reader(reader);
         // The cache is keyed by name, and the frames under the old one describe a pane that
         // is about to be re-captured against a fresh emulator.
         self.forget_scroll(old);
@@ -356,7 +357,7 @@ impl Manager {
                 "could not rename session activity cache"
             );
         }
-        let _ = self.title_cache.clear_latest(old);
+        self.clear_latest_title(old);
         if let Some(t) = title {
             let _ = self.title_cache.remember(new, &t);
         }
