@@ -7,7 +7,7 @@ key-bindings settings page. Hardcoded shortcuts are marked below and cannot be r
 
 | Default | Action | Rebindable |
 | --- | --- | --- |
-| F1 | Command palette | yes |
+| Ctrl+backquote | Command palette | yes (key; Ctrl fixed) |
 | F11 | Toggle window-manager fullscreen | yes |
 | F12 | Open/close terminal | yes |
 | ? | Show keyboard shortcuts on the map | no |
@@ -16,12 +16,12 @@ key-bindings settings page. Hardcoded shortcuts are marked below and cannot be r
 
 | Default | Action | Rebindable |
 | --- | --- | --- |
-| F2 | Sidebar: Agents view | yes |
-| F3 | Sidebar: Files view | yes |
-| F4 | Sidebar: Search view | yes |
-| F5 | Sidebar: Git view | yes |
-| F6 | Sidebar: Tasks view | yes |
-| F7 | Sidebar: Library view | yes |
+| F1 | Sidebar: Agents view | yes |
+| F2 | Sidebar: Files view | yes |
+| F3 | Sidebar: Search view | yes |
+| F4 | Sidebar: Git view | yes |
+| F5 | Sidebar: Tasks view | yes |
+| F6 | Sidebar: Library view | yes |
 | Alt+Z | Previous session | no |
 | Alt+X | Next session | no |
 
@@ -77,7 +77,7 @@ application has enabled mouse reporting, the wheel is forwarded as mouse events.
 
 ## Command palette
 
-F1 (by default) opens a filtered command list. Type to filter; arrow keys and
+Ctrl+backquote (by default) opens a filtered command list. Type to filter; arrow keys and
 Enter navigate. The palette lists all window and sidebar actions, agent operations,
 library errands, and configuration commands. Recently used commands appear first when
 unfiltered.

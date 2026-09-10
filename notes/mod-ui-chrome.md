@@ -63,7 +63,7 @@ spacing, buttons, fields, headings and errors. Color names resolve through
   side without covering it, and shares its border. Selecting a row or pressing Escape
   closes the chain before the action. Unhandled keys dismiss it via `rawType` in the
   window body because high-priority input may consume the event first; the event remains
-  unused so F1 can still open the palette.
+  unused so interface shortcuts can still act on the same press.
 - `MenuRowH` and `PaletteRowH` are separate; the latter is one gap step taller for
   keyboard navigation.
 - `ActiveTip.DrawInner` is patched once per tooltip. `TooltipHandler.TipRegion` still

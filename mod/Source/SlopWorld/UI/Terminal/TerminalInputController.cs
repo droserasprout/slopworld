@@ -161,7 +161,7 @@ namespace SlopWorld
             return handlers.TryGetValue(e.keyCode, out var handler) && handler(e);
         }
 
-        // Handle unshifted keys bound to the chrome. Read KeyBindingDefs so option-menu
+        // Handle interface keys bound to the chrome. Read KeyBindingDefs so option-menu
         // rebindings apply; shifted/unbound keys pass to the agent. A chrome transition also
         // explicitly closes menus because it may replace focus before their body runs.
         public static bool HandleFunctionKey(Event e)
@@ -169,7 +169,7 @@ namespace SlopWorld
             // Shift+key = pass through to the agent/tui.
             if (e.shift || e.keyCode == KeyCode.None) return false;
 
-            if (Bound(ModDefOf.SlopCommandPalette, e))
+            if (Bound(ModDefOf.SlopCommandPalette, e) && e.control && !e.alt && !e.command)
             {
                 UiMenu.CloseAll();
                 SearchView.ReleaseFocus();
