@@ -33,6 +33,7 @@ Architecture:
 - [daemon-files](notes/daemon-files.md) — slopd/src/*.rs layout
 - [daemon-session-state](notes/daemon-session-state.md) — state machine, clocks, emulator
 - [daemon-workers](notes/daemon-workers.md) — task-owned child workers and lifecycle
+- [cpu-threads](notes/misc-cpu-threads.md) — process/thread model and CPU attribution
 - [daemon-presets](notes/daemon-presets.md) — sandbox argv & presets
 - [sandbox-isolation](notes/sandbox-isolation.md) — bind guard, private state
 - [mod-client](notes/mod-client.md) — Client/: hub, socket, config mirror
