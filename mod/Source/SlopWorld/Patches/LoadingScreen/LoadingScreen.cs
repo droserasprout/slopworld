@@ -426,6 +426,29 @@ namespace SlopWorld
             // our word stream is being painted.
             if (LastRotated != null) LastRotated.SetValue(null, Time.realtimeSinceStartup);
         }
+
+        // The non-window-stack path draws vanilla chrome before DrawContents. The loading panel
+        // supplies its own full-rect fill, so both the shadow and the 1px border are stray edges.
+        internal static void SuppressWindowChrome(Rect rect) { }
+
+        [HarmonyTranspiler]
+        static IEnumerable<CodeInstruction> RemoveWindowChrome(IEnumerable<CodeInstruction> instructions)
+        {
+            MethodInfo shadow = AccessTools.Method(typeof(Widgets), nameof(Widgets.DrawShadowAround),
+                new[] { typeof(Rect) });
+            MethodInfo background = AccessTools.Method(typeof(Widgets), nameof(Widgets.DrawWindowBackground),
+                new[] { typeof(Rect) });
+            MethodInfo replacement = AccessTools.Method(typeof(Patch_LoadingTips),
+                nameof(SuppressWindowChrome));
+
+            foreach (CodeInstruction instruction in instructions)
+            {
+                if (instruction.operand is MethodInfo method &&
+                    (method == shadow || method == background))
+                    instruction.operand = replacement;
+                yield return instruction;
+            }
+        }
     }
 
     [HarmonyPatch(typeof(GameplayTipWindow), "DrawContents")]
