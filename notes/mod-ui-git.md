@@ -34,6 +34,10 @@ namespaces isolate sessions from the game; `/api/browse` exists for the same bou
   or when paths/statuses have changed. Failures leave the status tree usable. The daemon caps
   the counting pass at two seconds and kills cancelled Git children; missing counts stay unknown.
   `git-status` and `git-numstat` performance timers distinguish scanning from counting.
+- `ContentTreeController` owns Git's project-heading folds, semantic selection key, group
+  pruning and tree revision. Repository directory folds, status/count state and the diff pager
+  remain Git-owned, so rebuilding a status tree preserves the selected path and per-repository
+  expansion choices.
 - Rows show the porcelain pair, numstat and right-aligned figures. Untracked text files use a
   no-index diff against `/dev/null`, so their additions count too; binaries remain uncounted.
   Green is staged, amber unstaged, red unmerged and faint untracked. Heading status shows the

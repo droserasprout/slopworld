@@ -69,26 +69,17 @@ namespace SlopWorld
 
         static readonly Dictionary<string, Repo> Repos = new Dictionary<string, Repo>();
 
-        // Which project headings are rolled up. The files view keeps its own set for the same
-        // reason: a tree's shape lives no longer than the process, and the agents view's folds
-        // are about agents.
-        static readonly HashSet<string> Shut = new HashSet<string>();
-
         public static bool AllFolded
         {
-            get
-            {
-                var groups = new TreeSource().Groups();
-                return groups.Count > 0 && groups.All(g => Shut.Contains(g.Key));
-            }
+            get { return TreeController.AllFolded; }
         }
 
         public static void SetAllFolded(bool folded)
         {
-            Shut.Clear();
-            foreach (var group in new TreeSource().Groups())
+            var groups = TreeController.Groups();
+            TreeController.SetAllFolded(folded);
+            foreach (var group in groups)
             {
-                if (folded) Shut.Add(group.Key);
                 var repo = (Repo)group.Value;
                 repo.Shut.Clear();
                 if (folded && repo.Tree != null) FoldDirectories(repo.Tree, repo.Shut);
@@ -107,48 +98,58 @@ namespace SlopWorld
         // routed header. The tree owns the selected row; each pager owns its session.
         static readonly PagerTabs Viewers = new PagerTabs();
 
-        static readonly ContentTreeView Tree = new ContentTreeView(new TreeSource());
-        static int _treeRevision;
+        static IList<ContentTreeGroup> BuildGroups()
+        {
+            var groups = new List<ContentTreeGroup>();
+            foreach (var project in ViewChrome.Projects())
+            {
+                var repo = Get(project);
+                groups.Add(new ContentTreeGroup(project, project, repo.Dir, repo, repo.Tree));
+            }
+            var keys = new List<string>();
+            foreach (var group in groups) keys.Add(group.Key);
+            TreeController.SyncGroups(keys);
+            return groups;
+        }
 
-        internal static int TreeRevision => _treeRevision;
+        static readonly ContentTreeController TreeController =
+            new ContentTreeController(BuildGroups);
+        static readonly ContentTreeView Tree = new ContentTreeView(new TreeSource(), TreeController);
+
+        internal static int TreeRevision => TreeController.Revision;
 
         static void BumpTree()
         {
-            unchecked { _treeRevision++; }
+            TreeController.Bump();
         }
 
-        sealed class TreeSource : ContentTreeSource
+        sealed class TreeSource : ContentTreeSource, IContentTreeGroupExtras,
+            IContentTreeRowActions, IContentTreeSelection
         {
-            public override int Revision => unchecked(_treeRevision * 397
+            public override Color RowIconColor(IContentTreeNode node) => Color.white;
+            public override Color RowLabelColor(IContentTreeNode node) =>
+                node.IsDirectory ? UiWidgets.Lead : UiWidgets.Name;
+
+            public override int Revision => unchecked(TreeController.Revision * 397
                 ^ (int)SessionHub.Instance.SessionsVersion
                 ^ SessionHub.Instance.ProjectsRevision);
 
-            public override IList<ContentTreeGroup> Groups()
-            {
-                var groups = new List<ContentTreeGroup>();
-                foreach (var project in ViewChrome.Projects())
-                {
-                    var repo = Get(project);
-                    groups.Add(new ContentTreeGroup(project, project, repo.Dir, repo, repo.Tree));
-                }
-                return groups;
-            }
+            public override IList<ContentTreeGroup> Groups() => TreeController.Groups();
 
             public override bool IsGroupCollapsed(ContentTreeGroup group) =>
-                Shut.Contains(group.Key);
+                TreeController.IsGroupCollapsed(group);
 
             public override void ToggleGroup(ContentTreeGroup group)
             {
-                if (!Shut.Remove(group.Key)) Shut.Add(group.Key);
-                BumpTree();
+                TreeController.ToggleGroup(group);
             }
 
             public override string GroupTooltip(ContentTreeGroup group) => group.Path;
 
-            public override float DrawGroupTail(Rect row, ContentTreeGroup group, float right)
+            public float DrawGroupTail(Rect row, ContentTreeGroup group, float right)
             {
                 var repo = (Repo)group.Value;
-                if (Shut.Contains(group.Key) && repo.IsRepo && repo.Changed > 0)
+                if (TreeController.IsGroupCollapsed(group) && repo.IsRepo && repo.Changed > 0)
                 {
                     GUI.color = UiWidgets.Dim;
                     var count = new Rect(row.width * 0.5f, row.y,
@@ -160,13 +161,13 @@ namespace SlopWorld
                 return right;
             }
 
-            public override float GroupBodyHeight(ContentTreeGroup group) =>
+            public float GroupBodyHeight(ContentTreeGroup group) =>
                 UiWidgets.TinyRowH;
 
-            public override float DrawGroupBody(float width, float y, ContentTreeGroup group) =>
+            public float DrawGroupBody(float width, float y, ContentTreeGroup group) =>
                 Body(width, y, (Repo)group.Value);
 
-            public override GroupAct GroupActions(ContentTreeGroup group)
+            public GroupAct GroupActions(ContentTreeGroup group)
             {
                 var repo = (Repo)group.Value;
                 var acts = GroupAct.Refresh;
@@ -175,7 +176,7 @@ namespace SlopWorld
                 return acts;
             }
 
-            public override void GroupAction(ContentTreeGroup group, GroupAct action)
+            public void GroupAction(ContentTreeGroup group, GroupAct action)
             {
                 switch (action)
                 {
@@ -194,18 +195,18 @@ namespace SlopWorld
                 BumpTree();
             }
 
-            public override RowAct Actions(IContentTreeNode node) => Acts((Node)node);
+            public RowAct Actions(IContentTreeNode node) => Acts((Node)node);
 
-            public override void DoubleClick(IContentTreeNode node)
+            public void DoubleClick(IContentTreeNode node)
             {
                 var git = (Node)node;
                 GitView.LockViewerFile(git.Owner.Project, git.Rel);
             }
 
-            public override float DrawRowTail(Rect row, IContentTreeNode node, float right) =>
+            public float DrawRowTail(Rect row, IContentTreeNode node, float right) =>
                 RowTail(row, (Node)node, right);
 
-            public override string RowTooltip(IContentTreeNode node)
+            public string RowTooltip(IContentTreeNode node)
             {
                 var git = (Node)node;
                 return git.IsDir ? null : $"{git.Rel}\n\n{Says(git)}";
@@ -213,7 +214,7 @@ namespace SlopWorld
 
             public override void Open(IContentTreeNode node) => GitView.Open((Node)node,
                 ((Node)node).Owner);
-            public override void Action(IContentTreeNode node, RowAct action) =>
+            public void Action(IContentTreeNode node, RowAct action) =>
                 GitView.Act((Node)node, ((Node)node).Owner, action);
             public override List<FloatMenuOption> GroupMenu(ContentTreeGroup group) =>
                 HeadMenu(group.Key, (Repo)group.Value);

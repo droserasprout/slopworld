@@ -41,9 +41,36 @@ namespace SlopWorld
         }
     }
 
+    public interface IContentTreeLoader
+    {
+        void EnsureLoaded(IContentTreeNode node);
+    }
+
+    public interface IContentTreeGroupExtras
+    {
+        float DrawGroupTail(Rect row, ContentTreeGroup group, float right);
+        GroupAct GroupActions(ContentTreeGroup group);
+        void GroupAction(ContentTreeGroup group, GroupAct action);
+        float GroupBodyHeight(ContentTreeGroup group);
+        float DrawGroupBody(float width, float y, ContentTreeGroup group);
+    }
+
+    public interface IContentTreeRowActions
+    {
+        RowAct Actions(IContentTreeNode node);
+        float DrawRowTail(Rect row, IContentTreeNode node, float right);
+        string RowTooltip(IContentTreeNode node);
+        void Action(IContentTreeNode node, RowAct action);
+    }
+
+    public interface IContentTreeSelection
+    {
+        void DoubleClick(IContentTreeNode node);
+    }
+
     // A view-specific source is deliberately about rows, not rendering the whole tree. The
-    // default methods are the file-tree answers; Git overrides only its state line, tails and
-    // menus. This keeps both tabs on one copy of the scroll and hit-test plumbing.
+    // required contract covers structure and primary navigation; optional capabilities are
+    // explicit so a source cannot silently advertise unsupported no-op behavior.
     public abstract class ContentTreeSource
     {
         public abstract IList<ContentTreeGroup> Groups();
@@ -51,37 +78,19 @@ namespace SlopWorld
         // A source increments this when the visible tree shape or any cached row state changes.
         // ContentTreeView keeps the flattened row index until then, so a large expanded tree is
         // not recursively measured and walked again on every repaint.
-        public virtual int Revision => 0;
+        public abstract int Revision { get; }
 
-        public virtual bool IsGroupCollapsed(ContentTreeGroup group) => false;
-        public virtual void ToggleGroup(ContentTreeGroup group) { }
-        public virtual string GroupTooltip(ContentTreeGroup group) => group.Path;
-        public virtual float DrawGroupTail(Rect row, ContentTreeGroup group, float right) => right;
-        public virtual GroupAct GroupActions(ContentTreeGroup group) => GroupAct.None;
-        public virtual void GroupAction(ContentTreeGroup group, GroupAct action) { }
+        public abstract bool IsGroupCollapsed(ContentTreeGroup group);
+        public abstract void ToggleGroup(ContentTreeGroup group);
+        public abstract string GroupTooltip(ContentTreeGroup group);
 
-        public virtual float GroupBodyHeight(ContentTreeGroup group) => 0f;
-        public virtual float DrawGroupBody(float width, float y, ContentTreeGroup group) => y;
-
-        public virtual void EnsureLoaded(IContentTreeNode node) { }
-        public virtual bool IsExpanded(IContentTreeNode node) => node.IsDirectory;
-        public virtual void ToggleNode(IContentTreeNode node) { }
-
-        public virtual RowAct Actions(IContentTreeNode node) => RowAct.None;
-        public virtual Color RowIconColor(IContentTreeNode node) => Color.white;
-        public virtual Color RowLabelColor(IContentTreeNode node) =>
-            node.IsDirectory ? UiWidgets.Lead : UiWidgets.Name;
-        public virtual float DrawRowTail(Rect row, IContentTreeNode node, float right) => right;
-        public virtual string RowTooltip(IContentTreeNode node) => null;
-
-        public virtual void Open(IContentTreeNode node) { }
-        // Sources may use a second body click to pin the preview just opened by Open.
-        public virtual void DoubleClick(IContentTreeNode node) { }
-        public virtual void Action(IContentTreeNode node, RowAct action) { }
-        public virtual List<FloatMenuOption> GroupMenu(ContentTreeGroup group) => null;
-        public virtual List<FloatMenuOption> RowMenu(IContentTreeNode node) => null;
-        public virtual string SelectionKey(IContentTreeNode node) =>
-            ContentTreeView.SelectionKey(node.Project, node.Key);
+        public abstract bool IsExpanded(IContentTreeNode node);
+        public abstract void ToggleNode(IContentTreeNode node);
+        public abstract Color RowIconColor(IContentTreeNode node);
+        public abstract Color RowLabelColor(IContentTreeNode node);
+        public abstract void Open(IContentTreeNode node);
+        public abstract List<FloatMenuOption> GroupMenu(ContentTreeGroup group);
+        public abstract List<FloatMenuOption> RowMenu(IContentTreeNode node);
     }
 
     public sealed class ContentTreeView
@@ -94,6 +103,7 @@ namespace SlopWorld
         const float ArrowW = UiWidgets.DisclosureW;
 
         readonly ContentTreeSource _source;
+        readonly ContentTreeController _controller;
         readonly SmoothScroll _scroll = new SmoothScroll();
         readonly MouseClickSequence _clicks = new MouseClickSequence();
         readonly List<Line> _lines = new List<Line>();
@@ -101,7 +111,6 @@ namespace SlopWorld
         readonly ContentTreeIndex _index = new ContentTreeIndex();
         IList<ContentTreeGroup> _groups;
         Rect _body;
-        string _selected;
         string _clickKey;
         string _reveal;
         float _revealTop = -1f;
@@ -138,9 +147,10 @@ namespace SlopWorld
             public Rect Rect;
         }
 
-        public ContentTreeView(ContentTreeSource source)
+        public ContentTreeView(ContentTreeSource source, ContentTreeController controller)
         {
-            _source = source;
+            _source = source ?? throw new ArgumentNullException(nameof(source));
+            _controller = controller ?? throw new ArgumentNullException(nameof(controller));
         }
 
         public static string SelectionKey(string project, string path) =>
@@ -234,7 +244,8 @@ namespace SlopWorld
                 y += RowH;
                 if (_source.IsGroupCollapsed(group)) continue;
 
-                float bodyHeight = _source.GroupBodyHeight(group);
+                var extras = _source as IContentTreeGroupExtras;
+                float bodyHeight = extras == null ? 0f : extras.GroupBodyHeight(group);
                 if (bodyHeight > 0f)
                 {
                     _items.Add(new Item { Kind = ItemKind.Body, Group = group, Y = y });
@@ -252,7 +263,7 @@ namespace SlopWorld
                 item.Height = end - item.Y;
                 _items[i] = item;
                 _index.Add(item.Y, end,
-                    item.Node == null ? null : _source.SelectionKey(item.Node));
+                    item.Node == null ? null : SelectionKey(item.Node));
             }
             _index.Commit(revision);
             _workspaceRevision = workspaceRevision;
@@ -260,7 +271,8 @@ namespace SlopWorld
 
         void BuildRows(IContentTreeNode parent, ref float y)
         {
-            _source.EnsureLoaded(parent);
+            var loader = _source as IContentTreeLoader;
+            if (loader != null) loader.EnsureLoaded(parent);
             if (!_source.IsExpanded(parent)) return;
 
             var children = parent.Children;
@@ -315,7 +327,8 @@ namespace SlopWorld
                 if (item.Y + item.Height > _visibleTop && item.Y < _visibleBottom)
                 {
                     PerfTrace.Count("content-tree-rows-drawn");
-                    _source.DrawGroupBody(width, item.Y, item.Group);
+                    var extras = _source as IContentTreeGroupExtras;
+                    if (extras != null) extras.DrawGroupBody(width, item.Y, item.Group);
                 }
                 return;
             }
@@ -350,12 +363,14 @@ namespace SlopWorld
 
                 Text.Font = GameFont.Tiny;
                 Text.Anchor = TextAnchor.MiddleLeft;
-                GroupAct acts = over ? _source.GroupActions(group) : GroupAct.None;
+                var extras = _source as IContentTreeGroupExtras;
+                GroupAct acts = over && extras != null
+                    ? extras.GroupActions(group) : GroupAct.None;
                 float right = row.width - CellX;
                 if (acts != GroupAct.None)
                     right = GroupActions.Draw(row, right, acts) - UiWidgets.GapXS;
-                else
-                    right = _source.DrawGroupTail(row, group, right);
+                else if (extras != null)
+                    right = extras.DrawGroupTail(row, group, right);
                 float left = arrow.xMax + UiWidgets.GapXS;
                 var label = new Rect(left, row.y, Mathf.Max(0f, right - left), RowH);
                 UiWidgets.RowLabel(label, group.Label);
@@ -398,40 +413,45 @@ namespace SlopWorld
 
                 Text.Font = GameFont.Tiny;
                 float right = width - Pad;
-                RowAct acts = over ? _source.Actions(node) : RowAct.None;
+                var actions = _source as IContentTreeRowActions;
+                RowAct acts = over && actions != null ? actions.Actions(node) : RowAct.None;
                 if (acts != RowAct.None)
                     right = RowActions.Draw(row, right, acts) - UiWidgets.GapXS;
-                else
-                    right = _source.DrawRowTail(row, node, right);
+                else if (actions != null)
+                    right = actions.DrawRowTail(row, node, right);
 
                 Text.Anchor = TextAnchor.MiddleLeft;
                 GUI.color = _source.RowLabelColor(node);
                 UiWidgets.RowLabel(new Rect(x, y, Mathf.Max(0f, right - x - 2f), RowH), node.Name);
 
-                if (!string.IsNullOrEmpty(_source.RowTooltip(node)) &&
+                string tooltip = actions == null ? null : actions.RowTooltip(node);
+                if (!string.IsNullOrEmpty(tooltip) &&
                     RowActions.Hit(row, width - Pad, acts) == RowAct.None)
-                    TooltipHandler.TipRegion(row, _source.RowTooltip(node));
+                    TooltipHandler.TipRegion(row, tooltip);
 
                 _lines.Add(new Line { Node = node, Rect = row });
                 return y + RowH;
             }
         }
 
+        string SelectionKey(IContentTreeNode node) =>
+            SelectionKey(node.Project, node.Key);
+
         public bool IsSelected(IContentTreeNode node) =>
-            _selected != null && _selected == _source.SelectionKey(node);
+            _controller.IsSelected(SelectionKey(node));
 
         public void Select(IContentTreeNode node) =>
-            _selected = node == null ? null : _source.SelectionKey(node);
+            _controller.Select(node == null ? null : SelectionKey(node));
 
-        public void SelectKey(string key) => _selected = key;
+        public void SelectKey(string key) => _controller.Select(key);
         public void RevealKey(string key)
         {
-            _selected = key;
+            _controller.Select(key);
             _reveal = key;
         }
         public void ClearSelection()
         {
-            _selected = null;
+            _controller.ClearSelection();
             _reveal = null;
             _revealTop = -1f;
         }
@@ -453,10 +473,12 @@ namespace SlopWorld
                     if (e.button == 0)
                     {
                         var screen = Screen(line.Rect);
-                        var action = GroupActions.Hit(screen, screen.xMax - CellX,
-                            _source.GroupActions(line.Group));
-                        if (action != GroupAct.None)
-                            _source.GroupAction(line.Group, action);
+                        var extras = _source as IContentTreeGroupExtras;
+                        GroupAct groupActs = extras == null
+                            ? GroupAct.None : extras.GroupActions(line.Group);
+                        var action = GroupActions.Hit(screen, screen.xMax - CellX, groupActs);
+                        if (action != GroupAct.None && extras != null)
+                            extras.GroupAction(line.Group, action);
                         else
                             _source.ToggleGroup(line.Group);
                     }
@@ -472,12 +494,13 @@ namespace SlopWorld
                 else
                 {
                     var screen = Screen(line.Rect);
-                    var action = RowActions.Hit(screen, screen.xMax - Pad,
-                        _source.Actions(line.Node));
-                    if (action != RowAct.None)
+                    var actions = _source as IContentTreeRowActions;
+                    RowAct rowActs = actions == null ? RowAct.None : actions.Actions(line.Node);
+                    var action = RowActions.Hit(screen, screen.xMax - Pad, rowActs);
+                    if (action != RowAct.None && actions != null)
                     {
                         ResetClicks();
-                        _source.Action(line.Node, action);
+                        actions.Action(line.Node, action);
                     }
                     else if (line.Node.IsDirectory)
                     {
@@ -495,7 +518,8 @@ namespace SlopWorld
                         _source.Open(line.Node);
                         if (clickCount >= 2)
                         {
-                            _source.DoubleClick(line.Node);
+                            var selection = _source as IContentTreeSelection;
+                            if (selection != null) selection.DoubleClick(line.Node);
                             ResetClicks();
                         }
                     }
@@ -508,7 +532,7 @@ namespace SlopWorld
 
         int ObserveClick(IContentTreeNode node, Event e)
         {
-            string key = _source.SelectionKey(node);
+            string key = SelectionKey(node);
             if (_clickKey != key)
             {
                 _clicks.Reset();

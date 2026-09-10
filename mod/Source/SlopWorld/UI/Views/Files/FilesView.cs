@@ -56,50 +56,34 @@ namespace SlopWorld
             public bool Descend;
         }
 
-        sealed class TreeSource : ContentTreeSource
+        sealed class TreeSource : ContentTreeSource, IContentTreeLoader,
+            IContentTreeRowActions, IContentTreeSelection
         {
             public override Color RowIconColor(IContentTreeNode node) =>
                 ((Node)node).Gitignored ? UiWidgets.Dim : Color.white;
 
             public override Color RowLabelColor(IContentTreeNode node) =>
-                ((Node)node).Gitignored ? UiWidgets.Dim : base.RowLabelColor(node);
+                ((Node)node).Gitignored ? UiWidgets.Dim :
+                    (node.IsDirectory ? UiWidgets.Lead : UiWidgets.Name);
 
-            public override int Revision => unchecked(_treeRevision * 397
+            public override int Revision => unchecked(TreeController.Revision * 397
                 ^ (int)SessionHub.Instance.SessionsVersion
                 ^ SessionHub.Instance.ProjectsRevision);
 
-            public override IList<ContentTreeGroup> Groups()
-            {
-                if (_focusedRoot != null)
-                    return new List<ContentTreeGroup>
-                    {
-                        new ContentTreeGroup(_focusedKey, _focusedRoot.Name, _focusedRoot.Path,
-                            null, _focusedRoot)
-                    };
-
-                var groups = new List<ContentTreeGroup>();
-                foreach (var project in ViewChrome.Projects())
-                {
-                    var root = Root(project);
-                    groups.Add(new ContentTreeGroup(project, project, root.Path, project, root));
-                }
-                return groups;
-            }
+            public override IList<ContentTreeGroup> Groups() => TreeController.Groups();
 
             public override bool IsGroupCollapsed(ContentTreeGroup group) =>
-                Shut.Contains(group.Key);
+                TreeController.IsGroupCollapsed(group);
 
             public override void ToggleGroup(ContentTreeGroup group)
             {
-                bool unfolding = Shut.Remove(group.Key);
-                if (!unfolding) Shut.Add(group.Key);
-                else RefreshLoaded((Node)group.Root);
-                BumpTree();
+                bool unfolding = TreeController.ToggleGroup(group);
+                if (unfolding) RefreshLoaded((Node)group.Root);
             }
 
             public override string GroupTooltip(ContentTreeGroup group) => group.Path;
 
-            public override void EnsureLoaded(IContentTreeNode node)
+            public void EnsureLoaded(IContentTreeNode node)
             {
                 var file = (Node)node;
                 if (file.Expanded && file.Children == null && !file.Loading && file.Error == null)
@@ -121,11 +105,13 @@ namespace SlopWorld
                 BumpTree();
             }
 
-            public override RowAct Actions(IContentTreeNode node) => Acts((Node)node);
+            public RowAct Actions(IContentTreeNode node) => Acts((Node)node);
+            public float DrawRowTail(Rect row, IContentTreeNode node, float right) => right;
+            public string RowTooltip(IContentTreeNode node) => null;
             public override void Open(IContentTreeNode node) => FilesView.Open((Node)node);
-            public override void DoubleClick(IContentTreeNode node) =>
+            public void DoubleClick(IContentTreeNode node) =>
                 FilesView.LockViewerFile(((Node)node).Project, ((Node)node).Path);
-            public override void Action(IContentTreeNode node, RowAct action) =>
+            public void Action(IContentTreeNode node, RowAct action) =>
                 FilesView.Act((Node)node, action);
 
             public override List<FloatMenuOption> GroupMenu(ContentTreeGroup group) =>
@@ -144,26 +130,15 @@ namespace SlopWorld
         static Node _focusedRoot;
         static string _focusedKey;
 
-        // Which project headings are rolled up here. The agents view has its own set in the
-        // settings; this one is a tree's shape and lives no longer than the process, the same
-        // as every expansion below it.
-        static readonly HashSet<string> Shut = new HashSet<string>();
-
         public static bool AllFolded
         {
-            get
-            {
-                var groups = new TreeSource().Groups();
-                return groups.Count > 0 && groups.All(g => Shut.Contains(g.Key));
-            }
+            get { return TreeController.AllFolded; }
         }
 
         public static void SetAllFolded(bool folded)
         {
             CancelQueuedBrowse();
-            Shut.Clear();
-            if (folded)
-                foreach (var group in new TreeSource().Groups()) Shut.Add(group.Key);
+            TreeController.SetAllFolded(folded);
             foreach (var root in Roots.Values) SetExpanded(root, !folded);
             if (_focusedRoot != null) SetExpanded(_focusedRoot, !folded);
 
@@ -247,8 +222,6 @@ namespace SlopWorld
             return ext == ".md" || ext == ".markdown" || ext == ".mdx";
         }
 
-        static readonly ContentTreeView Tree = new ContentTreeView(new TreeSource());
-        static int _treeRevision;
         static int _focusVersion;
         const float AutoRefreshSeconds = 2f;
         const int MaxConcurrentBrowse = 4;
@@ -256,11 +229,36 @@ namespace SlopWorld
         static readonly Queue<BrowseRequest> BrowseQueue = new Queue<BrowseRequest>();
         static int BrowseInFlight;
 
-        internal static int TreeRevision => _treeRevision;
+        static IList<ContentTreeGroup> BuildGroups()
+        {
+            if (_focusedRoot != null)
+                return new List<ContentTreeGroup>
+                {
+                    new ContentTreeGroup(_focusedKey, _focusedRoot.Name, _focusedRoot.Path,
+                        null, _focusedRoot)
+                };
+
+            var groups = new List<ContentTreeGroup>();
+            foreach (var project in ViewChrome.Projects())
+            {
+                var root = Root(project);
+                groups.Add(new ContentTreeGroup(project, project, root.Path, project, root));
+            }
+            var keys = new List<string>();
+            foreach (var group in groups) keys.Add(group.Key);
+            TreeController.SyncGroups(keys);
+            return groups;
+        }
+
+        static readonly ContentTreeController TreeController =
+            new ContentTreeController(BuildGroups);
+        static readonly ContentTreeView Tree = new ContentTreeView(new TreeSource(), TreeController);
+
+        internal static int TreeRevision => TreeController.Revision;
 
         static void BumpTree()
         {
-            unchecked { _treeRevision++; }
+            TreeController.Bump();
         }
 
         // Resolve against the session's project root, then open only the ancestor listings
@@ -276,7 +274,8 @@ namespace SlopWorld
 
             ClearFocus();
             ReleaseViewer();
-            Shut.Remove(project);
+            // A focused reveal needs the project heading open in the shared group state.
+            TreeController.SetGroupCollapsed(project, false);
             if (AgentSidebar.Filtering && !AgentSidebar.Ticked(project))
                 AgentSidebar.ToggleFilter(project);
             AgentSidebar.ShowFiles();
@@ -391,11 +390,11 @@ namespace SlopWorld
 
             if (_focusedRoot != null)
             {
-                if (!Shut.Contains(_focusedKey)) RefreshLoaded(_focusedRoot);
+                if (!TreeController.IsGroupCollapsed(_focusedKey)) RefreshLoaded(_focusedRoot);
                 return;
             }
             foreach (var project in ViewChrome.Projects())
-                if (!Shut.Contains(project)) RefreshLoaded(Root(project));
+                if (!TreeController.IsGroupCollapsed(project)) RefreshLoaded(Root(project));
         }
 
         static void RefreshLoaded(Node node, bool descend = true)
@@ -475,8 +474,8 @@ namespace SlopWorld
                 Path = dir,
                 Name = project,
                 IsDir = true,
-                // A root is always open; `Shut` is what folds a project, the heading being
-                // the agents view's heading rather than a row of this tree. Left false, Rows
+                // A root is always open; the controller's group state folds the project
+                // heading rather than this root row. Left false, Rows
                 // would return before it ever asked the daemon and every project would draw
                 // as an empty one.
                 Expanded = true,

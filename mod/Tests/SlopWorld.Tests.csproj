@@ -39,6 +39,7 @@
     <Compile Include="../Source/SlopWorld/Patches/AgentSidebar/SidebarTitleCache.cs" Link="Source/Patches/AgentSidebar/SidebarTitleCache.cs" />
     <Compile Include="../Source/SlopWorld/Patches/AgentSidebar/SidebarTab.cs" Link="Source/Patches/AgentSidebar/SidebarTab.cs" />
     <Compile Include="../Source/SlopWorld/Patches/AgentSidebar/SidebarTabDefinition.cs" Link="Source/Patches/AgentSidebar/SidebarTabDefinition.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Views/Shared/ContentTreeState.cs" Link="Source/UI/Views/Shared/ContentTreeState.cs" />
     <Compile Include="../Source/SlopWorld/UI/Views/Shared/VisibleRows.cs" Link="Source/UI/Views/Shared/VisibleRows.cs" />
     <Compile Include="../Source/SlopWorld/UI/Views/Shared/ContentTreeIndex.cs" Link="Source/UI/Views/Shared/ContentTreeIndex.cs" />
     <Compile Include="../Source/SlopWorld/UI/Views/Shared/ProjectSessionCounts.cs" Link="Source/UI/Views/Shared/ProjectSessionCounts.cs" />

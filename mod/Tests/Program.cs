@@ -75,6 +75,8 @@ namespace SlopWorld.Tests
                 tests.Add(("EditIdentity: " + test.Name, test.Body));
             foreach (var test in SidebarTabTests.Cases())
                 tests.Add(("SidebarTab: " + test.Name, test.Body));
+            foreach (var test in ContentTreeStateTests.Cases())
+                tests.Add(("ContentTreeState: " + test.Name, test.Body));
             foreach (var test in SongRecognizerTests.Cases())
                 tests.Add(("SongRecognizer: " + test.Name, test.Body));
             foreach (var test in JukeboxHistoryTests.Cases())
