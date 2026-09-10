@@ -657,7 +657,8 @@ mod tests {
             .wire_live_state("agent", &cfg, &session, &project, false)
             .await;
         assert!(!manager.live.read().await["agent"].breadcrumbs_pending);
-        cfg.daemon.experimental = true;
+        cfg.daemon.experimental_breadcrumbs = true;
+        cfg.daemon.experimental_instructions = true;
 
         manager
             .wire_live_state("agent", &cfg, &session, &project, false)

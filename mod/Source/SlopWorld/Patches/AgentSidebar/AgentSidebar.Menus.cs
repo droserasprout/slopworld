@@ -217,13 +217,20 @@ namespace SlopWorld
         {
             new FloatMenuOption("Prompt...", () =>
                 TerminalWindow.OpenOverPane(new EditLibraryItemDialog(LibraryItemKind.Prompt))),
-            new FloatMenuOption("Breadcrumb...", () =>
-                TerminalWindow.OpenOverPane(new EditLibraryItemDialog(LibraryItemKind.Breadcrumb))),
+            BreadcrumbAddOption(),
             new FloatMenuOption("Shell...", () =>
                 TerminalWindow.OpenOverPane(new EditLibraryItemDialog(LibraryItemKind.Shell))),
             new FloatMenuOption("File Action...", () =>
                 TerminalWindow.OpenOverPane(new EditLibraryItemDialog(LibraryItemKind.FileAction))),
         };
+
+        static FloatMenuOption BreadcrumbAddOption()
+        {
+            var option = new FloatMenuOption("Breadcrumb...", () =>
+                TerminalWindow.OpenOverPane(new EditLibraryItemDialog(LibraryItemKind.Breadcrumb)));
+            option.Disabled = !SessionHub.Instance.Config.ExperimentalBreadcrumbs;
+            return option;
+        }
 
         static List<FloatMenuOption> HostShellOptions()
         {

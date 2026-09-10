@@ -154,7 +154,7 @@ impl Manager {
         }
 
         crate::sandbox::prepare_network(cfg, session, project)?;
-        if cfg.daemon.experimental && session.slopworld_md {
+        if cfg.daemon.experimental_instructions && session.slopworld_md {
             let sessions = self.views().await;
             crate::manifest::prepare(&std::path::PathBuf::from(dir), cfg, project, &sessions)?;
         }
@@ -290,7 +290,8 @@ impl Manager {
             .map(|text| render_template_with(&text, &[], Some(&vars)))
             .collect();
         if !host
-            && cfg.daemon.experimental
+            && cfg.daemon.experimental_instructions
+            && cfg.daemon.experimental_breadcrumbs
             && session.slopworld_md
             && session.instructions_breadcrumb
             && cfg.daemon.instructions.breadcrumb_enabled
@@ -304,14 +305,22 @@ impl Manager {
                 crumbs.push(discovery);
             }
         }
-        if !host && session.worker && !cfg.daemon.instructions.worker_breadcrumb.trim().is_empty() {
+        if !host
+            && cfg.daemon.experimental_breadcrumbs
+            && session.worker
+            && !cfg.daemon.instructions.worker_breadcrumb.trim().is_empty()
+        {
             crumbs.push(cfg.daemon.instructions.worker_breadcrumb.clone());
         }
         let mut live = self.live.write().await;
         if let Some(live) = live.get_mut(name) {
             live.breadcrumbs.clear();
             live.breadcrumbs_pending = false;
-            if !host && cfg.daemon.experimental && session.breadcrumb_yolo && !crumbs.is_empty() {
+            if !host
+                && cfg.daemon.experimental_breadcrumbs
+                && session.breadcrumb_yolo
+                && !crumbs.is_empty()
+            {
                 live.breadcrumbs = breadcrumb_block(&crumbs).into_bytes();
                 live.breadcrumbs_pending = true;
             }

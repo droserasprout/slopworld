@@ -323,7 +323,7 @@ mod tests {
     #[tokio::test]
     async fn breadcrumbs_are_consumed_once_for_a_delivered_prompt() {
         let mut cfg = Config::default();
-        cfg.daemon.experimental = true;
+        cfg.daemon.experimental_breadcrumbs = true;
         let manager = crate::session::test_manager(cfg);
         let mut live = Live::new(
             SessionCfg {

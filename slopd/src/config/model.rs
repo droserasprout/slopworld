@@ -107,9 +107,12 @@ pub fn redact_token_text(text: &str) -> String {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Daemon {
     pub bind: String,
-    /// Gates YOLO breadcrumb injection and generated instructions without losing preferences.
+    /// Gates automatic and manual breadcrumb delivery without losing preferences.
     #[serde(default)]
-    pub experimental: bool,
+    pub experimental_breadcrumbs: bool,
+    /// Gates generated SLOPWORLD.md instructions without losing preferences.
+    #[serde(default)]
+    pub experimental_instructions: bool,
     /// Empty means no auth, which is fine on a loopback bind. Never leaves the daemon as
     /// written: `GET /api/config` swaps it for `TOKEN_REDACTED`, and a write of the sentinel
     /// restores it - see `redact_token_text` and `Manager::replace_config`.
@@ -311,7 +314,8 @@ impl Default for Daemon {
     fn default() -> Self {
         Self {
             bind: DEFAULT_BIND.into(),
-            experimental: false,
+            experimental_breadcrumbs: false,
+            experimental_instructions: false,
             token: String::new(),
             usage_poll_secs: default_usage_poll(),
             usage_items: BTreeMap::new(),

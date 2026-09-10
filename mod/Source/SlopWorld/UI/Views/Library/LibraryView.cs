@@ -169,7 +169,9 @@ namespace SlopWorld
 
         static float DrawLibraryRow(Rect view, Rect r, LibraryItemInfo item)
         {
-            RowChrome.Hover(r, false, true, RowHoverPolicy.OverlayAware);
+            bool enabled = item.Kind != LibraryItemKind.Breadcrumb ||
+                SessionHub.Instance.Config.ExperimentalBreadcrumbs;
+            RowChrome.Hover(r, false, enabled, RowHoverPolicy.OverlayAware);
 
             // The kind badge: prompt, shell, or an attached breadcrumb.
             float badgeW = 34f;
@@ -177,7 +179,7 @@ namespace SlopWorld
             Rect nameRect;
             using (WidgetState.Save())
             {
-                GUI.color = KindColor(item.Kind);
+                GUI.color = enabled ? KindColor(item.Kind) : UiWidgets.Faint;
                 // The whole row is Tiny, the way a row of the other two trees is: the badge was,
                 // and the name and the sample beside it were Small in a row laid out for Tiny -
                 // which on any face taller than the one it was written against is a line with its
@@ -189,12 +191,12 @@ namespace SlopWorld
 
                 float tx = CellX + badgeW + UiWidgets.GapXS;
                 // The name comes first, then a sample of the text truncated.
-                GUI.color = UiWidgets.Lead;
+                GUI.color = enabled ? UiWidgets.Lead : UiWidgets.Faint;
                 var nameW = UiWidgets.Wide(item.Name);
                 nameRect = new Rect(tx, r.y, Mathf.Min(nameW + 6f,
                     view.width * 0.35f), RowH);
                 UiWidgets.RowLabel(nameRect, item.Name);
-                GUI.color = UiWidgets.Dim;
+                GUI.color = enabled ? UiWidgets.Dim : UiWidgets.Faint;
 
                 float restX = nameRect.xMax + 2f;
                 var restW = r.xMax - 6f - restX;
@@ -313,6 +315,13 @@ namespace SlopWorld
                 // nowhere the mouse can be.
                 if (!ColonistBarStrip.MouseOver(line.Rect)) continue;
 
+                if (!line.Head && line.Item.Kind == LibraryItemKind.Breadcrumb &&
+                    !SessionHub.Instance.Config.ExperimentalBreadcrumbs)
+                {
+                    e.Use();
+                    return;
+                }
+
                 if (line.Head)
                 {
                     // Heading: left click folds, right click opens project menu. Both keyed
@@ -380,11 +389,17 @@ namespace SlopWorld
             if (s.Link == LibraryItemLink.Ask)
                 opts.Add(new UiSubmenu("Run in", () => WhereOptions(s)));
 
-            opts.Add(new FloatMenuOption("Edit...", () =>
-                TerminalWindow.OpenOverPane(new EditLibraryItemDialog(s))));
+            var edit = new FloatMenuOption("Edit...", () =>
+                TerminalWindow.OpenOverPane(new EditLibraryItemDialog(s)));
+            edit.Disabled = s.Kind == LibraryItemKind.Breadcrumb &&
+                !SessionHub.Instance.Config.ExperimentalBreadcrumbs;
+            opts.Add(edit);
 
-            opts.Add(new FloatMenuOption("Duplicate...", () =>
-                TerminalWindow.OpenOverPane(EditLibraryItemDialog.Copy(s))));
+            var duplicate = new FloatMenuOption("Duplicate...", () =>
+                TerminalWindow.OpenOverPane(EditLibraryItemDialog.Copy(s)));
+            duplicate.Disabled = s.Kind == LibraryItemKind.Breadcrumb &&
+                !SessionHub.Instance.Config.ExperimentalBreadcrumbs;
+            opts.Add(duplicate);
 
             opts.Add(new FloatMenuOption("Delete", () =>
             {

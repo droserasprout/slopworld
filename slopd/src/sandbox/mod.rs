@@ -53,7 +53,7 @@ pub fn build_argv(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result<Vec<St
     let home = dirs::home_dir()
         .map(|path| path.to_string_lossy().into_owned())
         .unwrap_or_else(|| "/root".into());
-    let manifest = if cfg.daemon.experimental && s.slopworld_md {
+    let manifest = if cfg.daemon.experimental_instructions && s.slopworld_md {
         let path = Path::new(&dir).join(crate::manifest::FILE_NAME);
         if !crate::manifest::is_generated(&path) {
             anyhow::bail!(

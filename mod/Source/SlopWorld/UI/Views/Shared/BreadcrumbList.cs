@@ -24,7 +24,8 @@ namespace SlopWorld
         public static void Draw(Rect outer, List<string> chosen, SmoothScroll scroll,
                                 ICollection<string> implied = null,
                                 string instructionsText = null, bool instructionsOn = false,
-                                Action<bool> onInstructionsChanged = null, bool instructionsLocked = false)
+                                Action<bool> onInstructionsChanged = null, bool instructionsLocked = false,
+                                bool breadcrumbsLocked = false)
         {
             var all = SessionHub.Instance.Library
                 .Where(s => s.Kind == LibraryItemKind.Breadcrumb)
@@ -56,7 +57,7 @@ namespace SlopWorld
                 bool was = b.Instructions ? b.On : forced || chosen.Contains(b.Name);
                 string tip = b.Instructions
                     ? "Used when this agent mounts SLOPWORLD.md and discovery is enabled in " +
-                      "Settings > Integrations > Instructions."
+                      "Settings > General > Experimental."
                     : (b.Text ?? "").Replace("\n", " ");
                 choices.Add(new UiChoice<Entry>
                 {
@@ -64,7 +65,7 @@ namespace SlopWorld
                     Label = b.Name,
                     Tip = tip,
                     On = was,
-                    Locked = forced || (b.Instructions && instructionsLocked),
+                    Locked = breadcrumbsLocked || forced || (b.Instructions && instructionsLocked),
                     Changed = next =>
                     {
                         if (b.Instructions)

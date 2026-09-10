@@ -216,7 +216,8 @@ namespace SlopWorld
             ("Sandbox", Tab.Sandbox),
             ("Breadcrumbs", Tab.Breadcrumbs),
             ("Preview", Tab.Preview),
-        }, ref _tab);
+        }, ref _tab,
+            tab => tab != Tab.Breadcrumbs || SessionHub.Instance.Config.ExperimentalBreadcrumbs);
 
         // The project itself: its name, directory and whether that directory is temporary.
         // The other tabs refine the sandbox around it.
@@ -325,7 +326,8 @@ namespace SlopWorld
                 "Prompt breadcrumbs");
             y += UiWidgets.RowH + UiWidgets.GapXS;
             BreadcrumbList.Draw(new Rect(rect.x, y, rect.width, Mathf.Max(0f, rect.yMax - y)),
-                _p.Breadcrumbs, _breadcrumbScroll);
+                _p.Breadcrumbs, _breadcrumbScroll,
+                breadcrumbsLocked: !SessionHub.Instance.Config.ExperimentalBreadcrumbs);
         }
 
         void Save()

@@ -9,13 +9,15 @@ audio, RimWorld options, and credits. The [agent configuration guide](../guides/
 [sandbox guide](../guides/configuring-sandboxes.md), and
 [integration reference](integrations.md) describe the fields managed by those groups.
 
-**General > Enable experimental features** unlocks YOLO breadcrumbs and SLOPWORLD.md
-instructions. Gated controls stay visible but greyed out while disabled.
-It defaults off and takes effect when you press **Save**. Individual agent
-preferences remain stored while disabled. Disabling cancels pending YOLO injection;
-restart running agents to remove existing SLOPWORLD.md mounts. The daemon enforces the
-same gate for CLI/API starts through `[daemon] experimental = true` in `config.toml`.
-Worker bootstrap prompt settings remain available with experimental features disabled.
+**General > Experimental** has separate **Breadcrumbs** and **Instructions** switches.
+Breadcrumb controls and generated SLOPWORLD.md instructions stay visible but greyed out
+while their switch is disabled. Both default off and take effect when you press **Save**.
+Individual agent preferences remain stored while disabled. Disabling Breadcrumbs cancels
+pending breadcrumb injection; disabling Instructions prevents new SLOPWORLD.md mounts.
+Restart running agents to remove existing mounts. The daemon enforces the same gates through
+`[daemon] experimental_breadcrumbs = true` and `[daemon] experimental_instructions = true`.
+Worker bootstrap settings are under **Settings > Integrations > Workers**; the prompt follows
+Instructions and its optional discovery breadcrumb follows Breadcrumbs.
 
 ## Configuration file
 

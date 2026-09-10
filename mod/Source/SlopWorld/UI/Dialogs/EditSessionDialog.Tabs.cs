@@ -56,8 +56,8 @@ namespace SlopWorld
             _s.AutoResume = UiWidgets.Checkbox(l, "Auto-resume last conversation", _s.AutoResume,
                 "After startup settles, send /resume and choose the latest conversation.");
             _s.SlopworldMd = UiWidgets.Checkbox(l, "Mount SLOPWORLD.md", _s.SlopworldMd,
-                "Mount generated runtime context read-only at the Instructions mount path. Requires experimental features in Settings > General.",
-                locked: !SessionHub.Instance.Config.Experimental);
+                "Mount generated runtime context read-only at the Instructions mount path. Requires instructions in Settings > General.",
+                locked: !SessionHub.Instance.Config.ExperimentalInstructions);
             _s.PersistentTmp = UiWidgets.Checkbox(l, "Persistent /tmp", _s.PersistentTmp,
                 "Keep this agent's /tmp across restarts in its private state. Resetting private state gives it a fresh /tmp.");
 
@@ -286,12 +286,14 @@ namespace SlopWorld
         void DrawBreadcrumbs(Rect rect)
         {
             var config = SessionHub.Instance.Config;
+            bool breadcrumbs = config.ExperimentalBreadcrumbs;
+            bool instructions = config.ExperimentalInstructions;
             float y = rect.y;
             _s.BreadcrumbYolo = UiWidgets.Checkbox(
                 new Rect(rect.x, rect.y, rect.width, UiWidgets.RowH),
                 "YOLO breadcrumbs", _s.BreadcrumbYolo,
-                "Hijack the first Enter after startup and paste every enabled breadcrumb before it. Requires experimental features in Settings > General.",
-                locked: !config.Experimental);
+                "Hijack the first Enter after startup and paste every enabled breadcrumb before it. Requires breadcrumbs in Settings > General.",
+                locked: !breadcrumbs);
             y += UiWidgets.RowH + UiWidgets.GapXS;
             var projectBreadcrumbs = SessionHub.Instance.Project(_s.Project)?.Breadcrumbs;
             BreadcrumbList.Draw(new Rect(rect.x, y, rect.width, Mathf.Max(0f, rect.yMax - y)),
@@ -299,7 +301,8 @@ namespace SlopWorld
                 config.InstructionsBreadcrumb,
                 _s.InstructionsBreadcrumb,
                 onInstructionsChanged: on => _s.InstructionsBreadcrumb = on,
-                instructionsLocked: !config.Experimental);
+                instructionsLocked: !breadcrumbs || !instructions,
+                breadcrumbsLocked: !breadcrumbs);
         }
 
         // The three states this pair of fields can be in: a command preset, a command line

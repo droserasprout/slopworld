@@ -52,8 +52,12 @@ namespace SlopWorld
             UiWidgets.SectionHeading(l, "Experimental");
             if (_loaded)
             {
-                _cfg.Experimental = UiWidgets.Checkbox(l, "Enable experimental features", _cfg.Experimental);
-                UiWidgets.Note(l, "Unlock YOLO breadcrumbs and SLOPWORLD.md instructions. Save to apply. ");
+                _cfg.ExperimentalBreadcrumbs = UiWidgets.Checkbox(l, "Enable breadcrumbs",
+                    _cfg.ExperimentalBreadcrumbs);
+                UiWidgets.Note(l, "Unlock automatic and manual prompt breadcrumbs. Save to apply.");
+                _cfg.ExperimentalInstructions = UiWidgets.Checkbox(l, "Enable instructions",
+                    _cfg.ExperimentalInstructions);
+                UiWidgets.Note(l, "Unlock generated SLOPWORLD.md instructions. Save to apply.");
             }
             else
                 UiWidgets.Note(l, _error ?? "Waiting for the daemon...");

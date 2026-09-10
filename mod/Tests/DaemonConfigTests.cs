@@ -9,6 +9,7 @@ namespace SlopWorld.Tests
         public static IEnumerable<(string Name, Action Body)> Cases()
         {
             yield return ("reads daemon defaults", ReadsDaemonDefaults);
+            yield return ("migrates legacy experimental flag", MigratesLegacyExperimentalFlag);
             yield return ("round trips every patch field", RoundTripsEveryPatchField);
             yield return ("independent page saves preserve drafts and saved values", IndependentPageSaves);
             yield return ("patches retain nested resets and pending edits", NestedPatchChanges);
@@ -37,16 +38,24 @@ namespace SlopWorld.Tests
         static void NestedPatchChanges()
         {
             var config = DaemonConfig.FromJson(JVal.Parse("{}"));
-            config.Experimental = true;
+            config.ExperimentalBreadcrumbs = true;
+            config.ExperimentalInstructions = true;
             config.UsageItems["test"] = new DaemonConfig.UsageItemConfig { Poll = true, IntervalSecs = 90 };
             string baseline = config.ToPatchJson();
-            config.Experimental = false;
+            config.ExperimentalBreadcrumbs = false;
+            config.ExperimentalInstructions = false;
             config.UsageItems["test"].IntervalSecs = 0;
             config.InstructionsBreadcrumbEnabled = false;
             config.InstructionsTemplate = "a quoted \"draft\"\nnext line";
             var patch = JVal.Parse(config.ToPatchJson(baseline));
-            AssertEx.True(!patch["daemon"]["experimental"].IsNull, "false reset included");
-            AssertEx.Equal(false, patch["daemon"]["experimental"].AsBool(true), "false reset preserved");
+            AssertEx.True(!patch["daemon"]["experimental_breadcrumbs"].IsNull,
+                           "breadcrumb feature false reset included");
+            AssertEx.Equal(false, patch["daemon"]["experimental_breadcrumbs"].AsBool(true),
+                           "breadcrumb feature false reset preserved");
+            AssertEx.True(!patch["daemon"]["experimental_instructions"].IsNull,
+                           "instruction feature false reset included");
+            AssertEx.Equal(false, patch["daemon"]["experimental_instructions"].AsBool(true),
+                           "instruction feature false reset preserved");
             AssertEx.Equal(0, patch["daemon"]["usage_items"]["test"]["interval_secs"].AsInt(-1), "zero reset preserved");
             AssertEx.True(patch["daemon"]["usage_items"]["test"]["poll"].IsNull, "unchanged nested sibling omitted");
             AssertEx.Equal(config.InstructionsTemplate, patch["daemon"]["instructions"]["template"].AsString(), "escaped text preserved");
@@ -63,7 +72,8 @@ namespace SlopWorld.Tests
         static void ReadsDaemonDefaults()
         {
             var config = DaemonConfig.FromJson(JVal.Parse("{}"));
-            AssertEx.Equal(false, config.Experimental, "experimental defaults off");
+            AssertEx.Equal(false, config.ExperimentalBreadcrumbs, "breadcrumb feature defaults off");
+            AssertEx.Equal(false, config.ExperimentalInstructions, "instruction feature defaults off");
 
             AssertEx.Equal(60, config.UsagePollSecs, "usage poll default");
             AssertEx.Equal(0, config.UsageItems.Count, "usage item defaults");
@@ -99,11 +109,20 @@ namespace SlopWorld.Tests
                            "highlighter default");
         }
 
+        static void MigratesLegacyExperimentalFlag()
+        {
+            var config = DaemonConfig.FromJson(JVal.Parse(
+                "{\"daemon\":{\"experimental\":true}}"));
+            AssertEx.True(config.ExperimentalBreadcrumbs, "legacy flag enables breadcrumbs");
+            AssertEx.True(config.ExperimentalInstructions, "legacy flag enables instructions");
+        }
+
         static void RoundTripsEveryPatchField()
         {
             var expected = new DaemonConfig
             {
-                Experimental = true,
+                ExperimentalBreadcrumbs = true,
+                ExperimentalInstructions = true,
                 UsagePollSecs = 17,
                 UsageItems = new Dictionary<string, DaemonConfig.UsageItemConfig>
                 {
@@ -140,7 +159,10 @@ namespace SlopWorld.Tests
                 Highlighter = "highlight --out-format=xterm256",
             };
             var actual = DaemonConfig.FromJson(JVal.Parse(expected.ToPatchJson()));
-            AssertEx.Equal(expected.Experimental, actual.Experimental, "experimental round trip");
+            AssertEx.Equal(expected.ExperimentalBreadcrumbs, actual.ExperimentalBreadcrumbs,
+                           "breadcrumb feature round trip");
+            AssertEx.Equal(expected.ExperimentalInstructions, actual.ExperimentalInstructions,
+                           "instruction feature round trip");
 
             AssertEx.Equal(expected.UsagePollSecs, actual.UsagePollSecs, "poll round trip");
             AssertEx.False(actual.UsageItems["claude_session"].Poll,
