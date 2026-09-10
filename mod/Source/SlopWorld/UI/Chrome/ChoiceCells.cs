@@ -141,14 +141,15 @@ namespace SlopWorld
                 }
 
                 float contentH = choices.Count * UiWidgets.RowH;
-                var inner = UiScrollBody.ConditionalView(pad, contentH);
-                using (scroll.Scope(pad, inner))
+                var geometry = UiScrollBody.Measure(pad, contentH,
+                    UiScrollbarReservation.WhenNeeded);
+                using (scroll.Scope(pad, geometry.View))
                 {
                     float y = 0f;
                     foreach (var choice in choices)
                     {
                         var cell = new Rect(UiWidgets.GapS, y,
-                            inner.width - UiWidgets.GapS, UiWidgets.RowH);
+                            geometry.View.width - UiWidgets.GapS, UiWidgets.RowH);
                         y += UiWidgets.RowH;
                         bool next = ToggleCell.Draw(cell, choice.Label, choice.On, choice.Tip,
                             choice.Locked, choice.Warn, RowHoverPolicy.Local);

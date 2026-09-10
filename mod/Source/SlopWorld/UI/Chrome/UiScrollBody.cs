@@ -6,19 +6,30 @@ namespace SlopWorld
     // content measurement because previews, tabs, and trailing fields have different hosts.
     public static class UiScrollBody
     {
-        public static bool NeedsScrollbar(Rect frame, float contentHeight) =>
-            contentHeight > frame.height;
+        public static UiScrollBodyGeometry Measure(Rect frame, float contentHeight,
+                                                    UiScrollbarReservation reservation)
+        {
+            var layout = ScrollableGeometry.Measure(
+                new UiLayoutRect(frame.x, frame.y, frame.width, frame.height),
+                contentHeight, reservation, UiWidgets.ScrollbarW);
+            return new UiScrollBodyGeometry(layout, new Rect(0f, 0f,
+                layout.View.Width, layout.View.Height));
+        }
+    }
 
-        public static float ContentWidth(Rect frame, float contentHeight) =>
-            Mathf.Max(0f, frame.width -
-                (NeedsScrollbar(frame, contentHeight) ? UiWidgets.ScrollbarW : 0f));
+    public readonly struct UiScrollBodyGeometry
+    {
+        public readonly ScrollableGeometry Layout;
+        public readonly Rect View;
 
-        public static Rect View(Rect frame, float contentHeight) =>
-            new Rect(0f, 0f, Mathf.Max(0f, frame.width - UiWidgets.ScrollbarW),
-                Mathf.Max(contentHeight, frame.height));
+        public UiScrollBodyGeometry(ScrollableGeometry layout, Rect view)
+        {
+            Layout = layout;
+            View = view;
+        }
 
-        public static Rect ConditionalView(Rect frame, float contentHeight) =>
-            new Rect(0f, 0f, ContentWidth(frame, contentHeight),
-                Mathf.Max(contentHeight, frame.height));
+        public float ContentWidth => Layout.ContentWidth;
+        public float ContentHeight => Layout.ContentHeight;
+        public bool ReservesScrollbar => Layout.ReservesScrollbar;
     }
 }

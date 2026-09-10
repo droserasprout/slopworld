@@ -185,8 +185,9 @@ namespace SlopWorld
                     (Event.current.type == EventType.Used &&
                         Event.current.rawType == EventType.ScrollWheel);
                 float height = _contentHeight;
-                var view = new Rect(0f, 0f,
-                    UiScrollBody.ContentWidth(body, height), height);
+                var geometry = UiScrollBody.Measure(body, height,
+                    UiScrollbarReservation.WhenNeeded);
+                var view = geometry.View;
                 if (_revealTop >= 0f)
                 {
                     _scroll.Reveal(_revealTop, RowH, body.height);

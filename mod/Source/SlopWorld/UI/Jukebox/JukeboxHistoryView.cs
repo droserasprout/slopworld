@@ -127,11 +127,12 @@ namespace SlopWorld
             }
 
             float contentH = Mathf.Max(list.height, _view.Count * RowH);
-            var view = UiScrollBody.ConditionalView(list, contentH);
-            using (_scroll.Scope(list, view))
+            var geometry = UiScrollBody.Measure(list, contentH,
+                UiScrollbarReservation.WhenNeeded);
+            using (_scroll.Scope(list, geometry.View))
             {
                 for (int i = 0; i < _view.Count; i++)
-                    DrawRow(new Rect(0f, i * RowH, view.width, RowH), _view[i], columns);
+                    DrawRow(new Rect(0f, i * RowH, geometry.View.width, RowH), _view[i], columns);
             }
         }
 

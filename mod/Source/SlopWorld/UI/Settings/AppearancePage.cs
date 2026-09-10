@@ -62,9 +62,10 @@ namespace SlopWorld
                 _layout.Arrange(inner.width, inner.height, false, formH, previewH,
                     _contentRevision);
                 var form = Place(inner, _layout.Form);
-                var formView = UiScrollBody.ConditionalView(form, _fieldsH);
-                using (_scroll.Scope(form, formView))
-                    _measuredFieldsH = DrawFields(new Rect(0f, 0f, formView.width,
+                var formGeometry = UiScrollBody.Measure(form, _fieldsH,
+                    UiScrollbarReservation.WhenNeeded);
+                using (_scroll.Scope(form, formGeometry.View))
+                    _measuredFieldsH = DrawFields(new Rect(0f, 0f, formGeometry.View.width,
                         Mathf.Max(form.height, _fieldsH)));
 
                 DrawPreviewBlock(Place(inner, _layout.PreviewCaption),
@@ -77,10 +78,11 @@ namespace SlopWorld
                 // reachable even when the viewport is shorter than the form.
                 float contentH = formH + UiWidgets.GapM + blockH;
                 var frame = inner;
-                var view = UiScrollBody.ConditionalView(frame, contentH);
-                _layout.Arrange(view.width, inner.height, true, formH, previewH,
+                var geometry = UiScrollBody.Measure(frame, contentH,
+                    UiScrollbarReservation.WhenNeeded);
+                _layout.Arrange(geometry.View.width, inner.height, true, formH, previewH,
                     _contentRevision);
-                using (_scroll.Scope(frame, view))
+                using (_scroll.Scope(frame, geometry.View))
                 {
                     _measuredFieldsH = DrawFields(new Rect(_layout.Form.X, _layout.Form.Y,
                         _layout.Form.Width, Mathf.Max(_layout.Form.Height, _fieldsH)));

@@ -42,6 +42,9 @@ spacing, buttons, fields, headings and errors. Color names resolve through
   jumps a selected row into view. Brief frame stalls preserve cumulative touchpad movement;
   a logical wheel packet is suppressed only after a precise sample was claimed, or when it
   is the matching delayed packet from the preceding frame. Vertical scroll only.
+- `UiScrollBody.Measure` returns one geometry result with a named `Always` or `WhenNeeded`
+  scrollbar reservation. The pure `ScrollableGeometry` math preserves content height and
+  wrapping width at, below and above the viewport; each host still owns its `SmoothScroll`.
 - `ScrollableListing` retains a `SmoothScroll` and frame-stable `SettingsContentHeight` for
   `Listing_Standard` forms. Its optional trailing callback is measured inside the same view;
   footers, overlays and page data remain with their hosts.
