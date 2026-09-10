@@ -29,11 +29,9 @@ namespace SlopWorld
         public static void ShowLibrary() => Show(SidebarTab.Library);
         public static void ShowTasks() => Show(SidebarTab.Tasks);
 
-        public static bool CanFoldCurrent => CurrentTab != SidebarTab.Search &&
-            CurrentTab != SidebarTab.Tasks;
-        public static bool CurrentViewAllFolded => AllFolded();
-        public static bool CanToggleDotfiles => CurrentTab == SidebarTab.Files ||
-            CurrentTab == SidebarTab.Search;
+        public static bool CanFoldCurrent => CurrentDefinition.CanFold;
+        public static bool CurrentViewAllFolded => CurrentDefinition.AllFolded();
+        public static bool CanToggleDotfiles => CurrentDefinition.CanToggleDotfiles;
 
         public static void ToggleDotfiles()
         {
@@ -53,79 +51,27 @@ namespace SlopWorld
 
         static void ReloadAfterVisibilityChange()
         {
-            if (CurrentTab == SidebarTab.Files) FilesView.Reload();
-            else SearchView.Search();
+            CurrentDefinition.Refresh();
         }
 
         public static void SetAllFolds(bool folded)
         {
             if (!CanFoldCurrent) return;
-            switch (CurrentTab)
-            {
-                case SidebarTab.Agents:
-                    foreach (var key in Layout.Order) Fold(key, folded);
-                    break;
-                case SidebarTab.Files: FilesView.SetAllFolded(folded); break;
-                case SidebarTab.Git: GitView.SetAllFolded(folded); break;
-                case SidebarTab.Library: LibraryView.SetAllFolded(folded); break;
-            }
+            CurrentDefinition.SetAllFolds(folded);
         }
 
         public static void RefreshCurrentView()
         {
-            switch (CurrentTab)
-            {
-                case SidebarTab.Agents: SessionHub.Instance.SessionStore.Refresh(); break;
-                case SidebarTab.Files: FilesView.Reload(); break;
-                case SidebarTab.Search: SearchView.Search(); break;
-                case SidebarTab.Git: GitView.Refresh(); break;
-                case SidebarTab.Library:
-                    SessionHub.Instance.Catalog.RefreshLibrary(UiWidgets.Fail);
-                    break;
-                case SidebarTab.Tasks:
-                    SessionHub.Instance.TaskStore.Refresh(fail: UiWidgets.Fail);
-                    break;
-            }
+            CurrentDefinition.Refresh();
         }
 
         // The visual rect fills the panel while its hit rect stops before Grip so one consumed click cannot resize and open the menu.
 
 
-        public static SidebarTab CurrentTab => ParseTab(Settings.SidebarTab);
+        public static SidebarTab CurrentTab => CurrentDefinition.Tab;
 
-        static SidebarTab ParseTab(string value)
-        {
-            switch (value)
-            {
-                case "files": return SidebarTab.Files;
-                case "search": return SidebarTab.Search;
-                case "git": return SidebarTab.Git;
-                case "library": return SidebarTab.Library;
-                case "tasks": return SidebarTab.Tasks;
-                default: return SidebarTab.Agents;
-            }
-        }
-
-        static string TabName(SidebarTab tab)
-        {
-            switch (tab)
-            {
-                case SidebarTab.Files: return "files";
-                case SidebarTab.Search: return "search";
-                case SidebarTab.Git: return "git";
-                case SidebarTab.Library: return "library";
-                case SidebarTab.Tasks: return "tasks";
-                default: return "agents";
-            }
-        }
-
-        // Which views own a second row. Keep in step with what [Actions] draws.
-        static bool HasActions => CurrentTab == SidebarTab.Agents
-            || CurrentTab == SidebarTab.Files
-            || CurrentTab == SidebarTab.Search
-            || CurrentTab == SidebarTab.Git
-            || CurrentTab == SidebarTab.Library
-            || CurrentTab == SidebarTab.Tasks;
+        // Which views own a second row. The definition also owns the controls drawn there.
+        static bool HasActions => CurrentDefinition.HasActions;
 
         // Empty means all projects. Unknown project keys show no rows while the daemon list is
         // incomplete; the no-project bucket is a normal filter key.
@@ -235,47 +181,20 @@ namespace SlopWorld
             // The agents, files and Library views read the filter as they draw. The other
             // two hold what they asked the daemon for, and a filter that widened is a
             // project they never asked about.
-            if (CurrentTab == SidebarTab.Search) SearchView.Search();
-            else if (CurrentTab == SidebarTab.Git) GitView.Refresh();
+            CurrentDefinition.FilterChanged();
         }
 
         static void Show(SidebarTab tab)
         {
-            // The tab is a new focus target even when it is already selected (Git refreshes
-            // on that path), so a menu opened by the previous view must not survive it.
-            UiMenu.CloseAll();
-
-            // Focusing Git is also the user's way to ask what changed since the last
-            // focus, including when Git is already the selected tab.
-            if (CurrentTab == tab)
-            {
-                if (tab == SidebarTab.Git) GitView.Refresh();
-                else if (tab == SidebarTab.Files) FilesView.Entered();
-                else if (tab == SidebarTab.Tasks) SessionHub.Instance.TaskStore.Refresh(fail: UiWidgets.Fail);
-                return;
-            }
-
-            if (tab != SidebarTab.Files) FilesView.ClearFocus();
-            if (tab != SidebarTab.Search)
-            {
-                SearchView.Closed();
-            }
-
-            var s = Settings.S;
-            s.sidebarTab = TabName(tab);
-            s.Write();
-
-            if (tab == SidebarTab.Git) GitView.Refresh();
-            else if (tab == SidebarTab.Files)
-            {
-                FilesView.Entered();
-                GitView.Entered();
-            }
-
-            if (tab == SidebarTab.Search) SearchView.Entered();
-
-            if (tab == SidebarTab.Library) SessionHub.Instance.Catalog.RefreshLibrary();
-            if (tab == SidebarTab.Tasks) SessionHub.Instance.TaskStore.Refresh(fail: UiWidgets.Fail);
+            var target = TabRegistry.For(tab);
+            SidebarTabActivation.Activate(
+                CurrentDefinition, target, TabRegistry.Definitions,
+                UiMenu.CloseAll,
+                () =>
+                {
+                    Settings.S.sidebarTab = target.PersistedName;
+                    Settings.S.Write();
+                });
         }
 
         static RowAct RoutedAction(SessionInfo info) => RowActions.Of(info);

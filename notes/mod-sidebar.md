@@ -80,6 +80,14 @@ sandbox config (presets, network, dns, limits, mounts) via the `like` field on
 
 Shared views, navigation, filtering, context menus, and vanilla chrome shifts are
 covered in [sidebar views and chrome](mod-sidebar-navigation.md).
+
+Sidebar tabs are registered as ordered definitions with stable persisted names, capabilities,
+draw/click/action handlers, refresh and fold delegates, and separate close/entered/reselected
+lifecycle callbacks. Unknown saved names fall back to Agents. Switching closes menus first,
+then closes non-target view state, persists the target, and enters it; reselecting runs only
+the target's refresh callback. Files re-entry also initializes Git status, while Git and Tasks
+refresh on reselection.
+
 - Middle-click closes Files/Git routed headers without confirmation, including restored
   pager/editor sessions, pinned diffs and native Markdown previews. Ordinary durable agent rows
   remain unaffected. Explicit dismissal releases pinned previews; ordinary focus changes still

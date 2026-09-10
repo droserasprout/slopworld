@@ -57,35 +57,14 @@ namespace SlopWorld
 
             const float Gap = 3f;
             float x = Panel.x + CellX;
-            Tab(new Rect(x, y, TabIcon, TabIcon), Icons.Agents,
-                CurrentTab == SidebarTab.Agents,
-                "Agents - every session, under the project it runs in",
-                () => Show(SidebarTab.Agents));
-            x += TabIcon + Gap;
-            Tab(new Rect(x, y, TabIcon, TabIcon), Icons.Files,
-                CurrentTab == SidebarTab.Files,
-                "Files - every project's directory, as a tree",
-                () => Show(SidebarTab.Files));
-            x += TabIcon + Gap;
-            Tab(new Rect(x, y, TabIcon, TabIcon), Icons.Search,
-                CurrentTab == SidebarTab.Search,
-                "Search - find text across every project",
-                () => Show(SidebarTab.Search));
-            x += TabIcon + Gap;
-            Tab(new Rect(x, y, TabIcon, TabIcon), Icons.Git,
-                CurrentTab == SidebarTab.Git,
-                "Git - what every working tree has that its last commit does not",
-                () => Show(SidebarTab.Git));
-            x += TabIcon + Gap;
-            Tab(new Rect(x, y, TabIcon, TabIcon), Icons.Tasks,
-                CurrentTab == SidebarTab.Tasks,
-                "Tasks - delegate work and inspect the agent mailbox",
-                () => Show(SidebarTab.Tasks));
-            x += TabIcon + Gap;
-            Tab(new Rect(x, y, TabIcon, TabIcon), Icons.Library,
-                CurrentTab == SidebarTab.Library,
-                "Library - one-shot errands you can run against any project",
-                () => Show(SidebarTab.Library));
+            foreach (var definition in TabRegistry.Definitions)
+            {
+                var tab = definition.Tab;
+                Tab(new Rect(x, y, TabIcon, TabIcon), IconFor(definition),
+                    CurrentTab == tab, definition.Tooltip,
+                    () => Show(tab));
+                x += TabIcon + Gap;
+            }
 
             FilterButton();
 
@@ -98,65 +77,29 @@ namespace SlopWorld
                 Event.current.Use();
         }
 
-        // The buttons only the view up right now has, on their own row under the tabs and
-        // right-aligned under the filter. A view without one leaves the row out entirely -
-        // see [HasActions], which has to agree with what this draws.
+        static Texture2D IconFor(SidebarTabDefinition definition)
+        {
+            switch (definition.IconKey)
+            {
+                case "files": return Icons.Files;
+                case "search": return Icons.Search;
+                case "git": return Icons.Git;
+                case "tasks": return Icons.Tasks;
+                case "library": return Icons.Library;
+                default: return Icons.Agents;
+            }
+        }
+
+        // Each definition owns the second-row controls for its view.
         static void Actions(Rect r)
         {
-            if (CurrentTab != SidebarTab.Search && CurrentTab != SidebarTab.Tasks)
-            {
-                bool folded = AllFolded();
-                Tab(r, folded ? TexButton.Reveal : TexButton.Collapse, folded,
-                    folded ? "Unfold all." : "Fold all.", () => SetAllFolds(!folded));
-                r.x -= TabIcon + 3f;
-            }
-
-            if (CurrentTab == SidebarTab.Agents)
-            {
-                _agentVisibilityRect = r;
-                Tab(r, Icons.Hidden, StatusFiltering,
-                    StatusFiltering
-                        ? $"Showing {StatusFilterLabel} agents. Click to change the selection."
-                        : "All agents shown. Click to select statuses.",
-                    OpenAgentVisibilityMenu);
-            }
-            else if (CurrentTab == SidebarTab.Files || CurrentTab == SidebarTab.Search)
-            {
-                bool active = Settings.SidebarShowHidden || Settings.SidebarShowGitignored;
-                _visibilityRect = r;
-                Tab(r, Icons.Hidden, active,
-                    active
-                        ? "Visibility filters active. Click to change."
-                        : "All files shown. Click to filter.",
-                    OpenVisibilityMenu);
-            }
-            else if (CurrentTab == SidebarTab.Git)
-            {
-                Tab(r, Icons.Refresh, false,
-                    "Read every working tree again.", GitView.Refresh);
-            }
-            else if (CurrentTab == SidebarTab.Tasks)
-            {
-                Tab(r, Icons.Refresh, false,
-                    "Read the task mailbox again.", () =>
-                        SessionHub.Instance.TaskStore.Refresh(fail: UiWidgets.Fail));
-                r.x -= TabIcon + 3f;
-                TasksView.FilterButton(r);
-            }
+            CurrentDefinition.DrawActions(new SidebarTabActionContext(
+                r.x, r.y, r.width, r.height));
         }
 
         static bool AllFolded()
         {
-            switch (CurrentTab)
-            {
-                case SidebarTab.Agents:
-                    return Layout.Order.Count > 0 && Layout.Order.TrueForAll(Folded.Contains);
-                case SidebarTab.Files: return FilesView.AllFolded;
-                case SidebarTab.Git: return GitView.AllFolded;
-                case SidebarTab.Library: return LibraryView.AllFolded;
-                case SidebarTab.Tasks: return false;
-                default: return false;
-            }
+            return CurrentDefinition.AllFolded();
         }
 
         static void ToggleAllFolds()
