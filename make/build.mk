@@ -1,4 +1,4 @@
-.PHONY: daemon mod bench-daemon test-daemon test-mod coverage coverage-daemon coverage-mod test-prose \
+.PHONY: daemon mod bench-daemon test-wire-contract test-daemon test-mod coverage coverage-daemon coverage-mod test-prose \
 	appicon icons emoji-atlas reference api-contract api-docs scheme-report harmony clean
 
 ##
@@ -12,6 +12,9 @@ bench-daemon: api-contract ## Run the game-free daemon performance benchmark
 .PHONY: bench-mod
 bench-mod: api-contract ## Benchmark C# helpers without RimWorld or Unity
 	@DOTNET_TieredCompilation=0 $(DOTNET) run --project "$(TEST_PROJECT)" --configuration $(if $(filter release,$(BUILD)),Release,Debug) -- --perf-bench
+
+test-wire-contract: api-contract ## Test generated Rust envelope declarations
+	@$(PYTHON) tools/test_wire_contract.py
 
 mod: daemon        ## Build the mod against the game's assemblies
 	@test -f "$(CSC_API)/mscorlib.dll" || { echo "missing Mono reference assemblies under $(CSC_API)" >&2; exit 1; }
@@ -28,10 +31,10 @@ mod: daemon        ## Build the mod against the game's assemblies
 		-out:"$(MOD_DLL)" $(CSC_OPTIMIZE) $(CSC_WARNINGS) \
 		$(CSC_REFS) "$(MOD_ASSEMBLY_INFO)" $(CSC_SOURCES)
 
-test-daemon: api-contract
+test-daemon: api-contract test-wire-contract
 	@cd slopd && $(CARGO) test --quiet
 
-test-mod: api-contract
+test-mod: api-contract test-wire-contract
 	@$(DOTNET) run --project "$(TEST_PROJECT)" --configuration Release -- --quiet
 
 .PHONY: test-pager
