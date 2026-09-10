@@ -177,14 +177,10 @@ namespace SlopWorld
         public void OpenMenu()
         {
             var options = new List<FloatMenuOption>();
-            var copy = new FloatMenuOption("Copy", CopySelection);
-            copy.Disabled = !_hasSelection;
-            options.Add(copy);
-
-            var paste = new FloatMenuOption("Paste", TerminalWindow.PasteClipboardToAgent);
-            paste.Disabled = !TerminalWindow.CanPasteClipboardToAgent;
-            options.Add(paste);
-            options.Add(new FloatMenuOption("Select all", SelectAll));
+            SelectionCommands.Add(options,
+                new SelectionCommandAvailability(_hasSelection,
+                    TerminalWindow.CanPasteClipboardToAgent, true, false),
+                CopySelection, TerminalWindow.PasteClipboardToAgent, SelectAll);
             TerminalWindow.OpenOverPane(new UiMenu(options));
         }
 

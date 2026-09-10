@@ -89,9 +89,9 @@ namespace SlopWorld
                     absolute => FilesView.EditFile(project, absolute, "edit-" + name, pickedLine))));
             }
 
-            var copy = new FloatMenuOption("Copy", CopySelection);
-            copy.Disabled = !_hasSel;
-            options.Add(copy);
+            var selectionAvailability = new SelectionCommandAvailability(
+                _hasSel, true, true, false);
+            SelectionCommands.AddCopy(options, selectionAvailability, CopySelection);
             if (info != null)
             {
                 string name = _name;
@@ -101,14 +101,15 @@ namespace SlopWorld
                     if (current != null) LabelDialog.Open(name, current.Label);
                 }));
             }
-            options.Add(new FloatMenuOption("Paste", () => { JumpToLive(); PasteClipboard(); }));
+            SelectionCommands.AddPaste(options, selectionAvailability,
+                () => { JumpToLive(); PasteClipboard(); });
             var breadcrumbs = AllBreadcrumbs();
             var breadcrumbMenu = new UiSubmenu("Breadcrumbs",
                 () => BreadcrumbOptions(breadcrumbs));
             breadcrumbMenu.Disabled = !SessionHub.Instance.Config.ExperimentalBreadcrumbs ||
                 info == null || !info.Alive || breadcrumbs.Count == 0;
             options.Add(breadcrumbMenu);
-            options.Add(new FloatMenuOption("Select all", SelectAll));
+            SelectionCommands.AddSelectAll(options, selectionAvailability, SelectAll);
             options.Add(new UiSubmenu("Open beside", () =>
             {
                 var sessions = new List<FloatMenuOption>();

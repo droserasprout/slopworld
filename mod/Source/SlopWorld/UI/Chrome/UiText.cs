@@ -545,24 +545,18 @@ namespace SlopWorld
 
             string selected = editor?.SelectedText ?? "";
             var options = new List<FloatMenuOption>();
-
-            var cut = new FloatMenuOption("Cut", () =>
-            {
-                DaemonClipboard.Copy(selected);
-                QueueEdit(name, controlId, e => e.DeleteSelection(), lifetime);
-            });
-            cut.Disabled = selected.Length == 0;
-            if (!readOnly) options.Add(cut);
-
-            var copy = new FloatMenuOption("Copy", () => DaemonClipboard.Copy(selected));
-            copy.Disabled = selected.Length == 0;
-            options.Add(copy);
-
-            if (!readOnly)
-                options.Add(new FloatMenuOption("Paste", () =>
-                    RequestPaste(name, controlId, area, false, lifetime)));
-            options.Add(new FloatMenuOption("Select all", () =>
-                QueueEdit(name, controlId, e => e.SelectAll(), lifetime)));
+            var availability = new SelectionCommandAvailability(
+                selected.Length > 0, !readOnly, true, selected.Length > 0);
+            SelectionCommands.Add(
+                options, availability,
+                () => DaemonClipboard.Copy(selected),
+                !readOnly ? (Action)(() => RequestPaste(name, controlId, area, false, lifetime)) : null,
+                () => QueueEdit(name, controlId, e => e.SelectAll(), lifetime),
+                !readOnly ? (Action)(() =>
+                {
+                    DaemonClipboard.Copy(selected);
+                    QueueEdit(name, controlId, e => e.DeleteSelection(), lifetime);
+                }) : null);
 
             UiMenu.Open(options);
         }
