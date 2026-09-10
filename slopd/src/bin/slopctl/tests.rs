@@ -106,6 +106,71 @@ fn command_parser_builds_delegation_and_update_commands() {
 }
 
 #[test]
+fn task_text_preserves_help_words_and_flags() {
+    for text in ["help", "please help me", "--help", "-h"] {
+        let mut args = words("delegate agent");
+        args.extend(words(text));
+        assert_eq!(
+            parse_command(&args),
+            Ok(Command::Delegate {
+                to: "agent".into(),
+                body: text.into(),
+            })
+        );
+        for (command, action) in [
+            ("accept", UpdateAction::Accept),
+            ("progress", UpdateAction::Progress),
+            ("finish", UpdateAction::Finish),
+            ("fail", UpdateAction::Fail),
+        ] {
+            let mut args = words(&format!("{command} task-7"));
+            args.extend(words(text));
+            assert_eq!(
+                parse_command(&args),
+                Ok(Command::Update {
+                    action,
+                    id: "task-7".into(),
+                    note: Some(text.into()),
+                })
+            );
+        }
+    }
+}
+
+#[test]
+fn spawn_preserves_task_text_after_parent() {
+    for command in ["spawn", "worker"] {
+        for durable in [false, true] {
+            for text in [
+                "- investigate the failure",
+                "--durable",
+                "help",
+                "--help",
+                "-h",
+            ] {
+                // Check both a quoted body and a body spread over several arguments.
+                for body_args in [vec![text.to_string()], words(text)] {
+                    let mut args = vec![command.to_string()];
+                    if durable {
+                        args.push("--durable".into());
+                    }
+                    args.push("parent".into());
+                    args.extend(body_args);
+                    assert_eq!(
+                        parse_command(&args),
+                        Ok(Command::Spawn {
+                            parent: "parent".into(),
+                            durable,
+                            body: text.into(),
+                        })
+                    );
+                }
+            }
+        }
+    }
+}
+
+#[test]
 fn every_command_has_nested_help() {
     let commands = [
         ("delegate", DELEGATE_USAGE),
