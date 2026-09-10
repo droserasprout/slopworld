@@ -91,7 +91,9 @@ namespace SlopWorld
 
             public override void ToggleGroup(ContentTreeGroup group)
             {
-                if (!Shut.Remove(group.Key)) Shut.Add(group.Key);
+                bool unfolding = Shut.Remove(group.Key);
+                if (!unfolding) Shut.Add(group.Key);
+                else RefreshLoaded((Node)group.Root);
                 BumpTree();
             }
 
@@ -115,7 +117,7 @@ namespace SlopWorld
                 // A manual expand is a foreground request. Drop queued background work so a
                 // single directory does not wait behind the rest of an unfold-all walk.
                 CancelQueuedBrowse();
-                if (file.Expanded && file.Children != null) RefreshLoaded(file, false);
+                if (file.Expanded && file.Children != null) RefreshLoaded(file);
                 BumpTree();
             }
 
@@ -165,13 +167,13 @@ namespace SlopWorld
             foreach (var root in Roots.Values) SetExpanded(root, !folded);
             if (_focusedRoot != null) SetExpanded(_focusedRoot, !folded);
 
-            // Reopening a project must refresh its cached root before its old children are
-            // trusted. Refresh only the roots here; nested rows refresh when opened.
+            // Reopening a project must refresh its cached root and the visible descendants
+            // before their old children are trusted. Unopened directories remain lazy.
             if (!folded)
             {
                 foreach (var project in ViewChrome.Projects())
-                    RefreshLoaded(Root(project), false);
-                if (_focusedRoot != null) RefreshLoaded(_focusedRoot, false);
+                    RefreshLoaded(Root(project));
+                if (_focusedRoot != null) RefreshLoaded(_focusedRoot);
             }
             BumpTree();
         }
@@ -350,11 +352,13 @@ namespace SlopWorld
             });
         }
 
-        // Everything listed was listed under the old answer about dotfiles, so it is dropped;
-        // what the reader arranged - which projects are open, and how deep - is kept.
+        // Everything listed will be replaced by a fresh answer about visibility. Keep the old
+        // node skeleton while that answer is in flight so the reader's expanded branches survive
+        // the reload and the new listing can reuse them.
         public static void Reload()
         {
             CancelQueuedBrowse();
+            _nextAutoRefresh = 0f;
             ReleaseViewer();
             ClearSelection();
             foreach (var root in Roots.Values) Forget(root);
@@ -373,7 +377,9 @@ namespace SlopWorld
 
         // The daemon deliberately has no filesystem event stream. Keep the visible tree fresh
         // while Files is open, but leave unopened directories lazy and preserve the old nodes
-        // when a listing lands so an external change does not fold the user's tree.
+        // when a listing lands so an external change does not fold the user's tree. A collapsed
+        // directory row is still visible, so reread its already-loaded listing too; otherwise a
+        // newly-created child can leave the row without a disclosure arrow forever.
         static void RefreshIfDue()
         {
             float now = Time.realtimeSinceStartup;
@@ -394,7 +400,7 @@ namespace SlopWorld
 
         static void RefreshLoaded(Node node, bool descend = true)
         {
-            if (node == null || node.Children == null || node.Loading || !node.Expanded) return;
+            if (node == null || node.Children == null || node.Loading) return;
 
             node.Loading = true;
             node.Error = null;
@@ -447,14 +453,14 @@ namespace SlopWorld
             if (n.Children != null)
                 foreach (var child in n.Children)
                     Forget(child);
-            n.Children = null;
             n.More = false;
             n.Error = null;
             n.Loading = false;
             n.Loaded = null;
             n.ListingVersion++;
-            // Not Expanded: that is the shape, and it is what asks for the listing again on
-            // the next frame this draws.
+            // Keep Children as a stale snapshot so Listed can reuse these nodes, including
+            // their expansion state. Reload resets the deadline, and the root refresh replaces
+            // each loaded listing; an actually unopened directory still has Children == null.
         }
 
         static Node Root(string project)
@@ -573,11 +579,12 @@ namespace SlopWorld
                     foreach (var callback in loaded) callback();
 
                 if (!request.Descend) return;
-                // Walk the fresh children, rather than the old list, and only while branches
-                // remain expanded. Folded work is picked up when the branch is reopened.
+                // Walk the fresh children, rather than the old list. Refresh loaded collapsed
+                // children so their visible rows keep accurate disclosure state, but only
+                // descend through branches that remain expanded.
                 foreach (var child in node.Children)
-                    if (child.IsDir && child.Children != null && child.Expanded)
-                        RefreshLoaded(child);
+                    if (child.IsDir && child.Children != null)
+                        RefreshLoaded(child, child.Expanded);
             }
             finally
             {
