@@ -31,6 +31,7 @@ namespace UnityEngine
         public static int Min(int a, int b) => a < b ? a : b;
         public static float Min(float a, float b) => a < b ? a : b;
         public static float Max(float a, float b) => a > b ? a : b;
+        public static float Ceil(float value) => (float)System.Math.Ceiling(value);
         public static float Clamp(float v, float min, float max) =>
             v < min ? min : v > max ? max : v;
         public static int Clamp(int v, int min, int max) => v < min ? min : v > max ? max : v;

@@ -39,12 +39,28 @@ namespace SlopWorld.Tests
             AssertEx.True(narrow.Navigation.width + narrow.Content.width <= 100.001f,
                 "narrow navigation preserves content");
 
+            var zero = WorkspaceLayout.Compute(0f, 0f, true, true,
+                NavigationSide.Right, 210f, 80f);
+            AssertEx.True(zero.Navigation.width >= 0f && zero.Content.width >= 0f
+                && zero.Content.height >= 0f && zero.TopBar.height >= 0f,
+                "zero viewport geometry is nonnegative");
+
+            var tinyRight = WorkspaceLayout.Compute(1f, 1f, true, true,
+                NavigationSide.Right, 210f, 80f);
+            AssertEx.True(tinyRight.Navigation.width >= 0f && tinyRight.Content.width >= 0f
+                && tinyRight.Content.height >= 0f,
+                "tiny right-side geometry is nonnegative");
+
             var first = WorkspaceLayout.Compute(800f, 600f, true, true,
                 NavigationSide.Left, 210f, 26f, 1);
             var second = WorkspaceLayout.Compute(800f, 600f, true, true,
                 NavigationSide.Left, 210f, 26f, 2);
             AssertEx.True(second.Revision != first.Revision,
                 "metric changes advance the workspace revision");
+            var unchanged = WorkspaceLayout.Compute(800f, 600f, true, true,
+                NavigationSide.Left, 210f, 26f, 2);
+            AssertEx.Equal(second.Revision, unchanged.Revision,
+                "unchanged geometry keeps its revision");
             AssertEx.Equal(NavigationSide.Left,
                 NavigationSide.Normalize("unknown"), "unknown side falls back left");
             AssertEx.Equal(UiDensityPreset.Default,

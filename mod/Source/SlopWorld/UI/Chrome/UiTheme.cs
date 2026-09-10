@@ -5,41 +5,6 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Shared spacing and control sizes. The default values are the existing arrangement;
-    // compact only tightens chrome where the font-derived minimum still fits the glyphs.
-    public static class UiMetrics
-    {
-        static string _density;
-        static int _revision;
-
-        public static string Density => UiDensityPreset.Normalize(Settings.UiDensity);
-        public static bool Compact => Density == UiDensityPreset.Compact;
-
-        public static int Revision
-        {
-            get
-            {
-                string density = Density;
-                if (_density == null) _density = density;
-                else if (_density != density)
-                {
-                    _density = density;
-                    unchecked { _revision++; }
-                }
-                return _revision;
-            }
-        }
-
-        public static float GapXS => Compact ? 3f : 4f;
-        public static float GapS => Compact ? 6f : 8f;
-        public static float GapM => Compact ? 12f : 16f;
-        public static float GapL => Compact ? 18f : 24f;
-        public static float ButtonH(float lineH) =>
-            Mathf.Max(lineH + GapXS + 2f, Compact ? 26f : 30f);
-        public static float CompactMinH => Compact ? 20f : 22f;
-        public static float PaletteMinH => Compact ? 24f : 26f;
-    }
-
     // Shared scheme-driven opaque chrome; Slab owns fills/edges and fixed gaps keep controls
     // on the screen pixel grid.
     public abstract class UiTheme
@@ -55,6 +20,8 @@ namespace SlopWorld
         {
             Font.textureRebuilt += _ => _atlasRevision++;
         }
+
+        public static int AtlasRevision => _atlasRevision;
 
         readonly struct TextCacheKey : IEquatable<TextCacheKey>
         {
@@ -192,8 +159,7 @@ namespace SlopWorld
 
         public static float HeaderH => LineHOf(GameFont.Medium) + GapS;
 
-        public static float LineHOf(GameFont font) =>
-            Mathf.Ceil(Verse.Text.LineHeightOf(Real(font)));
+        public static float LineHOf(GameFont font) => UiMetrics.Current.LineH(font);
 
         // Verse silently promotes Tiny when the current language or display cannot support it.
         public static GameFont Real(GameFont font) =>
@@ -257,7 +223,7 @@ namespace SlopWorld
         protected static Color PrimeFace => Accent;
         protected static Color DangerFace => Destructive;
 
-        public static float BtnH => UiMetrics.ButtonH(LineH);
+        public static float BtnH => UiMetrics.Current.ButtonH(LineH);
         public static float ButtonPadX => UiMetrics.Compact ? 10f : 12f;
         public static float ButtonMinW => UiMetrics.Compact ? 72f : 76f;
         public static float FieldPadX => UiMetrics.Compact ? 5f : 6f;

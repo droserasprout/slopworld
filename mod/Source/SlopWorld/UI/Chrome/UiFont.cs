@@ -37,6 +37,9 @@ namespace SlopWorld
         static Font[] _fonts;
         static string _fontName;
         static int _fontSize = -1;
+        static int _revision;
+
+        public static int Revision => _revision;
 
         // Replaces the built-in fonts with the user's chosen OS font in every
         // Text font-style array. Called from WriteSettings and from the bootstrap.
@@ -100,6 +103,8 @@ namespace SlopWorld
             _fontSize = size;
 
             ApplyFont(fonts);
+            unchecked { _revision++; }
+            if (_revision == 0) _revision = 1;
 
             // Destroy old fonts only after all style arrays point at the replacements.
             DestroyUnique(old, fonts);

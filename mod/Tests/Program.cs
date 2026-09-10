@@ -84,6 +84,9 @@ namespace SlopWorld.Tests
             tests.Add(("Eco: clock boundaries and locale", EcoWorkTests.Clock));
             tests.Add(("HubCatalog: ordering", HubCatalogTests.Ordering));
             tests.Add(("Workspace: geometry", WorkspaceLayoutTests.Geometry));
+            tests.Add(("UI metrics: density and font floors", UiMetricsTests.Values));
+            tests.Add(("UI metrics: invalidation channels", UiMetricsTests.Invalidation));
+            tests.Add(("UI composition: measure and arrange", UiCompositionTests.Arrange));
             int failed = 0;
 
             foreach (var test in tests)

@@ -56,6 +56,12 @@ initial press and off-screen release. It saves settings on release, owns the pan
 right edge, keeps tab/add hit gates short of that edge, and sends the measured pane shape with
 the background redraw request so every live tmux pane is ready before an inactive tab opens.
 
+`WorkspaceLayout` owns the panel rectangle, so the navigation can move to the right without
+changing the row model. Fixed chrome uses screen-space panel coordinates; agent rows and
+headings remain local to the shared scroll group. The colonist-bar location table is translated
+only around external `TryGetEntryAt` calls, and workspace revisions invalidate cached placement
+without replacing the active tab, content view, focus, or scroll state.
+
 The agent and host-terminal context menus offer Start/Stop, Terminal and Label; agents also have
 Delegate task, Edit, Duplicate, Shell,
 Storage, Remove, and New look. The Tasks tab lists the complete root task board, refreshes it through the
