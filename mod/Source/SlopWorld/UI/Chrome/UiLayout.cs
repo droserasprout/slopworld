@@ -299,17 +299,20 @@ namespace SlopWorld
         public static string FreeName(string name, IEnumerable<string> taken, string fallback)
             => NameTools.FreeName(name, taken, fallback);
 
-        public static void DrawRail<T>(Rect r, (string label, T tab)[] tabs, ref T active)
+        public static void DrawRail<T>(Rect r, (string label, T tab)[] tabs, ref T active,
+                                       Func<T, bool> enabled = null)
         {
             float y = r.y;
             foreach (var tab in tabs)
-                y = RailTab(r, y, tab.label, tab.tab, ref active);
+                y = RailTab(r, y, tab.label, tab.tab, ref active,
+                    enabled == null || enabled(tab.tab));
         }
 
-        static float RailTab<T>(Rect r, float y, string label, T tab, ref T active)
+        static float RailTab<T>(Rect r, float y, string label, T tab, ref T active, bool enabled)
         {
             if (Button(new Rect(r.x, y, r.width, BtnH), label,
-                    EqualityComparer<T>.Default.Equals(active, tab) ? Btn.Primary : Btn.Ghost))
+                    EqualityComparer<T>.Default.Equals(active, tab) ? Btn.Primary : Btn.Ghost,
+                    enabled))
             {
                 if (!EqualityComparer<T>.Default.Equals(active, tab))
                     TextFieldSelection.ReleaseFocus();

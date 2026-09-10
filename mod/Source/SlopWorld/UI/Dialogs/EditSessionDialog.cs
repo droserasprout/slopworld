@@ -184,7 +184,8 @@ namespace SlopWorld
             ("Resource limits", Tab.ResourceLimits),
             ("Breadcrumbs", Tab.Breadcrumbs),
             ("Preview", Tab.Preview),
-        }, ref _tab);
+        }, ref _tab,
+            tab => tab != Tab.Breadcrumbs || SessionHub.Instance.Config.ExperimentalBreadcrumbs);
 
         void Save()
         {

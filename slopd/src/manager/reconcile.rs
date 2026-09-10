@@ -40,7 +40,7 @@ impl Manager {
             if !path.is_dir() {
                 continue;
             }
-            let enabled = cfg.daemon.experimental
+            let enabled = cfg.daemon.experimental_instructions
                 && cfg
                     .sessions
                     .iter()
@@ -97,7 +97,7 @@ impl Manager {
 
     pub(super) async fn upsert_sessions(&self, cfg: &Config) {
         let mut live = self.live.write().await;
-        if !cfg.daemon.experimental {
+        if !cfg.daemon.experimental_breadcrumbs {
             for session in live.values_mut() {
                 session.breadcrumbs_pending = false;
                 session.breadcrumbs.clear();

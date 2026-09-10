@@ -106,6 +106,9 @@ namespace SlopWorld
         string _agentDefault = "claude";
         string _shellDefault = "bash";
 
+        bool BreadcrumbsEnabled => SessionHub.Instance.Config.ExperimentalBreadcrumbs;
+        bool CurrentKindEnabled => _s.Kind != LibraryItemKind.Breadcrumb || BreadcrumbsEnabled;
+
         public EditLibraryItemDialog(LibraryItemInfo existing) : this(existing, false) { }
 
         public static EditLibraryItemDialog Copy(LibraryItemInfo of) =>
@@ -185,13 +188,13 @@ namespace SlopWorld
         void DrawName(Listing_Standard l)
         {
             l.Label("Name (also what the temporary colonist is called)");
-            _s.Name = UiWidgets.Field(l, "library.name", _s.Name);
+            _s.Name = UiWidgets.Field(l, "library.name", _s.Name, on: CurrentKindEnabled);
         }
 
         void DrawKindAndLink(Listing_Standard l, LibraryItemKindDescriptor kind)
         {
             UiWidgets.Select(l, "Kind", kind.ButtonLabel, KindOptions(), out _,
-                openMenu: TerminalWindow.OpenOverPane);
+                on: CurrentKindEnabled, openMenu: TerminalWindow.OpenOverPane);
 
             if (!kind.ShowWhere) return;
             UiWidgets.Select(l, "Where it runs", LinkLabel(_s.Link), LinkOptions(), out _,
@@ -205,7 +208,7 @@ namespace SlopWorld
             if (!kind.ShowProject(this)) return;
             UiWidgets.Select(l, kind.ProjectLabel(this), kind.ProjectValue(this),
                 ProjectOptions(_s.Kind == LibraryItemKind.Breadcrumb), out _,
-                openMenu: TerminalWindow.OpenOverPane);
+                on: CurrentKindEnabled, openMenu: TerminalWindow.OpenOverPane);
         }
 
         void DrawFileActionMode(Listing_Standard l)
@@ -239,13 +242,15 @@ namespace SlopWorld
             var box = UiWidgets.FieldRect(l);
             if (!string.IsNullOrEmpty((_s.Command ?? "").Trim()))
             {
-                _s.Command = UiWidgets.Field(box, "library.command", _s.Command);
+                _s.Command = UiWidgets.Field(box, "library.command", _s.Command,
+                    on: CurrentKindEnabled);
                 return;
             }
 
             string placeholder = kind.CommandPlaceholder(this);
             GUI.color = UiWidgets.Faint;
-            string shown = UiWidgets.Field(box, "library.command", placeholder);
+            string shown = UiWidgets.Field(box, "library.command", placeholder,
+                on: CurrentKindEnabled);
             GUI.color = Color.white;
             if (shown != placeholder) _s.Command = shown;
         }
@@ -261,7 +266,8 @@ namespace SlopWorld
             {
                 var area = new Rect(rect.x, y, rect.width,
                     rect.yMax - UiWidgets.BtnH - UiWidgets.GapS - y);
-                _s.Text = UiWidgets.Area(area, "library.text", _s.Text ?? "");
+                _s.Text = UiWidgets.Area(area, "library.text", _s.Text ?? "",
+                    on: CurrentKindEnabled);
             }
             else
             {
@@ -274,7 +280,7 @@ namespace SlopWorld
         {
             var foot = new UiWidgets.Bar(UiWidgets.FooterBar(rect));
             if (foot.Left("Cancel", UiWidgets.Btn.Ghost)) Close();
-            if (foot.Right("Save", UiWidgets.Btn.Primary)) Save();
+            if (foot.Right("Save", UiWidgets.Btn.Primary, CurrentKindEnabled)) Save();
         }
 
         // The three answers, in the words the dropdown shows them in.
@@ -347,7 +353,8 @@ namespace SlopWorld
                 new SelectorOption("Shell - run a command",
                     () => { _s.Kind = LibraryItemKind.Shell; _s.Mode = FileActionMode.Ask; }),
                 new SelectorOption("Breadcrumb - append to the first prompt",
-                    () => { _s.Kind = LibraryItemKind.Breadcrumb; _s.Mode = FileActionMode.Ask; _s.Link = LibraryItemLink.Project; _s.Project = ""; }),
+                    () => { _s.Kind = LibraryItemKind.Breadcrumb; _s.Mode = FileActionMode.Ask; _s.Link = LibraryItemLink.Project; _s.Project = ""; },
+                    BreadcrumbsEnabled),
                 new SelectorOption("File action - run on a Files row",
                     () => { _s.Kind = LibraryItemKind.FileAction; _s.Mode = FileActionMode.Ask; _s.Link = LibraryItemLink.Project; _s.Project = ""; _s.Text = ""; }),
             };
@@ -367,6 +374,7 @@ namespace SlopWorld
 
         void Save()
         {
+            if (!CurrentKindEnabled) return;
             if (string.IsNullOrEmpty((_s.Name ?? "").Trim()))
             {
                 Messages.Message("SlopWorld: a library entry needs a name.",

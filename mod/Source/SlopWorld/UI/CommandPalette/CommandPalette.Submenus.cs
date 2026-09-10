@@ -189,6 +189,8 @@ namespace SlopWorld
                 {
                     Label = $"{s.Name}  ({s.Kind.ToString().ToLower()})",
                     Value = s.Name,
+                    Enabled = s.Kind != LibraryItemKind.Breadcrumb ||
+                              SessionHub.Instance.Config.ExperimentalBreadcrumbs,
                 })
                 .ToList();
 
@@ -200,7 +202,12 @@ namespace SlopWorld
         static List<SubOption> NewLibraryItemSub() => new List<SubOption>
         {
             new SubOption { Label = "Prompt", Select = () => NewLibraryItem(LibraryItemKind.Prompt) },
-            new SubOption { Label = "Breadcrumb", Select = () => NewLibraryItem(LibraryItemKind.Breadcrumb) },
+            new SubOption
+            {
+                Label = "Breadcrumb",
+                Enabled = SessionHub.Instance.Config.ExperimentalBreadcrumbs,
+                Select = () => NewLibraryItem(LibraryItemKind.Breadcrumb),
+            },
             new SubOption { Label = "Shell", Select = () => NewLibraryItem(LibraryItemKind.Shell) },
             new SubOption { Label = "File Action", Select = () => NewLibraryItem(LibraryItemKind.FileAction) },
         };

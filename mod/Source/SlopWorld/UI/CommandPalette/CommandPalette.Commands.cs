@@ -99,7 +99,12 @@ namespace SlopWorld
             new CommandDef("library.new", "Library: New", "Library",
                 _ => { }, subAction: NewLibraryItemSub),
             CommandDef.ForLibraryItem("library.edit", "Library: Edit", LibraryManageSub,
-                s => TerminalWindow.OpenOverPane(new EditLibraryItemDialog(s))),
+                s =>
+                {
+                    if (s.Kind == LibraryItemKind.Breadcrumb &&
+                        !SessionHub.Instance.Config.ExperimentalBreadcrumbs) return;
+                    TerminalWindow.OpenOverPane(new EditLibraryItemDialog(s));
+                }),
             CommandDef.ForLibraryItem("library.delete", "Library: Delete", LibraryManageSub, s =>
             {
                 var name = s.Name;
@@ -108,7 +113,12 @@ namespace SlopWorld
                     () => SessionHub.Instance.Catalog.RemoveLibraryItem(name, UiWidgets.Fail), destructive: true));
             }),
             CommandDef.ForLibraryItem("library.duplicate", "Library: Duplicate", LibraryManageSub,
-                s => TerminalWindow.OpenOverPane(EditLibraryItemDialog.Copy(s))),
+                s =>
+                {
+                    if (s.Kind == LibraryItemKind.Breadcrumb &&
+                        !SessionHub.Instance.Config.ExperimentalBreadcrumbs) return;
+                    TerminalWindow.OpenOverPane(EditLibraryItemDialog.Copy(s));
+                }),
 
             new CommandDef("host.open-shell", "Host: Open Shell", "Host",
                 _ => { }, subAction: HostShellSub),

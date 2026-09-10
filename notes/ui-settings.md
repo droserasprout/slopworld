@@ -35,12 +35,14 @@ some values apply live but are written when the Settings view closes.
 
 The listener bind address remains available through the raw configuration editor.
 
-General > Experimental stages `daemon.experimental` (default false); Save applies it.
-It gates YOLO breadcrumb injection and SLOPWORLD.md generation/mounting, including their
-agent controls and Instructions editor/preview. Gated controls stay visible but greyed out.
-Preferences remain stored while disabled.
-Pending injection is cancelled immediately; existing mounts last until agent restart.
-The worker bootstrap prompt remains editable regardless of the flag.
+General > Experimental stages `daemon.experimental_breadcrumbs` and
+`daemon.experimental_instructions` (both default false); Save applies them. Breadcrumbs
+gates breadcrumb delivery and its agent/project controls. Instructions gates SLOPWORLD.md
+generation/mounting, its agent control, and the Instructions editor/preview. Gated controls
+stay visible but greyed out, and preferences remain stored while disabled. Generated
+instruction discovery needs both switches. Pending injection is cancelled immediately;
+existing mounts last until agent restart. Settings > Integrations > Workers owns the worker
+prompt (Instructions gate) and worker discovery breadcrumb (Breadcrumbs gate).
 
 Confirmation dialogs are reserved for destructive or externally consequential
 operations: killing/removing agents or projects, and resetting, restoring, or

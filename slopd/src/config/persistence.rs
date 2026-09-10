@@ -45,7 +45,31 @@ impl Config {
                 }
             }
         }
-        let cfg: Self = document.try_into().context("parsing config.toml")?;
+        let legacy_experimental = document
+            .get("daemon")
+            .and_then(toml::Value::as_table)
+            .and_then(|daemon| daemon.get("experimental"))
+            .and_then(toml::Value::as_bool)
+            .unwrap_or(false);
+        let has_breadcrumbs_flag = document
+            .get("daemon")
+            .and_then(toml::Value::as_table)
+            .is_some_and(|daemon| daemon.contains_key("experimental_breadcrumbs"));
+        let has_instructions_flag = document
+            .get("daemon")
+            .and_then(toml::Value::as_table)
+            .is_some_and(|daemon| daemon.contains_key("experimental_instructions"));
+        let mut cfg: Self = document.try_into().context("parsing config.toml")?;
+        // The old single switch was intentionally opt-in. Preserve an existing opt-in when
+        // either new flag is absent, while allowing a hand-edited new flag to override it.
+        if legacy_experimental {
+            if !has_breadcrumbs_flag {
+                cfg.daemon.experimental_breadcrumbs = true;
+            }
+            if !has_instructions_flag {
+                cfg.daemon.experimental_instructions = true;
+            }
+        }
         super::validation::validate_loaded(&cfg)?;
         Ok(cfg)
     }

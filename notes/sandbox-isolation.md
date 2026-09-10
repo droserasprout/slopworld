@@ -36,13 +36,14 @@ tmpfs. Preset-private subdirectories under `/tmp` still overlay that tree. The p
 survives daemon restarts and follows the agent's state through rename, reset, trash and restore;
 temporary errands remove it when they finish. The sidebar's `t` indicator marks the option.
 
-With `daemon.experimental = true`, an agent with `slopworld_md = true` gets the generated project-root `SLOPWORLD.md` as a
+With `daemon.experimental_instructions = true`, an agent with `slopworld_md = true` gets the generated project-root `SLOPWORLD.md` as a
 read-only final bind at `[daemon.instructions] mount_path` relative to the configured project
 path. The project-root spelling is protected too, and `/mnt/<project>` is a symlink to that
 same path, so the manifest cannot be made writable through the compatibility alias.
 The daemon also adds a SlopWorld-owned entry to the repository's `.git/info/exclude`; user-owned
-ignore rules and an existing non-generated `SLOPWORLD.md` are never overwritten. When the
-per-agent `instructions_breadcrumb` preference and global discovery switch are on, the daemon
+ignore rules and an existing non-generated `SLOPWORLD.md` are never overwritten. When
+both `daemon.experimental_instructions = true` and `daemon.experimental_breadcrumbs = true`,
+the per-agent `instructions_breadcrumb` preference and global discovery switch are on, the daemon
 adds the configured discovery line to the first prompt too. The manifest is project-scoped and
 can describe other configured agents, so it contains runtime context rather than secrets or
 project instructions.

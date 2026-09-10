@@ -42,11 +42,15 @@ The OpenRouter key is the one from the Usage page.
 
 Settings > Integrations > Instructions edits the generated `SLOPWORLD.md` template,
 previews its rendered Markdown, edits the first-prompt discovery breadcrumb, chooses its
-read-only sandbox mount path, enables or disables discovery, and edits the bootstrap prompt
-used by workers spawned with `slopctl spawn`. The body, breadcrumb, and worker prompt each
-have an independent **Reset to default** action. The per-agent `slopworld_md` option remains
-the opt-in that mounts the document; its `instructions_breadcrumb` option controls whether
-that agent also receives the discovery line.
+read-only sandbox mount path, and enables or disables discovery. The body and breadcrumb
+each have an independent **Reset to default** action. The per-agent `slopworld_md` option
+remains the opt-in that mounts the document; its `instructions_breadcrumb` option controls
+whether that agent also receives the discovery line.
+
+Settings > Integrations > Workers edits the bootstrap prompt used by workers spawned with
+`slopctl spawn` and its optional discovery breadcrumb. The prompt follows the Instructions
+feature switch and the breadcrumb follows Breadcrumbs; both have independent **Reset to
+default** actions.
 
 ## Library items and errands
 

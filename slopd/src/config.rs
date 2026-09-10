@@ -807,12 +807,30 @@ token = \"not-a-daemon-token\"
     }
 
     #[test]
-    fn experimental_defaults_off_and_round_trips() {
+    fn experimental_flags_default_off_and_round_trip() {
         let mut cfg = Config::parse("[daemon]\nbind = '127.0.0.1:7777'\n").unwrap();
-        assert!(!cfg.daemon.experimental);
-        cfg.daemon.experimental = true;
+        assert!(!cfg.daemon.experimental_breadcrumbs);
+        assert!(!cfg.daemon.experimental_instructions);
+        cfg.daemon.experimental_breadcrumbs = true;
+        cfg.daemon.experimental_instructions = true;
         let restored = Config::parse(&toml::to_string(&cfg).unwrap()).unwrap();
-        assert!(restored.daemon.experimental);
+        assert!(restored.daemon.experimental_breadcrumbs);
+        assert!(restored.daemon.experimental_instructions);
+    }
+
+    #[test]
+    fn legacy_experimental_flag_enables_both_features() {
+        let cfg =
+            Config::parse("[daemon]\nbind = '127.0.0.1:7777'\nexperimental = true\n").unwrap();
+        assert!(cfg.daemon.experimental_breadcrumbs);
+        assert!(cfg.daemon.experimental_instructions);
+
+        let partially_migrated = Config::parse(
+            "[daemon]\nbind = '127.0.0.1:7777'\nexperimental = true\nexperimental_breadcrumbs = false\n",
+        )
+        .unwrap();
+        assert!(!partially_migrated.daemon.experimental_breadcrumbs);
+        assert!(partially_migrated.daemon.experimental_instructions);
     }
 
     #[test]
