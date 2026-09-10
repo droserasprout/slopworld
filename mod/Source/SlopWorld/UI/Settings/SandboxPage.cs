@@ -95,8 +95,8 @@ namespace SlopWorld
 
             if (!_loaded)
             {
-                UiWidgets.StatusLabel(inner, _error ?? "Waiting for the daemon...",
-                    _error != null ? UiWidgets.Bad : UiWidgets.Dim);
+                UiText.StatusLabel(inner, _error ?? "Waiting for the daemon...",
+                    _error != null ? UiTheme.Bad : UiTheme.Dim);
             }
             else
             {
@@ -112,25 +112,25 @@ namespace SlopWorld
             string caption = presets
                 ? "System presets are supplied by slopd. Copy one to the user list to edit it; user presets can also be new entries."
                 : "Commands say what an agent runs and which presets it requires. Copy a system command to make a user override.";
-            UiWidgets.SectionHeading(new Rect(r.x, r.y, r.width, UiWidgets.RowH), heading);
+            UiLayout.SectionHeading(new Rect(r.x, r.y, r.width, UiTheme.RowH), heading);
 
-            float y = r.y + UiWidgets.RowH + UiWidgets.GapXS;
-            float actionWidth = presets ? UiWidgets.BtnW("New user preset", 142f) : 0f;
+            float y = r.y + UiTheme.RowH + UiTheme.GapXS;
+            float actionWidth = presets ? UiLayout.BtnW("New user preset", 142f) : 0f;
             float captionWidth = presets
-                ? Mathf.Max(0f, r.width - actionWidth - UiWidgets.GapS)
+                ? Mathf.Max(0f, r.width - actionWidth - UiTheme.GapS)
                 : r.width;
-            float captionHeight = UiWidgets.StatusLabelHeight(caption, captionWidth);
-            float rowHeight = Mathf.Max(captionHeight, presets ? UiWidgets.BtnH : 0f);
-            UiWidgets.StatusLabel(new Rect(r.x, y, captionWidth, captionHeight), caption,
-                UiWidgets.Dim);
-            if (presets && UiWidgets.Button(
-                    new Rect(r.xMax - actionWidth, y, actionWidth, UiWidgets.BtnH),
-                    "New user preset", UiWidgets.Btn.Primary))
+            float captionHeight = UiText.StatusLabelHeight(caption, captionWidth);
+            float rowHeight = Mathf.Max(captionHeight, presets ? UiTheme.BtnH : 0f);
+            UiText.StatusLabel(new Rect(r.x, y, captionWidth, captionHeight), caption,
+                UiTheme.Dim);
+            if (presets && UiButtons.Button(
+                    new Rect(r.xMax - actionWidth, y, actionWidth, UiTheme.BtnH),
+                    "New user preset", UiTheme.Btn.Primary))
                 NewPreset();
 
-            y += rowHeight + UiWidgets.GapS;
+            y += rowHeight + UiTheme.GapS;
             var content = new UiLayoutRect(r.x, y, r.width, Mathf.Max(0f, r.yMax - y));
-            var split = SandboxLayout.Arrange(content, UiWidgets.GapM);
+            var split = SandboxLayout.Arrange(content, UiTheme.GapM);
 
             if (presets)
             {

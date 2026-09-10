@@ -44,7 +44,7 @@ namespace SlopWorld
         {
             if (!Patch_GizmoGridFlag.Active) return;
             var content = WorkspaceLayout.Current.Content;
-            float start = content.x + UiWidgets.GapM;
+            float start = content.x + UiTheme.GapM;
             if (content.width >= UI.screenWidth - 0.01f) return;
             startX = InspectPaneAgent.AgentSelectionActive
                 ? start : Mathf.Max(startX, start);

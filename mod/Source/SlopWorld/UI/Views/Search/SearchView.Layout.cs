@@ -24,7 +24,7 @@ namespace SlopWorld
                     Text = _loading ? "Searching…" :
                         string.IsNullOrWhiteSpace(_query) ? "Type a query and press Enter."
                         : "No results.",
-                    Color = UiWidgets.Faint,
+                    Color = UiTheme.Faint,
                 });
 
             foreach (var group in Groups)
@@ -36,7 +36,7 @@ namespace SlopWorld
                     {
                         Kind = RowKind.Note,
                         Text = group.Error,
-                        Color = UiWidgets.Bad,
+                        Color = UiTheme.Bad,
                     });
                 else
                 {
@@ -60,7 +60,7 @@ namespace SlopWorld
                     {
                         Kind = RowKind.Note,
                         Text = "… more matches",
-                        Color = UiWidgets.Faint,
+                        Color = UiTheme.Faint,
                     });
             }
 
@@ -71,7 +71,7 @@ namespace SlopWorld
                 {
                     Kind = RowKind.Note,
                     Text = "Searching…",
-                    Color = UiWidgets.Faint,
+                    Color = UiTheme.Faint,
                 });
 
             _contentHeight = Pad * 2f + Layout.Count * RowH;

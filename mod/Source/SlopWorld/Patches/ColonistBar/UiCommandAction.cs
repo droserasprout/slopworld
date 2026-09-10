@@ -11,9 +11,9 @@ namespace SlopWorld
     {
         const float IconBox = 36f;
 
-        readonly UiWidgets.Btn _kind;
+        readonly UiTheme.Btn _kind;
 
-        public UiCommandAction(UiWidgets.Btn kind)
+        public UiCommandAction(UiTheme.Btn kind)
         {
             _kind = kind;
         }
@@ -44,7 +44,7 @@ namespace SlopWorld
         public override void DrawIcon(Rect rect, Material buttonMat, GizmoRenderParms parms)
         {
             bool over = !Disabled && Mouse.IsOver(rect);
-            UiWidgets.ActionButtonBackground(rect, _kind, !Disabled, over,
+            UiButtons.ActionButtonBackground(rect, _kind, !Disabled, over,
                 over && Input.GetMouseButton(0));
 
             // The icon PNGs share a canvas, not a visual ink box: terminal/edit are nearly

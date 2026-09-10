@@ -53,15 +53,15 @@ namespace SlopWorld
             var body = SettingsPageLayout.Body(rect);
             if (_loaded && !_cfg.ExperimentalInstructions) _tab = Tab.Editor;
             Tab before = _tab;
-            DrawTabs(new Rect(body.x, body.y, body.width, UiWidgets.BtnH));
+            DrawTabs(new Rect(body.x, body.y, body.width, UiTheme.BtnH));
             if (before != _tab && _tab == Tab.Preview) RequestPreview();
 
-            var content = new Rect(body.x, body.y + UiWidgets.BtnH + UiWidgets.GapM,
-                body.width, Mathf.Max(0f, body.height - UiWidgets.BtnH - UiWidgets.GapM));
+            var content = new Rect(body.x, body.y + UiTheme.BtnH + UiTheme.GapM,
+                body.width, Mathf.Max(0f, body.height - UiTheme.BtnH - UiTheme.GapM));
             if (!_loaded)
             {
-                UiWidgets.StatusLabel(content, _error ?? "Waiting for the daemon...",
-                    _error != null ? UiWidgets.Bad : UiWidgets.Dim);
+                UiText.StatusLabel(content, _error ?? "Waiting for the daemon...",
+                    _error != null ? UiTheme.Bad : UiTheme.Dim);
             }
             else if (_tab == Tab.Editor)
             {
@@ -77,15 +77,15 @@ namespace SlopWorld
 
         void DrawTabs(Rect r)
         {
-            float w = Mathf.Min(150f, (r.width - UiWidgets.GapS) / 2f);
-            if (UiWidgets.Button(new Rect(r.x, r.y, w, r.height), "Template",
-                    _tab == Tab.Editor ? UiWidgets.Btn.Primary : UiWidgets.Btn.Ghost))
+            float w = Mathf.Min(150f, (r.width - UiTheme.GapS) / 2f);
+            if (UiButtons.Button(new Rect(r.x, r.y, w, r.height), "Template",
+                    _tab == Tab.Editor ? UiTheme.Btn.Primary : UiTheme.Btn.Ghost))
             {
                 if (_tab != Tab.Editor) TextFieldSelection.ReleaseFocus();
                 _tab = Tab.Editor;
             }
-            if (UiWidgets.Button(new Rect(r.x + w + UiWidgets.GapS, r.y, w, r.height),
-                    "Preview", _tab == Tab.Preview ? UiWidgets.Btn.Primary : UiWidgets.Btn.Ghost,
+            if (UiButtons.Button(new Rect(r.x + w + UiTheme.GapS, r.y, w, r.height),
+                    "Preview", _tab == Tab.Preview ? UiTheme.Btn.Primary : UiTheme.Btn.Ghost,
                     _loaded && _cfg.ExperimentalInstructions))
             {
                 if (_tab != Tab.Preview) TextFieldSelection.ReleaseFocus();
@@ -101,84 +101,84 @@ namespace SlopWorld
         void DrawEditorFields(Listing_Standard l)
         {
             if (!_cfg.ExperimentalInstructions)
-                UiWidgets.Note(l, "Enable instructions in Settings > General to edit SLOPWORLD.md instructions.");
-            UiWidgets.SectionHeading(l, "SLOPWORLD.md");
-            UiWidgets.Note(l, "Generated runtime context is read-only in agent sandboxes. " +
+                UiLayout.Note(l, "Enable instructions in Settings > General to edit SLOPWORLD.md instructions.");
+            UiLayout.SectionHeading(l, "SLOPWORLD.md");
+            UiLayout.Note(l, "Generated runtime context is read-only in agent sandboxes. " +
                 "The template is rendered once for each project snapshot.");
-            l.Gap(UiWidgets.GapS);
+            l.Gap(UiTheme.GapS);
             l.Label("Content template");
-            _cfg.InstructionsTemplate = UiWidgets.Area(l, 320f, "instructions.template",
+            _cfg.InstructionsTemplate = UiControls.Area(l, 320f, "instructions.template",
                 _cfg.InstructionsTemplate, on: _cfg.ExperimentalInstructions,
                 defaultValue: DaemonConfig.DefaultInstructionsTemplate);
-            UiWidgets.Note(l, "Variables: {{ runtime_context }}, {{ project }}, " +
+            UiLayout.Note(l, "Variables: {{ runtime_context }}, {{ project }}, " +
                 "{{ mount_path }}, and {{ file }}. Unknown variables are left unchanged.");
 
-            l.Gap(UiWidgets.GapL);
-            UiWidgets.SectionHeading(l, "Discovery breadcrumb");
-            UiWidgets.Note(l, "This text is added to the agent's first prompt when the manifest " +
+            l.Gap(UiTheme.GapL);
+            UiLayout.SectionHeading(l, "Discovery breadcrumb");
+            UiLayout.Note(l, "This text is added to the agent's first prompt when the manifest " +
                 "is mounted. It is separate from the generated file body.");
             l.Label("Breadcrumb template");
-            _cfg.InstructionsBreadcrumb = UiWidgets.Area(l, 120f, "instructions.breadcrumb",
+            _cfg.InstructionsBreadcrumb = UiControls.Area(l, 120f, "instructions.breadcrumb",
                 _cfg.InstructionsBreadcrumb,
                 on: _cfg.ExperimentalBreadcrumbs && _cfg.ExperimentalInstructions,
                 defaultValue: DaemonConfig.DefaultInstructionsBreadcrumb);
-            UiWidgets.Note(l, "Variables: {{ project }}, {{ mount_path }}, and {{ file }}. " +
+            UiLayout.Note(l, "Variables: {{ project }}, {{ mount_path }}, and {{ file }}. " +
                 "Unknown variables are left unchanged.");
-            _cfg.InstructionsBreadcrumbEnabled = UiWidgets.Checkbox(l,
+            _cfg.InstructionsBreadcrumbEnabled = UiControls.Checkbox(l,
                 "Add discovery breadcrumb", _cfg.InstructionsBreadcrumbEnabled,
                 "Adds the configured discovery text to opted-in agents.",
                 locked: !_cfg.ExperimentalBreadcrumbs || !_cfg.ExperimentalInstructions);
-            UiWidgets.Note(l, "Reset changes the form only; press Save to apply it.");
+            UiLayout.Note(l, "Reset changes the form only; press Save to apply it.");
 
-            l.Gap(UiWidgets.GapL);
-            UiWidgets.SectionHeading(l, "Sandbox delivery");
+            l.Gap(UiTheme.GapL);
+            UiLayout.SectionHeading(l, "Sandbox delivery");
             l.Label("Mount path (relative to the project)");
-            _cfg.InstructionsMountPath = UiWidgets.Field(l, "instructions.mount_path",
+            _cfg.InstructionsMountPath = UiControls.Field(l, "instructions.mount_path",
                 _cfg.InstructionsMountPath, on: _cfg.ExperimentalInstructions,
                 defaultValue: WireContract.DefaultInstructionsMountPath);
-            UiWidgets.Note(l, "The generated source remains the project-root " +
+            UiLayout.Note(l, "The generated source remains the project-root " +
                 "SLOPWORLD.md; this is where its read-only copy appears to the agent.");
-            UiWidgets.Note(l, "Agents still opt in per session with Mount SLOPWORLD.md.");
+            UiLayout.Note(l, "Agents still opt in per session with Mount SLOPWORLD.md.");
         }
 
         void DrawPreview(Rect r)
         {
             float y = r.y;
-            UiWidgets.SectionHeading(new Rect(r.x, y, r.width, UiWidgets.RowH),
+            UiLayout.SectionHeading(new Rect(r.x, y, r.width, UiTheme.RowH),
                 "Rendered SLOPWORLD.md");
-            y += UiWidgets.RowH + UiWidgets.GapXS;
+            y += UiTheme.RowH + UiTheme.GapXS;
 
             string selected = PreviewProjectName();
             string label = string.IsNullOrEmpty(selected) ? "Sample project" : selected;
-            if (UiWidgets.Button(new Rect(r.x, y, Mathf.Min(300f, r.width), UiWidgets.BtnH),
+            if (UiButtons.Button(new Rect(r.x, y, Mathf.Min(300f, r.width), UiTheme.BtnH),
                     "Project: " + label))
                 PickPreviewProject();
-            y += UiWidgets.BtnH + UiWidgets.GapS;
+            y += UiTheme.BtnH + UiTheme.GapS;
 
             if (_previewBusy)
             {
-                UiWidgets.StatusLabel(new Rect(r.x, y, r.width, UiWidgets.LineH),
-                    "Rendering preview...", UiWidgets.Dim);
+                UiText.StatusLabel(new Rect(r.x, y, r.width, UiTheme.LineH),
+                    "Rendering preview...", UiTheme.Dim);
                 return;
             }
             if (_previewError != null)
             {
-                float h = UiWidgets.StatusLabelHeight(_previewError, r.width);
-                UiWidgets.StatusLabel(new Rect(r.x, y, r.width, h), _previewError,
-                    UiWidgets.Bad);
+                float h = UiText.StatusLabelHeight(_previewError, r.width);
+                UiText.StatusLabel(new Rect(r.x, y, r.width, h), _previewError,
+                    UiTheme.Bad);
                 return;
             }
             if (_previewText == null)
             {
                 const string note = "Choose Preview or Refresh to render the document.";
-                float h = UiWidgets.StatusLabelHeight(note, r.width);
-                UiWidgets.StatusLabel(new Rect(r.x, y, r.width, h), note, UiWidgets.Dim);
+                float h = UiText.StatusLabelHeight(note, r.width);
+                UiText.StatusLabel(new Rect(r.x, y, r.width, h), note, UiTheme.Dim);
                 return;
             }
 
             var box = new Rect(r.x, y, r.width, Mathf.Max(0f, r.yMax - y));
-            Slab.Box(box, UiWidgets.Well, UiWidgets.Edge);
-            _preview.Draw(SettingsPageLayout.Inset(box, UiWidgets.GapS));
+            Slab.Box(box, UiTheme.Well, UiTheme.Edge);
+            _preview.Draw(SettingsPageLayout.Inset(box, UiTheme.GapS));
         }
 
         string PreviewProjectName()
@@ -247,23 +247,23 @@ namespace SlopWorld
 
         void DoFooter(Rect bar)
         {
-            var foot = new UiWidgets.Bar(bar);
-            if (foot.Left("Reload", UiWidgets.Btn.Ghost)) Load();
-            if (_tab == Tab.Editor && foot.Left("Preview", UiWidgets.Btn.Ghost,
+            var foot = new UiLayout.Bar(bar);
+            if (foot.Left("Reload", UiTheme.Btn.Ghost)) Load();
+            if (_tab == Tab.Editor && foot.Left("Preview", UiTheme.Btn.Ghost,
                     _loaded && _cfg.ExperimentalInstructions))
             {
                 _tab = Tab.Preview;
                 RequestPreview();
             }
-            if (_tab == Tab.Preview && foot.Left("Refresh", UiWidgets.Btn.Ghost))
+            if (_tab == Tab.Preview && foot.Left("Refresh", UiTheme.Btn.Ghost))
                 RequestPreview();
-            if (foot.Right("Save", UiWidgets.Btn.Primary, _loaded)) Save();
+            if (foot.Right("Save", UiTheme.Btn.Primary, _loaded)) Save();
 
             string error = _error ?? (_tab == Tab.Preview ? _previewError : null);
             if (error != null && _loaded)
             {
-                GUI.color = UiWidgets.Bad;
-                UiWidgets.RowLabel(foot.Rest(), error);
+                GUI.color = UiTheme.Bad;
+                UiText.RowLabel(foot.Rest(), error);
                 GUI.color = Color.white;
             }
         }

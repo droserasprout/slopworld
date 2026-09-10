@@ -11,12 +11,12 @@ namespace SlopWorld
             using (FieldLifetimeScope.Push(_fieldLifetime))
             {
                 // A raised rectangular surface: this is an instrument panel, not a vanilla menu.
-                Slab.Box(rect, UiWidgets.PopoverBg, UiWidgets.Edge);
+                Slab.Box(rect, UiTheme.PopoverBg, UiTheme.Edge);
 
                 var inputRect = new Rect(rect.x + Pad, rect.y + Pad,
                     rect.width - Pad * 2, InputH);
 
-                float listTop = inputRect.yMax + UiWidgets.GapXS;
+                float listTop = inputRect.yMax + UiTheme.GapXS;
                 var listRect = new Rect(rect.x + Pad, listTop,
                     rect.width - Pad * 2, rect.yMax - listTop - Pad);
                 // Set before DrawInput, which reads it when a key scrolls the selection.
@@ -41,8 +41,8 @@ namespace SlopWorld
         {
             if (_matches.Count == 0)
             {
-                GUI.color = UiWidgets.Faint;
-                UiWidgets.RowLabel(r, _filter.Length > 0
+                GUI.color = UiTheme.Faint;
+                UiText.RowLabel(r, _filter.Length > 0
                     ? "No matching commands"
                     : "No commands available", TextAnchor.MiddleCenter);
                 GUI.color = Color.white;
@@ -63,7 +63,7 @@ namespace SlopWorld
                 totalH += RowH;
             }
 
-            var view = new Rect(0f, 0f, r.width - UiWidgets.ScrollbarW, totalH);
+            var view = new Rect(0f, 0f, r.width - UiTheme.ScrollbarW, totalH);
 
             using (_scroll.Scope(r, view))
             {
@@ -76,9 +76,9 @@ namespace SlopWorld
                     if (group != null && group != prev)
                     {
                         var header = new Rect(0f, y, view.width, GroupH);
-                        GUI.color = UiWidgets.Faint;
+                        GUI.color = UiTheme.Faint;
                         Text.Font = GameFont.Tiny;
-                        UiWidgets.RowLabel(header, group.ToUpperInvariant());
+                        UiText.RowLabel(header, group.ToUpperInvariant());
                         Text.Font = GameFont.Small;
                         GUI.color = Color.white;
                         y += GroupH;
@@ -91,18 +91,18 @@ namespace SlopWorld
                     RowChrome.Hover(row, selected, true, RowHoverPolicy.Local,
                         RowSelectionStyle.Palette);
 
-                    if (UiWidgets.RowButton(row))
+                    if (UiButtons.RowButton(row))
                     {
                         _selectedIndex = i;
                         if (_matches[i].Command.SubAction != null) EnterSub(_matches[i].Command);
                         else Execute(_matches[i].Command);
                     }
 
-                    GUI.color = selected ? UiWidgets.Lead : UiWidgets.Name;
-                    UiWidgets.RowLabel(
-                        new Rect(row.x + UiWidgets.FieldPadX, row.y + UiWidgets.FieldPadY,
-                            view.width - UiWidgets.FieldPadX * 2f,
-                            RowH - UiWidgets.FieldPadY * 2f),
+                    GUI.color = selected ? UiTheme.Lead : UiTheme.Name;
+                    UiText.RowLabel(
+                        new Rect(row.x + UiTheme.FieldPadX, row.y + UiTheme.FieldPadY,
+                            view.width - UiTheme.FieldPadX * 2f,
+                            RowH - UiTheme.FieldPadY * 2f),
                         _matches[i].Label);
                     GUI.color = Color.white;
 
@@ -129,8 +129,8 @@ namespace SlopWorld
 
             if (options.Count == 0)
             {
-                GUI.color = UiWidgets.Faint;
-                UiWidgets.RowLabel(r, _subHasFilter ? "No matches" : "Nothing available",
+                GUI.color = UiTheme.Faint;
+                UiText.RowLabel(r, _subHasFilter ? "No matches" : "Nothing available",
                     TextAnchor.MiddleCenter);
                 GUI.color = Color.white;
                 return;
@@ -139,7 +139,7 @@ namespace SlopWorld
             _subIndex = Mathf.Clamp(_subIndex, 0, options.Count - 1);
 
             float totalH = options.Count * RowH;
-            var view = new Rect(0f, 0f, r.width - UiWidgets.ScrollbarW, totalH);
+            var view = new Rect(0f, 0f, r.width - UiTheme.ScrollbarW, totalH);
 
             using (_scroll.Scope(r, view))
             {
@@ -153,13 +153,13 @@ namespace SlopWorld
                     RowChrome.Hover(row, selected, true, RowHoverPolicy.Local,
                         RowSelectionStyle.Palette);
 
-                    if (UiWidgets.RowButton(row))
+                    if (UiButtons.RowButton(row))
                     {
                         _subIndex = i;
                         ExecuteSub();
                     }
 
-                    float left = row.x + UiWidgets.FieldPadX;
+                    float left = row.x + UiTheme.FieldPadX;
 
                     // The checkbox goes before the label, the way a settings page draws one,
                     // and the label starts after it. Rows without one keep the whole line:
@@ -167,24 +167,24 @@ namespace SlopWorld
                     var box = options[i].O.Checked;
                     if (box.HasValue)
                     {
-                        UiWidgets.TickBox(new Rect(left, row.y, UiWidgets.TickW, RowH),
+                        UiControls.TickBox(new Rect(left, row.y, UiControls.TickW, RowH),
                             box.Value);
-                        left += UiWidgets.TickColW;
+                        left += UiControls.TickColW;
                     }
 
                     if (!options[i].O.Enabled)
                     {
-                        GUI.color = UiWidgets.Off;
+                        GUI.color = UiTheme.Off;
                     }
                     else
                     {
-                        GUI.color = selected ? UiWidgets.Lead : UiWidgets.Name;
+                        GUI.color = selected ? UiTheme.Lead : UiTheme.Name;
                     }
 
-                    UiWidgets.RowLabel(
-                        new Rect(left, row.y + UiWidgets.FieldPadY,
-                            row.xMax - UiWidgets.FieldPadX - left,
-                            RowH - UiWidgets.FieldPadY * 2f),
+                    UiText.RowLabel(
+                        new Rect(left, row.y + UiTheme.FieldPadY,
+                            row.xMax - UiTheme.FieldPadX - left,
+                            RowH - UiTheme.FieldPadY * 2f),
                         options[i].Label);
                     GUI.color = Color.white;
 

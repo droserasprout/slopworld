@@ -20,23 +20,23 @@ namespace SlopWorld
         void DrawFields(Listing_Standard l)
         {
 
-            UiWidgets.SectionHeading(l, "Volume");
-            Prefs.VolumeMaster = UiWidgets.Slider(l, "MasterVolume".Translate(),
+            UiLayout.SectionHeading(l, "Volume");
+            Prefs.VolumeMaster = UiControls.Slider(l, "MasterVolume".Translate(),
                 Prefs.VolumeMaster, "MasterVolumeTooltip".Translate());
-            Prefs.VolumeGame = UiWidgets.Slider(l, "GameVolume".Translate(),
+            Prefs.VolumeGame = UiControls.Slider(l, "GameVolume".Translate(),
                 Prefs.VolumeGame, "GameVolumeTooltip".Translate());
-            Prefs.VolumeMusic = UiWidgets.Slider(l, "MusicVolume".Translate(),
+            Prefs.VolumeMusic = UiControls.Slider(l, "MusicVolume".Translate(),
                 Prefs.VolumeMusic, "MusicVolumeTooltip".Translate());
-            Prefs.VolumeAmbient = UiWidgets.Slider(l, "AmbientVolume".Translate(),
+            Prefs.VolumeAmbient = UiControls.Slider(l, "AmbientVolume".Translate(),
                 Prefs.VolumeAmbient, "AmbientVolumeTooltip".Translate());
-            Prefs.VolumeUI = UiWidgets.Slider(l, "UIVolume".Translate(),
+            Prefs.VolumeUI = UiControls.Slider(l, "UIVolume".Translate(),
                 Prefs.VolumeUI, "UIVolumeTooltip".Translate());
 
-            l.Gap(UiWidgets.GapL);
-            UiWidgets.SectionHeading(l, "Jukebox");
+            l.Gap(UiTheme.GapL);
+            UiLayout.SectionHeading(l, "Jukebox");
             if (!SessionHub.Instance.Capabilities.AudioPlayback)
             {
-                UiWidgets.Note(l,
+                UiLayout.Note(l,
                     "Jukebox playback is unavailable in slopcar. The native game keeps audio " +
                     "on this Mac; radio streaming will return in a later compatibility release.");
                 return;
@@ -45,40 +45,40 @@ namespace SlopWorld
             var picked = Radio.Picked;
             string source = Radio.Muted ? "Muted" : picked == null
                 ? "OST" : $"{picked.Name} {Radio.RateLabel(picked.Rate)}";
-            if (UiWidgets.Button(l, "Tune: " + source))
+            if (UiLayout.Button(l, "Tune: " + source))
                 Find.WindowStack.Add(new UiMenu(Jukebox.StationOptions()));
 
             // Show the station's own line and any Shazam match as two rows, so a recognized
             // track never silently overwrites what the station actually reported.
             if (Radio.Muted)
             {
-                UiWidgets.Note(l, "Muted.");
+                UiLayout.Note(l, "Muted.");
             }
             else
             {
                 string station = Radio.StationLine;
-                UiWidgets.Note(l, "Now playing: "
+                UiLayout.Note(l, "Now playing: "
                     + (string.IsNullOrEmpty(station) ? "nothing" : station));
                 if (Radio.Recognized)
-                    UiWidgets.Note(l, "Recognized: " + Radio.RecognizedLine);
+                    UiLayout.Note(l, "Recognized: " + Radio.RecognizedLine);
             }
 
-            l.Gap(UiWidgets.GapS);
+            l.Gap(UiTheme.GapS);
             DrawRecognition(l);
 
-            l.Gap(UiWidgets.GapS);
-            if (UiWidgets.Button(l, "Random"))
+            l.Gap(UiTheme.GapS);
+            if (UiLayout.Button(l, "Random"))
                 Radio.PickRandom();
-            if (UiWidgets.Button(l, "Like current song"))
+            if (UiLayout.Button(l, "Like current song"))
                 Radio.Like();
-            if (UiWidgets.Button(l, "History"))
+            if (UiLayout.Button(l, "History"))
                 JukeboxHistoryView.Open();
 
-            bool mute = UiWidgets.Checkbox(l, "Mute", Radio.Muted,
+            bool mute = UiControls.Checkbox(l, "Mute", Radio.Muted,
                 "Stop playback without downloading unheard audio.");
             if (mute != Radio.Muted) Radio.ToggleMute();
 
-            bool stop = UiWidgets.Checkbox(l, "Stop on exit", Radio.StopOnExit,
+            bool stop = UiControls.Checkbox(l, "Stop on exit", Radio.StopOnExit,
                 "Stop the daemon's playback when RimWorld exits normally.");
             if (stop != Radio.StopOnExit) Radio.ToggleStopOnExit();
 
@@ -91,29 +91,29 @@ namespace SlopWorld
         {
             if (Radio.Recognizing)
             {
-                if (UiWidgets.Button(l, "Cancel recognition"))
+                if (UiLayout.Button(l, "Cancel recognition"))
                     Radio.CancelRecognition();
                 string input = Radio.RecognizingInput;
-                UiWidgets.Note(l, string.IsNullOrEmpty(input)
+                UiLayout.Note(l, string.IsNullOrEmpty(input)
                     ? "Recognizing…"
                     : "Recognizing via " + input + "…");
                 return;
             }
 
             string error = Radio.RecognitionError;
-            if (UiWidgets.Button(l,
+            if (UiLayout.Button(l,
                     string.IsNullOrEmpty(error) ? "Recognize" : "Retry recognition"))
                 Radio.Recognize();
 
             if (!string.IsNullOrEmpty(error))
             {
-                GUI.color = UiWidgets.Bad;
+                GUI.color = UiTheme.Bad;
                 l.Label(error);
                 GUI.color = Color.white;
             }
             else if (!string.IsNullOrEmpty(Radio.RecognizingInput))
             {
-                UiWidgets.Note(l, "Input: " + Radio.RecognizingInput);
+                UiLayout.Note(l, "Input: " + Radio.RecognizingInput);
             }
         }
     }

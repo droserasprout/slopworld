@@ -13,15 +13,15 @@ namespace SlopWorld
         const GameFont RegularFont = GameFont.Medium;
         const float ContentPaddingX = 20f;
         const float ContentPaddingY = 16f;
-        static float HeroMargin => UiWidgets.GapS;
+        static float HeroMargin => UiTheme.GapS;
         const float HeroIconSize = 88f;
-        static float HeroIconGap => UiWidgets.GapXS;
-        static float HeroTitleGap => UiWidgets.GapL;
-        static float HeadingGap => UiWidgets.GapM;
-        static float GroupGap => UiWidgets.GapS;
-        static float RowGap => UiWidgets.GapXS;
-        static float ColumnGap => UiWidgets.GapL;
-        static float TailPadding => UiWidgets.GapL;
+        static float HeroIconGap => UiTheme.GapXS;
+        static float HeroTitleGap => UiTheme.GapL;
+        static float HeadingGap => UiTheme.GapM;
+        static float GroupGap => UiTheme.GapS;
+        static float RowGap => UiTheme.GapXS;
+        static float ColumnGap => UiTheme.GapL;
+        static float TailPadding => UiTheme.GapL;
         const int TitleTextSize = 28;
         const int SectionTextSize = 14;
         const int SubheadingTextSize = 14;
@@ -152,7 +152,7 @@ namespace SlopWorld
             Text.Font = GameFont.Small;
             var inner = SettingsPageLayout.Body(rect, false);
 
-            float viewWidth = Mathf.Max(1f, inner.width - UiWidgets.ScrollbarW);
+            float viewWidth = Mathf.Max(1f, inner.width - UiTheme.ScrollbarW);
             float viewHeight = Mathf.Max(inner.height,
                 _height.BeginFrame(Time.frameCount));
             var view = new Rect(0f, 0f, viewWidth, viewHeight);
@@ -188,7 +188,7 @@ namespace SlopWorld
             Text.Font = GameFont.Small;
             var inner = SettingsPageLayout.Body(rect, false);
 
-            float viewWidth = Mathf.Max(1f, inner.width - UiWidgets.ScrollbarW);
+            float viewWidth = Mathf.Max(1f, inner.width - UiTheme.ScrollbarW);
             float viewHeight = Mathf.Max(inner.height,
                 _rimWorldHeight.BeginFrame(Time.frameCount));
             var view = new Rect(0f, 0f, viewWidth, viewHeight);
@@ -231,14 +231,14 @@ namespace SlopWorld
                 BindingFlags.Instance | BindingFlags.NonPublic);
             if (method == null) return y;
 
-            UiWidgets.SectionHeading(
-                new Rect(rect.x, y, rect.width, UiWidgets.RowH), category.LabelCap);
-            y += UiWidgets.RowH + UiWidgets.GapXS;
+            UiLayout.SectionHeading(
+                new Rect(rect.x, y, rect.width, UiTheme.RowH), category.LabelCap);
+            y += UiTheme.RowH + UiTheme.GapXS;
 
             var listing = new Listing_Standard { maxOneColumn = true };
             listing.Begin(new Rect(rect.x, y, rect.width, 10000f));
-            listing.verticalSpacing = UiWidgets.GapXS;
-            listing.Gap(UiWidgets.GapS + UiWidgets.GapXS);
+            listing.verticalSpacing = UiTheme.GapXS;
+            listing.Gap(UiTheme.GapS + UiTheme.GapXS);
             try
             {
                 method.Invoke(_rimWorldOptions, new object[] { listing });
@@ -255,40 +255,40 @@ namespace SlopWorld
 
         float DrawVersionInfo(Rect rect, float y)
         {
-            float line = UiWidgets.LineH;
-            float step = line + UiWidgets.GapXS;
-            GUI.color = UiWidgets.Dim;
-            UiWidgets.RowLabel(new Rect(rect.x, y, rect.width, line), "RimWorld build");
+            float line = UiTheme.LineH;
+            float step = line + UiTheme.GapXS;
+            GUI.color = UiTheme.Dim;
+            UiText.RowLabel(new Rect(rect.x, y, rect.width, line), "RimWorld build");
             GUI.color = Color.white;
             y += step;
 
-            UiWidgets.RowLabel(new Rect(rect.x, y, rect.width, line),
+            UiText.RowLabel(new Rect(rect.x, y, rect.width, line),
                 "VersionIndicator".Translate(
                     (NamedArgument)VersionControl.CurrentVersionString));
             y += step;
-            UiWidgets.RowLabel(new Rect(rect.x, y, rect.width, line),
+            UiText.RowLabel(new Rect(rect.x, y, rect.width, line),
                 "CompiledOn".Translate(
                     (NamedArgument)VersionControl.CurrentBuildDate.ToString("MMM d yyyy")));
             y += step;
 
             if (SteamManager.Initialized)
             {
-                y += UiWidgets.GapXS;
-                UiWidgets.RowLabel(new Rect(rect.x, y, rect.width, line),
+                y += UiTheme.GapXS;
+                UiText.RowLabel(new Rect(rect.x, y, rect.width, line),
                     "LoggedIntoSteamAs".Translate(
                         (NamedArgument)SteamUtility.SteamPersonaName));
                 y += step;
             }
 
-            y += UiWidgets.GapS;
+            y += UiTheme.GapS;
             var lvg = Current.Root?.gameObject.GetComponent<LatestVersionGetter>();
             if (lvg != null)
             {
                 lvg.DrawAt(new Rect(rect.x, y, rect.width, 50f));
-                y += 50f + UiWidgets.GapXS;
+                y += 50f + UiTheme.GapXS;
             }
 
-            return y + UiWidgets.GapS + UiWidgets.GapXS;
+            return y + UiTheme.GapS + UiTheme.GapXS;
         }
 
         float DrawWebLinks(Rect rect, float y)
@@ -377,7 +377,7 @@ namespace SlopWorld
         float DrawEulaDisclaimer(Rect r, float y)
         {
             y += HeroMargin;
-            y = Paragraph(r, y, EulaDisclaimer, RegularFont, UiWidgets.Dim,
+            y = Paragraph(r, y, EulaDisclaimer, RegularFont, UiTheme.Dim,
                 TextAnchor.UpperCenter, BodyTextSize);
             return y + HeroMargin;
         }
@@ -398,7 +398,7 @@ namespace SlopWorld
                 y += HeroIconSize + HeroIconGap;
             }
 
-            y = Line(r, y, "SlopWorld", GameFont.Medium, UiWidgets.Lead,
+            y = Line(r, y, "SlopWorld", GameFont.Medium, UiTheme.Lead,
                 TextAnchor.UpperCenter, TitleTextSize);
             y += HeroTitleGap;
             y = ByLine(r, y, "CREATED BY", "Lev Gorodetskii",
@@ -409,7 +409,7 @@ namespace SlopWorld
         float ByLine(Rect r, float y, string role, string name, string url,
             int roleTextSize = 0)
         {
-            y = Line(r, y, role, GameFont.Small, UiWidgets.Dim,
+            y = Line(r, y, role, GameFont.Small, UiTheme.Dim,
                 TextAnchor.UpperCenter,
                 roleTextSize > 0 ? roleTextSize : MetaTextSize);
             return Link(r, y, name, url, RegularFont,
@@ -457,7 +457,7 @@ namespace SlopWorld
         float SectionHeading(Rect rect, float y, string text, int textSize = 0)
         {
             return Line(rect, y, (text ?? "").ToUpperInvariant(), GameFont.Medium,
-                UiWidgets.Dim,
+                UiTheme.Dim,
                 TextAnchor.UpperCenter,
                 textSize > 0 ? textSize : SectionTextSize);
         }
@@ -504,7 +504,7 @@ namespace SlopWorld
 
             Text.Font = GameFont.Small;
             for (int i = start; i < end; i++)
-                detailWidth = Mathf.Max(detailWidth, UiWidgets.Wide(credits[i].Detail));
+                detailWidth = Mathf.Max(detailWidth, UiTheme.Wide(credits[i].Detail));
 
             Text.Font = RegularFont;
             for (int i = start; i < end; i++)
@@ -512,13 +512,13 @@ namespace SlopWorld
                 var credit = credits[i];
                 if (credit.Links.Length == 0)
                 {
-                    nameWidth = Mathf.Max(nameWidth, UiWidgets.Wide(credit.Name));
+                    nameWidth = Mathf.Max(nameWidth, UiTheme.Wide(credit.Name));
                     continue;
                 }
 
                 for (int link = 0; link < credit.Links.Length; link++)
                     nameWidth = Mathf.Max(nameWidth,
-                        UiWidgets.Wide(credit.Links[link].Label));
+                        UiTheme.Wide(credit.Links[link].Label));
             }
 
             Text.Font = wasFont;
@@ -539,7 +539,7 @@ namespace SlopWorld
         float CreditRow(Rect rect, float y, Credit credit)
         {
             Text.Font = RegularFont;
-            float line = UiWidgets.LineHOf(RegularFont);
+            float line = UiTheme.LineHOf(RegularFont);
             float nameHeight = line * Mathf.Max(1, credit.Links.Length);
             float middleGap = RowGap;
             float half = rect.width / 2f;
@@ -548,9 +548,9 @@ namespace SlopWorld
                 Mathf.Max(1f, half - middleGap), nameHeight);
 
             Line(detail, y, credit.Detail, GameFont.Small,
-                UiWidgets.Dim, TextAnchor.UpperRight, MetaTextSize);
+                UiTheme.Dim, TextAnchor.UpperRight, MetaTextSize);
             if (credit.Links.Length == 0)
-                Line(name, y, credit.Name, RegularFont, UiWidgets.Name,
+                Line(name, y, credit.Name, RegularFont, UiTheme.Name,
                     TextAnchor.UpperLeft, BodyTextSize);
             else
                 CreditNameWithLinks(name, y, credit);
@@ -563,12 +563,12 @@ namespace SlopWorld
             Text.Font = RegularFont;
             float x = rect.x;
             float remaining = rect.width;
-            float line = UiWidgets.LineHOf(RegularFont);
+            float line = UiTheme.LineHOf(RegularFont);
             for (int i = 0; i < credit.Links.Length; i++)
             {
                 var link = credit.Links[i];
                 string label = link.Label ?? "";
-                float width = Mathf.Min(UiWidgets.Wide(label), remaining);
+                float width = Mathf.Min(UiTheme.Wide(label), remaining);
                 if (width <= 0f) break;
 
                 LinkAt(new Rect(x, y + i * line, width, line), label, link.Url,
@@ -580,17 +580,17 @@ namespace SlopWorld
             string url, GameFont font)
         {
             Text.Font = font;
-            float h = UiWidgets.LineHOf(font);
-            float beforeWidth = UiWidgets.Wide(before);
-            float linkedWidth = UiWidgets.Wide(linked);
-            float afterWidth = UiWidgets.Wide(after);
+            float h = UiTheme.LineHOf(font);
+            float beforeWidth = UiTheme.Wide(before);
+            float linkedWidth = UiTheme.Wide(linked);
+            float afterWidth = UiTheme.Wide(after);
             float totalWidth = beforeWidth + linkedWidth + afterWidth;
             float x = rect.x + Mathf.Max(0f, (rect.width - totalWidth) / 2f);
 
-            LabelAt(new Rect(x, y, beforeWidth, h), before, font, UiWidgets.Name);
+            LabelAt(new Rect(x, y, beforeWidth, h), before, font, UiTheme.Name);
             LinkAt(new Rect(x + beforeWidth, y, linkedWidth, h), linked, url, font);
             LabelAt(new Rect(x + beforeWidth + linkedWidth, y, afterWidth, h), after, font,
-                UiWidgets.Name);
+                UiTheme.Name);
             return y + h;
         }
 
@@ -602,7 +602,7 @@ namespace SlopWorld
             var wasColor = GUI.color;
             Text.Font = font;
             GUI.color = color;
-            UiWidgets.RowLabel(rect, text, TextAnchor.UpperLeft);
+            UiText.RowLabel(rect, text, TextAnchor.UpperLeft);
             GUI.color = wasColor;
             Text.Font = wasFont;
         }
@@ -615,9 +615,9 @@ namespace SlopWorld
             var wasColor = GUI.color;
             Text.Font = font;
             bool over = Mouse.IsOver(rect);
-            GUI.color = over ? UiWidgets.Lead : UiWidgets.Accent;
-            UiWidgets.RowLabel(rect, label, TextAnchor.UpperLeft);
-            if (UiWidgets.RowButton(rect))
+            GUI.color = over ? UiTheme.Lead : UiTheme.Accent;
+            UiText.RowLabel(rect, label, TextAnchor.UpperLeft);
+            if (UiButtons.RowButton(rect))
             {
                 SoundDefOf.Click.PlayOneShotOnCamera();
                 Application.OpenURL(url);
@@ -647,12 +647,12 @@ namespace SlopWorld
         float NativeLine(Rect r, float y, string text, GameFont font, Color color,
             TextAnchor anchor)
         {
-            float h = UiWidgets.LineHOf(font);
+            float h = UiTheme.LineHOf(font);
             var wasFont = Text.Font;
             var wasColor = GUI.color;
             Text.Font = font;
             GUI.color = color;
-            UiWidgets.RowLabel(new Rect(r.x, y, r.width, h), text, anchor);
+            UiText.RowLabel(new Rect(r.x, y, r.width, h), text, anchor);
             GUI.color = wasColor;
             Text.Font = wasFont;
             return y + h;
@@ -681,8 +681,8 @@ namespace SlopWorld
             Text.Font = font;
             Text.WordWrap = true;
             Text.Anchor = anchor;
-            float h = UiWidgets.StatusLabelHeight(text, r.width, font);
-            UiWidgets.StatusLabel(new Rect(r.x, y, r.width, h), text, color, font, anchor);
+            float h = UiText.StatusLabelHeight(text, r.width, font);
+            UiText.StatusLabel(new Rect(r.x, y, r.width, h), text, color, font, anchor);
             Text.Anchor = wasAnchor;
             Text.WordWrap = wasWrap;
             GUI.color = wasColor;
@@ -696,12 +696,12 @@ namespace SlopWorld
             var wasFont = Text.Font;
             var wasColor = GUI.color;
             Text.Font = font;
-            float h = UiWidgets.LineHOf(font);
+            float h = UiTheme.LineHOf(font);
             GUIStyle style = textSize > 0 ? SizedStyle(font, textSize, TextAnchor.UpperLeft,
                 false) : null;
             float width = textSize > 0
                 ? Mathf.Min(style.CalcSize(new GUIContent(label ?? "")).x, r.width)
-                : Mathf.Min(UiWidgets.Wide(label), r.width);
+                : Mathf.Min(UiTheme.Wide(label), r.width);
             if (textSize > 0)
                 h = Mathf.Max(1f, style.CalcHeight(new GUIContent(label ?? ""), width));
             float x = r.x;
@@ -710,10 +710,10 @@ namespace SlopWorld
 
             var hit = new Rect(x, y, width, h);
             bool over = Mouse.IsOver(hit);
-            GUI.color = over ? UiWidgets.Lead : UiWidgets.Accent;
+            GUI.color = over ? UiTheme.Lead : UiTheme.Accent;
             if (textSize > 0) GUI.Label(hit, label ?? "", style);
-            else UiWidgets.RowLabel(hit, label, TextAnchor.UpperLeft);
-            if (UiWidgets.RowButton(hit))
+            else UiText.RowLabel(hit, label, TextAnchor.UpperLeft);
+            if (UiButtons.RowButton(hit))
             {
                 SoundDefOf.Click.PlayOneShotOnCamera();
                 Application.OpenURL(url);

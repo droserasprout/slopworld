@@ -36,7 +36,7 @@ namespace SlopWorld
         protected override float Margin => 0f;
 
         // A form group starts on the shared sixteen-pixel rhythm.
-        protected virtual float Pad => UiWidgets.GapM;
+        protected virtual float Pad => UiTheme.GapM;
 
         // Whether the corner carries a cross. Off for a window that has a Cancel in its
         // footer and nothing else to dismiss.
@@ -51,11 +51,11 @@ namespace SlopWorld
         {
             if (!Closable) return rect;
             return new Rect(rect.x, rect.y,
-                Mathf.Max(0f, rect.width - CloseSize - UiWidgets.GapS), rect.height);
+                Mathf.Max(0f, rect.width - CloseSize - UiTheme.GapS), rect.height);
         }
 
         protected static float MessageHeight(string text, float width)
-            => UiWidgets.StatusLabelHeight(text, width);
+            => UiText.StatusLabelHeight(text, width);
 
         public override void DoWindowContents(Rect rect)
         {
@@ -74,7 +74,7 @@ namespace SlopWorld
                     return;
                 }
 
-                Slab.Box(rect, UiWidgets.WindowBg, UiWidgets.Edge);
+                Slab.Box(rect, UiTheme.WindowBg, UiTheme.Edge);
 
                 DoBody(rect.ContractedBy(Pad));
 
@@ -106,8 +106,8 @@ namespace SlopWorld
             var r = new Rect(rect.xMax - Pad - CloseSize, rect.y + Pad,
                 CloseSize, CloseSize);
 
-            if (UiWidgets.IconButton(r, Icons.Cross, UiWidgets.Dim,
-                UiWidgets.FieldPadX)) Close();
+            if (UiLayout.IconButton(r, Icons.Cross, UiTheme.Dim,
+                UiTheme.FieldPadX)) Close();
         }
     }
 }

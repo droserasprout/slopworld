@@ -42,7 +42,7 @@ namespace SlopWorld
         public static void Open(string name) { Current = name; }
     }
 
-    static class UiWidgets
+    static class UiLayout
     {
         public static void Fail(string message) { throw new Exception(message); }
     }

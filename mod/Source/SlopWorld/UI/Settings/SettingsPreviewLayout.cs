@@ -53,7 +53,7 @@ namespace SlopWorld
             _scaleRevision = scaleRevision;
             _valid = true;
 
-            float blockH = UiWidgets.RowH + UiWidgets.GapXS + safePreview;
+            float blockH = UiTheme.RowH + UiTheme.GapXS + safePreview;
             _rootItems[0] = new UiLayoutItem(
                 stacked ? UiLayoutSize.Content(safeForm) :
                     UiLayoutSize.Flexible(),
@@ -62,18 +62,18 @@ namespace SlopWorld
                 UiLayoutSize.Fixed(blockH), UiLayoutSize.Flexible(), blockH, 0f);
 
             float availableH = stacked
-                ? safeForm + UiWidgets.GapM + blockH : safeHeight;
+                ? safeForm + UiTheme.GapM + blockH : safeHeight;
             UiComposition.Arrange(UiLayoutAxis.Column,
                 new UiLayoutRect(0f, 0f, safeWidth, availableH),
-                UiLayoutPadding.Zero, UiWidgets.GapM, _rootItems, _root);
+                UiLayoutPadding.Zero, UiTheme.GapM, _rootItems, _root);
 
-            _previewItems[0] = new UiLayoutItem(UiLayoutSize.Fixed(UiWidgets.RowH),
-                UiLayoutSize.Flexible(), UiWidgets.RowH, 0f);
+            _previewItems[0] = new UiLayoutItem(UiLayoutSize.Fixed(UiTheme.RowH),
+                UiLayoutSize.Flexible(), UiTheme.RowH, 0f);
             _previewItems[1] = new UiLayoutItem(UiLayoutSize.Fixed(safePreview),
                 UiLayoutSize.Flexible(), safePreview, 0f);
             UiComposition.Arrange(UiLayoutAxis.Column,
                 new UiLayoutRect(0f, 0f, _root[1].Width, blockH),
-                UiLayoutPadding.Zero, UiWidgets.GapXS, _previewItems, _preview);
+                UiLayoutPadding.Zero, UiTheme.GapXS, _previewItems, _preview);
         }
     }
 }

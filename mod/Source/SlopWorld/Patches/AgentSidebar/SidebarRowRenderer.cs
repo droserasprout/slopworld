@@ -44,7 +44,7 @@ namespace SlopWorld
                 if (Event.current.type == EventType.Repaint)
                 {
                     var was = GUI.color;
-                    GUI.color = UiWidgets.Off;
+                    GUI.color = UiTheme.Off;
                     GUI.DrawTexture(icon, Icons.Terminal);
                     GUI.color = was;
                 }
@@ -52,42 +52,42 @@ namespace SlopWorld
                 TooltipHandler.TipRegion(icon, project.Length > 0
                     ? "Host session in " + project
                     : "Host session");
-                r.x += d + UiWidgets.GapXS;
-                r.width -= d + UiWidgets.GapXS;
+                r.x += d + UiTheme.GapXS;
+                r.width -= d + UiTheme.GapXS;
             }
 
             // Host paths are useful even when the sidebar is narrow. Keep the normal row
             // font when it fits, but reclaim the compact font's width before truncating it.
             if (hostRow)
             {
-                float contextWidth = UiWidgets.Wide(context);
-                float titleW = UiWidgets.Wide(title);
+                float contextWidth = UiTheme.Wide(context);
+                float titleW = UiTheme.Wide(title);
                 float available = context.Length > 0
-                    ? r.width - contextWidth - UiWidgets.GapS
+                    ? r.width - contextWidth - UiTheme.GapS
                     : r.width;
                 if (titleW > available) Text.Font = GameFont.Tiny;
             }
 
-            Color titleColor = hostTerminal ? HostTerminalColor(info) : UiWidgets.Lead;
+            Color titleColor = hostTerminal ? HostTerminalColor(info) : UiTheme.Lead;
             Text.Anchor = TextAnchor.MiddleLeft;
             if (context.Length == 0)
             {
                 GUI.color = titleColor;
-                UiWidgets.RowLabel(r, title, TextAnchor.MiddleLeft, italic);
+                UiText.RowLabel(r, title, TextAnchor.MiddleLeft, italic);
                 Text.Anchor = TextAnchor.UpperLeft;
                 Text.Font = oldFont;
                 return;
             }
 
-            float contextW = Mathf.Min(UiWidgets.Wide(context), r.width * 0.42f);
+            float contextW = Mathf.Min(UiTheme.Wide(context), r.width * 0.42f);
             var quiet = new Rect(r.xMax - contextW, r.y, contextW, r.height);
-            var strong = new Rect(r.x, r.y, Mathf.Max(0f, quiet.x - UiWidgets.GapS - r.x),
+            var strong = new Rect(r.x, r.y, Mathf.Max(0f, quiet.x - UiTheme.GapS - r.x),
                 r.height);
 
             GUI.color = titleColor;
-            UiWidgets.RowLabel(strong, title, TextAnchor.MiddleLeft, italic);
-            GUI.color = UiWidgets.Dim;
-            UiWidgets.RowLabel(quiet, context);
+            UiText.RowLabel(strong, title, TextAnchor.MiddleLeft, italic);
+            GUI.color = UiTheme.Dim;
+            UiText.RowLabel(quiet, context);
             Text.Anchor = TextAnchor.UpperLeft;
             Text.Font = oldFont;
         }
@@ -100,22 +100,22 @@ namespace SlopWorld
 
             Text.Font = GameFont.Small;
             string ago = state == AgentState.Down ? "" : Ago(info);
-            float ageW = ago.Length == 0 ? 0f : UiWidgets.Wide(ago);
+            float ageW = ago.Length == 0 ? 0f : UiTheme.Wide(ago);
 
             float bell = info != null && info.Bell ? Mathf.Min(bellW, nameH) : 0f;
             float timeX = line.xMax - ageW;
-            float bellX = timeX - (bell > 0f ? UiWidgets.GapXS + bell : 0f);
+            float bellX = timeX - (bell > 0f ? UiTheme.GapXS + bell : 0f);
             float nameRight = bell > 0f ? bellX : timeX;
             var name = new Rect(line.x, line.y,
                 Mathf.Max(0f, nameRight - line.x -
-                    (ageW > 0f || bell > 0f ? UiWidgets.GapXS : 0f)), line.height);
+                    (ageW > 0f || bell > 0f ? UiTheme.GapXS : 0f)), line.height);
 
             if (info != null && info.Bell)
             {
                 if (Event.current.type == EventType.Repaint)
                 {
                     var was = GUI.color;
-                    GUI.color = UiWidgets.Warn;
+                    GUI.color = UiTheme.Warn;
                     GUI.DrawTexture(new Rect(bellX, line.y + (nameH - bell) / 2f, bell, bell),
                         Icons.Bell);
                     GUI.color = was;
@@ -126,7 +126,7 @@ namespace SlopWorld
             {
                 var time = new Rect(timeX, line.y, ageW, line.height);
                 GUI.color = tint;
-                UiWidgets.RowLabel(time, ago, TextAnchor.MiddleRight);
+                UiText.RowLabel(time, ago, TextAnchor.MiddleRight);
 
                 string stateName = StateName(state);
                 TooltipHandler.TipRegion(time, $"{stateName} for {ago}");
@@ -134,22 +134,22 @@ namespace SlopWorld
 
             Text.Font = GameFont.Small;
             GUI.color = tint;
-            UiWidgets.RowLabel(name, session ?? "?");
+            UiText.RowLabel(name, session ?? "?");
 
             Text.Font = GameFont.Tiny;
             string indicators = Settings.StatusbarAgentIndicators
                 ? AgentIndicators(info) : "";
-            float indicatorW = indicators.Length == 0 ? 0f : UiWidgets.Wide(indicators);
+            float indicatorW = indicators.Length == 0 ? 0f : UiTheme.Wide(indicators);
             var line2 = new Rect(text.x, text.y + nameH, text.width, subH);
             if (indicatorW > 0f)
             {
                 var indicator = new Rect(line2.xMax - indicatorW, line2.y,
                     indicatorW, line2.height);
-                GUI.color = UiWidgets.Faint;
-                UiWidgets.RowLabel(indicator, indicators, TextAnchor.MiddleRight);
+                GUI.color = UiTheme.Faint;
+                UiText.RowLabel(indicator, indicators, TextAnchor.MiddleRight);
                 TooltipHandler.TipRegion(indicator,
                     "a autostart · r resume on start · h host-mode networking · t persistent /tmp");
-                line2.width = Mathf.Max(0f, line2.width - indicatorW - UiWidgets.GapXS);
+                line2.width = Mathf.Max(0f, line2.width - indicatorW - UiTheme.GapXS);
             }
 
             // Generated terminal titles can be stale once an agent is down, but a custom
@@ -159,9 +159,9 @@ namespace SlopWorld
                 string title = Title(info);
                 if (title.Length > 0)
                 {
-                    GUI.color = UiWidgets.Dim;
-                    UiWidgets.RowLabel(line2, title);
-                    if (UiWidgets.Wide(title) > line2.width)
+                    GUI.color = UiTheme.Dim;
+                    UiText.RowLabel(line2, title);
+                    if (UiTheme.Wide(title) > line2.width)
                         TooltipHandler.TipRegion(line2, title);
                 }
             }
@@ -245,9 +245,9 @@ namespace SlopWorld
         // process is white, an unchanged shell is grey, and a stopped tab is red.
         static Color HostTerminalColor(SessionInfo info)
         {
-            if (info.State == AgentState.Down) return UiWidgets.StateDown;
+            if (info.State == AgentState.Down) return UiTheme.StateDown;
             if (info.ProcessRunning) return Color.white;
-            return UiWidgets.StateIdle;
+            return UiTheme.StateIdle;
         }
 
         static string StripActionPrefix(string name, RowAct act)

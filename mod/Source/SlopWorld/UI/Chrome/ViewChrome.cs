@@ -9,17 +9,17 @@ namespace SlopWorld
     static class ViewChrome
     {
         const float Indent = 11f;
-        static float Pad => UiWidgets.GapS;
-        static float CellX => UiWidgets.GapS;
+        static float Pad => UiTheme.GapS;
+        static float CellX => UiTheme.GapS;
 
-        static float RowH => UiWidgets.TinyRowH;
+        static float RowH => UiTheme.TinyRowH;
 
         public static void Empty(Rect body)
         {
             var r = new Rect(CellX, body.y + Pad, body.width - CellX * 2f, RowH * 3f);
-            UiWidgets.StatusLabel(r, SessionHub.Instance.Online
+            UiText.StatusLabel(r, SessionHub.Instance.Online
                 ? "No project has a directory yet."
-                : $"daemon {SessionHub.Instance.Status}", UiWidgets.Faint, GameFont.Tiny);
+                : $"daemon {SessionHub.Instance.Status}", UiTheme.Faint, GameFont.Tiny);
         }
 
         public static List<string> Projects()
@@ -41,7 +41,7 @@ namespace SlopWorld
                 Text.Font = GameFont.Tiny;
                 Text.Anchor = TextAnchor.MiddleLeft;
                 var r = new Rect(x, y, width - x - Pad, RowH);
-                UiWidgets.RowLabel(r, text);
+                UiText.RowLabel(r, text);
             }
             return y + RowH;
         }

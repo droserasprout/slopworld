@@ -32,13 +32,13 @@ namespace SlopWorld
 
         protected override void DoFooter(Rect bar, SessionHub hub)
         {
-            var row = new UiWidgets.Bar(bar);
+            var row = new UiLayout.Bar(bar);
 
-            if (row.Left("Add project", UiWidgets.Btn.Primary))
+            if (row.Left("Add project", UiTheme.Btn.Primary))
                 TerminalWindow.OpenOverPane(new EditProjectDialog(null));
 
-            if (row.Right("Reload", UiWidgets.Btn.Ghost))
-                hub.Catalog.RefreshProjects(UiWidgets.Fail);
+            if (row.Right("Reload", UiTheme.Btn.Ghost))
+                hub.Catalog.RefreshProjects(UiLayout.Fail);
         }
 
         protected override void DrawRow(Rect r, ProjectInfo p)
@@ -51,37 +51,37 @@ namespace SlopWorld
             float l1 = UiListRow.LineY(r, 0), l2 = UiListRow.LineY(r, 1);
 
             // The name's column, measured: 200 and 214 held for one face at one size.
-            float nameW = Mathf.Max(UiWidgets.Wide("mmmmmmmmmmmmmmmm"), 200f);
+            float nameW = Mathf.Max(UiTheme.Wide("mmmmmmmmmmmmmmmm"), 200f);
 
-            GUI.color = UiWidgets.Lead;
-            UiWidgets.RowLabel(
-                new Rect(r.x + UiWidgets.GapS, l1, nameW, UiWidgets.LineH), p.Name);
+            GUI.color = UiTheme.Lead;
+            UiText.RowLabel(
+                new Rect(r.x + UiTheme.GapS, l1, nameW, UiTheme.LineH), p.Name);
 
             // The number that decides whether this project can be deleted at all.
             var hub = SessionHub.Instance;
             int agents = _counts.Get(hub.Sessions, hub.SessionsVersion, p.Name);
-            GUI.color = UiWidgets.Dim;
-            UiWidgets.RowLabel(
-                new Rect(r.x + UiWidgets.GapS + nameW + UiWidgets.GapS, l1,
-                    UiWidgets.Wide("99 agents") + 4f, UiWidgets.LineH),
+            GUI.color = UiTheme.Dim;
+            UiText.RowLabel(
+                new Rect(r.x + UiTheme.GapS + nameW + UiTheme.GapS, l1,
+                    UiTheme.Wide("99 agents") + 4f, UiTheme.LineH),
                 agents == 1 ? "1 agent" : $"{agents} agents");
 
             // Cut rather than wrapped: a directory and a summary beside it have spaces in
             // them, and a wrapped line in a one-line slot loses the half of each that is
             // outside the rect.
-            UiWidgets.RowLabel(
-                new Rect(r.x + UiWidgets.GapS, l2, Mathf.Max(60f, r.width - 150f),
-                    UiWidgets.LineH), $"{p.Dir}  ({Summary(p)})");
+            UiText.RowLabel(
+                new Rect(r.x + UiTheme.GapS, l2, Mathf.Max(60f, r.width - 150f),
+                    UiTheme.LineH), $"{p.Dir}  ({Summary(p)})");
             GUI.color = Color.white;
 
             float right = UiListRow.Right(r);
-            float actW = Mathf.Max(UiWidgets.BtnW("Delete", 120f), UiWidgets.BtnW("Edit", 120f));
+            float actW = Mathf.Max(UiLayout.BtnW("Delete", 120f), UiLayout.BtnW("Edit", 120f));
 
-            if (UiWidgets.Button(new Rect(right - actW, r.y + 1f, actW, UiWidgets.RowBtnH), "Edit"))
+            if (UiButtons.Button(new Rect(right - actW, r.y + 1f, actW, UiTheme.RowBtnH), "Edit"))
                 TerminalWindow.OpenOverPane(new EditProjectDialog(p));
 
-            if (UiWidgets.Button(new Rect(right - actW, l2, actW, UiWidgets.RowBtnH), "Delete",
-                    UiWidgets.Btn.Danger))
+            if (UiButtons.Button(new Rect(right - actW, l2, actW, UiTheme.RowBtnH), "Delete",
+                    UiTheme.Btn.Danger))
                 TerminalWindow.OpenOverPane(CatalogActions.RemoveProject(p.Name));
         }
 
@@ -145,7 +145,7 @@ namespace SlopWorld
             resizeable = true;
             AcceptOnEnter(Save);
 
-            SessionHub.Instance.Catalog.LoadPresets(fail: UiWidgets.Fail);
+            SessionHub.Instance.Catalog.LoadPresets(fail: UiLayout.Fail);
         }
 
         // A left rail of short pages rather than one long form: the project, its sandbox, its
@@ -154,10 +154,10 @@ namespace SlopWorld
 
         protected override void DoBody(Rect rect)
         {
-            UiWidgets.Title(TitleRect(rect), _identity.Title("project"));
+            UiLayout.Title(TitleRect(rect), _identity.Title("project"));
 
             var layout = TabbedFormLayout.Arrange(SettingsPageLayout.FromRect(rect), 132f,
-                UiWidgets.HeaderH, UiWidgets.BtnH, UiWidgets.GapS, UiWidgets.GapM);
+                UiTheme.HeaderH, UiTheme.BtnH, UiTheme.GapS, UiTheme.GapM);
             DrawRail(SettingsPageLayout.ToRect(layout.Rail));
             var body = SettingsPageLayout.ToRect(layout.Body);
 
@@ -179,12 +179,12 @@ namespace SlopWorld
                     break;
             }
 
-            var foot = new UiWidgets.Bar(SettingsPageLayout.ToRect(layout.Footer));
-            if (foot.Left("Cancel", UiWidgets.Btn.Ghost)) Close();
-            if (foot.Right("Save", UiWidgets.Btn.Primary)) Save();
+            var foot = new UiLayout.Bar(SettingsPageLayout.ToRect(layout.Footer));
+            if (foot.Left("Cancel", UiTheme.Btn.Ghost)) Close();
+            if (foot.Right("Save", UiTheme.Btn.Primary)) Save();
         }
 
-        void DrawRail(Rect r) => UiWidgets.DrawRail(r, new[]
+        void DrawRail(Rect r) => UiLayout.DrawRail(r, new[]
         {
             ("General", Tab.General),
             ("Sandbox", Tab.Sandbox),
@@ -202,9 +202,9 @@ namespace SlopWorld
             // begun on - curX past the whole width, so everything after is clipped away by
             // the group, and CurHeight back to nearly nothing.
             l.Label("Name");
-            _p.Name = UiWidgets.Field(l, "project.name", _p.Name);
+            _p.Name = UiControls.Field(l, "project.name", _p.Name);
 
-            _p.Temp = UiWidgets.Checkbox(l, "Temporary - scratch space under /tmp", _p.Temp,
+            _p.Temp = UiControls.Checkbox(l, "Temporary - scratch space under /tmp", _p.Temp,
                 "The directory is made for you under " + ProjectInfo.TempRoot + ", named after " +
                 "this project, and it is there the first time an agent starts. Nothing " +
                 "deletes it; the machine clears /tmp.");
@@ -214,12 +214,12 @@ namespace SlopWorld
             {
                 // Stated rather than hidden: the path is the daemon's to coin and this is what
                 // it will coin. Browse goes with it - there is nothing to find yet.
-                UiWidgets.Field(l, "project.dir", ProjectInfo.TempDir(_p.Name), false);
+                UiControls.Field(l, "project.dir", ProjectInfo.TempDir(_p.Name), false);
             }
             else
             {
-                _p.Dir = UiWidgets.Field(l, "project.dir", _p.Dir);
-                if (UiWidgets.Button(l, "Browse..."))
+                _p.Dir = UiControls.Field(l, "project.dir", _p.Dir);
+                if (UiLayout.Button(l, "Browse..."))
                     TerminalWindow.OpenOverPane(new BrowseDialog(_p.Dir, d => _p.Dir = d));
             }
 
@@ -232,10 +232,10 @@ namespace SlopWorld
             {
                 NetworkMode.None, NetworkMode.Private, NetworkMode.Host,
             };
-            UiWidgets.Select(l, "Network default", NetworkModeText.Label(_p.Network),
+            UiControls.Select(l, "Network default", NetworkModeText.Label(_p.Network),
                 networkChoices.Select(mode => new SelectorOption(NetworkModeText.Label(mode),
                     () => _p.Network = mode)), out _);
-            GUI.color = UiWidgets.Dim;
+            GUI.color = UiTheme.Dim;
             l.Label(_p.Network == NetworkMode.Host
                 ? SessionHub.Instance.Capabilities.HostNetworkIsContainer
                     ? "Agents share slopcar's network. Mac services are at host.docker.internal."
@@ -245,8 +245,8 @@ namespace SlopWorld
                     : "Agents have no network access.");
             GUI.color = Color.white;
 
-            l.Gap(UiWidgets.GapS);
-            UiWidgets.Select(l, "DNS", _p.Dns.Label, new[]
+            l.Gap(UiTheme.GapS);
+            UiControls.Select(l, "DNS", _p.Dns.Label, new[]
             {
                 new SelectorOption("System resolver", () => _p.Dns = DnsConfig.Resolved()),
                 new SelectorOption("Custom DNS servers", () =>
@@ -256,14 +256,14 @@ namespace SlopWorld
             }, out _);
             if (_p.Dns.Mode == DnsMode.Servers)
             {
-                _dnsServers = UiWidgets.Field(l, "project.dns", _dnsServers ?? "");
-                GUI.color = UiWidgets.Dim;
+                _dnsServers = UiControls.Field(l, "project.dns", _dnsServers ?? "");
+                GUI.color = UiTheme.Dim;
                 l.Label("Comma-separated IPv4 addresses; maximum two. Changes apply on restart.");
                 GUI.color = Color.white;
             }
             else
             {
-                GUI.color = UiWidgets.Dim;
+                GUI.color = UiTheme.Dim;
                 l.Label("System resolver follows the daemon's current resolv.conf.");
                 GUI.color = Color.white;
             }
@@ -272,12 +272,12 @@ namespace SlopWorld
 
         float DrawSandboxTrailing(Rect rect, float y, float availableHeight)
         {
-            UiWidgets.SectionHeading(new Rect(rect.x, y, rect.width, UiWidgets.RowH),
+            UiLayout.SectionHeading(new Rect(rect.x, y, rect.width, UiTheme.RowH),
                 "Sandbox presets");
-            y += UiWidgets.RowH + UiWidgets.GapXS;
+            y += UiTheme.RowH + UiTheme.GapXS;
 
             // The viewport stays stable even when the form needs an outer scroll view.
-            float height = Mathf.Max(PresetsH, rect.y + availableHeight - y - UiWidgets.GapS);
+            float height = Mathf.Max(PresetsH, rect.y + availableHeight - y - UiTheme.GapS);
             PresetList.Draw(new Rect(rect.x, y, rect.width, height), _p.Sandbox, _presetScroll);
             y += height;
 
@@ -287,9 +287,9 @@ namespace SlopWorld
         void DrawBreadcrumbs(Rect rect)
         {
             float y = rect.y;
-            UiWidgets.SectionHeading(new Rect(rect.x, y, rect.width, UiWidgets.RowH),
+            UiLayout.SectionHeading(new Rect(rect.x, y, rect.width, UiTheme.RowH),
                 "Prompt breadcrumbs");
-            y += UiWidgets.RowH + UiWidgets.GapXS;
+            y += UiTheme.RowH + UiTheme.GapXS;
             BreadcrumbList.Draw(new Rect(rect.x, y, rect.width, Mathf.Max(0f, rect.yMax - y)),
                 _p.Breadcrumbs, _breadcrumbScroll,
                 breadcrumbsLocked: !SessionHub.Instance.Config.ExperimentalBreadcrumbs);
@@ -299,7 +299,7 @@ namespace SlopWorld
         {
             if (string.IsNullOrEmpty((_p.Name ?? "").Trim()))
             {
-                UiWidgets.Fail("a project needs a name");
+                UiLayout.Fail("a project needs a name");
                 return;
             }
             // A temporary project's directory is the daemon's to coin, and it coins it again
@@ -308,7 +308,7 @@ namespace SlopWorld
             if (_p.Temp) _p.Dir = ProjectInfo.TempDir(_p.Name);
             else if (string.IsNullOrEmpty((_p.Dir ?? "").Trim()))
             {
-                UiWidgets.Fail("a project needs a directory");
+                UiLayout.Fail("a project needs a directory");
                 return;
             }
 
@@ -317,7 +317,7 @@ namespace SlopWorld
             if (_p.Dns.Mode == DnsMode.Servers &&
                 !DnsConfig.TryParseServers(_dnsServers, out dnsServers, out dnsError))
             {
-                UiWidgets.Fail("DNS: " + dnsError);
+                UiLayout.Fail("DNS: " + dnsError);
                 return;
             }
             if (_p.Dns.Mode == DnsMode.Servers)
@@ -326,7 +326,7 @@ namespace SlopWorld
             SessionHub.Instance.Catalog.SaveProject(_p, _identity.IsNew,
                 _identity.OriginalName,
                 ok: () => Close(),
-                fail: UiWidgets.Fail);
+                fail: UiLayout.Fail);
         }
 
     }

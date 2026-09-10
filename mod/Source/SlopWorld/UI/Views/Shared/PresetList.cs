@@ -9,7 +9,7 @@ namespace SlopWorld
     public static class PresetList
     {
         // The pitch of a row here, off the font like every other height in this mod.
-        public static float RowH => UiWidgets.RowH;
+        public static float RowH => UiTheme.RowH;
 
         // Ticked and refused: what a preset is handed anyway, by its command or its project.
         // Drawn rather than hidden - "why is ~/.claude bound" is the question this answers.

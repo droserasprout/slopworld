@@ -20,8 +20,8 @@ namespace SlopWorld
                     Session = info.Name,
                     Ghost = true,
                     Line = new Rect(body.x, y, body.width, GhostH),
-                    Text = new Rect(body.x + CellX + ArrowW + UiWidgets.GapXS, y + 1f,
-                        body.width - CellX - ArrowW - UiWidgets.GapXS - Pad, NameH),
+                    Text = new Rect(body.x + CellX + ArrowW + UiTheme.GapXS, y + 1f,
+                        body.width - CellX - ArrowW - UiTheme.GapXS - Pad, NameH),
                     Face = Rect.zero,
                 };
                 Layout.ViewRows.Add(row);
@@ -44,13 +44,13 @@ namespace SlopWorld
                 if (Event.current.type == EventType.Repaint)
                 {
                     var was = GUI.color;
-                    GUI.color = UiWidgets.Off;
+                    GUI.color = UiTheme.Off;
                     GUI.DrawTexture(new Rect(text.x, text.y + (text.height - d) / 2f, d, d),
                         RowActions.Tex(act));
                     GUI.color = was;
                 }
-                text.x += d + UiWidgets.GapXS;
-                text.width -= d + UiWidgets.GapXS;
+                text.x += d + UiTheme.GapXS;
+                text.width -= d + UiTheme.GapXS;
             }
 
             Text.Font = GameFont.Small;
@@ -188,14 +188,14 @@ namespace SlopWorld
                 if (Event.current.type == EventType.Repaint)
                 {
                     var was = GUI.color;
-                    GUI.color = UiWidgets.Off;
+                    GUI.color = UiTheme.Off;
                     GUI.DrawTexture(
                         new Rect(text.x, text.y + (text.height - d) / 2f, d, d),
                         RowActions.Tex(act));
                     GUI.color = was;
                 }
-                text.x += d + UiWidgets.GapXS;
-                text.width -= d + UiWidgets.GapXS;
+                text.x += d + UiTheme.GapXS;
+                text.width -= d + UiTheme.GapXS;
             }
 
             SidebarRowRenderer.DrawGhostLabel(text, info, row.Session, true, GhostMarkW);
@@ -216,7 +216,7 @@ namespace SlopWorld
             if (Event.current.type == EventType.Repaint)
             {
                 var was = GUI.color;
-                GUI.color = UiWidgets.Off;
+                GUI.color = UiTheme.Off;
                 GUI.DrawTexture(mark, Icons.Agents);
                 GUI.color = was;
             }
@@ -224,18 +224,18 @@ namespace SlopWorld
 
             Text.Font = GameFont.Tiny;
             AgentState state = info?.State ?? AgentState.Down;
-            Color tint = info == null ? UiWidgets.Dim : TerminalWindow.StateColor(state);
+            Color tint = info == null ? UiTheme.Dim : TerminalWindow.StateColor(state);
             string ago = state == AgentState.Down ? "" : SidebarRowRenderer.Ago(info);
-            float ageW = ago.Length == 0 ? 0f : UiWidgets.Wide(ago);
+            float ageW = ago.Length == 0 ? 0f : UiTheme.Wide(ago);
             float nameW = Mathf.Max(0f, row.Text.width -
-                (ageW > 0f ? ageW + UiWidgets.GapXS : 0f));
+                (ageW > 0f ? ageW + UiTheme.GapXS : 0f));
             var name = new Rect(row.Text.x, row.Text.y, nameW, row.Text.height);
             GUI.color = tint;
-            UiWidgets.RowLabel(name, info?.Name ?? row.Session);
+            UiText.RowLabel(name, info?.Name ?? row.Session);
             if (ageW > 0f)
             {
                 var time = new Rect(row.Text.xMax - ageW, row.Text.y, ageW, row.Text.height);
-                UiWidgets.RowLabel(time, ago, TextAnchor.MiddleRight);
+                UiText.RowLabel(time, ago, TextAnchor.MiddleRight);
                 string stateName = SidebarRowRenderer.StateName(state);
                 TooltipHandler.TipRegion(time, $"{stateName} for {ago}");
             }
@@ -260,7 +260,7 @@ namespace SlopWorld
             var center = new Vector2(portrait.xMax - d / 2f - BadgeInset,
                 text.y + NameH + SubH * 1.5f + 3f);
 
-            GUI.color = UiWidgets.ViewBg;
+            GUI.color = UiTheme.ViewBg;
             GUI.DrawTexture(Icons.DotBox(center, d + BadgeRing * 2f), Icons.Dot);
             var stateColor = TerminalWindow.StateColor(state);
             GUI.color = new Color(stateColor.r, stateColor.g, stateColor.b, BadgeAlpha);

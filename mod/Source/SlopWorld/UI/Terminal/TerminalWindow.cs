@@ -9,7 +9,7 @@ namespace SlopWorld
     // this window places the active panel and draws shared chrome.
     public partial class TerminalWindow : Window, ITerminalPanelHost
     {
-        static float ContentPad => UiWidgets.GapS;
+        static float ContentPad => UiTheme.GapS;
         FieldLifetime _fieldLifetime = new FieldLifetime();
         TerminalWindow(string name)
         {

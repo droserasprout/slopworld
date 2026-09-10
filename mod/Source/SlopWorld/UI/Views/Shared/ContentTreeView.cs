@@ -95,12 +95,12 @@ namespace SlopWorld
 
     public sealed class ContentTreeView
     {
-        static float RowH => UiWidgets.TinyRowH;
+        static float RowH => UiTheme.TinyRowH;
         const float IconW = 16f;
         const float Indent = 11f;
-        static float Pad => UiWidgets.GapS;
-        static float CellX => UiWidgets.GapS;
-        const float ArrowW = UiWidgets.DisclosureW;
+        static float Pad => UiTheme.GapS;
+        static float CellX => UiTheme.GapS;
+        const float ArrowW = UiTheme.DisclosureW;
 
         readonly ContentTreeSource _source;
         readonly ContentTreeController _controller;
@@ -283,7 +283,7 @@ namespace SlopWorld
                 {
                     Kind = ItemKind.Note,
                     Note = parent.Error ?? "...",
-                    NoteColor = parent.Error != null ? UiWidgets.Bad : UiWidgets.Faint,
+                    NoteColor = parent.Error != null ? UiTheme.Bad : UiTheme.Faint,
                     Depth = parent.Depth + 1,
                     Y = y,
                 });
@@ -304,7 +304,7 @@ namespace SlopWorld
                 {
                     Kind = ItemKind.Note,
                     Note = "... more, not listed",
-                    NoteColor = UiWidgets.Faint,
+                    NoteColor = UiTheme.Faint,
                     Depth = parent.Depth + 1,
                     Y = y,
                 });
@@ -358,7 +358,7 @@ namespace SlopWorld
                 bool collapsed = _source.IsGroupCollapsed(group);
 
                 bool over = RowChrome.Hover(row, false, true, RowHoverPolicy.OverlayAware);
-                GUI.color = UiWidgets.Faint;
+                GUI.color = UiTheme.Faint;
                 var arrow = new Rect(CellX, row.y + (RowH - ArrowW) / 2f, ArrowW, ArrowW);
                 GUI.DrawTexture(arrow, collapsed ? TexButton.Reveal : TexButton.Collapse);
 
@@ -369,15 +369,15 @@ namespace SlopWorld
                     ? extras.GroupActions(group) : GroupAct.None;
                 float right = row.width - CellX;
                 if (acts != GroupAct.None)
-                    right = GroupActions.Draw(row, right, acts) - UiWidgets.GapXS;
+                    right = GroupActions.Draw(row, right, acts) - UiTheme.GapXS;
                 else if (extras != null)
                     right = extras.DrawGroupTail(row, group, right);
-                float left = arrow.xMax + UiWidgets.GapXS;
+                float left = arrow.xMax + UiTheme.GapXS;
                 var label = new Rect(left, row.y, Mathf.Max(0f, right - left), RowH);
-                UiWidgets.RowLabel(label, group.Label);
+                UiText.RowLabel(label, group.Label);
 
                 Slab.Hairline(new Rect(CellX, row.yMax - 1f, row.width - CellX * 2f, 1f),
-                    UiWidgets.Edge);
+                    UiTheme.Edge);
 
                 string tip = _source.GroupTooltip(group);
                 if (!string.IsNullOrEmpty(tip) && GroupActions.Hit(row, row.width - CellX, acts)
@@ -400,7 +400,7 @@ namespace SlopWorld
                 float x = CellX + node.Depth * Indent;
                 if (node.IsDirectory && node.CanExpand)
                 {
-                    GUI.color = UiWidgets.Faint;
+                    GUI.color = UiTheme.Faint;
                     GUI.DrawTexture(new Rect(x, y + (RowH - ArrowW) / 2f, ArrowW, ArrowW),
                         _source.IsExpanded(node) ? TexButton.Collapse : TexButton.Reveal);
                 }
@@ -417,13 +417,13 @@ namespace SlopWorld
                 var actions = _source as IContentTreeRowActions;
                 RowAct acts = over && actions != null ? actions.Actions(node) : RowAct.None;
                 if (acts != RowAct.None)
-                    right = RowActions.Draw(row, right, acts) - UiWidgets.GapXS;
+                    right = RowActions.Draw(row, right, acts) - UiTheme.GapXS;
                 else if (actions != null)
                     right = actions.DrawRowTail(row, node, right);
 
                 Text.Anchor = TextAnchor.MiddleLeft;
                 GUI.color = _source.RowLabelColor(node);
-                UiWidgets.RowLabel(new Rect(x, y, Mathf.Max(0f, right - x - 2f), RowH), node.Name);
+                UiText.RowLabel(new Rect(x, y, Mathf.Max(0f, right - x - 2f), RowH), node.Name);
 
                 string tooltip = actions == null ? null : actions.RowTooltip(node);
                 if (!string.IsNullOrEmpty(tooltip) &&

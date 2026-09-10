@@ -151,11 +151,11 @@ namespace SlopWorld
             // for its contents does not overflow, it breaks to a column off the right-hand
             // edge and puts CurHeight back to nearly zero - and the prompt box below is
             // placed and sized from that number. See EditProjectDialog.DoFields.
-            UiWidgets.Title(TitleRect(rect), _identity.Title("library entry"));
+            UiLayout.Title(TitleRect(rect), _identity.Title("library entry"));
 
-            float head = UiWidgets.HeaderH + UiWidgets.GapS;
+            float head = UiTheme.HeaderH + UiTheme.GapS;
             float used = DrawFields(new Rect(rect.x, rect.y + head, rect.width, rect.height - head));
-            float y = rect.y + head + used + UiWidgets.GapL;
+            float y = rect.y + head + used + UiTheme.GapL;
             DrawTextEditor(rect, y);
             DrawFooter(rect);
         }
@@ -181,16 +181,16 @@ namespace SlopWorld
         void DrawName(Listing_Standard l)
         {
             l.Label("Name (also what the temporary colonist is called)");
-            _s.Name = UiWidgets.Field(l, "library.name", _s.Name, on: CurrentKindEnabled);
+            _s.Name = UiControls.Field(l, "library.name", _s.Name, on: CurrentKindEnabled);
         }
 
         void DrawKindAndLink(Listing_Standard l, LibraryItemKindDescriptor kind)
         {
-            UiWidgets.Select(l, "Kind", kind.ButtonLabel, KindOptions(), out _,
+            UiControls.Select(l, "Kind", kind.ButtonLabel, KindOptions(), out _,
                 on: CurrentKindEnabled, openMenu: TerminalWindow.OpenOverPane);
 
             if (!kind.ShowWhere) return;
-            UiWidgets.Select(l, "Where it runs", LinkLabel(_s.Link), LinkOptions(), out _,
+            UiControls.Select(l, "Where it runs", LinkLabel(_s.Link), LinkOptions(), out _,
                 openMenu: TerminalWindow.OpenOverPane);
         }
 
@@ -199,7 +199,7 @@ namespace SlopWorld
             // The project dropdown stays up for every kind that uses a project. In temp mode
             // it still answers which sandbox the scratch project is given.
             if (!kind.ShowProject(this)) return;
-            UiWidgets.Select(l, kind.ProjectLabel(this), kind.ProjectValue(this),
+            UiControls.Select(l, kind.ProjectLabel(this), kind.ProjectValue(this),
                 ProjectOptions(_s.Kind == LibraryItemKind.Breadcrumb), out _,
                 on: CurrentKindEnabled, openMenu: TerminalWindow.OpenOverPane);
         }
@@ -207,7 +207,7 @@ namespace SlopWorld
         void DrawFileActionMode(Listing_Standard l)
         {
             if (_s.Kind != LibraryItemKind.FileAction) return;
-            UiWidgets.Select(l, "After choosing the file action",
+            UiControls.Select(l, "After choosing the file action",
                 FileActionModeText.Label(_s.Mode), FileActionModeOptions(), out _,
                 openMenu: TerminalWindow.OpenOverPane);
         }
@@ -215,14 +215,14 @@ namespace SlopWorld
         void DrawExplanation(Listing_Standard l, LibraryItemKindDescriptor kind)
         {
             var project = SessionHub.Instance.Project(_s.Project);
-            GUI.color = UiWidgets.Dim;
+            GUI.color = UiTheme.Dim;
             l.Label(kind.ExplainText(this, project));
             GUI.color = Color.white;
         }
 
         void DrawCommand(Listing_Standard l, LibraryItemKindDescriptor kind)
         {
-            l.Gap(UiWidgets.GapS);
+            l.Gap(UiTheme.GapS);
             if (kind.CommandLabel == null)
             {
                 // Breadcrumbs have one text editor below, just like prompts. Keeping a
@@ -232,17 +232,17 @@ namespace SlopWorld
             }
 
             l.Label(kind.CommandLabel);
-            var box = UiWidgets.FieldRect(l);
+            var box = UiControls.FieldRect(l);
             if (!string.IsNullOrEmpty((_s.Command ?? "").Trim()))
             {
-                _s.Command = UiWidgets.Field(box, "library.command", _s.Command,
+                _s.Command = UiText.Field(box, "library.command", _s.Command,
                     on: CurrentKindEnabled);
                 return;
             }
 
             string placeholder = kind.CommandPlaceholder(this);
-            GUI.color = UiWidgets.Faint;
-            string shown = UiWidgets.Field(box, "library.command", placeholder,
+            GUI.color = UiTheme.Faint;
+            string shown = UiText.Field(box, "library.command", placeholder,
                 on: CurrentKindEnabled);
             GUI.color = Color.white;
             if (shown != placeholder) _s.Command = shown;
@@ -250,16 +250,16 @@ namespace SlopWorld
 
         float DrawTextEditor(Rect rect, float y)
         {
-            UiWidgets.SectionHeading(new Rect(rect.x, y, rect.width, UiWidgets.RowH),
+            UiLayout.SectionHeading(new Rect(rect.x, y, rect.width, UiTheme.RowH),
                 _s.Kind == LibraryItemKind.Shell || _s.Kind == LibraryItemKind.FileAction ? "Command line" :
                 _s.Kind == LibraryItemKind.Breadcrumb ? "Breadcrumb text" : "Prompt");
-            y += UiWidgets.RowH + UiWidgets.GapXS;
+            y += UiTheme.RowH + UiTheme.GapXS;
 
             if (_s.Kind != LibraryItemKind.FileAction)
             {
                 var area = new Rect(rect.x, y, rect.width,
-                    rect.yMax - UiWidgets.BtnH - UiWidgets.GapS - y);
-                _s.Text = UiWidgets.Area(area, "library.text", _s.Text ?? "",
+                    rect.yMax - UiTheme.BtnH - UiTheme.GapS - y);
+                _s.Text = UiText.Area(area, "library.text", _s.Text ?? "",
                     on: CurrentKindEnabled);
             }
             else
@@ -271,9 +271,9 @@ namespace SlopWorld
 
         void DrawFooter(Rect rect)
         {
-            var foot = new UiWidgets.Bar(UiWidgets.FooterBar(rect));
-            if (foot.Left("Cancel", UiWidgets.Btn.Ghost)) Close();
-            if (foot.Right("Save", UiWidgets.Btn.Primary, CurrentKindEnabled)) Save();
+            var foot = new UiLayout.Bar(UiLayout.FooterBar(rect));
+            if (foot.Left("Cancel", UiTheme.Btn.Ghost)) Close();
+            if (foot.Right("Save", UiTheme.Btn.Primary, CurrentKindEnabled)) Save();
         }
 
         // The three answers, in the words the dropdown shows them in.

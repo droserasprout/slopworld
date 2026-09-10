@@ -13,13 +13,13 @@ namespace SlopWorld
         static float Body(float width, float y, Repo repo)
         {
             if (repo.Loading && repo.Tree == null)
-                return ViewChrome.Note(width, y, 0, "...", UiWidgets.Faint);
+                return ViewChrome.Note(width, y, 0, "...", UiTheme.Faint);
             if (repo.Error != null)
-                return ViewChrome.Note(width, y, 0, repo.Error, UiWidgets.Bad);
+                return ViewChrome.Note(width, y, 0, repo.Error, UiTheme.Bad);
             if (!repo.Asked)
-                return ViewChrome.Note(width, y, 0, "not read yet", UiWidgets.Faint);
+                return ViewChrome.Note(width, y, 0, "not read yet", UiTheme.Faint);
             if (!repo.IsRepo)
-                return ViewChrome.Note(width, y, 0, "not a git repository", UiWidgets.Faint);
+                return ViewChrome.Note(width, y, 0, "not a git repository", UiTheme.Faint);
 
             y = State(width, y, repo);
             return y;
@@ -29,31 +29,31 @@ namespace SlopWorld
         // for a figure each rather than a sentence.
         static float State(float width, float y, Repo repo)
         {
-            var r = new Rect(0f, y, width, UiWidgets.TinyRowH);
-            float x = UiWidgets.GapS;
+            var r = new Rect(0f, y, width, UiTheme.TinyRowH);
+            float x = UiTheme.GapS;
 
             Text.Font = GameFont.Tiny;
             Text.Anchor = TextAnchor.MiddleLeft;
 
             // From the right, so the branch takes whatever is left rather than pushing the
             // figures off the edge - a branch name is the long half of this line.
-            float rx = width - UiWidgets.GapS;
+            float rx = width - UiTheme.GapS;
             if (repo.Changed == 0)
             {
-                rx = Tail(rx, y, "clean", UiWidgets.Faint);
+                rx = Tail(rx, y, "clean", UiTheme.Faint);
             }
             else
             {
-                if (repo.Deleted > 0) rx = Tail(rx, y, "-" + repo.Deleted, UiWidgets.Bad);
-                if (repo.Added > 0) rx = Tail(rx, y, "+" + repo.Added, UiWidgets.Yes);
-                rx = Tail(rx, y, repo.Changed + (repo.Truncated ? "+" : ""), UiWidgets.Dim);
+                if (repo.Deleted > 0) rx = Tail(rx, y, "-" + repo.Deleted, UiTheme.Bad);
+                if (repo.Added > 0) rx = Tail(rx, y, "+" + repo.Added, UiTheme.Yes);
+                rx = Tail(rx, y, repo.Changed + (repo.Truncated ? "+" : ""), UiTheme.Dim);
             }
 
-            GUI.color = UiWidgets.Dim;
+            GUI.color = UiTheme.Dim;
             Text.Anchor = TextAnchor.MiddleLeft;
-            var branch = new Rect(x, y, Mathf.Max(0f, rx - x - UiWidgets.GapXS),
-                UiWidgets.TinyRowH);
-            UiWidgets.RowLabel(branch, repo.Branch ?? "");
+            var branch = new Rect(x, y, Mathf.Max(0f, rx - x - UiTheme.GapXS),
+                UiTheme.TinyRowH);
+            UiText.RowLabel(branch, repo.Branch ?? "");
 
             GUI.color = Color.white;
             Text.Anchor = TextAnchor.UpperLeft;
@@ -68,7 +68,7 @@ namespace SlopWorld
                         ? $"{repo.Root}\n\n{repo.Changed} changed. Line counts unavailable."
                     : $"{repo.Root}\n\n{repo.Changed} changed, " +
                       $"{repo.Added} insertions(+), {repo.Deleted} deletions(-)");
-            return y + UiWidgets.TinyRowH;
+            return y + UiTheme.TinyRowH;
         }
 
         // One figure laid out from the right, and the x the next one ends at. The anchor does
@@ -78,9 +78,9 @@ namespace SlopWorld
             // A pixel either side of the measurement: a rect exactly as wide as its own
             // CalcSize clips the last glyph's overhang on a face whose advance is narrower
             // than its ink, which on a number is the whole of what there was to read.
-            float w = UiWidgets.Wide(text) + 2f;
+            float w = UiTheme.Wide(text) + 2f;
             GUI.color = color;
-            UiWidgets.RowLabel(new Rect(right - w, y, w, UiWidgets.TinyRowH), text,
+            UiText.RowLabel(new Rect(right - w, y, w, UiTheme.TinyRowH), text,
                 TextAnchor.MiddleRight);
             return right - w - 5f;
         }
@@ -114,7 +114,7 @@ namespace SlopWorld
         {
             if (repo == null || !repo.IsRepo || repo.Error != null || string.IsNullOrEmpty(repo.Root))
             {
-                UiWidgets.Fail("repository is not available");
+                UiLayout.Fail("repository is not available");
                 return;
             }
 
@@ -130,7 +130,7 @@ namespace SlopWorld
                         MessageTypeDefOf.SilentInput, false);
                     Fetch(repo.Project);
                 },
-                msg => UiWidgets.Fail("Git: " + msg));
+                msg => UiLayout.Fail("Git: " + msg));
         }
 
         static void Stage(Repo repo, string rel) =>
@@ -149,7 +149,7 @@ namespace SlopWorld
             var repo = Known(project);
             if (repo == null || repo.Changed <= 0)
             {
-                UiWidgets.Fail("nothing to stage");
+                UiLayout.Fail("nothing to stage");
                 return;
             }
 
@@ -161,7 +161,7 @@ namespace SlopWorld
             var repo = Known(project);
             if (repo == null || !HasStaged(repo))
             {
-                UiWidgets.Fail("no staged changes to unstage");
+                UiLayout.Fail("no staged changes to unstage");
                 return;
             }
 
@@ -173,7 +173,7 @@ namespace SlopWorld
             var repo = Known(project);
             if (repo == null || !HasStaged(repo))
             {
-                UiWidgets.Fail("no staged changes to commit");
+                UiLayout.Fail("no staged changes to commit");
                 return;
             }
 
@@ -185,7 +185,7 @@ namespace SlopWorld
             var repo = Known(project);
             if (repo == null || !HasStaged(repo))
             {
-                UiWidgets.Fail("no staged changes to commit");
+                UiLayout.Fail("no staged changes to commit");
                 return;
             }
 
@@ -200,14 +200,14 @@ namespace SlopWorld
                 // A capped response omits all numstat values, so null there means unknown,
                 // not necessarily binary. Preserve the binary marker for complete answers.
                 if (!node.Owner.Truncated)
-                    right = Tail(right, row.y, "bin", UiWidgets.Faint);
+                    right = Tail(right, row.y, "bin", UiTheme.Faint);
             }
             else
             {
                 if (node.Deleted > 0) right = Tail(right, row.y, "-" + node.Deleted,
-                    UiWidgets.Bad);
+                    UiTheme.Bad);
                 if (node.Added > 0) right = Tail(right, row.y, "+" + node.Added,
-                    UiWidgets.Yes);
+                    UiTheme.Yes);
             }
             return Tail(right, row.y, Mark(node.Status), MarkColor(node.Status));
         }
@@ -251,9 +251,9 @@ namespace SlopWorld
         // color of a thing that is not. Untracked is neither, and is dimmer than both.
         static Color MarkColor(string status)
         {
-            if (string.IsNullOrEmpty(status) || status == "??") return UiWidgets.Faint;
-            if (Unmerged(status)) return UiWidgets.Bad;
-            return status[0] != ' ' ? UiWidgets.Yes : UiWidgets.Warn;
+            if (string.IsNullOrEmpty(status) || status == "??") return UiTheme.Faint;
+            if (Unmerged(status)) return UiTheme.Bad;
+            return status[0] != ' ' ? UiTheme.Yes : UiTheme.Warn;
         }
 
         static string Says(Node node)
@@ -406,7 +406,7 @@ namespace SlopWorld
             var repo = Known(project);
             if (repo == null || repo.Changed <= 0)
             {
-                UiWidgets.Fail("nothing to diff");
+                UiLayout.Fail("nothing to diff");
                 return;
             }
 
@@ -450,7 +450,7 @@ namespace SlopWorld
 
             opts.Add(new FloatMenuOption("Terminal (host)", () =>
                 SessionHub.Instance.SessionStore.RunHostShell(project,
-                    session => TerminalWindow.Open(session), UiWidgets.Fail)));
+                    session => TerminalWindow.Open(session), UiLayout.Fail)));
 
             return opts;
         }
@@ -496,7 +496,7 @@ namespace SlopWorld
 
         static void Copy(string text) => DaemonClipboard.Copy(text,
             () => Messages.Message($"SlopWorld: copied {text}", MessageTypeDefOf.SilentInput,
-                false), UiWidgets.Fail);
+                false), UiLayout.Fail);
 
         // ------------------------------------------------------------------ the diff
         //
@@ -510,7 +510,7 @@ namespace SlopWorld
             string rel = repo == null ? null : RelOf(repo, abs);
             if (repo == null || rel == null || !repo.Changes.TryGetValue(rel, out var status))
             {
-                UiWidgets.Fail($"nothing to diff in {System.IO.Path.GetFileName(abs)}");
+                UiLayout.Fail($"nothing to diff in {System.IO.Path.GetFileName(abs)}");
                 return;
             }
             Tree.SelectKey(ContentTreeView.SelectionKey(project, rel));

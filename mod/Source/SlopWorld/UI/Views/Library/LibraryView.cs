@@ -12,11 +12,11 @@ namespace SlopWorld
     public static class LibraryView
     {
         // Off the font, for the reason the other two trees' are.
-        static float RowH => UiWidgets.TinyRowH;
-        static float HeadH => UiWidgets.TinyRowH;
-        static float Pad => UiWidgets.GapS;
-        static float CellX => UiWidgets.GapS;
-        const float ArrowW = UiWidgets.DisclosureW;
+        static float RowH => UiTheme.TinyRowH;
+        static float HeadH => UiTheme.TinyRowH;
+        static float Pad => UiTheme.GapS;
+        static float CellX => UiTheme.GapS;
+        const float ArrowW = UiTheme.DisclosureW;
 
         // These are identity colors, not status colors: every kind stays recognizable without
         // borrowing the green/yellow/red language used for agent health and actions.
@@ -143,21 +143,21 @@ namespace SlopWorld
             Rect arrow;
             using (WidgetState.Save())
             {
-                GUI.color = UiWidgets.Faint;
+                GUI.color = UiTheme.Faint;
                 arrow = new Rect(CellX, headRect.y + (HeadH - ArrowW) / 2f,
                     ArrowW, ArrowW);
                 GUI.DrawTexture(arrow, folded ? TexButton.Reveal : TexButton.Collapse);
 
                 Text.Font = GameFont.Tiny;
                 Text.Anchor = TextAnchor.MiddleLeft;
-                float lx = arrow.xMax + UiWidgets.GapXS;
+                float lx = arrow.xMax + UiTheme.GapXS;
                 string tail = folded ? "  " + count : "";
                 var labelRect = new Rect(lx, headRect.y, view.width - lx - CellX, HeadH);
-                UiWidgets.RowLabel(labelRect, label + tail);
+                UiText.RowLabel(labelRect, label + tail);
             }
 
             Slab.Hairline(new Rect(CellX, headRect.yMax - 1f,
-                view.width - CellX * 2f, 1f), UiWidgets.Edge);
+                view.width - CellX * 2f, 1f), UiTheme.Edge);
 
             TooltipHandler.TipRegion(headRect,
                 key.Length == 0
@@ -180,29 +180,29 @@ namespace SlopWorld
             Rect nameRect;
             using (WidgetState.Save())
             {
-                GUI.color = enabled ? KindColor(item.Kind) : UiWidgets.Faint;
+                GUI.color = enabled ? KindColor(item.Kind) : UiTheme.Faint;
                 // The whole row is Tiny, the way a row of the other two trees is: the badge was,
                 // and the name and the sample beside it were Small in a row laid out for Tiny -
                 // which on any face taller than the one it was written against is a line with its
                 // descenders cut off.
                 Text.Font = GameFont.Tiny;
                 Text.Anchor = TextAnchor.MiddleLeft;
-                UiWidgets.RowLabel(badge, KindCode(item.Kind));
+                UiText.RowLabel(badge, KindCode(item.Kind));
                 TooltipHandler.TipRegion(badge, KindName(item.Kind));
 
-                float tx = CellX + badgeW + UiWidgets.GapXS;
+                float tx = CellX + badgeW + UiTheme.GapXS;
                 // The name comes first, then a sample of the text truncated.
-                GUI.color = enabled ? UiWidgets.Lead : UiWidgets.Faint;
-                var nameW = UiWidgets.Wide(item.Name);
+                GUI.color = enabled ? UiTheme.Lead : UiTheme.Faint;
+                var nameW = UiTheme.Wide(item.Name);
                 nameRect = new Rect(tx, r.y, Mathf.Min(nameW + 6f,
                     view.width * 0.35f), RowH);
-                UiWidgets.RowLabel(nameRect, item.Name);
-                GUI.color = enabled ? UiWidgets.Dim : UiWidgets.Faint;
+                UiText.RowLabel(nameRect, item.Name);
+                GUI.color = enabled ? UiTheme.Dim : UiTheme.Faint;
 
                 float restX = nameRect.xMax + 2f;
                 var restW = r.xMax - 6f - restX;
                 if (restW > 20f)
-                    UiWidgets.RowLabel(new Rect(restX, r.y, restW, RowH),
+                    UiText.RowLabel(new Rect(restX, r.y, restW, RowH),
                         OneLine(item.Text));
             }
 
@@ -225,12 +225,12 @@ namespace SlopWorld
         static void Empty(Rect body)
         {
             var r = new Rect(CellX, body.y + Pad, body.width - CellX * 2f, RowH * 3f);
-            UiWidgets.StatusLabel(r, !SessionHub.Instance.Online
+            UiText.StatusLabel(r, !SessionHub.Instance.Online
                 ? $"daemon {SessionHub.Instance.Status}"
                 : AgentSidebar.Filtering
                     ? $"No library entries in {AgentSidebar.FilterLabel}."
                     : "No library entries yet. Press + at the foot of the panel.",
-                UiWidgets.Faint, GameFont.Tiny);
+                UiTheme.Faint, GameFont.Tiny);
         }
 
         static Color KindColor(LibraryItemKind kind)
@@ -376,7 +376,7 @@ namespace SlopWorld
 
             opts.Add(new FloatMenuOption("Terminal (host)", () =>
                 SessionHub.Instance.SessionStore.RunHostShell(project,
-                    session => TerminalWindow.Open(session), UiWidgets.Fail)));
+                    session => TerminalWindow.Open(session), UiLayout.Fail)));
 
             TerminalWindow.OpenOverPane(new UiMenu(opts));
         }
@@ -410,7 +410,7 @@ namespace SlopWorld
                 var name = s.Name;
                 TerminalWindow.OpenOverPane(ConfirmDialog.Create(
                     $"Remove library entry '{name}'? Anything it already started keeps running.",
-                    () => SessionHub.Instance.Catalog.RemoveLibraryItem(name, UiWidgets.Fail),
+                    () => SessionHub.Instance.Catalog.RemoveLibraryItem(name, UiLayout.Fail),
                     destructive: true));
             }));
 
@@ -434,7 +434,7 @@ namespace SlopWorld
             bool scratch = temp || s.Link == LibraryItemLink.Temp;
             SessionHub.Instance.SessionStore.RunLibraryItem(s.Name,
                 session => TerminalWindow.Open(session),
-                UiWidgets.Fail,
+                UiLayout.Fail,
                 // A project named outright wins; a temporary run has none, whichever of
                 // the two said so; otherwise the entry's own.
                 project ?? (scratch ? null : s.Project),

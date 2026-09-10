@@ -140,11 +140,11 @@ namespace SlopWorld
                 string absolute = FilesView.ResolveProjectPath(project, path, cwd);
                 if (absolute == null)
                 {
-                    UiWidgets.Fail($"path is outside project: {path}");
+                    UiLayout.Fail($"path is outside project: {path}");
                     return;
                 }
                 action(absolute);
-            }, UiWidgets.Fail);
+            }, UiLayout.Fail);
         }
 
         static string Leaf(string path)

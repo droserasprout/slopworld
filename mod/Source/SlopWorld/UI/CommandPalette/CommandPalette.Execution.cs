@@ -153,7 +153,7 @@ namespace SlopWorld
         static void RunLibraryItemWith(string name, string project = null, bool temp = false)
         {
             SessionHub.Instance.SessionStore.RunLibraryItem(name,
-                session => { TerminalWindow.Open(session); }, UiWidgets.Fail, project, temp,
+                session => { TerminalWindow.Open(session); }, UiLayout.Fail, project, temp,
                 Patch_LoadingTips.RandomTips(Patch_LoadingTips.TipBatch));
         }
 
@@ -321,7 +321,7 @@ namespace SlopWorld
                 }
             }
 
-            return Mathf.Min(Pad + InputH + UiWidgets.GapXS + body + Pad, MaxH);
+            return Mathf.Min(Pad + InputH + UiTheme.GapXS + body + Pad, MaxH);
         }
 
     }

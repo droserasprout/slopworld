@@ -33,13 +33,13 @@ namespace SlopWorld
                 }),
             CommandDef.ForAgent("agent.start", "Agent: Start",
                 () => AgentsSub(AgentState.Down),
-                s => SessionHub.Instance.SessionStore.Start(s.Name, UiWidgets.Fail)),
+                s => SessionHub.Instance.SessionStore.Start(s.Name, UiLayout.Fail)),
             CommandDef.ForAgent("agent.stop", "Agent: Stop",
                 () => AgentsSub(AgentState.Working, AgentState.Waiting, AgentState.Idle),
-                s => SessionHub.Instance.SessionStore.Stop(s.Name, UiWidgets.Fail)),
+                s => SessionHub.Instance.SessionStore.Stop(s.Name, UiLayout.Fail)),
             CommandDef.ForAgent("agent.restart", "Agent: Restart",
                 () => AgentsSub(AgentState.Working, AgentState.Waiting, AgentState.Idle),
-                s => SessionHub.Instance.SessionStore.Restart(s.Name, UiWidgets.Fail)),
+                s => SessionHub.Instance.SessionStore.Restart(s.Name, UiLayout.Fail)),
             CommandDef.ForAgent("agent.edit", "Agent: Edit", AgentsSubEditable,
                 s => Find.WindowStack.Add(new EditSessionDialog(s))),
             CommandDef.ForAgent("agent.terminal", "Agent: Open Terminal",
@@ -60,7 +60,7 @@ namespace SlopWorld
                 {
                     if (!string.IsNullOrEmpty(s.Project))
                         SessionHub.Instance.SessionStore.Run(s.Project, "", "", session => TerminalWindow.Open(session),
-                            UiWidgets.Fail, like: s.Name);
+                            UiLayout.Fail, like: s.Name);
                 }),
 
             new CommandDef("project.new", "Project: New", "Project",
@@ -74,7 +74,7 @@ namespace SlopWorld
             CommandDef.ForProject("project.host-terminal", "Project: Open Host Terminal",
                 ProjectsSub,
                 p => SessionHub.Instance.SessionStore.RunHostShell(p.Name,
-                    session => TerminalWindow.Open(session), UiWidgets.Fail)),
+                    session => TerminalWindow.Open(session), UiLayout.Fail)),
 
             new CommandDef("task.new", "Task: New", "Task",
                 _ => TerminalWindow.OpenOverPane(new DelegateTaskDialog(null)),
@@ -110,7 +110,7 @@ namespace SlopWorld
                 var name = s.Name;
                 TerminalWindow.OpenOverPane(ConfirmDialog.Create(
                     $"Remove library entry '{name}'? Anything it already started keeps running.",
-                    () => SessionHub.Instance.Catalog.RemoveLibraryItem(name, UiWidgets.Fail), destructive: true));
+                    () => SessionHub.Instance.Catalog.RemoveLibraryItem(name, UiLayout.Fail), destructive: true));
             }),
             CommandDef.ForLibraryItem("library.duplicate", "Library: Duplicate", LibraryManageSub,
                 s =>
@@ -134,11 +134,11 @@ namespace SlopWorld
             new CommandDef("agents.refresh", "Agents: Refresh", "Refresh",
                 _ => SessionHub.Instance.SessionStore.Refresh()),
             new CommandDef("projects.refresh", "Projects: Refresh", "Refresh",
-                _ => SessionHub.Instance.Catalog.RefreshProjects(UiWidgets.Fail)),
+                _ => SessionHub.Instance.Catalog.RefreshProjects(UiLayout.Fail)),
             new CommandDef("library.refresh", "Library: Refresh", "Refresh",
-                _ => SessionHub.Instance.Catalog.RefreshLibrary(UiWidgets.Fail)),
+                _ => SessionHub.Instance.Catalog.RefreshLibrary(UiLayout.Fail)),
             new CommandDef("tasks.refresh", "Tasks: Refresh", "Refresh",
-                _ => SessionHub.Instance.TaskStore.Refresh(fail: UiWidgets.Fail)),
+                _ => SessionHub.Instance.TaskStore.Refresh(fail: UiLayout.Fail)),
             new CommandDef("files.reload", "Files: Reload", "Refresh",
                 _ => FilesView.Reload()),
             new CommandDef("search.open", "Search: Find in Files", "View",

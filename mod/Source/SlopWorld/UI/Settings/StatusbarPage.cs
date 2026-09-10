@@ -21,30 +21,30 @@ namespace SlopWorld
         void DrawFields(Listing_Standard l)
         {
 
-            UiWidgets.SectionHeading(l, "Statusbar");
-            UiWidgets.CheckboxSetting(l, "Show Usage in statusbar", S, ref S.statusbarUsage,
+            UiLayout.SectionHeading(l, "Statusbar");
+            UiControls.CheckboxSetting(l, "Show Usage in statusbar", S, ref S.statusbarUsage,
                 "Show quota readouts in the top statusbar.");
-            UiWidgets.CheckboxSetting(l, "Show spent instead of left", S, ref S.usageSpent,
+            UiControls.CheckboxSetting(l, "Show spent instead of left", S, ref S.usageSpent,
                 "Applies to every provider. Left is the amount remaining; spent is the " +
                 "provider-facing percentage or amount used.");
             string clockPosition = StatusbarClockMode.Normalize(S.statusbarClockPosition);
-            UiWidgets.Select(l, "Clock position", StatusbarClockMode.Label(clockPosition),
+            UiControls.Select(l, "Clock position", StatusbarClockMode.Label(clockPosition),
                 new[]
                 {
                         new SelectorOption("Right", () => SetClockPosition(StatusbarClockMode.Right)),
                         new SelectorOption("Center", () => SetClockPosition(StatusbarClockMode.Center)),
                         new SelectorOption("Hidden", () => SetClockPosition(StatusbarClockMode.Hidden)),
                 }, out _);
-            UiWidgets.CheckboxSetting(l, "Show Jukebox in statusbar", S, ref S.statusbarJukebox,
+            UiControls.CheckboxSetting(l, "Show Jukebox in statusbar", S, ref S.statusbarJukebox,
                 "Show the jukebox door when a jukebox is present.");
-            UiWidgets.CheckboxSetting(l, "Show GM in statusbar", S, ref S.statusbarGM,
+            UiControls.CheckboxSetting(l, "Show GM in statusbar", S, ref S.statusbarGM,
                 "Show the Computer Core door when the core is present.");
-            UiWidgets.CheckboxSetting(l, "Show agent status indicators", S, ref S.statusbarAgentIndicators,
+            UiControls.CheckboxSetting(l, "Show agent status indicators", S, ref S.statusbarAgentIndicators,
                 "Show autostart, resume-on-start, and host-network flags in Agents.");
 
         }
 
         static void SetClockPosition(string position)
-            => UiWidgets.SetSetting(S, ref S.statusbarClockPosition, position);
+            => UiControls.SetSetting(S, ref S.statusbarClockPosition, position);
     }
 }

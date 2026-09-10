@@ -45,8 +45,8 @@ namespace SlopWorld
             TooltipHandler.TipRegion(r, Filtering
                 ? "Task filters active. Click to change them."
                 : "All tasks. Click to filter by status, direction or agent.");
-            if (UiWidgets.IconButton(r, Icons.Filter,
-                    Filtering ? UiWidgets.Lead : UiWidgets.Off))
+            if (UiLayout.IconButton(r, Icons.Filter,
+                    Filtering ? UiTheme.Lead : UiTheme.Off))
                 OpenFilterMenu();
         }
 
@@ -54,7 +54,7 @@ namespace SlopWorld
         {
             var options = new List<FloatMenuOption>
             {
-                UiWidgets.MenuToggle("All statuses", !_status.HasValue, () =>
+                UiLayout.MenuToggle("All statuses", !_status.HasValue, () =>
                 {
                     _status = null;
                     _filtersDirty = true;
@@ -64,7 +64,7 @@ namespace SlopWorld
             foreach (DelegatedTaskStatus status in Enum.GetValues(typeof(DelegatedTaskStatus)))
             {
                 var chosen = status;
-                options.Add(UiWidgets.MenuToggle(TaskInfo.StatusText(chosen),
+                options.Add(UiLayout.MenuToggle(TaskInfo.StatusText(chosen),
                     _status == chosen, () =>
                     {
                         _status = chosen;
@@ -79,13 +79,13 @@ namespace SlopWorld
         {
             return new List<FloatMenuOption>
             {
-                UiWidgets.MenuToggle("All directions", _direction == DirectionFilter.All,
+                UiLayout.MenuToggle("All directions", _direction == DirectionFilter.All,
                     () => SetDirection(DirectionFilter.All)),
-                UiWidgets.MenuToggle("Incoming to you", _direction == DirectionFilter.Incoming,
+                UiLayout.MenuToggle("Incoming to you", _direction == DirectionFilter.Incoming,
                     () => SetDirection(DirectionFilter.Incoming)),
-                UiWidgets.MenuToggle("Sent by you", _direction == DirectionFilter.Outgoing,
+                UiLayout.MenuToggle("Sent by you", _direction == DirectionFilter.Outgoing,
                     () => SetDirection(DirectionFilter.Outgoing)),
-                UiWidgets.MenuToggle("Agent to agent", _direction == DirectionFilter.AgentToAgent,
+                UiLayout.MenuToggle("Agent to agent", _direction == DirectionFilter.AgentToAgent,
                     () => SetDirection(DirectionFilter.AgentToAgent)),
             };
         }
@@ -104,13 +104,13 @@ namespace SlopWorld
 
             var options = new List<FloatMenuOption>
             {
-                UiWidgets.MenuToggle("All agents", string.IsNullOrEmpty(_agent),
+                UiLayout.MenuToggle("All agents", string.IsNullOrEmpty(_agent),
                     () => SetAgent("")),
             };
             foreach (var name in names.OrderBy(n => n, StringComparer.OrdinalIgnoreCase))
             {
                 var chosen = name;
-                options.Add(UiWidgets.MenuToggle(chosen, _agent == chosen,
+                options.Add(UiLayout.MenuToggle(chosen, _agent == chosen,
                     () => SetAgent(chosen)));
             }
             return options;
@@ -143,7 +143,7 @@ namespace SlopWorld
         {
             var options = new List<FloatMenuOption>
             {
-                UiWidgets.MenuToggle("All tasks", !Filtering, ClearFilters),
+                UiLayout.MenuToggle("All tasks", !Filtering, ClearFilters),
                 new UiSubmenu("Status", StatusOptions),
                 new UiSubmenu("Direction", DirectionOptions),
                 new UiSubmenu("Agent", AgentOptions),

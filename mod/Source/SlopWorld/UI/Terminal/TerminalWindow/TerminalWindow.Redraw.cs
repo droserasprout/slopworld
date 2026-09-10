@@ -5,7 +5,7 @@ namespace SlopWorld
 {
     public partial class TerminalWindow
     {
-        Color Background => TerminalVisible ? TerminalPanel.SolidTerminalBackground : UiWidgets.WindowBg;
+        Color Background => TerminalVisible ? TerminalPanel.SolidTerminalBackground : UiTheme.WindowBg;
         public override void WindowUpdate()
         {
             base.WindowUpdate();

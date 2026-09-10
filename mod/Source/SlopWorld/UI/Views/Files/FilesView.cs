@@ -12,7 +12,7 @@ namespace SlopWorld
     public static partial class FilesView
     {
         // A directory is a rung above a file, which is the whole of the distinction this view
-        // draws between them; both, and the greys around them, are UiWidgets'.
+        // draws between them; both, and the greys around them, use the shared UI scheme.
 
         // One directory, once it has been asked about. `Children` null is "never asked", which is
         // what makes the tree lazy: a project root is a hundred thousand files deep and the
@@ -84,11 +84,11 @@ namespace SlopWorld
             IContentTreeRowActions, IContentTreeSelection
         {
             public override Color RowIconColor(IContentTreeNode node) =>
-                ((Node)node).Gitignored ? UiWidgets.Dim : Color.white;
+                ((Node)node).Gitignored ? UiTheme.Dim : Color.white;
 
             public override Color RowLabelColor(IContentTreeNode node) =>
-                ((Node)node).Gitignored ? UiWidgets.Dim :
-                    (node.IsDirectory ? UiWidgets.Lead : UiWidgets.Name);
+                ((Node)node).Gitignored ? UiTheme.Dim :
+                    (node.IsDirectory ? UiTheme.Lead : UiTheme.Name);
 
             public override int Revision => unchecked(TreeController.Revision * 397
                 ^ (int)SessionHub.Instance.SessionsVersion
@@ -408,10 +408,10 @@ namespace SlopWorld
             {
                 if (version != _focusVersion || parent.Children == null) return;
                 var child = parent.Children.FirstOrDefault(n => n.Name == parts[at]);
-                if (child == null) { UiWidgets.Fail($"path not found: {string.Join("/", parts)}"); return; }
+                if (child == null) { UiLayout.Fail($"path not found: {string.Join("/", parts)}"); return; }
                 if (at + 1 < parts.Count)
                 {
-                    if (!child.IsDir) { UiWidgets.Fail($"not a directory: {child.Name}"); return; }
+                    if (!child.IsDir) { UiLayout.Fail($"not a directory: {child.Name}"); return; }
                     Reveal(child, parts, at + 1, version);
                     return;
                 }

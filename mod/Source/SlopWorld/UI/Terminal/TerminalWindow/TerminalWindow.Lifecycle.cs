@@ -239,10 +239,10 @@ namespace SlopWorld
         {
             switch (s)
             {
-                case AgentState.Working: return UiWidgets.StateWorking;
-                case AgentState.Waiting: return UiWidgets.StateWaiting;
-                case AgentState.Idle: return UiWidgets.StateIdle;
-                default: return UiWidgets.StateDown;
+                case AgentState.Working: return UiTheme.StateWorking;
+                case AgentState.Waiting: return UiTheme.StateWaiting;
+                case AgentState.Idle: return UiTheme.StateIdle;
+                default: return UiTheme.StateDown;
             }
         }
     }

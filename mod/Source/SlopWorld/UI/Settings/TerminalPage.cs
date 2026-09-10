@@ -31,14 +31,14 @@ namespace SlopWorld
                 Mathf.Max(TerminalFont.CellH * PreviewRows + 10f, MatrixPreviewH),
                 MatrixPreviewH, MatrixPreviewMaxH);
             float formH = _height.BeginFrame(Time.frameCount);
-            float blockH = UiWidgets.RowH + UiWidgets.GapXS + ph;
-            bool stacked = inner.height < UiWidgets.RowH + UiWidgets.GapM + blockH;
+            float blockH = UiTheme.RowH + UiTheme.GapXS + ph;
+            bool stacked = inner.height < UiTheme.RowH + UiTheme.GapM + blockH;
             float width = UiScrollBody.Measure(inner, 0f,
                 UiScrollbarReservation.Always).ContentWidth;
             _layout.Arrange(stacked ? width : inner.width, inner.height, stacked, formH, ph, 0);
             if (stacked)
             {
-                var geometry = UiScrollBody.Measure(inner, formH + UiWidgets.GapM + blockH,
+                var geometry = UiScrollBody.Measure(inner, formH + UiTheme.GapM + blockH,
                     UiScrollbarReservation.Always);
                 using (_scroll.Scope(inner, geometry.View))
                 {
@@ -64,17 +64,17 @@ namespace SlopWorld
         static void DrawPreviewBlock(Rect caption, Rect preview)
         {
             Text.Font = GameFont.Small;
-            UiWidgets.SectionHeading(caption, "Preview");
+            UiLayout.SectionHeading(caption, "Preview");
             DrawPreview(preview, TerminalFont.Style);
         }
 
         float DrawFields(Rect rect, ModSettings s)
         {
             float y = rect.y;
-            y += DrawFont(new Rect(rect.x, y, rect.width, UiWidgets.ListingHeight), s);
-            y += DrawTheme(new Rect(rect.x, y, rect.width, UiWidgets.ListingHeight), s);
-            y += DrawCursor(new Rect(rect.x, y, rect.width, UiWidgets.ListingHeight), s);
-            return y - rect.y + UiWidgets.GapS;
+            y += DrawFont(new Rect(rect.x, y, rect.width, UiLayout.ListingHeight), s);
+            y += DrawTheme(new Rect(rect.x, y, rect.width, UiLayout.ListingHeight), s);
+            y += DrawCursor(new Rect(rect.x, y, rect.width, UiLayout.ListingHeight), s);
+            return y - rect.y + UiTheme.GapS;
         }
 
         float DrawFont(Rect rect, ModSettings s)
@@ -86,19 +86,19 @@ namespace SlopWorld
             {
                 new FloatMenuOption("Automatic", () =>
                 {
-                    if (UiWidgets.SetSetting(s, ref s.fontName, "")) TerminalFont.Invalidate();
+                    if (UiControls.SetSetting(s, ref s.fontName, "")) TerminalFont.Invalidate();
                 }),
             };
-            fontOptions.AddRange(UiWidgets.GroupedFontOptions(TerminalFont.Mono, name =>
+            fontOptions.AddRange(UiLayout.GroupedFontOptions(TerminalFont.Mono, name =>
             {
-                if (UiWidgets.SetSetting(s, ref s.fontName, name)) TerminalFont.Invalidate();
+                if (UiControls.SetSetting(s, ref s.fontName, name)) TerminalFont.Invalidate();
             }));
-            UiWidgets.Select(l, "Font", s.fontName.NullOrEmpty() ? "Automatic" : s.fontName,
+            UiControls.Select(l, "Font", s.fontName.NullOrEmpty() ? "Automatic" : s.fontName,
                 fontOptions, out _);
 
-            if (UiWidgets.SliderSetting(l, "Font size", s, ref s.fontSize, 8, 28))
+            if (UiControls.SliderSetting(l, "Font size", s, ref s.fontSize, 8, 28))
                 TerminalFont.Invalidate();
-            l.Gap(UiWidgets.GapM);
+            l.Gap(UiTheme.GapM);
 
             float used = l.CurHeight;
             l.End();
@@ -110,24 +110,24 @@ namespace SlopWorld
             var l = new Listing_Standard { maxOneColumn = true };
             l.Begin(rect);
 
-            if (UiWidgets.Button(l,
+            if (UiLayout.Button(l,
                     $"Color scheme: {(s.theme == TerminalTheme.MatchUI ? "Match UI" : TerminalTheme.Current.Label)}"))
                 Find.WindowStack.Add(new UiMenu(new[]
                     {
                         new FloatMenuOption("Match UI", () =>
                         {
-                            if (UiWidgets.SetSetting(s, ref s.theme, TerminalTheme.MatchUI))
+                            if (UiControls.SetSetting(s, ref s.theme, TerminalTheme.MatchUI))
                                 TerminalTheme.Invalidate();
                         }),
                     }.Concat(TerminalTheme.All
                     .Select(t => new FloatMenuOption(t.Label, () =>
                     {
-                        if (UiWidgets.SetSetting(s, ref s.theme, t.Name)) TerminalTheme.Invalidate();
+                        if (UiControls.SetSetting(s, ref s.theme, t.Name)) TerminalTheme.Invalidate();
                     })))
                     .ToList()));
 
             DrawSwatches(l.GetRect(18f));
-            l.Gap(UiWidgets.GapM);
+            l.Gap(UiTheme.GapM);
 
             float used = l.CurHeight;
             l.End();
@@ -140,15 +140,15 @@ namespace SlopWorld
             l.Begin(rect);
 
             l.Label("Cursor color, #rrggbb (blank = the scheme's)");
-            UiWidgets.SetSetting(s, ref s.cursorColor,
-                UiWidgets.Field(l, "term.cursor", s.cursorColor ?? "", defaultValue: ""));
+            UiControls.SetSetting(s, ref s.cursorColor,
+                UiControls.Field(l, "term.cursor", s.cursorColor ?? "", defaultValue: ""));
 
             // Said rather than corrected: a half-typed "#8" is not a mistake yet, and a field
             // that rewrote itself under the cursor would be unusable.
             if (!string.IsNullOrEmpty(s.cursorColor) &&
                 !TerminalTheme.TryHex(s.cursorColor, out _))
             {
-                GUI.color = UiWidgets.Bad;
+                GUI.color = UiTheme.Bad;
                 l.Label("Not a color - the scheme's own cursor is being used.");
                 GUI.color = Color.white;
             }
@@ -203,8 +203,8 @@ namespace SlopWorld
             DrawAnsiMatrix(new Rect(r.x + PreviewPad, r.y + 4f, matrixSize, matrixSize),
                 th, style, cell);
 
-            var text = new Rect(r.x + PreviewPad + matrixSize + UiWidgets.GapM,
-                r.y + 4f, r.width - PreviewPad * 2f - matrixSize - UiWidgets.GapM,
+            var text = new Rect(r.x + PreviewPad + matrixSize + UiTheme.GapM,
+                r.y + 4f, r.width - PreviewPad * 2f - matrixSize - UiTheme.GapM,
                 r.height - 8f);
             DrawTextPreview(text, style, th);
         }

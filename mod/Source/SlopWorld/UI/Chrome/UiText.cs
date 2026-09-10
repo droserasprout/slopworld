@@ -202,7 +202,7 @@ namespace SlopWorld
             inner.width = Mathf.Max(0f, button.x - FieldPadX - inner.x);
             TooltipHandler.TipRegion(button, "Reset to default\n\n" +
                 (defaultValue.Length == 0 ? "(empty)" : defaultValue));
-            if (!UiWidgets.IconButton(button, Icons.Refresh, Name,
+            if (!UiLayout.IconButton(button, Icons.Refresh, Name,
                     size / 4f + IconInset / 2f,
                     on && (text ?? "") != defaultValue)) return text;
 

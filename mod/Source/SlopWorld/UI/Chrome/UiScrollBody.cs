@@ -11,7 +11,7 @@ namespace SlopWorld
         {
             var layout = ScrollableGeometry.Measure(
                 new UiLayoutRect(frame.x, frame.y, frame.width, frame.height),
-                contentHeight, reservation, UiWidgets.ScrollbarW);
+                contentHeight, reservation, UiTheme.ScrollbarW);
             return new UiScrollBodyGeometry(layout, new Rect(0f, 0f,
                 layout.View.Width, layout.View.Height));
         }

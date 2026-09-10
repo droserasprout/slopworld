@@ -31,7 +31,7 @@ namespace SlopWorld
         public static float Draw<T>(Rect rect, IList<T> rows, float rowH, IList<Column> columns,
                                     Action<T, Rect, Rect[]> drawRow)
         {
-            if (columns == null || columns.Count == 0) return UiWidgets.GapS;
+            if (columns == null || columns.Count == 0) return UiTheme.GapS;
 
             float fixedW = 0f;
             int flexible = 0;
@@ -58,18 +58,18 @@ namespace SlopWorld
             }
 
             var header = new Rect(rect.x, rect.y, rect.width, rowH);
-            Slab.Fill(header, UiWidgets.RowBg);
+            Slab.Fill(header, UiTheme.RowBg);
             float x = rect.x;
             for (int i = 0; i < columns.Count; i++)
             {
                 var column = columns[i];
                 var cell = new Rect(x, header.y, widths[i], header.height);
                 float pad = Mathf.Min(column.LeftPad, cell.width);
-                UiWidgets.RowLabel(new Rect(cell.x + pad, cell.y,
+                UiText.RowLabel(new Rect(cell.x + pad, cell.y,
                     Mathf.Max(0f, cell.width - pad), cell.height), column.Label, column.Anchor);
                 x += widths[i];
             }
-            Slab.Hairline(new Rect(rect.x, header.yMax - 1f, rect.width, 1f), UiWidgets.Edge);
+            Slab.Hairline(new Rect(rect.x, header.yMax - 1f, rect.width, 1f), UiTheme.Edge);
 
             float y = header.yMax;
             rows = rows ?? new List<T>();
@@ -87,10 +87,10 @@ namespace SlopWorld
                 }
                 drawRow?.Invoke(item, row, cells);
 
-                Slab.Hairline(new Rect(row.x, row.yMax - 1f, row.width, 1f), UiWidgets.Edge);
+                Slab.Hairline(new Rect(row.x, row.yMax - 1f, row.width, 1f), UiTheme.Edge);
                 y = row.yMax;
             }
-            return y - rect.y + UiWidgets.GapS;
+            return y - rect.y + UiTheme.GapS;
         }
     }
 }

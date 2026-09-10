@@ -138,7 +138,7 @@ namespace SlopWorld
         {
             public override Color RowIconColor(IContentTreeNode node) => Color.white;
             public override Color RowLabelColor(IContentTreeNode node) =>
-                node.IsDirectory ? UiWidgets.Lead : UiWidgets.Name;
+                node.IsDirectory ? UiTheme.Lead : UiTheme.Name;
 
             public override int Revision => unchecked(TreeController.Revision * 397
                 ^ (int)SessionHub.Instance.SessionsVersion
@@ -161,18 +161,18 @@ namespace SlopWorld
                 var repo = (Repo)group.Value;
                 if (TreeController.IsGroupCollapsed(group) && repo.IsRepo && repo.Changed > 0)
                 {
-                    GUI.color = UiWidgets.Dim;
+                    GUI.color = UiTheme.Dim;
                     var count = new Rect(row.width * 0.5f, row.y,
                         right - row.width * 0.5f, row.height);
-                    UiWidgets.RowLabel(count, repo.Changed.ToString(), TextAnchor.MiddleRight);
-                    GUI.color = UiWidgets.Faint;
+                    UiText.RowLabel(count, repo.Changed.ToString(), TextAnchor.MiddleRight);
+                    GUI.color = UiTheme.Faint;
                     return count.x - 4f;
                 }
                 return right;
             }
 
             public float GroupBodyHeight(ContentTreeGroup group) =>
-                UiWidgets.TinyRowH;
+                UiTheme.TinyRowH;
 
             public float DrawGroupBody(float width, float y, ContentTreeGroup group) =>
                 Body(width, y, (Repo)group.Value);

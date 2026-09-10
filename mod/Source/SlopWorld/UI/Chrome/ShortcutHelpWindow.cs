@@ -40,8 +40,8 @@ namespace SlopWorld
         const float MinHeight = 360f;
         const float KeyColumnMin = 104f;
         const float KeyColumnMax = 160f;
-        static float PairGap => UiWidgets.GapM;
-        static float GroupGap => UiWidgets.GapXS;
+        static float PairGap => UiTheme.GapM;
+        static float GroupGap => UiTheme.GapXS;
 
         readonly SmoothScroll _scroll = new SmoothScroll();
 
@@ -118,7 +118,7 @@ namespace SlopWorld
             float keyWidth = KeyWidth(groups, list.width);
             float total = ContentHeight(groups);
             var view = new Rect(0f, 0f,
-                Mathf.Max(1f, list.width - UiWidgets.ScrollbarW), Mathf.Max(total, list.height));
+                Mathf.Max(1f, list.width - UiTheme.ScrollbarW), Mathf.Max(total, list.height));
 
             using (_scroll.Scope(list, view))
             {
@@ -138,8 +138,8 @@ namespace SlopWorld
                 Text.Font = GameFont.Small;
                 foreach (var group in groups)
                     foreach (var row in group.Rows)
-                        widest = Mathf.Max(widest, UiWidgets.Wide(row.Key) +
-                            UiWidgets.FieldPadX * 2f);
+                        widest = Mathf.Max(widest, UiTheme.Wide(row.Key) +
+                            UiTheme.FieldPadX * 2f);
             }
             float pairWidth = Mathf.Max(1f, (available - PairGap) / 2f);
             return Mathf.Clamp(widest, KeyColumnMin,
@@ -150,33 +150,33 @@ namespace SlopWorld
         {
             float total = 0f;
             foreach (var group in groups)
-                total += UiWidgets.TinyRowH +
-                    ((group.Rows.Count + 1) / 2) * UiWidgets.PaletteRowH + GroupGap;
+                total += UiTheme.TinyRowH +
+                    ((group.Rows.Count + 1) / 2) * UiTheme.PaletteRowH + GroupGap;
             return total;
         }
 
         static float DrawGroup(ShortcutGroup group, float y, float width, float keyWidth)
         {
-            var heading = new Rect(0f, y, width, UiWidgets.TinyRowH);
+            var heading = new Rect(0f, y, width, UiTheme.TinyRowH);
             using (WidgetState.Save())
             {
                 Text.Font = GameFont.Tiny;
-                GUI.color = UiWidgets.Faint;
-                UiWidgets.RowLabel(heading, group.Title.ToUpperInvariant());
-                Slab.Hairline(new Rect(0f, heading.yMax - 1f, width, 1f), UiWidgets.Edge);
+                GUI.color = UiTheme.Faint;
+                UiText.RowLabel(heading, group.Title.ToUpperInvariant());
+                Slab.Hairline(new Rect(0f, heading.yMax - 1f, width, 1f), UiTheme.Edge);
             }
-            y += UiWidgets.TinyRowH;
+            y += UiTheme.TinyRowH;
 
             float pairWidth = (width - PairGap) / 2f;
             int rowCount = (group.Rows.Count + 1) / 2;
             for (int i = 0; i < rowCount; i++)
             {
                 DrawPair(group.Rows[i * 2], new Rect(0f, y, pairWidth,
-                    UiWidgets.PaletteRowH), keyWidth);
+                    UiTheme.PaletteRowH), keyWidth);
                 if (i * 2 + 1 < group.Rows.Count)
                     DrawPair(group.Rows[i * 2 + 1], new Rect(pairWidth + PairGap, y,
-                        pairWidth, UiWidgets.PaletteRowH), keyWidth);
-                y += UiWidgets.PaletteRowH;
+                        pairWidth, UiTheme.PaletteRowH), keyWidth);
+                y += UiTheme.PaletteRowH;
             }
 
             return y + GroupGap;
@@ -184,19 +184,19 @@ namespace SlopWorld
 
         static void DrawPair(ShortcutRow shortcut, Rect row, float keyWidth)
         {
-            if (Mouse.IsOver(row)) Slab.Fill(row, UiWidgets.RowBg);
+            if (Mouse.IsOver(row)) Slab.Fill(row, UiTheme.RowBg);
 
             var key = new Rect(row.x, row.y + 2f, keyWidth, row.height - 4f);
-            Slab.Box(key, UiWidgets.Well, UiWidgets.Edge);
+            Slab.Box(key, UiTheme.Well, UiTheme.Edge);
             using (WidgetState.Save())
             {
                 Text.Font = GameFont.Small;
-                GUI.color = UiWidgets.Lead;
-                UiWidgets.RowLabel(key.ContractedBy(UiWidgets.FieldPadX, 0f), shortcut.Key);
-                GUI.color = UiWidgets.Name;
-                var action = new Rect(key.xMax + UiWidgets.GapS, row.y,
-                    row.xMax - key.xMax - UiWidgets.GapS, row.height);
-                UiWidgets.RowLabel(action, shortcut.Action);
+                GUI.color = UiTheme.Lead;
+                UiText.RowLabel(key.ContractedBy(UiTheme.FieldPadX, 0f), shortcut.Key);
+                GUI.color = UiTheme.Name;
+                var action = new Rect(key.xMax + UiTheme.GapS, row.y,
+                    row.xMax - key.xMax - UiTheme.GapS, row.height);
+                UiText.RowLabel(action, shortcut.Action);
             }
         }
 

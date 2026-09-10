@@ -1,6 +1,6 @@
 # UI identity and color schemes
 
-`UiWidgets` owns named chrome colors and semantic states; terminal ANSI colors stay in
+`UiTheme` owns named chrome colors and semantic states; terminal ANSI colors stay in
 `TerminalTheme`.
 
 ## Color schemes
@@ -21,7 +21,7 @@ Schemes use `#rrggbb` or `#rrggbbaa` values parsed by `TerminalTheme.TryHex`. St
 lines, hovered rows, and text ramps use the scheme's foreground roles rather than a fixed
 white, so palettes retain their intended contrast.
 
-`UiWidgets` reads `UIScheme.Current` per access and `Current` re-resolves against the
+`UiTheme` reads `UIScheme.Current` per access and `Current` re-resolves against the
 setting, so a pick lands on the next frame with nothing to invalidate and nothing to tell.
 That works because no chrome color is ever baked into a texture — unlike the pane, whose
 row cache is keyed on `TerminalTheme.Rev`. Anything that starts baking one has to grow the
