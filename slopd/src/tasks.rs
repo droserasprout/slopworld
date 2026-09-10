@@ -351,12 +351,7 @@ impl Tasks {
     }
 
     fn save(&self) -> Result<()> {
-        if let Some(parent) = self.path.parent() {
-            fs::create_dir_all(parent)?;
-        }
-        let tmp = self.path.with_extension("toml.tmp");
-        fs::write(&tmp, toml::to_string_pretty(&self.file)?)?;
-        fs::rename(&tmp, &self.path).with_context(|| format!("installing {}", self.path.display()))
+        crate::paths::write_private_toml(&self.path, &toml::to_string_pretty(&self.file)?)
     }
 }
 
