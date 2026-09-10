@@ -22,9 +22,7 @@ impl ConfigReconciler {
 
         let adopted = manager.adopt_orphans(&cfg).await;
         if titles_changed || adopted {
-            manager.emit(Event::Sessions {
-                sessions: manager.views().await,
-            });
+            manager.announce_sessions().await;
         }
     }
 }

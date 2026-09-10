@@ -6,7 +6,7 @@ pub(crate) enum DetachCause {
     Stop,
     ProcessExit { reader_token: Arc<()> },
     ConfigRemoval,
-    Forget { reader_token: Option<Arc<()>> },
+    Forget,
 }
 
 pub(crate) enum ReaderDisposition {
@@ -88,10 +88,7 @@ impl Manager {
     ) -> Option<CleanupPlan> {
         let current = live.get(name)?;
         let current_reader = match &cause {
-            DetachCause::ProcessExit { reader_token }
-            | DetachCause::Forget {
-                reader_token: Some(reader_token),
-            } => {
+            DetachCause::ProcessExit { reader_token } => {
                 if !reader_owned_by(current, reader_token) {
                     return None;
                 }
@@ -104,7 +101,7 @@ impl Manager {
             DetachCause::Stop | DetachCause::ProcessExit { .. } => {
                 current.ephemeral && !current.host
             }
-            DetachCause::ConfigRemoval | DetachCause::Forget { .. } => true,
+            DetachCause::ConfigRemoval | DetachCause::Forget => true,
         };
 
         let mut current = live.remove(name)?;
@@ -120,9 +117,7 @@ impl Manager {
                 DetachCause::Stop => format!("worker session {name} was stopped"),
                 DetachCause::ProcessExit { .. } => format!("worker session {name} exited"),
                 DetachCause::ConfigRemoval => format!("worker session {name} was removed"),
-                DetachCause::Forget { .. } => {
-                    format!("worker session {name} exited or was stopped")
-                }
+                DetachCause::Forget => format!("worker session {name} exited or was stopped"),
             };
             (session.task_id.clone(), note)
         });
@@ -156,9 +151,7 @@ impl Manager {
         if plan.announce_sessions {
             // The visible transition goes first. Cleanup may query a tmux session that has
             // already disappeared, and must not hold back the next session snapshot.
-            self.emit(Event::Sessions {
-                sessions: self.views().await,
-            });
+            self.announce_sessions().await;
         }
         self.clear_activity(&plan.name).await;
         self.clear_latest_title(&plan.name);
@@ -207,33 +200,21 @@ impl Manager {
             self.execute_cleanup(plan).await;
         } else {
             self.forget_scroll(name);
-            self.emit(Event::Sessions {
-                sessions: self.views().await,
-            });
+            self.announce_sessions().await;
             self.clear_activity(name).await;
             self.clear_latest_title(name);
         }
         Ok(())
     }
 
-    async fn forget_inner(self: &Arc<Self>, name: &str, reader_token: Option<&Arc<()>>) {
+    pub(super) async fn forget(self: &Arc<Self>, name: &str) {
         let plan = {
             let mut live = self.live.write().await;
-            self.detach_live_locked(
-                &mut live,
-                name,
-                DetachCause::Forget {
-                    reader_token: reader_token.cloned(),
-                },
-            )
+            self.detach_live_locked(&mut live, name, DetachCause::Forget)
         };
         if let Some(plan) = plan {
             self.execute_cleanup(plan).await;
         }
-    }
-
-    pub(super) async fn forget(self: &Arc<Self>, name: &str) {
-        self.forget_inner(name, None).await;
     }
 
     pub async fn restart(self: &Arc<Self>, name: &str) -> Result<()> {

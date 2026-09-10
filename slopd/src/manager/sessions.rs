@@ -317,9 +317,7 @@ impl Manager {
                 live.title.override_title = None;
             }
         }
-        self.emit(Event::Sessions {
-            sessions: self.views().await,
-        });
+        self.announce_sessions().await;
         Ok(())
     }
 
@@ -397,9 +395,7 @@ impl Manager {
             // Host rows have no private agent state to trash. Forget both durable tabs and
             // unnamed runtime-only host errands after the pane has been stopped.
             self.forget(name).await;
-            self.emit(Event::Sessions {
-                sessions: self.views().await,
-            });
+            self.announce_sessions().await;
             return Ok(());
         }
         if self.is_ephemeral(name).await {

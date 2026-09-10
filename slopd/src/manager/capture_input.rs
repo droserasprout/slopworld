@@ -121,9 +121,7 @@ impl Manager {
                     )
                     .await;
                 }
-                self.emit(Event::Sessions {
-                    sessions: self.views().await,
-                });
+                self.announce_sessions().await;
                 return;
             }
         }

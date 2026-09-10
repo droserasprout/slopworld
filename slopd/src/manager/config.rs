@@ -51,28 +51,12 @@ fn restore_redacted_document_token(old: &Config, document: &mut toml::Value) {
 
 impl ConfigOrigin {
     fn effects(&self, endpoint_token: String) -> ConfigEffects {
-        match self {
-            Self::StructuredMutation => ConfigEffects {
-                endpoint_token,
-                reconcile: false,
-                announce_sessions: false,
-                announce_projects: false,
-                announce_library: false,
-            },
-            Self::JsonPatch | Self::RawReplacement => ConfigEffects {
-                endpoint_token,
-                reconcile: true,
-                announce_sessions: false,
-                announce_projects: true,
-                announce_library: true,
-            },
-            Self::DiskReload { .. } => ConfigEffects {
-                endpoint_token,
-                reconcile: true,
-                announce_sessions: true,
-                announce_projects: true,
-                announce_library: true,
-            },
+        ConfigEffects {
+            endpoint_token,
+            reconcile: !matches!(self, Self::StructuredMutation),
+            announce_sessions: matches!(self, Self::DiskReload { .. }),
+            announce_projects: !matches!(self, Self::StructuredMutation),
+            announce_library: !matches!(self, Self::StructuredMutation),
         }
     }
 }
@@ -206,9 +190,7 @@ impl Manager {
             self.sync_from_config().await;
         }
         if effects.announce_sessions {
-            self.emit(Event::Sessions {
-                sessions: self.views().await,
-            });
+            self.announce_sessions().await;
         }
         if effects.announce_projects {
             self.announce_projects().await;
@@ -334,9 +316,7 @@ impl Manager {
             return false;
         }
         tracing::info!("presets changed on disk, reloading");
-        self.emit(Event::Sessions {
-            sessions: self.views().await,
-        });
+        self.announce_sessions().await;
         true
     }
 

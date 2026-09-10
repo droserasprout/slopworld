@@ -84,9 +84,7 @@ impl Manager {
         let current = self.config().await;
         self.sync_manifests(&current).await;
         self.announce_projects().await;
-        self.emit(Event::Sessions {
-            sessions: self.views().await,
-        });
+        self.announce_sessions().await;
         Ok(())
     }
 
@@ -266,15 +264,7 @@ impl Manager {
             .ok_or_else(|| anyhow!("no such library item: {name}"))?
             .clone();
         check_library_item(&cfg, &sc)?;
-        if matches!(
-            sc.kind,
-            LibraryItemKind::Breadcrumb | LibraryItemKind::FileAction
-        ) {
-            bail!(
-                "library item {} is not runnable as an agent errand",
-                sc.name
-            );
-        }
+        Self::validate_errand(&sc)?;
         drop(cfg);
         self.run_errand(sc, want, false, false, "").await
     }
@@ -473,9 +463,7 @@ impl Manager {
             }
         }
 
-        self.emit(Event::Sessions {
-            sessions: self.views().await,
-        });
+        self.announce_sessions().await;
         self.queue_errand_delivery(&session, &sc, &want);
 
         Ok(session)
@@ -514,9 +502,7 @@ impl Manager {
                 )
                 .await;
             }
-            self.emit(Event::Sessions {
-                sessions: self.views().await,
-            });
+            self.announce_sessions().await;
         }
         let enter = vec!["Enter".into()];
         self.capture_title_keys(name, &enter, false).await;
@@ -578,9 +564,7 @@ impl Manager {
             }
         };
         if changed {
-            self.emit(Event::Sessions {
-                sessions: self.views().await,
-            });
+            self.announce_sessions().await;
         }
     }
 

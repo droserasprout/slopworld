@@ -117,9 +117,7 @@ impl Manager {
             return Err(error);
         }
 
-        self.emit(Event::Sessions {
-            sessions: self.views().await,
-        });
+        self.announce_sessions().await;
         let manager = self.clone();
         let name = session.name.clone();
         let bootstrap = cfg.daemon.instructions.worker_prompt.clone();

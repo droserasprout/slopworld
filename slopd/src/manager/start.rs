@@ -229,9 +229,7 @@ impl Manager {
         finish_reader(replaced_reader);
         self.clear_latest_title(name);
         if title_was_cleared || auto_resume_pending {
-            self.emit(Event::Sessions {
-                sessions: self.views().await,
-            });
+            self.announce_sessions().await;
         }
 
         match self.spawn_reader(name).await {
