@@ -21,6 +21,7 @@ namespace SlopWorld
 
         TerminalWindow(string name)
         {
+            _terminal = new TerminalPanel(this);
             _name = name;
             ResetCursorBlink();
             _selectionCoordinator = new TerminalSelectionCoordinator(this);
@@ -79,10 +80,11 @@ namespace SlopWorld
                 if (!EnsureSession(hub)) return;
 
                 bool input = Find.WindowStack == null || Find.WindowStack.GetsInput(this);
+                _panels.SetFocus(input);
                 Rect body = DrawTopBar(rect, input);
                 bool pane = DrawBody(body, input, hub);
                 DrawStatus(body, hub, pane);
-                if (_content == null && _showStopped && _name != null && hub.Get(_name)?.Gone == true)
+                if (TerminalVisible && _showStopped && _name != null && hub.Get(_name)?.Gone == true)
                     MapGizmoUtility.MapUIOnGUI();
             }
         }
@@ -95,7 +97,8 @@ namespace SlopWorld
             ColonistBarStrip.Draw(input);
 
             var workspace = WorkspaceLayout.Current;
-            float pad = _content == null ? 0f : ContentPad;
+            ArrangeTerminal(workspace.Content);
+            float pad = TerminalVisible ? 0f : ContentPad;
             var body = workspace.Content;
             return new Rect(body.x + pad, body.y + pad,
                 Mathf.Max(0f, body.width - pad * 2f),
@@ -104,16 +107,20 @@ namespace SlopWorld
 
         bool DrawBody(Rect body, bool input, SessionHub hub)
         {
-            // A view in the body is the whole of what the window is for while it is up: the
-            // chrome's own keys are still read - F1, F12, Alt+Num, Alt+Z/Alt+X, Escape back
-            // out of it -
-            // but nothing is forwarded to an agent nobody is looking at.
-            if (_content != null)
-            {
-                if (input) _input.HandleChrome(Event.current);
-                _content.Draw(body);
-                return false;
-            }
+            var active = _panels.Active;
+            if (active == null) return false;
+            if (!TerminalVisible && input) _input.HandleChrome(Event.current);
+            // Chrome input may close or replace the panel. Do not deliver the same event
+            // to its replacement using bounds computed for the old panel.
+            if (!ReferenceEquals(active, _panels.Active)) return false;
+            _panels.Arrange(new UiLayoutRect(body.x, body.y, body.width, body.height));
+            active.Draw(body);
+            return TerminalVisible && _terminal.DrewScreen;
+        }
+
+        internal bool DrawTerminalBody(Rect body, bool input)
+        {
+            var hub = SessionHub.Instance;
 
             if (_showStopped && hub.Get(_name)?.Gone == true)
             {

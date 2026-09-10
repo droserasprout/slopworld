@@ -6,7 +6,7 @@ namespace SlopWorld
 {
     // Render Dialog_Options as content inside the chrome; a stacked window would block sidebar
     // input. Preserve vanilla's GUI-coordinate category layout inside a temporary group.
-    public class OptionsView : IContentView
+    public class OptionsView : ContentView
     {
         // As wide as the config page needs and no wider: 177 for the category column, the
         // rest for two columns of fields. A form stretched across a 4K screen is a form
@@ -34,7 +34,7 @@ namespace SlopWorld
             _dlg = c != null ? new Dialog_Options(c) : new Dialog_Options();
         }
 
-        public string Title => "Settings";
+        public override string Title => "Settings";
 
         // The tab the column is on, so the doors that used to swap a category on an open
         // dialog still have something to swap it on.
@@ -64,7 +64,7 @@ namespace SlopWorld
         public static Rect Inner(Rect band) =>
             new Rect(0f, 0f, band.width, band.height + OkRow);
 
-        public void Draw(Rect body)
+        public override void Draw(Rect body)
         {
             var band = Band(body);
 
@@ -78,10 +78,10 @@ namespace SlopWorld
             }
         }
 
-        public void Opened() { }
+        public override void Opened() { }
 
         // On close, remember the selected tab, tear down pages so the next open rereads config.toml, and persist mod settings once.
-        public void Closed()
+        public override void Closed()
         {
             ModOptions.Remember(Category);
             ModOptions.Teardown();

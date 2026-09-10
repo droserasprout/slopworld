@@ -41,9 +41,8 @@ namespace SlopWorld
             if (existing != null) { existing.SetContent(view); return; }
 
             var w = new TerminalWindow(null);
-            w._content = view;
             Find.WindowStack.Add(w);
-            view.Opened();
+            w.SetContent(view);
         }
 
         // The pane's session, and *only* while the pane is what is on show: with content up
@@ -54,7 +53,7 @@ namespace SlopWorld
             get
             {
                 var w = Find.WindowStack?.WindowOfType<TerminalWindow>();
-                return w == null || w._content != null ? null : w._name;
+                return w == null || !w.TerminalVisible ? null : w._name;
             }
         }
 
@@ -112,9 +111,7 @@ namespace SlopWorld
             if (_content == view) return;
             _fieldLifetime.Cancel();
             _fieldLifetime = new FieldLifetime();
-            _content?.Closed();
-            _content = view;
-            _content?.Opened();
+            _panels.SetContent(view);
         }
 
         // Out of the content and back to what is behind it: the pane it was opened over, or
@@ -165,12 +162,14 @@ namespace SlopWorld
         {
             SetContent(null);
             if (name == _name) return;
+            ReleasePanelInput();
             SaveScrollbackState(_name);
             _historyCoordinator.SaveCache(_name);
             // A window opened on content alone has no pane to let go of, and a subscription
             // named null is one the daemon would have to answer.
             if (_name != null) SessionHub.Instance.Unsubscribe(_name);
             _name = name;
+            _panels.SetBacking(name == null ? null : _terminal);
             if (_name != null)
             {
                 SessionHub.Instance.Subscribe(_name);
@@ -178,7 +177,7 @@ namespace SlopWorld
                 SelectAgent(_name);
             }
             _showStopped = _name != null && SessionHub.Instance.Get(_name)?.Gone == true;
-            PrimeCachedSize();
+            PrimePanelSize();
             _historyCoordinator.ResetForSession();
             RestoreScrollbackState(_name);
             _historyCoordinator.RestoreCache(_name);
@@ -263,12 +262,13 @@ namespace SlopWorld
         public override void PreOpen()
         {
             base.PreOpen();
+            if (_name != null) _panels.SetBacking(_terminal);
             _covering = true;
             if (_name == null) return;
             _showStopped = SessionHub.Instance.Get(_name)?.Gone == true;
             SessionHub.Instance.Subscribe(_name);
             SelectAgent(_name);
-            PrimeCachedSize();
+            PrimePanelSize();
         }
 
         public override void PostClose()
@@ -279,7 +279,7 @@ namespace SlopWorld
             _covering = false;
             Drop(); // a screen's worth of VRAM, held for a window that is gone
             // The window is what the view was being shown in, so it is closed with it.
-            SetContent(null);
+            _panels.Close();
             if (_name == null) return;
             SessionHub.Instance.Unsubscribe(_name);
             // The terminal is a pager's only home: closing it while a file was being read, or
@@ -321,6 +321,7 @@ namespace SlopWorld
                 }
                 hub.Unsubscribe(_name);
                 _name = null;
+                _panels.SetBacking(null);
             }
             else if (_name == null && _content == null)
             {

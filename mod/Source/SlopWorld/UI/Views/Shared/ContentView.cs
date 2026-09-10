@@ -2,10 +2,8 @@ using UnityEngine;
 
 namespace SlopWorld
 {
-    // Non-terminal content drawn inside the chrome, right of the sidebar and below the top
-    // bar. These are views rather than windows so no absorbing window blocks sidebar input.
-    // Draw also handles input; IMGUI has no separate input pass.
-    public interface IContentView
+    // Panels draw in host-assigned screen coordinates. IMGUI drawing also handles input.
+    public interface IContentView : IWorkspacePanel
     {
         // What the top bar calls this, where a pane would have named its agent.
         string Title { get; }
@@ -13,11 +11,22 @@ namespace SlopWorld
         // The body rect, in screen coordinates. Called once a frame per event.
         void Draw(Rect body);
 
-        // Shown and hidden. Neither is a constructor: a view is built when it is asked for
-        // and dropped when it is left, so what these carry is the work that has to happen
-        // *around* that - a page re-reading config.toml, a settings file written once.
-        void Opened();
-        void Closed();
+    }
+
+    public abstract class ContentView : IContentView
+    {
+        public string PanelId { get; } = System.Guid.NewGuid().ToString("N");
+        public virtual PanelSize MinimumSize => new PanelSize(320f, 160f);
+        public UiLayoutRect Bounds { get; private set; }
+        public bool Visible { get; private set; }
+        public bool Focused { get; private set; }
+        public abstract string Title { get; }
+        public abstract void Draw(Rect body);
+        public virtual void Opened() { }
+        public virtual void Closed() { }
+        public virtual void Arrange(UiLayoutRect bounds) { Bounds = bounds; }
+        public virtual void VisibilityChanged(bool visible) { Visible = visible; }
+        public virtual void FocusChanged(bool focused) { Focused = focused; }
     }
 
     // An options page is built lazily, loaded once, then handed its rect. Config-backed pages

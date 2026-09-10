@@ -10,18 +10,19 @@ The window uses `Margin` 0 so GUI-group and screen coordinates agree
 ([gotchas](core-gotchas.md)).
 
 `TerminalWindow` is the fullscreen host and lifecycle coordinator. `TerminalInputController`
-owns key/mouse event ordering and chrome navigation, while `TerminalWindowState` holds the
-session and input state. Selection gesture
+owns key/mouse event ordering and chrome navigation. `TerminalPanel` owns its
+`TerminalWindowState` and assigned bounds; the workspace owner handles visibility and focus.
+Selection gesture
 routing lives in `TerminalSelectionInput`; the selection model and terminal rendering remain
 window services until the next extraction pass.
 
 ## Size
 
-`NegotiateSize` divides the workspace content rectangle by cell size and sends a debounced
+`NegotiateSize` divides the terminal panel's assigned rectangle by cell size and sends a debounced
 `resize` (0.2s).
 It retries once per second while returned frames disagree, which is needed because a
 socket can drop during redeploy. `session/mod.rs`'s `BOOT_COLS`/`BOOT_ROWS` are the initial
-size.
+size. There is no static last-used grid: initial sessions measure the host's target slot.
 The measured font advance is snapped to screen pixels after `Prefs.UIScale`; rendering,
 cursor geometry, hit-testing and resize negotiation all use that same snapped cell.
 

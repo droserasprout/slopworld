@@ -27,68 +27,44 @@ namespace SlopWorld
             set => _state.SizeDirty = value;
         }
 
-        // Every terminal window is fullscreen and shares the same pane geometry. Keep the
-        // last measured shape outside the window instance so a fresh pager can start there
-        // instead of drawing once at slopd's boot size and making less redraw on the first
-        // resize.
-        static int _cachedCols
-        {
-            get => TerminalWindowState.CachedCols;
-            set => TerminalWindowState.CachedCols = value;
-        }
-        static int _cachedRows
-        {
-            get => TerminalWindowState.CachedRows;
-            set => TerminalWindowState.CachedRows = value;
-        }
-        static int _cachedLayoutRevision
-        {
-            get => TerminalWindowState.CachedLayoutRevision;
-            set => TerminalWindowState.CachedLayoutRevision = value;
-        }
+        // The current host places one terminal in the workspace content slot. Retaining
+        // this assignment on the panel also sizes its session while a content view covers it.
+        void ArrangeTerminal(Rect body) =>
+            _terminal.Arrange(new UiLayoutRect(body.x, body.y, body.width, body.height));
 
-        // The daemon's own limits, so what we ask for is always something it can answer with.
-        const int MinCols = WireContract.TerminalMinCols;
-        const int MaxCols = WireContract.TerminalMaxCols;
-        const int MinRows = WireContract.TerminalMinRows;
-        const int MaxRows = WireContract.TerminalMaxRows;
-
-        // Sidebar changes happen outside the terminal window, so there may be no instance from
-        // which to reuse NegotiateSize. Compute the fullscreen pane's shape directly and attach
-        // it to the background redraw request; otherwise an inactive tab keeps its old tmux
-        // size until its first activation.
         internal static bool TryPanelShape(out int cols, out int rows)
         {
             cols = rows = 0;
             if (!UiLayout.Shown || UI.screenWidth <= 0 || UI.screenHeight <= 0) return false;
-
             var style = TerminalFont.Style;
-            if (style == null || TerminalFont.CellH <= 0.01f) return false;
-
+            if (style == null) return false;
             var content = WorkspaceLayout.Current.Content;
-            float width = content.width;
-            float height = content.height;
-            float cw = TerminalFont.CellWAtScreenScale(Prefs.UIScale);
-            if (width <= 0.01f || height <= 0.01f || cw <= 0.01f) return false;
-
-            cols = Mathf.Clamp(Mathf.FloorToInt(width / cw), MinCols, MaxCols);
-            rows = Mathf.Clamp(Mathf.FloorToInt(height / TerminalFont.CellH), MinRows, MaxRows);
-            return true;
+            var window = Find.WindowStack?.WindowOfType<TerminalWindow>();
+            UiLayoutRect bounds;
+            if (window != null)
+            {
+                window.ArrangeTerminal(content);
+                bounds = window._terminal.Bounds;
+            }
+            else bounds = new UiLayoutRect(content.x, content.y, content.width, content.height);
+            return TerminalPanelGeometry.TryMeasure(bounds,
+                TerminalFont.CellWAtScreenScale(Prefs.UIScale), TerminalFont.CellH, out cols, out rows);
         }
 
-        void PrimeCachedSize()
+        void PrimePanelSize()
         {
-            if (_cols <= 0 && _cachedLayoutRevision == WorkspaceLayout.Revision
-                && _cachedCols > 0 && _cachedRows > 0)
-            {
-                _cols = _cachedCols;
-                _rows = _cachedRows;
-            }
-
-            // A pending geometry change still needs its debounce; otherwise a new session
-            // would get both the old request and this one.
-            if (_name == null || _sizeDirty || _cols <= 0 || !SessionHub.Instance.Online) return;
-            SessionHub.Instance.Terminal.Resize(_name, _cols, _rows);
+            // New sessions use the intended slot immediately, even before their first frame.
+            // Do not borrow another panel's most recently rendered dimensions.
+            ArrangeTerminal(WorkspaceLayout.Current.Content);
+            var style = TerminalFont.Style;
+            if (style == null || !TerminalPanelGeometry.TryMeasure(_terminal.Bounds,
+                    TerminalFont.CellWAtScreenScale(Prefs.UIScale), TerminalFont.CellH,
+                    out int cols, out int rows)) return;
+            if (_sizeDirty) return;
+            _cols = cols;
+            _rows = rows;
+            if (_name != null && SessionHub.Instance.Online)
+                SessionHub.Instance.Terminal.Resize(_name, _cols, _rows);
         }
 
         // A loop rather than a statement: a resize is one fire-and-forget message over a
@@ -102,20 +78,13 @@ namespace SlopWorld
             var style = TerminalFont.Style;
             SyncSnap();
             float cw = DisplayCellW();
-            if (cw <= 0.01f) return;
-
-            int cols = Mathf.Clamp(
-                Mathf.FloorToInt(body.width / cw), MinCols, MaxCols);
-            int rows = Mathf.Clamp(
-                Mathf.FloorToInt(body.height / TerminalFont.CellH), MinRows, MaxRows);
+            if (!TerminalPanelGeometry.TryMeasure(_terminal.Bounds, cw, TerminalFont.CellH,
+                    out int cols, out int rows)) return;
 
             if (cols != _cols || rows != _rows)
             {
                 _cols = cols;
                 _rows = rows;
-                _cachedCols = cols;
-                _cachedRows = rows;
-                _cachedLayoutRevision = WorkspaceLayout.Revision;
                 // Debounce: dragging the game window otherwise spams SIGWINCH, and Claude Code
                 // redraws its whole TUI on every one.
                 _resizeAt = Time.realtimeSinceStartup + 0.2f;

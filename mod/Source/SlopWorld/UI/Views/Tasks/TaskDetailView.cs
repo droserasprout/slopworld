@@ -7,7 +7,7 @@ using Verse;
 namespace SlopWorld
 {
     // Full task reader shown as a TerminalWindow content view.
-    public sealed partial class TaskDetailView : IContentView
+    public sealed partial class TaskDetailView : ContentView
     {
         const float AvatarSize = 38f;
         const float AvatarOverlap = 18f;
@@ -68,17 +68,17 @@ namespace SlopWorld
         public static void Open(TaskInfo task) =>
             TerminalWindow.OpenContent(new TaskDetailView(task));
 
-        public string Title => "Task " + (_task?.Id ?? "");
+        public override string Title => "Task " + (_task?.Id ?? "");
 
-        public void Opened() { }
+        public override void Opened() { }
 
-        public void Closed()
+        public override void Closed()
         {
             _scroll.JumpTo(Vector2.zero);
             ClearSelection();
         }
 
-        public void Draw(Rect body)
+        public override void Draw(Rect body)
         {
             // Use the same centred band as Settings. The fullscreen chrome provides the
             // maximized reader, while the band keeps message lines from stretching across
