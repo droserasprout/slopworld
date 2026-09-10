@@ -9,7 +9,7 @@ can temporarily become the tree root.
 - `Children == null` means not fetched. The browse reply also identifies returned directories that
   have no children, so an unopened empty directory does not get a disclosure arrow. Fetches begin in the
   draw pass; errors stop retries until the directory is reopened. While Files is visible,
-  expanded loaded directories are reread every two seconds and entries are merged by name/type,
+  loaded directories in open branches are reread every two seconds and entries are merged by name/type,
   preserving expanded branches.
   Selecting Files also refreshes expanded paths immediately, even when already selected;
   a pending browse defers that refresh until it drains without consuming the polling deadline.
