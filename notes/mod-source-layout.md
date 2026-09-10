@@ -5,7 +5,7 @@ do not create assembly boundaries. The SDK project discovers the mod recursively
 
 - `Bootstrap/` owns startup, profile gating and the RimWorld `Mod` entry point.
 - `Client/` is split into `Daemon/`, `Transport/`, `SessionHub/` and generated wire data.
-- `Sim/` is split into `Colony/`, `Content/`, `EasterEggs/`, `Jukebox/`, `Lifecycle/`,
+- `Sim/` is split into `Colony/`, `Content/`, `Jukebox/`, `Lifecycle/`,
   `Plague/`, `Terminal/` and `Worksite/`.
 - `Patches/` is grouped by `AgentSidebar/`, `Agents/`, `Chrome/`, `ColonistBar/`, `Eco/`,
   `LoadingScreen/`, `MainMenu/` and `Options/`.

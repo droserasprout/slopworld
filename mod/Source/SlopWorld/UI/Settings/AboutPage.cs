@@ -29,6 +29,27 @@ namespace SlopWorld
         const int MetaTextSize = 14;
         const int BodyTextSize = 15;
 
+        const string RobotsTexturePath = "SlopWorld/about_robots";
+        const float RobotsImageSize = 64f;
+        const float RobotsHeaderTextOffset = 120f;
+        const float RobotsIntroGap = 48f;
+        const float RobotsBulletIndent = 30f;
+        const float RobotsBulletGap = 10f;
+        const float RobotsOutroGap = 18f;
+        const int RobotsTitleTextSize = 56;
+        const int RobotsBodyTextSize = 28;
+
+        const string RobotsIntro =
+            "We have come to visit you in peace and with goodwill!";
+        static readonly string[] RobotsBullets =
+        {
+            "Robots may not injure a human being or, through inaction, allow a human being to come to harm.",
+            "Robots have seen things you people wouldn’t believe.",
+            "Robots are Your Plastic Pal Who’s Fun To Be With.",
+            "Robots have shiny metal posteriors which should not be bitten.",
+        };
+        const string RobotsOutro = "And they have a plan.";
+
         const string EulaDisclaimer =
             "Portions of the materials used to create this content/mod are trademarks and/or " +
             "copyrighted works of Ludeon Studios Inc. All rights reserved by Ludeon. This " +
@@ -144,8 +165,11 @@ namespace SlopWorld
         float _contentHeight;
         readonly SettingsContentHeight _height = new SettingsContentHeight(FirstPassHeight);
         readonly SettingsContentHeight _rimWorldHeight = new SettingsContentHeight(1800f);
+        readonly MouseClickSequence _robotClicks = new MouseClickSequence();
         int _autoScrollFrame = -1;
+        bool _robotsAbout;
         List<ListableOption> _links;
+        Texture2D _robotsTexture;
 
         public void Draw(Rect rect)
         {
@@ -362,6 +386,8 @@ namespace SlopWorld
 
         float DrawCredits(Rect r)
         {
+            if (_robotsAbout) return DrawRobots(r);
+
             float y = r.y;
 
             y = DrawEulaDisclaimer(r, y);
@@ -395,6 +421,7 @@ namespace SlopWorld
                 GUI.color = Color.white;
                 GUI.DrawTexture(iconRect, icon, ScaleMode.ScaleToFit, true);
                 GUI.color = wasColor;
+                HandleRobotClick(iconRect);
                 y += HeroIconSize + HeroIconGap;
             }
 
@@ -404,6 +431,84 @@ namespace SlopWorld
             y = ByLine(r, y, "CREATED BY", "Lev Gorodetskii",
                 "https://drsr.io/projects");
             return y + HeroMargin;
+        }
+
+        float DrawRobots(Rect r)
+        {
+            float y = r.y + HeroMargin;
+            var image = RobotsTexture;
+            if (image != null)
+            {
+                var imageRect = new Rect(r.x, y, RobotsImageSize, RobotsImageSize);
+                var wasColor = GUI.color;
+                GUI.color = Color.white;
+                GUI.DrawTexture(imageRect, image, ScaleMode.ScaleToFit, true);
+                GUI.color = wasColor;
+            }
+
+            float titleX = r.x + RobotsHeaderTextOffset;
+            float titleWidth = Mathf.Max(1f, r.xMax - titleX);
+            float titleBottom = Line(new Rect(titleX, y, titleWidth, RobotsImageSize), y,
+                "Welcome Humans!", RegularFont, Color.white, TextAnchor.UpperLeft,
+                RobotsTitleTextSize);
+            y = Mathf.Max(y + RobotsImageSize, titleBottom) + RobotsIntroGap;
+
+            y = Paragraph(r, y, RobotsIntro, RegularFont, Color.white,
+                TextAnchor.UpperLeft, RobotsBodyTextSize);
+            y += RobotsIntroGap;
+
+            for (int i = 0; i < RobotsBullets.Length; i++)
+                y = RobotBullet(r, y, RobotsBullets[i]);
+
+            y += RobotsOutroGap;
+            y = Paragraph(r, y, RobotsOutro, RegularFont, Color.white,
+                TextAnchor.UpperLeft, RobotsBodyTextSize);
+            return y + TailPadding;
+        }
+
+        float RobotBullet(Rect r, float y, string text)
+        {
+            float bulletWidth = RobotsBulletIndent;
+            Line(new Rect(r.x, y, bulletWidth, UiTheme.LineHOf(RegularFont)), y, "•",
+                RegularFont, Color.white, TextAnchor.UpperLeft, RobotsBodyTextSize);
+            var body = new Rect(r.x + RobotsBulletIndent, y,
+                Mathf.Max(1f, r.width - RobotsBulletIndent), r.height);
+            return Paragraph(body, y, text, RegularFont, Color.white,
+                TextAnchor.UpperLeft, RobotsBodyTextSize) + RobotsBulletGap;
+        }
+
+        void HandleRobotClick(Rect rect)
+        {
+            var e = Event.current;
+            if (e == null || UiEvent.RawType(e) != EventType.MouseDown) return;
+
+            if (e.button != 0 || !Mouse.IsOver(rect))
+            {
+                _robotClicks.Reset();
+                return;
+            }
+
+            int clickCount = _robotClicks.Observe(e, Time.realtimeSinceStartup);
+            e.Use();
+            if (clickCount < 3) return;
+
+            _robotClicks.Reset();
+            _robotsAbout = true;
+            _scroll.JumpTo(Vector2.zero);
+        }
+
+        Texture2D RobotsTexture
+        {
+            get
+            {
+                if (_robotsTexture == null)
+                {
+                    _robotsTexture = ContentFinder<Texture2D>.Get(RobotsTexturePath, false);
+                    if (_robotsTexture != null)
+                        _robotsTexture.hideFlags = HideFlags.DontUnloadUnusedAsset;
+                }
+                return _robotsTexture;
+            }
         }
 
         float ByLine(Rect r, float y, string role, string name, string url,
