@@ -5,60 +5,228 @@ http:
     token: x-slop-token
     session: x-slop-session
   routes:
-    health: { path: "/api/health", methods: [GET], scope: scoped }
-    sessions: { path: "/api/sessions", methods: [GET, POST], scope: scoped }
-    session: { path: "/api/sessions/:name", methods: [GET, PUT, DELETE], scope: scoped }
-    session_cwd: { path: "/api/sessions/:name/cwd", methods: [GET], scope: scoped }
-    session_start: { path: "/api/sessions/:name/start", methods: [POST], scope: scoped }
-    session_stop: { path: "/api/sessions/:name/stop", methods: [POST], scope: scoped }
-    session_restart: { path: "/api/sessions/:name/restart", methods: [POST], scope: scoped }
-    session_label: { path: "/api/sessions/:name/label", methods: [PUT], scope: scoped }
-    session_state_reset: { path: "/api/sessions/:name/state/reset", methods: [POST], scope: scoped }
-    tasks: { path: "/api/tasks", methods: [GET, POST, DELETE], scope: scoped }
-    tasks_cancel: { path: "/api/tasks/cancel", methods: [POST], scope: scoped }
-    tasks_remove: { path: "/api/tasks/remove", methods: [POST], scope: scoped }
-    task: { path: "/api/tasks/:id", methods: [GET, POST, DELETE], scope: scoped }
-    capabilities: { path: "/api/capabilities", methods: [GET], scope: root }
-    projects: { path: "/api/projects", methods: [GET, POST], scope: root }
-    project: { path: "/api/projects/:name", methods: [GET, PUT, DELETE], scope: root }
-    library: { path: "/api/library", methods: [GET, POST], scope: root }
-    library_item: { path: "/api/library/:name", methods: [PUT, DELETE], scope: root }
-    library_item_run: { path: "/api/library/:name/run", methods: [POST], scope: root }
-    run: { path: "/api/run", methods: [POST], scope: root }
-    workers: { path: "/api/workers", methods: [POST], scope: root }
-    file_action: { path: "/api/file-action", methods: [POST], scope: root }
-    open_apps: { path: "/api/open-apps", methods: [GET], scope: root }
-    grants: { path: "/api/grants", methods: [GET, POST], scope: root }
-    grantor: { path: "/api/grants/:grantor", methods: [DELETE], scope: root }
-    state: { path: "/api/state", methods: [GET], scope: root }
-    state_trash: { path: "/api/state/trash", methods: [DELETE], scope: root }
-    state_item: { path: "/api/state/:kind/:key", methods: [DELETE], scope: root }
-    state_trash_restore: { path: "/api/state/trash/:key/restore", methods: [POST], scope: root }
-    presets: { path: "/api/presets", methods: [GET], scope: root }
-    preset: { path: "/api/presets/:kind/:name", methods: [PUT, DELETE], scope: root }
-    preset_copy: { path: "/api/presets/:kind/:name/copy", methods: [POST], scope: root }
-    config: { path: "/api/config", methods: [GET, PUT], scope: root }
-    config_patch: { path: "/api/config/patch", methods: [PUT], scope: root }
-    instructions_preview: { path: "/api/instructions/preview", methods: [POST], scope: root }
-    clipboard: { path: "/api/clipboard", methods: [GET, POST], scope: root }
-    clipboard_text: { path: "/api/clipboard/text", methods: [GET], scope: root }
-    clipboard_primary: { path: "/api/clipboard/primary", methods: [GET, POST], scope: root }
-    clipboard_primary_text: { path: "/api/clipboard/primary/text", methods: [GET], scope: root }
-    usage: { path: "/api/usage", methods: [GET], scope: root }
-    audio: { path: "/api/audio", methods: [GET], scope: root }
-    jukebox: { path: "/api/jukebox", methods: [GET], scope: root }
-    browse: { path: "/api/browse", methods: [GET], scope: root }
-    read: { path: "/api/read", methods: [GET], scope: root }
-    highlight: { path: "/api/highlight", methods: [POST], scope: root }
-    image: { path: "/api/image", methods: [GET], scope: root }
-    files: { path: "/api/files", methods: [POST, PUT, DELETE], scope: root }
-    search: { path: "/api/search", methods: [GET], scope: root }
-    git: { path: "/api/git", methods: [GET], scope: root }
-  websocket: { path: "/ws", methods: [GET], scope: scoped }
+    health:
+      path: "/api/health"
+      methods: [GET]
+      scope: scoped
+    sessions:
+      path: "/api/sessions"
+      methods: [GET, POST]
+      scope: scoped
+    session:
+      path: "/api/sessions/:name"
+      methods: [GET, PUT, DELETE]
+      scope: scoped
+    session_cwd:
+      path: "/api/sessions/:name/cwd"
+      methods: [GET]
+      scope: scoped
+    session_start:
+      path: "/api/sessions/:name/start"
+      methods: [POST]
+      scope: scoped
+    session_stop:
+      path: "/api/sessions/:name/stop"
+      methods: [POST]
+      scope: scoped
+    session_restart:
+      path: "/api/sessions/:name/restart"
+      methods: [POST]
+      scope: scoped
+    session_label:
+      path: "/api/sessions/:name/label"
+      methods: [PUT]
+      scope: scoped
+    session_state_reset:
+      path: "/api/sessions/:name/state/reset"
+      methods: [POST]
+      scope: scoped
+    tasks:
+      path: "/api/tasks"
+      methods: [GET, POST, DELETE]
+      scope: scoped
+    tasks_cancel:
+      path: "/api/tasks/cancel"
+      methods: [POST]
+      scope: scoped
+    tasks_remove:
+      path: "/api/tasks/remove"
+      methods: [POST]
+      scope: scoped
+    task:
+      path: "/api/tasks/:id"
+      methods: [GET, POST, DELETE]
+      scope: scoped
+    capabilities:
+      path: "/api/capabilities"
+      methods: [GET]
+      scope: root
+    projects:
+      path: "/api/projects"
+      methods: [GET, POST]
+      scope: root
+    project:
+      path: "/api/projects/:name"
+      methods: [GET, PUT, DELETE]
+      scope: root
+    library:
+      path: "/api/library"
+      methods: [GET, POST]
+      scope: root
+    library_item:
+      path: "/api/library/:name"
+      methods: [PUT, DELETE]
+      scope: root
+    library_item_run:
+      path: "/api/library/:name/run"
+      methods: [POST]
+      scope: root
+    run:
+      path: "/api/run"
+      methods: [POST]
+      scope: root
+    workers:
+      path: "/api/workers"
+      methods: [POST]
+      scope: root
+    file_action:
+      path: "/api/file-action"
+      methods: [POST]
+      scope: root
+    open_apps:
+      path: "/api/open-apps"
+      methods: [GET]
+      scope: root
+    grants:
+      path: "/api/grants"
+      methods: [GET, POST]
+      scope: root
+    grantor:
+      path: "/api/grants/:grantor"
+      methods: [DELETE]
+      scope: root
+    state:
+      path: "/api/state"
+      methods: [GET]
+      scope: root
+    state_trash:
+      path: "/api/state/trash"
+      methods: [DELETE]
+      scope: root
+    state_item:
+      path: "/api/state/:kind/:key"
+      methods: [DELETE]
+      scope: root
+    state_trash_restore:
+      path: "/api/state/trash/:key/restore"
+      methods: [POST]
+      scope: root
+    presets:
+      path: "/api/presets"
+      methods: [GET]
+      scope: root
+    preset:
+      path: "/api/presets/:kind/:name"
+      methods: [PUT, DELETE]
+      scope: root
+    preset_copy:
+      path: "/api/presets/:kind/:name/copy"
+      methods: [POST]
+      scope: root
+    config:
+      path: "/api/config"
+      methods: [GET, PUT]
+      scope: root
+    config_patch:
+      path: "/api/config/patch"
+      methods: [PUT]
+      scope: root
+    instructions_preview:
+      path: "/api/instructions/preview"
+      methods: [POST]
+      scope: root
+    clipboard:
+      path: "/api/clipboard"
+      methods: [GET, POST]
+      scope: root
+    clipboard_text:
+      path: "/api/clipboard/text"
+      methods: [GET]
+      scope: root
+    clipboard_primary:
+      path: "/api/clipboard/primary"
+      methods: [GET, POST]
+      scope: root
+    clipboard_primary_text:
+      path: "/api/clipboard/primary/text"
+      methods: [GET]
+      scope: root
+    usage:
+      path: "/api/usage"
+      methods: [GET]
+      scope: root
+    audio:
+      path: "/api/audio"
+      methods: [GET]
+      scope: root
+    jukebox:
+      path: "/api/jukebox"
+      methods: [GET]
+      scope: root
+    browse:
+      path: "/api/browse"
+      methods: [GET]
+      scope: root
+    read:
+      path: "/api/read"
+      methods: [GET]
+      scope: root
+    highlight:
+      path: "/api/highlight"
+      methods: [POST]
+      scope: root
+    image:
+      path: "/api/image"
+      methods: [GET]
+      scope: root
+    files:
+      path: "/api/files"
+      methods: [POST, PUT, DELETE]
+      scope: root
+    search:
+      path: "/api/search"
+      methods: [GET]
+      scope: root
+    git:
+      path: "/api/git"
+      methods: [GET]
+      scope: root
+  websocket:
+    path: "/ws"
+    methods: [GET]
+    scope: scoped
 
 websocket:
-  events: [capabilities, sessions, projects, library, screen, usage, audio, jukebox]
-  messages: [redraw, sub, unsub, keys, resize, scroll, mouse, paste, breadcrumb, audio]
+  events:
+    - capabilities
+    - sessions
+    - projects
+    - library
+    - screen
+    - usage
+    - audio
+    - jukebox
+  messages:
+    - redraw
+    - sub
+    - unsub
+    - keys
+    - resize
+    - scroll
+    - mouse
+    - paste
+    - breadcrumb
+    - audio
 
 enums:
   agent_state: [down, working, waiting, idle]
@@ -93,16 +261,47 @@ constants:
   default_editor: micro
   default_highlighter: "highlight --out-format=xterm256"
   default_instructions_mount_path: SLOPWORLD.md
-  default_summary_prompt: "Summarise this coding request in at most 6 words for a session title. Reply with only the title, without quotes, punctuation, or commentary."
-  default_instructions_breadcrumb: "Read `{{ mount_path }}` for SlopWorld runtime context. It is a generated snapshot, not project instructions. When delegating, send work once and use `slopctl wait ID` for the result; do not poll `task`, `inbox`, or `status`."
-  default_worker_prompt: "You are a SlopWorld worker. Your assigned task ID is $SLOPWORLD_TASK_ID. Run `slopctl task \"$SLOPWORLD_TASK_ID\"` once, then `slopctl accept \"$SLOPWORLD_TASK_ID\"`. Use `slopctl progress \"$SLOPWORLD_TASK_ID\" \"note\"` while working and conclude with `slopctl finish \"$SLOPWORLD_TASK_ID\" \"result\"` or `slopctl fail \"$SLOPWORLD_TASK_ID\" \"reason\"`. Do not search the inbox or poll task status.\n\nWorker task: use `$SLOPWORLD_TASK_ID` with `slopctl task`, then `accept`, `progress`, and finally `finish` or `fail`. Do not search the inbox or poll task status."
+  default_summary_prompt: >-
+    Summarise this coding request in at most 6 words for a session title. Reply
+    with only the title, without quotes, punctuation, or commentary.
+  default_instructions_breadcrumb: >-
+    Read `{{ mount_path }}` for SlopWorld runtime context. It is a generated
+    snapshot, not project instructions. When delegating, send work once and use
+    `slopctl wait ID` for the result; do not poll `task`, `inbox`, or `status`.
+  default_worker_prompt: "You are a SlopWorld worker. Your assigned task ID is $SLOPWORLD_TASK_ID. Run
+    `slopctl task \"$SLOPWORLD_TASK_ID\"` once, then `slopctl accept
+    \"$SLOPWORLD_TASK_ID\"`. Use `slopctl progress \"$SLOPWORLD_TASK_ID\"
+    \"note\"` while working and conclude with `slopctl finish
+    \"$SLOPWORLD_TASK_ID\" \"result\"` or `slopctl fail
+    \"$SLOPWORLD_TASK_ID\" \"reason\"`. Do not search the inbox or poll task
+    status.\n\nWorker task: use `$SLOPWORLD_TASK_ID` with `slopctl task`, then
+    `accept`, `progress`, and finally `finish` or `fail`. Do not search the inbox
+    or poll task status."
   default_instructions_breadcrumb_enabled: true
 
 usage:
   keys:
-    claude_session: { provider: anthropic, unit: pct, rank: 0 }
-    claude_week: { provider: anthropic, unit: pct, rank: 1 }
-    claude_spend: { provider: anthropic, unit: pct, rank: 5 }
-    openai_session: { provider: openai, unit: pct, rank: 2 }
-    openai_week: { provider: openai, unit: pct, rank: 3 }
-    openrouter_balance: { provider: openrouter, unit: usd, rank: 4 }
+    claude_session:
+      provider: anthropic
+      unit: pct
+      rank: 0
+    claude_week:
+      provider: anthropic
+      unit: pct
+      rank: 1
+    claude_spend:
+      provider: anthropic
+      unit: pct
+      rank: 5
+    openai_session:
+      provider: openai
+      unit: pct
+      rank: 2
+    openai_week:
+      provider: openai
+      unit: pct
+      rank: 3
+    openrouter_balance:
+      provider: openrouter
+      unit: usd
+      rank: 4
