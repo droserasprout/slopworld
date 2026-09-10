@@ -19,9 +19,10 @@ spacing, buttons, fields, headings and errors. Color names resolve through
   edge and focus ring. `FieldFrame`/`BareField` are the composite-input escape hatch. Shared
   fields replay mouse-downs consumed by an absorbing window, expose Cut/Copy/Paste/Select all
   on right-click, and use the daemon's PRIMARY selection for middle-click paste.
-  Text entries allocate a name-hinted control ID and pass it to Unity's native text-field
-  renderer; selection and read-only restoration use that exact ID's editor so one row
-  cannot clamp another row's cursor to its text length.
+  Text entries allocate a name-hinted control ID through `TextEntryController` and pass it to
+  Unity's native text-field renderer; selection, read-only restoration, deferred clipboard edits
+  and focus release use that controller and exact ID so one row cannot clamp another row's cursor
+  to its text length.
 - Listing fields and areas reserve `GapXS` after their captions and `GapS` after their control
   through the shared overloads. Pass `defaultValue` for a monochrome reset icon in the top
   right, with the complete default in its tooltip (`null` omits reset; `""` resets to empty).
