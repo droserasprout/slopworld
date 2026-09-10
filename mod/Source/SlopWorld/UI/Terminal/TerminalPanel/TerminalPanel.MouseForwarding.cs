@@ -2,8 +2,8 @@ using UnityEngine;
 
 namespace SlopWorld
 {
-    // TerminalWindow app-mouse forwarding.
-    public partial class TerminalWindow
+    // TerminalPanel app-mouse forwarding.
+    sealed partial class TerminalPanel
     {
         // The press is forwarded provisionally. If the app does not claim drag input, the
         // provisional press is closed and the gesture becomes a text selection.

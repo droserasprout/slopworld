@@ -3,8 +3,8 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Mouse-selection gestures for TerminalWindow.
-    public partial class TerminalWindow
+    // Mouse-selection gestures for TerminalPanel.
+    sealed partial class TerminalPanel
     {
         const float SelectionEdgeBand = 32f;
         const float SelectionEdgeRowsPerSecond = 13f;

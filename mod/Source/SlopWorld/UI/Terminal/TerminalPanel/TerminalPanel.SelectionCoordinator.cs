@@ -2,27 +2,27 @@ using UnityEngine;
 
 namespace SlopWorld
 {
-    public partial class TerminalWindow
+    sealed partial class TerminalPanel
     {
         // Selection gestures remain ordered by TerminalSelectionInput. This coordinator owns the
         // coordinate-space bookkeeping that gestures should not have to understand: live-frame
         // shifts, displayed-history offsets, cell translation, and clipboard text extraction.
         sealed class TerminalSelectionCoordinator
         {
-            readonly TerminalWindow _window;
+            readonly TerminalPanel _panel;
 
             public int Offset { get; private set; }
             public int LastLiveSeq { get; private set; } = -1;
 
-            public TerminalSelectionCoordinator(TerminalWindow window)
+            public TerminalSelectionCoordinator(TerminalPanel window)
             {
-                _window = window;
+                _panel = window;
             }
 
             public void NoteLiveFrame(int liveSeq, int liveShift)
             {
                 if (LastLiveSeq >= 0 && Offset == 0 &&
-                    (_window._hasSel || _window._dragging || _window._wordDragging))
+                    (_panel._hasSel || _panel._dragging || _panel._wordDragging))
                     MoveRows(-liveShift);
                 LastLiveSeq = liveSeq;
             }
@@ -44,41 +44,41 @@ namespace SlopWorld
 
             public Vector2Int CellAt(Rect body, Vector2 mouse)
             {
-                TerminalWindow.SyncSnap();
-                float cw = TerminalWindow.DisplayCellW(), ch = TerminalFont.CellH;
+                _panel.SyncSnap();
+                float cw = _panel.DisplayCellW(), ch = TerminalFont.CellH;
                 if (cw <= 0.01f || ch <= 0.01f) return Vector2Int.zero;
                 int col = Mathf.FloorToInt((mouse.x - body.x) / cw);
                 int row = Mathf.FloorToInt(
-                    (mouse.y - body.y - _window.DisplayedHistoryShift(ch)) / ch);
+                    (mouse.y - body.y - _panel.DisplayedHistoryShift(ch)) / ch);
                 return new Vector2Int(col, row);
             }
 
             public string SelectionText(ScreenBuf buf)
             {
-                return _window._history.SelectionText(
+                return _panel._history.SelectionText(
                     buf,
-                    _window._selA.x,
-                    _window._selA.y,
-                    _window._selB.x,
-                    _window._selB.y);
+                    _panel._selA.x,
+                    _panel._selA.y,
+                    _panel._selB.x,
+                    _panel._selB.y);
             }
 
             void MoveRows(int delta)
             {
                 if (delta == 0) return;
-                var a = _window._selA;
-                var b = _window._selB;
-                var wordStart = _window._wordStart;
-                var wordEnd = _window._wordEnd;
+                var a = _panel._selA;
+                var b = _panel._selB;
+                var wordStart = _panel._wordStart;
+                var wordEnd = _panel._wordEnd;
                 a.y += delta;
                 b.y += delta;
                 wordStart.y += delta;
                 wordEnd.y += delta;
-                _window._selA = a;
-                _window._selB = b;
-                _window._wordStart = wordStart;
-                _window._wordEnd = wordEnd;
-                if (_window._lineDragging) _window._lineStart += delta;
+                _panel._selA = a;
+                _panel._selB = b;
+                _panel._wordStart = wordStart;
+                _panel._wordEnd = wordEnd;
+                if (_panel._lineDragging) _panel._lineStart += delta;
             }
         }
     }

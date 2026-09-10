@@ -4,7 +4,7 @@ using Verse;
 namespace SlopWorld
 {
     // Terminal link hit testing, hover overlays, and host URL actions.
-    public partial class TerminalWindow
+    sealed partial class TerminalPanel
     {
         readonly TerminalLinkService _links = new TerminalLinkService();
 
@@ -17,7 +17,7 @@ namespace SlopWorld
             _links.ClearHover();
             var e = Event.current;
             if (e == null) return;
-            if (Find.WindowStack != null && !Find.WindowStack.GetsInput(this)) return;
+            if (!Focused || !_host.InputAvailable) return;
 
             if (buf == null || !body.Contains(e.mousePosition)) return;
             _links.Track(buf, CellAt(body, e.mousePosition));

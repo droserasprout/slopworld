@@ -12,26 +12,26 @@ namespace SlopWorld
     // from also knowing how a drag, word selection, and line selection are completed.
     sealed class TerminalSelectionInput
     {
-        readonly TerminalWindow _window;
+        readonly TerminalPanel _panel;
         readonly MouseClickSequence _clicks = new MouseClickSequence();
 
-        public TerminalSelectionInput(TerminalWindow window)
+        public TerminalSelectionInput(TerminalPanel panel)
         {
-            _window = window;
+            _panel = panel;
         }
 
         public bool TryHandleMultiClick(Rect body, Event e)
         {
-            if (TerminalWindow.MouseType(e) != EventType.MouseDown || e.button != 0 ||
+            if (TerminalInputController.MouseType(e) != EventType.MouseDown || e.button != 0 ||
                 !body.Contains(e.mousePosition)) return false;
 
             int clickCount = _clicks.Observe(e, Time.realtimeSinceStartup);
             if (clickCount < 2) return false;
 
-            _window.CaptureSelection(body);
-            var cell = _window.CellAt(body, e.mousePosition);
-            if (clickCount >= 3) _window.TripleClickSelect(cell.y);
-            else _window.DoubleClickSelect(cell);
+            _panel.CaptureSelection(body);
+            var cell = _panel.CellAt(body, e.mousePosition);
+            if (clickCount >= 3) _panel.TripleClickSelect(cell.y);
+            else _panel.DoubleClickSelect(cell);
             if (clickCount >= 3) _clicks.Reset();
             e.Use();
             return true;
@@ -39,7 +39,7 @@ namespace SlopWorld
 
         public void Handle(Rect body, Event e)
         {
-            switch (TerminalWindow.MouseType(e))
+            switch (TerminalInputController.MouseType(e))
             {
                 case EventType.MouseDown:
                     Begin(body, e);
@@ -56,52 +56,52 @@ namespace SlopWorld
         void Begin(Rect body, Event e)
         {
             if (!body.Contains(e.mousePosition)) return;
-            _window.SelectionA = _window.SelectionB = _window.CellAt(body, e.mousePosition);
-            _window.SelectionMouse = e.mousePosition;
-            _window.SelectionEdgeDirection = 0;
-            _window.SelectionEdgeFrame = -1;
-            _window.Dragging = true;
-            _window.SelectionMoved = false;
-            _window.MultiClickSelection = false;
-            _window.WordDragging = false;
-            _window.LineDragging = false;
-            _window.HasSelection = false;
-            _window.CaptureSelection(body);
+            _panel.SelectionA = _panel.SelectionB = _panel.CellAt(body, e.mousePosition);
+            _panel.SelectionMouse = e.mousePosition;
+            _panel.SelectionEdgeDirection = 0;
+            _panel.SelectionEdgeFrame = -1;
+            _panel.Dragging = true;
+            _panel.SelectionMoved = false;
+            _panel.MultiClickSelection = false;
+            _panel.WordDragging = false;
+            _panel.LineDragging = false;
+            _panel.HasSelection = false;
+            _panel.CaptureSelection(body);
             e.Use();
         }
 
         void Drag(Rect body, Event e)
         {
-            if (!_window.Dragging) return;
-            _window.SelectionMouse = e.mousePosition;
-            _window.SelectionMoved = true;
-            var cell = _window.CellAt(body, e.mousePosition);
+            if (!_panel.Dragging) return;
+            _panel.SelectionMouse = e.mousePosition;
+            _panel.SelectionMoved = true;
+            var cell = _panel.CellAt(body, e.mousePosition);
             if (e.mousePosition.y < body.y || e.mousePosition.y >= body.yMax)
             {
-                int rows = Mathf.Max(1, _window.Rows > 0 ? _window.Rows :
-                    SessionHub.Instance.Screen(_window.SessionName)?.Rows ?? 1);
+                int rows = Mathf.Max(1, _panel.Rows > 0 ? _panel.Rows :
+                    SessionHub.Instance.Screen(_panel.SessionName)?.Rows ?? 1);
                 cell.y = Mathf.Clamp(cell.y, 0, rows - 1);
             }
-            if (_window.LineDragging)
-                _window.SelectLineRange(_window.LineStart, cell.y);
-            else if (_window.WordDragging)
-                _window.UpdateWordSelection(cell);
+            if (_panel.LineDragging)
+                _panel.SelectLineRange(_panel.LineStart, cell.y);
+            else if (_panel.WordDragging)
+                _panel.UpdateWordSelection(cell);
             else
             {
-                _window.SelectionB = cell;
-                _window.HasSelection = true;
+                _panel.SelectionB = cell;
+                _panel.HasSelection = true;
             }
             e.Use();
         }
 
         void End(Rect body, Event e)
         {
-            if (!_window.Dragging) return;
-            var cell = _window.CellAt(body, e.mousePosition);
+            if (!_panel.Dragging) return;
+            var cell = _panel.CellAt(body, e.mousePosition);
             if (e.mousePosition.y < body.y || e.mousePosition.y >= body.yMax)
             {
-                int rows = Mathf.Max(1, _window.Rows > 0 ? _window.Rows :
-                    SessionHub.Instance.Screen(_window.SessionName)?.Rows ?? 1);
+                int rows = Mathf.Max(1, _panel.Rows > 0 ? _panel.Rows :
+                    SessionHub.Instance.Screen(_panel.SessionName)?.Rows ?? 1);
                 cell.y = Mathf.Clamp(cell.y, 0, rows - 1);
             }
 
@@ -110,41 +110,41 @@ namespace SlopWorld
             // published to PRIMARY by TripleClickSelect.
             // Mouse selection belongs to the host PRIMARY surface. Ordinary drag selection
             // must not overwrite CLIPBOARD; explicit Ctrl+C and the menu still use it.
-            bool copyPrimary = !_window.MultiClickSelection || _window.SelectionMoved;
-            if (_window.LineDragging)
+            bool copyPrimary = !_panel.MultiClickSelection || _panel.SelectionMoved;
+            if (_panel.LineDragging)
             {
-                _window.SelectLineRange(_window.LineStart, cell.y);
-                _window.LineDragging = false;
-                _window.Dragging = false;
-                _window.SelectionMoved = false;
-                _window.ReleaseSelection();
-                if (copyPrimary) _window.CopyPrimarySelection();
+                _panel.SelectLineRange(_panel.LineStart, cell.y);
+                _panel.LineDragging = false;
+                _panel.Dragging = false;
+                _panel.SelectionMoved = false;
+                _panel.ReleaseSelection();
+                if (copyPrimary) _panel.CopyPrimarySelection();
             }
-            else if (_window.WordDragging)
+            else if (_panel.WordDragging)
             {
-                _window.UpdateWordSelection(cell);
-                _window.WordDragging = false;
-                _window.Dragging = false;
-                _window.ReleaseSelection();
-                if (_window.HasSelection && copyPrimary) _window.CopyPrimarySelection();
+                _panel.UpdateWordSelection(cell);
+                _panel.WordDragging = false;
+                _panel.Dragging = false;
+                _panel.ReleaseSelection();
+                if (_panel.HasSelection && copyPrimary) _panel.CopyPrimarySelection();
             }
             else
             {
-                _window.Dragging = false;
-                _window.SelectionB = cell;
-                if (_window.SelectionMoved || _window.SelectionA != _window.SelectionB)
+                _panel.Dragging = false;
+                _panel.SelectionB = cell;
+                if (_panel.SelectionMoved || _panel.SelectionA != _panel.SelectionB)
                 {
-                    _window.HasSelection = true;
-                    _window.CopyPrimarySelection();
+                    _panel.HasSelection = true;
+                    _panel.CopyPrimarySelection();
                 }
-                else _window.HasSelection = false;
-                _window.SelectionMoved = false;
-                _window.ReleaseSelection();
+                else _panel.HasSelection = false;
+                _panel.SelectionMoved = false;
+                _panel.ReleaseSelection();
             }
-            _window.SelectionMoved = false;
-            _window.MultiClickSelection = false;
-            _window.SelectionEdgeDirection = 0;
-            _window.SelectionEdgeFrame = -1;
+            _panel.SelectionMoved = false;
+            _panel.MultiClickSelection = false;
+            _panel.SelectionEdgeDirection = 0;
+            _panel.SelectionEdgeFrame = -1;
             e.Use();
         }
     }

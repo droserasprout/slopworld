@@ -3,7 +3,7 @@ using UnityEngine;
 namespace SlopWorld
 {
     // Local scroll position, fractional motion, and serialized history requests.
-    public partial class TerminalWindow
+    sealed partial class TerminalPanel
     {
         // Mouse-wheel scrollback: lines scrolled up from the live bottom.
         int _scrollOff;

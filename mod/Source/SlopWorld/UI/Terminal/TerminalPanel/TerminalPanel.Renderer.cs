@@ -4,18 +4,18 @@ using Verse;
 
 namespace SlopWorld
 {
-    public partial class TerminalWindow
+    sealed partial class TerminalPanel
     {
-        // The window coordinates lifecycle and input. This owner receives only a frame, pane
+        // The panel coordinates lifecycle and input. This owner receives a frame, pane
         // geometry, and the current selection when it paints terminal pixels.
         sealed class TerminalRenderer
         {
-            readonly TerminalWindow _window;
+            readonly TerminalPanel _panel;
             readonly TerminalRunCache _runCache = new TerminalRunCache();
 
-            public TerminalRenderer(TerminalWindow window)
+            public TerminalRenderer(TerminalPanel window)
             {
-                _window = window;
+                _panel = window;
             }
 
             public int RunCount => _runCache.Count;
@@ -24,22 +24,22 @@ namespace SlopWorld
             {
                 if (buf.Runs != null && buf.RunsRev == TerminalTheme.Rev && buf.RunsComplete)
                     return;
-                float debugStarted = _window.ScrollDebugTimer();
+                float debugStarted = _panel.ScrollDebugTimer();
                 buf.Runs = _runCache.Parse(buf, TerminalTheme.Rev, TerminalFont.Rev,
                                            out int hits, out int misses);
                 buf.RunsRev = TerminalTheme.Rev;
                 buf.RunsComplete = true;
-                _window.ScrollDebugParse(debugStarted, hits, misses);
+                _panel.ScrollDebugParse(debugStarted, hits, misses);
             }
 
             public void DrawSelection(Rect body, ScreenBuf buf, float shift)
             {
-                if (Event.current.type != EventType.Repaint || !_window._hasSel) return;
+                if (Event.current.type != EventType.Repaint || !_panel._hasSel) return;
                 EnsureRuns(buf);
-                TerminalWindow.SyncSnap();
+                _panel.SyncSnap();
 
-                float cw = TerminalWindow.DisplayCellW(), ch = TerminalFont.CellH;
-                _window.OrderedSel(out var a, out var b);
+                float cw = _panel.DisplayCellW(), ch = TerminalFont.CellH;
+                _panel.OrderedSel(out var a, out var b);
                 int rows = buf.Runs.Length;
 
                 for (int row = Mathf.Max(0, a.y); row <= Mathf.Min(rows - 1, b.y); row++)
@@ -54,10 +54,10 @@ namespace SlopWorld
                     if (y > body.yMax) break;
                     if (endCol <= startCol) continue;
 
-                    float l = TerminalWindow.SnapX(body.x + startCol * cw);
-                    float r = TerminalWindow.SnapX(body.x + endCol * cw);
-                    float t = TerminalWindow.SnapY(y);
-                    float bot = TerminalWindow.SnapY(body.y + shift + (row + 1) * ch);
+                    float l = _panel.SnapX(body.x + startCol * cw);
+                    float r = _panel.SnapX(body.x + endCol * cw);
+                    float t = _panel.SnapY(y);
+                    float bot = _panel.SnapY(body.y + shift + (row + 1) * ch);
                     if (bot <= body.y || t >= body.yMax) continue;
                     t = Mathf.Max(t, body.y);
                     bot = Mathf.Min(bot, body.yMax);
@@ -72,7 +72,7 @@ namespace SlopWorld
             public void PaintRows(Rect body, ScreenBuf buf, float cw, float ch, int[] rows,
                                   float yShift = 0f)
             {
-                float debugStarted = _window.ScrollDebugTimer();
+                float debugStarted = _panel.ScrollDebugTimer();
                 var style = TerminalFont.Style;
 
                 if (rows == null)
@@ -87,14 +87,14 @@ namespace SlopWorld
                         if (row < 0 || row >= buf.Runs.Length) continue;
                         float y = body.y + yShift + row * ch;
                         if (y + ch < body.y || y > body.yMax) continue;
-                        Widgets.DrawBoxSolid(new Rect(body.x, TerminalWindow.SnapY(y), body.width,
-                                                       TerminalWindow.SnapY(y + ch) - TerminalWindow.SnapY(y)),
+                        Widgets.DrawBoxSolid(new Rect(body.x, _panel.SnapY(y), body.width,
+                                                       _panel.SnapY(y + ch) - _panel.SnapY(y)),
                                              SolidTerminalBackground);
                         PaintRow(body, buf.Runs[row], row, cw, ch, yShift, style, body.y);
                     }
                 }
 
-                _window.ScrollDebugPaint(debugStarted);
+                _panel.ScrollDebugPaint(debugStarted);
             }
 
             public void DrawScrollLock(Rect body)
@@ -118,15 +118,15 @@ namespace SlopWorld
 
             public void DrawHistoryBar(Rect body, bool historyInput)
             {
-                if (!historyInput || !_window.HistoryBarAvailable() ||
+                if (!historyInput || !_panel.HistoryBarAvailable() ||
                     Event.current.type != EventType.Repaint)
                     return;
 
-                _window.HistoryBarGeometry(body, out var hit, out var track, out var thumb);
+                _panel.HistoryBarGeometry(body, out var hit, out var track, out var thumb);
                 var rail = new Rect(track.x + 1f, track.y, 1f, track.height);
                 Widgets.DrawBoxSolid(rail, UiWidgets.ScrollTrough);
                 bool over = hit.Contains(Event.current.mousePosition);
-                Widgets.DrawBoxSolid(thumb, _window._historyBarDragging
+                Widgets.DrawBoxSolid(thumb, _panel._historyBarDragging
                     ? UiWidgets.ScrollThumbHeld
                     : over ? UiWidgets.ScrollThumbHover : UiWidgets.ScrollThumb);
             }
@@ -137,27 +137,27 @@ namespace SlopWorld
                 float y = body.y + yShift + row * ch;
                 if (y + ch < clipTop || y > body.yMax) return;
 
-                float bgTop = TerminalWindow.SnapY(y);
-                float bgBot = TerminalWindow.SnapY(y + ch);
+                float bgTop = _panel.SnapY(y);
+                float bgBot = _panel.SnapY(y + ch);
                 foreach (var run in runs)
                 {
                     float x = body.x + run.Col * cw;
                     if (run.HasBg)
                     {
-                        float bgL = TerminalWindow.SnapX(x);
-                        float bgR = TerminalWindow.SnapX(body.x + (run.Col + run.Text.Length) * cw);
+                        float bgL = _panel.SnapX(x);
+                        float bgR = _panel.SnapX(body.x + (run.Col + run.Text.Length) * cw);
                         Widgets.DrawBoxSolid(new Rect(bgL, bgTop, bgR - bgL, bgBot - bgTop), run.Bg);
                     }
 
                     style.normal.textColor = run.Fg;
-                    TerminalWindow.DrawRun(run.Text, x, y, cw, ch, style);
+                    TerminalPanel.DrawRun(run.Text, x, y, cw, ch, style);
                     if (run.Url != null)
                     {
                         var underline = run.Fg;
                         underline.a *= 0.5f;
                         Widgets.DrawBoxSolid(new Rect(
-                            TerminalWindow.SnapX(x), bgBot - 1f,
-                            TerminalWindow.SnapX(body.x + (run.Col + run.Text.Length) * cw) - TerminalWindow.SnapX(x),
+                            _panel.SnapX(x), bgBot - 1f,
+                            _panel.SnapX(body.x + (run.Col + run.Text.Length) * cw) - _panel.SnapX(x),
                             1f), underline);
                     }
                 }

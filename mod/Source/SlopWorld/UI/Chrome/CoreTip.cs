@@ -147,7 +147,7 @@ namespace SlopWorld
         }
 
         // The status-bar button resolves the core cell, anchors the hint to that cell and
-        // places the bubble at the pointer. Map drawing covers the map; TerminalWindow.DrawHint
+        // places the bubble at the pointer. Map drawing covers the map; TerminalWindow
         // repeats it over an opaque pane.
         public static void OpenMenu()
         {

@@ -4,7 +4,7 @@ using Verse;
 namespace SlopWorld
 {
     // Terminal pane render-texture cache and cached-frame blitting.
-    public partial class TerminalWindow
+    sealed partial class TerminalPanel
     {
         // ------------------------------------------------------------- pane cache
 
@@ -215,7 +215,7 @@ namespace SlopWorld
         // Fractional history needs one row below the normal viewport. Put the baked rows one
         // cell above the pane so that this overscan row remains inside the screen-sized cache.
         // The source rect is translated back when it is drawn into the pane.
-        static float CacheLead(Rect body, float ch)
+        float CacheLead(Rect body, float ch)
         {
             if (ch <= 0.01f) return 0f;
             float top = body.y + _snapOy / _snapSy;
