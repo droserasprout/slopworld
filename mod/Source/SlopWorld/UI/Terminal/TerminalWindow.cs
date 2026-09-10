@@ -114,7 +114,10 @@ namespace SlopWorld
             // to its replacement using bounds computed for the old panel.
             if (!ReferenceEquals(active, _panels.Active)) return false;
             _panels.Arrange(new UiLayoutRect(body.x, body.y, body.width, body.height));
-            active.Draw(body);
+            if (TerminalVisible || active is OptionsView) active.Draw(body);
+            else
+                using (new FieldFocusScope(_fieldLifetime, input && !ModOptions.KeyboardCaptureActive))
+                    active.Draw(body);
             return TerminalVisible && _terminal.DrewScreen;
         }
 

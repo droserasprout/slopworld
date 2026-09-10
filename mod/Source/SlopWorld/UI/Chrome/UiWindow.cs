@@ -60,6 +60,8 @@ namespace SlopWorld
         public override void DoWindowContents(Rect rect)
         {
             using (FieldLifetimeScope.Push(_fieldLifetime))
+            using (new FieldFocusScope(_fieldLifetime,
+                Find.WindowStack == null || Find.WindowStack.GetsInput(this)))
             {
                 // RimWorld's Accept binding normally covers Return, but keypad Enter is not
                 // present in every platform's binding. Accepted dialogs should treat both keys

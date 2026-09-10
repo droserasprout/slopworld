@@ -134,6 +134,7 @@ namespace SlopWorld
             public readonly bool Synthetic;
 
             IOptionPage _page;
+            FieldLifetime _fields = new FieldLifetime();
 
             public Tab(PageId key, OptionCategoryDef def, Func<Texture2D> icon,
                 Func<IOptionPage> pageFactory, Tab parent, bool synthetic)
@@ -161,12 +162,24 @@ namespace SlopWorld
                 }
             }
 
-            public void Draw(Rect rect) => Page?.Draw(rect);
+            public void Draw(Rect rect)
+            {
+                var page = Page;
+                if (page == null) return;
+                var window = Find.WindowStack?.currentlyDrawnWindow;
+                bool input = window == null || Find.WindowStack.GetsInput(window);
+                bool capturing = page is KeyBindingsPage keys && keys.Listening;
+                using (FieldLifetimeScope.Push(_fields))
+                using (new FieldFocusScope(_fields, input && !capturing))
+                    page.Draw(rect);
+            }
 
             public T PageOf<T>() where T : class, IOptionPage => Page as T;
 
             public void Teardown()
             {
+                _fields.Cancel();
+                _fields = new FieldLifetime();
                 if (_page is IDisposable disposable) disposable.Dispose();
                 _page = null;
             }

@@ -8,6 +8,7 @@ namespace SlopWorld
     public sealed class FieldLifetime
     {
         bool _alive = true;
+        internal readonly FieldFocusScope.Memory Focus = new FieldFocusScope.Memory();
 
         public bool Alive => _alive;
 

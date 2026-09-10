@@ -32,9 +32,10 @@ negotiation uses assigned panel bounds, with no static last-used terminal size. 
 use the current host slot, or the workspace content slot when no host exists.
 
 Panel focus follows host input eligibility. Losing terminal focus releases forwarded mouse
-gestures and queued input. Field focus still uses IMGUI; explicit Tab/Shift+Tab traversal,
-field-focus restoration and inter-panel keyboard navigation remain a separate slice. Tab
-inside a terminal belongs to its application. Multiple visible terminals still require
+gestures and queued input. [Field focus](ui-focus.md) restores focus around IMGUI fields.
+Tab/Shift+Tab traversal is deferred, along with button/selector traversal and inter-panel
+keyboard navigation. Tab inside a terminal belongs to its application.
+Multiple visible terminals still require
 extracting rendering/history services and choosing how duplicate session views negotiate size.
 
 ## Layout and rendering
