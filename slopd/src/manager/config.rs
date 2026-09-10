@@ -202,7 +202,6 @@ impl Manager {
     }
 
     async fn finish_config_change(self: &Arc<Self>, effects: ConfigEffects) {
-        self.update_endpoint(&effects.endpoint_token).await;
         if effects.reconcile {
             self.sync_from_config().await;
         }
@@ -247,9 +246,12 @@ impl Manager {
         let effects = self
             .publish_config(change, ConfigOrigin::StructuredMutation)
             .await;
+        // Keep the descriptor update in the same serialized section as the config write. If two
+        // token changes finish out of order after releasing `persist`, the mod can be handed a
+        // token that no longer matches the published config.
+        self.update_endpoint(&effects.endpoint_token).await;
         drop(persist);
         debug_assert!(!effects.reconcile);
-        self.update_endpoint(&effects.endpoint_token).await;
         Ok(result)
     }
 
@@ -292,6 +294,7 @@ impl Manager {
         let effects = self
             .publish_config(change, ConfigOrigin::DiskReload { mtime: disk })
             .await;
+        self.update_endpoint(&effects.endpoint_token).await;
         drop(persist);
         self.finish_config_change(effects).await;
         true
@@ -541,6 +544,7 @@ impl Manager {
         let text = toml::to_string_pretty(&document)?;
         self.persist_cfg_text(&text).await?;
         let effects = self.publish_config(change, ConfigOrigin::JsonPatch).await;
+        self.update_endpoint(&effects.endpoint_token).await;
         drop(persist);
         self.finish_config_change(effects).await;
         Ok(())
@@ -555,6 +559,7 @@ impl Manager {
         let effects = self
             .publish_config(change, ConfigOrigin::RawReplacement)
             .await;
+        self.update_endpoint(&effects.endpoint_token).await;
         drop(persist);
         self.finish_config_change(effects).await;
         Ok(())
