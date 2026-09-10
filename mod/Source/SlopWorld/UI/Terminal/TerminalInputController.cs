@@ -21,6 +21,7 @@ namespace SlopWorld
             {
                 { KeyCode.Escape, HandleEscapeKey },
                 { KeyCode.Return, HandleReturnKey },
+                { KeyCode.KeypadEnter, HandleReturnKey },
                 { KeyCode.PageUp, HandleHistoryKey },
                 { KeyCode.PageDown, HandleHistoryKey },
             };
@@ -132,8 +133,8 @@ namespace SlopWorld
             if (e.type != EventType.KeyDown) return;
 
             // A pending Keyboard-page binding owns the next key, including keys normally
-            // claimed by the sidebar or terminal chrome. Escape remains the chrome escape.
-            if (ModOptions.KeyboardCaptureActive && e.keyCode != KeyCode.Escape) return;
+            // claimed by the sidebar or terminal chrome. Escape cancels capture in the page.
+            if (ModOptions.KeyboardCaptureActive) return;
 
             if (HandleFunctionKey(e)) { e.Use(); return; }
 

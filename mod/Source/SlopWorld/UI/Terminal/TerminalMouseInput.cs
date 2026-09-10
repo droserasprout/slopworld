@@ -215,7 +215,7 @@ namespace SlopWorld
                 case KeyCode.Return:
                 case KeyCode.KeypadEnter: return "Enter";
                 case KeyCode.Escape: return "Escape";
-                case KeyCode.Backspace: return "BSpace";
+                case KeyCode.Backspace: return mod + "BSpace";
                 case KeyCode.Tab: return e.shift ? "BTab" : "Tab";
                 case KeyCode.UpArrow: return mod + "Up";
                 case KeyCode.DownArrow: return mod + "Down";
