@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using RimWorld;
 using UnityEngine;
@@ -8,18 +9,15 @@ namespace SlopWorld
     // Title policies and models; see notes/agent-titles.md.
     public class SummariesPage : DaemonConfigPage
     {
-        enum SummaryTarget
+        static readonly (string Label, Func<DaemonConfig, string> GetPolicy,
+            Action<DaemonConfig, string> SetPolicy, bool AllowsAlways)[] Targets =
         {
-            Codex,
-            Pi,
-            Tasks,
-        }
-
-        static readonly SummaryTarget[] Targets =
-        {
-            SummaryTarget.Codex,
-            SummaryTarget.Pi,
-            SummaryTarget.Tasks,
+            ("Codex sessions", config => config.AgentTitles,
+                (config, policy) => config.AgentTitles = policy, true),
+            ("Pi sessions", config => config.PiTitles,
+                (config, policy) => config.PiTitles = policy, true),
+            ("Tasks in sidebar", config => config.TaskSummaries,
+                (config, policy) => config.TaskSummaries = policy, false),
         };
 
         string _minPromptChars;
@@ -38,8 +36,8 @@ namespace SlopWorld
             {
                 foreach (var target in Targets)
                 {
-                    UiLayout.Note(l, TargetLabel(target));
-                    if (UiLayout.Button(l, "Summarize: " + PolicyLabel(Policy(target))))
+                    UiLayout.Note(l, target.Label);
+                    if (UiLayout.Button(l, "Summarize: " + PolicyLabel(target.GetPolicy(_cfg))))
                         OpenPolicyMenu(target);
                 }
             }
@@ -83,34 +81,15 @@ namespace SlopWorld
             };
         }
 
-        void DrawPolicyRow(SummaryTarget target, Rect row, Rect[] cells)
+        void DrawPolicyRow((string Label, Func<DaemonConfig, string> GetPolicy,
+            Action<DaemonConfig, string> SetPolicy, bool AllowsAlways) target,
+            Rect row, Rect[] cells)
         {
-            UiText.RowLabel(cells[0], TargetLabel(target));
+            UiText.RowLabel(cells[0], target.Label);
             var button = cells[1].ContractedBy(UiTheme.GapXS, UiTheme.GapXS);
-            if (UiButtons.Button(button, PolicyLabel(Policy(target))))
+            if (UiButtons.Button(button, PolicyLabel(target.GetPolicy(_cfg))))
                 OpenPolicyMenu(target);
         }
-
-        static string TargetLabel(SummaryTarget target)
-        {
-            switch (target)
-            {
-                case SummaryTarget.Codex: return "Codex sessions";
-                case SummaryTarget.Pi: return "Pi sessions";
-                default: return "Tasks in sidebar";
-            }
-        }
-
-        string Policy(SummaryTarget target)
-        {
-            switch (target)
-            {
-                case SummaryTarget.Codex: return _cfg.AgentTitles;
-                case SummaryTarget.Pi: return _cfg.PiTitles;
-                default: return _cfg.TaskSummaries;
-            }
-        }
-
 
         public static string PolicyLabel(string policy)
         {
@@ -122,26 +101,23 @@ namespace SlopWorld
             }
         }
 
-        void OpenPolicyMenu(SummaryTarget target)
+        void OpenPolicyMenu((string Label, Func<DaemonConfig, string> GetPolicy,
+            Action<DaemonConfig, string> SetPolicy, bool AllowsAlways) target)
         {
             var options = new List<FloatMenuOption>
             {
                 new FloatMenuOption("Never", () => SetPolicy(target, "never")),
                 new FloatMenuOption("Once", () => SetPolicy(target, "once")),
             };
-            if (target != SummaryTarget.Tasks)
+            if (target.AllowsAlways)
                 options.Add(new FloatMenuOption("Always", () => SetPolicy(target, "always")));
             Find.WindowStack.Add(new UiMenu(options));
         }
 
-        void SetPolicy(SummaryTarget target, string policy)
+        void SetPolicy((string Label, Func<DaemonConfig, string> GetPolicy,
+            Action<DaemonConfig, string> SetPolicy, bool AllowsAlways) target, string policy)
         {
-            switch (target)
-            {
-                case SummaryTarget.Codex: _cfg.AgentTitles = policy; break;
-                case SummaryTarget.Pi: _cfg.PiTitles = policy; break;
-                default: _cfg.TaskSummaries = policy; break;
-            }
+            target.SetPolicy(_cfg, policy);
         }
 
         protected override void BeforeSave()

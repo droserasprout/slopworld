@@ -15,12 +15,9 @@ namespace SlopWorld
         enum Tab { Editor, Preview }
 
         readonly DaemonConfigState _configState = new DaemonConfigState();
-        string _previewError;
-        bool _previewBusy;
+        readonly AsyncLoadState<string> _previewLoad = new AsyncLoadState<string>();
         bool _previewSample;
-        string _previewText;
         string _previewProject;
-        int _previewRequest;
         Tab _tab;
 
         DaemonConfig _cfg => _configState.Config;
@@ -155,20 +152,20 @@ namespace SlopWorld
                 PickPreviewProject();
             y += UiTheme.BtnH + UiTheme.GapS;
 
-            if (_previewBusy)
+            if (_previewLoad.Loading)
             {
                 UiText.StatusLabel(new Rect(r.x, y, r.width, UiTheme.LineH),
                     "Rendering preview...", UiTheme.Dim);
                 return;
             }
-            if (_previewError != null)
+            if (_previewLoad.Error != null)
             {
-                float h = UiText.StatusLabelHeight(_previewError, r.width);
-                UiText.StatusLabel(new Rect(r.x, y, r.width, h), _previewError,
+                float h = UiText.StatusLabelHeight(_previewLoad.Error, r.width);
+                UiText.StatusLabel(new Rect(r.x, y, r.width, h), _previewLoad.Error,
                     UiTheme.Bad);
                 return;
             }
-            if (_previewText == null)
+            if (!_previewLoad.HasValue)
             {
                 const string note = "Choose Preview or Refresh to render the document.";
                 float h = UiText.StatusLabelHeight(note, r.width);
@@ -220,29 +217,15 @@ namespace SlopWorld
             if (!_loaded || _cfg == null || !_cfg.ExperimentalInstructions) return;
 
             string project = PreviewProjectName();
-            int request = ++_previewRequest;
-            _previewBusy = true;
-            _previewError = null;
             string body = "{" +
                 $"\"project\":{JVal.Q(project)}," +
                 $"\"template\":{JVal.Q(_cfg.InstructionsTemplate)}," +
                 $"\"mount_path\":{JVal.Q(_cfg.InstructionsMountPath)}" +
                 "}";
-            DaemonClient.Post(WireContract.Routes.InstructionsPreview, body,
-                j =>
-                {
-                    if (request != _previewRequest) return;
-                    _previewBusy = false;
-                    _previewText = j["text"].AsString();
-                    _preview.SetInlineText(_previewText);
-                },
-                msg =>
-                {
-                    if (request != _previewRequest) return;
-                    _previewBusy = false;
-                    _previewError = msg;
-                    _previewText = null;
-                });
+            _previewLoad.Load((ok, fail) => DaemonClient.Post(
+                WireContract.Routes.InstructionsPreview, body,
+                j => ok(j["text"].AsString()), fail),
+                text => _preview.SetInlineText(text));
         }
 
         void DoFooter(Rect bar)
@@ -259,7 +242,7 @@ namespace SlopWorld
                 RequestPreview();
             if (foot.Right("Save", UiTheme.Btn.Primary, _loaded)) Save();
 
-            string error = _error ?? (_tab == Tab.Preview ? _previewError : null);
+            string error = _error ?? (_tab == Tab.Preview ? _previewLoad.Error : null);
             if (error != null && _loaded)
             {
                 GUI.color = UiTheme.Bad;
@@ -290,7 +273,7 @@ namespace SlopWorld
 
         public void Dispose()
         {
-            ++_previewRequest;
+            _previewLoad.Invalidate();
             _preview.Closed();
         }
     }
