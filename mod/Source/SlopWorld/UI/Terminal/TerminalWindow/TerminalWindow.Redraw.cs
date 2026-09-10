@@ -98,7 +98,7 @@ namespace SlopWorld
             }
         }
 
-        Color Background => _content == null ? SolidTerminalBackground : UiWidgets.WindowBg;
+        Color Background => TerminalVisible ? SolidTerminalBackground : UiWidgets.WindowBg;
 
         // Background faces overlap their boundary by one screen pixel. The terminal cache
         // and IMGUI clipping can each round an edge in the opposite direction, and a face
@@ -115,7 +115,7 @@ namespace SlopWorld
 
             // Both of these are the pane's business with its own session, and a view in the
             // body means there is no pane being measured or scrolled.
-            if (_name == null || _content != null) return;
+            if (_name == null || !TerminalVisible) return;
 
             float now = Time.realtimeSinceStartup;
             if (_scrollPending && now >= _nextScrollSend)

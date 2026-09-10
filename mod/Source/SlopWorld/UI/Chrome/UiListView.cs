@@ -4,11 +4,11 @@ using Verse;
 
 namespace SlopWorld
 {
-    public abstract class UiListView<T> : IContentView
+    public abstract class UiListView<T> : ContentView
     {
         readonly SmoothScroll _scroll = new SmoothScroll();
 
-        public abstract string Title { get; }
+        public abstract override string Title { get; }
 
         protected abstract float RowH { get; }
 
@@ -20,11 +20,11 @@ namespace SlopWorld
 
         protected abstract void DoFooter(Rect bar, SessionHub hub);
 
-        public virtual void Opened() { }
+        public override void Opened() { }
 
-        public virtual void Closed() { }
+        public override void Closed() { }
 
-        public void Draw(Rect rect)
+        public override void Draw(Rect rect)
         {
             var hub = SessionHub.Instance;
 

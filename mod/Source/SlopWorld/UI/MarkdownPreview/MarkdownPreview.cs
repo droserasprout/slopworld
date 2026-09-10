@@ -7,7 +7,7 @@ namespace SlopWorld
 {
     // Native Markdown content view. Parsing, resource loading, layout, rendering, scrolling,
     // and selection are separate collaborators so this class only coordinates their lifecycle.
-    public sealed class MarkdownPreview : IContentView
+    public sealed class MarkdownPreview : ContentView
     {
         readonly string _project;
         readonly string _path;
@@ -60,7 +60,7 @@ namespace SlopWorld
 
         public string Path => _path;
         public string Project => _project;
-        public string Title => "Preview · " + _name;
+        public override string Title => "Preview · " + _name;
 
         public static void Open(string project, string path, string name) =>
             TerminalWindow.OpenContent(new MarkdownPreview(project, path, name));
@@ -74,7 +74,7 @@ namespace SlopWorld
             Find.WindowStack?.WindowOfType<TerminalWindow>()?.Leave();
         }
 
-        public void Opened()
+        public override void Opened()
         {
             BeginLoad();
             int request = ++_request;
@@ -106,7 +106,7 @@ namespace SlopWorld
             ApplyText(_inlineText, ++_request);
         }
 
-        public void Closed()
+        public override void Closed()
         {
             ++_request;
             _scroll.Reset();
@@ -116,7 +116,7 @@ namespace SlopWorld
             _renderer.ClearLinks();
         }
 
-        public void Draw(Rect body)
+        public override void Draw(Rect body)
         {
             if (_loading || _blocks == null)
             {

@@ -12,7 +12,7 @@ namespace SlopWorld
     // so this stays about rendering: search, selection, per-field copy, and a detail panel for
     // the long original metadata that a table row can only hint at. The file remains editable
     // through the button below; the table is read-only.
-    public sealed class JukeboxHistoryView : IContentView
+    public sealed class JukeboxHistoryView : ContentView
     {
         struct Columns
         {
@@ -35,18 +35,18 @@ namespace SlopWorld
         string _query = "";
         JukeboxHistory.Entry _selected;
 
-        public string Title => "Jukebox History";
+        public override string Title => "Jukebox History";
 
         public static void Open()
         {
             TerminalWindow.ToggleContent(() => new JukeboxHistoryView());
         }
 
-        public void Opened() => Reload();
+        public override void Opened() => Reload();
 
-        public void Closed() { }
+        public override void Closed() { }
 
-        public void Draw(Rect body)
+        public override void Draw(Rect body)
         {
             using (WidgetState.Save())
             {

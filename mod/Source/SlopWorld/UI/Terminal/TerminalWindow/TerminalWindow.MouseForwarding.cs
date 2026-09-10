@@ -11,6 +11,22 @@ namespace SlopWorld
         int _fwdButton;
         Vector2Int _fwdCell;
 
+        internal void ReleasePanelInput()
+        {
+            Flush();
+            if (_mouseFwd && _name != null)
+                SessionHub.Instance.Terminal.SendMouse(_name, "release", _fwdButton,
+                    _fwdCell.x, _fwdCell.y);
+            _mouseFwd = false;
+            _dragging = false;
+            _wordDragging = false;
+            _lineDragging = false;
+            _selectionEdgeDirection = 0;
+            ReleaseSelection();
+            if (_historyBarDragging) GUIUtility.hotControl = 0;
+            _historyBarDragging = false;
+        }
+
         internal bool OwnsForwardedMouse(Event e) => _mouseFwd && e.button == _fwdButton &&
             (MouseType(e) == EventType.MouseDrag || MouseType(e) == EventType.MouseUp);
 

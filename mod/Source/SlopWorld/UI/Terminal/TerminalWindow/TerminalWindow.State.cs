@@ -8,7 +8,6 @@ namespace SlopWorld
     {
         public string Name;
         public bool ShowStopped;
-        public IContentView Content;
         public readonly StringBuilder Literal = new StringBuilder();
         public int SemicolonFrame = -1;
         public int Cols, Rows;
@@ -18,6 +17,5 @@ namespace SlopWorld
         public int DroppedKeys;
         public readonly TerminalSelectionState Selection = new TerminalSelectionState();
 
-        public static int CachedCols, CachedRows, CachedLayoutRevision;
     }
 }

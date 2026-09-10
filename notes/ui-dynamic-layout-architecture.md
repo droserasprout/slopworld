@@ -1,8 +1,8 @@
 # Dynamic UI architecture
 
 Workspace geometry, left/right navigation, density presets, the pure row/column
-composition layer, and the Appearance migration are implemented. Panel ownership,
-splits, and the broader style architecture below remain proposed.
+composition layer, Settings migration, and single-slot panel ownership are implemented.
+Splits and the broader style architecture below remain proposed.
 
 `SandboxPage` now applies the same pattern to a master/detail view. A small pure policy
 keeps its list and editor side by side when their minimum widths fit, stacks them when
@@ -24,12 +24,18 @@ A workspace shell owns navigation, panel placement, active content, and focus. A
 `WorkspaceLayout` computes one geometry snapshot consumed by drawing, hit testing,
 terminal sizing, and Harmony integration. Placement policy is separate from rendering.
 
-Evolve `IContentView` into a panel contract with stable identity, size constraints,
-visibility, and focus lifecycle. Adapt terminals to the same contract; today
-`TerminalWindow` hosts the shell and uses null content to select terminal rendering.
-Keep panel instances, navigation history, selection, and scroll state independent of
-placement. Multiple terminals will require replacing shared fullscreen size assumptions
-with per-panel geometry and an explicit policy for the same session shown twice.
+`IContentView` extends `IWorkspacePanel`: instance identity, minimum size hints, assigned
+bounds, visibility and focus lifecycle. `WorkspacePanelOwner` owns the active content and
+retains a backing terminal without closing it when covered. `TerminalPanel` owns session
+and input state; the window still supplies terminal rendering/history services. Resize
+negotiation uses assigned panel bounds, with no static last-used terminal size. New sessions
+use the current host slot, or the workspace content slot when no host exists.
+
+Panel focus follows host input eligibility. Losing terminal focus releases forwarded mouse
+gestures and queued input. Field focus still uses IMGUI; explicit Tab/Shift+Tab traversal,
+field-focus restoration and inter-panel keyboard navigation remain a separate slice. Tab
+inside a terminal belongs to its application. Multiple visible terminals still require
+extracting rendering/history services and choosing how duplicate session views negotiate size.
 
 ## Layout and rendering
 

@@ -90,6 +90,8 @@ namespace SlopWorld.Tests
             tests.Add(("Sandbox layout: master/detail geometry", SandboxLayoutTests.Placement));
             tests.Add(("Settings layout: bounded page and footer", SettingsLayoutTests.Bounds));
             tests.Add(("Settings layout: frame-stable content height", SettingsLayoutTests.Measurement));
+            tests.Add(("Workspace panels: ownership and focus lifecycle", WorkspacePanelTests.Lifecycle));
+            tests.Add(("Terminal panels: independent geometry", WorkspacePanelTests.Geometry));
             int failed = 0;
 
             foreach (var test in tests)

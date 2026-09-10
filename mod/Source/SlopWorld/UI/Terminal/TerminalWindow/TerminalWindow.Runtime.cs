@@ -6,11 +6,12 @@ namespace SlopWorld
     // history, scrolling, sizing, and redraw implementations live in focused partials.
     public partial class TerminalWindow
     {
-        // Not readonly: the strip switches sessions by pointing the window at a new one,
-        // which keeps the terminal's scroll and selection instead of rebuilding it. Null is
-        // a window with no pane behind it at all - the options menu opened from the map, and
-        // nothing to go back to when it is left.
-        readonly TerminalWindowState _state = new TerminalWindowState();
+        // Panel identity and placement survive content overlays and session renames.
+        // Session/input state belongs to the terminal; workspace ownership belongs to the host.
+        readonly TerminalPanel _terminal;
+        readonly WorkspacePanelOwner<IContentView> _panels = new WorkspacePanelOwner<IContentView>();
+        TerminalWindowState _state => _terminal.State;
+        bool TerminalVisible => ReferenceEquals(_panels.Active, _terminal);
 
         string _name
         {
@@ -27,13 +28,8 @@ namespace SlopWorld
             set => _state.ShowStopped = value;
         }
 
-        // What is in the body instead of the pane, or null for the pane itself. See
-        // IContentView: the window is the chrome, and this is what the chrome is showing.
-        IContentView _content
-        {
-            get => _state.Content;
-            set => _state.Content = value;
-        }
+        // Compatibility facade for callers that distinguish content from the backing terminal.
+        IContentView _content => _panels.Content;
 
         internal StringBuilder Literal => _state.Literal;
         StringBuilder _literal => _state.Literal;
