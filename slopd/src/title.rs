@@ -128,16 +128,7 @@ impl SummaryCache {
             .entries
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
-        if let Some(at) = entries.iter().position(|entry| entry.key == key) {
-            entries.remove(at);
-        }
-        entries.push(CacheEntry {
-            key,
-            title: title.to_string(),
-        });
-        if entries.len() > MAX_CACHE_ENTRIES {
-            entries.remove(0);
-        }
+        insert_entry(&mut entries, key, title);
         self.save_entries(&entries, session, title)
     }
 
@@ -156,16 +147,7 @@ impl SummaryCache {
             .entries
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
-        if let Some(at) = entries.iter().position(|entry| entry.key == key) {
-            entries.remove(at);
-        }
-        entries.push(CacheEntry {
-            key,
-            title: title.to_string(),
-        });
-        if entries.len() > MAX_CACHE_ENTRIES {
-            entries.remove(0);
-        }
+        insert_entry(&mut entries, key, title);
         let latest = self
             .latest
             .lock()
@@ -210,6 +192,19 @@ impl SummaryCache {
             return Ok(());
         }
         save_cache(&self.path, &entries, &latest)
+    }
+}
+
+fn insert_entry(entries: &mut Vec<CacheEntry>, key: String, title: &str) {
+    if let Some(at) = entries.iter().position(|entry| entry.key == key) {
+        entries.remove(at);
+    }
+    entries.push(CacheEntry {
+        key,
+        title: title.to_string(),
+    });
+    if entries.len() > MAX_CACHE_ENTRIES {
+        entries.remove(0);
     }
 }
 
@@ -420,7 +415,7 @@ fn clean(raw: &str) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{clean, message_content, summarize_with_key, SummaryCache};
+    use super::{clean, message_content, summarize_with_key, SummaryCache, MAX_CACHE_ENTRIES};
     use serde_json::json;
     use std::fs;
     use std::io::{Read, Write};
@@ -595,6 +590,50 @@ mod tests {
                 .as_deref(),
             Some("Fix parser")
         );
+        let _ = fs::remove_file(path);
+    }
+
+    #[test]
+    fn task_cache_insert_preserves_latest_and_evicts_oldest_entry() {
+        let path = std::env::temp_dir().join(format!(
+            "slopd-title-task-cache-{}.toml",
+            std::process::id()
+        ));
+        let _ = fs::remove_file(&path);
+
+        let cache = SummaryCache::load(path.clone());
+        cache
+            .insert(
+                "codex",
+                "session prompt",
+                "Summarise in six words.",
+                "test/model",
+                "Session title",
+            )
+            .unwrap();
+        for index in 0..=MAX_CACHE_ENTRIES {
+            let prompt = format!("task-{index}");
+            let title = format!("Task {index}");
+            cache
+                .insert_cached(&prompt, "Summarise in six words.", "test/model", &title)
+                .unwrap();
+        }
+
+        assert_eq!(cache.latest("codex").as_deref(), Some("Session title"));
+        assert!(cache
+            .get("task-0", "Summarise in six words.", "test/model")
+            .is_none());
+        assert_eq!(
+            cache
+                .get(
+                    &format!("task-{MAX_CACHE_ENTRIES}"),
+                    "Summarise in six words.",
+                    "test/model"
+                )
+                .as_deref(),
+            Some("Task 1024")
+        );
+
         let _ = fs::remove_file(path);
     }
 }

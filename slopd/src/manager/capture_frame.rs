@@ -16,9 +16,7 @@ impl Manager {
                 _ => return,
             }
         }
-        self.emit(Event::Sessions {
-            sessions: self.views().await,
-        });
+        self.announce_sessions().await;
     }
 
     pub(crate) async fn render_and_broadcast(&self, name: &str, emu: &Mutex<SessionEmu>) {
@@ -166,9 +164,7 @@ impl Manager {
             self.emit(Event::Screen { screen: view });
         }
         if dirty_list {
-            self.emit(Event::Sessions {
-                sessions: self.views().await,
-            });
+            self.announce_sessions().await;
         }
     }
 
