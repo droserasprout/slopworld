@@ -86,7 +86,7 @@ namespace SlopWorld
                 // F12 opened the terminal: drop the file viewer and show the agents
                 // view in the sidebar, so the portrait the terminal is looking at is
                 // visible.
-                AgentSidebar.FocusTerminal();
+                AgentSidebar.ShowWithoutHistory(SidebarTab.Agents);
             }
         }
 

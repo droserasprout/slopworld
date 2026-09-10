@@ -215,5 +215,7 @@ namespace SlopWorld
                 default: return UiWidgets.Info;
             }
         }
+
+        public static bool FocusLocation(string id) => TaskDetailView.FocusLocation(id);
     }
 }

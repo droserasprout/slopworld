@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using UnityEngine;
 using Verse;
 
@@ -65,8 +66,28 @@ namespace SlopWorld
 
         public TaskDetailView(TaskInfo task) { _task = task; }
 
-        public static void Open(TaskInfo task) =>
+        public static void Open(TaskInfo task)
+        {
+            if (task == null) return;
+            AgentSidebar.RememberTask(task.Id);
+            Open(task, false);
+        }
+
+        internal static bool FocusLocation(string id)
+        {
+            var task = SessionHub.Instance.Tasks.FirstOrDefault(candidate =>
+                candidate != null && candidate.Id == id);
+            if (task == null) return false;
+            Open(task, false);
+            return true;
+        }
+
+        static void Open(TaskInfo task, bool remember)
+        {
+            if (task == null) return;
+            if (remember) AgentSidebar.RememberTask(task.Id);
             TerminalWindow.OpenContent(new TaskDetailView(task));
+        }
 
         public override string Title => "Task " + (_task?.Id ?? "");
 

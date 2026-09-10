@@ -9,6 +9,12 @@ namespace SlopWorld
     // View selection, project/status filtering, and view-owned refreshes.
     public static partial class AgentSidebar
     {
+        static readonly SidebarViewHistory ViewHistory = new SidebarViewHistory();
+        static bool _restoringView;
+
+        public static bool CanViewBack => ViewHistory.CanBack;
+        public static bool CanViewForward => ViewHistory.CanForward;
+
         public static void FocusTerminal() => Show(SidebarTab.Agents);
 
         public static void ShowAgents() => Show(SidebarTab.Agents);
@@ -19,7 +25,8 @@ namespace SlopWorld
         {
             if (string.IsNullOrEmpty(name) || name == TaskInfo.Host ||
                 SessionHub.Instance.Get(name) == null) return;
-            Show(SidebarTab.Agents);
+            ShowWithoutHistory(SidebarTab.Agents);
+            RememberAgent(name);
             TerminalWindow.Open(name);
         }
 
@@ -28,6 +35,79 @@ namespace SlopWorld
         public static void ShowGit() => Show(SidebarTab.Git);
         public static void ShowLibrary() => Show(SidebarTab.Library);
         public static void ShowTasks() => Show(SidebarTab.Tasks);
+        internal static void ShowTab(SidebarTab tab) => Show(tab);
+
+        // Ctrl+F1..F6 navigates to the most recent semantic target in that tab. A missing or
+        // stale target is harmless: the requested tab remains visible and its normal refresh
+        // path still runs.
+        public static bool FocusLast(SidebarTab tab)
+        {
+            if (!ViewHistory.TryLast(tab, out var location))
+            {
+                Show(tab);
+                return false;
+            }
+
+            // Visit the target itself, rather than first inserting a tab-only point. The
+            // previous visible location should be the first result of View: Back.
+            ViewHistory.Visit(location);
+            return Restore(location);
+        }
+
+        public static bool ViewBack()
+        {
+            if (!ViewHistory.Back(out var location)) return false;
+            Restore(location);
+            return true;
+        }
+
+        public static bool ViewForward()
+        {
+            if (!ViewHistory.Forward(out var location)) return false;
+            Restore(location);
+            return true;
+        }
+
+        // SessionSelectable is the central source for agent selection, including map clicks,
+        // terminal opens and tab cycling. Keep only durable agent rows here; routed viewers,
+        // workers, host shells and one-shot errands have their own view location kinds.
+        internal static void RememberAgent(string name)
+        {
+            if (_restoringView || string.IsNullOrEmpty(name)) return;
+            var info = SessionHub.Instance.Get(name);
+            if (info == null || info.Host || info.Worker || info.Ephemeral || IsRouted(info)) return;
+            ViewHistory.Visit(SidebarViewLocation.Agent(name));
+        }
+
+        internal static void RememberFile(string project, string path)
+        {
+            if (_restoringView || string.IsNullOrEmpty(path)) return;
+            ViewHistory.Visit(SidebarViewLocation.File(project, path));
+        }
+
+        internal static void RememberSearch(string project, string path, int line)
+        {
+            if (_restoringView || string.IsNullOrEmpty(path)) return;
+            ViewHistory.Visit(SidebarViewLocation.Search(project, path, line));
+        }
+
+        internal static void RememberGit(string project, string path)
+        {
+            if (_restoringView || string.IsNullOrEmpty(path)) return;
+            ViewHistory.Visit(SidebarViewLocation.Git(project, path));
+        }
+
+        internal static void RememberTask(string id)
+        {
+            if (_restoringView || string.IsNullOrEmpty(id)) return;
+            ViewHistory.Visit(SidebarViewLocation.Task(id));
+        }
+
+        internal static void RememberLibrary(string name)
+        {
+            if (_restoringView || string.IsNullOrEmpty(name)) return;
+            ViewHistory.Visit(SidebarViewLocation.Library(name));
+        }
 
         public static bool CanFoldCurrent => CurrentDefinition.CanFold;
         public static bool CurrentViewAllFolded => CurrentDefinition.AllFolded();
@@ -186,6 +266,12 @@ namespace SlopWorld
 
         static void Show(SidebarTab tab)
         {
+            ViewHistory.VisitTab(tab);
+            ShowWithoutHistory(tab);
+        }
+
+        internal static void ShowWithoutHistory(SidebarTab tab)
+        {
             var target = TabRegistry.For(tab);
             SidebarTabActivation.Activate(
                 CurrentDefinition, target, TabRegistry.Definitions,
@@ -195,6 +281,41 @@ namespace SlopWorld
                     Settings.S.sidebarTab = target.PersistedName;
                     Settings.S.Write();
                 });
+        }
+
+        static bool Restore(SidebarViewLocation location)
+        {
+            ShowWithoutHistory(location.Tab);
+            _restoringView = true;
+            try
+            {
+                switch (location.Kind)
+                {
+                    case SidebarViewLocationKind.Tab:
+                        return true;
+                    case SidebarViewLocationKind.Agent:
+                        if (SessionHub.Instance.Get(location.Primary) == null) return false;
+                        TerminalWindow.Open(location.Primary);
+                        return true;
+                    case SidebarViewLocationKind.File:
+                        return FilesView.FocusLocation(location.Primary, location.Secondary);
+                    case SidebarViewLocationKind.Search:
+                        return SearchView.FocusLocation(location.Primary, location.Secondary,
+                            location.Line);
+                    case SidebarViewLocationKind.Git:
+                        return GitView.FocusLocation(location.Primary, location.Secondary);
+                    case SidebarViewLocationKind.Task:
+                        return TasksView.FocusLocation(location.Primary);
+                    case SidebarViewLocationKind.Library:
+                        return LibraryView.FocusLocation(location.Primary);
+                    default:
+                        return false;
+                }
+            }
+            finally
+            {
+                _restoringView = false;
+            }
         }
 
         static RowAct RoutedAction(SessionInfo info) => RowActions.Of(info);

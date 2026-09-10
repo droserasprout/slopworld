@@ -21,6 +21,7 @@ namespace SlopWorld
             set
             {
                 _current = value;
+                AgentSidebar.RememberAgent(value);
 
                 // Map selection is authoritative each frame; clear it when another session
                 // becomes current, except while syncing from the map or when it already matches.

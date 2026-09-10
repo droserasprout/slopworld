@@ -158,6 +158,10 @@ namespace SlopWorld
 
             new CommandDef("view.refresh-sidebar", "View: Refresh Sidebar", "View",
                 _ => AgentSidebar.RefreshCurrentView()),
+            new CommandDef("view.back", "View: Back", "View",
+                _ => AgentSidebar.ViewBack(), enabled: () => AgentSidebar.CanViewBack),
+            new CommandDef("view.forward", "View: Forward", "View",
+                _ => AgentSidebar.ViewForward(), enabled: () => AgentSidebar.CanViewForward),
             new CommandDef("focus.agents", "Focus: Agents", "Focus",
                 _ => AgentSidebar.ShowAgents()),
             new CommandDef("focus.files", "Focus: Files", "Focus",

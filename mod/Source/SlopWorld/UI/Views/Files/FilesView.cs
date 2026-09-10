@@ -320,6 +320,18 @@ namespace SlopWorld
         // needed to reveal the row. No filesystem work happens until the click asks for it.
         public static bool FocusPath(string project, string path)
         {
+            return FocusPath(project, path, true);
+        }
+
+        // History restoration uses the same asynchronous reveal, but must not create a new
+        // browser entry while it is applying an existing one.
+        public static bool FocusLocation(string project, string path)
+        {
+            return FocusPath(project, path, false);
+        }
+
+        static bool FocusPath(string project, string path, bool remember)
+        {
             var info = SessionHub.Instance.Project(project);
             if (info == null || string.IsNullOrEmpty(info.Dir)) return false;
             string relative = ToProjectRelative(info.Dir, path);
@@ -329,11 +341,12 @@ namespace SlopWorld
 
             ClearFocus();
             ReleaseViewer();
+            if (remember) AgentSidebar.RememberFile(project, path);
             // A focused reveal needs the project heading open in the shared group state.
             TreeController.SetGroupCollapsed(project, false);
             if (AgentSidebar.Filtering && !AgentSidebar.Ticked(project))
                 AgentSidebar.ToggleFilter(project);
-            AgentSidebar.ShowFiles();
+            AgentSidebar.ShowWithoutHistory(SidebarTab.Files);
 
             int version = ++_focusVersion;
             Reveal(Root(project), parts, 0, version);
@@ -492,7 +505,7 @@ namespace SlopWorld
             };
             Tree.JumpTo(Vector2.zero);
             BumpTree();
-            AgentSidebar.ShowFiles();
+            AgentSidebar.ShowWithoutHistory(SidebarTab.Files);
         }
 
         public static void ClearFocus()
