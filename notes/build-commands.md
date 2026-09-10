@@ -31,3 +31,6 @@ See [build-tools](build-tools.md) for auxiliary tools and
 
 `make bench-report` runs the full benchmark suite three times, averages each reported metric,
 and writes a dated result note under `notes/` with the current commit hash.
+
+`make loc-report` measures tracked Python, C#, and Rust files and writes a dated lines-of-code
+note under `notes/`; pass `LOC_REPORT_ARGS=--output notes/path.md` to choose its path.

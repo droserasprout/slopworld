@@ -1,4 +1,4 @@
-.PHONY: daemon mod bench-daemon bench-report test-wire-contract test-daemon test-mod coverage coverage-daemon coverage-mod test-prose \
+.PHONY: daemon mod bench-daemon bench-report loc-report test-wire-contract test-daemon test-mod coverage coverage-daemon coverage-mod test-prose \
 	appicon icons emoji-atlas reference api-contract api-docs scheme-report harmony clean
 
 ##
@@ -12,6 +12,9 @@ bench-daemon: api-contract ## Run the game-free daemon performance benchmark
 bench-report: BUILD := release
 bench-report:        ## Run the full performance suite three times and write an averaged note
 	@$(PYTHON) tools/bench-report.py --build "$(BUILD)"
+
+loc-report:          ## Measure Python, C#, and Rust lines and write a dated note
+	@$(PYTHON) tools/loc-report.py $(LOC_REPORT_ARGS)
 
 .PHONY: bench-mod
 bench-mod: api-contract ## Benchmark C# helpers without RimWorld or Unity
