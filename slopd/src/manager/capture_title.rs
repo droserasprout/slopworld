@@ -1,7 +1,6 @@
 //! Automatic title capture and generation.
 
 use super::*;
-use anyhow::anyhow;
 
 impl Manager {
     pub(crate) fn spawn_title_request(self: &Arc<Self>, name: String, request: TitleRequest) {
@@ -73,13 +72,14 @@ impl Manager {
             outcome = "request_started",
             "generating session title"
         );
-        let result = self
-            .summarize_request(prompt, &request.summary_prompt, &request.key_file, model)
-            .await;
-        let result = match result {
-            Ok(r) => r,
-            Err(e) => Err(anyhow!("title worker: {e}")),
-        };
+        let result = crate::title::summarize_async(
+            prompt,
+            &request.summary_prompt,
+            &request.key_file,
+            model,
+            "title worker",
+        )
+        .await;
         (result, false)
     }
 

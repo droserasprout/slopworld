@@ -26,12 +26,14 @@ impl Manager {
             if let Some(summary) = self.title_cache.get(&task.body, &summary_prompt, &model) {
                 (Ok(summary), true)
             } else {
-                let key_file = cfg.daemon.openrouter_key_file.clone();
-                let result = self
-                    .summarize_request(&task.body, &summary_prompt, &key_file, &model)
-                    .await
-                    .map_err(|error| anyhow::anyhow!("task summary worker: {error}"))
-                    .and_then(|result| result);
+                let result = crate::title::summarize_async(
+                    &task.body,
+                    &summary_prompt,
+                    &cfg.daemon.openrouter_key_file,
+                    &model,
+                    "task summary worker",
+                )
+                .await;
                 (result, false)
             };
 

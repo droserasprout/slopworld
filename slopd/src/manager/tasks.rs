@@ -1,6 +1,7 @@
 //! Durable task storage owned by the session manager.
 
 use super::super::*;
+use crate::tasks::{Status, Task};
 
 /// The task file has one synchronous boundary. Keep its mutex and concrete store out of the
 /// manager's configuration owner; callers use typed operations on this owner instead.
@@ -11,12 +12,7 @@ impl TaskStore {
         Self(std::sync::Mutex::new(tasks))
     }
 
-    pub(crate) fn create_task(
-        &self,
-        from: String,
-        to: String,
-        body: String,
-    ) -> Result<crate::tasks::Task> {
+    pub(crate) fn create_task(&self, from: String, to: String, body: String) -> Result<Task> {
         self.0.lock().unwrap().create(from, to, body)
     }
 
@@ -27,22 +23,22 @@ impl TaskStore {
         body: String,
         parent: String,
         durable: bool,
-    ) -> Result<crate::tasks::Task> {
+    ) -> Result<Task> {
         self.0
             .lock()
             .unwrap()
             .create_worker(from, to, body, parent, durable)
     }
 
-    pub(crate) fn tasks_for(&self, who: &str) -> Vec<crate::tasks::Task> {
+    pub(crate) fn tasks_for(&self, who: &str) -> Vec<Task> {
         self.0.lock().unwrap().visible(who)
     }
 
-    pub(crate) fn all_tasks(&self) -> Vec<crate::tasks::Task> {
+    pub(crate) fn all_tasks(&self) -> Vec<Task> {
         self.0.lock().unwrap().all()
     }
 
-    pub(crate) fn task_for(&self, who: &str, id: &str) -> Option<crate::tasks::Task> {
+    pub(crate) fn task_for(&self, who: &str, id: &str) -> Option<Task> {
         self.0.lock().unwrap().get(who, id)
     }
 
@@ -50,35 +46,21 @@ impl TaskStore {
         &self,
         who: &str,
         id: &str,
-        status: crate::tasks::Status,
+        status: Status,
         note: Option<String>,
-    ) -> Result<crate::tasks::Task> {
+    ) -> Result<Task> {
         self.0.lock().unwrap().update(who, id, status, note)
     }
 
-    pub(crate) fn set_task_summary(
-        &self,
-        id: &str,
-        summary: String,
-    ) -> Result<Option<crate::tasks::Task>> {
+    pub(crate) fn set_task_summary(&self, id: &str, summary: String) -> Result<Option<Task>> {
         self.0.lock().unwrap().set_summary(id, summary)
     }
 
-    pub(crate) fn cancel_tasks(
-        &self,
-        who: &str,
-        ids: &[String],
-        force: bool,
-    ) -> Result<Vec<crate::tasks::Task>> {
+    pub(crate) fn cancel_tasks(&self, who: &str, ids: &[String], force: bool) -> Result<Vec<Task>> {
         self.0.lock().unwrap().cancel_many(who, ids, force)
     }
 
-    pub(crate) fn remove_task(
-        &self,
-        who: &str,
-        id: &str,
-        force: bool,
-    ) -> Result<crate::tasks::Task> {
+    pub(crate) fn remove_task(&self, who: &str, id: &str, force: bool) -> Result<Task> {
         self.0.lock().unwrap().remove(who, id, force)
     }
 
@@ -90,7 +72,7 @@ impl TaskStore {
         self.0.lock().unwrap().prune(who, all)
     }
 
-    fn fail_worker(&self, task_id: &str, note: String) -> Result<Option<crate::tasks::Task>> {
+    fn fail_worker(&self, task_id: &str, note: String) -> Result<Option<Task>> {
         self.0.lock().unwrap().fail_worker(task_id, note)
     }
 }
@@ -101,7 +83,7 @@ impl Manager {
             return;
         }
         match self.tasks.fail_worker(task_id, note.into()) {
-            Ok(Some(task)) if task.status == crate::tasks::Status::Failed => {
+            Ok(Some(task)) if task.status == Status::Failed => {
                 tracing::info!(task = %task.id, "task-owned worker task marked failed")
             }
             Ok(_) => {}
