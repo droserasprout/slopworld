@@ -308,6 +308,15 @@ namespace SlopWorld
         public static bool LockViewerFile(string project, string rel) =>
             Viewers.LockPreview(project, rel);
 
+        public static bool FocusLocation(string project, string rel)
+        {
+            var repo = Known(project);
+            if (repo == null || string.IsNullOrEmpty(rel) || !repo.Changes.ContainsKey(rel))
+                return false;
+            Tree.RevealKey(ContentTreeView.SelectionKey(project, rel));
+            return true;
+        }
+
         // Left on a change: mark it and read its diff. Clicking the one already open just
         // brings its pane back - a focus change is a *different* row, and only that replaces
         // the pager.
@@ -329,12 +338,12 @@ namespace SlopWorld
             {
                 case RowAct.View:
                     // The file reader is owned by Files, not by this tree.
-                    AgentSidebar.ShowFiles();
+                    AgentSidebar.ShowWithoutHistory(SidebarTab.Files);
                     FilesView.ViewFile(repo.Project, abs, "view-" + node.Name);
                     break;
 
                 case RowAct.Edit:
-                    AgentSidebar.ShowFiles();
+                    AgentSidebar.ShowWithoutHistory(SidebarTab.Files);
                     FilesView.EditFile(repo.Project, abs, "edit-" + node.Name);
                     break;
 
@@ -469,7 +478,7 @@ namespace SlopWorld
             if (!node.IsDir && Present(node.Status))
                 opts.Add(new FloatMenuOption("Edit", () =>
                 {
-                    AgentSidebar.ShowFiles();
+                    AgentSidebar.ShowWithoutHistory(SidebarTab.Files);
                     FilesView.EditFile(project, abs, "edit-" + node.Name);
                 }));
 
@@ -505,6 +514,7 @@ namespace SlopWorld
                 return;
             }
             Tree.SelectKey(ContentTreeView.SelectionKey(project, rel));
+            AgentSidebar.RememberGit(project, rel);
             if (Viewers.Reopen(project, rel)) return;
             Viewers.ForPreview().Open(project, DiffCmd(repo, rel, status), label, rel);
         }
@@ -512,6 +522,7 @@ namespace SlopWorld
         static void Diff(Node node, Repo repo)
         {
             Tree.Select(node);
+            AgentSidebar.RememberGit(repo.Project, node.Rel);
             if (Viewers.Reopen(repo.Project, node.Rel)) return;
             Viewers.ForPreview().Open(repo.Project, DiffCmd(repo, node.Rel, node.Status),
                 "diff-" + node.Name, node.Rel);

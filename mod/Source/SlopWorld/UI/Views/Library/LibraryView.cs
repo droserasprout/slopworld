@@ -171,7 +171,8 @@ namespace SlopWorld
         {
             bool enabled = item.Kind != LibraryItemKind.Breadcrumb ||
                 SessionHub.Instance.Config.ExperimentalBreadcrumbs;
-            RowChrome.Hover(r, false, enabled, RowHoverPolicy.OverlayAware);
+            RowChrome.Hover(r, ReferenceEquals(item, _selected), enabled,
+                RowHoverPolicy.OverlayAware);
 
             // The kind badge: prompt, shell, or an attached breadcrumb.
             float badgeW = 34f;
@@ -341,6 +342,7 @@ namespace SlopWorld
                 if (e.button == 1)
                 {
                     _selected = line.Item;
+                    AgentSidebar.RememberLibrary(line.Item.Name);
                     RowMenu(line.Item);
                     e.Use();
                     return;
@@ -348,6 +350,8 @@ namespace SlopWorld
 
                 // Breadcrumbs are attached definitions, not errands. A click edits them;
                 // prompt and shell entries still run as before.
+                _selected = line.Item;
+                AgentSidebar.RememberLibrary(line.Item.Name);
                 e.Use();
                 if (line.Item.Kind == LibraryItemKind.Breadcrumb || line.Item.Kind == LibraryItemKind.FileAction)
                     TerminalWindow.OpenOverPane(new EditLibraryItemDialog(line.Item));
@@ -419,6 +423,7 @@ namespace SlopWorld
         // path where `project == null` is intentional.
         static void Run(LibraryItemInfo s, string project = null, bool temp = false)
         {
+            AgentSidebar.RememberLibrary(s?.Name);
             // An entry that never said where goes through a menu first.
             if (s.Link == LibraryItemLink.Ask && project == null && !temp)
             {
@@ -476,6 +481,15 @@ namespace SlopWorld
             text = (text ?? "").Replace("\r", "");
             int nl = text.IndexOf('\n');
             return nl < 0 ? text : text.Substring(0, nl) + " ...";
+        }
+
+        public static bool FocusLocation(string name)
+        {
+            var item = SessionHub.Instance.Library.FirstOrDefault(candidate =>
+                candidate != null && candidate.Name == name);
+            if (item == null) return false;
+            _selected = item;
+            return true;
         }
     }
 

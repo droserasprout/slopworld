@@ -223,6 +223,7 @@ namespace SlopWorld
             {
                 new ShortcutRow("Alt+Z", "Previous session"),
                 new ShortcutRow("Alt+X", "Next session"),
+                new ShortcutRow("Ctrl+F1..F6", "Focus the last target in that sidebar view"),
             }));
             groups.Add(new ShortcutGroup("Built-in · Terminal", new[]
             {

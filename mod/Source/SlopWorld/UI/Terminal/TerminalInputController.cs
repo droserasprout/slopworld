@@ -176,42 +176,12 @@ namespace SlopWorld
                 CommandPalette.Toggle();
                 return true;
             }
-            if (Bound(ModDefOf.SlopSidebarAgents, e))
-            {
-                UiMenu.CloseAll();
-                AgentSidebar.FocusTerminal();
-                return true;
-            }
-            if (Bound(ModDefOf.SlopSidebarFiles, e))
-            {
-                UiMenu.CloseAll();
-                AgentSidebar.ShowFiles();
-                return true;
-            }
-            if (Bound(ModDefOf.SlopSidebarSearch, e))
-            {
-                UiMenu.CloseAll();
-                AgentSidebar.ShowSearch();
-                return true;
-            }
-            if (Bound(ModDefOf.SlopSidebarGit, e))
-            {
-                UiMenu.CloseAll();
-                AgentSidebar.ShowGit();
-                return true;
-            }
-            if (Bound(ModDefOf.SlopSidebarTasks, e))
-            {
-                UiMenu.CloseAll();
-                AgentSidebar.ShowTasks();
-                return true;
-            }
-            if (Bound(ModDefOf.SlopSidebarLibrary, e))
-            {
-                UiMenu.CloseAll();
-                AgentSidebar.ShowLibrary();
-                return true;
-            }
+            if (SidebarFunction(ModDefOf.SlopSidebarAgents, SidebarTab.Agents, e)) return true;
+            if (SidebarFunction(ModDefOf.SlopSidebarFiles, SidebarTab.Files, e)) return true;
+            if (SidebarFunction(ModDefOf.SlopSidebarSearch, SidebarTab.Search, e)) return true;
+            if (SidebarFunction(ModDefOf.SlopSidebarGit, SidebarTab.Git, e)) return true;
+            if (SidebarFunction(ModDefOf.SlopSidebarTasks, SidebarTab.Tasks, e)) return true;
+            if (SidebarFunction(ModDefOf.SlopSidebarLibrary, SidebarTab.Library, e)) return true;
             if (Bound(ModDefOf.SlopQuickTerminal, e))
             {
                 // Use the same toggle as the map-layer component. In particular, a settings
@@ -228,6 +198,18 @@ namespace SlopWorld
                 return true;
             }
             return false;
+        }
+
+        static bool SidebarFunction(KeyBindingDef binding, SidebarTab tab, Event e)
+        {
+            if (!Bound(binding, e)) return false;
+
+            UiMenu.CloseAll();
+            // Bare F1..F6 selects the tab. Ctrl+F1..F6 is the fast path back to the last
+            // target that was visible in that tab; Shift remains reserved for the terminal.
+            if (e.control && !e.alt && !e.command) AgentSidebar.FocusLast(tab);
+            else AgentSidebar.ShowTab(tab);
+            return true;
         }
 
         // Whether this event's key is either of the def's two slots. Asked of the event
@@ -495,7 +477,8 @@ namespace SlopWorld
 
             // Alt+Num while the pane is open is about an agent: switch the sidebar to the
             // agents view, which releases whatever the view being left was showing.
-            AgentSidebar.FocusTerminal();
+            AgentSidebar.ShowWithoutHistory(SidebarTab.Agents);
+            AgentSidebar.RememberAgent(name);
 
             _panel.SwitchTo(name);
         }
@@ -522,7 +505,7 @@ namespace SlopWorld
 
             SessionSelectable.Current = target;
             Find.Selector?.ClearSelection();
-            AgentSidebar.FocusTerminal();
+            AgentSidebar.ShowWithoutHistory(SidebarTab.Agents);
 
             var info = SessionHub.Instance.Get(target);
             if (info == null) return;

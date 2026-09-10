@@ -65,7 +65,7 @@ namespace SlopWorld
                     // A diff belongs to Git, even when its button was clicked in Files. Move
                     // first so Show does not release the pager we are about to open, then let
                     // GitView own the session and its lifecycle.
-                    AgentSidebar.ShowGit();
+                    AgentSidebar.ShowWithoutHistory(SidebarTab.Git);
                     GitView.OpenDiff(node.Project, node.Path, "diff-" + node.Name);
                     break;
             }
@@ -454,6 +454,7 @@ namespace SlopWorld
             else
             {
                 Tree.SelectKey(ContentTreeView.SelectionKey(project, path));
+                if (!string.IsNullOrEmpty(project)) AgentSidebar.RememberFile(project, path);
             }
             if (IsMarkdown(System.IO.Path.GetFileName(path)))
             {
@@ -547,12 +548,14 @@ namespace SlopWorld
         static void ViewSourceFile(string project, string path, string label)
         {
             Tree.SelectKey(ContentTreeView.SelectionKey(project, path));
+            if (!string.IsNullOrEmpty(project)) AgentSidebar.RememberFile(project, path);
             if (Viewers.Reopen(project, path)) return;
             Viewers.ForPreview().ViewFile(project, path, label);
         }
 
         public static void EditFile(string project, string path, string label, int line = 0)
         {
+            if (!string.IsNullOrEmpty(project)) AgentSidebar.RememberFile(project, path);
             if (string.IsNullOrEmpty(project))
             {
                 SessionHub.Instance.SessionStore.Run("", Pager.EditorCommand(path, line), label,

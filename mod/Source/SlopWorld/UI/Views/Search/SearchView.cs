@@ -447,7 +447,26 @@ namespace SlopWorld
 
         static void Open(Match match)
         {
+            Open(match, true);
+        }
+
+        public static bool FocusLocation(string project, string path, int line)
+        {
+            foreach (var group in Groups)
+                foreach (var match in group.Matches)
+                    if (match.Project == project && match.Path == path && match.Line == line)
+                    {
+                        _selected = match;
+                        Open(match, false);
+                        return true;
+                    }
+            return false;
+        }
+
+        static void Open(Match match, bool remember)
+        {
             string path = match.Root.TrimEnd('/') + "/" + match.Path;
+            if (remember) AgentSidebar.RememberSearch(match.Project, match.Path, match.Line);
             if (ReferenceEquals(match, _showing) && Viewer.Reopen())
             {
                 SessionHub.Instance.Terminal.SendKeys(Viewer.Session,

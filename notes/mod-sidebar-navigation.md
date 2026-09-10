@@ -6,8 +6,10 @@ The core sidebar geometry, selection behavior, and row rendering are in
 ## Views and navigation
 
 Agents, Files, Search, Git, Tasks and Library share the panel, tabs, width, add strip and
-input absorption. Their default F1–F6 shortcuts follow that left-to-right order. Switching
-tabs preserves preview readers; replacing a preview or explicitly closing it ends the session.
+input absorption. Their default F1–F6 shortcuts follow that left-to-right order. Ctrl+F1–F6
+also restores the last target in the chosen view (agent, file, search result, changed file,
+task or Library item). Switching tabs preserves preview readers; replacing a preview or
+explicitly closing it ends the session.
 Files/Search/Git park colonist-bar
 locations but still build buckets so Alt+number can return to an agent; folding removes
 agents from visible order.
@@ -42,6 +44,10 @@ Context menus run in the back pass because vanilla consumes portrait right-click
 project menu's unsandboxed terminal uses `SessionHub.RunHostShell` and `/api/run` with
 `host`; row hover is gated while either `FloatMenu` or `UiMenu` is open without
 disabling status-bar click-through.
+
+View targets are kept in a bounded process-local back/forward history. `View: Back` and
+`View: Forward` in the command palette restore semantic targets after daemon refreshes rebuild
+their row objects; stale targets simply leave the requested tab visible.
 
 ## Shifting vanilla chrome
 
