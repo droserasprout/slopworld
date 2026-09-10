@@ -101,6 +101,7 @@ namespace SlopWorld.Tests
             tests.Add(("UI composition: measure and arrange", UiCompositionTests.Arrange));
             tests.Add(("Scrollable geometry: named reservation policy", ScrollableGeometryTests.Policies));
             tests.Add(("Sandbox layout: master/detail geometry", SandboxLayoutTests.Placement));
+            tests.Add(("Sandbox editor layout: rows and visibility", SandboxEditorLayoutTests.Geometry));
             tests.Add(("Settings layout: bounded page and footer", SettingsLayoutTests.Bounds));
             tests.Add(("Settings layout: frame-stable content height", SettingsLayoutTests.Measurement));
             tests.Add(("Workspace panels: ownership and focus lifecycle", WorkspacePanelTests.Lifecycle));
