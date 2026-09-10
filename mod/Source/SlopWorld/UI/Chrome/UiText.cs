@@ -40,24 +40,8 @@ namespace SlopWorld
 
         public static void RowLabel(Rect r, string text, TextAnchor anchor = TextAnchor.MiddleLeft)
         {
-            using (WidgetState.Save())
-            {
-                // Truncate measures incorrectly while wrapping is enabled.
-                Verse.Text.WordWrap = false;
-                string label = TruncateText(text, r.width);
-
-                Verse.Text.Anchor = UpperAnchor(anchor);
-                // Text.LineHeightOf is the box UiFont sized to hold the face. Drawing
-                // into a fresh CalcHeight box was shorter for some dynamic sizes, cutting
-                // descenders despite the row itself having enough space for them.
-                float lineH = LineHOf(Verse.Text.Font);
-                float y = Slab.SnapY(r.y + (r.height - lineH) * VerticalFactor(anchor));
-                float yMax = Slab.SnapY(y + lineH);
-                // A fractional scroll offset can snap the two edges inward by one pixel;
-                // never let screen-pixel snapping make the label shorter than its metric.
-                float h = Mathf.Max(lineH, yMax - y);
-                Widgets.Label(new Rect(r.x, y, r.width, h), label);
-            }
+            DrawRowLabel(r, text, anchor,
+                (line, label) => Widgets.Label(line, label));
         }
 
         // A preview tab uses italic text to signal that a single click may replace it. Keep
@@ -71,20 +55,12 @@ namespace SlopWorld
                 return;
             }
 
-            using (WidgetState.Save())
+            DrawRowLabel(r, text, anchor, (line, label) =>
             {
-                Verse.Text.WordWrap = false;
-                string label = TruncateText(text, r.width);
-                Verse.Text.Anchor = UpperAnchor(anchor);
-                float lineH = LineHOf(Verse.Text.Font);
-                float y = Slab.SnapY(r.y + (r.height - lineH) * VerticalFactor(anchor));
-                float yMax = Slab.SnapY(y + lineH);
-                float h = Mathf.Max(lineH, yMax - y);
-
                 var source = Verse.Text.CurFontStyle;
                 if (source == null)
                 {
-                    Widgets.Label(new Rect(r.x, y, r.width, h), label);
+                    Widgets.Label(line, label);
                     return;
                 }
 
@@ -94,7 +70,30 @@ namespace SlopWorld
                     alignment = UpperAnchor(anchor),
                     wordWrap = false,
                 };
-                GUI.Label(new Rect(r.x, y, r.width, h), label, style);
+                GUI.Label(line, label, style);
+            });
+        }
+
+        static void DrawRowLabel(Rect r, string text, TextAnchor anchor,
+                                 Action<Rect, string> draw)
+        {
+            using (WidgetState.Save())
+            {
+                // Truncate measures incorrectly while wrapping is enabled.
+                Verse.Text.WordWrap = false;
+                string label = TruncateText(text, r.width);
+                Verse.Text.Anchor = UpperAnchor(anchor);
+
+                // Text.LineHeightOf is the box UiFont sized to hold the face. Drawing
+                // into a fresh CalcHeight box was shorter for some dynamic sizes, cutting
+                // descenders despite the row itself having enough space for them.
+                float lineH = LineHOf(Verse.Text.Font);
+                float y = Slab.SnapY(r.y + (r.height - lineH) * VerticalFactor(anchor));
+                float yMax = Slab.SnapY(y + lineH);
+                // A fractional scroll offset can snap the two edges inward by one pixel;
+                // never let screen-pixel snapping make the label shorter than its metric.
+                float h = Mathf.Max(lineH, yMax - y);
+                draw(new Rect(r.x, y, r.width, h), label);
             }
         }
 
