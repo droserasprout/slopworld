@@ -27,6 +27,12 @@ namespace SlopWorld
             set => _state.SizeDirty = value;
         }
 
+        internal void RefreshSize()
+        {
+            _sizeDirty = false;
+            PrimePanelSize();
+        }
+
         void PrimePanelSize()
         {
             // New sessions use the intended slot immediately, even before their first frame.

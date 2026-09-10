@@ -13,7 +13,11 @@ namespace SlopWorld
         FieldLifetime _fieldLifetime = new FieldLifetime();
         TerminalWindow(string name)
         {
-            _terminal = new TerminalPanel(this, name);
+            _terminals = new TerminalSplit(this, name, nameSelected =>
+            {
+                SessionSelectable.Current = nameSelected;
+                if (nameSelected != null) SelectAgent(nameSelected);
+            });
             doWindowBackground = false;
             doCloseButton = false;
             doCloseX = false;

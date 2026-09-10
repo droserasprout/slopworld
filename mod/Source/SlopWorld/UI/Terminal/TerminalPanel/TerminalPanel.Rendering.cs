@@ -18,7 +18,18 @@ namespace SlopWorld
             if (Mathf.Abs(shift) <= 0.01f)
             {
                 // The runs go down only on the frames they change; see Blit.
-                if (!Blit(body, buf, cw, ch)) Paint(body, buf, cw, ch);
+                if (!Blit(body, buf, cw, ch))
+                {
+                    // A frame can still have the old column count during resize. Clip the
+                    // direct fallback as well as cached output to the owning pane.
+                    GUI.BeginGroup(body);
+                    try
+                    {
+                        SyncSnap();
+                        Paint(new Rect(0f, 0f, body.width, body.height), buf, cw, ch);
+                    }
+                    finally { GUI.EndGroup(); }
+                }
             }
             else if (Event.current.type == EventType.Repaint)
             {
@@ -169,7 +180,8 @@ namespace SlopWorld
                 return false;
             }
 
-            if (type != EventType.MouseDown || e.button != 0 || !hit.Contains(e.mousePosition))
+            if (GUIUtility.hotControl != 0 || type != EventType.MouseDown ||
+                e.button != 0 || !hit.Contains(e.mousePosition))
                 return false;
 
             _historyBarDragging = true;

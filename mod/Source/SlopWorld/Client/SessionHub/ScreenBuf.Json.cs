@@ -101,7 +101,11 @@ namespace SlopWorld
             // burst that scrolls an entire viewport. The daemon's live history extent supplies
             // that missing signal while the buffer still has room to grow; once full, the
             // overlap detector remains the fallback.
-            LiveShift = System.Math.Max(visibleShift, historyShift);
+            // Before the history limit, its extent is authoritative even when unchanged.
+            // A TUI repaint can match a suffix of blank/prompt rows without scrolling.
+            LiveShift = previousHistory >= 0 && History >= 0 &&
+                History < WireContract.ScrollbackLines ? historyShift :
+                System.Math.Max(visibleShift, historyShift);
         }
 
         internal int VerticalShift(string[] before, string[] after,

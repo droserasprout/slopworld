@@ -82,6 +82,9 @@ namespace SlopWorld
 
         internal void HandleMouse(Rect body, Event e)
         {
+            // Consumed window events are replayed below, but a real drag owner (sidebar
+            // resize, scrollbar or divider) must not also start terminal selection/input.
+            if (MouseType(e) == EventType.MouseDown && GUIUtility.hotControl != 0) return;
             // A forwarded press owns its continuation even if Shift or app mode changes.
             if (_panel.OwnsForwardedMouse(e))
             {

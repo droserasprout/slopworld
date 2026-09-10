@@ -63,7 +63,8 @@ namespace SlopWorld
         {
             float w = Width;
             var grip = new Rect(Panel.x + w - GripW, 0f, GripW * 2f, UI.screenHeight);
-            if (!ColonistBarStrip.Interactive && Interaction.Resizing)
+            if (Interaction.Resizing && (!ColonistBarStrip.Interactive ||
+                GUIUtility.hotControl != Interaction.ResizeControl))
             {
                 EndResize();
             }
@@ -81,12 +82,17 @@ namespace SlopWorld
             if (!ColonistBarStrip.Interactive) return;
 
             var e = Event.current;
+            int control = GUIUtility.GetControlID(FocusType.Passive, grip);
 
-            // Poll Input: an absorbing window can prevent this layer from receiving MouseDown.
+            // Recover a consumed mouse-down, but respect a scrollbar's existing capture.
+            // Polling GetMouseButtonDown also re-started this drag on later GUI passes.
             if (!Interaction.Resizing)
             {
-                if (!over || !Input.GetMouseButtonDown(0)) return;
+                if (!over || e.rawType != EventType.MouseDown || e.button != 0 ||
+                    GUIUtility.hotControl != 0) return;
                 Interaction.Resizing = true;
+                Interaction.ResizeControl = control;
+                GUIUtility.hotControl = control;
                 Interaction.WidthChanged = false;
                 Interaction.Grab = Panel.x + w - e.mousePosition.x;
             }
@@ -115,6 +121,9 @@ namespace SlopWorld
 
         static void EndResize()
         {
+            if (GUIUtility.hotControl == Interaction.ResizeControl)
+                GUIUtility.hotControl = 0;
+            Interaction.ResizeControl = 0;
             Interaction.Resizing = false;
             if (Interaction.WidthChanged)
             {
@@ -126,10 +135,7 @@ namespace SlopWorld
 
         static void RefreshPanels()
         {
-            if (TerminalWindow.TryPanelShape(out int cols, out int rows))
-                SessionHub.Instance.Terminal.RefreshPanels(cols, rows);
-            else
-                SessionHub.Instance.Terminal.RefreshPanels();
+            TerminalWindow.RefreshPanels();
         }
 
         // Appearance changes invalidate workspace geometry but must leave content-view

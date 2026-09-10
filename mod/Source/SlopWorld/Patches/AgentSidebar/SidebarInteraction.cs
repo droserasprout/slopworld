@@ -7,6 +7,7 @@ namespace SlopWorld
         public readonly SmoothScroll AgentScroll = new SmoothScroll();
         public bool AgentScrollOpen;
         public bool Resizing;
+        public int ResizeControl;
         public bool WidthChanged;
         public float Grab;
 

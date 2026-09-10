@@ -33,6 +33,8 @@ namespace SlopWorld.Tests
             yield return ("live history bounds scrolling before warmup and after clears", LiveScrollLimit);
             yield return ("capture after output does not translate that output twice", CaptureAfterOutput);
             yield return ("delayed capture translates only output after capture", DelayedCapture);
+            yield return ("rewritten live prompts are not promoted to history", RewrittenPrompt);
+            yield return ("history follows skipped frames and clears", SkippedFramesAndClear);
             yield return ("warmup retains coverage across redraws and resets", WarmupInvalidation);
             yield return ("aggressive prefetch covers fast gestures without gaps", AggressivePrefetch);
         }
@@ -102,6 +104,61 @@ namespace SlopWorld.Tests
             history.Add(reply, live, 2, coordinateShift: 3, allowStale: true);
             AssertEx.True(history.TryLine(-3, out var input), "captured input has a known coordinate");
             AssertEx.Equal("input", input, "translation starts at capture, not request");
+        }
+
+        static void SkippedFramesAndClear()
+        {
+            var live = Frame(0, "a", "b", "c");
+            live.History = 10;
+            var history = new TerminalHistory();
+            history.Reset(live);
+            history.Add(Frame(3, "old-a", "old-b", "old-c"), live, 3);
+            var next = Frame(0, "c", "d", "e");
+            next.Seq += 2;
+            next.History = 12;
+            next.LiveShift = 1;
+            int shift = TerminalHistory.ShiftSince(live.History, next);
+            AssertEx.Equal(2, shift, "cache translation includes both streamed frames");
+            history.UpdateLive(next, shift);
+            AssertEx.True(history.TryLine(-5, out var old), "confirmed history advances by both frames");
+            AssertEx.Equal("old-a", old, "row coordinates follow the cache observation");
+            next = next.Snapshot();
+            next.Seq++;
+            next.History = 1;
+            AssertEx.False(history.UpdateLive(next, 0), "a history clear starts a new cache epoch");
+            AssertEx.False(history.TryLine(-5, out _), "cleared history cannot be reused");
+        }
+
+        static void RewrittenPrompt()
+        {
+            var history = new TerminalHistory();
+            var live = Frame(0, "Ask Codex to do anything", "", "");
+            live.History = 10;
+            history.Reset(live);
+            history.Add(Frame(3, "diff-a", "diff-b", "diff-c"), live, 3);
+            // The application clears its prompt, draws a diff and scrolls three rows
+            // before the next streamed frame. The previous prompt never entered history.
+            var next = Frame(0, "diff-g", "diff-h", "prompt");
+            next.Seq++;
+            next.History = 13;
+            history.UpdateLive(next, 3);
+            AssertEx.False(history.TryView(3, false, out _),
+                "old live prompt and blank rows cannot satisfy history coverage");
+            AssertEx.True(history.TryLine(-6, out var old), "confirmed history is retained");
+            AssertEx.Equal("diff-a", old, "confirmed rows retain their translated coordinates");
+
+            var delayed = Frame(1, "diff-c", "Ask Codex to do anything", "");
+            delayed.History = 10;
+            history.Add(delayed, next, 1, allowStale: true);
+            AssertEx.False(history.TryLine(-3, out _),
+                "a delayed capture cannot reintroduce its live prompt as history");
+
+            var capture = Frame(3, "diff-d", "diff-e", "diff-f");
+            capture.Seq = next.Seq;
+            capture.History = next.History;
+            history.Add(capture, next, 3);
+            AssertEx.True(history.TryView(3, false, out var view), "fresh capture fills the gap");
+            AssertEx.Sequence(capture.Lines, view.Lines, "only captured diff rows enter history");
         }
 
         static void CopiesSelection()

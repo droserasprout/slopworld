@@ -39,6 +39,9 @@ spacing, buttons, fields, headings and errors. Color names resolve through
   jumps a selected row into view. Brief frame stalls preserve cumulative touchpad movement;
   a logical wheel packet is suppressed only after a precise sample was claimed, or when it
   is the matching delayed packet from the preceding frame. Vertical scroll only.
+- Sidebar resizing, scrollbars and the terminal divider honor Unity's `hotControl` capture.
+  Replaying a consumed mouse-down cannot start a second drag; hiding the sidebar releases
+  its resize capture.
 - `TerminalPanel` uses `SmoothScroll.BeginInput`/`EndInput` without a translated GUI group.
   It spends the claimed input before choosing a frame, then `TerminalHistory` assembles the
   fractional viewport from overlapping daemon snapshots and an overscan row.

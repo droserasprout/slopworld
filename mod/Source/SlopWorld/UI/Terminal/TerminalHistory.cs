@@ -52,6 +52,12 @@ namespace SlopWorld
         public int Rows => _template?.Rows ?? 0;
         public bool AltScreen => _templateAltScreen;
 
+        // Several streamed frames can arrive between panel draws. The most recent frame's
+        // LiveShift covers only its predecessor, not the cache's last observation.
+        public static int ShiftSince(int previousHistory, ScreenBuf live) =>
+            previousHistory >= 0 && live.History >= 0 && live.History < MaxHistoryRows
+                ? Math.Max(0, live.History - previousHistory) : live.LiveShift;
+
         // Live metadata is authoritative even before warmup, and after an application
         // clears history. Only older daemons need a capture to discover the scroll limit.
         public static int ScrollLimit(ScreenBuf live, int knownTop)
@@ -118,7 +124,8 @@ namespace SlopWorld
         public bool UpdateLive(ScreenBuf live, int shift)
         {
             if (live == null) return false;
-            if (_template != null && !SameViewport(live))
+            if (_template != null && (!SameViewport(live) ||
+                (live.History >= 0 && _template.History > live.History)))
             {
                 Reset(live);
                 return false;
@@ -129,7 +136,16 @@ namespace SlopWorld
                 Reset(live);
                 return false;
             }
-            if (shift > 0) Shift(shift);
+            if (shift > 0)
+            {
+                // A TUI may rewrite its prompt before scrolling between streamed frames.
+                // Those old live rows are not evidence of what entered daemon history.
+                // Leave holes for authoritative captures rather than caching phantom text.
+                if (live.History >= 0)
+                    for (int row = 0; row < Math.Min(shift, Rows); row++)
+                        _lines.Remove(Storage(row));
+                Shift(shift);
+            }
 
             SetTemplate(live);
             bool changed = Index(live, 0, true);
@@ -291,6 +307,7 @@ namespace SlopWorld
             _template = new ScreenBuf
             {
                 Seq = frame.Seq,
+                History = frame.History,
                 Cols = frame.Cols,
                 Rows = frame.Rows,
                 Cx = frame.Cx,
@@ -310,7 +327,9 @@ namespace SlopWorld
             for (int row = 0; row < frame.Lines.Length; row++)
             {
                 int globalRow = row - off;
-                if (!includeLive && globalRow >= 0) continue;
+                // A delayed reply's live tail may since have been rewritten and scrolled.
+                // Translation cannot turn that old prompt into authoritative history.
+                if (!includeLive && (globalRow >= 0 || row >= frame.Off)) continue;
                 if (globalRow < -MaxHistoryRows || globalRow >= MaxScreenRows) continue;
                 int key = Storage(globalRow);
                 string line = frame.Lines[row];

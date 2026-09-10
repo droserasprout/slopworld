@@ -58,6 +58,9 @@ namespace SlopWorld
             {
                 float l = SnapX(body.x + span.C0 * cw);
                 float r = SnapX(body.x + span.C1 * cw);
+                l = Mathf.Max(l, body.x);
+                r = Mathf.Min(r, body.xMax);
+                if (r <= l) continue;
                 float t = SnapY(body.y + shift + span.Row * ch);
                 float b = SnapY(body.y + shift + (span.Row + 1) * ch);
                 if (b <= body.y || t >= body.yMax) continue;

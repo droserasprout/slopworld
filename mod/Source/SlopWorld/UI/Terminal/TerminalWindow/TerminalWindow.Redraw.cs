@@ -9,7 +9,7 @@ namespace SlopWorld
         public override void WindowUpdate()
         {
             base.WindowUpdate();
-            _terminal.Update();
+            _terminals.Update();
         }
 
         public override void ExtraOnGUI()
@@ -25,7 +25,7 @@ namespace SlopWorld
                 Mathf.Ceil(Screen.width / Prefs.UIScale),
                 Mathf.Ceil(Screen.height / Prefs.UIScale))), Background);
 
-            _terminal.Flush();
+            _terminals.Flush();
         }
     }
 }

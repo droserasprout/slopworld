@@ -92,6 +92,8 @@ namespace SlopWorld.Tests
             tests.Add(("Settings layout: frame-stable content height", SettingsLayoutTests.Measurement));
             tests.Add(("Workspace panels: ownership and focus lifecycle", WorkspacePanelTests.Lifecycle));
             tests.Add(("Terminal panels: independent geometry", WorkspacePanelTests.Geometry));
+            tests.Add(("Workspace split: focus and retention", WorkspacePanelTests.SplitLifecycle));
+            tests.Add(("Workspace split: bounded geometry", WorkspacePanelTests.SplitGeometry));
             tests.Add(("Field focus: live form changes", FieldFocusTests.Availability));
             tests.Add(("Field focus: restoration and owner isolation", FieldFocusTests.Restoration));
             int failed = 0;

@@ -15,6 +15,7 @@ namespace SlopWorld.Tests
                 DetectsRepeatedRowShift);
             yield return ("uses live history growth for a large row shift",
                 UsesLiveHistoryGrowth);
+            yield return ("known history rejects a prompt overlap during redraw", PromptOverlap);
             yield return ("does not treat unknown history as one row",
                 UnknownHistoryIsNotGrowth);
             yield return ("does not treat a replayed frame as a row shift",
@@ -149,6 +150,19 @@ namespace SlopWorld.Tests
 
             AssertEx.Equal(4, screen.LiveShift,
                 "history growth reports a shift when no visible rows overlap");
+        }
+
+        static void PromptOverlap()
+        {
+            var screen = new ScreenBuf();
+            screen.FromJson(JVal.Parse(
+                "{\"seq\":1,\"cols\":20,\"rows\":3,\"cy\":2,\"history\":10," +
+                "\"lines\":[\"Ask Codex to do anything\",\"\",\"\"]}"));
+            screen.FromJson(JVal.Parse(
+                "{\"seq\":2,\"cols\":20,\"rows\":3,\"cy\":2,\"history\":10," +
+                "\"lines\":[\"\",\"\",\"diff\"]}"));
+            AssertEx.Equal(0, screen.LiveShift,
+                "overlapping blank rows cannot override an unchanged daemon history extent");
         }
 
         static void UnknownHistoryIsNotGrowth()
