@@ -105,28 +105,17 @@ namespace SlopWorld
     {
         enum Tab { General, Sandbox, Breadcrumbs, Preview }
 
-        readonly bool _isNew;
+        readonly EditIdentity _identity;
         readonly ProjectInfo _p;
-        // A changed name in the field is a rename, and the daemon carries its sessions
-        // over.
-        readonly string _origName;
-
-        // For the title. Null unless it is a duplicate: an edit already has `_origName`.
-        readonly string _copiedFrom;
 
         readonly SmoothScroll _presetScroll = new SmoothScroll();
         readonly SmoothScroll _breadcrumbScroll = new SmoothScroll();
         SmoothScroll _previewScroll = new SmoothScroll();
-        readonly SmoothScroll _generalScroll = new SmoothScroll();
-        readonly SmoothScroll _sandboxScroll = new SmoothScroll();
+        readonly ScrollableListing _generalListing = new ScrollableListing(320f);
+        readonly ScrollableListing _sandboxListing = new ScrollableListing(400f);
         const float PresetsH = 240f;
         string _dnsServers;
         Tab _tab;
-
-        // Last frame's content height per scrolling tab, so each can grow a scrollbar when its
-        // fields and fixed lists do not fit - the body width the rail leaves varies with UI scale.
-        float _generalH = 320f;
-        float _sandboxH = 400f;
 
         public EditProjectDialog(ProjectInfo existing) : this(existing, false) { }
 
@@ -138,14 +127,13 @@ namespace SlopWorld
             // A copy is a new project in every way that matters here: nothing on the daemon
             // knows it, so Save posts rather than puts and there is no rename to carry any
             // agents across.
-            _isNew = existing == null || copy;
-            _origName = copy ? "" : (existing?.Name ?? "");
-            _copiedFrom = copy ? existing.Name : null;
+            _identity = copy ? EditIdentity.ForCopy(existing?.Name) :
+                existing == null ? EditIdentity.ForNew() : EditIdentity.ForEdit(existing.Name);
             _p = existing?.Copy() ?? new ProjectInfo();
             if (copy)
             {
-                _p.Name = UiWidgets.FreeName(_p.Name,
-                    SessionHub.Instance.Projects.Select(p => p.Name), "project");
+                _p.Name = _identity.CopyName(SessionHub.Instance.Projects.Select(p => p.Name),
+                    "project");
                 // A temporary project's ground is named after the project, so the copy's is
                 // named after the copy rather than pointing back at what it came from.
                 if (_p.Temp) _p.Dir = ProjectInfo.TempDir(_p.Name);
@@ -166,36 +154,22 @@ namespace SlopWorld
 
         protected override void DoBody(Rect rect)
         {
-            UiWidgets.Title(TitleRect(rect), _copiedFrom != null
-                ? $"Copy of '{_copiedFrom}'"
-                : _isNew ? "New project" : $"Edit '{_origName}'");
+            UiWidgets.Title(TitleRect(rect), _identity.Title("project"));
 
-            float top = rect.y + UiWidgets.HeaderH + UiWidgets.GapS;
-            float bottom = rect.yMax - UiWidgets.BtnH - UiWidgets.GapS;
-
-            const float railW = 132f;
-            DrawRail(new Rect(rect.x, top, railW, bottom - top));
-            var body = new Rect(rect.x + railW + UiWidgets.GapM, top,
-                rect.width - railW - UiWidgets.GapM, bottom - top);
+            var layout = TabbedFormLayout.Arrange(SettingsPageLayout.FromRect(rect), 132f,
+                UiWidgets.HeaderH, UiWidgets.BtnH, UiWidgets.GapS, UiWidgets.GapM);
+            DrawRail(SettingsPageLayout.ToRect(layout.Rail));
+            var body = SettingsPageLayout.ToRect(layout.Body);
 
             switch (_tab)
             {
                 case Tab.General:
-                {
-                    var view = new Rect(0f, 0f, body.width - UiWidgets.ScrollbarW,
-                        Mathf.Max(_generalH, body.height));
-                    using (_generalScroll.Scope(body, view))
-                        _generalH = DrawGeneral(view);
+                    _generalListing.Draw(body, DrawGeneral);
                     break;
-                }
                 case Tab.Sandbox:
-                {
-                    var view = new Rect(0f, 0f, body.width - UiWidgets.ScrollbarW,
-                        Mathf.Max(_sandboxH, body.height));
-                    using (_sandboxScroll.Scope(body, view))
-                        _sandboxH = DrawSandbox(view, body.height);
+                    _sandboxListing.Draw(body, DrawSandboxFields,
+                        (view, y) => DrawSandboxTrailing(view, y, body.height));
                     break;
-                }
                 case Tab.Breadcrumbs:
                     DrawBreadcrumbs(body);
                     break;
@@ -205,7 +179,7 @@ namespace SlopWorld
                     break;
             }
 
-            var foot = new UiWidgets.Bar(UiWidgets.FooterBar(rect));
+            var foot = new UiWidgets.Bar(SettingsPageLayout.ToRect(layout.Footer));
             if (foot.Left("Cancel", UiWidgets.Btn.Ghost)) Close();
             if (foot.Right("Save", UiWidgets.Btn.Primary)) Save();
         }
@@ -221,15 +195,12 @@ namespace SlopWorld
 
         // The project itself: its name, directory and whether that directory is temporary.
         // The other tabs refine the sandbox around it.
-        float DrawGeneral(Rect rect)
+        void DrawGeneral(Listing_Standard l)
         {
             // Begun on the room it has and pinned to one column. Listing_Standard breaks to a
             // second column the moment a control would cross the bottom of the rect it was
             // begun on - curX past the whole width, so everything after is clipped away by
             // the group, and CurHeight back to nearly nothing.
-            var l = new Listing_Standard { maxOneColumn = true };
-            l.Begin(rect);
-
             l.Label("Name");
             _p.Name = UiWidgets.Field(l, "project.name", _p.Name);
 
@@ -252,17 +223,11 @@ namespace SlopWorld
                     TerminalWindow.OpenOverPane(new BrowseDialog(_p.Dir, d => _p.Dir = d));
             }
 
-            float used = l.CurHeight;
-            l.End();
-            return used + UiWidgets.GapS;
         }
 
         // The sandbox every agent in this project gets by default: network, DNS and the extra presets.
-        float DrawSandbox(Rect rect, float availableHeight)
+        void DrawSandboxFields(Listing_Standard l)
         {
-            var l = new Listing_Standard { maxOneColumn = true };
-            l.Begin(rect);
-
             var networkChoices = new[]
             {
                 NetworkMode.None, NetworkMode.Private, NetworkMode.Host,
@@ -303,10 +268,10 @@ namespace SlopWorld
                 GUI.color = Color.white;
             }
 
-            float used = l.CurHeight;
-            l.End();
+        }
 
-            float y = rect.y + used + UiWidgets.GapL;
+        float DrawSandboxTrailing(Rect rect, float y, float availableHeight)
+        {
             UiWidgets.SectionHeading(new Rect(rect.x, y, rect.width, UiWidgets.RowH),
                 "Sandbox presets");
             y += UiWidgets.RowH + UiWidgets.GapXS;
@@ -316,7 +281,7 @@ namespace SlopWorld
             PresetList.Draw(new Rect(rect.x, y, rect.width, height), _p.Sandbox, _presetScroll);
             y += height;
 
-            return y - rect.y + UiWidgets.GapS;
+            return y;
         }
 
         void DrawBreadcrumbs(Rect rect)
@@ -358,7 +323,8 @@ namespace SlopWorld
             if (_p.Dns.Mode == DnsMode.Servers)
                 _p.Dns.Servers = dnsServers;
 
-            SessionHub.Instance.Catalog.SaveProject(_p, _isNew, _origName,
+            SessionHub.Instance.Catalog.SaveProject(_p, _identity.IsNew,
+                _identity.OriginalName,
                 ok: () => Close(),
                 fail: UiWidgets.Fail);
         }

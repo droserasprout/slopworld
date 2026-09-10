@@ -12,33 +12,22 @@ namespace SlopWorld
     {
         enum Tab { General, Mounts, Sandbox, ResourceLimits, Breadcrumbs, Preview }
 
-        readonly bool _isNew;
+        readonly EditIdentity _identity;
         readonly SessionInfo _s;
-        // The edit is addressed to it, and a changed name in the field is a rename.
-        readonly string _origName;
         readonly SmoothScroll _presetScroll = new SmoothScroll();
         readonly SmoothScroll _breadcrumbScroll = new SmoothScroll();
         SmoothScroll _previewScroll = new SmoothScroll();
-        readonly SmoothScroll _generalScroll = new SmoothScroll();
         readonly SmoothScroll _mountsScroll = new SmoothScroll();
-        readonly SmoothScroll _sandboxScroll = new SmoothScroll();
-        readonly SmoothScroll _limitsScroll = new SmoothScroll();
+        readonly ScrollableListing _generalListing = new ScrollableListing(320f);
+        readonly ScrollableListing _sandboxListing = new ScrollableListing(480f);
+        readonly ScrollableListing _limitsListing = new ScrollableListing(320f);
         const float PresetsH = 240f;
         Tab _tab;
-
-        // Last frame's content height per scrolling tab, so each can grow a scrollbar when its
-        // fields and fixed lists do not fit - the body width the rail leaves varies with UI scale.
-        float _generalH = 320f;
-        float _sandboxH = 480f;
-        float _limitsH = 320f;
 
         // Limits are edited as raw strings so a half-typed number is not lost to a reparse each
         // frame; they are parsed back into `_s.Limits` on Save. Blank means no cap.
         string _limMem, _limPids, _limNofile, _limCpu;
         string _dnsServers;
-
-        // For the title. Null unless it is a duplicate: an edit already has `_origName`.
-        readonly string _copiedFrom;
 
         public EditSessionDialog(SessionInfo existing) : this(existing, null) { }
 
@@ -56,16 +45,15 @@ namespace SlopWorld
             // A copy is a new agent in every way that matters here: nothing on the daemon
             // knows about it, so Save posts rather than puts and there is no rename to carry
             // a colonist across.
-            _isNew = existing == null || copy;
-            _origName = copy ? "" : (existing?.Name ?? "");
-            _copiedFrom = copy ? existing.Name : null;
+            _identity = copy ? EditIdentity.ForCopy(existing?.Name) :
+                existing == null ? EditIdentity.ForNew() : EditIdentity.ForEdit(existing.Name);
             _s = existing == null
                 ? new SessionInfo { Name = "", Project = project ?? "" }
                 : new SessionInfo
                 {
                     Name = copy
-                        ? UiWidgets.FreeName(existing.Name,
-                            SessionHub.Instance.Sessions.Select(x => x.Name), "agent")
+                        ? _identity.CopyName(SessionHub.Instance.Sessions.Select(x => x.Name),
+                            "agent")
                         : existing.Name,
                     Label = copy ? "" : existing.Label,
                     Project = existing.Project,
@@ -119,47 +107,28 @@ namespace SlopWorld
 
         protected override void DoBody(Rect rect)
         {
-            UiWidgets.Title(TitleRect(rect), _copiedFrom != null
-                ? $"Copy of '{_copiedFrom}'"
-                : _isNew ? "New agent" : $"Edit '{_origName}'");
+            UiWidgets.Title(TitleRect(rect), _identity.Title("agent"));
 
-            float top = rect.y + UiWidgets.HeaderH + UiWidgets.GapS;
-            float bottom = rect.yMax - UiWidgets.BtnH - UiWidgets.GapS;
-
-            const float railW = 132f;
-            DrawRail(new Rect(rect.x, top, railW, bottom - top));
-            var body = new Rect(rect.x + railW + UiWidgets.GapM, top,
-                rect.width - railW - UiWidgets.GapM, bottom - top);
+            var layout = TabbedFormLayout.Arrange(SettingsPageLayout.FromRect(rect), 132f,
+                UiWidgets.HeaderH, UiWidgets.BtnH, UiWidgets.GapS, UiWidgets.GapM);
+            DrawRail(SettingsPageLayout.ToRect(layout.Rail));
+            var body = SettingsPageLayout.ToRect(layout.Body);
 
             switch (_tab)
             {
                 case Tab.General:
-                {
-                    var view = new Rect(0f, 0f, body.width - UiWidgets.ScrollbarW,
-                        Mathf.Max(_generalH, body.height));
-                    using (_generalScroll.Scope(body, view))
-                        _generalH = DrawGeneral(view);
+                    _generalListing.Draw(body, DrawGeneral);
                     break;
-                }
                 case Tab.Mounts:
                     DrawMounts(body);
                     break;
                 case Tab.Sandbox:
-                {
-                    var view = new Rect(0f, 0f, body.width - UiWidgets.ScrollbarW,
-                        Mathf.Max(_sandboxH, body.height));
-                    using (_sandboxScroll.Scope(body, view))
-                        _sandboxH = DrawSandbox(view, body.height);
+                    _sandboxListing.Draw(body, DrawSandboxFields,
+                        (view, y) => DrawSandboxTrailing(view, y, body.height));
                     break;
-                }
                 case Tab.ResourceLimits:
-                {
-                    var view = new Rect(0f, 0f, body.width - UiWidgets.ScrollbarW,
-                        Mathf.Max(_limitsH, body.height));
-                    using (_limitsScroll.Scope(body, view))
-                        _limitsH = DrawLimits(view);
+                    _limitsListing.Draw(body, DrawLimits);
                     break;
-                }
                 case Tab.Breadcrumbs:
                     DrawBreadcrumbs(body);
                     break;
@@ -169,9 +138,9 @@ namespace SlopWorld
                     break;
             }
 
-            var foot = new UiWidgets.Bar(UiWidgets.FooterBar(rect));
-            if (!_isNew && foot.Left("Reset private state", UiWidgets.Btn.Danger))
-                Find.WindowStack.Add(CatalogActions.ResetState(_origName));
+            var foot = new UiWidgets.Bar(SettingsPageLayout.ToRect(layout.Footer));
+            if (!_identity.IsNew && foot.Left("Reset private state", UiWidgets.Btn.Danger))
+                Find.WindowStack.Add(CatalogActions.ResetState(_identity.OriginalName));
             if (foot.Left("Cancel", UiWidgets.Btn.Ghost)) Close();
             if (foot.Right("Save", UiWidgets.Btn.Primary)) Save();
         }
@@ -218,13 +187,13 @@ namespace SlopWorld
                 CpuPct = cpu,
             };
 
-            string from = _origName, to = _s.Name;
-            SessionHub.Instance.Save(_s, _isNew, _origName,
+            string from = _identity.OriginalName, to = _s.Name;
+            SessionHub.Instance.Save(_s, _identity.IsNew, _identity.OriginalName,
                 ok: () =>
                 {
                     // The daemon took the rename, so carry the colonist over before the next
                     // reconcile sees a name it doesn't know and retires it.
-                    if (!_isNew && from != to)
+                    if (!_identity.IsNew && from != to)
                     {
                         AgentColony.Current?.Rename(from, to);
                         TerminalWindow.RenameActive(from, to);

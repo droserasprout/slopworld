@@ -71,6 +71,8 @@ namespace SlopWorld.Tests
                 tests.Add(("AsyncLoadState: " + test.Name, test.Body));
             foreach (var test in NameToolsTests.Cases())
                 tests.Add(("NameTools: " + test.Name, test.Body));
+            foreach (var test in EditIdentityTests.Cases())
+                tests.Add(("EditIdentity: " + test.Name, test.Body));
             foreach (var test in SongRecognizerTests.Cases())
                 tests.Add(("SongRecognizer: " + test.Name, test.Body));
             foreach (var test in JukeboxHistoryTests.Cases())
