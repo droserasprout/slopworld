@@ -9,7 +9,7 @@ namespace SlopWorld
         IContentView Content { get; }
         bool InputAvailable { get; }
         void Leave();
-        void ClosePanel();
+        void ClosePanel(TerminalPanel panel);
         void SwitchTo(string name);
     }
 
@@ -53,7 +53,7 @@ namespace SlopWorld
         }
         internal void HandleChrome(Event e) => _input.HandleChrome(e);
         internal void Leave() => _host.Leave();
-        internal void Close() => _host.ClosePanel();
+        internal void Close() => _host.ClosePanel(this);
         internal void SwitchTo(string name) => _host.SwitchTo(name);
         internal static EventType MouseType(Event e) => TerminalInputController.MouseType(e);
 
@@ -65,6 +65,13 @@ namespace SlopWorld
             if (_showStopped && hub.Get(_name)?.Gone == true)
             {
                 if (input) _input.HandleChrome(Event.current);
+                if (!_opened || !Visible || _name != drawingSession) return false;
+                if (input && MouseType(Event.current) == EventType.MouseDown &&
+                    Event.current.button == 1 && body.Contains(Event.current.mousePosition))
+                {
+                    OpenMenu(null, null, 0);
+                    Event.current.Use();
+                }
                 Slab.Fill(OverdrawBackground(body), SolidTerminalBackground);
                 DrawCentered(body, "Agent is stopped");
                 return false;

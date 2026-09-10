@@ -18,6 +18,18 @@ navigation and input eligibility without giving the panel access to window inter
 visibility/focus. Pixel-snapping transforms are per panel. Input that closes or switches
 the panel stops the old draw before it can rebuild a released cache.
 
+`TerminalSplit` is the retained backing view for one or two terminals. The context menu's
+`Open beside` selects a session for the other pane (replacing it when already split).
+Opening an already-visible session focuses its existing pane; ordinary navigation replaces
+only the focused pane. Click a pane to focus it; the lit top edge marks the selection.
+Drag the divider to resize, bounded by the panes' minimum widths or equal available space
+on a smaller viewport. `Close pane` and Shift+Escape remove the focused pane; F12 closes
+the workspace. Settings covers both panes without releasing their state. Split placement
+is not persisted, and Tab/Shift+Tab remain terminal input.
+`WorkspaceSplit<T>` owns child lifecycle and focus; layout refreshes size each split pane
+individually instead of broadcasting a shared grid. Render fallbacks and pointer overlays
+are bounded to their pane while a resized screen is still in flight.
+
 ## Size
 
 `NegotiateSize` divides the terminal panel's assigned rectangle by cell size and sends a debounced
@@ -60,8 +72,12 @@ direction after fetching missing visible rows first. Cached history is retained 
 between live and scrollback, so the first small gesture does not wait for capture. The live
 frame's history count bounds local scrolling, including a zero range for empty history.
 Legacy frames without that count use the 10,000-line limit until a capture finds the real top.
-Live rows that scroll off the bottom advance the local offset,
-keeping the content being read anchored while fresh history is fetched. When history exists, a
+History growth advances the local offset from the last panel observation, including streamed
+frames skipped between draws. Before the history limit, the daemon's extent outranks visual
+row-overlap guesses. Old live rows that move into history are fetched again: a TUI may have
+rewritten its prompt before scrolling, so neither a previous live frame nor a delayed capture's
+live tail can establish those historical rows. Confirmed older history remains cached.
+When history exists, a
 three-unit overlay bar at the pane's right edge shows the current offset against the daemon-
 reported history extent without changing the negotiated terminal width; it can be dragged
 directly. A monochrome lock marks the frozen view while scrolled back.

@@ -56,6 +56,71 @@ namespace SlopWorld.Tests
                 string.Join(",", events), "content-only host can acquire a hidden backing panel");
         }
 
+        public static void SplitLifecycle()
+        {
+            var events = new List<string>();
+            var first = new Panel("a", events);
+            var second = new Panel("b", events);
+            var split = new WorkspaceSplit<Panel>(first);
+            split.Open();
+            split.SetVisible(true);
+            split.SetFocus(true);
+            split.Add(second);
+            AssertEx.Equal("a:open,a:show,a:focus,b:open,b:show,a:blur,b:focus",
+                string.Join(",", events), "opening a split transfers focus without closing the first");
+            events.Clear();
+            split.SetFocus(false);
+            split.SetVisible(false);
+            split.Select(first);
+            split.SetVisible(true);
+            split.SetFocus(true);
+            AssertEx.Equal("b:blur,a:hide,b:hide,a:show,b:show,a:focus",
+                string.Join(",", events), "covering retains both children and restores only selected focus");
+            events.Clear();
+            split.Remove(first);
+            AssertEx.True(ReferenceEquals(second, split.First), "surviving pane fills the workspace");
+            AssertEx.True(ReferenceEquals(second, split.Selected), "removal transfers focus");
+            split.Close();
+            split.Close();
+            AssertEx.Equal("a:blur,b:focus,a:hide,a:close,b:blur,b:hide,b:close",
+                string.Join(",", events), "removed and retained children each close once");
+
+            split = new WorkspaceSplit<Panel>(first);
+            split.Open();
+            split.Add(second);
+            split.SetVisible(true);
+            split.SetFocus(true);
+            events.Clear();
+            split.Remove(first);
+            AssertEx.Equal("a:hide,a:close", string.Join(",", events),
+                "removing an unfocused session leaves the selected session focused");
+            split.Add(first);
+            split.SetVisible(false);
+            events.Clear();
+            split.Close();
+            AssertEx.Equal("b:close,a:close", string.Join(",", events),
+                "closing a covered workspace releases both retained terminals");
+        }
+
+        public static void SplitGeometry()
+        {
+            var bounds = new UiLayoutRect(40f, 60f, 1000f, 500f);
+            var split = new WorkspaceSplitGeometry(bounds, 0.3f, 10f, 160f);
+            AssertEx.Equal(297f, split.First.Width, "ratio applies to space left after divider");
+            AssertEx.Equal(347f, split.Second.X, "second follows divider in workspace coordinates");
+            AssertEx.Equal(bounds.XMax, split.Second.XMax, "split fills width exactly");
+            split = new WorkspaceSplitGeometry(bounds, -1f, 10f, 160f);
+            AssertEx.Equal(160f, split.First.Width, "drag clamps at first pane minimum");
+            split = new WorkspaceSplitGeometry(bounds, 2f, 10f, 160f);
+            AssertEx.Equal(160f, split.Second.Width, "drag clamps at second pane minimum");
+            split = new WorkspaceSplitGeometry(new UiLayoutRect(0f, 0f, 100f, 40f), 0.1f, 10f, 160f);
+            AssertEx.Equal(45f, split.First.Width, "small viewports share available width");
+            AssertEx.Equal(45f, split.Second.Width, "minimums cannot overflow viewport");
+            split = new WorkspaceSplitGeometry(new UiLayoutRect(0f, 0f, 3f, 0f), 0.5f, 10f, 160f);
+            AssertEx.Equal(0f, split.Second.Width, "divider is bounded on tiny viewports");
+            AssertEx.Equal(3f, split.Second.XMax, "tiny geometry remains within viewport");
+        }
+
         public static void Geometry()
         {
             var wide = new UiLayoutRect(30f, 60f, 1000f, 500f);

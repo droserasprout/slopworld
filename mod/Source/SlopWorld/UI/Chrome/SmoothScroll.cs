@@ -153,7 +153,7 @@ namespace SlopWorld
             int id = GUIUtility.GetControlID(FocusType.Passive, track);
             var e = Event.current;
 
-            if (e.type == EventType.MouseDown && e.button == 0 &&
+            if (GUIUtility.hotControl == 0 && e.type == EventType.MouseDown && e.button == 0 &&
                 track.Contains(e.mousePosition))
             {
                 // On the thumb, it is picked up where it was touched. On the trough, it

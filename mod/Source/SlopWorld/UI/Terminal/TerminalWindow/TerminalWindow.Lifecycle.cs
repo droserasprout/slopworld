@@ -19,8 +19,7 @@ namespace SlopWorld
             var existing = Find.WindowStack.WindowOfType<TerminalWindow>();
             if (existing != null)
             {
-                if (existing._name == name) existing.Leave();
-                else existing.SwitchTo(name);
+                existing.SwitchTo(name);
                 return existing;
             }
 
@@ -71,10 +70,11 @@ namespace SlopWorld
                 oldName == newName) return;
 
             var window = Find.WindowStack?.WindowOfType<TerminalWindow>();
-            bool active = window != null && window._name == oldName;
-            if (active)
+            var renamed = window?._terminals.Find(oldName);
+            bool active = renamed != null && renamed == window._terminal;
+            if (renamed != null)
             {
-                window._name = newName;
+                renamed.SessionName = newName;
                 TerminalRecall.Remember(newName);
             }
 
@@ -161,10 +161,16 @@ namespace SlopWorld
         internal void SwitchTo(string name)
         {
             SetContent(null);
+            var existing = _terminals.Find(name);
+            if (existing != null)
+            {
+                _terminals.Select(existing);
+                return;
+            }
             if (_name == name) return;
             ArrangeTerminal(WorkspaceLayout.Current.Content);
             _terminal.BindSession(name);
-            _panels.SetBacking(name == null ? null : _terminal);
+            _panels.SetBacking(name == null ? null : _terminals);
             if (name != null) SelectAgent(name);
         }
 
@@ -182,7 +188,7 @@ namespace SlopWorld
         {
             base.PreOpen();
             ArrangeTerminal(WorkspaceLayout.Current.Content);
-            if (_name != null) _panels.SetBacking(_terminal);
+            if (_name != null) _panels.SetBacking(_terminals);
             _covering = true;
             if (_name != null) SelectAgent(_name);
         }
@@ -197,6 +203,20 @@ namespace SlopWorld
 
         bool EnsureSession(SessionHub hub)
         {
+            // A disappearing ephemeral session removes only its pane. Durable stopped
+            // sessions stay visible, including when Settings covers the split.
+            if (_terminals.Split)
+            {
+                var first = _terminals.First;
+                var second = _terminals.Second;
+                if (!first.EnsureSession(hub, false)) _terminals.Remove(first);
+                if (!second.EnsureSession(hub, false))
+                {
+                    if (_terminals.Split) _terminals.Remove(second);
+                    else if (_content == null) { Close(); return false; }
+                }
+                if (_terminals.Split) return true;
+            }
             if (!_terminal.EnsureSession(hub, _content != null))
             {
                 Close();
@@ -204,6 +224,15 @@ namespace SlopWorld
             }
             if (_name == null) _panels.SetBacking(null);
             return true;
+        }
+
+        internal static void OpenSplit(string name)
+        {
+            var window = Find.WindowStack?.WindowOfType<TerminalWindow>();
+            if (window == null || window._name == null) { Open(name); return; }
+            window.SetContent(null);
+            window.ArrangeTerminal(WorkspaceLayout.Current.Content);
+            window._terminals.OpenSplit(name);
         }
 
         public static Color StateColor(AgentState s)

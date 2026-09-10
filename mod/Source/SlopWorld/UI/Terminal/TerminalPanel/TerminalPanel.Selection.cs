@@ -151,7 +151,8 @@ namespace SlopWorld
         {
             if (live == null || live.Seq == _selectionCoordinator.LastLiveSeq) return;
 
-            int liveShift = restoredShift == int.MinValue ? live.LiveShift : restoredShift;
+            int liveShift = restoredShift == int.MinValue
+                ? TerminalHistory.ShiftSince(_historyLiveHistory, live) : restoredShift;
             _selectionCoordinator.NoteLiveFrame(live.Seq, liveShift);
             _historyLiveSeq = live.Seq;
             _historyLiveHistory = live.History;

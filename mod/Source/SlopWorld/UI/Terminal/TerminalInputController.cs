@@ -139,6 +139,7 @@ namespace SlopWorld
 
             if (e.keyCode == KeyCode.Escape)
             {
+                if (_panel.Content == null && HandleEscapeKey(e)) return;
                 _panel.Leave();
                 e.Use();
                 return;

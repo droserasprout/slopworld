@@ -77,7 +77,7 @@ namespace SlopWorld
             if (!Wanted())
             {
                 SearchView.Closed();
-                Interaction.Resizing = false;
+                if (Interaction.Resizing) EndResize();
                 return;
             }
             Drawing = true;

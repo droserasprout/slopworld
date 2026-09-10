@@ -108,6 +108,18 @@ namespace SlopWorld
             breadcrumbMenu.Disabled = info == null || !info.Alive || breadcrumbs.Count == 0;
             options.Add(breadcrumbMenu);
             options.Add(new FloatMenuOption("Select all", SelectAll));
+            options.Add(new UiSubmenu("Open beside", () =>
+            {
+                var sessions = new List<FloatMenuOption>();
+                foreach (string session in TerminalWindow.TabOrder())
+                {
+                    if (session == _name) continue;
+                    string picked = session;
+                    sessions.Add(new FloatMenuOption(picked, () => TerminalWindow.OpenSplit(picked)));
+                }
+                return sessions;
+            }));
+            options.Add(new FloatMenuOption("Close pane", Close));
 
             if (_scrollOff > 0)
                 options.Add(new FloatMenuOption("Back to the live view", () =>
