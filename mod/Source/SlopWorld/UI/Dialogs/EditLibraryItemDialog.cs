@@ -94,12 +94,8 @@ namespace SlopWorld
                 },
             };
 
-        readonly bool _isNew;
+        readonly EditIdentity _identity;
         readonly LibraryItemInfo _s;
-        // The edit is addressed to it, and a changed name in the field is a rename.
-        readonly string _origName;
-        // Set only for a duplicate, so the title can distinguish copying from editing.
-        readonly string _copiedFrom;
 
         // Asked for rather than assumed: `[defaults] shell` is a per-machine answer and
         // this dialog would otherwise print somebody else's.
@@ -118,13 +114,12 @@ namespace SlopWorld
         {
             // A duplicate is a new daemon entry: it must POST rather than PUT, and its
             // name is suggested rather than copied so saving it cannot collide by default.
-            _isNew = existing == null || copy;
-            _origName = copy ? "" : (existing?.Name ?? "");
-            _copiedFrom = copy ? existing.Name : null;
+            _identity = copy ? EditIdentity.ForCopy(existing?.Name) :
+                existing == null ? EditIdentity.ForNew() : EditIdentity.ForEdit(existing.Name);
             _s = existing?.Copy() ?? new LibraryItemInfo();
             if (copy)
-                _s.Name = UiWidgets.FreeName(_s.Name,
-                    SessionHub.Instance.Library.Select(s => s.Name), "library");
+                _s.Name = _identity.CopyName(SessionHub.Instance.Library.Select(s => s.Name),
+                    "library");
 
 
             SessionHub.Instance.Catalog.RefreshProjects();
@@ -156,9 +151,7 @@ namespace SlopWorld
             // for its contents does not overflow, it breaks to a column off the right-hand
             // edge and puts CurHeight back to nearly zero - and the prompt box below is
             // placed and sized from that number. See EditProjectDialog.DoFields.
-            UiWidgets.Title(TitleRect(rect), _copiedFrom != null
-                ? $"Copy of '{_copiedFrom}'"
-                : _isNew ? "New library entry" : $"Edit '{_origName}'");
+            UiWidgets.Title(TitleRect(rect), _identity.Title("library entry"));
 
             float head = UiWidgets.HeaderH + UiWidgets.GapS;
             float used = DrawFields(new Rect(rect.x, rect.y + head, rect.width, rect.height - head));
@@ -401,7 +394,8 @@ namespace SlopWorld
                 return;
             }
 
-            SessionHub.Instance.Catalog.SaveLibraryItem(_s, _isNew, _origName,
+            SessionHub.Instance.Catalog.SaveLibraryItem(_s, _identity.IsNew,
+                _identity.OriginalName,
                 ok: () => Close(),
                 fail: msg => Messages.Message($"SlopWorld: {msg}",
                     MessageTypeDefOf.RejectInput, false));

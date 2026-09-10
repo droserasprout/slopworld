@@ -12,11 +12,8 @@ namespace SlopWorld
 
         // The agent itself: what it is called, where it works and what it runs. Everything a
         // new agent must have to start; the other tabs only refine it.
-        float DrawGeneral(Rect rect)
+        void DrawGeneral(Listing_Standard l)
         {
-            var l = new Listing_Standard { maxOneColumn = true };
-            l.Begin(rect);
-
             l.Label("Name (also the colonist's name)");
             _s.Name = UiWidgets.Field(l, "agent.name", _s.Name);
 
@@ -61,9 +58,6 @@ namespace SlopWorld
             _s.PersistentTmp = UiWidgets.Checkbox(l, "Persistent /tmp", _s.PersistentTmp,
                 "Keep this agent's /tmp across restarts in its private state. Resetting private state gives it a fresh /tmp.");
 
-            float used = l.CurHeight;
-            l.End();
-            return used + UiWidgets.GapS;
         }
 
         void DrawMounts(Rect rect)
@@ -147,22 +141,19 @@ namespace SlopWorld
 
         // Reach and the extra sandbox presets this agent adds on top of its command's and
         // project's.
-        float DrawSandbox(Rect rect, float availableHeight)
+        void DrawSandboxFields(Listing_Standard l)
+        {
+            var project = SessionHub.Instance.Project(_s.Project);
+            DrawNetworkFields(l, project);
+        }
+
+        float DrawSandboxTrailing(Rect rect, float y, float availableHeight)
         {
             var project = SessionHub.Instance.Project(_s.Project);
             string commandName = string.IsNullOrEmpty(_s.Command) ? _s.CommandPreset : _s.Command;
             var preset = SessionHub.Instance.Command(commandName);
 
-            var l = new Listing_Standard { maxOneColumn = true };
-            l.Begin(rect);
-            DrawNetworkFields(l, project);
-            float used = l.CurHeight;
-            l.End();
-
-            float y = rect.y + used + UiWidgets.GapL;
-            y = DrawExtraPresets(rect, y, project, preset, availableHeight);
-
-            return y - rect.y + UiWidgets.GapS;
+            return DrawExtraPresets(rect, y + UiWidgets.GapL, project, preset, availableHeight);
         }
 
         void DrawNetworkFields(Listing_Standard l, ProjectInfo project)
@@ -234,20 +225,15 @@ namespace SlopWorld
         }
 
         // Per-agent resource caps the daemon enforces with a systemd scope. Edited as strings;
-        // parsed on Save. Returns the height drawn so its tab can size its scroll view.
-        float DrawLimits(Rect rect)
+        // parsed on Save. ScrollableListing owns the tab's measured height.
+        void DrawLimits(Listing_Standard l)
         {
-            var l = new Listing_Standard { maxOneColumn = true };
-            l.Begin(rect);
-
             if (!SessionHub.Instance.Capabilities.PerSessionLimits)
             {
                 UiWidgets.Note(l,
                     "slopcar has one outer CPU, memory and process budget. Per-agent limits " +
                     "need delegated cgroups and are unavailable in this runtime.");
-                float unavailable = l.CurHeight;
-                l.End();
-                return unavailable;
+                return;
             }
 
             GUI.color = UiWidgets.Dim;
@@ -273,9 +259,6 @@ namespace SlopWorld
                 CpuPct = LimVal(_limCpu),
             };
 
-            float used = l.CurHeight;
-            l.End();
-            return used;
         }
 
         // Blank or not a positive whole number reads as no cap; the strict parse on Save is

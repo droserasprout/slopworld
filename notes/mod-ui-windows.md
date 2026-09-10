@@ -13,6 +13,9 @@ pages; Reload explicitly replaces that page's draft. General's local game, displ
 locale controls remain available before the daemon config loads or when it is offline.
 SettingsForm, daemon config fields and the Instructions editor share the retained
 `ScrollableListing` lifecycle; trailing usage fields stay in the daemon page host.
+Agent, project and library editors share `EditIdentity` for new/edit/copy titles and
+save addresses. Agent and project tab rails, bodies and footers use `TabbedFormLayout`;
+their feature-specific actions and preview/preset/breadcrumb state remain local.
 
 - `ProjectsView` lists projects before agents. `EditSessionDialog` chooses a command
   preset or literal command; an empty command uses `[defaults] agent`, and the resolved
