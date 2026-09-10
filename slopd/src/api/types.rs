@@ -256,70 +256,6 @@ struct RedrawReq {
     rows: Option<u16>,
 }
 
-impl<'de> Deserialize<'de> for ClientMsg {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        use serde::de::Error;
-
-        let value = serde_json::Value::deserialize(deserializer)?;
-        let tag = value
-            .get("t")
-            .and_then(serde_json::Value::as_str)
-            .map(str::to_owned)
-            .ok_or_else(|| D::Error::custom("websocket message is missing tag t"))?;
-        match tag.as_str() {
-            crate::wire::messages::REDRAW => {
-                let req: RedrawReq = serde_json::from_value(value).map_err(D::Error::custom)?;
-                Ok(Self::Redraw {
-                    cols: req.cols,
-                    rows: req.rows,
-                })
-            }
-            crate::wire::messages::SUB => {
-                let req: NameReq = serde_json::from_value(value).map_err(D::Error::custom)?;
-                Ok(Self::Sub { name: req.name })
-            }
-            crate::wire::messages::UNSUB => {
-                let req: NameReq = serde_json::from_value(value).map_err(D::Error::custom)?;
-                Ok(Self::Unsub { name: req.name })
-            }
-            crate::wire::messages::KEYS => Ok(Self::Keys(
-                serde_json::from_value(value).map_err(D::Error::custom)?,
-            )),
-            crate::wire::messages::RESIZE => Ok(Self::Resize(
-                serde_json::from_value(value).map_err(D::Error::custom)?,
-            )),
-            crate::wire::messages::SCROLL => Ok(Self::Scroll(
-                serde_json::from_value(value).map_err(D::Error::custom)?,
-            )),
-            crate::wire::messages::MOUSE => Ok(Self::Mouse(
-                serde_json::from_value(value).map_err(D::Error::custom)?,
-            )),
-            crate::wire::messages::PASTE => Ok(Self::Paste(
-                serde_json::from_value(value).map_err(D::Error::custom)?,
-            )),
-            crate::wire::messages::BREADCRUMB => Ok(Self::Breadcrumb(
-                serde_json::from_value(value).map_err(D::Error::custom)?,
-            )),
-            crate::wire::messages::AUDIO => {
-                // AudioReq deliberately rejects stale fields such as the old `source` shape.
-                // The message discriminator belongs to the envelope, not the strict payload.
-                let mut payload = value;
-                payload
-                    .as_object_mut()
-                    .expect("websocket message tag came from a JSON object")
-                    .remove("t");
-                Ok(Self::Audio(
-                    serde_json::from_value(payload).map_err(D::Error::custom)?,
-                ))
-            }
-            other => Err(D::Error::unknown_variant(other, &[])),
-        }
-    }
-}
-
 /// The jukebox. `selection` is absent for a volume-only update, null for silence, a station
 /// id/stream key for a catalog entry, or a file/directory path for the mod's OST.
 #[derive(Deserialize)]
@@ -410,6 +346,19 @@ pub(crate) struct ResizeReq {
     pub(crate) rows: u16,
 }
 
+crate::wire_client_msg_deserialize!(ClientMsg, {
+    Redraw { cols, rows } => RedrawReq,
+    Sub { name } => NameReq,
+    Unsub { name } => NameReq,
+    Keys => KeysReq,
+    Resize => ResizeReq,
+    Scroll => ScrollReq,
+    Mouse => MouseReq,
+    Paste => PasteReq,
+    Breadcrumb => BreadcrumbReq,
+    Audio => AudioReq [strip_tag],
+});
+
 #[cfg(test)]
 mod tests {
     use super::{AudioReq, BrowseReq, ClientMsg, SearchReq};
@@ -434,6 +383,33 @@ mod tests {
                 rows: Some(38)
             }
         ));
+    }
+
+    #[test]
+    fn sub_and_unsub_keep_their_shared_name_payload() {
+        assert!(matches!(
+            serde_json::from_str::<ClientMsg>(r#"{"t":"sub","name":"agent"}"#).unwrap(),
+            ClientMsg::Sub { name } if name == "agent"
+        ));
+        assert!(matches!(
+            serde_json::from_str::<ClientMsg>(r#"{"t":"unsub","name":"agent"}"#).unwrap(),
+            ClientMsg::Unsub { name } if name == "agent"
+        ));
+    }
+
+    #[test]
+    fn unknown_and_missing_websocket_tags_are_rejected() {
+        let unknown = serde_json::from_str::<ClientMsg>(r#"{"t":"stale"}"#)
+            .err()
+            .unwrap()
+            .to_string();
+        assert!(unknown.contains("unknown variant"), "{unknown}");
+
+        let missing = serde_json::from_str::<ClientMsg>(r#"{"name":"agent"}"#)
+            .err()
+            .unwrap()
+            .to_string();
+        assert!(missing.contains("missing tag t"), "{missing}");
     }
 
     #[test]

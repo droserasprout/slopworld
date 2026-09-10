@@ -6,7 +6,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use anyhow::{bail, Context, Result};
 use regex::Regex;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use serde_json::Value;
 use tokio::sync::{broadcast, mpsc, RwLock};
 use tokio::task::JoinHandle;
@@ -129,51 +129,16 @@ pub enum Event {
     },
 }
 
-impl Serialize for Event {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        use serde::ser::SerializeStruct;
-
-        let mut out = serializer.serialize_struct("Event", 2)?;
-        match self {
-            Self::Capabilities { capabilities } => {
-                out.serialize_field("t", crate::wire::events::CAPABILITIES)?;
-                out.serialize_field("capabilities", capabilities)?;
-            }
-            Self::Sessions { sessions } => {
-                out.serialize_field("t", crate::wire::events::SESSIONS)?;
-                out.serialize_field("sessions", sessions)?;
-            }
-            Self::Projects { projects } => {
-                out.serialize_field("t", crate::wire::events::PROJECTS)?;
-                out.serialize_field("projects", projects)?;
-            }
-            Self::Library { library } => {
-                out.serialize_field("t", crate::wire::events::LIBRARY)?;
-                out.serialize_field("library", library)?;
-            }
-            Self::Screen { screen } => {
-                out.serialize_field("t", crate::wire::events::SCREEN)?;
-                out.serialize_field("screen", screen)?;
-            }
-            Self::Usage { usage } => {
-                out.serialize_field("t", crate::wire::events::USAGE)?;
-                out.serialize_field("usage", usage)?;
-            }
-            Self::Audio { audio } => {
-                out.serialize_field("t", crate::wire::events::AUDIO)?;
-                out.serialize_field("audio", audio)?;
-            }
-            Self::Jukebox { jukebox } => {
-                out.serialize_field("t", crate::wire::events::JUKEBOX)?;
-                out.serialize_field("jukebox", jukebox)?;
-            }
-        }
-        out.end()
-    }
-}
+crate::wire_event_serialize!(Event, {
+    Capabilities { capabilities },
+    Sessions { sessions },
+    Projects { projects },
+    Library { library },
+    Screen { screen },
+    Usage { usage },
+    Audio { audio },
+    Jukebox { jukebox },
+});
 
 /// One immutable event shared by all WebSocket pumps. The event itself remains separate from
 /// its cached wire representation because scoped session lists may need a filtered envelope.
@@ -353,8 +318,8 @@ mod tests {
         match_rules, merge_input, merge_toml, normalize_action_command, normalize_path,
         project_action_path, prompt_is_long_enough, render_template, render_template_with, settle,
         slug, strip_sgr, title_agent, title_settings, Composer, Event, EventMessage, Input, Live,
-        State, Submission, TemplateVars, TitleAgent, TitleCapture, BOOT_COLS, BOOT_ROWS,
-        INPUT_BATCH, TAIL_LINES,
+        ScreenView, State, Submission, TemplateVars, TitleAgent, TitleCapture, BOOT_COLS,
+        BOOT_ROWS, INPUT_BATCH, TAIL_LINES,
     };
     use crate::config::{Config, LibraryItemCfg, LibraryItemKind, ProjectCfg, SessionCfg};
 
@@ -368,6 +333,95 @@ mod tests {
 
         assert!(Arc::ptr_eq(&first, &second));
         assert!(first.starts_with("{\"t\":\"usage\""));
+    }
+
+    #[test]
+    fn every_event_uses_its_contract_tag_and_payload_name() {
+        let screen = ScreenView {
+            name: String::new(),
+            seq: 0,
+            cols: 0,
+            rows: 0,
+            cx: 0,
+            cy: 0,
+            off: 0,
+            history: 0,
+            cursor_shape: 0,
+            cursor_blink: false,
+            app_mouse: false,
+            app_drag: false,
+            alt_screen: false,
+            title: String::new(),
+            request_id: 0,
+            lines: Vec::new(),
+        };
+        let events = [
+            (
+                Event::Capabilities {
+                    capabilities: crate::runtime::Capabilities {
+                        runtime: "native",
+                        audio_playback: true,
+                        clipboard: true,
+                        desktop_open: true,
+                        per_session_limits: true,
+                        host_network_is_container: false,
+                        host_terminals_are_container: false,
+                    },
+                },
+                "capabilities",
+                "capabilities",
+            ),
+            (
+                Event::Sessions {
+                    sessions: Vec::new(),
+                },
+                "sessions",
+                "sessions",
+            ),
+            (
+                Event::Projects {
+                    projects: Vec::new(),
+                },
+                "projects",
+                "projects",
+            ),
+            (
+                Event::Library {
+                    library: Vec::new(),
+                },
+                "library",
+                "library",
+            ),
+            (Event::Screen { screen }, "screen", "screen"),
+            (
+                Event::Usage {
+                    usage: Default::default(),
+                },
+                "usage",
+                "usage",
+            ),
+            (
+                Event::Audio {
+                    audio: Default::default(),
+                },
+                "audio",
+                "audio",
+            ),
+            (
+                Event::Jukebox {
+                    jukebox: Default::default(),
+                },
+                "jukebox",
+                "jukebox",
+            ),
+        ];
+
+        for (event, tag, payload) in events {
+            let value = serde_json::to_value(event).unwrap();
+            assert_eq!(value["t"], tag);
+            assert!(value.get(payload).is_some());
+            assert_eq!(value.as_object().unwrap().len(), 2);
+        }
     }
 
     #[test]
