@@ -70,7 +70,7 @@ namespace SlopWorld
         static bool _word;
         static bool _includeIgnored;
         static bool _loading;
-        static int _generation;
+        static readonly OperationGate Operations = new OperationGate();
         static int _pending;
         static Match _selected;
         static Match _showing;
@@ -190,7 +190,7 @@ namespace SlopWorld
             _selected = null;
             _loading = true;
             Scroll.JumpTo(Vector2.zero);
-            int generation = ++_generation;
+            int generation = Operations.Begin();
 
             var projects = SearchProjects();
             _pending = projects.Count;
@@ -216,7 +216,7 @@ namespace SlopWorld
         {
             // Invalidate replies for the previous query before clearing its rows. Otherwise a
             // slow request can repopulate the result list after the user erased the field.
-            ++_generation;
+            Operations.Invalidate();
             _pending = 0;
             _loading = false;
             Groups.Clear();
@@ -237,7 +237,7 @@ namespace SlopWorld
 
         static void OnResults(Group group, ProjectInfo project, int generation, JVal j)
         {
-            if (generation != _generation) return;
+            if (!Operations.IsCurrent(generation)) return;
             foreach (var row in j["matches"].Items)
                 group.Matches.Add(new Match
                 {
@@ -260,7 +260,7 @@ namespace SlopWorld
 
         static void OnError(Group group, int generation, string msg)
         {
-            if (generation != _generation) return;
+            if (!Operations.IsCurrent(generation)) return;
             group.Error = msg;
             DirtyLayout();
             Done(generation);
@@ -270,7 +270,7 @@ namespace SlopWorld
 
         static void Done(int generation)
         {
-            if (generation != _generation) return;
+            if (!Operations.IsCurrent(generation)) return;
             _pending--;
             if (_pending <= 0) _loading = false;
             DirtyLayout();

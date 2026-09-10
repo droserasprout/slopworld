@@ -6,7 +6,8 @@ their editors open above the chrome with `TerminalWindow.OpenOverPane`.
 Agent mounts fill their tab; agent and project sandbox lists expand to the remaining
 viewport, retaining a minimum height when the surrounding form needs scrolling.
 
-Daemon config pages keep independent drafts and save only fields changed since their
+Daemon config pages keep independent drafts and gate load/save callbacks by operation, while saving
+only fields changed since their
 last load or successful save. Saving refreshes the live mirror without reloading other
 pages; Reload explicitly replaces that page's draft. General's local game, display and
 locale controls remain available before the daemon config loads or when it is offline.
