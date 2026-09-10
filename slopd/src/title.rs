@@ -48,8 +48,12 @@ pub fn cache_path(config: &Path) -> PathBuf {
 /// reuse across daemon and game restarts.
 pub struct SummaryCache {
     path: PathBuf,
-    entries: Mutex<Vec<CacheEntry>>,
-    latest: Mutex<Vec<LatestEntry>>,
+    state: Mutex<CacheState>,
+}
+
+struct CacheState {
+    entries: Vec<CacheEntry>,
+    latest: Vec<LatestEntry>,
 }
 
 impl SummaryCache {
@@ -88,15 +92,15 @@ impl SummaryCache {
         };
         Self {
             path,
-            entries: Mutex::new(entries),
-            latest: Mutex::new(latest),
+            state: Mutex::new(CacheState { entries, latest }),
         }
     }
 
     pub fn latest(&self, session: &str) -> Option<String> {
-        self.latest
+        self.state
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .latest
             .iter()
             .find(|entry| entry.session == session)
             .map(|entry| entry.title.clone())
@@ -104,14 +108,14 @@ impl SummaryCache {
 
     pub fn get(&self, prompt: &str, summary_prompt: &str, model: &str) -> Option<String> {
         let key = cache_key(prompt, summary_prompt, model);
-        let mut entries = self
-            .entries
+        let mut state = self
+            .state
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
-        let at = entries.iter().position(|entry| entry.key == key)?;
-        let entry = entries.remove(at);
+        let at = state.entries.iter().position(|entry| entry.key == key)?;
+        let entry = state.entries.remove(at);
         let title = entry.title.clone();
-        entries.push(entry);
+        state.entries.push(entry);
         Some(title)
     }
 
@@ -124,12 +128,13 @@ impl SummaryCache {
         title: &str,
     ) -> Result<()> {
         let key = cache_key(prompt, summary_prompt, model);
-        let mut entries = self
-            .entries
+        let mut state = self
+            .state
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
-        insert_entry(&mut entries, key, title);
-        self.save_entries(&entries, session, title)
+        insert_entry(&mut state.entries, key, title);
+        set_latest(&mut state.latest, session, title);
+        save_cache(&self.path, &state)
     }
 
     /// Store a summary that belongs to a durable task rather than a live session. It shares the
@@ -143,55 +148,34 @@ impl SummaryCache {
         title: &str,
     ) -> Result<()> {
         let key = cache_key(prompt, summary_prompt, model);
-        let mut entries = self
-            .entries
+        let mut state = self
+            .state
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
-        insert_entry(&mut entries, key, title);
-        let latest = self
-            .latest
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner());
-        save_cache(&self.path, &entries, &latest)
-    }
-
-    fn save_entries(&self, entries: &[CacheEntry], session: &str, title: &str) -> Result<()> {
-        let mut latest = self
-            .latest
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner());
-        set_latest(&mut latest, session, title);
-        save_cache(&self.path, entries, &latest)
+        insert_entry(&mut state.entries, key, title);
+        save_cache(&self.path, &state)
     }
 
     pub fn remember(&self, session: &str, title: &str) -> Result<()> {
-        let entries = self
-            .entries
+        let mut state = self
+            .state
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
-        let mut latest = self
-            .latest
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner());
-        set_latest(&mut latest, session, title);
-        save_cache(&self.path, &entries, &latest)
+        set_latest(&mut state.latest, session, title);
+        save_cache(&self.path, &state)
     }
 
     pub fn clear_latest(&self, session: &str) -> Result<()> {
-        let entries = self
-            .entries
+        let mut state = self
+            .state
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
-        let mut latest = self
-            .latest
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner());
-        let before = latest.len();
-        latest.retain(|entry| entry.session != session);
-        if latest.len() == before {
+        let before = state.latest.len();
+        state.latest.retain(|entry| entry.session != session);
+        if state.latest.len() == before {
             return Ok(());
         }
-        save_cache(&self.path, &entries, &latest)
+        save_cache(&self.path, &state)
     }
 }
 
@@ -248,11 +232,11 @@ fn set_latest(latest: &mut Vec<LatestEntry>, session: &str, title: &str) {
     }
 }
 
-fn save_cache(path: &Path, entries: &[CacheEntry], latest: &[LatestEntry]) -> Result<()> {
+fn save_cache(path: &Path, state: &CacheState) -> Result<()> {
     let file = CacheFile {
         version: CACHE_VERSION,
-        entries: entries.to_vec(),
-        latest: latest.to_vec(),
+        entries: state.entries.to_vec(),
+        latest: state.latest.to_vec(),
     };
     crate::paths::write_private_toml(path, &toml::to_string_pretty(&file)?)
 }

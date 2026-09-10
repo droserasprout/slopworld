@@ -321,28 +321,28 @@ fn spawn_frame_pump(
 async fn handle_client_msg(cm: ClientMsg, m: &Mgr, cap: &Cap, tx: &WsTx, subs: &WsSubs) -> bool {
     match cm {
         ClientMsg::Redraw { cols, rows } => handle_redraw(m, cap, cols.zip(rows)),
-        ClientMsg::Sub { name } => handle_sub(name, m, cap, tx, subs).await,
+        ClientMsg::Sub { name } => return handle_sub(name, m, cap, tx, subs).await,
         ClientMsg::Unsub { name } => handle_unsub(name, subs).await,
         ClientMsg::Keys(req) => handle_keys(req, m, cap).await,
         ClientMsg::Resize(req) => handle_resize(req, m, cap).await,
         // Scroll requests are intercepted by ws_run so capture work can run in its bounded
         // lane without stopping command intake.
-        ClientMsg::Scroll(_) => true,
+        ClientMsg::Scroll(_) => {}
         ClientMsg::Mouse(req) => handle_mouse(req, m, cap).await,
         ClientMsg::Paste(req) => handle_paste(req, m, cap).await,
         ClientMsg::Breadcrumb(req) => handle_breadcrumb(req, m, cap).await,
-        ClientMsg::Audio(req) => handle_audio(req, m, cap).await,
+        ClientMsg::Audio(req) => handle_audio(req, m, cap),
     }
+    true
 }
 
-fn handle_redraw(m: &Mgr, cap: &Cap, shape: Option<(u16, u16)>) -> bool {
+fn handle_redraw(m: &Mgr, cap: &Cap, shape: Option<(u16, u16)>) {
     // A panel refresh reaches every live tmux session, so it is deliberately root-only. A
     // scoped grant must never be able to cause work or visible flicker in sessions it cannot
     // see.
     if cap.may_create() {
         m.request_redraw(shape);
     }
-    true
 }
 
 async fn handle_sub(name: String, m: &Mgr, cap: &Cap, tx: &WsTx, subs: &WsSubs) -> bool {
@@ -363,37 +363,34 @@ async fn handle_sub(name: String, m: &Mgr, cap: &Cap, tx: &WsTx, subs: &WsSubs) 
     true
 }
 
-async fn handle_unsub(name: String, subs: &WsSubs) -> bool {
+async fn handle_unsub(name: String, subs: &WsSubs) {
     subs.lock().await.remove(&name);
-    true
 }
 
-async fn handle_keys(req: KeysReq, m: &Mgr, cap: &Cap) -> bool {
+async fn handle_keys(req: KeysReq, m: &Mgr, cap: &Cap) {
     if !m.cap_ok(cap, &req.name, Level::Rw).await {
-        return true;
+        return;
     }
     m.send_keys(&req.name, req.keys, req.literal, req.random_tips)
         .await;
-    true
 }
 
-async fn handle_resize(req: ResizeReq, m: &Mgr, cap: &Cap) -> bool {
+async fn handle_resize(req: ResizeReq, m: &Mgr, cap: &Cap) {
     if !m.cap_ok(cap, &req.name, Level::Rw).await {
-        return true;
+        return;
     }
     if let Err(e) = m.resize(&req.name, req.cols, req.rows).await {
         tracing::debug!("resize: {e:#}");
     }
-    true
 }
 
-async fn handle_mouse(req: MouseReq, m: &Mgr, cap: &Cap) -> bool {
+async fn handle_mouse(req: MouseReq, m: &Mgr, cap: &Cap) {
     if !m.cap_ok(cap, &req.name, Level::Rw).await {
-        return true;
+        return;
     }
     let Some(action) = crate::emu::MouseAction::parse(&req.action) else {
         tracing::debug!("unknown mouse action: {}", req.action);
-        return true;
+        return;
     };
     let ev = crate::emu::MouseInput {
         action,
@@ -402,24 +399,22 @@ async fn handle_mouse(req: MouseReq, m: &Mgr, cap: &Cap) -> bool {
         row: req.row,
     };
     m.send_mouse(&req.name, ev, req.count).await;
-    true
 }
 
-async fn handle_paste(req: PasteReq, m: &Mgr, cap: &Cap) -> bool {
+async fn handle_paste(req: PasteReq, m: &Mgr, cap: &Cap) {
     if !m.cap_ok(cap, &req.name, Level::Rw).await {
-        return true;
+        return;
     }
     // A paste checks first, so anything left is a paste that did not land - and the only other
     // sign of one is the operator noticing nothing arrived.
     if let Err(e) = m.paste(&req.name, &req.text).await {
         tracing::warn!("paste to {}: {e:#}", req.name);
     }
-    true
 }
 
-async fn handle_breadcrumb(req: BreadcrumbReq, m: &Mgr, cap: &Cap) -> bool {
+async fn handle_breadcrumb(req: BreadcrumbReq, m: &Mgr, cap: &Cap) {
     if !m.cap_ok(cap, &req.name, Level::Rw).await {
-        return true;
+        return;
     }
     if let Err(e) = m
         .paste_breadcrumb(&req.name, &req.breadcrumb, req.random_tips)
@@ -427,12 +422,11 @@ async fn handle_breadcrumb(req: BreadcrumbReq, m: &Mgr, cap: &Cap) -> bool {
     {
         tracing::warn!("breadcrumb to {}: {e:#}", req.name);
     }
-    true
 }
 
-async fn handle_audio(req: AudioReq, m: &Mgr, cap: &Cap) -> bool {
+fn handle_audio(req: AudioReq, m: &Mgr, cap: &Cap) {
     if !cap.may_create() {
-        return true;
+        return;
     }
     match req.selection {
         Some(Some(selection)) => match resolve_audio_source(selection) {
@@ -446,7 +440,6 @@ async fn handle_audio(req: AudioReq, m: &Mgr, cap: &Cap) -> bool {
         Some(None) => m.audio.stop(),
         None => m.audio.set_volume(req.volume),
     }
-    true
 }
 
 fn resolve_audio_source(selection: AudioSelection) -> anyhow::Result<String> {

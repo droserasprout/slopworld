@@ -5,35 +5,34 @@ use super::{reconcile::ConfigReconciler, ConfigState, Signals};
 
 enum ConfigOrigin {
     StructuredMutation,
-    JsonPatch,
-    RawReplacement,
+    FileUpdate,
     DiskReload { mtime: Option<SystemTime> },
 }
 
 struct ConfigChange {
-    old: Config,
     new: Config,
     rules: Vec<(State, Regex)>,
+    root_token_changed: bool,
 }
 
 struct ConfigEffects {
     endpoint_token: String,
     reconcile: bool,
     announce_sessions: bool,
-    announce_projects: bool,
-    announce_library: bool,
+    announce_projects_and_library: bool,
 }
 
 fn prepare_candidate(old: &Config, mut new: Config) -> Result<ConfigChange> {
     if new.daemon.token == crate::config::TOKEN_REDACTED {
         new.daemon.token = old.daemon.token.clone();
     }
+    let root_token_changed = old.daemon.token != new.daemon.token;
     validate_config(&new)?;
     let rules = compile_rules(&new);
     Ok(ConfigChange {
-        old: old.clone(),
         new,
         rules,
+        root_token_changed,
     })
 }
 
@@ -55,8 +54,7 @@ impl ConfigOrigin {
             endpoint_token,
             reconcile: !matches!(self, Self::StructuredMutation),
             announce_sessions: matches!(self, Self::DiskReload { .. }),
-            announce_projects: !matches!(self, Self::StructuredMutation),
-            announce_library: !matches!(self, Self::StructuredMutation),
+            announce_projects_and_library: !matches!(self, Self::StructuredMutation),
         }
     }
 }
@@ -163,7 +161,6 @@ impl Manager {
     }
 
     async fn publish_config(&self, change: ConfigChange, origin: ConfigOrigin) -> ConfigEffects {
-        let root_token_changed = change.old.daemon.token != change.new.daemon.token;
         let endpoint_token = change.new.daemon.token.clone();
 
         *self.rules.write().await = change.rules;
@@ -172,7 +169,7 @@ impl Manager {
             // Do not consume a disk stamp until the accepted contents are visible in memory.
             *self.config_state.cfg_mtime.lock().unwrap() = mtime;
         }
-        if root_token_changed {
+        if change.root_token_changed {
             self.invalidate_auth(crate::session::AuthChange::RootTokenChanged);
         }
 
@@ -192,10 +189,8 @@ impl Manager {
         if effects.announce_sessions {
             self.announce_sessions().await;
         }
-        if effects.announce_projects {
+        if effects.announce_projects_and_library {
             self.announce_projects().await;
-        }
-        if effects.announce_library {
             self.announce_library().await;
         }
     }
@@ -523,7 +518,7 @@ impl Manager {
 
         let text = toml::to_string_pretty(&document)?;
         self.persist_cfg_text(&text).await?;
-        let effects = self.publish_config(change, ConfigOrigin::JsonPatch).await;
+        let effects = self.publish_config(change, ConfigOrigin::FileUpdate).await;
         self.update_endpoint(&effects.endpoint_token).await;
         drop(persist);
         self.finish_config_change(effects).await;
@@ -536,9 +531,7 @@ impl Manager {
         let parsed = Config::parse(text)?;
         let change = prepare_candidate(&old, parsed)?;
         self.persist_cfg(&change.new).await?;
-        let effects = self
-            .publish_config(change, ConfigOrigin::RawReplacement)
-            .await;
+        let effects = self.publish_config(change, ConfigOrigin::FileUpdate).await;
         self.update_endpoint(&effects.endpoint_token).await;
         drop(persist);
         self.finish_config_change(effects).await;
