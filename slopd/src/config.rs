@@ -153,6 +153,20 @@ impl Config {
             .collect()
     }
 
+    pub(crate) fn breadcrumb_refs(&self) -> impl Iterator<Item = &String> {
+        self.projects
+            .iter()
+            .flat_map(|p| p.breadcrumbs.iter())
+            .chain(self.sessions.iter().flat_map(|s| s.breadcrumbs.iter()))
+    }
+
+    pub(crate) fn breadcrumb_lists_mut(&mut self) -> impl Iterator<Item = &mut Vec<String>> {
+        self.projects
+            .iter_mut()
+            .map(|p| &mut p.breadcrumbs)
+            .chain(self.sessions.iter_mut().map(|s| &mut s.breadcrumbs))
+    }
+
     /// The implicit global base, then its command preset's sandbox presets, the project's,
     /// then its own, plus every preset dependency before the thing that needs it. First mention
     /// wins, as in `paths()`.

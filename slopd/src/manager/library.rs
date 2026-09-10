@@ -182,18 +182,9 @@ impl Manager {
             }
             let old = cfg.library[idx].clone();
             if sc.name != name {
-                for p in &mut cfg.projects {
-                    for attached in &mut p.breadcrumbs {
-                        if attached == name {
-                            *attached = sc.name.clone();
-                        }
-                    }
-                }
-                for s in &mut cfg.sessions {
-                    for attached in &mut s.breadcrumbs {
-                        if attached == name {
-                            *attached = sc.name.clone();
-                        }
+                for breadcrumbs in cfg.breadcrumb_lists_mut() {
+                    for attached in breadcrumbs.iter_mut().filter(|b| b.as_str() == name) {
+                        *attached = sc.name.clone();
                     }
                 }
             }
@@ -212,11 +203,8 @@ impl Manager {
                     }
                 }
             } else {
-                for p in &mut cfg.projects {
-                    p.breadcrumbs.retain(|b| b != name && b != &sc.name);
-                }
-                for s in &mut cfg.sessions {
-                    s.breadcrumbs.retain(|b| b != name && b != &sc.name);
+                for breadcrumbs in cfg.breadcrumb_lists_mut() {
+                    breadcrumbs.retain(|b| b != name && b != &sc.name);
                 }
             }
             Ok(())
@@ -236,16 +224,7 @@ impl Manager {
             let Some(sc) = cfg.library_item(name) else {
                 bail!("no such library item: {name}");
             };
-            if sc.kind == LibraryItemKind::Breadcrumb
-                && (cfg
-                    .projects
-                    .iter()
-                    .any(|p| p.breadcrumbs.iter().any(|b| b == name))
-                    || cfg
-                        .sessions
-                        .iter()
-                        .any(|s| s.breadcrumbs.iter().any(|b| b == name)))
-            {
+            if sc.kind == LibraryItemKind::Breadcrumb && cfg.breadcrumb_refs().any(|b| b == name) {
                 bail!("breadcrumb {name} is still attached to a project or agent");
             }
             cfg.library.retain(|s| s.name != name);
