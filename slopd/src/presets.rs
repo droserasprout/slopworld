@@ -1,8 +1,43 @@
 use std::collections::{BTreeMap, HashSet};
+use std::fmt;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, OnceLock, RwLock};
 
 use serde::{Deserialize, Serialize};
+
+/// The two top-level preset collections exposed by the HTTP API.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PresetKind {
+    Sandbox,
+    Command,
+}
+
+impl PresetKind {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Sandbox => "sandbox",
+            Self::Command => "command",
+        }
+    }
+}
+
+impl fmt::Display for PresetKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+impl std::str::FromStr for PresetKind {
+    type Err = String;
+
+    fn from_str(kind: &str) -> Result<Self, Self::Err> {
+        match kind {
+            "sandbox" => Ok(Self::Sandbox),
+            "command" => Ok(Self::Command),
+            _ => Err(format!("unknown preset kind: {kind}")),
+        }
+    }
+}
 
 /// What a sandbox is handed. Every path is bound only if it exists, so a preset for
 /// something this host does not run costs nothing.
@@ -83,6 +118,29 @@ pub struct CommandPreset {
     pub cmd: String,
     #[serde(default)]
     pub sandbox: Vec<String>,
+}
+
+/// A concrete preset selected for a domain operation. Keeping the variants typed means the
+/// sandbox validator never has to recover a schema from JSON.
+#[derive(Debug, Clone)]
+pub enum PresetDefinition {
+    Sandbox(Box<SandboxPreset>),
+    Command(Box<CommandPreset>),
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum PresetDefinitionRef<'a> {
+    Sandbox(&'a SandboxPreset),
+    Command(&'a CommandPreset),
+}
+
+impl PresetDefinition {
+    fn rename(&mut self, name: String) {
+        match self {
+            Self::Sandbox(preset) => preset.name = name,
+            Self::Command(preset) => preset.name = name,
+        }
+    }
 }
 
 /// One file is one piece of software: its sandbox preset and its command preset
@@ -180,6 +238,35 @@ pub struct Table {
     pub commands: Vec<CommandPreset>,
 }
 
+/// Where an effective definition came from.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PresetSource {
+    System,
+    User,
+    Override,
+    Unknown,
+}
+
+impl PresetSource {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::System => "system",
+            Self::User => "user",
+            Self::Override => "override",
+            Self::Unknown => "unknown",
+        }
+    }
+
+    pub fn from_presence(has_builtin: bool, has_user: bool) -> Self {
+        match (has_builtin, has_user) {
+            (true, true) => Self::Override,
+            (true, false) => Self::System,
+            (false, true) => Self::User,
+            (false, false) => Self::Unknown,
+        }
+    }
+}
+
 impl Table {
     /// Alongside `config.toml`, because a preset is edited by hand the way the rest of
     /// that directory is; the shipped table is the binary's and lives in it.
@@ -274,6 +361,21 @@ impl Table {
     pub fn command(&self, name: &str) -> Option<&CommandPreset> {
         self.commands.iter().find(|c| c.name == name)
     }
+
+    pub fn definition(&self, kind: PresetKind, name: &str) -> Option<PresetDefinitionRef<'_>> {
+        match kind {
+            PresetKind::Sandbox => self.sandbox(name).map(PresetDefinitionRef::Sandbox),
+            PresetKind::Command => self.command(name).map(PresetDefinitionRef::Command),
+        }
+    }
+
+    pub fn contains(&self, kind: PresetKind, name: &str) -> bool {
+        self.definition(kind, name).is_some()
+    }
+
+    pub fn source(&self, kind: PresetKind, name: &str, users: &Self) -> PresetSource {
+        PresetSource::from_presence(self.contains(kind, name), users.contains(kind, name))
+    }
 }
 
 static USER_WRITE: OnceLock<std::sync::Mutex<()>> = OnceLock::new();
@@ -327,7 +429,7 @@ fn write_file(path: &std::path::Path, file: &PresetFile) -> anyhow::Result<()> {
 }
 
 fn write_user_file(
-    kind: &str,
+    kind: PresetKind,
     name: &str,
     sandbox: Option<SandboxPreset>,
     command: Option<CommandPreset>,
@@ -341,7 +443,7 @@ fn write_user_file(
 
 fn write_user_file_in(
     dir: &std::path::Path,
-    kind: &str,
+    kind: PresetKind,
     name: &str,
     sandbox: Option<SandboxPreset>,
     command: Option<CommandPreset>,
@@ -357,29 +459,37 @@ fn write_user_file_in(
     // just this kind from every file, preserving the other kind and every unrelated preset.
     let mut changed = HashSet::new();
     for (path, file) in &mut files {
-        if kind == "sandbox" {
-            let len = file.sandbox.len();
-            file.sandbox.retain(|p| p.name != name);
-            if file.sandbox.len() != len {
-                changed.insert(path.clone());
+        match kind {
+            PresetKind::Sandbox => {
+                let len = file.sandbox.len();
+                file.sandbox.retain(|p| p.name != name);
+                if file.sandbox.len() != len {
+                    changed.insert(path.clone());
+                }
             }
-        } else {
-            let len = file.command.len();
-            file.command.retain(|p| p.name != name);
-            if file.command.len() != len {
-                changed.insert(path.clone());
+            PresetKind::Command => {
+                let len = file.command.len();
+                file.command.retain(|p| p.name != name);
+                if file.command.len() != len {
+                    changed.insert(path.clone());
+                }
             }
         }
     }
     let target_index = files.iter().position(|(path, _)| *path == target).unwrap();
-    if kind == "sandbox" {
-        if let Some(p) = sandbox {
-            files[target_index].1.sandbox.push(p);
-            changed.insert(target.clone());
+    match kind {
+        PresetKind::Sandbox => {
+            if let Some(p) = sandbox {
+                files[target_index].1.sandbox.push(p);
+                changed.insert(target.clone());
+            }
         }
-    } else if let Some(c) = command {
-        files[target_index].1.command.push(c);
-        changed.insert(target.clone());
+        PresetKind::Command => {
+            if let Some(c) = command {
+                files[target_index].1.command.push(c);
+                changed.insert(target.clone());
+            }
+        }
     }
 
     // Rewrite the files whose entries changed too. Merely writing the target would leave an
@@ -400,22 +510,147 @@ fn write_user_file_in(
     Ok(())
 }
 
-pub fn save_sandbox(p: SandboxPreset) -> anyhow::Result<()> {
-    let name = p.name.clone();
-    write_user_file("sandbox", &name, Some(p), None)
+fn save_definition(definition: PresetDefinition) -> anyhow::Result<()> {
+    match definition {
+        PresetDefinition::Sandbox(preset) => {
+            let name = preset.name.clone();
+            write_user_file(PresetKind::Sandbox, &name, Some(*preset), None)
+        }
+        PresetDefinition::Command(preset) => {
+            let name = preset.name.clone();
+            write_user_file(PresetKind::Command, &name, None, Some(*preset))
+        }
+    }
 }
 
-pub fn save_command(c: CommandPreset) -> anyhow::Result<()> {
-    let name = c.name.clone();
-    write_user_file("command", &name, None, Some(c))
+fn remove_user(kind: PresetKind, name: &str) -> anyhow::Result<()> {
+    write_user_file(kind, name, None, None)
 }
 
-pub fn remove_sandbox(name: &str) -> anyhow::Result<()> {
-    write_user_file("sandbox", name, None, None)
+#[derive(Debug)]
+pub enum PresetError {
+    Missing(String),
+    Invalid(String),
 }
 
-pub fn remove_command(name: &str) -> anyhow::Result<()> {
-    write_user_file("command", name, None, None)
+impl fmt::Display for PresetError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Missing(message) | Self::Invalid(message) => f.write_str(message),
+        }
+    }
+}
+
+fn copy_definition(
+    kind: PresetKind,
+    old_name: &str,
+    target: &str,
+    builtins: &Table,
+    users: &Table,
+) -> Result<PresetDefinition, PresetError> {
+    if users.contains(kind, old_name) {
+        return Err(PresetError::Invalid(
+            "that preset already has a user definition".into(),
+        ));
+    }
+    if users.contains(kind, target) || (target != old_name && builtins.contains(kind, target)) {
+        return Err(PresetError::Invalid(
+            "the target name already exists".into(),
+        ));
+    }
+
+    let mut definition = match builtins.definition(kind, old_name) {
+        Some(PresetDefinitionRef::Sandbox(preset)) => {
+            PresetDefinition::Sandbox(Box::new(preset.clone()))
+        }
+        Some(PresetDefinitionRef::Command(preset)) => {
+            PresetDefinition::Command(Box::new(preset.clone()))
+        }
+        None => {
+            return Err(PresetError::Missing(format!(
+                "unknown {kind} preset: {old_name}"
+            )))
+        }
+    };
+    definition.rename(target.to_string());
+    Ok(definition)
+}
+
+/// Copy a built-in definition into the user catalog, optionally under a new name.
+pub fn copy_builtin(kind: PresetKind, old_name: &str, target: &str) -> Result<(), PresetError> {
+    let builtins = Table::builtins();
+    let users = Table::users();
+    let definition = copy_definition(kind, old_name, target, &builtins, &users)?;
+    save_definition(definition).map_err(|error| PresetError::Invalid(error.to_string()))
+}
+
+/// Validate an API replacement against the table containing that replacement, then persist it.
+pub fn validate_and_save(definition: PresetDefinition) -> anyhow::Result<()> {
+    match &definition {
+        PresetDefinition::Sandbox(preset) => {
+            let current = table();
+            let mut candidate = (*current).clone();
+            candidate
+                .sandbox
+                .retain(|existing| existing.name != preset.name);
+            candidate.sandbox.push((**preset).clone());
+            crate::sandbox::validate_preset(preset, &candidate)?;
+        }
+        PresetDefinition::Command(preset) => {
+            if preset.cmd.trim().is_empty() {
+                anyhow::bail!("command line is empty");
+            }
+            let table = table();
+            for dependency in &preset.sandbox {
+                crate::sandbox::validate_preset_name(dependency, &table).map_err(|error| {
+                    anyhow::anyhow!("invalid sandbox dependency {dependency:?}: {error}")
+                })?;
+            }
+        }
+    }
+    save_definition(definition)
+}
+
+fn check_delete(
+    kind: PresetKind,
+    name: &str,
+    builtins: &Table,
+    users: &Table,
+) -> Result<(), PresetError> {
+    if !users.contains(kind, name) {
+        return Err(PresetError::Missing(
+            "no user definition exists for that preset".into(),
+        ));
+    }
+
+    if kind == PresetKind::Sandbox && !builtins.contains(PresetKind::Sandbox, name) {
+        for command in users.commands.iter().chain(builtins.commands.iter()) {
+            if command.sandbox.iter().any(|dependency| dependency == name) {
+                return Err(PresetError::Invalid(format!(
+                    "sandbox {name:?} is required by command {:?}",
+                    command.name
+                )));
+            }
+        }
+        for preset in users.sandbox.iter().chain(builtins.sandbox.iter()) {
+            if preset.requires.iter().any(|dependency| dependency == name) {
+                return Err(PresetError::Invalid(format!(
+                    "sandbox {name:?} is required by sandbox {:?}",
+                    preset.name
+                )));
+            }
+        }
+    }
+
+    Ok(())
+}
+
+/// Delete a user definition only when removing it cannot leave a dependency unresolved.
+pub fn delete_user(kind: PresetKind, name: &str) -> Result<(), PresetError> {
+    let builtins = Table::builtins();
+    let users = Table::users();
+    check_delete(kind, name, &builtins, &users)?;
+    remove_user(kind, name).map_err(|error| PresetError::Invalid(error.to_string()))
 }
 
 static TABLE: OnceLock<RwLock<Arc<Table>>> = OnceLock::new();
@@ -761,6 +996,171 @@ mod tests {
         assert_eq!(file.command[0].kind, CommandKind::Agent);
     }
 
+    #[test]
+    fn kind_parsing_and_typed_table_dispatch_cover_all_sources() {
+        assert_eq!(
+            "sandbox".parse::<PresetKind>().unwrap(),
+            PresetKind::Sandbox
+        );
+        assert_eq!(
+            "command".parse::<PresetKind>().unwrap(),
+            PresetKind::Command
+        );
+        assert_eq!(
+            "other".parse::<PresetKind>().unwrap_err(),
+            "unknown preset kind: other"
+        );
+
+        let builtins = Table {
+            sandbox: vec![SandboxPreset {
+                name: "system".into(),
+                ..Default::default()
+            }],
+            commands: vec![CommandPreset {
+                name: "command".into(),
+                cmd: "tool".into(),
+                ..Default::default()
+            }],
+        };
+        let users = Table {
+            sandbox: vec![SandboxPreset {
+                name: "user".into(),
+                ..Default::default()
+            }],
+            commands: vec![CommandPreset {
+                name: "command".into(),
+                cmd: "replacement".into(),
+                ..Default::default()
+            }],
+        };
+
+        assert!(builtins.contains(PresetKind::Sandbox, "system"));
+        assert!(!builtins.contains(PresetKind::Command, "system"));
+        assert!(matches!(
+            builtins.definition(PresetKind::Sandbox, "system"),
+            Some(PresetDefinitionRef::Sandbox(_))
+        ));
+        assert_eq!(
+            builtins
+                .source(PresetKind::Sandbox, "system", &users)
+                .as_str(),
+            "system"
+        );
+        assert_eq!(
+            builtins
+                .source(PresetKind::Sandbox, "user", &users)
+                .as_str(),
+            "user"
+        );
+        assert_eq!(
+            builtins
+                .source(PresetKind::Command, "command", &users)
+                .as_str(),
+            "override"
+        );
+        assert_eq!(
+            builtins
+                .source(PresetKind::Sandbox, "missing", &users)
+                .as_str(),
+            "unknown"
+        );
+    }
+
+    #[test]
+    fn copying_checks_user_and_target_conflicts_before_lookup() {
+        let builtins = Table {
+            sandbox: vec![
+                SandboxPreset {
+                    name: "builtin".into(),
+                    ..Default::default()
+                },
+                SandboxPreset {
+                    name: "occupied".into(),
+                    ..Default::default()
+                },
+            ],
+            commands: Vec::new(),
+        };
+        let users = Table {
+            sandbox: vec![SandboxPreset {
+                name: "builtin".into(),
+                ..Default::default()
+            }],
+            commands: Vec::new(),
+        };
+
+        let error =
+            copy_definition(PresetKind::Sandbox, "builtin", "copy", &builtins, &users).unwrap_err();
+        assert_eq!(
+            error.to_string(),
+            "that preset already has a user definition"
+        );
+
+        let error = copy_definition(
+            PresetKind::Sandbox,
+            "builtin",
+            "occupied",
+            &builtins,
+            &Table::default(),
+        )
+        .unwrap_err();
+        assert_eq!(error.to_string(), "the target name already exists");
+    }
+
+    #[test]
+    fn user_only_sandbox_delete_checks_command_and_sandbox_dependencies() {
+        let builtins = Table::default();
+        let command_users = Table {
+            sandbox: vec![SandboxPreset {
+                name: "user-only".into(),
+                ..Default::default()
+            }],
+            commands: vec![CommandPreset {
+                name: "dependent-command".into(),
+                cmd: "tool".into(),
+                sandbox: vec!["user-only".into()],
+                ..Default::default()
+            }],
+        };
+        let error =
+            check_delete(PresetKind::Sandbox, "user-only", &builtins, &command_users).unwrap_err();
+        assert!(error.to_string().contains("dependent-command"));
+
+        let sandbox_users = Table {
+            sandbox: vec![
+                SandboxPreset {
+                    name: "user-only".into(),
+                    ..Default::default()
+                },
+                SandboxPreset {
+                    name: "dependent-sandbox".into(),
+                    requires: vec!["user-only".into()],
+                    ..Default::default()
+                },
+            ],
+            commands: Vec::new(),
+        };
+        let error =
+            check_delete(PresetKind::Sandbox, "user-only", &builtins, &sandbox_users).unwrap_err();
+        assert!(error.to_string().contains("dependent-sandbox"));
+
+        let override_users = Table {
+            sandbox: vec![SandboxPreset {
+                name: "builtin".into(),
+                ..Default::default()
+            }],
+            commands: Vec::new(),
+        };
+        let builtin = Table {
+            sandbox: vec![SandboxPreset {
+                name: "builtin".into(),
+                ..Default::default()
+            }],
+            commands: Vec::new(),
+        };
+        assert!(check_delete(PresetKind::Sandbox, "builtin", &builtin, &override_users).is_ok());
+    }
+
     /// A user file replaces the builtin of the same name in place, and adds what it names
     /// that nothing shipped.
     #[test]
@@ -812,7 +1212,7 @@ mod tests {
 
         write_user_file_in(
             &dir,
-            "sandbox",
+            PresetKind::Sandbox,
             "changed",
             Some(SandboxPreset {
                 name: "changed".into(),

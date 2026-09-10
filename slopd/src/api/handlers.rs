@@ -78,9 +78,10 @@ mod tests {
     use super::super::types::SearchReq;
     use super::{
         browse_limit, entry_name, file_path, filter_gitignored, highlighter_argv, list_dir,
-        read_image_bytes, read_preview, search_preview, source, valid_kind, IMAGE_LIMIT,
-        READ_LIMIT, SEARCH_TEXT_LIMIT,
+        parse_kind, read_image_bytes, read_preview, search_preview, IMAGE_LIMIT, READ_LIMIT,
+        SEARCH_TEXT_LIMIT,
     };
+    use crate::presets::PresetSource;
     use axum::http::StatusCode;
 
     /// Somewhere of our own under the machine's temp dir, cleared on the way in so a run
@@ -160,13 +161,16 @@ mod tests {
 
     #[test]
     pub(super) fn preset_source_and_kind_errors_are_explicit() {
-        assert_eq!(source(true, true), "override");
-        assert_eq!(source(true, false), "system");
-        assert_eq!(source(false, true), "user");
-        assert_eq!(source(false, false), "unknown");
-        assert!(valid_kind("sandbox").is_ok());
-        assert!(valid_kind("command").is_ok());
-        let (status, body) = valid_kind("other").unwrap_err();
+        assert_eq!(PresetSource::from_presence(true, true).as_str(), "override");
+        assert_eq!(PresetSource::from_presence(true, false).as_str(), "system");
+        assert_eq!(PresetSource::from_presence(false, true).as_str(), "user");
+        assert_eq!(
+            PresetSource::from_presence(false, false).as_str(),
+            "unknown"
+        );
+        assert!(parse_kind("sandbox").is_ok());
+        assert!(parse_kind("command").is_ok());
+        let (status, body) = parse_kind("other").unwrap_err();
         assert_eq!(status, StatusCode::BAD_REQUEST);
         assert!(body.0["error"]
             .as_str()

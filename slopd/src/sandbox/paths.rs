@@ -351,6 +351,25 @@ mod tests {
     }
 
     #[test]
+    fn sandbox_validation_uses_the_candidate_replacement() {
+        let dependency = SandboxPreset {
+            name: "dependency".into(),
+            ..Default::default()
+        };
+        let candidate = SandboxPreset {
+            name: "tool".into(),
+            requires: vec!["dependency".into()],
+            ..Default::default()
+        };
+        let table = Table {
+            sandbox: vec![candidate.clone(), dependency],
+            commands: Vec::new(),
+        };
+
+        validate_preset(&candidate, &table).unwrap();
+    }
+
+    #[test]
     fn refused_normalizes_parent_components_before_checking_protected_paths() {
         let config = Config::path_in_use();
         let parent = config.parent().expect("config parent");
