@@ -16,7 +16,7 @@ namespace SlopWorld
         protected bool _loaded => _configState.Loaded;
 
         readonly SmoothScroll _scroll = new SmoothScroll();
-        float _fieldsH;
+        readonly SettingsContentHeight _height = new SettingsContentHeight();
 
         protected virtual bool RefreshHealthOnLoad => false;
         protected virtual bool DrawFieldsWhenOffline => false;
@@ -52,8 +52,7 @@ namespace SlopWorld
 
         void DrawCore(Rect rect)
         {
-            var body = UiWidgets.PageBody(rect);
-            var inner = body.ContractedBy(UiWidgets.GapM);
+            var inner = SettingsPageLayout.Body(rect);
 
             if (!_loaded && !DrawFieldsBeforeLoad && (!DrawFieldsWhenOffline || _cfg == null))
             {
@@ -65,13 +64,13 @@ namespace SlopWorld
                 DrawFieldsBody(inner);
             }
 
-            DrawFooter(UiWidgets.FooterBar(rect));
+            DrawFooter(SettingsPageLayout.Footer(rect));
             DrawOverlay(rect);
         }
 
         void DrawFieldsBody(Rect r)
         {
-            var view = UiScrollBody.View(r, _fieldsH);
+            var view = UiScrollBody.View(r, _height.BeginFrame(Time.frameCount));
             using (_scroll.Scope(r, view))
             {
                 var l = new Listing_Standard { maxOneColumn = true };
@@ -80,7 +79,7 @@ namespace SlopWorld
                 float y = l.CurHeight;
                 l.End();
 
-                _fieldsH = DrawTrailingFields(view, y) + UiWidgets.GapS;
+                _height.Measure(DrawTrailingFields(view, y) + UiWidgets.GapS);
             }
         }
 

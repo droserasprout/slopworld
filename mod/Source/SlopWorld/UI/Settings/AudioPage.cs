@@ -8,17 +8,17 @@ namespace SlopWorld
     // engine observes the setters, and Dialog_Options persists them on close.
     public class AudioPage : IOptionPage
     {
+        readonly SettingsForm _form = new SettingsForm();
+
         public void Load() { }
 
         public void Draw(Rect rect)
         {
-            Text.Font = GameFont.Small;
-            var body = UiWidgets.PageBody(rect);
-            body.height += UiWidgets.BtnH + UiWidgets.GapS;
-            var inner = body.ContractedBy(UiWidgets.GapM);
+            _form.Draw(SettingsPageLayout.Body(rect, false), DrawFields);
+        }
 
-            var l = new Listing_Standard { maxOneColumn = true };
-            l.Begin(inner);
+        void DrawFields(Listing_Standard l)
+        {
 
             UiWidgets.SectionHeading(l, "Volume");
             Prefs.VolumeMaster = UiWidgets.Slider(l, "MasterVolume".Translate(),
@@ -39,7 +39,6 @@ namespace SlopWorld
                 UiWidgets.Note(l,
                     "Jukebox playback is unavailable in slopcar. The native game keeps audio " +
                     "on this Mac; radio streaming will return in a later compatibility release.");
-                l.End();
                 return;
             }
 
@@ -83,7 +82,6 @@ namespace SlopWorld
                 "Stop the daemon's playback when RimWorld exits normally.");
             if (stop != Radio.StopOnExit) Radio.ToggleStopOnExit();
 
-            l.End();
         }
 
         // The recognition control makes the background lookup legible: a transient recognizing

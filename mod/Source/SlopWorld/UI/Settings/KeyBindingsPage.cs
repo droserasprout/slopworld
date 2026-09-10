@@ -41,8 +41,7 @@ namespace SlopWorld
 
         public void Draw(Rect rect)
         {
-            var body = UiWidgets.PageBody(rect);
-            var inner = body.ContractedBy(UiWidgets.GapM);
+            var inner = SettingsPageLayout.Body(rect, false);
 
             // Build the content model once per frame.
             var cats = DefDatabase<KeyBindingCategoryDef>.AllDefs
@@ -56,13 +55,12 @@ namespace SlopWorld
                     .ThenBy(b => b.defName).ToList());
 
             // Measure total content height.
-            float totalH = MeasureCategories(cats, bindingsMap);
+            float totalH = MeasureCategories(cats, bindingsMap, Mathf.Max(0f, inner.width - UiWidgets.ScrollbarW));
             // Room for the Restore Defaults button at the foot.
             totalH += UiWidgets.BtnH + UiWidgets.GapS + UiWidgets.GapS;
 
             // Scroll view for the list area.
-            var innerRect = new Rect(0f, 0f, inner.width - UiWidgets.ScrollbarW,
-                Mathf.Max(totalH, inner.height));
+            var innerRect = UiScrollBody.View(inner, totalH);
             using (_scroll.Scope(inner, innerRect))
             {
 
@@ -88,7 +86,7 @@ namespace SlopWorld
         }
 
         float MeasureCategories(List<KeyBindingCategoryDef> cats,
-            Dictionary<KeyBindingCategoryDef, List<KeyBindingDef>> bindingsMap)
+            Dictionary<KeyBindingCategoryDef, List<KeyBindingDef>> bindingsMap, float width)
         {
             float height = 0f;
             foreach (var cat in cats)
@@ -97,7 +95,7 @@ namespace SlopWorld
                 if (!bindingsMap.TryGetValue(cat, out list) || list.Count == 0) continue;
                 height += CatH;
                 if (!_folded.Contains(cat))
-                    height += list.Count * RowH + Gap;
+                    height += list.Count * BindingHeight(Mathf.Max(0f, width - Indent)) + Gap;
             }
             return height;
         }
@@ -139,11 +137,14 @@ namespace SlopWorld
                 if (folded) return y - rect.y;
 
                 foreach (var binding in list)
-                    y += DrawBinding(new Rect(Indent, y, rect.width - Indent, RowH), binding);
+                    y += DrawBinding(new Rect(rect.x + Mathf.Min(Indent, rect.width), y, Mathf.Max(0f, rect.width - Indent), BindingHeight(Mathf.Max(0f, rect.width - Indent))), binding);
                 y += Gap;
                 return y - rect.y;
             }
         }
+
+        static float BindingHeight(float width) => width < KeyW + 160f + Gap
+            ? UiWidgets.LineH + Gap + RowH : RowH;
 
         float DrawBinding(Rect rect, KeyBindingDef binding)
         {
@@ -155,11 +156,14 @@ namespace SlopWorld
 
                 Text.Anchor = TextAnchor.MiddleLeft;
                 GUI.color = UiWidgets.Name;
-                float labelW = rect.width - KeyW - Gap;
-                UiWidgets.RowLabel(new Rect(rect.x, rect.y, labelW, RowH), binding.label);
+                bool stacked = rect.height > RowH;
+                float keyW = Mathf.Min(KeyW, rect.width);
+                float labelW = stacked ? rect.width : Mathf.Max(0f, rect.width - keyW - Gap);
+                UiWidgets.RowLabel(new Rect(rect.x, rect.y, labelW, stacked ? UiWidgets.LineH : RowH), binding.label);
 
                 // Key button: click to rebind.
-                var keyRect = new Rect(rect.xMax - KeyW, rect.y, KeyW, RowH);
+                var keyRect = new Rect(stacked ? rect.x : rect.xMax - keyW,
+                    stacked ? rect.yMax - RowH : rect.y, keyW, RowH);
                 if (_listening == binding)
                 {
                     // Listening state: show a primary-style button asking for input.
@@ -190,7 +194,7 @@ namespace SlopWorld
                         "Esc cancels, Delete clears the slot. Modifiers are not configurable.");
                 }
 
-                return RowH;
+                return rect.height;
             }
         }
 

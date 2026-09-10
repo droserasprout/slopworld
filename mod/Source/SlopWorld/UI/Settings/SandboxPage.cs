@@ -91,8 +91,7 @@ namespace SlopWorld
 
         public void Draw(Rect rect)
         {
-            var body = UiWidgets.PageBody(rect);
-            var inner = body.ContractedBy(UiWidgets.GapM);
+            var inner = SettingsPageLayout.Body(rect);
 
             if (!_loaded)
             {
@@ -103,7 +102,7 @@ namespace SlopWorld
             {
                 DoSection(inner);
             }
-            DoFooter(UiWidgets.FooterBar(rect));
+            DoFooter(SettingsPageLayout.Footer(rect));
         }
 
         void DoSection(Rect r)

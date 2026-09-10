@@ -129,12 +129,15 @@ namespace SlopWorld
 
             if (isCustom)
             {
+                bool stacked = l.ColumnWidth < 430f;
+                if (stacked) UiWidgets.Note(l, customLabel);
                 Rect customRow = l.GetRect(UiWidgets.FieldH);
-                float leftW = Mathf.Min(220f, customRow.width * .42f);
-                float rightX = customRow.x + leftW + UiWidgets.GapM;
-                float rightW = customRow.width - leftW - UiWidgets.GapM;
+                float leftW = stacked ? 0f : Mathf.Min(220f, customRow.width * .42f);
+                float gap = stacked ? 0f : UiWidgets.GapM;
+                float rightX = customRow.x + leftW + gap;
+                float rightW = Mathf.Max(0f, customRow.width - leftW - gap);
                 GUI.color = UiWidgets.Dim;
-                UiWidgets.RowLabel(new Rect(customRow.x, customRow.y, leftW,
+                if (!stacked) UiWidgets.RowLabel(new Rect(customRow.x, customRow.y, leftW,
                     customRow.height), customLabel);
                 GUI.color = Color.white;
                 set(UiWidgets.Field(new Rect(rightX, customRow.y, rightW, customRow.height),

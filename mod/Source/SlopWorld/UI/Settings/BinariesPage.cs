@@ -175,38 +175,30 @@ namespace SlopWorld
 
         void DrawCore(Rect rect)
         {
-            var body = UiWidgets.PageBody(rect);
-            var inner = body.ContractedBy(UiWidgets.GapM);
+            var inner = SettingsPageLayout.Body(rect);
             string caption = "Host commands used, integrated, or recommended by SlopWorld. " +
                 "A checkmark means the executable is on the game's PATH.";
-            float captionH = UiWidgets.StatusLabelHeight(caption, inner.width);
-            UiWidgets.StatusLabel(new Rect(inner.x, inner.y, inner.width, captionH), caption,
-                UiWidgets.Dim);
-
-            float y = inner.y + captionH + UiWidgets.GapS;
-            float headerH = UiWidgets.RowH;
-            var header = new Rect(inner.x, y, inner.width, headerH);
-            DrawHeader(header);
-            y = header.yMax;
-
-            var list = new Rect(inner.x, y, inner.width, inner.yMax - y);
-            var view = new Rect(0f, 0f, list.width - UiWidgets.ScrollbarW,
-                Mathf.Max(list.height, ContentHeight()));
-            using (_scroll.Scope(list, view))
+            float width = Mathf.Max(0f, inner.width - UiWidgets.ScrollbarW);
+            float captionH = UiWidgets.StatusLabelHeight(caption, width);
+            float top = captionH + UiWidgets.GapS + UiWidgets.RowH;
+            var view = UiScrollBody.View(inner, top + ContentHeight(width));
+            using (_scroll.Scope(inner, view))
             {
+                UiWidgets.StatusLabel(new Rect(0f, 0f, view.width, captionH), caption, UiWidgets.Dim);
+                DrawHeader(new Rect(0f, captionH + UiWidgets.GapS, view.width, UiWidgets.RowH));
                 if (_results == null)
                 {
-                    UiWidgets.StatusLabel(new Rect(0f, 0f, view.width, view.height),
+                    UiWidgets.StatusLabel(new Rect(0f, top, view.width, Mathf.Max(UiWidgets.LineH, view.height - top)),
                         _error ?? (_loading ? "Checking host PATH..." : "No scan results."),
                         _error != null ? UiWidgets.Bad : UiWidgets.Dim);
                 }
                 else
                 {
-                    DrawRows(view);
+                    DrawRows(view, top);
                 }
             }
 
-            var foot = new UiWidgets.Bar(UiWidgets.FooterBar(rect));
+            var foot = new UiWidgets.Bar(SettingsPageLayout.Footer(rect));
             if (foot.Left("Refresh", UiWidgets.Btn.Ghost, !_loading)) Scan();
             string status = _results == null ? (_loading ? "Checking..." : "") :
                 $"{_results.Count(result => result.Found)} of {_results.Count} found";
@@ -218,6 +210,11 @@ namespace SlopWorld
         void DrawHeader(Rect r)
         {
             Slab.Fill(r, UiWidgets.RowBg);
+            if (r.width < 520f)
+            {
+                UiWidgets.RowLabel(r, "Binary / Use / Path");
+                return;
+            }
             float nameW, pathW, useX, useW;
             Columns(r.width, out nameW, out pathW, out useX, out useW);
             UiWidgets.RowLabel(new Rect(r.x + UiWidgets.GapS, r.y, 28f, r.height), "", TextAnchor.MiddleCenter);
@@ -227,17 +224,16 @@ namespace SlopWorld
             Slab.Hairline(new Rect(r.x, r.yMax - 1f, r.width, 1f), UiWidgets.Edge);
         }
 
-        void DrawRows(Rect view)
+        void DrawRows(Rect view, float y)
         {
-            float y = 0f;
             foreach (var group in _results.GroupBy(result => result.Spec.Group))
             {
                 UiWidgets.SectionHeading(new Rect(0f, y, view.width, UiWidgets.RowH), group.Key);
                 y += UiWidgets.RowH + UiWidgets.GapS;
                 foreach (var result in group)
                 {
-                    DrawRow(new Rect(0f, y, view.width, UiWidgets.RowH), result);
-                    y += UiWidgets.RowH;
+                    DrawRow(new Rect(0f, y, view.width, BinaryRowHeight(view.width)), result);
+                    y += BinaryRowHeight(view.width);
                 }
                 y += UiWidgets.GapS;
             }
@@ -249,7 +245,10 @@ namespace SlopWorld
             float nameW, pathW, useX, useW;
             Columns(r.width, out nameW, out pathW, out useX, out useW);
 
-            var mark = new Rect(r.x + UiWidgets.GapS, r.y + (r.height - 16f) / 2f, 16f, 16f);
+            bool stacked = r.width < 520f;
+            float lineH = UiWidgets.RowH;
+            if (stacked) { nameW = r.width; pathW = r.width; useX = 0f; useW = r.width; }
+            var mark = new Rect(r.x + UiWidgets.GapS, r.y + (lineH - 16f) / 2f, 16f, 16f);
             if (result.Found)
             {
                 GUI.color = UiWidgets.Yes;
@@ -257,11 +256,12 @@ namespace SlopWorld
             }
 
             GUI.color = result.Found ? UiWidgets.Name : UiWidgets.Dim;
-            UiWidgets.RowLabel(new Rect(r.x + 28f, r.y, nameW - 28f, r.height), result.Spec.Name);
+            UiWidgets.RowLabel(new Rect(r.x + 28f, r.y, Mathf.Max(0f, nameW - 28f), lineH), result.Spec.Name);
             GUI.color = UiWidgets.Dim;
-            UiWidgets.RowLabel(new Rect(r.x + useX, r.y, useW, r.height), result.Spec.Use);
+            UiWidgets.RowLabel(new Rect(r.x + useX, stacked ? r.y + lineH : r.y, useW, lineH), result.Spec.Use);
             GUI.color = result.Found ? UiWidgets.Lead : UiWidgets.Bad;
-            var path = new Rect(r.x + nameW, r.y, pathW, r.height);
+            var path = new Rect(stacked ? r.x : r.x + nameW,
+                stacked ? r.y + lineH * 2f : r.y, pathW, lineH);
             if (!result.Resolved)
             {
                 GUI.color = UiWidgets.Dim;
@@ -283,12 +283,14 @@ namespace SlopWorld
             GUI.color = Color.white;
         }
 
-        float ContentHeight()
+        static float BinaryRowHeight(float width) => width < 520f ? UiWidgets.RowH * 3f : UiWidgets.RowH;
+
+        float ContentHeight(float width)
         {
             float rows = Inventory
                 .GroupBy(spec => spec.Group)
                 .Sum(group => UiWidgets.RowH + UiWidgets.GapS +
-                    group.Count() * UiWidgets.RowH + UiWidgets.GapS);
+                    group.Count() * BinaryRowHeight(width) + UiWidgets.GapS);
             return Mathf.Max(rows, UiWidgets.LineH);
         }
 

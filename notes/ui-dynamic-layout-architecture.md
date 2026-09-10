@@ -9,6 +9,15 @@ keeps its list and editor side by side when their minimum widths fit, stacks the
 they do not, and bounds both panes inside very small viewports. The page retains its
 selection, live edits, and two scroll owners when placement changes.
 
+Settings pages share bounded body/footer geometry and frame-stable form measurement.
+Audio and Statusbar scroll; Terminal shares Appearance's cached form/preview composition
+and moves its preview into the scroll content in short windows. Daemon forms retain
+their save/load state and overlays. Key bindings, Storage actions, Binaries, Usage,
+custom command fields and About credits adapt their rows or columns at narrow widths.
+Storage and Binaries captions scroll with their content in short viewports.
+Geometry and measurement are tested without Unity. The user reported no regressions
+after checking the Settings migration in-game.
+
 ## Workspace and panels
 
 A workspace shell owns navigation, panel placement, active content, and focus. A

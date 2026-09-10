@@ -142,18 +142,19 @@ namespace SlopWorld
         readonly SmoothScroll _rimWorldScroll = new SmoothScroll();
         readonly Dialog_Options _rimWorldOptions = new Dialog_Options();
         float _contentHeight;
-        float _rimWorldContentHeight;
+        readonly SettingsContentHeight _height = new SettingsContentHeight(FirstPassHeight);
+        readonly SettingsContentHeight _rimWorldHeight = new SettingsContentHeight(1800f);
         int _autoScrollFrame = -1;
         List<ListableOption> _links;
 
         public void Draw(Rect rect)
         {
             Text.Font = GameFont.Small;
-            var inner = rect.ContractedBy(UiWidgets.GapM, UiWidgets.GapM);
+            var inner = SettingsPageLayout.Body(rect, false);
 
             float viewWidth = Mathf.Max(1f, inner.width - UiWidgets.ScrollbarW);
             float viewHeight = Mathf.Max(inner.height,
-                _contentHeight > 0f ? _contentHeight : FirstPassHeight);
+                _height.BeginFrame(Time.frameCount));
             var view = new Rect(0f, 0f, viewWidth, viewHeight);
 
             using (_scroll.Scope(inner, view))
@@ -162,6 +163,7 @@ namespace SlopWorld
                     Mathf.Max(1f, view.width - ContentPaddingX * 2f),
                     Mathf.Max(1f, view.height - ContentPaddingY * 2f));
                 _contentHeight = DrawCredits(content) + ContentPaddingY;
+                _height.Measure(_contentHeight);
             }
 
             AdvanceAutoScroll(inner, _contentHeight);
@@ -184,11 +186,11 @@ namespace SlopWorld
         public void DrawRimWorld(Rect rect)
         {
             Text.Font = GameFont.Small;
-            var inner = rect.ContractedBy(UiWidgets.GapM, UiWidgets.GapM);
+            var inner = SettingsPageLayout.Body(rect, false);
 
             float viewWidth = Mathf.Max(1f, inner.width - UiWidgets.ScrollbarW);
             float viewHeight = Mathf.Max(inner.height,
-                _rimWorldContentHeight > 0f ? _rimWorldContentHeight : 1800f);
+                _rimWorldHeight.BeginFrame(Time.frameCount));
             var view = new Rect(0f, 0f, viewWidth, viewHeight);
 
             using (_rimWorldScroll.Scope(inner, view))
@@ -204,7 +206,7 @@ namespace SlopWorld
                     "DoUIOptions");
                 y = DrawRimWorldSection(content, y, OptionCategoryDefOf.Controls,
                     "DoControlsOptions");
-                _rimWorldContentHeight = y + ContentPaddingY;
+                _rimWorldHeight.Measure(y + ContentPaddingY);
             }
         }
 
@@ -463,7 +465,7 @@ namespace SlopWorld
         float CreditGrid(Rect rect, float y, Credit[] credits, int columns)
         {
             float gap = ColumnGap;
-            columns = Mathf.Max(1, columns);
+            columns = Mathf.Clamp(Mathf.FloorToInt((rect.width + gap) / (240f + gap)), 1, columns);
             int rows = (credits.Length + columns - 1) / columns;
             var widths = new float[columns];
             float naturalWidth = gap * (columns - 1);

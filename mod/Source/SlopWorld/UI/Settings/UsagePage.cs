@@ -117,6 +117,7 @@ namespace SlopWorld
         float DrawTable(Rect rect)
         {
             var keys = TableKeys();
+            if (rect.width < 430f) return DrawStackedTable(rect, keys);
             // The interval editor is a full control, not a one-line label. Give the table
             // enough height for the shared vertical inset around it.
             float rowH = UiWidgets.FieldH + UiWidgets.GapS;
@@ -150,6 +151,29 @@ namespace SlopWorld
                 _itemIntervals[key] = UiWidgets.Field(field, "usage.item." + key,
                     _itemIntervals[key], defaultValue: "");
             });
+        }
+
+        float DrawStackedTable(Rect rect, List<string> keys)
+        {
+            float y = rect.y;
+            foreach (string key in keys)
+            {
+                var item = EnsureItem(key);
+                UiWidgets.RowLabel(new Rect(rect.x, y, rect.width, UiWidgets.RowH), UsageReadout.Long(key));
+                y += UiWidgets.RowH;
+                float iconW = Mathf.Min(54f, rect.width / 4f);
+                float pollW = Mathf.Min(64f, rect.width / 4f);
+                DrawIconButton(new Rect(rect.x, y, iconW, UiWidgets.FieldH), key);
+                item.Poll = ToggleCell.DrawCheck(new Rect(rect.x + iconW, y, pollW, UiWidgets.FieldH),
+                    item.Poll, "Poll this usage window.", false, RowHoverPolicy.OverlayAware);
+                var field = new Rect(rect.x + iconW + pollW, y,
+                    Mathf.Max(0f, rect.width - iconW - pollW), UiWidgets.FieldH);
+                _itemIntervals[key] = UiWidgets.Field(field, "usage.item." + key,
+                    _itemIntervals[key], defaultValue: "");
+                TooltipHandler.TipRegion(field, "Polling interval in seconds.");
+                y += UiWidgets.FieldH + UiWidgets.GapS;
+            }
+            return y - rect.y;
         }
 
         void DrawIconButton(Rect area, string key)

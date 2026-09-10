@@ -34,8 +34,20 @@ namespace SlopWorld
         protected override void DrawFields(Listing_Standard l)
         {
             float rowH = UiWidgets.FieldH + UiWidgets.GapS;
-            var table = l.GetRect(rowH * (Targets.Length + 1) + UiWidgets.GapS);
-            UiTable.Draw(table, Targets, rowH, PolicyColumns(), DrawPolicyRow);
+            if (l.ColumnWidth < 430f)
+            {
+                foreach (var target in Targets)
+                {
+                    UiWidgets.Note(l, TargetLabel(target));
+                    if (UiWidgets.Button(l, "Summarize: " + PolicyLabel(Policy(target))))
+                        OpenPolicyMenu(target);
+                }
+            }
+            else
+            {
+                var table = l.GetRect(rowH * (Targets.Length + 1) + UiWidgets.GapS);
+                UiTable.Draw(table, Targets, rowH, PolicyColumns(), DrawPolicyRow);
+            }
             l.Gap(UiWidgets.GapM);
             UiWidgets.Note(l, "Choose which submitted prompts or delegated tasks receive an " +
                 "OpenRouter summary. Task summaries are generated once per task.");
