@@ -56,6 +56,30 @@ namespace SlopWorld
             public bool Descend;
         }
 
+        // Files owns directory identity, focus and browse scheduling. The static facade below
+        // remains for sidebar callers, while requests and their lifetime now have one owner.
+        sealed class FilesStore
+        {
+            public readonly Dictionary<string, Node> Roots = new Dictionary<string, Node>();
+            public Node FocusedRoot;
+            public string FocusedKey;
+            public int FocusVersion;
+            public float NextAutoRefresh;
+            public readonly Queue<BrowseRequest> BrowseQueue = new Queue<BrowseRequest>();
+            public int BrowseInFlight;
+        }
+
+        // PagerTabs already owns the replaceable/pinned pager semantics; this owner keeps the
+        // native Markdown preview lifecycle beside it instead of in rendering methods.
+        sealed class FilesViewerController
+        {
+            public readonly PagerTabs Tabs = new PagerTabs();
+            public MarkdownTab MarkdownPreview;
+            public MarkdownTab ActiveMarkdown;
+            public readonly List<MarkdownTab> LockedMarkdown = new List<MarkdownTab>();
+            public int MarkdownHeader;
+        }
+
         sealed class TreeSource : ContentTreeSource, IContentTreeLoader,
             IContentTreeRowActions, IContentTreeSelection
         {
@@ -123,12 +147,20 @@ namespace SlopWorld
 
         // Keyed by project name rather than by directory: two projects on one directory are
         // two headings, and renaming a project is a heading that has gone.
-        static readonly Dictionary<string, Node> Roots = new Dictionary<string, Node>();
+        static readonly FilesStore Store = new FilesStore();
+        static readonly FilesViewerController Viewer = new FilesViewerController();
 
-        // A storage entry is not a project, but it is still a directory the same tree can
-        // browse. It temporarily replaces the project roots when Storage hands Files a path.
-        static Node _focusedRoot;
-        static string _focusedKey;
+        static Dictionary<string, Node> Roots => Store.Roots;
+        static Node _focusedRoot
+        {
+            get => Store.FocusedRoot;
+            set => Store.FocusedRoot = value;
+        }
+        static string _focusedKey
+        {
+            get => Store.FocusedKey;
+            set => Store.FocusedKey = value;
+        }
 
         public static bool AllFolded
         {
@@ -163,7 +195,7 @@ namespace SlopWorld
 
         // One replaceable preview and any previews the user pinned by double-clicking a
         // routed header. The tree owns selection; each pager owns its ephemeral session.
-        static readonly PagerTabs Viewers = new PagerTabs();
+        static PagerTabs Viewers => Viewer.Tabs;
 
         // Markdown is a native content view rather than a daemon session, so keep the same
         // preview/pinned distinction here and expose a synthetic routed header for it.
@@ -186,10 +218,22 @@ namespace SlopWorld
             }
         }
 
-        static MarkdownTab _markdownPreview;
-        static MarkdownTab _activeMarkdown;
-        static readonly List<MarkdownTab> LockedMarkdown = new List<MarkdownTab>();
-        static int _markdownHeader;
+        static MarkdownTab _markdownPreview
+        {
+            get => Viewer.MarkdownPreview;
+            set => Viewer.MarkdownPreview = value;
+        }
+        static MarkdownTab _activeMarkdown
+        {
+            get => Viewer.ActiveMarkdown;
+            set => Viewer.ActiveMarkdown = value;
+        }
+        static List<MarkdownTab> LockedMarkdown => Viewer.LockedMarkdown;
+        static int _markdownHeader
+        {
+            get => Viewer.MarkdownHeader;
+            set => Viewer.MarkdownHeader = value;
+        }
 
         // Extensions `less` would rather not be handed: the viewer is for reading, and an
         // image or a zip in a text pager is a listing nobody asked for. Everything else is
@@ -222,12 +266,24 @@ namespace SlopWorld
             return ext == ".md" || ext == ".markdown" || ext == ".mdx";
         }
 
-        static int _focusVersion;
         const float AutoRefreshSeconds = 2f;
         const int MaxConcurrentBrowse = 4;
-        static float _nextAutoRefresh;
-        static readonly Queue<BrowseRequest> BrowseQueue = new Queue<BrowseRequest>();
-        static int BrowseInFlight;
+        static int _focusVersion
+        {
+            get => Store.FocusVersion;
+            set => Store.FocusVersion = value;
+        }
+        static float _nextAutoRefresh
+        {
+            get => Store.NextAutoRefresh;
+            set => Store.NextAutoRefresh = value;
+        }
+        static Queue<BrowseRequest> BrowseQueue => Store.BrowseQueue;
+        static int BrowseInFlight
+        {
+            get => Store.BrowseInFlight;
+            set => Store.BrowseInFlight = value;
+        }
 
         static IList<ContentTreeGroup> BuildGroups()
         {
