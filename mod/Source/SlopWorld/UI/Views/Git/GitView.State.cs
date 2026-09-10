@@ -67,7 +67,22 @@ namespace SlopWorld
             public Dictionary<string, string> Changes = new Dictionary<string, string>();
         }
 
-        static readonly Dictionary<string, Repo> Repos = new Dictionary<string, Repo>();
+        // Git owns repository identity and status/count snapshots. The view facade forwards
+        // existing callers here while keeping those mutable answers out of rendering policy.
+        sealed class GitStore
+        {
+            public readonly Dictionary<string, Repo> Repos = new Dictionary<string, Repo>();
+        }
+
+        sealed class GitViewerController
+        {
+            public readonly PagerTabs Tabs = new PagerTabs();
+        }
+
+        static readonly GitStore Store = new GitStore();
+        static readonly GitViewerController Viewer = new GitViewerController();
+        static Dictionary<string, Repo> Repos => Store.Repos;
+        static PagerTabs Viewers => Viewer.Tabs;
 
         public static bool AllFolded
         {
@@ -93,10 +108,6 @@ namespace SlopWorld
             if (node.Kids == null) return;
             foreach (var child in node.Kids) FoldDirectories(child, shut);
         }
-
-        // One replaceable diff preview and any diffs the user pinned by double-clicking a
-        // routed header. The tree owns the selected row; each pager owns its session.
-        static readonly PagerTabs Viewers = new PagerTabs();
 
         static IList<ContentTreeGroup> BuildGroups()
         {
