@@ -27,9 +27,8 @@ namespace SlopWorld
         string _error { get => _configState.Error; set => _configState.Error = value; }
         bool _loaded => _configState.Loaded;
 
-        readonly SmoothScroll _scroll = new SmoothScroll();
+        readonly ScrollableListing _editorListing = new ScrollableListing(520f);
         readonly MarkdownPreview _preview = new MarkdownPreview("", "SLOPWORLD.md");
-        readonly SettingsContentHeight _height = new SettingsContentHeight(520f);
 
         public InstructionsPage()
         {
@@ -96,56 +95,50 @@ namespace SlopWorld
 
         void DrawEditor(Rect r)
         {
-            var view = UiScrollBody.View(r, _height.BeginFrame(Time.frameCount));
-            using (_scroll.Scope(r, view))
-            {
+            _editorListing.Draw(r, DrawEditorFields);
+        }
 
-                var l = new Listing_Standard { maxOneColumn = true };
-                l.Begin(new Rect(0f, 0f, view.width, UiWidgets.ListingHeight));
+        void DrawEditorFields(Listing_Standard l)
+        {
+            if (!_cfg.ExperimentalInstructions)
+                UiWidgets.Note(l, "Enable instructions in Settings > General to edit SLOPWORLD.md instructions.");
+            UiWidgets.SectionHeading(l, "SLOPWORLD.md");
+            UiWidgets.Note(l, "Generated runtime context is read-only in agent sandboxes. " +
+                "The template is rendered once for each project snapshot.");
+            l.Gap(UiWidgets.GapS);
+            l.Label("Content template");
+            _cfg.InstructionsTemplate = UiWidgets.Area(l, 320f, "instructions.template",
+                _cfg.InstructionsTemplate, on: _cfg.ExperimentalInstructions,
+                defaultValue: DaemonConfig.DefaultInstructionsTemplate);
+            UiWidgets.Note(l, "Variables: {{ runtime_context }}, {{ project }}, " +
+                "{{ mount_path }}, and {{ file }}. Unknown variables are left unchanged.");
 
-                if (!_cfg.ExperimentalInstructions)
-                    UiWidgets.Note(l, "Enable instructions in Settings > General to edit SLOPWORLD.md instructions.");
-                UiWidgets.SectionHeading(l, "SLOPWORLD.md");
-                UiWidgets.Note(l, "Generated runtime context is read-only in agent sandboxes. " +
-                    "The template is rendered once for each project snapshot.");
-                l.Gap(UiWidgets.GapS);
-                l.Label("Content template");
-                _cfg.InstructionsTemplate = UiWidgets.Area(l, 320f, "instructions.template",
-                    _cfg.InstructionsTemplate, on: _cfg.ExperimentalInstructions,
-                    defaultValue: DaemonConfig.DefaultInstructionsTemplate);
-                UiWidgets.Note(l, "Variables: {{ runtime_context }}, {{ project }}, " +
-                    "{{ mount_path }}, and {{ file }}. Unknown variables are left unchanged.");
+            l.Gap(UiWidgets.GapL);
+            UiWidgets.SectionHeading(l, "Discovery breadcrumb");
+            UiWidgets.Note(l, "This text is added to the agent's first prompt when the manifest " +
+                "is mounted. It is separate from the generated file body.");
+            l.Label("Breadcrumb template");
+            _cfg.InstructionsBreadcrumb = UiWidgets.Area(l, 120f, "instructions.breadcrumb",
+                _cfg.InstructionsBreadcrumb,
+                on: _cfg.ExperimentalBreadcrumbs && _cfg.ExperimentalInstructions,
+                defaultValue: DaemonConfig.DefaultInstructionsBreadcrumb);
+            UiWidgets.Note(l, "Variables: {{ project }}, {{ mount_path }}, and {{ file }}. " +
+                "Unknown variables are left unchanged.");
+            _cfg.InstructionsBreadcrumbEnabled = UiWidgets.Checkbox(l,
+                "Add discovery breadcrumb", _cfg.InstructionsBreadcrumbEnabled,
+                "Adds the configured discovery text to opted-in agents.",
+                locked: !_cfg.ExperimentalBreadcrumbs || !_cfg.ExperimentalInstructions);
+            UiWidgets.Note(l, "Reset changes the form only; press Save to apply it.");
 
-                l.Gap(UiWidgets.GapL);
-                UiWidgets.SectionHeading(l, "Discovery breadcrumb");
-                UiWidgets.Note(l, "This text is added to the agent's first prompt when the manifest " +
-                    "is mounted. It is separate from the generated file body.");
-                l.Label("Breadcrumb template");
-                _cfg.InstructionsBreadcrumb = UiWidgets.Area(l, 120f, "instructions.breadcrumb",
-                    _cfg.InstructionsBreadcrumb,
-                    on: _cfg.ExperimentalBreadcrumbs && _cfg.ExperimentalInstructions,
-                    defaultValue: DaemonConfig.DefaultInstructionsBreadcrumb);
-                UiWidgets.Note(l, "Variables: {{ project }}, {{ mount_path }}, and {{ file }}. " +
-                    "Unknown variables are left unchanged.");
-                _cfg.InstructionsBreadcrumbEnabled = UiWidgets.Checkbox(l,
-                    "Add discovery breadcrumb", _cfg.InstructionsBreadcrumbEnabled,
-                    "Adds the configured discovery text to opted-in agents.",
-                    locked: !_cfg.ExperimentalBreadcrumbs || !_cfg.ExperimentalInstructions);
-                UiWidgets.Note(l, "Reset changes the form only; press Save to apply it.");
-
-                l.Gap(UiWidgets.GapL);
-                UiWidgets.SectionHeading(l, "Sandbox delivery");
-                l.Label("Mount path (relative to the project)");
-                _cfg.InstructionsMountPath = UiWidgets.Field(l, "instructions.mount_path",
-                    _cfg.InstructionsMountPath, on: _cfg.ExperimentalInstructions,
-                    defaultValue: WireContract.DefaultInstructionsMountPath);
-                UiWidgets.Note(l, "The generated source remains the project-root " +
-                    "SLOPWORLD.md; this is where its read-only copy appears to the agent.");
-                UiWidgets.Note(l, "Agents still opt in per session with Mount SLOPWORLD.md.");
-
-                _height.Measure(l.CurHeight + UiWidgets.GapS);
-                l.End();
-            }
+            l.Gap(UiWidgets.GapL);
+            UiWidgets.SectionHeading(l, "Sandbox delivery");
+            l.Label("Mount path (relative to the project)");
+            _cfg.InstructionsMountPath = UiWidgets.Field(l, "instructions.mount_path",
+                _cfg.InstructionsMountPath, on: _cfg.ExperimentalInstructions,
+                defaultValue: WireContract.DefaultInstructionsMountPath);
+            UiWidgets.Note(l, "The generated source remains the project-root " +
+                "SLOPWORLD.md; this is where its read-only copy appears to the agent.");
+            UiWidgets.Note(l, "Agents still opt in per session with Mount SLOPWORLD.md.");
         }
 
         void DrawPreview(Rect r)

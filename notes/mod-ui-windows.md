@@ -11,6 +11,8 @@ only fields changed since their
 last load or successful save. Saving refreshes the live mirror without reloading other
 pages; Reload explicitly replaces that page's draft. General's local game, display and
 locale controls remain available before the daemon config loads or when it is offline.
+SettingsForm, daemon config fields and the Instructions editor share the retained
+`ScrollableListing` lifecycle; trailing usage fields stay in the daemon page host.
 
 - `ProjectsView` lists projects before agents. `EditSessionDialog` chooses a command
   preset or literal command; an empty command uses `[defaults] agent`, and the resolved

@@ -15,8 +15,7 @@ namespace SlopWorld
         protected string _error { get => _configState.Error; set => _configState.Error = value; }
         protected bool _loaded => _configState.Loaded;
 
-        readonly SmoothScroll _scroll = new SmoothScroll();
-        readonly SettingsContentHeight _height = new SettingsContentHeight();
+        readonly ScrollableListing _listing = new ScrollableListing();
 
         protected virtual bool RefreshHealthOnLoad => false;
         protected virtual bool DrawFieldsWhenOffline => false;
@@ -70,17 +69,7 @@ namespace SlopWorld
 
         void DrawFieldsBody(Rect r)
         {
-            var view = UiScrollBody.View(r, _height.BeginFrame(Time.frameCount));
-            using (_scroll.Scope(r, view))
-            {
-                var l = new Listing_Standard { maxOneColumn = true };
-                l.Begin(new Rect(0f, 0f, view.width, UiWidgets.ListingHeight));
-                DrawFields(l);
-                float y = l.CurHeight;
-                l.End();
-
-                _height.Measure(DrawTrailingFields(view, y) + UiWidgets.GapS);
-            }
+            _listing.Draw(r, DrawFields, DrawTrailingFields);
         }
 
         void DrawFooter(Rect bar)
