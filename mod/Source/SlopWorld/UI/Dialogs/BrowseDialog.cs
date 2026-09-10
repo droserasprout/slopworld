@@ -14,7 +14,7 @@ namespace SlopWorld
         string[] _dirs = new string[0];
         string _error;
         bool _pending;
-        int _requestGeneration;
+        readonly OperationGate _operations = new OperationGate();
         readonly SmoothScroll _scroll = new SmoothScroll();
 
         // One row and the clearance under it, so the list has a pitch rather than two figures
@@ -32,7 +32,7 @@ namespace SlopWorld
 
         void Load(string path)
         {
-            int generation = ++_requestGeneration;
+            int generation = _operations.Begin();
             _pending = true;
             _error = null;
             _path = null;
@@ -42,7 +42,7 @@ namespace SlopWorld
             DaemonClient.Get($"{WireContract.Routes.Browse}?path={System.Uri.EscapeDataString(path)}",
                 j =>
                 {
-                    if (generation != _requestGeneration) return;
+                    if (!_operations.IsCurrent(generation)) return;
 
                     string resolved = j == null ? null : j["path"].AsString(null);
                     if (resolved == null)
@@ -59,7 +59,7 @@ namespace SlopWorld
                 },
                 msg =>
                 {
-                    if (generation != _requestGeneration) return;
+                    if (!_operations.IsCurrent(generation)) return;
                     _pending = false;
                     _error = msg;
                     UiWidgets.Fail(msg);
@@ -116,7 +116,7 @@ namespace SlopWorld
 
         public override void PostClose()
         {
-            ++_requestGeneration;
+            _operations.Invalidate();
             _pending = false;
             base.PostClose();
         }

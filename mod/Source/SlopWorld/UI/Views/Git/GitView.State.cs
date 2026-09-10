@@ -51,7 +51,7 @@ namespace SlopWorld
             public string Branch;
             public bool IsRepo = true;
             public bool Loading;
-            public int Generation;
+            public readonly OperationGate Operations = new OperationGate();
             public bool CountsComplete;
             public string Error;
             public bool Asked;          // whether an answer has ever landed
@@ -264,16 +264,14 @@ namespace SlopWorld
             BumpTree();
 
             string dir = repo.Dir;
-            int generation = ++repo.Generation;
+            int generation = repo.Operations.Begin();
             repo.CountsComplete = false;
             DaemonClient.Get(WireContract.Routes.Git + "?counts=false&path=" + System.Uri.EscapeDataString(dir),
                 j =>
                 {
+                    if (!repo.Operations.IsCurrent(generation) || repo.Dir != dir) return;
                     repo.Loading = false;
                     repo.Asked = true;
-                    // The project moved, or was pointed somewhere else, while this was in
-                    // flight; the answer is about a directory nothing is showing.
-                    if (repo.Dir != dir) return;
 
                     repo.IsRepo = j["repo"].AsBool();
                     repo.Changes.Clear();
@@ -297,9 +295,9 @@ namespace SlopWorld
                 },
                 msg =>
                 {
+                    if (!repo.Operations.IsCurrent(generation) || repo.Dir != dir) return;
                     repo.Loading = false;
                     repo.Asked = true;
-                    if (repo.Dir != dir) return;
                     repo.Error = msg;
                     // The tree goes with it: what is drawn is the error alone, and a stale
                     // tree under a message about why it could not be read is two answers. The
@@ -323,7 +321,8 @@ namespace SlopWorld
             DaemonClient.Get(WireContract.Routes.Git + "?path=" + System.Uri.EscapeDataString(repo.Dir),
                 j =>
                 {
-                    if (repo.Generation != generation || !j["counts_complete"].AsBool(false)) return;
+                    if (!repo.Operations.IsCurrent(generation) ||
+                        !j["counts_complete"].AsBool(false)) return;
                     var files = new Dictionary<string, JVal>();
                     foreach (var f in j["files"].Items)
                     {

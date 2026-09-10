@@ -12,17 +12,17 @@ namespace SlopWorld
         public bool Loaded { get; private set; }
         public bool Saving { get; private set; }
         string _baseline;
-        int _generation;
+        readonly OperationGate _operations = new OperationGate();
 
         public void Load(bool refreshHealth, Action loaded)
         {
             if (Saving) return;
-            int generation = ++_generation;
+            int generation = _operations.Begin();
             if (refreshHealth) SessionHub.Instance.RefreshHealth();
             DaemonClient.Get(WireContract.Routes.Config,
                 j =>
                 {
-                    if (generation != _generation) return;
+                    if (!_operations.IsCurrent(generation)) return;
                     Config = DaemonConfig.FromJson(j["values"]);
                     _baseline = Config.ToPatchJson();
                     // The editable draft must never become the live daemon mirror.
@@ -34,7 +34,7 @@ namespace SlopWorld
                 },
                 msg =>
                 {
-                    if (generation != _generation) return;
+                    if (!_operations.IsCurrent(generation)) return;
                     Error = msg;
                     Loaded = false;
                 });
@@ -44,12 +44,13 @@ namespace SlopWorld
         {
             if (!Loaded || Config == null || Saving) return;
             beforeSave?.Invoke();
-            ++_generation;
+            int generation = _operations.Begin();
             Saving = true;
             string submitted = Config.ToPatchJson();
             DaemonClient.Put(WireContract.Routes.ConfigPatch, Config.ToPatchJson(_baseline),
                 _ =>
                 {
+                    if (!_operations.IsCurrent(generation)) return;
                     Saving = false;
                     // Advance only to the submitted snapshot: edits made while saving
                     // remain a draft, and other pages keep their own baseline and fields.
@@ -58,7 +59,12 @@ namespace SlopWorld
                     SessionHub.Instance.RefreshConfig();
                     afterSave?.Invoke();
                 },
-                msg => { Saving = false; Error = msg; });
+                msg =>
+                {
+                    if (!_operations.IsCurrent(generation)) return;
+                    Saving = false;
+                    Error = msg;
+                });
         }
     }
 }

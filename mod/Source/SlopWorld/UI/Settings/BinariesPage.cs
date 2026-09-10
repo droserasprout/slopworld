@@ -114,27 +114,28 @@ namespace SlopWorld
         };
 
         readonly SmoothScroll _scroll = new SmoothScroll();
+        readonly OperationGate _operations = new OperationGate();
         List<BinaryResult> _results;
         string _error;
         bool _loading;
-        int _scanGeneration;
         int _resolved;
 
         public void Load() => Scan();
 
         void Scan()
         {
-            int generation = ++_scanGeneration;
+            int generation = _operations.Begin();
             _loading = true;
             _error = null;
             _resolved = 0;
-            _results = Inventory.Select(spec => new BinaryResult(spec)).ToList();
+            var results = Inventory.Select(spec => new BinaryResult(spec)).ToList();
+            _results = results;
 
             ThreadPool.QueueUserWorkItem(_ =>
             {
                 try
                 {
-                    foreach (var result in _results)
+                    foreach (var result in results)
                     {
                         string path = null;
                         try { path = Locate(result.Spec.Name); }
@@ -153,7 +154,7 @@ namespace SlopWorld
 
         void Resolve(int generation, BinaryResult result, string path)
         {
-            if (generation != _scanGeneration || result.Resolved) return;
+            if (!_operations.IsCurrent(generation) || result.Resolved) return;
             result.SetPath(path);
             _resolved++;
             if (_resolved >= _results.Count) _loading = false;
@@ -161,7 +162,7 @@ namespace SlopWorld
 
         void Fail(int generation, string message)
         {
-            if (generation != _scanGeneration) return;
+            if (!_operations.IsCurrent(generation)) return;
             _error = message;
             foreach (var result in _results)
                 if (!result.Resolved) result.SetPath(null);

@@ -73,6 +73,8 @@
     <Compile Include="../Source/SlopWorld/UI/Terminal/TerminalRunCache.cs" Link="Source/UI/Terminal/TerminalRunCache.cs" />
     <Compile Include="../Source/SlopWorld/UI/Text/TextSelectionRules.cs" Link="Source/UI/Text/TextSelectionRules.cs" />
     <Compile Include="../Source/SlopWorld/UI/Views/Shared/PagerCommands.cs" Link="Source/UI/Views/Shared/PagerCommands.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Views/Shared/OperationGate.cs" Link="Source/UI/Views/Shared/OperationGate.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Views/Shared/AsyncLoadState.cs" Link="Source/UI/Views/Shared/AsyncLoadState.cs" />
     <Compile Include="../Source/SlopWorld/UI/Utilities/NameTools.cs" Link="Source/UI/Utilities/NameTools.cs" />
     <Compile Include="../Source/SlopWorld/Sim/Jukebox/SongRecognizer.cs" Link="Source/Sim/Jukebox/SongRecognizer.cs" />
     <Compile Include="../Source/SlopWorld/UI/Jukebox/JukeboxHistory.cs" Link="Source/UI/Jukebox/JukeboxHistory.cs" />
