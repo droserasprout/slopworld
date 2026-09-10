@@ -8,7 +8,6 @@ use anyhow::{bail, Context, Result};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use tokio::io::{AsyncRead, AsyncReadExt};
 use tokio::sync::{broadcast, mpsc, RwLock};
 use tokio::task::JoinHandle;
 
@@ -41,7 +40,7 @@ use title::{
 use validation::{
     absolute_path, breadcrumb_block, check_belongs, check_breadcrumbs, check_library_item,
     check_name, check_project, free_name, free_project_name, json_to_toml, merge_toml,
-    normalize_action_command, project_action_path, read_action_output, settle, slug,
+    normalize_action_command, project_action_path, settle, slug,
 };
 pub(crate) use validation::{hold_action_command, validate_config};
 
@@ -352,10 +351,10 @@ mod tests {
         breadcrumb_block, check_breadcrumbs, check_library_item, check_name, check_project,
         compile_rules, free_name, free_project_name, hold_action_command, json_to_toml,
         match_rules, merge_input, merge_toml, normalize_action_command, normalize_path,
-        project_action_path, prompt_is_long_enough, read_action_output, render_template,
-        render_template_with, settle, slug, strip_sgr, title_agent, title_settings, Composer,
-        Event, EventMessage, Input, Live, State, Submission, TemplateVars, TitleAgent,
-        TitleCapture, BOOT_COLS, BOOT_ROWS, INPUT_BATCH, TAIL_LINES,
+        project_action_path, prompt_is_long_enough, render_template, render_template_with, settle,
+        slug, strip_sgr, title_agent, title_settings, Composer, Event, EventMessage, Input, Live,
+        State, Submission, TemplateVars, TitleAgent, TitleCapture, BOOT_COLS, BOOT_ROWS,
+        INPUT_BATCH, TAIL_LINES,
     };
     use crate::config::{Config, LibraryItemCfg, LibraryItemKind, ProjectCfg, SessionCfg};
 
@@ -986,18 +985,6 @@ pattern = '(?i)(esc to interrupt|to interrupt\))'
             .unwrap_err()
             .to_string();
         assert!(error.contains("outside project"), "{error}");
-    }
-
-    #[tokio::test]
-    async fn action_output_reports_and_caps_stream_truncation() {
-        let (short, truncated) = read_action_output(&b"hello"[..]).await.unwrap();
-        assert_eq!(short, b"hello");
-        assert!(!truncated);
-
-        let long = vec![b'x'; super::FILE_ACTION_STREAM_LIMIT + 10];
-        let (capped, truncated) = read_action_output(&long[..]).await.unwrap();
-        assert_eq!(capped.len(), super::FILE_ACTION_STREAM_LIMIT);
-        assert!(truncated);
     }
 
     #[test]

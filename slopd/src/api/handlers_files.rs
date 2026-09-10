@@ -6,7 +6,6 @@ use axum::http::StatusCode;
 use axum::Json;
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 use serde_json::{json, Value};
-use std::process::Stdio;
 use std::time::Duration;
 use tokio::io::AsyncReadExt;
 use tokio::process::Command;
@@ -322,65 +321,34 @@ pub(crate) fn highlighter_argv(
 
 async fn run_highlighter(command: &str, path: &std::path::Path) -> anyhow::Result<String> {
     let argv = highlighter_argv(command, path)?;
-    let mut child = Command::new(&argv[0])
-        .args(&argv[1..])
-        .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .kill_on_drop(true)
-        .spawn()
-        .context("starting syntax highlighter")?;
-    let stdout = child
-        .stdout
-        .take()
-        .context("capturing highlighter stdout")?;
-    let stderr = child
-        .stderr
-        .take()
-        .context("capturing highlighter stderr")?;
-
-    let collected = tokio::time::timeout(HIGHLIGHT_TIMEOUT, async {
-        let out = read_highlight_output(stdout, HIGHLIGHT_LIMIT);
-        let err = read_highlight_output(stderr, 16 * 1024);
-        let status = child.wait();
-        let (out, err, status) = tokio::join!(out, err, status);
-        Ok::<_, anyhow::Error>((out?, err?, status?))
-    })
-    .await;
-    let (stdout, stderr, status) = match collected {
-        Ok(result) => result?,
-        Err(_) => {
-            let _ = child.kill().await;
-            let _ = child.wait().await;
-            bail!("syntax highlighter timed out");
+    let mut process = Command::new(&argv[0]);
+    process.args(&argv[1..]);
+    let output = crate::process::run_bounded(
+        &mut process,
+        HIGHLIGHT_TIMEOUT,
+        crate::process::CaptureLimits {
+            stdout: HIGHLIGHT_LIMIT,
+            stderr: 16 * 1024,
+        },
+    )
+    .await
+    .map_err(|error| {
+        if error.downcast_ref::<crate::process::TimedOut>().is_some() {
+            anyhow::anyhow!("syntax highlighter timed out")
+        } else {
+            error.context("starting syntax highlighter")
         }
-    };
-    if stdout.1 {
+    })?;
+    if output.stdout_truncated {
         bail!("syntax highlighter output exceeded the preview limit");
     }
-    if !status.success() {
+    if !output.status.success() {
         bail!(
             "syntax highlighter failed: {}",
-            String::from_utf8_lossy(&stderr.0).trim()
+            String::from_utf8_lossy(&output.stderr).trim()
         );
     }
-    String::from_utf8(stdout.0).context("syntax highlighter output is not valid UTF-8")
-}
-
-pub(crate) async fn read_highlight_output<R: tokio::io::AsyncRead + Unpin>(
-    reader: R,
-    limit: usize,
-) -> anyhow::Result<(Vec<u8>, bool)> {
-    let mut bytes = Vec::new();
-    reader
-        .take(limit as u64 + 1)
-        .read_to_end(&mut bytes)
-        .await?;
-    let truncated = bytes.len() > limit;
-    if truncated {
-        bytes.truncate(limit);
-    }
-    Ok((bytes, truncated))
+    String::from_utf8(output.stdout).context("syntax highlighter output is not valid UTF-8")
 }
 
 pub(crate) async fn read_image(State(_m): State<Mgr>, Query(q): Query<ReadReq>) -> ApiResult {

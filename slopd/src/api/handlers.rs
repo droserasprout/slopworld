@@ -78,8 +78,8 @@ mod tests {
     use super::super::types::SearchReq;
     use super::{
         browse_limit, entry_name, file_path, filter_gitignored, highlighter_argv, list_dir,
-        read_highlight_output, read_image_bytes, read_preview, search_preview, source, valid_kind,
-        IMAGE_LIMIT, READ_LIMIT, SEARCH_TEXT_LIMIT,
+        read_image_bytes, read_preview, search_preview, source, valid_kind, IMAGE_LIMIT,
+        READ_LIMIT, SEARCH_TEXT_LIMIT,
     };
     use axum::http::StatusCode;
 
@@ -156,17 +156,6 @@ mod tests {
             ["tool", "--file=/tmp/slopworld/highlight/code file.rs"]
         );
         assert!(highlighter_argv("   ", path).is_err());
-    }
-
-    #[tokio::test]
-    pub(super) async fn highlighted_output_is_bounded_without_losing_short_output() {
-        let (bytes, truncated) = read_highlight_output(&b"hello"[..], 5).await.unwrap();
-        assert_eq!(bytes, b"hello");
-        assert!(!truncated);
-
-        let (bytes, truncated) = read_highlight_output(&b"hello!"[..], 5).await.unwrap();
-        assert_eq!(bytes, b"hello");
-        assert!(truncated);
     }
 
     #[test]
