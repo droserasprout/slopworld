@@ -4,7 +4,7 @@ using UnityEngine;
 namespace SlopWorld
 {
     // Terminal history snapshots, request replies, and the displayed historical frame.
-    public partial class TerminalWindow
+    sealed partial class TerminalPanel
     {
         // History coordinates are owned by the daemon, but the window keeps overlapping
         // snapshots so fractional scrolling can be served locally.

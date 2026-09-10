@@ -3,8 +3,8 @@ using UnityEngine;
 namespace SlopWorld
 {
 
-    // TerminalWindow selection state, scrolling, and text extraction.
-    public partial class TerminalWindow
+    // TerminalPanel selection state, scrolling, and text extraction.
+    sealed partial class TerminalPanel
     {
         // The selection endpoints belong to the displayed history offset. A live frame and a
         // historical frame use the same row coordinates, translated by this offset.

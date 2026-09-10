@@ -27,7 +27,8 @@ terminal sizing, and Harmony integration. Placement policy is separate from rend
 `IContentView` extends `IWorkspacePanel`: instance identity, minimum size hints, assigned
 bounds, visibility and focus lifecycle. `WorkspacePanelOwner` owns the active content and
 retains a backing terminal without closing it when covered. `TerminalPanel` owns session
-and input state; the window still supplies terminal rendering/history services. Resize
+and input state, rendering/history/selection services, caches and subscription lifetime.
+The window supplies placement, chrome and navigation through `ITerminalPanelHost`. Resize
 negotiation uses assigned panel bounds, with no static last-used terminal size. New sessions
 use the current host slot, or the workspace content slot when no host exists.
 
@@ -35,8 +36,9 @@ Panel focus follows host input eligibility. Losing terminal focus releases forwa
 gestures and queued input. [Field focus](ui-focus.md) restores focus around IMGUI fields.
 Tab/Shift+Tab traversal is deferred, along with button/selector traversal and inter-panel
 keyboard navigation. Tab inside a terminal belongs to its application.
-Multiple visible terminals still require
-extracting rendering/history services and choosing how duplicate session views negotiate size.
+Multiple visible terminals still require split placement and a policy for duplicate session
+views, subscriptions and size negotiation. The user verified the terminal-service extraction
+in-game; the current workspace still displays one panel at a time.
 
 ## Layout and rendering
 

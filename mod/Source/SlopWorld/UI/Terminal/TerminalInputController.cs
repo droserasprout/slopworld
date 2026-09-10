@@ -6,17 +6,17 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Owns terminal key and mouse policy. The Window facade supplies pane geometry and the
+    // Owns terminal key and mouse policy. The panel supplies its geometry and the
     // existing rendering/selection services, while this controller owns event ordering and
     // terminal input policy.
     sealed partial class TerminalInputController
     {
-        readonly TerminalWindow _window;
+        readonly TerminalPanel _panel;
         readonly Dictionary<KeyCode, System.Func<Event, bool>> _local;
         readonly Dictionary<KeyCode, System.Func<Event, bool>> _terminal;
-        public TerminalInputController(TerminalWindow window)
+        public TerminalInputController(TerminalPanel panel)
         {
-            _window = window;
+            _panel = panel;
             _local = new Dictionary<KeyCode, System.Func<Event, bool>>
             {
                 { KeyCode.Escape, HandleEscapeKey },
@@ -139,7 +139,7 @@ namespace SlopWorld
 
             if (e.keyCode == KeyCode.Escape)
             {
-                _window.Leave();
+                _panel.Leave();
                 e.Use();
                 return;
             }
@@ -272,7 +272,7 @@ namespace SlopWorld
             {
                 if (e.keyCode != KeyCode.None || e.character != '\0')
                 {
-                    _window.DroppedKeys++;
+                    _panel.DroppedKeys++;
                     e.Use();
                 }
                 return;
@@ -281,7 +281,7 @@ namespace SlopWorld
             // Auto-resume is queued by the daemon after startup settles. Keep user input out
             // of the resume picker; chrome and navigation above remain available so the user
             // can leave this pane while it is being resumed.
-            if (_window.AutoResumePending)
+            if (_panel.AutoResumePending)
             {
                 if (e.keyCode != KeyCode.None || e.character != '\0') e.Use();
                 return;
@@ -303,8 +303,8 @@ namespace SlopWorld
             if (e.character != '\0' && e.character != '\n' &&
                 e.character != '\r' && e.character != '\t' && !e.control && !e.alt)
             {
-                _window.JumpToLive();
-                _window.Literal.Append(e.character);
+                _panel.JumpToLive();
+                _panel.Literal.Append(e.character);
                 e.Use();
                 return;
             }
@@ -338,7 +338,7 @@ namespace SlopWorld
         {
             // Shift+Escape is the way out; a bare Escape must reach the agent.
             if (!e.shift) return false;
-            _window.Close();
+            _panel.Close();
             e.Use();
             return true;
         }
@@ -349,9 +349,9 @@ namespace SlopWorld
             // (\e[13;2u) so apps like Claude Code can distinguish it from plain Enter
             // and insert a newline rather than submitting.
             if (!e.shift) return false;
-            _window.JumpToLive();
-            _window.Flush();
-            SessionHub.Instance.Terminal.SendKeys(_window.SessionName, new[] { "\u001b[13;2u" }, true);
+            _panel.JumpToLive();
+            _panel.Flush();
+            SessionHub.Instance.Terminal.SendKeys(_panel.SessionName, new[] { "\u001b[13;2u" }, true);
             e.Use();
             return true;
         }
@@ -362,19 +362,19 @@ namespace SlopWorld
                 (e.keyCode != KeyCode.PageUp && e.keyCode != KeyCode.PageDown))
                 return false;
 
-            var live = SessionHub.Instance.Screen(_window.SessionName);
+            var live = SessionHub.Instance.Screen(_panel.SessionName);
             // Alternate-screen applications own shifted page keys; the primary screen owns
             // them for terminal scrollback, just like a normal terminal emulator.
-            if (_window.ScrollOffset == 0 && live != null && live.AltScreen) return false;
+            if (_panel.ScrollOffset == 0 && live != null && live.AltScreen) return false;
 
-            int page = _window.Rows > 0 ? _window.Rows : live != null ? live.Rows : 1;
+            int page = _panel.Rows > 0 ? _panel.Rows : live != null ? live.Rows : 1;
             page = Mathf.Max(1, page);
             bool up = e.keyCode == KeyCode.PageUp;
-            bool fromLive = _window.ScrollOffset <= 0;
-            if (up) _window.ScrollOffset += page;
-            else _window.ScrollOffset = Mathf.Max(0, _window.ScrollOffset - page);
-            _window.JumpHistoryTo(_window.ScrollOffset);
-            _window.QueueScroll(up, fromLive);
+            bool fromLive = _panel.ScrollOffset <= 0;
+            if (up) _panel.ScrollOffset += page;
+            else _panel.ScrollOffset = Mathf.Max(0, _panel.ScrollOffset - page);
+            _panel.JumpHistoryTo(_panel.ScrollOffset);
+            _panel.QueueScroll(up, fromLive);
             e.Use();
             return true;
         }
@@ -385,9 +385,9 @@ namespace SlopWorld
             if (!e.control) return ForwardMappedKey(e);
             // Terminal convention: Ctrl+Shift+C is always copy, and Ctrl+C copies
             // when text is selected (otherwise it passes through as SIGINT).
-            if (_window.HasSelection)
+            if (_panel.HasSelection)
             {
-                _window.CopySelection();
+                _panel.CopySelection();
                 e.Use();
                 return true;
             }
@@ -404,8 +404,8 @@ namespace SlopWorld
         {
             // Not a Ctrl chord: still a key the mapper may forward (e.g. Alt+V -> M-v).
             if (!e.control) return ForwardMappedKey(e);
-            _window.JumpToLive();
-            _window.PasteClipboard();
+            _panel.JumpToLive();
+            _panel.PasteClipboard();
             e.Use();
             return true;
         }
@@ -417,8 +417,8 @@ namespace SlopWorld
             if (e.character != '\0') return false;
             if (e.shift)
             {
-                _window.JumpToLive();
-                _window.Literal.Append(':');
+                _panel.JumpToLive();
+                _panel.Literal.Append(':');
             }
             else AppendSemicolon();
             e.Use();
@@ -427,18 +427,18 @@ namespace SlopWorld
 
         internal bool ForwardMappedKey(Event e)
         {
-            var keyScreen = SessionHub.Instance.Screen(_window.SessionName);
+            var keyScreen = SessionHub.Instance.Screen(_panel.SessionName);
             string key = MapKey(e, keyScreen != null && keyScreen.AltScreen);
             if (key == null) return false;
 
-            _window.JumpToLive();
-            _window.Flush();
+            _panel.JumpToLive();
+            _panel.Flush();
             // Tips ride the Enter that is about to have breadcrumbs pasted in front of it, and
             // nothing else: `BreadcrumbsPending` is the daemon's answer to whether this is that
             // Enter.
-            var info = SessionHub.Instance.Get(_window.SessionName);
+            var info = SessionHub.Instance.Get(_panel.SessionName);
             bool crumbs = key == "Enter" && info != null && info.BreadcrumbsPending;
-            SessionHub.Instance.Terminal.SendKeys(_window.SessionName, new[] { key }, false,
+            SessionHub.Instance.Terminal.SendKeys(_panel.SessionName, new[] { key }, false,
                 crumbs ? Patch_LoadingTips.RandomTips(Patch_LoadingTips.TipBatch) : null);
             e.Use();
             return true;
@@ -450,7 +450,7 @@ namespace SlopWorld
         // so the frame marker makes the two roads one keystroke.
         internal void CaptureSemicolonInputCore()
         {
-            if (_window.AutoResumePending || _window.SemicolonFrame == Time.frameCount ||
+            if (_panel.AutoResumePending || _panel.SemicolonFrame == Time.frameCount ||
                 !SessionHub.Instance.Online) return;
             bool shift = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
             string input = Input.inputString;
@@ -458,19 +458,19 @@ namespace SlopWorld
             bool physical = !shift && Input.GetKeyDown(KeyCode.Semicolon);
             if (count == 0 && !physical) return;
 
-            _window.JumpToLive();
-            _window.Flush();
-            SessionHub.Instance.Terminal.Paste(_window.SessionName, new string(';', count > 0 ? count : 1));
-            _window.SemicolonFrame = Time.frameCount;
+            _panel.JumpToLive();
+            _panel.Flush();
+            SessionHub.Instance.Terminal.Paste(_panel.SessionName, new string(';', count > 0 ? count : 1));
+            _panel.SemicolonFrame = Time.frameCount;
         }
 
         void AppendSemicolon()
         {
-            if (_window.SemicolonFrame == Time.frameCount) return;
-            _window.JumpToLive();
-            _window.Flush();
-            SessionHub.Instance.Terminal.Paste(_window.SessionName, ";");
-            _window.SemicolonFrame = Time.frameCount;
+            if (_panel.SemicolonFrame == Time.frameCount) return;
+            _panel.JumpToLive();
+            _panel.Flush();
+            SessionHub.Instance.Terminal.Paste(_panel.SessionName, ";");
+            _panel.SemicolonFrame = Time.frameCount;
         }
 
         internal static bool IsSemicolonKey(KeyCode key) =>
@@ -487,7 +487,7 @@ namespace SlopWorld
             string name = order[slot];
             // The same agent while a view has the body is still a request to see it: the
             // number points the window at a portrait, and the pane is what a portrait is.
-            if (name == _window.SessionName && _window.Content == null) return;
+            if (name == _panel.SessionName && _panel.Content == null) return;
 
             var info = SessionHub.Instance.Get(name);
             if (info == null) return;
@@ -496,7 +496,7 @@ namespace SlopWorld
             // agents view, which releases whatever the view being left was showing.
             AgentSidebar.FocusTerminal();
 
-            _window.SwitchTo(name);
+            _panel.SwitchTo(name);
         }
 
         // Walk the session list by dir (-1 or 1). Used from Alt+Z/Alt+X in both ChromeKeys

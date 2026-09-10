@@ -4,8 +4,8 @@ using Verse;
 
 namespace SlopWorld
 {
-    // TerminalWindow pane rendering, cache, and pointer-overlays.
-    public partial class TerminalWindow
+    // TerminalPanel pane rendering, cache, and pointer-overlays.
+    sealed partial class TerminalPanel
     {
         void DrawScreen(Rect body, ScreenBuf buf, float shift)
         {
@@ -109,12 +109,6 @@ namespace SlopWorld
             Text.Anchor = TextAnchor.UpperLeft;
         }
 
-        // The persona core's hint bubble, drawn here rather than on the map layer so it sits
-        // over this pane: the window fills the screen opaque and a bubble behind it cannot be
-        // seen. Only the current map's core holds a hint; elsewhere there is nothing to draw
-        // and this returns at once.
-        void DrawHint() => Find.CurrentMap?.GetComponent<CoreTip>()?.DrawHint();
-
         void DrawSelection(Rect body, ScreenBuf buf, float shift)
             => _renderer.DrawSelection(body, buf, shift);
 
@@ -217,14 +211,14 @@ namespace SlopWorld
                        float yShift = 0f) => _renderer.PaintRows(body, buf, cw, ch, rows, yShift);
 
         // The GUI-to-screen transform, sampled once a draw; see SnapX.
-        static float _snapSx = 1f, _snapSy = 1f, _snapOx, _snapOy;
+        float _snapSx = 1f, _snapSy = 1f, _snapOx, _snapOy;
 
-        static float DisplayCellW() => TerminalFont.CellWAtScreenScale(_snapSx);
+        float DisplayCellW() => TerminalFont.CellWAtScreenScale(_snapSx);
 
         // Two points are enough, the transform being a scale and an offset. Sampled rather
         // than read off GUI.matrix, which carries the UI scale but not the offset of the
         // group a window draws inside.
-        static void SyncSnap()
+        void SyncSnap()
         {
             var p0 = GUIUtility.GUIToScreenPoint(Vector2.zero);
             var p1 = GUIUtility.GUIToScreenPoint(Vector2.one);
@@ -238,9 +232,9 @@ namespace SlopWorld
         // UI runs at 1.75, so a row is 33.25 pixels, the shared edge sits on a pixel centre
         // every fourth row, and a pixel split by two quads belongs to neither. It has to be
         // the *screen* grid - a whole unit here is 1.75 pixels there.
-        static float SnapX(float v) => (Mathf.Round(v * _snapSx + _snapOx) - _snapOx) / _snapSx;
+        float SnapX(float v) => (Mathf.Round(v * _snapSx + _snapOx) - _snapOx) / _snapSx;
 
-        static float SnapY(float v) => (Mathf.Round(v * _snapSy + _snapOy) - _snapOy) / _snapSy;
+        float SnapY(float v) => (Mathf.Round(v * _snapSy + _snapOy) - _snapOy) / _snapSy;
 
         // Every char the face cannot advance by exactly one cell is placed alone on its own
         // column. Claude Code's prompt chevron is in no mono face here, and drawn inline it

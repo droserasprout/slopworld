@@ -13,13 +13,13 @@ namespace SlopWorld
         {
             if (!body.Contains(e.mousePosition) || (e.delta.x == 0f && e.delta.y == 0f)) return;
 
-            var live = SessionHub.Instance.Screen(_window.SessionName);
+            var live = SessionHub.Instance.Screen(_panel.SessionName);
             bool editor = IsEditorSession();
 
             // Already in scrollback: stay there, whatever the live app is doing.
             // The app mode check below would otherwise hijack the wheel and send it
             // into the live app while the user is reading historical output.
-            if (_window.ScrollOffset > 0)
+            if (_panel.ScrollOffset > 0)
             {
                 // SmoothScroll owns the event after this handler returns. It advances the
                 // local pixel position immediately and requests the next integer snapshot
@@ -33,10 +33,10 @@ namespace SlopWorld
             {
                 if (e.delta.y == 0f) return;
                 int step = Mathf.Clamp(Mathf.RoundToInt(Mathf.Abs(e.delta.y)), 1, 5);
-                _window.ClearSelection();
-                var cell = _window.CellAt(body, e.mousePosition);
+                _panel.ClearSelection();
+                var cell = _panel.CellAt(body, e.mousePosition);
                 string act = e.delta.y < 0f ? "wheelup" : "wheeldown";
-                SessionHub.Instance.Terminal.SendMouse(_window.SessionName, act, 0, cell.x, cell.y, step);
+                SessionHub.Instance.Terminal.SendMouse(_panel.SessionName, act, 0, cell.x, cell.y, step);
                 e.Use();
                 return;
             }
@@ -57,10 +57,10 @@ namespace SlopWorld
                 int step = Mathf.Clamp(Mathf.RoundToInt(Mathf.Abs(delta)), 1, 5);
                 string key = horizontal ? (delta < 0f ? "Left" : "Right")
                     : (delta < 0f ? "Up" : "Down");
-                _window.ClearSelection();
+                _panel.ClearSelection();
                 var keys = new string[step];
                 for (int k = 0; k < step; k++) keys[k] = key;
-                SessionHub.Instance.Terminal.SendKeys(_window.SessionName, keys, false);
+                SessionHub.Instance.Terminal.SendKeys(_panel.SessionName, keys, false);
                 e.Use();
                 return;
             }
@@ -73,7 +73,7 @@ namespace SlopWorld
 
         bool IsEditorSession()
         {
-            var info = SessionHub.Instance.Get(_window.SessionName);
+            var info = SessionHub.Instance.Get(_panel.SessionName);
             if (info == null) return false;
             if (Pager.IsEditorCommand(info.Cmd)) return true;
             return info.Ephemeral &&
@@ -83,31 +83,31 @@ namespace SlopWorld
         internal void HandleMouse(Rect body, Event e)
         {
             // A forwarded press owns its continuation even if Shift or app mode changes.
-            if (_window.OwnsForwardedMouse(e))
+            if (_panel.OwnsForwardedMouse(e))
             {
-                if (_window.HandleMouseForward(body, e)) return;
-                _window.SelectionInput.Handle(body, e);
+                if (_panel.HandleMouseForward(body, e)) return;
+                _panel.SelectionInput.Handle(body, e);
                 return;
             }
             // The scrollbar sits over the terminal's rightmost cells. Give it first refusal
             // so a click or drag there cannot start a text selection underneath it.
-            if (_window.HandleHistoryBarInput(body, e)) return;
+            if (_panel.HandleHistoryBarInput(body, e)) return;
 
             // The pane's own menu is reachable in every mode, including a full-screen TUI.
             if (IsContextMenuEvent(e))
             {
                 if (IsMouseDownInside(body, e))
                 {
-                    string url = _window.LinkUnder(body, e.mousePosition);
+                    string url = _panel.LinkUnder(body, e.mousePosition);
                     int line = 0;
                     string menuPath = ControlHeld(e)
-                        ? _window.PathUnder(body, e.mousePosition, out line) : null;
+                        ? _panel.PathUnder(body, e.mousePosition, out line) : null;
                     if (url != null || !IsRelativePath(menuPath))
                     {
                         menuPath = null;
                         line = 0;
                     }
-                    _window.OpenMenu(url, menuPath, line);
+                    _panel.OpenMenu(url, menuPath, line);
                 }
                 e.Use();
                 return;
@@ -118,8 +118,8 @@ namespace SlopWorld
             // alternate-screen application has enabled mouse mode.
             if (IsPrimaryPasteEvent(body, e))
             {
-                _window.JumpToLive();
-                _window.PastePrimarySelection();
+                _panel.JumpToLive();
+                _panel.PastePrimarySelection();
                 e.Use();
                 return;
             }
@@ -128,14 +128,14 @@ namespace SlopWorld
             // not, so Ctrl+click takes precedence over app mouse reporting.
             if (IsLinkClick(body, e))
             {
-                TerminalWindow.OpenUrl(_window.LinkUnder(body, e.mousePosition));
+                TerminalPanel.OpenUrl(_panel.LinkUnder(body, e.mousePosition));
                 e.Use();
                 return;
             }
 
             if (IsPathClick(body, e, out string path))
             {
-                var session = SessionHub.Instance.Get(_window.SessionName);
+                var session = SessionHub.Instance.Get(_panel.SessionName);
                 if (session != null && FilesView.FocusPath(session.Project, path))
                 {
                     e.Use();
@@ -144,17 +144,17 @@ namespace SlopWorld
             }
 
             // Multi-click selection is the terminal's gesture even when the app reports clicks.
-            if (_window.SelectionInput.TryHandleMultiClick(body, e))
+            if (_panel.SelectionInput.TryHandleMultiClick(body, e))
             {
                 return;
             }
 
-            var live = SessionHub.Instance.Screen(_window.SessionName);
+            var live = SessionHub.Instance.Screen(_panel.SessionName);
             // Shift forces our own selection, like a real terminal.
-            if (ShouldForwardMouse(live, e) && _window.HandleMouseForward(body, e)) return;
+            if (ShouldForwardMouse(live, e) && _panel.HandleMouseForward(body, e)) return;
             if (!IsPrimaryMouse(e)) return;
 
-            _window.SelectionInput.Handle(body, e);
+            _panel.SelectionInput.Handle(body, e);
         }
 
         static bool IsContextMenuEvent(Event e) => e.button == 1;
@@ -167,7 +167,7 @@ namespace SlopWorld
 
         bool IsLinkClick(Rect body, Event e) =>
             MouseType(e) == EventType.MouseDown && e.button == 0 && ControlHeld(e) &&
-            body.Contains(e.mousePosition) && _window.LinkUnder(body, e.mousePosition) != null;
+            body.Contains(e.mousePosition) && _panel.LinkUnder(body, e.mousePosition) != null;
 
         bool IsPathClick(Rect body, Event e, out string path)
         {
@@ -175,14 +175,14 @@ namespace SlopWorld
             if (MouseType(e) != EventType.MouseDown || e.button != 0 || !ControlHeld(e) ||
                 !body.Contains(e.mousePosition)) return false;
             int line;
-            path = _window.PathUnder(body, e.mousePosition, out line);
+            path = _panel.PathUnder(body, e.mousePosition, out line);
             return path != null;
         }
 
         static bool IsRelativePath(string path) => !string.IsNullOrEmpty(path) && path[0] != '/';
 
         bool ShouldForwardMouse(ScreenBuf live, Event e) =>
-            MouseType(e) == EventType.MouseDown && _window.ScrollOffset == 0 &&
+            MouseType(e) == EventType.MouseDown && _panel.ScrollOffset == 0 &&
             live != null && live.AppMouse && !e.shift;
 
         static bool IsPrimaryMouse(Event e) => e.button == 0;

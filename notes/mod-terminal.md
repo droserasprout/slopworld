@@ -1,6 +1,6 @@
 # The terminal pane
 
-`TerminalWindow` renders the pane and forwards keys. Escape goes to the agent, so
+`TerminalPanel` renders the pane and forwards keys. Escape goes to the agent, so
 Shift+Escape leaves; F12 closes; Alt+1..9/Alt+0 selects a portrait through
 `AgentColony.InBarOrder`. `TerminalHotkeys` handles the same numbers on the map because
 game components run before the window stack in `UIRootOnGUI`. `SnapX`/`SnapY` put edges
@@ -9,12 +9,14 @@ on screen pixels.
 The window uses `Margin` 0 so GUI-group and screen coordinates agree
 ([gotchas](core-gotchas.md)).
 
-`TerminalWindow` is the fullscreen host and lifecycle coordinator. `TerminalInputController`
-owns key/mouse event ordering and chrome navigation. `TerminalPanel` owns its
-`TerminalWindowState` and assigned bounds; the workspace owner handles visibility and focus.
-Selection gesture
-routing lives in `TerminalSelectionInput`; the selection model and terminal rendering remain
-window services until the next extraction pass.
+`TerminalWindow` is the fullscreen workspace host: chrome, placement, navigation and the
+window-stack lifecycle. `TerminalPanel` owns `TerminalPanelState`, rendering and texture
+caches, history, selection, clipboard, input controllers and resize scheduling. Its focused
+partials live in `UI/Terminal/TerminalPanel/`. `ITerminalPanelHost` supplies workspace
+navigation and input eligibility without giving the panel access to window internals.
+`Opened`/`Closed` subscribe and release terminal resources; covering the panel only changes
+visibility/focus. Pixel-snapping transforms are per panel. Input that closes or switches
+the panel stops the old draw before it can rebuild a released cache.
 
 ## Size
 

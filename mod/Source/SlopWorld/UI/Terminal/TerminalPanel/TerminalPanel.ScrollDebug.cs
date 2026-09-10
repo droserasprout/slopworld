@@ -6,7 +6,7 @@ namespace SlopWorld
     // Aggregate scroll timings for one terminal window. Enable with
     // SLOPWORLD_DEBUG=1 in the game's environment; the normal path does no timing or
     // string work beyond a few predictable branches.
-    public partial class TerminalWindow
+    sealed partial class TerminalPanel
     {
         static readonly bool ScrollDebugEnabled = PerfTrace.Enabled;
 

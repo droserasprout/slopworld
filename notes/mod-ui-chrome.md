@@ -31,7 +31,7 @@ spacing, buttons, fields, headings and errors. Color names resolve through
   have the same visible caption-to-control margin.
 - `Slab` draws every control (fill, outline, focus ring and hairline). It is texture-free
   and snaps to the screen pixel grid; GUI-coordinate snapping seams at non-integer UI
-  scales. `TerminalWindow.SyncSnap` uses the same arithmetic. Rules sit inside the
+  scales. `TerminalPanel.SyncSnap` uses the same arithmetic. Rules sit inside the
   control they close, on its last pixel.
 - `SmoothScroll` is the mod's only scroll view and scrollbar. On X11 it reads XInput 2.1's
   fractional scroll valuator directly; Unity's logical wheel packet is the fallback. It
@@ -39,7 +39,7 @@ spacing, buttons, fields, headings and errors. Color names resolve through
   jumps a selected row into view. Brief frame stalls preserve cumulative touchpad movement;
   a logical wheel packet is suppressed only after a precise sample was claimed, or when it
   is the matching delayed packet from the preceding frame. Vertical scroll only.
-- `TerminalWindow` uses `SmoothScroll.BeginInput`/`EndInput` without a translated GUI group.
+- `TerminalPanel` uses `SmoothScroll.BeginInput`/`EndInput` without a translated GUI group.
   It spends the claimed input before choosing a frame, then `TerminalHistory` assembles the
   fractional viewport from overlapping daemon snapshots and an overscan row.
 - `ContentTreeView` keeps complete row geometry for scrolling but paints and hit-tests only

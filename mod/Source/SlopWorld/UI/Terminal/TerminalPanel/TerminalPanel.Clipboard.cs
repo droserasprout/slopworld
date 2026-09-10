@@ -6,8 +6,8 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Clipboard and context-menu actions for TerminalWindow.
-    public partial class TerminalWindow
+    // Clipboard and context-menu actions for TerminalPanel.
+    sealed partial class TerminalPanel
     {
         internal void CopySelection()
         {
@@ -116,7 +116,7 @@ namespace SlopWorld
                     ClearSelection();
                 }));
 
-            OpenOverPane(new UiMenu(options));
+            TerminalWindow.OpenOverPane(new UiMenu(options));
         }
 
         void ResolvePath(string project, string path, System.Action<string> action)

@@ -2,9 +2,9 @@ using System.Text;
 
 namespace SlopWorld
 {
-    // Per-window state for the session binding and terminal input. The TerminalWindow partials
+    // Per-panel state for the session binding and terminal input. The TerminalPanel partials
     // expose this state through concern-specific facades rather than owning it directly.
-    sealed class TerminalWindowState
+    sealed class TerminalPanelState
     {
         public string Name;
         public bool ShowStopped;
