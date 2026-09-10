@@ -38,7 +38,7 @@ namespace SlopWorld
 
         protected override void DrawFields(Listing_Standard l)
         {
-            UiWidgets.SectionHeading(l, "Session defaults");
+            UiLayout.SectionHeading(l, "Session defaults");
             ChoiceRow(l, "Agent", "commands.agent",
                 _cfg.Agent, Commands(CommandInfo.AgentKind, _cfg.Agent),
                 _agentCustom, value => _cfg.Agent = value, value => _agentCustom = value,
@@ -53,8 +53,8 @@ namespace SlopWorld
                 _shellCustom, value => _cfg.Shell = value, value => _shellCustom = value,
                 defaultValue: WireContract.DefaultShell);
 
-            l.Gap(UiWidgets.GapL);
-            UiWidgets.SectionHeading(l, "Default apps");
+            l.Gap(UiTheme.GapL);
+            UiLayout.SectionHeading(l, "Default apps");
             ChoiceRow(l, "Pager", "commands.pager", _cfg.Pager, PagerChoices(),
                 _pagerCustom, value => _cfg.Pager = value, value => _pagerCustom = value,
                 defaultValue: WireContract.DefaultPager);
@@ -65,13 +65,13 @@ namespace SlopWorld
                 HighlighterChoices(), _highlighterCustom, value => _cfg.Highlighter = value,
                 value => _highlighterCustom = value, defaultValue: WireContract.DefaultHighlighter);
 
-            l.Gap(UiWidgets.GapL);
-            UiWidgets.SectionHeading(l, "Template legend");
-            UiWidgets.Note(l, "{file} is replaced with a quoted file path; {line} with a search result " +
+            l.Gap(UiTheme.GapL);
+            UiLayout.SectionHeading(l, "Template legend");
+            UiLayout.Note(l, "{file} is replaced with a quoted file path; {line} with a search result " +
                 "line. Without {file}, file commands receive -- and the path.");
-            UiWidgets.Note(l, "%s is less's filename placeholder for the syntax highlighter. A blank " +
+            UiLayout.Note(l, "%s is less's filename placeholder for the syntax highlighter. A blank " +
                 "highlighter disables it.");
-            UiWidgets.Note(l, "Templates are split into arguments without a shell.");
+            UiLayout.Note(l, "Templates are split into arguments without a shell.");
         }
 
         static List<Choice> Commands(string kind, string current)
@@ -125,22 +125,22 @@ namespace SlopWorld
                     set(c.Value);
                 })).ToList();
             options.Add(new SelectorOption("Custom", () => setCustom(true)));
-            UiWidgets.Select(l, label, shown, options, out _);
+            UiControls.Select(l, label, shown, options, out _);
 
             if (isCustom)
             {
                 bool stacked = l.ColumnWidth < 430f;
-                if (stacked) UiWidgets.Note(l, customLabel);
-                Rect customRow = l.GetRect(UiWidgets.FieldH);
+                if (stacked) UiLayout.Note(l, customLabel);
+                Rect customRow = l.GetRect(UiTheme.FieldH);
                 float leftW = stacked ? 0f : Mathf.Min(220f, customRow.width * .42f);
-                float gap = stacked ? 0f : UiWidgets.GapM;
+                float gap = stacked ? 0f : UiTheme.GapM;
                 float rightX = customRow.x + leftW + gap;
                 float rightW = Mathf.Max(0f, customRow.width - leftW - gap);
-                GUI.color = UiWidgets.Dim;
-                if (!stacked) UiWidgets.RowLabel(new Rect(customRow.x, customRow.y, leftW,
+                GUI.color = UiTheme.Dim;
+                if (!stacked) UiText.RowLabel(new Rect(customRow.x, customRow.y, leftW,
                     customRow.height), customLabel);
                 GUI.color = Color.white;
-                set(UiWidgets.Field(new Rect(rightX, customRow.y, rightW, customRow.height),
+                set(UiText.Field(new Rect(rightX, customRow.y, rightW, customRow.height),
                     fieldName + ".custom", value, defaultValue: defaultValue));
             }
         }

@@ -32,7 +32,7 @@ namespace SlopWorld
                     try
                     {
                         listing.Begin(new Rect(0f, 0f, geometry.View.width,
-                            UiWidgets.ListingHeight));
+                            UiLayout.ListingHeight));
                         begun = true;
                         drawListing(listing);
                         y = listing.CurHeight;
@@ -43,7 +43,7 @@ namespace SlopWorld
                     }
 
                     if (drawTrailing != null) y = drawTrailing(geometry.View, y);
-                    _height.Measure(y + UiWidgets.GapS);
+                    _height.Measure(y + UiTheme.GapS);
                 }
             }
         }

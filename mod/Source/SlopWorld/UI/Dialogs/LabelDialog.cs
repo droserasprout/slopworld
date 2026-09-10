@@ -31,14 +31,14 @@ namespace SlopWorld
                 host
                     ? "Set a fixed label for this host terminal. Leave it blank to use its terminal title."
                     : "Set a fixed label. Leave it blank to use the generated title.",
-                "agent.label", _label, _error, UiWidgets.RowH * 2f, TitleRect(rect));
+                "agent.label", _label, _error, UiTheme.RowH * 2f, TitleRect(rect));
 
             var foot = TextDialog.Footer(rect);
-            if (foot.Left("Cancel", UiWidgets.Btn.Ghost)) Close();
+            if (foot.Left("Cancel", UiTheme.Btn.Ghost)) Close();
             if (!string.IsNullOrWhiteSpace(_label) &&
-                foot.Left("Remove", UiWidgets.Btn.Danger))
+                foot.Left("Remove", UiTheme.Btn.Danger))
                 Save("");
-            if (foot.Right("Save", UiWidgets.Btn.Primary)) Save(_label);
+            if (foot.Right("Save", UiTheme.Btn.Primary)) Save(_label);
         }
 
         void Save(string value)
@@ -51,7 +51,7 @@ namespace SlopWorld
             }
 
             string session = _session;
-            SessionHub.Instance.SessionStore.SetLabel(session, label, () => Close(), UiWidgets.Fail);
+            SessionHub.Instance.SessionStore.SetLabel(session, label, () => Close(), UiLayout.Fail);
         }
     }
 }

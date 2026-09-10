@@ -48,7 +48,7 @@ namespace SlopWorld
             }
             if (Widths.TryGetValue(text, out float width)) return width;
             if (Widths.Count >= 256) Widths.Clear();
-            return Widths[text] = UiWidgets.Wide(text);
+            return Widths[text] = UiTheme.Wide(text);
         }
 
         static void PrepareClock(DateTime now)

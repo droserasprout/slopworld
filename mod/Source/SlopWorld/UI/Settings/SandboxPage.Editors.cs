@@ -19,9 +19,9 @@ namespace SlopWorld
                 .OrderBy(p => p.Name == "global" ? 0 : 1)
                 .ThenBy(p => p.Name, System.StringComparer.OrdinalIgnoreCase).ToList();
             float h = (system.Count + user.Count + 2 +
-                (system.Count == 0 ? 1 : 0) + (user.Count == 0 ? 1 : 0)) * UiWidgets.RowH
-                + UiWidgets.GapS * 2f;
-            var view = new Rect(0f, 0f, Mathf.Max(0f, r.width - UiWidgets.ScrollbarW),
+                (system.Count == 0 ? 1 : 0) + (user.Count == 0 ? 1 : 0)) * UiTheme.RowH
+                + UiTheme.GapS * 2f;
+            var view = new Rect(0f, 0f, Mathf.Max(0f, r.width - UiTheme.ScrollbarW),
                 Mathf.Max(h, r.height));
             using (_listScroll.Scope(r, view))
             {
@@ -37,13 +37,13 @@ namespace SlopWorld
         float DrawLibraryGroup<T>(Rect view, float y, string heading, List<T> items,
                                   Func<T, string> label, Action<T> pick)
         {
-            UiWidgets.SectionHeading(new Rect(0f, y, view.width, UiWidgets.RowH), heading);
-            y += UiWidgets.RowH;
+            UiLayout.SectionHeading(new Rect(0f, y, view.width, UiTheme.RowH), heading);
+            y += UiTheme.RowH;
             foreach (var item in items)
             {
                 bool child = item is PresetInfo preset && IsOptionalChild(preset);
-                float inset = child ? UiWidgets.GapM : UiWidgets.GapS;
-                var cell = new Rect(inset, y, view.width - inset, UiWidgets.RowH);
+                float inset = child ? UiTheme.GapM : UiTheme.GapS;
+                var cell = new Rect(inset, y, view.width - inset, UiTheme.RowH);
                 string name = label(item);
                 bool selected = (item is PresetInfo p && p == _preset) ||
                                 (item is CommandInfo c && c == _command);
@@ -53,25 +53,25 @@ namespace SlopWorld
                 // library, not only after opening its editor.
                 bool dangerous = item is PresetInfo dangerousPreset && dangerousPreset.IsEscape;
                 bool global = item is PresetInfo globalPreset && globalPreset.Name == "global";
-                GUI.color = dangerous ? UiWidgets.Warn
-                    : global ? UiWidgets.Global
-                    : selected ? UiWidgets.Lead : UiWidgets.Name;
-                UiWidgets.RowLabel(cell, name);
+                GUI.color = dangerous ? UiTheme.Warn
+                    : global ? UiTheme.Global
+                    : selected ? UiTheme.Lead : UiTheme.Name;
+                UiText.RowLabel(cell, name);
                 GUI.color = Color.white;
                 string description = item is PresetInfo info ? info.Description
                     : item is CommandInfo command ? command.Description : "";
                 if (!string.IsNullOrEmpty(description)) TooltipHandler.TipRegion(cell, description);
-                if (UiWidgets.RowButton(cell)) pick(item);
-                y += UiWidgets.RowH;
+                if (UiButtons.RowButton(cell)) pick(item);
+                y += UiTheme.RowH;
             }
             if (items.Count == 0)
             {
-                GUI.color = UiWidgets.Dim;
-                UiWidgets.RowLabel(new Rect(UiWidgets.GapS, y, view.width, UiWidgets.RowH), "(none)");
+                GUI.color = UiTheme.Dim;
+                UiText.RowLabel(new Rect(UiTheme.GapS, y, view.width, UiTheme.RowH), "(none)");
                 GUI.color = Color.white;
-                y += UiWidgets.RowH;
+                y += UiTheme.RowH;
             }
-            return y + UiWidgets.GapS;
+            return y + UiTheme.GapS;
         }
 
         // The optional half of one integration follows its read-only essential by name and
@@ -86,10 +86,10 @@ namespace SlopWorld
             var all = SessionHub.Instance.Commands;
             var system = all.Where(c => c.Source == "system").ToList();
             var user = all.Where(c => c.Source != "system").ToList();
-            float h = (system.Count + user.Count + 3) * UiWidgets.RowH;
-            var view = new Rect(0f, 0f, Mathf.Max(0f, r.width - UiWidgets.ScrollbarW),
+            float h = (system.Count + user.Count + 3) * UiTheme.RowH;
+            var view = new Rect(0f, 0f, Mathf.Max(0f, r.width - UiTheme.ScrollbarW),
                 Mathf.Max(h, r.height));
-            view.height = Mathf.Max(r.height, h + UiWidgets.GapS + UiWidgets.BtnH);
+            view.height = Mathf.Max(r.height, h + UiTheme.GapS + UiTheme.BtnH);
             using (_listScroll.Scope(r, view))
             {
                 float y = 0f;
@@ -98,8 +98,8 @@ namespace SlopWorld
                 y = DrawLibraryGroup(view, y, "User", user,
                     c => c.Name + (c.Source == "override" ? "  (override)" : ""),
                     c => { _command = c; _newEntry = false; });
-                if (UiWidgets.Button(new Rect(0f, y + UiWidgets.GapS, view.width, UiWidgets.BtnH),
-                        "+ New command", UiWidgets.Btn.Ghost))
+                if (UiButtons.Button(new Rect(0f, y + UiTheme.GapS, view.width, UiTheme.BtnH),
+                        "+ New command", UiTheme.Btn.Ghost))
                 {
                     NewCommand();
                 }
@@ -115,8 +115,8 @@ namespace SlopWorld
             }
             var p = _preset;
             bool editable = _newEntry || p.Source != "system";
-            var view = new Rect(0f, 0f, Mathf.Max(0f, r.width - UiWidgets.ScrollbarW),
-                Mathf.Max(PresetEditorHeight(p, Mathf.Max(0f, r.width - UiWidgets.ScrollbarW)), r.height));
+            var view = new Rect(0f, 0f, Mathf.Max(0f, r.width - UiTheme.ScrollbarW),
+                Mathf.Max(PresetEditorHeight(p, Mathf.Max(0f, r.width - UiTheme.ScrollbarW)), r.height));
             using (_editorScroll.Scope(r, view))
             {
                 float y = DrawPresetFields(view, 0f, p, editable);
@@ -132,10 +132,10 @@ namespace SlopWorld
             if (!string.IsNullOrEmpty(p.Escapes))
             {
                 string warning = $"Escape path: {p.Escapes}.";
-                float warningH = UiWidgets.StatusLabelHeight(warning, view.width);
-                UiWidgets.StatusLabel(new Rect(0f, y, view.width, warningH), warning,
-                    UiWidgets.Warn);
-                y += warningH + UiWidgets.GapM;
+                float warningH = UiText.StatusLabelHeight(warning, view.width);
+                UiText.StatusLabel(new Rect(0f, y, view.width, warningH), warning,
+                    UiTheme.Warn);
+                y += warningH + UiTheme.GapM;
             }
             EditorTitle(view, ref y, p.Name, p.Source, editable, "sandbox");
             y = EditorField(view, y, "Name", "preset.name", p.Name, _newEntry,
@@ -143,7 +143,7 @@ namespace SlopWorld
             y = EditorArea(view, y, "Description", "preset.description", p.Description,
                 editable, 44f, v => p.Description = v);
             y = EditorList(view, y, "Requires", "preset.requires", p.Requires, editable);
-            y = Rule(view.width, y + UiWidgets.GapXS);
+            y = Rule(view.width, y + UiTheme.GapXS);
             y = DrawBindFields(view, y, p, editable);
             y = DrawPathFields(view, y, p, editable);
             y = Rule(view.width, y);
@@ -199,8 +199,8 @@ namespace SlopWorld
             }
             var c = _command;
             bool editable = _newEntry || c.Source != "system";
-            var view = new Rect(0f, 0f, Mathf.Max(0f, r.width - UiWidgets.ScrollbarW),
-                Mathf.Max(CommandEditorHeight(c, Mathf.Max(0f, r.width - UiWidgets.ScrollbarW)), r.height));
+            var view = new Rect(0f, 0f, Mathf.Max(0f, r.width - UiTheme.ScrollbarW),
+                Mathf.Max(CommandEditorHeight(c, Mathf.Max(0f, r.width - UiTheme.ScrollbarW)), r.height));
             using (_editorScroll.Scope(r, view))
             {
                 float y = 0f;
@@ -209,27 +209,27 @@ namespace SlopWorld
                 DrawCommandKind(view, ref y, c, editable);
                 y = EditorArea(view, y, "Description", "command.description", c.Description, editable, 44f, v => c.Description = v);
                 y = EditorArea(view, y, "Command line", "command.cmd", c.Cmd, editable, 52f, v => c.Cmd = v);
-                y += UiWidgets.GapS;
-                UiWidgets.SectionHeading(new Rect(0f, y, view.width, UiWidgets.RowH), "Sandbox dependencies");
-                y += UiWidgets.RowH;
-                GUI.color = UiWidgets.Dim;
-                UiWidgets.RowLabel(new Rect(0f, y, view.width, UiWidgets.LineH),
+                y += UiTheme.GapS;
+                UiLayout.SectionHeading(new Rect(0f, y, view.width, UiTheme.RowH), "Sandbox dependencies");
+                y += UiTheme.RowH;
+                GUI.color = UiTheme.Dim;
+                UiText.RowLabel(new Rect(0f, y, view.width, UiTheme.LineH),
                     "These presets are added whenever this command runs.");
                 GUI.color = Color.white;
-                y += UiWidgets.LineH + UiWidgets.GapXS;
+                y += UiTheme.LineH + UiTheme.GapXS;
                 foreach (var p in SessionHub.Instance.Presets.Where(p => p.Name != "global"))
                 {
                     bool on = c.Sandbox.Contains(p.Name);
                     bool was = on;
-                    bool next = UiWidgets.Checkbox(new Rect(0f, y, view.width, UiWidgets.RowH), p.Name, on,
+                    bool next = UiControls.Checkbox(new Rect(0f, y, view.width, UiTheme.RowH), p.Name, on,
                         p.Description, !editable, p.IsEscape);
                     if (editable && next != was)
                     {
                         if (next) c.Sandbox.Add(p.Name); else c.Sandbox.Remove(p.Name);
                     }
-                    y += UiWidgets.RowH;
+                    y += UiTheme.RowH;
                 }
-                EditorButtons(view, y + UiWidgets.GapS, editable, c.Source, "command", c.Name,
+                EditorButtons(view, y + UiTheme.GapS, editable, c.Source, "command", c.Name,
                     () => SessionHub.Instance.Catalog.SaveCommand(c, () => { _newEntry = false; _error = null; }, msg => _error = msg),
                     () => Remove("command", c.Name));
             }
@@ -244,65 +244,65 @@ namespace SlopWorld
                 new SelectorOption("Shell", () => c.Kind = CommandInfo.ShellKind, editable),
             };
             var row = new Rect(0f, y, view.width, FieldHeight());
-            UiWidgets.Select(row, "Kind", label, options, out _, on: editable);
+            UiControls.Select(row, "Kind", label, options, out _, on: editable);
             y += row.height;
         }
 
         void EditorTitle(Rect view, ref float y, string name, string source, bool editable, string kind)
         {
-            GUI.color = UiWidgets.Lead;
-            UiWidgets.RowLabel(new Rect(0f, y, view.width, UiWidgets.RowH),
+            GUI.color = UiTheme.Lead;
+            UiText.RowLabel(new Rect(0f, y, view.width, UiTheme.RowH),
                 name + (source == "override" ? "  (override)" : ""));
             GUI.color = Color.white;
-            y += UiWidgets.RowH;
-            GUI.color = source == "system" ? UiWidgets.Faint : UiWidgets.Yes;
-            UiWidgets.RowLabel(new Rect(0f, y, view.width, UiWidgets.LineH),
+            y += UiTheme.RowH;
+            GUI.color = source == "system" ? UiTheme.Faint : UiTheme.Yes;
+            UiText.RowLabel(new Rect(0f, y, view.width, UiTheme.LineH),
                 source == "system" ? "System preset (read-only)" : "User preset");
             GUI.color = Color.white;
-            y += UiWidgets.LineH + UiWidgets.GapS;
+            y += UiTheme.LineH + UiTheme.GapS;
             if (source == "system")
             {
-                if (UiWidgets.Button(new Rect(0f, y, view.width, UiWidgets.BtnH), "Copy to user", UiWidgets.Btn.Primary))
+                if (UiButtons.Button(new Rect(0f, y, view.width, UiTheme.BtnH), "Copy to user", UiTheme.Btn.Primary))
                     Copy(kind, name);
-                y += UiWidgets.BtnH + UiWidgets.GapM;
+                y += UiTheme.BtnH + UiTheme.GapM;
             }
         }
 
         float EditorField(Rect view, float y, string label, string name, string value, bool editable, Action<string> set)
         {
             if (!editable && string.IsNullOrWhiteSpace(value)) return y;
-            GUI.color = UiWidgets.Dim;
-            UiWidgets.RowLabel(new Rect(0f, y, view.width, UiWidgets.LineH), label);
+            GUI.color = UiTheme.Dim;
+            UiText.RowLabel(new Rect(0f, y, view.width, UiTheme.LineH), label);
             GUI.color = Color.white;
-            y += UiWidgets.LineH + UiWidgets.GapXS;
-            set(UiWidgets.Field(new Rect(0f, y, view.width, UiWidgets.FieldH), name, value,
+            y += UiTheme.LineH + UiTheme.GapXS;
+            set(UiText.Field(new Rect(0f, y, view.width, UiTheme.FieldH), name, value,
                 editable));
-            return y + UiWidgets.FieldH + UiWidgets.GapS;
+            return y + UiTheme.FieldH + UiTheme.GapS;
         }
 
         float EditorArea(Rect view, float y, string label, string name, string value, bool editable,
                          float height, Action<string> set)
         {
             if (!editable && string.IsNullOrWhiteSpace(value)) return y;
-            GUI.color = UiWidgets.Dim;
-            UiWidgets.RowLabel(new Rect(0f, y, view.width, UiWidgets.LineH), label);
+            GUI.color = UiTheme.Dim;
+            UiText.RowLabel(new Rect(0f, y, view.width, UiTheme.LineH), label);
             GUI.color = Color.white;
-            y += UiWidgets.LineH + UiWidgets.GapXS;
+            y += UiTheme.LineH + UiTheme.GapXS;
             float actual = AreaHeight(view.width, value, height);
-            set(UiWidgets.Area(new Rect(0f, y, view.width, actual), name, value, editable));
-            return y + actual + UiWidgets.GapS;
+            set(UiText.Area(new Rect(0f, y, view.width, actual), name, value, editable));
+            return y + actual + UiTheme.GapS;
         }
 
         static float AreaHeight(float width, string text, float minimum) =>
             Mathf.Max(minimum, Text.CalcHeight(string.IsNullOrEmpty(text) ? " " : text,
-                                                width - UiWidgets.FieldPadX * 2f)
-                                      + UiWidgets.FieldPadY * 4f);
+                                                width - UiTheme.FieldPadX * 2f)
+                                      + UiTheme.FieldPadY * 4f);
 
-        static float FieldHeight() => UiWidgets.LineH + UiWidgets.GapXS +
-                                      UiWidgets.FieldH + UiWidgets.GapS;
+        static float FieldHeight() => UiTheme.LineH + UiTheme.GapXS +
+                                      UiTheme.FieldH + UiTheme.GapS;
 
         static float AreaEditorHeight(float width, string text, float minimum) =>
-            UiWidgets.LineH + UiWidgets.GapXS + AreaHeight(width, text, minimum) + UiWidgets.GapS;
+            UiTheme.LineH + UiTheme.GapXS + AreaHeight(width, text, minimum) + UiTheme.GapS;
 
         static float OptionalAreaEditorHeight(float width, string text, float minimum, bool editable) =>
             !editable && string.IsNullOrWhiteSpace(text) ? 0f : AreaEditorHeight(width, text, minimum);
@@ -310,32 +310,32 @@ namespace SlopWorld
         static float OptionalListEditorHeight(float width, List<string> items, bool editable) =>
             OptionalAreaEditorHeight(width, DaemonConfig.Lines(items), 48f, editable);
 
-        static float TitleHeight(string source) => UiWidgets.RowH + UiWidgets.LineH +
-            UiWidgets.GapS + (source == "system" ? UiWidgets.BtnH + UiWidgets.GapM : 0f);
+        static float TitleHeight(string source) => UiTheme.RowH + UiTheme.LineH +
+            UiTheme.GapS + (source == "system" ? UiTheme.BtnH + UiTheme.GapM : 0f);
 
         static float PresetEditorHeight(PresetInfo p, float width)
         {
             bool editable = p.Source != "system";
             float y = string.IsNullOrEmpty(p.Escapes) ? 0f
-                : Text.CalcHeight($"Escape path: {p.Escapes}.", width) + UiWidgets.GapM;
+                : Text.CalcHeight($"Escape path: {p.Escapes}.", width) + UiTheme.GapM;
             y += TitleHeight(p.Source) + FieldHeight();
             y += OptionalAreaEditorHeight(width, p.Description, 44f, editable) +
                  OptionalListEditorHeight(width, p.Requires, editable);
-            y += UiWidgets.GapXS + 1f + UiWidgets.GapM;
+            y += UiTheme.GapXS + 1f + UiTheme.GapM;
             y += OptionalListEditorHeight(width, p.Ro, editable) +
                  OptionalListEditorHeight(width, p.Rw, editable) +
                  OptionalListEditorHeight(width, p.Dev, editable);
-            y += 1f + UiWidgets.GapM;
+            y += 1f + UiTheme.GapM;
             y += OptionalListEditorHeight(width, p.Private, editable) +
                  OptionalListEditorHeight(width, p.Seed, editable) +
                  OptionalListEditorHeight(width, p.Skip, editable) +
                  OptionalListEditorHeight(width, p.Shared, editable);
-            y += 1f + UiWidgets.GapM;
+            y += 1f + UiTheme.GapM;
             y += OptionalListEditorHeight(width, p.Env, editable) +
                  OptionalAreaEditorHeight(width,
                      string.Join("\n", p.Setenv.Select(x => x.Key + "=" + x.Value).ToArray()),
                      48f, editable);
-            return y + UiWidgets.BtnH + UiWidgets.GapM;
+            return y + UiTheme.BtnH + UiTheme.GapM;
         }
 
         static float CommandEditorHeight(CommandInfo c, float width)
@@ -344,9 +344,9 @@ namespace SlopWorld
             return TitleHeight(c.Source) + FieldHeight() + FieldHeight() +
             OptionalAreaEditorHeight(width, c.Description, 44f, editable) +
             OptionalAreaEditorHeight(width, c.Cmd, 52f, editable) +
-            UiWidgets.GapS + UiWidgets.RowH + UiWidgets.LineH + UiWidgets.GapXS +
-            SessionHub.Instance.Presets.Count(p => p.Name != "global") * UiWidgets.RowH +
-            UiWidgets.BtnH + UiWidgets.GapM;
+            UiTheme.GapS + UiTheme.RowH + UiTheme.LineH + UiTheme.GapXS +
+            SessionHub.Instance.Presets.Count(p => p.Name != "global") * UiTheme.RowH +
+            UiTheme.BtnH + UiTheme.GapM;
         }
 
         float EditorList(Rect view, float y, string label, string name, List<string> items, bool editable)
@@ -363,25 +363,25 @@ namespace SlopWorld
         void EditorButtons(Rect view, float y, bool editable, string source, string kind, string name,
                            Action save, Action remove)
         {
-            float gap = UiWidgets.GapS;
+            float gap = UiTheme.GapS;
             float width = Mathf.Max(0f, (view.width - gap) / 2f);
-            if (editable && UiWidgets.Button(new Rect(0f, y, width, UiWidgets.BtnH), "Save", UiWidgets.Btn.Primary))
+            if (editable && UiButtons.Button(new Rect(0f, y, width, UiTheme.BtnH), "Save", UiTheme.Btn.Primary))
                 save();
-            if (source != "system" && UiWidgets.Button(new Rect(width + gap, y, width, UiWidgets.BtnH),
-                    source == "override" ? "Reset to system" : "Remove", UiWidgets.Btn.Danger))
+            if (source != "system" && UiButtons.Button(new Rect(width + gap, y, width, UiTheme.BtnH),
+                    source == "override" ? "Reset to system" : "Remove", UiTheme.Btn.Danger))
                 remove();
         }
 
         void EmptyEditor(Rect r, string text)
         {
-            UiWidgets.StatusLabel(new Rect(r.x, r.y, r.width, UiWidgets.LineH * 2f), text,
-                UiWidgets.Dim);
+            UiText.StatusLabel(new Rect(r.x, r.y, r.width, UiTheme.LineH * 2f), text,
+                UiTheme.Dim);
         }
 
         static float Rule(float width, float y)
         {
-            Slab.Hairline(new Rect(0f, y, width, 1f), UiWidgets.Edge);
-            return y + UiWidgets.GapM;
+            Slab.Hairline(new Rect(0f, y, width, 1f), UiTheme.Edge);
+            return y + UiTheme.GapM;
         }
 
         void Copy(string kind, string name)
@@ -407,12 +407,12 @@ namespace SlopWorld
 
         void DoFooter(Rect bar)
         {
-            var foot = new UiWidgets.Bar(bar);
-            if (foot.Left("Reload", UiWidgets.Btn.Ghost)) Load();
+            var foot = new UiLayout.Bar(bar);
+            if (foot.Left("Reload", UiTheme.Btn.Ghost)) Load();
             if (_error != null)
             {
-                GUI.color = UiWidgets.Bad;
-                UiWidgets.RowLabel(foot.Rest(), _error);
+                GUI.color = UiTheme.Bad;
+                UiText.RowLabel(foot.Rest(), _error);
                 GUI.color = Color.white;
             }
         }

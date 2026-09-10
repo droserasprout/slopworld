@@ -224,7 +224,7 @@ namespace SlopWorld
                     Label = "~",
                     Value = "",
                     Select = () => SessionHub.Instance.SessionStore.RunHostShell("",
-                        session => TerminalWindow.Open(session), UiWidgets.Fail),
+                        session => TerminalWindow.Open(session), UiLayout.Fail),
                 },
             };
 
@@ -236,7 +236,7 @@ namespace SlopWorld
                     Label = $"{name}  -  {p.Dir}",
                     Value = name,
                     Select = () => SessionHub.Instance.SessionStore.RunHostShell(name,
-                        session => TerminalWindow.Open(session), UiWidgets.Fail),
+                        session => TerminalWindow.Open(session), UiLayout.Fail),
                 });
             }
             return list;
@@ -354,7 +354,7 @@ namespace SlopWorld
                     Label = TaskInfo.StatusText(status),
                     Enabled = task.Status != status,
                     Select = () => SessionHub.Instance.TaskStore.UpdateStatus(
-                        task.Id, status, null, null, UiWidgets.Fail),
+                        task.Id, status, null, null, UiLayout.Fail),
                 });
             }
             return list;

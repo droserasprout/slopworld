@@ -100,7 +100,7 @@ namespace SlopWorld
                 if (project != null && SessionHub.Instance.Project(project) != null)
                     opts.Add(new FloatMenuOption("Terminal (host)", () =>
                         SessionHub.Instance.SessionStore.RunHostShell(project,
-                        session => TerminalWindow.Open(session), UiWidgets.Fail)));
+                        session => TerminalWindow.Open(session), UiLayout.Fail)));
 
                 FilesView.AddFileActions(opts, node.Project, node.Path, node.Name,
                     FilesView.Relative(node));
@@ -181,7 +181,7 @@ namespace SlopWorld
             }, msg =>
             {
                 options.Clear();
-                UiWidgets.Fail("Open in: " + msg);
+                UiLayout.Fail("Open in: " + msg);
                 options.Add(new FloatMenuOption("Could not load applications", null));
                 options.Add(UiMenu.Separator());
                 options.Add(new FloatMenuOption("Other...", () => OpenInOther(path)));
@@ -220,7 +220,7 @@ namespace SlopWorld
                 $"\"path\":{JVal.Q(path)}," +
                 $"\"command\":{JVal.Q(command)}," +
                 "\"host\":true" +
-                "}", null, UiWidgets.Fail);
+                "}", null, UiLayout.Fail);
         }
 
         // File actions can come from any sidebar tree. Project paths run in that project's
@@ -295,7 +295,7 @@ namespace SlopWorld
                     RefreshAfterFileAction();
                     TerminalWindow.OpenOverPane(AlertDialog.Create(
                         "File action failed", msg, "Close", null,
-                        primaryKind: UiWidgets.Btn.Danger));
+                        primaryKind: UiTheme.Btn.Danger));
                 });
         }
 
@@ -309,7 +309,7 @@ namespace SlopWorld
                 "}", _ => RefreshAfterFileAction(), msg =>
                 {
                     RefreshAfterFileAction();
-                    UiWidgets.Fail("File action: " + msg);
+                    UiLayout.Fail("File action: " + msg);
                 });
         }
 
@@ -330,7 +330,7 @@ namespace SlopWorld
             // exist for an interactive command.
             RefreshAfterFileAction();
             SessionHub.Instance.SessionStore.Run(project, command, "fa-" + name,
-                session => TerminalWindow.Open(session), UiWidgets.Fail,
+                session => TerminalWindow.Open(session), UiLayout.Fail,
                 host: host, temp: host, path: path, hold: true);
         }
 
@@ -353,7 +353,7 @@ namespace SlopWorld
             {
                 DaemonClient.Put(WireContract.Routes.Files,
                     "{" + $"\"path\":{JVal.Q(node.Path)},\"name\":{JVal.Q(name)}" + "}",
-                    _ => Reload(), UiWidgets.Fail);
+                    _ => Reload(), UiLayout.Fail);
             });
 
         static void Remove(Node node)
@@ -363,7 +363,7 @@ namespace SlopWorld
                 $"Remove {what} '{node.Name}'?",
                 () => DaemonClient.Delete(WireContract.Routes.Files,
                     "{\"path\":" + JVal.Q(node.Path) + "}",
-                    _ => Reload(), UiWidgets.Fail),
+                    _ => Reload(), UiLayout.Fail),
                 destructive: true));
         }
 
@@ -375,7 +375,7 @@ namespace SlopWorld
                 DaemonClient.Post(WireContract.Routes.Files,
                     "{" + $"\"path\":{JVal.Q(node.Path)},\"name\":{JVal.Q(name)}," +
                     $"\"kind\":{JVal.Q(kind)}" + "}",
-                    _ => Reload(), UiWidgets.Fail);
+                    _ => Reload(), UiLayout.Fail);
             });
         }
 
@@ -391,7 +391,7 @@ namespace SlopWorld
             string command = "bash -lc " + Pager.Quote(script);
             SessionHub.Instance.SessionStore.Run("", command,
                 "shell-" + node.Name,
-                session => TerminalWindow.Open(session), UiWidgets.Fail,
+                session => TerminalWindow.Open(session), UiLayout.Fail,
                 host: true, temp: true);
         }
 
@@ -411,7 +411,7 @@ namespace SlopWorld
 
         static void Copy(string text) => DaemonClipboard.Copy(text,
             () => Messages.Message($"SlopWorld: copied {text}", MessageTypeDefOf.SilentInput,
-                false), UiWidgets.Fail);
+                false), UiLayout.Fail);
 
         // A temporary agent running one command in the project's own sandbox, which is what
         // makes `micro` see the file the way the agents working on it do. Untracked, unlike
@@ -423,13 +423,13 @@ namespace SlopWorld
             // is clearer said here.
             if (SessionHub.Instance.Project(node.Project) == null)
             {
-                UiWidgets.Fail($"project '{node.Project}' has gone");
+                UiLayout.Fail($"project '{node.Project}' has gone");
                 return;
             }
 
             SessionHub.Instance.SessionStore.Run(node.Project, cmd + " " + Pager.Quote(node.Path),
                 label + "-" + node.Name,
-                session => TerminalWindow.Open(session), UiWidgets.Fail);
+                session => TerminalWindow.Open(session), UiLayout.Fail);
         }
 
         // ------------------------------------------------------------------ viewer
@@ -559,17 +559,17 @@ namespace SlopWorld
             if (string.IsNullOrEmpty(project))
             {
                 SessionHub.Instance.SessionStore.Run("", Pager.EditorCommand(path, line), label,
-                    session => TerminalWindow.Open(session), UiWidgets.Fail,
+                    session => TerminalWindow.Open(session), UiLayout.Fail,
                     host: true, temp: true);
                 return;
             }
             if (SessionHub.Instance.Project(project) == null)
             {
-                UiWidgets.Fail($"project '{project}' has gone");
+                UiLayout.Fail($"project '{project}' has gone");
                 return;
             }
             SessionHub.Instance.SessionStore.Run(project, Pager.EditorCommand(path, line), label,
-                session => TerminalWindow.Open(session), UiWidgets.Fail);
+                session => TerminalWindow.Open(session), UiLayout.Fail);
         }
 
         public static string ViewerPath(string session) => Viewers.FilePath(session);

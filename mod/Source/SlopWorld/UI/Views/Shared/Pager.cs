@@ -82,7 +82,7 @@ namespace SlopWorld
             if (!host && SessionHub.Instance.Project(project) == null)
             {
                 Release();
-                UiWidgets.Fail($"project '{project}' has gone");
+                UiLayout.Fail($"project '{project}' has gone");
                 return;
             }
 
@@ -133,7 +133,7 @@ namespace SlopWorld
                     _project = null;
                     _filePath = null;
                     StopIf(oldSession);
-                    UiWidgets.Fail(msg);
+                    UiLayout.Fail(msg);
                 }, host: host, temp: host);
         }
 
@@ -160,7 +160,7 @@ namespace SlopWorld
             if (SessionHub.Instance.Project(project) == null)
             {
                 Release();
-                UiWidgets.Fail($"project '{project}' has gone");
+                UiLayout.Fail($"project '{project}' has gone");
                 return;
             }
 
@@ -195,7 +195,7 @@ namespace SlopWorld
                     _session = null;
                     _filePath = null;
                     StopIf(oldSession);
-                    UiWidgets.Fail(msg);
+                    UiLayout.Fail(msg);
                 });
         }
 

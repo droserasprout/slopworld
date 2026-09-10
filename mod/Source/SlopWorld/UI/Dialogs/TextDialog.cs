@@ -13,29 +13,29 @@ namespace SlopWorld
         {
             using (WidgetState.Save())
             {
-                UiWidgets.Title(titleRect ?? rect, title);
-                float y = rect.y + UiWidgets.HeaderH + UiWidgets.GapM;
+                UiLayout.Title(titleRect ?? rect, title);
+                float y = rect.y + UiTheme.HeaderH + UiTheme.GapM;
                 if (!string.IsNullOrEmpty(note))
                 {
-                    float h = noteHeight >= 0f ? noteHeight : UiWidgets.RowH;
-                    GUI.color = UiWidgets.Dim;
-                    UiWidgets.RowLabel(new Rect(rect.x, y, rect.width, h), note);
-                    y += h + UiWidgets.GapS;
+                    float h = noteHeight >= 0f ? noteHeight : UiTheme.RowH;
+                    GUI.color = UiTheme.Dim;
+                    UiText.RowLabel(new Rect(rect.x, y, rect.width, h), note);
+                    y += h + UiTheme.GapS;
                 }
 
-                var field = new Rect(rect.x, y, rect.width, UiWidgets.FieldH);
-                string result = UiWidgets.Field(field, fieldName, value ?? "");
+                var field = new Rect(rect.x, y, rect.width, UiTheme.FieldH);
+                string result = UiText.Field(field, fieldName, value ?? "");
                 if (!string.IsNullOrEmpty(error))
                 {
-                    GUI.color = UiWidgets.Bad;
-                    UiWidgets.RowLabel(new Rect(rect.x, field.yMax + UiWidgets.GapXS,
-                        rect.width, UiWidgets.RowH), error);
+                    GUI.color = UiTheme.Bad;
+                    UiText.RowLabel(new Rect(rect.x, field.yMax + UiTheme.GapXS,
+                        rect.width, UiTheme.RowH), error);
                 }
                 return result;
             }
         }
 
-        public static UiWidgets.Bar Footer(Rect rect) =>
-            new UiWidgets.Bar(UiWidgets.FooterBar(rect));
+        public static UiLayout.Bar Footer(Rect rect) =>
+            new UiLayout.Bar(UiLayout.FooterBar(rect));
     }
 }

@@ -46,10 +46,10 @@ namespace SlopWorld
                         break;
 
                     case PlacementKind.Code:
-                        CollectText(placement.Text, placement.X + UiWidgets.GapS,
-                            placement.Y + UiWidgets.GapS +
+                        CollectText(placement.Text, placement.X + UiTheme.GapS,
+                            placement.Y + UiTheme.GapS +
                             (string.IsNullOrWhiteSpace(placement.Label)
-                                ? 0f : UiWidgets.TinyH + UiWidgets.GapXS));
+                                ? 0f : UiTheme.TinyH + UiTheme.GapXS));
                         break;
 
                     case PlacementKind.Table:
@@ -204,7 +204,7 @@ namespace SlopWorld
 
                 float left = line.X + line.Edges[start];
                 float right = line.X + line.Edges[end];
-                Slab.Fill(new Rect(left, line.Y, right - left, line.Height), UiWidgets.Sel);
+                Slab.Fill(new Rect(left, line.Y, right - left, line.Height), UiTheme.Sel);
             }
         }
 
@@ -478,8 +478,8 @@ namespace SlopWorld
                     {
                         var cell = row.Cells[i];
                         if (lineIndex < cell.Lines.Count)
-                            CollectTextLine(_lines, cell.Lines[lineIndex], x + UiWidgets.GapS,
-                                placement.Y + row.Offset + UiWidgets.GapS);
+                            CollectTextLine(_lines, cell.Lines[lineIndex], x + UiTheme.GapS,
+                                placement.Y + row.Offset + UiTheme.GapS);
                         x += placement.Table.Widths[i];
                     }
                 }

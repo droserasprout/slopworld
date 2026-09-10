@@ -57,7 +57,7 @@ namespace SlopWorld
             {
                 return new List<FloatMenuOption>
                 {
-                    UiWidgets.MenuToggle("Mute", Radio.Muted, Radio.ToggleMute),
+                    UiLayout.MenuToggle("Mute", Radio.Muted, Radio.ToggleMute),
                     new FloatMenuOption("Settings", ModOptions.OpenAudioTab),
                 };
             }
@@ -68,8 +68,8 @@ namespace SlopWorld
                 RecognizeRow(),
                 new FloatMenuOption("Like", Radio.Like),
                 new FloatMenuOption("History", JukeboxHistoryView.Open),
-                UiWidgets.MenuToggle("Mute", Radio.Muted, Radio.ToggleMute),
-                UiWidgets.MenuToggle("Stop on exit", Radio.StopOnExit, Radio.ToggleStopOnExit),
+                UiLayout.MenuToggle("Mute", Radio.Muted, Radio.ToggleMute),
+                UiLayout.MenuToggle("Stop on exit", Radio.StopOnExit, Radio.ToggleStopOnExit),
                 new FloatMenuOption("Settings", ModOptions.OpenAudioTab),
             };
         }

@@ -61,7 +61,7 @@ namespace SlopWorld
                               DelegatedTaskStatus status, Action<TaskInfo> updated)
         {
             var option = new FloatMenuOption(TaskInfo.StatusText(status), () =>
-                SessionHub.Instance.TaskStore.UpdateStatus(task.Id, status, null, updated, UiWidgets.Fail));
+                SessionHub.Instance.TaskStore.UpdateStatus(task.Id, status, null, updated, UiLayout.Fail));
             option.Disabled = task.Status == status;
             options.Add(option);
         }
@@ -71,7 +71,7 @@ namespace SlopWorld
             if (task == null || !task.Terminal) return;
             TerminalWindow.OpenOverPane(ConfirmDialog.Create(
                 $"Remove task '{task.Id}'? It will disappear for both participants.",
-                () => SessionHub.Instance.TaskStore.Remove(task.Id, null, UiWidgets.Fail),
+                () => SessionHub.Instance.TaskStore.Remove(task.Id, null, UiLayout.Fail),
                 destructive: true));
         }
 
@@ -100,7 +100,7 @@ namespace SlopWorld
                         if (canceled != null) updated(canceled);
                     };
                 SessionHub.Instance.TaskStore.CancelMany(tasks.Select(task => task.Id), done,
-                    UiWidgets.Fail);
+                    UiLayout.Fail);
             }, destructive: true));
         }
 
@@ -114,7 +114,7 @@ namespace SlopWorld
             TerminalWindow.OpenOverPane(ConfirmDialog.Create(prompt, () =>
             {
                 SessionHub.Instance.TaskStore.RemoveMany(tasks.Select(task => task.Id), null,
-                    UiWidgets.Fail);
+                    UiLayout.Fail);
             }, destructive: true));
         }
     }

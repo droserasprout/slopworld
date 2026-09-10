@@ -66,7 +66,7 @@ namespace SlopWorld
             // The panel, fixed chrome and menus run here, before vanilla consumes input.
             // Only the agent body remains grouped around vanilla's portrait pass.
             var panel = Panel;
-            Slab.Fill(panel, UiWidgets.Panel);
+            Slab.Fill(panel, UiTheme.Panel);
 
             CurrentDefinition.Draw();
             if (CurrentTab == SidebarTab.Agents) return;

@@ -14,7 +14,7 @@ namespace SlopWorld
         const float MaxW = 1020f;
         // Room above the first category row. There is none below: the band runs to the
         // bottom and the hidden OK button's row is what reads as padding.
-        static float PadY => UiWidgets.GapL;
+        static float PadY => UiTheme.GapL;
         // What vanilla reserves at the foot of the page for the OK button. Handed back to
         // the options list, the button being gone (Patch_OptionsOk).
         const float OkRow = 60f;

@@ -18,7 +18,7 @@ namespace SlopWorld
                 Text.WordWrap = false;
                 Text.Anchor = TextAnchor.UpperLeft;
                 DrawSelectionHighlights(viewportHeight);
-                GUI.color = UiWidgets.Lead;
+                GUI.color = UiTheme.Lead;
                 int first = FirstVisibleSelectionLine(_scroll.Position.y);
                 float bottom = _scroll.Position.y + viewportHeight;
                 for (int i = first; i < _selectionLines.Count; i++)
@@ -70,7 +70,7 @@ namespace SlopWorld
                 int to = Mathf.Clamp(end - line.Start, from, line.Edges.Length - 1);
                 Slab.Fill(new Rect(line.X + line.Edges[from], line.Y,
                     Mathf.Max(1f, line.Edges[to] - line.Edges[from]), line.Height),
-                    UiWidgets.Sel);
+                    UiTheme.Sel);
             }
         }
 

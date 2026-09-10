@@ -66,38 +66,38 @@ namespace SlopWorld
                 "deleted/reset state expires after 14 days.";
             float width = UiScrollBody.Measure(inner, 0f,
                 UiScrollbarReservation.Always).ContentWidth;
-            float captionH = UiWidgets.StatusLabelHeight(caption, width);
+            float captionH = UiText.StatusLabelHeight(caption, width);
             float rowH = StorageRowHeight(width);
             var list = inner;
             var geometry = UiScrollBody.Measure(list,
-                captionH + UiWidgets.GapS + _entries.Count * rowH + UiWidgets.GapXS,
+                captionH + UiTheme.GapS + _entries.Count * rowH + UiTheme.GapXS,
                 UiScrollbarReservation.Always);
             using (_scroll.Scope(list, geometry.View))
             {
-                UiWidgets.StatusLabel(new Rect(0f, 0f, geometry.View.width, captionH), caption,
-                    UiWidgets.Dim);
+                UiText.StatusLabel(new Rect(0f, 0f, geometry.View.width, captionH), caption,
+                    UiTheme.Dim);
                 for (int i = 0; i < _entries.Count; i++)
-                    DrawRow(new Rect(0f, captionH + UiWidgets.GapS + i * rowH,
-                        geometry.View.width, rowH - UiWidgets.GapXS),
+                    DrawRow(new Rect(0f, captionH + UiTheme.GapS + i * rowH,
+                        geometry.View.width, rowH - UiTheme.GapXS),
                         _entries[i]);
             }
 
             if (_entries.Count == 0)
             {
-                UiWidgets.StatusLabel(new Rect(list.x, list.y + captionH + UiWidgets.GapS,
-                        list.width, Mathf.Max(0f, list.height - captionH - UiWidgets.GapS)),
+                UiText.StatusLabel(new Rect(list.x, list.y + captionH + UiTheme.GapS,
+                        list.width, Mathf.Max(0f, list.height - captionH - UiTheme.GapS)),
                     _error ?? (_loading ? "Scanning..." : "No private state on disk."),
-                    _error != null ? UiWidgets.Bad : UiWidgets.Dim);
+                    _error != null ? UiTheme.Bad : UiTheme.Dim);
             }
 
-            var foot = new UiWidgets.Bar(SettingsPageLayout.Footer(rect));
-            if (foot.Left("Refresh", UiWidgets.Btn.Ghost, !_loading)) Load();
-            if (foot.Left("Empty trash", UiWidgets.Btn.Danger, !_loading && _hasTrash))
+            var foot = new UiLayout.Bar(SettingsPageLayout.Footer(rect));
+            if (foot.Left("Refresh", UiTheme.Btn.Ghost, !_loading)) Load();
+            if (foot.Left("Empty trash", UiTheme.Btn.Danger, !_loading && _hasTrash))
                 ConfirmEmptyTrash();
             if (_error != null && _entries.Count > 0)
             {
-                GUI.color = UiWidgets.Bad;
-                UiWidgets.RowLabel(foot.Rest(), _error);
+                GUI.color = UiTheme.Bad;
+                UiText.RowLabel(foot.Rest(), _error);
                 GUI.color = Color.white;
             }
         }
@@ -113,14 +113,14 @@ namespace SlopWorld
             catch (Exception e)
             {
                 Log.Error("[SlopWorld] jukebox: could not open liked songs: " + e);
-                UiWidgets.Fail("could not open liked songs");
+                UiLayout.Fail("could not open liked songs");
             }
         }
 
-        static bool StackActions(float width) => width < UiWidgets.BtnW("Restore", 78f) * 2f + 180f;
+        static bool StackActions(float width) => width < UiLayout.BtnW("Restore", 78f) * 2f + 180f;
 
         static float StorageRowHeight(float width) => UiListRow.TwoLineH +
-            (StackActions(width) ? UiWidgets.RowBtnH + UiWidgets.GapS : 0f);
+            (StackActions(width) ? UiTheme.RowBtnH + UiTheme.GapS : 0f);
 
         void DrawRow(Rect r, Entry e)
         {
@@ -129,49 +129,49 @@ namespace SlopWorld
                 TooltipHandler.TipRegion(r, "Open this private directory in the Files sidebar.");
 
             bool stacked = StackActions(r.width);
-            float actionW = Mathf.Min(UiWidgets.BtnW("Restore", 78f),
-                Mathf.Max(0f, (r.width - UiWidgets.GapS * 2f - UiWidgets.GapXS) / 2f));
+            float actionW = Mathf.Min(UiLayout.BtnW("Restore", 78f),
+                Mathf.Max(0f, (r.width - UiTheme.GapS * 2f - UiTheme.GapXS) / 2f));
             float right = UiListRow.Right(r);
-            float labelW = Mathf.Max(0f, stacked ? r.width - UiWidgets.GapS * 2f :
-                r.width - actionW * 2f - UiWidgets.GapXS - UiWidgets.GapM);
-            float actionY = stacked ? r.yMax - UiWidgets.RowBtnH : r.y + (r.height - UiWidgets.RowBtnH) / 2f;
+            float labelW = Mathf.Max(0f, stacked ? r.width - UiTheme.GapS * 2f :
+                r.width - actionW * 2f - UiTheme.GapXS - UiTheme.GapM);
+            float actionY = stacked ? r.yMax - UiTheme.RowBtnH : r.y + (r.height - UiTheme.RowBtnH) / 2f;
             var textRect = new Rect(r.x, r.y, r.width,
-                stacked ? UiListRow.TwoLineH - UiWidgets.GapXS : r.height);
+                stacked ? UiListRow.TwoLineH - UiTheme.GapXS : r.height);
 
             // Leave the action buttons out of the selection hit target. The whole label side
             // is one row, so an entry does not require a tiny click on its name.
-            if (UiWidgets.RowButton(new Rect(r.x, r.y, labelW, textRect.height)))
+            if (UiButtons.RowButton(new Rect(r.x, r.y, labelW, textRect.height)))
                 Focus(e);
 
             float line1 = UiListRow.LineY(textRect, 0);
             float line2 = UiListRow.LineY(r, 1);
-            GUI.color = UiWidgets.Lead;
-            UiWidgets.RowLabel(new Rect(r.x + UiWidgets.GapS, line1, labelW, UiWidgets.LineH),
+            GUI.color = UiTheme.Lead;
+            UiText.RowLabel(new Rect(r.x + UiTheme.GapS, line1, labelW, UiTheme.LineH),
                 e.Session ?? e.Key);
-            GUI.color = UiWidgets.Dim;
+            GUI.color = UiTheme.Dim;
             string note = e.Kind == "active" ? "configured agent" :
                 e.Kind == "orphan" ? "unclaimed orphan state" :
                 e.Session != null ? $"trash for {e.Session}" : "trash (agent removed)";
-            UiWidgets.RowLabel(new Rect(r.x + UiWidgets.GapS, line2, labelW, UiWidgets.LineH),
+            UiText.RowLabel(new Rect(r.x + UiTheme.GapS, line2, labelW, UiTheme.LineH),
                 $"{note}  -  {Human(e.Bytes)}  -  {When(e.Modified)}");
             GUI.color = Color.white;
 
             if (e.Kind == "active")
             {
-                if (UiWidgets.Button(new Rect(right - actionW, actionY, actionW,
-                        UiWidgets.RowBtnH), "Reset", UiWidgets.Btn.Danger))
+                if (UiButtons.Button(new Rect(right - actionW, actionY, actionW,
+                        UiTheme.RowBtnH), "Reset", UiTheme.Btn.Danger))
                     ConfirmReset(e);
                 return;
             }
 
             if (e.Kind == "trash" && e.Session != null)
             {
-                if (UiWidgets.Button(new Rect(right - actionW * 2f - UiWidgets.GapXS,
-                        actionY, actionW, UiWidgets.RowBtnH), "Restore"))
+                if (UiButtons.Button(new Rect(right - actionW * 2f - UiTheme.GapXS,
+                        actionY, actionW, UiTheme.RowBtnH), "Restore"))
                     Restore(e);
             }
-            if (UiWidgets.Button(new Rect(right - actionW, actionY, actionW,
-                    UiWidgets.RowBtnH), "Delete", UiWidgets.Btn.Danger))
+            if (UiButtons.Button(new Rect(right - actionW, actionY, actionW,
+                    UiTheme.RowBtnH), "Delete", UiTheme.Btn.Danger))
                 ConfirmDelete(e);
         }
 
@@ -179,7 +179,7 @@ namespace SlopWorld
         {
             if (string.IsNullOrEmpty(e.Path))
             {
-                UiWidgets.Fail("private-state path is unavailable");
+                UiLayout.Fail("private-state path is unavailable");
                 return;
             }
             FilesView.FocusDirectory(e.Path, e.Session ?? e.Key);
@@ -194,11 +194,11 @@ namespace SlopWorld
                     .FirstOrDefault(e => e.Kind == "active" && e.Session == name);
                 if (entry == null)
                 {
-                    UiWidgets.Fail($"private storage for '{name}' is unavailable");
+                    UiLayout.Fail($"private storage for '{name}' is unavailable");
                     return;
                 }
                 Focus(entry);
-            }, UiWidgets.Fail);
+            }, UiLayout.Fail);
         }
 
         void ConfirmReset(Entry e)

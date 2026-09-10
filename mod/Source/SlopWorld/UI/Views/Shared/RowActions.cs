@@ -46,7 +46,7 @@ namespace SlopWorld
                     if (over) TooltipHandler.TipRegion(rect, tip(flag));
                     if (Event.current.type == EventType.Repaint)
                     {
-                        GUI.color = over ? Color.white : UiWidgets.Dim;
+                        GUI.color = over ? Color.white : UiTheme.Dim;
                         GUI.DrawTexture(rect, icon(flag));
                     }
                 }

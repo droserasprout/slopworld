@@ -140,7 +140,7 @@ namespace SlopWorld
 
             // A floating rectangular panel, not vanilla's window: this is a hint over the
             // map, on the same surface the command palette uses.
-            Slab.Box(tipRect, UiWidgets.PopoverBg, UiWidgets.Edge);
+            Slab.Box(tipRect, UiTheme.PopoverBg, UiTheme.Edge);
             var inner = tipRect.ContractedBy(8f);
             Widgets.Label(inner, _stickyTip);
             Text.WordWrap = false;

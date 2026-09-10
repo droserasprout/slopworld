@@ -20,7 +20,7 @@
 - `WindowStack.Add` removes standing same-type windows before `PreOpen`. `UiMenu`
   disables that rule and sweeps standing menus so submenu levels coexist.
   `FloatMenuOption.Disabled` means `action == null`, so submenus need an action.
-- `GameFont.Tiny` may draw as Small. Measure through `UiWidgets.LineHOf`/`TinyH`;
+- `GameFont.Tiny` may draw as Small. Measure through `UiTheme.LineHOf`/`TinyH`;
   disable wrapping for one-line `Text.CalcSize` or use `RowLabel`/`Wide`.
   `Text.spaceBetweenLines` is extra leading, not line height.
 - `Window.Margin` is not padding; `TerminalWindow` uses margin 0 so GUI and screen

@@ -39,7 +39,7 @@ namespace SlopWorld
             var icon = new Rect(row.x, row.y + (row.height - ClockIconSize) / 2f,
                 ClockIconSize, ClockIconSize);
             GUI.DrawTexture(icon, Icons.Time);
-            UiWidgets.RowLabel(new Rect(icon.xMax + 2f, row.y,
+            UiText.RowLabel(new Rect(icon.xMax + 2f, row.y,
                 row.width - ClockIconSize - 2f, row.height), Clock.Short);
 
             TooltipHandler.TipRegion(row, new TipSignal(
@@ -64,7 +64,7 @@ namespace SlopWorld
 
             Text.Font = GameFont.Small;
             Text.Anchor = TextAnchor.MiddleLeft;
-            GUI.color = UiWidgets.Name;
+            GUI.color = UiTheme.Name;
 
             if (showUsage) PrepareQuotas(usage);
 
@@ -75,7 +75,7 @@ namespace SlopWorld
             {
                 x -= clockNeed;
                 // Usage health belongs to quota rows, not to the wall clock.
-                GUI.color = UiWidgets.Name;
+                GUI.color = UiTheme.Name;
                 DrawClock(new Rect(x, area.y, clockNeed, area.height), now);
                 x -= ChipGap;
             }
@@ -108,8 +108,8 @@ namespace SlopWorld
                 }
 
                 // After the icon: ThingIcon leaves GUI.color on the def's own tint.
-                GUI.color = UiWidgets.Fade(UiWidgets.Name, a);
-                UiWidgets.RowLabel(
+                GUI.color = UiTheme.Fade(UiTheme.Name, a);
+                UiText.RowLabel(
                     new Rect(chip.x + IconSize + 2f, chip.y,
                         chip.width - IconSize - 2f, chip.height),
                     count);

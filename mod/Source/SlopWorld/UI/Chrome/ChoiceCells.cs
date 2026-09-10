@@ -17,13 +17,13 @@ namespace SlopWorld
             {
                 bool over = RowChrome.Hover(rect, false, !locked, hoverPolicy);
                 if (!string.IsNullOrEmpty(tip)) TooltipHandler.TipRegion(rect, tip);
-                var box = UiWidgets.TickBox(
-                    new Rect(rect.x + 1f, rect.y, UiWidgets.TickW, rect.height), on, locked);
-                GUI.color = locked ? UiWidgets.Faint : warn ? UiWidgets.Warn
-                    : over ? UiWidgets.Lead : UiWidgets.Name;
-                UiWidgets.RowLabel(new Rect(box.xMax + UiWidgets.GapS, rect.y,
-                    rect.xMax - box.xMax - UiWidgets.GapS, rect.height), label);
-                if (locked || !UiWidgets.RowButton(rect)) return on;
+                var box = UiControls.TickBox(
+                    new Rect(rect.x + 1f, rect.y, UiControls.TickW, rect.height), on, locked);
+                GUI.color = locked ? UiTheme.Faint : warn ? UiTheme.Warn
+                    : over ? UiTheme.Lead : UiTheme.Name;
+                UiText.RowLabel(new Rect(box.xMax + UiTheme.GapS, rect.y,
+                    rect.xMax - box.xMax - UiTheme.GapS, rect.height), label);
+                if (locked || !UiButtons.RowButton(rect)) return on;
                 SoundDefOf.Click.PlayOneShotOnCamera();
                 return !on;
             }
@@ -37,9 +37,9 @@ namespace SlopWorld
             {
                 RowChrome.Hover(rect, false, !locked, hoverPolicy);
                 if (!string.IsNullOrEmpty(tip)) TooltipHandler.TipRegion(rect, tip);
-                UiWidgets.TickBox(new Rect(rect.center.x - UiWidgets.TickW / 2f,
-                    rect.y, UiWidgets.TickW, rect.height), on, locked);
-                if (locked || !UiWidgets.RowButton(rect)) return on;
+                UiControls.TickBox(new Rect(rect.center.x - UiControls.TickW / 2f,
+                    rect.y, UiControls.TickW, rect.height), on, locked);
+                if (locked || !UiButtons.RowButton(rect)) return on;
                 SoundDefOf.Click.PlayOneShotOnCamera();
                 return !on;
             }
@@ -55,8 +55,8 @@ namespace SlopWorld
         {
             using (WidgetState.Save())
             {
-                float boxW = Mathf.Min(UiWidgets.FieldH,
-                    Mathf.Max(0f, area.width - UiWidgets.GapS));
+                float boxW = Mathf.Min(UiTheme.FieldH,
+                    Mathf.Max(0f, area.width - UiTheme.GapS));
                 var box = new Rect(area.center.x - boxW / 2f,
                     area.y + (area.height - boxW) / 2f, boxW, boxW);
                 return DrawBoxCore(box, draw,
@@ -70,8 +70,8 @@ namespace SlopWorld
         {
             using (WidgetState.Save())
             {
-                float boxW = Mathf.Min(UiWidgets.FieldH,
-                    Mathf.Max(0f, area.width - UiWidgets.GapS));
+                float boxW = Mathf.Min(UiTheme.FieldH,
+                    Mathf.Max(0f, area.width - UiTheme.GapS));
                 var box = new Rect(area.center.x - boxW / 2f,
                     area.y + (area.height - boxW) / 2f, boxW, boxW);
                 return DrawBoxCore(box, draw, r => TooltipHandler.TipRegion(r, tip),
@@ -98,11 +98,11 @@ namespace SlopWorld
         static bool DrawBoxCore(Rect box, System.Action<Rect> draw,
                                 System.Action<Rect> showTip, RowHoverPolicy hoverPolicy)
         {
-            Slab.Box(box, UiWidgets.Well, UiWidgets.Edge);
-            draw?.Invoke(box.ContractedBy(UiWidgets.IconInset));
+            Slab.Box(box, UiTheme.Well, UiTheme.Edge);
+            draw?.Invoke(box.ContractedBy(UiTheme.IconInset));
             RowChrome.Hover(box, false, true, hoverPolicy);
             showTip?.Invoke(box);
-            return UiWidgets.RowButton(box);
+            return UiButtons.RowButton(box);
         }
     }
 
@@ -126,21 +126,21 @@ namespace SlopWorld
         {
             using (WidgetState.Save())
             {
-                Slab.Box(outer, UiWidgets.Well, UiWidgets.Edge);
-                var pad = outer.ContractedBy(UiWidgets.ListInset);
+                Slab.Box(outer, UiTheme.Well, UiTheme.Edge);
+                var pad = outer.ContractedBy(UiTheme.ListInset);
                 if (choices == null || choices.Count == 0)
                 {
                     using (WidgetState.Save())
                     {
-                        GUI.color = UiWidgets.Dim;
-                        UiWidgets.RowLabel(new Rect(pad.x + UiWidgets.GapS, pad.y,
-                            pad.width - UiWidgets.GapS,
-                            UiWidgets.LineH), empty);
+                        GUI.color = UiTheme.Dim;
+                        UiText.RowLabel(new Rect(pad.x + UiTheme.GapS, pad.y,
+                            pad.width - UiTheme.GapS,
+                            UiTheme.LineH), empty);
                     }
                     return;
                 }
 
-                float contentH = choices.Count * UiWidgets.RowH;
+                float contentH = choices.Count * UiTheme.RowH;
                 var geometry = UiScrollBody.Measure(pad, contentH,
                     UiScrollbarReservation.WhenNeeded);
                 using (scroll.Scope(pad, geometry.View))
@@ -148,9 +148,9 @@ namespace SlopWorld
                     float y = 0f;
                     foreach (var choice in choices)
                     {
-                        var cell = new Rect(UiWidgets.GapS, y,
-                            geometry.View.width - UiWidgets.GapS, UiWidgets.RowH);
-                        y += UiWidgets.RowH;
+                        var cell = new Rect(UiTheme.GapS, y,
+                            geometry.View.width - UiTheme.GapS, UiTheme.RowH);
+                        y += UiTheme.RowH;
                         bool next = ToggleCell.Draw(cell, choice.Label, choice.On, choice.Tip,
                             choice.Locked, choice.Warn, RowHoverPolicy.Local);
                         if (next != choice.On)

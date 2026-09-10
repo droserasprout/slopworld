@@ -81,7 +81,7 @@ namespace SlopWorld
 
                 Find.WindowStack.Add(AlertDialog.Create(
                     "SlopWorld", text, "Quit", Root.Shutdown, "Close", null,
-                    UiWidgets.Btn.Danger));
+                    UiTheme.Btn.Danger));
             });
         }
     }

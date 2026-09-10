@@ -31,8 +31,8 @@ namespace SlopWorld
                 titleRect: TitleRect(rect));
 
             var foot = TextDialog.Footer(rect);
-            if (foot.Left("Cancel", UiWidgets.Btn.Ghost)) Close();
-            if (foot.Right("Save", UiWidgets.Btn.Primary)) Save();
+            if (foot.Left("Cancel", UiTheme.Btn.Ghost)) Close();
+            if (foot.Right("Save", UiTheme.Btn.Primary)) Save();
         }
 
         void Save()

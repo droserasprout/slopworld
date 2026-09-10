@@ -50,10 +50,10 @@ namespace SlopWorld
 
             _width = width;
             _placements.Clear();
-            float y = UiWidgets.GapM;
+            float y = UiTheme.GapM;
             foreach (var block in blocks ?? new List<MarkdownBlock>())
-                y = Place(block, UiWidgets.GapM, y, width);
-            Height = Mathf.Max(1f, y + UiWidgets.GapM);
+                y = Place(block, UiTheme.GapM, y, width);
+            Height = Mathf.Max(1f, y + UiTheme.GapM);
             _placements.Sort((left, right) => left.Y.CompareTo(right.Y));
         }
 
@@ -82,30 +82,30 @@ namespace SlopWorld
             {
                 case BlockKind.Paragraph:
                     if (TrySingleImage(block.Runs, out var image))
-                        return PlaceImage(image, x, y, width, UiWidgets.GapS);
+                        return PlaceImage(image, x, y, width, UiTheme.GapS);
                     if (TryAlignedImage(block.Runs, out image))
                         return PlaceParagraphWithImage(block.Runs, image, x, y, width);
-                    return PlaceText(block.Runs, x, y, width, 0, false, UiWidgets.GapS);
+                    return PlaceText(block.Runs, x, y, width, 0, false, UiTheme.GapS);
 
                 case BlockKind.Heading:
-                    return PlaceText(block.Runs, x, y, width, block.Level, true, UiWidgets.GapM);
+                    return PlaceText(block.Runs, x, y, width, block.Level, true, UiTheme.GapM);
 
                 case BlockKind.Code:
                     return PlaceCode(block, x, y, width);
 
                 case BlockKind.Raw:
-                    return PlaceText(block.Runs, x, y, width, 0, false, UiWidgets.GapS);
+                    return PlaceText(block.Runs, x, y, width, 0, false, UiTheme.GapS);
 
                 case BlockKind.Rule:
                     _placements.Add(new Placement
                     {
                         Kind = PlacementKind.Rule,
                         X = x,
-                        Y = y + UiWidgets.GapS,
+                        Y = y + UiTheme.GapS,
                         Width = width,
                         Height = 1f,
                     });
-                    return y + UiWidgets.GapS * 2f + 1f;
+                    return y + UiTheme.GapS * 2f + 1f;
 
                 case BlockKind.Quote:
                     return PlaceQuote(block, x, y, width);
@@ -134,13 +134,13 @@ namespace SlopWorld
             foreach (var run in runs)
                 if (run != image) textRuns.Add(run);
 
-            float textWidth = Mathf.Max(1f, width - metrics.Width - UiWidgets.GapS);
+            float textWidth = Mathf.Max(1f, width - metrics.Width - UiTheme.GapS);
             var text = _textLayout.Wrap(textRuns, textWidth, 0);
             bool right = image.ImageAlign == "right";
             _placements.Add(new Placement
             {
                 Kind = PlacementKind.Text,
-                X = right ? x : x + metrics.Width + UiWidgets.GapS,
+                X = right ? x : x + metrics.Width + UiTheme.GapS,
                 Y = y,
                 Width = textWidth,
                 Height = text.Height,
@@ -155,7 +155,7 @@ namespace SlopWorld
                 Height = metrics.Height,
                 Image = image,
             });
-            return y + Mathf.Max(text.Height, metrics.Height) + UiWidgets.GapS;
+            return y + Mathf.Max(text.Height, metrics.Height) + UiTheme.GapS;
         }
 
         float PlaceImage(InlineRun image, float x, float y, float width, float gap)
@@ -226,10 +226,10 @@ namespace SlopWorld
         float PlaceCode(MarkdownBlock block, float x, float y, float width)
         {
             var runs = CodeRuns(block);
-            var text = _textLayout.Wrap(runs, Mathf.Max(1f, width - UiWidgets.GapS * 2f), 0);
+            var text = _textLayout.Wrap(runs, Mathf.Max(1f, width - UiTheme.GapS * 2f), 0);
             float labelHeight = string.IsNullOrWhiteSpace(block.Info)
-                ? 0f : UiWidgets.TinyH + UiWidgets.GapXS;
-            float height = text.Height + UiWidgets.GapS * 2f + labelHeight;
+                ? 0f : UiTheme.TinyH + UiTheme.GapXS;
+            float height = text.Height + UiTheme.GapS * 2f + labelHeight;
             _placements.Add(new Placement
             {
                 Kind = PlacementKind.Code,
@@ -240,7 +240,7 @@ namespace SlopWorld
                 Text = text,
                 Label = block.Info,
             });
-            return y + height + UiWidgets.GapS;
+            return y + height + UiTheme.GapS;
         }
 
         static List<InlineRun> CodeRuns(MarkdownBlock block)
@@ -272,8 +272,8 @@ namespace SlopWorld
         float PlaceQuote(MarkdownBlock block, float x, float y, float width)
         {
             float start = y;
-            float innerX = x + UiWidgets.GapM;
-            float innerWidth = Mathf.Max(1f, width - UiWidgets.GapM);
+            float innerX = x + UiTheme.GapM;
+            float innerWidth = Mathf.Max(1f, width - UiTheme.GapM);
             foreach (var child in block.Children)
                 y = Place(child, innerX, y, innerWidth);
 
@@ -283,9 +283,9 @@ namespace SlopWorld
                 X = x,
                 Y = start,
                 Width = width,
-                Height = Mathf.Max(UiWidgets.LineH, y - start - UiWidgets.GapS),
+                Height = Mathf.Max(UiTheme.LineH, y - start - UiTheme.GapS),
             });
-            return y + UiWidgets.GapS;
+            return y + UiTheme.GapS;
         }
 
         float PlaceList(MarkdownBlock block, float x, float y, float width)
@@ -301,17 +301,17 @@ namespace SlopWorld
                     Kind = PlacementKind.Bullet,
                     X = x,
                     Y = y,
-                    Width = UiWidgets.GapL,
+                    Width = UiTheme.GapL,
                     Height = bulletText.Height,
                     Text = bulletText,
                 });
 
                 float itemY = y;
-                float innerX = x + UiWidgets.GapL;
-                float innerWidth = Mathf.Max(1f, width - UiWidgets.GapL);
+                float innerX = x + UiTheme.GapL;
+                float innerWidth = Mathf.Max(1f, width - UiTheme.GapL);
                 foreach (var child in item.Children)
                     itemY = Place(child, innerX, itemY, innerWidth);
-                y = Mathf.Max(itemY - UiWidgets.GapS, y + bulletText.Height) + 1f;
+                y = Mathf.Max(itemY - UiTheme.GapS, y + bulletText.Height) + 1f;
             }
             return y + 1f;
         }
@@ -328,7 +328,7 @@ namespace SlopWorld
                 Height = table.Height,
                 Table = table,
             });
-            return y + table.Height + UiWidgets.GapM;
+            return y + table.Height + UiTheme.GapM;
         }
 
         TableLayout MakeTable(MarkdownBlock block, float width)
@@ -345,14 +345,14 @@ namespace SlopWorld
                 foreach (var cell in row.Cells)
                 {
                     var text = _textLayout.Wrap(cell,
-                        Mathf.Max(1f, cellWidth - UiWidgets.GapS * 2f), 0);
+                        Mathf.Max(1f, cellWidth - UiTheme.GapS * 2f), 0);
                     result.Cells.Add(text);
                     result.Height = Mathf.Max(result.Height,
-                        text.Height + UiWidgets.GapS * 2f);
+                        text.Height + UiTheme.GapS * 2f);
                 }
                 while (result.Cells.Count < columns)
                     result.Cells.Add(_textLayout.Wrap(new List<InlineRun>(),
-                        Mathf.Max(1f, cellWidth - UiWidgets.GapS * 2f), 0));
+                        Mathf.Max(1f, cellWidth - UiTheme.GapS * 2f), 0));
                 result.Offset = table.Height;
                 table.Rows.Add(result);
                 table.Height += result.Height;

@@ -2,8 +2,7 @@
 
 `UiTheme`, `UiText`, `UiButtons`, `UiControls` and `UiLayout` own shared window/view chrome:
 scheme colors, font-derived geometry, spacing, buttons, fields, headings and errors.
-`UiWidgets` is an explicit compatibility facade while callers migrate. Color names resolve through
-`UIScheme` ([mod-ui-identity](mod-ui-identity.md)); terminal colors stay in
+Color names resolve through `UIScheme` ([mod-ui-identity](mod-ui-identity.md)); terminal colors stay in
 `TerminalTheme`.
 
 - Measure text with `LineHOf`, `Wide`, `RowLabel` and `StatusLabelHeight`. `GameFont.Tiny` may
@@ -38,8 +37,7 @@ scheme colors, font-derived geometry, spacing, buttons, fields, headings and err
   scales. `TerminalPanel.SyncSnap` uses the same arithmetic. Rules sit inside the
   control they close, on its last pixel.
 - `UiButtons` owns button/background hit behavior, `UiControls` owns checkbox, selector and
-  slider composition, and `UiLayout` owns window/page placement helpers. The old `UiWidgets`
-  entry point forwards explicitly to those owners; it no longer inherits their static APIs.
+  slider composition, and `UiLayout` owns window/page placement helpers.
 - `SmoothScroll` is the mod's only scroll view and scrollbar. On X11 it reads XInput 2.1's
   fractional scroll valuator directly; Unity's logical wheel packet is the fallback. It
   draws the bar in `End` outside the scroll group and reserves `ScrollbarW`; `Reveal`

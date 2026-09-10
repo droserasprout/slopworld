@@ -28,20 +28,20 @@ namespace SlopWorld
         {
             var hub = SessionHub.Instance;
 
-            UiWidgets.Header(rect, Title, hub);
+            UiLayout.Header(rect, Title, hub);
 
-            float top = rect.y + UiWidgets.HeaderH + UiWidgets.GapS;
-            float foot = UiWidgets.BtnH + UiWidgets.GapS;
+            float top = rect.y + UiTheme.HeaderH + UiTheme.GapS;
+            float foot = UiTheme.BtnH + UiTheme.GapS;
             DrawList(new Rect(rect.x, top, rect.width, rect.yMax - foot - top), hub);
 
-            DoFooter(new Rect(rect.x, rect.yMax - UiWidgets.BtnH, rect.width,
-                UiWidgets.BtnH), hub);
+            DoFooter(new Rect(rect.x, rect.yMax - UiTheme.BtnH, rect.width,
+                UiTheme.BtnH), hub);
         }
 
         void DrawList(Rect rect, SessionHub hub)
         {
             var items = Rows;
-            float contentH = items.Count * RowH + UiWidgets.GapXS;
+            float contentH = items.Count * RowH + UiTheme.GapXS;
             var geometry = UiScrollBody.Measure(rect, contentH,
                 UiScrollbarReservation.WhenNeeded);
 
@@ -49,10 +49,10 @@ namespace SlopWorld
             {
                 if (items.Count == 0)
                 {
-                    string note = hub.Online ? EmptyNote : UiWidgets.Unreachable;
-                    UiWidgets.StatusLabel(new Rect(UiWidgets.GapXS, UiWidgets.GapS,
-                            geometry.View.width - UiWidgets.GapS, geometry.View.height), note,
-                        UiWidgets.Dim);
+                    string note = hub.Online ? EmptyNote : UiLayout.Unreachable;
+                    UiText.StatusLabel(new Rect(UiTheme.GapXS, UiTheme.GapS,
+                            geometry.View.width - UiTheme.GapS, geometry.View.height), note,
+                        UiTheme.Dim);
                 }
 
                 VisibleRows.Uniform(items.Count, RowH, _scroll.Position.y, rect.height,
@@ -61,7 +61,7 @@ namespace SlopWorld
                 for (int i = first; i < end; i++)
                 {
                     DrawRow(new Rect(0f, i * RowH, geometry.View.width,
-                        RowH - UiWidgets.GapXS), items[i]);
+                        RowH - UiTheme.GapXS), items[i]);
                 }
             }
         }

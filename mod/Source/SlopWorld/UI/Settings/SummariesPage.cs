@@ -33,43 +33,43 @@ namespace SlopWorld
 
         protected override void DrawFields(Listing_Standard l)
         {
-            float rowH = UiWidgets.FieldH + UiWidgets.GapS;
+            float rowH = UiTheme.FieldH + UiTheme.GapS;
             if (l.ColumnWidth < 430f)
             {
                 foreach (var target in Targets)
                 {
-                    UiWidgets.Note(l, TargetLabel(target));
-                    if (UiWidgets.Button(l, "Summarize: " + PolicyLabel(Policy(target))))
+                    UiLayout.Note(l, TargetLabel(target));
+                    if (UiLayout.Button(l, "Summarize: " + PolicyLabel(Policy(target))))
                         OpenPolicyMenu(target);
                 }
             }
             else
             {
-                var table = l.GetRect(rowH * (Targets.Length + 1) + UiWidgets.GapS);
+                var table = l.GetRect(rowH * (Targets.Length + 1) + UiTheme.GapS);
                 UiTable.Draw(table, Targets, rowH, PolicyColumns(), DrawPolicyRow);
             }
-            l.Gap(UiWidgets.GapM);
-            UiWidgets.Note(l, "Choose which submitted prompts or delegated tasks receive an " +
+            l.Gap(UiTheme.GapM);
+            UiLayout.Note(l, "Choose which submitted prompts or delegated tasks receive an " +
                 "OpenRouter summary. Task summaries are generated once per task.");
 
-            l.Gap(UiWidgets.GapL);
+            l.Gap(UiTheme.GapL);
             l.Label("Minimum prompt length");
-            _minPromptChars = UiWidgets.Field(l, "usage.summary.minimum", _minPromptChars,
+            _minPromptChars = UiControls.Field(l, "usage.summary.minimum", _minPromptChars,
                 defaultValue: WireContract.DefaultTitleMinChars.ToString());
-            UiWidgets.Note(l, "Prompts shorter than this many characters are not summarized. " +
+            UiLayout.Note(l, "Prompts shorter than this many characters are not summarized. " +
                 "Short prompts do not use up a first-prompt title attempt.");
-            l.Gap(UiWidgets.GapM);
+            l.Gap(UiTheme.GapM);
             l.Label("Model");
-            _cfg.TitleModel = UiWidgets.Field(l, "usage.summary.model", _cfg.TitleModel,
+            _cfg.TitleModel = UiControls.Field(l, "usage.summary.model", _cfg.TitleModel,
                 defaultValue: WireContract.DefaultTitleModel);
-            UiWidgets.Note(l, "Up to 2,000 characters of each prompt go to OpenRouter. " +
+            UiLayout.Note(l, "Up to 2,000 characters of each prompt go to OpenRouter. " +
                 "Summaries do not depend on credit polling.");
 
-            l.Gap(UiWidgets.GapM);
+            l.Gap(UiTheme.GapM);
             l.Label("Summarizer prompt");
-            _cfg.SummaryPrompt = UiWidgets.Area(l, 150f, "usage.summary.prompt",
+            _cfg.SummaryPrompt = UiControls.Area(l, 150f, "usage.summary.prompt",
                 _cfg.SummaryPrompt, defaultValue: DaemonConfig.DefaultSummaryPrompt);
-            UiWidgets.Note(l, "This instruction is sent before the submitted prompt for both " +
+            UiLayout.Note(l, "This instruction is sent before the submitted prompt for both " +
                 "session titles and task summaries. The submitted prompt is appended automatically.");
 
         }
@@ -78,16 +78,16 @@ namespace SlopWorld
         {
             return new List<UiTable.Column>
             {
-                new UiTable.Column("Source", 0f, true, TextAnchor.MiddleLeft, UiWidgets.GapS),
+                new UiTable.Column("Source", 0f, true, TextAnchor.MiddleLeft, UiTheme.GapS),
                 new UiTable.Column("Summarize", 220f, false, TextAnchor.MiddleCenter),
             };
         }
 
         void DrawPolicyRow(SummaryTarget target, Rect row, Rect[] cells)
         {
-            UiWidgets.RowLabel(cells[0], TargetLabel(target));
-            var button = cells[1].ContractedBy(UiWidgets.GapXS, UiWidgets.GapXS);
-            if (UiWidgets.Button(button, PolicyLabel(Policy(target))))
+            UiText.RowLabel(cells[0], TargetLabel(target));
+            var button = cells[1].ContractedBy(UiTheme.GapXS, UiTheme.GapXS);
+            if (UiButtons.Button(button, PolicyLabel(Policy(target))))
                 OpenPolicyMenu(target);
         }
 

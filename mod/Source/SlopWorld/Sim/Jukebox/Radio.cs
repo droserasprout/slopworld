@@ -237,7 +237,7 @@ namespace SlopWorld
             string now = NowPlaying;
             if (string.IsNullOrEmpty(now))
             {
-                UiWidgets.Fail("nothing is playing");
+                UiLayout.Fail("nothing is playing");
                 return;
             }
 
@@ -264,7 +264,7 @@ namespace SlopWorld
             catch (Exception e)
             {
                 Log.Error("[SlopWorld] jukebox: could not save liked song: " + e);
-                UiWidgets.Fail("could not save liked song");
+                UiLayout.Fail("could not save liked song");
             }
         }
 

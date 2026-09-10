@@ -33,18 +33,18 @@ namespace SlopWorld
 
         protected override void DrawFields(Listing_Standard l)
         {
-            UiWidgets.SectionHeading(l, "Usage");
+            UiLayout.SectionHeading(l, "Usage");
             l.Label("Global poll interval (s)");
-            _pollSecs = UiWidgets.Field(l, "usage.poll", _pollSecs,
+            _pollSecs = UiControls.Field(l, "usage.poll", _pollSecs,
                 defaultValue: WireContract.UsagePollSecs.ToString());
-            UiWidgets.Note(l, "Every row uses this interval unless its interval is set below. " +
+            UiLayout.Note(l, "Every row uses this interval unless its interval is set below. " +
                 "A failed poll backs off on its own, doubling to half an hour.");
         }
 
         protected override float DrawTrailingFields(Rect rect, float y)
         {
-            y += UiWidgets.GapS;
-            return y + DrawTable(new Rect(rect.x, y, rect.width, UiWidgets.ListingHeight));
+            y += UiTheme.GapS;
+            return y + DrawTable(new Rect(rect.x, y, rect.width, UiLayout.ListingHeight));
         }
 
         protected override void DrawOverlay(Rect rect)
@@ -120,13 +120,13 @@ namespace SlopWorld
             if (rect.width < 430f) return DrawStackedTable(rect, keys);
             // The interval editor is a full control, not a one-line label. Give the table
             // enough height for the shared vertical inset around it.
-            float rowH = UiWidgets.FieldH + UiWidgets.GapS;
+            float rowH = UiTheme.FieldH + UiTheme.GapS;
             float intervalW = Mathf.Min(120f, Mathf.Max(92f, rect.width * .16f));
             float pollW = 64f;
             float iconW = 54f;
             var columns = new List<UiTable.Column>
             {
-                new UiTable.Column("Name", 0f, true, TextAnchor.MiddleLeft, UiWidgets.GapS),
+                new UiTable.Column("Name", 0f, true, TextAnchor.MiddleLeft, UiTheme.GapS),
                 new UiTable.Column("Icon", iconW, false, TextAnchor.MiddleCenter),
                 new UiTable.Column("Poll", pollW, false, TextAnchor.MiddleCenter),
                 new UiTable.Column("Interval (s)", intervalW, false, TextAnchor.MiddleCenter),
@@ -135,8 +135,8 @@ namespace SlopWorld
             {
                 var item = EnsureItem(key);
                 var name = cells[0];
-                float namePad = Mathf.Min(UiWidgets.GapS, name.width);
-                UiWidgets.RowLabel(new Rect(name.x + namePad, name.y,
+                float namePad = Mathf.Min(UiTheme.GapS, name.width);
+                UiText.RowLabel(new Rect(name.x + namePad, name.y,
                     Mathf.Max(0f, name.width - namePad), name.height), UsageReadout.Long(key));
                 DrawIconButton(cells[1], key);
 
@@ -145,10 +145,10 @@ namespace SlopWorld
                     false, RowHoverPolicy.OverlayAware);
 
                 var interval = cells[3];
-                float fieldPad = Mathf.Min(UiWidgets.GapXS, interval.width / 2f);
-                var field = new Rect(interval.x + fieldPad, interval.y + UiWidgets.GapXS,
-                    Mathf.Max(0f, interval.width - fieldPad * 2f), UiWidgets.FieldH);
-                _itemIntervals[key] = UiWidgets.Field(field, "usage.item." + key,
+                float fieldPad = Mathf.Min(UiTheme.GapXS, interval.width / 2f);
+                var field = new Rect(interval.x + fieldPad, interval.y + UiTheme.GapXS,
+                    Mathf.Max(0f, interval.width - fieldPad * 2f), UiTheme.FieldH);
+                _itemIntervals[key] = UiText.Field(field, "usage.item." + key,
                     _itemIntervals[key], defaultValue: "");
             });
         }
@@ -159,19 +159,19 @@ namespace SlopWorld
             foreach (string key in keys)
             {
                 var item = EnsureItem(key);
-                UiWidgets.RowLabel(new Rect(rect.x, y, rect.width, UiWidgets.RowH), UsageReadout.Long(key));
-                y += UiWidgets.RowH;
+                UiText.RowLabel(new Rect(rect.x, y, rect.width, UiTheme.RowH), UsageReadout.Long(key));
+                y += UiTheme.RowH;
                 float iconW = Mathf.Min(54f, rect.width / 4f);
                 float pollW = Mathf.Min(64f, rect.width / 4f);
-                DrawIconButton(new Rect(rect.x, y, iconW, UiWidgets.FieldH), key);
-                item.Poll = ToggleCell.DrawCheck(new Rect(rect.x + iconW, y, pollW, UiWidgets.FieldH),
+                DrawIconButton(new Rect(rect.x, y, iconW, UiTheme.FieldH), key);
+                item.Poll = ToggleCell.DrawCheck(new Rect(rect.x + iconW, y, pollW, UiTheme.FieldH),
                     item.Poll, "Poll this usage window.", false, RowHoverPolicy.OverlayAware);
                 var field = new Rect(rect.x + iconW + pollW, y,
-                    Mathf.Max(0f, rect.width - iconW - pollW), UiWidgets.FieldH);
-                _itemIntervals[key] = UiWidgets.Field(field, "usage.item." + key,
+                    Mathf.Max(0f, rect.width - iconW - pollW), UiTheme.FieldH);
+                _itemIntervals[key] = UiText.Field(field, "usage.item." + key,
                     _itemIntervals[key], defaultValue: "");
                 TooltipHandler.TipRegion(field, "Polling interval in seconds.");
-                y += UiWidgets.FieldH + UiWidgets.GapS;
+                y += UiTheme.FieldH + UiTheme.GapS;
             }
             return y - rect.y;
         }
@@ -186,7 +186,7 @@ namespace SlopWorld
             if (IconPickerCell.Draw(area, r =>
             {
                 if (icon != null) Widgets.ThingIcon(r, icon);
-                else Slab.Fill(r, UiWidgets.Off);
+                else Slab.Fill(r, UiTheme.Off);
             }, tip, RowHoverPolicy.Local))
                 _pickingKey = key;
         }
@@ -222,7 +222,7 @@ namespace SlopWorld
                 var cell = new Rect(grid.View.x + col * grid.Cell,
                     grid.View.y + row * grid.Cell, grid.Cell, grid.Cell);
 
-                Slab.Box(cell, UiWidgets.Well, UiWidgets.Edge);
+                Slab.Box(cell, UiTheme.Well, UiTheme.Edge);
                 RowChrome.Hover(cell, def == chosen, true, RowHoverPolicy.Local,
                     RowSelectionStyle.Palette);
 
@@ -238,8 +238,8 @@ namespace SlopWorld
                 {
                     // Grey, and drawn a little smaller than a thing: it is the one cell
                     // here that is not an item, and it should not read as the loudest.
-                    GUI.color = UiWidgets.Dim;
-                    GUI.DrawTexture(box.ContractedBy(UiWidgets.IconInset + 1f), Icons.Cross);
+                    GUI.color = UiTheme.Dim;
+                    GUI.DrawTexture(box.ContractedBy(UiTheme.IconInset + 1f), Icons.Cross);
                 }
                 GUI.color = Color.white;
 
@@ -251,7 +251,7 @@ namespace SlopWorld
                         ? 0x51_0F_0002 ^ (key.GetHashCode() * 31 + def.shortHash)
                         : 0x51_0F_0004 ^ key.GetHashCode()));
 
-                if (UiWidgets.RowButton(cell))
+                if (UiButtons.RowButton(cell))
                 {
                     // Null on the automatic cell, which is exactly what clears the line.
                     UsageReadout.Choose(key, def);

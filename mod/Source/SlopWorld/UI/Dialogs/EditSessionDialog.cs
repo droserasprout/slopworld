@@ -87,7 +87,7 @@ namespace SlopWorld
                 string.IsNullOrWhiteSpace(_s.Cmd))
                 DaemonClient.Get(WireContract.Routes.Config,
                     j => _s.CommandPreset = j["values"]["defaults"]["agent"].AsString("claude"),
-                    UiWidgets.Fail);
+                    UiLayout.Fail);
 
             _limMem = LimStr(_s.Limits.MemoryMb);
             _limPids = LimStr(_s.Limits.Pids);
@@ -107,10 +107,10 @@ namespace SlopWorld
 
         protected override void DoBody(Rect rect)
         {
-            UiWidgets.Title(TitleRect(rect), _identity.Title("agent"));
+            UiLayout.Title(TitleRect(rect), _identity.Title("agent"));
 
             var layout = TabbedFormLayout.Arrange(SettingsPageLayout.FromRect(rect), 132f,
-                UiWidgets.HeaderH, UiWidgets.BtnH, UiWidgets.GapS, UiWidgets.GapM);
+                UiTheme.HeaderH, UiTheme.BtnH, UiTheme.GapS, UiTheme.GapM);
             DrawRail(SettingsPageLayout.ToRect(layout.Rail));
             var body = SettingsPageLayout.ToRect(layout.Body);
 
@@ -138,14 +138,14 @@ namespace SlopWorld
                     break;
             }
 
-            var foot = new UiWidgets.Bar(SettingsPageLayout.ToRect(layout.Footer));
-            if (!_identity.IsNew && foot.Left("Reset private state", UiWidgets.Btn.Danger))
+            var foot = new UiLayout.Bar(SettingsPageLayout.ToRect(layout.Footer));
+            if (!_identity.IsNew && foot.Left("Reset private state", UiTheme.Btn.Danger))
                 Find.WindowStack.Add(CatalogActions.ResetState(_identity.OriginalName));
-            if (foot.Left("Cancel", UiWidgets.Btn.Ghost)) Close();
-            if (foot.Right("Save", UiWidgets.Btn.Primary)) Save();
+            if (foot.Left("Cancel", UiTheme.Btn.Ghost)) Close();
+            if (foot.Right("Save", UiTheme.Btn.Primary)) Save();
         }
 
-        void DrawRail(Rect r) => UiWidgets.DrawRail(r, new[]
+        void DrawRail(Rect r) => UiLayout.DrawRail(r, new[]
         {
             ("General", Tab.General),
             ("Mounts", Tab.Mounts),
@@ -160,7 +160,7 @@ namespace SlopWorld
         {
             if (string.IsNullOrEmpty(_s.Name) || string.IsNullOrEmpty(_s.Project))
             {
-                UiWidgets.Fail("name and project are required");
+                UiLayout.Fail("name and project are required");
                 return;
             }
 
@@ -174,7 +174,7 @@ namespace SlopWorld
             if (_s.DnsOverride?.Mode == DnsMode.Servers &&
                 !DnsConfig.TryParseServers(_dnsServers, out dnsServers, out dnsError))
             {
-                UiWidgets.Fail("DNS: " + dnsError);
+                UiLayout.Fail("DNS: " + dnsError);
                 return;
             }
             if (_s.DnsOverride?.Mode == DnsMode.Servers)
@@ -200,7 +200,7 @@ namespace SlopWorld
                     }
                     Close();
                 },
-                fail: UiWidgets.Fail);
+                fail: UiLayout.Fail);
         }
     }
 

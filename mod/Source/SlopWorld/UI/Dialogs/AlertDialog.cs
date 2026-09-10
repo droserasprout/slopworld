@@ -16,10 +16,10 @@ namespace SlopWorld
         readonly string _secondaryLabel;
         readonly Action _primary;
         readonly Action _secondary;
-        readonly UiWidgets.Btn _primaryKind;
+        readonly UiTheme.Btn _primaryKind;
 
         AlertDialog(string title, string message, string primaryLabel, Action primary,
-                        string secondaryLabel, Action secondary, UiWidgets.Btn primaryKind, float width)
+                        string secondaryLabel, Action secondary, UiTheme.Btn primaryKind, float width)
         {
             _message = message ?? "";
             _width = width;
@@ -39,32 +39,32 @@ namespace SlopWorld
         public static Window Create(string title, string message, string primaryLabel,
                                     Action primary, string secondaryLabel = null,
                                     Action secondary = null,
-                                    UiWidgets.Btn primaryKind = UiWidgets.Btn.Primary, float width = 520f) =>
+                                    UiTheme.Btn primaryKind = UiTheme.Btn.Primary, float width = 520f) =>
             new AlertDialog(title, message, primaryLabel, primary, secondaryLabel,
                 secondary, primaryKind, width);
         public override Vector2 InitialSize => new Vector2(_width,
-            4f * UiWidgets.GapM + UiWidgets.HeaderH +
-            MessageHeight(_message, _width - 2f * UiWidgets.GapM) + UiWidgets.BtnH);
+            4f * UiTheme.GapM + UiTheme.HeaderH +
+            MessageHeight(_message, _width - 2f * UiTheme.GapM) + UiTheme.BtnH);
 
         protected override bool Closable => false;
 
         protected override void DoBody(Rect rect)
         {
-            UiWidgets.Title(TitleRect(rect), _title);
+            UiLayout.Title(TitleRect(rect), _title);
 
-            float messageY = rect.y + UiWidgets.HeaderH + UiWidgets.GapM;
+            float messageY = rect.y + UiTheme.HeaderH + UiTheme.GapM;
             float messageH = MessageHeight(_message, rect.width);
             var message = new Rect(rect.x, messageY, rect.width, messageH);
 
-            UiWidgets.StatusLabel(message, _message, UiWidgets.Name);
+            UiText.StatusLabel(message, _message, UiTheme.Name);
 
-            DrawActions(new UiWidgets.Bar(UiWidgets.FooterBar(rect)));
+            DrawActions(new UiLayout.Bar(UiLayout.FooterBar(rect)));
         }
 
-        void DrawActions(UiWidgets.Bar foot)
+        void DrawActions(UiLayout.Bar foot)
         {
             if (!string.IsNullOrEmpty(_secondaryLabel) &&
-                foot.Left(_secondaryLabel, UiWidgets.Btn.Ghost))
+                foot.Left(_secondaryLabel, UiTheme.Btn.Ghost))
             {
                 Close();
                 _secondary?.Invoke();

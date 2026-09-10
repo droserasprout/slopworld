@@ -87,9 +87,9 @@ namespace SlopWorld
                         Draw = () => TasksView.Draw(Body),
                         Click = TasksView.Clicks,
                         DrawActions = DrawTasksActions,
-                        Refresh = () => SessionHub.Instance.TaskStore.Refresh(fail: UiWidgets.Fail),
-                        Entered = () => SessionHub.Instance.TaskStore.Refresh(fail: UiWidgets.Fail),
-                        Reselected = () => SessionHub.Instance.TaskStore.Refresh(fail: UiWidgets.Fail),
+                        Refresh = () => SessionHub.Instance.TaskStore.Refresh(fail: UiLayout.Fail),
+                        Entered = () => SessionHub.Instance.TaskStore.Refresh(fail: UiLayout.Fail),
+                        Reselected = () => SessionHub.Instance.TaskStore.Refresh(fail: UiLayout.Fail),
                     }),
                 new SidebarTabDefinition(
                     SidebarTab.Library, "library", "library",
@@ -100,7 +100,7 @@ namespace SlopWorld
                         Draw = () => LibraryView.Draw(Body),
                         Click = LibraryView.Clicks,
                         DrawActions = DrawLibraryActions,
-                        Refresh = () => SessionHub.Instance.Catalog.RefreshLibrary(UiWidgets.Fail),
+                        Refresh = () => SessionHub.Instance.Catalog.RefreshLibrary(UiLayout.Fail),
                         // Fetch on entry as well, including when socket updates are unavailable.
                         Entered = () => SessionHub.Instance.Catalog.RefreshLibrary(),
                         SetAllFolds = LibraryView.SetAllFolded,
@@ -207,7 +207,7 @@ namespace SlopWorld
             var r = ActionRect(context);
             Tab(r, Icons.Refresh, false,
                 "Read the task mailbox again.",
-                () => SessionHub.Instance.TaskStore.Refresh(fail: UiWidgets.Fail));
+                () => SessionHub.Instance.TaskStore.Refresh(fail: UiLayout.Fail));
             r.x -= TabIcon + 3f;
             TasksView.FilterButton(r);
         }

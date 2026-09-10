@@ -10,12 +10,12 @@ namespace SlopWorld
     // Rows are deliberately compact: the full body and actions live in TaskDetailView.
     public static partial class TasksView
     {
-        static float Pad => UiWidgets.GapS;
-        static float CellX => UiWidgets.GapS;
-        static float HeaderH => UiWidgets.TinyRowH;
-        static float NameH => UiWidgets.LineHOf(GameFont.Tiny);
-        static float NoteH => UiWidgets.LineHOf(GameFont.Tiny);
-        static float RowH => NameH + NoteH + UiWidgets.GapXS + 2f;
+        static float Pad => UiTheme.GapS;
+        static float CellX => UiTheme.GapS;
+        static float HeaderH => UiTheme.TinyRowH;
+        static float NameH => UiTheme.LineHOf(GameFont.Tiny);
+        static float NoteH => UiTheme.LineHOf(GameFont.Tiny);
+        static float RowH => NameH + NoteH + UiTheme.GapXS + 2f;
 
         static readonly SmoothScroll Scroll = new SmoothScroll();
         static readonly List<Line> Lines = new List<Line>();
@@ -72,7 +72,7 @@ namespace SlopWorld
                 return;
             }
 
-            float height = Pad + HeaderH + UiWidgets.GapXS + tasks.Count * RowH + Pad;
+            float height = Pad + HeaderH + UiTheme.GapXS + tasks.Count * RowH + Pad;
             var geometry = UiScrollBody.Measure(body, height,
                 UiScrollbarReservation.WhenNeeded);
             var list = geometry.View;
@@ -81,7 +81,7 @@ namespace SlopWorld
             {
                 float y = Pad;
                 DrawHeader(new Rect(0f, y, list.width, HeaderH), tasks, allTasks.Count);
-                y += HeaderH + UiWidgets.GapXS;
+                y += HeaderH + UiTheme.GapXS;
 
                 // The mailbox is durable and can grow indefinitely. Keep its complete model,
                 // but submit only rows intersecting the viewport to IMGUI.
@@ -113,12 +113,12 @@ namespace SlopWorld
                 (SelectedIds.Count > 0 ? "  ·  " + SelectedIds.Count + " selected" : "");
 
             Text.Font = GameFont.Tiny;
-            GUI.color = UiWidgets.Faint;
-            UiWidgets.RowLabel(new Rect(r.x + CellX, r.y, r.width - CellX * 2f, r.height), text);
+            GUI.color = UiTheme.Faint;
+            UiText.RowLabel(new Rect(r.x + CellX, r.y, r.width - CellX * 2f, r.height), text);
             GUI.color = Color.white;
             Text.Font = GameFont.Small;
             Slab.Hairline(new Rect(r.x + CellX, r.yMax - 1f, r.width - CellX * 2f, 1f),
-                UiWidgets.Edge);
+                UiTheme.Edge);
         }
 
         static void DrawTask(Rect r, TaskInfo task)
@@ -132,29 +132,29 @@ namespace SlopWorld
                 r.y + NameH / 2f + 1f), dot), Icons.Dot);
 
             Text.Font = GameFont.Tiny;
-            float left = r.x + CellX + dot + UiWidgets.GapXS;
+            float left = r.x + CellX + dot + UiTheme.GapXS;
             string ageText = task.Age(true);
-            float ageW = UiWidgets.Wide(ageText);
+            float ageW = UiTheme.Wide(ageText);
             var age = new Rect(r.xMax - CellX - ageW, r.y, ageW, NameH);
-            GUI.color = UiWidgets.Dim;
-            UiWidgets.RowLabel(age, ageText, TextAnchor.MiddleRight);
+            GUI.color = UiTheme.Dim;
+            UiText.RowLabel(age, ageText, TextAnchor.MiddleRight);
 
             string direction = task.Direction;
             string statusText = TaskInfo.StatusText(task.Status);
-            float statusW = UiWidgets.Wide(statusText);
-            float right = age.x - UiWidgets.GapS;
+            float statusW = UiTheme.Wide(statusText);
+            float right = age.x - UiTheme.GapS;
             var state = new Rect(Mathf.Max(left, right - statusW), r.y, statusW, NameH);
             GUI.color = status;
-            UiWidgets.RowLabel(state, statusText, TextAnchor.MiddleRight);
+            UiText.RowLabel(state, statusText, TextAnchor.MiddleRight);
 
-            float directionW = Mathf.Max(0f, state.x - UiWidgets.GapS - left);
-            GUI.color = UiWidgets.Lead;
-            UiWidgets.RowLabel(new Rect(left, r.y, directionW, NameH), direction);
+            float directionW = Mathf.Max(0f, state.x - UiTheme.GapS - left);
+            GUI.color = UiTheme.Lead;
+            UiText.RowLabel(new Rect(left, r.y, directionW, NameH), direction);
 
-            GUI.color = UiWidgets.Dim;
-            var summary = new Rect(left, r.y + NameH + UiWidgets.GapXS,
+            GUI.color = UiTheme.Dim;
+            var summary = new Rect(left, r.y + NameH + UiTheme.GapXS,
                 Mathf.Max(0f, r.width - left - CellX), NoteH);
-            UiWidgets.RowLabel(summary, FittedSummary(task, summary.width));
+            UiText.RowLabel(summary, FittedSummary(task, summary.width));
 
             GUI.color = Color.white;
             Text.Font = GameFont.Small;
@@ -173,7 +173,7 @@ namespace SlopWorld
             if (FittedSummaries.TryGetValue(task, out var fitted)) return fitted;
 
             string text = task.Summary;
-            if (UiWidgets.Wide(text) <= width)
+            if (UiTheme.Wide(text) <= width)
                 fitted = text;
             else
             {
@@ -184,7 +184,7 @@ namespace SlopWorld
                 {
                     int mid = (low + high + 1) / 2;
                     string probe = text.Substring(0, mid).TrimEnd() + ellipsis;
-                    if (UiWidgets.Wide(probe) <= width) low = mid;
+                    if (UiTheme.Wide(probe) <= width) low = mid;
                     else high = mid - 1;
                 }
                 fitted = text.Substring(0, low).TrimEnd() + ellipsis;
@@ -196,8 +196,8 @@ namespace SlopWorld
         static void Empty(Rect body, string text)
         {
             Text.Font = GameFont.Tiny;
-            GUI.color = UiWidgets.Faint;
-            UiWidgets.RowLabel(new Rect(CellX, body.y + Pad,
+            GUI.color = UiTheme.Faint;
+            UiText.RowLabel(new Rect(CellX, body.y + Pad,
                 body.width - CellX * 2f, RowH * 2f), text);
             GUI.color = Color.white;
             Text.Font = GameFont.Small;
@@ -207,12 +207,12 @@ namespace SlopWorld
         {
             switch (status)
             {
-                case DelegatedTaskStatus.Done: return UiWidgets.Yes;
-                case DelegatedTaskStatus.Failed: return UiWidgets.Bad;
-                case DelegatedTaskStatus.Canceled: return UiWidgets.Dim;
-                case DelegatedTaskStatus.Working: return UiWidgets.StateWorking;
-                case DelegatedTaskStatus.Accepted: return UiWidgets.StateWaiting;
-                default: return UiWidgets.Info;
+                case DelegatedTaskStatus.Done: return UiTheme.Yes;
+                case DelegatedTaskStatus.Failed: return UiTheme.Bad;
+                case DelegatedTaskStatus.Canceled: return UiTheme.Dim;
+                case DelegatedTaskStatus.Working: return UiTheme.StateWorking;
+                case DelegatedTaskStatus.Accepted: return UiTheme.StateWaiting;
+                default: return UiTheme.Info;
             }
         }
 

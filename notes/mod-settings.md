@@ -57,5 +57,5 @@ Font or size changes invalidate `TerminalFont`; terminal scheme changes invalida
 `TerminalTheme`. Cursor and UI scheme resolve on read and need no cache invalidation.
 The open terminal belongs to the colony save and is handled by `TerminalRecall`, not
 by writing mod settings on every selection.
-`UiWidgets.SetSetting`, `CheckboxSetting`, and the integer `SliderSetting` assign and
+`UiControls.SetSetting`, `CheckboxSetting`, and the integer `SliderSetting` assign and
 mark dirty only on changes. Callers explicitly invalidate font/theme caches when needed.

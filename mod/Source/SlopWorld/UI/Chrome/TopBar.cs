@@ -22,12 +22,12 @@ namespace SlopWorld
     public static class TopBar
     {
         // Fit the current row height while preserving the shipped 26px minimum.
-        public static float H => Mathf.Max(UiWidgets.RowH, UiMetrics.Compact ? 24f : 26f);
+        public static float H => Mathf.Max(UiTheme.RowH, UiMetrics.Compact ? 24f : 26f);
 
-        static float Pad => UiWidgets.GapS;
+        static float Pad => UiTheme.GapS;
 
         // Door icons use the shared glyph size; ThingIcon already fills its slot more densely.
-        const float IconW = UiWidgets.IconW;
+        const float IconW = UiTheme.IconW;
 
         // Give the jukebox tip a stable id so changing song text does not restart its fade.
         const int JukeboxTipId = 0x51_0C_02;
@@ -52,9 +52,9 @@ namespace SlopWorld
             if (Event.current.type == EventType.Layout) return;
 
             var r = Rect;
-            Slab.Fill(r, UiWidgets.Panel);
+            Slab.Fill(r, UiTheme.Panel);
             // Keep the hairline inside the bar so adjoining chrome shares its boundary pixel.
-            Slab.Hairline(new Rect(r.x, r.yMax - 1f, r.width, 1f), UiWidgets.Edge);
+            Slab.Hairline(new Rect(r.x, r.yMax - 1f, r.width, 1f), UiTheme.Edge);
 
             Text.Font = GameFont.Small;
             Text.Anchor = TextAnchor.MiddleLeft;
@@ -74,7 +74,7 @@ namespace SlopWorld
                 if (clockX >= r.x + Pad && clockX + clockWidth <= right - Pad)
                 {
                     var clockColor = GUI.color;
-                    GUI.color = UiWidgets.Name;
+                    GUI.color = UiTheme.Name;
                     UsageReadout.DrawClock(new Rect(clockX, r.y, clockWidth, r.height), now);
                     GUI.color = clockColor;
                     statusRight = clockX - Pad;
@@ -114,19 +114,19 @@ namespace SlopWorld
             float x = r.xMax - Pad;
             var map = Find.CurrentMap;
 
-            x -= UiWidgets.GapS + IconW;
+            x -= UiTheme.GapS + IconW;
             Door(Slot(r, x, IconW), Icons.Config, "Settings", ModOptions.Toggle, live);
 
             // The settings cog is this interface's door; what is left of the line is the
             // colony's.
-            float gap = UiWidgets.GapM;
+            float gap = UiTheme.GapM;
 
             if (Settings.StatusbarGM && CoreTip.On(map))
             {
                 x -= gap + IconW;
                 Thing(Slot(r, x, IconW), ModDefOf.Ship_ComputerCore,
                     default, CoreTip.OpenMenu, live);
-                gap = UiWidgets.GapS;
+                gap = UiTheme.GapS;
             }
 
             if (Settings.StatusbarJukebox && Jukebox.On(map))
@@ -136,7 +136,7 @@ namespace SlopWorld
                     new TipSignal(Jukebox.IconTip(), JukeboxTipId), Jukebox.OpenMenu, live);
             }
 
-            return x - UiWidgets.GapM;
+            return x - UiTheme.GapM;
         }
 
         // Centre the glyph-sized hit slot inside the taller bar.
@@ -154,8 +154,8 @@ namespace SlopWorld
             var was = GUI.color;
             if (repaint)
             {
-                if (over) Slab.Fill(r, UiWidgets.Hover);
-                GUI.color = over ? Color.white : UiWidgets.Off;
+                if (over) Slab.Fill(r, UiTheme.Hover);
+                GUI.color = over ? Color.white : UiTheme.Off;
                 GUI.DrawTexture(r, icon);
                 GUI.color = was;
             }
@@ -180,7 +180,7 @@ namespace SlopWorld
             if (repaint)
             {
                 GUI.color = Color.white;
-                if (over) Slab.Fill(r, UiWidgets.Hover);
+                if (over) Slab.Fill(r, UiTheme.Hover);
                 Widgets.ThingIcon(r, def);
                 GUI.color = was;
             }
@@ -209,8 +209,8 @@ namespace SlopWorld
             var view = TerminalWindow.Showing;
             if (view != null)
             {
-                GUI.color = UiWidgets.Lead;
-                UiWidgets.RowLabel(r, view.Title);
+                GUI.color = UiTheme.Lead;
+                UiText.RowLabel(r, view.Title);
                 GUI.color = Color.white;
                 return;
             }
@@ -220,8 +220,8 @@ namespace SlopWorld
 
             if (session == null)
             {
-                GUI.color = UiWidgets.Dim;
-                UiWidgets.RowLabel(r, hub.Online
+                GUI.color = UiTheme.Dim;
+                UiText.RowLabel(r, hub.Online
                     ? $"{hub.Sessions.Count} agent{(hub.Sessions.Count == 1 ? "" : "s")}"
                     : $"daemon {hub.Status}");
                 GUI.color = Color.white;
@@ -233,18 +233,18 @@ namespace SlopWorld
 
             // Scale the status marker inset with the row height.
             float inset = Mathf.Round(r.height * 0.27f);
-            var chip = new Rect(r.x, r.y + inset, UiWidgets.StatusMarker,
+            var chip = new Rect(r.x, r.y + inset, UiTheme.StatusMarker,
                 r.height - inset * 2f);
             Slab.Fill(chip, TerminalWindow.StateColor(state));
 
             GUI.color = TerminalWindow.StateColor(state);
-            float w = Mathf.Min(UiWidgets.Wide(session) + UiWidgets.GapXS,
-                Mathf.Max(0f, r.width - UiWidgets.StatusMarker - UiWidgets.GapS * 2f));
-            var name = new Rect(chip.xMax + UiWidgets.GapS, r.y, w, r.height);
-            UiWidgets.RowLabel(name, session);
+            float w = Mathf.Min(UiTheme.Wide(session) + UiTheme.GapXS,
+                Mathf.Max(0f, r.width - UiTheme.StatusMarker - UiTheme.GapS * 2f));
+            var name = new Rect(chip.xMax + UiTheme.GapS, r.y, w, r.height);
+            UiText.RowLabel(name, session);
 
-            var rest = new Rect(name.xMax + UiWidgets.GapS, r.y,
-                Mathf.Max(0f, r.xMax - name.xMax - UiWidgets.GapS), r.height);
+            var rest = new Rect(name.xMax + UiTheme.GapS, r.y,
+                Mathf.Max(0f, r.xMax - name.xMax - UiTheme.GapS), r.height);
             if (rest.width <= 20f)
             {
                 Text.Font = GameFont.Small;
@@ -255,8 +255,8 @@ namespace SlopWorld
             string tail = Tail(session, state);
 
             Text.Font = GameFont.Tiny;
-            GUI.color = UiWidgets.Dim;
-            UiWidgets.RowLabel(rest, tail);
+            GUI.color = UiTheme.Dim;
+            UiText.RowLabel(rest, tail);
             Text.Font = GameFont.Small;
             GUI.color = Color.white;
         }

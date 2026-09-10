@@ -18,7 +18,7 @@ namespace SlopWorld
         // rather than leaving a button row indented against nothing.
         public static bool Shown => !Cutscene.Playing;
 
-        // Compatibility accessors for callers that only need an inset. New geometry code
+        // Accessors for callers that only need an inset. New geometry code
         // should consume Snapshot so right-side navigation cannot be mistaken for a left
         // margin.
         public static WorkspaceGeometry Snapshot => WorkspaceLayout.Current;
@@ -118,25 +118,25 @@ namespace SlopWorld
             public bool Left(string label, Btn kind = Btn.Default, bool on = true)
             {
                 float w = Wide(label);
-                var at = new Rect(_r.x + _left, _r.y, w, UiWidgets.BtnH);
-                _left += w + UiWidgets.GapS;
-                return UiWidgets.Button(at, label, kind, on);
+                var at = new Rect(_r.x + _left, _r.y, w, UiTheme.BtnH);
+                _left += w + UiTheme.GapS;
+                return UiButtons.Button(at, label, kind, on);
             }
 
             public bool Right(string label, Btn kind = Btn.Default, bool on = true)
             {
                 float w = Wide(label);
-                var at = new Rect(_r.xMax - _right - w, _r.y, w, UiWidgets.BtnH);
-                _right += w + UiWidgets.GapS;
-                return UiWidgets.Button(at, label, kind, on);
+                var at = new Rect(_r.xMax - _right - w, _r.y, w, UiTheme.BtnH);
+                _right += w + UiTheme.GapS;
+                return UiButtons.Button(at, label, kind, on);
             }
 
             public Rect Rest()
             {
                 float x = _r.x + _left;
                 return new Rect(x, _r.y,
-                    Mathf.Max(_r.xMax - _right - UiWidgets.GapS - x, 0f),
-                    UiWidgets.BtnH);
+                    Mathf.Max(_r.xMax - _right - UiTheme.GapS - x, 0f),
+                    UiTheme.BtnH);
             }
 
             // Measured at Small whatever the caller left the font at. [BtnH] is a fixed
@@ -147,7 +147,7 @@ namespace SlopWorld
                 using (WidgetState.Save())
                 {
                     Verse.Text.Font = GameFont.Small;
-                    return UiWidgets.BtnW(label, UiWidgets.ButtonMinW);
+                    return UiLayout.BtnW(label, UiTheme.ButtonMinW);
                 }
             }
         }

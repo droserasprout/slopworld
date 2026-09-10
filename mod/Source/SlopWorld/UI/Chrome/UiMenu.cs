@@ -79,8 +79,8 @@ namespace SlopWorld
 
         // The clear space either side of a label. Rows touch the frame vertically so a menu
         // does not grow a needless blank strip above and below its first and last action.
-        const float PadX = UiWidgets.MenuPadX;
-        const float PadY = UiWidgets.MenuPadY;
+        const float PadX = UiTheme.MenuPadX;
+        const float PadY = UiTheme.MenuPadY;
 
         // How much of the screen a menu may take before it scrolls instead of growing. The
         // jukebox's station list is the one that reaches it.
@@ -88,14 +88,14 @@ namespace SlopWorld
 
         // The mark on a row with a list under it, drawn in the arrow a folded project head
         // wears in the sidebar: one shape for "there is more here than this line".
-        const float ArrowW = UiWidgets.DisclosureW;
+        const float ArrowW = UiTheme.DisclosureW;
 
         // How long the pointer rests on a row before its list opens. Long enough that a
         // pointer crossing the menu on its way to a row further down does not leave a trail
         // of opened lists behind it, short enough not to read as waiting for the menu.
         const float OpenDelay = 0.18f;
 
-        static float RowH => UiWidgets.MenuRowH;
+        static float RowH => UiTheme.MenuRowH;
         const float SeparatorH = 8f;
 
         // The frame this menu was built on - see `HandleKeyboard`.
@@ -174,7 +174,7 @@ namespace SlopWorld
                 if (labels != null)
                 {
                     foreach (var label in labels)
-                        widest = Mathf.Max(widest, UiWidgets.Wide(label));
+                        widest = Mathf.Max(widest, UiTheme.Wide(label));
                 }
                 return Mathf.Clamp(widest + PadX * 2f, MinW, MaxW);
             }
@@ -202,8 +202,8 @@ namespace SlopWorld
                 foreach (var o in _options)
                 {
                     if (o is SeparatorOption) continue;
-                    w = Mathf.Max(w, UiWidgets.Wide(o.Label) + o.extraPartWidth +
-                        (o is UiSubmenu ? ArrowW + UiWidgets.GapXS : 0f));
+                    w = Mathf.Max(w, UiTheme.Wide(o.Label) + o.extraPartWidth +
+                        (o is UiSubmenu ? ArrowW + UiTheme.GapXS : 0f));
                 }
                 return w;
             }
@@ -302,11 +302,11 @@ namespace SlopWorld
 
             if (HandleKeyboard()) return;
 
-            Slab.Box(rect, UiWidgets.PopoverBg, UiWidgets.Edge);
+            Slab.Box(rect, UiTheme.PopoverBg, UiTheme.Edge);
 
             var inner = new Rect(rect.x, rect.y + PadY, rect.width, rect.height - PadY * 2f);
             bool scrolls = ContentH > rect.height;
-            var view = new Rect(0f, 0f, inner.width - (scrolls ? UiWidgets.ScrollbarW : 0f),
+            var view = new Rect(0f, 0f, inner.width - (scrolls ? UiTheme.ScrollbarW : 0f),
                 ContentH - PadY * 2f);
 
             // One hit test for the whole list, before the scroll view opens its group and
@@ -413,7 +413,7 @@ namespace SlopWorld
             if (o is SeparatorOption)
             {
                 Slab.Hairline(new Rect(r.x + PadX, r.y + r.height / 2f,
-                    r.width - PadX * 2f, 1f), UiWidgets.Edge);
+                    r.width - PadX * 2f, 1f), UiTheme.Edge);
                 return false;
             }
 
@@ -426,7 +426,7 @@ namespace SlopWorld
                 RowSelectionStyle.Hover);
             if (o.tooltip.HasValue) TooltipHandler.TipRegion(r, o.tooltip.Value);
 
-            // The extra part is the checkbox [UiWidgets.MenuToggle] draws, before the
+            // The extra part is the checkbox [UiLayout.MenuToggle] draws, before the
             // label or after it as the option asks - a tick goes where a settings page
             // puts it, which is in front.
             float extra = o.extraPartWidth;
@@ -442,22 +442,22 @@ namespace SlopWorld
                     r.y + (r.height - ArrowW) / 2f, ArrowW, ArrowW);
                 using (WidgetState.Save())
                 {
-                    GUI.color = !on ? UiWidgets.Off : lit ? UiWidgets.Lead : UiWidgets.Faint;
+                    GUI.color = !on ? UiTheme.Off : lit ? UiTheme.Lead : UiTheme.Faint;
                     GUI.DrawTexture(mark, TexButton.Reveal);
                 }
             }
 
             var label = new Rect(r.x + PadX + (right ? 0f : extra), r.y,
-                r.width - PadX * 2f - extra - (nest ? ArrowW + UiWidgets.GapXS : 0f),
+                r.width - PadX * 2f - extra - (nest ? ArrowW + UiTheme.GapXS : 0f),
                 r.height);
             using (WidgetState.Save())
             {
                 Text.Anchor = TextAnchor.MiddleLeft;
-                GUI.color = !on ? UiWidgets.Off : lit ? UiWidgets.Lead : UiWidgets.Name;
-                UiWidgets.RowLabel(label, o.Label);
+                GUI.color = !on ? UiTheme.Off : lit ? UiTheme.Lead : UiTheme.Name;
+                UiText.RowLabel(label, o.Label);
             }
 
-            if (!UiWidgets.RowButton(r, on)) return false;
+            if (!UiButtons.RowButton(r, on)) return false;
 
             // A row with a list under it is an address rather than an answer, and a press on
             // one is the pointer saying it will not wait out the delay. Opened here rather

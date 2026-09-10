@@ -46,7 +46,7 @@ namespace SlopWorld
             Read();
             if (_muted || !_playing || string.IsNullOrEmpty(NowPlaying))
             {
-                UiWidgets.Fail("nothing is playing");
+                UiLayout.Fail("nothing is playing");
                 return;
             }
 
@@ -57,7 +57,7 @@ namespace SlopWorld
             {
                 if (_recognizing)
                 {
-                    UiWidgets.Fail("recognition is already running");
+                    UiLayout.Fail("recognition is already running");
                     return;
                 }
                 _recognizing = true;
@@ -153,7 +153,7 @@ namespace SlopWorld
         static void SetRecognitionError(string message)
         {
             lock (RecognitionGate) _recognitionError = message;
-            UiWidgets.Fail(message);
+            UiLayout.Fail(message);
         }
     }
 }

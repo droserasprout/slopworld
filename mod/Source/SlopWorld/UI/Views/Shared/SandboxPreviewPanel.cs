@@ -58,26 +58,26 @@ namespace SlopWorld
     {
         public static void Draw(Rect outer, ref SmoothScroll scroll, SandboxPreviewData data)
         {
-            Slab.Box(outer, UiWidgets.Well, UiWidgets.Edge);
-            var pad = outer.ContractedBy(UiWidgets.GapS);
-            var view = new Rect(0f, 0f, pad.width - UiWidgets.ScrollbarW,
-                Mathf.Max(Height(data, pad.width - UiWidgets.ScrollbarW), pad.height));
+            Slab.Box(outer, UiTheme.Well, UiTheme.Edge);
+            var pad = outer.ContractedBy(UiTheme.GapS);
+            var view = new Rect(0f, 0f, pad.width - UiTheme.ScrollbarW,
+                Mathf.Max(Height(data, pad.width - UiTheme.ScrollbarW), pad.height));
             using (scroll.Scope(pad, view))
             {
 
                 float y = 0f;
-                y = TextBlock(view.width, y, data.Title, UiWidgets.Lead);
-                y += UiWidgets.GapXS;
+                y = TextBlock(view.width, y, data.Title, UiTheme.Lead);
+                y += UiTheme.GapXS;
                 if (!string.IsNullOrEmpty(data.Subtitle))
                 {
-                    y = TextBlock(view.width, y, data.Subtitle, UiWidgets.Dim);
-                    y += UiWidgets.GapXS;
+                    y = TextBlock(view.width, y, data.Subtitle, UiTheme.Dim);
+                    y += UiTheme.GapXS;
                 }
                 if (data.Notes.Count > 0)
                 {
                     y = TextBlock(view.width, y, string.Join("\n", data.Notes.ToArray()),
-                        UiWidgets.Faint);
-                    y += UiWidgets.GapS;
+                        UiTheme.Faint);
+                    y += UiTheme.GapS;
                 }
 
                 foreach (var field in data.Fields)
@@ -89,40 +89,40 @@ namespace SlopWorld
         static float Height(SandboxPreviewData data, float width)
         {
             float y = 0f;
-            y += UiWidgets.StatusLabelHeight(data.Title, width) + UiWidgets.GapXS;
+            y += UiText.StatusLabelHeight(data.Title, width) + UiTheme.GapXS;
             if (!string.IsNullOrEmpty(data.Subtitle))
-                y += UiWidgets.StatusLabelHeight(data.Subtitle, width) + UiWidgets.GapXS;
+                y += UiText.StatusLabelHeight(data.Subtitle, width) + UiTheme.GapXS;
             if (data.Notes.Count > 0)
-                y += UiWidgets.StatusLabelHeight(string.Join("\n", data.Notes.ToArray()), width) +
-                     UiWidgets.GapS;
+                y += UiText.StatusLabelHeight(string.Join("\n", data.Notes.ToArray()), width) +
+                     UiTheme.GapS;
             foreach (var field in data.Fields)
             {
                 string text = field.Values.Count == 0
                     ? "(nothing)"
                     : string.Join("\n", field.Values.ToArray());
-                y += UiWidgets.RowH + UiWidgets.GapXS +
-                     UiWidgets.StatusLabelHeight(text, width) + UiWidgets.GapM;
+                y += UiTheme.RowH + UiTheme.GapXS +
+                     UiText.StatusLabelHeight(text, width) + UiTheme.GapM;
             }
-            return y + UiWidgets.GapM;
+            return y + UiTheme.GapM;
         }
 
         static float Field(float width, float y, SandboxPreviewField field)
         {
-            UiWidgets.SectionHeading(new Rect(0f, y, width, UiWidgets.RowH), field.Label);
-            y += UiWidgets.RowH + UiWidgets.GapXS;
+            UiLayout.SectionHeading(new Rect(0f, y, width, UiTheme.RowH), field.Label);
+            y += UiTheme.RowH + UiTheme.GapXS;
             string text = field.Values.Count == 0
                 ? "(nothing)"
                 : string.Join("\n", field.Values.ToArray());
-            float h = UiWidgets.StatusLabelHeight(text, width);
-            UiWidgets.StatusLabel(new Rect(0f, y, width, h), text,
-                field.Values.Count == 0 ? UiWidgets.Faint : UiWidgets.Name);
-            return y + h + UiWidgets.GapM;
+            float h = UiText.StatusLabelHeight(text, width);
+            UiText.StatusLabel(new Rect(0f, y, width, h), text,
+                field.Values.Count == 0 ? UiTheme.Faint : UiTheme.Name);
+            return y + h + UiTheme.GapM;
         }
 
         static float TextBlock(float width, float y, string text, Color color)
         {
-            float h = UiWidgets.StatusLabelHeight(text, width);
-            UiWidgets.StatusLabel(new Rect(0f, y, width, h), text, color);
+            float h = UiText.StatusLabelHeight(text, width);
+            UiText.StatusLabel(new Rect(0f, y, width, h), text, color);
             return y + h;
         }
     }

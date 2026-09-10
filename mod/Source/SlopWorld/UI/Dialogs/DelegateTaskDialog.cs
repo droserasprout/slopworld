@@ -27,48 +27,48 @@ namespace SlopWorld
 
         protected override void DoBody(Rect rect)
         {
-            UiWidgets.Title(TitleRect(rect), string.IsNullOrEmpty(_to)
+            UiLayout.Title(TitleRect(rect), string.IsNullOrEmpty(_to)
                 ? "Delegate task" : $"Delegate task to '{_to}'");
 
-            float y = rect.y + UiWidgets.HeaderH + UiWidgets.GapM;
+            float y = rect.y + UiTheme.HeaderH + UiTheme.GapM;
             var targetRect = new Rect(rect.x, y, rect.width,
-                UiWidgets.LineH + UiWidgets.GapXS + UiWidgets.CompactH);
+                UiTheme.LineH + UiTheme.GapXS + UiTheme.CompactH);
             var options = _agents.Select(agent => new SelectorOption(AgentLabel(agent), () =>
             {
                 _to = agent.Name;
             })).ToList();
             bool canChoose = options.Count > 0;
             string shown = AgentLabel(_to);
-            UiWidgets.Select(targetRect, "Agent", shown, options, out _,
+            UiControls.Select(targetRect, "Agent", shown, options, out _,
                 canChoose ? "Choose the mailbox recipient." : "No agents are available.",
                 canChoose);
 
-            y = targetRect.yMax + UiWidgets.GapM;
-            GUI.color = UiWidgets.Name;
-            UiWidgets.RowLabel(new Rect(rect.x, y, rect.width, UiWidgets.LineH), "Task");
+            y = targetRect.yMax + UiTheme.GapM;
+            GUI.color = UiTheme.Name;
+            UiText.RowLabel(new Rect(rect.x, y, rect.width, UiTheme.LineH), "Task");
             GUI.color = Color.white;
-            y += UiWidgets.LineH + UiWidgets.GapXS;
+            y += UiTheme.LineH + UiTheme.GapXS;
 
-            float footerY = rect.yMax - UiWidgets.BtnH;
-            float errorH = string.IsNullOrEmpty(_error) ? 0f : UiWidgets.RowH;
-            float areaH = Mathf.Max(72f, footerY - y - UiWidgets.GapS - errorH);
-            _body = UiWidgets.Area(new Rect(rect.x, y, rect.width, areaH),
+            float footerY = rect.yMax - UiTheme.BtnH;
+            float errorH = string.IsNullOrEmpty(_error) ? 0f : UiTheme.RowH;
+            float areaH = Mathf.Max(72f, footerY - y - UiTheme.GapS - errorH);
+            _body = UiText.Area(new Rect(rect.x, y, rect.width, areaH),
                 "delegate.task", _body, !_sending);
 
             if (!string.IsNullOrEmpty(_error))
             {
-                GUI.color = UiWidgets.Bad;
-                UiWidgets.RowLabel(new Rect(rect.x, y + areaH + UiWidgets.GapXS,
+                GUI.color = UiTheme.Bad;
+                UiText.RowLabel(new Rect(rect.x, y + areaH + UiTheme.GapXS,
                     rect.width, errorH), _error);
                 GUI.color = Color.white;
             }
 
-            var foot = new UiWidgets.Bar(UiWidgets.FooterBar(rect));
-            if (foot.Left("Cancel", UiWidgets.Btn.Ghost, !_sending)) Close();
+            var foot = new UiLayout.Bar(UiLayout.FooterBar(rect));
+            if (foot.Left("Cancel", UiTheme.Btn.Ghost, !_sending)) Close();
 
             bool ready = canChoose && !string.IsNullOrEmpty(_to) &&
                 !string.IsNullOrWhiteSpace(_body) && !_sending;
-            if (foot.Right("Delegate", UiWidgets.Btn.Primary, ready)) Send();
+            if (foot.Right("Delegate", UiTheme.Btn.Primary, ready)) Send();
         }
 
         string AgentLabel(string name)

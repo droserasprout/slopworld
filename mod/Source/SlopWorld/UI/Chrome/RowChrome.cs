@@ -38,10 +38,10 @@ namespace SlopWorld
                                RowSelectionStyle selectionStyle)
         {
             if (selected) Slab.Fill(rect, selectionStyle == RowSelectionStyle.Palette
-                ? UiWidgets.Sel
+                ? UiTheme.Sel
                 : selectionStyle == RowSelectionStyle.Hover
-                    ? UiWidgets.Hover : UiWidgets.RowOn);
-            if (over) Slab.Fill(rect, UiWidgets.Hover);
+                    ? UiTheme.Hover : UiTheme.RowOn);
+            if (over) Slab.Fill(rect, UiTheme.Hover);
             return over;
         }
 

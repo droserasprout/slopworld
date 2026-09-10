@@ -132,10 +132,10 @@ namespace SlopWorld
         }
 
         // The bar has clear air either side instead of filling its reserved gutter. Every
-        // caller reserves [UiWidgets.ScrollbarW], so the narrow steel track lines up across
+        // caller reserves [UiTheme.ScrollbarW], so the narrow steel track lines up across
         // windows, trees and menus.
-        const float BarW = UiWidgets.ScrollTrackW;
-        const float ThumbPad = UiWidgets.ScrollThumbInset;
+        const float BarW = UiTheme.ScrollTrackW;
+        const float ThumbPad = UiTheme.ScrollThumbInset;
 
         // Short enough to be a handle on a very long list, long enough to still be one.
         const float MinThumb = 24f;
@@ -180,10 +180,10 @@ namespace SlopWorld
             }
 
             bool held = GUIUtility.hotControl == id;
-            Slab.Fill(track, UiWidgets.ScrollTrough);
+            Slab.Fill(track, UiTheme.ScrollTrough);
             Slab.Fill(ThumbRect(track, h),
-                held ? UiWidgets.ScrollThumbHeld : Mouse.IsOver(track)
-                    ? UiWidgets.ScrollThumbHover : UiWidgets.ScrollThumb);
+                held ? UiTheme.ScrollThumbHeld : Mouse.IsOver(track)
+                    ? UiTheme.ScrollThumbHover : UiTheme.ScrollThumb);
         }
 
         float ThumbH(Rect track) =>

@@ -15,19 +15,19 @@ namespace SlopWorld
         void DrawGeneral(Listing_Standard l)
         {
             l.Label("Name (also the colonist's name)");
-            _s.Name = UiWidgets.Field(l, "agent.name", _s.Name);
+            _s.Name = UiControls.Field(l, "agent.name", _s.Name);
 
             var projectOptions = SessionHub.Instance.Projects
                 .Select(p => new SelectorOption($"{p.Name}  -  {p.Dir}",
                     () => _s.Project = p.Name)).ToList();
             projectOptions.Add(new SelectorOption("New project...",
                 () => Find.WindowStack.Add(new EditProjectDialog(null))));
-            UiWidgets.Select(l, "Project (the directory and sandbox it works in)",
+            UiControls.Select(l, "Project (the directory and sandbox it works in)",
                 string.IsNullOrEmpty(_s.Project) ? "Pick a project..." : _s.Project,
                 projectOptions, out _);
 
             var project = SessionHub.Instance.Project(_s.Project);
-            GUI.color = UiWidgets.Dim;
+            GUI.color = UiTheme.Dim;
             l.Label(project != null
                 ? $"{project.Dir}  ({ProjectsView.Summary(project)})"
                 : SessionHub.Instance.Projects.Count == 0
@@ -38,24 +38,24 @@ namespace SlopWorld
             string commandName = string.IsNullOrEmpty(_s.Command) ? _s.CommandPreset : _s.Command;
             var preset = SessionHub.Instance.Command(commandName);
 
-            l.Gap(UiWidgets.GapS);
-            UiWidgets.Select(l, "Command", CommandLabel(preset), CommandOptions(), out _);
+            l.Gap(UiTheme.GapS);
+            UiControls.Select(l, "Command", CommandLabel(preset), CommandOptions(), out _);
 
             // Editable whichever it is: a preset says what an agent is, and this box says
             // what this one runs, which is the same field either way.
-            _s.Cmd = UiWidgets.Field(l, "agent.cmd", _s.Cmd ?? "");
-            GUI.color = UiWidgets.Dim;
+            _s.Cmd = UiControls.Field(l, "agent.cmd", _s.Cmd ?? "");
+            GUI.color = UiTheme.Dim;
             l.Label(CommandNote(preset));
             GUI.color = Color.white;
 
-            l.Gap(UiWidgets.GapS);
-            _s.Autostart = UiWidgets.Checkbox(l, "Start with the daemon", _s.Autostart);
-            _s.AutoResume = UiWidgets.Checkbox(l, "Auto-resume last conversation", _s.AutoResume,
+            l.Gap(UiTheme.GapS);
+            _s.Autostart = UiControls.Checkbox(l, "Start with the daemon", _s.Autostart);
+            _s.AutoResume = UiControls.Checkbox(l, "Auto-resume last conversation", _s.AutoResume,
                 "After startup settles, send /resume and choose the latest conversation.");
-            _s.SlopworldMd = UiWidgets.Checkbox(l, "Mount SLOPWORLD.md", _s.SlopworldMd,
+            _s.SlopworldMd = UiControls.Checkbox(l, "Mount SLOPWORLD.md", _s.SlopworldMd,
                 "Mount generated runtime context read-only at the Instructions mount path. Requires instructions in Settings > General.",
                 locked: !SessionHub.Instance.Config.ExperimentalInstructions);
-            _s.PersistentTmp = UiWidgets.Checkbox(l, "Persistent /tmp", _s.PersistentTmp,
+            _s.PersistentTmp = UiControls.Checkbox(l, "Persistent /tmp", _s.PersistentTmp,
                 "Keep this agent's /tmp across restarts in its private state. Resetting private state gives it a fresh /tmp.");
 
         }
@@ -64,29 +64,29 @@ namespace SlopWorld
         {
             var projects = SessionHub.Instance.Projects;
 
-            GUI.color = UiWidgets.Dim;
-            var hint = new Rect(rect.x, rect.y, rect.width, UiWidgets.LineH);
-            UiWidgets.RowLabel(hint,
+            GUI.color = UiTheme.Dim;
+            var hint = new Rect(rect.x, rect.y, rect.width, UiTheme.LineH);
+            UiText.RowLabel(hint,
                 "Mount other project directories into /mnt/<name>. The agent's own project is always mounted.");
             GUI.color = Color.white;
 
-            float y = hint.yMax + UiWidgets.GapS;
+            float y = hint.yMax + UiTheme.GapS;
 
             if (projects.Count == 0)
             {
-                GUI.color = UiWidgets.Dim;
-                UiWidgets.RowLabel(new Rect(rect.x, y, rect.width, UiWidgets.LineH),
+                GUI.color = UiTheme.Dim;
+                UiText.RowLabel(new Rect(rect.x, y, rect.width, UiTheme.LineH),
                     "No projects defined.");
                 GUI.color = Color.white;
                 return;
             }
 
-            float rowH = UiWidgets.RowH;
+            float rowH = UiTheme.RowH;
             float listH = projects.Count * rowH;
             var listRect = new Rect(rect.x, y, rect.width, Mathf.Max(0f, rect.yMax - y));
-            Slab.Box(listRect, UiWidgets.Well, UiWidgets.Edge);
-            var pad = listRect.ContractedBy(UiWidgets.ListInset);
-            var inner = new Rect(0f, 0f, pad.width - UiWidgets.ScrollbarW, listH);
+            Slab.Box(listRect, UiTheme.Well, UiTheme.Edge);
+            var pad = listRect.ContractedBy(UiTheme.ListInset);
+            var inner = new Rect(0f, 0f, pad.width - UiTheme.ScrollbarW, listH);
 
             using (_mountsScroll.Scope(pad, inner))
             {
@@ -102,16 +102,16 @@ namespace SlopWorld
                         ? (mount?.Mode ?? MountMode.Rw)
                         : (mount?.Mode ?? MountMode.None);
 
-                    float labelW = row.width - MountButtonWidth - UiWidgets.GapS;
-                    GUI.color = isPrimary ? UiWidgets.Lead : UiWidgets.Name;
-                    UiWidgets.RowLabel(new Rect(row.x + UiWidgets.GapS, row.y, labelW, row.height),
+                    float labelW = row.width - MountButtonWidth - UiTheme.GapS;
+                    GUI.color = isPrimary ? UiTheme.Lead : UiTheme.Name;
+                    UiText.RowLabel(new Rect(row.x + UiTheme.GapS, row.y, labelW, row.height),
                         isPrimary ? p.Name + "  (primary)" : p.Name);
                     GUI.color = Color.white;
 
                     var btnRect = new Rect(row.xMax - MountButtonWidth, row.y,
                         MountButtonWidth, row.height);
-                    if (UiWidgets.Button(btnRect, MountEntry.ModeLabel(mode),
-                            isPrimary ? UiWidgets.Btn.Default : UiWidgets.Btn.Ghost))
+                    if (UiButtons.Button(btnRect, MountEntry.ModeLabel(mode),
+                            isPrimary ? UiTheme.Btn.Default : UiTheme.Btn.Ghost))
                         PickMountMode(p.Name, isPrimary);
                 }
             }
@@ -153,7 +153,7 @@ namespace SlopWorld
             string commandName = string.IsNullOrEmpty(_s.Command) ? _s.CommandPreset : _s.Command;
             var preset = SessionHub.Instance.Command(commandName);
 
-            return DrawExtraPresets(rect, y + UiWidgets.GapL, project, preset, availableHeight);
+            return DrawExtraPresets(rect, y + UiTheme.GapL, project, preset, availableHeight);
         }
 
         void DrawNetworkFields(Listing_Standard l, ProjectInfo project)
@@ -171,16 +171,16 @@ namespace SlopWorld
             networkOptions.AddRange(new[] { NetworkMode.None, NetworkMode.Private, NetworkMode.Host }
                 .Select(mode => new SelectorOption(NetworkModeText.Label(mode),
                     () => _s.NetworkOverride = mode)));
-            UiWidgets.Select(l, "Network", networkLabel, networkOptions, out _);
-            GUI.color = UiWidgets.Dim;
+            UiControls.Select(l, "Network", networkLabel, networkOptions, out _);
+            GUI.color = UiTheme.Dim;
             l.Label("The project sets the default; this agent can use any network mode.");
             GUI.color = Color.white;
 
-            l.Gap(UiWidgets.GapS);
+            l.Gap(UiTheme.GapS);
             string dnsLabel = _s.DnsOverride == null
                 ? "Inherit project (" + inheritedDns.Label + ")"
                 : _s.DnsOverride.Label;
-            UiWidgets.Select(l, "DNS", dnsLabel, new[]
+            UiControls.Select(l, "DNS", dnsLabel, new[]
             {
                 new SelectorOption("Inherit project (" + inheritedDns.Label + ")",
                     () => _s.DnsOverride = null),
@@ -193,14 +193,14 @@ namespace SlopWorld
             }, out _);
             if (_s.DnsOverride?.Mode == DnsMode.Servers)
             {
-                _dnsServers = UiWidgets.Field(l, "agent.dns", _dnsServers ?? "");
-                GUI.color = UiWidgets.Dim;
+                _dnsServers = UiControls.Field(l, "agent.dns", _dnsServers ?? "");
+                GUI.color = UiTheme.Dim;
                 l.Label("Comma-separated IPv4 addresses; maximum two. Changes apply on restart.");
                 GUI.color = Color.white;
             }
             else
             {
-                GUI.color = UiWidgets.Dim;
+                GUI.color = UiTheme.Dim;
                 l.Label("System resolver follows the daemon's current resolv.conf.");
                 GUI.color = Color.white;
             }
@@ -209,16 +209,16 @@ namespace SlopWorld
         float DrawExtraPresets(Rect rect, float y, ProjectInfo project, CommandInfo preset,
             float availableHeight)
         {
-            UiWidgets.SectionHeading(new Rect(rect.x, y, rect.width, UiWidgets.RowH),
+            UiLayout.SectionHeading(new Rect(rect.x, y, rect.width, UiTheme.RowH),
                 "Extra sandbox presets");
-            y += UiWidgets.RowH + UiWidgets.GapXS;
+            y += UiTheme.RowH + UiTheme.GapXS;
 
             var inheritedPresets = new List<string>();
             if (preset != null) inheritedPresets.AddRange(preset.Sandbox);
             if (project != null) inheritedPresets.AddRange(project.Sandbox);
             // Size from the viewport, not the previous scroll content height, to avoid
             // growing the content on every layout pass.
-            float height = Mathf.Max(PresetsH, rect.y + availableHeight - y - UiWidgets.GapS);
+            float height = Mathf.Max(PresetsH, rect.y + availableHeight - y - UiTheme.GapS);
             PresetList.Draw(new Rect(rect.x, y, rect.width, height), _s.Sandbox,
                 _presetScroll, inheritedPresets);
             return y + height;
@@ -230,24 +230,24 @@ namespace SlopWorld
         {
             if (!SessionHub.Instance.Capabilities.PerSessionLimits)
             {
-                UiWidgets.Note(l,
+                UiLayout.Note(l,
                     "slopcar has one outer CPU, memory and process budget. Per-agent limits " +
                     "need delegated cgroups and are unavailable in this runtime.");
                 return;
             }
 
-            GUI.color = UiWidgets.Dim;
+            GUI.color = UiTheme.Dim;
             l.Label("Blank means no cap. An unset field inherits the project, then the host.");
             GUI.color = Color.white;
 
             l.Label("Memory (MiB)");
-            _limMem = UiWidgets.Field(l, "agent.lim.mem", _limMem ?? "");
+            _limMem = UiControls.Field(l, "agent.lim.mem", _limMem ?? "");
             l.Label("Max processes and threads");
-            _limPids = UiWidgets.Field(l, "agent.lim.pids", _limPids ?? "");
+            _limPids = UiControls.Field(l, "agent.lim.pids", _limPids ?? "");
             l.Label("Open files per process");
-            _limNofile = UiWidgets.Field(l, "agent.lim.nofile", _limNofile ?? "");
+            _limNofile = UiControls.Field(l, "agent.lim.nofile", _limNofile ?? "");
             l.Label("CPU (% of one core)");
-            _limCpu = UiWidgets.Field(l, "agent.lim.cpu", _limCpu ?? "");
+            _limCpu = UiControls.Field(l, "agent.lim.cpu", _limCpu ?? "");
 
             // Mirror the buffers into the model as they are typed, leniently, so the Preview tab
             // reflects them; Save reparses strictly and reports a typo rather than dropping it.
@@ -272,12 +272,12 @@ namespace SlopWorld
             bool breadcrumbs = config.ExperimentalBreadcrumbs;
             bool instructions = config.ExperimentalInstructions;
             float y = rect.y;
-            _s.BreadcrumbYolo = UiWidgets.Checkbox(
-                new Rect(rect.x, rect.y, rect.width, UiWidgets.RowH),
+            _s.BreadcrumbYolo = UiControls.Checkbox(
+                new Rect(rect.x, rect.y, rect.width, UiTheme.RowH),
                 "YOLO breadcrumbs", _s.BreadcrumbYolo,
                 "Hijack the first Enter after startup and paste every enabled breadcrumb before it. Requires breadcrumbs in Settings > General.",
                 locked: !breadcrumbs);
-            y += UiWidgets.RowH + UiWidgets.GapXS;
+            y += UiTheme.RowH + UiTheme.GapXS;
             var projectBreadcrumbs = SessionHub.Instance.Project(_s.Project)?.Breadcrumbs;
             BreadcrumbList.Draw(new Rect(rect.x, y, rect.width, Mathf.Max(0f, rect.yMax - y)),
                 _s.Breadcrumbs, _breadcrumbScroll, projectBreadcrumbs,
@@ -323,7 +323,7 @@ namespace SlopWorld
                     _s.Cmd = "";
                     DaemonClient.Get(WireContract.Routes.Config,
                         j => _s.CommandPreset = j["values"]["defaults"]["agent"].AsString("claude"),
-                        UiWidgets.Fail);
+                        UiLayout.Fail);
                 }),
             };
 
@@ -352,7 +352,7 @@ namespace SlopWorld
                 value = n;
                 return true;
             }
-            UiWidgets.Fail($"{label} must be a whole number of at least 1, or blank for no cap");
+            UiLayout.Fail($"{label} must be a whole number of at least 1, or blank for no cap");
             return false;
         }
 

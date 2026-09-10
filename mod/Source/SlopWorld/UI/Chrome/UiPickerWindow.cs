@@ -27,8 +27,8 @@ namespace SlopWorld
                 Frame = frame;
                 View = view;
                 Columns = columns;
-                Cell = UiWidgets.PickerCell;
-                IconSize = UiWidgets.PickerIcon;
+                Cell = UiTheme.PickerCell;
+                IconSize = UiTheme.PickerIcon;
             }
         }
 
@@ -37,8 +37,8 @@ namespace SlopWorld
                                 Action<Grid> drawGrid, float titleGap = -1f,
                                 float bottomGap = -1f)
         {
-            if (titleGap < 0f) titleGap = UiWidgets.GapS;
-            if (bottomGap < 0f) bottomGap = UiWidgets.GapS;
+            if (titleGap < 0f) titleGap = UiTheme.GapS;
+            if (bottomGap < 0f) bottomGap = UiTheme.GapS;
             var window = Place(page, width, height);
             Find.WindowStack.ImmediateWindow(id, window, WindowLayer.Super,
                 () => DrawContents(width, height, title, close, count, scroll, drawGrid,
@@ -56,8 +56,8 @@ namespace SlopWorld
 
         static float ClampStart(float start, float pageStart, float pageEnd, float size)
         {
-            float min = pageStart + UiWidgets.GapS;
-            float max = pageEnd - UiWidgets.GapS - size;
+            float min = pageStart + UiTheme.GapS;
+            float max = pageEnd - UiTheme.GapS - size;
             // A picker can be wider or taller than a narrow settings page. In that case no
             // placement fits both edges; anchor it to the page's leading inset rather than
             // letting the ordinary clamp produce an inverted range.
@@ -72,18 +72,18 @@ namespace SlopWorld
             using (WidgetState.Save())
             {
                 var r = new Rect(0f, 0f, width, height);
-                Slab.Box(r, UiWidgets.PopoverBg, UiWidgets.Edge);
+                Slab.Box(r, UiTheme.PopoverBg, UiTheme.Edge);
 
                 Text.Font = GameFont.Small;
-                GUI.color = UiWidgets.Lead;
-                UiWidgets.RowLabel(new Rect(r.x + UiWidgets.GapS, r.y + UiWidgets.GapXS,
-                    r.width - TitleWidthInset, UiWidgets.LineH), title);
+                GUI.color = UiTheme.Lead;
+                UiText.RowLabel(new Rect(r.x + UiTheme.GapS, r.y + UiTheme.GapXS,
+                    r.width - TitleWidthInset, UiTheme.LineH), title);
                 GUI.color = Color.white;
 
-                if (UiWidgets.Button(
+                if (UiButtons.Button(
                         new Rect(r.width - CloseButtonRightInset, r.y + CloseButtonTopInset,
-                            CloseButtonWidth, UiWidgets.RowBtnH),
-                        "X", UiWidgets.Btn.Ghost))
+                            CloseButtonWidth, UiTheme.RowBtnH),
+                        "X", UiTheme.Btn.Ghost))
                     close?.Invoke();
 
                 var grid = Layout(r, count, titleGap, bottomGap);
@@ -94,10 +94,10 @@ namespace SlopWorld
 
         static Grid Layout(Rect r, int count, float titleGap, float bottomGap)
         {
-            float cell = UiWidgets.PickerCell;
-            float gridTop = r.y + UiWidgets.GapXS + UiWidgets.LineH + titleGap;
+            float cell = UiTheme.PickerCell;
+            float gridTop = r.y + UiTheme.GapXS + UiTheme.LineH + titleGap;
             float gridH = r.height - gridTop - bottomGap;
-            float availableW = r.width - UiWidgets.GapM;
+            float availableW = r.width - UiTheme.GapM;
             int columns = Mathf.Max(1, Mathf.FloorToInt(availableW / cell));
             int rows = Mathf.CeilToInt(count / (float)columns);
             float totalH = rows * cell;
@@ -107,13 +107,13 @@ namespace SlopWorld
                 // The scrollbar is drawn beside the view, inside the frame. Keep its
                 // reserve out of the cell grid rather than letting it cover the last cell.
                 columns = Mathf.Max(1, Mathf.FloorToInt(
-                    (availableW - UiWidgets.ScrollbarW) / cell));
+                    (availableW - UiTheme.ScrollbarW) / cell));
                 rows = Mathf.CeilToInt(count / (float)columns);
                 totalH = rows * cell;
             }
 
             float contentW = columns * cell;
-            float frameW = contentW + (scrolls ? UiWidgets.ScrollbarW : 0f);
+            float frameW = contentW + (scrolls ? UiTheme.ScrollbarW : 0f);
             var frame = new Rect(r.x + (r.width - frameW) / 2f, gridTop, frameW, gridH);
             var view = new Rect(0f, 0f, contentW, Mathf.Max(totalH, gridH));
             return new Grid(frame, view, columns);

@@ -55,8 +55,8 @@ namespace SlopWorld
 
             if (!_loaded && !DrawFieldsBeforeLoad && (!DrawFieldsWhenOffline || _cfg == null))
             {
-                UiWidgets.StatusLabel(inner, _error ?? "Waiting for the daemon...",
-                    _error != null ? UiWidgets.Bad : UiWidgets.Dim);
+                UiText.StatusLabel(inner, _error ?? "Waiting for the daemon...",
+                    _error != null ? UiTheme.Bad : UiTheme.Dim);
             }
             else
             {
@@ -74,18 +74,18 @@ namespace SlopWorld
 
         void DrawFooter(Rect bar)
         {
-            var foot = new UiWidgets.Bar(bar);
-            if (foot.Left("Reload", UiWidgets.Btn.Ghost, !_configState.Saving)) Load();
-            if (ShowEditButton && foot.Left("Edit", UiWidgets.Btn.Ghost,
+            var foot = new UiLayout.Bar(bar);
+            if (foot.Left("Reload", UiTheme.Btn.Ghost, !_configState.Saving)) Load();
+            if (ShowEditButton && foot.Left("Edit", UiTheme.Btn.Ghost,
                     _loaded && !string.IsNullOrEmpty(_path)))
                 FilesView.EditFile(null, _path, "edit-config.toml");
-            if (ShowSaveButton && foot.Right("Save", UiWidgets.Btn.Primary,
+            if (ShowSaveButton && foot.Right("Save", UiTheme.Btn.Primary,
                     _loaded && !_configState.Saving)) Save();
 
             if (_error != null && _loaded)
             {
-                GUI.color = UiWidgets.Bad;
-                UiWidgets.RowLabel(foot.Rest(), _error);
+                GUI.color = UiTheme.Bad;
+                UiText.RowLabel(foot.Rest(), _error);
                 GUI.color = Color.white;
             }
         }

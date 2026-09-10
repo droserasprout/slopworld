@@ -31,12 +31,12 @@ namespace SlopWorld
                                 Action<UiMenu> openMenu = null)
         {
             var options = (source ?? Enumerable.Empty<FloatMenuOption>()).ToList();
-            bool pressed = UiWidgets.Select(rect, caption, value, out box, tip, enabled,
+            bool pressed = UiControls.Select(rect, caption, value, out box, tip, enabled,
                 open, UiMenu.WidthFor(new[] { value }.Concat(
                     options.Select(option => option.Label))));
             if (!pressed) return false;
 
-            var popup = new UiMenu(options, UiWidgets.MenuAt(box), selector: true);
+            var popup = new UiMenu(options, UiControls.MenuAt(box), selector: true);
             if (openMenu != null) openMenu(popup);
             else Find.WindowStack.Add(popup);
             return true;
@@ -48,7 +48,7 @@ namespace SlopWorld
                                 Action<UiMenu> openMenu = null)
         {
             var options = (source ?? Enumerable.Empty<SelectorOption>()).ToList();
-            bool pressed = UiWidgets.Select(rect, caption, value, out box, tip, enabled,
+            bool pressed = UiControls.Select(rect, caption, value, out box, tip, enabled,
                 open, UiMenu.WidthFor(new[] { value }.Concat(
                     options.Select(option => option.Label))));
             if (!pressed) return false;
@@ -59,7 +59,7 @@ namespace SlopWorld
                 item.Disabled = !option.Enabled;
                 return item;
             }).ToList();
-            var popup = new UiMenu(menu, UiWidgets.MenuAt(box), selector: true);
+            var popup = new UiMenu(menu, UiControls.MenuAt(box), selector: true);
             if (openMenu != null) openMenu(popup);
             else Find.WindowStack.Add(popup);
             return true;
@@ -70,11 +70,11 @@ namespace SlopWorld
                                 string tip = null, bool enabled = true, bool open = false,
                                 Action<UiMenu> openMenu = null)
         {
-            var rect = listing.GetRect(UiWidgets.LineH + UiWidgets.GapXS +
-                UiWidgets.CompactH);
+            var rect = listing.GetRect(UiTheme.LineH + UiTheme.GapXS +
+                UiTheme.CompactH);
             bool pressed = Draw(rect, caption, value, source, out box, tip, enabled, open,
                 openMenu);
-            listing.Gap(UiWidgets.GapS);
+            listing.Gap(UiTheme.GapS);
             return pressed;
         }
 
@@ -83,11 +83,11 @@ namespace SlopWorld
                                 string tip = null, bool enabled = true, bool open = false,
                                 Action<UiMenu> openMenu = null)
         {
-            var rect = listing.GetRect(UiWidgets.LineH + UiWidgets.GapXS +
-                UiWidgets.CompactH);
+            var rect = listing.GetRect(UiTheme.LineH + UiTheme.GapXS +
+                UiTheme.CompactH);
             bool pressed = Draw(rect, caption, value, source, out box, tip, enabled, open,
                 openMenu);
-            listing.Gap(UiWidgets.GapS);
+            listing.Gap(UiTheme.GapS);
             return pressed;
         }
     }

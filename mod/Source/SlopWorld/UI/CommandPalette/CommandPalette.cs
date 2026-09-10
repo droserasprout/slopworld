@@ -12,15 +12,15 @@ namespace SlopWorld
     {
         const float Width = 520f;
         const float MaxH = 440f;
-        static float Pad => UiWidgets.GapS;
+        static float Pad => UiTheme.GapS;
 
         // The three heights this list is built from, off the font rather than written down:
         // an input is a field, a row is a line with room round it, and a group heading is a
         // tiny line. A figure here holds only for the face it was set against, and a row
         // shorter than its line loses the top and bottom of every label in the palette.
-        static float InputH => UiWidgets.FieldH;
-        static float RowH => UiWidgets.PaletteRowH;
-        static float GroupH => UiWidgets.TinyRowH;
+        static float InputH => UiTheme.FieldH;
+        static float RowH => UiTheme.PaletteRowH;
+        static float GroupH => UiTheme.TinyRowH;
         const int RecentMax = 8;
         // What a hit found only in a command's id is docked, the name being what is read.
         const int IdCost = 80;

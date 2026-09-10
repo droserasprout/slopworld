@@ -36,19 +36,19 @@ namespace SlopWorld
             if (note.Length > 0)
             {
                 _noteRanges.AddRange(WrappedRanges(note, TextWidth(width)));
-                _noteHeight = UiWidgets.GapM + MessageCardHeight(_noteRanges.Count);
+                _noteHeight = UiTheme.GapM + MessageCardHeight(_noteRanges.Count);
             }
 
             _selectionLines.Clear();
-            float bodyY = UiWidgets.TinyRowH + UiWidgets.GapS;
-            float textY = bodyY + UiWidgets.FieldPadY +
-                UiWidgets.LineHOf(GameFont.Tiny) + UiWidgets.GapXS;
+            float bodyY = UiTheme.TinyRowH + UiTheme.GapS;
+            float textY = bodyY + UiTheme.FieldPadY +
+                UiTheme.LineHOf(GameFont.Tiny) + UiTheme.GapXS;
             CollectSelectableText(body, MessageTextX, textY, _bodyRanges, 0);
             if (note.Length > 0)
             {
-                float noteY = bodyY + _bodyHeight + UiWidgets.GapM;
-                textY = noteY + UiWidgets.FieldPadY +
-                    UiWidgets.LineHOf(GameFont.Tiny) + UiWidgets.GapXS;
+                float noteY = bodyY + _bodyHeight + UiTheme.GapM;
+                textY = noteY + UiTheme.FieldPadY +
+                    UiTheme.LineHOf(GameFont.Tiny) + UiTheme.GapXS;
                 CollectSelectableText(note, MessageTextX, textY, _noteRanges,
                     body.Length + 2);
             }
@@ -56,7 +56,7 @@ namespace SlopWorld
 
         static float TextWidth(float width)
         {
-            return Mathf.Max(1f, width - MessageTextX - UiWidgets.FieldPadX);
+            return Mathf.Max(1f, width - MessageTextX - UiTheme.FieldPadX);
         }
 
         List<TextRange> WrappedRanges(string text, float width)
@@ -139,7 +139,7 @@ namespace SlopWorld
                                    List<TextRange> ranges, int sourceOffset)
         {
             text = text ?? "";
-            float lineH = UiWidgets.LineHOf(GameFont.Small);
+            float lineH = UiTheme.LineHOf(GameFont.Small);
             var wasFont = Text.Font;
             var wasWrap = Text.WordWrap;
             try

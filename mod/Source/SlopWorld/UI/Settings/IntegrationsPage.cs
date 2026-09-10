@@ -11,26 +11,26 @@ namespace SlopWorld
 
         protected override void DrawFields(Listing_Standard l)
         {
-            UiWidgets.SectionHeading(l, "Anthropic");
+            UiLayout.SectionHeading(l, "Anthropic");
             l.Label("Credentials file");
-            _cfg.ClaudeCredentials = UiWidgets.Field(l, "integrations.anthropic.credentials",
+            _cfg.ClaudeCredentials = UiControls.Field(l, "integrations.anthropic.credentials",
                 _cfg.ClaudeCredentials, defaultValue: WireContract.DefaultClaudeCredentials);
 
-            l.Gap(UiWidgets.GapL);
-            UiWidgets.SectionHeading(l, "OpenRouter");
+            l.Gap(UiTheme.GapL);
+            UiLayout.SectionHeading(l, "OpenRouter");
             l.Label("Key file");
-            _cfg.OpenrouterKeyFile = UiWidgets.Field(l, "integrations.openrouter.key",
+            _cfg.OpenrouterKeyFile = UiControls.Field(l, "integrations.openrouter.key",
                 _cfg.OpenrouterKeyFile, defaultValue: "");
-            UiWidgets.Note(l, "Blank uses $OPENROUTER_API_KEY. The key stays on the host.");
+            UiLayout.Note(l, "Blank uses $OPENROUTER_API_KEY. The key stays on the host.");
 
-            l.Gap(UiWidgets.GapL);
-            UiWidgets.SectionHeading(l, "OpenAI / Codex");
+            l.Gap(UiTheme.GapL);
+            UiLayout.SectionHeading(l, "OpenAI / Codex");
             l.Label("Credentials file");
-            _cfg.OpenaiCredentials = UiWidgets.Field(l, "integrations.openai.credentials",
+            _cfg.OpenaiCredentials = UiControls.Field(l, "integrations.openai.credentials",
                 _cfg.OpenaiCredentials, defaultValue: WireContract.DefaultOpenaiCredentials);
 
-            l.Gap(UiWidgets.GapL);
-            UiWidgets.Note(l, "Credential files stay on the host.");
+            l.Gap(UiTheme.GapL);
+            UiLayout.Note(l, "Credential files stay on the host.");
         }
     }
 }

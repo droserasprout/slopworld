@@ -7,10 +7,10 @@ namespace SlopWorld
     public static class SettingsPageLayout
     {
         public static Rect Body(Rect page, bool footer = true) => ToRect(SettingsLayout.Body(
-            FromRect(page), UiWidgets.GapM, footer ? UiWidgets.BtnH : 0f, UiWidgets.GapS));
+            FromRect(page), UiTheme.GapM, footer ? UiTheme.BtnH : 0f, UiTheme.GapS));
 
         public static Rect Footer(Rect page) =>
-            ToRect(SettingsLayout.Footer(FromRect(page), UiWidgets.BtnH));
+            ToRect(SettingsLayout.Footer(FromRect(page), UiTheme.BtnH));
 
         public static Rect Inset(Rect rect, float padding) =>
             ToRect(SettingsLayout.Inset(FromRect(rect), padding));

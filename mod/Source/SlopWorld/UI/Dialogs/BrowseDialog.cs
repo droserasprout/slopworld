@@ -19,7 +19,7 @@ namespace SlopWorld
 
         // One row and the clearance under it, so the list has a pitch rather than two figures
         // four pixels apart written at three call sites.
-        static float Pitch => UiWidgets.RowH + UiWidgets.GapXS;
+        static float Pitch => UiTheme.RowH + UiTheme.GapXS;
 
         public BrowseDialog(string start, System.Action<string> pick)
         {
@@ -62,7 +62,7 @@ namespace SlopWorld
                     if (!_operations.IsCurrent(generation)) return;
                     _pending = false;
                     _error = msg;
-                    UiWidgets.Fail(msg);
+                    UiLayout.Fail(msg);
                 });
         }
 
@@ -75,14 +75,14 @@ namespace SlopWorld
 
         protected override void DoBody(Rect rect)
         {
-            UiWidgets.PageCaption(TitleRect(rect), _path ?? (_pending ? "loading..." :
+            UiLayout.PageCaption(TitleRect(rect), _path ?? (_pending ? "loading..." :
                 _error ?? "no directory selected"));
 
-            float top = rect.y + UiWidgets.RowH + UiWidgets.GapXS;
+            float top = rect.y + UiTheme.RowH + UiTheme.GapXS;
             var list = new Rect(rect.x, top, rect.width,
-                rect.yMax - UiWidgets.BtnH - UiWidgets.GapS - top);
+                rect.yMax - UiTheme.BtnH - UiTheme.GapS - top);
             int count = _pending ? 0 : _dirs.Length + (_parent != null ? 1 : 0);
-            var view = new Rect(0f, 0f, list.width - UiWidgets.ScrollbarW, count * Pitch);
+            var view = new Rect(0f, 0f, list.width - UiTheme.ScrollbarW, count * Pitch);
 
             using (_scroll.Scope(list, view))
             {
@@ -91,16 +91,16 @@ namespace SlopWorld
                 {
                     // Ghost the whole way down: forty directories in forty raised slabs is a wall
                     // of buttons, and what this is is a list that answers to a click.
-                    if (UiWidgets.Button(new Rect(0f, y, view.width, UiWidgets.RowH), "..",
-                            UiWidgets.Btn.Ghost))
+                    if (UiButtons.Button(new Rect(0f, y, view.width, UiTheme.RowH), "..",
+                            UiTheme.Btn.Ghost))
                         Load(_parent);
                     y += Pitch;
                 }
 
                 if (!_pending) foreach (var d in _dirs)
                     {
-                        if (UiWidgets.Button(new Rect(0f, y, view.width, UiWidgets.RowH), d,
-                                UiWidgets.Btn.Ghost))
+                        if (UiButtons.Button(new Rect(0f, y, view.width, UiTheme.RowH), d,
+                                UiTheme.Btn.Ghost))
                         {
                             Load(System.IO.Path.Combine(_path ?? "", d).Replace('\\', '/'));
                             break; // _dirs is about to be replaced under us
@@ -109,8 +109,8 @@ namespace SlopWorld
                     }
             }
 
-            if (UiWidgets.Button(UiWidgets.FooterBar(rect),
-                    "Use this directory", UiWidgets.Btn.Primary, !_pending && _path != null))
+            if (UiButtons.Button(UiLayout.FooterBar(rect),
+                    "Use this directory", UiTheme.Btn.Primary, !_pending && _path != null))
                 UseCurrent();
         }
 

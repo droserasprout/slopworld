@@ -21,7 +21,7 @@ namespace SlopWorld
             {
                 float strength = 0.12f + 0.12f * i;
                 Slab.Fill(new Rect(add.x, add.y - Height + i * band, Width, band),
-                    UiWidgets.Fade(UiWidgets.Scrim, strength));
+                    UiTheme.Fade(UiTheme.Scrim, strength));
             }
         }
 
@@ -32,15 +32,15 @@ namespace SlopWorld
             // press, but the pointer is still visibly over the control that opened it.
             bool over = ColonistBarStrip.MouseOver(AddHitBar);
 
-            Slab.Fill(r, over ? UiWidgets.Hover : UiWidgets.Panel);
+            Slab.Fill(r, over ? UiTheme.Hover : UiTheme.Panel);
             TooltipHandler.TipRegion(r,
                 "Add a project, an agent, a library item, a sandbox preset, a command or a host shell");
-            Slab.Hairline(new Rect(r.x, r.y, r.width, 1f), UiWidgets.Edge);
+            Slab.Hairline(new Rect(r.x, r.y, r.width, 1f), UiTheme.Edge);
 
             float d = AddIcon;
             if (Event.current.type == EventType.Repaint)
             {
-                GUI.color = over ? Color.white : UiWidgets.Lead;
+                GUI.color = over ? Color.white : UiTheme.Lead;
                 GUI.DrawTexture(
                     new Rect(r.center.x - d / 2f, r.center.y - d / 2f, d, d), Icons.Add);
                 GUI.color = Color.white;
@@ -51,7 +51,7 @@ namespace SlopWorld
         {
             var strip = new Rect(Panel.x, 0f, Width, TabH);
             Slab.Hairline(new Rect(Panel.x + CellX, TabH - 1f, Width - CellX * 2f, 1f),
-                UiWidgets.Edge);
+                UiTheme.Edge);
 
             float y = (TabRowH - TabIcon) / 2f;
 
@@ -131,7 +131,7 @@ namespace SlopWorld
         static void Tab(Rect r, Texture2D icon, bool on, string tip, System.Action go)
         {
             TooltipHandler.TipRegion(r, tip);
-            if (UiWidgets.IconButton(r, icon, on ? UiWidgets.Lead : UiWidgets.Off)
+            if (UiLayout.IconButton(r, icon, on ? UiTheme.Lead : UiTheme.Off)
                 && ColonistBarStrip.Interactive)
                 go();
 
@@ -139,7 +139,7 @@ namespace SlopWorld
             // at the foot of whichever of the strip's rows the button sits in.
             if (on)
                 Slab.Fill(new Rect(r.x, (r.y < TabRowH ? TabRowH : TabH) - 2f, r.width, 2f),
-                    UiWidgets.Accent);
+                    UiTheme.Accent);
         }
 
         static void DrawHead(Head head)
@@ -147,29 +147,29 @@ namespace SlopWorld
             var r = head.Rect;
             RowChrome.Hover(r, false, true, RowHoverPolicy.OverlayAware);
 
-            GUI.color = UiWidgets.Faint;
+            GUI.color = UiTheme.Faint;
             var arrow = new Rect(CellX, r.y + (HeadH - ArrowW) / 2f, ArrowW, ArrowW);
             if (Event.current.type == EventType.Repaint)
                 GUI.DrawTexture(arrow, head.Folded ? TexButton.Reveal : TexButton.Collapse);
 
             Text.Font = GameFont.Tiny;
 
-            float lx = arrow.xMax + UiWidgets.GapXS;
+            float lx = arrow.xMax + UiTheme.GapXS;
             string count = $"{head.Active}/{head.Total}";
-            float countW = UiWidgets.Wide(count);
+            float countW = UiTheme.Wide(count);
             var countRect = new Rect(r.xMax - CellX - countW, r.y, countW, HeadH);
-            GUI.color = UiWidgets.Faint;
-            UiWidgets.RowLabel(countRect, count, TextAnchor.MiddleRight);
+            GUI.color = UiTheme.Faint;
+            UiText.RowLabel(countRect, count, TextAnchor.MiddleRight);
 
             var p = SessionHub.Instance.Project(head.Label);
 
             Text.Font = GameFont.Small;
-            GUI.color = UiWidgets.Faint;
+            GUI.color = UiTheme.Faint;
             var label = new Rect(lx, r.y, Mathf.Max(0f, countRect.x - Pad - lx), HeadH);
-            UiWidgets.RowLabel(label, head.Label);
+            UiText.RowLabel(label, head.Label);
 
             Slab.Hairline(new Rect(CellX, r.yMax - 1f, r.width - CellX * 2f, 1f),
-                UiWidgets.Edge);
+                UiTheme.Edge);
 
             GUI.color = Color.white;
             Text.Anchor = TextAnchor.UpperLeft;

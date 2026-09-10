@@ -97,8 +97,8 @@ namespace SlopWorld
         // is indistinguishable from an agent that has stopped answering.
         void DrawOfflineBanner(Rect body)
         {
-            var r = new Rect(body.x, body.y, body.width, UiWidgets.LineH + 3f);
-            Slab.Box(r, UiWidgets.OfflineBg, UiWidgets.Edge);
+            var r = new Rect(body.x, body.y, body.width, UiTheme.LineH + 3f);
+            Slab.Box(r, UiTheme.OfflineBg, UiTheme.Edge);
 
             string tail = _droppedKeys > 0
                 ? $" - {_droppedKeys} keystroke{(_droppedKeys == 1 ? "" : "s")} not delivered"
@@ -114,7 +114,7 @@ namespace SlopWorld
         void DrawCentered(Rect r, string msg)
         {
             Text.Anchor = TextAnchor.MiddleCenter;
-            GUI.color = UiWidgets.Dim;
+            GUI.color = UiTheme.Dim;
             Widgets.Label(r, msg);
             GUI.color = Color.white;
             Text.Anchor = TextAnchor.UpperLeft;

@@ -16,28 +16,28 @@ namespace SlopWorld
 
         protected override void DrawFields(Listing_Standard l)
         {
-            UiWidgets.SectionHeading(l, "Connection");
+            UiLayout.SectionHeading(l, "Connection");
             DrawConnectionSummary(l);
 
-            l.Gap(UiWidgets.GapL);
-            UiWidgets.SectionHeading(l, "Game");
+            l.Gap(UiTheme.GapL);
+            UiLayout.SectionHeading(l, "Game");
             var s = ModEntry.Instance.settings;
-            bool eco = UiWidgets.Checkbox(l, "Eco mode", s.ecoMode);
-            UiWidgets.Note(l, "80% less CPU, 0.1% less guilt. You're welcome, Earth!");
+            bool eco = UiControls.Checkbox(l, "Eco mode", s.ecoMode);
+            UiLayout.Note(l, "80% less CPU, 0.1% less guilt. You're welcome, Earth!");
 
             // Only with the mode on: a slider for a backdrop nothing is drawing is a knob that
             // does nothing. Stepped to twentieths because
             // the value keys a material - see Eco.Shade.
             if (s.ecoMode)
             {
-                l.Gap(UiWidgets.GapS);
-                float dim = Mathf.Round(UiWidgets.Slider(l, "Backdrop dimming", s.ecoDim,
+                l.Gap(UiTheme.GapS);
+                float dim = Mathf.Round(UiControls.Slider(l, "Backdrop dimming", s.ecoDim,
                     0f, 0.8f, Mathf.RoundToInt(s.ecoDim * 100f) + "%") * 20f) / 20f;
                 if (dim != s.ecoDim) { s.ecoDim = dim; s.MarkDirty(); }
             }
 
-            bool gm = UiWidgets.Checkbox(l, "Grandma's visiting", s.grandmaMode);
-            UiWidgets.Note(l, "No fun allowed! Disable violence and offensive/harmful tips.");
+            bool gm = UiControls.Checkbox(l, "Grandma's visiting", s.grandmaMode);
+            UiLayout.Note(l, "No fun allowed! Disable violence and offensive/harmful tips.");
 
             if (gm != s.grandmaMode || eco != s.ecoMode)
             {
@@ -46,24 +46,24 @@ namespace SlopWorld
                 s.MarkDirty();
             }
 
-            l.Gap(UiWidgets.GapL);
+            l.Gap(UiTheme.GapL);
             DrawDisplay(l, s);
-            l.Gap(UiWidgets.GapL);
-            UiWidgets.SectionHeading(l, "Experimental");
+            l.Gap(UiTheme.GapL);
+            UiLayout.SectionHeading(l, "Experimental");
             if (_loaded)
             {
-                _cfg.ExperimentalBreadcrumbs = UiWidgets.Checkbox(l, "Enable breadcrumbs",
+                _cfg.ExperimentalBreadcrumbs = UiControls.Checkbox(l, "Enable breadcrumbs",
                     _cfg.ExperimentalBreadcrumbs);
-                UiWidgets.Note(l, "Unlock automatic and manual prompt breadcrumbs. Save to apply.");
-                _cfg.ExperimentalInstructions = UiWidgets.Checkbox(l, "Enable instructions",
+                UiLayout.Note(l, "Unlock automatic and manual prompt breadcrumbs. Save to apply.");
+                _cfg.ExperimentalInstructions = UiControls.Checkbox(l, "Enable instructions",
                     _cfg.ExperimentalInstructions);
-                UiWidgets.Note(l, "Unlock generated SLOPWORLD.md instructions. Save to apply.");
+                UiLayout.Note(l, "Unlock generated SLOPWORLD.md instructions. Save to apply.");
             }
             else
-                UiWidgets.Note(l, _error ?? "Waiting for the daemon...");
-            l.Gap(UiWidgets.GapL);
-            UiWidgets.SectionHeading(l, "Locale");
-            if (UiWidgets.Button(l,
+                UiLayout.Note(l, _error ?? "Waiting for the daemon...");
+            l.Gap(UiTheme.GapL);
+            UiLayout.SectionHeading(l, "Locale");
+            if (UiLayout.Button(l,
                     "TemperatureMode".Translate() + ": " + Prefs.TemperatureMode.ToStringHuman()))
             {
                 Find.WindowStack.Add(new UiMenu(Enum.GetValues(typeof(TemperatureDisplayMode))
@@ -73,7 +73,7 @@ namespace SlopWorld
                     .ToList()));
             }
 
-            if (UiWidgets.Button(l, "Time format: " + TimeFormat.Label(s.timeFormat)))
+            if (UiLayout.Button(l, "Time format: " + TimeFormat.Label(s.timeFormat)))
             {
                 Find.WindowStack.Add(new UiMenu(new[]
                 {
@@ -86,8 +86,8 @@ namespace SlopWorld
 
         static void DrawDisplay(Listing_Standard l, ModSettings s)
         {
-            UiWidgets.SectionHeading(l, "Display");
-            if (UiWidgets.Button(l, "Frame pacing: " + FramePolicy.Label(s.displayMode)))
+            UiLayout.SectionHeading(l, "Display");
+            if (UiLayout.Button(l, "Frame pacing: " + FramePolicy.Label(s.displayMode)))
                 Find.WindowStack.Add(new UiMenu(new[] { FramePolicy.Game, FramePolicy.Sync, FramePolicy.Limit }
                     .Select(mode => new FloatMenuOption(FramePolicy.Label(mode), () =>
                     {
@@ -96,18 +96,18 @@ namespace SlopWorld
                     })).ToList()));
             if (FramePolicy.Normalize(s.displayMode) == FramePolicy.Limit)
             {
-                if (UiWidgets.Button(l, "FPS limit: " + FramePolicy.Clamp(s.foregroundFps)))
+                if (UiLayout.Button(l, "FPS limit: " + FramePolicy.Clamp(s.foregroundFps)))
                     Find.WindowStack.Add(new UiMenu(new[] { 30, 60, 90, 120, 144 }
                         .Select(fps => new FloatMenuOption(fps + " FPS", () =>
                         {
                             s.foregroundFps = fps;
                             s.MarkDirty();
                         })).ToList()));
-                UiWidgets.SliderSetting(l, "Custom FPS", s, ref s.foregroundFps, 30, 360);
-                UiWidgets.Note(l, "Disables VSync. Lower limits save power; higher limits improve responsiveness.");
+                UiControls.SliderSetting(l, "Custom FPS", s, ref s.foregroundFps, 30, 360);
+                UiLayout.Note(l, "Disables VSync. Lower limits save power; higher limits improve responsiveness.");
             }
             else
-                UiWidgets.Note(l, FramePolicy.Normalize(s.displayMode) == FramePolicy.Sync
+                UiLayout.Note(l, FramePolicy.Normalize(s.displayMode) == FramePolicy.Sync
                     ? "VSync follows the display refresh rate for smooth presentation."
                     : "Preserve the game's frame rate and VSync settings.");
         }
@@ -116,18 +116,18 @@ namespace SlopWorld
         {
             var hub = SessionHub.Instance;
             var health = hub.Health;
-            var row = l.GetRect(UiWidgets.LineH);
+            var row = l.GetRect(UiTheme.LineH);
             string status = hub.Online ? "connected" : "offline";
             string suffix = $" · {RuntimeLabel(hub)} · slopd {health.Version} · " +
                             health.Hostname;
             float x = row.x;
 
-            DrawConnectionSegment(row, ref x, "Daemon: ", UiWidgets.Dim);
+            DrawConnectionSegment(row, ref x, "Daemon: ", UiTheme.Dim);
             DrawConnectionSegment(row, ref x, status,
-                hub.Online ? UiWidgets.Yes : UiWidgets.Bad);
-            DrawConnectionSegment(row, ref x, suffix, UiWidgets.Dim);
+                hub.Online ? UiTheme.Yes : UiTheme.Bad);
+            DrawConnectionSegment(row, ref x, suffix, UiTheme.Dim);
 
-            GUI.color = UiWidgets.Dim;
+            GUI.color = UiTheme.Dim;
             l.Label($"Client: SlopWorld {ModEntry.ClientVersion} · " +
                     $"RimWorld {VersionControl.CurrentVersionString}");
             GUI.color = Color.white;
@@ -135,9 +135,9 @@ namespace SlopWorld
 
         static void DrawConnectionSegment(Rect row, ref float x, string text, Color color)
         {
-            float width = UiWidgets.Wide(text);
+            float width = UiTheme.Wide(text);
             GUI.color = color;
-            UiWidgets.RowLabel(new Rect(x, row.y, width, row.height), text);
+            UiText.RowLabel(new Rect(x, row.y, width, row.height), text);
             x += width;
         }
 

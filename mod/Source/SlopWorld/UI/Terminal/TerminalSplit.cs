@@ -82,7 +82,7 @@ namespace SlopWorld
         }
 
         WorkspaceSplitGeometry Geometry(UiLayoutRect bounds) =>
-            new WorkspaceSplitGeometry(bounds, _fraction, UiWidgets.GapS,
+            new WorkspaceSplitGeometry(bounds, _fraction, UiTheme.GapS,
                 First.MinimumSize.Width);
 
         public override void Arrange(UiLayoutRect bounds)
@@ -146,9 +146,9 @@ namespace SlopWorld
             if (Visible) selected.Draw(RectOf(selected.Bounds));
             if (Split)
             {
-                Slab.Fill(RectOf(Geometry(Bounds).Divider), _dragging ? UiWidgets.EdgeLit : UiWidgets.Edge);
+                Slab.Fill(RectOf(Geometry(Bounds).Divider), _dragging ? UiTheme.EdgeLit : UiTheme.Edge);
                 var bounds = Selected.Bounds;
-                Slab.Fill(new Rect(bounds.X, bounds.Y, bounds.Width, 1f), UiWidgets.EdgeLit);
+                Slab.Fill(new Rect(bounds.X, bounds.Y, bounds.Width, 1f), UiTheme.EdgeLit);
             }
         }
 

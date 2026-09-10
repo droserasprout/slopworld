@@ -43,10 +43,10 @@ namespace SlopWorld
         const float VanillaInset = 4f;
 
         // Vanilla reserves a 50px pitch, so top-level rows use the larger computed pitch.
-        static float RowH => Mathf.Round(UiWidgets.LineH * 1.4f);
-        static float NestedRowH => Mathf.Round(UiWidgets.LineH * 1.15f);
-        static float Pitch => RowH + UiWidgets.GapXS;
-        static float NestedPitch => NestedRowH + UiWidgets.GapXS;
+        static float RowH => Mathf.Round(UiTheme.LineH * 1.4f);
+        static float NestedRowH => Mathf.Round(UiTheme.LineH * 1.15f);
+        static float Pitch => RowH + UiTheme.GapXS;
+        static float NestedPitch => NestedRowH + UiTheme.GapXS;
 
         // Limit the icon box to the row height.
         static float IconBox => Mathf.Min(18f, RowH - 6f);
@@ -67,8 +67,8 @@ namespace SlopWorld
         // Draw selected and hovered rows with the mod's colors.
         static void CategoryRow(Rect r, bool selected)
         {
-            if (selected) Slab.Fill(r, UiWidgets.Sel);
-            else if (Mouse.IsOver(r)) Slab.Fill(r, UiWidgets.Hover);
+            if (selected) Slab.Fill(r, UiTheme.Sel);
+            else if (Mouse.IsOver(r)) Slab.Fill(r, UiTheme.Hover);
         }
 
         static void Select(Dialog_Options dlg, OptionCategoryDef category)
@@ -111,7 +111,7 @@ namespace SlopWorld
                                 IconBox, IconBox), icon);
                 }
 
-                UiWidgets.RowLabel(new Rect(x, row.y, row.xMax - x, row.height),
+                UiText.RowLabel(new Rect(x, row.y, row.xMax - x, row.height),
                     optionCategory.LabelCap);
                 return false;
             }
