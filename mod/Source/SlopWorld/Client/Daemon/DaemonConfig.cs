@@ -19,7 +19,6 @@ namespace SlopWorld
         public const string DefaultInstructionsBreadcrumb = WireContract.DefaultInstructionsBreadcrumb;
         public const string DefaultWorkerPrompt = WireContract.DefaultWorkerPrompt;
         public const string DefaultSummaryPrompt = WireContract.DefaultSummaryPrompt;
-        public const string DefaultWorkerBreadcrumb = WireContract.DefaultWorkerBreadcrumb;
 
         public int UsagePollSecs = WireContract.UsagePollSecs;
         // One entry per usage window. A zero interval means the global interval applies.
@@ -50,7 +49,6 @@ namespace SlopWorld
         public string InstructionsBreadcrumb = DefaultInstructionsBreadcrumb;
         public bool InstructionsBreadcrumbEnabled = WireContract.DefaultInstructionsBreadcrumbEnabled;
         public string WorkerPrompt = DefaultWorkerPrompt;
-        public string WorkerBreadcrumb = DefaultWorkerBreadcrumb;
 
         public string RenderInstructionsBreadcrumb(string project)
         {
@@ -131,7 +129,6 @@ namespace SlopWorld
                     i["breadcrumb"].AsString(DefaultInstructionsBreadcrumb),
                 InstructionsBreadcrumbEnabled = i["breadcrumb_enabled"].AsBool(WireContract.DefaultInstructionsBreadcrumbEnabled),
                 WorkerPrompt = i["worker_prompt"].AsString(DefaultWorkerPrompt),
-                WorkerBreadcrumb = i["worker_breadcrumb"].AsString(DefaultWorkerBreadcrumb),
 
                 Agent = f["agent"].AsString(WireContract.DefaultAgent),
                 AgentShell = f["agent_shell"].AsString(WireContract.DefaultAgentShell),
@@ -189,8 +186,7 @@ namespace SlopWorld
                         "mount_path", JVal.Q(InstructionsMountPath),
                         "breadcrumb", JVal.Q(InstructionsBreadcrumb),
                         "breadcrumb_enabled", JVal.B(InstructionsBreadcrumbEnabled),
-                        "worker_prompt", JVal.Q(WorkerPrompt),
-                        "worker_breadcrumb", JVal.Q(WorkerBreadcrumb))),
+                        "worker_prompt", JVal.Q(WorkerPrompt))),
                 "defaults", PatchObject(before?["defaults"],
                     "agent", JVal.Q(Agent), "agent_shell", JVal.Q(AgentShell),
                     "shell", JVal.Q(Shell)),

@@ -16,7 +16,6 @@ const DEFAULT_TITLE_MODEL: &str = crate::wire::DEFAULT_TITLE_MODEL;
 const DEFAULT_TITLE_MIN_CHARS: usize = crate::wire::DEFAULT_TITLE_MIN_CHARS as usize;
 
 pub const DEFAULT_SUMMARY_PROMPT: &str = crate::wire::DEFAULT_SUMMARY_PROMPT;
-pub const DEFAULT_WORKER_BREADCRUMB: &str = crate::wire::DEFAULT_WORKER_BREADCRUMB;
 
 /// One TOML file, which the mod reads and writes back verbatim, so hand-edits and
 /// in-game edits use the same format.
@@ -185,9 +184,6 @@ pub struct InstructionsCfg {
     /// Prompt submitted to a newly spawned task worker before it retrieves its mailbox task.
     #[serde(default = "default_worker_prompt")]
     pub worker_prompt: String,
-    /// Breadcrumb pasted before a worker's first prompt when breadcrumb delivery is enabled.
-    #[serde(default = "default_worker_breadcrumb")]
-    pub worker_breadcrumb: String,
 }
 
 pub const DEFAULT_INSTRUCTIONS_TEMPLATE: &str = "\
@@ -221,10 +217,6 @@ fn default_worker_prompt() -> String {
     DEFAULT_WORKER_PROMPT.into()
 }
 
-fn default_worker_breadcrumb() -> String {
-    DEFAULT_WORKER_BREADCRUMB.into()
-}
-
 impl Default for InstructionsCfg {
     fn default() -> Self {
         Self {
@@ -233,7 +225,6 @@ impl Default for InstructionsCfg {
             breadcrumb: default_instructions_breadcrumb(),
             breadcrumb_enabled: default_instructions_breadcrumb_enabled(),
             worker_prompt: default_worker_prompt(),
-            worker_breadcrumb: default_worker_breadcrumb(),
         }
     }
 }

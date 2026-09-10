@@ -305,13 +305,6 @@ impl Manager {
                 crumbs.push(discovery);
             }
         }
-        if !host
-            && cfg.daemon.experimental_breadcrumbs
-            && session.worker
-            && !cfg.daemon.instructions.worker_breadcrumb.trim().is_empty()
-        {
-            crumbs.push(cfg.daemon.instructions.worker_breadcrumb.clone());
-        }
         let mut live = self.live.write().await;
         if let Some(live) = live.get_mut(name) {
             live.breadcrumbs.clear();
