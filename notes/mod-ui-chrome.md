@@ -42,6 +42,9 @@ spacing, buttons, fields, headings and errors. Color names resolve through
 - `ScrollableListing` retains a `SmoothScroll` and frame-stable `SettingsContentHeight` for
   `Listing_Standard` forms. Its optional trailing callback is measured inside the same view;
   footers, overlays and page data remain with their hosts.
+- `TextureReadback.ReadBack` owns the temporary ARGB32 render target and CPU copy used by
+  cursor and menu-background baking. It restores `RenderTexture.active` before releasing the
+  target and destroys the copy on both success and failure.
 - Sidebar resizing, scrollbars and the terminal divider honor Unity's `hotControl` capture.
   Replaying a consumed mouse-down cannot start a second drag; hiding the sidebar releases
   its resize capture.

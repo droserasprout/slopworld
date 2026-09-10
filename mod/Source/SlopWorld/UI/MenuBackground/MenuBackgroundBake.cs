@@ -204,7 +204,7 @@ namespace SlopWorld
             int bw = Mathf.Max(1, Mathf.RoundToInt(w * scale));
             int bh = Mathf.Max(1, Mathf.RoundToInt(h * scale));
 
-            Color[] clean = Downsample(ReadBack(src), w, h, bw, bh);
+            Color[] clean = Downsample(TextureReadback.ReadBack(src), w, h, bw, bh);
             Shared shared = Prep(preset, clean, bw, bh);
 
             string dir = Dir(key);
@@ -745,27 +745,6 @@ namespace SlopWorld
             }
 
             return dst;
-        }
-
-        // Read bundle textures back from the GPU because they are non-readable.
-        static Color[] ReadBack(Texture2D src)
-        {
-            var rt = RenderTexture.GetTemporary(src.width, src.height, 0, RenderTextureFormat.ARGB32);
-            var prev = RenderTexture.active;
-
-            Graphics.Blit(src, rt);
-            RenderTexture.active = rt;
-
-            var copy = new Texture2D(src.width, src.height, TextureFormat.ARGB32, false);
-            copy.ReadPixels(new Rect(0, 0, src.width, src.height), 0, 0);
-            copy.Apply();
-
-            RenderTexture.active = prev;
-            RenderTexture.ReleaseTemporary(rt);
-
-            var px = copy.GetPixels();
-            UnityEngine.Object.Destroy(copy);
-            return px;
         }
 
         // Root generated textures across map switches.
