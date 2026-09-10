@@ -11,6 +11,19 @@ import prose_lint
 
 
 CASES = (
+    ("mirrored-antithesis", "You can't wait; you can retry.", 1, None),
+    ("mirrored-antithesis", "We won’t wait; we will retry.", 1, None),
+    ("mirrored-antithesis", "You cann’t wait; you can retry.", 0, None),
+    ("mirrored-antithesis", "We willn’t wait; we will retry.", 0, None),
+    ("already-know", "If you already know\nPython, skip ahead.", 0, None),
+    ("already-know", "If you already know\tPython, skip ahead.", 0, None),
+    ("ai-leftovers", "The model has a knowledge cutoff.", 0, None),
+    ("ai-leftovers", "utm_source=newsletter", 0, None),
+    ("ai-leftovers", "turn1search0", 1, None),
+    ("ai-leftovers", "turn12image34", 1, None),
+    ("ai-leftovers", "return0search123helper", 0, None),
+    ("ai-leftovers", "utm_source=chatgpt.com.example", 0, None),
+    ("ai-leftovers", "contentReference is a field name.", 0, None),
     ("no-chain", "No sign-ups, no downloads, no hassle — just paste and go.", 1, [3]),
     ("no-chain", "The plan has no hidden fees and no long-term contracts.", 1, [2]),
     ("no-chain", "No fluff, no filler, no jargon, no corporate buzzwords.", 1, [4]),
@@ -138,6 +151,22 @@ CASES = (
 
 
 class DetectorTests(unittest.TestCase):
+    def test_warning_cannot_hide_overlapping_error(self):
+        text = "Close it, ensuring the log says that's the whole point."
+        found = prose_lint.collect_matches(text, set(prose_lint.RULES_BY_ID))
+        self.assertEqual(["whole"], [rule.id for rule, _ in found])
+
+    def test_ambiguous_technical_statements_are_advisory(self):
+        for text in (
+            "The entire buffer is zeroed.",
+            "This is the entire buffer.",
+            "Replace each underscore with a hyphen.",
+        ):
+            with self.subTest(text=text):
+                found = prose_lint.collect_matches(text, set(prose_lint.RULES_BY_ID))
+                self.assertTrue(found)
+                self.assertTrue(all(rule.severity == "warning" for rule, _ in found))
+
     def test_cases(self):
         for rule_id, sample, expected, counts in CASES:
             with self.subTest(rule=rule_id, sample=sample):
@@ -163,6 +192,40 @@ class DetectorTests(unittest.TestCase):
         self.assertEqual([], rule.find("The robust parser has robust tests."))
         self.assertEqual(1, len(rule.find("The robust parser offers comprehensive coverage.")))
 
+    def test_vocabulary_inflections_share_a_family(self):
+        rule = prose_lint.RULES_BY_ID["claude-vocab-cluster"]
+        for sample in (
+            "The robust parser handles errors robustly.",
+            "This notable change notably reduces allocations.",
+            "Leverage what the earlier implementation leveraged.",
+        ):
+            with self.subTest(sample=sample):
+                self.assertEqual([], rule.find(sample))
+        self.assertEqual(1, len(rule.find("Robust, robustly tested, and comprehensive.")))
+
+    def test_triads_do_not_infer_adjectives_from_suffixes(self):
+        rule = prose_lint.RULES_BY_ID["rhetorical-triads"]
+        self.assertEqual([], rule.find("Cable, table, and archive. Cable, table, and archive."))
+
+    def test_bold_leads_accept_both_colon_placements(self):
+        rule = prose_lint.RULES_BY_ID["bold-lead-density"]
+        for label in ("**Input**:", "**Input:**"):
+            with self.subTest(label=label):
+                self.assertEqual([], rule.find((label + " value\n") * 2))
+                self.assertEqual(1, len(rule.find((label + " value\n") * 3)))
+
+    def test_em_dash_density_boundary_is_unchanged(self):
+        rule = prose_lint.RULES_BY_ID["em-dash-density"]
+        self.assertEqual(1, len(rule.find("one — two — " + "word " * 295)))
+        self.assertEqual([], rule.find("one — two — " + "word " * 296))
+        self.assertEqual([], rule.find("- The worker — after opening the socket — waits."))
+
+    def test_literal_participle_clause_is_advisory(self):
+        text = "The worker, signaling the condition variable, wakes the reader."
+        found = prose_lint.collect_matches(text, set(prose_lint.RULES_BY_ID))
+        self.assertTrue(found)
+        self.assertTrue(all(rule.severity == "warning" for rule, _ in found))
+
     def test_density_rules_use_thresholds(self):
         dash = prose_lint.RULES_BY_ID["em-dash-density"]
         triads = prose_lint.RULES_BY_ID["rhetorical-triads"]
@@ -181,6 +244,36 @@ class DetectorTests(unittest.TestCase):
 
 
 class InputTests(unittest.TestCase):
+    def test_markdown_closing_fence_must_match_opening(self):
+        for opening, interior, closing in (
+            ("````text", "```", "````"),
+            ("~~~~text", "~~~", "~~~~~"),
+            ("```text", "```still code", "```"),
+            ("```text", "~~~", "```"),
+        ):
+            with self.subTest(opening=opening, interior=interior):
+                text = f"{opening}\n{interior}\nThat's the whole point.\n{closing}\nThat's the whole change.\n"
+                masked = prose_lint.mask_markdown(text)
+                found = prose_lint.collect_matches(masked, {"whole"})
+                self.assertEqual(1, len(found))
+                self.assertEqual((5, 1), prose_lint.line_column(prose_lint.locations(text), found[0][1].start))
+
+    def test_rust_lifetimes_labels_and_characters_preserve_comments(self):
+        for code in (
+            "fn f(x: &'static str) {}",
+            "fn f<'a>(x: &'a str) {}",
+            "'outer: loop { break 'outer; }",
+            "let c = 'a';",
+            r"let c = '\'';",
+            "let c = 'é';",
+        ):
+            with self.subTest(code=code):
+                text = code + " // That's the whole point.\n"
+                masked = prose_lint.lintable_text(Path("source.rs"), text)
+                found = prose_lint.collect_matches(masked, {"whole"})
+                self.assertEqual(1, len(found))
+                self.assertEqual(text.index("That's"), found[0][1].start)
+
     def test_markdown_skips_code(self):
         text = "Plain prose.\n\n```text\nThat's the whole point.\n```\n"
         masked = prose_lint.lintable_text(Path("note.md"), text)
@@ -228,6 +321,29 @@ class InputTests(unittest.TestCase):
 
 
 class CliTests(unittest.TestCase):
+    def test_missing_explicit_input_is_an_operational_error(self):
+        with tempfile.TemporaryDirectory() as directory:
+            missing = str(Path(directory) / "missing.md")
+            for arguments in ([missing], ["--commit-msg", missing]):
+                with self.subTest(arguments=arguments):
+                    result = subprocess.run(
+                        [sys.executable, prose_lint.__file__, *arguments],
+                        capture_output=True,
+                        text=True,
+                    )
+                    self.assertEqual(2, result.returncode)
+                    self.assertIn("input does not exist", result.stderr)
+
+    def test_overlapping_warning_does_not_change_failure_status(self):
+        result = subprocess.run(
+            [sys.executable, prose_lint.__file__, "-"],
+            input="Close it, ensuring the log says that's the whole point.",
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(1, result.returncode)
+        self.assertIn("cliche/whole", result.stdout)
+
     def test_stdin_skips_markdown_code(self):
         result = subprocess.run(
             [sys.executable, prose_lint.__file__, "-"],

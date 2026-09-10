@@ -87,7 +87,7 @@ def count_words(text):
     return len(re.findall(r"\S+", text))
 
 
-def clustered_finder(pattern, minimum, window_words, *, distinct=False, label="hits"):
+def clustered_finder(pattern, minimum, window_words, *, distinct=False, label="hits", term_key=None):
     regex = re.compile(pattern, FLAGS)
 
     def find(text):
@@ -100,7 +100,7 @@ def clustered_finder(pattern, minimum, window_words, *, distinct=False, label="h
             for j in range(i, len(hits)):
                 if count_words(text[hits[i].start() : hits[j].end()]) > window_words:
                     break
-                values.add(hits[j].group().casefold())
+                values.add(term_key(hits[j]) if term_key else hits[j].group().casefold())
                 score = len(values) if distinct else j - i + 1
                 if score >= minimum:
                     note = f"{score} {label} within {window_words} words"
@@ -115,10 +115,21 @@ def clustered_finder(pattern, minimum, window_words, *, distinct=False, label="h
     return find
 
 
+EM_DASH_MINIMUM = 2
+EM_DASH_WORDS_PER_HIT = 150
+BOLD_LEAD_MINIMUM = 3
+TRIAD_MINIMUM = 2
+TRIAD_WINDOW_WORDS = 250
+VOCAB_MINIMUM = 2
+VOCAB_WINDOW_WORDS = 200
+HEDGE_MINIMUM = 4
+HEDGE_WINDOW_WORDS = 200
+
+
 def em_dash_density(text):
     hits = [m for m in re.finditer(r"(?<=\s)—(?=\s)", text) if not _on_structural_line(text, m.start())]
     words = count_words(text)
-    if len(hits) < 2 or (words > 250 and len(hits) * 150 <= words):
+    if len(hits) < EM_DASH_MINIMUM or len(hits) * EM_DASH_WORDS_PER_HIT <= words:
         return []
     return [Match(hits[0].start(), hits[0].end(), note=f"{len(hits)} non-bullet spaced em dashes in {words} words")]
 
@@ -134,17 +145,29 @@ def _on_structural_line(text, pos):
 
 
 def bold_lead_density(text):
-    hits = list(re.finditer(r"(?m)^\s*(?:[-*+]\s+|\d+\.\s+)?\*\*[^*\n]{1,50}\*\*\s*:", text))
-    if len(hits) < 3:
+    hits = list(re.finditer(r"(?m)^[ \t]*(?:[-*+][ \t]+|\d+\.[ \t]+)?\*\*[^*\n:]{1,50}(?:\*\*[ \t]*:|:\*\*)", text))
+    if len(hits) < BOLD_LEAD_MINIMUM:
         return []
-    return [Match(hits[2].start(), hits[2].end(), note=f"{len(hits)} bold lead-ins")]
+    hit = hits[BOLD_LEAD_MINIMUM - 1]
+    return [Match(hit.start(), hit.end(), note=f"{len(hits)} bold lead-ins")]
 
 
 RHETORICAL_ADJECTIVE = (
     r"(?:actionable|accurate|balanced|clean|clear|comprehensive|concise|direct|effective|flexible|"
     r"fast|honest|intentional|maintainable|meaningful|nuanced|powerful|practical|readable|reliable|"
-    r"robust|scalable|seamless|secure|simple|small|stable|thoughtful|useful|\w+(?:able|ible|ful|ical|ive|less|ous))"
+    r"robust|scalable|seamless|secure|simple|small|stable|thoughtful|useful)"
 )
+
+STOCK_VOCAB_FAMILIES = (
+    r"comprehensive(?:ly)?", r"robust(?:ly)?", r"nuanced?", r"paradigm",
+    r"leverag(?:e|es|ed|ing)", r"facilitat(?:e|es|ed|ing)", r"foster(?:s|ed|ing)?",
+    r"realm", r"noteworthy", r"meaningful(?:ly)?", r"intentional(?:ly)?",
+    r"genuine(?:ly)?", r"deep(?:ly)?", r"quiet(?:ly)?", r"fundamental(?:ly)?",
+    r"essential(?:ly)?", r"notabl(?:e|y)",
+)
+STOCK_VOCAB_PATTERN = r"\b(?:" + "|".join(
+    f"(?P<term_{index}>{pattern})" for index, pattern in enumerate(STOCK_VOCAB_FAMILIES)
+) + r")\b"
 
 
 RULES = (
@@ -169,13 +192,19 @@ RULES = (
     regex_rule(
         "already-know",
         "You already know",
-        r"\byou\s+already\s+knows?\s+(?:the\s+answer|what|how|why|this|that|it|who|where)\b|\byou\s+already\s+knows?\b(?![ \t]+\w)",
+        r"\byou\s+already\s+know\s+(?:the\s+answer|what|how|why|this|that|it|who|where)\b|\byou\s+already\s+know\b(?!\s+\w)",
     ),
-    regex_rule("is-the-entire", "Is the entire ...", r"(?:\b(?:is|was|are|were)|['’]s)\s+the\s+entire\b(?:\s+\w+)?"),
+    regex_rule(
+        "is-the-entire",
+        "Is the entire ...",
+        r"(?:\b(?:is|was|are|were)|['’]s)\s+the\s+entire\b(?:\s+\w+)?",
+        severity="warning",
+    ),
     regex_rule(
         "the-entire-is",
         "The entire ... is",
         r"\bthe\s+entire\s+[\w'’-]+(?:\s+[\w'’-]+){0,4}?\s+(?:is|was|are|were)\b",
+        severity="warning",
     ),
     regex_rule(
         "is-real",
@@ -196,7 +225,12 @@ RULES = (
     regex_rule(
         "mirrored-antithesis",
         "Mirrored negative/positive antithesis",
-        r"\byou\s+(?:don['’]t|do\s+not)\s+need\b[^.!?\n]{1,80}[.;:—–,]\s*you\s+need\b|\b(?:you|we|they)\s+(?:do|does|did|can|could|should|will|would)n['’]t\b[^.!?\n]{1,80}[.;:—–,]\s*(?:you|we|they)\s+(?:do|does|did|can|could|should|will|would)\b|\b(?:the\s+[\w'’-]+(?:\s+[\w'’-]+){0,3}|this|that|it)\s+(?:(?:is|are|was|were)n['’]t|(?:is|are|was|were)\s+not)\b[^.!?\n]{1,80}[.;:—–,]\s*(?:it|this|that)(?:['’]s|\s+(?:is|are|was|were))\b|\bnot\s+because\b[^.!?\n]{1,80}\bbut\s+because\b",
+        r"\byou\s+(?:don['’]t|do\s+not)\s+need\b[^.!?\n]{1,80}[.;:—–,]\s*you\s+need\b|"
+        r"\b(?:you|we|they)\s+(?:don['’]t|doesn['’]t|didn['’]t|can['’]t|couldn['’]t|shouldn['’]t|won['’]t|wouldn['’]t)\b"
+        r"[^.!?\n]{1,80}[.;:—–,]\s*(?:you|we|they)\s+(?:do|does|did|can|could|should|will|would)\b|"
+        r"\b(?:the\s+[\w'’-]+(?:\s+[\w'’-]+){0,3}|this|that|it)\s+(?:(?:is|are|was|were)n['’]t|(?:is|are|was|were)\s+not)\b"
+        r"[^.!?\n]{1,80}[.;:—–,]\s*(?:it|this|that)(?:['’]s|\s+(?:is|are|was|were))\b|"
+        r"\bnot\s+because\b[^.!?\n]{1,80}\bbut\s+because\b",
     ),
     regex_rule(
         "staged-reveal",
@@ -257,6 +291,7 @@ RULES = (
         "ai-vocab",
         "AI vocabulary words",
         r"\b(?:delv(?:e|es|ed|ing)|tapestr(?:y|ies)|meticulous(?:ly)?|pivotal|intricate(?:ly)?|intricacies|interplay|underscor(?:e|es|ed|ing)|garner(?:s|ed|ing)?|bolster(?:s|ed|ing)?|vibrant|bustling|multifaceted|seamless(?:ly)?|commendable|ever-evolving)\b",
+        severity="warning",
     ),
     regex_rule(
         "not-just",
@@ -295,12 +330,13 @@ RULES = (
     ),
     regex_rule(
         "participle-tail",
-        "Participle sentence tail",
+        "Evaluative participle clause",
         r",\s+(?:highlighting|underscoring|emphasizing|showcasing|reflecting|demonstrating|illustrating|signaling|solidifying|cementing|reinforcing|underlining)\s+(?:its|his|her|their|our|the|a|an|how|that|what|both)\b[^.!?\n]*",
+        severity="warning",
     ),
     regex_rule(
         "functional-participle-tail",
-        "Functional participle sentence tail",
+        "Functional participle clause",
         r",\s+(?:ensuring|allowing|enabling|providing|creating|making|leaving|keeping|offering|bringing|giving|helping)\s+(?:its|his|her|their|our|the|a|an|how|that|what|both)\b[^.!?\n]*",
         severity="warning",
     ),
@@ -312,7 +348,7 @@ RULES = (
     regex_rule(
         "ai-leftovers",
         "Chatbot leftovers",
-        r"\bas\s+an\s+ai(?:\s+language)?\s+model\b|\bas\s+of\s+my\s+last\s+(?:update|training)\b|\bknowledge\s+cutoff\b|\bI\s+(?:cannot|can['’]t|do\s+not|don['’]t)\s+(?:browse\s+the\s+internet|access\s+real-?time)\b|contentReference|oaicite|turn0(?:search|news|image)\d*|attributableIndex|utm_source=",
+        r"\bas\s+an\s+ai(?:\s+language)?\s+model\b|\bas\s+of\s+my\s+last\s+(?:update|training)\b|\bI\s+(?:cannot|can['’]t|do\s+not|don['’]t)\s+(?:browse\s+the\s+internet|access\s+real-?time)\b|\bcontentReference\[|\boaicite:\d+\b|\bturn\d+(?:search|news|image)\d+\b|\battributableIndex\b|\butm_source=chatgpt(?:\.com)?(?=[&#\s]|$)",
     ),
     finder_rule(
         "em-dash-density",
@@ -324,8 +360,8 @@ RULES = (
         "Repeated rule-of-three lists",
         clustered_finder(
             rf"\b{RHETORICAL_ADJECTIVE},\s+{RHETORICAL_ADJECTIVE},?\s+(?:and|or)\s+{RHETORICAL_ADJECTIVE}\b",
-            2,
-            250,
+            TRIAD_MINIMUM,
+            TRIAD_WINDOW_WORDS,
             label="triads",
         ),
         scopes=("prose", "commit"),
@@ -338,13 +374,14 @@ RULES = (
     ),
     finder_rule(
         "claude-vocab-cluster",
-        "Claude vocabulary cluster",
+        "Stock vocabulary cluster",
         clustered_finder(
-            r"\b(?:comprehensive(?:ly)?|robust(?:ly)?|nuanced?|paradigm|leverag(?:e|es|ed|ing)|facilitat(?:e|es|ed|ing)|foster(?:s|ed|ing)?|realm|noteworthy|meaningful(?:ly)?|intentional(?:ly)?|genuine(?:ly)?|deep(?:ly)?|quiet(?:ly)?|fundamental(?:ly)?|essential(?:ly)?|notable|notably)\b",
-            2,
-            200,
+            STOCK_VOCAB_PATTERN,
+            VOCAB_MINIMUM,
+            VOCAB_WINDOW_WORDS,
             distinct=True,
-            label="distinct terms",
+            label="distinct word families",
+            term_key=lambda match: match.lastgroup,
         ),
     ),
     finder_rule(
@@ -352,8 +389,8 @@ RULES = (
         "Hedging cluster",
         clustered_finder(
             r"\b(?:typically|generally|potentially|often|sometimes|usually|may|might|could)\b",
-            4,
-            200,
+            HEDGE_MINIMUM,
+            HEDGE_WINDOW_WORDS,
             label="hedges",
         ),
     ),
@@ -378,12 +415,19 @@ def mask_markdown(text):
     offset = 0
     for line in text.splitlines(keepends=True):
         marker = re.match(r"^[ \t]{0,3}(`{3,}|~{3,})", line)
-        if marker and (not fenced or marker.group(1)[0] == fence):
-            fenced = not fenced
-            fence = marker.group(1)[0] if fenced else ""
+        if not fenced and marker and not (marker.group(1)[0] == "`" and "`" in line[marker.end():]):
+            fenced = True
+            fence = marker.group(1)
             out[offset : offset + len(line)] = blank(line)
         elif fenced:
             out[offset : offset + len(line)] = blank(line)
+            if (
+                marker
+                and marker.group(1)[0] == fence[0]
+                and len(marker.group(1)) >= len(fence)
+                and not line[marker.end():].strip()
+            ):
+                fenced = False
         else:
             for code in re.finditer(r"(`+)(.+?)\1", line):
                 out[offset + code.start() : offset + code.end()] = blank(code.group())
@@ -437,7 +481,7 @@ def skip_block_comment(text, start, nested=False):
     return len(text)
 
 
-def mask_c_like(text, nested_blocks=False):
+def mask_c_like(text, nested_blocks=False, rust=False):
     out = blank(text)
     i = 0
     while i < len(text):
@@ -451,6 +495,14 @@ def mask_c_like(text, nested_blocks=False):
             content_end = end - 2 if end < len(text) or text.endswith("*/") else end
             out[i + 2 : content_end] = text[i + 2 : content_end]
             i = end
+        elif (
+            rust
+            and text[i] == "'"
+            and (lifetime := re.match(r"'\w+", text[i:]))
+            and not text.startswith("'", i + lifetime.end())
+        ):
+            # Lifetimes and loop labels have no closing quote.
+            i += lifetime.end()
         elif text[i] in "'\"`":
             i = skip_quoted(text, i)
         else:
@@ -512,7 +564,8 @@ def lintable_text(path, text):
     if kind == "prose":
         return mask_markdown(text) if path.suffix.lower() in {".md", ".mdx"} else text
     if kind == "c-like":
-        return mask_c_like(text, nested_blocks=path.suffix.lower() == ".rs")
+        rust = path.suffix.lower() == ".rs"
+        return mask_c_like(text, nested_blocks=rust, rust=rust)
     if kind in {"hash", "python"}:
         return mask_hash(text, python=kind == "python")
     if kind == "xml":
@@ -526,13 +579,14 @@ def collect_matches(text, enabled, scope="prose"):
         if rule.id in enabled and scope in rule.scopes:
             priority = 0 if rule.severity == "error" else 1
             raw.extend((match.start, priority, -match.end, rule, match) for match in rule.find(text))
-    raw.sort(key=lambda item: (item[0], item[1], item[2]))
+    # Resolve errors first so an advisory match cannot hide a failing diagnostic.
+    raw.sort(key=lambda item: (item[1], item[0], item[2]))
     kept = []
     for _, _, _, rule, match in raw:
-        if kept and match.start < kept[-1][1].end:
+        if any(match.start < prior.end and prior.start < match.end for _, prior in kept):
             continue
         kept.append((rule, match))
-    return kept
+    return sorted(kept, key=lambda item: item[1].start)
 
 
 def locations(text):
@@ -604,6 +658,10 @@ def main(argv=None):
         return 0
 
     enabled = set(args.rules or RULES_BY_ID)
+    for raw in ([args.commit_msg] if args.commit_msg else args.paths):
+        if raw != "-" and not Path(raw).exists():
+            print(f"{raw}: input does not exist", file=sys.stderr)
+            return 2
     paths = [Path(args.commit_msg)] if args.commit_msg else repository_files(args.paths)
     errors = warnings = 0
     for path in sorted(paths, key=lambda item: str(item)):
