@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
@@ -14,8 +15,12 @@ namespace SlopWorld
 
         readonly SmoothScroll _scroll = new SmoothScroll();
         readonly SmoothScroll _pickScroll = new SmoothScroll();
+        readonly AppearanceLayoutCache _layout = new AppearanceLayoutCache();
         float _fieldsH;
+        float _measuredFieldsH;
+        int _measurementFrame = -1;
         bool _pickingCursor;
+        int _contentRevision;
 
         public void Load() { }
 
@@ -31,32 +36,161 @@ namespace SlopWorld
 
         void DrawCore(Rect rect)
         {
+            // Listing measurement is produced while drawing. Promote it only at a frame
+            // boundary so Layout, input and Repaint passes in one frame use identical bounds.
+            if (_measurementFrame != Time.frameCount)
+            {
+                if (_measurementFrame >= 0 && _measuredFieldsH > 0f)
+                    _fieldsH = _measuredFieldsH;
+                _measurementFrame = Time.frameCount;
+            }
+
             Text.Font = GameFont.Small;
             var body = UiWidgets.PageBody(rect);
-            body.height += UiWidgets.BtnH + UiWidgets.GapS;
-            var inner = body.ContractedBy(UiWidgets.GapM);
+            body.height = Mathf.Max(0f, body.height + UiWidgets.BtnH + UiWidgets.GapS);
+            var inner = new Rect(body.x + UiWidgets.GapM, body.y + UiWidgets.GapM,
+                Mathf.Max(0f, body.width - UiWidgets.GapM * 2f),
+                Mathf.Max(0f, body.height - UiWidgets.GapM * 2f));
 
-            // The preview sits at the foot; the form scrolls above it.
-            float ph = Mathf.Clamp(
-                UiWidgets.LineHOf(GameFont.Tiny) + UiWidgets.LineHOf(GameFont.Small)
-                    + UiWidgets.LineHOf(GameFont.Medium) + UiWidgets.GapS * 8 + 90f,
-                200f, 230f);
-            var preview = new Rect(inner.x, inner.yMax - ph, inner.width, ph);
-            var caption = new Rect(inner.x, preview.y - UiWidgets.RowH - UiWidgets.GapXS,
-                inner.width, UiWidgets.RowH);
+            float previewH = PreviewHeight();
+            float formH = _fieldsH > 0f ? _fieldsH : EstimateFieldsHeight();
+            float blockH = UiWidgets.RowH + UiWidgets.GapXS + previewH;
+            // Keep the preview pinned to the bottom while there is room for at least one
+            // usable form row. The form owns its scrollbar; only genuinely short windows
+            // move the preview into the shared scrolling column.
+            float minimumFormViewport = UiWidgets.RowH;
+            bool stacked = inner.height < minimumFormViewport + UiWidgets.GapM + blockH;
 
-            var form = new Rect(inner.x, inner.y, inner.width,
-                caption.y - inner.y - UiWidgets.GapS);
-            var view = UiScrollBody.View(form, _fieldsH);
-            using (_scroll.Scope(form, view))
-                _fieldsH = DrawFields(view);
+            if (!stacked)
+            {
+                _layout.Arrange(inner.width, inner.height, false, formH, previewH,
+                    _contentRevision);
+                var form = Place(inner, _layout.Form);
+                var formView = UiScrollBody.ConditionalView(form, _fieldsH);
+                using (_scroll.Scope(form, formView))
+                    _measuredFieldsH = DrawFields(new Rect(0f, 0f, formView.width,
+                        Mathf.Max(form.height, _fieldsH)));
 
-            // ---- preview
-            UiWidgets.SectionHeading(caption, "Preview");
-            DrawPreview(preview);
+                DrawPreviewBlock(Place(inner, _layout.PreviewCaption),
+                    Place(inner, _layout.Preview));
+            }
+            else
+            {
+                // A short settings window becomes one scrollable column. The preview is
+                // content, not a fixed overlay, so the last cursor/font setting remains
+                // reachable even when the viewport is shorter than the form.
+                float contentH = formH + UiWidgets.GapM + blockH;
+                var frame = inner;
+                var view = UiScrollBody.ConditionalView(frame, contentH);
+                _layout.Arrange(view.width, inner.height, true, formH, previewH,
+                    _contentRevision);
+                using (_scroll.Scope(frame, view))
+                {
+                    _measuredFieldsH = DrawFields(new Rect(_layout.Form.X, _layout.Form.Y,
+                        _layout.Form.Width, Mathf.Max(_layout.Form.Height, _fieldsH)));
+                    DrawPreviewBlock(ToRect(_layout.PreviewCaption),
+                        ToRect(_layout.Preview));
+                }
+            }
 
             if (_pickingCursor)
                 DrawCursorPicker(rect);
+        }
+
+        static float PreviewHeight() => Mathf.Clamp(
+            UiWidgets.LineHOf(GameFont.Tiny) + UiWidgets.LineHOf(GameFont.Small)
+                + UiWidgets.LineHOf(GameFont.Medium) + UiWidgets.GapS * 8 + 90f,
+            200f, 230f);
+
+        // The first frame needs a safe content estimate before Listing_Standard has returned
+        // the real height. It is replaced by `_fieldsH` at the next frame boundary and never
+        // affects control identity or the page instance.
+        static float EstimateFieldsHeight() => 900f;
+
+        static Rect Place(Rect origin, UiLayoutRect local) =>
+            new Rect(origin.x + local.X, origin.y + local.Y, local.Width, local.Height);
+
+        static Rect ToRect(UiLayoutRect local) =>
+            new Rect(local.X, local.Y, local.Width, local.Height);
+
+        static void DrawPreviewBlock(Rect caption, Rect preview)
+        {
+            UiWidgets.SectionHeading(caption, "Preview");
+            DrawPreview(preview);
+        }
+
+        sealed class AppearanceLayoutCache
+        {
+            readonly UiLayoutItem[] _rootItems = new UiLayoutItem[2];
+            readonly UiLayoutRect[] _root = new UiLayoutRect[2];
+            readonly UiLayoutItem[] _previewItems = new UiLayoutItem[2];
+            readonly UiLayoutRect[] _preview = new UiLayoutRect[2];
+
+            bool _valid;
+            float _width, _height, _formH, _previewH;
+            bool _stacked;
+            int _contentRevision, _metricsRevision, _typographyRevision, _scaleRevision;
+
+            public UiLayoutRect Form => _root[0];
+            public UiLayoutRect PreviewBlock => _root[1];
+            public UiLayoutRect PreviewCaption =>
+                new UiLayoutRect(PreviewBlock.X + _preview[0].X,
+                    PreviewBlock.Y + _preview[0].Y, _preview[0].Width, _preview[0].Height);
+            public UiLayoutRect Preview =>
+                new UiLayoutRect(PreviewBlock.X + _preview[1].X,
+                    PreviewBlock.Y + _preview[1].Y, _preview[1].Width, _preview[1].Height);
+
+            public void Arrange(float width, float height, bool stacked, float formH,
+                                float previewH, int contentRevision)
+            {
+                float safeWidth = Math.Max(0f, width);
+                float safeHeight = Math.Max(0f, height);
+                float safeForm = Math.Max(0f, formH);
+                float safePreview = Math.Max(0f, previewH);
+                int metricsRevision = UiMetrics.DensityRevision;
+                int typographyRevision = UiMetrics.TypographyRevision;
+                int scaleRevision = UiMetrics.ScaleRevision;
+                if (_valid && _width == safeWidth && _height == safeHeight
+                    && _formH == safeForm && _previewH == safePreview
+                    && _stacked == stacked && _contentRevision == contentRevision
+                    && _metricsRevision == metricsRevision
+                    && _typographyRevision == typographyRevision
+                    && _scaleRevision == scaleRevision)
+                    return;
+
+                _width = safeWidth;
+                _height = safeHeight;
+                _formH = safeForm;
+                _previewH = safePreview;
+                _stacked = stacked;
+                _contentRevision = contentRevision;
+                _metricsRevision = metricsRevision;
+                _typographyRevision = typographyRevision;
+                _scaleRevision = scaleRevision;
+                _valid = true;
+
+                float blockH = UiWidgets.RowH + UiWidgets.GapXS + safePreview;
+                _rootItems[0] = new UiLayoutItem(
+                    stacked ? UiLayoutSize.Content(safeForm) :
+                        UiLayoutSize.Flexible(),
+                    UiLayoutSize.Flexible(), stacked ? safeForm : 0f, 0f);
+                _rootItems[1] = new UiLayoutItem(
+                    UiLayoutSize.Fixed(blockH), UiLayoutSize.Flexible(), blockH, 0f);
+
+                float availableH = stacked
+                    ? safeForm + UiWidgets.GapM + blockH : safeHeight;
+                UiComposition.Arrange(UiLayoutAxis.Column,
+                    new UiLayoutRect(0f, 0f, safeWidth, availableH),
+                    UiLayoutPadding.Zero, UiWidgets.GapM, _rootItems, _root);
+
+                _previewItems[0] = new UiLayoutItem(UiLayoutSize.Fixed(UiWidgets.RowH),
+                    UiLayoutSize.Flexible(), UiWidgets.RowH, 0f);
+                _previewItems[1] = new UiLayoutItem(UiLayoutSize.Fixed(safePreview),
+                    UiLayoutSize.Flexible(), safePreview, 0f);
+                UiComposition.Arrange(UiLayoutAxis.Column,
+                    new UiLayoutRect(0f, 0f, _root[1].Width, blockH),
+                    UiLayoutPadding.Zero, UiWidgets.GapXS, _previewItems, _preview);
+            }
         }
 
         float DrawFields(Rect rect)
@@ -222,6 +356,7 @@ namespace SlopWorld
                     S.uiFontName = "";
                     UiFont.Apply();
                     S.MarkDirty();
+                    _contentRevision++;
                 }),
             };
             fontOptions.AddRange(UiWidgets.GroupedFontOptions(UiFont.All, name =>
@@ -229,6 +364,7 @@ namespace SlopWorld
                 S.uiFontName = name;
                 UiFont.Apply();
                 S.MarkDirty();
+                _contentRevision++;
             }));
             UiWidgets.Select(l, "Font", S.uiFontName.NullOrEmpty() ? "Automatic" : S.uiFontName,
                 fontOptions, out _);
@@ -240,6 +376,7 @@ namespace SlopWorld
                 S.uiFontSize = size;
                 UiFont.Apply();
                 S.MarkDirty();
+                _contentRevision++;
             }
 
             GUI.color = UiWidgets.Faint;
@@ -251,7 +388,10 @@ namespace SlopWorld
 
             l.Gap(UiWidgets.GapS);
             if (UiWidgets.Button(l, "Rescan installed fonts"))
+            {
                 UiFont.Rescan();
+                _contentRevision++;
+            }
             l.Gap(UiWidgets.GapM);
 
             float used = l.CurHeight;

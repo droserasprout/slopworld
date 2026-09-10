@@ -1,0 +1,57 @@
+# Dynamic UI architecture
+
+Workspace geometry, left/right navigation, density presets, the pure row/column
+composition layer, and the Appearance migration are implemented. Panel ownership,
+splits, and the broader style architecture below remain proposed; follow the
+[next steps](ui-dynamic-layout-next-steps.md) for the remaining implementation slices.
+
+## Workspace and panels
+
+A workspace shell owns navigation, panel placement, active content, and focus. A
+`WorkspaceLayout` computes one geometry snapshot consumed by drawing, hit testing,
+terminal sizing, and Harmony integration. Placement policy is separate from rendering.
+
+Evolve `IContentView` into a panel contract with stable identity, size constraints,
+visibility, and focus lifecycle. Adapt terminals to the same contract; today
+`TerminalWindow` hosts the shell and uses null content to select terminal rendering.
+Keep panel instances, navigation history, selection, and scroll state independent of
+placement. Multiple terminals will require replacing shared fullscreen size assumptions
+with per-panel geometry and an explicit policy for the same session shown twice.
+
+## Layout and rendering
+
+Build a small composition layer: row, column, split, stack, and scroll. Support fixed,
+content, and flexible sizing with minimum sizes, padding, gaps, and alignment. Measure
+content, assign rectangles, then use existing IMGUI controls to draw and handle events.
+Keep geometry stable across related IMGUI event passes and preserve control IDs.
+
+Retain `Slab`, shared widgets, `SmoothScroll`, pixel snapping, and visible-row rendering.
+Cache measured layout by available space, content revision, and text/metric revisions;
+avoid rebuilding an allocated tree on every event. Specialized terminal and Markdown
+renderers continue to own their internal layout.
+
+## Styling
+
+Resolve explicit style objects through a `UiContext`:
+
+- `ThemeColors`: semantic colors supplied by existing `UIScheme` palettes.
+- `ThemeMetrics`: spacing, padding, density, borders, and minimum control sizes.
+- `ThemeTypography`: font roles and measurement inputs.
+- `ControlStyle`: normal, hover, pressed, focused, selected, and disabled appearance.
+
+Allow scoped metric/style overrides, such as compact navigation with comfortable forms.
+Keep ANSI colors in `TerminalTheme` and preserve the existing flat visual language.
+Separate paint invalidation from layout invalidation: color changes repaint; fonts,
+spacing, and density remeasure. Include font-atlas and UI-scale changes in cache keys.
+
+## Configuration and migration
+
+Start with typed settings for side, width, visibility, and density. Later introduce a
+versioned layout description for presets and optional splits, with validated minimum
+sizes, fallback defaults, and reset. Keep workspace preferences in the mod settings
+store; the daemon remains responsible for session state and terminal resize negotiation.
+
+Migrate geometry first, then one settings page to layout composition, then remaining
+views and panel ownership. Add docking only after presets and splits demonstrate a need.
+Validate layout mathematics independently of Unity; verify runtime input and rendering
+when game execution is explicitly authorized.

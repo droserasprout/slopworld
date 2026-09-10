@@ -65,8 +65,14 @@ spacing, buttons, fields, headings and errors. Color names resolve through
   keyboard navigation.
 - `ActiveTip.DrawInner` is patched once per tooltip. `TooltipHandler.TipRegion` still
   owns delay, placement, stacking and size; only the final surface/text draw changes.
-- `UiLayout` is the source of sidebar/top-bar insets. `Hidden` is separate from layout
-  selection so hidden chrome does not move other UI.
+- `WorkspaceLayout` is the source of the immutable navigation/top-bar/content geometry
+  snapshot. `UiLayout` keeps compatibility inset helpers; `Hidden` is separate from layout
+  selection so screenshot-filtered chrome does not move other UI. Navigation may be left or
+  right, and the default/compact `UiMetrics` preset keeps font-derived minimum control heights.
+  Metrics are captured once per IMGUI frame; density, typography/atlas and UI-scale revisions
+  invalidate layout separately while scheme colors only repaint. `UiComposition` provides the
+  pure row/column measure-and-arrange math; Appearance caches its arranged form/preview bounds
+  and switches to one scrollable column when the viewport is short.
 
 ## Usage and top bar
 

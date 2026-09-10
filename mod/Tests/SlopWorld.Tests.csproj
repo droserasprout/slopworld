@@ -21,6 +21,8 @@
     <Compile Include="../Source/SlopWorld/Client/SessionHub/CommandInfo.cs" Link="Source/Client/SessionHub/CommandInfo.cs" />
     <Compile Include="../Source/SlopWorld/Settings/ModSettings.cs" Link="Source/Settings/ModSettings.cs" />
     <Compile Include="../Source/SlopWorld/UI/Chrome/WorkspaceLayout.cs" Link="Source/UI/Chrome/WorkspaceLayout.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Chrome/UiMetrics.cs" Link="Source/UI/Chrome/UiMetrics.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Chrome/UiComposition.cs" Link="Source/UI/Chrome/UiComposition.cs" />
     <Compile Include="../Source/SlopWorld/Settings/FramePolicy.cs" Link="Source/Settings/FramePolicy.cs" />
     <Compile Include="../Source/SlopWorld/Client/SessionHub/HubEventBatch.cs" Link="Source/Client/SessionHub/HubEventBatch.cs" />
     <Compile Include="../Source/SlopWorld/Sim/Lifecycle/PeriodicWork.cs" Link="Source/Sim/Lifecycle/PeriodicWork.cs" />

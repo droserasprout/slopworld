@@ -84,6 +84,10 @@ namespace SlopWorld
                 // using different rectangles; the new choice takes effect next frame.
                 if (_hasCurrent && _currentFrame == Time.frameCount) return _current;
 
+                // Metrics and workspace bounds share the same event-pass boundary. A
+                // font/scale/density action therefore takes effect for both on the next
+                // frame instead of leaving one pass with mixed geometry.
+                UiMetrics.BeginFrame();
                 float width = Mathf.Max(0f, UI.screenWidth);
                 float height = Mathf.Max(0f, UI.screenHeight);
                 bool shown = !Cutscene.Playing;

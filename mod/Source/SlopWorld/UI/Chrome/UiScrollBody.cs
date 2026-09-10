@@ -10,10 +10,11 @@ namespace SlopWorld
             contentHeight > frame.height;
 
         public static float ContentWidth(Rect frame, float contentHeight) =>
-            frame.width - (NeedsScrollbar(frame, contentHeight) ? UiWidgets.ScrollbarW : 0f);
+            Mathf.Max(0f, frame.width -
+                (NeedsScrollbar(frame, contentHeight) ? UiWidgets.ScrollbarW : 0f));
 
         public static Rect View(Rect frame, float contentHeight) =>
-            new Rect(0f, 0f, frame.width - UiWidgets.ScrollbarW,
+            new Rect(0f, 0f, Mathf.Max(0f, frame.width - UiWidgets.ScrollbarW),
                 Mathf.Max(contentHeight, frame.height));
 
         public static Rect ConditionalView(Rect frame, float contentHeight) =>
