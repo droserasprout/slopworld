@@ -33,12 +33,14 @@ namespace SlopWorld
             float formH = _height.BeginFrame(Time.frameCount);
             float blockH = UiWidgets.RowH + UiWidgets.GapXS + ph;
             bool stacked = inner.height < UiWidgets.RowH + UiWidgets.GapM + blockH;
-            float width = Mathf.Max(0f, inner.width - UiWidgets.ScrollbarW);
+            float width = UiScrollBody.Measure(inner, 0f,
+                UiScrollbarReservation.Always).ContentWidth;
             _layout.Arrange(stacked ? width : inner.width, inner.height, stacked, formH, ph, 0);
             if (stacked)
             {
-                var view = UiScrollBody.View(inner, formH + UiWidgets.GapM + blockH);
-                using (_scroll.Scope(inner, view))
+                var geometry = UiScrollBody.Measure(inner, formH + UiWidgets.GapM + blockH,
+                    UiScrollbarReservation.Always);
+                using (_scroll.Scope(inner, geometry.View))
                 {
                     _height.Measure(DrawFields(SettingsPageLayout.ToRect(_layout.Form), S));
                     DrawPreviewBlock(SettingsPageLayout.ToRect(_layout.PreviewCaption),
@@ -48,9 +50,10 @@ namespace SlopWorld
             else
             {
                 var form = Place(inner, _layout.Form);
-                var view = UiScrollBody.View(form, formH);
-                using (_scroll.Scope(form, view))
-                    _height.Measure(DrawFields(view, S));
+                var geometry = UiScrollBody.Measure(form, formH,
+                    UiScrollbarReservation.Always);
+                using (_scroll.Scope(form, geometry.View))
+                    _height.Measure(DrawFields(geometry.View, S));
                 DrawPreviewBlock(Place(inner, _layout.PreviewCaption), Place(inner, _layout.Preview));
             }
         }

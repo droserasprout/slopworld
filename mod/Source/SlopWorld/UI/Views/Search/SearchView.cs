@@ -281,7 +281,9 @@ namespace SlopWorld
             EnsureLayout();
             Hits.Clear();
             float height = _contentHeight;
-            var view = UiScrollBody.ConditionalView(body, height);
+            var geometry = UiScrollBody.Measure(body, height,
+                UiScrollbarReservation.WhenNeeded);
+            var view = geometry.View;
             using (WidgetState.Save())
             using (Scroll.Scope(body, view))
             {

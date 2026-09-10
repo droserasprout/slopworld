@@ -73,7 +73,9 @@ namespace SlopWorld
             }
 
             float height = Pad + HeaderH + UiWidgets.GapXS + tasks.Count * RowH + Pad;
-            var list = new Rect(0f, 0f, UiScrollBody.ContentWidth(body, height), height);
+            var geometry = UiScrollBody.Measure(body, height,
+                UiScrollbarReservation.WhenNeeded);
+            var list = geometry.View;
             using (WidgetState.Save())
             using (Scroll.Scope(body, list))
             {

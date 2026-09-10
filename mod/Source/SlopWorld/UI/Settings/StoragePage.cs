@@ -64,17 +64,21 @@ namespace SlopWorld
 
             string caption = $"{Human(_entries.Sum(e => e.Bytes))} total. Configured agents are retained; " +
                 "deleted/reset state expires after 14 days.";
-            float width = Mathf.Max(0f, inner.width - UiWidgets.ScrollbarW);
+            float width = UiScrollBody.Measure(inner, 0f,
+                UiScrollbarReservation.Always).ContentWidth;
             float captionH = UiWidgets.StatusLabelHeight(caption, width);
             float rowH = StorageRowHeight(width);
             var list = inner;
-            var view = UiScrollBody.View(list,
-                captionH + UiWidgets.GapS + _entries.Count * rowH + UiWidgets.GapXS);
-            using (_scroll.Scope(list, view))
+            var geometry = UiScrollBody.Measure(list,
+                captionH + UiWidgets.GapS + _entries.Count * rowH + UiWidgets.GapXS,
+                UiScrollbarReservation.Always);
+            using (_scroll.Scope(list, geometry.View))
             {
-                UiWidgets.StatusLabel(new Rect(0f, 0f, view.width, captionH), caption, UiWidgets.Dim);
+                UiWidgets.StatusLabel(new Rect(0f, 0f, geometry.View.width, captionH), caption,
+                    UiWidgets.Dim);
                 for (int i = 0; i < _entries.Count; i++)
-                    DrawRow(new Rect(0f, captionH + UiWidgets.GapS + i * rowH, view.width, rowH - UiWidgets.GapXS),
+                    DrawRow(new Rect(0f, captionH + UiWidgets.GapS + i * rowH,
+                        geometry.View.width, rowH - UiWidgets.GapXS),
                         _entries[i]);
             }
 

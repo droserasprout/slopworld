@@ -179,23 +179,28 @@ namespace SlopWorld
             var inner = SettingsPageLayout.Body(rect);
             string caption = "Host commands used, integrated, or recommended by SlopWorld. " +
                 "A checkmark means the executable is on the game's PATH.";
-            float width = Mathf.Max(0f, inner.width - UiWidgets.ScrollbarW);
+            float width = UiScrollBody.Measure(inner, 0f,
+                UiScrollbarReservation.Always).ContentWidth;
             float captionH = UiWidgets.StatusLabelHeight(caption, width);
             float top = captionH + UiWidgets.GapS + UiWidgets.RowH;
-            var view = UiScrollBody.View(inner, top + ContentHeight(width));
-            using (_scroll.Scope(inner, view))
+            var geometry = UiScrollBody.Measure(inner, top + ContentHeight(width),
+                UiScrollbarReservation.Always);
+            using (_scroll.Scope(inner, geometry.View))
             {
-                UiWidgets.StatusLabel(new Rect(0f, 0f, view.width, captionH), caption, UiWidgets.Dim);
-                DrawHeader(new Rect(0f, captionH + UiWidgets.GapS, view.width, UiWidgets.RowH));
+                UiWidgets.StatusLabel(new Rect(0f, 0f, geometry.View.width, captionH), caption,
+                    UiWidgets.Dim);
+                DrawHeader(new Rect(0f, captionH + UiWidgets.GapS, geometry.View.width,
+                    UiWidgets.RowH));
                 if (_results == null)
                 {
-                    UiWidgets.StatusLabel(new Rect(0f, top, view.width, Mathf.Max(UiWidgets.LineH, view.height - top)),
+                    UiWidgets.StatusLabel(new Rect(0f, top, geometry.View.width,
+                        Mathf.Max(UiWidgets.LineH, geometry.View.height - top)),
                         _error ?? (_loading ? "Checking host PATH..." : "No scan results."),
                         _error != null ? UiWidgets.Bad : UiWidgets.Dim);
                 }
                 else
                 {
-                    DrawRows(view, top);
+                    DrawRows(geometry.View, top);
                 }
             }
 

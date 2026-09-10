@@ -22,15 +22,17 @@ namespace SlopWorld
             using (WidgetState.Save())
             {
                 Text.Font = GameFont.Small;
-                var view = UiScrollBody.View(frame, _height.BeginFrame(Time.frameCount));
-                using (_scroll.Scope(frame, view))
+                var geometry = UiScrollBody.Measure(frame,
+                    _height.BeginFrame(Time.frameCount), UiScrollbarReservation.Always);
+                using (_scroll.Scope(frame, geometry.View))
                 {
                     var listing = new Listing_Standard { maxOneColumn = true };
                     bool begun = false;
                     float y = 0f;
                     try
                     {
-                        listing.Begin(new Rect(0f, 0f, view.width, UiWidgets.ListingHeight));
+                        listing.Begin(new Rect(0f, 0f, geometry.View.width,
+                            UiWidgets.ListingHeight));
                         begun = true;
                         drawListing(listing);
                         y = listing.CurHeight;
@@ -40,7 +42,7 @@ namespace SlopWorld
                         if (begun) listing.End();
                     }
 
-                    if (drawTrailing != null) y = drawTrailing(view, y);
+                    if (drawTrailing != null) y = drawTrailing(geometry.View, y);
                     _height.Measure(y + UiWidgets.GapS);
                 }
             }

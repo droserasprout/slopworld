@@ -23,6 +23,7 @@
     <Compile Include="../Source/SlopWorld/UI/Chrome/WorkspaceLayout.cs" Link="Source/UI/Chrome/WorkspaceLayout.cs" />
     <Compile Include="../Source/SlopWorld/UI/Chrome/UiMetrics.cs" Link="Source/UI/Chrome/UiMetrics.cs" />
     <Compile Include="../Source/SlopWorld/UI/Chrome/UiComposition.cs" Link="Source/UI/Chrome/UiComposition.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Chrome/ScrollableGeometry.cs" Link="Source/UI/Chrome/ScrollableGeometry.cs" />
     <Compile Include="../Source/SlopWorld/UI/Settings/SandboxLayout.cs" Link="Source/UI/Settings/SandboxLayout.cs" />
     <Compile Include="../Source/SlopWorld/UI/Settings/SettingsLayout.cs" Link="Source/UI/Settings/SettingsLayout.cs" />
     <Compile Include="../Source/SlopWorld/UI/Views/Shared/WorkspacePanel.cs" Link="Source/UI/Views/Shared/WorkspacePanel.cs" />

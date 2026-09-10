@@ -55,13 +55,16 @@ namespace SlopWorld
                     .ThenBy(b => b.defName).ToList());
 
             // Measure total content height.
-            float totalH = MeasureCategories(cats, bindingsMap, Mathf.Max(0f, inner.width - UiWidgets.ScrollbarW));
+            float contentWidth = UiScrollBody.Measure(inner, 0f,
+                UiScrollbarReservation.Always).ContentWidth;
+            float totalH = MeasureCategories(cats, bindingsMap, contentWidth);
             // Room for the Restore Defaults button at the foot.
             totalH += UiWidgets.BtnH + UiWidgets.GapS + UiWidgets.GapS;
 
             // Scroll view for the list area.
-            var innerRect = UiScrollBody.View(inner, totalH);
-            using (_scroll.Scope(inner, innerRect))
+            var geometry = UiScrollBody.Measure(inner, totalH,
+                UiScrollbarReservation.Always);
+            using (_scroll.Scope(inner, geometry.View))
             {
 
                 float y = 0f;
@@ -70,13 +73,14 @@ namespace SlopWorld
                 {
                     List<KeyBindingDef> list;
                     if (!bindingsMap.TryGetValue(cat, out list) || list.Count == 0) continue;
-                    y += DrawCategory(new Rect(0f, y, innerRect.width, innerRect.height - y),
+                    y += DrawCategory(new Rect(0f, y, geometry.View.width,
+                        geometry.View.height - y),
                         cat, list);
                 }
 
                 // "Restore defaults" at the bottom of the scroll content.
                 y += UiWidgets.GapS;
-                DrawRestoreDefaults(new Rect(0f, y, innerRect.width, UiWidgets.BtnH));
+                DrawRestoreDefaults(new Rect(0f, y, geometry.View.width, UiWidgets.BtnH));
 
             }
 

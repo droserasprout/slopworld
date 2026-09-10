@@ -97,6 +97,7 @@ namespace SlopWorld.Tests
             tests.Add(("UI metrics: density and font floors", UiMetricsTests.Values));
             tests.Add(("UI metrics: invalidation channels", UiMetricsTests.Invalidation));
             tests.Add(("UI composition: measure and arrange", UiCompositionTests.Arrange));
+            tests.Add(("Scrollable geometry: named reservation policy", ScrollableGeometryTests.Policies));
             tests.Add(("Sandbox layout: master/detail geometry", SandboxLayoutTests.Placement));
             tests.Add(("Settings layout: bounded page and footer", SettingsLayoutTests.Bounds));
             tests.Add(("Settings layout: frame-stable content height", SettingsLayoutTests.Measurement));

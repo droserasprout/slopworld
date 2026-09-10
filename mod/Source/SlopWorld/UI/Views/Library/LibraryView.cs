@@ -97,9 +97,9 @@ namespace SlopWorld
 
                 var list = body;
                 float height = Measure();
-                var view = new Rect(0f, 0f,
-                    UiScrollBody.ContentWidth(list, height),
-                    height);
+                var geometry = UiScrollBody.Measure(list, height,
+                    UiScrollbarReservation.WhenNeeded);
+                var view = geometry.View;
 
                 // GUI rather than GUILayout, so this is safe in a pass that declines Layout
                 // events - see AgentSidebar.DrawBack. Closed from a finally the way the files

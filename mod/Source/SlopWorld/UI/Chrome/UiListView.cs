@@ -42,15 +42,17 @@ namespace SlopWorld
         {
             var items = Rows;
             float contentH = items.Count * RowH + UiWidgets.GapXS;
-            var view = UiScrollBody.ConditionalView(rect, contentH);
+            var geometry = UiScrollBody.Measure(rect, contentH,
+                UiScrollbarReservation.WhenNeeded);
 
-            using (_scroll.Scope(rect, view))
+            using (_scroll.Scope(rect, geometry.View))
             {
                 if (items.Count == 0)
                 {
                     string note = hub.Online ? EmptyNote : UiWidgets.Unreachable;
                     UiWidgets.StatusLabel(new Rect(UiWidgets.GapXS, UiWidgets.GapS,
-                            view.width - UiWidgets.GapS, view.height), note, UiWidgets.Dim);
+                            geometry.View.width - UiWidgets.GapS, geometry.View.height), note,
+                        UiWidgets.Dim);
                 }
 
                 VisibleRows.Uniform(items.Count, RowH, _scroll.Position.y, rect.height,
@@ -58,7 +60,8 @@ namespace SlopWorld
                 PerfTrace.Count("ui-list-rows-drawn", end - first);
                 for (int i = first; i < end; i++)
                 {
-                    DrawRow(new Rect(0f, i * RowH, view.width, RowH - UiWidgets.GapXS), items[i]);
+                    DrawRow(new Rect(0f, i * RowH, geometry.View.width,
+                        RowH - UiWidgets.GapXS), items[i]);
                 }
             }
         }
