@@ -3,6 +3,80 @@
 use super::super::*;
 use super::{reconcile::ConfigReconciler, ConfigState, Signals};
 
+enum ConfigOrigin {
+    StructuredMutation,
+    JsonPatch,
+    RawReplacement,
+    DiskReload { mtime: Option<SystemTime> },
+}
+
+struct ConfigChange {
+    old: Config,
+    new: Config,
+    rules: Vec<(State, Regex)>,
+}
+
+struct ConfigEffects {
+    endpoint_token: String,
+    reconcile: bool,
+    announce_sessions: bool,
+    announce_projects: bool,
+    announce_library: bool,
+}
+
+fn prepare_candidate(old: &Config, mut new: Config) -> Result<ConfigChange> {
+    if new.daemon.token == crate::config::TOKEN_REDACTED {
+        new.daemon.token = old.daemon.token.clone();
+    }
+    validate_config(&new)?;
+    let rules = compile_rules(&new);
+    Ok(ConfigChange {
+        old: old.clone(),
+        new,
+        rules,
+    })
+}
+
+fn restore_redacted_document_token(old: &Config, document: &mut toml::Value) {
+    if let Some(daemon) = document
+        .get_mut("daemon")
+        .and_then(toml::Value::as_table_mut)
+    {
+        daemon.insert(
+            "token".into(),
+            toml::Value::String(old.daemon.token.clone()),
+        );
+    }
+}
+
+impl ConfigOrigin {
+    fn effects(&self, endpoint_token: String) -> ConfigEffects {
+        match self {
+            Self::StructuredMutation => ConfigEffects {
+                endpoint_token,
+                reconcile: false,
+                announce_sessions: false,
+                announce_projects: false,
+                announce_library: false,
+            },
+            Self::JsonPatch | Self::RawReplacement => ConfigEffects {
+                endpoint_token,
+                reconcile: true,
+                announce_sessions: false,
+                announce_projects: true,
+                announce_library: true,
+            },
+            Self::DiskReload { .. } => ConfigEffects {
+                endpoint_token,
+                reconcile: true,
+                announce_sessions: true,
+                announce_projects: true,
+                announce_library: true,
+            },
+        }
+    }
+}
+
 impl Live {
     pub(super) fn new(cfg: SessionCfg, title: TitleCapture) -> Self {
         Self {
@@ -90,20 +164,58 @@ impl Manager {
 
     async fn persist_cfg(&self, cfg: &Config) -> Result<()> {
         cfg.save(&self.cfg_path).await?;
-        self.config_saved(cfg).await;
+        self.mark_cfg_mtime().await;
         Ok(())
     }
 
-    async fn persist_cfg_text(&self, cfg: &Config, text: &str) -> Result<()> {
+    async fn persist_cfg_text(&self, text: &str) -> Result<()> {
         Config::save_text(&self.cfg_path, text).await?;
-        self.config_saved(cfg).await;
+        self.mark_cfg_mtime().await;
         Ok(())
     }
 
-    async fn config_saved(&self, cfg: &Config) {
+    async fn mark_cfg_mtime(&self) {
         *self.config_state.cfg_mtime.lock().unwrap() = disk_mtime(&self.cfg_path).await;
-        if let Err(e) = crate::endpoint::update_token(&cfg.daemon.token).await {
-            tracing::warn!("config saved but endpoint descriptor was not updated: {e:#}");
+    }
+
+    async fn publish_config(&self, change: ConfigChange, origin: ConfigOrigin) -> ConfigEffects {
+        let root_token_changed = change.old.daemon.token != change.new.daemon.token;
+        let endpoint_token = change.new.daemon.token.clone();
+
+        *self.rules.write().await = change.rules;
+        *self.cfg.write().await = change.new;
+        if let ConfigOrigin::DiskReload { mtime } = origin {
+            // Do not consume a disk stamp until the accepted contents are visible in memory.
+            *self.config_state.cfg_mtime.lock().unwrap() = mtime;
+        }
+        if root_token_changed {
+            self.invalidate_auth(crate::session::AuthChange::RootTokenChanged);
+        }
+
+        origin.effects(endpoint_token)
+    }
+
+    async fn update_endpoint(&self, token: &str) {
+        if let Err(e) = crate::endpoint::update_token(token).await {
+            tracing::warn!("config accepted but endpoint descriptor was not updated: {e:#}");
+        }
+    }
+
+    async fn finish_config_change(self: &Arc<Self>, effects: ConfigEffects) {
+        self.update_endpoint(&effects.endpoint_token).await;
+        if effects.reconcile {
+            self.sync_from_config().await;
+        }
+        if effects.announce_sessions {
+            self.emit(Event::Sessions {
+                sessions: self.views().await,
+            });
+        }
+        if effects.announce_projects {
+            self.announce_projects().await;
+        }
+        if effects.announce_library {
+            self.announce_library().await;
         }
     }
 
@@ -122,17 +234,22 @@ impl Manager {
         &self,
         update: impl FnOnce(&mut Config) -> Result<(T, bool)>,
     ) -> Result<T> {
-        let _persist = self.config_state.persist.lock().await;
-        let old_token = self.cfg.read().await.daemon.token.clone();
-        let mut candidate = self.cfg.read().await.clone();
+        let persist = self.config_state.persist.lock().await;
+        let old = self.cfg.read().await.clone();
+        let mut candidate = old.clone();
         let (result, changed) = update(&mut candidate)?;
-        if changed {
-            self.persist_cfg(&candidate).await?;
-            *self.cfg.write().await = candidate;
-            if old_token != self.cfg.read().await.daemon.token {
-                self.invalidate_auth(crate::session::AuthChange::RootTokenChanged);
-            }
+        if !changed {
+            return Ok(result);
         }
+
+        let change = prepare_candidate(&old, candidate)?;
+        self.persist_cfg(&change.new).await?;
+        let effects = self
+            .publish_config(change, ConfigOrigin::StructuredMutation)
+            .await;
+        drop(persist);
+        debug_assert!(!effects.reconcile);
+        self.update_endpoint(&effects.endpoint_token).await;
         Ok(result)
     }
 
@@ -155,10 +272,7 @@ impl Manager {
                 return false;
             }
         };
-        let new = match Config::parse(&text).and_then(|c| {
-            validate_config(&c)?;
-            Ok(c)
-        }) {
+        let parsed = match Config::parse(&text) {
             Ok(c) => c,
             Err(e) => {
                 tracing::warn!("config changed on disk but is invalid, keeping the old one: {e:#}");
@@ -166,27 +280,20 @@ impl Manager {
             }
         };
 
+        let old = self.cfg.read().await.clone();
+        let change = match prepare_candidate(&old, parsed) {
+            Ok(change) => change,
+            Err(e) => {
+                tracing::warn!("config changed on disk but is invalid, keeping the old one: {e:#}");
+                return false;
+            }
+        };
         tracing::info!("config changed on disk, reloading");
-        let root_token_changed = self.cfg.read().await.daemon.token != new.daemon.token;
-        *self.rules.write().await = compile_rules(&new);
-        let token = new.daemon.token.clone();
-        *self.cfg.write().await = new;
-        if root_token_changed {
-            self.invalidate_auth(crate::session::AuthChange::RootTokenChanged);
-        }
-        // Do not mark a disk state as seen until its contents have been accepted and published.
-        // This keeps a corrected file retryable even when it retains the failed state's mtime.
-        *self.config_state.cfg_mtime.lock().unwrap() = disk;
+        let effects = self
+            .publish_config(change, ConfigOrigin::DiskReload { mtime: disk })
+            .await;
         drop(persist);
-        if let Err(e) = crate::endpoint::update_token(&token).await {
-            tracing::warn!("config reloaded but endpoint descriptor was not updated: {e:#}");
-        }
-        self.sync_from_config().await;
-        self.emit(Event::Sessions {
-            sessions: self.views().await,
-        });
-        self.announce_projects().await;
-        self.announce_library().await;
+        self.finish_config_change(effects).await;
         true
     }
 
@@ -413,7 +520,7 @@ impl Manager {
     pub async fn patch_config(self: &Arc<Self>, patch: Value) -> Result<()> {
         self.reload_if_changed().await;
 
-        let _persist = self.config_state.persist.lock().await;
+        let persist = self.config_state.persist.lock().await;
         let text = tokio::fs::read_to_string(&self.cfg_path)
             .await
             .with_context(|| format!("reading {}", self.cfg_path.display()))?;
@@ -424,54 +531,32 @@ impl Manager {
         }
         merge_toml(&mut document, patch);
 
-        let old_token = self.cfg.read().await.daemon.token.clone();
-        let mut new = Config::parse(&toml::to_string_pretty(&document)?)?;
-        if new.daemon.token == crate::config::TOKEN_REDACTED {
-            new.daemon.token = old_token.clone();
-            if let Some(daemon) = document
-                .get_mut("daemon")
-                .and_then(toml::Value::as_table_mut)
-            {
-                daemon.insert("token".into(), toml::Value::String(old_token.clone()));
-            }
+        let old = self.cfg.read().await.clone();
+        let parsed = Config::parse(&toml::to_string_pretty(&document)?)?;
+        if parsed.daemon.token == crate::config::TOKEN_REDACTED {
+            restore_redacted_document_token(&old, &mut document);
         }
-        validate_config(&new)?;
+        let change = prepare_candidate(&old, parsed)?;
 
         let text = toml::to_string_pretty(&document)?;
-        self.persist_cfg_text(&new, &text).await?;
-
-        let root_token_changed = old_token != new.daemon.token;
-        *self.rules.write().await = compile_rules(&new);
-        *self.cfg.write().await = new;
-        if root_token_changed {
-            self.invalidate_auth(crate::session::AuthChange::RootTokenChanged);
-        }
-        drop(_persist);
-        self.sync_from_config().await;
-        self.announce_projects().await;
-        self.announce_library().await;
+        self.persist_cfg_text(&text).await?;
+        let effects = self.publish_config(change, ConfigOrigin::JsonPatch).await;
+        drop(persist);
+        self.finish_config_change(effects).await;
         Ok(())
     }
 
     pub async fn replace_config(self: &Arc<Self>, text: &str) -> Result<()> {
-        let mut new = Config::parse(text)?;
-        let _persist = self.config_state.persist.lock().await;
-        let old_token = self.cfg.read().await.daemon.token.clone();
-        if new.daemon.token == crate::config::TOKEN_REDACTED {
-            new.daemon.token = old_token.clone();
-        }
-        validate_config(&new)?;
-        self.persist_cfg(&new).await?;
-        let root_token_changed = old_token != new.daemon.token;
-        *self.rules.write().await = compile_rules(&new);
-        *self.cfg.write().await = new;
-        if root_token_changed {
-            self.invalidate_auth(crate::session::AuthChange::RootTokenChanged);
-        }
-        drop(_persist);
-        self.sync_from_config().await;
-        self.announce_projects().await;
-        self.announce_library().await;
+        let persist = self.config_state.persist.lock().await;
+        let old = self.cfg.read().await.clone();
+        let parsed = Config::parse(text)?;
+        let change = prepare_candidate(&old, parsed)?;
+        self.persist_cfg(&change.new).await?;
+        let effects = self
+            .publish_config(change, ConfigOrigin::RawReplacement)
+            .await;
+        drop(persist);
+        self.finish_config_change(effects).await;
         Ok(())
     }
 }
@@ -479,7 +564,7 @@ impl Manager {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::HostTerminalCfg;
+    use crate::config::{HostTerminalCfg, StateRule};
     use crate::session::test_manager;
     use std::time::{Duration, UNIX_EPOCH};
 
@@ -571,6 +656,97 @@ mod tests {
             AuthChange::RootTokenChanged
         ));
         assert_eq!(manager.config().await.daemon.token, "rotated-root");
+    }
+
+    #[test]
+    fn candidate_preparation_restores_a_redacted_root_token() {
+        let mut old = Config::default();
+        old.daemon.token = "real-root-token".into();
+        old.state_rules.push(StateRule {
+            state: "idle".into(),
+            pattern: "idle".into(),
+        });
+        let mut candidate = old.clone();
+        candidate.daemon.token = crate::config::TOKEN_REDACTED.into();
+
+        let change = prepare_candidate(&old, candidate).expect("valid candidate");
+
+        assert_eq!(change.new.daemon.token, old.daemon.token);
+        assert!(!change.rules.is_empty());
+    }
+
+    #[tokio::test]
+    async fn concurrent_structured_writes_keep_both_changes() {
+        let manager = test_manager(Config::default());
+        let left = manager.clone();
+        let right = manager.clone();
+        let (left, right) = tokio::join!(
+            left.update_cfg(|cfg| {
+                cfg.daemon.title_model = "left-model".into();
+                Ok(())
+            }),
+            right.update_cfg(|cfg| {
+                cfg.daemon.summary_prompt = "right-prompt".into();
+                Ok(())
+            }),
+        );
+        left.expect("left config write");
+        right.expect("right config write");
+
+        let cfg = manager.config().await;
+        assert_eq!(cfg.daemon.title_model, "left-model");
+        assert_eq!(cfg.daemon.summary_prompt, "right-prompt");
+        let _ = std::fs::remove_file(manager.cfg_path.clone());
+    }
+
+    #[tokio::test]
+    async fn raw_replacement_persists_the_real_token_for_a_redacted_candidate() {
+        let mut cfg = Config::default();
+        cfg.daemon.token = "real-root-token".into();
+        let manager = test_manager(cfg.clone());
+        let mut replacement = cfg;
+        replacement.daemon.token = crate::config::TOKEN_REDACTED.into();
+
+        manager
+            .replace_config(&toml::to_string_pretty(&replacement).unwrap())
+            .await
+            .expect("replace config");
+
+        assert_eq!(manager.config().await.daemon.token, "real-root-token");
+        let persisted = std::fs::read_to_string(&manager.cfg_path).unwrap();
+        assert!(persisted.contains("real-root-token"));
+        assert!(!persisted.contains(crate::config::TOKEN_REDACTED));
+        let _ = std::fs::remove_file(manager.cfg_path.clone());
+    }
+
+    #[tokio::test]
+    async fn json_patch_preserves_omitted_fields_and_redacted_token() {
+        let mut cfg = Config::default();
+        cfg.daemon.token = "real-root-token".into();
+        cfg.daemon.summary_prompt = "keep this prompt".into();
+        let manager = test_manager(cfg.clone());
+        cfg.save(&manager.cfg_path).await.unwrap();
+        *manager.config_state.cfg_mtime.lock().unwrap() = tokio::fs::metadata(&manager.cfg_path)
+            .await
+            .unwrap()
+            .modified()
+            .ok();
+
+        manager
+            .patch_config(serde_json::json!({
+                "daemon": {
+                    "token": crate::config::TOKEN_REDACTED,
+                    "title_min_chars": 42,
+                }
+            }))
+            .await
+            .expect("patch config");
+
+        let updated = manager.config().await;
+        assert_eq!(updated.daemon.token, "real-root-token");
+        assert_eq!(updated.daemon.summary_prompt, "keep this prompt");
+        assert_eq!(updated.daemon.title_min_chars, 42);
+        let _ = std::fs::remove_file(manager.cfg_path.clone());
     }
 
     #[tokio::test]
