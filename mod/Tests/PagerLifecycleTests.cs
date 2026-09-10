@@ -4,7 +4,7 @@ using System.Collections.Generic;
 namespace SlopWorld
 {
     // Transport/window bindings for testing the real Pager and PagerTabs lifecycle.
-    sealed class SessionHub
+    sealed partial class SessionHub
     {
         public static SessionHub Instance = new SessionHub();
         public readonly DaemonConfig Config = new DaemonConfig();
@@ -42,7 +42,7 @@ namespace SlopWorld
         public static void Open(string name) { Current = name; }
     }
 
-    static class UiLayout
+    static partial class UiLayout
     {
         public static void Fail(string message) { throw new Exception(message); }
     }

@@ -1,61 +1,118 @@
+using System.Linq;
+using UnityEngine;
+
 namespace SlopWorld.Tests
 {
     static class SandboxEditorLayoutTests
     {
         public static void Geometry()
         {
-            var readOnly = SandboxEditorLayout.Measure(240f, new[]
+            SessionHub.Instance = new SessionHub();
+            SessionHub.Instance.Presets.Add(new PresetInfo { Name = "global" });
+            SessionHub.Instance.Presets.Add(new PresetInfo { Name = "one" });
+            SessionHub.Instance.Presets.Add(new PresetInfo { Name = "two" });
+            try
             {
-                new SandboxEditorLayout.Row(SandboxEditorRowKind.Area, 60f,
-                    SandboxEditorLayout.OptionalVisible(false, ""), null),
-                new SandboxEditorLayout.Row(SandboxEditorRowKind.Actions, 24f, true, null),
-            });
-            AssertEx.False(readOnly.Rows[0].Visible, "empty read-only area is hidden");
-            AssertEx.Equal(0f, readOnly.Rows[0].Bounds.Height,
-                "hidden read-only area has no bounds");
-            AssertEx.Equal(24f, readOnly.ContentHeight,
-                "hidden read-only area does not move the action row");
+                SeparatorSpacing();
+                foreach (string source in new[] { "system", "user", "override" })
+                    foreach (float width in new[] { 60f, 240f })
+                    {
+                        var preset = new PresetInfo
+                        {
+                            Name = "sample", Source = source,
+                            Description = new string('x', 100),
+                            Escapes = "host access",
+                        };
+                        preset.Ro.Add(" /raw/path ");
+                        preset.Setenv["A"] = " value ";
+                        var page = new SandboxPage();
+                        string before = preset.ToJson();
+                        EditorTrace.Draws.Clear();
+                        EditorTrace.EditValue = "measurement must not edit";
+                        float measured = page.TestPreset(preset, width, false);
+                        AssertEx.Equal(0, EditorTrace.Draws.Count, "preset measurement invokes no controls");
+                        AssertEx.Equal(before, preset.ToJson(), "preset measurement preserves draft data");
+                        EditorTrace.EditValue = null;
+                        AssertEx.Equal(measured, page.TestPreset(preset, width, true),
+                            "preset draw and measurement use the same geometry");
+                        var description = EditorTrace.Draws.Single(d => d.Name == "preset.description").Rect;
+                        AssertEx.True(description.height > 44f, "real form expands wrapped descriptions");
+                        AssertEx.True(EditorTrace.Draws.Where(d => d.Name.StartsWith("preset."))
+                            .All(d => d.Rect.width == width && d.Rect.yMax <= measured),
+                            "preset fields remain inside the measured extent");
+                        CheckHost(page, preset, null, width);
 
-            var editable = SandboxEditorLayout.Measure(240f, new[]
+                        var command = new CommandInfo { Name = "agent", Source = source };
+                        before = command.ToJson();
+                        EditorTrace.Draws.Clear();
+                        EditorTrace.EditValue = "measurement must not edit";
+                        measured = page.TestCommand(command, width, false);
+                        AssertEx.Equal(0, EditorTrace.Draws.Count, "command measurement invokes no controls");
+                        AssertEx.Equal(before, command.ToJson(), "command measurement preserves draft data");
+                        EditorTrace.EditValue = null;
+                        AssertEx.Equal(measured, page.TestCommand(command, width, true),
+                            "command draw and measurement use the same geometry");
+                        AssertEx.Equal("check:one,check:two", string.Join(",",
+                            EditorTrace.Draws.Where(d => d.Name.StartsWith("check:")).Select(d => d.Name)),
+                            "command dependencies retain catalog order and omit global");
+                        CheckHost(page, null, command, width);
+                    }
+
+                var newPreset = new PresetInfo { Source = "user" };
+                EditorTrace.Draws.Clear();
+                new SandboxPage().TestPreset(newPreset, 240f, true, isNew: true);
+                AssertEx.True(EditorTrace.Draws.Any(d => d.Name == "preset.name"),
+                    "new empty name remains an editable field");
+            }
+            finally
             {
-                new SandboxEditorLayout.Row(SandboxEditorRowKind.Area, 60f,
-                    SandboxEditorLayout.OptionalVisible(true, ""), null),
-                new SandboxEditorLayout.Row(SandboxEditorRowKind.Actions, 24f, true, null),
-            });
-            AssertEx.True(editable.Rows[0].Visible, "editable empty area stays visible");
-            AssertEx.Equal(60f, editable.Rows[1].Bounds.Y,
-                "visible area places the action row after its bounds");
+                EditorTrace.EditValue = null;
+                EditorTrace.Draws.Clear();
+                SessionHub.Instance = new SessionHub();
+            }
+        }
 
-            float wrapped = SandboxEditorLayout.WrappedAreaHeight(100f, "long", 48f,
-                6f, 2f, (text, width) => width < 90f ? 90f : 20f);
-            AssertEx.Equal(98f, wrapped, "wrapped area includes field padding");
-            AssertEx.Equal(48f, SandboxEditorLayout.WrappedAreaHeight(100f, "short", 48f,
-                6f, 2f, (text, width) => 20f), "area keeps its minimum height");
+        static void SeparatorSpacing()
+        {
+            var page = new SandboxPage();
+            var preset = new PresetInfo { Name = "sample", Source = "system" };
+            EditorTrace.Draws.Clear();
+            float bottom = page.TestPreset(preset, 240f, true);
+            // Baseline from the original preset form with the test font metrics. The three
+            // hairlines sit inside their gaps, including when all optional fields are hidden.
+            AssertEx.Equal("136,152,168", string.Join(",",
+                EditorTrace.Draws.Where(d => d.Name == "rule").Select(d => d.Rect.y)),
+                "preset separators retain the original positions");
+            AssertEx.Equal(184f, bottom, "hidden optional fields leave the original action position");
+            AssertEx.Equal(1, EditorTrace.Draws.Count(d => d.Name.StartsWith("preset.")),
+                "empty system fields are hidden except the nonempty name");
 
-            var narrow = SandboxEditorLayout.Measure(-10f, new[]
-            {
-                new SandboxEditorLayout.Row(SandboxEditorRowKind.Field, 12f, true, null),
-                new SandboxEditorLayout.Row(SandboxEditorRowKind.Actions, 18f, true, null),
-            });
-            AssertEx.Equal(0f, narrow.Rows[0].Bounds.Width,
-                "narrow layout clamps row width");
-            AssertEx.True(narrow.Rows[0].Bounds.XMax <= 0f &&
-                narrow.Rows[1].Bounds.XMax <= 0f,
-                "narrow rows stay within their zero-width edge");
-            AssertEx.Equal(12f, narrow.Rows[1].Bounds.Y,
-                "action row follows the preceding row at narrow width");
-            AssertEx.Equal(30f, narrow.ContentHeight,
-                "content extent includes every visible row");
+            preset.Source = "user";
+            EditorTrace.Draws.Clear();
+            bottom = page.TestPreset(preset, 240f, true);
+            AssertEx.Equal("238,473,781", string.Join(",",
+                EditorTrace.Draws.Where(d => d.Name == "rule").Select(d => d.Rect.y)),
+                "editable preset separators retain the original positions");
+            AssertEx.Equal(943f, bottom, "editable action position does not accumulate hairline heights");
+            AssertEx.Equal(12, EditorTrace.Draws.Count(d => d.Name.StartsWith("preset.")),
+                "editable empty fields remain visible");
+        }
 
-            bool painted = false;
-            var deferred = SandboxEditorLayout.Measure(80f, new[]
-            {
-                new SandboxEditorLayout.Row(SandboxEditorRowKind.Field, 10f, true,
-                    bounds => painted = true),
-            });
-            AssertEx.False(painted, "measurement does not paint rows");
-            deferred.Rows[0].Paint(deferred.Rows[0].Bounds);
-            AssertEx.True(painted, "row painting is deferred until the draw pass");
+        static void CheckHost(SandboxPage page, PresetInfo preset, CommandInfo command, float width)
+        {
+            EditorTrace.Draws.Clear();
+            if (preset != null) page.TestPresetHost(preset, width);
+            else page.TestCommandHost(command, width);
+            Rect view = EditorTrace.Draws.Single(d => d.Name == "scroll").Rect;
+            AssertEx.True(EditorTrace.Draws.All(d => d.Rect.yMax <= view.height),
+                "real editor host reserves space for every control");
+            string source = preset != null ? preset.Source : command.Source;
+            AssertEx.Equal(source == "system", EditorTrace.Draws.Any(d => d.Name == "Copy to user"),
+                "only system entries show copy");
+            AssertEx.Equal(source != "system", EditorTrace.Draws.Any(d => d.Name == "Save"),
+                "only editable entries show save");
+            AssertEx.Equal(source == "override", EditorTrace.Draws.Any(d => d.Name == "Reset to system"),
+                "overrides retain reset action");
         }
     }
 }

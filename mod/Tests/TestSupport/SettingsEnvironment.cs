@@ -4,7 +4,7 @@ namespace Verse
     static class Log { public static void Error(string message) { } }
     static class UI { public static float screenWidth, screenHeight; }
     public enum GameFont { Tiny, Small, Medium }
-    static class Text
+    static partial class Text
     {
         public static bool TinyFontSupported = true;
         public static float LineHeightOf(GameFont font) =>
@@ -18,7 +18,7 @@ namespace SlopWorld
     static class Cutscene { public static bool Playing; }
     static class TopBar { public static float H => 26f; }
     static class UiFont { public static int RevisionValue; public static int Revision => RevisionValue; }
-    static class UiTheme { public static int AtlasRevisionValue; public static int AtlasRevision => AtlasRevisionValue; }
+    static partial class UiTheme { public static int AtlasRevisionValue; public static int AtlasRevision => AtlasRevisionValue; }
 
     sealed class ModEntry
     {

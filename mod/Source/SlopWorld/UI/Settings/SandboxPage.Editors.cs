@@ -108,104 +108,62 @@ namespace SlopWorld
 
         void DrawPresetEditor(Rect r)
         {
-            if (_preset == null)
-            {
-                EmptyEditor(r, "Select a preset to inspect or edit it.");
-                return;
-            }
+            if (_preset == null) { EmptyEditor(r, "Select a preset to inspect or edit it."); return; }
             var p = _preset;
             bool editable = _newEntry || p.Source != "system";
-            float width = Mathf.Max(0f, r.width - UiTheme.ScrollbarW);
-            var layout = BuildPresetLayout(p, width, editable);
-            var view = new Rect(0f, 0f, width, Mathf.Max(layout.ContentHeight, r.height));
+            var view = new Rect(0f, 0f, Mathf.Max(0f, r.width - UiTheme.ScrollbarW), 0f);
+            // The same form measures and draws; measurement must not invoke controls or setters.
+            view.height = Mathf.Max(DrawPresetFields(view, 0f, p, editable, false) +
+                UiTheme.BtnH + UiTheme.GapM, r.height);
             using (_editorScroll.Scope(r, view))
-                DrawEditorLayout(view, layout);
+            {
+                float y = DrawPresetFields(view, 0f, p, editable, true);
+                EditorButtons(view, y, editable, p.Source,
+                    () => SessionHub.Instance.Catalog.SavePreset(p, () => { _newEntry = false; _error = null; }, msg => _error = msg),
+                    () => Remove("sandbox", p.Name));
+            }
         }
 
-        SandboxEditorLayout BuildPresetLayout(PresetInfo p, float width, bool editable)
+        float DrawPresetFields(Rect view, float y, PresetInfo p, bool editable, bool draw)
         {
-            var rows = new List<SandboxEditorLayout.Row>();
             // Keep an escape warning above the identity so a long editor does not hide it.
             if (!string.IsNullOrEmpty(p.Escapes))
-                AddWarning(rows, width, $"Escape path: {p.Escapes}.");
-
-            AddTitleRows(rows, p.Name, p.Source, "sandbox");
-            AddField(rows, width, "Name", "preset.name", p.Name, _newEntry,
-                v => p.Name = v);
-            AddArea(rows, width, "Description", "preset.description", p.Description,
-                editable, 44f, v => p.Description = v);
-            AddList(rows, width, "Requires", "preset.requires", p.Requires, editable);
-            AddRule(rows, true);
-            AddList(rows, width, "Read-only binds", "preset.ro", p.Ro, editable);
-            AddList(rows, width, "Read-write binds", "preset.rw", p.Rw, editable);
-            AddList(rows, width, "Device binds", "preset.dev", p.Dev, editable);
-            AddRule(rows, false);
-            AddList(rows, width, "Private paths", "preset.private", p.Private, editable);
-            AddList(rows, width, "Seed paths", "preset.seed", p.Seed, editable);
-            AddList(rows, width, "Skip paths", "preset.skip", p.Skip, editable);
-            AddList(rows, width, "Shared files", "preset.shared", p.Shared, editable);
-            AddRule(rows, false);
-            AddList(rows, width, "Forwarded environment", "preset.env", p.Env, editable);
-            string setenv = SetenvLines(p);
-            AddArea(rows, width, "Set environment (KEY=VALUE)", "preset.setenv", setenv,
-                editable, 48f, v => { _setenvText = v; ParseSetenv(p); });
-            rows.Add(EditorButtonsRow(UiTheme.BtnH + UiTheme.GapM, editable, p.Source,
-                "sandbox", p.Name,
-                () => SessionHub.Instance.Catalog.SavePreset(p, () =>
-                {
-                    _newEntry = false; _error = null;
-                }, msg => _error = msg),
-                () => Remove("sandbox", p.Name)));
-            return SandboxEditorLayout.Measure(width, rows);
+            {
+                string warning = $"Escape path: {p.Escapes}.";
+                float warningH = UiText.StatusLabelHeight(warning, view.width);
+                if (draw) UiText.StatusLabel(new Rect(0f, y, view.width, warningH), warning,
+                    UiTheme.Warn);
+                y += warningH + UiTheme.GapM;
+            }
+            EditorTitle(view, ref y, p.Name, p.Source, "sandbox", draw);
+            y = EditorField(view, y, "Name", "preset.name", p.Name, _newEntry,
+                v => p.Name = v, draw);
+            y = EditorArea(view, y, "Description", "preset.description", p.Description,
+                editable, 44f, v => p.Description = v, draw);
+            y = EditorList(view, y, "Requires", "preset.requires", p.Requires, editable, draw);
+            y = Rule(view.width, y + UiTheme.GapXS, draw);
+            y = DrawBindFields(view, y, p, editable, draw);
+            y = DrawPathFields(view, y, p, editable, draw);
+            y = Rule(view.width, y, draw);
+            y = EditorList(view, y, "Forwarded environment", "preset.env", p.Env, editable, draw);
+            return EditorArea(view, y, "Set environment (KEY=VALUE)", "preset.setenv",
+                SetenvLines(p), editable, 48f, v => { _setenvText = v; ParseSetenv(p); }, draw);
         }
 
-        SandboxEditorLayout BuildCommandLayout(CommandInfo c, float width, bool editable)
+        float DrawBindFields(Rect view, float y, PresetInfo p, bool editable, bool draw)
         {
-            var rows = new List<SandboxEditorLayout.Row>();
-            AddTitleRows(rows, c.Name, c.Source, "command");
-            AddField(rows, width, "Name", "command.name", c.Name, _newEntry,
-                v => c.Name = v);
-            rows.Add(EditorRow(SandboxEditorRowKind.Field, FieldRowHeight(), true, g =>
-                DrawCommandKind(ToRect(g), c, editable)));
-            AddArea(rows, width, "Description", "command.description", c.Description,
-                editable, 44f, v => c.Description = v);
-            AddArea(rows, width, "Command line", "command.cmd", c.Cmd,
-                editable, 52f, v => c.Cmd = v);
+            y = EditorList(view, y, "Read-only binds", "preset.ro", p.Ro, editable, draw);
+            y = EditorList(view, y, "Read-write binds", "preset.rw", p.Rw, editable, draw);
+            y = EditorList(view, y, "Device binds", "preset.dev", p.Dev, editable, draw);
+            return Rule(view.width, y, draw);
+        }
 
-            rows.Add(EditorRow(SandboxEditorRowKind.Heading, UiTheme.GapS + UiTheme.RowH,
-                true, g => UiLayout.SectionHeading(
-                    new Rect(g.X, g.Y + UiTheme.GapS, g.Width, UiTheme.RowH),
-                    "Sandbox dependencies")));
-            rows.Add(EditorRow(SandboxEditorRowKind.Note, UiTheme.LineH + UiTheme.GapXS,
-                true, g =>
-                {
-                    GUI.color = UiTheme.Dim;
-                    UiText.RowLabel(new Rect(g.X, g.Y, g.Width, UiTheme.LineH),
-                        "These presets are added whenever this command runs.");
-                    GUI.color = Color.white;
-                }));
-            foreach (var p in SessionHub.Instance.Presets.Where(p => p.Name != "global"))
-            {
-                rows.Add(EditorRow(SandboxEditorRowKind.Checkbox, UiTheme.RowH, true, g =>
-                {
-                    bool on = c.Sandbox.Contains(p.Name);
-                    bool was = on;
-                    bool next = UiControls.Checkbox(ToRect(g), p.Name, on,
-                        p.Description, !editable, p.IsEscape);
-                    if (editable && next != was)
-                    {
-                        if (next) c.Sandbox.Add(p.Name); else c.Sandbox.Remove(p.Name);
-                    }
-                }));
-            }
-            rows.Add(EditorButtonsRow(UiTheme.GapS + UiTheme.BtnH + UiTheme.GapM,
-                editable, c.Source, "command", c.Name,
-                () => SessionHub.Instance.Catalog.SaveCommand(c, () =>
-                {
-                    _newEntry = false; _error = null;
-                }, msg => _error = msg),
-                () => Remove("command", c.Name), UiTheme.GapS));
-            return SandboxEditorLayout.Measure(width, rows);
+        float DrawPathFields(Rect view, float y, PresetInfo p, bool editable, bool draw)
+        {
+            y = EditorList(view, y, "Private paths", "preset.private", p.Private, editable, draw);
+            y = EditorList(view, y, "Seed paths", "preset.seed", p.Seed, editable, draw);
+            y = EditorList(view, y, "Skip paths", "preset.skip", p.Skip, editable, draw);
+            return EditorList(view, y, "Shared files", "preset.shared", p.Shared, editable, draw);
         }
 
         string _setenvText;
@@ -232,171 +190,164 @@ namespace SlopWorld
 
         void DrawCommandEditor(Rect r)
         {
-            if (_command == null)
-            {
-                EmptyEditor(r, "Select a command to inspect or edit it.");
-                return;
-            }
+            if (_command == null) { EmptyEditor(r, "Select a command to inspect or edit it."); return; }
             var c = _command;
             bool editable = _newEntry || c.Source != "system";
-            float width = Mathf.Max(0f, r.width - UiTheme.ScrollbarW);
-            var layout = BuildCommandLayout(c, width, editable);
-            var view = new Rect(0f, 0f, width, Mathf.Max(layout.ContentHeight, r.height));
+            var view = new Rect(0f, 0f, Mathf.Max(0f, r.width - UiTheme.ScrollbarW), 0f);
+            view.height = Mathf.Max(DrawCommandFields(view, c, editable, false) +
+                UiTheme.BtnH + UiTheme.GapM, r.height);
             using (_editorScroll.Scope(r, view))
-                DrawEditorLayout(view, layout);
+            {
+                float y = DrawCommandFields(view, c, editable, true);
+                EditorButtons(view, y, editable, c.Source,
+                    () => SessionHub.Instance.Catalog.SaveCommand(c, () => { _newEntry = false; _error = null; }, msg => _error = msg),
+                    () => Remove("command", c.Name));
+            }
         }
 
-        static void DrawCommandKind(Rect row, CommandInfo c, bool editable)
+        float DrawCommandFields(Rect view, CommandInfo c, bool editable, bool draw)
         {
+            float y = 0f;
+            EditorTitle(view, ref y, c.Name, c.Source, "command", draw);
+            y = EditorField(view, y, "Name", "command.name", c.Name, _newEntry, v => c.Name = v, draw);
+            DrawCommandKind(view, ref y, c, editable, draw);
+            y = EditorArea(view, y, "Description", "command.description", c.Description, editable, 44f, v => c.Description = v, draw);
+            y = EditorArea(view, y, "Command line", "command.cmd", c.Cmd, editable, 52f, v => c.Cmd = v, draw);
+            y += UiTheme.GapS;
+            if (draw) UiLayout.SectionHeading(new Rect(0f, y, view.width, UiTheme.RowH), "Sandbox dependencies");
+            y += UiTheme.RowH;
+            if (draw)
+            {
+                GUI.color = UiTheme.Dim;
+                UiText.RowLabel(new Rect(0f, y, view.width, UiTheme.LineH),
+                    "These presets are added whenever this command runs.");
+                GUI.color = Color.white;
+            }
+            y += UiTheme.LineH + UiTheme.GapXS;
+            foreach (var p in SessionHub.Instance.Presets.Where(p => p.Name != "global"))
+            {
+                if (draw)
+                {
+                    bool on = c.Sandbox.Contains(p.Name);
+                    bool next = UiControls.Checkbox(new Rect(0f, y, view.width, UiTheme.RowH), p.Name, on,
+                        p.Description, !editable, p.IsEscape);
+                    if (editable && next != on)
+                    {
+                        if (next) c.Sandbox.Add(p.Name); else c.Sandbox.Remove(p.Name);
+                    }
+                }
+                y += UiTheme.RowH;
+            }
+            return y + UiTheme.GapS;
+        }
+
+        static void DrawCommandKind(Rect view, ref float y, CommandInfo c, bool editable, bool draw)
+        {
+            if (!draw) { y += FieldHeight(); return; }
             string label = c.Kind == CommandInfo.ShellKind ? "Shell" : "Agent";
             var options = new[]
             {
                 new SelectorOption("Agent", () => c.Kind = CommandInfo.AgentKind, editable),
                 new SelectorOption("Shell", () => c.Kind = CommandInfo.ShellKind, editable),
             };
+            var row = new Rect(0f, y, view.width, FieldHeight());
             UiControls.Select(row, "Kind", label, options, out _, on: editable);
+            y += row.height;
         }
 
-        void AddTitleRows(List<SandboxEditorLayout.Row> rows, string name, string source,
-                          string kind)
+        void EditorTitle(Rect view, ref float y, string name, string source, string kind, bool draw)
         {
-            rows.Add(EditorRow(SandboxEditorRowKind.Title, UiTheme.RowH, true, g =>
+            if (draw)
             {
                 GUI.color = UiTheme.Lead;
-                UiText.RowLabel(ToRect(g), name + (source == "override" ? "  (override)" : ""));
+                UiText.RowLabel(new Rect(0f, y, view.width, UiTheme.RowH),
+                    name + (source == "override" ? "  (override)" : ""));
+                GUI.color = source == "system" ? UiTheme.Faint : UiTheme.Yes;
+                UiText.RowLabel(new Rect(0f, y + UiTheme.RowH, view.width, UiTheme.LineH),
+                    source == "system" ? "System preset (read-only)" : "User preset");
                 GUI.color = Color.white;
-            }));
-            rows.Add(EditorRow(SandboxEditorRowKind.Status, UiTheme.LineH + UiTheme.GapS,
-                true, g =>
-                {
-                    GUI.color = source == "system" ? UiTheme.Faint : UiTheme.Yes;
-                    UiText.RowLabel(new Rect(g.X, g.Y, g.Width, UiTheme.LineH),
-                        source == "system" ? "System preset (read-only)" : "User preset");
-                    GUI.color = Color.white;
-                }));
+            }
+            y += UiTheme.RowH + UiTheme.LineH + UiTheme.GapS;
             if (source == "system")
             {
-                rows.Add(EditorRow(SandboxEditorRowKind.Copy, UiTheme.BtnH + UiTheme.GapM,
-                    true, g =>
-                    {
-                        if (UiButtons.Button(new Rect(g.X, g.Y, g.Width, UiTheme.BtnH),
-                                "Copy to user", UiTheme.Btn.Primary))
-                            Copy(kind, name);
-                    }));
+                if (draw && UiButtons.Button(new Rect(0f, y, view.width, UiTheme.BtnH), "Copy to user", UiTheme.Btn.Primary))
+                    Copy(kind, name);
+                y += UiTheme.BtnH + UiTheme.GapM;
             }
         }
 
-        void AddWarning(List<SandboxEditorLayout.Row> rows, float width, string warning)
+        float EditorField(Rect view, float y, string label, string name, string value,
+                          bool editable, Action<string> set, bool draw)
         {
-            float labelHeight = UiText.StatusLabelHeight(warning, width);
-            rows.Add(EditorRow(SandboxEditorRowKind.Warning, labelHeight + UiTheme.GapM,
-                true, g => UiText.StatusLabel(
-                    new Rect(g.X, g.Y, g.Width, labelHeight), warning, UiTheme.Warn)));
-        }
-
-        void AddField(List<SandboxEditorLayout.Row> rows, float width, string label, string name,
-                      string value, bool editable, Action<string> set)
-        {
-            bool visible = SandboxEditorLayout.OptionalVisible(editable, value);
-            rows.Add(EditorRow(SandboxEditorRowKind.Field, FieldRowHeight(), visible, g =>
+            if (!editable && string.IsNullOrWhiteSpace(value)) return y;
+            if (draw)
             {
-                DrawCaption(g, label);
-                set(UiText.Field(new Rect(g.X, g.Y + UiTheme.LineH + UiTheme.GapXS,
-                    g.Width, UiTheme.FieldH), name, value, editable));
-            }));
-        }
-
-        void AddArea(List<SandboxEditorLayout.Row> rows, float width, string label, string name,
-                     string value, bool editable, float minimum, Action<string> set)
-        {
-            bool visible = SandboxEditorLayout.OptionalVisible(editable, value);
-            if (!visible)
-            {
-                rows.Add(EditorRow(SandboxEditorRowKind.Area, 0f, false, null));
-                return;
+                EditorCaption(view, y, label);
+                set(UiText.Field(new Rect(0f, y + UiTheme.LineH + UiTheme.GapXS,
+                    view.width, UiTheme.FieldH), name, value, editable));
             }
-            float actual = SandboxEditorLayout.WrappedAreaHeight(width, value, minimum,
-                UiTheme.FieldPadX, UiTheme.FieldPadY,
-                (text, available) => Text.CalcHeight(text, available));
-            float rowHeight = UiTheme.LineH + UiTheme.GapXS + actual + UiTheme.GapS;
-            rows.Add(EditorRow(SandboxEditorRowKind.Area, rowHeight, true, g =>
-            {
-                DrawCaption(g, label);
-                set(UiText.Area(new Rect(g.X, g.Y + UiTheme.LineH + UiTheme.GapXS,
-                    g.Width, actual), name, value, editable));
-            }));
+            return y + FieldHeight();
         }
 
-        void AddList(List<SandboxEditorLayout.Row> rows, float width, string label, string name,
-                     List<string> items, bool editable)
+        float EditorArea(Rect view, float y, string label, string name, string value, bool editable,
+                         float height, Action<string> set, bool draw)
         {
-            string text = DaemonConfig.Lines(items);
-            AddArea(rows, width, label, name, text, editable, 48f, value =>
+            if (!editable && string.IsNullOrWhiteSpace(value)) return y;
+            float actual = Mathf.Max(height, Text.CalcHeight(string.IsNullOrEmpty(value) ? " " : value,
+                view.width - UiTheme.FieldPadX * 2f) + UiTheme.FieldPadY * 4f);
+            if (draw)
             {
-                items.Clear();
-                items.AddRange(DaemonConfig.Split(value));
-            });
+                EditorCaption(view, y, label);
+                set(UiText.Area(new Rect(0f, y + UiTheme.LineH + UiTheme.GapXS,
+                    view.width, actual), name, value, editable));
+            }
+            return y + UiTheme.LineH + UiTheme.GapXS + actual + UiTheme.GapS;
         }
 
-        static void AddRule(List<SandboxEditorLayout.Row> rows, bool leadingGap)
-        {
-            float top = leadingGap ? UiTheme.GapXS : 0f;
-            rows.Add(EditorRow(SandboxEditorRowKind.Rule, top + 1f + UiTheme.GapM, true,
-                g => Slab.Hairline(new Rect(g.X, g.Y + top, g.Width, 1f), UiTheme.Edge)));
-        }
-
-        static void DrawCaption(UiLayoutRect row, string label)
+        static void EditorCaption(Rect view, float y, string label)
         {
             GUI.color = UiTheme.Dim;
-            UiText.RowLabel(new Rect(row.X, row.Y, row.Width, UiTheme.LineH), label);
+            UiText.RowLabel(new Rect(0f, y, view.width, UiTheme.LineH), label);
             GUI.color = Color.white;
         }
 
-        static float FieldRowHeight() => UiTheme.LineH + UiTheme.GapXS +
-                                         UiTheme.FieldH + UiTheme.GapS;
+        static float FieldHeight() => UiTheme.LineH + UiTheme.GapXS +
+                                      UiTheme.FieldH + UiTheme.GapS;
 
-        static SandboxEditorLayout.Row EditorRow(SandboxEditorRowKind kind, float height,
-                                                  bool visible, Action<UiLayoutRect> paint) =>
-            new SandboxEditorLayout.Row(kind, height, visible, paint);
-
-        SandboxEditorLayout.Row EditorButtonsRow(float height, bool editable, string source,
-                                                 string kind, string name, Action save,
-                                                 Action remove, float topGap = 0f) =>
-            EditorRow(SandboxEditorRowKind.Actions, height, true, g =>
-            {
-                DrawEditorButtons(new Rect(g.X, g.Y + topGap, g.Width, UiTheme.BtnH),
-                    editable, source, kind, name, save, remove);
-            });
-
-        static void DrawEditorButtons(Rect row, bool editable, string source, string kind,
-                                      string name, Action save, Action remove)
+        float EditorList(Rect view, float y, string label, string name, List<string> items, bool editable, bool draw)
         {
-            float gap = UiTheme.GapS;
-            float width = Mathf.Max(0f, (row.width - gap) / 2f);
-            if (editable && UiButtons.Button(new Rect(row.x, row.y, width, UiTheme.BtnH),
-                    "Save", UiTheme.Btn.Primary))
-                save();
-            if (source != "system" && UiButtons.Button(new Rect(row.x + width + gap, row.y,
-                    width, UiTheme.BtnH), source == "override" ? "Reset to system" : "Remove",
-                    UiTheme.Btn.Danger))
-                remove();
+            string text = DaemonConfig.Lines(items);
+            y = EditorArea(view, y, label, name, text, editable, 48f, v =>
+            {
+                items.Clear();
+                items.AddRange(DaemonConfig.Split(v));
+            }, draw);
+            return y;
         }
 
-        static void DrawEditorLayout(Rect view, SandboxEditorLayout layout)
+        void EditorButtons(Rect view, float y, bool editable, string source,
+                           Action save, Action remove)
         {
-            foreach (var row in layout.Rows)
-            {
-                if (!row.Visible || row.Paint == null) continue;
-                var bounds = row.Bounds;
-                row.Paint(new UiLayoutRect(view.x + bounds.X, view.y + bounds.Y,
-                    bounds.Width, bounds.Height));
-            }
+            float gap = UiTheme.GapS;
+            float width = Mathf.Max(0f, (view.width - gap) / 2f);
+            if (editable && UiButtons.Button(new Rect(0f, y, width, UiTheme.BtnH), "Save", UiTheme.Btn.Primary))
+                save();
+            if (source != "system" && UiButtons.Button(new Rect(width + gap, y, width, UiTheme.BtnH),
+                    source == "override" ? "Reset to system" : "Remove", UiTheme.Btn.Danger))
+                remove();
         }
 
         void EmptyEditor(Rect r, string text)
         {
             UiText.StatusLabel(new Rect(r.x, r.y, r.width, UiTheme.LineH * 2f), text,
                 UiTheme.Dim);
+        }
+
+        static float Rule(float width, float y, bool draw)
+        {
+            // The hairline sits inside the gap; it does not add another unit of height.
+            if (draw) Slab.Hairline(new Rect(0f, y, width, 1f), UiTheme.Edge);
+            return y + UiTheme.GapM;
         }
 
         void Copy(string kind, string name)
