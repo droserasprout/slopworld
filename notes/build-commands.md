@@ -28,3 +28,6 @@ writes the endpoint descriptor where the game launcher expects it.
 
 See [build-tools](build-tools.md) for auxiliary tools and
 [diagnostics](ops-diagnostics.md) for runtime checks.
+
+`make bench-report` runs the full benchmark suite three times, averages each reported metric,
+and writes a dated result note under `notes/` with the current commit hash.
