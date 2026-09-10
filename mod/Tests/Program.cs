@@ -87,6 +87,7 @@ namespace SlopWorld.Tests
             tests.Add(("UI metrics: density and font floors", UiMetricsTests.Values));
             tests.Add(("UI metrics: invalidation channels", UiMetricsTests.Invalidation));
             tests.Add(("UI composition: measure and arrange", UiCompositionTests.Arrange));
+            tests.Add(("Sandbox layout: master/detail geometry", SandboxLayoutTests.Placement));
             int failed = 0;
 
             foreach (var test in tests)

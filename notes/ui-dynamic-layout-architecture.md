@@ -2,8 +2,12 @@
 
 Workspace geometry, left/right navigation, density presets, the pure row/column
 composition layer, and the Appearance migration are implemented. Panel ownership,
-splits, and the broader style architecture below remain proposed; follow the
-[next steps](ui-dynamic-layout-next-steps.md) for the remaining implementation slices.
+splits, and the broader style architecture below remain proposed.
+
+`SandboxPage` now applies the same pattern to a master/detail view. A small pure policy
+keeps its list and editor side by side when their minimum widths fit, stacks them when
+they do not, and bounds both panes inside very small viewports. The page retains its
+selection, live edits, and two scroll owners when placement changes.
 
 ## Workspace and panels
 

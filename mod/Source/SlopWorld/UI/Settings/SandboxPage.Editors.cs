@@ -98,8 +98,7 @@ namespace SlopWorld
                 if (UiWidgets.Button(new Rect(0f, y + UiWidgets.GapS, view.width, UiWidgets.BtnH),
                         "+ New command", UiWidgets.Btn.Ghost))
                 {
-                    _command = new CommandInfo { Name = "new-command", Source = "user" };
-                    _newEntry = true;
+                    NewCommand();
                 }
             }
         }
@@ -273,7 +272,8 @@ namespace SlopWorld
             UiWidgets.RowLabel(new Rect(0f, y, view.width, UiWidgets.LineH), label);
             GUI.color = Color.white;
             y += UiWidgets.LineH + UiWidgets.GapXS;
-            set(UiWidgets.Field(new Rect(0f, y, view.width, UiWidgets.FieldH), name, value, editable));
+            set(UiWidgets.Field(new Rect(0f, y, view.width, UiWidgets.FieldH), name, value,
+                editable));
             return y + UiWidgets.FieldH + UiWidgets.GapS;
         }
 
