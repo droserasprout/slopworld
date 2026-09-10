@@ -1,12 +1,12 @@
 //! Files, preview, search, and Git HTTP boundaries.
 
-use anyhow::{bail, Context};
+use anyhow::{bail, Context, Result};
 use axum::extract::{Query, State};
 use axum::http::StatusCode;
 use axum::Json;
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 use serde_json::{json, Value};
-use std::time::Duration;
+use std::{path::Path, time::Duration};
 use tokio::io::AsyncReadExt;
 use tokio::process::Command;
 
@@ -368,50 +368,45 @@ pub(crate) async fn read_image(State(_m): State<Mgr>, Query(q): Query<ReadReq>) 
     })))
 }
 
-pub(crate) async fn read_image_bytes(path: &std::path::Path) -> anyhow::Result<Vec<u8>> {
+async fn read_file_bounded(path: &Path, limit: u64, label: &str) -> Result<Vec<u8>> {
     let metadata = tokio::fs::metadata(path).await?;
     if !metadata.is_file() {
         bail!("path is not a file");
     }
-    if metadata.len() > IMAGE_LIMIT {
+    let (unit, unit_size) = if label == "image" {
+        ("MiB", 1024_u64 * 1024)
+    } else {
+        ("KiB", 1024_u64)
+    };
+    if metadata.len() > limit {
         bail!(
-            "image is larger than the {} MiB preview limit",
-            IMAGE_LIMIT / (1024 * 1024)
+            "{label} is larger than the {} {} preview limit",
+            limit / unit_size,
+            unit
         );
     }
 
-    let bytes = tokio::fs::read(path).await?;
-    if bytes.len() as u64 > IMAGE_LIMIT {
+    let file = tokio::fs::File::open(path).await?;
+    let mut bytes = Vec::with_capacity(metadata.len().min(limit) as usize);
+    file.take(limit.saturating_add(1))
+        .read_to_end(&mut bytes)
+        .await?;
+    if bytes.len() as u64 > limit {
         bail!(
-            "image grew beyond the {} MiB preview limit",
-            IMAGE_LIMIT / (1024 * 1024)
+            "{label} grew beyond the {} {} preview limit",
+            limit / unit_size,
+            unit
         );
     }
     Ok(bytes)
 }
 
-pub(crate) async fn read_preview(path: &std::path::Path) -> anyhow::Result<String> {
-    let metadata = tokio::fs::metadata(path).await?;
-    if !metadata.is_file() {
-        bail!("path is not a file");
-    }
-    if metadata.len() > READ_LIMIT {
-        bail!(
-            "file is larger than the {} KiB preview limit",
-            READ_LIMIT / 1024
-        );
-    }
+pub(crate) async fn read_image_bytes(path: &Path) -> Result<Vec<u8>> {
+    read_file_bounded(path, IMAGE_LIMIT, "image").await
+}
 
-    let mut file = tokio::fs::File::open(path).await?;
-    let mut bytes = Vec::with_capacity(metadata.len() as usize);
-    file.read_to_end(&mut bytes).await?;
-    if bytes.len() as u64 > READ_LIMIT {
-        bail!(
-            "file grew beyond the {} KiB preview limit",
-            READ_LIMIT / 1024
-        );
-    }
-
+pub(crate) async fn read_preview(path: &Path) -> Result<String> {
+    let bytes = read_file_bounded(path, READ_LIMIT, "file").await?;
     String::from_utf8(bytes).context("file is not valid UTF-8")
 }
 
