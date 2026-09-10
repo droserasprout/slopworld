@@ -5,6 +5,14 @@ The build targets and install workflows are in [build-commands](build-commands.m
 Formatting and prose-linter usage live in [Build from source](../docs/src/build.md).
 The prose linter skips Markdown code fences and inline code; its `--commit-msg`
 mode also ignores Git template comments and verbose diffs.
+Explicit missing inputs exit with status 2. Overlapping warnings cannot suppress
+errors. Vocabulary, density, and broad “entire” patterns are advisory review
+prompts; they do not establish authorship or factual quality. `claude-attribution`
+enforces the commit attribution policy separately from prose style.
+Participle clauses are advisory because the patterns also match factual technical
+explanations. Vocabulary clusters count word families once; the existing
+`claude-vocab-cluster` ID remains stable. Density thresholds and bullet exemptions
+are house-style heuristics, not calibrated measures of prose quality.
 
 ## Auxiliary tools
 
