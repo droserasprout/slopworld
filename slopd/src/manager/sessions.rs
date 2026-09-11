@@ -715,6 +715,28 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn stale_working_rule_matches_decay_to_idle() {
+        let manager = crate::session::test_manager(Config::default());
+        *manager.rules.write().await = vec![(
+            State::Working,
+            regex::Regex::new("esc to interrupt").unwrap(),
+        )];
+
+        assert_eq!(
+            manager
+                .classify(false, 0, "* Thinking... (esc to interrupt)")
+                .await,
+            State::Idle
+        );
+        assert_eq!(
+            manager
+                .classify(false, now_ms(), "* Thinking... (esc to interrupt)")
+                .await,
+            State::Working
+        );
+    }
+
+    #[tokio::test]
     async fn views_keep_host_paths_and_sort_by_session_name() {
         let manager = crate::session::test_manager(Config::default());
         *manager.cfg.write().await = Config {

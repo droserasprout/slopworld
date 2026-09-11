@@ -90,7 +90,19 @@ impl Manager {
 
     pub(super) async fn classify(&self, changed: bool, last_change: u64, text: &str) -> State {
         if let Some(state) = match_rules(&self.rules.read().await, text) {
-            return state;
+            match state {
+                // A prompt remains a prompt until the agent changes it or the user answers it.
+                // An explicit idle rule is likewise authoritative.
+                State::Waiting | State::Idle => return state,
+                // Some agent TUIs leave their working status line on screen after they stop
+                // producing output. Let that stale match decay with the same activity clock as
+                // the fallback classifier, or it can keep an agent working forever.
+                State::Working if !changed && now_ms().saturating_sub(last_change) >= IDLE_MS => {
+                    return State::Idle;
+                }
+                State::Working => return State::Working,
+                State::Down => {}
+            }
         }
         if changed || now_ms().saturating_sub(last_change) < IDLE_MS {
             State::Working
