@@ -74,6 +74,9 @@ same daemon inventory as Settings and opens it as the focused root of Files. She
 ephemeral shell errand that clones the agent's
 sandbox config (presets, network, dns, limits, mounts) via the `like` field on
 `/api/run`, so the shell sees the same filesystem as the agent.
+- In Agents, middle-clicking any session opens the existing stop confirmation while it is active
+  and the appropriate removal confirmation once it is down. Right-click remains the row context
+  menu for every row.
 - Task rows prefer the daemon's optional OpenRouter summary when task summaries are set to
   `once`, and fall back to the bounded one-line task body preview when summaries are disabled,
   too short, unavailable, or still being generated.
