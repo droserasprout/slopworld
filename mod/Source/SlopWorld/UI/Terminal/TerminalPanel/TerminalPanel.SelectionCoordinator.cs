@@ -22,7 +22,8 @@ namespace SlopWorld
             public void NoteLiveFrame(int liveSeq, int liveShift)
             {
                 if (LastLiveSeq >= 0 && Offset == 0 &&
-                    (_panel._hasSel || _panel._dragging || _panel._wordDragging))
+                    (_panel._state.Selection.HasSelection || _panel._state.Selection.Dragging ||
+                        _panel._state.Selection.WordDragging))
                     MoveRows(-liveShift);
                 LastLiveSeq = liveSeq;
             }
@@ -57,28 +58,29 @@ namespace SlopWorld
             {
                 return _panel._history.SelectionText(
                     buf,
-                    _panel._selA.x,
-                    _panel._selA.y,
-                    _panel._selB.x,
-                    _panel._selB.y);
+                    _panel._state.Selection.A.x,
+                    _panel._state.Selection.A.y,
+                    _panel._state.Selection.B.x,
+                    _panel._state.Selection.B.y);
             }
 
             void MoveRows(int delta)
             {
                 if (delta == 0) return;
-                var a = _panel._selA;
-                var b = _panel._selB;
-                var wordStart = _panel._wordStart;
-                var wordEnd = _panel._wordEnd;
+                var a = _panel._state.Selection.A;
+                var b = _panel._state.Selection.B;
+                var wordStart = _panel._state.Selection.WordStart;
+                var wordEnd = _panel._state.Selection.WordEnd;
                 a.y += delta;
                 b.y += delta;
                 wordStart.y += delta;
                 wordEnd.y += delta;
-                _panel._selA = a;
-                _panel._selB = b;
-                _panel._wordStart = wordStart;
-                _panel._wordEnd = wordEnd;
-                if (_panel._lineDragging) _panel._lineStart += delta;
+                _panel._state.Selection.A = a;
+                _panel._state.Selection.B = b;
+                _panel._state.Selection.WordStart = wordStart;
+                _panel._state.Selection.WordEnd = wordEnd;
+                if (_panel._state.Selection.LineDragging)
+                    _panel._state.Selection.LineStart += delta;
             }
         }
     }

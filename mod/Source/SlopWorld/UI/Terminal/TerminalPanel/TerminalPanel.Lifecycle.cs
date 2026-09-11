@@ -11,9 +11,9 @@ namespace SlopWorld
         {
             if (_opened) return;
             _opened = true;
-            if (_name == null) return;
-            _showStopped = SessionHub.Instance.Get(_name)?.Gone == true;
-            SessionHub.Instance.Subscribe(_name);
+            if (_state.Name == null) return;
+            _state.ShowStopped = SessionHub.Instance.Get(_state.Name)?.Gone == true;
+            SessionHub.Instance.Subscribe(_state.Name);
             PrimePanelSize();
         }
 
@@ -24,36 +24,37 @@ namespace SlopWorld
             ReleasePanelInput();
             ScrollDebugEnd();
             Drop();
-            if (_name == null) return;
-            SessionHub.Instance.Unsubscribe(_name);
-            FilesView.CloseViewerIf(_name);
-            SearchView.CloseViewerIf(_name);
-            GitView.CloseViewerIf(_name);
+            if (_state.Name == null) return;
+            SessionHub.Instance.Unsubscribe(_state.Name);
+            FilesView.CloseViewerIf(_state.Name);
+            SearchView.CloseViewerIf(_state.Name);
+            GitView.CloseViewerIf(_state.Name);
         }
 
         internal void BindSession(string name)
         {
-            if (name == _name) return;
+            if (name == _state.Name) return;
             ReleasePanelInput();
-            SaveScrollbackState(_name);
-            _historyCoordinator.SaveCache(_name);
+            SaveScrollbackState(_state.Name);
+            _historyCoordinator.SaveCache(_state.Name);
             // A window opened on content alone has no pane to let go of, and a subscription
             // named null is one the daemon would have to answer.
-            if (_opened && _name != null) SessionHub.Instance.Unsubscribe(_name);
-            _name = name;
-            if (_name != null)
+            if (_opened && _state.Name != null) SessionHub.Instance.Unsubscribe(_state.Name);
+            _state.Name = name;
+            if (_state.Name != null)
             {
-                if (_opened) SessionHub.Instance.Subscribe(_name);
-                TerminalRecall.Remember(_name);
+                if (_opened) SessionHub.Instance.Subscribe(_state.Name);
+                TerminalRecall.Remember(_state.Name);
             }
-            _showStopped = _name != null && SessionHub.Instance.Get(_name)?.Gone == true;
+            _state.ShowStopped = _state.Name != null &&
+                SessionHub.Instance.Get(_state.Name)?.Gone == true;
             if (_opened) PrimePanelSize();
             _historyCoordinator.ResetForSession();
-            RestoreScrollbackState(_name);
-            _historyCoordinator.RestoreCache(_name);
+            RestoreScrollbackState(_state.Name);
+            _historyCoordinator.RestoreCache(_state.Name);
             if (_scrollOff > 0)
             {
-                _historyDisplayedFrame = CachedDisplayedFrame(_name);
+                _historyDisplayedFrame = CachedDisplayedFrame(_state.Name);
                 // The cached frame is already at the saved integer anchor. Seed the fallback
                 // with its fractional translation so the first switched-tab repaint does not
                 // briefly snap to the line boundary while history is reassembled.
@@ -121,17 +122,17 @@ namespace SlopWorld
 
         internal bool EnsureSession(SessionHub hub, bool covered)
         {
-            var info = hub.Get(_name);
-            if (info != null && info.Alive) _showStopped = false;
+            var info = hub.Get(_state.Name);
+            if (info != null && info.Alive) _state.ShowStopped = false;
             // An agent that exits during normal terminal use stays in its pane. An
             // intentionally selected stopped agent is held for its action gizmos; content
             // views keep the window for their chrome.
-            if (_name != null && (info == null || info.Gone))
+            if (_state.Name != null && (info == null || info.Gone))
             {
                 // A rename event removes the old name before the save response retargets this
                 // window. Hold the pane through that expected gap; otherwise the normal exit
                 // handoff steals focus from the agent being renamed.
-                if (hub.TryPendingRename(_name, out _)) return true;
+                if (hub.TryPendingRename(_state.Name, out _)) return true;
 
                 ResetHistoryForNewRun();
 
@@ -142,15 +143,15 @@ namespace SlopWorld
                     // pane is still the user's focus and its Start gizmo remains available.
                     if (info != null)
                     {
-                        _showStopped = true;
+                        _state.ShowStopped = true;
                         return true;
                     }
                     return false;
                 }
-                hub.Unsubscribe(_name);
-                _name = null;
+                hub.Unsubscribe(_state.Name);
+                _state.Name = null;
             }
-            else if (_name == null && !covered)
+            else if (_state.Name == null && !covered)
             {
                 return false;
             }

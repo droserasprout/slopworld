@@ -169,16 +169,12 @@ namespace SlopWorld
                 !TryLimit(_limNofile, "Open files", out var nofile) ||
                 !TryLimit(_limCpu, "CPU", out var cpu))
                 return;
-            List<string> dnsServers = null;
             string dnsError;
-            if (_s.DnsOverride?.Mode == DnsMode.Servers &&
-                !DnsConfig.TryParseServers(_dnsServers, out dnsServers, out dnsError))
+            if (!DnsForm.TrySave(_s.DnsOverride, _dnsServers, out dnsError))
             {
                 UiLayout.Fail("DNS: " + dnsError);
                 return;
             }
-            if (_s.DnsOverride?.Mode == DnsMode.Servers)
-                _s.DnsOverride.Servers = dnsServers;
             _s.Limits = new SessionLimits
             {
                 MemoryMb = mem,

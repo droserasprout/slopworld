@@ -8,8 +8,8 @@ namespace SlopWorld
     {
         // The selection endpoints belong to the displayed history offset. A live frame and a
         // historical frame use the same row coordinates, translated by this offset.
-        // Compatibility aliases keep the gesture implementation readable while the storage is
-        // owned by TerminalSelectionState.
+        // Input controllers get only the selection state they need; panel partials use the
+        // owned state directly below.
         internal bool HasSelection
         {
             get => _state.Selection.HasSelection;
@@ -66,82 +66,6 @@ namespace SlopWorld
             set => _state.Selection.EdgeDirection = value;
         }
         internal int SelectionEdgeFrame
-        {
-            get => _state.Selection.EdgeFrame;
-            set => _state.Selection.EdgeFrame = value;
-        }
-
-        bool _dragging
-        {
-            get => _state.Selection.Dragging;
-            set => _state.Selection.Dragging = value;
-        }
-        bool _selectionMoved
-        {
-            get => _state.Selection.SelectionMoved;
-            set => _state.Selection.SelectionMoved = value;
-        }
-        bool _multiClickSelection
-        {
-            get => _state.Selection.MultiClickSelection;
-            set => _state.Selection.MultiClickSelection = value;
-        }
-        bool _wordDragging
-        {
-            get => _state.Selection.WordDragging;
-            set => _state.Selection.WordDragging = value;
-        }
-        bool _lineDragging
-        {
-            get => _state.Selection.LineDragging;
-            set => _state.Selection.LineDragging = value;
-        }
-        Vector2Int _wordStart
-        {
-            get => _state.Selection.WordStart;
-            set => _state.Selection.WordStart = value;
-        }
-        Vector2Int _wordEnd
-        {
-            get => _state.Selection.WordEnd;
-            set => _state.Selection.WordEnd = value;
-        }
-        int _lineStart
-        {
-            get => _state.Selection.LineStart;
-            set => _state.Selection.LineStart = value;
-        }
-        int _selectionControl
-        {
-            get => _state.Selection.Control;
-            set => _state.Selection.Control = value;
-        }
-        bool _hasSel
-        {
-            get => _state.Selection.HasSelection;
-            set => _state.Selection.HasSelection = value;
-        }
-        Vector2Int _selA
-        {
-            get => _state.Selection.A;
-            set => _state.Selection.A = value;
-        }
-        Vector2Int _selB
-        {
-            get => _state.Selection.B;
-            set => _state.Selection.B = value;
-        }
-        Vector2 _selectionMouse
-        {
-            get => _state.Selection.Mouse;
-            set => _state.Selection.Mouse = value;
-        }
-        int _selectionEdgeDirection
-        {
-            get => _state.Selection.EdgeDirection;
-            set => _state.Selection.EdgeDirection = value;
-        }
-        int _selectionEdgeFrame
         {
             get => _state.Selection.EdgeFrame;
             set => _state.Selection.EdgeFrame = value;
@@ -216,14 +140,14 @@ namespace SlopWorld
 
         internal void ClearSelection()
         {
-            _hasSel = false;
-            _dragging = false;
-            _selectionMoved = false;
-            _multiClickSelection = false;
-            _wordDragging = false;
-            _lineDragging = false;
-            _selectionEdgeDirection = 0;
-            _selectionEdgeFrame = -1;
+            _state.Selection.HasSelection = false;
+            _state.Selection.Dragging = false;
+            _state.Selection.SelectionMoved = false;
+            _state.Selection.MultiClickSelection = false;
+            _state.Selection.WordDragging = false;
+            _state.Selection.LineDragging = false;
+            _state.Selection.EdgeDirection = 0;
+            _state.Selection.EdgeFrame = -1;
             ReleaseSelection();
         }
 
@@ -236,8 +160,8 @@ namespace SlopWorld
 
         void OrderedSel(out Vector2Int a, out Vector2Int b)
         {
-            a = _selA;
-            b = _selB;
+            a = _state.Selection.A;
+            b = _state.Selection.B;
             if (b.y < a.y || (b.y == a.y && b.x < a.x)) { var t = a; a = b; b = t; }
         }
 

@@ -188,7 +188,7 @@ namespace SlopWorld
 
             // Fetch missing visible rows first, then progressively fill eight viewports in
             // the gesture direction. Each capture overlaps the preceding cached window.
-            int rows = Mathf.Max(2, live?.Rows ?? (_rows > 0 ? _rows : 24));
+            int rows = Mathf.Max(2, live?.Rows ?? (_state.Rows > 0 ? _state.Rows : 24));
             int lookahead = Mathf.Max(2, rows / 2);
             int probe = TerminalHistory.PrefetchAnchor(
                 target, lookahead, up, limit);
@@ -226,9 +226,10 @@ namespace SlopWorld
         void WarmHistory(ScreenBuf live)
         {
             var hub = SessionHub.Instance;
-            if (!hub.Online || _sizeDirty || IsEditorSession() ||
+            if (!hub.Online || _state.SizeDirty || IsEditorSession() ||
                 _historyRequests.Count > 0 || live == null ||
-                (_cols > 0 && live.Cols != _cols) || (_rows > 0 && live.Rows != _rows))
+                (_state.Cols > 0 && live.Cols != _state.Cols) ||
+                (_state.Rows > 0 && live.Rows != _state.Rows))
                 return;
 
             int offset = _history.WarmupOffset(live, _historyTopOff);
@@ -249,7 +250,7 @@ namespace SlopWorld
         internal void JumpHistoryTo(int off)
         {
             off = Mathf.Clamp(off, 0,
-                TerminalHistory.ScrollLimit(SessionHub.Instance.Screen(_name), _historyTopOff));
+                TerminalHistory.ScrollLimit(SessionHub.Instance.Screen(_state.Name), _historyTopOff));
             _historyJumpPending = true;
             _historyJumpOff = off;
             _historyJumpPixels = -1f;
@@ -282,7 +283,7 @@ namespace SlopWorld
             ulong id = ++_nextScrollRequestId;
             _historyRequests[id] = new HistoryRequest(
                 _sentScrollOff, _historyCoordinateShift);
-            SessionHub.Instance.Terminal.RequestScroll(_name, _sentScrollOff, id);
+            SessionHub.Instance.Terminal.RequestScroll(_state.Name, _sentScrollOff, id);
             ScrollDebugSent(_sentScrollOff);
         }
     }

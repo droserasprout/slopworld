@@ -177,33 +177,8 @@ namespace SlopWorld
             GUI.color = Color.white;
 
             l.Gap(UiTheme.GapS);
-            string dnsLabel = _s.DnsOverride == null
-                ? "Inherit project (" + inheritedDns.Label + ")"
-                : _s.DnsOverride.Label;
-            UiControls.Select(l, "DNS", dnsLabel, new[]
-            {
-                new SelectorOption("Inherit project (" + inheritedDns.Label + ")",
-                    () => _s.DnsOverride = null),
-                new SelectorOption("System resolver", () => _s.DnsOverride = DnsConfig.Resolved()),
-                new SelectorOption("Custom DNS servers", () =>
-                {
-                    if (_s.DnsOverride?.Mode != DnsMode.Servers)
-                        _s.DnsOverride = DnsConfig.Custom();
-                }),
-            }, out _);
-            if (_s.DnsOverride?.Mode == DnsMode.Servers)
-            {
-                _dnsServers = UiControls.Field(l, "agent.dns", _dnsServers ?? "");
-                GUI.color = UiTheme.Dim;
-                l.Label("Comma-separated IPv4 addresses; maximum two. Changes apply on restart.");
-                GUI.color = Color.white;
-            }
-            else
-            {
-                GUI.color = UiTheme.Dim;
-                l.Label("System resolver follows the daemon's current resolv.conf.");
-                GUI.color = Color.white;
-            }
+            DnsForm.Draw(l, _s.DnsOverride, inheritedDns, true, "agent.dns", ref _dnsServers,
+                dns => _s.DnsOverride = dns);
         }
 
         float DrawExtraPresets(Rect rect, float y, ProjectInfo project, CommandInfo preset,

@@ -8,6 +8,11 @@ The current views are `OptionsView`, `SessionsView`, `ProjectsView` and
 `LibraryView`. `TerminalWindow.Showing` owns the one active body;
 `ToggleContent<T>` opens/switches it and `ShowingAs<T>` queries it.
 
+`LibraryView` remains a bespoke flat project-grouped list. Its loose bucket, badges,
+folded headings, run/edit behavior and custom hit-test records do not fit
+`ContentTreeView`'s recursive directory-node contracts without fake semantics or
+Library-specific branches, so the group-rendering reuse candidate is deferred.
+
 - Opening a view over a pane keeps the session; `Leave` restores the pane or closes
   the window if there was none.
 - Escape leaves a view and is forwarded to a pane's agent; F12 reveals the pane behind

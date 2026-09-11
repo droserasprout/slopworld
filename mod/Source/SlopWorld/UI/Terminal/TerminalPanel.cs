@@ -30,7 +30,7 @@ namespace SlopWorld
         public TerminalPanel(ITerminalPanelHost host, string name)
         {
             _host = host;
-            _name = name;
+            _state.Name = name;
             ResetCursorBlink();
             _selectionCoordinator = new TerminalSelectionCoordinator(this);
             _renderer = new TerminalRenderer(this);
@@ -39,7 +39,7 @@ namespace SlopWorld
             _selectionInput = new TerminalSelectionInput(this);
         }
 
-        public override string Title => _name ?? "Terminal";
+        public override string Title => _state.Name ?? "Terminal";
         public override PanelSize MinimumSize => new PanelSize(160f, 80f);
         public override void Draw(Rect body)
         {
@@ -60,12 +60,12 @@ namespace SlopWorld
         internal bool DrawTerminalBody(Rect body, bool input)
         {
             var hub = SessionHub.Instance;
-            string drawingSession = _name;
+            string drawingSession = _state.Name;
 
-            if (_showStopped && hub.Get(_name)?.Gone == true)
+            if (_state.ShowStopped && hub.Get(_state.Name)?.Gone == true)
             {
                 if (input) _input.HandleChrome(Event.current);
-                if (!_opened || !Visible || _name != drawingSession) return false;
+                if (!_opened || !Visible || _state.Name != drawingSession) return false;
                 if (input && MouseType(Event.current) == EventType.MouseDown &&
                     Event.current.button == 1 && body.Contains(Event.current.mousePosition))
                 {
@@ -78,7 +78,7 @@ namespace SlopWorld
             }
 
             SyncHistoryConnection();
-            var live = hub.Screen(_name);
+            var live = hub.Screen(_state.Name);
             // Invalidate history before planning this frame's request. A resize or redraw
             // can publish a new live sequence while the local scroll offset remains active.
             int restoredShift = RestoredHistoryShift(live);
@@ -109,7 +109,7 @@ namespace SlopWorld
 
             // Navigation can close this panel or change its session during input. Do not
             // repaint a released cache or use the old session's frame after that transition.
-            if (!_opened || !Visible || _name != drawingSession) return false;
+            if (!_opened || !Visible || _state.Name != drawingSession) return false;
 
             if (input) UpdateSelectionEdgeScroll(body, historyInput);
 
@@ -120,7 +120,7 @@ namespace SlopWorld
                 // A tab may have been visited before but have no current live frame while
                 // its subscription is being restored. Use that tab's own last frame rather
                 // than the shared render texture, which still belongs to the old tab.
-                var cached = CachedDisplayedFrame(_name);
+                var cached = CachedDisplayedFrame(_state.Name);
                 if (cached != null && cached.Lines != null && cached.Lines.Length > 0)
                     buf = cached;
             }
@@ -138,7 +138,7 @@ namespace SlopWorld
                 return false;
             }
 
-            RememberDisplayedFrame(_name, buf);
+            RememberDisplayedFrame(_state.Name, buf);
 
             NegotiateSize(body, buf);
             float shift = HistoryShift(buf, cellH);
@@ -155,7 +155,7 @@ namespace SlopWorld
             if (pane)
             {
                 if (!hub.Online) DrawOfflineBanner(body);
-                else _droppedKeys = 0;
+                else _state.DroppedKeys = 0;
                 if (HistoryBarAvailable()) DrawScrollLock(body);
             }
 

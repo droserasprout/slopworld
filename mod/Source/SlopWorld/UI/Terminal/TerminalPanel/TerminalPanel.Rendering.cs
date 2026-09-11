@@ -100,8 +100,8 @@ namespace SlopWorld
             var r = new Rect(body.x, body.y, body.width, UiTheme.LineH + 3f);
             Slab.Box(r, UiTheme.OfflineBg, UiTheme.Edge);
 
-            string tail = _droppedKeys > 0
-                ? $" - {_droppedKeys} keystroke{(_droppedKeys == 1 ? "" : "s")} not delivered"
+            string tail = _state.DroppedKeys > 0
+                ? $" - {_state.DroppedKeys} keystroke{(_state.DroppedKeys == 1 ? "" : "s")} not delivered"
                 : "";
 
             Text.Font = GameFont.Small;
@@ -135,7 +135,7 @@ namespace SlopWorld
         void HistoryBarGeometry(Rect body, out Rect hit, out Rect track, out Rect thumb)
         {
             float ch = TerminalFont.CellH;
-            int rows = Mathf.Max(1, _rows);
+            int rows = Mathf.Max(1, _state.Rows);
             float off = ch > 0.01f && _historyScrollReady
                 ? HistoryOffsetPixels() / ch : _scrollOff;
             float history = _historyTopOff >= 0
@@ -157,7 +157,7 @@ namespace SlopWorld
 
         internal bool HandleHistoryBarInput(Rect body, Event e)
         {
-            if (!HistoryInputEnabled(SessionHub.Instance.Screen(_name)) ||
+            if (!HistoryInputEnabled(SessionHub.Instance.Screen(_state.Name)) ||
                 !HistoryBarAvailable() || !_historyScrollReady) return false;
 
             HistoryBarGeometry(body, out var hit, out var track, out var thumb);
