@@ -10,6 +10,10 @@ The values behind those names are a `UIScheme`, picked on the Appearance page an
 the shared panel. The three SlopWorld Warm, Cold, and Calm entries are complete house tables. The remaining
 entries are named palettes adapted to the UI's semantic roles.
 
+Non-house schemes must preserve upstream values even when contrast checks disagree.
+The current adaptations are not exact originals; see [original palette references](ui-original-palettes.md)
+for sourced values, role distinctions, and fidelity gaps.
+
 The catalog deliberately uses stable IDs for persisted settings and human labels for the
 picker. Unknown IDs resolve to the default Warm scheme.
 

@@ -47,5 +47,5 @@ and the RimWorld client. Make each cleanup a small behavior-preserving change.
 - Run `make format`, `make test`, and `make lint` after each behavior-preserving
   stage. Use `git diff --check` before handoff.
 - Do not run the game or take screenshots as part of this plan.
-- Refresh this note and the [maintainability-hotspots-plan](maintainability-hotspots-plan.md)
-  when ownership boundaries or priorities materially change.
+- Refresh this note and the owning daemon or mod note when ownership boundaries
+  or priorities materially change.
