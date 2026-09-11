@@ -1,7 +1,7 @@
 # Human docs review plan
 
 Scope is `README.md`, `docs/src/`, `slopcar/README.md`, generated references, and the
-documentation guidance in [human-docs](../human-docs.md).
+documentation guidance in [human-docs](docs-human-docs.md).
 
 ## Goals
 

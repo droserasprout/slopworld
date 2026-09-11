@@ -49,6 +49,6 @@ Generated shell text is a report only; it is never the process entrypoint.
 
 ## Verification
 
-Run the focused Rust tests, then `make fmt` and the repository's normal `make`
-quality/test target. Verify that worker failures and all rendered artifacts
+Run `make format-daemon`, `make lint-daemon`, and `make test-daemon`.
+Verify that worker failures and all rendered artifacts
 contain no bearer token or secret environment value.
