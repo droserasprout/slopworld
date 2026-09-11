@@ -29,13 +29,13 @@ namespace SlopWorld
             if (buf == null || buf.Lines.Length == 0) return;
 
             EnsureRuns(buf);
-            _selA = Vector2Int.zero;
-            _selB = new Vector2Int(buf.Cols, buf.Runs.Length - 1);
-            _hasSel = true;
-            _dragging = false;
-            _multiClickSelection = false;
-            _wordDragging = false;
-            _lineDragging = false;
+            _state.Selection.A = Vector2Int.zero;
+            _state.Selection.B = new Vector2Int(buf.Cols, buf.Runs.Length - 1);
+            _state.Selection.HasSelection = true;
+            _state.Selection.Dragging = false;
+            _state.Selection.MultiClickSelection = false;
+            _state.Selection.WordDragging = false;
+            _state.Selection.LineDragging = false;
             ReleaseSelection();
             CopyText(SelectionText(buf).TrimEnd('\n'));
         }
@@ -74,7 +74,7 @@ namespace SlopWorld
                 options.Add(new FloatMenuOption("Copy link", () => CopyText(url)));
             }
 
-            var info = SessionHub.Instance.Get(_name);
+            var info = SessionHub.Instance.Get(_state.Name);
             if (url == null && path != null && info != null && !string.IsNullOrEmpty(info.Project))
             {
                 string project = info.Project;
@@ -90,11 +90,11 @@ namespace SlopWorld
             }
 
             var selectionAvailability = new SelectionCommandAvailability(
-                _hasSel, true, true, false);
+                _state.Selection.HasSelection, true, true, false);
             SelectionCommands.AddCopy(options, selectionAvailability, CopySelection);
             if (info != null)
             {
-                string name = _name;
+                string name = _state.Name;
                 options.Add(new FloatMenuOption("Label", () =>
                 {
                     var current = SessionHub.Instance.Get(name);
@@ -115,7 +115,7 @@ namespace SlopWorld
                 var sessions = new List<FloatMenuOption>();
                 foreach (string session in TerminalWindow.TabOrder())
                 {
-                    if (session == _name) continue;
+                    if (session == _state.Name) continue;
                     string picked = session;
                     sessions.Add(new FloatMenuOption(picked, () => TerminalWindow.OpenSplit(picked)));
                 }
@@ -135,7 +135,7 @@ namespace SlopWorld
 
         void ResolvePath(string project, string path, System.Action<string> action)
         {
-            SessionHub.Instance.SessionStore.CurrentPath(_name, cwd =>
+            SessionHub.Instance.SessionStore.CurrentPath(_state.Name, cwd =>
             {
                 string absolute = FilesView.ResolveProjectPath(project, path, cwd);
                 if (absolute == null)
@@ -167,7 +167,7 @@ namespace SlopWorld
                 options.Add(new FloatMenuOption(picked, () =>
                 {
                     JumpToLive();
-                    SessionHub.Instance.Terminal.PasteBreadcrumb(_name, picked,
+                    SessionHub.Instance.Terminal.PasteBreadcrumb(_state.Name, picked,
                         Patch_LoadingTips.RandomTips(Patch_LoadingTips.TipBatch));
                 }));
             }
@@ -178,13 +178,13 @@ namespace SlopWorld
         // two later.
         // Missing session metadata is conservative: a stale snapshot must not send an image to
         // a host shell.
-        bool HostClipboardTextOnly => SessionHub.Instance.Get(_name)?.Host != false;
+        bool HostClipboardTextOnly => SessionHub.Instance.Get(_state.Name)?.Host != false;
 
         // Codex owns Ctrl+V for image clipboard data: its TUI turns that data into an attachment.
         // Sending image bytes through the daemon's text/JSON paste path turns them into a huge
         // string of replacement characters instead.
         bool CodexImagePaste => !HostClipboardTextOnly &&
-            SessionHub.Instance.Get(_name)?.CommandPreset == "codex";
+            SessionHub.Instance.Get(_state.Name)?.CommandPreset == "codex";
 
         static void ForwardCodexImagePaste(string name)
         {
@@ -193,7 +193,7 @@ namespace SlopWorld
 
         internal void PasteClipboard()
         {
-            string name = _name;
+            string name = _state.Name;
             if (CodexImagePaste && SessionHub.Instance.Capabilities.Clipboard)
             {
                 Flush();
@@ -229,7 +229,7 @@ namespace SlopWorld
         internal void PastePrimarySelection()
         {
             if (!SessionHub.Instance.Capabilities.Clipboard) return;
-            string name = _name;
+            string name = _state.Name;
             string path = HostClipboardTextOnly
                 ? WireContract.Routes.ClipboardPrimaryText
                 : WireContract.Routes.ClipboardPrimary;

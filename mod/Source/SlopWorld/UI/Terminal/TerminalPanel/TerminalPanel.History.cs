@@ -98,7 +98,7 @@ namespace SlopWorld
 
         bool IsEditorSession()
         {
-            var info = SessionHub.Instance.Get(_name);
+            var info = SessionHub.Instance.Get(_state.Name);
             if (info == null) return false;
             if (Pager.IsEditorCommand(info.Cmd)) return true;
             return info.Ephemeral &&

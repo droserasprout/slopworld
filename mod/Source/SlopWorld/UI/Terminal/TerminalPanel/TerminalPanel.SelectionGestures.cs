@@ -15,37 +15,38 @@ namespace SlopWorld
         // the pointer leaves the window, while the held-button sample still remains reliable.
         void UpdateSelectionEdgeScroll(Rect body, bool historyInput)
         {
-            if (!_dragging || !_selectionMoved || !Input.GetMouseButton(0))
+            if (!_state.Selection.Dragging || !_state.Selection.SelectionMoved ||
+                !Input.GetMouseButton(0))
             {
-                _selectionEdgeDirection = 0;
+                _state.Selection.EdgeDirection = 0;
                 return;
             }
 
             var e = Event.current;
             if (e != null && e.type == EventType.Repaint)
-                _selectionMouse = e.mousePosition;
+                _state.Selection.Mouse = e.mousePosition;
 
             float distance;
             int direction;
-            if (_selectionMouse.y < body.y + SelectionEdgeBand)
+            if (_state.Selection.Mouse.y < body.y + SelectionEdgeBand)
             {
                 direction = 1;
-                distance = body.y + SelectionEdgeBand - _selectionMouse.y;
+                distance = body.y + SelectionEdgeBand - _state.Selection.Mouse.y;
             }
-            else if (_selectionMouse.y > body.yMax - SelectionEdgeBand)
+            else if (_state.Selection.Mouse.y > body.yMax - SelectionEdgeBand)
             {
                 direction = -1;
-                distance = _selectionMouse.y - (body.yMax - SelectionEdgeBand);
+                distance = _state.Selection.Mouse.y - (body.yMax - SelectionEdgeBand);
             }
             else
             {
-                _selectionEdgeDirection = 0;
+                _state.Selection.EdgeDirection = 0;
                 return;
             }
 
-            _selectionEdgeDirection = direction;
-            if (!historyInput || _selectionEdgeFrame == Time.frameCount) return;
-            _selectionEdgeFrame = Time.frameCount;
+            _state.Selection.EdgeDirection = direction;
+            if (!historyInput || _state.Selection.EdgeFrame == Time.frameCount) return;
+            _state.Selection.EdgeFrame = Time.frameCount;
 
             float cellH = TerminalFont.CellH;
             if (!_historyScrollReady || cellH <= 0.01f) return;
@@ -64,49 +65,53 @@ namespace SlopWorld
         // edge, where each newly revealed row extends the selection.
         void ExtendSelectionToEdge(Rect body, ScreenBuf buf)
         {
-            if (!_dragging || _selectionEdgeDirection == 0 || buf == null ||
+            if (!_state.Selection.Dragging || _state.Selection.EdgeDirection == 0 ||
+                buf == null ||
                 buf.Runs == null || buf.Runs.Length == 0)
                 return;
 
-            var cell = CellAt(body, _selectionMouse);
-            cell.y = _selectionEdgeDirection > 0 ? 0 : buf.Runs.Length - 1;
-            _selectionMoved = true;
-            if (_lineDragging) SelectLineRange(_lineStart, cell.y);
-            else if (_wordDragging) UpdateWordSelection(cell);
+            var cell = CellAt(body, _state.Selection.Mouse);
+            cell.y = _state.Selection.EdgeDirection > 0 ? 0 : buf.Runs.Length - 1;
+            _state.Selection.SelectionMoved = true;
+            if (_state.Selection.LineDragging)
+                SelectLineRange(_state.Selection.LineStart, cell.y);
+            else if (_state.Selection.WordDragging) UpdateWordSelection(cell);
             else
             {
-                _selB = cell;
-                _hasSel = true;
+                _state.Selection.B = cell;
+                _state.Selection.HasSelection = true;
             }
         }
 
         internal void CaptureSelection(Rect body)
         {
-            if (_selectionControl != 0 && GUIUtility.hotControl == _selectionControl)
+            if (_state.Selection.Control != 0 &&
+                GUIUtility.hotControl == _state.Selection.Control)
                 GUIUtility.hotControl = 0;
-            _selectionControl = GUIUtility.GetControlID(FocusType.Passive, body);
-            GUIUtility.hotControl = _selectionControl;
+            _state.Selection.Control = GUIUtility.GetControlID(FocusType.Passive, body);
+            GUIUtility.hotControl = _state.Selection.Control;
         }
 
         internal void ReleaseSelection()
         {
-            if (_selectionControl != 0 && GUIUtility.hotControl == _selectionControl)
+            if (_state.Selection.Control != 0 &&
+                GUIUtility.hotControl == _state.Selection.Control)
                 GUIUtility.hotControl = 0;
-            _selectionControl = 0;
+            _state.Selection.Control = 0;
         }
 
         // Both ends inclusive, the way a dragged selection states them.
         void SelectSpan(int row, int c0, int c1)
         {
-            _selA = new Vector2Int(c0, row);
-            _selB = new Vector2Int(c1, row);
-            _hasSel = true;
-            _dragging = true;
-            _selectionMoved = false;
-            _multiClickSelection = true;
-            _wordDragging = false;
-            _lineDragging = true;
-            _lineStart = row;
+            _state.Selection.A = new Vector2Int(c0, row);
+            _state.Selection.B = new Vector2Int(c1, row);
+            _state.Selection.HasSelection = true;
+            _state.Selection.Dragging = true;
+            _state.Selection.SelectionMoved = false;
+            _state.Selection.MultiClickSelection = true;
+            _state.Selection.WordDragging = false;
+            _state.Selection.LineDragging = true;
+            _state.Selection.LineStart = row;
         }
 
         // A word, or the run of identical characters a non-word cell sits in.
@@ -126,16 +131,16 @@ namespace SlopWorld
             int c0 = cell.x, c1 = cell.x;
             while (c0 > 0 && SameClass(TerminalColumns.Glyph(cells, c0 - 1), anchor, word)) c0--;
             while (c1 + 1 < len && SameClass(TerminalColumns.Glyph(cells, c1 + 1), anchor, word)) c1++;
-            _wordStart = new Vector2Int(c0, cell.y);
-            _wordEnd = new Vector2Int(c1, cell.y);
-            _selA = _wordStart;
-            _selB = _wordEnd;
-            _hasSel = true;
-            _dragging = true;
-            _selectionMoved = false;
-            _multiClickSelection = true;
-            _wordDragging = true;
-            _lineDragging = false;
+            _state.Selection.WordStart = new Vector2Int(c0, cell.y);
+            _state.Selection.WordEnd = new Vector2Int(c1, cell.y);
+            _state.Selection.A = _state.Selection.WordStart;
+            _state.Selection.B = _state.Selection.WordEnd;
+            _state.Selection.HasSelection = true;
+            _state.Selection.Dragging = true;
+            _state.Selection.SelectionMoved = false;
+            _state.Selection.MultiClickSelection = true;
+            _state.Selection.WordDragging = true;
+            _state.Selection.LineDragging = false;
             CopyPrimarySelection();
         }
 
@@ -158,17 +163,17 @@ namespace SlopWorld
 
             var destinationStart = new Vector2Int(c0, cell.y);
             var destinationEnd = new Vector2Int(c1, cell.y);
-            if (Before(cell, _wordStart))
+            if (Before(cell, _state.Selection.WordStart))
             {
-                _selA = destinationStart;
-                _selB = _wordEnd;
+                _state.Selection.A = destinationStart;
+                _state.Selection.B = _state.Selection.WordEnd;
             }
             else
             {
-                _selA = _wordStart;
-                _selB = destinationEnd;
+                _state.Selection.A = _state.Selection.WordStart;
+                _state.Selection.B = destinationEnd;
             }
-            _hasSel = true;
+            _state.Selection.HasSelection = true;
         }
 
         static bool Before(Vector2Int a, Vector2Int b) =>
@@ -200,9 +205,9 @@ namespace SlopWorld
             int first = Mathf.Min(anchor, row);
             int last = Mathf.Max(anchor, row);
             int len = TerminalColumns.ContentColumns(TerminalColumns.Cells(buf.Runs[last]));
-            _selA = new Vector2Int(0, first);
-            _selB = new Vector2Int(Mathf.Max(0, len - 1), last);
-            _hasSel = true;
+            _state.Selection.A = new Vector2Int(0, first);
+            _state.Selection.B = new Vector2Int(Mathf.Max(0, len - 1), last);
+            _state.Selection.HasSelection = true;
         }
 
         static bool SameClass(char c, char anchor, bool word) =>

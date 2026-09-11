@@ -65,7 +65,7 @@ namespace SlopWorld
                 var formGeometry = UiScrollBody.Measure(form, _fieldsH,
                     UiScrollbarReservation.WhenNeeded);
                 using (_scroll.Scope(form, formGeometry.View))
-                    _measuredFieldsH = DrawFields(new Rect(0f, 0f, formGeometry.View.width,
+                    DrawFields(new Rect(0f, 0f, formGeometry.View.width,
                         Mathf.Max(form.height, _fieldsH)));
 
                 DrawPreviewBlock(Place(inner, _layout.PreviewCaption),
@@ -84,7 +84,7 @@ namespace SlopWorld
                     _contentRevision);
                 using (_scroll.Scope(frame, geometry.View))
                 {
-                    _measuredFieldsH = DrawFields(new Rect(_layout.Form.X, _layout.Form.Y,
+                    DrawFields(new Rect(_layout.Form.X, _layout.Form.Y,
                         _layout.Form.Width, Mathf.Max(_layout.Form.Height, _fieldsH)));
                     DrawPreviewBlock(ToRect(_layout.PreviewCaption),
                         ToRect(_layout.Preview));
@@ -117,22 +117,30 @@ namespace SlopWorld
             DrawPreview(preview);
         }
 
-        float DrawFields(Rect rect)
-        {
-            float y = rect.y;
-            y += DrawScale(new Rect(rect.x, y, rect.width, UiLayout.ListingHeight));
-            y += DrawLayout(new Rect(rect.x, y, rect.width, UiLayout.ListingHeight));
-            y += DrawInterface(new Rect(rect.x, y, rect.width, UiLayout.ListingHeight));
-            y += DrawScheme(new Rect(rect.x, y, rect.width, UiLayout.ListingHeight));
-            y += DrawFont(new Rect(rect.x, y, rect.width, UiLayout.ListingHeight));
-            y += DrawCursor(new Rect(rect.x, y, rect.width, UiLayout.ListingHeight));
-            return y - rect.y + UiTheme.GapS;
-        }
-
-        float DrawLayout(Rect rect)
+        void DrawFields(Rect rect)
         {
             var l = new Listing_Standard { maxOneColumn = true };
-            l.Begin(rect);
+            bool begun = false;
+            try
+            {
+                l.Begin(rect);
+                begun = true;
+                DrawScale(l);
+                DrawLayout(l);
+                DrawInterface(l);
+                DrawScheme(l);
+                DrawFont(l);
+                DrawCursor(l);
+                _measuredFieldsH = l.CurHeight - rect.y + UiTheme.GapS;
+            }
+            finally
+            {
+                if (begun) l.End();
+            }
+        }
+
+        void DrawLayout(Listing_Standard l)
+        {
             UiLayout.SectionHeading(l, "Workspace");
 
             string side = NavigationSide.Normalize(S.sidebarSide);
@@ -175,9 +183,6 @@ namespace SlopWorld
             }
             UiLayout.Note(l, "The navigation width is still resized from its edge.");
 
-            float used = l.CurHeight;
-            l.End();
-            return used;
         }
 
         static void SetLayout(ref string field, string value)
@@ -188,11 +193,8 @@ namespace SlopWorld
             AgentSidebar.LayoutChanged();
         }
 
-        float DrawScale(Rect rect)
+        void DrawScale(Listing_Standard l)
         {
-            var l = new Listing_Standard { maxOneColumn = true };
-            l.Begin(rect);
-
             // The knob and the readout follow the hand; the scale itself is not moved until
             // the slider reports an actual mouse-up, because this is the one row whose value
             // decides where the row is drawn. See UiControls.Slider.
@@ -216,16 +218,10 @@ namespace SlopWorld
                 "Use window-manager fullscreen without changing Unity's render mode.");
             if (fullscreen != S.fullscreen) WindowMaximizer.Set(fullscreen);
 
-            float used = l.CurHeight;
-            l.End();
-            return used;
         }
 
-        float DrawInterface(Rect rect)
+        void DrawInterface(Listing_Standard l)
         {
-            var l = new Listing_Standard { maxOneColumn = true };
-            l.Begin(rect);
-
             bool disableTiny = UiControls.Checkbox(l, "DisableTinyText".Translate(),
                 Prefs.DisableTinyText,
                 "Use the Small font everywhere instead of the game's Tiny font.");
@@ -240,16 +236,10 @@ namespace SlopWorld
 
             l.Gap(UiTheme.GapM);
 
-            float used = l.CurHeight;
-            l.End();
-            return used;
         }
 
-        float DrawScheme(Rect rect)
+        void DrawScheme(Listing_Standard l)
         {
-            var l = new Listing_Standard { maxOneColumn = true };
-            l.Begin(rect);
-
             // Nothing to invalidate on the way out: every color in the mod is read through
             // shared UI chrome on the frame it is drawn, so the page under the dropdown has
             // already changed by the time the menu closes over it. See UIScheme.
@@ -263,16 +253,10 @@ namespace SlopWorld
             DrawSwatches(l.GetRect(18f));
             l.Gap(UiTheme.GapM);
 
-            float used = l.CurHeight;
-            l.End();
-            return used;
         }
 
-        float DrawFont(Rect rect)
+        void DrawFont(Listing_Standard l)
         {
-            var l = new Listing_Standard { maxOneColumn = true };
-            l.Begin(rect);
-
             var fontOptions = new List<FloatMenuOption>
             {
                 new FloatMenuOption("Automatic", () =>
@@ -318,16 +302,10 @@ namespace SlopWorld
             }
             l.Gap(UiTheme.GapM);
 
-            float used = l.CurHeight;
-            l.End();
-            return used;
         }
 
-        float DrawCursor(Rect rect)
+        void DrawCursor(Listing_Standard l)
         {
-            var l = new Listing_Standard { maxOneColumn = true };
-            l.Begin(rect);
-
             CursorRow(l);
             l.Gap(UiTheme.GapS);
             bool grayscale = UiControls.Checkbox(l, "Grayscale cursor", S.cursorGrayscale,
@@ -340,9 +318,6 @@ namespace SlopWorld
             }
             l.Gap(UiTheme.GapM);
 
-            float used = l.CurHeight;
-            l.End();
-            return used;
         }
 
         // The scheme, drawn rather than described - the Terminal page's swatch strip, over

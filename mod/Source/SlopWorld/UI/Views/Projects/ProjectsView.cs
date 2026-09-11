@@ -246,27 +246,8 @@ namespace SlopWorld
             GUI.color = Color.white;
 
             l.Gap(UiTheme.GapS);
-            UiControls.Select(l, "DNS", _p.Dns.Label, new[]
-            {
-                new SelectorOption("System resolver", () => _p.Dns = DnsConfig.Resolved()),
-                new SelectorOption("Custom DNS servers", () =>
-                {
-                    if (_p.Dns.Mode != DnsMode.Servers) _p.Dns = DnsConfig.Custom();
-                }),
-            }, out _);
-            if (_p.Dns.Mode == DnsMode.Servers)
-            {
-                _dnsServers = UiControls.Field(l, "project.dns", _dnsServers ?? "");
-                GUI.color = UiTheme.Dim;
-                l.Label("Comma-separated IPv4 addresses; maximum two. Changes apply on restart.");
-                GUI.color = Color.white;
-            }
-            else
-            {
-                GUI.color = UiTheme.Dim;
-                l.Label("System resolver follows the daemon's current resolv.conf.");
-                GUI.color = Color.white;
-            }
+            DnsForm.Draw(l, _p.Dns, null, false, "project.dns", ref _dnsServers,
+                dns => _p.Dns = dns);
 
         }
 
@@ -312,16 +293,12 @@ namespace SlopWorld
                 return;
             }
 
-            List<string> dnsServers = null;
             string dnsError;
-            if (_p.Dns.Mode == DnsMode.Servers &&
-                !DnsConfig.TryParseServers(_dnsServers, out dnsServers, out dnsError))
+            if (!DnsForm.TrySave(_p.Dns, _dnsServers, out dnsError))
             {
                 UiLayout.Fail("DNS: " + dnsError);
                 return;
             }
-            if (_p.Dns.Mode == DnsMode.Servers)
-                _p.Dns.Servers = dnsServers;
 
             SessionHub.Instance.Catalog.SaveProject(_p, _identity.IsNew,
                 _identity.OriginalName,

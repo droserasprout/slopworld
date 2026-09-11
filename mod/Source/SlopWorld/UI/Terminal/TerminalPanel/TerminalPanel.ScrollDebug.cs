@@ -168,7 +168,7 @@ namespace SlopWorld
 
             string phase = final ? "end" : "sample";
             Log.Message(
-                $"[SlopWorld] scroll-debug {phase} session={_name} " +
+                $"[SlopWorld] scroll-debug {phase} session={_state.Name} " +
                 $"age={(now - _scrollDebug.StartedAt) * 1000f:F1}ms " +
                 $"queue={Ms(_scrollDebug.StartedAt, _scrollDebug.FirstQueued)} " +
                 $"send={Ms(_scrollDebug.FirstQueued, _scrollDebug.FirstSent)} " +

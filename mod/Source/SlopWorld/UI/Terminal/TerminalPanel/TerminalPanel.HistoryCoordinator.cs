@@ -19,7 +19,7 @@ namespace SlopWorld
             public ScreenBuf DisplayedScreen()
             {
                 var hub = SessionHub.Instance;
-                var live = hub.Screen(_panel._name);
+                var live = hub.Screen(_panel._state.Name);
                 _panel.NoteLiveFrame(live);
                 DrainReplies(hub, live);
                 if (_panel._scrollOff <= 0)
@@ -107,7 +107,7 @@ namespace SlopWorld
                 if (!_panel._historyRestorePending || live == null) return int.MinValue;
                 _panel._historyRestorePending = false;
 
-                var info = SessionHub.Instance.Get(_panel._name);
+                var info = SessionHub.Instance.Get(_panel._state.Name);
                 bool compatible = info != null && _panel._activeHistoryCache != null &&
                     _panel._activeHistoryCache.RunId == info.RunId &&
                     _panel._activeHistoryCache.ConnectionGeneration ==
@@ -160,48 +160,35 @@ namespace SlopWorld
                     return;
 
                 _panel._selectionCoordinator.ResetLiveSequence();
-                _panel._historyCaches.Remove(_panel._name);
-                _panel._scrollbackStates.Remove(_panel._name);
-                _panel._activeHistoryCache = null;
-                _panel._history = new TerminalHistory();
-                _panel._historyRequests.Clear();
-                _panel._scrollPending = false;
-                _panel._wantedScrollOff = 0;
+                _panel._historyCaches.Remove(_panel._state.Name);
+                _panel._scrollbackStates.Remove(_panel._state.Name);
+                ResetCommon();
                 _panel._sentScrollOff = 0;
-                _panel._nextScrollSend = 0f;
-                _panel._scrollOff = 0;
                 _panel._historyJumpPending = true;
                 _panel._historyJumpOff = 0;
                 _panel._historyJumpPixels = -1f;
-                _panel._historyLastPixels = 0f;
-                _panel._renderHistoryShift = 0f;
-                _panel._historyCoordinateShift = 0;
-                _panel._historyTopOff = -1;
-                _panel._historyBarDragging = false;
-                _panel._historyViewReady = false;
-                _panel._historyRefreshPending = false;
-                _panel._historyWarmed = false;
-                _panel._historyDisplayedFrame = null;
-                _panel._historyRestorePending = false;
-                _panel._historyLiveSeq = -1;
-                _panel._historyLiveHistory = -1;
-                _panel._historyLiveCols = 0;
-                _panel._historyLiveRows = 0;
-                _panel._historyLiveAltScreen = false;
                 _panel._selectionCoordinator.ResetForNewRun();
                 _panel.ClearSelection();
             }
 
             public void ResetForSession()
             {
-                _panel._scrollOff = 0;
-                _panel._wantedScrollOff = 0;
-                _panel._scrollPending = false;
-                _panel._nextScrollSend = 0f;
+                ResetCommon();
                 _panel._hasWheelDirection = false;
                 _panel._historyScrollReady = false;
                 _panel._historyJumpPending = false;
                 _panel._historyJumpPixels = -1f;
+                _panel._selectionCoordinator.ResetForNewRun();
+            }
+
+            // Both reset paths discard the current viewport's captured history. Their
+            // identity, jump, wheel and selection differences remain explicit at the call site.
+            void ResetCommon()
+            {
+                _panel._scrollOff = 0;
+                _panel._wantedScrollOff = 0;
+                _panel._scrollPending = false;
+                _panel._nextScrollSend = 0f;
                 _panel._renderHistoryShift = 0f;
                 _panel._historyLastPixels = 0f;
                 _panel._historyTopOff = -1;
@@ -220,7 +207,6 @@ namespace SlopWorld
                 _panel._historyLiveCols = 0;
                 _panel._historyLiveRows = 0;
                 _panel._historyLiveAltScreen = false;
-                _panel._selectionCoordinator.ResetForNewRun();
             }
 
             void PruneCaches()
@@ -240,7 +226,7 @@ namespace SlopWorld
             {
                 // Drain every reply so a discarded prefetch cannot strand its request id and
                 // suppress the exact deep-history fetch needed by the current viewport.
-                while (hub.TryScrollScreen(_panel._name, out var sb))
+                while (hub.TryScrollScreen(_panel._state.Name, out var sb))
                 {
                     HistoryRequest request = new HistoryRequest();
                     bool pending = sb.ScrollRequestId != 0 &&

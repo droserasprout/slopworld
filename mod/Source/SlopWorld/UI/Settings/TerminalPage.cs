@@ -42,7 +42,7 @@ namespace SlopWorld
                     UiScrollbarReservation.Always);
                 using (_scroll.Scope(inner, geometry.View))
                 {
-                    _height.Measure(DrawFields(SettingsPageLayout.ToRect(_layout.Form), S));
+                    DrawFields(SettingsPageLayout.ToRect(_layout.Form), S);
                     DrawPreviewBlock(SettingsPageLayout.ToRect(_layout.PreviewCaption),
                         SettingsPageLayout.ToRect(_layout.Preview));
                 }
@@ -53,7 +53,7 @@ namespace SlopWorld
                 var geometry = UiScrollBody.Measure(form, formH,
                     UiScrollbarReservation.Always);
                 using (_scroll.Scope(form, geometry.View))
-                    _height.Measure(DrawFields(geometry.View, S));
+                    DrawFields(geometry.View, S);
                 DrawPreviewBlock(Place(inner, _layout.PreviewCaption), Place(inner, _layout.Preview));
             }
         }
@@ -68,20 +68,27 @@ namespace SlopWorld
             DrawPreview(preview, TerminalFont.Style);
         }
 
-        float DrawFields(Rect rect, ModSettings s)
-        {
-            float y = rect.y;
-            y += DrawFont(new Rect(rect.x, y, rect.width, UiLayout.ListingHeight), s);
-            y += DrawTheme(new Rect(rect.x, y, rect.width, UiLayout.ListingHeight), s);
-            y += DrawCursor(new Rect(rect.x, y, rect.width, UiLayout.ListingHeight), s);
-            return y - rect.y + UiTheme.GapS;
-        }
-
-        float DrawFont(Rect rect, ModSettings s)
+        void DrawFields(Rect rect, ModSettings s)
         {
             var l = new Listing_Standard { maxOneColumn = true };
-            l.Begin(rect);
+            bool begun = false;
+            try
+            {
+                l.Begin(rect);
+                begun = true;
+                DrawFont(l, s);
+                DrawTheme(l, s);
+                DrawCursor(l, s);
+                _height.Measure(l.CurHeight - rect.y + UiTheme.GapS);
+            }
+            finally
+            {
+                if (begun) l.End();
+            }
+        }
 
+        void DrawFont(Listing_Standard l, ModSettings s)
+        {
             var fontOptions = new List<FloatMenuOption>
             {
                 new FloatMenuOption("Automatic", () =>
@@ -100,16 +107,10 @@ namespace SlopWorld
                 TerminalFont.Invalidate();
             l.Gap(UiTheme.GapM);
 
-            float used = l.CurHeight;
-            l.End();
-            return used;
         }
 
-        float DrawTheme(Rect rect, ModSettings s)
+        void DrawTheme(Listing_Standard l, ModSettings s)
         {
-            var l = new Listing_Standard { maxOneColumn = true };
-            l.Begin(rect);
-
             if (UiLayout.Button(l,
                     $"Color scheme: {(s.theme == TerminalTheme.MatchUI ? "Match UI" : TerminalTheme.Current.Label)}"))
                 Find.WindowStack.Add(new UiMenu(new[]
@@ -129,16 +130,10 @@ namespace SlopWorld
             DrawSwatches(l.GetRect(18f));
             l.Gap(UiTheme.GapM);
 
-            float used = l.CurHeight;
-            l.End();
-            return used;
         }
 
-        float DrawCursor(Rect rect, ModSettings s)
+        void DrawCursor(Listing_Standard l, ModSettings s)
         {
-            var l = new Listing_Standard { maxOneColumn = true };
-            l.Begin(rect);
-
             l.Label("Cursor color, #rrggbb (blank = the scheme's)");
             UiControls.SetSetting(s, ref s.cursorColor,
                 UiControls.Field(l, "term.cursor", s.cursorColor ?? "", defaultValue: ""));
@@ -153,9 +148,6 @@ namespace SlopWorld
                 GUI.color = Color.white;
             }
 
-            float used = l.CurHeight;
-            l.End();
-            return used;
         }
 
         // The scheme, drawn rather than described: sixteen ANSI slots over the background

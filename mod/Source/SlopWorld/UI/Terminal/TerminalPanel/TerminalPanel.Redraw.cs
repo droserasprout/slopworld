@@ -109,23 +109,23 @@ namespace SlopWorld
 
             // Both of these are the pane's business with its own session, and a view in the
             // body means there is no pane being measured or scrolled.
-            if (_name == null || !Visible) return;
+            if (_state.Name == null || !Visible) return;
 
             float now = Time.realtimeSinceStartup;
             if (_scrollPending && now >= _nextScrollSend)
                 SendPendingScroll();
 
-            if (!_sizeDirty || now < _resizeAt) return;
+            if (!_state.SizeDirty || now < _state.ResizeAt) return;
 
             // A socket that is down drops the message, so hold the ask rather than spend it.
             if (!SessionHub.Instance.Online)
             {
-                _resizeAt = now + 1f;
+                _state.ResizeAt = now + 1f;
                 return;
             }
 
-            SessionHub.Instance.Terminal.Resize(_name, _cols, _rows);
-            _sizeDirty = false;
+            SessionHub.Instance.Terminal.Resize(_state.Name, _state.Cols, _state.Rows);
+            _state.SizeDirty = false;
         }
 
     }

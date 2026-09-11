@@ -34,7 +34,8 @@ namespace SlopWorld
 
             public void DrawSelection(Rect body, ScreenBuf buf, float shift)
             {
-                if (Event.current.type != EventType.Repaint || !_panel._hasSel) return;
+                if (Event.current.type != EventType.Repaint ||
+                    !_panel._state.Selection.HasSelection) return;
                 EnsureRuns(buf);
                 _panel.SyncSnap();
 

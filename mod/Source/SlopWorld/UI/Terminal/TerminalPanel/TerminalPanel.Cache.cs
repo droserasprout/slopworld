@@ -57,7 +57,7 @@ namespace SlopWorld
             var key = new TerminalCacheKey
             {
                 Buffer = buf,
-                Session = _name,
+                Session = _state.Name,
                 Offset = buf.Off,
                 X = body.x,
                 Y = body.y,
@@ -153,7 +153,7 @@ namespace SlopWorld
             // The shared texture is only a valid fallback while this session remains active.
             // A switched tab must use its own displayed-frame snapshot or wait for its first
             // screen; showing the previous tab for one frame reads as terminal flicker.
-            if (_cacheKey.Session != _name) return false;
+            if (_cacheKey.Session != _state.Name) return false;
             if (Event.current.type != EventType.Repaint) return true;
 
             float debugStarted = ScrollDebugTimer();
