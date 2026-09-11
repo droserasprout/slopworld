@@ -7,7 +7,9 @@ Down is not a rule - it comes from the control reader ending on `%exit` or EOF.
 
 Rules scan the last `TAIL_LINES` non-blank lines upward. The lowest matching line
 wins; configuration order breaks ties within a line. This prevents a higher prompt from
-keeping a working agent in `waiting`.
+keeping a working agent in `waiting`. `waiting` and explicit `idle` matches are authoritative,
+but a `working` match still decays to idle after `IDLE_MS` without pane activity, because agent
+TUIs can leave a stale working indicator on screen.
 
 ## State clocks
 
