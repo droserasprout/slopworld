@@ -69,22 +69,45 @@ namespace SlopWorld
             // survives Use(), and could otherwise be reinterpreted after entering the
             // agent scroll group's local coordinate space.
             if (e.type != EventType.MouseDown) return;
-            if (e.button != 0 && e.button != 1) return;
+            if (e.button != 0 && e.button != 1 && e.button != 2) return;
 
             foreach (var head in Layout.Heads)
             {
                 if (!ColonistBarStrip.MouseOver(head.Rect)) continue;
                 if (e.button == 0) Fold(head.Label, !head.Folded);
-                else HeadMenu(head);
+                else if (e.button == 1) HeadMenu(head);
+                else return;
                 e.Use();
                 return;
             }
 
-            if (e.button != 1) return;
             foreach (var row in Layout.Rows)
             {
                 if (row.Session == null) continue;
                 if (!ColonistBarStrip.MouseOver(row.Line)) continue;
+
+                var info = SessionHub.Instance.Get(row.Session);
+                if (e.button == 2 && info != null)
+                {
+                    if (info.Alive)
+                    {
+                        TerminalWindow.OpenOverPane(ConfirmDialog.Create(
+                            $"Stop '{row.Session}'? This kills the tmux session; whatever the agent " +
+                            "is in the middle of goes with it.",
+                            () => SessionHub.Instance.SessionStore.Stop(row.Session, UiLayout.Fail),
+                            destructive: true));
+                    }
+                    else
+                    {
+                        TerminalWindow.OpenOverPane(info.Host
+                            ? CatalogActions.RemoveHost(row.Session)
+                            : CatalogActions.RemoveSession(row.Session));
+                    }
+                    e.Use();
+                    return;
+                }
+
+                if (e.button != 1) return;
                 RowMenu(row.Session, row.Pawn);
                 e.Use();
                 return;
