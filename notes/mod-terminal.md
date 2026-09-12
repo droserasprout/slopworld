@@ -89,8 +89,8 @@ of submitting, Ctrl+C copies when text is selected and otherwise falls through a
 Ctrl+V pastes, double-click
 publishes its word and triple-click publishes its line to the host's Wayland/X11 PRIMARY
 selection, and middle-click pastes that selection (even when an app reports mouse input).
-Non-Codex agent panes use the normal
-clipboard read; host panes use a text-only read. Codex panes probe the text-only clipboard first,
+Non-Codex agent panes use the normal clipboard read, with binary clipboard payloads ignored; host
+panes use a text-only read. Codex panes probe the text-only clipboard first,
 because Codex's image-paste handler
 otherwise reports a missing image for ordinary text; they forward Ctrl+V only for image (or
 other non-text) clipboard data. The built-in Codex sandbox therefore includes the X11 and

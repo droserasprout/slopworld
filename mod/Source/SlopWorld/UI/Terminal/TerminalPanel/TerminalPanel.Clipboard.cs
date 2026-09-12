@@ -214,13 +214,13 @@ namespace SlopWorld
             }
             if (!SessionHub.Instance.Capabilities.Clipboard)
             {
-                Deliver(name, GUIUtility.systemCopyBuffer);
+                DeliverLocal(name);
                 return;
             }
             string path = HostClipboardTextOnly ? WireContract.Routes.ClipboardText : WireContract.Routes.Clipboard;
             DaemonClient.Get(path,
                 j => Deliver(name, j["text"].AsString()),
-                _ => Deliver(name, null));
+                _ => DeliverLocal(name));
         }
 
         // Middle-click reads Wayland/X11 PRIMARY, not the ordinary CLIPBOARD. There is no
@@ -240,7 +240,12 @@ namespace SlopWorld
 
         static void Deliver(string name, string text)
         {
-            if (string.IsNullOrEmpty(text)) text = GUIUtility.systemCopyBuffer;
+            if (!string.IsNullOrEmpty(text)) SessionHub.Instance.Terminal.Paste(name, text);
+        }
+
+        static void DeliverLocal(string name)
+        {
+            string text = GUIUtility.systemCopyBuffer;
             if (!string.IsNullOrEmpty(text)) SessionHub.Instance.Terminal.Paste(name, text);
         }
 
