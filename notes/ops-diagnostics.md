@@ -36,3 +36,23 @@ The mod emits one aggregate `perf` line per second, and terminal history emits o
 the window closes. These lines contain timings, row/cache counters, backlog and history state;
 they never include terminal contents. The daemon uses the same `SLOPWORLD_DEBUG=1` switch and
 reports its counters through the `slopd::perf` target.
+
+`make trace-mod TRACE_LABEL=eco-closed TRACE_SECONDS=30` captures only new perf records
+to `notes/trace-eco-closed.log`; it refuses to overwrite a capture and fails if no records
+arrive. Start capture after loading and warmup. Restart with `SLOPWORLD_DEBUG=1 make
+BUILD=release run` after `make BUILD=release install-mod` to load instrumented changes.
+
+Compare Eco on/off and terminal open/closed with the same sessions, resolution, foreground
+focus and display settings. Use a distinct label for each window and repeat each condition
+three times. Discard the first record, whose aggregation can precede capture. Context records
+include Eco, terminal coverage, session count, resolution, FPS and process-wide gen-0 GC
+collections. They do not measure allocated bytes or input latency. Timed lanes overlap;
+do not add root, sidebar, colonist-bar and terminal timings together.
+`make trace-summary` groups captured records by observed state and prints lane milliseconds
+per Root.Update call. `TRACE_FILES` selects specific captures; first and transition records
+are excluded because their timings can include the previous condition.
+
+In steady Eco, expect approximately one `solar-clock-samples` call per second and sidebar
+presentation hits between age-bucket/session changes. A transition can add a clock sample.
+Use `make bench-report` for three-run helper/daemon averages; those fixtures do not exercise
+the Unity-bound row presentation or RealClock components.

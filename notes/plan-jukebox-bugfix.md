@@ -1,7 +1,6 @@
 # Jukebox bug fixes
 
-Status: proposed; implementation has not started. The three findings come from
-static review. Reproduce them with local fixtures before changing behavior.
+Reproduce the failures below with local fixtures before changing behavior.
 Background: [jukebox](mod-jukebox.md) and [local audio/history](mod-jukebox-library.md).
 
 ## 1. Keep audio controls responsive during stream opening (P1)

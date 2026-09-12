@@ -1,9 +1,7 @@
 # CPU and idle-state plan
 
-Status: planned; implementation and runtime validation are outstanding. This plan
-includes the former idle-state regression plan. Apply phases in order: establish
-correct idle behavior before optimizing classification. Record benchmark deltas
-with the affected algorithm.
+Establish race-safe idle classification before optimizing terminal parsing,
+message decoding, metadata polling, and idle wakes. Apply phases in order.
 
 ## 0. Establish and fix the idle-state contract
 
@@ -17,16 +15,11 @@ Sources: [session state](../slopd/src/manager/session_state.rs),
   and emitted `Event::Sessions`. Use fixtures first; inspect an existing affected
   API session when available without altering live daemon configuration.
 - Separate unchanged text plus cursor movement, metadata changes, and a static
-  `esc to interrupt` line. Cursor-position-only frames already leave `last_change`
-  unchanged; retain the regression test in `manager/capture.rs`.
+  `esc to interrupt` line. Preserve cursor-only activity behavior and its regression
+  test in `manager/capture.rs`; retain Working decay and authoritative Waiting/Idle rules.
 - Test every `FrameMeta` field: cursor shape/blink, mouse/drag modes, alternate
   screen, and title. Exclude presentation-only churn from activity only when the
   reproduction supports it; retain proven activity and continue screen delivery.
-- Decide and document whether persistent Working rule matches suppress decay or
-  classify only active output. Current `classify` returns rule matches before
-  checking `last_change`; do not freeze that behavior into the phase 4 cache before
-  resolving the regression. Preserve prompts still awaiting input and the existing
-  bottom-line/configuration-order precedence between matching rules.
 - Add retick integration coverage for quiet Working-to-Idle decay and its session
   event, active output near the deadline, persistent Working/Waiting text, and
   repeated redraws that must not reset `state_since`. Keep client parsing of the
@@ -39,8 +32,8 @@ Sources: [session state](../slopd/src/manager/session_state.rs),
   rules revision; stale work must not overwrite new state or mark newer output
   as classified. Keep `Live::set_state` and durable activity persistence intact.
 
-Make the smallest fix supported by these cases and update the state note. Record
-the chosen rule/activity contract before phase 4. Verify quiet and active real API
+Make the smallest fix supported by these cases and update the state note. Preserve
+the rule/activity contract in the phase 4 cache. Verify quiet and active real API
 sessions when available; otherwise report runtime validation as outstanding.
 
 ## 1. Retain terminal parsing when a URL is visible
@@ -85,6 +78,9 @@ sessions when available; otherwise report runtime validation as outstanding.
   envelope/coalescing semantics with that work; do not count this phase as a memory bound.
 
 ## 3. Batch daemon host metadata queries
+
+`manager/sessions.rs::refresh_host_metadata` currently queries each live host
+terminal separately with bounded concurrency.
 
 - Add one formatted `list-panes -a` query in `tmux.rs`; return pane identity, cwd
   and foreground command, then match only the expected session/pane targets.

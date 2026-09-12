@@ -10,7 +10,9 @@ What it does, one owner each:
 - **The clock**: a `TickManagerUpdate` prefix enforces the pause before any tick batch;
   vanilla still clears `ticksThisFrame`. `TimeKeeper` holds `TimeSpeed.Paused` every frame instead of
   lifting it, so eco does not have to fight the resume from somewhere else. `_ours`
-  keeps the "something paused the game" line for pauses nobody here asked for.
+  keeps the "something paused the game" line for pauses nobody here asked for. `RealClock`
+  refreshes its wall-clock anchor once per second and on Eco/load/map edges, then skips
+  identical paused-frame assignments; normal play still samples solar time once per second.
 - **The map**: `PaneOverDraw.Wanted` suppresses map painting, including condition overlays,
   designations, temporary things and lord stencils. Lord orphan aging remains active.
   Eco also suppresses weather, edge clippers, map-interface overlays/gizmo hover,
@@ -30,6 +32,8 @@ What it does, one owner each:
   only map output: a ScaleAndCrop world-space quad covering the screen.
   `ShaderDatabase.Cutout` queue 1000 fixes the ordering. `Frame()` passes a null
   source when a set is resident to reuse the menu's cached expansion art.
+  Its material and screen-to-map fit are retained until dimming, texture, resolution, map, or
+  camera geometry changes.
   Only the current map submits the backdrop. Frame lookup and drift math are skipped
   while a terminal or maximized content view covers it; both use `TerminalWindow.Covering`.
 - **The drift**: `Zoom` (1.05) adds margin on both axes; `PanX` and `PanZ` move the

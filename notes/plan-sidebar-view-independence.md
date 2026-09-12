@@ -1,6 +1,7 @@
 # Sidebar tab and content-view independence plan
 
-Status: proposed; static investigation found the tab switch, but no fix has been implemented.
+Sources are under `mod/Source/SlopWorld/Patches/AgentSidebar/` and
+`mod/Source/SlopWorld/UI/Views/{Git,Files}/`.
 
 Keep the selected sidebar tab independent from the content reader opened by a row action. In
 particular, pressing `View` on a Markdown file in Git must open the native preview while Git
@@ -10,7 +11,7 @@ remains the selected sidebar tab.
 
 - `AgentSidebar.TabDefinitions.cs` dispatches Git clicks to `GitView.Clicks`.
 - `GitView.State.cs` dispatches a row action to `GitView.Act`.
-- `GitView.Rendering.cs:339-343` handles `RowAct.View` by explicitly calling
+- `GitView.Rendering.cs::Act` handles `RowAct.View` by explicitly calling
   `AgentSidebar.ShowWithoutHistory(SidebarTab.Files)` before `FilesView.ViewFile`.
 - `ShowWithoutHistory` persists `sidebarTab = "files"` and activates the Files tab. This is the
   observed jump.
