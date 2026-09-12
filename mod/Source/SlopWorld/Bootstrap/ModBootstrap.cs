@@ -57,7 +57,9 @@ namespace SlopWorld
     [HarmonyPatch(typeof(Root), nameof(Root.Update))]
     public static class Patch_Root_Update
     {
-        static void Postfix()
+        static void Prefix(out long __state) => __state = PerfTrace.Start();
+
+        static void Postfix(long __state)
         {
             // The jukebox has no MonoBehaviour of its own. Run it before the client's
             // synchronous reconnect can block this frame while the daemon is restarting.
@@ -79,5 +81,7 @@ namespace SlopWorld
             if (Input.GetMouseButtonDown(0) || Input.GetMouseButtonDown(1))
                 DeadCursor.Click();
         }
+
+        static void Finalizer(long __state) => PerfTrace.End("root-update", __state, 1);
     }
 }

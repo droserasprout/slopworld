@@ -101,12 +101,17 @@ namespace SlopWorld
             public Rect Rect;   // the whole band, so the arrow and the name click as one
             public int Active;
             public int Total;
+            public string Count;
             public bool Folded;
         }
 
         static readonly SidebarLayout Layout = new SidebarLayout();
         static readonly SidebarInteraction Interaction = new SidebarInteraction();
         static readonly SidebarProjectState Projects = new SidebarProjectState();
+        static readonly Dictionary<string, SessionInfo> FrameSessions =
+            new Dictionary<string, SessionInfo>(StringComparer.Ordinal);
+        static long _frameSessionsVersion = -1;
+        static long _renderStarted;
 
         const string Loose = "no project";
 
@@ -115,6 +120,28 @@ namespace SlopWorld
         static void Fold(string key, bool on)
         {
             Projects.SetFolded(key, on);
+        }
+
+        // The colonist bar asks the same questions from its layout, portrait, label and click
+        // passes. Keep one name-indexed view of the daemon list for that draw; the session
+        // revision changes whenever the list is replaced, so this never mixes old and new
+        // objects across a socket event.
+        static void BeginSessionSnapshot()
+        {
+            var hub = SessionHub.Instance;
+            if (_frameSessionsVersion == hub.SessionsVersion) return;
+
+            FrameSessions.Clear();
+            foreach (var info in hub.Sessions)
+                if (info != null && info.Name != null && !FrameSessions.ContainsKey(info.Name))
+                    FrameSessions.Add(info.Name, info);
+            _frameSessionsVersion = hub.SessionsVersion;
+        }
+
+        static SessionInfo SnapshotGet(string name)
+        {
+            BeginSessionSnapshot();
+            return name != null && FrameSessions.TryGetValue(name, out var info) ? info : null;
         }
 
     }

@@ -62,19 +62,27 @@ namespace SlopWorld
 
         public override void DoWindowContents(Rect rect)
         {
-            using (FieldLifetimeScope.Push(_fieldLifetime))
+            long started = PerfTrace.Start();
+            try
             {
-                var hub = SessionHub.Instance;
-                Slab.Fill(TerminalPanel.OverdrawBackground(rect), Background);
-                if (!EnsureSession(hub)) return;
+                using (FieldLifetimeScope.Push(_fieldLifetime))
+                {
+                    var hub = SessionHub.Instance;
+                    Slab.Fill(TerminalPanel.OverdrawBackground(rect), Background);
+                    if (!EnsureSession(hub)) return;
 
-                bool input = Find.WindowStack == null || Find.WindowStack.GetsInput(this);
-                _panels.SetFocus(input);
-                Rect body = DrawTopBar(rect, input);
-                DrawBody(body, input, hub);
-                Find.CurrentMap?.GetComponent<CoreTip>()?.DrawHint();
-                if (TerminalVisible && _showStopped && _name != null && hub.Get(_name)?.Gone == true)
-                    MapGizmoUtility.MapUIOnGUI();
+                    bool input = Find.WindowStack == null || Find.WindowStack.GetsInput(this);
+                    _panels.SetFocus(input);
+                    Rect body = DrawTopBar(rect, input);
+                    DrawBody(body, input, hub);
+                    Find.CurrentMap?.GetComponent<CoreTip>()?.DrawHint();
+                    if (TerminalVisible && _showStopped && _name != null && hub.Get(_name)?.Gone == true)
+                        MapGizmoUtility.MapUIOnGUI();
+                }
+            }
+            finally
+            {
+                PerfTrace.End("terminal-window", started, 1);
             }
         }
 

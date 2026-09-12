@@ -33,17 +33,6 @@ namespace SlopWorld
             }
         }
 
-        // Fold dimming into this draw; the shared menu frames remain undimmed. MaterialPool
-        // keys on the color, so the slider behind this steps rather than moving freely.
-        static Color Shade
-        {
-            get
-            {
-                float lit = 1f - Mathf.Clamp01(Settings.EcoDim);
-                return new Color(lit, lit, lit, 1f);
-            }
-        }
-
         // Keep the frame below any unexpected world draw regardless of its altitude.
         const int Underneath = 1000;
 
@@ -55,15 +44,83 @@ namespace SlopWorld
         // Short of the whole margin, or a lap would show past the edge of the picture.
         const float PanRoom = 0.85f;
 
+        // MapUpdate still runs while Eco is resting so the resident frame can drift. Keep the
+        // expensive, unchanged parts of that submission out of the frame: MenuBackground owns
+        // the animated texture choice, while this cache owns its material and the projection
+        // fit. Camera input is blocked in Eco, but transform and resolution keys still catch
+        // resize, map changes, and any external camera jump before the next draw.
+        static Texture2D _backdropTexture;
+        static Material _backdropMaterial;
+        static float _backdropDim = float.NaN;
+        static bool _backdropGeometryReady;
+        static Map _backdropMap;
+        static Camera _backdropCamera;
+        static Vector3 _backdropCameraPosition;
+        static Quaternion _backdropCameraRotation;
+        static float _backdropCameraOrtho;
+        static float _backdropCameraFov;
+        static float _backdropCameraAspect;
+        static Rect _backdropPixelRect;
+        static int _backdropScreenWidth = -1;
+        static int _backdropScreenHeight = -1;
+        static float _backdropViewW, _backdropViewH, _backdropW, _backdropH;
+        static Vector3 _backdropCenter;
+
         static void Backdrop()
         {
             var tex = Frame() ?? BaseContent.BlackTex;
+            if (tex == null) return;
+
+            float dim = Mathf.Clamp01(Settings.EcoDim);
+            if (_backdropTexture != tex || _backdropMaterial == null || _backdropDim != dim)
+            {
+                _backdropTexture = tex;
+                _backdropDim = dim;
+                _backdropMaterial = MaterialPool.MatFrom(tex, ShaderDatabase.Cutout,
+                    new Color(1f - dim, 1f - dim, 1f - dim, 1f), Underneath);
+                _backdropGeometryReady = false;
+            }
+
+            Map map = Find.CurrentMap;
+            if (!FitBackdrop(map, tex)) return;
+
+            float t = Time.realtimeSinceStartup;
+            float dx = (_backdropW - _backdropViewW) * 0.5f * PanRoom *
+                Mathf.Sin(t * 2f * Mathf.PI / PanX);
+            float dz = (_backdropH - _backdropViewH) * 0.5f * PanRoom *
+                Mathf.Sin(t * 2f * Mathf.PI / PanZ);
+
+            var at = new Vector3(_backdropCenter.x + dx, 0f, _backdropCenter.z + dz);
+            Graphics.DrawMesh(MeshPool.plane10,
+                Matrix4x4.TRS(at, Quaternion.identity,
+                    new Vector3(_backdropW, 1f, _backdropH)), _backdropMaterial, 0);
+        }
+
+        static bool FitBackdrop(Map map, Texture2D tex)
+        {
+            Camera camera = Camera.main;
+            bool changed = !_backdropGeometryReady || _backdropTexture != tex ||
+                _backdropMap != map || _backdropScreenWidth != UI.screenWidth ||
+                _backdropScreenHeight != UI.screenHeight || _backdropCamera != camera;
+
+            if (!changed && camera != null)
+            {
+                var transform = camera.transform;
+                changed = _backdropCameraPosition != transform.position ||
+                    _backdropCameraRotation != transform.rotation ||
+                    _backdropCameraOrtho != camera.orthographicSize ||
+                    _backdropCameraFov != camera.fieldOfView ||
+                    _backdropCameraAspect != camera.aspect ||
+                    _backdropPixelRect != camera.pixelRect;
+            }
+
+            if (!changed) return true;
 
             // Project the screen corners instead of assuming a top-down orthographic camera.
             var a = UI.UIToMapPosition(0f, 0f);
             var b = UI.UIToMapPosition(UI.screenWidth, UI.screenHeight);
             float viewW = Mathf.Abs(b.x - a.x), viewH = Mathf.Abs(b.z - a.z);
-            if (viewW <= 0f || viewH <= 0f) return;
+            if (viewW <= 0f || viewH <= 0f) return false;
 
             // Match vanilla's ScaleAndCrop fit; crop rather than letterbox.
             float w = viewW, h = viewH;
@@ -71,17 +128,36 @@ namespace SlopWorld
             if (want > w / h) w = h * want;
             else h = w / want;
 
-            w *= Zoom;
-            h *= Zoom;
-
-            float t = Time.realtimeSinceStartup;
-            float dx = (w - viewW) * 0.5f * PanRoom * Mathf.Sin(t * 2f * Mathf.PI / PanX);
-            float dz = (h - viewH) * 0.5f * PanRoom * Mathf.Sin(t * 2f * Mathf.PI / PanZ);
-
-            var at = new Vector3((a.x + b.x) * 0.5f + dx, 0f, (a.z + b.z) * 0.5f + dz);
-            Graphics.DrawMesh(MeshPool.plane10,
-                Matrix4x4.TRS(at, Quaternion.identity, new Vector3(w, 1f, h)),
-                MaterialPool.MatFrom(tex, ShaderDatabase.Cutout, Shade, Underneath), 0);
+            _backdropViewW = viewW;
+            _backdropViewH = viewH;
+            _backdropW = w * Zoom;
+            _backdropH = h * Zoom;
+            _backdropCenter = new Vector3((a.x + b.x) * 0.5f, 0f, (a.z + b.z) * 0.5f);
+            _backdropMap = map;
+            _backdropCamera = camera;
+            if (camera != null)
+            {
+                var transform = camera.transform;
+                _backdropCameraPosition = transform.position;
+                _backdropCameraRotation = transform.rotation;
+                _backdropCameraOrtho = camera.orthographicSize;
+                _backdropCameraFov = camera.fieldOfView;
+                _backdropCameraAspect = camera.aspect;
+                _backdropPixelRect = camera.pixelRect;
+            }
+            else
+            {
+                _backdropCameraPosition = default;
+                _backdropCameraRotation = default;
+                _backdropCameraOrtho = 0f;
+                _backdropCameraFov = 0f;
+                _backdropCameraAspect = 0f;
+                _backdropPixelRect = default;
+            }
+            _backdropScreenWidth = UI.screenWidth;
+            _backdropScreenHeight = UI.screenHeight;
+            _backdropGeometryReady = true;
+            return true;
         }
 
         // ThingOverlays survives the disabled draw chain; suppress all map labels along with

@@ -11,7 +11,7 @@ namespace SlopWorld
         public List<TaskInfo> Tasks = new List<TaskInfo>();
 
         bool _loading;
-        long _nextPoll;
+        double _nextPoll;
         int _refreshSerial;
         readonly Queue<CancellationBatch> _cancellations = new Queue<CancellationBatch>();
         readonly HashSet<string> _cancelingIds = new HashSet<string>();
@@ -50,11 +50,16 @@ namespace SlopWorld
 
         public int OpenTasks => Tasks.Count(t => !t.Terminal);
 
-        public void Update()
+        public void Update(bool needsData)
         {
             // Tasks use HTTP rather than the session WebSocket. Keep polling when the socket is
             // down too: the daemon can answer the mailbox even while the live pane reconnects.
-            if (_loading || SessionInfo.NowMs < _nextPoll) return;
+            // There is no reason to wake the HTTP poller while its view (and any badge that
+            // might consume it) is hidden. Use monotonic time here: unlike task timestamps,
+            // this deadline is not data sent by the daemon and must not cost a wall-clock query
+            // on every rendered frame.
+            if (!needsData || _loading || UnityEngine.Time.realtimeSinceStartupAsDouble < _nextPoll)
+                return;
             Refresh();
         }
 
@@ -63,7 +68,7 @@ namespace SlopWorld
             if (_loading) return;
 
             _loading = true;
-            _nextPoll = SessionInfo.NowMs + 10000L;
+            _nextPoll = UnityEngine.Time.realtimeSinceStartupAsDouble + 10.0;
             int serial = ++_refreshSerial;
             // The host UI is the operator's task board, so it needs agent-to-agent work too.
             // Scoped callers and the CLI keep using the default participant mailbox.

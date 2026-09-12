@@ -23,6 +23,19 @@ namespace SlopWorld
         // would be a different resource for the same window.
         static readonly Dictionary<string, ThingDef> _icons = new Dictionary<string, ThingDef>();
 
+        static PeriodicWork ClockSample;
+        static DateTime _clockNow;
+
+        // IMGUI can visit the top bar several times for one rendered frame. The displayed
+        // clock has one-second resolution, so keep the wall-clock sample on that cadence too.
+        // Monotonic time drives the deadline; DateTime is sampled only when the text can change.
+        internal static DateTime ClockNow()
+        {
+            if (ClockSample.Due(Time.realtimeSinceStartupAsDouble, 1.0))
+                _clockNow = DateTime.Now;
+            return _clockNow;
+        }
+
         static int _next;
 
         static ThingDef[] _pool;
@@ -69,7 +82,7 @@ namespace SlopWorld
             if (showUsage) PrepareQuotas(usage);
 
             float x = area.xMax;
-            DateTime now = showClock ? DateTime.Now : default;
+            DateTime now = showClock ? ClockNow() : default;
             float clockNeed = showClock ? ClockWidth(now) : 0f;
             if (showClock && x - clockNeed >= area.x)
             {

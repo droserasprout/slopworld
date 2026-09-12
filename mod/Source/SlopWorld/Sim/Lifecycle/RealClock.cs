@@ -28,6 +28,10 @@ namespace SlopWorld
         // recomputed every frame from the cached solar tick minus the current TicksGame.
         PeriodicWork _solarRecalc;
         int? _cachedSolar;
+        bool _wasPlaying;
+        bool _wasEco;
+        int _ecoTicks;
+        Map _lastMap;
 
         public RealClock(Game game) { }
 
@@ -76,21 +80,63 @@ namespace SlopWorld
 
         public override void GameComponentUpdate()
         {
-            if (Verse.Current.ProgramState != ProgramState.Playing) return;
+            if (Verse.Current.ProgramState != ProgramState.Playing)
+            {
+                _wasPlaying = false;
+                _wasEco = false;
+                _cachedSolar = null;
+                return;
+            }
 
             var ticks = Find.TickManager;
             if (ticks == null) return;
+
+            var map = Find.CurrentMap;
+            bool mapChanged = map != _lastMap;
+            _lastMap = map;
+            bool eco = Eco.Resting;
+
+            // Eco freezes game ticks, but absolute ticks still represent wall time for dates
+            // and log-entry ages. Sample once per second and on transitions; skip only the
+            // unchanged frames between samples. Both Eco edges refresh immediately.
+            bool solarDue = _solarRecalc.Due(Time.realtimeSinceStartupAsDouble, 1.0);
+            bool ecoRefresh = eco && (!_wasPlaying || !_wasEco || mapChanged ||
+                ticks.TicksGame != _ecoTicks || _cachedSolar == null || solarDue);
+            if (ecoRefresh)
+            {
+                _cachedSolar = SolarTick();
+                if (_cachedSolar == null) return;
+                Apply(ticks);
+                _ecoTicks = ticks.TicksGame;
+            }
+
+            if (eco)
+            {
+                _wasPlaying = true;
+                _wasEco = true;
+                return;
+            }
+
+            bool leavingEco = _wasEco;
+            _wasPlaying = true;
+            _wasEco = false;
+            if (mapChanged) _cachedSolar = null;
 
             // Recalculate the solar tick once per elapsed second, independent of FPS.
             // Between recalculations the cached value stays correct: the formula
             // gameStartAbsTick = solarTick - TicksGame is evaluated every frame,
             // and only solarTick is cached — TicksGame is always current.
-            if (_solarRecalc.Due(Time.realtimeSinceStartupAsDouble, 1.0) || _cachedSolar == null)
+            if (solarDue || leavingEco || _cachedSolar == null)
             {
                 _cachedSolar = SolarTick();
                 if (_cachedSolar == null) return;
             }
 
+            Apply(ticks);
+        }
+
+        void Apply(TickManager ticks)
+        {
             int start = _cachedSolar.Value - ticks.TicksGame;
 
             // Never zero: TickManager reads that as "not set yet", logs about it and hands
@@ -102,6 +148,7 @@ namespace SlopWorld
         // where vanilla's own clock is left where it is.
         int? SolarTick()
         {
+            PerfTrace.Count("solar-clock-samples");
             float? longitude = Longitude;
             if (longitude == null) return null;
 
@@ -148,6 +195,13 @@ namespace SlopWorld
         {
             base.ExposeData();
             Scribe_Values.Look(ref _epoch, "solarEpochDay", 0L);
+            // These are derived frame state, not part of the colony clock. A load may restore
+            // a different map or tick before the next update, so force the first post-load
+            // update through the same edge path used by Eco entry.
+            _wasPlaying = false;
+            _wasEco = false;
+            _cachedSolar = null;
+            _lastMap = null;
         }
     }
 }

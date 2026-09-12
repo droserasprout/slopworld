@@ -32,6 +32,24 @@ namespace SlopWorld
         // Give the jukebox tip a stable id so changing song text does not restart its fade.
         const int JukeboxTipId = 0x51_0C_02;
 
+        struct DoorLayout
+        {
+            public Rect Config;
+            public Rect Jukebox;
+            public Rect Core;
+            public bool HasJukebox;
+            public bool HasCore;
+            public float Right;
+            public string JukeboxTip;
+        }
+
+        static DoorLayout _doors;
+        static int _doorsFrame = -1;
+        static Rect _doorsRect;
+        static Map _doorsMap;
+        static bool _doorsShowJukebox, _doorsShowCore;
+        static bool _doorsReady;
+
         public static Rect Rect => WorkspaceLayout.Current.TopBar;
 
         // From the map component above, which sits behind every window.
@@ -43,7 +61,15 @@ namespace SlopWorld
 
         public static void Draw(bool interactive)
         {
-            using (WidgetState.Save()) DrawCore(interactive);
+            long started = PerfTrace.Start();
+            try
+            {
+                using (WidgetState.Save()) DrawCore(interactive);
+            }
+            finally
+            {
+                PerfTrace.End("topbar", started, 1);
+            }
         }
 
         static void DrawCore(bool interactive)
@@ -68,7 +94,7 @@ namespace SlopWorld
 
             if (clockPosition == StatusbarClockMode.Center)
             {
-                DateTime now = DateTime.Now;
+                DateTime now = UsageReadout.ClockNow();
                 float clockWidth = UsageReadout.ClockWidth(now);
                 float clockX = r.center.x - clockWidth / 2f;
                 if (clockX >= r.x + Pad && clockX + clockWidth <= right - Pad)
@@ -109,34 +135,61 @@ namespace SlopWorld
         }
 
         // Place config and any map objects with menus right-to-left; return quota's limit.
+        // Map object lookup and geometry are shared by all IMGUI events in a frame. The door
+        // draw still runs for every event below so hover, tooltips, and clicks remain live.
         static float Doors(Rect r, bool live)
         {
-            float x = r.xMax - Pad;
+            PrepareDoors(r);
+            Door(_doors.Config, Icons.Config, "Settings", ModOptions.Toggle, live);
+            if (_doors.HasCore)
+                Thing(_doors.Core, ModDefOf.Ship_ComputerCore,
+                    default, CoreTip.OpenMenu, live);
+            if (_doors.HasJukebox)
+                Thing(_doors.Jukebox, ModDefOf.SlopJukebox,
+                    new TipSignal(_doors.JukeboxTip, JukeboxTipId), Jukebox.OpenMenu, live);
+            return _doors.Right;
+        }
+
+        static void PrepareDoors(Rect r)
+        {
             var map = Find.CurrentMap;
+            bool showJukebox = Settings.StatusbarJukebox;
+            bool showCore = Settings.StatusbarGM;
+            if (_doorsReady && _doorsFrame == Time.frameCount && _doorsRect == r &&
+                _doorsMap == map && _doorsShowJukebox == showJukebox &&
+                _doorsShowCore == showCore) return;
 
+            float x = r.xMax - Pad;
+            _doors = new DoorLayout();
             x -= UiTheme.GapS + IconW;
-            Door(Slot(r, x, IconW), Icons.Config, "Settings", ModOptions.Toggle, live);
-
+            _doors.Config = Slot(r, x, IconW);
             // The settings cog is this interface's door; what is left of the line is the
             // colony's.
             float gap = UiTheme.GapM;
 
-            if (Settings.StatusbarGM && CoreTip.On(map))
+            if (showCore && CoreTip.On(map))
             {
                 x -= gap + IconW;
-                Thing(Slot(r, x, IconW), ModDefOf.Ship_ComputerCore,
-                    default, CoreTip.OpenMenu, live);
+                _doors.Core = Slot(r, x, IconW);
+                _doors.HasCore = true;
                 gap = UiTheme.GapS;
             }
 
-            if (Settings.StatusbarJukebox && Jukebox.On(map))
+            if (showJukebox && Jukebox.On(map))
             {
                 x -= gap + IconW;
-                Thing(Slot(r, x, IconW), ModDefOf.SlopJukebox,
-                    new TipSignal(Jukebox.IconTip(), JukeboxTipId), Jukebox.OpenMenu, live);
+                _doors.Jukebox = Slot(r, x, IconW);
+                _doors.JukeboxTip = Jukebox.IconTip();
+                _doors.HasJukebox = true;
             }
 
-            return x - UiTheme.GapM;
+            _doors.Right = x - UiTheme.GapM;
+            _doorsFrame = Time.frameCount;
+            _doorsRect = r;
+            _doorsMap = map;
+            _doorsShowJukebox = showJukebox;
+            _doorsShowCore = showCore;
+            _doorsReady = true;
         }
 
         // Centre the glyph-sized hit slot inside the taller bar.

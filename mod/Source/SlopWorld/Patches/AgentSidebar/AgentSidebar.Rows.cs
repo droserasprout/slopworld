@@ -94,7 +94,7 @@ namespace SlopWorld
                     RoutedClicks.Reset();
                     _routedClickSession = null;
                     if (!(CurrentTab == SidebarTab.Files &&
-                          SessionHub.Instance.Get(row.Session) == null &&
+                          SnapshotGet(row.Session) == null &&
                           FilesView.IsNativeViewerHeader(row.Session)))
                         RowMenu(row.Session);
                 }
@@ -121,7 +121,7 @@ namespace SlopWorld
                     }
 
                     SessionSelectable.Current = row.Session;
-                    var info = SessionHub.Instance.Get(row.Session);
+                    var info = SnapshotGet(row.Session);
                     if (info != null && info.Gone && !ColonistBarStrip.Drawing)
                         SessionHub.Instance.SessionStore.Start(row.Session);
                     else OpenRouted(row.Session);

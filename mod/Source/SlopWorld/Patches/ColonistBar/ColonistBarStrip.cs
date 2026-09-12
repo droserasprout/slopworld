@@ -183,8 +183,9 @@ namespace SlopWorld
         // The column's own chrome goes down around the bar's, from the same call, which is
         // what puts it over a pane as well as on the map: the panel and the project headings
         // under the portraits, the labels and their clicks over them.
-        static void Prefix()
+        static void Prefix(out long __state)
         {
+            __state = PerfTrace.Start();
             ColonistBarStrip.Apply();
             AgentSidebar.DrawBack();
         }
@@ -194,10 +195,11 @@ namespace SlopWorld
         // A postfix does not run when the original throws, and the flag the front pass clears
         // is what stops every pawn label on the map being declined. So the finalizer clears
         // it too, the same reason the layout is put back from here.
-        static void Finalizer()
+        static void Finalizer(long __state)
         {
             AgentSidebar.EndDraw();
             ColonistBarStrip.Restore();
+            PerfTrace.End("colonist-bar", __state, 1);
         }
     }
 
