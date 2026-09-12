@@ -13,6 +13,7 @@ namespace SlopWorld.Tests
             yield return ("large tree lookup is logarithmic", LargeTree);
             yield return ("tree revisions and offscreen reveal", TreeRevision);
             yield return ("tree rows stay anchored as pager headers change", TreeAnchoring);
+            yield return ("files panes have bounded independent geometry", FilesSplit);
             yield return ("project totals enumerate once per session revision", ProjectCounts);
             yield return ("routing preserves filtering sorting and preview height", Routing);
             yield return ("routing refreshes local changes without a session revision", RoutingRefresh);
@@ -38,6 +39,36 @@ namespace SlopWorld.Tests
             float removed = ContentTreeIndex.AnchoredScroll(added, 110f, 80f);
             AssertEx.Equal(120f, removed, "closing header restores scroll");
             AssertEx.Equal(0f, ContentTreeIndex.AnchoredScroll(10f, 110f, 80f), "top boundary clamps");
+        }
+
+        static void FilesSplit()
+        {
+            var body = new UiLayoutRect(10f, 20f, 200f, 400f);
+            var split = SidebarFilesSplitGeometry.Arrange(body, true, 0.25f, 40f, 100f, 1f);
+            AssertEx.Equal(99.75f, split.Upper.Height, "fraction uses space beside divider");
+            AssertEx.Equal(119.75f, split.Divider.Y, "divider follows upper pane");
+            AssertEx.Equal(299.25f, split.Lower.Height, "lower pane fills the rest");
+            AssertEx.Equal(body.YMax, split.Lower.YMax, "split stays inside body");
+
+            split = SidebarFilesSplitGeometry.Arrange(body, true, 0f, 40f, 100f, 1f);
+            AssertEx.Equal(40f, split.Upper.Height, "upper minimum clamps the fraction");
+            split = SidebarFilesSplitGeometry.Arrange(body, true, 1f, 40f, 100f, 1f);
+            AssertEx.Equal(100f, split.Lower.Height, "lower minimum clamps the fraction");
+
+            split = SidebarFilesSplitGeometry.Arrange(new UiLayoutRect(0f, 0f, 10f, 3f),
+                true, 0f, 40f, 100f, 1f);
+            AssertEx.Equal(1f, split.Upper.Height, "tiny upper pane remains non-negative and usable");
+            AssertEx.Equal(1f, split.Divider.Height, "tiny divider is bounded");
+            AssertEx.Equal(1f, split.Lower.Height, "tiny lower pane remains non-negative and usable");
+
+            split = SidebarFilesSplitGeometry.Arrange(body, false, 0.75f, 40f, 100f, 1f);
+            AssertEx.False(split.HasUpper, "no open files hides the upper pane");
+            AssertEx.Equal(body.Height, split.Lower.Height, "tree gets the full body without files");
+            AssertEx.Equal(0.75f, split.Fraction, "saved fraction survives hidden upper pane");
+
+            float picked = SidebarFilesSplitGeometry.FractionAt(220f,
+                body, 40f, 100f, 1f);
+            AssertEx.Equal(0.5f, picked, "pointer maps to normalized divider position");
         }
 
         static void Uniform()

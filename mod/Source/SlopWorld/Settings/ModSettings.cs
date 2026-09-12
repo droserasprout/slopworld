@@ -77,6 +77,8 @@ namespace SlopWorld
         // Folds are one name per line; a project that has gone is a name nothing matches.
         public bool sidebarHidden;
         public float sidebarWidth = 210f;
+        // The Files tab's open-file pane as a normalized share of the space above its tree.
+        public float sidebarFilesOpenFraction = 0.25f;
         // Navigation placement and density are workspace preferences. Unknown values are
         // normalized by Settings so older or hand-edited files remain safe.
         public string sidebarSide = NavigationSide.Left;
@@ -183,6 +185,7 @@ namespace SlopWorld
                 if (File.Exists(path))
                 {
                     settings.Apply(Toml.ParseFlat(File.ReadAllText(path)));
+                    settings.Normalize();
                     return settings;
                 }
             }
@@ -195,6 +198,7 @@ namespace SlopWorld
 
         public void Write()
         {
+            Normalize();
             string path = FilePath();
             string directory = Path.GetDirectoryName(path);
             if (string.IsNullOrEmpty(directory)) directory = ".";
@@ -223,6 +227,7 @@ namespace SlopWorld
             Field("fullscreen", (ModSettings s) => ref s.fullscreen, Bool, String),
             Field("sidebarHidden", (ModSettings s) => ref s.sidebarHidden, Bool, String),
             Field("sidebarWidth", (ModSettings s) => ref s.sidebarWidth, Float, Number),
+            Field("sidebarFilesOpenFraction", (ModSettings s) => ref s.sidebarFilesOpenFraction, Float, Number),
             Field("sidebarSide", (ModSettings s) => ref s.sidebarSide, Text, String),
             Field("uiDensity", (ModSettings s) => ref s.uiDensity, Text, String),
             Field("foldedProjects", (ModSettings s) => ref s.foldedProjects, Text, String),
@@ -273,6 +278,17 @@ namespace SlopWorld
         void Apply(Dictionary<string, string> values)
         {
             foreach (var field in Fields) field(this, values, null);
+        }
+
+        void Normalize()
+        {
+            sidebarFilesOpenFraction = NormalizeSidebarFilesOpenFraction(sidebarFilesOpenFraction);
+        }
+
+        public static float NormalizeSidebarFilesOpenFraction(float value)
+        {
+            if (float.IsNaN(value) || float.IsInfinity(value)) return 0.25f;
+            return Math.Max(0f, Math.Min(1f, value));
         }
 
         static string FilePath()
@@ -327,6 +343,8 @@ namespace SlopWorld
         // Unclamped: AgentSidebar owns what a usable column is, and it is the only reader.
         public static bool SidebarHidden => S.sidebarHidden;
         public static float SidebarWidth => S.sidebarWidth;
+        public static float SidebarFilesOpenFraction =>
+            ModSettings.NormalizeSidebarFilesOpenFraction(S.sidebarFilesOpenFraction);
         public static string SidebarSide => NavigationSide.Normalize(S.sidebarSide);
         public static string UiDensity => UiDensityPreset.Normalize(S.uiDensity);
         public static string FoldedProjects => S.foldedProjects ?? "";

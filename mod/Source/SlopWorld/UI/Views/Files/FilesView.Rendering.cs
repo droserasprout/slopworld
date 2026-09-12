@@ -11,10 +11,10 @@ namespace SlopWorld
     {
         // ------------------------------------------------------------------ drawing
 
-        public static void Draw(Rect body)
+        public static void Draw(Rect body, bool anchorBoundary = true)
         {
             RefreshIfDue();
-            Tree.Draw(body);
+            Tree.Draw(body, anchorBoundary);
         }
 
 

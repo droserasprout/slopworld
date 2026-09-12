@@ -10,25 +10,68 @@ namespace SlopWorld
     {
         public static float DrawRouted(Rect body, SidebarTab tab)
         {
-            Layout.ViewRows.Clear();
-            float y = body.y;
-            float height = PrepareRouted(tab);
+            DrawRoutedRows(body, tab, null, body.width, 0f);
+            return RoutedHeight;
+        }
+
+        public static void DrawRouted(Rect body, SidebarTab tab, SmoothScroll scroll)
+        {
+            if (body.width <= 0f || body.height <= 0f || RoutedHeight <= 0f) return;
+            var geometry = UiScrollBody.Measure(body, RoutedHeight,
+                UiScrollbarReservation.WhenNeeded);
+            using (scroll.Scope(body, geometry.View))
+            {
+                DrawRoutedRows(body, tab, scroll, geometry.View.width, scroll.Position.y);
+            }
+        }
+
+        static void DrawRoutedRows(Rect body, SidebarTab tab, SmoothScroll scroll,
+                                   float width, float scrollY)
+        {
+            bool clipped = scroll != null;
+            float top = scrollY - GhostH;
+            float bottom = scrollY + body.height + GhostH;
+            float y = 0f;
             foreach (var info in Layout.Routed)
             {
+                if (clipped && (y + GhostH <= top || y >= bottom))
+                {
+                    y += GhostH;
+                    continue;
+                }
+
+                float rowY = clipped ? y : body.y + y;
+                float rowX = clipped ? 0f : body.x;
                 var row = new Row
                 {
                     Session = info.Name,
                     Ghost = true,
-                    Line = new Rect(body.x, y, body.width, GhostH),
-                    Text = new Rect(body.x + CellX + ArrowW + UiTheme.GapXS, y + 1f,
-                        body.width - CellX - ArrowW - UiTheme.GapXS - Pad, NameH),
+                    Line = new Rect(rowX, rowY, width, GhostH),
+                    Text = new Rect(rowX + CellX + ArrowW + UiTheme.GapXS,
+                        rowY + 1f, width - CellX - ArrowW - UiTheme.GapXS - Pad, NameH),
                     Face = Rect.zero,
                 };
-                Layout.ViewRows.Add(row);
                 DrawRoutedRow(row, info, tab);
+                // Drawing happens in the scroll-local group, while clicks happen after it has
+                // ended. Clip screen-space hit rectangles to the viewport so partial rows
+                // cannot intercept clicks in the tree or chrome outside the upper pane.
+                if (!clipped || (y + GhostH > scrollY && y < scrollY + body.height))
+                {
+                    float hitTop = Mathf.Max(0f, y - scrollY);
+                    float hitBottom = Mathf.Min(body.height, y + GhostH - scrollY);
+                    Layout.ViewRows.Add(new Row
+                    {
+                        Session = row.Session,
+                        Ghost = true,
+                        Line = clipped
+                            ? new Rect(body.x, body.y + hitTop, width, hitBottom - hitTop)
+                            : row.Line,
+                        Text = row.Text,
+                        Face = Rect.zero,
+                    });
+                }
                 y += GhostH;
             }
-            return height;
         }
 
         static void DrawRoutedRow(Row row, SessionInfo info, SidebarTab tab)

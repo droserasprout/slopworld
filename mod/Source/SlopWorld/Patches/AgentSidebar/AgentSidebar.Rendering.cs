@@ -58,6 +58,7 @@ namespace SlopWorld
             {
                 SearchView.Closed();
                 if (Interaction.Resizing) EndResize();
+                EndFilesDivider();
                 return;
             }
             SidebarRowRenderer.BeginFrame(SessionHub.Instance.SessionsVersion);

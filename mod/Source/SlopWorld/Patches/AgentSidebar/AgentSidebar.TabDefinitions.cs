@@ -40,7 +40,11 @@ namespace SlopWorld
                         Refresh = FilesView.Reload,
                         SetAllFolds = FilesView.SetAllFolded,
                         AllFolded = () => FilesView.AllFolded,
-                        Close = FilesView.ClearFocus,
+                        Close = () =>
+                        {
+                            EndFilesDivider();
+                            FilesView.ClearFocus();
+                        },
                         Entered = () =>
                         {
                             FilesView.Entered();
@@ -111,19 +115,35 @@ namespace SlopWorld
         static void DrawFilesView()
         {
             var body = Body;
-            float height = DrawRouted(body, SidebarTab.Files);
-            FilesView.Draw(TreeBody(body, height));
+            PrepareRouted(SidebarTab.Files);
+            var split = FilesSplit(body);
+            HandleFilesDivider(body, split);
+            split = FilesSplit(body);
+            DrawRouted(ToRect(split.Upper), SidebarTab.Files, Interaction.FilesRoutedScroll);
+            FilesView.Draw(ToRect(split.Lower), !Interaction.FilesDividerDragging);
+            DrawFilesDivider(split, body);
         }
 
         static void DrawGitView()
         {
             var body = Body;
+            PrepareRouted(SidebarTab.Git);
             float height = DrawRouted(body, SidebarTab.Git);
             GitView.Draw(TreeBody(body, height));
         }
 
+        static SidebarFilesSplitGeometry FilesSplit(Rect body) =>
+            SidebarFilesSplitGeometry.Arrange(
+                new UiLayoutRect(body.x, body.y, body.width, body.height),
+                Layout.Routed.Count > 0, Settings.SidebarFilesOpenFraction,
+                GhostH, UiTheme.TinyRowH, FilesDividerH);
+
+        static Rect ToRect(UiLayoutRect rect) =>
+            new Rect(rect.X, rect.Y, rect.Width, rect.Height);
+
         static void ClickFilesView()
         {
+            if (Interaction.FilesDividerInput || Interaction.FilesDividerDragging) return;
             if (!ClickRouted()) FilesView.Clicks();
         }
 

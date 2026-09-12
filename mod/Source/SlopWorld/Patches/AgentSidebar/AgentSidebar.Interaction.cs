@@ -9,6 +9,9 @@ namespace SlopWorld
     // Cross-pass input, scrolling, resizing, click routing, and cleanup.
     public static partial class AgentSidebar
     {
+        const float FilesDividerH = 1f;
+        const float FilesDividerHitPad = 5f;
+
         public static bool AgentScrollOpen => Interaction.AgentScrollOpen;
 
         // Clip CPU-side row work as well as pixels. Input passes retain their control order.
@@ -33,6 +36,99 @@ namespace SlopWorld
             Interaction.AgentScroll.End();
         }
 
+        static void HandleFilesDivider(Rect body, SidebarFilesSplitGeometry split)
+        {
+            if (Interaction.FilesDividerDragging && (!ColonistBarStrip.Interactive ||
+                GUIUtility.hotControl != Interaction.FilesDividerControl))
+                EndFilesDivider();
+
+            if (!split.HasUpper || split.Divider.Height <= 0f)
+            {
+                EndFilesDivider();
+                return;
+            }
+
+            var hit = FilesDividerHit(body, split.Divider);
+            var e = Event.current;
+            int control = GUIUtility.GetControlID(FocusType.Passive, hit);
+            bool over = ColonistBarStrip.SidebarHover(hit);
+
+            if (!ColonistBarStrip.Interactive) return;
+            if (!Interaction.FilesDividerDragging)
+            {
+                if (!over || e.rawType != EventType.MouseDown || e.button != 0 ||
+                    GUIUtility.hotControl != 0) return;
+                Interaction.FilesDividerDragging = true;
+                Interaction.FilesDividerControl = control;
+                Interaction.FilesDividerChanged = false;
+                GUIUtility.hotControl = control;
+                Interaction.FilesDividerInput = true;
+                e.Use();
+            }
+            else if (Input.GetMouseButton(0))
+            {
+                SetFilesFraction(SidebarFilesSplitGeometry.FractionAt(e.mousePosition.y,
+                    new UiLayoutRect(body.x, body.y, body.width, body.height), GhostH,
+                    UiTheme.TinyRowH, FilesDividerH));
+                Interaction.FilesDividerInput = true;
+            }
+            else
+            {
+                EndFilesDivider();
+                Interaction.FilesDividerInput = true;
+            }
+
+            if (e.rawType == EventType.MouseDown || e.rawType == EventType.MouseUp ||
+                e.rawType == EventType.MouseDrag)
+                e.Use();
+        }
+
+        static Rect FilesDividerHit(Rect body, UiLayoutRect divider)
+        {
+            float top = Mathf.Max(body.y, divider.Y - FilesDividerHitPad);
+            float bottom = Mathf.Min(body.yMax, divider.YMax + FilesDividerHitPad);
+            return new Rect(divider.X, top, Mathf.Max(0f, divider.Width - GripW),
+                Mathf.Max(0f, bottom - top));
+        }
+
+        static void DrawFilesDivider(SidebarFilesSplitGeometry split, Rect body)
+        {
+            if (!split.HasUpper || split.Divider.Height <= 0f) return;
+            var divider = ToRect(split.Divider);
+            var hit = FilesDividerHit(body, split.Divider);
+            bool lit = Interaction.FilesDividerDragging || ColonistBarStrip.SidebarHover(hit);
+            Slab.Fill(divider, lit ? UiTheme.EdgeLit : UiTheme.Edge);
+        }
+
+        static void SetFilesFraction(float fraction)
+        {
+            float available = Body.height <= FilesDividerH
+                ? Body.height : Mathf.Max(0f, Body.height - FilesDividerH);
+            float normalized = SidebarFilesSplitGeometry.ClampFraction(fraction,
+                available, GhostH, UiTheme.TinyRowH);
+            float before = Settings.S.sidebarFilesOpenFraction;
+            Settings.S.sidebarFilesOpenFraction = normalized;
+            if (Mathf.Abs(normalized - before) > 0.0001f)
+                Interaction.FilesDividerChanged = true;
+        }
+
+        static void EndFilesDivider()
+        {
+            if (!Interaction.FilesDividerDragging)
+            {
+                if (GUIUtility.hotControl == Interaction.FilesDividerControl)
+                    GUIUtility.hotControl = 0;
+                return;
+            }
+
+            if (GUIUtility.hotControl == Interaction.FilesDividerControl)
+                GUIUtility.hotControl = 0;
+            Interaction.FilesDividerControl = 0;
+            Interaction.FilesDividerDragging = false;
+            Interaction.FilesDividerChanged = false;
+            Settings.S.Write();
+        }
+
         static void Click(Row row, SessionInfo info)
         {
             if (row.Session == null || !ColonistBarStrip.Interactive) return;
@@ -55,6 +151,7 @@ namespace SlopWorld
         public static void EndDraw()
         {
             EndAgentScroll();
+            if (!Input.GetMouseButton(0)) EndFilesDivider();
             Patch_SidebarPortraitDraw.ClearDeferredSelection();
             Drawing = false;
             PerfTrace.End("sidebar", _renderStarted, Layout.Rows.Count);
@@ -166,7 +263,11 @@ namespace SlopWorld
         public static void ToggleSidebar()
         {
             Settings.S.sidebarHidden = !Settings.S.sidebarHidden;
-            if (Settings.S.sidebarHidden) SearchView.Closed();
+            if (Settings.S.sidebarHidden)
+            {
+                SearchView.Closed();
+                EndFilesDivider();
+            }
             Settings.S.Write();
             LayoutChanged();
         }
