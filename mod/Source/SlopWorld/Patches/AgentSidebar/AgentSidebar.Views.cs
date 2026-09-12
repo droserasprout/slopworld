@@ -340,18 +340,20 @@ namespace SlopWorld
                 : tab == SidebarTab.Git && (act & RowAct.Diff) != 0;
         }
 
-        static float PrepareRouted(SidebarTab tab)
+        static void PrepareRouted(SidebarTab tab)
         {
             PerfTrace.Count("sidebar-routed-rebuilds");
             // Git owns one replaceable pager; include it until the replacement is handed off.
-            float height = RoutedSessionRows.Rebuild(Layout.Routed, SessionHub.Instance.Sessions,
+            Layout.ViewRows.Clear();
+            RoutedSessionRows.Rebuild(Layout.Routed, SessionHub.Instance.Sessions,
                 info => InTab(info, tab) && Passes(info.Project) &&
                     (tab != SidebarTab.Git || GitView.IsViewerSession(info.Name)),
                 tab == SidebarTab.Files ? (Action<List<SessionInfo>>)FilesView.AddRoutedPreviews
                     : null, GhostH);
             PerfTrace.Count("sidebar-routed-rows", Layout.Routed.Count);
-            return height;
         }
+
+        static float RoutedHeight => Layout.Routed.Count * GhostH;
 
         public static Rect TreeBody(Rect body, float routedHeight) =>
             new Rect(body.x, body.y + routedHeight, body.width,

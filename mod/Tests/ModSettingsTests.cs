@@ -18,6 +18,8 @@ namespace SlopWorld.Tests
                 var settings = ModSettings.Load();
                 AssertEx.Equal(true, settings.autoConnect, "missing file default");
                 AssertEx.Equal(210f, settings.sidebarWidth, "width default");
+                AssertEx.Equal(0.25f, settings.sidebarFilesOpenFraction,
+                    "files pane fraction default");
                 foreach (var field in typeof(ModSettings).GetFields(BindingFlags.Instance | BindingFlags.Public))
                 {
                     object value = field.GetValue(settings);
@@ -30,7 +32,7 @@ namespace SlopWorld.Tests
                 settings.Write();
                 string path = Path.Combine(profile, "Config", "SlopWorld.toml");
                 string saved = File.ReadAllText(path);
-                AssertEx.Equal(38, Toml.ParseFlat(saved).Count, "persisted key count excludes runtime state");
+                AssertEx.Equal(39, Toml.ParseFlat(saved).Count, "persisted key count excludes runtime state");
                 AssertEx.True(saved.Contains("ecoDim = 0.375"), "invariant float");
                 var loaded = ModSettings.Load();
                 foreach (var field in typeof(ModSettings).GetFields(BindingFlags.Instance | BindingFlags.Public))
@@ -42,7 +44,20 @@ namespace SlopWorld.Tests
                 loaded = ModSettings.Load();
                 AssertEx.Equal(14, loaded.fontSize, "malformed integer default");
                 AssertEx.Equal(210f, loaded.sidebarWidth, "malformed float default");
+                AssertEx.Equal(0.25f, loaded.sidebarFilesOpenFraction,
+                    "missing fraction default");
                 AssertEx.Equal(true, loaded.autoConnect, "malformed boolean default");
+                AssertEx.Equal(1f, ModSettings.NormalizeSidebarFilesOpenFraction(2f),
+                    "fraction upper clamp");
+                AssertEx.Equal(0f, ModSettings.NormalizeSidebarFilesOpenFraction(-1f),
+                    "fraction lower clamp");
+                File.WriteAllText(path, "sidebarFilesOpenFraction = 2\n");
+                loaded = ModSettings.Load();
+                AssertEx.Equal(1f, loaded.sidebarFilesOpenFraction,
+                    "persisted fraction is normalized on load");
+                loaded.Write();
+                AssertEx.True(File.ReadAllText(path).Contains("sidebarFilesOpenFraction = 1"),
+                    "normalized fraction is persisted");
                 File.WriteAllText(path, "theme = \"unterminated");
                 AssertEx.Equal("match-ui", ModSettings.Load().theme, "malformed TOML defaults");
                 AssertEx.Equal("right", StatusbarClockMode.Normalize("unknown"), "clock normalization");

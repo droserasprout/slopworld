@@ -103,3 +103,9 @@ refresh on reselection. Library fetches its catalog on entry, even without socke
   sender-avatar cards. Message text has its own selection surface, so it supports dragging,
   Ctrl+C, a Copy context-menu action, and a Copy all footer action; long dialogue scrolls inside
   the panel.
+
+- Files splits routed open-file rows from the tree with a persisted draggable divider. Each pane
+  owns its `SmoothScroll`; routed hit rectangles are screen-space and visible-row-only. During a
+  live divider drag the tree viewport and rows move down with the handle; routed-content changes
+  retain the tree's boundary anchoring. No open files hides the upper pane and divider but retains
+  the normalized `sidebarFilesOpenFraction` setting.
