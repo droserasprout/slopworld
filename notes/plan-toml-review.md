@@ -17,10 +17,10 @@ daemon TOML for built-in themes, tips, simulation behavior, or appearance data.
 
 ## Priority order
 
-1. **Theme catalogs.** Move the records in `UI/UIScheme.cs` and `UI/TerminalTheme.cs`
+1. **Theme catalogs.** Move the records in `UI/Chrome/UIScheme.cs` and `UI/Terminal/TerminalTheme.cs`
    into structured theme data: IDs, labels, color roles, and terminal palettes. Preserve a
    compiled house fallback and reject incomplete or invalid palettes.
-2. **Tips and small flavor catalogs.** Move `Patches/LoadingScreen.Tips.cs` to records
+2. **Tips and small flavor catalogs.** Move `Patches/LoadingScreen/LoadingScreen.Tips.cs` to records
    with text and Grandma-mode visibility. Decide whether the single built-in
    `Useful tips` breadcrumb also becomes a shipped TOML entry. Keep attribution and the
    current filtering semantics beside the loader.

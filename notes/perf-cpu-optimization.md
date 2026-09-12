@@ -22,7 +22,14 @@ The C# mod reduces work in these hot paths:
   and control events retain their order while live screens coalesce per session.
 - Sidebar layout already uses revision and geometry keys. Title cleanup now caches by session
   label/title/path/host state and font identity/atlas revision; removed sessions are weakly held.
-  Off-screen agent labels, hover paint and project headings skip their repaint work.
+  Off-screen agent labels, hover paint and project headings skip their repaint work. A draw-frame
+  session snapshot and one-second row presentation cache reuse ages, state tips, indicators,
+  titles, and header count text without changing hit testing.
+- `TaskStore` only checks its monotonic poll deadline while the Tasks view is visible; TopBar
+  door lookup/geometry and wall-clock sampling are shared across GUI events in a frame.
+- Eco retains the backdrop material and camera-dependent fit while leaving only animated drift and
+  draw submission per frame. `PerfTrace` is opt-in and now covers Root.Update, colonist-bar,
+  sidebar, top-bar, and terminal-window spans in addition to existing hot-path counters.
 - Terminal cursor and selection painting run only on Repaint; input and hover tracking remain
   live. Text already uses a render-texture cache and changed-row repaint policy.
 - Full terminal coverage suppresses weather and map-edge drawing as well as the existing map

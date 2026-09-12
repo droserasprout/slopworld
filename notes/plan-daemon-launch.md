@@ -1,5 +1,8 @@
 # Launch plan and argv observability
 
+`sandbox::build_argv` returns a flat vector and startup logs join it with spaces,
+losing argument boundaries. Add a structured, redacted launch report.
+
 ## Goal
 
 Keep agent startup as direct argv through tmux while making the layered launch

@@ -25,7 +25,8 @@ and the RimWorld client. Make each cleanup a small behavior-preserving change.
    and close cleanup, while leaving daemon sessions and native Markdown content as separate
    adapters.
 4. **Decouple terminal close cleanup.** Replace the hard-coded fan-out from
-   `TerminalWindow` to every viewer owner with a narrow close notification or
+   `UI/Terminal/TerminalPanel/TerminalPanel.Lifecycle.cs::Closed` to viewer owners
+   with a narrow close notification or
    registered owner interface. Preserve cleanup order and make adding a new
    viewer local to that viewer.
 5. **Bound sidebar click state.** Reset the routed double-click sequence when a mouse-down is not
@@ -36,9 +37,6 @@ and the RimWorld client. Make each cleanup a small behavior-preserving change.
    `mint_grant`. Split orphan adoption into probe, decision, and commit stages, and use bounded
    concurrency only for independent external probes. Keep state mutation and reader attachment
    ordered.
-7. **Remove duplicated UI layout logic.** Share the metric, truncation, and
-   tooltip layout path between normal and italic row labels so visual changes
-   cannot drift between overloads.
 
 ## Guardrails
 

@@ -1,9 +1,23 @@
 # Breadcrumbs and Instructions implementation plan
 
-Status: planned. Scope: the five findings from the experimental-features review.
 Related: [settings behavior](ui-settings.md), [C# tests](test-csharp.md).
 
-• Found five issues through static code inspection:  1. [P2] Disabling Breadcrumbs does not block manual delivery in the daemon. paste_breadcrumb() (slopd/src/manager/capture_input.rs:203) never     checks experimental_breadcrumbs. The UI disables its menu, but a WebSocket request still pastes the breadcrumb.  2. [P2] Disabling Instructions leaves queued discovery text active. Start an agent with discovery enabled, disable Instructions before its first     Enter, then submit: the previously queued instructions breadcrumb still gets injected. Reconciliation (slopd/src/manager/reconcile.rs:100) and     consumption (slopd/src/manager/capture_input.rs:171) check only the Breadcrumbs switch. Disabling discovery globally or per agent also leaves     that queued text intact.  3. [P2] “Sample project” previews a real project. The UI sends an empty project name for this choice, but the endpoint (slopd/src/api/     handlers_config.rs:48) selects the first configured project. The preview label therefore misidentifies the displayed context whenever projects     exist.  4. [P2] Worker prompts remain active while their editor is disabled. The Workers page (mod/Source/SlopWorld/UI/Settings/WorkersPage.cs:25) locks     the prompt behind Instructions, but worker spawning (slopd/src/manager/workers.rs:125) always submits the configured prompt. Turning     Instructions off leaves custom instructions running while preventing their editing. If bootstrap delivery is intentionally unconditional, its     editor should be available independently.  5. [P3] Discovery controls do not explain why delivery is inactive. The agent editor (mod/Source/SlopWorld/UI/Dialogs/     EditSessionDialog.Tabs.cs:299) allows discovery to appear enabled when mounting or global discovery is off. Its tooltip directs users to General     > Experimental, whereas “Add discovery breadcrumb” lives under Integrations > Instructions. Show the unmet prerequisites and correct that     navigation.
+## Problems
+
+- Manual delivery in `slopd/src/manager/capture_input.rs::paste_breadcrumb` does not
+  check `experimental_breadcrumbs`. Reject disabled delivery at the manager boundary.
+- Queued discovery survives disabling Instructions or global/per-agent discovery.
+  `slopd/src/manager/reconcile.rs` and input consumption check only Breadcrumbs.
+  Track provenance and cancel ineligible discovery without discarding ordinary breadcrumbs.
+- Empty project selection in `slopd/src/api/handlers_config.rs::instructions_preview`
+  selects the first configured project. Make the UI's sample selection explicitly synthetic.
+- `UI/Settings/WorkersPage.cs` disables prompt editing behind Instructions, while
+  `slopd/src/manager/workers.rs` submits that prompt unconditionally. Unlock editing.
+- `UI/Dialogs/EditSessionDialog.Tabs.cs` and `UI/Views/Shared/BreadcrumbList.cs`
+  do not explain inactive discovery prerequisites and direct users to the wrong page.
+  Show effective eligibility and point to Settings > Integrations > Instructions.
+
+UI paths are relative to `mod/Source/SlopWorld/`.
 
 ## 1. Add regression tests before fixes
 

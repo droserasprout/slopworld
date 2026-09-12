@@ -1,6 +1,6 @@
 # Original palette references
 
-Checked 2026-09-10. Non-SlopWorld schemes must preserve upstream colors, roles and
+Non-SlopWorld schemes must preserve upstream colors, roles and
 opacity even if our contrast checks dislike them. SlopWorld Warm/Cold/Calm are house
 schemes. This is reference data, not a claim that the current implementation matches.
 
