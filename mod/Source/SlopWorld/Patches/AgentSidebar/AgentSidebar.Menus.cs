@@ -86,7 +86,7 @@ namespace SlopWorld
                 if (row.Session == null) continue;
                 if (!ColonistBarStrip.MouseOver(row.Line)) continue;
 
-                var info = SessionHub.Instance.Get(row.Session);
+                var info = SnapshotGet(row.Session);
                 if (e.button == 2 && info != null)
                 {
                     if (info.Alive)

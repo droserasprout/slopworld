@@ -17,6 +17,9 @@ namespace SlopWorld
         static readonly Dictionary<string, Sample> Samples =
             new Dictionary<string, Sample>(StringComparer.Ordinal);
         static float _nextReport;
+        static float _lastReport;
+        static int _lastFrame;
+        static int _lastGc;
 
         struct Sample
         {
@@ -66,6 +69,22 @@ namespace SlopWorld
             _nextReport = now + 1f;
 
             var text = new StringBuilder("[SlopWorld] perf");
+            // Window context permits like-for-like captures without observing the screen.
+            // GC collections are process-wide; this is not an allocation-byte measurement.
+            float seconds = now - _lastReport;
+            int frame = Time.frameCount;
+            int gc = GC.CollectionCount(0);
+            text.Append(" context eco=").Append(Eco.Resting ? 1 : 0)
+                .Append(" terminal=").Append(TerminalWindow.Covering ? 1 : 0)
+                .Append(" sessions=").Append(SessionHub.Instance.Sessions.Count)
+                .Append(" width=").Append(UI.screenWidth)
+                .Append(" height=").Append(UI.screenHeight)
+                .Append(" fps=").Append((seconds > 0 ? (frame - _lastFrame) / seconds : 0)
+                    .ToString("0.###", System.Globalization.CultureInfo.InvariantCulture))
+                .Append(" gc0=").Append(gc - _lastGc).Append(';');
+            _lastReport = now;
+            _lastFrame = frame;
+            _lastGc = gc;
             foreach (var pair in Samples)
             {
                 var sample = pair.Value;

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using Verse;
 
@@ -19,12 +20,54 @@ namespace SlopWorld
         };
         static int _ageFrame = -1;
         static long _ageNowMs;
+        static long _ageBucket = long.MinValue;
+        static long _sessionsVersion = long.MinValue;
         static int _titleFontRevision;
+        static int _presentationFontRevision = -1;
+        static bool _indicators;
+        static readonly Dictionary<SessionInfo, RowPresentation> Presentations =
+            new Dictionary<SessionInfo, RowPresentation>();
+
+        struct RowPresentation
+        {
+            public string Name;
+            public string Title;
+            public string RawTitle;
+            public string Label;
+            public string Dir;
+            public bool Host;
+            public AgentState State;
+            public long StateSince;
+            public int IndicatorMask;
+            public string Ago;
+            public string StateTip;
+            public string Indicators;
+        }
 
         static SidebarRowRenderer()
         {
             // Glyph availability can change on an atlas rebuild even when the font is the same.
             Font.textureRebuilt += _ => _titleFontRevision++;
+        }
+
+        internal static void BeginFrame(long sessionsVersion)
+        {
+            int frame = Time.frameCount;
+            if (_ageFrame == frame && _sessionsVersion == sessionsVersion) return;
+
+            long now = SessionInfo.NowMs;
+            long bucket = now / 1000L;
+            bool indicators = Settings.StatusbarAgentIndicators;
+            if (_sessionsVersion != sessionsVersion || _ageBucket != bucket ||
+                _indicators != indicators || _presentationFontRevision != _titleFontRevision)
+                Presentations.Clear();
+
+            _ageFrame = frame;
+            _ageNowMs = now;
+            _ageBucket = bucket;
+            _sessionsVersion = sessionsVersion;
+            _presentationFontRevision = _titleFontRevision;
+            _indicators = indicators;
         }
 
         public static void DrawGhostLabel(Rect r, SessionInfo info, string fallback,
@@ -99,7 +142,8 @@ namespace SlopWorld
             var line = new Rect(text.x, text.y, text.width, nameH);
 
             Text.Font = GameFont.Small;
-            string ago = state == AgentState.Down ? "" : Ago(info);
+            var presentation = Present(info, state);
+            string ago = state == AgentState.Down ? "" : presentation.Ago;
             float ageW = ago.Length == 0 ? 0f : UiTheme.Wide(ago);
 
             float bell = info != null && info.Bell ? Mathf.Min(bellW, nameH) : 0f;
@@ -128,8 +172,7 @@ namespace SlopWorld
                 GUI.color = tint;
                 UiText.RowLabel(time, ago, TextAnchor.MiddleRight);
 
-                string stateName = StateName(state);
-                TooltipHandler.TipRegion(time, $"{stateName} for {ago}");
+                TooltipHandler.TipRegion(time, presentation.StateTip);
             }
 
             Text.Font = GameFont.Small;
@@ -138,7 +181,7 @@ namespace SlopWorld
 
             Text.Font = GameFont.Tiny;
             string indicators = Settings.StatusbarAgentIndicators
-                ? AgentIndicators(info) : "";
+                ? presentation.Indicators : "";
             float indicatorW = indicators.Length == 0 ? 0f : UiTheme.Wide(indicators);
             var line2 = new Rect(text.x, text.y + nameH, text.width, subH);
             if (indicatorW > 0f)
@@ -156,7 +199,7 @@ namespace SlopWorld
             // label is durable identity and should remain visible in that state.
             if (state != AgentState.Down || !string.IsNullOrWhiteSpace(info?.Label))
             {
-                string title = Title(info);
+                string title = presentation.Title;
                 if (title.Length > 0)
                 {
                     GUI.color = UiTheme.Dim;
@@ -180,14 +223,53 @@ namespace SlopWorld
 
         internal static string Ago(SessionInfo info)
         {
-            if (info == null || info.StateSince <= 0) return "";
-            int frame = Time.frameCount;
-            if (_ageFrame != frame)
+            return Present(info, info?.State ?? AgentState.Down).Ago;
+        }
+
+        static RowPresentation Present(SessionInfo info, AgentState state)
+        {
+            if (info == null) return default;
+            if (_ageFrame != Time.frameCount) BeginFrame(_sessionsVersion);
+
+            int mask = (info.Autostart ? 1 : 0)
+                | (info.AutoResume ? 2 : 0)
+                | (info.Network == NetworkMode.Host ? 4 : 0)
+                | (info.PersistentTmp ? 8 : 0);
+            if (Presentations.TryGetValue(info, out var cached) && cached.Name == info.Name &&
+                cached.RawTitle == info.Title && cached.Label == info.Label && cached.Dir == info.Dir &&
+                cached.Host == info.Host && cached.State == state &&
+                cached.StateSince == info.StateSince && cached.IndicatorMask == mask)
             {
-                _ageFrame = frame;
-                _ageNowMs = SessionInfo.NowMs;
+                PerfTrace.Count("sidebar-presentation-hits");
+                return cached;
             }
-            long seconds = (_ageNowMs - info.StateSince) / 1000L;
+
+            PerfTrace.Count("sidebar-presentation-rebuilds");
+            string ago = Age(info.StateSince, state == AgentState.Down);
+            string stateName = StateName(state);
+            cached = new RowPresentation
+            {
+                Name = info.Name,
+                Title = Title(info),
+                RawTitle = info.Title,
+                Label = info.Label,
+                Dir = info.Dir,
+                Host = info.Host,
+                State = state,
+                StateSince = info.StateSince,
+                IndicatorMask = mask,
+                Ago = ago,
+                StateTip = ago.Length == 0 ? stateName : stateName + " for " + ago,
+                Indicators = IndicatorText[mask],
+            };
+            Presentations[info] = cached;
+            return cached;
+        }
+
+        static string Age(long stateSince, bool down)
+        {
+            if (down || stateSince <= 0) return "";
+            long seconds = (_ageNowMs - stateSince) / 1000L;
             if (seconds < 0L) return "";
             if (seconds < 60L) return "<1m";
             if (seconds < 3600L) return seconds / 60L + "m";

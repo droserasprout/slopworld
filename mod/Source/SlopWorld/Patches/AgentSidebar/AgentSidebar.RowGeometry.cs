@@ -43,7 +43,7 @@ namespace SlopWorld
                 }
 
                 var session = Session(pawn);
-                var info = session == null ? null : SessionHub.Instance.Get(session);
+                var info = session == null ? null : SnapshotGet(session);
                 if (info == null)
                 {
                     // The daemon's list can drop a removed session before the colony sweep
@@ -96,7 +96,7 @@ namespace SlopWorld
                     if (!Passes(s.Project) || !PassesStatus(s.State)) continue;
                     // A child is nested only when its explicit parent has a visible normal row.
                     // Missing parents are surfaced at the top instead of being silently lost.
-                    var parent = SessionHub.Instance.Get(s.Parent);
+                    var parent = SnapshotGet(s.Parent);
                     bool parentVisible = parent != null && !parent.Worker && Passes(parent.Project)
                         && Layout.Named.ContainsValue(parent.Name);
                     if (!parentVisible)

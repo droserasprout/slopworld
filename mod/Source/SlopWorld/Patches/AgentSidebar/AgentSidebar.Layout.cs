@@ -48,6 +48,7 @@ namespace SlopWorld
         public static float Place(
             List<ColonistBar.Entry> entries, List<Vector2> locs, int count, bool plus)
         {
+            BeginSessionSnapshot();
             Interaction.BeginFrame();
 
             if (CurrentTab != SidebarTab.Agents)
@@ -142,6 +143,7 @@ namespace SlopWorld
                 Rect = new Rect(0f, y, width, HeadH),
                 Active = active,
                 Total = total,
+                Count = active + "/" + total,
                 Folded = folded,
             });
             y += HeadH;

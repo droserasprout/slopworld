@@ -85,7 +85,7 @@ namespace SlopWorld
         {
             DaemonClient.PumpCompletions();
             _transport.Update();
-            _tasks.Update();
+            _tasks.Update(AgentSidebar.TasksVisible);
             PerfTrace.Report();
         }
 

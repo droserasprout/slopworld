@@ -150,6 +150,12 @@ namespace SlopWorld
 
         public static SidebarTab CurrentTab => CurrentDefinition.Tab;
 
+        // TaskStore is driven from Root.Update, not OnGUI. Poll only while the task list can
+        // actually be seen; tab entry/reselection still requests an immediate refresh.
+        public static bool TasksVisible => Verse.Current.ProgramState == ProgramState.Playing &&
+            ColonistBarStrip.BarShown && !Settings.SidebarHidden && !Cutscene.Playing &&
+            CurrentTab == SidebarTab.Tasks;
+
         // Which views own a second row. The definition also owns the controls drawn there.
         static bool HasActions => CurrentDefinition.HasActions;
 
@@ -359,7 +365,7 @@ namespace SlopWorld
             {
                 foreach (var row in Layout.Rows)
                 {
-                    var info = row.Session == null ? null : SessionHub.Instance.Get(row.Session);
+                    var info = row.Session == null ? null : SnapshotGet(row.Session);
                     if (row.Session != null && !row.Ghost && !row.Worker && info != null &&
                         PassesStatus(info.State))
                         order.Add(row.Session);
@@ -372,7 +378,7 @@ namespace SlopWorld
                 foreach (int i in Layout.Buckets[key])
                     if (Layout.Named.TryGetValue(i, out var session) && session != null)
                     {
-                        var info = SessionHub.Instance.Get(session);
+                        var info = SnapshotGet(session);
                         if (info != null && PassesStatus(info.State)) order.Add(session);
                     }
             return order;
@@ -383,7 +389,7 @@ namespace SlopWorld
             var order = new List<string>();
             foreach (var row in Layout.Rows)
             {
-                var info = row.Session == null ? null : SessionHub.Instance.Get(row.Session);
+                var info = row.Session == null ? null : SnapshotGet(row.Session);
                 if (row.Session != null && info != null && PassesStatus(info.State))
                     order.Add(row.Session);
             }

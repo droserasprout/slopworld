@@ -57,6 +57,8 @@ namespace SlopWorld
             EndAgentScroll();
             Patch_SidebarPortraitDraw.ClearDeferredSelection();
             Drawing = false;
+            PerfTrace.End("sidebar", _renderStarted, Layout.Rows.Count);
+            _renderStarted = 0L;
         }
 
         static void Grip()

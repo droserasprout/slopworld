@@ -155,7 +155,7 @@ namespace SlopWorld
             Text.Font = GameFont.Tiny;
 
             float lx = arrow.xMax + UiTheme.GapXS;
-            string count = $"{head.Active}/{head.Total}";
+            string count = head.Count;
             float countW = UiTheme.Wide(count);
             var countRect = new Rect(r.xMax - CellX - countW, r.y, countW, HeadH);
             GUI.color = UiTheme.Faint;

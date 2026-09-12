@@ -60,6 +60,8 @@ namespace SlopWorld
                 if (Interaction.Resizing) EndResize();
                 return;
             }
+            SidebarRowRenderer.BeginFrame(SessionHub.Instance.SessionsVersion);
+            _renderStarted = PerfTrace.Start();
             Drawing = true;
             Patch_SidebarPortraitDraw.ClearDeferredSelection();
 
