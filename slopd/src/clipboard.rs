@@ -17,7 +17,8 @@ const TIMEOUT: Duration = Duration::from_secs(3);
 struct Tool {
     copy: &'static [&'static str],
     primary_copy: &'static [&'static str],
-    // Agent terminals get the original selection so image clipboard data remains available.
+    // Agent terminals ask for the original selection; binary results are discarded before the
+    // HTTP handler turns the result into text.
     paste: &'static [&'static str],
     // Host shells must only receive textual clipboard data.
     paste_text: &'static [&'static str],
@@ -180,7 +181,29 @@ async fn paste(argv: &[&str]) -> Result<String> {
             String::from_utf8_lossy(&out.stderr).trim()
         );
     }
-    Ok(String::from_utf8_lossy(&out.stdout).into_owned())
+    // Clipboard selections can contain arbitrary bytes (for example GIF data). Never turn
+    // those bytes into replacement-character text: the caller may put the returned string into
+    // a JSON paste event and deliver it straight to a shell or TUI. Text selections are UTF-8;
+    // anything else is an image/file payload that this text endpoint must leave untouched.
+    Ok(text_output(&out.stdout))
+}
+
+fn text_output(bytes: &[u8]) -> String {
+    if looks_like_image(bytes) || bytes.contains(&0) {
+        return String::new();
+    }
+    String::from_utf8(bytes.to_vec()).unwrap_or_default()
+}
+
+fn looks_like_image(bytes: &[u8]) -> bool {
+    bytes.starts_with(b"GIF87a")
+        || bytes.starts_with(b"GIF89a")
+        || bytes.starts_with(b"\x89PNG\r\n\x1a\n")
+        || bytes.starts_with(&[0xff, 0xd8, 0xff])
+        || bytes.starts_with(b"BM")
+        || (bytes.starts_with(b"RIFF") && bytes.get(8..12) == Some(b"WEBP"))
+        || bytes.starts_with(b"II\x2a\x00")
+        || bytes.starts_with(b"MM\x00\x2a")
 }
 
 #[cfg(test)]
@@ -278,6 +301,20 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(output, "first\nsecond");
+    }
+
+    #[test]
+    fn image_clipboard_bytes_are_not_text() {
+        assert_eq!(text_output(b"GIF89a\x01\x00\x01\x00"), "");
+        assert_eq!(text_output(b"\x89PNG\r\n\x1a\n"), "");
+        assert_eq!(text_output(b"RIFFxxxxWEBP"), "");
+        assert_eq!(text_output(b"plain clipboard text"), "plain clipboard text");
+    }
+
+    #[tokio::test]
+    async fn paste_process_does_not_lossily_decode_binary_output() {
+        let output = paste(&["sh", "-c", "printf 'GIF89a\\000'"]).await.unwrap();
+        assert!(output.is_empty());
     }
 
     #[tokio::test]
