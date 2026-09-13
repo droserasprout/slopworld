@@ -53,7 +53,7 @@ namespace SlopWorld
             _s.AutoResume = UiControls.Checkbox(l, "Auto-resume last conversation", _s.AutoResume,
                 "After startup settles, send /resume and choose the latest conversation.");
             _s.SlopworldMd = UiControls.Checkbox(l, "Mount SLOPWORLD.md", _s.SlopworldMd,
-                "Mount generated runtime context read-only at the Instructions mount path. Requires instructions in Settings > General.",
+                "Mount generated runtime context read-only at the Instructions mount path. Requires instructions in Settings > General > Experimental.",
                 locked: !SessionHub.Instance.Config.ExperimentalInstructions);
             _s.PersistentTmp = UiControls.Checkbox(l, "Persistent /tmp", _s.PersistentTmp,
                 "Keep this agent's /tmp across restarts in its private state. Resetting private state gives it a fresh /tmp.");
@@ -250,7 +250,7 @@ namespace SlopWorld
             _s.BreadcrumbYolo = UiControls.Checkbox(
                 new Rect(rect.x, rect.y, rect.width, UiTheme.RowH),
                 "YOLO breadcrumbs", _s.BreadcrumbYolo,
-                "Hijack the first Enter after startup and paste every enabled breadcrumb before it. Requires breadcrumbs in Settings > General.",
+                "Hijack the first Enter after startup and paste every enabled breadcrumb before it. Requires breadcrumbs in Settings > General > Experimental.",
                 locked: !breadcrumbs);
             y += UiTheme.RowH + UiTheme.GapXS;
             var projectBreadcrumbs = SessionHub.Instance.Project(_s.Project)?.Breadcrumbs;

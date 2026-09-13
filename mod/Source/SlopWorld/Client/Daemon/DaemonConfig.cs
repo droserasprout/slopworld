@@ -207,9 +207,9 @@ namespace SlopWorld
                 if (baseline != null)
                 {
                     var previous = baseline[fields[i]];
-                    if (current.Obj != null ? current.Obj.Count == 0 :
-                        !previous.IsNull && current.Str == previous.Str &&
-                        current.Num == previous.Num && current.Bool == previous.Bool)
+                    if (current.Obj != null
+                        ? current.Obj.Count == 0
+                        : JVal.Equivalent(current, previous))
                         continue;
                 }
                 parts.Add(JVal.Q(fields[i]) + ":" + value);

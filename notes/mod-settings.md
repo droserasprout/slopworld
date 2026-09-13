@@ -9,7 +9,7 @@ terminal/UI fonts and themes, cursor, radio, status-bar readouts, Grandma mode a
 Eco mode. Adding one requires a field, one typed `Fields` table entry, a shim property and
 a widget unless it is a screen cache such as command-palette history.
 
-General > Display stores `displayMode` (`game`, `sync`, `limit`) and `foregroundFps`
+Appearance > Interface > Display stores `displayMode` (`game`, `sync`, `limit`) and `foregroundFps`
 (default 60, effective range 30–360). Missing or unknown modes use Game default,
 preserving existing foreground settings. Changes apply live in both Eco and gameplay;
 unfocused windows use 15 FPS. `FramePolicy` saves and restores the game's pacing pair.
@@ -34,10 +34,10 @@ or `12-hour` and controls the status-bar clock and its tooltip.
 of Agents rows: autostart, resume on start, effective host networking, and persistent `/tmp`.
 Unlike the other status-bar flags, it only changes sidebar text.
 
-`sidebar` is the layout mode, not daemon configuration. It is changed from the
-configuration page and gear menu, while that page's Save button belongs to the daemon
-file. Storage inventory is likewise an operation view: it reads daemon state and owns
-reset, restore and delete actions.
+`sidebar` is the layout mode, not daemon configuration. It is changed from Appearance >
+Sidebar and the gear menu, while General's Save button belongs only to the daemon's
+Experimental switches. Storage inventory is likewise an operation view: it reads daemon
+state and owns reset, restore and delete actions.
 
 `ConfigPage` also refreshes `/api/health` and shows connection state, host/sidecar runtime,
 daemon version and hostname, followed by the mod and RimWorld versions. Missing health
@@ -45,9 +45,10 @@ metadata displays `?`; it does not prevent the page from showing the online stat
 
 ## Writing and invalidation
 
-The connection comes from `endpoint.toml`. `AppearancePage` edits the global interface
-settings, `TerminalPage` edits pane settings, and `StatusbarPage` edits statusbar
-presentation; `ConfigPage` edits daemon configuration.
+The connection comes from `endpoint.toml`. `AppearancePage` edits the global interface and
+display settings, `SidebarPage` edits navigation layout and agent indicators, `TerminalPage`
+edits pane settings, and `StatusbarPage` edits statusbar presentation; `ConfigPage` edits
+daemon configuration.
 Mod settings are written atomically by `ModSettings.Write` when the Settings view closes,
 and dirty values also flush periodically.
 The table uses typed field references with the existing parsers and formatters; runtime

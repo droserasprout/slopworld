@@ -24,6 +24,12 @@ namespace SlopWorld
         // True for the length of this view's own call into the dialog.
         public static bool Drawing { get; private set; }
 
+        // Dialog_Options has no retained scroll position for its category column. The patch
+        // around DoCategoryRow uses this local viewport while the content view is drawing;
+        // the main-menu window keeps the game's own category layout.
+        static Rect _railViewport;
+        public static Rect RailViewport => _railViewport;
+
         // Shared options context for vanilla patches: true while this view draws or a Dialog_Options is the active window.
         public static bool Anywhere =>
             Drawing || Find.WindowStack?.currentlyDrawnWindow is Dialog_Options;
@@ -70,6 +76,7 @@ namespace SlopWorld
 
             GUI.BeginGroup(band);
             Drawing = true;
+            _railViewport = new Rect(0f, 0f, Mathf.Min(177f, band.width), band.height);
             try { _dlg.DoWindowContents(Inner(band)); }
             finally
             {

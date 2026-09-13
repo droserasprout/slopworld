@@ -15,6 +15,8 @@ namespace SlopWorld
         public double Num;
         public bool Bool;
         public bool IsNull;
+        public bool IsBool;
+        public bool IsNumber;
 
         public static readonly JVal Null = new JVal { IsNull = true };
 
@@ -60,8 +62,12 @@ namespace SlopWorld
                 // lands the cursor mid-token, and the container loops read whatever it
                 // points at next as the separator - which turns one truncated value into a
                 // silently wrong object rather than a missing one.
-                case 't': return Literal(s, ref i, "true") ? new JVal { Bool = true } : Null;
-                case 'f': return Literal(s, ref i, "false") ? new JVal { Bool = false } : Null;
+                case 't':
+                    return Literal(s, ref i, "true")
+                    ? new JVal { Bool = true, IsBool = true } : Null;
+                case 'f':
+                    return Literal(s, ref i, "false")
+                    ? new JVal { Bool = false, IsBool = true } : Null;
                 case 'n': Literal(s, ref i, "null"); return Null;
                 default: return ParseNumber(s, ref i);
             }
@@ -177,7 +183,110 @@ namespace SlopWorld
                 i++;
             double.TryParse(s.Substring(start, i - start), NumberStyles.Float,
                             CultureInfo.InvariantCulture, out var d);
-            return new JVal { Num = d };
+            return new JVal { Num = d, IsNumber = true };
+        }
+
+        public static bool Equivalent(JVal left, JVal right)
+        {
+            if (left == null) left = Null;
+            if (right == null) right = Null;
+            if (left.IsNull || right.IsNull) return left.IsNull && right.IsNull;
+            if (left.Obj != null || right.Obj != null)
+            {
+                if (left.Obj == null || right.Obj == null || left.Obj.Count != right.Obj.Count)
+                    return false;
+                foreach (var pair in left.Obj)
+                    if (!right.Obj.ContainsKey(pair.Key) || !Equivalent(pair.Value, right[pair.Key]))
+                        return false;
+                return true;
+            }
+            if (left.Arr != null || right.Arr != null)
+            {
+                if (left.Arr == null || right.Arr == null || left.Arr.Count != right.Arr.Count)
+                    return false;
+                for (int i = 0; i < left.Arr.Count; i++)
+                    if (!Equivalent(left.Arr[i], right.Arr[i])) return false;
+                return true;
+            }
+            if (left.Str != null || right.Str != null)
+                return left.Str == right.Str;
+            if (left.IsBool || right.IsBool)
+                return left.IsBool && right.IsBool && left.Bool == right.Bool;
+            return left.Num == right.Num;
+        }
+
+        public static JVal Merge(JVal baseValue, JVal patch)
+        {
+            if (patch == null || patch.IsNull) return Clone(patch ?? Null);
+            if (patch.Obj == null) return Clone(patch);
+
+            var result = Clone(baseValue ?? Null);
+            if (result.Obj == null) result = new JVal { Obj = new Dictionary<string, JVal>() };
+            foreach (var pair in patch.Obj)
+                result.Obj[pair.Key] = pair.Value.Obj != null
+                    ? Merge(result[pair.Key], pair.Value)
+                    : Clone(pair.Value);
+            return result;
+        }
+
+        // Build a patch with the same shape as `shape`, taking leaf values from `source`.
+        public static JVal OverlayByShape(JVal shape, JVal source)
+        {
+            if (shape == null || shape.IsNull) return Null;
+            if (shape.Obj == null) return Clone(source ?? Null);
+            var result = new JVal { Obj = new Dictionary<string, JVal>() };
+            foreach (var pair in shape.Obj)
+                result.Obj[pair.Key] = pair.Value.Obj != null
+                    ? OverlayByShape(pair.Value, source?[pair.Key])
+                    : Clone(source?[pair.Key] ?? Null);
+            return result;
+        }
+
+        public static JVal Clone(JVal value)
+        {
+            if (value == null || value.IsNull) return Null;
+            if (value.Obj != null)
+            {
+                var obj = new Dictionary<string, JVal>();
+                foreach (var pair in value.Obj) obj[pair.Key] = Clone(pair.Value);
+                return new JVal { Obj = obj };
+            }
+            if (value.Arr != null)
+            {
+                var arr = new List<JVal>();
+                foreach (var item in value.Arr) arr.Add(Clone(item));
+                return new JVal { Arr = arr };
+            }
+            return new JVal
+            {
+                Str = value.Str,
+                Num = value.Num,
+                Bool = value.Bool,
+                IsNull = value.IsNull,
+                IsBool = value.IsBool,
+                IsNumber = value.IsNumber,
+            };
+        }
+
+        public static string ToJson(JVal value)
+        {
+            if (value == null || value.IsNull) return "null";
+            if (value.Obj != null)
+            {
+                var parts = new List<string>();
+                foreach (var pair in value.Obj)
+                    parts.Add(Q(pair.Key) + ":" + ToJson(pair.Value));
+                return "{" + string.Join(",", parts.ToArray()) + "}";
+            }
+            if (value.Arr != null)
+            {
+                var parts = new List<string>();
+                foreach (var item in value.Arr) parts.Add(ToJson(item));
+                return "[" + string.Join(",", parts.ToArray()) + "]";
+            }
+            if (value.Str != null) return Q(value.Str);
+            if (value.IsBool) return B(value.Bool);
+            return value.Num.ToString("R", CultureInfo.InvariantCulture);
         }
 
         // Escapes a string and wraps it in quotes, ready to drop into a request body.

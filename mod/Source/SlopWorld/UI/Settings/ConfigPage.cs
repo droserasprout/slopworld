@@ -13,6 +13,7 @@ namespace SlopWorld
         protected override bool DrawFieldsBeforeLoad => true;
         protected override bool ShowEditButton => true;
         protected override bool ShowSaveButton => true;
+        protected override string SaveScope => "Experimental only";
 
         protected override void DrawFields(Listing_Standard l)
         {
@@ -22,6 +23,7 @@ namespace SlopWorld
             l.Gap(UiTheme.GapL);
             UiLayout.SectionHeading(l, "Game");
             var s = ModEntry.Instance.settings;
+            UiLayout.Note(l, "Game preferences apply immediately and are written when Settings closes.");
             bool eco = UiControls.Checkbox(l, "Eco mode", s.ecoMode);
             UiLayout.Note(l, "80% less CPU, 0.1% less guilt. You're welcome, Earth!");
 
@@ -47,9 +49,8 @@ namespace SlopWorld
             }
 
             l.Gap(UiTheme.GapL);
-            DrawDisplay(l, s);
-            l.Gap(UiTheme.GapL);
             UiLayout.SectionHeading(l, "Experimental");
+            UiLayout.Note(l, "Only these two daemon switches are saved from General. Local Game and Locale preferences apply immediately.");
             if (_loaded)
             {
                 _cfg.ExperimentalBreadcrumbs = UiControls.Checkbox(l, "Enable breadcrumbs",
@@ -63,6 +64,7 @@ namespace SlopWorld
                 UiLayout.Note(l, _error ?? "Waiting for the daemon...");
             l.Gap(UiTheme.GapL);
             UiLayout.SectionHeading(l, "Locale");
+            UiLayout.Note(l, "Locale changes apply immediately and are written when Settings closes.");
             if (UiLayout.Button(l,
                     "TemperatureMode".Translate() + ": " + Prefs.TemperatureMode.ToStringHuman()))
             {
@@ -82,34 +84,6 @@ namespace SlopWorld
             }.ToList()));
             }
 
-        }
-
-        static void DrawDisplay(Listing_Standard l, ModSettings s)
-        {
-            UiLayout.SectionHeading(l, "Display");
-            if (UiLayout.Button(l, "Frame pacing: " + FramePolicy.Label(s.displayMode)))
-                Find.WindowStack.Add(new UiMenu(new[] { FramePolicy.Game, FramePolicy.Sync, FramePolicy.Limit }
-                    .Select(mode => new FloatMenuOption(FramePolicy.Label(mode), () =>
-                    {
-                        s.displayMode = mode;
-                        s.MarkDirty();
-                    })).ToList()));
-            if (FramePolicy.Normalize(s.displayMode) == FramePolicy.Limit)
-            {
-                if (UiLayout.Button(l, "FPS limit: " + FramePolicy.Clamp(s.foregroundFps)))
-                    Find.WindowStack.Add(new UiMenu(new[] { 30, 60, 90, 120, 144 }
-                        .Select(fps => new FloatMenuOption(fps + " FPS", () =>
-                        {
-                            s.foregroundFps = fps;
-                            s.MarkDirty();
-                        })).ToList()));
-                UiControls.SliderSetting(l, "Custom FPS", s, ref s.foregroundFps, 30, 360);
-                UiLayout.Note(l, "Disables VSync. Lower limits save power; higher limits improve responsiveness.");
-            }
-            else
-                UiLayout.Note(l, FramePolicy.Normalize(s.displayMode) == FramePolicy.Sync
-                    ? "VSync follows the display refresh rate for smooth presentation."
-                    : "Preserve the game's frame rate and VSync settings.");
         }
 
         static void DrawConnectionSummary(Listing_Standard l)

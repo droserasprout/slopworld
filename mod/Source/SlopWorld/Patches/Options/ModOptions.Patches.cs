@@ -52,16 +52,118 @@ namespace SlopWorld
         static float IconBox => Mathf.Min(18f, RowH - 6f);
         static float LabelX => RowPadX + IconBox + IconGap;
 
+        // The vanilla dialog does not retain category scroll state. Content-view options
+        // therefore use this compact rail position; it is deliberately separate from every
+        // page's scroll lifetime and is clamped again whenever the viewport or font changes.
+        static float _railScroll;
+        static int _railControl;
+        static float _railGrab;
+
         // Recover the vanilla row index from r.y and recompute the compact row rectangle.
         static Rect Slot(Rect r, Tab tab)
         {
             int i = Mathf.Max(0, Mathf.RoundToInt((r.y - VanillaInset) / VanillaPitch));
             float y = VanillaInset;
             for (int n = 0; n < i; n++)
-                y += n < Column.Count && Column[n].Parent != null ? NestedPitch : Pitch;
+                y += TabAtIndex(n)?.Parent != null ? NestedPitch : Pitch;
 
             float h = tab != null && tab.Parent != null ? NestedRowH : RowH;
             return new Rect(r.x, y, r.width, h);
+        }
+
+        static int Index(Rect r) =>
+            Mathf.Max(0, Mathf.RoundToInt((r.y - VanillaInset) / VanillaPitch));
+
+        static float RailContentHeight()
+        {
+            float height = VanillaInset;
+            var categories = DefDatabase<OptionCategoryDef>.AllDefsListForReading;
+            for (int i = 0; i < categories.Count; i++)
+                if (!categories[i].isDev)
+                    height += TabOf(categories[i])?.Parent != null ? NestedPitch : Pitch;
+            return height + UiTheme.GapS;
+        }
+
+        static Tab TabAtIndex(int index)
+        {
+            if (index < 0) return null;
+            int visible = 0;
+            var categories = DefDatabase<OptionCategoryDef>.AllDefsListForReading;
+            for (int i = 0; i < categories.Count; i++)
+            {
+                if (categories[i].isDev) continue;
+                if (visible++ == index) return TabOf(categories[i]);
+            }
+            return null;
+        }
+
+        static float UpdateRailScroll(Rect viewport, float contentHeight)
+        {
+            float max = Mathf.Max(0f, contentHeight - viewport.height);
+            var e = Event.current;
+            if (max > 0f && e.type == EventType.ScrollWheel &&
+                viewport.Contains(e.mousePosition))
+            {
+                _railScroll = Mathf.Clamp(_railScroll + e.delta.y * 20f, 0f, max);
+                e.Use();
+            }
+            else
+                _railScroll = Mathf.Clamp(_railScroll, 0f, max);
+            return max;
+        }
+
+        static void DrawRailScrollbar(Rect viewport, float max)
+        {
+            if (max <= 0f) return;
+
+            float trackW = UiTheme.ScrollTrackW;
+            var track = new Rect(viewport.width - trackW, 0f, trackW, viewport.height);
+            float thumbH = Mathf.Clamp(track.height * (track.height /
+                (track.height + max)), Mathf.Min(24f, track.height), track.height);
+            float span = Mathf.Max(0f, track.height - thumbH);
+            var thumb = new Rect(track.x + UiTheme.ScrollThumbInset,
+                track.y + (span <= 0f ? 0f : span * (_railScroll / max)),
+                track.width - UiTheme.ScrollThumbInset * 2f, thumbH);
+            int id = GUIUtility.GetControlID(FocusType.Passive, track);
+            var e = Event.current;
+            if (GUIUtility.hotControl == 0 && e.type == EventType.MouseDown && e.button == 0 &&
+                track.Contains(e.mousePosition))
+            {
+                _railControl = id;
+                _railGrab = thumb.Contains(e.mousePosition)
+                    ? e.mousePosition.y - thumb.y : thumbH / 2f;
+                SetRailScroll(e.mousePosition.y, track, thumbH, max);
+                e.Use();
+            }
+            else if (GUIUtility.hotControl == id && _railControl == id)
+            {
+                if (e.type == EventType.MouseDrag)
+                {
+                    SetRailScroll(e.mousePosition.y, track, thumbH, max);
+                    e.Use();
+                }
+                else if (e.type == EventType.MouseUp && e.button == 0)
+                {
+                    GUIUtility.hotControl = 0;
+                    _railControl = 0;
+                    e.Use();
+                }
+            }
+
+            if (e.type != EventType.Repaint) return;
+            Slab.Fill(track, UiTheme.ScrollTrough);
+            Slab.Fill(thumb, GUIUtility.hotControl == id
+                ? UiTheme.ScrollThumbHeld
+                : Mouse.IsOver(track) ? UiTheme.ScrollThumbHover : UiTheme.ScrollThumb);
+        }
+
+        static void SetRailScroll(float mouseY, Rect track, float thumbH, float max)
+        {
+            float span = Mathf.Max(0f, track.height - thumbH);
+            float t = span <= 0f ? 0f : Mathf.Clamp01(
+                (mouseY - _railGrab - track.y) / span);
+            _railScroll = t * max;
+            GUIUtility.hotControl = _railControl;
         }
 
         // Draw selected and hovered rows with the mod's colors.
@@ -85,14 +187,40 @@ namespace SlopWorld
             static bool Prefix(Dialog_Options __instance, Rect r, OptionCategoryDef optionCategory)
             {
                 var tab = TabOf(optionCategory);
+                int index = Index(r);
                 var row = Slot(r, tab);
+                if (OptionsView.Drawing)
+                {
+                    var viewport = OptionsView.RailViewport;
+                    float max = index == 0
+                        ? UpdateRailScroll(viewport, RailContentHeight()) :
+                        Mathf.Max(0f, RailContentHeight() - viewport.height);
+                    if (index == 0) DrawRailScrollbar(viewport, max);
+                    row = new Rect(row.x - viewport.x, row.y - viewport.y - _railScroll,
+                        row.width, row.height);
+                    if (row.yMax <= 0f || row.y >= viewport.height) return false;
+
+                    GUI.BeginGroup(viewport);
+                    try { DrawRow(__instance, row, tab, optionCategory); }
+                    finally { GUI.EndGroup(); }
+                    return false;
+                }
+
+                Text.Font = GameFont.Small;
+                DrawRow(__instance, row, tab, optionCategory);
+                return false;
+            }
+
+            static void DrawRow(Dialog_Options instance, Rect row, Tab tab,
+                                OptionCategoryDef optionCategory)
+            {
                 Text.Font = GameFont.Small;
 
-                CategoryRow(row, __instance.selectedCategory == optionCategory);
+                CategoryRow(row, instance.selectedCategory == optionCategory);
                 if (Widgets.ButtonInvisible(row))
                 {
                     var target = Target(tab);
-                    Select(__instance, target != null ? target.Def : optionCategory);
+                    Select(instance, target != null ? target.Def : optionCategory);
                 }
 
                 float x = row.x + LabelX;
@@ -113,7 +241,6 @@ namespace SlopWorld
 
                 UiText.RowLabel(new Rect(x, row.y, row.xMax - x, row.height),
                     optionCategory.LabelCap);
-                return false;
             }
         }
 

@@ -1,16 +1,17 @@
 # Dialogs and Settings pages
 
-Daemon-backed pages write through HTTP; `AppearancePage`, `TerminalPage` and `StatusbarPage` write
+Daemon-backed pages write through HTTP; `AppearancePage`, `TerminalPage`, `StatusbarPage` and
+`SidebarPage` write
 [mod settings](mod-settings.md). Agents, projects and Library entries are content views;
 their editors open above the chrome with `TerminalWindow.OpenOverPane`.
 Agent mounts fill their tab; agent and project sandbox lists expand to the remaining
 viewport, retaining a minimum height when the surrounding form needs scrolling.
 
-Daemon config pages keep independent drafts and gate load/save callbacks by operation, while saving
-only fields changed since their
-last load or successful save. Saving refreshes the live mirror without reloading other
-pages; Reload explicitly replaces that page's draft. General's local game, display and
-locale controls remain available before the daemon config loads or when it is offline.
+Daemon config pages keep per-page, per-endpoint drafts in memory and gate load/save callbacks by
+operation, while saving only fields changed since their last load or successful save. Saving
+refreshes the live mirror without reloading other pages; Reload merges the server into that
+page's draft and Discard restores the latest server snapshot. General's local game and locale
+controls remain available before the daemon config loads or when it is offline.
 SettingsForm, daemon config fields and the Instructions editor share the retained
 `ScrollableListing` lifecycle; trailing usage fields stay in the daemon page host.
 Agent, project and library editors share `EditIdentity` for new/edit/copy titles and
@@ -37,24 +38,26 @@ their feature-specific actions and preview/preset/breadcrumb state remain local.
   private state and owns reset/restore/delete/empty-trash actions.
 - `Commands > Binaries` checks the host PATH for the runtime, agent, command-tool, integration,
   and development executables the project uses or recommends.
-- `Integrations` is a heading with a `Credentials` child for host-side credential paths.
-  `UsagePage` owns one table of usage windows with name, icon picker, poll toggle and optional
-  per-row interval; its global interval is the fallback for blank rows. Left/spent display is
-  an Appearance > Statusbar setting and works offline.
+- `Integrations` is a heading with `Credentials` and `Usage` children. `Credentials` owns
+  host-side credential paths. `UsagePage` owns one table of usage windows with name, icon picker,
+  poll toggle and optional per-row interval; its global interval is the fallback for blank rows.
+  Left/spent display is an Appearance > Status bar setting and works offline.
+- `Agents` is a heading with `Summaries`, `Instructions` and `Workers` children.
   `SummariesPage` edits Codex/Pi title policy, the task-summary Never/Once policy, the
   shared summary model and summarizer prompt; its policy table shares the Usage table widget and it uses the
-  OpenRouter key from Integrations.
-  `InstructionsPage` edits and previews the templated `SLOPWORLD.md` document, its separate
-  first-prompt discovery breadcrumb, sandbox mount path, and global discovery switch.
-  `WorkersPage` owns the worker bootstrap prompt. The agent editor's Breadcrumbs tab shows the
-  generated manifest entry as a selectable default-on row. Body, breadcrumb, and worker prompt
-  each offer an independent reset to the shipped default.
-  General's default-off Experimental switches independently gate breadcrumb and manifest
-  controls; Integrations > Workers owns the worker prompt, greyed out by the Instructions switch.
-  Appearance is a heading with `Interface`, `Terminal` and `Statusbar` children:
-  `AppearancePage` owns global scale, scheme, font and cursor, `TerminalPage` owns pane font,
-  theme and cursor color, and `StatusbarPage` owns statusbar visibility and placement. Scale
-  applies on release because live scaling moves the slider.
+  OpenRouter key from Integrations. `InstructionsPage` edits and previews the templated
+  `SLOPWORLD.md` document, its separate first-prompt discovery breadcrumb, sandbox mount path,
+  and global discovery switch. `WorkersPage` owns the worker bootstrap prompt.
+  The agent editor's Breadcrumbs tab shows the generated manifest entry as a selectable
+  default-on row. Body, breadcrumb, and worker prompt each offer an independent reset to the
+  shipped default. General's default-off Experimental switches independently gate breadcrumb
+  and manifest controls; Workers is greyed out by the live Instructions switch.
+  Appearance is a heading with `Interface`, `Terminal`, `Status bar` and `Sidebar` children:
+  `AppearancePage` owns global scale, display, scheme, font and cursor, `SidebarPage` owns
+  navigation and agent indicators, `TerminalPage` owns pane font, theme and cursor color, and
+  `StatusbarPage` owns statusbar visibility and placement. Scale applies on release because live
+  scaling moves the slider. Daemon forms show the shared Save/Discard footer; local forms state
+  that their changes apply immediately.
 - `AudioPage` keeps vanilla volume in `Prefs` and jukebox state in `ModSettings`.
   `LibraryView` runs daemon errands; ask-style errands choose a project or temp agent.
 
@@ -64,8 +67,8 @@ their feature-specific actions and preview/preset/breadcrumb state remain local.
 One prefix draws categories and one dispatches pages; unknown categories fall through
 to vanilla. Children indent and an empty parent opens its first child.
 
-Top-level SlopWorld pages are ordered Appearance, Integrations, Commands, Keyboard, Storage,
-Audio, RimWorld and About; child pages remain beneath their heading.
+Top-level SlopWorld pages are ordered General, Appearance, Integrations, Agents, Commands,
+Sandbox, Keyboard, Storage, Audio, RimWorld and About; child pages remain beneath their heading.
 
 Rows use `Round(LineH * 1.4)` plus `GapXS`; child rows use `Round(LineH * 1.15)`;
 icons are capped at 18px. Vanilla passes
