@@ -205,7 +205,7 @@ impl Manager {
         &self,
         name: &str,
         emu: Arc<Mutex<SessionEmu>>,
-        mut rx: mpsc::UnboundedReceiver<Vec<u8>>,
+        mut rx: ControlLineReceiver,
         pending: Vec<Vec<u8>>,
     ) {
         const FAST_TICK: Duration = Duration::from_millis(16);

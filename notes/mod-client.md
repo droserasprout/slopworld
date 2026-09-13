@@ -18,7 +18,10 @@ reflection.
   a settable field because the settings pages write it back. `Handle`
   routes each socket event to the owning service; `HubWire` holds shared JSON helpers.
 - `MiniWebSocket` - speaks RFC6455 by hand, because Unity's mono cannot be trusted
-  with `ClientWebSocket`.
+  with `ClientWebSocket`. Incoming events use a lossless 256-message/16 MiB queue;
+  individual messages above 8 MiB close the socket. A queued unsolicited live screen
+  replaces the older screen for that session, while replies, history and control events
+  apply backpressure. Disconnect wakes blocked readers and releases queued strings.
 - `HubEventBatch` - reuses scratch buffers for up to 32 incoming messages per frame. Only
   unsolicited live screens coalesce; history, request replies and other events preserve order.
   Dispatch releases payload references and uses the captured queue if a callback reconnects.

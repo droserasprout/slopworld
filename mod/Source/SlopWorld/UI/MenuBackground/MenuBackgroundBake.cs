@@ -129,28 +129,52 @@ namespace SlopWorld
             if (!Directory.Exists(dir)) return null;
 
             var frames = new Texture2D[preset.Total];
-            for (int i = 0; i < frames.Length; i++)
+            try
             {
-                // D2 holds a set of up to a hundred; past that this needs widening.
-                string path = Path.Combine(dir, $"{i:D2}.jpg");
-                if (!File.Exists(path)) return null;
-
-                // LoadImage sniffs the header. Non-readable drops the CPU-side copy Unity keeps
-                // beside the GPU one, half the set's resident cost; nothing here reads pixels back.
-                var tex = new Texture2D(2, 2, TextureFormat.RGB24, false);
-                if (!tex.LoadImage(File.ReadAllBytes(path), true))
+                for (int i = 0; i < frames.Length; i++)
                 {
-                    UnityEngine.Object.Destroy(tex);
-                    return null;                    // a half-written cache rebakes
-                }
-                tex.filterMode = FilterMode.Bilinear;
-                tex.wrapMode = TextureWrapMode.Clamp;
-                Keep(tex);
-                frames[i] = tex;
-            }
+                    // D2 holds a set of up to a hundred; past that this needs widening.
+                    string path = Path.Combine(dir, $"{i:D2}.jpg");
+                    if (!File.Exists(path))
+                    {
+                        DestroyFrames(frames);
+                        return null;                // a partial cache rebakes
+                    }
 
-            try { Directory.SetLastWriteTimeUtc(dir, DateTime.UtcNow); } catch { }
-            return frames;
+                    Texture2D tex = null;
+                    try
+                    {
+                        // LoadImage sniffs the header. Non-readable drops the CPU-side copy
+                        // Unity keeps beside the GPU one, half the set's resident cost.
+                        tex = new Texture2D(2, 2, TextureFormat.RGB24, false);
+                        if (!tex.LoadImage(File.ReadAllBytes(path), true))
+                        {
+                            UnityEngine.Object.Destroy(tex);
+                            tex = null;
+                            DestroyFrames(frames);
+                            return null;            // a corrupt cache rebakes
+                        }
+                        tex.filterMode = FilterMode.Bilinear;
+                        tex.wrapMode = TextureWrapMode.Clamp;
+                        Keep(tex);
+                        frames[i] = tex;
+                        tex = null;                  // ownership moved into the returned set
+                    }
+                    catch
+                    {
+                        UnityEngine.Object.Destroy(tex);
+                        throw;
+                    }
+                }
+
+                try { Directory.SetLastWriteTimeUtc(dir, DateTime.UtcNow); } catch { }
+                return frames;
+            }
+            catch
+            {
+                DestroyFrames(frames);
+                throw;
+            }
         }
 
         // The still inputs every stage of a preset shares, worked out once rather than per stage.
@@ -220,34 +244,54 @@ namespace SlopWorld
             for (int b = 0; b < batch; b++) scratch[b] = new Color[bw * bh];
 
             var frames = new Texture2D[total];
-            for (int start = 0; start < total; start += batch)
+            try
             {
-                int end = Math.Min(total, start + batch);
-
-                Parallel.For(start, end, opts,
-                    i => Stage(preset, clean, scratch[i - start], shared, bw, bh, i));
-
-                for (int i = start; i < end; i++)
+                for (int start = 0; start < total; start += batch)
                 {
-                    var tex = new Texture2D(bw, bh, TextureFormat.RGB24, false);
-                    tex.SetPixels(scratch[i - start]);
-                    tex.Apply();
+                    int end = Math.Min(total, start + batch);
 
-                    byte[] jpg = tex.EncodeToJPG(JpegQuality);
-                    File.WriteAllBytes(Path.Combine(dir, $"{i:D2}.jpg"), jpg);
+                    Parallel.For(start, end, opts,
+                        i => Stage(preset, clean, scratch[i - start], shared, bw, bh, i));
 
-                    // Reload the JPEG so the first launch and cached reload use identical pixels.
-                    tex.LoadImage(jpg, true);
-                    tex.filterMode = FilterMode.Bilinear;
-                    tex.wrapMode = TextureWrapMode.Clamp;
-                    Keep(tex);
-                    frames[i] = tex;
+                    for (int i = start; i < end; i++)
+                    {
+                        Texture2D tex = null;
+                        try
+                        {
+                            tex = new Texture2D(bw, bh, TextureFormat.RGB24, false);
+                            tex.SetPixels(scratch[i - start]);
+                            tex.Apply();
+
+                            byte[] jpg = tex.EncodeToJPG(JpegQuality);
+                            File.WriteAllBytes(Path.Combine(dir, $"{i:D2}.jpg"), jpg);
+
+                            // Reload the JPEG so the first launch and cached reload use identical
+                            // pixels. A failed reload does not transfer ownership.
+                            if (!tex.LoadImage(jpg, true))
+                                throw new InvalidDataException("Unity could not reload baked JPEG");
+                            tex.filterMode = FilterMode.Bilinear;
+                            tex.wrapMode = TextureWrapMode.Clamp;
+                            Keep(tex);
+                            frames[i] = tex;
+                            tex = null;              // ownership moved into the returned set
+                        }
+                        catch
+                        {
+                            UnityEngine.Object.Destroy(tex);
+                            throw;
+                        }
+                    }
                 }
-            }
 
-            Log.Message($"[SlopWorld] baked {preset.Name}: {Onset} ramp + {preset.Depths}x{preset.Phases} " +
-                        $"at {bw}x{bh}, jpeg q{JpegQuality}, {batch} at a time, into {dir}");
-            return frames;
+                Log.Message($"[SlopWorld] baked {preset.Name}: {Onset} ramp + {preset.Depths}x{preset.Phases} " +
+                            $"at {bw}x{bh}, jpeg q{JpegQuality}, {batch} at a time, into {dir}");
+                return frames;
+            }
+            catch
+            {
+                DestroyFrames(frames);
+                throw;
+            }
         }
 
         // Apply smear, grade/tint, then emissive fire; JPEG artifacts are applied last.
@@ -745,6 +789,15 @@ namespace SlopWorld
             }
 
             return dst;
+        }
+
+        // Every returned set is owned by its caller until it is installed or released.
+        internal static void DestroyFrames(Texture2D[] frames)
+        {
+            if (frames == null) return;
+            for (int i = 0; i < frames.Length; i++)
+                if (frames[i] != null)
+                    UnityEngine.Object.Destroy(frames[i]);
         }
 
         // Root generated textures across map switches.

@@ -74,8 +74,8 @@ sessions when available; otherwise report runtime validation as outstanding.
 - Target: at least 80% less allocation in the 32-frame benchmark, a clear CPU
   reduction, and no material single-frame or empty-queue regression. Track full
   decodes and discarded frames separately. This does not bound the socket queue;
-  queue backpressure is owned by the [memory plan](plan-memory-leaks.md). Coordinate
-  envelope/coalescing semantics with that work; do not count this phase as a memory bound.
+  queue backpressure is implemented in the [mod transport](mod-client.md). Preserve
+  its envelope/coalescing semantics; do not count this phase as a memory bound.
 
 ## 3. Batch daemon host metadata queries
 

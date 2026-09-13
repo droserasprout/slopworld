@@ -20,15 +20,35 @@ namespace SlopWorld
             while (read < Limit && incoming.TryDequeue(out var text))
             {
                 read++;
-                try
-                {
-                    var ev = JVal.Parse(text);
-                    if (LiveName(ev, out var name)) _latest[name] = _events.Count;
-                    _events.Add(ev);
-                }
-                catch (Exception e) { onError(e); }
+                Add(text, null, onError);
             }
             return read;
+        }
+
+        public int Read(IncomingMessageQueue incoming, Action<Exception> onError)
+        {
+            Clear();
+            int read = 0;
+            while (read < Limit && incoming.TryDequeue(out var text, out var liveName))
+            {
+                read++;
+                Add(text, liveName, onError);
+            }
+            return read;
+        }
+
+        void Add(string text, string knownLiveName, Action<Exception> onError)
+        {
+            try
+            {
+                var ev = JVal.Parse(text);
+                if (knownLiveName != null)
+                    _latest[knownLiveName] = _events.Count;
+                else if (LiveName(ev, out var name))
+                    _latest[name] = _events.Count;
+                _events.Add(ev);
+            }
+            catch (Exception e) { onError(e); }
         }
 
         public bool ShouldDispatch(int index) =>
@@ -48,6 +68,18 @@ namespace SlopWorld
             if (screen["off"].AsInt(0) != 0 || screen["request_id"].AsLong(0) != 0) return false;
             name = screen["name"].AsString(null);
             return !string.IsNullOrEmpty(name);
+        }
+
+        // The bounded transport uses the same conservative classification before enqueueing.
+        // Parsing failures stay in the queue and are reported by Add on the main thread.
+        internal static bool TryLiveScreenName(string text, out string name)
+        {
+            try { return LiveName(JVal.Parse(text), out name); }
+            catch
+            {
+                name = null;
+                return false;
+            }
         }
     }
 }

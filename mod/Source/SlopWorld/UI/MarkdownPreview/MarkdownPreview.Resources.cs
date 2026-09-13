@@ -102,19 +102,26 @@ namespace SlopWorld
                     {
                         if (!isCurrent(request)) return;
                         _pendingImages.Remove(path);
+                        Texture2D texture = null;
                         try
                         {
                             var bytes = Convert.FromBase64String(j["data"].AsString());
-                            var texture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+                            // Keep local ownership until the fully configured texture enters
+                            // the store. Every decode or setup failure must release native data.
+                            texture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
                             if (!texture.LoadImage(bytes, true))
                                 throw new InvalidDataException("Unity could not decode the image");
                             texture.name = "SlopWorld Markdown " + Path.GetFileName(path);
                             texture.hideFlags = HideFlags.HideAndDontSave;
+                            if (_images.TryGetValue(path, out var old) && old != null)
+                                UnityEngine.Object.Destroy(old);
                             _images[path] = texture;
+                            texture = null;         // ownership moved into _images
                             invalidate();
                         }
                         catch
                         {
+                            if (texture != null) UnityEngine.Object.Destroy(texture);
                             run.ImageFailed = true;
                             _failedImages.Add(path);
                         }

@@ -5,6 +5,12 @@ use anyhow::anyhow;
 
 const CONTROL_ATTACH_TIMEOUT: Duration = Duration::from_secs(5);
 
+// Keep the reader's queued transport bytes bounded without imposing a line-size limit. tmux
+// escapes newlines inside %output, so fixed-size chunks can be reassembled into control lines on
+// the async side and preserve every terminal byte, including a very long logical line.
+const CONTROL_QUEUE_CHUNK_BYTES: usize = 16 * 1024;
+const CONTROL_QUEUE_CHUNKS: usize = 256;
+
 enum TitleCaptureAction {
     New(Option<String>),
     Request(TitleRequest),
@@ -220,9 +226,70 @@ fn build_title_submission(
     (submission, !composer.certain)
 }
 
-async fn wait_for_control_attach(
-    rx: &mut mpsc::UnboundedReceiver<Vec<u8>>,
-) -> Result<Vec<Vec<u8>>> {
+struct ControlLineReceiver {
+    rx: mpsc::Receiver<Vec<u8>>,
+    pending: Vec<u8>,
+    searched: usize,
+}
+
+impl ControlLineReceiver {
+    fn new(rx: mpsc::Receiver<Vec<u8>>) -> Self {
+        Self {
+            rx,
+            pending: Vec::new(),
+            searched: 0,
+        }
+    }
+
+    // Read chunks from the bounded channel and expose tmux's newline-delimited control lines.
+    // The old producer used read_until plus line.clone(), which made both the temporary line and
+    // an unbounded copy resident. Only the current logical line may grow here; queued transport
+    // memory is limited to CONTROL_QUEUE_CHUNKS * CONTROL_QUEUE_CHUNK_BYTES.
+    async fn recv(&mut self) -> Option<Vec<u8>> {
+        loop {
+            if let Some(offset) = self.pending[self.searched..]
+                .iter()
+                .position(|&byte| byte == b'\n')
+            {
+                let end = self.searched + offset;
+                let mut line: Vec<u8> = self.pending.drain(..=end).collect();
+                self.searched = 0;
+                line.pop();
+                if line.last() == Some(&b'\r') {
+                    line.pop();
+                }
+                // Do not keep a giant logical-line allocation on the receiver after its bytes
+                // have moved to the emulator. The next queued chunk is small and can start with
+                // a fresh buffer instead of inheriting that transient line's capacity.
+                if self.pending.len() < CONTROL_QUEUE_CHUNK_BYTES
+                    && self.pending.capacity() > CONTROL_QUEUE_CHUNK_BYTES * 2
+                {
+                    self.pending.shrink_to_fit();
+                }
+                return Some(line);
+            }
+
+            // Keep the scan cursor in receiver state across awaits (and select! cancellation),
+            // so long lines scan each byte once instead of rescanning every earlier chunk.
+            self.searched = self.pending.len();
+            match self.rx.recv().await {
+                Some(chunk) => self.pending.extend_from_slice(&chunk),
+                None => {
+                    if self.pending.is_empty() {
+                        return None;
+                    }
+                    if self.pending.last() == Some(&b'\r') {
+                        self.pending.pop();
+                    }
+                    self.searched = 0;
+                    return Some(std::mem::take(&mut self.pending));
+                }
+            }
+        }
+    }
+}
+
+async fn wait_for_control_attach(rx: &mut ControlLineReceiver) -> Result<Vec<Vec<u8>>> {
     let mut pending = Vec::new();
     while let Some(line) = rx.recv().await {
         if line.starts_with(b"%end") {
@@ -245,25 +312,24 @@ async fn wait_for_control_attach(
     Err(anyhow!("control client closed before attach completed"))
 }
 
-fn spawn_control_reader(master: std::fs::File) -> mpsc::UnboundedReceiver<Vec<u8>> {
-    let (tx, rx) = mpsc::unbounded_channel::<Vec<u8>>();
+fn spawn_control_reader(master: std::fs::File) -> ControlLineReceiver {
+    let (tx, rx) = mpsc::channel::<Vec<u8>>(CONTROL_QUEUE_CHUNKS);
     std::thread::spawn(move || {
-        use std::io::BufRead;
+        use std::io::Read;
 
         let mut reader = std::io::BufReader::new(master);
-        let mut line: Vec<u8> = Vec::new();
+        let mut chunk = vec![0u8; CONTROL_QUEUE_CHUNK_BYTES];
         loop {
-            line.clear();
-            match reader.read_until(b'\n', &mut line) {
+            match reader.read(&mut chunk) {
                 Ok(0) => break, // EOF
-                Ok(_) => {
-                    if line.last() == Some(&b'\n') {
-                        line.pop();
-                    }
-                    if line.last() == Some(&b'\r') {
-                        line.pop();
-                    }
-                    if tx.send(line.clone()).is_err() {
+                Ok(n) => {
+                    let mut data =
+                        std::mem::replace(&mut chunk, vec![0u8; CONTROL_QUEUE_CHUNK_BYTES]);
+                    data.truncate(n);
+                    // blocking_send applies backpressure without dropping terminal bytes. If
+                    // the async receiver is cancelled, it returns immediately and releases the
+                    // reader thread even when the queue was full.
+                    if tx.blocking_send(data).is_err() {
                         break;
                     }
                 }
@@ -271,7 +337,7 @@ fn spawn_control_reader(master: std::fs::File) -> mpsc::UnboundedReceiver<Vec<u8
             }
         }
     });
-    rx
+    ControlLineReceiver::new(rx)
 }
 
 #[cfg(test)]
@@ -363,11 +429,65 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn control_line_receiver_reassembles_chunk_boundaries() {
+        let (tx, rx) = mpsc::channel(4);
+        let mut lines = ControlLineReceiver::new(rx);
+        tx.send(b"first\r".to_vec()).await.unwrap();
+        tx.send(b"\nsecond\nlast".to_vec()).await.unwrap();
+        drop(tx);
+
+        assert_eq!(lines.recv().await.as_deref(), Some(b"first".as_slice()));
+        assert_eq!(lines.recv().await.as_deref(), Some(b"second".as_slice()));
+        assert_eq!(lines.recv().await.as_deref(), Some(b"last".as_slice()));
+        assert_eq!(lines.recv().await, None);
+    }
+
+    #[test]
+    fn bounded_control_sender_exits_when_receiver_is_cancelled() {
+        let (tx, rx) = mpsc::channel(1);
+        tx.try_send(vec![1]).unwrap();
+        let sender = std::thread::spawn(move || tx.blocking_send(vec![2]).is_err());
+        drop(rx);
+        assert!(sender.join().unwrap());
+    }
+
+    #[tokio::test]
+    async fn control_line_receiver_resumes_long_line_after_cancelled_recv() {
+        let (tx, rx) = mpsc::channel(4);
+        let mut lines = ControlLineReceiver::new(rx);
+        let chunk = vec![b'x'; CONTROL_QUEUE_CHUNK_BYTES];
+        for _ in 0..3 {
+            tx.send(chunk.clone()).await.unwrap();
+        }
+
+        // Like the control loop's timer branch, cancel recv while a partial line is pending.
+        assert!(
+            tokio::time::timeout(Duration::from_millis(10), lines.recv())
+                .await
+                .is_err()
+        );
+        assert_eq!(lines.pending.len(), 3 * CONTROL_QUEUE_CHUNK_BYTES);
+        assert_eq!(lines.searched, lines.pending.len());
+
+        tx.send(b"\r\nnext\nfinal\r".to_vec()).await.unwrap();
+        drop(tx);
+        assert_eq!(
+            lines.recv().await.unwrap(),
+            vec![b'x'; 3 * CONTROL_QUEUE_CHUNK_BYTES]
+        );
+        assert_eq!(lines.recv().await.as_deref(), Some(b"next".as_slice()));
+        assert_eq!(lines.recv().await.as_deref(), Some(b"final".as_slice()));
+        assert_eq!(lines.recv().await, None);
+        assert_eq!(lines.recv().await, None);
+    }
+
+    #[tokio::test]
     async fn control_attach_wait_returns_initial_output_after_success() {
-        let (tx, mut rx) = mpsc::unbounded_channel();
-        tx.send(b"%begin 1 2 0".to_vec()).unwrap();
-        tx.send(b"%output %0 hello".to_vec()).unwrap();
-        tx.send(b"%end 1 2 0".to_vec()).unwrap();
+        let (tx, rx) = mpsc::channel(4);
+        let mut rx = ControlLineReceiver::new(rx);
+        tx.send(b"%begin 1 2 0\n".to_vec()).await.unwrap();
+        tx.send(b"%output %0 hello\n".to_vec()).await.unwrap();
+        tx.send(b"%end 1 2 0\n".to_vec()).await.unwrap();
 
         let pending = wait_for_control_attach(&mut rx).await.unwrap();
         assert_eq!(
@@ -378,10 +498,13 @@ mod tests {
 
     #[tokio::test]
     async fn control_attach_wait_reports_tmux_error_detail() {
-        let (tx, mut rx) = mpsc::unbounded_channel();
-        tx.send(b"%begin 1 2 0".to_vec()).unwrap();
-        tx.send(b"can't find session: missing".to_vec()).unwrap();
-        tx.send(b"%error 1 2 0".to_vec()).unwrap();
+        let (tx, rx) = mpsc::channel(4);
+        let mut rx = ControlLineReceiver::new(rx);
+        tx.send(b"%begin 1 2 0\n".to_vec()).await.unwrap();
+        tx.send(b"can't find session: missing\n".to_vec())
+            .await
+            .unwrap();
+        tx.send(b"%error 1 2 0\n".to_vec()).await.unwrap();
 
         let error = wait_for_control_attach(&mut rx).await.unwrap_err();
         assert_eq!(error.to_string(), "can't find session: missing");
