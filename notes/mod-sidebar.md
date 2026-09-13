@@ -55,6 +55,8 @@ The grip polls `Input.GetMouseButton*`, not IMGUI events: absorbing windows can 
 initial press and off-screen release. It saves settings on release, owns the panel's
 right edge, keeps tab/add hit gates short of that edge, and sends the measured pane shape with
 the background redraw request so every live tmux pane is ready before an inactive tab opens.
+`UiMenuWindowStack` closes menus before vanilla promotes a clicked outside window. Otherwise
+the fullscreen terminal can hide a standing menu, leaving the sidebar's hover gate blocked.
 
 `WorkspaceLayout` owns the panel rectangle, so the navigation can move to the right without
 changing the row model. Fixed chrome uses screen-space panel coordinates; agent rows and
