@@ -29,7 +29,11 @@ with the tmux session and moves the fallback entry. Ephemeral sessions are never
 A control-mode client (`tmux -C attach`, on a pty) feeds `%output` into the
 emulator, which renders on an **8ms coalescing tick**. `%output` is the pane's
 bytes *raw* - tmux parses them for its own screen and copies them to control
-clients untouched - so escapes an app aims at its terminal arrive here.
+clients untouched - so escapes an app aims at its terminal arrive here. The control
+reader backpressures through a 256-chunk, 16 KiB-per-chunk queue (about 4 MiB of
+queued transport bytes), reassembling lines after dequeue so long logical lines are
+not truncated. Dropping the receiver wakes the blocking reader and lets its control
+client be cleaned up; no terminal bytes are dropped.
 
 tmux is the pane's terminal and answers terminal queries itself. The local mirror ignores its
 VT engine's `PtyWrite` events: injecting a second device-attributes response after tmux's answer

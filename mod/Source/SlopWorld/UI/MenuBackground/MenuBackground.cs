@@ -36,6 +36,8 @@ namespace SlopWorld
         }
 
         static LayoutState _layout;
+        static string _failedKey;
+        static float _retryAt;
         static AnimationState _animation = new AnimationState
         {
             Began = -1f,
@@ -145,32 +147,51 @@ namespace SlopWorld
             MenuBackgroundPreset preset = Chosen;
             string key = MenuBackgroundBake.Key(source, preset);
             if (_frames != null && _srcKey == key) return true;
+            // Drawing can call Ready several times per frame. Keep the resident set during
+            // failures and give disk/decode errors a cooldown before doing expensive work again.
+            if (_failedKey == key && Time.realtimeSinceStartup < _retryAt)
+                return _frames != null;
 
-            _src = source;
-            _srcKey = key;
-            _preset = preset;
-            _began = -1f;
-
-            // The set being replaced is left to Unity. Its textures are marked
-            // DontUnloadUnusedAsset, so they stay resident - the same price an expansion
-            // background switch has always cost, paid once more if the setting is turned over.
+            // Build before touching the resident layout. The source belongs to vanilla (or the
+            // content pack), so a failed replacement must leave both it and the current frames
+            // available for the caller to keep drawing.
+            Texture2D[] replacement = null;
             try
             {
-                _frames = MenuBackgroundBake.Load(key, preset) ??
+                replacement = MenuBackgroundBake.Load(key, preset) ??
                     MenuBackgroundBake.Bake(source, key, preset);
             }
             catch (Exception e)
             {
                 // A background that will not bake is a cosmetic loss. Parallel.For hands back
-                // an AggregateException whose own Message says only that one happened, so the
-                // cause is unwrapped or the single line this path ever prints says nothing.
+                // an AggregateException whose own Message says only that one happened, so
+                // unwrap the cause to make the warning useful.
                 if (e is AggregateException agg) e = agg.Flatten().InnerException ?? e;
-                Log.Warning($"[SlopWorld] background bake failed, leaving it clean: {e}");
-                _frames = null;
+                _failedKey = key;
+                _retryAt = Time.realtimeSinceStartup + 60f;
+                Log.Warning($"[SlopWorld] background bake failed, retrying in 60 seconds: {e}");
+                return _frames != null;
             }
 
-            if (_frames != null) MenuBackgroundBake.Sweep(key);
-            return _frames != null;
+            if (replacement == null)
+            {
+                _failedKey = key;
+                _retryAt = Time.realtimeSinceStartup + 60f;
+                return _frames != null;
+            }
+            _failedKey = null;
+
+            // Transfer ownership on the main thread, then release only the retired set. The
+            // source is never ours to destroy; it remains the bake input across preset changes.
+            Texture2D[] retired = _frames;
+            _frames = replacement;
+            _src = source;
+            _srcKey = key;
+            _preset = preset;
+            _began = -1f;
+            MenuBackgroundBake.DestroyFrames(retired);
+            MenuBackgroundBake.Sweep(key);
+            return true;
         }
 
         // So the source capture below never bakes the rot from an already-rotted frame.

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.IO;
 using System.Net.Sockets;
 using System.Security.Cryptography;
@@ -8,12 +9,146 @@ using System.Threading;
 
 namespace SlopWorld
 {
+    internal enum IncomingEnqueueResult
+    {
+        Accepted,
+        Closed,
+        Oversized,
+    }
+
+    // A bounded, lossless queue for socket events. Live screens are replaceable while they are
+    // still waiting for the main thread; replies, history and control events wait for space.
+    internal sealed class IncomingMessageQueue
+    {
+        // These are UTF-8 payload budgets. The queue may retain at most 256 messages and 16 MiB;
+        // a single message above 8 MiB is rejected before it can occupy the queue.
+        internal const int MaxMessages = 256;
+        internal const int MaxBytes = 16 * 1024 * 1024;
+        internal const int MaxMessageBytes = 8 * 1024 * 1024;
+
+        sealed class Entry
+        {
+            public readonly string Text;
+            public readonly string LiveName;
+            public readonly int Bytes;
+
+            public Entry(string text, string liveName, int bytes)
+            {
+                Text = text;
+                LiveName = liveName;
+                Bytes = bytes;
+            }
+        }
+
+        readonly object _gate = new object();
+        readonly LinkedList<Entry> _queue = new LinkedList<Entry>();
+        readonly Dictionary<string, LinkedListNode<Entry>> _latestLive =
+            new Dictionary<string, LinkedListNode<Entry>>(StringComparer.Ordinal);
+        int _bytes;
+        bool _closed;
+
+        public int Count
+        {
+            get { lock (_gate) return _queue.Count; }
+        }
+
+        public int Bytes
+        {
+            get { lock (_gate) return _bytes; }
+        }
+
+        public IncomingEnqueueResult Enqueue(string text)
+        {
+            if (text == null) return IncomingEnqueueResult.Oversized;
+
+            int bytes = Encoding.UTF8.GetByteCount(text);
+            if (bytes > MaxMessageBytes) return IncomingEnqueueResult.Oversized;
+
+            // Classification happens before the queue lock so a blocked producer never holds
+            // the lock while parsing. An ambiguous or malformed message is never coalesced.
+            HubEventBatch.TryLiveScreenName(text, out var liveName);
+            lock (_gate)
+            {
+                while (!_closed)
+                {
+                    // Remove the old live frame before testing capacity. Appending the new one
+                    // keeps every non-live event in order, including replies between frames.
+                    if (liveName != null && _latestLive.TryGetValue(liveName, out var old))
+                        Remove(old);
+
+                    if (_queue.Count < MaxMessages && _bytes + bytes <= MaxBytes)
+                    {
+                        var node = _queue.AddLast(new Entry(text, liveName, bytes));
+                        _bytes += bytes;
+                        if (liveName != null) _latestLive[liveName] = node;
+                        Monitor.PulseAll(_gate);
+                        return IncomingEnqueueResult.Accepted;
+                    }
+
+                    // Lossless events apply backpressure to the websocket reader. Dispose and
+                    // connection failure pulse this wait, so a blocked producer can exit.
+                    Monitor.Wait(_gate);
+                }
+            }
+            return IncomingEnqueueResult.Closed;
+        }
+
+        public bool TryDequeue(out string text)
+        {
+            return TryDequeue(out text, out _);
+        }
+
+        internal bool TryDequeue(out string text, out string liveName)
+        {
+            lock (_gate)
+            {
+                if (_queue.First == null)
+                {
+                    text = null;
+                    liveName = null;
+                    return false;
+                }
+
+                var node = _queue.First;
+                text = node.Value.Text;
+                liveName = node.Value.LiveName;
+                Remove(node);
+                Monitor.PulseAll(_gate);
+                return true;
+            }
+        }
+
+        public void Close()
+        {
+            lock (_gate)
+            {
+                _closed = true;
+                // A disconnected socket has no useful events left. Clearing here also releases
+                // the retained strings while waking any producer blocked on the budget.
+                _queue.Clear();
+                _latestLive.Clear();
+                _bytes = 0;
+                Monitor.PulseAll(_gate);
+            }
+        }
+
+        void Remove(LinkedListNode<Entry> node)
+        {
+            _queue.Remove(node);
+            _bytes -= node.Value.Bytes;
+            if (node.Value.LiveName != null &&
+                _latestLive.TryGetValue(node.Value.LiveName, out var current) &&
+                ReferenceEquals(current, node))
+                _latestLive.Remove(node.Value.LiveName);
+        }
+    }
+
     // Text frames, ping/pong, close. ClientWebSocket is not dependable on Unity's
     // mono and less so under Wine, so we speak the protocol over a plain TcpClient.
     // Reads happen on a background thread; callers drain Incoming.
     public partial class MiniWebSocket : IDisposable
     {
-        public readonly ConcurrentQueue<string> Incoming = new ConcurrentQueue<string>();
+        internal readonly IncomingMessageQueue Incoming = new IncomingMessageQueue();
         readonly ConcurrentQueue<string> _outgoing = new ConcurrentQueue<string>();
 
         // A frame is one screen's worth of SGR text, and the daemon clamps a pane to 500x200,
@@ -270,7 +405,7 @@ namespace SlopWorld
                             if (frame.Fin)
                             {
                                 if (fragOpcode == 0x1)
-                                    Incoming.Enqueue(Encoding.UTF8.GetString(frag.ToArray()));
+                                    EnqueueIncoming(Encoding.UTF8.GetString(frag.ToArray()));
                                 frag.SetLength(0);
                                 fragOpcode = 0;
                             }
@@ -279,7 +414,7 @@ namespace SlopWorld
                         case 0x1: // text
                             if (frame.Fin)
                             {
-                                Incoming.Enqueue(Encoding.UTF8.GetString(payload));
+                                EnqueueIncoming(Encoding.UTF8.GetString(payload));
                             }
                             else
                             {
@@ -311,10 +446,24 @@ namespace SlopWorld
             }
         }
 
+        void EnqueueIncoming(string text)
+        {
+            switch (Incoming.Enqueue(text))
+            {
+                case IncomingEnqueueResult.Accepted:
+                    return;
+                case IncomingEnqueueResult.Closed:
+                    throw new IOException("websocket incoming queue closed");
+                case IncomingEnqueueResult.Oversized:
+                    throw new IOException($"websocket message exceeds {IncomingMessageQueue.MaxMessageBytes} bytes");
+            }
+        }
+
         public void Dispose()
         {
             _closing = true;
             _connected = false;
+            Incoming.Close();
             _sendSignal.Set();
             Cleanup();
         }
@@ -323,6 +472,7 @@ namespace SlopWorld
         {
             try { _net?.Close(); } catch { }
             try { _tcp?.Close(); } catch { }
+            Incoming.Close();
             _net = null;
             _tcp = null;
         }

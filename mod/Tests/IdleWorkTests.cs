@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Threading;
 
 namespace SlopWorld.Tests
 {
@@ -37,6 +38,48 @@ namespace SlopWorld.Tests
             AssertEx.Equal(true, batch.ShouldDispatch(2), "coalescing indices reset");
             AssertEx.Equal(0, batch.Read(queue, onError), "return to idle");
             AssertEx.Equal(0, batch.Count, "no stale payload on idle frame");
+
+            var bounded = new IncomingMessageQueue();
+            AssertEx.Equal(IncomingEnqueueResult.Accepted,
+                bounded.Enqueue(Screen("a", 1)), "first live screen accepted");
+            AssertEx.Equal(IncomingEnqueueResult.Accepted,
+                bounded.Enqueue("{\"t\":\"reply\",\"id\":2}"), "reply accepted");
+            AssertEx.Equal(IncomingEnqueueResult.Accepted,
+                bounded.Enqueue(Screen("a", 3)), "new live screen accepted");
+            AssertEx.Equal(2, bounded.Count, "same-session live screen coalesced before parsing");
+
+            var boundedBatch = new HubEventBatch();
+            AssertEx.Equal(2, boundedBatch.Read(bounded, onError), "bounded queue drained");
+            var boundedDelivered = new List<int>();
+            for (int i = 0; i < boundedBatch.Count; i++)
+                if (boundedBatch.ShouldDispatch(i)) boundedDelivered.Add(boundedBatch[i]["id"].AsInt());
+            AssertEx.Equal("2,3", string.Join(",", boundedDelivered),
+                "reply order survives live-screen replacement");
+
+            AssertEx.Equal(IncomingEnqueueResult.Oversized,
+                bounded.Enqueue(new string('x', IncomingMessageQueue.MaxMessageBytes + 1)),
+                "oversized individual message rejected");
+
+            var overloaded = new IncomingMessageQueue();
+            for (int i = 0; i < IncomingMessageQueue.MaxMessages; i++)
+                AssertEx.Equal(IncomingEnqueueResult.Accepted,
+                    overloaded.Enqueue("{\"t\":\"status\",\"id\":" + i + "}"),
+                    "lossless queue fill");
+            IncomingEnqueueResult blockedResult = IncomingEnqueueResult.Accepted;
+            using (var started = new ManualResetEvent(false))
+            {
+                var producer = new Thread(() =>
+                {
+                    started.Set();
+                    blockedResult = overloaded.Enqueue("{\"t\":\"reply\",\"id\":999}");
+                });
+                producer.Start();
+                AssertEx.True(started.WaitOne(1000), "overload producer started");
+                overloaded.Close();
+                AssertEx.True(producer.Join(1000), "disconnect releases blocked producer");
+            }
+            AssertEx.Equal(IncomingEnqueueResult.Closed, blockedResult,
+                "blocked producer observes disconnect");
         }
 
         static string Screen(string name, int id, int off = 0, int request = 0) =>

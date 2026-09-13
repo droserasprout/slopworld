@@ -57,3 +57,8 @@ Frames load non-readable, dropping the CPU-side copy Unity keeps beside the GPU
 one — half the set's resident cost, and what paid for the second axis. `Sweep`
 drops directories nothing has loaded from in `KeepDays`; `Load` touches the write
 time, so two sets a player toggles between both count as in use.
+
+The resident frame set owns its generated textures. Replacements are built before the
+old set is destroyed; partial loads and bakes release their allocations on failure.
+The source texture remains owned by vanilla or its content pack. Failed replacements
+keep the resident set and wait 60 seconds before retrying the same cache key.

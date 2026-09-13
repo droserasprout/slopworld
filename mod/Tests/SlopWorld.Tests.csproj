@@ -33,6 +33,8 @@
     <Compile Include="../Source/SlopWorld/UI/Terminal/TerminalPanelGeometry.cs" Link="Source/UI/Terminal/TerminalPanelGeometry.cs" />
     <Compile Include="../Source/SlopWorld/Settings/FramePolicy.cs" Link="Source/Settings/FramePolicy.cs" />
     <Compile Include="../Source/SlopWorld/Client/SessionHub/HubEventBatch.cs" Link="Source/Client/SessionHub/HubEventBatch.cs" />
+    <Compile Include="../Source/SlopWorld/Client/Transport/MiniWebSocket.cs" Link="Source/Client/Transport/MiniWebSocket.cs" />
+    <Compile Include="../Source/SlopWorld/Client/Transport/MiniWebSocket.Frames.cs" Link="Source/Client/Transport/MiniWebSocket.Frames.cs" />
     <Compile Include="../Source/SlopWorld/Sim/Lifecycle/PeriodicWork.cs" Link="Source/Sim/Lifecycle/PeriodicWork.cs" />
     <Compile Include="../Source/SlopWorld/Sim/Lifecycle/HiddenWorkCadence.cs" Link="Source/Sim/Lifecycle/HiddenWorkCadence.cs" />
     <Compile Include="../Source/SlopWorld/Sim/Colony/ColonySessionIndex.cs" Link="Source/Sim/Colony/ColonySessionIndex.cs" />
