@@ -22,6 +22,7 @@ namespace SlopWorld
         {
 
             UiLayout.SectionHeading(l, "Statusbar");
+            UiLayout.Note(l, "Statusbar changes apply immediately and are written when Settings closes.");
             UiControls.CheckboxSetting(l, "Show Usage in statusbar", S, ref S.statusbarUsage,
                 "Show quota readouts in the top statusbar.");
             UiControls.CheckboxSetting(l, "Show spent instead of left", S, ref S.usageSpent,
@@ -39,9 +40,6 @@ namespace SlopWorld
                 "Show the jukebox door when a jukebox is present.");
             UiControls.CheckboxSetting(l, "Show GM in statusbar", S, ref S.statusbarGM,
                 "Show the Computer Core door when the core is present.");
-            UiControls.CheckboxSetting(l, "Show agent status indicators", S, ref S.statusbarAgentIndicators,
-                "Show autostart, resume-on-start, and host-network flags in Agents.");
-
         }
 
         static void SetClockPosition(string position)

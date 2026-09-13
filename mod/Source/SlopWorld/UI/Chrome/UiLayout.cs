@@ -108,6 +108,22 @@ namespace SlopWorld
             }
         }
 
+        public static void Validation(Listing_Standard l, string text)
+        {
+            if (string.IsNullOrEmpty(text)) return;
+            using (WidgetState.Save())
+            {
+                GUI.color = Bad;
+                l.Label(text);
+            }
+        }
+
+        public static void ValidationLabel(Rect rect, string text)
+        {
+            if (string.IsNullOrEmpty(text)) return;
+            UiText.StatusLabel(rect, text, Bad, GameFont.Tiny);
+        }
+
         public struct Bar
         {
             Rect _r;

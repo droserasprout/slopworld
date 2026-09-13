@@ -1,19 +1,29 @@
+using System;
 using RimWorld;
 using UnityEngine;
 using Verse;
 
 namespace SlopWorld
 {
-    // Shared shell for pages that read daemon config: the form body is scrollable, while the
-    // concrete page supplies its fields and any save-time conversion it needs.
-    public abstract class DaemonConfigPage : IOptionPage
+    // Shared shell for pages that read daemon config: the form is disposable, while the draft
+    // and its request lifecycle live in DaemonConfigState. Concrete pages only own field layout
+    // and validation/conversion.
+    public abstract class DaemonConfigPage : IOptionPage, IDisposable
     {
-        readonly DaemonConfigState _configState = new DaemonConfigState();
+        protected readonly DaemonConfigState _configState;
+        bool _disposed;
+
+        protected DaemonConfigPage()
+        {
+            _configState = new DaemonConfigState(GetType().FullName);
+        }
 
         protected DaemonConfig _cfg => _configState.Config;
         protected string _path => _configState.Path;
         protected string _error { get => _configState.Error; set => _configState.Error = value; }
         protected bool _loaded => _configState.Loaded;
+        protected bool _saving => _configState.Saving;
+        protected bool _dirty => _configState.Dirty;
 
         readonly ScrollableListing _listing = new ScrollableListing();
 
@@ -23,6 +33,7 @@ namespace SlopWorld
         protected virtual bool ShowEditButton => false;
         protected virtual bool ShowSaveButton => true;
         protected virtual string SavedMessage => null;
+        protected virtual string SaveScope => null;
 
         protected abstract void DrawFields(Listing_Standard l);
 
@@ -31,20 +42,33 @@ namespace SlopWorld
         protected virtual float DrawTrailingFields(Rect rect, float y) => y;
 
         protected virtual void AfterLoad() { }
-
-        // Hooks keep raw text in the form until Save, where concrete pages can parse it once.
-        protected virtual void BeforeSave() { }
-
-        protected virtual void DrawOverlay(Rect rect) { }
-
+        protected virtual void AfterDiscard() { }
         protected virtual void AfterSave() { }
 
-        public void Load()
+        // Return false without changing _cfg when field text is incomplete or invalid. This is
+        // deliberately separate from validation so a save cannot submit a partially parsed form.
+        protected virtual bool PrepareSave(out string error)
         {
-            _configState.Load(RefreshHealthOnLoad, AfterLoad);
+            error = null;
+            return true;
         }
 
-        public void Draw(Rect rect)
+        protected virtual string ValidationError => null;
+
+        public virtual void Load()
+        {
+            _configState.Load(RefreshHealthOnLoad, () =>
+            {
+                if (_disposed) return;
+                // The form stays editable during reload. Check the merged draft now so
+                // edits made while the request was pending never become a clean baseline.
+                bool clean = !_configState.Dirty;
+                AfterLoad();
+                if (clean) _configState.MarkCurrentClean();
+            });
+        }
+
+        public virtual void Draw(Rect rect)
         {
             using (WidgetState.Save()) DrawCore(rect);
         }
@@ -63,7 +87,7 @@ namespace SlopWorld
                 DrawFieldsBody(inner);
             }
 
-            DrawFooter(SettingsPageLayout.Footer(rect));
+            DrawConfigFooter(SettingsPageLayout.Footer(rect));
             DrawOverlay(rect);
         }
 
@@ -72,34 +96,84 @@ namespace SlopWorld
             _listing.Draw(r, DrawFields, DrawTrailingFields);
         }
 
-        void DrawFooter(Rect bar)
+        protected void DrawConfigFooter(Rect bar)
         {
             var foot = new UiLayout.Bar(bar);
-            if (foot.Left("Reload", UiTheme.Btn.Ghost, !_configState.Saving)) Load();
+            if (foot.Left("Reload", UiTheme.Btn.Ghost, !_saving)) Load();
             if (ShowEditButton && foot.Left("Edit", UiTheme.Btn.Ghost,
                     _loaded && !string.IsNullOrEmpty(_path)))
                 FilesView.EditFile(null, _path, "edit-config.toml");
-            if (ShowSaveButton && foot.Right("Save", UiTheme.Btn.Primary,
-                    _loaded && !_configState.Saving)) Save();
 
-            if (_error != null && _loaded)
-            {
-                GUI.color = UiTheme.Bad;
-                UiText.RowLabel(foot.Rest(), _error);
-                GUI.color = Color.white;
-            }
+            if (ShowSaveButton && foot.Right("Discard", UiTheme.Btn.Ghost,
+                    _loaded && _dirty && !_saving)) DiscardConfig();
+            if (ShowSaveButton && foot.Right("Save", UiTheme.Btn.Primary, CanSave)) SaveConfig();
+            DrawConfigStatus(foot);
         }
 
-        void Save()
+        protected void DrawConfigStatus(UiLayout.Bar foot)
         {
-            if (!_loaded) return;
-            _configState.Save(BeforeSave, () =>
+            string message = ValidationError;
+            Color color = UiTheme.Bad;
+            if (_saving)
             {
+                message = "Saving…";
+                color = UiTheme.Dim;
+            }
+            else if (string.IsNullOrEmpty(message)) message = _error ?? _configState.ConflictMessage;
+            if (string.IsNullOrEmpty(message) && _loaded && _dirty)
+            {
+                message = "Unsaved changes";
+                color = UiTheme.Warn;
+            }
+            if (string.IsNullOrEmpty(message) && _loaded && ShowSaveButton)
+            {
+                message = "Save to apply";
+                color = UiTheme.Dim;
+            }
+            if (!string.IsNullOrEmpty(message) && !string.IsNullOrEmpty(SaveScope) &&
+                (_saving || message == "Unsaved changes" || message == "Save to apply"))
+                message += " · " + SaveScope;
+            if (string.IsNullOrEmpty(message)) return;
+
+            GUI.color = color;
+            UiText.RowLabel(foot.Rest(), message);
+            GUI.color = Color.white;
+        }
+
+        protected bool CanSave => _loaded && !_saving && _dirty &&
+            string.IsNullOrEmpty(ValidationError);
+
+        protected void SaveConfig(Action saved = null)
+        {
+            if (!_loaded || _saving) return;
+            if (!PrepareSave(out string preparationError))
+            {
+                _error = preparationError;
+                return;
+            }
+            if (!string.IsNullOrEmpty(ValidationError)) return;
+
+            _configState.Save(() =>
+            {
+                if (_disposed) return;
                 AfterSave();
+                saved?.Invoke();
                 if (!string.IsNullOrEmpty(SavedMessage))
                     Messages.Message("SlopWorld: " + SavedMessage,
                         MessageTypeDefOf.TaskCompletion, false);
             });
         }
+
+        protected void DiscardConfig()
+        {
+            if (!_loaded || _saving) return;
+            _configState.Discard();
+            AfterDiscard();
+            _configState.MarkCurrentClean();
+        }
+
+        protected virtual void DrawOverlay(Rect rect) { }
+
+        public virtual void Dispose() { _disposed = true; }
     }
 }

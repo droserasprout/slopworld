@@ -15,6 +15,11 @@ namespace SlopWorld.Tests
             yield return ("patches retain nested resets and pending edits", NestedPatchChanges);
             yield return ("splits and joins line lists", SplitsAndJoinsLineLists);
             yield return ("renders instructions breadcrumb variables", RendersInstructionsBreadcrumb);
+            yield return ("merges refreshes around drafts and reports conflicts", DraftRefreshMerge);
+            yield return ("usage inheritance stays blank across reload and discard", UsageInheritanceText);
+            yield return ("reload preserves edits made after the request starts", PendingReloadEdits);
+            yield return ("validates settings numeric boundaries", NumericValidation);
+            yield return ("operation generations reject stale completions", OperationGenerations);
         }
 
         static void IndependentPageSaves()
@@ -224,6 +229,162 @@ namespace SlopWorld.Tests
             AssertEx.Equal("Read docs/SLOPWORLD.md (repo; SLOPWORLD.md) {{ unknown }}",
                            config.RenderInstructionsBreadcrumb("repo"),
                            "instructions breadcrumb variables");
+        }
+
+        static void DraftRefreshMerge()
+        {
+            var first = new DaemonConfig
+            {
+                TitleModel = "first-model",
+                InstructionsTemplate = "base template",
+            };
+            var draft = new DaemonConfigDraft();
+            draft.LoadServer(first);
+            draft.MarkCurrentClean();
+            draft.Config.InstructionsTemplate = "local draft";
+
+            var refreshed = new DaemonConfig
+            {
+                TitleModel = "server model",
+                InstructionsTemplate = "base template",
+            };
+            draft.LoadServer(refreshed);
+            AssertEx.Equal("local draft", draft.Config.InstructionsTemplate,
+                           "dirty template survives refresh");
+            AssertEx.Equal("server model", draft.Config.TitleModel,
+                           "untouched field follows refresh");
+            AssertEx.True(!draft.HasConflicts, "unchanged draft field has no conflict");
+
+            var conflicting = new DaemonConfig
+            {
+                TitleModel = "new server model",
+                InstructionsTemplate = "external template",
+            };
+            draft.LoadServer(conflicting);
+            AssertEx.Equal("local draft", draft.Config.InstructionsTemplate,
+                           "conflicting draft is not overwritten");
+            AssertEx.True(draft.HasConflicts, "same-field conflict is surfaced");
+            AssertEx.True(draft.ConflictMessage.Contains("instructions.template"),
+                           "conflict names the field");
+
+            draft.ResetToBaseline();
+            AssertEx.Equal("external template", draft.Config.InstructionsTemplate,
+                           "discard uses latest server value");
+            AssertEx.False(draft.IsDirty, "discard clears the draft");
+
+            var raw = new DaemonConfigDraft();
+            raw.LoadServer(new DaemonConfig { TitleMinChars = 20 });
+            raw.MarkCurrentClean();
+            AssertEx.Equal("20", raw.Text("title", "daemon.title_min_chars", "20"),
+                           "raw field starts with server text");
+            raw.SetText("title", "daemon.title_min_chars", "2");
+            raw.LoadServer(new DaemonConfig { TitleMinChars = 30 });
+            AssertEx.Equal("2", raw.Text("title", "daemon.title_min_chars", "30"),
+                           "partial raw field survives refresh");
+            AssertEx.True(raw.IsDirty, "partial raw field remains dirty");
+            raw.SetText("title", "daemon.title_min_chars", "030");
+            raw.QueueNormalization("title", "daemon.title_min_chars", "30");
+            raw.Acknowledge(raw.Config.ToPatchJson(), raw.TextSnapshot());
+            raw.ApplyQueuedNormalizations();
+            AssertEx.Equal("30", raw.Text("title", "daemon.title_min_chars", "30"),
+                           "accepted raw field normalizes after acknowledgement");
+            AssertEx.False(raw.IsDirty, "normalization keeps the acknowledged field clean");
+            raw.SetText("title", "daemon.title_min_chars", "31");
+            raw.QueueNormalization("title", "daemon.title_min_chars", "30");
+            raw.Acknowledge(raw.Config.ToPatchJson(), raw.TextSnapshot());
+            raw.SetText("title", "daemon.title_min_chars", "32");
+            raw.ApplyQueuedNormalizations();
+            AssertEx.Equal("32", raw.Text("title", "daemon.title_min_chars", "30"),
+                           "edited raw field is not normalized over a newer edit");
+            raw.ResetToBaseline();
+            AssertEx.Equal("30", raw.Text("title", "daemon.title_min_chars", "30"),
+                           "discard replaces raw field with latest server text");
+            AssertEx.False(raw.IsDirty, "raw discard clears dirty state");
+        }
+
+        static void UsageInheritanceText()
+        {
+            const string key = "usage.item.claude_session";
+            const string path = "daemon.usage_items.claude_session.interval_secs";
+            var server = new DaemonConfig();
+            server.UsageItems["claude_session"] = new DaemonConfig.UsageItemConfig
+            {
+                Poll = true,
+                IntervalSecs = 0,
+            };
+            var draft = new DaemonConfigDraft();
+            draft.LoadServer(server);
+            draft.Text(key, path, "", zeroMeansBlank: true);
+            draft.LoadServer(DaemonConfig.FromJson(JVal.Parse(server.ToPatchJson())));
+            AssertEx.Equal("", draft.Text(key, path, ""), "reload preserves inheritance");
+            AssertEx.False(draft.IsDirty, "inherited interval remains clean");
+            draft.SetText(key, path, "60");
+            draft.ResetToBaseline();
+            AssertEx.Equal("", draft.Text(key, path, ""), "discard restores inheritance");
+            AssertEx.False(draft.IsDirty, "discarded interval remains clean");
+
+            server.UsageItems["claude_session"].IntervalSecs = 90;
+            draft.LoadServer(server);
+            AssertEx.Equal("90", draft.Text(key, path, ""), "explicit interval stays numeric");
+            draft.Text("minimum", "daemon.title_min_chars", "0");
+            server.TitleMinChars = 0;
+            draft.LoadServer(server);
+            AssertEx.Equal("0", draft.Text("minimum", "daemon.title_min_chars", "0"),
+                           "ordinary numeric zero stays visible");
+        }
+
+        static void PendingReloadEdits()
+        {
+            var draft = new DaemonConfigDraft();
+            draft.LoadServer(new DaemonConfig { InstructionsTemplate = "server" });
+            AssertEx.False(draft.IsDirty, "reload starts with a clean form");
+            draft.BeginOperation();
+            draft.Config.InstructionsTemplate = "typed while loading";
+            draft.LoadServer(new DaemonConfig { InstructionsTemplate = "server" });
+            AssertEx.True(draft.IsDirty, "merged draft requires saving before page defaults");
+            AssertEx.True(draft.Config.ToPatchJson(draft.BaselineJson)
+                .Contains("typed while loading"), "pending edit remains in save patch");
+            draft.LoadServer(new DaemonConfig { InstructionsTemplate = "server" });
+            AssertEx.Equal("typed while loading", draft.Config.InstructionsTemplate,
+                           "another reload retains the unsaved edit");
+        }
+
+        static void NumericValidation()
+        {
+            int value;
+            string error;
+            AssertEx.True(DaemonConfigValidation.WholeSeconds("10", false, out value, out error),
+                           "minimum poll interval accepted");
+            AssertEx.Equal(10, value, "minimum poll value");
+            AssertEx.True(DaemonConfigValidation.WholeSeconds("3600", false, out value, out error),
+                           "maximum poll interval accepted");
+            AssertEx.False(DaemonConfigValidation.WholeSeconds("9", false, out value, out error),
+                           "below-range poll rejected");
+            AssertEx.False(DaemonConfigValidation.WholeSeconds("3601", false, out value, out error),
+                           "above-range poll rejected");
+            AssertEx.False(DaemonConfigValidation.WholeSeconds("1.5", false, out value, out error),
+                           "fractional poll rejected");
+            AssertEx.True(DaemonConfigValidation.WholeSeconds("", true, out value, out error),
+                           "blank row inherits");
+            AssertEx.False(DaemonConfigValidation.WholeSeconds("", false, out value, out error),
+                           "blank global poll rejected");
+            AssertEx.True(DaemonConfigValidation.TitleMinimum("0", out value, out error),
+                           "minimum title length accepted");
+            AssertEx.True(DaemonConfigValidation.TitleMinimum("2000", out value, out error),
+                           "maximum title length accepted");
+            AssertEx.False(DaemonConfigValidation.TitleMinimum("2001", out value, out error),
+                           "above-range title length rejected");
+            AssertEx.False(DaemonConfigValidation.TitleMinimum("", out value, out error),
+                           "blank title length rejected");
+        }
+
+        static void OperationGenerations()
+        {
+            var draft = new DaemonConfigDraft();
+            int first = draft.BeginOperation();
+            int second = draft.BeginOperation();
+            AssertEx.False(draft.IsCurrent(first), "older operation rejected");
+            AssertEx.True(draft.IsCurrent(second), "new operation accepted");
         }
     }
 }

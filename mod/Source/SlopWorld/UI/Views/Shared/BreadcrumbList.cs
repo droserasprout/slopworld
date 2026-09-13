@@ -57,8 +57,11 @@ namespace SlopWorld
                 bool was = b.Instructions ? b.On : forced || chosen.Contains(b.Name);
                 string tip = b.Instructions
                     ? "Used when this agent mounts SLOPWORLD.md and discovery is enabled in " +
-                      "Settings > General > Experimental."
+                      "Settings > Agents > Instructions. Requires both gates in Settings > " +
+                      "General > Experimental."
                     : (b.Text ?? "").Replace("\n", " ");
+                if (!b.Instructions && breadcrumbsLocked)
+                    tip += " Requires breadcrumbs in Settings > General > Experimental.";
                 choices.Add(new UiChoice<Entry>
                 {
                     Value = b,

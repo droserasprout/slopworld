@@ -108,7 +108,7 @@ namespace SlopWorld
         void DoSection(Rect r)
         {
             bool presets = _section == Section.Presets;
-            string heading = presets ? "Presets" : "Commands";
+            string heading = presets ? "Sandbox presets" : "Command presets";
             string caption = presets
                 ? "System presets are supplied by slopd. Copy one to the user list to edit it; user presets can also be new entries."
                 : "Commands say what an agent runs and which presets it requires. Copy a system command to make a user override.";

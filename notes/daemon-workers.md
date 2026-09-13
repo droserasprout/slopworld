@@ -23,7 +23,7 @@ re-adopted under its parent. Ordinary session creation and editing cannot set it
 receives a fresh private-state identity, the exact
 `SLOPWORLD_TASK_ID`, and the configured `[daemon.instructions] worker_prompt`, then uses
 `slopctl task ID`, `accept`, `progress`, and `finish` against its own mailbox. The default prompt
-describes that exact-task workflow. Settings > Integrations > Workers edits or resets this
+describes that exact-task workflow. Settings > Agents > Workers edits or resets this
 prompt.
 The `slopworld-worker` sandbox preset supplies
 a run-scoped API credential through `SLOPD_URL` and `SLOPD_TOKEN`; it does not expose the daemon

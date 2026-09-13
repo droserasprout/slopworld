@@ -8,21 +8,16 @@ using Verse;
 namespace SlopWorld
 {
     // The generated SLOPWORLD.md belongs to the daemon, but its template and discovery knobs
-    // are small enough to keep beside the other Integrations settings. Preview asks slopd to
+    // are small enough to keep beside the other Agents settings. Preview asks slopd to
     // render the unsaved template, then feeds that text to the native Markdown viewer.
-    public sealed class InstructionsPage : IOptionPage, IDisposable
+    public sealed class InstructionsPage : DaemonConfigPage, IDisposable
     {
         enum Tab { Editor, Preview }
 
-        readonly DaemonConfigState _configState = new DaemonConfigState();
         readonly AsyncLoadState<string> _previewLoad = new AsyncLoadState<string>();
         bool _previewSample;
         string _previewProject;
         Tab _tab;
-
-        DaemonConfig _cfg => _configState.Config;
-        string _error { get => _configState.Error; set => _configState.Error = value; }
-        bool _loaded => _configState.Loaded;
 
         readonly ScrollableListing _editorListing = new ScrollableListing(520f);
         readonly MarkdownPreview _preview = new MarkdownPreview("", "SLOPWORLD.md");
@@ -32,23 +27,31 @@ namespace SlopWorld
             _preview.Opened();
         }
 
-        public void Load()
+        protected override void DrawFields(Listing_Standard l) { }
+
+        protected override void AfterLoad()
         {
-            _configState.Load(false, () =>
-            {
-                if (_tab == Tab.Preview) RequestPreview();
-            });
+            if (_tab == Tab.Preview) RequestPreview();
         }
 
-        public void Draw(Rect rect)
+        public override void Draw(Rect rect)
         {
             using (WidgetState.Save()) DrawCore(rect);
         }
 
         void DrawCore(Rect rect)
         {
+            bool instructions = EffectiveInstructions;
+            if (_lastInstructionsGate.HasValue && _lastInstructionsGate.Value && !instructions)
+            {
+                _previewLoad.Invalidate();
+                _preview.Closed();
+                _preview.SetInlineText("");
+            }
+            _lastInstructionsGate = instructions;
+
             var body = SettingsPageLayout.Body(rect);
-            if (_loaded && !_cfg.ExperimentalInstructions) _tab = Tab.Editor;
+            if (!instructions) _tab = Tab.Editor;
             Tab before = _tab;
             DrawTabs(new Rect(body.x, body.y, body.width, UiTheme.BtnH));
             if (before != _tab && _tab == Tab.Preview) RequestPreview();
@@ -74,6 +77,7 @@ namespace SlopWorld
 
         void DrawTabs(Rect r)
         {
+            bool instructions = EffectiveInstructions;
             float w = Mathf.Min(150f, (r.width - UiTheme.GapS) / 2f);
             if (UiButtons.Button(new Rect(r.x, r.y, w, r.height), "Template",
                     _tab == Tab.Editor ? UiTheme.Btn.Primary : UiTheme.Btn.Ghost))
@@ -82,8 +86,8 @@ namespace SlopWorld
                 _tab = Tab.Editor;
             }
             if (UiButtons.Button(new Rect(r.x + w + UiTheme.GapS, r.y, w, r.height),
-                    "Preview", _tab == Tab.Preview ? UiTheme.Btn.Primary : UiTheme.Btn.Ghost,
-                    _loaded && _cfg.ExperimentalInstructions))
+                "Preview", _tab == Tab.Preview ? UiTheme.Btn.Primary : UiTheme.Btn.Ghost,
+                    _loaded && instructions && !_saving))
             {
                 if (_tab != Tab.Preview) TextFieldSelection.ReleaseFocus();
                 _tab = Tab.Preview;
@@ -97,41 +101,52 @@ namespace SlopWorld
 
         void DrawEditorFields(Listing_Standard l)
         {
-            if (!_cfg.ExperimentalInstructions)
-                UiLayout.Note(l, "Enable instructions in Settings > General to edit SLOPWORLD.md instructions.");
+            bool instructions = EffectiveInstructions;
+            bool breadcrumbs = EffectiveBreadcrumbs;
+            if (!instructions || !breadcrumbs)
+            {
+                UiLayout.Note(l, "These controls use the live daemon gates in " +
+                    "Settings > General > Experimental.");
+                if (UiLayout.Button(l, "Open General > Experimental", UiTheme.Btn.Ghost))
+                    ModOptions.OpenCategory(ModOptions.CategoryFor(ModOptions.PageId.Config));
+            }
             UiLayout.SectionHeading(l, "SLOPWORLD.md");
             UiLayout.Note(l, "Generated runtime context is read-only in agent sandboxes. " +
                 "The template is rendered once for each project snapshot.");
             l.Gap(UiTheme.GapS);
             l.Label("Content template");
             _cfg.InstructionsTemplate = UiControls.Area(l, 320f, "instructions.template",
-                _cfg.InstructionsTemplate, on: _cfg.ExperimentalInstructions,
+                _cfg.InstructionsTemplate, on: instructions,
                 defaultValue: DaemonConfig.DefaultInstructionsTemplate);
             UiLayout.Note(l, "Variables: {{ runtime_context }}, {{ project }}, " +
                 "{{ mount_path }}, and {{ file }}. Unknown variables are left unchanged.");
 
             l.Gap(UiTheme.GapL);
             UiLayout.SectionHeading(l, "Discovery breadcrumb");
+            if (!breadcrumbs)
+                UiLayout.Note(l, "Requires the separate Breadcrumbs gate in General > Experimental.");
+            if (!instructions)
+                UiLayout.Note(l, "Requires the Instructions gate in General > Experimental.");
             UiLayout.Note(l, "This text is added to the agent's first prompt when the manifest " +
                 "is mounted. It is separate from the generated file body.");
             l.Label("Breadcrumb template");
             _cfg.InstructionsBreadcrumb = UiControls.Area(l, 120f, "instructions.breadcrumb",
                 _cfg.InstructionsBreadcrumb,
-                on: _cfg.ExperimentalBreadcrumbs && _cfg.ExperimentalInstructions,
+                on: breadcrumbs && instructions,
                 defaultValue: DaemonConfig.DefaultInstructionsBreadcrumb);
             UiLayout.Note(l, "Variables: {{ project }}, {{ mount_path }}, and {{ file }}. " +
                 "Unknown variables are left unchanged.");
             _cfg.InstructionsBreadcrumbEnabled = UiControls.Checkbox(l,
                 "Add discovery breadcrumb", _cfg.InstructionsBreadcrumbEnabled,
                 "Adds the configured discovery text to opted-in agents.",
-                locked: !_cfg.ExperimentalBreadcrumbs || !_cfg.ExperimentalInstructions);
+                locked: !breadcrumbs || !instructions);
             UiLayout.Note(l, "Reset changes the form only; press Save to apply it.");
 
             l.Gap(UiTheme.GapL);
             UiLayout.SectionHeading(l, "Sandbox delivery");
             l.Label("Mount path (relative to the project)");
             _cfg.InstructionsMountPath = UiControls.Field(l, "instructions.mount_path",
-                _cfg.InstructionsMountPath, on: _cfg.ExperimentalInstructions,
+                _cfg.InstructionsMountPath, on: instructions,
                 defaultValue: WireContract.DefaultInstructionsMountPath);
             UiLayout.Note(l, "The generated source remains the project-root " +
                 "SLOPWORLD.md; this is where its read-only copy appears to the agent.");
@@ -214,7 +229,7 @@ namespace SlopWorld
 
         void RequestPreview()
         {
-            if (!_loaded || _cfg == null || !_cfg.ExperimentalInstructions) return;
+            if (!_loaded || _cfg == null || !EffectiveInstructions) return;
 
             string project = PreviewProjectName();
             string body = "{" +
@@ -231,48 +246,47 @@ namespace SlopWorld
         void DoFooter(Rect bar)
         {
             var foot = new UiLayout.Bar(bar);
-            if (foot.Left("Reload", UiTheme.Btn.Ghost)) Load();
+            if (foot.Left("Reload", UiTheme.Btn.Ghost, !_saving)) Load();
             if (_tab == Tab.Editor && foot.Left("Preview", UiTheme.Btn.Ghost,
-                    _loaded && _cfg.ExperimentalInstructions))
+                    _loaded && EffectiveInstructions && !_saving))
             {
                 _tab = Tab.Preview;
                 RequestPreview();
             }
-            if (_tab == Tab.Preview && foot.Left("Refresh", UiTheme.Btn.Ghost))
+            if (_tab == Tab.Preview && foot.Left("Refresh", UiTheme.Btn.Ghost,
+                    !_saving && EffectiveInstructions))
                 RequestPreview();
-            if (foot.Right("Save", UiTheme.Btn.Primary, _loaded)) Save();
-
-            string error = _error ?? (_tab == Tab.Preview ? _previewLoad.Error : null);
-            if (error != null && _loaded)
-            {
-                GUI.color = UiTheme.Bad;
-                UiText.RowLabel(foot.Rest(), error);
-                GUI.color = Color.white;
-            }
+            if (foot.Right("Discard", UiTheme.Btn.Ghost,
+                    _loaded && _dirty && !_saving)) DiscardConfig();
+            if (foot.Right("Save", UiTheme.Btn.Primary, CanSave)) SaveConfig();
+            DrawConfigStatus(foot);
         }
 
-        void Save()
+        protected override bool PrepareSave(out string error)
         {
-            if (!_loaded) return;
-
             string path = (_cfg.InstructionsMountPath ?? "").Trim().Replace('\\', '/');
             if (path.Length == 0 || path.StartsWith("/") || path.Split('/').Any(part =>
                     part == "." || part == ".."))
             {
-                _error = "mount path must be relative to the project and cannot contain . or ..";
-                return;
+                error = "mount path must be relative to the project and cannot contain . or ..";
+                return false;
             }
             _cfg.InstructionsMountPath = path;
-
-            _configState.Save(null, () =>
-            {
-                Messages.Message("SlopWorld: instructions settings saved.",
-                    MessageTypeDefOf.TaskCompletion, false);
-            });
+            error = null;
+            return true;
         }
 
-        public void Dispose()
+        bool EffectiveInstructions => SessionHub.Instance.Config != null &&
+            SessionHub.Instance.Config.ExperimentalInstructions;
+
+        bool EffectiveBreadcrumbs => SessionHub.Instance.Config != null &&
+            SessionHub.Instance.Config.ExperimentalBreadcrumbs;
+
+        bool? _lastInstructionsGate;
+
+        public override void Dispose()
         {
+            base.Dispose();
             _previewLoad.Invalidate();
             _preview.Closed();
         }

@@ -125,8 +125,9 @@ namespace SlopWorld
             {
                 l.Begin(rect);
                 begun = true;
+                UiLayout.Note(l, "Appearance changes apply immediately and are written when Settings closes.");
                 DrawScale(l);
-                DrawLayout(l);
+                DrawDisplay(l);
                 DrawInterface(l);
                 DrawScheme(l);
                 DrawFont(l);
@@ -137,60 +138,6 @@ namespace SlopWorld
             {
                 if (begun) l.End();
             }
-        }
-
-        void DrawLayout(Listing_Standard l)
-        {
-            UiLayout.SectionHeading(l, "Workspace");
-
-            string side = NavigationSide.Normalize(S.sidebarSide);
-            UiControls.Select(l, "Navigation side", NavigationSide.Label(side),
-                new[]
-                {
-                    new SelectorOption("Left", () => SetLayout(ref S.sidebarSide,
-                        NavigationSide.Left)),
-                    new SelectorOption("Right", () => SetLayout(ref S.sidebarSide,
-                        NavigationSide.Right)),
-                }, out _);
-
-            string density = UiDensityPreset.Normalize(S.uiDensity);
-            UiControls.Select(l, "Density", UiDensityPreset.Label(density),
-                new[]
-                {
-                    new SelectorOption("Default", () => SetLayout(ref S.uiDensity,
-                        UiDensityPreset.Default)),
-                    new SelectorOption("Compact", () => SetLayout(ref S.uiDensity,
-                        UiDensityPreset.Compact)),
-                }, out _);
-
-            bool visible = UiControls.Checkbox(l, "Show navigation", !S.sidebarHidden,
-                "Keep the workspace navigation visible. Hidden navigation consumes no width.");
-            if (visible == S.sidebarHidden)
-            {
-                S.sidebarHidden = !visible;
-                S.MarkDirty();
-                AgentSidebar.LayoutChanged();
-            }
-
-            if (UiLayout.Button(l, "Reset workspace layout", UiTheme.Btn.Ghost))
-            {
-                S.sidebarSide = NavigationSide.Left;
-                S.uiDensity = UiDensityPreset.Default;
-                S.sidebarHidden = false;
-                S.sidebarWidth = WorkspaceLayout.DefaultNavigationWidth;
-                S.MarkDirty();
-                AgentSidebar.LayoutChanged();
-            }
-            UiLayout.Note(l, "The navigation width is still resized from its edge.");
-
-        }
-
-        static void SetLayout(ref string field, string value)
-        {
-            if (field == value) return;
-            field = value;
-            S.MarkDirty();
-            AgentSidebar.LayoutChanged();
         }
 
         void DrawScale(Listing_Standard l)
@@ -218,6 +165,34 @@ namespace SlopWorld
                 "Use window-manager fullscreen without changing Unity's render mode.");
             if (fullscreen != S.fullscreen) WindowMaximizer.Set(fullscreen);
 
+        }
+
+        static void DrawDisplay(Listing_Standard l)
+        {
+            UiLayout.SectionHeading(l, "Display");
+            if (UiLayout.Button(l, "Frame pacing: " + FramePolicy.Label(S.displayMode)))
+                Find.WindowStack.Add(new UiMenu(new[] { FramePolicy.Game, FramePolicy.Sync, FramePolicy.Limit }
+                    .Select(mode => new FloatMenuOption(FramePolicy.Label(mode), () =>
+                    {
+                        S.displayMode = mode;
+                        S.MarkDirty();
+                    })).ToList()));
+            if (FramePolicy.Normalize(S.displayMode) == FramePolicy.Limit)
+            {
+                if (UiLayout.Button(l, "FPS limit: " + FramePolicy.Clamp(S.foregroundFps)))
+                    Find.WindowStack.Add(new UiMenu(new[] { 30, 60, 90, 120, 144 }
+                        .Select(fps => new FloatMenuOption(fps + " FPS", () =>
+                        {
+                            S.foregroundFps = fps;
+                            S.MarkDirty();
+                        })).ToList()));
+                UiControls.SliderSetting(l, "Custom FPS", S, ref S.foregroundFps, 30, 360);
+                UiLayout.Note(l, "Disables VSync. Lower limits save power; higher limits improve responsiveness.");
+            }
+            else
+                UiLayout.Note(l, FramePolicy.Normalize(S.displayMode) == FramePolicy.Sync
+                    ? "VSync follows the display refresh rate for smooth presentation."
+                    : "Preserve the game's frame rate and VSync settings.");
         }
 
         void DrawInterface(Listing_Standard l)

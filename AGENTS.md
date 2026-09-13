@@ -7,10 +7,10 @@ Keep this file concise. Keep short notes in separate files in `notes/` and read/
 
 Rules:
 
-- Use `make` for all project commands.
+- Use Makefile for common project commands.
 - Do not run game, take screenshots, or watch pictures unless asked directly.
 
-Essentials:
+Essential notes:
 
 - [overview](notes/core-overview.md) — what this is
 - [source-layout](notes/mod-source-layout.md) — mod source directories

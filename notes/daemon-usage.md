@@ -57,6 +57,8 @@ figures. Rows are `openai_session` and `openai_week`; 401/403 says `codex login`
 - The Settings > Integrations > Usage table stores per-window entries under
   `[daemon.usage_items.<key>]`. Each entry has `poll = true/false` and an optional
   `interval_secs`; an omitted or zero interval inherits `daemon.usage_poll_secs`.
+  The settings form accepts whole seconds from 10 through 3,600; a blank row means inheritance
+  and is never silently clamped.
   Anthropic and OpenAI rows default to enabled; OpenRouter rows default to disabled. Once rows
   for a source are present, the source is enabled when any of its rows is enabled.
 - A provider request can answer several windows at once. The daemon schedules that request at

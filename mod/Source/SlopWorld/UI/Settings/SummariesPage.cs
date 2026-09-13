@@ -21,16 +21,29 @@ namespace SlopWorld
         };
 
         string _minPromptChars;
+        string _minimumNormalization;
 
         protected override string SavedMessage => "title settings saved.";
 
         protected override void AfterLoad()
         {
-            _minPromptChars = _cfg.TitleMinChars.ToString();
+            _minimumNormalization = null;
+            _minPromptChars = _configState.DraftText("summaries.minimum",
+                "daemon.title_min_chars", _cfg.TitleMinChars.ToString());
+        }
+
+        protected override void AfterDiscard()
+        {
+            _minimumNormalization = null;
+            _minPromptChars = _configState.DraftText("summaries.minimum",
+                "daemon.title_min_chars", _cfg.TitleMinChars.ToString());
         }
 
         protected override void DrawFields(Listing_Standard l)
         {
+            if (_minPromptChars == null)
+                _minPromptChars = _configState.DraftText("summaries.minimum",
+                    "daemon.title_min_chars", _cfg.TitleMinChars.ToString());
             float rowH = UiTheme.FieldH + UiTheme.GapS;
             if (l.ColumnWidth < 430f)
             {
@@ -54,6 +67,9 @@ namespace SlopWorld
             l.Label("Minimum prompt length");
             _minPromptChars = UiControls.Field(l, "usage.summary.minimum", _minPromptChars,
                 defaultValue: WireContract.DefaultTitleMinChars.ToString());
+            _configState.SetDraftText("summaries.minimum", "daemon.title_min_chars",
+                _minPromptChars);
+            UiLayout.Validation(l, MinimumError(_minPromptChars));
             UiLayout.Note(l, "Prompts shorter than this many characters are not summarized. " +
                 "Short prompts do not use up a first-prompt title attempt.");
             l.Gap(UiTheme.GapM);
@@ -120,10 +136,39 @@ namespace SlopWorld
             target.SetPolicy(_cfg, policy);
         }
 
-        protected override void BeforeSave()
+        protected override string ValidationError => MinimumError(_minPromptChars);
+
+        protected override bool PrepareSave(out string error)
         {
-            if (int.TryParse(_minPromptChars, out int minimum))
-                _cfg.TitleMinChars = Mathf.Clamp(minimum, 0, 2000);
+            _configState.ClearQueuedNormalizations();
+            if (!DaemonConfigValidation.TitleMinimum(_minPromptChars, out int minimum,
+                                                      out error)) return false;
+            _cfg.TitleMinChars = minimum;
+            _configState.SetDraftText("summaries.minimum", "daemon.title_min_chars",
+                _minPromptChars);
+            _minimumNormalization = minimum.ToString();
+            _configState.QueueDraftTextNormalization("summaries.minimum",
+                "daemon.title_min_chars", _minimumNormalization);
+            error = null;
+            return true;
+        }
+
+        protected override void AfterSave()
+        {
+            if (_minimumNormalization != null)
+            {
+                _configState.NormalizeDraftTextIfUnchanged("summaries.minimum",
+                    "daemon.title_min_chars", _minimumNormalization);
+                _minPromptChars = _configState.DraftText("summaries.minimum",
+                    "daemon.title_min_chars", _minimumNormalization);
+            }
+            _minimumNormalization = null;
+        }
+
+        static string MinimumError(string text)
+        {
+            DaemonConfigValidation.TitleMinimum(text, out _, out string error);
+            return error;
         }
     }
 }

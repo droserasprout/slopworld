@@ -13,11 +13,16 @@ namespace SlopWorld
 
         protected override void DrawFields(Listing_Standard l)
         {
-            bool instructions = _cfg.ExperimentalInstructions;
+            bool instructions = SessionHub.Instance.Config != null &&
+                SessionHub.Instance.Config.ExperimentalInstructions;
 
             UiLayout.SectionHeading(l, "Worker bootstrap");
             if (!instructions)
-                UiLayout.Note(l, "Enable instructions in Settings > General to edit the worker prompt.");
+            {
+                UiLayout.Note(l, "Requires the live Instructions gate in Settings > General > Experimental.");
+                if (UiLayout.Button(l, "Open General > Experimental", UiTheme.Btn.Ghost))
+                    ModOptions.OpenCategory(ModOptions.CategoryFor(ModOptions.PageId.Config));
+            }
             UiLayout.Note(l, "This prompt is submitted to each worker spawned with slopctl spawn. " +
                 "Use $SLOPWORLD_TASK_ID to refer to its exact mailbox task.");
             l.Label("Worker prompt");
