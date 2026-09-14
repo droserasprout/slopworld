@@ -22,7 +22,6 @@ namespace SlopWorld
         {
 
             UiLayout.SectionHeading(l, "Statusbar");
-            UiLayout.Note(l, "Statusbar changes apply immediately and are written when Settings closes.");
             UiControls.CheckboxSetting(l, "Show Usage in statusbar", S, ref S.statusbarUsage,
                 "Show quota readouts in the top statusbar.");
             UiControls.CheckboxSetting(l, "Show spent instead of left", S, ref S.usageSpent,

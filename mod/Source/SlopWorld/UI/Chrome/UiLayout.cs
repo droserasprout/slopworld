@@ -39,10 +39,11 @@ namespace SlopWorld
         // Form buttons use their content width; callers that own fixed geometry (row action
         // clusters, key cells, footer bars) continue to use Button(Rect, ...).
         public static bool Button(Listing_Standard l, string label, Btn kind = Btn.Default,
-                                  bool on = true)
+                                  bool on = true, string tip = null)
         {
             var r = l.GetRect(BtnH);
             r.width = Mathf.Min(r.width, BtnW(label, ButtonMinW));
+            if (!string.IsNullOrEmpty(tip)) TooltipHandler.TipRegion(r, tip);
             bool clicked = Button(r, label, kind, on);
             // Keep consecutive form buttons legible without making each caller remember
             // the minimum gap. Callers can still add a larger group gap when needed.

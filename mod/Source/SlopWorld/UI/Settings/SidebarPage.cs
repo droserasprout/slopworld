@@ -20,7 +20,6 @@ namespace SlopWorld
         static void DrawFields(Listing_Standard l)
         {
             UiLayout.SectionHeading(l, "Sidebar");
-            UiLayout.Note(l, "Sidebar changes apply immediately and are written when Settings closes.");
 
             string side = NavigationSide.Normalize(S.sidebarSide);
             UiControls.Select(l, "Navigation side", NavigationSide.Label(side),

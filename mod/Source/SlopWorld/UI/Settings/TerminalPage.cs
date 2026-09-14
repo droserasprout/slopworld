@@ -76,7 +76,6 @@ namespace SlopWorld
             {
                 l.Begin(rect);
                 begun = true;
-                UiLayout.Note(l, "Terminal appearance changes apply immediately and are written when Settings closes.");
                 DrawFont(l, s);
                 DrawTheme(l, s);
                 DrawCursor(l, s);

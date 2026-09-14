@@ -59,7 +59,6 @@ namespace SlopWorld
             UiLayout.Validation(l, PollError(_pollSecs, false));
             UiLayout.Note(l, "Every row uses this interval unless its interval is set below. " +
                 "A failed poll backs off on its own, doubling to half an hour.");
-            UiLayout.Note(l, "Polling is saved with this page. Icon choices apply immediately.");
         }
 
         protected override float DrawTrailingFields(Rect rect, float y)

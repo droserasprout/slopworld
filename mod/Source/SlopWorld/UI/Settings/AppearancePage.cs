@@ -125,7 +125,6 @@ namespace SlopWorld
             {
                 l.Begin(rect);
                 begun = true;
-                UiLayout.Note(l, "Appearance changes apply immediately and are written when Settings closes.");
                 DrawScale(l);
                 DrawDisplay(l);
                 DrawInterface(l);
@@ -170,7 +169,13 @@ namespace SlopWorld
         static void DrawDisplay(Listing_Standard l)
         {
             UiLayout.SectionHeading(l, "Display");
-            if (UiLayout.Button(l, "Frame pacing: " + FramePolicy.Label(S.displayMode)))
+            string framePacingTip = FramePolicy.Normalize(S.displayMode) == FramePolicy.Limit
+                ? "Disables VSync. Lower limits save power; higher limits improve responsiveness."
+                : FramePolicy.Normalize(S.displayMode) == FramePolicy.Sync
+                    ? "VSync follows the display refresh rate for smooth presentation."
+                    : "Preserve the game's frame rate and VSync settings.";
+            if (UiLayout.Button(l, "Frame pacing: " + FramePolicy.Label(S.displayMode),
+                    tip: framePacingTip))
                 Find.WindowStack.Add(new UiMenu(new[] { FramePolicy.Game, FramePolicy.Sync, FramePolicy.Limit }
                     .Select(mode => new FloatMenuOption(FramePolicy.Label(mode), () =>
                     {
@@ -187,12 +192,7 @@ namespace SlopWorld
                             S.MarkDirty();
                         })).ToList()));
                 UiControls.SliderSetting(l, "Custom FPS", S, ref S.foregroundFps, 30, 360);
-                UiLayout.Note(l, "Disables VSync. Lower limits save power; higher limits improve responsiveness.");
             }
-            else
-                UiLayout.Note(l, FramePolicy.Normalize(S.displayMode) == FramePolicy.Sync
-                    ? "VSync follows the display refresh rate for smooth presentation."
-                    : "Preserve the game's frame rate and VSync settings.");
         }
 
         void DrawInterface(Listing_Standard l)
