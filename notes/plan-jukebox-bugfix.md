@@ -10,32 +10,46 @@ HTTP and probes the decoder synchronously. `audio/station.rs` disables response
 and global deadlines, so a server accepting TCP without returning headers can
 prevent the worker from processing stop, volume, or replacement selections.
 
-- Move source opening and decoder probing off the command worker. Tag pending
-  opens and their completions with the selection generation; only the current
-  completion may append audio or publish playback state, errors, or metadata.
-- Stop and replacement must invalidate pending work immediately. Preserve
-  same-source reconnect behavior without duplicating a pending open.
-- Bound and cancel opening work so repeated selections cannot accumulate blocked
-  threads or connections. Inspect the pinned HTTP client's timeout behavior before
-  choosing the mechanism: do not restore a response deadline that later terminates
-  healthy live body reads. Retain reconnect and body-idle handling.
-- Test with a loopback server that withholds headers, plus delayed success and
-  failure completions. Verify stop and replacement are processed promptly, stale
-  opens cannot publish, and canceled opening resources are eventually released.
-  Use a mixer or fake output; no physical audio device is needed.
+- Move source opening and decoder probing off the command worker. Use a
+  request-side control state so replacement and stop invalidate the generation
+  before their command is enqueued; completions must carry that generation and
+  be checked again on the worker before appending a ring or publishing state,
+  errors, or metadata. Do not let a pending `TitleSink` publish before commit.
+- Make the worker event loop continue accepting volume, stop, and replacement
+  commands while an open is pending. Preserve same-source reconnect behavior:
+  coalesce a replay of the active or pending source, do not start a second open,
+  and apply the latest volume when the open commits. A new source must retire the
+  old feeder even if the old source is still reconnecting.
+- Bound and genuinely cancel all opening work, including initial opens,
+  reconnects, and decoder rebuilds. Dropping a thread/task is not cancellation
+  of a blocking `ureq` call. Choose an opening transport/abstraction that can
+  release the underlying connection; do not restore a response deadline that
+  later terminates healthy live body reads. Retain reconnect and body-idle
+  handling, and document the chosen header/open deadline separately from the
+  live body lifetime.
+- Add an output factory or equivalent mixer seam so command-worker behavior is
+  testable without a physical device. Test with a loopback server that withholds
+  headers, plus delayed success and failure completions. Verify prompt volume,
+  stop, and replacement handling; same-source deduplication; stale success,
+  failure, and metadata suppression; and eventual release of canceled opening
+  resources.
 
 ## 2. Recognize audible stations without metadata (P2)
 
 `Radio.Recognition.cs` rejects a request when `NowPlaying` is empty, even when the
 daemon reports playback. This prevents recognition of stations without ICY titles.
 
-- Gate recognition on unmuted playback, not the presence of a title. Keep the
-  concurrent-request gate and source/track generation checks.
-- Test playing-with-null-title reaching the injected recognizer, and muted/stopped
-  playback remaining rejected. Retain cancellation and late-result coverage.
-- Exercise the Radio eligibility path through a small game-free seam if needed;
-  existing `SongRecognizerTests` alone cannot detect this UI/service gate bug.
-  With no station metadata, automatic song-boundary detection remains unavailable.
+- Gate recognition on unmuted, currently playing audio, not the presence of a
+  title. Keep the concurrent-request gate. Make the playback/track revision
+  advance on stop, start, and source changes independently of raw metadata, and
+  require the same active unmuted state plus source/revision checks when applying
+  a result.
+- Add an injected recognizer/factory seam to the Radio eligibility path; the
+  existing process-runner seam alone cannot prove that Radio dispatched the
+  lookup. Test playing-with-null-title reaching the injected recognizer,
+  muted/stopped playback remaining rejected, cancellation, and late results
+  after stop or replacement. With no station metadata, automatic song-boundary
+  detection remains unavailable.
 
 ## 3. Save the actual sidecar OST track in likes (P2)
 
@@ -43,15 +57,20 @@ daemon reports playback. This prevents recognition of stations without ICY title
 and `Like` use daemon metadata. The command palette still exposes Like, so an
 audible native track can be saved as the generic title `OST`.
 
-- Read a structured native track snapshot (artist, title, source) and use that
+- Read one structured native track snapshot (artist, title, source) and use that
   same snapshot for the displayed confirmation and persisted like. Avoid parsing
   the formatted display string or sampling the music manager twice per action.
+  For the shipped OST, define the mapping explicitly: native artist is Terry
+  Fail, title is the final component of `CurrentSong.clipPath`, and source is
+  `SlopWorld OST`; original fields come from that snapshot, not daemon metadata.
 - In sidecar mode, ignore saved radio selections and stale daemon/recognition
-  metadata when creating a like. Define original fields from the native source;
-  retain the existing TOML schema and daemon-backed history behavior.
-- Test two native tracks producing distinct saved titles, a saved station not
-  overriding native source attribution, and no active native song refusing Like.
-  Use injected track data and temporary files; no Unity or game launch.
+  metadata when creating a like. Retain the existing TOML schema and
+  daemon-backed history behavior. A missing or inactive native track must refuse
+  the action before writing or showing a success confirmation.
+- Test two injected native tracks producing distinct saved titles, a saved
+  station and stale recognition data not overriding native attribution, and no
+  active native song refusing Like. Use injected track/provider data and
+  temporary files; no Unity or game launch.
 
 ## Completion and validation
 
