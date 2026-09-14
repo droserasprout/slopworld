@@ -1,77 +1,20 @@
-# Quota polling (`usage.rs`)
+# Usage polling
 
-## Anthropic
+Start in `usage/` for provider adapters and `usage.rs` for scheduling/aggregation. Provider
+response fixtures and config definitions own field names, units and defaults.
 
-Polls Claude Code's `/usage` endpoint with the OAuth token in
-`~/.claude/.credentials.json`, re-read each poll and never copied or logged.
-Anthropic rows are enabled by default; a row under `[daemon.usage_items.<key>]` can disable
-individual windows. `SLOPD_USAGE_URL` overrides the endpoint.
+Each provider has independent failure/backoff state. Failed polls retain its last successful
+values; disabling it clears its rows. An enabled source with no data still needs a placeholder.
+One provider request may supply multiple windows: poll at the fastest enabled interval, while
+respecting the provider-wide cache/rate limit. Missing optional windows must not bypass it.
 
-- `parse` rejects unknown payloads as no windows plus an error; a failed poll keeps the
-  last good windows. `expiresAt`, `refreshTokenExpiresAt` and `now_ms()` use epoch
-  milliseconds. An expired access token does not mean logout because Claude Code refreshes it
-  lazily; only an expired refresh token requires `claude auth`.
-- The credentials file is `shared` ([sandbox-isolation](sandbox-isolation.md)), so an
-  agent refresh updates the host file. Its mtime is checked every loop; a change clears
-  failure backoff and makes the poll due. Stale files keep backing off.
-- A bind mount cannot be atomically renamed (`EBUSY`), so in-sandbox Claude uses an
-  `O_TRUNC` write on the host inode. A poll can see a partial file; `read_creds` retries
-  parse errors once after 50ms, but not IO errors.
-- Successful responses are cached for five minutes beside the daemon config and protected by a
-  lock file, so daemon restarts and duplicate daemon processes do not make duplicate account
-  requests. The cache contains only the JSON response, never credentials.
-- Failures back off exponentially to 30 minutes; 429s have a five-minute minimum even when the
-  endpoint sends `Retry-After: 0`, and both seconds and HTTP-date forms are accepted. The wait is
-  included in the mod-facing error.
-- Payload units: `utilization` is a percentage here (unlike Messages API fractions),
-  `extra_usage`/`spend` utilization is money, `monthly_limit` is cents, and
-  `resets_at` is RFC3339 with a numeric offset. Windows match `five_hour` and
-  `seven_day*`; money is marked `unit: usd`, and reset values cross the wire as seconds.
+Anthropic's rotating credential is a shared bind. Atomic rename over the mount fails, so
+an in-place writer can briefly expose partial JSON; credential reads retry parse failure.
+Credential changes reset backoff. An expired access token alone is not proof of logout.
 
-## OpenRouter
+The Anthropic cache and lock prevent restart/duplicate-process request bursts. Never store
+credentials in that cache. A zero `Retry-After` must not defeat the minimum 429 backoff.
 
-An enabled `[daemon.usage_items.openrouter_balance]` row polls `/api/v1/credits` (override
-with `SLOPD_CREDITS_URL`) and exposes `openrouter_balance`: credits bought are `limit`, spent
-credits are `amount`. OpenRouter is off until that row is enabled because there is no host
-login from which to infer a key.
-
-- `openrouter_key_file` reads fresh each poll; blank uses `OPENROUTER_API_KEY` from
-  slopd's environment. Neither path logs, copies or writes the key.
-- `parse_credits` requires the current nested `data.total_credits` and `data.total_usage`
-  fields. A null `total_credits` means no credit limit, not a full bar; no credit bought
-  reports 100% spent.
-
-## OpenAI / Codex
-
-Enabled OpenAI rows read the current Codex token and optional account ID from `~/.codex/auth.json`
-(`openai_credentials` overrides) and poll the primary/secondary windows. Window labels follow
-`limit_window_seconds`, so a weekly-only plan is still `openai_week` when its weekly value is in
-`primary_window`. They never use the refresh token or send file contents. The endpoint is
-undocumented, so `SLOPD_OPENAI_USAGE_URL` supports fixtures and unknown payloads draw no
-figures. Rows are `openai_session` and `openai_week`; 401/403 says `codex login`.
-
-## All together
-
-- Each source has its own `Poller`, due time and failure count. A 429 or bad login does
-  not stall other sources; disabling one clears only its rows.
-- The Settings > Integrations > Usage table stores per-window entries under
-  `[daemon.usage_items.<key>]`. Each entry has `poll = true/false` and an optional
-  `interval_secs`; an omitted or zero interval inherits `daemon.usage_poll_secs`.
-  The settings form accepts whole seconds from 10 through 3,600; a blank row means inheritance
-  and is never silently clamped.
-  Anthropic and OpenAI rows default to enabled; OpenRouter rows default to disabled. Once rows
-  for a source are present, the source is enabled when any of its rows is enabled.
-- A provider request can answer several windows at once. The daemon schedules that request at
-  the fastest enabled row interval, while each window keeps its own due time and disabled rows
-  are removed from the merged snapshot immediately. Anthropic requests are never more frequent
-  than once every five minutes; absent optional windows cannot shorten that shared interval.
-- `merge` exposes one wire `windows` list and `failed_sources` names enabled sellers whose
-  latest poll failed. `ok` requires every enabled source to be current; errors are joined.
-  With no source enabled, the snapshot draws nothing. The mod uses `failed_sources` to dim only
-  that seller's rows; the clock is independent.
-- `sources` records enabled sellers even before they answer, allowing the mod to hold
-  placeholder rows for an expired login.
-- The loop checks `config.toml` at least every 30s (`LOOK`), so GUI switches take effect
-  without a restart.
-
-Drawn by [mod-ui-chrome](mod-ui-chrome.md)'s `UsageReadout`.
+Codex usage is an undocumented endpoint: unknown payloads must show no fabricated figures.
+Window identity follows duration, not primary/secondary position. OpenRouter credit absence
+is not equivalent to a full balance. Use adapter fixtures, never account polling, for tests.

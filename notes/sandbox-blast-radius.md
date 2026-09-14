@@ -29,9 +29,5 @@ rewrite at any time.
 
 ## Telling from inside
 
-`ps` fails with `fatal library error, lookup self` under `--unshare-all`, because the
-PID namespace does not contain the caller's own PID. `pgrep -af` still lists the
-namespace, where the bwrap wrapper is PID 1 and the agent command is PID 3.
-
 `/proc/self/mountinfo` is the reliable way to tell a private copy from a shared host
 file before deleting either.

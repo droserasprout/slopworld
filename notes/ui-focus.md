@@ -18,5 +18,4 @@ registration storage is reused between passes.
 
 Buttons, checkboxes and selectors also await traversal support. Focus restoration
 selects the field; native TextEditor still owns its caret/selection. Inter-panel keyboard
-navigation follows when the workspace has more than one visible panel. The user verified
-the remaining focus and scrolling behavior in-game.
+navigation remains deferred; terminal panes currently select focus by click.

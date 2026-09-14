@@ -1,18 +1,11 @@
 # Prose guide
 
-Comments and devnotes preserve constraints, rationale, contracts, and cross-file
-facts that code and tests cannot show. Delete narration, stale history, generic
-advice, and examples that only restate a rule.
+Devnotes answer where to start, which boundary to preserve, or why an obvious approach
+fails. They are not a second description of the implementation.
 
-- Keep source comments to one sentence and at most two physical lines. Move longer
-  explanations to a devnote and link beside the code.
-- Keep each devnote to one subject and roughly 700 words. Split by subject unless
-  splitting would obscure a protocol or state-machine sequence.
-- Give each fact one home; link to it elsewhere. Keep code-specific facts beside
-  the code whose safe modification depends on them.
-- State one claim per sentence, with the fact first. Use project names and direct
-  headings; remove metaphors, rhetorical contrasts, emphasis, and restatements.
+Keep facts beside their owner; link to code, tests, or the canonical book page instead of
+copying inventories, defaults, control lists, or procedures. Keep source-specific rationale
+in source comments. Do not move comments into notes merely because they are long.
 
-Before keeping prose, check that it is current, needed for safe use or modification,
-and unavailable directly from code, tests, or another document. Then cut every
-clause that adds no information.
+Prefer a few short paragraphs. Preserve a longer sequence only when shortening it would
+hide a cross-component invariant. Delete completed migration instructions and session history.

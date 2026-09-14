@@ -1,48 +1,14 @@
-# UI identity and color schemes
+# UI colors and identity
 
-`UiTheme` owns named chrome colors and semantic states; terminal ANSI colors stay in
-`TerminalTheme`.
+`UIScheme` owns chrome semantic roles; `TerminalTheme` owns ANSI and pane colors. Persist
+stable IDs, not picker labels. Match UI intentionally couples the terminal palette to chrome;
+explicit terminal choices remain independent.
 
-## Color schemes
+Named upstream palettes must preserve their values and roles. Adapt missing widget roles
+explicitly rather than silently altering upstream colors to satisfy contrast checks.
+[Palette references](reference-original-palettes.md) record source values and fidelity gaps;
+house palettes can be tuned directly.
 
-The values behind those names are a `UIScheme`, picked on the Appearance page and held in
-`ModSettings.uiScheme`. A scheme is a color table; geometry, spacing, and shapes come from
-the shared panel. The three SlopWorld Warm, Cold, and Calm entries are complete house tables. The remaining
-entries are named palettes adapted to the UI's semantic roles.
-
-Non-house schemes must preserve upstream values even when contrast checks disagree.
-The current adaptations are not exact originals; see [original palette references](ui-original-palettes.md)
-for sourced values, role distinctions, and fidelity gaps.
-
-The catalog deliberately uses stable IDs for persisted settings and human labels for the
-picker. Unknown IDs resolve to the default Warm scheme.
-
-Named palette values are adapted to SlopWorld's semantic roles rather than assuming that an
-external palette defines every widget color. The adapter keeps text and structural roles
-separate, and solid faces carry matching foreground roles.
-
-Schemes use `#rrggbb` or `#rrggbbaa` values parsed by `TerminalTheme.TryHex`. Structural
-lines, hovered rows, and text ramps use the scheme's foreground roles rather than a fixed
-white, so palettes retain their intended contrast.
-
-`UiTheme` reads `UIScheme.Current` per access and `Current` re-resolves against the
-setting, so a pick lands on the next frame with nothing to invalidate and nothing to tell.
-That works because no chrome color is ever baked into a texture — unlike the pane, whose
-row cache is keyed on `TerminalTheme.Rev`. Anything that starts baking one has to grow the
-same counter.
-
-`Slab` draws opaque faces, one-screen-pixel edges, focus rings, and rules snapped to the
-screen grid. There is no corner radius, gradient, elevation, or drop shadow. Hover and press
-change color, never geometry.
-
-Spacing follows a 4/8/16/24 rhythm (`GapXS`, `GapS`, `GapM`, `GapL`). Shared sizes cover
-buttons, fields, rows, menus, icons, status markers, and the 18px scrollbar gutter; callers
-derive their layout from those tokens rather than reserving nearby values.
-
-Focus rings appear only around real text input. Status uses a rectangular outlined badge and
-square marker. An agent's state badge is the sole circular marker, placed in the corner of
-its sidebar portrait.
-
-Warm uses dark brown surfaces and a muted amber accent; Cold uses charcoal and blue;
-Calm keeps Cold surfaces with a muted steel accent. New settings default to Warm with
-the terminal set to Match UI.
+Chrome colors resolve on read. Any new texture that bakes them needs revision invalidation,
+as terminal textures already do. Shared `Slab` geometry is flat and pixel-snapped; hover must
+not change bounds. Spacing and text metrics belong to shared chrome, not individual schemes.

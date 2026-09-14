@@ -1,5 +1,9 @@
-This directory is for AI devnotes. Keep notes short and focused, and remove outdated information.
-Use domain prefixes (`agent-`, `build-`, `core-`, `daemon-`, `docs-`, `misc-`, `mod-`, `ops-`,
-`perf-`, `plan-`, `protocol-`, `review-`, `sandbox-`, `test-`, and `ui-`) so related notes sort
-together. Active implementation plans use `plan-`; delete them when implemented. Use `misc-` for
-dated reports and narrow one-off notes that do not merit a domain prefix.
+# Devnotes
+
+Keep high-level navigation, ownership boundaries, and non-obvious traps. Do not inventory
+methods, fields, widgets, or ordinary behavior that source and tests already explain.
+Operational instructions belong in `docs/`; link instead of repeating them.
+
+Use domain prefixes and one subject per note. `plan-` holds unresolved work: keep the
+problem and acceptance constraints, then delete the plan when complete. Dated measurements
+are evidence, not current behavior. Remove stale or redundant notes instead of archiving them here.

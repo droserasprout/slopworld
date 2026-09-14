@@ -1,72 +1,15 @@
-# CPU hot-path reductions
+# Performance work
 
-The C# mod reduces work in these hot paths:
+Use `make bench-mod BUILD=release` and `make bench-daemon BUILD=release` for repeatable helper
+costs; [diagnostics](ops-diagnostics.md) covers live tracing. Benchmarks do not measure Unity
+rendering, end-to-end latency, or total daemon CPU. Cached fan-out is not JSON serialization.
 
-- `Worksite.Free` rejects farther frames before vanilla reservation/construction checks.
-- JSON string parsing avoids builder allocations for unescaped keys and terminal text.
-- Screen ingestion retains unchanged line/run arrays, copies changed arrays for snapshot safety,
-  and reuses its changed-row scratch list. Scroll overlap uses linear row matching and rejects
-  unchanged-bottom/ambiguous edits before searching.
-- `RealClock` samples wall time once per elapsed second, independent of FPS.
-- `Plague` walks the lister's plant list directly, shares one cached game tick
-  across each batch, and reduces background work.
-- `Radio` keeps vanilla music disabled each frame, checks steady-state audio on a 1/6-second
-  deadline, and reconnects pending selections immediately. Muted sidecar music is stopped
-  only on a state change or if playback resumes.
-- `Aura` compares squared distances.
-- `Sgr.Autolink` rejects rows without `://` before building a full-row string.
-- `MarkdownPreview` caches selection geometry between reflows and skips off-screen placements,
-  text lines and table rows before issuing IMGUI draw calls.
-- `HubEventBatch` reuses bounded message and coalescing buffers. Empty socket frames allocate
-  nothing in the batch reader; parsed payloads are released after dispatch. History replies
-  and control events retain their order while live screens coalesce per session.
-- Sidebar layout already uses revision and geometry keys. Title cleanup now caches by session
-  label/title/path/host state and font identity/atlas revision; removed sessions are weakly held.
-  Off-screen agent labels, hover paint and project headings skip their repaint work. A draw-frame
-  session snapshot and one-second row presentation cache reuse ages, state tips, indicators,
-  titles, and header count text without changing hit testing.
-- `TaskStore` only checks its monotonic poll deadline while the Tasks view is visible; TopBar
-  door lookup/geometry and wall-clock sampling are shared across GUI events in a frame.
-- Eco retains the backdrop material and camera-dependent fit while leaving only animated drift and
-  draw submission per frame. `PerfTrace` is opt-in and now covers Root.Update, colonist-bar,
-  sidebar, top-bar, and terminal-window spans in addition to existing hot-path counters.
-- Terminal cursor and selection painting run only on Repaint; input and hover tracking remain
-  live. Text already uses a render-texture cache and changed-row repaint policy.
-- Full terminal coverage suppresses weather and map-edge drawing as well as the existing map
-  mesh, dynamic things, flecks and overlays. Hidden mesh/sky maintenance runs at 4 Hz and
-  resumes each frame on reveal; condition, designation, temporary-thing and stencil draws
-  also skip hidden painting. Fleck expiry stays active.
-- `UsageReadout` retains rows/counts by usage snapshot and mutable polling settings. Clock and
-  expiry text refresh each second; width caches invalidate on font, atlas and UI scale changes.
-  A hidden clock does no date formatting or measurement.
-- `AgentColony` retains membership across unchanged revisions, reuses removal/order buffers,
-  and sorts only after binding changes. Repair and state transitions still run each sweep.
+The useful optimization boundaries are revision-based reuse, visible-row work, independent
+paint/layout invalidation, and slow maintenance while the map is covered. Preserve snapshot
+immutability and input/event processing when skipping paint. Do not maintain a prose list of
+individual optimizations; production code and benchmark fixtures own that inventory.
 
-`make BUILD=release bench-mod` includes idle socket allocation and unchanged-title comparisons,
-plus the idle terminal repaint decision.
-These measure helpers under .NET, not Unity CPU load or input latency. Opt-in `PerfTrace`
-adds sidebar layout hits/rebuilds, title rebuilds, and terminal cache hits for runtime checking.
-The suite also compares unchanged colony membership and clock formatting, plus cold/warm
-quota row caches. Runtime counters cover hidden maintenance skips, mesh/sky/fleck update time,
-colony reconciliation, and top-bar rebuilds/draw time.
-Screen ingestion cases cover JSON parsing and unchanged/changed repeated-row viewports at
-200x160. They separate decoding from applying an already parsed payload.
-
-## Remaining terminal costs
-
-`TerminalHotspots` in `mod/Tests/Benchmarks.cs` measures alternating one-row edits
-with and without a static URL, plus same-session socket batches. A September 2026
-Release .NET run measured 200-row ingestion plus ANSI parsing at 4.3 us / 3.3 KB
-without a URL and 283 us / 462 KB with one. `TerminalRunCache.Parse` sends link
-screens through whole-screen parsing to preserve links across physical rows.
-At 60 changed frames/second, that fixture allocates about 28 MB/second before Unity
-drawing. Cache link spans and invalidate affected neighboring rows to reduce this.
-
-`HubEventBatch.Read` parses before coalescing: a 32-frame, one-session batch measured
-2.1 ms / 2.7 MB while dispatching only its last frame. This represents backlog after
-a stall, not normal single-pane traffic. Coalescing before full payload decoding
-must retain history replies and control-event ordering.
-
-`make BUILD=release bench-daemon` now distinguishes fresh screen JSON encoding from
-cached fan-out. The cached cases reuse encoded messages even during warmup and do
-not measure serialization. All these measurements exclude live Unity costs.
+The [September baseline](misc-perf-suite-20260910-192731.md) measured a large sparse-URL parsing
+penalty and decoding cost for coalesced socket batches. Those measurements explain the open
+[CPU plan](plan-cpu-fixes.md); they are not claims about the current build. Keep benchmark
+comparisons tied to revision, build mode, machine and fixture boundaries.

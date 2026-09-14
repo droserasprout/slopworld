@@ -1,57 +1,23 @@
 # C# tests
 
-`make test` runs the daemon tests and the game-free mod tests. The mod is one `net472` assembly built
-against the exact RimWorld and Unity DLLs in a live install, and its runtime
-code leans on `Find`, `Current`, `DefDatabase`, `Scribe`, IMGUI, frame timing,
-and static singletons. A normal test runner cannot construct that game state;
-mocking it would be a second, brittle RimWorld.
+`make test-mod` runs the game-free C# suite; `make test` includes it alongside the daemon
+and contract checks. `mod/Tests/SlopWorld.Tests.csproj` links selected production files
+into a dependency-free .NET 8 executable instead of loading the game-bound mod assembly.
+`Program.cs` is the current test inventory; the project file lists linked sources and
+`TestSupport/` supplies narrow game, transport, and environment substitutes.
 
-Harmony is not the main blocker. Patch registration and patch behavior are
-integration concerns, especially when RimWorld changes a target. Runtime
-failures appear in `Player.log`, not at compile time. Test assemblies also need
-to stay out of the mod's `Assemblies/` directory because RimWorld loads every
-DLL there.
+Coverage includes settings persistence and drafts, JSON/TOML and wire models, terminal
+parsing/history, transport buffering and reconnects, session rename reconciliation,
+pager lifecycle, and pure layout/repaint policies. `Pager` and `Sgr` are linked directly;
+their external dependencies use test substitutes. `HubCatalogTests` and transport tests
+control callback order to exercise stale replies and lifecycle changes.
 
-The useful first layer is a separate C# test project for code that does not need
-the game: `JVal`, `DaemonConfig`, `Fuzzy`, SGR parsing, color/theme parsing,
-endpoint normalization, and layout calculations. Keep those helpers separate
-from Unity/game calls and run them in CI. Patch binding, critical `GameComponent`
-behavior, pixel layout, and most Harmony details remain in-game checks.
+Keep test output under `mod/Tests/`, never `mod/Assemblies/`: RimWorld loads every DLL
+in that directory. Linking production helpers avoids duplicating their behavior in tests,
+but substitutes do not validate Unity drawing, input dispatch, or Harmony patch binding.
+Runtime patch failures must be checked in `Player.log` when game testing is requested.
 
-## First project
-
-`ModSettingsTests` exercises the real profile-file persistence with test-only path/log
-bindings. `HubCatalogTests` links the real catalog against a queued fake HTTP transport
-to reorder GETs, socket snapshots, and write completions without a daemon or game.
-
-The lighter path needs no source restructure: `mod/Tests/` is a project that *links*
-the specific pure source files (`<Compile Include="../Source/.../Fuzzy.cs" />`)
-rather than referencing the mod DLL — the DLL only loads against a live install.
-It targets net8 and uses a dependency-free executable runner; the linked files use
-no game types. Its output stays under `mod/Tests/`, never in `mod/Assemblies/`,
-which RimWorld loads wholesale. `make test` runs it beside `cargo test`. The cleaner path is
-to first carve the pure logic into a `SlopWorld.Core` assembly both the mod and the
-tests reference; do that only once the linked-file project proves the units worth
-keeping.
-
-The project covers, all linked into `mod/Tests/`: `Client/Daemon/Json.cs` (`JVal` round-trip),
-`Client/Daemon/Toml.cs`, `Client/Daemon/DaemonConfig.cs`, `Client/Daemon/Endpoint.cs` (normalization),
-`UI/Utilities/Fuzzy.cs` (match scoring/ranking), the split `Client/SessionHub/` DTOs
-(`DnsConfig.TryParseServers`, `NetworkModeText.Parse`, `SessionLimits.FromJson`/`ToJson`,
-`SessionInfo`/`ScreenBuf` JSON parsing), and — carved out to make them game-free —
-`UI/Terminal/UrlScan.cs` and `UI/Views/Shared/PagerCommands.cs`.
-
-`Pager` and `Sgr` remain game-bound shells. Their game-free logic lives in sibling
-classes: `UI/Views/Shared/PagerCommands.cs` handles quoting, argv templating, and pager/editor
-command shapes; `UI/Terminal/UrlScan.cs` handles URL/scheme scanning, trailing-punctuation
-trimming, and OSC 8 parsing. Both are linked and tested while the shells keep their
-public APIs as thin wrappers. See [mod-client](mod-client.md) and
-[mod-ui-search](mod-ui-search.md).
-
-`RepaintTests` links the tree/list viewport geometry, revision/reveal index, project session
-counts, routed-row preparation, and terminal repaint policy/key. It checks large-tree lookup
-cost, interval boundaries, cache invalidation, and selective versus full repaint decisions
-without constructing game state. It does not exercise Unity drawing or event dispatch.
+## Benchmarks
 
 `make bench-mod BUILD=release` runs the same linked production helpers through the test
 executable's separate `--perf-bench` mode. It reports warmed batch p50/p95 microseconds and

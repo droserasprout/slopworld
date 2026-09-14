@@ -24,8 +24,7 @@ takes those payloads from the WS events of the same name, in
 Before adding a route for the mod, check whether the payload already rides the
 socket.
 
-## `state_rules`
+## State rules
 
-The only `config.toml` table with no mod editor. Projects, sessions, library items
-and per-session limits each have one ([mod-ui-windows](mod-ui-windows.md));
-`state_rules` is edited as raw text in `ConfigWindow`.
+`[[state_rule]]` entries have no structured mod editor; edit them as raw text in
+`ConfigWindow`. See [session state](daemon-session-state.md) for matching and idle decay.

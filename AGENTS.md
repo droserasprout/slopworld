@@ -1,44 +1,33 @@
-
 # SlopWorld
 
-This project is a RimWorld mod (C#, Harmony) and `slopd` daemon (Rust).
+RimWorld 1.6 as a frontend for live coding agents. Rust `slopd` owns sessions, tmux,
+sandboxes and terminal emulation; the C#/Harmony mod mirrors them into colony and UI.
+They communicate over HTTP/WebSocket. `slopcar/` packages the Linux daemon for sidecar use.
 
-Keep this file concise. Keep short notes in separate files in `notes/` and read/update them when needed.
+## Working rules
 
-Rules:
+- Use Makefile targets; `make` lists commands. Follow [house rules](notes/core-house-rules.md).
+- Do not run the game, take screenshots, or inspect images unless directly asked.
+- Keep notes to high-level guides, ownership boundaries and non-obvious traps; update the
+  focused note when those change. See [note policy](notes/README.md).
 
-- Use Makefile for common project commands.
-- Do not run game, take screenshots, or watch pictures unless asked directly.
+## Find the owner
 
-Essential notes:
+Start with the relevant map, follow its focused links, then read source/tests. Do not load
+all notes. User workflows live in the [book index](docs/src/SUMMARY.md); `notes/plan-*`
+records unresolved work, not implemented behavior.
 
-- [overview](notes/core-overview.md) — what this is
-- [source-layout](notes/mod-source-layout.md) — mod source directories
-- [build-commands](notes/build-commands.md) — make, format, debug
-- [paths](notes/ops-paths.md) — config, logs, tmux socket
-- [config-stores](notes/daemon-config-stores.md) — daemon & mod config files
-- [wire-protocol](notes/protocol-wire.md) — WS events & HTTP routes
-- [gotchas](notes/core-gotchas.md) — the traps
-- [house-rules](notes/core-house-rules.md) — commit rules & note discipline
-- [agent-tasks](notes/agent-tasks.md) — task mailboxes and delegation
+| Area | Starting points |
+| --- | --- |
+| Daemon lifecycle and services | [Source map](notes/daemon-files.md), [session state](notes/daemon-session-state.md) |
+| Mod simulation and integration | [Source map](notes/mod-source-layout.md), [simulation](notes/mod-sim.md), [Harmony traps](notes/core-gotchas.md) |
+| UI and terminal ownership | [Workspace](notes/ui-dynamic-layout-architecture.md), [sidebar](notes/mod-sidebar.md), [terminal](notes/mod-terminal.md) |
+| Client/daemon boundary | [Client](notes/mod-client.md), [wire contract](notes/protocol-wire.md), [config ownership](notes/daemon-config-stores.md) |
+| Agent access and collaboration | [Sandbox](notes/sandbox-isolation.md), [tasks](notes/agent-tasks.md), [workers](notes/daemon-workers.md) |
+| Build and runtime operations | [Build](notes/build-commands.md), [paths](notes/ops-paths.md), [diagnostics](notes/ops-diagnostics.md), [sidecar status](notes/ops-macos-compatibility-status.md) |
 
-Delegation quick reference:
+## Delegation
 
-- Send work once with `slopctl delegate AGENT "task"` or `slopctl spawn ...`; keep the returned task ID.
-- Wait for the result with `slopctl wait ID`. It blocks until terminal; do not loop over `task`, `inbox`, or `status`, or use a short timeout.
-- Assigned work uses `task ID`, `accept`, `progress`, then `finish` or `fail`.
-
-Architecture:
-
-- [daemon-files](notes/daemon-files.md) — slopd/src/*.rs layout
-- [daemon-session-state](notes/daemon-session-state.md) — state machine, clocks, emulator
-- [daemon-workers](notes/daemon-workers.md) — task-owned child workers and lifecycle
-- [cpu-threads](notes/misc-cpu-threads.md) — process/thread model and CPU attribution
-- [daemon-presets](notes/daemon-presets.md) — sandbox argv & presets
-- [sandbox-isolation](notes/sandbox-isolation.md) — bind guard, private state
-- [mod-client](notes/mod-client.md) — Client/: hub, socket, config mirror
-- [mod-sim](notes/mod-sim.md) — Sim/: colony reconcile, clock, intro
-- [mod-ui-chrome](notes/mod-ui-chrome.md) — shared widgets, layout, top bar
-- [mod-sidebar](notes/mod-sidebar.md) — AgentSidebar & colonist bar patching
-- [mod-terminal](notes/mod-terminal.md) — terminal pane: rendering, keys, theme
-- [mod-jukebox](notes/mod-jukebox.md) — the jukebox & clanker soundtrack
+Send work once with `slopctl delegate AGENT "task"` or `slopctl spawn ...`; retain the ID.
+Use `slopctl wait ID` until terminal; do not poll `task`/`inbox`/`status` or use short timeouts.
+Assigned work follows `task ID`, `accept`, `progress`, then `finish` or `fail`.

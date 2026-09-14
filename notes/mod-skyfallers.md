@@ -1,9 +1,7 @@
 # Dropping a thing out of the sky
 
-`IntroDirector.Fall` uses this to land the persona core. Facts checked against
-`ikdasm Assembly-CSharp.dll` on 1.6, because the game install we build against
-ships `Managed/` only - there is no `Data/Core/Defs` to read, so vanilla *defs*
-have to be reasoned about rather than looked up.
+`IntroDirector.Fall` uses this to land the persona core. Use the installed RimWorld 1.6
+defs and `ikdasm Assembly-CSharp.dll` to verify carrier behavior.
 
 ```csharp
 GenSpawn.Spawn(SkyfallerMaker.MakeSkyfaller(ThingDefOf.ShipChunkIncoming, thing),
@@ -22,9 +20,6 @@ GenSpawn.Spawn(SkyfallerMaker.MakeSkyfaller(ThingDefOf.ShipChunkIncoming, thing)
   is 3 but the default damage is null, so a def that says nothing does not blow up.
 - Which carrier: `ShipChunkIncoming` lands harmlessly - vanilla keeps the
   explosive variant as a separate def, `ShipChunkIncoming_SmallExplosion`.
-  `CrashedShipPartIncoming` is the other obvious candidate and was not used,
-  because whether it cracks the ground cannot be checked from here and the cat is
-  standing underneath.
 - Pawns go down in a pod instead: `DropPodUtility.DropThingsNear(cell, map,
   things, openDelay, canInstaDropDuringInit, leaveSlag, canRoofPunch, forbid,
   allowFogged, faction)`. `openDelay` is in ticks and defaults to 110; the pod

@@ -1,74 +1,26 @@
-# Session state and the emulator
+# Session state and terminal capture
 
-`State` is `Down | Working | Waiting | Idle`, serialised lowercase.
-`Manager::classify` tries the `[[state_rule]]` regexes against the pane's plain
-text (SGR stripped); with no hit, a pane that moved inside `IDLE_MS` is working.
-Down is not a rule - it comes from the control reader ending on `%exit` or EOF.
+`manager/session_state.rs` owns classification; `capture_reader.rs` and `capture_frame.rs`
+connect tmux output to the emulator and session events.
 
-Rules scan the last `TAIL_LINES` non-blank lines upward. The lowest matching line
-wins; configuration order breaks ties within a line. This prevents a higher prompt from
-keeping a working agent in `waiting`. `waiting` and explicit `idle` matches are authoritative,
-but a `working` match still decays to idle after `IDLE_MS` without pane activity, because agent
-TUIs can leave a stale working indicator on screen.
+Rules search the nonblank tail from bottom upward; lowest line wins, then configuration
+order. Waiting/Idle matches are authoritative. Working matches still decay without activity:
+agent TUIs can leave stale interrupt indicators visible indefinitely.
 
-## State clocks
+Content/mode/title changes update `last_change`; cursor-position-only redraws do not.
+`state_since` is separate and changes only on transitions through `Live::set_state`.
+Surviving tmux activity options outrank the disk fallback on adoption; explicit stop/start
+must clear that history. See [redeploy](daemon-redeploy.md).
 
-`last_change` records pane content, mode, or title redraws and decides when a quiet pane becomes
-idle. Cursor-position-only redraws update the screen but do not reset that activity clock.
-`state_since` tracks time in the current state. All transitions must use
-`Live::set_state` so frequent redraws cannot reset the state age.
+Tmux answers terminal queries. The local VT mirror must ignore `PtyWrite`, or duplicate
+replies leak into shell input as text such as `?6c`. Its erase/resize behavior intentionally
+matches tmux rather than every Alacritty default. Preserve real and styled history while
+excluding untouched leading padding; scroll snapshots must not consume bells.
 
-`state_since` is also written to private options on the tmux server when a durable session
-changes state. If its tmux pane survives a daemon restart, the first capture is treated as a
-snapshot and restores that age; `session-activity.toml` is only a fallback when those options
-are absent. An intentional stop, start, exit or removal clears the record; a rename carries it
-with the tmux session and moves the fallback entry. Ephemeral sessions are never cached.
+Terminal bytes are lossless under backpressure. A bounded byte-chunk queue must still
+reassemble long control lines after dequeue. Dropping its receiver must wake the blocking
+reader; child cleanup needs kill and reap before session teardown.
 
-## The emulator
-
-A control-mode client (`tmux -C attach`, on a pty) feeds `%output` into the
-emulator, which renders on an **8ms coalescing tick**. `%output` is the pane's
-bytes *raw* - tmux parses them for its own screen and copies them to control
-clients untouched - so escapes an app aims at its terminal arrive here. The control
-reader backpressures through a 256-chunk, 16 KiB-per-chunk queue (about 4 MiB of
-queued transport bytes), reassembling lines after dequeue so long logical lines are
-not truncated. Dropping the receiver wakes the blocking reader and lets its control
-client be cleaned up; no terminal bytes are dropped.
-
-tmux is the pane's terminal and answers terminal queries itself. The local mirror ignores its
-VT engine's `PtyWrite` events: injecting a second device-attributes response after tmux's answer
-leaves the duplicate in the shell input queue (visible as `?6c`).
-
-`emu/handler.rs` forwards VT operations with tmux-compatible erasure: `CSI 2 J`
-clears the viewport in place rather than adding Alacritty's erased rows to history.
-It also fixes Alacritty 0.26's erase-above omission on the second row and invalidates
-the render cache for direct grid edits.
-Resizing an empty-history pane discards newly displaced padding only when every
-history cell is blank and unstyled. This applies to every resize; displaced text
-and pre-existing history, including blank rows, are retained.
-Live history counts and scroll captures exclude an untouched blank prefix in the
-raw history grid. Codex's initial header insertion scrolls one such row through a
-short DECSTBM region; the prefix stays inaccessible after later text scrolls too.
-Blank separators after real history and styled spaces remain visible.
-
-The emulator captures OSC titles, clipboard writes, and bells. Title changes dirty
-the frame even when screen text is unchanged. OSC 52 is write-only
-(`Osc52::OnlyCopy`) and handles CLIPBOARD; PRIMARY is read separately by host
-clipboard tools. Clipboard writes use one pending slot and one subprocess at a time.
-
-Bells are consumed by live rendering, not scroll snapshots. `Live::bell` retains
-the notification until a client subscribes. Titles and bells also dirty the session
-list, including when the screen did not change, so inactive tabs receive updates.
-A session without a retained frame has no terminal title.
-
-## Session views
-
-`BOOT_COLS`/`BOOT_ROWS` in `session/mod.rs` set the initial pane size until a client
-negotiates it; see [mod-terminal](mod-terminal.md) for `NegotiateSize`.
-
-`SessionView.slopworld_md` echoes the durable opt-in that gives an agent the generated
-project-root runtime manifest. Its mount destination and optional discovery breadcrumb come
-from `[daemon.instructions]`; `SessionView.instructions_breadcrumb` echoes the agent's
-default-on opt-out for that discovery line.
-`SessionView.persistent_tmp` echoes the durable opt-in that binds the agent's private state
-`tmp` directory over the sandbox's per-run `/tmp` tmpfs.
+Titles and bells invalidate session metadata even without visible text changes. Inactive
+tabs depend on those events. Presentation, activity, and list invalidation are different
+contracts and must not be collapsed into one dirty flag.
