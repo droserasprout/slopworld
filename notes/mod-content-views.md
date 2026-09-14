@@ -1,39 +1,13 @@
-# Content views
+# Content and window ownership
 
-`TerminalWindow` owns the chrome: sidebar, top bar and the remaining body. An
-`IContentView` fills that body. The pane itself is not a content view; `_content ==
-null` means the window draws an agent, host shell or pager directly.
+`TerminalWindow` hosts `WorkspacePanelOwner`: a retained `TerminalSplit` plus optional
+covering content. Hiding backing terminals is not closing them. `Showing` describes the
+covering content, not the focused terminal pane. See [terminal](mod-terminal.md).
 
-The current views are `OptionsView`, `SessionsView`, `ProjectsView` and
-`LibraryView`. `TerminalWindow.Showing` owns the one active body;
-`ToggleContent<T>` opens/switches it and `ShowingAs<T>` queries it.
+Options renders its off-stack `Dialog_Options` inside the host. Vanilla checks for a currently
+drawn options window must account for that embedded path. The main menu still uses a real
+window, so placement patches must distinguish both paths. Both close paths persist settings
+and release page instances.
 
-`LibraryView` remains a bespoke flat project-grouped list. Its loose bucket, badges,
-folded headings, run/edit behavior and custom hit-test records do not fit
-`ContentTreeView`'s recursive directory-node contracts without fake semantics or
-Library-specific branches, so the group-rendering reuse candidate is deferred.
-
-- Opening a view over a pane keeps the session; `Leave` restores the pane or closes
-  the window if there was none.
-- Escape leaves a view and is forwarded to a pane's agent; F12 reveals the pane behind
-  a view or opens the selected live session when the view has no pane behind it.
-  `ChromeKeys` owns both, so views do not leak input to agents.
-- Dialogs opened while the fullscreen chrome is up must be on the `Super` layer.
-  `OpenOverPane` handles dialogs opened by the mod, and `Patch_DialogsOverChrome`
-  handles vanilla dialogs opened from pages. Main tabs remain under the pane.
-- The top bar names the current view instead of the agent.
-
-Windows below the chrome do not absorb `MouseDown`; Options therefore draws inside the
-chrome while the sidebar remains interactive. No window absorbs above the chrome.
-
-## `OptionsView`
-
-The pages still use vanilla `Dialog_Options` layout, but the view keeps the dialog
-off the window stack and calls `DoWindowContents` on the body rect. `OptionsView.Anywhere`
-replaces checks for `currentlyDrawnWindow is Dialog_Options`, including OK suppression
-and stripped vanilla rows.
-
-The main menu still uses the real options window, so its size/place/band patches remain;
-the band patch skips itself while the chrome is drawing the pages. `ModOptions.Teardown`
-drops cached pages and is called on either close path. The last selected category is
-remembered in memory; explicit `OpenCategory` requests win.
+Dialogs opened above fullscreen chrome need Super-layer promotion; otherwise the terminal
+paints over them. Views must claim their keys before forwarding to the backing agent.

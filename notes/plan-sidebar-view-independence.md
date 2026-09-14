@@ -1,39 +1,11 @@
-# Sidebar tab and content-view independence plan
+# Sidebar and reader independence
 
-Sources are under `mod/Source/SlopWorld/Patches/AgentSidebar/` and
-`mod/Source/SlopWorld/UI/Views/{Git,Files}/`.
+Git's `RowAct.View` and `RowAct.Edit` in `GitView.Rendering.cs` explicitly select Files before
+opening its reader. A Markdown preview therefore jumps the sidebar away from Git.
 
-Keep the selected sidebar tab independent from the content reader opened by a row action. In
-particular, pressing `View` on a Markdown file in Git must open the native preview while Git
-remains the selected sidebar tab.
+Remove that transition for View; apply the same rule to Edit unless editing needs a deliberate
+navigation transition. `FilesView.ViewFile` can open/reuse its reader without selecting its tab.
+Update the ownership comment. Preserve Files-to-Git diff routing because Git owns that pager.
 
-## Finding
-
-- `AgentSidebar.TabDefinitions.cs` dispatches Git clicks to `GitView.Clicks`.
-- `GitView.State.cs` dispatches a row action to `GitView.Act`.
-- `GitView.Rendering.cs::Act` handles `RowAct.View` by explicitly calling
-  `AgentSidebar.ShowWithoutHistory(SidebarTab.Files)` before `FilesView.ViewFile`.
-- `ShowWithoutHistory` persists `sidebarTab = "files"` and activates the Files tab. This is the
-  observed jump.
-- `FilesView.ViewFile` only selects the file and opens/reuses the Markdown preview; it does not
-  need to activate Files. Its comment currently documents that the caller performs the switch.
-
-## Implementation order
-
-1. Remove the Git `View` action's explicit Files-tab activation, leaving `FilesView.ViewFile` to
-   open the reader without changing `Settings.sidebarTab`.
-2. Apply the same independence rule to Git's `Edit` action if content-opening behavior is meant
-   to be consistent; otherwise document why editing remains a deliberate tab transition.
-3. Update the affected comments so Files ownership of the reader is not confused with ownership
-   of the selected sidebar tab.
-4. Preserve intentional ownership transitions: opening a diff from Files may still activate Git,
-   since the Git view owns that diff pager and its routed row.
-
-## Verification
-
-- From Git, press `View` on a Markdown row and confirm the native preview opens while the Git tab
-  remains selected and `Settings.sidebarTab` stays `git`.
-- Confirm reopening or closing the preview does not implicitly select Files.
-- Confirm Files still opens Markdown normally and Files-to-Git diff routing is unchanged.
-- Run the applicable game-free mod checks through `make`; do not launch the game or take
-  screenshots for this change.
+Verify Git remains selected through preview open/reopen/close and ordinary Files readers still
+work. Run applicable game-free checks through make; runtime inspection only when requested.

@@ -1,76 +1,22 @@
-# `FilesView` and its icons
+# Files and readers
 
-`FilesView` is one of the sidebar's two project trees, alongside [Git](mod-ui-git.md).
-It is drawn in the sidebar back pass and can overlay a pane. The daemon owns all
-filesystem access because sessions have private mount namespaces; the mod uses
-`/api/browse` and `/api/files`. A selected daemon-resolved private-state directory
-can temporarily become the tree root.
+`FilesStore` owns roots, browse requests and refresh; `FilesViewerController` owns pager and
+Markdown lifetimes. `ContentTreeController` owns semantic selection/folds. Static `FilesView`
+methods are entry points, not another state owner. All filesystem reads use daemon APIs.
 
-- `Children == null` means not fetched. The browse reply also identifies returned directories that
-  have no children, so an unopened empty directory does not get a disclosure arrow. Fetches begin in the
-  draw pass; errors stop retries until the directory is reopened. While Files is visible,
-  loaded directories in open branches are reread every two seconds and entries are merged by name/type,
-  preserving expanded branches.
-  Selecting Files also refreshes expanded paths immediately, even when already selected;
-  a pending browse defers that refresh until it drains without consuming the polling deadline.
-  Browse requests are limited to four at once; folding or manually opening a directory drops
-  queued background work so the foreground path stays responsive.
-- When gitignored entries are shown by the filter, the Files tree dims their icons and labels
-  while leaving their row behavior unchanged.
-- `Lines` is the post-layout hit-test table. `ContentTreeView` keeps the full height but paints
-  only rows near the viewport, while `Screen` applies scroll offset and omits offscreen rows;
-  do not hit-test against drawing-time geometry.
-- `ContentTreeController` owns Files' project-heading folds, semantic selection key, group
-  pruning and tree revision. A refresh can replace nodes without losing the selected path or
-  surviving project folds; filtering and temporary storage roots preserve project fold state.
-  Lazy loading, node expansion, browse invalidation and viewer storage remain Files-owned.
-- `FilesStore` is the owner of roots, focused storage state, browse requests and refresh
-  scheduling. `FilesViewerController` owns the replaceable/pinned pager set and Markdown
-  preview records; the static `FilesView` methods are compatibility entry points for the
-  sidebar and file-action callers.
-- Empty directories remain right-clickable rows. Hover exposes view/edit/diff actions;
-  diff is offered only for paths already present in Git's working-tree result.
-- Context menus support copy paths, MIME-associated host applications for files and
-  directories, the desktop portal's `Other...` chooser, `less -R`, `micro`,
-  rename/remove, new file/folder and terminal here. Root-only Files mutations use create,
-  one-component rename and recursive delete. View/edit and file actions run through the
-  project sandbox; storage roots use disposable host errands.
-- Project context menus also offer a host terminal. `fa` library items can show bounded output in the
-  SlopWorld alert window (vanilla message toasts are hidden), open a temporary project terminal,
-  run silently, or retain the per-invocation choice; the mode is set in the Library item editor.
-  Completed captured actions refresh both sidebar trees; terminal actions refresh both when launched. Path
-  markers are quoted and normalized by the daemon.
+Refresh merges by path/type to preserve expansion and selection. Bound concurrency so
+background refresh cannot starve foreground opens. Use layout geometry for both hit tests
+and scrolling; clipped rows must never catch clicks outside their pane.
 
-## Viewer
+A viewer has one replaceable preview and independently pinned readers. Reopening the same
+path reuses its reader, including while hidden; concurrent opens share a pending request.
+Tab changes preserve readers. Explicit dismissal may close a pinned reader; ordinary focus
+changes may not. Files owns view/edit, Git owns diffs, even when launched from Files.
 
-Preview errands receive the measured terminal columns/rows before process startup.
-Resizing while LESSOPEN starts can strand leading `~` rows in less; `-c` also paints
-short files from the top. Alternate-screen mode remains enabled for wheel routing.
-`make test-pager` checks short-file wheel input followed by a full-height long preview
-using an isolated tmux server, without running the game.
+Supply terminal dimensions before pager startup: resizing during LESSOPEN can strand leading
+padding in less. Keep alternate-screen behavior for wheel routing and short files open;
+`make test-pager` exercises this without the game.
 
-A Markdown-file click opens a native `MarkdownPreview` in the body; the daemon supplies
-bounded UTF-8 text through `/api/read`, and Markdig provides the CommonMark/GFM parse tree.
-Local HTML `<img>` tags resolve relative to the Markdown file through the bounded `/api/image`
-route and support width/height plus right or center alignment.
-Other text files use a replaceable `less -Rc --` preview pager above the tree; binary extensions
-are excluded. The preview header is italic until its routed row or the previewed file row is
-double-clicked, which pins that pager like an edit session. Opening another file replaces only the
-unlocked preview; sidebar tab switches preserve readers. Clicking an open file reuses its
-preview or pinned session regardless of tree selection. Pending clicks share one startup request.
-Open-file headers scroll independently above a persisted draggable divider; adding or removing
-headers keeps the tree viewport fixed while any headers remain. With no headers, the tree fills
-the sidebar body. Routed hit rectangles are clipped to the upper pane, including partial rows.
-The top bar shows the actual session name followed by
-the project-relative file path (or an absolute path for storage readers). Markdown previews
-are reused by project/path even when hidden or when tree selection changes. Markdown's context
-menu exposes `View in pager` for the raw source when needed, and native Markdown previews use
-the same preview/pin behavior.
-
-## Icons
-
-File icons are one PNG per slot, baked from the vendored MIT Material Icon Theme by
-`tools/fileicons.py`. Lookup is filename, then longest matching extension, then a
-generic page. The manifest and lookup table are maintained by hand; no atlas is used
-because mipmapping can bleed between cells. Sidebar action icons come from the shared
-[icon bake](mod-icons.md); the agents tab is a chip, not a robot faceplate.
+Markdown uses [native rendering](mod-markdown.md). File icons are baked from the vendored
+Material Icon Theme; filename precedes longest extension. Manifest and C# lookup are maintained
+together. Action icons use the separate [shared bake](mod-icons.md).

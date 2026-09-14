@@ -1,57 +1,17 @@
-# Sidebar views and chrome
+# Sidebar navigation
 
-The core sidebar geometry, selection behavior, and row rendering are in
-[mod-sidebar](mod-sidebar.md).
+`SidebarTabRegistry` is the ordered definition table; `SidebarViewHistory` stores semantic
+back/forward targets. Persist stable tab IDs, not enum positions or reconstructed row objects.
+Unknown tabs fall back to Agents; stale history targets may select a tab without a row.
 
-## Views and navigation
+Tab changes close menus and view-local input state, but preserve preview readers. Reselection
+refreshes without repeating close/enter lifetime changes. Files also primes Git's shared
+change lookup. Reader ownership: [Files](mod-ui-files.md), [Git](mod-ui-git.md),
+[Search](mod-ui-search.md).
 
-Agents, Files, Search, Git, Tasks and Library share the panel, tabs, width, add strip and
-input absorption. Their default F1–F6 shortcuts follow that left-to-right order. Ctrl+F1–F6
-also restores the last target in the chosen view (agent, file, search result, changed file,
-task or Library item). Switching tabs preserves preview readers; replacing a preview or
-explicitly closing it ends the session.
-Files/Search/Git park colonist-bar
-locations but still build buckets so Alt+number can return to an agent; folding removes
-agents from visible order.
+An empty project-filter set means all, while unknown saved keys mean no match. Filtering is
+part of keyboard order as well as drawing: excluded agents must not reappear in cycling.
 
-## The tab strip
-
-Every view has two possible rows: six tabs plus the project filter, then right-aligned
-view controls. Foldable views offer fold/unfold all; Agents has a status visibility menu
-(`All`, `Active`, `Idle`, `Down`), Files has dotfiles, and Git has refresh. Search has
-dotfiles alone. Views without a control have no second band. `TabH` is the complete strip
-height used by both the body and the colonist-bar layout.
-
-The project filter is a set of ticked keys read through `AgentSidebar.Passes`; empty
-means all. `[none]` represents unassigned projects, including a real project with that
-name. An unknown project key shows nothing rather than falling back to all. Agents,
-Files and Library filter while drawing; Search and Git re-request their stored result
-when the filter changes.
-
-The Agents status filter treats Working and Waiting as Active. Its visible rows are also
-the source for Alt+number and Alt+Z/X navigation; sessions excluded by the selected status
-are not appended back into those orders.
-
-The shared add strip offers project and agent editors, a Library submenu for each
-library item kind, new sandbox presets and commands, and a host-shell submenu with `~` first,
-followed by projects.
-
-The filter menu is multi-select: each tick closes and reopens at its anchor instead of
-the cursor. The palette's `View: Filter Projects` uses the same keys and `TickBox`, with
-Space toggling without closing.
-
-Context menus run in the back pass because vanilla consumes portrait right-clicks. A
-project menu's unsandboxed terminal uses `SessionHub.RunHostShell` and `/api/run` with
-`host`; row hover is gated while either `FloatMenu` or `UiMenu` is open without
-disabling status-bar click-through.
-
-View targets are kept in a bounded process-local back/forward history. `View: Back` and
-`View: Forward` in the command palette restore semantic targets after daemon refreshes rebuild
-their row objects; stale targets simply leave the requested tab visible.
-
-## Shifting vanilla chrome
-
-`ChromeShift` remaps bottom main-button rects, repositions the inspect pane and shifts
-the gizmo grid by the sidebar inset. Inspect tabs need a separate patch because vanilla
-draws them outside the window group. Dragging explicitly repositions an already-open
-inspect pane; the normal hook runs only on open or resolution change.
+Vanilla main buttons, inspect panes, gizmos and colonist hit tests use different coordinate
+paths. `ChromeShift` and the colonist-bar patches must all consume the workspace inset;
+changing the drawn sidebar alone leaves invisible hit targets in old positions.

@@ -1,37 +1,24 @@
-# Debugging the daemon from inside the debug agent
+# Debugging from a sandbox
 
-The `slopworld-debug` sandbox runs the agent in private PID/net/mount namespaces,
-so most "the daemon is dead" readings are sandbox artifacts, not host truth.
+Check the running sandbox's network mode and `/proc/self/mountinfo` before interpreting
+missing host resources. Preset changes take effect only after the agent restarts.
 
-## What is NOT reliable from the sandbox
+- In private network mode, `127.0.0.1` belongs to the sandbox. A failed connection there
+  does not establish that the host daemon is down. Use the configured API URL when reachable.
+- Ordinary private PID/proc views do not describe host processes. The `slopworld-debug`
+  preset explicitly binds host `/proc` and `/sys`, so it has different diagnostic visibility.
+- The debug preset binds daemon config/endpoint and journal files read-only and shares
+  the session bus. `systemctl --user` therefore reaches host services; it is a host action.
+  See [presets](daemon-presets.md) for the complete diagnostic capability boundary.
 
-- `curl 127.0.0.1:7717`, `ss`, `netstat` - private net namespace; host localhost is
-  not the sandbox's localhost. A refused/empty result says nothing about the host.
-- `ps`, `pgrep`, `/proc/<pid>` - private PID namespace; host processes are invisible.
-- `ls ~/.config/slopworld`, `journalctl` - only what the preset binds is visible. The
-  daemon config/endpoint files and journal are bound RO by the preset ([daemon-presets](daemon-presets.md));
-  a preset edit needs the sandbox restarted before new binds appear in `/proc/self/mountinfo`.
+`slopd.service` uses `Type=simple`: active status alone does not prove startup reached
+`TcpListener::bind`. On the host, compare the listener with the startup journal:
 
-## What IS reliable
+```sh
+ss -tlnp | grep 7717
+journalctl --user -u slopd -n 30 --no-pager
+```
 
-- `systemctl --user ...` - the session bus is shared, so this reaches the host unit.
-  But `slopd.service` is `Type=simple`: "active/running" means only that the process
-  forked, not that `main` reached the `TcpListener::bind` at `main.rs`. A hang in
-  `Manager::new`/`sync_from_config` (startup reconcile, before the bind) looks like a
-  healthy unit with a stable PID and live tmux children - and nothing on 7717.
-- Files the preset binds RW, e.g. the game's `Player.log`.
-
-## Distinguishing hang-before-bind from a connect/auth problem
-
-Run on the host (not in the sandbox):
-
-    ss -tlnp | grep 7717
-    journalctl --user -u slopd -n 30 --no-pager
-
-Empty `ss` => startup never bound (look at the pre-bind path). A listener present =>
-the daemon serves and the mod side is the suspect: `endpoint.toml` url/token vs the
-config token, read by `Client/Daemon/Endpoint.cs` with an empty-token fallback to
-`127.0.0.1:7717`. See [paths](ops-paths.md) and [wire-protocol](protocol-wire.md).
-
-`systemd-run --user` would run on the host and sidestep the namespaces, but the
-harness classifier blocks it as a sandbox escape; widen the preset instead.
+Use the configured port if it differs. If there is no listener, inspect startup reconcile;
+if it exists, check reachability and the endpoint URL/token before blaming the mod.
+See [paths](ops-paths.md) and [diagnostics](ops-diagnostics.md).

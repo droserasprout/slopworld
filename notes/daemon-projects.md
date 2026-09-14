@@ -1,36 +1,15 @@
 # Projects and sessions
 
-A session is an agent in a project: name, `command` (a command preset's name),
-and this agent's own `cmd`, `sandbox` and optional network override.
-`[[project]]` is a directory plus a sandbox and network default; `sandbox` is
-its preset list, and `network` is one of `none`, `private` or `host`.
+Projects supply working directories and sandbox/network defaults. Sessions add command,
+private identity and overrides. Start in `config.rs` for resolution and `manager/sessions.rs`
+for mutations; [configuration stores](daemon-config-stores.md) covers effective versus saved values.
 
-An agent's `network` is optional: absent means inherit the project default, and
-present selects that agent's mode, including one wider than the project default.
+A named command preset contributes tool-state access. An explicit `cmd` without a named
+`command` does not. Do not infer credential mounts from executable text.
 
-- `temp` projects name no directory; `settle` coins `/tmp/slopworld/<name>` on the
-  way in. Hence `dir` is `serde(default)`, and `check_project` still refuses an
-  ordinary project without one.
-- A command is a *preset* rather than a command string: knowing it is Claude Code
-  is what lets the sandbox hand it `~/.claude` (`Config::sandbox_of`). An entry
-  stating a `cmd` and no `command` is handed none - a command line is nobody in
-  particular.
-- `sandbox` names the presets this ground adds to the implicit `global` preset. If a project
-  needs different binds, seeded state or environment, make a user preset and attach it here
-  (or to the agent). See [sandbox-isolation](sandbox-isolation.md).
-- `slopworld_md` is an opt-in agent setting. It generates a project-root `SLOPWORLD.md`, mounts
-  it read-only at `[daemon.instructions] mount_path` inside the primary project, and adds the
-  file to the repository's `.git/info/exclude`. `instructions.template` controls the body;
-  `instructions.breadcrumb` controls its optional first-prompt discovery text, with
-  `breadcrumb_enabled` as the global switch and `instructions_breadcrumb` as the per-agent
-  default-on opt-out. The manifest is a generated snapshot shared by agents in that project;
-  it is refreshed on config sync and before each enabled start, not on every file read.
-- `persistent_tmp` is an opt-in agent setting. It replaces the sandbox's per-run `/tmp` tmpfs
-  with a private tree under that agent's durable state; reset/delete removes it with the rest of
-  the state, while temporary errands remove it when they finish.
-- `check_belongs` runs on add and update, not at start. A project with agents
-  refuses deletion. A rename carries its sessions in the same write.
-- **Nothing is migrated.** A field this build does not know is dropped on the next
-  write, which is what `Config::parse` being one `toml::from_str` means.
+Temporary projects have daemon-owned directories and lifetimes. Project rename must carry
+its sessions in the same write; deleting a project with agents is refused.
 
-See [daemon-presets](daemon-presets.md) for what a preset name resolves to.
+The optional generated `SLOPWORLD.md` is a project-scoped snapshot shared by agents, not a
+per-agent private file or an authoritative project instruction. See [isolation](sandbox-isolation.md)
+for mount protection and [task discovery](agent-task-discovery.md) for prompt delivery.

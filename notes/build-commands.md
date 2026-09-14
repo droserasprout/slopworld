@@ -1,36 +1,15 @@
-# Building and running
+# Build entry points
 
-Use `make` for project commands (`gmake` on macOS). Run it without arguments for
-primary target help. Toolchain, build modes, tests, coverage, and release output are
-in [Build from source](../docs/src/build.md); platform workflows live in the
-book's installation guides.
+Use `make` (`gmake` on macOS); its default target lists commands. The
+[build guide](../docs/src/build.md) owns toolchains, tests, coverage and installation.
 
-For a GOG Linux install, use `make gogdl-login`, then `make gogdl-install`;
-`make gogdl-update` updates `RIMWORLD`. These include owned DLCs. `GOGDL_PATH`
-selects the download directory and `GOGDL_AUTH` overrides the Heroic token path.
+The mod links against a real RimWorld install. Debug and release overwrite the same
+`mod/Assemblies/SlopWorld.dll`; `lint-mod` rebuilds Release. Do not infer the installed
+assembly's build mode from its path.
 
-## Build and install constraints
+Mod installation stages and replaces only its destination through the Rust installer.
+Adding a shipped top-level directory requires updating
+`slopd/src/bin/slopworld/mod_install.rs`, not only build output.
 
-`RIMWORLD` must point to a real install: the mod links against its assemblies.
-Both `BUILD=debug` and `BUILD=release` write `mod/Assemblies/SlopWorld.dll`;
-`lint-mod` always rebuilds in Release.
-
-`install-mod` uses the tested host command `slopworld mod install`. It stages the
-shipped directories beside the destination, replaces only `Mods/SlopWorld`, and
-refuses filesystem roots or destinations inside the source tree. Update
-`slopd/src/bin/slopworld/mod_install.rs` when adding a shipped top-level directory.
-
-`install-font` refreshes fontconfig when available. `FONT_DIR` and `FONT_SOURCE`
-override its destination and source.
-
-`sidecar-devloop` passes `SLOPCAR_CONFIG_DIR` to `slopcar start` so the container
-writes the endpoint descriptor where the game launcher expects it.
-
-See [build-tools](build-tools.md) for auxiliary tools and
-[diagnostics](ops-diagnostics.md) for runtime checks.
-
-`make bench-report` runs the full benchmark suite three times, averages each reported metric,
-and writes a dated result note under `notes/` with the current commit hash.
-
-`make loc-report` measures tracked Python, C#, and Rust files and writes a dated lines-of-code
-note under `notes/`; pass `LOC_REPORT_ARGS=--output notes/path.md` to choose its path.
+`make bench-report` records three-run averages; `make loc-report` creates an on-demand
+count snapshot. Keep reports only when they support a concrete comparison.

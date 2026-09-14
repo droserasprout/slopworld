@@ -1,46 +1,19 @@
-# Mod `Client/`
+# Mod client
 
-Patches are applied from `ModBootstrap`, most by attribute.
-`Patch_HideGui`, `Patch_MainButtons`, `Patch_InspectTabs` and
-`Patch_NoRelateAgents` are manual because their target sets are data or
-reflection.
+`SessionHub` coordinates the main-thread services under `Client/SessionHub/`; use their
+owners for session, catalog, task, terminal and audio operations. Cross-service subscription
+and rename handoffs stay on the hub. `DaemonClient` replays HTTP callbacks on the main thread.
 
-- `SessionHub` - the singleton and single source of truth, pumped once a frame
-  from a `Root.Update` postfix. It coordinates six services under
-  `Client/SessionHub/`: `HubTransport` (the socket, reconnect/backoff, guarded
-  `Send`), `TerminalIO` (subs + keys/mouse/paste/scroll/resize/redraw), `AudioBus`
-  (jukebox channel), `SessionStore` (sessions list + screen buffers + their HTTP
-  mutations), `TaskStore` (the host's polled all-task board and HTTP mutations), and
-  `HubCatalog` (projects/library/presets/commands). Callers use the internal
-  `SessionStore`, `TaskStore`, `Catalog`, `Terminal`, and `Audio` properties for
-  independent operations. Subscription bookkeeping and session-save rename handling
-  stay on the hub because they span services. `Config` stays
-  a settable field because the settings pages write it back. `Handle`
-  routes each socket event to the owning service; `HubWire` holds shared JSON helpers.
-- `MiniWebSocket` - speaks RFC6455 by hand, because Unity's mono cannot be trusted
-  with `ClientWebSocket`. Incoming events use a lossless 256-message/16 MiB queue;
-  individual messages above 8 MiB close the socket. A queued unsolicited live screen
-  replaces the older screen for that session, while replies, history and control events
-  apply backpressure. Disconnect wakes blocked readers and releases queued strings.
-- `HubEventBatch` - reuses scratch buffers for up to 32 incoming messages per frame. Only
-  unsolicited live screens coalesce; history, request replies and other events preserve order.
-  Dispatch releases payload references and uses the captured queue if a callback reconnects.
-- `Json` - a minimal reader, because RimWorld ships none.
-- `DaemonClient` - the HTTP half; completions replayed on the main thread.
-- `DaemonConfig` - the small read model used by the settings GUI; writes go through
-  the daemon's patch endpoint.
-- `InstructionsPage` uses the root-only instructions preview route to render unsaved
-  Markdown through the shared native `MarkdownPreview` renderer.
+Unity Mono requires the custom WebSocket transport. Preserve lossless backpressure for
+control/history/replies while coalescing unsolicited live screens. A reconnect inside a
+callback must not redirect the rest of an old batch into the new connection. Closing wakes
+blocked readers and drops queued payload references.
 
-The settings pages use `PUT /api/config/patch` with nested partial JSON. A field
-missing from the client remains untouched in `config.toml`; daemon settings do not
-require hidden round-trip fields in the mod.
+HTTP writes and pushed snapshots can race. Catalog operation revisions reject stale reads.
+A session rename can remove the old name in a pushed snapshot before its HTTP response:
+keep the temporary name mapping until success or failure settles it, preserving the pawn,
+terminal and selection without keeping a truly deleted session alive.
 
-The mod's connection is resolved from the daemon's `endpoint.toml` descriptor.
-
-`HubCatalog` revisions invalidate project-list requests already in flight before a project
-save or delete; only the newest response may replace the catalog. `SessionStore` similarly
-holds a pending old-to-new name during an HTTP session rename, because the pushed sessions
-event can remove a stale name before the write response retargets the terminal window. It
-exposes both directions of that short-lived gap; success and failure callbacks settle the
-entry so a deleted session cannot remain protected.
+Connection comes from `endpoint.toml`; daemon settings use partial patches, not hidden
+round-trip fields. See [config ownership](daemon-config-stores.md),
+[protocol](protocol-wire.md), and [C# tests](test-csharp.md).

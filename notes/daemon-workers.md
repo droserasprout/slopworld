@@ -1,37 +1,18 @@
 # Task-owned workers
 
-The root-only `POST /api/workers` route is the daemon's worker constructor. `slopctl spawn
-[--durable] PARENT TASK...` calls it; `worker` is an alias. Existing agents keep using
-`slopctl delegate AGENT TASK...`. `PARENT` must name an existing agent session whose project,
-command (including an explicit command line), sandbox additions,
-breadcrumbs, manifest and breadcrumb settings, private `/tmp`, network and DNS, resource limits,
-mounts, and label. Worker autostart and auto-resume are disabled so a task never retries itself;
-the endpoint returns the mailbox task and generated worker session name together. The caller from
-`SLOPWORLD_SESSION` is the task sender and sidebar parent; `PARENT` only supplies the configuration
-to clone. A root `host` caller leaves the worker at the top level.
+`manager/workers.rs` constructs workers; `manager/start.rs` supplies runtime credentials.
+See [slopctl](../docs/src/guides/slopctl.md) for commands.
 
-The daemon writes the task to `tasks.toml` before creating or starting the child. A durable worker
-is added to `config.toml` and remains inspectable if startup fails or the daemon restarts. A
-one-shot worker is live-only and is removed when its process exits. Either kind is marked `failed`
-with a daemon note when it cannot start, exits, is stopped, or is removed. A completed or failed
-task is never overwritten by later cleanup. There is no automatic retry: inspect the task and
-start a durable child manually, or create a new worker task for a retry.
+The clone parent supplies configuration; the caller supplies task ownership and sidebar
+parentage. Never infer either from the generated name. Worker creation is root-only and
+requires network-capable API access. Fresh private identity and scoped credentials must not
+inherit the parent's state or expose the root endpoint token.
 
-Workers carry daemon-owned `worker`, `parent`, and `task_id` metadata. Running workers also
-persist that identity in tmux, so a one-shot child that outlives a daemon redeploy can be
-re-adopted under its parent. Ordinary session creation and editing cannot set it. The child
-receives a fresh private-state identity, the exact
-`SLOPWORLD_TASK_ID`, and the configured `[daemon.instructions] worker_prompt`, then uses
-`slopctl task ID`, `accept`, `progress`, and `finish` against its own mailbox. The default prompt
-describes that exact-task workflow. Settings > Agents > Workers edits or resets this
-prompt.
-The `slopworld-worker` sandbox preset supplies
-a run-scoped API credential through `SLOPD_URL` and `SLOPD_TOKEN`; it does not expose the daemon
-config or root endpoint token. A network-capable parent is required so this API path works;
-incompatible parents are rejected before launch.
+Persist the task before starting its process. Failed starts and premature exits fail unfinished
+tasks; cleanup must never overwrite a terminal task result. Autostart/auto-resume are disabled
+to prevent accidental task retries. Durable workers remain inspectable; one-shot workers
+normally disappear on exit, but surviving tmux metadata permits redeploy adoption.
 
-Removing a parent does not cascade to its workers. A child with a missing parent remains a valid
-session and is shown as a top-level row until it is removed or exits. The sidebar uses the
-explicit metadata to nest visible workers as compact rows with a small grey robot mark (the
-Agents tab icon) rather than the normal agent portrait; names are never parsed to infer
-ownership.
+Removing a parent does not cascade: orphaned children become top-level rows. Worker bootstrap
+is submitted regardless of the Instructions feature switch; the editor's current gate is a
+known inconsistency in the [experimental-feature plan](plan-review-experimental-features.md).

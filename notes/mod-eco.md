@@ -1,62 +1,19 @@
 # Eco mode
 
-The board stops. `Eco.Resting` is the one predicate - `Settings.EcoMode` and no
-[cutscene](mod-sim.md) playing, because a scene *has* the board and is the one
-thing here that has to finish. Toggled on the config page under "Game",
-beside grandma.
+`Eco.Resting` means requested Eco with no board-owning cutscene. It pauses simulation, not
+agent processes or transport. Keep this predicate shared; individual patches must not fight
+one another's pause/unpause decisions.
 
-What it does, one owner each:
+Painting suppression is broader than `MapUpdate`: weather, map edges, labels, overlays,
+gizmos and click/camera input have separate entry points. Hidden maintenance still needs
+bounded updates and fleck expiry; revealing the map must resume immediately. Projection
+updates remain necessary even when camera input is blocked.
 
-- **The clock**: a `TickManagerUpdate` prefix enforces the pause before any tick batch;
-  vanilla still clears `ticksThisFrame`. `TimeKeeper` holds `TimeSpeed.Paused` every frame instead of
-  lifting it, so eco does not have to fight the resume from somewhere else. `_ours`
-  keeps the "something paused the game" line for pauses nobody here asked for. `RealClock`
-  refreshes its wall-clock anchor once per second and on Eco/load/map edges, then skips
-  identical paused-frame assignments; normal play still samples solar time once per second.
-- **The map**: `PaneOverDraw.Wanted` suppresses map painting, including condition overlays,
-  designations, temporary things and lord stencils. Lord orphan aging remains active.
-  Eco also suppresses weather, edge clippers, map-interface overlays/gizmo hover,
-  and map clicks; those paths sit outside `MapUpdate` or remain interactive without
-  a visible board.
-  `EcoMapInput` also blocks Selector's map clicks and cancels its drag rectangle without
-  clearing the selected agent or gizmos. Camera input (edge, keyboard, drag and zoom)
-  is blocked and pending drag inertia is cleared; projection updates remain active.
-  A full terminal also suppresses weather and edge drawing, even outside Eco. Mesh
-  and sky maintenance run at a 0.25-second hidden cadence, with immediate full-rate updates
-  on reveal. Real-time flecks keep aging and expiring while hidden.
-- Player input and creation stop while resting. Pending core lightning
-  strikes are cancelled in Eco or Grandma mode, so disabling destruction cannot defer a strike.
-- **The frames**: Eco leaves foreground frame pacing alone. The independent Display
-  settings apply in both modes; only an unfocused window gets the 15 FPS cap.
-- **The backdrop**: with no pane up, [the baked frame](mod-background.md) is the
-  only map output: a ScaleAndCrop world-space quad covering the screen.
-  `ShaderDatabase.Cutout` queue 1000 fixes the ordering. `Frame()` passes a null
-  source when a set is resident to reuse the menu's cached expansion art.
-  Its material and screen-to-map fit are retained until dimming, texture, resolution, map, or
-  camera geometry changes.
-  Only the current map submits the backdrop. Frame lookup and drift math are skipped
-  while a terminal or maximized content view covers it; both use `TerminalWindow.Covering`.
-- **The drift**: `Zoom` (1.05) adds margin on both axes; `PanX` and `PanZ` move the
-  quad within it on long, incommensurate periods, adding motion without new frames.
-- **The dimming**: `ecoDim` (default 0.45) is the quad's grey `_Color` multiply;
-  menu and loading frames remain undimmed. The slider steps by twentieths because
-  `MaterialPool` keys on color.
-- **The map contents**: Eco redraws no pawns, animals, buildings, or other map things;
-  the jukebox and computer-core map click/hover components also stand down.
-  `ThingOverlays` is *not* in the draw chain that stands down - it runs off
-  `MapInterfaceOnGUI_BeforeMainTabs` - so a prefix on `Pawn.DrawGUIOverlay` suppresses
-  every map label too.
-- **The map's cosmetics**: `Eco.Bare` (`Cutscene.Playing || Resting`) keeps the remaining
-  map-adjacent effects quiet, while `CoreTip` and `Jukebox` also stop their map click/hover
-  components in Eco. `UsageReadout` keeps asking `Cutscene.Playing` alone: the top bar is
-  chrome, and in eco it is most of what is left.
-- **The reconcile**: because ticks stop, `AgentColony.GameComponentUpdate` invokes
-  the same `Reconcile` body from wall time each second. Eco arrivals spawn directly
-  at the pod's destination; a pod cannot count down its opening delay while paused.
-  Membership sets follow session revisions; pawn binding changes trigger display-order sorting.
-  Health, appearance and missing-pawn repair still run each sweep.
+Because ticks stop, colony reconciliation uses wall time and arrivals spawn at their final
+pod destination. Autosave skips the unchanged board. Foreground frame pacing remains
+`FramePolicy`'s job, independent of Eco.
 
-During an eco spell, an arriving agent appears directly at the pod's destination
-and the arrival effect is skipped. `AutoSaver` also skips autosaves because the
-board has not changed. The daemon, socket, and agents continue running outside
-the paused game.
+The backdrop reuses [menu frames](mod-background.md). Its material and camera fit are retained;
+fully covering content suppresses even backdrop lookup/drift. Only the current map submits it.
+Cancel pending destructive effects when Eco/Grandma disables them, rather than deferring a
+surprise strike until the mode changes back.

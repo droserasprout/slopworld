@@ -20,4 +20,4 @@ scope is the delegation allowlist.
 
 Root-only worker creation returns both task and session identity. See
 [daemon-workers](daemon-workers.md) for bootstrap, sidebar metadata, and exit/retry
-policy, and [agent-task-discovery](agent-task-discovery.md) for arrival notices.
+policy, and [agent-task-discovery](agent-task-discovery.md) for task discovery and its notification limits.
