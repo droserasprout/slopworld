@@ -16,8 +16,9 @@ Individual agent preferences remain stored while disabled. Disabling Breadcrumbs
 pending breadcrumb injection; disabling Instructions prevents new SLOPWORLD.md mounts.
 Restart running agents to remove existing mounts. The daemon enforces the same gates through
 `[daemon] experimental_breadcrumbs = true` and `[daemon] experimental_instructions = true`.
-Worker bootstrap settings are under **Settings > Integrations > Workers**; the prompt follows
-Instructions and its optional discovery breadcrumb follows Breadcrumbs.
+Worker bootstrap settings are under **Settings > Integrations > Workers**. The editor
+requires Instructions to be enabled, but spawned workers receive the saved bootstrap
+prompt even when that switch is off.
 
 ## Configuration file
 

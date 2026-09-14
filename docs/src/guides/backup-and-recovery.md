@@ -61,5 +61,5 @@ systemctl --user start slopd
 ```
 
 Agents with autostart enabled will start automatically. Others can be started from the
-sidebar or with `slopctl`. Private state, configuration, and the game profile are all
+sidebar. Private state, configuration, and the game profile are all
 on disk and do not depend on the running daemon.

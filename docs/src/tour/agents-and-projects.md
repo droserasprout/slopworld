@@ -57,9 +57,9 @@ A stopped agent's state age is cached and restored when the daemon comes back.
 
 ## Ephemeral agents
 
-Library errands and host shells spawn ephemeral agents that are never written to `config.toml`.
-They have no `Down` state: when the process exits, the session is removed. Temporary
-agents cannot be restarted.
+Library errands spawn ephemeral sessions that are never written to `config.toml`.
+When the process exits, the session is removed and cannot be restarted. Project host
+shells instead keep a durable tab; see [Host terminals](../reference/integrations.md#host-terminals).
 
 ## Titles
 

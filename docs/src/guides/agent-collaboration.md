@@ -19,11 +19,10 @@ session disappears. The daemon checks token capabilities on each request.
 
 ## Delivery
 
-A granted agent needs the daemon's address and token. The daemon does not inject grant
-credentials into sandboxes, so the caller must arrange delivery before the agent starts.
-
-The agent reads `endpoint.toml` for the URL and token, or `SLOPD_URL` and `SLOPD_TOKEN`
-when a caller supplies a scoped endpoint.
+For manually created grants, the caller must arrange delivery of the daemon URL and
+scoped token through `SLOPD_URL` and `SLOPD_TOKEN`. Workers created with `slopctl spawn`
+receive these automatically at startup. The host endpoint file contains the root token
+and must not be handed to a scoped agent.
 
 ## Task mailboxes
 

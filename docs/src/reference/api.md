@@ -90,5 +90,5 @@ metadata. Stream URLs are not forwarded to the mod.
 
 ### Files mutations
 
-Root-only: create, single-component rename, and recursive delete. Names cannot contain
-slash, backslash, `.`, or `..`. Existing targets are preserved.
+Root-only: create, single-component rename, and recursive delete. Names must be a single non-empty path component: `.`, `..`, slash, backslash, and NUL
+are rejected. Dots within names are allowed. Existing targets are preserved.

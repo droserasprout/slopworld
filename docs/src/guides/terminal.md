@@ -25,8 +25,8 @@ default).
 ## Reading without attaching
 
 ```sh
-tmux -L slopworld capture-pane -t SESSION_NAME -p
-tmux -L slopworld capture-pane -t SESSION_NAME -p -S -100   # last 100 lines
+tmux -L slopworld capture-pane -t SESSION_NAME: -p
+tmux -L slopworld capture-pane -t SESSION_NAME: -p -S -100   # last 100 lines
 ```
 
 `capture-pane -p` prints the pane contents to stdout without attaching. Add `-e` for
@@ -40,13 +40,8 @@ targets. Bare names are safe only for `kill-session`, `rename-session`, and `att
 
 ## Safe interaction
 
-The daemon rebuilds each agent's terminal emulator when it restarts. Attaching from a
-host terminal and typing is equivalent to typing in the mod; both reach the same tmux
-pane. Resizing the host terminal resizes the pane, which the mod will pick up on its
-next frame.
-
 Avoid killing sessions with `tmux kill-session` while the daemon is running. Use the
-mod's stop action or `slopctl` instead, so the daemon can clean up private state and
+mod's stop action instead, so the daemon can clean up private state and
 update its session map.
 
 ## Logs

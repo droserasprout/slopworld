@@ -22,7 +22,7 @@ game. Search for `patching incomplete:` after a crash. The log is at:
 ~/.config/unity3d/Ludeon Studios/RimWorld by Ludeon Studios/Player.log
 ```
 
-Use `make logs` or `slopctl logs game` to tail it.
+Use `make logs` or `slopctl logs game --follow` to tail it.
 
 ## The daemon is running but the mod shows no connection
 
@@ -73,22 +73,23 @@ instead of bare `tmux`. See [Attaching from a terminal](../guides/terminal.md).
 
 ## The daemon hangs on startup
 
-If `systemctl --user status slopd` shows the unit active but nothing listens on port
-7717, the daemon is stuck before its TCP bind:
+If the service is active but the mod cannot connect, check the configured listener
+and the journal. For the default port:
 
 ```sh
 ss -tlnp | grep 7717
 journalctl --user -u slopd -n 30 --no-pager
 ```
 
-An empty `ss` result means the bind never ran. Look for errors in
-`Manager::new` or `sync_from_config` in the journal output.
+An empty result means no listener is visible on that port. Check `[daemon].bind` in
+`config.toml` and confirm you are inspecting the host or container running the daemon
+before diagnosing a startup hang.
 
 ## Settings changes have no effect
 
 Some settings require a daemon restart (the listener bind address) or an agent restart
 (network mode, DNS servers, sandbox presets). See [Settings](settings.md) for the
-apply-behavior table.
+apply behavior.
 
 ## Saves from an older version {#save-migration}
 
