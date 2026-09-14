@@ -2,6 +2,15 @@
 
 use super::super::*;
 
+struct RetickSnapshot {
+    name: String,
+    run_id: u64,
+    seq: u64,
+    state: State,
+    last_change: u64,
+    plain: Arc<String>,
+}
+
 impl Manager {
     pub async fn views(&self) -> Vec<SessionView> {
         let cfg = self.config().await;
@@ -143,7 +152,7 @@ impl Manager {
         };
 
         // Classification awaits the rules lock, so snapshot before releasing the live lock.
-        let snapshot: Vec<(String, u64, Arc<String>)> = {
+        let snapshot: Vec<RetickSnapshot> = {
             let live = self.live.read().await;
             live.iter()
                 .filter(|(_, l)| l.state != State::Down)
@@ -158,19 +167,34 @@ impl Manager {
                     if l.seq == l.retick_seq && !idle_due {
                         return None;
                     }
-                    Some((n.clone(), l.last_change, l.plain.clone()))
+                    Some(RetickSnapshot {
+                        name: n.clone(),
+                        run_id: l.run_id,
+                        seq: l.seq,
+                        state: l.state,
+                        last_change: l.last_change,
+                        plain: l.plain.clone(),
+                    })
                 })
                 .collect()
         };
 
         let classified = snapshot.len();
         let mut dirty_list = false;
-        for (name, last_change, plain) in snapshot {
-            let state = self.classify(false, last_change, plain.as_str()).await;
+        for previous in snapshot {
+            let state = self
+                .classify(false, previous.last_change, previous.plain.as_str())
+                .await;
             let mut activity = None;
             let mut live = self.live.write().await;
-            if let Some(l) = live.get_mut(&name) {
-                l.retick_seq = l.seq;
+            if let Some(l) = live.get_mut(&previous.name) {
+                // Output, stop/start, or another classification can supersede this snapshot
+                // while the rules lock is awaited. Never mark newer frames as classified.
+                if l.run_id != previous.run_id || l.seq != previous.seq || l.state != previous.state
+                {
+                    continue;
+                }
+                l.retick_seq = previous.seq;
                 if l.set_state(state) {
                     dirty_list = true;
                     if !l.ephemeral {
@@ -180,7 +204,8 @@ impl Manager {
             }
             drop(live);
             if let Some((state, state_since)) = activity {
-                self.persist_activity(&name, state, state_since).await;
+                self.persist_activity(&previous.name, state, state_since)
+                    .await;
             }
         }
 
@@ -200,5 +225,110 @@ impl Manager {
         }
         drop(_perf);
         crate::perf::maybe_report();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    async fn quiet_session() -> (Arc<Manager>, crate::emu::SessionEmu) {
+        let manager = crate::session::test_manager(Config::default());
+        let mut live = Live::new(
+            SessionCfg {
+                name: "agent".into(),
+                ..Default::default()
+            },
+            TitleCapture::default(),
+        );
+        live.ephemeral = true;
+        manager.live.write().await.insert("agent".into(), live);
+        let mut emu = crate::emu::SessionEmu::new(80, 24);
+        emu.feed(b"old output");
+        manager.apply_frame("agent", emu.render()).await;
+        {
+            let mut live = manager.live.write().await;
+            let live = live.get_mut("agent").unwrap();
+            live.last_change = 0;
+            live.state_since = 0;
+        }
+        // Prevent unrelated polling from suspending retick before it reaches classification.
+        manager
+            .config_state
+            .checked
+            .store(u64::MAX, Ordering::Relaxed);
+        manager
+            .host_metadata_checked
+            .store(u64::MAX, Ordering::Relaxed);
+        (manager, emu)
+    }
+
+    #[tokio::test]
+    async fn retick_does_not_overwrite_fresh_terminal_activity() {
+        let (manager, mut emu) = quiet_session().await;
+        let rules = manager.rules.write().await;
+        let mut tick = Box::pin(manager.retick());
+        assert!(futures::poll!(tick.as_mut()).is_pending());
+        drop(rules);
+
+        // The tick has captured the old idle deadline. Commit real output before resuming it.
+        emu.feed(b"\r\nnew output");
+        manager.apply_frame("agent", emu.render()).await;
+        tick.await;
+
+        {
+            let live = manager.live.read().await;
+            let live = &live["agent"];
+            assert_eq!(live.state, State::Working);
+            assert_ne!(
+                live.retick_seq, live.seq,
+                "new output was never classified by retick"
+            );
+        }
+        manager.retick().await;
+        let live = manager.live.read().await;
+        assert_eq!(live["agent"].state, State::Working);
+        assert_eq!(live["agent"].retick_seq, live["agent"].seq);
+    }
+
+    #[tokio::test]
+    async fn retick_does_not_revive_a_stopped_session() {
+        let (manager, _) = quiet_session().await;
+        let rules = manager.rules.write().await;
+        let mut tick = Box::pin(manager.retick());
+        assert!(futures::poll!(tick.as_mut()).is_pending());
+        manager
+            .live
+            .write()
+            .await
+            .get_mut("agent")
+            .unwrap()
+            .set_state(State::Down);
+        drop(rules);
+        tick.await;
+
+        let live = manager.live.read().await;
+        assert_eq!(live["agent"].state, State::Down);
+        assert_eq!(live["agent"].retick_seq, 0);
+    }
+
+    #[tokio::test]
+    async fn retick_does_not_classify_a_replacement_run_with_the_same_sequence() {
+        let (manager, _) = quiet_session().await;
+        let rules = manager.rules.write().await;
+        let mut tick = Box::pin(manager.retick());
+        assert!(futures::poll!(tick.as_mut()).is_pending());
+        {
+            let mut live = manager.live.write().await;
+            let live = live.get_mut("agent").unwrap();
+            live.run_id += 1;
+            live.last_change = now_ms();
+        }
+        drop(rules);
+        tick.await;
+
+        let live = manager.live.read().await;
+        assert_eq!(live["agent"].state, State::Working);
+        assert_eq!(live["agent"].retick_seq, 0);
     }
 }
