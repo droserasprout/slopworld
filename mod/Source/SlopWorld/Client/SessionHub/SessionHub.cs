@@ -68,6 +68,12 @@ namespace SlopWorld
         public SessionInfo Get(string name) => _sessions.Get(name);
         public bool TryPendingRename(string oldName, out string newName) =>
             _sessions.TryPendingRename(oldName, out newName);
+        public bool TryPendingRenameSource(string newName, out string oldName) =>
+            _sessions.TryPendingRenameSource(newName, out oldName);
+        internal string PendingRenameDestination(string oldName) =>
+            _sessions.TryPendingRename(oldName, out var newName) ? newName : null;
+        internal string PendingRenameSource(string newName) =>
+            _sessions.TryPendingRenameSource(newName, out var oldName) ? oldName : null;
         public ScreenBuf Screen(string name) => _sessions.Screen(name);
         public bool TryScrollScreen(string name, out ScreenBuf screen) =>
             _sessions.TryScrollScreen(name, out screen);

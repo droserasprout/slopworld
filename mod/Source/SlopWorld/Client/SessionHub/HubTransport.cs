@@ -26,17 +26,32 @@ namespace SlopWorld
         sealed class ConnectResult
         {
             public int Serial;
-            public MiniWebSocket Socket;
+            public IHubSocket Socket;
             public string Error;
         }
 
         readonly ConcurrentQueue<ConnectResult> _connectResults =
             new ConcurrentQueue<ConnectResult>();
-        MiniWebSocket _ws;
+        readonly System.Func<IHubSocket> _socketFactory;
+        readonly System.Action<System.Action> _queueConnect;
+        IHubSocket _ws;
         float _nextRetry;
         int _backoff = 1;
         int _connectSerial;
         bool _connecting;
+
+        public HubTransport() : this(() => new MiniWebSocket(),
+            action => ThreadPool.QueueUserWorkItem(_ => action()))
+        { }
+
+        // The game uses the default ThreadPool/ MiniWebSocket pair. Tests can provide a
+        // deterministic scheduler and socket while exercising the same result pump.
+        internal HubTransport(System.Func<IHubSocket> socketFactory,
+                             System.Action<System.Action> queueConnect)
+        {
+            _socketFactory = socketFactory;
+            _queueConnect = queueConnect;
+        }
 
         public void Connect()
         {
@@ -77,14 +92,16 @@ namespace SlopWorld
         // Called every frame from the coordinator's Update.
         public void Update()
         {
-            PumpConnectResults();
             if (!Settings.AutoConnect)
             {
-                // Auto-connect is a live setting: turning it off must also release an
-                // already-open socket, not merely stop the next retry.
-                if (_ws != null) Disconnect();
+                // Disabling auto-connect must invalidate an attempt even when no socket has
+                // been installed yet. Otherwise its eventual result leaves _connecting stuck.
+                InvalidateConnectAttempt();
+                PumpConnectResults();
                 return;
             }
+
+            PumpConnectResults();
 
             if (_ws == null || !_ws.Connected)
             {
@@ -119,6 +136,21 @@ namespace SlopWorld
             }
         }
 
+        void InvalidateConnectAttempt()
+        {
+            if (_ws != null)
+            {
+                // Disconnect also drains queued results and releases the installed socket.
+                Disconnect();
+                return;
+            }
+
+            _connectSerial++;
+            _connecting = false;
+            while (_connectResults.TryDequeue(out var result)) result.Socket?.Dispose();
+            Status = "disconnected";
+        }
+
         void BeginConnect()
         {
             if (_connecting) return;
@@ -126,9 +158,9 @@ namespace SlopWorld
             int serial = ++_connectSerial;
             _connecting = true;
             Status = "connecting";
-            ThreadPool.QueueUserWorkItem(_ =>
+            _queueConnect(() =>
             {
-                var socket = new MiniWebSocket();
+                var socket = _socketFactory();
                 bool connected = socket.Connect(connection.Host, connection.Port, WireContract.WsPath,
                                                 connection.Token);
                 _connectResults.Enqueue(new ConnectResult
@@ -146,6 +178,10 @@ namespace SlopWorld
             {
                 if (result.Serial != _connectSerial || !Settings.AutoConnect)
                 {
+                    // A stale completion belongs to an older serial and must not release a
+                    // newer attempt. The current completion is safe to settle, even when auto
+                    // connect was disabled after BeginConnect.
+                    if (result.Serial == _connectSerial) _connecting = false;
                     result.Socket?.Dispose();
                     continue;
                 }

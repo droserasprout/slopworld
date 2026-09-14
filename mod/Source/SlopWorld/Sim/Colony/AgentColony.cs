@@ -167,13 +167,17 @@ namespace SlopWorld
             foreach (var pair in _pawns)
             {
                 var pawn = pair.Value;
-                if (!_membership.Contains(pair.Key) || pawn == null || pawn.Destroyed || pawn.Dead)
+                // A rename briefly removes one name before the HTTP callback or its pushed
+                // snapshot supplies the other. Retain the binding only when that counterpart
+                // is in the current membership; an ordinary deletion still retires normally.
+                bool member = _membership.Contains(pair.Key) || PendingRenameKeeps(pair.Key);
+                if (!member || pawn == null || pawn.Destroyed || pawn.Dead)
                     _retiring.Add(pair.Key);
             }
             foreach (var name in _retiring)
             {
                 if (!_pawns.TryGetValue(name, out var pawn)) continue;
-                bool removed = !_membership.Contains(name);
+                bool removed = !_membership.Contains(name) && !PendingRenameKeeps(name);
                 if (removed || (pawn != null && pawn.Dead)) Retire(pawn);
                 Unbind(name);
                 if (removed) _seen.Remove(name);
@@ -220,6 +224,9 @@ namespace SlopWorld
                 // terminals, not colony agents, so never materialize them as pawns.
                 if (s.Ephemeral || s.Worker) continue;
                 if (_pawns.ContainsKey(s.Name)) continue;
+                // Do not mint a second pawn for the destination (or source) while the same
+                // pending rename is represented by the existing binding under its other name.
+                if (PendingRenameCovers(s.Name)) continue;
                 // The session->pawn map is saved with reference values, which RimWorld resolves
                 // in a later load phase and drops when they do not round-trip - without this
                 // the reconcile spawns a duplicate beside the loaded pawn.
@@ -241,7 +248,8 @@ namespace SlopWorld
 
                 RobotFace.Apply(kv.Value);
 
-                var state = SessionHub.Instance.Get(kv.Key)?.State ?? AgentState.Down;
+                string sessionName = PendingRenameSession(kv.Key);
+                var state = SessionHub.Instance.Get(sessionName)?.State ?? AgentState.Down;
                 // A session with no saved history has not moved on its first sight.
                 AgentState? was = _seen.TryGetValue(kv.Key, out var seen)
                     ? seen : (AgentState?)null;
@@ -251,6 +259,27 @@ namespace SlopWorld
             }
 
             Reorder();
+        }
+
+        bool PendingRenameKeeps(string name)
+        {
+            var hub = SessionHub.Instance;
+            return AgentRenamePolicy.Keeps(name, _membership.Contains,
+                hub.PendingRenameDestination, hub.PendingRenameSource);
+        }
+
+        bool PendingRenameCovers(string sessionName)
+        {
+            var hub = SessionHub.Instance;
+            return AgentRenamePolicy.Covers(sessionName, _pawns.ContainsKey,
+                hub.PendingRenameDestination, hub.PendingRenameSource);
+        }
+
+        string PendingRenameSession(string bindingName)
+        {
+            var hub = SessionHub.Instance;
+            return AgentRenamePolicy.SessionName(bindingName, _membership.Contains,
+                hub.PendingRenameDestination, hub.PendingRenameSource);
         }
 
         void Reorder()

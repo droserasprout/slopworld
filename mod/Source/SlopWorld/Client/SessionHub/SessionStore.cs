@@ -39,8 +39,28 @@ namespace SlopWorld
             return _byName.TryGetValue(name, out var session) ? session : null;
         }
 
-        public bool TryPendingRename(string oldName, out string newName) =>
-            _pendingRenames.TryGetValue(oldName, out newName);
+        public bool TryPendingRename(string oldName, out string newName)
+        {
+            newName = null;
+            return !string.IsNullOrEmpty(oldName) && _pendingRenames.TryGetValue(oldName, out newName);
+        }
+
+        // The colony may already have been retargeted by the HTTP callback while the next
+        // sessions event still carries the old name. Look up the other side of that same gap.
+        public bool TryPendingRenameSource(string newName, out string oldName)
+        {
+            oldName = null;
+            if (string.IsNullOrEmpty(newName)) return false;
+            foreach (var pair in _pendingRenames)
+            {
+                if (pair.Value == newName)
+                {
+                    oldName = pair.Key;
+                    return true;
+                }
+            }
+            return false;
+        }
 
         public ScreenBuf Screen(string name) =>
             _screens.TryGetValue(name, out var s) ? s : null;

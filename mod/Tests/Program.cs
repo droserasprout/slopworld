@@ -110,6 +110,8 @@ namespace SlopWorld.Tests
             tests.Add(("Workspace split: bounded geometry", WorkspacePanelTests.SplitGeometry));
             tests.Add(("Field focus: live form changes", FieldFocusTests.Availability));
             tests.Add(("Field focus: restoration and owner isolation", FieldFocusTests.Restoration));
+            foreach (var test in ModBugfixTests.Cases())
+                tests.Add(("Mod bugfix: " + test.Name, test.Body));
             int failed = 0;
 
             foreach (var test in tests)
