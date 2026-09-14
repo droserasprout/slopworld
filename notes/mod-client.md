@@ -41,4 +41,6 @@ The mod's connection is resolved from the daemon's `endpoint.toml` descriptor.
 `HubCatalog` revisions invalidate project-list requests already in flight before a project
 save or delete; only the newest response may replace the catalog. `SessionStore` similarly
 holds a pending old-to-new name during an HTTP session rename, because the pushed sessions
-event can remove a stale name before the write response retargets the terminal window.
+event can remove a stale name before the write response retargets the terminal window. It
+exposes both directions of that short-lived gap; success and failure callbacks settle the
+entry so a deleted session cannot remain protected.

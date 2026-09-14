@@ -146,7 +146,16 @@ namespace SlopWorld
     // Text frames, ping/pong, close. ClientWebSocket is not dependable on Unity's
     // mono and less so under Wine, so we speak the protocol over a plain TcpClient.
     // Reads happen on a background thread; callers drain Incoming.
-    public partial class MiniWebSocket : IDisposable
+    internal interface IHubSocket : IDisposable
+    {
+        bool Connected { get; }
+        string LastError { get; }
+        IncomingMessageQueue Incoming { get; }
+        bool Connect(string host, int port, string path, string token, int timeoutMs = 3000);
+        void SendText(string text);
+    }
+
+    public partial class MiniWebSocket : IDisposable, IHubSocket
     {
         internal readonly IncomingMessageQueue Incoming = new IncomingMessageQueue();
         readonly ConcurrentQueue<string> _outgoing = new ConcurrentQueue<string>();
@@ -162,6 +171,8 @@ namespace SlopWorld
         public bool Connected => _connected;
         public string LastError { get; private set; }
         public int OutgoingCount => _outgoing.Count;
+
+        IncomingMessageQueue IHubSocket.Incoming => Incoming;
 
         TcpClient _tcp;
         NetworkStream _net;

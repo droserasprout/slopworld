@@ -35,9 +35,13 @@
     <Compile Include="../Source/SlopWorld/Client/SessionHub/HubEventBatch.cs" Link="Source/Client/SessionHub/HubEventBatch.cs" />
     <Compile Include="../Source/SlopWorld/Client/Transport/MiniWebSocket.cs" Link="Source/Client/Transport/MiniWebSocket.cs" />
     <Compile Include="../Source/SlopWorld/Client/Transport/MiniWebSocket.Frames.cs" Link="Source/Client/Transport/MiniWebSocket.Frames.cs" />
+    <Compile Include="../Source/SlopWorld/Client/SessionHub/HubTransport.cs" Link="Source/Client/SessionHub/HubTransport.cs" />
+    <Compile Include="../Source/SlopWorld/Client/SessionHub/TerminalIO.cs" Link="Source/Client/SessionHub/TerminalIO.cs" />
+    <Compile Include="../Source/SlopWorld/Client/SessionHub/SessionStore.cs" Link="Source/Client/SessionHub/SessionStore.cs" />
     <Compile Include="../Source/SlopWorld/Sim/Lifecycle/PeriodicWork.cs" Link="Source/Sim/Lifecycle/PeriodicWork.cs" />
     <Compile Include="../Source/SlopWorld/Sim/Lifecycle/HiddenWorkCadence.cs" Link="Source/Sim/Lifecycle/HiddenWorkCadence.cs" />
     <Compile Include="../Source/SlopWorld/Sim/Colony/ColonySessionIndex.cs" Link="Source/Sim/Colony/ColonySessionIndex.cs" />
+    <Compile Include="../Source/SlopWorld/Sim/Colony/AgentRenamePolicy.cs" Link="Source/Sim/Colony/AgentRenamePolicy.cs" />
     <Compile Include="../Source/SlopWorld/UI/Usage/UsageRowsCache.cs" Link="Source/UI/Usage/UsageRowsCache.cs" />
     <Compile Include="../Source/SlopWorld/UI/Usage/ClockTextCache.cs" Link="Source/UI/Usage/ClockTextCache.cs" />
     <Compile Include="../Source/SlopWorld/Patches/AgentSidebar/SidebarTitleCache.cs" Link="Source/Patches/AgentSidebar/SidebarTitleCache.cs" />

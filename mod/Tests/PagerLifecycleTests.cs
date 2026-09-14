@@ -40,6 +40,11 @@ namespace SlopWorld
     {
         public static string Current;
         public static void Open(string name) { Current = name; }
+        public static bool TryPanelShape(out int cols, out int rows)
+        {
+            cols = rows = 0;
+            return false;
+        }
     }
 
     static partial class UiLayout

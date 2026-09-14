@@ -1,7 +1,11 @@
 namespace Verse
 {
     static class GenFilePaths { public static string SaveDataFolderPath = ""; }
-    static class Log { public static void Error(string message) { } }
+    static class Log
+    {
+        public static void Error(string message) { }
+        public static void Warning(string message) { }
+    }
     static class UI { public static float screenWidth, screenHeight; }
     public enum GameFont { Tiny, Small, Medium }
     static partial class Text
