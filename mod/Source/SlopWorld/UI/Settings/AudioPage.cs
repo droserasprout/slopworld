@@ -21,7 +21,6 @@ namespace SlopWorld
         {
 
             UiLayout.SectionHeading(l, "Volume");
-            UiLayout.Note(l, "Audio changes apply immediately.");
             Prefs.VolumeMaster = UiControls.Slider(l, "MasterVolume".Translate(),
                 Prefs.VolumeMaster, "MasterVolumeTooltip".Translate());
             Prefs.VolumeGame = UiControls.Slider(l, "GameVolume".Translate(),

@@ -23,9 +23,8 @@ namespace SlopWorld
             l.Gap(UiTheme.GapL);
             UiLayout.SectionHeading(l, "Game");
             var s = ModEntry.Instance.settings;
-            UiLayout.Note(l, "Game preferences apply immediately and are written when Settings closes.");
-            bool eco = UiControls.Checkbox(l, "Eco mode", s.ecoMode);
-            UiLayout.Note(l, "80% less CPU, 0.1% less guilt. You're welcome, Earth!");
+            bool eco = UiControls.Checkbox(l, "Eco mode", s.ecoMode,
+                "80% less CPU, 0.1% less guilt. You're welcome, Earth!");
 
             // Only with the mode on: a slider for a backdrop nothing is drawing is a knob that
             // does nothing. Stepped to twentieths because
@@ -38,8 +37,8 @@ namespace SlopWorld
                 if (dim != s.ecoDim) { s.ecoDim = dim; s.MarkDirty(); }
             }
 
-            bool gm = UiControls.Checkbox(l, "Grandma's visiting", s.grandmaMode);
-            UiLayout.Note(l, "No fun allowed! Disable violence and offensive/harmful tips.");
+            bool gm = UiControls.Checkbox(l, "Grandma's visiting", s.grandmaMode,
+                "No fun allowed! Disable violence and offensive/harmful tips.");
 
             if (gm != s.grandmaMode || eco != s.ecoMode)
             {
@@ -50,21 +49,19 @@ namespace SlopWorld
 
             l.Gap(UiTheme.GapL);
             UiLayout.SectionHeading(l, "Experimental");
-            UiLayout.Note(l, "Only these two daemon switches are saved from General. Local Game and Locale preferences apply immediately.");
             if (_loaded)
             {
                 _cfg.ExperimentalBreadcrumbs = UiControls.Checkbox(l, "Enable breadcrumbs",
-                    _cfg.ExperimentalBreadcrumbs);
-                UiLayout.Note(l, "Unlock automatic and manual prompt breadcrumbs. Save to apply.");
+                    _cfg.ExperimentalBreadcrumbs,
+                    "Unlock automatic and manual prompt breadcrumbs. Save to apply.");
                 _cfg.ExperimentalInstructions = UiControls.Checkbox(l, "Enable instructions",
-                    _cfg.ExperimentalInstructions);
-                UiLayout.Note(l, "Unlock generated SLOPWORLD.md instructions. Save to apply.");
+                    _cfg.ExperimentalInstructions,
+                    "Unlock generated SLOPWORLD.md instructions. Save to apply.");
             }
             else
                 UiLayout.Note(l, _error ?? "Waiting for the daemon...");
             l.Gap(UiTheme.GapL);
             UiLayout.SectionHeading(l, "Locale");
-            UiLayout.Note(l, "Locale changes apply immediately and are written when Settings closes.");
             if (UiLayout.Button(l,
                     "TemperatureMode".Translate() + ": " + Prefs.TemperatureMode.ToStringHuman()))
             {
