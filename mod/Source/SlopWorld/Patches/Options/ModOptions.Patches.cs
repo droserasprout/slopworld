@@ -42,9 +42,11 @@ namespace SlopWorld
         const float VanillaPitch = 50f;
         const float VanillaInset = 4f;
 
-        // Vanilla reserves a 50px pitch, so top-level rows use the larger computed pitch.
-        static float RowH => Mathf.Round(UiTheme.LineH * 1.4f);
-        static float NestedRowH => Mathf.Round(UiTheme.LineH * 1.15f);
+        // Keep every label to one Small-font line so the complete Settings rail fits on
+        // ordinary-height screens. Icons use the same compact row rather than adding a
+        // separate top-level height.
+        static float RowH => UiTheme.LineH;
+        static float NestedRowH => UiTheme.LineH;
         static float Pitch => RowH + UiTheme.GapXS;
         static float NestedPitch => NestedRowH + UiTheme.GapXS;
 
