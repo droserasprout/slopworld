@@ -595,10 +595,7 @@ impl Manager {
 
 fn auto_resume_inputs() -> Vec<Input> {
     vec![
-        Input::Paste {
-            bytes: b"/resume".to_vec(),
-            bracketed: false,
-        },
+        Input::Bytes(b"/resume".to_vec()),
         Input::Gap(Duration::from_millis(ENTER_GAP_MS)),
         Input::Keys {
             keys: vec!["Enter".into()],
@@ -632,10 +629,7 @@ mod tests {
         assert_eq!(input.len(), 5);
         assert!(matches!(
             &input[0],
-            Input::Paste {
-                bytes,
-                bracketed: false
-            } if bytes == b"/resume"
+            Input::Bytes(bytes) if bytes == b"/resume"
         ));
         assert!(matches!(&input[1], Input::Gap(_)));
         assert!(matches!(

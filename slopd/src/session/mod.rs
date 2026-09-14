@@ -695,7 +695,6 @@ pattern = '(?i)(esc to interrupt|to interrupt\))'
             Input::Bytes(b"ab".to_vec()),
             Input::Paste {
                 bytes: b"hello".to_vec(),
-                bracketed: false,
             },
             Input::Bytes(b"cd".to_vec()),
             Input::Keys {
@@ -707,7 +706,7 @@ pattern = '(?i)(esc to interrupt|to interrupt\))'
         assert!(matches!(
             &batch[1],
             Input::Paste {
-                bytes, bracketed: false
+                bytes
             } if bytes == b"hello"
         ));
         assert!(matches!(&batch[3], Input::Keys { .. }));

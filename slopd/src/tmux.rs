@@ -516,7 +516,7 @@ impl Tmux {
     /// 996 bytes. Load from stdin, paste with `-r` to preserve newlines, and delete the buffer
     /// after use. Bracketed mode makes a large paste one terminal event, which prevents Codex's
     /// raw-input paste-burst heuristic from splitting it at PTY read pauses.
-    pub async fn paste_bytes(&self, name: &str, bytes: &[u8], bracketed: bool) -> Result<()> {
+    pub async fn paste_bytes(&self, name: &str, bytes: &[u8]) -> Result<()> {
         use tokio::io::AsyncWriteExt;
 
         let buf = format!("slopworld-{name}");
@@ -545,10 +545,9 @@ impl Tmux {
         }
 
         let target = format!("{name}:.0");
-        let mut args = vec!["paste-buffer", "-d", "-r"];
-        if bracketed {
-            args.push("-p");
-        }
+        // tmux checks the pane's current mode at delivery, including apps launched inside
+        // host shells. Do not infer this capability from a configured command or preset.
+        let mut args = vec!["paste-buffer", "-d", "-r", "-p"];
         args.extend(["-b", &buf, "-t", &target]);
         self.run(&args).await?;
         Ok(())
@@ -606,6 +605,121 @@ fn parse_length_framed_field(input: &str) -> Option<(Option<String>, &str)> {
 #[cfg(test)]
 mod tests {
     use super::{clean_title, parse_host_metadata, parse_pos, HostMetadata};
+
+    // Exercise the real transport against an isolated server, without starting the game.
+    #[tokio::test]
+    async fn paste_follows_the_current_application_mode() {
+        use super::Tmux;
+        use std::time::{Duration, SystemTime, UNIX_EPOCH};
+
+        struct Fixture {
+            socket: String,
+            dir: std::path::PathBuf,
+        }
+        impl Drop for Fixture {
+            fn drop(&mut self) {
+                let _ = std::process::Command::new("tmux")
+                    .args(["-L", &self.socket, "kill-server"])
+                    .output();
+                let _ = std::fs::remove_dir_all(&self.dir);
+            }
+        }
+
+        let id = format!(
+            "slop-paste-{}-{}",
+            std::process::id(),
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        );
+        let fixture = Fixture {
+            dir: std::env::temp_dir().join(&id),
+            socket: id,
+        };
+        std::fs::create_dir(&fixture.dir).unwrap();
+        let script = fixture.dir.join("receiver.py");
+        // Toggle on and then off in the same pane, as applications do when entered/exited.
+        // The raw receiver records every byte, including any unexpected extra markers.
+        std::fs::write(
+            &script,
+            r#"
+import os, pathlib, select, time, tty
+root = pathlib.Path(__file__).parent
+tty.setraw(0)
+for index, mode in enumerate((b'\x1b[?2004h', b'\x1b[?2004l')):
+    os.write(1, mode)
+    data = bytearray()
+    while True:
+        if select.select([0], [], [], 0.2)[0]:
+            data.extend(os.read(0, 65536))
+        elif data:
+            break
+    pending = root / "pending"
+    pending.write_bytes(data)
+    pending.rename(root / str(index))
+    while not (root / ('ack' + str(index))).exists():
+        time.sleep(0.01)
+"#,
+        )
+        .unwrap();
+        let tmux = Tmux::new(&fixture.socket);
+        tmux.run(&[
+            "-f",
+            "/dev/null",
+            "new-session",
+            "-d",
+            "-s",
+            "paste",
+            "python3",
+            script.to_str().unwrap(),
+        ])
+        .await
+        .unwrap();
+        let payload = "hello λ 🦀\nsecond line\r\n".repeat(4096).into_bytes();
+        for (index, enabled) in [true, false].into_iter().enumerate() {
+            tokio::time::timeout(Duration::from_secs(5), async {
+                loop {
+                    let mode = tmux
+                        .run(&[
+                            "display-message",
+                            "-p",
+                            "-t",
+                            "paste:.0",
+                            "#{bracket_paste_flag}",
+                        ])
+                        .await
+                        .unwrap();
+                    if mode.trim() == if enabled { "1" } else { "0" } {
+                        break;
+                    }
+                    tokio::time::sleep(Duration::from_millis(10)).await;
+                }
+            })
+            .await
+            .expect("receiver did not change paste mode");
+            tmux.paste_bytes("paste", &payload).await.unwrap();
+            let result = fixture.dir.join(index.to_string());
+            tokio::time::timeout(Duration::from_secs(5), async {
+                while !result.exists() {
+                    tokio::time::sleep(Duration::from_millis(10)).await;
+                }
+            })
+            .await
+            .expect("receiver did not finish paste");
+            let expected = if enabled {
+                [b"\x1b[200~".as_slice(), &payload, b"\x1b[201~"].concat()
+            } else {
+                payload.clone()
+            };
+            let received = std::fs::read(result).unwrap();
+            assert!(
+                received == expected,
+                "paste bytes differ with mode {enabled}"
+            );
+            std::fs::write(fixture.dir.join(format!("ack{index}")), b"").unwrap();
+        }
+    }
 
     #[test]
     fn a_title_cannot_carry_an_escape() {

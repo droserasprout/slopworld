@@ -22,24 +22,6 @@ enum ControlLine {
     Ignore,
 }
 
-fn command_uses_bracketed_paste(cfg: &Config, session: &SessionCfg) -> bool {
-    let command = cfg.command_name(session);
-    let executable = if command.is_empty() {
-        crate::sandbox::shell_split(&cfg.command_of(session))
-            .into_iter()
-            .next()
-    } else {
-        Some(command)
-    };
-    matches!(
-        executable
-            .as_deref()
-            .and_then(|path| std::path::Path::new(path).file_name())
-            .and_then(|name| name.to_str()),
-        Some("codex" | "opencode" | "pi")
-    )
-}
-
 #[derive(Default, PartialEq, Eq)]
 struct FrameMeta {
     cursor_shape: u8,
@@ -347,25 +329,6 @@ mod tests {
     use std::io::Write;
     use std::os::fd::OwnedFd;
     use std::os::unix::net::UnixStream;
-
-    #[test]
-    fn bracketed_paste_is_selected_for_supported_agent_tuis_only() {
-        let cfg = Config::default();
-        let mut session = SessionCfg {
-            name: "agent".into(),
-            ..Default::default()
-        };
-
-        session.command = "codex".into();
-        assert!(command_uses_bracketed_paste(&cfg, &session));
-
-        session.command.clear();
-        session.cmd = Some("pi --continue".into());
-        assert!(command_uses_bracketed_paste(&cfg, &session));
-
-        session.cmd = Some("claude".into());
-        assert!(!command_uses_bracketed_paste(&cfg, &session));
-    }
 
     #[tokio::test]
     async fn experimental_off_discards_pending_breadcrumbs() {
