@@ -737,6 +737,50 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn retick_moves_a_quiet_working_session_to_idle() {
+        let manager = crate::session::test_manager(Config::default());
+        *manager.rules.write().await = vec![(
+            State::Working,
+            regex::Regex::new("esc to interrupt").unwrap(),
+        )];
+        let mut live = Live::new(
+            SessionCfg {
+                name: "agent".into(),
+                ..Default::default()
+            },
+            TitleCapture::default(),
+        );
+        live.state = State::Working;
+        live.state_since = 0;
+        live.last_change = 0;
+        live.seq = 1;
+        live.screen = Some(ScreenView {
+            name: "agent".into(),
+            seq: 1,
+            cols: 80,
+            rows: 24,
+            cx: 0,
+            cy: 0,
+            off: 0,
+            history: 0,
+            cursor_shape: 0,
+            cursor_blink: false,
+            app_mouse: false,
+            app_drag: false,
+            alt_screen: false,
+            title: String::new(),
+            request_id: 0,
+            lines: Vec::new(),
+        });
+        live.plain = Arc::new("* Thinking... (esc to interrupt)".into());
+        manager.live.write().await.insert("agent".into(), live);
+
+        manager.retick().await;
+
+        assert_eq!(manager.live.read().await["agent"].state, State::Idle);
+    }
+
+    #[tokio::test]
     async fn views_keep_host_paths_and_sort_by_session_name() {
         let manager = crate::session::test_manager(Config::default());
         *manager.cfg.write().await = Config {

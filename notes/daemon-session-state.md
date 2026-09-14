@@ -9,6 +9,8 @@ agent TUIs can leave stale interrupt indicators visible indefinitely.
 
 Content/mode/title changes update `last_change`; cursor-position-only redraws do not.
 `state_since` is separate and changes only on transitions through `Live::set_state`.
+Retick discards classifications if the run, frame sequence, or state changed while it
+awaited the rules lock; stale snapshots must not mark newer frames as classified.
 Surviving tmux activity options outrank the disk fallback on adoption; explicit stop/start
 must clear that history. See [redeploy](daemon-redeploy.md).
 
