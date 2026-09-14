@@ -5,10 +5,8 @@ use super::*;
 pub(crate) enum Input {
     Keys { keys: Vec<String>, literal: bool },
     Bytes(Vec<u8>),
-    // Kept whole so the receiving application observes one paste. Bracketed paste is enabled
-    // only for agent TUIs that consume the protocol; Claude Code's Ink frontend currently
-    // renders the markers literally.
-    Paste { bytes: Vec<u8>, bracketed: bool },
+    // Kept whole; tmux adds paste markers only when the receiving application requests them.
+    Paste { bytes: Vec<u8> },
     // Executed by the single consumer, preserving the pause relative to queued input.
     Gap(Duration),
 }

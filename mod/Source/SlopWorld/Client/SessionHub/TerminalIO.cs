@@ -87,8 +87,7 @@ namespace SlopWorld
                             $"\"count\":{count}}}");
         }
 
-        // Supported agent TUIs get tmux's conditional bracketed-paste markers; Claude Code is
-        // intentionally left raw because its Ink frontend renders those markers literally.
+        // tmux adds bracketed-paste markers when the receiving application requests them.
         public void Paste(string name, string text)
         {
             _send($"{{\"t\":\"{WireContract.Messages.Paste}\",\"name\":{JVal.Q(name)},\"text\":{JVal.Q(text)}}}");

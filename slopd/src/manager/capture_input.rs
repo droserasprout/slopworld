@@ -60,9 +60,7 @@ impl Manager {
         let (what, res) = match item {
             Input::Keys { keys, literal } => ("keys", tmux.send_keys(name, &keys, literal).await),
             Input::Bytes(b) => ("bytes", tmux.send_bytes(name, &b).await),
-            Input::Paste { bytes, bracketed } => {
-                ("paste", tmux.paste_bytes(name, &bytes, bracketed).await)
-            }
+            Input::Paste { bytes } => ("paste", tmux.paste_bytes(name, &bytes).await),
             Input::Gap(d) => {
                 tokio::time::sleep(d).await;
                 return;
@@ -156,9 +154,7 @@ impl Manager {
     }
 
     pub(crate) async fn queue_paste(&self, name: &str, bytes: Vec<u8>) {
-        let bracketed = self.bracketed_paste_for(name).await;
-        self.queue_input(name, Input::Paste { bytes, bracketed })
-            .await;
+        self.queue_input(name, Input::Paste { bytes }).await;
     }
 
     pub(crate) async fn consume_breadcrumbs(
@@ -181,20 +177,6 @@ impl Manager {
         session.breadcrumbs_pending = false;
         let text = String::from_utf8_lossy(&session.breadcrumbs);
         Some(render_template(&text, random_tips).into_bytes())
-    }
-
-    async fn bracketed_paste_for(&self, name: &str) -> bool {
-        let cfg = self.config().await;
-        let live = self.live.read().await;
-        let Some(session) = live.get(name) else {
-            return false;
-        };
-
-        if session.host {
-            return false;
-        }
-
-        command_uses_bracketed_paste(&cfg, &session.cfg)
     }
 
     /// Render a breadcrumb and paste it into this agent without submitting.
