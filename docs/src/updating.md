@@ -31,19 +31,20 @@ and short hash to the package version.
 | Prompt summaries | Yes |
 | Daemon token | Yes (regenerated only on first run or manual delete) |
 
-Unknown config fields are dropped on the next write. Wire formats, config names, and path
-layouts may change between versions without migration.
+Configuration patches preserve unknown fields, but other configuration writes may drop them.
+Wire formats, config names, and path layouts may change between versions without migration.
 
 ## Compatibility
 
-Unsupported daemon switches and removed config fields are rejected, not silently converted.
-If the daemon fails to start after an update, check its log for parse errors:
+If the daemon fails to start after an update, check its log for configuration errors:
 
 ```sh
 journalctl --user -u slopd -n 30 --no-pager
 ```
 
-Remove unrecognized fields from `~/.config/slopworld/config.toml` to fix the parse.
+Correct the fields identified in the error. In particular, the removed `[daemon.usage]`,
+`[daemon.openrouter]`, and `[daemon.openai]` settings must be replaced with
+`[daemon.usage_items.*]` rows; see [Integrations](reference/integrations.md).
 
 ## macOS
 

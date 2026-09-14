@@ -4,8 +4,8 @@
 
 ### What builds are supported? {#supported-builds}
 
-A native Linux build of RimWorld 1.6. GOG is tested by the developer; Steam should
-work the same way. Set `RIMWORLD` to the game directory before building.
+See [Requirements](requirements.md) for Linux and macOS support and the tested
+game distribution.
 
 ### Can I play normal RimWorld after installing SlopWorld? {#normal-rimworld}
 

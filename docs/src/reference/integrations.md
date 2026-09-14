@@ -36,7 +36,7 @@ The daemon can generate short titles for agent prompts using an OpenRouter model
 settings page controls per-CLI policies (`never` / `once` / `always`), minimum prompt length,
 and the model. Host terminal titles come from the terminal application unless a fixed label is set
 from the host terminal's context menu.
-The OpenRouter key is the one from the Usage page.
+The OpenRouter key path is configured on the Credentials page.
 
 ## Instructions
 
@@ -47,10 +47,8 @@ each have an independent **Reset to default** action. The per-agent `slopworld_m
 remains the opt-in that mounts the document; its `instructions_breadcrumb` option controls
 whether that agent also receives the discovery line.
 
-Settings > Integrations > Workers edits the bootstrap prompt used by workers spawned with
-`slopctl spawn` and its optional discovery breadcrumb. The prompt follows the Instructions
-feature switch and the breadcrumb follows Breadcrumbs; both have independent **Reset to
-default** actions.
+Settings > Integrations > Workers edits the bootstrap prompt used by `slopctl spawn`.
+See [Settings](settings.md) for its experimental-switch behavior.
 
 ## Library items and errands
 
@@ -75,10 +73,9 @@ are shadowed when a user entry has the same name.
 
 ## Host terminals
 
-The add strip offers host shells rooted at `~` or at a project directory. Host shells
-are ephemeral sidebar rows with no agent pawn. Durable host tabs survive a stopped
-shell and can be restarted; they store the last working directory and recreate at that
-path on the next launch.
+The add strip offers host shells rooted at `~` or at a project directory, with no
+agent pawn. Project host tabs persist after their shell stops and can be restarted;
+they store the last working directory and recreate at that path on the next launch.
 
 ## Attaching from outside
 
