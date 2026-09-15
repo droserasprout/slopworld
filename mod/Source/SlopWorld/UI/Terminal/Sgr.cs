@@ -60,6 +60,10 @@ namespace SlopWorld
             return runs;
         }
 
+        // The terminal row cache stores this stage separately from screen-wide URL
+        // decoration. It includes explicit OSC 8 metadata, but never guesses a link from text.
+        internal static List<SgrRun> ParseLineBase(string line) => ParseLineCore(line);
+
         // Parse the screen as a group so a plain URL that wraps at the terminal edge can keep
         // the same link across rows. OSC 8 links already carry their own URL on each row.
         public static List<SgrRun>[] ParseLines(string[] lines, int cols)
@@ -72,11 +76,70 @@ namespace SlopWorld
             return parsed;
         }
 
+        // Return screen-wide autolink spans split into the row/column space used by runs. The
+        // base rows are never changed, so callers can reuse them in retained snapshots.
+        internal static List<UrlSpan>[] AutoLinkSpans(List<SgrRun>[] rows, int cols, ref char[] scratch)
+        {
+            if (rows == null || rows.Length == 0) return null;
+
+            int width = cols;
+            if (width <= 0)
+                foreach (var row in rows) width = Mathf.Max(width, RowWidth(row));
+            if (width <= 0) return null;
+
+            if (scratch == null || scratch.Length != rows.Length * width)
+                scratch = new char[rows.Length * width];
+            var chars = scratch;
+            for (int i = 0; i < chars.Length; i++) chars[i] = ' ';
+            for (int row = 0; row < rows.Length; row++)
+            {
+                int offset = row * width;
+                foreach (var run in rows[row])
+                    for (int k = 0; k < run.Text.Length; k++)
+                    {
+                        int col = run.Col + k;
+                        if (col >= 0 && col < width) chars[offset + col] = run.Text[k];
+                    }
+            }
+
+            var global = UrlScan.FindUrls(new string(chars));
+            if (global == null) return null;
+
+            var local = new List<UrlSpan>[rows.Length];
+            foreach (var span in global)
+            {
+                int first = span.Start / width;
+                int last = (span.End - 1) / width;
+                for (int row = first; row <= last && row < rows.Length; row++)
+                {
+                    int start = row == first ? span.Start % width : 0;
+                    int end = row == last ? (span.End - 1) % width + 1 : width;
+                    if (local[row] == null) local[row] = new List<UrlSpan>();
+                    local[row].Add(new UrlSpan(start, end, span.Url));
+                }
+            }
+            return local;
+        }
+
+        // Apply only guessed links. Explicit OSC 8 runs remain authoritative in Split.
+        internal static List<SgrRun> Decorate(List<SgrRun> baseRuns, List<UrlSpan> spans)
+        {
+            if (baseRuns == null || spans == null || spans.Count == 0) return baseRuns;
+            return SplitCopy(baseRuns, spans);
+        }
+
         // Avoid the rows-by-columns URL grid for ordinary output. OSC 8 still takes the parser
         // path above and already carries link metadata, while visible URLs necessarily contain
         // this delimiter even when it is split across SGR runs or physical rows.
         internal static bool MayContainLink(string[] lines)
         {
+            // Ordinary output needs no escape-aware scan. IndexOf can reject whole spans
+            // cheaply; any raw colon still takes the conservative path below.
+            bool colon = false;
+            foreach (string line in lines)
+                if (line != null && line.IndexOf(':') >= 0) { colon = true; break; }
+            if (!colon) return false;
+
             int matched = 0;
             const string needle = "://";
             foreach (string line in lines)
@@ -358,38 +421,9 @@ namespace SlopWorld
 
         static void Autolink(List<SgrRun>[] rows, int cols)
         {
-            if (rows.Length == 0) return;
-
-            int width = cols;
-            if (width <= 0)
-                foreach (var row in rows) width = Mathf.Max(width, RowWidth(row));
-            if (width <= 0) return;
-
-            var chars = new char[rows.Length * width];
-            for (int i = 0; i < chars.Length; i++) chars[i] = ' ';
-            for (int row = 0; row < rows.Length; row++)
-            {
-                var text = RowText(rows[row], width);
-                text.CopyTo(0, chars, row * width, width);
-            }
-
-            var global = UrlScan.FindUrls(new string(chars));
-            if (global == null) return;
-
-            var local = new List<UrlSpan>[rows.Length];
-            foreach (var span in global)
-            {
-                int first = span.Start / width;
-                int last = (span.End - 1) / width;
-                for (int row = first; row <= last && row < rows.Length; row++)
-                {
-                    int start = row == first ? span.Start % width : 0;
-                    int end = row == last ? (span.End - 1) % width + 1 : width;
-                    if (local[row] == null) local[row] = new List<UrlSpan>();
-                    local[row].Add(new UrlSpan(start, end, span.Url));
-                }
-            }
-
+            char[] chars = null;
+            var local = AutoLinkSpans(rows, cols, ref chars);
+            if (local == null) return;
             for (int row = 0; row < rows.Length; row++)
                 if (local[row] != null) Split(rows[row], local[row]);
         }
@@ -401,23 +435,17 @@ namespace SlopWorld
             return width;
         }
 
-        static string RowText(List<SgrRun> row, int width)
-        {
-            var chars = new char[width];
-            for (int i = 0; i < width; i++) chars[i] = ' ';
-            foreach (var run in row)
-                for (int k = 0; k < run.Text.Length; k++)
-                {
-                    int col = run.Col + k;
-                    if (col >= 0 && col < width) chars[col] = run.Text[k];
-                }
-            return new string(chars);
-        }
-
         // Runs are cut where the spans cross them, so a link that starts mid-word or ends
         // mid-color keeps every one of the colors it was drawn in. A run the app already
         // linked is left alone: what it says beats what the text looks like.
         static void Split(List<SgrRun> runs, List<UrlSpan> spans)
+        {
+            var cut = SplitCopy(runs, spans);
+            runs.Clear();
+            runs.AddRange(cut);
+        }
+
+        static List<SgrRun> SplitCopy(List<SgrRun> runs, List<UrlSpan> spans)
         {
             var cut = new List<SgrRun>(runs.Count + spans.Count * 2);
             foreach (var r in runs)
@@ -438,8 +466,7 @@ namespace SlopWorld
                 if (at < end) cut.Add(Slice(r, at, end, null));
             }
 
-            runs.Clear();
-            runs.AddRange(cut);
+            return cut;
         }
 
         static SgrRun Slice(SgrRun r, int from, int to, string url) => new SgrRun

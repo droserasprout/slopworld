@@ -18,6 +18,8 @@ pub struct Manager {
     /// state-classification cadence. The timestamp is also a cheap guard if another maintenance
     /// caller is added.
     pub(super) host_metadata_checked: AtomicU64,
+    /// A slow tmux listing must not block classification or overlap the next listing.
+    pub(super) host_metadata_poll: tokio::sync::Mutex<Option<JoinHandle<()>>>,
     pub(super) signals: super::manager::Signals,
     pub(super) scroll_cache: Mutex<HashMap<String, CachedScroll>>,
     pub(super) activity_cache: crate::activity::ActivityCache,
@@ -107,6 +109,7 @@ pub(crate) fn test_manager(config: Config) -> Arc<Manager> {
         rules: RwLock::new(Vec::new()),
         config_state: super::manager::ConfigState::new(None, None, None),
         host_metadata_checked: AtomicU64::new(0),
+        host_metadata_poll: tokio::sync::Mutex::new(None),
         signals: super::manager::Signals::new(),
         scroll_cache: Mutex::new(HashMap::new()),
         activity_cache: crate::activity::ActivityCache::load(crate::activity::cache_path(

@@ -8,10 +8,15 @@ namespace SlopWorld
     internal sealed class HubEventBatch
     {
         public const int Limit = 32;
-        readonly List<JVal> _events = new List<JVal>(Limit);
+        struct Pending
+        {
+            public string Text;
+            public JVal Value;
+        }
+        readonly List<Pending> _events = new List<Pending>(Limit);
         readonly Dictionary<string, int> _latest = new Dictionary<string, int>(StringComparer.Ordinal);
         public int Count => _events.Count;
-        public JVal this[int index] => _events[index];
+        public JVal this[int index] => _events[index].Value;
 
         public int Read(ConcurrentQueue<string> incoming, Action<Exception> onError)
         {
@@ -22,6 +27,7 @@ namespace SlopWorld
                 read++;
                 Add(text, null, onError);
             }
+            Decode(onError);
             return read;
         }
 
@@ -34,25 +40,49 @@ namespace SlopWorld
                 read++;
                 Add(text, liveName, onError);
             }
+            Decode(onError);
             return read;
         }
 
-        void Add(string text, string knownLiveName, Action<Exception> onError)
+        void Add(string text, string name, Action<Exception> onError)
         {
+            var pending = new Pending();
             try
             {
-                var ev = JVal.Parse(text);
-                if (knownLiveName != null)
-                    _latest[knownLiveName] = _events.Count;
-                else if (LiveName(ev, out var name))
+                // Resolve ambiguous envelopes now, before choosing winners in arrival order.
+                // Only known live screens defer decoding until the batch is collected.
+                if (name == null && !HubWire.TryLiveScreenName(text, out name))
+                {
+                    pending.Value = JVal.Parse(text);
+                    if (!LiveName(pending.Value, out name)) name = null;
+                }
+                else pending.Text = text;
+                if (name != null)
+                {
+                    if (_latest.TryGetValue(name, out var old)) _events[old] = default;
                     _latest[name] = _events.Count;
-                _events.Add(ev);
+                }
             }
             catch (Exception e) { onError(e); }
+            _events.Add(pending);
         }
 
-        public bool ShouldDispatch(int index) =>
-            !LiveName(_events[index], out var name) || _latest[name] == index;
+        void Decode(Action<Exception> onError)
+        {
+            for (int i = 0; i < _events.Count; i++)
+            {
+                string text = _events[i].Text;
+                if (text == null) continue;
+                try { _events[i] = new Pending { Value = JVal.Parse(text) }; }
+                catch (Exception e)
+                {
+                    _events[i] = default;
+                    onError(e);
+                }
+            }
+        }
+
+        public bool ShouldDispatch(int index) => _events[index].Value != null;
 
         public void Clear()
         {
@@ -68,18 +98,6 @@ namespace SlopWorld
             if (screen["off"].AsInt(0) != 0 || screen["request_id"].AsLong(0) != 0) return false;
             name = screen["name"].AsString(null);
             return !string.IsNullOrEmpty(name);
-        }
-
-        // The bounded transport uses the same conservative classification before enqueueing.
-        // Parsing failures stay in the queue and are reported by Add on the main thread.
-        internal static bool TryLiveScreenName(string text, out string name)
-        {
-            try { return LiveName(JVal.Parse(text), out name); }
-            catch
-            {
-                name = null;
-                return false;
-            }
         }
     }
 }

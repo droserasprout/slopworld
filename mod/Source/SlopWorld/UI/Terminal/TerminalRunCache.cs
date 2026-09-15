@@ -9,6 +9,8 @@ namespace SlopWorld
     internal sealed class TerminalRunCache
     {
         const int MaxRows = 2_048;
+        // Scratch text never escapes the scan; snapshots share only immutable link spans.
+        char[] _linkChars;
         readonly Dictionary<Key, List<SgrRun>> _rows =
             new Dictionary<Key, List<SgrRun>>();
 
@@ -33,14 +35,11 @@ namespace SlopWorld
                                     out int hits, out int misses)
         {
             lines = lines ?? Array.Empty<string>();
-            var changed = new int[lines.Length];
-            for (int i = 0; i < changed.Length; i++) changed[i] = i;
             return Parse(new ScreenBuf
             {
                 Lines = lines,
                 Cols = cols,
                 Rows = lines.Length,
-                ChangedRows = changed,
                 ContentRevision = 1,
             }, themeRev, fontRev, out hits, out misses);
         }
@@ -53,52 +52,28 @@ namespace SlopWorld
             var lines = screen?.Lines ?? Array.Empty<string>();
             int cols = screen?.Cols ?? 0;
 
-            bool reuseRows = screen?.Runs != null && screen.Runs.Length == lines.Length &&
-                screen.RunsRev == themeRev;
-            bool hasLink = screen != null && screen.HasLinks;
-            if (screen != null && !screen.LinksKnown)
-            {
-                if (hasLink)
-                {
-                    // A previous link may have been removed or moved by a changed row. Keep
-                    // the conservative global path until this frame establishes the new state.
-                    hasLink = Sgr.MayContainLink(lines);
-                }
-                else
-                {
-                    var changed = screen.ChangedRows;
-                    if (changed == null || changed.Length == 0 || changed.Length >= lines.Length)
-                        hasLink = Sgr.MayContainLink(lines);
-                    else
-                        foreach (int row in changed)
-                            if (row >= 0 && row < lines.Length && LinkCandidate(lines[row]))
-                            {
-                                // A URL may start or end at a physical row boundary. A changed
-                                // ':' or '/' therefore makes neighboring unchanged rows part of
-                                // the candidate scan, while ordinary ANSI text stays row-local.
-                                hasLink = Sgr.MayContainLink(lines);
-                                break;
-                            }
-                }
-                screen.HasLinks = hasLink;
-                screen.LinksKnown = true;
-            }
-
-            // Autolinking can join rows and split color runs, so link candidates are parsed as
-            // one unit. Plain and ANSI-only output takes the reusable row path.
-            if (hasLink)
-            {
-                misses = lines.Length;
-                return Sgr.ParseLines(lines, cols);
-            }
-
-            var parsed = reuseRows ? screen.Runs : new List<SgrRun>[lines.Length];
+            // First retain/parse only the ANSI rows. Link decoration is a separate pass because
+            // a URL can connect rows that are otherwise unchanged. Null decorated rows also
+            // mark pending source edits; keep base arrays intact until this parse copies them.
+            bool reuseBase = screen?.BaseRuns != null && screen.BaseRuns.Length == lines.Length &&
+                screen.BaseRunsRev == themeRev && screen.Runs != null &&
+                screen.Runs.Length == lines.Length;
+            bool plainBase = reuseBase && screen.AutoLinks == null;
+            var baseRows = plainBase ? screen.Runs :
+                reuseBase ? screen.BaseRuns : new List<SgrRun>[lines.Length];
+            bool sharedBase = reuseBase && !plainBase;
             for (int i = 0; i < lines.Length; i++)
             {
-                if (parsed[i] != null)
+                if (baseRows[i] != null && screen.Runs[i] != null)
                 {
                     hits++;
                     continue;
+                }
+
+                if (sharedBase)
+                {
+                    baseRows = (List<SgrRun>[])baseRows.Clone();
+                    sharedBase = false;
                 }
 
                 var key = new Key
@@ -108,23 +83,60 @@ namespace SlopWorld
                     ThemeRev = themeRev,
                     FontRev = fontRev,
                 };
-                if (_rows.TryGetValue(key, out parsed[i]))
+                if (_rows.TryGetValue(key, out var cached))
                 {
+                    baseRows[i] = cached;
                     hits++;
                     continue;
                 }
 
-                parsed[i] = Sgr.ParseLine(lines[i]);
+                baseRows[i] = Sgr.ParseLineBase(lines[i]);
                 misses++;
                 if (_rows.Count >= MaxRows) _rows.Clear();
-                _rows[key] = parsed[i];
+                _rows[key] = baseRows[i];
             }
+
+            if (screen == null) return baseRows;
+
+            screen.BaseRuns = baseRows;
+            screen.BaseRunsRev = themeRev;
+            bool hasAutoLinks = screen.LinksKnown ? screen.HasLinks : Sgr.MayContainLink(lines);
+            var local = hasAutoLinks ? Sgr.AutoLinkSpans(baseRows, cols, ref _linkChars) : null;
+            bool reuseRuns = screen.Runs != null && screen.Runs.Length == lines.Length &&
+                screen.RunsRev == themeRev;
+            // Without guessed links the base rows are already the final immutable result.
+            var parsed = local == null ? baseRows :
+                reuseRuns ? screen.Runs : new List<SgrRun>[lines.Length];
+            bool sharedRuns = reuseRuns;
+            for (int i = 0; local != null && i < parsed.Length; i++)
+            {
+                // Null rows accumulate source edits until parsing. Comparing full-screen URL
+                // spans catches changes to the other rows of a wrapped, joined or removed URL.
+                if (parsed[i] != null && SameSpans(screen.AutoLinks?[i], local?[i])) continue;
+                if (sharedRuns)
+                {
+                    parsed = (List<SgrRun>[])parsed.Clone();
+                    sharedRuns = false;
+                }
+                parsed[i] = Sgr.Decorate(baseRows[i], local?[i]);
+            }
+            screen.Runs = parsed;
+            screen.AutoLinks = local;
+            screen.HasLinks = local != null;
+            screen.LinksKnown = true;
             return parsed;
         }
 
         public int Count => _rows.Count;
 
-        static bool LinkCandidate(string line) => line != null &&
-            (line.IndexOf(':') >= 0 || line.IndexOf('/') >= 0);
+        static bool SameSpans(List<UrlScan.Span> left, List<UrlScan.Span> right)
+        {
+            if (ReferenceEquals(left, right)) return true;
+            if (left == null || right == null || left.Count != right.Count) return false;
+            for (int i = 0; i < left.Count; i++)
+                if (left[i].Start != right[i].Start || left[i].End != right[i].End ||
+                    left[i].Url != right[i].Url) return false;
+            return true;
+        }
     }
 }

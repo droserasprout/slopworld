@@ -7,7 +7,9 @@ and rename handoffs stay on the hub. `DaemonClient` replays HTTP callbacks on th
 Unity Mono requires the custom WebSocket transport. Preserve lossless backpressure for
 control/history/replies while coalescing unsolicited live screens. A reconnect inside a
 callback must not redirect the rest of an old batch into the new connection. Closing wakes
-blocked readers and drops queued payload references.
+blocked readers and drops queued payload references. Envelope inspection and full decoding
+share one JSON reader; skipped payloads still require valid JSON. Malformed messages reach
+the main-thread error callback without replacing queued live screens.
 
 HTTP writes and pushed snapshots can race. Catalog operation revisions reject stale reads.
 A session rename can remove the old name in a pushed snapshot before its HTTP response:

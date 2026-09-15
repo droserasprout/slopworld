@@ -3,10 +3,6 @@
 use super::super::*;
 use super::session_lifecycle::{finish_reader, take_reader_for_abort};
 use anyhow::anyhow;
-use futures::{stream, StreamExt};
-
-const HOST_QUERY_CONCURRENCY: usize = 4;
-
 fn update_host_process(l: &mut Live, command: &str) -> bool {
     let process_running = !crate::sandbox::is_shell_command(command);
     if l.process_running == process_running {
@@ -96,13 +92,39 @@ impl Manager {
     }
 
     pub(super) async fn remember_host_path(&self, name: &str, path: &str) -> bool {
+        self.remember_host_path_inner(name, None, path, true).await
+    }
+
+    async fn remember_host_path_for_run(&self, name: &str, run_id: u64, path: &str) -> bool {
+        self.remember_host_path_inner(name, Some(run_id), path, false)
+            .await
+    }
+
+    async fn remember_host_path_inner(
+        &self,
+        name: &str,
+        run_id: Option<u64>,
+        path: &str,
+        sync_tmux: bool,
+    ) -> bool {
         if path.trim().is_empty() {
             return false;
+        }
+        if let Some(run) = run_id {
+            let live = self.live.read().await;
+            if !live
+                .get(name)
+                .is_some_and(|l| l.host && l.state != State::Down && l.run_id == run)
+            {
+                return false;
+            }
         }
         let live_changed = {
             let mut live = self.live.write().await;
             live.get_mut(name)
-                .filter(|l| l.host && l.host_path != path)
+                .filter(|l| {
+                    l.host && l.host_path != path && run_id.is_none_or(|run| l.run_id == run)
+                })
                 .map(|l| {
                     l.host_path = path.to_string();
                     true
@@ -132,7 +154,7 @@ impl Manager {
             }
         };
 
-        if live_changed || cfg_changed {
+        if sync_tmux && (live_changed || cfg_changed) {
             if let Some(project) = project {
                 if let Err(error) = self.tmux.set_host_metadata(name, &project, path).await {
                     tracing::debug!("could not refresh host metadata for {name}: {error:#}");
@@ -142,41 +164,84 @@ impl Manager {
         live_changed || cfg_changed
     }
 
-    pub(super) async fn refresh_host_metadata(&self) -> bool {
-        let names: Vec<String> = self
-            .live
+    async fn host_metadata_targets(&self) -> Vec<(String, u64)> {
+        self.live
             .read()
             .await
             .values()
             .filter(|l| l.host && l.state != State::Down)
-            .map(|l| l.cfg.name.clone())
-            .collect();
-        let tmux = self.tmux.clone();
-        let results = stream::iter(names.into_iter().map(|name| {
-            let tmux = tmux.clone();
-            async move { (name.clone(), tmux.current_host_metadata(&name).await) }
-        }))
-        .buffer_unordered(HOST_QUERY_CONCURRENCY)
-        .collect::<Vec<_>>()
-        .await;
+            .map(|l| (l.cfg.name.clone(), l.run_id))
+            .collect()
+    }
 
+    async fn apply_host_metadata(
+        &self,
+        targets: Vec<(String, u64)>,
+        metadata: std::collections::HashMap<String, crate::tmux::HostMetadata>,
+    ) {
         let mut changed = false;
-        for (name, metadata) in results {
-            let Some(metadata) = metadata else { continue };
-            if let Some(path) = metadata.path {
-                changed |= self.remember_host_path(&name, &path).await;
+        for (name, run_id) in targets {
+            let Some(metadata) = metadata.get(&name) else {
+                continue;
+            };
+            if let Some(path) = metadata.path.as_deref() {
+                changed |= self.remember_host_path_for_run(&name, run_id, path).await;
             }
-            if let Some(command) = metadata.command {
+            if let Some(command) = metadata.command.as_deref() {
                 let mut live = self.live.write().await;
                 if let Some(l) = live
                     .get_mut(&name)
-                    .filter(|l| l.host && l.state != State::Down)
+                    .filter(|l| l.host && l.state != State::Down && l.run_id == run_id)
                 {
-                    changed |= update_host_process(l, &command);
+                    changed |= update_host_process(l, command);
                 }
             }
         }
-        changed
+        if changed {
+            self.announce_sessions().await;
+        }
+    }
+
+    pub(super) async fn start_host_metadata_poll(self: &Arc<Self>) {
+        let mut poll = self.host_metadata_poll.lock().await;
+        if let Some(task) = poll.as_ref() {
+            if !task.is_finished() {
+                return;
+            }
+        }
+        if let Some(task) = poll.take() {
+            let _ = task.await;
+        }
+
+        let targets = self.host_metadata_targets().await;
+        if targets.is_empty() {
+            return;
+        }
+
+        let manager = self.clone();
+        let tmux = self.tmux.clone();
+        *poll = Some(tokio::spawn(async move {
+            let started = std::time::Instant::now();
+            match tmux.current_host_metadata_all().await {
+                Ok(metadata) => {
+                    let apply_manager = manager.clone();
+                    manager
+                        .session_operation(async move {
+                            apply_manager.apply_host_metadata(targets, metadata).await;
+                        })
+                        .await;
+                }
+                Err(error) => {
+                    tracing::debug!(error = %error, "host metadata poll failed; retaining known state");
+                }
+            }
+            tracing::debug!(
+                target: "slopd::perf",
+                lane = "host-metadata",
+                elapsed_us = started.elapsed().as_micros() as u64,
+                "host metadata poll"
+            );
+        }));
     }
 
     pub async fn add(self: &Arc<Self>, s: SessionCfg) -> Result<()> {

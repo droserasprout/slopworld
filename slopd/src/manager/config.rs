@@ -123,6 +123,7 @@ impl Manager {
                 jukebox_loaded.then_some(jukebox_mtime).flatten(),
             ),
             host_metadata_checked: AtomicU64::new(0),
+            host_metadata_poll: tokio::sync::Mutex::new(None),
             signals: Signals::new(),
             scroll_cache: Mutex::new(HashMap::new()),
             activity_cache,
