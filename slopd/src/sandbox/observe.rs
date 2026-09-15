@@ -1,0 +1,350 @@
+//! Best-effort observation of the process tree behind a tmux pane.
+
+use std::collections::HashSet;
+use std::path::Path;
+
+use anyhow::Result;
+use serde_json::{json, Value};
+use tokio::process::Command;
+
+use crate::config::SessionCfg;
+use crate::tmux::Tmux;
+
+use super::{read_launch_plan, sanitize_process_argv, PlanView};
+
+#[derive(Debug, Clone)]
+struct Process {
+    pid: u32,
+    ppid: u32,
+    argv: Vec<String>,
+    cgroup: Option<String>,
+}
+
+/// Return the saved intent and, when the pane still exists, a sanitized live process tree.
+/// `plan` remains useful after a process exits, but `comparison` never calls a saved plan proof
+/// of successful launch.
+pub(crate) async fn inspect_session(
+    tmux: &Tmux,
+    name: &str,
+    session: &SessionCfg,
+    host: bool,
+) -> Result<Value> {
+    if host {
+        return Ok(json!({
+            "session": name,
+            "host": true,
+            "plan": Value::Null,
+            "live": { "status": "not-applicable", "processes": [] },
+            "comparison": "not-applicable",
+        }));
+    }
+
+    let plan = read_launch_plan(session)?;
+    let scope = plan.as_ref().and_then(expected_scope);
+    let exists = tmux.exists(name).await;
+    let (live, comparison) = if !exists {
+        (
+            json!({
+                "status": "not-running",
+                "pane_pid": Value::Null,
+                "processes": [],
+            }),
+            "unavailable",
+        )
+    } else {
+        let pane_pid = tmux.pane_pid(name).await;
+        match pane_pid {
+            Some(pid) => match observe_tree(pid, scope).await {
+                Some((source, processes)) => {
+                    let comparison = compare(plan.as_ref(), &processes);
+
+                    let views: Vec<Value> = processes
+                        .iter()
+                        .map(|process| {
+                            json!({
+                                "pid": process.pid,
+                                "ppid": process.ppid,
+                                "argv": sanitize_process_argv(&process.argv),
+                                // The cgroup is used to include reparented descendants, but its
+                                // name is not an operator-safe process argument.
+                                "in_scope": scope.is_some_and(|scope| in_scope(process, scope)),
+                            })
+                        })
+                        .collect();
+                    (
+                        json!({
+                            "status": "live",
+                            "pane_pid": pid,
+                            "source": source,
+                            "processes": views,
+                        }),
+                        comparison,
+                    )
+                }
+                None => (
+                    json!({
+                        "status": "unavailable",
+                        "pane_pid": pid,
+                        "processes": [],
+                    }),
+                    "unavailable",
+                ),
+            },
+            None => (
+                json!({
+                    "status": "unavailable",
+                    "pane_pid": Value::Null,
+                    "processes": [],
+                }),
+                "unavailable",
+            ),
+        }
+    };
+
+    Ok(json!({
+        "session": name,
+        "host": false,
+        "plan": plan,
+        "live": live,
+        "comparison": comparison,
+    }))
+}
+
+async fn observe_tree(root: u32, scope: Option<&str>) -> Option<(&'static str, Vec<Process>)> {
+    if let Some(processes) = proc_tree(root, scope) {
+        return Some(("proc", processes));
+    }
+    ps_tree(root).await.map(|processes| ("ps", processes))
+}
+
+fn proc_tree(root: u32, scope: Option<&str>) -> Option<Vec<Process>> {
+    let root_process = read_proc(root)?;
+    let mut all = vec![root_process];
+    let entries = std::fs::read_dir("/proc").ok()?;
+    for entry in entries.flatten() {
+        let name = entry.file_name();
+        let Ok(pid) = name.to_string_lossy().parse::<u32>() else {
+            continue;
+        };
+        if pid != root {
+            if let Some(process) = read_proc(pid) {
+                all.push(process);
+            }
+        }
+    }
+
+    Some(select_tree(root, all, scope))
+}
+
+fn expected_scope(plan: &PlanView) -> Option<&str> {
+    plan.limits.iter().find_map(|arg| {
+        let unit = arg.strip_prefix("--unit=")?;
+        let id = unit.strip_prefix("slopworld-")?.strip_suffix(".scope")?;
+        uuid::Uuid::parse_str(id).ok()?;
+        Some(unit)
+    })
+}
+
+fn in_scope(process: &Process, scope: &str) -> bool {
+    process
+        .cgroup
+        .as_deref()
+        .is_some_and(|path| path.split('/').any(|part| part == scope))
+}
+
+fn select_tree(root: u32, mut all: Vec<Process>, scope: Option<&str>) -> Vec<Process> {
+    let mut included = HashSet::from([root]);
+    let mut verified_scope = false;
+    loop {
+        let before = included.len();
+        // Only extend through cgroups after a pane descendant proves membership in the exact
+        // saved launch scope. Old plans without an explicit unit use ancestry alone.
+        verified_scope |= scope.is_some_and(|scope| {
+            all.iter()
+                .any(|process| included.contains(&process.pid) && in_scope(process, scope))
+        });
+        for process in &all {
+            if included.contains(&process.ppid)
+                || (verified_scope && scope.is_some_and(|scope| in_scope(process, scope)))
+            {
+                included.insert(process.pid);
+            }
+        }
+        if included.len() == before {
+            break;
+        }
+    }
+    all.retain(|process| included.contains(&process.pid));
+    all.sort_by_key(|process| process.pid);
+    all
+}
+
+fn read_proc(pid: u32) -> Option<Process> {
+    let root = Path::new("/proc").join(pid.to_string());
+    let bytes = std::fs::read(root.join("cmdline")).ok()?;
+    let argv = bytes
+        .split(|byte| *byte == 0)
+        .filter(|arg| !arg.is_empty())
+        .map(|arg| String::from_utf8_lossy(arg).into_owned())
+        .collect::<Vec<_>>();
+    let argv = if argv.is_empty() {
+        vec!["<unavailable>".into()]
+    } else {
+        argv
+    };
+    let status = std::fs::read_to_string(root.join("status")).ok()?;
+    let ppid = status
+        .lines()
+        .find_map(|line| line.strip_prefix("PPid:")?.trim().parse().ok())?;
+    let cgroup = std::fs::read_to_string(root.join("cgroup"))
+        .ok()
+        .and_then(|text| cgroup_key(&text));
+    Some(Process {
+        pid,
+        ppid,
+        argv,
+        cgroup,
+    })
+}
+
+fn cgroup_key(text: &str) -> Option<String> {
+    text.lines()
+        .filter_map(|line| line.rsplit_once(':'))
+        .map(|(_, path)| path.trim())
+        .find(|path| !path.is_empty() && *path != "/")
+        .map(str::to_string)
+}
+
+async fn ps_tree(root: u32) -> Option<Vec<Process>> {
+    let output = Command::new("ps")
+        .args(["-eo", "pid=,ppid=,args="])
+        .output()
+        .await
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let mut all = Vec::new();
+    for line in String::from_utf8_lossy(&output.stdout).lines() {
+        let mut fields = line.split_whitespace();
+        let Some(pid) = fields.next().and_then(|value| value.parse().ok()) else {
+            continue;
+        };
+        let Some(ppid) = fields.next().and_then(|value| value.parse().ok()) else {
+            continue;
+        };
+        let argv = fields.map(str::to_string).collect::<Vec<_>>();
+        all.push(Process {
+            pid,
+            ppid,
+            argv: if argv.is_empty() {
+                vec!["<unavailable>".into()]
+            } else {
+                argv
+            },
+            cgroup: None,
+        });
+    }
+    if !all.iter().any(|process| process.pid == root) {
+        return None;
+    }
+    let mut included = HashSet::from([root]);
+    loop {
+        let before = included.len();
+        for process in &all {
+            if included.contains(&process.ppid) {
+                included.insert(process.pid);
+            }
+        }
+        if included.len() == before {
+            break;
+        }
+    }
+    all.retain(|process| included.contains(&process.pid));
+    all.sort_by_key(|process| process.pid);
+    Some(all)
+}
+
+fn compare(plan: Option<&PlanView>, processes: &[Process]) -> &'static str {
+    let Some(plan) = plan else {
+        return "unavailable";
+    };
+    let Some(command) = plan.command.first() else {
+        return "different";
+    };
+    let command = executable(command);
+    if processes
+        .iter()
+        .filter_map(|process| process.argv.first())
+        .map(|arg| executable(arg))
+        .any(|arg| arg == command)
+    {
+        "compatible"
+    } else {
+        "different"
+    }
+}
+
+fn executable(value: &str) -> &str {
+    value.rsplit('/').next().unwrap_or(value)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn cgroup_expansion_requires_the_exact_launch_scope_and_a_descendant() {
+        let scope = "slopworld-11111111-1111-4111-8111-111111111111.scope";
+        let process = |pid, ppid, group: &str| Process {
+            pid,
+            ppid,
+            argv: vec!["agent".into()],
+            cgroup: Some(group.into()),
+        };
+        let shared = "/user.slice/tmux.service";
+        let own = format!("/user.slice/{scope}");
+        let all = vec![
+            process(10, 1, shared),
+            process(11, 10, &own),
+            process(12, 1, &own),   // reparented within the proven scope
+            process(20, 1, shared), // another pane
+            process(21, 20, "/user.slice/other.scope"),
+        ];
+        let ids = |rows: Vec<Process>| rows.into_iter().map(|p| p.pid).collect::<Vec<_>>();
+        assert_eq!(ids(select_tree(10, all.clone(), Some(scope))), [10, 11, 12]);
+        assert_eq!(ids(select_tree(10, all.clone(), None)), [10, 11]);
+        let mut starting = all;
+        starting[1].cgroup = Some(shared.into());
+        assert_eq!(ids(select_tree(10, starting, Some(scope))), [10, 11]);
+    }
+
+    #[test]
+    fn process_comparison_does_not_claim_success_without_a_live_command() {
+        let plan = PlanView {
+            version: 1,
+            session: "a".into(),
+            limits: Vec::new(),
+            pasta: Vec::new(),
+            bwrap: Vec::new(),
+            environment: Vec::new(),
+            mounts: Vec::new(),
+            command: vec!["codex".into()],
+            argv: Vec::new(),
+        };
+        assert_eq!(compare(Some(&plan), &[]), "different");
+        assert_eq!(compare(None, &[]), "unavailable");
+        assert_eq!(
+            compare(
+                Some(&plan),
+                &[Process {
+                    pid: 1,
+                    ppid: 0,
+                    argv: vec!["/usr/bin/codex".into()],
+                    cgroup: None,
+                }]
+            ),
+            "compatible"
+        );
+    }
+}

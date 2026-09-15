@@ -26,9 +26,14 @@ details, limits, and remaining exposure.
 ## Verifying the sandbox
 
 When adding or editing an agent, visit the Preview tab to see the resolved sandbox
-parameters. After spawning an agent, check the actual bwrap/pasta command line:
+parameters. After spawning an agent, inspect the daemon's sanitized launch plan and live process
+tree:
 
 ```sh
-ps -ww -eo pid=,ppid=,user=,comm=,args= \
-  | awk '$4 == "bwrap" || $4 == "pasta"'
+slopctl sandbox inspect AGENT
 ```
+
+The report preserves argv boundaries and replaces environment values, credentials, and unknown
+arguments with placeholders. It reads the saved plan even after a daemon restart or process exit;
+the saved plan is intent, not proof that a process launched successfully. Host terminals do not
+have a sandbox report.

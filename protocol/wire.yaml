@@ -25,6 +25,10 @@ http:
       path: "/api/sessions/:name/cwd"
       methods: [GET]
       scope: scoped
+    session_sandbox:
+      path: "/api/sessions/:name/sandbox"
+      methods: [GET]
+      scope: scoped
     session_start:
       path: "/api/sessions/:name/start"
       methods: [POST]

@@ -198,7 +198,11 @@ pub(super) fn recovered_worker_cfg(
 ) -> SessionCfg {
     let mut session = cfg.session(&metadata.parent).cloned().unwrap_or_default();
     session.name = name.to_string();
-    session.state_id = uuid::Uuid::new_v4().to_string();
+    session.state_id = metadata
+        .state_id
+        .clone()
+        .filter(|state_id| crate::config::validate_state_id(state_id).is_ok())
+        .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
     session.worker = true;
     session.parent = metadata.parent.clone();
     session.task_id = metadata.task_id.clone();
@@ -239,12 +243,14 @@ mod tests {
                 parent: "parent".into(),
                 task_id: "task-7".into(),
                 durable: false,
+                state_id: Some("11111111-1111-4111-8111-111111111111".into()),
             },
         );
 
         assert!(worker.worker);
         assert_eq!(worker.parent, "parent");
         assert_eq!(worker.task_id, "task-7");
+        assert_eq!(worker.state_id, "11111111-1111-4111-8111-111111111111");
         assert_eq!(worker.project, "repo");
         assert_eq!(worker.command, "codex");
         assert_eq!(worker.sandbox, ["gpu", "slopworld-worker"]);

@@ -33,3 +33,8 @@ can make inspection fail; repository and global configuration remain writable an
 
 `slopworld-debug` deliberately exposes host control. Consult its actual preset before making
 claims about process, token, Docker or desktop isolation.
+
+Launch inspection treats live argv (including process titles and option names) as untrusted;
+only fixed diagnostic flags survive redaction. Cgroup expansion requires the saved per-launch
+scope identity and a pane descendant in that scope. Older plans use ancestry alone, never the
+shared tmux cgroup, to avoid reporting unrelated sessions.

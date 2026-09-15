@@ -20,6 +20,7 @@ pub(crate) fn router(m: Mgr) -> Router {
         .route(routes::SESSIONS, get(list).post(create))
         .route(routes::SESSION, get(one).delete(destroy))
         .route(routes::SESSION_CWD, get(cwd))
+        .route(routes::SESSION_SANDBOX, get(sandbox))
         .route(routes::SESSION_START, post(start))
         .route(routes::SESSION_STOP, post(stop))
         .route(routes::SESSION_RESTART, post(restart))

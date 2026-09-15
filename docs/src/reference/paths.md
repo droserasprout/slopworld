@@ -19,6 +19,7 @@ variables. Paths marked `0600` are readable only by the owning user.
 | Path | Override | Description |
 | --- | --- | --- |
 | `$XDG_DATA_HOME/slopworld/sessions/<state-id>/` | `SLOPD_STATE` | Per-agent private state. The daemon assigns the opaque state id at creation. |
+| `$XDG_DATA_HOME/slopworld/sessions/<state-id>/launch-plan.json` | under `SLOPD_STATE` | Sanitized latest sandbox launch plan. Mode `0600`; retained with durable state and never mounted into the guest. |
 | `$XDG_DATA_HOME/slopworld/sessions/.trash/` | under `SLOPD_STATE` | Deleted or reset state, reclaimed after 14 days. |
 | `$XDG_DATA_HOME/slopworld/jukebox/*.toml` | `SLOPD_JUKEBOX` | User-defined radio stations. No stations ship with SlopWorld. |
 | `$XDG_DATA_HOME/slopworld/jukebox.toml` | `XDG_DATA_HOME` | Jukebox likes (`[[like]]` tables). |
