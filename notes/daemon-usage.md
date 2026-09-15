@@ -7,7 +7,9 @@ Each provider has independent failure/backoff state. Failed polls retain its las
 values; disabling it clears its rows. An enabled source with no data still needs a placeholder,
 but a partial usage table also disables implicit default rows for that provider. The mod merges
 the static config catalog with dynamically discovered windows and keeps unedited dynamic rows
-out of the saved override table.
+out of the saved override table. Once a provider returns a valid partial table, omitted catalog
+windows are treated as not applicable and are left out of resolved rows; placeholders are kept
+only while that provider has supplied no usable window.
 One provider request may supply multiple windows: poll at the fastest enabled interval, while
 respecting the provider-wide cache/rate limit. Missing optional windows must not bypass it.
 
