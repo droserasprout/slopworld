@@ -14,5 +14,9 @@ Mod installation stages and replaces only its destination through the Rust insta
 Adding a shipped top-level directory requires updating
 `slopd/src/bin/slopworld/mod_install.rs`, not only build output.
 
+The native daemon service prepends `~/.local/bin` to its inherited PATH so agents use the
+CLI installed by `make install-daemon`. Existing agents retain their launch environment.
+The installer compares both the running binary and installed unit before skipping restart.
+
 `make bench-report` records three-run averages; `make loc-report` creates an on-demand
 count snapshot. Keep reports only when they support a concrete comparison.
