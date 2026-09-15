@@ -51,10 +51,17 @@ namespace SlopWorld
             _width = width;
             _placements.Clear();
             float y = UiTheme.GapM;
+            float contentWidth = Mathf.Max(1f, width - UiTheme.GapM * 2f);
             foreach (var block in blocks ?? new List<MarkdownBlock>())
-                y = Place(block, UiTheme.GapM, y, width);
+                y = Place(block, UiTheme.GapM, y, contentWidth);
             Height = Mathf.Max(1f, y + UiTheme.GapM);
-            _placements.Sort((left, right) => left.Y.CompareTo(right.Y));
+            for (int i = 0; i < _placements.Count; i++)
+                _placements[i].Sequence = i;
+            _placements.Sort((left, right) =>
+            {
+                int result = left.Y.CompareTo(right.Y);
+                return result != 0 ? result : left.Sequence.CompareTo(right.Sequence);
+            });
         }
 
         ImageMetrics ImageMetrics(InlineRun image, float available)
@@ -63,16 +70,22 @@ namespace SlopWorld
             float naturalWidth = texture == null ? 320f : texture.width;
             float naturalHeight = texture == null ? 180f : texture.height;
 
-            float width = image.ImageWidth > 0f ? image.ImageWidth : naturalWidth;
-            float height = image.ImageHeight > 0f ? image.ImageHeight : naturalHeight;
-            if (image.ImageWidth > 0f && image.ImageHeight <= 0f && texture != null)
-                height = width * texture.height / Mathf.Max(1f, texture.width);
-            else if (image.ImageHeight > 0f && image.ImageWidth <= 0f && texture != null)
-                width = height * texture.width / Mathf.Max(1f, texture.height);
+            bool explicitWidth = image.ImageWidth > 0f;
+            bool explicitHeight = image.ImageHeight > 0f;
+            float width = explicitWidth ? image.ImageWidth : naturalWidth;
+            float height = explicitHeight ? image.ImageHeight : naturalHeight;
+            float aspect = naturalHeight / Mathf.Max(1f, naturalWidth);
+            if (explicitWidth && !explicitHeight) height = width * aspect;
+            else if (explicitHeight && !explicitWidth) width = height / Mathf.Max(.001f, aspect);
 
-            width = Mathf.Clamp(width, 1f, Mathf.Max(1f, available));
-            if (image.ImageHeight <= 0f && texture == null)
-                height = width * naturalHeight / naturalWidth;
+            // Fit the requested box proportionally, including explicit HTML dimensions.
+            float maxWidth = Mathf.Max(1f, available);
+            if (width > maxWidth)
+            {
+                float scale = maxWidth / width;
+                width *= scale;
+                height *= scale;
+            }
             return new ImageMetrics(width, Mathf.Max(1f, height));
         }
 
@@ -133,6 +146,16 @@ namespace SlopWorld
             var textRuns = new List<InlineRun>();
             foreach (var run in runs)
                 if (run != image) textRuns.Add(run);
+
+            bool hasText = false;
+            foreach (var run in textRuns)
+                if (!string.IsNullOrWhiteSpace(run.Text)) { hasText = true; break; }
+            if (hasText && metrics.Width + UiTheme.GapS >= width)
+            {
+                PlaceImage(image, x, y, width, UiTheme.GapS);
+                return PlaceText(textRuns, x, y + metrics.Height + UiTheme.GapS,
+                    width, 0, false, UiTheme.GapS);
+            }
 
             float textWidth = Mathf.Max(1f, width - metrics.Width - UiTheme.GapS);
             var text = _textLayout.Wrap(textRuns, textWidth, 0);

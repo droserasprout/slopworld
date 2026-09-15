@@ -137,6 +137,8 @@ namespace SlopWorld
             bool metricsChanged = metricsRevision != _metricsRevision;
             if (_layout.Width < 0f || viewportChanged || metricsChanged)
             {
+                // Discard stale hit regions before input can use the new layout.
+                _renderer.ClearLinks();
                 if (metricsChanged) _layout.Invalidate();
                 _viewportWidth = body.width;
                 _viewportHeight = body.height;
@@ -162,6 +164,7 @@ namespace SlopWorld
             _loading = true;
             _error = null;
             _blocks = null;
+            _resources.Clear();
             _layout.Clear();
             _selection.Clear();
             _renderer.ClearLinks();

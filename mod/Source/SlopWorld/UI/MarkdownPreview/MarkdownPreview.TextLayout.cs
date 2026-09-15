@@ -28,8 +28,9 @@ namespace SlopWorld
                 if (run.IsImage)
                 {
                     ImageMetrics image = _imageMetrics(run, width);
-                    if (line.Pieces.Count > 0 && line.Width + image.Width > width)
+                    if (line.Pieces.Count > 0 && (line.Width + image.Width > width || !string.IsNullOrEmpty(line.CopySuffix)))
                     {
+                        line.BreakAfter = TextBreakKind.SoftWrap;
                         layout.Lines.Add(line);
                         line = NewLine(_styles.Normal);
                     }
@@ -42,8 +43,9 @@ namespace SlopWorld
                 if (run.IsTask)
                 {
                     float taskWidth = UiControls.TickColW;
-                    if (line.Pieces.Count > 0 && line.Width + taskWidth > width)
+                    if (line.Pieces.Count > 0 && (line.Width + taskWidth > width || !string.IsNullOrEmpty(line.CopySuffix)))
                     {
+                        line.BreakAfter = TextBreakKind.SoftWrap;
                         layout.Lines.Add(line);
                         line = NewLine(style);
                     }
@@ -57,17 +59,21 @@ namespace SlopWorld
                     int newline = text.IndexOf('\n', start);
                     int end = newline < 0 ? text.Length : newline;
                     AppendWrapped(ref line, layout, run, text.Substring(start, end - start),
-                        style, width);
+                        style, width, run.Code);
                     if (newline < 0) break;
+                    line.BreakAfter = TextBreakKind.Source;
+                    line.Forced = true;
                     layout.Lines.Add(line);
                     line = NewLine(style);
+                    line.Forced = true;
                     start = newline + 1;
                 }
             }
 
-            if (line.Pieces.Count > 0 || layout.Lines.Count == 0)
+            if (line.Pieces.Count > 0 || line.Forced || layout.Lines.Count == 0)
                 layout.Lines.Add(line);
             layout.Height = 0f;
+            int logicalOffset = 0;
             foreach (var item in layout.Lines)
             {
                 foreach (var piece in item.Pieces)
@@ -76,6 +82,13 @@ namespace SlopWorld
                     piece.Text = piece.TextBuilder.ToString();
                     piece.TextBuilder = null;
                 }
+                item.LogicalOffset = logicalOffset;
+                item.LogicalLength = 0;
+                foreach (var piece in item.Pieces)
+                    if (!piece.Run.IsImage) item.LogicalLength += piece.Text?.Length ?? 0;
+                item.LogicalLength += item.CopySuffix?.Length ?? 0;
+                logicalOffset += item.LogicalLength;
+                if (item.BreakAfter == TextBreakKind.Source) logicalOffset++;
                 if (item.Height <= 0f) item.Height = UiTheme.LineH;
                 item.Offset = layout.Height;
                 layout.Height += item.Height;
@@ -89,8 +102,14 @@ namespace SlopWorld
         };
 
         void AppendWrapped(ref TextLine line, TextLayout layout, InlineRun run, string text,
-                           GUIStyle style, float width)
+                           GUIStyle style, float width, bool preserveWhitespace)
         {
+            if (preserveWhitespace)
+            {
+                AppendPreserved(ref line, layout, run, text, style, width);
+                return;
+            }
+
             int start = 0;
             while (start < text.Length)
             {
@@ -102,11 +121,17 @@ namespace SlopWorld
 
                 if (space)
                 {
-                    if (line.Pieces.Count > 0 && line.Width + chunkWidth <= width)
+                    if (line.Pieces.Count > 0 && line.Width + chunkWidth <= width &&
+                        string.IsNullOrEmpty(line.CopySuffix))
                         AddPiece(line, run, chunk, style, chunkWidth);
+                    else if (line.Pieces.Count > 0)
+                        // Keep clipped spaces for copying across the wrap.
+                        line.CopySuffix += chunk;
                 }
-                else if (line.Pieces.Count > 0 && line.Width + chunkWidth > width)
+                else if (line.Pieces.Count > 0 &&
+                    (line.Width + chunkWidth > width || !string.IsNullOrEmpty(line.CopySuffix)))
                 {
+                    line.BreakAfter = TextBreakKind.SoftWrap;
                     layout.Lines.Add(line);
                     line = NewLine(style);
                     AddWord(ref line, layout, run, chunk, style, width, chunkWidth);
@@ -117,6 +142,23 @@ namespace SlopWorld
                 }
 
                 start = end;
+            }
+        }
+
+        void AppendPreserved(ref TextLine line, TextLayout layout, InlineRun run,
+                             string text, GUIStyle style, float width)
+        {
+            for (int i = 0; i < text.Length; i++)
+            {
+                string value = text[i].ToString();
+                float charWidth = MeasureChunk(style, value);
+                if (line.Pieces.Count > 0 && (line.Width + charWidth > width || !string.IsNullOrEmpty(line.CopySuffix)))
+                {
+                    line.BreakAfter = TextBreakKind.SoftWrap;
+                    layout.Lines.Add(line);
+                    line = NewLine(style);
+                }
+                AddPiece(line, run, value, style, charWidth);
             }
         }
 
@@ -132,8 +174,9 @@ namespace SlopWorld
             for (int i = 0; i < word.Length; i++)
             {
                 float charWidth = _styles.MeasureChar(style, word[i]);
-                if (line.Pieces.Count > 0 && line.Width + charWidth > width)
+                if (line.Pieces.Count > 0 && (line.Width + charWidth > width || !string.IsNullOrEmpty(line.CopySuffix)))
                 {
+                    line.BreakAfter = TextBreakKind.SoftWrap;
                     layout.Lines.Add(line);
                     line = NewLine(style);
                 }

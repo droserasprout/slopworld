@@ -80,6 +80,7 @@ namespace SlopWorld
     }
     static class UiControls
     {
+        public const float TickColW = 1f;
         public static bool Checkbox(Rect r, string name, bool on, string tip, bool locked, bool warn)
         {
             EditorTrace.Record("check:" + name, r);

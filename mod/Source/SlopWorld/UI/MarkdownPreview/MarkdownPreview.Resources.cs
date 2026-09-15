@@ -8,9 +8,16 @@ namespace SlopWorld
     sealed class MarkdownResourceStore
     {
         readonly MarkdownPathResolver _paths;
-        readonly Dictionary<string, Texture2D> _images = new Dictionary<string, Texture2D>();
-        readonly HashSet<string> _pendingImages = new HashSet<string>();
-        readonly HashSet<string> _failedImages = new HashSet<string>();
+        sealed class ImageResource
+        {
+            public Texture2D Texture;
+            public bool Pending;
+            public bool Failed;
+        }
+
+        readonly Dictionary<string, ImageResource> _images =
+            new Dictionary<string, ImageResource>();
+        int _generation;
 
         public MarkdownResourceStore(MarkdownPathResolver paths)
         {
@@ -21,8 +28,9 @@ namespace SlopWorld
         {
             if (image == null || !image.IsImage || string.IsNullOrEmpty(image.ImagePath))
                 return null;
-            _images.TryGetValue(image.ImagePath, out var texture);
-            return texture;
+            if (!_images.TryGetValue(image.ImagePath, out var resource)) return null;
+            image.ImageFailed = resource.Failed;
+            return resource.Texture;
         }
 
         public void Request(List<MarkdownBlock> blocks, int request,
@@ -37,10 +45,9 @@ namespace SlopWorld
         public void Clear()
         {
             foreach (var texture in _images.Values)
-                if (texture != null) UnityEngine.Object.Destroy(texture);
+                if (texture.Texture != null) UnityEngine.Object.Destroy(texture.Texture);
             _images.Clear();
-            _pendingImages.Clear();
-            _failedImages.Clear();
+            _generation++;
         }
 
         void RequestHighlight(MarkdownBlock block, int request,
@@ -93,15 +100,21 @@ namespace SlopWorld
                     continue;
                 }
                 run.ImagePath = path;
-                if (_images.ContainsKey(path) || _pendingImages.Contains(path) ||
-                    _failedImages.Contains(path)) continue;
+                if (!_images.TryGetValue(path, out var resource))
+                {
+                    resource = new ImageResource();
+                    _images.Add(path, resource);
+                }
+                run.ImageFailed = resource.Failed;
+                if (resource.Texture != null || resource.Pending || resource.Failed) continue;
 
-                _pendingImages.Add(path);
+                resource.Pending = true;
+                int generation = _generation;
                 DaemonClient.Send("GET", WireContract.Routes.Image + "?path=" + Uri.EscapeDataString(path), null,
                     j =>
                     {
-                        if (!isCurrent(request)) return;
-                        _pendingImages.Remove(path);
+                        if (generation != _generation || !isCurrent(request)) return;
+                        resource.Pending = false;
                         Texture2D texture = null;
                         try
                         {
@@ -113,25 +126,26 @@ namespace SlopWorld
                                 throw new InvalidDataException("Unity could not decode the image");
                             texture.name = "SlopWorld Markdown " + Path.GetFileName(path);
                             texture.hideFlags = HideFlags.HideAndDontSave;
-                            if (_images.TryGetValue(path, out var old) && old != null)
-                                UnityEngine.Object.Destroy(old);
-                            _images[path] = texture;
+                            if (resource.Texture != null)
+                                UnityEngine.Object.Destroy(resource.Texture);
+                            resource.Texture = texture;
+                            resource.Failed = false;
                             texture = null;         // ownership moved into _images
                             invalidate();
                         }
                         catch
                         {
                             if (texture != null) UnityEngine.Object.Destroy(texture);
-                            run.ImageFailed = true;
-                            _failedImages.Add(path);
+                            resource.Failed = true;
+                            invalidate();
                         }
                     },
                     msg =>
                     {
-                        if (!isCurrent(request)) return;
-                        _pendingImages.Remove(path);
-                        run.ImageFailed = true;
-                        _failedImages.Add(path);
+                        if (generation != _generation || !isCurrent(request)) return;
+                        resource.Pending = false;
+                        resource.Failed = true;
+                        invalidate();
                     });
             }
         }

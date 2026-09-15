@@ -13,3 +13,7 @@ Reflow depends on settled width. Probe scrollbar need on invalidation, not every
 selection geometry and offscreen placements reuse that layout. Read-only previews still own
 selection/copy, while paste may target the retained terminal behind them. Preserve that input
 boundary when adding controls.
+
+Selection copies blocks and complete table cells in document order; hit testing keeps a
+separate spatial order. Soft wraps retain clipped whitespace without adding newlines.
+Image state belongs to the document generation and is cleared on replacement or close.

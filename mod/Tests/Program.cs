@@ -63,6 +63,8 @@ namespace SlopWorld.Tests
                 tests.Add(("TerminalHistory: " + test.Name, test.Body));
             foreach (var test in TextSelectionTests.Cases())
                 tests.Add(("TextSelection: " + test.Name, test.Body));
+            foreach (var test in MarkdownPreviewTests.Cases())
+                tests.Add(("MarkdownPreview: " + test.Name, test.Body));
             foreach (var test in PagerCommandsTests.Cases())
                 tests.Add(("PagerCommands: " + test.Name, test.Body));
             foreach (var test in PagerLifecycleTests.Cases())

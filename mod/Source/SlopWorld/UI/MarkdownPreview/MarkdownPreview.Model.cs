@@ -6,6 +6,7 @@ namespace SlopWorld
 {
     enum BlockKind { Paragraph, Heading, Code, Quote, List, Item, Rule, Table, Raw }
     enum PlacementKind { Text, Image, Code, Rule, Quote, Table, Bullet }
+    enum TextBreakKind { None, SoftWrap, Source }
 
     sealed class InlineRun
     {
@@ -22,6 +23,7 @@ namespace SlopWorld
         public bool IsTask;
         public bool TaskChecked;
         public bool IsImage;
+        public string ImageAlt;
         public bool ImageFailed;
         public string ImagePath;
         public float ImageWidth;
@@ -65,6 +67,11 @@ namespace SlopWorld
         public float Offset;
         public float Width;
         public float Height;
+        public TextBreakKind BreakAfter;
+        public bool Forced;
+        public string CopySuffix;
+        public int LogicalOffset;
+        public int LogicalLength;
     }
 
     sealed class TextLayout
@@ -100,16 +107,19 @@ namespace SlopWorld
         public string Label;
         public bool Heading;
         public InlineRun Image;
+        public int Sequence;
     }
 
     sealed class SelectionLine
     {
+        public int LogicalIndex;
         public float X;
         public float Y;
         public float Height;
         public float Width;
         public string Text;
         public TextLine Source;
+        public bool CopyBreakAfter;
         public readonly List<float> Edges = new List<float>();
     }
 
