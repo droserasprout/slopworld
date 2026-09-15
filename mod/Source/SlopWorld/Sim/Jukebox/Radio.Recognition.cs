@@ -19,6 +19,13 @@ namespace SlopWorld
         static string _recognitionInput;
         static string _recognitionError;
         static CancellationTokenSource _recognitionCancel;
+        static readonly RecognitionTrackState RecognitionTrack = new RecognitionTrackState();
+
+        // Tests and alternate hosts can inject the service at the Radio boundary. The default
+        // remains the real SongRec process, but eligibility and late-result behavior no longer
+        // require starting a child process to exercise them.
+        internal static Func<IRecognitionService> RecognitionFactory = () =>
+            new SongRecognizer(new SystemProcessRunner());
 
         // The UI's window onto the background lookup. Read under the gate because the worker
         // thread writes them; each answers one question the recognizing state needs to show.
@@ -44,7 +51,7 @@ namespace SlopWorld
         public static void Recognize()
         {
             Read();
-            if (_muted || !_playing || string.IsNullOrEmpty(NowPlaying))
+            if (!RecognitionTrack.Eligible)
             {
                 UiLayout.Fail("nothing is playing");
                 return;
@@ -65,8 +72,8 @@ namespace SlopWorld
                 _recognitionInput = null;
                 _recognitionCancel = new CancellationTokenSource();
                 token = _recognitionCancel.Token;
-                version = _trackVersion;
-                source = SourceLabel();
+                version = RecognitionTrack.Revision;
+                source = RecognitionTrack.Source;
             }
 
             Messages.Message("Jukebox: recognizing...", MessageTypeDefOf.NeutralEvent, false);
@@ -88,10 +95,10 @@ namespace SlopWorld
 
         static void RunRecognition(int version, string source, CancellationToken token)
         {
-            var recognizer = new SongRecognizer(new SystemProcessRunner());
             RecognitionResult result;
             try
             {
+                IRecognitionService recognizer = RecognitionFactory();
                 // Choose the input first and publish its label so the recognizing state can
                 // name where it is listening while the slow lookup runs.
                 AudioInput input = recognizer.SelectInput(token);
@@ -107,7 +114,7 @@ namespace SlopWorld
                 };
             }
 
-            DaemonClient.OnMainThread(() => FinishRecognition(version, source, result));
+            DaemonClient.OnMainThread(() => FinishRecognition(version, source, token, result));
         }
 
         static void SetRecognitionInput(string label)
@@ -118,7 +125,8 @@ namespace SlopWorld
 
         // Apply a result only if it still belongs to what is playing: SongRec heard a snippet,
         // and by the time it answers the station may have moved on or the source been switched.
-        static void FinishRecognition(int version, string source, RecognitionResult result)
+        static void FinishRecognition(int version, string source, CancellationToken token,
+                                       RecognitionResult result)
         {
             lock (RecognitionGate)
             {
@@ -129,9 +137,10 @@ namespace SlopWorld
                     _recognitionInput = result.Input;
             }
 
-            if (result == null || result.Status == RecognitionStatus.Canceled) return;
+            if (result == null || result.Status == RecognitionStatus.Canceled
+                || token.IsCancellationRequested) return;
 
-            if (version != _trackVersion || source != SourceLabel())
+            if (!RecognitionTrack.IsCurrent(version, source))
             {
                 SetRecognitionError("track changed before recognition finished");
                 return;

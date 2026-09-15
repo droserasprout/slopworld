@@ -1,7 +1,7 @@
 //! Host playback keeps station networking out of Unity because FMOD lacks TLS/AAC and requires Icecast's omitted `Content-Length`; a feeder decodes URLs/files into a callback-safe ring.
 
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::mpsc::Receiver;
+use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
+use std::sync::mpsc::{Receiver, Sender};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -10,7 +10,12 @@ use serde::Serialize;
 mod playback;
 mod station;
 
+use playback::{AudioOutput, OutputFactory, RodioOutputFactory};
+
 pub(crate) const CONNECT: Duration = Duration::from_secs(15);
+/// Header/decoder opening has its own bound. It is cleared after each response succeeds; the
+/// live body remains governed by `STREAM_IDLE` instead of inheriting this deadline.
+pub(crate) const OPEN: Duration = Duration::from_secs(10);
 // A live station should deliver encoded audio well inside this window. If the host changes
 // networks, the old TCP path can stay open without producing an error; the body timeout turns
 // that silent socket into the ordinary reconnect path without imposing a lifetime on the stream.
@@ -28,34 +33,124 @@ pub struct AudioState {
 }
 
 enum Cmd {
-    Play { source: String, volume: f32 },
+    Play { source: String, generation: u64 },
     Volume(f32),
-    Stop,
+    Stop { generation: u64 },
+}
+
+enum WorkerMsg {
+    Command(Cmd),
+    Opened {
+        source: String,
+        generation: u64,
+        result: anyhow::Result<playback::OpenedSource>,
+        output: Option<Box<dyn AudioOutput>>,
+    },
+}
+
+struct RequestState {
+    source: Option<String>,
+    generation: u64,
+    cancel: Option<Arc<std::sync::atomic::AtomicBool>>,
+}
+
+struct Control {
+    request: Mutex<RequestState>,
+    volume: AtomicU32,
+}
+
+impl Control {
+    fn new() -> Self {
+        Self {
+            request: Mutex::new(RequestState {
+                source: None,
+                generation: GENERATION.load(Ordering::SeqCst),
+                cancel: None,
+            }),
+            volume: AtomicU32::new(1.0f32.to_bits()),
+        }
+    }
+
+    fn volume(&self) -> f32 {
+        f32::from_bits(self.volume.load(Ordering::Acquire))
+    }
+
+    fn request(&self) -> (Option<String>, u64) {
+        let request = self.request.lock().unwrap_or_else(|p| p.into_inner());
+        (request.source.clone(), request.generation)
+    }
+
+    fn play(&self, source: &str) -> u64 {
+        let mut request = self.request.lock().unwrap_or_else(|p| p.into_inner());
+        if request.source.as_deref() != Some(source) {
+            if let Some(cancel) = request.cancel.as_ref() {
+                cancel.store(true, Ordering::Release);
+            }
+            request.generation = GENERATION.fetch_add(1, Ordering::SeqCst).wrapping_add(1);
+            request.source = Some(source.to_string());
+            request.cancel = None;
+        }
+        request.generation
+    }
+
+    fn stop(&self) -> u64 {
+        let mut request = self.request.lock().unwrap_or_else(|p| p.into_inner());
+        if let Some(cancel) = request.cancel.as_ref() {
+            cancel.store(true, Ordering::Release);
+        }
+        request.generation = GENERATION.fetch_add(1, Ordering::SeqCst).wrapping_add(1);
+        request.source = None;
+        request.cancel = None;
+        request.generation
+    }
+
+    fn clear_if(&self, source: &str, generation: u64) {
+        let mut request = self.request.lock().unwrap_or_else(|p| p.into_inner());
+        if request.generation == generation && request.source.as_deref() == Some(source) {
+            request.source = None;
+            request.cancel = None;
+        }
+    }
+
+    fn set_cancel(&self, cancel: Option<Arc<std::sync::atomic::AtomicBool>>) {
+        self.request
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .cancel = cancel;
+    }
 }
 
 /// The handle. Cheap to clone and safe to call from anywhere; every method is a message.
 #[derive(Clone)]
 pub struct Audio {
-    tx: std::sync::mpsc::Sender<Cmd>,
+    tx: Sender<WorkerMsg>,
     state: Arc<Mutex<AudioState>>,
+    control: Arc<Control>,
 }
 
 impl Audio {
     pub fn new() -> Audio {
+        Self::with_factory(Arc::new(RodioOutputFactory))
+    }
+
+    fn with_factory(factory: Arc<dyn OutputFactory>) -> Audio {
         let (tx, rx) = std::sync::mpsc::channel();
         let state = Arc::new(Mutex::new(AudioState {
             volume: 1.0,
             ..Default::default()
         }));
+        let control = Arc::new(Control::new());
 
         let worker_state = state.clone();
         let failure_state = state.clone();
+        let worker_control = control.clone();
+        let worker_tx = tx.clone();
         // Detached: shutdown only needs the worker to observe its closed channel.
         let spawned = std::thread::Builder::new()
             .name("slopd audio".into())
             .spawn(move || {
                 let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                    run(rx, worker_state)
+                    run(rx, worker_state, worker_control, worker_tx, factory)
                 }));
                 if result.is_err() {
                     fail(
@@ -68,7 +163,7 @@ impl Audio {
             fail(&state, format!("audio worker failed to start: {e}"));
         }
 
-        Audio { tx, state }
+        Audio { tx, state, control }
     }
 
     /// `source` is a URL, file path, or directory; `volume` is 0..1.
@@ -79,25 +174,35 @@ impl Audio {
             );
             return;
         }
+        let volume = volume.clamp(0.0, 1.0);
+        self.control
+            .volume
+            .store(volume.to_bits(), Ordering::Release);
+        let generation = self.control.play(source);
         self.send(
-            Cmd::Play {
+            WorkerMsg::Command(Cmd::Play {
                 source: source.to_string(),
-                volume: volume.clamp(0.0, 1.0),
-            },
+                generation,
+            }),
             "play",
         );
     }
 
     pub fn set_volume(&self, volume: f32) {
-        self.send(Cmd::Volume(volume.clamp(0.0, 1.0)), "set volume");
+        let volume = volume.clamp(0.0, 1.0);
+        self.control
+            .volume
+            .store(volume.to_bits(), Ordering::Release);
+        self.send(WorkerMsg::Command(Cmd::Volume(volume)), "set volume");
     }
 
     pub fn stop(&self) {
-        self.send(Cmd::Stop, "stop");
+        let generation = self.control.stop();
+        self.send(WorkerMsg::Command(Cmd::Stop { generation }), "stop");
     }
 
-    fn send(&self, cmd: Cmd, operation: &str) {
-        if let Err(e) = self.tx.send(cmd) {
+    fn send(&self, message: WorkerMsg, operation: &str) {
+        if let Err(e) = self.tx.send(message) {
             fail(
                 &self.state,
                 format!("audio worker unavailable during {operation}: {e}"),
@@ -107,7 +212,7 @@ impl Audio {
 
     /// Publishes a request-side error without opening a source, stopping stale playback first.
     pub fn reject(&self, why: impl Into<String>) {
-        GENERATION.fetch_add(1, Ordering::SeqCst);
+        self.control.stop();
         fail(&self.state, why.into());
     }
 
@@ -145,82 +250,257 @@ pub fn spawn(m: std::sync::Arc<crate::session::Manager>) -> tokio::task::JoinHan
 /// Generation of the active source; stale feeders stop before writing to the new ring.
 static GENERATION: AtomicU64 = AtomicU64::new(0);
 
-fn run(rx: Receiver<Cmd>, state: Arc<Mutex<AudioState>>) {
-    // Open lazily so a missing sink is reported when playback is requested.
-    let mut device: Option<(rodio::MixerDeviceSink, rodio::Player)> = None;
+struct PendingOpen {
+    source: String,
+    generation: u64,
+    cancel: Arc<std::sync::atomic::AtomicBool>,
+}
 
-    while let Ok(cmd) = rx.recv() {
-        match cmd {
-            Cmd::Play { source, volume } => {
-                // A reconnecting game replays its selection after the daemon has already
-                // accepted it. Keep the existing feeder and playlist in that case: opening
-                // the same directory or stream again would reset its position.
-                if let Some((_, player)) = device.as_ref() {
-                    if active_source(&state, &source) {
-                        player.set_volume(volume);
-                        state.lock().unwrap_or_else(|p| p.into_inner()).volume = volume;
+fn run(
+    rx: Receiver<WorkerMsg>,
+    state: Arc<Mutex<AudioState>>,
+    control: Arc<Control>,
+    tx: Sender<WorkerMsg>,
+    factory: Arc<dyn OutputFactory>,
+) {
+    let mut output: Option<Box<dyn AudioOutput>> = None;
+    let mut pending: Option<PendingOpen> = None;
+    let mut active_cancel: Option<Arc<std::sync::atomic::AtomicBool>> = None;
+    let mut active_generation = None;
+
+    while let Ok(message) = rx.recv() {
+        match message {
+            WorkerMsg::Command(Cmd::Play { source, generation }) => {
+                let (wanted, wanted_generation) = control.request();
+                if generation != wanted_generation || wanted.as_deref() != Some(source.as_str()) {
+                    continue;
+                }
+
+                if let Some(waiting) = pending.as_ref() {
+                    if waiting.generation == generation && waiting.source == source {
                         continue;
                     }
                 }
-                GENERATION.fetch_add(1, Ordering::SeqCst);
 
-                if device.is_none() {
-                    match playback::open_device() {
-                        Ok(d) => device = Some(d),
-                        Err(e) => {
-                            fail(&state, format!("no audio device: {e:#}"));
-                            continue;
-                        }
+                // Published state may still describe a ring retired by queued stop/play.
+                let already_playing = active_source(&state, &source, active_generation, generation);
+                if already_playing {
+                    if let Some(output) = output.as_ref() {
+                        output.set_volume(control.volume());
                     }
+                    state.lock().unwrap_or_else(|p| p.into_inner()).volume = control.volume();
+                    continue;
                 }
-                let (_sink, player) = device.as_ref().unwrap();
 
-                // Clear stale metadata before opening; a fast station may publish a new title.
-                state.lock().unwrap_or_else(|p| p.into_inner()).title = None;
-
-                player.set_volume(volume);
-                // Do not call `Player::clear`: it pauses playback. The generation bump retires
-                // the old ring, whose next callback returns `None`.
-                player.play();
-
-                match playback::start(&source, player, &state) {
-                    Ok(()) => {
-                        let mut s = state.lock().unwrap_or_else(|p| p.into_inner());
-                        s.playing = true;
-                        s.source = Some(source);
-                        s.volume = volume;
-                        s.error = None;
-                        tracing::info!("audio: playing {}", s.source.as_deref().unwrap_or(""));
-                    }
-                    // Nothing was appended - `start` opens the source before it queues
-                    // anything - so the generation bump is the whole of the cleanup.
-                    Err(e) => fail(&state, format!("{source}: {e:#}")),
+                if let Some(waiting) = pending.take() {
+                    waiting.cancel.store(true, Ordering::Release);
                 }
+                if let Some(cancel) = active_cancel.take() {
+                    cancel.store(true, Ordering::Release);
+                }
+                let mut current = state.lock().unwrap_or_else(|p| p.into_inner());
+                current.playing = false;
+                current.source = None;
+                current.title = None;
+                current.error = None;
+                drop(current);
+
+                let title = station::TitleSink::pending(Some(state.clone()), generation);
+                let cancel = title.cancelled.clone();
+                control.set_cancel(Some(cancel.clone()));
+                let needs_output = output.is_none();
+                pending = Some(PendingOpen {
+                    source: source.clone(),
+                    generation,
+                    cancel,
+                });
+                spawn_open(
+                    source,
+                    generation,
+                    title,
+                    needs_output,
+                    factory.clone(),
+                    tx.clone(),
+                );
             }
 
-            Cmd::Volume(volume) => {
-                if let Some((_, player)) = device.as_ref() {
-                    player.set_volume(volume);
+            WorkerMsg::Command(Cmd::Volume(volume)) => {
+                if let Some(output) = output.as_ref() {
+                    output.set_volume(volume);
                 }
                 state.lock().unwrap_or_else(|p| p.into_inner()).volume = volume;
             }
 
-            Cmd::Stop => {
-                // The bump is the stop: every Ring carrying an older generation ends
-                // itself, and the player runs out of sources and goes quiet.
-                GENERATION.fetch_add(1, Ordering::SeqCst);
-                let mut s = state.lock().unwrap_or_else(|p| p.into_inner());
-                s.playing = false;
-                s.source = None;
-                s.title = None;
+            WorkerMsg::Command(Cmd::Stop { generation }) => {
+                if generation != GENERATION.load(Ordering::SeqCst) {
+                    continue;
+                }
+                if let Some(waiting) = pending.take() {
+                    waiting.cancel.store(true, Ordering::Release);
+                }
+                if let Some(cancel) = active_cancel.take() {
+                    cancel.store(true, Ordering::Release);
+                }
+                let mut current = state.lock().unwrap_or_else(|p| p.into_inner());
+                current.playing = false;
+                current.source = None;
+                current.title = None;
+            }
+
+            WorkerMsg::Opened {
+                source,
+                generation,
+                result,
+                output: opened_output,
+            } => {
+                let matches = pending
+                    .as_ref()
+                    .map(|waiting| waiting.generation == generation && waiting.source == source)
+                    .unwrap_or(false);
+                if !matches {
+                    drop(result);
+                    drop(opened_output);
+                    continue;
+                }
+                pending = None;
+
+                let (wanted, wanted_generation) = control.request();
+                if generation != wanted_generation
+                    || wanted.as_deref() != Some(source.as_str())
+                    || generation != GENERATION.load(Ordering::SeqCst)
+                {
+                    drop(result);
+                    drop(opened_output);
+                    continue;
+                }
+
+                if let Some(opened_output) = opened_output {
+                    output = Some(opened_output);
+                }
+                let opened = match result {
+                    Ok(opened) => opened,
+                    Err(error) => {
+                        fail_current(
+                            &state,
+                            &control,
+                            &source,
+                            generation,
+                            format!("{source}: {error:#}"),
+                        );
+                        continue;
+                    }
+                };
+                let Some(output) = output.as_ref() else {
+                    fail_current(
+                        &state,
+                        &control,
+                        &source,
+                        generation,
+                        "audio output unavailable".to_string(),
+                    );
+                    continue;
+                };
+                match playback::commit(opened, output.as_ref(), control.volume()) {
+                    Ok(Some(committed)) => {
+                        if generation != GENERATION.load(Ordering::SeqCst) {
+                            committed.title.cancel();
+                            continue;
+                        }
+                        committed.title.commit();
+                        if let Some(title) = committed.initial_title {
+                            committed.title.set(Some(title));
+                        }
+                        active_generation = Some(generation);
+                        active_cancel = Some(committed.title.cancelled.clone());
+                        control.set_cancel(active_cancel.clone());
+                        let mut current = state.lock().unwrap_or_else(|p| p.into_inner());
+                        current.playing = true;
+                        current.source = Some(source.clone());
+                        current.volume = control.volume();
+                        current.error = None;
+                        tracing::info!("audio: playing {}", source);
+                    }
+                    Ok(None) => {}
+                    Err(error) => {
+                        fail_current(
+                            &state,
+                            &control,
+                            &source,
+                            generation,
+                            format!("{source}: {error:#}"),
+                        );
+                    }
+                }
             }
         }
     }
 }
 
-fn active_source(state: &Arc<Mutex<AudioState>>, source: &str) -> bool {
-    let s = state.lock().unwrap_or_else(|p| p.into_inner());
-    s.playing && s.source.as_deref() == Some(source)
+fn spawn_open(
+    source: String,
+    generation: u64,
+    title: station::TitleSink,
+    needs_output: bool,
+    factory: Arc<dyn OutputFactory>,
+    tx: Sender<WorkerMsg>,
+) {
+    let thread_source = source.clone();
+    let spawned = std::thread::Builder::new()
+        .name("slopd audio open".into())
+        .spawn(move || {
+            let (result, output) = match playback::open(&thread_source, title) {
+                Ok(opened) => {
+                    if needs_output {
+                        match factory.open() {
+                            Ok(output) => (Ok(opened), Some(output)),
+                            Err(error) => (Err(error), None),
+                        }
+                    } else {
+                        (Ok(opened), None)
+                    }
+                }
+                Err(error) => (Err(error), None),
+            };
+            let _ = tx.send(WorkerMsg::Opened {
+                source,
+                generation,
+                result,
+                output,
+            });
+        });
+    if let Err(error) = spawned {
+        tracing::warn!("audio: could not start source opener: {error}");
+    }
+}
+
+fn fail_current(
+    state: &Arc<Mutex<AudioState>>,
+    control: &Control,
+    source: &str,
+    generation: u64,
+    why: String,
+) {
+    let (wanted, wanted_generation) = control.request();
+    if generation != wanted_generation
+        || wanted.as_deref() != Some(source)
+        || generation != GENERATION.load(Ordering::SeqCst)
+    {
+        return;
+    }
+    control.clear_if(source, generation);
+    fail(state, why);
+}
+
+fn active_source(
+    state: &Arc<Mutex<AudioState>>,
+    source: &str,
+    active_generation: Option<u64>,
+    requested_generation: u64,
+) -> bool {
+    let current = state.lock().unwrap_or_else(|p| p.into_inner());
+    active_generation == Some(requested_generation)
+        && current.playing
+        && current.source.as_deref() == Some(source)
 }
 
 fn fail(state: &Arc<Mutex<AudioState>>, why: String) {
@@ -257,8 +537,9 @@ pub(crate) use station::{
 mod tests {
     use super::{
         enqueue_chunk, local_title, open_device, pcm_id, stream_title, supported_file,
-        wait_for_retry, AudioState, Feed, Icy, Playlist, Reconnect, Ring, StreamBody,
-        StreamConnector, TitleSink, CONNECT, GENERATION, NULL_PCM, RING, SERVER_PCMS, STREAM_IDLE,
+        wait_for_retry, AudioOutput, AudioState, Feed, Icy, OutputFactory, Playlist, Reconnect,
+        Ring, StreamBody, StreamConnector, TitleSink, CONNECT, GENERATION, NULL_PCM, RING,
+        SERVER_PCMS, STREAM_IDLE,
     };
     use rodio::cpal::traits::{DeviceTrait, HostTrait};
     use rodio::{cpal, ChannelCount, Sample, SampleRate, Source};
@@ -271,6 +552,35 @@ mod tests {
     use std::sync::{Arc, Mutex};
     use std::time::Duration;
 
+    struct FakeOutputState {
+        opens: AtomicUsize,
+        appends: AtomicUsize,
+        volumes: Mutex<Vec<f32>>,
+    }
+
+    struct FakeOutputFactory(Arc<FakeOutputState>);
+
+    struct FakeOutput(Arc<FakeOutputState>);
+
+    impl OutputFactory for FakeOutputFactory {
+        fn open(&self) -> anyhow::Result<Box<dyn AudioOutput>> {
+            self.0.opens.fetch_add(1, Ordering::AcqRel);
+            Ok(Box::new(FakeOutput(self.0.clone())))
+        }
+    }
+
+    impl AudioOutput for FakeOutput {
+        fn append(&self, _source: Box<dyn Source + Send>) {
+            self.0.appends.fetch_add(1, Ordering::AcqRel);
+        }
+
+        fn set_volume(&self, volume: f32) {
+            self.0.volumes.lock().unwrap().push(volume);
+        }
+
+        fn play(&self) {}
+    }
+
     #[test]
     fn active_source_only_matches_the_current_playing_source() {
         let state = Arc::new(Mutex::new(AudioState {
@@ -279,11 +589,42 @@ mod tests {
             ..Default::default()
         }));
 
-        assert!(super::active_source(&state, "same"));
-        assert!(!super::active_source(&state, "other"));
+        assert!(super::active_source(&state, "same", Some(1), 1));
+        assert!(!super::active_source(&state, "other", Some(1), 1));
+
+        // Stop and replay can supersede the ring before the worker updates published state.
+        assert!(!super::active_source(&state, "same", Some(1), 3));
+        assert!(!super::active_source(&state, "same", None, 1));
 
         state.lock().unwrap().playing = false;
-        assert!(!super::active_source(&state, "same"));
+        assert!(!super::active_source(&state, "same", Some(1), 1));
+    }
+
+    #[test]
+    fn a_fake_output_factory_can_commit_a_probed_source() {
+        let state = Arc::new(FakeOutputState {
+            opens: AtomicUsize::new(0),
+            appends: AtomicUsize::new(0),
+            volumes: Mutex::new(Vec::new()),
+        });
+        let source =
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("../mod/Sounds/SlopWorld/silent.ogg");
+        let source = source.to_string_lossy().into_owned();
+
+        let title = TitleSink::pending(
+            Some(Arc::new(Mutex::new(AudioState::default()))),
+            GENERATION.load(Ordering::SeqCst),
+        );
+        let opened = super::playback::open(&source, title).unwrap();
+        let output = FakeOutputFactory(state.clone()).open().unwrap();
+        let committed = super::playback::commit(opened, output.as_ref(), 0.73)
+            .unwrap()
+            .expect("the current generation commits");
+        committed.title.commit();
+
+        assert_eq!(state.opens.load(Ordering::Acquire), 1);
+        assert_eq!(state.appends.load(Ordering::Acquire), 1);
+        assert_eq!(state.volumes.lock().unwrap().last().copied(), Some(0.73));
     }
 
     fn ring() -> (SyncSender<Vec<Sample>>, Ring) {
@@ -460,10 +801,7 @@ mod tests {
     fn a_live_body_has_an_idle_deadline_but_no_inherited_response_deadline() {
         let connector = StreamConnector::new(
             "http://127.0.0.1/unused-local-fixture",
-            TitleSink {
-                state: None,
-                generation: GENERATION.load(Ordering::SeqCst),
-            },
+            TitleSink::new(None, GENERATION.load(Ordering::SeqCst)),
         );
         let timeouts = connector.agent.config().timeouts();
 
@@ -471,6 +809,58 @@ mod tests {
         assert_eq!(timeouts.recv_response, None);
         assert_eq!(timeouts.recv_body, Some(STREAM_IDLE));
         assert_eq!(timeouts.global, None);
+    }
+
+    #[test]
+    fn cancelling_a_withheld_header_releases_the_loopback_connection() {
+        let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
+        let address = listener.local_addr().unwrap();
+        let (accepted_tx, accepted_rx) = std::sync::mpsc::channel();
+        let released = Arc::new(AtomicBool::new(false));
+        let released_server = released.clone();
+        let server = std::thread::spawn(move || {
+            let (mut socket, peer) = listener.accept().unwrap();
+            assert!(peer.ip().is_loopback());
+            let mut request = BufReader::new(socket.try_clone().unwrap());
+            let mut line = String::new();
+            loop {
+                line.clear();
+                request.read_line(&mut line).unwrap();
+                if line == "\r\n" {
+                    break;
+                }
+            }
+            accepted_tx.send(()).unwrap();
+            socket
+                .set_read_timeout(Some(Duration::from_secs(2)))
+                .unwrap();
+            let mut byte = [0u8; 1];
+            loop {
+                match socket.read(&mut byte) {
+                    Ok(0) => {
+                        released_server.store(true, Ordering::Release);
+                        break;
+                    }
+                    Ok(_) => {}
+                    Err(e)
+                        if e.kind() == io::ErrorKind::WouldBlock
+                            || e.kind() == io::ErrorKind::TimedOut =>
+                    {
+                        break
+                    }
+                    Err(_) => break,
+                }
+            }
+        });
+
+        let title = TitleSink::new(None, GENERATION.load(Ordering::SeqCst));
+        let mut connector = StreamConnector::new(&format!("http://{address}"), title.clone());
+        let opened = std::thread::spawn(move || connector.connect());
+        accepted_rx.recv_timeout(Duration::from_secs(2)).unwrap();
+        title.cancel();
+        assert!(opened.join().unwrap().is_err());
+        server.join().unwrap();
+        assert!(released.load(Ordering::Acquire));
     }
 
     #[test]
@@ -634,10 +1024,7 @@ mod tests {
             }
         });
 
-        let title = TitleSink {
-            state: None,
-            generation: GENERATION.load(Ordering::SeqCst),
-        };
+        let title = TitleSink::new(None, GENERATION.load(Ordering::SeqCst));
         let mut connector = StreamConnector::new(&format!("http://{address}"), title);
         let first = connector.connect().unwrap();
         let mut stream = Reconnect {
@@ -661,6 +1048,7 @@ mod tests {
         let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
         let address = listener.local_addr().unwrap();
 
+        let (idle_tx, idle_rx) = std::sync::mpsc::channel();
         let server = std::thread::spawn(move || {
             for (index, audio) in [b"abc".as_slice(), b"def".as_slice()]
                 .into_iter()
@@ -687,21 +1075,32 @@ mod tests {
                 socket.write_all(audio).unwrap();
                 socket.flush().unwrap();
                 if index == 0 {
-                    std::thread::sleep(Duration::from_millis(150));
+                    // Keep the first socket alive until the client reports its timeout.
+                    idle_rx.recv_timeout(Duration::from_secs(3)).unwrap();
                 }
             }
         });
 
-        let title = TitleSink {
-            state: None,
-            generation: GENERATION.load(Ordering::SeqCst),
-        };
+        let title = TitleSink::new(None, GENERATION.load(Ordering::SeqCst));
         let mut connector = StreamConnector::new_with_body_timeout(
             &format!("http://{address}"),
             title,
-            Duration::from_millis(25),
+            Duration::from_millis(250),
         );
-        let first = connector.connect().unwrap();
+        let mut first = connector.connect().unwrap();
+        let mut initial = [0u8; 3];
+        first.read_exact(&mut initial).unwrap();
+        assert_eq!(&initial, b"abc");
+        let started = std::time::Instant::now();
+        let error = first.read(&mut [0u8; 1]).unwrap_err();
+        assert!(matches!(
+            error
+                .get_ref()
+                .and_then(|error| error.downcast_ref::<ureq::Error>()),
+            Some(ureq::Error::Timeout(_))
+        ));
+        assert!(started.elapsed() < Duration::from_secs(2));
+        idle_tx.send(()).unwrap();
         let mut stream = Reconnect {
             inner: first,
             reopen: move || connector.connect(),
@@ -710,9 +1109,9 @@ mod tests {
             read_since_open: false,
         };
 
-        let mut out = [0u8; 6];
+        let mut out = [0u8; 3];
         stream.read_exact(&mut out).unwrap();
-        assert_eq!(&out, b"abcdef");
+        assert_eq!(&out, b"def");
         server.join().unwrap();
     }
 
@@ -859,10 +1258,7 @@ mod tests {
             inner: io::Cursor::new(raw),
             metaint: 8,
             left: 8,
-            title: TitleSink {
-                state: Some(state.clone()),
-                generation: GENERATION.load(Ordering::SeqCst),
-            },
+            title: TitleSink::new(Some(state.clone()), GENERATION.load(Ordering::SeqCst)),
         };
 
         // Read in threes, so a block boundary lands mid-request rather than on one.
@@ -884,10 +1280,10 @@ mod tests {
     #[test]
     fn a_superseded_title_is_dropped() {
         let state = Arc::new(Mutex::new(AudioState::default()));
-        let sink = TitleSink {
-            state: Some(state.clone()),
-            generation: GENERATION.load(Ordering::SeqCst).wrapping_sub(1),
-        };
+        let sink = TitleSink::new(
+            Some(state.clone()),
+            GENERATION.load(Ordering::SeqCst).wrapping_sub(1),
+        );
         sink.set(Some("Too Late".to_string()));
         assert_eq!(state.lock().unwrap().title, None);
     }
@@ -895,10 +1291,7 @@ mod tests {
     #[test]
     fn an_active_title_updates_clears_and_ignores_duplicates() {
         let state = Arc::new(Mutex::new(AudioState::default()));
-        let sink = TitleSink {
-            state: Some(state.clone()),
-            generation: GENERATION.load(Ordering::SeqCst),
-        };
+        let sink = TitleSink::new(Some(state.clone()), GENERATION.load(Ordering::SeqCst));
 
         sink.set(Some("Now Playing".to_string()));
         assert_eq!(state.lock().unwrap().title.as_deref(), Some("Now Playing"));
@@ -906,11 +1299,17 @@ mod tests {
         sink.set(None);
         assert_eq!(state.lock().unwrap().title, None);
 
-        TitleSink {
-            state: None,
-            generation: sink.generation,
-        }
-        .set(Some("Nowhere".to_string()));
+        TitleSink::new(None, sink.generation).set(Some("Nowhere".to_string()));
+    }
+
+    #[test]
+    fn a_pending_title_waits_for_source_commit() {
+        let state = Arc::new(Mutex::new(AudioState::default()));
+        let sink = TitleSink::pending(Some(state.clone()), GENERATION.load(Ordering::SeqCst));
+        sink.set(Some("candidate".to_string()));
+        assert_eq!(state.lock().unwrap().title, None);
+        sink.commit();
+        assert_eq!(state.lock().unwrap().title.as_deref(), Some("candidate"));
     }
 
     #[test]
@@ -981,10 +1380,7 @@ mod tests {
             inner: io::Cursor::new(vec![1, b'x']),
             metaint: 4,
             left: 0,
-            title: TitleSink {
-                state: None,
-                generation: GENERATION.load(Ordering::SeqCst),
-            },
+            title: TitleSink::new(None, GENERATION.load(Ordering::SeqCst)),
         };
 
         assert_eq!(icy.read(&mut []).unwrap(), 0);
