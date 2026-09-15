@@ -15,7 +15,7 @@ namespace SlopWorld.Tests
         static void Registry()
         {
             var registry = NewRegistry();
-            var expected = new[] { "agents", "files", "search", "git", "tasks", "library" };
+            var expected = new[] { "agents", "files", "git", "search", "tasks", "library" };
             int index = 0;
             foreach (var definition in registry.Definitions)
             {
@@ -69,8 +69,8 @@ namespace SlopWorld.Tests
             return new SidebarTabRegistry(
                 Definition(SidebarTab.Agents, "agents", events),
                 Definition(SidebarTab.Files, "files", events),
-                Definition(SidebarTab.Search, "search", events),
                 Definition(SidebarTab.Git, "git", events),
+                Definition(SidebarTab.Search, "search", events),
                 Definition(SidebarTab.Tasks, "tasks", events),
                 Definition(SidebarTab.Library, "library", events));
         }

@@ -53,20 +53,6 @@ namespace SlopWorld
                         Reselected = FilesView.Entered,
                     }),
                 new SidebarTabDefinition(
-                    SidebarTab.Search, "search", "search",
-                    "Search - find text across every project",
-                    true, false, true,
-                    new SidebarTabHandlers
-                    {
-                        Draw = () => SearchView.Draw(Body),
-                        Click = SearchView.Clicks,
-                        DrawActions = DrawSearchActions,
-                        Refresh = SearchView.Search,
-                        FilterChanged = SearchView.Search,
-                        Close = SearchView.Closed,
-                        Entered = SearchView.Entered,
-                    }),
-                new SidebarTabDefinition(
                     SidebarTab.Git, "git", "git",
                     "Git - what every working tree has that its last commit does not",
                     true, true, false,
@@ -82,6 +68,20 @@ namespace SlopWorld
                         Close = EndFilesDivider,
                         Entered = GitView.Refresh,
                         Reselected = GitView.Refresh,
+                    }),
+                new SidebarTabDefinition(
+                    SidebarTab.Search, "search", "search",
+                    "Search - find text across every project",
+                    true, false, true,
+                    new SidebarTabHandlers
+                    {
+                        Draw = () => SearchView.Draw(Body),
+                        Click = SearchView.Clicks,
+                        DrawActions = DrawSearchActions,
+                        Refresh = SearchView.Search,
+                        FilterChanged = SearchView.Search,
+                        Close = SearchView.Closed,
+                        Entered = SearchView.Entered,
                     }),
                 new SidebarTabDefinition(
                     SidebarTab.Tasks, "tasks", "tasks",

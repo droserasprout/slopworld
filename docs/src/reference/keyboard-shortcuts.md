@@ -18,8 +18,8 @@ key-bindings settings page. Hardcoded shortcuts are marked below and cannot be r
 | --- | --- | --- |
 | F1 | Sidebar: Agents view | yes |
 | F2 | Sidebar: Files view | yes |
-| F3 | Sidebar: Search view | yes |
-| F4 | Sidebar: Git view | yes |
+| F3 | Sidebar: Git view | yes |
+| F4 | Sidebar: Search view | yes |
 | F5 | Sidebar: Tasks view | yes |
 | F6 | Sidebar: Library view | yes |
 | Alt+Z | Previous session | no |

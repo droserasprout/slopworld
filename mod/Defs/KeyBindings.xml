@@ -147,15 +147,15 @@
   </KeyBindingDef>
 
   <KeyBindingDef>
-    <defName>SlopSidebarSearch</defName>
-    <label>Sidebar: search view</label>
+    <defName>SlopSidebarGit</defName>
+    <label>Sidebar: Git view</label>
     <category>SlopNavigation</category>
     <defaultKeyCodeA>F3</defaultKeyCodeA>
   </KeyBindingDef>
 
   <KeyBindingDef>
-    <defName>SlopSidebarGit</defName>
-    <label>Sidebar: Git view</label>
+    <defName>SlopSidebarSearch</defName>
+    <label>Sidebar: search view</label>
     <category>SlopNavigation</category>
     <defaultKeyCodeA>F4</defaultKeyCodeA>
   </KeyBindingDef>
