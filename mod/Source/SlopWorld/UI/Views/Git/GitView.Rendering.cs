@@ -294,7 +294,7 @@ namespace SlopWorld
             }
         }
 
-        public static void Draw(Rect body) => Tree.Draw(body);
+        public static void Draw(Rect body, bool anchorBoundary = true) => Tree.Draw(body, anchorBoundary);
         // Folding the change tree only changes navigation; keep the active diff visible while
         // the reader opens or closes directories around it.
         public static void Clicks() => Tree.Clicks();
@@ -305,8 +305,10 @@ namespace SlopWorld
 
         public static bool LockViewer(string session) => Viewers.Lock(session);
 
+        static string DiffKey(string rel) => "diff:" + rel;
+
         public static bool LockViewerFile(string project, string rel) =>
-            Viewers.LockPreview(project, rel);
+            Viewers.LockPreview(project, DiffKey(rel));
 
         public static bool FocusLocation(string project, string rel)
         {
@@ -323,7 +325,7 @@ namespace SlopWorld
         static void Open(Node node, Repo repo)
         {
             Tree.Select(node);
-            if (!Viewers.Reopen(repo.Project, node.Rel)) Diff(node, repo);
+            if (!Viewers.Reopen(repo.Project, DiffKey(node.Rel))) Diff(node, repo);
         }
 
         // One of the hover strip's three, done. The diff is what the row itself does; the
@@ -337,13 +339,11 @@ namespace SlopWorld
             switch (act)
             {
                 case RowAct.View:
-                    // The file reader is owned by Files, not by this tree.
-                    AgentSidebar.ShowWithoutHistory(SidebarTab.Files);
+                    // Files supplies the reader without changing the active tree.
                     FilesView.ViewFile(repo.Project, abs, "view-" + node.Name);
                     break;
 
                 case RowAct.Edit:
-                    AgentSidebar.ShowWithoutHistory(SidebarTab.Files);
                     FilesView.EditFile(repo.Project, abs, "edit-" + node.Name);
                     break;
 
@@ -477,10 +477,7 @@ namespace SlopWorld
 
             if (!node.IsDir && Present(node.Status))
                 opts.Add(new FloatMenuOption("Edit", () =>
-                {
-                    AgentSidebar.ShowWithoutHistory(SidebarTab.Files);
-                    FilesView.EditFile(project, abs, "edit-" + node.Name);
-                }));
+                    FilesView.EditFile(project, abs, "edit-" + node.Name)));
 
             opts.Add(new FloatMenuOption("Diff", () =>
             {
@@ -502,8 +499,7 @@ namespace SlopWorld
         //
         // Diffs run in one Pager session through an ephemeral agent in the project sandbox.
 
-        // Public for FilesView: a diff opened from the files tree still belongs to Git and
-        // must therefore use this pager, so the resulting ghost appears in the Git tab.
+        // Files delegates diff creation here; both trees expose the same reader headers.
         public static void OpenDiff(string project, string abs, string label)
         {
             var repo = Known(project);
@@ -515,17 +511,17 @@ namespace SlopWorld
             }
             Tree.SelectKey(ContentTreeView.SelectionKey(project, rel));
             AgentSidebar.RememberGit(project, rel);
-            if (Viewers.Reopen(project, rel)) return;
-            Viewers.ForPreview().Open(project, DiffCmd(repo, rel, status), label, rel);
+            if (Viewers.Reopen(project, DiffKey(rel))) return;
+            Viewers.ForPreview().Open(project, DiffCmd(repo, rel, status), label, DiffKey(rel));
         }
 
         static void Diff(Node node, Repo repo)
         {
             Tree.Select(node);
             AgentSidebar.RememberGit(repo.Project, node.Rel);
-            if (Viewers.Reopen(repo.Project, node.Rel)) return;
+            if (Viewers.Reopen(repo.Project, DiffKey(node.Rel))) return;
             Viewers.ForPreview().Open(repo.Project, DiffCmd(repo, node.Rel, node.Status),
-                "diff-" + node.Name, node.Rel);
+                "diff-" + node.Name, DiffKey(node.Rel));
         }
 
         // Use delta as git's pager because daemon errands are argv, not shell pipelines. Force

@@ -69,11 +69,9 @@ namespace SlopWorld
             public int BrowseInFlight;
         }
 
-        // PagerTabs already owns the replaceable/pinned pager semantics; this owner keeps the
-        // native Markdown preview lifecycle beside it instead of in rendering methods.
+        // Native Markdown rendering state backs the shared reader collection.
         sealed class FilesViewerController
         {
-            public readonly PagerTabs Tabs = new PagerTabs();
             public MarkdownTab MarkdownPreview;
             public MarkdownTab ActiveMarkdown;
             public readonly List<MarkdownTab> LockedMarkdown = new List<MarkdownTab>();
@@ -195,7 +193,7 @@ namespace SlopWorld
 
         // One replaceable preview and any previews the user pinned by double-clicking a
         // routed header. The tree owns selection; each pager owns its ephemeral session.
-        static PagerTabs Viewers => Viewer.Tabs;
+        static PagerTabs Viewers => FileReaders.Tabs;
 
         // Markdown is a native content view rather than a daemon session, so keep the same
         // preview/pinned distinction here and expose a synthetic routed header for it.

@@ -74,15 +74,9 @@ namespace SlopWorld
             public readonly Dictionary<string, Repo> Repos = new Dictionary<string, Repo>();
         }
 
-        sealed class GitViewerController
-        {
-            public readonly PagerTabs Tabs = new PagerTabs();
-        }
-
         static readonly GitStore Store = new GitStore();
-        static readonly GitViewerController Viewer = new GitViewerController();
         static Dictionary<string, Repo> Repos => Store.Repos;
-        static PagerTabs Viewers => Viewer.Tabs;
+        static PagerTabs Viewers => FileReaders.Tabs;
 
         public static bool AllFolded
         {

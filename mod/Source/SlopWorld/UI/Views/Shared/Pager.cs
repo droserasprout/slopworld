@@ -1,7 +1,7 @@
 namespace SlopWorld
 {
-    // Each view owns one ephemeral pager session for files or git diffs; a new selection replaces
-    // it. Sidebar tab changes preserve it; an explicit pane close releases it.
+    // A reader owns one ephemeral pager session. Files and Git share preview/pinned slots;
+    // sidebar tab changes preserve them and explicit dismissal releases them.
     public class Pager
     {
         string _session;
@@ -11,7 +11,8 @@ namespace SlopWorld
         string _key;          // path identity for a one-off command, when it has one
         int _operation;
         bool _locked;
-        bool _openingFile;
+        bool _opening;
+        string _pendingCommand;
 
         // Who is showing, or null. Read rather than acted on - the two views use it to tell
         // "click the row that is already open" from "click a different one".
@@ -34,7 +35,7 @@ namespace SlopWorld
 
         public bool Matches(string project, string key)
         {
-            return !_openingFile && Alive && _openProject == project && _key == key;
+            return !_opening && Alive && _openProject == project && _key == key;
         }
 
         public bool LockPreview(string project, string key)
@@ -77,7 +78,7 @@ namespace SlopWorld
         // so the sidebar's one-line title follows the file instead of keeping the old name.
         public void ViewFile(string project, string filePath, string label)
         {
-            if (_openingFile && _openProject == project && _key == filePath) return;
+            if (_opening && _pendingCommand == null && _openProject == project && _key == filePath) return;
             bool host = string.IsNullOrEmpty(project);
             if (!host && SessionHub.Instance.Project(project) == null)
             {
@@ -107,7 +108,8 @@ namespace SlopWorld
             _filePath = null;
             _openProject = project;
             _key = filePath;
-            _openingFile = true;
+            _pendingCommand = null;
+            _opening = true;
 
             string cmd = PagerCommand(filePath);
             SessionHub.Instance.SessionStore.Run(project, cmd, label,
@@ -119,7 +121,7 @@ namespace SlopWorld
                         return;
                     }
                     _session = session;
-                    _openingFile = false;
+                    _opening = false;
                     _project = project;
                     _filePath = filePath;
                     TerminalWindow.Open(session);
@@ -129,7 +131,7 @@ namespace SlopWorld
                 {
                     if (operation != _operation) return;
                     _session = null;
-                    _openingFile = false;
+                    _opening = false;
                     _project = null;
                     _filePath = null;
                     StopIf(oldSession);
@@ -154,7 +156,8 @@ namespace SlopWorld
         // routed header can focus that exact diff instead of creating a second tab.
         public void Open(string project, string command, string label, string key)
         {
-            _openingFile = false;
+            if (_opening && _openProject == project && _key == key &&
+                _pendingCommand == command) return;
             // The project may have been renamed or deleted since the listing that put the row
             // on screen; the daemon would refuse either way, but the reason is clearer here.
             if (SessionHub.Instance.Project(project) == null)
@@ -174,6 +177,8 @@ namespace SlopWorld
             _filePath = null;
             _openProject = project;
             _key = key;
+            _opening = true;
+            _pendingCommand = command;
 
             SessionHub.Instance.SessionStore.Run(project, command, label,
                 session =>
@@ -184,6 +189,7 @@ namespace SlopWorld
                         return;
                     }
                     _session = session;
+                    _opening = false;
                     // Don't set _project — this is a one-off command, not the persistent
                     // pager, so the next ViewFile will create its own session.
                     TerminalWindow.Open(session);
@@ -193,6 +199,7 @@ namespace SlopWorld
                 {
                     if (operation != _operation) return;
                     _session = null;
+                    _opening = false;
                     _filePath = null;
                     StopIf(oldSession);
                     UiLayout.Fail(msg);
@@ -216,7 +223,7 @@ namespace SlopWorld
         {
             if (_locked) return;
             ++_operation;
-            _openingFile = false;
+            _opening = false;
             string s = _session;
             _session = null;
             _project = null;

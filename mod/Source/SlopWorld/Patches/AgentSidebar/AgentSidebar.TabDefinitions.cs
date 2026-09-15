@@ -79,6 +79,7 @@ namespace SlopWorld
                         FilterChanged = GitView.Refresh,
                         SetAllFolds = GitView.SetAllFolded,
                         AllFolded = () => GitView.AllFolded,
+                        Close = EndFilesDivider,
                         Entered = GitView.Refresh,
                         Reselected = GitView.Refresh,
                     }),
@@ -112,24 +113,23 @@ namespace SlopWorld
                     }));
         }
 
-        static void DrawFilesView()
+        static void DrawFilesView() => DrawReaderView(SidebarTab.Files);
+
+        static void DrawGitView() => DrawReaderView(SidebarTab.Git);
+
+        static void DrawReaderView(SidebarTab tab)
         {
             var body = Body;
-            PrepareRouted(SidebarTab.Files);
+            PrepareRouted(tab);
             var split = FilesSplit(body);
             HandleFilesDivider(body, split);
             split = FilesSplit(body);
-            DrawRouted(ToRect(split.Upper), SidebarTab.Files, Interaction.FilesRoutedScroll);
-            FilesView.Draw(ToRect(split.Lower), !Interaction.FilesDividerDragging);
+            DrawRouted(ToRect(split.Upper), tab, Interaction.FilesRoutedScroll);
+            if (tab == SidebarTab.Files)
+                FilesView.Draw(ToRect(split.Lower), !Interaction.FilesDividerDragging);
+            else
+                GitView.Draw(ToRect(split.Lower), !Interaction.FilesDividerDragging);
             DrawFilesDivider(split, body);
-        }
-
-        static void DrawGitView()
-        {
-            var body = Body;
-            PrepareRouted(SidebarTab.Git);
-            float height = DrawRouted(body, SidebarTab.Git);
-            GitView.Draw(TreeBody(body, height));
         }
 
         static SidebarFilesSplitGeometry FilesSplit(Rect body) =>
@@ -149,6 +149,7 @@ namespace SlopWorld
 
         static void ClickGitView()
         {
+            if (Interaction.FilesDividerInput || Interaction.FilesDividerDragging) return;
             if (!ClickRouted()) GitView.Clicks();
         }
 

@@ -44,10 +44,7 @@ namespace SlopWorld
             if (!Viewers.Reopen(node.Project, node.Path)) View(node);
         }
 
-        // One of the hover strip's three, done. Nothing here is new: the same three errands
-        // the right-click menu has always offered, plus the git view's diff for a file that
-        // has one - and that one is opened in *this* view's pager, because the reader is
-        // standing in this view and Show would release the other's the moment it opened.
+        // Both trees open readers in the shared pane without changing sidebar navigation.
         static void Act(Node node, RowAct act)
         {
             switch (act)
@@ -62,10 +59,7 @@ namespace SlopWorld
                     break;
 
                 case RowAct.Diff:
-                    // A diff belongs to Git, even when its button was clicked in Files. Move
-                    // first so Show does not release the pager we are about to open, then let
-                    // GitView own the session and its lifecycle.
-                    AgentSidebar.ShowWithoutHistory(SidebarTab.Git);
+                    // Git supplies the command; the shared collection owns its reader.
                     GitView.OpenDiff(node.Project, node.Path, "diff-" + node.Name);
                     break;
             }
@@ -444,7 +438,7 @@ namespace SlopWorld
         }
 
         // Public for GitView: viewing a changed file is a Files operation, regardless of
-        // which tree supplied the click. The shared tab switch is done by the caller.
+        // which tree supplied the click. Opening it preserves the active sidebar tab.
         public static void ViewFile(string project, string path, string label)
         {
             // A project that has gone takes the mark with it: the tree would otherwise
@@ -587,7 +581,7 @@ namespace SlopWorld
             ReleaseMarkdownPreview();
         }
 
-        static void ReleaseMarkdownPreview()
+        internal static void ReleaseMarkdownPreview()
         {
             if (_activeMarkdown != null && Showing(_activeMarkdown))
             {
