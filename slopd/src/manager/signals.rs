@@ -13,6 +13,9 @@ pub(crate) struct Signals {
     pub(crate) clients: AtomicUsize,
     pub(crate) clients_since: AtomicU64,
     pub(crate) watchers: Mutex<HashMap<String, usize>>,
+    // Watch receivers retain changes while readers await frame publication.
+    pub(crate) watchers_changed: tokio::sync::watch::Sender<()>,
+    pub(crate) maintenance_wake: Arc<tokio::sync::Notify>,
     pub(crate) redraw_nudge: Arc<tokio::sync::Semaphore>,
 }
 
@@ -23,6 +26,8 @@ impl Signals {
             clients: AtomicUsize::new(0),
             clients_since: AtomicU64::new(0),
             watchers: Mutex::new(HashMap::new()),
+            watchers_changed: tokio::sync::watch::channel(()).0,
+            maintenance_wake: Arc::new(tokio::sync::Notify::new()),
             redraw_nudge: Arc::new(tokio::sync::Semaphore::new(1)),
         }
     }

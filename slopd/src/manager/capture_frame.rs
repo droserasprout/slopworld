@@ -74,11 +74,28 @@ impl Manager {
         } else {
             previous.plain.clone()
         };
+        let classification = self
+            .classify_with_cache(
+                if previous.initial {
+                    false
+                } else {
+                    activity_changed
+                },
+                previous.last_change,
+                &plain,
+                previous.rule_cache.as_ref(),
+            )
+            .await;
         let next_state = if previous.initial {
-            self.classify_initial(previous.state, &plain).await
+            classification
+                .matched
+                .unwrap_or(if previous.state != State::Down {
+                    previous.state
+                } else {
+                    State::Working
+                })
         } else {
-            self.classify(activity_changed, previous.last_change, &plain)
-                .await
+            classification.state
         };
 
         FrameDelta {
@@ -87,84 +104,127 @@ impl Manager {
             activity_changed,
             screen_changed,
             next_state,
+            rules_revision: classification.rules_revision,
+            matched: classification.matched,
             title_moved: meta.title != previous.meta.title,
             bell: frame.bell,
-            activity: (next_state != previous.state).then_some(ActivityDelta { state: next_state }),
         }
     }
 
     pub(crate) async fn apply_frame(&self, name: &str, frame: Frame) {
-        let previous = {
-            let live = self.live.read().await;
-            live.get(name).map(FrameSnapshot::from_live)
-        };
+        loop {
+            let previous = {
+                let live = self.live.read().await;
+                let rules_revision = self
+                    .rules_revision
+                    .load(std::sync::atomic::Ordering::Acquire);
+                live.get(name)
+                    .map(|live| FrameSnapshot::from_live(live, rules_revision))
+            };
 
-        let Some(previous) = previous else { return };
-        let delta = self.frame_delta(&previous, &frame).await;
-        if !delta.screen_changed && delta.next_state == previous.state && !delta.bell {
-            return;
-        }
-
-        let view = ScreenView::from_frame(
-            FrameViewArgs {
-                name,
-                seq: previous.seq + 1,
-                cols: previous.cols,
-                rows: previous.rows,
-                off: 0,
-                history: frame.history,
-                request_id: 0,
-            },
-            frame,
-        );
-
-        let mut dirty_list = false;
-        let mut activity = None;
-        {
-            let mut live = self.live.write().await;
-            let Some(l) = live.get_mut(name) else { return };
-            l.hash = delta.content_hash;
-            l.seq += 1;
-            if delta.activity_changed && !previous.initial {
-                l.last_change = now_ms();
-            } else if previous.initial {
-                // The first capture is a snapshot, not a new pane update. Keep the cached
-                // state age, but give working classification a fresh decay sample because
-                // there is no prior frame to compare with after a daemon restart.
-                l.last_change = if delta.next_state == State::Idle {
-                    0
-                } else {
-                    now_ms()
-                };
+            let Some(previous) = previous else { return };
+            let delta = self.frame_delta(&previous, &frame).await;
+            let cache_current = previous.rule_cache.as_ref().is_some_and(|cache| {
+                cache.revision == delta.rules_revision
+                    && cache.text.as_ref() == delta.plain.as_ref()
+                    && cache.matched == delta.matched
+            });
+            if !delta.screen_changed
+                && delta.next_state == previous.state
+                && !delta.bell
+                && cache_current
+            {
+                return;
             }
-            if l.set_state(delta.next_state) {
-                dirty_list = true;
-                if let Some(activity_delta) = delta.activity {
+
+            let mut dirty_list = false;
+            let mut activity = None;
+            let mut screen = None;
+            {
+                let mut live = self.live.write().await;
+                let Some(l) = live.get_mut(name) else { return };
+                // Classification waits on the rules lock. Do not let that wait turn an old
+                // capture into a replacement, nor let it overwrite a newer frame/run. State
+                // changes and rules changes require fresh classification, but must not discard
+                // terminal output from the same run and frame sequence.
+                if l.run_id != previous.run_id || l.seq != previous.seq {
+                    return;
+                }
+                if l.state != previous.state {
+                    continue;
+                }
+                if self
+                    .rules_revision
+                    .load(std::sync::atomic::Ordering::Acquire)
+                    != delta.rules_revision
+                    || delta.rules_revision != previous.rules_revision
+                {
+                    continue;
+                }
+
+                if delta.screen_changed {
+                    l.hash = delta.content_hash;
+                    l.seq += 1;
+                    if delta.activity_changed && !previous.initial {
+                        l.last_change = now_ms();
+                    } else if previous.initial {
+                        // The first capture is a snapshot, not a new pane update. Keep the
+                        // cached state age, but give working classification a fresh decay sample
+                        // because there is no prior frame to compare against after a restart.
+                        l.last_change = if delta.next_state == State::Idle {
+                            0
+                        } else {
+                            now_ms()
+                        };
+                    }
+                    let view = ScreenView::from_frame(
+                        FrameViewArgs {
+                            name,
+                            seq: l.seq,
+                            cols: previous.cols,
+                            rows: previous.rows,
+                            off: 0,
+                            history: frame.history,
+                            request_id: 0,
+                        },
+                        frame.clone(),
+                    );
+                    l.screen = Some(view.clone());
+                    screen = Some(view);
+                }
+
+                l.rule_cache = Some(RuleCache {
+                    revision: delta.rules_revision,
+                    text: delta.plain.clone(),
+                    matched: delta.matched,
+                });
+                if l.set_state(delta.next_state) {
+                    dirty_list = true;
                     if !l.ephemeral {
-                        activity = Some((activity_delta.state, l.state_since));
+                        activity = Some((delta.next_state, l.state_since));
                     }
                 }
+                if delta.title_moved {
+                    dirty_list = true;
+                }
+                if delta.bell && !l.bell {
+                    l.bell = true;
+                    dirty_list = true;
+                }
+                l.plain = delta.plain.clone();
             }
-            if delta.title_moved {
-                dirty_list = true;
-            }
-            if delta.bell && !l.bell {
-                l.bell = true;
-                dirty_list = true;
-            }
-            l.screen = Some(view.clone());
-            l.plain = delta.plain.clone();
-        }
 
-        if let Some((state, state_since)) = activity {
-            self.persist_activity(name, state, state_since).await;
-        }
-        if delta.screen_changed {
-            crate::perf::count("frame-screen-events", 1);
-            self.emit(Event::Screen { screen: view });
-        }
-        if dirty_list {
-            self.announce_sessions().await;
+            if let Some((state, state_since)) = activity {
+                self.persist_activity(name, state, state_since).await;
+            }
+            if let Some(screen) = screen {
+                crate::perf::count("frame-screen-events", 1);
+                self.emit(Event::Screen { screen });
+            }
+            if dirty_list {
+                self.announce_sessions().await;
+            }
+            return;
         }
     }
 

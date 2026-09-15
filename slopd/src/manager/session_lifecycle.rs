@@ -65,6 +65,10 @@ pub(crate) fn finish_reader(reader: ReaderDisposition) {
 /// Clear the process-owned part of a live row. The transition itself remains lock-local; all
 /// cache, task, grant, and event effects happen in `execute_cleanup` after the lock is released.
 pub(crate) fn reset_process_state(live: &mut Live) {
+    // A stop or replacement invalidates captures that were classified before the process
+    // teardown. The next process receives a distinct identity even when the durable name is
+    // reused immediately.
+    live.run_id = live.run_id.wrapping_add(1);
     live.set_state(State::Down);
     live.process_running = false;
     live.auto_resume_pending = false;
