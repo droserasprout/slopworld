@@ -54,7 +54,7 @@ namespace SlopWorld
             UiLayout.SectionHeading(l, "Usage");
             l.Label("Global poll interval (s)");
             _pollSecs = UiControls.Field(l, "usage.poll", _pollSecs,
-                defaultValue: SharedDefaults.UsagePollSecs.ToString());
+                defaultValue: _cfg.FactoryDefaults.UsagePollSecs.ToString());
             _configState.SetDraftText("usage.poll", "daemon.usage_poll_secs", _pollSecs);
             UiLayout.Validation(l, PollError(_pollSecs, false));
             UiLayout.Note(l, "Every row uses this interval unless its interval is set below. " +
@@ -73,17 +73,16 @@ namespace SlopWorld
             if (_pickingKey != null) DrawPicker(rect, _pickingKey);
         }
 
-        static readonly string[] BaseKeys =
-        {
-            SharedUsage.ClaudeSession, SharedUsage.ClaudeWeek,
-            SharedUsage.ClaudeSpend, SharedUsage.OpenrouterBalance,
-            SharedUsage.OpenaiSession, SharedUsage.OpenaiWeek,
-        };
-
         void EnsureBaseItems()
         {
-            foreach (string key in BaseKeys)
-                EnsureItem(key);
+            foreach (var entry in Catalog()) EnsureItem(entry.Key);
+        }
+
+        List<UsageCatalogInfo> Catalog()
+        {
+            if (_cfg.UsageCatalog != null && _cfg.UsageCatalog.Count > 0)
+                return _cfg.UsageCatalog;
+            return SessionHub.Instance.Usage.Catalog;
         }
 
         DaemonConfig.UsageItemConfig EnsureItem(string key)
@@ -104,16 +103,16 @@ namespace SlopWorld
 
         bool DefaultPoll(string key)
         {
-            if (key.StartsWith("claude_")) return true;
-            if (key.StartsWith("openrouter_")) return false;
-            if (key.StartsWith("openai_")) return true;
+            foreach (var entry in Catalog())
+                if (entry.Key == key) return entry.DefaultPoll;
             return false;
         }
 
         List<string> TableKeys()
         {
             var keys = new List<string>();
-            foreach (string key in BaseKeys) keys.Add(key);
+            foreach (var entry in Catalog())
+                if (!keys.Contains(entry.Key)) keys.Add(entry.Key);
             foreach (var pair in _cfg.UsageItems)
                 if (!keys.Contains(pair.Key)) keys.Add(pair.Key);
             foreach (var w in SessionHub.Instance.Usage.Windows)
@@ -123,16 +122,13 @@ namespace SlopWorld
             return keys;
         }
 
-        static int UsageRank(string key)
+        int UsageRank(string key)
         {
-            if (key == SharedUsage.ClaudeSession) return 0;
-            if (key == SharedUsage.ClaudeWeek) return 1;
-            if (key.StartsWith("claude_week_")) return 2;
-            if (key == SharedUsage.ClaudeSpend) return 3;
-            if (key == SharedUsage.OpenrouterBalance) return 4;
-            if (key == SharedUsage.OpenaiSession) return 5;
-            if (key == SharedUsage.OpenaiWeek) return 6;
-            return 7;
+            foreach (var entry in Catalog())
+                if (entry.Key == key) return entry.Rank;
+            foreach (var entry in SessionHub.Instance.Usage.Catalog)
+                if (entry.Key == key) return entry.Rank;
+            return int.MaxValue;
         }
 
         float DrawTable(Rect rect)

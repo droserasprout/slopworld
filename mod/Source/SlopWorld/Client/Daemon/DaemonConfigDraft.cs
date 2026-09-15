@@ -111,6 +111,7 @@ namespace SlopWorld
             var mergedBaseline = JVal.Merge(serverValue,
                 JVal.OverlayByShape(dirty, oldBaselineValue));
             Config = DaemonConfig.FromJson(merged);
+            Config.CopyMetadataFrom(server);
             BaselineJson = JVal.ToJson(mergedBaseline);
             RemoteBaselineJson = serverJson;
             MergeTexts(serverValue, JVal.Parse(oldRemote));
@@ -153,7 +154,9 @@ namespace SlopWorld
         public void ResetToBaseline()
         {
             if (!Loaded || string.IsNullOrEmpty(RemoteBaselineJson)) return;
+            var metadata = Config;
             Config = DaemonConfig.FromJson(JVal.Parse(RemoteBaselineJson));
+            Config.CopyMetadataFrom(metadata);
             foreach (var key in new List<string>(_texts.Keys))
             {
                 string fallback = _textRemoteBaselines.ContainsKey(key)

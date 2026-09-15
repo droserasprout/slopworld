@@ -30,6 +30,14 @@ pub(crate) async fn create_project(State(m): State<Mgr>, Json(p): Json<ProjectCf
     super::ok_json(m.add_project(p).await)
 }
 
+pub(crate) async fn project_preview(Json(req): Json<ProjectPreviewReq>) -> ApiResult {
+    Ok(Json(json!({
+        "name": req.name,
+        "temp": req.temp,
+        "dir": if req.temp { crate::config::temp_dir(&req.name) } else { String::new() },
+    })))
+}
+
 pub(crate) async fn update_project(
     State(m): State<Mgr>,
     Path(name): Path<String>,

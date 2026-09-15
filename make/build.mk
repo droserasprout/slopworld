@@ -90,7 +90,7 @@ emoji-atlas:       ## Rebake the legacy terminal's emoji atlas with Pango
 reference:         ## Generate the environment/API/CLI reference
 	@$(PYTHON) tools/reference.py
 
-api-contract: shared/protocol.yaml shared/defaults.yaml shared/usage.yaml tools/wire_contract.py ## Generate shared protocol, defaults and usage bindings
+api-contract: shared/protocol.yaml tools/wire_contract.py ## Generate stable shared protocol bindings
 	@$(PYTHON) tools/wire_contract.py
 
 api-docs: api-contract ## Generate the mdBook API route inventory

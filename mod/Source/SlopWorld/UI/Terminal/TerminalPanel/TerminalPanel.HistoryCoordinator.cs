@@ -245,7 +245,7 @@ namespace SlopWorld
                         int history = sb.History + shift;
                         if (live != null && live.History >= 0 && live.Seq >= sb.Seq)
                             history = live.History;
-                        _panel._historyTopOff = Mathf.Clamp(history, 0, MaxScrollLines);
+                        _panel._historyTopOff = Mathf.Clamp(history, 0, _panel.MaxScrollLines);
                         ClampTarget();
                     }
                     else if (sb.Off + shift < request.Offset)

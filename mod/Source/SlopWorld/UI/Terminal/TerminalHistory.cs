@@ -12,8 +12,8 @@ namespace SlopWorld
         // The client never asks beyond the daemon's 10,000-line history limit, and negotiated
         // panes top out at 200 rows. Bounding coordinates keeps a malformed reply from turning
         // this persistent per-window cache into an unbounded dictionary.
-        const int MaxHistoryRows = SharedDefaults.ScrollbackLines;
-        const int MaxScreenRows = WireProtocol.TerminalMaxRows;
+        static int MaxHistoryRows => Math.Max(1, DaemonCapabilities.Current.Terminal.ScrollbackLines);
+        static int MaxScreenRows => Math.Max(1, DaemonCapabilities.Current.Terminal.MaxRows);
 
         // Keys stay fixed while the live bottom advances. `_origin` translates the public
         // coordinate space to storage coordinates, avoiding a dictionary-sized copy for every
@@ -275,8 +275,13 @@ namespace SlopWorld
         {
             _pinnedView = new ScreenBuf
             {
-                Seq = view.Seq, Off = view.Off, Rows = view.Rows, Cols = view.Cols,
-                Lines = view.Lines, Cy = view.Lines.Length, Title = view.Title,
+                Seq = view.Seq,
+                Off = view.Off,
+                Rows = view.Rows,
+                Cols = view.Cols,
+                Lines = view.Lines,
+                Cy = view.Lines.Length,
+                Title = view.Title,
             };
             _pinnedExtra = extraRow;
         }

@@ -19,6 +19,17 @@ namespace SlopWorld
         // Seconds to the reset as of Heard; -1 if the daemon did not say.
         public long ResetsIn = -1;
 
+        public static UsageWindow FromJson(JVal w) => new UsageWindow
+        {
+            Key = w["key"].AsString(),
+            Label = w["label"].AsString(),
+            Pct = w["pct"].AsFloat(),
+            Unit = w["unit"].AsString(WireProtocol.UsageUnit.Pct),
+            Amount = w["amount"].IsNull ? -1f : w["amount"].AsFloat(-1f),
+            Limit = w["limit"].IsNull ? -1f : w["limit"].AsFloat(-1f),
+            ResetsIn = w["resets_in"].IsNull ? -1 : w["resets_in"].AsLong(-1),
+        };
+
         // Both halves are required: a unit with no figure under it has nothing to spend.
         public bool IsMoney => Unit == WireProtocol.UsageUnit.Usd && Amount >= 0f;
     }

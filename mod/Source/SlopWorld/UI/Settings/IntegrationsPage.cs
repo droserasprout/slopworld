@@ -14,7 +14,7 @@ namespace SlopWorld
             UiLayout.SectionHeading(l, "Anthropic");
             l.Label("Credentials file");
             _cfg.ClaudeCredentials = UiControls.Field(l, "integrations.anthropic.credentials",
-                _cfg.ClaudeCredentials, defaultValue: SharedDefaults.DefaultClaudeCredentials);
+                _cfg.ClaudeCredentials, defaultValue: _cfg.FactoryDefaults.ClaudeCredentials);
 
             l.Gap(UiTheme.GapL);
             UiLayout.SectionHeading(l, "OpenRouter");
@@ -27,7 +27,7 @@ namespace SlopWorld
             UiLayout.SectionHeading(l, "OpenAI / Codex");
             l.Label("Credentials file");
             _cfg.OpenaiCredentials = UiControls.Field(l, "integrations.openai.credentials",
-                _cfg.OpenaiCredentials, defaultValue: SharedDefaults.DefaultOpenaiCredentials);
+                _cfg.OpenaiCredentials, defaultValue: _cfg.FactoryDefaults.OpenaiCredentials);
 
             l.Gap(UiTheme.GapL);
             UiLayout.Note(l, "Credential files stay on the host.");

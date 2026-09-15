@@ -10,14 +10,15 @@ use serde::{Deserialize, Serialize};
 
 use crate::presets::{CommandPreset, SandboxPreset};
 
-const DEFAULT_BIND: &str = crate::shared::defaults::DEFAULT_BIND;
-const DEFAULT_USAGE_POLL_SECS: u64 = crate::shared::defaults::USAGE_POLL_SECS;
-const DEFAULT_CLAUDE_CREDENTIALS: &str = crate::shared::defaults::DEFAULT_CLAUDE_CREDENTIALS;
-const DEFAULT_OPENAI_CREDENTIALS: &str = crate::shared::defaults::DEFAULT_OPENAI_CREDENTIALS;
-const DEFAULT_TITLE_MODEL: &str = crate::shared::defaults::DEFAULT_TITLE_MODEL;
-const DEFAULT_TITLE_MIN_CHARS: usize = crate::shared::defaults::DEFAULT_TITLE_MIN_CHARS as usize;
-
-pub const DEFAULT_SUMMARY_PROMPT: &str = crate::shared::defaults::DEFAULT_SUMMARY_PROMPT;
+// These are daemon policy, not a wire schema. Keep them beside the Rust owners that apply
+// them so a client can only learn the effective/factory values through an API read model.
+pub const DEFAULT_BIND: &str = "127.0.0.1:7717";
+pub const DEFAULT_USAGE_POLL_SECS: u64 = 60;
+pub const DEFAULT_CLAUDE_CREDENTIALS: &str = "~/.claude/.credentials.json";
+pub const DEFAULT_OPENAI_CREDENTIALS: &str = "~/.codex/auth.json";
+pub const DEFAULT_TITLE_MODEL: &str = "google/gemini-3.1-flash-lite";
+pub const DEFAULT_TITLE_MIN_CHARS: usize = 20;
+pub const DEFAULT_SUMMARY_PROMPT: &str = "Summarise this coding request in at most 6 words for a session title. Reply with only the title, without quotes, punctuation, or commentary.";
 
 /// One TOML file, which the mod reads and writes back verbatim, so hand-edits and
 /// in-game edits use the same format.
@@ -59,7 +60,7 @@ pub const TOKEN_REDACTED: &str = "<redacted>";
 
 // These are daemon identity and scheduling policy, not user configuration. The private tmux
 // name is part of the sandbox/debug contract.
-pub const SCROLLBACK_LINES: u32 = crate::shared::defaults::SCROLLBACK_LINES;
+pub const SCROLLBACK_LINES: u32 = 10_000;
 
 /// The private tmux socket name (`tmux -L <name>`). `SLOPD_TMUX_SOCKET` overrides it so a
 /// throwaway daemon can run beside the real one without sharing its tmux server; production
@@ -194,11 +195,9 @@ Read the project's `README.md` and any applicable `AGENTS.md` files for project 
 
 {{ runtime_context }}
 ";
-pub const DEFAULT_INSTRUCTIONS_MOUNT_PATH: &str =
-    crate::shared::defaults::DEFAULT_INSTRUCTIONS_MOUNT_PATH;
-pub const DEFAULT_INSTRUCTIONS_BREADCRUMB: &str =
-    crate::shared::defaults::DEFAULT_INSTRUCTIONS_BREADCRUMB;
-pub const DEFAULT_WORKER_PROMPT: &str = crate::shared::defaults::DEFAULT_WORKER_PROMPT;
+pub const DEFAULT_INSTRUCTIONS_MOUNT_PATH: &str = "SLOPWORLD.md";
+pub const DEFAULT_INSTRUCTIONS_BREADCRUMB: &str = "Read `{{ mount_path }}` for SlopWorld runtime context. It is a generated snapshot, not project instructions. When delegating, send work once and use `slopctl wait ID` for the result; do not poll `task`, `inbox`, or `status`.";
+pub const DEFAULT_WORKER_PROMPT: &str = "You are a SlopWorld worker. Your assigned task ID is $SLOPWORLD_TASK_ID. Run `slopctl task \"$SLOPWORLD_TASK_ID\"` once, then `slopctl accept \"$SLOPWORLD_TASK_ID\"`. Use `slopctl progress \"$SLOPWORLD_TASK_ID\" \"note\"` while working and conclude with `slopctl finish \"$SLOPWORLD_TASK_ID\" \"result\"` or `slopctl fail \"$SLOPWORLD_TASK_ID\" \"reason\"`. Do not search the inbox or poll task status.\n\nWorker task: use `$SLOPWORLD_TASK_ID` with `slopctl task`, then `accept`, `progress`, and finally `finish` or `fail`. Do not search the inbox or poll task status.";
 
 fn default_instructions_template() -> String {
     DEFAULT_INSTRUCTIONS_TEMPLATE.into()
@@ -209,7 +208,7 @@ fn default_instructions_mount_path() -> String {
 }
 
 fn default_instructions_breadcrumb_enabled() -> bool {
-    crate::shared::defaults::DEFAULT_INSTRUCTIONS_BREADCRUMB_ENABLED
+    true
 }
 
 fn default_instructions_breadcrumb() -> String {
@@ -343,15 +342,15 @@ pub struct Defaults {
 }
 
 pub(crate) fn default_agent() -> String {
-    crate::shared::defaults::DEFAULT_AGENT.into()
+    "claude".into()
 }
 
 fn default_agent_shell() -> String {
-    crate::shared::defaults::DEFAULT_AGENT_SHELL.into()
+    "bash".into()
 }
 
 fn default_shell() -> String {
-    crate::shared::defaults::DEFAULT_SHELL.into()
+    "bash".into()
 }
 
 impl Default for Defaults {
@@ -380,15 +379,15 @@ pub struct CommandDefaults {
 }
 
 fn default_pager() -> String {
-    crate::shared::defaults::DEFAULT_PAGER.into()
+    "less".into()
 }
 
 fn default_editor() -> String {
-    crate::shared::defaults::DEFAULT_EDITOR.into()
+    "micro".into()
 }
 
 fn default_highlighter() -> String {
-    crate::shared::defaults::DEFAULT_HIGHLIGHTER.into()
+    "highlight --out-format=xterm256".into()
 }
 
 impl Default for CommandDefaults {
@@ -403,11 +402,32 @@ impl Default for CommandDefaults {
 
 /// Under `/tmp` deliberately: the machine clears it, so nothing here has to decide
 /// when scratch work has outlived its use.
-pub const TEMP_ROOT: &str = crate::shared::defaults::TEMP_ROOT;
+pub const TEMP_ROOT: &str = "/tmp/slopworld";
 
 /// Coined rather than typed, which is the whole point of the flag.
 pub fn temp_dir(name: &str) -> String {
-    format!("{TEMP_ROOT}/{name}")
+    format!("{TEMP_ROOT}/{}", temp_slug(name))
+}
+
+/// The normalized temporary project path is a daemon-owned preview/create contract. Keep the
+/// slugger here so project create, rename, and ephemeral errands cannot drift apart.
+pub fn temp_slug(name: &str) -> String {
+    let mut out = String::with_capacity(name.len());
+    for ch in name.trim().chars() {
+        if ch.is_whitespace() || matches!(ch, ':' | '.' | '/') {
+            if !out.ends_with('-') {
+                out.push('-');
+            }
+        } else {
+            out.push(ch);
+        }
+    }
+    let out = out.trim_matches('-');
+    if out.is_empty() {
+        "library".into()
+    } else {
+        out.to_string()
+    }
 }
 
 /// The network a sandbox may use. A project supplies the default and an agent may

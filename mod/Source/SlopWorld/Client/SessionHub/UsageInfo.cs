@@ -12,6 +12,8 @@ namespace SlopWorld
         public string Error;
         public string Plan = "";
         public List<UsageWindow> Windows = new List<UsageWindow>();
+        public List<UsageCatalogInfo> Catalog = new List<UsageCatalogInfo>();
+        public List<UsageRow> Rows = new List<UsageRow>();
 
         // The sellers the daemon is polling, answering or not. What the readout draws a row
         // for, so a source that is down keeps its place on the line.
@@ -30,6 +32,8 @@ namespace SlopWorld
 
         // The snapshot names the failed seller and leaves other providers live.
         public bool SourceFailed(string source) => FailedSources.Contains(source);
+
+        public UsageRow Row(string key) => Rows.FirstOrDefault(row => row.Key == key);
 
         public float Age => UnityEngine.Time.realtimeSinceStartup - Heard;
 
@@ -54,6 +58,8 @@ namespace SlopWorld
             Plan = j["plan"].AsString(),
             Sources = j["sources"].Items.Select(s => s.AsString()).ToList(),
             FailedSources = j["failed_sources"].Items.Select(s => s.AsString()).ToList(),
+            Catalog = j["catalog"].Items.Select(UsageCatalogInfo.FromJson).ToList(),
+            Rows = j["rows"].Items.Select(UsageRow.FromJson).ToList(),
             Heard = heard,
             Windows = j["windows"].Items.Select(w => new UsageWindow
             {
@@ -66,5 +72,34 @@ namespace SlopWorld
                 ResetsIn = w["resets_in"].IsNull ? -1 : w["resets_in"].AsLong(-1),
             }).ToList(),
         };
+    }
+
+    public sealed class UsageRow
+    {
+        public string Key = "";
+        public string Label = "";
+        public string Provider = "";
+        public string Unit = WireProtocol.UsageUnit.Pct;
+        public int Rank;
+        public bool Poll;
+        public bool Stale;
+        public UsageWindow Window;
+
+        public static UsageRow FromJson(JVal j)
+        {
+            var value = new UsageRow
+            {
+                Key = j["key"].AsString(),
+                Label = j["label"].AsString(),
+                Provider = j["provider"].AsString(),
+                Unit = j["unit"].AsString(WireProtocol.UsageUnit.Pct),
+                Rank = j["rank"].AsInt(),
+                Poll = j["poll"].AsBool(false),
+                Stale = j["stale"].AsBool(false),
+            };
+            if (!j["window"].IsNull && j["window"].IsObject)
+                value.Window = UsageWindow.FromJson(j["window"]);
+            return value;
+        }
     }
 }

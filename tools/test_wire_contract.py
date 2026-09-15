@@ -48,26 +48,20 @@ class SharedDefinitionTests(unittest.TestCase):
             shutil.copy(path, self.directory / path.name)
 
     def test_duplicate_yaml_key_is_rejected(self) -> None:
-        path = self.directory / "defaults.yaml"
-        path.write_text(path.read_text() + "  default_shell: zsh\n")
-        with self.assertRaisesRegex(ValueError, "duplicate key 'default_shell'"):
+        path = self.directory / "protocol.yaml"
+        path.write_text(path.read_text() + "constants: {}\n")
+        with self.assertRaisesRegex(ValueError, "duplicate key 'constants'"):
             wire_contract.load(self.directory)
 
     def test_missing_definition_is_rejected(self) -> None:
-        (self.directory / "usage.yaml").unlink()
+        (self.directory / "protocol.yaml").unlink()
         with self.assertRaises(FileNotFoundError):
             wire_contract.load(self.directory)
 
     def test_misplaced_section_is_rejected(self) -> None:
-        path = self.directory / "defaults.yaml"
-        path.write_text(path.read_text() + "websocket: {}\n")
+        path = self.directory / "protocol.yaml"
+        path.write_text(path.read_text() + "extra: {}\n")
         with self.assertRaisesRegex(ValueError, "expected sections"):
-            wire_contract.load(self.directory)
-
-    def test_constants_cannot_have_two_owners(self) -> None:
-        path = self.directory / "defaults.yaml"
-        path.write_text(path.read_text() + "  host_identity: host\n")
-        with self.assertRaisesRegex(ValueError, "duplicate constants across definitions"):
             wire_contract.load(self.directory)
 
     def test_empty_routes_are_rejected(self) -> None:
@@ -77,20 +71,10 @@ class SharedDefinitionTests(unittest.TestCase):
             wire_contract.validate(data)
 
     def test_invalid_constant_type_is_rejected(self) -> None:
-        path = self.directory / "defaults.yaml"
-        path.write_text(path.read_text().replace("endpoint_port: 7717", "endpoint_port: []"))
+        path = self.directory / "protocol.yaml"
+        path.write_text(path.read_text().replace("host_identity: host", "host_identity: []"))
         with self.assertRaisesRegex(ValueError, "expected string, boolean or integer"):
             wire_contract.load(self.directory)
-
-    def test_folded_prompt_preserves_paragraphs_in_both_languages(self) -> None:
-        path = self.directory / "defaults.yaml"
-        path.write_text(path.read_text() + '  test_prompt: >-\n    First line\n    continues.\n\n\n    Second paragraph.\n')
-        data = wire_contract.load(self.directory)
-        self.assertEqual(data["defaults"]["constants"]["test_prompt"], "First line continues.\n\nSecond paragraph.")
-        outputs = wire_contract.outputs(data)
-        for suffix in ("defaults.rs", "SharedDefaults.cs"):
-            content = next(value for path, value in outputs.items() if path.name == suffix)
-            self.assertIn('"First line continues.\\n\\nSecond paragraph."', content)
 
     def test_checked_in_bindings_match_all_definitions(self) -> None:
         for path, generated in wire_contract.outputs(wire_contract.load()).items():

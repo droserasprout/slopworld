@@ -117,7 +117,7 @@ namespace SlopWorld
         // error body matters.
         public void RefreshConfig(Action<string> fail = null) =>
             DaemonClient.Get(WireProtocol.Routes.Config,
-                j => Config = DaemonConfig.FromJson(j["values"]), fail);
+                j => Config = DaemonConfig.FromJson(j["values"], j["metadata"]), fail);
 
         public void RefreshHealth(Action<string> fail = null) =>
             DaemonClient.Get(WireProtocol.Routes.Health, j => Health = DaemonHealth.FromJson(j), fail);

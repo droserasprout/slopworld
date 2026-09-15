@@ -1,5 +1,3 @@
-// Bindings generated from shared/*.yaml, plus handwritten serialization helpers.
-pub(crate) mod defaults;
+// Protocol bindings generated from shared/protocol.yaml, plus handwritten serialization helpers.
 pub(crate) mod protocol;
 mod serde;
-pub(crate) mod usage;

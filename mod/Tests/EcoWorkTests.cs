@@ -63,23 +63,27 @@ namespace SlopWorld.Tests
             usage.Sources.Add("openai");
             usage.Sources.Add("anthropic");
             usage.Sources.Add("openrouter");
-            usage.Windows.Add(new UsageWindow { Key = SharedUsage.OpenaiWeek });
+            usage.Windows.Add(new UsageWindow { Key = "openai_week" });
+            usage.Rows.Add(new UsageRow { Key = "claude_session", Rank = 0, Poll = true });
+            usage.Rows.Add(new UsageRow { Key = "claude_week", Rank = 1, Poll = true });
+            usage.Rows.Add(new UsageRow { Key = "openai_week", Rank = 3, Poll = true });
+            usage.Rows.Add(new UsageRow { Key = "openrouter_balance", Rank = 4, Poll = false });
             AssertEx.Equal(true, cache.Prepare(usage, null), "first usage");
-            AssertEx.Equal("claude_session,claude_week,openai_week,openrouter_balance",
-                string.Join(",", cache.Rows), "weekly-only OpenAI and source placeholders ordered");
+            AssertEx.Equal("claude_session,claude_week,openai_week",
+                string.Join(",", cache.Rows), "daemon-resolved rows ordered");
             AssertEx.Equal(false, cache.Prepare(usage, null), "snapshot cached");
             var config = new DaemonConfig();
             cache.Prepare(usage, config);
-            AssertEx.Equal(false, cache.Rows.Contains(SharedUsage.OpenrouterBalance), "default money poll off");
-            config.UsageItems[SharedUsage.OpenaiWeek] = new DaemonConfig.UsageItemConfig { Poll = false };
+            AssertEx.Equal(false, cache.Rows.Contains("openrouter_balance"), "daemon disabled row stays absent");
+            config.UsageItems["openai_week"] = new DaemonConfig.UsageItemConfig { Poll = false };
             AssertEx.Equal(true, cache.Prepare(usage, config), "new flag invalidates");
-            AssertEx.Equal(false, cache.Rows.Contains(SharedUsage.OpenaiWeek), "disabled row removed");
-            config.UsageItems[SharedUsage.OpenaiWeek].Poll = true;
+            AssertEx.Equal(true, cache.Rows.Contains("openai_week"), "display follows daemon rows");
+            config.UsageItems["openai_week"].Poll = true;
             AssertEx.Equal(true, cache.Prepare(usage, config), "in-place flag invalidates");
-            AssertEx.Equal(true, cache.Rows.Contains(SharedUsage.OpenaiWeek), "row restored");
-            config.UsageItems[SharedUsage.OpenaiWeek] = null;
+            AssertEx.Equal(true, cache.Rows.Contains("openai_week"), "row remains authoritative");
+            config.UsageItems["openai_week"] = null;
             AssertEx.Equal(true, cache.Prepare(usage, config), "null entry invalidates");
-            AssertEx.Equal(true, cache.Rows.Contains(SharedUsage.OpenaiWeek), "null uses defaults");
+            AssertEx.Equal(true, cache.Rows.Contains("openai_week"), "null retains daemon row");
             AssertEx.Equal(true, cache.Prepare(new UsageInfo(), config), "replacement snapshot invalidates");
             AssertEx.Equal(0, cache.Rows.Count, "old rows removed");
             cache.Prepare(null, null);

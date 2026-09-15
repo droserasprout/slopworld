@@ -50,6 +50,7 @@ pub(crate) fn router(m: Mgr) -> Router {
         .route(routes::TEMPLATE_CREATE, post(create_from_template))
         .route(routes::CAPABILITIES, get(capabilities))
         .route(routes::PROJECTS, get(list_projects).post(create_project))
+        .route(routes::PROJECT_PREVIEW, post(project_preview))
         .route(
             routes::PROJECT,
             get(one_project).put(update_project).delete(destroy_project),

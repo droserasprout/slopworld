@@ -22,25 +22,9 @@ namespace SlopWorld
             if (config?.UsageItems != null)
                 foreach (var pair in config.UsageItems) _polls[pair.Key] = pair.Value?.Poll;
             Rows.Clear();
-            bool weekly = false;
             if (usage != null)
-            {
-                foreach (var window in usage.Windows)
-                {
-                    if (window.Key == SharedUsage.OpenaiWeek) weekly = true;
-                    Add(window.Key);
-                }
-                foreach (var source in usage.Sources)
-                {
-                    if (source == "anthropic")
-                    {
-                        Add(SharedUsage.ClaudeSession);
-                        Add(SharedUsage.ClaudeWeek);
-                    }
-                    else if (source == "openai" && !weekly) Add(SharedUsage.OpenaiSession);
-                    else if (source == "openrouter") Add(SharedUsage.OpenrouterBalance);
-                }
-            }
+                foreach (var row in usage.Rows)
+                    if (row.Poll) Add(row.Key);
             Rows.Sort(Compare);
             Revision++;
             return true;
@@ -62,23 +46,19 @@ namespace SlopWorld
 
         bool Polled(string key)
         {
-            if (!_hasConfig) return true;
-            if (_polls.TryGetValue(key, out var poll) && poll.HasValue) return poll.Value;
-            return key.StartsWith("claude_", StringComparison.Ordinal) ||
-                key.StartsWith("openai_", StringComparison.Ordinal);
+            // The daemon already resolved this row's poll state. The client must not infer
+            // provider defaults or briefly hide a row from its last authoritative snapshot.
+            return true;
         }
 
-        static int Compare(string a, string b) => Rank(a).CompareTo(Rank(b));
+        int Compare(string a, string b) => Rank(a).CompareTo(Rank(b));
 
-        static int Rank(string key)
+        int Rank(string key)
         {
-            if (key == SharedUsage.ClaudeSession) return 0;
-            if (key == SharedUsage.ClaudeWeek) return 1;
-            if (key == SharedUsage.OpenaiSession) return 2;
-            if (key == SharedUsage.OpenaiWeek) return 3;
-            if (key == SharedUsage.OpenrouterBalance) return 4;
-            if (key == SharedUsage.ClaudeSpend) return 5;
-            return 6;
+            if (_usage != null)
+                foreach (var row in _usage.Rows)
+                    if (row.Key == key) return row.Rank;
+            return int.MaxValue;
         }
     }
 }

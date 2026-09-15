@@ -89,6 +89,7 @@ pub(crate) mod routes {
     pub(crate) const TASK: &str = "/api/tasks/:id";
     pub(crate) const CAPABILITIES: &str = "/api/capabilities";
     pub(crate) const PROJECTS: &str = "/api/projects";
+    pub(crate) const PROJECT_PREVIEW: &str = "/api/projects/preview";
     pub(crate) const PROJECT: &str = "/api/projects/:name";
     pub(crate) const LIBRARY: &str = "/api/library";
     pub(crate) const LIBRARY_ITEM: &str = "/api/library/:name";

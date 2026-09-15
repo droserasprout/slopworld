@@ -42,28 +42,28 @@ namespace SlopWorld
             ChoiceRow(l, "Agent", "commands.agent",
                 _cfg.Agent, Commands(CommandInfo.AgentKind, _cfg.Agent),
                 _agentCustom, value => _cfg.Agent = value, value => _agentCustom = value,
-                defaultValue: SharedDefaults.DefaultAgent);
+                defaultValue: _cfg.FactoryDefaults.Agent);
             ChoiceRow(l, "Agent shell", "commands.agent-shell", _cfg.AgentShell,
                 Commands(CommandInfo.ShellKind, _cfg.AgentShell),
                 _agentShellCustom, value => _cfg.AgentShell = value,
                 value => _agentShellCustom = value, "Custom executable",
-                SharedDefaults.DefaultAgentShell);
+                _cfg.FactoryDefaults.AgentShell);
             ChoiceRow(l, "Shell", "commands.shell", _cfg.Shell,
                 Commands(CommandInfo.ShellKind, _cfg.Shell),
                 _shellCustom, value => _cfg.Shell = value, value => _shellCustom = value,
-                defaultValue: SharedDefaults.DefaultShell);
+                defaultValue: _cfg.FactoryDefaults.Shell);
 
             l.Gap(UiTheme.GapL);
             UiLayout.SectionHeading(l, "Default apps");
             ChoiceRow(l, "Pager", "commands.pager", _cfg.Pager, PagerChoices(),
                 _pagerCustom, value => _cfg.Pager = value, value => _pagerCustom = value,
-                defaultValue: SharedDefaults.DefaultPager);
+                defaultValue: _cfg.FactoryDefaults.Pager);
             ChoiceRow(l, "Editor", "commands.editor", _cfg.Editor, EditorChoices(),
                 _editorCustom, value => _cfg.Editor = value, value => _editorCustom = value,
-                defaultValue: SharedDefaults.DefaultEditor);
+                defaultValue: _cfg.FactoryDefaults.Editor);
             ChoiceRow(l, "Syntax highlighter", "commands.highlighter", _cfg.Highlighter,
                 HighlighterChoices(), _highlighterCustom, value => _cfg.Highlighter = value,
-                value => _highlighterCustom = value, defaultValue: SharedDefaults.DefaultHighlighter);
+                value => _highlighterCustom = value, defaultValue: _cfg.FactoryDefaults.Highlighter);
 
             l.Gap(UiTheme.GapL);
             UiLayout.SectionHeading(l, "Template legend");

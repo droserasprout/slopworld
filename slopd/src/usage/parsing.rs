@@ -2,9 +2,10 @@
 
 use serde_json::Value;
 
-use crate::shared::usage as usage_keys;
-
-use super::{providers::ProviderResponse, Snapshot, Unit, Window};
+use super::{
+    providers::ProviderResponse, Snapshot, Unit, Window, CLAUDE_SESSION, CLAUDE_SPEND, CLAUDE_WEEK,
+    OPENAI_SESSION, OPENAI_WEEK, OPENROUTER_BALANCE,
+};
 
 pub(super) fn parse_openai(v: &Value) -> Snapshot {
     let limits = if v["rate_limit"].is_object() {
@@ -14,13 +15,13 @@ pub(super) fn parse_openai(v: &Value) -> Snapshot {
     };
     let mut windows = Vec::new();
     for (field, fallback_key, fallback_label) in [
-        ("primary_window", usage_keys::OPENAI_SESSION, "session"),
-        ("secondary_window", usage_keys::OPENAI_WEEK, "weekly"),
+        ("primary_window", OPENAI_SESSION, "session"),
+        ("secondary_window", OPENAI_WEEK, "weekly"),
     ] {
         let w = &limits[field];
         let Some(pct) = percent(w) else { continue };
         let (key, label) = if w["limit_window_seconds"].as_u64() == Some(7 * 24 * 60 * 60) {
-            (usage_keys::OPENAI_WEEK, "weekly")
+            (OPENAI_WEEK, "weekly")
         } else {
             (fallback_key, fallback_label)
         };
@@ -97,7 +98,7 @@ pub(super) fn parse_credits(v: &Value) -> Snapshot {
         plan: String::new(),
         fetched_ms: super::now_ms(),
         windows: vec![Window {
-            key: usage_keys::OPENROUTER_BALANCE.into(),
+            key: OPENROUTER_BALANCE.into(),
             label: "balance".into(),
             // Nothing bought is nothing left, which is 100% spent. Zero would draw a full
             // account beside an empty one.
@@ -199,7 +200,7 @@ fn spend(v: &Value) -> Option<Window> {
     let limit = budget(e);
 
     Some(Window {
-        key: usage_keys::CLAUDE_SPEND.into(),
+        key: CLAUDE_SPEND.into(),
         label: "extra usage".into(),
         pct,
         unit: if limit.is_some() {
@@ -229,13 +230,13 @@ fn budget(e: &Value) -> Option<f32> {
 /// None for everything else in the payload, which is most of it.
 fn family(name: &str) -> Option<(String, String)> {
     if name == "five_hour" {
-        return Some((usage_keys::CLAUDE_SESSION.into(), "session".into()));
+        return Some((CLAUDE_SESSION.into(), "session".into()));
     }
 
     let rest = name.strip_prefix("seven_day")?;
     match rest.strip_prefix('_') {
         // Plain seven_day: the weekly limit itself.
-        None => Some((usage_keys::CLAUDE_WEEK.into(), "week".into())),
+        None => Some((CLAUDE_WEEK.into(), "week".into())),
         // seven_day_opus, seven_day_sonnet, and whatever comes next.
         Some(model) => Some((
             format!("claude_week_{model}"),

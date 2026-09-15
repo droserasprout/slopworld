@@ -8,7 +8,8 @@ namespace SlopWorld.Tests
         public static IEnumerable<(string Name, Action Body)> Cases()
         {
             yield return ("round trips host networking", RoundTripsHostNetworking);
-            yield return ("builds daemon-compatible temporary paths", BuildsTemporaryPaths);
+            yield return ("uses daemon metadata for temporary paths", BuildsTemporaryPaths);
+            yield return ("ignores stale temporary previews", IgnoresStaleTemporaryPreviews);
             yield return ("round trips and copies project settings", RoundTripsAndCopiesSettings);
         }
 
@@ -30,10 +31,21 @@ namespace SlopWorld.Tests
 
         static void BuildsTemporaryPaths()
         {
-            AssertEx.Equal("/tmp/slopworld/My-project-foo-bar-baz", ProjectInfo.TempDir(
-                "  My project:foo.bar/baz  "), "temporary project slug");
-            AssertEx.Equal("/tmp/slopworld/", ProjectInfo.TempDir(null),
-                           "empty temporary name keeps the configured root");
+            AssertEx.True(ProjectInfo.TempRoot.EndsWith("/slopworld"), "daemon temp root metadata");
+        }
+
+        static void IgnoresStaleTemporaryPreviews()
+        {
+            var state = new TempProjectPreviewState();
+            int first = state.Begin("old-name");
+            int second = state.Begin("new-name");
+            AssertEx.False(state.Accept(first, true, "old-name", "/tmp/old-name"),
+                           "late preview cannot replace newer name");
+            AssertEx.False(state.Accept(second, false, "new-name", "/tmp/new-name"),
+                           "preview cannot apply after temporary mode is disabled");
+            AssertEx.True(state.Accept(second, true, "new-name", "/tmp/new-name"),
+                          "current temporary preview applies");
+            AssertEx.Equal("/tmp/new-name", state.Dir, "current preview path");
         }
 
         static void RoundTripsAndCopiesSettings()
