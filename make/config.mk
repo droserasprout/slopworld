@@ -81,6 +81,7 @@ CSC_REFS    = \
 	-r:mod/Assemblies/0Harmony.dll \
 	-r:mod/Assemblies/Markdig.dll \
 	-r:mod/Assemblies/Newtonsoft.Json.dll \
+	-r:mod/Assemblies/Tomlyn.dll \
 	-r:"$(MANAGED)/Assembly-CSharp.dll" \
 	-r:"$(MANAGED)/UnityEngine.CoreModule.dll" \
 	-r:"$(MANAGED)/UnityEngine.IMGUIModule.dll" \

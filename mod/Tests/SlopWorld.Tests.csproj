@@ -21,6 +21,10 @@
       <HintPath>../Assemblies/Markdig.dll</HintPath>
       <Private>true</Private>
     </Reference>
+    <Reference Include="Tomlyn">
+      <HintPath>../Assemblies/Tomlyn.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
     <!-- Use the shipped parser and deterministic text metrics. -->
     <Compile Include="../Source/SlopWorld/UI/MarkdownPreview/MarkdownPreview.TextLayout.cs" Link="Source/UI/MarkdownPreview/MarkdownPreview.TextLayout.cs" />
     <Compile Include="../Source/SlopWorld/UI/MarkdownPreview/MarkdownPreview.SelectionText.cs" Link="Source/UI/MarkdownPreview/MarkdownPreview.SelectionText.cs" />

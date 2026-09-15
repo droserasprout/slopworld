@@ -11,6 +11,8 @@ namespace SlopWorld.Tests
             yield return ("round trips quoted values", RoundTripsQuotedValues);
             yield return ("rejects malformed entries", RejectsMalformedEntries);
             yield return ("finds separators after escaped quoted text", FindsEscapedSeparators);
+            yield return ("canonicalizes typed scalar values", CanonicalizesTypedValues);
+            yield return ("rejects structured values in the flat schema", RejectsStructuredValues);
         }
 
         static void ParsesFlatValuesAndComments()
@@ -20,7 +22,7 @@ namespace SlopWorld.Tests
                 "url = \"http://127.0.0.1:7717\" # inline comment\n" +
                 "token = 'abc#123'\n" +
                 "query = \"a=b # stays in the quoted value\"\n" +
-                "plain = hello # trailing comment\n");
+                "plain = \"hello\" # trailing comment\n");
 
             AssertEx.Equal("http://127.0.0.1:7717", values["url"], "quoted value");
             AssertEx.Equal("abc#123", values["token"], "literal value");
@@ -68,6 +70,30 @@ namespace SlopWorld.Tests
             AssertEx.Equal("a\"=b", values["value"], "escaped quote does not end the value");
             AssertEx.Throws<FormatException>(() => Toml.ParseFlat("value = 'ok' trailing"),
                                              "literal strings reject trailing text");
+        }
+
+        static void CanonicalizesTypedValues()
+        {
+            var values = Toml.ParseFlat(
+                "enabled = true\n" +
+                "count = 1_024\n" +
+                "ratio = 1.25e0\n" +
+                "day = 2025-01-02\n");
+
+            AssertEx.Equal("true", values["enabled"], "boolean scalar conversion");
+            AssertEx.Equal("1024", values["count"], "integer scalar conversion");
+            AssertEx.Equal("1.25", values["ratio"], "float scalar conversion");
+            AssertEx.Equal("2025-01-02", values["day"], "date scalar conversion");
+        }
+
+        static void RejectsStructuredValues()
+        {
+            AssertEx.Throws<FormatException>(() => Toml.ParseFlat("items = [1, 2]"),
+                                             "arrays are outside the flat schema");
+            AssertEx.Throws<FormatException>(() => Toml.ParseFlat("[section]\nvalue = 1"),
+                                             "tables are outside the flat schema");
+            AssertEx.Throws<FormatException>(() => Toml.ParseFlat("section.value = 1"),
+                                             "dotted tables are outside the flat schema");
         }
     }
 }
