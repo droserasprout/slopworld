@@ -81,7 +81,7 @@ namespace SlopWorld
 
         internal static void RememberFile(string project, string path)
         {
-            if (_restoringView || string.IsNullOrEmpty(path)) return;
+            if (_restoringView || CurrentTab != SidebarTab.Files || string.IsNullOrEmpty(path)) return;
             ViewHistory.Visit(SidebarViewLocation.File(project, path));
         }
 
@@ -93,7 +93,7 @@ namespace SlopWorld
 
         internal static void RememberGit(string project, string path)
         {
-            if (_restoringView || string.IsNullOrEmpty(path)) return;
+            if (_restoringView || CurrentTab != SidebarTab.Git || string.IsNullOrEmpty(path)) return;
             ViewHistory.Visit(SidebarViewLocation.Git(project, path));
         }
 
@@ -332,24 +332,14 @@ namespace SlopWorld
             return (act & (RowAct.View | RowAct.Edit | RowAct.Diff)) != 0;
         }
 
-        static bool InTab(SessionInfo info, SidebarTab tab)
-        {
-            RowAct act = RoutedAction(info);
-            return tab == SidebarTab.Files
-                ? (act & (RowAct.View | RowAct.Edit)) != 0
-                : tab == SidebarTab.Git && (act & RowAct.Diff) != 0;
-        }
-
         static void PrepareRouted(SidebarTab tab)
         {
             PerfTrace.Count("sidebar-routed-rebuilds");
-            // Git owns one replaceable pager; include it until the replacement is handed off.
             Layout.ViewRows.Clear();
             RoutedSessionRows.Rebuild(Layout.Routed, SessionHub.Instance.Sessions,
-                info => InTab(info, tab) && Passes(info.Project) &&
-                    (tab != SidebarTab.Git || GitView.IsViewerSession(info.Name)),
-                tab == SidebarTab.Files ? (Action<List<SessionInfo>>)FilesView.AddRoutedPreviews
-                    : null, GhostH);
+                info => IsRouted(info) && Passes(info.Project) &&
+                    ((RoutedAction(info) & RowAct.Diff) == 0 || FileReaders.Tabs.IsSession(info.Name)),
+                FilesView.AddRoutedPreviews, GhostH);
             PerfTrace.Count("sidebar-routed-rows", Layout.Routed.Count);
         }
 

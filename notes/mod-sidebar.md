@@ -14,7 +14,7 @@ scroll group and coordinate transform as the portrait, including multi-selection
 
 Layout caches cannot depend solely on daemon revisions: native previews and pending viewer
 handoffs change routed rows locally. Routed headers and tree viewports must share clipping;
-Files' draggable split retains independent scroll owners and a stable tree boundary when
+Files/Git's shared draggable split retains independent scroll owners and a stable tree boundary when
 headers change. See [Files](mod-ui-files.md).
 
 Worker hierarchy comes from explicit daemon metadata, never names. Host/ephemeral/worker

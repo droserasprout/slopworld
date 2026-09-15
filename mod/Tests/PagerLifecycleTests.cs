@@ -61,6 +61,48 @@ namespace SlopWorld.Tests
         {
             yield return ("pending file clicks share one start", Pending);
             yield return ("pinned files reopen without a new preview", Pinned);
+            yield return ("shared file and diff preview replacement preserves pinned readers", SharedReaders);
+            yield return ("pending diff cannot reopen the previous file", PendingDiff);
+        }
+
+        static void PendingDiff()
+        {
+            SessionHub.Instance = new SessionHub();
+            var tabs = new PagerTabs();
+            var store = SessionHub.Instance.SessionStore;
+            tabs.ForPreview().ViewFile("p", "/one", "view-one");
+            store.Complete("file");
+            tabs.ForPreview().Open("p", "git diff", "diff-one", "diff:one");
+            AssertEx.False(tabs.Reopen("p", "diff:one"), "old source is not the pending diff");
+            tabs.ForPreview().Open("p", "git diff", "diff-one", "diff:one");
+            AssertEx.Equal(2, store.Starts, "pending diff clicks share the request");
+            store.Complete("diff");
+            AssertEx.True(tabs.Reopen("p", "diff:one"), "completed diff can reopen");
+            AssertEx.Equal("diff", TerminalWindow.Current, "correct reader is active");
+            AssertEx.Equal(1, store.Stops, "source retired after diff handoff");
+        }
+
+        static void SharedReaders()
+        {
+            SessionHub.Instance = new SessionHub();
+            int nativeReleases = 0;
+            var tabs = new PagerTabs(() => nativeReleases++);
+            var store = SessionHub.Instance.SessionStore;
+            tabs.ForPreview().ViewFile("p", "/one", "view-one");
+            store.Complete("file");
+            tabs.Lock("file");
+            tabs.ForPreview().Open("p", "git diff", "diff-one", "diff:one");
+            store.Complete("diff");
+            AssertEx.True(tabs.Reopen("p", "/one"), "source remains independently addressable");
+            AssertEx.True(tabs.Reopen("p", "diff:one"), "diff has a separate identity");
+            AssertEx.Equal(2, nativeReleases, "reopening does not replace a native preview");
+            tabs.ForPreview().ViewFile("p", "/two", "view-two");
+            store.Complete("two");
+            AssertEx.False(tabs.IsSession("diff"), "file replaces the unpinned diff");
+            AssertEx.True(tabs.IsSession("file"), "pinned source survives replacement");
+            AssertEx.Equal(1, store.Stops, "only the shared preview was stopped");
+            tabs.CloseTab("file");
+            AssertEx.True(tabs.IsSession("two"), "closing pinned reader keeps the preview");
         }
 
         static void Pending()

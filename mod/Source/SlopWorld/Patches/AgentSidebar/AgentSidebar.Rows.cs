@@ -97,12 +97,8 @@ namespace SlopWorld
             }
 
             Text.Font = GameFont.Small;
-            bool preview = tab == SidebarTab.Files
-                ? FilesView.IsViewerSession(row.Session)
-                : tab == SidebarTab.Git && GitView.IsViewerSession(row.Session);
-            bool locked = tab == SidebarTab.Files
-                ? FilesView.IsViewerLocked(row.Session)
-                : tab == SidebarTab.Git && GitView.IsViewerLocked(row.Session);
+            bool preview = FileReaders.IsSession(row.Session);
+            bool locked = FileReaders.IsLocked(row.Session);
             SidebarRowRenderer.DrawGhostLabel(text, info, row.Session, false, GhostMarkW,
                 preview && !locked);
             if (preview)
@@ -129,15 +125,13 @@ namespace SlopWorld
                     RoutedClicks.Reset();
                     _routedClickSession = null;
                     // Only view-owned previews are closable here; editor rows own live work.
-                    if (CurrentTab == SidebarTab.Files) FilesView.CloseViewerTab(row.Session);
-                    else if (CurrentTab == SidebarTab.Git) GitView.CloseViewerTab(row.Session);
+                    FileReaders.Close(row.Session);
                 }
                 else if (e.button == 1)
                 {
                     RoutedClicks.Reset();
                     _routedClickSession = null;
-                    if (!(CurrentTab == SidebarTab.Files &&
-                          SnapshotGet(row.Session) == null &&
+                    if (!(SnapshotGet(row.Session) == null &&
                           FilesView.IsNativeViewerHeader(row.Session)))
                         RowMenu(row.Session);
                 }
@@ -175,19 +169,11 @@ namespace SlopWorld
             return false;
         }
 
-        static bool LockRouted(string session)
-        {
-            switch (CurrentTab)
-            {
-                case SidebarTab.Files: return FilesView.LockViewer(session);
-                case SidebarTab.Git: return GitView.LockViewer(session);
-                default: return false;
-            }
-        }
+        static bool LockRouted(string session) => FileReaders.Lock(session);
 
         static void OpenRouted(string session)
         {
-            if (CurrentTab == SidebarTab.Files && FilesView.OpenViewerHeader(session)) return;
+            if (FilesView.OpenViewerHeader(session)) return;
             TerminalWindow.Open(session);
         }
 

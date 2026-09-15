@@ -1,6 +1,6 @@
 # Git view
 
-`GitStore` owns repository snapshots; `GitViewerController` owns diff readers. Git shares
+`GitStore` owns repository snapshots; `FileReaders` shares reader ownership with Files. Git shares
 Files' tree geometry and semantic selection helpers, but is not lazy: status supplies a
 flat changed-path set from which the tree is rebuilt. All Git access happens in the daemon.
 
@@ -14,6 +14,6 @@ files need individual no-index diffs against `/dev/null`; a repository diff omit
 Git/delta/less paging flags must keep short output open and preserve alternate-screen wheel
 routing. `PagerCommands` owns quoting and command shape.
 
-Git owns diffs opened from Files. Replace only the unlocked preview; tab changes preserve
-both preview and pinned readers. View/Edit readers belong to Files. Their current explicit
-sidebar transition is tracked in the [independence plan](plan-sidebar-view-independence.md).
+Git creates diffs opened from either tree. Both tabs show the same resizable reader pane.
+Replace only the shared unlocked preview; tab changes preserve preview and pinned readers.
+View/Edit and Diff actions keep the active sidebar tab. Editors remain independent sessions.

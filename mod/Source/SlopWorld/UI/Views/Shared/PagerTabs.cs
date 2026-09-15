@@ -3,10 +3,13 @@ using System.Collections.Generic;
 namespace SlopWorld
 {
     // One replaceable preview plus any previews the user pinned by double-clicking their
-    // routed header. Files and Git each own one collection, so changing views does not make a
-    // pinned diff release a pinned file preview (or vice versa).
+    // routed header. Files and Git share a collection; Search retains its own readers.
     sealed class PagerTabs
     {
+        readonly System.Action _beforePreview;
+
+        public PagerTabs(System.Action beforePreview = null) => _beforePreview = beforePreview;
+
         Pager _preview = new Pager();
         readonly List<Pager> _locked = new List<Pager>();
 
@@ -21,6 +24,7 @@ namespace SlopWorld
 
         public Pager ForPreview()
         {
+            _beforePreview?.Invoke();
             RetireDead();
             if (_preview.Locked)
             {
@@ -87,8 +91,8 @@ namespace SlopWorld
             return _preview.Session == session && _preview.Alive && _preview.Locked;
         }
 
-        // Leaving Files/Git, selecting a directory, or refreshing releases only the preview
-        // slot. Pinned sessions follow the same lifetime as an edit session and stay available
+        // Selecting a directory or refreshing releases only the preview slot.
+        // Pinned sessions follow the same lifetime as an edit session and stay available
         // through their routed header.
         public void ReleasePreview()
         {
