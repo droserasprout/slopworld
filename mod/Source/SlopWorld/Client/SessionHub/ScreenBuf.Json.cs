@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 
 namespace SlopWorld
@@ -21,8 +22,10 @@ namespace SlopWorld
             bool previousHasLinks = HasLinks;
 
             Seq = s["seq"].AsInt();
-            Cols = s["cols"].AsInt(80);
-            Rows = s["rows"].AsInt(24);
+            Cols = Math.Max(TerminalLimits.ClientMinCols,
+                Math.Min(TerminalLimits.ClientMaxCols, s["cols"].AsInt(80)));
+            Rows = Math.Max(TerminalLimits.ClientMinRows,
+                Math.Min(TerminalLimits.ClientMaxRows, s["rows"].AsInt(24)));
             Cx = s["cx"].AsInt();
             Cy = s["cy"].AsInt();
             Off = s["off"].AsInt(0);
@@ -35,12 +38,13 @@ namespace SlopWorld
             Title = s["title"].AsString();
             ScrollRequestId = (ulong)s["request_id"].AsLong(0);
             var values = s["lines"];
-            bool sameShape = previousLines != null && previousLines.Length == values.Count &&
+            int lineCount = Math.Min(values.Count, TerminalLimits.ClientMaxRows + 1);
+            bool sameShape = previousLines != null && previousLines.Length == lineCount &&
                 previousCols == Cols && previousRows == Rows;
-            var nextLines = sameShape ? previousLines : new string[values.Count];
+            var nextLines = sameShape ? previousLines : new string[lineCount];
             var changed = _changedRows ?? (_changedRows = new List<int>());
             changed.Clear();
-            for (int i = 0; i < values.Count; i++)
+            for (int i = 0; i < lineCount; i++)
             {
                 string line = values[i].AsString();
                 if (sameShape && string.Equals(previousLines[i], line,

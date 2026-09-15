@@ -87,6 +87,7 @@
     <Compile Include="../Source/SlopWorld/Client/Daemon/Toml.cs" Link="Source/Client/Daemon/Toml.cs" />
     <Compile Include="../Source/SlopWorld/UI/Chrome/ThemeCatalog.cs" Link="Source/UI/Chrome/ThemeCatalog.cs" />
     <Compile Include="../Source/SlopWorld/Client/Daemon/DaemonConfig.cs" Link="Source/Client/Daemon/DaemonConfig.cs" />
+    <Compile Include="../Source/SlopWorld/Client/Daemon/DaemonRenderedBreadcrumbCache.cs" Link="Source/Client/Daemon/DaemonRenderedBreadcrumbCache.cs" />
     <Compile Include="../Source/SlopWorld/Client/Daemon/DaemonConfigDraft.cs" Link="Source/Client/Daemon/DaemonConfigDraft.cs" />
     <Compile Include="../Source/SlopWorld/UI/Settings/DaemonConfigValidation.cs" Link="Source/UI/Settings/DaemonConfigValidation.cs" />
     <Compile Include="../Source/SlopWorld/Client/Daemon/Endpoint.cs" Link="Source/Client/Daemon/Endpoint.cs" />

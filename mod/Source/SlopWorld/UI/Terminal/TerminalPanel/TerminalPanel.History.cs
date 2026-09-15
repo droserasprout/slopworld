@@ -9,7 +9,9 @@ namespace SlopWorld
     {
         // History coordinates are owned by the daemon, but the window keeps overlapping
         // snapshots so fractional scrolling can be served locally.
-        int MaxScrollLines => Math.Max(1, SessionHub.Instance.Capabilities.Terminal.ScrollbackLines);
+        int MaxScrollLines => Math.Max(1, Math.Min(
+            TerminalLimits.ClientMaxScrollbackLines,
+            SessionHub.Instance.Capabilities.Terminal.ScrollbackLines));
 
         struct ScrollbackState
         {

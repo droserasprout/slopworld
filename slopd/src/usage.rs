@@ -474,11 +474,13 @@ fn resolved_catalog(windows: &[Window]) -> Vec<CatalogEntry> {
 fn resolve_rows(snapshot: &Snapshot, d: &crate::config::Daemon) -> Vec<UsageRow> {
     let mut rows = Vec::new();
     for entry in &snapshot.catalog {
-        let poll = d
-            .usage_items
-            .get(&entry.key)
-            .map(|item| item.poll)
-            .unwrap_or(entry.default_poll);
+        // A partial usage table disables the provider as a whole. Do not leave the other
+        // catalog entries looking pollable when their implicit defaults outlive that switch.
+        let poll = provider_enabled(d, &entry.provider)
+            && d.usage_items
+                .get(&entry.key)
+                .map(|item| item.poll)
+                .unwrap_or(entry.default_poll);
         let window = snapshot
             .windows
             .iter()
@@ -1093,6 +1095,24 @@ mod tests {
         assert!(session.window.is_none());
         assert!(!balance.poll);
         assert!(balance.window.is_none());
+    }
+
+    #[test]
+    fn a_partial_provider_table_disables_implicit_rows() {
+        let mut daemon = crate::config::Daemon::default();
+        daemon.usage_items.insert(
+            CLAUDE_SESSION.into(),
+            crate::config::UsageItem {
+                poll: false,
+                interval_secs: None,
+            },
+        );
+
+        let rows = resolve_rows(&Snapshot::default(), &daemon);
+        for key in [CLAUDE_SESSION, CLAUDE_WEEK, CLAUDE_SPEND] {
+            let row = rows.iter().find(|row| row.key == key).unwrap();
+            assert!(!row.poll, "disabled provider leaves no pollable {key} row");
+        }
     }
 
     /// Turning a seller off is a change the mod has to hear about even when every figure it

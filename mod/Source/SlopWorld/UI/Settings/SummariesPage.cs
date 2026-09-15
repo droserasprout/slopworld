@@ -66,7 +66,7 @@ namespace SlopWorld
             l.Gap(UiTheme.GapL);
             l.Label("Minimum prompt length");
             _minPromptChars = UiControls.Field(l, "usage.summary.minimum", _minPromptChars,
-                defaultValue: _cfg.FactoryDefaults.TitleMinChars.ToString());
+                defaultValue: _cfg.FactoryDefaults?.TitleMinChars?.ToString());
             _configState.SetDraftText("summaries.minimum", "daemon.title_min_chars",
                 _minPromptChars);
             UiLayout.Validation(l, MinimumError(_minPromptChars));
@@ -75,14 +75,14 @@ namespace SlopWorld
             l.Gap(UiTheme.GapM);
             l.Label("Model");
             _cfg.TitleModel = UiControls.Field(l, "usage.summary.model", _cfg.TitleModel,
-                defaultValue: _cfg.FactoryDefaults.TitleModel);
+                defaultValue: _cfg.FactoryDefaults?.TitleModel);
             UiLayout.Note(l, "Up to 2,000 characters of each prompt go to OpenRouter. " +
                 "Summaries do not depend on credit polling.");
 
             l.Gap(UiTheme.GapM);
             l.Label("Summarizer prompt");
             _cfg.SummaryPrompt = UiControls.Area(l, 150f, "usage.summary.prompt",
-                _cfg.SummaryPrompt, defaultValue: _cfg.FactoryDefaults.SummaryPrompt);
+                _cfg.SummaryPrompt, defaultValue: _cfg.FactoryDefaults?.SummaryPrompt);
             UiLayout.Note(l, "This instruction is sent before the submitted prompt for both " +
                 "session titles and task summaries. The submitted prompt is appended automatically.");
 

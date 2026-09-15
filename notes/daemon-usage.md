@@ -4,7 +4,10 @@ Start in `usage/` for provider adapters and `usage.rs` for scheduling/aggregatio
 response fixtures and config definitions own field names, units and defaults.
 
 Each provider has independent failure/backoff state. Failed polls retain its last successful
-values; disabling it clears its rows. An enabled source with no data still needs a placeholder.
+values; disabling it clears its rows. An enabled source with no data still needs a placeholder,
+but a partial usage table also disables implicit default rows for that provider. The mod merges
+the static config catalog with dynamically discovered windows and keeps unedited dynamic rows
+out of the saved override table.
 One provider request may supply multiple windows: poll at the fastest enabled interval, while
 respecting the provider-wide cache/rate limit. Missing optional windows must not bypass it.
 

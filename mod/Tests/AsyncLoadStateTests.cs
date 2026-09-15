@@ -12,6 +12,7 @@ namespace SlopWorld.Tests
             yield return ("invalidation stops loading without a replacement", Invalidate);
             yield return ("current operations accept multiple callbacks", MultipleCallbacks);
             yield return ("failed loads retain the old value but clear availability", OldValuePolicy);
+            yield return ("preview fields apply together after the generation check", PreviewFields);
         }
 
         static void GateTokens()
@@ -99,6 +100,27 @@ namespace SlopWorld.Tests
             AssertEx.False(state.HasValue, "failure clears availability for callers that require it");
             AssertEx.False(state.Loading, "failure ends loading");
             AssertEx.Equal("failed", state.Error, "failure publishes the current error");
+        }
+
+        static void PreviewFields()
+        {
+            var state = new AsyncLoadState<JVal>();
+            Action<JVal> oldReply = null, newReply = null;
+            string text = null, breadcrumb = null;
+            Action<JVal> apply = j =>
+            {
+                text = j["text"].AsString();
+                breadcrumb = j["breadcrumb"].AsString();
+            };
+            state.Load((ok, _) => oldReply = ok, apply);
+            state.Load((ok, _) => newReply = ok, apply);
+            newReply(JVal.Parse("{\"text\":\"new\",\"breadcrumb\":\"new crumb\"}"));
+            oldReply(JVal.Parse("{\"text\":\"old\",\"breadcrumb\":\"old crumb\"}"));
+            AssertEx.Equal("new", text, "old response cannot replace the document");
+            AssertEx.Equal("new crumb", breadcrumb, "old response cannot replace the breadcrumb");
+            state.Invalidate();
+            newReply(JVal.Parse("{\"text\":\"closed\",\"breadcrumb\":\"closed crumb\"}"));
+            AssertEx.Equal("new crumb", breadcrumb, "closed preview rejects both fields");
         }
     }
 }

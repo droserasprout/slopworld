@@ -98,10 +98,15 @@ namespace SlopWorld
 
         void DrawFieldsWithMetadata(Listing_Standard l)
         {
-            if (_loaded && _cfg != null && !_cfg.MetadataAvailable)
-                UiLayout.Note(l, "This daemon does not advertise policy metadata; compatibility values " +
-                    "are shown until it is upgraded.");
+            DrawMetadataStatus(l);
             DrawFields(l);
+        }
+
+        protected void DrawMetadataStatus(Listing_Standard l)
+        {
+            if (_loaded && _cfg != null && !_cfg.MetadataAvailable)
+                UiLayout.Note(l, "This daemon does not advertise policy metadata. Factory reset and " +
+                    "policy preview are unavailable until metadata is provided.");
         }
 
         protected void DrawConfigFooter(Rect bar)

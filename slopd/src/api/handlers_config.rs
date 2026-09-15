@@ -10,6 +10,10 @@ use crate::config::ProjectCfg;
 use super::super::types::*;
 use super::{err, ok_json, ApiResult, Mgr};
 
+fn requested_breadcrumb<'a>(draft: Option<&'a str>, saved: &'a str) -> &'a str {
+    draft.unwrap_or(saved)
+}
+
 pub(crate) async fn get_config(State(m): State<Mgr>) -> ApiResult {
     // Keep the raw text and parsed values from different snapshots when a user edits the file
     // outside the daemon.
@@ -80,17 +84,24 @@ pub(crate) async fn instructions_preview(
     instructions
         .validate()
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
-    let breadcrumb = if req.breadcrumb.trim().is_empty() {
-        instructions.breadcrumb.clone()
-    } else {
-        req.breadcrumb
-    };
+    let breadcrumb = requested_breadcrumb(req.breadcrumb.as_deref(), &instructions.breadcrumb);
     let text =
         crate::manifest::preview(&cfg, &project, &m.views().await, &req.template, &mount_path);
     Ok(Json(json!({
         "text": text,
-        "breadcrumb": crate::manifest::render_breadcrumb(&breadcrumb, &project.name, &mount_path),
+        "breadcrumb": crate::manifest::render_breadcrumb(breadcrumb, &project.name, &mount_path),
         "project": project.name,
         "mount_path": mount_path,
     })))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::requested_breadcrumb;
+
+    #[test]
+    fn empty_breadcrumb_draft_does_not_fall_back_to_saved_text() {
+        assert_eq!(requested_breadcrumb(Some(""), "saved"), "");
+        assert_eq!(requested_breadcrumb(None, "saved"), "saved");
+    }
 }

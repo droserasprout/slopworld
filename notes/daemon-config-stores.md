@@ -22,8 +22,11 @@ daemon's resolver, including the container resolver in sidecar mode.
 `GET /api/config` is also the client read model for daemon policy: it returns effective values
 and a response-only factory-default snapshot, usage catalog, temporary-root preview policy and
 terminal limits. The mod must use those values for field initialization/reset and never recreate
-them from generated constants. Missing metadata is an explicit pre-metadata compatibility state,
-not an authoritative new default.
+them from generated constants. Missing metadata leaves reset and policy-preview controls
+unavailable; it is not an authoritative new default.
+
+Instruction and discovery-breadcrumb previews are rendered by the daemon from unsaved values.
+An omitted breadcrumb uses the saved template; an explicitly empty draft remains empty.
 
 See [Settings behavior](ui-settings.md) for draft and save ownership, and
 [sandbox isolation](sandbox-isolation.md) for private-state boundaries.

@@ -43,9 +43,11 @@ new errand. An empty shell command uses the daemon's `$SHELL`.
 
 `POST /api/instructions/preview` accepts `{ "project": "...", "template": "...",
 "mount_path": "...", "breadcrumb": "..." }` and returns rendered `text` and `breadcrumb`;
-it does not save settings. `GET /api/config` returns effective `values` plus response-only
+it does not save settings. Omitting `breadcrumb` uses its saved template; sending an empty
+string previews an empty breadcrumb. `GET /api/config` returns effective `values` plus response-only
 `metadata` containing factory defaults, usage catalog entries, temporary-root policy and
-terminal limits. Clients use that metadata for settings and local allocation bounds.
+terminal limits. Clients use that metadata for settings and retain independent allocation
+limits. Missing factory metadata disables reset controls instead of inventing defaults.
 
 `POST /api/projects/preview` accepts `{ "name": "...", "temp": true }` and returns the
 daemon-normalized prospective temporary directory. It does not create a project; project
