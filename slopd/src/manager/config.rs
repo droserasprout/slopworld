@@ -89,6 +89,7 @@ impl Live {
             seq: 0,
             retick_seq: 0,
             hash: 0,
+            activity_hash: 0,
             last_change: 0,
             rule_cache: None,
             state_since: 0,

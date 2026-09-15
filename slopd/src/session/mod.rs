@@ -198,6 +198,7 @@ struct Live {
     // Last sequence classified by retick; equal means only idle decay can change state.
     retick_seq: u64,
     hash: u64,
+    activity_hash: u64,
     last_change: u64,
     // State time is independent of pane redraws, which can continue several times a second.
     state_since: u64,
@@ -768,6 +769,7 @@ pattern = '(?i)(esc to interrupt|to interrupt\))'
             seq: 0,
             retick_seq: 0,
             hash: 0,
+            activity_hash: 0,
             last_change: 0,
             rule_cache: None,
             state_since: 0,

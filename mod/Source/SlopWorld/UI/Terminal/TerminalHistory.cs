@@ -97,6 +97,12 @@ namespace SlopWorld
             }
             return -1;
         }
+        // The displayed scrollback snapshot includes live-tail rows. Keep all of it fixed
+        // while streaming, even when background captures refresh the indexed row cache.
+        ScreenBuf _pinnedView;
+        bool _pinnedExtra;
+        public void ReleaseView() => _pinnedView = null;
+
         ScreenBuf _template;
         int _version;
         int _cachedAnchor = -1;
@@ -107,6 +113,7 @@ namespace SlopWorld
 
         public void Reset(ScreenBuf live = null)
         {
+            ReleaseView();
             _lines.Clear();
             _origin = 0;
             _template = null;
@@ -145,6 +152,7 @@ namespace SlopWorld
                     for (int row = 0; row < Math.Min(shift, Rows); row++)
                         _lines.Remove(Storage(row));
                 Shift(shift);
+                if (_pinnedView != null) _pinnedView.Off += shift;
             }
 
             SetTemplate(live);
@@ -199,14 +207,21 @@ namespace SlopWorld
             return requestShift;
         }
 
-        public bool TryView(int anchor, bool extraRow, out ScreenBuf view)
+        public bool TryView(int anchor, bool extraRow, out ScreenBuf view, bool freeze = false)
         {
             anchor = Math.Max(0, anchor);
+            if (freeze && _pinnedView != null && _pinnedView.Off == anchor &&
+                _pinnedExtra == extraRow)
+            {
+                view = _pinnedView;
+                return true;
+            }
             if (_cachedView != null && _cachedAnchor == anchor &&
                 _cachedExtra == extraRow && _cachedVersion == _version)
             {
                 view = _cachedView;
                 SetViewCursor(view);
+                if (freeze) { PinView(view, extraRow); view = _pinnedView; }
                 return true;
             }
 
@@ -252,7 +267,18 @@ namespace SlopWorld
             _cachedVersion = _version;
             _cachedView = view;
             SetViewCursor(view);
+            if (freeze) { PinView(view, extraRow); view = _pinnedView; }
             return true;
+        }
+
+        void PinView(ScreenBuf view, bool extraRow)
+        {
+            _pinnedView = new ScreenBuf
+            {
+                Seq = view.Seq, Off = view.Off, Rows = view.Rows, Cols = view.Cols,
+                Lines = view.Lines, Cy = view.Lines.Length, Title = view.Title,
+            };
+            _pinnedExtra = extraRow;
         }
 
         // Cursor updates do not invalidate row textures. Translate only a visible live

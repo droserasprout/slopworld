@@ -43,6 +43,8 @@ pub struct Frame {
     /// Equality accelerator for the complete visible content. It is derived from cached row
     /// hashes, rather than by scanning the serialized rows in the manager.
     pub content_hash: u64,
+    /// Content with faint decorative particles normalized to their background.
+    pub activity_hash: u64,
     /// Number of rows currently available above the primary live viewport.
     pub history: u32,
     pub cx: u16,
@@ -70,6 +72,7 @@ struct RenderCache {
     cells: Vec<Vec<Slot>>,
     lines: Vec<Arc<str>>,
     row_hashes: Vec<u64>,
+    activity_row_hashes: Vec<u64>,
     content_hash: u64,
     display_offset: usize,
     alt_screen: Option<bool>,
@@ -84,6 +87,7 @@ impl RenderCache {
             cells: Vec::new(),
             lines: Vec::new(),
             row_hashes: Vec::new(),
+            activity_row_hashes: Vec::new(),
             content_hash: 0,
             display_offset: 0,
             alt_screen: None,
@@ -421,6 +425,12 @@ impl SessionEmu {
         let row_hashes = lines.iter().map(hash_row).collect::<Vec<_>>();
         Frame {
             content_hash: hash_rows(&row_hashes),
+            activity_hash: hash_rows(
+                &grid
+                    .iter()
+                    .map(|row| activity_row_hash(row))
+                    .collect::<Vec<_>>(),
+            ),
             lines,
             history: 0,
             cx: 0,
@@ -498,6 +508,7 @@ impl SessionEmu {
                 self.render_cache = RenderCache {
                     cols: self.cols,
                     rows: self.rows,
+                    activity_row_hashes: grid.iter().map(|row| activity_row_hash(row)).collect(),
                     cells: grid,
                     lines,
                     content_hash: hash_rows(&row_hashes),
@@ -550,6 +561,10 @@ impl SessionEmu {
                     self.render_cache = RenderCache {
                         cols: self.cols,
                         rows: self.rows,
+                        activity_row_hashes: grid
+                            .iter()
+                            .map(|row| activity_row_hash(row))
+                            .collect(),
                         cells: grid,
                         content_hash: hash_rows(&row_hashes),
                         lines,
@@ -565,6 +580,8 @@ impl SessionEmu {
                                 Arc::from(serialize_row(&self.render_cache.cells[row]));
                             serialized_rows += 1;
                             self.render_cache.row_hashes[row] = hash_row(&line);
+                            self.render_cache.activity_row_hashes[row] =
+                                activity_row_hash(&self.render_cache.cells[row]);
                             self.render_cache.lines[row] = line;
                         }
                     }
@@ -601,6 +618,7 @@ impl SessionEmu {
 
         Frame {
             content_hash: self.render_cache.content_hash,
+            activity_hash: hash_rows(&self.render_cache.activity_row_hashes),
             lines: self.render_cache.lines.clone(),
             history: self.history_extent(),
             cx,
@@ -626,6 +644,51 @@ fn slot_from_cell(cell: &Cell) -> Slot {
         Slot::Spacer
     } else {
         Slot::Ch(cell.c, cell.fg, cell.bg, cell.flags, cell.hyperlink())
+    }
+}
+
+// Codex's prompt particles are single-dot Braille glyphs in near-background gray.
+// They arrive as ordinary cell writes, not cursor events. Normalize only that narrow
+// decoration for activity; the presentation hash and rendered rows remain lossless.
+fn activity_row_hash(row: &[Slot]) -> u64 {
+    let normalized: Vec<Slot> = row
+        .iter()
+        .map(|slot| match slot {
+            Slot::Ch(c, fg, bg, flags, link)
+                if link.is_none()
+                    && flags.difference(Flags::WRAPLINE).is_empty()
+                    && (*c == ' ' || faint_particle(*c, *fg, *bg)) =>
+            {
+                Slot::Ch(
+                    ' ',
+                    Color::Named(alacritty_terminal::vte::ansi::NamedColor::Foreground),
+                    *bg,
+                    Flags::empty(),
+                    None,
+                )
+            }
+            _ => slot.clone(),
+        })
+        .collect();
+    hash_row(&Arc::from(serialize_row(&normalized)))
+}
+
+fn faint_particle(c: char, fg: Color, bg: Color) -> bool {
+    // Live captures used gray 13..28 against gray 30. Keep the tolerance below
+    // one tenth of the channel range; normal high-contrast Braille remains text.
+    let dot = (c as u32).wrapping_sub(0x2800);
+    if dot > 0x80 || !dot.is_power_of_two() {
+        return false;
+    }
+    match (fg, bg) {
+        (Color::Spec(fg), Color::Spec(bg)) => {
+            fg.r == fg.g
+                && fg.g == fg.b
+                && bg.r == bg.g
+                && bg.g == bg.b
+                && fg.r.abs_diff(bg.r) <= 24
+        }
+        _ => false,
     }
 }
 
@@ -993,6 +1056,27 @@ mod tests {
             .iter()
             .zip(&second.lines)
             .all(|(old, new)| Arc::ptr_eq(old, new)));
+    }
+
+    #[test]
+    fn activity_keeps_real_braille_text_and_background_changes() {
+        let mut emu = SessionEmu::new(80, 24);
+        emu.feed(b"\x1b[48;2;30;30;30m ");
+        let blank = emu.render();
+        emu.feed("\x1b[H\x1b[38;2;20;20;20m⠁".as_bytes());
+        let particle = emu.render();
+        assert_eq!(blank.activity_hash, particle.activity_hash);
+        assert_ne!(blank.content_hash, particle.content_hash);
+        // A full render and a partial render must compute identical activity fingerprints.
+        emu.render_cache.invalidate();
+        assert_eq!(particle.activity_hash, emu.render().activity_hash);
+        emu.feed("\x1b[H\x1b[38;2;240;240;240m⠁".as_bytes());
+        let visible_braille = emu.render();
+        assert_ne!(particle.activity_hash, visible_braille.activity_hash);
+        emu.feed("\x1b[H\x1b[38;2;20;20;20m⠃".as_bytes());
+        assert_ne!(particle.activity_hash, emu.render().activity_hash);
+        emu.feed(b"\x1b[H\x1b[48;2;60;60;60m ");
+        assert_ne!(blank.activity_hash, emu.render().activity_hash);
     }
 
     #[test]

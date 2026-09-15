@@ -53,10 +53,15 @@ impl Manager {
         let content_changed = previous.initial || content_hash != previous.content_hash;
         let cursor_changed = !previous.initial && (frame.cx, frame.cy) != previous.cursor;
         let metadata_changed = !previous.initial && meta != previous.meta;
-        // Cursor movement is presentation state, not pane activity. It is common for a TUI to
-        // reposition its cursor while otherwise quiet; counting that as a redraw keeps resetting
+        // Cursor position, shape and blinking are presentation state, not pane activity. TUIs
+        // update these while otherwise quiet; counting them as redraws keeps resetting
         // the idle clock without changing the visible terminal content.
-        let activity_changed = content_changed || metadata_changed;
+        let activity_changed = previous.initial
+            || frame.activity_hash != previous.activity_hash
+            || meta.app_mouse != previous.meta.app_mouse
+            || meta.app_drag != previous.meta.app_drag
+            || meta.alt_screen != previous.meta.alt_screen
+            || meta.title != previous.meta.title;
         let screen_changed = content_changed || cursor_changed || metadata_changed;
         // Cursor/mode/title-only frames still need classification, but their visible text is
         // unchanged. Reuse the last stripped text instead of joining and stripping the full
@@ -100,6 +105,7 @@ impl Manager {
 
         FrameDelta {
             content_hash,
+            activity_hash: frame.activity_hash,
             plain,
             activity_changed,
             screen_changed,
@@ -164,6 +170,7 @@ impl Manager {
 
                 if delta.screen_changed {
                     l.hash = delta.content_hash;
+                    l.activity_hash = delta.activity_hash;
                     l.seq += 1;
                     if delta.activity_changed && !previous.initial {
                         l.last_change = now_ms();

@@ -34,6 +34,7 @@ struct FrameMeta {
 
 struct FrameSnapshot {
     content_hash: u64,
+    activity_hash: u64,
     plain: Arc<String>,
     state: State,
     last_change: u64,
@@ -70,6 +71,7 @@ impl FrameSnapshot {
 
         Self {
             content_hash: l.hash,
+            activity_hash: l.activity_hash,
             // Strings are immutable; keep the prior value without copying it for every frame.
             plain: l.plain.clone(),
             state: l.state,
@@ -89,6 +91,7 @@ impl FrameSnapshot {
 
 struct FrameDelta {
     content_hash: u64,
+    activity_hash: u64,
     plain: Arc<String>,
     activity_changed: bool,
     screen_changed: bool,
@@ -336,6 +339,7 @@ mod tests {
         Frame {
             lines: vec![text.into()],
             content_hash: hash,
+            activity_hash: hash,
             history: 0,
             cx: 0,
             cy: 0,
@@ -611,6 +615,7 @@ mod tests {
         let frame = Frame {
             lines: vec!["hello".into()],
             content_hash: 0,
+            activity_hash: 0,
             history: 0,
             cx: 2,
             cy: 0,
@@ -653,6 +658,7 @@ mod tests {
                 Frame {
                     lines: vec!["hello".into()],
                     content_hash: 0,
+                    activity_hash: 0,
                     history: 0,
                     cx: 2,
                     cy: 0,
@@ -687,6 +693,7 @@ mod tests {
         let frame = |cx: u16, title: &str, app_mouse: bool| Frame {
             lines: vec!["same".into()],
             content_hash: 7,
+            activity_hash: 7,
             history: 0,
             cx,
             cy: 0,
@@ -732,34 +739,89 @@ mod tests {
             ),
         );
 
-        let frame = |cx| Frame {
-            lines: vec!["same".into()],
-            content_hash: 7,
-            history: 0,
-            cx,
-            cy: 0,
-            cursor_shape: 2,
-            cursor_blink: false,
-            app_mouse: false,
-            app_drag: false,
-            alt_screen: false,
-            title: "agent".into(),
-            bell: false,
-        };
-
-        manager.apply_frame("agent", frame(1)).await;
+        let mut emu = SessionEmu::new(80, 24);
+        emu.feed(b"same\x1b[3 q");
+        manager.apply_frame("agent", emu.render()).await;
         {
             let mut live = manager.live.write().await;
             live.get_mut("agent").unwrap().last_change = 0;
         }
-        manager.apply_frame("agent", frame(4)).await;
+        // TUIs change cursor visibility and style without changing their screen text.
+        emu.feed(b"\x1b[?25l\x1b[6 q");
+        manager.apply_frame("agent", emu.render()).await;
+        {
+            let live = manager.live.read().await;
+            assert_eq!(live["agent"].state, State::Idle);
+            assert_eq!(live["agent"].last_change, 0);
+        }
+        emu.feed(b"\x1b[?25h\x1b[3 q\x1b[5G");
+        manager.apply_frame("agent", emu.render()).await;
 
         let live = manager.live.read().await;
         let live = live.get("agent").unwrap();
         assert_eq!(live.state, State::Idle);
         assert_eq!(live.last_change, 0);
-        assert_eq!(live.seq, 2);
+        assert_eq!(live.seq, 3);
         assert_eq!(live.screen.as_ref().unwrap().cx, 4);
+    }
+
+    #[tokio::test]
+    async fn faint_prompt_particles_do_not_keep_a_quiet_session_working() {
+        let manager = crate::session::test_manager(Config::default());
+        let mut live = Live::new(
+            SessionCfg {
+                name: "agent".into(),
+                ..Default::default()
+            },
+            TitleCapture::default(),
+        );
+        live.ephemeral = true;
+        manager.live.write().await.insert("agent".into(), live);
+        *manager.rules.write().await = vec![(
+            State::Working,
+            regex::Regex::new("esc to interrupt").unwrap(),
+        )];
+        let mut emu = SessionEmu::new(80, 24);
+        // Captured prompt animation: background RGB 30, moving single-dot Braille
+        // foreground RGB 13..28. Include a stale working match above the prompt.
+        emu.feed(b"old output (esc to interrupt)\r\n\x1b[48;2;30;30;30m  Ask Codex to do anything");
+        manager.apply_frame("agent", emu.render()).await;
+        manager
+            .live
+            .write()
+            .await
+            .get_mut("agent")
+            .unwrap()
+            .last_change = 0;
+        let mut events = manager.events.subscribe();
+        for (dot, gray) in [('⠁', 13), ('⠈', 28), ('⢀', 20), (' ', 20)] {
+            emu.feed(format!("\x1b[2;1H\x1b[38;2;{gray};{gray};{gray}m{dot}").as_bytes());
+            manager.apply_frame("agent", emu.render()).await;
+            let live = manager.live.read().await;
+            assert_eq!(live["agent"].state, State::Idle);
+            assert_eq!(live["agent"].last_change, 0);
+        }
+        let mut idle_announced = false;
+        let mut screens = 0;
+        while let Ok(event) = events.try_recv() {
+            match event.event() {
+                Event::Sessions { sessions } => {
+                    idle_announced |= sessions
+                        .iter()
+                        .any(|s| s.name == "agent" && s.state == State::Idle);
+                }
+                Event::Screen { .. } => screens += 1,
+                _ => {}
+            }
+        }
+        assert!(idle_announced, "sidebar must receive the idle transition");
+        assert_eq!(screens, 4, "cosmetic animation must still be rendered");
+        // Real output away from the decorative prompt resumes activity immediately.
+        emu.feed(b"\x1b[Hnew output");
+        manager.apply_frame("agent", emu.render()).await;
+        let live = manager.live.read().await;
+        assert_eq!(live["agent"].state, State::Working);
+        assert_ne!(live["agent"].last_change, 0);
     }
 
     #[tokio::test]
@@ -779,6 +841,7 @@ mod tests {
         let frame = |content_hash| Frame {
             lines: vec!["same".into()],
             content_hash,
+            activity_hash: content_hash,
             history: 0,
             cx: 0,
             cy: 0,

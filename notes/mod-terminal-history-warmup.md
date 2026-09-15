@@ -14,5 +14,7 @@ alternate screens and covered panes. Keep one request in flight per history owne
 
 Returning live keeps indexed rows. Reusing them after a tab switch requires matching run,
 viewport, connection generation and screen mode; pending requests do not survive the gap.
-Shallow views refresh visible live rows while history-only views may retain their assembly.
+The displayed scrollback snapshot freezes every row, including live-tail and fractional
+overscan rows, while the indexed cache continues warming. Live growth translates its anchor;
+returning live releases it.
 Selection across missing rows must leave the clipboard unchanged rather than copy partial text.
