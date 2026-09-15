@@ -1,4 +1,5 @@
-use axum::extract::Request;
+use axum::body::{Body, Bytes};
+use axum::extract::{FromRequest, Request, State};
 use axum::http::StatusCode;
 use axum::middleware::{self, Next};
 use axum::response::{IntoResponse, Response};
@@ -13,15 +14,11 @@ use super::ws::ws_upgrade;
 use super::{err, Mgr};
 
 pub(crate) fn router(m: Mgr) -> Router {
-    // Reachable by a scoped grant as well as the root. Each handler checks its own session and
-    // level (`guard`), the default task list is filtered, and `/ws` gates every message - so a
-    // grant reaches exactly the sessions it names, at the level it was given, and the host through
-    // none of it. Root may opt into the complete task board with `?all=true`.
-    // Creating a session (`POST /api/sessions`) is root-only even here, by `guard_create`.
+    // Scoped routes revalidate credentials and hold the session boundary through each request.
     let scoped = Router::new()
         .route(routes::HEALTH, get(health))
         .route(routes::SESSIONS, get(list).post(create))
-        .route(routes::SESSION, get(one).put(update).delete(destroy))
+        .route(routes::SESSION, get(one).delete(destroy))
         .route(routes::SESSION_CWD, get(cwd))
         .route(routes::SESSION_START, post(start))
         .route(routes::SESSION_STOP, post(stop))
@@ -38,13 +35,12 @@ pub(crate) fn router(m: Mgr) -> Router {
             routes::TASK,
             get(one_task).post(update_task).delete(remove_task),
         )
-        .route(crate::wire::WS_PATH, get(ws_upgrade));
+        .route(crate::wire::WS_PATH, get(ws_upgrade))
+        .layer(middleware::from_fn_with_state(m.clone(), scoped_request));
 
-    // The mod's own: the file, the projects, the machine, and minting grants itself. Default
-    // deny - a grant reaches none of it, and a route added here is root-only until someone
-    // moves it into `scoped` on purpose. The layer reads the capability `auth` already hung on
-    // the request.
+    // Host controls and configuration default to root-only access.
     let root = Router::new()
+        .route(routes::SESSION_UPDATE, put(update))
         .route(routes::CAPABILITIES, get(capabilities))
         .route(routes::PROJECTS, get(list_projects).post(create_project))
         .route(
@@ -97,6 +93,28 @@ pub(crate) fn router(m: Mgr) -> Router {
         .layer(middleware::from_fn(require_root));
 
     scoped.merge(root).with_state(m)
+}
+
+async fn scoped_request(State(m): State<Mgr>, req: Request, next: Next) -> Response {
+    // Read uploads before taking the session boundary: a stalled client must not block
+    // lifecycle changes or revocation. Use the extractor to preserve Axum's body limit.
+    let (parts, body) = req.into_parts();
+    let bytes = match Bytes::from_request(Request::from_parts(parts.clone(), body), &m).await {
+        Ok(bytes) => bytes,
+        Err(rejection) => return rejection.into_response(),
+    };
+    let req = Request::from_parts(parts, Body::from(bytes));
+    m.session_request(async {
+        if req
+            .extensions()
+            .get::<Cap>()
+            .is_some_and(|cap| !cap.is_valid())
+        {
+            return err(StatusCode::UNAUTHORIZED, "capability revoked").into_response();
+        }
+        next.run(req).await
+    })
+    .await
 }
 
 /// The default-deny half of the API: everything but the session read/drive routes is the mod's,

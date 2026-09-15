@@ -112,6 +112,7 @@ impl Manager {
         let m = Arc::new(Self {
             tmux: Tmux::new(crate::config::tmux_socket()),
             cfg_path,
+            endpoint_path: crate::endpoint::path(),
             rules: RwLock::new(compile_rules(&cfg)),
             live: RwLock::new(HashMap::new()),
             temp: RwLock::new(HashMap::new()),
@@ -130,6 +131,7 @@ impl Manager {
             auth_generation: AtomicU64::new(0),
             auth_changes,
             grants: RwLock::new(crate::grant::Grants::default()),
+            session_boundary: tokio::sync::Mutex::new(()),
             tasks: crate::session::manager::TaskStore::new(tasks),
             worker_spawn: tokio::sync::Mutex::new(()),
             title_cache,
@@ -163,6 +165,17 @@ impl Manager {
     async fn publish_config(&self, change: ConfigChange, origin: ConfigOrigin) -> ConfigEffects {
         let endpoint_token = change.new.daemon.token.clone();
 
+        let old = self.config().await;
+        for session in &old.sessions {
+            if !change
+                .new
+                .session(&session.name)
+                .is_some_and(|next| next.state_id == session.state_id)
+            {
+                self.invalidate_session(&session.name).await;
+            }
+        }
+
         *self.rules.write().await = change.rules;
         *self.cfg.write().await = change.new;
         if let ConfigOrigin::DiskReload { mtime } = origin {
@@ -177,7 +190,7 @@ impl Manager {
     }
 
     async fn update_endpoint(&self, token: &str) {
-        if let Err(e) = crate::endpoint::update_token(token).await {
+        if let Err(e) = crate::endpoint::update_token(&self.endpoint_path, token).await {
             tracing::warn!("config accepted but endpoint descriptor was not updated: {e:#}");
         }
     }
@@ -210,6 +223,14 @@ impl Manager {
         &self,
         update: impl FnOnce(&mut Config) -> Result<(T, bool)>,
     ) -> Result<T> {
+        self.session_operation(self.update_cfg_if_changed_within_boundary(update))
+            .await
+    }
+
+    async fn update_cfg_if_changed_within_boundary<T>(
+        &self,
+        update: impl FnOnce(&mut Config) -> Result<(T, bool)>,
+    ) -> Result<T> {
         let persist = self.config_state.persist.lock().await;
         let old = self.cfg.read().await.clone();
         let mut candidate = old.clone();
@@ -233,6 +254,14 @@ impl Manager {
     }
 
     pub async fn reload_if_changed(self: &Arc<Self>) -> bool {
+        if self.session_request_active() {
+            return false;
+        }
+        self.session_operation(self.reload_if_changed_within_boundary())
+            .await
+    }
+
+    async fn reload_if_changed_within_boundary(self: &Arc<Self>) -> bool {
         // Keep the disk read and in-memory replacement together with config saves. The lock is
         // deliberately not held while the rest of synchronization runs below.
         let persist = self.config_state.persist.lock().await;
@@ -381,6 +410,11 @@ impl Manager {
     }
 
     pub async fn sync_from_config(self: &Arc<Self>) {
+        self.session_operation(self.sync_from_config_within_boundary())
+            .await
+    }
+
+    async fn sync_from_config_within_boundary(self: &Arc<Self>) {
         ConfigReconciler::sync(self).await;
     }
 
@@ -496,6 +530,11 @@ impl Manager {
     }
 
     pub async fn patch_config(self: &Arc<Self>, patch: Value) -> Result<()> {
+        self.session_operation(self.patch_config_within_boundary(patch))
+            .await
+    }
+
+    async fn patch_config_within_boundary(self: &Arc<Self>, patch: Value) -> Result<()> {
         self.reload_if_changed().await;
 
         let persist = self.config_state.persist.lock().await;
@@ -526,6 +565,11 @@ impl Manager {
     }
 
     pub async fn replace_config(self: &Arc<Self>, text: &str) -> Result<()> {
+        self.session_operation(self.replace_config_within_boundary(text))
+            .await
+    }
+
+    async fn replace_config_within_boundary(self: &Arc<Self>, text: &str) -> Result<()> {
         let persist = self.config_state.persist.lock().await;
         let old = self.cfg.read().await.clone();
         let parsed = Config::parse(text)?;

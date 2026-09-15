@@ -9,13 +9,24 @@ See [wire-protocol](protocol-wire.md) and [agent-tasks](agent-tasks.md).
 
 - `ro` lists, reads, and watches sessions in the grant's scope.
 - `rw` adds keys, resize, and session lifecycle operations.
-- Session creation and host-session access remain root-only.
-- The grant is revoked explicitly or when its grantor session disappears. Daemon restart
-  also drops all grants.
+- Session creation, full configuration replacement, and host-session access remain root-only.
+- Removal, rename, or identity replacement revokes every grant owned by or targeting that
+  session, including access to its other targets. Callers need a fresh grant afterward.
+  Stop/start preserves ordinary session grants; daemon restart drops all grants.
 
 REST and WebSocket authorization resolve the token to its session scope. Session views
 hide out-of-scope entries, and host sessions are filtered centrally from non-root grants.
 The root token retains access to every session.
+
+Grants have immutable scopes and a shared revocation flag, so already-resolved capabilities
+lose authority when the grant is removed. Event filtering and socket sends check that flag
+without acquiring the session boundary; revocation also closes connected sockets.
+
+`manager/boundary.rs` serializes authorization/use with lifecycle changes and ephemeral cleanup.
+REST owns this boundary in the router, after bounded body collection and before authorization.
+Nested lifecycle calls share it and defer disk reloads until the request completes; spawned
+session work reacquires it. Queued terminal input checks session and process identity before
+each send.
 
 ## API and delivery
 

@@ -36,18 +36,17 @@ pub async fn write(bind: &str, token: &str) -> Result<()> {
 /// Update only the secret after a live config edit. The listener's address is fixed until
 /// restart, so changing `[daemon] bind` must not make the descriptor advertise an address the
 /// current process is not listening on.
-pub async fn update_token(token: &str) -> Result<()> {
-    let path = path();
-    if !tokio::fs::try_exists(&path).await? {
+pub async fn update_token(path: &Path, token: &str) -> Result<()> {
+    if !tokio::fs::try_exists(path).await? {
         return Ok(());
     }
-    let text = tokio::fs::read_to_string(&path)
+    let text = tokio::fs::read_to_string(path)
         .await
         .with_context(|| format!("reading endpoint descriptor {}", path.display()))?;
     let mut endpoint: Endpoint = toml::from_str(&text)
         .with_context(|| format!("parsing endpoint descriptor {}", path.display()))?;
     endpoint.token = token.to_string();
-    write_endpoint(&path, &endpoint).await
+    write_endpoint(path, &endpoint).await
 }
 
 pub fn remove() {
@@ -138,15 +137,7 @@ mod tests {
         };
         write_endpoint(&path, &endpoint).await.unwrap();
 
-        // `update_token` uses the daemon's configured endpoint path, so exercise that public
-        // path as well as the atomic writer above.
-        let previous = std::env::var_os("SLOPD_ENDPOINT");
-        std::env::set_var("SLOPD_ENDPOINT", &path);
-        update_token("new").await.unwrap();
-        match previous {
-            Some(value) => std::env::set_var("SLOPD_ENDPOINT", value),
-            None => std::env::remove_var("SLOPD_ENDPOINT"),
-        }
+        update_token(&path, "new").await.unwrap();
 
         let written: Endpoint = toml::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
         assert_eq!(written.url, endpoint.url);

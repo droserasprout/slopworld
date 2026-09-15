@@ -123,7 +123,7 @@ impl Manager {
             Ok(argv) => argv,
             Err(error) => {
                 if session.worker {
-                    self.revoke_grants(&session.name).await;
+                    self.invalidate_session(&session.name).await;
                 }
                 return Err(error);
             }
@@ -168,7 +168,7 @@ impl Manager {
             .await
         {
             if plan.is_worker() {
-                self.revoke_grants(&plan.session.name).await;
+                self.invalidate_session(&plan.session.name).await;
                 // tmux includes its complete argv in command errors. Do not let the worker's
                 // bearer credential escape into a persisted task failure note or daemon log.
                 tracing::warn!("could not create worker session {name}: tmux spawn failed");
@@ -201,6 +201,11 @@ impl Manager {
     }
 
     pub async fn start(self: &Arc<Self>, name: &str) -> Result<()> {
+        self.session_operation(self.start_within_boundary(name))
+            .await
+    }
+
+    async fn start_within_boundary(self: &Arc<Self>, name: &str) -> Result<()> {
         let plan = self.prepare_start(name).await?;
         if plan.is_worker() {
             tracing::info!("starting {name} (task worker)");
@@ -262,7 +267,7 @@ impl Manager {
             }
         }
         if worker {
-            self.revoke_grants(name).await;
+            self.invalidate_session(name).await;
         }
     }
 

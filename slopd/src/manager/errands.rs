@@ -16,6 +16,26 @@ impl Manager {
         persistent_host: bool,
         like: &str,
     ) -> Result<String> {
+        self.session_operation(self.create_errand_session_within_boundary(
+            cfg,
+            sc,
+            want,
+            host,
+            persistent_host,
+            like,
+        ))
+        .await
+    }
+
+    async fn create_errand_session_within_boundary(
+        &self,
+        cfg: &Config,
+        sc: &LibraryItemCfg,
+        want: &RunWhere,
+        host: bool,
+        persistent_host: bool,
+        like: &str,
+    ) -> Result<String> {
         let item_name = sc.name.as_str();
         let asked = match want.project.as_deref().map(str::trim) {
             Some(project) if !project.is_empty() => Some(project.to_string()),

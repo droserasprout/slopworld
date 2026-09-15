@@ -1,6 +1,7 @@
 //! Focused implementation modules for the session manager.
 
 mod adoption;
+mod boundary;
 mod caps;
 mod capture;
 mod config;

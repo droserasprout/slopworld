@@ -5,6 +5,9 @@ use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
 
+#[path = "git_exec.rs"]
+mod git_exec;
+
 use futures::stream::{self, StreamExt};
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, BufReader};
 use tokio::process::Command;
@@ -52,9 +55,36 @@ struct StatusRow {
 const LIMIT: usize = 2000;
 const NO_INDEX_CONCURRENCY: usize = 16;
 
-/// Seed Git's persistent status caches before the client can ask for its first sidebar read.
-/// This moves the one unavoidable cold walk out of the interactive refresh path; subsequent
-/// status calls use the filesystem monitor and directory mtimes to inspect only affected paths.
+/// Disable known helpers; seccomp also blocks filters and other child processes.
+pub(crate) fn inspection_args() -> &'static [&'static str] {
+    &[
+        "-c",
+        "core.fsmonitor=false",
+        "-c",
+        "diff.external=",
+        "-c",
+        "core.hooksPath=/dev/null",
+    ]
+}
+
+pub(crate) fn inspection_command(root: &Path) -> Command {
+    let mut command = Command::from(inspection_std_command(root));
+    command.kill_on_drop(true);
+    command
+}
+
+pub(crate) fn inspection_std_command(root: &Path) -> std::process::Command {
+    let mut command = std::process::Command::new("git");
+    command.args(inspection_args()).arg("-C").arg(root);
+    command
+        .env("GIT_PAGER", "cat")
+        .env("GIT_TERMINAL_PROMPT", "0")
+        .env("LC_ALL", "C");
+    git_exec::restrict(&mut command);
+    command
+}
+
+/// Warm the untracked-directory cache before the first sidebar read.
 pub async fn warm_projects(dirs: Vec<PathBuf>) {
     stream::iter(dirs)
         .for_each_concurrent(4, |dir| async move {
@@ -183,18 +213,10 @@ async fn status_rows_command(
     paths: &[String],
     untracked_files: &str,
 ) -> std::io::Result<(Vec<StatusRow>, bool)> {
-    let mut command = Command::new("git");
+    let mut command = inspection_command(root);
     command
-        // Keep Git's filesystem watcher and directory-mtime cache in the repository index. These
-        // are scoped to the status reader rather than changing the user's global configuration.
-        .args([
-            "-c",
-            "core.fsmonitor=true",
-            "-c",
-            "core.untrackedCache=true",
-            "-C",
-        ])
-        .arg(root)
+        // Persist directory-mtime caches without enabling repository fsmonitor commands.
+        .args(["-c", "core.untrackedCache=true"])
         .args(["status", "--porcelain=v1"])
         .arg(format!("--untracked-files={untracked_files}"))
         .args(["--ignore-submodules=all", "-z"]);
@@ -203,12 +225,10 @@ async fn status_rows_command(
         command.args(paths);
     }
     let mut child = command
-        .env("GIT_PAGER", "cat")
         // Let Git persist its untracked-directory cache in the index. The first scan of a large
         // worktree can still be cold, but without this cache every daemon restart pays that
         // directory walk again; later sidebar refreshes are then only metadata checks.
         .env("GIT_OPTIONAL_LOCKS", "1")
-        .env("LC_ALL", "C")
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .kill_on_drop(true)
@@ -287,11 +307,8 @@ async fn status_rows_command(
 /// The repository root, or `None` where there is none. An error here is git missing or
 /// unrunnable, which is worth saying; a non-zero exit is only "not a repository".
 async fn toplevel(dir: &Path) -> std::io::Result<Option<PathBuf>> {
-    let out = Command::new("git")
-        .arg("-C")
-        .arg(dir)
+    let out = inspection_command(dir)
         .args(["rev-parse", "--show-toplevel"])
-        .kill_on_drop(true)
         .output()
         .await?;
     if !out.status.success() {
@@ -343,7 +360,15 @@ async fn numstat(root: &Path, rows: &[StatusRow]) -> HashMap<String, (Option<u32
     } else {
         match run_paths(
             root,
-            &["diff", "--find-renames", "--numstat", "-z", "HEAD"],
+            &[
+                "diff",
+                "--no-ext-diff",
+                "--no-textconv",
+                "--find-renames",
+                "--numstat",
+                "-z",
+                "HEAD",
+            ],
             tracked.iter().copied(),
         )
         .await
@@ -352,7 +377,15 @@ async fn numstat(root: &Path, rows: &[StatusRow]) -> HashMap<String, (Option<u32
             Err(_) => (
                 run_paths(
                     root,
-                    &["diff", "--find-renames", "--numstat", "-z", "--cached"],
+                    &[
+                        "diff",
+                        "--no-ext-diff",
+                        "--no-textconv",
+                        "--find-renames",
+                        "--numstat",
+                        "-z",
+                        "--cached",
+                    ],
                     tracked.iter().copied(),
                 )
                 .await
@@ -401,15 +434,19 @@ fn is_directory(root: &Path, path: &str) -> bool {
 /// still the authoritative text/binary classification and line count. A failure to read the
 /// file leaves it absent from the map, just as an unavailable tracked diff does.
 async fn no_index_numstat(root: &Path, path: &str) -> Option<(Option<u32>, Option<u32>)> {
-    let out = Command::new("git")
-        .arg("-C")
-        .arg(root)
-        .args(["diff", "--no-index", "--numstat", "-z", "--", "/dev/null"])
+    let out = inspection_command(root)
+        .args([
+            "diff",
+            "--no-ext-diff",
+            "--no-textconv",
+            "--no-index",
+            "--numstat",
+            "-z",
+            "--",
+            "/dev/null",
+        ])
         .arg(path)
-        .env("GIT_PAGER", "cat")
         .env("GIT_OPTIONAL_LOCKS", "0")
-        .env("LC_ALL", "C")
-        .kill_on_drop(true)
         .output()
         .await
         .ok()?;
@@ -427,14 +464,9 @@ async fn no_index_numstat(root: &Path, path: &str) -> Option<(Option<u32>, Optio
 /// `git` in the repository, with its own environment kept out of the way: a pager here would
 /// wait for a terminal nobody has, and a locale would translate the words this parses.
 async fn run(root: &Path, args: &[&str]) -> std::io::Result<String> {
-    let out = Command::new("git")
-        .arg("-C")
-        .arg(root)
+    let out = inspection_command(root)
         .args(args)
-        .env("GIT_PAGER", "cat")
         .env("GIT_OPTIONAL_LOCKS", "0")
-        .env("LC_ALL", "C")
-        .kill_on_drop(true)
         .output()
         .await?;
     if !out.status.success() {
@@ -452,18 +484,12 @@ async fn run_paths<'a, I>(root: &Path, args: &[&str], paths: I) -> std::io::Resu
 where
     I: IntoIterator<Item = &'a str>,
 {
-    let mut command = Command::new("git");
-    command.arg("-C").arg(root).args(args).arg("--");
+    let mut command = inspection_command(root);
+    command.args(args).arg("--");
     for path in paths {
         command.arg(path);
     }
-    let out = command
-        .env("GIT_PAGER", "cat")
-        .env("GIT_OPTIONAL_LOCKS", "0")
-        .env("LC_ALL", "C")
-        .kill_on_drop(true)
-        .output()
-        .await?;
+    let out = command.env("GIT_OPTIONAL_LOCKS", "0").output().await?;
     if !out.status.success() {
         return Err(std::io::Error::other(
             String::from_utf8_lossy(&out.stderr).trim().to_string(),
@@ -848,6 +874,209 @@ mod tests {
             .any(|change| change.path == "outer/nested/inside.txt"));
 
         tokio::fs::remove_dir_all(&dir).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn repository_helpers_cannot_execute_git_config_during_status_or_counts() {
+        let dir = std::env::temp_dir().join(format!(
+            "slopd-git-policy-{}-{}",
+            std::process::id(),
+            uuid::Uuid::new_v4()
+        ));
+        let marker = dir.with_extension("marker");
+        tokio::fs::create_dir_all(&dir).await.unwrap();
+
+        let init = Command::new("git")
+            .args(["init", "-q"])
+            .current_dir(&dir)
+            .status()
+            .await
+            .unwrap();
+        assert!(init.success());
+        for (key, value) in [
+            ("user.name", "slopd-test"),
+            ("user.email", "slopd-test@example.invalid"),
+        ] {
+            let configured = Command::new("git")
+                .args(["config", key, value])
+                .current_dir(&dir)
+                .status()
+                .await
+                .unwrap();
+            assert!(configured.success());
+        }
+        tokio::fs::write(dir.join("tracked.txt"), "before\n")
+            .await
+            .unwrap();
+        tokio::fs::write(dir.join(".gitattributes"), "* diff=marker\n")
+            .await
+            .unwrap();
+        let add = Command::new("git")
+            .args(["add", "."])
+            .current_dir(&dir)
+            .status()
+            .await
+            .unwrap();
+        assert!(add.success());
+        let commit = Command::new("git")
+            .args(["-c", "commit.gpgsign=false", "commit", "-qm", "initial"])
+            .current_dir(&dir)
+            .status()
+            .await
+            .unwrap();
+        assert!(commit.success());
+
+        for (key, value) in [
+            ("core.fsmonitor", format!("touch {}", marker.display())),
+            ("diff.external", format!("touch {}", marker.display())),
+            (
+                "diff.marker.textconv",
+                format!("touch {}", marker.display()),
+            ),
+        ] {
+            let configured = Command::new("git")
+                .args(["config", key, &value])
+                .current_dir(&dir)
+                .status()
+                .await
+                .unwrap();
+            assert!(configured.success());
+        }
+        tokio::fs::write(dir.join("tracked.txt"), "before\nafter\n")
+            .await
+            .unwrap();
+        tokio::fs::write(dir.join("staged.txt"), "staged\n")
+            .await
+            .unwrap();
+        let add = Command::new("git")
+            .args(["add", "staged.txt"])
+            .current_dir(&dir)
+            .status()
+            .await
+            .unwrap();
+        assert!(add.success());
+        let _ = tokio::fs::remove_file(&marker).await;
+
+        let answer = status(&dir).await.unwrap().unwrap();
+        assert_eq!(answer.added, 2);
+        assert_eq!(answer.deleted, 0);
+        assert!(answer
+            .changes
+            .iter()
+            .any(|change| change.path == "tracked.txt" && change.status == " M"));
+        assert!(answer
+            .changes
+            .iter()
+            .any(|change| change.path == "staged.txt" && change.status == "A "));
+        assert!(
+            !marker.exists(),
+            "repository Git helpers executed a marker command"
+        );
+
+        let unborn = dir.join("unborn");
+        tokio::fs::create_dir_all(&unborn).await.unwrap();
+        let init = Command::new("git")
+            .args(["init", "-q"])
+            .current_dir(&unborn)
+            .status()
+            .await
+            .unwrap();
+        assert!(init.success());
+        let unborn_marker = unborn.with_extension("marker");
+        let configured = Command::new("git")
+            .args([
+                "config",
+                "core.fsmonitor",
+                &format!("touch {}", unborn_marker.display()),
+            ])
+            .current_dir(&unborn)
+            .status()
+            .await
+            .unwrap();
+        assert!(configured.success());
+        tokio::fs::write(unborn.join("staged.txt"), "staged\n")
+            .await
+            .unwrap();
+        tokio::fs::write(unborn.join("untracked.txt"), "untracked\n")
+            .await
+            .unwrap();
+        let add = Command::new("git")
+            .args(["add", "staged.txt"])
+            .current_dir(&unborn)
+            .status()
+            .await
+            .unwrap();
+        assert!(add.success());
+        let _ = tokio::fs::remove_file(&unborn_marker).await;
+
+        let unborn_answer = status(&unborn).await.unwrap().unwrap();
+        assert_eq!(unborn_answer.added, 2);
+        assert_eq!(unborn_answer.deleted, 0);
+        assert!(
+            !unborn_marker.exists(),
+            "unborn Git inspection executed a marker command"
+        );
+
+        tokio::fs::remove_dir_all(&dir).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn clean_and_process_filters_cannot_spawn_during_inspection() {
+        for helper in ["clean", "process"] {
+            for unborn in [false, true] {
+                let dir =
+                    std::env::temp_dir().join(format!("slopd-git-filter-{}", uuid::Uuid::new_v4()));
+                std::fs::create_dir_all(&dir).unwrap();
+                let git = |args: &[&str]| {
+                    let output = std::process::Command::new("git")
+                        .arg("-C")
+                        .arg(&dir)
+                        .args(args)
+                        .output()
+                        .unwrap();
+                    assert!(
+                        output.status.success(),
+                        "{}",
+                        String::from_utf8_lossy(&output.stderr)
+                    );
+                };
+                git(&["init", "-q"]);
+                std::fs::write(dir.join("tracked"), "before\n").unwrap();
+                git(&["add", "tracked"]);
+                if !unborn {
+                    git(&[
+                        "-c",
+                        "user.name=test",
+                        "-c",
+                        "user.email=test@example.invalid",
+                        "-c",
+                        "commit.gpgsign=false",
+                        "commit",
+                        "-qm",
+                        "initial",
+                    ]);
+                    std::fs::write(dir.join("staged"), "staged\n").unwrap();
+                    git(&["add", "staged"]);
+                    std::fs::write(dir.join("tracked"), "before\nafter\n").unwrap();
+                }
+                let marker = dir.join("executed");
+                std::fs::write(dir.join(".gitattributes"), "* filter=marker\n").unwrap();
+                git(&[
+                    "config",
+                    &format!("filter.marker.{helper}"),
+                    &format!("touch {}; cat", marker.display()),
+                ]);
+                std::fs::write(dir.join("untracked"), "untracked\n").unwrap();
+
+                let paths = status_with_counts(&dir, false).await.unwrap().unwrap();
+                assert!(paths.changes.iter().any(|row| row.path == "tracked"));
+                let details = status(&dir).await.unwrap().unwrap();
+                assert!(!marker.exists(), "{helper} executed in unborn={unborn}");
+                assert_eq!(details.added, if unborn { 3 } else { 4 });
+                assert_eq!(details.deleted, 0);
+                std::fs::remove_dir_all(&dir).unwrap();
+            }
+        }
     }
 
     #[tokio::test]

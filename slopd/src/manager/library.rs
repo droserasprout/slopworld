@@ -506,7 +506,7 @@ impl Manager {
         tokio::spawn(async move { manager.auto_resume(&name, run_id).await });
     }
 
-    async fn auto_resume(&self, name: &str, run_id: u64) {
+    async fn auto_resume(self: &Arc<Self>, name: &str, run_id: u64) {
         match self.wait_ready_for(name, Some(run_id)).await {
             Ready::Gone => {
                 self.finish_auto_resume(name, run_id).await;

@@ -53,7 +53,7 @@ grant-visible router; handler guards can impose a stricter access requirement.
 | `POST` | `/api/sessions` | `scoped` | `create` |
 | `DELETE` | `/api/sessions/:name` | `scoped` | `destroy` |
 | `GET` | `/api/sessions/:name` | `scoped` | `one` |
-| `PUT` | `/api/sessions/:name` | `scoped` | `update` |
+| `PUT` | `/api/sessions/:name` | `root-only` | `update` |
 | `GET` | `/api/sessions/:name/cwd` | `scoped` | `cwd` |
 | `PUT` | `/api/sessions/:name/label` | `scoped` | `set_label` |
 | `POST` | `/api/sessions/:name/restart` | `scoped` | `restart` |

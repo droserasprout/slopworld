@@ -169,6 +169,11 @@ impl Manager {
     }
 
     pub(crate) async fn mark_down(self: &Arc<Self>, name: &str, reader_token: &Arc<()>) {
+        self.session_operation(self.mark_down_within_boundary(name, reader_token))
+            .await
+    }
+
+    async fn mark_down_within_boundary(self: &Arc<Self>, name: &str, reader_token: &Arc<()>) {
         let plan = {
             let mut live = self.live.write().await;
             self.detach_live_locked(

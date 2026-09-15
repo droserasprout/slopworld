@@ -5,7 +5,7 @@ use crate::emu::MouseInput;
 use anyhow::anyhow;
 
 impl Manager {
-    pub(crate) async fn queue_input(&self, name: &str, item: Input) {
+    pub(crate) async fn queue_input(self: &Arc<Self>, name: &str, item: Input) {
         // One consumer preserves ordering across keys, mouse reports, and paste.
         let mut spawn_rx = None;
         let mut item = Some(item);
@@ -18,7 +18,7 @@ impl Manager {
                 if l.input.is_none() {
                     let (tx, rx) = mpsc::unbounded_channel();
                     l.input = Some(tx);
-                    spawn_rx = Some(rx);
+                    spawn_rx = Some((rx, l.cfg.state_id.clone(), l.run_id));
                 }
                 if let Some(tx) = l.input.as_ref() {
                     if let Some(i) = item.take() {
@@ -29,10 +29,10 @@ impl Manager {
                 }
             }
         }
-        if let Some(rx) = spawn_rx {
-            let tmux = self.tmux.clone();
+        if let Some((rx, identity, run_id)) = spawn_rx {
+            let manager = Arc::downgrade(self);
             let name = name.to_string();
-            tokio::spawn(async move { Self::run_input(tmux, name, rx).await });
+            tokio::spawn(async move { Self::run_input(manager, name, identity, run_id, rx).await });
         }
         if let Some(item) = item {
             Self::send_input(&self.tmux, name, item).await;
@@ -40,8 +40,10 @@ impl Manager {
     }
 
     pub(crate) async fn run_input(
-        tmux: Tmux,
+        manager: std::sync::Weak<Self>,
         name: String,
+        identity: String,
+        run_id: u64,
         mut rx: mpsc::UnboundedReceiver<Input>,
     ) {
         while let Some(first) = rx.recv().await {
@@ -51,7 +53,30 @@ impl Manager {
             }
             let batch = merge_input(batch);
             for item in batch {
-                Self::send_input(&tmux, &name, item).await;
+                if let Input::Gap(delay) = item {
+                    tokio::time::sleep(delay).await;
+                    continue;
+                }
+                let Some(manager) = manager.upgrade() else {
+                    return;
+                };
+                let sent = manager
+                    .session_operation(async {
+                        // Queued input belongs to the session and process that accepted it.
+                        if !manager.live.read().await.get(&name).is_some_and(|live| {
+                            live.cfg.state_id == identity
+                                && live.run_id == run_id
+                                && live.input.is_some()
+                        }) {
+                            return false;
+                        }
+                        Self::send_input(&manager.tmux, &name, item).await;
+                        true
+                    })
+                    .await;
+                if !sent {
+                    return;
+                }
             }
         }
     }
@@ -126,7 +151,7 @@ impl Manager {
         self.queue_input(name, Input::Keys { keys, literal }).await;
     }
 
-    pub async fn send_mouse(&self, name: &str, ev: MouseInput, count: u8) {
+    pub async fn send_mouse(self: &Arc<Self>, name: &str, ev: MouseInput, count: u8) {
         let single = {
             let live = self.live.read().await;
             live.get(name)
@@ -143,7 +168,7 @@ impl Manager {
         }
     }
 
-    pub async fn paste(&self, name: &str, text: &str) -> Result<()> {
+    pub async fn paste(self: &Arc<Self>, name: &str, text: &str) -> Result<()> {
         if !self.tmux.exists(name).await {
             bail!("session {name} is not running");
         }
@@ -153,7 +178,7 @@ impl Manager {
         Ok(())
     }
 
-    pub(crate) async fn queue_paste(&self, name: &str, bytes: Vec<u8>) {
+    pub(crate) async fn queue_paste(self: &Arc<Self>, name: &str, bytes: Vec<u8>) {
         self.queue_input(name, Input::Paste { bytes }).await;
     }
 
@@ -181,7 +206,7 @@ impl Manager {
 
     /// Render a breadcrumb and paste it into this agent without submitting.
     pub async fn paste_breadcrumb(
-        &self,
+        self: &Arc<Self>,
         name: &str,
         breadcrumb: &str,
         random_tips: Vec<String>,
@@ -254,5 +279,51 @@ impl Manager {
             }
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod boundary_tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn stale_input_queues_exit_without_draining_into_replacements() {
+        for replaced_identity in [true, false] {
+            let manager = crate::session::test_manager(Config::default());
+            let (tx, rx) = mpsc::unbounded_channel();
+            let mut live = Live::new(
+                SessionCfg {
+                    name: "target".into(),
+                    ..Default::default()
+                },
+                TitleCapture::default(),
+            );
+            let old_identity = live.cfg.state_id.clone();
+            if replaced_identity {
+                live.cfg.state_id = uuid::Uuid::new_v4().to_string();
+            } else {
+                live.run_id = 1;
+            }
+            live.input = Some(tx.clone());
+            manager.live.write().await.insert("target".into(), live);
+            tx.send(Input::Keys {
+                keys: vec!["Enter".into()],
+                literal: false,
+            })
+            .unwrap();
+            tokio::time::timeout(
+                Duration::from_secs(1),
+                Manager::run_input(
+                    Arc::downgrade(&manager),
+                    "target".into(),
+                    old_identity,
+                    0,
+                    rx,
+                ),
+            )
+            .await
+            .expect("stale queue kept consuming input");
+            assert!(tx.is_closed());
+        }
     }
 }

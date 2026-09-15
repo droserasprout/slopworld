@@ -141,9 +141,13 @@ pub(crate) async fn filter_gitignored(base: &std::path::Path, listing: &mut List
         return;
     }
 
-    let mut cmd = tokio::process::Command::new("git");
+    let mut cmd = crate::git::inspection_command(base);
     cmd.current_dir(base)
         .args(["check-ignore", "--stdin", "-z"])
+        .env("GIT_OPTIONAL_LOCKS", "0")
+        .env("GIT_PAGER", "cat")
+        .env("GIT_TERMINAL_PROMPT", "0")
+        .env("LC_ALL", "C")
         .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::null());

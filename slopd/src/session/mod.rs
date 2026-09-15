@@ -171,7 +171,7 @@ impl EventMessage {
 
 #[derive(Debug, Clone)]
 pub(crate) enum AuthChange {
-    GrantorRevoked(String),
+    GrantsRevoked,
     RootTokenChanged,
 }
 

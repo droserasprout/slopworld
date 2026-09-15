@@ -13,6 +13,7 @@ namespace SlopWorld
             public const string Health = "/api/health";
             public const string Sessions = "/api/sessions";
             public const string Session = "/api/sessions/:name";
+            public const string SessionUpdate = "/api/sessions/:name";
             public const string SessionCwd = "/api/sessions/:name/cwd";
             public const string SessionStart = "/api/sessions/:name/start";
             public const string SessionStop = "/api/sessions/:name/stop";

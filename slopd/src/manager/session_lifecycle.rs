@@ -146,6 +146,10 @@ impl Manager {
     }
 
     pub(super) async fn execute_cleanup(self: &Arc<Self>, plan: CleanupPlan) {
+        if plan.revoke_grants {
+            // The session boundary prevents name reuse until cleanup finishes.
+            self.invalidate_session(&plan.name).await;
+        }
         finish_reader(plan.reader);
         self.forget_scroll(&plan.name);
         if plan.announce_sessions {
@@ -169,9 +173,6 @@ impl Manager {
         if plan.remove_temp_project {
             self.temp.write().await.remove(&plan.project);
         }
-        if plan.revoke_grants {
-            self.revoke_grants(&plan.name).await;
-        }
     }
 
     pub(super) fn clear_latest_title(&self, name: &str) {
@@ -189,6 +190,11 @@ impl Manager {
 
 impl Manager {
     pub async fn stop(self: &Arc<Self>, name: &str) -> Result<()> {
+        self.session_operation(self.stop_within_boundary(name))
+            .await
+    }
+
+    async fn stop_within_boundary(self: &Arc<Self>, name: &str) -> Result<()> {
         if self.tmux.exists(name).await {
             self.tmux.kill(name).await?;
         }
@@ -208,6 +214,11 @@ impl Manager {
     }
 
     pub(super) async fn forget(self: &Arc<Self>, name: &str) {
+        self.session_operation(self.forget_within_boundary(name))
+            .await
+    }
+
+    async fn forget_within_boundary(self: &Arc<Self>, name: &str) {
         let plan = {
             let mut live = self.live.write().await;
             self.detach_live_locked(&mut live, name, DetachCause::Forget)
@@ -218,6 +229,11 @@ impl Manager {
     }
 
     pub async fn restart(self: &Arc<Self>, name: &str) -> Result<()> {
+        self.session_operation(self.restart_within_boundary(name))
+            .await
+    }
+
+    async fn restart_within_boundary(self: &Arc<Self>, name: &str) -> Result<()> {
         self.stop(name).await?;
         self.start(name).await
     }

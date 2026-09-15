@@ -179,7 +179,11 @@ impl Manager {
         changed
     }
 
-    pub async fn add(self: &Arc<Self>, mut s: SessionCfg) -> Result<()> {
+    pub async fn add(self: &Arc<Self>, s: SessionCfg) -> Result<()> {
+        self.session_operation(self.add_within_boundary(s)).await
+    }
+
+    async fn add_within_boundary(self: &Arc<Self>, mut s: SessionCfg) -> Result<()> {
         self.reload_if_changed().await;
         let (autostart, name) = self
             .update_cfg(|cfg| {
@@ -215,7 +219,12 @@ impl Manager {
         Ok(())
     }
 
-    pub async fn update(self: &Arc<Self>, name: &str, mut s: SessionCfg) -> Result<()> {
+    pub async fn update(self: &Arc<Self>, name: &str, s: SessionCfg) -> Result<()> {
+        self.session_operation(self.update_within_boundary(name, s))
+            .await
+    }
+
+    async fn update_within_boundary(self: &Arc<Self>, name: &str, mut s: SessionCfg) -> Result<()> {
         self.reload_if_changed().await;
         if self
             .cfg
@@ -373,6 +382,11 @@ impl Manager {
     }
 
     pub async fn remove(self: &Arc<Self>, name: &str) -> Result<()> {
+        self.session_operation(self.remove_within_boundary(name))
+            .await
+    }
+
+    async fn remove_within_boundary(self: &Arc<Self>, name: &str) -> Result<()> {
         self.reload_if_changed().await;
         if self.is_host(name).await {
             self.stop(name).await?;
@@ -433,6 +447,11 @@ impl Manager {
     /// Stop an agent and discard only its private tool state.  The old tree is recoverable in
     /// the daemon-owned trash for two weeks; the configured agent remains and reseeds on start.
     pub async fn reset_state(self: &Arc<Self>, name: &str) -> Result<()> {
+        self.session_operation(self.reset_state_within_boundary(name))
+            .await
+    }
+
+    async fn reset_state_within_boundary(self: &Arc<Self>, name: &str) -> Result<()> {
         self.reload_if_changed().await;
         if self.is_ephemeral(name).await {
             bail!("temporary session {name} has no resettable private state");
@@ -477,6 +496,11 @@ impl Manager {
     }
 
     pub async fn restore_stored_state(self: &Arc<Self>, key: &str) -> Result<String> {
+        self.session_operation(self.restore_stored_state_within_boundary(key))
+            .await
+    }
+
+    async fn restore_stored_state_within_boundary(self: &Arc<Self>, key: &str) -> Result<String> {
         self.reload_if_changed().await;
         let archived = crate::sandbox::trashed_session(key)?;
         let cfg = self.config().await;

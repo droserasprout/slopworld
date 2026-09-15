@@ -4,6 +4,10 @@
 //! held in memory and gone when its grantor session goes.
 
 use std::collections::{HashMap, HashSet};
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc,
+};
 
 /// What a grant lets its holder do to the sessions it names.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -21,8 +25,7 @@ impl Level {
     }
 }
 
-/// A minted, scoped credential. Ephemeral: kept in memory keyed to `grantor` - the session
-/// whose life it rides - and dropped when that session is forgotten or the daemon restarts.
+/// An in-memory credential, revoked when its grantor or any target disappears.
 #[derive(Debug, Clone)]
 pub struct Grant {
     /// The session this grant's life is tied to. When it goes, the grant goes.
@@ -30,6 +33,8 @@ pub struct Grant {
     /// The sessions the holder may touch. A mint never puts a host session here.
     pub sessions: HashSet<String>,
     pub level: Level,
+    /// Every resolved copy shares revocation; scopes never change after minting.
+    pub(crate) revoked: Arc<AtomicBool>,
 }
 
 /// What `auth` resolved a request's token to. `Root` is the mod: every session, host ones
@@ -41,6 +46,13 @@ pub enum Cap {
 }
 
 impl Cap {
+    pub fn is_valid(&self) -> bool {
+        match self {
+            Cap::Root => true,
+            Cap::Scoped(g) => !g.revoked.load(Ordering::Acquire),
+        }
+    }
+
     pub fn principal(&self) -> Option<&str> {
         match self {
             Cap::Root => None,
@@ -54,7 +66,12 @@ impl Cap {
     pub fn allows(&self, session: &str, is_host: bool, need: Level) -> bool {
         match self {
             Cap::Root => true,
-            Cap::Scoped(g) => !is_host && g.level.satisfies(need) && g.sessions.contains(session),
+            Cap::Scoped(g) => {
+                self.is_valid()
+                    && !is_host
+                    && g.level.satisfies(need)
+                    && g.sessions.contains(session)
+            }
         }
     }
 
@@ -103,7 +120,25 @@ impl Grants {
     /// Drop every grant a session owned. Called when the session is forgotten, which is what
     /// makes the whole scheme ephemeral: no exit path leaves a live credential behind.
     pub fn revoke_grantor(&mut self, grantor: &str) {
-        self.by_token.retain(|_, g| g.grantor != grantor);
+        self.revoke_matching(|g| g.grantor == grantor);
+    }
+
+    /// Losing any target or the grantor revokes the entire grant before name reuse.
+    pub fn invalidate_session(&mut self, name: &str) -> bool {
+        self.revoke_matching(|g| g.grantor == name || g.sessions.contains(name))
+    }
+
+    fn revoke_matching(&mut self, matches: impl Fn(&Grant) -> bool) -> bool {
+        let mut changed = false;
+        self.by_token.retain(|_, grant| {
+            if matches(grant) {
+                grant.revoked.store(true, Ordering::Release);
+                changed = true;
+                return false;
+            }
+            true
+        });
+        changed
     }
 
     /// Grants the given session may touch, for the mod's readout. Not scoped by host-ness here:
@@ -146,6 +181,7 @@ mod tests {
             grantor: "g".into(),
             sessions: sessions.iter().map(|s| s.to_string()).collect(),
             level,
+            revoked: Default::default(),
         }
     }
 
@@ -212,11 +248,13 @@ mod tests {
             grantor: "alice".into(),
             sessions: HashSet::new(),
             level: Level::Ro,
+            revoked: Default::default(),
         });
         let b = grants.mint(Grant {
             grantor: "bob".into(),
             sessions: HashSet::new(),
             level: Level::Ro,
+            revoked: Default::default(),
         });
 
         grants.revoke_grantor("alice");
@@ -233,5 +271,31 @@ mod tests {
         let b = grants.mint(grant(&[], Level::Ro));
         assert_ne!(a, b);
         assert_eq!(a.len(), 32); // 16 bytes, hex
+    }
+
+    #[test]
+    fn losing_a_target_revokes_the_whole_grant_and_its_resolved_copies() {
+        let mut grants = Grants::default();
+        let target = grants.mint(Grant {
+            grantor: "alice".into(),
+            sessions: ["gone", "stays"].into_iter().map(str::to_string).collect(),
+            level: Level::Rw,
+            revoked: Default::default(),
+        });
+        let unrelated = grants.mint(Grant {
+            grantor: "bob".into(),
+            sessions: ["stays"].into_iter().map(str::to_string).collect(),
+            level: Level::Ro,
+            revoked: Default::default(),
+        });
+
+        let cap = grants.resolve(Some(&target), "root").unwrap();
+        assert!(cap.allows("stays", false, Level::Rw));
+        assert!(grants.invalidate_session("gone"));
+        assert!(!cap.is_valid());
+        assert!(!cap.allows("gone", false, Level::Ro));
+        assert!(!cap.allows("stays", false, Level::Ro));
+        assert!(grants.resolve(Some(&target), "root").is_none());
+        assert!(grants.resolve(Some(&unrelated), "root").is_some());
     }
 }

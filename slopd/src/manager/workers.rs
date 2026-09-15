@@ -24,6 +24,17 @@ impl Manager {
         body: String,
         durable: bool,
     ) -> Result<WorkerSpawn> {
+        self.session_operation(self.spawn_worker_within_boundary(caller, parent, body, durable))
+            .await
+    }
+
+    async fn spawn_worker_within_boundary(
+        self: &Arc<Self>,
+        caller: String,
+        parent: String,
+        body: String,
+        durable: bool,
+    ) -> Result<WorkerSpawn> {
         let _spawn = self.worker_spawn.lock().await;
         self.reload_if_changed().await;
         let cfg = self.config().await;
