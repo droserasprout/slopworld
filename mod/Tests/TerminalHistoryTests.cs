@@ -8,6 +8,7 @@ namespace SlopWorld.Tests
     {
         public static IEnumerable<(string Name, Action Body)> Cases()
         {
+            yield return ("freezes the entire displayed scrollback during streaming", FreezesDisplayedView);
             yield return ("copies a selection across viewports in either direction", CopiesSelection);
             yield return ("refuses selection gaps and preserves displayed text", SelectionGaps);
             yield return ("stitches skipped offsets from overlapping viewports", StitchesOverlap);
@@ -16,7 +17,7 @@ namespace SlopWorld.Tests
             yield return ("retains history across an in-place live refresh", RetainsLiveRefresh);
             yield return ("preserves a deep assembled view across unrelated live refreshes",
                 PreservesDeepViewAcrossLiveRefresh);
-            yield return ("refreshes live rows in a shallow history view",
+            yield return ("refreshes indexed live rows behind a shallow history view",
                 RefreshesShallowViewAcrossLiveRefresh);
             yield return ("refreshes the live overscan row at the history boundary",
                 RefreshesLiveOverscanRow);
@@ -37,6 +38,32 @@ namespace SlopWorld.Tests
             yield return ("history follows skipped frames and clears", SkippedFramesAndClear);
             yield return ("warmup retains coverage across redraws and resets", WarmupInvalidation);
             yield return ("aggressive prefetch covers fast gestures without gaps", AggressivePrefetch);
+        }
+
+        static void FreezesDisplayedView()
+        {
+            foreach (bool extra in new[] { false, true })
+            {
+                var live = Frame(0, "live-0", "live-1", "live-2");
+                var history = new TerminalHistory();
+                history.Reset(live);
+                history.Add(Frame(2, "old-2", "old-1", "live-0"), live, 2);
+                AssertEx.True(history.TryView(1, extra, out var before, freeze: true), "view ready");
+                var refresh = Frame(0, "new-0", "new-1", "new-2");
+                refresh.Seq++;
+                history.UpdateLive(refresh, 0);
+                var reply = Frame(2, "corrected-2", "old-1", "new-0");
+                reply.Seq = refresh.Seq;
+                history.Add(reply, refresh, 2);
+                AssertEx.True(history.TryView(1, extra, out var after, freeze: true), "view retained");
+                AssertEx.True(object.ReferenceEquals(before, after), "all displayed rows stay frozen");
+                history.UpdateLive(Frame(0, "new-1", "new-2", "new-3"), 1);
+                AssertEx.True(history.TryView(2, extra, out var shifted, freeze: true), "translated view retained");
+                AssertEx.True(object.ReferenceEquals(before, shifted), "scroll preserves the snapshot");
+                history.ReleaseView();
+                AssertEx.True(history.TryView(0, false, out var current), "live edge ready");
+                AssertEx.Equal("new-3", current.Lines[2], "returning live shows latest output");
+            }
         }
 
         static ScreenBuf Frame(int off, params string[] lines) => new ScreenBuf

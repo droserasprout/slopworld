@@ -24,6 +24,7 @@ namespace SlopWorld
                 DrainReplies(hub, live);
                 if (_panel._scrollOff <= 0)
                 {
+                    _panel._history.ReleaseView();
                     _panel._historyViewReady = false;
                     _panel.SyncSelectionOffset(0);
                     return live;
@@ -36,7 +37,7 @@ namespace SlopWorld
                 bool extra = Mathf.Abs(lines - Mathf.Round(lines)) > 0.0001f;
                 float viewStarted = _panel.ScrollDebugTimer();
                 _panel._historyViewReady = _panel._history.TryView(
-                    anchor, extra, out var displayed);
+                    anchor, extra, out var displayed, freeze: true);
                 _panel.ScrollDebugTryView(viewStarted);
                 _panel.ScrollDebugDisplayable(anchor, displayed, _panel._historyViewReady);
                 displayed = displayed ?? _panel._historyDisplayedFrame ?? live;

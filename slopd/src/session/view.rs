@@ -155,6 +155,7 @@ mod tests {
         let frame = Frame {
             lines: vec!["one".into(), "two".into()],
             content_hash: 0,
+            activity_hash: 0,
             history: 0,
             cx: 7,
             cy: 3,
@@ -198,6 +199,7 @@ mod tests {
         let frame = Frame {
             lines: vec!["one".into(), "two".into()],
             content_hash: 0,
+            activity_hash: 0,
             history: 0,
             cx: 0,
             cy: 0,

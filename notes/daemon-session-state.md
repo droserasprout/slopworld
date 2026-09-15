@@ -8,7 +8,10 @@ order. Waiting/Idle matches are authoritative. Working matches still decay witho
 agent TUIs can leave stale interrupt indicators visible indefinitely. A live row caches the
 match for its stripped text and rules revision; the activity-age decision is evaluated separately.
 
-Content/mode/title changes update `last_change`; cursor-position-only redraws do not.
+Activity uses a separate content hash from rendering. Faint single-dot Braille particles in
+near-background gray (observed in Codex's prompt animation) normalize to background spaces
+for activity only; real text, other Braille and visible style changes remain activity.
+Mode/title changes also update `last_change`; cursor position, shape and blink-only redraws do not.
 `state_since` is separate and changes only on transitions through `Live::set_state`.
 Retick discards classifications if the run, frame sequence, state, or rules revision changed
 while it awaited the rules lock; stale snapshots must not mark newer frames as classified.
