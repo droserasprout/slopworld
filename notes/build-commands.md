@@ -7,6 +7,9 @@ The mod links against a real RimWorld install. Debug and release overwrite the s
 `mod/Assemblies/SlopWorld.dll`; `lint-mod` rebuilds Release. Do not infer the installed
 assembly's build mode from its path.
 
+`make validate-themes` checks every shipped UI and terminal TOML catalog file; `mod`,
+`test-mod`, and `lint-mod` depend on it.
+
 Mod installation stages and replaces only its destination through the Rust installer.
 Adding a shipped top-level directory requires updating
 `slopd/src/bin/slopworld/mod_install.rs`, not only build output.

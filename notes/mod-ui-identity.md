@@ -4,6 +4,12 @@
 stable IDs, not picker labels. Match UI intentionally couples the terminal palette to chrome;
 explicit terminal choices remain independent.
 
+Shipped palettes live one theme per file under `mod/Themes/UI/` and `mod/Themes/Terminal/`.
+`ThemeCatalog` loads those files at runtime; optional contiguous `order` fields pin the three
+SlopWorld themes first, while all other IDs sort alphabetically. `make validate-themes` rejects
+duplicate IDs, missing roles, invalid colors, and ANSI rows other than 16 before the mod is built.
+`Well` and `Sel` remain derived roles, and the solarized Match UI alias remains in code.
+
 Named upstream palettes must preserve their values and roles. Adapt missing widget roles
 explicitly rather than silently altering upstream colors to satisfy contrast checks.
 [Palette references](reference-original-palettes.md) record source values and fidelity gaps;

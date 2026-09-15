@@ -1,4 +1,4 @@
-.PHONY: daemon mod bench-daemon bench-report loc-report test-wire-contract test-daemon test-mod coverage coverage-daemon coverage-mod test-prose \
+.PHONY: daemon mod validate-themes bench-daemon bench-report loc-report test-wire-contract test-daemon test-mod coverage coverage-daemon coverage-mod test-prose \
 	appicon icons emoji-atlas reference api-contract api-docs scheme-report harmony clean
 
 ##
@@ -23,7 +23,14 @@ bench-mod: api-contract ## Benchmark C# helpers without RimWorld or Unity
 test-wire-contract: api-contract ## Test generated Rust envelope declarations
 	@$(PYTHON) tools/test_wire_contract.py
 
-mod: daemon        ## Build the mod against the game's assemblies
+validate-themes: ## Validate the shipped UI and terminal theme catalogs
+	@$(PYTHON) tools/validate_themes.py
+
+.PHONY: test-themes
+test-themes: validate-themes ## Test theme catalog build validation
+	@$(PYTHON) tools/test_validate_themes.py
+
+mod: daemon validate-themes        ## Build the mod against the game's assemblies
 	@test -f "$(CSC_API)/mscorlib.dll" || { echo "missing Mono reference assemblies under $(CSC_API)" >&2; exit 1; }
 	@test -f "$(MANAGED)/Assembly-CSharp.dll" || { echo "missing RimWorld assemblies under $(MANAGED)" >&2; exit 1; }
 	@version="$(VERSION)"; \
@@ -41,7 +48,7 @@ mod: daemon        ## Build the mod against the game's assemblies
 test-daemon: api-contract test-wire-contract
 	@cd slopd && $(CARGO) test --quiet
 
-test-mod: api-contract test-wire-contract
+test-mod: api-contract test-wire-contract test-themes
 	@$(DOTNET) run --project "$(TEST_PROJECT)" --configuration Release -- --quiet
 
 .PHONY: test-pager
