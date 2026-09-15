@@ -9,6 +9,33 @@ namespace SlopWorld.Tests
     {
         public static void Messages()
         {
+            AssertEx.True(HubWire.TryLiveScreenName(
+                "{\"screen\":{\"request_id\":0,\"name\":\"agent\\u002d1\",\"off\":0," +
+                "\"nested\":{\"ok\":true}},\"t\":\"screen\"}", out var escapedName),
+                "structural envelope accepts property order and escapes");
+            AssertEx.Equal("agent-1", escapedName, "escaped live name");
+            AssertEx.False(HubWire.TryLiveScreenName(
+                "{\"t\":\"screen\",\"screen\":{\"name\":\"agent\",\"off\":0," +
+                "\"request_id\":0,}}", out _),
+                "malformed envelope reaches full parser");
+            AssertEx.False(HubWire.TryLiveScreenName(
+                "{\"t\":\"screen\",\"screen\":{\"name\":\"agent\",\"off\":0," +
+                "\"off\":1,\"request_id\":0}}", out _),
+                "ambiguous envelope reaches full parser");
+
+            const string invalid = "{\"t\":\"screen\",\"screen\":{\"name\":\"a\",\"lines\":[\"bad\\q\"]}}";
+            AssertEx.False(HubWire.TryLiveScreenName(invalid, out _),
+                           "malformed skipped strings cannot coalesce");
+            AssertEx.True(HubWire.TryLiveScreenName(
+                "{ \"t\" : \"screen\", \"screen\" : { \"name\" : \"a\", " +
+                "\"off\" : 0, \"nested\" : { \"a\" : 1, \"b\" : [null, false] } } }", out _),
+                "whitespace and skipped nested values use the same grammar");
+
+            AssertEx.False(HubWire.TryLiveScreenName(
+                "{\"t\":\"screen\",\"screen\":{\"name\":\"a\",\"extra\":" +
+                new string('[', 128) + "0" + new string(']', 128) + "}}", out _),
+                "manual envelope fields count toward the shared depth limit");
+
             var batch = new HubEventBatch();
             var queue = new ConcurrentQueue<string>();
             int errors = 0;
@@ -38,6 +65,49 @@ namespace SlopWorld.Tests
             AssertEx.Equal(true, batch.ShouldDispatch(2), "coalescing indices reset");
             AssertEx.Equal(0, batch.Read(queue, onError), "return to idle");
             AssertEx.Equal(0, batch.Count, "no stale payload on idle frame");
+
+            var malformedThenLive = new ConcurrentQueue<string>();
+            malformedThenLive.Enqueue(
+                "{\"t\":\"screen\",\"id\":8,\"screen\":{\"name\":\"a\",\"off\":0," +
+                "\"request_id\":0},}");
+            malformedThenLive.Enqueue(Screen("a", 9));
+            AssertEx.Equal(2, batch.Read(malformedThenLive, onError),
+                           "ambiguous and valid messages consume the batch");
+            var safeDelivery = new List<int>();
+            for (int i = 0; i < batch.Count; i++)
+                if (batch.ShouldDispatch(i) && batch[i] != null)
+                    safeDelivery.Add(batch[i]["id"].AsInt());
+            AssertEx.Equal("9", string.Join(",", safeDelivery),
+                           "ambiguous older frame cannot suppress a valid newer frame");
+
+            // A malformed newer frame must not replace a valid one at either queue layer.
+            var malformedQueue = new IncomingMessageQueue();
+            malformedQueue.Enqueue(Screen("a", 10));
+            malformedQueue.Enqueue(invalid);
+            AssertEx.Equal(2, malformedQueue.Count, "malformed frame retains the valid queued screen");
+            errors = 0;
+            batch.Read(malformedQueue, onError);
+            AssertEx.Equal(1, errors, "malformed frame reaches main-thread error handling");
+            AssertEx.True(batch.ShouldDispatch(0), "valid earlier screen is still delivered");
+            AssertEx.Equal(10, batch[0]["id"].AsInt(), "retained valid screen");
+            AssertEx.False(batch.ShouldDispatch(1), "malformed frame is not dispatched");
+
+            // Duplicate keys are ambiguous to the envelope reader; full parsing resolves them
+            // before coalescing, in either arrival order, including a final history response.
+            string ambiguous = "{\"t\":\"screen\",\"id\":11,\"screen\":{\"name\":\"a\",\"off\":2,\"off\":0}}";
+            foreach (bool ambiguousLast in new[] { false, true })
+            {
+                queue.Enqueue(ambiguousLast ? Screen("a", 12) : ambiguous);
+                queue.Enqueue("{\"t\":\"status\",\"id\":13}");
+                queue.Enqueue(ambiguousLast ? ambiguous : Screen("a", 12));
+                queue.Enqueue(ambiguous.Replace("\"off\":2,\"off\":0", "\"off\":0,\"off\":2"));
+                batch.Read(queue, onError);
+                AssertEx.False(batch.ShouldDispatch(0), "older live screen is superseded");
+                AssertEx.True(batch.ShouldDispatch(1), "interleaved control survives");
+                AssertEx.True(batch.ShouldDispatch(2), "newer live screen wins");
+                AssertEx.Equal(ambiguousLast ? 11 : 12, batch[2]["id"].AsInt(), "arrival order wins");
+                AssertEx.True(batch.ShouldDispatch(3), "ambiguous history response survives");
+            }
 
             var bounded = new IncomingMessageQueue();
             AssertEx.Equal(IncomingEnqueueResult.Accepted,

@@ -38,152 +38,10 @@ namespace SlopWorld
 
         public static JVal Parse(string s)
         {
-            int i = 0;
-            var v = ParseValue(s, ref i);
-            return v;
-        }
-
-        static void SkipWs(string s, ref int i)
-        {
-            while (i < s.Length && char.IsWhiteSpace(s[i])) i++;
-        }
-
-        static JVal ParseValue(string s, ref int i)
-        {
-            SkipWs(s, ref i);
-            if (i >= s.Length) return Null;
-
-            switch (s[i])
-            {
-                case '{': return ParseObject(s, ref i);
-                case '[': return ParseArray(s, ref i);
-                case '"': return new JVal { Str = ParseString(s, ref i) };
-                // Matched rather than assumed: advancing past a literal that is not there
-                // lands the cursor mid-token, and the container loops read whatever it
-                // points at next as the separator - which turns one truncated value into a
-                // silently wrong object rather than a missing one.
-                case 't':
-                    return Literal(s, ref i, "true")
-                    ? new JVal { Bool = true, IsBool = true } : Null;
-                case 'f':
-                    return Literal(s, ref i, "false")
-                    ? new JVal { Bool = false, IsBool = true } : Null;
-                case 'n': Literal(s, ref i, "null"); return Null;
-                default: return ParseNumber(s, ref i);
-            }
-        }
-
-        static bool Literal(string s, ref int i, string word)
-        {
-            if (string.CompareOrdinal(s, i, word, 0, word.Length) != 0) return false;
-            i += word.Length;
-            return true;
-        }
-
-        static JVal ParseObject(string s, ref int i)
-        {
-            var o = new Dictionary<string, JVal>();
-            i++; // {
-            SkipWs(s, ref i);
-            if (i < s.Length && s[i] == '}') { i++; return new JVal { Obj = o }; }
-
-            while (i < s.Length)
-            {
-                SkipWs(s, ref i);
-                if (i >= s.Length || s[i] != '"') break;
-                string key = ParseString(s, ref i);
-                SkipWs(s, ref i);
-                if (i < s.Length && s[i] == ':') i++;
-                o[key] = ParseValue(s, ref i);
-                SkipWs(s, ref i);
-                if (i < s.Length && s[i] == ',') { i++; continue; }
-                if (i < s.Length && s[i] == '}') { i++; break; }
-                break;
-            }
-            return new JVal { Obj = o };
-        }
-
-        static JVal ParseArray(string s, ref int i)
-        {
-            var a = new List<JVal>();
-            i++; // [
-            SkipWs(s, ref i);
-            if (i < s.Length && s[i] == ']') { i++; return new JVal { Arr = a }; }
-
-            while (i < s.Length)
-            {
-                a.Add(ParseValue(s, ref i));
-                SkipWs(s, ref i);
-                if (i < s.Length && s[i] == ',') { i++; continue; }
-                if (i < s.Length && s[i] == ']') { i++; break; }
-                break;
-            }
-            return new JVal { Arr = a };
-        }
-
-        static string ParseString(string s, ref int i)
-        {
-            i++; // opening quote
-            // Object keys and plain terminal rows need no escape decoding. Avoid the
-            // builder and its growing buffers until an actual escape is encountered.
-            int start = i;
-            while (i < s.Length && s[i] != '"' && s[i] != '\\') i++;
-            if (i == s.Length || s[i] == '"')
-            {
-                string plain = s.Substring(start, i - start);
-                i++;
-                return plain;
-            }
-            var sb = new StringBuilder();
-            sb.Append(s, start, i - start);
-            while (i < s.Length && s[i] != '"')
-            {
-                if (s[i] == '\\' && i + 1 < s.Length)
-                {
-                    i++;
-                    switch (s[i])
-                    {
-                        case 'n': sb.Append('\n'); break;
-                        case 't': sb.Append('\t'); break;
-                        case 'r': sb.Append('\r'); break;
-                        case 'b': sb.Append('\b'); break;
-                        case 'f': sb.Append('\f'); break;
-                        case '/': sb.Append('/'); break;
-                        case '\\': sb.Append('\\'); break;
-                        case '"': sb.Append('"'); break;
-                        case 'u':
-                            if (i + 4 < s.Length)
-                            {
-                                var hex = s.Substring(i + 1, 4);
-                                if (ushort.TryParse(hex, NumberStyles.HexNumber,
-                                                    CultureInfo.InvariantCulture, out var cp))
-                                    sb.Append((char)cp);
-                                i += 4;
-                            }
-                            break;
-                        default: sb.Append(s[i]); break;
-                    }
-                    i++;
-                }
-                else
-                {
-                    sb.Append(s[i]);
-                    i++;
-                }
-            }
-            i++; // closing quote
-            return sb.ToString();
-        }
-
-        static JVal ParseNumber(string s, ref int i)
-        {
-            int start = i;
-            while (i < s.Length && (char.IsDigit(s[i]) || s[i] == '-' || s[i] == '+' ||
-                                    s[i] == '.' || s[i] == 'e' || s[i] == 'E'))
-                i++;
-            double.TryParse(s.Substring(start, i - start), NumberStyles.Float,
-                            CultureInfo.InvariantCulture, out var d);
-            return new JVal { Num = d, IsNumber = true };
+            var reader = new JsonReader(s);
+            var value = reader.Value();
+            reader.Finish();
+            return value;
         }
 
         public static bool Equivalent(JVal left, JVal right)
@@ -314,5 +172,179 @@ namespace SlopWorld
         }
 
         public static string B(bool b) => b ? "true" : "false";
+    }
+    // One grammar for decoded values and allocation-free skipping of unneeded values.
+    // Envelopes use the same reader so malformed payloads cannot replace valid queued frames.
+    internal struct JsonReader
+    {
+        readonly string _text;
+        int _at;
+
+        internal JsonReader(string text) { _text = text ?? ""; _at = 0; }
+
+        char Peek()
+        {
+            while (_at < _text.Length && (_text[_at] == ' ' || _text[_at] == '\t' ||
+                _text[_at] == '\r' || _text[_at] == '\n')) _at++;
+            return _at < _text.Length ? _text[_at] : '\0';
+        }
+
+        internal bool Take(char token)
+        {
+            if (Peek() != token || _at == _text.Length) return false;
+            _at++;
+            return true;
+        }
+
+        internal void Expect(char token)
+        {
+            if (!Take(token)) throw Invalid();
+        }
+
+        internal void Finish()
+        {
+            Peek();
+            if (_at != _text.Length) throw Invalid();
+        }
+
+        // The closing delimiter is legal before the first item or after a value, never
+        // immediately after a comma. The next value/key reader rejects that trailing comma.
+        internal bool More(ref bool first, char end)
+        {
+            if (Take(end)) return false;
+            if (!first) Expect(',');
+            first = false;
+            return true;
+        }
+
+        internal JVal Value(bool decode = true, int depth = 0)
+        {
+            if (depth > 128) throw Invalid();
+            bool first = true;
+            switch (Peek())
+            {
+                case '{':
+                    _at++;
+                    var obj = decode ? new Dictionary<string, JVal>() : null;
+                    while (More(ref first, '}'))
+                    {
+                        string key = String(decode);
+                        Expect(':');
+                        var item = Value(decode, depth + 1);
+                        if (decode) obj[key] = item;
+                    }
+                    return decode ? new JVal { Obj = obj } : null;
+                case '[':
+                    _at++;
+                    var arr = decode ? new List<JVal>() : null;
+                    while (More(ref first, ']'))
+                    {
+                        var item = Value(decode, depth + 1);
+                        if (decode) arr.Add(item);
+                    }
+                    return decode ? new JVal { Arr = arr } : null;
+                case '"':
+                    string text = String(decode);
+                    return decode ? new JVal { Str = text } : null;
+                case 't':
+                case 'f':
+                case 'n':
+                    char kind = _text[_at];
+                    string literal = kind == 't' ? "true" : kind == 'f' ? "false" : "null";
+                    if (_text.Length - _at < literal.Length ||
+                        string.CompareOrdinal(_text, _at, literal, 0, literal.Length) != 0)
+                        throw Invalid();
+                    _at += literal.Length;
+                    return !decode ? null : kind == 'n' ? JVal.Null :
+                        new JVal { Bool = kind == 't', IsBool = true };
+                default:
+                    double number = Number(decode);
+                    return decode ? new JVal { Num = number, IsNumber = true } : null;
+            }
+        }
+
+        internal string String(bool decode = true)
+        {
+            Expect('"');
+            int start = _at;
+            StringBuilder builder = null;
+            while (true)
+            {
+                // Scan plain spans with a local cursor; decoding and skipping take the same
+                // fast path, without a builder check or field write for every character.
+                int end = _at;
+                while (end < _text.Length && _text[end] >= 0x20 &&
+                       _text[end] != '"' && _text[end] != '\\') end++;
+                _at = end;
+                if (_at == _text.Length) throw Invalid();
+                builder?.Append(_text, start, end - start);
+                char c = _text[_at++];
+                if (c == '"') return !decode ? null : builder == null ?
+                    _text.Substring(start, end - start) : builder.ToString();
+                if (c < 0x20) throw Invalid();
+                if (decode && builder == null)
+                {
+                    builder = new StringBuilder();
+                    builder.Append(_text, start, end - start);
+                }
+                if (_at == _text.Length) throw Invalid();
+                switch (c = _text[_at++])
+                {
+                    case '"': case '\\': case '/': break;
+                    case 'b': c = '\b'; break;
+                    case 'f': c = '\f'; break;
+                    case 'n': c = '\n'; break;
+                    case 'r': c = '\r'; break;
+                    case 't': c = '\t'; break;
+                    case 'u':
+                        if (_text.Length - _at < 4) throw Invalid();
+                        int cp = 0;
+                        for (int i = 0; i < 4; i++)
+                        {
+                            char hex = _text[_at++];
+                            int digit = hex >= '0' && hex <= '9' ? hex - '0' :
+                                hex >= 'a' && hex <= 'f' ? hex - 'a' + 10 :
+                                hex >= 'A' && hex <= 'F' ? hex - 'A' + 10 : -1;
+                            if (digit < 0) throw Invalid();
+                            cp = cp * 16 + digit;
+                        }
+                        c = (char)cp;
+                        break;
+                    default: throw Invalid();
+                }
+                builder?.Append(c);
+                start = _at;
+            }
+        }
+
+        bool Digit() => _at < _text.Length && _text[_at] >= '0' && _text[_at] <= '9';
+
+        void Digits()
+        {
+            if (!Digit()) throw Invalid();
+            while (Digit()) _at++;
+        }
+
+        internal double Number(bool decode = true)
+        {
+            Peek();
+            int start = _at;
+            if (_at < _text.Length && _text[_at] == '-') _at++;
+            if (_at < _text.Length && _text[_at] == '0') _at++;
+            else Digits();
+            if (_at < _text.Length && _text[_at] == '.') { _at++; Digits(); }
+            if (_at < _text.Length && (_text[_at] == 'e' || _text[_at] == 'E'))
+            {
+                _at++;
+                if (_at < _text.Length && (_text[_at] == '+' || _text[_at] == '-')) _at++;
+                Digits();
+            }
+            if (!decode) return 0;
+            double.TryParse(_text.Substring(start, _at - start), NumberStyles.Float,
+                            CultureInfo.InvariantCulture, out var value);
+            return value;
+        }
+
+        FormatException Invalid() => new FormatException("Invalid JSON at offset " + _at);
     }
 }

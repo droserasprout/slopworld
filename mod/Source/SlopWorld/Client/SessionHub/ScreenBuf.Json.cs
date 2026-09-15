@@ -72,15 +72,17 @@ namespace SlopWorld
             else
             {
                 Runs = null;
+                AutoLinks = null;
+                BaseRuns = null;
+                BaseRunsRev = -1;
                 RunsRev = -1;
                 RunsComplete = false;
             }
 
-            // A known URL screen is reparsed globally when its text changes so links spanning
-            // physical rows remain correct. A screen previously known to contain no URL only
-            // needs candidate checks in rows that changed.
+            // Link knowledge describes the last parse, not the last received frame. A replay
+            // before the next draw must not mark an unparsed edit as already inspected.
             HasLinks = previousHasLinks;
-            LinksKnown = !contentChanged && previousSeq >= 0;
+            LinksKnown = LinksKnown && !contentChanged;
             // A subscription replay can update the retained buffer without advancing the
             // daemon sequence. It is a new observation of the same live epoch, not rows that
             // scrolled while this tab was away; only a strictly newer frame may move history.

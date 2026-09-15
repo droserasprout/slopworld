@@ -145,11 +145,9 @@ impl Manager {
             self.host_metadata_checked
                 .store(now, std::sync::atomic::Ordering::Relaxed);
         }
-        let host_metadata_changed = if host_poll_due {
-            self.refresh_host_metadata().await
-        } else {
-            false
-        };
+        if host_poll_due {
+            self.start_host_metadata_poll().await;
+        }
 
         // Classification awaits the rules lock, so snapshot before releasing the live lock.
         let snapshot: Vec<RetickSnapshot> = {
@@ -209,7 +207,7 @@ impl Manager {
             }
         }
 
-        if dirty_list || host_metadata_changed {
+        if dirty_list {
             self.announce_sessions().await;
         }
         crate::perf::count("retick-classified", classified as u64);

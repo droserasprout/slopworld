@@ -42,10 +42,19 @@ namespace SlopWorld
         // Which palette the runs were parsed against; a scheme change re-parses them.
         public int RunsRev = -1;
         public bool RunsComplete;
+        // ANSI parsing is independent of screen-wide autolink decoration. Keeping the base
+        // rows separate lets a sparse URL edit rebuild only the connected link span.
+        public List<SgrRun>[] BaseRuns;
+        public int BaseRunsRev = -1;
+
+        // Immutable link spans from the last parse, shared by snapshots. Comparing the next
+        // spans also invalidates unchanged rows of URLs edited while this tab was not drawn.
+        internal List<UrlScan.Span>[] AutoLinks;
 
         // The history row cache needs a stable live frame while the streamed buffer continues
         // to receive output. Keep parsed runs shared; FromJson replaces them only on the mutable
-        // source buffer.
+        // source buffer. Copy incomplete arrays so lazy parsing can fill their null slots
+        // independently in the source and snapshot.
         public ScreenBuf Snapshot()
         {
             return new ScreenBuf
@@ -70,9 +79,12 @@ namespace SlopWorld
                 AltScreen = AltScreen,
                 Title = Title,
                 Lines = Lines == null ? new string[0] : (string[])Lines.Clone(),
-                Runs = Runs,
+                Runs = RunsComplete || Runs == null ? Runs : (List<SgrRun>[])Runs.Clone(),
                 RunsRev = RunsRev,
                 RunsComplete = RunsComplete,
+                BaseRuns = BaseRuns,
+                BaseRunsRev = BaseRunsRev,
+                AutoLinks = AutoLinks,
             };
         }
     }

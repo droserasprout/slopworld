@@ -66,7 +66,7 @@ namespace SlopWorld
 
             // Classification happens before the queue lock so a blocked producer never holds
             // the lock while parsing. An ambiguous or malformed message is never coalesced.
-            HubEventBatch.TryLiveScreenName(text, out var liveName);
+            HubWire.TryLiveScreenName(text, out var liveName);
             lock (_gate)
             {
                 while (!_closed)

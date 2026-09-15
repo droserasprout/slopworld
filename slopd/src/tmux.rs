@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::process::Stdio;
 
 use anyhow::{bail, Context, Result};
@@ -284,20 +285,22 @@ impl Tmux {
         })
     }
 
-    /// Read the cwd and foreground command together so a host metadata poll needs one tmux
-    /// query per pane. Empty fields stay independently absent: a usable path should still be
-    /// persisted when tmux gives us no command, and vice versa.
-    pub async fn current_host_metadata(&self, name: &str) -> Option<HostMetadata> {
-        self.run(&[
-            "display-message",
-            "-p",
-            "-t",
-            &format!("{name}:.0"),
-            "#{n:pane_current_path}:#{pane_current_path}#{n:pane_current_command}:#{pane_current_command}",
-        ])
-        .await
-        .ok()
-        .and_then(|metadata| parse_host_metadata(&metadata))
+    /// Batch the same panes targeted by `name:.0`: pane zero of each session's current
+    /// window. Other panes/windows must never overwrite the managed terminal's cwd.
+    pub async fn current_host_metadata_all(&self) -> Result<HashMap<String, HostMetadata>> {
+        let format = "#{n:session_name}:#{session_name}#{n:pane_current_path}:#{pane_current_path}#{n:pane_current_command}:#{pane_current_command}";
+        let output = self
+            .run(&[
+                "list-panes",
+                "-a",
+                "-f",
+                "#{&&:#{window_active},#{==:#{pane_index},0}}",
+                "-F",
+                format,
+            ])
+            .await?;
+        parse_host_metadata_rows(&output)
+            .ok_or_else(|| anyhow::anyhow!("invalid tmux host metadata framing"))
     }
 
     pub async fn current_path(&self, name: &str) -> Option<String> {
@@ -577,6 +580,7 @@ fn clean_title(s: &str) -> String {
     s.chars().filter(|c| !c.is_control()).take(512).collect()
 }
 
+#[cfg(test)]
 fn parse_host_metadata(metadata: &str) -> Option<HostMetadata> {
     let (path, metadata) = parse_length_framed_field(metadata)?;
     let (command, trailing) = parse_length_framed_field(metadata)?;
@@ -589,6 +593,25 @@ fn parse_host_metadata(metadata: &str) -> Option<HostMetadata> {
     Some(HostMetadata { path, command })
 }
 
+fn parse_host_metadata_rows(mut output: &str) -> Option<HashMap<String, HostMetadata>> {
+    let mut rows = HashMap::new();
+    while !output.is_empty() {
+        let (name, rest) = parse_length_framed_field(output)?;
+        let name = name?;
+        let (path, rest) = parse_length_framed_field(rest)?;
+        let (command, rest) = parse_length_framed_field(rest)?;
+        if rest.is_empty() {
+            output = rest;
+        } else {
+            output = rest.strip_prefix('\n')?;
+        }
+        if path.is_some() || command.is_some() {
+            rows.insert(name, HostMetadata { path, command });
+        }
+    }
+    Some(rows)
+}
+
 /// tmux's `n:` format modifier reports a field's byte length. Framing values by that length
 /// keeps tabs, newlines and colons inside either value from changing where the next field starts.
 fn parse_length_framed_field(input: &str) -> Option<(Option<String>, &str)> {
@@ -598,13 +621,15 @@ fn parse_length_framed_field(input: &str) -> Option<(Option<String>, &str)> {
     let value_end = value_start.checked_add(length)?;
     let value = input.get(value_start..value_end)?;
     let rest = input.get(value_end..)?;
-    let value = (!value.trim().is_empty()).then(|| value.trim().to_string());
+    let value = (!value.is_empty()).then(|| value.to_string());
     Some((value, rest))
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{clean_title, parse_host_metadata, parse_pos, HostMetadata};
+    use super::{
+        clean_title, parse_host_metadata, parse_host_metadata_rows, parse_pos, HostMetadata,
+    };
 
     // Exercise the real transport against an isolated server, without starting the game.
     #[tokio::test]
@@ -780,6 +805,98 @@ for index, mode in enumerate((b'\x1b[?2004h', b'\x1b[?2004l')):
         assert_eq!(parse_host_metadata(""), None);
     }
 
+    #[tokio::test]
+    async fn host_metadata_batch_matches_target_panes_across_windows() {
+        let tmux = super::Tmux::new(format!("slop-metadata-{}", uuid::Uuid::new_v4()));
+        struct Cleanup(super::Tmux);
+        impl Drop for Cleanup {
+            fn drop(&mut self) {
+                let _ = std::process::Command::new("tmux")
+                    .args(["-L", &self.0.socket, "kill-server"])
+                    .output();
+            }
+        }
+        let _cleanup = Cleanup(tmux.clone());
+        tmux.run(&[
+            "-f",
+            "/dev/null",
+            "new-session",
+            "-d",
+            "-s",
+            "first",
+            "-c",
+            "/",
+        ])
+        .await
+        .unwrap();
+        tmux.run(&["split-window", "-t", "first:0", "-c", "/tmp"])
+            .await
+            .unwrap();
+        tmux.run(&["new-window", "-d", "-t", "first:1", "-c", "/tmp"])
+            .await
+            .unwrap();
+        tmux.run(&["new-session", "-d", "-s", "second", "-c", "/tmp"])
+            .await
+            .unwrap();
+
+        for window in ["first:0", "first:1"] {
+            tmux.run(&["select-window", "-t", window]).await.unwrap();
+            let rows = tmux.current_host_metadata_all().await.unwrap();
+            assert_eq!(rows.len(), 2, "one row per session, not per pane/window");
+            for name in ["first", "second"] {
+                let original = tmux.run(&[
+                    "display-message", "-p", "-t", &format!("{name}:.0"),
+                    "#{n:pane_current_path}:#{pane_current_path}#{n:pane_current_command}:#{pane_current_command}",
+                ]).await.unwrap();
+                assert_eq!(
+                    rows.get(name),
+                    parse_host_metadata(original.trim_end_matches('\n')).as_ref()
+                );
+            }
+        }
+        tmux.run(&["kill-session", "-t", "second"]).await.unwrap();
+        let rows = tmux.current_host_metadata_all().await.unwrap();
+        assert_eq!(rows.len(), 1);
+        assert!(rows.contains_key("first"));
+    }
+
+    #[test]
+    fn host_metadata_rows_are_framed_and_mapped_by_session() {
+        let first_path = "/work:repo\nwith-newline";
+        let first_command = "python -m server";
+        let second_command = "bash\n";
+        let output = format!(
+            "{}:{}{}:{}{}:{}\n{}:{}{}:{}{}:{}\n",
+            "first".len(),
+            "first",
+            first_path.len(),
+            first_path,
+            first_command.len(),
+            first_command,
+            "second".len(),
+            "second",
+            0,
+            "",
+            second_command.len(),
+            second_command,
+        );
+        let rows = parse_host_metadata_rows(&output).unwrap();
+        assert_eq!(
+            rows.get("first"),
+            Some(&HostMetadata {
+                path: Some(first_path.into()),
+                command: Some(first_command.into()),
+            })
+        );
+        assert_eq!(
+            rows.get("second"),
+            Some(&HostMetadata {
+                path: None,
+                command: Some(second_command.into()),
+            })
+        );
+    }
+
     #[test]
     fn host_metadata_parses_length_framed_fields_with_delimiters() {
         let path = "/work\trepo\nç";
@@ -789,7 +906,7 @@ for index, mode in enumerate((b'\x1b[?2004h', b'\x1b[?2004l')):
             parse_host_metadata(&answer),
             Some(HostMetadata {
                 path: Some(path.into()),
-                command: Some(command.trim().into()),
+                command: Some(command.into()),
             })
         );
     }

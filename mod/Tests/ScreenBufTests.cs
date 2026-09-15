@@ -26,6 +26,8 @@ namespace SlopWorld.Tests
             yield return ("does not shift across a changed viewport", IgnoresChangedViewport);
             yield return ("retains unchanged row metadata", RetainsUnchangedRows);
             yield return ("cursor-only frames retain the content revision", CursorOnlyRevision);
+            yield return ("incremental links match full parsing", IncrementalLinksMatchFullParse);
+            yield return ("link edits survive skipped renders and snapshots", LinksAcrossSkippedRenders);
         }
 
         static void OverlapReference()
@@ -276,6 +278,146 @@ namespace SlopWorld.Tests
 
             AssertEx.Equal(revision, screen.ContentRevision, "content revision is stable");
             AssertEx.Equal(0, screen.ChangedRows.Length, "no changed rows");
+        }
+
+        static void IncrementalLinksMatchFullParse()
+        {
+            const int cols = 12;
+            var initial = new[]
+            {
+                "https://exam",
+                "ple.com/path",
+                "/very/long  ",
+                "\x1b]8;;https://named.example\x07wide\x1b]8;;\x07",
+                "\U0001F916\x1b[3Gtail",
+            };
+            var edited = new[]
+            {
+                "https://exam",
+                "progress ",
+                "/very/long  ",
+                initial[3],
+                initial[4],
+            };
+            var cache = new TerminalRunCache();
+            var screen = Hydrate(1, cols, initial, 0);
+            var first = cache.Parse(screen, 1, 1, out _, out _);
+            screen.RunsRev = 1;
+            AssertRunsEqual(Sgr.ParseLines(initial, cols), first, "initial full parse");
+            var retained = screen.Snapshot();
+            var unchanged = screen.Runs[3];
+
+            screen.FromJson(Wire(2, cols, edited, 0));
+            var second = cache.Parse(screen, 1, 1, out _, out _);
+            screen.RunsRev = 1;
+            AssertRunsEqual(Sgr.ParseLines(edited, cols), second, "removed long link");
+            AssertRunsEqual(Sgr.ParseLines(initial, cols), retained.Runs, "snapshot stays old");
+            AssertEx.True(object.ReferenceEquals(unchanged, second[3]),
+                           "unrelated OSC 8 row is retained");
+            AssertEx.True(second[0] != first[0] && second[2] != first[2],
+                           "the whole removed URL span is rebuilt");
+
+            var joined = new[]
+            {
+                "https://exam",
+                "ple.com/path",
+                "/very/long  ",
+                initial[3],
+                initial[4],
+            };
+            screen.FromJson(Wire(3, cols, joined, 17));
+            var third = cache.Parse(screen, 1, 1, out _, out _);
+            screen.RunsRev = 1;
+            AssertRunsEqual(Sgr.ParseLines(joined, cols), third, "joined link after scroll");
+
+            var resized = new[] { "\x1b[31mhttps://exam", "ple.com" };
+            screen.FromJson(Wire(4, 16, resized, 0));
+            var fourth = cache.Parse(screen, 1, 1, out _, out _);
+            AssertRunsEqual(Sgr.ParseLines(resized, 16), fourth, "resize full parse");
+        }
+
+        static void LinksAcrossSkippedRenders()
+        {
+            const int cols = 12;
+            var initial = new[] { "https://exam", "ple.com/path", "/very/long  ", "plain" };
+            var edited = new[] { initial[0], "progress ", initial[2], initial[3] };
+            var cache = new TerminalRunCache();
+            var screen = Hydrate(1, cols, initial, 0);
+            cache.Parse(screen, 1, 1, out _, out _);
+            screen.RunsRev = 1;
+            var original = screen.Snapshot();
+            screen.FromJson(Wire(2, cols, edited, 0));
+            screen.FromJson(Wire(3, cols, edited, 0));
+            var pending = screen.Snapshot();
+            AssertRunsEqual(Sgr.ParseLines(edited, cols),
+                cache.Parse(screen, 1, 1, out _, out _), "edit then replay before render");
+            AssertRunsEqual(Sgr.ParseLines(edited, cols),
+                cache.Parse(pending, 1, 1, out _, out _), "snapshot of pending edits");
+            AssertRunsEqual(Sgr.ParseLines(initial, cols), original.Runs, "retained old snapshot");
+
+            // Exercise multiple accumulated edits, reversals, resize, history offsets and
+            // palette changes. Every parse must agree with the uncached whole-screen parser.
+            var random = new Random(42);
+            var lines = (string[])initial.Clone();
+            var choices = new[] { "https://exam", "ple.com/path", "/very/long  ", " ",
+                "progress", "\x1b[31mred", "\U0001F916\x1b[3Gtail",
+                "\x1b]8;;https://named.example\x07wide\x1b]8;;\x07" };
+            int seq = 3;
+            for (int round = 0; round < 80; round++)
+            {
+                int width = round % 3 == 0 ? 16 : cols;
+                for (int edit = 0; edit < 3; edit++)
+                {
+                    lines[random.Next(lines.Length)] = choices[random.Next(choices.Length)];
+                    screen.FromJson(Wire(++seq, width, lines, round % 2 == 0 ? 0 : 17));
+                }
+                var expected = Sgr.ParseLines(lines, width);
+                var retained = screen.Snapshot();
+                AssertRunsEqual(expected, cache.Parse(screen, round / 10, 1, out _, out _),
+                                "accumulated edits " + round);
+                screen.RunsRev = round / 10;
+                if (retained.Runs != null)
+                    foreach (int row in screen.ChangedRows)
+                        AssertEx.True(retained.Runs[row] == null,
+                                      "source parsing leaves pending snapshot slots untouched");
+                AssertRunsEqual(expected, cache.Parse(retained, round / 10, 1, out _, out _),
+                                "pending snapshot " + round);
+            }
+        }
+
+        static ScreenBuf Hydrate(int seq, int cols, string[] lines, int off)
+        {
+            var screen = new ScreenBuf();
+            screen.FromJson(Wire(seq, cols, lines, off));
+            return screen;
+        }
+
+        static JVal Wire(int seq, int cols, string[] lines, int off)
+        {
+            return JVal.Parse("{\"seq\":" + seq + ",\"cols\":" + cols +
+                ",\"rows\":" + lines.Length + ",\"off\":" + off +
+                ",\"lines\":[" + string.Join(",", System.Linq.Enumerable.Select(lines, JVal.Q)) + "]}");
+        }
+
+        static void AssertRunsEqual(List<SgrRun>[] expected, List<SgrRun>[] actual, string message)
+        {
+            AssertEx.Equal(expected.Length, actual.Length, message + " row count");
+            for (int row = 0; row < expected.Length; row++)
+            {
+                AssertEx.Equal(expected[row].Count, actual[row].Count, message + " run count " + row);
+                for (int i = 0; i < expected[row].Count; i++)
+                {
+                    var left = expected[row][i];
+                    var right = actual[row][i];
+                    AssertEx.Equal(left.Text, right.Text, message + " text " + row + ":" + i);
+                    AssertEx.Equal(left.Col, right.Col, message + " col " + row + ":" + i);
+                    AssertEx.Equal(left.Fg, right.Fg, message + " fg " + row + ":" + i);
+                    AssertEx.Equal(left.Bg, right.Bg, message + " bg " + row + ":" + i);
+                    AssertEx.Equal(left.HasBg, right.HasBg, message + " bg flag " + row + ":" + i);
+                    AssertEx.Equal(left.Bold, right.Bold, message + " bold " + row + ":" + i);
+                    AssertEx.Equal(left.Url, right.Url, message + " url " + row + ":" + i);
+                }
+            }
         }
     }
 }

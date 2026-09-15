@@ -12,6 +12,7 @@ namespace SlopWorld.Tests
             yield return ("round trips supplementary emoji", RoundTripsSupplementaryEmoji);
             yield return ("parses numbers and literals", ParsesNumbersAndLiterals);
             yield return ("parses all short string escapes", ParsesShortEscapes);
+            yield return ("decode and skip share strict JSON validation", ValidatesSkippedValues);
         }
 
         static void ParsesNestedValuesAndAccessors()
@@ -65,11 +66,44 @@ namespace SlopWorld.Tests
                            "surrogate pair survives the paste JSON shape");
         }
 
+        static void ValidatesSkippedValues()
+        {
+            foreach (string json in new[]
+            {
+                "{ \"a\" : 1, \"b\" : [true, false, null, {}, []] }",
+                "\"\\b\\f\\n\\r\\t\\/\\\\\\\"\\u002d\\ud83d\\ude06\"",
+                "[0, -0, 1.25, -12.5e+2, 1E-2]",
+            })
+            {
+                JVal.Parse(json);
+                var reader = new JsonReader(json);
+                reader.Value(false);
+                reader.Finish();
+            }
+            foreach (string json in new[]
+            {
+                "", "[", "{", "[1,]", "{\"a\":1,}", "{\"a\" 1}", "[1 2]",
+                "true false", "tru", "nul", "01", "-", "1.", "1e+", "+1", "1١",
+                "\"bad\\q\"", "\"bad\\u00xz\"", "\"bad\\u123\"", "\"unclosed",
+                "\"bad\ntext\"", "\"bad\\\ntext\"", "\u00a0null",
+                new string('[', 130) + new string(']', 130),
+            })
+            {
+                AssertEx.Throws<FormatException>(() => JVal.Parse(json), "reject decoded " + json);
+                AssertEx.Throws<FormatException>(() =>
+                {
+                    var reader = new JsonReader(json);
+                    reader.Value(false);
+                    reader.Finish();
+                }, "reject skipped " + json);
+            }
+        }
+
         static void ParsesShortEscapes()
         {
-            var value = JVal.Parse("\"\\b\\f\\/\\q\"").AsString();
+            var value = JVal.Parse("\"\\b\\f\\/\"").AsString();
 
-            AssertEx.Equal("\b\f/q", value, "backspace, formfeed, slash and fallback escapes");
+            AssertEx.Equal("\b\f/", value, "backspace, formfeed and slash escapes");
         }
     }
 }
