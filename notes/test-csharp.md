@@ -2,8 +2,12 @@
 
 `make test-mod` runs the game-free C# suite; `make test` includes it alongside the daemon
 and contract checks. `mod/Tests/SlopWorld.Tests.csproj` links selected production files
-into a dependency-free .NET 8 executable instead of loading the game-bound mod assembly.
-`Program.cs` is the current test inventory; the project file lists linked sources and
+into a .NET 8 executable using NUnit and NUnitLite instead of loading the game-bound mod assembly.
+`NUnitTestHarness.cs` discovers static test classes by their `Tests` suffix, exposing their
+`Cases()` entries and public parameterless void methods as individually named NUnit cases.
+The fixture runs without parallel execution; discovery sorts classes by name and methods by
+declaration metadata order. `AssertEx.cs` delegates assertions to NUnit.
+The project file lists linked sources and
 `TestSupport/` supplies narrow game, transport, and environment substitutes.
 
 Coverage includes settings persistence and drafts, JSON/TOML and wire models, terminal
@@ -11,6 +15,11 @@ parsing/history, transport buffering and reconnects, session rename reconciliati
 pager lifecycle, and pure layout/repaint policies. `Pager` and `Sgr` are linked directly;
 their external dependencies use test substitutes. `HubCatalogTests` and transport tests
 control callback order to exercise stale replies and lifecycle changes.
+
+`Program.cs` runs NUnitLite and defaults its work directory to the executable's output
+directory under `mod/Tests/bin/`, keeping `TestResult.xml` there even when invoked from
+the repository root. The make targets retain quiet summaries and nonzero failure status.
+Coverage excludes test and substitute sources, measuring linked production code.
 
 Keep test output under `mod/Tests/`, never `mod/Assemblies/`: RimWorld loads every DLL
 in that directory. Linking production helpers avoids duplicating their behavior in tests,
