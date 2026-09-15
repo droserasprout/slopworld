@@ -37,7 +37,7 @@ namespace SlopWorld
                     switch (key)
                     {
                         case "t":
-                            if (typeSeen || reader.String() != WireContract.Events.Screen) return false;
+                            if (typeSeen || reader.String() != WireProtocol.Events.Screen) return false;
                             typeSeen = true;
                             break;
                         case "screen":

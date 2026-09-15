@@ -139,12 +139,12 @@ impl Manager {
         // Create the PTY and emulator at the viewer's size before starting the command.
         if let (Some(cols), Some(rows)) = (want.cols, want.rows) {
             state.cols = cols.clamp(
-                crate::wire::TERMINAL_MIN_COLS,
-                crate::wire::TERMINAL_MAX_COLS,
+                crate::shared::protocol::TERMINAL_MIN_COLS,
+                crate::shared::protocol::TERMINAL_MAX_COLS,
             );
             state.rows = rows.clamp(
-                crate::wire::TERMINAL_MIN_ROWS,
-                crate::wire::TERMINAL_MAX_ROWS,
+                crate::shared::protocol::TERMINAL_MIN_ROWS,
+                crate::shared::protocol::TERMINAL_MAX_ROWS,
             );
         }
         state.ephemeral = true;

@@ -37,8 +37,8 @@ pub enum Unit {
 }
 
 crate::wire_enum!(Unit, {
-    Unit::Pct => crate::wire::enums::usage_unit::PCT,
-    Unit::Usd => crate::wire::enums::usage_unit::USD,
+    Unit::Pct => crate::shared::protocol::enums::usage_unit::PCT,
+    Unit::Usd => crate::shared::protocol::enums::usage_unit::USD,
 });
 
 /// Every rate-limit window is one of these, and so is the extra-usage budget -
@@ -668,14 +668,14 @@ mod tests {
         assert!(provider_enabled(&daemon, "openai"));
 
         daemon.usage_items.insert(
-            crate::wire::usage::OPENROUTER_BALANCE.into(),
+            crate::shared::usage::OPENROUTER_BALANCE.into(),
             crate::config::UsageItem {
                 poll: true,
                 interval_secs: None,
             },
         );
         daemon.usage_items.insert(
-            crate::wire::usage::CLAUDE_SESSION.into(),
+            crate::shared::usage::CLAUDE_SESSION.into(),
             crate::config::UsageItem {
                 poll: false,
                 interval_secs: None,

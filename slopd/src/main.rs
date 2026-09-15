@@ -17,13 +17,13 @@ mod process;
 mod runtime;
 mod sandbox;
 mod session;
+mod shared;
 mod tasks;
 mod title;
 mod tmux;
 mod usage;
 #[cfg(test)]
 mod version;
-mod wire;
 
 use std::sync::Arc;
 
@@ -206,7 +206,7 @@ mod tests {
         if let Some(token) = token {
             request
                 .headers_mut()
-                .insert(wire::TOKEN_HEADER, token.parse().unwrap());
+                .insert(shared::protocol::TOKEN_HEADER, token.parse().unwrap());
         }
         app.clone().oneshot(request).await.unwrap().status()
     }
@@ -229,8 +229,8 @@ mod tests {
             });
             let request = Request::builder()
                 .method("POST")
-                .uri(wire::routes::TASKS)
-                .header(wire::TOKEN_HEADER, &token)
+                .uri(shared::protocol::routes::TASKS)
+                .header(shared::protocol::TOKEN_HEADER, &token)
                 .header("content-type", "application/json")
                 .body(Body::from_stream(stream))
                 .unwrap();
@@ -243,7 +243,7 @@ mod tests {
             let revoke = Request::builder()
                 .method("DELETE")
                 .uri("/api/grants/grantor")
-                .header(wire::TOKEN_HEADER, "root-secret")
+                .header(shared::protocol::TOKEN_HEADER, "root-secret")
                 .body(Body::empty())
                 .unwrap();
             let response =
@@ -284,8 +284,8 @@ mod tests {
         ] {
             let request = Request::builder()
                 .method("POST")
-                .uri(wire::routes::TASKS)
-                .header(wire::TOKEN_HEADER, &token)
+                .uri(shared::protocol::routes::TASKS)
+                .header(shared::protocol::TOKEN_HEADER, &token)
                 .header("content-type", "application/json")
                 .body(Body::from(body))
                 .unwrap();
@@ -302,15 +302,15 @@ mod tests {
         let app = app(manager());
 
         assert_eq!(
-            get(&app, wire::routes::HEALTH, None).await,
+            get(&app, shared::protocol::routes::HEALTH, None).await,
             StatusCode::UNAUTHORIZED
         );
         assert_eq!(
-            get(&app, wire::routes::HEALTH, Some("wrong")).await,
+            get(&app, shared::protocol::routes::HEALTH, Some("wrong")).await,
             StatusCode::UNAUTHORIZED
         );
         assert_eq!(
-            get(&app, wire::routes::HEALTH, Some("root-secret")).await,
+            get(&app, shared::protocol::routes::HEALTH, Some("root-secret")).await,
             StatusCode::OK
         );
     }
@@ -325,15 +325,15 @@ mod tests {
         let app = app(manager);
 
         assert_eq!(
-            get(&app, wire::routes::HEALTH, Some(&scoped)).await,
+            get(&app, shared::protocol::routes::HEALTH, Some(&scoped)).await,
             StatusCode::OK
         );
         assert_eq!(
-            get(&app, wire::routes::USAGE, Some(&scoped)).await,
+            get(&app, shared::protocol::routes::USAGE, Some(&scoped)).await,
             StatusCode::FORBIDDEN
         );
         assert_eq!(
-            get(&app, wire::routes::USAGE, Some("root-secret")).await,
+            get(&app, shared::protocol::routes::USAGE, Some("root-secret")).await,
             StatusCode::OK
         );
     }
@@ -354,12 +354,12 @@ mod tests {
             axum::serve(listener, app).await.unwrap();
         });
 
-        let mut request = format!("ws://{address}{}", wire::WS_PATH)
+        let mut request = format!("ws://{address}{}", shared::protocol::WS_PATH)
             .into_client_request()
             .unwrap();
         request
             .headers_mut()
-            .insert(wire::TOKEN_HEADER, scoped.parse().unwrap());
+            .insert(shared::protocol::TOKEN_HEADER, scoped.parse().unwrap());
         let (mut socket, _) = tokio_tungstenite::connect_async(request).await.unwrap();
 
         let initial = tokio::time::timeout(std::time::Duration::from_secs(1), socket.next())
@@ -386,8 +386,8 @@ mod tests {
 
         let revoke = Request::builder()
             .method("DELETE")
-            .uri(format!("{}/grantor", wire::routes::GRANTS))
-            .header(wire::TOKEN_HEADER, "root-secret")
+            .uri(format!("{}/grantor", shared::protocol::routes::GRANTS))
+            .header(shared::protocol::TOKEN_HEADER, "root-secret")
             .body(Body::empty())
             .unwrap();
         assert_eq!(
@@ -461,12 +461,12 @@ mod tests {
                     let server = tokio::spawn(async move {
                         axum::serve(listener, app).await.unwrap();
                     });
-                    let mut request = format!("ws://{address}{}", wire::WS_PATH)
+                    let mut request = format!("ws://{address}{}", shared::protocol::WS_PATH)
                         .into_client_request()
                         .unwrap();
                     request
                         .headers_mut()
-                        .insert(wire::TOKEN_HEADER, token.parse().unwrap());
+                        .insert(shared::protocol::TOKEN_HEADER, token.parse().unwrap());
                     let (mut socket, _) = tokio_tungstenite::connect_async(request).await.unwrap();
                     let initial = socket.next().await.unwrap().unwrap();
                     assert!(

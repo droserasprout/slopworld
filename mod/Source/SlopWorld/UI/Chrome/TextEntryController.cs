@@ -281,7 +281,7 @@ namespace SlopWorld
                 return;
             }
 
-            string path = primary ? WireContract.Routes.ClipboardPrimaryText : WireContract.Routes.ClipboardText;
+            string path = primary ? WireProtocol.Routes.ClipboardPrimaryText : WireProtocol.Routes.ClipboardText;
             DaemonClient.Get(path,
                 j => QueuePaste(name, controlId, j["text"].AsString(), area, owner),
                 _ =>

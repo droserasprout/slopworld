@@ -1,0 +1,38 @@
+version: 1
+
+constants:
+  endpoint_host: 127.0.0.1
+  endpoint_port: 7717
+  temp_root: /tmp/slopworld
+  scrollback_lines: 10000
+  usage_poll_secs: 60
+  default_claude_credentials: ~/.claude/.credentials.json
+  default_openai_credentials: ~/.codex/auth.json
+  default_title_model: google/gemini-3.1-flash-lite
+  default_title_min_chars: 20
+  default_agent: claude
+  default_agent_shell: bash
+  default_shell: bash
+  default_pager: less
+  default_editor: micro
+  default_highlighter: "highlight --out-format=xterm256"
+  default_instructions_mount_path: SLOPWORLD.md
+  default_summary_prompt: >-
+    Summarise this coding request in at most 6 words for a session title. Reply
+    with only the title, without quotes, punctuation, or commentary.
+  default_instructions_breadcrumb: >-
+    Read `{{ mount_path }}` for SlopWorld runtime context. It is a generated
+    snapshot, not project instructions. When delegating, send work once and use
+    `slopctl wait ID` for the result; do not poll `task`, `inbox`, or `status`.
+  default_worker_prompt: >-
+    You are a SlopWorld worker. Your assigned task ID is $SLOPWORLD_TASK_ID. Run
+    `slopctl task "$SLOPWORLD_TASK_ID"` once, then `slopctl accept
+    "$SLOPWORLD_TASK_ID"`. Use `slopctl progress "$SLOPWORLD_TASK_ID" "note"` while
+    working and conclude with `slopctl finish "$SLOPWORLD_TASK_ID" "result"` or `slopctl
+    fail "$SLOPWORLD_TASK_ID" "reason"`. Do not search the inbox or poll task status.
+
+
+    Worker task: use `$SLOPWORLD_TASK_ID` with `slopctl task`, then `accept`,
+    `progress`, and finally `finish` or `fail`. Do not search the inbox or poll task
+    status.
+  default_instructions_breadcrumb_enabled: true

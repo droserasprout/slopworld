@@ -2,7 +2,7 @@ use super::format::{emit, print_json, print_status, print_task};
 use super::http::{request, status_value, Endpoint};
 use super::logs::LOGS_USAGE;
 use super::{HOST, TASK_WAIT_INTERVAL};
-use crate::wire::{enums::task_status, routes};
+use crate::shared::protocol::{enums::task_status, routes};
 use serde_json::{json, Value};
 use std::thread;
 use std::time::Duration;

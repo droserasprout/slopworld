@@ -6,7 +6,7 @@ use axum::{Extension, Json};
 use serde_json::{json, Value};
 
 use crate::grant::{Cap, Level};
-use crate::wire::SESSION_HEADER;
+use crate::shared::protocol::SESSION_HEADER;
 
 use super::super::types::*;
 use super::{err, guard, guard_create, ApiResult, Mgr};

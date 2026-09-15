@@ -67,7 +67,7 @@ namespace SlopWorld
             string key = _key;
             int operation = draft.BeginOperation();
             if (refreshHealth) SessionHub.Instance.RefreshHealth();
-            DaemonClient.Get(WireContract.Routes.Config,
+            DaemonClient.Get(WireProtocol.Routes.Config,
                 j =>
                 {
                     if (!IsCurrent(key, draft, operation)) return;
@@ -99,7 +99,7 @@ namespace SlopWorld
             string patch = draft.Config.ToPatchJson(draft.BaselineJson);
             var submittedTexts = draft.TextSnapshot();
 
-            DaemonClient.Put(WireContract.Routes.ConfigPatch, patch,
+            DaemonClient.Put(WireProtocol.Routes.ConfigPatch, patch,
                 _ =>
                 {
                     if (!IsCurrent(key, draft, operation)) return;

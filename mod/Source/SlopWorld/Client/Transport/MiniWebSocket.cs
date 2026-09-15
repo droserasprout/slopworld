@@ -217,7 +217,7 @@ namespace SlopWorld
                 req.Append($"Sec-WebSocket-Key: {key}\r\n");
                 req.Append("Sec-WebSocket-Version: 13\r\n");
                 if (!string.IsNullOrEmpty(token))
-                    req.Append($"{WireContract.TokenHeader}: {token}\r\n");
+                    req.Append($"{WireProtocol.TokenHeader}: {token}\r\n");
                 req.Append("\r\n");
 
                 var bytes = Encoding.ASCII.GetBytes(req.ToString());

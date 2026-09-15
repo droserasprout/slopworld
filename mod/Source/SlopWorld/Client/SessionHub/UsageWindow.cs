@@ -11,7 +11,7 @@ namespace SlopWorld
         // Percent of the window spent, 0-100. Always sent, money row included.
         public float Pct;
         // A unit this build does not know reads as a percentage.
-        public string Unit = WireContract.UsageUnit.Pct;
+        public string Unit = WireProtocol.UsageUnit.Pct;
         // -1 when the daemon sent no figure, which leaves the row a percentage.
         public float Amount = -1f;
         // What Amount is out of; -1 if unsaid.
@@ -20,6 +20,6 @@ namespace SlopWorld
         public long ResetsIn = -1;
 
         // Both halves are required: a unit with no figure under it has nothing to spend.
-        public bool IsMoney => Unit == WireContract.UsageUnit.Usd && Amount >= 0f;
+        public bool IsMoney => Unit == WireProtocol.UsageUnit.Usd && Amount >= 0f;
     }
 }

@@ -1,0 +1,28 @@
+version: 1
+
+usage:
+  keys:
+    claude_session:
+      provider: anthropic
+      unit: pct
+      rank: 0
+    claude_week:
+      provider: anthropic
+      unit: pct
+      rank: 1
+    claude_spend:
+      provider: anthropic
+      unit: pct
+      rank: 5
+    openai_session:
+      provider: openai
+      unit: pct
+      rank: 2
+    openai_week:
+      provider: openai
+      unit: pct
+      rank: 3
+    openrouter_balance:
+      provider: openrouter
+      unit: usd
+      rank: 4

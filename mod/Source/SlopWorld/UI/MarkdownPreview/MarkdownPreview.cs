@@ -84,7 +84,7 @@ namespace SlopWorld
                 return;
             }
 
-            DaemonClient.Get(WireContract.Routes.Read + "?path=" + Uri.EscapeDataString(_path),
+            DaemonClient.Get(WireProtocol.Routes.Read + "?path=" + Uri.EscapeDataString(_path),
                 j =>
                 {
                     if (!IsCurrent(request)) return;

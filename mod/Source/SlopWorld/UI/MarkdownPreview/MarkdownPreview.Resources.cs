@@ -58,7 +58,7 @@ namespace SlopWorld
             {
                 string body = "{" + $"\"text\":{JVal.Q(block.Code ?? "")}," +
                     $"\"language\":{JVal.Q(block.Info)}" + "}";
-                DaemonClient.Post(WireContract.Routes.Highlight, body,
+                DaemonClient.Post(WireProtocol.Routes.Highlight, body,
                     j =>
                     {
                         if (!isCurrent(request)) return;
@@ -110,7 +110,7 @@ namespace SlopWorld
 
                 resource.Pending = true;
                 int generation = _generation;
-                DaemonClient.Send("GET", WireContract.Routes.Image + "?path=" + Uri.EscapeDataString(path), null,
+                DaemonClient.Send("GET", WireProtocol.Routes.Image + "?path=" + Uri.EscapeDataString(path), null,
                     j =>
                     {
                         if (generation != _generation || !isCurrent(request)) return;

@@ -6,11 +6,11 @@ mod format;
 mod http;
 #[path = "slopctl/logs.rs"]
 mod logs;
+#[path = "../shared/mod.rs"]
+mod shared;
 #[cfg(test)]
 #[path = "slopctl/tests.rs"]
 mod tests;
-#[path = "../wire.rs"]
-mod wire;
 
 use commands::{parse_command, Command, USAGE};
 use http::load_endpoint;
@@ -18,7 +18,7 @@ use logs::{run_logs, LOGS_USAGE};
 use std::process::ExitCode;
 use std::time::Duration;
 
-const HOST: &str = wire::HOST_IDENTITY;
+const HOST: &str = shared::protocol::HOST_IDENTITY;
 const TASK_WAIT_INTERVAL: Duration = Duration::from_secs(1);
 
 fn main() -> ExitCode {

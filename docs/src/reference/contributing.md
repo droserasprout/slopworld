@@ -18,7 +18,8 @@ see the [house rules](https://github.com/droserasprout/slopworld/blob/main/notes
 
 ## Generated output
 
-Edit `protocol/wire.yaml` and run `make api-contract` to update shared wire bindings.
+Edit the relevant definition in `shared/` (`protocol.yaml`, `defaults.yaml` or
+`usage.yaml`) and run `make api-contract` to update the Rust and C# bindings.
 `make api-docs` generates the API route inventory from the router;
 `make reference` generates the developer environment/API/CLI reference.
 Asset-generation targets are listed in `make` help; their implementations live in

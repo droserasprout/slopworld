@@ -271,7 +271,7 @@ namespace SlopWorld
             string dir = repo.Dir;
             int generation = repo.Operations.Begin();
             repo.CountsComplete = false;
-            DaemonClient.Get(WireContract.Routes.Git + "?counts=false&path=" + System.Uri.EscapeDataString(dir),
+            DaemonClient.Get(WireProtocol.Routes.Git + "?counts=false&path=" + System.Uri.EscapeDataString(dir),
                 j =>
                 {
                     if (!repo.Operations.IsCurrent(generation) || repo.Dir != dir) return;
@@ -323,7 +323,7 @@ namespace SlopWorld
         // generation, and expanding/collapsing rows while counts arrive must survive.
         static void FetchCounts(Repo repo, int generation)
         {
-            DaemonClient.Get(WireContract.Routes.Git + "?path=" + System.Uri.EscapeDataString(repo.Dir),
+            DaemonClient.Get(WireProtocol.Routes.Git + "?path=" + System.Uri.EscapeDataString(repo.Dir),
                 j =>
                 {
                     if (!repo.Operations.IsCurrent(generation) ||

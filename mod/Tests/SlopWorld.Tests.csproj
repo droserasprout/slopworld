@@ -103,7 +103,7 @@
     <Compile Include="../Source/SlopWorld/Client/SessionHub/ScreenBuf.Json.cs" Link="Source/Client/SessionHub/ScreenBuf.Json.cs" />
     <Compile Include="../Source/SlopWorld/Client/SessionHub/UsageWindow.cs" Link="Source/Client/SessionHub/UsageWindow.cs" />
     <Compile Include="../Source/SlopWorld/Client/SessionHub/UsageInfo.cs" Link="Source/Client/SessionHub/UsageInfo.cs" />
-    <Compile Include="../Source/SlopWorld/Client/Generated/WireContract.cs" Link="Source/Client/Generated/WireContract.cs" />
+    <Compile Include="../Source/SlopWorld/Client/Generated/*.cs" Link="Source/Client/Generated/%(Filename)%(Extension)" />
     <Compile Include="../Source/SlopWorld/UI/Utilities/Fuzzy.cs" Link="Source/UI/Utilities/Fuzzy.cs" />
     <Compile Include="../Source/SlopWorld/UI/Terminal/UrlScan.cs" Link="Source/UI/Terminal/UrlScan.cs" />
     <Compile Include="../Source/SlopWorld/UI/Views/Shared/PathScan.cs" Link="Source/UI/Views/Shared/PathScan.cs" />

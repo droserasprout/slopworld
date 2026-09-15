@@ -3,8 +3,8 @@ use serde_json::{json, Value};
 use std::io::Read;
 use std::path::PathBuf;
 
-const TOKEN_HEADER: &str = crate::wire::TOKEN_HEADER;
-const SESSION_HEADER: &str = crate::wire::SESSION_HEADER;
+const TOKEN_HEADER: &str = crate::shared::protocol::TOKEN_HEADER;
+const SESSION_HEADER: &str = crate::shared::protocol::SESSION_HEADER;
 
 #[derive(Deserialize)]
 pub(crate) struct Endpoint {
@@ -100,7 +100,13 @@ pub(crate) fn request(
 /// other answer this CLI gives. Unreachable is reported, not raised: that *is* the status.
 pub(crate) fn status_value(endpoint: &Endpoint, session: &str) -> Value {
     let mut out = json!({ "session": session, "endpoint": endpoint.url });
-    match request(endpoint, session, "GET", crate::wire::routes::HEALTH, None) {
+    match request(
+        endpoint,
+        session,
+        "GET",
+        crate::shared::protocol::routes::HEALTH,
+        None,
+    ) {
         Ok(v) => {
             out["daemon"] = json!("ok");
             out["version"] = v["version"].clone();
@@ -111,7 +117,13 @@ pub(crate) fn status_value(endpoint: &Endpoint, session: &str) -> Value {
             return out;
         }
     }
-    match request(endpoint, session, "GET", crate::wire::routes::TASKS, None) {
+    match request(
+        endpoint,
+        session,
+        "GET",
+        crate::shared::protocol::routes::TASKS,
+        None,
+    ) {
         Ok(v) => {
             let tasks = v
                 .get("tasks")
@@ -121,9 +133,9 @@ pub(crate) fn status_value(endpoint: &Endpoint, session: &str) -> Value {
             let open = |t: &Value| {
                 !matches!(
                     t["status"].as_str().unwrap_or(""),
-                    crate::wire::enums::task_status::DONE
-                        | crate::wire::enums::task_status::FAILED
-                        | crate::wire::enums::task_status::CANCELED
+                    crate::shared::protocol::enums::task_status::DONE
+                        | crate::shared::protocol::enums::task_status::FAILED
+                        | crate::shared::protocol::enums::task_status::CANCELED
                 )
             };
             out["waiting"] = json!(tasks

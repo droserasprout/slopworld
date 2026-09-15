@@ -54,7 +54,7 @@ namespace SlopWorld
             UiLayout.SectionHeading(l, "Usage");
             l.Label("Global poll interval (s)");
             _pollSecs = UiControls.Field(l, "usage.poll", _pollSecs,
-                defaultValue: WireContract.UsagePollSecs.ToString());
+                defaultValue: SharedDefaults.UsagePollSecs.ToString());
             _configState.SetDraftText("usage.poll", "daemon.usage_poll_secs", _pollSecs);
             UiLayout.Validation(l, PollError(_pollSecs, false));
             UiLayout.Note(l, "Every row uses this interval unless its interval is set below. " +
@@ -75,9 +75,9 @@ namespace SlopWorld
 
         static readonly string[] BaseKeys =
         {
-            WireContract.UsageKeys.ClaudeSession, WireContract.UsageKeys.ClaudeWeek,
-            WireContract.UsageKeys.ClaudeSpend, WireContract.UsageKeys.OpenrouterBalance,
-            WireContract.UsageKeys.OpenaiSession, WireContract.UsageKeys.OpenaiWeek,
+            SharedUsage.ClaudeSession, SharedUsage.ClaudeWeek,
+            SharedUsage.ClaudeSpend, SharedUsage.OpenrouterBalance,
+            SharedUsage.OpenaiSession, SharedUsage.OpenaiWeek,
         };
 
         void EnsureBaseItems()
@@ -125,13 +125,13 @@ namespace SlopWorld
 
         static int UsageRank(string key)
         {
-            if (key == WireContract.UsageKeys.ClaudeSession) return 0;
-            if (key == WireContract.UsageKeys.ClaudeWeek) return 1;
+            if (key == SharedUsage.ClaudeSession) return 0;
+            if (key == SharedUsage.ClaudeWeek) return 1;
             if (key.StartsWith("claude_week_")) return 2;
-            if (key == WireContract.UsageKeys.ClaudeSpend) return 3;
-            if (key == WireContract.UsageKeys.OpenrouterBalance) return 4;
-            if (key == WireContract.UsageKeys.OpenaiSession) return 5;
-            if (key == WireContract.UsageKeys.OpenaiWeek) return 6;
+            if (key == SharedUsage.ClaudeSpend) return 3;
+            if (key == SharedUsage.OpenrouterBalance) return 4;
+            if (key == SharedUsage.OpenaiSession) return 5;
+            if (key == SharedUsage.OpenaiWeek) return 6;
             return 7;
         }
 

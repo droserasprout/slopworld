@@ -27,18 +27,18 @@ namespace SlopWorld
             {
                 foreach (var window in usage.Windows)
                 {
-                    if (window.Key == WireContract.UsageKeys.OpenaiWeek) weekly = true;
+                    if (window.Key == SharedUsage.OpenaiWeek) weekly = true;
                     Add(window.Key);
                 }
                 foreach (var source in usage.Sources)
                 {
                     if (source == "anthropic")
                     {
-                        Add(WireContract.UsageKeys.ClaudeSession);
-                        Add(WireContract.UsageKeys.ClaudeWeek);
+                        Add(SharedUsage.ClaudeSession);
+                        Add(SharedUsage.ClaudeWeek);
                     }
-                    else if (source == "openai" && !weekly) Add(WireContract.UsageKeys.OpenaiSession);
-                    else if (source == "openrouter") Add(WireContract.UsageKeys.OpenrouterBalance);
+                    else if (source == "openai" && !weekly) Add(SharedUsage.OpenaiSession);
+                    else if (source == "openrouter") Add(SharedUsage.OpenrouterBalance);
                 }
             }
             Rows.Sort(Compare);
@@ -72,12 +72,12 @@ namespace SlopWorld
 
         static int Rank(string key)
         {
-            if (key == WireContract.UsageKeys.ClaudeSession) return 0;
-            if (key == WireContract.UsageKeys.ClaudeWeek) return 1;
-            if (key == WireContract.UsageKeys.OpenaiSession) return 2;
-            if (key == WireContract.UsageKeys.OpenaiWeek) return 3;
-            if (key == WireContract.UsageKeys.OpenrouterBalance) return 4;
-            if (key == WireContract.UsageKeys.ClaudeSpend) return 5;
+            if (key == SharedUsage.ClaudeSession) return 0;
+            if (key == SharedUsage.ClaudeWeek) return 1;
+            if (key == SharedUsage.OpenaiSession) return 2;
+            if (key == SharedUsage.OpenaiWeek) return 3;
+            if (key == SharedUsage.OpenrouterBalance) return 4;
+            if (key == SharedUsage.ClaudeSpend) return 5;
             return 6;
         }
     }

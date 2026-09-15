@@ -83,10 +83,10 @@ pub enum State {
 }
 
 crate::wire_enum!(State, {
-    State::Down => crate::wire::enums::agent_state::DOWN,
-    State::Working => crate::wire::enums::agent_state::WORKING,
-    State::Waiting => crate::wire::enums::agent_state::WAITING,
-    State::Idle => crate::wire::enums::agent_state::IDLE,
+    State::Down => crate::shared::protocol::enums::agent_state::DOWN,
+    State::Working => crate::shared::protocol::enums::agent_state::WORKING,
+    State::Waiting => crate::shared::protocol::enums::agent_state::WAITING,
+    State::Idle => crate::shared::protocol::enums::agent_state::IDLE,
 });
 
 #[derive(Debug, Clone, Default, Deserialize)]

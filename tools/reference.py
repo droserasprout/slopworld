@@ -203,7 +203,7 @@ def api_routes(files: dict[Path, str]) -> list[Route]:
     wire_paths: dict[str, str] = {}
     route_paths: dict[str, str] = {}
     for path, text in files.items():
-        if path.name != "wire.rs":
+        if path != ROOT / "slopd/src/shared/protocol.rs":
             continue
         for match in re.finditer(
             r"\bconst\s+([A-Z][A-Z0-9_]*)\s*:\s*&str\s*=\s*['\"]([^'\"]+)['\"]",
@@ -231,7 +231,7 @@ def api_routes(files: dict[Path, str]) -> list[Route]:
                 if route_const:
                     path_value = route_paths.get(route_const.group(1))
                 else:
-                    const_match = re.search(r"wire::([A-Z][A-Z0-9_]*)", body)
+                    const_match = re.search(r"shared::protocol::([A-Z][A-Z0-9_]*)", body)
                     path_value = wire_paths.get(const_match.group(1)) if const_match else None
             if path_value is None:
                 continue

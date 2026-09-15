@@ -44,7 +44,7 @@ namespace SlopWorld
 
         public void Load()
         {
-            _load.Load((ok, fail) => DaemonClient.Get(WireContract.Routes.State, j => ok(
+            _load.Load((ok, fail) => DaemonClient.Get(WireProtocol.Routes.State, j => ok(
                 j["entries"].Items.Select(Entry.FromJson)
                     .OrderBy(e => KindRank(e.Kind))
                     .ThenByDescending(e => e.Modified)
@@ -187,7 +187,7 @@ namespace SlopWorld
 
         public static void FocusAgent(string name)
         {
-            DaemonClient.Get(WireContract.Routes.State, j =>
+            DaemonClient.Get(WireProtocol.Routes.State, j =>
             {
                 var entry = j["entries"].Items
                     .Select(Entry.FromJson)
@@ -206,7 +206,7 @@ namespace SlopWorld
             Find.WindowStack.Add(ConfirmDialog.Create(
                 $"Reset private state for '{e.Session}'? The agent stops and this {Human(e.Bytes)} " +
                 "copy moves to recoverable trash for 14 days.",
-                () => DaemonClient.Post($"{WireContract.Routes.Sessions}/{Uri.EscapeDataString(e.Session)}/state/reset",
+                () => DaemonClient.Post($"{WireProtocol.Routes.Sessions}/{Uri.EscapeDataString(e.Session)}/state/reset",
                     null, _ => { SessionHub.Instance.SessionStore.Refresh(); Load(); }, msg => _error = msg),
                 destructive: true));
         }
@@ -215,7 +215,7 @@ namespace SlopWorld
         {
             Find.WindowStack.Add(ConfirmDialog.Create(
                 $"Permanently delete {Human(e.Bytes)} of {e.Kind} private state? This cannot be undone.",
-                () => DaemonClient.Delete($"{WireContract.Routes.State}/{Uri.EscapeDataString(e.Kind)}/" +
+                () => DaemonClient.Delete($"{WireProtocol.Routes.State}/{Uri.EscapeDataString(e.Kind)}/" +
                         Uri.EscapeDataString(e.Key), _ => Load(), msg => _error = msg),
                 destructive: true));
         }
@@ -224,13 +224,13 @@ namespace SlopWorld
         {
             Find.WindowStack.Add(ConfirmDialog.Create(
                 "Permanently delete all private state in trash? This cannot be undone.",
-                () => DaemonClient.Delete(WireContract.Routes.StateTrash, _ => Load(), msg => _error = msg),
+                () => DaemonClient.Delete(WireProtocol.Routes.StateTrash, _ => Load(), msg => _error = msg),
                 destructive: true));
         }
 
         void Restore(Entry e)
         {
-            DaemonClient.Post($"{WireContract.Routes.StateTrash}/{Uri.EscapeDataString(e.Key)}/restore", null,
+            DaemonClient.Post($"{WireProtocol.Routes.StateTrash}/{Uri.EscapeDataString(e.Key)}/restore", null,
                 _ => { SessionHub.Instance.SessionStore.Refresh(); Load(); }, msg => _error = msg);
         }
 

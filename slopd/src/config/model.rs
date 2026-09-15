@@ -8,14 +8,14 @@ use std::sync::OnceLock;
 use anyhow::{bail, Result};
 use serde::{Deserialize, Serialize};
 
-const DEFAULT_BIND: &str = crate::wire::DEFAULT_BIND;
-const DEFAULT_USAGE_POLL_SECS: u64 = crate::wire::USAGE_POLL_SECS;
-const DEFAULT_CLAUDE_CREDENTIALS: &str = crate::wire::DEFAULT_CLAUDE_CREDENTIALS;
-const DEFAULT_OPENAI_CREDENTIALS: &str = crate::wire::DEFAULT_OPENAI_CREDENTIALS;
-const DEFAULT_TITLE_MODEL: &str = crate::wire::DEFAULT_TITLE_MODEL;
-const DEFAULT_TITLE_MIN_CHARS: usize = crate::wire::DEFAULT_TITLE_MIN_CHARS as usize;
+const DEFAULT_BIND: &str = crate::shared::defaults::DEFAULT_BIND;
+const DEFAULT_USAGE_POLL_SECS: u64 = crate::shared::defaults::USAGE_POLL_SECS;
+const DEFAULT_CLAUDE_CREDENTIALS: &str = crate::shared::defaults::DEFAULT_CLAUDE_CREDENTIALS;
+const DEFAULT_OPENAI_CREDENTIALS: &str = crate::shared::defaults::DEFAULT_OPENAI_CREDENTIALS;
+const DEFAULT_TITLE_MODEL: &str = crate::shared::defaults::DEFAULT_TITLE_MODEL;
+const DEFAULT_TITLE_MIN_CHARS: usize = crate::shared::defaults::DEFAULT_TITLE_MIN_CHARS as usize;
 
-pub const DEFAULT_SUMMARY_PROMPT: &str = crate::wire::DEFAULT_SUMMARY_PROMPT;
+pub const DEFAULT_SUMMARY_PROMPT: &str = crate::shared::defaults::DEFAULT_SUMMARY_PROMPT;
 
 /// One TOML file, which the mod reads and writes back verbatim, so hand-edits and
 /// in-game edits use the same format.
@@ -57,7 +57,7 @@ pub const TOKEN_REDACTED: &str = "<redacted>";
 
 // These are daemon identity and scheduling policy, not user configuration. The private tmux
 // name is part of the sandbox/debug contract.
-pub const SCROLLBACK_LINES: u32 = crate::wire::SCROLLBACK_LINES;
+pub const SCROLLBACK_LINES: u32 = crate::shared::defaults::SCROLLBACK_LINES;
 
 /// The private tmux socket name (`tmux -L <name>`). `SLOPD_TMUX_SOCKET` overrides it so a
 /// throwaway daemon can run beside the real one without sharing its tmux server; production
@@ -192,9 +192,11 @@ Read the project's `README.md` and any applicable `AGENTS.md` files for project 
 
 {{ runtime_context }}
 ";
-pub const DEFAULT_INSTRUCTIONS_MOUNT_PATH: &str = crate::wire::DEFAULT_INSTRUCTIONS_MOUNT_PATH;
-pub const DEFAULT_INSTRUCTIONS_BREADCRUMB: &str = crate::wire::DEFAULT_INSTRUCTIONS_BREADCRUMB;
-pub const DEFAULT_WORKER_PROMPT: &str = crate::wire::DEFAULT_WORKER_PROMPT;
+pub const DEFAULT_INSTRUCTIONS_MOUNT_PATH: &str =
+    crate::shared::defaults::DEFAULT_INSTRUCTIONS_MOUNT_PATH;
+pub const DEFAULT_INSTRUCTIONS_BREADCRUMB: &str =
+    crate::shared::defaults::DEFAULT_INSTRUCTIONS_BREADCRUMB;
+pub const DEFAULT_WORKER_PROMPT: &str = crate::shared::defaults::DEFAULT_WORKER_PROMPT;
 
 fn default_instructions_template() -> String {
     DEFAULT_INSTRUCTIONS_TEMPLATE.into()
@@ -205,7 +207,7 @@ fn default_instructions_mount_path() -> String {
 }
 
 fn default_instructions_breadcrumb_enabled() -> bool {
-    crate::wire::DEFAULT_INSTRUCTIONS_BREADCRUMB_ENABLED
+    crate::shared::defaults::DEFAULT_INSTRUCTIONS_BREADCRUMB_ENABLED
 }
 
 fn default_instructions_breadcrumb() -> String {
@@ -339,15 +341,15 @@ pub struct Defaults {
 }
 
 pub(crate) fn default_agent() -> String {
-    crate::wire::DEFAULT_AGENT.into()
+    crate::shared::defaults::DEFAULT_AGENT.into()
 }
 
 fn default_agent_shell() -> String {
-    crate::wire::DEFAULT_AGENT_SHELL.into()
+    crate::shared::defaults::DEFAULT_AGENT_SHELL.into()
 }
 
 fn default_shell() -> String {
-    crate::wire::DEFAULT_SHELL.into()
+    crate::shared::defaults::DEFAULT_SHELL.into()
 }
 
 impl Default for Defaults {
@@ -376,15 +378,15 @@ pub struct CommandDefaults {
 }
 
 fn default_pager() -> String {
-    crate::wire::DEFAULT_PAGER.into()
+    crate::shared::defaults::DEFAULT_PAGER.into()
 }
 
 fn default_editor() -> String {
-    crate::wire::DEFAULT_EDITOR.into()
+    crate::shared::defaults::DEFAULT_EDITOR.into()
 }
 
 fn default_highlighter() -> String {
-    crate::wire::DEFAULT_HIGHLIGHTER.into()
+    crate::shared::defaults::DEFAULT_HIGHLIGHTER.into()
 }
 
 impl Default for CommandDefaults {
@@ -399,7 +401,7 @@ impl Default for CommandDefaults {
 
 /// Under `/tmp` deliberately: the machine clears it, so nothing here has to decide
 /// when scratch work has outlived its use.
-pub const TEMP_ROOT: &str = crate::wire::TEMP_ROOT;
+pub const TEMP_ROOT: &str = crate::shared::defaults::TEMP_ROOT;
 
 /// Coined rather than typed, which is the whole point of the flag.
 pub fn temp_dir(name: &str) -> String {
@@ -417,9 +419,9 @@ pub enum NetworkMode {
 }
 
 crate::wire_enum!(NetworkMode, {
-    NetworkMode::None => crate::wire::enums::network_mode::NONE,
-    NetworkMode::Private => crate::wire::enums::network_mode::PRIVATE,
-    NetworkMode::Host => crate::wire::enums::network_mode::HOST,
+    NetworkMode::None => crate::shared::protocol::enums::network_mode::NONE,
+    NetworkMode::Private => crate::shared::protocol::enums::network_mode::PRIVATE,
+    NetworkMode::Host => crate::shared::protocol::enums::network_mode::HOST,
 });
 
 /// Read-only or read-write access for a project mount.
@@ -431,8 +433,8 @@ pub enum MountMode {
 }
 
 crate::wire_enum!(MountMode, {
-    MountMode::Ro => crate::wire::enums::mount_mode::RO,
-    MountMode::Rw => crate::wire::enums::mount_mode::RW,
+    MountMode::Ro => crate::shared::protocol::enums::mount_mode::RO,
+    MountMode::Rw => crate::shared::protocol::enums::mount_mode::RW,
 });
 
 /// An additional project directory mounted into the agent's sandbox at `/mnt/<project-name>`.
@@ -472,12 +474,12 @@ impl Serialize for DnsConfig {
         match self {
             Self::Resolved => {
                 let mut out = serializer.serialize_struct("DnsConfig", 1)?;
-                out.serialize_field("mode", crate::wire::enums::dns_mode::RESOLVED)?;
+                out.serialize_field("mode", crate::shared::protocol::enums::dns_mode::RESOLVED)?;
                 out.end()
             }
             Self::Servers { servers } => {
                 let mut out = serializer.serialize_struct("DnsConfig", 2)?;
-                out.serialize_field("mode", crate::wire::enums::dns_mode::SERVERS)?;
+                out.serialize_field("mode", crate::shared::protocol::enums::dns_mode::SERVERS)?;
                 out.serialize_field("servers", servers)?;
                 out.end()
             }
@@ -494,15 +496,15 @@ impl<'de> Deserialize<'de> for DnsConfig {
 
         let wire = DnsWire::deserialize(deserializer)?;
         match wire.mode.as_str() {
-            crate::wire::enums::dns_mode::RESOLVED => Ok(Self::Resolved),
-            crate::wire::enums::dns_mode::SERVERS => Ok(Self::Servers {
+            crate::shared::protocol::enums::dns_mode::RESOLVED => Ok(Self::Resolved),
+            crate::shared::protocol::enums::dns_mode::SERVERS => Ok(Self::Servers {
                 servers: wire.servers,
             }),
             other => Err(D::Error::unknown_variant(
                 other,
                 &[
-                    crate::wire::enums::dns_mode::RESOLVED,
-                    crate::wire::enums::dns_mode::SERVERS,
+                    crate::shared::protocol::enums::dns_mode::RESOLVED,
+                    crate::shared::protocol::enums::dns_mode::SERVERS,
                 ],
             )),
         }
@@ -810,10 +812,10 @@ pub enum LibraryItemKind {
 }
 
 crate::wire_enum!(LibraryItemKind, {
-    LibraryItemKind::Prompt => crate::wire::enums::library_kind::PROMPT,
-    LibraryItemKind::Shell => crate::wire::enums::library_kind::SHELL,
-    LibraryItemKind::Breadcrumb => crate::wire::enums::library_kind::BREADCRUMB,
-    LibraryItemKind::FileAction => crate::wire::enums::library_kind::FA,
+    LibraryItemKind::Prompt => crate::shared::protocol::enums::library_kind::PROMPT,
+    LibraryItemKind::Shell => crate::shared::protocol::enums::library_kind::SHELL,
+    LibraryItemKind::Breadcrumb => crate::shared::protocol::enums::library_kind::BREADCRUMB,
+    LibraryItemKind::FileAction => crate::shared::protocol::enums::library_kind::FA,
 });
 
 /// The one thing about a library item allowed not to be decided in advance.
@@ -831,9 +833,9 @@ pub enum LibraryItemLink {
 }
 
 crate::wire_enum!(LibraryItemLink, {
-    LibraryItemLink::Project => crate::wire::enums::library_link::PROJECT,
-    LibraryItemLink::Temp => crate::wire::enums::library_link::TEMP,
-    LibraryItemLink::Ask => crate::wire::enums::library_link::ASK,
+    LibraryItemLink::Project => crate::shared::protocol::enums::library_link::PROJECT,
+    LibraryItemLink::Temp => crate::shared::protocol::enums::library_link::TEMP,
+    LibraryItemLink::Ask => crate::shared::protocol::enums::library_link::ASK,
 });
 
 /// What the Files sidebar does after a file action is selected. `Ask` is the compatibility
@@ -848,10 +850,10 @@ pub enum FileActionMode {
 }
 
 crate::wire_enum!(FileActionMode, {
-    FileActionMode::Ask => crate::wire::enums::file_action_mode::ASK,
-    FileActionMode::ShowResult => crate::wire::enums::file_action_mode::SHOW_RESULT,
-    FileActionMode::OpenTerminal => crate::wire::enums::file_action_mode::OPEN_TERMINAL,
-    FileActionMode::Nothing => crate::wire::enums::file_action_mode::NOTHING,
+    FileActionMode::Ask => crate::shared::protocol::enums::file_action_mode::ASK,
+    FileActionMode::ShowResult => crate::shared::protocol::enums::file_action_mode::SHOW_RESULT,
+    FileActionMode::OpenTerminal => crate::shared::protocol::enums::file_action_mode::OPEN_TERMINAL,
+    FileActionMode::Nothing => crate::shared::protocol::enums::file_action_mode::NOTHING,
 });
 
 /// A session template with a line of text attached. Spelled out rather than pointing at an

@@ -1,6 +1,13 @@
 # Wire coordination
 
-`protocol/wire.yaml` owns shared routes, tags, enums, limits and selected defaults.
+`shared/protocol.yaml` owns routes, tags, serialized enums and protocol limits.
+`shared/defaults.yaml` owns application defaults and prompts; `shared/usage.yaml` owns
+usage keys and their metadata. Rust bindings live in `slopd/src/shared/`; C# bindings
+live in `Client/Generated/`. Handwritten Rust serialization helpers stay in
+`slopd/src/shared/serde.rs`; only their tag mappings are generated.
+
+The generator loads an explicit file list and rejects duplicate YAML keys. Folded
+YAML prompts must preserve paragraph breaks and omit trailing newlines (`>-`).
 Change both peers through `make api-contract`; `make api-docs` generates route documentation.
 The [API reference](../docs/src/reference/api.md) owns public request/response guidance.
 Do not duplicate the schema here.

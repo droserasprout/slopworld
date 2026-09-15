@@ -123,7 +123,7 @@ namespace SlopWorld
 
 
             SessionHub.Instance.Catalog.RefreshProjects();
-            DaemonClient.Get(WireContract.Routes.Config, j =>
+            DaemonClient.Get(WireProtocol.Routes.Config, j =>
             {
                 var d = j["values"]["defaults"];
                 _agentDefault = d["agent"].AsString("claude");

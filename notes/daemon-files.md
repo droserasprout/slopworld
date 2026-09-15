@@ -6,6 +6,7 @@ file inventory; this map identifies subsystem boundaries.
 | Area | Responsibility |
 | --- | --- |
 | `main.rs` | Startup, retick loop, token middleware. |
+| `shared/` | Generated protocol, defaults and usage bindings, plus serialization helpers. |
 | `api/` | Router, HTTP guards and handlers, WebSocket transport. |
 | `session/` | Session types, input, templates, validation, wire views. |
 | `manager/` | Configuration synchronization, session lifecycle, capture, task-store ownership, workers. |
