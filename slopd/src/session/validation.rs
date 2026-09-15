@@ -145,7 +145,7 @@ pub(super) fn check_library_item(cfg: &Config, sc: &LibraryItemCfg) -> Result<()
 
 pub(super) fn settle(p: &mut ProjectCfg) {
     if p.temp {
-        p.dir = crate::config::temp_dir(&slug(&p.name));
+        p.dir = crate::config::temp_dir(&p.name);
     }
 }
 

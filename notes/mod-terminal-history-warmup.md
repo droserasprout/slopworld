@@ -6,7 +6,9 @@ extent. Request-time movement is only a fallback for frames lacking metadata.
 
 A TUI may rewrite its prompt before scrolling. Old live rows and a delayed capture's live
 tail cannot prove historical content; fetch those rows again. Confirmed older history stays
-cached. Real daemon extent outranks visual overlap guesses and bounds even the first gesture.
+cached. Real daemon extent outranks visual overlap guesses and bounds even the first gesture. The
+advertised daemon history capacity bounds local cache coordinates; request-time movement remains
+the compatibility fallback only for frames lacking history metadata.
 
 Warmup is speculative and bounded; it must not change displayed scroll position. Missing
 visible rows take priority over lookahead. Skip incompatible dimensions, known-empty history,

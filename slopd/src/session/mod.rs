@@ -388,6 +388,13 @@ mod tests {
                         per_session_limits: true,
                         host_network_is_container: false,
                         host_terminals_are_container: false,
+                        terminal: crate::runtime::TerminalCapabilities {
+                            scrollback_lines: crate::config::SCROLLBACK_LINES,
+                            min_cols: crate::shared::protocol::TERMINAL_MIN_COLS,
+                            max_cols: crate::shared::protocol::TERMINAL_MAX_COLS,
+                            min_rows: crate::shared::protocol::TERMINAL_MIN_ROWS,
+                            max_rows: crate::shared::protocol::TERMINAL_MAX_ROWS,
+                        },
                     },
                 },
                 "capabilities",

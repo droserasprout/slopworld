@@ -10,6 +10,7 @@ namespace SlopWorld.Tests
             yield return ("keeps provider failure local", KeepsProviderFailureLocal);
             yield return ("reads windows and their budget fields", ReadsWindowsAndBudgetFields);
             yield return ("keeps the previous timestamp on failure", KeepsPreviousTimestamp);
+            yield return ("keeps missing usage values explicit", KeepsMissingValuesExplicit);
         }
 
         static void KeepsProviderFailureLocal()
@@ -86,6 +87,18 @@ namespace SlopWorld.Tests
             AssertEx.Equal("provider down", failed.Error, "failure message");
             AssertEx.Equal(50f, failed.Heard, "failure keeps the last good timestamp");
             AssertEx.False(failed.Any, "failed empty windows remain empty");
+        }
+
+        static void KeepsMissingValuesExplicit()
+        {
+            var usage = UsageInfo.FromJson(JVal.Parse(
+                "{\"ok\":false,\"sources\":[\"anthropic\"]," +
+                "\"catalog\":[{\"key\":\"claude_session\",\"label\":\"Claude session\",\"provider\":\"anthropic\",\"unit\":\"pct\",\"rank\":0,\"default_poll\":true}]," +
+                "\"rows\":[{\"key\":\"claude_session\",\"label\":\"Claude session\",\"provider\":\"anthropic\",\"unit\":\"pct\",\"rank\":0,\"poll\":true,\"stale\":true,\"window\":null}]," +
+                "\"windows\":[]}"));
+            AssertEx.Equal(1, usage.Rows.Count, "daemon row remains visible");
+            AssertEx.True(usage.Rows[0].Window == null, "missing value is not fabricated");
+            AssertEx.True(usage.Rows[0].Stale, "stale state survives");
         }
     }
 }

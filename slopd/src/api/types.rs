@@ -146,10 +146,19 @@ pub(crate) struct ConfigReq {
 }
 
 #[derive(Deserialize)]
+pub(crate) struct ProjectPreviewReq {
+    pub(crate) name: String,
+    #[serde(default)]
+    pub(crate) temp: bool,
+}
+
+#[derive(Deserialize)]
 pub(crate) struct InstructionsPreviewReq {
     #[serde(default)]
     pub(crate) project: String,
     pub(crate) template: String,
+    #[serde(default)]
+    pub(crate) breadcrumb: String,
     #[serde(default)]
     pub(crate) mount_path: String,
 }

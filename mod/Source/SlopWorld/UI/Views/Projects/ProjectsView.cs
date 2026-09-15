@@ -115,6 +115,7 @@ namespace SlopWorld
         readonly ScrollableListing _sandboxListing = new ScrollableListing(400f);
         const float PresetsH = 240f;
         string _dnsServers;
+        readonly TempProjectPreviewState _tempPreview = new TempProjectPreviewState();
         Tab _tab;
 
         public EditProjectDialog(ProjectInfo existing) : this(existing, false) { }
@@ -136,7 +137,7 @@ namespace SlopWorld
                     "project");
                 // A temporary project's ground is named after the project, so the copy's is
                 // named after the copy rather than pointing back at what it came from.
-                if (_p.Temp) _p.Dir = ProjectInfo.TempDir(_p.Name);
+                if (_p.Temp) RequestTempPreview();
             }
             _dnsServers = _p.Dns.Mode == DnsMode.Servers
                 ? string.Join(", ", _p.Dns.Servers.ToArray())
@@ -204,6 +205,8 @@ namespace SlopWorld
             l.Label("Name");
             _p.Name = UiControls.Field(l, "project.name", _p.Name);
 
+            if (_p.Temp) RequestTempPreview();
+
             _p.Temp = UiControls.Checkbox(l, "Temporary - scratch space under /tmp", _p.Temp,
                 "The directory is made for you under " + ProjectInfo.TempRoot + ", named after " +
                 "this project, and it is there the first time an agent starts. Nothing " +
@@ -214,7 +217,7 @@ namespace SlopWorld
             {
                 // Stated rather than hidden: the path is the daemon's to coin and this is what
                 // it will coin. Browse goes with it - there is nothing to find yet.
-                UiControls.Field(l, "project.dir", ProjectInfo.TempDir(_p.Name), false);
+                UiControls.Field(l, "project.dir", _tempPreview.Dir ?? "Waiting for daemon preview…", false);
             }
             else
             {
@@ -286,7 +289,8 @@ namespace SlopWorld
             // A temporary project's directory is the daemon's to coin, and it coins it again
             // on the way in - this is only so the list has the right path before the answer
             // comes back.
-            if (_p.Temp) _p.Dir = ProjectInfo.TempDir(_p.Name);
+            if (_p.Temp)
+                _p.Dir = _tempPreview.Name == _p.Name ? _tempPreview.Dir : null;
             else if (string.IsNullOrEmpty((_p.Dir ?? "").Trim()))
             {
                 UiLayout.Fail("a project needs a directory");
@@ -304,6 +308,20 @@ namespace SlopWorld
                 _identity.OriginalName,
                 ok: () => Close(),
                 fail: UiLayout.Fail);
+        }
+
+        void RequestTempPreview()
+        {
+            string name = _p.Name ?? "";
+            if (_tempPreview.Name == name && _tempPreview.Dir != null) return;
+            int serial = _tempPreview.Begin(name);
+            DaemonClient.Post(WireProtocol.Routes.ProjectPreview,
+                "{" + $"\"name\":{JVal.Q(name)},\"temp\":true" + "}",
+                j =>
+                {
+                    _tempPreview.Accept(serial, _p.Temp, _p.Name, j["dir"].AsString());
+                },
+                _ => { });
         }
 
     }

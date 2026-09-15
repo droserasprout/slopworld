@@ -19,6 +19,13 @@ use providers::{
     read_openrouter, FetchProvider, ParseProvider, PrepareProvider, ReadProvider, RATE_LIMIT_FLOOR,
 };
 
+pub const CLAUDE_SESSION: &str = "claude_session";
+pub const CLAUDE_WEEK: &str = "claude_week";
+pub const CLAUDE_SPEND: &str = "claude_spend";
+pub const OPENAI_SESSION: &str = "openai_session";
+pub const OPENAI_WEEK: &str = "openai_week";
+pub const OPENROUTER_BALANCE: &str = "openrouter_balance";
+
 #[cfg(test)]
 use providers::{
     cached_anthropic_retry, expiry_error, fresh_anthropic_cache, parse_retry_after, read_creds,
@@ -62,7 +69,91 @@ pub struct Window {
     pub resets_in: Option<u64>,
 }
 
-#[derive(Debug, Clone, Serialize, PartialEq, Default)]
+/// A daemon-owned usage row definition. The mod may choose icons and wording, but never
+/// reconstructs provider/default-poll/rank policy from a key prefix.
+#[derive(Debug, Clone, Serialize, PartialEq)]
+pub struct CatalogEntry {
+    pub key: String,
+    pub label: String,
+    pub provider: String,
+    pub unit: Unit,
+    pub rank: i32,
+    pub default_poll: bool,
+}
+
+pub fn catalog() -> Vec<CatalogEntry> {
+    [
+        (
+            CLAUDE_SESSION,
+            "Claude session",
+            "anthropic",
+            Unit::Pct,
+            0,
+            true,
+        ),
+        (
+            CLAUDE_WEEK,
+            "Claude weekly",
+            "anthropic",
+            Unit::Pct,
+            1,
+            true,
+        ),
+        (
+            OPENAI_SESSION,
+            "OpenAI session",
+            "openai",
+            Unit::Pct,
+            2,
+            true,
+        ),
+        (OPENAI_WEEK, "OpenAI weekly", "openai", Unit::Pct, 3, true),
+        (
+            OPENROUTER_BALANCE,
+            "OpenRouter balance",
+            "openrouter",
+            Unit::Usd,
+            4,
+            false,
+        ),
+        (
+            CLAUDE_SPEND,
+            "Claude balance",
+            "anthropic",
+            Unit::Pct,
+            5,
+            true,
+        ),
+    ]
+    .into_iter()
+    .map(
+        |(key, label, provider, unit, rank, default_poll)| CatalogEntry {
+            key: key.into(),
+            label: label.into(),
+            provider: provider.into(),
+            unit,
+            rank,
+            default_poll,
+        },
+    )
+    .collect()
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq)]
+pub struct UsageRow {
+    pub key: String,
+    pub label: String,
+    pub provider: String,
+    pub unit: Unit,
+    pub rank: i32,
+    pub poll: bool,
+    pub stale: bool,
+    /// Absent is a real state: the provider is enabled but has not supplied a usable value.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub window: Option<Window>,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq)]
 pub struct Snapshot {
     /// False leaves `windows` as whatever the last good poll held, so the readout goes
     /// stale rather than empty while the network is out.
@@ -84,6 +175,8 @@ pub struct Snapshot {
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub failed_sources: Vec<String>,
     pub windows: Vec<Window>,
+    pub catalog: Vec<CatalogEntry>,
+    pub rows: Vec<UsageRow>,
 }
 
 impl Snapshot {
@@ -104,6 +197,24 @@ impl Snapshot {
             && self.failed_sources == other.failed_sources
             && self.windows == other.windows
             && self.sources == other.sources
+            && self.catalog == other.catalog
+            && self.rows == other.rows
+    }
+}
+
+impl Default for Snapshot {
+    fn default() -> Self {
+        Self {
+            ok: false,
+            error: None,
+            plan: String::new(),
+            fetched_ms: 0,
+            sources: Vec::new(),
+            failed_sources: Vec::new(),
+            windows: Vec::new(),
+            catalog: catalog(),
+            rows: Vec::new(),
+        }
     }
 }
 
@@ -269,6 +380,16 @@ fn default_source_enabled(source: &str) -> bool {
     matches!(source, "anthropic" | "openai")
 }
 
+fn catalog_entry(key: &str) -> Option<CatalogEntry> {
+    catalog().into_iter().find(|entry| entry.key == key)
+}
+
+fn default_poll(key: &str, source: &str) -> bool {
+    catalog_entry(key)
+        .map(|entry| entry.default_poll)
+        .unwrap_or_else(|| default_source_enabled(source))
+}
+
 fn item_enabled(d: &crate::config::Daemon, source: &str, key: &str) -> bool {
     if source_for_key(key) != Some(source) {
         return false;
@@ -276,7 +397,7 @@ fn item_enabled(d: &crate::config::Daemon, source: &str, key: &str) -> bool {
     d.usage_items
         .get(key)
         .map(|item| item.poll)
-        .unwrap_or_else(|| default_source_enabled(source))
+        .unwrap_or_else(|| default_poll(key, source))
 }
 
 /// Once a table exists for a provider, turning every row off also turns the provider off. This
@@ -327,6 +448,65 @@ fn provider_interval(d: &crate::config::Daemon, source: &str, poller: &Poller) -
         .map(|(key, _)| item_interval(d, source, key))
         .min()
         .unwrap_or(d.usage_poll_secs.max(minimum_poll_secs(source)))
+}
+
+fn resolved_catalog(windows: &[Window]) -> Vec<CatalogEntry> {
+    let mut entries = catalog();
+    for window in windows {
+        if entries.iter().any(|entry| entry.key == window.key) {
+            continue;
+        }
+        let provider = source_for_key(&window.key).unwrap_or("unknown");
+        let rank = entries.iter().map(|entry| entry.rank).max().unwrap_or(0) + 1;
+        entries.push(CatalogEntry {
+            key: window.key.clone(),
+            label: window.label.clone(),
+            provider: provider.into(),
+            unit: window.unit,
+            rank,
+            default_poll: true,
+        });
+    }
+    entries.sort_by_key(|entry| entry.rank);
+    entries
+}
+
+fn resolve_rows(snapshot: &Snapshot, d: &crate::config::Daemon) -> Vec<UsageRow> {
+    let mut rows = Vec::new();
+    for entry in &snapshot.catalog {
+        let poll = d
+            .usage_items
+            .get(&entry.key)
+            .map(|item| item.poll)
+            .unwrap_or(entry.default_poll);
+        let window = snapshot
+            .windows
+            .iter()
+            .find(|window| window.key == entry.key)
+            .cloned();
+        let stale = snapshot
+            .failed_sources
+            .iter()
+            .any(|source| source == &entry.provider);
+        rows.push(UsageRow {
+            key: entry.key.clone(),
+            label: window
+                .as_ref()
+                .map(|window| window.label.clone())
+                .unwrap_or_else(|| entry.label.clone()),
+            provider: entry.provider.clone(),
+            unit: window
+                .as_ref()
+                .map(|window| window.unit)
+                .unwrap_or(entry.unit),
+            rank: entry.rank,
+            poll,
+            stale,
+            window,
+        });
+    }
+    rows.sort_by_key(|row| row.rank);
+    rows
 }
 
 fn filter_snapshot(
@@ -459,7 +639,10 @@ async fn poll_one(
 /// source being current, because a row nobody could tell from a live one is the one thing
 /// this must never draw; the errors are joined so the tooltip says which half is out. A
 /// source that is off contributes nothing at all, so switching one off is not a failure.
-fn merge<'a>(parts: impl IntoIterator<Item = (&'a str, &'a Snapshot)>) -> Snapshot {
+fn merge<'a>(
+    parts: impl IntoIterator<Item = (&'a str, &'a Snapshot)>,
+    d: &crate::config::Daemon,
+) -> Snapshot {
     let mut out = Snapshot {
         ok: true,
         ..Default::default()
@@ -493,6 +676,8 @@ fn merge<'a>(parts: impl IntoIterator<Item = (&'a str, &'a Snapshot)>) -> Snapsh
     if !errors.is_empty() {
         out.error = Some(errors.join("; "));
     }
+    out.catalog = resolved_catalog(&out.windows);
+    out.rows = resolve_rows(&out, d);
     out
 }
 
@@ -605,6 +790,7 @@ impl UsagePollers {
                 providers
                     .iter()
                     .map(|provider| (provider.source, &provider.poller.snap)),
+                d,
             );
             // Said here rather than in `merge`, which knows about snapshots and not about
             // switches. A seller that is on but has never answered is exactly the case
@@ -615,6 +801,8 @@ impl UsagePollers {
                     .filter(|provider| (provider.enabled)(d))
                     .map(|provider| provider.source.into()),
             );
+            out.catalog = resolved_catalog(&out.windows);
+            out.rows = resolve_rows(&out, d);
             m.set_usage(out).await;
         }
 
@@ -668,14 +856,14 @@ mod tests {
         assert!(provider_enabled(&daemon, "openai"));
 
         daemon.usage_items.insert(
-            crate::shared::usage::OPENROUTER_BALANCE.into(),
+            OPENROUTER_BALANCE.into(),
             crate::config::UsageItem {
                 poll: true,
                 interval_secs: None,
             },
         );
         daemon.usage_items.insert(
-            crate::shared::usage::CLAUDE_SESSION.into(),
+            CLAUDE_SESSION.into(),
             crate::config::UsageItem {
                 poll: false,
                 interval_secs: None,
@@ -872,13 +1060,39 @@ mod tests {
             &serde_json::from_str(r#"{"rate_limit":{"primary_window":{"used_percent":20}}}"#)
                 .unwrap(),
         );
-        let m = merge([("anthropic", &a), ("openrouter", &c), ("openai", &o)]);
+        let m = merge(
+            [("anthropic", &a), ("openrouter", &c), ("openai", &o)],
+            &crate::config::Daemon::default(),
+        );
         assert!(m.ok);
         assert_eq!(m.windows.len(), a.windows.len() + 2);
         assert_eq!(m.windows.last().unwrap().key, "openai_session");
         // The plan is the subscription's, and only one source has one.
         assert_eq!(m.plan, "max");
         assert!(m.error.is_none());
+    }
+
+    #[test]
+    fn resolved_rows_keep_disabled_and_missing_states_explicit() {
+        let mut daemon = crate::config::Daemon::default();
+        daemon.usage_items.insert(
+            CLAUDE_SESSION.into(),
+            crate::config::UsageItem {
+                poll: false,
+                interval_secs: None,
+            },
+        );
+
+        let rows = resolve_rows(&Snapshot::default(), &daemon);
+        let session = rows.iter().find(|row| row.key == CLAUDE_SESSION).unwrap();
+        let balance = rows
+            .iter()
+            .find(|row| row.key == OPENROUTER_BALANCE)
+            .unwrap();
+        assert!(!session.poll);
+        assert!(session.window.is_none());
+        assert!(!balance.poll);
+        assert!(balance.window.is_none());
     }
 
     /// Turning a seller off is a change the mod has to hear about even when every figure it
@@ -923,11 +1137,14 @@ mod tests {
         let a = parse(&serde_json::from_str(REAL).unwrap(), "max".into());
         let c = Snapshot::failed(&Snapshot::default(), "OpenRouter rejected the key (401)");
 
-        let m = merge([
-            ("anthropic", &a),
-            ("openrouter", &c),
-            ("openai", &Snapshot::default()),
-        ]);
+        let m = merge(
+            [
+                ("anthropic", &a),
+                ("openrouter", &c),
+                ("openai", &Snapshot::default()),
+            ],
+            &crate::config::Daemon::default(),
+        );
         assert!(!m.ok);
         assert_eq!(m.windows.len(), a.windows.len());
         assert_eq!(m.failed_sources, vec!["openrouter"]);
@@ -935,19 +1152,25 @@ mod tests {
 
         // Off on both sides is the snapshot the readout draws nothing from.
         assert_eq!(
-            merge([
-                ("anthropic", &Snapshot::default()),
-                ("openrouter", &Snapshot::default()),
-                ("openai", &Snapshot::default())
-            ]),
+            merge(
+                [
+                    ("anthropic", &Snapshot::default()),
+                    ("openrouter", &Snapshot::default()),
+                    ("openai", &Snapshot::default()),
+                ],
+                &crate::config::Daemon::default(),
+            ),
             Snapshot::default()
         );
         // And one of them off leaves the other exactly as it was.
-        let only = merge([
-            ("anthropic", &a),
-            ("openrouter", &Snapshot::default()),
-            ("openai", &Snapshot::default()),
-        ]);
+        let only = merge(
+            [
+                ("anthropic", &a),
+                ("openrouter", &Snapshot::default()),
+                ("openai", &Snapshot::default()),
+            ],
+            &crate::config::Daemon::default(),
+        );
         assert!(only.ok);
         assert_eq!(only.windows, a.windows);
     }

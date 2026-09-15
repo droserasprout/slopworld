@@ -117,7 +117,7 @@ namespace SlopWorld
             l.Label("Content template");
             _cfg.InstructionsTemplate = UiControls.Area(l, 320f, "instructions.template",
                 _cfg.InstructionsTemplate, on: instructions,
-                defaultValue: DaemonConfig.DefaultInstructionsTemplate);
+                defaultValue: _cfg.FactoryDefaults.InstructionsTemplate);
             UiLayout.Note(l, "Variables: {{ runtime_context }}, {{ project }}, " +
                 "{{ mount_path }}, and {{ file }}. Unknown variables are left unchanged.");
 
@@ -133,7 +133,7 @@ namespace SlopWorld
             _cfg.InstructionsBreadcrumb = UiControls.Area(l, 120f, "instructions.breadcrumb",
                 _cfg.InstructionsBreadcrumb,
                 on: breadcrumbs && instructions,
-                defaultValue: DaemonConfig.DefaultInstructionsBreadcrumb);
+                defaultValue: _cfg.FactoryDefaults.InstructionsBreadcrumb);
             UiLayout.Note(l, "Variables: {{ project }}, {{ mount_path }}, and {{ file }}. " +
                 "Unknown variables are left unchanged.");
             _cfg.InstructionsBreadcrumbEnabled = UiControls.Checkbox(l,
@@ -147,7 +147,7 @@ namespace SlopWorld
             l.Label("Mount path (relative to the project)");
             _cfg.InstructionsMountPath = UiControls.Field(l, "instructions.mount_path",
                 _cfg.InstructionsMountPath, on: instructions,
-                defaultValue: SharedDefaults.DefaultInstructionsMountPath);
+                defaultValue: _cfg.FactoryDefaults.InstructionsMountPath);
             UiLayout.Note(l, "The generated source remains the project-root " +
                 "SLOPWORLD.md; this is where its read-only copy appears to the agent.");
             UiLayout.Note(l, "Agents still opt in per session with Mount SLOPWORLD.md.");
@@ -235,7 +235,8 @@ namespace SlopWorld
             string body = "{" +
                 $"\"project\":{JVal.Q(project)}," +
                 $"\"template\":{JVal.Q(_cfg.InstructionsTemplate)}," +
-                $"\"mount_path\":{JVal.Q(_cfg.InstructionsMountPath)}" +
+                $"\"mount_path\":{JVal.Q(_cfg.InstructionsMountPath)}," +
+                $"\"breadcrumb\":{JVal.Q(_cfg.InstructionsBreadcrumb)}" +
                 "}";
             _previewLoad.Load((ok, fail) => DaemonClient.Post(
                 WireProtocol.Routes.InstructionsPreview, body,

@@ -14,12 +14,12 @@ namespace SlopWorld.Tests
             yield return ("independent page saves preserve drafts and saved values", IndependentPageSaves);
             yield return ("patches retain nested resets and pending edits", NestedPatchChanges);
             yield return ("splits and joins line lists", SplitsAndJoinsLineLists);
-            yield return ("renders instructions breadcrumb variables", RendersInstructionsBreadcrumb);
             yield return ("merges refreshes around drafts and reports conflicts", DraftRefreshMerge);
             yield return ("usage inheritance stays blank across reload and discard", UsageInheritanceText);
             yield return ("reload preserves edits made after the request starts", PendingReloadEdits);
             yield return ("validates settings numeric boundaries", NumericValidation);
             yield return ("operation generations reject stale completions", OperationGenerations);
+            yield return ("uses daemon factory metadata when available", UsesFactoryMetadata);
         }
 
         static void IndependentPageSaves()
@@ -77,6 +77,7 @@ namespace SlopWorld.Tests
         static void ReadsDaemonDefaults()
         {
             var config = DaemonConfig.FromJson(JVal.Parse("{}"));
+            AssertEx.False(config.MetadataAvailable, "missing daemon metadata is explicit");
             AssertEx.Equal(false, config.ExperimentalBreadcrumbs, "breadcrumb feature defaults off");
             AssertEx.Equal(false, config.ExperimentalInstructions, "instruction feature defaults off");
 
@@ -90,18 +91,18 @@ namespace SlopWorld.Tests
             AssertEx.Equal("never", config.AgentTitles, "agent title default");
             AssertEx.Equal("google/gemini-3.1-flash-lite", config.TitleModel,
                            "title model default");
-            AssertEx.Equal(DaemonConfig.DefaultSummaryPrompt, config.SummaryPrompt,
+            AssertEx.Equal(config.FactoryDefaults.SummaryPrompt, config.SummaryPrompt,
                            "summary prompt default");
             AssertEx.Equal(20, config.TitleMinChars, "title minimum prompt length default");
             AssertEx.Equal("always", config.PiTitles, "Pi title default");
-            AssertEx.Equal(DaemonConfig.DefaultInstructionsTemplate, config.InstructionsTemplate,
+            AssertEx.Equal(config.FactoryDefaults.InstructionsTemplate, config.InstructionsTemplate,
                            "instructions template default");
             AssertEx.Equal("SLOPWORLD.md", config.InstructionsMountPath,
                            "instructions mount path default");
-            AssertEx.Equal(DaemonConfig.DefaultInstructionsBreadcrumb, config.InstructionsBreadcrumb,
+            AssertEx.Equal(config.FactoryDefaults.InstructionsBreadcrumb, config.InstructionsBreadcrumb,
                            "instructions breadcrumb text default");
             AssertEx.True(config.InstructionsBreadcrumbEnabled, "instructions breadcrumb default");
-            AssertEx.Equal(DaemonConfig.DefaultWorkerPrompt, config.WorkerPrompt,
+            AssertEx.Equal(config.FactoryDefaults.WorkerPrompt, config.WorkerPrompt,
                            "worker prompt default");
             AssertEx.Equal("claude", config.Agent, "agent command default");
             AssertEx.Equal("bash", config.AgentShell, "agent shell default");
@@ -110,6 +111,23 @@ namespace SlopWorld.Tests
             AssertEx.Equal("micro", config.Editor, "editor default");
             AssertEx.Equal("highlight --out-format=xterm256", config.Highlighter,
                            "highlighter default");
+        }
+
+        static void UsesFactoryMetadata()
+        {
+            var config = DaemonConfig.FromJson(JVal.Parse("{}"), JVal.Parse(
+                "{\"defaults\":{\"daemon\":{\"usage_poll_secs\":17,\"title_model\":\"daemon/model\"}," +
+                "\"defaults\":{\"agent\":\"daemon-agent\"},\"commands\":{}}," +
+                "\"usage_catalog\":[{\"key\":\"custom\",\"label\":\"Custom\",\"provider\":\"x\",\"unit\":\"usd\",\"rank\":9,\"default_poll\":false}]," +
+                "\"temporary_root\":\"/daemon/tmp\",\"terminal\":{\"scrollback_lines\":12,\"min_cols\":21,\"max_cols\":301,\"min_rows\":6,\"max_rows\":101}}"));
+            AssertEx.True(config.MetadataAvailable, "metadata available");
+            AssertEx.Equal(17, config.FactoryDefaults.UsagePollSecs, "daemon poll factory");
+            AssertEx.Equal("daemon/model", config.FactoryDefaults.TitleModel, "daemon title factory");
+            AssertEx.Equal("daemon-agent", config.FactoryDefaults.Agent, "command factory");
+            AssertEx.Equal("/daemon/tmp", config.TemporaryRoot, "temp root metadata");
+            AssertEx.Equal(12, config.Terminal.ScrollbackLines, "terminal metadata");
+            AssertEx.Equal(1, config.UsageCatalog.Count, "usage catalog metadata");
+            AssertEx.False(config.UsageCatalog[0].DefaultPoll, "catalog poll policy");
         }
 
         static void MigratesLegacyExperimentalFlag()
@@ -215,20 +233,6 @@ namespace SlopWorld.Tests
             AssertEx.Sequence(lines, DaemonConfig.Split(" first \n\nsecond\n third \n"),
                               "line split and trim");
             AssertEx.True(!DaemonConfig.Split(null).Any(), "null line list");
-        }
-
-        static void RendersInstructionsBreadcrumb()
-        {
-            var config = new DaemonConfig
-            {
-                InstructionsBreadcrumb =
-                    "Read {{ mount_path }} ({{project}}; {{ file }}) {{ unknown }}",
-                InstructionsMountPath = "docs/SLOPWORLD.md",
-            };
-
-            AssertEx.Equal("Read docs/SLOPWORLD.md (repo; SLOPWORLD.md) {{ unknown }}",
-                           config.RenderInstructionsBreadcrumb("repo"),
-                           "instructions breadcrumb variables");
         }
 
         static void DraftRefreshMerge()

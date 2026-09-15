@@ -104,13 +104,8 @@ namespace SlopWorld
                 .Where(value => !string.IsNullOrWhiteSpace(value))
                 .Select(value => value.Trim())
                 .ToList();
-            if (config.ExperimentalInstructions && config.ExperimentalBreadcrumbs &&
-                agent.SlopworldMd && agent.InstructionsBreadcrumb &&
-                config.InstructionsBreadcrumbEnabled)
-            {
-                string discovery = config.RenderInstructionsBreadcrumb(project?.Name);
-                if (!string.IsNullOrWhiteSpace(discovery)) text.Add(discovery.Trim());
-            }
+            // The daemon owns template expansion. Its instructions page requests a proper
+            // preview; this local sandbox summary intentionally does not synthesize one.
             return text.Count == 0
                 ? new List<string>()
                 : new List<string> { string.Join("\n", text.ToArray()) };

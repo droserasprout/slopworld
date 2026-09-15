@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -8,7 +9,7 @@ namespace SlopWorld
     {
         // History coordinates are owned by the daemon, but the window keeps overlapping
         // snapshots so fractional scrolling can be served locally.
-        const int MaxScrollLines = SharedDefaults.ScrollbackLines;
+        int MaxScrollLines => Math.Max(1, SessionHub.Instance.Capabilities.Terminal.ScrollbackLines);
 
         struct ScrollbackState
         {

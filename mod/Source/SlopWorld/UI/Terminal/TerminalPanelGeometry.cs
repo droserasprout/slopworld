@@ -12,9 +12,10 @@ namespace SlopWorld
             if (bounds.Width <= 0f || bounds.Height <= 0f ||
                 cellWidth <= 0.01f || cellHeight <= 0.01f ||
                 float.IsNaN(cellWidth) || float.IsNaN(cellHeight)) return false;
-            cols = (int)Math.Max(WireProtocol.TerminalMinCols, Math.Min(WireProtocol.TerminalMaxCols,
+            var limits = DaemonCapabilities.Current.Terminal;
+            cols = (int)Math.Max(limits.MinCols, Math.Min(limits.MaxCols,
                 Math.Floor(bounds.Width / cellWidth)));
-            rows = (int)Math.Max(WireProtocol.TerminalMinRows, Math.Min(WireProtocol.TerminalMaxRows,
+            rows = (int)Math.Max(limits.MinRows, Math.Min(limits.MaxRows,
                 Math.Floor(bounds.Height / cellHeight)));
             return true;
         }

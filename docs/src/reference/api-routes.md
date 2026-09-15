@@ -46,6 +46,7 @@ grant-visible router; handler guards can impose a stricter access requirement.
 | `DELETE` | `/api/projects/:name` | `root-only` | `destroy_project` |
 | `GET` | `/api/projects/:name` | `root-only` | `one_project` |
 | `PUT` | `/api/projects/:name` | `root-only` | `update_project` |
+| `POST` | `/api/projects/preview` | `root-only` | `project_preview` |
 | `GET` | `/api/read` | `root-only` | `read_file` |
 | `POST` | `/api/run` | `root-only` | `run` |
 | `GET` | `/api/search` | `root-only` | `search` |

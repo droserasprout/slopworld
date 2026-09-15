@@ -85,6 +85,10 @@ http:
       path: "/api/projects"
       methods: [GET, POST]
       scope: root
+    project_preview:
+      path: "/api/projects/preview"
+      methods: [POST]
+      scope: root
     project:
       path: "/api/projects/:name"
       methods: [GET, PUT, DELETE]

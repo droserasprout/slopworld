@@ -3,6 +3,30 @@ using System.Linq;
 
 namespace SlopWorld
 {
+    // A preview is advisory until the daemon accepts the project. Keep the request generation
+    // beside the parsed project model so delayed replies can be tested without the game UI.
+    public sealed class TempProjectPreviewState
+    {
+        int _serial;
+        public string Name { get; private set; }
+        public string Dir { get; private set; }
+
+        public int Begin(string name)
+        {
+            Name = name ?? "";
+            Dir = null;
+            return ++_serial;
+        }
+
+        public bool Accept(int serial, bool temporary, string name, string dir)
+        {
+            if (serial != _serial || !temporary || name != Name || string.IsNullOrEmpty(dir))
+                return false;
+            Dir = dir;
+            return true;
+        }
+    }
+
     public class ProjectInfo
     {
         public string Name = "";
@@ -17,24 +41,9 @@ namespace SlopWorld
         // A project-level DNS choice is the default for its agents. Resolved is the default.
         public DnsConfig Dns = DnsConfig.Resolved();
 
-        // The daemon coins the path and is the only thing that writes it; this is so the dialog
-        // can show what a name is about to become before anything is saved.
-        public const string TempRoot = SharedDefaults.TempRoot;
-
-        // The same rule as the daemon's `slug`.
-        public static string TempDir(string name)
-        {
-            var slug = new System.Text.StringBuilder();
-            foreach (char c in (name ?? "").Trim())
-            {
-                if (char.IsWhiteSpace(c) || c == ':' || c == '.' || c == '/')
-                {
-                    if (slug.Length > 0 && slug[slug.Length - 1] != '-') slug.Append('-');
-                }
-                else slug.Append(c);
-            }
-            return TempRoot + "/" + slug.ToString().Trim('-');
-        }
+        // The daemon is the only owner of temporary root policy. This compatibility value is
+        // only for the offline connection bootstrap; connected dialogs use metadata.
+        public static string TempRoot => SessionHub.Instance.Config?.TemporaryRoot ?? "/tmp/slopworld";
 
         public static ProjectInfo FromJson(JVal j) => new ProjectInfo
         {

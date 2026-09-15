@@ -20,10 +20,21 @@ pub(crate) async fn get_config(State(m): State<Mgr>) -> ApiResult {
     // carry the sentinel, and a write that sends it back is read as "unchanged". The endpoint
     // is behind the token itself, so this guards the one case that is not - the raw editor,
     // and any future client that reaches the config without holding the secret first.
+    let cfg = m.config().await;
+    let factory = crate::config::Config::default();
+    let caps = crate::runtime::capabilities();
     Ok(Json(json!({
         "path": m.cfg_path,
         "text": crate::config::redact_token_text(&text),
-        "values": m.config().await.redacted(),
+        "values": cfg.redacted(),
+        "metadata": {
+            // Factory defaults are deliberately a response-only read model. They are not
+            // accepted as a client patch and contain no secrets.
+            "defaults": factory,
+            "usage_catalog": crate::usage::catalog(),
+            "temporary_root": crate::config::TEMP_ROOT,
+            "terminal": caps.terminal,
+        },
     })))
 }
 
@@ -69,10 +80,16 @@ pub(crate) async fn instructions_preview(
     instructions
         .validate()
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
+    let breadcrumb = if req.breadcrumb.trim().is_empty() {
+        instructions.breadcrumb.clone()
+    } else {
+        req.breadcrumb
+    };
     let text =
         crate::manifest::preview(&cfg, &project, &m.views().await, &req.template, &mount_path);
     Ok(Json(json!({
         "text": text,
+        "breadcrumb": crate::manifest::render_breadcrumb(&breadcrumb, &project.name, &mount_path),
         "project": project.name,
         "mount_path": mount_path,
     })))

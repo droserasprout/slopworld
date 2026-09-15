@@ -71,9 +71,9 @@ namespace SlopWorld
                 j =>
                 {
                     if (!IsCurrent(key, draft, operation)) return;
-                    var server = DaemonConfig.FromJson(j["values"]);
+                    var server = DaemonConfig.FromJson(j["values"], j["metadata"]);
                     draft.LoadServer(server);
-                    SessionHub.Instance.Config = DaemonConfig.FromJson(j["values"]);
+                    SessionHub.Instance.Config = server;
                     Path = j["path"].AsString();
                     draft.Error = null;
                     loaded?.Invoke();

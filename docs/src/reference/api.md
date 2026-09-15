@@ -42,7 +42,14 @@ session whose sandbox config (presets, network, DNS, limits, mounts) is copied o
 new errand. An empty shell command uses the daemon's `$SHELL`.
 
 `POST /api/instructions/preview` accepts `{ "project": "...", "template": "...",
-"mount_path": "..." }` and returns the rendered `text`; it does not save settings.
+"mount_path": "...", "breadcrumb": "..." }` and returns rendered `text` and `breadcrumb`;
+it does not save settings. `GET /api/config` returns effective `values` plus response-only
+`metadata` containing factory defaults, usage catalog entries, temporary-root policy and
+terminal limits. Clients use that metadata for settings and local allocation bounds.
+
+`POST /api/projects/preview` accepts `{ "name": "...", "temp": true }` and returns the
+daemon-normalized prospective temporary directory. It does not create a project; project
+create/update applies the same normalization before persistence.
 
 ### Agent templates
 
@@ -79,10 +86,10 @@ plus nullable `network_override`. DNS is optional tagged JSON:
 
 | Event | Description |
 | --- | --- |
-| `capabilities` | Runtime integration flags. Sent on connect. |
+| `capabilities` | Runtime integration flags and terminal limits (`scrollback_lines`, dimension bounds). Sent on connect. |
 | `sessions` | Session state, title, and bell. |
 | `screen` | Terminal content. Scrolled replies include `off`, `request_id`, and `history` (total scrollback rows). |
-| `usage` | Quota window updates. |
+| `usage` | Quota updates, including daemon-owned `catalog` metadata and resolved `rows`. A row may have `window: null` while its provider is enabled but has not supplied usable data. |
 | `projects` | Project catalog. |
 | `library` | Library catalog. |
 | `jukebox` | Jukebox state. |

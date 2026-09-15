@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""Generate Rust and C# bindings from shared protocol, defaults and usage definitions."""
+"""Generate Rust and C# bindings from the shared wire protocol only.
+
+Daemon defaults and usage policy belong to their Rust owners. They are exposed as API read
+models; keeping them out of generated client bindings prevents a stale mod from becoming a
+second policy implementation.
+"""
 
 from __future__ import annotations
 
@@ -53,22 +58,17 @@ UniqueLoader.add_constructor(yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, uni
 
 def load(directory: Path = SHARED) -> dict:
     data = {}
-    sections = {
-        "protocol": {"version", "http", "websocket", "enums", "constants"},
-        "defaults": {"version", "constants"},
-        "usage": {"version", "usage"},
-    }
-    for name, expected in sections.items():
-        path = directory / f"{name}.yaml"
-        document = yaml.load(path.read_text(), Loader=UniqueLoader)
-        if not isinstance(document, dict) or set(document) != expected:
-            raise ValueError(f"{path}: expected sections {sorted(expected)}")
-        if type(document["version"]) is not int or document["version"] != 1:
-            raise ValueError(f"{path}: unsupported shared definition version")
-        for section in expected - {"version"}:
-            if not isinstance(document[section], dict) or not document[section]:
-                raise ValueError(f"{path}: {section} must be a nonempty mapping")
-        data[name] = document
+    expected = {"version", "http", "websocket", "enums", "constants"}
+    path = directory / "protocol.yaml"
+    document = yaml.load(path.read_text(), Loader=UniqueLoader)
+    if not isinstance(document, dict) or set(document) != expected:
+        raise ValueError(f"{path}: expected sections {sorted(expected)}")
+    if type(document["version"]) is not int or document["version"] != 1:
+        raise ValueError(f"{path}: unsupported shared definition version")
+    for section in expected - {"version"}:
+        if not isinstance(document[section], dict) or not document[section]:
+            raise ValueError(f"{path}: {section} must be a nonempty mapping")
+    data["protocol"] = document
     validate(data)
     return data
 
@@ -88,17 +88,9 @@ def validate(data: dict) -> None:
         if (not isinstance(values, list) or not values
                 or any(not isinstance(v, str) for v in values) or len(values) != len(set(values))):
             raise ValueError(f"{name}: expected unique string values")
-    overlap = protocol["constants"].keys() & data["defaults"]["constants"].keys()
-    if overlap:
-        raise ValueError(f"duplicate constants across definitions: {sorted(overlap)}")
-    for source in ("protocol", "defaults"):
-        for name, value in data[source]["constants"].items():
-            if type(value) not in (str, bool, int):
-                raise ValueError(f"{source}.{name}: expected string, boolean or integer")
-    for name, item in data["usage"]["usage"]["keys"].items():
-        if (not isinstance(item["provider"], str) or item["unit"] not in protocol["enums"]["usage_unit"]
-                or type(item["rank"]) is not int):
-            raise ValueError(f"invalid usage metadata {name}")
+    for name, value in protocol["constants"].items():
+        if type(value) not in (str, bool, int):
+            raise ValueError(f"protocol.{name}: expected string, boolean or integer")
 
 
 def rust_string(value: str) -> str:
@@ -154,13 +146,10 @@ def rust(data: dict) -> str:
 def rust_constants(constants: dict) -> list[str]:
     lines = []
     rust_types = {
-        "endpoint_port": "u16",
-        "scrollback_lines": "u32",
         "terminal_min_cols": "u16",
         "terminal_max_cols": "u16",
         "terminal_min_rows": "u16",
         "terminal_max_rows": "u16",
-        "usage_poll_secs": "u64",
     }
     for name, value in constants.items():
         if isinstance(value, str):
@@ -171,21 +160,6 @@ def rust_constants(constants: dict) -> list[str]:
             rust_type, rendered = rust_types.get(name, "u64"), str(value)
         lines.append(f"pub(crate) const {upper(name)}: {rust_type} = {rendered};")
     return lines
-
-
-def rust_defaults(data: dict) -> str:
-    constants = data["constants"]
-    lines = rust_header("defaults") + rust_constants(constants)
-    endpoint = constants['endpoint_host'] + ':' + str(constants['endpoint_port'])
-    lines.append(f"pub(crate) const DEFAULT_BIND: &str = {rust_string(endpoint)};")
-    return "\n".join(lines) + "\n"
-
-
-def rust_usage(data: dict) -> str:
-    return "\n".join(rust_header("usage") + [
-        f"pub(crate) const {upper(name)}: &str = {rust_string(name)};"
-        for name in data["usage"]["keys"]
-    ]) + "\n"
 
 
 def csharp(data: dict) -> str:
@@ -239,28 +213,12 @@ def cs_constants(constants: dict) -> list[str]:
     return lines
 
 
-def cs_class(source: str, name: str, lines: list[str]) -> str:
-    return "\n".join([
-        "// <auto-generated />",
-        f"// Source: shared/{source}.yaml; regenerate with `make api-contract`.",
-        "namespace SlopWorld", "{", f"    internal static class {name}", "    {",
-        *lines, "    }", "}", "",
-    ])
-
-
 def outputs(data: dict) -> dict[Path, str]:
     rust_dir = ROOT / "slopd/src/shared"
     cs_dir = ROOT / "mod/Source/SlopWorld/Client/Generated"
     return {
         rust_dir / "protocol.rs": rust(data["protocol"]),
-        rust_dir / "defaults.rs": rust_defaults(data["defaults"]),
-        rust_dir / "usage.rs": rust_usage(data["usage"]),
         cs_dir / "WireProtocol.cs": csharp(data["protocol"]),
-        cs_dir / "SharedDefaults.cs": cs_class("defaults", "SharedDefaults", cs_constants(data["defaults"]["constants"])),
-        cs_dir / "SharedUsage.cs": cs_class("usage", "SharedUsage", [
-            f"        public const string {pascal(name)} = {cs_string(name)};"
-            for name in data["usage"]["usage"]["keys"]
-        ]),
     }
 
 

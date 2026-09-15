@@ -18,8 +18,9 @@ see the [house rules](https://github.com/droserasprout/slopworld/blob/main/notes
 
 ## Generated output
 
-Edit the relevant definition in `shared/` (`protocol.yaml`, `defaults.yaml` or
-`usage.yaml`) and run `make api-contract` to update the Rust and C# bindings.
+Edit the stable wire definition in `shared/protocol.yaml` and run `make api-contract` to update
+the Rust and C# bindings. Daemon defaults, prompts and usage policy are Rust-owned read models;
+change their Rust owner and focused API tests instead of adding generated client constants.
 `make api-docs` generates the API route inventory from the router;
 `make reference` generates the developer environment/API/CLI reference.
 Asset-generation targets are listed in `make` help; their implementations live in

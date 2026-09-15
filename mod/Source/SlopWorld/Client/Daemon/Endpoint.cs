@@ -23,8 +23,9 @@ namespace SlopWorld
     // endpoint.toml instead of keeping a second connection configuration.
     public static class Endpoint
     {
-        const string DefaultHost = SharedDefaults.EndpointHost;
-        const int DefaultPort = SharedDefaults.EndpointPort;
+        // Bootstrap-only values. Once connected, daemon metadata is authoritative for policy.
+        const string DefaultHost = "127.0.0.1";
+        const int DefaultPort = 7717;
 
         public static ConnectionInfo Resolve()
         {

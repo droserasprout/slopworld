@@ -93,7 +93,15 @@ namespace SlopWorld
 
         void DrawFieldsBody(Rect r)
         {
-            _listing.Draw(r, DrawFields, DrawTrailingFields);
+            _listing.Draw(r, DrawFieldsWithMetadata, DrawTrailingFields);
+        }
+
+        void DrawFieldsWithMetadata(Listing_Standard l)
+        {
+            if (_loaded && _cfg != null && !_cfg.MetadataAvailable)
+                UiLayout.Note(l, "This daemon does not advertise policy metadata; compatibility values " +
+                    "are shown until it is upgraded.");
+            DrawFields(l);
         }
 
         protected void DrawConfigFooter(Rect bar)

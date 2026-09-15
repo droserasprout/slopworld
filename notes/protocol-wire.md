@@ -1,9 +1,10 @@
 # Wire coordination
 
-`shared/protocol.yaml` owns routes, tags, serialized enums and protocol limits.
-`shared/defaults.yaml` owns application defaults and prompts; `shared/usage.yaml` owns
-usage keys and their metadata. Rust bindings live in `slopd/src/shared/`; C# bindings
-live in `Client/Generated/`. Handwritten Rust serialization helpers stay in
+`shared/protocol.yaml` owns routes, tags, serialized enums and protocol limits. Daemon
+application defaults, prompts, temporary roots and terminal runtime limits live in their Rust
+owners and are exposed as response metadata; usage catalog and resolved rows likewise belong to
+the daemon. Rust/C# generated bindings contain only the stable wire contract. Handwritten Rust
+serialization helpers stay in
 `slopd/src/shared/serde.rs`; only their tag mappings are generated.
 
 The generator loads an explicit file list and rejects duplicate YAML keys. Folded
@@ -24,6 +25,11 @@ Metadata/title/bell changes must still reach inactive tabs without a text redraw
 Effective network/DNS values are read models; nullable overrides are write intent. Config
 patches preserve omitted fields, and a redacted token means retain the secret. See
 [configuration stores](daemon-config-stores.md).
+
+`GET /api/config` includes factory defaults, the usage catalog, temporary-root policy and
+terminal limits. `/api/usage` and usage events include catalog metadata plus resolved rows;
+missing values are represented by an absent row window, never a guessed zero. Older daemons that
+omit metadata retain only the narrow historical client bootstrap bounds.
 
 Worker clone parent and caller/task parent are distinct. Use explicit worker metadata,
 never name parsing. Host errands are unsandboxed; project errands inherit their sandbox.

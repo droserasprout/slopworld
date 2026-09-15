@@ -197,7 +197,7 @@ namespace SlopWorld
                 // Named even with nothing to say about it: an icon and three dots is a
                 // question, and the answer to "which one is this?" must not wait on a poll
                 // that is failing.
-                lines.Add(Long(key) + ": nothing heard yet");
+                lines.Add(Label(usage, key) + ": nothing heard yet");
             }
 
             if (!string.IsNullOrEmpty(usage.Plan)) lines.Add("plan: " + usage.Plan);
@@ -207,7 +207,9 @@ namespace SlopWorld
             if (usage.Heard > 0f && w != null)
                 lines.Add("refreshed " + Span((long)usage.Age) + " ago");
 
-            if (usage.SourceFailed(SourceFor(key)) && !string.IsNullOrEmpty(usage.Error))
+            var row = usage.Row(key);
+            if ((row != null && (row.Stale || usage.SourceFailed(row.Provider))) &&
+                !string.IsNullOrEmpty(usage.Error))
             {
                 lines.Add(usage.Any
                     ? $"last poll failed: {usage.Error}"
@@ -238,18 +240,11 @@ namespace SlopWorld
 
         static string Long(UsageWindow w) => Long(w.Key, w.Label);
 
-        static string SourceFor(string key)
-        {
-            if (key != null && key.StartsWith("claude_")) return "anthropic";
-            if (key != null && key.StartsWith("openrouter_")) return "openrouter";
-            if (key != null && key.StartsWith("openai_")) return "openai";
-            return null;
-        }
-
         static bool Stale(UsageInfo usage, string key)
         {
             if (usage == null) return false;
-            if (usage.SourceFailed(SourceFor(key))) return true;
+            var row = usage.Row(key);
+            if (row != null && (row.Stale || usage.SourceFailed(row.Provider))) return true;
 
             // A daemon without provider-local status (or a disconnected client) still gets
             // the old age-based warning. Once the daemon identifies a failed seller, age must
@@ -261,15 +256,18 @@ namespace SlopWorld
         // currently reporting - the whole point of choosing an icon for it in advance.
         public static string Long(string key, string fallback = null)
         {
-            if (key == SharedUsage.ClaudeSession) return "Claude session";
-            if (key == SharedUsage.ClaudeWeek) return "Claude weekly";
-            if (key == SharedUsage.OpenaiSession) return "OpenAI session";
-            if (key == SharedUsage.OpenaiWeek) return "OpenAI weekly";
-            if (key == SharedUsage.ClaudeSpend) return "Claude balance";
-            if (key == SharedUsage.OpenrouterBalance) return "OpenRouter balance";
             if (key.StartsWith("claude_week_"))
                 return "Claude weekly " + key.Substring(12).Replace('_', ' ');
             return string.IsNullOrEmpty(fallback) ? key : fallback;
+        }
+
+        static string Label(UsageInfo usage, string key)
+        {
+            var row = usage?.Row(key);
+            if (row != null && !string.IsNullOrEmpty(row.Label)) return row.Label;
+            foreach (var entry in usage?.Catalog ?? new List<UsageCatalogInfo>())
+                if (entry.Key == key && !string.IsNullOrEmpty(entry.Label)) return entry.Label;
+            return Long(key);
         }
 
         // Arbitrary but stable, which is all an icon has to be - unless somebody has said
@@ -347,15 +345,15 @@ namespace SlopWorld
         {
             switch (key)
             {
-                case SharedUsage.ClaudeSession: return ThingDefOf.Chemfuel;
-                case SharedUsage.ClaudeWeek: return ThingDefOf.Steel;
+                case "claude_session": return ThingDefOf.Chemfuel;
+                case "claude_week": return ThingDefOf.Steel;
                 case "claude_week_opus": return ThingDefOf.Plasteel;
                 case "claude_week_sonnet": return ThingDefOf.ComponentIndustrial;
                 case "claude_week_cowork": return ThingDefOf.Jade;
-                case SharedUsage.ClaudeSpend: return ThingDefOf.Silver;
+                case "claude_spend": return ThingDefOf.Silver;
                 // Money like the row above it, and the two are never the same coin: what is
                 // left of a budget and what is left of a wallet are different questions.
-                case SharedUsage.OpenrouterBalance: return ThingDefOf.Gold;
+                case "openrouter_balance": return ThingDefOf.Gold;
                 default: return null;
             }
         }

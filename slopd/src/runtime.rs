@@ -18,6 +18,19 @@ pub struct Capabilities {
     pub per_session_limits: bool,
     pub host_network_is_container: bool,
     pub host_terminals_are_container: bool,
+    pub terminal: TerminalCapabilities,
+}
+
+/// Limits that are observable at the daemon/client boundary. The daemon clamps allocations and
+/// scroll requests with these values; clients use them only to bound their own caches and UI
+/// calculations.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct TerminalCapabilities {
+    pub scrollback_lines: u32,
+    pub min_cols: u16,
+    pub max_cols: u16,
+    pub min_rows: u16,
+    pub max_rows: u16,
 }
 
 pub fn is_slopcar() -> bool {
@@ -34,6 +47,13 @@ pub fn capabilities() -> Capabilities {
         per_session_limits: !sidecar,
         host_network_is_container: sidecar,
         host_terminals_are_container: sidecar,
+        terminal: TerminalCapabilities {
+            scrollback_lines: crate::config::SCROLLBACK_LINES,
+            min_cols: crate::shared::protocol::TERMINAL_MIN_COLS,
+            max_cols: crate::shared::protocol::TERMINAL_MAX_COLS,
+            min_rows: crate::shared::protocol::TERMINAL_MIN_ROWS,
+            max_rows: crate::shared::protocol::TERMINAL_MAX_ROWS,
+        },
     }
 }
 
@@ -166,6 +186,13 @@ mod tests {
             per_session_limits: true,
             host_network_is_container: false,
             host_terminals_are_container: false,
+            terminal: TerminalCapabilities {
+                scrollback_lines: crate::config::SCROLLBACK_LINES,
+                min_cols: crate::shared::protocol::TERMINAL_MIN_COLS,
+                max_cols: crate::shared::protocol::TERMINAL_MAX_COLS,
+                min_rows: crate::shared::protocol::TERMINAL_MIN_ROWS,
+                max_rows: crate::shared::protocol::TERMINAL_MAX_ROWS,
+            },
         };
         assert!(caps.audio_playback && caps.per_session_limits);
     }

@@ -19,5 +19,11 @@ network access. The wire exposes effective values separately from nullable overr
 editors must save the override. Changes apply at next agent start. Omitted DNS follows the
 daemon's resolver, including the container resolver in sidecar mode.
 
+`GET /api/config` is also the client read model for daemon policy: it returns effective values
+and a response-only factory-default snapshot, usage catalog, temporary-root preview policy and
+terminal limits. The mod must use those values for field initialization/reset and never recreate
+them from generated constants. Missing metadata is an explicit pre-metadata compatibility state,
+not an authoritative new default.
+
 See [Settings behavior](ui-settings.md) for draft and save ownership, and
 [sandbox isolation](sandbox-isolation.md) for private-state boundaries.
