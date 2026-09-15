@@ -20,6 +20,14 @@ and [paths](ops-paths.md).
   dependency cycles/missing references. Retain instance snapshot guarantees.
 - Show effective values and their source in project/template editors. Shared changes
   affect future creation; changes to existing sessions remain explicit operations.
+- Persist the shared-default baseline used at session creation, including resolved shared
+  dependencies. Launch and restart must use that baseline rather than rereading repository
+  defaults for existing sessions. Keep it separate from explicit session overrides so
+  machine-local project inheritance retains its current behavior.
+- Before enabling shared defaults for an existing project, persist a baseline for its
+  existing sessions that preserves their prior effective configuration. Fail without
+  enabling shared resolution if persistence fails. Adopting newer shared defaults requires
+  an explicit operation with an effective-value preview; retain existing template snapshots.
 
 ## Acceptance
 
@@ -27,4 +35,8 @@ and [paths](ops-paths.md).
   copying personal files. Local overrides survive repo edits and never enter tracked files.
 - Tests cover precedence, list semantics, dependency failures, checkout relocation,
   protected paths and snapshot stability using relevant Makefile checks.
+- Test ordinary sessions with inherited network, DNS and limits: enabling shared setup
+  preserves their values; repository edits affect newly created sessions but not existing
+  ones after session or daemon restart. Cover removed shared files, migration persistence
+  failure, explicit adoption and continued machine-local project inheritance.
 - Update project setup guides and focused ownership notes; delete this plan when complete.
