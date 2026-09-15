@@ -48,6 +48,24 @@ fn restore_redacted_document_token(old: &Config, document: &mut toml::Value) {
     }
 }
 
+fn claim_due(clock: &std::sync::atomic::AtomicU64, now: u64, period: u64) -> bool {
+    let last = clock.load(Ordering::Acquire);
+    if now.saturating_sub(last) < period {
+        return false;
+    }
+    clock
+        .compare_exchange(last, now, Ordering::AcqRel, Ordering::Acquire)
+        .is_ok()
+}
+
+fn next_periodic_deadline(last: u64, period: u64, now: u64) -> u64 {
+    if now.saturating_sub(last) >= period {
+        0
+    } else {
+        last.saturating_add(period)
+    }
+}
+
 impl ConfigOrigin {
     fn effects(&self, endpoint_token: String) -> ConfigEffects {
         ConfigEffects {
@@ -72,6 +90,7 @@ impl Live {
             retick_seq: 0,
             hash: 0,
             last_change: 0,
+            rule_cache: None,
             state_since: 0,
             bell: false,
             cols: BOOT_COLS,
@@ -114,6 +133,7 @@ impl Manager {
             cfg_path,
             endpoint_path: crate::endpoint::path(),
             rules: RwLock::new(compile_rules(&cfg)),
+            rules_revision: AtomicU64::new(0),
             live: RwLock::new(HashMap::new()),
             temp: RwLock::new(HashMap::new()),
             cfg: RwLock::new(cfg),
@@ -177,7 +197,11 @@ impl Manager {
             }
         }
 
-        *self.rules.write().await = change.rules;
+        let mut rules = self.rules.write().await;
+        *rules = change.rules;
+        self.rules_revision
+            .fetch_add(1, std::sync::atomic::Ordering::AcqRel);
+        drop(rules);
         *self.cfg.write().await = change.new;
         if let ConfigOrigin::DiskReload { mtime } = origin {
             // Do not consume a disk stamp until the accepted contents are visible in memory.
@@ -186,6 +210,7 @@ impl Manager {
         if change.root_token_changed {
             self.invalidate_auth(crate::session::AuthChange::RootTokenChanged);
         }
+        self.signals.maintenance_wake.notify_waiters();
 
         origin.effects(endpoint_token)
     }
@@ -309,21 +334,70 @@ impl Manager {
 
     pub(super) async fn reload_if_due(self: &Arc<Self>) {
         let now = now_ms();
-        let last = self.config_state.checked.load(Ordering::Relaxed);
-        if now.saturating_sub(last) < CFG_CHECK_MS {
-            return;
+        if claim_due(&self.config_state.config_checked, now, CFG_CHECK_MS) {
+            self.reload_if_changed().await;
         }
-        if self
-            .config_state
-            .checked
-            .compare_exchange(last, now, Ordering::Relaxed, Ordering::Relaxed)
-            .is_err()
-        {
-            return;
+        if claim_due(&self.config_state.presets_checked, now, PRESETS_CHECK_MS) {
+            self.reload_presets_if_changed().await;
         }
-        self.reload_presets_if_changed().await;
-        self.reload_jukebox_if_changed().await;
-        self.reload_if_changed().await;
+        if claim_due(&self.config_state.jukebox_checked, now, JUKEBOX_CHECK_MS) {
+            self.reload_jukebox_if_changed().await;
+        }
+    }
+
+    /// Return the next maintenance deadline as a monotonic duration. Persisted activity uses
+    /// epoch milliseconds for restart compatibility; only this conversion touches wall time.
+    pub(crate) async fn maintenance_delay(&self) -> Duration {
+        let now = now_ms();
+        let mut deadline = next_periodic_deadline(
+            self.config_state.config_checked.load(Ordering::Acquire),
+            CFG_CHECK_MS,
+            now,
+        );
+        deadline = deadline.min(next_periodic_deadline(
+            self.config_state.presets_checked.load(Ordering::Acquire),
+            PRESETS_CHECK_MS,
+            now,
+        ));
+        deadline = deadline.min(next_periodic_deadline(
+            self.config_state.jukebox_checked.load(Ordering::Acquire),
+            JUKEBOX_CHECK_MS,
+            now,
+        ));
+
+        let rules_revision = self.rules_revision.load(Ordering::Acquire);
+        let live = self.live.read().await;
+        if live.values().any(|l| l.host && l.state != State::Down) {
+            deadline = deadline.min(next_periodic_deadline(
+                self.host_metadata_checked.load(Ordering::Acquire),
+                HOST_METADATA_POLL_MS,
+                now,
+            ));
+        }
+        for l in live.values().filter(|l| l.state != State::Down) {
+            if l.screen.is_none() {
+                continue;
+            }
+            let cache_current = l.rule_cache.as_ref().is_some_and(|cache| {
+                cache.revision == rules_revision && cache.text.as_ref() == l.plain.as_ref()
+            });
+            if l.seq != l.retick_seq || !cache_current {
+                deadline = 0;
+                break;
+            }
+            if matches!(l.state, State::Working | State::Waiting)
+                && !l.rule_cache.as_ref().is_some_and(|cache| {
+                    matches!(cache.matched, Some(State::Waiting | State::Idle))
+                })
+            {
+                deadline = deadline.min(l.last_change.saturating_add(IDLE_MS));
+            }
+        }
+        Duration::from_millis(deadline.saturating_sub(now))
+    }
+
+    pub(crate) fn maintenance_wake(&self) -> Arc<tokio::sync::Notify> {
+        self.signals.maintenance_wake.clone()
     }
 
     pub async fn reload_presets_if_changed(self: &Arc<Self>) -> bool {
@@ -342,6 +416,7 @@ impl Manager {
         }
         tracing::info!("presets changed on disk, reloading");
         self.announce_sessions().await;
+        self.signals.maintenance_wake.notify_waiters();
         true
     }
 
@@ -363,6 +438,7 @@ impl Manager {
         self.emit(Event::Jukebox {
             jukebox: crate::jukebox::catalog(),
         });
+        self.signals.maintenance_wake.notify_waiters();
         true
     }
 
@@ -379,6 +455,7 @@ impl Manager {
         if let Ok(mut w) = self.signals.watchers.lock() {
             *w.entry(name.to_string()).or_insert(0) += 1;
         }
+        self.signals.watchers_changed.send_replace(());
         WatchGuard(self.clone(), name.to_string())
     }
 

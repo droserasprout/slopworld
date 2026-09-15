@@ -7,8 +7,33 @@ struct RetickSnapshot {
     run_id: u64,
     seq: u64,
     state: State,
+    rules_revision: u64,
     last_change: u64,
     plain: Arc<String>,
+    rule_cache: Option<RuleCache>,
+}
+
+fn classify_match(matched: Option<State>, changed: bool, last_change: u64) -> State {
+    if let Some(state) = matched {
+        match state {
+            // A prompt remains a prompt until the agent changes it or the user answers it.
+            // An explicit idle rule is likewise authoritative.
+            State::Waiting | State::Idle => return state,
+            // Some agent TUIs leave their working status line on screen after they stop
+            // producing output. Let that stale match decay with the same activity clock as
+            // the fallback classifier, or it can keep an agent working forever.
+            State::Working if !changed && now_ms().saturating_sub(last_change) >= IDLE_MS => {
+                return State::Idle;
+            }
+            State::Working => return State::Working,
+            State::Down => {}
+        }
+    }
+    if changed || now_ms().saturating_sub(last_change) < IDLE_MS {
+        State::Working
+    } else {
+        State::Idle
+    }
 }
 
 impl Manager {
@@ -97,38 +122,48 @@ impl Manager {
         });
     }
 
-    pub(super) async fn classify(&self, changed: bool, last_change: u64, text: &str) -> State {
-        if let Some(state) = match_rules(&self.rules.read().await, text) {
-            match state {
-                // A prompt remains a prompt until the agent changes it or the user answers it.
-                // An explicit idle rule is likewise authoritative.
-                State::Waiting | State::Idle => return state,
-                // Some agent TUIs leave their working status line on screen after they stop
-                // producing output. Let that stale match decay with the same activity clock as
-                // the fallback classifier, or it can keep an agent working forever.
-                State::Working if !changed && now_ms().saturating_sub(last_change) >= IDLE_MS => {
-                    return State::Idle;
-                }
-                State::Working => return State::Working,
-                State::Down => {}
-            }
-        }
-        if changed || now_ms().saturating_sub(last_change) < IDLE_MS {
-            State::Working
-        } else {
-            State::Idle
+    pub(super) async fn classify_with_cache(
+        &self,
+        changed: bool,
+        last_change: u64,
+        text: &str,
+        cache: Option<&RuleCache>,
+    ) -> Classification {
+        // Keep even cache hits under the rules read lock. This makes the revision and the
+        // cached result one coherent snapshot while still avoiding regex work for unchanged
+        // text; a config publish replaces both together under the write lock.
+        let rules = self.rules.read().await;
+        let current_revision = self
+            .rules_revision
+            .load(std::sync::atomic::Ordering::Acquire);
+        let matched = cache
+            .filter(|cache| cache.revision == current_revision && cache.text.as_str() == text)
+            .map(|cache| cache.matched)
+            .unwrap_or_else(|| match_rules(&rules, text));
+        Classification {
+            state: classify_match(matched, changed, last_change),
+            rules_revision: current_revision,
+            matched,
         }
     }
 
+    #[cfg(test)]
+    pub(super) async fn classify(&self, changed: bool, last_change: u64, text: &str) -> State {
+        self.classify_with_cache(changed, last_change, text, None)
+            .await
+            .state
+    }
+
+    #[cfg(test)]
     pub(super) async fn classify_initial(&self, previous: State, text: &str) -> State {
-        if let Some(state) = match_rules(&self.rules.read().await, text) {
-            return state;
-        }
-        if previous != State::Down {
-            previous
-        } else {
-            State::Working
-        }
+        let classification = self.classify_with_cache(false, 0, text, None).await;
+        classification
+            .matched
+            .unwrap_or(if previous != State::Down {
+                previous
+            } else {
+                State::Working
+            })
     }
 
     pub async fn retick(self: &Arc<Self>) {
@@ -137,32 +172,40 @@ impl Manager {
         self.reload_if_due().await;
 
         let now = now_ms();
-        let host_poll_due = now.saturating_sub(
-            self.host_metadata_checked
-                .load(std::sync::atomic::Ordering::Relaxed),
-        ) >= HOST_METADATA_POLL_MS;
+        let has_hosts = self
+            .live
+            .read()
+            .await
+            .values()
+            .any(|l| l.host && l.state != State::Down);
+        let host_poll_due = has_hosts
+            && now.saturating_sub(
+                self.host_metadata_checked
+                    .load(std::sync::atomic::Ordering::Acquire),
+            ) >= HOST_METADATA_POLL_MS;
         if host_poll_due {
             self.host_metadata_checked
-                .store(now, std::sync::atomic::Ordering::Relaxed);
-        }
-        if host_poll_due {
+                .store(now, std::sync::atomic::Ordering::Release);
             self.start_host_metadata_poll().await;
         }
 
         // Classification awaits the rules lock, so snapshot before releasing the live lock.
         let snapshot: Vec<RetickSnapshot> = {
             let live = self.live.read().await;
+            let rules_revision = self.rules_revision.load(Ordering::Acquire);
             live.iter()
                 .filter(|(_, l)| l.state != State::Down)
                 .filter_map(|(n, l)| {
                     let _ = l.screen.as_ref()?;
-                    let idle_due = match l.state {
-                        State::Working | State::Waiting => {
-                            now.saturating_sub(l.state_since) >= IDLE_MS
-                        }
-                        State::Idle | State::Down => false,
-                    };
-                    if l.seq == l.retick_seq && !idle_due {
+                    let cache_current = l.rule_cache.as_ref().is_some_and(|cache| {
+                        cache.revision == rules_revision && cache.text.as_ref() == l.plain.as_ref()
+                    });
+                    let decay_due = matches!(l.state, State::Working | State::Waiting)
+                        && !l.rule_cache.as_ref().is_some_and(|cache| {
+                            matches!(cache.matched, Some(State::Waiting | State::Idle))
+                        })
+                        && now >= l.last_change.saturating_add(IDLE_MS);
+                    if l.seq == l.retick_seq && cache_current && !decay_due {
                         return None;
                     }
                     Some(RetickSnapshot {
@@ -170,8 +213,10 @@ impl Manager {
                         run_id: l.run_id,
                         seq: l.seq,
                         state: l.state,
+                        rules_revision,
                         last_change: l.last_change,
                         plain: l.plain.clone(),
+                        rule_cache: l.rule_cache.clone(),
                     })
                 })
                 .collect()
@@ -180,20 +225,37 @@ impl Manager {
         let classified = snapshot.len();
         let mut dirty_list = false;
         for previous in snapshot {
-            let state = self
-                .classify(false, previous.last_change, previous.plain.as_str())
+            let classification = self
+                .classify_with_cache(
+                    false,
+                    previous.last_change,
+                    previous.plain.as_str(),
+                    previous.rule_cache.as_ref(),
+                )
                 .await;
             let mut activity = None;
             let mut live = self.live.write().await;
             if let Some(l) = live.get_mut(&previous.name) {
                 // Output, stop/start, or another classification can supersede this snapshot
                 // while the rules lock is awaited. Never mark newer frames as classified.
-                if l.run_id != previous.run_id || l.seq != previous.seq || l.state != previous.state
+                if l.run_id != previous.run_id
+                    || l.seq != previous.seq
+                    || l.state != previous.state
+                    || self
+                        .rules_revision
+                        .load(std::sync::atomic::Ordering::Acquire)
+                        != previous.rules_revision
+                    || classification.rules_revision != previous.rules_revision
                 {
                     continue;
                 }
+                l.rule_cache = Some(RuleCache {
+                    revision: classification.rules_revision,
+                    text: previous.plain.clone(),
+                    matched: classification.matched,
+                });
                 l.retick_seq = previous.seq;
-                if l.set_state(state) {
+                if l.set_state(classification.state) {
                     dirty_list = true;
                     if !l.ephemeral {
                         activity = Some((l.state, l.state_since));
@@ -253,7 +315,15 @@ mod tests {
         // Prevent unrelated polling from suspending retick before it reaches classification.
         manager
             .config_state
-            .checked
+            .config_checked
+            .store(u64::MAX, Ordering::Relaxed);
+        manager
+            .config_state
+            .presets_checked
+            .store(u64::MAX, Ordering::Relaxed);
+        manager
+            .config_state
+            .jukebox_checked
             .store(u64::MAX, Ordering::Relaxed);
         manager
             .host_metadata_checked
@@ -328,5 +398,25 @@ mod tests {
         let live = manager.live.read().await;
         assert_eq!(live["agent"].state, State::Working);
         assert_eq!(live["agent"].retick_seq, 0);
+    }
+
+    #[tokio::test]
+    async fn retick_rejects_a_classification_from_before_rules_reload() {
+        let (manager, _) = quiet_session().await;
+        let mut rules = manager.rules.write().await;
+        let mut tick = Box::pin(manager.retick());
+        assert!(futures::poll!(tick.as_mut()).is_pending());
+        *rules = vec![(State::Waiting, regex::Regex::new("old output").unwrap())];
+        manager.rules_revision.fetch_add(1, Ordering::AcqRel);
+        drop(rules);
+        tick.await;
+
+        let live = manager.live.read().await;
+        assert_eq!(live["agent"].retick_seq, 0);
+        drop(live);
+        manager.retick().await;
+        let live = manager.live.read().await;
+        assert_eq!(live["agent"].state, State::Waiting);
+        assert_eq!(live["agent"].retick_seq, live["agent"].seq);
     }
 }

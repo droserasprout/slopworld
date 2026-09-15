@@ -13,6 +13,7 @@ pub struct Manager {
     pub(super) live: RwLock<HashMap<String, Live>>,
     pub(super) temp: RwLock<HashMap<String, ProjectCfg>>,
     pub(super) rules: RwLock<Vec<(State, Regex)>>,
+    pub(super) rules_revision: AtomicU64,
     pub(super) config_state: super::manager::ConfigState,
     /// Host panes need combined cwd/process refreshes, but not at the one-second
     /// state-classification cadence. The timestamp is also a cheap guard if another maintenance
@@ -65,6 +66,7 @@ impl Drop for WatchGuard {
                 w.remove(&self.1);
             }
         }
+        self.0.signals.watchers_changed.send_replace(());
     }
 }
 
@@ -107,6 +109,7 @@ pub(crate) fn test_manager(config: Config) -> Arc<Manager> {
         live: RwLock::new(HashMap::new()),
         temp: RwLock::new(HashMap::new()),
         rules: RwLock::new(Vec::new()),
+        rules_revision: AtomicU64::new(0),
         config_state: super::manager::ConfigState::new(None, None, None),
         host_metadata_checked: AtomicU64::new(0),
         host_metadata_poll: tokio::sync::Mutex::new(None),

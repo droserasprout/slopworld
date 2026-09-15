@@ -225,7 +225,6 @@ impl Manager {
                 live.last_change = 0;
                 live.state_since = 0;
                 live.auto_resume_pending = auto_resume_pending;
-                live.run_id = live.run_id.wrapping_add(1);
                 (had_title, live.run_id, replaced_reader)
             } else {
                 (false, 0, ReaderDisposition::None)

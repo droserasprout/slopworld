@@ -26,7 +26,6 @@ mod version;
 mod wire;
 
 use std::sync::Arc;
-use std::time::Duration;
 
 use anyhow::Result;
 use axum::extract::{Request, State};
@@ -91,12 +90,13 @@ async fn main() -> Result<()> {
     let poller = {
         let m: Arc<Manager> = m.clone();
         tokio::spawn(async move {
-            let mut tick =
-                tokio::time::interval(Duration::from_millis(crate::config::STATE_TICK_MS));
-            tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
             loop {
-                tick.tick().await;
-                m.retick().await;
+                let delay = m.maintenance_delay().await;
+                let wake = m.maintenance_wake();
+                tokio::select! {
+                    _ = tokio::time::sleep(delay) => m.retick().await,
+                    _ = wake.notified() => {}
+                }
             }
         })
     };

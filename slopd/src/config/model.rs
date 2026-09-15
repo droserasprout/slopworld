@@ -56,8 +56,7 @@ pub struct Config {
 pub const TOKEN_REDACTED: &str = "<redacted>";
 
 // These are daemon identity and scheduling policy, not user configuration. The private tmux
-// name is part of the sandbox/debug contract; the state tick only drives idle reclassification.
-pub const STATE_TICK_MS: u64 = 1_000;
+// name is part of the sandbox/debug contract.
 pub const SCROLLBACK_LINES: u32 = crate::wire::SCROLLBACK_LINES;
 
 /// The private tmux socket name (`tmux -L <name>`). `SLOPD_TMUX_SOCKET` overrides it so a

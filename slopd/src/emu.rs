@@ -37,6 +37,7 @@ impl Dimensions for Dims {
 /// `cy == rows` hides the cursor. Rows carry `\x1b[<n>G` (CHA) ahead of any run whose true
 /// column diverges from the pen - which is where a wide char skipped a cell - and the mod
 /// redraws those runs at their absolute column.
+#[derive(Clone)]
 pub struct Frame {
     pub lines: Vec<Arc<str>>,
     /// Equality accelerator for the complete visible content. It is derived from cached row

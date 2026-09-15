@@ -71,6 +71,20 @@ impl Manager {
                     l.state = State::Working;
                     l.last_change = now;
                     l.state_since = now;
+                    if !l.ephemeral {
+                        if let Some(activity) = activity {
+                            l.state = activity.state;
+                            l.state_since = activity.state_since;
+                            // Persisted timestamps remain epoch milliseconds. Runtime decay
+                            // starts from the adoption sample because no pre-restart frame can
+                            // prove that the restored pane changed after the timestamp.
+                            l.last_change = if activity.state == State::Working {
+                                now
+                            } else {
+                                0
+                            };
+                        }
+                    }
                     live.insert(name.clone(), l);
                     adopted = true;
                 } else if let Some(l) = live.get_mut(&name) {

@@ -206,6 +206,10 @@ struct Live {
     cols: u16,
     rows: u16,
     plain: Arc<String>,
+    // Regex matching is keyed by the stripped visible text and the accepted rules revision.
+    // Activity decay is sampled separately, so a quiet pane can age without rescanning its
+    // unchanged tail.
+    rule_cache: Option<RuleCache>,
     screen: Option<ScreenView>,
     emu: Option<Arc<Mutex<SessionEmu>>>,
     reader: Option<JoinHandle<()>>,
@@ -225,6 +229,19 @@ struct Live {
     title: TitleCapture,
 }
 
+#[derive(Clone)]
+struct RuleCache {
+    revision: u64,
+    text: Arc<String>,
+    matched: Option<State>,
+}
+
+struct Classification {
+    state: State,
+    rules_revision: u64,
+    matched: Option<State>,
+}
+
 impl Live {
     fn set_state(&mut self, s: State) -> bool {
         if self.state == s {
@@ -237,6 +254,8 @@ impl Live {
 }
 
 const CFG_CHECK_MS: u64 = 2_000;
+const PRESETS_CHECK_MS: u64 = 2_000;
+const JUKEBOX_CHECK_MS: u64 = 2_000;
 
 const BOOT_COLS: u16 = 120;
 const BOOT_ROWS: u16 = 34;
@@ -750,6 +769,7 @@ pattern = '(?i)(esc to interrupt|to interrupt\))'
             retick_seq: 0,
             hash: 0,
             last_change: 0,
+            rule_cache: None,
             state_since: 0,
             bell: false,
             cols: BOOT_COLS,

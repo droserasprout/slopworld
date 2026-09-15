@@ -5,10 +5,71 @@ use super::super::session_lifecycle::{
 };
 use super::*;
 use std::sync::atomic::AtomicBool;
-use std::time::Instant;
+use tokio::time::Instant;
 
 use crate::emu::parse_output;
 use anyhow::anyhow;
+
+const FAST_TICK: Duration = Duration::from_millis(16);
+const SLOW_TICK: Duration = Duration::from_millis(UNWATCHED_MS);
+
+/// A reader sleeps only while a dirty frame, a new subscription, or a completed clipboard
+/// write needs work. The clock is Tokio's monotonic clock so tests and production use the same
+/// deadline arithmetic; no wall-clock activity timestamp is used for rendering cadence.
+#[derive(Default)]
+struct DrawSchedule {
+    dirty: bool,
+    last_drawn: Option<Instant>,
+    deadline: Option<Instant>,
+}
+
+impl DrawSchedule {
+    fn output(&mut self, now: Instant, watched: bool) {
+        self.dirty = true;
+        let deadline = if watched {
+            now + FAST_TICK
+        } else if let Some(last_drawn) = self.last_drawn {
+            last_drawn + SLOW_TICK
+        } else {
+            now + FAST_TICK
+        };
+        // A stream of output must not postpone an already scheduled redraw.
+        self.deadline = Some(
+            self.deadline
+                .map_or(deadline, |pending| pending.min(deadline)),
+        );
+    }
+
+    fn wake(&mut self, now: Instant, watched: bool) {
+        if watched {
+            self.deadline = Some(now);
+        } else if self.dirty {
+            self.output(now, false);
+        }
+    }
+
+    fn fire(&mut self, now: Instant, watched: bool) -> bool {
+        if !self.dirty {
+            self.deadline = None;
+            // A newly watched pane may already have an OSC 52 value waiting in the emulator.
+            // Give the tick a chance to take it even when no screen redraw is pending.
+            return watched;
+        }
+        if watched || self.last_drawn.is_none_or(|last| now >= last + SLOW_TICK) {
+            // The tick consumes dirty only when it hands the frame to the renderer.
+            self.last_drawn = Some(now);
+            self.deadline = None;
+            true
+        } else {
+            self.deadline = self.last_drawn.map(|last| last + SLOW_TICK);
+            false
+        }
+    }
+
+    fn deadline(&self) -> Option<Instant> {
+        self.deadline
+    }
+}
 
 impl Manager {
     pub(crate) async fn spawn_reader(self: &Arc<Self>, name: &str) -> Result<bool> {
@@ -209,18 +270,18 @@ impl Manager {
         mut rx: ControlLineReceiver,
         pending: Vec<Vec<u8>>,
     ) {
-        const FAST_TICK: Duration = Duration::from_millis(16);
-        let slow_tick = Duration::from_millis(UNWATCHED_MS);
-        let flush = tokio::time::sleep(FAST_TICK);
-        tokio::pin!(flush);
-        let mut dirty = false;
-        let mut drawn: Option<Instant> = None;
+        let mut watchers_changed = self.signals.watchers_changed.subscribe();
+        let mut schedule = DrawSchedule::default();
+        schedule.wake(Instant::now(), self.watched(name));
         let copying = Arc::new(AtomicBool::new(false));
+        let clipboard_wake = Arc::new(tokio::sync::Notify::new());
 
         let mut exited = false;
         for line in pending {
             match self.handle_control_line(&emu, line).await {
-                ControlLine::Output => dirty = true,
+                ControlLine::Output => {
+                    schedule.output(Instant::now(), self.watched(name));
+                }
                 ControlLine::Exit => {
                     exited = true;
                     break;
@@ -238,26 +299,40 @@ impl Manager {
                 line = rx.recv() => match line {
                     Some(line) => {
                         match self.handle_control_line(&emu, line).await {
-                            ControlLine::Output => dirty = true,
+                            ControlLine::Output => {
+                                schedule.output(Instant::now(), self.watched(name));
+                            }
                             ControlLine::Exit => break,
                             ControlLine::Ignore => {}
-                        }
-                        // Output may pull an existing deadline forward, never postpone it.
-                        let soon = tokio::time::Instant::now() + FAST_TICK;
-                        if flush.deadline() > soon {
-                            flush.as_mut().reset(soon);
                         }
                     }
                     None => break,
                 },
-                _ = flush.as_mut() => {
+                _ = async {
+                    match schedule.deadline() {
+                        Some(deadline) => tokio::time::sleep_until(deadline).await,
+                        None => futures::future::pending().await,
+                    }
+                } => {
                     let watched = self.watched(name);
-                    flush.as_mut().reset(
-                        tokio::time::Instant::now()
-                            + if watched { FAST_TICK } else { slow_tick },
-                    );
-                    self.handle_control_tick(name, &emu, watched, &mut dirty, &mut drawn, &copying)
+                    let now = Instant::now();
+                    if schedule.fire(now, watched) {
+                        self.handle_control_tick(
+                            name,
+                            &emu,
+                            watched,
+                            &mut schedule,
+                            &copying,
+                            &clipboard_wake,
+                        )
                         .await;
+                    }
+                },
+                _ = watchers_changed.changed() => {
+                    schedule.wake(Instant::now(), self.watched(name));
+                },
+                _ = clipboard_wake.notified() => {
+                    schedule.wake(Instant::now(), self.watched(name));
                 }
             }
         }
@@ -285,15 +360,13 @@ impl Manager {
         name: &str,
         emu: &Arc<Mutex<SessionEmu>>,
         watched: bool,
-        dirty: &mut bool,
-        drawn: &mut Option<Instant>,
+        schedule: &mut DrawSchedule,
         copying: &Arc<AtomicBool>,
+        clipboard_wake: &Arc<tokio::sync::Notify>,
     ) {
-        let due =
-            watched || drawn.is_none_or(|t| t.elapsed() >= Duration::from_millis(UNWATCHED_MS));
-        if *dirty && due {
-            *dirty = false;
-            *drawn = Some(Instant::now());
+        if schedule.dirty {
+            schedule.dirty = false;
+            schedule.last_drawn = Some(Instant::now());
             self.render_and_broadcast(name, emu).await;
         }
         if watched && !copying.load(Ordering::Relaxed) {
@@ -301,14 +374,181 @@ impl Manager {
             if let Some(text) = clip {
                 copying.store(true, Ordering::Relaxed);
                 let done = copying.clone();
+                let wake = clipboard_wake.clone();
                 let who = name.to_string();
                 tokio::spawn(async move {
                     if let Err(e) = crate::clipboard::write(&text).await {
                         tracing::debug!("osc52 clipboard {who}: {e:#}");
                     }
                     done.store(false, Ordering::Relaxed);
+                    wake.notify_one();
                 });
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn due_output_reaches_the_screen_for_watched_and_unwatched_panes() {
+        for watched in [false, true] {
+            let manager = crate::session::test_manager(Config::default());
+            let mut live = Live::new(
+                SessionCfg {
+                    name: "agent".into(),
+                    ..Default::default()
+                },
+                TitleCapture::default(),
+            );
+            live.ephemeral = true;
+            manager.live.write().await.insert("agent".into(), live);
+            let emu = Arc::new(Mutex::new(SessionEmu::new(80, 24)));
+            let mut events = manager.events.subscribe();
+            let mut schedule = DrawSchedule::default();
+            assert!(matches!(
+                manager
+                    .handle_control_line(&emu, b"%output %1 hello".to_vec())
+                    .await,
+                ControlLine::Output
+            ));
+            let now = Instant::now();
+            schedule.output(now, watched);
+            assert!(schedule.fire(now + FAST_TICK, watched));
+            manager
+                .handle_control_tick(
+                    "agent",
+                    &emu,
+                    watched,
+                    &mut schedule,
+                    &Arc::new(AtomicBool::new(false)),
+                    &Arc::new(tokio::sync::Notify::new()),
+                )
+                .await;
+
+            assert!(manager.screen("agent").await.is_some());
+            assert!(manager.live.read().await["agent"].plain.contains("hello"));
+            assert!(
+                matches!(events.try_recv(), Ok(event) if matches!(event.event(), Event::Screen { .. }))
+            );
+            assert!(!schedule.dirty);
+            assert_eq!(schedule.deadline(), None);
+        }
+    }
+
+    #[tokio::test]
+    async fn subscription_during_render_leaves_a_clean_tick_pending_for_each_reader() {
+        let manager = crate::session::test_manager(Config::default());
+        let mut live = Live::new(
+            SessionCfg {
+                name: "agent".into(),
+                ..Default::default()
+            },
+            TitleCapture::default(),
+        );
+        live.ephemeral = true;
+        manager.live.write().await.insert("agent".into(), live);
+        let emu = Arc::new(Mutex::new(SessionEmu::new(80, 24)));
+        emu.lock().unwrap().feed(b"final output");
+        let mut changes = manager.signals.watchers_changed.subscribe();
+        let mut other_reader = manager.signals.watchers_changed.subscribe();
+        let mut schedule = DrawSchedule::default();
+        let now = Instant::now();
+        schedule.output(now, false);
+        assert!(schedule.fire(now + FAST_TICK, false));
+        let copying = Arc::new(AtomicBool::new(false));
+        let clipboard_wake = Arc::new(tokio::sync::Notify::new());
+
+        let rules = manager.rules.write().await;
+        let mut tick = Box::pin(manager.handle_control_tick(
+            "agent",
+            &emu,
+            false,
+            &mut schedule,
+            &copying,
+            &clipboard_wake,
+        ));
+        assert!(futures::poll!(tick.as_mut()).is_pending());
+        // No receiver is waiting on changed() while frame publication is suspended.
+        let watch = manager.watching("agent");
+        drop(rules);
+        tick.await;
+        assert!(!schedule.dirty);
+        assert_eq!(schedule.deadline(), None);
+
+        // Both readers must retain the wake, even with no more terminal output.
+        assert!(matches!(
+            futures::poll!(Box::pin(changes.changed())),
+            std::task::Poll::Ready(Ok(()))
+        ));
+        assert!(matches!(
+            futures::poll!(Box::pin(other_reader.changed())),
+            std::task::Poll::Ready(Ok(()))
+        ));
+        schedule.wake(Instant::now(), manager.watched("agent"));
+        assert!(schedule.fire(Instant::now(), manager.watched("agent")));
+
+        drop(watch);
+        assert!(matches!(
+            futures::poll!(Box::pin(changes.changed())),
+            std::task::Poll::Ready(Ok(()))
+        ));
+        assert!(!manager.watched("agent"));
+    }
+
+    #[test]
+    fn continuous_output_does_not_postpone_the_first_draw() {
+        for watched in [false, true] {
+            let now = Instant::now();
+            let mut schedule = DrawSchedule::default();
+            schedule.output(now, watched);
+            for millis in 1..32 {
+                schedule.output(now + Duration::from_millis(millis), watched);
+                assert_eq!(schedule.deadline(), Some(now + FAST_TICK));
+            }
+        }
+    }
+
+    #[test]
+    fn clean_reader_has_no_recurring_deadline() {
+        let now = Instant::now();
+        let mut schedule = DrawSchedule::default();
+        assert_eq!(schedule.deadline(), None);
+
+        schedule.output(now, false);
+        assert_eq!(schedule.deadline(), Some(now + FAST_TICK));
+        assert!(schedule.fire(now + FAST_TICK, false));
+        assert_eq!(schedule.deadline(), None);
+    }
+
+    #[test]
+    fn unwatched_output_keeps_the_render_limit_without_polling_clean_panes() {
+        let now = Instant::now();
+        let mut schedule = DrawSchedule::default();
+        schedule.output(now, false);
+        assert!(schedule.fire(now + FAST_TICK, false));
+
+        let next = now + Duration::from_millis(20);
+        schedule.output(next, false);
+        assert_eq!(schedule.deadline(), Some(now + FAST_TICK + SLOW_TICK));
+        assert!(!schedule.fire(now + Duration::from_millis(100), false));
+        assert_eq!(schedule.deadline(), Some(now + FAST_TICK + SLOW_TICK));
+        assert!(schedule.fire(now + FAST_TICK + SLOW_TICK, false));
+        assert_eq!(schedule.deadline(), None);
+    }
+
+    #[test]
+    fn a_new_subscription_wakes_dirty_or_pending_work() {
+        let now = Instant::now();
+        let mut schedule = DrawSchedule::default();
+        schedule.wake(now, true);
+        assert!(schedule.fire(now, true));
+
+        schedule.output(now, false);
+        schedule.wake(now + Duration::from_millis(1), true);
+        assert_eq!(schedule.deadline(), Some(now + Duration::from_millis(1)));
+        assert!(schedule.fire(now + Duration::from_millis(1), true));
     }
 }

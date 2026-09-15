@@ -37,7 +37,10 @@ struct FrameSnapshot {
     plain: Arc<String>,
     state: State,
     last_change: u64,
+    run_id: u64,
     seq: u64,
+    rules_revision: u64,
+    rule_cache: Option<RuleCache>,
     cursor: (u16, u16),
     meta: FrameMeta,
     cols: u16,
@@ -46,7 +49,7 @@ struct FrameSnapshot {
 }
 
 impl FrameSnapshot {
-    fn from_live(l: &Live) -> Self {
+    fn from_live(l: &Live, rules_revision: u64) -> Self {
         let (cursor, meta) = l
             .screen
             .as_ref()
@@ -71,7 +74,10 @@ impl FrameSnapshot {
             plain: l.plain.clone(),
             state: l.state,
             last_change: l.last_change,
+            run_id: l.run_id,
             seq: l.seq,
+            rules_revision,
+            rule_cache: l.rule_cache.clone(),
             cursor,
             meta,
             cols: l.cols,
@@ -81,20 +87,16 @@ impl FrameSnapshot {
     }
 }
 
-#[derive(Clone, Copy)]
-struct ActivityDelta {
-    state: State,
-}
-
 struct FrameDelta {
     content_hash: u64,
     plain: Arc<String>,
     activity_changed: bool,
     screen_changed: bool,
     next_state: State,
+    rules_revision: u64,
+    matched: Option<State>,
     title_moved: bool,
     bell: bool,
-    activity: Option<ActivityDelta>,
 }
 
 #[path = "capture_frame.rs"]
@@ -324,11 +326,28 @@ fn spawn_control_reader(master: std::fs::File) -> ControlLineReceiver {
 
 #[cfg(test)]
 mod tests {
-    use super::super::session_lifecycle::{DetachCause, ReaderDisposition};
+    use super::super::session_lifecycle::{reset_process_state, DetachCause, ReaderDisposition};
     use super::*;
     use std::io::Write;
     use std::os::fd::OwnedFd;
     use std::os::unix::net::UnixStream;
+
+    fn test_frame(text: &str, hash: u64) -> Frame {
+        Frame {
+            lines: vec![text.into()],
+            content_hash: hash,
+            history: 0,
+            cx: 0,
+            cy: 0,
+            cursor_shape: 0,
+            cursor_blink: false,
+            app_mouse: false,
+            app_drag: false,
+            alt_screen: false,
+            title: String::new(),
+            bell: false,
+        }
+    }
 
     #[tokio::test]
     async fn experimental_off_discards_pending_breadcrumbs() {
@@ -803,5 +822,194 @@ mod tests {
         );
         manager.clear_bell("agent").await;
         assert!(events.try_recv().is_err());
+    }
+
+    #[tokio::test]
+    async fn capture_does_not_commit_after_run_replacement() {
+        let manager = crate::session::test_manager(Config::default());
+        manager.live.write().await.insert(
+            "agent".into(),
+            Live::new(
+                SessionCfg {
+                    name: "agent".into(),
+                    ..Default::default()
+                },
+                TitleCapture::default(),
+            ),
+        );
+        let rules = manager.rules.write().await;
+        let task = tokio::spawn({
+            let manager = manager.clone();
+            async move { manager.apply_frame("agent", test_frame("old", 1)).await }
+        });
+        tokio::task::yield_now().await;
+        manager.live.write().await.get_mut("agent").unwrap().run_id += 1;
+        drop(rules);
+        task.await.unwrap();
+
+        let live = manager.live.read().await;
+        assert_eq!(live["agent"].seq, 0);
+        assert!(live["agent"].screen.is_none());
+    }
+
+    #[tokio::test]
+    async fn capture_does_not_revive_a_stopped_session() {
+        let manager = crate::session::test_manager(Config::default());
+        manager.live.write().await.insert(
+            "agent".into(),
+            Live::new(
+                SessionCfg {
+                    name: "agent".into(),
+                    ..Default::default()
+                },
+                TitleCapture::default(),
+            ),
+        );
+        manager.apply_frame("agent", test_frame("old", 1)).await;
+
+        let rules = manager.rules.write().await;
+        let task = tokio::spawn({
+            let manager = manager.clone();
+            async move { manager.apply_frame("agent", test_frame("stale", 2)).await }
+        });
+        tokio::task::yield_now().await;
+        reset_process_state(manager.live.write().await.get_mut("agent").unwrap());
+        drop(rules);
+        task.await.unwrap();
+
+        let live = manager.live.read().await;
+        assert_eq!(live["agent"].state, State::Down);
+        assert_eq!(live["agent"].seq, 1);
+        assert!(live["agent"].screen.is_none());
+    }
+
+    #[tokio::test]
+    async fn capture_retries_after_competing_idle_decay() {
+        let manager = crate::session::test_manager(Config::default());
+        let mut live = Live::new(
+            SessionCfg {
+                name: "agent".into(),
+                ..Default::default()
+            },
+            TitleCapture::default(),
+        );
+        live.ephemeral = true;
+        manager.live.write().await.insert("agent".into(), live);
+        manager.apply_frame("agent", test_frame("old", 1)).await;
+        let mut events = manager.events.subscribe();
+
+        let rules = manager.rules.write().await;
+        let mut capture = Box::pin(manager.apply_frame("agent", test_frame("new", 2)));
+        assert!(futures::poll!(capture.as_mut()).is_pending());
+        manager
+            .live
+            .write()
+            .await
+            .get_mut("agent")
+            .unwrap()
+            .set_state(State::Idle);
+        drop(rules);
+        capture.await;
+
+        let live = manager.live.read().await;
+        assert_eq!(live["agent"].state, State::Working);
+        assert_eq!(live["agent"].seq, 2);
+        assert_eq!(live["agent"].plain.as_ref(), "new");
+        assert!(
+            matches!(events.try_recv(), Ok(event) if matches!(event.event(), Event::Screen { .. }))
+        );
+    }
+
+    #[tokio::test]
+    async fn rule_cache_is_reused_by_text_and_invalidated_by_revision() {
+        let manager = crate::session::test_manager(Config::default());
+        manager.live.write().await.insert(
+            "agent".into(),
+            Live::new(
+                SessionCfg {
+                    name: "agent".into(),
+                    ..Default::default()
+                },
+                TitleCapture::default(),
+            ),
+        );
+        *manager.rules.write().await = vec![(State::Waiting, regex::Regex::new("same").unwrap())];
+        manager.apply_frame("agent", test_frame("same", 1)).await;
+        {
+            let live = manager.live.read().await;
+            assert_eq!(live["agent"].rule_cache.as_ref().unwrap().revision, 0);
+            assert_eq!(
+                live["agent"].rule_cache.as_ref().unwrap().matched,
+                Some(State::Waiting)
+            );
+        }
+
+        *manager.rules.write().await = vec![(State::Working, regex::Regex::new("same").unwrap())];
+        manager
+            .rules_revision
+            .fetch_add(1, std::sync::atomic::Ordering::AcqRel);
+        manager.apply_frame("agent", test_frame("same", 1)).await;
+
+        let live = manager.live.read().await;
+        assert_eq!(live["agent"].state, State::Working);
+        assert_eq!(live["agent"].rule_cache.as_ref().unwrap().revision, 1);
+        assert_eq!(
+            live["agent"].rule_cache.as_ref().unwrap().matched,
+            Some(State::Working)
+        );
+    }
+
+    #[tokio::test]
+    async fn capture_retries_when_rules_reload_wins_before_commit() {
+        let manager = crate::session::test_manager(Config::default());
+        manager.live.write().await.insert(
+            "agent".into(),
+            Live::new(
+                SessionCfg {
+                    name: "agent".into(),
+                    ..Default::default()
+                },
+                TitleCapture::default(),
+            ),
+        );
+        *manager.rules.write().await = vec![(State::Waiting, regex::Regex::new("same").unwrap())];
+
+        // Keep the snapshot's locks occupied while the frame finishes its old classification.
+        // The reload then wins the commit boundary deterministically.
+        let old_rules = manager.rules.read().await;
+        let live_read = manager.live.read().await;
+        let task = tokio::spawn({
+            let manager = manager.clone();
+            async move { manager.apply_frame("agent", test_frame("same", 1)).await }
+        });
+        for _ in 0..3 {
+            tokio::task::yield_now().await;
+        }
+
+        let (ready_tx, ready_rx) = tokio::sync::oneshot::channel();
+        let reload = tokio::spawn({
+            let manager = manager.clone();
+            async move {
+                let mut rules = manager.rules.write().await;
+                *rules = vec![(State::Working, regex::Regex::new("same").unwrap())];
+                manager
+                    .rules_revision
+                    .fetch_add(1, std::sync::atomic::Ordering::AcqRel);
+                let _ = ready_tx.send(());
+            }
+        });
+        drop(old_rules);
+        ready_rx.await.unwrap();
+        drop(live_read);
+        reload.await.unwrap();
+        task.await.unwrap();
+
+        let live = manager.live.read().await;
+        assert_eq!(live["agent"].state, State::Working);
+        assert_eq!(live["agent"].rule_cache.as_ref().unwrap().revision, 1);
+        assert_eq!(
+            live["agent"].rule_cache.as_ref().unwrap().matched,
+            Some(State::Working)
+        );
     }
 }

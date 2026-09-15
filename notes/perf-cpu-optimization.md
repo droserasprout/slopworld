@@ -10,6 +10,6 @@ immutability and input/event processing when skipping paint. Do not maintain a p
 individual optimizations; production code and benchmark fixtures own that inventory.
 
 The [September baseline](misc-perf-suite-20260910-192731.md) measured a large sparse-URL parsing
-penalty and decoding cost for coalesced socket batches. Those measurements explain the open
-[CPU plan](plan-cpu-fixes.md); they are not claims about the current build. Keep benchmark
-comparisons tied to revision, build mode, machine and fixture boundaries.
+penalty and decoding cost for coalesced socket batches. Those measurements motivated the now
+completed CPU work; they are not claims about the current build. Keep benchmark comparisons tied
+to revision, build mode, machine and fixture boundaries.
