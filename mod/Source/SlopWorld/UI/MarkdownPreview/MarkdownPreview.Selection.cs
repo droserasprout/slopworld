@@ -211,8 +211,8 @@ namespace SlopWorld
                 end = Mathf.Clamp(end, start, line.Text.Length);
                 if (end <= start) continue;
 
-                float left = line.X + line.Edges[start];
-                float right = line.X + line.Edges[end];
+                float left = line.X + Mathf.Min(line.Width, line.Edges[start]);
+                float right = line.X + Mathf.Min(line.Width, line.Edges[end]);
                 Slab.Fill(new Rect(left, line.Y, right - left, line.Height), UiTheme.Sel);
             }
         }
@@ -244,11 +244,13 @@ namespace SlopWorld
                     }
                     continue;
                 }
+                at += piece.PaddingLeft;
                 for (int i = 0; i < piece.Text.Length; i++)
                 {
                     at += _styles.MeasureChar(piece.Style, piece.Text[i]);
                     line.Edges.Add(at);
                 }
+                at += piece.PaddingRight;
             }
         }
 

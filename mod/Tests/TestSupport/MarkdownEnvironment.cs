@@ -1,11 +1,34 @@
 using UnityEngine;
 
+namespace Verse
+{
+    static partial class Text
+    {
+        public static GameFont Font;
+        static readonly GUIStyle Small = new GUIStyle { font = new Font() };
+        static readonly GUIStyle Medium = new GUIStyle
+        {
+            font = new Font { fontSize = 24, ascent = 18, Height = 27 },
+        };
+        public static GUIStyle CurFontStyle => Font == GameFont.Medium ? Medium : Small;
+    }
+}
+
 namespace SlopWorld
 {
-    sealed class StyleSet
+    // Only engine/resource boundaries are substituted; styles and block flow are production.
+    static class TerminalFont
     {
-        public GUIStyle Normal = new GUIStyle();
-        public GUIStyle For(InlineRun run, int heading) => Normal;
-        public float MeasureChar(GUIStyle style, char value) => 1f;
+        public static int Rev;
+        public static GUIStyle Style = new GUIStyle
+        {
+            font = new Font { Monospace = true, ascent = 9, Height = 20 },
+            fontSize = 16,
+        };
     }
+    sealed class MarkdownResourceStore
+    {
+        public Texture2D ImageFor(InlineRun run) => null;
+    }
+    static partial class UiTheme { public const float TinyH = 11f; }
 }
