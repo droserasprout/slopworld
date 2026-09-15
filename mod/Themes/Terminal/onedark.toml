@@ -1,0 +1,10 @@
+version = 1
+id = "onedark"
+label = "One Dark"
+fg = "#abb2bf"
+bg = "#282c34"
+cursor = "#61afef"
+cursorText = "#282c34"
+selection = "#3e4451"
+link = "#61afef"
+ansi = ["#282c34", "#e06c75", "#98c379", "#e5c07b", "#61afef", "#c678dd", "#56b6c2", "#abb2bf", "#5c6370", "#e06c75", "#98c379", "#e5c07b", "#61afef", "#c678dd", "#56b6c2", "#ffffff"]

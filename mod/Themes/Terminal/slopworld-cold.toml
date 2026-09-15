@@ -1,0 +1,11 @@
+version = 1
+order = 1
+id = "slopworld-cold"
+label = "SlopWorld Cold"
+fg = "#c4cbd4"
+bg = "#12171e"
+cursor = "#8bb8d6"
+cursorText = "#12171e"
+selection = "#394b60"
+link = "#8eb7dd"
+ansi = ["#171c23", "#b8646d", "#819d85", "#c1a875", "#6689b7", "#927fa5", "#6f9fa3", "#c4cbd4", "#5d6975", "#d17b83", "#a0bc9d", "#dec68a", "#88add8", "#b093c1", "#91c5c3", "#e3e8ed"]

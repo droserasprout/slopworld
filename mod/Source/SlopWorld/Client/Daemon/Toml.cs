@@ -138,6 +138,11 @@ namespace SlopWorld
             return values;
         }
 
+        // Structured catalogs have their own schema readers. Keep this separate from the
+        // settings facade so a table or array can be consumed deliberately rather than
+        // widening the flat settings format by accident.
+        internal static TomlynTable ParseTable(string text) => ParseModel(text);
+
         public static string Quote(string value)
         {
             string document;

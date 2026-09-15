@@ -9,6 +9,7 @@ const MOD_DIRS: &[&str] = &[
     "Patches",
     "Sounds",
     "Textures",
+    "Themes",
     "Assemblies",
 ];
 

@@ -1,0 +1,10 @@
+version = 1
+id = "tango-light"
+label = "Tango Light"
+fg = "#2e3436"
+bg = "#eeeeec"
+cursor = "#2e3436"
+cursorText = "#eeeeec"
+selection = "#d3d7cf"
+link = "#204a87"
+ansi = ["#2e3436", "#cc0000", "#4e9a06", "#c4a000", "#3465a4", "#75507b", "#06989a", "#d3d7cf", "#555753", "#ef2929", "#8ae234", "#fce94f", "#729fcf", "#ad7fa8", "#34e2e2", "#eeeeec"]

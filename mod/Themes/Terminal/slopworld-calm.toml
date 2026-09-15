@@ -1,0 +1,11 @@
+version = 1
+order = 2
+id = "slopworld-calm"
+label = "SlopWorld Calm"
+fg = "#c4cbd4"
+bg = "#12171e"
+cursor = "#9bafbe"
+cursorText = "#12171e"
+selection = "#394b60"
+link = "#9aafc7"
+ansi = ["#171c23", "#ac6a71", "#88998a", "#b6aa86", "#748aab", "#93849f", "#7c9b9e", "#c4cbd4", "#5d6975", "#c38187", "#a6b8a4", "#d3c99e", "#96adca", "#ad99b9", "#a0c1c0", "#e3e8ed"]
