@@ -220,9 +220,9 @@ namespace SlopWorld
                                      string path, HashSet<string> conflicts)
         {
             if (patch == null || patch.IsNull) return;
-            if (patch.Obj != null)
+            if (patch.IsObject)
             {
-                foreach (var pair in patch.Obj)
+                foreach (var pair in patch.ObjectItems)
                     CollectConflicts(pair.Value, oldBaseline?[pair.Key], server?[pair.Key],
                         path.Length == 0 ? pair.Key : path + "." + pair.Key, conflicts);
                 return;
