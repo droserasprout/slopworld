@@ -9,8 +9,11 @@ uses the native manager for the SlopWorld OST. Mute must stop daemon downloads, 
 volume to zero. Shutdown delivery needs a latch because Unity may run frames after Quit.
 
 Audio tests use fixtures or loopback only; never contact real stations or recognition services.
-Live ureq response deadlines can leak into body reads and periodically kill healthy streams.
-Preserve that constraint while fixing blocked opening; see the [jukebox plan](plan-jukebox-bugfix.md).
+Source probing runs off the audio command worker. Each request gets a generation and a
+cancellation flag, so stop/replacement remains responsive and stale success, failure, and
+metadata cannot commit. Opening has its own header deadline; once committed, the stream is
+governed by the live body idle timeout rather than the opening deadline. Metadata observed
+during probing is published only after the output commits.
 
 Decoder/source generations guard late playback and metadata. A stale title is still stale
 state even if the corresponding audio was discarded. [Likes and recognition](mod-jukebox-library.md)

@@ -118,6 +118,7 @@
     <Compile Include="../Source/SlopWorld/UI/Dialogs/EditIdentity.cs" Link="Source/UI/Dialogs/EditIdentity.cs" />
     <Compile Include="../Source/SlopWorld/UI/Dialogs/TabbedFormLayout.cs" Link="Source/UI/Dialogs/TabbedFormLayout.cs" />
     <Compile Include="../Source/SlopWorld/Sim/Jukebox/SongRecognizer.cs" Link="Source/Sim/Jukebox/SongRecognizer.cs" />
+    <Compile Include="../Source/SlopWorld/Sim/Jukebox/JukeboxLikes.cs" Link="Source/Sim/Jukebox/JukeboxLikes.cs" />
     <Compile Include="../Source/SlopWorld/UI/Jukebox/JukeboxHistory.cs" Link="Source/UI/Jukebox/JukeboxHistory.cs" />
   </ItemGroup>
 

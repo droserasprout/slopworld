@@ -5,6 +5,45 @@ using System.Threading.Tasks;
 
 namespace SlopWorld
 {
+    // Playback identity is deliberately independent from station metadata. A station may be
+    // audible while its ICY title is empty, and a late recognition result must still be rejected
+    // after a stop or source replacement.
+    public sealed class RecognitionTrackState
+    {
+        public bool Playing { get; private set; }
+        public bool Muted { get; private set; }
+        public string Source { get; private set; }
+        public int Revision { get; private set; }
+
+        public bool Eligible => Playing && !Muted;
+
+        public bool Update(bool playing, bool muted, string source)
+        {
+            bool changed = Playing != playing || Muted != muted
+                || !string.Equals(Source, source, StringComparison.Ordinal);
+            Playing = playing;
+            Muted = muted;
+            Source = source;
+            if (changed) Revision++;
+            return changed;
+        }
+
+        public void Advance() => Revision++;
+
+        public bool IsCurrent(int revision, string source) => Eligible
+            && Revision == revision
+            && string.Equals(Source, source, StringComparison.Ordinal);
+
+        public bool CanApply(int revision, string source, CancellationToken cancel) =>
+            !cancel.IsCancellationRequested && IsCurrent(revision, source);
+    }
+
+    public interface IRecognitionService
+    {
+        AudioInput SelectInput(CancellationToken cancel);
+        RecognitionResult Recognize(AudioInput input, CancellationToken cancel);
+    }
+
     // The SongRec boundary, lifted out of Radio so playback state and this external lookup
     // stop sharing one method. Everything here is deliberately free of Unity and Verse so the
     // process spawning, device discovery, JSON parsing and timeout behaviour can be exercised
@@ -75,7 +114,7 @@ namespace SlopWorld
         public bool Ok => Status == RecognitionStatus.Ok;
     }
 
-    public sealed class SongRecognizer
+    public sealed class SongRecognizer : IRecognitionService
     {
         // Shazam over a full stream can take a while, so the lookup is patient; the sink probe
         // is a local query that either answers at once or is not there at all.
