@@ -1041,6 +1041,48 @@ mod tests {
         server.join().unwrap();
     }
 
+    #[test]
+    fn cancelling_an_active_body_terminates_read_exact() {
+        let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
+        let address = listener.local_addr().unwrap();
+        let (release_tx, release_rx) = std::sync::mpsc::channel();
+        let server = std::thread::spawn(move || {
+            let (mut socket, _) = listener.accept().unwrap();
+            let mut request = BufReader::new(socket.try_clone().unwrap());
+            loop {
+                let mut line = String::new();
+                request.read_line(&mut line).unwrap();
+                if line == "\r\n" {
+                    break;
+                }
+            }
+            socket
+                .write_all(
+                    b"HTTP/1.1 200 OK\r\nContent-Type: audio/mpeg\r\nContent-Length: 100\r\n\r\na",
+                )
+                .unwrap();
+            release_rx.recv_timeout(Duration::from_secs(3)).unwrap();
+        });
+        let title = TitleSink::new(None, GENERATION.load(Ordering::SeqCst));
+        let mut connector = StreamConnector::new(&format!("http://{address}"), title.clone());
+        let mut body = connector.connect().unwrap();
+        body.read_exact(&mut [0u8; 1]).unwrap();
+        title.cancel();
+        let (done_tx, done_rx) = std::sync::mpsc::channel();
+        let reader = std::thread::spawn(move || {
+            let result = body.read_exact(&mut [0u8; 1]);
+            let _ = done_tx.send(result);
+        });
+        // Bound the test: Interrupted used to retry forever even after the socket closed.
+        let result = done_rx.recv_timeout(Duration::from_secs(2));
+        release_tx.send(()).unwrap();
+        server.join().unwrap();
+        result
+            .expect("cancelled body read must terminate")
+            .expect_err("cancelled body must not produce more audio");
+        reader.join().unwrap();
+    }
+
     /// A body that stops producing bytes is treated like a broken network path. The short
     /// timeout is test-only; production uses STREAM_IDLE so ordinary live silence is tolerated.
     #[test]
