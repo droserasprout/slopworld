@@ -486,6 +486,19 @@ fn resolve_rows(snapshot: &Snapshot, d: &crate::config::Daemon) -> Vec<UsageRow>
             .iter()
             .find(|window| window.key == entry.key)
             .cloned();
+        // A successful provider response is also an applicability answer: if it returned one
+        // of its windows, an omitted catalog entry is not a pending value. In particular, the
+        // OpenAI free plan reports its weekly window in `primary_window` and does not have a
+        // session window. Keep placeholders only while that provider has supplied no usable
+        // windows at all (usually because its first poll failed).
+        if window.is_none()
+            && snapshot
+                .windows
+                .iter()
+                .any(|window| source_for_key(&window.key) == Some(entry.provider.as_str()))
+        {
+            continue;
+        }
         let stale = snapshot
             .failed_sources
             .iter()
@@ -1072,6 +1085,23 @@ mod tests {
         // The plan is the subscription's, and only one source has one.
         assert_eq!(m.plan, "max");
         assert!(m.error.is_none());
+    }
+
+    #[test]
+    fn valid_openai_response_omits_non_applicable_session_row() {
+        let openai = parse_openai(
+            &serde_json::from_str(
+                r#"{"plan_type":"free","rate_limit":{"primary_window":{"used_percent":12.5,"limit_window_seconds":604800,"reset_at":4102444800}}}"#,
+            )
+            .unwrap(),
+        );
+        let merged = merge([("openai", &openai)], &crate::config::Daemon::default());
+
+        assert!(merged
+            .rows
+            .iter()
+            .any(|row| row.key == OPENAI_WEEK && row.window.is_some()));
+        assert!(!merged.rows.iter().any(|row| row.key == OPENAI_SESSION));
     }
 
     #[test]
