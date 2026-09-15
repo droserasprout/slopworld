@@ -8,6 +8,7 @@ namespace SlopWorld
     // the flow layout and renderer consume this same geometry.
     sealed class MarkdownTextLayout
     {
+        const float IntrinsicWidth = 1000000f;
         readonly StyleSet _styles;
         readonly Func<InlineRun, float, ImageMetrics> _imageMetrics;
 
@@ -18,6 +19,57 @@ namespace SlopWorld
             _imageMetrics = imageMetrics;
         }
 
+        public void InvalidateMetrics()
+        {
+            _styles.Rebuild();
+        }
+
+        public MarkdownTextMetrics Measure(List<InlineRun> runs, int heading)
+        {
+            var unwrapped = Wrap(runs, IntrinsicWidth, heading);
+            float minimum = 0f;
+            foreach (var run in runs ?? new List<InlineRun>())
+            {
+                if (run == null) continue;
+                if (run.IsImage)
+                {
+                    minimum = Mathf.Max(minimum, _imageMetrics(run, IntrinsicWidth).Width);
+                    continue;
+                }
+                if (run.IsTask)
+                {
+                    minimum = Mathf.Max(minimum, UiControls.TickColW);
+                    continue;
+                }
+
+                GUIStyle style = _styles.For(run, heading);
+                string text = run.Text ?? "";
+                if (run.Code)
+                {
+                    for (int i = 0; i < text.Length; i++)
+                        if (text[i] != '\n' && text[i] != '\r')
+                            minimum = Mathf.Max(minimum,
+                                MeasureChunk(style, text[i].ToString()) + CodePadding(run) * 2f);
+                    continue;
+                }
+
+                int start = 0;
+                while (start < text.Length)
+                {
+                    while (start < text.Length && char.IsWhiteSpace(text[start])) start++;
+                    int end = start;
+                    while (end < text.Length && !char.IsWhiteSpace(text[end])) end++;
+                    if (end > start)
+                        minimum = Mathf.Max(minimum,
+                            MeasureChunk(style, text.Substring(start, end - start)) +
+                            CodePadding(run) * 2f);
+                    start = end;
+                }
+            }
+            return new MarkdownTextMetrics(Mathf.Max(1f, minimum),
+                Mathf.Max(minimum, unwrapped.Width));
+        }
+
         public TextLayout Wrap(List<InlineRun> runs, float width, int heading)
         {
             var layout = new TextLayout();
@@ -25,10 +77,12 @@ namespace SlopWorld
 
             foreach (var run in runs ?? new List<InlineRun>())
             {
+                if (run == null) continue;
                 if (run.IsImage)
                 {
                     ImageMetrics image = _imageMetrics(run, width);
-                    if (line.Pieces.Count > 0 && (line.Width + image.Width > width || !string.IsNullOrEmpty(line.CopySuffix)))
+                    if (line.Pieces.Count > 0 &&
+                        (line.Width + image.Width > width || !string.IsNullOrEmpty(line.CopySuffix)))
                     {
                         line.BreakAfter = TextBreakKind.SoftWrap;
                         layout.Lines.Add(line);
@@ -43,7 +97,8 @@ namespace SlopWorld
                 if (run.IsTask)
                 {
                     float taskWidth = UiControls.TickColW;
-                    if (line.Pieces.Count > 0 && (line.Width + taskWidth > width || !string.IsNullOrEmpty(line.CopySuffix)))
+                    if (line.Pieces.Count > 0 &&
+                        (line.Width + taskWidth > width || !string.IsNullOrEmpty(line.CopySuffix)))
                     {
                         line.BreakAfter = TextBreakKind.SoftWrap;
                         layout.Lines.Add(line);
@@ -73,6 +128,7 @@ namespace SlopWorld
             if (line.Pieces.Count > 0 || line.Forced || layout.Lines.Count == 0)
                 layout.Lines.Add(line);
             layout.Height = 0f;
+            layout.Width = 0f;
             int logicalOffset = 0;
             foreach (var item in layout.Lines)
             {
@@ -90,15 +146,18 @@ namespace SlopWorld
                 logicalOffset += item.LogicalLength;
                 if (item.BreakAfter == TextBreakKind.Source) logicalOffset++;
                 if (item.Height <= 0f) item.Height = UiTheme.LineH;
+                AlignLine(item);
                 item.Offset = layout.Height;
                 layout.Height += item.Height;
+                layout.Width = Mathf.Max(layout.Width, item.Width);
             }
             return layout;
         }
 
-        TextLine NewLine(GUIStyle style) => new TextLine
+        TextLine NewLine(GUIStyle style, bool continuation = false) => new TextLine
         {
             Height = Mathf.Max(UiTheme.LineH, style?.lineHeight ?? UiTheme.LineH),
+            Continuation = continuation,
         };
 
         void AppendWrapped(ref TextLine line, TextLayout layout, InlineRun run, string text,
@@ -118,10 +177,11 @@ namespace SlopWorld
                 while (end < text.Length && char.IsWhiteSpace(text[end]) == space) end++;
                 string chunk = text.Substring(start, end - start);
                 float chunkWidth = MeasureChunk(style, chunk);
+                float addedWidth = AddedWidth(line, run, style, chunkWidth);
 
                 if (space)
                 {
-                    if (line.Pieces.Count > 0 && line.Width + chunkWidth <= width &&
+                    if (line.Pieces.Count > 0 && line.Width + addedWidth <= width &&
                         string.IsNullOrEmpty(line.CopySuffix))
                         AddPiece(line, run, chunk, style, chunkWidth);
                     else if (line.Pieces.Count > 0)
@@ -129,11 +189,11 @@ namespace SlopWorld
                         line.CopySuffix += chunk;
                 }
                 else if (line.Pieces.Count > 0 &&
-                    (line.Width + chunkWidth > width || !string.IsNullOrEmpty(line.CopySuffix)))
+                    (line.Width + addedWidth > width || !string.IsNullOrEmpty(line.CopySuffix)))
                 {
                     line.BreakAfter = TextBreakKind.SoftWrap;
                     layout.Lines.Add(line);
-                    line = NewLine(style);
+                    line = NewLine(style, run.Code);
                     AddWord(ref line, layout, run, chunk, style, width, chunkWidth);
                 }
                 else
@@ -152,11 +212,13 @@ namespace SlopWorld
             {
                 string value = text[i].ToString();
                 float charWidth = MeasureChunk(style, value);
-                if (line.Pieces.Count > 0 && (line.Width + charWidth > width || !string.IsNullOrEmpty(line.CopySuffix)))
+                float addedWidth = AddedWidth(line, run, style, charWidth);
+                if (line.Pieces.Count > 0 &&
+                    (line.Width + addedWidth > width || !string.IsNullOrEmpty(line.CopySuffix)))
                 {
                     line.BreakAfter = TextBreakKind.SoftWrap;
                     layout.Lines.Add(line);
-                    line = NewLine(style);
+                    line = NewLine(style, run.Code);
                 }
                 AddPiece(line, run, value, style, charWidth);
             }
@@ -165,7 +227,7 @@ namespace SlopWorld
         void AddWord(ref TextLine line, TextLayout layout, InlineRun run, string word,
                      GUIStyle style, float width, float wordWidth)
         {
-            if (wordWidth <= width)
+            if (wordWidth + CodePadding(run) * 2f <= width)
             {
                 AddPiece(line, run, word, style, wordWidth);
                 return;
@@ -174,11 +236,13 @@ namespace SlopWorld
             for (int i = 0; i < word.Length; i++)
             {
                 float charWidth = _styles.MeasureChar(style, word[i]);
-                if (line.Pieces.Count > 0 && (line.Width + charWidth > width || !string.IsNullOrEmpty(line.CopySuffix)))
+                float addedWidth = AddedWidth(line, run, style, charWidth);
+                if (line.Pieces.Count > 0 &&
+                    (line.Width + addedWidth > width || !string.IsNullOrEmpty(line.CopySuffix)))
                 {
                     line.BreakAfter = TextBreakKind.SoftWrap;
                     layout.Lines.Add(line);
-                    line = NewLine(style);
+                    line = NewLine(style, run.Code);
                 }
                 AddCharPiece(line, run, word[i], style, charWidth);
             }
@@ -201,8 +265,24 @@ namespace SlopWorld
             return width;
         }
 
-        static void AddPiece(TextLine line, InlineRun run, string text,
-                             GUIStyle style, float width, float height = 0f)
+        float AddedWidth(TextLine line, InlineRun run, GUIStyle style, float contentWidth)
+        {
+            return contentWidth + (HasPiece(line, run, style) ? 0f : CodePadding(run) * 2f);
+        }
+
+        static bool HasPiece(TextLine line, InlineRun run, GUIStyle style)
+        {
+            foreach (var piece in line.Pieces)
+                if (!piece.Run.IsImage && ReferenceEquals(piece.Run, run) &&
+                    ReferenceEquals(piece.Style, style)) return true;
+            return false;
+        }
+
+        static float CodePadding(InlineRun run) =>
+            run != null && run.InlineCode ? UiTheme.GapXS : 0f;
+
+        void AddPiece(TextLine line, InlineRun run, string text,
+                      GUIStyle style, float width, float height = 0f)
         {
             if (string.IsNullOrEmpty(text) && !run.IsImage) return;
 
@@ -216,26 +296,32 @@ namespace SlopWorld
                     prior.Width += width;
                     prior.Height = Mathf.Max(prior.Height,
                         height > 0f ? height : style.lineHeight);
+                    prior.Baseline = Mathf.Max(prior.Baseline,
+                        PieceBaseline(run, style, height));
                     line.Width += width;
                     line.Height = Mathf.Max(line.Height, prior.Height);
                     return;
                 }
             }
 
+            float padding = CodePadding(run);
             line.Pieces.Add(new TextPiece
             {
                 Text = text,
                 Run = run,
                 Style = style,
-                Width = width,
-                Height = height,
+                Width = width + padding * 2f,
+                Height = height > 0f ? height : style.lineHeight,
+                PaddingLeft = padding,
+                PaddingRight = padding,
+                Baseline = PieceBaseline(run, style, height),
             });
-            line.Width += width;
+            line.Width += width + padding * 2f;
             line.Height = Mathf.Max(line.Height, height > 0f ? height : style.lineHeight);
         }
 
-        static void AddCharPiece(TextLine line, InlineRun run, char value,
-                                 GUIStyle style, float width, float height = 0f)
+        void AddCharPiece(TextLine line, InlineRun run, char value,
+                          GUIStyle style, float width, float height = 0f)
         {
             if (line.Pieces.Count > 0)
             {
@@ -253,6 +339,22 @@ namespace SlopWorld
                 }
             }
             AddPiece(line, run, value.ToString(), style, width, height);
+        }
+
+        static float PieceBaseline(InlineRun run, GUIStyle style, float height) =>
+            run.IsImage || run.IsTask
+                ? (height > 0f ? height : style.lineHeight) : StyleSet.Baseline(style);
+
+        static void AlignLine(TextLine line)
+        {
+            float baseline = 0f;
+            foreach (var piece in line.Pieces)
+                baseline = Mathf.Max(baseline, piece.Baseline);
+            foreach (var piece in line.Pieces)
+            {
+                piece.OffsetY = Mathf.Max(0f, baseline - piece.Baseline);
+                line.Height = Mathf.Max(line.Height, piece.OffsetY + piece.Height);
+            }
         }
 
         static void AppendText(TextPiece piece, string text)

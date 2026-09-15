@@ -81,9 +81,25 @@ namespace SlopWorld
                 float x = placement.X;
                 for (int i = 0; i < row.Cells.Count; i++)
                 {
-                    CollectText(target, row.Cells[i], x + UiTheme.GapS,
-                        placement.Y + row.Offset + UiTheme.GapS);
-                    x += placement.Table.Widths[i];
+                    TextLayout text = row.Cells[i];
+                    float cellWidth = placement.Table.Widths[i];
+                    float padding = MarkdownTableGeometry.Padding(placement.Table.Widths[i]);
+                    float innerWidth = MarkdownTableGeometry.InnerWidth(cellWidth);
+                    TableAlignment alignment = placement.Table.Alignments != null &&
+                        i < placement.Table.Alignments.Length
+                        ? placement.Table.Alignments[i] : TableAlignment.Left;
+                    for (int lineIndex = 0; lineIndex < text.Lines.Count; lineIndex++)
+                    {
+                        var line = text.Lines[lineIndex];
+                        float lineX = MarkdownTableGeometry.AlignX(x + padding, innerWidth,
+                            line.Width, alignment);
+                        CollectTextLine(target, line, lineX,
+                            placement.Y + row.Offset + padding,
+                            lineIndex + 1 == text.Lines.Count);
+                        target[target.Count - 1].Width = Mathf.Min(line.Width,
+                            Mathf.Max(0f, x + cellWidth - lineX));
+                    }
+                    x += cellWidth;
                 }
             }
         }

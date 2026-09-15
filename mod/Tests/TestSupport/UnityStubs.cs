@@ -1,9 +1,45 @@
 namespace UnityEngine
 {
+    public enum FontStyle { Normal, Bold, Italic, BoldAndItalic }
+    public enum TextAnchor { UpperLeft }
+    public enum TextClipping { Overflow, Clip }
+    public class RectOffset { public RectOffset(int l, int r, int t, int b) { } }
+    public class Font
+    {
+        public int fontSize = 16;
+        public float ascent = 12f;
+        public float Height = 18f;
+        public bool Monospace;
+    }
+    public class Texture2D { public int width = 20, height = 20; }
+    public class GUIStyleState { public Color textColor; }
     public class GUIStyle
     {
-        public float lineHeight => 1f;
-        public Vector2 CalcSize(GUIContent content) => new Vector2(content.text.Length, 1f);
+        public Font font;
+        public int fontSize;
+        public FontStyle fontStyle;
+        public TextAnchor alignment;
+        public TextClipping clipping;
+        public RectOffset margin, padding;
+        public bool richText, wordWrap;
+        public GUIStyleState normal = new GUIStyleState();
+        public GUIStyle() { }
+        public GUIStyle(GUIStyle source)
+        {
+            font = source.font;
+            fontSize = source.fontSize;
+            fontStyle = source.fontStyle;
+            normal.textColor = source.normal.textColor;
+        }
+        float Scale => font == null ? 1f : (fontSize > 0 ? fontSize : font.fontSize) / (float)font.fontSize;
+        public float lineHeight => font == null ? 1f : font.Height * Scale;
+        public Vector2 CalcSize(GUIContent content)
+        {
+            float width = 0f;
+            foreach (char c in content.text)
+                width += font == null ? 1f : font.Monospace ? 8f : c == 'i' ? 3f : c == 'W' ? 12f : 7f;
+            return new Vector2(width * Scale, lineHeight);
+        }
     }
 
     public class GUIContent
@@ -51,6 +87,7 @@ namespace UnityEngine
 
     public static class Mathf
     {
+        public static bool Approximately(float a, float b) => System.Math.Abs(a - b) < .0001f;
         public static int Max(int a, int b) => a > b ? a : b;
         public static int Min(int a, int b) => a < b ? a : b;
         public static float Min(float a, float b) => a < b ? a : b;

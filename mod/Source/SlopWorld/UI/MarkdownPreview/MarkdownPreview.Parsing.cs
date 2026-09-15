@@ -24,6 +24,7 @@ namespace SlopWorld
             public bool Bold;
             public bool Italic;
             public bool Code;
+            public bool InlineCode;
             public bool Strike;
             public string Link;
             public string LocalLink;
@@ -34,6 +35,7 @@ namespace SlopWorld
                 result.Bold = result.Bold || state.Bold > 0;
                 result.Italic = result.Italic || state.Italic > 0;
                 result.Code = result.Code || state.Code > 0;
+                result.InlineCode = result.InlineCode || state.InlineCode > 0;
                 result.Strike = result.Strike || state.Strike > 0;
                 result.Link = result.Link ?? state.Link;
                 result.LocalLink = result.LocalLink ?? state.LocalLink;
@@ -52,6 +54,7 @@ namespace SlopWorld
             {
                 var result = this;
                 result.Code = true;
+                result.InlineCode = true;
                 return result;
             }
 
@@ -69,6 +72,7 @@ namespace SlopWorld
             public int Bold;
             public int Italic;
             public int Code;
+            public int InlineCode;
             public int Strike;
             public string Link;
             public string LocalLink;
@@ -160,7 +164,7 @@ namespace SlopWorld
             return new MarkdownBlock
             {
                 Kind = BlockKind.Heading,
-                Level = Mathf.Clamp(heading.Level, 1, 4),
+                Level = Mathf.Clamp(heading.Level, 1, 6),
                 Runs = ReadInlines(heading.Inline),
             };
         }
@@ -206,6 +210,7 @@ namespace SlopWorld
             {
                 Kind = BlockKind.List,
                 Ordered = list.IsOrdered,
+                Tight = !list.IsLoose,
                 Start = start < 1 ? 1 : start,
                 Children = children,
             };
@@ -237,7 +242,33 @@ namespace SlopWorld
                 }
                 rows.Add(output);
             }
-            return new MarkdownBlock { Kind = BlockKind.Table, Rows = rows };
+            var alignments = new List<TableAlignment>();
+            foreach (var definition in table.ColumnDefinitions)
+            {
+                if (!definition.Alignment.HasValue)
+                {
+                    alignments.Add(TableAlignment.Left);
+                    continue;
+                }
+                switch (definition.Alignment.Value)
+                {
+                    case TableColumnAlign.Center:
+                        alignments.Add(TableAlignment.Center);
+                        break;
+                    case TableColumnAlign.Right:
+                        alignments.Add(TableAlignment.Right);
+                        break;
+                    default:
+                        alignments.Add(TableAlignment.Left);
+                        break;
+                }
+            }
+            return new MarkdownBlock
+            {
+                Kind = BlockKind.Table,
+                Rows = rows,
+                ColumnAlignments = alignments,
+            };
         }
 
         MarkdownBlock ConvertHtml(HtmlBlock html)
@@ -347,6 +378,7 @@ namespace SlopWorld
                         Bold = currentStyle.Bold,
                         Italic = currentStyle.Italic,
                         Code = currentStyle.Code,
+                        InlineCode = currentStyle.InlineCode,
                         Strike = currentStyle.Strike,
                         IsTask = true,
                         TaskChecked = task.Checked,
@@ -441,6 +473,7 @@ namespace SlopWorld
                 image.Bold = style.Bold;
                 image.Italic = style.Italic;
                 image.Code = style.Code;
+                image.InlineCode = style.InlineCode;
                 image.Strike = style.Strike;
                 image.Link = style.Link;
                 image.LocalLink = style.LocalLink;
@@ -468,6 +501,7 @@ namespace SlopWorld
             if (name == "code" || name == "kbd" || name == "samp")
             {
                 state.Code = Math.Max(0, state.Code + (tag.Closing ? -1 : 1));
+                state.InlineCode = Math.Max(0, state.InlineCode + (tag.Closing ? -1 : 1));
                 return true;
             }
             if (name == "del" || name == "s" || name == "strike")
@@ -508,6 +542,7 @@ namespace SlopWorld
                 Bold = style.Bold,
                 Italic = style.Italic,
                 Code = style.Code,
+                InlineCode = style.InlineCode,
                 Strike = style.Strike,
                 Link = style.Link,
                 LocalLink = style.LocalLink,
@@ -646,6 +681,7 @@ namespace SlopWorld
                 Bold = style.Bold,
                 Italic = style.Italic,
                 Code = style.Code,
+                InlineCode = style.InlineCode,
                 Strike = style.Strike,
                 Faint = faint,
                 Link = style.Link,

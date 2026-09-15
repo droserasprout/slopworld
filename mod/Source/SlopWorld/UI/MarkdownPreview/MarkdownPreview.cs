@@ -139,7 +139,7 @@ namespace SlopWorld
             {
                 // Discard stale hit regions before input can use the new layout.
                 _renderer.ClearLinks();
-                if (metricsChanged) _layout.Invalidate();
+                if (metricsChanged) _layout.InvalidateTypography();
                 _viewportWidth = body.width;
                 _viewportHeight = body.height;
                 _layout.Reflow(_blocks, body.width);

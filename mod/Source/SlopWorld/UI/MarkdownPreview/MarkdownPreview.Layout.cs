@@ -12,6 +12,7 @@ namespace SlopWorld
         StyleSet _styles;
         MarkdownTextLayout _textLayout;
         float _width = -1f;
+        int _terminalRevision = -1;
 
         public MarkdownLayoutEngine(MarkdownResourceStore resources)
         {
@@ -25,13 +26,29 @@ namespace SlopWorld
 
         public void EnsureStyles()
         {
-            if (_styles != null) return;
+            // Terminal settings have their own revision, independent of chrome metrics.
+            if (_styles != null)
+            {
+                if (_terminalRevision != TerminalFont.Rev)
+                {
+                    InvalidateTypography();
+                    _terminalRevision = TerminalFont.Rev;
+                }
+                return;
+            }
             _styles = new StyleSet();
+            _terminalRevision = TerminalFont.Rev;
             _textLayout = new MarkdownTextLayout(_styles, ImageMetrics);
         }
 
         public void Invalidate()
         {
+            _width = -1f;
+        }
+
+        public void InvalidateTypography()
+        {
+            if (_textLayout != null) _textLayout.InvalidateMetrics();
             _width = -1f;
         }
 
@@ -53,7 +70,10 @@ namespace SlopWorld
             float y = UiTheme.GapM;
             float contentWidth = Mathf.Max(1f, width - UiTheme.GapM * 2f);
             foreach (var block in blocks ?? new List<MarkdownBlock>())
+            {
                 y = Place(block, UiTheme.GapM, y, contentWidth);
+                y += BlockGap(block);
+            }
             Height = Mathf.Max(1f, y + UiTheme.GapM);
             for (int i = 0; i < _placements.Count; i++)
                 _placements[i].Sequence = i;
@@ -95,19 +115,19 @@ namespace SlopWorld
             {
                 case BlockKind.Paragraph:
                     if (TrySingleImage(block.Runs, out var image))
-                        return PlaceImage(image, x, y, width, UiTheme.GapS);
+                        return PlaceImage(image, x, y, width, 0f);
                     if (TryAlignedImage(block.Runs, out image))
                         return PlaceParagraphWithImage(block.Runs, image, x, y, width);
-                    return PlaceText(block.Runs, x, y, width, 0, false, UiTheme.GapS);
+                    return PlaceText(block.Runs, x, y, width, 0, false, 0f);
 
                 case BlockKind.Heading:
-                    return PlaceText(block.Runs, x, y, width, block.Level, true, UiTheme.GapM);
+                    return PlaceHeading(block.Runs, x, y, width, block.Level);
 
                 case BlockKind.Code:
                     return PlaceCode(block, x, y, width);
 
                 case BlockKind.Raw:
-                    return PlaceText(block.Runs, x, y, width, 0, false, UiTheme.GapS);
+                    return PlaceText(block.Runs, x, y, width, 0, false, 0f);
 
                 case BlockKind.Rule:
                     _placements.Add(new Placement
@@ -118,7 +138,7 @@ namespace SlopWorld
                         Width = width,
                         Height = 1f,
                     });
-                    return y + UiTheme.GapS * 2f + 1f;
+                    return y + UiTheme.GapS + 1f;
 
                 case BlockKind.Quote:
                     return PlaceQuote(block, x, y, width);
@@ -130,8 +150,11 @@ namespace SlopWorld
                     return PlaceTable(block, x, y, width);
 
                 case BlockKind.Item:
-                    foreach (var child in block.Children)
+                    foreach (var child in block.Children ?? new List<MarkdownBlock>())
+                    {
                         y = Place(child, x, y, width);
+                        y += BlockGap(child);
+                    }
                     return y;
 
                 default:
@@ -152,9 +175,9 @@ namespace SlopWorld
                 if (!string.IsNullOrWhiteSpace(run.Text)) { hasText = true; break; }
             if (hasText && metrics.Width + UiTheme.GapS >= width)
             {
-                PlaceImage(image, x, y, width, UiTheme.GapS);
+                PlaceImage(image, x, y, width, 0f);
                 return PlaceText(textRuns, x, y + metrics.Height + UiTheme.GapS,
-                    width, 0, false, UiTheme.GapS);
+                    width, 0, false, 0f);
             }
 
             float textWidth = Mathf.Max(1f, width - metrics.Width - UiTheme.GapS);
@@ -178,7 +201,7 @@ namespace SlopWorld
                 Height = metrics.Height,
                 Image = image,
             });
-            return y + Mathf.Max(text.Height, metrics.Height) + UiTheme.GapS;
+            return y + Mathf.Max(text.Height, metrics.Height);
         }
 
         float PlaceImage(InlineRun image, float x, float y, float width, float gap)
@@ -246,6 +269,20 @@ namespace SlopWorld
             return y + text.Height + gap;
         }
 
+        float PlaceHeading(List<InlineRun> runs, float x, float y, float width, int level)
+        {
+            // The initial document inset already provides top breathing room. Later headings
+            // get a larger leading margin than the body gap that follows them.
+            if (y > UiTheme.GapM + .01f) y += UiTheme.GapM;
+            return PlaceText(runs, x, y, width, level, true, 0f);
+        }
+
+        static float BlockGap(MarkdownBlock block)
+        {
+            if (block == null) return 0f;
+            return block.Kind == BlockKind.Table ? UiTheme.GapM : UiTheme.GapS;
+        }
+
         float PlaceCode(MarkdownBlock block, float x, float y, float width)
         {
             var runs = CodeRuns(block);
@@ -263,7 +300,7 @@ namespace SlopWorld
                 Text = text,
                 Label = block.Info,
             });
-            return y + height + UiTheme.GapS;
+            return y + height;
         }
 
         static List<InlineRun> CodeRuns(MarkdownBlock block)
@@ -275,10 +312,13 @@ namespace SlopWorld
                 return runs;
             }
 
+            var plain = new System.Text.StringBuilder();
             string[] lines = block.Highlighted.Replace("\r\n", "\n").Split('\n');
             for (int i = 0; i < lines.Length; i++)
             {
                 foreach (var run in Sgr.ParseLine(lines[i]))
+                {
+                    plain.Append(run.Text);
                     runs.Add(new InlineRun
                     {
                         Text = run.Text,
@@ -286,10 +326,18 @@ namespace SlopWorld
                         HasColor = true,
                         Color = run.Fg,
                     });
+                }
                 if (i + 1 < lines.Length)
+                {
+                    plain.Append('\n');
                     runs.Add(new InlineRun { Text = "\n", Code = true });
+                }
             }
-            return runs;
+            // A highlighter is allowed to normalize or reject input. In that case keeping its
+            // output would make selection/copy silently differ from the source document.
+            return string.Equals(plain.ToString(), block.Code ?? "",
+                System.StringComparison.Ordinal)
+                ? runs : new List<InlineRun> { new InlineRun { Text = block.Code ?? "", Code = true } };
         }
 
         float PlaceQuote(MarkdownBlock block, float x, float y, float width)
@@ -297,8 +345,11 @@ namespace SlopWorld
             float start = y;
             float innerX = x + UiTheme.GapM;
             float innerWidth = Mathf.Max(1f, width - UiTheme.GapM);
-            foreach (var child in block.Children)
+            foreach (var child in block.Children ?? new List<MarkdownBlock>())
+            {
                 y = Place(child, innerX, y, innerWidth);
+                y += BlockGap(child);
+            }
 
             _placements.Add(new Placement
             {
@@ -306,37 +357,62 @@ namespace SlopWorld
                 X = x,
                 Y = start,
                 Width = width,
-                Height = Mathf.Max(UiTheme.LineH, y - start - UiTheme.GapS),
+                Height = Mathf.Max(UiTheme.LineH, y - start),
             });
-            return y + UiTheme.GapS;
+            return y;
         }
 
         float PlaceList(MarkdownBlock block, float x, float y, float width)
         {
             int number = block.Start;
-            foreach (var item in block.Children)
+            var markers = new List<List<InlineRun>>();
+            float markerWidth = 0f;
+            foreach (var item in block.Children ?? new List<MarkdownBlock>())
             {
                 string marker = block.Ordered ? number++ + "." : "•";
                 var bullet = new List<InlineRun> { new InlineRun { Text = marker } };
-                var bulletText = _textLayout.Wrap(bullet, width, 0);
+                markers.Add(bullet);
+                markerWidth = Mathf.Max(markerWidth, _textLayout.Measure(bullet, 0).PreferredWidth);
+            }
+
+            // Reserve one stable gutter for the widest marker. A marker that grows from 9 to
+            // 10 must not move the item text or collide with it halfway through the list.
+            float gutter = MarkdownTableGeometry.MarkerGutter(width, markerWidth);
+            int itemIndex = 0;
+            foreach (var item in block.Children ?? new List<MarkdownBlock>())
+            {
+                var bulletText = _textLayout.Wrap(markers[itemIndex++], gutter, 0);
                 _placements.Add(new Placement
                 {
                     Kind = PlacementKind.Bullet,
                     X = x,
                     Y = y,
-                    Width = UiTheme.GapL,
+                    Width = gutter,
                     Height = bulletText.Height,
                     Text = bulletText,
                 });
 
                 float itemY = y;
-                float innerX = x + UiTheme.GapL;
-                float innerWidth = Mathf.Max(1f, width - UiTheme.GapL);
-                foreach (var child in item.Children)
+                float innerX = x + gutter;
+                float innerWidth = Mathf.Max(1f, width - gutter);
+                var children = item?.Children ?? new List<MarkdownBlock>();
+                for (int childIndex = 0; childIndex < children.Count; childIndex++)
+                {
+                    var child = children[childIndex];
                     itemY = Place(child, innerX, itemY, innerWidth);
-                y = Mathf.Max(itemY - UiTheme.GapS, y + bulletText.Height) + 1f;
+                    bool last = childIndex + 1 == children.Count;
+                    if (!last)
+                    {
+                        var next = children[childIndex + 1];
+                        itemY += block.Tight &&
+                            (child.Kind == BlockKind.List || next.Kind == BlockKind.List)
+                            ? UiTheme.GapS : block.Tight ? 0f : BlockGap(child);
+                    }
+                }
+                float itemGap = block.Tight ? UiTheme.GapXS : UiTheme.GapM;
+                y = Mathf.Max(itemY, y + bulletText.Height) + itemGap;
             }
-            return y + 1f;
+            return y;
         }
 
         float PlaceTable(MarkdownBlock block, float x, float y, float width)
@@ -351,37 +427,67 @@ namespace SlopWorld
                 Height = table.Height,
                 Table = table,
             });
-            return y + table.Height + UiTheme.GapM;
+            return y + table.Height;
         }
 
         TableLayout MakeTable(MarkdownBlock block, float width)
         {
             int columns = 0;
-            foreach (var row in block.Rows) columns = Mathf.Max(columns, row.Cells.Count);
+            foreach (var row in block.Rows ?? new List<TableRow>())
+                columns = Mathf.Max(columns, row.Cells.Count);
             columns = Mathf.Max(1, columns);
 
-            var table = new TableLayout { Widths = new float[columns] };
-            float cellWidth = width / columns;
-            foreach (var row in block.Rows)
+            var minimum = new float[columns];
+            var preferred = new float[columns];
+            for (int i = 0; i < columns; i++) minimum[i] = preferred[i] = UiTheme.GapS * 2f + 1f;
+            foreach (var row in block.Rows ?? new List<TableRow>())
+            {
+                for (int i = 0; i < row.Cells.Count && i < columns; i++)
+                {
+                    MarkdownTextMetrics metrics = _textLayout.Measure(row.Cells[i], 0);
+                    minimum[i] = Mathf.Max(minimum[i], metrics.MinimumWidth + UiTheme.GapS * 2f);
+                    preferred[i] = Mathf.Max(preferred[i], metrics.PreferredWidth + UiTheme.GapS * 2f);
+                }
+            }
+
+            var table = new TableLayout
+            {
+                Widths = MarkdownTableGeometry.AllocateColumns(width, minimum, preferred),
+                Alignments = new TableAlignment[columns],
+            };
+            for (int i = 0; i < columns; i++)
+                table.Alignments[i] = block.ColumnAlignments != null &&
+                    i < block.ColumnAlignments.Count
+                    ? block.ColumnAlignments[i] : TableAlignment.Left;
+
+            foreach (var row in block.Rows ?? new List<TableRow>())
             {
                 var result = new TableRowLayout { Header = row.Header };
-                foreach (var cell in row.Cells)
+                for (int i = 0; i < row.Cells.Count && i < columns; i++)
                 {
-                    var text = _textLayout.Wrap(cell,
-                        Mathf.Max(1f, cellWidth - UiTheme.GapS * 2f), 0);
+                    float cellWidth = table.Widths[i];
+                    float padding = MarkdownTableGeometry.Padding(cellWidth);
+                    var text = _textLayout.Wrap(row.Cells[i],
+                        MarkdownTableGeometry.InnerWidth(cellWidth), 0);
                     result.Cells.Add(text);
                     result.Height = Mathf.Max(result.Height,
-                        text.Height + UiTheme.GapS * 2f);
+                        text.Height + padding * 2f);
                 }
                 while (result.Cells.Count < columns)
+                {
+                    int i = result.Cells.Count;
+                    float cellWidth = table.Widths[i];
+                    float padding = MarkdownTableGeometry.Padding(cellWidth);
                     result.Cells.Add(_textLayout.Wrap(new List<InlineRun>(),
-                        Mathf.Max(1f, cellWidth - UiTheme.GapS * 2f), 0));
+                        MarkdownTableGeometry.InnerWidth(cellWidth), 0));
+                    result.Height = Mathf.Max(result.Height, padding * 2f + UiTheme.LineH);
+                }
                 result.Offset = table.Height;
                 table.Rows.Add(result);
                 table.Height += result.Height;
             }
-            for (int i = 0; i < columns; i++) table.Widths[i] = cellWidth;
             return table;
         }
+
     }
 }

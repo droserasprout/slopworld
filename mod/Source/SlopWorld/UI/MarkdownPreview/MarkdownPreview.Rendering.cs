@@ -131,7 +131,9 @@ namespace SlopWorld
             }
         }
 
-        void DrawInlineCodeBackgrounds(TextLayout text, float x, float y)
+        void DrawInlineCodeBackgrounds(TextLayout text, float x, float y,
+                                       float availableWidth = -1f,
+                                       TableAlignment alignment = TableAlignment.Left)
         {
             if (text == null) return;
             int first = FirstVisibleLine(text, y, _clipTop);
@@ -141,11 +143,14 @@ namespace SlopWorld
                 float lineY = y + line.Offset;
                 if (lineY >= _clipBottom) break;
 
-                float at = x;
+                float at = availableWidth > 0f
+                    ? MarkdownTableGeometry.AlignX(x, availableWidth, line.Width, alignment)
+                    : x;
                 foreach (var piece in line.Pieces)
                 {
-                    if (piece.Run.Code)
-                        Slab.Fill(new Rect(at, lineY, piece.Width, line.Height).ContractedBy(1f),
+                    if (piece.Run.InlineCode)
+                        Slab.Fill(new Rect(at, lineY + piece.OffsetY, piece.Width,
+                                piece.Height).ContractedBy(1f),
                             UiTheme.RowBg);
                     at += piece.Width;
                 }
@@ -164,8 +169,7 @@ namespace SlopWorld
                 float x = placement.X;
                 for (int cellIndex = 0; cellIndex < row.Cells.Count; cellIndex++)
                 {
-                    DrawInlineCodeBackgrounds(row.Cells[cellIndex], x + UiTheme.GapS,
-                        y + UiTheme.GapS);
+                    DrawCell(placement.Table, row, cellIndex, x, y, true);
                     x += placement.Table.Widths[cellIndex];
                 }
             }
@@ -201,7 +205,7 @@ namespace SlopWorld
                     DrawText(placement.Text, placement.X + UiTheme.GapS,
                         placement.Y + UiTheme.GapS +
                         (string.IsNullOrWhiteSpace(placement.Label)
-                            ? 0f : UiTheme.TinyH + UiTheme.GapXS), false);
+                            ? 0f : UiTheme.TinyH + UiTheme.GapXS), false, true);
                     break;
 
                 case PlacementKind.Table:
@@ -210,7 +214,9 @@ namespace SlopWorld
             }
         }
 
-        void DrawText(TextLayout text, float x, float y, bool heading)
+        void DrawText(TextLayout text, float x, float y, bool heading,
+                      bool codeBlock = false, float availableWidth = -1f,
+                      TableAlignment alignment = TableAlignment.Left)
         {
             int first = FirstVisibleLine(text, y, _clipTop);
             for (int i = first; i < text.Lines.Count; i++)
@@ -219,27 +225,34 @@ namespace SlopWorld
                 float lineY = y + line.Offset;
                 if (lineY >= _clipBottom) break;
 
-                float at = x;
+                float lineX = availableWidth > 0f
+                    ? MarkdownTableGeometry.AlignX(x, availableWidth, line.Width, alignment)
+                    : x;
+                if (codeBlock && line.Continuation)
+                    Slab.VHairline(new Rect(lineX - UiTheme.GapXS * .5f, lineY + 2f,
+                        1f, Mathf.Max(1f, line.Height - 4f)), UiTheme.Edge);
+
+                float at = lineX;
                 foreach (var piece in line.Pieces)
                 {
-                    var rect = new Rect(at, lineY, piece.Width, line.Height);
+                    float pieceY = lineY + piece.OffsetY;
                     if (piece.Run.IsImage)
                     {
-                        AddLink(new Rect(at, lineY, piece.Width, piece.Height), piece.Run);
+                        AddLink(new Rect(at, pieceY, piece.Width, piece.Height), piece.Run);
                         var texture = _resources.ImageFor(piece.Run);
                         if (texture != null)
                         {
                             GUI.color = Color.white;
-                            GUI.DrawTexture(new Rect(at, lineY, piece.Width, piece.Height), texture,
+                            GUI.DrawTexture(new Rect(at, pieceY, piece.Width, piece.Height), texture,
                                 ScaleMode.ScaleToFit, true);
                         }
                         else
                         {
-                            Slab.Box(new Rect(at, lineY, piece.Width, piece.Height),
+                            Slab.Box(new Rect(at, pieceY, piece.Width, piece.Height),
                                 UiTheme.Well, UiTheme.Edge);
                             GUI.color = UiTheme.Dim;
                             Text.Font = GameFont.Tiny;
-                            Widgets.Label(new Rect(at + UiTheme.GapXS, lineY,
+                            Widgets.Label(new Rect(at + UiTheme.GapXS, pieceY,
                                 Mathf.Max(1f, piece.Width - UiTheme.GapXS * 2f), piece.Height),
                                 piece.Run.ImageFailed ? "image unavailable" : "image loading…");
                             GUI.color = Color.white;
@@ -249,11 +262,16 @@ namespace SlopWorld
                     }
                     if (piece.Run.IsTask)
                     {
-                        UiControls.TickBox(rect, piece.Run.TaskChecked);
+                        UiControls.TickBox(new Rect(at, pieceY, piece.Width, piece.Height),
+                            piece.Run.TaskChecked);
                         at += piece.Width;
                         continue;
                     }
 
+                    float textX = at + piece.PaddingLeft;
+                    float textWidth = Mathf.Max(1f,
+                        piece.Width - piece.PaddingLeft - piece.PaddingRight);
+                    var rect = new Rect(textX, pieceY, textWidth, piece.Height);
                     var old = GUI.color;
                     GUI.color = piece.Run.Link != null || piece.Run.LocalLink != null
                         ? UiTheme.Accent
@@ -264,12 +282,14 @@ namespace SlopWorld
                     GUI.Label(rect, piece.Text, piece.Style);
                     if (piece.Run.Link != null || piece.Run.LocalLink != null)
                     {
-                        Slab.Hairline(new Rect(rect.x, rect.yMax - 1f, rect.width, 1f),
+                        var linkRect = new Rect(at, pieceY, piece.Width, piece.Height);
+                        Slab.Hairline(new Rect(linkRect.x, linkRect.yMax - 1f,
+                                linkRect.width, 1f),
                             UiTheme.Accent);
-                        _links.Add(new LinkHit(rect, piece.Run.Link, piece.Run.LocalLink));
+                        _links.Add(new LinkHit(linkRect, piece.Run.Link, piece.Run.LocalLink));
                     }
                     if (piece.Run.Strike)
-                        Slab.Hairline(new Rect(rect.x, rect.y + line.Height * .55f,
+                        Slab.Hairline(new Rect(rect.x, rect.y + piece.Baseline * .65f,
                             rect.width, 1f), UiTheme.Dim);
                     GUI.color = old;
                     at += piece.Width;
@@ -326,6 +346,45 @@ namespace SlopWorld
             }
         }
 
+        void DrawCell(TableLayout table, TableRowLayout row, int index, float x, float y,
+                      bool background)
+        {
+            float width = table.Widths[index];
+            float padding = MarkdownTableGeometry.Padding(width);
+            float top = _clipTop, bottom = _clipBottom;
+            int firstLink = _links.Count;
+            // A viewport narrower than one glyph cannot wrap further. Clip the whole cell
+            // so glyphs, chips, images and task controls cannot paint over another column.
+            GUI.BeginGroup(new Rect(x, y, width, row.Height));
+            try
+            {
+                _clipTop -= y;
+                _clipBottom -= y;
+                if (background)
+                    DrawInlineCodeBackgrounds(row.Cells[index], padding, padding,
+                        MarkdownTableGeometry.InnerWidth(width), table.Alignments[index]);
+                else
+                    DrawText(row.Cells[index], padding, padding, row.Header, false,
+                        MarkdownTableGeometry.InnerWidth(width), table.Alignments[index]);
+            }
+            finally
+            {
+                GUI.EndGroup();
+                _clipTop = top;
+                _clipBottom = bottom;
+            }
+            for (int i = _links.Count - 1; i >= firstLink; i--)
+            {
+                var link = _links[i];
+                var rect = link.Rect;
+                float left = Mathf.Clamp(rect.x, 0f, width);
+                float right = Mathf.Clamp(rect.xMax, 0f, width);
+                if (right <= left) _links.RemoveAt(i);
+                else _links[i] = new LinkHit(new Rect(x + left, y + rect.y,
+                    right - left, rect.height), link.Url, link.LocalPath);
+            }
+        }
+
         void DrawTableText(Placement placement)
         {
             int first = FirstVisibleRow(placement.Table, placement.Y, _clipTop);
@@ -338,8 +397,7 @@ namespace SlopWorld
                 float x = placement.X;
                 for (int cellIndex = 0; cellIndex < row.Cells.Count; cellIndex++)
                 {
-                    DrawText(row.Cells[cellIndex], x + UiTheme.GapS,
-                        y + UiTheme.GapS, row.Header);
+                    DrawCell(placement.Table, row, cellIndex, x, y, false);
                     x += placement.Table.Widths[cellIndex];
                 }
             }
