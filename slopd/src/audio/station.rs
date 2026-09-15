@@ -2,14 +2,16 @@
 
 use std::io::{self, BufReader, Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
-use std::sync::atomic::Ordering;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
+use std::time::Instant;
 
 use anyhow::{anyhow, Context, Result};
 use rand::seq::SliceRandom;
 use rodio::{ChannelCount, SampleRate, Source};
+use ureq::unversioned::transport::Connector;
 
-use super::{AudioState, CONNECT, GENERATION, STREAM_IDLE};
+use super::{AudioState, CONNECT, GENERATION, OPEN, STREAM_IDLE};
 
 /// Receives delayed station metadata. The generation prevents an old station naming its
 /// replacement; `None` omits titles for files and tests.
@@ -17,23 +19,89 @@ use super::{AudioState, CONNECT, GENERATION, STREAM_IDLE};
 pub(crate) struct TitleSink {
     pub(crate) state: Option<Arc<Mutex<AudioState>>>,
     pub(crate) generation: u64,
+    /// Opening and decoder probing happen before the worker commits a source. Metadata seen
+    /// during that phase belongs to a candidate, not to the audible selection yet.
+    pub(crate) committed: Arc<AtomicBool>,
+    /// Shared with the HTTP transport so replacing a source closes a blocked open/read instead
+    /// of merely abandoning the thread that owns it.
+    pub(crate) cancelled: Arc<AtomicBool>,
+    /// Monotonic deadline for one header/open operation. Zero means the live body has no open
+    /// deadline; body lifetime remains governed only by the idle timeout.
+    pub(crate) opening_deadline: Arc<AtomicU64>,
+    /// Metadata observed while a source is still being probed. It is applied only after commit,
+    /// so a replacement can drop it without briefly naming the wrong station.
+    pub(crate) pending_title: Arc<Mutex<Option<Option<String>>>>,
 }
 
 impl TitleSink {
+    #[cfg(test)]
+    pub(crate) fn new(state: Option<Arc<Mutex<AudioState>>>, generation: u64) -> Self {
+        Self {
+            state,
+            generation,
+            committed: Arc::new(AtomicBool::new(true)),
+            cancelled: Arc::new(AtomicBool::new(false)),
+            opening_deadline: Arc::new(AtomicU64::new(0)),
+            pending_title: Arc::new(Mutex::new(None)),
+        }
+    }
+
+    pub(crate) fn pending(state: Option<Arc<Mutex<AudioState>>>, generation: u64) -> Self {
+        Self {
+            state,
+            generation,
+            committed: Arc::new(AtomicBool::new(false)),
+            cancelled: Arc::new(AtomicBool::new(false)),
+            opening_deadline: Arc::new(AtomicU64::new(0)),
+            pending_title: Arc::new(Mutex::new(None)),
+        }
+    }
+
     pub(crate) fn set(&self, title: Option<String>) {
+        if self.cancelled.load(Ordering::Acquire)
+            || self.generation != GENERATION.load(Ordering::SeqCst)
+        {
+            return;
+        }
+        if !self.committed.load(Ordering::Acquire) {
+            *self.pending_title.lock().unwrap_or_else(|p| p.into_inner()) = Some(title);
+            return;
+        }
         let state = match self.state.as_ref() {
             Some(s) => s,
             None => return,
         };
-        if self.generation != GENERATION.load(Ordering::SeqCst) {
-            return;
-        }
         let mut s = state.lock().unwrap_or_else(|p| p.into_inner());
         if s.title == title {
             return;
         }
         tracing::info!("audio: now playing {}", title.as_deref().unwrap_or("-"));
         s.title = title;
+    }
+
+    pub(crate) fn commit(&self) {
+        self.committed.store(true, Ordering::Release);
+        let pending = self
+            .pending_title
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .take();
+        if let Some(title) = pending {
+            self.set(title);
+        }
+    }
+
+    pub(crate) fn cancel(&self) {
+        self.cancelled.store(true, Ordering::Release);
+    }
+
+    pub(crate) fn begin_opening(&self) {
+        let deadline = monotonic_millis().saturating_add(OPEN.as_millis() as u64);
+        self.opening_deadline.store(deadline, Ordering::Release);
+    }
+
+    pub(crate) fn finish_opening(&self) {
+        self.opening_deadline.store(0, Ordering::Release);
     }
 }
 
@@ -214,14 +282,24 @@ impl StreamConnector {
         // A live response has no lifetime deadline, but it must not wait forever on a TCP path
         // that went stale during a network change. In ureq 3.3, `RecvBody` checks the preceding
         // `RecvResponse` timer too, despite the latter being documented as headers only; leave
-        // that one unset and use the body timer as an idle timeout instead.
-        let agent = ureq::Agent::config_builder()
+        // that one unset and use the body timer as an idle timeout instead. The cancellable
+        // transport below polls the underlying socket without changing either lifetime.
+        let config = ureq::Agent::config_builder()
             .timeout_connect(Some(CONNECT))
             .timeout_recv_response(None)
             .timeout_recv_body(Some(body_timeout))
             .timeout_global(None)
-            .build()
-            .into();
+            .build();
+        let connector =
+            ureq::unversioned::transport::DefaultConnector::new().chain(CancelConnector {
+                cancelled: title.cancelled.clone(),
+                opening_deadline: title.opening_deadline.clone(),
+            });
+        let agent = ureq::Agent::with_parts(
+            config,
+            connector,
+            ureq::unversioned::resolver::DefaultResolver::default(),
+        );
         Self {
             agent,
             url: url.to_string(),
@@ -231,6 +309,7 @@ impl StreamConnector {
     }
 
     pub(crate) fn connect(&mut self) -> io::Result<StreamBody> {
+        self.title.begin_opening();
         // `Icy-MetaData: 1` asks for titles inside the body. Those bytes must be removed before
         // buffering or decoding, and a fresh `Icy` starts its count at each HTTP response.
         let response = self
@@ -238,7 +317,9 @@ impl StreamConnector {
             .get(&self.url)
             .header("Icy-MetaData", "1")
             .call()
-            .map_err(|e| io::Error::other(format!("connecting to {}: {e}", self.url)))?;
+            .map_err(|e| io::Error::other(format!("connecting to {}: {e}", self.url)));
+        self.title.finish_opening();
+        let response = response?;
 
         let metaint = response
             .headers()
@@ -282,6 +363,120 @@ impl StreamConnector {
         };
         Ok(raw)
     }
+}
+
+/// ureq's ordinary transports apply the configured timeout to one blocking read. A source
+/// switch needs a stronger guarantee: the old socket must be released promptly even when a
+/// server withholds headers or body bytes. Poll the real transport in short slices while the
+/// cancellation flag is clear; this does not add a deadline to a healthy live response.
+#[derive(Debug)]
+struct CancelConnector {
+    cancelled: Arc<AtomicBool>,
+    opening_deadline: Arc<AtomicU64>,
+}
+
+impl ureq::unversioned::transport::Connector<Box<dyn ureq::unversioned::transport::Transport>>
+    for CancelConnector
+{
+    type Out = CancelTransport;
+
+    fn connect(
+        &self,
+        _: &ureq::unversioned::transport::ConnectionDetails,
+        chained: Option<Box<dyn ureq::unversioned::transport::Transport>>,
+    ) -> Result<Option<Self::Out>, ureq::Error> {
+        Ok(chained.map(|inner| CancelTransport {
+            inner,
+            cancelled: self.cancelled.clone(),
+            opening_deadline: self.opening_deadline.clone(),
+        }))
+    }
+}
+
+#[derive(Debug)]
+struct CancelTransport {
+    inner: Box<dyn ureq::unversioned::transport::Transport>,
+    cancelled: Arc<AtomicBool>,
+    opening_deadline: Arc<AtomicU64>,
+}
+
+impl ureq::unversioned::transport::Transport for CancelTransport {
+    fn buffers(&mut self) -> &mut dyn ureq::unversioned::transport::Buffers {
+        self.inner.buffers()
+    }
+
+    fn transmit_output(
+        &mut self,
+        amount: usize,
+        timeout: ureq::unversioned::transport::NextTimeout,
+    ) -> Result<(), ureq::Error> {
+        if self.is_cancelled() {
+            return Err(cancelled_error());
+        }
+        self.inner.transmit_output(amount, timeout)
+    }
+
+    fn await_input(
+        &mut self,
+        timeout: ureq::unversioned::transport::NextTimeout,
+    ) -> Result<bool, ureq::Error> {
+        const POLL: std::time::Duration = std::time::Duration::from_millis(100);
+        loop {
+            if self.is_cancelled() {
+                return Err(cancelled_error());
+            }
+
+            let after = timeout.not_zero().map(|duration| *duration);
+            let poll = after.map(|duration| duration.min(POLL)).unwrap_or(POLL);
+            let sliced = ureq::unversioned::transport::NextTimeout {
+                after: poll.into(),
+                reason: timeout.reason,
+            };
+
+            match self.inner.await_input(sliced) {
+                Ok(ready) => return Ok(ready),
+                Err(ureq::Error::Timeout(_))
+                    if !self.is_cancelled()
+                        && after.map(|duration| duration > POLL).unwrap_or(true) =>
+                {
+                    continue;
+                }
+                Err(error) => return Err(error),
+            }
+        }
+    }
+
+    fn is_open(&mut self) -> bool {
+        !self.is_cancelled() && self.inner.is_open()
+    }
+
+    fn is_tls(&self) -> bool {
+        self.inner.is_tls()
+    }
+}
+
+impl CancelTransport {
+    fn is_cancelled(&self) -> bool {
+        let deadline = self.opening_deadline.load(Ordering::Acquire);
+        self.cancelled.load(Ordering::Acquire) || (deadline != 0 && monotonic_millis() >= deadline)
+    }
+}
+
+fn cancelled_error() -> ureq::Error {
+    ureq::Error::Io(io::Error::new(
+        io::ErrorKind::Interrupted,
+        "audio source cancelled",
+    ))
+}
+
+fn monotonic_millis() -> u64 {
+    static START: std::sync::OnceLock<Instant> = std::sync::OnceLock::new();
+    START
+        .get_or_init(Instant::now)
+        .elapsed()
+        .as_millis()
+        .try_into()
+        .unwrap_or(u64::MAX)
 }
 
 /// Keeps transport boundaries below the decoder. Rebuilding a decoder for every short HTTP body
