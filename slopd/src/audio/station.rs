@@ -469,8 +469,10 @@ impl CancelTransport {
 }
 
 fn cancelled_error() -> ureq::Error {
+    // Interrupted means retry the same read. Cancellation is permanent: returning it here
+    // makes Read helpers and Reconnect spin forever on a retired audio feeder.
     ureq::Error::Io(io::Error::new(
-        io::ErrorKind::Interrupted,
+        io::ErrorKind::ConnectionAborted,
         "audio source cancelled",
     ))
 }

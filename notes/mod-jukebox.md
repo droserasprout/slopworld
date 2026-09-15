@@ -13,7 +13,8 @@ Source probing runs off the audio command worker. Each request gets a generation
 cancellation flag, so stop/replacement remains responsive and stale success, failure, and
 metadata cannot commit. Opening has its own header deadline; once committed, the stream is
 governed by the live body idle timeout rather than the opening deadline. Metadata observed
-during probing is published only after the output commits.
+during probing is published only after the output commits. Transport cancellation must return
+a terminal I/O error; `Interrupted` tells readers to retry and spins retired feeders.
 
 Decoder/source generations guard late playback and metadata. A stale title is still stale
 state even if the corresponding audio was discarded. [Likes and recognition](mod-jukebox-library.md)
