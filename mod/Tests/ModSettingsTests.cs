@@ -58,6 +58,14 @@ namespace SlopWorld.Tests
                 loaded.Write();
                 AssertEx.True(File.ReadAllText(path).Contains("sidebarFilesOpenFraction = 1"),
                     "normalized fraction is persisted");
+                File.WriteAllText(path,
+                    "fontSize = \"17\"\nautoConnect = \"false\"\nsidebarWidth = 210\n");
+                loaded = ModSettings.Load();
+                AssertEx.Equal(14, loaded.fontSize, "quoted integer does not cross the type boundary");
+                AssertEx.Equal(true, loaded.autoConnect,
+                    "quoted boolean does not cross the type boundary");
+                AssertEx.Equal(210f, loaded.sidebarWidth,
+                    "integer scalar is accepted for a float setting");
                 File.WriteAllText(path, "theme = \"unterminated");
                 AssertEx.Equal("match-ui", ModSettings.Load().theme, "malformed TOML defaults");
                 AssertEx.Equal("right", StatusbarClockMode.Normalize("unknown"), "clock normalization");

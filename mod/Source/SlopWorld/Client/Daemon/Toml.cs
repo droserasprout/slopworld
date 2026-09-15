@@ -2,148 +2,198 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
+using TomlynDateTime = global::Tomlyn.TomlDateTime;
+using TomlynDocument = global::Tomlyn.Syntax.DocumentSyntax;
+using TomlynTable = global::Tomlyn.Model.TomlTable;
+using TomlynToml = global::Tomlyn.Toml;
 
 namespace SlopWorld
 {
-    // The mod only needs flat scalar TOML for its own small profile files and the daemon's
-    // endpoint descriptor. Keeping this parser here avoids shipping another assembly beside
-    // the mod, while still accepting the basic strings emitted by Rust's toml crate.
+    // Tomlyn owns TOML grammar and diagnostics. The mod's consumers intentionally use a
+    // smaller adapter: only top-level scalar entries are accepted, and their TOML types are
+    // retained until each settings field converts them. This prevents a table or array from
+    // becoming an accidental string, while ParseFlat keeps the old text-facing API for the
+    // endpoint and jukebox readers.
     public static class Toml
     {
+        internal enum ScalarType
+        {
+            String,
+            Boolean,
+            Integer,
+            Float,
+            DateTime,
+        }
+
+        internal sealed class Scalar
+        {
+            readonly ScalarType _type;
+            readonly object _value;
+
+            Scalar(ScalarType type, object value)
+            {
+                _type = type;
+                _value = value;
+            }
+
+            internal static Scalar From(string key, object value)
+            {
+                if (value is string) return new Scalar(ScalarType.String, value);
+                if (value is bool) return new Scalar(ScalarType.Boolean, value);
+                if (value is long) return new Scalar(ScalarType.Integer, value);
+                if (value is double) return new Scalar(ScalarType.Float, value);
+                if (value is TomlynDateTime) return new Scalar(ScalarType.DateTime, value);
+
+                // Tables, table arrays and arrays are deliberately not part of the flat
+                // application schema, even though Tomlyn can represent all of them.
+                throw new FormatException("TOML flat scalar schema rejects key '" + key +
+                                          "': tables and arrays are not supported");
+            }
+
+            internal string ToInvariantText()
+            {
+                switch (_type)
+                {
+                    case ScalarType.String: return (string)_value;
+                    case ScalarType.Boolean:
+                        return ((bool)_value) ? "true" : "false";
+                    case ScalarType.Integer:
+                        return ((long)_value).ToString(CultureInfo.InvariantCulture);
+                    case ScalarType.Float:
+                        return ((double)_value).ToString("R", CultureInfo.InvariantCulture);
+                    case ScalarType.DateTime:
+                        return _value.ToString();
+                    default: throw new InvalidOperationException("unknown TOML scalar type");
+                }
+            }
+
+            internal bool TryGetString(out string value)
+            {
+                if (_type == ScalarType.String)
+                {
+                    value = (string)_value;
+                    return true;
+                }
+                value = null;
+                return false;
+            }
+
+            internal bool TryGetBoolean(out bool value)
+            {
+                if (_type == ScalarType.Boolean)
+                {
+                    value = (bool)_value;
+                    return true;
+                }
+                value = false;
+                return false;
+            }
+
+            internal bool TryGetInteger(out int value)
+            {
+                if (_type == ScalarType.Integer)
+                {
+                    long number = (long)_value;
+                    if (number >= int.MinValue && number <= int.MaxValue)
+                    {
+                        value = (int)number;
+                        return true;
+                    }
+                }
+                value = 0;
+                return false;
+            }
+
+            internal bool TryGetFloat(out float value)
+            {
+                double number;
+                if (_type == ScalarType.Integer) number = (long)_value;
+                else if (_type == ScalarType.Float) number = (double)_value;
+                else
+                {
+                    value = 0f;
+                    return false;
+                }
+
+                value = (float)number;
+                return !float.IsNaN(value) && !float.IsInfinity(value);
+            }
+        }
+
+        // Compatibility facade for the existing endpoint and likes readers. Values are
+        // canonicalized from their parsed TOML types rather than copied from raw text.
         public static Dictionary<string, string> ParseFlat(string text)
         {
             var values = new Dictionary<string, string>(StringComparer.Ordinal);
-            var lines = (text ?? "").Replace("\r\n", "\n").Split('\n');
-            foreach (string original in lines)
-            {
-                string line = original.Trim();
-                if (line.Length == 0 || line[0] == '#') continue;
+            foreach (var pair in ParseFlatScalars(text))
+                values.Add(pair.Key, pair.Value.ToInvariantText());
+            return values;
+        }
 
-                int equals = FindEquals(line);
-                if (equals <= 0) throw new FormatException("TOML entry has no key/value separator");
-                string key = line.Substring(0, equals).Trim();
-                if (key.Length == 0) throw new FormatException("TOML entry has an empty key");
-                string raw = line.Substring(equals + 1).Trim();
-                values[key] = ParseValue(raw);
-            }
+        internal static Dictionary<string, Scalar> ParseFlatScalars(string text)
+        {
+            var values = new Dictionary<string, Scalar>(StringComparer.Ordinal);
+            foreach (var pair in ParseModel(text))
+                values.Add(pair.Key, Scalar.From(pair.Key, pair.Value));
             return values;
         }
 
         public static string Quote(string value)
         {
-            var result = new StringBuilder("\"");
-            foreach (char c in value ?? "")
+            string document;
+            try
             {
-                switch (c)
+                document = TomlynToml.FromModel(new Dictionary<string, string>
                 {
-                    case '\\': result.Append("\\\\"); break;
-                    case '"': result.Append("\\\""); break;
-                    case '\b': result.Append("\\b"); break;
-                    case '\t': result.Append("\\t"); break;
-                    case '\n': result.Append("\\n"); break;
-                    case '\f': result.Append("\\f"); break;
-                    case '\r': result.Append("\\r"); break;
-                    default:
-                        if (char.IsControl(c))
-                            result.Append("\\u").Append(((int)c).ToString("x4"));
-                        else
-                            result.Append(c);
-                        break;
-                }
+                    ["value"] = value ?? "",
+                });
             }
-            return result.Append('"').ToString();
+            catch (Exception exception)
+            {
+                throw new InvalidOperationException("could not quote TOML string", exception);
+            }
+
+            const string prefix = "value = ";
+            if (!document.StartsWith(prefix, StringComparison.Ordinal))
+                throw new InvalidOperationException("Tomlyn did not produce a scalar TOML value");
+            return document.Substring(prefix.Length).TrimEnd('\r', '\n');
         }
 
-        static int FindEquals(string line)
+        static TomlynTable ParseModel(string text)
         {
-            bool quoted = false;
-            bool escaped = false;
-            for (int i = 0; i < line.Length; i++)
+            TomlynDocument document;
+            try
             {
-                char c = line[i];
-                if (quoted)
-                {
-                    if (escaped) escaped = false;
-                    else if (c == '\\') escaped = true;
-                    else if (c == '"') quoted = false;
-                }
-                else if (c == '"') quoted = true;
-                else if (c == '=') return i;
+                document = TomlynToml.Parse(text ?? "");
             }
-            return -1;
+            catch (Exception exception)
+            {
+                throw new FormatException("TOML parser failed: " + exception.Message, exception);
+            }
+
+            if (document.HasErrors)
+                throw new FormatException("TOML parser rejected input: " + Diagnostics(document));
+
+            try
+            {
+                return TomlynToml.ToModel(document);
+            }
+            catch (Exception exception)
+            {
+                throw new FormatException("TOML model conversion failed: " + exception.Message,
+                                           exception);
+            }
         }
 
-        static string ParseValue(string raw)
+        static string Diagnostics(TomlynDocument document)
         {
-            if (raw.Length == 0) throw new FormatException("TOML entry has an empty value");
-            if (raw[0] == '"')
+            var text = new StringBuilder();
+            foreach (var diagnostic in document.Diagnostics)
             {
-                int at = 0;
-                string value = ParseBasicString(raw, ref at);
-                string tail = raw.Substring(at).TrimStart();
-                if (tail.Length != 0 && tail[0] != '#')
-                    throw new FormatException("TOML string has trailing characters");
-                return value;
+                if (text.Length > 0) text.Append("; ");
+                text.Append(diagnostic.ToString());
             }
-            if (raw[0] == '\'')
-            {
-                int end = raw.IndexOf('\'', 1);
-                if (end < 0) throw new FormatException("TOML literal string is unterminated");
-                string tail = raw.Substring(end + 1).TrimStart();
-                if (tail.Length != 0 && tail[0] != '#')
-                    throw new FormatException("TOML literal string has trailing characters");
-                return raw.Substring(1, end - 1);
-            }
-
-            int comment = raw.IndexOf('#');
-            return (comment < 0 ? raw : raw.Substring(0, comment)).Trim();
-        }
-
-        static string ParseBasicString(string text, ref int at)
-        {
-            if (at >= text.Length || text[at] != '"')
-                throw new FormatException("TOML value is not a basic string");
-            at++;
-            var value = new StringBuilder();
-            while (at < text.Length)
-            {
-                char c = text[at++];
-                if (c == '"') return value.ToString();
-                if (c != '\\')
-                {
-                    if (c == '\n' || c == '\r') throw new FormatException("TOML string has a newline");
-                    value.Append(c);
-                    continue;
-                }
-                if (at >= text.Length) break;
-                switch (text[at++])
-                {
-                    case 'b': value.Append('\b'); break;
-                    case 't': value.Append('\t'); break;
-                    case 'n': value.Append('\n'); break;
-                    case 'f': value.Append('\f'); break;
-                    case 'r': value.Append('\r'); break;
-                    case '"': value.Append('"'); break;
-                    case '\\': value.Append('\\'); break;
-                    case 'u': value.Append(ParseCodePoint(text, ref at, 4)); break;
-                    case 'U': value.Append(ParseCodePoint(text, ref at, 8)); break;
-                    default: throw new FormatException("TOML string has an invalid escape");
-                }
-            }
-            throw new FormatException("TOML string is unterminated");
-        }
-
-        static string ParseCodePoint(string text, ref int at, int digits)
-        {
-            if (at + digits > text.Length)
-                throw new FormatException("TOML unicode escape is truncated");
-            string hex = text.Substring(at, digits);
-            if (!uint.TryParse(hex, NumberStyles.HexNumber, CultureInfo.InvariantCulture,
-                               out uint codePoint) || codePoint > 0x10ffff ||
-                (codePoint >= 0xd800 && codePoint <= 0xdfff))
-                throw new FormatException("TOML unicode escape is invalid");
-            at += digits;
-            return char.ConvertFromUtf32((int)codePoint);
+            return text.Length == 0 ? "unknown parser error" : text.ToString();
         }
     }
 }

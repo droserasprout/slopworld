@@ -184,7 +184,7 @@ namespace SlopWorld
             {
                 if (File.Exists(path))
                 {
-                    settings.Apply(Toml.ParseFlat(File.ReadAllText(path)));
+                    settings.Apply(Toml.ParseFlatScalars(File.ReadAllText(path)));
                     settings.Normalize();
                     return settings;
                 }
@@ -221,7 +221,7 @@ namespace SlopWorld
             }
         }
 
-        static readonly Action<ModSettings, Dictionary<string, string>, StringBuilder>[] Fields =
+        static readonly Action<ModSettings, Dictionary<string, Toml.Scalar>, StringBuilder>[] Fields =
         {
             Field("autoConnect", (ModSettings s) => ref s.autoConnect, Bool, String),
             Field("fullscreen", (ModSettings s) => ref s.fullscreen, Bool, String),
@@ -266,8 +266,8 @@ namespace SlopWorld
 
         delegate ref T Setting<T>(ModSettings settings);
 
-        static Action<ModSettings, Dictionary<string, string>, StringBuilder> Field<T>(
-            string key, Setting<T> field, Func<Dictionary<string, string>, string, T, T> read,
+        static Action<ModSettings, Dictionary<string, Toml.Scalar>, StringBuilder> Field<T>(
+            string key, Setting<T> field, Func<Dictionary<string, Toml.Scalar>, string, T, T> read,
             Action<StringBuilder, string, T> write) => (settings, values, text) =>
         {
             ref T value = ref field(settings);
@@ -275,7 +275,7 @@ namespace SlopWorld
             else write(text, key, value);
         };
 
-        void Apply(Dictionary<string, string> values)
+        void Apply(Dictionary<string, Toml.Scalar> values)
         {
             foreach (var field in Fields) field(this, values, null);
         }
@@ -300,22 +300,21 @@ namespace SlopWorld
             return Path.Combine(profile, "Config", "SlopWorld.toml");
         }
 
-        static string Text(Dictionary<string, string> values, string key, string fallback) =>
-            values.TryGetValue(key, out string value) ? value : fallback;
-
-        static bool Bool(Dictionary<string, string> values, string key, bool fallback) =>
-            values.TryGetValue(key, out string value) && bool.TryParse(value, out bool result)
+        static string Text(Dictionary<string, Toml.Scalar> values, string key, string fallback) =>
+            values.TryGetValue(key, out Toml.Scalar value) && value.TryGetString(out string result)
                 ? result : fallback;
 
-        static int Int(Dictionary<string, string> values, string key, int fallback) =>
-            values.TryGetValue(key, out string value) && int.TryParse(value,
-                NumberStyles.Integer, CultureInfo.InvariantCulture, out int result)
-                    ? result : fallback;
+        static bool Bool(Dictionary<string, Toml.Scalar> values, string key, bool fallback) =>
+            values.TryGetValue(key, out Toml.Scalar value) && value.TryGetBoolean(out bool result)
+                ? result : fallback;
 
-        static float Float(Dictionary<string, string> values, string key, float fallback) =>
-            values.TryGetValue(key, out string value) && float.TryParse(value,
-                NumberStyles.Float, CultureInfo.InvariantCulture, out float result)
-                    ? result : fallback;
+        static int Int(Dictionary<string, Toml.Scalar> values, string key, int fallback) =>
+            values.TryGetValue(key, out Toml.Scalar value) && value.TryGetInteger(out int result)
+                ? result : fallback;
+
+        static float Float(Dictionary<string, Toml.Scalar> values, string key, float fallback) =>
+            values.TryGetValue(key, out Toml.Scalar value) && value.TryGetFloat(out float result)
+                ? result : fallback;
 
         static void String(StringBuilder text, string key, string value) =>
             text.Append(key).Append(" = ").Append(Toml.Quote(value)).AppendLine();

@@ -7,6 +7,8 @@
   `0Harmony.dll` is assembly version 2.4.1.0 from Harmony RimWorld mod v2.4.2.0.
 - Markdig 0.18.3, Alexandre Mutel: native Markdown parsing in the mod, BSD-2-Clause;
   the shipped notice is beside `Markdig.dll`.
+- Tomlyn 0.19.0, Alexandre Mutel: TOML parsing and scalar string authoring in the mod,
+  BSD-2-Clause; the shipped notice is beside `Tomlyn.dll`.
 - Rust; Alacritty (`alacritty_terminal`): daemon and terminal emulator core.
 - Tokio and Axum: async runtime and HTTP/WebSocket server.
 - RustAudio's Rodio/CPAL and Symphonia: playback and audio decoding.

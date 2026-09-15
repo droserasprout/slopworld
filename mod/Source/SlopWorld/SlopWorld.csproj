@@ -32,6 +32,10 @@
       <HintPath>..\..\Assemblies\Newtonsoft.Json.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <Reference Include="Tomlyn">
+      <HintPath>..\..\Assemblies\Tomlyn.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
     <Reference Include="Assembly-CSharp">
       <HintPath>$(RimWorldManaged)\Assembly-CSharp.dll</HintPath>
       <Private>false</Private>
