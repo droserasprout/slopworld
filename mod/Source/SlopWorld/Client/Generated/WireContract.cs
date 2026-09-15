@@ -15,6 +15,7 @@ namespace SlopWorld
             public const string Session = "/api/sessions/:name";
             public const string SessionUpdate = "/api/sessions/:name";
             public const string SessionCwd = "/api/sessions/:name/cwd";
+            public const string SessionSandbox = "/api/sessions/:name/sandbox";
             public const string SessionStart = "/api/sessions/:name/start";
             public const string SessionStop = "/api/sessions/:name/stop";
             public const string SessionRestart = "/api/sessions/:name/restart";

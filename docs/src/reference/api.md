@@ -16,6 +16,10 @@ target memberships and owned grants, and closes affected WebSockets; name reuse 
 `POST /api/workers` is a separate root-only operation for creating a task-owned child from an
 existing agent session; it clones that session's runtime configuration and returns the new task and
 worker identity in one response. See the route inventory for the exact method and handler.
+`GET /api/sessions/:name/sandbox` returns the sanitized saved launch plan and a best-effort live
+process tree rooted at tmux's pane PID. It follows the same read grant as the session route; a
+stopped pane leaves the saved plan available but does not imply that the launch succeeded. Host
+terminals have no sandbox plan.
 Configuration, catalogs, filesystem operations, usage, audio, and private-state operations
 require the daemon's own token.
 

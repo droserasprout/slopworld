@@ -306,30 +306,28 @@ pub(super) fn resolver_bind(
 }
 
 /// Pasta wraps bwrap for private networking; its prefix must be the outer command.
-pub(super) fn wrap_pasta(a: &mut Vec<String>, network: NetworkMode, dns: &DnsConfig, worker: bool) {
+pub(super) fn pasta_prefix(dns: &DnsConfig, worker: bool, network: NetworkMode) -> Vec<String> {
     if network != NetworkMode::Private {
-        return;
+        return Vec::new();
     }
-    let mut pasta = pasta_prefix(dns, worker);
-    pasta.append(a);
-    *a = pasta;
+    pasta_prefix_args(dns, worker)
 }
 
 /// The scope goes outermost, so pasta, bwrap and the agent all count against the caps.
-pub(super) fn wrap_scope(a: &mut Vec<String>, limits: &Limits) {
+pub(super) fn scope_prefix(limits: &Limits) -> Vec<String> {
     if limits.is_empty() {
-        return;
+        return Vec::new();
     }
-    let mut scoped = scope_prefix(limits);
-    scoped.append(a);
-    *a = scoped;
+    scope_prefix_args(limits)
 }
 
-fn scope_prefix(limits: &Limits) -> Vec<String> {
+fn scope_prefix_args(limits: &Limits) -> Vec<String> {
     let mut out = vec![
         "systemd-run".into(),
         "--user".into(),
         "--scope".into(),
+        // A per-launch identity lets inspection distinguish this scope from tmux's cgroup.
+        format!("--unit=slopworld-{}.scope", uuid::Uuid::new_v4()),
         "--quiet".into(),
         "--collect".into(),
     ];
@@ -353,7 +351,7 @@ fn scope_prefix(limits: &Limits) -> Vec<String> {
     out
 }
 
-fn pasta_prefix(dns: &DnsConfig, worker: bool) -> Vec<String> {
+fn pasta_prefix_args(dns: &DnsConfig, worker: bool) -> Vec<String> {
     let mut out = vec![
         "pasta".into(),
         "--foreground".into(),

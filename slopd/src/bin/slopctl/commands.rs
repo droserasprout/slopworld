@@ -96,6 +96,13 @@ pub(crate) const STATUS_USAGE: &str = "usage:
 show the current caller, endpoint, daemon reachability, and pending task counts.
 ";
 
+pub(crate) const SANDBOX_USAGE: &str = "usage:
+  slopctl sandbox inspect NAME
+
+show the sanitized launch plan and, when available, the live process tree for NAME.
+The saved plan remains available after a process exits or a daemon restart.
+";
+
 pub(crate) const USAGE: &str = "slopctl - delegate work and inspect SlopWorld diagnostics
 
 common delegation flow:
@@ -119,6 +126,7 @@ usage:
   slopctl prune [--all]
   slopctl peers
   slopctl status
+  slopctl sandbox inspect NAME
   slopctl logs [game|daemon|all] [--lines N] [--follow]
 
 inbox shows unfinished work in both directions, newest first; --all adds what is
@@ -169,6 +177,9 @@ pub(crate) enum Command {
     },
     Peers,
     Status,
+    SandboxInspect {
+        name: String,
+    },
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -205,6 +216,7 @@ pub(crate) fn command_help(command: &str) -> Option<&'static str> {
         "prune" => PRUNE_USAGE,
         "peers" => PEERS_USAGE,
         "status" => STATUS_USAGE,
+        "sandbox" => SANDBOX_USAGE,
         "logs" => LOGS_USAGE,
         _ => return None,
     })
@@ -283,8 +295,36 @@ pub(crate) fn parse_command(args: &[String]) -> Result<Command, String> {
             only(args, 1)?;
             Ok(Command::Status)
         }
+        "sandbox" => parse_sandbox(args),
         command => Err(format!("unknown command: {command}\n\n{USAGE}")),
     }
+}
+
+fn parse_sandbox(args: &[String]) -> Result<Command, String> {
+    if matches!(
+        args.get(1).map(String::as_str),
+        Some("-h" | "--help" | "help")
+    ) {
+        return Ok(Command::Help {
+            usage: SANDBOX_USAGE,
+        });
+    }
+    if args.get(1).map(String::as_str) != Some("inspect") {
+        return Err(format!(
+            "sandbox needs the inspect subcommand\n\n{SANDBOX_USAGE}"
+        ));
+    }
+    if matches!(
+        args.get(2).map(String::as_str),
+        Some("-h" | "--help" | "help")
+    ) {
+        return Ok(Command::Help {
+            usage: SANDBOX_USAGE,
+        });
+    }
+    let name = arg(args, 2, "sandbox inspect needs a session name")?.to_string();
+    only(args, 3)?;
+    Ok(Command::SandboxInspect { name })
 }
 
 fn parse_spawn(args: &[String]) -> Result<Command, String> {
@@ -341,6 +381,7 @@ impl Command {
             Self::Prune { all } => run_prune(endpoint, session, json, all),
             Self::Peers => run_peers(endpoint, session, json),
             Self::Status => run_status(endpoint, session, json),
+            Self::SandboxInspect { name } => run_sandbox_inspect(endpoint, session, json, &name),
         }
     }
 }
@@ -546,6 +587,90 @@ fn run_status(endpoint: &Endpoint, session: &str, json: bool) -> Result<(), Stri
         print_status(&v);
     }
     Ok(())
+}
+
+fn run_sandbox_inspect(
+    endpoint: &Endpoint,
+    session: &str,
+    json: bool,
+    name: &str,
+) -> Result<(), String> {
+    let v = request(
+        endpoint,
+        session,
+        "GET",
+        &format!("{}/{name}/sandbox", routes::SESSIONS),
+        None,
+    )?;
+    if json {
+        print_json(&v);
+    } else {
+        print_sandbox(&v);
+    }
+    Ok(())
+}
+
+fn print_sandbox(v: &Value) {
+    println!("session   {}", v["session"].as_str().unwrap_or("?"));
+    if v["host"].as_bool().unwrap_or(false) {
+        println!("sandbox   not applicable (host terminal)");
+        return;
+    }
+    if let Some(plan) = v.get("plan").filter(|plan| !plan.is_null()) {
+        for section in [
+            "limits",
+            "pasta",
+            "bwrap",
+            "environment",
+            "mounts",
+            "command",
+        ] {
+            println!("{section}:");
+            if let Some(args) = plan[section].as_array() {
+                if args.is_empty() {
+                    println!("  (none)");
+                } else {
+                    for arg in args {
+                        println!("  {}", shell_quote(arg.as_str().unwrap_or("<arg>")));
+                    }
+                }
+            }
+        }
+    } else {
+        println!("plan      no saved sandbox launch");
+    }
+    let live = &v["live"];
+    println!("live      {}", live["status"].as_str().unwrap_or("unknown"));
+    if let Some(pid) = live["pane_pid"].as_u64() {
+        println!("pane pid  {pid}");
+    }
+    println!(
+        "compare   {}",
+        v["comparison"].as_str().unwrap_or("unknown")
+    );
+    if let Some(processes) = live["processes"].as_array() {
+        for process in processes {
+            let pid = process["pid"].as_u64().unwrap_or(0);
+            let ppid = process["ppid"].as_u64().unwrap_or(0);
+            println!("process   {pid} (parent {ppid})");
+            if let Some(argv) = process["argv"].as_array() {
+                for arg in argv {
+                    println!("  {}", shell_quote(arg.as_str().unwrap_or("<arg>")));
+                }
+            }
+        }
+    }
+}
+
+fn shell_quote(value: &str) -> String {
+    if !value.is_empty()
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || b"_./:@%+=,-".contains(&byte))
+    {
+        return value.to_string();
+    }
+    format!("'{}'", value.replace('\'', "'\\''"))
 }
 
 /// What `inbox` was asked to leave out. The store hands back everything the caller is party to,

@@ -5,6 +5,7 @@ use anyhow::Result;
 use crate::config::{Config, DnsConfig, MountMode, NetworkMode, ProjectCfg, SessionCfg};
 use crate::presets::{SandboxPreset, Table};
 
+use super::LaunchPlan;
 use super::ResolvedMount;
 
 mod mounts;
@@ -51,7 +52,7 @@ struct BindContext<'a> {
     daemon_config: bool,
 }
 
-pub(super) fn assemble_argv(args: BuildArgs<'_>) -> Result<Vec<String>> {
+pub(super) fn assemble_plan(args: BuildArgs<'_>) -> Result<LaunchPlan> {
     let BuildArgs {
         cfg,
         s,
@@ -94,17 +95,25 @@ pub(super) fn assemble_argv(args: BuildArgs<'_>) -> Result<Vec<String>> {
         daemon_config,
     };
 
-    let mut a = Vec::new();
-    mounts::push_skeleton(&mut a, network);
-    mounts::push_ro_binds(&mut a, &bind);
+    let mut bwrap = Vec::new();
+    let mut mounts_args = Vec::new();
+    let mut environment = Vec::new();
+    mounts::push_skeleton(&mut bwrap, network);
+    mounts::push_ro_binds(&mut mounts_args, &bind);
     let primary_mode = mounts
         .first()
         .map(|mount| mount.mode)
         .unwrap_or(MountMode::Rw);
-    mounts::push_private_binds(&mut a, &bind, primary_mode);
-    mounts::push_mounts(&mut a, mounts, &p.name, manifest, manifest_mount_path);
+    mounts::push_private_binds(&mut mounts_args, &bind, primary_mode);
+    mounts::push_mounts(
+        &mut mounts_args,
+        mounts,
+        &p.name,
+        manifest,
+        manifest_mount_path,
+    );
     mounts::push_env(
-        &mut a,
+        &mut environment,
         EnvArgs {
             cfg,
             home,
@@ -116,13 +125,25 @@ pub(super) fn assemble_argv(args: BuildArgs<'_>) -> Result<Vec<String>> {
         },
     );
 
-    a.push("--".into());
-    a.extend(agent_argv);
-
-    mounts::wrap_pasta(&mut a, network, dns, s.worker);
     let limits = cfg.limits_of(s, p);
-    mounts::wrap_scope(&mut a, &limits);
-    Ok(a)
+    let pasta = mounts::pasta_prefix(dns, s.worker, network);
+    let limits = mounts::scope_prefix(&limits);
+    Ok(LaunchPlan {
+        session: s.name.clone(),
+        limits,
+        pasta,
+        bwrap,
+        environment,
+        mounts: mounts_args,
+        command: agent_argv,
+        known_secrets: [
+            cfg.daemon.token.clone(),
+            s.worker_token.clone().unwrap_or_default(),
+        ]
+        .into_iter()
+        .filter(|secret| !secret.is_empty())
+        .collect(),
+    })
 }
 
 /// Declares the complete environment after all mounts. The sandbox starts with --clearenv, so

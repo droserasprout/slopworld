@@ -3,6 +3,9 @@
 `slopctl` is the host-side CLI for delegating tasks, reading logs, and inspecting the
 daemon.
 
+Use `slopctl sandbox inspect NAME` to view the sanitized launch plan and the live process tree
+for a session. The saved plan remains available after the process exits or a daemon restart.
+
 ## Identity
 
 `SLOPWORLD_SESSION` identifies the caller. When unset, `slopctl` acts as `host` (the

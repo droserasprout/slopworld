@@ -14,6 +14,7 @@ const WORKER: &str = "@slopworld_worker";
 const WORKER_PARENT: &str = "@slopworld_worker_parent";
 const WORKER_TASK: &str = "@slopworld_worker_task";
 const WORKER_DURABLE: &str = "@slopworld_worker_durable";
+const WORKER_STATE: &str = "@slopworld_worker_state";
 
 /// Pinned to a private server socket, so it never collides with the user's tmux.
 #[derive(Clone)]
@@ -26,6 +27,7 @@ pub struct WorkerMetadata {
     pub parent: String,
     pub task_id: String,
     pub durable: bool,
+    pub state_id: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -65,9 +67,8 @@ impl Tmux {
             .await?;
         if !out.status.success() {
             bail!(
-                "tmux {}: {}",
-                args.join(" "),
-                String::from_utf8_lossy(&out.stderr).trim()
+                "tmux command failed: {}",
+                crate::sandbox::sanitize_diagnostic(&String::from_utf8_lossy(&out.stderr))
             );
         }
         Ok(String::from_utf8_lossy(&out.stdout).into_owned())
@@ -254,6 +255,7 @@ impl Tmux {
         parent: &str,
         task_id: &str,
         durable: bool,
+        state_id: &str,
     ) -> Result<()> {
         self.run(&["set-option", "-t", name, WORKER, "1"]).await?;
         self.run(&["set-option", "-t", name, WORKER_PARENT, parent])
@@ -268,6 +270,8 @@ impl Tmux {
             if durable { "1" } else { "0" },
         ])
         .await?;
+        self.run(&["set-option", "-t", name, WORKER_STATE, state_id])
+            .await?;
         Ok(())
     }
 
@@ -282,7 +286,23 @@ impl Tmux {
                 .option(name, WORKER_DURABLE)
                 .await
                 .is_some_and(|value| value.trim() == "1"),
+            state_id: self.option(name, WORKER_STATE).await,
         })
+    }
+
+    /// The process tmux created for pane zero. A missing pane is a live-state observation, not a
+    /// successful launch, so callers keep the saved plan and report the observation as unknown.
+    pub async fn pane_pid(&self, name: &str) -> Option<u32> {
+        self.run(&[
+            "display-message",
+            "-p",
+            "-t",
+            &format!("{name}:.0"),
+            "#{pane_pid}",
+        ])
+        .await
+        .ok()
+        .and_then(|value| value.trim().parse().ok())
     }
 
     /// Batch the same panes targeted by `name:.0`: pane zero of each session's current
@@ -542,8 +562,8 @@ impl Tmux {
         let out = child.wait_with_output().await?;
         if !out.status.success() {
             bail!(
-                "tmux load-buffer: {}",
-                String::from_utf8_lossy(&out.stderr).trim()
+                "tmux load-buffer failed: {}",
+                crate::sandbox::sanitize_diagnostic(&String::from_utf8_lossy(&out.stderr))
             );
         }
 

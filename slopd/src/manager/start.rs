@@ -4,7 +4,7 @@ use super::super::*;
 use super::session_lifecycle::{
     finish_reader, reset_process_state, take_reader_for_abort, ReaderDisposition,
 };
-use crate::sandbox::build_argv;
+use crate::sandbox::{build_plan, LaunchPlan};
 use anyhow::{anyhow, Context};
 
 struct StartPlan {
@@ -15,6 +15,7 @@ struct StartPlan {
     rows: u16,
     host: bool,
     dir: String,
+    launch: Option<LaunchPlan>,
     argv: Vec<String>,
 }
 
@@ -116,11 +117,11 @@ impl Manager {
             session.worker_token = Some(token);
         }
 
-        let argv = match self
-            .build_start_argv(&cfg, &session, &project, &dir, host)
+        let launch = match self
+            .build_start_plan(&cfg, &session, &project, &dir, host)
             .await
         {
-            Ok(argv) => argv,
+            Ok(launch) => launch,
             Err(error) => {
                 if session.worker {
                     self.invalidate_session(&session.name).await;
@@ -128,6 +129,11 @@ impl Manager {
                 return Err(error);
             }
         };
+
+        let argv = launch
+            .as_ref()
+            .map(LaunchPlan::lower)
+            .unwrap_or_else(|| crate::sandbox::host_argv(&cfg, &session, &project));
 
         Ok(StartPlan {
             cfg,
@@ -137,20 +143,21 @@ impl Manager {
             rows,
             host,
             dir,
+            launch,
             argv,
         })
     }
 
-    async fn build_start_argv(
+    async fn build_start_plan(
         &self,
         cfg: &Config,
         session: &SessionCfg,
         project: &ProjectCfg,
         dir: &str,
         host: bool,
-    ) -> Result<Vec<String>> {
+    ) -> Result<Option<LaunchPlan>> {
         if host {
-            return Ok(crate::sandbox::host_argv(cfg, session, project));
+            return Ok(None);
         }
 
         crate::sandbox::prepare_network(cfg, session, project)?;
@@ -158,7 +165,7 @@ impl Manager {
             let sessions = self.views().await;
             crate::manifest::prepare(&std::path::PathBuf::from(dir), cfg, project, &sessions)?;
         }
-        build_argv(cfg, session, project)
+        build_plan(cfg, session, project).map(Some)
     }
 
     async fn launch_tmux(&self, name: &str, plan: &StartPlan) -> Result<()> {
@@ -168,7 +175,6 @@ impl Manager {
             .await
         {
             if plan.is_worker() {
-                self.invalidate_session(&plan.session.name).await;
                 // tmux includes its complete argv in command errors. Do not let the worker's
                 // bearer credential escape into a persisted task failure note or daemon log.
                 tracing::warn!("could not create worker session {name}: tmux spawn failed");
@@ -181,7 +187,13 @@ impl Manager {
             let durable = !self.is_ephemeral(name).await;
             if let Err(error) = self
                 .tmux
-                .set_worker_metadata(name, &plan.session.parent, &plan.session.task_id, durable)
+                .set_worker_metadata(
+                    name,
+                    &plan.session.parent,
+                    &plan.session.task_id,
+                    durable,
+                    &plan.session.state_id,
+                )
                 .await
             {
                 tracing::warn!("could not persist worker metadata for {name}: {error:#}");
@@ -207,12 +219,20 @@ impl Manager {
 
     async fn start_within_boundary(self: &Arc<Self>, name: &str) -> Result<()> {
         let plan = self.prepare_start(name).await?;
-        if plan.is_worker() {
-            tracing::info!("starting {name} (task worker)");
+        if let Some(launch) = &plan.launch {
+            // Save before tmux receives the command so a rejected launch remains inspectable.
+            if let Err(error) = launch.save(&plan.session) {
+                self.cleanup_failed_start(name, plan.is_worker()).await;
+                return Err(error.context("saving sandbox launch plan"));
+            }
+            tracing::info!("starting {name}:\n{}", launch.render_human());
         } else {
-            tracing::info!("starting {name}: {}", plan.argv.join(" "));
+            tracing::info!("starting {name} (host terminal)");
         }
-        self.launch_tmux(name, &plan).await?;
+        if let Err(error) = self.launch_tmux(name, &plan).await {
+            self.cleanup_failed_start(name, plan.is_worker()).await;
+            return Err(error);
+        }
 
         self.clear_activity(name).await;
         let auto_resume_pending = !plan.host && plan.session.auto_resume && !plan.is_worker();
@@ -260,6 +280,13 @@ impl Manager {
     async fn cleanup_failed_start(&self, name: &str, worker: bool) {
         // A session created above is not useful without a newly attached control reader. Treat
         // a refused attach as a failed start so a stale reader cannot make it look healthy.
+        let ephemeral = self
+            .live
+            .read()
+            .await
+            .get(name)
+            .filter(|live| live.ephemeral && !live.host)
+            .map(|live| live.cfg.clone());
         if self.tmux.exists(name).await {
             if let Err(cleanup) = self.tmux.kill(name).await {
                 tracing::warn!("could not clean up failed start {name}: {cleanup:#}");
@@ -267,6 +294,11 @@ impl Manager {
         }
         if worker {
             self.invalidate_session(name).await;
+        }
+        if let Some(session) = ephemeral {
+            if let Err(error) = crate::sandbox::remove_ephemeral_state(&session) {
+                tracing::warn!("removing temporary private state for {name}: {error:#}");
+            }
         }
     }
 

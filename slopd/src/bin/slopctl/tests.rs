@@ -3,8 +3,8 @@ use super::USAGE;
 use crate::commands::{
     command_help, parse_command, run_spawn, task_is_terminal, wait_for_task, Command, InboxFilter,
     SpawnArgs, UpdateAction, ACCEPT_USAGE, DELEGATE_USAGE, FAIL_USAGE, FINISH_USAGE, INBOX_USAGE,
-    PEERS_USAGE, PROGRESS_USAGE, PRUNE_USAGE, REMOVE_USAGE, SPAWN_USAGE, STATUS_USAGE, TASK_USAGE,
-    WAIT_USAGE,
+    PEERS_USAGE, PROGRESS_USAGE, PRUNE_USAGE, REMOVE_USAGE, SANDBOX_USAGE, SPAWN_USAGE,
+    STATUS_USAGE, TASK_USAGE, WAIT_USAGE,
 };
 use crate::http::{request, Endpoint};
 use crate::logs::{
@@ -103,6 +103,12 @@ fn command_parser_builds_delegation_and_update_commands() {
             body: "run the checks".to_string(),
         })
     );
+    assert_eq!(
+        parse_command(&words("sandbox inspect agent")),
+        Ok(Command::SandboxInspect {
+            name: "agent".into(),
+        })
+    );
 }
 
 #[test]
@@ -187,6 +193,7 @@ fn every_command_has_nested_help() {
         ("prune", PRUNE_USAGE),
         ("peers", PEERS_USAGE),
         ("status", STATUS_USAGE),
+        ("sandbox", SANDBOX_USAGE),
         ("logs", LOGS_USAGE),
     ];
 

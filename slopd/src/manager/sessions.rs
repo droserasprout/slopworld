@@ -13,6 +13,18 @@ fn update_host_process(l: &mut Live, command: &str) -> bool {
 }
 
 impl Manager {
+    /// Return a sanitized launch report for an authorized diagnostic request. The sandbox module
+    /// owns both artifact parsing and process observation so API and CLI cannot accidentally grow
+    /// a second, less careful rendering path.
+    pub(crate) async fn sandbox_inspect(&self, name: &str) -> Result<serde_json::Value> {
+        let session = self
+            .session_cfg(name)
+            .await
+            .ok_or_else(|| anyhow!("no such session: {name}"))?;
+        let host = self.is_host(name).await;
+        crate::sandbox::inspect_session(&self.tmux, name, &session, host).await
+    }
+
     pub(super) async fn session_cfg(&self, name: &str) -> Option<SessionCfg> {
         if let Some(s) = self.cfg.read().await.session(name) {
             return Some(s.clone());

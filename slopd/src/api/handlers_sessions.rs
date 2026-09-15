@@ -55,6 +55,24 @@ pub(crate) async fn cwd(
     Ok(Json(json!({ "path": path })))
 }
 
+pub(crate) async fn sandbox(
+    State(m): State<Mgr>,
+    Extension(cap): Extension<Cap>,
+    Path(name): Path<String>,
+) -> ApiResult {
+    super::guard(&m, &cap, &name, Level::Ro).await?;
+    if !m.session_known(&name).await {
+        return Err(err(
+            StatusCode::NOT_FOUND,
+            format!("no such session: {name}"),
+        ));
+    }
+    m.sandbox_inspect(&name)
+        .await
+        .map(Json)
+        .map_err(|error| err(StatusCode::INTERNAL_SERVER_ERROR, error))
+}
+
 pub(crate) async fn create(
     State(m): State<Mgr>,
     Extension(cap): Extension<Cap>,

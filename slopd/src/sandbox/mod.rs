@@ -1,7 +1,9 @@
 mod bind;
 mod host;
 mod network;
+mod observe;
 mod paths;
+mod plan;
 mod state;
 
 use std::path::Path;
@@ -20,15 +22,18 @@ pub use network::prepare_network;
 pub(crate) use network::private_resolver_path;
 #[cfg(test)]
 use network::seed_into;
+pub(crate) use observe::inspect_session;
 pub use paths::{refused, validate_preset, validate_preset_name};
+pub(crate) use plan::{read as read_launch_plan, LaunchPlan, PlanView};
+pub(crate) use plan::{sanitize_diagnostic, sanitize_process_argv};
+#[cfg(test)]
+use state::direct_child;
 pub use state::StoredState;
 pub(crate) use state::{
     delete_stored_state, empty_trash, finish_restored_state, persistent_tmp_path, private_path,
     purge_trash, remove_ephemeral_state, restore_stored_state, restore_trashed_state,
-    rollback_restored_state, state_root, stored_states, trash_state, trashed_session,
+    rollback_restored_state, state_dir, state_root, stored_states, trash_state, trashed_session,
 };
-#[cfg(test)]
-use state::{direct_child, state_dir};
 
 const PANE_TERM: &str = "tmux-256color";
 const PRIVATE_RESOLVER: &str = "192.0.2.1";
@@ -39,8 +44,9 @@ pub(crate) struct ResolvedMount {
     pub mode: MountMode,
 }
 
-/// Resolve configuration and build the complete sandbox command through the bind layer.
-pub fn build_argv(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result<Vec<String>> {
+/// Resolve configuration and build the complete structured sandbox command through the bind
+/// layer. The returned plan still owns raw values and must not cross an external boundary.
+pub(crate) fn build_plan(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result<LaunchPlan> {
     crate::config::validate_project_names(&cfg.projects)?;
     crate::config::project_name_component(&p.name)?;
     crate::config::state_id_component(&s.state_id)?;
@@ -96,7 +102,7 @@ pub fn build_argv(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result<Vec<St
         }
     }
 
-    bind::assemble_argv(bind::BuildArgs {
+    bind::assemble_plan(bind::BuildArgs {
         cfg,
         s,
         p,
@@ -111,6 +117,12 @@ pub fn build_argv(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result<Vec<St
         manifest: manifest.as_deref(),
         manifest_mount_path: &cfg.daemon.instructions.mount_path,
     })
+}
+
+/// Compatibility façade for callers and tests that need the exact execution argv. Startup uses
+/// `build_plan` directly so it can lower once, save the sanitized view, and log that same plan.
+pub fn build_argv(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result<Vec<String>> {
+    build_plan(cfg, s, p).map(|plan| plan.lower())
 }
 
 /// A name this build has no preset for is dropped with a warning rather than refused: the
