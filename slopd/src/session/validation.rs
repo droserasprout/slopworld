@@ -174,8 +174,30 @@ pub(super) fn check_belongs(cfg: &Config, s: &SessionCfg) -> Result<()> {
     if let Some(dns) = &s.dns {
         dns.validate(&format!("agent {}", s.name))?;
     }
-    check_presets(&s.sandbox)?;
-    check_breadcrumbs(cfg, &s.breadcrumbs)?;
+    let live_presets: Vec<String> = s
+        .sandbox
+        .iter()
+        .filter(|name| {
+            !s.sandbox_snapshots
+                .iter()
+                .any(|snapshot| snapshot.name == **name)
+        })
+        .cloned()
+        .collect();
+    check_presets(&live_presets)?;
+    for prompt in &s.breadcrumbs {
+        if let Some(snapshot) = s
+            .breadcrumb_snapshots
+            .iter()
+            .find(|snapshot| snapshot.name == *prompt)
+        {
+            if snapshot.text.trim().is_empty() {
+                bail!("session {} has an empty prompt snapshot", s.name);
+            }
+        } else {
+            check_breadcrumbs(cfg, std::slice::from_ref(prompt))?;
+        }
+    }
     check_mounts(cfg, s)?;
     Ok(())
 }

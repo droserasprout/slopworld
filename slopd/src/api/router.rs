@@ -42,6 +42,12 @@ pub(crate) fn router(m: Mgr) -> Router {
     // Host controls and configuration default to root-only access.
     let root = Router::new()
         .route(routes::SESSION_UPDATE, put(update))
+        .route(routes::TEMPLATES, get(list_templates).post(save_template))
+        .route(
+            routes::TEMPLATE,
+            put(replace_template).delete(destroy_template),
+        )
+        .route(routes::TEMPLATE_CREATE, post(create_from_template))
         .route(routes::CAPABILITIES, get(capabilities))
         .route(routes::PROJECTS, get(list_projects).post(create_project))
         .route(

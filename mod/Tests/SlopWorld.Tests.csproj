@@ -42,6 +42,7 @@
     <Compile Include="../Source/SlopWorld/Client/SessionHub/HubWire.cs" Link="Source/Client/SessionHub/HubWire.cs" />
     <Compile Include="../Source/SlopWorld/Client/SessionHub/PresetInfo.cs" Link="Source/Client/SessionHub/PresetInfo.cs" />
     <Compile Include="../Source/SlopWorld/Client/SessionHub/CommandInfo.cs" Link="Source/Client/SessionHub/CommandInfo.cs" />
+    <Compile Include="../Source/SlopWorld/Client/SessionHub/AgentTemplateInfo.cs" Link="Source/Client/SessionHub/AgentTemplateInfo.cs" />
     <Compile Include="../Source/SlopWorld/Settings/ModSettings.cs" Link="Source/Settings/ModSettings.cs" />
     <Compile Include="../Source/SlopWorld/UI/Chrome/WorkspaceLayout.cs" Link="Source/UI/Chrome/WorkspaceLayout.cs" />
     <Compile Include="../Source/SlopWorld/UI/Chrome/UiMetrics.cs" Link="Source/UI/Chrome/UiMetrics.cs" />

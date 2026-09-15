@@ -1,6 +1,6 @@
 # 3. Agent templates in slopctl
 
-Depends on [personal agent templates](plan-agent-templates.md); follows
+Builds on the shipped [daemon template boundary](daemon-agent-templates.md); follows
 [template management](plan-template-management.md) in the rollout.
 Start with [slopctl](../docs/src/guides/slopctl.md) and [wire contract](protocol-wire.md).
 

@@ -43,6 +43,19 @@ identifies the software so the sandbox can mount its configuration paths.
 An agent with a raw `cmd` and no `command` gets the sandbox but none of the
 CLI-specific wiring.
 
+## Personal templates
+
+When adding an agent, choose a personal template or keep **Manual creation**. The same
+agent editor fields remain available as overrides. To make one, open an existing agent
+and choose **Save as template**. The daemon stores personal templates in
+`agent-templates.toml` beside its main configuration.
+
+A template captures the command and sandbox definitions, named prompt contents, network,
+DNS, resource limits, and startup options. The new agent's name and project are chosen at
+creation time; mounts, labels, private state identity, worker metadata, and runtime
+credentials are not copied. Preset and prompt snapshots belong to each created agent, so
+later edits to the template or its source catalogs do not silently change an existing one.
+
 ## Summaries
 
 Settings > Integrations > Summaries controls the title and delegated-task summary policies,

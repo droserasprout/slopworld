@@ -8,6 +8,8 @@ use std::sync::OnceLock;
 use anyhow::{bail, Result};
 use serde::{Deserialize, Serialize};
 
+use crate::presets::{CommandPreset, SandboxPreset};
+
 const DEFAULT_BIND: &str = crate::shared::defaults::DEFAULT_BIND;
 const DEFAULT_USAGE_POLL_SECS: u64 = crate::shared::defaults::USAGE_POLL_SECS;
 const DEFAULT_CLAUDE_CREDENTIALS: &str = crate::shared::defaults::DEFAULT_CLAUDE_CREDENTIALS;
@@ -684,12 +686,24 @@ pub struct SessionCfg {
     /// This agent's own answer to what that preset runs.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cmd: Option<String>,
+    /// A daemon-owned command definition captured when this agent came from a template.
+    /// Manual session requests cannot set it; the manager preserves it across edits.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) command_snapshot: Option<CommandPreset>,
     /// Sandbox presets it adds to its command's and its project's.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub sandbox: Vec<String>,
+    /// Daemon-owned definitions captured for this agent. Names in `sandbox` prefer these
+    /// definitions over the live preset catalog, keeping an instantiated template stable.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub(crate) sandbox_snapshots: Vec<SandboxPreset>,
     /// Named breadcrumbs added to this agent's first prompt.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub breadcrumbs: Vec<String>,
+    /// Daemon-owned prompt contents captured for this agent. Names in `breadcrumbs` prefer
+    /// these values over the mutable library catalog.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub(crate) breadcrumb_snapshots: Vec<BreadcrumbSnapshot>,
     /// Opt into the generated project-root runtime manifest; its mount path and discovery
     /// text are controlled by `daemon.instructions`.
     #[serde(default, skip_serializing_if = "is_false")]
@@ -775,8 +789,11 @@ impl Default for SessionCfg {
             project: String::new(),
             command: String::new(),
             cmd: None,
+            command_snapshot: None,
             sandbox: Vec::new(),
+            sandbox_snapshots: Vec::new(),
             breadcrumbs: Vec::new(),
+            breadcrumb_snapshots: Vec::new(),
             slopworld_md: false,
             instructions_breadcrumb: true,
             persistent_tmp: false,
@@ -793,6 +810,16 @@ impl Default for SessionCfg {
             worker_token: None,
         }
     }
+}
+
+/// A named prompt copied into a template or a template-created agent. The text is deliberately
+/// stored here rather than looked up from `library`, so editing or deleting that entry cannot
+/// silently alter an existing agent.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct BreadcrumbSnapshot {
+    pub name: String,
+    pub text: String,
 }
 
 /// The only thing the two kinds disagree about at the far end: an agent's input

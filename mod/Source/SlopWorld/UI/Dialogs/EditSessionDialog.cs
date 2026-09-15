@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
@@ -23,6 +24,7 @@ namespace SlopWorld
         readonly ScrollableListing _limitsListing = new ScrollableListing(320f);
         const float PresetsH = 240f;
         Tab _tab;
+        string _templateName;
 
         // Limits are edited as raw strings so a half-typed number is not lost to a reparse each
         // frame; they are parsed back into `_s.Limits` on Save. Blank means no cap.
@@ -83,6 +85,7 @@ namespace SlopWorld
             // Both tables are files the daemon reads, so they are asked for on every open
             // rather than once per process.
             SessionHub.Instance.Catalog.LoadPresets();
+            SessionHub.Instance.Catalog.RefreshTemplates();
             if (string.IsNullOrEmpty(_s.CommandPreset) && string.IsNullOrEmpty(_s.Command) &&
                 string.IsNullOrWhiteSpace(_s.Cmd))
                 DaemonClient.Get(WireProtocol.Routes.Config,
@@ -141,6 +144,8 @@ namespace SlopWorld
             var foot = new UiLayout.Bar(SettingsPageLayout.ToRect(layout.Footer));
             if (!_identity.IsNew && foot.Left("Reset private state", UiTheme.Btn.Danger))
                 Find.WindowStack.Add(CatalogActions.ResetState(_identity.OriginalName));
+            if (!_identity.IsNew && foot.Left("Save as template", UiTheme.Btn.Ghost))
+                Find.WindowStack.Add(new SaveAgentTemplateDialog(_identity.OriginalName));
             if (foot.Left("Cancel", UiTheme.Btn.Ghost)) Close();
             if (foot.Right("Save", UiTheme.Btn.Primary)) Save();
         }
@@ -184,19 +189,22 @@ namespace SlopWorld
             };
 
             string from = _identity.OriginalName, to = _s.Name;
-            SessionHub.Instance.Save(_s, _identity.IsNew, _identity.OriginalName,
-                ok: () =>
+            Action ok = () =>
+            {
+                // The daemon took the rename, so carry the colonist over before the next
+                // reconcile sees a name it doesn't know and retires it.
+                if (!_identity.IsNew && from != to)
                 {
-                    // The daemon took the rename, so carry the colonist over before the next
-                    // reconcile sees a name it doesn't know and retires it.
-                    if (!_identity.IsNew && from != to)
-                    {
-                        AgentColony.Current?.Rename(from, to);
-                        TerminalWindow.RenameActive(from, to);
-                    }
-                    Close();
-                },
-                fail: UiLayout.Fail);
+                    AgentColony.Current?.Rename(from, to);
+                    TerminalWindow.RenameActive(from, to);
+                }
+                Close();
+            };
+            if (_identity.IsNew && !string.IsNullOrEmpty(_templateName))
+                SessionHub.Instance.CreateFromTemplate(_templateName, _s, ok, UiLayout.Fail);
+            else
+                SessionHub.Instance.Save(_s, _identity.IsNew, _identity.OriginalName, ok,
+                    UiLayout.Fail);
         }
     }
 

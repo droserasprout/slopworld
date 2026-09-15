@@ -8,7 +8,7 @@ file inventory; this map identifies subsystem boundaries.
 | `main.rs` | Startup, retick loop, token middleware. |
 | `shared/` | Generated protocol, defaults and usage bindings, plus serialization helpers. |
 | `api/` | Router, HTTP guards and handlers, WebSocket transport. |
-| `session/` | Session types, input, templates, validation, wire views. |
+| `session/` | Session types, agent-template definitions, input, validation, wire views. |
 | `manager/` | Configuration synchronization, session lifecycle, capture, task-store ownership, workers. |
 | `process.rs` | Shared bounded child capture, timeout, kill, and reap mechanics. |
 | `emu.rs`, `tmux.rs` | Terminal mirror and tmux transport. |
@@ -20,5 +20,5 @@ file inventory; this map identifies subsystem boundaries.
 | `bin/` | Launcher, installer, and `slopctl` CLI. |
 
 See [session state](daemon-session-state.md), [sandbox isolation](sandbox-isolation.md),
-[configuration stores](daemon-config-stores.md), and [workers](daemon-workers.md) for the
-contracts that edits must preserve.
+[configuration stores](daemon-config-stores.md), [agent templates](daemon-agent-templates.md),
+and [workers](daemon-workers.md) for the contracts that edits must preserve.

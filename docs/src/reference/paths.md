@@ -11,6 +11,7 @@ variables. Paths marked `0600` are readable only by the owning user.
 | `~/.config/slopworld/endpoint.toml` | `SLOPD_ENDPOINT` | Effective URL and token while the daemon is running. Mode `0600`. |
 | `~/.config/slopworld/presets/*.toml` | `SLOPD_PRESETS` | User sandbox and command presets. Replaces builtins by name. |
 | `~/.config/slopworld/tasks.toml` | beside `SLOPD_CONFIG` | Task mailbox state. |
+| `~/.config/slopworld/agent-templates.toml` | beside `SLOPD_CONFIG` | Personal agent templates. Mode `0600`; definitions are independent of the main config. |
 | `~/.config/slopworld/prompt-summaries.toml` | beside `SLOPD_CONFIG` | Cached prompt titles. Mode `0600`. |
 | `~/.config/slopworld/session-activity.toml` | beside `SLOPD_CONFIG` | Fallback state ages when tmux metadata is unavailable. Mode `0600`. |
 

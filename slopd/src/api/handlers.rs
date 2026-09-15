@@ -24,6 +24,8 @@ mod handlers_sessions;
 mod handlers_system;
 #[path = "handlers_tasks.rs"]
 mod handlers_tasks;
+#[path = "handlers_templates.rs"]
+mod handlers_templates;
 
 pub(crate) use handlers_clipboard::*;
 pub(crate) use handlers_config::*;
@@ -34,6 +36,7 @@ pub(crate) use handlers_presets::*;
 pub(crate) use handlers_sessions::*;
 pub(crate) use handlers_system::*;
 pub(crate) use handlers_tasks::*;
+pub(crate) use handlers_templates::*;
 fn ok_json(r: anyhow::Result<()>) -> ApiResult {
     r.map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
     Ok(Json(json!({ "ok": true })))

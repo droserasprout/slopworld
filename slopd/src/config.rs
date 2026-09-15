@@ -106,6 +106,9 @@ impl Config {
     /// line of its own: an agent that named no preset is not handed one, which is what
     /// keeps `~/.claude` off a session running something else.
     pub fn command_name(&self, s: &SessionCfg) -> String {
+        if let Some(snapshot) = &s.command_snapshot {
+            return snapshot.name.clone();
+        }
         let own = s.command.trim();
         if !own.is_empty() {
             return own.to_string();
@@ -129,6 +132,9 @@ impl Config {
         if let Some(c) = s.cmd.as_deref().map(str::trim).filter(|c| !c.is_empty()) {
             return c.to_string();
         }
+        if let Some(snapshot) = &s.command_snapshot {
+            return snapshot.cmd.clone();
+        }
         crate::presets::table()
             .command(&self.command_name(s))
             .map(|c| c.cmd.clone())
@@ -146,6 +152,13 @@ impl Config {
         names
             .into_iter()
             .filter_map(|name| {
+                if let Some(snapshot) = s
+                    .breadcrumb_snapshots
+                    .iter()
+                    .find(|snapshot| snapshot.name == name)
+                {
+                    return (!snapshot.text.trim().is_empty()).then(|| snapshot.text.clone());
+                }
                 let b = self.library_item(&name)?;
                 (b.kind == LibraryItemKind::Breadcrumb && !b.text.trim().is_empty())
                     .then(|| b.text.clone())
@@ -172,12 +185,14 @@ impl Config {
     /// wins, as in `paths()`.
     pub fn sandbox_of(&self, s: &SessionCfg, p: &ProjectCfg) -> Vec<String> {
         let t = crate::presets::table();
+        let command_sandbox = s
+            .command_snapshot
+            .as_ref()
+            .map(|c| c.sandbox.clone())
+            .or_else(|| t.command(&self.command_name(s)).map(|c| c.sandbox.clone()))
+            .unwrap_or_default();
         let asked: Vec<String> = std::iter::once("global".to_string())
-            .chain(
-                t.command(&self.command_name(s))
-                    .map(|c| c.sandbox.clone())
-                    .unwrap_or_default(),
-            )
+            .chain(command_sandbox)
             .chain(p.sandbox.iter().cloned())
             .chain(s.sandbox.iter().cloned())
             .collect();
@@ -185,6 +200,7 @@ impl Config {
         fn add(
             name: &str,
             table: &crate::presets::Table,
+            snapshots: &[crate::presets::SandboxPreset],
             out: &mut Vec<String>,
             visiting: &mut Vec<String>,
         ) {
@@ -198,9 +214,14 @@ impl Config {
                 return;
             }
             visiting.push(name.to_string());
-            if let Some(preset) = table.sandbox(name) {
+            // Resolve the graph from the same definitions used to build the launch plan.
+            if let Some(preset) = snapshots
+                .iter()
+                .find(|preset| preset.name == name)
+                .or_else(|| table.sandbox(name))
+            {
                 for required in &preset.requires {
-                    add(required, table, out, visiting);
+                    add(required, table, snapshots, out, visiting);
                 }
             }
             visiting.pop();
@@ -211,7 +232,7 @@ impl Config {
 
         let mut names = Vec::new();
         for name in asked {
-            add(&name, &t, &mut names, &mut Vec::new());
+            add(&name, &t, &s.sandbox_snapshots, &mut names, &mut Vec::new());
         }
         names
     }

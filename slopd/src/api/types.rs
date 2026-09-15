@@ -49,6 +49,23 @@ pub(crate) struct LabelReq {
     pub(crate) label: String,
 }
 
+#[derive(Debug, Deserialize)]
+pub(crate) struct SaveAgentTemplateReq {
+    pub(crate) name: String,
+    #[serde(default)]
+    pub(crate) description: String,
+    pub(crate) source: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub(crate) struct CreateAgentTemplateReq {
+    pub(crate) name: String,
+    pub(crate) project: String,
+    /// A complete form snapshot. The daemon copies only the documented portable fields.
+    #[serde(default)]
+    pub(crate) overrides: Option<crate::config::SessionCfg>,
+}
+
 /// An errand nobody wrote down: the same temporary agent `/api/library/NAME/run` makes,
 /// spelled out in the body instead of looked up. `text` is optional here where it is
 /// required of an entry - `less` on a file is a command with nothing to type after it.
