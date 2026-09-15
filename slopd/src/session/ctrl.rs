@@ -8,6 +8,7 @@ use tokio::sync::{broadcast, RwLock};
 pub struct Manager {
     pub tmux: Tmux,
     pub cfg_path: PathBuf,
+    pub(super) endpoint_path: PathBuf,
     pub(super) cfg: RwLock<Config>,
     pub(super) live: RwLock<HashMap<String, Live>>,
     pub(super) temp: RwLock<HashMap<String, ProjectCfg>>,
@@ -25,6 +26,7 @@ pub struct Manager {
     pub(super) auth_generation: AtomicU64,
     pub(super) auth_changes: broadcast::Sender<AuthChange>,
     pub(super) grants: RwLock<crate::grant::Grants>,
+    pub(super) session_boundary: tokio::sync::Mutex<()>,
     pub(crate) tasks: super::manager::TaskStore,
     /// Serializes daemon-owned worker creation so two root requests cannot reserve one child name
     /// or split task/session persistence between each other.
@@ -85,16 +87,20 @@ impl Manager {
 
 #[cfg(test)]
 pub(crate) fn test_manager(config: Config) -> Arc<Manager> {
-    let cfg_path = std::env::temp_dir().join(format!(
-        "slopd-manager-test-{}-{}.toml",
+    let directory = std::env::temp_dir().join(format!(
+        "slopd-manager-test-{}-{}",
         std::process::id(),
         uuid::Uuid::new_v4()
     ));
+    // Tasks and caches are siblings of config.toml, so the directory must be unique too.
+    std::fs::create_dir_all(&directory).expect("test manager directory");
+    let cfg_path = directory.join("config.toml");
     let (events, _) = broadcast::channel(16);
     let (auth_changes, _) = broadcast::channel(16);
     Arc::new(Manager {
         tmux: Tmux::new("slopworld-unit-test"),
         cfg_path: cfg_path.clone(),
+        endpoint_path: cfg_path.with_extension("endpoint.toml"),
         cfg: RwLock::new(config),
         live: RwLock::new(HashMap::new()),
         temp: RwLock::new(HashMap::new()),
@@ -111,6 +117,7 @@ pub(crate) fn test_manager(config: Config) -> Arc<Manager> {
         auth_generation: AtomicU64::new(0),
         auth_changes,
         grants: RwLock::new(crate::grant::Grants::default()),
+        session_boundary: tokio::sync::Mutex::new(()),
         tasks: super::manager::TaskStore::new(
             crate::tasks::Tasks::load(&cfg_path).expect("test task store"),
         ),

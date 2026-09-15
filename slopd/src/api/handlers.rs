@@ -39,10 +39,7 @@ fn ok_json(r: anyhow::Result<()>) -> ApiResult {
     Ok(Json(json!({ "ok": true })))
 }
 
-/// 403 unless `cap` may touch `name` at `need` - the check every per-session route makes. Root
-/// passes everything; a grant passes only a session it names, and never the host. 403 rather
-/// than 404, since a scoped caller has no business learning whether the name it cannot touch
-/// exists (a missing name and a forbidden one read the same to it).
+/// Return 403 for denied or unknown names without revealing session existence.
 pub(super) async fn guard(
     m: &Mgr,
     cap: &Cap,
@@ -56,8 +53,7 @@ pub(super) async fn guard(
     }
 }
 
-/// 403 unless `cap` is the root: creating a session - a new agent, an errand - is the mod's,
-/// never a grant's. A grant is a handle on what already exists.
+/// Only root may create sessions.
 pub(super) fn guard_create(cap: &Cap) -> Result<(), (StatusCode, Json<serde_json::Value>)> {
     if cap.may_create() {
         Ok(())
@@ -65,6 +61,18 @@ pub(super) fn guard_create(cap: &Cap) -> Result<(), (StatusCode, Json<serde_json
         Err(err(
             StatusCode::FORBIDDEN,
             "only the daemon's own token may create sessions",
+        ))
+    }
+}
+
+/// Replacing sandbox configuration requires root authority.
+pub(super) fn guard_root(cap: &Cap) -> Result<(), (StatusCode, Json<serde_json::Value>)> {
+    if cap.may_create() {
+        Ok(())
+    } else {
+        Err(err(
+            StatusCode::FORBIDDEN,
+            "only the daemon's own token may replace session configuration",
         ))
     }
 }

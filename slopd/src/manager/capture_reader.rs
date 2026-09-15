@@ -121,8 +121,9 @@ impl Manager {
         ready_tx: tokio::sync::oneshot::Sender<Result<(), String>>,
         error: String,
     ) {
-        self.mark_down(name, reader_token).await;
+        // Release startup before cleanup waits for its session boundary.
         let _ = ready_tx.send(Err(error));
+        self.mark_down(name, reader_token).await;
     }
 
     pub(crate) async fn run_control(

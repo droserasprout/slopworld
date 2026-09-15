@@ -26,5 +26,10 @@ actual host/container resolver. Resource limits wrap the full process tree and m
 be enforced or fail launch. They are optional; there is no disk quota or general seccomp
 policy. Writable project `.git` intentionally permits hook/config changes.
 
+Host Git inspection uses `git.rs` and `git_exec.rs`: known helpers are disabled, and Linux
+seccomp blocks child processes while allowing index threads. This also blocks clean/process
+filters without racing repository configuration edits. Required filters or unavailable seccomp
+can make inspection fail; repository and global configuration remain writable and unchanged.
+
 `slopworld-debug` deliberately exposes host control. Consult its actual preset before making
 claims about process, token, Docker or desktop isolation.

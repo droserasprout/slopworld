@@ -46,6 +46,9 @@ pub(super) async fn ws_upgrade(
 /// Filters events for a socket capability. Root sees all; scoped grants see named sessions and
 /// screens, but not projects, library, usage, audio, or jukebox catalog data.
 fn scope_event(cap: &Cap, ev: Arc<EventMessage>) -> Option<Arc<EventMessage>> {
+    if !cap.is_valid() {
+        return None;
+    }
     match cap {
         Cap::Root => Some(ev),
         Cap::Scoped(_) => match ev.event() {
@@ -56,7 +59,7 @@ fn scope_event(cap: &Cap, ev: Arc<EventMessage>) -> Option<Arc<EventMessage>> {
                     .cloned()
                     .collect(),
             })),
-            Event::Screen { .. } => Some(ev),
+            Event::Screen { screen } => cap.can_see(&screen.name, false).then_some(ev),
             Event::Capabilities { .. }
             | Event::Projects { .. }
             | Event::Library { .. }
@@ -113,7 +116,7 @@ async fn ws_run(socket: WebSocket, m: Mgr, cap: Cap, generation: u64) {
                 pending_scrolls.pop_front();
                 match result {
                     Ok(Some(screen)) => {
-                        if send(&tx, &EventMessage::new(Event::Screen { screen })).await.is_err() { break; }
+                        if send(&tx, &cap, &EventMessage::new(Event::Screen { screen })).await.is_err() { break; }
                     }
                     Ok(None) => {}
                     Err(error) => tracing::debug!("scroll task ended: {error}"),
@@ -128,15 +131,18 @@ async fn ws_run(socket: WebSocket, m: Mgr, cap: Cap, generation: u64) {
                 };
 
                 if let ClientMsg::Scroll(req) = cm {
-                    if !m.cap_ok(&cap, &req.name, Level::Ro).await { continue; }
                     let permit = match scroll_slots.clone().try_acquire_owned() {
                         Ok(permit) => permit,
                         Err(_) => continue,
                     };
                     let manager = m.clone();
+                    let cap = cap.clone();
                     pending_scrolls.push_back(tokio::spawn(async move {
                         let _permit = permit;
-                        manager.scroll_capture(&req.name, req.off, req.request_id).await
+                        manager.session_operation(async {
+                            if !manager.cap_ok(&cap, &req.name, Level::Ro).await { return None; }
+                            manager.scroll_capture(&req.name, req.off, req.request_id).await
+                        }).await
                     }));
                     continue;
                 }
@@ -144,7 +150,7 @@ async fn ws_run(socket: WebSocket, m: Mgr, cap: Cap, generation: u64) {
                 // `Sub` can answer immediately with a screen. Drain older scroll responses first
                 // so direct responses retain the same order as the incoming commands.
                 if matches!(&cm, ClientMsg::Sub { .. })
-                    && !flush_scrolls(&tx, &mut pending_scrolls).await { break; }
+                    && !flush_scrolls(&tx, &cap, &mut pending_scrolls).await { break; }
                 if !handle_client_msg(cm, &m, &cap, &tx, &subs).await { break; }
             }
         }
@@ -164,8 +170,8 @@ async fn ws_run(socket: WebSocket, m: Mgr, cap: Cap, generation: u64) {
 async fn auth_invalidated(changes: &mut broadcast::Receiver<AuthChange>, cap: &Cap) -> bool {
     loop {
         match changes.recv().await {
-            Ok(AuthChange::GrantorRevoked(grantor)) => {
-                if cap.principal() == Some(grantor.as_str()) {
+            Ok(AuthChange::GrantsRevoked) => {
+                if !cap.is_valid() {
                     return true;
                 }
             }
@@ -190,7 +196,7 @@ async fn send_initial_snapshot(tx: &WsTx, m: &Mgr, cap: &Cap) -> bool {
             capabilities: crate::runtime::capabilities(),
         }),
     ) {
-        if send(tx, &ev).await.is_err() {
+        if send(tx, cap, &ev).await.is_err() {
             return false;
         }
     }
@@ -200,7 +206,7 @@ async fn send_initial_snapshot(tx: &WsTx, m: &Mgr, cap: &Cap) -> bool {
             sessions: m.views().await,
         }),
     ) {
-        if send(tx, &ev).await.is_err() {
+        if send(tx, cap, &ev).await.is_err() {
             return false;
         }
     }
@@ -224,7 +230,7 @@ async fn send_initial_snapshot(tx: &WsTx, m: &Mgr, cap: &Cap) -> bool {
         }),
     ] {
         if let Some(ev) = scope_event(cap, ev) {
-            let _ = send(tx, &ev).await;
+            let _ = send(tx, cap, &ev).await;
         }
     }
     true
@@ -273,7 +279,7 @@ fn spawn_frame_pump(
                                 // Sending now, drop any held frame for this pane: it is
                                 // older and must not flush after the newer one.
                                 pending.remove(&screen.name);
-                                if send(&tx, &ev).await.is_err() {
+                                if send(&tx, &cap, &ev).await.is_err() {
                                     break;
                                 }
                                 last_screen = TokioInstant::now();
@@ -286,13 +292,13 @@ fn spawn_frame_pump(
                             // behind a stale frame, so anything held goes out first.
                             if !pending.is_empty() {
                                 for (_, pe) in std::mem::take(&mut pending) {
-                                    if send(&tx, &pe).await.is_err() {
+                                    if send(&tx, &cap, &pe).await.is_err() {
                                         break;
                                     }
                                 }
                                 last_screen = TokioInstant::now();
                             }
-                            if send(&tx, &ev).await.is_err() {
+                            if send(&tx, &cap, &ev).await.is_err() {
                                 break;
                             }
                         }
@@ -304,7 +310,7 @@ fn spawn_frame_pump(
                 _ = flush => {
                     if !pending.is_empty() {
                         for (_, pe) in std::mem::take(&mut pending) {
-                            if send(&tx, &pe).await.is_err() {
+                            if send(&tx, &cap, &pe).await.is_err() {
                                 break;
                             }
                         }
@@ -319,21 +325,27 @@ fn spawn_frame_pump(
 /// Handles one client message. Unauthorized messages are dropped silently; a failed direct
 /// response means the socket is gone and tells the caller to stop reading it.
 async fn handle_client_msg(cm: ClientMsg, m: &Mgr, cap: &Cap, tx: &WsTx, subs: &WsSubs) -> bool {
-    match cm {
-        ClientMsg::Redraw { cols, rows } => handle_redraw(m, cap, cols.zip(rows)),
-        ClientMsg::Sub { name } => return handle_sub(name, m, cap, tx, subs).await,
-        ClientMsg::Unsub { name } => handle_unsub(name, subs).await,
-        ClientMsg::Keys(req) => handle_keys(req, m, cap).await,
-        ClientMsg::Resize(req) => handle_resize(req, m, cap).await,
-        // Scroll requests are intercepted by ws_run so capture work can run in its bounded
-        // lane without stopping command intake.
-        ClientMsg::Scroll(_) => {}
-        ClientMsg::Mouse(req) => handle_mouse(req, m, cap).await,
-        ClientMsg::Paste(req) => handle_paste(req, m, cap).await,
-        ClientMsg::Breadcrumb(req) => handle_breadcrumb(req, m, cap).await,
-        ClientMsg::Audio(req) => handle_audio(req, m, cap),
+    if let ClientMsg::Sub { name } = cm {
+        return handle_sub(name, m, cap, tx, subs).await;
     }
-    true
+    m.session_operation(async {
+        match cm {
+            ClientMsg::Redraw { cols, rows } => handle_redraw(m, cap, cols.zip(rows)),
+            ClientMsg::Sub { .. } => unreachable!(),
+            ClientMsg::Unsub { name } => handle_unsub(name, subs).await,
+            ClientMsg::Keys(req) => handle_keys(req, m, cap).await,
+            ClientMsg::Resize(req) => handle_resize(req, m, cap).await,
+            // Scroll requests are intercepted by ws_run so capture work can run in its bounded
+            // lane without stopping command intake.
+            ClientMsg::Scroll(_) => {}
+            ClientMsg::Mouse(req) => handle_mouse(req, m, cap).await,
+            ClientMsg::Paste(req) => handle_paste(req, m, cap).await,
+            ClientMsg::Breadcrumb(req) => handle_breadcrumb(req, m, cap).await,
+            ClientMsg::Audio(req) => handle_audio(req, m, cap),
+        }
+        true
+    })
+    .await
 }
 
 fn handle_redraw(m: &Mgr, cap: &Cap, shape: Option<(u16, u16)>) {
@@ -346,17 +358,19 @@ fn handle_redraw(m: &Mgr, cap: &Cap, shape: Option<(u16, u16)>) {
 }
 
 async fn handle_sub(name: String, m: &Mgr, cap: &Cap, tx: &WsTx, subs: &WsSubs) -> bool {
-    // Require read access for pane subscriptions. A failed direct response means the socket is
-    // gone and tells the caller to stop reading it.
-    if !m.cap_ok(cap, &name, Level::Ro).await {
-        return true;
-    }
-    subs.lock().await.insert(name.clone(), m.watching(&name));
-    // Somebody is looking at this pane now, which is the whole of what a bell was asking for.
-    // Broadcast, not answered here: every client draws the mark.
-    m.clear_bell(&name).await;
-    if let Some(s) = m.screen(&name).await {
-        return send(tx, &EventMessage::new(Event::Screen { screen: s }))
+    let screen = m
+        .session_operation(async {
+            if !m.cap_ok(cap, &name, Level::Ro).await {
+                return None;
+            }
+            subs.lock().await.insert(name.clone(), m.watching(&name));
+            m.clear_bell(&name).await;
+            m.screen(&name).await
+        })
+        .await;
+    // Socket backpressure must not hold the session boundary.
+    if let Some(s) = screen {
+        return send(tx, cap, &EventMessage::new(Event::Screen { screen: s }))
             .await
             .is_ok();
     }
@@ -452,12 +466,18 @@ fn resolve_audio_source(selection: AudioSelection) -> anyhow::Result<String> {
     }
 }
 
-async fn send(tx: &WsTx, ev: &EventMessage) -> Result<(), axum::Error> {
+async fn send(tx: &WsTx, cap: &Cap, ev: &EventMessage) -> Result<(), axum::Error> {
     let _perf = crate::perf::timer("websocket-send");
     let started = crate::perf::enabled().then(std::time::Instant::now);
     let text = ev.encoded().to_string();
     crate::perf::count("websocket-bytes", text.len() as u64);
-    let result = tx.lock().await.send(Message::Text(text)).await;
+    let mut tx = tx.lock().await;
+    if !cap.is_valid() {
+        return Err(axum::Error::new(std::io::Error::other(
+            "capability revoked",
+        )));
+    }
+    let result = tx.send(Message::Text(text)).await;
     if let Some(started) = started {
         tracing::debug!(
             target: "slopd::perf",
@@ -469,11 +489,15 @@ async fn send(tx: &WsTx, ev: &EventMessage) -> Result<(), axum::Error> {
     result
 }
 
-async fn flush_scrolls(tx: &WsTx, pending: &mut VecDeque<JoinHandle<Option<ScreenView>>>) -> bool {
+async fn flush_scrolls(
+    tx: &WsTx,
+    cap: &Cap,
+    pending: &mut VecDeque<JoinHandle<Option<ScreenView>>>,
+) -> bool {
     while let Some(task) = pending.pop_front() {
         match task.await {
             Ok(Some(screen)) => {
-                if send(tx, &EventMessage::new(Event::Screen { screen }))
+                if send(tx, cap, &EventMessage::new(Event::Screen { screen }))
                     .await
                     .is_err()
                 {
@@ -494,7 +518,7 @@ mod tests {
     use crate::session::{ScreenView, SessionView, State};
     use std::collections::HashSet;
 
-    /// The only field `scope_event` reads off a session is its name, so the rest is filler that
+    /// Event filtering reads the name and host flag; the rest is filler that
     /// keeps a `SessionView` compiling without pulling in a whole live manager.
     fn view(name: &str) -> SessionView {
         SessionView {
@@ -551,6 +575,7 @@ mod tests {
                 .map(|s| s.to_string())
                 .collect::<HashSet<_>>(),
             level,
+            revoked: Default::default(),
         })
     }
 
@@ -596,9 +621,11 @@ mod tests {
     /// reach the socket, so the holder does not even learn they exist.
     #[test]
     fn a_scoped_grant_sees_only_the_sessions_it_names() {
-        let cap = scoped(&["a", "c"], Level::Ro);
+        let cap = scoped(&["a", "c", "host"], Level::Ro);
+        let mut host = view("host");
+        host.host = true;
         let ev = message(Event::Sessions {
-            sessions: vec![view("a"), view("b"), view("c"), view("d")],
+            sessions: vec![view("a"), view("b"), view("c"), view("d"), host],
         });
         assert_eq!(
             names(&scope_event(&cap, ev).expect("a filtered list is still an event")),
@@ -620,7 +647,7 @@ mod tests {
     /// The grant subscribes to a session's screen and must keep receiving it; screens are the
     /// one non-session category a scoped socket is allowed to see.
     #[test]
-    fn a_scoped_grant_still_receives_screens() {
+    fn screens_require_a_live_grant_for_the_named_session() {
         let cap = scoped(&["a"], Level::Ro);
         let screen = ScreenView {
             name: "a".to_string(),
@@ -640,7 +667,16 @@ mod tests {
             request_id: 0,
             lines: Vec::new(),
         };
-        assert!(scope_event(&cap, message(Event::Screen { screen })).is_some());
+        let event = message(Event::Screen { screen });
+        assert!(scope_event(&cap, event.clone()).is_some());
+        assert!(scope_event(&scoped(&["other"], Level::Ro), event.clone()).is_none());
+        let Cap::Scoped(grant) = cap.clone() else {
+            unreachable!()
+        };
+        let mut grants = crate::grant::Grants::default();
+        grants.mint(grant);
+        grants.invalidate_session("a");
+        assert!(scope_event(&cap, event).is_none());
     }
 
     /// Everything that is neither a session nor a screen - projects, library, usage, audio,

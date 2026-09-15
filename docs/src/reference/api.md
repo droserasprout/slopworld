@@ -9,7 +9,10 @@ Write operations use HTTP so the caller can inspect daemon error bodies. The com
 method, path, access, and handler inventory is generated in the
 [API route inventory](api-routes.md) from the daemon router.
 
-Session and task routes support appropriately scoped grants; creating a session is root-only.
+Session and task routes support appropriately scoped grants. Creating a session and replacing
+its configuration (`PUT /api/sessions/:name`) require root authority. Scoped `rw` grants retain
+input, label, and permitted lifecycle operations. Removing or renaming a session invalidates its
+target memberships and owned grants, and closes affected WebSockets; name reuse needs a new grant.
 `POST /api/workers` is a separate root-only operation for creating a task-owned child from an
 existing agent session; it clones that session's runtime configuration and returns the new task and
 worker identity in one response. See the route inventory for the exact method and handler.

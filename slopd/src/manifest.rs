@@ -5,6 +5,7 @@
 //! which sessions get the read-only overlay and discovery breadcrumb.
 
 use std::path::{Path, PathBuf};
+#[cfg(test)]
 use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -427,9 +428,7 @@ fn git_context(dir: &Path) -> Option<(PathBuf, String)> {
 }
 
 fn git_output(dir: &Path, args: &[&str]) -> Option<String> {
-    let output = Command::new("git")
-        .arg("-C")
-        .arg(dir)
+    let output = crate::git::inspection_std_command(dir)
         .args(args)
         .output()
         .ok()?;
@@ -440,9 +439,7 @@ fn git_output(dir: &Path, args: &[&str]) -> Option<String> {
 }
 
 fn git_ignores(dir: &Path) -> bool {
-    Command::new("git")
-        .arg("-C")
-        .arg(dir)
+    crate::git::inspection_std_command(dir)
         .args(["check-ignore", "-q", "--no-index", "--"])
         .arg(FILE_NAME)
         .status()

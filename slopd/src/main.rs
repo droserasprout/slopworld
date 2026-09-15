@@ -212,6 +212,92 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn stalled_scoped_uploads_allow_revocation_and_recheck_authority_on_completion() {
+        for level in [Level::Ro, Level::Rw] {
+            let manager = manager();
+            let token = manager
+                .mint_grant("grantor".into(), vec!["target".into()], level)
+                .await
+                .unwrap();
+            let app = app(manager.clone());
+            let (entered, observed) = tokio::sync::oneshot::channel();
+            let (release, resume) = tokio::sync::oneshot::channel();
+            let stream = futures::stream::once(async move {
+                entered.send(()).unwrap();
+                resume.await.unwrap();
+                Ok::<_, std::io::Error>(r#"{"to":"target","body":"queued upload"}"#)
+            });
+            let request = Request::builder()
+                .method("POST")
+                .uri(wire::routes::TASKS)
+                .header(wire::TOKEN_HEADER, &token)
+                .header("content-type", "application/json")
+                .body(Body::from_stream(stream))
+                .unwrap();
+            let upload = tokio::spawn(app.clone().oneshot(request));
+            tokio::time::timeout(std::time::Duration::from_secs(1), observed)
+                .await
+                .expect("request body was not polled")
+                .unwrap();
+
+            let revoke = Request::builder()
+                .method("DELETE")
+                .uri("/api/grants/grantor")
+                .header(wire::TOKEN_HEADER, "root-secret")
+                .body(Body::empty())
+                .unwrap();
+            let response =
+                tokio::time::timeout(std::time::Duration::from_secs(1), app.oneshot(revoke))
+                    .await
+                    .expect("stalled upload blocked grant revocation")
+                    .unwrap();
+            assert_eq!(response.status(), StatusCode::OK);
+
+            release.send(()).unwrap();
+            let response = tokio::time::timeout(std::time::Duration::from_secs(1), upload)
+                .await
+                .expect("completed upload did not finish")
+                .unwrap()
+                .unwrap();
+            assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+            assert!(manager.tasks.all_tasks().is_empty());
+        }
+    }
+
+    #[tokio::test]
+    async fn scoped_uploads_preserve_body_limits_and_accept_valid_json() {
+        let manager = manager();
+        let token = manager
+            .mint_grant("grantor".into(), vec!["target".into()], Level::Ro)
+            .await
+            .unwrap();
+        let app = app(manager.clone());
+        for (body, expected) in [
+            (
+                "x".repeat(2 * 1024 * 1024 + 1),
+                StatusCode::PAYLOAD_TOO_LARGE,
+            ),
+            (
+                r#"{"to":"target","body":"valid upload"}"#.to_string(),
+                StatusCode::OK,
+            ),
+        ] {
+            let request = Request::builder()
+                .method("POST")
+                .uri(wire::routes::TASKS)
+                .header(wire::TOKEN_HEADER, &token)
+                .header("content-type", "application/json")
+                .body(Body::from(body))
+                .unwrap();
+            assert_eq!(
+                app.clone().oneshot(request).await.unwrap().status(),
+                expected
+            );
+        }
+        assert_eq!(manager.tasks.all_tasks().len(), 1);
+    }
+
+    #[tokio::test]
     async fn api_auth_requires_the_configured_root_token() {
         let app = app(manager());
 
@@ -331,5 +417,129 @@ mod tests {
             .is_err());
 
         server.abort();
+    }
+    #[tokio::test]
+    async fn disappearing_identities_close_sockets_and_do_not_follow_reused_names() {
+        for level in [Level::Ro, Level::Rw] {
+            for subject in ["target", "grantor"] {
+                for rename in [false, true] {
+                    let manager = manager();
+                    let mut cfg = manager.config().await;
+                    cfg.sessions
+                        .extend(["other", "other-owner"].map(|name| SessionCfg {
+                            name: name.into(),
+                            ..Default::default()
+                        }));
+                    cfg.projects.push(crate::config::ProjectCfg {
+                        name: "repo".into(),
+                        dir: "/tmp".into(),
+                        ..Default::default()
+                    });
+                    for session in &mut cfg.sessions {
+                        session.project = "repo".into();
+                    }
+                    manager
+                        .replace_config(&toml::to_string(&cfg).unwrap())
+                        .await
+                        .unwrap();
+                    let token = manager
+                        .mint_grant(
+                            "grantor".into(),
+                            vec!["target".into(), "other".into()],
+                            level,
+                        )
+                        .await
+                        .unwrap();
+                    let unrelated = manager
+                        .mint_grant("other-owner".into(), vec!["other".into()], level)
+                        .await
+                        .unwrap();
+                    let app = app(manager.clone());
+                    let rest = app.clone();
+                    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+                    let address = listener.local_addr().unwrap();
+                    let server = tokio::spawn(async move {
+                        axum::serve(listener, app).await.unwrap();
+                    });
+                    let mut request = format!("ws://{address}{}", wire::WS_PATH)
+                        .into_client_request()
+                        .unwrap();
+                    request
+                        .headers_mut()
+                        .insert(wire::TOKEN_HEADER, token.parse().unwrap());
+                    let (mut socket, _) = tokio_tungstenite::connect_async(request).await.unwrap();
+                    let initial = socket.next().await.unwrap().unwrap();
+                    assert!(
+                        matches!(initial, tokio_tungstenite::tungstenite::Message::Text(text) if text.contains("target"))
+                    );
+                    socket
+                        .send(tokio_tungstenite::tungstenite::Message::Text(
+                            r#"{"t":"sub","name":"target"}"#.into(),
+                        ))
+                        .await
+                        .unwrap();
+
+                    let old = cfg
+                        .sessions
+                        .iter()
+                        .find(|s| s.name == subject)
+                        .unwrap()
+                        .clone();
+                    if rename {
+                        let mut renamed = old.clone();
+                        renamed.name = "renamed".into();
+                        manager.update(subject, renamed).await.unwrap();
+                        cfg = manager.config().await;
+                    } else {
+                        cfg.sessions.retain(|s| s.name != subject);
+                        tokio::fs::write(&manager.cfg_path, toml::to_string(&cfg).unwrap())
+                            .await
+                            .unwrap();
+                        assert!(manager.reload_if_changed().await);
+                    }
+                    cfg.sessions.push(SessionCfg {
+                        name: subject.into(),
+                        ..Default::default()
+                    });
+                    manager
+                        .replace_config(&toml::to_string(&cfg).unwrap())
+                        .await
+                        .unwrap();
+                    tokio::time::timeout(std::time::Duration::from_secs(2), async {
+                        loop {
+                            match socket.next().await {
+                                None
+                                | Some(Err(_))
+                                | Some(Ok(tokio_tungstenite::tungstenite::Message::Close(_))) => {
+                                    break
+                                }
+                                Some(Ok(tokio_tungstenite::tungstenite::Message::Text(text))) => {
+                                    assert!(
+                                        !text.contains("target"),
+                                        "socket received a replacement session"
+                                    );
+                                }
+                                _ => {}
+                            }
+                        }
+                    })
+                    .await
+                    .expect("invalidated socket stayed connected");
+                    assert_eq!(
+                        get(&rest, "/api/sessions/target", Some(&token)).await,
+                        StatusCode::UNAUTHORIZED
+                    );
+                    assert_eq!(
+                        get(&rest, "/api/sessions/other", Some(&unrelated)).await,
+                        StatusCode::OK
+                    );
+                    assert_eq!(
+                        get(&rest, "/api/sessions/other", Some(&token)).await,
+                        StatusCode::UNAUTHORIZED
+                    );
+                    server.abort();
+                }
+            }
+        }
     }
 }

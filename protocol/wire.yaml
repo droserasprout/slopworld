@@ -15,8 +15,12 @@ http:
       scope: scoped
     session:
       path: "/api/sessions/:name"
-      methods: [GET, PUT, DELETE]
+      methods: [GET, DELETE]
       scope: scoped
+    session_update:
+      path: "/api/sessions/:name"
+      methods: [PUT]
+      scope: root
     session_cwd:
       path: "/api/sessions/:name/cwd"
       methods: [GET]

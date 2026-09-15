@@ -14,13 +14,8 @@ impl Manager {
         session: &str,
         need: crate::grant::Level,
     ) -> bool {
-        let is_host = self
-            .live
-            .read()
-            .await
-            .get(session)
-            .map(|l| l.host)
-            .unwrap_or(false);
+        // Callers serialize this check and its session operation with lifecycle changes.
+        let is_host = self.is_host(session).await;
         cap.allows(session, is_host, need)
     }
 
@@ -34,16 +29,27 @@ impl Manager {
         sessions: Vec<String>,
         level: crate::grant::Level,
     ) -> Result<String> {
+        self.session_operation(self.mint_grant_within_boundary(grantor, sessions, level))
+            .await
+    }
+
+    async fn mint_grant_within_boundary(
+        &self,
+        grantor: String,
+        sessions: Vec<String>,
+        level: crate::grant::Level,
+    ) -> Result<String> {
         if !self.session_known(&grantor).await {
             bail!("no such session to grant to: {grantor}");
         }
+        let cfg = self.config().await;
         let live = self.live.read().await;
         let mut scope = std::collections::HashSet::new();
         for s in sessions {
             if live.get(&s).map(|l| l.host).unwrap_or(false) {
                 bail!("the host terminal cannot be granted: {s}");
             }
-            if !live.contains_key(&s) && self.config().await.session(&s).is_none() {
+            if !live.contains_key(&s) && cfg.session(&s).is_none() {
                 bail!("no such session to grant: {s}");
             }
             scope.insert(s);
@@ -53,14 +59,30 @@ impl Manager {
             grantor,
             sessions: scope,
             level,
+            revoked: Default::default(),
         }))
     }
 
     pub async fn revoke_grants(&self, grantor: &str) {
+        self.session_operation(self.revoke_grants_within_boundary(grantor))
+            .await
+    }
+
+    async fn revoke_grants_within_boundary(&self, grantor: &str) {
         self.grants.write().await.revoke_grantor(grantor);
-        self.invalidate_auth(crate::session::AuthChange::GrantorRevoked(
-            grantor.to_string(),
-        ));
+        self.invalidate_auth(crate::session::AuthChange::GrantsRevoked);
+    }
+
+    /// Revoke whole grants owned by or targeting a disappearing session.
+    pub async fn invalidate_session(&self, name: &str) {
+        self.session_operation(self.invalidate_session_within_boundary(name))
+            .await
+    }
+
+    async fn invalidate_session_within_boundary(&self, name: &str) {
+        if self.grants.write().await.invalidate_session(name) {
+            self.invalidate_auth(crate::session::AuthChange::GrantsRevoked);
+        }
     }
 
     pub async fn grant_count(&self) -> usize {
@@ -119,6 +141,8 @@ mod tests {
 
         manager.revoke_grants("grantor").await;
         assert_eq!(manager.grant_count().await, 0);
+        assert!(!manager.cap_ok(&cap, "target", Level::Ro).await);
+        assert!(manager.resolve_cap(Some(&token)).await.is_none());
     }
 
     #[tokio::test]
@@ -137,5 +161,58 @@ mod tests {
             .unwrap_err()
             .to_string();
         assert!(missing_target.contains("no such session to grant"));
+    }
+
+    #[tokio::test]
+    async fn config_replacement_invalidates_grants_without_a_live_row() {
+        for level in [Level::Ro, Level::Rw] {
+            for name in ["grantor", "target"] {
+                let manager = test_manager(config());
+                let token = manager
+                    .mint_grant("grantor".into(), vec!["target".into()], level)
+                    .await
+                    .unwrap();
+                let cap = manager.resolve_cap(Some(&token)).await.unwrap();
+                let mut cfg = manager.config().await;
+                cfg.sessions
+                    .iter_mut()
+                    .find(|s| s.name == name)
+                    .unwrap()
+                    .state_id = uuid::Uuid::new_v4().to_string();
+                manager
+                    .replace_config(&toml::to_string(&cfg).unwrap())
+                    .await
+                    .unwrap();
+                assert!(!manager.cap_ok(&cap, "target", level).await);
+            }
+        }
+    }
+    #[tokio::test]
+    async fn durable_stop_preserves_grants_but_ephemeral_removal_invalidates_them() {
+        for level in [Level::Ro, Level::Rw] {
+            for subject in ["grantor", "target"] {
+                let manager = test_manager(config());
+                manager.sync_from_config().await;
+                let token = manager
+                    .mint_grant("grantor".into(), vec!["target".into()], level)
+                    .await
+                    .unwrap();
+                let cap = manager.resolve_cap(Some(&token)).await.unwrap();
+                manager.stop(subject).await.unwrap();
+                assert!(manager.cap_ok(&cap, "target", level).await);
+                assert!(manager.start(subject).await.is_err()); // No command in this fixture.
+                assert!(manager.cap_ok(&cap, "target", level).await);
+                manager
+                    .live
+                    .write()
+                    .await
+                    .get_mut(subject)
+                    .unwrap()
+                    .ephemeral = true;
+                manager.stop(subject).await.unwrap();
+                manager.sync_from_config().await;
+                assert!(!manager.cap_ok(&cap, "target", level).await);
+            }
+        }
     }
 }
