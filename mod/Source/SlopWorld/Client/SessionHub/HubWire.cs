@@ -27,14 +27,13 @@ namespace SlopWorld
             name = null;
             try
             {
-                var reader = new JsonReader(json);
-                reader.Expect('{');
-                bool first = true, typeSeen = false, screenSeen = false;
+                using var reader = new JsonReader(json);
+                reader.Expect(Newtonsoft.Json.JsonToken.StartObject);
+                bool typeSeen = false, screenSeen = false;
                 string candidate = null;
-                while (reader.More(ref first, '}'))
+                while (reader.More(Newtonsoft.Json.JsonToken.EndObject))
                 {
-                    string key = reader.String();
-                    reader.Expect(':');
+                    string key = reader.PropertyName();
                     switch (key)
                     {
                         case "t":
@@ -42,10 +41,10 @@ namespace SlopWorld
                             typeSeen = true;
                             break;
                         case "screen":
-                            if (screenSeen || !ReadScreen(ref reader, out candidate)) return false;
+                            if (screenSeen || !ReadScreen(reader, out candidate)) return false;
                             screenSeen = true;
                             break;
-                        default: reader.Value(false, 1); break;
+                        default: reader.Value(false); break;
                     }
                 }
                 reader.Finish();
@@ -56,16 +55,14 @@ namespace SlopWorld
             catch (FormatException) { return false; }
         }
 
-        static bool ReadScreen(ref JsonReader reader, out string name)
+        static bool ReadScreen(JsonReader reader, out string name)
         {
             name = null;
-            reader.Expect('{');
-            bool first = true;
+            reader.Expect(Newtonsoft.Json.JsonToken.StartObject);
             int seen = 0;
-            while (reader.More(ref first, '}'))
+            while (reader.More(Newtonsoft.Json.JsonToken.EndObject))
             {
-                string key = reader.String();
-                reader.Expect(':');
+                string key = reader.PropertyName();
                 int field = key == "name" ? 1 : key == "off" ? 2 : key == "request_id" ? 4 : 0;
                 if ((seen & field) != 0) return false;
                 seen |= field;
@@ -74,7 +71,7 @@ namespace SlopWorld
                 {
                     if (reader.Number() != 0) return false;
                 }
-                else reader.Value(false, 2);
+                else reader.Value(false);
             }
             return true;
         }

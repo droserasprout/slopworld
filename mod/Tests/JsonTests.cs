@@ -12,6 +12,7 @@ namespace SlopWorld.Tests
             yield return ("round trips supplementary emoji", RoundTripsSupplementaryEmoji);
             yield return ("parses numbers and literals", ParsesNumbersAndLiterals);
             yield return ("parses all short string escapes", ParsesShortEscapes);
+            yield return ("library tree preserves wire scalar semantics", PreservesWireScalars);
             yield return ("decode and skip share strict JSON validation", ValidatesSkippedValues);
         }
 
@@ -83,7 +84,9 @@ namespace SlopWorld.Tests
             foreach (string json in new[]
             {
                 "", "[", "{", "[1,]", "{\"a\":1,}", "{\"a\" 1}", "[1 2]",
-                "true false", "tru", "nul", "01", "-", "1.", "1e+", "+1", "1١",
+                "true false", "tru", "nul", "01", "-01", "0x10", "0Xff", ".5", "-.5", "1.e2", "-", "1.", "1e+", "+1", "1١",
+                "{'a':1}", "[/*comment*/1]", "NaN", "Infinity", "-Infinity", "1e999", "undefined", "new Date(1)",
+                "{unquoted:1}", "[1,,2]", "[[]", "{\"a\":{}",
                 "\"bad\\q\"", "\"bad\\u00xz\"", "\"bad\\u123\"", "\"unclosed",
                 "\"bad\ntext\"", "\"bad\\\ntext\"", "\u00a0null",
                 new string('[', 130) + new string(']', 130),
@@ -97,6 +100,21 @@ namespace SlopWorld.Tests
                     reader.Finish();
                 }, "reject skipped " + json);
             }
+        }
+
+        static void PreservesWireScalars()
+        {
+            AssertEx.True(JVal.Equivalent(JVal.Parse("1"), JVal.Parse("1.0")),
+                          "integer and float tokens retain numeric equality");
+            AssertEx.Equal(2, JVal.Parse("{\"a\":1,\"a\":2}")["a"].AsInt(),
+                           "last duplicate property wins");
+            const string date = "2026-09-15T00:00:00Z";
+            AssertEx.Equal(date, JVal.Parse(JVal.Q(date)).AsString(), "dates remain strings");
+            string deepest = new string('[', 128) + "0" + new string(']', 128);
+            JVal.Parse(deepest);
+            using var reader = new JsonReader(deepest);
+            reader.Value(false);
+            reader.Finish();
         }
 
         static void ParsesShortEscapes()

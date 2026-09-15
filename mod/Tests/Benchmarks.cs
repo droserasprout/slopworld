@@ -61,7 +61,7 @@ namespace SlopWorld.Tests
                 return screen.LiveShift;
             });
             var other = JVal.Parse(json);
-            other["lines"].Arr[198].Str = "different";
+            other["lines"][198].Token.Replace(new Newtonsoft.Json.Linq.JValue("different"));
             bool flip = false;
             Measure("screen changed 200 repeated rows", () =>
             {

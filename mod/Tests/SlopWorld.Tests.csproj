@@ -13,6 +13,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Reference Include="Newtonsoft.Json">
+      <HintPath>../Assemblies/Newtonsoft.Json.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
     <Compile Include="../Source/SlopWorld/UI/Views/Shared/Pager.cs" Link="Source/Pager.cs" />
     <Compile Include="../Source/SlopWorld/UI/Views/Shared/PagerTabs.cs" Link="Source/PagerTabs.cs" />
     <Compile Include="../Source/SlopWorld/Client/SessionHub/HubCatalog.cs" Link="Source/Client/SessionHub/HubCatalog.cs" />

@@ -8,7 +8,9 @@ Unity Mono requires the custom WebSocket transport. Preserve lossless backpressu
 control/history/replies while coalescing unsolicited live screens. A reconnect inside a
 callback must not redirect the rest of an old batch into the new connection. Closing wakes
 blocked readers and drops queued payload references. Envelope inspection and full decoding
-share one JSON reader; skipped payloads still require valid JSON. Malformed messages reach
+share one strict Json.NET reader; its token validation also runs during library tree loading
+and streaming skip. A lexical guard rejects syntax extensions hidden by tokenization.
+`JVal` wraps the library tree and owns missing-value and patch semantics. Malformed messages reach
 the main-thread error callback without replacing queued live screens.
 
 HTTP writes and pushed snapshots can race. Catalog operation revisions reject stale reads.

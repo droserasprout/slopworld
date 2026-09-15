@@ -111,8 +111,8 @@ namespace SlopWorld
             p.Skip.AddRange(j["skip"].Items.Select(i => i.AsString()));
             p.Shared.AddRange(j["shared"].Items.Select(i => i.AsString()));
             p.Env.AddRange(j["env"].Items.Select(i => i.AsString()));
-            if (j["setenv"].Obj != null)
-                foreach (var pair in j["setenv"].Obj)
+            if (j["setenv"].IsObject)
+                foreach (var pair in j["setenv"].ObjectItems)
                     p.Setenv[pair.Key] = pair.Value.AsString();
             return p;
         }

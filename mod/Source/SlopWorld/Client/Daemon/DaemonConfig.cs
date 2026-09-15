@@ -149,9 +149,9 @@ namespace SlopWorld
         static Dictionary<string, UsageItemConfig> UsageItemsFromJson(JVal value)
         {
             var items = new Dictionary<string, UsageItemConfig>();
-            if (value.Obj == null) return items;
+            if (!value.IsObject) return items;
 
-            foreach (var pair in value.Obj)
+            foreach (var pair in value.ObjectItems)
                 items[pair.Key] = new UsageItemConfig
                 {
                     Poll = pair.Value["poll"].AsBool(true),
@@ -207,8 +207,8 @@ namespace SlopWorld
                 if (baseline != null)
                 {
                     var previous = baseline[fields[i]];
-                    if (current.Obj != null
-                        ? current.Obj.Count == 0
+                    if (current.IsObject
+                        ? !current.ObjectItems.Any()
                         : JVal.Equivalent(current, previous))
                         continue;
                 }
