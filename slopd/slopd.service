@@ -4,7 +4,9 @@ Documentation=https://github.com/droserasprout/slopworld
 
 [Service]
 Type=simple
-ExecStart=%h/.local/bin/slopd
+# Preserve the service environment's PATH while preferring developer-installed tools.
+# ExecStart expands ${PATH}; Environment= does not expand variable references.
+ExecStart=/usr/bin/env "PATH=%h/.local/bin:${PATH}" %h/.local/bin/slopd
 Restart=on-failure
 RestartSec=2
 Environment=SLOPD_LOG=slopd=info
