@@ -78,13 +78,15 @@ namespace SlopWorld
 
             foreach (var hit in links)
             {
-                var screen = new Rect(body.x + hit.Rect.x,
+                var screen = new Rect(body.x + hit.Rect.x - scroll.x,
                     body.y + hit.Rect.y - scroll.y, hit.Rect.width, hit.Rect.height);
-                if (Mouse.IsOver(screen))
-                    TooltipHandler.TipRegion(screen, (hit.Url ?? hit.LocalPath) +
+                var clipped = ClipToBody(screen, body);
+                if (clipped.width <= 0f || clipped.height <= 0f) continue;
+                if (Mouse.IsOver(clipped))
+                    TooltipHandler.TipRegion(clipped, (hit.Url ?? hit.LocalPath) +
                         "\n\nCtrl+click to open it");
                 if (UiEvent.RawType(e) == EventType.MouseDown && e.button == 0 && e.control &&
-                    screen.Contains(e.mousePosition))
+                    clipped.Contains(e.mousePosition))
                 {
                     if (hit.LocalPath != null) _openLocalLink(hit.LocalPath);
                     else if (!string.IsNullOrEmpty(hit.Url)) Application.OpenURL(hit.Url);
@@ -92,6 +94,15 @@ namespace SlopWorld
                     return;
                 }
             }
+        }
+
+        static Rect ClipToBody(Rect value, Rect body)
+        {
+            float left = Math.Max(value.x, body.x);
+            float top = Math.Max(value.y, body.y);
+            float right = Math.Min(value.xMax, body.xMax);
+            float bottom = Math.Min(value.yMax, body.yMax);
+            return new Rect(left, top, Math.Max(0f, right - left), Math.Max(0f, bottom - top));
         }
 
         // The containing fullscreen window can consume a mouse event before this view draws.

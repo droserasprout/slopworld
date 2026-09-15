@@ -324,8 +324,15 @@ namespace SlopWorld
                 }
                 else if (inline is LinkInline linkInline)
                 {
-                    _paths.TryResolveLink(linkInline.Url, out var url, out var local);
-                    AppendInlines(linkInline, target, currentStyle.WithLink(url, local), htmlState);
+                    if (linkInline.IsImage)
+                    {
+                        AppendImage(linkInline, target, currentStyle);
+                    }
+                    else
+                    {
+                        _paths.TryResolveLink(linkInline.Url, out var url, out var local);
+                        AppendInlines(linkInline, target, currentStyle.WithLink(url, local), htmlState);
+                    }
                 }
                 else if (inline is AutolinkInline auto)
                 {
@@ -490,6 +497,53 @@ namespace SlopWorld
             return false;
         }
 
+        void AppendImage(LinkInline image, List<InlineRun> target, InlineStyle style)
+        {
+            if (image == null || string.IsNullOrWhiteSpace(image.Url)) return;
+            target.Add(new InlineRun
+            {
+                IsImage = true,
+                ImagePath = MarkdownMarkup.Decode(image.Url),
+                ImageAlt = MarkdownMarkup.Decode(InlineText(image)),
+                Bold = style.Bold,
+                Italic = style.Italic,
+                Code = style.Code,
+                Strike = style.Strike,
+                Link = style.Link,
+                LocalLink = style.LocalLink,
+            });
+        }
+
+        static string InlineText(ContainerInline container)
+        {
+            var text = new System.Text.StringBuilder();
+            AppendInlineText(container, text);
+            return text.ToString();
+        }
+
+        static void AppendInlineText(Inline inline, System.Text.StringBuilder target)
+        {
+            if (inline == null) return;
+            if (inline is LiteralInline literal)
+            {
+                target.Append(literal.Content.ToString());
+                return;
+            }
+            if (inline is CodeInline code)
+            {
+                target.Append(code.Content);
+                return;
+            }
+            if (inline is LineBreakInline)
+            {
+                target.Append('\n');
+                return;
+            }
+            if (inline is ContainerInline container)
+                foreach (Inline child in container)
+                    AppendInlineText(child, target);
+        }
+
         static InlineRun ParseImage(string html)
         {
             if (!TryParseHtmlTag(html, out var tag) || tag.Comment || tag.Closing ||
@@ -502,6 +556,7 @@ namespace SlopWorld
             {
                 IsImage = true,
                 ImagePath = MarkdownMarkup.Decode(source),
+                ImageAlt = MarkdownMarkup.Decode(HtmlAttribute(tag.Attributes, "alt") ?? ""),
                 ImageWidth = HtmlDimension(HtmlAttribute(tag.Attributes, "width")),
                 ImageHeight = HtmlDimension(HtmlAttribute(tag.Attributes, "height")),
                 ImageAlign = ImageAlignment(tag.Attributes),

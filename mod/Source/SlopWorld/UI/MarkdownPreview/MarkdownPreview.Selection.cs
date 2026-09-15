@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.Text;
 using UnityEngine;
 using Verse;
 
@@ -10,6 +9,7 @@ namespace SlopWorld
     sealed class MarkdownSelection
     {
         readonly List<SelectionLine> _lines = new List<SelectionLine>();
+        readonly List<SelectionLine> _spatialLines = new List<SelectionLine>();
         StyleSet _styles;
         bool _dragging;
         bool _wordDragging;
@@ -36,27 +36,36 @@ namespace SlopWorld
             // would otherwise select different text after a resize or resource reflow.
             Clear();
             _lines.Clear();
+            _spatialLines.Clear();
             foreach (var placement in placements)
             {
                 switch (placement.Kind)
                 {
                     case PlacementKind.Text:
                     case PlacementKind.Bullet:
-                        CollectText(placement.Text, placement.X, placement.Y);
+                        MarkdownSelectionText.CollectText(_lines, placement.Text, placement.X, placement.Y);
                         break;
 
                     case PlacementKind.Code:
-                        CollectText(placement.Text, placement.X + UiTheme.GapS,
+                        MarkdownSelectionText.CollectText(_lines, placement.Text, placement.X + UiTheme.GapS,
                             placement.Y + UiTheme.GapS +
                             (string.IsNullOrWhiteSpace(placement.Label)
                                 ? 0f : UiTheme.TinyH + UiTheme.GapXS));
                         break;
 
                     case PlacementKind.Table:
-                        CollectTable(placement);
+                        MarkdownSelectionText.CollectTable(_lines, placement);
                         break;
                 }
             }
+            _spatialLines.AddRange(_lines);
+            _spatialLines.Sort((left, right) =>
+            {
+                int result = left.Y.CompareTo(right.Y);
+                if (result != 0) return result;
+                result = left.X.CompareTo(right.X);
+                return result != 0 ? result : left.LogicalIndex.CompareTo(right.LogicalIndex);
+            });
         }
 
         public void Clear()
@@ -249,30 +258,10 @@ namespace SlopWorld
 
             float y = mouse.y - body.y + scroll.y;
             float x = mouse.x - body.x + scroll.x;
-            int low = 0;
-            int high = _lines.Count;
-            while (low < high)
-            {
-                int middle = low + (high - low) / 2;
-                if (_lines[middle].Y < y) low = middle + 1;
-                else high = middle;
-            }
-
-            int first = Mathf.Max(0, low - 1);
-            int last = Mathf.Min(_lines.Count - 1, low);
-            if (first < _lines.Count)
-            {
-                while (first > 0 && Mathf.Approximately(_lines[first - 1].Y, _lines[first].Y))
-                    first--;
-                while (last + 1 < _lines.Count && Mathf.Approximately(_lines[last + 1].Y,
-                    _lines[last].Y)) last++;
-            }
-
-            int lineIndex = first;
+            int lineIndex = _spatialLines[0].LogicalIndex;
             float best = float.MaxValue;
-            for (int i = first; i <= last; i++)
+            foreach (var line in _spatialLines)
             {
-                var line = _lines[i];
                 float vertical = y < line.Y ? line.Y - y :
                     y > line.Y + line.Height ? y - (line.Y + line.Height) : 0f;
                 float left = line.X;
@@ -282,7 +271,7 @@ namespace SlopWorld
                 if (distance < best)
                 {
                     best = distance;
-                    lineIndex = i;
+                    lineIndex = line.LogicalIndex;
                 }
             }
 
@@ -407,20 +396,7 @@ namespace SlopWorld
         {
             if (_lines.Count == 0 || !_hasSelection) return "";
             OrderedSelection(out var a, out var b);
-            int first = Mathf.Clamp(a.y, 0, _lines.Count - 1);
-            int last = Mathf.Clamp(b.y, 0, _lines.Count - 1);
-            var output = new StringBuilder();
-            for (int i = first; i <= last; i++)
-            {
-                string text = _lines[i].Text;
-                int start = i == a.y ? a.x : 0;
-                int end = i == b.y ? b.x : text.Length;
-                start = Mathf.Clamp(start, 0, text.Length);
-                end = Mathf.Clamp(end, start, text.Length);
-                if (end > start) output.Append(text.Substring(start, end - start));
-                if (i < last) output.Append('\n');
-            }
-            return output.ToString();
+            return MarkdownSelectionText.CopyRange(_lines, a, b);
         }
 
         void OrderedSelection(out Vector2Int a, out Vector2Int b)
@@ -432,57 +408,6 @@ namespace SlopWorld
                 var temp = a;
                 a = b;
                 b = temp;
-            }
-        }
-
-        static void CollectText(List<SelectionLine> target, TextLayout text, float x, float y)
-        {
-            if (text == null) return;
-            foreach (var line in text.Lines)
-                CollectTextLine(target, line, x, y);
-        }
-
-        void CollectText(TextLayout text, float x, float y) => CollectText(_lines, text, x, y);
-
-        static void CollectTextLine(List<SelectionLine> target, TextLine line, float x, float y)
-        {
-            var output = new SelectionLine
-            {
-                X = x,
-                Y = y + line.Offset,
-                Height = line.Height,
-                Width = line.Width,
-                Text = "",
-                Source = line,
-            };
-            var chars = new StringBuilder();
-            foreach (var piece in line.Pieces)
-            {
-                if (piece.Run.IsImage) continue;
-                chars.Append(piece.Text);
-            }
-            output.Text = chars.ToString();
-            target.Add(output);
-        }
-
-        void CollectTable(Placement placement)
-        {
-            foreach (var row in placement.Table.Rows)
-            {
-                int lines = 0;
-                foreach (var cell in row.Cells) lines = Mathf.Max(lines, cell.Lines.Count);
-                for (int lineIndex = 0; lineIndex < lines; lineIndex++)
-                {
-                    float x = placement.X;
-                    for (int i = 0; i < row.Cells.Count; i++)
-                    {
-                        var cell = row.Cells[i];
-                        if (lineIndex < cell.Lines.Count)
-                            CollectTextLine(_lines, cell.Lines[lineIndex], x + UiTheme.GapS,
-                                placement.Y + row.Offset + UiTheme.GapS);
-                        x += placement.Table.Widths[i];
-                    }
-                }
             }
         }
 

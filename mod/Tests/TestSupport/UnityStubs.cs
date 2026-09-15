@@ -1,5 +1,29 @@
 namespace UnityEngine
 {
+    public class GUIStyle
+    {
+        public float lineHeight => 1f;
+        public Vector2 CalcSize(GUIContent content) => new Vector2(content.text.Length, 1f);
+    }
+
+    public class GUIContent
+    {
+        public string text;
+        public GUIContent(string value) { text = value; }
+    }
+
+    public struct Vector2
+    {
+        public float x, y;
+        public Vector2(float x, float y) { this.x = x; this.y = y; }
+    }
+
+    public struct Vector2Int
+    {
+        public int x, y;
+        public Vector2Int(int x, int y) { this.x = x; this.y = y; }
+    }
+
     public struct Color
     {
         public float r, g, b, a;

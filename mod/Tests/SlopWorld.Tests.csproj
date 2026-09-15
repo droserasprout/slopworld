@@ -17,6 +17,16 @@
       <HintPath>../Assemblies/Newtonsoft.Json.dll</HintPath>
       <Private>true</Private>
     </Reference>
+    <Reference Include="Markdig">
+      <HintPath>../Assemblies/Markdig.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+    <!-- Use the shipped parser and deterministic text metrics. -->
+    <Compile Include="../Source/SlopWorld/UI/MarkdownPreview/MarkdownPreview.TextLayout.cs" Link="Source/UI/MarkdownPreview/MarkdownPreview.TextLayout.cs" />
+    <Compile Include="../Source/SlopWorld/UI/MarkdownPreview/MarkdownPreview.SelectionText.cs" Link="Source/UI/MarkdownPreview/MarkdownPreview.SelectionText.cs" />
+    <Compile Include="../Source/SlopWorld/UI/MarkdownPreview/MarkdownPreview.Model.cs" Link="Source/UI/MarkdownPreview/MarkdownPreview.Model.cs" />
+    <Compile Include="../Source/SlopWorld/UI/MarkdownPreview/MarkdownPreview.Paths.cs" Link="Source/UI/MarkdownPreview/MarkdownPreview.Paths.cs" />
+    <Compile Include="../Source/SlopWorld/UI/MarkdownPreview/MarkdownPreview.Parsing.cs" Link="Source/UI/MarkdownPreview/MarkdownPreview.Parsing.cs" />
     <Compile Include="../Source/SlopWorld/UI/Views/Shared/Pager.cs" Link="Source/Pager.cs" />
     <Compile Include="../Source/SlopWorld/UI/Views/Shared/PagerTabs.cs" Link="Source/PagerTabs.cs" />
     <Compile Include="../Source/SlopWorld/Client/SessionHub/HubCatalog.cs" Link="Source/Client/SessionHub/HubCatalog.cs" />

@@ -8,6 +8,7 @@ namespace SlopWorld
     {
         readonly MarkdownResourceStore _resources;
         readonly List<LinkHit> _links = new List<LinkHit>();
+        readonly List<float> _prefixBottoms = new List<float>();
         float _clipTop;
         float _clipBottom;
 
@@ -27,6 +28,7 @@ namespace SlopWorld
                          float clipTop, float clipBottom)
         {
             _links.Clear();
+            BuildVisibilityIndex(placements);
             _clipTop = clipTop;
             _clipBottom = clipBottom;
             int first = FirstVisiblePlacement(placements, _clipTop);
@@ -46,15 +48,25 @@ namespace SlopWorld
             _clipTop = _clipBottom = 0f;
         }
 
-        static int FirstVisiblePlacement(List<Placement> placements, float top)
+        void BuildVisibilityIndex(List<Placement> placements)
+        {
+            _prefixBottoms.Clear();
+            float farthest = float.MinValue;
+            foreach (var placement in placements ?? new List<Placement>())
+            {
+                farthest = Mathf.Max(farthest, placement.Y + placement.Height);
+                _prefixBottoms.Add(farthest);
+            }
+        }
+
+        int FirstVisiblePlacement(List<Placement> placements, float top)
         {
             int low = 0;
             int high = placements.Count;
             while (low < high)
             {
                 int middle = low + (high - low) / 2;
-                var placement = placements[middle];
-                if (placement.Y + placement.Height <= top) low = middle + 1;
+                if (_prefixBottoms[middle] <= top) low = middle + 1;
                 else high = middle;
             }
             return low;
@@ -213,6 +225,7 @@ namespace SlopWorld
                     var rect = new Rect(at, lineY, piece.Width, line.Height);
                     if (piece.Run.IsImage)
                     {
+                        AddLink(new Rect(at, lineY, piece.Width, piece.Height), piece.Run);
                         var texture = _resources.ImageFor(piece.Run);
                         if (texture != null)
                         {
@@ -268,6 +281,7 @@ namespace SlopWorld
         {
             var texture = _resources.ImageFor(placement.Image);
             var rect = new Rect(placement.X, placement.Y, placement.Width, placement.Height);
+            AddLink(rect, placement.Image);
             if (texture != null)
             {
                 GUI.color = Color.white;
@@ -282,6 +296,12 @@ namespace SlopWorld
             Widgets.Label(rect, placement.Image.ImageFailed ? "image unavailable" : "image loading…");
             Text.Anchor = TextAnchor.UpperLeft;
             GUI.color = Color.white;
+        }
+
+        void AddLink(Rect rect, InlineRun run)
+        {
+            if (run == null || (run.Link == null && run.LocalLink == null)) return;
+            _links.Add(new LinkHit(rect, run.Link, run.LocalLink));
         }
 
         void DrawTableBackground(Placement placement)

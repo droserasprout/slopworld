@@ -9,11 +9,18 @@ namespace SlopWorld
     {
         readonly string _project;
         readonly string _path;
+        readonly Func<string> _projectRoot;
 
         public MarkdownPathResolver(string project, string path)
+            : this(project, path, null)
+        {
+        }
+
+        internal MarkdownPathResolver(string project, string path, Func<string> projectRoot)
         {
             _project = project ?? "";
             _path = path ?? "";
+            _projectRoot = projectRoot;
         }
 
         public bool TryResolveLink(string source, out string external, out string local)
@@ -36,21 +43,22 @@ namespace SlopWorld
                 return false;
             }
 
+            if (source.StartsWith("//", StringComparison.Ordinal)) return false;
+
             // Relative links are useful in project README files. Keep them inside the owning
             // project so a document cannot turn a Ctrl+click into an arbitrary root-file read.
             if (string.IsNullOrEmpty(_project)) return false;
             string root = ProjectRoot;
             if (string.IsNullOrEmpty(root)) return false;
 
-            int fragment = source.IndexOf('#');
-            if (fragment >= 0) source = source.Substring(0, fragment);
-            int query = source.IndexOf('?');
-            if (query >= 0) source = source.Substring(0, query);
+            source = UriPath(source);
+            if (source == null) return false;
             if (source.Length == 0) return false;
 
             try
             {
-                string relative = source.Replace('/', Path.DirectorySeparatorChar);
+                string relative = Uri.UnescapeDataString(source)
+                    .Replace('/', Path.DirectorySeparatorChar);
                 string candidate = Path.GetFullPath(Path.IsPathRooted(relative)
                     ? relative : Path.Combine(Path.GetDirectoryName(_path) ?? root, relative));
                 if (!IsInsideProject(candidate)) return false;
@@ -59,6 +67,10 @@ namespace SlopWorld
                 return true;
             }
             catch (ArgumentException)
+            {
+                return false;
+            }
+            catch (UriFormatException)
             {
                 return false;
             }
@@ -72,10 +84,14 @@ namespace SlopWorld
             if (Uri.TryCreate(source, UriKind.Absolute, out var uri) &&
                 !string.IsNullOrEmpty(uri.Scheme)) return null;
 
+            source = UriPath(source);
+            if (source == null || source.Length == 0) return null;
+
             string baseDir = Path.GetDirectoryName(_path) ?? ".";
-            string local = source.Replace('/', Path.DirectorySeparatorChar);
             try
             {
+                string local = Uri.UnescapeDataString(source)
+                    .Replace('/', Path.DirectorySeparatorChar);
                 string candidate = Path.GetFullPath(Path.IsPathRooted(local)
                     ? local : Path.Combine(baseDir, local));
                 return IsInsideProject(candidate) ? candidate : null;
@@ -84,9 +100,26 @@ namespace SlopWorld
             {
                 return null;
             }
+            catch (UriFormatException)
+            {
+                return null;
+            }
         }
 
-        string ProjectRoot => SessionHub.Instance.Project(_project)?.Dir;
+        // Strip URI suffixes before decoding; encoded delimiters belong to the filename.
+        static string UriPath(string source)
+        {
+            int query = source.IndexOf('?');
+            int fragment = source.IndexOf('#');
+            int end = source.Length;
+            if (query >= 0) end = Math.Min(end, query);
+            if (fragment >= 0) end = Math.Min(end, fragment);
+            return source.Substring(0, end);
+        }
+
+        string ProjectRoot => _projectRoot != null
+            ? _projectRoot()
+            : SessionHub.Instance.Project(_project)?.Dir;
 
         public bool IsInsideProject(string candidate)
         {
