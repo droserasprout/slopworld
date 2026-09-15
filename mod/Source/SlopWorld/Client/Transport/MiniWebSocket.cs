@@ -181,7 +181,7 @@ namespace SlopWorld
         volatile bool _closing;
         readonly object _sendLock = new object();
         readonly AutoResetEvent _sendSignal = new AutoResetEvent(false);
-        readonly RNGCryptoServiceProvider _rng = new RNGCryptoServiceProvider();
+        readonly RandomNumberGenerator _rng = RandomNumberGenerator.Create();
 
         public bool Connect(string host, int port, string path, string token, int timeoutMs = 3000)
         {

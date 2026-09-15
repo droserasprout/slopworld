@@ -210,7 +210,10 @@ impl Manager {
         let (mut child, master) = match self.tmux.control_attach(&name, cols, rows) {
             Ok(c) => c,
             Err(e) => {
-                let error = format!("control attach {name}: {e:#}");
+                let error = format!(
+                    "control attach {name}: {}",
+                    crate::sandbox::sanitize_diagnostic(&e.to_string())
+                );
                 tracing::error!("{error}");
                 self.fail_reader_start(&name, &reader_token, ready_tx, error)
                     .await;
@@ -225,7 +228,10 @@ impl Manager {
             {
                 Ok(Ok(pending)) => pending,
                 Ok(Err(error)) => {
-                    let error = format!("control attach {name}: {error:#}");
+                    let error = format!(
+                        "control attach {name}: {}",
+                        crate::sandbox::sanitize_diagnostic(&error.to_string())
+                    );
                     tracing::error!("{error}");
                     if let Err(kill_error) = child.kill().await {
                         tracing::debug!("stopping failed control client for {name}: {kill_error}");

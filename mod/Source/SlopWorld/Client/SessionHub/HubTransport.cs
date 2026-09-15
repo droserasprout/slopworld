@@ -13,8 +13,8 @@ namespace SlopWorld
     {
         // Set by the coordinator after the services exist, so the transport can stay unaware
         // of what a connect or a message means.
-        public Action OnConnected;
-        public Action<JVal> OnMessage;
+        public Action OnConnected = null;
+        public Action<JVal> OnMessage = null;
 
         public string Status { get; private set; } = "disconnected";
         public bool Connected => _ws != null && _ws.Connected;

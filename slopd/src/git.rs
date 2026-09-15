@@ -829,6 +829,7 @@ mod tests {
         let add = Command::new("git")
             .args(["-c", "advice.addEmbeddedRepo=false", "add", "nested"])
             .current_dir(&dir)
+            .stderr(Stdio::null())
             .status()
             .await
             .unwrap();
@@ -949,7 +950,7 @@ mod tests {
             .await
             .unwrap();
         let add = Command::new("git")
-            .args(["add", "staged.txt"])
+            .args(["-c", "core.fsmonitor=false", "add", "staged.txt"])
             .current_dir(&dir)
             .status()
             .await
@@ -1001,7 +1002,7 @@ mod tests {
             .await
             .unwrap();
         let add = Command::new("git")
-            .args(["add", "staged.txt"])
+            .args(["-c", "core.fsmonitor=false", "add", "staged.txt"])
             .current_dir(&unborn)
             .status()
             .await

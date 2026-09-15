@@ -26,7 +26,7 @@ namespace SlopWorld
         public bool TaskChecked;
         public bool IsImage;
         public string ImageAlt;
-        public bool ImageFailed;
+        public bool ImageFailed = false;
         public string ImagePath;
         public float ImageWidth;
         public float ImageHeight;
@@ -42,7 +42,7 @@ namespace SlopWorld
         public int Start;
         public string Code;
         public string Info;
-        public string Highlighted;
+        public string Highlighted = null;
         public List<InlineRun> Runs;
         public List<MarkdownBlock> Children;
         public List<TableRow> Rows;
