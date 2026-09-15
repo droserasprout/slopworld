@@ -14,9 +14,11 @@ namespace SlopWorld
     {
         enum Tab { Editor, Preview }
 
-        readonly AsyncLoadState<string> _previewLoad = new AsyncLoadState<string>();
+        readonly AsyncLoadState<JVal> _previewLoad = new AsyncLoadState<JVal>();
+        string _previewConnection;
         bool _previewSample;
         string _previewProject;
+        string _previewBreadcrumb;
         Tab _tab;
 
         readonly ScrollableListing _editorListing = new ScrollableListing(520f);
@@ -41,12 +43,21 @@ namespace SlopWorld
 
         void DrawCore(Rect rect)
         {
-            bool instructions = EffectiveInstructions;
+            if (_previewConnection != null && _previewConnection != PreviewConnection)
+            {
+                _previewLoad.Invalidate();
+                _previewConnection = null;
+                _previewBreadcrumb = null;
+                _preview.SetInlineText("");
+                _tab = Tab.Editor;
+            }
+            bool instructions = PreviewAvailable;
             if (_lastInstructionsGate.HasValue && _lastInstructionsGate.Value && !instructions)
             {
                 _previewLoad.Invalidate();
                 _preview.Closed();
                 _preview.SetInlineText("");
+                _previewBreadcrumb = null;
             }
             _lastInstructionsGate = instructions;
 
@@ -77,7 +88,7 @@ namespace SlopWorld
 
         void DrawTabs(Rect r)
         {
-            bool instructions = EffectiveInstructions;
+            bool instructions = PreviewAvailable;
             float w = Mathf.Min(150f, (r.width - UiTheme.GapS) / 2f);
             if (UiButtons.Button(new Rect(r.x, r.y, w, r.height), "Template",
                     _tab == Tab.Editor ? UiTheme.Btn.Primary : UiTheme.Btn.Ghost))
@@ -101,6 +112,7 @@ namespace SlopWorld
 
         void DrawEditorFields(Listing_Standard l)
         {
+            DrawMetadataStatus(l);
             bool instructions = EffectiveInstructions;
             bool breadcrumbs = EffectiveBreadcrumbs;
             if (!instructions || !breadcrumbs)
@@ -117,7 +129,7 @@ namespace SlopWorld
             l.Label("Content template");
             _cfg.InstructionsTemplate = UiControls.Area(l, 320f, "instructions.template",
                 _cfg.InstructionsTemplate, on: instructions,
-                defaultValue: _cfg.FactoryDefaults.InstructionsTemplate);
+                defaultValue: _cfg.FactoryDefaults?.InstructionsTemplate);
             UiLayout.Note(l, "Variables: {{ runtime_context }}, {{ project }}, " +
                 "{{ mount_path }}, and {{ file }}. Unknown variables are left unchanged.");
 
@@ -133,7 +145,7 @@ namespace SlopWorld
             _cfg.InstructionsBreadcrumb = UiControls.Area(l, 120f, "instructions.breadcrumb",
                 _cfg.InstructionsBreadcrumb,
                 on: breadcrumbs && instructions,
-                defaultValue: _cfg.FactoryDefaults.InstructionsBreadcrumb);
+                defaultValue: _cfg.FactoryDefaults?.InstructionsBreadcrumb);
             UiLayout.Note(l, "Variables: {{ project }}, {{ mount_path }}, and {{ file }}. " +
                 "Unknown variables are left unchanged.");
             _cfg.InstructionsBreadcrumbEnabled = UiControls.Checkbox(l,
@@ -147,7 +159,7 @@ namespace SlopWorld
             l.Label("Mount path (relative to the project)");
             _cfg.InstructionsMountPath = UiControls.Field(l, "instructions.mount_path",
                 _cfg.InstructionsMountPath, on: instructions,
-                defaultValue: _cfg.FactoryDefaults.InstructionsMountPath);
+                defaultValue: _cfg.FactoryDefaults?.InstructionsMountPath);
             UiLayout.Note(l, "The generated source remains the project-root " +
                 "SLOPWORLD.md; this is where its read-only copy appears to the agent.");
             UiLayout.Note(l, "Agents still opt in per session with Mount SLOPWORLD.md.");
@@ -189,6 +201,17 @@ namespace SlopWorld
             }
 
             var box = new Rect(r.x, y, r.width, Mathf.Max(0f, r.yMax - y));
+            float breadcrumbH = UiTheme.RowH + UiTheme.GapXS;
+            UiLayout.SectionHeading(new Rect(r.x, y, r.width, UiTheme.RowH),
+                "Rendered discovery breadcrumb");
+            y += breadcrumbH;
+            string breadcrumb = string.IsNullOrEmpty(_previewBreadcrumb)
+                ? "(empty)" : _previewBreadcrumb;
+            float crumbTextH = UiText.StatusLabelHeight(breadcrumb, r.width);
+            UiText.StatusLabel(new Rect(r.x, y, r.width, crumbTextH), breadcrumb, UiTheme.Dim);
+            y += crumbTextH + UiTheme.GapS;
+
+            box = new Rect(r.x, y, r.width, Mathf.Max(0f, r.yMax - y));
             Slab.Box(box, UiTheme.Well, UiTheme.Edge);
             _preview.Draw(SettingsPageLayout.Inset(box, UiTheme.GapS));
         }
@@ -229,9 +252,10 @@ namespace SlopWorld
 
         void RequestPreview()
         {
-            if (!_loaded || _cfg == null || !EffectiveInstructions) return;
+            if (!_loaded || _cfg == null || !PreviewAvailable) return;
 
             string project = PreviewProjectName();
+            string connection = _previewConnection = PreviewConnection;
             string body = "{" +
                 $"\"project\":{JVal.Q(project)}," +
                 $"\"template\":{JVal.Q(_cfg.InstructionsTemplate)}," +
@@ -240,8 +264,19 @@ namespace SlopWorld
                 "}";
             _previewLoad.Load((ok, fail) => DaemonClient.Post(
                 WireProtocol.Routes.InstructionsPreview, body,
-                j => ok(j["text"].AsString()), fail),
-                text => _preview.SetInlineText(text));
+                ok, fail),
+                j =>
+                {
+                    if (connection != PreviewConnection)
+                    {
+                        _previewLoad.Invalidate();
+                        return;
+                    }
+                    // AsyncLoadState has rejected older requests before either field is
+                    // applied. The editor never writes a reply into another draft's cache.
+                    _previewBreadcrumb = j["breadcrumb"].AsString();
+                    _preview.SetInlineText(j["text"].AsString());
+                });
         }
 
         void DoFooter(Rect bar)
@@ -249,13 +284,13 @@ namespace SlopWorld
             var foot = new UiLayout.Bar(bar);
             if (foot.Left("Reload", UiTheme.Btn.Ghost, !_saving)) Load();
             if (_tab == Tab.Editor && foot.Left("Preview", UiTheme.Btn.Ghost,
-                    _loaded && EffectiveInstructions && !_saving))
+                    _loaded && PreviewAvailable && !_saving))
             {
                 _tab = Tab.Preview;
                 RequestPreview();
             }
             if (_tab == Tab.Preview && foot.Left("Refresh", UiTheme.Btn.Ghost,
-                    !_saving && EffectiveInstructions))
+                    !_saving && PreviewAvailable))
                 RequestPreview();
             if (foot.Right("Discard", UiTheme.Btn.Ghost,
                     _loaded && _dirty && !_saving)) DiscardConfig();
@@ -276,6 +311,11 @@ namespace SlopWorld
             error = null;
             return true;
         }
+
+        static string PreviewConnection => DaemonClient.BaseUrl + "\n" +
+            SessionHub.Instance.ConnectionGeneration;
+
+        bool PreviewAvailable => EffectiveInstructions && _cfg != null && _cfg.MetadataAvailable;
 
         bool EffectiveInstructions => SessionHub.Instance.Config != null &&
             SessionHub.Instance.Config.ExperimentalInstructions;

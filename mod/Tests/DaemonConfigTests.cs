@@ -78,39 +78,31 @@ namespace SlopWorld.Tests
         {
             var config = DaemonConfig.FromJson(JVal.Parse("{}"));
             AssertEx.False(config.MetadataAvailable, "missing daemon metadata is explicit");
+            AssertEx.True(config.FactoryDefaults == null, "missing factory metadata has no reset copy");
             AssertEx.Equal(false, config.ExperimentalBreadcrumbs, "breadcrumb feature defaults off");
             AssertEx.Equal(false, config.ExperimentalInstructions, "instruction feature defaults off");
 
-            AssertEx.Equal(60, config.UsagePollSecs, "usage poll default");
+            AssertEx.Equal(0, config.UsagePollSecs, "usage poll is unavailable");
             AssertEx.Equal(0, config.UsageItems.Count, "usage item defaults");
-            AssertEx.Equal("~/.claude/.credentials.json", config.ClaudeCredentials,
-                           "Claude credentials default");
+            AssertEx.Equal("", config.ClaudeCredentials, "Claude credentials unavailable");
             AssertEx.Equal("", config.OpenrouterKeyFile, "OpenRouter key default");
-            AssertEx.Equal("~/.codex/auth.json", config.OpenaiCredentials,
-                           "OpenAI credentials default");
-            AssertEx.Equal("never", config.AgentTitles, "agent title default");
-            AssertEx.Equal("google/gemini-3.1-flash-lite", config.TitleModel,
-                           "title model default");
-            AssertEx.Equal(config.FactoryDefaults.SummaryPrompt, config.SummaryPrompt,
-                           "summary prompt default");
-            AssertEx.Equal(20, config.TitleMinChars, "title minimum prompt length default");
-            AssertEx.Equal("always", config.PiTitles, "Pi title default");
-            AssertEx.Equal(config.FactoryDefaults.InstructionsTemplate, config.InstructionsTemplate,
-                           "instructions template default");
-            AssertEx.Equal("SLOPWORLD.md", config.InstructionsMountPath,
-                           "instructions mount path default");
-            AssertEx.Equal(config.FactoryDefaults.InstructionsBreadcrumb, config.InstructionsBreadcrumb,
-                           "instructions breadcrumb text default");
-            AssertEx.True(config.InstructionsBreadcrumbEnabled, "instructions breadcrumb default");
-            AssertEx.Equal(config.FactoryDefaults.WorkerPrompt, config.WorkerPrompt,
-                           "worker prompt default");
-            AssertEx.Equal("claude", config.Agent, "agent command default");
-            AssertEx.Equal("bash", config.AgentShell, "agent shell default");
-            AssertEx.Equal("bash", config.Shell, "shell command default");
-            AssertEx.Equal("less", config.Pager, "pager default");
-            AssertEx.Equal("micro", config.Editor, "editor default");
-            AssertEx.Equal("highlight --out-format=xterm256", config.Highlighter,
-                           "highlighter default");
+            AssertEx.Equal("", config.OpenaiCredentials, "OpenAI credentials unavailable");
+            AssertEx.Equal("", config.AgentTitles, "agent title unavailable");
+            AssertEx.Equal("", config.TitleModel, "title model unavailable");
+            AssertEx.Equal("", config.SummaryPrompt, "summary prompt unavailable");
+            AssertEx.Equal(0, config.TitleMinChars, "title minimum unavailable");
+            AssertEx.Equal("", config.PiTitles, "Pi title unavailable");
+            AssertEx.Equal("", config.InstructionsTemplate, "instructions template unavailable");
+            AssertEx.Equal("", config.InstructionsMountPath, "instructions mount unavailable");
+            AssertEx.Equal("", config.InstructionsBreadcrumb, "breadcrumb unavailable");
+            AssertEx.False(config.InstructionsBreadcrumbEnabled, "breadcrumb unavailable");
+            AssertEx.Equal("", config.WorkerPrompt, "worker prompt unavailable");
+            AssertEx.Equal("", config.Agent, "agent command unavailable");
+            AssertEx.Equal("", config.AgentShell, "agent shell unavailable");
+            AssertEx.Equal("", config.Shell, "shell command unavailable");
+            AssertEx.Equal("", config.Pager, "pager unavailable");
+            AssertEx.Equal("", config.Editor, "editor unavailable");
+            AssertEx.Equal("", config.Highlighter, "highlighter unavailable");
         }
 
         static void UsesFactoryMetadata()

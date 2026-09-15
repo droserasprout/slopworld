@@ -104,8 +104,9 @@ namespace SlopWorld
                 .Where(value => !string.IsNullOrWhiteSpace(value))
                 .Select(value => value.Trim())
                 .ToList();
-            // The daemon owns template expansion. Its instructions page requests a proper
-            // preview; this local sandbox summary intentionally does not synthesize one.
+            string discovery = SessionHub.Instance.BreadcrumbPreviews.GetOrRequest(
+                project, agent, config);
+            if (discovery != null) text.Add(discovery.Trim());
             return text.Count == 0
                 ? new List<string>()
                 : new List<string> { string.Join("\n", text.ToArray()) };

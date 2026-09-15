@@ -29,7 +29,8 @@ patches preserve omitted fields, and a redacted token means retain the secret. S
 `GET /api/config` includes factory defaults, the usage catalog, temporary-root policy and
 terminal limits. `/api/usage` and usage events include catalog metadata plus resolved rows;
 missing values are represented by an absent row window, never a guessed zero. Older daemons that
-omit metadata retain only the narrow historical client bootstrap bounds.
+omit metadata leave daemon-policy resets/previews unavailable; only independent client safety
+bounds remain local. Advertised terminal ranges are validated before layout or history arithmetic.
 
 Worker clone parent and caller/task parent are distinct. Use explicit worker metadata,
 never name parsing. Host errands are unsandboxed; project errands inherit their sandbox.

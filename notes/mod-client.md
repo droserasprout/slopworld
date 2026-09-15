@@ -24,6 +24,12 @@ A session rename can remove the old name in a pushed snapshot before its HTTP re
 keep the temporary name mapping until success or failure settles it, preserving the pawn,
 terminal and selection without keeping a truly deleted session alive.
 
+Instruction previews apply the document and discovery breadcrumb together after the request
+generation check. Sandbox breadcrumb renderings are daemon responses cached per endpoint and
+connection generation, with bounded entries, expiry and failure backoff. Cache keys capture the
+request, never the editor's later draft. Temporary-path previews coalesce unchanged names;
+disabling temporary mode invalidates their pending replies so re-enabling can request again.
+
 Connection comes from `endpoint.toml`; daemon settings use partial patches, not hidden
 round-trip fields. See [config ownership](daemon-config-stores.md),
 [protocol](protocol-wire.md), [agent templates](mod-agent-templates.md), and [C# tests](test-csharp.md).

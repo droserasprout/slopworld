@@ -9,6 +9,7 @@ namespace SlopWorld.Tests
         {
             yield return ("defaults old daemons to native features", DefaultsToNative);
             yield return ("reads slopcar feature differences", ReadsSlopcar);
+            yield return ("bounds malformed terminal advertisements", BoundsMalformedTerminal);
         }
 
         static void DefaultsToNative()
@@ -49,6 +50,23 @@ namespace SlopWorld.Tests
             AssertEx.Equal(102, caps.Terminal.MaxRows, "maximum rows");
             // The production parser updates the process-wide capability read model. Restore the
             // legacy native view so game-free tests that exercise history/layout stay isolated.
+            DaemonCapabilities.FromJson(null);
+        }
+
+        static void BoundsMalformedTerminal()
+        {
+            var caps = DaemonCapabilities.FromJson(JVal.Parse(
+                "{\"terminal\":{\"scrollback_lines\":999999," +
+                "\"min_cols\":600,\"max_cols\":500,\"min_rows\":-1," +
+                "\"max_rows\":999999}}"));
+            AssertEx.Equal(TerminalLimits.ClientMaxScrollbackLines,
+                           caps.Terminal.ScrollbackLines, "history allocation cap");
+            AssertEx.Equal(20, caps.Terminal.MinCols, "invalid column range fallback");
+            AssertEx.Equal(TerminalLimits.ClientMaxCols, caps.Terminal.MaxCols,
+                           "column allocation cap");
+            AssertEx.Equal(5, caps.Terminal.MinRows, "invalid row range fallback");
+            AssertEx.Equal(TerminalLimits.ClientMaxRows, caps.Terminal.MaxRows,
+                           "row allocation cap");
             DaemonCapabilities.FromJson(null);
         }
     }

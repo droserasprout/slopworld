@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -18,6 +19,11 @@ namespace SlopWorld
             new Dictionary<string, string>();
         readonly Dictionary<string, string> _normalizations =
             new Dictionary<string, string>();
+        // Rows discovered by the live usage snapshot are display state until the player
+        // changes them. Keeping them out of DaemonConfig prevents opening this page from
+        // creating a new poll override.
+        readonly Dictionary<string, DaemonConfig.UsageItemConfig> _implicitItems =
+            new Dictionary<string, DaemonConfig.UsageItemConfig>();
 
         // Which key's icon picker is open, or null.
         string _pickingKey;
@@ -32,6 +38,7 @@ namespace SlopWorld
             _pollSecs = _configState.DraftText("usage.poll", "daemon.usage_poll_secs",
                 _cfg.UsagePollSecs.ToString());
             _itemIntervals.Clear();
+            _implicitItems.Clear();
             EnsureBaseItems();
         }
 
@@ -41,6 +48,7 @@ namespace SlopWorld
             _pollSecs = _configState.DraftText("usage.poll", "daemon.usage_poll_secs",
                 _cfg.UsagePollSecs.ToString());
             _itemIntervals.Clear();
+            _implicitItems.Clear();
             EnsureBaseItems();
         }
 
@@ -54,7 +62,7 @@ namespace SlopWorld
             UiLayout.SectionHeading(l, "Usage");
             l.Label("Global poll interval (s)");
             _pollSecs = UiControls.Field(l, "usage.poll", _pollSecs,
-                defaultValue: _cfg.FactoryDefaults.UsagePollSecs.ToString());
+                defaultValue: _cfg.FactoryDefaults?.UsagePollSecs?.ToString());
             _configState.SetDraftText("usage.poll", "daemon.usage_poll_secs", _pollSecs);
             UiLayout.Validation(l, PollError(_pollSecs, false));
             UiLayout.Note(l, "Every row uses this interval unless its interval is set below. " +
@@ -78,19 +86,31 @@ namespace SlopWorld
             foreach (var entry in Catalog()) EnsureItem(entry.Key);
         }
 
-        List<UsageCatalogInfo> Catalog()
+        List<UsageCatalogInfo> Catalog() => DaemonConfig.MergeUsageCatalogs(
+            _cfg.UsageCatalog, SessionHub.Instance.Usage.Catalog);
+
+        UsageCatalogInfo Entry(string key)
         {
-            if (_cfg.UsageCatalog != null && _cfg.UsageCatalog.Count > 0)
-                return _cfg.UsageCatalog;
-            return SessionHub.Instance.Usage.Catalog;
+            return Catalog().FirstOrDefault(entry => entry.Key == key);
         }
 
         DaemonConfig.UsageItemConfig EnsureItem(string key)
         {
-            if (!_cfg.UsageItems.TryGetValue(key, out var item) || item == null)
+            if (_cfg.UsageItems.TryGetValue(key, out var configured) && configured != null)
+            {
+                if (!_itemIntervals.ContainsKey(key))
+                    _itemIntervals[key] = _configState.DraftText(
+                        "usage.item." + key,
+                        "daemon.usage_items." + key + ".interval_secs",
+                        configured.IntervalSecs > 0 ? configured.IntervalSecs.ToString() : "",
+                        zeroMeansBlank: true);
+                return configured;
+            }
+
+            if (!_implicitItems.TryGetValue(key, out var item) || item == null)
             {
                 item = new DaemonConfig.UsageItemConfig { Poll = DefaultPoll(key) };
-                _cfg.UsageItems[key] = item;
+                _implicitItems[key] = item;
             }
 
             if (!_itemIntervals.ContainsKey(key))
@@ -101,11 +121,28 @@ namespace SlopWorld
             return item;
         }
 
+        void Promote(string key, DaemonConfig.UsageItemConfig item)
+        {
+            if (_cfg.UsageItems.ContainsKey(key)) return;
+            _cfg.UsageItems[key] = new DaemonConfig.UsageItemConfig
+            {
+                Poll = item.Poll,
+                IntervalSecs = item.IntervalSecs,
+            };
+            _implicitItems.Remove(key);
+        }
+
+        void SetPoll(string key, bool value)
+        {
+            var item = EnsureItem(key);
+            bool changed = item.Poll != value;
+            item.Poll = value;
+            if (changed && _implicitItems.ContainsKey(key)) Promote(key, item);
+        }
+
         bool DefaultPoll(string key)
         {
-            foreach (var entry in Catalog())
-                if (entry.Key == key) return entry.DefaultPoll;
-            return false;
+            return Entry(key)?.DefaultPoll ?? false;
         }
 
         List<string> TableKeys()
@@ -157,9 +194,9 @@ namespace SlopWorld
                     Mathf.Max(0f, name.width - namePad), name.height), UsageReadout.Long(key));
                 DrawIconButton(cells[1], key);
 
-                item.Poll = ToggleCell.DrawCheck(cells[2], item.Poll,
+                SetPoll(key, ToggleCell.DrawCheck(cells[2], item.Poll,
                     item.Poll ? "Stop polling this usage window." : "Poll this usage window.",
-                    false, RowHoverPolicy.OverlayAware);
+                    false, RowHoverPolicy.OverlayAware));
 
                 var interval = cells[3];
                 float fieldPad = Mathf.Min(UiTheme.GapXS, interval.width / 2f);
@@ -187,8 +224,9 @@ namespace SlopWorld
                 float iconW = Mathf.Min(54f, rect.width / 4f);
                 float pollW = Mathf.Min(64f, rect.width / 4f);
                 DrawIconButton(new Rect(rect.x, y, iconW, UiTheme.FieldH), key);
-                item.Poll = ToggleCell.DrawCheck(new Rect(rect.x + iconW, y, pollW, UiTheme.FieldH),
-                    item.Poll, "Poll this usage window.", false, RowHoverPolicy.OverlayAware);
+                SetPoll(key, ToggleCell.DrawCheck(new Rect(rect.x + iconW, y, pollW, UiTheme.FieldH),
+                    item.Poll, "Poll this usage window.", false, RowHoverPolicy.OverlayAware));
+
                 var field = new Rect(rect.x + iconW + pollW, y,
                     Mathf.Max(0f, rect.width - iconW - pollW), UiTheme.FieldH);
                 _itemIntervals[key] = UiText.Field(field, "usage.item." + key,
@@ -371,11 +409,11 @@ namespace SlopWorld
 
             foreach (var pair in _itemIntervals)
             {
-                var item = EnsureItem(pair.Key);
                 string text = (pair.Value ?? "").Trim();
                 if (text.Length == 0)
                 {
-                    item.IntervalSecs = 0;
+                    if (_cfg.UsageItems.TryGetValue(pair.Key, out var configured) && configured != null)
+                        configured.IntervalSecs = 0;
                     _configState.SetDraftText("usage.item." + pair.Key,
                         "daemon.usage_items." + pair.Key + ".interval_secs", "");
                     _normalizations["usage.item." + pair.Key] = "";
@@ -385,6 +423,9 @@ namespace SlopWorld
                 else if (DaemonConfigValidation.WholeSeconds(text, true, out seconds,
                                                               out error))
                 {
+                    var item = EnsureItem(pair.Key);
+                    if (_implicitItems.ContainsKey(pair.Key)) Promote(pair.Key, item);
+                    item = EnsureItem(pair.Key);
                     item.IntervalSecs = seconds;
                     _configState.SetDraftText("usage.item." + pair.Key,
                         "daemon.usage_items." + pair.Key + ".interval_secs",

@@ -9,8 +9,9 @@ Sizes come from each panel's assigned bounds, with pixel-snapped cell advance sh
 rendering, hit tests and resize negotiation. Retry while returned frames disagree: redeploy
 can lose a resize. Do not broadcast one grid to both split panes or resurrect a static
 last-used size. Split placement is not persisted. Daemon capabilities advertise the supported
-dimension bounds and history capacity; the client uses them to bound allocation and cache work,
-with the historical Linux values retained only when an older daemon omits that capability.
+dimension bounds and history capacity; the client validates and clamps those values before layout
+and cache work, while independent client allocation caps remain in force. Older daemons use the
+local safety baseline only when they omit that capability.
 
 Chrome and application key ownership differ. Escape belongs to the application; workspace
 close/leave keys are handled before forwarding. Shifted navigation is forwarded on alternate

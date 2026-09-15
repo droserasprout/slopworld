@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using RimWorld;
@@ -205,8 +206,6 @@ namespace SlopWorld
             l.Label("Name");
             _p.Name = UiControls.Field(l, "project.name", _p.Name);
 
-            if (_p.Temp) RequestTempPreview();
-
             _p.Temp = UiControls.Checkbox(l, "Temporary - scratch space under /tmp", _p.Temp,
                 "The directory is made for you under " + ProjectInfo.TempRoot + ", named after " +
                 "this project, and it is there the first time an agent starts. Nothing " +
@@ -217,10 +216,14 @@ namespace SlopWorld
             {
                 // Stated rather than hidden: the path is the daemon's to coin and this is what
                 // it will coin. Browse goes with it - there is nothing to find yet.
-                UiControls.Field(l, "project.dir", _tempPreview.Dir ?? "Waiting for daemon preview…", false);
+                RequestTempPreview();
+                UiControls.Field(l, "project.dir", _tempPreview.Status, false);
+                if (!string.IsNullOrEmpty(_tempPreview.Error))
+                    UiLayout.Note(l, _tempPreview.Status);
             }
             else
             {
+                _tempPreview.Cancel();
                 _p.Dir = UiControls.Field(l, "project.dir", _p.Dir);
                 if (UiLayout.Button(l, "Browse..."))
                     TerminalWindow.OpenOverPane(new BrowseDialog(_p.Dir, d => _p.Dir = d));
@@ -313,15 +316,25 @@ namespace SlopWorld
         void RequestTempPreview()
         {
             string name = _p.Name ?? "";
-            if (_tempPreview.Name == name && _tempPreview.Dir != null) return;
-            int serial = _tempPreview.Begin(name);
+            DateTime now = DateTime.UtcNow;
+            if (!_tempPreview.ShouldRequest(name, now)) return;
+            int serial = _tempPreview.Begin(name, now);
+            if (serial == 0) return;
             DaemonClient.Post(WireProtocol.Routes.ProjectPreview,
                 "{" + $"\"name\":{JVal.Q(name)},\"temp\":true" + "}",
                 j =>
                 {
-                    _tempPreview.Accept(serial, _p.Temp, _p.Name, j["dir"].AsString());
+                    string dir = j["dir"].AsString();
+                    if (string.IsNullOrEmpty(dir))
+                        _tempPreview.Fail(serial, _p.Temp, _p.Name,
+                            "Daemon preview did not include a path.", DateTime.UtcNow);
+                    else
+                        _tempPreview.Accept(serial, _p.Temp, _p.Name, dir);
                 },
-                _ => { });
+                error =>
+                {
+                    _tempPreview.Fail(serial, _p.Temp, _p.Name, error, DateTime.UtcNow);
+                });
         }
 
     }
