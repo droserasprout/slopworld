@@ -179,8 +179,8 @@ namespace SlopWorld
             }
             if (SidebarFunction(ModDefOf.SlopSidebarAgents, SidebarTab.Agents, e)) return true;
             if (SidebarFunction(ModDefOf.SlopSidebarFiles, SidebarTab.Files, e)) return true;
-            if (SidebarFunction(ModDefOf.SlopSidebarSearch, SidebarTab.Search, e)) return true;
             if (SidebarFunction(ModDefOf.SlopSidebarGit, SidebarTab.Git, e)) return true;
+            if (SidebarFunction(ModDefOf.SlopSidebarSearch, SidebarTab.Search, e)) return true;
             if (SidebarFunction(ModDefOf.SlopSidebarTasks, SidebarTab.Tasks, e)) return true;
             if (SidebarFunction(ModDefOf.SlopSidebarLibrary, SidebarTab.Library, e)) return true;
             if (Bound(ModDefOf.SlopQuickTerminal, e))

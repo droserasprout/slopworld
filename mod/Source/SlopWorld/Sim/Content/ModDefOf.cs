@@ -54,11 +54,11 @@ namespace SlopWorld
         /// F2: focus the files view in the sidebar.
         public static KeyBindingDef SlopSidebarFiles;
 
-        /// F3: focus the search view in the sidebar.
-        public static KeyBindingDef SlopSidebarSearch;
-
-        /// F4: focus the git view in the sidebar.
+        /// F3: focus the git view in the sidebar.
         public static KeyBindingDef SlopSidebarGit;
+
+        /// F4: focus the search view in the sidebar.
+        public static KeyBindingDef SlopSidebarSearch;
 
         /// F5: focus the tasks view in the sidebar.
         public static KeyBindingDef SlopSidebarTasks;
