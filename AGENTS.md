@@ -28,6 +28,8 @@ records unresolved work, not implemented behavior.
 
 ## Delegation
 
-Send work once with `slopctl delegate AGENT "task"` or `slopctl spawn ...`; retain the ID.
+Delegate only when asked by user implicitly
+
+Use `slopctl spawn ...` to delegate work to other agents. Retain the ID.
 Use `slopctl wait ID` until terminal; do not poll `task`/`inbox`/`status` or use short timeouts.
 Assigned work follows `task ID`, `accept`, `progress`, then `finish` or `fail`.

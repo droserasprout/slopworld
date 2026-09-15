@@ -846,18 +846,50 @@ for index, mode in enumerate((b'\x1b[?2004h', b'\x1b[?2004l')):
             "first",
             "-c",
             "/",
+            "--",
+            "sleep",
+            "60",
         ])
         .await
         .unwrap();
-        tmux.run(&["split-window", "-t", "first:0", "-c", "/tmp"])
-            .await
-            .unwrap();
-        tmux.run(&["new-window", "-d", "-t", "first:1", "-c", "/tmp"])
-            .await
-            .unwrap();
-        tmux.run(&["new-session", "-d", "-s", "second", "-c", "/tmp"])
-            .await
-            .unwrap();
+        tmux.run(&[
+            "split-window",
+            "-t",
+            "first:0",
+            "-c",
+            "/tmp",
+            "--",
+            "sleep",
+            "60",
+        ])
+        .await
+        .unwrap();
+        tmux.run(&[
+            "new-window",
+            "-d",
+            "-t",
+            "first:1",
+            "-c",
+            "/tmp",
+            "--",
+            "sleep",
+            "60",
+        ])
+        .await
+        .unwrap();
+        tmux.run(&[
+            "new-session",
+            "-d",
+            "-s",
+            "second",
+            "-c",
+            "/tmp",
+            "--",
+            "sleep",
+            "60",
+        ])
+        .await
+        .unwrap();
 
         for window in ["first:0", "first:1"] {
             tmux.run(&["select-window", "-t", window]).await.unwrap();

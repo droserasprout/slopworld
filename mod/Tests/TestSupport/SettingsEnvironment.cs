@@ -6,7 +6,7 @@ namespace Verse
         public static void Error(string message) { }
         public static void Warning(string message) { }
     }
-    static class UI { public static float screenWidth, screenHeight; }
+    static class UI { public static float screenWidth = 0f, screenHeight = 0f; }
     public enum GameFont { Tiny, Small, Medium }
     static partial class Text
     {
@@ -19,7 +19,7 @@ namespace Verse
 
 namespace SlopWorld
 {
-    static class Cutscene { public static bool Playing; }
+    static class Cutscene { public static bool Playing = false; }
     static class TopBar { public static float H => 26f; }
     static class UiFont { public static int RevisionValue; public static int Revision => RevisionValue; }
     static partial class UiTheme { public static int AtlasRevisionValue; public static int AtlasRevision => AtlasRevisionValue; }
