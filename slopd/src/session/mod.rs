@@ -11,6 +11,7 @@ use serde_json::Value;
 use tokio::sync::{broadcast, mpsc, RwLock};
 use tokio::task::JoinHandle;
 
+mod agent_templates;
 mod ctrl;
 mod input;
 mod template;
@@ -22,6 +23,7 @@ mod view;
 #[path = "../manager/mod.rs"]
 mod manager;
 
+pub(crate) use agent_templates::{AgentTemplate, AgentTemplateStore};
 #[cfg(test)]
 pub(crate) use ctrl::test_manager;
 pub(super) use ctrl::CachedScroll;

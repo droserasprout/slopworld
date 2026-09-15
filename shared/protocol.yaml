@@ -49,6 +49,18 @@ http:
       path: "/api/sessions/:name/state/reset"
       methods: [POST]
       scope: scoped
+    templates:
+      path: "/api/templates"
+      methods: [GET, POST]
+      scope: root
+    template:
+      path: "/api/templates/:name"
+      methods: [PUT, DELETE]
+      scope: root
+    template_create:
+      path: "/api/templates/:name/create"
+      methods: [POST]
+      scope: root
     tasks:
       path: "/api/tasks"
       methods: [GET, POST, DELETE]

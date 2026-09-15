@@ -44,6 +44,18 @@ new errand. An empty shell command uses the daemon's `$SHELL`.
 `POST /api/instructions/preview` accepts `{ "project": "...", "template": "...",
 "mount_path": "..." }` and returns the rendered `text`; it does not save settings.
 
+### Agent templates
+
+Agent-template routes are root-only. `GET /api/templates` returns the personal catalog.
+`POST /api/templates` accepts `{ "name": "...", "description": "...", "source": "..." }`
+and snapshots the configured source agent. `POST /api/templates/:name/create` accepts a new
+`name`, a registered `project`, and an optional `overrides` session form; the daemon copies
+the template's portable fields, validates explicit mount overrides, and allocates fresh private
+state. `PUT` and `DELETE`
+on `/api/templates/:name` provide the typed catalog boundary used by later management UI.
+Template-created sessions retain their captured command, sandbox, and prompt definitions
+when those live catalog entries are later edited or removed.
+
 ### Private state
 
 Reset moves agent private state to 14-day trash. Root-only inventory reports active,

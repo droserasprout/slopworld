@@ -1,6 +1,6 @@
 # 4. Task workers from agent templates
 
-Depends on [agent templates](plan-agent-templates.md) and
+Depends on [agent templates](daemon-agent-templates.md) and
 [CLI support](plan-template-cli.md). Start with [workers](daemon-workers.md),
 [tasks](agent-tasks.md), and [sidebar ownership](mod-sidebar.md).
 

@@ -54,7 +54,14 @@ pub(crate) fn build_plan(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result
     let dns = cfg.dns_of(s, p);
     let agent_argv = shell_split(&cfg.command_of(s));
     let dir = expand(&p.dir);
-    let table = crate::presets::table();
+    let mut table = (*crate::presets::table()).clone();
+    // Template-created agents carry the definitions they were created with. Overlay them on
+    // the live catalog before resolving dependencies so a later preset edit cannot change this
+    // agent's launch plan.
+    for snapshot in &s.sandbox_snapshots {
+        table.sandbox.retain(|preset| preset.name != snapshot.name);
+        table.sandbox.push(snapshot.clone());
+    }
     let presets = presets_for(cfg, s, p, &table);
     let home = dirs::home_dir()
         .map(|path| path.to_string_lossy().into_owned())

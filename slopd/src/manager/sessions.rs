@@ -257,10 +257,20 @@ impl Manager {
     }
 
     pub async fn add(self: &Arc<Self>, s: SessionCfg) -> Result<()> {
-        self.session_operation(self.add_within_boundary(s)).await
+        self.session_operation(self.add_within_boundary(s, false))
+            .await
     }
 
-    async fn add_within_boundary(self: &Arc<Self>, mut s: SessionCfg) -> Result<()> {
+    pub(super) async fn add_template_session(self: &Arc<Self>, s: SessionCfg) -> Result<()> {
+        self.session_operation(self.add_within_boundary(s, true))
+            .await
+    }
+
+    async fn add_within_boundary(
+        self: &Arc<Self>,
+        mut s: SessionCfg,
+        preserve_snapshots: bool,
+    ) -> Result<()> {
         self.reload_if_changed().await;
         let (autostart, name) = self
             .update_cfg(|cfg| {
@@ -268,6 +278,11 @@ impl Manager {
                     bail!("session {} already exists", s.name);
                 }
                 check_name(&s.name)?;
+                if !preserve_snapshots {
+                    s.command_snapshot = None;
+                    s.sandbox_snapshots.clear();
+                    s.breadcrumb_snapshots.clear();
+                }
                 check_belongs(cfg, &s)?;
                 s.limits.validate()?;
                 crate::runtime::validate_limits(&s.limits)?;
@@ -276,8 +291,8 @@ impl Manager {
                 s.worker = false;
                 s.parent.clear();
                 s.task_id.clear();
-                // A client has no authority over which durable state an agent receives.  Always mint a
-                // fresh key, including if a hand-written request carried a stale one.
+                // A client has no authority over which durable state an agent receives. Always mint
+                // a fresh key, including if a hand-written request carried a stale one.
                 s.state_id = uuid::Uuid::new_v4().to_string();
                 let autostart = s.autostart;
                 let name = s.name.clone();
@@ -329,14 +344,39 @@ impl Manager {
         }
 
         self.update_cfg(|cfg| {
-            check_belongs(cfg, &s)?;
-            s.limits.validate()?;
-            crate::runtime::validate_limits(&s.limits)?;
             let idx = cfg
                 .sessions
                 .iter()
                 .position(|x| x.name == name)
                 .ok_or_else(|| anyhow!("no such session: {name}"))?;
+            let previous = &cfg.sessions[idx];
+            if s.command == previous.command && s.cmd == previous.cmd {
+                s.command_snapshot = previous.command_snapshot.clone();
+            } else {
+                s.command_snapshot = None;
+            }
+            let command_sandbox = s
+                .command_snapshot
+                .as_ref()
+                .map(|command| command.sandbox.clone())
+                .unwrap_or_default();
+            s.sandbox_snapshots = previous
+                .sandbox_snapshots
+                .iter()
+                .filter(|preset| {
+                    s.sandbox.contains(&preset.name) || command_sandbox.contains(&preset.name)
+                })
+                .cloned()
+                .collect();
+            s.breadcrumb_snapshots = previous
+                .breadcrumb_snapshots
+                .iter()
+                .filter(|prompt| s.breadcrumbs.contains(&prompt.name))
+                .cloned()
+                .collect();
+            check_belongs(cfg, &s)?;
+            s.limits.validate()?;
+            crate::runtime::validate_limits(&s.limits)?;
             // Keep daemon-owned worker identity across an ordinary settings edit. The mod's write
             // model intentionally does not expose these fields.
             s.worker = cfg.sessions[idx].worker;

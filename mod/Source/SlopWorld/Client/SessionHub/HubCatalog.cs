@@ -13,11 +13,13 @@ namespace SlopWorld
         const string ProjectsPath = WireProtocol.Routes.Projects;
         const string LibraryPath = WireProtocol.Routes.Library;
         const string PresetsPath = WireProtocol.Routes.Presets;
+        const string TemplatesPath = WireProtocol.Routes.Templates;
 
         public List<ProjectInfo> Projects = new List<ProjectInfo>();
         public List<LibraryItemInfo> Library = new List<LibraryItemInfo>();
         public List<PresetInfo> Presets = new List<PresetInfo>();
         public List<CommandInfo> Commands = new List<CommandInfo>();
+        public List<AgentTemplateInfo> Templates = new List<AgentTemplateInfo>();
 
         // A project list request can outlive the edit that started another one. Without a
         // generation, a slow pre-edit GET can put the old network default back after a Host
@@ -25,8 +27,10 @@ namespace SlopWorld
         readonly CatalogRequest _projects = new CatalogRequest();
         readonly CatalogRequest _library = new CatalogRequest();
         readonly CatalogRequest _presets = new CatalogRequest();
+        readonly CatalogRequest _templates = new CatalogRequest();
 
         public int ProjectsRevision => _projects.Revision;
+        public int TemplatesRevision => _templates.Revision;
 
         // A project edit also changes which sessions exist, so the catalog asks the session
         // store to refresh without owning it.
@@ -86,6 +90,21 @@ namespace SlopWorld
                 Commands = j["commands"].Items.Select(CommandInfo.FromJson).ToList();
                 ok?.Invoke();
             }, fail);
+
+        public void RefreshTemplates(Action<string> fail = null) =>
+            _templates.Refresh(TemplatesPath,
+                j => Templates = j["templates"].Items.Select(AgentTemplateInfo.FromJson).ToList(),
+                fail);
+
+        public void SaveAgentTemplate(string source, string name, string description,
+                                       Action ok, Action<string> fail)
+        {
+            _templates.Invalidate();
+            DaemonClient.Post(TemplatesPath,
+                "{" + $"\"name\":{JVal.Q(name)},\"description\":{JVal.Q(description)}," +
+                $"\"source\":{JVal.Q(source)}}}",
+                _ => { RefreshTemplates(); ok?.Invoke(); }, fail);
+        }
 
         public void CopyPreset(string kind, string name, string newName,
                                Action ok, Action<string> fail)

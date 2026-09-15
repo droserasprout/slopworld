@@ -73,6 +73,11 @@ grant-visible router; handler guards can impose a stricter access requirement.
 | `POST` | `/api/tasks/:id` | `scoped` | `update_task` |
 | `POST` | `/api/tasks/cancel` | `scoped` | `cancel_tasks` |
 | `POST` | `/api/tasks/remove` | `scoped` | `remove_tasks` |
+| `GET` | `/api/templates` | `root-only` | `list_templates` |
+| `POST` | `/api/templates` | `root-only` | `save_template` |
+| `DELETE` | `/api/templates/:name` | `root-only` | `destroy_template` |
+| `PUT` | `/api/templates/:name` | `root-only` | `replace_template` |
+| `POST` | `/api/templates/:name/create` | `root-only` | `create_from_template` |
 | `GET` | `/api/usage` | `root-only` | `usage` |
 | `POST` | `/api/workers` | `root-only` | `spawn_worker` |
 | `GET` | `/ws` | `scoped` | `ws_upgrade` |

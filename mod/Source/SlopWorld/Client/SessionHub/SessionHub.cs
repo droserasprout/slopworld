@@ -44,6 +44,7 @@ namespace SlopWorld
                 DaemonClipboard.Reset();
                 RefreshConfig();
                 RefreshHealth();
+                _catalog.RefreshTemplates();
                 _tasks.Refresh();
                 _terminal.Resubscribe();
             };
@@ -59,6 +60,7 @@ namespace SlopWorld
         public List<LibraryItemInfo> Library => _catalog.Library;
         public List<PresetInfo> Presets => _catalog.Presets;
         public List<CommandInfo> Commands => _catalog.Commands;
+        public List<AgentTemplateInfo> Templates => _catalog.Templates;
         public string Status => _transport.Status;
         public bool Online => _transport.Connected;
         public int ConnectionGeneration => _connectionGeneration;
@@ -130,6 +132,25 @@ namespace SlopWorld
                     _terminal.Rename(origName, s.Name);
                 ok?.Invoke();
             }, fail);
+
+        public void CreateFromTemplate(string template, SessionInfo s, Action ok,
+                                       Action<string> fail)
+        {
+            string body = "{" +
+                $"\"name\":{JVal.Q(s.Name)},\"project\":{JVal.Q(s.Project)}," +
+                $"\"overrides\":{s.ToJson()}}}";
+            DaemonClient.Post($"{WireProtocol.Routes.Templates}/{HubWire.Esc(template)}/create",
+                body,
+                _ =>
+                {
+                    _sessions.Refresh();
+                    ok?.Invoke();
+                }, fail);
+        }
+
+        public void SaveAgentTemplate(string source, string name, string description,
+                                      Action ok, Action<string> fail) =>
+            _catalog.SaveAgentTemplate(source, name, description, ok, fail);
 
     }
 }

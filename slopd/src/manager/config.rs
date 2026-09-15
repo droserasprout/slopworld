@@ -122,6 +122,10 @@ impl Manager {
         let tasks = crate::tasks::Tasks::load(&cfg_path)
             .unwrap_or_else(|e| panic!("task store {}: {e:#}", cfg_path.display()));
         let title_cache = crate::title::SummaryCache::load(crate::title::cache_path(&cfg_path));
+        let template_path = crate::session::AgentTemplateStore::path_for(&cfg_path);
+        let templates = crate::session::AgentTemplateStore::load(&template_path)
+            .await
+            .unwrap_or_else(|e| panic!("agent template store {}: {e:#}", template_path.display()));
         let activity_cache =
             crate::activity::ActivityCache::load(crate::activity::cache_path(&cfg_path));
         // `main` logs the catalogs before constructing the manager. Refresh them here as well so
@@ -138,6 +142,7 @@ impl Manager {
             live: RwLock::new(HashMap::new()),
             temp: RwLock::new(HashMap::new()),
             cfg: RwLock::new(cfg),
+            templates: RwLock::new(templates),
             config_state: ConfigState::new(
                 mtime,
                 presets_loaded.then_some(presets_mtime).flatten(),

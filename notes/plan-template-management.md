@@ -1,6 +1,7 @@
 # 2. Template management UI
 
-Depends on [personal agent templates](plan-agent-templates.md).
+Builds on the shipped [daemon template boundary](daemon-agent-templates.md) and
+[client template picker](mod-agent-templates.md).
 Start with [settings editors](ui-settings.md) and [client ownership](mod-client.md).
 
 ## Implementation

@@ -14,6 +14,9 @@ namespace SlopWorld
         // new agent must have to start; the other tabs only refine it.
         void DrawGeneral(Listing_Standard l)
         {
+            if (_identity.IsNew)
+                DrawTemplatePicker(l);
+
             l.Label("Name (also the colonist's name)");
             _s.Name = UiControls.Field(l, "agent.name", _s.Name);
 
@@ -58,6 +61,42 @@ namespace SlopWorld
             _s.PersistentTmp = UiControls.Checkbox(l, "Persistent /tmp", _s.PersistentTmp,
                 "Keep this agent's /tmp across restarts in its private state. Resetting private state gives it a fresh /tmp.");
 
+        }
+
+        void DrawTemplatePicker(Listing_Standard l)
+        {
+            var options = new List<SelectorOption>
+            {
+                new SelectorOption("Manual creation", () => _templateName = null),
+            };
+            options.AddRange(SessionHub.Instance.Templates
+                .OrderBy(t => t.Name, System.StringComparer.OrdinalIgnoreCase)
+                .Select(t => new SelectorOption(t.DisplayLabel, () => ApplyTemplate(t))));
+
+            string label = string.IsNullOrEmpty(_templateName) ? "Manual creation" : _templateName;
+            UiControls.Select(l, "Template (optional)", label, options, out _);
+            GUI.color = UiTheme.Dim;
+            l.Label(string.IsNullOrEmpty(_templateName)
+                ? "Choose a personal template or continue with the fields below."
+                : "Template defaults are copied; the fields below remain editable overrides.");
+            GUI.color = Color.white;
+        }
+
+        void ApplyTemplate(AgentTemplateInfo template)
+        {
+            string name = _s.Name;
+            string project = _s.Project;
+            template.ApplyTo(_s);
+            _s.Name = name;
+            _s.Project = project;
+            _templateName = template.Name;
+            _limMem = LimStr(_s.Limits.MemoryMb);
+            _limPids = LimStr(_s.Limits.Pids);
+            _limNofile = LimStr(_s.Limits.Nofile);
+            _limCpu = LimStr(_s.Limits.CpuPct);
+            _dnsServers = _s.DnsOverride?.Mode == DnsMode.Servers
+                ? string.Join(", ", _s.DnsOverride.Servers.ToArray())
+                : "";
         }
 
         void DrawMounts(Rect rect)
