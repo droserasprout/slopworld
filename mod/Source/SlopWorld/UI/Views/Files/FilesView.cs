@@ -605,7 +605,7 @@ namespace SlopWorld
 
                 BrowseInFlight++;
                 DaemonClient.Get(
-                    WireContract.Routes.Browse + "?files=1&path=" + System.Uri.EscapeDataString(request.Path) +
+                    WireProtocol.Routes.Browse + "?files=1&path=" + System.Uri.EscapeDataString(request.Path) +
                     "&hidden=" + (Settings.SidebarShowHidden ? "1" : "0") +
                     "&gitignore=" + (Settings.SidebarShowGitignored ? "0" : "1"),
                     j => CompleteBrowse(request, j, null),

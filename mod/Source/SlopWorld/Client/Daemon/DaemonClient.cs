@@ -18,8 +18,8 @@ namespace SlopWorld
         const string DeleteMethod = "DELETE";
         const string EmptyJsonObject = "{}";
         const int DefaultTimeoutMs = 5000;
-        const string TokenHeader = WireContract.TokenHeader;
-        const string SessionHeader = WireContract.SessionHeader;
+        const string TokenHeader = WireProtocol.TokenHeader;
+        const string SessionHeader = WireProtocol.SessionHeader;
         const string JsonContentType = "application/json";
         const int MaxCompletionsPerFrame = 32;
         const string CompletionTraceName = "http-completions";
@@ -142,11 +142,11 @@ namespace SlopWorld
 
         static string TraceName(string path)
         {
-            if (path.StartsWith(WireContract.Routes.Browse, StringComparison.Ordinal))
+            if (path.StartsWith(WireProtocol.Routes.Browse, StringComparison.Ordinal))
                 return "http-browse";
-            if (path.StartsWith(WireContract.Routes.Git, StringComparison.Ordinal))
+            if (path.StartsWith(WireProtocol.Routes.Git, StringComparison.Ordinal))
                 return "http-git";
-            if (path.StartsWith(WireContract.Routes.Search, StringComparison.Ordinal))
+            if (path.StartsWith(WireProtocol.Routes.Search, StringComparison.Ordinal))
                 return "http-search";
             return null;
         }

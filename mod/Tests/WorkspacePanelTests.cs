@@ -140,8 +140,8 @@ namespace SlopWorld.Tests
                 "uninitialized font does not negotiate");
             TerminalPanelGeometry.TryMeasure(new UiLayoutRect(0f, 0f, 1f, 1f),
                 10f, 20f, out cols, out rows);
-            AssertEx.Equal(WireContract.TerminalMinCols, cols, "tiny pane respects protocol minimum");
-            AssertEx.Equal(WireContract.TerminalMinRows, rows, "tiny pane respects protocol minimum");
+            AssertEx.Equal(WireProtocol.TerminalMinCols, cols, "tiny pane respects protocol minimum");
+            AssertEx.Equal(WireProtocol.TerminalMinRows, rows, "tiny pane respects protocol minimum");
         }
     }
 }

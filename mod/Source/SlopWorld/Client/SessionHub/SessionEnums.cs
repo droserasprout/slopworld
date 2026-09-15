@@ -23,18 +23,18 @@ namespace SlopWorld
         {
             switch ((text ?? "").Trim().ToLowerInvariant())
             {
-                case WireContract.FileActionMode.ShowResult: return FileActionMode.ShowResult;
-                case WireContract.FileActionMode.OpenTerminal: return FileActionMode.OpenTerminal;
-                case WireContract.FileActionMode.Nothing: return FileActionMode.Nothing;
+                case WireProtocol.FileActionMode.ShowResult: return FileActionMode.ShowResult;
+                case WireProtocol.FileActionMode.OpenTerminal: return FileActionMode.OpenTerminal;
+                case WireProtocol.FileActionMode.Nothing: return FileActionMode.Nothing;
                 default: return FileActionMode.Ask;
             }
         }
 
         public static string Name(FileActionMode mode) => mode == FileActionMode.ShowResult
-            ? WireContract.FileActionMode.ShowResult
-            : mode == FileActionMode.OpenTerminal ? WireContract.FileActionMode.OpenTerminal
-            : mode == FileActionMode.Nothing ? WireContract.FileActionMode.Nothing
-            : WireContract.FileActionMode.Ask;
+            ? WireProtocol.FileActionMode.ShowResult
+            : mode == FileActionMode.OpenTerminal ? WireProtocol.FileActionMode.OpenTerminal
+            : mode == FileActionMode.Nothing ? WireProtocol.FileActionMode.Nothing
+            : WireProtocol.FileActionMode.Ask;
 
         public static string Label(FileActionMode mode) => mode == FileActionMode.ShowResult
             ? "Show result"

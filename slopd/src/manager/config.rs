@@ -542,12 +542,12 @@ impl Manager {
         let shape = shape.map(|(cols, rows)| {
             (
                 cols.clamp(
-                    crate::wire::TERMINAL_MIN_COLS,
-                    crate::wire::TERMINAL_MAX_COLS,
+                    crate::shared::protocol::TERMINAL_MIN_COLS,
+                    crate::shared::protocol::TERMINAL_MAX_COLS,
                 ),
                 rows.clamp(
-                    crate::wire::TERMINAL_MIN_ROWS,
-                    crate::wire::TERMINAL_MAX_ROWS,
+                    crate::shared::protocol::TERMINAL_MIN_ROWS,
+                    crate::shared::protocol::TERMINAL_MAX_ROWS,
                 ),
             )
         });

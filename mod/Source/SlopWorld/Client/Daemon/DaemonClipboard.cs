@@ -40,7 +40,7 @@ namespace SlopWorld
                 return;
             }
 
-            DaemonClient.Post(WireContract.Routes.Clipboard, "{\"text\":" + JVal.Q(text) + "}",
+            DaemonClient.Post(WireProtocol.Routes.Clipboard, "{\"text\":" + JVal.Q(text) + "}",
                 _ =>
                 {
                     Pending.Remove(text);
@@ -71,7 +71,7 @@ namespace SlopWorld
                 return;
             }
 
-            DaemonClient.Post(WireContract.Routes.ClipboardPrimary, "{\"text\":" + JVal.Q(text) + "}",
+            DaemonClient.Post(WireProtocol.Routes.ClipboardPrimary, "{\"text\":" + JVal.Q(text) + "}",
                 _ =>
                 {
                     PendingPrimary.Remove(text);

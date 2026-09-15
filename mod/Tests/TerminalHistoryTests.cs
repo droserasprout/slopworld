@@ -92,7 +92,7 @@ namespace SlopWorld.Tests
             live.History = -1;
             AssertEx.Equal(5, TerminalHistory.ScrollLimit(live, 5),
                 "legacy frames use the last capture extent");
-            AssertEx.Equal(WireContract.ScrollbackLines, TerminalHistory.ScrollLimit(live, -1),
+            AssertEx.Equal(SharedDefaults.ScrollbackLines, TerminalHistory.ScrollLimit(live, -1),
                 "unknown legacy history retains discovery through capture");
         }
 

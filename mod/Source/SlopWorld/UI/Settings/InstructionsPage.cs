@@ -147,7 +147,7 @@ namespace SlopWorld
             l.Label("Mount path (relative to the project)");
             _cfg.InstructionsMountPath = UiControls.Field(l, "instructions.mount_path",
                 _cfg.InstructionsMountPath, on: instructions,
-                defaultValue: WireContract.DefaultInstructionsMountPath);
+                defaultValue: SharedDefaults.DefaultInstructionsMountPath);
             UiLayout.Note(l, "The generated source remains the project-root " +
                 "SLOPWORLD.md; this is where its read-only copy appears to the agent.");
             UiLayout.Note(l, "Agents still opt in per session with Mount SLOPWORLD.md.");
@@ -238,7 +238,7 @@ namespace SlopWorld
                 $"\"mount_path\":{JVal.Q(_cfg.InstructionsMountPath)}" +
                 "}";
             _previewLoad.Load((ok, fail) => DaemonClient.Post(
-                WireContract.Routes.InstructionsPreview, body,
+                WireProtocol.Routes.InstructionsPreview, body,
                 j => ok(j["text"].AsString()), fail),
                 text => _preview.SetInlineText(text));
         }

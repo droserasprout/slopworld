@@ -85,7 +85,7 @@ namespace SlopWorld
             SessionHub.Instance.Catalog.LoadPresets();
             if (string.IsNullOrEmpty(_s.CommandPreset) && string.IsNullOrEmpty(_s.Command) &&
                 string.IsNullOrWhiteSpace(_s.Cmd))
-                DaemonClient.Get(WireContract.Routes.Config,
+                DaemonClient.Get(WireProtocol.Routes.Config,
                     j => _s.CommandPreset = j["values"]["defaults"]["agent"].AsString("claude"),
                     UiLayout.Fail);
 

@@ -177,7 +177,7 @@ namespace SlopWorld.Tests
             usage.Sources.Add("anthropic");
             usage.Sources.Add("openai");
             var config = new DaemonConfig();
-            config.UsageItems[WireContract.UsageKeys.ClaudeSession] = new DaemonConfig.UsageItemConfig { Poll = true };
+            config.UsageItems[SharedUsage.ClaudeSession] = new DaemonConfig.UsageItemConfig { Poll = true };
             var rows = new UsageRowsCache();
             // Cold uses the production row builder, to isolate reuse from row-policy changes.
             Measure("topbar quota rows / cold cache", () =>

@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 /// The user at the keyboard. Not a session and never one: `slopctl` run from the host states it
 /// as its identity, and the daemon accepts it only from the root token, so a grant cannot wear it
 /// however its grantor happens to be named.
-pub const HOST: &str = crate::wire::HOST_IDENTITY;
+pub const HOST: &str = crate::shared::protocol::HOST_IDENTITY;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Status {
@@ -22,12 +22,12 @@ pub enum Status {
 }
 
 crate::wire_enum!(Status, {
-    Status::Queued => crate::wire::enums::task_status::QUEUED,
-    Status::Accepted => crate::wire::enums::task_status::ACCEPTED,
-    Status::Working => crate::wire::enums::task_status::WORKING,
-    Status::Done => crate::wire::enums::task_status::DONE,
-    Status::Failed => crate::wire::enums::task_status::FAILED,
-    Status::Canceled => crate::wire::enums::task_status::CANCELED,
+    Status::Queued => crate::shared::protocol::enums::task_status::QUEUED,
+    Status::Accepted => crate::shared::protocol::enums::task_status::ACCEPTED,
+    Status::Working => crate::shared::protocol::enums::task_status::WORKING,
+    Status::Done => crate::shared::protocol::enums::task_status::DONE,
+    Status::Failed => crate::shared::protocol::enums::task_status::FAILED,
+    Status::Canceled => crate::shared::protocol::enums::task_status::CANCELED,
 });
 
 impl Status {

@@ -9,37 +9,37 @@ namespace SlopWorld
         {
             switch (ev["t"].AsString())
             {
-                case WireContract.Events.Capabilities:
+                case WireProtocol.Events.Capabilities:
                     Capabilities = DaemonCapabilities.FromJson(ev["capabilities"]);
                     break;
 
-                case WireContract.Events.Sessions:
+                case WireProtocol.Events.Sessions:
                     _sessions.ApplySessions(ev);
                     break;
 
-                case WireContract.Events.Projects:
+                case WireProtocol.Events.Projects:
                     _catalog.ApplyProjects(ev);
                     break;
 
-                case WireContract.Events.Library:
+                case WireProtocol.Events.Library:
                     _catalog.ApplyLibrary(ev);
                     break;
 
-                case WireContract.Events.Jukebox:
+                case WireProtocol.Events.Jukebox:
                     Radio.SetStations(ev["jukebox"]);
                     break;
 
-                case WireContract.Events.Usage:
+                case WireProtocol.Events.Usage:
                     Usage = UsageInfo.FromJson(ev["usage"], Usage);
                     break;
 
-                case WireContract.Events.Audio:
+                case WireProtocol.Events.Audio:
                     Radio.Report(ev["audio"]["playing"].AsBool(false),
                         ev["audio"]["error"].AsString(null),
                         ev["audio"]["title"].AsString(null));
                     break;
 
-                case WireContract.Events.Screen:
+                case WireProtocol.Events.Screen:
                     _sessions.ApplyScreen(ev["screen"]);
                     break;
             }

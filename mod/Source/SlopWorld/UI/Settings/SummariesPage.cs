@@ -66,7 +66,7 @@ namespace SlopWorld
             l.Gap(UiTheme.GapL);
             l.Label("Minimum prompt length");
             _minPromptChars = UiControls.Field(l, "usage.summary.minimum", _minPromptChars,
-                defaultValue: WireContract.DefaultTitleMinChars.ToString());
+                defaultValue: SharedDefaults.DefaultTitleMinChars.ToString());
             _configState.SetDraftText("summaries.minimum", "daemon.title_min_chars",
                 _minPromptChars);
             UiLayout.Validation(l, MinimumError(_minPromptChars));
@@ -75,7 +75,7 @@ namespace SlopWorld
             l.Gap(UiTheme.GapM);
             l.Label("Model");
             _cfg.TitleModel = UiControls.Field(l, "usage.summary.model", _cfg.TitleModel,
-                defaultValue: WireContract.DefaultTitleModel);
+                defaultValue: SharedDefaults.DefaultTitleModel);
             UiLayout.Note(l, "Up to 2,000 characters of each prompt go to OpenRouter. " +
                 "Summaries do not depend on credit polling.");
 

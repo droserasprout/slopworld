@@ -2,7 +2,7 @@
 
 use serde_json::Value;
 
-use crate::wire::usage as usage_keys;
+use crate::shared::usage as usage_keys;
 
 use super::{providers::ProviderResponse, Snapshot, Unit, Window};
 

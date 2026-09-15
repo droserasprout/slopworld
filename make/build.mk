@@ -20,7 +20,7 @@ loc-report:          ## Measure Python, C#, and Rust lines and write a dated not
 bench-mod: api-contract ## Benchmark C# helpers without RimWorld or Unity
 	@DOTNET_TieredCompilation=0 $(DOTNET) run --project "$(TEST_PROJECT)" --configuration $(if $(filter release,$(BUILD)),Release,Debug) -- --perf-bench
 
-test-wire-contract: api-contract ## Test generated Rust envelope declarations
+test-wire-contract: api-contract ## Test shared definitions and generated bindings
 	@$(PYTHON) tools/test_wire_contract.py
 
 validate-themes: ## Validate the shipped UI and terminal theme catalogs
@@ -90,7 +90,7 @@ emoji-atlas:       ## Rebake the legacy terminal's emoji atlas with Pango
 reference:         ## Generate the environment/API/CLI reference
 	@$(PYTHON) tools/reference.py
 
-api-contract: protocol/wire.yaml tools/wire_contract.py ## Generate shared client/daemon wire bindings
+api-contract: shared/protocol.yaml shared/defaults.yaml shared/usage.yaml tools/wire_contract.py ## Generate shared protocol, defaults and usage bindings
 	@$(PYTHON) tools/wire_contract.py
 
 api-docs: api-contract ## Generate the mdBook API route inventory

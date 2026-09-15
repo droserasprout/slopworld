@@ -93,7 +93,7 @@ namespace SlopWorld
         static bool LiveName(JVal ev, out string name)
         {
             name = null;
-            if (!string.Equals(ev["t"].AsString(), WireContract.Events.Screen, StringComparison.Ordinal)) return false;
+            if (!string.Equals(ev["t"].AsString(), WireProtocol.Events.Screen, StringComparison.Ordinal)) return false;
             var screen = ev["screen"];
             if (screen["off"].AsInt(0) != 0 || screen["request_id"].AsLong(0) != 0) return false;
             name = screen["name"].AsString(null);

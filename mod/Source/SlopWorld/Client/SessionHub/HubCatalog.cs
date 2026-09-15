@@ -10,9 +10,9 @@ namespace SlopWorld
     // for every dialog that draws them, so one can arrive without slopd being rebuilt.
     class HubCatalog
     {
-        const string ProjectsPath = WireContract.Routes.Projects;
-        const string LibraryPath = WireContract.Routes.Library;
-        const string PresetsPath = WireContract.Routes.Presets;
+        const string ProjectsPath = WireProtocol.Routes.Projects;
+        const string LibraryPath = WireProtocol.Routes.Library;
+        const string PresetsPath = WireProtocol.Routes.Presets;
 
         public List<ProjectInfo> Projects = new List<ProjectInfo>();
         public List<LibraryItemInfo> Library = new List<LibraryItemInfo>();

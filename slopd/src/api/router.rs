@@ -7,7 +7,7 @@ use axum::routing::{delete, get, post, put};
 use axum::{Extension, Router};
 
 use crate::grant::Cap;
-use crate::wire::routes;
+use crate::shared::protocol::routes;
 
 use super::handlers::*;
 use super::ws::ws_upgrade;
@@ -36,7 +36,7 @@ pub(crate) fn router(m: Mgr) -> Router {
             routes::TASK,
             get(one_task).post(update_task).delete(remove_task),
         )
-        .route(crate::wire::WS_PATH, get(ws_upgrade))
+        .route(crate::shared::protocol::WS_PATH, get(ws_upgrade))
         .layer(middleware::from_fn_with_state(m.clone(), scoped_request));
 
     // Host controls and configuration default to root-only access.

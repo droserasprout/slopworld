@@ -200,7 +200,7 @@ namespace SlopWorld
             {
                 var group = new Group { Project = p.Name };
                 Groups.Add(group);
-                string url = WireContract.Routes.Search + "?path=" + Uri.EscapeDataString(p.Dir) +
+                string url = WireProtocol.Routes.Search + "?path=" + Uri.EscapeDataString(p.Dir) +
                     "&q=" + Uri.EscapeDataString(query) +
                     "&regex=" + (_regex ? "1" : "0") +
                     "&case=" + (_case ? "1" : "0") +

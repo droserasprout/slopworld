@@ -161,7 +161,7 @@ namespace SlopWorld
             _queueConnect(() =>
             {
                 var socket = _socketFactory();
-                bool connected = socket.Connect(connection.Host, connection.Port, WireContract.WsPath,
+                bool connected = socket.Connect(connection.Host, connection.Port, WireProtocol.WsPath,
                                                 connection.Token);
                 _connectResults.Enqueue(new ConnectResult
                 {

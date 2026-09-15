@@ -114,11 +114,11 @@ namespace SlopWorld
         // Mutations go over HTTP rather than the socket: they rewrite config.toml, and the
         // error body matters.
         public void RefreshConfig(Action<string> fail = null) =>
-            DaemonClient.Get(WireContract.Routes.Config,
+            DaemonClient.Get(WireProtocol.Routes.Config,
                 j => Config = DaemonConfig.FromJson(j["values"]), fail);
 
         public void RefreshHealth(Action<string> fail = null) =>
-            DaemonClient.Get(WireContract.Routes.Health, j => Health = DaemonHealth.FromJson(j), fail);
+            DaemonClient.Get(WireProtocol.Routes.Health, j => Health = DaemonHealth.FromJson(j), fail);
 
         // ---- sessions ------------------------------------------------------------------
 

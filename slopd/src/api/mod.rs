@@ -3,7 +3,7 @@ mod router;
 mod types;
 mod ws;
 
-pub(crate) use crate::wire::TOKEN_HEADER;
+pub(crate) use crate::shared::protocol::TOKEN_HEADER;
 pub(crate) use router::router;
 
 use std::sync::Arc;

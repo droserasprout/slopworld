@@ -261,12 +261,12 @@ namespace SlopWorld
         // currently reporting - the whole point of choosing an icon for it in advance.
         public static string Long(string key, string fallback = null)
         {
-            if (key == WireContract.UsageKeys.ClaudeSession) return "Claude session";
-            if (key == WireContract.UsageKeys.ClaudeWeek) return "Claude weekly";
-            if (key == WireContract.UsageKeys.OpenaiSession) return "OpenAI session";
-            if (key == WireContract.UsageKeys.OpenaiWeek) return "OpenAI weekly";
-            if (key == WireContract.UsageKeys.ClaudeSpend) return "Claude balance";
-            if (key == WireContract.UsageKeys.OpenrouterBalance) return "OpenRouter balance";
+            if (key == SharedUsage.ClaudeSession) return "Claude session";
+            if (key == SharedUsage.ClaudeWeek) return "Claude weekly";
+            if (key == SharedUsage.OpenaiSession) return "OpenAI session";
+            if (key == SharedUsage.OpenaiWeek) return "OpenAI weekly";
+            if (key == SharedUsage.ClaudeSpend) return "Claude balance";
+            if (key == SharedUsage.OpenrouterBalance) return "OpenRouter balance";
             if (key.StartsWith("claude_week_"))
                 return "Claude weekly " + key.Substring(12).Replace('_', ' ');
             return string.IsNullOrEmpty(fallback) ? key : fallback;
@@ -347,15 +347,15 @@ namespace SlopWorld
         {
             switch (key)
             {
-                case WireContract.UsageKeys.ClaudeSession: return ThingDefOf.Chemfuel;
-                case WireContract.UsageKeys.ClaudeWeek: return ThingDefOf.Steel;
+                case SharedUsage.ClaudeSession: return ThingDefOf.Chemfuel;
+                case SharedUsage.ClaudeWeek: return ThingDefOf.Steel;
                 case "claude_week_opus": return ThingDefOf.Plasteel;
                 case "claude_week_sonnet": return ThingDefOf.ComponentIndustrial;
                 case "claude_week_cowork": return ThingDefOf.Jade;
-                case WireContract.UsageKeys.ClaudeSpend: return ThingDefOf.Silver;
+                case SharedUsage.ClaudeSpend: return ThingDefOf.Silver;
                 // Money like the row above it, and the two are never the same coin: what is
                 // left of a budget and what is left of a wallet are different questions.
-                case WireContract.UsageKeys.OpenrouterBalance: return ThingDefOf.Gold;
+                case SharedUsage.OpenrouterBalance: return ThingDefOf.Gold;
                 default: return null;
             }
         }

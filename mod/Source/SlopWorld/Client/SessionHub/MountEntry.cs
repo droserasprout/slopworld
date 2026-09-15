@@ -14,14 +14,14 @@ namespace SlopWorld
         {
             switch ((text ?? "").Trim().ToLowerInvariant())
             {
-                case WireContract.MountMode.Ro: return MountMode.Ro;
-                case WireContract.MountMode.Rw: return MountMode.Rw;
+                case WireProtocol.MountMode.Ro: return MountMode.Ro;
+                case WireProtocol.MountMode.Rw: return MountMode.Rw;
                 default: return MountMode.Rw;
             }
         }
 
         public static string ModeName(MountMode mode) =>
-            mode == MountMode.Ro ? WireContract.MountMode.Ro : WireContract.MountMode.Rw;
+            mode == MountMode.Ro ? WireProtocol.MountMode.Ro : WireProtocol.MountMode.Rw;
 
         public static string ModeLabel(MountMode mode) =>
             mode == MountMode.None ? "None" : mode == MountMode.Ro ? "Read-only" : "Read-write";
@@ -29,7 +29,7 @@ namespace SlopWorld
         public static MountEntry FromJson(JVal j) => new MountEntry
         {
             Project = j["project"].AsString(),
-            Mode = ParseMode(j["mode"].AsString(WireContract.MountMode.Rw)),
+            Mode = ParseMode(j["mode"].AsString(WireProtocol.MountMode.Rw)),
         };
 
         public static List<MountEntry> ListFromJson(JVal j) =>

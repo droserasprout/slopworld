@@ -296,7 +296,7 @@ namespace SlopWorld
                 {
                     _s.Command = "";
                     _s.Cmd = "";
-                    DaemonClient.Get(WireContract.Routes.Config,
+                    DaemonClient.Get(WireProtocol.Routes.Config,
                         j => _s.CommandPreset = j["values"]["defaults"]["agent"].AsString("claude"),
                         UiLayout.Fail);
                 }),

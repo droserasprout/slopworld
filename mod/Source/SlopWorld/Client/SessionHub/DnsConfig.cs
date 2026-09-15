@@ -25,7 +25,7 @@ namespace SlopWorld
         public static DnsConfig FromJson(JVal j)
         {
             var dns = new DnsConfig();
-            if (j == null || j.IsNull || j["mode"].AsString() != WireContract.DnsMode.Servers) return dns;
+            if (j == null || j.IsNull || j["mode"].AsString() != WireProtocol.DnsMode.Servers) return dns;
             dns.Mode = DnsMode.Servers;
             dns.Servers = j["servers"].Items.Select(i => i.AsString()).ToList();
             return dns;
@@ -38,8 +38,8 @@ namespace SlopWorld
         };
 
         public string ToJson() => IsResolved
-            ? "{\"mode\":\"" + WireContract.DnsMode.Resolved + "\"}"
-            : "{\"mode\":\"" + WireContract.DnsMode.Servers + "\",\"servers\":[" +
+            ? "{\"mode\":\"" + WireProtocol.DnsMode.Resolved + "\"}"
+            : "{\"mode\":\"" + WireProtocol.DnsMode.Servers + "\",\"servers\":[" +
               string.Join(",", Servers.Select(JVal.Q).ToArray()) + "]}";
 
         public static DnsConfig Resolved() => new DnsConfig();

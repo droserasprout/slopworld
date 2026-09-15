@@ -18,7 +18,7 @@ namespace SlopWorld
     // the recipient of work waiting for it to return.
     public sealed class TaskInfo
     {
-        public const string Host = WireContract.HostIdentity;
+        public const string Host = WireProtocol.HostIdentity;
         // RimWorld's GenText.Truncate removes and remeasures one character at a time.
         // Never hand a compact mailbox row an entire delegated prompt; the detail dialog
         // remains the place for the complete body.
@@ -79,11 +79,11 @@ namespace SlopWorld
         {
             switch ((value ?? "").ToLowerInvariant())
             {
-                case WireContract.TaskStatus.Accepted: return DelegatedTaskStatus.Accepted;
-                case WireContract.TaskStatus.Working: return DelegatedTaskStatus.Working;
-                case WireContract.TaskStatus.Done: return DelegatedTaskStatus.Done;
-                case WireContract.TaskStatus.Failed: return DelegatedTaskStatus.Failed;
-                case WireContract.TaskStatus.Canceled: return DelegatedTaskStatus.Canceled;
+                case WireProtocol.TaskStatus.Accepted: return DelegatedTaskStatus.Accepted;
+                case WireProtocol.TaskStatus.Working: return DelegatedTaskStatus.Working;
+                case WireProtocol.TaskStatus.Done: return DelegatedTaskStatus.Done;
+                case WireProtocol.TaskStatus.Failed: return DelegatedTaskStatus.Failed;
+                case WireProtocol.TaskStatus.Canceled: return DelegatedTaskStatus.Canceled;
                 default: return DelegatedTaskStatus.Queued;
             }
         }
@@ -92,12 +92,12 @@ namespace SlopWorld
         {
             switch (status)
             {
-                case DelegatedTaskStatus.Accepted: return WireContract.TaskStatus.Accepted;
-                case DelegatedTaskStatus.Working: return WireContract.TaskStatus.Working;
-                case DelegatedTaskStatus.Done: return WireContract.TaskStatus.Done;
-                case DelegatedTaskStatus.Failed: return WireContract.TaskStatus.Failed;
-                case DelegatedTaskStatus.Canceled: return WireContract.TaskStatus.Canceled;
-                default: return WireContract.TaskStatus.Queued;
+                case DelegatedTaskStatus.Accepted: return WireProtocol.TaskStatus.Accepted;
+                case DelegatedTaskStatus.Working: return WireProtocol.TaskStatus.Working;
+                case DelegatedTaskStatus.Done: return WireProtocol.TaskStatus.Done;
+                case DelegatedTaskStatus.Failed: return WireProtocol.TaskStatus.Failed;
+                case DelegatedTaskStatus.Canceled: return WireProtocol.TaskStatus.Canceled;
+                default: return WireProtocol.TaskStatus.Queued;
             }
         }
 
