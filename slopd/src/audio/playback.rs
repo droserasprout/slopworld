@@ -3,7 +3,7 @@
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::mpsc::{sync_channel, Receiver, SyncSender, TryRecvError, TrySendError};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::{anyhow, Context, Result};
@@ -13,7 +13,7 @@ use rodio::{cpal, ChannelCount, Sample, SampleRate, Source};
 use super::station::{
     local_title, next_playlist_source, open_file, open_source, AudioFormat, Playlist, TitleSink,
 };
-use super::{AudioState, GENERATION, QUEUE_POLL, REOPEN_PAUSE};
+use super::{GENERATION, QUEUE_POLL, REOPEN_PAUSE};
 
 const CHUNK: usize = 4096;
 pub(crate) const RING: usize = 256;
@@ -28,6 +28,50 @@ pub(crate) const SERVER_PCMS: [&str; 3] = ["pipewire", "pulse", "default"];
 /// ALSA's `null` PCM accepts and discards every sample, so selecting it looks like playback
 /// with no sound. Never use it as a fallback.
 pub(crate) const NULL_PCM: &str = "null";
+
+/// The small seam between command handling and rodio. Keeping it here lets the worker exercise
+/// source generations with a fake mixer, while the real implementation remains a thin wrapper
+/// around rodio's player.
+pub(crate) trait AudioOutput: Send + Sync {
+    fn append(&self, source: Box<dyn Source + Send>);
+    fn set_volume(&self, volume: f32);
+    fn play(&self);
+}
+
+pub(crate) trait OutputFactory: Send + Sync {
+    fn open(&self) -> Result<Box<dyn AudioOutput>>;
+}
+
+pub(crate) struct RodioOutputFactory;
+
+impl OutputFactory for RodioOutputFactory {
+    fn open(&self) -> Result<Box<dyn AudioOutput>> {
+        let (sink, player) = open_device()?;
+        Ok(Box::new(RodioOutput {
+            _sink: sink,
+            player,
+        }))
+    }
+}
+
+struct RodioOutput {
+    _sink: rodio::MixerDeviceSink,
+    player: rodio::Player,
+}
+
+impl AudioOutput for RodioOutput {
+    fn append(&self, source: Box<dyn Source + Send>) {
+        self.player.append(source);
+    }
+
+    fn set_volume(&self, volume: f32) {
+        self.player.set_volume(volume);
+    }
+
+    fn play(&self) {
+        self.player.play();
+    }
+}
 
 /// The ALSA PCM id - `pipewire`, `pulse`, `default`, `null`. `description().name()` is a
 /// human sentence ("PipeWire Sound Server") and no use for matching; the id is the name
@@ -83,19 +127,25 @@ pub(crate) fn open_device() -> Result<(rodio::MixerDeviceSink, rodio::Player)> {
     Ok((sink, player))
 }
 
-/// Opens the source once here, so a station that will not answer is an error the mod can
-/// be told about, then hands the rest to a feeder.
-pub(crate) fn start(
-    source: &str,
-    player: &rodio::Player,
-    state: &Arc<Mutex<AudioState>>,
-) -> Result<()> {
-    let generation = GENERATION.load(Ordering::SeqCst);
-    let title = TitleSink {
-        state: Some(state.clone()),
-        generation,
-    };
+/// The result of source opening and decoder probing. It contains no output-side effects: the
+/// command worker can discard it after a replacement or stop without ever appending stale audio.
+pub(crate) struct OpenedSource {
+    pub(crate) source: String,
+    pub(crate) first: Box<dyn Source + Send>,
+    pub(crate) playlist: Option<Playlist>,
+    pub(crate) format: AudioFormat,
+    pub(crate) title: TitleSink,
+    pub(crate) initial_title: Option<String>,
+}
 
+pub(crate) struct CommittedSource {
+    pub(crate) title: TitleSink,
+    pub(crate) initial_title: Option<String>,
+}
+
+/// Opens the source and probes its decoder away from the command worker. The title sink remains
+/// pending until `commit` has appended the corresponding ring.
+pub(crate) fn open(source: &str, title: TitleSink) -> Result<OpenedSource> {
     let mut playlist = if Path::new(source).is_dir() {
         Some(Playlist::from_dir(Path::new(source))?)
     } else {
@@ -105,11 +155,9 @@ pub(crate) fn start(
         p.next()
             .expect("a directory playlist is non-empty by construction")
     });
+    let initial_title = first_path.as_ref().and_then(|path| local_title(path));
     let first = match first_path.as_ref() {
-        Some(path) => {
-            title.set(local_title(path));
-            open_file(path)?
-        }
+        Some(path) => open_file(path)?,
         None => open_source(source, &title)?,
     };
     let format = AudioFormat {
@@ -117,12 +165,43 @@ pub(crate) fn start(
         rate: first.sample_rate(),
     };
 
+    Ok(OpenedSource {
+        source: source.to_string(),
+        first,
+        playlist,
+        format,
+        title,
+        initial_title,
+    })
+}
+
+/// Commits an opened source to the output only while its generation is still current. The ring
+/// carries the same generation, so a concurrent replacement also retires it at the callback.
+pub(crate) fn commit(
+    opened: OpenedSource,
+    output: &dyn AudioOutput,
+    volume: f32,
+) -> Result<Option<CommittedSource>> {
+    let OpenedSource {
+        source,
+        first,
+        playlist,
+        format,
+        title,
+        initial_title,
+    } = opened;
+    let generation = title.generation;
+    if generation != GENERATION.load(Ordering::SeqCst) {
+        return Ok(None);
+    }
+
     let (tx, rx) = sync_channel::<Vec<Sample>>(RING);
     let ready = Arc::new(AtomicBool::new(false));
     let queued = Arc::new(AtomicUsize::new(0));
     let prefill_samples =
         format.rate.get() as usize * format.channels.get() as usize * PREFILL_SECS;
-    player.append(Ring {
+    output.set_volume(volume);
+    output.append(Box::new(Ring {
         rx,
         held: Vec::new(),
         at: 0,
@@ -132,9 +211,9 @@ pub(crate) fn start(
         ready: ready.clone(),
         queued: queued.clone(),
         prefill_samples,
-    });
+    }));
 
-    let source = source.to_string();
+    let feed_title = title.clone();
     std::thread::Builder::new()
         .name("slopd audio feed".into())
         .spawn(move || {
@@ -145,14 +224,18 @@ pub(crate) fn start(
                 format,
                 tx,
                 generation,
-                title,
+                title: feed_title,
                 ready,
                 queued,
             })
         })
         .context("starting the feeder")?;
 
-    Ok(())
+    output.play();
+    Ok(Some(CommittedSource {
+        title,
+        initial_title,
+    }))
 }
 
 // The feeder owns its inputs so the audio thread can run independently of the caller.

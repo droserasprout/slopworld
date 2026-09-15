@@ -59,7 +59,6 @@ namespace SlopWorld
         static bool _playing;
         static string _recognizedArtist;
         static string _recognizedTitle;
-        static int _trackVersion;
         static string _cachedNowPlaying;
         static double _cachedNowPlayingAt = double.NegativeInfinity;
         static int _cachedNowPlayingVersion = -1;
@@ -77,6 +76,26 @@ namespace SlopWorld
         {
             try { return Find.MusicManagerPlay; }
             catch { return null; } // Root_Entry has no play music manager.
+        }
+
+        // Sidecar playback is owned by RimWorld's native manager. The provider is kept as a
+        // seam for game-free tests and samples the manager once per action that needs a track.
+        internal static Func<NativeTrackSnapshot> NativeTrackProvider = ReadNativeTrack;
+
+        static NativeTrackSnapshot ReadNativeTrack()
+        {
+            try
+            {
+                var music = NativeMusic();
+                var song = music?.CurrentSong;
+                if (music == null || !music.IsPlaying || song == null) return null;
+
+                return NativeTrackSnapshot.FromOstClipPath(song.clipPath);
+            }
+            catch
+            {
+                return null;
+            }
         }
 
         static void SetNativeMusicMuted(bool muted)
@@ -105,21 +124,13 @@ namespace SlopWorld
         // source that the daemon normally provides for a directory playlist.
         static string NativeNowPlaying()
         {
-            try
-            {
-                var music = NativeMusic();
-                if (music == null || !music.IsPlaying || music.CurrentSong == null) return null;
+            return SampleNativeTrack()?.Display;
+        }
 
-                string path = music.CurrentSong.clipPath;
-                if (string.IsNullOrEmpty(path)) return null;
-                int slash = Math.Max(path.LastIndexOf('/'), path.LastIndexOf('\\'));
-                string title = slash >= 0 ? path.Substring(slash + 1) : path;
-                return string.IsNullOrEmpty(title) ? null : "Terry Fail - " + title;
-            }
-            catch
-            {
-                return null;
-            }
+        static NativeTrackSnapshot SampleNativeTrack()
+        {
+            try { return NativeTrackProvider(); }
+            catch { return null; }
         }
 
         // The selected station, or null for the OST, identifies the current music; menu rows
@@ -157,6 +168,7 @@ namespace SlopWorld
                 Read();
                 if (_muted) return null;
                 if (SidecarAudio) return NativeNowPlaying();
+                if (!_playing) return null;
                 if (HasRecognition()) return _recognizedArtist + " - " + _recognizedTitle;
                 return StationNowPlaying();
             }
@@ -172,11 +184,11 @@ namespace SlopWorld
             {
                 Read();
                 double now = Time.realtimeSinceStartupAsDouble;
-                if (_cachedNowPlayingVersion != _trackVersion
+                if (_cachedNowPlayingVersion != RecognitionTrack.Revision
                     || now - _cachedNowPlayingAt >= UpdateInterval)
                 {
                     _cachedNowPlaying = NowPlaying;
-                    _cachedNowPlayingVersion = _trackVersion;
+                    _cachedNowPlayingVersion = RecognitionTrack.Revision;
                     _cachedNowPlayingAt = now;
                 }
                 return _cachedNowPlaying;
@@ -234,6 +246,27 @@ namespace SlopWorld
         // action keeps the file append-friendly while remaining readable by other tools.
         public static void Like()
         {
+            if (SidecarAudio)
+            {
+                NativeTrackSnapshot native = SampleNativeTrack();
+                NativeLikeRecord record;
+                string nativeError;
+                if (!JukeboxLikeWriter.TryAppend(
+                    LikesPath(), native, DateTime.UtcNow, out record, out nativeError))
+                {
+                    if (nativeError == "nothing is playing") UiLayout.Fail(nativeError);
+                    else
+                    {
+                        Log.Error("[SlopWorld] jukebox: could not save liked song: " + nativeError);
+                        UiLayout.Fail("could not save liked song");
+                    }
+                    return;
+                }
+                Messages.Message($"Jukebox: liked {record.Display}",
+                    MessageTypeDefOf.TaskCompletion, false);
+                return;
+            }
+
             string now = NowPlaying;
             if (string.IsNullOrEmpty(now))
             {
@@ -511,6 +544,12 @@ namespace SlopWorld
         // back from, so it is left to the log.
         public static void Report(bool playing, string error, string title)
         {
+            bool identityChanged = RecognitionTrack.Update(playing, _muted, SourceLabel());
+            if (identityChanged)
+            {
+                _recognizedArtist = null;
+                _recognizedTitle = null;
+            }
             // The station's own, spliced into its audio and unpicked out there: it arrives
             // a second or so after a pick and changes on its own thereafter. Taken even
             // while muted, the mute being about the speakers rather than about the wire.
@@ -520,7 +559,7 @@ namespace SlopWorld
                 _rawTitle = raw;
                 _recognizedArtist = null;
                 _recognizedTitle = null;
-                _trackVersion++;
+                RecognitionTrack.Advance();
             }
             _playing = playing;
 
@@ -569,7 +608,8 @@ namespace SlopWorld
             _rawTitle = null;
             _recognizedArtist = null;
             _recognizedTitle = null;
-            _trackVersion++;
+            RecognitionTrack.Update(false, _muted, SourceLabel());
+            RecognitionTrack.Advance();
         }
 
         // Saved as "station-id:stream-key" - or "ost". The stream key keeps the setting
