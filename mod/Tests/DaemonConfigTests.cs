@@ -43,20 +43,14 @@ namespace SlopWorld.Tests
         static void NestedPatchChanges()
         {
             var config = DaemonConfig.FromJson(JVal.Parse("{}"));
-            config.ExperimentalBreadcrumbs = true;
             config.ExperimentalInstructions = true;
             config.UsageItems["test"] = new DaemonConfig.UsageItemConfig { Poll = true, IntervalSecs = 90 };
             string baseline = config.ToPatchJson();
-            config.ExperimentalBreadcrumbs = false;
             config.ExperimentalInstructions = false;
             config.UsageItems["test"].IntervalSecs = 0;
             config.InstructionsBreadcrumbEnabled = false;
             config.InstructionsTemplate = "a quoted \"draft\"\nnext line";
             var patch = JVal.Parse(config.ToPatchJson(baseline));
-            AssertEx.True(!patch["daemon"]["experimental_breadcrumbs"].IsNull,
-                           "breadcrumb feature false reset included");
-            AssertEx.Equal(false, patch["daemon"]["experimental_breadcrumbs"].AsBool(true),
-                           "breadcrumb feature false reset preserved");
             AssertEx.True(!patch["daemon"]["experimental_instructions"].IsNull,
                            "instruction feature false reset included");
             AssertEx.Equal(false, patch["daemon"]["experimental_instructions"].AsBool(true),
@@ -79,7 +73,6 @@ namespace SlopWorld.Tests
             var config = DaemonConfig.FromJson(JVal.Parse("{}"));
             AssertEx.False(config.MetadataAvailable, "missing daemon metadata is explicit");
             AssertEx.True(config.FactoryDefaults == null, "missing factory metadata has no reset copy");
-            AssertEx.Equal(false, config.ExperimentalBreadcrumbs, "breadcrumb feature defaults off");
             AssertEx.Equal(false, config.ExperimentalInstructions, "instruction feature defaults off");
 
             AssertEx.Equal(0, config.UsagePollSecs, "usage poll is unavailable");
@@ -126,7 +119,6 @@ namespace SlopWorld.Tests
         {
             var config = DaemonConfig.FromJson(JVal.Parse(
                 "{\"daemon\":{\"experimental\":true}}"));
-            AssertEx.True(config.ExperimentalBreadcrumbs, "legacy flag enables breadcrumbs");
             AssertEx.True(config.ExperimentalInstructions, "legacy flag enables instructions");
         }
 
@@ -134,7 +126,6 @@ namespace SlopWorld.Tests
         {
             var expected = new DaemonConfig
             {
-                ExperimentalBreadcrumbs = true,
                 ExperimentalInstructions = true,
                 UsagePollSecs = 17,
                 UsageItems = new Dictionary<string, DaemonConfig.UsageItemConfig>
@@ -171,8 +162,6 @@ namespace SlopWorld.Tests
                 Highlighter = "highlight --out-format=xterm256",
             };
             var actual = DaemonConfig.FromJson(JVal.Parse(expected.ToPatchJson()));
-            AssertEx.Equal(expected.ExperimentalBreadcrumbs, actual.ExperimentalBreadcrumbs,
-                           "breadcrumb feature round trip");
             AssertEx.Equal(expected.ExperimentalInstructions, actual.ExperimentalInstructions,
                            "instruction feature round trip");
 

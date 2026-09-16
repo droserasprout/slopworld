@@ -106,8 +106,7 @@ namespace SlopWorld
             var breadcrumbs = AllBreadcrumbs();
             var breadcrumbMenu = new UiSubmenu("Breadcrumbs",
                 () => BreadcrumbOptions(breadcrumbs));
-            breadcrumbMenu.Disabled = !SessionHub.Instance.Config.ExperimentalBreadcrumbs ||
-                info == null || !info.Alive || breadcrumbs.Count == 0;
+            breadcrumbMenu.Disabled = info == null || !info.Alive || breadcrumbs.Count == 0;
             options.Add(breadcrumbMenu);
             SelectionCommands.AddSelectAll(options, selectionAvailability, SelectAll);
             options.Add(new UiSubmenu("Open beside", () =>

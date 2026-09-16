@@ -166,8 +166,8 @@ impl Manager {
 }
 
 /// Duplicate the parent's session behavior for a child. A worker gets a new private-state
-/// identity and daemon-owned hierarchy metadata, while command, project, sandbox, prompts,
-/// networking, limits and mounts remain the parent's choices. Workers are deliberately stopped
+/// identity and daemon-owned hierarchy metadata, while command, project, sandbox, networking and
+/// limits remain the parent's choices. Workers use the live project's mounts. Workers are deliberately stopped
 /// after their task exits: retrying a task is an explicit operator decision, not a daemon loop.
 fn clone_worker_session(mut parent: SessionCfg, name: String, owner_name: &str) -> SessionCfg {
     parent.name = name;
@@ -187,9 +187,7 @@ fn clone_worker_session(mut parent: SessionCfg, name: String, owner_name: &str) 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::{
-        Config, Daemon, DnsConfig, Limits, Mount, MountMode, ProjectCfg, SessionCfg,
-    };
+    use crate::config::{Config, Daemon, DnsConfig, Limits, ProjectCfg, SessionCfg};
 
     #[tokio::test]
     async fn worker_names_are_explicitly_coined_without_name_inference() {
@@ -252,24 +250,16 @@ mod tests {
             command_snapshot: None,
             sandbox: vec!["codex".into(), "gpu".into()],
             sandbox_snapshots: Vec::new(),
-            breadcrumbs: vec!["tips".into()],
-            breadcrumb_snapshots: Vec::new(),
             slopworld_md: true,
-            instructions_breadcrumb: false,
             persistent_tmp: true,
-            breadcrumb_yolo: false,
-            network: Some(NetworkMode::Private),
-            dns: Some(DnsConfig::Resolved),
+            network: NetworkMode::Private,
+            dns: DnsConfig::Resolved,
             limits: Limits {
                 memory_mb: Some(1024),
                 pids: Some(64),
                 nofile: Some(128),
                 cpu_pct: Some(75),
             },
-            mounts: vec![Mount {
-                project: "other".into(),
-                mode: MountMode::Ro,
-            }],
             autostart: true,
             auto_resume: true,
             worker: false,
@@ -289,18 +279,11 @@ mod tests {
         assert_eq!(child.command, parent.command);
         assert_eq!(child.cmd, parent.cmd);
         assert_eq!(child.sandbox, ["codex", "gpu", WORKER_SANDBOX]);
-        assert_eq!(child.breadcrumbs, parent.breadcrumbs);
         assert_eq!(child.slopworld_md, parent.slopworld_md);
-        assert_eq!(
-            child.instructions_breadcrumb,
-            parent.instructions_breadcrumb
-        );
         assert_eq!(child.persistent_tmp, parent.persistent_tmp);
-        assert_eq!(child.breadcrumb_yolo, parent.breadcrumb_yolo);
         assert_eq!(child.network, parent.network);
         assert_eq!(child.dns, parent.dns);
         assert_eq!(child.limits, parent.limits);
-        assert_eq!(child.mounts, parent.mounts);
         assert!(!child.autostart);
         assert!(!child.auto_resume);
     }

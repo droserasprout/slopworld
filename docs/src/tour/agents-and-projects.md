@@ -2,14 +2,13 @@
 
 ## Projects
 
-A project is a directory, a sandbox configuration, and a network default. Projects are
-defined in the daemon's `config.toml` as `[[project]]` entries.
+A project is a directory and a set of shared project mounts. Projects are defined in the
+daemon's `config.toml` as `[[project]]` entries.
 
 Each project names:
 
 - A working directory, mounted read-write in every agent sandbox.
-- A list of sandbox presets applied to its agents.
-- A network mode: `none`, `private`, or `host`.
+- Optional additional project directories and their read-only/read-write modes.
 
 Temporary projects (`temp = true`) have no directory; the daemon creates one under
 `/tmp/slopworld/` when the agent starts.
@@ -17,15 +16,15 @@ Temporary projects (`temp = true`) have no directory; the daemon creates one und
 ## Agents (sessions)
 
 An agent is a session inside a project. It has a name, a command preset for the software it
-runs, and optional per-agent overrides for the command line,
-sandbox presets, and network mode.
+runs, and agent-owned command-line, sandbox, network, DNS, resource-limit, and startup
+settings.
 
 A command preset names a piece of software rather than a raw command. Knowing the preset
 lets the sandbox hand the agent the right configuration paths — for example, Claude gets
 `~/.claude` mounted privately.
 
-An agent's network override is optional. When absent, it inherits the project default.
-When present, it selects that agent's own mode, which may be wider than the project's.
+An agent's network mode is always direct. The documented default is `private`; DNS `resolved`
+follows the daemon's current resolver and an unset resource limit means no cap.
 
 ## State
 

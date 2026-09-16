@@ -95,12 +95,6 @@ impl Manager {
 
     pub(super) async fn upsert_sessions(&self, cfg: &Config) {
         let mut live = self.live.write().await;
-        if !cfg.daemon.experimental_breadcrumbs {
-            for session in live.values_mut() {
-                session.breadcrumbs_pending = false;
-                session.breadcrumbs.clear();
-            }
-        }
         for s in &cfg.sessions {
             let mut title = TitleCapture::default();
             title.override_title = self.title_cache.latest(&s.name);
@@ -108,9 +102,10 @@ impl Manager {
             live.entry(s.name.clone())
                 .and_modify(|l| {
                     l.cfg = s.clone();
-                    if !s.breadcrumb_yolo {
-                        l.breadcrumbs_pending = false;
-                    }
+                    // Discovery is armed only when the next process starts. Named
+                    // breadcrumbs are never copied into live state automatically.
+                    l.breadcrumbs_pending = false;
+                    l.breadcrumbs.clear();
                 })
                 .or_insert(Live::new(s.clone(), title));
         }

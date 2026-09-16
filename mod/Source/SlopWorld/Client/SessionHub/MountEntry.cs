@@ -7,7 +7,9 @@ namespace SlopWorld
 
     public class MountEntry
     {
-        public string Project = "";
+        public string From = "";
+        public string To = "";
+        public readonly string FieldId = System.Guid.NewGuid().ToString("N");
         public MountMode Mode = MountMode.Rw;
 
         public static MountMode ParseMode(string text)
@@ -28,7 +30,8 @@ namespace SlopWorld
 
         public static MountEntry FromJson(JVal j) => new MountEntry
         {
-            Project = j["project"].AsString(),
+            From = j["from"].AsString(),
+            To = j["to"].AsString(),
             Mode = ParseMode(j["mode"].AsString(WireProtocol.MountMode.Rw)),
         };
 
@@ -36,7 +39,7 @@ namespace SlopWorld
             j.Items.Select(FromJson).ToList();
 
         public string ToJson() =>
-            $"{{\"project\":{JVal.Q(Project)},\"mode\":{JVal.Q(ModeName(Mode))}}}";
+            $"{{\"from\":{JVal.Q(From)},\"to\":{JVal.Q(To)},\"mode\":{JVal.Q(ModeName(Mode))}}}";
 
         public static string ListToJson(List<MountEntry> mounts) =>
             "[" + string.Join(",", mounts.Select(m => m.ToJson()).ToArray()) + "]";

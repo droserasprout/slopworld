@@ -44,8 +44,8 @@ Settings > Integrations > Instructions edits the generated `SLOPWORLD.md` templa
 previews its rendered Markdown, edits the first-prompt discovery breadcrumb, chooses its
 read-only sandbox mount path, and enables or disables discovery. The body and breadcrumb
 each have an independent **Reset to default** action. The per-agent `slopworld_md` option
-remains the opt-in that mounts the document; its `instructions_breadcrumb` option controls
-whether that agent also receives the discovery line.
+remains the opt-in that mounts the document; the daemon's discovery policy controls the
+generated discovery line for those agents.
 
 Settings > Integrations > Workers edits the bootstrap prompt used by `slopctl spawn`.
 See [Settings](settings.md) for its experimental-switch behavior.
@@ -53,8 +53,8 @@ See [Settings](settings.md) for its experimental-switch behavior.
 ## Library items and errands
 
 A library item delivers a prompt or shell command to an agent. Prompt errands paste text
-and submit; shell errands run a command line. Breadcrumbs are named guidance blocks
-that an agent receives alongside its first prompt.
+and submit; shell errands run a command line. Breadcrumbs are named guidance blocks inserted
+manually from a terminal context menu.
 
 File-sidebar actions (`kind = "fa"`) appear in the Files, Git, and Find context menus.
 Their `command` runs against the selected path, with `{{ absolute_path }}` and

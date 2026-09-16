@@ -155,7 +155,6 @@ namespace SlopWorld
         public string PiTitles = "";
         // Task summaries are generated once for each durable delegated task.
         public string TaskSummaries = "";
-        public bool ExperimentalBreadcrumbs;
         public bool ExperimentalInstructions;
         // The generated project-root runtime manifest. The body is a Markdown template, with
         // {{ runtime_context }} expanding to the daemon's live snapshot.
@@ -189,8 +188,6 @@ namespace SlopWorld
                     ?? new List<UsageCatalogInfo>(),
                 TemporaryRoot = metadata?["temporary_root"].AsString() ?? "",
                 Terminal = TerminalLimits.FromJson(metadata?["terminal"]),
-                ExperimentalBreadcrumbs = d["experimental_breadcrumbs"].AsBool(
-                    d["experimental"].AsBool(false)),
                 ExperimentalInstructions = d["experimental_instructions"].AsBool(
                     d["experimental"].AsBool(false)),
                 UsagePollSecs = d["usage_poll_secs"].AsInt(defaults?.UsagePollSecs ?? 0),
@@ -274,7 +271,6 @@ namespace SlopWorld
             var daemon = before?["daemon"];
             return PatchObject(before,
                 "daemon", PatchObject(daemon,
-                    "experimental_breadcrumbs", JVal.B(ExperimentalBreadcrumbs),
                     "experimental_instructions", JVal.B(ExperimentalInstructions),
                     "usage_poll_secs", UsagePollSecs.ToString(System.Globalization.CultureInfo.InvariantCulture),
                     "usage_items", UsageItemsJson(daemon?["usage_items"]),

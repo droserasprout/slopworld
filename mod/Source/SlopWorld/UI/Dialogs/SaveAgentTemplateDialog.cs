@@ -23,7 +23,7 @@ namespace SlopWorld
         protected override void DoBody(Rect rect)
         {
             _name = TextDialog.Draw(rect, "Save agent as template",
-                $"Save customizations from the saved agent '{_source}'. Project defaults stay inherited.",
+                $"Save agent-owned settings from the saved agent '{_source}'. Project mounts stay contextual.",
                 "agent-template.name", _name, _error, UiTheme.RowH * 2f, TitleRect(rect));
 
             var foot = TextDialog.Footer(rect);

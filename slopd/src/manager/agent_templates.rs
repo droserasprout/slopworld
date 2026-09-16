@@ -27,7 +27,7 @@ impl Manager {
         template_name: String,
         description: String,
     ) -> Result<AgentTemplate> {
-        self.capture_agent_template(source_name, template_name, description, false)
+        self.capture_agent_template(source_name, template_name, description)
             .await
     }
 
@@ -36,14 +36,12 @@ impl Manager {
         source_name: &str,
         template_name: String,
         description: String,
-        include_inherited: bool,
     ) -> Result<AgentTemplate> {
         self.reload_if_changed().await;
         self.session_operation(self.save_agent_template_within_boundary(
             source_name,
             template_name,
             description,
-            include_inherited,
         ))
         .await
     }
@@ -53,7 +51,6 @@ impl Manager {
         source_name: &str,
         template_name: String,
         description: String,
-        include_inherited: bool,
     ) -> Result<AgentTemplate> {
         let cfg = self.config().await;
         let source = cfg
@@ -73,16 +70,14 @@ impl Manager {
             &source,
             &project,
             &cfg,
-            include_inherited,
         )?;
 
         self.create_agent_template_definition(template).await
     }
 
     /// Create a session from a template. The caller supplies identity and project; the optional
-    /// form payload supplies portable overrides and mount selections, never identity,
-    /// state, hierarchy, credentials, or runtime fields into the new session. Explicit mount
-    /// selections are validated against the destination configuration like ordinary creation.
+    /// form payload supplies portable overrides, never identity, state, hierarchy, credentials,
+    /// or runtime fields into the new session. Project mounts are resolved at start time.
     pub(crate) async fn create_from_agent_template(
         self: &Arc<Self>,
         template_name: &str,
@@ -172,15 +167,11 @@ impl Manager {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::{
-        BreadcrumbSnapshot, Config, LibraryItemCfg, LibraryItemKind, ProjectCfg, SessionCfg,
-    };
+    use crate::config::{Config, ProjectCfg, SessionCfg};
     use crate::presets::SandboxPreset;
 
     #[tokio::test]
-    async fn template_creation_preserves_and_validates_explicit_mounts() {
-        use crate::config::{Mount, MountMode};
-
+    async fn template_creation_uses_destination_project_mounts() {
         let root =
             std::env::temp_dir().join(format!("slopd-template-mounts-{}", uuid::Uuid::new_v4()));
         std::fs::create_dir_all(&root).unwrap();
@@ -190,6 +181,15 @@ mod tests {
                 .map(|name| ProjectCfg {
                     name: name.into(),
                     dir: root.to_string_lossy().into_owned(),
+                    mounts: if name == "repo" {
+                        vec![crate::config::Mount {
+                            from: "/tmp".into(),
+                            to: "/mnt/extra".into(),
+                            mode: crate::config::MountMode::Ro,
+                        }]
+                    } else {
+                        Vec::new()
+                    },
                     ..Default::default()
                 })
                 .collect(),
@@ -204,43 +204,15 @@ mod tests {
             .save_agent_template("source", "reviewer".into(), "".into())
             .await
             .unwrap();
-        let mut overrides = SessionCfg {
-            mounts: vec![
-                Mount {
-                    project: "repo".into(),
-                    mode: MountMode::Ro,
-                },
-                Mount {
-                    project: "extra".into(),
-                    mode: MountMode::Rw,
-                },
-            ],
-            ..Default::default()
-        };
         manager
-            .create_from_agent_template(
-                "reviewer",
-                "new-agent".into(),
-                "repo".into(),
-                Some(overrides.clone()),
-            )
+            .create_from_agent_template("reviewer", "new-agent".into(), "repo".into(), None)
             .await
             .unwrap();
+        assert!(manager.config().await.session("new-agent").unwrap().project == "repo");
         assert_eq!(
-            manager.config().await.session("new-agent").unwrap().mounts,
-            overrides.mounts
+            manager.config().await.project("repo").unwrap().mounts.len(),
+            1
         );
-        overrides.mounts[1].project = "missing-project".into();
-        assert!(manager
-            .create_from_agent_template(
-                "reviewer",
-                "invalid-agent".into(),
-                "repo".into(),
-                Some(overrides)
-            )
-            .await
-            .is_err());
-        assert!(manager.config().await.session("invalid-agent").is_none());
         let _ = std::fs::remove_dir_all(root);
     }
 
@@ -284,12 +256,6 @@ mod tests {
                 dir: root.to_string_lossy().into_owned(),
                 ..Default::default()
             }],
-            library: vec![LibraryItemCfg {
-                name: "review".into(),
-                kind: LibraryItemKind::Breadcrumb,
-                text: "check the diff".into(),
-                ..Default::default()
-            }],
             sessions: vec![SessionCfg {
                 name: "source".into(),
                 project: "repo".into(),
@@ -298,11 +264,6 @@ mod tests {
                 sandbox_snapshots: vec![SandboxPreset {
                     name: "captured".into(),
                     ..Default::default()
-                }],
-                breadcrumbs: vec!["review".into()],
-                breadcrumb_snapshots: vec![BreadcrumbSnapshot {
-                    name: "review".into(),
-                    text: "captured prompt".into(),
                 }],
                 ..Default::default()
             }],
@@ -331,13 +292,11 @@ mod tests {
                 .unwrap()
                 .sandbox
                 .clone(),
-            breadcrumbs: vec!["review".into()],
             ..Default::default()
         };
         manager.update("new-agent", update).await.unwrap();
         let session = manager.config().await.session("new-agent").unwrap().clone();
         assert!(!session.sandbox_snapshots.is_empty());
-        assert_eq!(session.breadcrumb_snapshots[0].text, "captured prompt");
         let _ = std::fs::remove_dir_all(root);
     }
 

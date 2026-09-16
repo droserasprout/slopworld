@@ -3,7 +3,6 @@ use axum::http::StatusCode;
 use axum::{Extension, Json};
 use serde_json::json;
 
-use crate::config::SessionCfg;
 use crate::grant::{Cap, Level};
 
 use super::{err, ApiResult, Mgr};
@@ -76,9 +75,10 @@ pub(crate) async fn sandbox(
 pub(crate) async fn create(
     State(m): State<Mgr>,
     Extension(cap): Extension<Cap>,
-    Json(s): Json<SessionCfg>,
+    Json(value): Json<serde_json::Value>,
 ) -> ApiResult {
     super::guard_create(&cap)?;
+    let s = crate::api::parse_session(value)?;
     super::ok_json(m.add(s).await)
 }
 
@@ -86,9 +86,10 @@ pub(crate) async fn update(
     State(m): State<Mgr>,
     Extension(cap): Extension<Cap>,
     Path(name): Path<String>,
-    Json(s): Json<SessionCfg>,
+    Json(value): Json<serde_json::Value>,
 ) -> ApiResult {
     super::guard_root(&cap)?;
+    let s = crate::api::parse_session(value)?;
     super::ok_json(m.update(&name, s).await)
 }
 
@@ -229,10 +230,6 @@ mod tests {
             name: "renamed".into(),
             project: "other".into(),
             sandbox: vec!["slopworld-debug".into()],
-            mounts: vec![crate::config::Mount {
-                project: "other".into(),
-                mode: crate::config::MountMode::Ro,
-            }],
             ..Default::default()
         };
         let original = manager.config().await;
@@ -248,7 +245,7 @@ mod tests {
                 State(manager.clone()),
                 Extension(cap),
                 Path("agent".into()),
-                Json(replacement.clone()),
+                Json(serde_json::to_value(replacement.clone()).unwrap()),
             )
             .await
             .expect_err("scoped configuration update must be rejected");
@@ -267,7 +264,7 @@ mod tests {
             State(manager.clone()),
             Extension(Cap::Root),
             Path("agent".into()),
-            Json(replacement),
+            Json(serde_json::to_value(replacement).unwrap()),
         )
         .await
         .expect("root configuration update should remain available");
@@ -275,7 +272,6 @@ mod tests {
         assert_eq!(saved.sessions[0].name, "renamed");
         assert_eq!(saved.sessions[0].project, "other");
         assert_eq!(saved.sessions[0].sandbox, ["slopworld-debug"]);
-        assert_eq!(saved.sessions[0].mounts.len(), 1);
         std::fs::remove_dir_all(directory).unwrap();
     }
 }

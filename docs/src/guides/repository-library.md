@@ -30,6 +30,7 @@ Discovery never runs an item, starts an agent, or attaches a breadcrumb automati
 ```toml
 name = "review"
 kind = "prompt"
+agent_template = "my-project::reviewer"
 text = "Review the current diff and identify correctness problems."
 ```
 
@@ -38,6 +39,7 @@ text = "Review the current diff and identify correctness problems."
 ```toml
 name = "tests"
 kind = "shell"
+host = true
 text = "make test"
 ```
 
@@ -61,7 +63,10 @@ mode = "open_terminal"
 These use the same fields as personal `[[library]]` records. The owning project supplies
 `project`; the file cannot impersonate another project or a builtin. Prompts and shell
 errands may set `link = "ask"` or `link = "temp"` for the usual destination choices.
-Breadcrumbs must be selected explicitly in the project or agent editor. File actions
+They must explicitly choose `host = true` or `agent_template = "name"`; replace
+`my-project` above with the registered project name for a repository template. Template
+settings are copied for each run; host execution runs outside the sandbox.
+Breadcrumbs are inserted manually from a running agent's terminal context menu. File actions
 appear in the owning project's file-action menus. Text lives inline in the TOML file;
 multiline TOML strings work for longer prompts.
 
@@ -76,26 +81,21 @@ description = "Review a checkout using Codex"
 [defaults]
 cmd = "codex"
 network = "private"
-
-[[defaults.prompts]]
-name = "review-instructions"
-text = "Review the current diff and report correctness problems."
 ```
 
 A template uses the same portable `defaults` as the template API: an optional complete
 `command` preset, a raw `cmd`, sandbox names and their `sandbox_presets` definitions,
-prompt snapshots, network, DNS, limits, and startup flags. Preset definitions must be
-self-contained; unresolved dependencies are rejected. All scalar choices are optional.
-Omitted network, DNS and limit fields inherit from the destination project; an omitted command
-uses the destination daemon's default agent. Omitted startup flags use session defaults
-(currently false except `instructions_breadcrumb` and `breadcrumb_yolo`, which are true).
-Explicit values, including false, are copied as choices. A recipe may have an empty
-`[defaults]` table. See [inheritance and overrides](configuring-agents.md#project-defaults-and-agent-overrides).
+network, DNS, limits, and startup flags. Preset definitions must be self-contained; unresolved
+dependencies are rejected. All scalar choices are optional. Omitted network and DNS use the
+documented agent defaults (`private` and the system resolver); an unset limit means no cap;
+omitted startup flags use session defaults. Explicit values, including false, are copied as
+choices. A recipe may have an empty `[defaults]` table.
 
 The daemon supplies origin metadata. Repository templates do not need a `version`.
 Creating an agent or duplicating into the personal catalog copies the definition and its
 snapshots; later repository changes do not rewrite those copies. A template does not
-capture mounts, credentials, or agent identity. Existing launch and sandbox validation
+capture mounts, credentials, or agent identity. Obsolete template fields are reported with
+the authoring path and are never rewritten in the checkout. Existing launch and sandbox validation
 still applies when creating or starting an agent.
 
 Invalid definitions are skipped with a daemon log diagnostic; other valid files remain

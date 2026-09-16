@@ -11,7 +11,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::{bail, Context, Result};
 
-use crate::config::{Config, DnsConfig, Limits, MountMode, ProjectCfg, SessionCfg};
+use crate::config::{Config, Limits, MountMode, ProjectCfg};
 use crate::session::{SessionView, State};
 
 pub const FILE_NAME: &str = "SLOPWORLD.md";
@@ -195,29 +195,19 @@ fn render_runtime_context(cfg: &Config, project: &ProjectCfg, sessions: &[Sessio
     );
 
     out.push_str("\n## Sandbox\n\n");
-    let project_presets = std::iter::once("global".to_string())
-        .chain(project.sandbox.iter().cloned())
-        .collect::<Vec<_>>();
-    out.push_str(&format!(
-        "- Project sandbox presets: {}\n",
-        list(&project_presets)
-    ));
-    let default_session = SessionCfg {
-        project: project.name.clone(),
-        ..Default::default()
-    };
-    out.push_str(&format!(
-        "- Project network default: {}\n",
-        network(cfg.network_of(&default_session, project))
-    ));
-    out.push_str(&format!(
-        "- Project DNS: {}\n",
-        dns(cfg.dns_of(&default_session, project))
-    ));
-    out.push_str(&format!(
-        "- Project resource limits: {}\n",
-        limits(project.limits)
-    ));
+    out.push_str("- Sandbox presets, network, DNS, and resource limits belong to each agent or its template.\n");
+    out.push_str("- Project-owned mounts are applied at the next agent start:\n");
+    if project.mounts.is_empty() {
+        out.push_str("  - none\n");
+    } else {
+        for mount in &project.mounts {
+            out.push_str(&format!(
+                "  - {} at {}\n",
+                code(&format!("{} → {}", mount.from, mount.to)),
+                mount_mode(mount.mode)
+            ));
+        }
+    }
     out.push_str(
         "- The project directory is the main writable workspace; additional mounts and per-agent overrides are listed below.\n",
     );
@@ -238,7 +228,7 @@ fn render_runtime_context(cfg: &Config, project: &ProjectCfg, sessions: &[Sessio
         let command = cfg.command_name(session);
         let state = view.map(|view| state_name(view.state)).unwrap_or("down");
         let effective_network = network(cfg.network_of(session, project));
-        let mount = primary_mount(session, project);
+        let mount = primary_mount(project);
         out.push_str(&format!(
             "| {} | {} | {} | {} | {} |\n",
             code(&session.name),
@@ -266,13 +256,13 @@ fn render_runtime_context(cfg: &Config, project: &ProjectCfg, sessions: &[Sessio
                 list(&escapes)
             ));
         }
-        for mount in &session.mounts {
-            if mount.project == project.name {
+        for mount in &project.mounts {
+            if crate::config::expand(&mount.to) == crate::config::expand(&project.dir) {
                 continue;
             }
             out.push_str(&format!(
                 "  Additional mount: {} at {}.\n",
-                code(&format!("/mnt/{}", mount.project)),
+                code(&format!("{} → {}", mount.from, mount.to)),
                 mount_mode(mount.mode)
             ));
         }
@@ -298,11 +288,11 @@ fn render_runtime_context(cfg: &Config, project: &ProjectCfg, sessions: &[Sessio
     out
 }
 
-fn primary_mount(session: &SessionCfg, project: &ProjectCfg) -> &'static str {
-    match session
+fn primary_mount(project: &ProjectCfg) -> &'static str {
+    match project
         .mounts
         .iter()
-        .find(|mount| mount.project == project.name)
+        .find(|mount| crate::config::expand(&mount.to) == crate::config::expand(&project.dir))
         .map(|mount| mount.mode)
         .unwrap_or(MountMode::Rw)
     {
@@ -340,16 +330,6 @@ fn network(mode: crate::config::NetworkMode) -> &'static str {
             "private (outbound via pasta; no host-local loopback)"
         }
         crate::config::NetworkMode::Host => "host (host network)",
-    }
-}
-
-fn dns(config: DnsConfig) -> String {
-    match config {
-        DnsConfig::Resolved => "system resolver".into(),
-        DnsConfig::Servers { servers } => format!(
-            "explicit servers {}",
-            list(&servers.iter().map(ToString::to_string).collect::<Vec<_>>())
-        ),
     }
 }
 

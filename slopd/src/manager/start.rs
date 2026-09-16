@@ -310,24 +310,9 @@ impl Manager {
         project: &ProjectCfg,
         host: bool,
     ) {
-        let command = cfg.command_of(session);
-        let directory = expand(&project.dir);
-        let vars = TemplateVars {
-            agent: &session.name,
-            project: &project.name,
-            directory: &directory,
-            command: &command,
-        };
-        let mut crumbs: Vec<String> = cfg
-            .breadcrumbs_of(session, project)
-            .into_iter()
-            .map(|text| render_template_with(&text, &[], Some(&vars)))
-            .collect();
-        if !host
+        let discovery = if !host
             && cfg.daemon.experimental_instructions
-            && cfg.daemon.experimental_breadcrumbs
             && session.slopworld_md
-            && session.instructions_breadcrumb
             && cfg.daemon.instructions.breadcrumb_enabled
         {
             let discovery = crate::manifest::render_breadcrumb(
@@ -335,20 +320,16 @@ impl Manager {
                 &project.name,
                 &cfg.daemon.instructions.mount_path,
             );
-            if !discovery.trim().is_empty() {
-                crumbs.push(discovery);
-            }
-        }
+            (!discovery.trim().is_empty()).then_some(discovery)
+        } else {
+            None
+        };
         let mut live = self.live.write().await;
         if let Some(live) = live.get_mut(name) {
             live.breadcrumbs.clear();
             live.breadcrumbs_pending = false;
-            if !host
-                && cfg.daemon.experimental_breadcrumbs
-                && session.breadcrumb_yolo
-                && !crumbs.is_empty()
-            {
-                live.breadcrumbs = breadcrumb_block(&crumbs).into_bytes();
+            if let Some(discovery) = discovery {
+                live.breadcrumbs = breadcrumb_block(&[discovery]).into_bytes();
                 live.breadcrumbs_pending = true;
             }
         }

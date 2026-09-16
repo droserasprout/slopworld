@@ -5,8 +5,8 @@ use crate::config::{Config, ProjectCfg, SessionCfg};
 use super::PANE_TERM;
 
 /// Builds the unsandboxed "Terminal (host)" command. It inherits slopd's environment, keeps
-/// the same tmux working directory as sandboxed sessions, and is intentionally not selectable
-/// from `config.toml`.
+/// the same tmux working directory as sandboxed sessions. Library errands must explicitly
+/// choose host execution; ordinary agents remain sandboxed.
 pub fn host_argv(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Vec<String> {
     let mut a: Vec<String> = vec![
         "env".into(),

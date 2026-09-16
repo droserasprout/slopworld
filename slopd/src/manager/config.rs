@@ -314,14 +314,13 @@ impl Manager {
                 return false;
             }
         };
-        let parsed = match Config::parse(&text) {
-            Ok(c) => c,
+        let (parsed, _) = match Config::parse_document(&text) {
+            Ok(value) => value,
             Err(e) => {
                 tracing::warn!("config changed on disk but is invalid, keeping the old one: {e:#}");
                 return false;
             }
         };
-
         let old = self.cfg.read().await.clone();
         let change = match prepare_candidate(&old, parsed) {
             Ok(change) => change,
@@ -635,7 +634,7 @@ impl Manager {
         merge_toml(&mut document, patch);
 
         let old = self.cfg.read().await.clone();
-        let parsed = Config::parse(&toml::to_string_pretty(&document)?)?;
+        let (parsed, mut document) = Config::parse_document(&toml::to_string_pretty(&document)?)?;
         if parsed.daemon.token == crate::config::TOKEN_REDACTED {
             restore_redacted_document_token(&old, &mut document);
         }
@@ -658,9 +657,13 @@ impl Manager {
     async fn replace_config_within_boundary(self: &Arc<Self>, text: &str) -> Result<()> {
         let persist = self.config_state.persist.lock().await;
         let old = self.cfg.read().await.clone();
-        let parsed = Config::parse(text)?;
+        let (parsed, mut document) = Config::parse_document(text)?;
+        if parsed.daemon.token == crate::config::TOKEN_REDACTED {
+            restore_redacted_document_token(&old, &mut document);
+        }
         let change = prepare_candidate(&old, parsed)?;
-        self.persist_cfg(&change.new).await?;
+        self.persist_cfg_text(&toml::to_string_pretty(&document)?)
+            .await?;
         let effects = self.publish_config(change, ConfigOrigin::FileUpdate).await;
         self.update_endpoint(&effects.endpoint_token).await;
         drop(persist);

@@ -13,10 +13,10 @@ the caller owns the child in the sidebar, while `PARENT` supplies the configurat
 Keep transport, grants, and policy out of the prompt. Project instruction files do not
 own this capability because it belongs to a live SlopWorld session.
 
-The optional `slopworld_md` session setting mounts the generated project-root `SLOPWORLD.md`
-and, when `[daemon.instructions] breadcrumb_enabled` is true, adds the configured discovery
-breadcrumb. Its default text points at the configured manifest mount path. The file can
-summarize the current project sandbox, configured collaborators, and the `slopctl` entry
+The optional `slopworld_md` agent setting mounts the generated project-root `SLOPWORLD.md`
+and, when daemon instruction policy allows it, adds the configured discovery breadcrumb. Its
+default text points at the configured manifest mount path. The file can summarize the current
+project workspace, configured collaborators, and the `slopctl` entry
 points; it is a generated runtime snapshot, not a replacement for this task-discovery message
 or for project instructions.
 

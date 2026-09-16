@@ -50,9 +50,8 @@ pub(crate) struct LabelReq {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub(crate) struct SaveAgentTemplateReq {
-    #[serde(default)]
-    pub(crate) include_inherited: bool,
     pub(crate) name: String,
     #[serde(default)]
     pub(crate) description: String,
@@ -75,7 +74,7 @@ pub(crate) struct CreateAgentTemplateReq {
     pub(crate) project: String,
     /// A complete form snapshot. The daemon copies only the documented portable fields.
     #[serde(default)]
-    pub(crate) overrides: Option<crate::config::SessionCfg>,
+    pub(crate) overrides: Option<serde_json::Value>,
 }
 
 /// An errand nobody wrote down: the same temporary agent `/api/library/NAME/run` makes,
@@ -112,12 +111,13 @@ pub(crate) struct RunReq {
     /// spent per mention, so a text with five bullets gets five different lines.
     #[serde(default)]
     pub(crate) random_tips: Vec<String>,
-    /// Outside the sandbox: the sidebar's "Terminal (host)". Only an errand can ask - there
-    /// is no such key on a session or a library item.
+    /// Explicit unsandboxed errand execution.
     #[serde(default)]
     pub(crate) host: bool,
-    /// Clone sandbox config (presets, persistent /tmp, network, dns, limits, mounts) from this
-    /// session.
+    #[serde(default)]
+    pub(crate) agent_template: String,
+    /// Clone agent-owned process settings (presets, persistent /tmp, network, DNS, and limits)
+    /// from this session. The selected project supplies mounts.
     #[serde(default)]
     pub(crate) like: String,
 }

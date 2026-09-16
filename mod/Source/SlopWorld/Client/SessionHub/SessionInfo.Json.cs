@@ -18,20 +18,13 @@ namespace SlopWorld
             (s, j) => s.Cmd = j["cmd"].IsNull ? "" : j["cmd"].AsString(),
             (s, j) => s.Sandbox = Strings(j["sandbox"]),
             (s, j) => s.SlopworldMd = j["slopworld_md"].AsBool(false),
-            (s, j) => s.InstructionsBreadcrumb = j["instructions_breadcrumb"].AsBool(true),
             (s, j) => s.PersistentTmp = j["persistent_tmp"].AsBool(false),
             (s, j) => s.Agent = j["agent"].AsString(),
             (s, j) => s.State = ParseState(j["state"].AsString()),
             (s, j) => s.Alive = j["alive"].AsBool(),
             (s, j) => s.Network = NetworkModeText.Parse(j["network"].AsString(WireProtocol.NetworkMode.Private)),
-            (s, j) => s.NetworkOverride = j["network_override"].IsNull
-                ? (NetworkMode?)null
-                : NetworkModeText.Parse(j["network_override"].AsString()),
             (s, j) => s.Dns = DnsConfig.FromJson(j["dns"]),
-            (s, j) => s.DnsOverride = j["dns_override"].IsNull
-                ? null : DnsConfig.FromJson(j["dns_override"]),
-            (s, j) => s.Limits = SessionLimits.FromJson(j["limits_override"]),
-            (s, j) => s.EffectiveLimits = SessionLimits.FromJson(j["limits"]),
+            (s, j) => s.Limits = SessionLimits.FromJson(j["limits"]),
             (s, j) => s.Mounts = j["mounts"].IsNull
                 ? new List<MountEntry>() : MountEntry.ListFromJson(j["mounts"]),
             (s, j) => s.Autostart = j["autostart"].AsBool(false),
@@ -41,9 +34,6 @@ namespace SlopWorld
             (s, j) => s.Parent = j["parent"].AsString(),
             (s, j) => s.TaskId = j["task_id"].AsString(),
             (s, j) => s.Durable = j["durable"].AsBool(false),
-            (s, j) => s.BreadcrumbYolo = j["breadcrumb_yolo"].AsBool(true),
-            (s, j) => s.Breadcrumbs = Strings(j["breadcrumbs"]),
-            (s, j) => s.BreadcrumbsPending = j["breadcrumbs_pending"].AsBool(false),
             (s, j) => s.Ephemeral = j["ephemeral"].AsBool(false),
             (s, j) => s.Host = j["host"].AsBool(false),
             (s, j) => s.ProcessRunning = j["process_running"].AsBool(false),

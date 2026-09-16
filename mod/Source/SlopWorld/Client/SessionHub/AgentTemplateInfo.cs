@@ -8,10 +8,8 @@ namespace SlopWorld
     // the picker only needs the portable defaults to seed the existing agent form controls.
     public class AgentTemplateInfo
     {
-        public static readonly string[] FlagNames = { "slopworld_md", "instructions_breadcrumb", "persistent_tmp", "breadcrumb_yolo", "autostart", "auto_resume" };
+        public static readonly string[] FlagNames = { "slopworld_md", "persistent_tmp", "autostart", "auto_resume" };
         public HashSet<string> SpecifiedFlags = new HashSet<string>();
-        public bool InheritNetwork = true;
-        public bool InheritDns = true;
         public string Name = "";
         // Versions are daemon-owned compare-and-swap tokens. Zero is reserved for a new
         // definition, which lets the same wire model serve capture, duplicate, and edit.
@@ -23,18 +21,17 @@ namespace SlopWorld
         public string Command = "";
         public string Cmd = "";
         public List<string> Sandbox = new List<string>();
-        public List<string> Prompts = new List<string>();
         public bool SlopworldMd;
-        public bool InstructionsBreadcrumb = true;
         public bool PersistentTmp;
-        public bool BreadcrumbYolo = true;
         public NetworkMode Network = NetworkMode.Private;
+        public bool NetworkSpecified;
         public DnsConfig Dns = DnsConfig.Resolved();
+        public bool DnsSpecified;
         public SessionLimits Limits;
         public bool Autostart;
         public bool AutoResume;
         // Keep the daemon's complete snapshots alongside the friendly projection. Editing a
-        // name or description must not discard captured preset/prompt definitions that are no
+        // name or description must not discard captured preset definitions that are no
         // longer present in the live catalogs.
         public string DefaultsJson = "{}";
         public string OriginJson = "{}";
@@ -57,8 +54,6 @@ namespace SlopWorld
             return new AgentTemplateInfo
             {
                 SpecifiedFlags = new HashSet<string>(FlagNames.Where(name => !defaults[name].IsNull)),
-                InheritNetwork = defaults["network"].IsNull,
-                InheritDns = defaults["dns"].IsNull,
                 Name = j["name"].AsString(),
                 Version = j["version"].AsLong(0),
                 Description = j["description"].AsString(),
@@ -68,13 +63,12 @@ namespace SlopWorld
                 Command = defaults["command"]["name"].AsString(),
                 Cmd = defaults["cmd"].IsNull ? "" : defaults["cmd"].AsString(),
                 Sandbox = Strings(defaults["sandbox"]),
-                Prompts = defaults["prompts"].Items.Select(p => p["name"].AsString()).ToList(),
                 SlopworldMd = defaults["slopworld_md"].AsBool(false),
-                InstructionsBreadcrumb = defaults["instructions_breadcrumb"].AsBool(true),
                 PersistentTmp = defaults["persistent_tmp"].AsBool(false),
-                BreadcrumbYolo = defaults["breadcrumb_yolo"].AsBool(true),
                 Network = NetworkModeText.Parse(defaults["network"].AsString(WireProtocol.NetworkMode.Private)),
+                NetworkSpecified = !defaults["network"].IsNull,
                 Dns = DnsConfig.FromJson(defaults["dns"]),
+                DnsSpecified = !defaults["dns"].IsNull,
                 Limits = SessionLimits.FromJson(defaults["limits"]),
                 Autostart = defaults["autostart"].AsBool(false),
                 AutoResume = defaults["auto_resume"].AsBool(false),
@@ -86,8 +80,6 @@ namespace SlopWorld
         public AgentTemplateInfo Copy() => new AgentTemplateInfo
         {
             SpecifiedFlags = new HashSet<string>(SpecifiedFlags),
-            InheritNetwork = InheritNetwork,
-            InheritDns = InheritDns,
             Name = Name,
             Version = Version,
             Description = Description,
@@ -97,13 +89,12 @@ namespace SlopWorld
             Command = Command,
             Cmd = Cmd,
             Sandbox = new List<string>(Sandbox),
-            Prompts = new List<string>(Prompts),
             SlopworldMd = SlopworldMd,
-            InstructionsBreadcrumb = InstructionsBreadcrumb,
             PersistentTmp = PersistentTmp,
-            BreadcrumbYolo = BreadcrumbYolo,
             Network = Network,
+            NetworkSpecified = NetworkSpecified,
             Dns = Dns?.Copy() ?? DnsConfig.Resolved(),
+            DnsSpecified = DnsSpecified,
             Limits = Limits,
             Autostart = Autostart,
             AutoResume = AutoResume,
@@ -123,14 +114,6 @@ namespace SlopWorld
             JVal.Parse(DefaultsJson)["sandbox_presets"].Items.Select(PresetInfo.FromJson)
                 .Concat(SessionHub.Instance.Presets).GroupBy(p => p.Name).Select(g => g.First()).ToList();
 
-        public List<LibraryItemInfo> BreadcrumbCatalog() =>
-            JVal.Parse(DefaultsJson)["prompts"].Items.Select(prompt => new LibraryItemInfo
-            {
-                Name = prompt["name"].AsString(),
-                Text = prompt["text"].AsString(),
-                Kind = LibraryItemKind.Breadcrumb,
-            }).Concat(SessionHub.Instance.Catalog.Library).GroupBy(p => p.Name).Select(g => g.First()).ToList();
-
         // Apply the portable editor form to the definition while preserving definitions that
         // came from a source catalog but are no longer installed locally.
         public string ToJson(SessionInfo form)
@@ -140,18 +123,14 @@ namespace SlopWorld
             var dependencies = JVal.Parse(command)["sandbox"].Items.Select(item => item.AsString());
             string snapshots = SandboxSnapshots(old, form.Sandbox.Concat(dependencies));
             var sandbox = JVal.Parse(snapshots).Items.Select(item => item["name"].AsString());
-            string prompts = PromptSnapshots(old, form.Breadcrumbs);
             string patch = "{" +
                 $"\"command\":{command}," +
                 $"\"cmd\":{(string.IsNullOrWhiteSpace(form.Cmd) ? "null" : JVal.Q(form.Cmd))}," +
                 $"\"sandbox\":{Strings(sandbox)},\"sandbox_presets\":{snapshots}," +
-                $"\"prompts\":{prompts}," +
                 $"\"slopworld_md\":{FlagJson("slopworld_md", form.SlopworldMd)}," +
-                $"\"instructions_breadcrumb\":{FlagJson("instructions_breadcrumb", form.InstructionsBreadcrumb)}," +
                 $"\"persistent_tmp\":{FlagJson("persistent_tmp", form.PersistentTmp)}," +
-                $"\"breadcrumb_yolo\":{FlagJson("breadcrumb_yolo", form.BreadcrumbYolo)}," +
-                $"\"network\":{(form.NetworkOverride.HasValue ? JVal.Q(NetworkModeText.Name(form.NetworkOverride.Value)) : "null")}," +
-                $"\"dns\":{(form.DnsOverride == null ? "null" : form.DnsOverride.ToJson())}," +
+                $"\"network\":{(NetworkSpecified ? JVal.Q(NetworkModeText.Name(form.Network)) : "null")}," +
+                $"\"dns\":{(DnsSpecified ? form.Dns.ToJson() : "null")}," +
                 $"\"limits\":{form.Limits.ToJson()}," +
                 $"\"autostart\":{FlagJson("autostart", form.Autostart)}," +
                 $"\"auto_resume\":{FlagJson("auto_resume", form.AutoResume)}" +
@@ -171,20 +150,13 @@ namespace SlopWorld
             s.CommandPreset = Command ?? "";
             s.Cmd = Cmd ?? "";
             s.Sandbox = new List<string>(Sandbox);
-            s.Breadcrumbs = new List<string>(Prompts);
             s.SlopworldMd = SlopworldMd;
-            s.InstructionsBreadcrumb = InstructionsBreadcrumb;
             s.PersistentTmp = PersistentTmp;
-            s.BreadcrumbYolo = BreadcrumbYolo;
             s.Network = Network;
-            s.NetworkOverride = InheritNetwork ? (NetworkMode?)null : Network;
             s.Dns = Dns?.Copy() ?? DnsConfig.Resolved();
-            s.DnsOverride = InheritDns ? null : Dns?.Copy() ?? DnsConfig.Resolved();
             s.Limits = Limits;
-            s.EffectiveLimits = Limits;
             s.Autostart = Autostart;
             s.AutoResume = AutoResume;
-            s.Mounts = new List<MountEntry>();
         }
 
         string FlagJson(string name, bool value) => SpecifiedFlags.Contains(name) ? JVal.B(value) : "null";
@@ -227,27 +199,5 @@ namespace SlopWorld
             return "[" + string.Join(",", output.ToArray()) + "]";
         }
 
-        static string PromptSnapshots(JVal old, IEnumerable<string> selected) =>
-            Snapshots(old["prompts"], selected, name =>
-            {
-                var item = SessionHub.Instance.Catalog.Library.FirstOrDefault(i => i.Name == name);
-                return item == null ? null : "{\"name\":" + JVal.Q(item.Name) +
-                    ",\"text\":" + JVal.Q(item.Text ?? "") + "}";
-            });
-
-        // Resolve in selection order: prompt order is also delivery order. Captured values
-        // win over live catalogs until the player selects a different entry.
-        static string Snapshots(JVal captured, IEnumerable<string> selected, Func<string, string> lookup)
-        {
-            var output = new List<string>();
-            foreach (var name in (selected ?? Enumerable.Empty<string>()).Distinct())
-            {
-                var snapshot = captured.Items.FirstOrDefault(item => item["name"].AsString() == name);
-                string value = snapshot == null ? lookup(name) : JVal.ToJson(snapshot);
-                if (value == null) throw new InvalidOperationException("Unknown template entry: " + name);
-                output.Add(value);
-            }
-            return "[" + string.Join(",", output.ToArray()) + "]";
-        }
     }
 }

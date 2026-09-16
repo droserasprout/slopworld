@@ -10,8 +10,6 @@ use std::path::Path;
 
 use anyhow::Result;
 
-#[cfg(test)]
-use crate::config::NetworkMode;
 use crate::config::{expand, Config, MountMode, ProjectCfg, SessionCfg};
 use crate::presets::{SandboxPreset, Table};
 
@@ -81,22 +79,33 @@ pub(crate) fn build_plan(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result
         guest_dir: dir.clone(),
         mode: MountMode::Rw,
     }];
-    for m in &s.mounts {
-        if m.project == p.name {
-            mounts[0].mode = m.mode;
-            continue;
+    crate::config::validate_mount_paths(p)?;
+    for m in &p.mounts {
+        let source = expand(&m.from);
+        let target = expand(&m.to);
+        for private in presets.iter().flat_map(|preset| &preset.private) {
+            let private = expand(private);
+            if Path::new(&target) != Path::new(&dir)
+                && !private.is_empty()
+                && paths::overlaps(&source, &private)
+            {
+                anyhow::bail!(
+                    "project {} mount source {} exposes private preset state {}",
+                    p.name,
+                    source,
+                    private
+                );
+            }
         }
-        if let Some(mp) = cfg.project(&m.project) {
-            let mdir = expand(&mp.dir);
-            if mdir.is_empty() || !Path::new(&mdir).is_dir() {
-                continue;
-            }
-            if refused(&mdir).is_some() {
-                continue;
-            }
+        if !Path::new(&source).exists() {
+            anyhow::bail!("project {} mount source does not exist: {}", p.name, source);
+        }
+        if Path::new(&target) == Path::new(&dir) {
+            mounts[0].mode = m.mode;
+        } else {
             mounts.push(ResolvedMount {
-                host_dir: mdir,
-                guest_dir: format!("/mnt/{}", mp.name),
+                host_dir: source,
+                guest_dir: target,
                 mode: m.mode,
             });
         }
@@ -109,7 +118,6 @@ pub(crate) fn build_plan(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result
         network,
         dns: &dns,
         agent_argv,
-        dir: &dir,
         table: &table,
         presets: &presets,
         home: &home,
@@ -165,7 +173,6 @@ pub(crate) fn presets_for<'a>(
 #[cfg(test)]
 mod tests {
     use super::*;
-
     /// The point of the host errand: no bwrap anywhere in it, and the shell at the end of it
     /// rather than behind a `--`.
     #[test]
@@ -325,7 +332,6 @@ mod tests {
         let p = ProjectCfg {
             name: "p".into(),
             dir: "/tmp".into(),
-            network: NetworkMode::None,
             ..Default::default()
         };
 

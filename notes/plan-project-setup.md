@@ -4,35 +4,27 @@ Depends on [repo-local templates](plan-project-templates.md). Start with
 [config ownership](daemon-config-stores.md), [sandbox boundaries](sandbox-isolation.md),
 and [paths](ops-paths.md).
 
-Before implementing this proposal, reconcile its project-default inheritance and baseline
-requirements with [settings ownership simplification](plan-agent-settings-ownership.md).
-That proposal removes project process settings; the defaults below are unresolved and must
-not be implemented as a second inheritance system alongside it.
+Project setup must remain limited to checkout/workspace ownership. The implemented
+[settings ownership](daemon-config-stores.md) keeps process settings on agents and templates,
+and breadcrumbs in Library. Project process defaults must not be reintroduced here.
 
 ## Implementation
 
 - Add `.slopworld/project.toml`, `presets/` and referenced prompt files. Reuse existing
   preset syntax and keep shared files organized by purpose rather than mirroring XDG.
-- Define a portable project-default allowlist. Machine registration, checkout paths,
+- Define a portable project-workspace allowlist. Machine registration, checkout paths,
   credentials, sessions, mailboxes, caches and saves remain daemon/machine-owned.
-- Specify precedence per field: shared project defaults, explicit machine-local project
-  overrides, then template/session choices where applicable. Define list replacement or
-  composition explicitly; preserve existing network-default semantics.
+- Specify workspace list replacement/composition explicitly; project mounts are direct
+  path pairs and do not expand transitive mount lists. Agent/template process settings remain
+  outside this project setup.
 - Resolve definition-file references relative to their containing file and working
   directories relative to project root. Validate traversal, symlinks and protected binds
   using sandbox ownership rules; make relocation and sidecar behavior explicit.
-- Extend daemon resolution and preview to project-local presets and prompts, including
-  dependency cycles/missing references. Retain instance snapshot guarantees.
-- Show effective values and their source in project/template editors. Shared changes
-  affect future creation; changes to existing sessions remain explicit operations.
-- Persist the shared-default baseline used at session creation, including resolved shared
-  dependencies. Launch and restart must use that baseline rather than rereading repository
-  defaults for existing sessions. Keep it separate from explicit session overrides so
-  machine-local project inheritance retains its current behavior.
-- Before enabling shared defaults for an existing project, persist a baseline for its
-  existing sessions that preserves their prior effective configuration. Fail without
-  enabling shared resolution if persistence fails. Adopting newer shared defaults requires
-  an explicit operation with an effective-value preview; retain existing template snapshots.
+- Extend daemon resolution and preview only to project-local workspace metadata and any
+  repository definitions. Retain instance snapshot guarantees for agent-owned presets.
+- Show project mounts and their next-start effect in project editors and previews. Shared
+  workspace changes affect every agent in that project at its next start; existing running
+  sandboxes are not rebuilt.
 
 ## Acceptance
 
@@ -40,8 +32,7 @@ not be implemented as a second inheritance system alongside it.
   copying personal files. Local overrides survive repo edits and never enter tracked files.
 - Tests cover precedence, list semantics, dependency failures, checkout relocation,
   protected paths and snapshot stability using relevant Makefile checks.
-- Test ordinary sessions with inherited network, DNS and limits: enabling shared setup
-  preserves their values; repository edits affect newly created sessions but not existing
-  ones after session or daemon restart. Cover removed shared files, migration persistence
-  failure, explicit adoption and continued machine-local project inheritance.
+- Test ordinary sessions with direct network, DNS and limits while project setup changes only
+  workspace mounts. Cover removed shared files, migration persistence failure, mount conflicts,
+  and direct mount references after session or daemon restart.
 - Update project setup guides and focused ownership notes; delete this plan when complete.

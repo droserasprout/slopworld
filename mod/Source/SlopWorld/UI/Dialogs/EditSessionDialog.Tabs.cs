@@ -8,8 +8,6 @@ namespace SlopWorld
     // Agent editor fields, tab bodies, and their tab-specific option lists.
     public partial class EditSessionDialog
     {
-        const float MountButtonWidth = 100f;
-
         // The agent itself: what it is called, where it works and what it runs. Everything a
         // new agent must have to start; the other tabs only refine it.
         void DrawGeneral(Listing_Standard l)
@@ -25,7 +23,7 @@ namespace SlopWorld
             {
                 l.Label("Description");
                 _templateDraft.Description = UiControls.Area(l, 48f, "template.description", _templateDraft.Description);
-                UiLayout.Note(l, "Saved agent customizations. Copied once when creating an agent; project defaults stay inherited.");
+                UiLayout.Note(l, "Saved agent customizations. Copied once when creating an agent; project mounts are chosen separately.");
                 l.Label("Source: " + _templateDraft.Source);
                 var origin = JVal.Parse(_templateDraft.OriginJson);
                 if (TemplateReadOnly) l.Label("Edit " + origin["file"].AsString() + " or duplicate this template.");
@@ -39,7 +37,7 @@ namespace SlopWorld
                         () => _s.Project = p.Name)).ToList();
                 projectOptions.Add(new SelectorOption("New project...",
                     () => Find.WindowStack.Add(new EditProjectDialog(null))));
-                UiControls.Select(l, "Project (the directory and sandbox it works in)",
+                UiControls.Select(l, "Project (the directory and shared mounts it uses)",
                     string.IsNullOrEmpty(_s.Project) ? "Pick a project..." : _s.Project,
                     projectOptions, out _);
 
@@ -89,130 +87,43 @@ namespace SlopWorld
             _s.Project = project;
             _templateName = template.Name;
             _resourceLimits = new ResourceLimitsForm(_s.Limits);
-            _dnsServers = _s.DnsOverride?.Mode == DnsMode.Servers
-                ? string.Join(", ", _s.DnsOverride.Servers.ToArray())
+            _dnsServers = _s.Dns?.Mode == DnsMode.Servers
+                ? string.Join(", ", _s.Dns.Servers.ToArray())
                 : "";
         }
 
-        void DrawMounts(Rect rect)
-        {
-            var projects = SessionHub.Instance.Projects;
-
-            GUI.color = UiTheme.Dim;
-            var hint = new Rect(rect.x, rect.y, rect.width, UiTheme.LineH);
-            UiText.RowLabel(hint,
-                "Mount other project directories into /mnt/<name>. The agent's own project is always mounted.");
-            GUI.color = Color.white;
-
-            float y = hint.yMax + UiTheme.GapS;
-
-            if (projects.Count == 0)
-            {
-                GUI.color = UiTheme.Dim;
-                UiText.RowLabel(new Rect(rect.x, y, rect.width, UiTheme.LineH),
-                    "No projects defined.");
-                GUI.color = Color.white;
-                return;
-            }
-
-            float rowH = UiTheme.RowH;
-            float listH = projects.Count * rowH;
-            var listRect = new Rect(rect.x, y, rect.width, Mathf.Max(0f, rect.yMax - y));
-            Slab.Box(listRect, UiTheme.Well, UiTheme.Edge);
-            var pad = listRect.ContractedBy(UiTheme.ListInset);
-            var inner = new Rect(0f, 0f, pad.width - UiTheme.ScrollbarW, listH);
-
-            using (_mountsScroll.Scope(pad, inner))
-            {
-                float ry = 0f;
-                foreach (var p in projects.OrderBy(pr => pr.Name, System.StringComparer.OrdinalIgnoreCase))
-                {
-                    var row = new Rect(0f, ry, inner.width, rowH);
-                    ry += rowH;
-
-                    bool isPrimary = p.Name == _s.Project;
-                    var mount = _s.Mounts.FirstOrDefault(m => m.Project == p.Name);
-                    MountMode mode = isPrimary
-                        ? (mount?.Mode ?? MountMode.Rw)
-                        : (mount?.Mode ?? MountMode.None);
-
-                    float labelW = row.width - MountButtonWidth - UiTheme.GapS;
-                    GUI.color = isPrimary ? UiTheme.Lead : UiTheme.Name;
-                    UiText.RowLabel(new Rect(row.x + UiTheme.GapS, row.y, labelW, row.height),
-                        isPrimary ? p.Name + "  (primary)" : p.Name);
-                    GUI.color = Color.white;
-
-                    var btnRect = new Rect(row.xMax - MountButtonWidth, row.y,
-                        MountButtonWidth, row.height);
-                    if (UiButtons.Button(btnRect, MountEntry.ModeLabel(mode),
-                            isPrimary ? UiTheme.Btn.Default : UiTheme.Btn.Ghost))
-                        PickMountMode(p.Name, isPrimary);
-                }
-            }
-        }
-
-        void PickMountMode(string project, bool isPrimary)
-        {
-            var options = new List<FloatMenuOption>();
-            if (!isPrimary)
-            {
-                options.Add(new FloatMenuOption(MountEntry.ModeLabel(MountMode.None),
-                    () => SetMount(project, MountMode.None)));
-            }
-            options.Add(new FloatMenuOption(MountEntry.ModeLabel(MountMode.Ro),
-                () => SetMount(project, MountMode.Ro)));
-            options.Add(new FloatMenuOption(MountEntry.ModeLabel(MountMode.Rw),
-                () => SetMount(project, MountMode.Rw)));
-            Find.WindowStack.Add(new UiMenu(options));
-        }
-
-        void SetMount(string project, MountMode mode)
-        {
-            _s.Mounts.RemoveAll(m => m.Project == project);
-            if (mode != MountMode.None)
-                _s.Mounts.Add(new MountEntry { Project = project, Mode = mode });
-        }
-
-        // Reach and the extra sandbox presets this agent adds on top of its command's and
-        // project's.
+        // Reach and the extra sandbox presets this agent adds on top of its command's.
         void DrawSandboxFields(Listing_Standard l)
         {
-            var project = SessionHub.Instance.Project(_s.Project);
-            DrawNetworkFields(l, project);
+            DrawNetworkFields(l);
         }
 
         float DrawSandboxTrailing(Rect rect, float y, float availableHeight)
         {
-            var project = SessionHub.Instance.Project(_s.Project);
             string commandName = string.IsNullOrEmpty(_s.Command) ? _s.CommandPreset : _s.Command;
             var preset = EditorCommand(commandName);
 
-            return DrawExtraPresets(rect, y + UiTheme.GapL, project, preset, availableHeight);
+            return DrawExtraPresets(rect, y + UiTheme.GapL, preset, availableHeight);
         }
 
-        void DrawNetworkFields(Listing_Standard l, ProjectInfo project)
+        void DrawNetworkFields(Listing_Standard l)
         {
-            string projectDefault = EditingTemplate ? "Project default (destination project)"
-                : "Project default: " + (project == null ? "Choose a project" : NetworkModeText.ShortLabel(project.Network));
-            string networkLabel = _s.NetworkOverride.HasValue
-                ? "Custom: " + NetworkModeText.ShortLabel(_s.NetworkOverride.Value) : projectDefault;
+            string networkLabel = NetworkModeText.ShortLabel(_s.Network);
             var networkOptions = new List<SelectorOption>
             {
-                new SelectorOption("Reset to project default", () => _s.NetworkOverride = null),
             };
             networkOptions.AddRange(new[] { NetworkMode.None, NetworkMode.Private, NetworkMode.Host }
                 .Select(mode => new SelectorOption("Custom: " + NetworkModeText.Label(mode),
-                    () => _s.NetworkOverride = mode)));
+                    () => { _s.Network = mode; if (EditingTemplate) _templateDraft.NetworkSpecified = true; })));
             UiControls.Select(l, "Network", networkLabel, networkOptions, out _);
-            UiLayout.Note(l, EditingTemplate ? "Custom values are copied once. Project defaults come from the new agent's project."
-                : "Project changes apply on next start unless customized.");
+            UiLayout.Note(l, "Owned by this agent and copied into templates; project changes do not alter it.");
 
             l.Gap(UiTheme.GapS);
-            DnsForm.Draw(l, _s.DnsOverride, project?.Dns, true, "agent.dns", ref _dnsServers,
-                dns => _s.DnsOverride = dns, recipe: EditingTemplate);
+            DnsForm.Draw(l, _s.Dns, "agent.dns", ref _dnsServers,
+                dns => { _s.Dns = dns; if (EditingTemplate) _templateDraft.DnsSpecified = true; });
         }
 
-        float DrawExtraPresets(Rect rect, float y, ProjectInfo project, CommandInfo preset,
+        float DrawExtraPresets(Rect rect, float y, CommandInfo preset,
             float availableHeight)
         {
             UiLayout.SectionHeading(new Rect(rect.x, y, rect.width, UiTheme.RowH),
@@ -221,12 +132,11 @@ namespace SlopWorld
 
             var inheritedPresets = new List<string>();
             if (preset != null) inheritedPresets.AddRange(preset.Sandbox);
-            if (project != null) inheritedPresets.AddRange(project.Sandbox);
             // Size from the viewport, not the previous scroll content height, to avoid
             // growing the content on every layout pass.
             float height = Mathf.Max(PresetsH, rect.y + availableHeight - y - UiTheme.GapS);
             PresetList.Draw(new Rect(rect.x, y, rect.width, height), _s.Sandbox,
-                _presetScroll, inheritedPresets, _templateSnapshot?.SandboxCatalog(), project?.Sandbox,
+                _presetScroll, inheritedPresets, _templateSnapshot?.SandboxCatalog(),
                 EditingTemplate ? "Added by template" : "Added by this agent");
             return y + height;
         }
@@ -243,47 +153,8 @@ namespace SlopWorld
                 return;
             }
 
-            UiLayout.Note(l, EditingTemplate ? "Project defaults come from the new agent's project."
-                : "Project changes apply on next start unless customized.");
-            _s.Limits = _resourceLimits.Draw(l, overrides: true,
-                project: SessionHub.Instance.Project(_s.Project)?.Limits, recipe: EditingTemplate);
-        }
-
-        void DrawBreadcrumbs(Rect rect)
-        {
-            var config = SessionHub.Instance.Config;
-            bool breadcrumbs = EditingTemplate || config.ExperimentalBreadcrumbs;
-            bool instructions = EditingTemplate || config.ExperimentalInstructions;
-            float y = rect.y;
-            if (EditingTemplate)
-            {
-                var l = new Listing_Standard { maxOneColumn = true };
-                l.Begin(rect);
-                _s.BreadcrumbYolo = RecipeFlag(l, "breadcrumb_yolo", "Paste breadcrumbs on first Enter",
-                    _s.BreadcrumbYolo, value => _s.BreadcrumbYolo = value);
-                _s.InstructionsBreadcrumb = RecipeFlag(l, "instructions_breadcrumb", "Instructions discovery",
-                    _s.InstructionsBreadcrumb, value => _s.InstructionsBreadcrumb = value);
-                y += l.CurHeight + UiTheme.GapS;
-                l.End();
-            }
-            else
-            {
-                _s.BreadcrumbYolo = UiControls.Checkbox(
-                    new Rect(rect.x, rect.y, rect.width, UiTheme.RowH),
-                    "YOLO breadcrumbs", _s.BreadcrumbYolo,
-                    "Hijack the first Enter after startup and paste every enabled breadcrumb before it. Requires breadcrumbs in Settings > General > Experimental.",
-                    locked: !breadcrumbs);
-                y += UiTheme.RowH + UiTheme.GapXS;
-            }
-            var projectBreadcrumbs = SessionHub.Instance.Project(_s.Project)?.Breadcrumbs ?? new List<string>();
-            BreadcrumbList.Draw(new Rect(rect.x, y, rect.width, Mathf.Max(0f, rect.yMax - y)),
-                _s.Breadcrumbs, _breadcrumbScroll, projectBreadcrumbs,
-                EditingTemplate ? null : config.InstructionsBreadcrumb,
-                _s.InstructionsBreadcrumb,
-                onInstructionsChanged: on => _s.InstructionsBreadcrumb = on,
-                instructionsLocked: !breadcrumbs || !instructions,
-                breadcrumbsLocked: !breadcrumbs, catalog: _templateSnapshot?.BreadcrumbCatalog(),
-                additionsLabel: EditingTemplate ? "Added by template" : "Added by this agent");
+            UiLayout.Note(l, "Limits are owned by this agent. No cap leaves the field unset.");
+            _s.Limits = _resourceLimits.Draw(l);
         }
 
         // The three states this pair of fields can be in: a command preset, a command line

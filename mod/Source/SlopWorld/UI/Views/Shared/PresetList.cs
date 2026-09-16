@@ -4,18 +4,18 @@ using UnityEngine;
 
 namespace SlopWorld
 {
-    // Shared project/agent preset checkboxes group inherited and local contributions; the implicit global
-    // preset is settings-only.
+    // Shared command/agent preset checkboxes group inherited command dependencies and local
+    // contributions; the implicit global preset is settings-only.
     public static class PresetList
     {
         // The pitch of a row here, off the font like every other height in this mod.
         public static float RowH => UiTheme.RowH;
 
-        // Ticked and refused: what a preset is handed anyway, by its command or its project.
+        // Ticked and refused: what a preset is handed anyway, by its command or this agent.
         // Drawn rather than hidden - "why is ~/.claude bound" is the question this answers.
         public static void Draw(Rect outer, List<string> chosen, SmoothScroll scroll,
                                 ICollection<string> implied = null,
-                                IEnumerable<PresetInfo> catalog = null, ICollection<string> projectPresets = null,
+                                IEnumerable<PresetInfo> catalog = null,
                                 string additionsLabel = "Added by this agent")
         {
             // The machine-wide base is implicit for every sandbox, so it is edited on the
@@ -55,7 +55,6 @@ namespace SlopWorld
                     {
                         Value = pr,
                         Group = implied == null ? "Required by selected presets"
-                            : projectPresets != null && projectPresets.Contains(pr.Name) ? "From project"
                             : inherited ? "From command" : "Required by selected presets",
                         Label = pr.Source == "missing" ? pr.Name + " (missing)" : pr.Name,
                         Tip = Tip(pr, true),

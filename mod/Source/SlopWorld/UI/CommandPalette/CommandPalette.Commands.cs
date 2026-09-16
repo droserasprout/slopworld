@@ -101,8 +101,6 @@ namespace SlopWorld
             CommandDef.ForLibraryItem("library.edit", "Library: Edit", LibraryManageSub,
                 s =>
                 {
-                    if (s.Kind == LibraryItemKind.Breadcrumb &&
-                        !SessionHub.Instance.Config.ExperimentalBreadcrumbs) return;
                     TerminalWindow.OpenOverPane(new EditLibraryItemDialog(s));
                 }),
             CommandDef.ForLibraryItem("library.delete", "Library: Delete", LibraryManageSub, s =>
@@ -115,8 +113,6 @@ namespace SlopWorld
             CommandDef.ForLibraryItem("library.duplicate", "Library: Duplicate", LibraryManageSub,
                 s =>
                 {
-                    if (s.Kind == LibraryItemKind.Breadcrumb &&
-                        !SessionHub.Instance.Config.ExperimentalBreadcrumbs) return;
                     TerminalWindow.OpenOverPane(EditLibraryItemDialog.Copy(s));
                 }),
 

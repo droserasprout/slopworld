@@ -49,13 +49,13 @@ namespace SlopWorld
                         "Prompt - say something to an agent", true,
                         dialog => dialog._s.Link != LibraryItemLink.Ask,
                         dialog => dialog._s.Link == LibraryItemLink.Temp
-                            ? "Sandbox to copy (blank = plain: private network, no presets)"
-                            : "Project (the directory and sandbox it runs in)",
+                            ? "Temporary workspace (blank = plain agent settings)"
+                            : "Project workspace (directory and shared mounts)",
                         dialog => string.IsNullOrEmpty(dialog._s.Project)
                             ? (dialog._s.Link == LibraryItemLink.Temp ? "None" : "Pick a project...")
                             : dialog._s.Project,
                         (dialog, project) => dialog.Explain(project),
-                        "Agent (blank = the default)", dialog => dialog._agentDefault)
+                        "Command override (blank = template or host default)", dialog => dialog._agentDefault)
                 },
                 {
                     LibraryItemKind.Shell,
@@ -63,8 +63,8 @@ namespace SlopWorld
                         "Shell - run a command", true,
                         dialog => dialog._s.Link != LibraryItemLink.Ask,
                         dialog => dialog._s.Link == LibraryItemLink.Temp
-                            ? "Sandbox to copy (blank = plain: private network, no presets)"
-                            : "Project (the directory and sandbox it runs in)",
+                            ? "Temporary workspace (blank = plain agent settings)"
+                            : "Project workspace (directory and shared mounts)",
                         dialog => string.IsNullOrEmpty(dialog._s.Project)
                             ? (dialog._s.Link == LibraryItemLink.Temp ? "None" : "Pick a project...")
                             : dialog._s.Project,
@@ -74,12 +74,12 @@ namespace SlopWorld
                 {
                     LibraryItemKind.Breadcrumb,
                     new LibraryItemKindDescriptor(
-                        "Breadcrumb - append to the first prompt", false,
-                        dialog => true,
-                        dialog => "Project (attach to every agent in this project)",
-                        dialog => string.IsNullOrEmpty(dialog._s.Project) ? "None" : dialog._s.Project,
+                        "Breadcrumb - insert manually", false,
+                        dialog => false,
+                        null,
+                        null,
                         (dialog, project) =>
-                            "Attach this text to projects and agents; it is not runnable.",
+                            "Insert this text manually from a terminal context menu; it is not runnable.",
                         null, null)
                 },
                 {
@@ -102,8 +102,7 @@ namespace SlopWorld
         string _agentDefault = "claude";
         string _shellDefault = "bash";
 
-        bool BreadcrumbsEnabled => SessionHub.Instance.Config.ExperimentalBreadcrumbs;
-        bool CurrentKindEnabled => _s.Kind != LibraryItemKind.Breadcrumb || BreadcrumbsEnabled;
+        bool CurrentKindEnabled => true;
 
         public EditLibraryItemDialog(LibraryItemInfo existing) : this(existing, false) { }
 
@@ -124,6 +123,7 @@ namespace SlopWorld
 
 
             SessionHub.Instance.Catalog.RefreshProjects();
+            SessionHub.Instance.Catalog.RefreshTemplates();
             DaemonClient.Get(WireProtocol.Routes.Config, j =>
             {
                 var d = j["values"]["defaults"];
@@ -144,7 +144,7 @@ namespace SlopWorld
 
         // What is left at the bottom is the prompt box - the one field here somebody
         // writes paragraphs in, and the one that gets squeezed when anything above grows.
-        public override Vector2 InitialSize => new Vector2(560f, 660f);
+        public override Vector2 InitialSize => new Vector2(600f, 740f);
 
         protected override void DoBody(Rect rect)
         {
@@ -181,6 +181,7 @@ namespace SlopWorld
             DrawKindAndLink(l, kind);
             DrawFileActionMode(l);
             DrawProject(l, kind);
+            DrawExecution(l);
             DrawExplanation(l, kind);
             DrawCommand(l, kind);
 
@@ -207,12 +208,27 @@ namespace SlopWorld
 
         void DrawProject(Listing_Standard l, LibraryItemKindDescriptor kind)
         {
-            // The project dropdown stays up for every kind that uses a project. In temp mode
-            // it still answers which sandbox the scratch project is given.
+            // The project dropdown stays up for every kind that uses a project. Temporary mode
+            // creates its own workspace and therefore has no project selector.
             if (!kind.ShowProject(this)) return;
             UiControls.Select(l, kind.ProjectLabel(this), kind.ProjectValue(this),
                 ProjectOptions(_s.Kind == LibraryItemKind.Breadcrumb), out _,
                 on: CurrentKindEnabled, openMenu: TerminalWindow.OpenOverPane);
+        }
+
+        void DrawExecution(Listing_Standard l)
+        {
+            if (_s.Kind != LibraryItemKind.Prompt && _s.Kind != LibraryItemKind.Shell) return;
+            var options = new List<SelectorOption>
+            {
+                new SelectorOption("Host", () => { _s.Host = true; _s.AgentTemplate = ""; }),
+            };
+            options.AddRange(SessionHub.Instance.Catalog.Templates.Select(t =>
+                new SelectorOption("Agent template: " + t.Name,
+                    () => { _s.Host = false; _s.AgentTemplate = t.Name; })));
+            string label = _s.Host ? "Host" : string.IsNullOrEmpty(_s.AgentTemplate)
+                ? "Choose Host or an agent template..." : "Agent template: " + _s.AgentTemplate;
+            UiControls.Select(l, "Run using", label, options, out _, openMenu: TerminalWindow.OpenOverPane);
         }
 
         void DrawFileActionMode(Listing_Standard l)
@@ -251,7 +267,8 @@ namespace SlopWorld
                 return;
             }
 
-            string placeholder = kind.CommandPlaceholder(this);
+            string placeholder = _s.Kind == LibraryItemKind.Prompt && !string.IsNullOrEmpty(_s.AgentTemplate)
+                ? "From agent template" : kind.CommandPlaceholder(this);
             GUI.color = UiTheme.Faint;
             string shown = UiText.Field(box, "library.command", placeholder,
                 on: CurrentKindEnabled);
@@ -307,7 +324,7 @@ namespace SlopWorld
                 case LibraryItemLink.Temp:
                     return $"Each run gets an empty directory under {ProjectInfo.TempRoot}" +
                            (project != null
-                               ? $", sandboxed like '{project.Name}'."
+                               ? $", using '{project.Name}' as its workspace."
                                : ". Nothing deletes it; the machine clears /tmp.");
                 case LibraryItemLink.Ask:
                     return "Running it opens a list of projects, plus a temporary one.";
@@ -356,9 +373,8 @@ namespace SlopWorld
                     () => { _s.Kind = LibraryItemKind.Prompt; _s.Mode = FileActionMode.Ask; }),
                 new SelectorOption("Shell - run a command",
                     () => { _s.Kind = LibraryItemKind.Shell; _s.Mode = FileActionMode.Ask; }),
-                new SelectorOption("Breadcrumb - append to the first prompt",
-                    () => { _s.Kind = LibraryItemKind.Breadcrumb; _s.Mode = FileActionMode.Ask; _s.Link = LibraryItemLink.Project; _s.Project = ""; },
-                    BreadcrumbsEnabled),
+                new SelectorOption("Breadcrumb - insert manually",
+                    () => { _s.Kind = LibraryItemKind.Breadcrumb; _s.Mode = FileActionMode.Ask; _s.Link = LibraryItemLink.Project; _s.Project = ""; }),
                 new SelectorOption("File action - run on a Files row",
                     () => { _s.Kind = LibraryItemKind.FileAction; _s.Mode = FileActionMode.Ask; _s.Link = LibraryItemLink.Project; _s.Project = ""; _s.Text = ""; }),
             };
@@ -390,6 +406,11 @@ namespace SlopWorld
             {
                 Messages.Message("SlopWorld: pick a project, or a way to choose one.",
                     MessageTypeDefOf.RejectInput, false);
+                return;
+            }
+            if ((_s.Kind == LibraryItemKind.Prompt || _s.Kind == LibraryItemKind.Shell) && !_s.Host && string.IsNullOrWhiteSpace(_s.AgentTemplate))
+            {
+                UiLayout.Fail("Choose Host or an agent template for this entry.");
                 return;
             }
             if (_s.Kind == LibraryItemKind.FileAction && string.IsNullOrEmpty((_s.Command ?? "").Trim()))

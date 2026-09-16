@@ -40,6 +40,13 @@ pub fn refused(path: &str) -> Option<String> {
     None
 }
 
+/// Check aliases as well as literal spellings when a source could expose private originals.
+pub(super) fn overlaps(left: &str, right: &str) -> bool {
+    let left = safety_path(Path::new(left));
+    let right = safety_path(Path::new(right));
+    left.starts_with(&right) || right.starts_with(&left)
+}
+
 /// Resolve a path as far as the filesystem lets us, retaining any missing suffix. This keeps
 /// safety checks aware of symlinks in existing parents while still allowing portable presets to
 /// name software that is not installed on this machine yet.

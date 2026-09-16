@@ -8,18 +8,16 @@ namespace SlopWorld
 {
     // What is left here is the two things about the agent: its name and what it runs.
     // Where it works moved to the project, which is why picking one is mandatory and
-    // there is no directory field; network reach has an agent-level override here.
+    // there is no directory field; network reach is an agent-level setting here.
     public partial class EditSessionDialog : UiWindow
     {
-        enum Tab { General, Mounts, Sandbox, ResourceLimits, Breadcrumbs, Preview }
+        enum Tab { General, Sandbox, ResourceLimits, Preview }
 
         readonly EditIdentity _identity;
         readonly SessionInfo _s;
         readonly SmoothScroll _presetScroll = new SmoothScroll();
-        readonly SmoothScroll _breadcrumbScroll = new SmoothScroll();
         SmoothScroll _previewScroll = new SmoothScroll();
         readonly DaemonSettingsPreview _settingsPreview = new DaemonSettingsPreview();
-        readonly SmoothScroll _mountsScroll = new SmoothScroll();
         readonly ScrollableListing _generalListing = new ScrollableListing(320f);
         readonly ScrollableListing _sandboxListing = new ScrollableListing(480f);
         readonly ScrollableListing _limitsListing = new ScrollableListing(320f);
@@ -28,7 +26,7 @@ namespace SlopWorld
         string _templateName;
 
         // Limits are edited as raw strings so a half-typed number is not lost to a reparse each
-        // frame; they are parsed back into `_s.Limits` on Save. Unset values inherit the project.
+        // frame; they are parsed back into `_s.Limits` on Save.
         ResourceLimitsForm _resourceLimits;
         string _dnsServers;
 
@@ -72,20 +70,15 @@ namespace SlopWorld
                     Cmd = existing.Cmd,
                     Sandbox = new List<string>(existing.Sandbox),
                     SlopworldMd = existing.SlopworldMd,
-                    InstructionsBreadcrumb = existing.InstructionsBreadcrumb,
                     PersistentTmp = existing.PersistentTmp,
-                    Breadcrumbs = new List<string>(existing.Breadcrumbs),
                     Network = existing.Network,
-                    NetworkOverride = existing.NetworkOverride,
                     Dns = existing.Dns.Copy(),
-                    DnsOverride = existing.DnsOverride?.Copy(),
                     Limits = existing.Limits,
                     Mounts = new List<MountEntry>(existing.Mounts
-                        .Select(m => new MountEntry { Project = m.Project, Mode = m.Mode })),
+                        .Select(m => new MountEntry { From = m.From, To = m.To, Mode = m.Mode })),
                     Agent = existing.Agent,
                     Autostart = existing.Autostart,
                     AutoResume = existing.AutoResume,
-                    BreadcrumbYolo = existing.BreadcrumbYolo,
                 };
 
 
@@ -128,15 +121,15 @@ namespace SlopWorld
                     UiLayout.Fail);
 
             _resourceLimits = new ResourceLimitsForm(_s.Limits);
-            _dnsServers = _s.DnsOverride?.Mode == DnsMode.Servers
-                ? string.Join(", ", _s.DnsOverride.Servers.ToArray())
+            _dnsServers = _s.Dns?.Mode == DnsMode.Servers
+                ? string.Join(", ", _s.Dns.Servers.ToArray())
                 : "";
             AcceptOnEnter(Save);
         }
 
 
         // A left rail of short pages rather than one long form: the agent, its sandbox, its
-        // resource limits, its breadcrumbs and the preview each get their own tab.
+        // resource limits, and the preview each get their own tab.
         public override Vector2 InitialSize => new Vector2(660f, 800f);
 
         protected override void DoBody(Rect rect)
@@ -159,18 +152,12 @@ namespace SlopWorld
                     case Tab.General:
                         _generalListing.Draw(body, DrawGeneral);
                         break;
-                    case Tab.Mounts:
-                        DrawMounts(body);
-                        break;
                     case Tab.Sandbox:
                         _sandboxListing.Draw(body, DrawSandboxFields,
                             (view, y) => DrawSandboxTrailing(view, y, body.height));
                         break;
                     case Tab.ResourceLimits:
                         _limitsListing.Draw(body, DrawLimits);
-                        break;
-                    case Tab.Breadcrumbs:
-                        DrawBreadcrumbs(body);
                         break;
                     case Tab.Preview:
                         DrawSettingsPreview(body);
@@ -199,13 +186,10 @@ namespace SlopWorld
         void DrawRail(Rect r) => UiLayout.DrawRail(r, new[]
         {
             ("General", Tab.General),
-            ("Mounts", Tab.Mounts),
             ("Sandbox", Tab.Sandbox),
             ("Resource limits", Tab.ResourceLimits),
-            ("Breadcrumbs", Tab.Breadcrumbs),
             ("Preview", Tab.Preview),
-        }.Where(tab => !EditingTemplate || tab.Item2 != Tab.Mounts).ToArray(), ref _tab,
-            tab => EditingTemplate || tab != Tab.Breadcrumbs || SessionHub.Instance.Config.ExperimentalBreadcrumbs);
+        }, ref _tab);
 
         void Save()
         {
@@ -222,7 +206,7 @@ namespace SlopWorld
                 return;
             }
             string dnsError;
-            if (!DnsForm.TrySave(_s.DnsOverride, _dnsServers, out dnsError))
+            if (!DnsForm.TrySave(_s.Dns, _dnsServers, out dnsError))
             {
                 UiLayout.Fail("DNS: " + dnsError);
                 return;

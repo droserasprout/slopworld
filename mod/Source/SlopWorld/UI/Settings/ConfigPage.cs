@@ -51,9 +51,6 @@ namespace SlopWorld
             UiLayout.SectionHeading(l, "Experimental");
             if (_loaded)
             {
-                _cfg.ExperimentalBreadcrumbs = UiControls.Checkbox(l, "Enable breadcrumbs",
-                    _cfg.ExperimentalBreadcrumbs,
-                    "Unlock automatic and manual prompt breadcrumbs. Save to apply.");
                 _cfg.ExperimentalInstructions = UiControls.Checkbox(l, "Enable instructions",
                     _cfg.ExperimentalInstructions,
                     "Unlock generated SLOPWORLD.md instructions. Save to apply.");

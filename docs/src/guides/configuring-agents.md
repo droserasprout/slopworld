@@ -2,21 +2,26 @@
 
 ## Projects
 
-A project is a directory, a sandbox preset list, and a network default. Agents belong
-to a project and inherit its sandbox and network settings. Inside the sandbox, the
-project is mounted at its configured absolute path; `/mnt/<project-name>` is a
-compatibility symlink to that same directory.
+A project owns a directory and the shared path mounts visible to its agents.
+Inside the sandbox, the project is mounted at its configured absolute path;
+`/mnt/<project-name>` is a compatibility symlink to that same directory. Mount changes
+apply when agents start again, so running sandboxes are unchanged.
 
 Create a project in the sidebar's add strip or through the command palette. The project
-directory is always mounted read-write inside the sandbox.
+directory is mounted read-write by default. A row with the project directory in both
+**From** and **To** can make it read-only.
 
 | Field | Description |
 | --- | --- |
 | `dir` | Project directory on the host. |
-| `sandbox` | Preset names added on top of the implicit `global` preset. |
-| `network` | Default for agents in this project: `none`, `private`, or `host`. |
-| `dns` | Up to two explicit IPv4 DNS servers. Absent means follow the host's `/etc/resolv.conf`. |
-| `limits` | Resource limits: `memory_mb`, `pids`, `nofile`, `cpu_pct`. |
+| `mounts` | Host `from` path, sandbox `to` path, and access `mode` (`ro` or `rw`) for each shared bind. |
+
+The project form has **General** and **Mounts** tabs. **Mounts** has editable **From**, **To**, and access-mode columns. **Add path**
+adds a blank row. **Add project** copies the selected project's current directory into From
+and `/mnt/<name>` into To (its own directory for the primary project). These are ordinary
+editable values: later project renames, directory edits, or deletion do not retarget the row.
+Remove a row with **×**. Paths must be absolute after daemon expansion; sources may be files
+or directories and must exist at launch. Protected daemon and private-state paths remain blocked.
 
 ## Agents
 
@@ -28,17 +33,13 @@ identifies the software so the sandbox can mount its configuration paths.
 | `command` | A command preset name. |
 | `cmd` | Optional raw command line, used instead of the preset's default. |
 | `sandbox` | Additional sandbox presets for this agent. |
-| `network` | Optional override of the project's network default. |
-| `dns` | Optional override of the project's DNS servers. |
-| `limits` | Optional override of the project's resource limits. Agent values win. |
-| `mounts` | Additional project directories mounted under `/mnt/<project-name>`. Each entry names a project and an optional `mode` (`ro` or `rw`, default `rw`). |
+| `network` | Network mode for this agent: `none`, `private`, or `host`. |
+| `dns` | `resolved` to follow the daemon's current resolver, or up to two explicit IPv4 servers. |
+| `limits` | Final resource limits: `memory_mb`, `pids`, `nofile`, `cpu_pct`; an unset field means no cap. |
 | `slopworld_md` | Mount generated `SLOPWORLD.md` read-only at the Instructions mount path and exclude the source file through the repository's `.git/info/exclude`. |
-| `instructions_breadcrumb` | Add the configured discovery breadcrumb when the manifest is mounted. Defaults to `true`; the agent editor's Breadcrumbs tab can turn it off. |
 | `persistent_tmp` | Keep a private `/tmp` for this agent across restarts. It lives in the agent's durable state and moves with reset/delete. |
-| `breadcrumb_yolo` | Automatically paste effective breadcrumbs before the first Enter after startup. Defaults to `true`; disable it when breadcrumbs should remain pending for manual use. |
 | `autostart` | Start this agent automatically when the daemon starts. |
 | `auto_resume` | When enabled, the daemon pastes `/resume` and submits after the agent settles on startup. |
-| `breadcrumbs` | Named breadcrumb blocks delivered alongside the first prompt. |
 
 An agent with a raw `cmd` and no `command` gets the sandbox but none of the
 CLI-specific wiring.
@@ -53,7 +54,7 @@ one, open an existing agent and choose **Save as template**. The daemon stores p
 Templates appear in **Library** alongside prompts, errands, breadcrumbs, and file actions.
 Click a template to open the agent editor in template mode, or use
 **+ > Library > Agent template** to create one. General, Sandbox, Resource limits,
-Breadcrumbs, and Preview use the same controls as agent editing; templates omit project,
+and Preview use the same controls as agent editing; templates omit project,
 mounts, and private-state actions. Right-click a template to duplicate or delete it.
 Duplication opens a new personal draft; save it to add it to Library. Capture an existing
 agent with its editor's **Save as template** action. Capture copies the saved agent's own
@@ -67,44 +68,30 @@ Projects can also provide [repository Library definitions](repository-library.md
 a personal copy. Right-click a Library template and choose **Create agent** to use it.
 
 Templates are one-time recipes. Applying one copies its specified choices into the new
-agent; later template edits or deletion do not change that agent. Command, sandbox and prompt
+agent; later template edits or deletion do not change that agent. Command and sandbox
 snapshots remain stable, including when the live catalog changes. A template never captures
 mounts, labels, private state identity, or credentials.
 
-In a template, **Session default** leaves a startup choice unspecified. **Project default**
-uses the destination project's network, DNS or resource limit. **Daemon default** selects the
-destination daemon's default command. **Custom** pins a value; **Reset to project default**
-removes that customization. Custom limits require a positive whole number; an empty custom
-field is an error. Existing templates' explicit values remain explicit until reset.
+In a template, **Session default** leaves a startup choice unspecified. Network and DNS
+choices are agent settings; omitted values use the documented agent defaults (`private` and
+the system resolver). An unset limit means no cap. **Daemon default** selects the destination
+daemon's default command. **Custom** pins a value. Limits require a positive whole
+number; a blank field means no configured cap.
 
-## Project defaults and agent overrides
+## Ownership and previews
 
-Agent configuration has two layers: project defaults and agent customizations. Templates
-are a creation shortcut, not a third inheritance layer.
+Projects supply the workspace and shared mounts. Agents supply command, sandbox additions,
+network, DNS, resource limits, and startup/private-state behavior. Templates copy those agent
+settings and captured dependencies once; they do not remain attached to the source or
+destination project.
 
-Projects supply the working directory, network, DNS, resource limits, and shared sandbox and
-breadcrumb contributions. Agent network/DNS overrides replace project defaults. Resource
-limits resolve individually: agent value, then project value, then no configured cap.
-The project editor's **Resource limits** tab edits those defaults using the same controls
-as agents and templates.
-
-Network, DNS and limit controls display **Project default** or **Custom**. Project default
-values follow project changes on the next start; custom values stay pinned.
-
-Sandbox and breadcrumb lists separate **From project** from **Added by this agent** and
-**Available additions**. Sandbox lists also identify command contributions and dependencies.
-Project contributions are edited in the project; agent additions can be removed independently,
-even when the project supplies the same entry. Breadcrumbs are shown in delivery order within
-each selected group.
-
-Sandbox presets accumulate from global, command, project and agent selections, including
-dependencies. Breadcrumbs accumulate in project-then-agent order. Duplicate names are removed;
-a captured definition wins over a live definition with the same name. The **Preview** tab
-labels these contributions and shows which values are inherited or captured.
+The agent editor's Preview tab shows direct agent settings, captured dependencies, and the
+selected project's mounts. The project editor's Mounts tab shows the shared list and warns that
+changes apply on the next start. Projects have no process-setting or breadcrumb defaults;
+their shared mounts are configured separately in the project editor.
 
 Preview is calculated by the daemon from the unsaved form. It shows settings for the next
 start; saving a project or agent does not replace a running process's network or sandbox.
-Inherited project changes apply on the next start, while explicit agent overrides stay pinned.
 Use **Refresh preview** after external file edits. Requested bindings still undergo path and
 sandbox validation at launch.
 
@@ -131,17 +118,16 @@ unsaved body text for a selected project.
 These settings live under `[daemon.instructions]`: `template`, `mount_path`,
 `breadcrumb`, `breadcrumb_enabled`, and `worker_prompt`. Use Settings' reset actions for
 current defaults. `worker_prompt` is submitted to each spawned task worker and can refer to
-`$SLOPWORLD_TASK_ID`; its default includes the worker task workflow. The feature switches live
-under `[daemon]` as `experimental_instructions` and `experimental_breadcrumbs`; Settings >
-Integrations > Workers contains the worker prompt. See
+`$SLOPWORLD_TASK_ID`; its default includes the worker task workflow. The instruction feature
+switch lives under `[daemon]` as `experimental_instructions`; worker bootstrap is independent
+of it. Settings > Integrations > Workers contains the worker prompt. See
 [Using slopctl](slopctl.md).
 
 The per-agent `slopworld_md` switch still controls whether the document is mounted at
-all. `breadcrumb_enabled` controls the additional discovery line globally, while
-`instructions_breadcrumb` controls the per-agent opt-in; named breadcrumbs remain independent.
-The agent editor's **Breadcrumbs** tab shows the generated discovery entry and defaults it on
-when the manifest is mounted. Settings provides separate **Reset to default** actions for the
-body and breadcrumb; reset changes the pending form and **Save** applies it.
+all. `breadcrumb_enabled` controls the generated discovery line globally. Library breadcrumbs
+are separate reusable content and are inserted manually from the terminal context menu.
+Settings provides separate **Reset to default** actions for the body and breadcrumb; reset
+changes the pending form and **Save** applies it.
 
 ## Command presets
 
@@ -157,7 +143,7 @@ preset is implicit and precedes all others. See
 
 ## Network
 
-Projects set the network default; agents may override it:
+Agents own their network mode:
 
 | Mode | Behavior |
 | --- | --- |
@@ -165,15 +151,15 @@ Projects set the network default; agents may override it:
 | `private` | `pasta` wraps the sandbox with synthetic DNS. No port forwarding. Blocks loopback but does not restrict egress. |
 | `host` | Full host networking, including local services. |
 
-DNS defaults to up to two IPv4 nameservers from the daemon's `/etc/resolv.conf`. An
-explicit `dns` on the project or agent selects up to two IPv4 servers for `pasta`.
+DNS `resolved` follows the daemon's current resolver. An explicit `dns` on the agent selects
+up to two IPv4 servers for `pasta`.
 Network and DNS changes take effect on the next agent start.
 
 ## When changes take effect
 
 Restart agents after changing their launch configuration, including commands,
-sandbox settings, mounts, and startup instructions. Running agents retain their
-current mounts when a project directory changes.
+sandbox settings, mounts, and startup instructions. Project mount edits are read at each
+start and do not rebuild a running sandbox.
 
 An enabled manifest is regenerated when configuration is synchronized and before each
 start; it is a snapshot for an already-running sandbox. SlopWorld refuses to overwrite
@@ -186,10 +172,23 @@ tmux pane does not submit `/resume` again.
 
 Right-click an agent and select **Shell** to open a shell inside the same sandbox.
 The shell inherits the agent's sandbox presets, network mode, DNS, resource limits,
-and mounts, so it sees the same filesystem the agent does. Host shells from the
-project heading do not carry per-agent overrides.
+and selected project's mounts, so it sees the same filesystem the agent does. Host shells from
+the project heading do not carry per-agent settings.
 
 Settings > Commands > Defaults > **Agent shell** controls the `SHELL` environment
 variable inside sandboxed agent sessions. It defaults to `bash`, independently of
 the **Shell** default used by shell errands. This avoids passing a host login shell
 such as zsh to agent tools; restart an agent after changing it.
+
+## Library errands
+
+Prompts and shell commands create temporary sessions. In their Library editor, choose
+**Run using > Host** for execution outside the sandbox, or **Agent template: …** to copy
+that template's command, sandbox additions, network, DNS, limits and private-state choices.
+The selected project supplies the working directory and mounts; a temporary project starts
+with an empty workspace. Shell errands retain their shell executable; prompt errands use
+the template's command unless a command override is supplied.
+
+Each run copies the current template once with a fresh private identity. Editing or deleting
+the template does not change an errand already created. Errands do not autostart or auto-resume.
+An execution choice is required before running an entry. File actions continue to execute on the daemon host.

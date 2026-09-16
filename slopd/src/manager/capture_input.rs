@@ -187,14 +187,8 @@ impl Manager {
         name: &str,
         random_tips: &[String],
     ) -> Option<Vec<u8>> {
-        let breadcrumbs_enabled = self.config().await.daemon.experimental_breadcrumbs;
         let mut live = self.live.write().await;
         let session = live.get_mut(name)?;
-        if !breadcrumbs_enabled {
-            session.breadcrumbs_pending = false;
-            session.breadcrumbs.clear();
-            return None;
-        }
         if !session.breadcrumbs_pending {
             return None;
         }

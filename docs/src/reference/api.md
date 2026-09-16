@@ -36,10 +36,12 @@ budget. `counts_complete` is false when counting was skipped or exceeded its bud
 
 ### Ephemeral errands
 
-`POST /api/run` creates an unnamed errand. `host` errands run outside bwrap with the
+`POST /api/run` creates an unnamed errand. Choose `host: true`, `agent_template: "name"`,
+or `like: "existing-agent"`; conflicting choices and missing sandbox settings are rejected.
+`host` errands run outside bwrap with the
 tmux environment plus `TERM`, `COLORTERM`, and `SLOPWORLD_*`. `like` names an existing
-session whose sandbox config (presets, network, DNS, limits, mounts) is copied onto the
-new errand. An empty shell command uses the daemon's `$SHELL`. Only an empty host shell
+session whose agent-owned process settings (presets, network, DNS, limits) are copied onto
+the new errand; its selected project supplies mounts. An empty shell command uses the daemon's `$SHELL`. Only an empty host shell
 command attached to a project without `temp` becomes a saved host-terminal tab; host commands
 are disposable.
 
@@ -67,22 +69,22 @@ Repository names are qualified as `project::name`, carry `origin.source = "proje
 `origin.file`, and are read-only. They can be instantiated or duplicated into the personal
 catalog. See [repository Library](../guides/repository-library.md).
 `POST /api/templates` accepts `{ "name": "...", "description": "...", "source": "..." }`
-and captures the configured source agent's explicit choices and dependencies. Set
-`include_inherited: true` to also capture effective source-project defaults and contributions. It also accepts `{ "name": "...", "description":
+and captures the configured source agent's explicit choices and dependencies. Project settings
+are never template fields. It also accepts `{ "name": "...", "description":
 "...", "duplicate": "existing-template" }` for an independent copy, or a complete template
 definition with `version` omitted to create a definition from the template editor. Every personal
 definition includes a daemon-owned monotonic `version`; repository definitions use zero. `POST /api/templates/:name/create` accepts a new
 `name`, a registered `project`, and an optional `overrides` session form; the daemon copies
-the template's portable fields, validates explicit mount overrides, and allocates fresh private
-state. `PUT /api/templates/:name` accepts the complete definition with its expected `version`
+the template's portable fields and allocates fresh private state. The selected project supplies
+mounts. `PUT /api/templates/:name` accepts the complete definition with its expected `version`
 and atomically replaces it; the path may name the old definition when the editor also renames
 it. `DELETE /api/templates/:name?version=N` requires the expected version. Stale edit/delete
 requests return `409 Conflict`, missing edit/delete targets return `404`, and duplicate
 destinations are rejected. The daemon never retries a conflict automatically.
-Template defaults are sparse: omitted/null network and DNS inherit from the destination
-project, each unset limit inherits its project cap, and omitted startup flags use session
-defaults. An omitted command uses the daemon default. Explicit existing values keep their
-meaning. Template-created sessions retain captured command, sandbox, and prompt definitions
+Template defaults are sparse: omitted/null network and DNS use the documented agent defaults
+(`private` and the system resolver), each unset limit means no cap, and omitted startup flags
+use session defaults. An omitted command uses the daemon default. Explicit existing values
+keep their meaning. Template-created sessions retain captured command and sandbox definitions
 when live catalog entries change; templates are not a live inheritance layer.
 
 `POST /api/settings/preview` is root-only and does not persist or launch anything. It accepts
@@ -90,7 +92,7 @@ an optional complete `session` draft, an `existing` agent name to retain saved s
 a `project` draft, and/or a `template` definition. Set `recipe: true` when inspecting a
 recipe without a destination project; leave `session` absent in that case. The response has
 `title`, `subtitle`, `notes`, and `fields` (`label`, `values`) for display, plus `definitions`
-containing the captured command, sandbox and prompt definitions for editor pickers. Effective
+containing the captured command and sandbox definitions for editor pickers. Effective
 values and contribution sources use launch's configuration resolvers; requested paths still
 undergo launch-time validation. This is next-start configuration, not running-process state.
 
@@ -104,11 +106,19 @@ The list is returned by `GET /api/state`. Reset uses the session state route; de
 restore use the `/api/state` routes in the generated inventory.
 `DELETE /api/state/trash` permanently removes all retained trash entries.
 
+Library prompt and shell records use `host: true` or `agent_template: "name"` for their
+execution choice. Template settings are copied at each run; omitted command overrides use
+the template command for prompts and the daemon shell for shell errands. Older records with
+neither choice cannot run until configured. Repository template names are qualified as
+`project::name`.
+
 ### Configuration patching
 
 The patch route deep-merges nested JSON, validates the result, and preserves omitted
-fields. Project JSON carries the network default; session JSON carries effective network
-plus nullable `network_override`. DNS is optional tagged JSON:
+fields. Project JSON carries its directory, temporary flag, and shared `mounts`, for example
+`[{"from":"/work/shared","to":"/mnt/shared","mode":"ro"}]`. Mounts store literal paths,
+not project references. Both TOML and API writes use `from` and `to`. Session JSON
+carries direct agent network, DNS, limits, and startup settings. DNS is tagged JSON:
 `{"mode":"resolved"}` or `{"mode":"servers","servers":["IPv4", ...]}`.
 
 ## WebSocket

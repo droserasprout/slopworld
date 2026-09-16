@@ -354,7 +354,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn experimental_off_discards_pending_breadcrumbs() {
+    async fn pending_instruction_discovery_is_consumed_once() {
         let manager = crate::session::test_manager(Config::default());
         let mut live = Live::new(
             SessionCfg {
@@ -366,17 +366,18 @@ mod tests {
         live.breadcrumbs = b"previously armed prompt".to_vec();
         live.breadcrumbs_pending = true;
         manager.live.write().await.insert("agent".into(), live);
-        assert!(manager.consume_breadcrumbs("agent", &[]).await.is_none());
+        assert_eq!(
+            manager.consume_breadcrumbs("agent", &[]).await.as_deref(),
+            Some(b"previously armed prompt".as_slice())
+        );
         let live = manager.live.read().await;
         assert!(!live["agent"].breadcrumbs_pending);
-        assert!(live["agent"].breadcrumbs.is_empty());
-        assert!(live["agent"].cfg.breadcrumb_yolo);
+        assert_eq!(live["agent"].breadcrumbs, b"previously armed prompt");
     }
 
     #[tokio::test]
     async fn breadcrumbs_are_consumed_once_for_a_delivered_prompt() {
-        let mut cfg = Config::default();
-        cfg.daemon.experimental_breadcrumbs = true;
+        let cfg = Config::default();
         let manager = crate::session::test_manager(cfg);
         let mut live = Live::new(
             SessionCfg {

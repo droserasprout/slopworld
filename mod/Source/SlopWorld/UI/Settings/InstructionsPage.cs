@@ -114,8 +114,7 @@ namespace SlopWorld
         {
             DrawMetadataStatus(l);
             bool instructions = EffectiveInstructions;
-            bool breadcrumbs = EffectiveBreadcrumbs;
-            if (!instructions || !breadcrumbs)
+            if (!instructions)
             {
                 UiLayout.Note(l, "These controls use the live daemon gates in " +
                     "Settings > General > Experimental.");
@@ -135,8 +134,6 @@ namespace SlopWorld
 
             l.Gap(UiTheme.GapL);
             UiLayout.SectionHeading(l, "Discovery breadcrumb");
-            if (!breadcrumbs)
-                UiLayout.Note(l, "Requires the separate Breadcrumbs gate in General > Experimental.");
             if (!instructions)
                 UiLayout.Note(l, "Requires the Instructions gate in General > Experimental.");
             UiLayout.Note(l, "This text is added to the agent's first prompt when the manifest " +
@@ -144,14 +141,14 @@ namespace SlopWorld
             l.Label("Breadcrumb template");
             _cfg.InstructionsBreadcrumb = UiControls.Area(l, 120f, "instructions.breadcrumb",
                 _cfg.InstructionsBreadcrumb,
-                on: breadcrumbs && instructions,
+                on: instructions,
                 defaultValue: _cfg.FactoryDefaults?.InstructionsBreadcrumb);
             UiLayout.Note(l, "Variables: {{ project }}, {{ mount_path }}, and {{ file }}. " +
                 "Unknown variables are left unchanged.");
             _cfg.InstructionsBreadcrumbEnabled = UiControls.Checkbox(l,
                 "Add discovery breadcrumb", _cfg.InstructionsBreadcrumbEnabled,
                 "Adds the configured discovery text to opted-in agents.",
-                locked: !breadcrumbs || !instructions);
+                locked: !instructions);
             UiLayout.Note(l, "Reset changes the form only; press Save to apply it.");
 
             l.Gap(UiTheme.GapL);
@@ -319,9 +316,6 @@ namespace SlopWorld
 
         bool EffectiveInstructions => SessionHub.Instance.Config != null &&
             SessionHub.Instance.Config.ExperimentalInstructions;
-
-        bool EffectiveBreadcrumbs => SessionHub.Instance.Config != null &&
-            SessionHub.Instance.Config.ExperimentalBreadcrumbs;
 
         bool? _lastInstructionsGate;
 

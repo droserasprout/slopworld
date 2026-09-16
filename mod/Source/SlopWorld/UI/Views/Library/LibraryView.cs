@@ -193,8 +193,7 @@ namespace SlopWorld
         static float DrawLibraryRow(Rect view, Rect r, LibraryItemInfo item)
         {
             bool template = Templates.ContainsKey(item);
-            bool enabled = template || item.Kind != LibraryItemKind.Breadcrumb ||
-                SessionHub.Instance.Config.ExperimentalBreadcrumbs;
+            bool enabled = true;
             RowChrome.Hover(r, ReferenceEquals(item, _selected), enabled,
                 RowHoverPolicy.OverlayAware);
 
@@ -351,13 +350,6 @@ namespace SlopWorld
                     return;
                 }
 
-                if (!line.Head && line.Item.Kind == LibraryItemKind.Breadcrumb &&
-                    !SessionHub.Instance.Config.ExperimentalBreadcrumbs)
-                {
-                    e.Use();
-                    return;
-                }
-
                 if (line.Head)
                 {
                     // Heading: left click folds, right click opens project menu. Both keyed
@@ -449,14 +441,10 @@ namespace SlopWorld
 
             var edit = new FloatMenuOption(s.ReadOnly ? "Inspect..." : "Edit...", () =>
                 TerminalWindow.OpenOverPane(new EditLibraryItemDialog(s)));
-            edit.Disabled = s.Kind == LibraryItemKind.Breadcrumb &&
-                !SessionHub.Instance.Config.ExperimentalBreadcrumbs;
             opts.Add(edit);
 
             var duplicate = new FloatMenuOption("Duplicate...", () =>
                 TerminalWindow.OpenOverPane(EditLibraryItemDialog.Copy(s)));
-            duplicate.Disabled = s.Kind == LibraryItemKind.Breadcrumb &&
-                !SessionHub.Instance.Config.ExperimentalBreadcrumbs;
             opts.Add(duplicate);
 
             if (!s.ReadOnly) opts.Add(new FloatMenuOption("Delete", () =>

@@ -1,5 +1,5 @@
-//! Shared configuration resolution for editor previews. Launch uses the same scalar,
-//! dependency and prompt resolvers; previews never prepare private state or start a process.
+//! Shared configuration resolution for editor previews. Launch uses the same scalar and
+//! dependency resolvers; previews never prepare private state or start a process.
 use super::{Config, DnsConfig, ProjectCfg, SessionCfg};
 use serde_json::{json, Value};
 
@@ -37,12 +37,6 @@ impl SessionCfg {
             .filter(|p| selected.contains(&p.name))
             .cloned()
             .collect();
-        self.breadcrumb_snapshots = previous
-            .breadcrumb_snapshots
-            .iter()
-            .filter(|p| self.breadcrumbs.contains(&p.name))
-            .cloned()
-            .collect();
     }
 }
 
@@ -51,11 +45,6 @@ impl Config {
         let mut fields = Vec::new();
         let mut field = |label: &str, values: Vec<String>| {
             fields.push(json!({"label": label, "values": values}))
-        };
-        let project_source = if recipe {
-            "destination project".to_string()
-        } else {
-            format!("project {}", p.name)
         };
         let command = self.command_of(s);
         let command = if command.is_empty() {
@@ -83,19 +72,10 @@ impl Config {
         let network = self.network_of(s, p);
         field(
             "Network",
-            vec![if recipe && s.network.is_none() {
-                "Use destination project".into()
-            } else {
-                format!(
-                    "{} — {}",
-                    serde_json::to_value(network).unwrap().as_str().unwrap(),
-                    if s.network.is_some() {
-                        "agent override"
-                    } else {
-                        &project_source
-                    }
-                )
-            }],
+            vec![format!(
+                "{} — agent setting",
+                serde_json::to_value(network).unwrap().as_str().unwrap()
+            )],
         );
         let dns = self.dns_of(s, p);
         let dns_label = match &dns {
@@ -106,63 +86,21 @@ impl Config {
                 .collect::<Vec<_>>()
                 .join(", "),
         };
-        field(
-            "DNS",
-            vec![if recipe && s.dns.is_none() {
-                "Use destination project / daemon resolver".into()
-            } else {
-                format!(
-                    "{dns_label} — {}",
-                    if s.dns.is_some() {
-                        "agent override"
-                    } else if p.dns.is_some() {
-                        &project_source
-                    } else {
-                        "daemon resolver"
-                    }
-                )
-            }],
-        );
+        field("DNS", vec![format!("{dns_label} — agent setting")]);
         let limits = self.limits_of(s, p);
         let mut caps = Vec::new();
-        for (label, own, inherited, effective) in [
-            (
-                "Memory (MiB)",
-                s.limits.memory_mb,
-                p.limits.memory_mb,
-                limits.memory_mb,
-            ),
-            ("Processes", s.limits.pids, p.limits.pids, limits.pids),
-            (
-                "Open files",
-                s.limits.nofile,
-                p.limits.nofile,
-                limits.nofile,
-            ),
-            (
-                "CPU (%)",
-                s.limits.cpu_pct,
-                p.limits.cpu_pct,
-                limits.cpu_pct,
-            ),
+        for (label, effective) in [
+            ("Memory (MiB)", limits.memory_mb),
+            ("Processes", limits.pids),
+            ("Open files", limits.nofile),
+            ("CPU (%)", limits.cpu_pct),
         ] {
-            caps.push(if recipe && own.is_none() {
-                format!("{label}: use destination project")
-            } else {
-                format!(
-                    "{label}: {} — {}",
-                    effective
-                        .map(|v| v.to_string())
-                        .unwrap_or("no configured cap".into()),
-                    if own.is_some() {
-                        "agent override"
-                    } else if inherited.is_some() {
-                        &project_source
-                    } else {
-                        "default"
-                    }
-                )
-            });
+            caps.push(format!(
+                "{label}: {} — agent setting",
+                effective
+                    .map(|v| v.to_string())
+                    .unwrap_or("no configured cap".into())
+            ));
         }
         field("Resource limits", caps);
         let table = s.preset_table();
@@ -186,9 +124,6 @@ impl Config {
             if command_presets.contains(&name) {
                 owners.push("command");
             }
-            if p.sandbox.contains(&name) {
-                owners.push("project");
-            }
             if s.sandbox.contains(&name) {
                 owners.push("agent");
             }
@@ -208,40 +143,8 @@ impl Config {
             selections.push(format!("{name} — {} — {status}", owners.join(" + ")));
         }
         field("Sandbox contributions", selections);
-        let mut names = p.breadcrumbs.clone();
-        for name in &s.breadcrumbs {
-            if !names.contains(name) {
-                names.push(name.clone());
-            }
-        }
-        let mut prompts = Vec::new();
-        for name in names {
-            let owner = if p.breadcrumbs.contains(&name) {
-                "project"
-            } else {
-                "agent"
-            };
-            let snapshot = s.breadcrumb_snapshots.iter().find(|v| v.name == name);
-            let text = snapshot.map(|v| v.text.clone()).or_else(|| {
-                self.library_item(&name)
-                    .filter(|v| v.kind == super::LibraryItemKind::Breadcrumb)
-                    .map(|v| v.text)
-            });
-            prompts.push(format!(
-                "{name} — {owner} — {}\n{}",
-                if snapshot.is_some() {
-                    "captured copy"
-                } else {
-                    "live definition"
-                },
-                text.unwrap_or("Missing breadcrumb".into())
-            ));
-        }
-        field("Breadcrumb contributions (delivery order)", prompts);
-        if self.daemon.experimental_breadcrumbs
-            && self.daemon.experimental_instructions
+        if self.daemon.experimental_instructions
             && s.slopworld_md
-            && s.instructions_breadcrumb
             && self.daemon.instructions.breadcrumb_enabled
         {
             field(
@@ -263,12 +166,29 @@ impl Config {
                     "Mount SLOPWORLD.md: {} (requires daemon instructions enabled)",
                     s.slopworld_md
                 ),
-                format!("Instructions discovery: {}", s.instructions_breadcrumb),
-                format!(
-                    "Paste breadcrumbs on first Enter: {} (requires daemon breadcrumbs enabled)",
-                    s.breadcrumb_yolo
-                ),
+                "Library breadcrumbs are inserted manually from the terminal context menu".into(),
             ],
+        );
+        field(
+            "Project mounts (next start)",
+            if p.mounts.is_empty() {
+                vec!["none".into()]
+            } else {
+                p.mounts
+                    .iter()
+                    .map(|mount| {
+                        format!(
+                            "{} → {} — {}",
+                            mount.from,
+                            mount.to,
+                            match mount.mode {
+                                super::MountMode::Ro => "read-only",
+                                super::MountMode::Rw => "read-write",
+                            }
+                        )
+                    })
+                    .collect()
+            },
         );
         for (label, pick) in [
             (
@@ -321,7 +241,7 @@ impl Config {
                 .collect(),
         );
         json!({"title": if recipe { "Template recipe" } else { "Effective settings for next start" },
-            "subtitle": if recipe { "Unspecified values are resolved in the destination project".to_string() } else { format!("Project: {} — {}", p.name, p.dir) },
+            "subtitle": if recipe { "Portable agent settings; project mounts are applied by the destination project".to_string() } else { format!("Project: {} — {}", p.name, p.dir) },
             "notes": ["This is saved/draft configuration, not the sandbox of an already running process. Mount existence and protected-path checks are applied at launch."],
             "fields": fields})
     }
@@ -341,82 +261,48 @@ impl SessionCfg {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::{BreadcrumbSnapshot, LibraryItemCfg, LibraryItemKind, Limits, NetworkMode};
-    use crate::presets::{CommandPreset, SandboxPreset};
+    use crate::config::{Limits, Mount, MountMode, NetworkMode};
+    use crate::presets::CommandPreset;
+    use crate::presets::SandboxPreset;
     use crate::session::AgentTemplate;
 
     #[test]
-    fn sparse_recipe_uses_destination_defaults_and_legacy_explicit_values_stay_pinned() {
+    fn sparse_recipe_uses_documented_agent_defaults() {
         let sparse: AgentTemplate = toml::from_str("name = 'sparse'\n[defaults]\n").unwrap();
         crate::session::validate_template_definition(&sparse).unwrap();
         let cfg = Config::default();
-        let mut project = ProjectCfg {
-            network: NetworkMode::Host,
-            limits: Limits {
-                memory_mb: Some(1024),
-                ..Default::default()
-            },
-            ..Default::default()
-        };
+        let project = ProjectCfg::default();
         let session = sparse.instantiate("agent".into(), "repo".into());
-        assert_eq!(session.network, None);
-        assert_eq!(session.dns, None);
-        assert_eq!(cfg.network_of(&session, &project), NetworkMode::Host);
-        assert_eq!(cfg.limits_of(&session, &project).memory_mb, Some(1024));
-        assert!(session.instructions_breadcrumb);
-        let legacy: AgentTemplate = toml::from_str("name = 'legacy'\n[defaults]\nnetwork = 'private'\nautostart = false\n[defaults.dns]\nmode = 'resolved'\n[defaults.limits]\nmemory_mb = 512\n").unwrap();
-        let pinned = legacy.instantiate("legacy-agent".into(), "repo".into());
-        project.network = NetworkMode::None;
-        project.limits.memory_mb = Some(2048);
-        assert_eq!(cfg.network_of(&session, &project), NetworkMode::None);
-        assert_eq!(cfg.network_of(&pinned, &project), NetworkMode::Private);
-        assert_eq!(cfg.limits_of(&pinned, &project).memory_mb, Some(512));
-        let back: AgentTemplate = toml::from_str(&toml::to_string(&legacy).unwrap()).unwrap();
-        assert_eq!(back.defaults.network, Some(NetworkMode::Private));
-        assert_eq!(back.defaults.autostart, Some(false));
+        assert_eq!(cfg.network_of(&session, &project), NetworkMode::Private);
+        assert_eq!(cfg.limits_of(&session, &project), Limits::default());
     }
 
     #[test]
-    fn capture_defaults_to_explicit_choices_and_full_capture_is_opt_in() {
+    fn capture_copies_agent_settings_but_not_project_settings() {
         let project = ProjectCfg {
             name: "source".into(),
+            ..Default::default()
+        };
+        let cfg = Config::default();
+        let source = SessionCfg {
+            name: "source".into(),
             network: NetworkMode::Host,
-            sandbox: vec!["git".into()],
-            breadcrumbs: vec!["project-rules".into()],
             limits: Limits {
                 memory_mb: Some(512),
                 ..Default::default()
             },
             ..Default::default()
         };
-        let cfg = Config {
-            library: vec![LibraryItemCfg {
-                name: "project-rules".into(),
-                kind: LibraryItemKind::Breadcrumb,
-                text: "Project-only rules".into(),
-                ..Default::default()
-            }],
-            ..Default::default()
-        };
-        let source = SessionCfg {
-            name: "source".into(),
-            ..Default::default()
-        };
         let sparse =
-            AgentTemplate::capture("sparse".into(), "".into(), &source, &project, &cfg, false)
-                .unwrap();
-        assert_eq!(sparse.defaults.network, None);
-        assert_eq!(sparse.defaults.dns, None);
+            AgentTemplate::capture("sparse".into(), "".into(), &source, &project, &cfg).unwrap();
+        assert_eq!(sparse.defaults.network, Some(NetworkMode::Host));
+        assert_eq!(
+            sparse.defaults.dns,
+            Some(crate::config::DnsConfig::Resolved)
+        );
         assert!(sparse.defaults.command.is_none());
         assert!(sparse.defaults.sandbox.is_empty());
-        assert!(sparse.defaults.prompts.is_empty());
-        assert!(sparse.defaults.limits.is_empty());
-        let full = AgentTemplate::capture("full".into(), "".into(), &source, &project, &cfg, true)
-            .unwrap();
-        assert_eq!(full.defaults.network, Some(NetworkMode::Host));
-        assert_eq!(full.defaults.limits.memory_mb, Some(512));
-        assert!(full.defaults.sandbox.contains(&"global".into()));
-        assert_eq!(full.defaults.prompts[0].text, "Project-only rules");
+        assert_eq!(sparse.defaults.limits.memory_mb, Some(512));
         assert!(source.sandbox.is_empty());
     }
 
@@ -441,11 +327,6 @@ mod tests {
                     ..Default::default()
                 },
             ],
-            breadcrumbs: vec!["rules".into()],
-            breadcrumb_snapshots: vec![BreadcrumbSnapshot {
-                name: "rules".into(),
-                text: "Captured text".into(),
-            }],
             ..Default::default()
         };
         let mut edit = source.clone();
@@ -456,23 +337,21 @@ mod tests {
         let cfg = Config::default();
         let project = ProjectCfg {
             name: "repo".into(),
-            limits: Limits {
-                memory_mb: Some(1024),
-                ..Default::default()
-            },
+            mounts: vec![Mount {
+                from: "/tmp".into(),
+                to: "/mnt/other".into(),
+                mode: MountMode::Ro,
+            }],
             ..Default::default()
         };
         let result = cfg.settings_preview(&edit, &project, false).to_string();
-        assert!(result.contains("1024"));
-        assert!(result.contains("project repo"));
-        assert!(result.contains("Captured text"));
+        assert!(result.contains("Project mounts"));
+        assert!(result.contains("Project: repo"));
         assert!(result.contains("captured copy"));
         assert!(result.contains("custom-command-line"));
         edit.command.clear();
-        edit.breadcrumbs.clear();
         edit.preserve_selected_snapshots(&source);
         assert!(edit.command_snapshot.is_none());
         assert!(edit.sandbox_snapshots.is_empty());
-        assert!(edit.breadcrumb_snapshots.is_empty());
     }
 }

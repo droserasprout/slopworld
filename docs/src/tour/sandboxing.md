@@ -9,8 +9,8 @@ agents unsandboxed on your desktop, but that is the extent of the guarantee.
 
 Each agent runs inside a layered sandbox: systemd can apply resource limits, Bubblewrap
 controls filesystem mounts, pasta provides the selected network namespace, and tmux owns
-the terminal session. The sandbox is configured by project and agent settings, with
-presets supplying mounts, environment, and capabilities.
+the terminal session. Projects provide the workspace and shared mounts; agents provide process
+settings and sandbox additions, with presets supplying environment and capabilities.
 
 The three network modes are:
 

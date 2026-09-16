@@ -53,10 +53,6 @@ pub(super) fn check_project(p: &ProjectCfg) -> Result<()> {
     if let Some(what) = crate::sandbox::refused(&dir) {
         bail!("project {} cannot live at {dir}: it reaches {what}", p.name);
     }
-    if let Some(dns) = &p.dns {
-        dns.validate(&format!("project {}", p.name))?;
-    }
-    check_presets(&p.sandbox)?;
     Ok(())
 }
 
@@ -92,17 +88,6 @@ pub(super) fn breadcrumb_block(crumbs: &[String]) -> String {
     out
 }
 
-pub(super) fn check_breadcrumbs(cfg: &Config, names: &[String]) -> Result<()> {
-    for name in names {
-        match cfg.library_item(name) {
-            Some(sc) if sc.kind == LibraryItemKind::Breadcrumb => {}
-            Some(_) => bail!("library item {name} is not a breadcrumb"),
-            None => bail!("unknown breadcrumb: {name}"),
-        }
-    }
-    Ok(())
-}
-
 pub(crate) fn check_library_item(cfg: &Config, sc: &LibraryItemCfg) -> Result<()> {
     if sc.name.trim().is_empty() {
         bail!("library item name must not be empty");
@@ -111,10 +96,13 @@ pub(crate) fn check_library_item(cfg: &Config, sc: &LibraryItemCfg) -> Result<()
         if sc.text.trim().is_empty() {
             bail!("breadcrumb {} has no text", sc.name);
         }
-        if !sc.project.trim().is_empty() && cfg.project(&sc.project).is_none() {
-            bail!("no such project: {}", sc.project);
-        }
         return Ok(());
+    }
+    if sc.host && !sc.agent_template.trim().is_empty() {
+        bail!(
+            "library item {} must choose Host or an agent template, not both",
+            sc.name
+        );
     }
     if sc.kind == LibraryItemKind::FileAction {
         if sc
@@ -171,9 +159,7 @@ pub(super) fn check_belongs(cfg: &Config, s: &SessionCfg) -> Result<()> {
     if cfg.project(&s.project).is_none() {
         bail!("no such project: {}", s.project);
     }
-    if let Some(dns) = &s.dns {
-        dns.validate(&format!("agent {}", s.name))?;
-    }
+    s.dns.validate(&format!("agent {}", s.name))?;
     let live_presets: Vec<String> = s
         .sandbox
         .iter()
@@ -185,46 +171,14 @@ pub(super) fn check_belongs(cfg: &Config, s: &SessionCfg) -> Result<()> {
         .cloned()
         .collect();
     check_presets(&live_presets)?;
-    for prompt in &s.breadcrumbs {
-        if let Some(snapshot) = s
-            .breadcrumb_snapshots
-            .iter()
-            .find(|snapshot| snapshot.name == *prompt)
-        {
-            if snapshot.text.trim().is_empty() {
-                bail!("session {} has an empty prompt snapshot", s.name);
-            }
-        } else {
-            check_breadcrumbs(cfg, std::slice::from_ref(prompt))?;
-        }
-    }
-    check_mounts(cfg, s)?;
+    s.limits.validate()?;
+    let project = cfg.project(&s.project).expect("checked above");
+    check_project_mounts(cfg, project)?;
     Ok(())
 }
 
-pub(super) fn check_mounts(cfg: &Config, s: &SessionCfg) -> Result<()> {
-    for mount in &s.mounts {
-        if mount.project.trim().is_empty() {
-            bail!("session {} has a mount with an empty project name", s.name);
-        }
-        let Some(p) = cfg.project(&mount.project) else {
-            bail!(
-                "session {} mounts unknown project {:?}",
-                s.name,
-                mount.project
-            );
-        };
-        let dir = expand(&p.dir);
-        if !dir.is_empty() {
-            if let Some(what) = crate::sandbox::refused(&dir) {
-                bail!(
-                    "session {} cannot mount project {:?}: it reaches {what}",
-                    s.name,
-                    mount.project
-                );
-            }
-        }
-    }
+pub(super) fn check_project_mounts(_cfg: &Config, owner: &ProjectCfg) -> Result<()> {
+    crate::config::validate_mount_paths(owner)?;
     Ok(())
 }
 
@@ -305,15 +259,10 @@ pub(crate) fn validate_config(cfg: &Config) -> Result<()> {
     }
     for s in &cfg.sessions {
         s.limits.validate()?;
-        if let Some(dns) = &s.dns {
-            dns.validate(&format!("agent {}", s.name))?;
-        }
+        s.dns.validate(&format!("agent {}", s.name))?;
     }
     for p in &cfg.projects {
-        p.limits.validate()?;
-        if let Some(dns) = &p.dns {
-            dns.validate(&format!("project {}", p.name))?;
-        }
+        check_project_mounts(cfg, p)?;
     }
     crate::runtime::validate_config(cfg)?;
     Ok(())

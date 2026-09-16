@@ -10,14 +10,14 @@ the manager loads it at startup and serializes mutations atomically. Personal te
 from registered checkouts; see [Library ownership](daemon-library.md).
 
 Config patches deep-merge the original TOML document, preserving omitted and unknown fields.
-Typed `Config::save` serializes modeled fields only. Preserve this distinction when adding
-editors. The redacted-token sentinel means keep the stored token; empty means replace it
-with empty. Never round-trip the endpoint secret through a settings draft.
+Typed `Config::save` serializes modeled fields and preserves unrelated document fields when
+editing an existing file. The redacted-token sentinel means keep the stored token; empty means
+replace it with empty. Never round-trip the endpoint secret through a settings draft.
 
-Project network/DNS values are defaults, not upper bounds. Session overrides may widen
-network access. The wire exposes effective values separately from nullable overrides;
-editors must save the override. Changes apply at next agent start. Omitted DNS follows the
-daemon's resolver, including the container resolver in sidecar mode.
+Projects own directories, temporary-project behavior, and shared mounts. Mount rows store
+literal `from`/`to` paths and modes, read when each agent starts. The project shortcut copies paths once; a running sandbox is not rebuilt. Agents own command, sandbox additions,
+network, DNS, resource limits, and startup/private-state behavior. Network defaults to private,
+DNS `resolved` follows the current daemon/container resolver, and an unset limit means no cap.
 
 `GET /api/config` is also the client read model for daemon policy: it returns effective values
 and a response-only factory-default snapshot, usage catalog, temporary-root preview policy and
@@ -25,13 +25,21 @@ terminal limits. The mod must use those values for field initialization/reset an
 them from generated constants. Missing metadata leaves reset and policy-preview controls
 unavailable; it is not an authoritative new default.
 
-Instruction and discovery-breadcrumb previews are rendered by the daemon from unsaved values.
-An omitted breadcrumb uses the saved template; an explicitly empty draft remains empty.
+Instruction discovery previews are rendered by the daemon from unsaved values. Library
+breadcrumbs are independent reusable content and are inserted manually; they are not selected
+or injected automatically at agent startup.
 
 See [Settings behavior](ui-settings.md) for draft and save ownership, and
 [sandbox isolation](sandbox-isolation.md) for private-state boundaries.
 
 `config/resolution.rs` supplies editor settings previews through `/api/settings/preview`,
-using the same scalar and dependency resolvers as launch. The response labels contribution
-sources and describes the next start, not an existing process's actual sandbox. Snapshot
-metadata for editor pickers stays on this root-only boundary rather than session broadcasts.
+using the same scalar and dependency resolvers as launch. The response labels direct agent
+settings, project mounts, and captured dependencies and describes the next start, not an
+existing process's actual sandbox. Snapshot metadata for editor pickers stays on this root-only
+boundary rather than session broadcasts.
+
+Config and template loads read the current schema without rewriting files. API writes validate
+current request fields; repository definitions remain read-only.
+
+Unknown-field preservation compares the original document with its old typed representation;
+known fields omitted by serialization are clears, not extensions to restore.

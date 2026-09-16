@@ -43,9 +43,9 @@ use title::{
     Submission, TitleCapture, TitleRequest,
 };
 use validation::{
-    absolute_path, breadcrumb_block, check_belongs, check_breadcrumbs, check_name, check_project,
-    free_name, free_project_name, json_to_toml, merge_toml, normalize_action_command,
-    project_action_path, settle, slug,
+    absolute_path, breadcrumb_block, check_belongs, check_name, check_project, free_name,
+    free_project_name, json_to_toml, merge_toml, normalize_action_command, project_action_path,
+    settle, slug,
 };
 pub(crate) use validation::{check_library_item, hold_action_command, validate_config};
 
@@ -54,7 +54,7 @@ use input::INPUT_BATCH;
 #[cfg(test)]
 use title::{title_agent, TitleAgent};
 #[cfg(test)]
-use validation::{check_mounts, normalize_path};
+use validation::normalize_path;
 
 use crate::config::{
     expand, Config, LibraryItemCfg, LibraryItemKind, LibraryItemLink, NetworkMode, ProjectCfg,
@@ -340,13 +340,12 @@ mod tests {
     use std::sync::Arc;
 
     use super::{
-        breadcrumb_block, check_breadcrumbs, check_library_item, check_name, check_project,
-        compile_rules, free_name, free_project_name, hold_action_command, json_to_toml,
-        match_rules, merge_input, merge_toml, normalize_action_command, normalize_path,
-        project_action_path, prompt_is_long_enough, render_template, render_template_with, settle,
-        slug, strip_sgr, title_agent, title_settings, Composer, Event, EventMessage, Input, Live,
-        ScreenView, State, Submission, TemplateVars, TitleAgent, TitleCapture, BOOT_COLS,
-        BOOT_ROWS, INPUT_BATCH, TAIL_LINES,
+        breadcrumb_block, check_library_item, check_name, check_project, compile_rules, free_name,
+        free_project_name, hold_action_command, json_to_toml, match_rules, merge_input, merge_toml,
+        normalize_action_command, normalize_path, project_action_path, prompt_is_long_enough,
+        render_template, render_template_with, settle, slug, strip_sgr, title_agent,
+        title_settings, Composer, Event, EventMessage, Input, Live, ScreenView, State, Submission,
+        TemplateVars, TitleAgent, TitleCapture, BOOT_COLS, BOOT_ROWS, INPUT_BATCH, TAIL_LINES,
     };
     use crate::config::{Config, LibraryItemCfg, LibraryItemKind, ProjectCfg, SessionCfg};
 
@@ -977,21 +976,6 @@ pattern = '(?i)(esc to interrupt|to interrupt\))'
     }
 
     #[test]
-    fn an_attachment_must_name_a_breadcrumb() {
-        let mut cfg = Config::default();
-        cfg.library.push(LibraryItemCfg {
-            name: "tests".into(),
-            kind: LibraryItemKind::Shell,
-            text: "make test".into(),
-            ..Default::default()
-        });
-
-        assert!(check_breadcrumbs(&cfg, &["Useful tips".to_string()]).is_ok());
-        assert!(check_breadcrumbs(&cfg, &["tests".to_string()]).is_err());
-        assert!(check_breadcrumbs(&cfg, &["gone".to_string()]).is_err());
-    }
-
-    #[test]
     fn temp_project_names_dodge_both_tables() {
         let mut cfg = Config::default();
         let mut temp: HashMap<String, ProjectCfg> = HashMap::new();
@@ -1078,31 +1062,6 @@ pattern = '(?i)(esc to interrupt|to interrupt\))'
     }
 
     #[test]
-    fn check_mounts_rejects_unknown_projects() {
-        use crate::config::{Mount, MountMode};
-
-        let cfg = Config::parse(
-            r#"
-            [[project]]
-            name = "main"
-            dir = "/tmp"
-            "#,
-        )
-        .unwrap();
-        let s = SessionCfg {
-            name: "a".into(),
-            project: "main".into(),
-            mounts: vec![Mount {
-                project: "missing".into(),
-                mode: MountMode::Ro,
-            }],
-            ..Default::default()
-        };
-        let err = super::check_mounts(&cfg, &s).unwrap_err().to_string();
-        assert!(err.contains("missing"), "{err}");
-    }
-
-    #[test]
     fn check_project_rejects_unsafe_guest_aliases() {
         for name in ["../escape", "one/two", "/tmp/escape", ".", "..", r"one\two"] {
             let error = check_project(&ProjectCfg {
@@ -1117,32 +1076,24 @@ pattern = '(?i)(esc to interrupt|to interrupt\))'
     }
 
     #[test]
-    fn mounts_round_trip_through_toml() {
+    fn project_mounts_round_trip_through_toml() {
         let cfg = Config::parse(
             r#"
             [[project]]
             name = "main"
             dir = "/tmp"
+            mounts = [{ from = "/tmp", to = "/mnt/lib", mode = "ro" }]
 
             [[project]]
             name = "lib"
             dir = "/tmp"
-
-            [[session]]
-            name = "a"
-            project = "main"
-            state_id = "44444444-4444-4444-8444-444444444444"
-
-            [[session.mounts]]
-            project = "lib"
-            mode = "ro"
             "#,
         )
         .unwrap();
 
-        let s = cfg.session("a").unwrap();
-        assert_eq!(s.mounts.len(), 1);
-        assert_eq!(s.mounts[0].project, "lib");
-        assert_eq!(s.mounts[0].mode, crate::config::MountMode::Ro);
+        let project = cfg.project("main").unwrap();
+        assert_eq!(project.mounts.len(), 1);
+        assert_eq!(project.mounts[0].to, "/mnt/lib");
+        assert_eq!(project.mounts[0].mode, crate::config::MountMode::Ro);
     }
 }
