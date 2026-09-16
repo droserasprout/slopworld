@@ -3,7 +3,6 @@
 use super::super::*;
 
 use crate::process::{self, CaptureLimits};
-use crate::sandbox::build_argv;
 use anyhow::anyhow;
 use tokio::process::Command;
 
@@ -279,9 +278,15 @@ impl Manager {
         Ok((p, s))
     }
 
-    async fn run_file_action_command(argv: &[String]) -> Result<process::BoundedOutput> {
+    async fn run_file_action_command(
+        argv: &[String],
+        directory: &str,
+    ) -> Result<process::BoundedOutput> {
         let mut command = Command::new(&argv[0]);
         command.args(&argv[1..]);
+        if !directory.is_empty() {
+            command.current_dir(directory);
+        }
         process::run_bounded(
             &mut command,
             FILE_ACTION_TIMEOUT,
@@ -327,19 +332,10 @@ impl Manager {
         })
     }
 
-    async fn execute_file_action(
-        cfg: &Config,
-        s: &SessionCfg,
-        p: &ProjectCfg,
-        host: bool,
-    ) -> Result<String> {
-        let argv = if host {
-            crate::sandbox::host_argv(cfg, s, p)
-        } else {
-            crate::sandbox::prepare_network(cfg, s, p)?;
-            build_argv(cfg, s, p)?
-        };
-        let output = Self::run_file_action_command(&argv).await?;
+    async fn execute_file_action(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result<String> {
+        // File actions are user operations; project scope validates paths, not execution.
+        let argv = crate::sandbox::host_argv(cfg, s, p);
+        let output = Self::run_file_action_command(&argv, &expand(&p.dir)).await?;
         Self::format_file_action_result(
             output.stdout,
             output.stderr,
@@ -359,14 +355,7 @@ impl Manager {
         self.reload_if_changed().await;
         let cfg = self.config().await;
         let (p, s) = Self::resolve_file_action(&cfg, project, raw_path, command, host)?;
-        let result = Self::execute_file_action(&cfg, &s, &p, host).await;
-
-        if !host {
-            if let Err(e) = crate::sandbox::remove_ephemeral_state(&s) {
-                tracing::warn!("removing file action private state: {e:#}");
-            }
-        }
-        result
+        Self::execute_file_action(&cfg, &s, &p).await
     }
 
     pub async fn file_action_command(
@@ -612,7 +601,7 @@ fn auto_resume_inputs() -> Vec<Input> {
 #[cfg(test)]
 mod tests {
     use super::{auto_resume_inputs, routed_action_label, Manager};
-    use crate::config::{Config, LibraryItemCfg, LibraryItemKind, ProjectCfg};
+    use crate::config::{Config, LibraryItemCfg, LibraryItemKind, ProjectCfg, SessionCfg};
     use crate::session::Input;
     use std::os::unix::process::ExitStatusExt;
     use std::process::ExitStatus;
@@ -774,6 +763,32 @@ mod tests {
         );
         let argv = crate::sandbox::host_argv(&cfg, &session, &project);
         assert!(!argv.iter().any(|part| part == "bwrap"));
+    }
+
+    #[tokio::test]
+    async fn project_file_actions_run_on_host_without_private_state() {
+        let cfg = Config::default();
+        let project = ProjectCfg {
+            name: "repo".into(),
+            dir: "/tmp".into(),
+            sandbox: vec!["missing-preset-must-not-be-loaded".into()],
+            ..Default::default()
+        };
+        let session = SessionCfg {
+            cmd: Some("pwd".into()),
+            persistent_tmp: true,
+            ..Default::default()
+        };
+        let state = crate::sandbox::state_dir(&session).unwrap();
+        assert!(!state.exists());
+        let output = Manager::execute_file_action(&cfg, &session, &project)
+            .await
+            .unwrap();
+        assert_eq!(
+            std::path::Path::new(&output).canonicalize().unwrap(),
+            std::path::Path::new("/tmp").canonicalize().unwrap()
+        );
+        assert!(!state.exists());
     }
 
     #[test]

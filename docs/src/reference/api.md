@@ -39,7 +39,14 @@ budget. `counts_complete` is false when counting was skipped or exceeded its bud
 `POST /api/run` creates an unnamed errand. `host` errands run outside bwrap with the
 tmux environment plus `TERM`, `COLORTERM`, and `SLOPWORLD_*`. `like` names an existing
 session whose sandbox config (presets, network, DNS, limits, mounts) is copied onto the
-new errand. An empty shell command uses the daemon's `$SHELL`.
+new errand. An empty shell command uses the daemon's `$SHELL`. Only an empty host shell
+command attached to a project without `temp` becomes a saved host-terminal tab; host commands
+are disposable.
+
+`POST /api/file-action` and `/api/run` requests with `path` execute file actions on the
+daemon host without private agent state. Their `host` flag selects path scope: false validates
+the path against the named project; true accepts an absolute host path. Project actions retain
+the project's working directory.
 
 `POST /api/instructions/preview` accepts `{ "project": "...", "template": "...",
 "mount_path": "...", "breadcrumb": "..." }` and returns rendered `text` and `breadcrumb`;

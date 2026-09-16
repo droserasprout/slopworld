@@ -83,6 +83,7 @@ impl Live {
             cfg,
             ephemeral: false,
             host: false,
+            persistent_host: false,
             host_path: String::new(),
             state: State::Down,
             process_running: false,

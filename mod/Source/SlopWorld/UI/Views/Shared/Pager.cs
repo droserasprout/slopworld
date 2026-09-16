@@ -136,7 +136,7 @@ namespace SlopWorld
                     _filePath = null;
                     StopIf(oldSession);
                     UiLayout.Fail(msg);
-                }, host: host, temp: host);
+                }, host: true);
         }
 
         // Search results need the same tracked reader, but positioned before its first draw.
@@ -148,7 +148,7 @@ namespace SlopWorld
             Open(project, PagerCommand(filePath, line), label);
         }
 
-        // Open one temporary agent in the project's sandbox to run the pager command; replacing an open pager closes its tmux session.
+        // Run the pager on the host in the project directory; replacement closes its tmux session.
         public void Open(string project, string command, string label) =>
             Open(project, command, label, null);
 
@@ -203,7 +203,7 @@ namespace SlopWorld
                     _filePath = null;
                     StopIf(oldSession);
                     UiLayout.Fail(msg);
-                });
+                }, host: true);
         }
 
         // Bring the open one back, for a reader who clicked the row that is already showing.

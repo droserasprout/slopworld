@@ -157,21 +157,29 @@ pub(crate) async fn run(State(m): State<Mgr>, Json(q): Json<RunReq>) -> ApiResul
         temp: q.temp || (q.host && project.is_empty()),
         random_tips: q.random_tips,
     };
+    // Explicit commands (viewers, editors and diffs) are disposable even with a project.
     let persistent_host = q.host
         && q.kind == LibraryItemKind::Shell
         && !project.is_empty()
         && q.path.trim().is_empty()
+        && q.command.trim().is_empty()
         && !q.temp;
     let like = q.like.trim().to_string();
     let session = m
-        .run_errand(sc, want, q.host, persistent_host, &like)
+        .run_errand(
+            sc,
+            want,
+            q.host || !q.path.trim().is_empty(),
+            persistent_host,
+            &like,
+        )
         .await
         .map_err(|e| err(axum::http::StatusCode::BAD_REQUEST, e))?;
     Ok(Json(json!({ "ok": true, "session": session })))
 }
 
 /// Run a non-interactive Files or Git action and return a small result for a game message. Project
-/// paths use their normal sandbox; private-state and Git paths explicitly ask for the host.
+/// paths are validated against their project, but all file actions execute on the host.
 /// Interactive actions use `/api/run`, since their terminal needs a tmux session and a persistent
 /// screen.
 pub(crate) async fn file_action(State(m): State<Mgr>, Json(q): Json<FileActionReq>) -> ApiResult {

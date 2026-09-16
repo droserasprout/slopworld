@@ -3,7 +3,9 @@
 `FilesStore` owns roots, browse requests and refresh. `FileReaders` owns the pager collection
 shared with Git; `FilesViewerController` supplies native Markdown lifetimes.
 `ContentTreeController` owns semantic selection/folds. Static `FilesView` methods are entry
-points, not another state owner. All filesystem reads use daemon APIs.
+points, not another state owner. All filesystem reads use daemon APIs. Viewers, editors and file actions run on the daemon
+host without private agent state. Project scope still validates action paths and supplies
+the working directory. Host reader sessions are disposable, not saved host-shell tabs.
 
 Refresh merges by path/type to preserve expansion and selection. Bound concurrency so
 background refresh cannot starve foreground opens. Use layout geometry for both hit tests

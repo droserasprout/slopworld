@@ -149,6 +149,7 @@ impl Manager {
         }
         state.ephemeral = true;
         state.host = host;
+        state.persistent_host = persistent_host;
         if persistent_host {
             state.host_path = cfg
                 .project(&state.cfg.project)

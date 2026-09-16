@@ -18,10 +18,15 @@ namespace SlopWorld
     {
         public readonly Queue<Action<string>> Pending = new Queue<Action<string>>();
         public int Starts, Stops;
+        public bool Host, Temp;
+        public string Project;
         public void Run(string project, string command, string label, Action<string> started,
                         Action<string> fail, bool host = false, bool temp = false)
         {
             Starts++;
+            Host = host;
+            Temp = temp;
+            Project = project;
             Pending.Enqueue(started);
         }
         public void Complete(string name)
@@ -76,6 +81,9 @@ namespace SlopWorld.Tests
             AssertEx.False(tabs.Reopen("p", "diff:one"), "old source is not the pending diff");
             tabs.ForPreview().Open("p", "git diff", "diff-one", "diff:one");
             AssertEx.Equal(2, store.Starts, "pending diff clicks share the request");
+            AssertEx.True(store.Host, "diff runs on host");
+            AssertEx.False(store.Temp, "diff retains project cwd");
+            AssertEx.Equal("p", store.Project, "diff project");
             store.Complete("diff");
             AssertEx.True(tabs.Reopen("p", "diff:one"), "completed diff can reopen");
             AssertEx.Equal("diff", TerminalWindow.Current, "correct reader is active");
@@ -113,6 +121,9 @@ namespace SlopWorld.Tests
             pager.ViewFile("p", "/one", "view-one");
             pager.ViewFile("p", "/one", "view-one");
             AssertEx.Equal(1, store.Starts, "duplicate click while starting");
+            AssertEx.True(store.Host, "file viewer runs on host");
+            AssertEx.False(store.Temp, "viewer retains project cwd");
+            AssertEx.Equal("p", store.Project, "viewer project");
             store.Complete("one");
             pager.ViewFile("p", "/two", "view-two");
             AssertEx.False(pager.Matches("p", "/two"), "old session is not the pending file");
