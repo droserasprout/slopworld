@@ -5,29 +5,22 @@ using Verse;
 
 namespace SlopWorld
 {
-    // The project and session editors share the visible DNS form while keeping ownership of
-    // the selected value and its raw, still-editable server text in their respective shells.
+    // The agent and template editors share the visible DNS form while keeping ownership of the
+    // selected value and its raw, still-editable server text in their respective shells.
     static class DnsForm
     {
-        public static void Draw(Listing_Standard l, DnsConfig value, DnsConfig inherited,
-                                bool allowInherit, string fieldId, ref string servers,
-                                Action<DnsConfig> setValue, bool recipe = false)
+        public static void Draw(Listing_Standard l, DnsConfig value, string fieldId,
+                                ref string servers, Action<DnsConfig> setValue)
         {
-            var inheritedDns = inherited ?? DnsConfig.Resolved();
-            string inheritLabel = recipe ? "Project default (destination project)"
-                : "Project default: " + (inherited == null ? "Choose a project" : inheritedDns.Label);
-            string label = allowInherit && value == null ? inheritLabel :
-                (allowInherit ? "Custom: " : "") + (value?.Label ?? "System resolver");
-
-            var choices = new List<SelectorOption>();
-            if (allowInherit)
-                choices.Add(new SelectorOption("Reset to project default", () => setValue(null)));
-            choices.Add(new SelectorOption("System resolver",
-                () => setValue(DnsConfig.Resolved())));
-            choices.Add(new SelectorOption("Custom DNS servers", () =>
+            string label = value?.Label ?? "System resolver";
+            var choices = new List<SelectorOption>
             {
-                if (value?.Mode != DnsMode.Servers) setValue(DnsConfig.Custom());
-            }));
+                new SelectorOption("System resolver", () => setValue(DnsConfig.Resolved())),
+                new SelectorOption("Custom DNS servers", () =>
+                {
+                    if (value?.Mode != DnsMode.Servers) setValue(DnsConfig.Custom());
+                }),
+            };
             UiControls.Select(l, "DNS", label, choices, out _);
 
             if (value?.Mode == DnsMode.Servers)

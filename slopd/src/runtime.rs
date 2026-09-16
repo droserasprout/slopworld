@@ -95,9 +95,6 @@ fn validate_slopcar_config(cfg: &Config) -> Result<()> {
     if cfg.daemon.token.trim().is_empty() {
         bail!("slopcar requires a non-empty [daemon] token");
     }
-    for project in &cfg.projects {
-        validate_slopcar_limits(&project.limits)?;
-    }
     for session in &cfg.sessions {
         validate_slopcar_limits(&session.limits)?;
     }
@@ -123,7 +120,7 @@ fn validate_slopcar_limits(limits: &Limits) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::{Daemon, ProjectCfg};
+    use crate::config::{Daemon, Limits, SessionCfg};
 
     fn sidecar_config() -> Config {
         Config {
@@ -163,7 +160,7 @@ mod tests {
     #[test]
     fn sidecar_rejects_inner_resource_limits() {
         let mut cfg = sidecar_config();
-        cfg.projects.push(ProjectCfg {
+        cfg.sessions.push(SessionCfg {
             limits: Limits {
                 memory_mb: Some(512),
                 ..Default::default()

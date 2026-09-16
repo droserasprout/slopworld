@@ -15,9 +15,9 @@ namespace SlopWorld
         // `system` is compiled into slopd, `user` exists only in the preset directory, and
         // `override` is a user definition replacing a system entry with the same name.
         public string Source = "";
-        // Kept apart because the project dialog groups what a sandbox is handed the way it is
-        // edited. A device node goes with the read-only binds: it is bound rather than passed,
-        // and which flag bwrap gets is not this screen's business.
+        // Bind categories stay separate because the sandbox page groups what an agent receives
+        // by access mode. A device node goes with the read-only binds: it is bound rather than
+        // passed, and which flag bwrap gets is not this screen's business.
         public List<string> Ro = new List<string>();
         public List<string> Rw = new List<string>();
         public List<string> Dev = new List<string>();

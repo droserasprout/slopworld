@@ -22,9 +22,9 @@ Live screens may coalesce; history, request replies and control events preserve 
 History extent and echoed request identity are necessary to translate delayed snapshots.
 Metadata/title/bell changes must still reach inactive tabs without a text redraw.
 
-Effective network/DNS values are read models; nullable overrides are write intent. Config
-patches preserve omitted fields, and a redacted token means retain the secret. See
-[configuration stores](daemon-config-stores.md).
+Effective network/DNS values are direct agent settings in the session model. Project responses
+carry workspace mounts; config patches preserve omitted fields, and a redacted token means
+retain the secret. See [configuration stores](daemon-config-stores.md).
 
 `GET /api/config` includes factory defaults, the usage catalog, temporary-root policy and
 terminal limits. `/api/usage` and usage events include catalog metadata plus resolved rows;
@@ -33,7 +33,9 @@ omit metadata leave daemon-policy resets/previews unavailable; only independent 
 bounds remain local. Advertised terminal ranges are validated before layout or history arithmetic.
 
 Worker clone parent and caller/task parent are distinct. Use explicit worker metadata,
-never name parsing. Host errands are unsandboxed; project errands inherit their sandbox.
+never name parsing. Host errands are unsandboxed; project errands use the selected project
+workspace and literal shared path mounts together with an explicitly chosen agent template's
+settings (or a source agent for `like` requests). Library entries can also explicitly run on the host.
 Root-only filesystem/clipboard/config surfaces must not accidentally inherit scoped session
 access. See [grants](agent-grants.md) and [workers](daemon-workers.md).
 

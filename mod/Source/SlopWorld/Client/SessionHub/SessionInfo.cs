@@ -19,13 +19,11 @@ namespace SlopWorld
         public string CommandPreset = "";
         // This agent's own answer to what that preset runs. Blank is the preset's.
         public string Cmd = "";
-        // Sandbox presets it adds to its command's and its project's.
+        // Sandbox presets selected by this agent, in addition to its command dependencies.
         public List<string> Sandbox = new List<string>();
         // Opts into the generated runtime context; its mount path and global discovery text are
         // controlled by the daemon's Instructions settings.
         public bool SlopworldMd;
-        // Defaults on when the manifest is enabled, but can be disabled for this agent.
-        public bool InstructionsBreadcrumb = true;
         // Replaces the sandbox's per-run /tmp tmpfs with a private copy kept in this agent's
         // durable state directory.
         public bool PersistentTmp;
@@ -33,18 +31,13 @@ namespace SlopWorld
         public string Agent = "";
         public AgentState State = AgentState.Down;
         public bool Alive;
-        // The effective mode, resolved by the daemon from the project default and override.
+        // The network mode owned by this agent.
         public NetworkMode Network = NetworkMode.Private;
-        // Null means inherit the project's default mode.
-        public NetworkMode? NetworkOverride;
-        // Effective DNS, resolved by the daemon from the project and optional agent override.
+        // The DNS configuration owned by this agent.
         public DnsConfig Dns = DnsConfig.Resolved();
-        // Null means inherit the project's DNS setting.
-        public DnsConfig DnsOverride;
-        // This agent's own resource caps, each overriding its project's. What the editor edits.
+        // Resource limits owned by this agent. Null fields mean no cap.
         public SessionLimits Limits;
-        // The effective caps after project inheritance. Read-only here.
-        public SessionLimits EffectiveLimits;
+        // Project-owned mounts shown for the next start; they are not written with the agent.
         public List<MountEntry> Mounts = new List<MountEntry>();
         public bool Autostart;
         public bool AutoResume;
@@ -57,14 +50,6 @@ namespace SlopWorld
         public string Parent = "";
         public string TaskId = "";
         public bool Durable;
-        // YOLO mode folds every effective breadcrumb into the first submitted prompt.
-        public bool BreadcrumbYolo = true;
-        public List<string> Breadcrumbs = new List<string>();
-
-        // Read-only here: this process has breadcrumbs waiting for its first Enter. What the
-        // terminal reads to know whether a keystroke is worth carrying tips for.
-        public bool BreadcrumbsPending;
-
         // A library item's errand or a tmux session started by hand: it leaves the colony when its
         // process exits, and there is no entry to edit or delete. Durable host tabs also use
         // the ghost-row presentation, but are identified separately by Host.
@@ -123,9 +108,8 @@ namespace SlopWorld
             }
         }
 
-        // `Agent` never rides along: it is what the daemon resolved, and writing it back
-        // would pin today's answer into the file forever. An empty override is sent as null
-        // rather than as a blank, which is the difference between "the preset's" and "none".
+        // `Agent` never rides along: it is what the daemon resolved, and writing it back would
+        // pin today's answer into the file forever.
         public string ToJson() =>
             "{" +
             $"\"name\":{JVal.Q(Name)},\"project\":{JVal.Q(Project)}," +
@@ -133,16 +117,12 @@ namespace SlopWorld
             $"\"cmd\":{(string.IsNullOrEmpty((Cmd ?? "").Trim()) ? "null" : JVal.Q(Cmd))}," +
             $"\"sandbox\":[{string.Join(",", Sandbox.Select(JVal.Q).ToArray())}]," +
             $"\"slopworld_md\":{JVal.B(SlopworldMd)}," +
-            $"\"instructions_breadcrumb\":{JVal.B(InstructionsBreadcrumb)}," +
             $"\"persistent_tmp\":{JVal.B(PersistentTmp)}," +
-            $"\"breadcrumbs\":[{string.Join(",", Breadcrumbs.Select(JVal.Q).ToArray())}]," +
             $"\"label\":{(string.IsNullOrEmpty((Label ?? "").Trim()) ? "null" : JVal.Q(Label))}," +
-            $"\"network\":{(NetworkOverride.HasValue ? JVal.Q(NetworkModeText.Name(NetworkOverride.Value)) : "null")}," +
-            $"\"dns\":{(DnsOverride == null ? "null" : DnsOverride.ToJson())}," +
+            $"\"network\":{JVal.Q(NetworkModeText.Name(Network))}," +
+            $"\"dns\":{Dns.ToJson()}," +
             $"\"limits\":{Limits.ToJson()}," +
-            $"\"mounts\":{MountEntry.ListToJson(Mounts)}," +
             $"\"autostart\":{JVal.B(Autostart)}," +
-            $"\"auto_resume\":{JVal.B(AutoResume)}," +
-            $"\"breadcrumb_yolo\":{JVal.B(BreadcrumbYolo)}}}";
+            $"\"auto_resume\":{JVal.B(AutoResume)}}}";
     }
 }

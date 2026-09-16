@@ -33,8 +33,9 @@ expand to the whole empty path, not an empty component.
 
 ## Bind order
 
-The effective bind list is: implicit `global`, then named presets, then project paths.
-Paths are deduplicated with `rw` winning over `ro`. `private` mounts are applied last
+The effective bind list is: implicit `global`, then named command and agent presets, then
+the project's primary directory and direct shared mounts. Paths are deduplicated with `rw`
+winning over `ro`. `private` mounts are applied last
 so a project's original path can resolve to its copy.
 
 ## Protected paths
@@ -87,8 +88,8 @@ or connected-device debugging. Debug presets are marked as host escapes.
 
 ## Process limits
 
-Project and agent `limits` (`memory_mb`, `pids`, `nofile`, `cpu_pct`) are inherited,
-with the agent value winning. A non-empty limit wraps the process tree in a transient
+Agent `limits` (`memory_mb`, `pids`, `nofile`, `cpu_pct`) are final; an absent value means
+no configured cap. A non-empty limit wraps the process tree in a transient
 `systemd-run --user --scope`. A value of zero is rejected.
 
 ## Environment

@@ -13,14 +13,15 @@ daemon capture route. Catalog edits and deletes send the daemon-owned version; a
 operation retains the open draft and offers explicit Reload to discard it and reconcile with
 the newest catalog. Catalog request revisions suppress stale refresh responses while settling superseded page loads.
 The form replaces the recipe, preserving unspecified choices: deep merging would retain
-cleared overrides. Template flags offer Session default; network/DNS/limits explicitly choose
-Project default or Custom. Empty custom limits fail validation; resetting removes the override. The naming
+cleared fields. Template flags offer Session default; network/DNS are direct agent choices and
+limits use No cap or Custom. Empty custom limits fail validation. Project mounts are selected
+in the project editor and are shown in the agent preview. The naming
 capture dialog always saves the agent's persisted customizations, excluding project settings;
-full effective capture remains an advanced API option. Project, template and agent limits use
-`ResourceLimitsForm`. Captured command, sandbox and prompt definitions take precedence over live catalog entries; prompt
-selection order is delivery order. Writes disable the editor until they settle.
+capture never includes project settings. Agent and template limits use
+`ResourceLimitsForm`. Captured command and sandbox definitions take precedence over live catalog
+entries. Writes disable the editor until they settle.
 Shared sandbox pickers show missing references explicitly; direct references are removable,
-while inherited references must be removed from their owning project or preset. No template
+while inherited references must be removed from their owning command or preset. No template
 definitions are persisted in RimWorld profile settings.
 
 Repository templates are read-only in the dialog; duplication creates a personal snapshot.
@@ -31,6 +32,8 @@ it does not resolve inheritance locally. Existing-agent editors fetch captured d
 through the root-only preview endpoint, so their pickers also show the saved snapshots.
 Preview requests are scoped to the draft and connection; Refresh handles external file edits.
 
-Sandbox and breadcrumb pickers group project contributions separately from agent additions.
-Overlapping explicit selections remain removable without removing the project contribution.
-`UiChoiceList` measures group headings inside the same scroll body as the choices.
+The project editor owns editable From/To/mode mount rows and labels their next-start effect.
+Add path appends a blank row; Add project copies current source and destination paths once. Library
+breadcrumbs remain available through explicit terminal context-menu insertion; they are not part
+of agent or template forms. `UiChoiceList` measures group headings inside the same scroll body
+as the choices.

@@ -7,15 +7,12 @@ using Verse;
 
 namespace SlopWorld
 {
-    // A directory plus the sandbox every agent in it gets. First button in the bottom
-    // bar, because nothing can be added on the agents window until there is somewhere
-    // to add it.
+    // A project owns a directory and the mounts shared by every agent in it.
     public class ProjectsView : UiListView<ProjectInfo>
     {
         public override void Opened()
         {
             SessionHub.Instance.Catalog.RefreshProjects();
-            SessionHub.Instance.Catalog.LoadPresets();
         }
 
         public override string Title => "Projects";
@@ -86,45 +83,34 @@ namespace SlopWorld
                 TerminalWindow.OpenOverPane(CatalogActions.RemoveProject(p.Name));
         }
 
-        // The sandbox in one line, the way the agent rows read it.
+        // The workspace in one line, the way the project rows read it.
         public static string Summary(ProjectInfo p)
         {
             var bits = new List<string>();
             // First, because it is the one thing here about the ground rather than about the
             // sandbox around it.
             if (p.Temp) bits.Add("temporary");
-            bits.Add(NetworkModeText.ShortLabel(p.Network));
-            bits.Add(p.Dns.IsResolved ? "system DNS" : "custom DNS");
-            bits.AddRange(p.Sandbox);
+            bits.Add(p.Mounts.Count == 0 ? "no extra mounts" : p.Mounts.Count + " shared mounts");
             return string.Join(", ", bits.ToArray());
         }
     }
 
-    // Presets are checkboxes drawn from whatever the daemon says it knows, so this
-    // never has to be kept in step with sandbox.rs by hand.
+    // Projects edit workspace identity and shared path mounts.
     public class EditProjectDialog : UiWindow
     {
-        enum Tab { General, Sandbox, ResourceLimits, Breadcrumbs, Preview }
+        enum Tab { General, Mounts }
 
         readonly EditIdentity _identity;
         readonly ProjectInfo _p;
 
-        readonly SmoothScroll _presetScroll = new SmoothScroll();
-        readonly SmoothScroll _breadcrumbScroll = new SmoothScroll();
-        SmoothScroll _previewScroll = new SmoothScroll();
-        readonly DaemonSettingsPreview _settingsPreview = new DaemonSettingsPreview();
+        readonly SmoothScroll _mountsScroll = new SmoothScroll();
         readonly ScrollableListing _generalListing = new ScrollableListing(320f);
-        readonly ScrollableListing _sandboxListing = new ScrollableListing(400f);
-        const float PresetsH = 240f;
-        string _dnsServers;
-        readonly ResourceLimitsForm _resourceLimits;
-        readonly ScrollableListing _limitsListing = new ScrollableListing(320f);
         readonly TempProjectPreviewState _tempPreview = new TempProjectPreviewState();
         Tab _tab;
 
         public EditProjectDialog(ProjectInfo existing) : this(existing, false) { }
 
-        // Copy a project's directory and presets; only the name is regenerated because the daemon treats the result as new.
+        // Copy a project's directory and mounts; only the name is regenerated because the daemon treats the result as new.
         public static EditProjectDialog Copy(ProjectInfo of) => new EditProjectDialog(of, true);
 
         EditProjectDialog(ProjectInfo existing, bool copy)
@@ -143,19 +129,11 @@ namespace SlopWorld
                 // named after the copy rather than pointing back at what it came from.
                 if (_p.Temp) RequestTempPreview();
             }
-            _resourceLimits = new ResourceLimitsForm(_p.Limits);
-            _dnsServers = _p.Dns.Mode == DnsMode.Servers
-                ? string.Join(", ", _p.Dns.Servers.ToArray())
-                : "";
-
             resizeable = true;
             AcceptOnEnter(Save);
-
-            SessionHub.Instance.Catalog.LoadPresets(fail: UiLayout.Fail);
         }
 
-        // A left rail of short pages rather than one long form: the project, its sandbox, its
-        // breadcrumbs and the preview each get their own tab so none has to hold the others.
+        // Project identity and shared mounts each get their own tab.
         public override Vector2 InitialSize => new Vector2(780f, 680f);
 
         protected override void DoBody(Rect rect)
@@ -172,35 +150,10 @@ namespace SlopWorld
                 case Tab.General:
                     _generalListing.Draw(body, DrawGeneral);
                     break;
-                case Tab.Sandbox:
-                    _sandboxListing.Draw(body, DrawSandboxFields,
-                        (view, y) => DrawSandboxTrailing(view, y, body.height));
+                case Tab.Mounts:
+                    DrawMounts(body);
                     break;
-                case Tab.ResourceLimits:
-                    _limitsListing.Draw(body, l =>
-                    {
-                        if (!SessionHub.Instance.Capabilities.PerSessionLimits)
-                        {
-                            UiLayout.Note(l, "This runtime uses one outer resource budget; per-agent limits are unavailable.");
-                            return;
-                        }
-                        UiLayout.Note(l, "Defaults for agents in this project. Blank means no project cap.");
-                        _p.Limits = _resourceLimits.Draw(l);
-                    });
-                    break;
-                case Tab.Breadcrumbs:
-                    DrawBreadcrumbs(body);
-                    break;
-                case Tab.Preview:
-                    if (!_resourceLimits.TrySave(out var previewLimits, out var limitError))
-                        UiText.StatusLabel(body, limitError, UiTheme.Bad);
-                    else if (DnsForm.TrySave(_p.Dns, _dnsServers, out var dnsError))
-                    {
-                        _p.Limits = previewLimits;
-                        _settingsPreview.Draw(body, "{\"project\":" + _p.ToJson() + "}", ref _previewScroll);
-                    }
-                    else UiText.StatusLabel(body, "DNS: " + dnsError, UiTheme.Bad);
-                    break;
+
             }
 
             var foot = new UiLayout.Bar(SettingsPageLayout.ToRect(layout.Footer));
@@ -211,15 +164,10 @@ namespace SlopWorld
         void DrawRail(Rect r) => UiLayout.DrawRail(r, new[]
         {
             ("General", Tab.General),
-            ("Sandbox", Tab.Sandbox),
-            ("Resource limits", Tab.ResourceLimits),
-            ("Breadcrumbs", Tab.Breadcrumbs),
-            ("Preview", Tab.Preview),
-        }, ref _tab,
-            tab => tab != Tab.Breadcrumbs || SessionHub.Instance.Config.ExperimentalBreadcrumbs);
+            ("Mounts", Tab.Mounts),
+        }, ref _tab);
 
         // The project itself: its name, directory and whether that directory is temporary.
-        // The other tabs refine the sandbox around it.
         void DrawGeneral(Listing_Standard l)
         {
             // Begun on the room it has and pinned to one column. Listing_Standard breaks to a
@@ -254,55 +202,60 @@ namespace SlopWorld
 
         }
 
-        // The sandbox every agent in this project gets by default: network, DNS and the extra presets.
-        void DrawSandboxFields(Listing_Standard l)
+        void DrawMounts(Rect rect)
         {
-            var networkChoices = new[]
+            UiText.RowLabel(new Rect(rect.x, rect.y, rect.width, UiTheme.LineH),
+                "Mounts apply at next start. Add project copies its current paths into an editable row.");
+            float y = rect.y + UiTheme.LineH + UiTheme.GapS;
+            if (UiButtons.Button(new Rect(rect.x, y, 110f, UiTheme.RowH), "Add path", UiTheme.Btn.Default))
+                _p.Mounts.Add(new MountEntry());
+            if (UiButtons.Button(new Rect(rect.x + 120f, y, 120f, UiTheme.RowH), "Add project", UiTheme.Btn.Default))
             {
-                NetworkMode.None, NetworkMode.Private, NetworkMode.Host,
-            };
-            UiControls.Select(l, "Network default", NetworkModeText.Label(_p.Network),
-                networkChoices.Select(mode => new SelectorOption(NetworkModeText.Label(mode),
-                    () => _p.Network = mode)), out _);
-            GUI.color = UiTheme.Dim;
-            l.Label(_p.Network == NetworkMode.Host
-                ? SessionHub.Instance.Capabilities.HostNetworkIsContainer
-                    ? "Agents share slopcar's network. Mac services are at host.docker.internal."
-                    : "Agents may use the host network, including local services."
-                : _p.Network == NetworkMode.Private
-                    ? "Agents may use the Internet through a private namespace."
-                    : "Agents have no network access.");
-            GUI.color = Color.white;
-
-            l.Gap(UiTheme.GapS);
-            DnsForm.Draw(l, _p.Dns, null, false, "project.dns", ref _dnsServers,
-                dns => _p.Dns = dns);
-
-        }
-
-        float DrawSandboxTrailing(Rect rect, float y, float availableHeight)
-        {
-            UiLayout.SectionHeading(new Rect(rect.x, y, rect.width, UiTheme.RowH),
-                "Sandbox presets");
-            y += UiTheme.RowH + UiTheme.GapXS;
-
-            // The viewport stays stable even when the form needs an outer scroll view.
-            float height = Mathf.Max(PresetsH, rect.y + availableHeight - y - UiTheme.GapS);
-            PresetList.Draw(new Rect(rect.x, y, rect.width, height), _p.Sandbox, _presetScroll);
-            y += height;
-
-            return y;
-        }
-
-        void DrawBreadcrumbs(Rect rect)
-        {
-            float y = rect.y;
-            UiLayout.SectionHeading(new Rect(rect.x, y, rect.width, UiTheme.RowH),
-                "Prompt breadcrumbs");
-            y += UiTheme.RowH + UiTheme.GapXS;
-            BreadcrumbList.Draw(new Rect(rect.x, y, rect.width, Mathf.Max(0f, rect.yMax - y)),
-                _p.Breadcrumbs, _breadcrumbScroll,
-                breadcrumbsLocked: !SessionHub.Instance.Config.ExperimentalBreadcrumbs);
+                var projects = SessionHub.Instance.Projects.Where(p => p.Name != _p.Name).ToList();
+                if (!string.IsNullOrWhiteSpace(_p.Name)) projects.Add(_p);
+                var options = projects.OrderBy(p => p.Name, StringComparer.OrdinalIgnoreCase)
+                    .Select(p => new FloatMenuOption(p.Name, () => _p.Mounts.Add(new MountEntry
+                    {
+                        From = p.Dir,
+                        To = p.Name == _p.Name ? p.Dir : "/mnt/" + p.Name,
+                    }))).ToList();
+                if (options.Count == 0) options.Add(new FloatMenuOption("No projects", null));
+                Find.WindowStack.Add(new UiMenu(options));
+            }
+            y += UiTheme.RowH + UiTheme.GapS;
+            float modeW = 100f, removeW = 32f, gap = UiTheme.GapS;
+            float width = rect.width - UiTheme.ListInset * 2f - UiTheme.ScrollbarW;
+            float pathW = (width - modeW - removeW - gap * 3f) / 2f;
+            UiText.RowLabel(new Rect(rect.x + UiTheme.ListInset, y, pathW, UiTheme.LineH), "From (host path)");
+            UiText.RowLabel(new Rect(rect.x + UiTheme.ListInset + pathW + gap, y, pathW, UiTheme.LineH), "To (sandbox path)");
+            y += UiTheme.LineH;
+            var listRect = new Rect(rect.x, y, rect.width, Mathf.Max(0f, rect.yMax - y));
+            Slab.Box(listRect, UiTheme.Well, UiTheme.Edge);
+            var pad = listRect.ContractedBy(UiTheme.ListInset);
+            var inner = new Rect(0f, 0f, width, _p.Mounts.Count * (UiTheme.RowH + gap));
+            MountEntry remove = null;
+            using (_mountsScroll.Scope(pad, inner))
+            {
+                float ry = 0f;
+                foreach (var mount in _p.Mounts)
+                {
+                    mount.From = UiText.Field(new Rect(0f, ry, pathW, UiTheme.RowH),
+                        "mount.from." + mount.FieldId, mount.From);
+                    mount.To = UiText.Field(new Rect(pathW + gap, ry, pathW, UiTheme.RowH),
+                        "mount.to." + mount.FieldId, mount.To);
+                    if (UiButtons.Button(new Rect(2f * (pathW + gap), ry, modeW, UiTheme.RowH),
+                        MountEntry.ModeLabel(mount.Mode), UiTheme.Btn.Ghost))
+                        Find.WindowStack.Add(new UiMenu(new List<FloatMenuOption>
+                        {
+                            new FloatMenuOption("Read-only", () => mount.Mode = MountMode.Ro),
+                            new FloatMenuOption("Read-write", () => mount.Mode = MountMode.Rw),
+                        }));
+                    if (UiButtons.Button(new Rect(width - removeW, ry, removeW, UiTheme.RowH), "×", UiTheme.Btn.Ghost))
+                        remove = mount;
+                    ry += UiTheme.RowH + gap;
+                }
+            }
+            if (remove != null) _p.Mounts.Remove(remove);
         }
 
         void Save()
@@ -320,19 +273,6 @@ namespace SlopWorld
             else if (string.IsNullOrEmpty((_p.Dir ?? "").Trim()))
             {
                 UiLayout.Fail("a project needs a directory");
-                return;
-            }
-
-            if (!_resourceLimits.TrySave(out var limits, out var limitError))
-            {
-                UiLayout.Fail(limitError);
-                return;
-            }
-            _p.Limits = limits;
-            string dnsError;
-            if (!DnsForm.TrySave(_p.Dns, _dnsServers, out dnsError))
-            {
-                UiLayout.Fail("DNS: " + dnsError);
                 return;
             }
 

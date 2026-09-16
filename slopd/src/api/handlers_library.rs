@@ -2,7 +2,7 @@ use axum::extract::{Path, Query, State};
 use axum::Json;
 use serde_json::json;
 
-use crate::config::{LibraryItemCfg, LibraryItemKind, ProjectCfg};
+use crate::config::{LibraryItemCfg, LibraryItemKind};
 use crate::session::RunWhere;
 
 use super::super::types::*;
@@ -26,7 +26,11 @@ pub(crate) async fn one_project(State(m): State<Mgr>, Path(name): Path<String>) 
         })
 }
 
-pub(crate) async fn create_project(State(m): State<Mgr>, Json(p): Json<ProjectCfg>) -> ApiResult {
+pub(crate) async fn create_project(
+    State(m): State<Mgr>,
+    Json(value): Json<serde_json::Value>,
+) -> ApiResult {
+    let p = crate::api::parse_project(value)?;
     super::ok_json(m.add_project(p).await)
 }
 
@@ -41,8 +45,9 @@ pub(crate) async fn project_preview(Json(req): Json<ProjectPreviewReq>) -> ApiRe
 pub(crate) async fn update_project(
     State(m): State<Mgr>,
     Path(name): Path<String>,
-    Json(p): Json<ProjectCfg>,
+    Json(value): Json<serde_json::Value>,
 ) -> ApiResult {
+    let p = crate::api::parse_project(value)?;
     super::ok_json(m.update_project(&name, p).await)
 }
 
@@ -144,6 +149,8 @@ pub(crate) async fn run(State(m): State<Mgr>, Json(q): Json<RunReq>) -> ApiResul
         command: (!command.is_empty()).then_some(command),
         mode: crate::config::FileActionMode::Ask,
         builtin: false,
+        host: q.host,
+        agent_template: q.agent_template,
     };
 
     // The project is checked by `run_errand` itself, which is also where a temporary one is

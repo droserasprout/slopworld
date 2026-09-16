@@ -21,10 +21,13 @@ Generated project manifests are shared snapshots. Protect both project-root and 
 mount spellings, including aliases; never overwrite a user-authored manifest or ignore rule.
 Disabling generation does not remove existing mounts until restart.
 
-Project network policy is a default that agents may override. Private DNS must follow the
+Network, DNS, and resource limits are direct agent settings. Private DNS must follow the
 actual host/container resolver. Resource limits wrap the full process tree and must either
 be enforced or fail launch. They are optional; there is no disk quota or general seccomp
-policy. Writable project `.git` intentionally permits hook/config changes.
+policy. Project mounts are literal source/destination paths applied at each start with their saved
+access mode. Validate both paths; missing sources fail launch. Workspace binds precede private
+state and DNS overlays, and source aliases cannot expose effective private preset roots. Writable
+project `.git` intentionally permits hook/config changes.
 
 Host Git inspection uses `git.rs` and `git_exec.rs`: known helpers are disabled, and Linux
 seccomp blocks child processes while allowing index threads. This also blocks clean/process

@@ -3,6 +3,7 @@
 use super::super::*;
 
 use crate::process::{self, CaptureLimits};
+use crate::session::validation::check_project_mounts;
 use anyhow::anyhow;
 use tokio::process::Command;
 
@@ -28,10 +29,8 @@ impl Manager {
         self.reload_if_changed().await;
         settle(&mut p);
         check_project(&p)?;
-        p.limits.validate()?;
-        crate::runtime::validate_limits(&p.limits)?;
         self.update_cfg(|cfg| {
-            check_breadcrumbs(cfg, &p.breadcrumbs)?;
+            check_project_mounts(cfg, &p)?;
             if cfg.project(&p.name).is_some() {
                 bail!("project {} already exists", p.name);
             }
@@ -47,12 +46,9 @@ impl Manager {
         self.reload_if_changed().await;
         settle(&mut p);
         check_project(&p)?;
-        p.limits.validate()?;
-        crate::runtime::validate_limits(&p.limits)?;
-
         let (old_dir, new_dir) = self
             .update_cfg(|cfg| {
-                check_breadcrumbs(cfg, &p.breadcrumbs)?;
+                check_project_mounts(cfg, &p)?;
                 let idx = cfg
                     .projects
                     .iter()
@@ -148,17 +144,7 @@ impl Manager {
             if cfg.library.iter().any(|existing| existing.name == sc.name) {
                 bail!("library item {} already exists", sc.name);
             }
-            let attach_project = (sc.kind == LibraryItemKind::Breadcrumb
-                && !sc.project.trim().is_empty())
-            .then(|| sc.project.clone());
             cfg.library.push(sc.clone());
-            if let Some(project) = attach_project {
-                if let Some(p) = cfg.projects.iter_mut().find(|p| p.name == project) {
-                    if !p.breadcrumbs.contains(&sc.name) {
-                        p.breadcrumbs.push(sc.name.clone());
-                    }
-                }
-            }
             Ok(())
         })
         .await?;
@@ -193,33 +179,7 @@ impl Manager {
             if sc.name != name && cfg.library.iter().any(|existing| existing.name == sc.name) {
                 bail!("library item {} already exists", sc.name);
             }
-            let old = cfg.library[idx].clone();
-            if sc.name != name {
-                for breadcrumbs in cfg.breadcrumb_lists_mut() {
-                    for attached in breadcrumbs.iter_mut().filter(|b| b.as_str() == name) {
-                        *attached = sc.name.clone();
-                    }
-                }
-            }
             cfg.library[idx] = sc.clone();
-            if sc.kind == LibraryItemKind::Breadcrumb {
-                if !old.project.trim().is_empty() && old.project != sc.project {
-                    if let Some(p) = cfg.projects.iter_mut().find(|p| p.name == old.project) {
-                        p.breadcrumbs.retain(|b| b != &sc.name);
-                    }
-                }
-                if !sc.project.trim().is_empty() {
-                    if let Some(p) = cfg.projects.iter_mut().find(|p| p.name == sc.project) {
-                        if !p.breadcrumbs.contains(&sc.name) {
-                            p.breadcrumbs.push(sc.name.clone());
-                        }
-                    }
-                }
-            } else {
-                for breadcrumbs in cfg.breadcrumb_lists_mut() {
-                    breadcrumbs.retain(|b| b != name && b != &sc.name);
-                }
-            }
             Ok(())
         })
         .await?;
@@ -237,11 +197,8 @@ impl Manager {
             if cfg.is_builtin_library_item(name) {
                 bail!("library item {name} is built in and cannot be deleted");
             }
-            let Some(sc) = cfg.library_item(name) else {
+            if cfg.library_item(name).is_none() {
                 bail!("no such library item: {name}");
-            };
-            if sc.kind == LibraryItemKind::Breadcrumb && cfg.breadcrumb_refs().any(|b| b == name) {
-                bail!("breadcrumb {name} is still attached to a project or agent");
             }
             cfg.library.retain(|s| s.name != name);
             Ok(())
@@ -261,7 +218,8 @@ impl Manager {
         check_library_item(&cfg, &sc)?;
         Self::validate_errand(&sc)?;
         drop(cfg);
-        self.run_errand(sc, want, false, false, "").await
+        let host = sc.host;
+        self.run_errand(sc, want, host, false, "").await
     }
 
     fn resolve_file_action(
@@ -477,7 +435,7 @@ impl Manager {
             return;
         }
         // Delivery owns the complete startup prompt sequence. Keep its Enter out of send_keys,
-        // whose interactive breadcrumb hook can otherwise splice the first prompt incorrectly.
+        // whose generated-instruction hook can otherwise splice the first prompt incorrectly.
         if let Some(breadcrumbs) = self.consume_breadcrumbs(name, &random_tips).await {
             if !breadcrumbs.is_empty() {
                 self.queue_paste(name, breadcrumbs).await;
@@ -788,11 +746,11 @@ mod tests {
         let project = ProjectCfg {
             name: "repo".into(),
             dir: "/tmp".into(),
-            sandbox: vec!["missing-preset-must-not-be-loaded".into()],
             ..Default::default()
         };
         let session = SessionCfg {
             cmd: Some("pwd".into()),
+            sandbox: vec!["missing-preset-must-not-be-loaded".into()],
             persistent_tmp: true,
             ..Default::default()
         };

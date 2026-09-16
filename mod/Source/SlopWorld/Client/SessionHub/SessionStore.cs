@@ -246,7 +246,7 @@ namespace SlopWorld
         public void Run(string project, string command, string label,
                         Action<string> started, Action<string> fail = null,
                         bool shell = true, string text = "", bool host = false, bool temp = false,
-                        string path = "", bool hold = false, string like = "")
+                        string path = "", bool hold = false, string like = "", string agentTemplate = "")
         {
             string shape = TerminalWindow.TryPanelShape(out int cols, out int rows)
                 ? $"\"cols\":{cols},\"rows\":{rows}," : "";
@@ -260,7 +260,8 @@ namespace SlopWorld
                 $"\"host\":{JVal.B(host)}," +
                 $"\"temp\":{JVal.B(temp)}," +
                 $"\"hold\":{JVal.B(hold)}," +
-                $"\"like\":{JVal.Q(like ?? "")}" + "}",
+                $"\"like\":{JVal.Q(like ?? "")}," +
+                $"\"agent_template\":{JVal.Q(agentTemplate ?? "")}" + "}",
                 j => Started(j, started, fail),
                 fail);
         }

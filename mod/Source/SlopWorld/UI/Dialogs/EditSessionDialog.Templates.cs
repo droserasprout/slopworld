@@ -43,7 +43,7 @@ namespace SlopWorld
                 new SelectorOption("Session default", () =>
                 {
                     _templateDraft.SpecifiedFlags.Remove(name);
-                    set(name == "instructions_breadcrumb" || name == "breadcrumb_yolo");
+                    set(false);
                 }),
                 new SelectorOption("Enabled", () => { _templateDraft.SpecifiedFlags.Add(name); set(true); }),
                 new SelectorOption("Disabled", () => { _templateDraft.SpecifiedFlags.Add(name); set(false); }),
@@ -60,7 +60,7 @@ namespace SlopWorld
             }
             _s.Limits = limits;
             string dnsError;
-            if (!DnsForm.TrySave(_s.DnsOverride, _dnsServers, out dnsError))
+            if (!DnsForm.TrySave(_s.Dns, _dnsServers, out dnsError))
             {
                 UiText.StatusLabel(rect, "DNS: " + dnsError, UiTheme.Bad);
                 return;

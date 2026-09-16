@@ -124,7 +124,7 @@ pub(crate) fn templates(cfg: &Config) -> Vec<AgentTemplate> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::{LibraryItemKind, SessionCfg};
+    use crate::config::LibraryItemKind;
 
     struct Checkout(PathBuf);
     impl Checkout {
@@ -195,14 +195,6 @@ mod tests {
             LibraryItemKind::FileAction
         );
         assert_eq!(cfg.library_items_all().len(), 9); // plus builtin tips
-        let session = SessionCfg {
-            breadcrumbs: vec!["first::rules".into()],
-            ..Default::default()
-        };
-        assert_eq!(
-            cfg.breadcrumbs_of(&session, &cfg.projects[0]),
-            vec!["Keep it simple"]
-        );
         first.write(
             "library/breadcrumb.toml",
             "name = 'rules'\nkind = 'breadcrumb'\ntext = 'Changed'\n",
@@ -236,7 +228,6 @@ mod tests {
         assert_eq!(template.name, "repo::review");
         assert_eq!(template.origin.source, "project");
         assert_eq!(template.version, 0);
-        assert_eq!(template.defaults.instructions_breadcrumb, None);
         assert!(manager
             .remove_agent_template(&template.name, 0)
             .await

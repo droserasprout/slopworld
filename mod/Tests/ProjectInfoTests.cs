@@ -7,39 +7,11 @@ namespace SlopWorld.Tests
     {
         public static IEnumerable<(string Name, Action Body)> Cases()
         {
-            yield return ("project edits preserve inherited agent resource caps", PreservesResourceCaps);
-            yield return ("round trips host networking", RoundTripsHostNetworking);
             yield return ("uses daemon metadata for temporary paths", BuildsTemporaryPaths);
             yield return ("ignores stale temporary previews", IgnoresStaleTemporaryPreviews);
             yield return ("coalesces and bounds temporary preview retries", CoalescesPreviewRequests);
             yield return ("temporary preview resumes after mode is disabled", ResumesAfterDisable);
             yield return ("round trips and copies project settings", RoundTripsAndCopiesSettings);
-        }
-
-        static void PreservesResourceCaps()
-        {
-            var project = ProjectInfo.FromJson(JVal.Parse("{\"limits\":{\"memory_mb\":4096,\"pids\":128}}"));
-            var copy = project.Copy();
-            copy.Name = "renamed";
-            var saved = JVal.Parse(copy.ToJson());
-            AssertEx.Equal(4096, saved["limits"]["memory_mb"].AsInt(), "unrelated edits preserve project memory limit");
-            AssertEx.Equal(128, saved["limits"]["pids"].AsInt(), "project copies preserve process limit");
-        }
-
-        static void RoundTripsHostNetworking()
-        {
-            var project = new ProjectInfo
-            {
-                Name = "repo",
-                Dir = "/home/you/repo",
-                Network = NetworkMode.Host,
-            };
-
-            var wire = JVal.Parse(project.ToJson());
-            AssertEx.Equal("host", wire["network"].AsString(),
-                           "host network survives project serialization");
-            AssertEx.Equal(NetworkMode.Host, ProjectInfo.FromJson(wire).Network,
-                           "host network survives project parsing");
         }
 
         static void BuildsTemporaryPaths()
@@ -121,13 +93,10 @@ namespace SlopWorld.Tests
                 Name = "repo",
                 Dir = "/work/repo",
                 Temp = true,
-                Sandbox = new List<string> { "home", "docs" },
-                Breadcrumbs = new List<string> { "read this", "then work" },
-                Network = NetworkMode.None,
-                Dns = new DnsConfig
+                Mounts = new List<MountEntry>
                 {
-                    Mode = DnsMode.Servers,
-                    Servers = new List<string> { "8.8.8.8", "1.1.1.1" },
+                    new MountEntry { From = "shared", To = "/mnt/shared", Mode = MountMode.Ro },
+                    new MountEntry { From = "tools", To = "/mnt/tools", Mode = MountMode.Rw },
                 },
             };
 
@@ -136,19 +105,16 @@ namespace SlopWorld.Tests
             AssertEx.Equal("repo", parsed.Name, "project name");
             AssertEx.Equal("/work/repo", parsed.Dir, "project directory");
             AssertEx.True(parsed.Temp, "temporary flag");
-            AssertEx.Sequence(project.Sandbox, parsed.Sandbox, "sandbox presets");
-            AssertEx.Sequence(project.Breadcrumbs, parsed.Breadcrumbs, "breadcrumbs");
-            AssertEx.Equal(NetworkMode.None, parsed.Network, "none network");
-            AssertEx.Sequence(project.Dns.Servers, parsed.Dns.Servers, "custom DNS servers");
+            AssertEx.Equal(2, parsed.Mounts.Count, "project mounts");
+            AssertEx.Equal("shared", parsed.Mounts[0].From, "first mount project");
+            AssertEx.Equal(MountMode.Ro, parsed.Mounts[0].Mode, "first mount mode");
             AssertEx.Equal(project.ToJson(), parsed.ToJson(), "project JSON round trip");
 
             var copy = project.Copy();
-            copy.Sandbox[0] = "changed";
-            copy.Breadcrumbs.Add("another");
-            copy.Dns.Servers[0] = "9.9.9.9";
-            AssertEx.Equal("home", project.Sandbox[0], "copy owns sandbox list");
-            AssertEx.Equal(2, project.Breadcrumbs.Count, "copy owns breadcrumb list");
-            AssertEx.Equal("8.8.8.8", project.Dns.Servers[0], "copy owns DNS list");
+            copy.Mounts[0].From = "changed";
+            copy.Mounts.Add(new MountEntry { From = "another", To = "/mnt/another", Mode = MountMode.Ro });
+            AssertEx.Equal("shared", project.Mounts[0].From, "copy owns mount entries");
+            AssertEx.Equal(2, project.Mounts.Count, "copy owns mount list");
         }
     }
 }

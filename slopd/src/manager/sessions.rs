@@ -281,7 +281,6 @@ impl Manager {
                 if !preserve_snapshots {
                     s.command_snapshot = None;
                     s.sandbox_snapshots.clear();
-                    s.breadcrumb_snapshots.clear();
                 }
                 check_belongs(cfg, &s)?;
                 s.limits.validate()?;
@@ -748,7 +747,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn instructions_breadcrumb_follows_agent_and_global_settings() {
+    async fn instructions_discovery_follows_manifest_and_daemon_policy() {
         let mut cfg = Config::default();
         let session = SessionCfg {
             name: "agent".into(),
@@ -771,7 +770,6 @@ mod tests {
             .wire_live_state("agent", &cfg, &session, &project, false)
             .await;
         assert!(!manager.live.read().await["agent"].breadcrumbs_pending);
-        cfg.daemon.experimental_breadcrumbs = true;
         cfg.daemon.experimental_instructions = true;
 
         manager
@@ -781,18 +779,6 @@ mod tests {
         assert!(live["agent"].breadcrumbs_pending);
         assert!(String::from_utf8_lossy(&live["agent"].breadcrumbs)
             .contains("Read `SLOPWORLD.md` for SlopWorld runtime context."));
-        drop(live);
-
-        let disabled = SessionCfg {
-            instructions_breadcrumb: false,
-            ..session.clone()
-        };
-        manager
-            .wire_live_state("agent", &cfg, &disabled, &project, false)
-            .await;
-        let live = manager.live.read().await;
-        assert!(!live["agent"].breadcrumbs_pending);
-        assert!(live["agent"].breadcrumbs.is_empty());
         drop(live);
 
         cfg.daemon.instructions.breadcrumb_enabled = false;

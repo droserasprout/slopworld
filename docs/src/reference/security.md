@@ -21,7 +21,7 @@ Each agent runs inside a layered sandbox:
 The [sandbox guide](../guides/configuring-sandboxes.md) owns bind kinds, protected
 paths, private-state lifecycle, and resource limits. The
 [agent guide](../guides/configuring-agents.md#network) describes network modes and DNS.
-Project network settings are defaults; an agent override can grant wider access.
+Network and DNS are agent-owned settings; project mounts are workspace settings.
 
 ## Credentials
 

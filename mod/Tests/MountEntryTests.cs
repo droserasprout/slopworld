@@ -29,11 +29,12 @@ namespace SlopWorld.Tests
         static void RoundTripsMountLists()
         {
             var mounts = MountEntry.ListFromJson(JVal.Parse(
-                "[{\"project\":\"docs\\\"and\\\"tests\",\"mode\":\"ro\"}," +
-                "{\"project\":\"scratch\"}]"));
+                "[{\"from\":\"docs\\\"and\\\"tests\",\"to\":\"/mnt/docs\",\"mode\":\"ro\"}," +
+                "{\"from\":\"scratch\"}]"));
 
             AssertEx.Equal(2, mounts.Count, "mount count");
-            AssertEx.Equal("docs\"and\"tests", mounts[0].Project, "quoted project name");
+            AssertEx.Equal("docs\"and\"tests", mounts[0].From, "quoted project name");
+            AssertEx.Equal("/mnt/docs", mounts[0].To, "destination path");
             AssertEx.Equal(MountMode.Ro, mounts[0].Mode, "parsed read-only mount");
             AssertEx.Equal(MountMode.Rw, mounts[1].Mode, "missing mode defaults writable");
 

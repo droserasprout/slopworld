@@ -16,13 +16,8 @@ pub struct SessionView {
     pub command_preset: String,
     pub cmd: Option<String>,
     pub sandbox: Vec<String>,
-    pub breadcrumbs: Vec<String>,
     pub slopworld_md: bool,
-    pub instructions_breadcrumb: bool,
     pub persistent_tmp: bool,
-    pub breadcrumb_yolo: bool,
-    // Lets the client attach tips only to the Enter that will consume breadcrumbs.
-    pub breadcrumbs_pending: bool,
     // Startup auto-resume is waiting or queued; clients must keep user input behind it.
     pub auto_resume_pending: bool,
     pub agent: String,
@@ -30,18 +25,13 @@ pub struct SessionView {
     pub alive: bool,
     pub cols: u16,
     pub rows: u16,
-    /// The effective project default or agent override.
+    /// The network mode owned by this agent.
     pub network: NetworkMode,
-    /// Null means the agent inherits the project default.
-    pub network_override: Option<NetworkMode>,
-    /// The effective DNS source, resolved from the project and agent settings.
+    /// The DNS configuration owned by this agent.
     pub dns: DnsConfig,
-    /// Null means the agent inherits the project's DNS setting.
-    pub dns_override: Option<DnsConfig>,
-    /// The caps this agent runs under, its own merged over its project's.
+    /// The resource limits owned by this agent.
     pub limits: Limits,
-    /// This agent's own caps before project inheritance - what the editor edits.
-    pub limits_override: Limits,
+    /// Project-owned mounts applied when this agent next starts.
     pub mounts: Vec<Mount>,
     pub autostart: bool,
     pub auto_resume: bool,

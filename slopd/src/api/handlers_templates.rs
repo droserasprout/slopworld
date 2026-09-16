@@ -35,8 +35,7 @@ pub(crate) async fn save_template(
     // A complete definition is the management UI's creation/duplication wire form. The
     // session-capture form below remains intentionally small for the existing agent editor.
     if value.get("defaults").is_some() {
-        let mut template: crate::session::AgentTemplate =
-            serde_json::from_value(value).map_err(|error| err(StatusCode::BAD_REQUEST, error))?;
+        let mut template = crate::api::parse_template(value)?;
         if template.version != 0 {
             return Err(err(
                 StatusCode::BAD_REQUEST,
@@ -58,14 +57,9 @@ pub(crate) async fn save_template(
             .await
             .map_err(template_error)?
     } else {
-        m.capture_agent_template(
-            &req.source,
-            req.name,
-            req.description,
-            req.include_inherited,
-        )
-        .await
-        .map_err(template_error)?
+        m.capture_agent_template(&req.source, req.name, req.description)
+            .await
+            .map_err(template_error)?
     };
     Ok(Json(json!({ "ok": true, "template": saved })))
 }
@@ -74,8 +68,9 @@ pub(crate) async fn replace_template(
     State(m): State<Mgr>,
     Extension(_cap): Extension<Cap>,
     Path(name): Path<String>,
-    Json(mut template): Json<crate::session::AgentTemplate>,
+    Json(value): Json<serde_json::Value>,
 ) -> ApiResult {
+    let mut template = crate::api::parse_template(value)?;
     if template.version == 0 {
         return Err(err(
             StatusCode::BAD_REQUEST,
@@ -111,8 +106,9 @@ pub(crate) async fn create_from_template(
     Path(template): Path<String>,
     Json(req): Json<CreateAgentTemplateReq>,
 ) -> ApiResult {
+    let overrides = req.overrides.map(crate::api::parse_session).transpose()?;
     let session = m
-        .create_from_agent_template(&template, req.name, req.project, req.overrides)
+        .create_from_agent_template(&template, req.name, req.project, overrides)
         .await
         .map_err(|error| err(StatusCode::BAD_REQUEST, error))?;
     Ok(Json(json!({ "ok": true, "session": session })))

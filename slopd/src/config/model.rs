@@ -31,8 +31,8 @@ pub struct Config {
     /// Commands the client uses for file viewers, editors, syntax highlighting and links.
     #[serde(default)]
     pub commands: CommandDefaults,
-    /// A session is an agent *in* one of these, and takes its directory and sandbox
-    /// from it rather than carrying either.
+    /// A session is an agent *in* one of these, and takes its directory and shared mounts from
+    /// it. Process settings remain on the agent.
     #[serde(default, rename = "project")]
     pub projects: Vec<ProjectCfg>,
     #[serde(default, rename = "session")]
@@ -108,9 +108,6 @@ pub fn redact_token_text(text: &str) -> String {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Daemon {
     pub bind: String,
-    /// Gates automatic and manual breadcrumb delivery without losing preferences.
-    #[serde(default)]
-    pub experimental_breadcrumbs: bool,
     /// Gates generated SLOPWORLD.md instructions without losing preferences.
     #[serde(default)]
     pub experimental_instructions: bool,
@@ -307,7 +304,6 @@ impl Default for Daemon {
     fn default() -> Self {
         Self {
             bind: DEFAULT_BIND.into(),
-            experimental_breadcrumbs: false,
             experimental_instructions: false,
             token: String::new(),
             usage_poll_secs: default_usage_poll(),
@@ -430,8 +426,7 @@ pub fn temp_slug(name: &str) -> String {
     }
 }
 
-/// The network a sandbox may use. A project supplies the default and an agent may
-/// override it with any of the three modes.
+/// The network an agent sandbox may use.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum NetworkMode {
     None,
@@ -459,10 +454,12 @@ crate::wire_enum!(MountMode, {
     MountMode::Rw => crate::shared::protocol::enums::mount_mode::RW,
 });
 
-/// An additional project directory mounted into the agent's sandbox at `/mnt/<project-name>`.
+/// A literal host path bound at an explicit sandbox path. Project shortcuts copy these values.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Mount {
-    pub project: String,
+    pub from: String,
+    pub to: String,
     #[serde(default)]
     pub mode: MountMode,
 }
@@ -598,8 +595,7 @@ pub(crate) fn resolvers_from(text: &str) -> Vec<String> {
 }
 
 /// Per-agent resource caps, enforced by the systemd scope `build_argv` wraps the agent in.
-/// Every field is optional: a session inherits any it leaves unset from its project, and one
-/// unset in both means no cap at all. Reach is the sandbox's job; this is only how much.
+/// Every field is optional: unset means no cap. Reach is the sandbox's job; this is only how much.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Limits {
     /// Hard memory ceiling in MiB (systemd `MemoryMax`); the kernel OOM-kills the tree at it.
@@ -624,17 +620,6 @@ impl Limits {
             && self.cpu_pct.is_none()
     }
 
-    /// This agent's own caps over its project's, field by field: a cap the session states wins,
-    /// one it leaves unset falls through to the project, and unset in both stays no cap.
-    pub(crate) fn inherit(self, project: Limits) -> Limits {
-        Limits {
-            memory_mb: self.memory_mb.or(project.memory_mb),
-            pids: self.pids.or(project.pids),
-            nofile: self.nofile.or(project.nofile),
-            cpu_pct: self.cpu_pct.or(project.cpu_pct),
-        }
-    }
-
     /// A cap of zero is not a cap, it is a session that cannot start: refuse it where it is
     /// written rather than let the agent OOM or fail to fork on its first breath.
     pub fn validate(&self) -> Result<()> {
@@ -652,8 +637,8 @@ impl Limits {
     }
 }
 
-/// Three agents in the same repo want the same binds, and keeping that in three
-/// session entries meant it was wrong in at least one of them.
+/// A project owns the paths it exposes to every agent in it. The primary directory is
+/// implicit; a row with that directory as both source and destination changes its mode.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ProjectCfg {
     pub name: String,
@@ -666,26 +651,13 @@ pub struct ProjectCfg {
     /// kind is never written here at all; see `LibraryItemLink::Temp`.
     #[serde(default)]
     pub temp: bool,
-    /// Sandbox presets, by name. One this build has no file for is ignored with a warning
-    /// rather than refused, because the files outlive the binary.
+    /// Literal host/sandbox path pairs. Project shortcuts copy paths once, never references.
     #[serde(default)]
-    pub sandbox: Vec<String>,
-    /// Named breadcrumbs added to every agent in this project.
-    #[serde(default)]
-    pub breadcrumbs: Vec<String>,
-    /// The default network mode for sandboxed agents in this project.
-    #[serde(default)]
-    pub network: NetworkMode,
-    /// DNS for agents in this project. Missing means the configured system resolver.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub dns: Option<DnsConfig>,
-    /// Resource caps applied to every agent here, each overridable per agent.
-    #[serde(default, skip_serializing_if = "Limits::is_empty")]
-    pub limits: Limits,
+    pub mounts: Vec<Mount>,
 }
 
-/// An agent is a command preset plus this file's answer to it - the command, sandbox presets
-/// and breadcrumbs that entry adds.
+/// An agent is a command preset plus its process settings.  Workspace mounts belong to the
+/// project so every agent in the same project starts from the same directory view.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SessionCfg {
     pub name: String,
@@ -696,7 +668,7 @@ pub struct SessionCfg {
     /// handles and may change or be reused; this is deliberately neither.
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub state_id: String,
-    /// Everything about where it runs and what it can reach comes from there.
+    /// The project supplies the workspace and shared mounts.
     #[serde(default)]
     pub project: String,
     /// A command preset's name. Empty is `[defaults] agent`, or nothing at all when this
@@ -710,46 +682,30 @@ pub struct SessionCfg {
     /// Manual session requests cannot set it; the manager preserves it across edits.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(crate) command_snapshot: Option<CommandPreset>,
-    /// Sandbox presets it adds to its command's and its project's.
+    /// Sandbox presets this agent adds to its command's presets.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub sandbox: Vec<String>,
     /// Daemon-owned definitions captured for this agent. Names in `sandbox` prefer these
     /// definitions over the live preset catalog, keeping an instantiated template stable.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub(crate) sandbox_snapshots: Vec<SandboxPreset>,
-    /// Named breadcrumbs added to this agent's first prompt.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub breadcrumbs: Vec<String>,
-    /// Daemon-owned prompt contents captured for this agent. Names in `breadcrumbs` prefer
-    /// these values over the mutable library catalog.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub(crate) breadcrumb_snapshots: Vec<BreadcrumbSnapshot>,
     /// Opt into the generated project-root runtime manifest; its mount path and discovery
     /// text are controlled by `daemon.instructions`.
     #[serde(default, skip_serializing_if = "is_false")]
     pub slopworld_md: bool,
-    /// Add the configured discovery text when this agent also mounts the generated manifest.
-    /// Defaults on so enabling the manifest keeps the original discovery behavior.
-    #[serde(default = "yes", skip_serializing_if = "is_true")]
-    pub instructions_breadcrumb: bool,
     /// Give this agent a durable, private `/tmp` instead of the sandbox's per-run tmpfs.
     #[serde(default, skip_serializing_if = "is_false")]
     pub persistent_tmp: bool,
-    /// Paste all effective breadcrumbs in front of the first Enter after startup.
-    #[serde(default = "yes", skip_serializing_if = "is_true")]
-    pub breadcrumb_yolo: bool,
-    /// An optional network mode for this agent. Missing means inherit the project default.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub network: Option<NetworkMode>,
-    /// DNS override for this agent. Missing means inherit the project's DNS setting.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub dns: Option<DnsConfig>,
-    /// This agent's own resource caps, each overriding the project's for the same field.
+    /// Network mode for this agent.  It is always explicit; templates may leave their creation
+    /// recipe unspecified, in which case the daemon's documented agent default is copied.
+    #[serde(default)]
+    pub network: NetworkMode,
+    /// DNS for this agent.  `resolved` retains the daemon's current resolver at launch.
+    #[serde(default)]
+    pub dns: DnsConfig,
+    /// This agent's final resource caps.  An unset field means no configured cap.
     #[serde(default, skip_serializing_if = "Limits::is_empty")]
     pub limits: Limits,
-    /// Additional project directories mounted under `/mnt/<project-name>`.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub mounts: Vec<Mount>,
     #[serde(default)]
     pub autostart: bool,
     /// After a fresh process reaches its first settled prompt, select its latest conversation.
@@ -812,16 +768,11 @@ impl Default for SessionCfg {
             command_snapshot: None,
             sandbox: Vec::new(),
             sandbox_snapshots: Vec::new(),
-            breadcrumbs: Vec::new(),
-            breadcrumb_snapshots: Vec::new(),
             slopworld_md: false,
-            instructions_breadcrumb: true,
             persistent_tmp: false,
-            breadcrumb_yolo: true,
-            network: None,
-            dns: None,
+            network: NetworkMode::default(),
+            dns: DnsConfig::default(),
             limits: Limits::default(),
-            mounts: Vec::new(),
             autostart: false,
             auto_resume: false,
             worker: false,
@@ -830,16 +781,6 @@ impl Default for SessionCfg {
             worker_token: None,
         }
     }
-}
-
-/// A named prompt copied into a template or a template-created agent. The text is deliberately
-/// stored here rather than looked up from `library`, so editing or deleting that entry cannot
-/// silently alter an existing agent.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct BreadcrumbSnapshot {
-    pub name: String,
-    pub text: String,
 }
 
 /// The only thing the two kinds disagree about at the far end: an agent's input
@@ -917,8 +858,8 @@ pub struct LibraryItemCfg {
     pub kind: LibraryItemKind,
     #[serde(default)]
     pub link: LibraryItemLink,
-    /// Read as the place to run when `link` is `project`, as the sandbox to copy when
-    /// it is `temp`, and not at all when it is `ask`.
+    /// Read as the project to run in when `link` is `project`; temporary links create a fresh
+    /// workspace and ask links leave the destination to the caller.
     #[serde(default)]
     pub project: String,
     /// A prompt for the agent, a command line for the shell.
@@ -927,6 +868,12 @@ pub struct LibraryItemCfg {
     /// Empty means `[defaults] agent` or `[defaults] shell`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub command: Option<String>,
+    /// Runnable entries explicitly choose host execution or a portable agent template.
+    /// An entry without either selection cannot run.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub host: bool,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub agent_template: String,
     /// What a file action does after selection. `ask` keeps the old per-invocation menu.
     #[serde(default, skip_serializing_if = "is_file_action_mode_default")]
     pub mode: FileActionMode,

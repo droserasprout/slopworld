@@ -10,6 +10,21 @@ namespace SlopWorld.Tests
             yield return ("repository source is read only and not written back", RepositorySource);
             yield return ("round trips file action modes", RoundTripsFileActionModes);
             yield return ("missing mode keeps the invocation menu", MissingModeKeepsInvocationMenu);
+            yield return ("errand execution choice round trips", ErrandExecution);
+        }
+
+        static void ErrandExecution()
+        {
+            var empty = LibraryItemInfo.FromJson(JVal.Parse("{}"));
+            AssertEx.True(!empty.Host && empty.AgentTemplate == "", "entries require an execution choice");
+            var item = new LibraryItemInfo { Name = "review", AgentTemplate = "repo::reviewer" };
+            var parsed = LibraryItemInfo.FromJson(JVal.Parse(item.ToJson()));
+            AssertEx.Equal("repo::reviewer", parsed.AgentTemplate, "template choice survives wire");
+            AssertEx.Equal(parsed.AgentTemplate, parsed.Copy().AgentTemplate, "template choice survives draft copy");
+            item.Host = true;
+            item.AgentTemplate = "";
+            AssertEx.True(LibraryItemInfo.FromJson(JVal.Parse(item.ToJson())).Host, "host choice survives wire");
+            AssertEx.True(item.Copy().Host, "host choice survives draft copy");
         }
 
         static void RepositorySource()

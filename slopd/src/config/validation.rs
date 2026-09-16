@@ -72,6 +72,9 @@ pub(crate) fn validate_state_id(state_id: &str) -> Result<()> {
 
 pub(super) fn validate_loaded(cfg: &Config) -> Result<()> {
     validate_project_names(&cfg.projects)?;
+    for project in &cfg.projects {
+        validate_mount_paths(project)?;
+    }
 
     let mut state_ids = HashSet::new();
     for session in &cfg.sessions {
@@ -90,4 +93,91 @@ pub(super) fn validate_loaded(cfg: &Config) -> Result<()> {
         }
     }
     Ok(())
+}
+
+/// Validate source and destination independently; a guest path is never a project reference.
+/// Existence is a launch-time check so disconnected disks can remain configured.
+pub(crate) fn validate_mount_paths(project: &ProjectCfg) -> Result<()> {
+    let mut targets = HashSet::new();
+    for mount in &project.mounts {
+        for (label, raw) in [("from", &mount.from), ("to", &mount.to)] {
+            let expanded = super::expand(raw);
+            let path = Path::new(&expanded);
+            if raw.trim().is_empty()
+                || !path.is_absolute()
+                || expanded.chars().any(|c| c.is_control())
+                || path.components().any(|c| matches!(c, Component::ParentDir))
+            {
+                bail!(
+                    "project {} mount {label} must be an absolute path without parent traversal",
+                    project.name
+                );
+            }
+            if let Some(what) = crate::sandbox::refused(&expanded) {
+                bail!(
+                    "project {} mount {label} {raw:?} reaches {what}",
+                    project.name
+                );
+            }
+        }
+        let target = std::path::PathBuf::from(super::expand(&mount.to));
+        if !targets.insert(target.clone()) {
+            bail!(
+                "project {} has duplicate mount destination {}",
+                project.name,
+                target.display()
+            );
+        }
+        let primary = std::path::PathBuf::from(super::expand(&project.dir));
+        let alias = std::path::PathBuf::from(format!("/mnt/{}", project.name));
+        if (primary.starts_with(&target) || target == alias)
+            && (target != primary || Path::new(&super::expand(&mount.from)) != primary)
+        {
+            bail!(
+                "project {} mount cannot replace its primary directory or alias",
+                project.name
+            );
+        }
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod mount_tests {
+    use super::*;
+    use crate::config::{Mount, MountMode};
+
+    #[test]
+    fn path_mounts_reject_empty_relative_protected_and_duplicate_targets() {
+        let mut p = ProjectCfg {
+            name: "repo".into(),
+            dir: "/work/repo".into(),
+            ..Default::default()
+        };
+        for (from, to) in [
+            ("", "/mnt/extra"),
+            ("relative", "/mnt/extra"),
+            ("/work/extra", "relative"),
+            ("/", "/mnt/extra"),
+            ("/work/extra", "/"),
+            ("/work/extra", "/work/repo"),
+            ("/work/extra", "/mnt/repo"),
+            ("/work/extra", "/mnt/../repo"),
+        ] {
+            p.mounts = vec![Mount {
+                from: from.into(),
+                to: to.into(),
+                mode: MountMode::Rw,
+            }];
+            assert!(validate_mount_paths(&p).is_err(), "accepted {from} -> {to}");
+        }
+        p.mounts = vec![Mount {
+            from: "/work/extra".into(),
+            to: "/mnt/extra".into(),
+            mode: MountMode::Ro,
+        }];
+        validate_mount_paths(&p).unwrap();
+        p.mounts.push(p.mounts[0].clone());
+        assert!(validate_mount_paths(&p).is_err());
+    }
 }

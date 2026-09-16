@@ -2,7 +2,7 @@ use std::path::Path;
 
 use anyhow::Result;
 
-use crate::config::{Config, DnsConfig, MountMode, NetworkMode, ProjectCfg, SessionCfg};
+use crate::config::{Config, DnsConfig, NetworkMode, ProjectCfg, SessionCfg};
 use crate::presets::{SandboxPreset, Table};
 
 use super::LaunchPlan;
@@ -28,7 +28,6 @@ pub(super) struct BuildArgs<'a> {
     pub(super) network: NetworkMode,
     pub(super) dns: &'a DnsConfig,
     pub(super) agent_argv: Vec<String>,
-    pub(super) dir: &'a str,
     pub(super) table: &'a Table,
     pub(super) presets: &'a [&'a SandboxPreset],
     pub(super) home: &'a str,
@@ -42,7 +41,6 @@ struct BindContext<'a> {
     s: &'a SessionCfg,
     p: &'a ProjectCfg,
     table: &'a Table,
-    dir: &'a str,
     ro: &'a [String],
     rw: &'a [String],
     dev: &'a [String],
@@ -60,7 +58,6 @@ pub(super) fn assemble_plan(args: BuildArgs<'_>) -> Result<LaunchPlan> {
         network,
         dns,
         agent_argv,
-        dir,
         table,
         presets,
         home,
@@ -85,7 +82,6 @@ pub(super) fn assemble_plan(args: BuildArgs<'_>) -> Result<LaunchPlan> {
         s,
         p,
         table,
-        dir,
         ro: &ro,
         rw: &rw,
         dev: &dev,
@@ -100,18 +96,10 @@ pub(super) fn assemble_plan(args: BuildArgs<'_>) -> Result<LaunchPlan> {
     let mut environment = Vec::new();
     mounts::push_skeleton(&mut bwrap, network);
     mounts::push_ro_binds(&mut mounts_args, &bind);
-    let primary_mode = mounts
-        .first()
-        .map(|mount| mount.mode)
-        .unwrap_or(MountMode::Rw);
-    mounts::push_private_binds(&mut mounts_args, &bind, primary_mode);
-    mounts::push_mounts(
-        &mut mounts_args,
-        mounts,
-        &p.name,
-        manifest,
-        manifest_mount_path,
-    );
+    mounts::push_persistent_tmp(&mut mounts_args, &bind);
+    mounts::push_mounts(&mut mounts_args, mounts, &p.name);
+    mounts::push_private_binds(&mut mounts_args, &bind);
+    mounts::push_manifest(&mut mounts_args, mounts, manifest, manifest_mount_path);
     mounts::push_env(
         &mut environment,
         EnvArgs {
@@ -172,12 +160,12 @@ mod tests {
         let s = SessionCfg {
             name: "a".into(),
             project: "p".into(),
+            sandbox: vec!["x11".into()],
             ..Default::default()
         };
         let p = ProjectCfg {
             name: "p".into(),
             dir: "/tmp".into(),
-            sandbox: vec!["x11".into()],
             ..Default::default()
         };
         build_argv(&cfg, &s, &p).expect("sandbox argv")
@@ -190,30 +178,112 @@ mod tests {
     }
 
     #[test]
+    fn arbitrary_mounts_keep_paths_modes_and_missing_sources_fail_launch() {
+        use crate::config::{Mount, MountMode};
+        let root = std::env::temp_dir().join(format!("slopd-path-mount-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&root).unwrap();
+        let file = root.join("input.txt");
+        std::fs::write(&file, "input").unwrap();
+        let mut project = ProjectCfg {
+            name: "repo".into(),
+            dir: root.to_string_lossy().into(),
+            mounts: vec![Mount {
+                from: file.to_string_lossy().into(),
+                to: "/mnt/custom.txt".into(),
+                mode: MountMode::Ro,
+            }],
+            ..Default::default()
+        };
+        let session = SessionCfg {
+            name: "agent".into(),
+            project: "repo".into(),
+            ..Default::default()
+        };
+        let argv = build_argv(&Config::default(), &session, &project).unwrap();
+        assert!(argv.windows(3).any(|w| w[0] == "--ro-bind"
+            && w[1] == file.to_string_lossy()
+            && w[2] == "/mnt/custom.txt"));
+        project.mounts[0].from = root.join("missing").to_string_lossy().into();
+        assert!(build_argv(&Config::default(), &session, &project)
+            .unwrap_err()
+            .to_string()
+            .contains("does not exist"));
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn path_mounts_cannot_recover_private_sources_and_private_overlays_win() {
+        use crate::config::{Mount, MountMode};
+        let root =
+            std::env::temp_dir().join(format!("slopd-private-mount-{}", uuid::Uuid::new_v4()));
+        let private = root.join("private");
+        let public = root.join("public");
+        std::fs::create_dir_all(&private).unwrap();
+        std::fs::create_dir_all(&public).unwrap();
+        let session = SessionCfg {
+            name: "agent".into(),
+            project: "repo".into(),
+            cmd: Some("true".into()),
+            sandbox: vec!["saved".into()],
+            sandbox_snapshots: vec![crate::presets::SandboxPreset {
+                name: "saved".into(),
+                private: vec![private.to_string_lossy().into()],
+                ..Default::default()
+            }],
+            ..Default::default()
+        };
+        let mut project = ProjectCfg {
+            name: "repo".into(),
+            dir: public.to_string_lossy().into(),
+            mounts: vec![Mount {
+                from: private.to_string_lossy().into(),
+                to: "/mnt/leak".into(),
+                mode: MountMode::Rw,
+            }],
+            ..Default::default()
+        };
+        assert!(build_argv(&Config::default(), &session, &project)
+            .unwrap_err()
+            .to_string()
+            .contains("private preset state"));
+        project.mounts[0].from = public.to_string_lossy().into();
+        project.mounts[0].to = private.to_string_lossy().into();
+        let argv = build_argv(&Config::default(), &session, &project).unwrap();
+        let targets: Vec<_> = argv
+            .windows(3)
+            .filter(|w| w[0] == "--bind" && w[2] == private.to_string_lossy())
+            .collect();
+        assert_eq!(targets.len(), 2);
+        assert_eq!(targets[0][1], public.to_string_lossy());
+        assert_ne!(targets[1][1], public.to_string_lossy());
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn network_mode_selects_the_expected_namespace() {
         let cfg = Config::default();
-        let s = SessionCfg {
+        let mut s = SessionCfg {
             name: "a".into(),
             project: "p".into(),
             ..Default::default()
         };
 
-        let mut p = ProjectCfg {
+        let p = ProjectCfg {
             name: "p".into(),
             dir: "/tmp".into(),
             ..Default::default()
         };
-        p.network = NetworkMode::None;
+        s.network = NetworkMode::None;
         let none = build_argv(&cfg, &s, &p).expect("no-network argv");
         assert_eq!(none[0], "bwrap");
         assert!(!none.contains(&"--share-net".into()));
 
-        p.network = NetworkMode::Host;
+        s.network = NetworkMode::Host;
         let host = build_argv(&cfg, &s, &p).expect("host-network argv");
         assert_eq!(host[0], "bwrap");
         assert!(host.contains(&"--share-net".into()));
 
-        p.network = NetworkMode::Private;
+        s.network = NetworkMode::Private;
         let private = build_argv(&cfg, &s, &p).expect("private-network argv");
         assert_eq!(private[0], "pasta");
         assert!(private.contains(&"--ipv4-only".into()));
@@ -231,9 +301,9 @@ mod tests {
             .collect();
         assert_eq!(resolved, DnsConfig::Resolved.servers());
 
-        p.dns = Some(DnsConfig::Servers {
+        s.dns = DnsConfig::Servers {
             servers: vec!["10.0.0.53".parse().unwrap(), "10.0.0.54".parse().unwrap()],
-        });
+        };
         let explicit = build_argv(&cfg, &s, &p).expect("explicit DNS argv");
         let hosts: Vec<_> = explicit
             .windows(2)
@@ -249,13 +319,12 @@ mod tests {
         let s = SessionCfg {
             name: "a".into(),
             project: "p".into(),
-            network: Some(NetworkMode::Host),
+            network: NetworkMode::Host,
             ..Default::default()
         };
         let p = ProjectCfg {
             name: "p".into(),
             dir: "/tmp".into(),
-            network: NetworkMode::Private,
             ..Default::default()
         };
 
@@ -270,6 +339,7 @@ mod tests {
         let s = SessionCfg {
             name: "a".into(),
             project: "p".into(),
+            network: NetworkMode::None,
             limits: Limits {
                 memory_mb: Some(512),
                 pids: Some(64),
@@ -281,7 +351,6 @@ mod tests {
         let p = ProjectCfg {
             name: "p".into(),
             dir: "/tmp".into(),
-            network: NetworkMode::None,
             ..Default::default()
         };
         let a = build_argv(&cfg, &s, &p).expect("scoped argv");
@@ -415,7 +484,6 @@ mod tests {
         let p = ProjectCfg {
             name: "p".into(),
             dir: "/tmp".into(),
-            network: NetworkMode::Private,
             ..Default::default()
         };
         let a = build_argv(&cfg, &s, &p).expect("worker sandbox argv");
@@ -548,12 +616,12 @@ mod tests {
         let p = ProjectCfg {
             name: "p".into(),
             dir: "/tmp".into(),
-            sandbox: vec!["t".into()],
             ..Default::default()
         };
         let s = SessionCfg {
             name: "a".into(),
             project: "p".into(),
+            sandbox: vec!["t".into()],
             ..Default::default()
         };
         assert_eq!(
@@ -676,13 +744,18 @@ mod tests {
         let s = SessionCfg {
             name: "a".into(),
             project: "main".into(),
+            ..Default::default()
+        };
+        let p = ProjectCfg {
+            name: "main".into(),
+            dir: "/tmp".into(),
             mounts: vec![Mount {
-                project: "lib".into(),
+                from: "/usr".into(),
+                to: "/mnt/lib".into(),
                 mode: MountMode::Ro,
             }],
             ..Default::default()
         };
-        let p = cfg.project("main").unwrap().clone();
         let a = build_argv(&cfg, &s, &p).expect("mounted sandbox argv");
 
         assert!(
@@ -697,7 +770,7 @@ mod tests {
         );
         assert!(
             a.windows(3)
-                .any(|w| w[0] == "--ro-bind" && w[1] == "/tmp" && w[2] == "/mnt/lib"),
+                .any(|w| w[0] == "--ro-bind" && w[1] == "/usr" && w[2] == "/mnt/lib"),
             "lib mount not at /mnt/lib: {a:?}"
         );
         assert!(
@@ -732,15 +805,16 @@ mod tests {
         let s = SessionCfg {
             name: "a".into(),
             project: "p".into(),
-            mounts: vec![Mount {
-                project: "p".into(),
-                mode: MountMode::Ro,
-            }],
             ..Default::default()
         };
         let p = ProjectCfg {
             name: "p".into(),
             dir: "/tmp".into(),
+            mounts: vec![Mount {
+                from: "/tmp".into(),
+                to: "/tmp".into(),
+                mode: MountMode::Ro,
+            }],
             ..Default::default()
         };
         let a = build_argv(&cfg, &s, &p).expect("ro primary argv");

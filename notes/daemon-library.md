@@ -2,8 +2,11 @@
 
 Library presents agent templates, prompts, shell errands, breadcrumbs, and file actions.
 Start in `manager/library.rs`, `manager/errands.rs`, and `config.rs`; public usage belongs
-in the book. File actions use the selected project's sandbox, except explicit host errands
-for storage paths. They do not participate in agent breadcrumb delivery.
+in the book. Runnable entries choose explicit host execution or an agent template. Template
+errands copy settings and snapshots once and use the selected project's mounts; missing
+execution choices fail before allocating a session. Agent-shell requests can still clone a
+source agent via `like`. File actions execute on the daemon host. They do not participate in
+agent breadcrumb delivery.
 
 `ephemeral` is not a persistence test: durable host terminals use that presentation flag
 but retain config records and Down rows. Temporary errands disappear on stop/exit and own

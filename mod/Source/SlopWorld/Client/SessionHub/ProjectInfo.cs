@@ -93,13 +93,8 @@ namespace SlopWorld
         // The daemon coins TempRoot/name and makes it when the first agent starts there. It
         // is /tmp that is temporary, not the entry.
         public bool Temp;
-        // Sandbox presets by name. Every agent runs in a sandbox; this says what it reaches.
-        public List<string> Sandbox = new List<string>();
-        public NetworkMode Network = NetworkMode.Private;
-        public SessionLimits Limits;
-        public List<string> Breadcrumbs = new List<string>();
-        // A project-level DNS choice is the default for its agents. Resolved is the default.
-        public DnsConfig Dns = DnsConfig.Resolved();
+        // Every agent in this project receives these direct mounts at its next start.
+        public List<MountEntry> Mounts = new List<MountEntry>();
 
         // The daemon is the only owner of temporary root policy. Missing metadata is explicit
         // so the editor does not silently present a compiled daemon path.
@@ -110,35 +105,20 @@ namespace SlopWorld
             Name = j["name"].AsString(),
             Dir = j["dir"].AsString(),
             Temp = j["temp"].AsBool(false),
-            Sandbox = Strings(j["sandbox"]),
-            Breadcrumbs = Strings(j["breadcrumbs"]),
-            Limits = SessionLimits.FromJson(j["limits"]),
-            Network = NetworkModeText.Parse(j["network"].AsString(WireProtocol.NetworkMode.Private)),
-            Dns = DnsConfig.FromJson(j["dns"]),
+            Mounts = j["mounts"].IsNull ? new List<MountEntry>() : MountEntry.ListFromJson(j["mounts"]),
         };
 
         public string ToJson() =>
             "{" +
             $"\"name\":{JVal.Q(Name)},\"dir\":{JVal.Q(Dir)},\"temp\":{JVal.B(Temp)}," +
-            $"\"sandbox\":{Arr(Sandbox)}," +
-            $"\"breadcrumbs\":{Arr(Breadcrumbs)},\"network\":{JVal.Q(NetworkModeText.Name(Network))}," +
-            $"\"limits\":{Limits.ToJson()},\"dns\":{Dns.ToJson()}}}";
+            $"\"mounts\":{MountEntry.ListToJson(Mounts)}}}";
 
         public ProjectInfo Copy() => new ProjectInfo
         {
             Name = Name,
             Dir = Dir,
             Temp = Temp,
-            Sandbox = new List<string>(Sandbox),
-            Breadcrumbs = new List<string>(Breadcrumbs),
-            Network = Network,
-            Limits = Limits,
-            Dns = Dns.Copy(),
+            Mounts = Mounts.Select(m => new MountEntry { From = m.From, To = m.To, Mode = m.Mode }).ToList(),
         };
-
-        static List<string> Strings(JVal a) => a.Items.Select(i => i.AsString()).ToList();
-
-        static string Arr(List<string> items) =>
-            "[" + string.Join(",", items.Select(JVal.Q).ToArray()) + "]";
     }
 }

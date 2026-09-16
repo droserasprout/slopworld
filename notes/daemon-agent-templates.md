@@ -8,19 +8,18 @@ not reuse conflict tokens. These are stale-write guards, not revision history or
 instantiated agents.
 
 `session/agent_templates.rs` defines sparse, one-time recipes. Optional scalar choices
-copy into agent overrides; omitted network, DNS and limits retain destination-project
-inheritance, and omitted startup flags use session defaults. Existing explicit stored values
-stay explicit. Capture normally copies agent choices and their dependency snapshots, excluding
-source-project contributions; full effective capture is opt-in. Missing/invalid sandbox
+copy into agent settings; omitted network and DNS use the documented agent defaults, omitted
+limits mean no cap, and omitted startup flags use session defaults. Existing explicit stored
+values stay explicit. Capture copies agent choices and their dependency snapshots; project
+settings and mounts are excluded. Missing/invalid sandbox
 references ignored at launch cannot block capture. Names, labels, mounts,
 state IDs, worker hierarchy, runtime state, and daemon or worker credentials are not template
 fields. Origin records are for display and do not make a
 template depend on its source checkout.
 
 Creation copies the snapshots into the new session configuration and `add_template_session`
-allocates a fresh state ID. Template creation accepts explicit mount selections from the form
-and validates them against the destination configuration; mounts are never captured in the
-template. Ordinary session creation clears snapshot fields, while ordinary edits preserve
+allocates a fresh state ID. The destination project supplies mounts at launch; mounts are never
+captured in the template. Ordinary session creation clears snapshot fields, while ordinary edits preserve
 only snapshots still selected by the edited form, including transitive dependencies. A raw
 command-line change retains the selected command preset's wiring. This keeps an existing
 instance stable when a template, preset, or library entry changes, including after restart.
@@ -37,4 +36,4 @@ personal snapshot. See [Library ownership](daemon-library.md).
 
 `config/resolution.rs` shares snapshot retention across edits and creation and exposes the
 same scalar/dependency resolution used at launch to the root-only settings preview. No live
-template relationship is stored on agents; inherited project defaults remain live.
+template relationship is stored on agents; project mounts remain live until the next start.

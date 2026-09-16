@@ -270,7 +270,6 @@ namespace SlopWorld
         {
             var option = new FloatMenuOption("Breadcrumb...", () =>
                 TerminalWindow.OpenOverPane(new EditLibraryItemDialog(LibraryItemKind.Breadcrumb)));
-            option.Disabled = !SessionHub.Instance.Config.ExperimentalBreadcrumbs;
             return option;
         }
 

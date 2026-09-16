@@ -6,7 +6,8 @@ mod validation;
 
 pub use model::*;
 pub(crate) use validation::{
-    project_name_component, state_id_component, validate_project_names, validate_state_id,
+    project_name_component, state_id_component, validate_mount_paths, validate_project_names,
+    validate_state_id,
 };
 
 #[cfg(test)]
@@ -103,19 +104,19 @@ impl Config {
         self.project(&s.project)
     }
 
-    /// Resolve the agent's network mode, with the project value acting as a default.
-    pub fn network_of(&self, s: &SessionCfg, p: &ProjectCfg) -> NetworkMode {
-        s.network.unwrap_or(p.network)
+    /// Network is an agent-owned launch setting.  The project argument remains in this helper's
+    /// signature so launch and preview callers cannot accidentally grow a second resolver.
+    pub fn network_of(&self, s: &SessionCfg, _p: &ProjectCfg) -> NetworkMode {
+        s.network
     }
 
-    pub fn dns_of(&self, s: &SessionCfg, p: &ProjectCfg) -> DnsConfig {
-        s.dns.clone().or_else(|| p.dns.clone()).unwrap_or_default()
+    pub fn dns_of(&self, s: &SessionCfg, _p: &ProjectCfg) -> DnsConfig {
+        s.dns.clone()
     }
 
-    /// The caps an agent actually runs under: its own merged over its project's, field by
-    /// field. A cap is a guardrail, not a boundary.
-    pub fn limits_of(&self, s: &SessionCfg, p: &ProjectCfg) -> Limits {
-        s.limits.inherit(p.limits)
+    /// Resource limits are final agent settings. A cap is a guardrail, not a boundary.
+    pub fn limits_of(&self, s: &SessionCfg, _p: &ProjectCfg) -> Limits {
+        s.limits
     }
 
     /// The command preset a session runs under, by name. Empty when it states a command
@@ -157,49 +158,10 @@ impl Config {
             .unwrap_or_default()
     }
 
-    /// Breadcrumb text in project-then-agent order, with duplicate names removed.
-    pub fn breadcrumbs_of(&self, s: &SessionCfg, p: &ProjectCfg) -> Vec<String> {
-        let mut names = Vec::new();
-        for name in p.breadcrumbs.iter().chain(s.breadcrumbs.iter()) {
-            if !names.contains(name) {
-                names.push(name.clone());
-            }
-        }
-        names
-            .into_iter()
-            .filter_map(|name| {
-                if let Some(snapshot) = s
-                    .breadcrumb_snapshots
-                    .iter()
-                    .find(|snapshot| snapshot.name == name)
-                {
-                    return (!snapshot.text.trim().is_empty()).then(|| snapshot.text.clone());
-                }
-                let b = self.library_item(&name)?;
-                (b.kind == LibraryItemKind::Breadcrumb && !b.text.trim().is_empty())
-                    .then(|| b.text.clone())
-            })
-            .collect()
-    }
-
-    pub(crate) fn breadcrumb_refs(&self) -> impl Iterator<Item = &String> {
-        self.projects
-            .iter()
-            .flat_map(|p| p.breadcrumbs.iter())
-            .chain(self.sessions.iter().flat_map(|s| s.breadcrumbs.iter()))
-    }
-
-    pub(crate) fn breadcrumb_lists_mut(&mut self) -> impl Iterator<Item = &mut Vec<String>> {
-        self.projects
-            .iter_mut()
-            .map(|p| &mut p.breadcrumbs)
-            .chain(self.sessions.iter_mut().map(|s| &mut s.breadcrumbs))
-    }
-
-    /// The implicit global base, then its command preset's sandbox presets, the project's,
-    /// then its own, plus every preset dependency before the thing that needs it. First mention
+    /// The implicit global base, then the command preset's sandbox presets, then the agent's
+    /// additions, plus every preset dependency before the thing that needs it. First mention
     /// wins, as in `paths()`.
-    pub fn sandbox_of(&self, s: &SessionCfg, p: &ProjectCfg) -> Vec<String> {
+    pub fn sandbox_of(&self, s: &SessionCfg, _p: &ProjectCfg) -> Vec<String> {
         let t = crate::presets::table();
         let command_sandbox = s
             .command_snapshot
@@ -209,7 +171,6 @@ impl Config {
             .unwrap_or_default();
         let asked: Vec<String> = std::iter::once("global".to_string())
             .chain(command_sandbox)
-            .chain(p.sandbox.iter().cloned())
             .chain(s.sandbox.iter().cloned())
             .collect();
 
@@ -315,16 +276,12 @@ mod tests {
     };
 
     #[test]
-    fn dns_defaults_to_resolved_and_overrides_inherit() {
+    fn dns_defaults_to_resolved_and_round_trips_on_the_agent() {
         let cfg = Config::parse(
             r#"
             [[project]]
             name = "repo"
             dir = "/tmp"
-
-            [project.dns]
-            mode = "servers"
-            servers = ["10.0.0.53", "10.0.0.54"]
 
             [[session]]
             name = "agent"
@@ -332,21 +289,19 @@ mod tests {
             state_id = "11111111-1111-4111-8111-111111111111"
 
             [session.dns]
-            mode = "resolved"
+            mode = "servers"
+            servers = ["10.0.0.53", "10.0.0.54"]
             "#,
         )
         .expect("DNS config should parse");
         let project = cfg.project("repo").unwrap();
         let session = cfg.session("agent").unwrap();
-        assert_eq!(cfg.dns_of(session, project), DnsConfig::Resolved);
-        assert_eq!(
-            project.dns.as_ref().unwrap().servers(),
-            vec!["10.0.0.53", "10.0.0.54"]
-        );
+        assert_eq!(cfg.dns_of(session, project), session.dns);
+        assert_eq!(session.dns.servers(), vec!["10.0.0.53", "10.0.0.54"]);
 
         let text = toml::to_string_pretty(&cfg).unwrap();
         let back = Config::parse(&text).unwrap();
-        assert_eq!(back.project("repo").unwrap().dns, project.dns);
+        assert_eq!(back.session("agent").unwrap().dns, session.dns);
     }
 
     #[test]
@@ -381,13 +336,7 @@ mod tests {
     }
 
     #[test]
-    fn resource_limits_inherit_by_field_and_reject_zero() {
-        let project = Limits {
-            memory_mb: Some(4096),
-            pids: Some(200),
-            nofile: None,
-            cpu_pct: Some(100),
-        };
+    fn resource_limits_are_agent_owned_and_reject_zero() {
         let session = Limits {
             memory_mb: Some(2048),
             pids: None,
@@ -397,15 +346,6 @@ mod tests {
 
         assert!(Limits::default().is_empty());
         assert!(!session.is_empty());
-        assert_eq!(
-            session.inherit(project),
-            Limits {
-                memory_mb: Some(2048),
-                pids: Some(200),
-                nofile: Some(1024),
-                cpu_pct: Some(100),
-            }
-        );
         assert!(session.validate().is_ok());
 
         for invalid in [
@@ -771,14 +711,12 @@ token = \"not-a-daemon-token\"
     }
 
     #[test]
-    fn agent_network_overrides_the_project_default() {
+    fn agent_network_is_independent_of_project() {
         let cfg = Config::parse(
             r#"
             [[project]]
             name = "repo"
             dir = "/home/you/git/repo"
-            network = "private"
-
             [[session]]
             name = "safe"
             project = "repo"
@@ -804,15 +742,8 @@ token = \"not-a-daemon-token\"
             NetworkMode::Host
         );
         assert_eq!(
-            cfg.network_of(
-                &SessionCfg {
-                    name: "inherited".into(),
-                    project: "repo".into(),
-                    ..Default::default()
-                },
-                project,
-            ),
-            NetworkMode::Private
+            cfg.network_of(cfg.session("safe").unwrap(), project),
+            NetworkMode::None
         );
     }
 
@@ -831,6 +762,8 @@ token = \"not-a-daemon-token\"
             command: None,
             mode: FileActionMode::Ask,
             builtin: false,
+            host: true,
+            agent_template: String::new(),
         });
 
         let back = Config::parse(&toml::to_string_pretty(&cfg).unwrap()).unwrap();
@@ -843,45 +776,12 @@ token = \"not-a-daemon-token\"
     }
 
     #[test]
-    fn breadcrumb_yolo_defaults_on_and_only_writes_the_opt_out() {
-        let old: SessionCfg = toml::from_str("name = 'Ada'").unwrap();
-        assert!(old.breadcrumb_yolo);
-        assert!(!toml::to_string(&old).unwrap().contains("breadcrumb_yolo"));
-
-        let opted_out = SessionCfg {
-            breadcrumb_yolo: false,
-            ..Default::default()
-        };
-        assert!(toml::to_string(&opted_out)
-            .unwrap()
-            .contains("breadcrumb_yolo = false"));
-    }
-
-    #[test]
-    fn experimental_flags_default_off_and_round_trip() {
+    fn instruction_experimental_flag_defaults_off_and_round_trips() {
         let mut cfg = Config::parse("[daemon]\nbind = '127.0.0.1:7777'\n").unwrap();
-        assert!(!cfg.daemon.experimental_breadcrumbs);
         assert!(!cfg.daemon.experimental_instructions);
-        cfg.daemon.experimental_breadcrumbs = true;
         cfg.daemon.experimental_instructions = true;
         let restored = Config::parse(&toml::to_string(&cfg).unwrap()).unwrap();
-        assert!(restored.daemon.experimental_breadcrumbs);
         assert!(restored.daemon.experimental_instructions);
-    }
-
-    #[test]
-    fn legacy_experimental_flag_enables_both_features() {
-        let cfg =
-            Config::parse("[daemon]\nbind = '127.0.0.1:7777'\nexperimental = true\n").unwrap();
-        assert!(cfg.daemon.experimental_breadcrumbs);
-        assert!(cfg.daemon.experimental_instructions);
-
-        let partially_migrated = Config::parse(
-            "[daemon]\nbind = '127.0.0.1:7777'\nexperimental = true\nexperimental_breadcrumbs = false\n",
-        )
-        .unwrap();
-        assert!(!partially_migrated.daemon.experimental_breadcrumbs);
-        assert!(partially_migrated.daemon.experimental_instructions);
     }
 
     #[test]
@@ -911,23 +811,6 @@ token = \"not-a-daemon-token\"
         let text = toml::to_string(&enabled).unwrap();
         assert!(text.contains("slopworld_md = true"));
         assert!(toml::from_str::<SessionCfg>(&text).unwrap().slopworld_md);
-    }
-
-    #[test]
-    fn instructions_breadcrumb_defaults_on_and_only_writes_the_opt_out() {
-        let old: SessionCfg = toml::from_str("name = 'Ada'").unwrap();
-        assert!(old.instructions_breadcrumb);
-        assert!(!toml::to_string(&old)
-            .unwrap()
-            .contains("instructions_breadcrumb"));
-
-        let opted_out = SessionCfg {
-            instructions_breadcrumb: false,
-            ..Default::default()
-        };
-        assert!(toml::to_string(&opted_out)
-            .unwrap()
-            .contains("instructions_breadcrumb = false"));
     }
 
     #[test]
@@ -995,68 +878,26 @@ token = \"not-a-daemon-token\"
         assert_eq!(cfg.library_items_all().len(), 1);
     }
 
-    /// Project first, then the agent's own, each name once however many times it is asked
-    /// for - and the shipped one resolves like anything else.
-    #[test]
-    fn breadcrumbs_resolve_in_order_and_only_once() {
-        let mut cfg = Config::default();
-        cfg.library.push(LibraryItemCfg {
-            name: "house rules".into(),
-            kind: LibraryItemKind::Breadcrumb,
-            text: "never commit".into(),
-            ..Default::default()
-        });
-        // Not a breadcrumb, so an attachment naming it resolves to nothing.
-        cfg.library.push(LibraryItemCfg {
-            name: "tests".into(),
-            kind: LibraryItemKind::Shell,
-            text: "make test".into(),
-            ..Default::default()
-        });
-
-        let p = ProjectCfg {
-            name: "repo".into(),
-            breadcrumbs: vec!["Useful tips".into(), "house rules".into()],
-            ..Default::default()
-        };
-        let s = SessionCfg {
-            name: "claude".into(),
-            project: "repo".into(),
-            breadcrumbs: vec!["house rules".into(), "tests".into(), "gone".into()],
-            ..Default::default()
-        };
-
-        let out = cfg.breadcrumbs_of(&s, &p);
-        assert_eq!(out.len(), 2);
-        assert!(out[0].starts_with("___"));
-        assert_eq!(out[1], "never commit");
-    }
-
     #[test]
     fn config_round_trips_through_toml() {
         let mut cfg = Config::default();
         cfg.projects.push(ProjectCfg {
             name: "repo".into(),
             dir: "/home/you/repo".into(),
-            network: NetworkMode::Host,
             ..Default::default()
         });
         cfg.sessions.push(SessionCfg {
             name: "quiet".into(),
             project: "repo".into(),
             label: Some("manual title".into()),
-            network: Some(NetworkMode::None),
+            network: NetworkMode::None,
             ..Default::default()
         });
 
         let text = toml::to_string_pretty(&cfg).unwrap();
         let back = Config::parse(&text).unwrap();
 
-        assert_eq!(back.project("repo").unwrap().network, NetworkMode::Host);
-        assert_eq!(
-            back.session("quiet").unwrap().network,
-            Some(NetworkMode::None)
-        );
+        assert_eq!(back.session("quiet").unwrap().network, NetworkMode::None);
         assert_eq!(
             back.session("quiet").unwrap().label.as_deref(),
             Some("manual title")

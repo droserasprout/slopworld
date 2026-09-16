@@ -19,13 +19,15 @@ namespace SlopWorld
         public bool ReadOnly => !string.IsNullOrEmpty(Source);
         public LibraryItemKind Kind = LibraryItemKind.Prompt;
         public LibraryItemLink Link = LibraryItemLink.Project;
-        // Where it runs when Link is Project, the sandbox a fresh scratch project copies
-        // when it is Temp, and unread when it is Ask.
+        // The project where it runs when Link is Project; temporary links create a fresh
+        // workspace, and ask links leave the destination to the caller.
         public string Project = "";
         // The prompt, or the command line. Sent once the pane is ready for it.
         public string Text = "";
         // Blank means the daemon's own default.
         public string Command = "";
+        public bool Host;
+        public string AgentTemplate = "";
         // What a file action does after selection. Ask preserves the original per-invocation menu.
         public FileActionMode Mode = FileActionMode.Ask;
 
@@ -45,6 +47,8 @@ namespace SlopWorld
             Project = j["project"].AsString(),
             Text = j["text"].AsString(),
             Command = j["command"].IsNull ? "" : j["command"].AsString(),
+            Host = j["host"].AsBool(false),
+            AgentTemplate = j["agent_template"].AsString(),
             Mode = FileActionModeText.Parse(j["mode"].AsString(WireProtocol.FileActionMode.Ask)),
             Builtin = j["builtin"].AsBool(false),
         };
@@ -77,6 +81,7 @@ namespace SlopWorld
             $"\"link\":{JVal.Q(LinkName(Link))}," +
             $"\"project\":{JVal.Q(Project)},\"text\":{JVal.Q(Text)}," +
             $"\"command\":{(string.IsNullOrEmpty((Command ?? "").Trim()) ? "null" : JVal.Q(Command))}," +
+            $"\"host\":{JVal.B(Host)},\"agent_template\":{JVal.Q(AgentTemplate)}," +
             $"\"mode\":{JVal.Q(FileActionModeText.Name(Mode))}}}";
 
         public LibraryItemInfo Copy() => new LibraryItemInfo
@@ -88,6 +93,8 @@ namespace SlopWorld
             Project = Project,
             Text = Text,
             Command = Command,
+            Host = Host,
+            AgentTemplate = AgentTemplate,
             Mode = Mode,
             Builtin = Builtin,
         };
