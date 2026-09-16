@@ -10,6 +10,7 @@ namespace SlopWorld
         readonly string _source;
         string _name;
         string _error;
+        bool _includeInherited;
 
         public SaveAgentTemplateDialog(string source)
         {
@@ -18,14 +19,17 @@ namespace SlopWorld
             AcceptOnEnter(Save);
         }
 
-        public override Vector2 InitialSize => new Vector2(500f, 250f);
+        public override Vector2 InitialSize => new Vector2(540f, 320f);
 
         protected override void DoBody(Rect rect)
         {
             _name = TextDialog.Draw(rect, "Save agent as template",
-                $"Capture '{_source}' as a personal template. Presets and prompts are snapshotted.",
+                $"Capture explicit choices from '{_source}'. Project defaults stay inherited.",
                 "agent-template.name", _name, _error, UiTheme.RowH * 2f, TitleRect(rect));
 
+            _includeInherited = UiControls.Checkbox(new Rect(rect.x, rect.yMax - UiTheme.BtnH - UiTheme.RowH * 2f,
+                rect.width, UiTheme.RowH), "Include inherited project settings", _includeInherited,
+                "Copies effective network, DNS, limits, sandbox presets and breadcrumbs from the source project.");
             var foot = TextDialog.Footer(rect);
             if (foot.Left("Cancel", UiTheme.Btn.Ghost)) Close();
             if (foot.Right("Save", UiTheme.Btn.Primary)) Save();
@@ -40,7 +44,7 @@ namespace SlopWorld
                 return;
             }
             SessionHub.Instance.SaveAgentTemplate(_source, name, "",
-                () => Close(), message => _error = message);
+                () => Close(), message => _error = message, _includeInherited);
         }
     }
 }

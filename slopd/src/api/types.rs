@@ -51,6 +51,8 @@ pub(crate) struct LabelReq {
 
 #[derive(Debug, Deserialize)]
 pub(crate) struct SaveAgentTemplateReq {
+    #[serde(default)]
+    pub(crate) include_inherited: bool,
     pub(crate) name: String,
     #[serde(default)]
     pub(crate) description: String,

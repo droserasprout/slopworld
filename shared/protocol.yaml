@@ -49,6 +49,10 @@ http:
       path: "/api/sessions/:name/state/reset"
       methods: [POST]
       scope: scoped
+    settings_preview:
+      path: "/api/settings/preview"
+      methods: [POST]
+      scope: root
     templates:
       path: "/api/templates"
       methods: [GET, POST]

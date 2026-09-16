@@ -92,6 +92,31 @@ namespace SlopWorld.Tests
             }
         }
 
+        public static void SparseRecipesRoundTripInheritanceAndPreserveExplicitLegacyValues()
+        {
+            var sparse = new AgentTemplateInfo { Name = "sparse" };
+            var form = new SessionInfo();
+            sparse.ApplyTo(form);
+            var json = JVal.Parse(sparse.ToJson(form))["defaults"];
+            AssertEx.True(json["network"].IsNull, "new recipe inherits network");
+            AssertEx.True(json["dns"].IsNull, "new recipe inherits DNS");
+            AssertEx.True(json["autostart"].IsNull, "new recipe leaves startup unspecified");
+            var legacy = AgentTemplateInfo.FromJson(JVal.Parse(@"{
+                ""name"":""legacy"", ""defaults"": { ""network"":""host"",
+                    ""dns"": { ""mode"":""resolved"" }, ""autostart"":false }
+            }"));
+            legacy.Copy().ApplyTo(form);
+            json = JVal.Parse(legacy.ToJson(form))["defaults"];
+            AssertEx.Equal("host", json["network"].AsString(), "existing explicit network remains pinned");
+            AssertEx.True(!json["autostart"].IsNull && !json["autostart"].AsBool(), "explicit false stays explicit");
+            legacy.SpecifiedFlags.Remove("autostart");
+            form.NetworkOverride = null;
+            form.DnsOverride = null;
+            json = JVal.Parse(legacy.ToJson(form))["defaults"];
+            AssertEx.True(json["network"].IsNull && json["dns"].IsNull && json["autostart"].IsNull,
+                "inherit controls clear pinned values");
+        }
+
         public static void SupersededTemplateLoadsSettleWithoutReplacingCatalog()
         {
             var requests = DaemonClient.Requests;

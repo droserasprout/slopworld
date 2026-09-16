@@ -31,6 +31,7 @@ namespace SlopWorld
 
         public int ProjectsRevision => _projects.Revision;
         public int TemplatesRevision => _templates.Revision;
+        public string SettingsRevision => $"{_projects.Revision}/{_presets.Revision}/{_library.Revision}/{_templates.Revision}";
 
         // A project edit also changes which sessions exist, so the catalog asks the session
         // store to refresh without owning it.
@@ -101,12 +102,12 @@ namespace SlopWorld
                 fail, loaded);
 
         public void SaveAgentTemplate(string source, string name, string description,
-                                       Action ok, Action<string> fail)
+                                       Action ok, Action<string> fail, bool includeInherited = false)
         {
             _templates.Invalidate();
             DaemonClient.Post(TemplatesPath,
                 "{" + $"\"name\":{JVal.Q(name)},\"description\":{JVal.Q(description)}," +
-                $"\"source\":{JVal.Q(source)}}}",
+                $"\"source\":{JVal.Q(source)},\"include_inherited\":{JVal.B(includeInherited)}}}",
                 _ => { RefreshTemplates(); ok?.Invoke(); }, fail);
         }
 

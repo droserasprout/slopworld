@@ -8,6 +8,10 @@ namespace SlopWorld
     // the picker only needs the portable defaults to seed the existing agent form controls.
     public class AgentTemplateInfo
     {
+        public static readonly string[] FlagNames = { "slopworld_md", "instructions_breadcrumb", "persistent_tmp", "breadcrumb_yolo", "autostart", "auto_resume" };
+        public HashSet<string> SpecifiedFlags = new HashSet<string>();
+        public bool InheritNetwork = true;
+        public bool InheritDns = true;
         public string Name = "";
         // Versions are daemon-owned compare-and-swap tokens. Zero is reserved for a new
         // definition, which lets the same wire model serve capture, duplicate, and edit.
@@ -52,6 +56,9 @@ namespace SlopWorld
             var defaults = j["defaults"];
             return new AgentTemplateInfo
             {
+                SpecifiedFlags = new HashSet<string>(FlagNames.Where(name => !defaults[name].IsNull)),
+                InheritNetwork = defaults["network"].IsNull,
+                InheritDns = defaults["dns"].IsNull,
                 Name = j["name"].AsString(),
                 Version = j["version"].AsLong(0),
                 Description = j["description"].AsString(),
@@ -78,6 +85,9 @@ namespace SlopWorld
 
         public AgentTemplateInfo Copy() => new AgentTemplateInfo
         {
+            SpecifiedFlags = new HashSet<string>(SpecifiedFlags),
+            InheritNetwork = InheritNetwork,
+            InheritDns = InheritDns,
             Name = Name,
             Version = Version,
             Description = Description,
@@ -136,15 +146,15 @@ namespace SlopWorld
                 $"\"cmd\":{(string.IsNullOrWhiteSpace(form.Cmd) ? "null" : JVal.Q(form.Cmd))}," +
                 $"\"sandbox\":{Strings(sandbox)},\"sandbox_presets\":{snapshots}," +
                 $"\"prompts\":{prompts}," +
-                $"\"slopworld_md\":{JVal.B(form.SlopworldMd)}," +
-                $"\"instructions_breadcrumb\":{JVal.B(form.InstructionsBreadcrumb)}," +
-                $"\"persistent_tmp\":{JVal.B(form.PersistentTmp)}," +
-                $"\"breadcrumb_yolo\":{JVal.B(form.BreadcrumbYolo)}," +
-                $"\"network\":{JVal.Q(NetworkModeText.Name(form.NetworkOverride ?? form.Network))}," +
-                $"\"dns\":{(form.DnsOverride ?? form.Dns ?? DnsConfig.Resolved()).ToJson()}," +
+                $"\"slopworld_md\":{FlagJson("slopworld_md", form.SlopworldMd)}," +
+                $"\"instructions_breadcrumb\":{FlagJson("instructions_breadcrumb", form.InstructionsBreadcrumb)}," +
+                $"\"persistent_tmp\":{FlagJson("persistent_tmp", form.PersistentTmp)}," +
+                $"\"breadcrumb_yolo\":{FlagJson("breadcrumb_yolo", form.BreadcrumbYolo)}," +
+                $"\"network\":{(form.NetworkOverride.HasValue ? JVal.Q(NetworkModeText.Name(form.NetworkOverride.Value)) : "null")}," +
+                $"\"dns\":{(form.DnsOverride == null ? "null" : form.DnsOverride.ToJson())}," +
                 $"\"limits\":{form.Limits.ToJson()}," +
-                $"\"autostart\":{JVal.B(form.Autostart)}," +
-                $"\"auto_resume\":{JVal.B(form.AutoResume)}" +
+                $"\"autostart\":{FlagJson("autostart", form.Autostart)}," +
+                $"\"auto_resume\":{FlagJson("auto_resume", form.AutoResume)}" +
                 "}";
             // This is a full replacement. Deep merging would resurrect cleared limits and
             // optional fields from an old command or DNS definition.
@@ -167,15 +177,17 @@ namespace SlopWorld
             s.PersistentTmp = PersistentTmp;
             s.BreadcrumbYolo = BreadcrumbYolo;
             s.Network = Network;
-            s.NetworkOverride = Network;
+            s.NetworkOverride = InheritNetwork ? (NetworkMode?)null : Network;
             s.Dns = Dns?.Copy() ?? DnsConfig.Resolved();
-            s.DnsOverride = Dns?.Copy() ?? DnsConfig.Resolved();
+            s.DnsOverride = InheritDns ? null : Dns?.Copy() ?? DnsConfig.Resolved();
             s.Limits = Limits;
             s.EffectiveLimits = Limits;
             s.Autostart = Autostart;
             s.AutoResume = AutoResume;
             s.Mounts = new List<MountEntry>();
         }
+
+        string FlagJson(string name, bool value) => SpecifiedFlags.Contains(name) ? JVal.B(value) : "null";
 
         static List<string> Strings(JVal array) =>
             array.Items.Select(i => i.AsString()).ToList();
@@ -185,7 +197,7 @@ namespace SlopWorld
 
         static string CommandJson(JVal old, SessionInfo form)
         {
-            string name = string.IsNullOrEmpty(form.CommandPreset) ? form.Command : form.CommandPreset;
+            string name = form.Command;
             if (string.IsNullOrEmpty(name)) return "null";
             if (old["command"]["name"].AsString() == name)
                 return JVal.ToJson(old["command"]);

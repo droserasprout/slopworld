@@ -1,12 +1,11 @@
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using Verse;
 
 namespace SlopWorld
 {
-    // The final sandbox answer for a project or agent. This is deliberately a client-side
-    // readout of requested parameters: the daemon still decides which paths exist and which
-    // protected paths it drops when it builds bwrap's argv.
+    // A daemon-resolved settings projection. The same renderer serves every editor.
     public sealed class SandboxPreviewData
     {
         public string Title = "";
@@ -16,32 +15,15 @@ namespace SlopWorld
         public List<string> Notes = new List<string>();
         public List<SandboxPreviewField> Fields = new List<SandboxPreviewField>();
 
-        public static SandboxPreviewData ForProject(ProjectInfo project) =>
-            SandboxPreviewBuilder.Build("Project sandbox", project?.Name ?? "(new project)",
-                project?.Dir ?? "", project, null, null);
-
-        public static SandboxPreviewData ForAgent(SessionInfo session, AgentTemplateInfo template = null)
+        public static SandboxPreviewData FromJson(JVal value) => new SandboxPreviewData
         {
-            var hub = SessionHub.Instance;
-            var project = hub.Project(session.Project);
-            string commandName = string.IsNullOrEmpty(session.Command)
-                ? session.CommandPreset : session.Command;
-            var command = template == null ? hub.Command(commandName) : template.ResolveCommand(commandName);
-            var data = SandboxPreviewBuilder.Build("Agent sandbox", session.Name, session.Dir,
-                project, command, session, template?.SandboxCatalog(), template?.BreadcrumbCatalog());
-            data.Fields.Insert(0, new SandboxPreviewField("Command", new List<string>
-            {
-                !string.IsNullOrWhiteSpace(session.Cmd) ? session.Cmd : command?.Cmd ?? "Daemon default",
-            }));
-            if (project == null && !string.IsNullOrEmpty(session.Project))
-                data.Notes.Add($"Project '{session.Project}' is not available; only known " +
-                               "sandbox presets are shown.");
-            if (!string.IsNullOrEmpty(commandName) && command == null &&
-                string.IsNullOrWhiteSpace(session.Cmd))
-                data.Notes.Add($"Command preset '{commandName}' is not available in the current " +
-                               "preset list.");
-            return data;
-        }
+            Title = value["title"].AsString(),
+            Subtitle = value["subtitle"].AsString(),
+            Notes = value["notes"].Items.Select(item => item.AsString()).ToList(),
+            Fields = value["fields"].Items.Select(field => new SandboxPreviewField(
+                field["label"].AsString(), field["values"].Items.Select(item => item.AsString()).ToList())).ToList(),
+        };
+
     }
 
     public sealed class SandboxPreviewField

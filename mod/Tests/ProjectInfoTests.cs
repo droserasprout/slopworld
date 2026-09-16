@@ -7,12 +7,23 @@ namespace SlopWorld.Tests
     {
         public static IEnumerable<(string Name, Action Body)> Cases()
         {
+            yield return ("project edits preserve inherited agent resource caps", PreservesResourceCaps);
             yield return ("round trips host networking", RoundTripsHostNetworking);
             yield return ("uses daemon metadata for temporary paths", BuildsTemporaryPaths);
             yield return ("ignores stale temporary previews", IgnoresStaleTemporaryPreviews);
             yield return ("coalesces and bounds temporary preview retries", CoalescesPreviewRequests);
             yield return ("temporary preview resumes after mode is disabled", ResumesAfterDisable);
             yield return ("round trips and copies project settings", RoundTripsAndCopiesSettings);
+        }
+
+        static void PreservesResourceCaps()
+        {
+            var project = ProjectInfo.FromJson(JVal.Parse("{\"limits\":{\"memory_mb\":4096,\"pids\":128}}"));
+            var copy = project.Copy();
+            copy.Name = "renamed";
+            var saved = JVal.Parse(copy.ToJson());
+            AssertEx.Equal(4096, saved["limits"]["memory_mb"].AsInt(), "unrelated edits preserve project memory limit");
+            AssertEx.Equal(128, saved["limits"]["pids"].AsInt(), "project copies preserve process limit");
         }
 
         static void RoundTripsHostNetworking()

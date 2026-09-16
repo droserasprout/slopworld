@@ -80,6 +80,7 @@ pub(crate) mod routes {
     pub(crate) const SESSION_RESTART: &str = "/api/sessions/:name/restart";
     pub(crate) const SESSION_LABEL: &str = "/api/sessions/:name/label";
     pub(crate) const SESSION_STATE_RESET: &str = "/api/sessions/:name/state/reset";
+    pub(crate) const SETTINGS_PREVIEW: &str = "/api/settings/preview";
     pub(crate) const TEMPLATES: &str = "/api/templates";
     pub(crate) const TEMPLATE: &str = "/api/templates/:name";
     pub(crate) const TEMPLATE_CREATE: &str = "/api/templates/:name/create";

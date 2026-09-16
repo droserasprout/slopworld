@@ -4,7 +4,7 @@
 owners for session, catalog, task, terminal and audio operations. Cross-service subscription
 and rename handoffs stay on the hub. `DaemonClient` replays HTTP callbacks on the main thread.
 
-`HubCatalog` owns the personal template catalog. The Add Agent editor uses its templates as
+`HubCatalog` owns the template catalog. The Add Agent editor uses its templates as
 an optional seed while retaining manual creation; the daemon remains the authority for
 snapshotting and creating the session. Existing agent fields are the override surface, and
 the editor's **Save as template** action captures through the hub rather than writing local
@@ -25,10 +25,12 @@ keep the temporary name mapping until success or failure settles it, preserving 
 terminal and selection without keeping a truly deleted session alive.
 
 Instruction previews apply the document and discovery breadcrumb together after the request
-generation check. Sandbox breadcrumb renderings are daemon responses cached per endpoint and
-connection generation, with bounded entries, expiry and failure backoff. Cache keys capture the
-request, never the editor's later draft. Temporary-path previews coalesce unchanged names;
-disabling temporary mode invalidates their pending replies so re-enabling can request again.
+generation check. Project, template and agent settings previews resolve on the daemon.
+`DaemonSettingsPreview` retains one draft response per editor and invalidates it on draft,
+catalog or connection changes. Refresh retries failures and rereads external files.
+Temporary-path previews coalesce unchanged names; disabling temporary mode invalidates
+pending replies so re-enabling can request again. See [agent templates](mod-agent-templates.md).
+
 
 Connection comes from `endpoint.toml`; daemon settings use partial patches, not hidden
 round-trip fields. See [config ownership](daemon-config-stores.md),

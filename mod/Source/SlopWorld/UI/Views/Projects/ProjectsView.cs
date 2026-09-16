@@ -104,7 +104,7 @@ namespace SlopWorld
     // never has to be kept in step with sandbox.rs by hand.
     public class EditProjectDialog : UiWindow
     {
-        enum Tab { General, Sandbox, Breadcrumbs, Preview }
+        enum Tab { General, Sandbox, ResourceLimits, Breadcrumbs, Preview }
 
         readonly EditIdentity _identity;
         readonly ProjectInfo _p;
@@ -112,10 +112,13 @@ namespace SlopWorld
         readonly SmoothScroll _presetScroll = new SmoothScroll();
         readonly SmoothScroll _breadcrumbScroll = new SmoothScroll();
         SmoothScroll _previewScroll = new SmoothScroll();
+        readonly DaemonSettingsPreview _settingsPreview = new DaemonSettingsPreview();
         readonly ScrollableListing _generalListing = new ScrollableListing(320f);
         readonly ScrollableListing _sandboxListing = new ScrollableListing(400f);
         const float PresetsH = 240f;
         string _dnsServers;
+        readonly ResourceLimitsForm _resourceLimits;
+        readonly ScrollableListing _limitsListing = new ScrollableListing(320f);
         readonly TempProjectPreviewState _tempPreview = new TempProjectPreviewState();
         Tab _tab;
 
@@ -140,6 +143,7 @@ namespace SlopWorld
                 // named after the copy rather than pointing back at what it came from.
                 if (_p.Temp) RequestTempPreview();
             }
+            _resourceLimits = new ResourceLimitsForm(_p.Limits);
             _dnsServers = _p.Dns.Mode == DnsMode.Servers
                 ? string.Join(", ", _p.Dns.Servers.ToArray())
                 : "";
@@ -172,12 +176,30 @@ namespace SlopWorld
                     _sandboxListing.Draw(body, DrawSandboxFields,
                         (view, y) => DrawSandboxTrailing(view, y, body.height));
                     break;
+                case Tab.ResourceLimits:
+                    _limitsListing.Draw(body, l =>
+                    {
+                        if (!SessionHub.Instance.Capabilities.PerSessionLimits)
+                        {
+                            UiLayout.Note(l, "This runtime uses one outer resource budget; per-agent limits are unavailable.");
+                            return;
+                        }
+                        UiLayout.Note(l, "Defaults for agents in this project. Blank means no project cap.");
+                        _p.Limits = _resourceLimits.Draw(l);
+                    });
+                    break;
                 case Tab.Breadcrumbs:
                     DrawBreadcrumbs(body);
                     break;
                 case Tab.Preview:
-                    SandboxPreviewPanel.Draw(body, ref _previewScroll,
-                        SandboxPreviewData.ForProject(_p));
+                    if (!_resourceLimits.TrySave(out var previewLimits, out var limitError))
+                        UiText.StatusLabel(body, limitError, UiTheme.Bad);
+                    else if (DnsForm.TrySave(_p.Dns, _dnsServers, out var dnsError))
+                    {
+                        _p.Limits = previewLimits;
+                        _settingsPreview.Draw(body, "{\"project\":" + _p.ToJson() + "}", ref _previewScroll);
+                    }
+                    else UiText.StatusLabel(body, "DNS: " + dnsError, UiTheme.Bad);
                     break;
             }
 
@@ -190,6 +212,7 @@ namespace SlopWorld
         {
             ("General", Tab.General),
             ("Sandbox", Tab.Sandbox),
+            ("Resource limits", Tab.ResourceLimits),
             ("Breadcrumbs", Tab.Breadcrumbs),
             ("Preview", Tab.Preview),
         }, ref _tab,
@@ -300,6 +323,12 @@ namespace SlopWorld
                 return;
             }
 
+            if (!_resourceLimits.TrySave(out var limits, out var limitError))
+            {
+                UiLayout.Fail(limitError);
+                return;
+            }
+            _p.Limits = limits;
             string dnsError;
             if (!DnsForm.TrySave(_p.Dns, _dnsServers, out dnsError))
             {

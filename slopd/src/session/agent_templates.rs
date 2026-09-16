@@ -110,27 +110,23 @@ pub(crate) struct AgentTemplateDefaults {
     #[serde(default)]
     pub(crate) prompts: Vec<BreadcrumbSnapshot>,
     #[serde(default)]
-    pub(crate) slopworld_md: bool,
-    #[serde(default = "enabled_by_default")]
-    pub(crate) instructions_breadcrumb: bool,
+    pub(crate) slopworld_md: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) instructions_breadcrumb: Option<bool>,
     #[serde(default)]
-    pub(crate) persistent_tmp: bool,
-    #[serde(default = "enabled_by_default")]
-    pub(crate) breadcrumb_yolo: bool,
+    pub(crate) persistent_tmp: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) breadcrumb_yolo: Option<bool>,
     #[serde(default)]
-    pub(crate) network: NetworkMode,
+    pub(crate) network: Option<NetworkMode>,
     #[serde(default)]
-    pub(crate) dns: DnsConfig,
+    pub(crate) dns: Option<DnsConfig>,
     #[serde(default)]
     pub(crate) limits: Limits,
     #[serde(default)]
-    pub(crate) autostart: bool,
+    pub(crate) autostart: Option<bool>,
     #[serde(default)]
-    pub(crate) auto_resume: bool,
-}
-
-fn enabled_by_default() -> bool {
-    true
+    pub(crate) auto_resume: Option<bool>,
 }
 
 fn personal_source() -> String {
@@ -338,7 +334,8 @@ impl AgentTemplateStore {
 }
 
 impl AgentTemplate {
-    /// Capture the source agent's effective behavior and all of its named dependencies.
+    /// Capture explicit choices. Inherited project defaults stay with the destination project.
+    #[cfg(test)]
     pub(crate) fn from_session(
         name: String,
         description: String,
@@ -346,8 +343,23 @@ impl AgentTemplate {
         project: &ProjectCfg,
         cfg: &Config,
     ) -> Result<Self> {
+        Self::capture(name, description, source, project, cfg, false)
+    }
+
+    pub(crate) fn capture(
+        name: String,
+        description: String,
+        source: &SessionCfg,
+        project: &ProjectCfg,
+        cfg: &Config,
+        include_inherited: bool,
+    ) -> Result<Self> {
         let table = crate::presets::table();
-        let command_name = cfg.command_name(source);
+        let command_name = if include_inherited || source.command_snapshot.is_some() {
+            cfg.command_name(source)
+        } else {
+            source.command.clone()
+        };
         let mut command = if command_name.trim().is_empty() {
             None
         } else {
@@ -361,16 +373,26 @@ impl AgentTemplate {
 
         // Capture the same effective definitions the launcher uses. Stale or invalid
         // references already have no effect at launch and must not prevent a snapshot.
-        let mut effective_table = (*table).clone();
-        for snapshot in &source.sandbox_snapshots {
-            effective_table
-                .sandbox
-                .retain(|preset| preset.name != snapshot.name);
-            effective_table.sandbox.push(snapshot.clone());
+        let effective_table = source.preset_table();
+        let mut selected = source.sandbox.clone();
+        if let Some(command) = &command {
+            selected.extend(command.sandbox.clone());
+        }
+        let mut index = 0;
+        while index < selected.len() {
+            if let Some(preset) = effective_table.sandbox(&selected[index]) {
+                for required in &preset.requires {
+                    if !selected.contains(required) {
+                        selected.push(required.clone());
+                    }
+                }
+            }
+            index += 1;
         }
         let sandbox_presets: Vec<_> =
             crate::sandbox::presets_for(cfg, source, project, &effective_table)
                 .into_iter()
+                .filter(|preset| include_inherited || selected.contains(&preset.name))
                 .cloned()
                 .collect();
         let sandbox: Vec<_> = sandbox_presets
@@ -382,7 +404,12 @@ impl AgentTemplate {
         }
 
         let mut prompt_names = Vec::new();
-        for prompt in project.breadcrumbs.iter().chain(source.breadcrumbs.iter()) {
+        for prompt in project
+            .breadcrumbs
+            .iter()
+            .filter(|_| include_inherited)
+            .chain(source.breadcrumbs.iter())
+        {
             if !prompt_names.contains(prompt) {
                 prompt_names.push(prompt.clone());
             }
@@ -425,15 +452,27 @@ impl AgentTemplate {
                 sandbox,
                 sandbox_presets,
                 prompts,
-                slopworld_md: source.slopworld_md,
-                instructions_breadcrumb: source.instructions_breadcrumb,
-                persistent_tmp: source.persistent_tmp,
-                breadcrumb_yolo: source.breadcrumb_yolo,
-                network: cfg.network_of(source, project),
-                dns: cfg.dns_of(source, project),
-                limits: cfg.limits_of(source, project),
-                autostart: source.autostart,
-                auto_resume: source.auto_resume,
+                slopworld_md: Some(source.slopworld_md),
+                instructions_breadcrumb: Some(source.instructions_breadcrumb),
+                persistent_tmp: Some(source.persistent_tmp),
+                breadcrumb_yolo: Some(source.breadcrumb_yolo),
+                network: if include_inherited {
+                    Some(cfg.network_of(source, project))
+                } else {
+                    source.network
+                },
+                dns: if include_inherited {
+                    Some(cfg.dns_of(source, project))
+                } else {
+                    source.dns.clone()
+                },
+                limits: if include_inherited {
+                    cfg.limits_of(source, project)
+                } else {
+                    source.limits
+                },
+                autostart: Some(source.autostart),
+                auto_resume: Some(source.auto_resume),
             },
         };
         validate_definition(&template)?;
@@ -442,6 +481,7 @@ impl AgentTemplate {
 
     pub(crate) fn instantiate(&self, name: String, project: String) -> SessionCfg {
         let defaults = &self.defaults;
+        let baseline = SessionCfg::default();
         SessionCfg {
             name,
             project,
@@ -460,16 +500,18 @@ impl AgentTemplate {
                 .map(|prompt| prompt.name.clone())
                 .collect(),
             breadcrumb_snapshots: defaults.prompts.clone(),
-            slopworld_md: defaults.slopworld_md,
-            instructions_breadcrumb: defaults.instructions_breadcrumb,
-            persistent_tmp: defaults.persistent_tmp,
-            breadcrumb_yolo: defaults.breadcrumb_yolo,
-            network: Some(defaults.network),
-            dns: Some(defaults.dns.clone()),
+            slopworld_md: defaults.slopworld_md.unwrap_or(baseline.slopworld_md),
+            instructions_breadcrumb: defaults
+                .instructions_breadcrumb
+                .unwrap_or(baseline.instructions_breadcrumb),
+            persistent_tmp: defaults.persistent_tmp.unwrap_or(baseline.persistent_tmp),
+            breadcrumb_yolo: defaults.breadcrumb_yolo.unwrap_or(baseline.breadcrumb_yolo),
+            network: defaults.network,
+            dns: defaults.dns.clone(),
             limits: defaults.limits,
-            autostart: defaults.autostart,
-            auto_resume: defaults.auto_resume,
-            ..Default::default()
+            autostart: defaults.autostart.unwrap_or(baseline.autostart),
+            auto_resume: defaults.auto_resume.unwrap_or(baseline.auto_resume),
+            ..baseline
         }
     }
 
@@ -477,9 +519,7 @@ impl AgentTemplate {
     /// hierarchy fields are ignored by construction. Matching template names retain snapshots;
     /// changed dependencies fall back to the current catalog and are validated before saving.
     pub(crate) fn apply_overrides(&self, session: &mut SessionCfg, overrides: &SessionCfg) {
-        let command_same = session.command == overrides.command && session.cmd == overrides.cmd;
-        let baseline_sandbox = session.sandbox.clone();
-        let baseline_breadcrumbs = session.breadcrumbs.clone();
+        let previous = session.clone();
 
         session.command = overrides.command.clone();
         session.cmd = overrides.cmd.clone();
@@ -496,25 +536,7 @@ impl AgentTemplate {
         session.autostart = overrides.autostart;
         session.auto_resume = overrides.auto_resume;
 
-        if !command_same {
-            session.command_snapshot = None;
-        }
-        if session.sandbox != baseline_sandbox || !command_same {
-            let selected = session.sandbox.clone();
-            let command_selected = session
-                .command_snapshot
-                .as_ref()
-                .map(|command| command.sandbox.clone())
-                .unwrap_or_default();
-            session.sandbox_snapshots.retain(|preset| {
-                selected.contains(&preset.name) || command_selected.contains(&preset.name)
-            });
-        }
-        if session.breadcrumbs != baseline_breadcrumbs {
-            session
-                .breadcrumb_snapshots
-                .retain(|prompt| session.breadcrumbs.contains(&prompt.name));
-        }
+        session.preserve_selected_snapshots(&previous);
     }
 }
 
@@ -534,19 +556,6 @@ fn validate_template_name(name: &str) -> Result<()> {
 pub(crate) fn validate_definition(template: &AgentTemplate) -> Result<()> {
     validate_template_name(&template.name)?;
     let defaults = &template.defaults;
-    if defaults
-        .cmd
-        .as_deref()
-        .map(str::trim)
-        .unwrap_or("")
-        .is_empty()
-        && defaults.command.is_none()
-    {
-        bail!(
-            "agent template {} has no command preset or command line",
-            template.name
-        );
-    }
     if let Some(command) = &defaults.command {
         if command.name.trim().is_empty() || command.cmd.trim().is_empty() {
             bail!(
@@ -655,15 +664,15 @@ mod tests {
                 sandbox: vec![],
                 sandbox_presets: vec![],
                 prompts: vec![],
-                slopworld_md: false,
-                instructions_breadcrumb: true,
-                persistent_tmp: false,
-                breadcrumb_yolo: true,
-                network: NetworkMode::Private,
-                dns: DnsConfig::Resolved,
+                slopworld_md: Some(false),
+                instructions_breadcrumb: Some(true),
+                persistent_tmp: Some(false),
+                breadcrumb_yolo: Some(true),
+                network: Some(NetworkMode::Private),
+                dns: Some(DnsConfig::Resolved),
                 limits: Limits::default(),
-                autostart: false,
-                auto_resume: false,
+                autostart: Some(false),
+                auto_resume: Some(false),
             },
         }
     }
@@ -880,9 +889,9 @@ mod tests {
         )
         .unwrap();
         assert_eq!(saved.defaults.command.unwrap().sandbox, vec!["captured"]);
-        assert_eq!(saved.defaults.sandbox, vec!["global", "captured"]);
+        assert_eq!(saved.defaults.sandbox, vec!["captured"]);
         assert_eq!(
-            saved.defaults.sandbox_presets[1].description,
+            saved.defaults.sandbox_presets[0].description,
             "Captured sandbox"
         );
         // Capturing must not silently rewrite the source or its project.
@@ -911,12 +920,13 @@ mod tests {
             command: "claude".into(),
             ..Default::default()
         };
-        let captured = AgentTemplate::from_session(
+        let captured = AgentTemplate::capture(
             "reviewer".into(),
             "".into(),
             &source,
             cfg.project("repo").unwrap(),
             &cfg,
+            true,
         )
         .unwrap();
         assert_eq!(captured.defaults.command.unwrap().name, "claude");

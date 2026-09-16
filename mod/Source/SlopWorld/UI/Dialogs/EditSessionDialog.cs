@@ -18,6 +18,7 @@ namespace SlopWorld
         readonly SmoothScroll _presetScroll = new SmoothScroll();
         readonly SmoothScroll _breadcrumbScroll = new SmoothScroll();
         SmoothScroll _previewScroll = new SmoothScroll();
+        readonly DaemonSettingsPreview _settingsPreview = new DaemonSettingsPreview();
         readonly SmoothScroll _mountsScroll = new SmoothScroll();
         readonly ScrollableListing _generalListing = new ScrollableListing(320f);
         readonly ScrollableListing _sandboxListing = new ScrollableListing(480f);
@@ -28,7 +29,7 @@ namespace SlopWorld
 
         // Limits are edited as raw strings so a half-typed number is not lost to a reparse each
         // frame; they are parsed back into `_s.Limits` on Save. Blank means no cap.
-        string _limMem, _limPids, _limNofile, _limCpu;
+        ResourceLimitsForm _resourceLimits;
         string _dnsServers;
 
         public EditSessionDialog(SessionInfo existing) : this(existing, null) { }
@@ -88,6 +89,19 @@ namespace SlopWorld
                 };
 
 
+            if (existing != null && !copy)
+            {
+                string endpoint = DaemonClient.BaseUrl;
+                int connection = SessionHub.Instance.ConnectionGeneration;
+                DaemonClient.Post(WireProtocol.Routes.SettingsPreview,
+                    "{\"existing\":" + JVal.Q(_identity.OriginalName) + "}",
+                    response =>
+                    {
+                        if (endpoint == DaemonClient.BaseUrl && connection == SessionHub.Instance.ConnectionGeneration)
+                            _templateSnapshot = AgentTemplateInfo.FromJson(response["definitions"]);
+                    }, UiLayout.Fail);
+            }
+
             if (template != null)
             {
                 _templateDraft = template.Copy();
@@ -113,17 +127,13 @@ namespace SlopWorld
                     },
                     UiLayout.Fail);
 
-            _limMem = LimStr(_s.Limits.MemoryMb);
-            _limPids = LimStr(_s.Limits.Pids);
-            _limNofile = LimStr(_s.Limits.Nofile);
-            _limCpu = LimStr(_s.Limits.CpuPct);
+            _resourceLimits = new ResourceLimitsForm(_s.Limits);
             _dnsServers = _s.DnsOverride?.Mode == DnsMode.Servers
                 ? string.Join(", ", _s.DnsOverride.Servers.ToArray())
                 : "";
             AcceptOnEnter(Save);
         }
 
-        static string LimStr(int? v) => v.HasValue ? v.Value.ToString() : "";
 
         // A left rail of short pages rather than one long form: the agent, its sandbox, its
         // resource limits, its breadcrumbs and the preview each get their own tab.
@@ -163,8 +173,7 @@ namespace SlopWorld
                         DrawBreadcrumbs(body);
                         break;
                     case Tab.Preview:
-                        SandboxPreviewPanel.Draw(body, ref _previewScroll,
-                            SandboxPreviewData.ForAgent(_s, _templateSnapshot));
+                        DrawSettingsPreview(body);
                         break;
                 }
 
@@ -207,24 +216,18 @@ namespace SlopWorld
                 return;
             }
 
-            if (!TryLimit(_limMem, "Memory", out var mem) ||
-                !TryLimit(_limPids, "Max processes", out var pids) ||
-                !TryLimit(_limNofile, "Open files", out var nofile) ||
-                !TryLimit(_limCpu, "CPU", out var cpu))
+            if (!_resourceLimits.TrySave(out var limits, out var limitError))
+            {
+                UiLayout.Fail(limitError);
                 return;
+            }
             string dnsError;
             if (!DnsForm.TrySave(_s.DnsOverride, _dnsServers, out dnsError))
             {
                 UiLayout.Fail("DNS: " + dnsError);
                 return;
             }
-            _s.Limits = new SessionLimits
-            {
-                MemoryMb = mem,
-                Pids = pids,
-                Nofile = nofile,
-                CpuPct = cpu,
-            };
+            _s.Limits = limits;
 
             if (EditingTemplate)
             {

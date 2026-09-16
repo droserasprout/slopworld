@@ -96,6 +96,7 @@ namespace SlopWorld
         // Sandbox presets by name. Every agent runs in a sandbox; this says what it reaches.
         public List<string> Sandbox = new List<string>();
         public NetworkMode Network = NetworkMode.Private;
+        public SessionLimits Limits;
         public List<string> Breadcrumbs = new List<string>();
         // A project-level DNS choice is the default for its agents. Resolved is the default.
         public DnsConfig Dns = DnsConfig.Resolved();
@@ -111,6 +112,7 @@ namespace SlopWorld
             Temp = j["temp"].AsBool(false),
             Sandbox = Strings(j["sandbox"]),
             Breadcrumbs = Strings(j["breadcrumbs"]),
+            Limits = SessionLimits.FromJson(j["limits"]),
             Network = NetworkModeText.Parse(j["network"].AsString(WireProtocol.NetworkMode.Private)),
             Dns = DnsConfig.FromJson(j["dns"]),
         };
@@ -120,7 +122,7 @@ namespace SlopWorld
             $"\"name\":{JVal.Q(Name)},\"dir\":{JVal.Q(Dir)},\"temp\":{JVal.B(Temp)}," +
             $"\"sandbox\":{Arr(Sandbox)}," +
             $"\"breadcrumbs\":{Arr(Breadcrumbs)},\"network\":{JVal.Q(NetworkModeText.Name(Network))}," +
-            $"\"dns\":{Dns.ToJson()}}}";
+            $"\"limits\":{Limits.ToJson()},\"dns\":{Dns.ToJson()}}}";
 
         public ProjectInfo Copy() => new ProjectInfo
         {
@@ -130,6 +132,7 @@ namespace SlopWorld
             Sandbox = new List<string>(Sandbox),
             Breadcrumbs = new List<string>(Breadcrumbs),
             Network = Network,
+            Limits = Limits,
             Dns = Dns.Copy(),
         };
 

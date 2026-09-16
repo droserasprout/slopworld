@@ -1,6 +1,7 @@
 mod model;
 mod persistence;
 pub(crate) mod project_library;
+mod resolution;
 mod validation;
 
 pub use model::*;

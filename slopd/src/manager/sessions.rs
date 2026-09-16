@@ -350,30 +350,7 @@ impl Manager {
                 .position(|x| x.name == name)
                 .ok_or_else(|| anyhow!("no such session: {name}"))?;
             let previous = &cfg.sessions[idx];
-            if s.command == previous.command && s.cmd == previous.cmd {
-                s.command_snapshot = previous.command_snapshot.clone();
-            } else {
-                s.command_snapshot = None;
-            }
-            let command_sandbox = s
-                .command_snapshot
-                .as_ref()
-                .map(|command| command.sandbox.clone())
-                .unwrap_or_default();
-            s.sandbox_snapshots = previous
-                .sandbox_snapshots
-                .iter()
-                .filter(|preset| {
-                    s.sandbox.contains(&preset.name) || command_sandbox.contains(&preset.name)
-                })
-                .cloned()
-                .collect();
-            s.breadcrumb_snapshots = previous
-                .breadcrumb_snapshots
-                .iter()
-                .filter(|prompt| s.breadcrumbs.contains(&prompt.name))
-                .cloned()
-                .collect();
+            s.preserve_selected_snapshots(previous);
             check_belongs(cfg, &s)?;
             s.limits.validate()?;
             crate::runtime::validate_limits(&s.limits)?;

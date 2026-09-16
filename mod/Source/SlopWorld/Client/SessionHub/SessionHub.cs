@@ -15,7 +15,6 @@ namespace SlopWorld
         readonly HubCatalog _catalog;
         readonly TerminalIO _terminal;
         readonly AudioBus _audio;
-        internal readonly DaemonRenderedBreadcrumbCache BreadcrumbPreviews;
         internal SessionStore SessionStore => _sessions;
         internal TaskStore TaskStore => _tasks;
         internal HubCatalog Catalog => _catalog;
@@ -35,11 +34,6 @@ namespace SlopWorld
 
         SessionHub()
         {
-            BreadcrumbPreviews = new DaemonRenderedBreadcrumbCache(
-                () => DaemonClient.BaseUrl + "\n" + ConnectionGeneration,
-                () => DateTime.UtcNow,
-                (body, ok, fail) => DaemonClient.Post(WireProtocol.Routes.InstructionsPreview,
-                    body, ok, fail));
             _catalog = new HubCatalog(() => _sessions.Refresh());
             _terminal = new TerminalIO(_transport);
             _audio = new AudioBus(_transport);
@@ -155,8 +149,8 @@ namespace SlopWorld
         }
 
         public void SaveAgentTemplate(string source, string name, string description,
-                                      Action ok, Action<string> fail) =>
-            _catalog.SaveAgentTemplate(source, name, description, ok, fail);
+                                      Action ok, Action<string> fail, bool includeInherited = false) =>
+            _catalog.SaveAgentTemplate(source, name, description, ok, fail, includeInherited);
 
     }
 }
