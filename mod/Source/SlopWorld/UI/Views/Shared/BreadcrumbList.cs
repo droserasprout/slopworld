@@ -25,13 +25,17 @@ namespace SlopWorld
                                 ICollection<string> implied = null,
                                 string instructionsText = null, bool instructionsOn = false,
                                 Action<bool> onInstructionsChanged = null, bool instructionsLocked = false,
-                                bool breadcrumbsLocked = false, IEnumerable<LibraryItemInfo> catalog = null)
+                                bool breadcrumbsLocked = false, IEnumerable<LibraryItemInfo> catalog = null,
+                                string additionsLabel = "Added by this agent")
         {
             var all = (catalog ?? SessionHub.Instance.Library)
                 .Where(s => s.Kind == LibraryItemKind.Breadcrumb)
                 .OrderBy(s => s.Name, System.StringComparer.OrdinalIgnoreCase)
                 .Select(s => new Entry { Name = s.Name, Text = s.Text })
                 .ToList();
+            foreach (var name in chosen.Concat(implied ?? new List<string>()).Distinct())
+                if (!all.Any(b => b.Name == name))
+                    all.Add(new Entry { Name = name, Text = "Missing breadcrumb" });
             if (instructionsText != null)
             {
                 all.Add(new Entry
@@ -54,7 +58,20 @@ namespace SlopWorld
             foreach (var b in all)
             {
                 bool forced = !b.Instructions && implied != null && implied.Contains(b.Name);
-                bool was = b.Instructions ? b.On : forced || chosen.Contains(b.Name);
+                if (forced)
+                {
+                    choices.Add(new UiChoice<Entry>
+                    {
+                        Value = b,
+                        Group = "From project",
+                        Label = b.Name,
+                        Tip = (b.Text ?? "") + "\nChange this contribution in the project editor.",
+                        On = true,
+                        Locked = true,
+                    });
+                    if (!chosen.Contains(b.Name)) continue;
+                }
+                bool was = b.Instructions ? b.On : chosen.Contains(b.Name);
                 string tip = b.Instructions
                     ? "Used when this agent mounts SLOPWORLD.md and discovery is enabled in " +
                       "Settings > Agents > Instructions. Requires both gates in Settings > " +
@@ -65,10 +82,12 @@ namespace SlopWorld
                 choices.Add(new UiChoice<Entry>
                 {
                     Value = b,
+                    Group = b.Instructions ? "Instructions" : implied == null ? null
+                        : chosen.Contains(b.Name) ? additionsLabel : "Available additions",
                     Label = b.Name,
                     Tip = tip,
                     On = was,
-                    Locked = breadcrumbsLocked || forced || (b.Instructions && instructionsLocked),
+                    Locked = breadcrumbsLocked || (b.Instructions && instructionsLocked),
                     Changed = next =>
                     {
                         if (b.Instructions)
@@ -79,6 +98,11 @@ namespace SlopWorld
                 });
             }
 
+            var projectOrder = implied?.ToList() ?? new List<string>();
+            choices = choices.OrderBy(c => c.Group == "From project" ? 0 : c.Group == "Instructions" ? 2
+                : c.Group == "Available additions" ? 3 : 1)
+                .ThenBy(c => c.Group == "From project" ? projectOrder.IndexOf(c.Value.Name)
+                    : c.On && !c.Value.Instructions ? chosen.IndexOf(c.Value.Name) : int.MaxValue).ToList();
             UiChoiceList<Entry>.Draw(outer, choices, scroll,
                 "No breadcrumbs yet. Add one from Library.");
         }

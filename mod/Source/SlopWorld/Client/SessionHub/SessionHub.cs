@@ -149,8 +149,8 @@ namespace SlopWorld
         }
 
         public void SaveAgentTemplate(string source, string name, string description,
-                                      Action ok, Action<string> fail, bool includeInherited = false) =>
-            _catalog.SaveAgentTemplate(source, name, description, ok, fail, includeInherited);
+                                      Action ok, Action<string> fail) =>
+            _catalog.SaveAgentTemplate(source, name, description, ok, fail);
 
     }
 }

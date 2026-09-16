@@ -109,6 +109,7 @@ namespace SlopWorld
     public sealed class UiChoice<T>
     {
         public T Value;
+        public string Group;
         public string Label;
         public string Tip;
         public bool On;
@@ -141,13 +142,27 @@ namespace SlopWorld
                 }
 
                 float contentH = choices.Count * UiTheme.RowH;
+                string group = null;
+                foreach (var choice in choices)
+                {
+                    if (choice.Group != group && !string.IsNullOrEmpty(choice.Group)) contentH += UiTheme.RowH;
+                    group = choice.Group;
+                }
                 var geometry = UiScrollBody.Measure(pad, contentH,
                     UiScrollbarReservation.WhenNeeded);
                 using (scroll.Scope(pad, geometry.View))
                 {
                     float y = 0f;
+                    group = null;
                     foreach (var choice in choices)
                     {
+                        if (choice.Group != group && !string.IsNullOrEmpty(choice.Group))
+                        {
+                            UiLayout.SectionHeading(new Rect(UiTheme.GapS, y,
+                                geometry.View.width - UiTheme.GapS, UiTheme.RowH), choice.Group);
+                            y += UiTheme.RowH;
+                        }
+                        group = choice.Group;
                         var cell = new Rect(UiTheme.GapS, y,
                             geometry.View.width - UiTheme.GapS, UiTheme.RowH);
                         y += UiTheme.RowH;

@@ -2,59 +2,94 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Project defaults, agent overrides and recipe choices use the same buffers and validation.
+    // Keep mode separate from raw text: an empty custom field is invalid, not inheritance.
     public sealed class ResourceLimitsForm
     {
-        string _memory, _pids, _nofile, _cpu;
+        sealed class LimitField
+        {
+            public string Text;
+            public bool Custom;
+
+            public LimitField(int? value)
+            {
+                Text = value?.ToString() ?? "";
+                Custom = value.HasValue;
+            }
+
+            public int? Value => int.TryParse((Text ?? "").Trim(), out var n) && n > 0 ? n : (int?)null;
+        }
+
+        readonly LimitField _memory, _pids, _nofile, _cpu;
+        bool _overrides;
 
         public ResourceLimitsForm(SessionLimits value)
         {
-            _memory = Text(value.MemoryMb);
-            _pids = Text(value.Pids);
-            _nofile = Text(value.Nofile);
-            _cpu = Text(value.CpuPct);
+            _memory = new LimitField(value.MemoryMb);
+            _pids = new LimitField(value.Pids);
+            _nofile = new LimitField(value.Nofile);
+            _cpu = new LimitField(value.CpuPct);
         }
 
-        public SessionLimits Draw(Listing_Standard l)
+        public SessionLimits Draw(Listing_Standard l, bool overrides = false,
+            SessionLimits? project = null, bool recipe = false)
         {
-            l.Label("Memory (MiB)");
-            _memory = UiControls.Field(l, "limits.memory", _memory);
-            l.Label("Max processes and threads");
-            _pids = UiControls.Field(l, "limits.pids", _pids);
-            l.Label("Open files per process");
-            _nofile = UiControls.Field(l, "limits.nofile", _nofile);
-            l.Label("CPU (% of one core)");
-            _cpu = UiControls.Field(l, "limits.cpu", _cpu);
-            return new SessionLimits
-            {
-                MemoryMb = Value(_memory),
-                Pids = Value(_pids),
-                Nofile = Value(_nofile),
-                CpuPct = Value(_cpu)
-            };
+            _overrides = overrides;
+            DrawField(l, "Memory (MiB)", "limits.memory", _memory, project?.MemoryMb, project.HasValue, recipe);
+            DrawField(l, "Max processes and threads", "limits.pids", _pids, project?.Pids, project.HasValue, recipe);
+            DrawField(l, "Open files per process", "limits.nofile", _nofile, project?.Nofile, project.HasValue, recipe);
+            DrawField(l, "CPU (% of one core)", "limits.cpu", _cpu, project?.CpuPct, project.HasValue, recipe);
+            return Values();
         }
+
+        void DrawField(Listing_Standard l, string label, string id, LimitField field,
+            int? inherited, bool knownProject, bool recipe)
+        {
+            if (!_overrides)
+            {
+                l.Label(label);
+                field.Text = UiControls.Field(l, id, field.Text);
+                return;
+            }
+
+            string defaultLabel = recipe ? "Project default (destination project)"
+                : "Project default: " + (knownProject ? inherited?.ToString() ?? "No configured cap" : "Choose a project");
+            UiControls.Select(l, label, field.Custom ? "Custom" : defaultLabel, new[]
+            {
+                new SelectorOption("Reset to project default", () => field.Custom = false),
+                new SelectorOption("Custom", () =>
+                {
+                    field.Custom = true;
+                    if (string.IsNullOrWhiteSpace(field.Text)) field.Text = inherited?.ToString() ?? "";
+                }),
+            }, out _);
+            if (field.Custom) field.Text = UiControls.Field(l, id, field.Text);
+        }
+
+        int? Get(LimitField field) => _overrides && !field.Custom ? null : field.Value;
+
+        SessionLimits Values() => new SessionLimits
+        {
+            MemoryMb = Get(_memory),
+            Pids = Get(_pids),
+            Nofile = Get(_nofile),
+            CpuPct = Get(_cpu)
+        };
 
         public bool TrySave(out SessionLimits value, out string error)
         {
-            value = new SessionLimits();
+            value = Values();
             error = null;
-            if (!Valid(_memory) || !Valid(_pids) || !Valid(_nofile) || !Valid(_cpu))
+            foreach (var field in new[] { _memory, _pids, _nofile, _cpu })
             {
-                error = "Resource limits must be positive whole numbers, or blank to inherit.";
+                bool valid = _overrides
+                    ? !field.Custom || field.Value.HasValue
+                    : string.IsNullOrWhiteSpace(field.Text) || field.Value.HasValue;
+                if (valid) continue;
+                error = _overrides ? "Enter a positive whole number for each custom limit, or reset it to project default."
+                    : "Resource limits must be positive whole numbers, or blank for no configured cap.";
                 return false;
             }
-            value = new SessionLimits
-            {
-                MemoryMb = Value(_memory),
-                Pids = Value(_pids),
-                Nofile = Value(_nofile),
-                CpuPct = Value(_cpu)
-            };
             return true;
         }
-
-        static bool Valid(string text) => string.IsNullOrWhiteSpace(text) || Value(text).HasValue;
-        static int? Value(string text) => int.TryParse((text ?? "").Trim(), out var n) && n > 0 ? n : (int?)null;
-        static string Text(int? value) => value?.ToString() ?? "";
     }
 }

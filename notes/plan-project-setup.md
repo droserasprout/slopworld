@@ -4,6 +4,11 @@ Depends on [repo-local templates](plan-project-templates.md). Start with
 [config ownership](daemon-config-stores.md), [sandbox boundaries](sandbox-isolation.md),
 and [paths](ops-paths.md).
 
+Before implementing this proposal, reconcile its project-default inheritance and baseline
+requirements with [settings ownership simplification](plan-agent-settings-ownership.md).
+That proposal removes project process settings; the defaults below are unresolved and must
+not be implemented as a second inheritance system alongside it.
+
 ## Implementation
 
 - Add `.slopworld/project.toml`, `presets/` and referenced prompt files. Reuse existing

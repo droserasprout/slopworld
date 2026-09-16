@@ -3,7 +3,7 @@ using System.Collections.Generic;
 namespace SlopWorld
 {
     // Per-agent resource caps, mirrored from the daemon's Limits. Every field is optional; a
-    // blank one means no cap (and inherits the project). A struct, so copies are by value.
+    // missing one inherits the project, or has no cap on the project itself. Copies are by value.
     public struct SessionLimits
     {
         public int? MemoryMb;
