@@ -18,7 +18,7 @@ impl Manager {
         source_name: &str,
         template_name: String,
         description: String,
-    ) -> Result<()> {
+    ) -> Result<AgentTemplate> {
         self.reload_if_changed().await;
         self.session_operation(self.save_agent_template_within_boundary(
             source_name,
@@ -33,7 +33,7 @@ impl Manager {
         source_name: &str,
         template_name: String,
         description: String,
-    ) -> Result<()> {
+    ) -> Result<AgentTemplate> {
         let cfg = self.config().await;
         let source = cfg
             .session(source_name)
@@ -54,15 +54,7 @@ impl Manager {
             &cfg,
         )?;
 
-        let persist = self.config_state.persist.lock().await;
-        let mut store = self.templates.read().await.clone();
-        store.insert(template, false)?;
-        store
-            .save(&AgentTemplateStore::path_for(&self.cfg_path))
-            .await?;
-        *self.templates.write().await = store;
-        drop(persist);
-        Ok(())
+        self.create_agent_template_definition(template).await
     }
 
     /// Create a session from a template. The caller supplies identity and project; the optional
@@ -92,33 +84,69 @@ impl Manager {
         Ok(name)
     }
 
-    /// Typed replacement is included with the initial API so the later management UI can use
-    /// the same persistence boundary. Existing instantiated agents retain their snapshots.
-    pub(crate) async fn save_agent_template_definition(
+    /// Add a definition only when its destination is absent. The daemon assigns the version;
+    /// callers cannot choose one for a new definition.
+    pub(crate) async fn create_agent_template_definition(
         &self,
         template: AgentTemplate,
-    ) -> Result<()> {
-        let persist = self.config_state.persist.lock().await;
-        let mut store = self.templates.read().await.clone();
-        store.insert(template, true)?;
-        store
-            .save(&AgentTemplateStore::path_for(&self.cfg_path))
-            .await?;
-        *self.templates.write().await = store;
-        drop(persist);
-        Ok(())
+    ) -> Result<AgentTemplate> {
+        self.mutate_template_store(|store| store.create(template))
+            .await
     }
 
-    pub(crate) async fn remove_agent_template(&self, name: &str) -> Result<()> {
-        let persist = self.config_state.persist.lock().await;
+    /// Replace a definition after comparing its expected version under the same lock used for
+    /// persistence. Existing instantiated agents retain their snapshots.
+    pub(crate) async fn replace_agent_template_definition(
+        &self,
+        old_name: &str,
+        expected_version: u64,
+        template: AgentTemplate,
+    ) -> Result<AgentTemplate> {
+        self.mutate_template_store(|store| store.replace(old_name, expected_version, template))
+            .await
+    }
+
+    pub(crate) async fn duplicate_agent_template(
+        &self,
+        source_name: &str,
+        name: String,
+        description: String,
+    ) -> Result<AgentTemplate> {
+        self.mutate_template_store(|store| {
+            let source = store
+                .get(source_name)
+                .cloned()
+                .ok_or_else(|| crate::session::AgentTemplateError::Missing(source_name.into()))?;
+            let mut copy = source;
+            copy.name = name;
+            copy.description = description.trim().to_string();
+            copy.origin.source = "personal".into();
+            store.create(copy)
+        })
+        .await
+    }
+
+    pub(crate) async fn remove_agent_template(
+        &self,
+        name: &str,
+        expected_version: u64,
+    ) -> Result<()> {
+        self.mutate_template_store(|store| store.remove(name, expected_version))
+            .await
+    }
+
+    async fn mutate_template_store<T>(
+        &self,
+        mutation: impl FnOnce(&mut AgentTemplateStore) -> Result<T>,
+    ) -> Result<T> {
+        let _mutation = self.template_mutation.lock().await;
         let mut store = self.templates.read().await.clone();
-        store.remove(name)?;
+        let result = mutation(&mut store)?;
         store
             .save(&AgentTemplateStore::path_for(&self.cfg_path))
             .await?;
         *self.templates.write().await = store;
-        drop(persist);
-        Ok(())
+        Ok(result)
     }
 }
 
@@ -291,6 +319,89 @@ mod tests {
         let session = manager.config().await.session("new-agent").unwrap().clone();
         assert!(!session.sandbox_snapshots.is_empty());
         assert_eq!(session.breadcrumb_snapshots[0].text, "captured prompt");
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[tokio::test]
+    async fn template_writes_compare_versions_and_preserve_rejected_drafts() {
+        let root =
+            std::env::temp_dir().join(format!("slopd-template-version-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&root).unwrap();
+        let manager = crate::session::test_manager(Config {
+            projects: vec![ProjectCfg {
+                name: "repo".into(),
+                dir: root.to_string_lossy().into_owned(),
+                ..Default::default()
+            }],
+            sessions: vec![SessionCfg {
+                name: "source".into(),
+                project: "repo".into(),
+                command: "claude".into(),
+                ..Default::default()
+            }],
+            ..Default::default()
+        });
+
+        manager
+            .save_agent_template("source", "reviewer".into(), "first".into())
+            .await
+            .unwrap();
+        let original = manager.agent_templates().await.remove(0);
+        let mut edited = original.clone();
+        edited.description = "winner".into();
+        let winner = manager
+            .replace_agent_template_definition("reviewer", original.version, edited)
+            .await
+            .unwrap();
+        assert!(winner.version > original.version);
+
+        // Two clients that loaded the same revision can race, but exactly one wins.
+        let mut left = winner.clone();
+        left.description = "winner".into();
+        let right = left.clone();
+        let (left, right) = tokio::join!(
+            manager.replace_agent_template_definition("reviewer", winner.version, left),
+            manager.replace_agent_template_definition("reviewer", winner.version, right),
+        );
+        assert_ne!(left.is_ok(), right.is_ok());
+        let winner = left.or(right).unwrap();
+
+        let mut stale_draft = original.clone();
+        stale_draft.description = "rejected draft".into();
+        let error = manager
+            .replace_agent_template_definition("reviewer", original.version, stale_draft)
+            .await
+            .unwrap_err();
+        assert!(error
+            .downcast_ref::<crate::session::AgentTemplateError>()
+            .is_some());
+        assert_eq!(manager.agent_templates().await[0].description, "winner");
+
+        let stale_delete = manager
+            .remove_agent_template("reviewer", original.version)
+            .await;
+        assert!(stale_delete.is_err());
+        manager
+            .remove_agent_template("reviewer", winner.version)
+            .await
+            .unwrap();
+        let missing_edit = manager
+            .replace_agent_template_definition("reviewer", winner.version, winner.clone())
+            .await;
+        assert!(matches!(
+            missing_edit
+                .unwrap_err()
+                .downcast_ref::<crate::session::AgentTemplateError>(),
+            Some(crate::session::AgentTemplateError::Missing(_))
+        ));
+        let mut recreated = winner;
+        recreated.name = "reviewer".into();
+        recreated.version = 0;
+        let recreated = manager
+            .create_agent_template_definition(recreated)
+            .await
+            .unwrap();
+        assert!(recreated.version > original.version);
         let _ = std::fs::remove_dir_all(root);
     }
 }

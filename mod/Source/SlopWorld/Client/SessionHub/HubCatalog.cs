@@ -91,10 +91,14 @@ namespace SlopWorld
                 ok?.Invoke();
             }, fail);
 
-        public void RefreshTemplates(Action<string> fail = null) =>
+        public void RefreshTemplates(Action<string> fail = null, Action loaded = null) =>
             _templates.Refresh(TemplatesPath,
-                j => Templates = j["templates"].Items.Select(AgentTemplateInfo.FromJson).ToList(),
-                fail);
+                j =>
+                {
+                    Templates = j["templates"].Items.Select(AgentTemplateInfo.FromJson).ToList();
+                    loaded?.Invoke();
+                },
+                fail, loaded);
 
         public void SaveAgentTemplate(string source, string name, string description,
                                        Action ok, Action<string> fail)
@@ -104,6 +108,39 @@ namespace SlopWorld
                 "{" + $"\"name\":{JVal.Q(name)},\"description\":{JVal.Q(description)}," +
                 $"\"source\":{JVal.Q(source)}}}",
                 _ => { RefreshTemplates(); ok?.Invoke(); }, fail);
+        }
+
+        public void SaveAgentTemplateForm(AgentTemplateInfo template, SessionInfo form,
+                                          bool isNew, string originalName,
+                                          Action ok, Action<string> fail)
+        {
+            string body;
+            try { body = template.ToJson(form); }
+            catch (InvalidOperationException error) { fail?.Invoke(error.Message); return; }
+            _templates.Invalidate();
+            Action<JVal> done = _ => { RefreshTemplates(); ok?.Invoke(); };
+            if (isNew)
+                DaemonClient.Post(TemplatesPath, body, done, fail);
+            else
+                DaemonClient.Put($"{TemplatesPath}/{HubWire.Esc(originalName)}", body, done, fail);
+        }
+
+        public void DuplicateAgentTemplate(string source, string name, string description,
+                                           Action ok, Action<string> fail)
+        {
+            _templates.Invalidate();
+            string body = "{" + $"\"name\":{JVal.Q(name)}," +
+                $"\"description\":{JVal.Q(description)},\"duplicate\":{JVal.Q(source)}}}";
+            DaemonClient.Post(TemplatesPath, body,
+                _ => { RefreshTemplates(); ok?.Invoke(); }, fail);
+        }
+
+        public void RemoveAgentTemplate(AgentTemplateInfo template, string originalName,
+                                        Action ok, Action<string> fail)
+        {
+            _templates.Invalidate();
+            string path = $"{TemplatesPath}/{HubWire.Esc(originalName ?? template.Name)}?{WireProtocol.TemplateVersionQuery}={template.Version}";
+            DaemonClient.Delete(path, _ => { RefreshTemplates(); ok?.Invoke(); }, fail);
         }
 
         public void CopyPreset(string kind, string name, string newName,
@@ -181,12 +218,13 @@ namespace SlopWorld
             apply(value);
         }
 
-        public void Refresh(string path, Action<JVal> apply, Action<string> fail)
+        public void Refresh(string path, Action<JVal> apply, Action<string> fail,
+                            Action superseded = null)
         {
             int revision = ++Revision;
             DaemonClient.Get(path,
-                value => { if (revision == Revision) apply(value); },
-                error => { if (revision == Revision) fail?.Invoke(error); });
+                value => { if (revision == Revision) apply(value); else superseded?.Invoke(); },
+                error => { if (revision == Revision) fail?.Invoke(error); else superseded?.Invoke(); });
         }
     }
 }

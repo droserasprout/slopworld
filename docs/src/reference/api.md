@@ -64,11 +64,17 @@ create/update applies the same normalization before persistence.
 
 Agent-template routes are root-only. `GET /api/templates` returns the personal catalog.
 `POST /api/templates` accepts `{ "name": "...", "description": "...", "source": "..." }`
-and snapshots the configured source agent. `POST /api/templates/:name/create` accepts a new
+and snapshots the configured source agent. It also accepts `{ "name": "...", "description":
+"...", "duplicate": "existing-template" }` for an independent copy, or a complete template
+definition with `version` omitted to create a definition from the catalog editor. Every returned
+definition includes a daemon-owned monotonic `version`. `POST /api/templates/:name/create` accepts a new
 `name`, a registered `project`, and an optional `overrides` session form; the daemon copies
 the template's portable fields, validates explicit mount overrides, and allocates fresh private
-state. `PUT` and `DELETE`
-on `/api/templates/:name` provide the typed catalog boundary used by later management UI.
+state. `PUT /api/templates/:name` accepts the complete definition with its expected `version`
+and atomically replaces it; the path may name the old definition when the editor also renames
+it. `DELETE /api/templates/:name?version=N` requires the expected version. Stale edit/delete
+requests return `409 Conflict`, missing edit/delete targets return `404`, and duplicate
+destinations are rejected. The daemon never retries a conflict automatically.
 Template-created sessions retain their captured command, sandbox, and prompt definitions
 when those live catalog entries are later edited or removed.
 

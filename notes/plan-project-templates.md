@@ -1,6 +1,6 @@
 # 5. Repo-local agent templates
 
-Depends on [template management](plan-template-management.md) and
+Depends on [template management](mod-agent-templates.md) and
 [template workers](plan-template-workers.md). Start with
 [config ownership](daemon-config-stores.md), [paths](ops-paths.md), and
 [sandbox boundaries](sandbox-isolation.md).

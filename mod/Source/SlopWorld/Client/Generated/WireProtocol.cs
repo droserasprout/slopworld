@@ -160,6 +160,7 @@ namespace SlopWorld
         }
 
         public const string HostIdentity = "host";
+        public const string TemplateVersionQuery = "version";
         public const int TerminalMinCols = 20;
         public const int TerminalMaxCols = 500;
         public const int TerminalMinRows = 5;

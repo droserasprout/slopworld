@@ -31,6 +31,9 @@ pub struct Manager {
     pub(super) auth_changes: broadcast::Sender<AuthChange>,
     pub(super) grants: RwLock<crate::grant::Grants>,
     pub(super) session_boundary: tokio::sync::Mutex<()>,
+    /// Serializes template read/compare/write/publish transactions. A version check made
+    /// outside this lock would let two editors both pass and lose one draft.
+    pub(super) template_mutation: tokio::sync::Mutex<()>,
     pub(crate) tasks: super::manager::TaskStore,
     /// Serializes daemon-owned worker creation so two root requests cannot reserve one child name
     /// or split task/session persistence between each other.
@@ -126,6 +129,7 @@ pub(crate) fn test_manager(config: Config) -> Arc<Manager> {
         auth_changes,
         grants: RwLock::new(crate::grant::Grants::default()),
         session_boundary: tokio::sync::Mutex::new(()),
+        template_mutation: tokio::sync::Mutex::new(()),
         tasks: super::manager::TaskStore::new(
             crate::tasks::Tasks::load(&cfg_path).expect("test task store"),
         ),
