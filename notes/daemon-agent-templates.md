@@ -9,8 +9,10 @@ instantiated agents.
 
 `session/agent_templates.rs` defines the reusable allowlist. It snapshots command and
 sandbox definitions plus named prompt text and portable network, DNS, limits, and startup
-defaults. Names, labels, mounts, state IDs, worker hierarchy, runtime state, and daemon or
-worker credentials are not template fields. Origin records are for display and do not make a
+defaults. Capture uses the launcher's effective sandbox selection, so missing or invalid
+preset references that launch already ignores cannot block capture. Names, labels, mounts,
+state IDs, worker hierarchy, runtime state, and daemon or worker credentials are not template
+fields. Origin records are for display and do not make a
 template depend on its source checkout.
 
 Creation copies the snapshots into the new session configuration and `add_template_session`

@@ -13,5 +13,7 @@ operation retains the open draft and offers explicit Reload to discard it and re
 the newest catalog. Catalog request revisions suppress stale refresh responses while settling superseded page loads.
 The form replaces complete defaults: deep merging would retain cleared resource caps. Captured
 command, sandbox and prompt definitions take precedence over live catalog entries; prompt
-selection order is delivery order. Writes disable the editor until they settle. No template
+selection order is delivery order. Writes disable the editor until they settle.
+Shared sandbox pickers show missing references explicitly; direct references are removable,
+while inherited references must be removed from their owning project or preset. No template
 definitions are persisted in RimWorld profile settings.
