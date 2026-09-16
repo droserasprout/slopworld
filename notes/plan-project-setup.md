@@ -1,6 +1,7 @@
-# 6. Shared project configuration, presets and prompts
+# Shared project configuration, presets and prompts
 
-Depends on [repo-local templates](plan-project-templates.md). Start with
+Builds on shipped [repository discovery](daemon-library.md). Related authoring work is in
+[repository templates](plan-project-templates.md). Start with
 [config ownership](daemon-config-stores.md), [sandbox boundaries](sandbox-isolation.md),
 and [paths](ops-paths.md).
 
@@ -22,9 +23,9 @@ and breadcrumbs in Library. Project process defaults must not be reintroduced he
   using sandbox ownership rules; make relocation and sidecar behavior explicit.
 - Extend daemon resolution and preview only to project-local workspace metadata and any
   repository definitions. Retain instance snapshot guarantees for agent-owned presets.
-- Show project mounts and their next-start effect in project editors and previews. Shared
-  workspace changes affect every agent in that project at its next start; existing running
-  sandboxes are not rebuilt.
+- Extend existing project mount editors and next-start previews to show repository workspace
+  metadata and local overrides. Shared workspace changes affect every agent in that project
+  at its next start; existing running sandboxes are not rebuilt.
 
 ## Acceptance
 

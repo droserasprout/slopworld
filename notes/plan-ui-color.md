@@ -14,6 +14,8 @@ Remeasure layout and contrast before applying fixes. Paths below are relative to
    Tango Light working text against their backgrounds. Separate readable status-text
    roles from marker colors where needed; preserve imported palette tokens and use
    explicit mappings from [palette references](reference-original-palettes.md).
+   Palette values live in `mod/Themes/UI/gnome-light.toml` and
+   `mod/Themes/UI/tango-light.toml` (repository-relative paths).
    `UI/Chrome/UIScheme.cs`, `UI/Views/Tasks/TasksView.cs`, `UI/Chrome/TopBar.cs`.
 
 ## Medium priority
