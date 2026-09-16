@@ -103,7 +103,7 @@ pub(super) fn check_breadcrumbs(cfg: &Config, names: &[String]) -> Result<()> {
     Ok(())
 }
 
-pub(super) fn check_library_item(cfg: &Config, sc: &LibraryItemCfg) -> Result<()> {
+pub(crate) fn check_library_item(cfg: &Config, sc: &LibraryItemCfg) -> Result<()> {
     if sc.name.trim().is_empty() {
         bail!("library item name must not be empty");
     }

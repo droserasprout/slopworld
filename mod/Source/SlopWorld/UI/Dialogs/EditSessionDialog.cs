@@ -40,9 +40,16 @@ namespace SlopWorld
         // second agent in the same repo is what this is for and picking that project
         // again by hand is the step that gets it wrong. The name cannot, so it is the one
         // field that is suggested rather than copied.
+        public static EditSessionDialog FromTemplate(AgentTemplateInfo template)
+        {
+            var dialog = new EditSessionDialog(null, template.Source == "project" ? template.OriginProject : null);
+            dialog.ApplyTemplate(template);
+            return dialog;
+        }
+
         public static EditSessionDialog Copy(SessionInfo of) => new EditSessionDialog(of, null, true);
 
-        EditSessionDialog(SessionInfo existing, string project, bool copy)
+        EditSessionDialog(SessionInfo existing, string project, bool copy, AgentTemplateInfo template = null)
         {
             // A copy is a new agent in every way that matters here: nothing on the daemon
             // knows about it, so Save posts rather than puts and there is no rename to carry
@@ -81,15 +88,29 @@ namespace SlopWorld
                 };
 
 
+            if (template != null)
+            {
+                _templateDraft = template.Copy();
+                _templateOriginalName = template.Name;
+                ApplyTemplate(_templateDraft);
+                _s.Name = template.Name;
+            }
+
             SessionHub.Instance.Catalog.RefreshProjects();
             // Both tables are files the daemon reads, so they are asked for on every open
             // rather than once per process.
             SessionHub.Instance.Catalog.LoadPresets();
             SessionHub.Instance.Catalog.RefreshTemplates();
-            if (string.IsNullOrEmpty(_s.CommandPreset) && string.IsNullOrEmpty(_s.Command) &&
+            SessionHub.Instance.Catalog.RefreshLibrary();
+            if (!EditingTemplate && string.IsNullOrEmpty(_s.CommandPreset) && string.IsNullOrEmpty(_s.Command) &&
                 string.IsNullOrWhiteSpace(_s.Cmd))
                 DaemonClient.Get(WireProtocol.Routes.Config,
-                    j => _s.CommandPreset = j["values"]["defaults"]["agent"].AsString("claude"),
+                    j =>
+                    {
+                        if (string.IsNullOrEmpty(_templateName) && string.IsNullOrEmpty(_s.Command) &&
+                            string.IsNullOrEmpty(_s.CommandPreset) && string.IsNullOrWhiteSpace(_s.Cmd))
+                            _s.CommandPreset = j["values"]["defaults"]["agent"].AsString("claude");
+                    },
                     UiLayout.Fail);
 
             _limMem = LimStr(_s.Limits.MemoryMb);
@@ -110,44 +131,60 @@ namespace SlopWorld
 
         protected override void DoBody(Rect rect)
         {
-            UiLayout.Title(TitleRect(rect), _identity.Title("agent"));
+            UiLayout.Title(TitleRect(rect), EditingTemplate
+                ? (TemplateReadOnly ? "Inspect template" : _templateDraft.Version == 0 ? "New template" : "Edit template")
+                : _identity.Title("agent"));
 
             var layout = TabbedFormLayout.Arrange(SettingsPageLayout.FromRect(rect), 132f,
                 UiTheme.HeaderH, UiTheme.BtnH, UiTheme.GapS, UiTheme.GapM);
             DrawRail(SettingsPageLayout.ToRect(layout.Rail));
             var body = SettingsPageLayout.ToRect(layout.Body);
 
-            switch (_tab)
+            bool enabled = GUI.enabled;
+            GUI.enabled = enabled && !_templateBusy && !TemplateReadOnly;
+            try
             {
-                case Tab.General:
-                    _generalListing.Draw(body, DrawGeneral);
-                    break;
-                case Tab.Mounts:
-                    DrawMounts(body);
-                    break;
-                case Tab.Sandbox:
-                    _sandboxListing.Draw(body, DrawSandboxFields,
-                        (view, y) => DrawSandboxTrailing(view, y, body.height));
-                    break;
-                case Tab.ResourceLimits:
-                    _limitsListing.Draw(body, DrawLimits);
-                    break;
-                case Tab.Breadcrumbs:
-                    DrawBreadcrumbs(body);
-                    break;
-                case Tab.Preview:
-                    SandboxPreviewPanel.Draw(body, ref _previewScroll,
-                        SandboxPreviewData.ForAgent(_s));
-                    break;
+                switch (_tab)
+                {
+                    case Tab.General:
+                        _generalListing.Draw(body, DrawGeneral);
+                        break;
+                    case Tab.Mounts:
+                        DrawMounts(body);
+                        break;
+                    case Tab.Sandbox:
+                        _sandboxListing.Draw(body, DrawSandboxFields,
+                            (view, y) => DrawSandboxTrailing(view, y, body.height));
+                        break;
+                    case Tab.ResourceLimits:
+                        _limitsListing.Draw(body, DrawLimits);
+                        break;
+                    case Tab.Breadcrumbs:
+                        DrawBreadcrumbs(body);
+                        break;
+                    case Tab.Preview:
+                        SandboxPreviewPanel.Draw(body, ref _previewScroll,
+                            SandboxPreviewData.ForAgent(_s, _templateSnapshot));
+                        break;
+                }
+
             }
+            finally { GUI.enabled = enabled; }
 
             var foot = new UiLayout.Bar(SettingsPageLayout.ToRect(layout.Footer));
-            if (!_identity.IsNew && foot.Left("Reset private state", UiTheme.Btn.Danger))
+            if (EditingTemplate)
+            {
+                if ((_templateDraft.Version != 0 || TemplateReadOnly) &&
+                    foot.Left("Reload", UiTheme.Btn.Ghost, !_templateBusy)) ReloadTemplate();
+                if (TemplateReadOnly && foot.Left("Duplicate", UiTheme.Btn.Ghost, !_templateBusy))
+                    Find.WindowStack.Add(EditTemplate(_templateDraft, true));
+            }
+            if (!EditingTemplate && !_identity.IsNew && foot.Left("Reset private state", UiTheme.Btn.Danger))
                 Find.WindowStack.Add(CatalogActions.ResetState(_identity.OriginalName));
-            if (!_identity.IsNew && foot.Left("Save as template", UiTheme.Btn.Ghost))
+            if (!EditingTemplate && !_identity.IsNew && foot.Left("Save as template", UiTheme.Btn.Ghost))
                 Find.WindowStack.Add(new SaveAgentTemplateDialog(_identity.OriginalName));
             if (foot.Left("Cancel", UiTheme.Btn.Ghost)) Close();
-            if (foot.Right("Save", UiTheme.Btn.Primary)) Save();
+            if (!TemplateReadOnly && foot.Right("Save", UiTheme.Btn.Primary, !_templateBusy)) Save();
         }
 
         void DrawRail(Rect r) => UiLayout.DrawRail(r, new[]
@@ -158,14 +195,15 @@ namespace SlopWorld
             ("Resource limits", Tab.ResourceLimits),
             ("Breadcrumbs", Tab.Breadcrumbs),
             ("Preview", Tab.Preview),
-        }, ref _tab,
-            tab => tab != Tab.Breadcrumbs || SessionHub.Instance.Config.ExperimentalBreadcrumbs);
+        }.Where(tab => !EditingTemplate || tab.Item2 != Tab.Mounts).ToArray(), ref _tab,
+            tab => EditingTemplate || tab != Tab.Breadcrumbs || SessionHub.Instance.Config.ExperimentalBreadcrumbs);
 
         void Save()
         {
-            if (string.IsNullOrEmpty(_s.Name) || string.IsNullOrEmpty(_s.Project))
+            if (_templateBusy || TemplateReadOnly) return;
+            if (string.IsNullOrWhiteSpace(_s.Name) || (!EditingTemplate && string.IsNullOrEmpty(_s.Project)))
             {
-                UiLayout.Fail("name and project are required");
+                UiLayout.Fail(EditingTemplate ? "Template name is required" : "name and project are required");
                 return;
             }
 
@@ -187,6 +225,15 @@ namespace SlopWorld
                 Nofile = nofile,
                 CpuPct = cpu,
             };
+
+            if (EditingTemplate)
+            {
+                _templateDraft.Name = _s.Name.Trim();
+                _templateBusy = true;
+                SessionHub.Instance.Catalog.SaveAgentTemplateForm(_templateDraft, _s,
+                    _templateDraft.Version == 0, _templateOriginalName, () => Close(), TemplateFailed);
+                return;
+            }
 
             string from = _identity.OriginalName, to = _s.Name;
             Action ok = () =>

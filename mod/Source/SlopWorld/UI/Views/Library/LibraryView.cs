@@ -28,6 +28,15 @@ namespace SlopWorld
         // The text that drives the rows, snapshotted once per frame so size and draw agree.
         static List<LibraryItemInfo> _items = new List<LibraryItemInfo>();
 
+        static readonly Dictionary<LibraryItemInfo, AgentTemplateInfo> Templates =
+            new Dictionary<LibraryItemInfo, AgentTemplateInfo>();
+
+        public static void Refresh(Action<string> fail = null)
+        {
+            SessionHub.Instance.Catalog.RefreshLibrary(fail);
+            SessionHub.Instance.Catalog.RefreshTemplates(fail);
+        }
+
         // Grouped by project. Key "" is "no project".
         static readonly Dictionary<string, List<LibraryItemInfo>> Groups =
             new Dictionary<string, List<LibraryItemInfo>>();
@@ -79,12 +88,26 @@ namespace SlopWorld
         {
             using (WidgetState.Save())
             {
-                // Builtins are daemon-owned and appear in their attached groups, so this list
-                // contains only editable library items.
+                // Builtins appear in their attached groups. Personal and repository entries
+                // belong here, alongside agent templates.
                 // Filtered here rather than in [Group], so a filter that leaves nothing gets
                 // the empty line instead of a blank column.
                 _items = SessionHub.Instance.Library
                     .Where(s => !s.Builtin && AgentSidebar.Passes(s.Project)).ToList();
+                Templates.Clear();
+                foreach (var template in SessionHub.Instance.Templates)
+                {
+                    string project = template.Source == "project" ? template.OriginProject : "";
+                    if (!AgentSidebar.Passes(project)) continue;
+                    var row = new LibraryItemInfo
+                    {
+                        Name = template.Name,
+                        Project = project,
+                        Text = template.Description
+                    };
+                    Templates[row] = template;
+                    _items.Add(row);
+                }
                 Lines.Clear();
 
                 if (_items.Count == 0)
@@ -169,7 +192,8 @@ namespace SlopWorld
 
         static float DrawLibraryRow(Rect view, Rect r, LibraryItemInfo item)
         {
-            bool enabled = item.Kind != LibraryItemKind.Breadcrumb ||
+            bool template = Templates.ContainsKey(item);
+            bool enabled = template || item.Kind != LibraryItemKind.Breadcrumb ||
                 SessionHub.Instance.Config.ExperimentalBreadcrumbs;
             RowChrome.Hover(r, ReferenceEquals(item, _selected), enabled,
                 RowHoverPolicy.OverlayAware);
@@ -187,8 +211,9 @@ namespace SlopWorld
                 // descenders cut off.
                 Text.Font = GameFont.Tiny;
                 Text.Anchor = TextAnchor.MiddleLeft;
-                UiText.RowLabel(badge, KindCode(item.Kind));
-                TooltipHandler.TipRegion(badge, KindName(item.Kind));
+                UiText.RowLabel(badge, template ? "tpl" : KindCode(item.Kind));
+                TooltipHandler.TipRegion(badge, template ? "Agent template" : KindName(item.Kind));
+                if (item.ReadOnly) TooltipHandler.TipRegion(r, "Repository definition: " + item.Source);
 
                 float tx = CellX + badgeW + UiTheme.GapXS;
                 // The name comes first, then a sample of the text truncated.
@@ -316,6 +341,16 @@ namespace SlopWorld
                 // nowhere the mouse can be.
                 if (!ColonistBarStrip.MouseOver(line.Rect)) continue;
 
+                if (!line.Head && Templates.TryGetValue(line.Item, out var template))
+                {
+                    e.Use();
+                    if (e.button == 0)
+                        TerminalWindow.OpenOverPane(EditSessionDialog.EditTemplate(template));
+                    else
+                        TemplateMenu(template);
+                    return;
+                }
+
                 if (!line.Head && line.Item.Kind == LibraryItemKind.Breadcrumb &&
                     !SessionHub.Instance.Config.ExperimentalBreadcrumbs)
                 {
@@ -363,6 +398,25 @@ namespace SlopWorld
 
         // ------------------------------------------------------------------ menus
 
+        static void TemplateMenu(AgentTemplateInfo template)
+        {
+            var options = new List<FloatMenuOption>
+            {
+                new FloatMenuOption("Create agent...", () => TerminalWindow.OpenOverPane(
+                    EditSessionDialog.FromTemplate(template))),
+                new FloatMenuOption(template.Source == "project" ? "Inspect..." : "Edit...", () =>
+                    TerminalWindow.OpenOverPane(EditSessionDialog.EditTemplate(template))),
+                new FloatMenuOption("Duplicate...", () =>
+                    TerminalWindow.OpenOverPane(EditSessionDialog.EditTemplate(template, true))),
+            };
+            if (template.Source != "project")
+                options.Add(new FloatMenuOption("Delete", () => TerminalWindow.OpenOverPane(
+                    ConfirmDialog.Create("Remove template '" + template.Name + "'? Existing agents keep their snapshots.",
+                        () => SessionHub.Instance.Catalog.RemoveAgentTemplate(template, template.Name,
+                            null, UiLayout.Fail), destructive: true))));
+            TerminalWindow.OpenOverPane(new UiMenu(options));
+        }
+
         static void HeadMenu(string project)
         {
             var p = SessionHub.Instance.Project(project);
@@ -393,7 +447,7 @@ namespace SlopWorld
             if (s.Link == LibraryItemLink.Ask)
                 opts.Add(new UiSubmenu("Run in", () => WhereOptions(s)));
 
-            var edit = new FloatMenuOption("Edit...", () =>
+            var edit = new FloatMenuOption(s.ReadOnly ? "Inspect..." : "Edit...", () =>
                 TerminalWindow.OpenOverPane(new EditLibraryItemDialog(s)));
             edit.Disabled = s.Kind == LibraryItemKind.Breadcrumb &&
                 !SessionHub.Instance.Config.ExperimentalBreadcrumbs;
@@ -405,7 +459,7 @@ namespace SlopWorld
                 !SessionHub.Instance.Config.ExperimentalBreadcrumbs;
             opts.Add(duplicate);
 
-            opts.Add(new FloatMenuOption("Delete", () =>
+            if (!s.ReadOnly) opts.Add(new FloatMenuOption("Delete", () =>
             {
                 var name = s.Name;
                 TerminalWindow.OpenOverPane(ConfirmDialog.Create(

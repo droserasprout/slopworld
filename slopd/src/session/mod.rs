@@ -23,7 +23,10 @@ mod view;
 #[path = "../manager/mod.rs"]
 mod manager;
 
-pub(crate) use agent_templates::{AgentTemplate, AgentTemplateError, AgentTemplateStore};
+pub(crate) use agent_templates::{
+    validate_definition as validate_template_definition, AgentTemplate, AgentTemplateError,
+    AgentTemplateStore,
+};
 #[cfg(test)]
 pub(crate) use ctrl::test_manager;
 pub(super) use ctrl::CachedScroll;
@@ -40,11 +43,11 @@ use title::{
     Submission, TitleCapture, TitleRequest,
 };
 use validation::{
-    absolute_path, breadcrumb_block, check_belongs, check_breadcrumbs, check_library_item,
-    check_name, check_project, free_name, free_project_name, json_to_toml, merge_toml,
-    normalize_action_command, project_action_path, settle, slug,
+    absolute_path, breadcrumb_block, check_belongs, check_breadcrumbs, check_name, check_project,
+    free_name, free_project_name, json_to_toml, merge_toml, normalize_action_command,
+    project_action_path, settle, slug,
 };
-pub(crate) use validation::{hold_action_command, validate_config};
+pub(crate) use validation::{check_library_item, hold_action_command, validate_config};
 
 #[cfg(test)]
 use input::INPUT_BATCH;

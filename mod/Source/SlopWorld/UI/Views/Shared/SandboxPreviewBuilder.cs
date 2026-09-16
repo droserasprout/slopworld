@@ -10,12 +10,15 @@ namespace SlopWorld
     {
         public static SandboxPreviewData Build(string kind, string name, string dir,
                                                 ProjectInfo project, CommandInfo command,
-                                                SessionInfo agent)
+                                                SessionInfo agent, List<PresetInfo> available = null,
+                                                List<LibraryItemInfo> library = null)
         {
             var hub = SessionHub.Instance;
-            var names = ResolveNames(command, project, agent, hub.Presets);
+            available = available ?? hub.Presets;
+            library = library ?? hub.Library;
+            var names = ResolveNames(command, project, agent, available);
             var presets = names
-                .Select(n => hub.Presets.FirstOrDefault(p => p.Name == n))
+                .Select(n => available.FirstOrDefault(p => p.Name == n))
                 .Where(p => p != null)
                 .ToList();
 
@@ -35,7 +38,7 @@ namespace SlopWorld
                 Title = $"{kind}: {name}",
                 Subtitle = string.IsNullOrEmpty(dir) ? "" : $"Directory: {dir}",
                 Network = NetworkModeText.Label(effectiveNetwork),
-                Presets = names.Select(n => hub.Presets.Any(p => p.Name == n)
+                Presets = names.Select(n => available.Any(p => p.Name == n)
                         ? n : n + " (missing)").ToList(),
             };
 
@@ -58,7 +61,7 @@ namespace SlopWorld
                 new List<string> { effectiveDns.Label }));
             if (agent != null)
                 data.Fields.Add(new SandboxPreviewField("Joined breadcrumbs",
-                    JoinedBreadcrumbs(project, agent, hub.Library, hub.Config)));
+                    JoinedBreadcrumbs(project, agent, library, hub.Config)));
             if (agent != null)
                 data.Fields.Add(new SandboxPreviewField("Resource limits",
                     LimitLines(agent.Limits)));

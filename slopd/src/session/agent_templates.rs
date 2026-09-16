@@ -64,10 +64,12 @@ pub(crate) struct AgentTemplate {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct AgentTemplateOrigin {
-    /// `personal` now; this is explicit so project-local and builtin sources can be added later.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub(crate) file: String,
+    /// `personal` for stored snapshots, `project` for discovered read-only definitions.
     #[serde(default = "personal_source")]
     pub(crate) source: String,
-    /// The source kind is display metadata, not a live relationship.
+    /// Captured agent or repository file; origin is display metadata on personal copies.
     #[serde(default = "agent_source")]
     pub(crate) kind: String,
     #[serde(default)]
@@ -79,6 +81,7 @@ pub(crate) struct AgentTemplateOrigin {
 impl Default for AgentTemplateOrigin {
     fn default() -> Self {
         Self {
+            file: String::new(),
             source: personal_source(),
             kind: agent_source(),
             project: String::new(),
@@ -106,15 +109,28 @@ pub(crate) struct AgentTemplateDefaults {
     /// Prompt names and contents; unlike library references these are self-contained.
     #[serde(default)]
     pub(crate) prompts: Vec<BreadcrumbSnapshot>,
+    #[serde(default)]
     pub(crate) slopworld_md: bool,
+    #[serde(default = "enabled_by_default")]
     pub(crate) instructions_breadcrumb: bool,
+    #[serde(default)]
     pub(crate) persistent_tmp: bool,
+    #[serde(default = "enabled_by_default")]
     pub(crate) breadcrumb_yolo: bool,
+    #[serde(default)]
     pub(crate) network: NetworkMode,
+    #[serde(default)]
     pub(crate) dns: DnsConfig,
+    #[serde(default)]
     pub(crate) limits: Limits,
+    #[serde(default)]
     pub(crate) autostart: bool,
+    #[serde(default)]
     pub(crate) auto_resume: bool,
+}
+
+fn enabled_by_default() -> bool {
+    true
 }
 
 fn personal_source() -> String {
@@ -397,6 +413,7 @@ impl AgentTemplate {
             version: 0,
             description,
             origin: AgentTemplateOrigin {
+                file: String::new(),
                 source: personal_source(),
                 kind: agent_source(),
                 project: source.project.clone(),
@@ -514,7 +531,8 @@ fn validate_template_name(name: &str) -> Result<()> {
     Ok(())
 }
 
-fn validate_definition(template: &AgentTemplate) -> Result<()> {
+pub(crate) fn validate_definition(template: &AgentTemplate) -> Result<()> {
+    validate_template_name(&template.name)?;
     let defaults = &template.defaults;
     if defaults
         .cmd

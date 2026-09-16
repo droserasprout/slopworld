@@ -238,6 +238,8 @@ namespace SlopWorld
 
         static List<FloatMenuOption> LibraryItemOptions() => new List<FloatMenuOption>
         {
+            new FloatMenuOption("Agent template...", () =>
+                TerminalWindow.OpenOverPane(EditSessionDialog.EditTemplate())),
             new FloatMenuOption("Prompt...", () =>
                 TerminalWindow.OpenOverPane(new EditLibraryItemDialog(LibraryItemKind.Prompt))),
             BreadcrumbAddOption(),

@@ -1,5 +1,6 @@
 mod model;
 mod persistence;
+pub(crate) mod project_library;
 mod validation;
 
 pub use model::*;
@@ -21,11 +22,20 @@ impl Config {
 
     /// The file first, so an entry a person wrote shadows a builtin of the same name the way
     /// a user preset replaces a shipped one.
-    pub fn library_item(&self, name: &str) -> Option<&LibraryItemCfg> {
+    pub fn library_item(&self, name: &str) -> Option<LibraryItemCfg> {
         self.library
             .iter()
             .chain(builtin_library_items())
             .find(|s| s.name == name)
+            .cloned()
+            .or_else(|| {
+                if !name.contains("::") {
+                    return None;
+                }
+                project_library::library(self)
+                    .into_iter()
+                    .find(|s| s.name == name)
+            })
     }
 
     /// What a client is shown: the file's entries, then the builtins nothing has shadowed.
@@ -36,6 +46,11 @@ impl Config {
                 .iter()
                 .filter(|b| !self.library.iter().any(|s| s.name == b.name))
                 .cloned(),
+        );
+        all.extend(
+            project_library::library(self)
+                .into_iter()
+                .filter(|item| !self.library.iter().any(|local| local.name == item.name)),
         );
         all
     }
@@ -563,7 +578,7 @@ token = \"not-a-daemon-token\"
         .expect("library should parse");
 
         let sc = cfg.library_item("review diff").unwrap();
-        let prompt = cfg.session_for(sc, "review-diff".into(), sc.project.clone());
+        let prompt = cfg.session_for(&sc, "review-diff".into(), sc.project.clone());
         // The preset this machine calls its default, rather than that preset's command.
         assert_eq!(prompt.command, "pi");
         assert_eq!(prompt.cmd, None);
@@ -575,7 +590,7 @@ token = \"not-a-daemon-token\"
         assert_eq!(prompt.project, "slopworld");
 
         let shell = cfg.session_for(
-            cfg.library_item("tests").unwrap(),
+            &cfg.library_item("tests").unwrap(),
             "tests".into(),
             "x".into(),
         );
@@ -585,7 +600,7 @@ token = \"not-a-daemon-token\"
         // A command line rather than a preset name: run as it stands, with only the implicit
         // global base and no agent's state directory.
         let custom = cfg.session_for(
-            cfg.library_item("codex").unwrap(),
+            &cfg.library_item("codex").unwrap(),
             "codex".into(),
             "x".into(),
         );
@@ -595,7 +610,7 @@ token = \"not-a-daemon-token\"
 
         // The place is the caller's answer and not the entry's, which is what lets one
         // errand be run somewhere it never named.
-        let anywhere = cfg.session_for(sc, "review-diff-2".into(), "elsewhere".into());
+        let anywhere = cfg.session_for(&sc, "review-diff-2".into(), "elsewhere".into());
         assert_eq!(anywhere.project, "elsewhere");
     }
 
@@ -806,6 +821,7 @@ token = \"not-a-daemon-token\"
     fn library_round_trip_through_toml() {
         let mut cfg = Config::default();
         cfg.library.push(LibraryItemCfg {
+            source: String::new(),
             name: "tests".into(),
             kind: LibraryItemKind::Shell,
             link: LibraryItemLink::Project,

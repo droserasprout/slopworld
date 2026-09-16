@@ -43,20 +43,26 @@ identifies the software so the sandbox can mount its configuration paths.
 An agent with a raw `cmd` and no `command` gets the sandbox but none of the
 CLI-specific wiring.
 
-## Personal templates
+## Agent templates
 
-When adding an agent, choose a personal template or keep **Manual creation**. The same
+When adding an agent, choose a Library template or keep **Manual creation**. The same
 agent editor fields remain available as overrides. To make one, open an existing agent
 and choose **Save as template**. The daemon stores personal templates in
 `agent-templates.toml` beside its main configuration.
 
-The complete catalog is available under **Settings > Agents > Templates**. It can inspect,
-create, capture, edit, duplicate, and delete personal definitions. **New** starts an empty
-definition; **Capture agent** snapshots an existing agent. **Duplicate** copies the saved
-definition, so save your edits first if you want them included. The editor shows the origin and
-effective command, sandbox, prompts, and limits. A failed save keeps the draft; use **Reload**
+Templates appear in **Library** alongside prompts, errands, breadcrumbs, and file actions.
+Click a template to open the agent editor in template mode, or use
+**+ > Library > Agent template** to create one. General, Sandbox, Resource limits,
+Breadcrumbs, and Preview use the same controls as agent editing; templates omit project,
+mounts, and private-state actions. Right-click a template to duplicate or delete it.
+Duplication opens a new personal draft; save it to add it to Library. Capture an existing
+agent with its editor's **Save as template** action. A failed save keeps the draft; use **Reload**
 only when you want to discard it and reconcile with a newer catalog revision. Existing agents
 are not changed when their source template is edited or deleted.
+
+Projects can also provide [repository Library definitions](repository-library.md) under
+`.slopworld`, including agent templates. These are read-only in the UI; duplicate one to make
+a personal copy. Right-click a Library template and choose **Create agent** to use it.
 
 A template captures the command and sandbox definitions, named prompt contents, network,
 DNS, resource limits, and startup options. The new agent's name and project are chosen at

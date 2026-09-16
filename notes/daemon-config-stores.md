@@ -6,8 +6,8 @@ not read or rewrite daemon TOML directly. Locations and overrides: [paths](ops-p
 
 Personal agent templates are a separate daemon-owned `agent-templates.toml` store beside
 the main config. `session/agent_templates.rs` owns its typed definition and snapshot rules;
-the manager loads it at startup and serializes mutations atomically. Template origin is
-display metadata only, never a live project or checkout relationship.
+the manager loads it at startup and serializes mutations atomically. Personal template origin is display metadata only. Repository Library definitions are read
+from registered checkouts; see [Library ownership](daemon-library.md).
 
 Config patches deep-merge the original TOML document, preserving omitted and unknown fields.
 Typed `Config::save` serializes modeled fields only. Preserve this distinction when adding

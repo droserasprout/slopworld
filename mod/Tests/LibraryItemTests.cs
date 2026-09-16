@@ -7,8 +7,21 @@ namespace SlopWorld.Tests
     {
         public static IEnumerable<(string Name, Action Body)> Cases()
         {
+            yield return ("repository source is read only and not written back", RepositorySource);
             yield return ("round trips file action modes", RoundTripsFileActionModes);
             yield return ("missing mode keeps the invocation menu", MissingModeKeepsInvocationMenu);
+        }
+
+        static void RepositorySource()
+        {
+            var item = LibraryItemInfo.FromJson(JVal.Parse(
+                "{\"name\":\"repo::review\",\"source\":\"/repo/.slopworld/library/review.toml\"}"));
+            AssertEx.True(item.ReadOnly, "repository entries are read only");
+            AssertEx.Equal(item.Source, item.Copy().Source, "inspection retains source");
+            AssertEx.True(JVal.Parse(item.ToJson())["source"].IsNull,
+                "personal copies do not write repository ownership");
+            AssertEx.True(!LibraryItemInfo.FromJson(JVal.Parse("{}")).ReadOnly,
+                "ordinary entries remain editable");
         }
 
         static void RoundTripsFileActionModes()

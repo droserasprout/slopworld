@@ -25,9 +25,9 @@ namespace SlopWorld
                                 ICollection<string> implied = null,
                                 string instructionsText = null, bool instructionsOn = false,
                                 Action<bool> onInstructionsChanged = null, bool instructionsLocked = false,
-                                bool breadcrumbsLocked = false)
+                                bool breadcrumbsLocked = false, IEnumerable<LibraryItemInfo> catalog = null)
         {
-            var all = SessionHub.Instance.Library
+            var all = (catalog ?? SessionHub.Instance.Library)
                 .Where(s => s.Kind == LibraryItemKind.Breadcrumb)
                 .OrderBy(s => s.Name, System.StringComparer.OrdinalIgnoreCase)
                 .Select(s => new Entry { Name = s.Name, Text = s.Text })
