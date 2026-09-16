@@ -311,66 +311,145 @@ impl Manager {
     }
 
     pub async fn update(self: &Arc<Self>, name: &str, s: SessionCfg) -> Result<()> {
-        self.session_operation(self.update_within_boundary(name, s))
-            .await
+        // Once tmux has accepted the new name, the rest of the transaction must not be
+        // cancellable: dropping the HTTP future cannot strand tmux under a name that was never
+        // persisted. The detached task still owns the session boundary while it commits or
+        // rolls back, and its result is awaited when the caller remains interested.
+        let manager = self.clone();
+        let name = name.to_string();
+        tokio::spawn(async move {
+            manager
+                .session_operation(manager.update_within_boundary(&name, s))
+                .await
+        })
+        .await
+        .map_err(|error| anyhow!("session update task failed: {error}"))?
     }
 
     async fn update_within_boundary(self: &Arc<Self>, name: &str, mut s: SessionCfg) -> Result<()> {
         self.reload_if_changed().await;
-        if self
-            .cfg
-            .read()
-            .await
-            .session(name)
-            .is_some_and(|session| session.worker)
-        {
-            bail!("task-owned worker {name} cannot be edited; retry its task instead");
-        }
         let renamed = s.name != name;
+        check_name(&s.name)?;
+        let new_name = s.name.clone();
+        let tmux_running = renamed && self.tmux.exists(name).await;
         if renamed {
-            check_name(&s.name)?;
-            let cfg = self.cfg.read().await;
-            if cfg.session(name).is_none() {
-                bail!("no such session: {name}");
+            if self.tmux.exists(&new_name).await {
+                bail!("session {} already exists in tmux", new_name);
             }
-            if cfg.session(&s.name).is_some() {
-                bail!("session {} already exists", s.name);
-            }
-            drop(cfg);
-            if self.tmux.exists(name).await {
-                self.tmux.rename(name, &s.name).await?;
+            if self.live.read().await.contains_key(&new_name) {
+                bail!("session {} already exists", new_name);
             }
         }
 
-        self.update_cfg(|cfg| {
-            let idx = cfg
-                .sessions
-                .iter()
-                .position(|x| x.name == name)
-                .ok_or_else(|| anyhow!("no such session: {name}"))?;
-            let previous = &cfg.sessions[idx];
-            s.preserve_selected_snapshots(previous);
-            check_belongs(cfg, &s)?;
-            s.limits.validate()?;
-            crate::runtime::validate_limits(&s.limits)?;
-            // Keep daemon-owned worker identity across an ordinary settings edit. The mod's write
-            // model intentionally does not expose these fields.
-            s.worker = cfg.sessions[idx].worker;
-            s.parent = cfg.sessions[idx].parent.clone();
-            s.task_id = cfg.sessions[idx].task_id.clone();
-            // Keep private state with the agent across every edit, particularly a rename.  The wire
-            // deliberately does not expose this field, but also must not be able to change it.
-            s.state_id = cfg.sessions[idx].state_id.clone();
-            cfg.sessions[idx] = s.clone();
-            Ok(())
-        })
-        .await?;
+        let ((), prepared) = self
+            .prepare_cfg_change(|cfg| {
+                let idx = cfg
+                    .sessions
+                    .iter()
+                    .position(|x| x.name == name)
+                    .ok_or_else(|| anyhow!("no such session: {name}"))?;
+                if cfg.sessions[idx].worker {
+                    bail!("task-owned worker {name} cannot be edited; retry its task instead");
+                }
+                if renamed
+                    && (cfg
+                        .sessions
+                        .iter()
+                        .enumerate()
+                        .any(|(other, session)| other != idx && session.name == new_name)
+                        || cfg
+                            .host_terminals
+                            .iter()
+                            .any(|terminal| terminal.name == new_name))
+                {
+                    bail!("session {} already exists", new_name);
+                }
+
+                let previous = cfg.sessions[idx].clone();
+                s.preserve_selected_snapshots(&previous);
+                check_belongs(cfg, &s)?;
+                s.limits.validate()?;
+                crate::runtime::validate_limits(&s.limits)?;
+                // Keep daemon-owned worker identity across an ordinary settings edit. The mod's
+                // write model intentionally does not expose these fields.
+                s.worker = previous.worker;
+                s.parent = previous.parent;
+                s.task_id = previous.task_id;
+                // Keep private state with the agent across every edit, particularly a rename. The
+                // wire deliberately does not expose this field, but also must not be able to change it.
+                s.state_id = previous.state_id;
+                cfg.sessions[idx] = s.clone();
+                Ok(((), true))
+            })
+            .await?;
+
+        let Some(prepared) = prepared else {
+            unreachable!("session update always changes its candidate")
+        };
+
+        if tmux_running {
+            self.tmux.rename(name, &new_name).await?;
+            if let Err(error) = self.commit_prepared_cfg(prepared).await {
+                return self
+                    .recover_failed_tmux_rename(name, &new_name, error)
+                    .await;
+            }
+        } else {
+            self.commit_prepared_cfg(prepared).await?;
+        }
 
         if renamed {
-            self.readopt(name, &s.name).await;
+            self.readopt(name, &new_name).await;
         }
         self.sync_from_config().await;
         Ok(())
+    }
+
+    async fn recover_failed_tmux_rename(
+        &self,
+        old: &str,
+        new: &str,
+        persist_error: anyhow::Error,
+    ) -> Result<()> {
+        match self.tmux.rename(new, old).await {
+            Ok(()) => Err(anyhow!(
+                "could not persist session rename {old} -> {new}: {persist_error:#}; tmux was restored to {old}"
+            )),
+            Err(rollback_error) => {
+                // Keep config/live state at the persisted identity. A second failure requires
+                // manual recovery; report observed tmux names rather than inventing unsaved state.
+                let identity = self.tmux_identity(old, new).await;
+                tracing::error!(
+                    old,
+                    new,
+                    persist_error = %persist_error,
+                    rollback_error = %rollback_error,
+                    identity = %identity,
+                    "session rename recovery could not restore tmux"
+                );
+                Err(anyhow!(
+                    "could not persist session rename {old} -> {new}: {persist_error:#}; \
+                     rollback to {old} also failed: {rollback_error:#}; \
+                     actual tmux identity: {identity}; manual recovery required"
+                ))
+            }
+        }
+    }
+
+    async fn tmux_identity(&self, old: &str, new: &str) -> String {
+        match self.tmux.list_checked().await {
+            Ok(names) => {
+                let old_present = names.iter().any(|name| name == old);
+                let new_present = names.iter().any(|name| name == new);
+                match (old_present, new_present) {
+                    (true, false) => format!("original session {old} is present"),
+                    (false, true) => format!("renamed session {new} is present"),
+                    (true, true) => format!("both {old} and {new} are present"),
+                    (false, false) => format!("neither {old} nor {new} is present"),
+                }
+            }
+            Err(error) => format!("tmux identity is unavailable: {error:#}"),
+        }
     }
 
     /// Set the optional manual sidebar label without making the edit dialog round-trip
@@ -640,6 +719,106 @@ impl Manager {
 mod tests {
     use super::*;
 
+    async fn rename_fixture(running: bool) -> (Arc<Manager>, std::path::PathBuf, String) {
+        let root = std::env::temp_dir().join(format!(
+            "slopd-session-rename-{}-{}",
+            std::process::id(),
+            uuid::Uuid::new_v4()
+        ));
+        std::fs::create_dir_all(&root).unwrap();
+        let socket = format!("slopd-session-rename-{}", uuid::Uuid::new_v4());
+        let manager = crate::session::test_manager_with_socket(
+            Config {
+                projects: vec![ProjectCfg {
+                    name: "repo".into(),
+                    dir: root.to_string_lossy().into_owned(),
+                    ..Default::default()
+                }],
+                sessions: vec![SessionCfg {
+                    name: "old".into(),
+                    project: "repo".into(),
+                    ..Default::default()
+                }],
+                ..Default::default()
+            },
+            socket.clone(),
+        );
+        manager.update_cfg(|_| Ok(())).await.unwrap();
+        if running {
+            manager
+                .tmux
+                .spawn(
+                    "old",
+                    &root.to_string_lossy(),
+                    80,
+                    24,
+                    &["cat".into()],
+                    false,
+                )
+                .await
+                .unwrap();
+        }
+        let session = manager.config().await.sessions[0].clone();
+        manager
+            .live
+            .write()
+            .await
+            .insert("old".into(), Live::new(session, TitleCapture::default()));
+        if running {
+            assert!(manager.spawn_reader("old").await.unwrap());
+            assert_rename_input(&manager, "old", "before-rename").await;
+        }
+        (manager, root, socket)
+    }
+
+    async fn assert_rename_input(manager: &Arc<Manager>, name: &str, marker: &str) {
+        manager
+            .queue_input(name, Input::Bytes(format!("{marker}\n").into_bytes()))
+            .await;
+        tokio::time::timeout(Duration::from_secs(5), async {
+            loop {
+                if manager
+                    .live
+                    .read()
+                    .await
+                    .get(name)
+                    .is_some_and(|live| live.plain.contains(marker))
+                {
+                    break;
+                }
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .expect("input did not reach the managed capture reader");
+    }
+
+    async fn cleanup_rename_fixture(
+        manager: &Arc<Manager>,
+        root: std::path::PathBuf,
+        socket: &str,
+        names: &[&str],
+    ) {
+        for name in names {
+            if manager.tmux.exists(name).await {
+                let _ = manager.tmux.kill(name).await;
+            }
+        }
+        let _ = std::process::Command::new("tmux")
+            .args(["-L", socket, "kill-server"])
+            .output();
+        let _ = std::fs::remove_dir_all(root);
+        let _ = std::fs::remove_dir_all(manager.cfg_path.parent().unwrap());
+    }
+
+    fn replacement(name: &str) -> SessionCfg {
+        SessionCfg {
+            name: name.into(),
+            project: "repo".into(),
+            ..Default::default()
+        }
+    }
+
     fn project(name: &str, dir: &std::path::Path, temp: bool) -> ProjectCfg {
         ProjectCfg {
             name: name.into(),
@@ -677,6 +856,141 @@ mod tests {
             .unwrap_err()
             .to_string();
         assert!(error.contains("the whole filesystem"), "{error}");
+    }
+
+    #[tokio::test]
+    async fn invalid_or_conflicting_renames_do_not_touch_tmux_or_config() {
+        let (manager, root, socket) = rename_fixture(true).await;
+        manager
+            .update_cfg(|cfg| {
+                cfg.sessions.push(replacement("occupied"));
+                Ok(())
+            })
+            .await
+            .unwrap();
+        let persisted = std::fs::read(&manager.cfg_path).unwrap();
+        for invalid in [
+            replacement("occupied"),
+            SessionCfg {
+                name: "renamed".into(),
+                project: "missing".into(),
+                ..Default::default()
+            },
+            SessionCfg {
+                name: "renamed".into(),
+                project: "repo".into(),
+                sandbox: vec!["missing-preset".into()],
+                ..Default::default()
+            },
+            SessionCfg {
+                name: "renamed".into(),
+                project: "repo".into(),
+                limits: crate::config::Limits {
+                    memory_mb: Some(0),
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+        ] {
+            assert!(manager.update("old", invalid).await.is_err());
+            assert!(manager.tmux.exists("old").await);
+            assert!(!manager.tmux.exists("renamed").await);
+            assert_eq!(manager.config().await.sessions[0].name, "old");
+            assert_eq!(manager.config().await.sessions[1].name, "occupied");
+            assert!(manager.live.read().await.contains_key("old"));
+            assert_eq!(std::fs::read(&manager.cfg_path).unwrap(), persisted);
+        }
+        cleanup_rename_fixture(&manager, root, &socket, &["old", "renamed"]).await;
+    }
+
+    #[tokio::test]
+    async fn running_and_down_renames_preserve_private_state() {
+        for running in [false, true] {
+            let (manager, root, socket) = rename_fixture(running).await;
+            let state_id = manager.config().await.sessions[0].state_id.clone();
+            manager.update("old", replacement("renamed")).await.unwrap();
+
+            assert!(!manager.tmux.exists("old").await);
+            assert_eq!(manager.tmux.exists("renamed").await, running);
+            if running {
+                assert_rename_input(&manager, "renamed", "after-rename").await;
+            }
+            let cfg = manager.config().await;
+            assert_eq!(cfg.sessions[0].name, "renamed");
+            assert_eq!(cfg.sessions[0].state_id, state_id);
+            let saved = Config::load(&manager.cfg_path).await.unwrap();
+            assert_eq!(saved.sessions[0].name, "renamed");
+            assert_eq!(saved.sessions[0].state_id, state_id);
+            assert!(manager.live.read().await.contains_key("renamed"));
+            assert!(!manager.live.read().await.contains_key("old"));
+            cleanup_rename_fixture(&manager, root, &socket, &["old", "renamed"]).await;
+        }
+    }
+
+    #[tokio::test]
+    async fn persistence_failure_restores_tmux_or_reports_failed_rollback() {
+        for rollback_fails in [false, true] {
+            let (manager, root, socket) = rename_fixture(true).await;
+            let persisted = std::fs::read(&manager.cfg_path).unwrap();
+            std::fs::create_dir_all(manager.cfg_path.with_extension("toml.tmp")).unwrap();
+            if rollback_fails {
+                manager.tmux.fail_rename_call_for_test(2);
+            }
+
+            let error = manager
+                .update("old", replacement("renamed"))
+                .await
+                .unwrap_err()
+                .to_string();
+            assert!(
+                error.contains("could not persist session rename"),
+                "{error}"
+            );
+            if rollback_fails {
+                assert!(error.contains("rollback to old also failed"), "{error}");
+                assert!(
+                    error.contains("actual tmux identity: renamed session renamed is present"),
+                    "{error}"
+                );
+                assert!(error.contains("manual recovery required"), "{error}");
+            } else {
+                assert!(error.contains("tmux was restored to old"), "{error}");
+                assert_rename_input(&manager, "old", "after-rollback").await;
+            }
+            assert_eq!(manager.tmux.exists("old").await, !rollback_fails);
+            assert_eq!(manager.tmux.exists("renamed").await, rollback_fails);
+            assert_eq!(manager.config().await.sessions[0].name, "old");
+            assert!(manager.live.read().await.contains_key("old"));
+            assert_eq!(std::fs::read(&manager.cfg_path).unwrap(), persisted);
+            cleanup_rename_fixture(&manager, root, &socket, &["old", "renamed"]).await;
+        }
+    }
+
+    #[tokio::test]
+    async fn abandoning_update_cannot_skip_commit_or_rollback() {
+        let (manager, root, socket) = rename_fixture(true).await;
+        std::fs::create_dir_all(manager.cfg_path.with_extension("toml.tmp")).unwrap();
+        let (renamed, release) = manager.tmux.pause_after_rename_for_test();
+        let update = tokio::spawn({
+            let manager = manager.clone();
+            async move { manager.update("old", replacement("renamed")).await }
+        });
+        renamed.notified().await;
+        update.abort();
+        release.notify_one();
+
+        tokio::time::timeout(std::time::Duration::from_secs(2), async {
+            loop {
+                if manager.tmux.exists("old").await && !manager.tmux.exists("renamed").await {
+                    break;
+                }
+                tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .expect("detached update did not finish rollback");
+        assert_eq!(manager.config().await.sessions[0].name, "old");
+        cleanup_rename_fixture(&manager, root, &socket, &["old", "renamed"]).await;
     }
 
     #[tokio::test]

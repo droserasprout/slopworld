@@ -3,6 +3,12 @@
 `manager/session_state.rs` owns classification; `capture_reader.rs` and `capture_frame.rs`
 connect tmux output to the emulator and session events.
 
+Session edits validate a complete config candidate before renaming tmux. The session boundary
+and config persistence gate protect preparation through commit; a detached task completes
+commit or rollback even if the request is cancelled. Persistence failure rolls tmux back.
+If rollback also fails, the error and log report both failures and the observed tmux names;
+config and live state retain the old name and require manual recovery.
+
 Rules search the nonblank tail from bottom upward; lowest line wins, then configuration
 order. Waiting/Idle matches are authoritative. Working matches still decay without activity:
 agent TUIs can leave stale interrupt indicators visible indefinitely. A live row caches the
