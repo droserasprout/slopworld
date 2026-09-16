@@ -101,6 +101,26 @@ namespace SlopWorld
             OriginJson = OriginJson,
         };
 
+        // Editors and previews share the same snapshot-first catalogs used when saving.
+        public CommandInfo ResolveCommand(string name)
+        {
+            var captured = JVal.Parse(DefaultsJson)["command"];
+            return !string.IsNullOrEmpty(name) && captured["name"].AsString() == name
+                ? CommandInfo.FromJson(captured) : SessionHub.Instance.Commands.FirstOrDefault(command => command.Name == name);
+        }
+
+        public List<PresetInfo> SandboxCatalog() =>
+            JVal.Parse(DefaultsJson)["sandbox_presets"].Items.Select(PresetInfo.FromJson)
+                .Concat(SessionHub.Instance.Presets).GroupBy(p => p.Name).Select(g => g.First()).ToList();
+
+        public List<LibraryItemInfo> BreadcrumbCatalog() =>
+            JVal.Parse(DefaultsJson)["prompts"].Items.Select(prompt => new LibraryItemInfo
+            {
+                Name = prompt["name"].AsString(),
+                Text = prompt["text"].AsString(),
+                Kind = LibraryItemKind.Breadcrumb,
+            }).Concat(SessionHub.Instance.Catalog.Library).GroupBy(p => p.Name).Select(g => g.First()).ToList();
+
         // Apply the portable editor form to the definition while preserving definitions that
         // came from a source catalog but are no longer installed locally.
         public string ToJson(SessionInfo form)
@@ -120,8 +140,8 @@ namespace SlopWorld
                 $"\"instructions_breadcrumb\":{JVal.B(form.InstructionsBreadcrumb)}," +
                 $"\"persistent_tmp\":{JVal.B(form.PersistentTmp)}," +
                 $"\"breadcrumb_yolo\":{JVal.B(form.BreadcrumbYolo)}," +
-                $"\"network\":{JVal.Q(NetworkModeText.Name(form.Network))}," +
-                $"\"dns\":{(form.Dns == null ? DnsConfig.Resolved() : form.Dns).ToJson()}," +
+                $"\"network\":{JVal.Q(NetworkModeText.Name(form.NetworkOverride ?? form.Network))}," +
+                $"\"dns\":{(form.DnsOverride ?? form.Dns ?? DnsConfig.Resolved()).ToJson()}," +
                 $"\"limits\":{form.Limits.ToJson()}," +
                 $"\"autostart\":{JVal.B(form.Autostart)}," +
                 $"\"auto_resume\":{JVal.B(form.AutoResume)}" +

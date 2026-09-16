@@ -20,17 +20,19 @@ namespace SlopWorld
             SandboxPreviewBuilder.Build("Project sandbox", project?.Name ?? "(new project)",
                 project?.Dir ?? "", project, null, null);
 
-        public static SandboxPreviewData ForAgent(SessionInfo session)
+        public static SandboxPreviewData ForAgent(SessionInfo session, AgentTemplateInfo template = null)
         {
             var hub = SessionHub.Instance;
             var project = hub.Project(session.Project);
             string commandName = string.IsNullOrEmpty(session.Command)
                 ? session.CommandPreset : session.Command;
-            CommandInfo command = null;
-            if (string.IsNullOrEmpty(session.Cmd) || string.IsNullOrWhiteSpace(session.Cmd))
-                command = hub.Command(commandName);
+            var command = template == null ? hub.Command(commandName) : template.ResolveCommand(commandName);
             var data = SandboxPreviewBuilder.Build("Agent sandbox", session.Name, session.Dir,
-                project, command, session);
+                project, command, session, template?.SandboxCatalog(), template?.BreadcrumbCatalog());
+            data.Fields.Insert(0, new SandboxPreviewField("Command", new List<string>
+            {
+                !string.IsNullOrWhiteSpace(session.Cmd) ? session.Cmd : command?.Cmd ?? "Daemon default",
+            }));
             if (project == null && !string.IsNullOrEmpty(session.Project))
                 data.Notes.Add($"Project '{session.Project}' is not available; only known " +
                                "sandbox presets are shown.");

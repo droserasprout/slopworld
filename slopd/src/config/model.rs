@@ -907,6 +907,9 @@ crate::wire_enum!(FileActionMode, {
 /// existing session, which would stop working the day that session was deleted.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct LibraryItemCfg {
+    /// Response-only repository source; machine config cannot claim file ownership.
+    #[serde(default, skip_deserializing, skip_serializing_if = "String::is_empty")]
+    pub source: String,
     /// Labels a button and seeds a colonist's name; the session name derived from it
     /// is sanitised (see `slug`).
     pub name: String,

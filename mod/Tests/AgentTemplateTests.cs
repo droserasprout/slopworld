@@ -52,6 +52,46 @@ namespace SlopWorld.Tests
             finally { catalog.Commands = commands; }
         }
 
+        public static void SharedEditorUsesCapturedCatalogsAndSavesNetworkOverrides()
+        {
+            var template = AgentTemplateInfo.FromJson(JVal.Parse(@"{
+                ""defaults"": {
+                    ""command"": { ""name"":""agent"", ""cmd"":""captured"" },
+                    ""sandbox_presets"": [{ ""name"":""sandbox"", ""description"":""captured"" }],
+                    ""prompts"": [{ ""name"":""prompt"", ""text"":""captured"" }]
+                }
+            }"));
+            var catalog = SessionHub.Instance.Catalog;
+            var commands = catalog.Commands;
+            var presets = catalog.Presets;
+            var library = catalog.Library;
+            try
+            {
+                catalog.Commands = new List<CommandInfo> { new CommandInfo { Name = "agent", Cmd = "live" } };
+                catalog.Presets = new List<PresetInfo> { new PresetInfo { Name = "sandbox", Description = "live" } };
+                catalog.Library = new List<LibraryItemInfo> { new LibraryItemInfo { Name = "prompt", Text = "live" } };
+                AssertEx.Equal("captured", template.ResolveCommand("agent").Cmd, "editor uses captured command");
+                AssertEx.Equal("captured", template.SandboxCatalog()[0].Description, "picker uses captured sandbox");
+                AssertEx.Equal(1, template.SandboxCatalog().Count, "no duplicate sandbox choices");
+                AssertEx.Equal("captured", template.BreadcrumbCatalog()[0].Text, "picker uses captured prompt");
+                AssertEx.Equal(1, template.BreadcrumbCatalog().Count, "no duplicate prompt choices");
+                var form = new SessionInfo();
+                template.ApplyTo(form);
+                form.NetworkOverride = NetworkMode.None;
+                form.DnsOverride = DnsConfig.Custom();
+                form.DnsOverride.Servers.Add("1.1.1.1");
+                var saved = JVal.Parse(template.ToJson(form))["defaults"];
+                AssertEx.Equal("none", saved["network"].AsString(), "shared network override is saved");
+                AssertEx.Equal("1.1.1.1", saved["dns"]["servers"][0].AsString(), "shared DNS override is saved");
+            }
+            finally
+            {
+                catalog.Commands = commands;
+                catalog.Presets = presets;
+                catalog.Library = library;
+            }
+        }
+
         public static void SupersededTemplateLoadsSettleWithoutReplacingCatalog()
         {
             var requests = DaemonClient.Requests;

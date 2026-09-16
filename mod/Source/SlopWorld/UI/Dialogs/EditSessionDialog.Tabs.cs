@@ -14,32 +14,46 @@ namespace SlopWorld
         // new agent must have to start; the other tabs only refine it.
         void DrawGeneral(Listing_Standard l)
         {
-            if (_identity.IsNew)
+            if (_identity.IsNew && !EditingTemplate)
                 DrawTemplatePicker(l);
 
-            l.Label("Name (also the colonist's name)");
+            l.Label(EditingTemplate ? "Template name" : "Name (also the colonist's name)");
             _s.Name = UiControls.Field(l, "agent.name", _s.Name);
 
-            var projectOptions = SessionHub.Instance.Projects
-                .Select(p => new SelectorOption($"{p.Name}  -  {p.Dir}",
-                    () => _s.Project = p.Name)).ToList();
-            projectOptions.Add(new SelectorOption("New project...",
-                () => Find.WindowStack.Add(new EditProjectDialog(null))));
-            UiControls.Select(l, "Project (the directory and sandbox it works in)",
-                string.IsNullOrEmpty(_s.Project) ? "Pick a project..." : _s.Project,
-                projectOptions, out _);
+            if (EditingTemplate)
+            {
+                l.Label("Description");
+                _templateDraft.Description = UiControls.Area(l, 48f, "template.description", _templateDraft.Description);
+                l.Label("Source: " + _templateDraft.Source);
+                var origin = JVal.Parse(_templateDraft.OriginJson);
+                if (TemplateReadOnly) l.Label("Edit " + origin["file"].AsString() + " or duplicate this template.");
+                else if (!string.IsNullOrEmpty(_templateDraft.OriginProject))
+                    l.Label("Captured from: " + _templateDraft.OriginProject + "/" + _templateDraft.OriginAgent);
+            }
+            else
+            {
+                var projectOptions = SessionHub.Instance.Projects
+                    .Select(p => new SelectorOption($"{p.Name}  -  {p.Dir}",
+                        () => _s.Project = p.Name)).ToList();
+                projectOptions.Add(new SelectorOption("New project...",
+                    () => Find.WindowStack.Add(new EditProjectDialog(null))));
+                UiControls.Select(l, "Project (the directory and sandbox it works in)",
+                    string.IsNullOrEmpty(_s.Project) ? "Pick a project..." : _s.Project,
+                    projectOptions, out _);
 
-            var project = SessionHub.Instance.Project(_s.Project);
-            GUI.color = UiTheme.Dim;
-            l.Label(project != null
-                ? $"{project.Dir}  ({ProjectsView.Summary(project)})"
-                : SessionHub.Instance.Projects.Count == 0
-                    ? "No projects yet - make one in the Projects window first."
-                    : "");
-            GUI.color = Color.white;
+                var project = SessionHub.Instance.Project(_s.Project);
+                GUI.color = UiTheme.Dim;
+                l.Label(project != null
+                    ? $"{project.Dir}  ({ProjectsView.Summary(project)})"
+                    : SessionHub.Instance.Projects.Count == 0
+                        ? "No projects yet - make one in the Projects window first."
+                        : "");
+                GUI.color = Color.white;
+
+            }
 
             string commandName = string.IsNullOrEmpty(_s.Command) ? _s.CommandPreset : _s.Command;
-            var preset = SessionHub.Instance.Command(commandName);
+            var preset = EditorCommand(commandName);
 
             l.Gap(UiTheme.GapS);
             UiControls.Select(l, "Command", CommandLabel(preset), CommandOptions(), out _);
@@ -57,7 +71,7 @@ namespace SlopWorld
                 "After startup settles, send /resume and choose the latest conversation.");
             _s.SlopworldMd = UiControls.Checkbox(l, "Mount SLOPWORLD.md", _s.SlopworldMd,
                 "Mount generated runtime context read-only at the Instructions mount path. Requires instructions in Settings > General > Experimental.",
-                locked: !SessionHub.Instance.Config.ExperimentalInstructions);
+                locked: !EditingTemplate && !SessionHub.Instance.Config.ExperimentalInstructions);
             _s.PersistentTmp = UiControls.Checkbox(l, "Persistent /tmp", _s.PersistentTmp,
                 "Keep this agent's /tmp across restarts in its private state. Resetting private state gives it a fresh /tmp.");
 
@@ -67,7 +81,7 @@ namespace SlopWorld
         {
             var options = new List<SelectorOption>
             {
-                new SelectorOption("Manual creation", () => _templateName = null),
+                new SelectorOption("Manual creation", () => { _templateName = null; _templateSnapshot = null; }),
             };
             options.AddRange(SessionHub.Instance.Templates
                 .OrderBy(t => t.Name, System.StringComparer.OrdinalIgnoreCase)
@@ -77,7 +91,7 @@ namespace SlopWorld
             UiControls.Select(l, "Template (optional)", label, options, out _);
             GUI.color = UiTheme.Dim;
             l.Label(string.IsNullOrEmpty(_templateName)
-                ? "Choose a personal template or continue with the fields below."
+                ? "Choose a Library template or continue with the fields below."
                 : "Template defaults are copied; the fields below remain editable overrides.");
             GUI.color = Color.white;
         }
@@ -86,6 +100,7 @@ namespace SlopWorld
         {
             string name = _s.Name;
             string project = _s.Project;
+            _templateSnapshot = template.Copy();
             template.ApplyTo(_s);
             _s.Name = name;
             _s.Project = project;
@@ -190,7 +205,7 @@ namespace SlopWorld
         {
             var project = SessionHub.Instance.Project(_s.Project);
             string commandName = string.IsNullOrEmpty(_s.Command) ? _s.CommandPreset : _s.Command;
-            var preset = SessionHub.Instance.Command(commandName);
+            var preset = EditorCommand(commandName);
 
             return DrawExtraPresets(rect, y + UiTheme.GapL, project, preset, availableHeight);
         }
@@ -202,21 +217,21 @@ namespace SlopWorld
             string networkLabel = _s.NetworkOverride.HasValue
                 ? NetworkModeText.Label(_s.NetworkOverride.Value)
                 : "Inherit project (" + NetworkModeText.ShortLabel(projectNetwork) + ")";
-            var networkOptions = new List<SelectorOption>
-            {
-                new SelectorOption("Inherit project (" + NetworkModeText.ShortLabel(projectNetwork) + ")",
-                    () => _s.NetworkOverride = null),
-            };
+            var networkOptions = new List<SelectorOption>();
+            if (!EditingTemplate)
+                networkOptions.Add(new SelectorOption("Inherit project (" + NetworkModeText.ShortLabel(projectNetwork) + ")",
+                    () => _s.NetworkOverride = null));
             networkOptions.AddRange(new[] { NetworkMode.None, NetworkMode.Private, NetworkMode.Host }
                 .Select(mode => new SelectorOption(NetworkModeText.Label(mode),
                     () => _s.NetworkOverride = mode)));
             UiControls.Select(l, "Network", networkLabel, networkOptions, out _);
             GUI.color = UiTheme.Dim;
-            l.Label("The project sets the default; this agent can use any network mode.");
+            l.Label(EditingTemplate ? "Copied to each agent created from this template."
+                : "The project sets the default; this agent can use any network mode.");
             GUI.color = Color.white;
 
             l.Gap(UiTheme.GapS);
-            DnsForm.Draw(l, _s.DnsOverride, inheritedDns, true, "agent.dns", ref _dnsServers,
+            DnsForm.Draw(l, _s.DnsOverride, inheritedDns, !EditingTemplate, "agent.dns", ref _dnsServers,
                 dns => _s.DnsOverride = dns);
         }
 
@@ -234,7 +249,7 @@ namespace SlopWorld
             // growing the content on every layout pass.
             float height = Mathf.Max(PresetsH, rect.y + availableHeight - y - UiTheme.GapS);
             PresetList.Draw(new Rect(rect.x, y, rect.width, height), _s.Sandbox,
-                _presetScroll, inheritedPresets);
+                _presetScroll, inheritedPresets, _templateSnapshot?.SandboxCatalog());
             return y + height;
         }
 
@@ -242,7 +257,7 @@ namespace SlopWorld
         // parsed on Save. ScrollableListing owns the tab's measured height.
         void DrawLimits(Listing_Standard l)
         {
-            if (!SessionHub.Instance.Capabilities.PerSessionLimits)
+            if (!EditingTemplate && !SessionHub.Instance.Capabilities.PerSessionLimits)
             {
                 UiLayout.Note(l,
                     "slopcar has one outer CPU, memory and process budget. Per-agent limits " +
@@ -251,7 +266,8 @@ namespace SlopWorld
             }
 
             GUI.color = UiTheme.Dim;
-            l.Label("Blank means no cap. An unset field inherits the project, then the host.");
+            l.Label(EditingTemplate ? "Blank means no template cap."
+                : "Blank means no cap. An unset field inherits the project, then the host.");
             GUI.color = Color.white;
 
             l.Label("Memory (MiB)");
@@ -283,8 +299,8 @@ namespace SlopWorld
         void DrawBreadcrumbs(Rect rect)
         {
             var config = SessionHub.Instance.Config;
-            bool breadcrumbs = config.ExperimentalBreadcrumbs;
-            bool instructions = config.ExperimentalInstructions;
+            bool breadcrumbs = EditingTemplate || config.ExperimentalBreadcrumbs;
+            bool instructions = EditingTemplate || config.ExperimentalInstructions;
             float y = rect.y;
             _s.BreadcrumbYolo = UiControls.Checkbox(
                 new Rect(rect.x, rect.y, rect.width, UiTheme.RowH),
@@ -299,7 +315,7 @@ namespace SlopWorld
                 _s.InstructionsBreadcrumb,
                 onInstructionsChanged: on => _s.InstructionsBreadcrumb = on,
                 instructionsLocked: !breadcrumbs || !instructions,
-                breadcrumbsLocked: !breadcrumbs);
+                breadcrumbsLocked: !breadcrumbs, catalog: _templateSnapshot?.BreadcrumbCatalog());
         }
 
         // The three states this pair of fields can be in: a command preset, a command line
@@ -322,6 +338,7 @@ namespace SlopWorld
             }
             if (!string.IsNullOrEmpty((_s.Cmd ?? "").Trim()))
                 return "A command line of its own, so no agent's state directory comes with it.";
+            if (EditingTemplate) return "Choose a command preset or enter a command line.";
             return !string.IsNullOrEmpty(_s.Agent)
                 ? $"Blank runs the daemon's default, which is '{_s.Agent}'."
                 : "Blank runs the daemon's default agent.";
@@ -329,28 +346,30 @@ namespace SlopWorld
 
         IEnumerable<SelectorOption> CommandOptions()
         {
-            var options = new List<SelectorOption>
-            {
-                new SelectorOption("Default", () =>
+            var options = new List<SelectorOption>();
+            if (!EditingTemplate) options.Add(new SelectorOption("Default", () =>
                 {
                     _s.Command = "";
                     _s.Cmd = "";
                     DaemonClient.Get(WireProtocol.Routes.Config,
                         j => _s.CommandPreset = j["values"]["defaults"]["agent"].AsString("claude"),
                         UiLayout.Fail);
-                }),
-            };
+                }));
 
             // Named by the daemon rather than listed here, so a command file dropped in its
             // preset directory is an entry in this menu and nothing to rebuild.
-            foreach (var c in SessionHub.Instance.Commands)
+            IEnumerable<CommandInfo> commands = SessionHub.Instance.Commands;
+            var captured = _templateSnapshot?.ResolveCommand(_templateSnapshot.Command);
+            if (captured != null)
+                commands = new[] { captured }.Concat(commands).GroupBy(c => c.Name).Select(g => g.First());
+            foreach (var c in commands)
             {
                 var pick = c;
                 options.Add(new SelectorOption($"{pick.Name}  -  {pick.Cmd}",
-                    () => _s.Command = pick.Name));
+                    () => { _s.Command = pick.Name; _s.CommandPreset = pick.Name; }));
             }
 
-            options.Add(new SelectorOption("Command line...", () => _s.Command = ""));
+            options.Add(new SelectorOption("Command line...", () => { _s.Command = ""; _s.CommandPreset = ""; }));
             return options;
         }
 

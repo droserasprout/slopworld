@@ -62,12 +62,15 @@ create/update applies the same normalization before persistence.
 
 ### Agent templates
 
-Agent-template routes are root-only. `GET /api/templates` returns the personal catalog.
+Agent-template routes are root-only. `GET /api/templates` returns personal and repository definitions.
+Repository names are qualified as `project::name`, carry `origin.source = "project"` and
+`origin.file`, and are read-only. They can be instantiated or duplicated into the personal
+catalog. See [repository Library](../guides/repository-library.md).
 `POST /api/templates` accepts `{ "name": "...", "description": "...", "source": "..." }`
 and snapshots the configured source agent. It also accepts `{ "name": "...", "description":
 "...", "duplicate": "existing-template" }` for an independent copy, or a complete template
-definition with `version` omitted to create a definition from the catalog editor. Every returned
-definition includes a daemon-owned monotonic `version`. `POST /api/templates/:name/create` accepts a new
+definition with `version` omitted to create a definition from the template editor. Every personal
+definition includes a daemon-owned monotonic `version`; repository definitions use zero. `POST /api/templates/:name/create` accepts a new
 `name`, a registered `project`, and an optional `overrides` session form; the daemon copies
 the template's portable fields, validates explicit mount overrides, and allocates fresh private
 state. `PUT /api/templates/:name` accepts the complete definition with its expected `version`

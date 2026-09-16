@@ -26,3 +26,8 @@ Catalog create, duplicate, edit, and delete mutations serialize their read/compa
 publish transaction under the template mutation lock. Edit and delete require the definition's
 expected version and reject stale writes with a conflict; create and duplicate require an absent
 destination. Deleting a template never removes instantiated agents or their snapshots.
+
+Repository templates are discovered by `config/project_library.rs` and merged into catalog
+reads with qualified names and explicit file origin. They have no mutation version because
+API edits/deletes target only the personal store. Duplication uses either source and writes a
+personal snapshot. See [Library ownership](daemon-library.md).

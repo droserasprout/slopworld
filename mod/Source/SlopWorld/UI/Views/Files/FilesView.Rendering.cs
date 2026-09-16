@@ -223,7 +223,7 @@ namespace SlopWorld
             string name, string relative = null)
         {
             var actions = SessionHub.Instance.Library
-                .Where(s => s.Kind == LibraryItemKind.FileAction)
+                .Where(s => s.Kind == LibraryItemKind.FileAction && (!s.ReadOnly || s.Project == project))
                 .ToList();
             if (actions.Count == 0) return;
             if (relative == null) relative = ProjectRelative(project, path);

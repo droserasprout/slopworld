@@ -98,16 +98,16 @@ namespace SlopWorld
                     }),
                 new SidebarTabDefinition(
                     SidebarTab.Library, "library", "library",
-                    "Library - one-shot errands you can run against any project",
+                    "Library - agent templates, prompts, errands, breadcrumbs and file actions",
                     true, true, false,
                     new SidebarTabHandlers
                     {
                         Draw = () => LibraryView.Draw(Body),
                         Click = LibraryView.Clicks,
                         DrawActions = DrawLibraryActions,
-                        Refresh = () => SessionHub.Instance.Catalog.RefreshLibrary(UiLayout.Fail),
+                        Refresh = () => LibraryView.Refresh(UiLayout.Fail),
                         // Fetch on entry as well, including when socket updates are unavailable.
-                        Entered = () => SessionHub.Instance.Catalog.RefreshLibrary(),
+                        Entered = () => LibraryView.Refresh(),
                         SetAllFolds = LibraryView.SetAllFolded,
                         AllFolded = () => LibraryView.AllFolded,
                     }));
@@ -221,6 +221,8 @@ namespace SlopWorld
         {
             var r = ActionRect(context);
             DrawFoldAction(ref r);
+            Tab(r, Icons.Refresh, false, "Reload Library, including .slopworld definitions.",
+                () => LibraryView.Refresh(UiLayout.Fail));
         }
 
         static void DrawTasksActions(SidebarTabActionContext context)

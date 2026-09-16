@@ -8,7 +8,14 @@ use super::super::*;
 
 impl Manager {
     pub(crate) async fn agent_templates(&self) -> Vec<AgentTemplate> {
-        self.templates.read().await.templates.clone()
+        let mut templates = self.templates.read().await.templates.clone();
+        let cfg = self.config().await;
+        let project =
+            tokio::task::spawn_blocking(move || crate::config::project_library::templates(&cfg))
+                .await
+                .unwrap_or_default();
+        templates.extend(project);
+        templates
     }
 
     /// Capture a configured agent into the personal catalog. The source is copied immediately;
@@ -69,11 +76,10 @@ impl Manager {
         overrides: Option<SessionCfg>,
     ) -> Result<String> {
         let template = self
-            .templates
-            .read()
+            .agent_templates()
             .await
-            .get(template_name)
-            .cloned()
+            .into_iter()
+            .find(|template| template.name == template_name)
             .ok_or_else(|| anyhow::anyhow!("no such agent template: {template_name}"))?;
         let mut session = template.instantiate(name, project);
         if let Some(overrides) = overrides {
@@ -112,18 +118,16 @@ impl Manager {
         name: String,
         description: String,
     ) -> Result<AgentTemplate> {
-        self.mutate_template_store(|store| {
-            let source = store
-                .get(source_name)
-                .cloned()
-                .ok_or_else(|| crate::session::AgentTemplateError::Missing(source_name.into()))?;
-            let mut copy = source;
-            copy.name = name;
-            copy.description = description.trim().to_string();
-            copy.origin.source = "personal".into();
-            store.create(copy)
-        })
-        .await
+        let mut copy = self
+            .agent_templates()
+            .await
+            .into_iter()
+            .find(|template| template.name == source_name)
+            .ok_or_else(|| crate::session::AgentTemplateError::Missing(source_name.into()))?;
+        copy.name = name;
+        copy.description = description.trim().to_string();
+        copy.origin.source = "personal".into();
+        self.create_agent_template_definition(copy).await
     }
 
     pub(crate) async fn remove_agent_template(

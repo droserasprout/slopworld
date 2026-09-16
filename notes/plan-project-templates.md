@@ -1,29 +1,17 @@
-# 5. Repo-local agent templates
+# Repository template authoring and contextual lookup
 
-Depends on [template management](mod-agent-templates.md) and
-[template workers](plan-template-workers.md). Start with
-[config ownership](daemon-config-stores.md), [paths](ops-paths.md), and
-[sandbox boundaries](sandbox-isolation.md).
+Read-only repository discovery and qualified names are shipped; see
+[Library ownership](daemon-library.md) and the [user guide](../docs/src/guides/repository-library.md).
+The remaining work builds on [template CLI](plan-template-cli.md).
 
-## Implementation
+- Add Project/Personal destinations to creation, duplication, and Save as template.
+  Write only the selected definition; handle read-only checkouts and external-edit conflicts.
+- Add optional contextual short-name resolution (project, then personal, then builtin),
+  preserving qualified identities for explicit selection and collision inspection.
+- Infer CLI project context from the calling agent or an unambiguous registered workdir;
+  explicit `--project` resolves ambiguity. Use daemon paths, including in sidecar mode.
+- Test repository write conflicts, source selection, and contextual lookup in UI/CLI.
+  Discovery must never execute commands or authorize host access; existing agents keep
+  their snapshots after source edits or deletion.
 
-- Discover `.slopworld/templates/*.toml` at the registered project workdir. The daemon
-  reads its filesystem, including in sidecar mode; clients consume its scoped catalog.
-- Resolve template names project first, then personal, then builtin if available. Expose
-  origin and explicit source selection so collisions are inspectable and bypassable.
-- Add Project/Personal destinations to template creation, duplication and Save as template.
-  Write only the selected definition; surface read-only checkout and external-edit conflicts.
-- Scope project definitions to their project. Discovery alone must not execute commands
-  or authorize host access; existing launch validation remains authoritative.
-- Add project context to CLI listing/show/spawn. Infer it from the calling agent or an
-  unambiguous registered workdir match; explicit `--project` resolves ambiguity. Account
-  for differing host/sidecar paths instead of guessing mappings.
-
-## Acceptance
-
-- Two projects can define the same name without leakage; personal fallback and explicit
-  source selection work identically in UI/CLI. Removing a source preserves existing agents.
-- Tests cover discovery changes, collisions, malformed files, write conflicts and sidecar
-  project context. Use relevant Makefile checks without running the game.
-- Document tracked layout and source precedence; delete this plan when complete.
-- Next: [shared project setup](plan-project-setup.md).
+Shared defaults and preset-file resolution remain in [project setup](plan-project-setup.md).
