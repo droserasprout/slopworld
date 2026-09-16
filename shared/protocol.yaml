@@ -169,10 +169,6 @@ http:
       path: "/api/config/patch"
       methods: [PUT]
       scope: root
-    instructions_preview:
-      path: "/api/instructions/preview"
-      methods: [POST]
-      scope: root
     clipboard:
       path: "/api/clipboard"
       methods: [GET, POST]

@@ -8,9 +8,7 @@ use crate::sandbox::{build_plan, LaunchPlan};
 use anyhow::{anyhow, Context};
 
 struct StartPlan {
-    cfg: Config,
     session: SessionCfg,
-    project: ProjectCfg,
     cols: u16,
     rows: u16,
     host: bool,
@@ -117,10 +115,7 @@ impl Manager {
             session.worker_token = Some(token);
         }
 
-        let launch = match self
-            .build_start_plan(&cfg, &session, &project, &dir, host)
-            .await
-        {
+        let launch = match self.build_start_plan(&cfg, &session, &project, host).await {
             Ok(launch) => launch,
             Err(error) => {
                 if session.worker {
@@ -136,9 +131,7 @@ impl Manager {
             .unwrap_or_else(|| crate::sandbox::host_argv(&cfg, &session, &project));
 
         Ok(StartPlan {
-            cfg,
             session,
-            project,
             cols,
             rows,
             host,
@@ -153,7 +146,6 @@ impl Manager {
         cfg: &Config,
         session: &SessionCfg,
         project: &ProjectCfg,
-        dir: &str,
         host: bool,
     ) -> Result<Option<LaunchPlan>> {
         if host {
@@ -161,10 +153,6 @@ impl Manager {
         }
 
         crate::sandbox::prepare_network(cfg, session, project)?;
-        if cfg.daemon.experimental_instructions && session.slopworld_md {
-            let sessions = self.views().await;
-            crate::manifest::prepare(&std::path::PathBuf::from(dir), cfg, project, &sessions)?;
-        }
         build_plan(cfg, session, project).map(Some)
     }
 
@@ -269,8 +257,7 @@ impl Manager {
                 return Err(error.context(format!("starting session {name} reader")));
             }
         }
-        self.wire_live_state(name, &plan.cfg, &plan.session, &plan.project, plan.host)
-            .await;
+        self.wire_live_state(name).await;
         if auto_resume_pending {
             self.queue_auto_resume(name, run_id);
         }
@@ -302,36 +289,11 @@ impl Manager {
         }
     }
 
-    pub(super) async fn wire_live_state(
-        &self,
-        name: &str,
-        cfg: &Config,
-        session: &SessionCfg,
-        project: &ProjectCfg,
-        host: bool,
-    ) {
-        let discovery = if !host
-            && cfg.daemon.experimental_instructions
-            && session.slopworld_md
-            && cfg.daemon.instructions.breadcrumb_enabled
-        {
-            let discovery = crate::manifest::render_breadcrumb(
-                &cfg.daemon.instructions.breadcrumb,
-                &project.name,
-                &cfg.daemon.instructions.mount_path,
-            );
-            (!discovery.trim().is_empty()).then_some(discovery)
-        } else {
-            None
-        };
+    pub(super) async fn wire_live_state(&self, name: &str) {
         let mut live = self.live.write().await;
         if let Some(live) = live.get_mut(name) {
             live.breadcrumbs.clear();
             live.breadcrumbs_pending = false;
-            if let Some(discovery) = discovery {
-                live.breadcrumbs = breadcrumb_block(&[discovery]).into_bytes();
-                live.breadcrumbs_pending = true;
-            }
         }
     }
 }

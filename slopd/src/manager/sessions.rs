@@ -747,50 +747,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn instructions_discovery_follows_manifest_and_daemon_policy() {
-        let mut cfg = Config::default();
-        let session = SessionCfg {
-            name: "agent".into(),
-            project: "repo".into(),
-            slopworld_md: true,
-            ..Default::default()
-        };
-        let project = ProjectCfg {
-            name: "repo".into(),
-            dir: "/tmp/repo".into(),
-            ..Default::default()
-        };
-        let manager = crate::session::test_manager(cfg.clone());
-        manager.live.write().await.insert(
-            session.name.clone(),
-            Live::new(session.clone(), TitleCapture::default()),
-        );
-
-        manager
-            .wire_live_state("agent", &cfg, &session, &project, false)
-            .await;
-        assert!(!manager.live.read().await["agent"].breadcrumbs_pending);
-        cfg.daemon.experimental_instructions = true;
-
-        manager
-            .wire_live_state("agent", &cfg, &session, &project, false)
-            .await;
-        let live = manager.live.read().await;
-        assert!(live["agent"].breadcrumbs_pending);
-        assert!(String::from_utf8_lossy(&live["agent"].breadcrumbs)
-            .contains("Read `SLOPWORLD.md` for SlopWorld runtime context."));
-        drop(live);
-
-        cfg.daemon.instructions.breadcrumb_enabled = false;
-        manager
-            .wire_live_state("agent", &cfg, &session, &project, false)
-            .await;
-        let live = manager.live.read().await;
-        assert!(!live["agent"].breadcrumbs_pending);
-        assert!(live["agent"].breadcrumbs.is_empty());
-    }
-
-    #[tokio::test]
     async fn state_classification_prefers_rules_then_activity_age() {
         let manager = crate::session::test_manager(Config::default());
         *manager.rules.write().await = vec![(

@@ -165,19 +165,6 @@ pub(crate) struct ProjectPreviewReq {
 }
 
 #[derive(Deserialize)]
-pub(crate) struct InstructionsPreviewReq {
-    #[serde(default)]
-    pub(crate) project: String,
-    pub(crate) template: String,
-    // None means the caller did not provide a draft. Some("") is an intentional empty
-    // draft and must not fall back to the saved daemon value.
-    #[serde(default)]
-    pub(crate) breadcrumb: Option<String>,
-    #[serde(default)]
-    pub(crate) mount_path: String,
-}
-
-#[derive(Deserialize)]
 pub(crate) struct ClipReq {
     #[serde(default)]
     pub(crate) text: String,

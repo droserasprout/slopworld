@@ -217,8 +217,6 @@ namespace SlopWorld
                 _ => ModOptions.OpenCategory(ModOptions.CategoryFor(ModOptions.PageId.Usage))),
             new CommandDef("view.summaries", "Settings: Agents - Summaries", "Settings",
                 _ => ModOptions.OpenCategory(ModOptions.CategoryFor(ModOptions.PageId.Summaries))),
-            new CommandDef("view.instructions", "Settings: Agents - Instructions", "Settings",
-                _ => ModOptions.OpenCategory(ModOptions.CategoryFor(ModOptions.PageId.Instructions))),
             new CommandDef("view.workers", "Settings: Agents - Workers", "Settings",
                 _ => ModOptions.OpenCategory(ModOptions.CategoryFor(ModOptions.PageId.Workers))),
             new CommandDef("view.sandbox", "Settings: Sandbox", "Settings",

@@ -50,10 +50,7 @@ daemon host without private agent state. Their `host` flag selects path scope: f
 the path against the named project; true accepts an absolute host path. Project actions retain
 the project's working directory.
 
-`POST /api/instructions/preview` accepts `{ "project": "...", "template": "...",
-"mount_path": "...", "breadcrumb": "..." }` and returns rendered `text` and `breadcrumb`;
-it does not save settings. Omitting `breadcrumb` uses its saved template; sending an empty
-string previews an empty breadcrumb. `GET /api/config` returns effective `values` plus response-only
+`GET /api/config` returns effective `values` plus response-only
 `metadata` containing factory defaults, usage catalog entries, temporary-root policy and
 terminal limits. Clients use that metadata for settings and retain independent allocation
 limits. Missing factory metadata disables reset controls instead of inventing defaults.

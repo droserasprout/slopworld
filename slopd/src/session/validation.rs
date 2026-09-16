@@ -66,28 +66,6 @@ pub(super) fn check_presets(names: &[String]) -> Result<()> {
     Ok(())
 }
 
-pub(super) fn breadcrumb_block(crumbs: &[String]) -> String {
-    let mut out = String::new();
-    let mut in_list = false;
-    for crumb in crumbs {
-        let crumb = crumb.trim();
-        if crumb.is_empty() {
-            continue;
-        }
-        if crumb.contains('\n') {
-            out.push_str("\n\n");
-            out.push_str(crumb);
-            in_list = false;
-        } else {
-            out.push_str(if in_list { "\n" } else { "\n\n" });
-            out.push_str("- ");
-            out.push_str(crumb);
-            in_list = true;
-        }
-    }
-    out
-}
-
 pub(crate) fn check_library_item(cfg: &Config, sc: &LibraryItemCfg) -> Result<()> {
     if sc.name.trim().is_empty() {
         bail!("library item name must not be empty");
@@ -243,7 +221,6 @@ pub(crate) fn validate_config(cfg: &Config) -> Result<()> {
         .bind
         .parse::<std::net::SocketAddr>()
         .with_context(|| format!("bad bind address {:?}", cfg.daemon.bind))?;
-    cfg.daemon.instructions.validate()?;
     let table = crate::presets::table();
     for (field, name) in [
         ("agent", &cfg.defaults.agent),

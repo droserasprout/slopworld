@@ -78,7 +78,6 @@ pub(crate) fn router(m: Mgr) -> Router {
         .route(routes::CONFIG, get(get_config))
         .route(routes::CONFIG, put(put_config))
         .route(routes::CONFIG_PATCH, put(put_config_patch))
-        .route(routes::INSTRUCTIONS_PREVIEW, post(instructions_preview))
         .route(routes::CLIPBOARD, get(clip_read).post(clip_write))
         .route(routes::CLIPBOARD_TEXT, get(clip_read_text))
         .route(

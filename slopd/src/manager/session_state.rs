@@ -66,7 +66,6 @@ impl Manager {
                     command_preset: cfg.command_name(&l.cfg),
                     cmd: l.cfg.cmd.clone(),
                     sandbox: l.cfg.sandbox.clone(),
-                    slopworld_md: l.cfg.slopworld_md,
                     persistent_tmp: l.cfg.persistent_tmp,
                     auto_resume_pending: l.auto_resume_pending,
                     agent: cfg.command_of(&l.cfg),

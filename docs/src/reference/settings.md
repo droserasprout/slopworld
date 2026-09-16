@@ -9,13 +9,8 @@ audio, RimWorld options, and credits. The [agent configuration guide](../guides/
 [sandbox guide](../guides/configuring-sandboxes.md), and
 [integration reference](integrations.md) describe the fields managed by those groups.
 
-**General > Experimental** controls generated SLOPWORLD.md instructions. The switch defaults
-off and takes effect when you press **Save**; disabling it prevents new manifest mounts.
-Restart running agents to remove existing mounts. The daemon enforces it through
-`[daemon] experimental_instructions = true`. Library breadcrumbs remain available for manual
-terminal-context-menu insertion and are not gated by this switch.
-Worker bootstrap settings are under **Settings > Integrations > Workers**. The editor
-does not gate worker creation; spawned workers always receive the saved bootstrap prompt.
+Worker bootstrap settings are under **Settings > Integrations > Workers**. Spawned workers
+always receive the saved bootstrap prompt.
 
 ## Configuration file
 

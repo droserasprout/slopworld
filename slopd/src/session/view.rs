@@ -16,7 +16,6 @@ pub struct SessionView {
     pub command_preset: String,
     pub cmd: Option<String>,
     pub sandbox: Vec<String>,
-    pub slopworld_md: bool,
     pub persistent_tmp: bool,
     // Startup auto-resume is waiting or queued; clients must keep user input behind it.
     pub auto_resume_pending: bool,

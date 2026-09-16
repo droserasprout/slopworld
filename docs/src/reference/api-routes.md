@@ -29,7 +29,6 @@ grant-visible router; handler guards can impose a stricter access requirement.
 | `GET` | `/api/health` | `scoped` | `health` |
 | `POST` | `/api/highlight` | `root-only` | `highlight` |
 | `GET` | `/api/image` | `root-only` | `read_image` |
-| `POST` | `/api/instructions/preview` | `root-only` | `instructions_preview` |
 | `GET` | `/api/jukebox` | `root-only` | `jukebox` |
 | `GET` | `/api/library` | `root-only` | `list_library` |
 | `POST` | `/api/library` | `root-only` | `create_library_item` |

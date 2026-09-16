@@ -13,16 +13,8 @@ the caller owns the child in the sidebar, while `PARENT` supplies the configurat
 Keep transport, grants, and policy out of the prompt. Project instruction files do not
 own this capability because it belongs to a live SlopWorld session.
 
-The optional `slopworld_md` agent setting mounts the generated project-root `SLOPWORLD.md`
-and, when daemon instruction policy allows it, adds the configured discovery breadcrumb. Its
-default text points at the configured manifest mount path. The file can summarize the current
-project workspace, configured collaborators, and the `slopctl` entry
-points; it is a generated runtime snapshot, not a replacement for this task-discovery message
-or for project instructions.
-
-The startup breadcrumb cannot wake an agent for a task arriving later. No task-arrival
-notification exists, so the body remains in the mailbox until the recipient checks it.
-Do not inject a task into a running TUI or submit it blindly.
+The task body remains in the mailbox until the recipient checks it; no task-arrival notification
+wakes a running agent. Do not inject a task into a running TUI or submit it blindly.
 
 `slopctl peers` and `slopctl status` let a caller find valid recipients and check identity,
 reachability, and pending count.

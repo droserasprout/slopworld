@@ -21,9 +21,6 @@ namespace SlopWorld
         public string Cmd = "";
         // Sandbox presets selected by this agent, in addition to its command dependencies.
         public List<string> Sandbox = new List<string>();
-        // Opts into the generated runtime context; its mount path and global discovery text are
-        // controlled by the daemon's Instructions settings.
-        public bool SlopworldMd;
         // Replaces the sandbox's per-run /tmp tmpfs with a private copy kept in this agent's
         // durable state directory.
         public bool PersistentTmp;
@@ -116,7 +113,6 @@ namespace SlopWorld
             $"\"command\":{JVal.Q(Command)}," +
             $"\"cmd\":{(string.IsNullOrEmpty((Cmd ?? "").Trim()) ? "null" : JVal.Q(Cmd))}," +
             $"\"sandbox\":[{string.Join(",", Sandbox.Select(JVal.Q).ToArray())}]," +
-            $"\"slopworld_md\":{JVal.B(SlopworldMd)}," +
             $"\"persistent_tmp\":{JVal.B(PersistentTmp)}," +
             $"\"label\":{(string.IsNullOrEmpty((Label ?? "").Trim()) ? "null" : JVal.Q(Label))}," +
             $"\"network\":{JVal.Q(NetworkModeText.Name(Network))}," +

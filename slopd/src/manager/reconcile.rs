@@ -4,8 +4,8 @@ use super::super::*;
 use super::session_lifecycle::{finish_reader, DetachCause, ReaderDisposition};
 
 /// Keeps the ordering of durable configuration reconciliation in one named owner. The manager
-/// remains the public façade because callers must not be able to skip pruning, manifest updates,
-/// or autostart ordering.
+/// remains the public façade because callers must not be able to skip pruning or autostart
+/// ordering.
 pub(super) struct ConfigReconciler;
 
 impl ConfigReconciler {
@@ -15,7 +15,6 @@ impl ConfigReconciler {
 
         manager.upsert_sessions(&cfg).await;
         manager.upsert_host_terminals(&cfg).await;
-        manager.sync_manifests(&cfg).await;
         let titles_changed = manager.reconcile_title_settings(&cfg).await;
         manager.autostart(&cfg).await;
         manager.autostart_host_terminals(&cfg).await;
@@ -28,36 +27,6 @@ impl ConfigReconciler {
 }
 
 impl Manager {
-    /// Keep generated project manifests in step with durable configuration before starting new
-    /// panes. This is deliberately part of reconciliation, not generic manager state.
-    pub(super) async fn sync_manifests(&self, cfg: &Config) {
-        let views = self.views().await;
-        for project in &cfg.projects {
-            let dir = crate::config::expand(&project.dir);
-            let path = std::path::Path::new(&dir);
-            if !path.is_dir() {
-                continue;
-            }
-            let enabled = cfg.daemon.experimental_instructions
-                && cfg
-                    .sessions
-                    .iter()
-                    .any(|session| session.project == project.name && session.slopworld_md);
-            let result = if enabled {
-                crate::manifest::prepare(path, cfg, project, &views).map(|_| ())
-            } else {
-                crate::manifest::remove(path)
-            };
-            if let Err(error) = result {
-                tracing::warn!(
-                    project = %project.name,
-                    error = %error,
-                    "could not synchronize generated SLOPWORLD.md"
-                );
-            }
-        }
-    }
-
     pub(super) async fn prune_removed(self: &Arc<Self>, cfg: &Config) {
         let mut plans = {
             let mut live = self.live.write().await;

@@ -105,8 +105,6 @@ pub(crate) struct AgentTemplateDefaults {
     #[serde(default)]
     pub(crate) sandbox_presets: Vec<SandboxPreset>,
     #[serde(default)]
-    pub(crate) slopworld_md: Option<bool>,
-    #[serde(default)]
     pub(crate) persistent_tmp: Option<bool>,
     #[serde(default)]
     pub(crate) network: Option<NetworkMode>,
@@ -410,7 +408,6 @@ impl AgentTemplate {
                 cmd: source.cmd.clone(),
                 sandbox,
                 sandbox_presets,
-                slopworld_md: Some(source.slopworld_md),
                 persistent_tmp: Some(source.persistent_tmp),
                 network: Some(source.network),
                 dns: Some(source.dns.clone()),
@@ -438,7 +435,6 @@ impl AgentTemplate {
             command_snapshot: defaults.command.clone(),
             sandbox: defaults.sandbox.clone(),
             sandbox_snapshots: defaults.sandbox_presets.clone(),
-            slopworld_md: defaults.slopworld_md.unwrap_or(baseline.slopworld_md),
             persistent_tmp: defaults.persistent_tmp.unwrap_or(baseline.persistent_tmp),
             network: defaults.network.unwrap_or(baseline.network),
             dns: defaults.dns.clone().unwrap_or(baseline.dns),
@@ -458,7 +454,6 @@ impl AgentTemplate {
         session.command = overrides.command.clone();
         session.cmd = overrides.cmd.clone();
         session.sandbox = overrides.sandbox.clone();
-        session.slopworld_md = overrides.slopworld_md;
         session.persistent_tmp = overrides.persistent_tmp;
         session.network = overrides.network;
         session.dns = overrides.dns.clone();
@@ -577,7 +572,6 @@ mod tests {
                 cmd: None,
                 sandbox: vec![],
                 sandbox_presets: vec![],
-                slopworld_md: Some(false),
                 persistent_tmp: Some(false),
                 network: Some(NetworkMode::Private),
                 dns: Some(DnsConfig::Resolved),

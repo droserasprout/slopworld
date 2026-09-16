@@ -269,10 +269,9 @@ pub fn expand(path: &str) -> String {
 mod tests {
     use super::{
         expand, redact_token_text, resolvers_from, temp_dir, Config, DnsConfig, FileActionMode,
-        HostTerminalCfg, InstructionsCfg, LibraryItemCfg, LibraryItemKind, LibraryItemLink, Limits,
-        NetworkMode, ProjectCfg, SessionCfg, TitlePolicy, DEFAULT_INSTRUCTIONS_BREADCRUMB,
-        DEFAULT_INSTRUCTIONS_MOUNT_PATH, DEFAULT_INSTRUCTIONS_TEMPLATE, DEFAULT_SUMMARY_PROMPT,
-        DEFAULT_WORKER_PROMPT, TOKEN_REDACTED,
+        HostTerminalCfg, LibraryItemCfg, LibraryItemKind, LibraryItemLink, Limits, NetworkMode,
+        ProjectCfg, SessionCfg, TitlePolicy, DEFAULT_SUMMARY_PROMPT, DEFAULT_WORKER_PROMPT,
+        TOKEN_REDACTED,
     };
 
     #[test]
@@ -391,38 +390,13 @@ mod tests {
     }
 
     #[test]
-    fn instructions_defaults_and_mount_path_validation() {
+    fn worker_prompt_defaults() {
         let instructions = &Config::default().daemon.instructions;
-        assert_eq!(instructions.template, DEFAULT_INSTRUCTIONS_TEMPLATE);
-        assert_eq!(instructions.mount_path, DEFAULT_INSTRUCTIONS_MOUNT_PATH);
-        assert_eq!(instructions.breadcrumb, DEFAULT_INSTRUCTIONS_BREADCRUMB);
-        assert!(instructions.breadcrumb_enabled);
         assert_eq!(instructions.worker_prompt, DEFAULT_WORKER_PROMPT);
         assert_eq!(
             Config::default().daemon.summary_prompt,
             DEFAULT_SUMMARY_PROMPT
         );
-
-        for mount_path in [
-            "",
-            " ",
-            "/tmp/SLOPWORLD.md",
-            "../SLOPWORLD.md",
-            "docs/../SLOPWORLD.md",
-            "docs/",
-        ] {
-            let instructions = InstructionsCfg {
-                mount_path: mount_path.into(),
-                ..Default::default()
-            };
-            assert!(instructions.validate().is_err(), "accepted {mount_path:?}");
-        }
-        assert!(InstructionsCfg {
-            mount_path: "docs/SLOPWORLD.md".into(),
-            ..Default::default()
-        }
-        .validate()
-        .is_ok());
     }
 
     /// What a client sees never carries the secret, and a token that is not set still reads as
@@ -776,15 +750,6 @@ token = \"not-a-daemon-token\"
     }
 
     #[test]
-    fn instruction_experimental_flag_defaults_off_and_round_trips() {
-        let mut cfg = Config::parse("[daemon]\nbind = '127.0.0.1:7777'\n").unwrap();
-        assert!(!cfg.daemon.experimental_instructions);
-        cfg.daemon.experimental_instructions = true;
-        let restored = Config::parse(&toml::to_string(&cfg).unwrap()).unwrap();
-        assert!(restored.daemon.experimental_instructions);
-    }
-
-    #[test]
     fn auto_resume_is_an_opt_in_session_setting() {
         let old: SessionCfg = toml::from_str("name = 'Ada'").unwrap();
         assert!(!old.auto_resume);
@@ -796,21 +761,6 @@ token = \"not-a-daemon-token\"
         let text = toml::to_string(&enabled).unwrap();
         assert!(text.contains("auto_resume = true"));
         assert!(toml::from_str::<SessionCfg>(&text).unwrap().auto_resume);
-    }
-
-    #[test]
-    fn slopworld_manifest_is_an_opt_in_session_setting() {
-        let old: SessionCfg = toml::from_str("name = 'Ada'").unwrap();
-        assert!(!old.slopworld_md);
-        assert!(!toml::to_string(&old).unwrap().contains("slopworld_md"));
-
-        let enabled = SessionCfg {
-            slopworld_md: true,
-            ..Default::default()
-        };
-        let text = toml::to_string(&enabled).unwrap();
-        assert!(text.contains("slopworld_md = true"));
-        assert!(toml::from_str::<SessionCfg>(&text).unwrap().slopworld_md);
     }
 
     #[test]

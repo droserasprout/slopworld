@@ -110,7 +110,6 @@ pub(crate) mod routes {
     pub(crate) const PRESET_COPY: &str = "/api/presets/:kind/:name/copy";
     pub(crate) const CONFIG: &str = "/api/config";
     pub(crate) const CONFIG_PATCH: &str = "/api/config/patch";
-    pub(crate) const INSTRUCTIONS_PREVIEW: &str = "/api/instructions/preview";
     pub(crate) const CLIPBOARD: &str = "/api/clipboard";
     pub(crate) const CLIPBOARD_TEXT: &str = "/api/clipboard/text";
     pub(crate) const CLIPBOARD_PRIMARY: &str = "/api/clipboard/primary";

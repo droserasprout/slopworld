@@ -38,17 +38,8 @@ and the model. Host terminal titles come from the terminal application unless a 
 from the host terminal's context menu.
 The OpenRouter key path is configured on the Credentials page.
 
-## Instructions
-
-Settings > Integrations > Instructions edits the generated `SLOPWORLD.md` template,
-previews its rendered Markdown, edits the first-prompt discovery breadcrumb, chooses its
-read-only sandbox mount path, and enables or disables discovery. The body and breadcrumb
-each have an independent **Reset to default** action. The per-agent `slopworld_md` option
-remains the opt-in that mounts the document; the daemon's discovery policy controls the
-generated discovery line for those agents.
-
 Settings > Integrations > Workers edits the bootstrap prompt used by `slopctl spawn`.
-See [Settings](settings.md) for its experimental-switch behavior.
+The prompt is independent of agent creation and can refer to `$SLOPWORLD_TASK_ID`.
 
 ## Library items and errands
 

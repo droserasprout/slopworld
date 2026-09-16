@@ -143,29 +143,12 @@ impl Config {
             selections.push(format!("{name} — {} — {status}", owners.join(" + ")));
         }
         field("Sandbox contributions", selections);
-        if self.daemon.experimental_instructions
-            && s.slopworld_md
-            && self.daemon.instructions.breadcrumb_enabled
-        {
-            field(
-                "Instructions discovery",
-                vec![crate::manifest::render_breadcrumb(
-                    &self.daemon.instructions.breadcrumb,
-                    &p.name,
-                    &self.daemon.instructions.mount_path,
-                )],
-            );
-        }
         field(
             "Startup and session behavior",
             vec![
                 format!("Start with daemon: {}", s.autostart),
                 format!("Auto-resume: {}", s.auto_resume),
                 format!("Persistent /tmp: {}", s.persistent_tmp),
-                format!(
-                    "Mount SLOPWORLD.md: {} (requires daemon instructions enabled)",
-                    s.slopworld_md
-                ),
                 "Library breadcrumbs are inserted manually from the terminal context menu".into(),
             ],
         );

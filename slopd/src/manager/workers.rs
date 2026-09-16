@@ -250,7 +250,6 @@ mod tests {
             command_snapshot: None,
             sandbox: vec!["codex".into(), "gpu".into()],
             sandbox_snapshots: Vec::new(),
-            slopworld_md: true,
             persistent_tmp: true,
             network: NetworkMode::Private,
             dns: DnsConfig::Resolved,
@@ -279,7 +278,6 @@ mod tests {
         assert_eq!(child.command, parent.command);
         assert_eq!(child.cmd, parent.cmd);
         assert_eq!(child.sandbox, ["codex", "gpu", WORKER_SANDBOX]);
-        assert_eq!(child.slopworld_md, parent.slopworld_md);
         assert_eq!(child.persistent_tmp, parent.persistent_tmp);
         assert_eq!(child.network, parent.network);
         assert_eq!(child.dns, parent.dns);
