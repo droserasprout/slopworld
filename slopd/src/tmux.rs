@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 use std::process::Stdio;
+#[cfg(test)]
+use std::sync::{Arc, Mutex};
 
 use anyhow::{bail, Context, Result};
 use tokio::process::{Child, Command};
@@ -16,10 +18,20 @@ const WORKER_TASK: &str = "@slopworld_worker_task";
 const WORKER_DURABLE: &str = "@slopworld_worker_durable";
 const WORKER_STATE: &str = "@slopworld_worker_state";
 
+#[cfg(test)]
+#[derive(Default)]
+struct RenameTestControls {
+    calls: usize,
+    fail_call: usize,
+    pause: Option<(Arc<tokio::sync::Notify>, Arc<tokio::sync::Notify>)>,
+}
+
 /// Pinned to a private server socket, so it never collides with the user's tmux.
 #[derive(Clone)]
 pub struct Tmux {
     socket: String,
+    #[cfg(test)]
+    rename_test: Arc<Mutex<RenameTestControls>>,
 }
 
 #[derive(Debug, Clone)]
@@ -55,6 +67,8 @@ impl Tmux {
     pub fn new(socket: impl Into<String>) -> Self {
         Self {
             socket: socket.into(),
+            #[cfg(test)]
+            rename_test: Arc::default(),
         }
     }
 
@@ -76,10 +90,16 @@ impl Tmux {
 
     /// tmux exits non-zero when the server isn't running yet, which is not an error.
     pub async fn list(&self) -> Vec<String> {
-        match self.run(&["list-sessions", "-F", "#{session_name}"]).await {
-            Ok(s) => s.lines().map(str::to_string).collect(),
-            Err(_) => Vec::new(),
-        }
+        self.list_checked().await.unwrap_or_default()
+    }
+
+    pub(crate) async fn list_checked(&self) -> Result<Vec<String>> {
+        Ok(self
+            .run(&["list-sessions", "-F", "#{session_name}"])
+            .await?
+            .lines()
+            .map(str::to_string)
+            .collect())
     }
 
     pub async fn exists(&self, name: &str) -> bool {
@@ -402,8 +422,40 @@ impl Tmux {
     }
 
     pub async fn rename(&self, old: &str, new: &str) -> Result<()> {
+        #[cfg(test)]
+        {
+            let mut controls = self.rename_test.lock().unwrap();
+            controls.calls += 1;
+            let call = controls.calls;
+            if controls.fail_call == call {
+                bail!("injected tmux rename failure on call {call}");
+            }
+        }
         self.run(&["rename-session", "-t", old, new]).await?;
+        #[cfg(test)]
+        {
+            let pause = self.rename_test.lock().unwrap().pause.take();
+            if let Some((started, release)) = pause {
+                started.notify_one();
+                release.notified().await;
+            }
+        }
         Ok(())
+    }
+
+    #[cfg(test)]
+    pub(crate) fn fail_rename_call_for_test(&self, call: usize) {
+        self.rename_test.lock().unwrap().fail_call = call;
+    }
+
+    #[cfg(test)]
+    pub(crate) fn pause_after_rename_for_test(
+        &self,
+    ) -> (Arc<tokio::sync::Notify>, Arc<tokio::sync::Notify>) {
+        let started = Arc::new(tokio::sync::Notify::new());
+        let release = Arc::new(tokio::sync::Notify::new());
+        self.rename_test.lock().unwrap().pause = Some((started.clone(), release.clone()));
+        (started, release)
     }
 
     /// `-e` keeps SGR escapes. The scrollback above the visible pane is the only way history

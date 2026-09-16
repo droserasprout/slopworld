@@ -15,6 +15,14 @@ struct ConfigChange {
     root_token_changed: bool,
 }
 
+pub(super) struct PreparedConfigChange {
+    change: ConfigChange,
+    // Keep the serialization gate until the caller either commits or abandons this prepared
+    // change. Session renames hold it across the tmux rename so the candidate cannot go stale
+    // before persistence.
+    _persist: tokio::sync::OwnedMutexGuard<()>,
+}
+
 struct ConfigEffects {
     endpoint_token: String,
     reconcile: bool,
@@ -265,15 +273,38 @@ impl Manager {
         &self,
         update: impl FnOnce(&mut Config) -> Result<(T, bool)>,
     ) -> Result<T> {
-        let persist = self.config_state.persist.lock().await;
+        let (result, change) = self.prepare_cfg_change(update).await?;
+        let Some(change) = change else {
+            return Ok(result);
+        };
+        self.commit_prepared_cfg(change).await?;
+        Ok(result)
+    }
+
+    pub(super) async fn prepare_cfg_change<T>(
+        &self,
+        update: impl FnOnce(&mut Config) -> Result<(T, bool)>,
+    ) -> Result<(T, Option<PreparedConfigChange>)> {
+        let persist = self.config_state.persist.clone().lock_owned().await;
         let old = self.cfg.read().await.clone();
         let mut candidate = old.clone();
         let (result, changed) = update(&mut candidate)?;
         if !changed {
-            return Ok(result);
+            return Ok((result, None));
         }
 
         let change = prepare_candidate(&old, candidate)?;
+        Ok((
+            result,
+            Some(PreparedConfigChange {
+                change,
+                _persist: persist,
+            }),
+        ))
+    }
+
+    pub(super) async fn commit_prepared_cfg(&self, prepared: PreparedConfigChange) -> Result<()> {
+        let PreparedConfigChange { change, _persist } = prepared;
         self.persist_cfg(&change.new).await?;
         let effects = self
             .publish_config(change, ConfigOrigin::StructuredMutation)
@@ -282,9 +313,9 @@ impl Manager {
         // token changes finish out of order after releasing `persist`, the mod can be handed a
         // token that no longer matches the published config.
         self.update_endpoint(&effects.endpoint_token).await;
-        drop(persist);
+        drop(_persist);
         debug_assert!(!effects.reconcile);
-        Ok(result)
+        Ok(())
     }
 
     pub async fn reload_if_changed(self: &Arc<Self>) -> bool {

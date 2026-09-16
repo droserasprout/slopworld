@@ -95,6 +95,11 @@ impl Manager {
 
 #[cfg(test)]
 pub(crate) fn test_manager(config: Config) -> Arc<Manager> {
+    test_manager_with_socket(config, "slopworld-unit-test")
+}
+
+#[cfg(test)]
+pub(crate) fn test_manager_with_socket(config: Config, socket: impl Into<String>) -> Arc<Manager> {
     let directory = std::env::temp_dir().join(format!(
         "slopd-manager-test-{}-{}",
         std::process::id(),
@@ -106,7 +111,7 @@ pub(crate) fn test_manager(config: Config) -> Arc<Manager> {
     let (events, _) = broadcast::channel(16);
     let (auth_changes, _) = broadcast::channel(16);
     Arc::new(Manager {
-        tmux: Tmux::new("slopworld-unit-test"),
+        tmux: Tmux::new(socket),
         cfg_path: cfg_path.clone(),
         endpoint_path: cfg_path.with_extension("endpoint.toml"),
         cfg: RwLock::new(config),

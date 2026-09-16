@@ -1,7 +1,7 @@
 //! State used to serialize configuration persistence and observe external changes.
 
 use std::sync::atomic::AtomicU64;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use std::time::SystemTime;
 
 /// Configuration I/O bookkeeping has a different lifetime from the live session table.
@@ -10,7 +10,7 @@ use std::time::SystemTime;
 /// stamps are separate because config, presets, and jukebox have independent reload deadlines.
 pub(crate) struct ConfigState {
     pub(crate) cfg_mtime: Mutex<Option<SystemTime>>,
-    pub(crate) persist: tokio::sync::Mutex<()>,
+    pub(crate) persist: Arc<tokio::sync::Mutex<()>>,
     pub(crate) presets_mtime: Mutex<Option<SystemTime>>,
     pub(crate) jukebox_mtime: Mutex<Option<SystemTime>>,
     pub(crate) config_checked: AtomicU64,
@@ -26,7 +26,7 @@ impl ConfigState {
     ) -> Self {
         Self {
             cfg_mtime: Mutex::new(cfg_mtime),
-            persist: tokio::sync::Mutex::new(()),
+            persist: Arc::new(tokio::sync::Mutex::new(())),
             presets_mtime: Mutex::new(presets_mtime),
             jukebox_mtime: Mutex::new(jukebox_mtime),
             config_checked: AtomicU64::new(0),

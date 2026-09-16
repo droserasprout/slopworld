@@ -27,9 +27,9 @@ pub(crate) use agent_templates::{
     validate_definition as validate_template_definition, AgentTemplate, AgentTemplateError,
     AgentTemplateStore,
 };
-#[cfg(test)]
-pub(crate) use ctrl::test_manager;
 pub(super) use ctrl::CachedScroll;
+#[cfg(test)]
+pub(crate) use ctrl::{test_manager, test_manager_with_socket};
 pub use ctrl::{ClientGuard, Manager, WatchGuard};
 pub(crate) use view::FrameViewArgs;
 pub use view::{ScreenView, SessionView};
