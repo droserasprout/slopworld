@@ -217,9 +217,8 @@ namespace SlopWorld
                 "}", null, UiLayout.Fail);
         }
 
-        // File actions can come from any sidebar tree. Project paths run in that project's
-        // sandbox; a focused private-state path has no project and uses a disposable host
-        // errand, like its viewer and editor.
+        // File actions run on the host. The project still scopes selected paths and supplies
+        // the working directory; private-state paths have no project.
         public static void AddFileActions(List<FloatMenuOption> opts, string project, string path,
             string name, string relative = null)
         {
@@ -407,9 +406,8 @@ namespace SlopWorld
             () => Messages.Message($"SlopWorld: copied {text}", MessageTypeDefOf.SilentInput,
                 false), UiLayout.Fail);
 
-        // A temporary agent running one command in the project's own sandbox, which is what
-        // makes `micro` see the file the way the agents working on it do. Untracked, unlike
-        // the viewer below: an editor is opened and left alone.
+        // Run an independent host command in the project directory. Editors are opened
+        // and left alone rather than sharing the viewer's preview lifetime.
         static void Errand(Node node, string cmd, string label)
         {
             // The project this hangs off may have been renamed or deleted since the listing
@@ -423,7 +421,7 @@ namespace SlopWorld
 
             SessionHub.Instance.SessionStore.Run(node.Project, cmd + " " + Pager.Quote(node.Path),
                 label + "-" + node.Name,
-                session => TerminalWindow.Open(session), UiLayout.Fail);
+                session => TerminalWindow.Open(session), UiLayout.Fail, host: true);
         }
 
         // ------------------------------------------------------------------ viewer
@@ -563,7 +561,7 @@ namespace SlopWorld
                 return;
             }
             SessionHub.Instance.SessionStore.Run(project, Pager.EditorCommand(path, line), label,
-                session => TerminalWindow.Open(session), UiLayout.Fail);
+                session => TerminalWindow.Open(session), UiLayout.Fail, host: true);
         }
 
         public static string ViewerPath(string session) => Viewers.FilePath(session);

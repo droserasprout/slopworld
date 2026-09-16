@@ -9,7 +9,7 @@ not overwrite newer paths/statuses or discard expansion. Failure leaves the stat
 Capped status gives lower-bound counts and skips numstat. Nested repositories are separate
 working trees, not recursively dirty contents of the parent.
 
-Diffs run through the project's sandbox so they see the editing agent's tree. Untracked
+Diffs run on the daemon host in the project's working directory, without private agent state. Untracked
 files need individual no-index diffs against `/dev/null`; a repository diff omits them.
 Git/delta/less paging flags must keep short output open and preserve alternate-screen wheel
 routing. `PagerCommands` owns quoting and command shape.

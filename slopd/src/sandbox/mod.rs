@@ -126,9 +126,9 @@ pub(crate) fn build_plan(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result
     })
 }
 
-/// Compatibility façade for callers and tests that need the exact execution argv. Startup uses
-/// `build_plan` directly so it can lower once, save the sanitized view, and log that same plan.
-pub fn build_argv(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result<Vec<String>> {
+/// Tests inspect the lowered argv; production startup saves and executes the same launch plan.
+#[cfg(test)]
+fn build_argv(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result<Vec<String>> {
     build_plan(cfg, s, p).map(|plan| plan.lower())
 }
 

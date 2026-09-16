@@ -103,7 +103,7 @@ impl Manager {
 
         let forget_live = match &cause {
             DetachCause::Stop | DetachCause::ProcessExit { .. } => {
-                current.ephemeral && !current.host
+                current.ephemeral && !current.persistent_host
             }
             DetachCause::ConfigRemoval | DetachCause::Forget => true,
         };
@@ -246,6 +246,24 @@ impl Manager {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn stopping_host_viewers_forgets_them_but_keeps_saved_shells() {
+        let manager = crate::session::test_manager(Config::default());
+        for persistent in [false, true] {
+            let mut live = HashMap::new();
+            let mut row = Live::new(SessionCfg::default(), TitleCapture::default());
+            row.ephemeral = true;
+            row.host = true;
+            row.persistent_host = persistent;
+            live.insert("host".into(), row);
+            let plan = manager
+                .detach_live_locked(&mut live, "host", DetachCause::Stop)
+                .unwrap();
+            assert_eq!(live.contains_key("host"), persistent);
+            assert!(!plan.remove_ephemeral_state);
+        }
+    }
 
     #[test]
     fn config_removal_does_not_delete_durable_private_state() {

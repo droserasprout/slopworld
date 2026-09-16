@@ -67,6 +67,7 @@ impl Manager {
                         .map(|metadata| !metadata.durable)
                         .unwrap_or(true);
                     l.host = host;
+                    l.persistent_host = host && saved_host.is_some();
                     l.host_path = host_path.clone();
                     l.state = State::Working;
                     l.last_change = now;
@@ -94,6 +95,7 @@ impl Manager {
                         l.cfg = session;
                         l.ephemeral = !metadata.durable;
                         l.host = false;
+                        l.persistent_host = false;
                         l.host_path.clear();
                     }
                     if host && l.host {
@@ -128,32 +130,8 @@ impl Manager {
             }
             if host {
                 let current_path = self.tmux.current_path(&name).await;
-                if saved_host.is_none() {
-                    let project = self
-                        .live
-                        .read()
-                        .await
-                        .get(&name)
-                        .filter(|l| l.host)
-                        .map(|l| l.cfg.project.clone())
-                        .unwrap_or_default();
-                    let path = current_path
-                        .clone()
-                        .filter(|path| !path.trim().is_empty())
-                        .or_else(|| (!host_path.trim().is_empty()).then_some(host_path.clone()))
-                        .unwrap_or_default();
-                    // A nameless host shell is still a runtime-only errand. Project shells
-                    // are the durable sidebar tabs; only those can restore grouping on reboot.
-                    if !project.trim().is_empty() {
-                        if let Err(error) =
-                            self.remember_host_terminal(&name, &project, &path).await
-                        {
-                            tracing::warn!(
-                                "could not save adopted host terminal {name}: {error:#}"
-                            );
-                        }
-                    }
-                }
+                // Only the saved catalog owns durable host tabs. Adopting a viewer must
+                // not turn its project association into persistence.
                 if let Some(path) = current_path {
                     self.remember_host_path(&name, &path).await;
                 }

@@ -69,7 +69,7 @@ impl Manager {
                             .host_terminals
                             .iter()
                             .any(|tab| tab.name == (*name).as_str());
-                    !((l.ephemeral && (!l.host || saved_host))
+                    !((l.ephemeral && (!l.persistent_host || saved_host))
                         || cfg.session((*name).as_str()).is_some())
                 })
                 .map(|(name, _)| name.clone())
@@ -150,6 +150,7 @@ impl Manager {
                 .and_modify(|l| {
                     if l.host {
                         l.cfg = session.clone();
+                        l.persistent_host = true;
                         l.host_path = path.clone();
                     }
                 })
@@ -157,6 +158,7 @@ impl Manager {
                     let mut l = Live::new(session, title);
                     l.ephemeral = true;
                     l.host = true;
+                    l.persistent_host = true;
                     l.host_path = path;
                     l
                 });
