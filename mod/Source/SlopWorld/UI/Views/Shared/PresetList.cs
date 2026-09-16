@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace SlopWorld
 {
-    // Shared project/agent preset checkboxes use one uncategorized column; the implicit global
+    // Shared project/agent preset checkboxes group inherited and local contributions; the implicit global
     // preset is settings-only.
     public static class PresetList
     {
@@ -15,7 +15,8 @@ namespace SlopWorld
         // Drawn rather than hidden - "why is ~/.claude bound" is the question this answers.
         public static void Draw(Rect outer, List<string> chosen, SmoothScroll scroll,
                                 ICollection<string> implied = null,
-                                IEnumerable<PresetInfo> catalog = null)
+                                IEnumerable<PresetInfo> catalog = null, ICollection<string> projectPresets = null,
+                                string additionsLabel = "Added by this agent")
         {
             // The machine-wide base is implicit for every sandbox, so it is edited on the
             // Settings > Sandbox page rather than offered as a project checkbox.
@@ -46,16 +47,33 @@ namespace SlopWorld
             var choices = new List<UiChoice<PresetInfo>>();
             foreach (var pr in presets)
             {
-                bool forced = (implied != null && implied.Contains(pr.Name)) ||
-                              (required.Contains(pr.Name) && !chosen.Contains(pr.Name));
-                bool was = forced || chosen.Contains(pr.Name);
+                bool inherited = implied != null && implied.Contains(pr.Name);
+                bool dependency = required.Contains(pr.Name) && !chosen.Contains(pr.Name);
+                if (inherited || dependency)
+                {
+                    choices.Add(new UiChoice<PresetInfo>
+                    {
+                        Value = pr,
+                        Group = implied == null ? "Required by selected presets"
+                            : projectPresets != null && projectPresets.Contains(pr.Name) ? "From project"
+                            : inherited ? "From command" : "Required by selected presets",
+                        Label = pr.Source == "missing" ? pr.Name + " (missing)" : pr.Name,
+                        Tip = Tip(pr, true),
+                        On = true,
+                        Locked = true,
+                        Warn = pr.IsEscape || pr.Source == "missing",
+                    });
+                    // An explicit selection may overlap with a project contribution. Keep its
+                    // own row editable so removing it does not discard the inherited entry.
+                    if (!chosen.Contains(pr.Name)) continue;
+                }
                 choices.Add(new UiChoice<PresetInfo>
                 {
                     Value = pr,
+                    Group = implied == null ? null : chosen.Contains(pr.Name) ? additionsLabel : "Available additions",
                     Label = pr.Source == "missing" ? pr.Name + " (missing)" : pr.Name,
-                    Tip = Tip(pr, forced),
-                    On = was,
-                    Locked = forced,
+                    Tip = Tip(pr, false),
+                    On = chosen.Contains(pr.Name),
                     Warn = pr.IsEscape || pr.Source == "missing",
                     Changed = next =>
                     {
@@ -64,6 +82,8 @@ namespace SlopWorld
                     },
                 });
             }
+            choices = choices.OrderBy(c => c.Group == "From project" ? 0 : c.Group == "From command" ? 1
+                : c.Group == "Required by selected presets" ? 2 : c.Group == "Available additions" ? 4 : 3).ToList();
 
             UiChoiceList<PresetInfo>.Draw(outer, choices, scroll,
                 "No optional presets are available.");

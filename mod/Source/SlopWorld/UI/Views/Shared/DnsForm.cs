@@ -11,16 +11,17 @@ namespace SlopWorld
     {
         public static void Draw(Listing_Standard l, DnsConfig value, DnsConfig inherited,
                                 bool allowInherit, string fieldId, ref string servers,
-                                Action<DnsConfig> setValue)
+                                Action<DnsConfig> setValue, bool recipe = false)
         {
             var inheritedDns = inherited ?? DnsConfig.Resolved();
-            string inheritLabel = "Inherit project (" + inheritedDns.Label + ")";
+            string inheritLabel = recipe ? "Project default (destination project)"
+                : "Project default: " + (inherited == null ? "Choose a project" : inheritedDns.Label);
             string label = allowInherit && value == null ? inheritLabel :
-                value?.Label ?? "System resolver";
+                (allowInherit ? "Custom: " : "") + (value?.Label ?? "System resolver");
 
             var choices = new List<SelectorOption>();
             if (allowInherit)
-                choices.Add(new SelectorOption(inheritLabel, () => setValue(null)));
+                choices.Add(new SelectorOption("Reset to project default", () => setValue(null)));
             choices.Add(new SelectorOption("System resolver",
                 () => setValue(DnsConfig.Resolved())));
             choices.Add(new SelectorOption("Custom DNS servers", () =>

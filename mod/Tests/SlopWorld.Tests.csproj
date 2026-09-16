@@ -82,6 +82,7 @@
     <Compile Include="../Source/SlopWorld/UI/Views/Shared/RoutedSessionRows.cs" Link="Source/UI/Views/Shared/RoutedSessionRows.cs" />
     <Compile Include="../Source/SlopWorld/UI/Views/Shared/SidebarFilesSplit.cs" Link="Source/UI/Views/Shared/SidebarFilesSplit.cs" />
     <Compile Include="../Source/SlopWorld/UI/Terminal/TerminalRepaint.cs" Link="Source/UI/Terminal/TerminalRepaint.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Views/Shared/ResourceLimitsForm.cs" Link="Source/UI/Views/Shared/ResourceLimitsForm.cs" />
     <!-- Keep the tests independent of the game-bound mod assembly. -->
     <Compile Include="../Source/SlopWorld/Client/Daemon/Json.cs" Link="Source/Client/Daemon/Json.cs" />
     <Compile Include="../Source/SlopWorld/Client/Daemon/Toml.cs" Link="Source/Client/Daemon/Toml.cs" />

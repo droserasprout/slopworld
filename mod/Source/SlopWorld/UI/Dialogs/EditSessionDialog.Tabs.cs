@@ -14,8 +14,9 @@ namespace SlopWorld
         // new agent must have to start; the other tabs only refine it.
         void DrawGeneral(Listing_Standard l)
         {
-            if (_identity.IsNew && !EditingTemplate)
-                DrawTemplatePicker(l);
+            if (_identity.IsNew && !EditingTemplate && !string.IsNullOrEmpty(_templateName))
+                UiLayout.Note(l, "Started from: " + _templateName +
+                    ". Settings were copied once; later template changes do not update this agent.");
 
             l.Label(EditingTemplate ? "Template name" : "Name (also the colonist's name)");
             _s.Name = UiControls.Field(l, "agent.name", _s.Name);
@@ -24,6 +25,7 @@ namespace SlopWorld
             {
                 l.Label("Description");
                 _templateDraft.Description = UiControls.Area(l, 48f, "template.description", _templateDraft.Description);
+                UiLayout.Note(l, "Saved agent customizations. Copied once when creating an agent; project defaults stay inherited.");
                 l.Label("Source: " + _templateDraft.Source);
                 var origin = JVal.Parse(_templateDraft.OriginJson);
                 if (TemplateReadOnly) l.Label("Edit " + origin["file"].AsString() + " or duplicate this template.");
@@ -75,25 +77,6 @@ namespace SlopWorld
             _s.PersistentTmp = RecipeFlag(l, "persistent_tmp", "Persistent /tmp", _s.PersistentTmp, value => _s.PersistentTmp = value,
                 "Keep this agent's /tmp across restarts in its private state. Resetting private state gives it a fresh /tmp.");
 
-        }
-
-        void DrawTemplatePicker(Listing_Standard l)
-        {
-            var options = new List<SelectorOption>
-            {
-                new SelectorOption("Manual creation", () => { _templateName = null; _templateSnapshot = null; }),
-            };
-            options.AddRange(SessionHub.Instance.Templates
-                .OrderBy(t => t.Name, System.StringComparer.OrdinalIgnoreCase)
-                .Select(t => new SelectorOption(t.DisplayLabel, () => ApplyTemplate(t))));
-
-            string label = string.IsNullOrEmpty(_templateName) ? "Manual creation" : _templateName;
-            UiControls.Select(l, "Template (optional)", label, options, out _);
-            GUI.color = UiTheme.Dim;
-            l.Label(string.IsNullOrEmpty(_templateName)
-                ? "Choose a Library template or continue with the fields below."
-                : "Template defaults are copied; the fields below remain editable overrides.");
-            GUI.color = Color.white;
         }
 
         void ApplyTemplate(AgentTemplateInfo template)
@@ -209,33 +192,31 @@ namespace SlopWorld
 
         void DrawNetworkFields(Listing_Standard l, ProjectInfo project)
         {
-            var projectNetwork = project?.Network ?? NetworkMode.Private;
-            var inheritedDns = project?.Dns ?? _s.Dns;
+            string projectDefault = EditingTemplate ? "Project default (destination project)"
+                : "Project default: " + (project == null ? "Choose a project" : NetworkModeText.ShortLabel(project.Network));
             string networkLabel = _s.NetworkOverride.HasValue
-                ? NetworkModeText.Label(_s.NetworkOverride.Value)
-                : (EditingTemplate ? "Use destination project" : "Inherit project (" + NetworkModeText.ShortLabel(projectNetwork) + ")");
-            var networkOptions = new List<SelectorOption>();
-            networkOptions.Add(new SelectorOption((EditingTemplate ? "Use destination project" : "Inherit project (" + NetworkModeText.ShortLabel(projectNetwork) + ")"),
-                    () => _s.NetworkOverride = null));
+                ? "Custom: " + NetworkModeText.ShortLabel(_s.NetworkOverride.Value) : projectDefault;
+            var networkOptions = new List<SelectorOption>
+            {
+                new SelectorOption("Reset to project default", () => _s.NetworkOverride = null),
+            };
             networkOptions.AddRange(new[] { NetworkMode.None, NetworkMode.Private, NetworkMode.Host }
-                .Select(mode => new SelectorOption(NetworkModeText.Label(mode),
+                .Select(mode => new SelectorOption("Custom: " + NetworkModeText.Label(mode),
                     () => _s.NetworkOverride = mode)));
             UiControls.Select(l, "Network", networkLabel, networkOptions, out _);
-            GUI.color = UiTheme.Dim;
-            l.Label(EditingTemplate ? "Copied to each agent created from this template."
-                : "The project sets the default; this agent can use any network mode.");
-            GUI.color = Color.white;
+            UiLayout.Note(l, EditingTemplate ? "Custom values are copied once. Project defaults come from the new agent's project."
+                : "Project changes apply on next start unless customized.");
 
             l.Gap(UiTheme.GapS);
-            DnsForm.Draw(l, _s.DnsOverride, inheritedDns, true, "agent.dns", ref _dnsServers,
-                dns => _s.DnsOverride = dns);
+            DnsForm.Draw(l, _s.DnsOverride, project?.Dns, true, "agent.dns", ref _dnsServers,
+                dns => _s.DnsOverride = dns, recipe: EditingTemplate);
         }
 
         float DrawExtraPresets(Rect rect, float y, ProjectInfo project, CommandInfo preset,
             float availableHeight)
         {
             UiLayout.SectionHeading(new Rect(rect.x, y, rect.width, UiTheme.RowH),
-                "Extra sandbox presets");
+                "Sandbox contributions");
             y += UiTheme.RowH + UiTheme.GapXS;
 
             var inheritedPresets = new List<string>();
@@ -245,7 +226,8 @@ namespace SlopWorld
             // growing the content on every layout pass.
             float height = Mathf.Max(PresetsH, rect.y + availableHeight - y - UiTheme.GapS);
             PresetList.Draw(new Rect(rect.x, y, rect.width, height), _s.Sandbox,
-                _presetScroll, inheritedPresets, _templateSnapshot?.SandboxCatalog());
+                _presetScroll, inheritedPresets, _templateSnapshot?.SandboxCatalog(), project?.Sandbox,
+                EditingTemplate ? "Added by template" : "Added by this agent");
             return y + height;
         }
 
@@ -261,12 +243,10 @@ namespace SlopWorld
                 return;
             }
 
-            GUI.color = UiTheme.Dim;
-            l.Label(EditingTemplate ? "Blank uses the destination project limit."
-                : "Blank inherits the project limit. With no project limit, no cap is configured.");
-            GUI.color = Color.white;
-
-            _s.Limits = _resourceLimits.Draw(l);
+            UiLayout.Note(l, EditingTemplate ? "Project defaults come from the new agent's project."
+                : "Project changes apply on next start unless customized.");
+            _s.Limits = _resourceLimits.Draw(l, overrides: true,
+                project: SessionHub.Instance.Project(_s.Project)?.Limits, recipe: EditingTemplate);
         }
 
         void DrawBreadcrumbs(Rect rect)
@@ -295,14 +275,15 @@ namespace SlopWorld
                     locked: !breadcrumbs);
                 y += UiTheme.RowH + UiTheme.GapXS;
             }
-            var projectBreadcrumbs = SessionHub.Instance.Project(_s.Project)?.Breadcrumbs;
+            var projectBreadcrumbs = SessionHub.Instance.Project(_s.Project)?.Breadcrumbs ?? new List<string>();
             BreadcrumbList.Draw(new Rect(rect.x, y, rect.width, Mathf.Max(0f, rect.yMax - y)),
                 _s.Breadcrumbs, _breadcrumbScroll, projectBreadcrumbs,
                 EditingTemplate ? null : config.InstructionsBreadcrumb,
                 _s.InstructionsBreadcrumb,
                 onInstructionsChanged: on => _s.InstructionsBreadcrumb = on,
                 instructionsLocked: !breadcrumbs || !instructions,
-                breadcrumbsLocked: !breadcrumbs, catalog: _templateSnapshot?.BreadcrumbCatalog());
+                breadcrumbsLocked: !breadcrumbs, catalog: _templateSnapshot?.BreadcrumbCatalog(),
+                additionsLabel: EditingTemplate ? "Added by template" : "Added by this agent");
         }
 
         // The three states this pair of fields can be in: a command preset, a command line
@@ -311,7 +292,7 @@ namespace SlopWorld
         {
             if (preset != null) return preset.Name;
             if (!string.IsNullOrEmpty(_s.Command)) return _s.Command + " (unknown here)";
-            return string.IsNullOrEmpty((_s.Cmd ?? "").Trim()) ? "Default" : "Command line";
+            return string.IsNullOrEmpty((_s.Cmd ?? "").Trim()) ? "Daemon default" : "Command line";
         }
 
         string CommandNote(CommandInfo preset)
@@ -334,7 +315,7 @@ namespace SlopWorld
         IEnumerable<SelectorOption> CommandOptions()
         {
             var options = new List<SelectorOption>();
-            options.Add(new SelectorOption(EditingTemplate ? "Use daemon default" : "Default", () =>
+            options.Add(new SelectorOption("Daemon default", () =>
             {
                 _s.Command = "";
                 _s.CommandPreset = "";

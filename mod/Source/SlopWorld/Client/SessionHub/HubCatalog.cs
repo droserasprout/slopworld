@@ -102,12 +102,12 @@ namespace SlopWorld
                 fail, loaded);
 
         public void SaveAgentTemplate(string source, string name, string description,
-                                       Action ok, Action<string> fail, bool includeInherited = false)
+                                       Action ok, Action<string> fail)
         {
             _templates.Invalidate();
             DaemonClient.Post(TemplatesPath,
                 "{" + $"\"name\":{JVal.Q(name)},\"description\":{JVal.Q(description)}," +
-                $"\"source\":{JVal.Q(source)},\"include_inherited\":{JVal.B(includeInherited)}}}",
+                $"\"source\":{JVal.Q(source)}}}",
                 _ => { RefreshTemplates(); ok?.Invoke(); }, fail);
         }
 

@@ -38,9 +38,9 @@ namespace SlopWorld
         {
             if (!EditingTemplate) return UiControls.Checkbox(l, label, value, tip, locked: locked);
             UiControls.Select(l, label, _templateDraft.SpecifiedFlags.Contains(name)
-                ? (value ? "Enabled" : "Disabled") : "Use default", new[]
+                ? (value ? "Enabled" : "Disabled") : "Session default", new[]
             {
-                new SelectorOption("Use default", () =>
+                new SelectorOption("Session default", () =>
                 {
                     _templateDraft.SpecifiedFlags.Remove(name);
                     set(name == "instructions_breadcrumb" || name == "breadcrumb_yolo");

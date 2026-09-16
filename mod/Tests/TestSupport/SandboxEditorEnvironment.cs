@@ -9,6 +9,11 @@ namespace UnityEngine
 
 namespace Verse
 {
+    public sealed class Listing_Standard
+    {
+        public void Label(string text) { }
+    }
+
     static partial class Text
     {
         public static float CalcHeight(string text, float width) =>
@@ -76,11 +81,27 @@ namespace SlopWorld
 
     sealed class SelectorOption
     {
-        public SelectorOption(string label, Action choose, bool enabled) { }
+        public readonly string Label;
+        public readonly Action Choose;
+        public SelectorOption(string label, Action choose, bool enabled = true)
+        {
+            Label = label;
+            Choose = choose;
+        }
     }
     static class UiControls
     {
         public const float TickColW = 1f;
+        public static readonly Dictionary<string, SelectorOption[]> FormOptions = new Dictionary<string, SelectorOption[]>();
+        public static readonly Dictionary<string, string> FormEdits = new Dictionary<string, string>();
+        public static string Field(Verse.Listing_Standard l, string id, string value) =>
+            FormEdits.TryGetValue(id, out var edit) ? edit : value;
+        public static void Select(Verse.Listing_Standard l, string label, string value,
+            SelectorOption[] options, out Rect box)
+        {
+            box = new Rect();
+            FormOptions[label] = options;
+        }
         public static bool Checkbox(Rect r, string name, bool on, string tip, bool locked, bool warn)
         {
             EditorTrace.Record("check:" + name, r);

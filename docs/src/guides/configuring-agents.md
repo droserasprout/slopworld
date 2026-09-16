@@ -45,9 +45,9 @@ CLI-specific wiring.
 
 ## Agent templates
 
-When adding an agent, choose a Library template or keep **Manual creation**. The same
-agent editor fields remain available as overrides. To make one, open an existing agent
-and choose **Save as template**. The daemon stores personal templates in
+Open **+ > Agent**, then choose a template or **Custom**. A template copies its
+customizations once before the editor opens; every copied setting remains editable. To make
+one, open an existing agent and choose **Save as template**. The daemon stores personal templates in
 `agent-templates.toml` beside its main configuration.
 
 Templates appear in **Library** alongside prompts, errands, breadcrumbs, and file actions.
@@ -56,10 +56,10 @@ Click a template to open the agent editor in template mode, or use
 Breadcrumbs, and Preview use the same controls as agent editing; templates omit project,
 mounts, and private-state actions. Right-click a template to duplicate or delete it.
 Duplication opens a new personal draft; save it to add it to Library. Capture an existing
-agent with its editor's **Save as template** action. Capture copies its own choices by default;
-check **Include inherited project settings** to also capture the source project's effective
-network, DNS, configured limits, sandbox presets, and breadcrumbs. A failed save keeps the draft; use **Reload**
-only when you want to discard it and reconcile with a newer catalog revision. Existing agents
+agent with its editor's **Save as template** action. Capture copies the saved agent's own
+customizations and their dependencies, excluding project contributions. Unsaved editor changes
+are not captured. A failed save keeps the draft; use **Reload** only when you want to discard
+it and reconcile with a newer catalog revision. Existing agents
 are not changed when their source template is edited or deleted.
 
 Projects can also provide [repository Library definitions](repository-library.md) under
@@ -71,19 +71,31 @@ agent; later template edits or deletion do not change that agent. Command, sandb
 snapshots remain stable, including when the live catalog changes. A template never captures
 mounts, labels, private state identity, or credentials.
 
-In a template, **Use default** leaves a startup choice unspecified, **Use destination project**
-leaves network inherited, and inherited DNS follows the destination project or daemon resolver.
-A blank command uses the destination daemon's default agent. Blank limit fields inherit the
-destination project's caps; they do not disable a project cap. Existing templates' explicit
-values remain explicit; select inheritance to unpin them.
+In a template, **Session default** leaves a startup choice unspecified. **Project default**
+uses the destination project's network, DNS or resource limit. **Daemon default** selects the
+destination daemon's default command. **Custom** pins a value; **Reset to project default**
+removes that customization. Custom limits require a positive whole number; an empty custom
+field is an error. Existing templates' explicit values remain explicit until reset.
 
 ## Project defaults and agent overrides
+
+Agent configuration has two layers: project defaults and agent customizations. Templates
+are a creation shortcut, not a third inheritance layer.
 
 Projects supply the working directory, network, DNS, resource limits, and shared sandbox and
 breadcrumb contributions. Agent network/DNS overrides replace project defaults. Resource
 limits resolve individually: agent value, then project value, then no configured cap.
 The project editor's **Resource limits** tab edits those defaults using the same controls
 as agents and templates.
+
+Network, DNS and limit controls display **Project default** or **Custom**. Project default
+values follow project changes on the next start; custom values stay pinned.
+
+Sandbox and breadcrumb lists separate **From project** from **Added by this agent** and
+**Available additions**. Sandbox lists also identify command contributions and dependencies.
+Project contributions are edited in the project; agent additions can be removed independently,
+even when the project supplies the same entry. Breadcrumbs are shown in delivery order within
+each selected group.
 
 Sandbox presets accumulate from global, command, project and agent selections, including
 dependencies. Breadcrumbs accumulate in project-then-agent order. Duplicate names are removed;

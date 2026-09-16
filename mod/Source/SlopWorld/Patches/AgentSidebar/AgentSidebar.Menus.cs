@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -218,13 +219,13 @@ namespace SlopWorld
             if (!ColonistBarStrip.MouseOver(AddHitBar)) return false;
 
             e.Use();
+            SessionHub.Instance.Catalog.RefreshTemplates();
 
             var opts = new List<FloatMenuOption>
             {
                 new FloatMenuOption("Project...", () =>
                     TerminalWindow.OpenOverPane(new EditProjectDialog(null))),
-                new FloatMenuOption("Agent...", () =>
-                    TerminalWindow.OpenOverPane(new EditSessionDialog(null))),
+                new UiSubmenu("Agent", AgentCreationOptions),
                 new FloatMenuOption("Task", () =>
                     TerminalWindow.OpenOverPane(new DelegateTaskDialog(null))),
                 new UiSubmenu("Library", LibraryItemOptions),
@@ -234,6 +235,22 @@ namespace SlopWorld
             };
             TerminalWindow.OpenOverPane(new UiMenu(opts));
             return true;
+        }
+
+        static List<FloatMenuOption> AgentCreationOptions()
+        {
+            var options = new List<FloatMenuOption>();
+            foreach (var template in SessionHub.Instance.Templates.OrderBy(t => t.Name,
+                System.StringComparer.OrdinalIgnoreCase))
+            {
+                var captured = template.Copy();
+                options.Add(new FloatMenuOption(template.DisplayLabel, () =>
+                    TerminalWindow.OpenOverPane(EditSessionDialog.FromTemplate(captured))));
+            }
+            if (options.Count > 0) options.Add(UiMenu.Separator());
+            options.Add(new FloatMenuOption("Custom", () =>
+                TerminalWindow.OpenOverPane(new EditSessionDialog(null))));
+            return options;
         }
 
         static List<FloatMenuOption> LibraryItemOptions() => new List<FloatMenuOption>

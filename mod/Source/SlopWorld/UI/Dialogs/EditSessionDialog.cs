@@ -28,7 +28,7 @@ namespace SlopWorld
         string _templateName;
 
         // Limits are edited as raw strings so a half-typed number is not lost to a reparse each
-        // frame; they are parsed back into `_s.Limits` on Save. Blank means no cap.
+        // frame; they are parsed back into `_s.Limits` on Save. Unset values inherit the project.
         ResourceLimitsForm _resourceLimits;
         string _dnsServers;
 
