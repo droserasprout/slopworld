@@ -66,13 +66,13 @@ namespace SlopWorld
             GUI.color = Color.white;
 
             l.Gap(UiTheme.GapS);
-            _s.Autostart = UiControls.Checkbox(l, "Start with the daemon", _s.Autostart);
-            _s.AutoResume = UiControls.Checkbox(l, "Auto-resume last conversation", _s.AutoResume,
+            _s.Autostart = RecipeFlag(l, "autostart", "Start with the daemon", _s.Autostart, value => _s.Autostart = value);
+            _s.AutoResume = RecipeFlag(l, "auto_resume", "Auto-resume last conversation", _s.AutoResume, value => _s.AutoResume = value,
                 "After startup settles, send /resume and choose the latest conversation.");
-            _s.SlopworldMd = UiControls.Checkbox(l, "Mount SLOPWORLD.md", _s.SlopworldMd,
+            _s.SlopworldMd = RecipeFlag(l, "slopworld_md", "Mount SLOPWORLD.md", _s.SlopworldMd, value => _s.SlopworldMd = value,
                 "Mount generated runtime context read-only at the Instructions mount path. Requires instructions in Settings > General > Experimental.",
                 locked: !EditingTemplate && !SessionHub.Instance.Config.ExperimentalInstructions);
-            _s.PersistentTmp = UiControls.Checkbox(l, "Persistent /tmp", _s.PersistentTmp,
+            _s.PersistentTmp = RecipeFlag(l, "persistent_tmp", "Persistent /tmp", _s.PersistentTmp, value => _s.PersistentTmp = value,
                 "Keep this agent's /tmp across restarts in its private state. Resetting private state gives it a fresh /tmp.");
 
         }
@@ -105,10 +105,7 @@ namespace SlopWorld
             _s.Name = name;
             _s.Project = project;
             _templateName = template.Name;
-            _limMem = LimStr(_s.Limits.MemoryMb);
-            _limPids = LimStr(_s.Limits.Pids);
-            _limNofile = LimStr(_s.Limits.Nofile);
-            _limCpu = LimStr(_s.Limits.CpuPct);
+            _resourceLimits = new ResourceLimitsForm(_s.Limits);
             _dnsServers = _s.DnsOverride?.Mode == DnsMode.Servers
                 ? string.Join(", ", _s.DnsOverride.Servers.ToArray())
                 : "";
@@ -216,10 +213,9 @@ namespace SlopWorld
             var inheritedDns = project?.Dns ?? _s.Dns;
             string networkLabel = _s.NetworkOverride.HasValue
                 ? NetworkModeText.Label(_s.NetworkOverride.Value)
-                : "Inherit project (" + NetworkModeText.ShortLabel(projectNetwork) + ")";
+                : (EditingTemplate ? "Use destination project" : "Inherit project (" + NetworkModeText.ShortLabel(projectNetwork) + ")");
             var networkOptions = new List<SelectorOption>();
-            if (!EditingTemplate)
-                networkOptions.Add(new SelectorOption("Inherit project (" + NetworkModeText.ShortLabel(projectNetwork) + ")",
+            networkOptions.Add(new SelectorOption((EditingTemplate ? "Use destination project" : "Inherit project (" + NetworkModeText.ShortLabel(projectNetwork) + ")"),
                     () => _s.NetworkOverride = null));
             networkOptions.AddRange(new[] { NetworkMode.None, NetworkMode.Private, NetworkMode.Host }
                 .Select(mode => new SelectorOption(NetworkModeText.Label(mode),
@@ -231,7 +227,7 @@ namespace SlopWorld
             GUI.color = Color.white;
 
             l.Gap(UiTheme.GapS);
-            DnsForm.Draw(l, _s.DnsOverride, inheritedDns, !EditingTemplate, "agent.dns", ref _dnsServers,
+            DnsForm.Draw(l, _s.DnsOverride, inheritedDns, true, "agent.dns", ref _dnsServers,
                 dns => _s.DnsOverride = dns);
         }
 
@@ -266,35 +262,12 @@ namespace SlopWorld
             }
 
             GUI.color = UiTheme.Dim;
-            l.Label(EditingTemplate ? "Blank means no template cap."
-                : "Blank means no cap. An unset field inherits the project, then the host.");
+            l.Label(EditingTemplate ? "Blank uses the destination project limit."
+                : "Blank inherits the project limit. With no project limit, no cap is configured.");
             GUI.color = Color.white;
 
-            l.Label("Memory (MiB)");
-            _limMem = UiControls.Field(l, "agent.lim.mem", _limMem ?? "");
-            l.Label("Max processes and threads");
-            _limPids = UiControls.Field(l, "agent.lim.pids", _limPids ?? "");
-            l.Label("Open files per process");
-            _limNofile = UiControls.Field(l, "agent.lim.nofile", _limNofile ?? "");
-            l.Label("CPU (% of one core)");
-            _limCpu = UiControls.Field(l, "agent.lim.cpu", _limCpu ?? "");
-
-            // Mirror the buffers into the model as they are typed, leniently, so the Preview tab
-            // reflects them; Save reparses strictly and reports a typo rather than dropping it.
-            _s.Limits = new SessionLimits
-            {
-                MemoryMb = LimVal(_limMem),
-                Pids = LimVal(_limPids),
-                Nofile = LimVal(_limNofile),
-                CpuPct = LimVal(_limCpu),
-            };
-
+            _s.Limits = _resourceLimits.Draw(l);
         }
-
-        // Blank or not a positive whole number reads as no cap; the strict parse on Save is
-        // what turns a typo into a message instead of silence.
-        static int? LimVal(string text) =>
-            int.TryParse((text ?? "").Trim(), out int n) && n >= 1 ? n : (int?)null;
 
         void DrawBreadcrumbs(Rect rect)
         {
@@ -302,16 +275,30 @@ namespace SlopWorld
             bool breadcrumbs = EditingTemplate || config.ExperimentalBreadcrumbs;
             bool instructions = EditingTemplate || config.ExperimentalInstructions;
             float y = rect.y;
-            _s.BreadcrumbYolo = UiControls.Checkbox(
-                new Rect(rect.x, rect.y, rect.width, UiTheme.RowH),
-                "YOLO breadcrumbs", _s.BreadcrumbYolo,
-                "Hijack the first Enter after startup and paste every enabled breadcrumb before it. Requires breadcrumbs in Settings > General > Experimental.",
-                locked: !breadcrumbs);
-            y += UiTheme.RowH + UiTheme.GapXS;
+            if (EditingTemplate)
+            {
+                var l = new Listing_Standard { maxOneColumn = true };
+                l.Begin(rect);
+                _s.BreadcrumbYolo = RecipeFlag(l, "breadcrumb_yolo", "Paste breadcrumbs on first Enter",
+                    _s.BreadcrumbYolo, value => _s.BreadcrumbYolo = value);
+                _s.InstructionsBreadcrumb = RecipeFlag(l, "instructions_breadcrumb", "Instructions discovery",
+                    _s.InstructionsBreadcrumb, value => _s.InstructionsBreadcrumb = value);
+                y += l.CurHeight + UiTheme.GapS;
+                l.End();
+            }
+            else
+            {
+                _s.BreadcrumbYolo = UiControls.Checkbox(
+                    new Rect(rect.x, rect.y, rect.width, UiTheme.RowH),
+                    "YOLO breadcrumbs", _s.BreadcrumbYolo,
+                    "Hijack the first Enter after startup and paste every enabled breadcrumb before it. Requires breadcrumbs in Settings > General > Experimental.",
+                    locked: !breadcrumbs);
+                y += UiTheme.RowH + UiTheme.GapXS;
+            }
             var projectBreadcrumbs = SessionHub.Instance.Project(_s.Project)?.Breadcrumbs;
             BreadcrumbList.Draw(new Rect(rect.x, y, rect.width, Mathf.Max(0f, rect.yMax - y)),
                 _s.Breadcrumbs, _breadcrumbScroll, projectBreadcrumbs,
-                config.InstructionsBreadcrumb,
+                EditingTemplate ? null : config.InstructionsBreadcrumb,
                 _s.InstructionsBreadcrumb,
                 onInstructionsChanged: on => _s.InstructionsBreadcrumb = on,
                 instructionsLocked: !breadcrumbs || !instructions,
@@ -338,7 +325,7 @@ namespace SlopWorld
             }
             if (!string.IsNullOrEmpty((_s.Cmd ?? "").Trim()))
                 return "A command line of its own, so no agent's state directory comes with it.";
-            if (EditingTemplate) return "Choose a command preset or enter a command line.";
+            if (EditingTemplate) return "Blank uses the destination daemon’s default command.";
             return !string.IsNullOrEmpty(_s.Agent)
                 ? $"Blank runs the daemon's default, which is '{_s.Agent}'."
                 : "Blank runs the daemon's default agent.";
@@ -347,14 +334,12 @@ namespace SlopWorld
         IEnumerable<SelectorOption> CommandOptions()
         {
             var options = new List<SelectorOption>();
-            if (!EditingTemplate) options.Add(new SelectorOption("Default", () =>
-                {
-                    _s.Command = "";
-                    _s.Cmd = "";
-                    DaemonClient.Get(WireProtocol.Routes.Config,
-                        j => _s.CommandPreset = j["values"]["defaults"]["agent"].AsString("claude"),
-                        UiLayout.Fail);
-                }));
+            options.Add(new SelectorOption(EditingTemplate ? "Use daemon default" : "Default", () =>
+            {
+                _s.Command = "";
+                _s.CommandPreset = "";
+                _s.Cmd = "";
+            }));
 
             // Named by the daemon rather than listed here, so a command file dropped in its
             // preset directory is an entry in this menu and nothing to rebuild.
@@ -371,22 +356,6 @@ namespace SlopWorld
 
             options.Add(new SelectorOption("Command line...", () => { _s.Command = ""; _s.CommandPreset = ""; }));
             return options;
-        }
-
-        // Blank clears a cap; otherwise it must be a whole number of at least 1. A typo is
-        // refused rather than silently dropped, so a cap the user typed is never lost on Save.
-        static bool TryLimit(string text, string label, out int? value)
-        {
-            value = null;
-            string t = (text ?? "").Trim();
-            if (t.Length == 0) return true;
-            if (int.TryParse(t, out int n) && n >= 1)
-            {
-                value = n;
-                return true;
-            }
-            UiLayout.Fail($"{label} must be a whole number of at least 1, or blank for no cap");
-            return false;
         }
 
     }

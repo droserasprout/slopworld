@@ -58,9 +58,14 @@ pub(crate) async fn save_template(
             .await
             .map_err(template_error)?
     } else {
-        m.save_agent_template(&req.source, req.name, req.description)
-            .await
-            .map_err(template_error)?
+        m.capture_agent_template(
+            &req.source,
+            req.name,
+            req.description,
+            req.include_inherited,
+        )
+        .await
+        .map_err(template_error)?
     };
     Ok(Json(json!({ "ok": true, "template": saved })))
 }

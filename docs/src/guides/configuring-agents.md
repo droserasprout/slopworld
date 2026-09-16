@@ -56,7 +56,9 @@ Click a template to open the agent editor in template mode, or use
 Breadcrumbs, and Preview use the same controls as agent editing; templates omit project,
 mounts, and private-state actions. Right-click a template to duplicate or delete it.
 Duplication opens a new personal draft; save it to add it to Library. Capture an existing
-agent with its editor's **Save as template** action. A failed save keeps the draft; use **Reload**
+agent with its editor's **Save as template** action. Capture copies its own choices by default;
+check **Include inherited project settings** to also capture the source project's effective
+network, DNS, configured limits, sandbox presets, and breadcrumbs. A failed save keeps the draft; use **Reload**
 only when you want to discard it and reconcile with a newer catalog revision. Existing agents
 are not changed when their source template is edited or deleted.
 
@@ -64,11 +66,35 @@ Projects can also provide [repository Library definitions](repository-library.md
 `.slopworld`, including agent templates. These are read-only in the UI; duplicate one to make
 a personal copy. Right-click a Library template and choose **Create agent** to use it.
 
-A template captures the command and sandbox definitions, named prompt contents, network,
-DNS, resource limits, and startup options. The new agent's name and project are chosen at
-creation time; mounts, labels, private state identity, worker metadata, and runtime
-credentials are not copied. Preset and prompt snapshots belong to each created agent, so
-later edits to the template or its source catalogs do not silently change an existing one.
+Templates are one-time recipes. Applying one copies its specified choices into the new
+agent; later template edits or deletion do not change that agent. Command, sandbox and prompt
+snapshots remain stable, including when the live catalog changes. A template never captures
+mounts, labels, private state identity, or credentials.
+
+In a template, **Use default** leaves a startup choice unspecified, **Use destination project**
+leaves network inherited, and inherited DNS follows the destination project or daemon resolver.
+A blank command uses the destination daemon's default agent. Blank limit fields inherit the
+destination project's caps; they do not disable a project cap. Existing templates' explicit
+values remain explicit; select inheritance to unpin them.
+
+## Project defaults and agent overrides
+
+Projects supply the working directory, network, DNS, resource limits, and shared sandbox and
+breadcrumb contributions. Agent network/DNS overrides replace project defaults. Resource
+limits resolve individually: agent value, then project value, then no configured cap.
+The project editor's **Resource limits** tab edits those defaults using the same controls
+as agents and templates.
+
+Sandbox presets accumulate from global, command, project and agent selections, including
+dependencies. Breadcrumbs accumulate in project-then-agent order. Duplicate names are removed;
+a captured definition wins over a live definition with the same name. The **Preview** tab
+labels these contributions and shows which values are inherited or captured.
+
+Preview is calculated by the daemon from the unsaved form. It shows settings for the next
+start; saving a project or agent does not replace a running process's network or sandbox.
+Inherited project changes apply on the next start, while explicit agent overrides stay pinned.
+Use **Refresh preview** after external file edits. Requested bindings still undergo path and
+sandbox validation at launch.
 
 ## Summaries
 

@@ -21,6 +21,7 @@ namespace SlopWorld
             public const string SessionRestart = "/api/sessions/:name/restart";
             public const string SessionLabel = "/api/sessions/:name/label";
             public const string SessionStateReset = "/api/sessions/:name/state/reset";
+            public const string SettingsPreview = "/api/settings/preview";
             public const string Templates = "/api/templates";
             public const string Template = "/api/templates/:name";
             public const string TemplateCreate = "/api/templates/:name/create";

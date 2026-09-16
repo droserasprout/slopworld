@@ -6,6 +6,10 @@ use crate::grant::{Cap, Level};
 
 use super::{err, ApiResult, Mgr};
 
+#[path = "handlers_settings.rs"]
+mod handlers_settings;
+pub(crate) use handlers_settings::*;
+
 #[path = "handlers_clipboard.rs"]
 mod handlers_clipboard;
 #[path = "handlers_config.rs"]

@@ -30,3 +30,8 @@ An omitted breadcrumb uses the saved template; an explicitly empty draft remains
 
 See [Settings behavior](ui-settings.md) for draft and save ownership, and
 [sandbox isolation](sandbox-isolation.md) for private-state boundaries.
+
+`config/resolution.rs` supplies editor settings previews through `/api/settings/preview`,
+using the same scalar and dependency resolvers as launch. The response labels contribution
+sources and describes the next start, not an existing process's actual sandbox. Snapshot
+metadata for editor pickers stays on this root-only boundary rather than session broadcasts.

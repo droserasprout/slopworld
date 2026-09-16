@@ -67,7 +67,8 @@ Repository names are qualified as `project::name`, carry `origin.source = "proje
 `origin.file`, and are read-only. They can be instantiated or duplicated into the personal
 catalog. See [repository Library](../guides/repository-library.md).
 `POST /api/templates` accepts `{ "name": "...", "description": "...", "source": "..." }`
-and snapshots the configured source agent. It also accepts `{ "name": "...", "description":
+and captures the configured source agent's explicit choices and dependencies. Set
+`include_inherited: true` to also capture effective source-project defaults and contributions. It also accepts `{ "name": "...", "description":
 "...", "duplicate": "existing-template" }` for an independent copy, or a complete template
 definition with `version` omitted to create a definition from the template editor. Every personal
 definition includes a daemon-owned monotonic `version`; repository definitions use zero. `POST /api/templates/:name/create` accepts a new
@@ -78,8 +79,20 @@ and atomically replaces it; the path may name the old definition when the editor
 it. `DELETE /api/templates/:name?version=N` requires the expected version. Stale edit/delete
 requests return `409 Conflict`, missing edit/delete targets return `404`, and duplicate
 destinations are rejected. The daemon never retries a conflict automatically.
-Template-created sessions retain their captured command, sandbox, and prompt definitions
-when those live catalog entries are later edited or removed.
+Template defaults are sparse: omitted/null network and DNS inherit from the destination
+project, each unset limit inherits its project cap, and omitted startup flags use session
+defaults. An omitted command uses the daemon default. Explicit existing values keep their
+meaning. Template-created sessions retain captured command, sandbox, and prompt definitions
+when live catalog entries change; templates are not a live inheritance layer.
+
+`POST /api/settings/preview` is root-only and does not persist or launch anything. It accepts
+an optional complete `session` draft, an `existing` agent name to retain saved snapshots,
+a `project` draft, and/or a `template` definition. Set `recipe: true` when inspecting a
+recipe without a destination project; leave `session` absent in that case. The response has
+`title`, `subtitle`, `notes`, and `fields` (`label`, `values`) for display, plus `definitions`
+containing the captured command, sandbox and prompt definitions for editor pickers. Effective
+values and contribution sources use launch's configuration resolvers; requested paths still
+undergo launch-time validation. This is next-start configuration, not running-process state.
 
 ### Private state
 

@@ -20,17 +20,30 @@ impl Manager {
 
     /// Capture a configured agent into the personal catalog. The source is copied immediately;
     /// no live link to its project, preset files, library entries, or private state is retained.
+    #[cfg(test)]
     pub(crate) async fn save_agent_template(
         self: &Arc<Self>,
         source_name: &str,
         template_name: String,
         description: String,
     ) -> Result<AgentTemplate> {
+        self.capture_agent_template(source_name, template_name, description, false)
+            .await
+    }
+
+    pub(crate) async fn capture_agent_template(
+        self: &Arc<Self>,
+        source_name: &str,
+        template_name: String,
+        description: String,
+        include_inherited: bool,
+    ) -> Result<AgentTemplate> {
         self.reload_if_changed().await;
         self.session_operation(self.save_agent_template_within_boundary(
             source_name,
             template_name,
             description,
+            include_inherited,
         ))
         .await
     }
@@ -40,6 +53,7 @@ impl Manager {
         source_name: &str,
         template_name: String,
         description: String,
+        include_inherited: bool,
     ) -> Result<AgentTemplate> {
         let cfg = self.config().await;
         let source = cfg
@@ -53,12 +67,13 @@ impl Manager {
             .project_of(&source)
             .cloned()
             .ok_or_else(|| anyhow::anyhow!("agent {source_name} has no registered project"))?;
-        let template = AgentTemplate::from_session(
+        let template = AgentTemplate::capture(
             template_name,
             description.trim().to_string(),
             &source,
             &project,
             &cfg,
+            include_inherited,
         )?;
 
         self.create_agent_template_definition(template).await

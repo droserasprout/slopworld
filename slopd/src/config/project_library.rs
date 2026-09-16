@@ -236,7 +236,7 @@ mod tests {
         assert_eq!(template.name, "repo::review");
         assert_eq!(template.origin.source, "project");
         assert_eq!(template.version, 0);
-        assert!(template.defaults.instructions_breadcrumb);
+        assert_eq!(template.defaults.instructions_breadcrumb, None);
         assert!(manager
             .remove_agent_template(&template.name, 0)
             .await
