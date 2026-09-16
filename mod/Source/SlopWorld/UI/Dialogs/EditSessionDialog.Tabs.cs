@@ -69,9 +69,6 @@ namespace SlopWorld
             _s.Autostart = RecipeFlag(l, "autostart", "Start with the daemon", _s.Autostart, value => _s.Autostart = value);
             _s.AutoResume = RecipeFlag(l, "auto_resume", "Auto-resume last conversation", _s.AutoResume, value => _s.AutoResume = value,
                 "After startup settles, send /resume and choose the latest conversation.");
-            _s.SlopworldMd = RecipeFlag(l, "slopworld_md", "Mount SLOPWORLD.md", _s.SlopworldMd, value => _s.SlopworldMd = value,
-                "Mount generated runtime context read-only at the Instructions mount path. Requires instructions in Settings > General > Experimental.",
-                locked: !EditingTemplate && !SessionHub.Instance.Config.ExperimentalInstructions);
             _s.PersistentTmp = RecipeFlag(l, "persistent_tmp", "Persistent /tmp", _s.PersistentTmp, value => _s.PersistentTmp = value,
                 "Keep this agent's /tmp across restarts in its private state. Resetting private state gives it a fresh /tmp.");
 

@@ -53,7 +53,6 @@ pub(super) fn parse_session(
             "command_snapshot",
             "sandbox",
             "sandbox_snapshots",
-            "slopworld_md",
             "persistent_tmp",
             "network",
             "dns",

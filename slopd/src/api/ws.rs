@@ -530,7 +530,6 @@ mod tests {
             command_preset: String::new(),
             cmd: None,
             sandbox: Vec::new(),
-            slopworld_md: false,
             persistent_tmp: false,
             auto_resume_pending: false,
             agent: String::new(),

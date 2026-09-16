@@ -36,7 +36,6 @@ identifies the software so the sandbox can mount its configuration paths.
 | `network` | Network mode for this agent: `none`, `private`, or `host`. |
 | `dns` | `resolved` to follow the daemon's current resolver, or up to two explicit IPv4 servers. |
 | `limits` | Final resource limits: `memory_mb`, `pids`, `nofile`, `cpu_pct`; an unset field means no cap. |
-| `slopworld_md` | Mount generated `SLOPWORLD.md` read-only at the Instructions mount path and exclude the source file through the repository's `.git/info/exclude`. |
 | `persistent_tmp` | Keep a private `/tmp` for this agent across restarts. It lives in the agent's durable state and moves with reset/delete. |
 | `autostart` | Start this agent automatically when the daemon starts. |
 | `auto_resume` | When enabled, the daemon pastes `/resume` and submits after the agent settles on startup. |
@@ -102,32 +101,12 @@ model, minimum submitted-prompt length, and the shared `summary_prompt`. The con
 instruction is sent before the submitted prompt; changing it also selects a separate summary
 cache entry.
 
-## Instructions
+## Workers
 
-Settings > Integrations > Instructions edits the generated `SLOPWORLD.md` document.
-The source file stays at the project root so Git ownership and the generated-file guard
-remain predictable; `mount_path` controls the read-only destination inside the primary
-project mount. It is relative to that project and defaults to `SLOPWORLD.md`.
-
-The template supports `{{ runtime_context }}` for SlopWorld's live project snapshot,
-plus `{{ project }}`, `{{ mount_path }}`, and `{{ file }}`. Unknown variables are kept
-as written. The separate discovery `breadcrumb` supports `{{ project }}`, `{{ mount_path }}`,
-and `{{ file }}`; it is pasted into an opted-in agent's first prompt. The Preview tab renders
-unsaved body text for a selected project.
-
-These settings live under `[daemon.instructions]`: `template`, `mount_path`,
-`breadcrumb`, `breadcrumb_enabled`, and `worker_prompt`. Use Settings' reset actions for
-current defaults. `worker_prompt` is submitted to each spawned task worker and can refer to
-`$SLOPWORLD_TASK_ID`; its default includes the worker task workflow. The instruction feature
-switch lives under `[daemon]` as `experimental_instructions`; worker bootstrap is independent
-of it. Settings > Integrations > Workers contains the worker prompt. See
+Settings > Integrations > Workers controls the prompt submitted to each worker spawned with
+`slopctl spawn`. It can refer to `$SLOPWORLD_TASK_ID`; the default includes the worker task
+workflow. The setting lives under `[daemon.instructions]` as `worker_prompt`. See
 [Using slopctl](slopctl.md).
-
-The per-agent `slopworld_md` switch still controls whether the document is mounted at
-all. `breadcrumb_enabled` controls the generated discovery line globally. Library breadcrumbs
-are separate reusable content and are inserted manually from the terminal context menu.
-Settings provides separate **Reset to default** actions for the body and breadcrumb; reset
-changes the pending form and **Save** applies it.
 
 ## Command presets
 
@@ -157,14 +136,10 @@ Network and DNS changes take effect on the next agent start.
 
 ## When changes take effect
 
-Restart agents after changing their launch configuration, including commands,
-sandbox settings, mounts, and startup instructions. Project mount edits are read at each
-start and do not rebuild a running sandbox.
+Restart agents after changing their launch configuration, including commands, sandbox
+settings, and mounts. Project mount edits are read at each start and do not rebuild a running
+sandbox.
 
-An enabled manifest is regenerated when configuration is synchronized and before each
-start; it is a snapshot for an already-running sandbox. SlopWorld refuses to overwrite
-a project-owned `SLOPWORLD.md`. The default body points agents to `README.md` and applicable
-`AGENTS.md` files, while the default breadcrumb points them to the generated mount.
 Auto-resume runs only for a fresh agent process; a daemon restart that adopts an existing
 tmux pane does not submit `/resume` again.
 

@@ -9,7 +9,6 @@ namespace SlopWorld.Tests
         public static IEnumerable<(string Name, Action Body)> Cases()
         {
             yield return ("reads daemon defaults", ReadsDaemonDefaults);
-            yield return ("migrates legacy experimental flag", MigratesLegacyExperimentalFlag);
             yield return ("round trips every patch field", RoundTripsEveryPatchField);
             yield return ("independent page saves preserve drafts and saved values", IndependentPageSaves);
             yield return ("patches retain nested resets and pending edits", NestedPatchChanges);
@@ -43,22 +42,14 @@ namespace SlopWorld.Tests
         static void NestedPatchChanges()
         {
             var config = DaemonConfig.FromJson(JVal.Parse("{}"));
-            config.ExperimentalInstructions = true;
             config.UsageItems["test"] = new DaemonConfig.UsageItemConfig { Poll = true, IntervalSecs = 90 };
             string baseline = config.ToPatchJson();
-            config.ExperimentalInstructions = false;
             config.UsageItems["test"].IntervalSecs = 0;
-            config.InstructionsBreadcrumbEnabled = false;
-            config.InstructionsTemplate = "a quoted \"draft\"\nnext line";
+            config.WorkerPrompt = "a quoted \"draft\"\nnext line";
             var patch = JVal.Parse(config.ToPatchJson(baseline));
-            AssertEx.True(!patch["daemon"]["experimental_instructions"].IsNull,
-                           "instruction feature false reset included");
-            AssertEx.Equal(false, patch["daemon"]["experimental_instructions"].AsBool(true),
-                           "instruction feature false reset preserved");
             AssertEx.Equal(0, patch["daemon"]["usage_items"]["test"]["interval_secs"].AsInt(-1), "zero reset preserved");
             AssertEx.True(patch["daemon"]["usage_items"]["test"]["poll"].IsNull, "unchanged nested sibling omitted");
-            AssertEx.Equal(config.InstructionsTemplate, patch["daemon"]["instructions"]["template"].AsString(), "escaped text preserved");
-            AssertEx.True(patch["daemon"]["instructions"]["mount_path"].IsNull, "unchanged instruction omitted");
+            AssertEx.Equal(config.WorkerPrompt, patch["daemon"]["instructions"]["worker_prompt"].AsString(), "escaped worker prompt preserved");
             AssertEx.True(patch["commands"].IsNull, "unchanged section omitted");
 
             string submitted = config.ToPatchJson();
@@ -73,8 +64,6 @@ namespace SlopWorld.Tests
             var config = DaemonConfig.FromJson(JVal.Parse("{}"));
             AssertEx.False(config.MetadataAvailable, "missing daemon metadata is explicit");
             AssertEx.True(config.FactoryDefaults == null, "missing factory metadata has no reset copy");
-            AssertEx.Equal(false, config.ExperimentalInstructions, "instruction feature defaults off");
-
             AssertEx.Equal(0, config.UsagePollSecs, "usage poll is unavailable");
             AssertEx.Equal(0, config.UsageItems.Count, "usage item defaults");
             AssertEx.Equal("", config.ClaudeCredentials, "Claude credentials unavailable");
@@ -85,10 +74,6 @@ namespace SlopWorld.Tests
             AssertEx.Equal("", config.SummaryPrompt, "summary prompt unavailable");
             AssertEx.Equal(0, config.TitleMinChars, "title minimum unavailable");
             AssertEx.Equal("", config.PiTitles, "Pi title unavailable");
-            AssertEx.Equal("", config.InstructionsTemplate, "instructions template unavailable");
-            AssertEx.Equal("", config.InstructionsMountPath, "instructions mount unavailable");
-            AssertEx.Equal("", config.InstructionsBreadcrumb, "breadcrumb unavailable");
-            AssertEx.False(config.InstructionsBreadcrumbEnabled, "breadcrumb unavailable");
             AssertEx.Equal("", config.WorkerPrompt, "worker prompt unavailable");
             AssertEx.Equal("", config.Agent, "agent command unavailable");
             AssertEx.Equal("", config.AgentShell, "agent shell unavailable");
@@ -115,18 +100,10 @@ namespace SlopWorld.Tests
             AssertEx.False(config.UsageCatalog[0].DefaultPoll, "catalog poll policy");
         }
 
-        static void MigratesLegacyExperimentalFlag()
-        {
-            var config = DaemonConfig.FromJson(JVal.Parse(
-                "{\"daemon\":{\"experimental\":true}}"));
-            AssertEx.True(config.ExperimentalInstructions, "legacy flag enables instructions");
-        }
-
         static void RoundTripsEveryPatchField()
         {
             var expected = new DaemonConfig
             {
-                ExperimentalInstructions = true,
                 UsagePollSecs = 17,
                 UsageItems = new Dictionary<string, DaemonConfig.UsageItemConfig>
                 {
@@ -149,10 +126,6 @@ namespace SlopWorld.Tests
                 SummaryPrompt = "Name this request in five words.",
                 TitleMinChars = 42,
                 PiTitles = "never",
-                InstructionsTemplate = "# {{ project }}\n\n{{ runtime_context }}",
-                InstructionsMountPath = "docs/SLOPWORLD.md",
-                InstructionsBreadcrumb = "Read {{ mount_path }} for {{ project }}",
-                InstructionsBreadcrumbEnabled = false,
                 WorkerPrompt = "Retrieve $SLOPWORLD_TASK_ID, accept it, and finish it.",
                 Agent = "codex --full-auto",
                 AgentShell = "zsh",
@@ -162,9 +135,6 @@ namespace SlopWorld.Tests
                 Highlighter = "highlight --out-format=xterm256",
             };
             var actual = DaemonConfig.FromJson(JVal.Parse(expected.ToPatchJson()));
-            AssertEx.Equal(expected.ExperimentalInstructions, actual.ExperimentalInstructions,
-                           "instruction feature round trip");
-
             AssertEx.Equal(expected.UsagePollSecs, actual.UsagePollSecs, "poll round trip");
             AssertEx.False(actual.UsageItems["claude_session"].Poll,
                            "usage item poll round trip");
@@ -186,15 +156,6 @@ namespace SlopWorld.Tests
             AssertEx.Equal(expected.TitleMinChars, actual.TitleMinChars,
                            "title minimum prompt length round trip");
             AssertEx.Equal(expected.PiTitles, actual.PiTitles, "Pi titles round trip");
-            AssertEx.Equal(expected.InstructionsTemplate, actual.InstructionsTemplate,
-                           "instructions template round trip");
-            AssertEx.Equal(expected.InstructionsMountPath, actual.InstructionsMountPath,
-                           "instructions mount path round trip");
-            AssertEx.Equal(expected.InstructionsBreadcrumb, actual.InstructionsBreadcrumb,
-                           "instructions breadcrumb text round trip");
-            AssertEx.Equal(expected.InstructionsBreadcrumbEnabled,
-                           actual.InstructionsBreadcrumbEnabled,
-                           "instructions breadcrumb round trip");
             AssertEx.Equal(expected.WorkerPrompt, actual.WorkerPrompt,
                            "worker prompt round trip");
             AssertEx.Equal(expected.Agent, actual.Agent, "agent round trip");
@@ -221,21 +182,21 @@ namespace SlopWorld.Tests
             var first = new DaemonConfig
             {
                 TitleModel = "first-model",
-                InstructionsTemplate = "base template",
+                WorkerPrompt = "base prompt",
             };
             var draft = new DaemonConfigDraft();
             draft.LoadServer(first);
             draft.MarkCurrentClean();
-            draft.Config.InstructionsTemplate = "local draft";
+            draft.Config.WorkerPrompt = "local draft";
 
             var refreshed = new DaemonConfig
             {
                 TitleModel = "server model",
-                InstructionsTemplate = "base template",
+                WorkerPrompt = "base prompt",
             };
             draft.LoadServer(refreshed);
-            AssertEx.Equal("local draft", draft.Config.InstructionsTemplate,
-                           "dirty template survives refresh");
+            AssertEx.Equal("local draft", draft.Config.WorkerPrompt,
+                           "dirty worker prompt survives refresh");
             AssertEx.Equal("server model", draft.Config.TitleModel,
                            "untouched field follows refresh");
             AssertEx.True(!draft.HasConflicts, "unchanged draft field has no conflict");
@@ -243,17 +204,17 @@ namespace SlopWorld.Tests
             var conflicting = new DaemonConfig
             {
                 TitleModel = "new server model",
-                InstructionsTemplate = "external template",
+                WorkerPrompt = "external prompt",
             };
             draft.LoadServer(conflicting);
-            AssertEx.Equal("local draft", draft.Config.InstructionsTemplate,
-                           "conflicting draft is not overwritten");
+            AssertEx.Equal("local draft", draft.Config.WorkerPrompt,
+                           "conflicting worker prompt is not overwritten");
             AssertEx.True(draft.HasConflicts, "same-field conflict is surfaced");
-            AssertEx.True(draft.ConflictMessage.Contains("instructions.template"),
-                           "conflict names the field");
+            AssertEx.True(draft.ConflictMessage.Contains("instructions.worker_prompt"),
+                           "conflict names the worker prompt field");
 
             draft.ResetToBaseline();
-            AssertEx.Equal("external template", draft.Config.InstructionsTemplate,
+            AssertEx.Equal("external prompt", draft.Config.WorkerPrompt,
                            "discard uses latest server value");
             AssertEx.False(draft.IsDirty, "discard clears the draft");
 
@@ -321,16 +282,16 @@ namespace SlopWorld.Tests
         static void PendingReloadEdits()
         {
             var draft = new DaemonConfigDraft();
-            draft.LoadServer(new DaemonConfig { InstructionsTemplate = "server" });
+            draft.LoadServer(new DaemonConfig { WorkerPrompt = "server" });
             AssertEx.False(draft.IsDirty, "reload starts with a clean form");
             draft.BeginOperation();
-            draft.Config.InstructionsTemplate = "typed while loading";
-            draft.LoadServer(new DaemonConfig { InstructionsTemplate = "server" });
+            draft.Config.WorkerPrompt = "typed while loading";
+            draft.LoadServer(new DaemonConfig { WorkerPrompt = "server" });
             AssertEx.True(draft.IsDirty, "merged draft requires saving before page defaults");
             AssertEx.True(draft.Config.ToPatchJson(draft.BaselineJson)
                 .Contains("typed while loading"), "pending edit remains in save patch");
-            draft.LoadServer(new DaemonConfig { InstructionsTemplate = "server" });
-            AssertEx.Equal("typed while loading", draft.Config.InstructionsTemplate,
+            draft.LoadServer(new DaemonConfig { WorkerPrompt = "server" });
+            AssertEx.Equal("typed while loading", draft.Config.WorkerPrompt,
                            "another reload retains the unsaved edit");
         }
 

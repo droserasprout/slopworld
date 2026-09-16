@@ -25,9 +25,8 @@ terminal limits. The mod must use those values for field initialization/reset an
 them from generated constants. Missing metadata leaves reset and policy-preview controls
 unavailable; it is not an authoritative new default.
 
-Instruction discovery previews are rendered by the daemon from unsaved values. Library
-breadcrumbs are independent reusable content and are inserted manually; they are not selected
-or injected automatically at agent startup.
+Library breadcrumbs are independent reusable content and are inserted manually; they are not
+selected or injected automatically at agent startup.
 
 See [Settings behavior](ui-settings.md) for draft and save ownership, and
 [sandbox isolation](sandbox-isolation.md) for private-state boundaries.

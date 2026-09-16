@@ -51,7 +51,6 @@ namespace SlopWorld
             public const string PresetCopy = "/api/presets/:kind/:name/copy";
             public const string Config = "/api/config";
             public const string ConfigPatch = "/api/config/patch";
-            public const string InstructionsPreview = "/api/instructions/preview";
             public const string Clipboard = "/api/clipboard";
             public const string ClipboardText = "/api/clipboard/text";
             public const string ClipboardPrimary = "/api/clipboard/primary";

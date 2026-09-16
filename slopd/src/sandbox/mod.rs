@@ -57,21 +57,6 @@ pub(crate) fn build_plan(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result
     let home = dirs::home_dir()
         .map(|path| path.to_string_lossy().into_owned())
         .unwrap_or_else(|| "/root".into());
-    let manifest = if cfg.daemon.experimental_instructions && s.slopworld_md {
-        let path = Path::new(&dir).join(crate::manifest::FILE_NAME);
-        if !crate::manifest::is_generated(&path) {
-            anyhow::bail!(
-                "session {} requested {} but {} is missing or not SlopWorld-generated",
-                s.name,
-                crate::manifest::FILE_NAME,
-                path.display()
-            );
-        }
-        Some(path)
-    } else {
-        None
-    };
-
     let mut mounts = vec![ResolvedMount {
         host_dir: dir.clone(),
         // The primary project keeps the exact configured path inside the sandbox. This is
@@ -122,8 +107,6 @@ pub(crate) fn build_plan(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result
         presets: &presets,
         home: &home,
         mounts: &mounts,
-        manifest: manifest.as_deref(),
-        manifest_mount_path: &cfg.daemon.instructions.mount_path,
     })
 }
 

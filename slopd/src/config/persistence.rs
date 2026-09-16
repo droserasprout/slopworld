@@ -196,7 +196,6 @@ mod tests {
             state_id = "{FIRST_ID}"
             sandbox = ["git"]
             persistent_tmp = true
-            slopworld_md = true
             cmd = "old command"
             label = "old label"
             future_agent = "keep"
@@ -214,7 +213,6 @@ mod tests {
         let agent = &mut config.sessions[0];
         agent.sandbox.clear();
         agent.persistent_tmp = false;
-        agent.slopworld_md = false;
         agent.cmd = None;
         agent.label = None;
         agent.limits.memory_mb = None;
@@ -222,7 +220,7 @@ mod tests {
         let mut reloaded = Config::load(&path).await.unwrap();
         let agent = &reloaded.sessions[0];
         assert!(agent.sandbox.is_empty());
-        assert!(!agent.persistent_tmp && !agent.slopworld_md);
+        assert!(!agent.persistent_tmp);
         assert!(agent.cmd.is_none() && agent.label.is_none());
         assert_eq!(agent.limits.memory_mb, None);
         assert_eq!(agent.limits.pids, Some(100));

@@ -46,38 +46,26 @@ impl Manager {
         self.reload_if_changed().await;
         settle(&mut p);
         check_project(&p)?;
-        let (old_dir, new_dir) = self
-            .update_cfg(|cfg| {
-                check_project_mounts(cfg, &p)?;
-                let idx = cfg
-                    .projects
-                    .iter()
-                    .position(|x| x.name == name)
-                    .ok_or_else(|| anyhow!("no such project: {name}"))?;
-                let old_dir = crate::config::expand(&cfg.projects[idx].dir);
-                let new_dir = crate::config::expand(&p.dir);
-                if p.name != name && cfg.project(&p.name).is_some() {
-                    bail!("project {} already exists", p.name);
-                }
-                let renamed = p.name.clone();
-                cfg.projects[idx] = p;
-                if renamed != name {
-                    for s in cfg.sessions.iter_mut().filter(|s| s.project == name) {
-                        s.project = renamed.clone();
-                    }
-                }
-                Ok((old_dir, new_dir))
-            })
-            .await?;
-
-        if old_dir != new_dir {
-            if let Err(error) = crate::manifest::remove(std::path::Path::new(&old_dir)) {
-                tracing::warn!("could not remove old generated project manifest: {error:#}");
+        self.update_cfg(|cfg| {
+            check_project_mounts(cfg, &p)?;
+            let idx = cfg
+                .projects
+                .iter()
+                .position(|x| x.name == name)
+                .ok_or_else(|| anyhow!("no such project: {name}"))?;
+            if p.name != name && cfg.project(&p.name).is_some() {
+                bail!("project {} already exists", p.name);
             }
-        }
-
-        let current = self.config().await;
-        self.sync_manifests(&current).await;
+            let renamed = p.name.clone();
+            cfg.projects[idx] = p;
+            if renamed != name {
+                for s in cfg.sessions.iter_mut().filter(|s| s.project == name) {
+                    s.project = renamed.clone();
+                }
+            }
+            Ok(())
+        })
+        .await?;
         self.announce_projects().await;
         self.announce_sessions().await;
         Ok(())
@@ -85,36 +73,26 @@ impl Manager {
 
     pub async fn remove_project(self: &Arc<Self>, name: &str) -> Result<()> {
         self.reload_if_changed().await;
-        let old_dir = self
-            .update_cfg(|cfg| {
-                if cfg.project(name).is_none() {
-                    bail!("no such project: {name}");
-                }
-                let users: Vec<&str> = cfg
-                    .sessions
-                    .iter()
-                    .filter(|s| s.project == name)
-                    .map(|s| s.name.as_str())
-                    .collect();
-                if !users.is_empty() {
-                    bail!(
-                        "project {name} still has agents in it: {}. Remove or move them first.",
-                        users.join(", ")
-                    );
-                }
-                let old_dir = cfg
-                    .project(name)
-                    .map(|project| crate::config::expand(&project.dir))
-                    .unwrap_or_default();
-                cfg.projects.retain(|p| p.name != name);
-                Ok(old_dir)
-            })
-            .await?;
-        if !old_dir.is_empty() {
-            if let Err(error) = crate::manifest::remove(std::path::Path::new(&old_dir)) {
-                tracing::warn!("could not remove generated project manifest: {error:#}");
+        self.update_cfg(|cfg| {
+            if cfg.project(name).is_none() {
+                bail!("no such project: {name}");
             }
-        }
+            let users: Vec<&str> = cfg
+                .sessions
+                .iter()
+                .filter(|s| s.project == name)
+                .map(|s| s.name.as_str())
+                .collect();
+            if !users.is_empty() {
+                bail!(
+                    "project {name} still has agents in it: {}. Remove or move them first.",
+                    users.join(", ")
+                );
+            }
+            cfg.projects.retain(|p| p.name != name);
+            Ok(())
+        })
+        .await?;
         self.announce_projects().await;
         Ok(())
     }

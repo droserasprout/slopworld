@@ -69,7 +69,6 @@ namespace SlopWorld
                     CommandPreset = existing.CommandPreset,
                     Cmd = existing.Cmd,
                     Sandbox = new List<string>(existing.Sandbox),
-                    SlopworldMd = existing.SlopworldMd,
                     PersistentTmp = existing.PersistentTmp,
                     Network = existing.Network,
                     Dns = existing.Dns.Copy(),

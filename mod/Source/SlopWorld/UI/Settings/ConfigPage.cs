@@ -48,16 +48,6 @@ namespace SlopWorld
             }
 
             l.Gap(UiTheme.GapL);
-            UiLayout.SectionHeading(l, "Experimental");
-            if (_loaded)
-            {
-                _cfg.ExperimentalInstructions = UiControls.Checkbox(l, "Enable instructions",
-                    _cfg.ExperimentalInstructions,
-                    "Unlock generated SLOPWORLD.md instructions. Save to apply.");
-            }
-            else
-                UiLayout.Note(l, _error ?? "Waiting for the daemon...");
-            l.Gap(UiTheme.GapL);
             UiLayout.SectionHeading(l, "Locale");
             if (UiLayout.Button(l,
                     "TemperatureMode".Translate() + ": " + Prefs.TemperatureMode.ToStringHuman()))

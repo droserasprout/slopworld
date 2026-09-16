@@ -43,9 +43,8 @@ use title::{
     Submission, TitleCapture, TitleRequest,
 };
 use validation::{
-    absolute_path, breadcrumb_block, check_belongs, check_name, check_project, free_name,
-    free_project_name, json_to_toml, merge_toml, normalize_action_command, project_action_path,
-    settle, slug,
+    absolute_path, check_belongs, check_name, check_project, free_name, free_project_name,
+    json_to_toml, merge_toml, normalize_action_command, project_action_path, settle, slug,
 };
 pub(crate) use validation::{check_library_item, hold_action_command, validate_config};
 
@@ -340,8 +339,8 @@ mod tests {
     use std::sync::Arc;
 
     use super::{
-        breadcrumb_block, check_library_item, check_name, check_project, compile_rules, free_name,
-        free_project_name, hold_action_command, json_to_toml, match_rules, merge_input, merge_toml,
+        check_library_item, check_name, check_project, compile_rules, free_name, free_project_name,
+        hold_action_command, json_to_toml, match_rules, merge_input, merge_toml,
         normalize_action_command, normalize_path, project_action_path, prompt_is_long_enough,
         render_template, render_template_with, settle, slug, strip_sgr, title_agent,
         title_settings, Composer, Event, EventMessage, Input, Live, ScreenView, State, Submission,
@@ -956,23 +955,6 @@ pattern = '(?i)(esc to interrupt|to interrupt\))'
             ),
             "Ada in slopworld at /src/slopworld via codex; {{ later }}"
         );
-    }
-
-    #[test]
-    fn one_line_breadcrumbs_share_a_list_and_a_block_keeps_its_shape() {
-        let block = breadcrumb_block(&[
-            "never commit".to_string(),
-            "always lint".to_string(),
-            "___\n\nUseful tips:\n\n- a\n- b".to_string(),
-            "and one more".to_string(),
-        ]);
-        assert_eq!(
-            block,
-            "\n\n- never commit\n- always lint\n\n___\n\nUseful tips:\n\n- a\n- b\n\n- and one more"
-        );
-
-        assert_eq!(breadcrumb_block(&[]), "");
-        assert_eq!(breadcrumb_block(&["   ".to_string()]), "");
     }
 
     #[test]

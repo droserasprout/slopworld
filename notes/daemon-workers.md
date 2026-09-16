@@ -14,5 +14,4 @@ to prevent accidental task retries. Durable workers remain inspectable; one-shot
 normally disappear on exit, but surviving tmux metadata permits redeploy adoption.
 
 Removing a parent does not cascade: orphaned children become top-level rows. Worker bootstrap
-is submitted regardless of the Instructions feature switch; the editor's current gate is a
-known inconsistency in the [experimental-feature plan](plan-review-experimental-features.md).
+is submitted for every spawned worker.

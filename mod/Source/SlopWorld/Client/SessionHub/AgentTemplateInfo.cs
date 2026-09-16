@@ -8,7 +8,7 @@ namespace SlopWorld
     // the picker only needs the portable defaults to seed the existing agent form controls.
     public class AgentTemplateInfo
     {
-        public static readonly string[] FlagNames = { "slopworld_md", "persistent_tmp", "autostart", "auto_resume" };
+        public static readonly string[] FlagNames = { "persistent_tmp", "autostart", "auto_resume" };
         public HashSet<string> SpecifiedFlags = new HashSet<string>();
         public string Name = "";
         // Versions are daemon-owned compare-and-swap tokens. Zero is reserved for a new
@@ -21,7 +21,6 @@ namespace SlopWorld
         public string Command = "";
         public string Cmd = "";
         public List<string> Sandbox = new List<string>();
-        public bool SlopworldMd;
         public bool PersistentTmp;
         public NetworkMode Network = NetworkMode.Private;
         public bool NetworkSpecified;
@@ -63,7 +62,6 @@ namespace SlopWorld
                 Command = defaults["command"]["name"].AsString(),
                 Cmd = defaults["cmd"].IsNull ? "" : defaults["cmd"].AsString(),
                 Sandbox = Strings(defaults["sandbox"]),
-                SlopworldMd = defaults["slopworld_md"].AsBool(false),
                 PersistentTmp = defaults["persistent_tmp"].AsBool(false),
                 Network = NetworkModeText.Parse(defaults["network"].AsString(WireProtocol.NetworkMode.Private)),
                 NetworkSpecified = !defaults["network"].IsNull,
@@ -89,7 +87,6 @@ namespace SlopWorld
             Command = Command,
             Cmd = Cmd,
             Sandbox = new List<string>(Sandbox),
-            SlopworldMd = SlopworldMd,
             PersistentTmp = PersistentTmp,
             Network = Network,
             NetworkSpecified = NetworkSpecified,
@@ -127,7 +124,6 @@ namespace SlopWorld
                 $"\"command\":{command}," +
                 $"\"cmd\":{(string.IsNullOrWhiteSpace(form.Cmd) ? "null" : JVal.Q(form.Cmd))}," +
                 $"\"sandbox\":{Strings(sandbox)},\"sandbox_presets\":{snapshots}," +
-                $"\"slopworld_md\":{FlagJson("slopworld_md", form.SlopworldMd)}," +
                 $"\"persistent_tmp\":{FlagJson("persistent_tmp", form.PersistentTmp)}," +
                 $"\"network\":{(NetworkSpecified ? JVal.Q(NetworkModeText.Name(form.Network)) : "null")}," +
                 $"\"dns\":{(DnsSpecified ? form.Dns.ToJson() : "null")}," +
@@ -150,7 +146,6 @@ namespace SlopWorld
             s.CommandPreset = Command ?? "";
             s.Cmd = Cmd ?? "";
             s.Sandbox = new List<string>(Sandbox);
-            s.SlopworldMd = SlopworldMd;
             s.PersistentTmp = PersistentTmp;
             s.Network = Network;
             s.Dns = Dns?.Copy() ?? DnsConfig.Resolved();

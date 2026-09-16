@@ -2,7 +2,6 @@
 
 use std::collections::BTreeMap;
 use std::net::Ipv4Addr;
-use std::path::{Component, Path};
 use std::sync::OnceLock;
 
 use anyhow::{bail, Result};
@@ -108,9 +107,6 @@ pub fn redact_token_text(text: &str) -> String {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Daemon {
     pub bind: String,
-    /// Gates generated SLOPWORLD.md instructions without losing preferences.
-    #[serde(default)]
-    pub experimental_instructions: bool,
     /// Empty means no auth, which is fine on a loopback bind. Never leaves the daemon as
     /// written: `GET /api/config` swaps it for `TOKEN_REDACTED`, and a write of the sentinel
     /// restores it - see `redact_token_text` and `Manager::replace_config`.
@@ -159,58 +155,20 @@ pub struct Daemon {
     /// body at most once and `never` leaves the sidebar with its local preview.
     #[serde(default)]
     pub task_summaries: TitlePolicy,
-    /// The generated SLOPWORLD.md template and the discovery settings for opted-in agents.
+    /// Prompt delivered to a newly spawned task worker.
     #[serde(default)]
     pub instructions: InstructionsCfg,
 }
 
-/// Settings for generated runtime context and the prompt delivered to a new task worker.
+/// Settings for the prompt delivered to a new task worker.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InstructionsCfg {
-    /// Markdown body template. `{{ runtime_context }}` expands to SlopWorld's generated snapshot.
-    #[serde(default = "default_instructions_template")]
-    pub template: String,
-    /// Relative to the primary project directory inside the sandbox.
-    #[serde(default = "default_instructions_mount_path")]
-    pub mount_path: String,
-    /// Prompt text added before the first prompt when the generated manifest is mounted.
-    /// `{{ project }}`, `{{ mount_path }}` and `{{ file }}` are available.
-    #[serde(default = "default_instructions_breadcrumb")]
-    pub breadcrumb: String,
-    /// Add the manifest discovery breadcrumb to agents that mount the file.
-    #[serde(default = "default_instructions_breadcrumb_enabled")]
-    pub breadcrumb_enabled: bool,
     /// Prompt submitted to a newly spawned task worker before it retrieves its mailbox task.
     #[serde(default = "default_worker_prompt")]
     pub worker_prompt: String,
 }
 
-pub const DEFAULT_INSTRUCTIONS_TEMPLATE: &str = "\
-# SlopWorld agent context
-
-Read the project's `README.md` and any applicable `AGENTS.md` files for project instructions. This generated `{{ file }}` is mounted at `{{ mount_path }}` and is runtime context, not a replacement for them.
-
-{{ runtime_context }}
-";
-pub const DEFAULT_INSTRUCTIONS_MOUNT_PATH: &str = "SLOPWORLD.md";
-pub const DEFAULT_INSTRUCTIONS_BREADCRUMB: &str = "Read `{{ mount_path }}` for SlopWorld runtime context. It is a generated snapshot, not project instructions. When delegating, send work once and use `slopctl wait ID` for the result; do not poll `task`, `inbox`, or `status`.";
 pub const DEFAULT_WORKER_PROMPT: &str = "You are a SlopWorld worker. Your assigned task ID is $SLOPWORLD_TASK_ID. Run `slopctl task \"$SLOPWORLD_TASK_ID\"` once, then `slopctl accept \"$SLOPWORLD_TASK_ID\"`. Use `slopctl progress \"$SLOPWORLD_TASK_ID\" \"note\"` while working and conclude with `slopctl finish \"$SLOPWORLD_TASK_ID\" \"result\"` or `slopctl fail \"$SLOPWORLD_TASK_ID\" \"reason\"`. Do not search the inbox or poll task status.\n\nWorker task: use `$SLOPWORLD_TASK_ID` with `slopctl task`, then `accept`, `progress`, and finally `finish` or `fail`. Do not search the inbox or poll task status.";
-
-fn default_instructions_template() -> String {
-    DEFAULT_INSTRUCTIONS_TEMPLATE.into()
-}
-
-fn default_instructions_mount_path() -> String {
-    DEFAULT_INSTRUCTIONS_MOUNT_PATH.into()
-}
-
-fn default_instructions_breadcrumb_enabled() -> bool {
-    true
-}
-
-fn default_instructions_breadcrumb() -> String {
-    DEFAULT_INSTRUCTIONS_BREADCRUMB.into()
-}
 
 fn default_worker_prompt() -> String {
     DEFAULT_WORKER_PROMPT.into()
@@ -219,36 +177,8 @@ fn default_worker_prompt() -> String {
 impl Default for InstructionsCfg {
     fn default() -> Self {
         Self {
-            template: default_instructions_template(),
-            mount_path: default_instructions_mount_path(),
-            breadcrumb: default_instructions_breadcrumb(),
-            breadcrumb_enabled: default_instructions_breadcrumb_enabled(),
             worker_prompt: default_worker_prompt(),
         }
-    }
-}
-
-impl InstructionsCfg {
-    pub fn validate(&self) -> Result<()> {
-        let raw = self.mount_path.trim();
-        if raw.is_empty() {
-            bail!("instructions mount path must not be empty");
-        }
-        if raw != self.mount_path {
-            bail!("instructions mount path must not start or end with whitespace");
-        }
-        if raw.ends_with('/') || raw.ends_with('\\') {
-            bail!("instructions mount path must name a file, not a directory");
-        }
-        let path = Path::new(raw);
-        if !path.is_relative()
-            || path
-                .components()
-                .any(|part| matches!(part, Component::CurDir | Component::ParentDir))
-        {
-            bail!("instructions mount path must be a relative path inside the project directory");
-        }
-        Ok(())
     }
 }
 
@@ -304,7 +234,6 @@ impl Default for Daemon {
     fn default() -> Self {
         Self {
             bind: DEFAULT_BIND.into(),
-            experimental_instructions: false,
             token: String::new(),
             usage_poll_secs: default_usage_poll(),
             usage_items: BTreeMap::new(),
@@ -689,10 +618,6 @@ pub struct SessionCfg {
     /// definitions over the live preset catalog, keeping an instantiated template stable.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub(crate) sandbox_snapshots: Vec<SandboxPreset>,
-    /// Opt into the generated project-root runtime manifest; its mount path and discovery
-    /// text are controlled by `daemon.instructions`.
-    #[serde(default, skip_serializing_if = "is_false")]
-    pub slopworld_md: bool,
     /// Give this agent a durable, private `/tmp` instead of the sandbox's per-run tmpfs.
     #[serde(default, skip_serializing_if = "is_false")]
     pub persistent_tmp: bool,
@@ -768,7 +693,6 @@ impl Default for SessionCfg {
             command_snapshot: None,
             sandbox: Vec::new(),
             sandbox_snapshots: Vec::new(),
-            slopworld_md: false,
             persistent_tmp: false,
             network: NetworkMode::default(),
             dns: DnsConfig::default(),

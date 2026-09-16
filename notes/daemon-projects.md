@@ -12,7 +12,3 @@ Temporary projects have daemon-owned directories and lifetimes. Project rename m
 its sessions in the same write; deleting a project with agents is refused. Mount rows store
 literal host/guest paths, so project rename/delete does not update them. The editor's project
 shortcut copies current paths once. Mount edits apply at next start; running sandboxes stay intact.
-
-The optional generated `SLOPWORLD.md` is a project-scoped snapshot shared by agents, not a
-per-agent private file or an authoritative project instruction. See [isolation](sandbox-isolation.md)
-for mount protection and [task discovery](agent-task-discovery.md) for prompt delivery.

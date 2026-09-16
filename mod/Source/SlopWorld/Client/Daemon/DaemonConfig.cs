@@ -14,10 +14,6 @@ namespace SlopWorld
         public string TitleModel;
         public string SummaryPrompt;
         public int? TitleMinChars;
-        public string InstructionsTemplate;
-        public string InstructionsMountPath;
-        public string InstructionsBreadcrumb;
-        public bool? InstructionsBreadcrumbEnabled;
         public string WorkerPrompt;
         public string Agent;
         public string AgentShell;
@@ -40,11 +36,6 @@ namespace SlopWorld
             result.TitleModel = d["title_model"].AsString(null);
             result.SummaryPrompt = d["summary_prompt"].AsString(null);
             result.TitleMinChars = d["title_min_chars"].IsNull ? (int?)null : d["title_min_chars"].AsInt();
-            result.InstructionsTemplate = i["template"].AsString(null);
-            result.InstructionsMountPath = i["mount_path"].AsString(null);
-            result.InstructionsBreadcrumb = i["breadcrumb"].AsString(null);
-            result.InstructionsBreadcrumbEnabled = i["breadcrumb_enabled"].IsNull
-                ? (bool?)null : i["breadcrumb_enabled"].AsBool();
             result.WorkerPrompt = i["worker_prompt"].AsString(null);
             result.Agent = f["agent"].AsString(null);
             result.AgentShell = f["agent_shell"].AsString(null);
@@ -155,13 +146,6 @@ namespace SlopWorld
         public string PiTitles = "";
         // Task summaries are generated once for each durable delegated task.
         public string TaskSummaries = "";
-        public bool ExperimentalInstructions;
-        // The generated project-root runtime manifest. The body is a Markdown template, with
-        // {{ runtime_context }} expanding to the daemon's live snapshot.
-        public string InstructionsTemplate = "";
-        public string InstructionsMountPath = "";
-        public string InstructionsBreadcrumb = "";
-        public bool InstructionsBreadcrumbEnabled;
         public string WorkerPrompt = "";
 
         // Agent and Shell name command presets. AgentShell is the shell advertised inside
@@ -188,8 +172,6 @@ namespace SlopWorld
                     ?? new List<UsageCatalogInfo>(),
                 TemporaryRoot = metadata?["temporary_root"].AsString() ?? "",
                 Terminal = TerminalLimits.FromJson(metadata?["terminal"]),
-                ExperimentalInstructions = d["experimental_instructions"].AsBool(
-                    d["experimental"].AsBool(false)),
                 UsagePollSecs = d["usage_poll_secs"].AsInt(defaults?.UsagePollSecs ?? 0),
                 UsageItems = UsageItemsFromJson(d["usage_items"]),
                 ClaudeCredentials =
@@ -202,11 +184,6 @@ namespace SlopWorld
                 TitleMinChars = d["title_min_chars"].AsInt(defaults?.TitleMinChars ?? 0),
                 PiTitles = d["pi_titles"].AsString(),
                 TaskSummaries = d["task_summaries"].AsString(),
-                InstructionsTemplate = i["template"].AsString(defaults?.InstructionsTemplate ?? ""),
-                InstructionsMountPath = i["mount_path"].AsString(defaults?.InstructionsMountPath ?? ""),
-                InstructionsBreadcrumb =
-                    i["breadcrumb"].AsString(defaults?.InstructionsBreadcrumb ?? ""),
-                InstructionsBreadcrumbEnabled = i["breadcrumb_enabled"].AsBool(defaults?.InstructionsBreadcrumbEnabled ?? false),
                 WorkerPrompt = i["worker_prompt"].AsString(defaults?.WorkerPrompt ?? ""),
 
                 Agent = f["agent"].AsString(defaults?.Agent ?? ""),
@@ -271,7 +248,6 @@ namespace SlopWorld
             var daemon = before?["daemon"];
             return PatchObject(before,
                 "daemon", PatchObject(daemon,
-                    "experimental_instructions", JVal.B(ExperimentalInstructions),
                     "usage_poll_secs", UsagePollSecs.ToString(System.Globalization.CultureInfo.InvariantCulture),
                     "usage_items", UsageItemsJson(daemon?["usage_items"]),
                     "claude_credentials", JVal.Q(ClaudeCredentials),
@@ -284,10 +260,6 @@ namespace SlopWorld
                     "pi_titles", JVal.Q(PiTitles),
                     "task_summaries", JVal.Q(TaskSummaries),
                     "instructions", PatchObject(daemon?["instructions"],
-                        "template", JVal.Q(InstructionsTemplate),
-                        "mount_path", JVal.Q(InstructionsMountPath),
-                        "breadcrumb", JVal.Q(InstructionsBreadcrumb),
-                        "breadcrumb_enabled", JVal.B(InstructionsBreadcrumbEnabled),
                         "worker_prompt", JVal.Q(WorkerPrompt))),
                 "defaults", PatchObject(before?["defaults"],
                     "agent", JVal.Q(Agent), "agent_shell", JVal.Q(AgentShell),
