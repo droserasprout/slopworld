@@ -24,6 +24,7 @@ pub(crate) const IMAGE_LIMIT: u64 = 8 * 1024 * 1024;
 /// Enough to fill a column several screens deep, and short of the answer to
 /// `read_dir` on `.git` or `node_modules` being a reply nobody reads.
 pub(crate) const BROWSE_LIMIT: usize = 500;
+const GITIGNORE_TIMEOUT: Duration = Duration::from_secs(3);
 
 pub(crate) fn browse_limit(requested: Option<usize>) -> usize {
     requested.unwrap_or(BROWSE_LIMIT).clamp(1, BROWSE_LIMIT)
@@ -135,8 +136,6 @@ async fn directory_is_empty(path: &std::path::Path, hidden: bool) -> std::io::Re
 /// When `hide` is false, the classified entries stay in the listing so the Files tab can tint
 /// them while showing them.
 pub(crate) async fn filter_gitignored(base: &std::path::Path, listing: &mut Listing, hide: bool) {
-    use tokio::io::AsyncWriteExt;
-
     if listing.dirs.is_empty() && listing.files.is_empty() {
         return;
     }
@@ -148,40 +147,63 @@ pub(crate) async fn filter_gitignored(base: &std::path::Path, listing: &mut List
         .env("GIT_PAGER", "cat")
         .env("GIT_TERMINAL_PROMPT", "0")
         .env("LC_ALL", "C")
-        .stdin(std::process::Stdio::piped())
-        .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::null());
+        .stdout(std::process::Stdio::piped());
 
-    let mut child = match cmd.spawn() {
-        Ok(c) => c,
-        Err(_) => return,
-    };
-
-    {
-        let mut stdin = match child.stdin.take() {
-            Some(s) => s,
-            None => return,
-        };
-        let mut input = Vec::new();
-        for name in listing.dirs.iter().chain(listing.files.iter()) {
-            input.extend_from_slice(name.as_bytes());
-            input.push(0);
-        }
-        let _ = stdin.write_all(&input).await;
+    let mut input = Vec::new();
+    for name in listing.dirs.iter().chain(listing.files.iter()) {
+        input.extend_from_slice(name.as_bytes());
+        input.push(0);
     }
 
-    let output = match child.wait_with_output().await {
-        Ok(o) => o,
+    let output = match crate::process::run_bounded_with_stdin(
+        &mut cmd,
+        &input,
+        GITIGNORE_TIMEOUT,
+        crate::process::CaptureLimits {
+            // `check-ignore -z` echoes a subset of the NUL-delimited names it receives.
+            // Retaining at most the complete request is enough for a valid response while the
+            // helper continues draining an unexpectedly verbose Git process.
+            stdout: input.len(),
+            stderr: 16 * 1024,
+        },
+    )
+    .await
+    {
+        Ok(output) => output,
         Err(_) => return,
     };
 
+    // check-ignore exits 1 when no path matched. Any other failure, including output overflow,
+    // means the metadata is unavailable: applying a partial classification could hide entries.
+    if !(output.status.success() || output.status.code() == Some(1))
+        || output.stdout_truncated
+        || output.stderr_truncated
+    {
+        return;
+    }
+    if !output.stdout.is_empty() && output.stdout.last() != Some(&0) {
+        return;
+    }
+
     let mut ignored = std::collections::HashSet::new();
-    for chunk in output.stdout.split(|&b| b == 0) {
-        if let Ok(s) = std::str::from_utf8(chunk) {
-            if !s.is_empty() {
-                ignored.insert(s.to_owned());
-            }
+    let known = listing
+        .dirs
+        .iter()
+        .chain(listing.files.iter())
+        .cloned()
+        .collect::<std::collections::HashSet<_>>();
+    let body = output.stdout.strip_suffix(&[0]).unwrap_or(&output.stdout);
+    for chunk in body.split(|&b| b == 0) {
+        if chunk.is_empty() {
+            return;
         }
+        let Ok(s) = std::str::from_utf8(chunk) else {
+            return;
+        };
+        if !known.contains(s) {
+            return;
+        }
+        ignored.insert(s.to_owned());
     }
 
     listing.gitignored_dirs = listing

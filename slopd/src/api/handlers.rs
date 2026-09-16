@@ -263,6 +263,63 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
     }
 
+    #[tokio::test]
+    pub(super) async fn large_gitignore_classification_does_not_deadlock() {
+        let dir = fixture("gitignored-large");
+        for i in 0..500 {
+            touch(&dir, &format!("ignored-{i:03}-{}", "x".repeat(230)));
+        }
+        std::fs::write(dir.join(".gitignore"), "ignored-*\n").unwrap();
+        let status = std::process::Command::new("git")
+            .current_dir(&dir)
+            .args(["init", "-q"])
+            .status()
+            .unwrap();
+        assert!(status.success());
+
+        let mut visible = list_dir(&dir, true, false, 500).await.unwrap();
+        tokio::time::timeout(
+            std::time::Duration::from_secs(5),
+            filter_gitignored(&dir, &mut visible, false),
+        )
+        .await
+        .unwrap();
+        assert_eq!(visible.files.len(), 500);
+        assert_eq!(visible.gitignored_files.len(), 500);
+
+        let mut hidden = list_dir(&dir, true, false, 500).await.unwrap();
+        tokio::time::timeout(
+            std::time::Duration::from_secs(5),
+            filter_gitignored(&dir, &mut hidden, true),
+        )
+        .await
+        .unwrap();
+        assert!(hidden.files.is_empty());
+        assert_eq!(hidden.gitignored_files.len(), 500);
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[tokio::test]
+    pub(super) async fn gitignore_no_match_keeps_the_listing() {
+        let dir = fixture("gitignored-none");
+        touch(&dir, "visible.txt");
+        std::fs::write(dir.join(".gitignore"), "ignored.log\n").unwrap();
+        let status = std::process::Command::new("git")
+            .current_dir(&dir)
+            .args(["init", "-q"])
+            .status()
+            .unwrap();
+        assert!(status.success());
+
+        let mut listing = list_dir(&dir, true, false, 500).await.unwrap();
+        filter_gitignored(&dir, &mut listing, true).await;
+        assert_eq!(listing.files, ["visible.txt"]);
+        assert!(listing.gitignored_files.is_empty());
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
     /// `DirEntry::file_type` does not follow a symlink, so without the stat behind it a
     /// linked directory is in neither list and the tree draws it as gone. A link to
     /// nowhere stays in neither, which is the one case where that is the right answer.
