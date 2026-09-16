@@ -4,11 +4,6 @@ Keep each change independently testable; preserve behavior outside the stated fi
 
 - Turn provider blocking-task join failures into explicit failed snapshots; test panic/cancel
   and aggregate usage state.
-- Make `create_errand_session` failure cleanup transactional. The session-operation boundary
-  already serializes reservations; preserve it. Validate sandbox-clone sources before
-  persisting host terminals or inserting temporary projects, or roll back those effects.
-  Test invalid clone sources for both paths and persistence failures without orphaned state;
-  cover concurrent reservations when changing the boundary.
 - Share preview lifecycle between `PagerTabs` and native Markdown through separate adapters;
   preserve replacement, pinning, reuse and cleanup.
 - Replace terminal-close hard-coded viewer fan-out with an owner notification, preserving order.

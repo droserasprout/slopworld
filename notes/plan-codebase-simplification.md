@@ -3,8 +3,7 @@
 Proposed: reduce repeated state, conversions and persistence mechanics while preserving
 existing behavior. The strongest opportunities are in settings drafts and serialization;
 large files alone are a poor guide because several daemon files contain substantial tests.
-Findings come from static review of the working tree, including uncommitted changes, and
-are candidates rather than measured savings or validated implementations.
+Findings are static-review candidates rather than measured savings or validated implementations.
 
 Owners: [settings drafts](ui-settings.md), [configuration](daemon-config-stores.md),
 [client](mod-client.md), and [wire contract](protocol-wire.md).
@@ -12,7 +11,7 @@ Owners: [settings drafts](ui-settings.md), [configuration](daemon-config-stores.
 ## Findings and order of work
 
 1. **Unify draft-field state and numeric editing.** `DaemonConfigDraft` spreads field
-   state across six dictionaries and a set. `SummariesPage` and `UsagePage` also retain
+   state across five dictionaries and a set. `SummariesPage` and `UsagePage` also retain
    raw text and normalization state, although `DaemonConfigState.Save` already applies
    queued normalizations. Introduce one field-state object per key, owning text, local
    and remote baselines, path, and normalization policy. Bind numeric controls to that
@@ -55,8 +54,8 @@ Owners: [settings drafts](ui-settings.md), [configuration](daemon-config-stores.
 ## Scope and validation
 
 Preserve the established [daemon policy ownership boundaries](daemon-config-stores.md).
-The [C# records proposal](plan-csharp-records.md) is separate: these changes do not require
-new language features, and draft owners retain identity and coordinated mutation.
+These changes do not require new language features; draft owners retain identity and
+coordinated mutation.
 
 Terminal capture and the custom WebSocket transport need a separate investigation before
 simplification. Their ordering, backpressure and compatibility requirements are documented

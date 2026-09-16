@@ -2,7 +2,8 @@
 
 Read-only repository discovery and qualified names are shipped; see
 [Library ownership](daemon-library.md) and the [user guide](../docs/src/guides/repository-library.md).
-The remaining work builds on [template CLI](plan-template-cli.md).
+CLI context inference builds on [template CLI](plan-template-cli.md); repository authoring
+can use the existing daemon and UI template boundary independently.
 
 - Add Project/Personal destinations to creation, duplication, and Save as template.
   Write only the selected definition; handle read-only checkouts and external-edit conflicts.
@@ -14,4 +15,4 @@ The remaining work builds on [template CLI](plan-template-cli.md).
   Discovery must never execute commands or authorize host access; existing agents keep
   their snapshots after source edits or deletion.
 
-Shared defaults and preset-file resolution remain in [project setup](plan-project-setup.md).
+Shared workspace metadata and preset-file resolution remain in [project setup](plan-project-setup.md).
