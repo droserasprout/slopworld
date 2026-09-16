@@ -332,7 +332,7 @@ impl AgentTemplate {
     ) -> Result<Self> {
         let table = crate::presets::table();
         let command_name = cfg.command_name(source);
-        let command = if command_name.trim().is_empty() {
+        let mut command = if command_name.trim().is_empty() {
             None
         } else {
             source
@@ -343,22 +343,26 @@ impl AgentTemplate {
                 .map(Some)?
         };
 
-        let sandbox = cfg.sandbox_of(source, project);
-        let mut sandbox_presets = Vec::new();
-        for preset_name in &sandbox {
-            let preset = source
-                .sandbox_snapshots
-                .iter()
-                .find(|preset| preset.name == *preset_name)
+        // Capture the same effective definitions the launcher uses. Stale or invalid
+        // references already have no effect at launch and must not prevent a snapshot.
+        let mut effective_table = (*table).clone();
+        for snapshot in &source.sandbox_snapshots {
+            effective_table
+                .sandbox
+                .retain(|preset| preset.name != snapshot.name);
+            effective_table.sandbox.push(snapshot.clone());
+        }
+        let sandbox_presets: Vec<_> =
+            crate::sandbox::presets_for(cfg, source, project, &effective_table)
+                .into_iter()
                 .cloned()
-                .or_else(|| table.sandbox(preset_name).cloned())
-                .ok_or_else(|| anyhow::anyhow!("sandbox preset {preset_name:?} is unavailable"))?;
-            if !sandbox_presets
-                .iter()
-                .any(|existing: &SandboxPreset| existing.name == preset.name)
-            {
-                sandbox_presets.push(preset);
-            }
+                .collect();
+        let sandbox: Vec<_> = sandbox_presets
+            .iter()
+            .map(|preset| preset.name.clone())
+            .collect();
+        if let Some(command) = &mut command {
+            command.sandbox.retain(|name| sandbox.contains(name));
         }
 
         let mut prompt_names = Vec::new();
@@ -823,6 +827,49 @@ mod tests {
 
         saved.defaults.command.as_mut().unwrap().cmd = "edited command".into();
         assert_eq!(cfg.command_of(&instance), "agent --safe");
+    }
+
+    #[test]
+    fn capture_ignores_inactive_sandbox_references_and_keeps_snapshots() {
+        let mut command = command();
+        command.sandbox = vec!["missing-command-preset".into(), "captured".into()];
+        let source = SessionCfg {
+            name: "slop-lxh".into(),
+            project: "slopworld".into(),
+            command_snapshot: Some(command),
+            sandbox: vec!["missing-agent-preset".into(), "invalid".into()],
+            sandbox_snapshots: vec![
+                sandbox(),
+                SandboxPreset {
+                    name: "invalid".into(),
+                    requires: vec!["missing-dependency".into()],
+                    ..Default::default()
+                },
+            ],
+            ..Default::default()
+        };
+        let project = ProjectCfg {
+            name: "slopworld".into(),
+            sandbox: vec!["missing-project-preset".into()],
+            ..Default::default()
+        };
+        let saved = AgentTemplate::from_session(
+            "copy".into(),
+            String::new(),
+            &source,
+            &project,
+            &Config::default(),
+        )
+        .unwrap();
+        assert_eq!(saved.defaults.command.unwrap().sandbox, vec!["captured"]);
+        assert_eq!(saved.defaults.sandbox, vec!["global", "captured"]);
+        assert_eq!(
+            saved.defaults.sandbox_presets[1].description,
+            "Captured sandbox"
+        );
+        // Capturing must not silently rewrite the source or its project.
+        assert!(source.sandbox.contains(&"missing-agent-preset".into()));
+        assert_eq!(project.sandbox, vec!["missing-project-preset"]);
     }
 
     #[test]

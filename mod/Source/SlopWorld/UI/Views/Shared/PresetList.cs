@@ -20,16 +20,16 @@ namespace SlopWorld
             // The machine-wide base is implicit for every sandbox, so it is edited on the
             // Settings > Sandbox page rather than offered as a project checkbox.
             var allPresets = (catalog ?? SessionHub.Instance.Presets).ToList();
-            var presets = allPresets
-                .Where(p => p.Name != "global")
-                .ToList();
-            if (allPresets.Count == 0)
-            {
-                UiChoiceList<PresetInfo>.Draw(outer,
-                    new List<UiChoice<PresetInfo>>(), scroll,
-                    "The daemon has not sent its preset list yet.");
-                return;
-            }
+            var roots = new List<string>(chosen);
+            if (implied != null) roots.AddRange(implied);
+            var required = RequiredBy(roots, allPresets);
+            var known = new HashSet<string>(allPresets.Select(p => p.Name));
+            // Persisted references can outlive catalog definitions. Keep those rows visible
+            // so direct references can be removed and inherited ones can be traced upstream.
+            foreach (var name in roots.Concat(required).Distinct())
+                if (name != "global" && !known.Contains(name))
+                    allPresets.Add(new PresetInfo { Name = name, Source = "missing" });
+            var presets = allPresets.Where(p => p.Name != "global").ToList();
 
             if (presets.Count == 0)
             {
@@ -43,9 +43,6 @@ namespace SlopWorld
                 .OrderBy(p => p.Source == "system" ? 0 : 1)
                 .ThenBy(p => p.Name, System.StringComparer.OrdinalIgnoreCase)
                 .ToList();
-            var roots = new List<string>(chosen);
-            if (implied != null) roots.AddRange(implied);
-            var required = RequiredBy(roots, presets);
             var choices = new List<UiChoice<PresetInfo>>();
             foreach (var pr in presets)
             {
@@ -55,11 +52,11 @@ namespace SlopWorld
                 choices.Add(new UiChoice<PresetInfo>
                 {
                     Value = pr,
-                    Label = pr.Name,
+                    Label = pr.Source == "missing" ? pr.Name + " (missing)" : pr.Name,
                     Tip = Tip(pr, forced),
                     On = was,
                     Locked = forced,
-                    Warn = pr.IsEscape,
+                    Warn = pr.IsEscape || pr.Source == "missing",
                     Changed = next =>
                     {
                         if (next) chosen.Add(pr.Name);
@@ -91,6 +88,10 @@ namespace SlopWorld
 
         static string Tip(PresetInfo p, bool forced)
         {
+            if (p.Source == "missing")
+                return "This sandbox preset is unavailable and has no effect." +
+                    (forced ? " Remove the reference from the project, command, or preset that requires it."
+                        : " Uncheck it to remove this reference.");
             string gives = string.Join("\n", p.Gives.ToArray());
             string why = forced ? "\n\nRequired by another selected preset or inherited by this entry." : "";
             // First, not last: what it costs is read before what it gives, because by the time

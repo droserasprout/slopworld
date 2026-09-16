@@ -136,7 +136,7 @@ fn build_argv(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result<Vec<String
 /// files outlive the binary, and one bad name is not grounds for an agent that will not
 /// start. A known preset with an unsafe definition is dropped by the same boundary after the
 /// complete dependency closure is validated.
-fn presets_for<'a>(
+pub(crate) fn presets_for<'a>(
     cfg: &Config,
     s: &SessionCfg,
     p: &ProjectCfg,
