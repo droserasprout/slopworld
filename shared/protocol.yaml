@@ -265,6 +265,7 @@ enums:
 
 constants:
   host_identity: host
+  template_version_query: version
   terminal_min_cols: 20
   terminal_max_cols: 500
   terminal_min_rows: 5

@@ -23,7 +23,7 @@ mod view;
 #[path = "../manager/mod.rs"]
 mod manager;
 
-pub(crate) use agent_templates::{AgentTemplate, AgentTemplateStore};
+pub(crate) use agent_templates::{AgentTemplate, AgentTemplateError, AgentTemplateStore};
 #[cfg(test)]
 pub(crate) use ctrl::test_manager;
 pub(super) use ctrl::CachedScroll;

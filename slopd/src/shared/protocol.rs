@@ -202,6 +202,7 @@ pub(crate) mod enums {
 }
 
 pub(crate) const HOST_IDENTITY: &str = "host";
+pub(crate) const TEMPLATE_VERSION_QUERY: &str = "version";
 pub(crate) const TERMINAL_MIN_COLS: u16 = 20;
 pub(crate) const TERMINAL_MAX_COLS: u16 = 500;
 pub(crate) const TERMINAL_MIN_ROWS: u16 = 5;

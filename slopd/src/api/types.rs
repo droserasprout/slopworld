@@ -54,7 +54,17 @@ pub(crate) struct SaveAgentTemplateReq {
     pub(crate) name: String,
     #[serde(default)]
     pub(crate) description: String,
+    /// Existing configured agent to capture. Kept for the editor's "Save as template" action.
+    #[serde(default)]
     pub(crate) source: String,
+    /// Existing template to duplicate under `name`.
+    #[serde(default)]
+    pub(crate) duplicate: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub(crate) struct TemplateVersionQuery {
+    pub(crate) version: Option<u64>,
 }
 
 #[derive(Debug, Deserialize)]

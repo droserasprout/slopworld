@@ -50,6 +50,14 @@ agent editor fields remain available as overrides. To make one, open an existing
 and choose **Save as template**. The daemon stores personal templates in
 `agent-templates.toml` beside its main configuration.
 
+The complete catalog is available under **Settings > Agents > Templates**. It can inspect,
+create, capture, edit, duplicate, and delete personal definitions. **New** starts an empty
+definition; **Capture agent** snapshots an existing agent. **Duplicate** copies the saved
+definition, so save your edits first if you want them included. The editor shows the origin and
+effective command, sandbox, prompts, and limits. A failed save keeps the draft; use **Reload**
+only when you want to discard it and reconcile with a newer catalog revision. Existing agents
+are not changed when their source template is edited or deleted.
+
 A template captures the command and sandbox definitions, named prompt contents, network,
 DNS, resource limits, and startup options. The new agent's name and project are chosen at
 creation time; mounts, labels, private state identity, worker metadata, and runtime

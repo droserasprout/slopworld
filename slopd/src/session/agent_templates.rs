@@ -10,6 +10,7 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{bail, Context, Result};
 use serde::{Deserialize, Serialize};
+use std::fmt;
 
 use crate::config::{
     BreadcrumbSnapshot, Config, DnsConfig, Limits, NetworkMode, ProjectCfg, SessionCfg,
@@ -17,14 +18,30 @@ use crate::config::{
 use crate::presets::{CommandPreset, SandboxPreset};
 
 const STORE_FILE: &str = "agent-templates.toml";
+// The mod JSON reader represents numbers as doubles; tokens must round-trip exactly.
+const MAX_VERSION: u64 = (1 << 53) - 1;
 
 /// The daemon-owned personal template file. The repeated table name matches the rest of the
 /// daemon's TOML catalogs and leaves room for project-local sources later.
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct AgentTemplateStore {
+    /// A store-wide cursor makes a version unique across deletion, recreation, and daemon
+    /// restarts. It is deliberately persisted beside the definitions rather than derived from
+    /// the current list, which would make delete/recreate reuse a version.
+    #[serde(default = "first_version")]
+    pub(crate) next_version: u64,
     #[serde(default, rename = "template")]
     pub(crate) templates: Vec<AgentTemplate>,
+}
+
+impl Default for AgentTemplateStore {
+    fn default() -> Self {
+        Self {
+            next_version: first_version(),
+            templates: Vec::new(),
+        }
+    }
 }
 
 /// One personal agent template. `origin` is presentation metadata only; it is never used to
@@ -33,6 +50,10 @@ pub(crate) struct AgentTemplateStore {
 #[serde(deny_unknown_fields)]
 pub(crate) struct AgentTemplate {
     pub(crate) name: String,
+    /// Monotonic daemon-owned identity for this definition. It is not a content hash: an edit
+    /// always receives a new value so a stale editor can never overwrite a later definition.
+    #[serde(default)]
+    pub(crate) version: u64,
     #[serde(default)]
     pub(crate) description: String,
     #[serde(default)]
@@ -104,6 +125,40 @@ fn agent_source() -> String {
     "agent".into()
 }
 
+fn first_version() -> u64 {
+    1
+}
+
+#[derive(Debug)]
+pub(crate) enum AgentTemplateError {
+    Missing(String),
+    Conflict {
+        name: String,
+        expected: u64,
+        actual: u64,
+    },
+    Exists(String),
+}
+
+impl fmt::Display for AgentTemplateError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Missing(name) => write!(f, "no such agent template: {name}"),
+            Self::Conflict {
+                name,
+                expected,
+                actual,
+            } => write!(
+                f,
+                "agent template {name} changed (expected version {expected}, stored version {actual})"
+            ),
+            Self::Exists(name) => write!(f, "agent template {name} already exists"),
+        }
+    }
+}
+
+impl std::error::Error for AgentTemplateError {}
+
 impl AgentTemplateStore {
     pub(crate) fn path_for(config_path: &Path) -> PathBuf {
         config_path
@@ -121,13 +176,25 @@ impl AgentTemplateStore {
             .with_context(|| format!("reading {}", path.display()))?;
         let store: Self =
             toml::from_str(&text).with_context(|| format!("parsing {}", path.display()))?;
+        let mut store = store;
+        store.normalize_versions()?;
         store.validate()?;
         Ok(store)
     }
 
     pub(crate) fn validate(&self) -> Result<()> {
         let mut names = HashSet::new();
+        let mut versions = HashSet::new();
         for template in &self.templates {
+            if template.version == 0 {
+                bail!("agent template {} has no version", template.name);
+            }
+            if !versions.insert(template.version) {
+                bail!(
+                    "agent template version {} is declared more than once",
+                    template.version
+                );
+            }
             validate_template_name(&template.name)?;
             if !names.insert(template.name.clone()) {
                 bail!(
@@ -165,32 +232,92 @@ impl AgentTemplateStore {
         self.templates.iter().find(|template| template.name == name)
     }
 
-    pub(crate) fn insert(&mut self, template: AgentTemplate, replace: bool) -> Result<()> {
+    pub(crate) fn create(&mut self, mut template: AgentTemplate) -> Result<AgentTemplate> {
+        if self.get(&template.name).is_some() {
+            return Err(AgentTemplateError::Exists(template.name.clone()).into());
+        }
+        template.version = self.allocate_version()?;
         validate_template_name(&template.name)?;
         validate_definition(&template)?;
-        if let Some(slot) = self
-            .templates
-            .iter_mut()
-            .find(|existing| existing.name == template.name)
-        {
-            if !replace {
-                bail!("agent template {} already exists", template.name);
-            }
-            *slot = template;
-        } else {
-            self.templates.push(template);
-        }
+        self.templates.push(template.clone());
         self.templates.sort_by(|a, b| a.name.cmp(&b.name));
+        Ok(template)
+    }
+
+    pub(crate) fn replace(
+        &mut self,
+        old_name: &str,
+        expected_version: u64,
+        mut template: AgentTemplate,
+    ) -> Result<AgentTemplate> {
+        let index = self
+            .templates
+            .iter()
+            .position(|existing| existing.name == old_name)
+            .ok_or_else(|| AgentTemplateError::Missing(old_name.to_string()))?;
+        let actual = self.templates[index].version;
+        if actual != expected_version {
+            return Err(AgentTemplateError::Conflict {
+                name: old_name.to_string(),
+                expected: expected_version,
+                actual,
+            }
+            .into());
+        }
+        if template.name != old_name && self.get(&template.name).is_some() {
+            return Err(AgentTemplateError::Exists(template.name.clone()).into());
+        }
+        template.version = self.allocate_version()?;
+        validate_template_name(&template.name)?;
+        validate_definition(&template)?;
+        self.templates[index] = template.clone();
+        self.templates.sort_by(|a, b| a.name.cmp(&b.name));
+        Ok(template)
+    }
+
+    pub(crate) fn remove(&mut self, name: &str, expected_version: u64) -> Result<()> {
+        let Some(template) = self.get(name) else {
+            return Err(AgentTemplateError::Missing(name.to_string()).into());
+        };
+        if template.version != expected_version {
+            return Err(AgentTemplateError::Conflict {
+                name: name.to_string(),
+                expected: expected_version,
+                actual: template.version,
+            }
+            .into());
+        }
+        self.templates.retain(|template| template.name != name);
         Ok(())
     }
 
-    pub(crate) fn remove(&mut self, name: &str) -> Result<()> {
-        let before = self.templates.len();
-        self.templates.retain(|template| template.name != name);
-        if before == self.templates.len() {
-            bail!("no such agent template: {name}");
+    fn normalize_versions(&mut self) -> Result<()> {
+        let mut next = self.next_version.max(first_version());
+        for template in &self.templates {
+            if template.version > MAX_VERSION {
+                bail!("agent template {} has an exhausted version", template.name);
+            }
+            next = next.max(template.version.saturating_add(1));
         }
+        for template in &mut self.templates {
+            if template.version == 0 {
+                template.version = next;
+                next = next
+                    .checked_add(1)
+                    .ok_or_else(|| anyhow::anyhow!("agent template version exhausted"))?;
+            }
+        }
+        self.next_version = next;
         Ok(())
+    }
+
+    fn allocate_version(&mut self) -> Result<u64> {
+        let version = self.next_version;
+        if version > MAX_VERSION {
+            bail!("agent template version exhausted");
+        }
+        self.next_version = version + 1;
+        Ok(version)
     }
 }
 
@@ -263,6 +390,7 @@ impl AgentTemplate {
 
         let template = Self {
             name,
+            version: 0,
             description,
             origin: AgentTemplateOrigin {
                 source: personal_source(),
@@ -496,6 +624,7 @@ mod tests {
     fn template() -> AgentTemplate {
         AgentTemplate {
             name: "reviewer".into(),
+            version: 0,
             description: "Review changes".into(),
             origin: AgentTemplateOrigin::default(),
             defaults: AgentTemplateDefaults {
@@ -561,8 +690,8 @@ mod tests {
     #[test]
     fn template_store_rejects_duplicate_names() {
         let mut store = AgentTemplateStore::default();
-        store.insert(template(), false).unwrap();
-        assert!(store.insert(template(), false).is_err());
+        store.create(template()).unwrap();
+        assert!(store.create(template()).is_err());
     }
 
     #[tokio::test]
@@ -580,10 +709,11 @@ mod tests {
         }];
 
         let mut store = AgentTemplateStore::default();
-        store.insert(saved, false).unwrap();
+        store.create(saved).unwrap();
         store.save(&path).await.unwrap();
         let loaded = AgentTemplateStore::load(&path).await.unwrap();
         let loaded = loaded.get("reviewer").unwrap();
+        assert!(loaded.version > 0);
         assert_eq!(loaded.defaults.sandbox[0], "captured");
         assert_eq!(
             loaded.defaults.sandbox_presets[0].description,
@@ -591,6 +721,75 @@ mod tests {
         );
         assert_eq!(loaded.defaults.prompts[0].text, "check the diff");
         let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[tokio::test]
+    async fn version_cursor_survives_reload_and_delete_recreate() {
+        let root = std::env::temp_dir().join(format!(
+            "slopd-template-version-store-{}",
+            uuid::Uuid::new_v4()
+        ));
+        std::fs::create_dir_all(&root).unwrap();
+        let path = root.join("agent-templates.toml");
+        let mut store = AgentTemplateStore::default();
+        let first = store.create(template()).unwrap();
+        store.save(&path).await.unwrap();
+
+        let mut restarted = AgentTemplateStore::load(&path).await.unwrap();
+        restarted.remove(&first.name, first.version).unwrap();
+        restarted.save(&path).await.unwrap();
+
+        let mut recreated_store = AgentTemplateStore::load(&path).await.unwrap();
+        let recreated = recreated_store.create(template()).unwrap();
+        assert!(recreated.version > first.version);
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn version_tokens_stay_exact_in_json_clients() {
+        let mut store = AgentTemplateStore {
+            next_version: MAX_VERSION,
+            ..Default::default()
+        };
+        let last = store.create(template()).unwrap();
+        assert_eq!(last.version, MAX_VERSION);
+        assert!(store
+            .replace(&last.name, last.version, last.clone())
+            .is_err());
+        assert_eq!(store.get(&last.name).unwrap().version, last.version);
+    }
+
+    #[tokio::test]
+    async fn edits_survive_restart_and_rejected_renames_preserve_both_definitions() {
+        let root =
+            std::env::temp_dir().join(format!("slopd-template-edit-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&root).unwrap();
+        let path = root.join("agent-templates.toml");
+        let mut store = AgentTemplateStore::default();
+        let original = store.create(template()).unwrap();
+        let mut other = template();
+        other.name = "other".into();
+        store.create(other).unwrap();
+        store.save(&path).await.unwrap();
+        let mut store = AgentTemplateStore::load(&path).await.unwrap();
+        let mut draft = original.clone();
+        draft.name = "other".into();
+        assert!(store
+            .replace(&original.name, original.version, draft)
+            .is_err());
+        assert_eq!(store.templates.len(), 2);
+        assert_eq!(store.get(&original.name).unwrap().version, original.version);
+        let mut draft = original.clone();
+        draft.name = "renamed".into();
+        let renamed = store
+            .replace(&original.name, original.version, draft)
+            .unwrap();
+        assert!(store.get(&original.name).is_none());
+        assert!(store.remove("renamed", original.version).is_err());
+        store.save(&path).await.unwrap();
+        let store = AgentTemplateStore::load(&path).await.unwrap();
+        assert_eq!(store.get("renamed").unwrap().version, renamed.version);
+        std::fs::remove_dir_all(root).unwrap();
     }
 
     #[test]

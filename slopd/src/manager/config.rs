@@ -160,6 +160,7 @@ impl Manager {
             auth_changes,
             grants: RwLock::new(crate::grant::Grants::default()),
             session_boundary: tokio::sync::Mutex::new(()),
+            template_mutation: tokio::sync::Mutex::new(()),
             tasks: crate::session::manager::TaskStore::new(tasks),
             worker_spawn: tokio::sync::Mutex::new(()),
             title_cache,

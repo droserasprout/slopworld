@@ -14,11 +14,12 @@ namespace SlopWorld
         // Ticked and refused: what a preset is handed anyway, by its command or its project.
         // Drawn rather than hidden - "why is ~/.claude bound" is the question this answers.
         public static void Draw(Rect outer, List<string> chosen, SmoothScroll scroll,
-                                ICollection<string> implied = null)
+                                ICollection<string> implied = null,
+                                IEnumerable<PresetInfo> catalog = null)
         {
             // The machine-wide base is implicit for every sandbox, so it is edited on the
             // Settings > Sandbox page rather than offered as a project checkbox.
-            var allPresets = SessionHub.Instance.Presets;
+            var allPresets = (catalog ?? SessionHub.Instance.Presets).ToList();
             var presets = allPresets
                 .Where(p => p.Name != "global")
                 .ToList();
