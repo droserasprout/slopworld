@@ -54,11 +54,11 @@ namespace SlopWorld
             SessionSelectable.Current = target;
             Find.Selector?.ClearSelection();
 
-            // If the session has a pawn, jump the camera to it; ghost rows leave the
-            // camera where it is because there is nothing to look at.
+            // If the session has a pawn, select it and normally jump the camera to it;
+            // ghost rows leave the camera where it is because there is nothing to look at.
             var colony = AgentColony.Current;
             var pawn = colony?.PawnOf(target);
-            if (pawn != null) CameraJumper.TryJumpAndSelect(pawn);
+            if (pawn != null) EcoMapInput.SelectAgent(pawn);
         }
     }
 }
