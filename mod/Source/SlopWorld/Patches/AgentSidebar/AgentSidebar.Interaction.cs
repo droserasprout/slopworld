@@ -140,7 +140,7 @@ namespace SlopWorld
             {
                 Find.Selector.ClearSelection();
                 if (row.Pawn == null) return;
-                CameraJumper.TryJumpAndSelect(row.Pawn);
+                EcoMapInput.SelectAgent(row.Pawn);
                 return;
             }
 

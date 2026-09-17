@@ -10,6 +10,21 @@ namespace SlopWorld
     // selector's UI pass and gizmo grid alive for sidebar-selected agents.
     static class EcoMapInput
     {
+        // CameraJumper is a programmatic camera path, so CameraDriver's Eco motion gate
+        // cannot stop it. Keep the agent selected for its sidebar actions, but leave the
+        // hidden board's camera alone while Eco is resting.
+        public static void SelectAgent(Pawn pawn)
+        {
+            if (pawn == null) return;
+            if (Eco.Resting)
+            {
+                Find.Selector.Select(pawn);
+                return;
+            }
+
+            CameraJumper.TryJumpAndSelect(pawn);
+        }
+
         // The rectangle draws before Selector handles input, including the first event
         // after Eco is enabled. Cancel it at that earlier draw entry as well.
         [HarmonyPatch(typeof(DragBox), nameof(DragBox.DragBoxOnGUI))]

@@ -54,7 +54,7 @@ namespace SlopWorld
             // SelectionDrawer's select time, so a pawn already selected would never replay
             // it. Same clear-then-select vanilla does for a bar click.
             Find.Selector.ClearSelection();
-            CameraJumper.TryJumpAndSelect(pawn);
+            EcoMapInput.SelectAgent(pawn);
         }
 
         internal static void Toggle()

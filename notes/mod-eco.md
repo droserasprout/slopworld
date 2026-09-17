@@ -9,6 +9,9 @@ gizmos and click/camera input have separate entry points. Hidden maintenance sti
 bounded updates and fleck expiry; revealing the map must resume immediately. Projection
 updates remain necessary even when camera input is blocked.
 
+Programmatic agent selection is a separate camera path: sidebar and keyboard selection must
+retain the pawn selection but skip `CameraJumper` while Eco is resting.
+
 Because ticks stop, colony reconciliation uses wall time and arrivals spawn at their final
 pod destination. Autosave skips the unchanged board. Foreground frame pacing remains
 `FramePolicy`'s job, independent of Eco.
