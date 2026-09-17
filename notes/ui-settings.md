@@ -14,6 +14,12 @@ Reload merges untouched fields and reports same-field conflicts; Discard uses th
 remote snapshot. A save must not reload unrelated pages. General's local controls remain
 usable when daemon loading fails. See [config ownership](daemon-config-stores.md).
 
+`DaemonConfigDraft` owns one field record per raw text key: the record keeps its path, local
+and remote baselines, blank-zero formatting policy, and pending post-save normalization. Pages
+read that record directly, so recreating a Settings page during an in-flight save does not lose
+typed numeric text or its normalization. Usage's live-only rows remain separate display state;
+they are promoted into configured overrides only when edited.
+
 Objects such as agents/projects/presets have separate editor lifetimes. Updating defaults
 must not silently rebuild running agent processes. Confirmation is for consequential
 operations such as stopping/removing agents or destroying private state, not appearance toggles.

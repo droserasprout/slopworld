@@ -42,5 +42,15 @@ boundary rather than session broadcasts.
 Config and template loads read the current schema without rewriting files. API writes validate
 current request fields; repository definitions remain read-only.
 
+Configuration and personal-template stores use `paths::write_atomic_async` for owner-only
+`0600` replacement without blocking Tokio workers. Preset catalog writes use the synchronous
+`paths::write_atomic` helper and retain their existing umask-controlled permissions; preset
+HTTP mutations run that synchronous work on a blocking executor. Both helpers remove their
+temporary file on write, permission, or rename failure.
+
+Preset responses intentionally keep an explicit `source` projection. The current response shape
+is a public contract, so automatically flattening future serialized fields would broaden it
+without an explicit API decision; this cleanup remains declined.
+
 Unknown-field preservation compares the original document with its old typed representation;
 known fields omitted by serialization are clears, not extensions to restore.

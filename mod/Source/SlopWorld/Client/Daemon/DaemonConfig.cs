@@ -245,74 +245,77 @@ namespace SlopWorld
         }
 
         // This deliberately omits bind, token, projects, sessions, state rules and sandbox
-        // presets. The daemon deep-merges this object before validating it.
-        public string ToPatchJson(string baseline = null)
+        // presets. The daemon deep-merges this explicit editable projection before validating
+        // it. Keep it as a token tree until DaemonClient serializes the request.
+        public JVal ToPatch(JVal baseline = null)
         {
-            var before = baseline == null ? null : JVal.Parse(baseline);
-            var daemon = before?["daemon"];
-            return PatchObject(before,
-                "daemon", PatchObject(daemon,
-                    "usage_poll_secs", UsagePollSecs.ToString(System.Globalization.CultureInfo.InvariantCulture),
-                    "usage_items", UsageItemsJson(daemon?["usage_items"]),
-                    "claude_credentials", JVal.Q(ClaudeCredentials),
-                    "openrouter_key_file", JVal.Q(OpenrouterKeyFile),
-                    "openai_credentials", JVal.Q(OpenaiCredentials),
-                    "agent_titles", JVal.Q(AgentTitles),
-                    "title_model", JVal.Q(TitleModel),
-                    "summary_prompt", JVal.Q(SummaryPrompt),
-                    "title_min_chars", TitleMinChars.ToString(System.Globalization.CultureInfo.InvariantCulture),
-                    "pi_titles", JVal.Q(PiTitles),
-                    "task_summaries", JVal.Q(TaskSummaries),
-                    "worker_templates", Strings(WorkerTemplates),
-                    "instructions", PatchObject(daemon?["instructions"],
-                        "worker_prompt", JVal.Q(WorkerPrompt))),
-                "defaults", PatchObject(before?["defaults"],
-                    "agent", JVal.Q(Agent), "agent_shell", JVal.Q(AgentShell),
-                    "shell", JVal.Q(Shell)),
-                "commands", PatchObject(before?["commands"],
-                    "pager", JVal.Q(Pager), "editor", JVal.Q(Editor),
-                    "highlighter", JVal.Q(Highlighter)));
+            var daemon = baseline?["daemon"];
+            var daemonPatch = PatchObject(daemon,
+                    Pair("usage_poll_secs", JVal.IntValue(UsagePollSecs)),
+                    Pair("usage_items", UsageItemsPatch(daemon?["usage_items"])),
+                    Pair("claude_credentials", JVal.StringValue(ClaudeCredentials)),
+                    Pair("openrouter_key_file", JVal.StringValue(OpenrouterKeyFile)),
+                    Pair("openai_credentials", JVal.StringValue(OpenaiCredentials)),
+                    Pair("agent_titles", JVal.StringValue(AgentTitles)),
+                    Pair("title_model", JVal.StringValue(TitleModel)),
+                    Pair("summary_prompt", JVal.StringValue(SummaryPrompt)),
+                    Pair("title_min_chars", JVal.IntValue(TitleMinChars)),
+                    Pair("pi_titles", JVal.StringValue(PiTitles)),
+                    Pair("task_summaries", JVal.StringValue(TaskSummaries)),
+                    Pair("worker_templates", Strings(WorkerTemplates)),
+                    Pair("instructions", PatchObject(daemon?["instructions"],
+                        Pair("worker_prompt", JVal.StringValue(WorkerPrompt)))));
+            var defaultsPatch = PatchObject(baseline?["defaults"],
+                    Pair("agent", JVal.StringValue(Agent)),
+                    Pair("agent_shell", JVal.StringValue(AgentShell)),
+                    Pair("shell", JVal.StringValue(Shell)));
+            var commandsPatch = PatchObject(baseline?["commands"],
+                    Pair("pager", JVal.StringValue(Pager)),
+                    Pair("editor", JVal.StringValue(Editor)),
+                    Pair("highlighter", JVal.StringValue(Highlighter)));
+            return PatchObject(baseline,
+                Pair("daemon", daemonPatch),
+                Pair("defaults", defaultsPatch),
+                Pair("commands", commandsPatch));
         }
 
-        // Nested objects have already been reduced to changed leaves. Retain the original
-        // scalar JSON so booleans, numbers and escaped strings keep their wire types.
-        static string PatchObject(JVal baseline, params string[] fields)
+        public string ToPatchJson(string baseline = null) =>
+            JVal.ToJson(ToPatch(baseline == null ? null : JVal.Parse(baseline)));
+
+        static KeyValuePair<string, JVal> Pair(string key, JVal value) =>
+            new KeyValuePair<string, JVal>(key, value ?? JVal.Null);
+
+        // Nested objects have already been reduced to changed leaves. Comparing tokens keeps
+        // booleans, numbers, arrays and escaped strings in their original wire types.
+        static JVal PatchObject(JVal baseline, params KeyValuePair<string, JVal>[] fields)
         {
-            var parts = new List<string>();
-            for (int i = 0; i < fields.Length; i += 2)
+            var result = JVal.ObjectValue();
+            foreach (var field in fields)
             {
-                string value = fields[i + 1];
-                var current = JVal.Parse(value);
-                if (baseline != null)
-                {
-                    var previous = baseline[fields[i]];
-                    if (current.IsObject
-                        ? !current.ObjectItems.Any()
-                        : JVal.Equivalent(current, previous))
-                        continue;
-                }
-                parts.Add(JVal.Q(fields[i]) + ":" + value);
+                var current = field.Value ?? JVal.Null;
+                if (baseline != null && (current.IsObject
+                    ? !current.ObjectItems.Any()
+                    : JVal.Equivalent(current, baseline[field.Key])))
+                    continue;
+                result.Put(field.Key, current);
             }
-            return "{" + string.Join(",", parts.ToArray()) + "}";
+            return result;
         }
 
-        string UsageItemsJson(JVal baseline)
+        JVal UsageItemsPatch(JVal baseline)
         {
-            var parts = new List<string>();
+            var result = JVal.ObjectValue();
             foreach (var pair in UsageItems)
             {
                 var item = pair.Value ?? new UsageItemConfig();
                 // Zero is explicit here so a previously saved per-item override can be
                 // cleared through the daemon's deep-merge patch.
-                string interval = item.IntervalSecs > 0
-                    ? item.IntervalSecs.ToString(System.Globalization.CultureInfo.InvariantCulture)
-                    : "0";
-                string changes = PatchObject(baseline?[pair.Key],
-                    "poll", JVal.B(item.Poll), "interval_secs", interval);
-                if (baseline == null || changes != "{}")
-                    parts.Add(JVal.Q(pair.Key) + ":" + changes);
+                var changes = PatchObject(baseline?[pair.Key],
+                    Pair("poll", JVal.BoolValue(item.Poll)),
+                    Pair("interval_secs", JVal.IntValue(Math.Max(0, item.IntervalSecs))));
+                if (baseline == null || changes.ObjectItems.Any()) result.Put(pair.Key, changes);
             }
-            return "{" + string.Join(",", parts.ToArray()) + "}";
+            return result;
         }
 
         // One entry per line, which is how the GUI edits these lists.
@@ -325,9 +328,13 @@ namespace SlopWorld
                 .Where(l => l.Length > 0)
                 .ToList();
 
-        static string Strings(IEnumerable<string> values) =>
-            "[" + string.Join(",", (values ?? Enumerable.Empty<string>()).Distinct()
-                .OrderBy(value => value, StringComparer.Ordinal)
-                .Select(JVal.Q).ToArray()) + "]";
+        static JVal Strings(IEnumerable<string> values)
+        {
+            var result = JVal.ArrayValue();
+            foreach (string value in (values ?? Enumerable.Empty<string>()).Distinct()
+                .OrderBy(value => value, StringComparer.Ordinal))
+                result.Add(JVal.StringValue(value));
+            return result;
+        }
     }
 }

@@ -12,6 +12,7 @@ namespace SlopWorld.Tests
             yield return ("round trips every patch field", RoundTripsEveryPatchField);
             yield return ("independent page saves preserve drafts and saved values", IndependentPageSaves);
             yield return ("patches retain nested resets and pending edits", NestedPatchChanges);
+            yield return ("keeps structured patch snapshots independent", StructuredPatchSnapshots);
             yield return ("splits and joins line lists", SplitsAndJoinsLineLists);
             yield return ("merges refreshes around drafts and reports conflicts", DraftRefreshMerge);
             yield return ("usage inheritance stays blank across reload and discard", UsageInheritanceText);
@@ -57,6 +58,29 @@ namespace SlopWorld.Tests
             patch = JVal.Parse(config.ToPatchJson(submitted));
             AssertEx.Equal("new-editor", patch["commands"]["editor"].AsString(), "edit during save remains pending");
             AssertEx.True(patch["daemon"].IsNull, "submitted changes are clean");
+        }
+
+        static void StructuredPatchSnapshots()
+        {
+            var config = new DaemonConfig
+            {
+                WorkerTemplates = new List<string> { "zeta", "alpha", "zeta" },
+            };
+            var baseline = config.ToPatch();
+            AssertEx.Equal("alpha", baseline["daemon"]["worker_templates"][0].AsString(),
+                           "worker templates are sorted in the projection");
+            AssertEx.Equal(2, baseline["daemon"]["worker_templates"].Count,
+                           "worker templates are deduplicated in the projection");
+
+            config.WorkerTemplates[0] = "changed";
+            config.TitleModel = "new-model";
+            AssertEx.Equal("alpha", baseline["daemon"]["worker_templates"][0].AsString(),
+                           "baseline is independent of later list edits");
+            var patch = config.ToPatch(baseline);
+            AssertEx.Equal("new-model", patch["daemon"]["title_model"].AsString(),
+                           "structured diff includes the changed scalar");
+            AssertEx.Equal("changed", patch["daemon"]["worker_templates"][1].AsString(),
+                           "later structured edits are diffed from the independent baseline");
         }
 
         static void ReadsDaemonDefaults()

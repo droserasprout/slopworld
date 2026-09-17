@@ -25,6 +25,10 @@ A session rename can remove the old name in a pushed snapshot before its HTTP re
 keep the temporary name mapping until success or failure settles it, preserving the pawn,
 terminal and selection without keeping a truly deleted session alive.
 
+Daemon configuration drafts keep an explicit editable `JVal` projection and independent token
+snapshots. Leaf diffs are computed before `DaemonClient` serializes the request, preserving
+unknown daemon fields, sorted/deduplicated worker templates, and numeric wire types.
+
 Project, template and agent settings previews resolve on the daemon. Worker creation also stays
 daemon-owned: `SessionHub` sends caller context, project, selected allowlisted template, task
 body, and durability, then refreshes tasks/sessions before opening the returned terminal.

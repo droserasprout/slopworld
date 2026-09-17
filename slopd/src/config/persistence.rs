@@ -75,19 +75,7 @@ impl Config {
     }
 
     pub async fn save_text(path: &Path, text: &str) -> Result<()> {
-        if let Some(parent) = path.parent() {
-            tokio::fs::create_dir_all(parent).await?;
-        }
-
-        let tmp = path.with_extension("toml.tmp");
-        tokio::fs::write(&tmp, text).await?;
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            tokio::fs::set_permissions(&tmp, std::fs::Permissions::from_mode(0o600)).await?;
-        }
-        tokio::fs::rename(tmp, path).await?;
-        Ok(())
+        crate::paths::write_atomic_async(path, text, Some(0o600)).await
     }
 
     /// A clone safe to hand a client: a set token becomes the sentinel, so `GET /api/config`

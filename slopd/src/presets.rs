@@ -422,10 +422,8 @@ fn read_user_files(dir: &std::path::Path) -> anyhow::Result<Vec<(PathBuf, Preset
 
 fn write_file(path: &std::path::Path, file: &PresetFile) -> anyhow::Result<()> {
     let text = toml::to_string_pretty(file)?;
-    let tmp = path.with_extension("toml.tmp");
-    std::fs::write(&tmp, text)?;
-    std::fs::rename(&tmp, path)?;
-    Ok(())
+    // Presets intentionally retain the existing umask-controlled permission policy.
+    crate::paths::write_atomic(path, &text, None)
 }
 
 fn write_user_file(

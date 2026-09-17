@@ -5,23 +5,77 @@ using System.Linq;
 
 namespace SlopWorld
 {
+    // One editable text field owns the value the user sees and both snapshots used to merge
+    // reloads. Keeping the path and formatting policy beside the value prevents pages from
+    // maintaining parallel dictionaries that can drift during an in-flight request.
+    public sealed class DaemonConfigFieldState
+    {
+        public readonly string Key;
+        public string Path { get; private set; }
+        public string Text { get; set; }
+        public string LocalBaseline { get; set; }
+        public string RemoteBaseline { get; set; }
+        public bool ZeroMeansBlank { get; private set; }
+        public bool HasPendingNormalization { get; private set; }
+        public string PendingNormalization { get; private set; }
+
+        internal DaemonConfigFieldState(string key, string path, string text, bool zeroMeansBlank)
+        {
+            Key = key;
+            Path = path;
+            Text = text ?? "";
+            LocalBaseline = Text;
+            RemoteBaseline = Text;
+            ZeroMeansBlank = zeroMeansBlank;
+        }
+
+        internal void Configure(string path, bool zeroMeansBlank)
+        {
+            Path = path;
+            ZeroMeansBlank |= zeroMeansBlank;
+        }
+
+        internal void QueueNormalization(string value)
+        {
+            PendingNormalization = value ?? "";
+            HasPendingNormalization = true;
+        }
+
+        internal void ClearNormalization()
+        {
+            PendingNormalization = null;
+            HasPendingNormalization = false;
+        }
+
+        internal bool IsDirty => !StringEquals(Text, LocalBaseline);
+
+        internal bool NormalizeIfUnchanged(string normalized)
+        {
+            if (IsDirty) return false;
+            Text = normalized ?? "";
+            LocalBaseline = Text;
+            RemoteBaseline = Text;
+            return true;
+        }
+
+        static bool StringEquals(string left, string right) =>
+            string.Equals(left ?? "", right ?? "", StringComparison.Ordinal);
+    }
+
     // Game-free ownership for one daemon settings page. The page object may be discarded when
     // Settings closes, but this record keeps the editable values, raw field text, and the
     // server snapshot needed to merge a later reload.
     public sealed class DaemonConfigDraft
     {
-        readonly HashSet<string> _blankZeroTexts = new HashSet<string>();
-        readonly Dictionary<string, string> _texts = new Dictionary<string, string>();
-        readonly Dictionary<string, string> _textBaselines = new Dictionary<string, string>();
-        readonly Dictionary<string, string> _textRemoteBaselines =
-            new Dictionary<string, string>();
-        readonly Dictionary<string, string> _textPaths = new Dictionary<string, string>();
-        readonly Dictionary<string, string> _queuedNormalizations =
-            new Dictionary<string, string>();
+        readonly Dictionary<string, DaemonConfigFieldState> _fields =
+            new Dictionary<string, DaemonConfigFieldState>();
 
         public DaemonConfig Config { get; private set; }
-        public string BaselineJson { get; private set; }
-        public string RemoteBaselineJson { get; private set; }
+        JVal Baseline { get; set; }
+        JVal RemoteBaseline { get; set; }
+        public string BaselineJson => JVal.ToJson(Baseline);
+        public string RemoteBaselineJson => JVal.ToJson(RemoteBaseline);
+        public JVal BaselineValue() => JVal.Clone(Baseline);
         public bool Loaded { get; private set; }
         public bool Saving { get; set; }
         public string Error { get; set; }
@@ -41,39 +95,45 @@ namespace SlopWorld
             get
             {
                 if (!Loaded || Config == null) return false;
-                if (Config.ToPatchJson(BaselineJson) != "{}") return true;
-                foreach (var pair in _texts)
-                    if (!StringEquals(pair.Value, _textBaselines[pair.Key])) return true;
+                if (Config.ToPatch(Baseline).ObjectItems.Any()) return true;
+                foreach (var state in _fields.Values)
+                    if (state.IsDirty) return true;
                 return false;
             }
         }
 
         public bool IsTextDirty(string key) =>
-            _texts.ContainsKey(key) && !StringEquals(_texts[key], _textBaselines[key]);
+            _fields.TryGetValue(key, out var state) && state.IsDirty;
+
+        public IEnumerable<string> FieldKeys(string prefix = null)
+        {
+            return _fields.Keys.Where(key => prefix == null || key.StartsWith(prefix,
+                StringComparison.Ordinal)).OrderBy(key => key, StringComparer.Ordinal).ToList();
+        }
 
         public bool NormalizeTextIfUnchanged(string key, string normalized)
         {
-            if (!_texts.ContainsKey(key) || IsTextDirty(key)) return false;
-            string value = normalized ?? "";
-            _texts[key] = value;
-            _textBaselines[key] = value;
-            _textRemoteBaselines[key] = value;
-            return true;
+            return _fields.TryGetValue(key, out var state) && state.NormalizeIfUnchanged(normalized);
         }
 
         public void QueueNormalization(string key, string path, string normalized)
         {
-            _textPaths[key] = path;
-            _queuedNormalizations[key] = normalized ?? "";
+            Field(key, path, "", false).QueueNormalization(normalized);
         }
 
-        public void ClearQueuedNormalizations() => _queuedNormalizations.Clear();
+        public void ClearQueuedNormalizations()
+        {
+            foreach (var state in _fields.Values) state.ClearNormalization();
+        }
 
         public void ApplyQueuedNormalizations()
         {
-            foreach (var pair in _queuedNormalizations)
-                NormalizeTextIfUnchanged(pair.Key, pair.Value);
-            _queuedNormalizations.Clear();
+            foreach (var state in _fields.Values)
+            {
+                if (state.HasPendingNormalization)
+                    state.NormalizeIfUnchanged(state.PendingNormalization);
+                state.ClearNormalization();
+            }
         }
 
         public int BeginOperation()
@@ -88,33 +148,31 @@ namespace SlopWorld
             if (!Loaded || Config == null)
             {
                 Config = server;
-                BaselineJson = server.ToPatchJson();
-                RemoteBaselineJson = BaselineJson;
+                Baseline = server.ToPatch();
+                RemoteBaseline = JVal.Clone(Baseline);
                 Loaded = true;
                 Conflicts.Clear();
                 return;
             }
 
-            string oldBaseline = BaselineJson ?? Config.ToPatchJson();
-            string oldRemote = RemoteBaselineJson ?? oldBaseline;
-            string serverJson = server.ToPatchJson();
-            var dirty = JVal.Parse(Config.ToPatchJson(oldBaseline));
-            var oldBaselineValue = JVal.Parse(oldBaseline);
-            var serverValue = JVal.Parse(serverJson);
+            var oldBaseline = Baseline ?? Config.ToPatch();
+            var oldRemote = RemoteBaseline ?? oldBaseline;
+            var serverValue = server.ToPatch();
+            var dirty = Config.ToPatch(oldBaseline);
 
             Conflicts.Clear();
-            CollectConflicts(dirty, oldBaselineValue, serverValue, "", Conflicts);
+            CollectConflicts(dirty, oldBaseline, serverValue, "", Conflicts);
 
             var merged = JVal.Merge(serverValue, dirty);
             // Untouched fields should become clean against the new server snapshot. Keep the
             // old baseline only at paths that the player is still editing.
             var mergedBaseline = JVal.Merge(serverValue,
-                JVal.OverlayByShape(dirty, oldBaselineValue));
+                JVal.OverlayByShape(dirty, oldBaseline));
             Config = DaemonConfig.FromJson(merged);
             Config.CopyMetadataFrom(server);
-            BaselineJson = JVal.ToJson(mergedBaseline);
-            RemoteBaselineJson = serverJson;
-            MergeTexts(serverValue, JVal.Parse(oldRemote));
+            Baseline = mergedBaseline;
+            RemoteBaseline = JVal.Clone(serverValue);
+            MergeTexts(serverValue, oldRemote);
             Error = null;
         }
 
@@ -123,101 +181,102 @@ namespace SlopWorld
         public void MarkCurrentClean()
         {
             if (!Loaded || Config == null) return;
-            BaselineJson = Config.ToPatchJson();
-            foreach (var key in new List<string>(_texts.Keys))
-                _textBaselines[key] = _texts[key];
+            Baseline = Config.ToPatch();
+            foreach (var state in _fields.Values) state.LocalBaseline = state.Text;
             Conflicts.Clear();
         }
 
         public string Text(string key, string path, string serverValue, bool zeroMeansBlank = false)
         {
-            _textPaths[key] = path;
-            if (zeroMeansBlank) _blankZeroTexts.Add(key);
-            if (!_texts.ContainsKey(key))
-            {
-                _texts[key] = serverValue ?? "";
-                _textBaselines[key] = _texts[key];
-                _textRemoteBaselines[key] = _texts[key];
-            }
-            return _texts[key];
+            return Field(key, path, serverValue ?? "", zeroMeansBlank).Text;
         }
 
         public void SetText(string key, string path, string value)
         {
-            _textPaths[key] = path;
-            _texts[key] = value ?? "";
-            if (!_textBaselines.ContainsKey(key)) _textBaselines[key] = _texts[key];
-            if (!_textRemoteBaselines.ContainsKey(key))
-                _textRemoteBaselines[key] = _textBaselines[key];
+            Field(key, path, value ?? "", false).Text = value ?? "";
         }
 
         public void ResetToBaseline()
         {
-            if (!Loaded || string.IsNullOrEmpty(RemoteBaselineJson)) return;
+            if (!Loaded || RemoteBaseline == null) return;
             var metadata = Config;
-            Config = DaemonConfig.FromJson(JVal.Parse(RemoteBaselineJson));
+            Config = DaemonConfig.FromJson(RemoteBaseline);
             Config.CopyMetadataFrom(metadata);
-            foreach (var key in new List<string>(_texts.Keys))
+            foreach (var state in _fields.Values)
             {
-                string fallback = _textRemoteBaselines.ContainsKey(key)
-                    ? _textRemoteBaselines[key] : _textBaselines[key];
-                _texts[key] = ValueText(ValueAt(JVal.Parse(RemoteBaselineJson), _textPaths[key]),
-                    fallback, _blankZeroTexts.Contains(key));
-                _textBaselines[key] = _texts[key];
-                _textRemoteBaselines[key] = _texts[key];
+                state.Text = ValueText(ValueAt(RemoteBaseline, state.Path),
+                    state.RemoteBaseline, state.ZeroMeansBlank);
+                state.LocalBaseline = state.Text;
+                state.RemoteBaseline = state.Text;
             }
-            BaselineJson = RemoteBaselineJson;
+            Baseline = JVal.Clone(RemoteBaseline);
             Error = null;
             Conflicts.Clear();
         }
 
         public Dictionary<string, string> TextSnapshot() =>
-            new Dictionary<string, string>(_texts);
+            _fields.Values.ToDictionary(state => state.Key, state => state.Text);
 
         public void Acknowledge(string submittedJson, Dictionary<string, string> submittedTexts)
         {
-            BaselineJson = submittedJson;
-            RemoteBaselineJson = submittedJson;
+            Acknowledge(JVal.Parse(submittedJson), submittedTexts);
+        }
+
+        public void Acknowledge(JVal submitted, Dictionary<string, string> submittedTexts)
+        {
+            Baseline = JVal.Clone(submitted);
+            RemoteBaseline = JVal.Clone(submitted);
             foreach (var pair in submittedTexts)
             {
-                _textBaselines[pair.Key] = pair.Value;
-                _textRemoteBaselines[pair.Key] = pair.Value;
+                if (_fields.TryGetValue(pair.Key, out var state))
+                {
+                    state.LocalBaseline = pair.Value;
+                    state.RemoteBaseline = pair.Value;
+                }
             }
             Error = null;
             Conflicts.Clear();
         }
 
-        static void MergeTexts(JVal server, JVal remoteBaseline,
-                               Dictionary<string, string> texts,
-                               Dictionary<string, string> baselines,
-                               Dictionary<string, string> remoteBaselines,
-                               Dictionary<string, string> paths,
-                               HashSet<string> conflicts, HashSet<string> blankZeroTexts)
+        DaemonConfigFieldState Field(string key, string path, string serverValue,
+                                     bool zeroMeansBlank)
         {
-            foreach (var key in new List<string>(texts.Keys))
+            if (!_fields.TryGetValue(key, out var state))
             {
-                bool dirty = !StringEquals(texts[key], baselines[key]);
-                string serverText = ValueText(ValueAt(server, paths[key]), "", blankZeroTexts.Contains(key));
+                state = new DaemonConfigFieldState(key, path, serverValue, zeroMeansBlank);
+                _fields[key] = state;
+            }
+            else state.Configure(path, zeroMeansBlank);
+            return state;
+        }
+
+        static void MergeTexts(JVal server, JVal remoteBaseline,
+                               Dictionary<string, DaemonConfigFieldState> fields,
+                               HashSet<string> conflicts)
+        {
+            foreach (var state in fields.Values)
+            {
+                bool dirty = state.IsDirty;
+                string serverText = ValueText(ValueAt(server, state.Path), "", state.ZeroMeansBlank);
                 string remoteText = remoteBaseline == null
-                    ? remoteBaselines[key]
-                    : ValueText(ValueAt(remoteBaseline, paths[key]), remoteBaselines[key],
-                        blankZeroTexts.Contains(key));
+                    ? state.RemoteBaseline
+                    : ValueText(ValueAt(remoteBaseline, state.Path), state.RemoteBaseline,
+                        state.ZeroMeansBlank);
                 if (!dirty)
                 {
-                    texts[key] = serverText;
-                    baselines[key] = serverText;
+                    state.Text = serverText;
+                    state.LocalBaseline = serverText;
                 }
                 else if (!StringEquals(serverText, remoteText))
                 {
-                    conflicts.Add(paths[key]);
+                    conflicts.Add(state.Path);
                 }
-                remoteBaselines[key] = serverText;
+                state.RemoteBaseline = serverText;
             }
         }
 
         void MergeTexts(JVal server, JVal remoteBaseline) =>
-            MergeTexts(server, remoteBaseline, _texts, _textBaselines,
-                _textRemoteBaselines, _textPaths, Conflicts, _blankZeroTexts);
+            MergeTexts(server, remoteBaseline, _fields, Conflicts);
 
         static void CollectConflicts(JVal patch, JVal oldBaseline, JVal server,
                                      string path, HashSet<string> conflicts)

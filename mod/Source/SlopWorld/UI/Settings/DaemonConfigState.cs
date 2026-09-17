@@ -95,11 +95,11 @@ namespace SlopWorld
             string key = _key;
             int operation = draft.BeginOperation();
             draft.Saving = true;
-            string submitted = draft.Config.ToPatchJson();
-            string patch = draft.Config.ToPatchJson(draft.BaselineJson);
+            var submitted = draft.Config.ToPatch();
+            var patch = draft.Config.ToPatch(draft.BaselineValue());
             var submittedTexts = draft.TextSnapshot();
 
-            DaemonClient.Put(WireProtocol.Routes.ConfigPatch, patch,
+            DaemonClient.Put(WireProtocol.Routes.ConfigPatch, JVal.ToJson(patch),
                 _ =>
                 {
                     if (!IsCurrent(key, draft, operation)) return;
@@ -137,6 +137,8 @@ namespace SlopWorld
         public void MarkCurrentClean() => Draft.MarkCurrentClean();
 
         public bool IsTextDirty(string key) => Draft.IsTextDirty(key);
+
+        public IEnumerable<string> DraftFieldKeys(string prefix = null) => Draft.FieldKeys(prefix);
 
         public void ClearQueuedNormalizations() => Draft.ClearQueuedNormalizations();
 
