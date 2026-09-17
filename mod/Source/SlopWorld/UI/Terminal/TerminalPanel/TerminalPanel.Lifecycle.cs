@@ -26,9 +26,7 @@ namespace SlopWorld
             Drop();
             if (_state.Name == null) return;
             SessionHub.Instance.Unsubscribe(_state.Name);
-            FilesView.CloseViewerIf(_state.Name);
-            SearchView.CloseViewerIf(_state.Name);
-            GitView.CloseViewerIf(_state.Name);
+            AgentSidebar.TerminalClosed(_state.Name);
         }
 
         internal void BindSession(string name)
