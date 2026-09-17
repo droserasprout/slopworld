@@ -108,7 +108,7 @@ namespace SlopWorld
             GUI.color = Color.white;
         }
 
-        static readonly MouseClickSequence RoutedClicks = new MouseClickSequence();
+        static readonly MouseClickSequence RoutedClicks = new MouseClickSequence(useNativeClickCount: false);
         static string _routedClickSession;
 
         public static bool ClickRouted()
@@ -147,7 +147,7 @@ namespace SlopWorld
                         clickCount = RoutedClicks.Observe(e, Time.realtimeSinceStartup);
                     }
 
-                    bool locked = clickCount >= 2 || e.clickCount >= 2;
+                    bool locked = clickCount >= 2;
                     if (locked && LockRouted(row.Session))
                     {
                         RoutedClicks.Reset();
@@ -166,6 +166,12 @@ namespace SlopWorld
                 e.Use();
                 return true;
             }
+
+            // A routed double-click is contiguous only while every intervening left-button
+            // press lands on the same routed row. Ordinary rows and empty sidebar space must
+            // break the sequence even though their own click handlers run elsewhere.
+            RoutedClicks.Reset();
+            _routedClickSession = null;
             return false;
         }
 
