@@ -20,10 +20,12 @@ See [blast radius](sandbox-blast-radius.md).
 Network, DNS, and resource limits are direct agent settings. Private DNS must follow the
 actual host/container resolver. Resource limits wrap the full process tree and must either
 be enforced or fail launch. They are optional; there is no disk quota or general seccomp
-policy. Project mounts are literal source/destination paths applied at each start with their saved
-access mode. Validate both paths; missing sources fail launch. Workspace binds precede private
-state and DNS overlays, and source aliases cannot expose effective private preset roots. Writable
-project `.git` intentionally permits hook/config changes.
+policy. The agent-shell setting is resolved at launch from its command preset or custom command
+to an absolute executable path and emitted as the sandbox `SHELL`; a missing or non-executable
+selection fails that launch. Project mounts are literal source/destination paths applied at each
+start with their saved access mode. Validate both paths; missing sources fail launch. Workspace
+binds precede private state and DNS overlays, and source aliases cannot expose effective private
+preset roots. Writable project `.git` intentionally permits hook/config changes.
 
 Host Git inspection uses `git.rs` and `git_exec.rs`: known helpers are disabled, and Linux
 seccomp blocks child processes while allowing index threads. This also blocks clean/process

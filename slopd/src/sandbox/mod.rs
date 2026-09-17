@@ -8,7 +8,7 @@ mod state;
 
 use std::path::Path;
 
-use anyhow::Result;
+use anyhow::{bail, Result};
 
 use crate::config::{expand, Config, MountMode, ProjectCfg, SessionCfg};
 use crate::presets::{SandboxPreset, Table};
@@ -50,6 +50,7 @@ pub(crate) fn build_plan(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result
     crate::config::state_id_component(&s.state_id)?;
     let network = cfg.network_of(s, p);
     let dns = cfg.dns_of(s, p);
+    let agent_shell = agent_shell_path(cfg)?;
     let agent_argv = shell_split(&cfg.command_of(s));
     let dir = expand(&p.dir);
     let table = s.preset_table();
@@ -102,12 +103,80 @@ pub(crate) fn build_plan(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result
         p,
         network,
         dns: &dns,
+        agent_shell: &agent_shell,
         agent_argv,
         table: &table,
         presets: &presets,
         home: &home,
         mounts: &mounts,
     })
+}
+
+/// Resolve the configured agent-shell command to the absolute executable path expected by
+/// agent CLIs.  In particular, Codex accepts `$SHELL` only when it names an executable file;
+/// passing the preset name (`bash`) makes it fall back to the account's passwd shell.
+pub(crate) fn agent_shell_path(cfg: &Config) -> Result<String> {
+    let configured = cfg.defaults.agent_shell.trim();
+    if configured.is_empty() {
+        bail!("agent shell is empty");
+    }
+
+    let table = crate::presets::table();
+    let command = if let Some(preset) = table.command(configured) {
+        if preset.kind != crate::presets::CommandKind::Shell {
+            bail!("agent shell preset {configured:?} is not a shell command");
+        }
+        preset.cmd.trim()
+    } else {
+        configured
+    };
+    let executable = shell_split(command)
+        .into_iter()
+        .find(|arg| !arg.is_empty())
+        .ok_or_else(|| anyhow::anyhow!("agent shell {configured:?} has no executable"))?;
+    let path = Path::new(&executable);
+    if path.is_absolute() {
+        if is_executable_file(path) {
+            return Ok(executable);
+        }
+        bail!("agent shell {configured:?} executable {executable:?} is missing or not executable");
+    }
+    if executable.contains('/') {
+        bail!(
+            "agent shell {configured:?} must name an executable or an absolute path, got {executable:?}"
+        );
+    }
+
+    for directory in std::env::var_os("PATH")
+        .as_deref()
+        .into_iter()
+        .flat_map(std::env::split_paths)
+    {
+        let candidate = directory.join(&executable);
+        if candidate.is_absolute() && is_executable_file(&candidate) {
+            return Ok(candidate.to_string_lossy().into_owned());
+        }
+    }
+
+    bail!("agent shell {configured:?} executable {executable:?} was not found on the daemon PATH")
+}
+
+fn is_executable_file(path: &Path) -> bool {
+    let Ok(metadata) = std::fs::metadata(path) else {
+        return false;
+    };
+    if !metadata.is_file() {
+        return false;
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        metadata.permissions().mode() & 0o111 != 0
+    }
+    #[cfg(not(unix))]
+    {
+        true
+    }
 }
 
 /// Tests inspect the lowered argv; production startup saves and executes the same launch plan.
@@ -475,5 +544,19 @@ mod tests {
             shell_split(r#"bash -lc 'cd -- '\''a b'\'' && exec "${SHELL:-bash}"'"#),
             vec!["bash", "-lc", "cd -- 'a b' && exec \"${SHELL:-bash}\""]
         );
+    }
+
+    #[test]
+    fn agent_shell_presets_resolve_to_absolute_executables() {
+        let mut cfg = Config::default();
+        for name in ["bash", "sh"] {
+            cfg.defaults.agent_shell = name.into();
+            let path = agent_shell_path(&cfg).expect("installed shell preset");
+            assert!(
+                Path::new(&path).is_absolute(),
+                "{name} resolved to {path:?}"
+            );
+            assert_eq!(Path::new(&path).file_name().unwrap(), name);
+        }
     }
 }
