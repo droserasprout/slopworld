@@ -64,10 +64,18 @@ namespace SlopWorld.Tests
     {
         public static IEnumerable<(string Name, Action Body)> Cases()
         {
+            yield return ("fresh reader collection has no viewer path", FreshPaths);
             yield return ("pending file clicks share one start", Pending);
             yield return ("pinned files reopen without a new preview", Pinned);
             yield return ("shared file and diff preview replacement preserves pinned readers", SharedReaders);
             yield return ("pending diff cannot reopen the previous file", PendingDiff);
+        }
+
+        static void FreshPaths()
+        {
+            var tabs = new PagerTabs();
+            AssertEx.Equal<string>(null, tabs.FilePath("restored-viewer"), "unknown viewer before first preview");
+            AssertEx.Equal<string>(null, tabs.FilePath(null), "no active session before first preview");
         }
 
         static void PendingDiff()

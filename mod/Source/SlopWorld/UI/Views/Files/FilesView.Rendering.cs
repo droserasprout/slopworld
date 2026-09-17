@@ -465,76 +465,38 @@ namespace SlopWorld
 
         static void OpenMarkdown(string project, string path, string name)
         {
-            ReleaseMarkdownPreview();
-            _markdownPreview = new MarkdownTab
-            {
-                View = new MarkdownPreview(project, path, name),
-                Header = "view-markdown-" + (++_markdownHeader),
-            };
-            ShowMarkdown(_markdownPreview);
+            var tab = MarkdownViewers.ForPreview();
+            tab.View = new MarkdownPreview(project, path, name);
+            tab.Header = "view-markdown-" + (++Viewer.MarkdownHeader);
+            ShowMarkdown(tab);
         }
 
         static void ShowMarkdown(MarkdownTab tab)
         {
-            _activeMarkdown = tab;
             TerminalWindow.OpenContent(tab.View);
         }
 
         static bool ReopenMarkdown(string project, string path)
         {
-            if (_markdownPreview != null && _markdownPreview.View.Project == (project ?? "") &&
-                _markdownPreview.View.Path == path)
-            {
-                ShowMarkdown(_markdownPreview);
-                return true;
-            }
-
-            for (int i = 0; i < LockedMarkdown.Count; i++)
-            {
-                var tab = LockedMarkdown[i];
-                if (tab.View.Project != (project ?? "") || tab.View.Path != path) continue;
-                ShowMarkdown(tab);
-                return true;
-            }
-            return false;
+            return MarkdownViewers.Reopen(project, path);
         }
 
         // The native Markdown preview has no daemon session to appear in the routed list, so
         // give it the same lightweight header identity as a pager tab.
         public static void AddRoutedPreviews(List<SessionInfo> result)
         {
-            if (_markdownPreview != null &&
-                AgentSidebar.Passes(_markdownPreview.View.Project))
-                result.Add(_markdownPreview.HeaderInfo());
-
-            foreach (var tab in LockedMarkdown)
+            foreach (var tab in MarkdownViewers.All)
                 if (AgentSidebar.Passes(tab.View.Project)) result.Add(tab.HeaderInfo());
         }
 
         public static bool OpenViewerHeader(string session)
         {
-            if (_markdownPreview != null && _markdownPreview.Header == session)
-            {
-                ShowMarkdown(_markdownPreview);
-                return true;
-            }
-
-            for (int i = 0; i < LockedMarkdown.Count; i++)
-            {
-                var tab = LockedMarkdown[i];
-                if (tab.Header != session) continue;
-                ShowMarkdown(tab);
-                return true;
-            }
-            return false;
+            return MarkdownViewers.ReopenSession(session);
         }
 
         public static bool IsNativeViewerHeader(string session)
         {
-            if (_markdownPreview != null && _markdownPreview.Header == session) return true;
-            foreach (var tab in LockedMarkdown)
-                if (tab.Header == session) return true;
-            return false;
+            return MarkdownViewers.ContainsSession(session);
         }
 
         static void ViewSourceFile(string project, string path, string label)
@@ -581,78 +543,31 @@ namespace SlopWorld
 
         internal static void ReleaseMarkdownPreview()
         {
-            if (_activeMarkdown != null && Showing(_activeMarkdown))
-            {
-                if (_activeMarkdown.Locked)
-                    AddLockedMarkdown(_activeMarkdown);
-                else
-                {
-                    Find.WindowStack?.WindowOfType<TerminalWindow>()?.Leave();
-                    _activeMarkdown = null;
-                }
-            }
-            else _activeMarkdown = null;
-
-            if (_markdownPreview == null) return;
-            if (_markdownPreview.Locked) AddLockedMarkdown(_markdownPreview);
-            _markdownPreview = null;
-        }
-
-        static void AddLockedMarkdown(MarkdownTab tab)
-        {
-            if (tab != null && !LockedMarkdown.Contains(tab)) LockedMarkdown.Add(tab);
+            MarkdownViewers.ReleasePreview();
         }
 
         public static bool IsViewerSession(string session)
         {
             if (Viewers.IsSession(session)) return true;
-            if (_markdownPreview != null && _markdownPreview.Header == session &&
-                (_markdownPreview.Locked || Showing(_markdownPreview))) return true;
-            foreach (var tab in LockedMarkdown)
-                if (tab.Header == session) return true;
-            return false;
+            return MarkdownViewers.IsSession(session);
         }
 
         public static bool IsViewerLocked(string session)
         {
             if (Viewers.IsLocked(session)) return true;
-            if (_markdownPreview != null && _markdownPreview.Header == session)
-                return _markdownPreview.Locked;
-            foreach (var tab in LockedMarkdown)
-                if (tab.Header == session) return tab.Locked;
-            return false;
+            return MarkdownViewers.IsLocked(session);
         }
 
         public static bool LockViewer(string session)
         {
             if (Viewers.Lock(session)) return true;
-            if (_markdownPreview != null && _markdownPreview.Header == session)
-            {
-                _markdownPreview.Locked = true;
-                return true;
-            }
-            foreach (var tab in LockedMarkdown)
-                if (tab.Header == session)
-                {
-                    tab.Locked = true;
-                    return true;
-                }
-            return false;
+            return MarkdownViewers.Lock(session);
         }
 
         public static bool LockViewerFile(string project, string path)
         {
             if (Viewers.LockPreview(project, path)) return true;
-            if (_markdownPreview != null && _markdownPreview.View.Project == (project ?? "") &&
-                _markdownPreview.View.Path == path &&
-                (_markdownPreview.Locked || Showing(_markdownPreview)))
-            {
-                _markdownPreview.Locked = true;
-                return true;
-            }
-            foreach (var tab in LockedMarkdown)
-                if (tab.View.Project == (project ?? "") && tab.View.Path == path) return true;
-            return false;
+            return MarkdownViewers.LockPreview(project, path);
         }
 
         public static void CloseViewerIf(string session) => Viewers.CloseIf(session);
@@ -660,18 +575,7 @@ namespace SlopWorld
         public static bool CloseViewerTab(string session)
         {
             if (Viewers.CloseTab(session)) return true;
-            var tab = _markdownPreview?.Header == session ? _markdownPreview
-                : LockedMarkdown.Find(item => item.Header == session);
-            if (tab != null)
-            {
-                bool showing = Showing(tab);
-                LockedMarkdown.Remove(tab);
-                if (_markdownPreview == tab) _markdownPreview = null;
-                if (_activeMarkdown == tab) _activeMarkdown = null;
-                if (showing)
-                    Find.WindowStack?.WindowOfType<TerminalWindow>()?.Leave();
-                return true;
-            }
+            if (MarkdownViewers.CloseTab(session)) return true;
 
             // PagerTabs is UI-lifetime state. A game restart leaves the daemon's ephemeral
             // pager/editor session alive but loses that owner, so close the restored routed
