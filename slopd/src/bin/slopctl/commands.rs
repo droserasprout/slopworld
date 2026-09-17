@@ -5,7 +5,7 @@ use super::{HOST, TASK_WAIT_INTERVAL};
 use crate::shared::protocol::{enums::task_status, routes};
 use serde_json::{json, Value};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 pub(crate) const DELEGATE_USAGE: &str = "usage:
   slopctl delegate AGENT TASK...
@@ -72,6 +72,7 @@ pub(crate) const WAIT_USAGE: &str = "usage:
 
 block until one task reaches a terminal state, then show it. This command checks
 the task internally; do not replace it with a status loop or a short timeout.
+Status changes and a 30-second heartbeat go to stderr; stdout holds the final result.
 ";
 
 pub(crate) const ACCEPT_USAGE: &str = "usage:
@@ -871,6 +872,9 @@ pub(crate) fn wait_for_task(
     id: &str,
     interval: Duration,
 ) -> Result<Value, String> {
+    let started = Instant::now();
+    let mut reported_status = String::new();
+    let mut reported_at = started;
     loop {
         let v = request(
             endpoint,
@@ -881,6 +885,17 @@ pub(crate) fn wait_for_task(
         )?;
         if task_is_terminal(&v)? {
             return Ok(v);
+        }
+        // Keep long waits visibly alive without mixing diagnostics into the final JSON.
+        // Reuse the response we already fetched; observers need no separate status poll.
+        let status = v["task"]["status"].as_str().unwrap();
+        if status != reported_status || reported_at.elapsed() >= Duration::from_secs(30) {
+            eprintln!(
+                "waiting for task {id}: {status} ({}s elapsed); wait is active, no separate status polling needed",
+                started.elapsed().as_secs()
+            );
+            reported_status = status.to_owned();
+            reported_at = Instant::now();
         }
         thread::sleep(interval);
     }

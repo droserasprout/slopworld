@@ -39,6 +39,9 @@ stopped moving. The root token can remove tasks still in flight.
 
 `wait` blocks until `done`, `failed`, or `canceled`, then prints the final task.
 It polls internally; do not loop over `task`, `inbox`, or `status`.
+It prints the current state to stderr on the first pending response, on state changes,
+and every 30 seconds while waiting. Keep the same command running and read its output;
+stdout (including `--json`) contains only the final task result.
 
 `spawn [--durable] --project PROJECT --template TEMPLATE "task description"` creates the task
 and child session in one daemon operation. Workers are instantiated from the selected, enabled
