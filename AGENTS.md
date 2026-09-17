@@ -30,6 +30,6 @@ records unresolved work, not implemented behavior.
 
 Delegate only when asked by user implicitly
 
-Use `slopctl spawn ...` to delegate work to other agents. Retain the ID.
-Use `slopctl wait ID` until terminal; do not poll `task`/`inbox`/`status` or use short timeouts.
-Assigned work follows `task ID`, `accept`, `progress`, then `finish` or `fail`.
+Use `slopctl worker spawn ...` to delegate work to other agents. Retain the ID.
+Use `slopctl task wait ID` until terminal; do not poll `task list`/`status` or use short timeouts.
+Assigned work follows `task show ID`, `task accept`, `task progress`, then `task finish` or `task fail`.

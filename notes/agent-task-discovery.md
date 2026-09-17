@@ -2,14 +2,18 @@
 
 Use a short shipped breadcrumb when the session has working task credentials:
 
-> Delegate work once with `slopctl delegate AGENT TASK...`, keep the returned ID,
-> and use `slopctl wait ID` for the result. It blocks until terminal; do not poll
-> `task`, `inbox`, or `status`. Assigned work ends with `slopctl finish ID` or
-> `slopctl fail ID`.
+> Delegate work once with `slopctl task delegate AGENT TASK...`, keep the returned ID,
+> and use `slopctl task wait ID` for the result. It blocks until terminal; do not poll
+> `task list` or `status`. Assigned work ends with `slopctl task finish ID` or
+> `slopctl task fail ID`.
 
 The root caller can create a task-owned child with
-`slopctl spawn [--durable] --project PROJECT --template TEMPLATE TASK...`; the caller owns
+`slopctl worker spawn [--durable] --project PROJECT --template TEMPLATE TASK...`; the caller owns
 the child in the sidebar, while the selected template supplies its configuration.
+
+The documented `delegate`, `spawn`, and `wait` spellings remain shortcuts for these task and
+worker commands. Existing lifecycle verbs and `task ID` continue to work as compatibility
+aliases.
 
 Keep transport, grants, and policy out of the prompt. Project instruction files do not
 own this capability because it belongs to a live SlopWorld session.

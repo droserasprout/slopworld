@@ -2,10 +2,11 @@ use super::take_json_flag;
 use super::USAGE;
 use crate::commands::{
     command_help, parse_command, run_agent_create, run_spawn, task_is_terminal, wait_for_task,
-    Command, InboxFilter, SpawnArgs, UpdateAction, ACCEPT_USAGE, AGENT_USAGE, DELEGATE_USAGE,
-    FAIL_USAGE, FINISH_USAGE, INBOX_USAGE, PEERS_USAGE, PROGRESS_USAGE, PRUNE_USAGE, REMOVE_USAGE,
-    SANDBOX_USAGE, SPAWN_USAGE, STATUS_USAGE, TASK_USAGE, TEMPLATES_USAGE, TEMPLATE_USAGE,
-    WAIT_USAGE,
+    Command, InboxFilter, SpawnArgs, UpdateAction, ACCEPT_USAGE, AGENT_CREATE_USAGE, AGENT_USAGE,
+    DELEGATE_USAGE, FAIL_USAGE, FINISH_USAGE, INBOX_USAGE, PEERS_USAGE, PROGRESS_USAGE,
+    PRUNE_USAGE, REMOVE_USAGE, SANDBOX_INSPECT_USAGE, SANDBOX_USAGE, SPAWN_USAGE, STATUS_USAGE,
+    TASK_LIST_USAGE, TASK_SHOW_USAGE, TASK_USAGE, TEMPLATES_USAGE, TEMPLATE_SHOW_USAGE,
+    TEMPLATE_USAGE, WAIT_USAGE, WORKER_USAGE,
 };
 use crate::http::{request, Endpoint};
 use crate::logs::{
@@ -154,6 +155,142 @@ fn command_parser_builds_delegation_and_update_commands() {
 }
 
 #[test]
+fn canonical_command_tree_maps_to_the_existing_requests() {
+    assert_eq!(
+        parse_command(&words("task delegate agent fix the pane")),
+        parse_command(&words("delegate agent fix the pane"))
+    );
+    assert_eq!(
+        parse_command(&words("task list --all --sent")),
+        parse_command(&words("inbox --all --sent"))
+    );
+    assert_eq!(
+        parse_command(&words("task show task-7")),
+        parse_command(&words("task task-7"))
+    );
+    assert_eq!(
+        parse_command(&words("task wait task-7")),
+        parse_command(&words("wait task-7"))
+    );
+    assert_eq!(
+        parse_command(&words("task accept task-7 accepted")),
+        parse_command(&words("accept task-7 accepted"))
+    );
+    assert_eq!(
+        parse_command(&words("task progress task-7 still working")),
+        parse_command(&words("progress task-7 still working"))
+    );
+    assert_eq!(
+        parse_command(&words("task finish task-7 shipped")),
+        parse_command(&words("finish task-7 shipped"))
+    );
+    assert_eq!(
+        parse_command(&words("task fail task-7 blocked")),
+        parse_command(&words("fail task-7 blocked"))
+    );
+    assert_eq!(
+        parse_command(&words("task remove task-7")),
+        parse_command(&words("rm task-7"))
+    );
+    assert_eq!(
+        parse_command(&words("task prune --include-active")),
+        parse_command(&words("prune --all"))
+    );
+    assert_eq!(
+        parse_command(&words(
+            "worker spawn --durable --project repo --template codex inspect the build"
+        )),
+        parse_command(&words(
+            "spawn --durable --project repo --template codex inspect the build"
+        ))
+    );
+    assert_eq!(
+        parse_command(&words("template list --project repo")),
+        parse_command(&words("templates --project repo"))
+    );
+}
+
+#[test]
+fn canonical_task_names_take_precedence_over_legacy_task_ids() {
+    assert_eq!(
+        parse_command(&words("task wait")).unwrap_err(),
+        "task wait needs a task id"
+    );
+    assert_eq!(
+        parse_command(&words("task show task-7")),
+        Ok(Command::Task {
+            id: "task-7".into()
+        })
+    );
+    assert_eq!(
+        parse_command(&words("task task-7")),
+        Ok(Command::Task {
+            id: "task-7".into()
+        })
+    );
+}
+
+#[test]
+fn command_tree_has_group_and_leaf_help() {
+    assert_eq!(
+        parse_command(&words("task --help")),
+        Ok(Command::Help { usage: TASK_USAGE })
+    );
+    assert_eq!(
+        parse_command(&words("task list --help")),
+        Ok(Command::Help {
+            usage: TASK_LIST_USAGE
+        })
+    );
+    assert_eq!(
+        parse_command(&words("task show --help")),
+        Ok(Command::Help {
+            usage: TASK_SHOW_USAGE
+        })
+    );
+    assert_eq!(
+        parse_command(&words("worker --help")),
+        Ok(Command::Help {
+            usage: WORKER_USAGE
+        })
+    );
+    assert_eq!(
+        parse_command(&words("worker spawn --help")),
+        Ok(Command::Help { usage: SPAWN_USAGE })
+    );
+    assert_eq!(
+        parse_command(&words("template --help")),
+        Ok(Command::Help {
+            usage: TEMPLATE_USAGE
+        })
+    );
+    assert_eq!(
+        parse_command(&words("template list --help")),
+        Ok(Command::Help {
+            usage: TEMPLATES_USAGE
+        })
+    );
+    assert_eq!(
+        parse_command(&words("template show --help")),
+        Ok(Command::Help {
+            usage: TEMPLATE_SHOW_USAGE
+        })
+    );
+    assert_eq!(
+        parse_command(&words("agent create --help")),
+        Ok(Command::Help {
+            usage: AGENT_CREATE_USAGE
+        })
+    );
+    assert_eq!(
+        parse_command(&words("sandbox inspect --help")),
+        Ok(Command::Help {
+            usage: SANDBOX_INSPECT_USAGE
+        })
+    );
+}
+
+#[test]
 fn task_text_preserves_help_words_and_flags() {
     for text in ["help", "please help me", "--help", "-h"] {
         let mut args = words("delegate agent");
@@ -257,7 +394,7 @@ fn every_command_has_nested_help() {
     let commands = [
         ("delegate", DELEGATE_USAGE),
         ("spawn", SPAWN_USAGE),
-        ("worker", SPAWN_USAGE),
+        ("worker", WORKER_USAGE),
         ("templates", TEMPLATES_USAGE),
         ("template", TEMPLATE_USAGE),
         ("agent", AGENT_USAGE),
