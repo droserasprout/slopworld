@@ -21,19 +21,21 @@ namespace SlopWorld
         // has no use for the last four digits of a slider.
         public static string Num(float f) => f.ToString("0.###", CultureInfo.InvariantCulture);
 
-        // Only field selection belongs here; skipped payloads use the decoder's JSON grammar.
+        // Only field selection belongs here; skipped payloads use the decoder's strict grammar.
         internal static bool TryLiveScreenName(string json, out string name)
         {
             name = null;
             try
             {
-                using var reader = new JsonReader(json);
-                reader.Expect(Newtonsoft.Json.JsonToken.StartObject);
+                var reader = new JsonScanner(json);
+                reader.Expect('{');
                 bool typeSeen = false, screenSeen = false;
                 string candidate = null;
-                while (reader.More(Newtonsoft.Json.JsonToken.EndObject))
+                bool first = true;
+                while (reader.More(ref first, '}'))
                 {
-                    string key = reader.PropertyName();
+                    string key = reader.String();
+                    reader.Expect(':');
                     switch (key)
                     {
                         case "t":
@@ -41,10 +43,10 @@ namespace SlopWorld
                             typeSeen = true;
                             break;
                         case "screen":
-                            if (screenSeen || !ReadScreen(reader, out candidate)) return false;
+                            if (screenSeen || !ReadScreen(ref reader, out candidate)) return false;
                             screenSeen = true;
                             break;
-                        default: reader.Value(false); break;
+                        default: reader.Value(false, 1); break;
                     }
                 }
                 reader.Finish();
@@ -55,23 +57,25 @@ namespace SlopWorld
             catch (FormatException) { return false; }
         }
 
-        static bool ReadScreen(JsonReader reader, out string name)
+        static bool ReadScreen(ref JsonScanner reader, out string name)
         {
             name = null;
-            reader.Expect(Newtonsoft.Json.JsonToken.StartObject);
+            reader.Expect('{');
             int seen = 0;
-            while (reader.More(Newtonsoft.Json.JsonToken.EndObject))
+            bool first = true;
+            while (reader.More(ref first, '}'))
             {
-                string key = reader.PropertyName();
+                string key = reader.String();
+                reader.Expect(':');
                 int field = key == "name" ? 1 : key == "off" ? 2 : key == "request_id" ? 4 : 0;
                 if ((seen & field) != 0) return false;
                 seen |= field;
                 if (field == 1) name = reader.String();
                 else if (field != 0)
                 {
-                    if (reader.Number() != 0) return false;
+                    if (!reader.NumberIsZero()) return false;
                 }
-                else reader.Value(false);
+                else reader.Value(false, 2);
             }
             return true;
         }
