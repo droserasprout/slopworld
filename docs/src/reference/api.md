@@ -13,9 +13,11 @@ Session and task routes support appropriately scoped grants. Creating a session 
 its configuration (`PUT /api/sessions/:name`) require root authority. Scoped `rw` grants retain
 input, label, and permitted lifecycle operations. Removing or renaming a session invalidates its
 target memberships and owned grants, and closes affected WebSockets; name reuse needs a new grant.
-`POST /api/workers` is a separate root-only operation for creating a task-owned child from an
-existing agent session; it clones that session's runtime configuration and returns the new task and
-worker identity in one response. See the route inventory for the exact method and handler.
+`POST /api/workers` creates a task-owned child from the JSON fields project, template, body, and
+durable. The selected qualified template must be enabled in the daemon worker policy; scoped
+callers are limited to their own project. The response contains the new task and worker identity.
+It uses the template's captured settings, fresh private identity, and the caller only for
+task/sidebar parentage.
 `GET /api/sessions/:name/sandbox` returns the sanitized saved launch plan and a best-effort live
 process tree rooted at tmux's pane PID. It follows the same read grant as the session route; a
 stopped pane leaves the saved plan available but does not imply that the launch succeeded. Host
@@ -61,7 +63,10 @@ create/update applies the same normalization before persistence.
 
 ### Agent templates
 
-Agent-template routes are root-only. `GET /api/templates` returns personal and repository definitions.
+Agent-template routes are root-only except `GET /api/templates/spawnable`, which is scoped and
+returns only templates enabled by worker policy for the caller's project. `GET /api/templates`
+returns personal and repository definitions; its optional project query validates and echoes a
+root project context without filtering the root catalog.
 Repository names are qualified as `project::name`, carry `origin.source = "project"` and
 `origin.file`, and are read-only. They can be instantiated or duplicated into the personal
 catalog. See [repository Library](../guides/repository-library.md).
@@ -71,9 +76,9 @@ are never template fields. It also accepts `{ "name": "...", "description":
 "...", "duplicate": "existing-template" }` for an independent copy, or a complete template
 definition with `version` omitted to create a definition from the template editor. Every personal
 definition includes a daemon-owned monotonic `version`; repository definitions use zero. `POST /api/templates/:name/create` accepts a new
-`name`, a registered `project`, and an optional `overrides` session form; the daemon copies
-the template's portable fields and allocates fresh private state. The selected project supplies
-mounts. `PUT /api/templates/:name` accepts the complete definition with its expected `version`
+`name`, a registered `project`, an optional `overrides` session form, and optional `start`
+boolean; the daemon copies the template's portable fields and allocates fresh private state.
+The selected project supplies mounts. `PUT /api/templates/:name` accepts the complete definition with its expected `version`
 and atomically replaces it; the path may name the old definition when the editor also renames
 it. `DELETE /api/templates/:name?version=N` requires the expected version. Stale edit/delete
 requests return `409 Conflict`, missing edit/delete targets return `404`, and duplicate

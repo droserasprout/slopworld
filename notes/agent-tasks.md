@@ -14,10 +14,10 @@ reports to the host without putting host sessions in a grant's scope.
 The store returns tasks visible to the caller. CLI filters shape that result;
 `--json` serializes the same shaped answer as human-readable output.
 CLI command help is recognized immediately after the command name. Task text
-preserves help words; spawn options end at the parent, before the task body.
+preserves help words; spawn options end before the task body.
 Task authority is separate from terminal-input authority; the grant's session
 scope is the delegation allowlist.
 
-Root-only worker creation returns both task and session identity. See
+Worker creation from an allowlisted template returns both task and session identity. See
 [daemon-workers](daemon-workers.md) for bootstrap, sidebar metadata, and exit/retry
 policy, and [agent-task-discovery](agent-task-discovery.md) for task discovery and its notification limits.

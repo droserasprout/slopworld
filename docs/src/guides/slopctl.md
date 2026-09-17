@@ -40,13 +40,23 @@ stopped moving. The root token can remove tasks still in flight.
 `wait` blocks until `done`, `failed`, or `canceled`, then prints the final task.
 It polls internally; do not loop over `task`, `inbox`, or `status`.
 
-`spawn [--durable] PARENT "task description"` creates the task and child session in one daemon operation. `PARENT` must be an existing
-agent session to clone; the caller named by `SLOPWORLD_SESSION` owns the task and sidebar child.
-The child clones the parent's session configuration and adds the worker API capability. The worker receives its exact task id
-in `SLOPWORLD_TASK_ID`, so it should run `slopctl task ID`, accept it, and report progress with
-the normal lifecycle commands. Spawning is root-only. One-shot workers disappear on exit; durable
-workers remain as stopped, inspectable sessions. Exit, stop, removal, or startup failure marks an
-unfinished worker task failed, and retries require a new task or a manual durable start.
+`spawn [--durable] --project PROJECT --template TEMPLATE "task description"` creates the task
+and child session in one daemon operation. Workers are instantiated from the selected, enabled
+template; an existing agent is never cloned. The caller named by `SLOPWORLD_SESSION` owns the
+task and sidebar child. `templates` lists the catalog, while an agent caller sees only templates
+enabled for worker spawning; `template show NAME` prints one accessible definition.
+Insert `--` before task text that begins with an option, for example
+`spawn --project repo --template review -- --durable` sends the literal task `--durable`.
+The worker receives its exact task id in `SLOPWORLD_TASK_ID`, so it should run `slopctl task ID`,
+accept it, and report progress with the normal lifecycle commands. One-shot workers disappear
+on exit; durable workers remain as stopped, inspectable sessions. Exit, stop, removal, or startup
+failure marks an unfinished worker task failed, and retries require a new task or a manual
+durable start.
+
+Create a normal agent from the same catalog with
+`agent create NAME --project PROJECT --template TEMPLATE`; creation does not start it unless
+`--start` is supplied. Both worker and ordinary-agent creation use the daemon's template
+validation and fresh private identity allocation.
 
 ## Diagnostics
 

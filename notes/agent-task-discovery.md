@@ -7,8 +7,9 @@ Use a short shipped breadcrumb when the session has working task credentials:
 > `task`, `inbox`, or `status`. Assigned work ends with `slopctl finish ID` or
 > `slopctl fail ID`.
 
-The root caller can create a task-owned child with `slopctl spawn [--durable] PARENT TASK...`;
-the caller owns the child in the sidebar, while `PARENT` supplies the configuration to clone.
+The root caller can create a task-owned child with
+`slopctl spawn [--durable] --project PROJECT --template TEMPLATE TASK...`; the caller owns
+the child in the sidebar, while the selected template supplies its configuration.
 
 Keep transport, grants, and policy out of the prompt. Project instruction files do not
 own this capability because it belongs to a live SlopWorld session.

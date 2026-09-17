@@ -24,7 +24,9 @@ A session rename can remove the old name in a pushed snapshot before its HTTP re
 keep the temporary name mapping until success or failure settles it, preserving the pawn,
 terminal and selection without keeping a truly deleted session alive.
 
-Project, template and agent settings previews resolve on the daemon.
+Project, template and agent settings previews resolve on the daemon. Worker creation also stays
+daemon-owned: `SessionHub` sends caller context, project, selected allowlisted template, task
+body, and durability, then refreshes tasks/sessions before opening the returned terminal.
 `DaemonSettingsPreview` retains one draft response per editor and invalidates it on draft,
 catalog or connection changes. Refresh retries failures and rereads external files.
 Temporary-path previews coalesce unchanged names; disabling temporary mode invalidates

@@ -32,7 +32,7 @@ missing values are represented by an absent row window, never a guessed zero. Ol
 omit metadata leave daemon-policy resets/previews unavailable; only independent client safety
 bounds remain local. Advertised terminal ranges are validated before layout or history arithmetic.
 
-Worker clone parent and caller/task parent are distinct. Use explicit worker metadata,
+Worker template source and caller/task parent are distinct. Use explicit worker metadata,
 never name parsing. Host errands are unsandboxed; project errands use the selected project
 workspace and literal shared path mounts together with an explicitly chosen agent template's
 settings (or a source agent for `like` requests). Library entries can also explicitly run on the host.

@@ -79,7 +79,18 @@ fn run() -> Result<(), String> {
 }
 
 fn take_json_flag(args: &mut Vec<String>) -> bool {
-    let json = args.iter().any(|a| a == "--json");
-    args.retain(|a| a != "--json");
+    let mut json = false;
+    let mut options = true;
+    args.retain(|arg| {
+        if arg == "--" {
+            options = false;
+        }
+        if options && arg == "--json" {
+            json = true;
+            false
+        } else {
+            true
+        }
+    });
     json
 }

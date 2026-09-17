@@ -148,6 +148,26 @@ namespace SlopWorld
                 }, fail);
         }
 
+        // Worker construction is a daemon-owned transaction: the caller and project are
+        // context, while the selected template supplies the child's captured configuration.
+        // Refresh both stores before exposing the returned terminal to the UI.
+        public void SpawnWorker(string caller, string project, string template, string body,
+                                bool durable, Action<string> started, Action<string> fail)
+        {
+            DaemonClient.Post(WireProtocol.Routes.Workers,
+                "{" + $"\"project\":{JVal.Q(project ?? "")}," +
+                $"\"template\":{JVal.Q(template ?? "")}," +
+                $"\"body\":{JVal.Q(body ?? "")}," +
+                $"\"durable\":{JVal.B(durable)}}}",
+                j =>
+                {
+                    string worker = j["worker"]["session"].AsString();
+                    _tasks.Add(TaskInfo.FromJson(j["task"]));
+                    _tasks.Refresh();
+                    _sessions.Refresh(() => started?.Invoke(worker), fail);
+                }, fail, string.IsNullOrEmpty(caller) ? TaskInfo.Host : caller);
+        }
+
         public void SaveAgentTemplate(string source, string name, string description,
                                       Action ok, Action<string> fail) =>
             _catalog.SaveAgentTemplate(source, name, description, ok, fail);

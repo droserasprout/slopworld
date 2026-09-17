@@ -36,6 +36,8 @@ pub(crate) fn router(m: Mgr) -> Router {
             routes::TASK,
             get(one_task).post(update_task).delete(remove_task),
         )
+        .route(routes::SPAWNABLE_TEMPLATES, get(list_spawnable_templates))
+        .route(routes::WORKERS, post(spawn_worker))
         .route(crate::shared::protocol::WS_PATH, get(ws_upgrade))
         .layer(middleware::from_fn_with_state(m.clone(), scoped_request));
 
@@ -63,7 +65,6 @@ pub(crate) fn router(m: Mgr) -> Router {
         )
         .route(routes::LIBRARY_ITEM_RUN, post(run_library_item))
         .route(routes::RUN, post(run))
-        .route(routes::WORKERS, post(spawn_worker))
         .route(routes::FILE_ACTION, post(file_action))
         .route(routes::OPEN_APPS, get(open_apps))
         .route(routes::GRANTS, get(list_grants).post(mint_grant))

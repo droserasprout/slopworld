@@ -1,6 +1,6 @@
 //! Configuration data types and their field-level defaults.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::net::Ipv4Addr;
 use std::sync::OnceLock;
 
@@ -158,6 +158,12 @@ pub struct Daemon {
     /// Prompt delivered to a newly spawned task worker.
     #[serde(default)]
     pub instructions: InstructionsCfg,
+    /// Qualified agent-template identities allowed as task-worker sources. This policy is
+    /// deliberately separate from the template catalog so editing or deleting a definition
+    /// never changes an existing worker, and a personal name cannot authorize a same-named
+    /// repository definition.
+    #[serde(default, skip_serializing_if = "BTreeSet::is_empty")]
+    pub worker_templates: BTreeSet<String>,
 }
 
 /// Settings for the prompt delivered to a new task worker.
@@ -247,6 +253,7 @@ impl Default for Daemon {
             pi_titles: default_pi_title_policy(),
             task_summaries: TitlePolicy::Never,
             instructions: InstructionsCfg::default(),
+            worker_templates: BTreeSet::new(),
         }
     }
 }

@@ -20,24 +20,27 @@ impl Manager {
     pub async fn spawn_worker(
         self: &Arc<Self>,
         caller: String,
-        parent: String,
+        project: String,
+        template: String,
         body: String,
         durable: bool,
     ) -> Result<WorkerSpawn> {
-        self.session_operation(self.spawn_worker_within_boundary(caller, parent, body, durable))
-            .await
+        self.session_operation(
+            self.spawn_worker_within_boundary(caller, project, template, body, durable),
+        )
+        .await
     }
 
     async fn spawn_worker_within_boundary(
         self: &Arc<Self>,
         caller: String,
-        parent: String,
+        project: String,
+        template_name: String,
         body: String,
         durable: bool,
     ) -> Result<WorkerSpawn> {
         let _spawn = self.worker_spawn.lock().await;
         self.reload_if_changed().await;
-        let cfg = self.config().await;
         let caller = caller.trim().to_string();
         if caller.is_empty() {
             bail!("a worker needs a caller identity");
@@ -45,45 +48,41 @@ impl Manager {
         if caller != crate::tasks::HOST && !self.session_known(&caller).await {
             bail!("no such caller session: {caller}");
         }
-        let parent = parent.trim().to_string();
-        if parent.is_empty() {
-            bail!("a worker needs a parent session");
-        }
-        let parent_session = self
-            .session_cfg(&parent)
-            .await
-            .ok_or_else(|| anyhow!("no such parent session: {parent}"))?;
-        if self.is_host(&parent).await {
-            bail!("a host terminal cannot own a worker; choose an agent parent");
-        }
-
-        let project = parent_session.project.trim();
-        if project.is_empty() {
-            bail!("parent {parent} has no project");
-        }
-        let p = self
-            .project_for(&cfg, &parent_session)
-            .await
+        let project = self.worker_project(&caller, project.trim()).await?;
+        let template = self
+            .spawnable_worker_template(&caller, &project, template_name.trim())
+            .await?;
+        let cfg = self.config().await;
+        let p = cfg
+            .project(&project)
+            .cloned()
             .ok_or_else(|| anyhow!("no such worker project: {project}"))?;
 
-        // PARENT supplies the behavior to clone; the invoking session owns the child in the
-        // task mailbox and sidebar.
-        let mut session = clone_worker_session(
-            parent_session,
+        // The selected template supplies behavior; the invoking session owns the child in the
+        // task mailbox and sidebar. No caller configuration is copied into the worker.
+        let mut session = worker_session_from_template(
+            &template,
             self.fresh_worker_name(&caller).await,
+            &project,
             &caller,
         );
         // A worker must be able to reach the daemon and must carry the exact API-capability
-        // preset. It is appended to the parent's sandbox rather than replacing its normal tool
-        // and state configuration.
+        // preset. It is appended to the selected template's sandbox rather than replacing its
+        // normal tool and state configuration.
         if cfg.network_of(&session, &p) == NetworkMode::None {
-            bail!("worker parent {parent} disables networking; task API access needs a network");
+            bail!(
+                "worker template {} disables networking; task API access needs a network",
+                template.name
+            );
         }
         let table = crate::presets::table();
         crate::sandbox::validate_preset_name(WORKER_SANDBOX, &table)
             .context("worker task API preset is invalid")?;
         if cfg.command_of(&session).trim().is_empty() {
-            bail!("worker parent {parent} does not resolve to an executable command");
+            bail!(
+                "worker template {} does not resolve to an executable command",
+                template.name
+            );
         }
 
         let task = self.tasks.create_worker(
@@ -165,29 +164,234 @@ impl Manager {
     }
 }
 
-/// Duplicate the parent's session behavior for a child. A worker gets a new private-state
-/// identity and daemon-owned hierarchy metadata, while command, project, sandbox, networking and
-/// limits remain the parent's choices. Workers use the live project's mounts. Workers are deliberately stopped
-/// after their task exits: retrying a task is an explicit operator decision, not a daemon loop.
-fn clone_worker_session(mut parent: SessionCfg, name: String, owner_name: &str) -> SessionCfg {
-    parent.name = name;
-    parent.state_id = uuid::Uuid::new_v4().to_string();
-    parent.worker = true;
-    parent.parent = owner_name.to_string();
-    parent.task_id.clear();
-    parent.autostart = false;
-    parent.auto_resume = false;
-    parent.worker_token = None;
-    if !parent.sandbox.iter().any(|preset| preset == WORKER_SANDBOX) {
-        parent.sandbox.push(WORKER_SANDBOX.into());
+/// Validate the project context a worker caller is allowed to use. Root callers may choose any
+/// registered project; an agent may only create a worker in its own project. Keeping this check
+/// here as well as in the HTTP handler protects direct manager callers and future transports.
+impl Manager {
+    pub(crate) async fn worker_project(&self, caller: &str, requested: &str) -> Result<String> {
+        let requested = requested.trim();
+        let cfg = self.config().await;
+        let caller_project = if caller != crate::tasks::HOST {
+            let session = self
+                .session_cfg(caller)
+                .await
+                .ok_or_else(|| anyhow!("no such caller session: {caller}"))?;
+            if self.is_host(caller).await {
+                bail!("a host terminal cannot own a worker; choose an agent caller");
+            }
+            let project = session.project.trim();
+            if project.is_empty() {
+                bail!("caller {caller} has no project context");
+            }
+            Some(project.to_string())
+        } else {
+            None
+        };
+        let project = if requested.is_empty() {
+            caller_project
+                .clone()
+                .ok_or_else(|| anyhow!("a worker needs a project context"))?
+        } else {
+            requested.to_string()
+        };
+        if cfg.project(&project).is_none() {
+            bail!("no such worker project: {project}");
+        }
+        if let Some(caller_project) = caller_project {
+            if caller_project != project {
+                bail!("caller {caller} may spawn workers only in project {caller_project}");
+            }
+        }
+        Ok(project.to_string())
     }
-    parent
+
+    pub(crate) async fn worker_template_names(&self) -> std::collections::BTreeSet<String> {
+        self.config().await.daemon.worker_templates.clone()
+    }
+
+    /// Return the exact enabled definition from the live personal/repository catalog. Policy is
+    /// checked by qualified identity before task/session allocation, so a deleted or unchecked
+    /// template cannot leave a mailbox or private state behind.
+    pub(crate) async fn spawnable_worker_template(
+        &self,
+        caller: &str,
+        project: &str,
+        requested: &str,
+    ) -> Result<AgentTemplate> {
+        if requested.is_empty() {
+            bail!("a worker needs a template");
+        }
+        let cfg = self.config().await;
+        if caller != crate::tasks::HOST {
+            let session = self
+                .session_cfg(caller)
+                .await
+                .ok_or_else(|| anyhow!("no such caller session: {caller}"))?;
+            if session.project.trim() != project {
+                bail!("caller {caller} is not authorized for project {project}");
+            }
+        }
+        if !cfg.daemon.worker_templates.contains(requested) {
+            bail!("agent template {requested} is not enabled for workers");
+        }
+        drop(cfg);
+        self.agent_templates()
+            .await
+            .into_iter()
+            .find(|template| template.name == requested)
+            .ok_or_else(|| anyhow!("no such agent template: {requested}"))
+    }
+}
+
+/// Instantiate a selected recipe with a new private identity and daemon-owned hierarchy
+/// metadata. Workers use the selected project's live mounts and never inherit caller settings.
+/// They are deliberately stopped after their task exits: retrying a task is an explicit operator
+/// decision, not a daemon loop.
+fn worker_session_from_template(
+    template: &AgentTemplate,
+    name: String,
+    project: &str,
+    owner_name: &str,
+) -> SessionCfg {
+    let mut session = template.instantiate(name, project.to_string());
+    session.worker = true;
+    session.parent = owner_name.to_string();
+    session.task_id.clear();
+    session.autostart = false;
+    session.auto_resume = false;
+    session.worker_token = None;
+    if !session
+        .sandbox
+        .iter()
+        .any(|preset| preset == WORKER_SANDBOX)
+    {
+        session.sandbox.push(WORKER_SANDBOX.into());
+    }
+    session
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::config::{Config, Daemon, DnsConfig, Limits, ProjectCfg, SessionCfg};
+    use std::collections::BTreeSet;
+
+    fn template(name: &str) -> AgentTemplate {
+        serde_json::from_value(serde_json::json!({
+            "name": name,
+            "defaults": {
+                "cmd": "codex --full-auto",
+                "sandbox": [],
+                "sandbox_presets": [],
+                "persistent_tmp": true,
+                "network": "private",
+                "dns": {"mode": "resolved"},
+                "limits": {"memory_mb": 1024, "pids": 64, "nofile": 128, "cpu_pct": 75},
+                "autostart": true,
+                "auto_resume": true
+            }
+        }))
+        .unwrap()
+    }
+
+    #[test]
+    fn worker_policy_round_trips_exact_qualified_template_names() {
+        let mut config = Config::default();
+        config.daemon.worker_templates =
+            BTreeSet::from(["review".to_string(), "repo::review".to_string()]);
+        let loaded: Config = toml::from_str(&toml::to_string(&config).unwrap()).unwrap();
+        assert_eq!(
+            loaded.daemon.worker_templates,
+            config.daemon.worker_templates
+        );
+    }
+
+    #[tokio::test]
+    async fn worker_policy_keeps_personal_and_repository_names_distinct() {
+        let manager = crate::session::test_manager(Config {
+            daemon: Daemon {
+                worker_templates: BTreeSet::from(["repo::review".to_string()]),
+                ..Default::default()
+            },
+            projects: vec![ProjectCfg {
+                name: "repo".into(),
+                dir: "/tmp".into(),
+                ..Default::default()
+            }],
+            sessions: vec![SessionCfg {
+                name: "caller".into(),
+                project: "repo".into(),
+                ..Default::default()
+            }],
+            ..Default::default()
+        });
+        manager.templates.write().await.templates =
+            vec![template("review"), template("repo::review")];
+
+        assert_eq!(
+            manager
+                .spawnable_worker_template(crate::tasks::HOST, "repo", "repo::review")
+                .await
+                .unwrap()
+                .name,
+            "repo::review"
+        );
+        let error = manager
+            .spawnable_worker_template(crate::tasks::HOST, "repo", "review")
+            .await
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("not enabled for workers"), "{error}");
+
+        manager
+            .templates
+            .write()
+            .await
+            .templates
+            .retain(|template| template.name != "repo::review");
+        let error = manager
+            .spawnable_worker_template(crate::tasks::HOST, "repo", "repo::review")
+            .await
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("no such agent template"), "{error}");
+
+        manager.cfg.write().await.daemon.worker_templates.clear();
+        let error = manager
+            .spawnable_worker_template(crate::tasks::HOST, "repo", "review")
+            .await
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("not enabled for workers"), "{error}");
+    }
+
+    #[tokio::test]
+    async fn scoped_worker_callers_cannot_cross_project_contexts() {
+        let manager = crate::session::test_manager(Config {
+            projects: vec![
+                ProjectCfg {
+                    name: "repo".into(),
+                    dir: "/tmp".into(),
+                    ..Default::default()
+                },
+                ProjectCfg {
+                    name: "other".into(),
+                    dir: "/tmp".into(),
+                    ..Default::default()
+                },
+            ],
+            sessions: vec![SessionCfg {
+                name: "caller".into(),
+                project: "repo".into(),
+                ..Default::default()
+            }],
+            ..Default::default()
+        });
+        assert_eq!(manager.worker_project("caller", "").await.unwrap(), "repo");
+        let error = manager.worker_project("caller", "other").await.unwrap_err();
+        let error = error.to_string();
+        assert!(error.contains("only in project repo"), "{error}");
+    }
 
     #[tokio::test]
     async fn worker_names_are_explicitly_coined_without_name_inference() {
@@ -199,31 +403,42 @@ mod tests {
                 ..Default::default()
             }],
             sessions: vec![SessionCfg {
-                name: "parent".into(),
+                name: "caller".into(),
                 project: "repo".into(),
                 ..Default::default()
             }],
             ..Default::default()
         });
-        assert_eq!(manager.fresh_worker_name("parent").await, "parent-worker");
+        assert_eq!(manager.fresh_worker_name("caller").await, "caller-worker");
         manager.live.write().await.insert(
-            "parent-worker".into(),
+            "caller-worker".into(),
             Live::new(SessionCfg::default(), TitleCapture::default()),
         );
-        assert_eq!(manager.fresh_worker_name("parent").await, "parent-worker-2");
+        assert_eq!(manager.fresh_worker_name("caller").await, "caller-worker-2");
 
-        // The selected parent supplies the clone, but the caller owns the child in the sidebar.
-        assert_eq!(manager.fresh_worker_name("caller").await, "caller-worker");
+        // Names are derived from the task caller, never from the selected template.
+        assert_eq!(manager.fresh_worker_name("other").await, "other-worker");
     }
 
     #[tokio::test]
-    async fn invalid_worker_parent_is_rejected_before_task_creation() {
-        let manager = crate::session::test_manager(Config::default());
+    async fn invalid_worker_template_is_rejected_before_task_creation() {
+        let mut daemon = Daemon::default();
+        daemon.worker_templates.insert("missing".into());
+        let manager = crate::session::test_manager(Config {
+            daemon,
+            projects: vec![ProjectCfg {
+                name: "repo".into(),
+                dir: "/tmp".into(),
+                ..Default::default()
+            }],
+            ..Default::default()
+        });
 
         let error = manager
             .spawn_worker(
                 crate::tasks::HOST.into(),
-                "missing-parent".into(),
+                "repo".into(),
+                "missing".into(),
                 "inspect the build".into(),
                 false,
             )
@@ -231,59 +446,62 @@ mod tests {
             .unwrap_err()
             .to_string();
 
-        assert!(
-            error.contains("no such parent session: missing-parent"),
-            "{error}"
-        );
+        assert!(error.contains("no such agent template: missing"), "{error}");
         assert!(manager.tasks.all_tasks().is_empty());
     }
 
     #[test]
-    fn worker_clones_parent_settings_and_only_replaces_child_metadata() {
-        let parent = SessionCfg {
-            name: "parent".into(),
-            label: Some("Research".into()),
-            state_id: "parent-state".into(),
-            project: "repo".into(),
-            command: "codex".into(),
-            cmd: Some("codex --full-auto".into()),
-            command_snapshot: None,
-            sandbox: vec!["codex".into(), "gpu".into()],
-            sandbox_snapshots: Vec::new(),
-            persistent_tmp: true,
-            network: NetworkMode::Private,
-            dns: DnsConfig::Resolved,
-            limits: Limits {
+    fn worker_instantiates_template_and_only_replaces_child_metadata() {
+        let template = template("worker");
+        let child =
+            worker_session_from_template(&template, "caller-worker".into(), "repo", "caller");
+
+        assert_eq!(child.name, "caller-worker");
+        assert!(!child.state_id.is_empty());
+        assert!(child.worker);
+        assert_eq!(child.parent, "caller");
+        assert!(child.task_id.is_empty());
+        assert_eq!(child.project, "repo");
+        assert_eq!(child.cmd.as_deref(), Some("codex --full-auto"));
+        assert_eq!(child.sandbox, [WORKER_SANDBOX]);
+        assert!(child.persistent_tmp);
+        assert_eq!(child.network, NetworkMode::Private);
+        assert_eq!(child.dns, DnsConfig::Resolved);
+        assert_eq!(
+            child.limits,
+            Limits {
                 memory_mb: Some(1024),
                 pids: Some(64),
                 nofile: Some(128),
                 cpu_pct: Some(75),
-            },
-            autostart: true,
-            auto_resume: true,
-            worker: false,
-            parent: String::new(),
-            task_id: String::new(),
-            worker_token: None,
-        };
-        let child = clone_worker_session(parent.clone(), "caller-worker".into(), "caller");
-
-        assert_eq!(child.name, "caller-worker");
-        assert_ne!(child.state_id, parent.state_id);
-        assert!(child.worker);
-        assert_eq!(child.parent, "caller");
-        assert!(child.task_id.is_empty());
-        assert_eq!(child.label, parent.label);
-        assert_eq!(child.project, parent.project);
-        assert_eq!(child.command, parent.command);
-        assert_eq!(child.cmd, parent.cmd);
-        assert_eq!(child.sandbox, ["codex", "gpu", WORKER_SANDBOX]);
-        assert_eq!(child.persistent_tmp, parent.persistent_tmp);
-        assert_eq!(child.network, parent.network);
-        assert_eq!(child.dns, parent.dns);
-        assert_eq!(child.limits, parent.limits);
+            }
+        );
         assert!(!child.autostart);
         assert!(!child.auto_resume);
+    }
+
+    #[test]
+    fn worker_template_keeps_snapshot_settings_independent_of_source_sessions() {
+        let template: AgentTemplate = serde_json::from_value(serde_json::json!({
+            "name": "worker",
+            "version": 1,
+            "defaults": {
+                "command": {"name": "codex", "cmd": "codex --full-auto", "sandbox": []},
+                "sandbox": ["captured"],
+                "sandbox_presets": [{"name": "captured"}],
+                "persistent_tmp": false,
+                "network": "private",
+                "dns": {"mode": "resolved"},
+                "limits": {},
+                "autostart": false,
+                "auto_resume": false
+            }
+        }))
+        .unwrap();
+        let child = worker_session_from_template(&template, "child".into(), "repo", "caller");
+        assert_eq!(child.command_snapshot.unwrap().name, "codex");
+        assert_eq!(child.sandbox_snapshots[0].name, "captured");
+        assert_eq!(child.sandbox, ["captured", WORKER_SANDBOX]);
     }
 
     #[tokio::test]
@@ -370,11 +588,9 @@ mod tests {
 
     #[test]
     fn worker_does_not_duplicate_the_api_sandbox() {
-        let parent = SessionCfg {
-            sandbox: vec![WORKER_SANDBOX.into()],
-            ..Default::default()
-        };
-        let child = clone_worker_session(parent, "child".into(), "parent");
+        let mut template = template("worker");
+        template.defaults.sandbox.push(WORKER_SANDBOX.into());
+        let child = worker_session_from_template(&template, "child".into(), "repo", "caller");
         assert_eq!(child.sandbox, vec![WORKER_SANDBOX]);
     }
 }

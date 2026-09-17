@@ -237,7 +237,13 @@ mod tests {
             .await
             .is_err());
         manager
-            .create_from_agent_template("repo::review", "reviewer".into(), "repo".into(), None)
+            .create_from_agent_template(
+                "repo::review",
+                "reviewer".into(),
+                "repo".into(),
+                None,
+                None,
+            )
             .await
             .unwrap();
         let copy = manager

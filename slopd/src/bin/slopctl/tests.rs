@@ -1,10 +1,11 @@
 use super::take_json_flag;
 use super::USAGE;
 use crate::commands::{
-    command_help, parse_command, run_spawn, task_is_terminal, wait_for_task, Command, InboxFilter,
-    SpawnArgs, UpdateAction, ACCEPT_USAGE, DELEGATE_USAGE, FAIL_USAGE, FINISH_USAGE, INBOX_USAGE,
-    PEERS_USAGE, PROGRESS_USAGE, PRUNE_USAGE, REMOVE_USAGE, SANDBOX_USAGE, SPAWN_USAGE,
-    STATUS_USAGE, TASK_USAGE, WAIT_USAGE,
+    command_help, parse_command, run_agent_create, run_spawn, task_is_terminal, wait_for_task,
+    Command, InboxFilter, SpawnArgs, UpdateAction, ACCEPT_USAGE, AGENT_USAGE, DELEGATE_USAGE,
+    FAIL_USAGE, FINISH_USAGE, INBOX_USAGE, PEERS_USAGE, PROGRESS_USAGE, PRUNE_USAGE, REMOVE_USAGE,
+    SANDBOX_USAGE, SPAWN_USAGE, STATUS_USAGE, TASK_USAGE, TEMPLATES_USAGE, TEMPLATE_USAGE,
+    WAIT_USAGE,
 };
 use crate::http::{request, Endpoint};
 use crate::logs::{
@@ -88,17 +89,23 @@ fn command_parser_builds_delegation_and_update_commands() {
         })
     );
     assert_eq!(
-        parse_command(&words("spawn --durable parent inspect the build")),
+        parse_command(&words(
+            "spawn --durable --project repo --template codex inspect the build"
+        )),
         Ok(Command::Spawn {
-            parent: "parent".to_string(),
+            project: "repo".to_string(),
+            template: "codex".to_string(),
             durable: true,
             body: "inspect the build".to_string(),
         })
     );
     assert_eq!(
-        parse_command(&words("worker parent run the checks")),
+        parse_command(&words(
+            "worker --project repo --template codex run the checks"
+        )),
         Ok(Command::Spawn {
-            parent: "parent".to_string(),
+            project: "repo".to_string(),
+            template: "codex".to_string(),
             durable: false,
             body: "run the checks".to_string(),
         })
@@ -107,6 +114,41 @@ fn command_parser_builds_delegation_and_update_commands() {
         parse_command(&words("sandbox inspect agent")),
         Ok(Command::SandboxInspect {
             name: "agent".into(),
+        })
+    );
+    assert_eq!(
+        parse_command(&words(
+            "agent create worker --project repo --template repo::review --start"
+        )),
+        Ok(Command::AgentCreate {
+            name: "worker".into(),
+            project: "repo".into(),
+            template: "repo::review".into(),
+            start: true,
+        })
+    );
+    assert_eq!(
+        parse_command(&words("template show repo::review")),
+        Ok(Command::TemplateShow {
+            name: "repo::review".into(),
+            project: None,
+        })
+    );
+    assert_eq!(
+        parse_command(&words("template show repo::review --project repo")),
+        Ok(Command::TemplateShow {
+            name: "repo::review".into(),
+            project: Some("repo".into()),
+        })
+    );
+    assert_eq!(
+        parse_command(&words("templates")),
+        Ok(Command::Templates { project: None })
+    );
+    assert_eq!(
+        parse_command(&words("templates --project repo")),
+        Ok(Command::Templates {
+            project: Some("repo".into())
         })
     );
 }
@@ -144,28 +186,26 @@ fn task_text_preserves_help_words_and_flags() {
 }
 
 #[test]
-fn spawn_preserves_task_text_after_parent() {
+fn spawn_preserves_task_text_after_template_options() {
     for command in ["spawn", "worker"] {
         for durable in [false, true] {
-            for text in [
-                "- investigate the failure",
-                "--durable",
-                "help",
-                "--help",
-                "-h",
-            ] {
+            for text in ["- investigate the failure", "help", "--help", "-h"] {
                 // Check both a quoted body and a body spread over several arguments.
                 for body_args in [vec![text.to_string()], words(text)] {
                     let mut args = vec![command.to_string()];
                     if durable {
                         args.push("--durable".into());
                     }
-                    args.push("parent".into());
+                    args.push("--project".into());
+                    args.push("repo".into());
+                    args.push("--template".into());
+                    args.push("codex".into());
                     args.extend(body_args);
                     assert_eq!(
                         parse_command(&args),
                         Ok(Command::Spawn {
-                            parent: "parent".into(),
+                            project: "repo".into(),
+                            template: "codex".into(),
                             durable,
                             body: text.into(),
                         })
@@ -177,11 +217,50 @@ fn spawn_preserves_task_text_after_parent() {
 }
 
 #[test]
+fn spawn_delimiter_preserves_options_as_literal_task_text() {
+    for command in ["spawn", "worker"] {
+        for durable in [false, true] {
+            for json in [false, true] {
+                for body in [
+                    "--durable",
+                    "--template other --project elsewhere",
+                    "--json",
+                    "--",
+                ] {
+                    let mut args = words(&format!(
+                        "{command} --project repo --template review {} {} -- {body}",
+                        if durable { "--durable" } else { "" },
+                        if json { "--json" } else { "" },
+                    ));
+                    assert_eq!(take_json_flag(&mut args), json);
+                    assert_eq!(
+                        parse_command(&args),
+                        Ok(Command::Spawn {
+                            project: "repo".into(),
+                            template: "review".into(),
+                            durable,
+                            body: body.into(),
+                        })
+                    );
+                }
+            }
+        }
+        assert!(parse_command(&words(&format!(
+            "{command} --project repo --template review --"
+        )))
+        .is_err());
+    }
+}
+
+#[test]
 fn every_command_has_nested_help() {
     let commands = [
         ("delegate", DELEGATE_USAGE),
         ("spawn", SPAWN_USAGE),
         ("worker", SPAWN_USAGE),
+        ("templates", TEMPLATES_USAGE),
+        ("template", TEMPLATE_USAGE),
+        ("agent", AGENT_USAGE),
         ("inbox", INBOX_USAGE),
         ("task", TASK_USAGE),
         ("wait", WAIT_USAGE),
@@ -209,7 +288,7 @@ fn every_command_has_nested_help() {
 }
 
 #[test]
-fn spawn_posts_parent_and_task_body_to_worker_endpoint() {
+fn spawn_posts_template_and_task_body_to_worker_endpoint() {
     let (endpoint, server) = serve(
         "200 OK",
         r#"{"task":{"id":"task-7"},"worker":{"name":"child"}}"#,
@@ -219,7 +298,8 @@ fn spawn_posts_parent_and_task_body_to_worker_endpoint() {
         "host",
         true,
         SpawnArgs {
-            parent: "parent",
+            project: "repo",
+            template: "codex",
             durable: true,
             body: "inspect the build",
         },
@@ -229,11 +309,32 @@ fn spawn_posts_parent_and_task_body_to_worker_endpoint() {
     assert!(request.starts_with("POST /api/workers HTTP/1.1\r\n"));
     let body = request.split("\r\n\r\n").nth(1).unwrap();
     let body: Value = serde_json::from_str(body).unwrap();
-    assert_eq!(body["parent"], "parent");
+    assert_eq!(body["project"], "repo");
+    assert_eq!(body["template"], "codex");
     assert_eq!(body["durable"], true);
     assert_eq!(body["body"], "inspect the build");
-    assert!(body.get("project").is_none());
-    assert!(body.get("template").is_none());
+}
+
+#[test]
+fn agent_create_posts_template_project_and_start_to_catalog_endpoint() {
+    let (endpoint, server) = serve("200 OK", r#"{"ok":true,"session":"worker"}"#);
+    run_agent_create(
+        &endpoint,
+        "host",
+        true,
+        "worker",
+        "repo",
+        "repo::review",
+        true,
+    )
+    .unwrap();
+    let request = server.join().unwrap();
+    assert!(request.starts_with("POST /api/templates/repo%3A%3Areview/create HTTP/1.1\r\n"));
+    let body = request.split("\r\n\r\n").nth(1).unwrap();
+    let body: Value = serde_json::from_str(body).unwrap();
+    assert_eq!(body["name"], "worker");
+    assert_eq!(body["project"], "repo");
+    assert_eq!(body["start"], true);
 }
 
 #[test]
@@ -245,7 +346,8 @@ fn command_parser_validates_fixed_arity_and_flags() {
     assert!(parse_command(&words("task")).is_err());
     assert!(parse_command(&words("prune --wat")).is_err());
     assert!(parse_command(&words("inbox --status")).is_err());
-    assert!(parse_command(&words("spawn --template codex parent task")).is_err());
+    assert!(parse_command(&words("spawn parent task")).is_err());
+    assert!(parse_command(&words("templates --wat")).is_err());
     assert!(parse_command(&words("wait")).is_err());
     assert!(parse_command(&words("wait task-7 extra")).is_err());
 }

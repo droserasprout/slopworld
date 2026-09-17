@@ -9,7 +9,7 @@ use crate::grant::{Cap, Level};
 use crate::shared::protocol::SESSION_HEADER;
 
 use super::super::types::*;
-use super::{err, guard, guard_create, ApiResult, Mgr};
+use super::{err, guard, ApiResult, Mgr};
 
 pub(crate) fn task_principal(
     cap: &Cap,
@@ -83,14 +83,16 @@ pub(crate) async fn create_task(
 
 /// Atomically coordinates the mailbox task and child-session setup. The task is written before
 /// the worker can start; a failed launch leaves a failed, queryable task (and a durable stopped
-/// session when requested). Only the root may mint a new worker session.
+/// session when requested). Root callers may choose any project, while scoped agents are limited
+/// to their own project and the daemon's worker-template allowlist is checked before allocation.
 pub(crate) async fn spawn_worker(
     State(m): State<Mgr>,
     Extension(cap): Extension<Cap>,
     headers: HeaderMap,
-    Json(q): Json<SpawnWorkerReq>,
+    Json(value): Json<serde_json::Value>,
 ) -> ApiResult {
-    guard_create(&cap)?;
+    let q: SpawnWorkerReq =
+        super::super::parse_owned(value, &["project", "template", "body", "durable"])?;
     let from = task_principal(&cap, &headers)?;
     if !task_endpoint_known(&m, &from).await {
         return Err(err(
@@ -99,7 +101,7 @@ pub(crate) async fn spawn_worker(
         ));
     }
     let worker = m
-        .spawn_worker(from, q.parent, q.body, q.durable)
+        .spawn_worker(from.clone(), q.project, q.template, q.body, q.durable)
         .await
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
     Ok(Json(json!({
@@ -107,6 +109,8 @@ pub(crate) async fn spawn_worker(
         "worker": {
             "name": worker.session.clone(),
             "session": worker.session,
+            "parent": from,
+            "durable": q.durable,
         }
     })))
 }
@@ -233,5 +237,32 @@ mod tests {
         headers.insert(SESSION_HEADER, HeaderValue::from_static("caller"));
 
         assert_eq!(task_principal(&Cap::Root, &headers).unwrap(), "caller");
+    }
+
+    #[tokio::test]
+    async fn old_parent_worker_requests_are_rejected_before_task_creation() {
+        let manager = crate::session::test_manager(crate::config::Config::default());
+        let mut headers = HeaderMap::new();
+        headers.insert(SESSION_HEADER, HeaderValue::from_static(crate::tasks::HOST));
+        let result = spawn_worker(
+            axum::extract::State(manager.clone()),
+            Extension(Cap::Root),
+            headers,
+            Json(serde_json::json!({
+                "parent": "old-agent",
+                "body": "legacy clone",
+                "durable": false
+            })),
+        )
+        .await;
+        let Err((status, Json(body))) = result else {
+            panic!("legacy parent request unexpectedly succeeded");
+        };
+        assert_eq!(status, StatusCode::BAD_REQUEST);
+        assert!(body["error"]
+            .as_str()
+            .unwrap()
+            .contains("unknown request field"));
+        assert!(manager.tasks.all_tasks().is_empty());
     }
 }
