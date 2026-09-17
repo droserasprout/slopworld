@@ -103,10 +103,11 @@ cache entry.
 
 ## Workers
 
-Settings > Integrations > Workers controls the prompt submitted to each worker spawned with
-`slopctl spawn`. It can refer to `$SLOPWORLD_TASK_ID`; the default includes the worker task
-workflow. The setting lives under `[daemon.instructions]` as `worker_prompt`. See
-[Using slopctl](slopctl.md).
+Settings > Integrations > Workers controls both the bootstrap prompt and the templates that
+agents may use to spawn workers. Check a template to add its qualified identity to the worker
+allowlist; new templates are unchecked. The prompt can refer to `$SLOPWORLD_TASK_ID`; the
+default includes the worker task workflow. The setting lives under `[daemon.instructions]` as
+`worker_prompt`, with the allowlist under `[daemon] worker_templates`. See [Using slopctl](slopctl.md).
 
 ## Command presets
 

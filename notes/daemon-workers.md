@@ -3,10 +3,11 @@
 `manager/workers.rs` constructs workers; `manager/start.rs` supplies runtime credentials.
 See [slopctl](../docs/src/guides/slopctl.md) for commands.
 
-The clone parent supplies configuration; the caller supplies task ownership and sidebar
-parentage. Never infer either from the generated name. Worker creation is root-only and
-requires network-capable API access. Fresh private identity and scoped credentials must not
-inherit the parent's state or expose the root endpoint token.
+The selected qualified template supplies configuration; the caller supplies task ownership and
+sidebar parentage. Never infer either from the generated name. Worker creation requires an
+allowlisted template, a registered project, and network-capable API access. Fresh private
+identity and scoped credentials must not inherit the caller's state or expose the root endpoint
+token. Scoped callers can use only their own project.
 
 Persist the task before starting its process. Failed starts and premature exits fail unfinished
 tasks; cleanup must never overwrite a terminal task result. Autostart/auto-resume are disabled

@@ -143,6 +143,10 @@ namespace SlopWorld
                 opts.Add(new FloatMenuOption("Delegate task...", () =>
                     TerminalWindow.OpenOverPane(new DelegateTaskDialog(name))));
 
+            if (info != null && !info.Host && !string.IsNullOrEmpty(info.Project))
+                opts.Add(new FloatMenuOption("Spawn worker...",
+                    () => TerminalWindow.OpenOverPane(new SpawnWorkerDialog(name, info.Project))));
+
             if (info != null && !info.Ephemeral && !info.Host && !info.Worker)
                 opts.Add(new FloatMenuOption("Edit...", () =>
                     TerminalWindow.OpenOverPane(new EditSessionDialog(info))));
@@ -195,6 +199,8 @@ namespace SlopWorld
                 new FloatMenuOption("Terminal (host)", () =>
                     hub.SessionStore.RunHostShell(name, session => TerminalWindow.Open(session),
                         UiLayout.Fail)),
+                new FloatMenuOption("Spawn worker...",
+                    () => TerminalWindow.OpenOverPane(new SpawnWorkerDialog(null, name))),
             };
 
             int agents = 0;

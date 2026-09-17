@@ -2,7 +2,8 @@
 
 Read-only repository discovery and qualified names are shipped; see
 [Library ownership](daemon-library.md) and the [user guide](../docs/src/guides/repository-library.md).
-CLI context inference builds on [template CLI](plan-template-cli.md); repository authoring
+CLI context inference builds on the shipped [slopctl template commands](../docs/src/guides/slopctl.md);
+repository authoring
 can use the existing daemon and UI template boundary independently.
 
 - Add Project/Personal destinations to creation, duplication, and Save as template.

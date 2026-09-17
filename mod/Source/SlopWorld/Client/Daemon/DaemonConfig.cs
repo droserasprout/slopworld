@@ -147,6 +147,9 @@ namespace SlopWorld
         // Task summaries are generated once for each durable delegated task.
         public string TaskSummaries = "";
         public string WorkerPrompt = "";
+        // Qualified template identities selected in Settings > Workers. This is daemon policy,
+        // not part of any template definition or instantiated agent snapshot.
+        public List<string> WorkerTemplates = new List<string>();
 
         // Agent and Shell name command presets. AgentShell is the shell advertised inside
         // sandboxed agent sessions; it is separate from the shell errand preset.
@@ -185,6 +188,7 @@ namespace SlopWorld
                 PiTitles = d["pi_titles"].AsString(),
                 TaskSummaries = d["task_summaries"].AsString(),
                 WorkerPrompt = i["worker_prompt"].AsString(defaults?.WorkerPrompt ?? ""),
+                WorkerTemplates = d["worker_templates"].Items.Select(item => item.AsString()).ToList(),
 
                 Agent = f["agent"].AsString(defaults?.Agent ?? ""),
                 AgentShell = f["agent_shell"].AsString(defaults?.AgentShell ?? ""),
@@ -259,6 +263,7 @@ namespace SlopWorld
                     "title_min_chars", TitleMinChars.ToString(System.Globalization.CultureInfo.InvariantCulture),
                     "pi_titles", JVal.Q(PiTitles),
                     "task_summaries", JVal.Q(TaskSummaries),
+                    "worker_templates", Strings(WorkerTemplates),
                     "instructions", PatchObject(daemon?["instructions"],
                         "worker_prompt", JVal.Q(WorkerPrompt))),
                 "defaults", PatchObject(before?["defaults"],
@@ -319,5 +324,10 @@ namespace SlopWorld
                 .Select(l => l.Trim())
                 .Where(l => l.Length > 0)
                 .ToList();
+
+        static string Strings(IEnumerable<string> values) =>
+            "[" + string.Join(",", (values ?? Enumerable.Empty<string>()).Distinct()
+                .OrderBy(value => value, StringComparer.Ordinal)
+                .Select(JVal.Q).ToArray()) + "]";
     }
 }

@@ -57,6 +57,10 @@ http:
       path: "/api/templates"
       methods: [GET, POST]
       scope: root
+    spawnable_templates:
+      path: "/api/templates/spawnable"
+      methods: [GET]
+      scope: scoped
     template:
       path: "/api/templates/:name"
       methods: [PUT, DELETE]
@@ -116,7 +120,7 @@ http:
     workers:
       path: "/api/workers"
       methods: [POST]
-      scope: root
+      scope: scoped
     file_action:
       path: "/api/file-action"
       methods: [POST]

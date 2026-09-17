@@ -7,7 +7,9 @@ use serde_json::json;
 
 use crate::grant::Cap;
 
-use super::super::types::{CreateAgentTemplateReq, SaveAgentTemplateReq, TemplateVersionQuery};
+use super::super::types::{
+    CreateAgentTemplateReq, SaveAgentTemplateReq, SpawnableTemplatesQuery, TemplateVersionQuery,
+};
 use super::{err, ApiResult, Mgr};
 
 fn template_error(error: anyhow::Error) -> (StatusCode, Json<serde_json::Value>) {
@@ -23,8 +25,57 @@ fn template_error(error: anyhow::Error) -> (StatusCode, Json<serde_json::Value>)
 pub(crate) async fn list_templates(
     State(m): State<Mgr>,
     Extension(_cap): Extension<Cap>,
+    Query(query): Query<SpawnableTemplatesQuery>,
 ) -> ApiResult {
-    Ok(Json(json!({ "templates": m.agent_templates().await })))
+    let templates = m.agent_templates().await;
+    if query.project.trim().is_empty() {
+        return Ok(Json(json!({ "templates": templates })));
+    }
+    let project = m
+        .worker_project(crate::tasks::HOST, &query.project)
+        .await
+        .map_err(|error| err(StatusCode::BAD_REQUEST, error))?;
+    Ok(Json(json!({ "templates": templates, "project": project })))
+}
+
+/// Scoped discovery exposes only definitions explicitly enabled by the root worker policy. A
+/// caller's project is the default context; root callers may provide one or omit it to inspect
+/// the complete enabled catalog. The response uses the same template shape as the root catalog
+/// so agents and the CLI cannot grow a second definition parser.
+pub(crate) async fn list_spawnable_templates(
+    State(m): State<Mgr>,
+    Extension(cap): Extension<Cap>,
+    headers: axum::http::HeaderMap,
+    Query(query): Query<SpawnableTemplatesQuery>,
+) -> ApiResult {
+    let caller = super::task_principal(&cap, &headers)?;
+    let project = query.project.trim();
+    if caller != crate::tasks::HOST || !project.is_empty() {
+        let project = m
+            .worker_project(&caller, project)
+            .await
+            .map_err(|error| err(StatusCode::BAD_REQUEST, error))?;
+        let enabled = m.worker_template_names().await;
+        return Ok(Json(json!({
+            "templates": m
+                .agent_templates()
+                .await
+                .into_iter()
+                .filter(|template| enabled.contains(&template.name))
+                .collect::<Vec<_>>(),
+            "project": project,
+        })));
+    }
+
+    let enabled = m.worker_template_names().await;
+    Ok(Json(json!({
+        "templates": m
+            .agent_templates()
+            .await
+            .into_iter()
+            .filter(|template| enabled.contains(&template.name))
+            .collect::<Vec<_>>(),
+    })))
 }
 
 pub(crate) async fn save_template(
@@ -108,7 +159,7 @@ pub(crate) async fn create_from_template(
 ) -> ApiResult {
     let overrides = req.overrides.map(crate::api::parse_session).transpose()?;
     let session = m
-        .create_from_agent_template(&template, req.name, req.project, overrides)
+        .create_from_agent_template(&template, req.name, req.project, overrides, req.start)
         .await
         .map_err(|error| err(StatusCode::BAD_REQUEST, error))?;
     Ok(Json(json!({ "ok": true, "session": session })))

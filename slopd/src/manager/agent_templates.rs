@@ -84,6 +84,7 @@ impl Manager {
         name: String,
         project: String,
         overrides: Option<SessionCfg>,
+        start: Option<bool>,
     ) -> Result<String> {
         let template = self
             .agent_templates()
@@ -94,6 +95,9 @@ impl Manager {
         let mut session = template.instantiate(name, project);
         if let Some(overrides) = overrides {
             template.apply_overrides(&mut session, &overrides);
+        }
+        if let Some(start) = start {
+            session.autostart = start;
         }
         let name = session.name.clone();
         self.add_template_session(session).await?;
@@ -205,13 +209,34 @@ mod tests {
             .await
             .unwrap();
         manager
-            .create_from_agent_template("reviewer", "new-agent".into(), "repo".into(), None)
+            .create_from_agent_template("reviewer", "new-agent".into(), "repo".into(), None, None)
             .await
             .unwrap();
         assert!(manager.config().await.session("new-agent").unwrap().project == "repo");
         assert_eq!(
             manager.config().await.project("repo").unwrap().mounts.len(),
             1
+        );
+        manager.templates.write().await.templates[0]
+            .defaults
+            .autostart = Some(true);
+        manager
+            .create_from_agent_template(
+                "reviewer",
+                "stopped-agent".into(),
+                "repo".into(),
+                None,
+                Some(false),
+            )
+            .await
+            .unwrap();
+        assert!(
+            !manager
+                .config()
+                .await
+                .session("stopped-agent")
+                .unwrap()
+                .autostart
         );
         let _ = std::fs::remove_dir_all(root);
     }
@@ -275,7 +300,7 @@ mod tests {
             .await
             .unwrap();
         manager
-            .create_from_agent_template("reviewer", "new-agent".into(), "repo".into(), None)
+            .create_from_agent_template("reviewer", "new-agent".into(), "repo".into(), None, None)
             .await
             .unwrap();
 

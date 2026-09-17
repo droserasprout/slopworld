@@ -8,11 +8,21 @@ pub(crate) struct CreateTaskReq {
 
 #[derive(Deserialize)]
 pub(crate) struct SpawnWorkerReq {
-    /// Existing agent session whose complete configuration is cloned for the child.
-    pub(crate) parent: String,
+    /// The project context for the new worker. Scoped callers may use only their own project.
+    #[serde(default)]
+    pub(crate) project: String,
+    /// Qualified identity from the daemon's spawnable-template catalog.
+    pub(crate) template: String,
     pub(crate) body: String,
     #[serde(default)]
     pub(crate) durable: bool,
+}
+
+#[derive(Debug, Deserialize, Default)]
+pub(crate) struct SpawnableTemplatesQuery {
+    /// Root callers may select a project context; agents default to their own project.
+    #[serde(default)]
+    pub(crate) project: String,
 }
 
 #[derive(Deserialize)]
@@ -75,6 +85,10 @@ pub(crate) struct CreateAgentTemplateReq {
     /// A complete form snapshot. The daemon copies only the documented portable fields.
     #[serde(default)]
     pub(crate) overrides: Option<serde_json::Value>,
+    /// When present, explicitly controls whether the resulting session starts. Omitted keeps
+    /// the template/override autostart value for the in-game editor.
+    #[serde(default)]
+    pub(crate) start: Option<bool>,
 }
 
 /// An errand nobody wrote down: the same temporary agent `/api/library/NAME/run` makes,

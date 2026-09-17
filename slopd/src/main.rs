@@ -168,11 +168,12 @@ async fn auth(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::{Daemon, SessionCfg};
+    use crate::config::{Daemon, ProjectCfg, SessionCfg};
     use crate::grant::Level;
     use axum::body::Body;
     use axum::http::Request;
     use futures::{SinkExt, StreamExt};
+    use std::collections::BTreeSet;
     use tokio_tungstenite::tungstenite::client::IntoClientRequest;
     use tower::ServiceExt;
 
@@ -335,6 +336,55 @@ mod tests {
             get(&app, shared::protocol::routes::USAGE, Some("root-secret")).await,
             StatusCode::OK
         );
+    }
+
+    #[tokio::test]
+    async fn scoped_worker_catalog_is_allowlisted_and_project_scoped() {
+        let manager = crate::session::test_manager(Config {
+            daemon: Daemon {
+                token: "root-secret".into(),
+                worker_templates: BTreeSet::from(["review".to_string()]),
+                ..Default::default()
+            },
+            projects: vec![ProjectCfg {
+                name: "repo".into(),
+                dir: "/tmp".into(),
+                ..Default::default()
+            }],
+            sessions: vec![SessionCfg {
+                name: "caller".into(),
+                project: "repo".into(),
+                ..Default::default()
+            }],
+            ..Default::default()
+        });
+        let template: crate::session::AgentTemplate = serde_json::from_value(serde_json::json!({
+            "name": "review",
+            "defaults": {"cmd": "echo review"}
+        }))
+        .unwrap();
+        manager
+            .create_agent_template_definition(template)
+            .await
+            .unwrap();
+        let token = manager
+            .mint_grant("caller".into(), vec!["caller".into()], Level::Ro)
+            .await
+            .unwrap();
+        let app = app(manager);
+        let request = Request::builder()
+            .uri(shared::protocol::routes::SPAWNABLE_TEMPLATES)
+            .header(shared::protocol::TOKEN_HEADER, token)
+            .body(Body::empty())
+            .unwrap();
+        let response = app.oneshot(request).await.unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(response.into_body(), 1024 * 1024)
+            .await
+            .unwrap();
+        let value: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(value["project"], "repo");
+        assert_eq!(value["templates"][0]["name"], "review");
     }
 
     #[tokio::test]

@@ -1,3 +1,6 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using Verse;
 
@@ -9,10 +12,52 @@ namespace SlopWorld
         protected override bool ShowEditButton => true;
         protected override string SavedMessage => "worker settings saved.";
 
+        public WorkersPage()
+        {
+            SessionHub.Instance.Catalog.RefreshTemplates();
+        }
+
+        protected override void AfterLoad()
+        {
+            // Repository templates are read from project checkouts, so refresh when the page is
+            // opened/reloaded. New definitions intentionally start unchecked in daemon policy.
+            SessionHub.Instance.Catalog.RefreshTemplates();
+        }
+
         protected override void DrawFields(Listing_Standard l)
         {
+            UiLayout.SectionHeading(l, "Available worker templates");
+            UiLayout.Note(l, "Checked templates may be used by agents and slopctl to create task " +
+                "workers. Names are qualified so a repository template and a personal template " +
+                "cannot share permission accidentally.");
+
+            var templates = SessionHub.Instance.Templates
+                .Where(template => template != null)
+                .OrderBy(template => template.Name, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            if (templates.Count == 0)
+            {
+                UiLayout.Note(l, "No agent templates are available. Create one in Library or " +
+                    "add a repository template under .slopworld/templates.");
+            }
+            foreach (var template in templates)
+            {
+                bool selected = _cfg.WorkerTemplates.Contains(template.Name);
+                string tip = template.Source == "project"
+                    ? "Repository template. Changes are read on the next catalog refresh."
+                    : "Personal template. Existing workers keep their captured settings.";
+                bool next = UiControls.Checkbox(l, template.DisplayLabel, selected, tip);
+                if (next == selected) continue;
+                if (next)
+                    _cfg.WorkerTemplates.Add(template.Name);
+                else
+                    _cfg.WorkerTemplates.RemoveAll(name => name == template.Name);
+            }
+
+            l.Gap(UiTheme.GapL);
             UiLayout.SectionHeading(l, "Worker bootstrap");
-            UiLayout.Note(l, "This prompt is submitted to each worker spawned with slopctl spawn. " +
+            UiLayout.Note(l, "This prompt is submitted to each worker spawned from a selected " +
+                "template. " +
                 "Use $SLOPWORLD_TASK_ID to refer to its exact mailbox task.");
             l.Label("Worker prompt");
             _cfg.WorkerPrompt = UiControls.Area(l, 180f, "instructions.worker_prompt",

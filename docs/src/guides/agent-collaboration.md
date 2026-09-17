@@ -21,7 +21,7 @@ session disappears. The daemon checks token capabilities on each request.
 
 For manually created grants, the caller must arrange delivery of the daemon URL and
 scoped token through `SLOPD_URL` and `SLOPD_TOKEN`. Workers created with `slopctl spawn`
-receive these automatically at startup. The host endpoint file contains the root token
+from an enabled template receive these automatically at startup. The host endpoint file contains the root token
 and must not be handed to a scoped agent.
 
 ## Task mailboxes

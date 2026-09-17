@@ -237,6 +237,11 @@ namespace SlopWorld
 
         void InvalidateRefresh() => _refreshSerial++;
 
+        public void Add(TaskInfo task)
+        {
+            if (task != null) Upsert(task);
+        }
+
         void Upsert(TaskInfo task)
         {
             int at = Tasks.FindIndex(t => t.Id == task.Id);

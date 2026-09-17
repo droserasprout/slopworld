@@ -14,12 +14,38 @@ send TASK to AGENT. The task body is the remainder of the command line.
 ";
 
 pub(crate) const SPAWN_USAGE: &str = "usage:
-  slopctl spawn [--durable] PARENT TASK...
-  slopctl worker [--durable] PARENT TASK...
+  slopctl spawn [--durable] --project PROJECT --template TEMPLATE [--] TASK...
+  slopctl worker [--durable] --project PROJECT --template TEMPLATE [--] TASK...
 
-create a task-owned child worker by cloning PARENT. The worker receives the
-task body and its exact task id. --durable keeps the child session after exit.
-This command is available to the root caller only.
+create a task-owned worker from an enabled agent template. The worker receives
+the task body and its exact task id. --durable keeps the child session after
+exit. Options end before TASK; worker is an alias for spawn.
+Use -- before task text that starts with an option, such as --durable.
+
+The project and template are required. The old parent/clone form is rejected;
+choose the template explicitly so the daemon can enforce worker policy.
+";
+
+pub(crate) const TEMPLATES_USAGE: &str = "usage:
+  slopctl templates [--project PROJECT]
+
+list agent templates. Root callers see the complete catalog; agents see only
+templates enabled for worker spawning in their project. --project selects the
+worker project context for a root caller.
+";
+
+pub(crate) const TEMPLATE_USAGE: &str = "usage:
+  slopctl template show NAME [--project PROJECT]
+
+show one agent template. Agent callers may inspect only templates enabled for
+worker spawning. --project selects the worker project context for a root caller.
+";
+
+pub(crate) const AGENT_USAGE: &str = "usage:
+  slopctl agent create NAME --project PROJECT --template TEMPLATE [--start]
+
+create an agent from a daemon catalog template. Creation does not start the
+agent unless --start is supplied; the daemon returns the new identity.
 ";
 
 pub(crate) const INBOX_USAGE: &str = "usage:
@@ -114,7 +140,10 @@ loop over task, inbox or status while waiting.
 
 usage:
   slopctl delegate AGENT TASK...
-  slopctl spawn [--durable] PARENT TASK...
+  slopctl spawn [--durable] --project PROJECT --template TEMPLATE TASK...
+  slopctl templates [--project PROJECT]
+  slopctl template show NAME [--project PROJECT]
+  slopctl agent create NAME --project PROJECT --template TEMPLATE [--start]
   slopctl inbox [--all] [--sent] [--received] [--status STATUS]
   slopctl task ID
   slopctl wait ID
@@ -151,9 +180,23 @@ pub(crate) enum Command {
         body: String,
     },
     Spawn {
-        parent: String,
+        project: String,
+        template: String,
         durable: bool,
         body: String,
+    },
+    Templates {
+        project: Option<String>,
+    },
+    TemplateShow {
+        name: String,
+        project: Option<String>,
+    },
+    AgentCreate {
+        name: String,
+        project: String,
+        template: String,
+        start: bool,
     },
     Inbox {
         filter: InboxFilter,
@@ -205,6 +248,9 @@ pub(crate) fn command_help(command: &str) -> Option<&'static str> {
     Some(match command {
         "delegate" => DELEGATE_USAGE,
         "spawn" | "worker" => SPAWN_USAGE,
+        "templates" => TEMPLATES_USAGE,
+        "template" => TEMPLATE_USAGE,
+        "agent" => AGENT_USAGE,
         "inbox" => INBOX_USAGE,
         "task" => TASK_USAGE,
         "wait" => WAIT_USAGE,
@@ -249,6 +295,9 @@ pub(crate) fn parse_command(args: &[String]) -> Result<Command, String> {
             body: rest(args, 2, "delegate needs a task body")?,
         }),
         "spawn" | "worker" => parse_spawn(args),
+        "templates" => parse_templates_command(args),
+        "template" => parse_template_command(args),
+        "agent" => parse_agent_command(args),
         "inbox" => Ok(Command::Inbox {
             filter: InboxFilter::parse(&args[1..])?,
         }),
@@ -329,25 +378,181 @@ fn parse_sandbox(args: &[String]) -> Result<Command, String> {
 
 fn parse_spawn(args: &[String]) -> Result<Command, String> {
     let mut durable = false;
+    let mut project = None;
+    let mut template = None;
     let mut i = 1;
     while i < args.len() {
         match args[i].as_str() {
-            "--durable" => durable = true,
-            flag if flag.starts_with('-') => {
-                return Err(format!("unknown spawn option: {flag}\n\n{USAGE}"));
+            "--" => {
+                i += 1;
+                break;
             }
-            // The parent ends option parsing; the remainder is the task body.
+            "--durable" => durable = true,
+            "--project" => {
+                i += 1;
+                project = Some(
+                    args.get(i)
+                        .ok_or_else(|| format!("spawn --project needs a value\n\n{SPAWN_USAGE}"))?
+                        .clone(),
+                );
+            }
+            "--template" => {
+                i += 1;
+                template = Some(
+                    args.get(i)
+                        .ok_or_else(|| format!("spawn --template needs a value\n\n{SPAWN_USAGE}"))?
+                        .clone(),
+                );
+            }
+            // The first non-option is the task body. Everything after it is literal task text,
+            // including words that look like flags. This keeps delegation parsing intact.
             _ => break,
         }
         i += 1;
     }
-    if args.len() < i + 2 {
-        return Err(format!("spawn needs a parent and a task body\n\n{USAGE}"));
+    let Some(project) = project else {
+        return Err(format!(
+            "spawn now requires --project PROJECT and --template TEMPLATE; the old parent/clone syntax is no longer supported\n\n{SPAWN_USAGE}"
+        ));
+    };
+    let Some(template) = template else {
+        return Err(format!(
+            "spawn now requires --template TEMPLATE; workers are created from templates, not parent clones\n\n{SPAWN_USAGE}"
+        ));
+    };
+    if args.len() <= i {
+        return Err(format!("spawn needs a task body\n\n{SPAWN_USAGE}"));
     }
     Ok(Command::Spawn {
-        parent: args[i].clone(),
+        project,
+        template,
         durable,
-        body: args[i + 1..].join(" "),
+        body: args[i..].join(" "),
+    })
+}
+
+fn parse_template_command(args: &[String]) -> Result<Command, String> {
+    if matches!(
+        args.get(1).map(String::as_str),
+        Some("-h" | "--help" | "help")
+    ) {
+        return Ok(Command::Help {
+            usage: TEMPLATE_USAGE,
+        });
+    }
+    if args.get(1).map(String::as_str) != Some("show") {
+        return Err(format!(
+            "template needs the show subcommand\n\n{TEMPLATE_USAGE}"
+        ));
+    }
+    if matches!(
+        args.get(2).map(String::as_str),
+        Some("-h" | "--help" | "help")
+    ) {
+        return Ok(Command::Help {
+            usage: TEMPLATE_USAGE,
+        });
+    }
+    let name = arg(args, 2, "template show needs a template name")?.to_string();
+    let project = optional_project(args, 3, TEMPLATE_USAGE)?;
+    Ok(Command::TemplateShow { name, project })
+}
+
+fn parse_templates_command(args: &[String]) -> Result<Command, String> {
+    if matches!(
+        args.get(1).map(String::as_str),
+        Some("-h" | "--help" | "help")
+    ) {
+        return Ok(Command::Help {
+            usage: TEMPLATES_USAGE,
+        });
+    }
+    let project = optional_project(args, 1, TEMPLATES_USAGE)?;
+    Ok(Command::Templates { project })
+}
+
+fn optional_project(
+    args: &[String],
+    at: usize,
+    usage: &'static str,
+) -> Result<Option<String>, String> {
+    match args.get(at).map(String::as_str) {
+        None => Ok(None),
+        Some("--project") => {
+            let project = args
+                .get(at + 1)
+                .ok_or_else(|| format!("--project needs a value\n\n{usage}"))?
+                .clone();
+            only(args, at + 2)?;
+            Ok(Some(project))
+        }
+        Some(flag) => Err(format!("unexpected argument: {flag}\n\n{usage}")),
+    }
+}
+
+fn parse_agent_command(args: &[String]) -> Result<Command, String> {
+    if matches!(
+        args.get(1).map(String::as_str),
+        Some("-h" | "--help" | "help")
+    ) {
+        return Ok(Command::Help { usage: AGENT_USAGE });
+    }
+    if args.get(1).map(String::as_str) != Some("create") {
+        return Err(format!(
+            "agent needs the create subcommand\n\n{AGENT_USAGE}"
+        ));
+    }
+    if matches!(
+        args.get(2).map(String::as_str),
+        Some("-h" | "--help" | "help")
+    ) {
+        return Ok(Command::Help { usage: AGENT_USAGE });
+    }
+    let name = arg(args, 2, "agent create needs a name")?.to_string();
+    let mut project = None;
+    let mut template = None;
+    let mut start = false;
+    let mut i = 3;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--project" => {
+                i += 1;
+                project = Some(
+                    args.get(i)
+                        .ok_or_else(|| {
+                            format!("agent create --project needs a value\n\n{AGENT_USAGE}")
+                        })?
+                        .clone(),
+                );
+            }
+            "--template" => {
+                i += 1;
+                template = Some(
+                    args.get(i)
+                        .ok_or_else(|| {
+                            format!("agent create --template needs a value\n\n{AGENT_USAGE}")
+                        })?
+                        .clone(),
+                );
+            }
+            "--start" => start = true,
+            flag => {
+                return Err(format!(
+                    "unknown agent create option: {flag}\n\n{AGENT_USAGE}"
+                ))
+            }
+        }
+        i += 1;
+    }
+    let project =
+        project.ok_or_else(|| format!("agent create needs --project PROJECT\n\n{AGENT_USAGE}"))?;
+    let template = template
+        .ok_or_else(|| format!("agent create needs --template TEMPLATE\n\n{AGENT_USAGE}"))?;
+    Ok(Command::AgentCreate {
+        name,
+        project,
+        template,
+        start,
     })
 }
 
@@ -358,7 +563,8 @@ impl Command {
             Self::Logs { .. } => unreachable!("local commands are dispatched before endpoint load"),
             Self::Delegate { to, body } => run_delegate(endpoint, session, json, &to, &body),
             Self::Spawn {
-                parent,
+                project,
+                template,
                 durable,
                 body,
             } => run_spawn(
@@ -366,11 +572,24 @@ impl Command {
                 session,
                 json,
                 SpawnArgs {
-                    parent: &parent,
+                    project: &project,
+                    template: &template,
                     durable,
                     body: &body,
                 },
             ),
+            Self::Templates { project } => {
+                run_templates(endpoint, session, json, project.as_deref())
+            }
+            Self::TemplateShow { name, project } => {
+                run_template_show(endpoint, session, json, &name, project.as_deref())
+            }
+            Self::AgentCreate {
+                name,
+                project,
+                template,
+                start,
+            } => run_agent_create(endpoint, session, json, &name, &project, &template, start),
             Self::Inbox { filter } => run_inbox(endpoint, session, json, filter),
             Self::Task { id } => run_task(endpoint, session, json, &id),
             Self::Wait { id } => run_wait(endpoint, session, json, &id),
@@ -406,7 +625,8 @@ fn run_delegate(
 }
 
 pub(crate) struct SpawnArgs<'a> {
-    pub(crate) parent: &'a str,
+    pub(crate) project: &'a str,
+    pub(crate) template: &'a str,
     pub(crate) durable: bool,
     pub(crate) body: &'a str,
 }
@@ -423,13 +643,175 @@ pub(crate) fn run_spawn(
         "POST",
         routes::WORKERS,
         Some(json!({
-            "parent": args.parent,
+            "project": args.project,
+            "template": args.template,
             "body": args.body,
             "durable": args.durable,
         })),
     )?;
     emit(&v, json);
     print_wait_hint(&v, json);
+    Ok(())
+}
+
+fn template_catalog_path(session: &str, project: Option<&str>) -> String {
+    let path = if session == HOST {
+        routes::TEMPLATES.to_string()
+    } else {
+        routes::SPAWNABLE_TEMPLATES.to_string()
+    };
+    match project {
+        Some(project) => format!("{path}?project={}", encode_component(project)),
+        None => path,
+    }
+}
+
+fn encode_component(value: &str) -> String {
+    let mut encoded = String::with_capacity(value.len());
+    for byte in value.bytes() {
+        if byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.' | b'~') {
+            encoded.push(byte as char);
+        } else {
+            encoded.push_str(&format!("%{byte:02X}"));
+        }
+    }
+    encoded
+}
+
+fn run_templates(
+    endpoint: &Endpoint,
+    session: &str,
+    json: bool,
+    project: Option<&str>,
+) -> Result<(), String> {
+    let path = template_catalog_path(session, project);
+    let v = request(endpoint, session, "GET", &path, None)?;
+    if json {
+        print_json(&v);
+    } else {
+        print_templates(&v);
+    }
+    Ok(())
+}
+
+fn run_template_show(
+    endpoint: &Endpoint,
+    session: &str,
+    json: bool,
+    name: &str,
+    project: Option<&str>,
+) -> Result<(), String> {
+    let path = template_catalog_path(session, project);
+    let v = request(endpoint, session, "GET", &path, None)?;
+    let template = v
+        .get("templates")
+        .and_then(Value::as_array)
+        .and_then(|templates| templates.iter().find(|template| template["name"] == name))
+        .ok_or_else(|| format!("no accessible agent template: {name}"))?;
+    if json {
+        print_json(&json!({ "template": template }));
+    } else {
+        print_template_details(template);
+    }
+    Ok(())
+}
+
+fn print_templates(v: &Value) {
+    let Some(templates) = v.get("templates").and_then(Value::as_array) else {
+        println!("no templates");
+        return;
+    };
+    if templates.is_empty() {
+        println!("no templates");
+        return;
+    }
+    for template in templates {
+        print_template(template);
+    }
+}
+
+fn print_template(template: &Value) {
+    let name = template["name"].as_str().unwrap_or("?");
+    let description = template["description"].as_str().unwrap_or("");
+    if description.is_empty() {
+        println!("{name}");
+    } else {
+        println!("{name}  -  {description}");
+    }
+}
+
+fn print_template_details(template: &Value) {
+    print_template(template);
+    println!("version  {}", template["version"].as_u64().unwrap_or(0));
+    println!(
+        "source   {}",
+        template["origin"]["source"].as_str().unwrap_or("personal")
+    );
+    let defaults = &template["defaults"];
+    let command = defaults["command"]["name"].as_str().unwrap_or("");
+    let cmd = defaults["cmd"].as_str().unwrap_or("");
+    if !command.is_empty() {
+        println!("command  {command}");
+    }
+    if !cmd.is_empty() {
+        println!("cmd      {cmd}");
+    }
+    if let Some(sandbox) = defaults["sandbox"].as_array() {
+        println!(
+            "sandbox  {}",
+            if sandbox.is_empty() {
+                "(none)".into()
+            } else {
+                sandbox
+                    .iter()
+                    .filter_map(Value::as_str)
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            }
+        );
+    }
+    println!(
+        "network  {}",
+        defaults["network"].as_str().unwrap_or("private")
+    );
+    println!(
+        "autostart {}",
+        defaults["autostart"].as_bool().unwrap_or(false)
+    );
+}
+
+pub(crate) fn run_agent_create(
+    endpoint: &Endpoint,
+    session: &str,
+    json_output: bool,
+    name: &str,
+    project: &str,
+    template: &str,
+    start: bool,
+) -> Result<(), String> {
+    let mut v = request(
+        endpoint,
+        session,
+        "POST",
+        &format!(
+            "{}/{}/create",
+            routes::TEMPLATES,
+            encode_component(template)
+        ),
+        Some(json!({ "name": name, "project": project, "start": start })),
+    )?;
+    v["started"] = json!(start);
+    if json_output {
+        print_json(&v);
+    } else {
+        println!(
+            "agent    {}\nproject  {}\ntemplate {}\nstarted  {}",
+            name,
+            project,
+            template,
+            if start { "yes" } else { "no" }
+        );
+    }
     Ok(())
 }
 
