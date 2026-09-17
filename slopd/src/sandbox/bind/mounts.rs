@@ -157,6 +157,7 @@ pub(super) fn push_env(a: &mut Vec<String>, args: EnvArgs<'_>) {
         p,
         mounts,
         presets,
+        agent_shell,
         agent_argv,
     } = args;
     push_args(a, &["--setenv", "HOME", home]);
@@ -208,9 +209,10 @@ pub(super) fn push_env(a: &mut Vec<String>, args: EnvArgs<'_>) {
 
     // Agents must not inherit the daemon's login shell: zsh's terminal behavior and startup
     // files are not a reliable default for agent CLIs. The setting comes last so it wins over
-    // both the host environment and a preset literal; shell errands still execute the command
-    // selected by `[defaults] shell`.
-    push_args(a, &["--setenv", "SHELL", cfg.defaults.agent_shell.trim()]);
+    // both the host environment and a preset literal; it is an absolute executable path because
+    // clients such as Codex reject a bare command name and then consult the passwd shell.
+    // Shell errands still execute the command selected by `[defaults] shell`.
+    push_args(a, &["--setenv", "SHELL", agent_shell]);
 
     // slopd captures Pi prompts before tmux, just as it does Codex prompts. Disable the
     // project-local extension in managed sessions so it cannot race the daemon or require

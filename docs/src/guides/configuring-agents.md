@@ -153,8 +153,11 @@ the project heading do not carry per-agent settings.
 
 Settings > Commands > Defaults > **Agent shell** controls the `SHELL` environment
 variable inside sandboxed agent sessions. It defaults to `bash`, independently of
-the **Shell** default used by shell errands. This avoids passing a host login shell
-such as zsh to agent tools; restart an agent after changing it.
+the **Shell** default used by shell errands. SlopWorld resolves the selected shell
+preset (or custom executable) to an absolute executable path before launch. This is
+important for clients such as Codex, which reject a bare `bash` value and otherwise
+fall back to the account's login shell; restart an agent after changing it. Explicit
+tool-call shell overrides, host panes, and shell errands are unaffected.
 
 ## Library errands
 

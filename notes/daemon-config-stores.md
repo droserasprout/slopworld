@@ -18,6 +18,8 @@ Projects own directories, temporary-project behavior, and shared mounts. Mount r
 literal `from`/`to` paths and modes, read when each agent starts. The project shortcut copies paths once; a running sandbox is not rebuilt. Agents own command, sandbox additions,
 network, DNS, resource limits, and startup/private-state behavior. Network defaults to private,
 DNS `resolved` follows the current daemon/container resolver, and an unset limit means no cap.
+The daemon default `agent_shell` is resolved to an absolute executable path at each agent start and
+emitted as sandbox `SHELL`; it is separate from the shell preset used by host shell errands.
 
 `GET /api/config` is also the client read model for daemon policy: it returns effective values
 and a response-only factory-default snapshot, usage catalog, temporary-root preview policy and

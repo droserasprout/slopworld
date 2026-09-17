@@ -25,6 +25,7 @@ pub(super) struct BuildArgs<'a> {
     pub(super) p: &'a ProjectCfg,
     pub(super) network: NetworkMode,
     pub(super) dns: &'a DnsConfig,
+    pub(super) agent_shell: &'a str,
     pub(super) agent_argv: Vec<String>,
     pub(super) table: &'a Table,
     pub(super) presets: &'a [&'a SandboxPreset],
@@ -53,6 +54,7 @@ pub(super) fn assemble_plan(args: BuildArgs<'_>) -> Result<LaunchPlan> {
         p,
         network,
         dns,
+        agent_shell,
         agent_argv,
         table,
         presets,
@@ -102,6 +104,7 @@ pub(super) fn assemble_plan(args: BuildArgs<'_>) -> Result<LaunchPlan> {
             p,
             mounts,
             presets,
+            agent_shell,
             agent_argv: &agent_argv,
         },
     );
@@ -136,6 +139,7 @@ struct EnvArgs<'a> {
     p: &'a ProjectCfg,
     mounts: &'a [ResolvedMount],
     presets: &'a [&'a SandboxPreset],
+    agent_shell: &'a str,
     agent_argv: &'a [String],
 }
 
@@ -652,7 +656,6 @@ mod tests {
     #[test]
     fn agent_shell_overrides_the_host_shell() {
         let mut cfg = Config::default();
-        cfg.defaults.agent_shell = "bash".into();
         let s = SessionCfg {
             name: "a".into(),
             project: "p".into(),
@@ -664,13 +667,17 @@ mod tests {
             ..Default::default()
         };
 
-        let a = build_argv(&cfg, &s, &p).expect("sandbox argv");
-        let shell = a
-            .windows(3)
-            .filter(|w| w[0] == "--setenv" && w[1] == "SHELL")
-            .map(|w| w[2].as_str())
-            .next_back();
-        assert_eq!(shell, Some("bash"));
+        for name in ["bash", "sh"] {
+            cfg.defaults.agent_shell = name.into();
+            let expected = crate::sandbox::agent_shell_path(&cfg).expect("agent shell path");
+            let a = build_argv(&cfg, &s, &p).expect("sandbox argv");
+            let shell = a
+                .windows(3)
+                .filter(|w| w[0] == "--setenv" && w[1] == "SHELL")
+                .map(|w| w[2].as_str())
+                .next_back();
+            assert_eq!(shell, Some(expected.as_str()), "agent shell {name}");
+        }
     }
 
     #[test]
