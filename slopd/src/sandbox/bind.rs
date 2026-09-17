@@ -472,7 +472,7 @@ mod tests {
             name: "parent-worker".into(),
             project: "p".into(),
             command: "bash".into(),
-            sandbox: vec!["slopworld-worker".into()],
+            sandbox: Vec::new(),
             worker: true,
             task_id: "task-7".into(),
             worker_token: Some("worker-secret".into()),
