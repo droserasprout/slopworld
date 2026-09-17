@@ -78,9 +78,6 @@ impl Manager {
             if session.task_id.trim().is_empty() || session.parent.trim().is_empty() {
                 bail!("worker session {name} has incomplete task ownership metadata");
             }
-            let table = crate::presets::table();
-            crate::sandbox::validate_preset_name(super::workers::WORKER_SANDBOX, &table)
-                .context("worker task API preset is invalid")?;
             if cfg.network_of(&session, &project) == NetworkMode::None {
                 bail!("worker session {name} cannot reach the task API with networking disabled");
             }

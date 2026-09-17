@@ -274,13 +274,6 @@ pub(super) fn recovered_worker_cfg(
     session.autostart = false;
     session.auto_resume = false;
     session.worker_token = None;
-    if !session
-        .sandbox
-        .iter()
-        .any(|preset| preset == super::workers::WORKER_SANDBOX)
-    {
-        session.sandbox.push(super::workers::WORKER_SANDBOX.into());
-    }
     session
 }
 
@@ -318,7 +311,7 @@ mod tests {
         assert_eq!(worker.state_id, "11111111-1111-4111-8111-111111111111");
         assert_eq!(worker.project, "repo");
         assert_eq!(worker.command, "codex");
-        assert_eq!(worker.sandbox, ["gpu", "slopworld-worker"]);
+        assert_eq!(worker.sandbox, ["gpu"]);
         assert!(!worker.autostart);
         assert!(!worker.auto_resume);
     }

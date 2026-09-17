@@ -5,8 +5,6 @@ use super::super::*;
 
 use anyhow::anyhow;
 
-pub(crate) const WORKER_SANDBOX: &str = "slopworld-worker";
-
 #[derive(Debug, Clone)]
 pub struct WorkerSpawn {
     pub task: crate::tasks::Task,
@@ -66,18 +64,14 @@ impl Manager {
             &project,
             &caller,
         );
-        // A worker must be able to reach the daemon and must carry the exact API-capability
-        // preset. It is appended to the selected template's sandbox rather than replacing its
-        // normal tool and state configuration.
+        // A worker must be able to reach the daemon. Worker metadata supplies its task API
+        // capability; the selected template supplies the normal tool and state configuration.
         if cfg.network_of(&session, &p) == NetworkMode::None {
             bail!(
                 "worker template {} disables networking; task API access needs a network",
                 template.name
             );
         }
-        let table = crate::presets::table();
-        crate::sandbox::validate_preset_name(WORKER_SANDBOX, &table)
-            .context("worker task API preset is invalid")?;
         if cfg.command_of(&session).trim().is_empty() {
             bail!(
                 "worker template {} does not resolve to an executable command",
@@ -260,13 +254,6 @@ fn worker_session_from_template(
     session.autostart = false;
     session.auto_resume = false;
     session.worker_token = None;
-    if !session
-        .sandbox
-        .iter()
-        .any(|preset| preset == WORKER_SANDBOX)
-    {
-        session.sandbox.push(WORKER_SANDBOX.into());
-    }
     session
 }
 
@@ -463,7 +450,7 @@ mod tests {
         assert!(child.task_id.is_empty());
         assert_eq!(child.project, "repo");
         assert_eq!(child.cmd.as_deref(), Some("codex --full-auto"));
-        assert_eq!(child.sandbox, [WORKER_SANDBOX]);
+        assert!(child.sandbox.is_empty());
         assert!(child.persistent_tmp);
         assert_eq!(child.network, NetworkMode::Private);
         assert_eq!(child.dns, DnsConfig::Resolved);
@@ -501,7 +488,7 @@ mod tests {
         let child = worker_session_from_template(&template, "child".into(), "repo", "caller");
         assert_eq!(child.command_snapshot.unwrap().name, "codex");
         assert_eq!(child.sandbox_snapshots[0].name, "captured");
-        assert_eq!(child.sandbox, ["captured", WORKER_SANDBOX]);
+        assert_eq!(child.sandbox, ["captured"]);
     }
 
     #[tokio::test]
@@ -584,13 +571,5 @@ mod tests {
         assert_eq!(worker.parent, "caller");
         assert!(!worker.durable);
         let _ = std::fs::remove_dir_all(dir);
-    }
-
-    #[test]
-    fn worker_does_not_duplicate_the_api_sandbox() {
-        let mut template = template("worker");
-        template.defaults.sandbox.push(WORKER_SANDBOX.into());
-        let child = worker_session_from_template(&template, "child".into(), "repo", "caller");
-        assert_eq!(child.sandbox, vec![WORKER_SANDBOX]);
     }
 }

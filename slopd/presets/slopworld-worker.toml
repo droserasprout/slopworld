@@ -1,6 +1,0 @@
-# Task-owned workers receive SLOPD_URL and a run-scoped SLOPD_TOKEN in their environment. They
-# must not mount the daemon endpoint descriptor, because it contains the root token. The worker
-# still needs the command preset's own network capability.
-[[sandbox]]
-name = "slopworld-worker"
-description = "SlopWorld task API prerequisites for a task-owned worker"
