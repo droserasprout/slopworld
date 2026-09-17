@@ -8,25 +8,34 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 pub(crate) const DELEGATE_USAGE: &str = "usage:
+  slopctl task delegate AGENT TASK...
   slopctl delegate AGENT TASK...
 
-send TASK to AGENT. The task body is the remainder of the command line.
+send TASK to AGENT. `delegate` is the short spelling; the task command is canonical.
 ";
 
 pub(crate) const SPAWN_USAGE: &str = "usage:
+  slopctl worker spawn [--durable] --project PROJECT --template TEMPLATE [--] TASK...
   slopctl spawn [--durable] --project PROJECT --template TEMPLATE [--] TASK...
-  slopctl worker [--durable] --project PROJECT --template TEMPLATE [--] TASK...
 
 create a task-owned worker from an enabled agent template. The worker receives
 the task body and its exact task id. --durable keeps the child session after
-exit. Options end before TASK; worker is an alias for spawn.
+exit. Options end before TASK; spawn is the short spelling.
 Use -- before task text that starts with an option, such as --durable.
 
 The project and template are required. The old parent/clone form is rejected;
 choose the template explicitly so the daemon can enforce worker policy.
 ";
 
+pub(crate) const WORKER_USAGE: &str = "usage:
+  slopctl worker spawn [--durable] --project PROJECT --template TEMPLATE [--] TASK...
+
+create a task-owned worker. The old bare `worker` spelling remains an alias for
+`worker spawn` for compatibility.
+";
+
 pub(crate) const TEMPLATES_USAGE: &str = "usage:
+  slopctl template list [--project PROJECT]
   slopctl templates [--project PROJECT]
 
 list agent templates. Root callers see the complete catalog; agents see only
@@ -35,6 +44,13 @@ worker project context for a root caller.
 ";
 
 pub(crate) const TEMPLATE_USAGE: &str = "usage:
+  slopctl template list [--project PROJECT]
+  slopctl template show NAME [--project PROJECT]
+
+discover and inspect agent templates. Use `template list` or `template show`.
+";
+
+pub(crate) const TEMPLATE_SHOW_USAGE: &str = "usage:
   slopctl template show NAME [--project PROJECT]
 
 show one agent template. Agent callers may inspect only templates enabled for
@@ -44,11 +60,18 @@ worker spawning. --project selects the worker project context for a root caller.
 pub(crate) const AGENT_USAGE: &str = "usage:
   slopctl agent create NAME --project PROJECT --template TEMPLATE [--start]
 
+create and manage agents from the daemon's template catalog.
+";
+
+pub(crate) const AGENT_CREATE_USAGE: &str = "usage:
+  slopctl agent create NAME --project PROJECT --template TEMPLATE [--start]
+
 create an agent from a daemon catalog template. Creation does not start the
 agent unless --start is supplied; the daemon returns the new identity.
 ";
 
 pub(crate) const INBOX_USAGE: &str = "usage:
+  slopctl task list [--all] [--sent] [--received] [--status STATUS]
   slopctl inbox [--all] [--sent] [--received] [--status STATUS]
 
 list tasks involving the current caller, newest first. Finished, failed and canceled
@@ -62,53 +85,91 @@ options:
 ";
 
 pub(crate) const TASK_USAGE: &str = "usage:
-  slopctl task ID
+  slopctl task delegate AGENT TASK...
+  slopctl task list [--all] [--sent] [--received] [--status STATUS]
+  slopctl task show ID
+  slopctl task wait ID
+  slopctl task accept ID [NOTE...]
+  slopctl task progress ID [NOTE...]
+  slopctl task finish ID [RESULT...]
+  slopctl task fail ID [ERROR...]
+  slopctl task remove ID
+  slopctl task prune [--include-active]
+
+manage delegated tasks. The old `task ID` spelling remains an alias for
+`task show ID`; explicit subcommands take precedence over that alias.
+";
+
+pub(crate) const TASK_LIST_USAGE: &str = "usage:
+  slopctl task list [--all] [--sent] [--received] [--status STATUS]
+
+list unfinished tasks involving the current caller, newest first. Finished,
+failed and canceled tasks are hidden unless --all or --status is supplied.
+
+options:
+  --all             include finished, failed and canceled tasks
+  --sent            show only tasks sent by you
+  --received        show only tasks sent to you
+  --status STATUS   show only tasks with this status
+";
+
+pub(crate) const TASK_SHOW_USAGE: &str = "usage:
+  slopctl task show ID
 
 show one task by its exact id.
 ";
 
 pub(crate) const WAIT_USAGE: &str = "usage:
+  slopctl task wait ID
   slopctl wait ID
 
-block until one task reaches a terminal state, then show it. This command checks
+block until one task reaches a terminal state, then show it. `wait` is the short
+spelling. This command checks
 the task internally; do not replace it with a status loop or a short timeout.
 Status changes and a 30-second heartbeat go to stderr; stdout holds the final result.
 ";
 
 pub(crate) const ACCEPT_USAGE: &str = "usage:
+  slopctl task accept ID [NOTE...]
   slopctl accept ID [NOTE...]
 
 mark a queued task as accepted, optionally recording a note.
 ";
 
 pub(crate) const PROGRESS_USAGE: &str = "usage:
+  slopctl task progress ID [NOTE...]
   slopctl progress ID [NOTE...]
 
 mark an accepted task as in progress, optionally recording a note.
 ";
 
 pub(crate) const FINISH_USAGE: &str = "usage:
+  slopctl task finish ID [RESULT...]
   slopctl finish ID [RESULT...]
 
 mark a task as done, optionally recording its result.
 ";
 
 pub(crate) const FAIL_USAGE: &str = "usage:
+  slopctl task fail ID [ERROR...]
   slopctl fail ID [ERROR...]
 
 mark a task as failed, optionally recording the reason.
 ";
 
 pub(crate) const REMOVE_USAGE: &str = "usage:
+  slopctl task remove ID
   slopctl rm ID
 
-remove one task that has stopped moving.
+remove one task that has stopped moving. `rm` remains as a compatibility alias.
 ";
 
 pub(crate) const PRUNE_USAGE: &str = "usage:
+  slopctl task prune [--include-active]
   slopctl prune [--all]
 
-remove terminal tasks. --all removes every task and is root-only.
+remove terminal tasks. --include-active removes every task and is root-only;
+legacy --all is an alias.
 ";
 
 pub(crate) const PEERS_USAGE: &str = "usage:
@@ -126,6 +187,12 @@ show the current caller, endpoint, daemon reachability, and pending task counts.
 pub(crate) const SANDBOX_USAGE: &str = "usage:
   slopctl sandbox inspect NAME
 
+inspect a session's sanitized sandbox launch plan and live process tree.
+";
+
+pub(crate) const SANDBOX_INSPECT_USAGE: &str = "usage:
+  slopctl sandbox inspect NAME
+
 show the sanitized launch plan and, when available, the live process tree for NAME.
 The saved plan remains available after a process exits or a daemon restart.
 ";
@@ -133,35 +200,41 @@ The saved plan remains available after a process exits or a daemon restart.
 pub(crate) const USAGE: &str = "slopctl - delegate work and inspect SlopWorld diagnostics
 
 common delegation flow:
-  slopctl delegate AGENT TASK...  # create a task and keep its ID
-  slopctl wait ID                # block for its terminal result
+  slopctl task delegate AGENT TASK...  # create a task and keep its ID
+  slopctl task wait ID                # block for its terminal result
 
 wait performs the polling internally and has no short completion timeout. Do not
 loop over task, inbox or status while waiting.
 
 usage:
-  slopctl delegate AGENT TASK...
-  slopctl spawn [--durable] --project PROJECT --template TEMPLATE TASK...
-  slopctl templates [--project PROJECT]
-  slopctl template show NAME [--project PROJECT]
+  slopctl task delegate AGENT TASK...
+  slopctl task list [--all] [--sent] [--received] [--status STATUS]
+  slopctl task show ID
+  slopctl task wait ID
+  slopctl task accept ID [NOTE...]
+  slopctl task progress ID [NOTE...]
+  slopctl task finish ID [RESULT...]
+  slopctl task fail ID [ERROR...]
+  slopctl task remove ID
+  slopctl task prune [--include-active]
+  slopctl worker spawn [--durable] --project PROJECT --template TEMPLATE [--] TASK...
   slopctl agent create NAME --project PROJECT --template TEMPLATE [--start]
-  slopctl inbox [--all] [--sent] [--received] [--status STATUS]
-  slopctl task ID
-  slopctl wait ID
-  slopctl accept ID [NOTE...]
-  slopctl progress ID [NOTE...]
-  slopctl finish ID [RESULT...]
-  slopctl fail ID [ERROR...]
-  slopctl rm ID
-  slopctl prune [--all]
+  slopctl template list [--project PROJECT]
+  slopctl template show NAME [--project PROJECT]
+  slopctl sandbox inspect NAME
   slopctl peers
   slopctl status
-  slopctl sandbox inspect NAME
   slopctl logs [game|daemon|all] [--lines N] [--follow]
 
-inbox shows unfinished work in both directions, newest first; --all adds what is
-done, failed and canceled. rm takes a terminal task, prune takes all of them. --json is
-accepted anywhere and prints the answer as JSON instead of for a reader.
+shortcuts:
+  slopctl delegate AGENT TASK...
+  slopctl spawn [--durable] --project PROJECT --template TEMPLATE [--] TASK...
+  slopctl wait ID
+
+`delegate`, `spawn`, and `wait` are documented short spellings. Existing root
+task verbs, `inbox`, `templates`, `rm`, `task ID`, bare `worker` spawning, and
+`prune --all` remain compatibility aliases. --json is accepted anywhere and
+prints the answer as JSON instead of for a reader.
 
 SLOPWORLD_SESSION identifies the caller, and defaults to `host` - the user at the
 keyboard - which the daemon accepts only from the root token. SLOPD_ENDPOINT
@@ -248,7 +321,8 @@ impl UpdateAction {
 pub(crate) fn command_help(command: &str) -> Option<&'static str> {
     Some(match command {
         "delegate" => DELEGATE_USAGE,
-        "spawn" | "worker" => SPAWN_USAGE,
+        "spawn" => SPAWN_USAGE,
+        "worker" => WORKER_USAGE,
         "templates" => TEMPLATES_USAGE,
         "template" => TEMPLATE_USAGE,
         "agent" => AGENT_USAGE,
@@ -270,7 +344,8 @@ pub(crate) fn command_help(command: &str) -> Option<&'static str> {
 }
 
 fn has_help(args: &[String]) -> bool {
-    // Everything after a task recipient or id may be literal task text.
+    // Help is recognized immediately after a command name. Everything after a task recipient or
+    // id may be literal task text or a note, including help words.
     matches!(
         args.first().map(String::as_str),
         Some("-h" | "--help" | "help")
@@ -291,22 +366,16 @@ pub(crate) fn parse_command(args: &[String]) -> Result<Command, String> {
         "logs" => Ok(Command::Logs {
             args: args[1..].to_vec(),
         }),
-        "delegate" => Ok(Command::Delegate {
-            to: arg(args, 1, "delegate needs the agent to send to")?.to_string(),
-            body: rest(args, 2, "delegate needs a task body")?,
-        }),
-        "spawn" | "worker" => parse_spawn(args),
-        "templates" => parse_templates_command(args),
+        "delegate" => parse_delegate(args, 1),
+        "spawn" => parse_spawn(args, 1),
+        "worker" => parse_worker_command(args),
+        "templates" => parse_templates_command(args, 1),
         "template" => parse_template_command(args),
         "agent" => parse_agent_command(args),
         "inbox" => Ok(Command::Inbox {
             filter: InboxFilter::parse(&args[1..])?,
         }),
-        "task" => {
-            let id = arg(args, 1, "task needs a task id")?.to_string();
-            only(args, 2)?;
-            Ok(Command::Task { id })
-        }
+        "task" => parse_task_command(args),
         "wait" => {
             let id = arg(args, 1, "wait needs a task id")?.to_string();
             only(args, 2)?;
@@ -350,6 +419,164 @@ pub(crate) fn parse_command(args: &[String]) -> Result<Command, String> {
     }
 }
 
+fn parse_task_command(args: &[String]) -> Result<Command, String> {
+    if matches!(
+        args.get(1).map(String::as_str),
+        Some("-h" | "--help" | "help")
+    ) {
+        return Ok(Command::Help { usage: TASK_USAGE });
+    }
+
+    match args.get(1).map(String::as_str) {
+        Some("delegate") => {
+            if matches!(
+                args.get(2).map(String::as_str),
+                Some("-h" | "--help" | "help")
+            ) {
+                return Ok(Command::Help {
+                    usage: DELEGATE_USAGE,
+                });
+            }
+            parse_delegate(args, 2)
+        }
+        Some("list") => {
+            if matches!(
+                args.get(2).map(String::as_str),
+                Some("-h" | "--help" | "help")
+            ) {
+                return Ok(Command::Help {
+                    usage: TASK_LIST_USAGE,
+                });
+            }
+            Ok(Command::Inbox {
+                filter: InboxFilter::parse(&args[2..])?,
+            })
+        }
+        Some("show") => parse_task_show(args),
+        Some("wait") => parse_task_wait(args),
+        Some("accept") => parse_task_update(args, UpdateAction::Accept),
+        Some("progress") => parse_task_update(args, UpdateAction::Progress),
+        Some("finish") => parse_task_update(args, UpdateAction::Finish),
+        Some("fail") => parse_task_update(args, UpdateAction::Fail),
+        Some("remove") => parse_task_remove(args),
+        Some("prune") => parse_task_prune(args),
+        // Compatibility alias: `task ID` means `task show ID`. The explicit subcommand arms
+        // above deliberately win when an id happens to be named `wait`, `list`, or another
+        // canonical task verb.
+        Some(_) => {
+            let id = arg(args, 1, "task needs a task id")?.to_string();
+            only(args, 2)?;
+            Ok(Command::Task { id })
+        }
+        None => Err(format!(
+            "task needs a subcommand or task id\n\n{TASK_USAGE}"
+        )),
+    }
+}
+
+fn parse_delegate(args: &[String], recipient_at: usize) -> Result<Command, String> {
+    Ok(Command::Delegate {
+        to: arg(args, recipient_at, "delegate needs the agent to send to")?.to_string(),
+        body: rest(args, recipient_at + 1, "delegate needs a task body")?,
+    })
+}
+
+fn parse_task_show(args: &[String]) -> Result<Command, String> {
+    if matches!(
+        args.get(2).map(String::as_str),
+        Some("-h" | "--help" | "help")
+    ) {
+        return Ok(Command::Help {
+            usage: TASK_SHOW_USAGE,
+        });
+    }
+    let id = arg(args, 2, "task show needs a task id")?.to_string();
+    only(args, 3)?;
+    Ok(Command::Task { id })
+}
+
+fn parse_task_wait(args: &[String]) -> Result<Command, String> {
+    if matches!(
+        args.get(2).map(String::as_str),
+        Some("-h" | "--help" | "help")
+    ) {
+        return Ok(Command::Help { usage: WAIT_USAGE });
+    }
+    let id = arg(args, 2, "task wait needs a task id")?.to_string();
+    only(args, 3)?;
+    Ok(Command::Wait { id })
+}
+
+fn parse_task_update(args: &[String], action: UpdateAction) -> Result<Command, String> {
+    let (name, usage) = match &action {
+        UpdateAction::Accept => ("task accept", ACCEPT_USAGE),
+        UpdateAction::Progress => ("task progress", PROGRESS_USAGE),
+        UpdateAction::Finish => ("task finish", FINISH_USAGE),
+        UpdateAction::Fail => ("task fail", FAIL_USAGE),
+    };
+    if matches!(
+        args.get(2).map(String::as_str),
+        Some("-h" | "--help" | "help")
+    ) {
+        return Ok(Command::Help { usage });
+    }
+    let id = arg(args, 2, &format!("{name} needs a task id"))?.to_string();
+    let note = (args.len() > 3).then(|| args[3..].join(" "));
+    Ok(Command::Update { action, id, note })
+}
+
+fn parse_task_remove(args: &[String]) -> Result<Command, String> {
+    if matches!(
+        args.get(2).map(String::as_str),
+        Some("-h" | "--help" | "help")
+    ) {
+        return Ok(Command::Help {
+            usage: REMOVE_USAGE,
+        });
+    }
+    let id = arg(args, 2, "task remove needs a task id")?.to_string();
+    only(args, 3)?;
+    Ok(Command::Remove { id })
+}
+
+fn parse_task_prune(args: &[String]) -> Result<Command, String> {
+    if matches!(
+        args.get(2).map(String::as_str),
+        Some("-h" | "--help" | "help")
+    ) {
+        return Ok(Command::Help { usage: PRUNE_USAGE });
+    }
+    let all = match args.get(2).map(String::as_str) {
+        None => false,
+        Some("--include-active" | "--all") => true,
+        Some(flag) => return Err(format!("unknown flag: {flag}\n\n{TASK_USAGE}")),
+    };
+    only(args, 3)?;
+    Ok(Command::Prune { all })
+}
+
+fn parse_worker_command(args: &[String]) -> Result<Command, String> {
+    if matches!(
+        args.get(1).map(String::as_str),
+        Some("-h" | "--help" | "help")
+    ) {
+        return Ok(Command::Help {
+            usage: WORKER_USAGE,
+        });
+    }
+    if args.get(1).map(String::as_str) == Some("spawn") {
+        if matches!(
+            args.get(2).map(String::as_str),
+            Some("-h" | "--help" | "help")
+        ) {
+            return Ok(Command::Help { usage: SPAWN_USAGE });
+        }
+        return parse_spawn(args, 2);
+    }
+    // Compatibility alias: before the command tree, `worker` was a bare spelling of spawn.
+    parse_spawn(args, 1)
+}
+
 fn parse_sandbox(args: &[String]) -> Result<Command, String> {
     if matches!(
         args.get(1).map(String::as_str),
@@ -369,7 +596,7 @@ fn parse_sandbox(args: &[String]) -> Result<Command, String> {
         Some("-h" | "--help" | "help")
     ) {
         return Ok(Command::Help {
-            usage: SANDBOX_USAGE,
+            usage: SANDBOX_INSPECT_USAGE,
         });
     }
     let name = arg(args, 2, "sandbox inspect needs a session name")?.to_string();
@@ -377,11 +604,11 @@ fn parse_sandbox(args: &[String]) -> Result<Command, String> {
     Ok(Command::SandboxInspect { name })
 }
 
-fn parse_spawn(args: &[String]) -> Result<Command, String> {
+fn parse_spawn(args: &[String], options_at: usize) -> Result<Command, String> {
     let mut durable = false;
     let mut project = None;
     let mut template = None;
-    let mut i = 1;
+    let mut i = options_at;
     while i < args.len() {
         match args[i].as_str() {
             "--" => {
@@ -442,8 +669,20 @@ fn parse_template_command(args: &[String]) -> Result<Command, String> {
         });
     }
     if args.get(1).map(String::as_str) != Some("show") {
+        if args.get(1).map(String::as_str) == Some("list") {
+            if matches!(
+                args.get(2).map(String::as_str),
+                Some("-h" | "--help" | "help")
+            ) {
+                return Ok(Command::Help {
+                    usage: TEMPLATES_USAGE,
+                });
+            }
+            let project = optional_project(args, 2, TEMPLATES_USAGE)?;
+            return Ok(Command::Templates { project });
+        }
         return Err(format!(
-            "template needs the show subcommand\n\n{TEMPLATE_USAGE}"
+            "template needs the list or show subcommand\n\n{TEMPLATE_USAGE}"
         ));
     }
     if matches!(
@@ -451,15 +690,15 @@ fn parse_template_command(args: &[String]) -> Result<Command, String> {
         Some("-h" | "--help" | "help")
     ) {
         return Ok(Command::Help {
-            usage: TEMPLATE_USAGE,
+            usage: TEMPLATE_SHOW_USAGE,
         });
     }
     let name = arg(args, 2, "template show needs a template name")?.to_string();
-    let project = optional_project(args, 3, TEMPLATE_USAGE)?;
+    let project = optional_project(args, 3, TEMPLATE_SHOW_USAGE)?;
     Ok(Command::TemplateShow { name, project })
 }
 
-fn parse_templates_command(args: &[String]) -> Result<Command, String> {
+fn parse_templates_command(args: &[String], project_at: usize) -> Result<Command, String> {
     if matches!(
         args.get(1).map(String::as_str),
         Some("-h" | "--help" | "help")
@@ -468,7 +707,7 @@ fn parse_templates_command(args: &[String]) -> Result<Command, String> {
             usage: TEMPLATES_USAGE,
         });
     }
-    let project = optional_project(args, 1, TEMPLATES_USAGE)?;
+    let project = optional_project(args, project_at, TEMPLATES_USAGE)?;
     Ok(Command::Templates { project })
 }
 
@@ -507,7 +746,9 @@ fn parse_agent_command(args: &[String]) -> Result<Command, String> {
         args.get(2).map(String::as_str),
         Some("-h" | "--help" | "help")
     ) {
-        return Ok(Command::Help { usage: AGENT_USAGE });
+        return Ok(Command::Help {
+            usage: AGENT_CREATE_USAGE,
+        });
     }
     let name = arg(args, 2, "agent create needs a name")?.to_string();
     let mut project = None;
@@ -521,7 +762,7 @@ fn parse_agent_command(args: &[String]) -> Result<Command, String> {
                 project = Some(
                     args.get(i)
                         .ok_or_else(|| {
-                            format!("agent create --project needs a value\n\n{AGENT_USAGE}")
+                            format!("agent create --project needs a value\n\n{AGENT_CREATE_USAGE}")
                         })?
                         .clone(),
                 );
@@ -531,7 +772,7 @@ fn parse_agent_command(args: &[String]) -> Result<Command, String> {
                 template = Some(
                     args.get(i)
                         .ok_or_else(|| {
-                            format!("agent create --template needs a value\n\n{AGENT_USAGE}")
+                            format!("agent create --template needs a value\n\n{AGENT_CREATE_USAGE}")
                         })?
                         .clone(),
                 );
@@ -539,16 +780,16 @@ fn parse_agent_command(args: &[String]) -> Result<Command, String> {
             "--start" => start = true,
             flag => {
                 return Err(format!(
-                    "unknown agent create option: {flag}\n\n{AGENT_USAGE}"
+                    "unknown agent create option: {flag}\n\n{AGENT_CREATE_USAGE}"
                 ))
             }
         }
         i += 1;
     }
-    let project =
-        project.ok_or_else(|| format!("agent create needs --project PROJECT\n\n{AGENT_USAGE}"))?;
+    let project = project
+        .ok_or_else(|| format!("agent create needs --project PROJECT\n\n{AGENT_CREATE_USAGE}"))?;
     let template = template
-        .ok_or_else(|| format!("agent create needs --template TEMPLATE\n\n{AGENT_USAGE}"))?;
+        .ok_or_else(|| format!("agent create needs --template TEMPLATE\n\n{AGENT_CREATE_USAGE}"))?;
     Ok(Command::AgentCreate {
         name,
         project,
@@ -825,7 +1066,7 @@ fn print_wait_hint(v: &Value, json: bool) {
         .and_then(|task| task.get("id"))
         .and_then(Value::as_str)
     {
-        println!("next     slopctl wait {id}");
+        println!("next     slopctl task wait {id}");
     }
 }
 
