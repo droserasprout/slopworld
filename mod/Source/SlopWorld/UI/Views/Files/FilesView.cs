@@ -200,7 +200,7 @@ namespace SlopWorld
         {
             public MarkdownPreview View;
             public string Header;
-            public bool Locked;
+            public bool Locked { get; private set; }
 
             public string Session => Header;
             public string FilePath => View?.Path;
