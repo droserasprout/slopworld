@@ -2,7 +2,7 @@ namespace SlopWorld
 {
     // A reader owns one ephemeral pager session. Files and Git share preview/pinned slots;
     // sidebar tab changes preserve them and explicit dismissal releases them.
-    public class Pager
+    public class Pager : IPreviewTab
     {
         string _session;
         string _project;      // which project the persistent session serves

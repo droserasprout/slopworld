@@ -72,9 +72,8 @@ namespace SlopWorld
         // Native Markdown rendering state backs the shared reader collection.
         sealed class FilesViewerController
         {
-            public MarkdownTab MarkdownPreview;
-            public MarkdownTab ActiveMarkdown;
-            public readonly List<MarkdownTab> LockedMarkdown = new List<MarkdownTab>();
+            public readonly PreviewTabs<MarkdownTab> MarkdownTabs =
+                new PreviewTabs<MarkdownTab>(() => new MarkdownTab());
             public int MarkdownHeader;
         }
 
@@ -195,13 +194,65 @@ namespace SlopWorld
         // routed header. The tree owns selection; each pager owns its ephemeral session.
         static PagerTabs Viewers => FileReaders.Tabs;
 
-        // Markdown is a native content view rather than a daemon session, so keep the same
-        // preview/pinned distinction here and expose a synthetic routed header for it.
-        sealed class MarkdownTab
+        // Markdown is a native content view rather than a daemon session. It adapts its
+        // identity and focus operations to the same preview/pinned lifecycle as Pager.
+        sealed class MarkdownTab : IPreviewTab
         {
             public MarkdownPreview View;
             public string Header;
             public bool Locked;
+
+            public string Session => Header;
+            public string FilePath => View?.Path;
+            public bool Alive => View != null;
+
+            public bool Matches(string project, string key) => Alive &&
+                View.Project == (project ?? "") && View.Path == key;
+
+            public bool Reopen()
+            {
+                if (!Alive) return false;
+                ShowMarkdown(this);
+                return true;
+            }
+
+            public bool Lock()
+            {
+                if (!Alive) return false;
+                Locked = true;
+                return true;
+            }
+
+            public bool LockPreview(string project, string key)
+            {
+                if (!Matches(project, key) || (!Locked && !Showing(this))) return false;
+                Locked = true;
+                return true;
+            }
+
+            public void Release()
+            {
+                if (!Alive) return;
+                if (Showing(this))
+                    Find.WindowStack?.WindowOfType<TerminalWindow>()?.Leave();
+                View = null;
+                Header = null;
+                Locked = false;
+            }
+
+            public void CloseIf(string session) { }
+
+            public bool CloseTab(string session)
+            {
+                if (session == null || session != Header) return false;
+                bool showing = Showing(this);
+                View = null;
+                Header = null;
+                Locked = false;
+                if (showing)
+                    Find.WindowStack?.WindowOfType<TerminalWindow>()?.Leave();
+                return true;
+            }
 
             public SessionInfo HeaderInfo()
             {
@@ -216,22 +267,7 @@ namespace SlopWorld
             }
         }
 
-        static MarkdownTab _markdownPreview
-        {
-            get => Viewer.MarkdownPreview;
-            set => Viewer.MarkdownPreview = value;
-        }
-        static MarkdownTab _activeMarkdown
-        {
-            get => Viewer.ActiveMarkdown;
-            set => Viewer.ActiveMarkdown = value;
-        }
-        static List<MarkdownTab> LockedMarkdown => Viewer.LockedMarkdown;
-        static int _markdownHeader
-        {
-            get => Viewer.MarkdownHeader;
-            set => Viewer.MarkdownHeader = value;
-        }
+        static PreviewTabs<MarkdownTab> MarkdownViewers => Viewer.MarkdownTabs;
 
         // Extensions `less` would rather not be handed: the viewer is for reading, and an
         // image or a zip in a text pager is a listing nobody asked for. Everything else is
