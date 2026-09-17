@@ -39,6 +39,11 @@ replies leak into shell input as text such as `?6c`. Its erase/resize behavior i
 matches tmux rather than every Alacritty default. Preserve real and styled history while
 excluding untouched leading padding; scroll snapshots must not consume bells.
 
+New sessions create a silent placeholder pane, attach the control reader, then replace the
+placeholder with the real command. Starting the command before capture/attach loses output
+in that gap; a pager can stay blank until input triggers a redraw. This ordering belongs to
+startup, not the mod's pixel cache. Adoption still seeds an already running pane.
+
 Terminal bytes are lossless under backpressure. A bounded byte-chunk queue must still
 reassemble long control lines after dequeue. Dropping its receiver must wake the blocking
 reader; child cleanup needs kill and reap before session teardown.

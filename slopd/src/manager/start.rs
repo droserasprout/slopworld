@@ -159,7 +159,16 @@ impl Manager {
     async fn launch_tmux(&self, name: &str, plan: &StartPlan) -> Result<()> {
         if let Err(error) = self
             .tmux
-            .spawn(name, &plan.dir, plan.cols, plan.rows, &plan.argv, plan.host)
+            // Keep the pane silent until the control reader is attached. Capturing an
+            // already running command and then attaching loses bytes between those steps.
+            .spawn(
+                name,
+                &plan.dir,
+                plan.cols,
+                plan.rows,
+                &["sleep".into(), "2147483647".into()],
+                plan.host,
+            )
             .await
         {
             if plan.is_worker() {
@@ -257,6 +266,13 @@ impl Manager {
                 return Err(error.context(format!("starting session {name} reader")));
             }
         }
+        if let Err(error) = self.tmux.start_command(name, &plan.dir, &plan.argv).await {
+            self.cleanup_failed_start(name, plan.is_worker()).await;
+            if plan.is_worker() {
+                return Err(anyhow!("could not start worker session {name}"));
+            }
+            return Err(error.context(format!("starting session {name} command")));
+        }
         self.wire_live_state(name).await;
         if auto_resume_pending {
             self.queue_auto_resume(name, run_id);
@@ -295,5 +311,81 @@ impl Manager {
             live.breadcrumbs.clear();
             live.breadcrumbs_pending = false;
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn command_waits_for_reader_and_first_screen_is_complete() {
+        let socket = format!("slopd-start-{}", uuid::Uuid::new_v4());
+        let root = std::env::temp_dir().join(&socket);
+        std::fs::create_dir_all(&root).unwrap();
+        let manager = crate::session::test_manager_with_socket(Config::default(), socket.clone());
+        let session = SessionCfg {
+            name: "preview".into(),
+            ..Default::default()
+        };
+        let plan = StartPlan {
+            session: session.clone(),
+            cols: 80,
+            rows: 24,
+            host: true,
+            dir: root.to_string_lossy().into_owned(),
+            launch: None,
+            argv: vec![
+                "/bin/sh".into(),
+                "-c".into(),
+                // One startup burst followed by silence: no input/redraw can repair a loss.
+                r"touch started; printf '\033[?1049h\033[Hfirst row\033[23;1Hlast row'; exec sleep 60".into(),
+            ],
+        };
+        manager.live.write().await.insert(
+            "preview".into(),
+            Live::new(session, TitleCapture::default()),
+        );
+        let result: Result<()> = async {
+            manager.launch_tmux("preview", &plan).await?;
+            // Widen the former capture/attach gap deterministically.
+            tokio::time::sleep(Duration::from_millis(150)).await;
+            anyhow::ensure!(
+                !root.join("started").exists(),
+                "command ran before reader attach"
+            );
+            anyhow::ensure!(manager.spawn_reader("preview").await?);
+            manager
+                .tmux
+                .start_command("preview", &plan.dir, &plan.argv)
+                .await?;
+            tokio::time::timeout(Duration::from_secs(5), async {
+                loop {
+                    let complete = {
+                        let live = manager.live.read().await;
+                        let mut emu = live["preview"].emu.as_ref().unwrap().lock().unwrap();
+                        let frame = emu.render();
+                        frame.alt_screen
+                            && frame.lines[0].contains("first row")
+                            && frame.lines[22].contains("last row")
+                    };
+                    if complete {
+                        break;
+                    }
+                    tokio::time::sleep(Duration::from_millis(10)).await;
+                }
+            })
+            .await
+            .context("initial screen never reached the mirror")?;
+            Ok(())
+        }
+        .await;
+        let _ = manager.tmux.kill("preview").await;
+        let _ = tokio::process::Command::new("tmux")
+            .args(["-L", &socket, "kill-server"])
+            .output()
+            .await;
+        std::fs::remove_dir_all(root).unwrap();
+        result.unwrap();
     }
 }

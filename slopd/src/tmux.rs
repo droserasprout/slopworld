@@ -243,6 +243,16 @@ impl Tmux {
         Ok(())
     }
 
+    /// Replace the silent startup process only after the control reader is ready. The pane
+    /// identity and negotiated size survive, so its first output reaches the same reader.
+    pub async fn start_command(&self, name: &str, dir: &str, argv: &[String]) -> Result<()> {
+        let target = format!("{name}:.0");
+        let mut args = vec!["respawn-pane", "-k", "-t", &target, "-c", dir, "--"];
+        args.extend(argv.iter().map(String::as_str));
+        self.run(&args).await?;
+        Ok(())
+    }
+
     /// Host-ness is runtime state, but the tmux server outlives slopd. Keep a private session
     /// option so orphan adoption does not mistake a surviving host shell for an agent.
     pub async fn is_host(&self, name: &str) -> bool {
