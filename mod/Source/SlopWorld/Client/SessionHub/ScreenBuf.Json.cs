@@ -46,7 +46,7 @@ namespace SlopWorld
             changed.Clear();
             for (int i = 0; i < lineCount; i++)
             {
-                string line = values[i].AsString();
+                string line = values.StringAt(i);
                 if (sameShape && string.Equals(previousLines[i], line,
                                               System.StringComparison.Ordinal)) continue;
                 // Keep old strings/arrays intact for scroll detection and retained views.
