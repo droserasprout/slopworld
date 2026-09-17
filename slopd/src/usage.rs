@@ -615,6 +615,19 @@ fn watch_anthropic_stamp(
     }
 }
 
+fn settle_join(
+    previous: &Snapshot,
+    result: Result<(Snapshot, Option<u64>), tokio::task::JoinError>,
+) -> (Snapshot, Option<u64>) {
+    match result {
+        Ok(result) => result,
+        Err(error) => (
+            Snapshot::failed(previous, format!("usage poll task failed: {error}")),
+            None,
+        ),
+    }
+}
+
 /// Read, fetch, parse and settle one provider. The descriptor supplies the provider-specific
 /// functions; all scheduling, failure backoff and snapshot preservation stay here.
 async fn poll_one(
@@ -632,18 +645,20 @@ async fn poll_one(
     let read = provider.read;
     let fetch = provider.fetch;
     let parse = provider.parse;
-    let (next, asked) = tokio::task::spawn_blocking(move || match read(&config) {
-        Err(e) => (Snapshot::failed(&prev, e), None),
-        Ok(creds) => match fetch(creds) {
-            Err(e) => {
-                let asked = e.retry_after;
-                (Snapshot::failed(&prev, e), asked)
-            }
-            Ok(response) => (preserve_parse_failure(&prev, parse(response)), None),
-        },
-    })
-    .await
-    .unwrap_or_default();
+    let (next, asked) = settle_join(
+        &provider.poller.snap,
+        tokio::task::spawn_blocking(move || match read(&config) {
+            Err(e) => (Snapshot::failed(&prev, e), None),
+            Ok(creds) => match fetch(creds) {
+                Err(e) => {
+                    let asked = e.retry_after;
+                    (Snapshot::failed(&prev, e), asked)
+                }
+                Ok(response) => (preserve_parse_failure(&prev, parse(response)), None),
+            },
+        })
+        .await,
+    );
 
     let next = filter_snapshot(provider.poller, next, d, provider.source, now);
     provider.poller.settle(next, asked, base);
@@ -1085,6 +1100,53 @@ mod tests {
         // The plan is the subscription's, and only one source has one.
         assert_eq!(m.plan, "max");
         assert!(m.error.is_none());
+    }
+
+    #[tokio::test]
+    async fn failed_poll_joins_keep_previous_usage_and_aggregate_as_stale() {
+        let previous = Snapshot {
+            ok: true,
+            fetched_ms: 42,
+            windows: vec![Window {
+                key: CLAUDE_SESSION.into(),
+                label: "session".into(),
+                pct: 37.0,
+                unit: Unit::Pct,
+                amount: None,
+                limit: None,
+                resets_in: None,
+            }],
+            ..Default::default()
+        };
+
+        let panicked = tokio::spawn(async { panic!("provider worker panic") });
+        let canceled =
+            tokio::spawn(async { std::future::pending::<(Snapshot, Option<u64>)>().await });
+        canceled.abort();
+
+        let panic_snapshot = settle_join(&previous, panicked.await);
+        let cancel_snapshot = settle_join(&previous, canceled.await);
+        assert!(!panic_snapshot.0.ok);
+        assert!(!cancel_snapshot.0.ok);
+        assert_eq!(panic_snapshot.0.windows, previous.windows);
+        assert_eq!(cancel_snapshot.0.windows, previous.windows);
+        assert!(panic_snapshot
+            .0
+            .error
+            .as_deref()
+            .is_some_and(|error| error.contains("usage poll task failed")));
+
+        let merged = merge(
+            [
+                ("anthropic", &panic_snapshot.0),
+                ("openai", &cancel_snapshot.0),
+            ],
+            &crate::config::Daemon::default(),
+        );
+        assert!(!merged.ok);
+        assert_eq!(merged.windows.len(), 2);
+        assert_eq!(merged.failed_sources, ["anthropic", "openai"]);
+        assert!(merged.error.is_some());
     }
 
     #[test]
