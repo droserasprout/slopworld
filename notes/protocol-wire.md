@@ -26,6 +26,10 @@ Effective network/DNS values are direct agent settings in the session model. Pro
 carry workspace mounts; config patches preserve omitted fields, and a redacted token means
 retain the secret. See [configuration stores](daemon-config-stores.md).
 
+Configuration patch construction is explicit in the client model: only editable daemon fields
+are projected into a structured token tree, leaf diffs preserve omission semantics, and the
+tree is serialized at the HTTP boundary. Response metadata and secrets remain outside it.
+
 `GET /api/config` includes factory defaults, the usage catalog, temporary-root policy and
 terminal limits. `/api/usage` and usage events include catalog metadata plus resolved rows;
 missing values are represented by an absent row window, never a guessed zero. Older daemons that

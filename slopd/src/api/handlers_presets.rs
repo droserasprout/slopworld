@@ -94,7 +94,11 @@ pub(crate) async fn copy_preset(
     } else {
         target
     };
-    crate::presets::copy_builtin(kind, &old_name, &name).map_err(|error| {
+    let copied =
+        tokio::task::spawn_blocking(move || crate::presets::copy_builtin(kind, &old_name, &name))
+            .await
+            .map_err(|error| err(StatusCode::INTERNAL_SERVER_ERROR, error))?;
+    copied.map_err(|error| {
         let status = if matches!(&error, crate::presets::PresetError::Missing(_)) {
             StatusCode::NOT_FOUND
         } else {
@@ -127,7 +131,9 @@ pub(crate) async fn update_preset(
         crate::presets::PresetDefinition::Sandbox(preset) => preset.name = name,
         crate::presets::PresetDefinition::Command(preset) => preset.name = name,
     }
-    crate::presets::validate_and_save(definition)
+    tokio::task::spawn_blocking(move || crate::presets::validate_and_save(definition))
+        .await
+        .map_err(|error| err(StatusCode::INTERNAL_SERVER_ERROR, error))?
         .map_err(|error| err(StatusCode::BAD_REQUEST, error))?;
     m.reload_presets_if_changed().await;
     Ok(Json(json!({ "ok": true })))
@@ -138,7 +144,10 @@ pub(crate) async fn delete_preset(
     Path((kind, name)): Path<(String, String)>,
 ) -> ApiResult {
     let kind = parse_kind(&kind)?;
-    crate::presets::delete_user(kind, &name).map_err(|error| {
+    let deleted = tokio::task::spawn_blocking(move || crate::presets::delete_user(kind, &name))
+        .await
+        .map_err(|error| err(StatusCode::INTERNAL_SERVER_ERROR, error))?;
+    deleted.map_err(|error| {
         let status = if matches!(&error, crate::presets::PresetError::Missing(_)) {
             StatusCode::NOT_FOUND
         } else {

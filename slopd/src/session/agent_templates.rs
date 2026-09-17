@@ -210,23 +210,8 @@ impl AgentTemplateStore {
 
     pub(crate) async fn save(&self, path: &Path) -> Result<()> {
         self.validate()?;
-        if let Some(parent) = path.parent() {
-            tokio::fs::create_dir_all(parent).await?;
-        }
-        let tmp = path.with_extension("toml.tmp");
         let text = toml::to_string_pretty(self)?;
-        tokio::fs::write(&tmp, text)
-            .await
-            .with_context(|| format!("writing {}", tmp.display()))?;
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            tokio::fs::set_permissions(&tmp, std::fs::Permissions::from_mode(0o600)).await?;
-        }
-        tokio::fs::rename(&tmp, path)
-            .await
-            .with_context(|| format!("installing {}", path.display()))?;
-        Ok(())
+        crate::paths::write_atomic_async(path, &text, Some(0o600)).await
     }
 
     pub(crate) fn get(&self, name: &str) -> Option<&AgentTemplate> {

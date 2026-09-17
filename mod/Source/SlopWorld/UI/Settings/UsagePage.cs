@@ -12,13 +12,6 @@ namespace SlopWorld
         const float PickerWidth = 380f;
         const float PickerHeight = 360f;
 
-        // A free-text mirror, so a half-typed number is not clamped out from under the
-        // player mid-keystroke.
-        string _pollSecs;
-        readonly Dictionary<string, string> _itemIntervals =
-            new Dictionary<string, string>();
-        readonly Dictionary<string, string> _normalizations =
-            new Dictionary<string, string>();
         // Rows discovered by the live usage snapshot are display state until the player
         // changes them. Keeping them out of DaemonConfig prevents opening this page from
         // creating a new poll override.
@@ -34,20 +27,12 @@ namespace SlopWorld
 
         protected override void AfterLoad()
         {
-            _normalizations.Clear();
-            _pollSecs = _configState.DraftText("usage.poll", "daemon.usage_poll_secs",
-                _cfg.UsagePollSecs.ToString());
-            _itemIntervals.Clear();
             _implicitItems.Clear();
             EnsureBaseItems();
         }
 
         protected override void AfterDiscard()
         {
-            _normalizations.Clear();
-            _pollSecs = _configState.DraftText("usage.poll", "daemon.usage_poll_secs",
-                _cfg.UsagePollSecs.ToString());
-            _itemIntervals.Clear();
             _implicitItems.Clear();
             EnsureBaseItems();
         }
@@ -56,15 +41,14 @@ namespace SlopWorld
         {
             // A page can be reopened while its shared draft is finishing an in-flight save;
             // the old page's load callback is intentionally not replayed into this instance.
-            if (_pollSecs == null)
-                _pollSecs = _configState.DraftText("usage.poll", "daemon.usage_poll_secs",
-                    _cfg.UsagePollSecs.ToString());
             UiLayout.SectionHeading(l, "Usage");
             l.Label("Global poll interval (s)");
-            _pollSecs = UiControls.Field(l, "usage.poll", _pollSecs,
+            string pollSecs = _configState.DraftText("usage.poll", "daemon.usage_poll_secs",
+                _cfg.UsagePollSecs.ToString());
+            pollSecs = UiControls.Field(l, "usage.poll", pollSecs,
                 defaultValue: _cfg.FactoryDefaults?.UsagePollSecs?.ToString());
-            _configState.SetDraftText("usage.poll", "daemon.usage_poll_secs", _pollSecs);
-            UiLayout.Validation(l, PollError(_pollSecs, false));
+            _configState.SetDraftText("usage.poll", "daemon.usage_poll_secs", pollSecs);
+            UiLayout.Validation(l, PollError(pollSecs, false));
             UiLayout.Note(l, "Every row uses this interval unless its interval is set below. " +
                 "A failed poll backs off on its own, doubling to half an hour.");
         }
@@ -98,12 +82,7 @@ namespace SlopWorld
         {
             if (_cfg.UsageItems.TryGetValue(key, out var configured) && configured != null)
             {
-                if (!_itemIntervals.ContainsKey(key))
-                    _itemIntervals[key] = _configState.DraftText(
-                        "usage.item." + key,
-                        "daemon.usage_items." + key + ".interval_secs",
-                        configured.IntervalSecs > 0 ? configured.IntervalSecs.ToString() : "",
-                        zeroMeansBlank: true);
+                DraftInterval(key, configured.IntervalSecs);
                 return configured;
             }
 
@@ -113,12 +92,21 @@ namespace SlopWorld
                 _implicitItems[key] = item;
             }
 
-            if (!_itemIntervals.ContainsKey(key))
-                _itemIntervals[key] = _configState.DraftText(
-                    "usage.item." + key,
-                    "daemon.usage_items." + key + ".interval_secs",
-                    item.IntervalSecs > 0 ? item.IntervalSecs.ToString() : "", zeroMeansBlank: true);
+            DraftInterval(key, item.IntervalSecs);
             return item;
+        }
+
+        string DraftInterval(string key, int interval)
+        {
+            return _configState.DraftText("usage.item." + key,
+                "daemon.usage_items." + key + ".interval_secs",
+                interval > 0 ? interval.ToString() : "", zeroMeansBlank: true);
+        }
+
+        void SetDraftInterval(string key, string value)
+        {
+            _configState.SetDraftText("usage.item." + key,
+                "daemon.usage_items." + key + ".interval_secs", value);
         }
 
         void Promote(string key, DaemonConfig.UsageItemConfig item)
@@ -202,14 +190,14 @@ namespace SlopWorld
                 float fieldPad = Mathf.Min(UiTheme.GapXS, interval.width / 2f);
                 var field = new Rect(interval.x + fieldPad, interval.y + UiTheme.GapXS,
                     Mathf.Max(0f, interval.width - fieldPad * 2f), UiTheme.FieldH);
-                _itemIntervals[key] = UiText.Field(field, "usage.item." + key,
-                    _itemIntervals[key], defaultValue: "");
-                _configState.SetDraftText("usage.item." + key,
-                    "daemon.usage_items." + key + ".interval_secs", _itemIntervals[key]);
+                string intervalText = DraftInterval(key, item.IntervalSecs);
+                intervalText = UiText.Field(field, "usage.item." + key,
+                    intervalText, defaultValue: "");
+                SetDraftInterval(key, intervalText);
                 UiLayout.ValidationLabel(new Rect(interval.x + fieldPad,
                     field.yMax + UiTheme.GapXS,
                     Mathf.Max(0f, interval.width - fieldPad * 2f), UiTheme.LineH),
-                    PollError(_itemIntervals[key], true));
+                    PollError(intervalText, true));
             });
         }
 
@@ -229,13 +217,13 @@ namespace SlopWorld
 
                 var field = new Rect(rect.x + iconW + pollW, y,
                     Mathf.Max(0f, rect.width - iconW - pollW), UiTheme.FieldH);
-                _itemIntervals[key] = UiText.Field(field, "usage.item." + key,
-                    _itemIntervals[key], defaultValue: "");
-                _configState.SetDraftText("usage.item." + key,
-                    "daemon.usage_items." + key + ".interval_secs", _itemIntervals[key]);
+                string intervalText = DraftInterval(key, item.IntervalSecs);
+                intervalText = UiText.Field(field, "usage.item." + key,
+                    intervalText, defaultValue: "");
+                SetDraftInterval(key, intervalText);
                 TooltipHandler.TipRegion(field, "Polling interval in seconds.");
                 UiLayout.ValidationLabel(new Rect(field.x, field.yMax + UiTheme.GapXS,
-                    field.width, UiTheme.LineH), PollError(_itemIntervals[key], true));
+                    field.width, UiTheme.LineH), PollError(intervalText, true));
                 y += UiTheme.FieldH + UiTheme.GapS + UiTheme.LineH + UiTheme.GapXS;
             }
             return y - rect.y;
@@ -384,11 +372,15 @@ namespace SlopWorld
         {
             get
             {
-                string error = PollError(_pollSecs, false);
+                if (!_loaded || _cfg == null) return null;
+                string error = PollError(_configState.DraftText("usage.poll",
+                    "daemon.usage_poll_secs", _cfg.UsagePollSecs.ToString()), false);
                 if (!string.IsNullOrEmpty(error)) return error;
-                foreach (var pair in _itemIntervals)
+                foreach (string fieldKey in _configState.DraftFieldKeys("usage.item."))
                 {
-                    error = PollError(pair.Value, true);
+                    string key = fieldKey.Substring("usage.item.".Length);
+                    error = PollError(_configState.DraftText(fieldKey,
+                        "daemon.usage_items." + key + ".interval_secs", "", true), true);
                     if (!string.IsNullOrEmpty(error)) return error;
                 }
                 return null;
@@ -397,42 +389,39 @@ namespace SlopWorld
 
         protected override bool PrepareSave(out string error)
         {
-            _normalizations.Clear();
             _configState.ClearQueuedNormalizations();
-            if (!DaemonConfigValidation.WholeSeconds(_pollSecs, false, out int seconds,
+            string pollText = _configState.DraftText("usage.poll", "daemon.usage_poll_secs",
+                _cfg.UsagePollSecs.ToString());
+            if (!DaemonConfigValidation.WholeSeconds(pollText, false, out int seconds,
                                                       out error)) return false;
             _cfg.UsagePollSecs = seconds;
-            _configState.SetDraftText("usage.poll", "daemon.usage_poll_secs", _pollSecs);
-            _normalizations["usage.poll"] = seconds.ToString();
+            _configState.SetDraftText("usage.poll", "daemon.usage_poll_secs", pollText);
             _configState.QueueDraftTextNormalization("usage.poll", "daemon.usage_poll_secs",
                 seconds.ToString());
 
-            foreach (var pair in _itemIntervals)
+            foreach (string fieldKey in _configState.DraftFieldKeys("usage.item."))
             {
-                string text = (pair.Value ?? "").Trim();
+                string key = fieldKey.Substring("usage.item.".Length);
+                string text = (_configState.DraftText(fieldKey,
+                    "daemon.usage_items." + key + ".interval_secs", "", true) ?? "").Trim();
                 if (text.Length == 0)
                 {
-                    if (_cfg.UsageItems.TryGetValue(pair.Key, out var configured) && configured != null)
+                    if (_cfg.UsageItems.TryGetValue(key, out var configured) && configured != null)
                         configured.IntervalSecs = 0;
-                    _configState.SetDraftText("usage.item." + pair.Key,
-                        "daemon.usage_items." + pair.Key + ".interval_secs", "");
-                    _normalizations["usage.item." + pair.Key] = "";
-                    _configState.QueueDraftTextNormalization("usage.item." + pair.Key,
-                        "daemon.usage_items." + pair.Key + ".interval_secs", "");
+                    SetDraftInterval(key, "");
+                    _configState.QueueDraftTextNormalization(fieldKey,
+                        "daemon.usage_items." + key + ".interval_secs", "");
                 }
                 else if (DaemonConfigValidation.WholeSeconds(text, true, out seconds,
                                                               out error))
                 {
-                    var item = EnsureItem(pair.Key);
-                    if (_implicitItems.ContainsKey(pair.Key)) Promote(pair.Key, item);
-                    item = EnsureItem(pair.Key);
+                    var item = EnsureItem(key);
+                    if (_implicitItems.ContainsKey(key)) Promote(key, item);
+                    item = EnsureItem(key);
                     item.IntervalSecs = seconds;
-                    _configState.SetDraftText("usage.item." + pair.Key,
-                        "daemon.usage_items." + pair.Key + ".interval_secs",
-                        pair.Value);
-                    _normalizations["usage.item." + pair.Key] = seconds.ToString();
-                    _configState.QueueDraftTextNormalization("usage.item." + pair.Key,
-                        "daemon.usage_items." + pair.Key + ".interval_secs",
+                    SetDraftInterval(key, text);
+                    _configState.QueueDraftTextNormalization(fieldKey,
+                        "daemon.usage_items." + key + ".interval_secs",
                         seconds.ToString());
                 }
                 else
@@ -440,29 +429,6 @@ namespace SlopWorld
             }
             error = null;
             return true;
-        }
-
-        protected override void AfterSave()
-        {
-            if (_normalizations.TryGetValue("usage.poll", out string poll))
-            {
-                _configState.NormalizeDraftTextIfUnchanged("usage.poll",
-                    "daemon.usage_poll_secs", poll);
-                _pollSecs = _configState.DraftText("usage.poll", "daemon.usage_poll_secs",
-                    poll);
-            }
-
-            // Mono invalidates dictionary enumerators even when replacing existing values.
-            foreach (string itemKey in new List<string>(_itemIntervals.Keys))
-            {
-                string key = "usage.item." + itemKey;
-                if (!_normalizations.TryGetValue(key, out string value)) continue;
-                _configState.NormalizeDraftTextIfUnchanged(key,
-                    "daemon.usage_items." + itemKey + ".interval_secs", value);
-                _itemIntervals[itemKey] = _configState.DraftText(key,
-                    "daemon.usage_items." + itemKey + ".interval_secs", value);
-            }
-            _normalizations.Clear();
         }
 
         static string PollError(string text, bool inheritance)

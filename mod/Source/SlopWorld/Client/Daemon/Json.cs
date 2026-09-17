@@ -78,6 +78,28 @@ namespace SlopWorld
         internal static JVal Wrap(JToken token) => token == null || token.Type == JTokenType.Null
             ? Null : new JVal(token);
 
+        // Construction helpers keep editable projections in the token tree. Callers should
+        // only turn the finished value into text at the transport boundary.
+        internal static JVal ObjectValue() => new JVal(new JObject());
+        internal static JVal ArrayValue() => new JVal(new JArray());
+        internal static JVal StringValue(string value) => new JVal(new JValue(value ?? ""));
+        internal static JVal IntValue(int value) => new JVal(new JValue(value));
+        internal static JVal BoolValue(bool value) => new JVal(new JValue(value));
+
+        internal void Put(string key, JVal value)
+        {
+            var obj = _token as JObject;
+            if (obj == null) throw new InvalidOperationException("JSON value is not an object");
+            obj[key] = (value ?? Null).Token.DeepClone();
+        }
+
+        internal void Add(JVal value)
+        {
+            var array = _token as JArray;
+            if (array == null) throw new InvalidOperationException("JSON value is not an array");
+            array.Add((value ?? Null).Token.DeepClone());
+        }
+
         public static JVal Parse(string text)
         {
             try
@@ -96,6 +118,8 @@ namespace SlopWorld
 
         public static bool Equivalent(JVal left, JVal right)
         {
+            if ((left ?? Null).IsNumber && (right ?? Null).IsNumber)
+                return (left ?? Null).Num == (right ?? Null).Num;
             return JToken.DeepEquals((left ?? Null).Token, (right ?? Null).Token);
         }
 
