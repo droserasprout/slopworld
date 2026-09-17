@@ -9,10 +9,16 @@ namespace SlopWorld
         const float MaxInterval = 0.75f;
         const float MaxDistance = 8f;
 
+        readonly bool _useNativeClickCount;
         int _count;
         int _button = -1;
         Vector2 _position;
         float _at = -1f;
+
+        // Routed rows reset on intervening presses, so only locally observed clicks may
+        // extend their sequence. Other consumers retain IMGUI's multi-click fallback.
+        public MouseClickSequence(bool useNativeClickCount = true) =>
+            _useNativeClickCount = useNativeClickCount;
 
         public int Observe(Event e, float now)
         {
@@ -20,7 +26,7 @@ namespace SlopWorld
                 now >= _at && now - _at <= MaxInterval &&
                 (e.mousePosition - _position).sqrMagnitude <= MaxDistance * MaxDistance;
             _count = sameSequence ? _count + 1 : 1;
-            if (e.clickCount > _count) _count = e.clickCount;
+            if (_useNativeClickCount && e.clickCount > _count) _count = e.clickCount;
 
             _button = e.button;
             _position = e.mousePosition;
