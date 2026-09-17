@@ -35,6 +35,17 @@ namespace SlopWorld
         public static void ShowGit() => Show(SidebarTab.Git);
         public static void ShowLibrary() => Show(SidebarTab.Library);
         public static void ShowTasks() => Show(SidebarTab.Tasks);
+
+        // The sidebar owns all view-specific routed readers. Keep terminal teardown in the
+        // owner so a panel does not need to know which views retain session-backed previews.
+        internal static void TerminalClosed(string session)
+        {
+            // Preserve the existing teardown order: Files, Search, then Git.
+            FilesView.CloseViewerIf(session);
+            SearchView.CloseViewerIf(session);
+            GitView.CloseViewerIf(session);
+        }
+
         internal static void ShowTab(SidebarTab tab) => Show(tab);
 
         // Ctrl+F1..F6 navigates to the most recent semantic target in that tab. A missing or
