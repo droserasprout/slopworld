@@ -1,5 +1,6 @@
 using System;
 using System.Runtime.InteropServices;
+using System.Diagnostics;
 using UnityEngine;
 using Verse;
 using Exception = System.Exception;
@@ -27,18 +28,24 @@ namespace SlopWorld
         static Axis _horizontal;
         static Axis _vertical;
 
-        static bool _baseline;
-        static ScrollPoint _last;
-        static int _lastFrame = -1;
-        static float _lastSampleTime = -1f;
+        static readonly ScrollSampleDelta Motion = new ScrollSampleDelta();
+        static LatestSample<Snapshot> _reader;
+        static bool _failed;
+
+        struct Snapshot
+        {
+            public bool Available;
+            public ScrollPoint Point;
+            public double Time;
+        }
+
+        static double Now => (double)Stopwatch.GetTimestamp() / Stopwatch.Frequency;
+
+        // Logical fallback already moved the viewport; late native samples must not replay it.
+        public static void DiscardPendingMovement() => Motion.Discard(Now);
         static readonly ScrollSampleBudget SampleBudget = new ScrollSampleBudget();
         static bool _sampleUsable;
         static Vector2 _sample;
-
-        // A frame can be late while RimWorld is laying out a large panel. The XInput
-        // valuator is cumulative, so keep the movement across a short stall instead of
-        // dropping the gesture merely because the frame number skipped.
-        const float MaxSampleGap = 0.25f;
 
         struct Axis
         {
@@ -98,7 +105,7 @@ namespace SlopWorld
             public int flags;
         }
 
-        // True means this frame has a baseline from the immediately preceding frame and
+        // True means a fresh background sample has a recent baseline and
         // Unity's logical wheel packet can be suppressed. A first sample, or the first
         // sample after no scroll view was drawn, deliberately falls back to Unity instead
         // of applying stale movement collected while there was nowhere to put it.
@@ -114,73 +121,50 @@ namespace SlopWorld
 
             _sample = Vector2.zero;
             _sampleUsable = false;
-            if (!Ready()) return false;
+            if (_failed || Application.platform != RuntimePlatform.LinuxPlayer) return false;
+            if (_reader == null) _reader = new LatestSample<Snapshot>(ReadSnapshot);
+            bool fresh = _reader.TryRead(out var snapshot, out var error);
+            if (error != null)
+            {
+                _failed = true;
+                Log.Warning("[SlopWorld] precise X11 scrolling disabled: " + error.Message);
+                return false;
+            }
+            if (!fresh) return false;
+            if (!snapshot.Available)
+            {
+                _reader.Dispose();
+                _failed = true;
+                return false;
+            }
+            if (!Motion.Read(snapshot.Point.X, snapshot.Point.Y, snapshot.Time, Now,
+                             out double dx, out double dy)) return false;
+            _sample = new Vector2((float)dx, (float)dy);
+            _sampleUsable = true;
+            units = _sample;
+            return true;
+        }
 
+        // All Xlib calls, including discovery, stay on the dedicated sampler thread.
+        static Snapshot ReadSnapshot()
+        {
             try
             {
-                ScrollPoint current;
-                if (!ReadCurrent(out current))
+                double started = Now;
+                if (!Ready() || !ReadCurrent(out var point))
                 {
-                    _baseline = false;
-                    return false;
+                    Disable();
+                    return default;
                 }
-
-                float now = Time.unscaledTime;
-                bool contiguous = _baseline && frame > _lastFrame &&
-                    (_lastSampleTime < 0f || now - _lastSampleTime <= MaxSampleGap);
-                _lastFrame = frame;
-                _lastSampleTime = now;
-                if (!contiguous)
-                {
-                    _last = current;
-                    _baseline = true;
-                    return false;
-                }
-
-                var dx = current.X - _last.X;
-                var dy = current.Y - _last.Y;
-                _last = current;
-
-                // Relative scroll valuators are cumulative and may be reset before their
-                // fixed-point range overflows. Such a reset is not a finger crossing the
-                // whole list in one frame; discard it and let the next sample continue.
-                if (!Finite(dx) || !Finite(dy) || Math.Abs(dx) > 100.0 || Math.Abs(dy) > 100.0)
-                    return false;
-
-                _sample = new Vector2((float)dx, (float)dy);
-                _sampleUsable = true;
-                units = _sample;
-                return true;
+                return new Snapshot { Available = true, Point = point, Time = started };
             }
-            catch (DllNotFoundException)
-            {
-                Disable();
-                return false;
-            }
-            catch (EntryPointNotFoundException)
-            {
-                Disable();
-                return false;
-            }
-            catch (BadImageFormatException)
-            {
-                Disable();
-                return false;
-            }
-            catch (Exception e)
-            {
-                Disable();
-                Log.Warning("[SlopWorld] precise X11 scrolling disabled: " + e.Message);
-                return false;
-            }
+            catch { Disable(); throw; }
         }
 
         static bool Ready()
         {
             if (_attempted) return _display != IntPtr.Zero && _deviceId >= 0;
             _attempted = true;
-
-            if (Application.platform != RuntimePlatform.LinuxPlayer) return false;
 
             try
             {
@@ -219,12 +203,7 @@ namespace SlopWorld
                 Disable();
                 return false;
             }
-            catch (Exception e)
-            {
-                Disable();
-                Log.Warning("[SlopWorld] precise X11 scrolling unavailable: " + e.Message);
-                return false;
-            }
+            catch { Disable(); throw; }
         }
 
         static bool FindMasterPointer()
@@ -335,15 +314,11 @@ namespace SlopWorld
         static T Read<T>(IntPtr pointer) where T : struct =>
             (T)Marshal.PtrToStructure(pointer, typeof(T));
 
-        static bool Finite(double value) => !double.IsNaN(value) && !double.IsInfinity(value);
-
         static void Disable()
         {
             if (_display != IntPtr.Zero) XCloseDisplay(_display);
             _display = IntPtr.Zero;
             _deviceId = -1;
-            _baseline = false;
-            _lastSampleTime = -1f;
         }
 
         [DllImport("libX11.so.6", CallingConvention = CallingConvention.Cdecl)]

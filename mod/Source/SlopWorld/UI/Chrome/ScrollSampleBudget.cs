@@ -1,7 +1,7 @@
 namespace SlopWorld
 {
     // A layout pass can precede input arrival. Allow one wheel-triggered refresh, but
-    // never turn a wheel backlog into an unbounded series of synchronous X11 queries.
+    // never turn a wheel backlog into an unbounded series of background sample requests.
     internal sealed class ScrollSampleBudget
     {
         int _frame = -1;

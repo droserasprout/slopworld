@@ -26,3 +26,7 @@ padding in less. Keep alternate-screen behavior for wheel routing and short file
 Markdown uses [native rendering](mod-markdown.md). File icons are baked from the vendored
 Material Icon Theme; filename precedes longest extension. Manifest and C# lookup are maintained
 together. Action icons use the separate [shared bake](mod-icons.md).
+
+Wheel bursts reuse the tree's measured extent before refresh, group or layout work. Refresh
+and pending selection reveals resume on normal GUI passes. Routed reader headers use an
+indexed visible-row range rather than scanning every open reader.

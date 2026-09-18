@@ -53,8 +53,11 @@ namespace SlopWorld
         static Rect Screen(Rect r) => new Rect(_body.x + r.x,
             _body.y + r.y - Scroll.Position.y, r.width, r.height);
 
+        static float _contentHeight = -1f;
+
         public static void Draw(Rect body)
         {
+            if (Scroll.HandleWheel(body, _contentHeight)) return;
             _body = body;
             Lines.Clear();
 
@@ -64,6 +67,7 @@ namespace SlopWorld
             var tasks = Filtered(allTasks);
             if (tasks.Count == 0)
             {
+                _contentHeight = 0f;
                 Empty(body, allTasks.Count == 0
                     ? hub.Online
                         ? "No delegated tasks yet. Right-click an agent to send one."
@@ -72,7 +76,7 @@ namespace SlopWorld
                 return;
             }
 
-            float height = Pad + HeaderH + UiTheme.GapXS + tasks.Count * RowH + Pad;
+            float height = _contentHeight = Pad + HeaderH + UiTheme.GapXS + tasks.Count * RowH + Pad;
             var geometry = UiScrollBody.Measure(body, height,
                 UiScrollbarReservation.WhenNeeded);
             var list = geometry.View;

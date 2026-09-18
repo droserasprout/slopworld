@@ -88,16 +88,7 @@ namespace SlopWorld
         public static void Draw(Rect body)
         {
             Lines.Clear();
-            if (SmoothScroll.WheelOnly)
-            {
-                // Reuse the last measured extent while draining input. Rebuilding groups
-                // and template rows for each packet is also proportional to the full list.
-                var cached = UiScrollBody.Measure(body, _contentHeight,
-                    UiScrollbarReservation.WhenNeeded);
-                using (WidgetState.Save())
-                using (_scroll.Scope(body, cached.View)) { }
-                return;
-            }
+            if (_scroll.HandleWheel(body, _contentHeight)) return;
             using (WidgetState.Save())
             {
                 // Builtins appear in their attached groups. Personal entries belong here,

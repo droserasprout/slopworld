@@ -91,10 +91,10 @@ namespace SlopWorld
             {
                 var tools = new Rect(body.x + CellX, body.y + Pad,
                     body.width - CellX * 2f, ToolsH);
-                DrawTools(tools);
-
                 var results = new Rect(body.x, tools.yMax + Pad,
                     body.width, Mathf.Max(0f, body.yMax - tools.yMax - Pad));
+                if (Scroll.HandleWheel(results, _layoutRevision == int.MinValue ? -1f : _contentHeight)) return;
+                DrawTools(tools);
                 DrawResults(results);
             }
         }
