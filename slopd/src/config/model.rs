@@ -158,10 +158,9 @@ pub struct Daemon {
     /// Prompt delivered to a newly spawned task worker.
     #[serde(default)]
     pub instructions: InstructionsCfg,
-    /// Qualified agent-template identities allowed as task-worker sources. This policy is
-    /// deliberately separate from the template catalog so editing or deleting a definition
-    /// never changes an existing worker, and a personal name cannot authorize a same-named
-    /// repository definition.
+    /// Agent-template identities allowed as task-worker sources. This policy is deliberately
+    /// separate from the template catalog so editing or deleting a definition never changes an
+    /// existing worker.
     #[serde(default, skip_serializing_if = "BTreeSet::is_empty")]
     pub worker_templates: BTreeSet<String>,
 }
@@ -779,9 +778,6 @@ crate::wire_enum!(FileActionMode, {
 /// existing session, which would stop working the day that session was deleted.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct LibraryItemCfg {
-    /// Response-only repository source; machine config cannot claim file ownership.
-    #[serde(default, skip_deserializing, skip_serializing_if = "String::is_empty")]
-    pub source: String,
     /// Labels a button and seeds a colonist's name; the session name derived from it
     /// is sanitised (see `slug`).
     pub name: String,

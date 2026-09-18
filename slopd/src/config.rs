@@ -1,6 +1,5 @@
 mod model;
 mod persistence;
-pub(crate) mod project_library;
 mod resolution;
 mod validation;
 
@@ -30,14 +29,6 @@ impl Config {
             .chain(builtin_library_items())
             .find(|s| s.name == name)
             .cloned()
-            .or_else(|| {
-                if !name.contains("::") {
-                    return None;
-                }
-                project_library::library(self)
-                    .into_iter()
-                    .find(|s| s.name == name)
-            })
     }
 
     /// What a client is shown: the file's entries, then the builtins nothing has shadowed.
@@ -48,11 +39,6 @@ impl Config {
                 .iter()
                 .filter(|b| !self.library.iter().any(|s| s.name == b.name))
                 .cloned(),
-        );
-        all.extend(
-            project_library::library(self)
-                .into_iter()
-                .filter(|item| !self.library.iter().any(|local| local.name == item.name)),
         );
         all
     }
@@ -727,7 +713,6 @@ token = \"not-a-daemon-token\"
     fn library_round_trip_through_toml() {
         let mut cfg = Config::default();
         cfg.library.push(LibraryItemCfg {
-            source: String::new(),
             name: "tests".into(),
             kind: LibraryItemKind::Shell,
             link: LibraryItemLink::Project,

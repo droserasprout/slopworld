@@ -138,7 +138,6 @@ pub(crate) async fn run(State(m): State<Mgr>, Json(q): Json<RunReq>) -> ApiResul
         l => l.to_string(),
     };
     let sc = LibraryItemCfg {
-        source: String::new(),
         name: label,
         kind: q.kind,
         link: crate::config::LibraryItemLink::Project,

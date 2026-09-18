@@ -7,7 +7,7 @@ variables. Paths marked `0600` are readable only by the owning user.
 
 | Path | Override | Description |
 | --- | --- | --- |
-| `~/.config/slopworld/config.toml` | `SLOPD_CONFIG` | Main daemon configuration, seeded on first run. |
+| `~/.config/slopworld/config.toml` | `SLOPD_CONFIG` | Main daemon configuration and personal library items, seeded on first run. |
 | `~/.config/slopworld/endpoint.toml` | `SLOPD_ENDPOINT` | Effective URL and token while the daemon is running. Mode `0600`. |
 | `~/.config/slopworld/presets/*.toml` | `SLOPD_PRESETS` | User sandbox and command presets. Replaces builtins by name. |
 | `~/.config/slopworld/tasks.toml` | beside `SLOPD_CONFIG` | Task mailbox state. |

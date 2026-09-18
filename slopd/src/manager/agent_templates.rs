@@ -8,14 +8,7 @@ use super::super::*;
 
 impl Manager {
     pub(crate) async fn agent_templates(&self) -> Vec<AgentTemplate> {
-        let mut templates = self.templates.read().await.templates.clone();
-        let cfg = self.config().await;
-        let project =
-            tokio::task::spawn_blocking(move || crate::config::project_library::templates(&cfg))
-                .await
-                .unwrap_or_default();
-        templates.extend(project);
-        templates
+        self.templates.read().await.templates.clone()
     }
 
     /// Capture a configured agent into the personal catalog. The source is copied immediately;

@@ -6,8 +6,8 @@ not read or rewrite daemon TOML directly. Locations and overrides: [paths](ops-p
 
 Personal agent templates are a separate daemon-owned `agent-templates.toml` store beside
 the main config. `session/agent_templates.rs` owns its typed definition and snapshot rules;
-the manager loads it at startup and serializes mutations atomically. Personal template origin is display metadata only. Repository Library definitions are read
-from registered checkouts; see [Library ownership](daemon-library.md).
+the manager loads it at startup and serializes mutations atomically. Personal template origin is
+display metadata only. Library items remain in the personal `config.toml` catalog.
 
 Config patches deep-merge the original TOML document, preserving omitted and unknown fields.
 Typed `Config::save` serializes modeled fields and preserves unrelated document fields when
@@ -40,7 +40,7 @@ existing process's actual sandbox. Snapshot metadata for editor pickers stays on
 boundary rather than session broadcasts.
 
 Config and template loads read the current schema without rewriting files. API writes validate
-current request fields; repository definitions remain read-only.
+current request fields; user-level catalog definitions remain editable through their owning API.
 
 Configuration and personal-template stores use `paths::write_atomic_async` for owner-only
 `0600` replacement without blocking Tokio workers. Preset catalog writes use the synchronous

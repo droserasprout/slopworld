@@ -3,7 +3,7 @@
 `manager/workers.rs` constructs workers; `manager/start.rs` supplies runtime credentials.
 See [slopctl](../docs/src/guides/slopctl.md) for commands.
 
-The selected qualified template supplies configuration; the caller supplies task ownership and
+The selected template supplies configuration; the caller supplies task ownership and
 sidebar parentage. Never infer either from the generated name. Worker creation requires an
 allowlisted template, a registered project, and network-capable API access. Fresh private
 identity and scoped credentials must not inherit the caller's state or expose the root endpoint

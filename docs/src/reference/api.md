@@ -14,7 +14,7 @@ its configuration (`PUT /api/sessions/:name`) require root authority. Scoped `rw
 input, label, and permitted lifecycle operations. Removing or renaming a session invalidates its
 target memberships and owned grants, and closes affected WebSockets; name reuse needs a new grant.
 `POST /api/workers` creates a task-owned child from the JSON fields project, template, body, and
-durable. The selected qualified template must be enabled in the daemon worker policy; scoped
+durable. The selected template must be enabled in the daemon worker policy; scoped
 callers are limited to their own project. The response contains the new task and worker identity.
 It uses the template's captured settings, fresh private identity, and the caller only for
 task/sidebar parentage.
@@ -65,17 +65,14 @@ create/update applies the same normalization before persistence.
 
 Agent-template routes are root-only except `GET /api/templates/spawnable`, which is scoped and
 returns only templates enabled by worker policy for the caller's project. `GET /api/templates`
-returns personal and repository definitions; its optional project query validates and echoes a
-root project context without filtering the root catalog.
-Repository names are qualified as `project::name`, carry `origin.source = "project"` and
-`origin.file`, and are read-only. They can be instantiated or duplicated into the personal
-catalog. See [repository Library](../guides/repository-library.md).
+returns the user-level definitions; its optional project query validates and echoes a root
+project context without filtering the catalog.
 `POST /api/templates` accepts `{ "name": "...", "description": "...", "source": "..." }`
 and captures the configured source agent's explicit choices and dependencies. Project settings
 are never template fields. It also accepts `{ "name": "...", "description":
 "...", "duplicate": "existing-template" }` for an independent copy, or a complete template
-definition with `version` omitted to create a definition from the template editor. Every personal
-definition includes a daemon-owned monotonic `version`; repository definitions use zero. `POST /api/templates/:name/create` accepts a new
+definition with `version` omitted to create a definition from the template editor. Every
+definition includes a daemon-owned monotonic `version`. `POST /api/templates/:name/create` accepts a new
 `name`, a registered `project`, an optional `overrides` session form, and optional `start`
 boolean; the daemon copies the template's portable fields and allocates fresh private state.
 The selected project supplies mounts. `PUT /api/templates/:name` accepts the complete definition with its expected `version`
@@ -111,8 +108,7 @@ restore use the `/api/state` routes in the generated inventory.
 Library prompt and shell records use `host: true` or `agent_template: "name"` for their
 execution choice. Template settings are copied at each run; omitted command overrides use
 the template command for prompts and the daemon shell for shell errands. Older records with
-neither choice cannot run until configured. Repository template names are qualified as
-`project::name`.
+neither choice cannot run until configured.
 
 ### Configuration patching
 

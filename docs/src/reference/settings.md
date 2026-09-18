@@ -9,8 +9,8 @@ audio, RimWorld options, and credits. The [agent configuration guide](../guides/
 [sandbox guide](../guides/configuring-sandboxes.md), and
 [integration reference](integrations.md) describe the fields managed by those groups.
 
-Worker settings are under **Settings > Integrations > Workers**. The page selects the qualified
-agent templates that agents may use for worker spawning and edits the bootstrap prompt. Spawned
+Worker settings are under **Settings > Integrations > Workers**. The page selects the agent
+templates that agents may use for worker spawning and edits the bootstrap prompt. Spawned
 workers always receive the saved prompt; changing the allowlist does not alter existing workers.
 
 ## Configuration file

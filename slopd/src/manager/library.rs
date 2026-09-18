@@ -121,10 +121,6 @@ impl Manager {
         self.reload_if_changed().await;
         self.update_cfg(|cfg| {
             sc.builtin = false;
-            sc.source.clear();
-            if sc.name.contains("::") {
-                bail!("library names containing :: are reserved for repository definitions");
-            }
             check_library_item(cfg, &sc)?;
             if cfg.library.iter().any(|existing| existing.name == sc.name) {
                 bail!("library item {} already exists", sc.name);
@@ -145,13 +141,6 @@ impl Manager {
         self.reload_if_changed().await;
         self.update_cfg(|cfg| {
             sc.builtin = false;
-            sc.source.clear();
-            if sc.name.contains("::") {
-                bail!("library names containing :: are reserved for repository definitions");
-            }
-            if name.contains("::") && !cfg.library.iter().any(|item| item.name == name) {
-                bail!("repository library entries are read-only; edit their .slopworld file");
-            }
             if cfg.is_builtin_library_item(name) {
                 bail!("library item {name} is built in and cannot be edited");
             }
@@ -176,9 +165,6 @@ impl Manager {
     pub async fn remove_library_item(self: &Arc<Self>, name: &str) -> Result<()> {
         self.reload_if_changed().await;
         self.update_cfg(|cfg| {
-            if name.contains("::") && !cfg.library.iter().any(|item| item.name == name) {
-                bail!("repository library entries are read-only; edit their .slopworld file");
-            }
             if cfg.is_builtin_library_item(name) {
                 bail!("library item {name} is built in and cannot be deleted");
             }

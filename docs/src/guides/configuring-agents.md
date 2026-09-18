@@ -62,10 +62,6 @@ are not captured. A failed save keeps the draft; use **Reload** only when you wa
 it and reconcile with a newer catalog revision. Existing agents
 are not changed when their source template is edited or deleted.
 
-Projects can also provide [repository Library definitions](repository-library.md) under
-`.slopworld`, including agent templates. These are read-only in the UI; duplicate one to make
-a personal copy. Right-click a Library template and choose **Create agent** to use it.
-
 Templates are one-time recipes. Applying one copies its specified choices into the new
 agent; later template edits or deletion do not change that agent. Command and sandbox
 snapshots remain stable, including when the live catalog changes. A template never captures
@@ -104,9 +100,9 @@ cache entry.
 ## Workers
 
 Settings > Integrations > Workers controls both the bootstrap prompt and the templates that
-agents may use to spawn workers. Check a template to add its qualified identity to the worker
-allowlist; new templates are unchecked. The prompt can refer to `$SLOPWORLD_TASK_ID`; the
-default includes the worker task workflow. The setting lives under `[daemon.instructions]` as
+agents may use to spawn workers. Check a template to add its name to the worker allowlist; new
+templates are unchecked. The prompt can refer to `$SLOPWORLD_TASK_ID`; the default includes the
+worker task workflow. The setting lives under `[daemon.instructions]` as
 `worker_prompt`, with the allowlist under `[daemon] worker_templates`. See [Using slopctl](slopctl.md).
 
 ## Command presets

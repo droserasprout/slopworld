@@ -88,8 +88,8 @@ namespace SlopWorld
         {
             using (WidgetState.Save())
             {
-                // Builtins appear in their attached groups. Personal and repository entries
-                // belong here, alongside agent templates.
+                // Builtins appear in their attached groups. Personal entries belong here,
+                // alongside agent templates.
                 // Filtered here rather than in [Group], so a filter that leaves nothing gets
                 // the empty line instead of a blank column.
                 _items = SessionHub.Instance.Library
@@ -97,12 +97,11 @@ namespace SlopWorld
                 Templates.Clear();
                 foreach (var template in SessionHub.Instance.Templates)
                 {
-                    string project = template.Source == "project" ? template.OriginProject : "";
-                    if (!AgentSidebar.Passes(project)) continue;
+                    if (!AgentSidebar.Passes("")) continue;
                     var row = new LibraryItemInfo
                     {
                         Name = template.Name,
-                        Project = project,
+                        Project = "",
                         Text = template.Description
                     };
                     Templates[row] = template;
@@ -212,8 +211,6 @@ namespace SlopWorld
                 Text.Anchor = TextAnchor.MiddleLeft;
                 UiText.RowLabel(badge, template ? "tpl" : KindCode(item.Kind));
                 TooltipHandler.TipRegion(badge, template ? "Agent template" : KindName(item.Kind));
-                if (item.ReadOnly) TooltipHandler.TipRegion(r, "Repository definition: " + item.Source);
-
                 float tx = CellX + badgeW + UiTheme.GapXS;
                 // The name comes first, then a sample of the text truncated.
                 GUI.color = enabled ? UiTheme.Lead : UiTheme.Faint;
@@ -396,16 +393,15 @@ namespace SlopWorld
             {
                 new FloatMenuOption("Create agent...", () => TerminalWindow.OpenOverPane(
                     EditSessionDialog.FromTemplate(template))),
-                new FloatMenuOption(template.Source == "project" ? "Inspect..." : "Edit...", () =>
+                new FloatMenuOption("Edit...", () =>
                     TerminalWindow.OpenOverPane(EditSessionDialog.EditTemplate(template))),
                 new FloatMenuOption("Duplicate...", () =>
                     TerminalWindow.OpenOverPane(EditSessionDialog.EditTemplate(template, true))),
-            };
-            if (template.Source != "project")
-                options.Add(new FloatMenuOption("Delete", () => TerminalWindow.OpenOverPane(
+                new FloatMenuOption("Delete", () => TerminalWindow.OpenOverPane(
                     ConfirmDialog.Create("Remove template '" + template.Name + "'? Existing agents keep their snapshots.",
                         () => SessionHub.Instance.Catalog.RemoveAgentTemplate(template, template.Name,
-                            null, UiLayout.Fail), destructive: true))));
+                            null, UiLayout.Fail), destructive: true))),
+            };
             TerminalWindow.OpenOverPane(new UiMenu(options));
         }
 
@@ -439,7 +435,7 @@ namespace SlopWorld
             if (s.Link == LibraryItemLink.Ask)
                 opts.Add(new UiSubmenu("Run in", () => WhereOptions(s)));
 
-            var edit = new FloatMenuOption(s.ReadOnly ? "Inspect..." : "Edit...", () =>
+            var edit = new FloatMenuOption("Edit...", () =>
                 TerminalWindow.OpenOverPane(new EditLibraryItemDialog(s)));
             opts.Add(edit);
 
@@ -447,14 +443,12 @@ namespace SlopWorld
                 TerminalWindow.OpenOverPane(EditLibraryItemDialog.Copy(s)));
             opts.Add(duplicate);
 
-            if (!s.ReadOnly) opts.Add(new FloatMenuOption("Delete", () =>
-            {
-                var name = s.Name;
+            var name = s.Name;
+            opts.Add(new FloatMenuOption("Delete", () =>
                 TerminalWindow.OpenOverPane(ConfirmDialog.Create(
                     $"Remove library entry '{name}'? Anything it already started keeps running.",
                     () => SessionHub.Instance.Catalog.RemoveLibraryItem(name, UiLayout.Fail),
-                    destructive: true));
-            }));
+                    destructive: true))));
 
             TerminalWindow.OpenOverPane(new UiMenu(opts));
         }

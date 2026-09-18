@@ -7,7 +7,6 @@ namespace SlopWorld.Tests
     {
         public static IEnumerable<(string Name, Action Body)> Cases()
         {
-            yield return ("repository source is read only and not written back", RepositorySource);
             yield return ("round trips file action modes", RoundTripsFileActionModes);
             yield return ("missing mode keeps the invocation menu", MissingModeKeepsInvocationMenu);
             yield return ("errand execution choice round trips", ErrandExecution);
@@ -17,26 +16,14 @@ namespace SlopWorld.Tests
         {
             var empty = LibraryItemInfo.FromJson(JVal.Parse("{}"));
             AssertEx.True(!empty.Host && empty.AgentTemplate == "", "entries require an execution choice");
-            var item = new LibraryItemInfo { Name = "review", AgentTemplate = "repo::reviewer" };
+            var item = new LibraryItemInfo { Name = "review", AgentTemplate = "reviewer" };
             var parsed = LibraryItemInfo.FromJson(JVal.Parse(item.ToJson()));
-            AssertEx.Equal("repo::reviewer", parsed.AgentTemplate, "template choice survives wire");
+            AssertEx.Equal("reviewer", parsed.AgentTemplate, "template choice survives wire");
             AssertEx.Equal(parsed.AgentTemplate, parsed.Copy().AgentTemplate, "template choice survives draft copy");
             item.Host = true;
             item.AgentTemplate = "";
             AssertEx.True(LibraryItemInfo.FromJson(JVal.Parse(item.ToJson())).Host, "host choice survives wire");
             AssertEx.True(item.Copy().Host, "host choice survives draft copy");
-        }
-
-        static void RepositorySource()
-        {
-            var item = LibraryItemInfo.FromJson(JVal.Parse(
-                "{\"name\":\"repo::review\",\"source\":\"/repo/.slopworld/library/review.toml\"}"));
-            AssertEx.True(item.ReadOnly, "repository entries are read only");
-            AssertEx.Equal(item.Source, item.Copy().Source, "inspection retains source");
-            AssertEx.True(JVal.Parse(item.ToJson())["source"].IsNull,
-                "personal copies do not write repository ownership");
-            AssertEx.True(!LibraryItemInfo.FromJson(JVal.Parse("{}")).ReadOnly,
-                "ordinary entries remain editable");
         }
 
         static void RoundTripsFileActionModes()
