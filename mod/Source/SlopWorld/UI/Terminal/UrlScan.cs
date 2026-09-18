@@ -45,8 +45,12 @@ namespace SlopWorld
 
                 int start = sep;
                 while (start > 0 && IsScheme(text[start - 1])) start--;
-                string scheme = text.Substring(start, sep - start).ToLowerInvariant();
-                if (scheme != "http" && scheme != "https") { at = sep + 3; continue; }
+                int schemeLength = sep - start;
+                bool web = (schemeLength == 4 && string.Compare(text, start, "http", 0, 4,
+                                StringComparison.OrdinalIgnoreCase) == 0) ||
+                           (schemeLength == 5 && string.Compare(text, start, "https", 0, 5,
+                                StringComparison.OrdinalIgnoreCase) == 0);
+                if (!web) { at = sep + 3; continue; }
 
                 int end = sep + 3;
                 while (end < text.Length && IsUrl(text[end])) end++;
@@ -94,6 +98,8 @@ namespace SlopWorld
         // unless the link opened a bracket of its own, which is how a wiki URL reads.
         static int TrimTail(string text, int from, int end)
         {
+            bool counted = false;
+            int parens = 0, brackets = 0;
             while (end > from)
             {
                 char c = text[end - 1];
@@ -105,14 +111,24 @@ namespace SlopWorld
                 }
                 if (c == ')' || c == ']')
                 {
-                    char open = c == ')' ? '(' : '[';
-                    int depth = 0;
-                    for (int i = from; i < end; i++)
+                    // Count once, then adjust for removed closers. Recounting each suffix
+                    // makes long runs of unmatched brackets quadratic in screen length.
+                    if (!counted)
                     {
-                        if (text[i] == open) depth++;
-                        else if (text[i] == c) depth--;
+                        for (int i = from; i < end; i++)
+                        {
+                            switch (text[i])
+                            {
+                                case '(': parens++; break;
+                                case ')': parens--; break;
+                                case '[': brackets++; break;
+                                case ']': brackets--; break;
+                            }
+                        }
+                        counted = true;
                     }
-                    if (depth < 0) { end--; continue; }
+                    if (c == ')' && parens < 0) { parens++; end--; continue; }
+                    if (c == ']' && brackets < 0) { brackets++; end--; continue; }
                 }
                 break;
             }
