@@ -8,6 +8,9 @@ Painting suppression is broader than `MapUpdate`: weather, map edges, labels, ov
 gizmos and click/camera input have separate entry points. Hidden maintenance still needs
 bounded updates and fleck expiry; revealing the map must resume immediately. Projection
 updates remain necessary even when camera input is blocked.
+`MapInterfaceOnGUI_BeforeMainTabs` also traverses thing labels, thing tooltips and fleck
+GUI independently of map drawing. `PaneOverDraw` gates these whole passes when hidden;
+the surrounding entry point must run because it also hosts the colony sidebar and selection UI.
 
 Programmatic agent selection is a separate camera path: sidebar and keyboard selection must
 retain the pawn selection but skip `CameraJumper` while Eco is resting.

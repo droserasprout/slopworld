@@ -60,7 +60,7 @@ namespace SlopWorld
 
             var hub = SessionHub.Instance;
             var allTasks = hub.Tasks;
-            PruneSelection(allTasks);
+            if (!SmoothScroll.WheelOnly) PruneSelection(allTasks);
             var tasks = Filtered(allTasks);
             if (tasks.Count == 0)
             {
@@ -79,6 +79,7 @@ namespace SlopWorld
             using (WidgetState.Save())
             using (Scroll.Scope(body, list))
             {
+                if (SmoothScroll.WheelOnly) return;
                 float y = Pad;
                 DrawHeader(new Rect(0f, y, list.width, HeaderH), tasks, allTasks.Count);
                 y += HeaderH + UiTheme.GapXS;

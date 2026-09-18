@@ -9,6 +9,13 @@ namespace SlopWorld
     // stays out of the path either way.
     public sealed class SmoothScroll
     {
+        // Wheel passes only change the retained offset. Flat list owners can omit row
+        // work until repaint; retain normal passes for clicks, fields and scrollbar drags.
+        // Check rawType too because BeginInput consumes the event before drawing content.
+        public static bool WheelOnly => Event.current.type == EventType.ScrollWheel ||
+            (Event.current.type == EventType.Used &&
+                Event.current.rawType == EventType.ScrollWheel);
+
         // Keeps the two GUI groups and input ownership exception-safe. Use in a using block;
         // nested views remain well-formed even when a row renderer throws.
         public IDisposable Scope(Rect outer, Rect view, bool showScrollbars = true,
