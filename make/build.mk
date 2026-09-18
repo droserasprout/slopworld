@@ -30,7 +30,7 @@ validate-themes: ## Validate the shipped UI and terminal theme catalogs
 test-themes: validate-themes ## Test theme catalog build validation
 	@$(PYTHON) tools/test_validate_themes.py
 
-mod: daemon validate-themes        ## Build the mod against the game's assemblies
+mod: daemon validate-themes protobuf-deps        ## Build the mod against the game's assemblies
 	@test -f "$(CSC_API)/mscorlib.dll" || { echo "missing Mono reference assemblies under $(CSC_API)" >&2; exit 1; }
 	@test -f "$(MANAGED)/Assembly-CSharp.dll" || { echo "missing RimWorld assemblies under $(MANAGED)" >&2; exit 1; }
 	@version="$(VERSION)"; \
@@ -48,7 +48,7 @@ mod: daemon validate-themes        ## Build the mod against the game's assemblie
 test-daemon: api-contract test-wire-contract
 	@cd slopd && $(CARGO) test --quiet
 
-test-mod: api-contract test-wire-contract test-themes
+test-mod: protobuf-deps api-contract test-wire-contract test-themes
 	@$(DOTNET) run --project "$(TEST_PROJECT)" --configuration Release -- --quiet
 
 .PHONY: test-pager
@@ -90,7 +90,9 @@ emoji-atlas:       ## Rebake the legacy terminal's emoji atlas with Pango
 reference:         ## Generate the environment/API/CLI reference
 	@$(PYTHON) tools/reference.py
 
-api-contract: shared/protocol.yaml tools/wire_contract.py ## Generate stable shared protocol bindings
+api-contract: shared/protocol.yaml shared/slopworld.proto tools/wire_contract.py ## Generate stable shared protocol bindings
+	@mkdir -p mod/Source/SlopWorld/Client/Generated
+	@protoc -I shared --csharp_out=mod/Source/SlopWorld/Client/Generated shared/slopworld.proto
 	@$(PYTHON) tools/wire_contract.py
 
 api-docs: api-contract ## Generate the mdBook API route inventory
@@ -107,3 +109,7 @@ clean:             ## Drop build output
 	@rm -f "$(MOD_DLL)"
 	@rm -rf mod/Source/SlopWorld/obj
 	@rm -rf "$(COVERAGE_DIR)"
+
+.PHONY: protobuf-deps
+protobuf-deps: ## Restore Protobuf runtime for Unity Mono
+	@$(DOTNET) build mod/Dependencies/Protobuf.csproj --configuration Release --verbosity quiet

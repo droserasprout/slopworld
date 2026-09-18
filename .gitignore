@@ -17,3 +17,6 @@ tools/bg/
 packaging/arch/src/
 packaging/arch/pkg/
 packaging/arch/*.pkg.tar.*
+
+mod/Dependencies/bin/
+mod/Dependencies/obj/

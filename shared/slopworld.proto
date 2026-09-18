@@ -1,0 +1,808 @@
+syntax = "proto3";
+package slopworld;
+option csharp_namespace = "SlopWorld.Wire";
+
+// Field numbers are permanent. Reserve removed fields; never reuse their numbers.
+message Daemon {
+  string bind = 1;
+  string token = 2;
+  uint64 usage_poll_secs = 3;
+  map<string, UsageItem> usage_items = 4;
+  string claude_credentials = 5;
+  string openrouter_key_file = 6;
+  string openai_credentials = 7;
+  string agent_titles = 8;
+  string title_model = 9;
+  string summary_prompt = 10;
+  uint64 title_min_chars = 11;
+  string pi_titles = 12;
+  string task_summaries = 13;
+  Instructions instructions = 14;
+  repeated string worker_templates = 15;
+}
+
+message Instructions {
+  string worker_prompt = 1;
+}
+
+message UsageItem {
+  bool poll = 1;
+  optional uint64 interval_secs = 2;
+}
+
+message Defaults {
+  string agent = 1;
+  string agent_shell = 2;
+  string shell = 3;
+}
+
+message CommandDefaults {
+  string pager = 1;
+  string editor = 2;
+  string highlighter = 3;
+}
+
+message Mount {
+  string from = 1;
+  string to = 2;
+  string mode = 3;
+}
+
+message DnsConfig {
+  string mode = 1;
+  repeated string servers = 2;
+}
+
+message Limits {
+  optional uint32 memory_mb = 1;
+  optional uint32 pids = 2;
+  optional uint32 nofile = 3;
+  optional uint32 cpu_pct = 4;
+}
+
+message Project {
+  optional string name = 1;
+  optional string dir = 2;
+  optional bool temp = 3;
+  repeated Mount mounts = 4;
+  optional string expanded_dir = 5;
+}
+
+message SessionConfig {
+  optional string name = 1;
+  optional string label = 2;
+  optional string state_id = 3;
+  optional string project = 4;
+  optional string command = 5;
+  optional string cmd = 6;
+  optional CommandPreset command_snapshot = 7;
+  repeated string sandbox = 8;
+  repeated SandboxPreset sandbox_snapshots = 9;
+  optional bool persistent_tmp = 10;
+  optional string network = 11;
+  DnsConfig dns = 12;
+  Limits limits = 13;
+  optional bool autostart = 14;
+  optional bool auto_resume = 15;
+  optional bool worker = 16;
+  optional string parent = 17;
+  optional string task_id = 18;
+}
+
+message HostTerminalCfg {
+  string name = 1;
+  optional string label = 2;
+  string project = 3;
+  string path = 4;
+  bool autostart = 5;
+}
+
+message LibraryItem {
+  optional string name = 1;
+  optional string kind = 2;
+  optional string link = 3;
+  optional string project = 4;
+  optional string text = 5;
+  optional string command = 6;
+  optional bool host = 7;
+  optional string agent_template = 8;
+  optional string mode = 9;
+  optional bool builtin = 10;
+}
+
+message StateRule {
+  string state = 1;
+  string pattern = 2;
+}
+
+message SessionView {
+  string name = 1;
+  string label = 2;
+  string project = 3;
+  string dir = 4;
+  string command = 5;
+  string command_preset = 6;
+  optional string cmd = 7;
+  repeated string sandbox = 8;
+  bool persistent_tmp = 9;
+  bool auto_resume_pending = 10;
+  string agent = 11;
+  string state = 12;
+  bool alive = 13;
+  uint32 cols = 14;
+  uint32 rows = 15;
+  string network = 16;
+  DnsConfig dns = 17;
+  Limits limits = 18;
+  repeated Mount mounts = 19;
+  bool autostart = 20;
+  bool auto_resume = 21;
+  bool worker = 22;
+  string parent = 23;
+  string task_id = 24;
+  bool durable = 25;
+  bool ephemeral = 26;
+  bool host = 27;
+  bool process_running = 28;
+  uint64 last_change = 29;
+  uint64 state_since = 30;
+  string title = 31;
+  bool bell = 32;
+  uint64 run_id = 33;
+  uint64 seq = 34;
+}
+
+message ScreenView {
+  string name = 1;
+  uint64 seq = 2;
+  uint32 cols = 3;
+  uint32 rows = 4;
+  uint32 cx = 5;
+  uint32 cy = 6;
+  uint32 off = 7;
+  uint32 history = 8;
+  uint32 cursor_shape = 9;
+  bool cursor_blink = 10;
+  bool app_mouse = 11;
+  bool app_drag = 12;
+  bool alt_screen = 13;
+  string title = 14;
+  uint64 request_id = 15;
+  repeated string lines = 16;
+}
+
+message SandboxPreset {
+  optional string name = 1;
+  optional string description = 2;
+  repeated string requires = 3;
+  repeated string ro = 4;
+  repeated string rw = 5;
+  repeated string dev = 6;
+  repeated string private = 7;
+  repeated string seed = 8;
+  repeated string skip = 9;
+  repeated string shared = 10;
+  optional string escapes = 11;
+  repeated string env = 12;
+  map<string, string> setenv = 13;
+  optional bool tmux = 14;
+  optional bool daemon_config = 15;
+  optional string source = 16;
+}
+
+message CommandPreset {
+  optional string name = 1;
+  optional string kind = 2;
+  optional string description = 3;
+  optional string cmd = 4;
+  repeated string sandbox = 5;
+  optional string source = 6;
+}
+
+message AgentTemplate {
+  string name = 1;
+  uint64 version = 2;
+  string description = 3;
+  AgentTemplateOrigin origin = 4;
+  AgentTemplateDefaults defaults = 5;
+}
+
+message AgentTemplateOrigin {
+  string file = 1;
+  string source = 2;
+  string kind = 3;
+  string project = 4;
+  string agent = 5;
+}
+
+message AgentTemplateDefaults {
+  optional CommandPreset command = 1;
+  optional string cmd = 2;
+  repeated string sandbox = 3;
+  repeated SandboxPreset sandbox_presets = 4;
+  optional bool persistent_tmp = 5;
+  optional string network = 6;
+  optional DnsConfig dns = 7;
+  Limits limits = 8;
+  optional bool autostart = 9;
+  optional bool auto_resume = 10;
+}
+
+message UsageWindow {
+  string key = 1;
+  string label = 2;
+  float pct = 3;
+  string unit = 4;
+  optional float amount = 5;
+  optional float limit = 6;
+  optional uint64 resets_in = 7;
+}
+
+message UsageCatalogEntry {
+  string key = 1;
+  string label = 2;
+  string provider = 3;
+  string unit = 4;
+  int32 rank = 5;
+  bool default_poll = 6;
+}
+
+message UsageRow {
+  string key = 1;
+  string label = 2;
+  string provider = 3;
+  string unit = 4;
+  int32 rank = 5;
+  bool poll = 6;
+  bool stale = 7;
+  optional UsageWindow window = 8;
+}
+
+message UsageSnapshot {
+  bool ok = 1;
+  optional string error = 2;
+  string plan = 3;
+  uint64 fetched_ms = 4;
+  repeated string sources = 5;
+  repeated string failed_sources = 6;
+  repeated UsageWindow windows = 7;
+  repeated UsageCatalogEntry catalog = 8;
+  repeated UsageRow rows = 9;
+}
+
+message Capabilities {
+  string runtime = 1;
+  bool audio_playback = 2;
+  bool clipboard = 3;
+  bool desktop_open = 4;
+  bool per_session_limits = 5;
+  bool host_network_is_container = 6;
+  bool host_terminals_are_container = 7;
+  TerminalCapabilities terminal = 8;
+}
+
+message TerminalCapabilities {
+  uint32 scrollback_lines = 1;
+  uint32 min_cols = 2;
+  uint32 max_cols = 3;
+  uint32 min_rows = 4;
+  uint32 max_rows = 5;
+}
+
+message Task {
+  string id = 1;
+  string from = 2;
+  string to = 3;
+  string body = 4;
+  string status = 5;
+  optional string note = 6;
+  optional string summary = 7;
+  uint64 created_ms = 8;
+  uint64 updated_ms = 9;
+  optional WorkerTask worker = 10;
+}
+
+message WorkerTask {
+  string session = 1;
+  string parent = 2;
+  bool durable = 3;
+}
+
+message AudioState {
+  bool playing = 1;
+  optional string source = 2;
+  float volume = 3;
+  optional string error = 4;
+  optional string title = 5;
+}
+
+message StationMetadata {
+  string name = 1;
+  string donate = 2;
+  string title_regex = 3;
+}
+
+message StationStream {
+  uint32 rate = 1;
+  string key = 2;
+  string url = 3;
+}
+
+message Station {
+  string id = 1;
+  uint32 default_rate = 2;
+  StationMetadata metadata = 3;
+  repeated StationStream streams = 4;
+}
+
+message JukeboxCatalog {
+  repeated Station stations = 1;
+}
+
+message CreateTaskReq {
+  optional string to = 1;
+  optional string body = 2;
+}
+
+message SpawnWorkerReq {
+  optional string project = 1;
+  optional string template = 2;
+  optional string body = 3;
+  optional bool durable = 4;
+}
+
+message UpdateTaskReq {
+  optional string status = 1;
+  optional string note = 2;
+}
+
+message RemoveTasksReq {
+  repeated string ids = 1;
+}
+
+message LabelReq {
+  optional string label = 1;
+}
+
+message SaveAgentTemplateReq {
+  optional string name = 1;
+  optional string description = 2;
+  optional string source = 3;
+  optional string duplicate = 4;
+}
+
+message CreateAgentTemplateReq {
+  optional string name = 1;
+  optional string project = 2;
+  optional SessionConfig overrides = 3;
+  optional bool start = 4;
+}
+
+message RunReq {
+  optional uint32 cols = 1;
+  optional uint32 rows = 2;
+  optional string project = 3;
+  optional string kind = 4;
+  optional string command = 5;
+  optional string path = 6;
+  optional bool hold = 7;
+  optional string text = 8;
+  optional string label = 9;
+  optional bool temp = 10;
+  repeated string random_tips = 11;
+  optional bool host = 12;
+  optional string agent_template = 13;
+  optional string like = 14;
+}
+
+message FileActionReq {
+  optional string project = 1;
+  optional string path = 2;
+  optional string command = 3;
+  optional bool host = 4;
+}
+
+message GrantReq {
+  optional string grantor = 1;
+  repeated string sessions = 2;
+  optional string level = 3;
+}
+
+message CopyPresetReq {
+  optional string name = 1;
+}
+
+message ReplaceConfigRequest {
+  string text = 1;
+}
+
+message ProjectPreviewReq {
+  optional string name = 1;
+  optional bool temp = 2;
+}
+
+message ClipReq {
+  optional string text = 1;
+}
+
+message HighlightReq {
+  optional string text = 1;
+  optional string language = 2;
+}
+
+message FileReq {
+  optional string path = 1;
+  optional string name = 2;
+  optional string kind = 3;
+}
+
+message NameReq {
+  optional string name = 1;
+}
+
+message RedrawReq {
+  optional uint32 cols = 1;
+  optional uint32 rows = 2;
+}
+
+message AudioSelection {
+  optional string station = 1;
+  optional string stream = 2;
+  optional string file = 3;
+}
+
+message PasteReq {
+  optional string name = 1;
+  optional string text = 2;
+}
+
+message BreadcrumbReq {
+  optional string name = 1;
+  optional string breadcrumb = 2;
+  repeated string random_tips = 3;
+}
+
+message MouseReq {
+  optional string name = 1;
+  optional string action = 2;
+  optional uint32 button = 3;
+  optional uint32 col = 4;
+  optional uint32 row = 5;
+  optional uint32 count = 6;
+}
+
+message ScrollReq {
+  optional string name = 1;
+  optional uint32 off = 2;
+  optional uint64 request_id = 3;
+}
+
+message KeysReq {
+  optional string name = 1;
+  repeated string keys = 2;
+  optional bool literal = 3;
+  repeated string random_tips = 4;
+}
+
+message ResizeReq {
+  optional string name = 1;
+  optional uint32 cols = 2;
+  optional uint32 rows = 3;
+}
+
+message Empty {
+}
+
+message Error {
+  string error = 1;
+}
+
+message Ack {
+  bool ok = 1;
+}
+
+message Health {
+  bool ok = 1;
+  string version = 2;
+  string hostname = 3;
+  string tmux_socket = 4;
+  uint32 protocol_version = 5;
+}
+
+message SessionsReply {
+  repeated SessionView sessions = 1;
+}
+
+message ProjectsReply {
+  repeated Project projects = 1;
+}
+
+message LibraryReply {
+  repeated LibraryItem library = 1;
+}
+
+message TemplatesReply {
+  repeated AgentTemplate templates = 1;
+  optional string project = 2;
+}
+
+message TemplateResult {
+  bool ok = 1;
+  AgentTemplate template = 2;
+}
+
+message SessionResult {
+  bool ok = 1;
+  string session = 2;
+}
+
+message TaskResult {
+  Task task = 1;
+}
+
+message TasksReply {
+  repeated Task tasks = 1;
+}
+
+message Removed {
+  uint64 removed = 1;
+}
+
+message WorkerResult {
+  Task task = 1;
+  WorkerIdentity worker = 2;
+}
+
+message WorkerIdentity {
+  string name = 1;
+  string session = 2;
+  string parent = 3;
+  bool durable = 4;
+}
+
+message PathResult {
+  string path = 1;
+}
+
+message TextResult {
+  string text = 1;
+  string path = 2;
+  uint64 bytes = 3;
+}
+
+message ImageResult {
+  string path = 1;
+  bytes data = 2;
+  uint64 bytes = 3;
+}
+
+message OutputResult {
+  bool ok = 1;
+  string output = 2;
+}
+
+message GrantResult {
+  bool ok = 1;
+  string token = 2;
+}
+
+message GrantsReply {
+  uint64 grants = 1;
+}
+
+message PresetsReply {
+  repeated SandboxPreset presets = 1;
+  repeated CommandPreset commands = 2;
+}
+
+message DesktopApp {
+  string id = 1;
+  string name = 2;
+  optional string desktop_file = 3;
+}
+
+message AppsReply {
+  repeated DesktopApp apps = 1;
+}
+
+message StoredState {
+  string kind = 1;
+  string key = 2;
+  optional string session = 3;
+  string path = 4;
+  uint64 bytes = 5;
+  uint64 modified = 6;
+}
+
+message StoredStates {
+  repeated StoredState entries = 1;
+}
+
+message BrowseResult {
+  string path = 1;
+  optional string parent = 2;
+  repeated string dirs = 3;
+  repeated string empty_dirs = 4;
+  repeated string gitignored_dirs = 5;
+  repeated string files = 6;
+  repeated string gitignored_files = 7;
+  bool truncated = 8;
+}
+
+message SearchMatch {
+  string path = 1;
+  uint64 line = 2;
+  uint64 column = 3;
+  string text = 4;
+}
+
+message SearchResult {
+  string path = 1;
+  repeated SearchMatch matches = 2;
+  bool truncated = 3;
+}
+
+message GitFile {
+  string path = 1;
+  string status = 2;
+  optional uint64 added = 3;
+  optional uint64 deleted = 4;
+}
+
+message GitResult {
+  bool repo = 1;
+  string path = 2;
+  string root = 3;
+  string branch = 4;
+  uint64 changed = 5;
+  optional uint64 added = 6;
+  optional uint64 deleted = 7;
+  bool truncated = 8;
+  bool counts_complete = 9;
+  repeated GitFile files = 10;
+}
+
+message Config {
+  Daemon daemon = 1;
+  Defaults defaults = 2;
+  CommandDefaults commands = 3;
+  repeated Project project = 4;
+  repeated SessionConfig session = 5;
+  repeated HostTerminalCfg host_terminal = 6;
+  repeated StateRule state_rule = 7;
+}
+
+message ConfigMetadata {
+  Config defaults = 1;
+  repeated UsageCatalogEntry usage_catalog = 2;
+  string temporary_root = 3;
+  TerminalCapabilities terminal = 4;
+}
+
+message ConfigResult {
+  string path = 1;
+  string text = 2;
+  Config values = 3;
+  ConfigMetadata metadata = 4;
+}
+
+message ConfigPatch {
+  Config values = 1;
+  repeated string paths = 2;
+}
+
+message SaveTemplateRequest {
+  optional string name = 1;
+  optional string description = 2;
+  optional string source = 3;
+  optional string duplicate = 4;
+  optional uint64 version = 5;
+  AgentTemplateOrigin origin = 6;
+  AgentTemplateDefaults defaults = 7;
+}
+
+message RunWhere {
+  optional uint32 cols = 1;
+  optional uint32 rows = 2;
+  optional string project = 3;
+  bool temp = 4;
+  repeated string random_tips = 5;
+}
+
+message SettingsPreviewRequest {
+  string existing = 1;
+  SessionConfig session = 2;
+  Project project = 3;
+  AgentTemplate template = 4;
+  bool recipe = 5;
+}
+
+message PreviewField {
+  string label = 1;
+  repeated string values = 2;
+}
+
+message PreviewDefinitions {
+  AgentTemplateDefaults defaults = 1;
+}
+
+message SettingsPreview {
+  string title = 1;
+  string subtitle = 2;
+  repeated string notes = 3;
+  repeated PreviewField fields = 4;
+  PreviewDefinitions definitions = 5;
+}
+
+message LaunchPlan {
+  uint32 version = 1;
+  string session = 2;
+  repeated string limits = 3;
+  repeated string pasta = 4;
+  repeated string bwrap = 5;
+  repeated string environment = 6;
+  repeated string mounts = 7;
+  repeated string command = 8;
+  repeated string argv = 9;
+}
+
+message ProcessView {
+  uint32 pid = 1;
+  uint32 ppid = 2;
+  repeated string argv = 3;
+  bool in_scope = 4;
+}
+
+message LiveProcesses {
+  string status = 1;
+  optional uint32 pane_pid = 2;
+  string source = 3;
+  repeated ProcessView processes = 4;
+}
+
+message SandboxReport {
+  string session = 1;
+  bool host = 2;
+  LaunchPlan plan = 3;
+  LiveProcesses live = 4;
+  string comparison = 5;
+}
+
+message AudioRequest {
+  float volume = 3;
+  oneof change {
+    AudioSelection selection = 1;
+    Empty stop = 2;
+  }
+}
+
+message ClientMessage {
+  oneof payload {
+    RedrawReq redraw = 1;
+    NameReq sub = 2;
+    NameReq unsub = 3;
+    KeysReq keys = 4;
+    ResizeReq resize = 5;
+    ScrollReq scroll = 6;
+    MouseReq mouse = 7;
+    PasteReq paste = 8;
+    BreadcrumbReq breadcrumb = 9;
+    AudioRequest audio = 10;
+  }
+}
+
+message Event {
+  oneof payload {
+    Capabilities capabilities = 1;
+    SessionsReply sessions = 2;
+    ProjectsReply projects = 3;
+    LibraryReply library = 4;
+    ScreenView screen = 5;
+    UsageSnapshot usage = 6;
+    AudioState audio = 7;
+    JukeboxCatalog jukebox = 8;
+  }
+}
+
+message PresetRequest { oneof definition { SandboxPreset sandbox = 1; CommandPreset command = 2; } }
+message ProjectPreviewResult { string name = 1; bool temp = 2; string dir = 3; }

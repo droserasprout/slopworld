@@ -5,6 +5,7 @@ use std::env;
 use std::process::Command;
 
 fn main() {
+    protobuf();
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-changed=src/version.rs");
     println!("cargo:rerun-if-changed=../.git/HEAD");
@@ -47,4 +48,22 @@ fn git(repo: &str, args: &[&str]) -> Option<String> {
         .filter(|output| output.status.success())
         .map(|output| String::from_utf8_lossy(&output.stdout).trim().to_owned())
         .filter(|value| !value.is_empty())
+}
+
+fn protobuf() {
+    println!("cargo:rerun-if-changed=../shared/slopworld.proto");
+    let mut config = prost_build::Config::new();
+    config.message_attribute(".", "#[derive(serde::Serialize, serde::Deserialize)] #[serde(default)]");
+    config.enum_attribute(".", "#[derive(serde::Serialize, serde::Deserialize)]");
+    let files = config.load_fds(&["../shared/slopworld.proto"], &["../shared"]).expect("load protocol schema");
+    for file in &files.file {
+        for message in &file.message_type {
+            for field in &message.field {
+                if field.proto3_optional.unwrap_or(false) || (field.r#type == Some(11) && field.label != Some(3)) {
+                    config.field_attribute(format!(".slopworld.{}.{}", message.name(), field.name()), r#"#[serde(skip_serializing_if="Option::is_none")]"#);
+                }
+            }
+        }
+    }
+    config.compile_fds(files).expect("generate protocol bindings");
 }
