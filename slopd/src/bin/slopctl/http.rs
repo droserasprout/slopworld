@@ -1,3 +1,5 @@
+use crate::shared::{http_wire, wire};
+use prost::Message;
 use serde::Deserialize;
 use serde_json::{json, Value};
 use std::io::Read;
@@ -68,31 +70,37 @@ pub(crate) fn request(
             .build()
             .header(TOKEN_HEADER, &endpoint.token)
             .header(SESSION_HEADER, session)
-            .send_json(value),
+            .header("content-type", http_wire::CONTENT_TYPE)
+            .send(http_wire::encode_request(method, path, value).map_err(|e| e.to_string())?),
         _ => return Err(format!("unsupported request: {method}")),
     }
     .map_err(|e| format!("request: {e}"))?;
     let status = res.status();
-    let mut text = String::new();
+    let content_type = res
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("")
+        .to_owned();
+    let mut bytes = Vec::new();
     res.body_mut()
         .as_reader()
-        .read_to_string(&mut text)
+        .take(32 * 1024 * 1024 + 1)
+        .read_to_end(&mut bytes)
         .map_err(|e| format!("response: {e}"))?;
-    let value: Value = match serde_json::from_str(&text) {
-        Ok(value) => value,
-        Err(e) if status.is_success() => return Err(format!("response {status}: {e}")),
-        // A refusal from the layer above the handlers - `auth`, which answers 401 bare - has no
-        // JSON body to quote, so the status is the whole of what happened.
-        Err(_) if text.trim().is_empty() => return Err(format!("refused: {status}")),
-        Err(_) => return Err(format!("refused: {status}: {}", text.trim())),
-    };
-    if !status.is_success() {
-        return Err(value
-            .get("error")
-            .and_then(Value::as_str)
-            .unwrap_or(&text)
-            .to_string());
+    if bytes.len() > 32 * 1024 * 1024 {
+        return Err("response exceeds limit".into());
     }
+    if content_type != http_wire::CONTENT_TYPE {
+        return Err(format!("response {status}: expected Protobuf protocol 2"));
+    }
+    if !status.is_success() {
+        return Err(wire::Error::decode(bytes.as_slice())
+            .map(|e| e.error)
+            .unwrap_or_else(|_| format!("refused: {status}")));
+    }
+    let value = http_wire::decode_response(method, path, &bytes)
+        .map_err(|e| format!("response {status}: {e}"))?;
     Ok(value)
 }
 

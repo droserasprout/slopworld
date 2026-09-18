@@ -1,4 +1,5 @@
 using System;
+using Google.Protobuf;
 using System.Collections.Generic;
 using System.Collections.Concurrent;
 using System.Diagnostics;
@@ -50,23 +51,23 @@ namespace SlopWorld.Tests
             var lines = Enumerable.Repeat(new string('x', 160), 200).ToArray();
             string json = "{\"seq\":1,\"rows\":200,\"cols\":160,\"cy\":199,\"lines\":[" +
                 string.Join(",", lines.Select(JVal.Q)) + "]}";
-            var payload = JVal.Parse(json);
+            var payload = ProtobufFixtures.Read<Wire.ScreenView>(JVal.Parse(json));
             var screen = new ScreenBuf();
-            screen.FromJson(payload);
+            screen.FromWire(payload);
             Measure("screen JSON parse 200x160", () => JVal.Parse(json)["lines"].Count);
             Measure("screen unchanged 200 repeated rows", () =>
             {
                 screen.Seq = 0;
-                screen.FromJson(payload);
+                screen.FromWire(payload);
                 return screen.LiveShift;
             });
-            var other = JVal.Parse(json);
-            other["lines"][198].Token.Replace(new Newtonsoft.Json.Linq.JValue("different"));
+            var other = payload.Clone();
+            other.Lines[198] = "different";
             bool flip = false;
             Measure("screen changed 200 repeated rows", () =>
             {
                 screen.Seq = 0;
-                screen.FromJson((flip = !flip) ? other : payload);
+                screen.FromWire((flip = !flip) ? other : payload);
                 return screen.LiveShift;
             });
         }
@@ -83,14 +84,14 @@ namespace SlopWorld.Tests
                     Func<string, JVal> payload = tail => JVal.Parse(
                         "{\"rows\":" + rows + ",\"cols\":120,\"lines\":[" +
                         string.Join(",", lines.Take(rows - 1).Concat(new[] { tail }).Select(JVal.Q)) + "]}");
-                    var a = payload("progress A");
-                    var b = payload("progress B");
+                    var a = ProtobufFixtures.Read<Wire.ScreenView>(payload("progress A"));
+                    var b = ProtobufFixtures.Read<Wire.ScreenView>(payload("progress B"));
                     var screen = new ScreenBuf();
                     var cache = new TerminalRunCache();
                     bool flip = false;
                     Measure($"sparse ingest+ANSI {rows} rows / {(link ? "URL" : "plain")}", () =>
                     {
-                        screen.FromJson((flip = !flip) ? a : b);
+                        screen.FromWire((flip = !flip) ? a : b);
                         screen.Runs = cache.Parse(screen, 1, 1, out _, out _);
                         screen.RunsRev = 1;
                         screen.RunsComplete = true;
@@ -101,13 +102,14 @@ namespace SlopWorld.Tests
 
             string json = "{\"t\":\"screen\",\"screen\":{\"name\":\"bench\",\"lines\":[" +
                 string.Join(",", Enumerable.Repeat(JVal.Q(new string('x', 160)), 200)) + "]}}";
-            var incoming = new ConcurrentQueue<string>();
+            var incoming = new IncomingMessageQueue();
             var batch = new HubEventBatch();
             Action<Exception> onError = error => throw error;
+            var binary = ProtobufFixtures.Event(json);
             foreach (int count in new[] { 1, 8, 32 })
                 Measure($"screen batch {count} frames / one session", () =>
                 {
-                    for (int i = 0; i < count; i++) incoming.Enqueue(json);
+                    for (int i = 0; i < count; i++) incoming.Enqueue(binary);
                     batch.Read(incoming, onError);
                     int dispatched = 0;
                     for (int i = 0; i < batch.Count; i++)
@@ -119,6 +121,7 @@ namespace SlopWorld.Tests
         static void IdleWork()
         {
             var incoming = new ConcurrentQueue<string>();
+            var binaryIncoming = new IncomingMessageQueue();
             var batch = new HubEventBatch();
             Action<Exception> onError = _ => { };
             Compare("idle socket batch", () =>
@@ -131,7 +134,7 @@ namespace SlopWorld.Tests
                 GC.KeepAlive(events);
                 GC.KeepAlive(latest);
                 return events.Count;
-            }, () => batch.Read(incoming, onError));
+            }, () => batch.Read(binaryIncoming, onError));
 
             var titles = new SidebarTitleCache();
             var info = new SessionInfo { Title = "agent: compiling a project and checking its tests" };

@@ -3,4 +3,7 @@ pub(crate) mod protocol;
 mod serde;
 
 #[allow(dead_code)]
-pub(crate) mod wire { include!(concat!(env!("OUT_DIR"), "/slopworld.rs")); }
+pub(crate) mod wire {
+    include!(concat!(env!("OUT_DIR"), "/slopworld.rs"));
+}
+pub(crate) mod http_wire;

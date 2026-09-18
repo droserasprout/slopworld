@@ -6,14 +6,14 @@ namespace SlopWorld
         public string Version = "?";
         public string Hostname = "?";
 
-        public static DaemonHealth FromJson(JVal j)
+        public static DaemonHealth FromWire(Wire.Health j)
         {
-            if (j == null || j.IsNull) return new DaemonHealth();
+            if (j == null) return new DaemonHealth();
             return new DaemonHealth
             {
-                Known = j["ok"].AsBool(false),
-                Version = j["version"].AsString("?"),
-                Hostname = j["hostname"].AsString("?"),
+                Known = j.Ok,
+                Version = j.Version,
+                Hostname = j.Hostname,
             };
         }
     }

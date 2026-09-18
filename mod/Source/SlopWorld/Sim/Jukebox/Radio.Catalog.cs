@@ -122,9 +122,9 @@ namespace SlopWorld
 
         // The daemon sends metadata and stable keys, never stream URLs. Invalid entries are
         // ignored individually so one bad user definition cannot take the whole menu down.
-        public static void SetStations(JVal catalog)
+        public static void SetStations(Wire.JukeboxCatalog catalog)
         {
-            if (catalog == null || catalog.IsNull || catalog["stations"].IsNull) return;
+            if (catalog == null) return;
             _catalogReady = true;
 
             string saved = null;
@@ -132,24 +132,24 @@ namespace SlopWorld
             else if (_read) saved = Settings.Radio;
 
             var next = new List<Station>();
-            foreach (var item in catalog["stations"].Items)
+            foreach (var item in catalog.Stations)
             {
                 try
                 {
-                    string id = item["id"].AsString(null);
+                    string id = item.Id;
                     if (string.IsNullOrEmpty(id)) throw new InvalidOperationException("missing id");
 
-                    var metadata = item["metadata"];
-                    string name = metadata["name"].AsString(id);
-                    string donate = metadata["donate"].AsString("");
-                    string titleRegex = metadata["title_regex"].AsString("");
+                    var metadata = item.Metadata;
+                    string name = metadata.Name;
+                    string donate = metadata.Donate;
+                    string titleRegex = metadata.TitleRegex;
 
                     var rates = new List<int>();
                     var keys = new List<string>();
-                    foreach (var stream in item["streams"].Items)
+                    foreach (var stream in item.Streams)
                     {
-                        int rate = stream["rate"].AsInt(0);
-                        string key = stream["key"].AsString("");
+                        int rate = (int)stream.Rate;
+                        string key = stream.Key;
                         if (rate <= 0 || string.IsNullOrEmpty(key))
                             throw new InvalidOperationException("stream needs a positive rate and key");
                         if (rates.Contains(rate) || keys.Contains(key))
@@ -159,7 +159,7 @@ namespace SlopWorld
                     }
                     if (rates.Count == 0) throw new InvalidOperationException("no streams");
 
-                    int defaultRate = item["default_rate"].AsInt(rates[0]);
+                    int defaultRate = (int)item.DefaultRate;
                     if (!rates.Contains(defaultRate))
                         throw new InvalidOperationException("default rate has no stream");
 

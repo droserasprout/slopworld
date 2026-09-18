@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import sys
+import re
 import shutil
 import tempfile
 import unittest
@@ -34,6 +35,24 @@ class WireContractTests(unittest.TestCase):
                 f"({wire_contract.pascal(value)}) => {{\n        $crate::shared::protocol::messages::{wire_contract.upper(value)}\n    }};",
                 self.generated,
             )
+
+    def test_protobuf_route_types_match_handler_signatures(self) -> None:
+        from reference import api_routes, read_files
+        root = Path(__file__).resolve().parents[1]
+        source = "\n".join(p.read_text().split("#[cfg(test)]")[0]
+                           for p in (root / "slopd/src/api").glob("handlers*.rs"))
+        signatures = {m[1]: (m[2], m[3] or "Ack") for m in re.finditer(
+            r"pub\(crate\) async fn (\w+)\(([^{}]*?)\) -> ApiResult(?:<wire::(\w+)>)?\s*\{", source)}
+        declared = {(method, route["path"]): types
+                    for route in self.data["http"]["routes"].values()
+                    for method, types in route["protobuf"].items()}
+        for route in api_routes(read_files()):
+            if route.path == "/ws":
+                continue
+            body, response = signatures.get(route.handler, ("", "Ack"))
+            request = re.search(r"Proto<wire::(\w+)>", body)
+            self.assertEqual(declared[(route.method, route.path)],
+                             [request[1] if request else "Empty", response], route.handler)
 
     def test_rust_generation_is_deterministic(self) -> None:
         self.assertEqual(self.generated, wire_contract.rust(self.data))

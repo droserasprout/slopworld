@@ -39,7 +39,19 @@ pub(super) async fn ws_upgrade(
     if generation != generation_before {
         return err(StatusCode::UNAUTHORIZED, "capability changed").into_response();
     }
-    ws.on_upgrade(move |socket| ws_run(socket, m, cap, generation))
+    if !headers
+        .get("sec-websocket-protocol")
+        .and_then(|v| v.to_str().ok())
+        .is_some_and(|v| v.split(',').any(|p| p.trim() == "slopworld.protobuf.v2"))
+    {
+        return err(
+            StatusCode::BAD_REQUEST,
+            "expected slopworld.protobuf.v2 WebSocket subprotocol",
+        )
+        .into_response();
+    }
+    ws.protocols(["slopworld.protobuf.v2"])
+        .on_upgrade(move |socket| ws_run(socket, m, cap, generation))
         .into_response()
 }
 
@@ -124,9 +136,9 @@ async fn ws_run(socket: WebSocket, m: Mgr, cap: Cap, generation: u64) {
             }
             msg = rx.next() => {
                 let Some(Ok(msg)) = msg else { break };
-                let Message::Text(text) = msg else { continue };
-                let Ok(cm) = serde_json::from_str::<ClientMsg>(&text) else {
-                    tracing::debug!("unparseable ws message: {text}");
+                let Message::Binary(bytes) = msg else { continue };
+                let Ok(cm) = super::client_message::decode(&bytes) else {
+                    tracing::debug!("invalid Protobuf command");
                     continue;
                 };
 
@@ -469,7 +481,10 @@ fn resolve_audio_source(selection: AudioSelection) -> anyhow::Result<String> {
 async fn send(tx: &WsTx, cap: &Cap, ev: &EventMessage) -> Result<(), axum::Error> {
     let _perf = crate::perf::timer("websocket-send");
     let started = crate::perf::enabled().then(std::time::Instant::now);
-    let text = ev.encoded().to_string();
+    let text = ev
+        .encoded()
+        .map_err(|e| axum::Error::new(std::io::Error::other(e)))?
+        .to_vec();
     crate::perf::count("websocket-bytes", text.len() as u64);
     let mut tx = tx.lock().await;
     if !cap.is_valid() {
@@ -477,7 +492,7 @@ async fn send(tx: &WsTx, cap: &Cap, ev: &EventMessage) -> Result<(), axum::Error
             "capability revoked",
         )));
     }
-    let result = tx.send(Message::Text(text)).await;
+    let result = tx.send(Message::Binary(text)).await;
     if let Some(started) = started {
         tracing::debug!(
             target: "slopd::perf",

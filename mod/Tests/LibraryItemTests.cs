@@ -14,15 +14,15 @@ namespace SlopWorld.Tests
 
         static void ErrandExecution()
         {
-            var empty = LibraryItemInfo.FromJson(JVal.Parse("{}"));
+            var empty = LibraryItemInfo.FromWire(ProtobufFixtures.Read<Wire.LibraryItem>(JVal.Parse("{}")));
             AssertEx.True(!empty.Host && empty.AgentTemplate == "", "entries require an execution choice");
             var item = new LibraryItemInfo { Name = "review", AgentTemplate = "reviewer" };
-            var parsed = LibraryItemInfo.FromJson(JVal.Parse(item.ToJson()));
+            var parsed = LibraryItemInfo.FromWire(ProtobufFixtures.Read<Wire.LibraryItem>(JVal.Parse(item.ToJson())));
             AssertEx.Equal("reviewer", parsed.AgentTemplate, "template choice survives wire");
             AssertEx.Equal(parsed.AgentTemplate, parsed.Copy().AgentTemplate, "template choice survives draft copy");
             item.Host = true;
             item.AgentTemplate = "";
-            AssertEx.True(LibraryItemInfo.FromJson(JVal.Parse(item.ToJson())).Host, "host choice survives wire");
+            AssertEx.True(LibraryItemInfo.FromWire(ProtobufFixtures.Read<Wire.LibraryItem>(JVal.Parse(item.ToJson()))).Host, "host choice survives wire");
             AssertEx.True(item.Copy().Host, "host choice survives draft copy");
         }
 
@@ -40,7 +40,7 @@ namespace SlopWorld.Tests
             AssertEx.Equal("open_terminal", wire["mode"].AsString(),
                            "file action mode is serialized");
             AssertEx.Equal(FileActionMode.OpenTerminal,
-                           LibraryItemInfo.FromJson(wire).Mode,
+                           LibraryItemInfo.FromWire(ProtobufFixtures.Read<Wire.LibraryItem>(wire)).Mode,
                            "file action mode is parsed");
             AssertEx.Equal(FileActionMode.OpenTerminal, item.Copy().Mode,
                            "file action mode is copied");
@@ -50,15 +50,15 @@ namespace SlopWorld.Tests
             AssertEx.Equal("nothing", wire["mode"].AsString(),
                            "nothing mode is serialized");
             AssertEx.Equal(FileActionMode.Nothing,
-                           LibraryItemInfo.FromJson(wire).Mode,
+                           LibraryItemInfo.FromWire(ProtobufFixtures.Read<Wire.LibraryItem>(wire)).Mode,
                            "nothing mode is parsed");
         }
 
         static void MissingModeKeepsInvocationMenu()
         {
-            var item = LibraryItemInfo.FromJson(JVal.Parse(
+            var item = LibraryItemInfo.FromWire(ProtobufFixtures.Read<Wire.LibraryItem>(JVal.Parse(
                 "{\"name\":\"size\",\"kind\":\"fa\",\"link\":\"project\"," +
-                "\"project\":\"\",\"text\":\"\",\"command\":\"du -sh\"}"));
+                "\"project\":\"\",\"text\":\"\",\"command\":\"du -sh\"}")));
 
             AssertEx.Equal(FileActionMode.Ask, item.Mode,
                            "old file actions keep the per-invocation choice");

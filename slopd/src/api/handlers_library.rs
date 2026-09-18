@@ -1,5 +1,7 @@
+use crate::api::protobuf::{domain, reply, Proto};
+use crate::shared::wire;
 use axum::extract::{Path, Query, State};
-use axum::Json;
+
 use serde_json::json;
 
 use crate::config::{LibraryItemCfg, LibraryItemKind};
@@ -8,76 +10,87 @@ use crate::session::RunWhere;
 use super::super::types::*;
 use super::{err, ApiResult, Mgr};
 
-pub(crate) async fn list_projects(State(m): State<Mgr>) -> ApiResult {
-    Ok(Json(json!({ "projects": m.projects().await })))
+pub(crate) async fn list_projects(State(m): State<Mgr>) -> ApiResult<wire::ProjectsReply> {
+    reply(json!({ "projects": m.projects().await }))
 }
 
-pub(crate) async fn one_project(State(m): State<Mgr>, Path(name): Path<String>) -> ApiResult {
+pub(crate) async fn one_project(
+    State(m): State<Mgr>,
+    Path(name): Path<String>,
+) -> ApiResult<wire::Project> {
     m.projects()
         .await
         .into_iter()
         .find(|p| p.config.name == name)
-        .map(|p| Json(json!(p)))
+        .map(|p| reply(json!(p)))
         .ok_or_else(|| {
             err(
                 axum::http::StatusCode::NOT_FOUND,
                 format!("no such project: {name}"),
             )
-        })
+        })?
 }
 
 pub(crate) async fn create_project(
     State(m): State<Mgr>,
-    Json(value): Json<serde_json::Value>,
-) -> ApiResult {
-    let p = crate::api::parse_project(value)?;
+    Proto(value): Proto<wire::Project>,
+) -> ApiResult<wire::Ack> {
+    let p = crate::api::parse_project(domain(value)?)?;
     super::ok_json(m.add_project(p).await)
 }
 
-pub(crate) async fn project_preview(Json(req): Json<ProjectPreviewReq>) -> ApiResult {
-    Ok(Json(json!({
+pub(crate) async fn project_preview(
+    Proto(req): Proto<wire::ProjectPreviewReq>,
+) -> ApiResult<wire::ProjectPreviewResult> {
+    let req: ProjectPreviewReq = domain(req)?;
+    reply(json!({
         "name": req.name,
         "temp": req.temp,
         "dir": if req.temp { crate::config::temp_dir(&req.name) } else { String::new() },
-    })))
+    }))
 }
 
 pub(crate) async fn update_project(
     State(m): State<Mgr>,
     Path(name): Path<String>,
-    Json(value): Json<serde_json::Value>,
-) -> ApiResult {
-    let p = crate::api::parse_project(value)?;
+    Proto(value): Proto<wire::Project>,
+) -> ApiResult<wire::Ack> {
+    let p = crate::api::parse_project(domain(value)?)?;
     super::ok_json(m.update_project(&name, p).await)
 }
 
-pub(crate) async fn destroy_project(State(m): State<Mgr>, Path(name): Path<String>) -> ApiResult {
+pub(crate) async fn destroy_project(
+    State(m): State<Mgr>,
+    Path(name): Path<String>,
+) -> ApiResult<wire::Ack> {
     super::ok_json(m.remove_project(&name).await)
 }
 
-pub(crate) async fn list_library(State(m): State<Mgr>) -> ApiResult {
-    Ok(Json(json!({ "library": m.library().await })))
+pub(crate) async fn list_library(State(m): State<Mgr>) -> ApiResult<wire::LibraryReply> {
+    reply(json!({ "library": m.library().await }))
 }
 
 pub(crate) async fn create_library_item(
     State(m): State<Mgr>,
-    Json(sc): Json<LibraryItemCfg>,
-) -> ApiResult {
+    Proto(sc): Proto<wire::LibraryItem>,
+) -> ApiResult<wire::Ack> {
+    let sc: LibraryItemCfg = domain(sc)?;
     super::ok_json(m.add_library_item(sc).await)
 }
 
 pub(crate) async fn update_library_item(
     State(m): State<Mgr>,
     Path(name): Path<String>,
-    Json(sc): Json<LibraryItemCfg>,
-) -> ApiResult {
+    Proto(sc): Proto<wire::LibraryItem>,
+) -> ApiResult<wire::Ack> {
+    let sc: LibraryItemCfg = domain(sc)?;
     super::ok_json(m.update_library_item(&name, sc).await)
 }
 
 pub(crate) async fn destroy_library_item(
     State(m): State<Mgr>,
     Path(name): Path<String>,
-) -> ApiResult {
+) -> ApiResult<wire::Ack> {
     super::ok_json(m.remove_library_item(&name).await)
 }
 
@@ -88,16 +101,25 @@ pub(crate) async fn destroy_library_item(
 pub(crate) async fn run_library_item(
     State(m): State<Mgr>,
     Path(name): Path<String>,
-    want: Option<Json<RunWhere>>,
-) -> ApiResult {
+    want: Option<Proto<wire::RunWhere>>,
+) -> ApiResult<wire::SessionResult> {
     let session = m
-        .run_library_item(&name, want.map(|Json(w)| w).unwrap_or_default())
+        .run_library_item(
+            &name,
+            want.map(|Proto(w)| domain::<RunWhere>(w))
+                .transpose()?
+                .unwrap_or_default(),
+        )
         .await
         .map_err(|e| err(axum::http::StatusCode::BAD_REQUEST, e))?;
-    Ok(Json(json!({ "ok": true, "session": session })))
+    reply(json!({ "ok": true, "session": session }))
 }
 
-pub(crate) async fn run(State(m): State<Mgr>, Json(q): Json<RunReq>) -> ApiResult {
+pub(crate) async fn run(
+    State(m): State<Mgr>,
+    Proto(q): Proto<wire::RunReq>,
+) -> ApiResult<wire::SessionResult> {
+    let q: RunReq = domain(q)?;
     let project = q.project.trim();
     let command = if q.path.trim().is_empty() {
         q.command.trim().to_string()
@@ -182,28 +204,35 @@ pub(crate) async fn run(State(m): State<Mgr>, Json(q): Json<RunReq>) -> ApiResul
         )
         .await
         .map_err(|e| err(axum::http::StatusCode::BAD_REQUEST, e))?;
-    Ok(Json(json!({ "ok": true, "session": session })))
+    reply(json!({ "ok": true, "session": session }))
 }
 
 /// Run a non-interactive Files or Git action and return a small result for a game message. Project
 /// paths are validated against their project, but all file actions execute on the host.
 /// Interactive actions use `/api/run`, since their terminal needs a tmux session and a persistent
 /// screen.
-pub(crate) async fn file_action(State(m): State<Mgr>, Json(q): Json<FileActionReq>) -> ApiResult {
+pub(crate) async fn file_action(
+    State(m): State<Mgr>,
+    Proto(q): Proto<wire::FileActionReq>,
+) -> ApiResult<wire::OutputResult> {
+    let q: FileActionReq = domain(q)?;
     let output = m
         .file_action(&q.project, &q.path, &q.command, q.host)
         .await
         .map_err(|e| err(axum::http::StatusCode::BAD_REQUEST, e))?;
-    Ok(Json(json!({ "ok": true, "output": output })))
+    reply(json!({ "ok": true, "output": output }))
 }
 
 /// List the host desktop applications associated with a file. This is root-only because the
 /// query runs outside every project sandbox, in the same desktop environment that will launch
 /// the selected application.
-pub(crate) async fn open_apps(State(m): State<Mgr>, Query(q): Query<OpenAppsQuery>) -> ApiResult {
+pub(crate) async fn open_apps(
+    State(m): State<Mgr>,
+    Query(q): Query<OpenAppsQuery>,
+) -> ApiResult<wire::AppsReply> {
     let apps = m
         .open_apps(&q.path)
         .await
         .map_err(|e| err(axum::http::StatusCode::BAD_REQUEST, e))?;
-    Ok(Json(json!({ "apps": apps })))
+    reply(json!({ "apps": apps }))
 }

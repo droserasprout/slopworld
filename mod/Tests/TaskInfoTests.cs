@@ -15,11 +15,11 @@ namespace SlopWorld.Tests
 
         static void ReadsTask()
         {
-            var task = TaskInfo.FromJson(JVal.Parse(
+            var task = TaskInfo.FromWire(ProtobufFixtures.Read<Wire.Task>(JVal.Parse(
                 "{\"id\":\"abc\",\"from\":\"host\",\"to\":\"agent\"," +
                 "\"body\":\"fix it\",\"status\":\"working\"," +
                 "\"note\":\"in progress\",\"created_ms\":100," +
-                "\"updated_ms\":200}"));
+                "\"updated_ms\":200}")));
 
             AssertEx.Equal("abc", task.Id, "id");
             AssertEx.Equal("host", task.From, "sender");
@@ -60,9 +60,9 @@ namespace SlopWorld.Tests
 
         static void UsesGeneratedSummary()
         {
-            var task = TaskInfo.FromJson(JVal.Parse(
+            var task = TaskInfo.FromWire(ProtobufFixtures.Read<Wire.Task>(JVal.Parse(
                 "{\"body\":\"a much longer original task body\",\"summary\":\"plan " +
-                "sidebar fix\"}"));
+                "sidebar fix\"}")));
 
             AssertEx.Equal("plan sidebar fix", task.Summary, "daemon summary wins");
         }

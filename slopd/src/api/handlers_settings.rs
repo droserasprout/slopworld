@@ -1,6 +1,8 @@
+use crate::api::protobuf::{domain, reply, Proto};
+use crate::shared::wire;
 use axum::extract::State;
 use axum::http::StatusCode;
-use axum::Json;
+
 use serde::Deserialize;
 use serde_json::json;
 use serde_json::Value;
@@ -22,8 +24,9 @@ pub(crate) struct SettingsPreviewReq {
 /// Saved snapshots are daemon-owned and retained using the same rule as an actual edit.
 pub(crate) async fn settings_preview(
     State(m): State<Mgr>,
-    Json(req): Json<SettingsPreviewReq>,
-) -> ApiResult {
+    Proto(req): Proto<wire::SettingsPreviewRequest>,
+) -> ApiResult<wire::SettingsPreview> {
+    let req: SettingsPreviewReq = domain(req)?;
     m.reload_if_changed().await;
     let cfg = m.config().await;
     let requested_session = req
@@ -76,7 +79,7 @@ pub(crate) async fn settings_preview(
     }});
     let mut result = cfg.settings_preview(&session, &project, req.recipe);
     result["definitions"] = definitions;
-    Ok(Json(result))
+    reply(result)
 }
 
 #[cfg(test)]
@@ -107,12 +110,13 @@ mod tests {
             ..Default::default()
         };
         let manager = crate::session::test_manager(cfg);
-        let request: SettingsPreviewReq = serde_json::from_value(json!({
+        let request: wire::SettingsPreviewRequest = serde_json::from_value(json!({
             "existing":"agent", "session":{"name":"agent","project":"repo","command":"saved","network":"none","limits":{"memory_mb":2048}}
         })).unwrap();
-        let Json(result) = settings_preview(State(manager.clone()), Json(request))
+        let Proto(result) = settings_preview(State(manager.clone()), Proto(request))
             .await
             .unwrap();
+        let result = serde_json::to_value(result).unwrap();
         assert!(result.to_string().contains("original-command"));
         assert!(result.to_string().contains("2048"));
         assert!(result.to_string().contains("agent setting"));
@@ -129,13 +133,14 @@ mod tests {
     #[tokio::test]
     async fn recipe_preview_uses_explicit_agent_defaults() {
         let manager = crate::session::test_manager(crate::config::Config::default());
-        let request: SettingsPreviewReq = serde_json::from_value(json!({
+        let request: wire::SettingsPreviewRequest = serde_json::from_value(json!({
             "recipe":true,"template":{"name":"recipe","defaults":{}}
         }))
         .unwrap();
-        let Json(result) = settings_preview(State(manager.clone()), Json(request))
+        let Proto(result) = settings_preview(State(manager.clone()), Proto(request))
             .await
             .unwrap();
+        let result = serde_json::to_value(result).unwrap();
         assert!(result.to_string().contains("agent setting"));
         assert!(manager.config().await.sessions.is_empty());
         assert!(manager.agent_templates().await.is_empty());

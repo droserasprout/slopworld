@@ -161,12 +161,6 @@ pub(crate) struct GrantReq {
 }
 
 #[derive(Deserialize)]
-pub(crate) struct CopyPresetReq {
-    #[serde(default)]
-    pub(crate) name: String,
-}
-
-#[derive(Deserialize)]
 pub(crate) struct ConfigReq {
     pub(crate) text: String,
 }
@@ -284,11 +278,13 @@ pub(crate) enum ClientMsg {
     Audio(AudioReq),
 }
 
+#[cfg(test)]
 #[derive(Deserialize)]
 struct NameReq {
     name: String,
 }
 
+#[cfg(test)]
 #[derive(Deserialize)]
 struct RedrawReq {
     #[serde(default)]
@@ -387,6 +383,7 @@ pub(crate) struct ResizeReq {
     pub(crate) rows: u16,
 }
 
+#[cfg(test)]
 crate::wire_client_msg_deserialize!(ClientMsg, {
     Redraw { cols, rows } => RedrawReq,
     Sub { name } => NameReq,

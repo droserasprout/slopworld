@@ -22,27 +22,27 @@ namespace SlopWorld
         public string Editor;
         public string Highlighter;
 
-        public static DaemonConfigDefaults FromJson(JVal root)
+        public static DaemonConfigDefaults FromWire(Wire.Config root)
         {
-            if (root == null || root.IsNull || !root.IsObject) return null;
+            if (root == null) return null;
             var result = new DaemonConfigDefaults();
-            var d = root["daemon"];
-            var f = root["defaults"];
-            var c = root["commands"];
-            var i = d["instructions"];
-            result.UsagePollSecs = d["usage_poll_secs"].IsNull ? (int?)null : d["usage_poll_secs"].AsInt();
-            result.ClaudeCredentials = d["claude_credentials"].AsString(null);
-            result.OpenaiCredentials = d["openai_credentials"].AsString(null);
-            result.TitleModel = d["title_model"].AsString(null);
-            result.SummaryPrompt = d["summary_prompt"].AsString(null);
-            result.TitleMinChars = d["title_min_chars"].IsNull ? (int?)null : d["title_min_chars"].AsInt();
-            result.WorkerPrompt = i["worker_prompt"].AsString(null);
-            result.Agent = f["agent"].AsString(null);
-            result.AgentShell = f["agent_shell"].AsString(null);
-            result.Shell = f["shell"].AsString(null);
-            result.Pager = c["pager"].AsString(null);
-            result.Editor = c["editor"].AsString(null);
-            result.Highlighter = c["highlighter"].AsString(null);
+            var d = root.Daemon ?? new Wire.Daemon();
+            var f = root.Defaults ?? new Wire.Defaults();
+            var c = root.Commands ?? new Wire.CommandDefaults();
+            var i = d.Instructions ?? new Wire.Instructions();
+            result.UsagePollSecs = (int)d.UsagePollSecs;
+            result.ClaudeCredentials = d.ClaudeCredentials;
+            result.OpenaiCredentials = d.OpenaiCredentials;
+            result.TitleModel = d.TitleModel;
+            result.SummaryPrompt = d.SummaryPrompt;
+            result.TitleMinChars = (int)d.TitleMinChars;
+            result.WorkerPrompt = i.WorkerPrompt;
+            result.Agent = f.Agent;
+            result.AgentShell = f.AgentShell;
+            result.Shell = f.Shell;
+            result.Pager = c.Pager;
+            result.Editor = c.Editor;
+            result.Highlighter = c.Highlighter;
             return result;
         }
     }
@@ -56,14 +56,14 @@ namespace SlopWorld
         public int Rank;
         public bool DefaultPoll;
 
-        public static UsageCatalogInfo FromJson(JVal j) => new UsageCatalogInfo
+        public static UsageCatalogInfo FromWire(Wire.UsageCatalogEntry j) => new UsageCatalogInfo
         {
-            Key = j["key"].AsString(),
-            Label = j["label"].AsString(),
-            Provider = j["provider"].AsString(),
-            Unit = j["unit"].AsString(WireProtocol.UsageUnit.Pct),
-            Rank = j["rank"].AsInt(),
-            DefaultPoll = j["default_poll"].AsBool(false),
+            Key = j.Key,
+            Label = j.Label,
+            Provider = j.Provider,
+            Unit = j.Unit,
+            Rank = (int)j.Rank,
+            DefaultPoll = j.DefaultPoll,
         };
     }
 
@@ -82,15 +82,15 @@ namespace SlopWorld
         public int MinRows = 5;
         public int MaxRows = 200;
 
-        public static TerminalLimits FromJson(JVal j)
+        public static TerminalLimits FromWire(Wire.TerminalCapabilities j)
         {
             var result = new TerminalLimits();
-            if (j == null || j.IsNull || !j.IsObject) return result;
-            int scrollback = j["scrollback_lines"].AsInt(result.ScrollbackLines);
+            if (j == null) return result;
+            int scrollback = (int)j.ScrollbackLines;
             result.ScrollbackLines = Math.Max(1, Math.Min(ClientMaxScrollbackLines, scrollback));
 
-            int minCols = j["min_cols"].AsInt(result.MinCols);
-            int maxCols = j["max_cols"].AsInt(result.MaxCols);
+            int minCols = (int)j.MinCols;
+            int maxCols = (int)j.MaxCols;
             if (minCols < 1 || maxCols < minCols)
             {
                 minCols = result.MinCols;
@@ -100,8 +100,8 @@ namespace SlopWorld
             result.MaxCols = Math.Max(result.MinCols,
                 Math.Min(ClientMaxCols, maxCols));
 
-            int minRows = j["min_rows"].AsInt(result.MinRows);
-            int maxRows = j["max_rows"].AsInt(result.MaxRows);
+            int minRows = (int)j.MinRows;
+            int maxRows = (int)j.MaxRows;
             if (minRows < 1 || maxRows < minRows)
             {
                 minRows = result.MinRows;
@@ -160,42 +160,43 @@ namespace SlopWorld
         public string Editor = "";
         public string Highlighter = "";
 
-        public static DaemonConfig FromJson(JVal v, JVal metadata = null)
+        public static DaemonConfig FromWire(Wire.Config v, Wire.ConfigMetadata metadata = null) =>
+            Read(v.Daemon, v.Defaults, v.Commands, metadata);
+        public static DaemonConfig FromSnapshot(Wire.EditableConfig v) => Read(v.Daemon, v.Defaults, v.Commands, null);
+        static DaemonConfig Read(Wire.Daemon d, Wire.Defaults f, Wire.CommandDefaults c, Wire.ConfigMetadata metadata)
         {
-            var defaults = DaemonConfigDefaults.FromJson(metadata?["defaults"]);
-            var d = v["daemon"];
-            var f = v["defaults"];
-            var c = v["commands"];
-            var i = d["instructions"];
+            var defaults = DaemonConfigDefaults.FromWire(metadata?.Defaults);
+            d = d ?? new Wire.Daemon(); f = f ?? new Wire.Defaults(); c = c ?? new Wire.CommandDefaults();
+            var i = d.Instructions ?? new Wire.Instructions();
             return new DaemonConfig
             {
                 FactoryDefaults = defaults,
-                MetadataAvailable = metadata != null && !metadata.IsNull && metadata.IsObject && defaults != null,
-                UsageCatalog = metadata?["usage_catalog"].Items.Select(UsageCatalogInfo.FromJson).ToList()
+                MetadataAvailable = metadata != null && defaults != null,
+                UsageCatalog = metadata?.UsageCatalog.Select(UsageCatalogInfo.FromWire).ToList()
                     ?? new List<UsageCatalogInfo>(),
-                TemporaryRoot = metadata?["temporary_root"].AsString() ?? "",
-                Terminal = TerminalLimits.FromJson(metadata?["terminal"]),
-                UsagePollSecs = d["usage_poll_secs"].AsInt(defaults?.UsagePollSecs ?? 0),
-                UsageItems = UsageItemsFromJson(d["usage_items"]),
+                TemporaryRoot = metadata?.TemporaryRoot ?? "",
+                Terminal = TerminalLimits.FromWire(metadata?.Terminal),
+                UsagePollSecs = (int)d.UsagePollSecs,
+                UsageItems = d.UsageItems.ToDictionary(p => p.Key, p => new UsageItemConfig { Poll = p.Value.Poll, IntervalSecs = (int)p.Value.IntervalSecs }),
                 ClaudeCredentials =
-                    d["claude_credentials"].AsString(defaults?.ClaudeCredentials ?? ""),
-                OpenrouterKeyFile = d["openrouter_key_file"].AsString(),
-                OpenaiCredentials = d["openai_credentials"].AsString(defaults?.OpenaiCredentials ?? ""),
-                AgentTitles = d["agent_titles"].AsString(),
-                TitleModel = d["title_model"].AsString(defaults?.TitleModel ?? ""),
-                SummaryPrompt = d["summary_prompt"].AsString(defaults?.SummaryPrompt ?? ""),
-                TitleMinChars = d["title_min_chars"].AsInt(defaults?.TitleMinChars ?? 0),
-                PiTitles = d["pi_titles"].AsString(),
-                TaskSummaries = d["task_summaries"].AsString(),
-                WorkerPrompt = i["worker_prompt"].AsString(defaults?.WorkerPrompt ?? ""),
-                WorkerTemplates = d["worker_templates"].Items.Select(item => item.AsString()).ToList(),
+                    d.ClaudeCredentials,
+                OpenrouterKeyFile = d.OpenrouterKeyFile,
+                OpenaiCredentials = d.OpenaiCredentials,
+                AgentTitles = d.AgentTitles,
+                TitleModel = d.TitleModel,
+                SummaryPrompt = d.SummaryPrompt,
+                TitleMinChars = (int)d.TitleMinChars,
+                PiTitles = d.PiTitles,
+                TaskSummaries = d.TaskSummaries,
+                WorkerPrompt = i.WorkerPrompt,
+                WorkerTemplates = d.WorkerTemplates.ToList(),
 
-                Agent = f["agent"].AsString(defaults?.Agent ?? ""),
-                AgentShell = f["agent_shell"].AsString(defaults?.AgentShell ?? ""),
-                Shell = f["shell"].AsString(defaults?.Shell ?? ""),
-                Pager = c["pager"].AsString(defaults?.Pager ?? ""),
-                Editor = c["editor"].AsString(defaults?.Editor ?? ""),
-                Highlighter = c["highlighter"].AsString(defaults?.Highlighter ?? ""),
+                Agent = f.Agent,
+                AgentShell = f.AgentShell,
+                Shell = f.Shell,
+                Pager = c.Pager,
+                Editor = c.Editor,
+                Highlighter = c.Highlighter,
             };
         }
 
@@ -230,92 +231,43 @@ namespace SlopWorld
             public int IntervalSecs;
         }
 
-        static Dictionary<string, UsageItemConfig> UsageItemsFromJson(JVal value)
+        public Wire.EditableConfig Snapshot()
         {
-            var items = new Dictionary<string, UsageItemConfig>();
-            if (!value.IsObject) return items;
-
-            foreach (var pair in value.ObjectItems)
-                items[pair.Key] = new UsageItemConfig
-                {
-                    Poll = pair.Value["poll"].AsBool(true),
-                    IntervalSecs = pair.Value["interval_secs"].AsInt(0),
-                };
-            return items;
-        }
-
-        // This deliberately omits bind, token, projects, sessions, state rules and sandbox
-        // presets. The daemon deep-merges this explicit editable projection before validating
-        // it. Keep it as a token tree until DaemonClient serializes the request.
-        public JVal ToPatch(JVal baseline = null)
-        {
-            var daemon = baseline?["daemon"];
-            var daemonPatch = PatchObject(daemon,
-                    Pair("usage_poll_secs", JVal.IntValue(UsagePollSecs)),
-                    Pair("usage_items", UsageItemsPatch(daemon?["usage_items"])),
-                    Pair("claude_credentials", JVal.StringValue(ClaudeCredentials)),
-                    Pair("openrouter_key_file", JVal.StringValue(OpenrouterKeyFile)),
-                    Pair("openai_credentials", JVal.StringValue(OpenaiCredentials)),
-                    Pair("agent_titles", JVal.StringValue(AgentTitles)),
-                    Pair("title_model", JVal.StringValue(TitleModel)),
-                    Pair("summary_prompt", JVal.StringValue(SummaryPrompt)),
-                    Pair("title_min_chars", JVal.IntValue(TitleMinChars)),
-                    Pair("pi_titles", JVal.StringValue(PiTitles)),
-                    Pair("task_summaries", JVal.StringValue(TaskSummaries)),
-                    Pair("worker_templates", Strings(WorkerTemplates)),
-                    Pair("instructions", PatchObject(daemon?["instructions"],
-                        Pair("worker_prompt", JVal.StringValue(WorkerPrompt)))));
-            var defaultsPatch = PatchObject(baseline?["defaults"],
-                    Pair("agent", JVal.StringValue(Agent)),
-                    Pair("agent_shell", JVal.StringValue(AgentShell)),
-                    Pair("shell", JVal.StringValue(Shell)));
-            var commandsPatch = PatchObject(baseline?["commands"],
-                    Pair("pager", JVal.StringValue(Pager)),
-                    Pair("editor", JVal.StringValue(Editor)),
-                    Pair("highlighter", JVal.StringValue(Highlighter)));
-            return PatchObject(baseline,
-                Pair("daemon", daemonPatch),
-                Pair("defaults", defaultsPatch),
-                Pair("commands", commandsPatch));
-        }
-
-        public string ToPatchJson(string baseline = null) =>
-            JVal.ToJson(ToPatch(baseline == null ? null : JVal.Parse(baseline)));
-
-        static KeyValuePair<string, JVal> Pair(string key, JVal value) =>
-            new KeyValuePair<string, JVal>(key, value ?? JVal.Null);
-
-        // Nested objects have already been reduced to changed leaves. Comparing tokens keeps
-        // booleans, numbers, arrays and escaped strings in their original wire types.
-        static JVal PatchObject(JVal baseline, params KeyValuePair<string, JVal>[] fields)
-        {
-            var result = JVal.ObjectValue();
-            foreach (var field in fields)
+            var daemon = new Wire.Daemon
             {
-                var current = field.Value ?? JVal.Null;
-                if (baseline != null && (current.IsObject
-                    ? !current.ObjectItems.Any()
-                    : JVal.Equivalent(current, baseline[field.Key])))
-                    continue;
-                result.Put(field.Key, current);
-            }
-            return result;
-        }
-
-        JVal UsageItemsPatch(JVal baseline)
-        {
-            var result = JVal.ObjectValue();
-            foreach (var pair in UsageItems)
+                UsagePollSecs = checked((ulong)UsagePollSecs),
+                ClaudeCredentials = ClaudeCredentials,
+                OpenrouterKeyFile = OpenrouterKeyFile,
+                OpenaiCredentials = OpenaiCredentials,
+                AgentTitles = AgentTitles,
+                TitleModel = TitleModel,
+                SummaryPrompt = SummaryPrompt,
+                TitleMinChars = checked((ulong)TitleMinChars),
+                PiTitles = PiTitles,
+                TaskSummaries = TaskSummaries,
+                WorkerTemplates = { WorkerTemplates.Distinct().OrderBy(v => v, StringComparer.Ordinal) },
+                Instructions = new Wire.Instructions { WorkerPrompt = WorkerPrompt },
+            };
+            foreach (var pair in UsageItems) daemon.UsageItems[pair.Key] = new Wire.UsageItem
             {
-                var item = pair.Value ?? new UsageItemConfig();
-                // Zero is explicit here so a previously saved per-item override can be
-                // cleared through the daemon's deep-merge patch.
-                var changes = PatchObject(baseline?[pair.Key],
-                    Pair("poll", JVal.BoolValue(item.Poll)),
-                    Pair("interval_secs", JVal.IntValue(Math.Max(0, item.IntervalSecs))));
-                if (baseline == null || changes.ObjectItems.Any()) result.Put(pair.Key, changes);
-            }
-            return result;
+                Poll = pair.Value.Poll,
+                IntervalSecs = checked((ulong)Math.Max(0, pair.Value.IntervalSecs))
+            };
+            return new Wire.EditableConfig
+            {
+                Daemon = daemon,
+                Defaults = new Wire.Defaults { Agent = Agent, AgentShell = AgentShell, Shell = Shell },
+                Commands = new Wire.CommandDefaults { Pager = Pager, Editor = Editor, Highlighter = Highlighter }
+            };
+        }
+        public Wire.ConfigPatch ToPatch(Wire.EditableConfig baseline = null)
+        {
+            var snapshot = Snapshot();
+            return new Wire.ConfigPatch
+            {
+                Values = snapshot,
+                Paths = { ProtoFields.Changes(snapshot, baseline).Keys.OrderBy(v => v, StringComparer.Ordinal) }
+            };
         }
 
         // One entry per line, which is how the GUI edits these lists.
@@ -328,13 +280,5 @@ namespace SlopWorld
                 .Where(l => l.Length > 0)
                 .ToList();
 
-        static JVal Strings(IEnumerable<string> values)
-        {
-            var result = JVal.ArrayValue();
-            foreach (string value in (values ?? Enumerable.Empty<string>()).Distinct()
-                .OrderBy(value => value, StringComparer.Ordinal))
-                result.Add(JVal.StringValue(value));
-            return result;
-        }
     }
 }

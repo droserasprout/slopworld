@@ -1,3 +1,4 @@
+using Google.Protobuf;
 using System;
 using System.Collections.Concurrent;
 using System.Threading;
@@ -14,7 +15,7 @@ namespace SlopWorld
         // Set by the coordinator after the services exist, so the transport can stay unaware
         // of what a connect or a message means.
         public Action OnConnected = null;
-        public Action<JVal> OnMessage = null;
+        public Action<Wire.Event> OnMessage = null;
 
         public string Status { get; private set; } = "disconnected";
         public bool Connected => _ws != null && _ws.Connected;
@@ -83,10 +84,10 @@ namespace SlopWorld
 
         // A guarded write: everything the hub sends over the socket goes through here, and a
         // send while the socket is down is simply dropped.
-        public void Send(string json)
+        public void Send(Wire.ClientMessage message)
         {
             if (_ws == null || !_ws.Connected) return;
-            _ws.SendText(json);
+            _ws.SendBinary(message.ToByteArray());
         }
 
         // Called every frame from the coordinator's Update.

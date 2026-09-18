@@ -1,0 +1,17 @@
+fixture,lane,wire_bytes,p50_us,p95_us,allocated_bytes
+plain,json-receive,5871,56.891,59.390,37240
+plain,protobuf-receive,5707,6.672,7.243,13632
+plain,json-burst8,46968,129.958,136.399,125424
+plain,protobuf-burst8,45656,48.771,56.618,109440
+ansi,json-receive,6231,70.683,73.583,42312
+ansi,protobuf-receive,4827,5.522,6.275,11792
+ansi,json-burst8,49848,159.741,165.350,135536
+ansi,protobuf-burst8,38616,48.366,54.465,94720
+unicode,json-receive,3351,45.103,47.852,22200
+unicode,protobuf-receive,3147,9.724,11.407,6032
+unicode,json-burst8,26808,119.879,128.943,58304
+unicode,protobuf-burst8,25176,81.624,84.066,48640
+large,json-receive,21432,160.581,167.037,111960
+large,protobuf-receive,21379,19.625,21.955,50192
+large,json-burst8,171456,388.575,401.064,417984
+large,protobuf-burst8,171032,155.387,167.540,401920

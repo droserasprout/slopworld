@@ -44,13 +44,13 @@ namespace SlopWorld
 
         // The socket pushes these, and each also has an HTTP road below for a window opened
         // while the socket is down.
-        public void ApplyProjects(JVal ev) => _projects.Apply(ev, SetProjects);
-        public void ApplyLibrary(JVal ev) => _library.Apply(ev, SetLibrary);
+        public void ApplyProjects(Wire.ProjectsReply ev) => _projects.Apply(ev, SetProjects);
+        public void ApplyLibrary(Wire.LibraryReply ev) => _library.Apply(ev, SetLibrary);
 
-        void SetProjects(JVal j) =>
-            Projects = j["projects"].Items.Select(ProjectInfo.FromJson).ToList();
-        void SetLibrary(JVal j) =>
-            Library = j["library"].Items.Select(LibraryItemInfo.FromJson).ToList();
+        void SetProjects(Wire.ProjectsReply j) =>
+            Projects = j.Projects.Select(ProjectInfo.FromWire).ToList();
+        void SetLibrary(Wire.LibraryReply j) =>
+            Library = j.Library.Select(LibraryItemInfo.FromWire).ToList();
 
         public ProjectInfo Project(string name) =>
             Projects.FirstOrDefault(p => p.Name == name);
@@ -58,21 +58,21 @@ namespace SlopWorld
         // A window opened while the socket is down still has to draw something, and this road
         // returns an error body.
         public void RefreshProjects(Action<string> fail = null) =>
-            _projects.Refresh(ProjectsPath, SetProjects, fail);
+            _projects.Refresh<Wire.ProjectsReply>(ProjectsPath, SetProjects, fail);
 
         public LibraryItemInfo LibraryItem(string name) =>
             Library.FirstOrDefault(s => s.Name == name);
 
         public void RefreshLibrary(Action<string> fail = null) =>
-            _library.Refresh(LibraryPath, SetLibrary, fail);
+            _library.Refresh<Wire.LibraryReply>(LibraryPath, SetLibrary, fail);
 
         public void SaveLibraryItem(LibraryItemInfo s, bool isNew, string origName,
                                  Action ok, Action<string> fail)
         {
             _library.Invalidate();
-            Action<JVal> done = _ => { RefreshLibrary(); ok?.Invoke(); };
-            if (isNew) DaemonClient.Post(LibraryPath, s.ToJson(), done, fail);
-            else DaemonClient.Put($"{LibraryPath}/{HubWire.Esc(origName)}", s.ToJson(), done, fail);
+            Action<Wire.Ack> done = _ => { RefreshLibrary(); ok?.Invoke(); };
+            if (isNew) DaemonClient.Post(LibraryPath, s.ToWire(), done, fail);
+            else DaemonClient.Put($"{LibraryPath}/{HubWire.Esc(origName)}", s.ToWire(), done, fail);
         }
 
         public void RemoveLibraryItem(string name, Action<string> fail = null)
@@ -85,18 +85,18 @@ namespace SlopWorld
         // The old lists stay up until the answer lands, so a dialog opened with the socket
         // down draws what it knew rather than nothing.
         public void LoadPresets(Action ok = null, Action<string> fail = null) =>
-            _presets.Refresh(PresetsPath, j =>
+            _presets.Refresh<Wire.PresetsReply>(PresetsPath, j =>
             {
-                Presets = j["presets"].Items.Select(PresetInfo.FromJson).ToList();
-                Commands = j["commands"].Items.Select(CommandInfo.FromJson).ToList();
+                Presets = j.Presets.Select(PresetInfo.FromWire).ToList();
+                Commands = j.Commands.Select(CommandInfo.FromWire).ToList();
                 ok?.Invoke();
             }, fail);
 
         public void RefreshTemplates(Action<string> fail = null, Action loaded = null) =>
-            _templates.Refresh(TemplatesPath,
+            _templates.Refresh<Wire.TemplatesReply>(TemplatesPath,
                 j =>
                 {
-                    Templates = j["templates"].Items.Select(AgentTemplateInfo.FromJson).ToList();
+                    Templates = j.Templates.Select(AgentTemplateInfo.FromWire).ToList();
                     loaded?.Invoke();
                 },
                 fail, loaded);
@@ -105,9 +105,8 @@ namespace SlopWorld
                                        Action ok, Action<string> fail)
         {
             _templates.Invalidate();
-            DaemonClient.Post(TemplatesPath,
-                "{" + $"\"name\":{JVal.Q(name)},\"description\":{JVal.Q(description)}," +
-                $"\"source\":{JVal.Q(source)}}}",
+            DaemonClient.Post<Wire.TemplateResult>(TemplatesPath,
+                new Wire.SaveTemplateRequest { Name = name, Description = description, Source = source },
                 _ => { RefreshTemplates(); ok?.Invoke(); }, fail);
         }
 
@@ -115,24 +114,23 @@ namespace SlopWorld
                                           bool isNew, string originalName,
                                           Action ok, Action<string> fail)
         {
-            string body;
-            try { body = template.ToJson(form); }
+            Wire.AgentTemplate body;
+            try { body = template.ToWire(form); }
             catch (InvalidOperationException error) { fail?.Invoke(error.Message); return; }
             _templates.Invalidate();
-            Action<JVal> done = _ => { RefreshTemplates(); ok?.Invoke(); };
+            Action<Wire.Ack> done = _ => { RefreshTemplates(); ok?.Invoke(); };
             if (isNew)
-                DaemonClient.Post(TemplatesPath, body, done, fail);
+                DaemonClient.Post<Wire.TemplateResult>(TemplatesPath, new Wire.SaveTemplateRequest { Name = body.Name, Description = body.Description, Version = body.Version, Origin = body.Origin, Defaults = body.Defaults }, _ => done(null), fail);
             else
-                DaemonClient.Put($"{TemplatesPath}/{HubWire.Esc(originalName)}", body, done, fail);
+                DaemonClient.Put<Wire.TemplateResult>($"{TemplatesPath}/{HubWire.Esc(originalName)}", body, _ => done(null), fail);
         }
 
         public void DuplicateAgentTemplate(string source, string name, string description,
                                            Action ok, Action<string> fail)
         {
             _templates.Invalidate();
-            string body = "{" + $"\"name\":{JVal.Q(name)}," +
-                $"\"description\":{JVal.Q(description)},\"duplicate\":{JVal.Q(source)}}}";
-            DaemonClient.Post(TemplatesPath, body,
+            var body = new Wire.SaveTemplateRequest { Name = name, Description = description, Duplicate = source };
+            DaemonClient.Post<Wire.TemplateResult>(TemplatesPath, body,
                 _ => { RefreshTemplates(); ok?.Invoke(); }, fail);
         }
 
@@ -149,13 +147,13 @@ namespace SlopWorld
         {
             _presets.Invalidate();
             DaemonClient.Post($"{PresetsPath}/{kind}/{Uri.EscapeDataString(name)}/copy",
-                $"{{\"name\":{JVal.Q(newName ?? "")}}}", PresetsSaved(ok, fail), fail);
+                new Wire.CopyPresetReq { Name = newName ?? "" }, PresetsSaved(ok, fail), fail);
         }
 
         public void SavePreset(PresetInfo p, Action ok, Action<string> fail)
         {
             _presets.Invalidate();
-            DaemonClient.Put($"{PresetsPath}/sandbox_presets/{Uri.EscapeDataString(p.Name)}", p.ToJson(),
+            DaemonClient.Put($"{PresetsPath}/sandbox_presets/{Uri.EscapeDataString(p.Name)}", new Wire.PresetRequest { Sandbox = p.ToWire() },
                 PresetsSaved(ok, fail), fail);
         }
 
@@ -169,11 +167,11 @@ namespace SlopWorld
         public void SaveCommand(CommandInfo c, Action ok, Action<string> fail)
         {
             _presets.Invalidate();
-            DaemonClient.Put($"{PresetsPath}/app_presets/{Uri.EscapeDataString(c.Name)}", c.ToJson(),
+            DaemonClient.Put($"{PresetsPath}/app_presets/{Uri.EscapeDataString(c.Name)}", new Wire.PresetRequest { Command = c.ToWire() },
                 PresetsSaved(ok, fail), fail);
         }
 
-        Action<JVal> PresetsSaved(Action ok, Action<string> fail) => _ =>
+        Action<Wire.Ack> PresetsSaved(Action ok, Action<string> fail) => _ =>
         {
             // The write completed even if another catalog GET supersedes this reload;
             // do not make the caller's completion depend on which snapshot wins.
@@ -191,9 +189,9 @@ namespace SlopWorld
             // successful write starts a fresh refresh below, and only that refresh may replace
             // the catalog while this edit is settling.
             _projects.Invalidate();
-            Action<JVal> done = _ => { RefreshProjects(); _refreshSessions(); ok?.Invoke(); };
-            if (isNew) DaemonClient.Post(ProjectsPath, p.ToJson(), done, fail);
-            else DaemonClient.Put($"{ProjectsPath}/{HubWire.Esc(origName)}", p.ToJson(), done, fail);
+            Action<Wire.Ack> done = _ => { RefreshProjects(); _refreshSessions(); ok?.Invoke(); };
+            if (isNew) DaemonClient.Post(ProjectsPath, p.ToWire(), done, fail);
+            else DaemonClient.Put($"{ProjectsPath}/{HubWire.Esc(origName)}", p.ToWire(), done, fail);
         }
 
         // The daemon refuses this while agents still work there, and says which ones.
@@ -213,17 +211,17 @@ namespace SlopWorld
         public int Revision { get; private set; }
         public void Invalidate() => Revision++;
 
-        public void Apply(JVal value, Action<JVal> apply)
+        public void Apply<T>(T value, Action<T> apply)
         {
             Invalidate();
             apply(value);
         }
 
-        public void Refresh(string path, Action<JVal> apply, Action<string> fail,
-                            Action superseded = null)
+        public void Refresh<T>(string path, Action<T> apply, Action<string> fail,
+                            Action superseded = null) where T : Google.Protobuf.IMessage<T>, new()
         {
             int revision = ++Revision;
-            DaemonClient.Get(path,
+            DaemonClient.Get<T>(path,
                 value => { if (revision == Revision) apply(value); else superseded?.Invoke(); },
                 error => { if (revision == Revision) fail?.Invoke(error); else superseded?.Invoke(); });
         }

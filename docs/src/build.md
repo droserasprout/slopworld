@@ -5,6 +5,7 @@
 - **Rust** stable toolchain — builds the daemon and launcher.
 - **Mono** (`csc`) — compiles the mod. The .NET SDK is optional for builds, but required by
   `format-mod` and `lint-mod` for `dotnet format`.
+- **Protobuf compiler (`protoc`)** — Debian/Ubuntu: `protobuf-compiler`; Arch: `protobuf`; macOS: `brew install protobuf`. Required by Rust builds and `make api-contract`.
 - **GNU Make** — all targets go through the Makefile. On macOS, install GNU Make with `brew install make` and use `gmake`.
 - **PyYAML** — parses the compact shared wire contract used by `make api-contract`.
 
@@ -61,3 +62,7 @@ The game log is Unity's `Player.log` — Harmony and mod exceptions land there, 
 journalctl --user -u slopd -f               # daemon log
 slopctl logs --follow                        # combined game + daemon
 ```
+
+`make protobuf-deps` restores the locked Google.Protobuf runtime and its Mono dependencies.
+`make bench-ipc` compares the frozen JSON transport with Protobuf on Mono, .NET 8 and Rust;
+see [the benchmark suite](../../bench/ipc/README.md) for scope and recorded results.

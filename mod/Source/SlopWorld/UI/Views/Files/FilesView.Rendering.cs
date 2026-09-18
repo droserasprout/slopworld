@@ -152,17 +152,17 @@ namespace SlopWorld
                 new FloatMenuOption("Loading applications...", null),
             };
 
-            DaemonClient.Get(WireProtocol.Routes.OpenApps + "?path=" + System.Uri.EscapeDataString(path), j =>
+            DaemonClient.Get<Wire.AppsReply>(WireProtocol.Routes.OpenApps + "?path=" + System.Uri.EscapeDataString(path), j =>
             {
                 options.Clear();
-                foreach (var app in j["apps"].Items)
+                foreach (var app in j.Apps)
                 {
-                    string id = app["id"].AsString();
-                    string name = app["name"].AsString(id);
+                    string id = app.Id;
+                    string name = app.Name;
                     // `gio launch` accepts a desktop-file path, not the ID printed by
                     // `gio mime`. The daemon resolves that path in the same XDG search roots
                     // it used to discover the application.
-                    string desktopFile = app["desktop_file"].AsString();
+                    string desktopFile = app.DesktopFile;
                     if (string.IsNullOrEmpty(id) || string.IsNullOrEmpty(desktopFile)) continue;
                     string launchFile = desktopFile;
                     options.Add(new FloatMenuOption(name, () => OpenInApp(path, launchFile)));
@@ -210,11 +210,7 @@ namespace SlopWorld
 
         static void HostFileAction(string path, string command)
         {
-            DaemonClient.Post(WireProtocol.Routes.FileAction, "{" +
-                $"\"path\":{JVal.Q(path)}," +
-                $"\"command\":{JVal.Q(command)}," +
-                "\"host\":true" +
-                "}", null, UiLayout.Fail);
+            DaemonClient.Post<Wire.OutputResult>(WireProtocol.Routes.FileAction, new Wire.FileActionReq { Path = path, Command = command, Host = true }, null, UiLayout.Fail);
         }
 
         // File actions run on the host. The project still scopes selected paths and supplies
@@ -272,15 +268,10 @@ namespace SlopWorld
         static void ShowFileActionResult(string project, string path, string command, bool host,
             string actionName)
         {
-            DaemonClient.Post(WireProtocol.Routes.FileAction, "{" +
-                $"\"project\":{JVal.Q(project)}," +
-                $"\"path\":{JVal.Q(path)}," +
-                $"\"command\":{JVal.Q(command)}," +
-                $"\"host\":{JVal.B(host)}" +
-                "}", j =>
+            DaemonClient.Post<Wire.OutputResult>(WireProtocol.Routes.FileAction, new Wire.FileActionReq { Project = project, Path = path, Command = command, Host = host }, j =>
                 {
                     RefreshAfterFileAction();
-                    string output = j["output"].AsString("(no output)");
+                    string output = j.Output;
                     TerminalWindow.OpenOverPane(AlertDialog.Create(
                         "File action: " + actionName, output, "Close", null));
                 }, msg =>
@@ -294,12 +285,7 @@ namespace SlopWorld
 
         static void RunFileActionSilently(string project, string path, string command, bool host)
         {
-            DaemonClient.Post(WireProtocol.Routes.FileAction, "{" +
-                $"\"project\":{JVal.Q(project)}," +
-                $"\"path\":{JVal.Q(path)}," +
-                $"\"command\":{JVal.Q(command)}," +
-                $"\"host\":{JVal.B(host)}" +
-                "}", _ => RefreshAfterFileAction(), msg =>
+            DaemonClient.Post<Wire.OutputResult>(WireProtocol.Routes.FileAction, new Wire.FileActionReq { Project = project, Path = path, Command = command, Host = host }, _ => RefreshAfterFileAction(), msg =>
                 {
                     RefreshAfterFileAction();
                     UiLayout.Fail("File action: " + msg);
@@ -345,7 +331,7 @@ namespace SlopWorld
             "Rename " + node.Name, node.Name, name =>
             {
                 DaemonClient.Put(WireProtocol.Routes.Files,
-                    "{" + $"\"path\":{JVal.Q(node.Path)},\"name\":{JVal.Q(name)}" + "}",
+                    new Wire.FileReq { Path = node.Path, Name = name },
                     _ => Reload(), UiLayout.Fail);
             });
 
@@ -355,7 +341,7 @@ namespace SlopWorld
             TerminalWindow.OpenOverPane(ConfirmDialog.Create(
                 $"Remove {what} '{node.Name}'?",
                 () => DaemonClient.Delete(WireProtocol.Routes.Files,
-                    "{\"path\":" + JVal.Q(node.Path) + "}",
+                    new Wire.FileReq { Path = node.Path },
                     _ => Reload(), UiLayout.Fail),
                 destructive: true));
         }
@@ -366,8 +352,7 @@ namespace SlopWorld
             FileNameDialog.Open(kind == "folder" ? "New folder" : "New file", fallback, name =>
             {
                 DaemonClient.Post(WireProtocol.Routes.Files,
-                    "{" + $"\"path\":{JVal.Q(node.Path)},\"name\":{JVal.Q(name)}," +
-                    $"\"kind\":{JVal.Q(kind)}" + "}",
+                    new Wire.FileReq { Path = node.Path, Name = name, Kind = kind },
                     _ => Reload(), UiLayout.Fail);
             });
         }

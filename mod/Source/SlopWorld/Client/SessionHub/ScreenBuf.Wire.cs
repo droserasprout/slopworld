@@ -7,7 +7,7 @@ namespace SlopWorld
     {
         List<int> _changedRows;
         int[] _overlapPrefix = NoChangedRows;
-        public void FromJson(JVal s)
+        public void FromWire(Wire.ScreenView s)
         {
             string[] previousLines = Lines;
             int previousRows = Rows;
@@ -21,23 +21,23 @@ namespace SlopWorld
             bool previousRunsComplete = RunsComplete;
             bool previousHasLinks = HasLinks;
 
-            Seq = s["seq"].AsInt();
+            Seq = (int)s.Seq;
             Cols = Math.Max(TerminalLimits.ClientMinCols,
-                Math.Min(TerminalLimits.ClientMaxCols, s["cols"].AsInt(80)));
+                Math.Min(TerminalLimits.ClientMaxCols, (s.HasCols ? (int)s.Cols : 80)));
             Rows = Math.Max(TerminalLimits.ClientMinRows,
-                Math.Min(TerminalLimits.ClientMaxRows, s["rows"].AsInt(24)));
-            Cx = s["cx"].AsInt();
-            Cy = s["cy"].AsInt();
-            Off = s["off"].AsInt(0);
-            History = s["history"].AsInt(-1);
-            CursorShape = s["cursor_shape"].AsInt(0);
-            CursorBlink = s["cursor_blink"].AsBool(true);
-            AppMouse = s["app_mouse"].AsBool(false);
-            AppDrag = s["app_drag"].AsBool(false);
-            AltScreen = s["alt_screen"].AsBool(false);
-            Title = s["title"].AsString();
-            ScrollRequestId = (ulong)s["request_id"].AsLong(0);
-            var values = s["lines"];
+                Math.Min(TerminalLimits.ClientMaxRows, (s.HasRows ? (int)s.Rows : 24)));
+            Cx = (int)s.Cx;
+            Cy = (int)s.Cy;
+            Off = (int)s.Off;
+            History = s.HasHistory ? (int)Math.Min(int.MaxValue, s.History) : -1;
+            CursorShape = (int)s.CursorShape;
+            CursorBlink = !s.HasCursorBlink || s.CursorBlink;
+            AppMouse = s.AppMouse;
+            AppDrag = s.AppDrag;
+            AltScreen = s.AltScreen;
+            Title = s.Title;
+            ScrollRequestId = (ulong)(long)s.RequestId;
+            var values = s.Lines;
             int lineCount = Math.Min(values.Count, TerminalLimits.ClientMaxRows + 1);
             bool sameShape = previousLines != null && previousLines.Length == lineCount &&
                 previousCols == Cols && previousRows == Rows;
@@ -46,7 +46,7 @@ namespace SlopWorld
             changed.Clear();
             for (int i = 0; i < lineCount; i++)
             {
-                string line = values.StringAt(i);
+                string line = values[i];
                 if (sameShape && string.Equals(previousLines[i], line,
                                               System.StringComparison.Ordinal)) continue;
                 // Keep old strings/arrays intact for scroll detection and retained views.

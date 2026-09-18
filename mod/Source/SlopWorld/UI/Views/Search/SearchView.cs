@@ -207,7 +207,7 @@ namespace SlopWorld
                     "&word=" + (_word ? "1" : "0") +
                     "&gitignore=" + (_includeIgnored ? "0" : "1") +
                     "&hidden=" + (Settings.SidebarShowHidden ? "1" : "0");
-                DaemonClient.Get(url, j => OnResults(group, p, generation, j),
+                DaemonClient.Get<Wire.SearchResult>(url, j => OnResults(group, p, generation, j),
                     msg => OnError(group, generation, msg));
             }
         }
@@ -235,25 +235,25 @@ namespace SlopWorld
             return projects;
         }
 
-        static void OnResults(Group group, ProjectInfo project, int generation, JVal j)
+        static void OnResults(Group group, ProjectInfo project, int generation, Wire.SearchResult j)
         {
             if (!Operations.IsCurrent(generation)) return;
-            foreach (var row in j["matches"].Items)
+            foreach (var row in j.Matches)
                 group.Matches.Add(new Match
                 {
                     Project = project.Name,
                     Root = project.ExpandedDir,
-                    Path = row["path"].AsString(),
-                    Line = row["line"].AsInt(),
-                    Column = row["column"].AsInt(),
-                    Text = row["text"].AsString(),
+                    Path = row.Path,
+                    Line = (int)row.Line,
+                    Column = (int)row.Column,
+                    Text = row.Text,
                 });
             group.Matches.Sort((a, b) =>
             {
                 int path = string.CompareOrdinal(a.Path, b.Path);
                 return path != 0 ? path : a.Line.CompareTo(b.Line);
             });
-            group.Truncated = j["truncated"].AsBool();
+            group.Truncated = j.Truncated;
             DirtyLayout();
             Done(generation);
         }

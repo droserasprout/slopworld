@@ -1,11 +1,12 @@
 //! Preset catalog and persistence HTTP boundaries.
+use crate::api::protobuf::{domain, reply, Proto};
+use crate::shared::wire;
 
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
-use axum::Json;
+
 use serde_json::json;
 
-use super::super::types::*;
 use super::{err, ApiResult, Mgr};
 
 use crate::presets::PresetKind;
@@ -14,7 +15,7 @@ use crate::presets::PresetKind;
 /// somebody keeps in step by hand. Both tables are files, so this is also how the mod
 /// learns about one that was added while it was running. `source` is explicit because a
 /// merged table alone cannot tell a built-in from a user override.
-pub(crate) async fn presets(State(_m): State<Mgr>) -> ApiResult {
+pub(crate) async fn presets(State(_m): State<Mgr>) -> ApiResult<wire::PresetsReply> {
     let effective = crate::presets::table();
     let builtins = crate::presets::Table::builtins();
     let users = crate::presets::Table::users();
@@ -30,11 +31,11 @@ pub(crate) async fn presets(State(_m): State<Mgr>) -> ApiResult {
         .map(|c| command_json(c, &builtins, &users))
         .collect();
 
-    Ok(Json(json!({
+    reply(json!({
         "presets": sandbox,
         "commands": commands,
         "dir": crate::presets::Table::dir(),
-    })))
+    }))
 }
 
 pub(crate) fn sandbox_json(
@@ -77,7 +78,7 @@ pub(crate) fn command_json(
     })
 }
 
-pub(crate) fn parse_kind(kind: &str) -> Result<PresetKind, (StatusCode, Json<serde_json::Value>)> {
+pub(crate) fn parse_kind(kind: &str) -> Result<PresetKind, crate::api::protobuf::ApiError> {
     kind.parse()
         .map_err(|error: String| err(StatusCode::BAD_REQUEST, error))
 }
@@ -85,10 +86,10 @@ pub(crate) fn parse_kind(kind: &str) -> Result<PresetKind, (StatusCode, Json<ser
 pub(crate) async fn copy_preset(
     State(m): State<Mgr>,
     Path((kind, old_name)): Path<(String, String)>,
-    body: Option<Json<CopyPresetReq>>,
-) -> ApiResult {
+    body: Option<Proto<wire::CopyPresetReq>>,
+) -> ApiResult<wire::Ack> {
     let kind = parse_kind(&kind)?;
-    let target = body.map(|Json(body)| body.name).unwrap_or_default();
+    let target = body.and_then(|Proto(body)| body.name).unwrap_or_default();
     let name = if target.trim().is_empty() {
         old_name.clone()
     } else {
@@ -107,25 +108,33 @@ pub(crate) async fn copy_preset(
         err(status, error)
     })?;
     m.reload_presets_if_changed().await;
-    Ok(Json(json!({ "ok": true })))
+    reply(json!({ "ok": true }))
 }
 
 pub(crate) async fn update_preset(
     State(m): State<Mgr>,
     Path((kind, name)): Path<(String, String)>,
-    body: axum::body::Bytes,
-) -> ApiResult {
+    Proto(body): Proto<wire::PresetRequest>,
+) -> ApiResult<wire::Ack> {
     let kind = parse_kind(&kind)?;
     if name.trim().is_empty() {
         return Err(err(StatusCode::BAD_REQUEST, "preset name is empty"));
     }
-    let mut definition = match kind {
-        PresetKind::SandboxPresets => crate::presets::PresetDefinition::Sandbox(Box::new(
-            serde_json::from_slice(&body).map_err(|e| err(StatusCode::BAD_REQUEST, e))?,
-        )),
-        PresetKind::AppPresets => crate::presets::PresetDefinition::Command(Box::new(
-            serde_json::from_slice(&body).map_err(|e| err(StatusCode::BAD_REQUEST, e))?,
-        )),
+    let mut definition = match (kind, body.definition) {
+        (PresetKind::SandboxPresets, Some(wire::preset_request::Definition::Sandbox(mut p))) => {
+            p.source = None;
+            crate::presets::PresetDefinition::Sandbox(Box::new(domain(p)?))
+        }
+        (PresetKind::AppPresets, Some(wire::preset_request::Definition::Command(mut p))) => {
+            p.source = None;
+            crate::presets::PresetDefinition::Command(Box::new(domain(p)?))
+        }
+        _ => {
+            return Err(err(
+                StatusCode::BAD_REQUEST,
+                "preset kind does not match its definition",
+            ))
+        }
     };
     match &mut definition {
         crate::presets::PresetDefinition::Sandbox(preset) => preset.name = name,
@@ -136,13 +145,13 @@ pub(crate) async fn update_preset(
         .map_err(|error| err(StatusCode::INTERNAL_SERVER_ERROR, error))?
         .map_err(|error| err(StatusCode::BAD_REQUEST, error))?;
     m.reload_presets_if_changed().await;
-    Ok(Json(json!({ "ok": true })))
+    reply(json!({ "ok": true }))
 }
 
 pub(crate) async fn delete_preset(
     State(m): State<Mgr>,
     Path((kind, name)): Path<(String, String)>,
-) -> ApiResult {
+) -> ApiResult<wire::Ack> {
     let kind = parse_kind(&kind)?;
     let deleted = tokio::task::spawn_blocking(move || crate::presets::delete_user(kind, &name))
         .await
@@ -156,5 +165,5 @@ pub(crate) async fn delete_preset(
         err(status, error)
     })?;
     m.reload_presets_if_changed().await;
-    Ok(Json(json!({ "ok": true })))
+    reply(json!({ "ok": true }))
 }

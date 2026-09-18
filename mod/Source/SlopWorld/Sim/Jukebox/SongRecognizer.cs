@@ -223,9 +223,9 @@ namespace SlopWorld
 
             try
             {
-                JVal track = JVal.Parse(output.Substring(first, last - first + 1))["track"];
-                artist = track["subtitle"].AsString(null)?.Trim();
-                title = track["title"].AsString(null)?.Trim();
+                var track = Newtonsoft.Json.Linq.JObject.Parse(output.Substring(first, last - first + 1))["track"];
+                artist = ((string)track?["subtitle"])?.Trim();
+                title = ((string)track?["title"])?.Trim();
             }
             catch
             {

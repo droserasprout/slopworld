@@ -4,82 +4,82 @@
 Generated from `slopd/src/api/router.rs`. `scoped` routes are mounted in the
 grant-visible router; handler guards can impose a stricter access requirement.
 
-| Method | Path | Router scope | Handler |
-| --- | --- | --- | --- |
-| `GET` | `/api/audio` | `root-only` | `audio` |
-| `GET` | `/api/browse` | `root-only` | `browse` |
-| `GET` | `/api/capabilities` | `root-only` | `capabilities` |
-| `GET` | `/api/clipboard` | `root-only` | `clip_read` |
-| `POST` | `/api/clipboard` | `root-only` | `clip_write` |
-| `GET` | `/api/clipboard/primary` | `root-only` | `clip_read_primary` |
-| `POST` | `/api/clipboard/primary` | `root-only` | `clip_write_primary` |
-| `GET` | `/api/clipboard/primary/text` | `root-only` | `clip_read_primary_text` |
-| `GET` | `/api/clipboard/text` | `root-only` | `clip_read_text` |
-| `GET` | `/api/config` | `root-only` | `get_config` |
-| `PUT` | `/api/config` | `root-only` | `put_config` |
-| `PUT` | `/api/config/patch` | `root-only` | `put_config_patch` |
-| `POST` | `/api/file-action` | `root-only` | `file_action` |
-| `DELETE` | `/api/files` | `root-only` | `remove_file` |
-| `POST` | `/api/files` | `root-only` | `create_file` |
-| `PUT` | `/api/files` | `root-only` | `rename_file` |
-| `GET` | `/api/git` | `root-only` | `git_status` |
-| `GET` | `/api/grants` | `root-only` | `list_grants` |
-| `POST` | `/api/grants` | `root-only` | `mint_grant` |
-| `DELETE` | `/api/grants/:grantor` | `root-only` | `revoke_grants` |
-| `GET` | `/api/health` | `scoped` | `health` |
-| `POST` | `/api/highlight` | `root-only` | `highlight` |
-| `GET` | `/api/image` | `root-only` | `read_image` |
-| `GET` | `/api/jukebox` | `root-only` | `jukebox` |
-| `GET` | `/api/library` | `root-only` | `list_library` |
-| `POST` | `/api/library` | `root-only` | `create_library_item` |
-| `DELETE` | `/api/library/:name` | `root-only` | `destroy_library_item` |
-| `PUT` | `/api/library/:name` | `root-only` | `update_library_item` |
-| `POST` | `/api/library/:name/run` | `root-only` | `run_library_item` |
-| `GET` | `/api/open-apps` | `root-only` | `open_apps` |
-| `GET` | `/api/presets` | `root-only` | `presets` |
-| `DELETE` | `/api/presets/:kind/:name` | `root-only` | `delete_preset` |
-| `PUT` | `/api/presets/:kind/:name` | `root-only` | `update_preset` |
-| `POST` | `/api/presets/:kind/:name/copy` | `root-only` | `copy_preset` |
-| `GET` | `/api/projects` | `root-only` | `list_projects` |
-| `POST` | `/api/projects` | `root-only` | `create_project` |
-| `DELETE` | `/api/projects/:name` | `root-only` | `destroy_project` |
-| `GET` | `/api/projects/:name` | `root-only` | `one_project` |
-| `PUT` | `/api/projects/:name` | `root-only` | `update_project` |
-| `POST` | `/api/projects/preview` | `root-only` | `project_preview` |
-| `GET` | `/api/read` | `root-only` | `read_file` |
-| `POST` | `/api/run` | `root-only` | `run` |
-| `GET` | `/api/search` | `root-only` | `search` |
-| `GET` | `/api/sessions` | `scoped` | `list` |
-| `POST` | `/api/sessions` | `scoped` | `create` |
-| `DELETE` | `/api/sessions/:name` | `scoped` | `destroy` |
-| `GET` | `/api/sessions/:name` | `scoped` | `one` |
-| `PUT` | `/api/sessions/:name` | `root-only` | `update` |
-| `GET` | `/api/sessions/:name/cwd` | `scoped` | `cwd` |
-| `PUT` | `/api/sessions/:name/label` | `scoped` | `set_label` |
-| `POST` | `/api/sessions/:name/restart` | `scoped` | `restart` |
-| `GET` | `/api/sessions/:name/sandbox` | `scoped` | `sandbox` |
-| `POST` | `/api/sessions/:name/start` | `scoped` | `start` |
-| `POST` | `/api/sessions/:name/state/reset` | `scoped` | `reset_state` |
-| `POST` | `/api/sessions/:name/stop` | `scoped` | `stop` |
-| `POST` | `/api/settings/preview` | `root-only` | `settings_preview` |
-| `GET` | `/api/state` | `root-only` | `stored_states` |
-| `DELETE` | `/api/state/:kind/:key` | `root-only` | `delete_stored_state` |
-| `DELETE` | `/api/state/trash` | `root-only` | `empty_trash` |
-| `POST` | `/api/state/trash/:key/restore` | `root-only` | `restore_stored_state` |
-| `DELETE` | `/api/tasks` | `scoped` | `prune_tasks` |
-| `GET` | `/api/tasks` | `scoped` | `list_tasks` |
-| `POST` | `/api/tasks` | `scoped` | `create_task` |
-| `DELETE` | `/api/tasks/:id` | `scoped` | `remove_task` |
-| `GET` | `/api/tasks/:id` | `scoped` | `one_task` |
-| `POST` | `/api/tasks/:id` | `scoped` | `update_task` |
-| `POST` | `/api/tasks/cancel` | `scoped` | `cancel_tasks` |
-| `POST` | `/api/tasks/remove` | `scoped` | `remove_tasks` |
-| `GET` | `/api/templates` | `root-only` | `list_templates` |
-| `POST` | `/api/templates` | `root-only` | `save_template` |
-| `DELETE` | `/api/templates/:name` | `root-only` | `destroy_template` |
-| `PUT` | `/api/templates/:name` | `root-only` | `replace_template` |
-| `POST` | `/api/templates/:name/create` | `root-only` | `create_from_template` |
-| `GET` | `/api/templates/spawnable` | `scoped` | `list_spawnable_templates` |
-| `GET` | `/api/usage` | `root-only` | `usage` |
-| `POST` | `/api/workers` | `scoped` | `spawn_worker` |
-| `GET` | `/ws` | `scoped` | `ws_upgrade` |
+| Method | Path | Router scope | Handler | Request → response |
+| --- | --- | --- | --- | --- |
+| `GET` | `/api/audio` | `root-only` | `audio` | `Empty` → `AudioState` |
+| `GET` | `/api/browse` | `root-only` | `browse` | `Empty` → `BrowseResult` |
+| `GET` | `/api/capabilities` | `root-only` | `capabilities` | `Empty` → `Capabilities` |
+| `GET` | `/api/clipboard` | `root-only` | `clip_read` | `Empty` → `TextResult` |
+| `POST` | `/api/clipboard` | `root-only` | `clip_write` | `ClipReq` → `Ack` |
+| `GET` | `/api/clipboard/primary` | `root-only` | `clip_read_primary` | `Empty` → `TextResult` |
+| `POST` | `/api/clipboard/primary` | `root-only` | `clip_write_primary` | `ClipReq` → `Ack` |
+| `GET` | `/api/clipboard/primary/text` | `root-only` | `clip_read_primary_text` | `Empty` → `TextResult` |
+| `GET` | `/api/clipboard/text` | `root-only` | `clip_read_text` | `Empty` → `TextResult` |
+| `GET` | `/api/config` | `root-only` | `get_config` | `Empty` → `ConfigResult` |
+| `PUT` | `/api/config` | `root-only` | `put_config` | `ReplaceConfigRequest` → `Ack` |
+| `PUT` | `/api/config/patch` | `root-only` | `put_config_patch` | `ConfigPatch` → `Ack` |
+| `POST` | `/api/file-action` | `root-only` | `file_action` | `FileActionReq` → `OutputResult` |
+| `DELETE` | `/api/files` | `root-only` | `remove_file` | `FileReq` → `Ack` |
+| `POST` | `/api/files` | `root-only` | `create_file` | `FileReq` → `Ack` |
+| `PUT` | `/api/files` | `root-only` | `rename_file` | `FileReq` → `Ack` |
+| `GET` | `/api/git` | `root-only` | `git_status` | `Empty` → `GitResult` |
+| `GET` | `/api/grants` | `root-only` | `list_grants` | `Empty` → `GrantsReply` |
+| `POST` | `/api/grants` | `root-only` | `mint_grant` | `GrantReq` → `GrantResult` |
+| `DELETE` | `/api/grants/:grantor` | `root-only` | `revoke_grants` | `Empty` → `Ack` |
+| `GET` | `/api/health` | `scoped` | `health` | `Empty` → `Health` |
+| `POST` | `/api/highlight` | `root-only` | `highlight` | `HighlightReq` → `TextResult` |
+| `GET` | `/api/image` | `root-only` | `read_image` | `Empty` → `ImageResult` |
+| `GET` | `/api/jukebox` | `root-only` | `jukebox` | `Empty` → `JukeboxCatalog` |
+| `GET` | `/api/library` | `root-only` | `list_library` | `Empty` → `LibraryReply` |
+| `POST` | `/api/library` | `root-only` | `create_library_item` | `LibraryItem` → `Ack` |
+| `DELETE` | `/api/library/:name` | `root-only` | `destroy_library_item` | `Empty` → `Ack` |
+| `PUT` | `/api/library/:name` | `root-only` | `update_library_item` | `LibraryItem` → `Ack` |
+| `POST` | `/api/library/:name/run` | `root-only` | `run_library_item` | `RunWhere` → `SessionResult` |
+| `GET` | `/api/open-apps` | `root-only` | `open_apps` | `Empty` → `AppsReply` |
+| `GET` | `/api/presets` | `root-only` | `presets` | `Empty` → `PresetsReply` |
+| `DELETE` | `/api/presets/:kind/:name` | `root-only` | `delete_preset` | `Empty` → `Ack` |
+| `PUT` | `/api/presets/:kind/:name` | `root-only` | `update_preset` | `PresetRequest` → `Ack` |
+| `POST` | `/api/presets/:kind/:name/copy` | `root-only` | `copy_preset` | `CopyPresetReq` → `Ack` |
+| `GET` | `/api/projects` | `root-only` | `list_projects` | `Empty` → `ProjectsReply` |
+| `POST` | `/api/projects` | `root-only` | `create_project` | `Project` → `Ack` |
+| `DELETE` | `/api/projects/:name` | `root-only` | `destroy_project` | `Empty` → `Ack` |
+| `GET` | `/api/projects/:name` | `root-only` | `one_project` | `Empty` → `Project` |
+| `PUT` | `/api/projects/:name` | `root-only` | `update_project` | `Project` → `Ack` |
+| `POST` | `/api/projects/preview` | `root-only` | `project_preview` | `ProjectPreviewReq` → `ProjectPreviewResult` |
+| `GET` | `/api/read` | `root-only` | `read_file` | `Empty` → `TextResult` |
+| `POST` | `/api/run` | `root-only` | `run` | `RunReq` → `SessionResult` |
+| `GET` | `/api/search` | `root-only` | `search` | `Empty` → `SearchResult` |
+| `GET` | `/api/sessions` | `scoped` | `list` | `Empty` → `SessionsReply` |
+| `POST` | `/api/sessions` | `scoped` | `create` | `SessionConfig` → `Ack` |
+| `DELETE` | `/api/sessions/:name` | `scoped` | `destroy` | `Empty` → `Ack` |
+| `GET` | `/api/sessions/:name` | `scoped` | `one` | `Empty` → `SessionView` |
+| `PUT` | `/api/sessions/:name` | `root-only` | `update` | `SessionConfig` → `Ack` |
+| `GET` | `/api/sessions/:name/cwd` | `scoped` | `cwd` | `Empty` → `PathResult` |
+| `PUT` | `/api/sessions/:name/label` | `scoped` | `set_label` | `LabelReq` → `Ack` |
+| `POST` | `/api/sessions/:name/restart` | `scoped` | `restart` | `Empty` → `Ack` |
+| `GET` | `/api/sessions/:name/sandbox` | `scoped` | `sandbox` | `Empty` → `SandboxReport` |
+| `POST` | `/api/sessions/:name/start` | `scoped` | `start` | `Empty` → `Ack` |
+| `POST` | `/api/sessions/:name/state/reset` | `scoped` | `reset_state` | `Empty` → `Ack` |
+| `POST` | `/api/sessions/:name/stop` | `scoped` | `stop` | `Empty` → `Ack` |
+| `POST` | `/api/settings/preview` | `root-only` | `settings_preview` | `SettingsPreviewRequest` → `SettingsPreview` |
+| `GET` | `/api/state` | `root-only` | `stored_states` | `Empty` → `StoredStates` |
+| `DELETE` | `/api/state/:kind/:key` | `root-only` | `delete_stored_state` | `Empty` → `Ack` |
+| `DELETE` | `/api/state/trash` | `root-only` | `empty_trash` | `Empty` → `Ack` |
+| `POST` | `/api/state/trash/:key/restore` | `root-only` | `restore_stored_state` | `Empty` → `SessionResult` |
+| `DELETE` | `/api/tasks` | `scoped` | `prune_tasks` | `Empty` → `Removed` |
+| `GET` | `/api/tasks` | `scoped` | `list_tasks` | `Empty` → `TasksReply` |
+| `POST` | `/api/tasks` | `scoped` | `create_task` | `CreateTaskReq` → `TaskResult` |
+| `DELETE` | `/api/tasks/:id` | `scoped` | `remove_task` | `Empty` → `TaskResult` |
+| `GET` | `/api/tasks/:id` | `scoped` | `one_task` | `Empty` → `TaskResult` |
+| `POST` | `/api/tasks/:id` | `scoped` | `update_task` | `UpdateTaskReq` → `TaskResult` |
+| `POST` | `/api/tasks/cancel` | `scoped` | `cancel_tasks` | `RemoveTasksReq` → `TasksReply` |
+| `POST` | `/api/tasks/remove` | `scoped` | `remove_tasks` | `RemoveTasksReq` → `Removed` |
+| `GET` | `/api/templates` | `root-only` | `list_templates` | `Empty` → `TemplatesReply` |
+| `POST` | `/api/templates` | `root-only` | `save_template` | `SaveTemplateRequest` → `TemplateResult` |
+| `DELETE` | `/api/templates/:name` | `root-only` | `destroy_template` | `Empty` → `Ack` |
+| `PUT` | `/api/templates/:name` | `root-only` | `replace_template` | `AgentTemplate` → `TemplateResult` |
+| `POST` | `/api/templates/:name/create` | `root-only` | `create_from_template` | `CreateAgentTemplateReq` → `SessionResult` |
+| `GET` | `/api/templates/spawnable` | `scoped` | `list_spawnable_templates` | `Empty` → `TemplatesReply` |
+| `GET` | `/api/usage` | `root-only` | `usage` | `Empty` → `UsageSnapshot` |
+| `POST` | `/api/workers` | `scoped` | `spawn_worker` | `SpawnWorkerReq` → `WorkerResult` |
+| `GET` | `/ws` | `scoped` | `ws_upgrade` | `ClientMessage` → `Event` |

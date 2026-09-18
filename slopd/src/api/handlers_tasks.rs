@@ -1,9 +1,11 @@
 //! Task mailbox and worker-construction HTTP boundaries.
+use crate::api::protobuf::{domain, reply, Proto};
+use crate::shared::wire;
 
 use axum::extract::{Path, Query, State};
 use axum::http::{HeaderMap, StatusCode};
-use axum::{Extension, Json};
-use serde_json::{json, Value};
+use axum::Extension;
+use serde_json::json;
 
 use crate::grant::{Cap, Level};
 use crate::shared::protocol::SESSION_HEADER;
@@ -14,7 +16,7 @@ use super::{err, guard, ApiResult, Mgr};
 pub(crate) fn task_principal(
     cap: &Cap,
     headers: &HeaderMap,
-) -> Result<String, (StatusCode, Json<Value>)> {
+) -> Result<String, crate::api::protobuf::ApiError> {
     let who = cap
         .principal()
         .map(str::to_string)
@@ -55,8 +57,9 @@ pub(crate) async fn create_task(
     State(m): State<Mgr>,
     Extension(cap): Extension<Cap>,
     headers: HeaderMap,
-    Json(q): Json<CreateTaskReq>,
-) -> ApiResult {
+    Proto(q): Proto<wire::CreateTaskReq>,
+) -> ApiResult<wire::TaskResult> {
+    let q: CreateTaskReq = domain(q)?;
     let from = task_principal(&cap, &headers)?;
     if !task_endpoint_known(&m, &from).await {
         return Err(err(
@@ -78,7 +81,7 @@ pub(crate) async fn create_task(
         .create_task(from, q.to, q.body)
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
     m.spawn_task_summary_request(task.clone());
-    Ok(Json(json!({ "task": task })))
+    reply(json!({ "task": task }))
 }
 
 /// Atomically coordinates the mailbox task and child-session setup. The task is written before
@@ -89,10 +92,10 @@ pub(crate) async fn spawn_worker(
     State(m): State<Mgr>,
     Extension(cap): Extension<Cap>,
     headers: HeaderMap,
-    Json(value): Json<serde_json::Value>,
-) -> ApiResult {
+    Proto(value): Proto<wire::SpawnWorkerReq>,
+) -> ApiResult<wire::WorkerResult> {
     let q: SpawnWorkerReq =
-        super::super::parse_owned(value, &["project", "template", "body", "durable"])?;
+        super::super::parse_owned(domain(value)?, &["project", "template", "body", "durable"])?;
     let from = task_principal(&cap, &headers)?;
     if !task_endpoint_known(&m, &from).await {
         return Err(err(
@@ -104,7 +107,7 @@ pub(crate) async fn spawn_worker(
         .spawn_worker(from.clone(), q.project, q.template, q.body, q.durable)
         .await
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
-    Ok(Json(json!({
+    reply(json!({
         "task": worker.task,
         "worker": {
             "name": worker.session.clone(),
@@ -112,7 +115,7 @@ pub(crate) async fn spawn_worker(
             "parent": from,
             "durable": q.durable,
         }
-    })))
+    }))
 }
 
 pub(crate) async fn list_tasks(
@@ -120,7 +123,7 @@ pub(crate) async fn list_tasks(
     Extension(cap): Extension<Cap>,
     headers: HeaderMap,
     Query(q): Query<ListTasksQuery>,
-) -> ApiResult {
+) -> ApiResult<wire::TasksReply> {
     let who = task_principal(&cap, &headers)?;
     if q.all && !cap.may_create() {
         return Err(err(
@@ -133,7 +136,7 @@ pub(crate) async fn list_tasks(
     } else {
         m.tasks.tasks_for(&who)
     };
-    Ok(Json(json!({ "tasks": tasks })))
+    reply(json!({ "tasks": tasks }))
 }
 
 pub(crate) async fn one_task(
@@ -141,12 +144,12 @@ pub(crate) async fn one_task(
     Extension(cap): Extension<Cap>,
     headers: HeaderMap,
     Path(id): Path<String>,
-) -> ApiResult {
+) -> ApiResult<wire::TaskResult> {
     let who = task_principal(&cap, &headers)?;
     m.tasks
         .task_for(&who, &id)
-        .map(|task| Json(json!({ "task": task })))
-        .ok_or_else(|| err(StatusCode::NOT_FOUND, format!("no such task: {id}")))
+        .map(|task| reply(json!({ "task": task })))
+        .ok_or_else(|| err(StatusCode::NOT_FOUND, format!("no such task: {id}")))?
 }
 
 pub(crate) async fn update_task(
@@ -154,14 +157,15 @@ pub(crate) async fn update_task(
     Extension(cap): Extension<Cap>,
     headers: HeaderMap,
     Path(id): Path<String>,
-    Json(q): Json<UpdateTaskReq>,
-) -> ApiResult {
+    Proto(q): Proto<wire::UpdateTaskReq>,
+) -> ApiResult<wire::TaskResult> {
+    let q: UpdateTaskReq = domain(q)?;
     let who = task_principal(&cap, &headers)?;
     let task = m
         .tasks
         .update_task(&who, &id, q.status, q.note)
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
-    Ok(Json(json!({ "task": task })))
+    reply(json!({ "task": task }))
 }
 
 pub(crate) async fn prune_tasks(
@@ -169,7 +173,7 @@ pub(crate) async fn prune_tasks(
     Extension(cap): Extension<Cap>,
     headers: HeaderMap,
     Query(q): Query<PruneTasksQuery>,
-) -> ApiResult {
+) -> ApiResult<wire::Removed> {
     let who = task_principal(&cap, &headers)?;
     if q.all && !cap.may_create() {
         return Err(err(
@@ -181,21 +185,22 @@ pub(crate) async fn prune_tasks(
         .tasks
         .prune_tasks(&who, q.all)
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
-    Ok(Json(json!({ "removed": removed })))
+    reply(json!({ "removed": removed }))
 }
 
 pub(crate) async fn cancel_tasks(
     State(m): State<Mgr>,
     Extension(cap): Extension<Cap>,
     headers: HeaderMap,
-    Json(q): Json<RemoveTasksReq>,
-) -> ApiResult {
+    Proto(q): Proto<wire::RemoveTasksReq>,
+) -> ApiResult<wire::TasksReply> {
+    let q: RemoveTasksReq = domain(q)?;
     let who = task_principal(&cap, &headers)?;
     let tasks = m
         .tasks
         .cancel_tasks(&who, &q.ids, cap.may_create())
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
-    Ok(Json(json!({ "tasks": tasks })))
+    reply(json!({ "tasks": tasks }))
 }
 
 pub(crate) async fn remove_task(
@@ -203,27 +208,28 @@ pub(crate) async fn remove_task(
     Extension(cap): Extension<Cap>,
     headers: HeaderMap,
     Path(id): Path<String>,
-) -> ApiResult {
+) -> ApiResult<wire::TaskResult> {
     let who = task_principal(&cap, &headers)?;
     let task = m
         .tasks
         .remove_task(&who, &id, cap.may_create())
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
-    Ok(Json(json!({ "task": task })))
+    reply(json!({ "task": task }))
 }
 
 pub(crate) async fn remove_tasks(
     State(m): State<Mgr>,
     Extension(cap): Extension<Cap>,
     headers: HeaderMap,
-    Json(q): Json<RemoveTasksReq>,
-) -> ApiResult {
+    Proto(q): Proto<wire::RemoveTasksReq>,
+) -> ApiResult<wire::Removed> {
+    let q: RemoveTasksReq = domain(q)?;
     let who = task_principal(&cap, &headers)?;
     let removed = m
         .tasks
         .remove_tasks(&who, &q.ids, cap.may_create())
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
-    Ok(Json(json!({ "removed": removed })))
+    reply(json!({ "removed": removed }))
 }
 
 #[cfg(test)]
@@ -240,7 +246,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn old_parent_worker_requests_are_rejected_before_task_creation() {
+    async fn missing_template_worker_requests_are_rejected_before_task_creation() {
         let manager = crate::session::test_manager(crate::config::Config::default());
         let mut headers = HeaderMap::new();
         headers.insert(SESSION_HEADER, HeaderValue::from_static(crate::tasks::HOST));
@@ -248,21 +254,17 @@ mod tests {
             axum::extract::State(manager.clone()),
             Extension(Cap::Root),
             headers,
-            Json(serde_json::json!({
-                "parent": "old-agent",
-                "body": "legacy clone",
-                "durable": false
-            })),
+            Proto(wire::SpawnWorkerReq {
+                body: Some("missing template".into()),
+                ..Default::default()
+            }),
         )
         .await;
-        let Err((status, Json(body))) = result else {
-            panic!("legacy parent request unexpectedly succeeded");
+        let Err((status, Proto(body))) = result else {
+            panic!("missing template request unexpectedly succeeded");
         };
         assert_eq!(status, StatusCode::BAD_REQUEST);
-        assert!(body["error"]
-            .as_str()
-            .unwrap()
-            .contains("unknown request field"));
+        assert!(body.error.contains("template"));
         assert!(manager.tasks.all_tasks().is_empty());
     }
 }

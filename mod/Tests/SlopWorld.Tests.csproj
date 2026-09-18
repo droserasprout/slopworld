@@ -86,7 +86,7 @@
     <Compile Include="../Source/SlopWorld/UI/Terminal/TerminalRepaint.cs" Link="Source/UI/Terminal/TerminalRepaint.cs" />
     <Compile Include="../Source/SlopWorld/UI/Views/Shared/ResourceLimitsForm.cs" Link="Source/UI/Views/Shared/ResourceLimitsForm.cs" />
     <!-- Keep the tests independent of the game-bound mod assembly. -->
-    <Compile Include="../Source/SlopWorld/Client/Daemon/Json.cs" Link="Source/Client/Daemon/Json.cs" />
+    <Compile Include="../../bench/ipc/legacy/Json.cs" Link="Source/Client/Daemon/Json.cs" />
     <Compile Include="../Source/SlopWorld/Client/Daemon/Toml.cs" Link="Source/Client/Daemon/Toml.cs" />
     <Compile Include="../Source/SlopWorld/UI/Chrome/ThemeCatalog.cs" Link="Source/UI/Chrome/ThemeCatalog.cs" />
     <Compile Include="../Source/SlopWorld/Client/Daemon/DaemonConfig.cs" Link="Source/Client/Daemon/DaemonConfig.cs" />
@@ -103,10 +103,10 @@
     <Compile Include="../Source/SlopWorld/Client/SessionHub/DnsConfig.cs" Link="Source/Client/SessionHub/DnsConfig.cs" />
     <Compile Include="../Source/SlopWorld/Client/SessionHub/SessionLimits.cs" Link="Source/Client/SessionHub/SessionLimits.cs" />
     <Compile Include="../Source/SlopWorld/Client/SessionHub/SessionInfo.cs" Link="Source/Client/SessionHub/SessionInfo.cs" />
-    <Compile Include="../Source/SlopWorld/Client/SessionHub/SessionInfo.Json.cs" Link="Source/Client/SessionHub/SessionInfo.Json.cs" />
+    <Compile Include="../Source/SlopWorld/Client/SessionHub/SessionInfo.Wire.cs" Link="Source/Client/SessionHub/SessionInfo.Wire.cs" />
     <Compile Include="../Source/SlopWorld/Client/SessionHub/TaskInfo.cs" Link="Source/Client/SessionHub/TaskInfo.cs" />
     <Compile Include="../Source/SlopWorld/Client/SessionHub/ScreenBuf.cs" Link="Source/Client/SessionHub/ScreenBuf.cs" />
-    <Compile Include="../Source/SlopWorld/Client/SessionHub/ScreenBuf.Json.cs" Link="Source/Client/SessionHub/ScreenBuf.Json.cs" />
+    <Compile Include="../Source/SlopWorld/Client/SessionHub/ScreenBuf.Wire.cs" Link="Source/Client/SessionHub/ScreenBuf.Wire.cs" />
     <Compile Include="../Source/SlopWorld/Client/SessionHub/UsageWindow.cs" Link="Source/Client/SessionHub/UsageWindow.cs" />
     <Compile Include="../Source/SlopWorld/Client/SessionHub/UsageInfo.cs" Link="Source/Client/SessionHub/UsageInfo.cs" />
     <Compile Include="../Source/SlopWorld/Client/Generated/*.cs" Link="Source/Client/Generated/%(Filename)%(Extension)" />
@@ -135,5 +135,9 @@
     <Reference Include="System.Buffers"><HintPath>../Assemblies/System.Buffers.dll</HintPath><Private>true</Private></Reference>
     <Reference Include="System.Numerics.Vectors"><HintPath>../Assemblies/System.Numerics.Vectors.dll</HintPath><Private>true</Private></Reference>
     <Reference Include="System.Runtime.CompilerServices.Unsafe"><HintPath>../Assemblies/System.Runtime.CompilerServices.Unsafe.dll</HintPath><Private>true</Private></Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="../Source/SlopWorld/Client/Transport/ReceivedEvent.cs" Link="Source/Client/Transport/ReceivedEvent.cs" />
+    <Compile Include="../Source/SlopWorld/Client/Daemon/ProtoFields.cs" Link="Source/Client/Daemon/ProtoFields.cs" />
   </ItemGroup>
 </Project>

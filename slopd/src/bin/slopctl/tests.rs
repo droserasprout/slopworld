@@ -13,6 +13,8 @@ use crate::logs::{
     clean_log_line, expand_home, parse_logs_args, source_command, write_log_line, LogSelection,
     LogSource, LogsOptions, DEFAULT_LOG_LINES, LOGS_USAGE,
 };
+use crate::shared::{http_wire, wire};
+use prost::Message;
 use serde_json::{json, Value};
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::TcpListener;
@@ -47,14 +49,36 @@ fn serve(status: &str, body: &str) -> (Endpoint, thread::JoinHandle<String>) {
         }
         let mut request_body = vec![0; content_length];
         reader.read_exact(&mut request_body).unwrap();
-        request.push_str(&String::from_utf8_lossy(&request_body));
-
-        write!(
-            socket,
-            "HTTP/1.1 {status}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
-            body.len()
-        )
-        .unwrap();
+        let parts: Vec<_> = request.lines().next().unwrap().split_whitespace().collect();
+        let method = parts[0].to_owned();
+        let path = parts[1].to_owned();
+        if !request_body.is_empty() {
+            assert!(request
+                .to_ascii_lowercase()
+                .contains("content-type: application/x-protobuf"));
+            let value = http_wire::decode_request(&method, &path, &request_body).unwrap();
+            request.push_str(&value.to_string());
+        }
+        let encoded = match serde_json::from_str::<Value>(&body) {
+            Ok(value) if status.starts_with("200") => {
+                http_wire::encode_response(&method, &path, value).unwrap()
+            }
+            Ok(value) => wire::Error {
+                error: value["error"].as_str().unwrap().into(),
+            }
+            .encode_to_vec(),
+            Err(_) if !status.starts_with("200") => wire::Error {
+                error: if body.is_empty() {
+                    format!("refused: {status}")
+                } else {
+                    format!("{status}: {body}")
+                },
+            }
+            .encode_to_vec(),
+            Err(_) => vec![0x80],
+        };
+        write!(socket, "HTTP/1.1 {status}\r\nContent-Type: application/x-protobuf\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", encoded.len()).unwrap();
+        socket.write_all(&encoded).unwrap();
         request
     });
     (
@@ -691,15 +715,31 @@ fn request_sends_headers_and_supports_each_used_method() {
     for (method, body) in [
         ("GET", None),
         ("DELETE", None),
-        ("POST", Some(json!({ "task": "check" }))),
+        ("POST", Some(json!({ "to": "host", "body": "check" }))),
     ] {
-        let (endpoint, server) = serve("200 OK", r#"{"ok":true}"#);
-        assert_eq!(
-            request(&endpoint, "caller", method, "/api/test", body).unwrap(),
-            json!({ "ok": true })
+        let path = if method == "GET" {
+            "/api/health"
+        } else if method == "POST" {
+            "/api/tasks"
+        } else {
+            "/api/sessions/test"
+        };
+        let (endpoint, server) = serve(
+            "200 OK",
+            if method == "POST" {
+                r#"{"task":{"id":"check"}}"#
+            } else {
+                r#"{"ok":true}"#
+            },
         );
+        let value = request(&endpoint, "caller", method, path, body).unwrap();
+        if method == "POST" {
+            assert_eq!(value["task"]["id"], "check");
+        } else {
+            assert_eq!(value["ok"], true);
+        }
         let received = server.join().unwrap();
-        assert!(received.starts_with(&format!("{method} /api/test HTTP/1.1\r\n")));
+        assert!(received.starts_with(&format!("{method} {path} HTTP/1.1\r\n")));
         let lower = received.to_ascii_lowercase();
         assert!(lower.contains("x-slop-token: secret\r\n"));
         assert!(lower.contains("x-slop-session: caller\r\n"));
@@ -707,7 +747,7 @@ fn request_sends_headers_and_supports_each_used_method() {
             let (_, body) = received.split_once("\r\n\r\n").unwrap();
             assert_eq!(
                 serde_json::from_str::<Value>(body).unwrap(),
-                json!({ "task": "check" })
+                json!({ "to": "host", "body": "check" })
             );
         }
     }
@@ -731,18 +771,18 @@ fn request_sends_headers_and_supports_each_used_method() {
 fn request_preserves_structured_and_plain_refusal_details() {
     let (endpoint, server) = serve("400 Bad Request", r#"{"error":"bad task"}"#);
     assert_eq!(
-        request(&endpoint, "caller", "GET", "/api/test", None).unwrap_err(),
+        request(&endpoint, "caller", "GET", "/api/health", None).unwrap_err(),
         "bad task"
     );
     server.join().unwrap();
 
     let (endpoint, server) = serve("401 Unauthorized", "");
-    let error = request(&endpoint, "caller", "GET", "/api/test", None).unwrap_err();
+    let error = request(&endpoint, "caller", "GET", "/api/health", None).unwrap_err();
     assert!(error.contains("refused: 401"), "{error}");
     server.join().unwrap();
 
     let (endpoint, server) = serve("502 Bad Gateway", "upstream broke");
-    let error = request(&endpoint, "caller", "GET", "/api/test", None).unwrap_err();
+    let error = request(&endpoint, "caller", "GET", "/api/health", None).unwrap_err();
     assert!(
         error.contains("502") && error.contains("upstream broke"),
         "{error}"
@@ -750,10 +790,7 @@ fn request_preserves_structured_and_plain_refusal_details() {
     server.join().unwrap();
 
     let (endpoint, server) = serve("200 OK", "not json");
-    let error = request(&endpoint, "caller", "GET", "/api/test", None).unwrap_err();
-    assert!(
-        error.contains("response 200") && error.contains("expected"),
-        "{error}"
-    );
+    let error = request(&endpoint, "caller", "GET", "/api/health", None).unwrap_err();
+    assert!(error.contains("response 200"), "{error}");
     server.join().unwrap();
 }

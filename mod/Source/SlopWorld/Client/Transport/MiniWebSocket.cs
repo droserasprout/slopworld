@@ -28,11 +28,11 @@ namespace SlopWorld
 
         sealed class Entry
         {
-            public readonly string Text;
+            public readonly ReceivedEvent Text;
             public readonly string LiveName;
             public readonly int Bytes;
 
-            public Entry(string text, string liveName, int bytes)
+            public Entry(ReceivedEvent text, string liveName, int bytes)
             {
                 Text = text;
                 LiveName = liveName;
@@ -57,16 +57,17 @@ namespace SlopWorld
             get { lock (_gate) return _bytes; }
         }
 
-        public IncomingEnqueueResult Enqueue(string text)
+        public IncomingEnqueueResult Enqueue(byte[] payload)
         {
-            if (text == null) return IncomingEnqueueResult.Oversized;
+            if (payload == null) return IncomingEnqueueResult.Oversized;
 
-            int bytes = Encoding.UTF8.GetByteCount(text);
+            int bytes = payload.Length;
             if (bytes > MaxMessageBytes) return IncomingEnqueueResult.Oversized;
 
             // Classification happens before the queue lock so a blocked producer never holds
             // the lock while parsing. An ambiguous or malformed message is never coalesced.
-            HubWire.TryLiveScreenName(text, out var liveName);
+            var text = new ReceivedEvent(payload);
+            var liveName = text.LiveName;
             lock (_gate)
             {
                 while (!_closed)
@@ -93,12 +94,12 @@ namespace SlopWorld
             return IncomingEnqueueResult.Closed;
         }
 
-        public bool TryDequeue(out string text)
+        public bool TryDequeue(out ReceivedEvent text)
         {
             return TryDequeue(out text, out _);
         }
 
-        internal bool TryDequeue(out string text, out string liveName)
+        internal bool TryDequeue(out ReceivedEvent text, out string liveName)
         {
             lock (_gate)
             {
@@ -143,7 +144,7 @@ namespace SlopWorld
         }
     }
 
-    // Text frames, ping/pong, close. ClientWebSocket is not dependable on Unity's
+    // Binary Protobuf frames, ping/pong, close. ClientWebSocket is not dependable on Unity's
     // mono and less so under Wine, so we speak the protocol over a plain TcpClient.
     // Reads happen on a background thread; callers drain Incoming.
     internal interface IHubSocket : IDisposable
@@ -152,13 +153,13 @@ namespace SlopWorld
         string LastError { get; }
         IncomingMessageQueue Incoming { get; }
         bool Connect(string host, int port, string path, string token, int timeoutMs = 3000);
-        void SendText(string text);
+        void SendBinary(byte[] text);
     }
 
     public partial class MiniWebSocket : IDisposable, IHubSocket
     {
         internal readonly IncomingMessageQueue Incoming = new IncomingMessageQueue();
-        readonly ConcurrentQueue<string> _outgoing = new ConcurrentQueue<string>();
+        readonly ConcurrentQueue<byte[]> _outgoing = new ConcurrentQueue<byte[]>();
 
         // A frame is one screen's worth of SGR text, and the daemon clamps a pane to 500x200,
         // so the widest thing it can send is orders of magnitude under this.
@@ -216,6 +217,7 @@ namespace SlopWorld
                 req.Append("Connection: Upgrade\r\n");
                 req.Append($"Sec-WebSocket-Key: {key}\r\n");
                 req.Append("Sec-WebSocket-Version: 13\r\n");
+                req.Append("Sec-WebSocket-Protocol: slopworld.protobuf.v2\r\n");
                 if (!string.IsNullOrEmpty(token))
                     req.Append($"{WireProtocol.TokenHeader}: {token}\r\n");
                 req.Append("\r\n");
@@ -291,13 +293,15 @@ namespace SlopWorld
             string upgrade = null;
             string connection = null;
             string accept = null;
+            string protocol = null;
             for (int i = 1; i < lines.Length; i++)
             {
                 int colon = lines[i].IndexOf(':');
                 if (colon <= 0) continue;
                 string name = lines[i].Substring(0, colon).Trim();
                 string value = lines[i].Substring(colon + 1).Trim();
-                if (name.Equals("Upgrade", StringComparison.OrdinalIgnoreCase)) upgrade = value;
+                if (name.Equals("Sec-WebSocket-Protocol", StringComparison.OrdinalIgnoreCase)) protocol = value;
+                else if (name.Equals("Upgrade", StringComparison.OrdinalIgnoreCase)) upgrade = value;
                 else if (name.Equals("Connection", StringComparison.OrdinalIgnoreCase)) connection = value;
                 else if (name.Equals("Sec-WebSocket-Accept", StringComparison.OrdinalIgnoreCase)) accept = value;
             }
@@ -311,12 +315,12 @@ namespace SlopWorld
             string expected;
             using (var sha1 = SHA1.Create())
                 expected = Convert.ToBase64String(sha1.ComputeHash(challenge));
-            return string.Equals(accept, expected, StringComparison.Ordinal);
+            return protocol == "slopworld.protobuf.v2" && string.Equals(accept, expected, StringComparison.Ordinal);
         }
 
-        public void SendText(string text)
+        public void SendBinary(byte[] text)
         {
-            if (!Connected || string.IsNullOrEmpty(text)) return;
+            if (!Connected || (text == null || text.Length == 0)) return;
             _outgoing.Enqueue(text);
             _sendSignal.Set();
         }
@@ -334,11 +338,11 @@ namespace SlopWorld
                     }
 
                     if (_closing) break;
-                    var payload = Encoding.UTF8.GetBytes(text);
+                    var payload = text;
                     lock (_sendLock)
                     {
                         if (_net == null) break;
-                        WriteFrame(0x1, payload);
+                        WriteFrame(0x2, payload);
                     }
                 }
             }
@@ -415,21 +419,21 @@ namespace SlopWorld
                             frag.Write(payload, 0, payload.Length);
                             if (frame.Fin)
                             {
-                                if (fragOpcode == 0x1)
-                                    EnqueueIncoming(Encoding.UTF8.GetString(frag.ToArray()));
+                                if (fragOpcode == 0x2)
+                                    EnqueueIncoming(frag.ToArray());
                                 frag.SetLength(0);
                                 fragOpcode = 0;
                             }
                             break;
 
-                        case 0x1: // text
+                        case 0x2: // binary
                             if (frame.Fin)
                             {
-                                EnqueueIncoming(Encoding.UTF8.GetString(payload));
+                                EnqueueIncoming(payload);
                             }
                             else
                             {
-                                fragOpcode = 0x1;
+                                fragOpcode = 0x2;
                                 frag.SetLength(0);
                                 frag.Write(payload, 0, payload.Length);
                             }
@@ -457,7 +461,7 @@ namespace SlopWorld
             }
         }
 
-        void EnqueueIncoming(string text)
+        void EnqueueIncoming(byte[] text)
         {
             switch (Incoming.Enqueue(text))
             {

@@ -1,3 +1,5 @@
+mod protobuf;
+use prost::Message;
 use std::collections::HashMap;
 use std::path::{Component, Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -132,6 +134,7 @@ pub enum Event {
     },
 }
 
+#[cfg(test)]
 crate::wire_event_serialize!(Event, {
     Capabilities { capabilities },
     Sessions { sessions },
@@ -147,7 +150,7 @@ crate::wire_event_serialize!(Event, {
 /// its cached wire representation because scoped session lists may need a filtered envelope.
 pub(crate) struct EventMessage {
     event: Event,
-    encoded: OnceLock<Arc<str>>,
+    encoded: OnceLock<Result<Arc<[u8]>, String>>,
 }
 
 impl EventMessage {
@@ -162,11 +165,14 @@ impl EventMessage {
         &self.event
     }
 
-    pub(crate) fn encoded(&self) -> Arc<str> {
+    pub(crate) fn encoded(&self) -> Result<Arc<[u8]>, String> {
         self.encoded
             .get_or_init(|| {
                 let _perf = crate::perf::timer("websocket-serialize");
-                Arc::from(serde_json::to_string(&self.event).unwrap_or_default())
+                self.event
+                    .to_protobuf()
+                    .map(|e| Arc::from(e.encode_to_vec()))
+                    .map_err(|e| e.to_string())
             })
             .clone()
     }
@@ -348,15 +354,20 @@ mod tests {
     use crate::config::{Config, LibraryItemCfg, LibraryItemKind, ProjectCfg, SessionCfg};
 
     #[test]
-    fn event_message_reuses_its_encoded_json() {
+    fn event_message_reuses_its_encoded_protobuf() {
         let event = EventMessage::new(Event::Usage {
             usage: Default::default(),
         });
-        let first = event.encoded();
-        let second = event.encoded();
+        let first = event.encoded().unwrap();
+        let second = event.encoded().unwrap();
 
         assert!(Arc::ptr_eq(&first, &second));
-        assert!(first.starts_with("{\"t\":\"usage\""));
+        assert!(matches!(
+            <crate::shared::wire::Event as prost::Message>::decode(first.as_ref())
+                .unwrap()
+                .payload,
+            Some(crate::shared::wire::event::Payload::Usage(_))
+        ));
     }
 
     #[test]

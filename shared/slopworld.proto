@@ -155,14 +155,14 @@ message SessionView {
 message ScreenView {
   string name = 1;
   uint64 seq = 2;
-  uint32 cols = 3;
-  uint32 rows = 4;
+  optional uint32 cols = 3;
+  optional uint32 rows = 4;
   uint32 cx = 5;
   uint32 cy = 6;
   uint32 off = 7;
-  uint32 history = 8;
+  optional uint32 history = 8;
   uint32 cursor_shape = 9;
-  bool cursor_blink = 10;
+  optional bool cursor_blink = 10;
   bool app_mouse = 11;
   bool app_drag = 12;
   bool alt_screen = 13;
@@ -591,6 +591,7 @@ message GrantsReply {
 }
 
 message PresetsReply {
+  string dir = 3;
   repeated SandboxPreset presets = 1;
   repeated CommandPreset commands = 2;
 }
@@ -687,7 +688,7 @@ message ConfigResult {
 }
 
 message ConfigPatch {
-  Config values = 1;
+  EditableConfig values = 1;
   repeated string paths = 2;
 }
 
@@ -806,3 +807,5 @@ message Event {
 
 message PresetRequest { oneof definition { SandboxPreset sandbox = 1; CommandPreset command = 2; } }
 message ProjectPreviewResult { string name = 1; bool temp = 2; string dir = 3; }
+
+message EditableConfig { Daemon daemon = 1; Defaults defaults = 2; CommandDefaults commands = 3; }

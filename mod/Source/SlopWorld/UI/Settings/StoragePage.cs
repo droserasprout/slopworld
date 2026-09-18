@@ -21,14 +21,14 @@ namespace SlopWorld
             public long Bytes;
             public long Modified;
 
-            public static Entry FromJson(JVal j) => new Entry
+            public static Entry FromWire(Wire.StoredState j) => new Entry
             {
-                Kind = j["kind"].AsString(),
-                Key = j["key"].AsString(),
-                Session = j["session"].IsNull ? null : j["session"].AsString(),
-                Path = j["path"].AsString(),
-                Bytes = j["bytes"].AsLong(),
-                Modified = j["modified"].AsLong(),
+                Kind = j.Kind,
+                Key = j.Key,
+                Session = !j.HasSession ? null : j.Session,
+                Path = j.Path,
+                Bytes = (long)j.Bytes,
+                Modified = (long)j.Modified,
             };
         }
 
@@ -44,8 +44,8 @@ namespace SlopWorld
 
         public void Load()
         {
-            _load.Load((ok, fail) => DaemonClient.Get(WireProtocol.Routes.State, j => ok(
-                j["entries"].Items.Select(Entry.FromJson)
+            _load.Load((ok, fail) => DaemonClient.Get<Wire.StoredStates>(WireProtocol.Routes.State, j => ok(
+                j.Entries.Select(Entry.FromWire)
                     .OrderBy(e => KindRank(e.Kind))
                     .ThenByDescending(e => e.Modified)
                     .ThenBy(e => e.Session ?? e.Key, StringComparer.OrdinalIgnoreCase)
@@ -187,10 +187,10 @@ namespace SlopWorld
 
         public static void FocusAgent(string name)
         {
-            DaemonClient.Get(WireProtocol.Routes.State, j =>
+            DaemonClient.Get<Wire.StoredStates>(WireProtocol.Routes.State, j =>
             {
-                var entry = j["entries"].Items
-                    .Select(Entry.FromJson)
+                var entry = j.Entries
+                    .Select(Entry.FromWire)
                     .FirstOrDefault(e => e.Kind == "active" && e.Session == name);
                 if (entry == null)
                 {

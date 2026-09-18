@@ -1,4 +1,5 @@
 using System;
+using Google.Protobuf;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading;
@@ -7,154 +8,54 @@ namespace SlopWorld.Tests
 {
     static class IdleWorkTests
     {
+        static byte[] Screen(string name, ulong seq, uint off = 0, ulong request = 0) =>
+            new Wire.Event { Screen = new Wire.ScreenView { Name = name, Seq = seq, Off = off, RequestId = request } }.ToByteArray();
+        static byte[] Control(ulong seq) => new Wire.Event { Sessions = new Wire.SessionsReply {
+            Sessions = { new Wire.SessionView { Seq = seq } } } }.ToByteArray();
+        static ulong Identity(Wire.Event value) => value.Screen?.Seq ?? value.Sessions.Sessions[0].Seq;
         public static void Messages()
         {
-            AssertEx.True(HubWire.TryLiveScreenName(
-                "{\"screen\":{\"request_id\":0,\"name\":\"agent\\u002d1\",\"off\":0," +
-                "\"nested\":{\"ok\":true}},\"t\":\"screen\"}", out var escapedName),
-                "structural envelope accepts property order and escapes");
-            AssertEx.Equal("agent-1", escapedName, "escaped live name");
-            AssertEx.False(HubWire.TryLiveScreenName(
-                "{\"t\":\"screen\",\"screen\":{\"name\":\"agent\",\"off\":0," +
-                "\"request_id\":0,}}", out _),
-                "malformed envelope reaches full parser");
-            AssertEx.False(HubWire.TryLiveScreenName(
-                "{\"t\":\"screen\",\"screen\":{\"name\":\"agent\",\"off\":0," +
-                "\"off\":1,\"request_id\":0}}", out _),
-                "ambiguous envelope reaches full parser");
-
-            const string invalid = "{\"t\":\"screen\",\"screen\":{\"name\":\"a\",\"lines\":[\"bad\\q\"]}}";
-            AssertEx.False(HubWire.TryLiveScreenName(invalid, out _),
-                           "malformed skipped strings cannot coalesce");
-            AssertEx.True(HubWire.TryLiveScreenName(
-                "{ \"t\" : \"screen\", \"screen\" : { \"name\" : \"a\", " +
-                "\"off\" : 0, \"nested\" : { \"a\" : 1, \"b\" : [null, false] } } }", out _),
-                "whitespace and skipped nested values use the same grammar");
-
-            AssertEx.False(HubWire.TryLiveScreenName(
-                "{\"t\":\"screen\",\"screen\":{\"name\":\"a\",\"extra\":" +
-                new string('[', 128) + "0" + new string(']', 128) + "}}", out _),
-                "manual envelope fields count toward the shared depth limit");
-
-            var batch = new HubEventBatch();
-            var queue = new ConcurrentQueue<string>();
-            int errors = 0;
-            Action<Exception> onError = _ => errors++;
-            AssertEx.Equal(0, batch.Read(queue, onError), "empty queue");
-            queue.Enqueue(Screen("a", 1));
-            queue.Enqueue("{\"t\":\"status\",\"id\":2}");
-            queue.Enqueue(Screen("a", 3, 2));
-            queue.Enqueue(Screen("b", 4));
-            queue.Enqueue(Screen("a", 5, 0, 99));
-            queue.Enqueue(Screen("a", 6));
-            queue.Enqueue("{\"t\":\"future-event\",\"id\":7}");
-            AssertEx.Equal(7, batch.Read(queue, onError), "all events consume budget");
-            AssertEx.Equal(0, errors, "valid messages accepted");
-            var delivered = new List<int>();
-            for (int i = 0; i < batch.Count; i++)
-                if (batch.ShouldDispatch(i)) delivered.Add(batch[i]["id"].AsInt());
-            AssertEx.Equal("2,3,4,5,6,7", string.Join(",", delivered),
-                "retain history, request replies, other panes and control order");
-            batch.Clear();
-            AssertEx.Equal(0, batch.Count, "release payloads");
-            for (int i = 0; i < 35; i++) queue.Enqueue(Screen("a", i));
-            AssertEx.Equal(32, batch.Read(queue, onError), "bounded batch");
+            var queue = new IncomingMessageQueue();
+            queue.Enqueue(Screen("a", 1)); queue.Enqueue(Control(2)); queue.Enqueue(Screen("a", 3, 2));
+            queue.Enqueue(Screen("b", 4)); queue.Enqueue(Screen("a", 5, 0, 99)); queue.Enqueue(Screen("a", 6));
+            queue.Enqueue(Control(7));
+            var batch = new HubEventBatch(); int errors = 0;
+            AssertEx.Equal(6, batch.Read(queue, _ => errors++), "live coalescing preserves controls and replies");
+            var delivered = new List<ulong>();
+            for (int i = 0; i < batch.Count; i++) if (batch.ShouldDispatch(i)) delivered.Add(Identity(batch[i]));
+            AssertEx.Equal("2,3,4,5,6,7", string.Join(",", delivered), "history/control arrival order");
+            AssertEx.Equal(0, errors, "valid binary messages");
+            batch.Clear(); AssertEx.Equal(0, batch.Count, "release payload references");
+            for (ulong i = 0; i < 35; i++) queue.Enqueue(Control(i));
+            AssertEx.Equal(32, batch.Read(queue, _ => errors++), "frame budget");
             AssertEx.Equal(3, queue.Count, "backlog retained");
-            AssertEx.Equal(true, batch.ShouldDispatch(31), "newest in first batch");
-            AssertEx.Equal(3, batch.Read(queue, onError), "next frame drains remainder");
-            AssertEx.Equal(true, batch.ShouldDispatch(2), "coalescing indices reset");
-            AssertEx.Equal(0, batch.Read(queue, onError), "return to idle");
-            AssertEx.Equal(0, batch.Count, "no stale payload on idle frame");
-
-            var malformedThenLive = new ConcurrentQueue<string>();
-            malformedThenLive.Enqueue(
-                "{\"t\":\"screen\",\"id\":8,\"screen\":{\"name\":\"a\",\"off\":0," +
-                "\"request_id\":0},}");
-            malformedThenLive.Enqueue(Screen("a", 9));
-            AssertEx.Equal(2, batch.Read(malformedThenLive, onError),
-                           "ambiguous and valid messages consume the batch");
-            var safeDelivery = new List<int>();
-            for (int i = 0; i < batch.Count; i++)
-                if (batch.ShouldDispatch(i) && batch[i] != null)
-                    safeDelivery.Add(batch[i]["id"].AsInt());
-            AssertEx.Equal("9", string.Join(",", safeDelivery),
-                           "ambiguous older frame cannot suppress a valid newer frame");
-
-            // A malformed newer frame must not replace a valid one at either queue layer.
-            var malformedQueue = new IncomingMessageQueue();
-            malformedQueue.Enqueue(Screen("a", 10));
-            malformedQueue.Enqueue(invalid);
-            AssertEx.Equal(2, malformedQueue.Count, "malformed frame retains the valid queued screen");
-            errors = 0;
-            batch.Read(malformedQueue, onError);
-            AssertEx.Equal(1, errors, "malformed frame reaches main-thread error handling");
-            AssertEx.True(batch.ShouldDispatch(0), "valid earlier screen is still delivered");
-            AssertEx.Equal(10, batch[0]["id"].AsInt(), "retained valid screen");
-            AssertEx.False(batch.ShouldDispatch(1), "malformed frame is not dispatched");
-
-            // Duplicate keys are ambiguous to the envelope reader; full parsing resolves them
-            // before coalescing, in either arrival order, including a final history response.
-            string ambiguous = "{\"t\":\"screen\",\"id\":11,\"screen\":{\"name\":\"a\",\"off\":2,\"off\":0}}";
-            foreach (bool ambiguousLast in new[] { false, true })
-            {
-                queue.Enqueue(ambiguousLast ? Screen("a", 12) : ambiguous);
-                queue.Enqueue("{\"t\":\"status\",\"id\":13}");
-                queue.Enqueue(ambiguousLast ? ambiguous : Screen("a", 12));
-                queue.Enqueue(ambiguous.Replace("\"off\":2,\"off\":0", "\"off\":0,\"off\":2"));
-                batch.Read(queue, onError);
-                AssertEx.False(batch.ShouldDispatch(0), "older live screen is superseded");
-                AssertEx.True(batch.ShouldDispatch(1), "interleaved control survives");
-                AssertEx.True(batch.ShouldDispatch(2), "newer live screen wins");
-                AssertEx.Equal(ambiguousLast ? 11 : 12, batch[2]["id"].AsInt(), "arrival order wins");
-                AssertEx.True(batch.ShouldDispatch(3), "ambiguous history response survives");
-            }
-
-            var bounded = new IncomingMessageQueue();
-            AssertEx.Equal(IncomingEnqueueResult.Accepted,
-                bounded.Enqueue(Screen("a", 1)), "first live screen accepted");
-            AssertEx.Equal(IncomingEnqueueResult.Accepted,
-                bounded.Enqueue("{\"t\":\"reply\",\"id\":2}"), "reply accepted");
-            AssertEx.Equal(IncomingEnqueueResult.Accepted,
-                bounded.Enqueue(Screen("a", 3)), "new live screen accepted");
-            AssertEx.Equal(2, bounded.Count, "same-session live screen coalesced before parsing");
-
-            var boundedBatch = new HubEventBatch();
-            AssertEx.Equal(2, boundedBatch.Read(bounded, onError), "bounded queue drained");
-            var boundedDelivered = new List<int>();
-            for (int i = 0; i < boundedBatch.Count; i++)
-                if (boundedBatch.ShouldDispatch(i)) boundedDelivered.Add(boundedBatch[i]["id"].AsInt());
-            AssertEx.Equal("2,3", string.Join(",", boundedDelivered),
-                "reply order survives live-screen replacement");
-
-            AssertEx.Equal(IncomingEnqueueResult.Oversized,
-                bounded.Enqueue(new string('x', IncomingMessageQueue.MaxMessageBytes + 1)),
-                "oversized individual message rejected");
-
+            AssertEx.Equal(3, batch.Read(queue, _ => errors++), "next frame");
+            AssertEx.Equal(0, batch.Read(queue, _ => errors++), "idle");
+            queue.Enqueue(Screen("a", 10)); queue.Enqueue(new byte[] { 0x80 });
+            AssertEx.Equal(2, queue.Count, "malformed message cannot replace valid live screen");
+            batch.Read(queue, _ => errors++);
+            AssertEx.Equal(1, errors, "malformed binary reaches error callback");
+            AssertEx.Equal(10UL, batch[0].Screen.Seq, "valid screen survives");
+            AssertEx.False(batch.ShouldDispatch(1), "malformed payload never dispatched");
+            AssertEx.Equal(IncomingEnqueueResult.Oversized, queue.Enqueue(new byte[IncomingMessageQueue.MaxMessageBytes + 1]), "size bound");
+            var unknown = Screen("future", 11);
+            var extended = new byte[unknown.Length + 3]; Array.Copy(unknown, extended, unknown.Length);
+            extended[unknown.Length] = 0xa0; extended[unknown.Length + 1] = 0x06; extended[unknown.Length + 2] = 1;
+            var parsed = new ReceivedEvent(extended);
+            AssertEx.Equal("future", parsed.LiveName, "unknown protobuf field remains forward compatible");
+            AssertEx.True(new ReceivedEvent(new byte[0]).Error != null, "missing oneof payload rejected");
             var overloaded = new IncomingMessageQueue();
-            for (int i = 0; i < IncomingMessageQueue.MaxMessages; i++)
-                AssertEx.Equal(IncomingEnqueueResult.Accepted,
-                    overloaded.Enqueue("{\"t\":\"status\",\"id\":" + i + "}"),
-                    "lossless queue fill");
-            IncomingEnqueueResult blockedResult = IncomingEnqueueResult.Accepted;
+            for (int i = 0; i < IncomingMessageQueue.MaxMessages; i++) overloaded.Enqueue(Control((ulong)i));
+            IncomingEnqueueResult blocked = IncomingEnqueueResult.Accepted;
             using (var started = new ManualResetEvent(false))
             {
-                var producer = new Thread(() =>
-                {
-                    started.Set();
-                    blockedResult = overloaded.Enqueue("{\"t\":\"reply\",\"id\":999}");
-                });
-                producer.Start();
-                AssertEx.True(started.WaitOne(1000), "overload producer started");
-                overloaded.Close();
-                AssertEx.True(producer.Join(1000), "disconnect releases blocked producer");
+                var producer = new Thread(() => { started.Set(); blocked = overloaded.Enqueue(Control(999)); });
+                producer.Start(); AssertEx.True(started.WaitOne(1000), "producer started");
+                overloaded.Close(); AssertEx.True(producer.Join(1000), "close releases blocked reader");
             }
-            AssertEx.Equal(IncomingEnqueueResult.Closed, blockedResult,
-                "blocked producer observes disconnect");
+            AssertEx.Equal(IncomingEnqueueResult.Closed, blocked, "backpressure wakes on disconnect");
+            AssertEx.Equal(0, overloaded.Count, "close drops queue references");
         }
-
-        static string Screen(string name, int id, int off = 0, int request = 0) =>
-            "{\"t\":\"screen\",\"id\":" + id + ",\"screen\":{\"name\":\"" + name +
-            "\",\"off\":" + off + ",\"request_id\":" + request + "}}";
 
         public static void Scheduling()
         {

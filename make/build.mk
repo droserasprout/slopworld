@@ -94,6 +94,7 @@ api-contract: shared/protocol.yaml shared/slopworld.proto tools/wire_contract.py
 	@mkdir -p mod/Source/SlopWorld/Client/Generated
 	@protoc -I shared --csharp_out=mod/Source/SlopWorld/Client/Generated shared/slopworld.proto
 	@$(PYTHON) tools/wire_contract.py
+	@$(PYTHON) tools/protobuf_http.py
 
 api-docs: api-contract ## Generate the mdBook API route inventory
 	@$(PYTHON) tools/api_docs.py
@@ -112,4 +113,17 @@ clean:             ## Drop build output
 
 .PHONY: protobuf-deps
 protobuf-deps: ## Restore Protobuf runtime for Unity Mono
-	@$(DOTNET) build mod/Dependencies/Protobuf.csproj --configuration Release --verbosity quiet
+	@$(DOTNET) build mod/Dependencies/Protobuf.csproj --configuration Release --verbosity quiet -p:RestoreLockedMode=true
+
+.PHONY: bench-ipc
+bench-ipc: protobuf-deps api-contract ## Compare legacy JSON and production Protobuf without the game
+	@$(DOTNET) build bench/ipc/csharp/IpcBench.csproj --configuration Release --verbosity quiet -p:RestoreLockedMode=true
+	@mkdir -p bench/ipc/results
+	@mono bench/ipc/csharp/bin/Release/net472/IpcBench.exe bench/ipc/fixtures > bench/ipc/results/mono.csv
+	@DOTNET_TieredCompilation=0 $(DOTNET) bench/ipc/csharp/bin/Release/net8.0/IpcBench.dll > bench/ipc/results/net8.csv
+	@cd bench/ipc/rust && $(CARGO) run --quiet --release -- ../fixtures > ../results/rust.csv
+	@mono bench/ipc/csharp/bin/Release/net472/IpcBench.exe --verify bench/ipc/fixtures
+
+.PHONY: bench-ipc-report
+bench-ipc-report: ## Repeat the IPC suite three times and summarize medians
+	@$(PYTHON) bench/ipc/report.py

@@ -282,8 +282,8 @@ namespace SlopWorld
             }
 
             string path = primary ? WireProtocol.Routes.ClipboardPrimaryText : WireProtocol.Routes.ClipboardText;
-            DaemonClient.Get(path,
-                j => QueuePaste(name, controlId, j["text"].AsString(), area, owner),
+            DaemonClient.Get<Wire.TextResult>(path,
+                j => QueuePaste(name, controlId, j.Text, area, owner),
                 _ =>
                 {
                     if (!primary)

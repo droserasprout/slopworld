@@ -105,19 +105,22 @@ namespace SlopWorld
         // so the editor does not silently present a compiled daemon path.
         public static string TempRoot => SessionHub.Instance.Config?.TemporaryRoot ?? "";
 
-        public static ProjectInfo FromJson(JVal j) => new ProjectInfo
+        public static ProjectInfo FromWire(Wire.Project j) => new ProjectInfo
         {
-            Name = j["name"].AsString(),
-            Dir = j["dir"].AsString(),
-            _expandedDir = j["expanded_dir"].IsNull ? null : j["expanded_dir"].AsString(),
-            Temp = j["temp"].AsBool(false),
-            Mounts = j["mounts"].IsNull ? new List<MountEntry>() : MountEntry.ListFromJson(j["mounts"]),
+            Name = j.Name,
+            Dir = j.Dir,
+            _expandedDir = !j.HasExpandedDir ? null : j.ExpandedDir,
+            Temp = j.Temp,
+            Mounts = MountEntry.ListFromWire(j.Mounts),
         };
 
-        public string ToJson() =>
-            "{" +
-            $"\"name\":{JVal.Q(Name)},\"dir\":{JVal.Q(Dir)},\"temp\":{JVal.B(Temp)}," +
-            $"\"mounts\":{MountEntry.ListToJson(Mounts)}}}";
+        public Wire.Project ToWire() => new Wire.Project
+        {
+            Name = Name,
+            Dir = Dir,
+            Temp = Temp,
+            Mounts = { Mounts.Select(m => m.ToWire()) },
+        };
 
         public ProjectInfo Copy() => new ProjectInfo
         {

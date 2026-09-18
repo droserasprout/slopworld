@@ -107,7 +107,9 @@ async fn main() -> Result<()> {
     // Watches the jukebox rather than driving it: what to play is the mod's to say.
     let audio = audio::spawn(m.clone());
 
-    let app = api::router(m.clone()).layer(middleware::from_fn_with_state(m.clone(), auth));
+    let app = api::router(m.clone())
+        .layer(middleware::from_fn_with_state(m.clone(), auth))
+        .layer(middleware::from_fn(api::protobuf::normalize_errors));
 
     let listener = tokio::net::TcpListener::bind(&bind).await?;
     tracing::info!("listening on http://{bind}");
@@ -170,9 +172,11 @@ mod tests {
     use super::*;
     use crate::config::{Daemon, ProjectCfg, SessionCfg};
     use crate::grant::Level;
+    use crate::shared::{http_wire, wire};
     use axum::body::Body;
     use axum::http::Request;
     use futures::{SinkExt, StreamExt};
+    use prost::Message;
     use std::collections::BTreeSet;
     use tokio_tungstenite::tungstenite::client::IntoClientRequest;
     use tower::ServiceExt;
@@ -198,7 +202,9 @@ mod tests {
     }
 
     fn app(manager: Arc<Manager>) -> axum::Router {
-        api::router(manager.clone()).layer(middleware::from_fn_with_state(manager, auth))
+        api::router(manager.clone())
+            .layer(middleware::from_fn_with_state(manager, auth))
+            .layer(middleware::from_fn(api::protobuf::normalize_errors))
     }
 
     async fn get(app: &axum::Router, path: &str, token: Option<&str>) -> StatusCode {
@@ -225,13 +231,20 @@ mod tests {
             let stream = futures::stream::once(async move {
                 entered.send(()).unwrap();
                 resume.await.unwrap();
-                Ok::<_, std::io::Error>(r#"{"to":"target","body":"queued upload"}"#)
+                Ok::<_, std::io::Error>(
+                    http_wire::encode_request(
+                        "POST",
+                        "/api/tasks",
+                        serde_json::json!({"to":"target","body":"queued upload"}),
+                    )
+                    .unwrap(),
+                )
             });
             let request = Request::builder()
                 .method("POST")
                 .uri(shared::protocol::routes::TASKS)
                 .header(shared::protocol::TOKEN_HEADER, &token)
-                .header("content-type", "application/json")
+                .header("content-type", http_wire::CONTENT_TYPE)
                 .body(Body::from_stream(stream))
                 .unwrap();
             let upload = tokio::spawn(app.clone().oneshot(request));
@@ -274,11 +287,16 @@ mod tests {
         let app = app(manager.clone());
         for (body, expected) in [
             (
-                "x".repeat(2 * 1024 * 1024 + 1),
+                vec![0u8; 2 * 1024 * 1024 + 1],
                 StatusCode::PAYLOAD_TOO_LARGE,
             ),
             (
-                r#"{"to":"target","body":"valid upload"}"#.to_string(),
+                http_wire::encode_request(
+                    "POST",
+                    "/api/tasks",
+                    serde_json::json!({"to":"target","body":"valid upload"}),
+                )
+                .unwrap(),
                 StatusCode::OK,
             ),
         ] {
@@ -286,7 +304,7 @@ mod tests {
                 .method("POST")
                 .uri(shared::protocol::routes::TASKS)
                 .header(shared::protocol::TOKEN_HEADER, &token)
-                .header("content-type", "application/json")
+                .header("content-type", http_wire::CONTENT_TYPE)
                 .body(Body::from(body))
                 .unwrap();
             assert_eq!(
@@ -382,7 +400,9 @@ mod tests {
         let body = axum::body::to_bytes(response.into_body(), 1024 * 1024)
             .await
             .unwrap();
-        let value: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        let value: serde_json::Value =
+            http_wire::decode_response("GET", shared::protocol::routes::SPAWNABLE_TEMPLATES, &body)
+                .unwrap();
         assert_eq!(value["project"], "repo");
         assert_eq!(value["templates"][0]["name"], "review");
     }
@@ -409,6 +429,10 @@ mod tests {
         request
             .headers_mut()
             .insert(shared::protocol::TOKEN_HEADER, scoped.parse().unwrap());
+        request.headers_mut().insert(
+            "sec-websocket-protocol",
+            "slopworld.protobuf.v2".parse().unwrap(),
+        );
         let (mut socket, _) = tokio_tungstenite::connect_async(request).await.unwrap();
 
         let initial = tokio::time::timeout(std::time::Duration::from_secs(1), socket.next())
@@ -417,18 +441,30 @@ mod tests {
             .expect("websocket closed before its initial snapshot")
             .expect("websocket initial snapshot failed");
         assert!(
-            matches!(initial, tokio_tungstenite::tungstenite::Message::Text(text) if text.contains("target"))
+            matches!(initial, tokio_tungstenite::tungstenite::Message::Binary(text) if wire::Event::decode(text.as_slice()).unwrap().payload.is_some_and(|p| match p { wire::event::Payload::Sessions(s) => s.sessions.iter().any(|s| s.name == "target"), wire::event::Payload::Screen(s) => s.name == "target", _ => false }))
         );
 
         socket
-            .send(tokio_tungstenite::tungstenite::Message::Text(
-                r#"{"t":"sub","name":"target"}"#.into(),
+            .send(tokio_tungstenite::tungstenite::Message::Binary(
+                wire::ClientMessage {
+                    payload: Some(wire::client_message::Payload::Sub(wire::NameReq {
+                        name: Some("target".into()),
+                    })),
+                }
+                .encode_to_vec(),
             ))
             .await
             .unwrap();
         socket
-            .send(tokio_tungstenite::tungstenite::Message::Text(
-                r#"{"t":"keys","name":"target","keys":["Enter"]}"#.into(),
+            .send(tokio_tungstenite::tungstenite::Message::Binary(
+                wire::ClientMessage {
+                    payload: Some(wire::client_message::Payload::Keys(wire::KeysReq {
+                        name: Some("target".into()),
+                        keys: vec!["Enter".into()],
+                        ..Default::default()
+                    })),
+                }
+                .encode_to_vec(),
             ))
             .await
             .unwrap();
@@ -453,14 +489,26 @@ mod tests {
             Err(_) | Ok(tokio_tungstenite::tungstenite::Message::Close(_))
         ));
         assert!(socket
-            .send(tokio_tungstenite::tungstenite::Message::Text(
-                r#"{"t":"sub","name":"target"}"#.into(),
+            .send(tokio_tungstenite::tungstenite::Message::Binary(
+                wire::ClientMessage {
+                    payload: Some(wire::client_message::Payload::Sub(wire::NameReq {
+                        name: Some("target".into())
+                    }))
+                }
+                .encode_to_vec()
             ))
             .await
             .is_err());
         assert!(socket
-            .send(tokio_tungstenite::tungstenite::Message::Text(
-                r#"{"t":"keys","name":"target","keys":["Enter"]}"#.into(),
+            .send(tokio_tungstenite::tungstenite::Message::Binary(
+                wire::ClientMessage {
+                    payload: Some(wire::client_message::Payload::Keys(wire::KeysReq {
+                        name: Some("target".into()),
+                        keys: vec!["Enter".into()],
+                        ..Default::default()
+                    }))
+                }
+                .encode_to_vec()
             ))
             .await
             .is_err());
@@ -516,14 +564,23 @@ mod tests {
                     request
                         .headers_mut()
                         .insert(shared::protocol::TOKEN_HEADER, token.parse().unwrap());
+                    request.headers_mut().insert(
+                        "sec-websocket-protocol",
+                        "slopworld.protobuf.v2".parse().unwrap(),
+                    );
                     let (mut socket, _) = tokio_tungstenite::connect_async(request).await.unwrap();
                     let initial = socket.next().await.unwrap().unwrap();
                     assert!(
-                        matches!(initial, tokio_tungstenite::tungstenite::Message::Text(text) if text.contains("target"))
+                        matches!(initial, tokio_tungstenite::tungstenite::Message::Binary(text) if wire::Event::decode(text.as_slice()).unwrap().payload.is_some_and(|p| match p { wire::event::Payload::Sessions(s) => s.sessions.iter().any(|s| s.name == "target"), wire::event::Payload::Screen(s) => s.name == "target", _ => false }))
                     );
                     socket
-                        .send(tokio_tungstenite::tungstenite::Message::Text(
-                            r#"{"t":"sub","name":"target"}"#.into(),
+                        .send(tokio_tungstenite::tungstenite::Message::Binary(
+                            wire::ClientMessage {
+                                payload: Some(wire::client_message::Payload::Sub(wire::NameReq {
+                                    name: Some("target".into()),
+                                })),
+                            }
+                            .encode_to_vec(),
                         ))
                         .await
                         .unwrap();
@@ -562,9 +619,18 @@ mod tests {
                                 | Some(Ok(tokio_tungstenite::tungstenite::Message::Close(_))) => {
                                     break
                                 }
-                                Some(Ok(tokio_tungstenite::tungstenite::Message::Text(text))) => {
+                                Some(Ok(tokio_tungstenite::tungstenite::Message::Binary(text))) => {
                                     assert!(
-                                        !text.contains("target"),
+                                        !wire::Event::decode(text.as_slice())
+                                            .unwrap()
+                                            .payload
+                                            .is_some_and(|p| match p {
+                                                wire::event::Payload::Sessions(s) =>
+                                                    s.sessions.iter().any(|s| s.name == "target"),
+                                                wire::event::Payload::Screen(s) =>
+                                                    s.name == "target",
+                                                _ => false,
+                                            }),
                                         "socket received a replacement session"
                                     );
                                 }

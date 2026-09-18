@@ -44,26 +44,26 @@ namespace SlopWorld.Tests
 
         static void RoundTripsDnsModes()
         {
-            var resolved = DnsConfig.FromJson(JVal.Parse("{\"mode\":\"resolved\"}"));
+            var resolved = DnsConfig.FromWire(ProtobufFixtures.Read<Wire.DnsConfig>(JVal.Parse("{\"mode\":\"resolved\",\"servers\":[]}")));
             AssertEx.True(resolved.IsResolved, "resolved mode");
             AssertEx.Equal("System resolver", resolved.Label,
                            "resolved label");
-            AssertEx.Equal("{\"mode\":\"resolved\"}", resolved.ToJson(),
+            AssertEx.Equal("{\"mode\":\"resolved\",\"servers\":[]}", resolved.ToJson(),
                            "resolved JSON");
 
-            var custom = DnsConfig.FromJson(JVal.Parse(
-                "{\"mode\":\"servers\",\"servers\":[\"8.8.8.8\",\"1.1.1.1\"]}"));
+            var custom = DnsConfig.FromWire(ProtobufFixtures.Read<Wire.DnsConfig>(JVal.Parse(
+                "{\"mode\":\"servers\",\"servers\":[\"8.8.8.8\",\"1.1.1.1\"]}")));
             AssertEx.False(custom.IsResolved, "custom mode");
             AssertEx.Sequence(new[] { "8.8.8.8", "1.1.1.1" }, custom.Servers,
                               "custom servers");
             AssertEx.Equal("Custom DNS: 8.8.8.8, 1.1.1.1", custom.Label, "custom label");
-            AssertEx.Equal(custom.ToJson(), DnsConfig.FromJson(JVal.Parse(custom.ToJson())).ToJson(),
+            AssertEx.Equal(custom.ToJson(), DnsConfig.FromWire(ProtobufFixtures.Read<Wire.DnsConfig>(JVal.Parse(custom.ToJson()))).ToJson(),
                            "custom JSON round trip");
 
             var copy = custom.Copy();
             copy.Servers[0] = "9.9.9.9";
             AssertEx.Equal("8.8.8.8", custom.Servers[0], "DNS copy owns its list");
-            AssertEx.True(DnsConfig.FromJson(JVal.Parse("{\"mode\":\"unknown\"}"))
+            AssertEx.True(DnsConfig.FromWire(ProtobufFixtures.Read<Wire.DnsConfig>(JVal.Parse("{\"mode\":\"unknown\"}")))
                               .IsResolved, "unknown mode fallback");
 
             var empty = DnsConfig.Custom();

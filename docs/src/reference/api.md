@@ -5,6 +5,13 @@ The daemon listens on `127.0.0.1:7717` (or the configured bind address). The mod
 
 ## HTTP
 
+Protocol version 2 uses binary Protobuf with `Content-Type: application/x-protobuf` for
+request and response bodies, including errors (`Error`). Routes without a request message
+send no body; existing URL query parameters remain text. The schema is
+[`shared/slopworld.proto`](../../../shared/slopworld.proto); the route inventory lists each
+request and response type. Object examples below illustrate field values, not JSON payloads.
+Upgrade daemon, mod and CLI together; JSON clients are incompatible.
+
 Write operations use HTTP so the caller can inspect daemon error bodies. The complete
 method, path, access, and handler inventory is generated in the
 [API route inventory](api-routes.md) from the daemon router.
@@ -13,7 +20,7 @@ Session and task routes support appropriately scoped grants. Creating a session 
 its configuration (`PUT /api/sessions/:name`) require root authority. Scoped `rw` grants retain
 input, label, and permitted lifecycle operations. Removing or renaming a session invalidates its
 target memberships and owned grants, and closes affected WebSockets; name reuse needs a new grant.
-`POST /api/workers` creates a task-owned child from the JSON fields project, template, body, and
+`POST /api/workers` creates a task-owned child from the Protobuf fields project, template, body, and
 durable. The selected template must be enabled in the daemon worker policy; scoped
 callers are limited to their own project. The response contains the new task and worker identity.
 It uses the template's captured settings, fresh private identity, and the caller only for
@@ -80,7 +87,7 @@ and atomically replaces it; the path may name the old definition when the editor
 it. `DELETE /api/templates/:name?version=N` requires the expected version. Stale edit/delete
 requests return `409 Conflict`, missing edit/delete targets return `404`, and duplicate
 destinations are rejected. The daemon never retries a conflict automatically.
-Template defaults are sparse: omitted/null network and DNS use the documented agent defaults
+Template defaults are sparse: omitted network and DNS use the documented agent defaults
 (`private` and the system resolver), each unset limit means no cap, and omitted startup flags
 use session defaults. An omitted command uses the daemon default. Explicit existing values
 keep their meaning. Template-created sessions retain captured command and sandbox definitions
@@ -112,16 +119,22 @@ neither choice cannot run until configured.
 
 ### Configuration patching
 
-The patch route deep-merges nested JSON, validates the result, and preserves omitted
-fields. Project responses include `expanded_dir`, resolved using the daemon home and environment;
-`dir` retains the editable configuration value. Project JSON carries its directory, temporary
+The patch route accepts `ConfigPatch`: editable `values` plus repeated leaf `paths`.
+Only listed paths are merged and validated; omitted paths preserve existing fields. Explicit
+paths permit false, zero and empty lists. Map keys escape tilde as `~0` and dot as `~1`.
+Root, secret, unknown and overlapping paths are rejected. Project responses include `expanded_dir`, resolved using the daemon home and environment;
+`dir` retains the editable configuration value. Project messages carries its directory, temporary
 flag, and shared `mounts`, for example
 `[{"from":"/work/shared","to":"/mnt/shared","mode":"ro"}]`. Mounts store literal paths,
-not project references. Both TOML and API writes use `from` and `to`. Session JSON
-carries direct agent network, DNS, limits, and startup settings. DNS is tagged JSON:
+not project references. Both TOML and API writes use `from` and `to`. Session messages
+carries direct agent network, DNS, limits, and startup settings. DNS has an explicit mode and server list, shown schematically as:
 `{"mode":"resolved"}` or `{"mode":"servers","servers":["IPv4", ...]}`.
 
 ## WebSocket
+
+The handshake requires subprotocol `slopworld.protobuf.v2`. Each binary message is one
+`Event` (server) or `ClientMessage` (client), with an explicit payload oneof. Text frames are
+not accepted. Existing fragmentation, ping/pong and bounded queue rules apply.
 
 ### Server events
 
@@ -130,7 +143,7 @@ carries direct agent network, DNS, limits, and startup settings. DNS is tagged J
 | `capabilities` | Runtime integration flags and terminal limits (`scrollback_lines`, dimension bounds). Sent on connect. |
 | `sessions` | Session state, title, and bell. |
 | `screen` | Terminal content. Scrolled replies include `off`, `request_id`, and `history` (total scrollback rows). |
-| `usage` | Quota updates, including daemon-owned `catalog` metadata and resolved `rows`. A row may have `window: null` while its provider is enabled but has not supplied usable data. |
+| `usage` | Quota updates, including daemon-owned `catalog` metadata and resolved `rows`. A row may have an absent `window` while its provider is enabled but has not supplied usable data. |
 | `projects` | Project catalog. |
 | `library` | Library catalog. |
 | `jukebox` | Jukebox state. |
@@ -148,7 +161,7 @@ Catalogs arrive on connect and are resent when changed.
 | `scroll` | Scroll the terminal. |
 | `mouse` | Send mouse events. |
 | `paste` | Paste text. |
-| `audio` | Audio control. Always includes `volume`; `selection` is a station key, local file, or `null` to stop. |
+| `audio` | Audio control. Always includes `volume`; the selection oneof carries a station key/local file, or `stop: true`. An absent oneof changes volume only. |
 
 ### Audio state
 

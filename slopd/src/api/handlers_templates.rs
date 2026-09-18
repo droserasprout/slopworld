@@ -1,8 +1,10 @@
 //! Personal agent-template catalog, snapshot, and instantiation boundaries.
+use crate::api::protobuf::{domain, reply, Proto};
+use crate::shared::wire;
 
 use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
-use axum::{Extension, Json};
+use axum::Extension;
 use serde_json::json;
 
 use crate::grant::Cap;
@@ -12,7 +14,7 @@ use super::super::types::{
 };
 use super::{err, ApiResult, Mgr};
 
-fn template_error(error: anyhow::Error) -> (StatusCode, Json<serde_json::Value>) {
+fn template_error(error: anyhow::Error) -> crate::api::protobuf::ApiError {
     let status = match error.downcast_ref::<crate::session::AgentTemplateError>() {
         Some(crate::session::AgentTemplateError::Missing(_)) => StatusCode::NOT_FOUND,
         Some(crate::session::AgentTemplateError::Conflict { .. }) => StatusCode::CONFLICT,
@@ -26,16 +28,16 @@ pub(crate) async fn list_templates(
     State(m): State<Mgr>,
     Extension(_cap): Extension<Cap>,
     Query(query): Query<SpawnableTemplatesQuery>,
-) -> ApiResult {
+) -> ApiResult<wire::TemplatesReply> {
     let templates = m.agent_templates().await;
     if query.project.trim().is_empty() {
-        return Ok(Json(json!({ "templates": templates })));
+        return reply(json!({ "templates": templates }));
     }
     let project = m
         .worker_project(crate::tasks::HOST, &query.project)
         .await
         .map_err(|error| err(StatusCode::BAD_REQUEST, error))?;
-    Ok(Json(json!({ "templates": templates, "project": project })))
+    reply(json!({ "templates": templates, "project": project }))
 }
 
 /// Scoped discovery exposes only definitions explicitly enabled by the root worker policy. A
@@ -47,7 +49,7 @@ pub(crate) async fn list_spawnable_templates(
     Extension(cap): Extension<Cap>,
     headers: axum::http::HeaderMap,
     Query(query): Query<SpawnableTemplatesQuery>,
-) -> ApiResult {
+) -> ApiResult<wire::TemplatesReply> {
     let caller = super::task_principal(&cap, &headers)?;
     let project = query.project.trim();
     if caller != crate::tasks::HOST || !project.is_empty() {
@@ -56,7 +58,7 @@ pub(crate) async fn list_spawnable_templates(
             .await
             .map_err(|error| err(StatusCode::BAD_REQUEST, error))?;
         let enabled = m.worker_template_names().await;
-        return Ok(Json(json!({
+        return reply(json!({
             "templates": m
                 .agent_templates()
                 .await
@@ -64,29 +66,30 @@ pub(crate) async fn list_spawnable_templates(
                 .filter(|template| enabled.contains(&template.name))
                 .collect::<Vec<_>>(),
             "project": project,
-        })));
+        }));
     }
 
     let enabled = m.worker_template_names().await;
-    Ok(Json(json!({
+    reply(json!({
         "templates": m
             .agent_templates()
             .await
             .into_iter()
             .filter(|template| enabled.contains(&template.name))
             .collect::<Vec<_>>(),
-    })))
+    }))
 }
 
 pub(crate) async fn save_template(
     State(m): State<Mgr>,
     Extension(_cap): Extension<Cap>,
-    Json(value): Json<serde_json::Value>,
-) -> ApiResult {
+    Proto(value): Proto<wire::SaveTemplateRequest>,
+) -> ApiResult<wire::TemplateResult> {
     // A complete definition is the management UI's creation/duplication wire form. The
     // session-capture form below remains intentionally small for the existing agent editor.
+    let value: serde_json::Value = domain(value)?;
     if value.get("defaults").is_some() {
-        let mut template = crate::api::parse_template(value)?;
+        let mut template = crate::api::parse_template(domain(value)?)?;
         if template.version != 0 {
             return Err(err(
                 StatusCode::BAD_REQUEST,
@@ -98,7 +101,7 @@ pub(crate) async fn save_template(
             .create_agent_template_definition(template)
             .await
             .map_err(template_error)?;
-        return Ok(Json(json!({ "ok": true, "template": saved })));
+        return reply(json!({ "ok": true, "template": saved }));
     }
 
     let req: SaveAgentTemplateReq =
@@ -112,16 +115,16 @@ pub(crate) async fn save_template(
             .await
             .map_err(template_error)?
     };
-    Ok(Json(json!({ "ok": true, "template": saved })))
+    reply(json!({ "ok": true, "template": saved }))
 }
 
 pub(crate) async fn replace_template(
     State(m): State<Mgr>,
     Extension(_cap): Extension<Cap>,
     Path(name): Path<String>,
-    Json(value): Json<serde_json::Value>,
-) -> ApiResult {
-    let mut template = crate::api::parse_template(value)?;
+    Proto(value): Proto<wire::AgentTemplate>,
+) -> ApiResult<wire::TemplateResult> {
+    let mut template = crate::api::parse_template(domain(value)?)?;
     if template.version == 0 {
         return Err(err(
             StatusCode::BAD_REQUEST,
@@ -133,7 +136,7 @@ pub(crate) async fn replace_template(
         .replace_agent_template_definition(&name, template.version, template)
         .await
         .map_err(template_error)?;
-    Ok(Json(json!({ "ok": true, "template": saved })))
+    reply(json!({ "ok": true, "template": saved }))
 }
 
 pub(crate) async fn destroy_template(
@@ -141,26 +144,27 @@ pub(crate) async fn destroy_template(
     Extension(_cap): Extension<Cap>,
     Path(name): Path<String>,
     Query(query): Query<TemplateVersionQuery>,
-) -> ApiResult {
+) -> ApiResult<wire::Ack> {
     let version = query
         .version
         .ok_or_else(|| err(StatusCode::BAD_REQUEST, "delete requires template version"))?;
     m.remove_agent_template(&name, version)
         .await
         .map_err(template_error)?;
-    Ok(Json(json!({ "ok": true })))
+    reply(json!({ "ok": true }))
 }
 
 pub(crate) async fn create_from_template(
     State(m): State<Mgr>,
     Extension(_cap): Extension<Cap>,
     Path(template): Path<String>,
-    Json(req): Json<CreateAgentTemplateReq>,
-) -> ApiResult {
+    Proto(req): Proto<wire::CreateAgentTemplateReq>,
+) -> ApiResult<wire::SessionResult> {
+    let req: CreateAgentTemplateReq = domain(req)?;
     let overrides = req.overrides.map(crate::api::parse_session).transpose()?;
     let session = m
         .create_from_agent_template(&template, req.name, req.project, overrides, req.start)
         .await
         .map_err(|error| err(StatusCode::BAD_REQUEST, error))?;
-    Ok(Json(json!({ "ok": true, "session": session })))
+    reply(json!({ "ok": true, "session": session }))
 }

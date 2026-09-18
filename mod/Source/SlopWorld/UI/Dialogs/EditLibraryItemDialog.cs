@@ -123,11 +123,11 @@ namespace SlopWorld
 
             SessionHub.Instance.Catalog.RefreshProjects();
             SessionHub.Instance.Catalog.RefreshTemplates();
-            DaemonClient.Get(WireProtocol.Routes.Config, j =>
+            DaemonClient.Get<Wire.ConfigResult>(WireProtocol.Routes.Config, j =>
             {
-                var d = j["values"]["defaults"];
-                _agentDefault = d["agent"].AsString("claude");
-                _shellDefault = d["shell"].AsString("bash");
+                var d = j.Values.Defaults;
+                _agentDefault = d.Agent;
+                _shellDefault = d.Shell;
             });
         }
 

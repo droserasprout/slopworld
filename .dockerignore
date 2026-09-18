@@ -13,3 +13,6 @@ slopd/*
 slopcar/*
 !slopcar/entrypoint.sh
 !slopcar/doctor.sh
+!shared/
+shared/*
+!shared/slopworld.proto

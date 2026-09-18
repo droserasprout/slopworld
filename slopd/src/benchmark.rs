@@ -106,6 +106,7 @@ fn benchmark_websocket_serialization() {
             screen: screen.clone(),
         })
         .encoded()
+        .expect("benchmark event")
         .len()
     });
     for sessions in [1usize, 4, 8] {
@@ -123,7 +124,7 @@ fn benchmark_websocket_serialization() {
                     let mut bytes = 0usize;
                     for _ in 0..clients {
                         for event in &events {
-                            let encoded = event.encoded();
+                            let encoded = event.encoded().expect("benchmark event");
                             perf::count("websocket-bytes", encoded.len() as u64);
                             bytes += encoded.len();
                         }

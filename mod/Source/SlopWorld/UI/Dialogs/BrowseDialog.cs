@@ -39,12 +39,12 @@ namespace SlopWorld
             _parent = null;
             _dirs = new string[0];
 
-            DaemonClient.Get($"{WireProtocol.Routes.Browse}?path={System.Uri.EscapeDataString(path)}",
+            DaemonClient.Get<Wire.BrowseResult>($"{WireProtocol.Routes.Browse}?path={System.Uri.EscapeDataString(path)}",
                 j =>
                 {
                     if (!_operations.IsCurrent(generation)) return;
 
-                    string resolved = j == null ? null : j["path"].AsString(null);
+                    string resolved = j == null ? null : j.Path;
                     if (resolved == null)
                     {
                         _pending = false;
@@ -53,8 +53,8 @@ namespace SlopWorld
                     }
 
                     _path = resolved;
-                    _parent = j["parent"].IsNull ? null : j["parent"].AsString();
-                    _dirs = j["dirs"].Items.Select(d => d.AsString()).ToArray();
+                    _parent = !j.HasParent ? null : j.Parent;
+                    _dirs = j.Dirs.ToArray();
                     _pending = false;
                 },
                 msg =>

@@ -74,46 +74,46 @@ namespace SlopWorld
             Setenv = new Dictionary<string, string>(Setenv),
         };
 
-        public string ToJson() =>
-            "{" + $"\"name\":{JVal.Q(Name)}," +
-            $"\"description\":{JVal.Q(Description)},\"ro\":{Arr(Ro)}," +
-            $"\"requires\":{Arr(Requires)}," +
-            $"\"rw\":{Arr(Rw)},\"dev\":{Arr(Dev)},\"private\":{Arr(Private)}," +
-            $"\"seed\":{Arr(Seed)},\"skip\":{Arr(Skip)},\"shared\":{Arr(Shared)}," +
-            $"\"escapes\":{JVal.Q(Escapes)},\"env\":{Arr(Env)},\"tmux\":{(Tmux ? "true" : "false")}," +
-            $"\"daemon_config\":{(DaemonConfig ? "true" : "false")}," +
-            $"\"setenv\":{Map(Setenv)}}}";
+        public Wire.SandboxPreset ToWire() => new Wire.SandboxPreset
+        {
+            Name = Name,
+            Description = Description,
+            Requires = { Requires },
+            Ro = { Ro },
+            Rw = { Rw },
+            Dev = { Dev },
+            Private = { Private },
+            Seed = { Seed },
+            Skip = { Skip },
+            Shared = { Shared },
+            Escapes = Escapes,
+            Env = { Env },
+            Tmux = Tmux,
+            DaemonConfig = DaemonConfig,
+            Setenv = { Setenv },
+        };
 
-        static string Arr(List<string> items) =>
-            "[" + string.Join(",", items.Select(JVal.Q).ToArray()) + "]";
-
-        static string Map(Dictionary<string, string> items) =>
-            "{" + string.Join(",", items.Select(x =>
-                JVal.Q(x.Key) + ":" + JVal.Q(x.Value)).ToArray()) + "}";
-
-        public static PresetInfo FromJson(JVal j)
+        public static PresetInfo FromWire(Wire.SandboxPreset j)
         {
             var p = new PresetInfo
             {
-                Name = j["name"].AsString(),
-                Description = j["description"].AsString(),
-                Source = j["source"].AsString("system"),
-                Escapes = j["escapes"].AsString(),
-                Tmux = j["tmux"].AsBool(false),
-                DaemonConfig = j["daemon_config"].AsBool(false),
+                Name = j.Name,
+                Description = j.Description,
+                Source = j.Source,
+                Escapes = j.Escapes,
+                Tmux = j.Tmux,
+                DaemonConfig = j.DaemonConfig,
             };
-            p.Ro.AddRange(j["ro"].Items.Select(i => i.AsString()));
-            p.Requires.AddRange(j["requires"].Items.Select(i => i.AsString()));
-            p.Rw.AddRange(j["rw"].Items.Select(i => i.AsString()));
-            p.Dev.AddRange(j["dev"].Items.Select(i => i.AsString()));
-            p.Private.AddRange(j["private"].Items.Select(i => i.AsString()));
-            p.Seed.AddRange(j["seed"].Items.Select(i => i.AsString()));
-            p.Skip.AddRange(j["skip"].Items.Select(i => i.AsString()));
-            p.Shared.AddRange(j["shared"].Items.Select(i => i.AsString()));
-            p.Env.AddRange(j["env"].Items.Select(i => i.AsString()));
-            if (j["setenv"].IsObject)
-                foreach (var pair in j["setenv"].ObjectItems)
-                    p.Setenv[pair.Key] = pair.Value.AsString();
+            p.Ro.AddRange(j.Ro);
+            p.Requires.AddRange(j.Requires);
+            p.Rw.AddRange(j.Rw);
+            p.Dev.AddRange(j.Dev);
+            p.Private.AddRange(j.Private);
+            p.Seed.AddRange(j.Seed);
+            p.Skip.AddRange(j.Skip);
+            p.Shared.AddRange(j.Shared);
+            p.Env.AddRange(j.Env);
+            foreach (var pair in j.Setenv) p.Setenv[pair.Key] = pair.Value;
             return p;
         }
     }

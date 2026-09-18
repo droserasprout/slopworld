@@ -116,11 +116,11 @@ namespace SlopWorld
         // Mutations go over HTTP rather than the socket: they rewrite config.toml, and the
         // error body matters.
         public void RefreshConfig(Action<string> fail = null) =>
-            DaemonClient.Get(WireProtocol.Routes.Config,
-                j => Config = DaemonConfig.FromJson(j["values"], j["metadata"]), fail);
+            DaemonClient.Get<Wire.ConfigResult>(WireProtocol.Routes.Config,
+                j => Config = DaemonConfig.FromWire(j.Values, j.Metadata), fail);
 
         public void RefreshHealth(Action<string> fail = null) =>
-            DaemonClient.Get(WireProtocol.Routes.Health, j => Health = DaemonHealth.FromJson(j), fail);
+            DaemonClient.Get<Wire.Health>(WireProtocol.Routes.Health, j => Health = DaemonHealth.FromWire(j), fail);
 
         // ---- sessions ------------------------------------------------------------------
 
@@ -136,10 +136,8 @@ namespace SlopWorld
         public void CreateFromTemplate(string template, SessionInfo s, Action ok,
                                        Action<string> fail)
         {
-            string body = "{" +
-                $"\"name\":{JVal.Q(s.Name)},\"project\":{JVal.Q(s.Project)}," +
-                $"\"overrides\":{s.ToJson()}}}";
-            DaemonClient.Post($"{WireProtocol.Routes.Templates}/{HubWire.Esc(template)}/create",
+            var body = new Wire.CreateAgentTemplateReq { Name = s.Name, Project = s.Project, Overrides = s.ToWire() };
+            DaemonClient.Post<Wire.SessionResult>($"{WireProtocol.Routes.Templates}/{HubWire.Esc(template)}/create",
                 body,
                 _ =>
                 {
@@ -154,15 +152,12 @@ namespace SlopWorld
         public void SpawnWorker(string caller, string project, string template, string body,
                                 bool durable, Action<string> started, Action<string> fail)
         {
-            DaemonClient.Post(WireProtocol.Routes.Workers,
-                "{" + $"\"project\":{JVal.Q(project ?? "")}," +
-                $"\"template\":{JVal.Q(template ?? "")}," +
-                $"\"body\":{JVal.Q(body ?? "")}," +
-                $"\"durable\":{JVal.B(durable)}}}",
+            DaemonClient.Post<Wire.WorkerResult>(WireProtocol.Routes.Workers,
+                new Wire.SpawnWorkerReq { Project = project ?? "", Template = template ?? "", Body = body ?? "", Durable = durable },
                 j =>
                 {
-                    string worker = j["worker"]["session"].AsString();
-                    _tasks.Add(TaskInfo.FromJson(j["task"]));
+                    string worker = j.Worker.Session;
+                    _tasks.Add(TaskInfo.FromWire(j.Task));
                     _tasks.Refresh();
                     _sessions.Refresh(() => started?.Invoke(worker), fail);
                 }, fail, string.IsNullOrEmpty(caller) ? TaskInfo.Host : caller);

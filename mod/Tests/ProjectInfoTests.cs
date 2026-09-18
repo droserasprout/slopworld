@@ -17,17 +17,17 @@ namespace SlopWorld.Tests
 
         static void ExpandsClientPaths()
         {
-            var project = ProjectInfo.FromJson(JVal.Parse(
-                "{\"name\":\"repo\",\"dir\":\"~/repo\",\"expanded_dir\":\"/daemon/home/repo\"}"));
+            var project = ProjectInfo.FromWire(ProtobufFixtures.Read<Wire.Project>(JVal.Parse(
+                "{\"name\":\"repo\",\"dir\":\"~/repo\",\"expanded_dir\":\"/daemon/home/repo\"}")));
             AssertEx.Equal("/daemon/home/repo", project.ExpandedDir, "daemon home wins");
             AssertEx.Equal("~/repo", project.Dir, "editable shorthand is retained");
             AssertEx.Equal(project.ExpandedDir, project.Copy().ExpandedDir, "copy retains metadata");
             AssertEx.True(JVal.Parse(project.ToJson())["expanded_dir"].IsNull,
                           "response metadata is not sent in edits");
-            var literal = ProjectInfo.FromJson(JVal.Parse("{\"dir\":\"/work/repo\"}"));
+            var literal = ProjectInfo.FromWire(ProtobufFixtures.Read<Wire.Project>(JVal.Parse("{\"dir\":\"/work/repo\"}")));
             AssertEx.Equal("/work/repo", literal.ExpandedDir, "older daemon literal path");
-            var unavailable = ProjectInfo.FromJson(JVal.Parse(
-                "{\"dir\":\"$UNSET/repo\",\"expanded_dir\":\"\"}"));
+            var unavailable = ProjectInfo.FromWire(ProtobufFixtures.Read<Wire.Project>(JVal.Parse(
+                "{\"dir\":\"$UNSET/repo\",\"expanded_dir\":\"\"}")));
             AssertEx.Equal("", unavailable.ExpandedDir, "empty expansion does not fall back");
         }
 
@@ -118,7 +118,7 @@ namespace SlopWorld.Tests
             };
 
             var wire = JVal.Parse(project.ToJson());
-            var parsed = ProjectInfo.FromJson(wire);
+            var parsed = ProjectInfo.FromWire(ProtobufFixtures.Read<Wire.Project>(wire));
             AssertEx.Equal("repo", parsed.Name, "project name");
             AssertEx.Equal("/work/repo", parsed.Dir, "project directory");
             AssertEx.True(parsed.Temp, "temporary flag");

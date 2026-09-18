@@ -24,8 +24,8 @@ namespace SlopWorld.Tests
 
         static void IndependentPageSaves()
         {
-            var credentials = DaemonConfig.FromJson(JVal.Parse("{}"));
-            var summaries = DaemonConfig.FromJson(JVal.Parse("{}"));
+            var credentials = DaemonConfig.FromWire(ProtobufFixtures.Read<Wire.Config>(JVal.Parse("{}")));
+            var summaries = DaemonConfig.FromWire(ProtobufFixtures.Read<Wire.Config>(JVal.Parse("{}")));
             string baseline = credentials.ToPatchJson();
             credentials.ClaudeCredentials = "/draft/credentials";
             summaries.TitleModel = "new-model";
@@ -42,7 +42,7 @@ namespace SlopWorld.Tests
 
         static void NestedPatchChanges()
         {
-            var config = DaemonConfig.FromJson(JVal.Parse("{}"));
+            var config = DaemonConfig.FromWire(ProtobufFixtures.Read<Wire.Config>(JVal.Parse("{}")));
             config.UsageItems["test"] = new DaemonConfig.UsageItemConfig { Poll = true, IntervalSecs = 90 };
             string baseline = config.ToPatchJson();
             config.UsageItems["test"].IntervalSecs = 0;
@@ -66,17 +66,17 @@ namespace SlopWorld.Tests
             {
                 WorkerTemplates = new List<string> { "zeta", "alpha", "zeta" },
             };
-            var baseline = config.ToPatch();
-            AssertEx.Equal("alpha", baseline["daemon"]["worker_templates"][0].AsString(),
+            var baseline = config.Snapshot();
+            AssertEx.Equal("alpha", ProtobufFixtures.Json(baseline)["daemon"]["worker_templates"][0].AsString(),
                            "worker templates are sorted in the projection");
-            AssertEx.Equal(2, baseline["daemon"]["worker_templates"].Count,
+            AssertEx.Equal(2, ProtobufFixtures.Json(baseline)["daemon"]["worker_templates"].Count,
                            "worker templates are deduplicated in the projection");
 
             config.WorkerTemplates[0] = "changed";
             config.TitleModel = "new-model";
-            AssertEx.Equal("alpha", baseline["daemon"]["worker_templates"][0].AsString(),
+            AssertEx.Equal("alpha", ProtobufFixtures.Json(baseline)["daemon"]["worker_templates"][0].AsString(),
                            "baseline is independent of later list edits");
-            var patch = config.ToPatch(baseline);
+            var patch = ProtobufFixtures.PatchJson(config.ToPatch(baseline));
             AssertEx.Equal("new-model", patch["daemon"]["title_model"].AsString(),
                            "structured diff includes the changed scalar");
             AssertEx.Equal("changed", patch["daemon"]["worker_templates"][1].AsString(),
@@ -85,7 +85,7 @@ namespace SlopWorld.Tests
 
         static void ReadsDaemonDefaults()
         {
-            var config = DaemonConfig.FromJson(JVal.Parse("{}"));
+            var config = DaemonConfig.FromWire(ProtobufFixtures.Read<Wire.Config>(JVal.Parse("{}")));
             AssertEx.False(config.MetadataAvailable, "missing daemon metadata is explicit");
             AssertEx.True(config.FactoryDefaults == null, "missing factory metadata has no reset copy");
             AssertEx.Equal(0, config.UsagePollSecs, "usage poll is unavailable");
@@ -109,11 +109,11 @@ namespace SlopWorld.Tests
 
         static void UsesFactoryMetadata()
         {
-            var config = DaemonConfig.FromJson(JVal.Parse("{}"), JVal.Parse(
+            var config = DaemonConfig.FromWire(ProtobufFixtures.Read<Wire.Config>(JVal.Parse("{}")), ProtobufFixtures.Read<Wire.ConfigMetadata>(JVal.Parse(
                 "{\"defaults\":{\"daemon\":{\"usage_poll_secs\":17,\"title_model\":\"daemon/model\"}," +
                 "\"defaults\":{\"agent\":\"daemon-agent\"},\"commands\":{}}," +
                 "\"usage_catalog\":[{\"key\":\"custom\",\"label\":\"Custom\",\"provider\":\"x\",\"unit\":\"usd\",\"rank\":9,\"default_poll\":false}]," +
-                "\"temporary_root\":\"/daemon/tmp\",\"terminal\":{\"scrollback_lines\":12,\"min_cols\":21,\"max_cols\":301,\"min_rows\":6,\"max_rows\":101}}"));
+                "\"temporary_root\":\"/daemon/tmp\",\"terminal\":{\"scrollback_lines\":12,\"min_cols\":21,\"max_cols\":301,\"min_rows\":6,\"max_rows\":101}}")));
             AssertEx.True(config.MetadataAvailable, "metadata available");
             AssertEx.Equal(17, config.FactoryDefaults.UsagePollSecs, "daemon poll factory");
             AssertEx.Equal("daemon/model", config.FactoryDefaults.TitleModel, "daemon title factory");
@@ -158,7 +158,7 @@ namespace SlopWorld.Tests
                 Editor = "micro --no-help",
                 Highlighter = "highlight --out-format=xterm256",
             };
-            var actual = DaemonConfig.FromJson(JVal.Parse(expected.ToPatchJson()));
+            var actual = DaemonConfig.FromWire(ProtobufFixtures.Read<Wire.Config>(JVal.Parse(expected.ToPatchJson())));
             AssertEx.Equal(expected.UsagePollSecs, actual.UsagePollSecs, "poll round trip");
             AssertEx.False(actual.UsageItems["claude_session"].Poll,
                            "usage item poll round trip");
@@ -285,7 +285,7 @@ namespace SlopWorld.Tests
             var draft = new DaemonConfigDraft();
             draft.LoadServer(server);
             draft.Text(key, path, "", zeroMeansBlank: true);
-            draft.LoadServer(DaemonConfig.FromJson(JVal.Parse(server.ToPatchJson())));
+            draft.LoadServer(DaemonConfig.FromWire(ProtobufFixtures.Read<Wire.Config>(JVal.Parse(server.ToPatchJson()))));
             AssertEx.Equal("", draft.Text(key, path, ""), "reload preserves inheritance");
             AssertEx.False(draft.IsDirty, "inherited interval remains clean");
             draft.SetText(key, path, "60");
@@ -312,7 +312,7 @@ namespace SlopWorld.Tests
             draft.Config.WorkerPrompt = "typed while loading";
             draft.LoadServer(new DaemonConfig { WorkerPrompt = "server" });
             AssertEx.True(draft.IsDirty, "merged draft requires saving before page defaults");
-            AssertEx.True(draft.Config.ToPatchJson(draft.BaselineJson)
+            AssertEx.True(draft.Config.ToPatchJson(JVal.ToJson(ProtobufFixtures.Json(draft.BaselineValue())))
                 .Contains("typed while loading"), "pending edit remains in save patch");
             draft.LoadServer(new DaemonConfig { WorkerPrompt = "server" });
             AssertEx.Equal("typed while loading", draft.Config.WorkerPrompt,

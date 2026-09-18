@@ -67,11 +67,11 @@ namespace SlopWorld.Tests
                 Runs = new List<SgrRun>[1],
                 RunsRev = 12,
             };
-            screen.FromJson(JVal.Parse(
+            screen.FromWire(ProtobufFixtures.Read<Wire.ScreenView>(JVal.Parse(
                 "{\"seq\":7,\"cols\":120,\"rows\":40,\"cx\":3,\"cy\":4," +
                 "\"off\":5,\"history\":91,\"request_id\":42,\"cursor_shape\":2," +
                 "\"cursor_blink\":false,\"app_mouse\":true,\"app_drag\":true," +
-                "\"alt_screen\":true,\"title\":\"vim\",\"lines\":[\"one\",\"two\"]}"));
+                "\"alt_screen\":true,\"title\":\"vim\",\"lines\":[\"one\",\"two\"]}")));
 
             AssertEx.Equal(7, screen.Seq, "sequence");
             AssertEx.Equal(120, screen.Cols, "columns");
@@ -94,7 +94,7 @@ namespace SlopWorld.Tests
         static void UsesWireDefaults()
         {
             var screen = new ScreenBuf();
-            screen.FromJson(JVal.Parse("{}"));
+            screen.FromWire(ProtobufFixtures.Read<Wire.ScreenView>(JVal.Parse("{}")));
 
             AssertEx.Equal(0, screen.Seq, "sequence default");
             AssertEx.Equal(80, screen.Cols, "columns default");
@@ -116,12 +116,12 @@ namespace SlopWorld.Tests
         static void DetectsLiveRowShift()
         {
             var screen = new ScreenBuf();
-            screen.FromJson(JVal.Parse(
+            screen.FromWire(ProtobufFixtures.Read<Wire.ScreenView>(JVal.Parse(
                 "{\"seq\":1,\"cols\":20,\"rows\":3,\"cy\":2," +
-                "\"off\":0,\"lines\":[\"one\",\"two\",\"three\"]}"));
-            screen.FromJson(JVal.Parse(
+                "\"off\":0,\"lines\":[\"one\",\"two\",\"three\"]}")));
+            screen.FromWire(ProtobufFixtures.Read<Wire.ScreenView>(JVal.Parse(
                 "{\"seq\":2,\"cols\":20,\"rows\":3,\"cy\":2," +
-                "\"off\":0,\"lines\":[\"two\",\"three\",\"four\"]}"));
+                "\"off\":0,\"lines\":[\"two\",\"three\",\"four\"]}")));
 
             AssertEx.Equal(1, screen.LiveShift, "live row shift");
         }
@@ -129,12 +129,12 @@ namespace SlopWorld.Tests
         static void DetectsRepeatedRowShift()
         {
             var screen = new ScreenBuf();
-            screen.FromJson(JVal.Parse(
+            screen.FromWire(ProtobufFixtures.Read<Wire.ScreenView>(JVal.Parse(
                 "{\"seq\":1,\"cols\":20,\"rows\":4,\"cy\":3," +
-                "\"off\":0,\"lines\":[\"same\",\"same\",\"line-2\",\"line-3\"]}"));
-            screen.FromJson(JVal.Parse(
+                "\"off\":0,\"lines\":[\"same\",\"same\",\"line-2\",\"line-3\"]}")));
+            screen.FromWire(ProtobufFixtures.Read<Wire.ScreenView>(JVal.Parse(
                 "{\"seq\":2,\"cols\":20,\"rows\":4,\"cy\":3," +
-                "\"off\":0,\"lines\":[\"same\",\"line-2\",\"line-3\",\"line-4\"]}"));
+                "\"off\":0,\"lines\":[\"same\",\"line-2\",\"line-3\",\"line-4\"]}")));
 
             AssertEx.Equal(1, screen.LiveShift,
                 "a scroll remains detectable when the outgoing top rows repeat");
@@ -143,12 +143,12 @@ namespace SlopWorld.Tests
         static void UsesLiveHistoryGrowth()
         {
             var screen = new ScreenBuf();
-            screen.FromJson(JVal.Parse(
+            screen.FromWire(ProtobufFixtures.Read<Wire.ScreenView>(JVal.Parse(
                 "{\"seq\":1,\"cols\":20,\"rows\":3,\"cy\":2,\"history\":4," +
-                "\"off\":0,\"lines\":[\"one\",\"two\",\"three\"]}"));
-            screen.FromJson(JVal.Parse(
+                "\"off\":0,\"lines\":[\"one\",\"two\",\"three\"]}")));
+            screen.FromWire(ProtobufFixtures.Read<Wire.ScreenView>(JVal.Parse(
                 "{\"seq\":2,\"cols\":20,\"rows\":3,\"cy\":2,\"history\":8," +
-                "\"off\":0,\"lines\":[\"new-a\",\"new-b\",\"new-c\"]}"));
+                "\"off\":0,\"lines\":[\"new-a\",\"new-b\",\"new-c\"]}")));
 
             AssertEx.Equal(4, screen.LiveShift,
                 "history growth reports a shift when no visible rows overlap");
@@ -157,12 +157,12 @@ namespace SlopWorld.Tests
         static void PromptOverlap()
         {
             var screen = new ScreenBuf();
-            screen.FromJson(JVal.Parse(
+            screen.FromWire(ProtobufFixtures.Read<Wire.ScreenView>(JVal.Parse(
                 "{\"seq\":1,\"cols\":20,\"rows\":3,\"cy\":2,\"history\":10," +
-                "\"lines\":[\"Ask Codex to do anything\",\"\",\"\"]}"));
-            screen.FromJson(JVal.Parse(
+                "\"lines\":[\"Ask Codex to do anything\",\"\",\"\"]}")));
+            screen.FromWire(ProtobufFixtures.Read<Wire.ScreenView>(JVal.Parse(
                 "{\"seq\":2,\"cols\":20,\"rows\":3,\"cy\":2,\"history\":10," +
-                "\"lines\":[\"\",\"\",\"diff\"]}"));
+                "\"lines\":[\"\",\"\",\"diff\"]}")));
             AssertEx.Equal(0, screen.LiveShift,
                 "overlapping blank rows cannot override an unchanged daemon history extent");
         }
@@ -170,12 +170,12 @@ namespace SlopWorld.Tests
         static void UnknownHistoryIsNotGrowth()
         {
             var screen = new ScreenBuf();
-            screen.FromJson(JVal.Parse(
+            screen.FromWire(ProtobufFixtures.Read<Wire.ScreenView>(JVal.Parse(
                 "{\"seq\":1,\"cols\":20,\"rows\":3,\"cy\":2," +
-                "\"off\":0,\"lines\":[\"one\",\"two\",\"three\"]}"));
-            screen.FromJson(JVal.Parse(
+                "\"off\":0,\"lines\":[\"one\",\"two\",\"three\"]}")));
+            screen.FromWire(ProtobufFixtures.Read<Wire.ScreenView>(JVal.Parse(
                 "{\"seq\":2,\"cols\":20,\"rows\":3,\"cy\":2,\"history\":0," +
-                "\"off\":0,\"lines\":[\"one\",\"two\",\"three\"]}"));
+                "\"off\":0,\"lines\":[\"one\",\"two\",\"three\"]}")));
 
             AssertEx.Equal(0, screen.LiveShift,
                 "hydrating an unknown zero history extent does not add a row");
@@ -184,12 +184,12 @@ namespace SlopWorld.Tests
         static void ReplayIsNotGrowth()
         {
             var screen = new ScreenBuf();
-            screen.FromJson(JVal.Parse(
+            screen.FromWire(ProtobufFixtures.Read<Wire.ScreenView>(JVal.Parse(
                 "{\"seq\":7,\"cols\":20,\"rows\":3,\"cy\":2," +
-                "\"history\":0,\"off\":0,\"lines\":[\"one\",\"two\",\"three\"]}"));
-            screen.FromJson(JVal.Parse(
+                "\"history\":0,\"off\":0,\"lines\":[\"one\",\"two\",\"three\"]}")));
+            screen.FromWire(ProtobufFixtures.Read<Wire.ScreenView>(JVal.Parse(
                 "{\"seq\":7,\"cols\":20,\"rows\":3,\"cy\":2," +
-                "\"history\":1,\"off\":0,\"lines\":[\"two\",\"three\",\"four\"]}"));
+                "\"history\":1,\"off\":0,\"lines\":[\"two\",\"three\",\"four\"]}")));
 
             AssertEx.Equal(0, screen.LiveShift,
                 "a same-sequence resubscription replay does not add a row");
@@ -198,12 +198,12 @@ namespace SlopWorld.Tests
         static void IgnoresBottomEdit()
         {
             var screen = new ScreenBuf();
-            screen.FromJson(JVal.Parse(
+            screen.FromWire(ProtobufFixtures.Read<Wire.ScreenView>(JVal.Parse(
                 "{\"seq\":1,\"cols\":20,\"rows\":3,\"cy\":2," +
-                "\"off\":0,\"lines\":[\"one\",\"two\",\"three\"]}"));
-            screen.FromJson(JVal.Parse(
+                "\"off\":0,\"lines\":[\"one\",\"two\",\"three\"]}")));
+            screen.FromWire(ProtobufFixtures.Read<Wire.ScreenView>(JVal.Parse(
                 "{\"seq\":2,\"cols\":20,\"rows\":3,\"cy\":2," +
-                "\"off\":0,\"lines\":[\"one\",\"two\",\"four\"]}"));
+                "\"off\":0,\"lines\":[\"one\",\"two\",\"four\"]}")));
 
             AssertEx.Equal(0, screen.LiveShift, "bottom edit shift");
         }
@@ -211,12 +211,12 @@ namespace SlopWorld.Tests
         static void IgnoresAmbiguousRepeatedEdit()
         {
             var screen = new ScreenBuf();
-            screen.FromJson(JVal.Parse(
+            screen.FromWire(ProtobufFixtures.Read<Wire.ScreenView>(JVal.Parse(
                 "{\"seq\":1,\"cols\":20,\"rows\":4,\"cy\":3," +
-                "\"off\":0,\"lines\":[\"same\",\"same\",\"same\",\"same\"]}"));
-            screen.FromJson(JVal.Parse(
+                "\"off\":0,\"lines\":[\"same\",\"same\",\"same\",\"same\"]}")));
+            screen.FromWire(ProtobufFixtures.Read<Wire.ScreenView>(JVal.Parse(
                 "{\"seq\":2,\"cols\":20,\"rows\":4,\"cy\":3," +
-                "\"off\":0,\"lines\":[\"same\",\"same\",\"same\",\"new\"]}"));
+                "\"off\":0,\"lines\":[\"same\",\"same\",\"same\",\"new\"]}")));
 
             AssertEx.Equal(0, screen.LiveShift,
                 "a bottom edit among repeated rows remains ambiguous");
@@ -225,12 +225,12 @@ namespace SlopWorld.Tests
         static void IgnoresChangedViewport()
         {
             var screen = new ScreenBuf();
-            screen.FromJson(JVal.Parse(
+            screen.FromWire(ProtobufFixtures.Read<Wire.ScreenView>(JVal.Parse(
                 "{\"seq\":1,\"cols\":20,\"rows\":3,\"cy\":2," +
-                "\"off\":0,\"lines\":[\"one\",\"two\",\"three\"]}"));
-            screen.FromJson(JVal.Parse(
+                "\"off\":0,\"lines\":[\"one\",\"two\",\"three\"]}")));
+            screen.FromWire(ProtobufFixtures.Read<Wire.ScreenView>(JVal.Parse(
                 "{\"seq\":2,\"cols\":20,\"rows\":4,\"cy\":3," +
-                "\"off\":0,\"lines\":[\"two\",\"three\",\"four\",\"five\"]}"));
+                "\"off\":0,\"lines\":[\"two\",\"three\",\"four\",\"five\"]}")));
 
             AssertEx.Equal(0, screen.LiveShift, "a resize does not look like a scroll");
         }
@@ -238,9 +238,9 @@ namespace SlopWorld.Tests
         static void RetainsUnchangedRows()
         {
             var screen = new ScreenBuf();
-            screen.FromJson(JVal.Parse(
+            screen.FromWire(ProtobufFixtures.Read<Wire.ScreenView>(JVal.Parse(
                 "{\"seq\":1,\"cols\":20,\"rows\":3," +
-                "\"lines\":[\"one\",\"two\",\"three\"]}"));
+                "\"lines\":[\"one\",\"two\",\"three\"]}")));
             var first = new List<SgrRun>();
             var second = new List<SgrRun>();
             var third = new List<SgrRun>();
@@ -250,9 +250,9 @@ namespace SlopWorld.Tests
             var snapshot = screen.Snapshot();
             int revision = screen.ContentRevision;
 
-            screen.FromJson(JVal.Parse(
+            screen.FromWire(ProtobufFixtures.Read<Wire.ScreenView>(JVal.Parse(
                 "{\"seq\":2,\"cols\":20,\"rows\":3," +
-                "\"lines\":[\"one\",\"changed\",\"three\"]}"));
+                "\"lines\":[\"one\",\"changed\",\"three\"]}")));
 
             AssertEx.Equal(revision + 1, screen.ContentRevision, "content revision");
             AssertEx.Equal(1, screen.ChangedRows.Length, "changed row count");
@@ -268,13 +268,13 @@ namespace SlopWorld.Tests
         static void CursorOnlyRevision()
         {
             var screen = new ScreenBuf();
-            screen.FromJson(JVal.Parse(
+            screen.FromWire(ProtobufFixtures.Read<Wire.ScreenView>(JVal.Parse(
                 "{\"seq\":1,\"cols\":20,\"rows\":2,\"cx\":1," +
-                "\"lines\":[\"one\",\"two\"]}"));
+                "\"lines\":[\"one\",\"two\"]}")));
             int revision = screen.ContentRevision;
-            screen.FromJson(JVal.Parse(
+            screen.FromWire(ProtobufFixtures.Read<Wire.ScreenView>(JVal.Parse(
                 "{\"seq\":2,\"cols\":20,\"rows\":2,\"cx\":2," +
-                "\"lines\":[\"one\",\"two\"]}"));
+                "\"lines\":[\"one\",\"two\"]}")));
 
             AssertEx.Equal(revision, screen.ContentRevision, "content revision is stable");
             AssertEx.Equal(0, screen.ChangedRows.Length, "no changed rows");
@@ -307,7 +307,7 @@ namespace SlopWorld.Tests
             var retained = screen.Snapshot();
             var unchanged = screen.Runs[3];
 
-            screen.FromJson(Wire(2, cols, edited, 0));
+            screen.FromWire(ProtobufFixtures.Read<Wire.ScreenView>(Wire(2, cols, edited, 0)));
             var second = cache.Parse(screen, 1, 1, out _, out _);
             screen.RunsRev = 1;
             AssertRunsEqual(Sgr.ParseLines(edited, cols), second, "removed long link");
@@ -325,13 +325,13 @@ namespace SlopWorld.Tests
                 initial[3],
                 initial[4],
             };
-            screen.FromJson(Wire(3, cols, joined, 17));
+            screen.FromWire(ProtobufFixtures.Read<Wire.ScreenView>(Wire(3, cols, joined, 17)));
             var third = cache.Parse(screen, 1, 1, out _, out _);
             screen.RunsRev = 1;
             AssertRunsEqual(Sgr.ParseLines(joined, cols), third, "joined link after scroll");
 
             var resized = new[] { "\x1b[31mhttps://exam", "ple.com" };
-            screen.FromJson(Wire(4, 16, resized, 0));
+            screen.FromWire(ProtobufFixtures.Read<Wire.ScreenView>(Wire(4, 16, resized, 0)));
             var fourth = cache.Parse(screen, 1, 1, out _, out _);
             AssertRunsEqual(Sgr.ParseLines(resized, 16), fourth, "resize full parse");
         }
@@ -346,8 +346,8 @@ namespace SlopWorld.Tests
             cache.Parse(screen, 1, 1, out _, out _);
             screen.RunsRev = 1;
             var original = screen.Snapshot();
-            screen.FromJson(Wire(2, cols, edited, 0));
-            screen.FromJson(Wire(3, cols, edited, 0));
+            screen.FromWire(ProtobufFixtures.Read<Wire.ScreenView>(Wire(2, cols, edited, 0)));
+            screen.FromWire(ProtobufFixtures.Read<Wire.ScreenView>(Wire(3, cols, edited, 0)));
             var pending = screen.Snapshot();
             AssertRunsEqual(Sgr.ParseLines(edited, cols),
                 cache.Parse(screen, 1, 1, out _, out _), "edit then replay before render");
@@ -369,7 +369,7 @@ namespace SlopWorld.Tests
                 for (int edit = 0; edit < 3; edit++)
                 {
                     lines[random.Next(lines.Length)] = choices[random.Next(choices.Length)];
-                    screen.FromJson(Wire(++seq, width, lines, round % 2 == 0 ? 0 : 17));
+                    screen.FromWire(ProtobufFixtures.Read<Wire.ScreenView>(Wire(++seq, width, lines, round % 2 == 0 ? 0 : 17)));
                 }
                 var expected = Sgr.ParseLines(lines, width);
                 var retained = screen.Snapshot();
@@ -388,7 +388,7 @@ namespace SlopWorld.Tests
         static ScreenBuf Hydrate(int seq, int cols, string[] lines, int off)
         {
             var screen = new ScreenBuf();
-            screen.FromJson(Wire(seq, cols, lines, off));
+            screen.FromWire(ProtobufFixtures.Read<Wire.ScreenView>(Wire(seq, cols, lines, off)));
             return screen;
         }
 

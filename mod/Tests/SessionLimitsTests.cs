@@ -13,7 +13,7 @@ namespace SlopWorld.Tests
 
         static void RecognizesEmptyLimits()
         {
-            var limits = SessionLimits.FromJson(JVal.Parse("{}"));
+            var limits = SessionLimits.FromWire(ProtobufFixtures.Read<Wire.Limits>(JVal.Parse("{}")));
 
             AssertEx.True(limits.IsEmpty, "missing limits are empty");
             AssertEx.True(!limits.MemoryMb.HasValue && !limits.Pids.HasValue &&
@@ -24,8 +24,8 @@ namespace SlopWorld.Tests
 
         static void RoundTripsOptionalLimits()
         {
-            var limits = SessionLimits.FromJson(JVal.Parse(
-                "{\"memory_mb\":512,\"pids\":64,\"nofile\":null,\"cpu_pct\":75}"));
+            var limits = SessionLimits.FromWire(ProtobufFixtures.Read<Wire.Limits>(JVal.Parse(
+                "{\"memory_mb\":512,\"pids\":64,\"nofile\":null,\"cpu_pct\":75}")));
 
             AssertEx.False(limits.IsEmpty, "set limits are not empty");
             AssertEx.Equal(512, limits.MemoryMb.Value, "memory limit");
@@ -35,7 +35,7 @@ namespace SlopWorld.Tests
             AssertEx.Equal("{\"memory_mb\":512,\"pids\":64,\"cpu_pct\":75}",
                            limits.ToJson(), "only set limits serialize");
 
-            var roundTrip = SessionLimits.FromJson(JVal.Parse(limits.ToJson()));
+            var roundTrip = SessionLimits.FromWire(ProtobufFixtures.Read<Wire.Limits>(JVal.Parse(limits.ToJson())));
             AssertEx.Equal(limits.MemoryMb, roundTrip.MemoryMb, "memory round trip");
             AssertEx.Equal(limits.Pids, roundTrip.Pids, "pids round trip");
             AssertEx.Equal(limits.Nofile, roundTrip.Nofile, "nofile round trip");

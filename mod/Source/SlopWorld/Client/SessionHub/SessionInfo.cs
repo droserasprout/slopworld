@@ -107,18 +107,24 @@ namespace SlopWorld
 
         // `Agent` never rides along: it is what the daemon resolved, and writing it back would
         // pin today's answer into the file forever.
-        public string ToJson() =>
-            "{" +
-            $"\"name\":{JVal.Q(Name)},\"project\":{JVal.Q(Project)}," +
-            $"\"command\":{JVal.Q(Command)}," +
-            $"\"cmd\":{(string.IsNullOrEmpty((Cmd ?? "").Trim()) ? "null" : JVal.Q(Cmd))}," +
-            $"\"sandbox\":[{string.Join(",", Sandbox.Select(JVal.Q).ToArray())}]," +
-            $"\"persistent_tmp\":{JVal.B(PersistentTmp)}," +
-            $"\"label\":{(string.IsNullOrEmpty((Label ?? "").Trim()) ? "null" : JVal.Q(Label))}," +
-            $"\"network\":{JVal.Q(NetworkModeText.Name(Network))}," +
-            $"\"dns\":{Dns.ToJson()}," +
-            $"\"limits\":{Limits.ToJson()}," +
-            $"\"autostart\":{JVal.B(Autostart)}," +
-            $"\"auto_resume\":{JVal.B(AutoResume)}}}";
+        public Wire.SessionConfig ToWire()
+        {
+            var value = new Wire.SessionConfig
+            {
+                Name = Name,
+                Project = Project,
+                Command = Command,
+                Sandbox = { Sandbox },
+                PersistentTmp = PersistentTmp,
+                Network = NetworkModeText.Name(Network),
+                Dns = Dns.ToWire(),
+                Limits = Limits.ToWire(),
+                Autostart = Autostart,
+                AutoResume = AutoResume,
+            };
+            if (!string.IsNullOrWhiteSpace(Cmd)) value.Cmd = Cmd;
+            if (!string.IsNullOrWhiteSpace(Label)) value.Label = Label;
+            return value;
+        }
     }
 }

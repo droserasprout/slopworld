@@ -53,17 +53,37 @@ fn git(repo: &str, args: &[&str]) -> Option<String> {
 fn protobuf() {
     println!("cargo:rerun-if-changed=../shared/slopworld.proto");
     let mut config = prost_build::Config::new();
-    config.message_attribute(".", "#[derive(serde::Serialize, serde::Deserialize)] #[serde(default)]");
+    config.message_attribute(
+        ".",
+        "#[derive(serde::Serialize, serde::Deserialize)] #[serde(default, deny_unknown_fields)]",
+    );
+    config.boxed(".slopworld.PresetRequest.definition.sandbox");
     config.enum_attribute(".", "#[derive(serde::Serialize, serde::Deserialize)]");
-    let files = config.load_fds(&["../shared/slopworld.proto"], &["../shared"]).expect("load protocol schema");
+    let files = config
+        .load_fds(&["../shared/slopworld.proto"], &["../shared"])
+        .expect("load protocol schema");
     for file in &files.file {
         for message in &file.message_type {
             for field in &message.field {
-                if field.proto3_optional.unwrap_or(false) || (field.r#type == Some(11) && field.label != Some(3)) {
-                    config.field_attribute(format!(".slopworld.{}.{}", message.name(), field.name()), r#"#[serde(skip_serializing_if="Option::is_none")]"#);
+                if field.proto3_optional.unwrap_or(false)
+                    || (field.r#type == Some(11) && field.label != Some(3))
+                {
+                    config.field_attribute(
+                        format!(".slopworld.{}.{}", message.name(), field.name()),
+                        r#"#[serde(skip_serializing_if="Option::is_none")]"#,
+                    );
                 }
             }
         }
     }
-    config.compile_fds(files).expect("generate protocol bindings");
+    for name in [
+        ".slopworld.Project.expanded_dir",
+        ".slopworld.SandboxPreset.source",
+        ".slopworld.CommandPreset.source",
+    ] {
+        config.field_attribute(name, "#[serde(skip_serializing)]");
+    }
+    config
+        .compile_fds(files)
+        .expect("generate protocol bindings");
 }

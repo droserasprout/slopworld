@@ -38,8 +38,8 @@ namespace SlopWorld.Tests
             {
                 refreshes[i]();
                 var pending = requests[requests.Count - 1];
-                if (i == 0) hub.ApplyProjects(Snapshot("socket"));
-                else hub.ApplyLibrary(Snapshot("socket"));
+                if (i == 0) hub.ApplyProjects(ProtobufFixtures.Read<Wire.ProjectsReply>(Snapshot("socket")));
+                else hub.ApplyLibrary(ProtobufFixtures.Read<Wire.LibraryReply>(Snapshot("socket")));
                 pending.Ok(Snapshot("stale"));
                 pending.Fail("stale");
                 AssertEx.Equal("socket", names[i](), "socket supersedes GET");

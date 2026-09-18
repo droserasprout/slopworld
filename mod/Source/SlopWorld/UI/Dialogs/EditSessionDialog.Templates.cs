@@ -65,22 +65,17 @@ namespace SlopWorld
             }
             try
             {
-                string request;
-                if (EditingTemplate)
-                {
-                    request = "{\"recipe\":true,\"template\":" + _templateDraft.ToJson(_s) + "}";
-                }
+                var request = new Wire.SettingsPreviewRequest();
+                if (EditingTemplate) { request.Recipe = true; request.Template = _templateDraft.ToWire(_s); }
                 else
                 {
-                    request = "{\"session\":" + _s.ToJson();
-                    if (!_identity.IsNew) request += ",\"existing\":" + JVal.Q(_identity.OriginalName);
+                    request.Session = _s.ToWire();
+                    if (!_identity.IsNew) request.Existing = _identity.OriginalName;
                     else if (!string.IsNullOrEmpty(_templateName) && _templateSnapshot != null)
                     {
-                        var baseline = new SessionInfo();
-                        _templateSnapshot.ApplyTo(baseline);
-                        request += ",\"template\":" + _templateSnapshot.ToJson(baseline);
+                        var baseline = new SessionInfo(); _templateSnapshot.ApplyTo(baseline);
+                        request.Template = _templateSnapshot.ToWire(baseline);
                     }
-                    request += "}";
                 }
                 _settingsPreview.Draw(rect, request, ref _previewScroll);
             }

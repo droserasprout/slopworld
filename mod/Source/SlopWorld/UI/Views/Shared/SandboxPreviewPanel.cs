@@ -15,13 +15,13 @@ namespace SlopWorld
         public List<string> Notes = new List<string>();
         public List<SandboxPreviewField> Fields = new List<SandboxPreviewField>();
 
-        public static SandboxPreviewData FromJson(JVal value) => new SandboxPreviewData
+        public static SandboxPreviewData FromWire(Wire.SettingsPreview value) => new SandboxPreviewData
         {
-            Title = value["title"].AsString(),
-            Subtitle = value["subtitle"].AsString(),
-            Notes = value["notes"].Items.Select(item => item.AsString()).ToList(),
-            Fields = value["fields"].Items.Select(field => new SandboxPreviewField(
-                field["label"].AsString(), field["values"].Items.Select(item => item.AsString()).ToList())).ToList(),
+            Title = value.Title,
+            Subtitle = value.Subtitle,
+            Notes = value.Notes.ToList(),
+            Fields = value.Fields.Select(field => new SandboxPreviewField(
+                field.Label, field.Values.ToList())).ToList(),
         };
 
     }

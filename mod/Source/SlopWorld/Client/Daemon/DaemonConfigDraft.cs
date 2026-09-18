@@ -71,11 +71,9 @@ namespace SlopWorld
             new Dictionary<string, DaemonConfigFieldState>();
 
         public DaemonConfig Config { get; private set; }
-        JVal Baseline { get; set; }
-        JVal RemoteBaseline { get; set; }
-        public string BaselineJson => JVal.ToJson(Baseline);
-        public string RemoteBaselineJson => JVal.ToJson(RemoteBaseline);
-        public JVal BaselineValue() => JVal.Clone(Baseline);
+        Wire.EditableConfig Baseline { get; set; }
+        Wire.EditableConfig RemoteBaseline { get; set; }
+        public Wire.EditableConfig BaselineValue() => Baseline.Clone();
         public bool Loaded { get; private set; }
         public bool Saving { get; set; }
         public string Error { get; set; }
@@ -95,7 +93,7 @@ namespace SlopWorld
             get
             {
                 if (!Loaded || Config == null) return false;
-                if (Config.ToPatch(Baseline).ObjectItems.Any()) return true;
+                if (Config.ToPatch(Baseline).Paths.Count > 0) return true;
                 foreach (var state in _fields.Values)
                     if (state.IsDirty) return true;
                 return false;
@@ -148,30 +146,30 @@ namespace SlopWorld
             if (!Loaded || Config == null)
             {
                 Config = server;
-                Baseline = server.ToPatch();
-                RemoteBaseline = JVal.Clone(Baseline);
+                Baseline = server.Snapshot();
+                RemoteBaseline = Baseline.Clone();
                 Loaded = true;
                 Conflicts.Clear();
                 return;
             }
 
-            var oldBaseline = Baseline ?? Config.ToPatch();
+            var oldBaseline = Baseline ?? Config.Snapshot();
             var oldRemote = RemoteBaseline ?? oldBaseline;
-            var serverValue = server.ToPatch();
-            var dirty = Config.ToPatch(oldBaseline);
+            var serverValue = server.Snapshot();
+            var dirty = ProtoFields.Changes(Config.Snapshot(), oldBaseline);
 
             Conflicts.Clear();
-            CollectConflicts(dirty, oldBaseline, serverValue, "", Conflicts);
+            foreach (var pair in dirty)
+                if (!ProtoFields.Equal(ProtoFields.ValueAt(oldBaseline, pair.Key), ProtoFields.ValueAt(serverValue, pair.Key))) Conflicts.Add(pair.Key);
 
-            var merged = JVal.Merge(serverValue, dirty);
+            var merged = ProtoFields.Apply(serverValue, dirty);
             // Untouched fields should become clean against the new server snapshot. Keep the
             // old baseline only at paths that the player is still editing.
-            var mergedBaseline = JVal.Merge(serverValue,
-                JVal.OverlayByShape(dirty, oldBaseline));
-            Config = DaemonConfig.FromJson(merged);
+            var mergedBaseline = ProtoFields.Apply(serverValue, dirty.Keys.ToDictionary(k => k, k => ProtoFields.ValueAt(oldBaseline, k)));
+            Config = DaemonConfig.FromSnapshot(merged);
             Config.CopyMetadataFrom(server);
             Baseline = mergedBaseline;
-            RemoteBaseline = JVal.Clone(serverValue);
+            RemoteBaseline = serverValue.Clone();
             MergeTexts(serverValue, oldRemote);
             Error = null;
         }
@@ -181,7 +179,7 @@ namespace SlopWorld
         public void MarkCurrentClean()
         {
             if (!Loaded || Config == null) return;
-            Baseline = Config.ToPatch();
+            Baseline = Config.Snapshot();
             foreach (var state in _fields.Values) state.LocalBaseline = state.Text;
             Conflicts.Clear();
         }
@@ -200,7 +198,7 @@ namespace SlopWorld
         {
             if (!Loaded || RemoteBaseline == null) return;
             var metadata = Config;
-            Config = DaemonConfig.FromJson(RemoteBaseline);
+            Config = DaemonConfig.FromSnapshot(RemoteBaseline);
             Config.CopyMetadataFrom(metadata);
             foreach (var state in _fields.Values)
             {
@@ -209,7 +207,7 @@ namespace SlopWorld
                 state.LocalBaseline = state.Text;
                 state.RemoteBaseline = state.Text;
             }
-            Baseline = JVal.Clone(RemoteBaseline);
+            Baseline = RemoteBaseline.Clone();
             Error = null;
             Conflicts.Clear();
         }
@@ -217,15 +215,10 @@ namespace SlopWorld
         public Dictionary<string, string> TextSnapshot() =>
             _fields.Values.ToDictionary(state => state.Key, state => state.Text);
 
-        public void Acknowledge(string submittedJson, Dictionary<string, string> submittedTexts)
+        public void Acknowledge(Wire.EditableConfig submitted, Dictionary<string, string> submittedTexts)
         {
-            Acknowledge(JVal.Parse(submittedJson), submittedTexts);
-        }
-
-        public void Acknowledge(JVal submitted, Dictionary<string, string> submittedTexts)
-        {
-            Baseline = JVal.Clone(submitted);
-            RemoteBaseline = JVal.Clone(submitted);
+            Baseline = submitted.Clone();
+            RemoteBaseline = submitted.Clone();
             foreach (var pair in submittedTexts)
             {
                 if (_fields.TryGetValue(pair.Key, out var state))
@@ -250,7 +243,7 @@ namespace SlopWorld
             return state;
         }
 
-        static void MergeTexts(JVal server, JVal remoteBaseline,
+        static void MergeTexts(Wire.EditableConfig server, Wire.EditableConfig remoteBaseline,
                                Dictionary<string, DaemonConfigFieldState> fields,
                                HashSet<string> conflicts)
         {
@@ -275,40 +268,18 @@ namespace SlopWorld
             }
         }
 
-        void MergeTexts(JVal server, JVal remoteBaseline) =>
+        void MergeTexts(Wire.EditableConfig server, Wire.EditableConfig remoteBaseline) =>
             MergeTexts(server, remoteBaseline, _fields, Conflicts);
 
-        static void CollectConflicts(JVal patch, JVal oldBaseline, JVal server,
-                                     string path, HashSet<string> conflicts)
+        static object ValueAt(Wire.EditableConfig value, string path) => ProtoFields.ValueAt(value, path);
+        static string ValueText(object value, string fallback, bool zeroMeansBlank = false)
         {
-            if (patch == null || patch.IsNull) return;
-            if (patch.IsObject)
-            {
-                foreach (var pair in patch.ObjectItems)
-                    CollectConflicts(pair.Value, oldBaseline?[pair.Key], server?[pair.Key],
-                        path.Length == 0 ? pair.Key : path + "." + pair.Key, conflicts);
-                return;
-            }
-
-            if (!JVal.Equivalent(oldBaseline, server)) conflicts.Add(path);
-        }
-
-        static JVal ValueAt(JVal value, string path)
-        {
-            if (value == null || value.IsNull || string.IsNullOrEmpty(path)) return value ?? JVal.Null;
-            var current = value;
-            foreach (string part in path.Split('.')) current = current[part];
-            return current;
-        }
-
-        static string ValueText(JVal value, string fallback, bool zeroMeansBlank = false)
-        {
-            if (value == null || value.IsNull) return fallback ?? "";
-            // Usage interval zero means inheritance and is edited as an empty field.
-            if (zeroMeansBlank && value.IsNumber && value.Num == 0) return "";
-            if (value.Str != null) return value.Str;
-            if (value.IsBool) return value.Bool ? "true" : "false";
-            return value.Num.ToString("0", CultureInfo.InvariantCulture);
+            if (value == null) return fallback ?? "";
+            if (value is string text) return text;
+            if (value is bool flag) return flag ? "true" : "false";
+            if (value is object[] array) return string.Join("\n", array.Select(v => Convert.ToString(v, CultureInfo.InvariantCulture)));
+            if (zeroMeansBlank && Convert.ToDouble(value, CultureInfo.InvariantCulture) == 0) return "";
+            return Convert.ToString(value, CultureInfo.InvariantCulture);
         }
 
         static bool StringEquals(string left, string right) =>

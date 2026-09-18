@@ -67,14 +67,14 @@ namespace SlopWorld
             string key = _key;
             int operation = draft.BeginOperation();
             if (refreshHealth) SessionHub.Instance.RefreshHealth();
-            DaemonClient.Get(WireProtocol.Routes.Config,
+            DaemonClient.Get<Wire.ConfigResult>(WireProtocol.Routes.Config,
                 j =>
                 {
                     if (!IsCurrent(key, draft, operation)) return;
-                    var server = DaemonConfig.FromJson(j["values"], j["metadata"]);
+                    var server = DaemonConfig.FromWire(j.Values, j.Metadata);
                     draft.LoadServer(server);
                     SessionHub.Instance.Config = server;
-                    Path = j["path"].AsString();
+                    Path = j.Path;
                     draft.Error = null;
                     loaded?.Invoke();
                 },
@@ -95,11 +95,11 @@ namespace SlopWorld
             string key = _key;
             int operation = draft.BeginOperation();
             draft.Saving = true;
-            var submitted = draft.Config.ToPatch();
+            var submitted = draft.Config.Snapshot();
             var patch = draft.Config.ToPatch(draft.BaselineValue());
             var submittedTexts = draft.TextSnapshot();
 
-            DaemonClient.Put(WireProtocol.Routes.ConfigPatch, JVal.ToJson(patch),
+            DaemonClient.Put(WireProtocol.Routes.ConfigPatch, patch,
                 _ =>
                 {
                     if (!IsCurrent(key, draft, operation)) return;

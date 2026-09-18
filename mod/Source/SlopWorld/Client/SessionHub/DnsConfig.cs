@@ -22,12 +22,12 @@ namespace SlopWorld
                 ? "Custom DNS (empty)"
                 : "Custom DNS: " + string.Join(", ", Servers.ToArray());
 
-        public static DnsConfig FromJson(JVal j)
+        public static DnsConfig FromWire(Wire.DnsConfig j)
         {
             var dns = new DnsConfig();
-            if (j == null || j.IsNull || j["mode"].AsString() != WireProtocol.DnsMode.Servers) return dns;
+            if (j == null || j.Mode != WireProtocol.DnsMode.Servers) return dns;
             dns.Mode = DnsMode.Servers;
-            dns.Servers = j["servers"].Items.Select(i => i.AsString()).ToList();
+            dns.Servers = j.Servers.ToList();
             return dns;
         }
 
@@ -37,10 +37,11 @@ namespace SlopWorld
             Servers = new List<string>(Servers),
         };
 
-        public string ToJson() => IsResolved
-            ? "{\"mode\":\"" + WireProtocol.DnsMode.Resolved + "\"}"
-            : "{\"mode\":\"" + WireProtocol.DnsMode.Servers + "\",\"servers\":[" +
-              string.Join(",", Servers.Select(JVal.Q).ToArray()) + "]}";
+        public Wire.DnsConfig ToWire() => new Wire.DnsConfig
+        {
+            Mode = IsResolved ? WireProtocol.DnsMode.Resolved : WireProtocol.DnsMode.Servers,
+            Servers = { IsResolved ? Enumerable.Empty<string>() : Servers },
+        };
 
         public static DnsConfig Resolved() => new DnsConfig();
         public static DnsConfig Custom() => new DnsConfig { Mode = DnsMode.Servers };

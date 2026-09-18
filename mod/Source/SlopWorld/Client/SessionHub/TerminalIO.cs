@@ -1,116 +1,70 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
-
 namespace SlopWorld
 {
-    // Everything the hub pushes at a live terminal over the socket: the subscription set that
-    // decides which screens the daemon streams, and the keystrokes, mouse reports, pastes,
-    // scrolls and resizes for the focused one. All of it flows through HubTransport.Send.
     class TerminalIO
     {
-        readonly System.Action<string> _send;
+        readonly Action<Wire.ClientMessage> _send;
         readonly HashSet<string> _subs = new HashSet<string>();
-
-        public TerminalIO(HubTransport transport)
-        {
-            _send = transport.Send;
-        }
-
-        // Keep subscription behavior testable without a live socket or game window.
-        internal TerminalIO(System.Action<string> send)
-        {
-            _send = send;
-        }
-
-        public void Subscribe(string name)
-        {
-            _subs.Add(name);
-            _send($"{{\"t\":\"{WireProtocol.Messages.Sub}\",\"name\":{JVal.Q(name)}}}");
-        }
-
-        public void Unsubscribe(string name)
-        {
-            _subs.Remove(name);
-            _send($"{{\"t\":\"{WireProtocol.Messages.Unsub}\",\"name\":{JVal.Q(name)}}}");
-        }
-
+        public TerminalIO(HubTransport transport) : this(transport.Send) { }
+        internal TerminalIO(Action<Wire.ClientMessage> send) { _send = send; }
+        public void Subscribe(string name) { _subs.Add(name); Sub(name); }
+        void Sub(string name) => _send(new Wire.ClientMessage { Sub = new Wire.NameReq { Name = name } });
+        void Unsub(string name) => _send(new Wire.ClientMessage { Unsub = new Wire.NameReq { Name = name } });
+        public void Unsubscribe(string name) { _subs.Remove(name); Unsub(name); }
         public void Rename(string oldName, string newName)
         {
-            if (oldName == newName) return;
-            // A rename of a closed pane is only a metadata change. Adding its destination here
-            // would make reconnect stream a screen that no panel ever opened.
-            if (!_subs.Remove(oldName)) return;
-            _send($"{{\"t\":\"{WireProtocol.Messages.Unsub}\",\"name\":{JVal.Q(oldName)}}}");
-            if (_subs.Add(newName))
-                _send($"{{\"t\":\"{WireProtocol.Messages.Sub}\",\"name\":{JVal.Q(newName)}}}");
+            if (oldName == newName || !_subs.Remove(oldName)) return;
+            Unsub(oldName);
+            if (_subs.Add(newName)) Sub(newName);
         }
-
-        // A reconnect must not silently drop the terminal the player has open, so every live
-        // subscription is restated on the fresh socket.
-        public void Resubscribe()
+        public void Resubscribe() { foreach (var name in _subs.ToList()) Sub(name); }
+        public void SendKeys(string name, IEnumerable<string> keys, bool literal) => SendKeys(name, keys, literal, null);
+        public void SendKeys(string name, IEnumerable<string> keys, bool literal, List<string> randomTips) =>
+            _send(new Wire.ClientMessage
+            {
+                Keys = new Wire.KeysReq
+                {
+                    Name = name,
+                    Keys = { keys },
+                    Literal = literal,
+                    RandomTips = { randomTips ?? Enumerable.Empty<string>() }
+                }
+            });
+        public void RequestScroll(string name, int off, ulong requestId) =>
+            _send(new Wire.ClientMessage { Scroll = new Wire.ScrollReq { Name = name, Off = checked((uint)off), RequestId = requestId } });
+        public void SendMouse(string name, string action, int button, int col, int row, int count = 1) =>
+            _send(new Wire.ClientMessage
+            {
+                Mouse = new Wire.MouseReq
+                {
+                    Name = name,
+                    Action = action,
+                    Button = checked((uint)button),
+                    Col = checked((uint)col),
+                    Row = checked((uint)row),
+                    Count = checked((uint)count)
+                }
+            });
+        public void Paste(string name, string text) =>
+            _send(new Wire.ClientMessage { Paste = new Wire.PasteReq { Name = name, Text = text } });
+        public void PasteBreadcrumb(string name, string breadcrumb, List<string> randomTips) =>
+            _send(new Wire.ClientMessage
+            {
+                Breadcrumb = new Wire.BreadcrumbReq
+                {
+                    Name = name,
+                    Breadcrumb = breadcrumb,
+                    RandomTips = { randomTips ?? Enumerable.Empty<string>() }
+                }
+            });
+        public void Resize(string name, int cols, int rows) =>
+            _send(new Wire.ClientMessage { Resize = new Wire.ResizeReq { Name = name, Cols = checked((uint)cols), Rows = checked((uint)rows) } });
+        public void RefreshPanels() => _send(new Wire.ClientMessage { Redraw = new Wire.RedrawReq() });
+        public void RefreshPanels(int cols, int rows) => _send(new Wire.ClientMessage
         {
-            foreach (var name in _subs.ToList())
-                _send($"{{\"t\":\"{WireProtocol.Messages.Sub}\",\"name\":{JVal.Q(name)}}}");
-        }
-
-        public void SendKeys(string name, IEnumerable<string> keys, bool literal)
-        {
-            SendKeys(name, keys, literal, null);
-        }
-
-        // `randomTips` fills a waiting breadcrumb's `{{ random_tip }}`, one per mention. Null
-        // on all but the Enter of an agent that still has breadcrumbs pending: every other
-        // keystroke would be paying to send a dozen strings nothing renders.
-        public void SendKeys(string name, IEnumerable<string> keys, bool literal,
-                             List<string> randomTips)
-        {
-            var arr = string.Join(",", keys.Select(JVal.Q).ToArray());
-            _send($"{{\"t\":\"{WireProtocol.Messages.Keys}\",\"name\":{JVal.Q(name)},\"keys\":[{arr}]," +
-                            $"\"literal\":{JVal.B(literal)},\"random_tips\":{HubWire.Tips(randomTips)}}}");
-        }
-
-        public void RequestScroll(string name, int off, ulong requestId)
-        {
-            _send($"{{\"t\":\"{WireProtocol.Messages.Scroll}\",\"name\":{JVal.Q(name)},\"off\":{off}," +
-                            $"\"request_id\":{requestId}}}");
-        }
-
-        // `action` is press/release/drag/wheelup/wheeldown, `button` is 0/1/2 =
-        // left/middle/right and ignored for the wheel. `count` repeats the report
-        // that many times in one tmux write, so a wheel notch does not spawn one
-        // process per scrolled line.
-        public void SendMouse(string name, string action, int button, int col, int row,
-                              int count = 1)
-        {
-            _send($"{{\"t\":\"{WireProtocol.Messages.Mouse}\",\"name\":{JVal.Q(name)},\"action\":{JVal.Q(action)}," +
-                            $"\"button\":{button},\"col\":{col},\"row\":{row}," +
-                            $"\"count\":{count}}}");
-        }
-
-        // tmux adds bracketed-paste markers when the receiving application requests them.
-        public void Paste(string name, string text)
-        {
-            _send($"{{\"t\":\"{WireProtocol.Messages.Paste}\",\"name\":{JVal.Q(name)},\"text\":{JVal.Q(text)}}}");
-        }
-
-        public void PasteBreadcrumb(string name, string breadcrumb, List<string> randomTips)
-        {
-            _send($"{{\"t\":\"{WireProtocol.Messages.Breadcrumb}\",\"name\":{JVal.Q(name)}," +
-                            $"\"breadcrumb\":{JVal.Q(breadcrumb)}," +
-                            $"\"random_tips\":{HubWire.Tips(randomTips)}}}");
-        }
-
-        public void Resize(string name, int cols, int rows)
-        {
-            _send($"{{\"t\":\"{WireProtocol.Messages.Resize}\",\"name\":{JVal.Q(name)}," +
-                            $"\"cols\":{cols},\"rows\":{rows}}}");
-        }
-
-        // A sidebar layout change affects every TUI, including viewer/editor tabs that are not
-        // the pane currently visible in the game. The daemon performs the redraw in background.
-        public void RefreshPanels() => _send($"{{\"t\":\"{WireProtocol.Messages.Redraw}\"}}");
-
-        public void RefreshPanels(int cols, int rows) =>
-            _send($"{{\"t\":\"{WireProtocol.Messages.Redraw}\",\"cols\":{cols},\"rows\":{rows}}}");
+            Redraw = new Wire.RedrawReq { Cols = checked((uint)cols), Rows = checked((uint)rows) }
+        });
     }
 }

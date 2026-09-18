@@ -32,8 +32,8 @@ namespace SlopWorld
         // Keep the daemon's complete snapshots alongside the friendly projection. Editing a
         // name or description must not discard captured preset definitions that are no
         // longer present in the live catalogs.
-        public string DefaultsJson = "{}";
-        public string OriginJson = "{}";
+        public Wire.AgentTemplateDefaults DefaultsSnapshot = new Wire.AgentTemplateDefaults();
+        public Wire.AgentTemplateOrigin OriginSnapshot = new Wire.AgentTemplateOrigin();
 
         public string DisplayLabel
         {
@@ -46,33 +46,36 @@ namespace SlopWorld
             }
         }
 
-        public static AgentTemplateInfo FromJson(JVal j)
+        public static AgentTemplateInfo FromWire(Wire.AgentTemplate j)
         {
-            var origin = j["origin"];
-            var defaults = j["defaults"];
-            return new AgentTemplateInfo
+            var d = j.Defaults ?? new Wire.AgentTemplateDefaults();
+            var o = j.Origin ?? new Wire.AgentTemplateOrigin();
+            var result = new AgentTemplateInfo
             {
-                SpecifiedFlags = new HashSet<string>(FlagNames.Where(name => !defaults[name].IsNull)),
-                Name = j["name"].AsString(),
-                Version = j["version"].AsLong(0),
-                Description = j["description"].AsString(),
-                Source = origin["source"].AsString("personal"),
-                OriginProject = origin["project"].AsString(),
-                OriginAgent = origin["agent"].AsString(),
-                Command = defaults["command"]["name"].AsString(),
-                Cmd = defaults["cmd"].IsNull ? "" : defaults["cmd"].AsString(),
-                Sandbox = Strings(defaults["sandbox"]),
-                PersistentTmp = defaults["persistent_tmp"].AsBool(false),
-                Network = NetworkModeText.Parse(defaults["network"].AsString(WireProtocol.NetworkMode.Private)),
-                NetworkSpecified = !defaults["network"].IsNull,
-                Dns = DnsConfig.FromJson(defaults["dns"]),
-                DnsSpecified = !defaults["dns"].IsNull,
-                Limits = SessionLimits.FromJson(defaults["limits"]),
-                Autostart = defaults["autostart"].AsBool(false),
-                AutoResume = defaults["auto_resume"].AsBool(false),
-                DefaultsJson = JVal.ToJson(defaults),
-                OriginJson = JVal.ToJson(origin),
+                Name = j.Name,
+                Version = (long)j.Version,
+                Description = j.Description,
+                Source = o.Source,
+                OriginProject = o.Project,
+                OriginAgent = o.Agent,
+                Command = d.Command?.Name ?? "",
+                Cmd = d.Cmd,
+                Sandbox = d.Sandbox.ToList(),
+                PersistentTmp = d.PersistentTmp,
+                Network = NetworkModeText.Parse(d.Network),
+                NetworkSpecified = d.HasNetwork,
+                Dns = DnsConfig.FromWire(d.Dns),
+                DnsSpecified = d.Dns != null,
+                Limits = SessionLimits.FromWire(d.Limits),
+                Autostart = d.Autostart,
+                AutoResume = d.AutoResume,
+                DefaultsSnapshot = d.Clone(),
+                OriginSnapshot = o.Clone(),
             };
+            if (d.HasPersistentTmp) result.SpecifiedFlags.Add("persistent_tmp");
+            if (d.HasAutostart) result.SpecifiedFlags.Add("autostart");
+            if (d.HasAutoResume) result.SpecifiedFlags.Add("auto_resume");
+            return result;
         }
 
         public AgentTemplateInfo Copy() => new AgentTemplateInfo
@@ -95,47 +98,56 @@ namespace SlopWorld
             Limits = Limits,
             Autostart = Autostart,
             AutoResume = AutoResume,
-            DefaultsJson = DefaultsJson,
-            OriginJson = OriginJson,
+            DefaultsSnapshot = DefaultsSnapshot.Clone(),
+            OriginSnapshot = OriginSnapshot.Clone(),
         };
 
         // Editors and previews share the same snapshot-first catalogs used when saving.
         public CommandInfo ResolveCommand(string name)
         {
-            var captured = JVal.Parse(DefaultsJson)["command"];
-            return !string.IsNullOrEmpty(name) && captured["name"].AsString() == name
-                ? CommandInfo.FromJson(captured) : SessionHub.Instance.Commands.FirstOrDefault(command => command.Name == name);
+            var captured = DefaultsSnapshot.Command;
+            return !string.IsNullOrEmpty(name) && captured?.Name == name
+                ? CommandInfo.FromWire(captured) : SessionHub.Instance.Commands.FirstOrDefault(c => c.Name == name);
         }
-
-        public List<PresetInfo> SandboxCatalog() =>
-            JVal.Parse(DefaultsJson)["sandbox_presets"].Items.Select(PresetInfo.FromJson)
-                .Concat(SessionHub.Instance.Presets).GroupBy(p => p.Name).Select(g => g.First()).ToList();
-
-        // Apply the portable editor form to the definition while preserving definitions that
-        // came from a source catalog but are no longer installed locally.
-        public string ToJson(SessionInfo form)
+        public List<PresetInfo> SandboxCatalog() => DefaultsSnapshot.SandboxPresets.Select(PresetInfo.FromWire)
+            .Concat(SessionHub.Instance.Presets).GroupBy(p => p.Name).Select(g => g.First()).ToList();
+        public Wire.AgentTemplate ToWire(SessionInfo form)
         {
-            var old = JVal.Parse(DefaultsJson ?? "{}");
-            string command = CommandJson(old, form);
-            var dependencies = JVal.Parse(command)["sandbox"].Items.Select(item => item.AsString());
-            string snapshots = SandboxSnapshots(old, form.Sandbox.Concat(dependencies));
-            var sandbox = JVal.Parse(snapshots).Items.Select(item => item["name"].AsString());
-            string patch = "{" +
-                $"\"command\":{command}," +
-                $"\"cmd\":{(string.IsNullOrWhiteSpace(form.Cmd) ? "null" : JVal.Q(form.Cmd))}," +
-                $"\"sandbox\":{Strings(sandbox)},\"sandbox_presets\":{snapshots}," +
-                $"\"persistent_tmp\":{FlagJson("persistent_tmp", form.PersistentTmp)}," +
-                $"\"network\":{(NetworkSpecified ? JVal.Q(NetworkModeText.Name(form.Network)) : "null")}," +
-                $"\"dns\":{(DnsSpecified ? form.Dns.ToJson() : "null")}," +
-                $"\"limits\":{form.Limits.ToJson()}," +
-                $"\"autostart\":{FlagJson("autostart", form.Autostart)}," +
-                $"\"auto_resume\":{FlagJson("auto_resume", form.AutoResume)}" +
-                "}";
-            // This is a full replacement. Deep merging would resurrect cleared limits and
-            // optional fields from an old command or DNS definition.
-            return "{" + $"\"name\":{JVal.Q(Name)},\"version\":{Version}," +
-                $"\"description\":{JVal.Q(Description)},\"origin\":{OriginJson ?? "{}"}," +
-                $"\"defaults\":{patch}}}";
+            var d = DefaultsSnapshot.Clone();
+            d.Command = null;
+            if (!string.IsNullOrEmpty(form.Command))
+                d.Command = DefaultsSnapshot.Command?.Name == form.Command ? DefaultsSnapshot.Command.Clone()
+                    : (SessionHub.Instance.Commands.FirstOrDefault(c => c.Name == form.Command)?.ToWire() ?? throw new InvalidOperationException("Unknown command: " + form.Command));
+            d.ClearCmd();
+            if (!string.IsNullOrWhiteSpace(form.Cmd)) d.Cmd = form.Cmd;
+            d.Sandbox.Clear(); d.SandboxPresets.Clear();
+            var pending = new Queue<string>(form.Sandbox.Concat(d.Command == null ? Enumerable.Empty<string>() : d.Command.Sandbox));
+            var names = new HashSet<string>();
+            while (pending.Count > 0)
+            {
+                string name = pending.Dequeue();
+                if (!names.Add(name)) continue;
+                var preset = DefaultsSnapshot.SandboxPresets.FirstOrDefault(p => p.Name == name)?.Clone()
+                    ?? SessionHub.Instance.Presets.FirstOrDefault(p => p.Name == name)?.ToWire()
+                    ?? throw new InvalidOperationException("Unknown sandbox preset: " + name);
+                d.Sandbox.Add(name); d.SandboxPresets.Add(preset);
+                foreach (string dependency in preset.Requires) pending.Enqueue(dependency);
+            }
+            d.ClearPersistentTmp(); d.ClearAutostart(); d.ClearAutoResume(); d.ClearNetwork();
+            if (SpecifiedFlags.Contains("persistent_tmp")) d.PersistentTmp = form.PersistentTmp;
+            if (SpecifiedFlags.Contains("autostart")) d.Autostart = form.Autostart;
+            if (SpecifiedFlags.Contains("auto_resume")) d.AutoResume = form.AutoResume;
+            if (NetworkSpecified) d.Network = NetworkModeText.Name(form.Network);
+            d.Dns = DnsSpecified ? form.Dns.ToWire() : null;
+            d.Limits = form.Limits.ToWire();
+            return new Wire.AgentTemplate
+            {
+                Name = Name,
+                Version = checked((ulong)Version),
+                Description = Description,
+                Origin = OriginSnapshot.Clone(),
+                Defaults = d
+            };
         }
 
         // Seed a new editor, leaving name and project to creation. Mounts and labels are
@@ -152,46 +164,6 @@ namespace SlopWorld
             s.Limits = Limits;
             s.Autostart = Autostart;
             s.AutoResume = AutoResume;
-        }
-
-        string FlagJson(string name, bool value) => SpecifiedFlags.Contains(name) ? JVal.B(value) : "null";
-
-        static List<string> Strings(JVal array) =>
-            array.Items.Select(i => i.AsString()).ToList();
-
-        static string Strings(IEnumerable<string> values) =>
-            "[" + string.Join(",", values.Select(JVal.Q).ToArray()) + "]";
-
-        static string CommandJson(JVal old, SessionInfo form)
-        {
-            string name = form.Command;
-            if (string.IsNullOrEmpty(name)) return "null";
-            if (old["command"]["name"].AsString() == name)
-                return JVal.ToJson(old["command"]);
-            var command = SessionHub.Instance.Commands.FirstOrDefault(c => c.Name == name);
-            if (command == null) throw new InvalidOperationException("Unknown command: " + name);
-            return command.ToJson();
-        }
-
-        static string SandboxSnapshots(JVal old, IEnumerable<string> selected)
-        {
-            var names = new HashSet<string>();
-            var pending = new Queue<string>(selected);
-            var output = new List<string>();
-            while (pending.Count > 0)
-            {
-                string name = pending.Dequeue();
-                if (!names.Add(name)) continue;
-                var captured = old["sandbox_presets"].Items.FirstOrDefault(p => p["name"].AsString() == name);
-                string value = captured == null
-                    ? SessionHub.Instance.Presets.FirstOrDefault(p => p.Name == name)?.ToJson()
-                    : JVal.ToJson(captured);
-                if (value == null) throw new InvalidOperationException("Unknown sandbox preset: " + name);
-                output.Add(value);
-                foreach (var dependency in JVal.Parse(value)["requires"].Items)
-                    pending.Enqueue(dependency.AsString());
-            }
-            return "[" + string.Join(",", output.ToArray()) + "]";
         }
 
     }

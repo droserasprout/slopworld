@@ -15,7 +15,7 @@ namespace SlopWorld.Tests
 
         static void ReadsCompleteWireShape()
         {
-            var session = SessionInfo.FromJson(JVal.Parse(
+            var session = SessionInfo.FromWire(ProtobufFixtures.Read<Wire.SessionView>(JVal.Parse(
                 "{" +
                 "\"name\":\"agent\",\"project\":\"proj\",\"dir\":\"/work\", " +
                 "\"command\":\"claude\",\"command_preset\":\"claude\", " +
@@ -30,7 +30,7 @@ namespace SlopWorld.Tests
                 "\"ephemeral\":true,\"host\":true,\"process_running\":true,\"cols\":120,\"rows\":40, " +
                 "\"title\":\"working title\",\"label\":\"manual label\",\"bell\":true, " +
                 "\"run_id\":9, " +
-                "\"last_change\":123,\"state_since\":456}"));
+                "\"last_change\":123,\"state_since\":456}")));
 
             AssertEx.Equal("agent", session.Name, "name");
             AssertEx.Equal("proj", session.Project, "project");
@@ -111,8 +111,8 @@ namespace SlopWorld.Tests
 
         static void ParsesUnknownStateAsDown()
         {
-            var session = SessionInfo.FromJson(JVal.Parse(
-                "{\"state\":\"future-state\",\"alive\":false}"));
+            var session = SessionInfo.FromWire(ProtobufFixtures.Read<Wire.SessionView>(JVal.Parse(
+                "{\"state\":\"future-state\",\"alive\":false}")));
 
             AssertEx.Equal(AgentState.Down, session.State, "unknown state fallback");
             AssertEx.True(session.Gone, "dead session is gone");

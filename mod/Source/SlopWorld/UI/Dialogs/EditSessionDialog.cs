@@ -85,12 +85,12 @@ namespace SlopWorld
             {
                 string endpoint = DaemonClient.BaseUrl;
                 int connection = SessionHub.Instance.ConnectionGeneration;
-                DaemonClient.Post(WireProtocol.Routes.SettingsPreview,
-                    "{\"existing\":" + JVal.Q(_identity.OriginalName) + "}",
+                DaemonClient.Post<Wire.SettingsPreview>(WireProtocol.Routes.SettingsPreview,
+                    new Wire.SettingsPreviewRequest { Existing = _identity.OriginalName },
                     response =>
                     {
                         if (endpoint == DaemonClient.BaseUrl && connection == SessionHub.Instance.ConnectionGeneration)
-                            _templateSnapshot = AgentTemplateInfo.FromJson(response["definitions"]);
+                            _templateSnapshot = AgentTemplateInfo.FromWire(new Wire.AgentTemplate { Defaults = response.Definitions?.Defaults });
                     }, UiLayout.Fail);
             }
 
@@ -110,12 +110,12 @@ namespace SlopWorld
             SessionHub.Instance.Catalog.RefreshLibrary();
             if (!EditingTemplate && string.IsNullOrEmpty(_s.CommandPreset) && string.IsNullOrEmpty(_s.Command) &&
                 string.IsNullOrWhiteSpace(_s.Cmd))
-                DaemonClient.Get(WireProtocol.Routes.Config,
+                DaemonClient.Get<Wire.ConfigResult>(WireProtocol.Routes.Config,
                     j =>
                     {
                         if (string.IsNullOrEmpty(_templateName) && string.IsNullOrEmpty(_s.Command) &&
                             string.IsNullOrEmpty(_s.CommandPreset) && string.IsNullOrWhiteSpace(_s.Cmd))
-                            _s.CommandPreset = j["values"]["defaults"]["agent"].AsString("claude");
+                            _s.CommandPreset = j.Values.Defaults.Agent;
                     },
                     UiLayout.Fail);
 
