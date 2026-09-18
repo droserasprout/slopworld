@@ -266,6 +266,7 @@ namespace SlopWorld
             if (Settings.S.sidebarHidden)
             {
                 SearchView.Closed();
+                LibraryView.Closed();
                 EndFilesDivider();
             }
             Settings.S.Write();

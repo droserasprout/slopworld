@@ -16,8 +16,11 @@ Six tabs share the panel:
   and File Action entries.
 - **Search** — workspace text search with a result pager.
 - **Git** — browse changes, stage and unstage files, commit staged changes, and view diffs.
-- **Library** — Prompt, Breadcrumb, Shell, and File Action entries; prompt and shell errands
-  can be delivered to an agent or run in a temporary session.
+- **Library** — searchable agent templates, prompts, shell commands, breadcrumbs, and file
+  actions, grouped by type. Click an entry to select it; the details area offers **Run**,
+  **Run in…**, **Create agent…**, or **Edit** as appropriate. Search matches names and content;
+  the type selector narrows the list. Global entries remain visible under project filters.
+  Right-click or use **…** for additional actions; use the shared **+** to create entries.
 - **Tasks** — the durable task mailbox. Click a task to open its maximized dialogue reader, with
   timestamped, selectable message text and a Copy all action; Ctrl+Click toggles task rows and
   Shift+Click selects a range. Right-click for status actions, terminal access, cancellation of

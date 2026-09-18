@@ -104,6 +104,7 @@ namespace SlopWorld
                     {
                         Draw = () => LibraryView.Draw(Body),
                         Click = LibraryView.Clicks,
+                        Close = LibraryView.Closed,
                         DrawActions = DrawLibraryActions,
                         Refresh = () => LibraryView.Refresh(UiLayout.Fail),
                         // Fetch on entry as well, including when socket updates are unavailable.
