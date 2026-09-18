@@ -422,7 +422,7 @@ namespace SlopWorld
 
         // Public for GitView: viewing a changed file is a Files operation, regardless of
         // which tree supplied the click. Opening it preserves the active sidebar tab.
-        public static void ViewFile(string project, string path, string label)
+        public static void ViewFile(string project, string path, string label, int line = 0)
         {
             // A project that has gone takes the mark with it: the tree would otherwise
             // highlight a row nobody is reading.
@@ -432,6 +432,12 @@ namespace SlopWorld
             {
                 Tree.SelectKey(ContentTreeView.SelectionKey(project, path));
                 if (!string.IsNullOrEmpty(project)) AgentSidebar.RememberFile(project, path);
+            }
+            if (line > 0)
+            {
+                ReleaseMarkdownPreview();
+                Viewers.ForPreview().ViewFileAt(project, path, line, label);
+                return;
             }
             if (IsMarkdown(System.IO.Path.GetFileName(path)))
             {

@@ -69,7 +69,7 @@ namespace SlopWorld
                 if (input && MouseType(Event.current) == EventType.MouseDown &&
                     Event.current.button == 1 && body.Contains(Event.current.mousePosition))
                 {
-                    OpenMenu(null, null, 0);
+                    OpenMenu(null);
                     Event.current.Use();
                 }
                 Slab.Fill(OverdrawBackground(body), SolidTerminalBackground);
