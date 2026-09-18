@@ -60,9 +60,9 @@ namespace SlopWorld
             new SidebarViewLocation(SidebarTab.Tasks, SidebarViewLocationKind.Task,
                 id, null, 0);
 
-        public static SidebarViewLocation Library(string name) =>
+        public static SidebarViewLocation Library(string name, bool template = false) =>
             new SidebarViewLocation(SidebarTab.Library, SidebarViewLocationKind.Library,
-                name, null, 0);
+                name, template ? "template" : "", 0);
 
         public bool Equals(SidebarViewLocation other) => Tab == other.Tab && Kind == other.Kind &&
             Line == other.Line && Primary == other.Primary && Secondary == other.Secondary;

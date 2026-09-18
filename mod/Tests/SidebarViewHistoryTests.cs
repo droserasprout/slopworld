@@ -9,8 +9,22 @@ namespace SlopWorld.Tests
         {
             yield return ("keeps the latest target per tab", LatestPerTab);
             yield return ("moves backward and forward", BackAndForward);
+            yield return ("same-named Library templates retain distinct history", LibraryKinds);
             yield return ("a new visit clears forward history", NewVisitClearsForward);
             yield return ("reselecting a tab is not a history entry", ReselectingTab);
+        }
+
+        static void LibraryKinds()
+        {
+            var history = new SidebarViewHistory();
+            var prompt = SidebarViewLocation.Library("review");
+            var template = SidebarViewLocation.Library("review", template: true);
+            history.Visit(prompt);
+            history.Visit(template);
+            AssertEx.True(history.Back(out var previous), "template selection creates a distinct visit");
+            AssertEx.Equal(prompt, previous, "back restores the prompt, not the same-named template");
+            AssertEx.True(history.Forward(out var next), "template remains in forward history");
+            AssertEx.Equal(template, next, "forward restores template identity");
         }
 
         static void LatestPerTab()

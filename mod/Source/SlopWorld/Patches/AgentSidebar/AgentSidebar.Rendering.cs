@@ -57,6 +57,7 @@ namespace SlopWorld
             if (!Wanted())
             {
                 SearchView.Closed();
+                LibraryView.Closed();
                 if (Interaction.Resizing) EndResize();
                 EndFilesDivider();
                 return;

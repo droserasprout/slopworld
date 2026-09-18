@@ -114,10 +114,10 @@ namespace SlopWorld
             ViewHistory.Visit(SidebarViewLocation.Task(id));
         }
 
-        internal static void RememberLibrary(string name)
+        internal static void RememberLibrary(string name, bool template = false)
         {
             if (_restoringView || string.IsNullOrEmpty(name)) return;
-            ViewHistory.Visit(SidebarViewLocation.Library(name));
+            ViewHistory.Visit(SidebarViewLocation.Library(name, template));
         }
 
         public static bool CanFoldCurrent => CurrentDefinition.CanFold;
@@ -324,7 +324,7 @@ namespace SlopWorld
                     case SidebarViewLocationKind.Task:
                         return TasksView.FocusLocation(location.Primary);
                     case SidebarViewLocationKind.Library:
-                        return LibraryView.FocusLocation(location.Primary);
+                        return LibraryView.FocusLocation(location.Primary, location.Secondary == "template");
                     default:
                         return false;
                 }
