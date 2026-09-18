@@ -20,3 +20,6 @@ packaging/arch/*.pkg.tar.*
 
 mod/Dependencies/bin/
 mod/Dependencies/obj/
+
+# Local benchmark diagnostics; commit only the processed report.
+/notes/perf-suite*.raw/

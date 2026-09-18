@@ -1,7 +1,9 @@
 # IPC codec benchmark
 
-Run `make bench-ipc` for one run, or `make bench-ipc-report` for three serial runs and
-[the report](REPORT.md). No game or daemon service is started. Requires Mono, .NET 8,
+Run `make BUILD=release bench-ipc` for one focused run. `make bench-report` includes all
+IPC metrics in the main three-run averaged performance report, alongside daemon and C#
+benchmarks. The current [processed report](../../notes/perf-suite.md) is replaced on each run.
+Raw per-run logs and IPC CSVs stay local and ignored. No game or daemon service is started. Requires Mono, .NET 8,
 Rust and protoc, plus the normal repository build dependencies.
 
 The JSON baseline is frozen from commit `7251189d` (the transport before migration).
@@ -23,9 +25,25 @@ Each lane warms up for 300 operations, then records 21 batches. C# uses 500 oper
 per receive batch or 150 per burst; Rust uses 1,000. p50/p95 are percentiles of batch
 averages, not individual-message tail latency. C# allocations use the runtime's thread
 allocation counter. Fixture construction and forced GC are outside timed regions.
-.NET tiered compilation is disabled. Report ratios use medians of three run p50s.
+.NET tiered compilation is disabled. The main report averages three run p50s/p95s.
 
 These are codec/queue measurements. They exclude kernel IPC, WebSocket framing, HTTP,
 terminal capture/rendering and cold configuration projection costs. They establish neither
-an FPS improvement nor an end-to-end latency claim. Raw CSV files and environment metadata
-are retained under `results/`; generated fixtures and compiler output are ignored.
+an FPS improvement nor an end-to-end latency claim. Raw CSV files under `results/`, generated fixtures and compiler output are ignored.
+
+## Maintenance cost
+
+| Component | Choice / cost |
+| --- | --- |
+| C# codec | Google.Protobuf 3.36.1, net472 for Unity Mono |
+| Rust codec | prost/prost-build 0.14.4 |
+| Authored contract | 811-line `.proto` plus route/type inventory |
+| Generated C# | About 38,000 lines; regenerate, never edit |
+| Runtime package | Five DLLs, about 0.8 MiB total |
+| Removed client machinery | 504-line JSON wrapper/scanner; JSON envelope construction replaced by typed messages |
+| Remaining editor support | 83-line schema-reflection helper for draft leaf diffs and explicit patch paths |
+| Remaining Rust adapter | Cold domain projections use Serde values in memory; no JSON text in IPC |
+
+This favors a single typed protocol over maintaining both codecs. It reduces handwritten
+client parsing and request construction, but adds generated source, build tooling and runtime
+assemblies. It does not eliminate serialization used for persistence or third-party APIs.
