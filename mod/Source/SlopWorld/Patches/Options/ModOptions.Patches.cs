@@ -118,18 +118,14 @@ namespace SlopWorld
         {
             if (max <= 0f) return;
 
-            float trackW = UiTheme.ScrollTrackW;
-            var track = new Rect(viewport.width - trackW, 0f, trackW, viewport.height);
-            float thumbH = Mathf.Clamp(track.height * (track.height /
-                (track.height + max)), Mathf.Min(24f, track.height), track.height);
-            float span = Mathf.Max(0f, track.height - thumbH);
-            var thumb = new Rect(track.x + UiTheme.ScrollThumbInset,
-                track.y + (span <= 0f ? 0f : span * (_railScroll / max)),
-                track.width - UiTheme.ScrollThumbInset * 2f, thumbH);
-            int id = GUIUtility.GetControlID(FocusType.Passive, track);
+            var track = UiScrollbar.Track(viewport);
+            var hit = UiScrollbar.Hit(viewport, track);
+            float thumbH = UiScrollbar.ThumbHeight(track, viewport.height, max);
+            var thumb = UiScrollbar.Thumb(track, thumbH, max <= 0f ? 0f : _railScroll / max);
+            int id = GUIUtility.GetControlID(FocusType.Passive, hit);
             var e = Event.current;
             if (GUIUtility.hotControl == 0 && e.type == EventType.MouseDown && e.button == 0 &&
-                track.Contains(e.mousePosition))
+                hit.Contains(e.mousePosition))
             {
                 _railControl = id;
                 _railGrab = thumb.Contains(e.mousePosition)
@@ -152,11 +148,7 @@ namespace SlopWorld
                 }
             }
 
-            if (e.type != EventType.Repaint) return;
-            Slab.Fill(track, UiTheme.ScrollTrough);
-            Slab.Fill(thumb, GUIUtility.hotControl == id
-                ? UiTheme.ScrollThumbHeld
-                : Mouse.IsOver(track) ? UiTheme.ScrollThumbHover : UiTheme.ScrollThumb);
+            UiScrollbar.Draw(hit, track, thumb, GUIUtility.hotControl == id);
         }
 
         static void SetRailScroll(float mouseY, Rect track, float thumbH, float max)
