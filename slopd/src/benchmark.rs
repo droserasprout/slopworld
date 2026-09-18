@@ -88,6 +88,19 @@ fn benchmark_ansi_strip() {
     measure("ansi-strip tail", |_| {
         crate::session::strip_sgr_tail(&lines, 12).len()
     });
+    for (name, text) in [
+        ("plain", "build output with no terminal escapes ".repeat(4)),
+        (
+            "styled",
+            "\x1b[32mbuild output with terminal escapes\x1b[0m ".repeat(4),
+        ),
+        ("unicode", "\x1b[32m❯ compiling 日本語 🦀\x1b[0m ".repeat(4)),
+    ] {
+        let lines = vec![text; ROWS as usize];
+        measure(&format!("ansi-strip tail {name}"), |_| {
+            crate::session::strip_sgr_tail(black_box(&lines), 12).len()
+        });
+    }
 }
 
 fn benchmark_content_hash() {
