@@ -119,6 +119,12 @@ namespace UnityEngine
         public float yMax => y + height;
     }
 
+    public static class GUIUtility
+    {
+        public static Vector2 Origin;
+        public static Vector2 GUIToScreenPoint(Vector2 p) => new Vector2(p.x + Origin.x, p.y + Origin.y);
+    }
+
     public static class Time
     {
         public static float realtimeSinceStartup;

@@ -30,6 +30,7 @@
       <HintPath>../Assemblies/Tomlyn.dll</HintPath>
       <Private>true</Private>
     </Reference>
+    <Compile Include="../Source/SlopWorld/UI/Chrome/ScrollWheelRouter.cs" Link="Source/ScrollWheelRouter.cs" />
     <!-- Use the shipped parser and deterministic text metrics. -->
     <Compile Include="../Source/SlopWorld/UI/MarkdownPreview/MarkdownPreview.Styles.cs" Link="Source/UI/MarkdownPreview/MarkdownPreview.Styles.cs" />
     <Compile Include="../Source/SlopWorld/UI/MarkdownPreview/MarkdownPreview.Layout.cs" Link="Source/UI/MarkdownPreview/MarkdownPreview.Layout.cs" />

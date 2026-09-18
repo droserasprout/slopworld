@@ -125,8 +125,24 @@ namespace SlopWorld
     }
     sealed class SmoothScroll : IDisposable
     {
-        public IDisposable Scope(Rect frame, Rect view) { EditorTrace.Record("scroll", view); return this; }
-        public void Dispose() { }
+        public static bool WheelOnly;
+        public static readonly List<SmoothScroll> WheelTrace = new List<SmoothScroll>();
+        Vector2 _origin;
+        public IDisposable Scope(Rect frame, Rect view, bool bars = true, bool precise = true)
+        {
+            EditorTrace.Record("scroll", view);
+            _origin = GUIUtility.Origin;
+            GUIUtility.Origin = new Vector2(_origin.x + frame.x + view.x,
+                _origin.y + frame.y + view.y);
+            ScrollWheelRouter.Begin(this, frame, view, precise, _origin);
+            return this;
+        }
+        public void Dispose()
+        {
+            WheelTrace.Add(this);
+            ScrollWheelRouter.End();
+            GUIUtility.Origin = _origin;
+        }
     }
     static class ConfirmDialog
     {

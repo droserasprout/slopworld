@@ -87,6 +87,7 @@ namespace SlopWorld
         public void Begin(Rect outer, Rect view, bool showScrollbars = true,
                           bool preciseInput = true)
         {
+            var origin = GUIUtility.GUIToScreenPoint(Vector2.zero);
             var max = new Vector2(
                 Mathf.Max(0f, view.width - outer.width),
                 Mathf.Max(0f, view.height - outer.height));
@@ -101,6 +102,7 @@ namespace SlopWorld
             // makes `_pos` the only scroll state and leaves the wheel entirely to our input.
             GUI.BeginGroup(outer);
             GUI.BeginGroup(new Rect(view.x - _pos.x, view.y - _pos.y, view.width, view.height));
+            ScrollWheelRouter.Begin(this, outer, view, preciseInput, origin);
         }
 
         // Terminal history has a moving window rather than a locally available document.
@@ -133,6 +135,7 @@ namespace SlopWorld
 
         public void End()
         {
+            ScrollWheelRouter.End();
             _focusRegion?.Dispose();
             _focusRegion = null;
             EndInput();
