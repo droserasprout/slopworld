@@ -53,7 +53,10 @@ struct StatusRow {
 /// Enough for any working tree a person is actually reading. Past it the tree is not a tree
 /// any more, and a `git status` that long is a build directory somebody forgot to ignore.
 const LIMIT: usize = 2000;
-const NO_INDEX_CONCURRENCY: usize = 16;
+const NO_INDEX_CONCURRENCY: usize = 4;
+// The sidebar asks about every visible project at once. Share the expensive count budget
+// across repositories while leaving status-only reads free to deliver paths immediately.
+static NUMSTAT_SLOTS: tokio::sync::Semaphore = tokio::sync::Semaphore::const_new(2);
 
 /// Disable known helpers; seccomp also blocks filters and other child processes.
 pub(crate) fn inspection_args() -> &'static [&'static str] {
@@ -345,6 +348,12 @@ async fn numstat(root: &Path, rows: &[StatusRow]) -> HashMap<String, (Option<u32
         return HashMap::new();
     }
 
+    // Waiting counts toward the caller's optional-count timeout. Cancellation releases the
+    // permit and kills children, so decoration cannot build an unbounded work backlog.
+    let _slot = NUMSTAT_SLOTS
+        .acquire()
+        .await
+        .expect("numstat slots stay open");
     let mut tracked = Vec::new();
     for row in rows.iter().filter(|row| row.status != "??") {
         tracked.push(row.path.as_str());

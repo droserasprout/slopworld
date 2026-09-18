@@ -21,6 +21,7 @@ namespace SlopWorld
         const string SessionHeader = WireProtocol.SessionHeader;
         const string ContentType = "application/x-protobuf";
         const int MaxCompletionsPerFrame = 32;
+        static readonly long CompletionBudgetTicks = System.Diagnostics.Stopwatch.Frequency / 500;
         const string CompletionTraceName = "http-completions";
 
         static readonly ConcurrentQueue<Action> Completions = new ConcurrentQueue<Action>();
@@ -175,12 +176,17 @@ namespace SlopWorld
         public static int PumpCompletions()
         {
             long started = PerfTrace.Start();
+            long budgetStarted = System.Diagnostics.Stopwatch.GetTimestamp();
             int count = 0;
             while (count < MaxCompletionsPerFrame && Completions.TryDequeue(out var a))
             {
                 count++;
                 try { a(); }
                 catch (Exception e) { Log.Error($"[SlopWorld] completion: {e}"); }
+                // Always make progress, but yield after roughly 2 ms even when fewer than
+                // 32 expensive tree callbacks arrived. A single callback cannot be preempted.
+                if (System.Diagnostics.Stopwatch.GetTimestamp() - budgetStarted >= CompletionBudgetTicks)
+                    break;
             }
             PerfTrace.End(CompletionTraceName, started, count, Completions.Count);
             return count;
