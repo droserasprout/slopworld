@@ -1,5 +1,6 @@
+use crate::api::protobuf::reply;
 use axum::http::StatusCode;
-use axum::Json;
+
 use serde_json::json;
 
 use crate::grant::{Cap, Level};
@@ -43,7 +44,7 @@ pub(crate) use handlers_tasks::*;
 pub(crate) use handlers_templates::*;
 fn ok_json(r: anyhow::Result<()>) -> ApiResult {
     r.map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
-    Ok(Json(json!({ "ok": true })))
+    reply(json!({ "ok": true }))
 }
 
 /// Return 403 for denied or unknown names without revealing session existence.
@@ -52,7 +53,7 @@ pub(super) async fn guard(
     cap: &Cap,
     name: &str,
     need: Level,
-) -> Result<(), (StatusCode, Json<serde_json::Value>)> {
+) -> Result<(), crate::api::protobuf::ApiError> {
     if m.cap_ok(cap, name, need).await {
         Ok(())
     } else {
@@ -61,7 +62,7 @@ pub(super) async fn guard(
 }
 
 /// Only root may create sessions.
-pub(super) fn guard_create(cap: &Cap) -> Result<(), (StatusCode, Json<serde_json::Value>)> {
+pub(super) fn guard_create(cap: &Cap) -> Result<(), crate::api::protobuf::ApiError> {
     if cap.may_create() {
         Ok(())
     } else {
@@ -73,7 +74,7 @@ pub(super) fn guard_create(cap: &Cap) -> Result<(), (StatusCode, Json<serde_json
 }
 
 /// Replacing sandbox configuration requires root authority.
-pub(super) fn guard_root(cap: &Cap) -> Result<(), (StatusCode, Json<serde_json::Value>)> {
+pub(super) fn guard_root(cap: &Cap) -> Result<(), crate::api::protobuf::ApiError> {
     if cap.may_create() {
         Ok(())
     } else {
@@ -187,10 +188,7 @@ mod tests {
         assert!(parse_kind("app_presets").is_ok());
         let (status, body) = parse_kind("other").unwrap_err();
         assert_eq!(status, StatusCode::BAD_REQUEST);
-        assert!(body.0["error"]
-            .as_str()
-            .unwrap()
-            .contains("unknown preset kind"));
+        assert!(body.0.error.contains("unknown preset kind"));
     }
 
     #[tokio::test]

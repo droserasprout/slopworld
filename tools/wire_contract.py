@@ -63,7 +63,7 @@ def load(directory: Path = SHARED) -> dict:
     document = yaml.load(path.read_text(), Loader=UniqueLoader)
     if not isinstance(document, dict) or set(document) != expected:
         raise ValueError(f"{path}: expected sections {sorted(expected)}")
-    if type(document["version"]) is not int or document["version"] != 1:
+    if type(document["version"]) is not int or document["version"] != 2:
         raise ValueError(f"{path}: unsupported shared definition version")
     for section in expected - {"version"}:
         if not isinstance(document[section], dict) or not document[section]:

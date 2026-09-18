@@ -18,20 +18,20 @@ namespace SlopWorld
         public string TerminalNames => HostTerminalsAreContainer
             ? "container terminals" : "host terminals";
 
-        public static DaemonCapabilities FromJson(JVal j)
+        public static DaemonCapabilities FromWire(Wire.Capabilities j)
         {
-            if (j == null || j.IsNull) return Current = new DaemonCapabilities();
+            if (j == null) return Current = new DaemonCapabilities();
             return Current = new DaemonCapabilities
             {
                 Known = true,
-                Runtime = j["runtime"].AsString("native"),
-                AudioPlayback = j["audio_playback"].AsBool(true),
-                Clipboard = j["clipboard"].AsBool(true),
-                DesktopOpen = j["desktop_open"].AsBool(true),
-                PerSessionLimits = j["per_session_limits"].AsBool(true),
-                HostNetworkIsContainer = j["host_network_is_container"].AsBool(false),
-                HostTerminalsAreContainer = j["host_terminals_are_container"].AsBool(false),
-                Terminal = TerminalLimits.FromJson(j["terminal"]),
+                Runtime = j.Runtime,
+                AudioPlayback = j.AudioPlayback,
+                Clipboard = j.Clipboard,
+                DesktopOpen = j.DesktopOpen,
+                PerSessionLimits = j.PerSessionLimits,
+                HostNetworkIsContainer = j.HostNetworkIsContainer,
+                HostTerminalsAreContainer = j.HostTerminalsAreContainer,
+                Terminal = TerminalLimits.FromWire(j.Terminal),
             };
         }
 

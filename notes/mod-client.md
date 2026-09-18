@@ -13,21 +13,20 @@ state.
 Unity Mono requires the custom WebSocket transport. Preserve lossless backpressure for
 control/history/replies while coalescing unsolicited live screens. A reconnect inside a
 callback must not redirect the rest of an old batch into the new connection. Closing wakes
-blocked readers and drops queued payload references. Envelope inspection uses `JsonScanner` to
-validate skipped values without materializing their strings, with the same strict grammar as full
-Json.NET decoding; only the retained live frame is materialized into a token tree. Both paths
-reject syntax extensions hidden by tokenization.
-`JVal` wraps the library tree and owns missing-value and patch semantics. Malformed messages reach
-the main-thread error callback without replacing queued live screens.
+blocked readers and drops queued payload references. `ReceivedEvent` decodes binary frames
+once before the queue lock; malformed messages reach the main-thread error callback without
+replacing queued live screens. Queue budgets count encoded bytes. `HubEventBatch` dispatches
+generated messages. HTTP decodes bounded Protobuf responses before main-thread callbacks.
 
 HTTP writes and pushed snapshots can race. Catalog operation revisions reject stale reads.
 A session rename can remove the old name in a pushed snapshot before its HTTP response:
 keep the temporary name mapping until success or failure settles it, preserving the pawn,
 terminal and selection without keeping a truly deleted session alive.
 
-Daemon configuration drafts keep an explicit editable `JVal` projection and independent token
-snapshots. Leaf diffs are computed before `DaemonClient` serializes the request, preserving
-unknown daemon fields, sorted/deduplicated worker templates, and numeric wire types.
+Daemon configuration drafts keep generated editable snapshots. `ProtoFields` handles editor
+leaf traversal, comparison and merge; explicit patch paths preserve omission and scalar defaults.
+Worker-template sets remain sorted and deduplicated. Secrets and response metadata stay outside
+the editable projection.
 
 Project, template and agent settings previews resolve on the daemon. Worker creation also stays
 daemon-owned: `SessionHub` sends caller context, project, selected allowlisted template, task

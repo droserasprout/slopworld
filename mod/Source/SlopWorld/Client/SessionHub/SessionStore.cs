@@ -131,15 +131,15 @@ namespace SlopWorld
 
         // The socket's "sessions" event: replace the list, then drop the screens of sessions
         // that no longer exist.
-        public void ApplySessions(JVal ev)
+        public void ApplySessions(Wire.SessionsReply ev)
         {
             ReplaceSessions(ev);
         }
 
-        void ReplaceSessions(JVal ev)
+        void ReplaceSessions(Wire.SessionsReply ev)
         {
             _sessionsVersion++;
-            var next = ev["sessions"].Items.Select(SessionInfo.FromJson).ToList();
+            var next = ev.Sessions.Select(SessionInfo.FromWire).ToList();
             foreach (var session in next)
             {
                 if (session == null || !_byName.TryGetValue(session.Name, out var previous) ||
@@ -171,18 +171,18 @@ namespace SlopWorld
 
         // The socket's "screen" event. Scrolled frames answer one wheel request; kept apart
         // from the live view.
-        public void ApplyScreen(JVal screen)
+        public void ApplyScreen(Wire.ScreenView screen)
         {
-            string name = screen["name"].AsString();
-            int off = screen["off"].AsInt(0);
-            bool historyReply = off > 0 || screen["request_id"].AsLong(0) > 0;
+            string name = screen.Name;
+            int off = (int)screen.Off;
+            bool historyReply = off > 0 || (long)screen.RequestId > 0;
             if (historyReply)
             {
                 // History responses are viewport snapshots. Keep each response immutable so
                 // TerminalHistory can retain and overlap its rows. A request clamped to empty history has
                 // off=0 but keeps its request id, and must not overwrite the streamed live frame.
                 var history = new ScreenBuf();
-                history.FromJson(screen);
+                history.FromWire(screen);
                 if (!_scrolls.TryGetValue(name, out var pending))
                     _scrolls[name] = pending = new Queue<ScreenBuf>();
                 pending.Enqueue(history);
@@ -195,8 +195,8 @@ namespace SlopWorld
             // A frame already queued before an unsubscribe can race the direct snapshot sent
             // by the new subscription. Never let that older frame overwrite the new baseline;
             // doing so would make the following current frame look like a one-row scroll.
-            if (buf.Seq >= 0 && screen["seq"].AsInt() < buf.Seq) return;
-            buf.FromJson(screen);
+            if (buf.Seq >= 0 && (int)screen.Seq < buf.Seq) return;
+            buf.FromWire(screen);
         }
 
         // Both stores are keyed by session name and nothing else ever drops from them, so an
@@ -224,7 +224,7 @@ namespace SlopWorld
         {
             long version = _sessionsVersion;
             int serial = ++_refreshSerial;
-            DaemonClient.Get(SessionsPath, j =>
+            DaemonClient.Get<Wire.SessionsReply>(SessionsPath, j =>
             {
                 // A websocket event is newer than an HTTP snapshot requested before it, and a
                 // later refresh supersedes an earlier one. Applying either stale answer can
@@ -238,8 +238,8 @@ namespace SlopWorld
         // A terminal path is relative to the shell's current directory, not necessarily the
         // project's configured root. Ask tmux at action time so a recent `cd` is respected.
         public void CurrentPath(string name, Action<string> done, Action<string> fail = null) =>
-            DaemonClient.Get($"{SessionsPath}/{HubWire.Esc(name)}/cwd",
-                j => done?.Invoke(j["path"].AsString()), fail);
+            DaemonClient.Get<Wire.PathResult>($"{SessionsPath}/{HubWire.Esc(name)}/cwd",
+                j => done?.Invoke(j.Path), fail);
 
         // Run an ephemeral shell/prompt without creating a library item; refresh Sessions before
         // the callback so a newly opened pane is visible next frame.
@@ -248,22 +248,22 @@ namespace SlopWorld
                         bool shell = true, string text = "", bool host = false, bool temp = false,
                         string path = "", bool hold = false, string like = "", string agentTemplate = "")
         {
-            string shape = TerminalWindow.TryPanelShape(out int cols, out int rows)
-                ? $"\"cols\":{cols},\"rows\":{rows}," : "";
-            DaemonClient.Post(RunPath,
-                "{" + shape + $"\"project\":{JVal.Q(project ?? "")}," +
-                $"\"kind\":{JVal.Q(shell ? "shell" : "prompt")}," +
-                $"\"command\":{JVal.Q(command ?? "")}," +
-                $"\"path\":{JVal.Q(path ?? "")}," +
-                $"\"label\":{JVal.Q(label ?? "")}," +
-                $"\"text\":{JVal.Q(text ?? "")}," +
-                $"\"host\":{JVal.B(host)}," +
-                $"\"temp\":{JVal.B(temp)}," +
-                $"\"hold\":{JVal.B(hold)}," +
-                $"\"like\":{JVal.Q(like ?? "")}," +
-                $"\"agent_template\":{JVal.Q(agentTemplate ?? "")}" + "}",
-                j => Started(j, started, fail),
-                fail);
+            var request = new Wire.RunReq
+            {
+                Project = project ?? "",
+                Kind = shell ? "shell" : "prompt",
+                Command = command ?? "",
+                Path = path ?? "",
+                Label = label ?? "",
+                Text = text ?? "",
+                Host = host,
+                Temp = temp,
+                Hold = hold,
+                Like = like ?? "",
+                AgentTemplate = agentTemplate ?? ""
+            };
+            if (TerminalWindow.TryPanelShape(out int cols, out int rows)) { request.Cols = (uint)cols; request.Rows = (uint)rows; }
+            DaemonClient.Post<Wire.SessionResult>(RunPath, request, j => Started(j, started, fail), fail);
         }
 
         // Host terminal leaves command/label empty: slopd chooses `$SHELL` and returns the
@@ -277,19 +277,19 @@ namespace SlopWorld
         // `temp` are the same message whether they answer an `ask` entry or override one.
         public void RunLibraryItem(string name, Action<string> started, Action<string> fail = null,
                                 string project = null, bool temp = false,
-                                List<string> randomTips = null) =>
-            DaemonClient.Post($"{LibraryPath}/{HubWire.Esc(name)}/run",
-                "{" + $"\"project\":{(string.IsNullOrEmpty(project) ? "null" : JVal.Q(project))}," +
-                $"\"temp\":{JVal.B(temp)}," +
-                $"\"random_tips\":{HubWire.Tips(randomTips)}" + "}",
-                j => Started(j, started, fail),
-                fail);
+                                List<string> randomTips = null)
+        {
+            var request = new Wire.RunWhere { Temp = temp, RandomTips = { randomTips ?? Enumerable.Empty<string>() } };
+            if (!string.IsNullOrEmpty(project)) request.Project = project;
+            DaemonClient.Post<Wire.SessionResult>($"{LibraryPath}/{HubWire.Esc(name)}/run", request,
+                j => Started(j, started, fail), fail);
+        }
 
         // A run's answer names the session; refresh the list before handing it on so the pane
         // it opens is visible next frame.
-        void Started(JVal j, Action<string> started, Action<string> fail)
+        void Started(Wire.SessionResult j, Action<string> started, Action<string> fail)
         {
-            string session = j["session"].AsString();
+            string session = j.Session;
             Refresh(() => started?.Invoke(session), fail);
         }
 
@@ -308,7 +308,7 @@ namespace SlopWorld
         public void SetLabel(string name, string label, Action ok = null, Action<string> fail = null)
         {
             DaemonClient.Put($"{SessionsPath}/{HubWire.Esc(name)}/label",
-                $"{{\"label\":{JVal.Q(label ?? "")}}}",
+                new Wire.LabelReq { Label = label ?? "" },
                 _ => { Refresh(); ok?.Invoke(); }, fail);
         }
 
@@ -322,7 +322,7 @@ namespace SlopWorld
             bool renamed = !isNew && origName != s.Name;
             if (renamed) _pendingRenames[origName] = s.Name;
 
-            Action<JVal> done = _ =>
+            Action<Wire.Ack> done = _ =>
             {
                 if (renamed)
                 {
@@ -337,8 +337,8 @@ namespace SlopWorld
                 if (renamed) _pendingRenames.Remove(origName);
                 fail?.Invoke(message);
             };
-            if (isNew) DaemonClient.Post(SessionsPath, s.ToJson(), done, error);
-            else DaemonClient.Put($"{SessionsPath}/{HubWire.Esc(origName)}", s.ToJson(), done, error);
+            if (isNew) DaemonClient.Post(SessionsPath, s.ToWire(), done, error);
+            else DaemonClient.Put($"{SessionsPath}/{HubWire.Esc(origName)}", s.ToWire(), done, error);
         }
     }
 }

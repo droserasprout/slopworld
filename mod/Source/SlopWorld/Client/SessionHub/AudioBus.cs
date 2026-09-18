@@ -1,35 +1,17 @@
 namespace SlopWorld
 {
-    // The jukebox's socket channel. A station is an id plus its catalog stream key; a file is
-    // the absolute path of one of the mod's OST files or its containing directory. Both are
-    // sent over HubTransport.Send. See Sim/Radio.cs.
     class AudioBus
     {
         readonly HubTransport _transport;
-
-        public AudioBus(HubTransport transport)
-        {
-            _transport = transport;
-        }
-
-        // All three nulls stop it, and leaving selection out altogether is the volume moving
-        // on its own - which must not restart a stream. URLs never leave the selection message.
+        public AudioBus(HubTransport transport) { _transport = transport; }
         public void SendAudio(string station, string stream, string file, float volume)
         {
-            string selection;
-            if (file != null)
-                selection = $"{{\"file\":{JVal.Q(file)}}}";
-            else if (station != null && stream != null)
-                selection = $"{{\"station\":{JVal.Q(station)},\"stream\":{JVal.Q(stream)}}}";
-            else
-                selection = "null";
-            _transport.Send($"{{\"t\":\"{WireProtocol.Messages.Audio}\",\"selection\":{selection}," +
-                            $"\"volume\":{HubWire.Num(volume)}}}");
+            var request = new Wire.AudioRequest { Volume = volume };
+            if (file != null) request.Selection = new Wire.AudioSelection { File = file };
+            else if (station != null && stream != null) request.Selection = new Wire.AudioSelection { Station = station, Stream = stream };
+            else request.Stop = new Wire.Empty();
+            _transport.Send(new Wire.ClientMessage { Audio = request });
         }
-
-        public void SendVolume(float volume)
-        {
-            _transport.Send($"{{\"t\":\"{WireProtocol.Messages.Audio}\",\"volume\":{HubWire.Num(volume)}}}");
-        }
+        public void SendVolume(float volume) => _transport.Send(new Wire.ClientMessage { Audio = new Wire.AudioRequest { Volume = volume } });
     }
 }

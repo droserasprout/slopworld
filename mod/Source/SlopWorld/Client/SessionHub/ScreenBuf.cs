@@ -52,7 +52,7 @@ namespace SlopWorld
         internal List<UrlScan.Span>[] AutoLinks;
 
         // The history row cache needs a stable live frame while the streamed buffer continues
-        // to receive output. Keep parsed runs shared; FromJson replaces them only on the mutable
+        // to receive output. Keep parsed runs shared; FromWire replaces them only on the mutable
         // source buffer. Copy incomplete arrays so lazy parsing can fill their null slots
         // independently in the source and snapshot.
         public ScreenBuf Snapshot()

@@ -544,12 +544,12 @@ namespace SlopWorld.Tests
             }, live, 2);
 
             var next = new ScreenBuf();
-            next.FromJson(JVal.Parse(
+            next.FromWire(ProtobufFixtures.Read<Wire.ScreenView>(JVal.Parse(
                 "{\"seq\":1,\"cols\":20,\"rows\":4,\"cy\":3," +
-                "\"off\":0,\"lines\":[\"same\",\"same\",\"line-2\",\"line-3\"]}"));
-            next.FromJson(JVal.Parse(
+                "\"off\":0,\"lines\":[\"same\",\"same\",\"line-2\",\"line-3\"]}")));
+            next.FromWire(ProtobufFixtures.Read<Wire.ScreenView>(JVal.Parse(
                 "{\"seq\":2,\"cols\":20,\"rows\":4,\"cy\":3," +
-                "\"off\":0,\"lines\":[\"same\",\"line-2\",\"line-3\",\"line-4\"]}"));
+                "\"off\":0,\"lines\":[\"same\",\"line-2\",\"line-3\",\"line-4\"]}")));
 
             AssertEx.Equal(1, next.LiveShift, "streaming frame reports its row scroll");
             AssertEx.True(history.UpdateLive(next, next.LiveShift),

@@ -28,20 +28,14 @@ namespace SlopWorld
         public static string ModeLabel(MountMode mode) =>
             mode == MountMode.None ? "None" : mode == MountMode.Ro ? "Read-only" : "Read-write";
 
-        public static MountEntry FromJson(JVal j) => new MountEntry
+        public static MountEntry FromWire(Wire.Mount j) => new MountEntry
         {
-            From = j["from"].AsString(),
-            To = j["to"].AsString(),
-            Mode = ParseMode(j["mode"].AsString(WireProtocol.MountMode.Rw)),
+            From = j.From,
+            To = j.To,
+            Mode = ParseMode(j.Mode),
         };
-
-        public static List<MountEntry> ListFromJson(JVal j) =>
-            j.Items.Select(FromJson).ToList();
-
-        public string ToJson() =>
-            $"{{\"from\":{JVal.Q(From)},\"to\":{JVal.Q(To)},\"mode\":{JVal.Q(ModeName(Mode))}}}";
-
-        public static string ListToJson(List<MountEntry> mounts) =>
-            "[" + string.Join(",", mounts.Select(m => m.ToJson()).ToArray()) + "]";
+        public static List<MountEntry> ListFromWire(IEnumerable<Wire.Mount> mounts) =>
+            mounts.Select(FromWire).ToList();
+        public Wire.Mount ToWire() => new Wire.Mount { From = From, To = To, Mode = ModeName(Mode) };
     }
 }

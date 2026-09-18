@@ -34,20 +34,20 @@ namespace SlopWorld
         // which is the only place a shipped entry is meant to be seen.
         public bool Builtin;
 
-        public static LibraryItemInfo FromJson(JVal j) => new LibraryItemInfo
+        public static LibraryItemInfo FromWire(Wire.LibraryItem j) => new LibraryItemInfo
         {
-            Name = j["name"].AsString(),
-            Kind = j["kind"].AsString() == WireProtocol.LibraryKind.Shell ? LibraryItemKind.Shell :
-                   j["kind"].AsString() == WireProtocol.LibraryKind.Breadcrumb ? LibraryItemKind.Breadcrumb :
-                   j["kind"].AsString() == WireProtocol.LibraryKind.Fa ? LibraryItemKind.FileAction : LibraryItemKind.Prompt,
-            Link = ParseLink(j["link"].AsString(WireProtocol.LibraryLink.Project)),
-            Project = j["project"].AsString(),
-            Text = j["text"].AsString(),
-            Command = j["command"].IsNull ? "" : j["command"].AsString(),
-            Host = j["host"].AsBool(false),
-            AgentTemplate = j["agent_template"].AsString(),
-            Mode = FileActionModeText.Parse(j["mode"].AsString(WireProtocol.FileActionMode.Ask)),
-            Builtin = j["builtin"].AsBool(false),
+            Name = j.Name,
+            Kind = j.Kind == WireProtocol.LibraryKind.Shell ? LibraryItemKind.Shell :
+                   j.Kind == WireProtocol.LibraryKind.Breadcrumb ? LibraryItemKind.Breadcrumb :
+                   j.Kind == WireProtocol.LibraryKind.Fa ? LibraryItemKind.FileAction : LibraryItemKind.Prompt,
+            Link = ParseLink(j.Link),
+            Project = j.Project,
+            Text = j.Text,
+            Command = !j.HasCommand ? "" : j.Command,
+            Host = j.Host,
+            AgentTemplate = j.AgentTemplate,
+            Mode = FileActionModeText.Parse(j.Mode),
+            Builtin = j.Builtin,
         };
 
         // An unknown link reads as Project, the way an unknown state reads as Down: a version
@@ -71,15 +71,22 @@ namespace SlopWorld
             k == LibraryItemKind.Breadcrumb ? WireProtocol.LibraryKind.Breadcrumb :
             k == LibraryItemKind.FileAction ? WireProtocol.LibraryKind.Fa : WireProtocol.LibraryKind.Prompt;
 
-        public string ToJson() =>
-            "{" +
-            $"\"name\":{JVal.Q(Name)}," +
-            $"\"kind\":{JVal.Q(KindName(Kind))}," +
-            $"\"link\":{JVal.Q(LinkName(Link))}," +
-            $"\"project\":{JVal.Q(Project)},\"text\":{JVal.Q(Text)}," +
-            $"\"command\":{(string.IsNullOrEmpty((Command ?? "").Trim()) ? "null" : JVal.Q(Command))}," +
-            $"\"host\":{JVal.B(Host)},\"agent_template\":{JVal.Q(AgentTemplate)}," +
-            $"\"mode\":{JVal.Q(FileActionModeText.Name(Mode))}}}";
+        public Wire.LibraryItem ToWire()
+        {
+            var value = new Wire.LibraryItem
+            {
+                Name = Name,
+                Kind = KindName(Kind),
+                Link = LinkName(Link),
+                Project = Project,
+                Text = Text,
+                Host = Host,
+                AgentTemplate = AgentTemplate,
+                Mode = FileActionModeText.Name(Mode)
+            };
+            if (!string.IsNullOrWhiteSpace(Command)) value.Command = Command;
+            return value;
+        }
 
         public LibraryItemInfo Copy() => new LibraryItemInfo
         {

@@ -8,12 +8,14 @@ WORKDIR /build/slopd
 RUN apt-get update && apt-get install -y --no-install-recommends \
         libasound2-dev \
         pkg-config \
+        protobuf-compiler \
     && rm -rf /var/lib/apt/lists/*
 COPY slopd/Cargo.toml slopd/Cargo.lock ./
 RUN mkdir src \
     && printf 'fn main() {}\n' > src/main.rs \
     && cargo build --release --locked --bin slopd \
     && rm -rf src
+COPY shared/slopworld.proto /build/shared/slopworld.proto
 COPY slopd/build.rs ./build.rs
 COPY slopd/src ./src
 COPY slopd/presets ./presets

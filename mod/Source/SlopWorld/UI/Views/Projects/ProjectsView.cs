@@ -289,11 +289,11 @@ namespace SlopWorld
             if (!_tempPreview.ShouldRequest(name, now)) return;
             int serial = _tempPreview.Begin(name, now);
             if (serial == 0) return;
-            DaemonClient.Post(WireProtocol.Routes.ProjectPreview,
-                "{" + $"\"name\":{JVal.Q(name)},\"temp\":true" + "}",
+            DaemonClient.Post<Wire.ProjectPreviewResult>(WireProtocol.Routes.ProjectPreview,
+                new Wire.ProjectPreviewReq { Name = name, Temp = true },
                 j =>
                 {
-                    string dir = j["dir"].AsString();
+                    string dir = j.Dir;
                     if (string.IsNullOrEmpty(dir))
                         _tempPreview.Fail(serial, _p.Temp, _p.Name,
                             "Daemon preview did not include a path.", DateTime.UtcNow);

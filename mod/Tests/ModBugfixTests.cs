@@ -58,7 +58,7 @@ namespace SlopWorld.Tests
                 Reconcile(store, bindings, seen);
                 if (pushFirst)
                 {
-                    store.ApplySessions(Snapshot("new"));
+                    store.ApplySessions(ProtobufFixtures.Read<Wire.SessionsReply>(Snapshot("new")));
                     Reconcile(store, bindings, seen);
                     AssertEx.True(ReferenceEquals(original, bindings["old"]),
                                   "push preserves original pawn before callback");
@@ -75,13 +75,13 @@ namespace SlopWorld.Tests
                 AssertEx.Equal(AgentState.Working, seen["new"], "callback retains history");
                 AssertEx.Equal(AgentState.Working, original.State, "callback retains pawn state");
 
-                if (!pushFirst) store.ApplySessions(Snapshot("new"));
+                if (!pushFirst) store.ApplySessions(ProtobufFixtures.Read<Wire.SessionsReply>(Snapshot("new")));
                 Reconcile(store, bindings, seen);
                 AssertEx.True(ReferenceEquals(original, bindings["new"]),
                               "settled snapshot preserves original pawn");
                 AssertEx.Equal(1, bindings.Count, "settled snapshot leaves one binding");
 
-                store.ApplySessions(Snapshot());
+                store.ApplySessions(ProtobufFixtures.Read<Wire.SessionsReply>(Snapshot()));
                 Reconcile(store, bindings, seen);
                 AssertEx.Equal(0, bindings.Count, "ordinary deletion retires pawn");
             }
@@ -95,7 +95,7 @@ namespace SlopWorld.Tests
             bool failed = false;
             failedStore.Save(new SessionInfo { Name = "new" }, false, "old",
                              () => throw new Exception("unexpected success"), _ => failed = true);
-            failedStore.ApplySessions(Snapshot("new"));
+            failedStore.ApplySessions(ProtobufFixtures.Read<Wire.SessionsReply>(Snapshot("new")));
             Reconcile(failedStore, failedBindings, failedSeen);
             FindRequest("PUT").Fail("rejected");
             Reconcile(failedStore, failedBindings, failedSeen);
@@ -159,7 +159,7 @@ namespace SlopWorld.Tests
                            "rename is pending before response");
 
             // Pushed list first: the reverse lookup keeps the colony aware of the source.
-            store.ApplySessions(Snapshot("new"));
+            store.ApplySessions(ProtobufFixtures.Read<Wire.SessionsReply>(Snapshot("new")));
             AssertEx.True(store.TryPendingRenameSource("new", out var source) && source == "old",
                            "pushed destination exposes pending source");
             FindRequest("PUT").Ok(JVal.Null);
@@ -172,7 +172,7 @@ namespace SlopWorld.Tests
             store.Save(edited, false, "old", () => { }, _ => failed = true);
             FindRequest("PUT").Ok(JVal.Null);
             AssertEx.False(store.TryPendingRename("old", out _), "callback-first success settles");
-            store.ApplySessions(Snapshot("new"));
+            store.ApplySessions(ProtobufFixtures.Read<Wire.SessionsReply>(Snapshot("new")));
             AssertEx.True(store.Get("new") != null, "callback-first push keeps destination");
 
             // A failed request removes the exemption, and deleting a session remains ordinary.
@@ -181,14 +181,14 @@ namespace SlopWorld.Tests
             FindRequest("PUT").Fail("rejected");
             AssertEx.True(failed, "failure callback ran");
             AssertEx.False(store.TryPendingRename("old", out _), "failure settles pending rename");
-            store.ApplySessions(Snapshot());
+            store.ApplySessions(ProtobufFixtures.Read<Wire.SessionsReply>(Snapshot()));
             AssertEx.True(store.Get("old") == null, "deleted session is gone");
         }
 
         static void ClosedTerminalRename()
         {
             var sent = new List<string>();
-            var terminal = new TerminalIO(sent.Add);
+            var terminal = new TerminalIO(message => sent.Add(JVal.ToJson(ProtobufFixtures.Json(message))));
             terminal.Rename("closed", "renamed");
             terminal.Resubscribe();
             AssertEx.Equal(0, sent.Count, "closed rename has no socket commands");
@@ -197,21 +197,21 @@ namespace SlopWorld.Tests
         static void OpenTerminalRename()
         {
             var sent = new List<string>();
-            var terminal = new TerminalIO(sent.Add);
+            var terminal = new TerminalIO(message => sent.Add(JVal.ToJson(ProtobufFixtures.Json(message))));
             terminal.Subscribe("old");
             sent.Clear();
             terminal.Rename("old", "new");
             AssertEx.Equal(2, sent.Count, "open rename transfers subscription");
-            AssertEx.True(sent[0].Contains("\"t\":\"unsub\"") && sent[0].Contains("old"),
+            AssertEx.True(sent[0].Contains("\"unsub\"") && sent[0].Contains("old"),
                            "old subscription removed");
-            AssertEx.True(sent[1].Contains("\"t\":\"sub\"") && sent[1].Contains("new"),
+            AssertEx.True(sent[1].Contains("\"sub\"") && sent[1].Contains("new"),
                            "new subscription added");
         }
 
         static void ReconnectSubscriptions()
         {
             var sent = new List<string>();
-            var terminal = new TerminalIO(sent.Add);
+            var terminal = new TerminalIO(message => sent.Add(JVal.ToJson(ProtobufFixtures.Json(message))));
             terminal.Subscribe("old");
             terminal.Subscribe("already");
             sent.Clear();
@@ -244,7 +244,7 @@ namespace SlopWorld.Tests
                 return _result;
             }
 
-            public void SendText(string text) { }
+            public void SendBinary(byte[] text) { }
 
             public void Dispose()
             {
@@ -329,7 +329,7 @@ namespace SlopWorld.Tests
         {
             DaemonClient.Requests.Clear();
             var store = new SessionStore();
-            store.ApplySessions(Snapshot(name));
+            store.ApplySessions(ProtobufFixtures.Read<Wire.SessionsReply>(Snapshot(name)));
             return store;
         }
 

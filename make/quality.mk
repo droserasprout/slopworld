@@ -6,7 +6,7 @@ format-daemon:
 	@cd slopd && $(CARGO) fmt
 
 format-mod:
-	@$(DOTNET) format whitespace mod/Source/SlopWorld --folder --exclude obj
+	@$(DOTNET) format whitespace mod/Source/SlopWorld --folder --exclude obj Client/Generated
 
 ##
 
@@ -17,7 +17,7 @@ lint-daemon:
 lint-mod: override BUILD := release
 lint-mod: override CSC_WARNINGS := -warnaserror
 lint-mod: mod
-	@$(DOTNET) format whitespace mod/Source/SlopWorld --folder --exclude obj --verify-no-changes
+	@$(DOTNET) format whitespace mod/Source/SlopWorld --folder --exclude obj Client/Generated --verify-no-changes
 
 lint-prose:        ## Find LLM cliches in prose and source comments
 	@$(PYTHON) tools/prose_lint.py $(PROSE_LINT_ARGS)

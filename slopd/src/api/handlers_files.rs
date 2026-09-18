@@ -1,10 +1,11 @@
 //! Files, preview, search, and Git HTTP boundaries.
+use crate::api::protobuf::{domain, reply, Proto};
+use crate::shared::wire;
 
 use anyhow::{bail, Context, Result};
 use axum::extract::{Query, State};
 use axum::http::StatusCode;
-use axum::Json;
-use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
+
 use serde_json::{json, Value};
 use std::{path::Path, time::Duration};
 use tokio::io::AsyncReadExt;
@@ -229,7 +230,10 @@ pub(crate) async fn filter_gitignored(base: &std::path::Path, listing: &mut List
 /// So the dialog can pick a project dir, and the files view can draw a tree, without
 /// the mod touching the host filesystem itself. `dirs` is what it always was; `files`
 /// is asked for.
-pub(crate) async fn browse(State(_m): State<Mgr>, Query(q): Query<BrowseReq>) -> ApiResult {
+pub(crate) async fn browse(
+    State(_m): State<Mgr>,
+    Query(q): Query<BrowseReq>,
+) -> ApiResult<wire::BrowseResult> {
     let _perf = crate::perf::timer("http-browse");
     let base = if q.path.is_empty() {
         dirs::home_dir().unwrap_or_else(|| "/".into())
@@ -248,7 +252,7 @@ pub(crate) async fn browse(State(_m): State<Mgr>, Query(q): Query<BrowseReq>) ->
         (out.dirs.len() + out.files.len()) as u64,
     );
 
-    Ok(Json(json!({
+    reply(json!({
         "path": base,
         "parent": base.parent(),
         "dirs": out.dirs,
@@ -257,10 +261,13 @@ pub(crate) async fn browse(State(_m): State<Mgr>, Query(q): Query<BrowseReq>) ->
         "files": out.files,
         "gitignored_files": out.gitignored_files,
         "truncated": out.truncated,
-    })))
+    }))
 }
 
-pub(crate) async fn read_file(State(_m): State<Mgr>, Query(q): Query<ReadReq>) -> ApiResult {
+pub(crate) async fn read_file(
+    State(_m): State<Mgr>,
+    Query(q): Query<ReadReq>,
+) -> ApiResult<wire::TextResult> {
     let path = q.path.trim();
     if path.is_empty() {
         return Err(err(StatusCode::BAD_REQUEST, "no path"));
@@ -270,17 +277,21 @@ pub(crate) async fn read_file(State(_m): State<Mgr>, Query(q): Query<ReadReq>) -
     let text = read_preview(&path)
         .await
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
-    Ok(Json(json!({
+    reply(json!({
         "path": path,
         "text": text,
         "bytes": text.len(),
-    })))
+    }))
 }
 
 pub(crate) const HIGHLIGHT_LIMIT: usize = READ_LIMIT as usize * 4;
 pub(crate) const HIGHLIGHT_TIMEOUT: Duration = Duration::from_secs(3);
 
-pub(crate) async fn highlight(State(m): State<Mgr>, Json(q): Json<HighlightReq>) -> ApiResult {
+pub(crate) async fn highlight(
+    State(m): State<Mgr>,
+    Proto(q): Proto<wire::HighlightReq>,
+) -> ApiResult<wire::TextResult> {
+    let q: HighlightReq = domain(q)?;
     if q.text.len() as u64 > READ_LIMIT {
         return Err(err(
             StatusCode::BAD_REQUEST,
@@ -291,7 +302,7 @@ pub(crate) async fn highlight(State(m): State<Mgr>, Json(q): Json<HighlightReq>)
     let text = highlight_text(&command, &q.language, &q.text)
         .await
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
-    Ok(Json(json!({ "text": text, "bytes": text.len() })))
+    reply(json!({ "text": text, "bytes": text.len() }))
 }
 
 async fn highlight_text(command: &str, language: &str, text: &str) -> anyhow::Result<String> {
@@ -377,7 +388,10 @@ async fn run_highlighter(command: &str, path: &std::path::Path) -> anyhow::Resul
     String::from_utf8(output.stdout).context("syntax highlighter output is not valid UTF-8")
 }
 
-pub(crate) async fn read_image(State(_m): State<Mgr>, Query(q): Query<ReadReq>) -> ApiResult {
+pub(crate) async fn read_image(
+    State(_m): State<Mgr>,
+    Query(q): Query<ReadReq>,
+) -> ApiResult<wire::ImageResult> {
     let path = q.path.trim();
     if path.is_empty() {
         return Err(err(StatusCode::BAD_REQUEST, "no path"));
@@ -387,11 +401,11 @@ pub(crate) async fn read_image(State(_m): State<Mgr>, Query(q): Query<ReadReq>) 
     let bytes = read_image_bytes(&path)
         .await
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
-    Ok(Json(json!({
+    reply(json!({
         "path": path,
-        "data": BASE64.encode(&bytes),
+        "data": bytes,
         "bytes": bytes.len(),
-    })))
+    }))
 }
 
 async fn read_file_bounded(path: &Path, limit: u64, label: &str) -> Result<Vec<u8>> {
@@ -460,7 +474,8 @@ pub(crate) fn entry_name(name: &str) -> anyhow::Result<&str> {
     Ok(name)
 }
 
-pub(crate) async fn create_file(Json(q): Json<FileReq>) -> ApiResult {
+pub(crate) async fn create_file(Proto(q): Proto<wire::FileReq>) -> ApiResult<wire::Ack> {
+    let q: FileReq = domain(q)?;
     let parent = file_path(&q.path).map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
     let name = entry_name(&q.name).map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
     let meta = tokio::fs::metadata(&parent)
@@ -499,10 +514,11 @@ pub(crate) async fn create_file(Json(q): Json<FileReq>) -> ApiResult {
     };
     result.map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
 
-    Ok(Json(json!({ "ok": true })))
+    reply(json!({ "ok": true }))
 }
 
-pub(crate) async fn rename_file(Json(q): Json<FileReq>) -> ApiResult {
+pub(crate) async fn rename_file(Proto(q): Proto<wire::FileReq>) -> ApiResult<wire::Ack> {
+    let q: FileReq = domain(q)?;
     let source = file_path(&q.path).map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
     let name = entry_name(&q.name).map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
     let parent = source
@@ -525,10 +541,11 @@ pub(crate) async fn rename_file(Json(q): Json<FileReq>) -> ApiResult {
         .await
         .with_context(|| format!("renaming {}", source.display()))
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
-    Ok(Json(json!({ "ok": true })))
+    reply(json!({ "ok": true }))
 }
 
-pub(crate) async fn remove_file(Json(q): Json<FileReq>) -> ApiResult {
+pub(crate) async fn remove_file(Proto(q): Proto<wire::FileReq>) -> ApiResult<wire::Ack> {
+    let q: FileReq = domain(q)?;
     let path = file_path(&q.path).map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
     let meta = tokio::fs::symlink_metadata(&path)
         .await
@@ -549,7 +566,7 @@ pub(crate) async fn remove_file(Json(q): Json<FileReq>) -> ApiResult {
             .with_context(|| format!("removing {}", path.display()))
             .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
     }
-    Ok(Json(json!({ "ok": true })))
+    reply(json!({ "ok": true }))
 }
 
 pub(crate) const SEARCH_LIMIT: usize = 200;
@@ -627,7 +644,10 @@ pub(crate) fn build_rg_command(path: &std::path::Path, q: &SearchReq) -> tokio::
 /// filenames and matching text unambiguous; reading it a line at a time lets the endpoint
 /// stop the process once the UI-sized answer is full rather than collecting an unbounded
 /// repository search in memory.
-pub(crate) async fn search(State(_m): State<Mgr>, Query(q): Query<SearchReq>) -> ApiResult {
+pub(crate) async fn search(
+    State(_m): State<Mgr>,
+    Query(q): Query<SearchReq>,
+) -> ApiResult<wire::SearchResult> {
     let _perf = crate::perf::timer("http-search");
     use tokio::io::{AsyncBufReadExt, BufReader};
 
@@ -702,16 +722,19 @@ pub(crate) async fn search(State(_m): State<Mgr>, Query(q): Query<SearchReq>) ->
 
     crate::perf::count("http-search-matches", matches.len() as u64);
 
-    Ok(Json(json!({
+    reply(json!({
         "path": dir,
         "matches": matches,
         "truncated": truncated,
-    })))
+    }))
 }
 
 /// Returns a project's changed files for the git view; the game cannot run `git` inside agent
 /// mount namespaces. Non-repositories return 200 with `repo: false`.
-pub(crate) async fn git_status(State(_m): State<Mgr>, Query(q): Query<GitReq>) -> ApiResult {
+pub(crate) async fn git_status(
+    State(_m): State<Mgr>,
+    Query(q): Query<GitReq>,
+) -> ApiResult<wire::GitResult> {
     let _perf = crate::perf::timer("http-git");
     if q.path.is_empty() {
         return Err(err(StatusCode::BAD_REQUEST, "no path"));
@@ -723,11 +746,11 @@ pub(crate) async fn git_status(State(_m): State<Mgr>, Query(q): Query<GitReq>) -
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
 
     let Some(st) = out else {
-        return Ok(Json(json!({ "repo": false, "path": dir })));
+        return reply(json!({ "repo": false, "path": dir }));
     };
     crate::perf::count("http-git-rows", st.changes.len() as u64);
 
-    Ok(Json(json!({
+    reply(json!({
         "repo": true,
         "root": st.root,
         "branch": st.branch,
@@ -742,5 +765,5 @@ pub(crate) async fn git_status(State(_m): State<Mgr>, Query(q): Query<GitReq>) -
             "added": c.added,
             "deleted": c.deleted,
         })).collect::<Vec<_>>(),
-    })))
+    }))
 }

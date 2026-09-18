@@ -72,12 +72,12 @@ namespace SlopWorld
             int serial = ++_refreshSerial;
             // The host UI is the operator's task board, so it needs agent-to-agent work too.
             // Scoped callers and the CLI keep using the default participant mailbox.
-            DaemonClient.Get(WireProtocol.Routes.Tasks + "?all=true", j =>
+            DaemonClient.Get<Wire.TasksReply>(WireProtocol.Routes.Tasks + "?all=true", j =>
             {
                 bool current = serial == _refreshSerial;
                 if (current)
                 {
-                    Tasks = j["tasks"].Items.Select(TaskInfo.FromJson)
+                    Tasks = j.Tasks.Select(TaskInfo.FromWire)
                         .OrderByDescending(t => t.UpdatedMs).ToList();
                 }
                 _loading = false;
@@ -93,12 +93,11 @@ namespace SlopWorld
                            Action<string> fail = null)
         {
             InvalidateRefresh();
-            DaemonClient.Post(WireProtocol.Routes.Tasks,
-                "{" + $"\"to\":{JVal.Q(to ?? "")}," +
-                $"\"body\":{JVal.Q(body ?? "")}" + "}",
+            DaemonClient.Post<Wire.TaskResult>(WireProtocol.Routes.Tasks,
+                new Wire.CreateTaskReq { To = to ?? "", Body = body ?? "" },
                 j =>
                 {
-                    var task = TaskInfo.FromJson(j["task"]);
+                    var task = TaskInfo.FromWire(j.Task);
                     Upsert(task);
                     ok?.Invoke(task);
                 }, fail, TaskInfo.Host);
@@ -108,12 +107,12 @@ namespace SlopWorld
                                  Action<TaskInfo> ok = null, Action<string> fail = null)
         {
             InvalidateRefresh();
-            DaemonClient.Post($"{WireProtocol.Routes.Tasks}/{HubWire.Esc(id)}",
-                "{" + $"\"status\":{JVal.Q(TaskInfo.StatusText(status))}," +
-                $"\"note\":{(note == null ? "null" : JVal.Q(note))}" + "}",
+            var request = new Wire.UpdateTaskReq { Status = TaskInfo.StatusText(status) };
+            if (note != null) request.Note = note;
+            DaemonClient.Post<Wire.TaskResult>($"{WireProtocol.Routes.Tasks}/{HubWire.Esc(id)}", request,
                 j =>
                 {
-                    var task = TaskInfo.FromJson(j["task"]);
+                    var task = TaskInfo.FromWire(j.Task);
                     Upsert(task);
                     ok?.Invoke(task);
                 }, fail, TaskInfo.Host);
@@ -148,13 +147,12 @@ namespace SlopWorld
 
             var pending = _cancellations.Dequeue();
             _cancellationInFlight = true;
-            string body = "{\"ids\":[" +
-                string.Join(",", pending.Ids.Select(JVal.Q).ToArray()) + "]}";
-            DaemonClient.Post(WireProtocol.Routes.TasksCancel, body, j =>
+            var body = new Wire.RemoveTasksReq { Ids = { pending.Ids } };
+            DaemonClient.Post<Wire.TasksReply>(WireProtocol.Routes.TasksCancel, body, j =>
             {
                 _cancellationInFlight = false;
                 foreach (string id in pending.Ids) _cancelingIds.Remove(id);
-                foreach (var task in j["tasks"].Items.Select(TaskInfo.FromJson)) Upsert(task);
+                foreach (var task in j.Tasks.Select(TaskInfo.FromWire)) Upsert(task);
                 pending.Ok?.Invoke();
                 FinishCancellations();
             }, error =>
@@ -198,9 +196,8 @@ namespace SlopWorld
 
             var pending = _removals.Dequeue();
             _removalInFlight = true;
-            string body = "{\"ids\":[" +
-                string.Join(",", pending.Ids.Select(JVal.Q).ToArray()) + "]}";
-            DaemonClient.Post(WireProtocol.Routes.TasksRemove, body, _ =>
+            var body = new Wire.RemoveTasksReq { Ids = { pending.Ids } };
+            DaemonClient.Post<Wire.Removed>(WireProtocol.Routes.TasksRemove, body, _ =>
             {
                 _removalInFlight = false;
                 foreach (string id in pending.Ids) _removingIds.Remove(id);
@@ -228,7 +225,7 @@ namespace SlopWorld
         public void Prune(Action ok = null, Action<string> fail = null)
         {
             InvalidateRefresh();
-            DaemonClient.Delete(WireProtocol.Routes.Tasks, j =>
+            DaemonClient.Delete<Wire.Removed>(WireProtocol.Routes.Tasks, j =>
             {
                 Tasks = Tasks.Where(t => !t.Terminal).ToList();
                 ok?.Invoke();

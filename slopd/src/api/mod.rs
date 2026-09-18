@@ -1,4 +1,6 @@
+mod client_message;
 mod handlers;
+pub(crate) mod protobuf;
 mod router;
 mod types;
 mod ws;
@@ -8,22 +10,21 @@ pub(crate) use router::router;
 
 use std::sync::Arc;
 
+use crate::shared::wire;
 use axum::http::{HeaderMap, StatusCode};
-use axum::Json;
+use protobuf::{ApiError, Proto};
 use serde::de::DeserializeOwned;
+#[cfg(test)]
 use serde_json::json;
 use serde_json::Value;
 
 use crate::session::Manager;
 
 pub(super) type Mgr = Arc<Manager>;
-pub(super) type ApiResult = Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)>;
+pub(super) type ApiResult<T = wire::Ack> = Result<Proto<T>, ApiError>;
 
 /// Request fields are an explicit allowlist; disk documents can retain unrelated extensions.
-fn parse_owned<T: DeserializeOwned>(
-    value: Value,
-    fields: &[&str],
-) -> Result<T, (StatusCode, Json<Value>)> {
+fn parse_owned<T: DeserializeOwned>(value: Value, fields: &[&str]) -> Result<T, ApiError> {
     if let Some(object) = value.as_object() {
         if let Some(field) = object
             .keys()
@@ -38,9 +39,7 @@ fn parse_owned<T: DeserializeOwned>(
     serde_json::from_value(value).map_err(|error| err(StatusCode::BAD_REQUEST, error))
 }
 
-pub(super) fn parse_session(
-    value: Value,
-) -> Result<crate::config::SessionCfg, (StatusCode, Json<Value>)> {
+pub(super) fn parse_session(value: Value) -> Result<crate::config::SessionCfg, ApiError> {
     parse_owned(
         value,
         &[
@@ -66,23 +65,21 @@ pub(super) fn parse_session(
     )
 }
 
-pub(super) fn parse_project(
-    value: Value,
-) -> Result<crate::config::ProjectCfg, (StatusCode, Json<Value>)> {
+pub(super) fn parse_project(value: Value) -> Result<crate::config::ProjectCfg, ApiError> {
     parse_owned(value, &["name", "dir", "temp", "mounts"])
 }
 
-pub(super) fn parse_template(
-    value: Value,
-) -> Result<crate::session::AgentTemplate, (StatusCode, Json<Value>)> {
+pub(super) fn parse_template(value: Value) -> Result<crate::session::AgentTemplate, ApiError> {
     serde_json::from_value(value).map_err(|error| err(StatusCode::BAD_REQUEST, error))
 }
 
-pub(super) fn err(
-    code: StatusCode,
-    e: impl std::fmt::Display,
-) -> (StatusCode, Json<serde_json::Value>) {
-    (code, Json(json!({ "error": e.to_string() })))
+pub(super) fn err(code: StatusCode, e: impl std::fmt::Display) -> ApiError {
+    (
+        code,
+        Proto(wire::Error {
+            error: e.to_string(),
+        }),
+    )
 }
 
 /// The token a request presents, if any. What `Manager::resolve_cap` weighs against the root
@@ -102,7 +99,8 @@ mod tests {
 
     #[test]
     fn errors_keep_the_status_and_put_the_message_in_json() {
-        let (status, Json(body)) = err(StatusCode::BAD_REQUEST, "bad request body");
+        let (status, Proto(body)) = err(StatusCode::BAD_REQUEST, "bad request body");
+        let body = serde_json::to_value(body).unwrap();
         assert_eq!(status, StatusCode::BAD_REQUEST);
         assert_eq!(body, json!({ "error": "bad request body" }));
     }

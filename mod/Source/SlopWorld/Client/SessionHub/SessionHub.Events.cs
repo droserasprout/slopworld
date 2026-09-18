@@ -5,42 +5,42 @@ namespace SlopWorld
         // The coordinator's one job on the socket: route each pushed event to the store that
         // owns it. The stores apply their own updates; Usage and the jukebox are small enough
         // to land here.
-        void Handle(JVal ev)
+        void Handle(Wire.Event ev)
         {
-            switch (ev["t"].AsString())
+            switch (ev.PayloadCase)
             {
-                case WireProtocol.Events.Capabilities:
-                    Capabilities = DaemonCapabilities.FromJson(ev["capabilities"]);
+                case Wire.Event.PayloadOneofCase.Capabilities:
+                    Capabilities = DaemonCapabilities.FromWire(ev.Capabilities);
                     break;
 
-                case WireProtocol.Events.Sessions:
-                    _sessions.ApplySessions(ev);
+                case Wire.Event.PayloadOneofCase.Sessions:
+                    _sessions.ApplySessions(ev.Sessions);
                     break;
 
-                case WireProtocol.Events.Projects:
-                    _catalog.ApplyProjects(ev);
+                case Wire.Event.PayloadOneofCase.Projects:
+                    _catalog.ApplyProjects(ev.Projects);
                     break;
 
-                case WireProtocol.Events.Library:
-                    _catalog.ApplyLibrary(ev);
+                case Wire.Event.PayloadOneofCase.Library:
+                    _catalog.ApplyLibrary(ev.Library);
                     break;
 
-                case WireProtocol.Events.Jukebox:
-                    Radio.SetStations(ev["jukebox"]);
+                case Wire.Event.PayloadOneofCase.Jukebox:
+                    Radio.SetStations(ev.Jukebox);
                     break;
 
-                case WireProtocol.Events.Usage:
-                    Usage = UsageInfo.FromJson(ev["usage"], Usage);
+                case Wire.Event.PayloadOneofCase.Usage:
+                    Usage = UsageInfo.FromWire(ev.Usage, Usage);
                     break;
 
-                case WireProtocol.Events.Audio:
-                    Radio.Report(ev["audio"]["playing"].AsBool(false),
-                        ev["audio"]["error"].AsString(null),
-                        ev["audio"]["title"].AsString(null));
+                case Wire.Event.PayloadOneofCase.Audio:
+                    Radio.Report(ev.Audio.Playing,
+                        ev.Audio.Error,
+                        ev.Audio.Title);
                     break;
 
-                case WireProtocol.Events.Screen:
-                    _sessions.ApplyScreen(ev["screen"]);
+                case Wire.Event.PayloadOneofCase.Screen:
+                    _sessions.ApplyScreen(ev.Screen);
                     break;
             }
         }

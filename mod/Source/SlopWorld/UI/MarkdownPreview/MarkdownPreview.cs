@@ -84,11 +84,11 @@ namespace SlopWorld
                 return;
             }
 
-            DaemonClient.Get(WireProtocol.Routes.Read + "?path=" + Uri.EscapeDataString(_path),
+            DaemonClient.Get<Wire.TextResult>(WireProtocol.Routes.Read + "?path=" + Uri.EscapeDataString(_path),
                 j =>
                 {
                     if (!IsCurrent(request)) return;
-                    ApplyText(j["text"].AsString(), request);
+                    ApplyText(j.Text, request);
                 },
                 msg =>
                 {

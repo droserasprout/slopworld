@@ -1,17 +1,17 @@
 # Wire coordination
 
-`shared/protocol.yaml` owns routes, tags, serialized enums and protocol limits. Daemon
-application defaults, prompts, temporary roots and terminal runtime limits live in their Rust
-owners and are exposed as response metadata; usage catalog and resolved rows likewise belong to
-the daemon. Rust/C# generated bindings contain only the stable wire contract. Handwritten Rust
-serialization helpers stay in
-`slopd/src/shared/serde.rs`; only their tag mappings are generated.
+`shared/slopworld.proto` owns the binary messages; `shared/protocol.yaml` owns routes,
+request/response type mappings, enums and limits. `make api-contract` generates C# bindings
+and the Rust HTTP type dispatcher; `slopd/build.rs` generates Rust messages with prost.
+`make api-docs` generates the route inventory. Never reuse field numbers; preserve optional
+presence where omission selects a daemon default. Both peers require protocol version 2.
+HTTP uses `application/x-protobuf`; WebSockets require `slopworld.protobuf.v2` and binary
+frames. The [API reference](../docs/src/reference/api.md) owns public guidance.
 
-The generator loads an explicit file list and rejects duplicate YAML keys. Folded
-YAML prompts must preserve paragraph breaks and omit trailing newlines (`>-`).
-Change both peers through `make api-contract`; `make api-docs` generates route documentation.
-The [API reference](../docs/src/reference/api.md) owns public request/response guidance.
-Do not duplicate the schema here.
+Rust cold handlers adapt existing Serde domain projections to generated messages in memory;
+unknown fields fail conversion rather than silently disappearing. Screen events convert
+directly and cache encoded bytes for fanout. Persisted TOML and external-provider JSON are
+separate formats. C# uses generated messages throughout the client, with no custom JSON parser.
 
 Session rename, process replacement and transport reconnect are different identities.
 `run_id` invalidates old-process history; connection generations invalidate old subscriptions.
@@ -26,9 +26,9 @@ Effective network/DNS values are direct agent settings in the session model. Pro
 carry workspace mounts; config patches preserve omitted fields, and a redacted token means
 retain the secret. See [configuration stores](daemon-config-stores.md).
 
-Configuration patch construction is explicit in the client model: only editable daemon fields
-are projected into a structured token tree, leaf diffs preserve omission semantics, and the
-tree is serialized at the HTTP boundary. Response metadata and secrets remain outside it.
+Configuration patches carry an editable Protobuf message plus explicit leaf paths. Paths
+preserve false, zero and empty-list writes while absent paths preserve daemon values.
+Map keys escape `~` as `~0` and `.` as `~1`. Secrets and response metadata are excluded.
 
 `GET /api/config` includes factory defaults, the usage catalog, temporary-root policy and
 terminal limits. `/api/usage` and usage events include catalog metadata plus resolved rows;

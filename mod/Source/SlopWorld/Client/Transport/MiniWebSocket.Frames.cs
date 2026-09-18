@@ -53,16 +53,16 @@ namespace SlopWorld
 
             if ((opcode & 0x8) != 0 && (!fin || len > 125))
                 throw new IOException("malformed control frame");
-            if ((opcode >= 0x2 && opcode <= 0x7) ||
+            if ((opcode == 0x1 || (opcode >= 0x3 && opcode <= 0x7)) ||
                 ((opcode & 0x8) != 0 && opcode != 0x8 && opcode != 0x9 && opcode != 0xA))
                 throw new IOException($"unsupported websocket opcode: {opcode}");
             if (opcode == 0x0 && fragOpcode == 0)
                 throw new IOException("unexpected continuation frame");
-            if (opcode == 0x1 && fragOpcode != 0)
-                throw new IOException("new text frame while fragmented message is pending");
+            if (opcode == 0x2 && fragOpcode != 0)
+                throw new IOException("new binary frame while fragmented message is pending");
             if (opcode == 0x0 && fragLength + len > MaxFragmentedMessage)
                 throw new IOException("fragmented message is too large");
-            if (opcode == 0x1 && !fin && len > MaxFragmentedMessage)
+            if (opcode == 0x2 && !fin && len > MaxFragmentedMessage)
                 throw new IOException("fragmented message is too large");
 
             return new WebSocketFrame(fin, opcode, ReadExactly((int)len));

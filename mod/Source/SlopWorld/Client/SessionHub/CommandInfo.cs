@@ -20,11 +20,14 @@ namespace SlopWorld
         public string Cmd = "";
         public List<string> Sandbox = new List<string>();
 
-        public string ToJson() =>
-            "{" + $"\"name\":{JVal.Q(Name)}," +
-            $"\"kind\":{JVal.Q(Kind)}," +
-            $"\"description\":{JVal.Q(Description)},\"cmd\":{JVal.Q(Cmd)}," +
-            $"\"sandbox\":[{string.Join(",", Sandbox.Select(JVal.Q).ToArray())}]}}";
+        public Wire.CommandPreset ToWire() => new Wire.CommandPreset
+        {
+            Name = Name,
+            Kind = Kind,
+            Description = Description,
+            Cmd = Cmd,
+            Sandbox = { Sandbox },
+        };
 
         public CommandInfo Copy() => new CommandInfo
         {
@@ -36,14 +39,14 @@ namespace SlopWorld
             Sandbox = new List<string>(Sandbox),
         };
 
-        public static CommandInfo FromJson(JVal j) => new CommandInfo
+        public static CommandInfo FromWire(Wire.CommandPreset j) => new CommandInfo
         {
-            Name = j["name"].AsString(),
-            Kind = j["kind"].AsString(AgentKind),
-            Description = j["description"].AsString(),
-            Source = j["source"].AsString("system"),
-            Cmd = j["cmd"].AsString(),
-            Sandbox = j["sandbox"].Items.Select(i => i.AsString()).ToList(),
+            Name = j.Name,
+            Kind = j.Kind,
+            Description = j.Description,
+            Source = j.Source,
+            Cmd = j.Cmd,
+            Sandbox = j.Sandbox.ToList(),
         };
     }
 }

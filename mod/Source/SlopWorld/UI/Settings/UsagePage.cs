@@ -99,14 +99,14 @@ namespace SlopWorld
         string DraftInterval(string key, int interval)
         {
             return _configState.DraftText("usage.item." + key,
-                "daemon.usage_items." + key + ".interval_secs",
+                "daemon.usage_items." + ProtoFields.Escape(key) + ".interval_secs",
                 interval > 0 ? interval.ToString() : "", zeroMeansBlank: true);
         }
 
         void SetDraftInterval(string key, string value)
         {
             _configState.SetDraftText("usage.item." + key,
-                "daemon.usage_items." + key + ".interval_secs", value);
+                "daemon.usage_items." + ProtoFields.Escape(key) + ".interval_secs", value);
         }
 
         void Promote(string key, DaemonConfig.UsageItemConfig item)
@@ -380,7 +380,7 @@ namespace SlopWorld
                 {
                     string key = fieldKey.Substring("usage.item.".Length);
                     error = PollError(_configState.DraftText(fieldKey,
-                        "daemon.usage_items." + key + ".interval_secs", "", true), true);
+                        "daemon.usage_items." + ProtoFields.Escape(key) + ".interval_secs", "", true), true);
                     if (!string.IsNullOrEmpty(error)) return error;
                 }
                 return null;
@@ -403,14 +403,14 @@ namespace SlopWorld
             {
                 string key = fieldKey.Substring("usage.item.".Length);
                 string text = (_configState.DraftText(fieldKey,
-                    "daemon.usage_items." + key + ".interval_secs", "", true) ?? "").Trim();
+                    "daemon.usage_items." + ProtoFields.Escape(key) + ".interval_secs", "", true) ?? "").Trim();
                 if (text.Length == 0)
                 {
                     if (_cfg.UsageItems.TryGetValue(key, out var configured) && configured != null)
                         configured.IntervalSecs = 0;
                     SetDraftInterval(key, "");
                     _configState.QueueDraftTextNormalization(fieldKey,
-                        "daemon.usage_items." + key + ".interval_secs", "");
+                        "daemon.usage_items." + ProtoFields.Escape(key) + ".interval_secs", "");
                 }
                 else if (DaemonConfigValidation.WholeSeconds(text, true, out seconds,
                                                               out error))
@@ -421,7 +421,7 @@ namespace SlopWorld
                     item.IntervalSecs = seconds;
                     SetDraftInterval(key, text);
                     _configState.QueueDraftTextNormalization(fieldKey,
-                        "daemon.usage_items." + key + ".interval_secs",
+                        "daemon.usage_items." + ProtoFields.Escape(key) + ".interval_secs",
                         seconds.ToString());
                 }
                 else

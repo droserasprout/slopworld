@@ -204,13 +204,13 @@ namespace SlopWorld.Tests
         static void TerminalSkippedFrames()
         {
             var screen = new ScreenBuf();
-            screen.FromJson(JVal.Parse(
-                "{\"seq\":1,\"rows\":4,\"lines\":[\"old\",\"prompt\",\"\",\"\"]}"));
+            screen.FromWire(ProtobufFixtures.Read<Wire.ScreenView>(JVal.Parse(
+                "{\"seq\":1,\"rows\":4,\"lines\":[\"old\",\"prompt\",\"\",\"\"]}")));
             int painted = screen.ContentRevision;
-            screen.FromJson(JVal.Parse(
-                "{\"seq\":2,\"rows\":4,\"lines\":[\"new\",\"prompt\",\"\",\"\"]}"));
-            screen.FromJson(JVal.Parse(
-                "{\"seq\":3,\"rows\":4,\"lines\":[\"new\",\"pasted\",\"\",\"\"]}"));
+            screen.FromWire(ProtobufFixtures.Read<Wire.ScreenView>(JVal.Parse(
+                "{\"seq\":2,\"rows\":4,\"lines\":[\"new\",\"prompt\",\"\",\"\"]}")));
+            screen.FromWire(ProtobufFixtures.Read<Wire.ScreenView>(JVal.Parse(
+                "{\"seq\":3,\"rows\":4,\"lines\":[\"new\",\"pasted\",\"\",\"\"]}")));
 
             AssertEx.Equal(TerminalRepaint.Full,
                 TerminalRepaintPolicy.Choose(false, painted, screen),

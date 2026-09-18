@@ -43,34 +43,25 @@ namespace SlopWorld
 
         // `prev` is what is on screen now: a failed poll answers with the last good windows,
         // and they are no fresher for having been sent again.
-        public static UsageInfo FromJson(JVal j, UsageInfo prev = null)
+        public static UsageInfo FromWire(Wire.UsageSnapshot j, UsageInfo prev = null)
         {
-            bool ok = j["ok"].AsBool();
+            bool ok = j.Ok;
             return Read(j, ok || prev == null
                 ? UnityEngine.Time.realtimeSinceStartup
                 : prev.Heard);
         }
 
-        static UsageInfo Read(JVal j, float heard) => new UsageInfo
+        static UsageInfo Read(Wire.UsageSnapshot j, float heard) => new UsageInfo
         {
-            Ok = j["ok"].AsBool(),
-            Error = j["error"].IsNull ? null : j["error"].AsString(),
-            Plan = j["plan"].AsString(),
-            Sources = j["sources"].Items.Select(s => s.AsString()).ToList(),
-            FailedSources = j["failed_sources"].Items.Select(s => s.AsString()).ToList(),
-            Catalog = j["catalog"].Items.Select(UsageCatalogInfo.FromJson).ToList(),
-            Rows = j["rows"].Items.Select(UsageRow.FromJson).ToList(),
+            Ok = j.Ok,
+            Error = !j.HasError ? null : j.Error,
+            Plan = j.Plan,
+            Sources = j.Sources.ToList(),
+            FailedSources = j.FailedSources.ToList(),
+            Catalog = j.Catalog.Select(UsageCatalogInfo.FromWire).ToList(),
+            Rows = j.Rows.Select(UsageRow.FromWire).ToList(),
             Heard = heard,
-            Windows = j["windows"].Items.Select(w => new UsageWindow
-            {
-                Key = w["key"].AsString(),
-                Label = w["label"].AsString(),
-                Pct = w["pct"].AsFloat(),
-                Unit = w["unit"].AsString(WireProtocol.UsageUnit.Pct),
-                Amount = w["amount"].AsFloat(-1f),
-                Limit = w["limit"].AsFloat(-1f),
-                ResetsIn = w["resets_in"].IsNull ? -1 : w["resets_in"].AsLong(-1),
-            }).ToList(),
+            Windows = j.Windows.Select(UsageWindow.FromWire).ToList(),
         };
     }
 
@@ -85,20 +76,20 @@ namespace SlopWorld
         public bool Stale;
         public UsageWindow Window;
 
-        public static UsageRow FromJson(JVal j)
+        public static UsageRow FromWire(Wire.UsageRow j)
         {
             var value = new UsageRow
             {
-                Key = j["key"].AsString(),
-                Label = j["label"].AsString(),
-                Provider = j["provider"].AsString(),
-                Unit = j["unit"].AsString(WireProtocol.UsageUnit.Pct),
-                Rank = j["rank"].AsInt(),
-                Poll = j["poll"].AsBool(false),
-                Stale = j["stale"].AsBool(false),
+                Key = j.Key,
+                Label = j.Label,
+                Provider = j.Provider,
+                Unit = j.Unit,
+                Rank = (int)j.Rank,
+                Poll = j.Poll,
+                Stale = j.Stale,
             };
-            if (!j["window"].IsNull && j["window"].IsObject)
-                value.Window = UsageWindow.FromJson(j["window"]);
+            if (j.Window != null)
+                value.Window = UsageWindow.FromWire(j.Window);
             return value;
         }
     }

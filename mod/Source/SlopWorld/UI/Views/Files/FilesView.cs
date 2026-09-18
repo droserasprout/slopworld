@@ -640,7 +640,7 @@ namespace SlopWorld
                 if (!Current(request)) continue;
 
                 BrowseInFlight++;
-                DaemonClient.Get(
+                DaemonClient.Get<Wire.BrowseResult>(
                     WireProtocol.Routes.Browse + "?files=1&path=" + System.Uri.EscapeDataString(request.Path) +
                     "&hidden=" + (Settings.SidebarShowHidden ? "1" : "0") +
                     "&gitignore=" + (Settings.SidebarShowGitignored ? "0" : "1"),
@@ -653,7 +653,7 @@ namespace SlopWorld
             request.Node.Loading && request.Node.Path == request.Path &&
             request.Node.ListingVersion == request.Version;
 
-        static void CompleteBrowse(BrowseRequest request, JVal j, string error)
+        static void CompleteBrowse(BrowseRequest request, Wire.BrowseResult j, string error)
         {
             BrowseInFlight--;
             try
@@ -671,7 +671,7 @@ namespace SlopWorld
                 }
 
                 node.Children = Listed(node, j);
-                node.More = j["truncated"].AsBool();
+                node.More = j.Truncated;
                 node.HasChildren = node.Children.Count > 0 || node.More;
                 BumpTree();
                 var loaded = node.Loaded;
@@ -693,7 +693,7 @@ namespace SlopWorld
             }
         }
 
-        static List<Node> Listed(Node parent, JVal j)
+        static List<Node> Listed(Node parent, Wire.BrowseResult j)
         {
             var previous = new Dictionary<string, Node>();
             if (parent.Children != null)
@@ -701,21 +701,21 @@ namespace SlopWorld
                     previous[child.Name] = child;
 
             var children = new List<Node>();
-            var empty = new HashSet<string>(j["empty_dirs"].Items.Select(d => d.AsString()),
+            var empty = new HashSet<string>(j.EmptyDirs,
                 StringComparer.Ordinal);
             var ignoredDirs = new HashSet<string>(
-                j["gitignored_dirs"].Items.Select(d => d.AsString()), StringComparer.Ordinal);
+                j.GitignoredDirs, StringComparer.Ordinal);
             var ignoredFiles = new HashSet<string>(
-                j["gitignored_files"].Items.Select(f => f.AsString()), StringComparer.Ordinal);
-            foreach (var d in j["dirs"].Items)
+                j.GitignoredFiles, StringComparer.Ordinal);
+            foreach (var d in j.Dirs)
             {
-                string name = d.AsString();
+                string name = d;
                 children.Add(ReuseOrChild(parent, name, true, previous, !empty.Contains(name),
                     ignoredDirs.Contains(name)));
             }
-            foreach (var f in j["files"].Items)
+            foreach (var f in j.Files)
             {
-                string name = f.AsString();
+                string name = f;
                 children.Add(ReuseOrChild(parent, name, false, previous, false,
                     ignoredFiles.Contains(name)));
             }

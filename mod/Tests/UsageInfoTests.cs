@@ -15,9 +15,9 @@ namespace SlopWorld.Tests
 
         static void KeepsProviderFailureLocal()
         {
-            var usage = UsageInfo.FromJson(JVal.Parse(
+            var usage = UsageInfo.FromWire(ProtobufFixtures.Read<Wire.UsageSnapshot>(JVal.Parse(
                 "{\"ok\":false,\"error\":\"Claude failed\",\"sources\":[\"anthropic\",\"openai\"]," +
-                "\"failed_sources\":[\"anthropic\"],\"windows\":[]}"));
+                "\"failed_sources\":[\"anthropic\"],\"windows\":[]}")));
 
             AssertEx.True(usage.SourceFailed("anthropic"), "failed provider is stale");
             AssertEx.False(usage.SourceFailed("openai"), "healthy provider stays live");
@@ -26,7 +26,7 @@ namespace SlopWorld.Tests
         static void ReadsWindowsAndBudgetFields()
         {
             UnityEngine.Time.realtimeSinceStartup = 100f;
-            var usage = UsageInfo.FromJson(JVal.Parse(
+            var usage = UsageInfo.FromWire(ProtobufFixtures.Read<Wire.UsageSnapshot>(JVal.Parse(
                 "{" +
                 "\"ok\":true,\"error\":null,\"plan\":\"pro\", " +
                 "\"sources\":[\"anthropic\",\"openai\"]," +
@@ -35,7 +35,7 @@ namespace SlopWorld.Tests
                 "{\"key\":\"extra\",\"label\":\"Extra\",\"pct\":40," +
                 "\"unit\":\"usd\",\"amount\":2.5,\"limit\":10,\"resets_in\":30}," +
                 "{\"key\":\"daily\",\"label\":\"Daily\",\"pct\":75}" +
-                "]}"));
+                "]}")));
 
             AssertEx.True(usage.Ok, "successful usage snapshot");
             AssertEx.True(usage.Error == null, "successful snapshot has no error");
@@ -73,15 +73,15 @@ namespace SlopWorld.Tests
         static void KeepsPreviousTimestamp()
         {
             UnityEngine.Time.realtimeSinceStartup = 50f;
-            var previous = UsageInfo.FromJson(JVal.Parse(
+            var previous = UsageInfo.FromWire(ProtobufFixtures.Read<Wire.UsageSnapshot>(JVal.Parse(
                 "{\"ok\":true,\"plan\":\"old\",\"sources\":[]," +
-                "\"failed_sources\":[],\"windows\":[]}"));
+                "\"failed_sources\":[],\"windows\":[]}")));
             UnityEngine.Time.realtimeSinceStartup = 90f;
 
-            var failed = UsageInfo.FromJson(JVal.Parse(
+            var failed = UsageInfo.FromWire(ProtobufFixtures.Read<Wire.UsageSnapshot>(JVal.Parse(
                 "{\"ok\":false,\"error\":\"provider down\",\"plan\":\"old\"," +
                 "\"sources\":[\"openai\"],\"failed_sources\":[\"openai\"]," +
-                "\"windows\":[]}"), previous);
+                "\"windows\":[]}")), previous);
 
             AssertEx.False(failed.Ok, "failed snapshot status");
             AssertEx.Equal("provider down", failed.Error, "failure message");
@@ -91,11 +91,11 @@ namespace SlopWorld.Tests
 
         static void KeepsMissingValuesExplicit()
         {
-            var usage = UsageInfo.FromJson(JVal.Parse(
+            var usage = UsageInfo.FromWire(ProtobufFixtures.Read<Wire.UsageSnapshot>(JVal.Parse(
                 "{\"ok\":false,\"sources\":[\"anthropic\"]," +
                 "\"catalog\":[{\"key\":\"claude_session\",\"label\":\"Claude session\",\"provider\":\"anthropic\",\"unit\":\"pct\",\"rank\":0,\"default_poll\":true}]," +
                 "\"rows\":[{\"key\":\"claude_session\",\"label\":\"Claude session\",\"provider\":\"anthropic\",\"unit\":\"pct\",\"rank\":0,\"poll\":true,\"stale\":true,\"window\":null}]," +
-                "\"windows\":[]}"));
+                "\"windows\":[]}")));
             AssertEx.Equal(1, usage.Rows.Count, "daemon row remains visible");
             AssertEx.True(usage.Rows[0].Window == null, "missing value is not fabricated");
             AssertEx.True(usage.Rows[0].Stale, "stale state survives");

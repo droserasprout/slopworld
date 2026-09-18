@@ -14,26 +14,21 @@ namespace SlopWorld
         public bool IsEmpty =>
             !MemoryMb.HasValue && !Pids.HasValue && !Nofile.HasValue && !CpuPct.HasValue;
 
-        static int? Num(JVal v) => v.IsNull ? (int?)null : v.AsInt(0);
-
-        public static SessionLimits FromJson(JVal j) => new SessionLimits
+        public static SessionLimits FromWire(Wire.Limits j) => j == null ? default : new SessionLimits
         {
-            MemoryMb = Num(j["memory_mb"]),
-            Pids = Num(j["pids"]),
-            Nofile = Num(j["nofile"]),
-            CpuPct = Num(j["cpu_pct"]),
+            MemoryMb = j.HasMemoryMb ? (int?)j.MemoryMb : null,
+            Pids = j.HasPids ? (int?)j.Pids : null,
+            Nofile = j.HasNofile ? (int?)j.Nofile : null,
+            CpuPct = j.HasCpuPct ? (int?)j.CpuPct : null,
         };
-
-        // Only the set fields ride along, so an unset cap is absent rather than zero - the
-        // daemon reads a missing field as "no cap", a zero as a session that cannot start.
-        public string ToJson()
+        public Wire.Limits ToWire()
         {
-            var parts = new List<string>();
-            if (MemoryMb.HasValue) parts.Add($"\"memory_mb\":{MemoryMb.Value}");
-            if (Pids.HasValue) parts.Add($"\"pids\":{Pids.Value}");
-            if (Nofile.HasValue) parts.Add($"\"nofile\":{Nofile.Value}");
-            if (CpuPct.HasValue) parts.Add($"\"cpu_pct\":{CpuPct.Value}");
-            return "{" + string.Join(",", parts.ToArray()) + "}";
+            var value = new Wire.Limits();
+            if (MemoryMb.HasValue) value.MemoryMb = checked((uint)MemoryMb.Value);
+            if (Pids.HasValue) value.Pids = checked((uint)Pids.Value);
+            if (Nofile.HasValue) value.Nofile = checked((uint)Nofile.Value);
+            if (CpuPct.HasValue) value.CpuPct = checked((uint)CpuPct.Value);
+            return value;
         }
     }
 }

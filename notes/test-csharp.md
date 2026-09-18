@@ -10,7 +10,7 @@ declaration metadata order. `AssertEx.cs` delegates assertions to NUnit.
 The project file lists linked sources and
 `TestSupport/` supplies narrow game, transport, and environment substitutes.
 
-Coverage includes settings persistence and drafts, JSON/TOML and wire models, terminal
+Coverage includes settings persistence and drafts, TOML and Protobuf wire models, terminal
 parsing/history, transport buffering and reconnects, session rename reconciliation,
 pager lifecycle, and pure layout/repaint policies. `Pager` and `Sgr` are linked directly;
 their external dependencies use test substitutes. `HubCatalogTests` and transport tests
@@ -41,3 +41,7 @@ Use the same machine, build mode, and quiet host for comparisons. Timing include
 loop overhead, and allocation counts cover the current thread. These .NET 8 helper timings do
 not predict Unity/Mono frame time or texture performance. Benchmarks have no timing thresholds
 and do not run during `make test`; `make bench` runs both language suites.
+
+Legacy JSON fixtures live only in test/benchmark support. Production socket tests exercise
+binary fragmentation, ping/pong and masked writes without the game. `make bench-ipc` adds
+Mono measurements and C#/Rust binary fixture roundtrips.

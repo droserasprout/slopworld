@@ -56,13 +56,12 @@ namespace SlopWorld
             if (block == null) return;
             if (block.Kind == BlockKind.Code && !string.IsNullOrWhiteSpace(block.Info))
             {
-                string body = "{" + $"\"text\":{JVal.Q(block.Code ?? "")}," +
-                    $"\"language\":{JVal.Q(block.Info)}" + "}";
-                DaemonClient.Post(WireProtocol.Routes.Highlight, body,
+                var body = new Wire.HighlightReq { Text = block.Code ?? "", Language = block.Info };
+                DaemonClient.Post<Wire.TextResult>(WireProtocol.Routes.Highlight, body,
                     j =>
                     {
                         if (!isCurrent(request)) return;
-                        block.Highlighted = j["text"].AsString();
+                        block.Highlighted = j.Text;
                         invalidate();
                     },
                     _ => { });
@@ -110,7 +109,7 @@ namespace SlopWorld
 
                 resource.Pending = true;
                 int generation = _generation;
-                DaemonClient.Send("GET", WireProtocol.Routes.Image + "?path=" + Uri.EscapeDataString(path), null,
+                DaemonClient.Send<Wire.ImageResult>("GET", WireProtocol.Routes.Image + "?path=" + Uri.EscapeDataString(path), null,
                     j =>
                     {
                         if (generation != _generation || !isCurrent(request)) return;
@@ -118,7 +117,7 @@ namespace SlopWorld
                         Texture2D texture = null;
                         try
                         {
-                            var bytes = Convert.FromBase64String(j["data"].AsString());
+                            var bytes = j.Data.ToByteArray();
                             // Keep local ownership until the fully configured texture enters
                             // the store. Every decode or setup failure must release native data.
                             texture = new Texture2D(2, 2, TextureFormat.RGBA32, false);

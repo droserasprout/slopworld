@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Collections.Generic;
 
 namespace SlopWorld.Tests
@@ -28,9 +29,10 @@ namespace SlopWorld.Tests
 
         static void RoundTripsMountLists()
         {
-            var mounts = MountEntry.ListFromJson(JVal.Parse(
-                "[{\"from\":\"docs\\\"and\\\"tests\",\"to\":\"/mnt/docs\",\"mode\":\"ro\"}," +
-                "{\"from\":\"scratch\"}]"));
+            var mounts = MountEntry.ListFromWire(new[] {
+                new Wire.Mount { From = "docs\"and\"tests", To = "/mnt/docs", Mode = "ro" },
+                new Wire.Mount { From = "scratch" },
+            });
 
             AssertEx.Equal(2, mounts.Count, "mount count");
             AssertEx.Equal("docs\"and\"tests", mounts[0].From, "quoted project name");
@@ -38,11 +40,10 @@ namespace SlopWorld.Tests
             AssertEx.Equal(MountMode.Ro, mounts[0].Mode, "parsed read-only mount");
             AssertEx.Equal(MountMode.Rw, mounts[1].Mode, "missing mode defaults writable");
 
-            string wire = MountEntry.ListToJson(mounts);
-            var roundTrip = MountEntry.ListFromJson(JVal.Parse(wire));
-            AssertEx.Equal(wire, MountEntry.ListToJson(roundTrip), "mount list JSON round trip");
-            AssertEx.Equal("[]", MountEntry.ListToJson(new List<MountEntry>()),
-                           "empty mount list JSON");
+            var wire = mounts.Select(m => m.ToWire()).ToList();
+            var roundTrip = MountEntry.ListFromWire(wire);
+            AssertEx.Equal(wire[0], roundTrip[0].ToWire(), "mount binary model round trip");
+            AssertEx.Equal(0, MountEntry.ListFromWire(new Wire.Mount[0]).Count, "empty mount list");
         }
     }
 }

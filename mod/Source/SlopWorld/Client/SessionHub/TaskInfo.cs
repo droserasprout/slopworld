@@ -51,26 +51,26 @@ namespace SlopWorld
         public bool Incoming => To == Host;
         public bool Outgoing => From == Host;
 
-        public static TaskInfo FromJson(JVal v)
+        public static TaskInfo FromWire(Wire.Task v)
         {
             var task = new TaskInfo
             {
-                Id = v["id"].AsString(),
-                From = v["from"].AsString(),
-                To = v["to"].AsString(),
-                Body = v["body"].AsString(),
-                Note = v["note"].IsNull ? null : v["note"].AsString(),
-                GeneratedSummary = v["summary"].IsNull ? null : v["summary"].AsString(),
-                CreatedMs = v["created_ms"].AsLong(),
-                UpdatedMs = v["updated_ms"].AsLong(),
+                Id = v.Id,
+                From = v.From,
+                To = v.To,
+                Body = v.Body,
+                Note = !v.HasNote ? null : v.Note,
+                GeneratedSummary = !v.HasSummary ? null : v.Summary,
+                CreatedMs = (long)v.CreatedMs,
+                UpdatedMs = (long)v.UpdatedMs,
             };
-            task.Status = ParseStatus(v["status"].AsString());
-            var worker = v["worker"];
-            if (!worker.IsNull)
+            task.Status = ParseStatus(v.Status);
+            var worker = v.Worker;
+            if (worker != null)
             {
-                task.WorkerSession = worker["session"].AsString();
-                task.WorkerParent = worker["parent"].AsString();
-                task.WorkerDurable = worker["durable"].AsBool(false);
+                task.WorkerSession = worker.Session;
+                task.WorkerParent = worker.Parent;
+                task.WorkerDurable = worker.Durable;
             }
             return task;
         }

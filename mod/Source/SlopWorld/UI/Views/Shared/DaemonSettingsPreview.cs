@@ -9,15 +9,17 @@ namespace SlopWorld
     {
         readonly AsyncLoadState<SandboxPreviewData> _load = new AsyncLoadState<SandboxPreviewData>();
         string _key;
+        Wire.SettingsPreviewRequest _body;
 
-        public void Draw(Rect rect, string body, ref SmoothScroll scroll)
+        public void Draw(Rect rect, Wire.SettingsPreviewRequest body, ref SmoothScroll scroll)
         {
-            string key = DaemonClient.BaseUrl + "\n" + SessionHub.Instance.ConnectionGeneration + "\n" + SessionHub.Instance.Catalog.SettingsRevision + "\n" + body;
-            if (_key != key)
+            string key = DaemonClient.BaseUrl + "\n" + SessionHub.Instance.ConnectionGeneration + "\n" + SessionHub.Instance.Catalog.SettingsRevision;
+            if (_key != key || !body.Equals(_body))
             {
                 _key = key;
-                _load.Load((ok, fail) => DaemonClient.Post(WireProtocol.Routes.SettingsPreview, body,
-                    response => ok(SandboxPreviewData.FromJson(response)), fail));
+                _body = body.Clone();
+                _load.Load((ok, fail) => DaemonClient.Post<Wire.SettingsPreview>(WireProtocol.Routes.SettingsPreview, body,
+                    response => ok(SandboxPreviewData.FromWire(response)), fail));
             }
             var refresh = new Rect(rect.x, rect.yMax - UiTheme.BtnH, rect.width, UiTheme.BtnH);
             rect.height -= UiTheme.BtnH + UiTheme.GapS;

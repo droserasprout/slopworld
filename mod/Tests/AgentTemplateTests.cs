@@ -6,13 +6,13 @@ namespace SlopWorld.Tests
     {
         public static void VersionTokensRemainExact()
         {
-            var template = AgentTemplateInfo.FromJson(JVal.Parse("{\"version\":9007199254740991}"));
+            var template = AgentTemplateInfo.FromWire(ProtobufFixtures.Read<Wire.AgentTemplate>(JVal.Parse("{\"version\":9007199254740991}")));
             AssertEx.Equal(9007199254740991L, template.Version, "version does not round through double");
         }
 
         public static void EditingPreservesSnapshotsAndClearsLimits()
         {
-            var template = AgentTemplateInfo.FromJson(JVal.Parse(@"{
+            var template = AgentTemplateInfo.FromWire(ProtobufFixtures.Read<Wire.AgentTemplate>(JVal.Parse(@"{
                 ""name"":""reviewer"", ""version"":1,
                 ""defaults"":{
                     ""command"":{ ""name"":""agent"", ""cmd"":""captured"", ""sandbox"":[""dependency""] },
@@ -20,7 +20,7 @@ namespace SlopWorld.Tests
                     ""sandbox_presets"":[{""name"":""dependency"", ""description"":""captured sandbox""}],
                     ""limits"":{ ""memory_mb"":512 }
                 }
-            }"));
+            }")));
             var catalog = SessionHub.Instance.Catalog;
             var commands = catalog.Commands;
             catalog.Commands = new List<CommandInfo> { new CommandInfo { Name = "agent", Cmd = "changed" } };
@@ -47,13 +47,13 @@ namespace SlopWorld.Tests
 
         public static void SharedEditorUsesCapturedCatalogsAndSavesAgentSettings()
         {
-            var template = AgentTemplateInfo.FromJson(JVal.Parse(@"{
+            var template = AgentTemplateInfo.FromWire(ProtobufFixtures.Read<Wire.AgentTemplate>(JVal.Parse(@"{
                 ""defaults"": {
                     ""command"": { ""name"":""agent"", ""cmd"":""captured"" },
                     ""sandbox_presets"": [{ ""name"":""sandbox"", ""description"":""captured"" }],
                     ""network"":""private"", ""dns"": { ""mode"":""resolved"" }
                 }
-            }"));
+            }")));
             var catalog = SessionHub.Instance.Catalog;
             var commands = catalog.Commands;
             var presets = catalog.Presets;
@@ -89,10 +89,10 @@ namespace SlopWorld.Tests
             AssertEx.True(json["network"].IsNull, "new recipe inherits network");
             AssertEx.True(json["dns"].IsNull, "new recipe inherits DNS");
             AssertEx.True(json["autostart"].IsNull, "new recipe leaves startup unspecified");
-            var legacy = AgentTemplateInfo.FromJson(JVal.Parse(@"{
+            var legacy = AgentTemplateInfo.FromWire(ProtobufFixtures.Read<Wire.AgentTemplate>(JVal.Parse(@"{
                 ""name"":""legacy"", ""defaults"": { ""network"":""host"",
                     ""dns"": { ""mode"":""resolved"" }, ""autostart"":false }
-            }"));
+            }")));
             legacy.Copy().ApplyTo(form);
             json = JVal.Parse(legacy.ToJson(form))["defaults"];
             AssertEx.Equal("host", json["network"].AsString(), "existing explicit network remains pinned");

@@ -1,4 +1,4 @@
-version: 1
+version: 2
 
 http:
   headers:
@@ -6,226 +6,358 @@ http:
     session: x-slop-session
   routes:
     health:
+      protobuf:
+        GET: [Empty, Health]
       path: "/api/health"
       methods: [GET]
       scope: scoped
     sessions:
+      protobuf:
+        GET: [Empty, SessionsReply]
+        POST: [SessionConfig, Ack]
       path: "/api/sessions"
       methods: [GET, POST]
       scope: scoped
     session:
+      protobuf:
+        GET: [Empty, SessionView]
+        DELETE: [Empty, Ack]
       path: "/api/sessions/:name"
       methods: [GET, DELETE]
       scope: scoped
     session_update:
+      protobuf:
+        PUT: [SessionConfig, Ack]
       path: "/api/sessions/:name"
       methods: [PUT]
       scope: root
     session_cwd:
+      protobuf:
+        GET: [Empty, PathResult]
       path: "/api/sessions/:name/cwd"
       methods: [GET]
       scope: scoped
     session_sandbox:
+      protobuf:
+        GET: [Empty, SandboxReport]
       path: "/api/sessions/:name/sandbox"
       methods: [GET]
       scope: scoped
     session_start:
+      protobuf:
+        POST: [Empty, Ack]
       path: "/api/sessions/:name/start"
       methods: [POST]
       scope: scoped
     session_stop:
+      protobuf:
+        POST: [Empty, Ack]
       path: "/api/sessions/:name/stop"
       methods: [POST]
       scope: scoped
     session_restart:
+      protobuf:
+        POST: [Empty, Ack]
       path: "/api/sessions/:name/restart"
       methods: [POST]
       scope: scoped
     session_label:
+      protobuf:
+        PUT: [LabelReq, Ack]
       path: "/api/sessions/:name/label"
       methods: [PUT]
       scope: scoped
     session_state_reset:
+      protobuf:
+        POST: [Empty, Ack]
       path: "/api/sessions/:name/state/reset"
       methods: [POST]
       scope: scoped
     settings_preview:
+      protobuf:
+        POST: [SettingsPreviewRequest, SettingsPreview]
       path: "/api/settings/preview"
       methods: [POST]
       scope: root
     templates:
+      protobuf:
+        GET: [Empty, TemplatesReply]
+        POST: [SaveTemplateRequest, TemplateResult]
       path: "/api/templates"
       methods: [GET, POST]
       scope: root
     spawnable_templates:
+      protobuf:
+        GET: [Empty, TemplatesReply]
       path: "/api/templates/spawnable"
       methods: [GET]
       scope: scoped
     template:
+      protobuf:
+        PUT: [AgentTemplate, TemplateResult]
+        DELETE: [Empty, Ack]
       path: "/api/templates/:name"
       methods: [PUT, DELETE]
       scope: root
     template_create:
+      protobuf:
+        POST: [CreateAgentTemplateReq, SessionResult]
       path: "/api/templates/:name/create"
       methods: [POST]
       scope: root
     tasks:
+      protobuf:
+        GET: [Empty, TasksReply]
+        POST: [CreateTaskReq, TaskResult]
+        DELETE: [Empty, Removed]
       path: "/api/tasks"
       methods: [GET, POST, DELETE]
       scope: scoped
     tasks_cancel:
+      protobuf:
+        POST: [RemoveTasksReq, TasksReply]
       path: "/api/tasks/cancel"
       methods: [POST]
       scope: scoped
     tasks_remove:
+      protobuf:
+        POST: [RemoveTasksReq, Removed]
       path: "/api/tasks/remove"
       methods: [POST]
       scope: scoped
     task:
+      protobuf:
+        GET: [Empty, TaskResult]
+        POST: [UpdateTaskReq, TaskResult]
+        DELETE: [Empty, TaskResult]
       path: "/api/tasks/:id"
       methods: [GET, POST, DELETE]
       scope: scoped
     capabilities:
+      protobuf:
+        GET: [Empty, Capabilities]
       path: "/api/capabilities"
       methods: [GET]
       scope: root
     projects:
+      protobuf:
+        GET: [Empty, ProjectsReply]
+        POST: [Project, Ack]
       path: "/api/projects"
       methods: [GET, POST]
       scope: root
     project_preview:
+      protobuf:
+        POST: [ProjectPreviewReq, ProjectPreviewResult]
       path: "/api/projects/preview"
       methods: [POST]
       scope: root
     project:
+      protobuf:
+        GET: [Empty, Project]
+        PUT: [Project, Ack]
+        DELETE: [Empty, Ack]
       path: "/api/projects/:name"
       methods: [GET, PUT, DELETE]
       scope: root
     library:
+      protobuf:
+        GET: [Empty, LibraryReply]
+        POST: [LibraryItem, Ack]
       path: "/api/library"
       methods: [GET, POST]
       scope: root
     library_item:
+      protobuf:
+        PUT: [LibraryItem, Ack]
+        DELETE: [Empty, Ack]
       path: "/api/library/:name"
       methods: [PUT, DELETE]
       scope: root
     library_item_run:
+      protobuf:
+        POST: [RunWhere, SessionResult]
       path: "/api/library/:name/run"
       methods: [POST]
       scope: root
     run:
+      protobuf:
+        POST: [RunReq, SessionResult]
       path: "/api/run"
       methods: [POST]
       scope: root
     workers:
+      protobuf:
+        POST: [SpawnWorkerReq, WorkerResult]
       path: "/api/workers"
       methods: [POST]
       scope: scoped
     file_action:
+      protobuf:
+        POST: [FileActionReq, OutputResult]
       path: "/api/file-action"
       methods: [POST]
       scope: root
     open_apps:
+      protobuf:
+        GET: [Empty, AppsReply]
       path: "/api/open-apps"
       methods: [GET]
       scope: root
     grants:
+      protobuf:
+        GET: [Empty, GrantsReply]
+        POST: [GrantReq, GrantResult]
       path: "/api/grants"
       methods: [GET, POST]
       scope: root
     grantor:
+      protobuf:
+        DELETE: [Empty, Ack]
       path: "/api/grants/:grantor"
       methods: [DELETE]
       scope: root
     state:
+      protobuf:
+        GET: [Empty, StoredStates]
       path: "/api/state"
       methods: [GET]
       scope: root
     state_trash:
+      protobuf:
+        DELETE: [Empty, Ack]
       path: "/api/state/trash"
       methods: [DELETE]
       scope: root
     state_item:
+      protobuf:
+        DELETE: [Empty, Ack]
       path: "/api/state/:kind/:key"
       methods: [DELETE]
       scope: root
     state_trash_restore:
+      protobuf:
+        POST: [Empty, SessionResult]
       path: "/api/state/trash/:key/restore"
       methods: [POST]
       scope: root
     presets:
+      protobuf:
+        GET: [Empty, PresetsReply]
       path: "/api/presets"
       methods: [GET]
       scope: root
     preset:
+      protobuf:
+        PUT: [PresetRequest, Ack]
+        DELETE: [Empty, Ack]
       path: "/api/presets/:kind/:name"
       methods: [PUT, DELETE]
       scope: root
     preset_copy:
+      protobuf:
+        POST: [CopyPresetReq, Ack]
       path: "/api/presets/:kind/:name/copy"
       methods: [POST]
       scope: root
     config:
+      protobuf:
+        GET: [Empty, ConfigResult]
+        PUT: [ReplaceConfigRequest, Ack]
       path: "/api/config"
       methods: [GET, PUT]
       scope: root
     config_patch:
+      protobuf:
+        PUT: [ConfigPatch, Ack]
       path: "/api/config/patch"
       methods: [PUT]
       scope: root
     clipboard:
+      protobuf:
+        GET: [Empty, TextResult]
+        POST: [ClipReq, Ack]
       path: "/api/clipboard"
       methods: [GET, POST]
       scope: root
     clipboard_text:
+      protobuf:
+        GET: [Empty, TextResult]
       path: "/api/clipboard/text"
       methods: [GET]
       scope: root
     clipboard_primary:
+      protobuf:
+        GET: [Empty, TextResult]
+        POST: [ClipReq, Ack]
       path: "/api/clipboard/primary"
       methods: [GET, POST]
       scope: root
     clipboard_primary_text:
+      protobuf:
+        GET: [Empty, TextResult]
       path: "/api/clipboard/primary/text"
       methods: [GET]
       scope: root
     usage:
+      protobuf:
+        GET: [Empty, UsageSnapshot]
       path: "/api/usage"
       methods: [GET]
       scope: root
     audio:
+      protobuf:
+        GET: [Empty, AudioState]
       path: "/api/audio"
       methods: [GET]
       scope: root
     jukebox:
+      protobuf:
+        GET: [Empty, JukeboxCatalog]
       path: "/api/jukebox"
       methods: [GET]
       scope: root
     browse:
+      protobuf:
+        GET: [Empty, BrowseResult]
       path: "/api/browse"
       methods: [GET]
       scope: root
     read:
+      protobuf:
+        GET: [Empty, TextResult]
       path: "/api/read"
       methods: [GET]
       scope: root
     highlight:
+      protobuf:
+        POST: [HighlightReq, TextResult]
       path: "/api/highlight"
       methods: [POST]
       scope: root
     image:
+      protobuf:
+        GET: [Empty, ImageResult]
       path: "/api/image"
       methods: [GET]
       scope: root
     files:
+      protobuf:
+        POST: [FileReq, Ack]
+        PUT: [FileReq, Ack]
+        DELETE: [FileReq, Ack]
       path: "/api/files"
       methods: [POST, PUT, DELETE]
       scope: root
     search:
+      protobuf:
+        GET: [Empty, SearchResult]
       path: "/api/search"
       methods: [GET]
       scope: root
     git:
+      protobuf:
+        GET: [Empty, GitResult]
       path: "/api/git"
       methods: [GET]
       scope: root

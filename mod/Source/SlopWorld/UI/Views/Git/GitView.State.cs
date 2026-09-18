@@ -271,14 +271,14 @@ namespace SlopWorld
             string dir = repo.Dir;
             int generation = repo.Operations.Begin();
             repo.CountsComplete = false;
-            DaemonClient.Get(WireProtocol.Routes.Git + "?counts=false&path=" + System.Uri.EscapeDataString(dir),
+            DaemonClient.Get<Wire.GitResult>(WireProtocol.Routes.Git + "?counts=false&path=" + System.Uri.EscapeDataString(dir),
                 j =>
                 {
                     if (!repo.Operations.IsCurrent(generation) || repo.Dir != dir) return;
                     repo.Loading = false;
                     repo.Asked = true;
 
-                    repo.IsRepo = j["repo"].AsBool();
+                    repo.IsRepo = j.Repo;
                     repo.Changes.Clear();
                     if (!repo.IsRepo)
                     {
@@ -288,13 +288,13 @@ namespace SlopWorld
                         return;
                     }
 
-                    repo.Root = j["root"].AsString();
-                    repo.Branch = j["branch"].AsString();
-                    repo.Changed = j["changed"].AsInt();
-                    repo.Added = j["added"].AsInt();
-                    repo.Deleted = j["deleted"].AsInt();
-                    repo.Truncated = j["truncated"].AsBool(false);
-                    repo.Tree = Fold(repo, j["files"]);
+                    repo.Root = j.Root;
+                    repo.Branch = j.Branch;
+                    repo.Changed = (int)j.Changed;
+                    repo.Added = (int)j.Added;
+                    repo.Deleted = (int)j.Deleted;
+                    repo.Truncated = j.Truncated;
+                    repo.Tree = Fold(repo, j.Files);
                     BumpTree();
                     if (!repo.Truncated && repo.Changed > 0) FetchCounts(repo, generation);
                 },
@@ -323,36 +323,36 @@ namespace SlopWorld
         // generation, and expanding/collapsing rows while counts arrive must survive.
         static void FetchCounts(Repo repo, int generation)
         {
-            DaemonClient.Get(WireProtocol.Routes.Git + "?path=" + System.Uri.EscapeDataString(repo.Dir),
+            DaemonClient.Get<Wire.GitResult>(WireProtocol.Routes.Git + "?path=" + System.Uri.EscapeDataString(repo.Dir),
                 j =>
                 {
                     if (!repo.Operations.IsCurrent(generation) ||
-                        !j["counts_complete"].AsBool(false)) return;
-                    var files = new Dictionary<string, JVal>();
-                    foreach (var f in j["files"].Items)
+                        !j.CountsComplete) return;
+                    var files = new Dictionary<string, Wire.GitFile>();
+                    foreach (var f in j.Files)
                     {
-                        string path = f["path"].AsString();
-                        if (!repo.Changes.TryGetValue(path, out var status) || status != f["status"].AsString()) return;
+                        string path = f.Path;
+                        if (!repo.Changes.TryGetValue(path, out var status) || status != f.Status) return;
                         files[path] = f;
                     }
                     // The checkout may have changed between the two requests.
                     if (files.Count != repo.Changes.Count) return;
                     ApplyCounts(repo.Tree, files);
-                    repo.Added = j["added"].AsInt();
-                    repo.Deleted = j["deleted"].AsInt();
+                    repo.Added = (int)j.Added;
+                    repo.Deleted = (int)j.Deleted;
                     repo.CountsComplete = true;
                     BumpTree();
                 }, null, null, GitRequestTimeoutMs);
         }
 
-        static void ApplyCounts(Node node, Dictionary<string, JVal> files)
+        static void ApplyCounts(Node node, Dictionary<string, Wire.GitFile> files)
         {
             if (node == null) return;
             if (node.Kids != null)
                 foreach (var child in node.Kids) ApplyCounts(child, files);
             if (!files.TryGetValue(node.Rel, out var f)) return;
-            node.Added = f["added"].IsNull ? -1 : f["added"].AsInt();
-            node.Deleted = f["deleted"].IsNull ? -1 : f["deleted"].AsInt();
+            node.Added = !f.HasAdded ? -1 : (int)f.Added;
+            node.Deleted = !f.HasDeleted ? -1 : (int)f.Deleted;
         }
 
         // The flat list of changed paths, folded into the tree it describes. The daemon sends
@@ -360,7 +360,7 @@ namespace SlopWorld
         // look back; every interior node is a directory because something under it changed,
         // which is the whole difference between this tree and the files view's. A truncated
         // answer deliberately remains a valid partial tree.
-        static Node Fold(Repo repo, JVal files)
+        static Node Fold(Repo repo, IEnumerable<Wire.GitFile> files)
         {
             var root = new Node
             {
@@ -372,11 +372,11 @@ namespace SlopWorld
                 Owner = repo,
             };
 
-            foreach (var f in files.Items)
+            foreach (var f in files)
             {
-                string rel = f["path"].AsString();
+                string rel = f.Path;
                 if (string.IsNullOrEmpty(rel)) continue;
-                repo.Changes[rel] = f["status"].AsString();
+                repo.Changes[rel] = f.Status;
 
                 var parts = rel.Split('/');
                 var at = root;
@@ -409,11 +409,11 @@ namespace SlopWorld
                     Rel = rel,
                     IsDir = false,
                     Depth = at.Depth + 1,
-                    Status = f["status"].AsString(),
+                    Status = f.Status,
                     // Null where git counted nothing (binary or a capped response). Kept apart
                     // from zero, which is a real count and a different row.
-                    Added = f["added"].IsNull ? -1 : f["added"].AsInt(),
-                    Deleted = f["deleted"].IsNull ? -1 : f["deleted"].AsInt(),
+                    Added = !f.HasAdded ? -1 : (int)f.Added,
+                    Deleted = !f.HasDeleted ? -1 : (int)f.Deleted,
                     Project = repo.Project,
                     Owner = repo,
                 });
