@@ -13,7 +13,7 @@ namespace SlopWorld
 
         public static void Draw(Rect body, bool anchorBoundary = true)
         {
-            RefreshIfDue();
+            if (!SmoothScroll.WheelOnly) RefreshIfDue();
             Tree.Draw(body, anchorBoundary);
         }
 

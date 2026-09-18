@@ -28,18 +28,17 @@ namespace SlopWorld
         static void DrawRoutedRows(Rect body, SidebarTab tab, SmoothScroll scroll,
                                    float width, float scrollY)
         {
+            if (SmoothScroll.WheelOnly) return;
             bool clipped = scroll != null;
-            float top = scrollY - GhostH;
-            float bottom = scrollY + body.height + GhostH;
-            float y = 0f;
-            foreach (var info in Layout.Routed)
-            {
-                if (clipped && (y + GhostH <= top || y >= bottom))
-                {
-                    y += GhostH;
-                    continue;
-                }
 
+            int first = 0, end = Layout.Routed.Count;
+            if (clipped)
+                VisibleRows.Uniform(Layout.Routed.Count, GhostH, scrollY, body.height,
+                    out first, out end);
+            for (int i = first; i < end; i++)
+            {
+                var info = Layout.Routed[i];
+                float y = i * GhostH;
                 float rowY = clipped ? y : body.y + y;
                 float rowX = clipped ? 0f : body.x;
                 var row = new Row
@@ -70,7 +69,6 @@ namespace SlopWorld
                         Face = Rect.zero,
                     });
                 }
-                y += GhostH;
             }
         }
 

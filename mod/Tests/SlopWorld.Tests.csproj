@@ -41,6 +41,8 @@
     <Compile Include="../Source/SlopWorld/UI/Views/Shared/Pager.cs" Link="Source/Pager.cs" />
     <Compile Include="../Source/SlopWorld/UI/Views/Shared/PagerTabs.cs" Link="Source/PagerTabs.cs" />
     <Compile Include="../Source/SlopWorld/UI/Chrome/MouseClickSequence.cs" Link="Source/MouseClickSequence.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Chrome/LatestSample.cs" Link="Source/LatestSample.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Chrome/ScrollSampleDelta.cs" Link="Source/ScrollSampleDelta.cs" />
     <Compile Include="../Source/SlopWorld/UI/Chrome/ScrollSampleBudget.cs" Link="Source/ScrollSampleBudget.cs" />
     <Compile Include="../Source/SlopWorld/Client/SessionHub/HubCatalog.cs" Link="Source/Client/SessionHub/HubCatalog.cs" />
     <Compile Include="../Source/SlopWorld/Client/SessionHub/HubWire.cs" Link="Source/Client/SessionHub/HubWire.cs" />

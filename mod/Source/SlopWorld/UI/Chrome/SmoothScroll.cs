@@ -121,6 +121,16 @@ namespace SlopWorld
             _bar = false;
         }
 
+        // Flat lists can route a wheel packet using the last measured extent. No row/model
+        // traversal, GUI groups or control allocation is needed until the next normal pass.
+        public bool HandleWheel(Rect outer, float contentHeight)
+        {
+            if (!WheelOnly || contentHeight < 0f) return false;
+            BeginInput(outer, new Vector2(0f, Mathf.Max(0f, contentHeight - outer.height)));
+            EndInput();
+            return true;
+        }
+
         public void End()
         {
             _focusRegion?.Dispose();
@@ -325,6 +335,7 @@ namespace SlopWorld
                 }
                 else
                 {
+                    X11ScrollInput.DiscardPendingMovement();
                     var raw = Input.mouseScrollDelta;
                     _claimAmount = new Vector2(PrecisionDelta(e.delta.x, raw.x),
                         PrecisionDelta(e.delta.y, raw.y)) * Speed;

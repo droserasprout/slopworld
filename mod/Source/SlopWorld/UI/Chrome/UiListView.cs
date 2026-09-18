@@ -7,6 +7,7 @@ namespace SlopWorld
     public abstract class UiListView<T> : ContentView
     {
         readonly SmoothScroll _scroll = new SmoothScroll();
+        float _contentHeight = -1f;
 
         public abstract override string Title { get; }
 
@@ -28,11 +29,12 @@ namespace SlopWorld
         {
             var hub = SessionHub.Instance;
 
-            UiLayout.Header(rect, Title, hub);
-
             float top = rect.y + UiTheme.HeaderH + UiTheme.GapS;
             float foot = UiTheme.BtnH + UiTheme.GapS;
-            DrawList(new Rect(rect.x, top, rect.width, rect.yMax - foot - top), hub);
+            var body = new Rect(rect.x, top, rect.width, rect.yMax - foot - top);
+            if (_scroll.HandleWheel(body, _contentHeight)) return;
+            UiLayout.Header(rect, Title, hub);
+            DrawList(body, hub);
 
             DoFooter(new Rect(rect.x, rect.yMax - UiTheme.BtnH, rect.width,
                 UiTheme.BtnH), hub);
@@ -41,7 +43,7 @@ namespace SlopWorld
         void DrawList(Rect rect, SessionHub hub)
         {
             var items = Rows;
-            float contentH = items.Count * RowH + UiTheme.GapXS;
+            float contentH = _contentHeight = items.Count * RowH + UiTheme.GapXS;
             var geometry = UiScrollBody.Measure(rect, contentH,
                 UiScrollbarReservation.WhenNeeded);
 

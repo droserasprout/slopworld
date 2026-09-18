@@ -158,6 +158,7 @@ namespace SlopWorld
 
         public void Draw(Rect body, bool anchorBoundary = true)
         {
+            if (_scroll.HandleWheel(body, _contentHeight)) return;
             using (WidgetState.Save())
             {
                 // Routed pager headers grow above this viewport. Keep tree rows at their
