@@ -3,11 +3,11 @@
 ## Preset files
 
 Sandbox presets are TOML files. Builtins ship with the daemon; user files in
-`~/.config/slopworld/presets/*.toml` replace builtins by name. A file may define
-`[[sandbox]]`, `[[command]]`, or both.
+`~/.config/slopworld/sandbox_presets/*.toml` replace builtins by name. Each file contains
+one direct sandbox definition.
 
-Presets reload when the directory's newest mtime changes, on the same two-second check
-as `config.toml`. New presets appear in the Settings > Commands page without
+Presets reload when either kind directory's newest mtime changes, on the same two-second check
+as `config.toml`. New presets appear in the Settings > Commands > Apps page without
 rebuilding.
 
 ## The global preset
@@ -44,7 +44,7 @@ The daemon rejects these paths from all bind lists:
 
 - `/` and `$HOME`
 - The daemon configuration file and directory
-- The preset directory
+- The `sandbox_presets` and `app_presets` directories
 - The session-state root
 
 An invalid bind is warned and dropped. An invalid project directory aborts because
@@ -102,6 +102,7 @@ forwarded; the default path under `HOME` is private.
 ## Preset API
 
 `GET /api/presets` returns the complete effective definition and its source (`system`,
-`user`, or `override`). `POST /api/presets/:kind/:name/copy`, `PUT`, and `DELETE`
+`user`, or `override`). The `:kind` values are `sandbox_presets` and `app_presets`.
+`POST /api/presets/:kind/:name/copy`, `PUT`, and `DELETE`
 edit user entries. Saves are validated and atomically replaced; deleting an override
 reveals the builtin. A required user-only sandbox cannot be deleted.

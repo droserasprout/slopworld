@@ -1,6 +1,6 @@
 # Daemon agent templates
 
-Personal templates live in `agent-templates.toml`, beside `config.toml`, and are loaded by
+Personal templates live one per file in `agent_templates/`, beside `config.toml`, and are loaded by
 `Manager`. The root-only `/api/templates` catalog and creation routes are the only client
 boundary; the mod never reads this file directly. Every definition has a persisted monotonic
 `version`, allocated from the store-wide cursor so deletion/recreation and daemon restarts do

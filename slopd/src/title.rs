@@ -37,10 +37,9 @@ struct LatestEntry {
     title: String,
 }
 
-/// Persistent summaries live beside the daemon config, which also keeps a custom
-/// `SLOPD_CONFIG` installation self-contained.
-pub fn cache_path(config: &Path) -> PathBuf {
-    config.with_file_name("prompt-summaries.toml")
+/// Persistent summaries are disposable runtime data and follow the XDG cache root.
+pub fn cache_path(_config: &Path) -> PathBuf {
+    crate::paths::cache_root().join("prompt-summaries.toml")
 }
 
 /// A small, best-effort cache for successful prompt summaries. The prompt itself is never

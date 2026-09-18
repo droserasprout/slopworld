@@ -48,7 +48,7 @@ CLI-specific wiring.
 Open **+ > Agent**, then choose a template or **Custom**. A template copies its
 customizations once before the editor opens; every copied setting remains editable. To make
 one, open an existing agent and choose **Save as template**. The daemon stores personal templates in
-`agent-templates.toml` beside its main configuration.
+`agent_templates/` beside its main configuration.
 
 Templates appear in **Library** alongside prompts, errands, breadcrumbs, and file actions.
 Click a template to open the agent editor in template mode, or use
@@ -105,15 +105,15 @@ templates are unchecked. The prompt can refer to `$SLOPWORLD_TASK_ID`; the defau
 worker task workflow. The setting lives under `[daemon.instructions]` as
 `worker_prompt`, with the allowlist under `[daemon] worker_templates`. See [Using slopctl](slopctl.md).
 
-## Command presets
+## Command apps
 
-A command preset names a piece of software and declares `kind = "agent"` or
-`kind = "shell"`. The Settings > Commands page uses that field to keep the Agent and
+A command app names a piece of software and declares `kind = "agent"` or
+`kind = "shell"`. The Settings > Commands > Apps page uses that field to keep the Agent and
 Shell defaults separate while sourcing both lists from the live command catalog. User
-presets in `~/.config/slopworld/presets/*.toml` replace builtins by name; an omitted kind
-is treated as `agent` for compatibility.
+apps in `~/.config/slopworld/app_presets/*.toml` replace builtins by name; an omitted kind
+is treated as `agent`.
 
-A file may define `[[command]]`, `[[sandbox]]`, or both. The `global.toml` sandbox
+A file in `app_presets` contains one direct app definition. The `global.toml` sandbox
 preset is implicit and precedes all others. See
 [Configuring sandboxes](configuring-sandboxes.md) for the sandbox side.
 

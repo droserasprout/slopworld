@@ -24,8 +24,6 @@ rw = [
     "~/.local/share/slopworld/profile",
     # User-owned station templates live beside the profile, but keep this bind narrow because
     # the parent SlopWorld data directory also contains daemon-managed session state.
-    "$XDG_DATA_HOME/slopworld/jukebox",
-    "~/.local/share/slopworld/jukebox",
     "$SLOPWORLD_GAME",
     "~/RimWorld/game",
     "~/GOG Games/RimWorld/game",

@@ -120,7 +120,7 @@ namespace SlopWorld
                 float y = DrawPresetFields(view, 0f, p, editable, true);
                 EditorButtons(view, y, editable, p.Source,
                     () => SessionHub.Instance.Catalog.SavePreset(p, () => { _newEntry = false; _error = null; }, msg => _error = msg),
-                    () => Remove("sandbox", p.Name));
+                    () => Remove("sandbox_presets", p.Name));
             }
         }
 
@@ -135,7 +135,7 @@ namespace SlopWorld
                     UiTheme.Warn);
                 y += warningH + UiTheme.GapM;
             }
-            EditorTitle(view, ref y, p.Name, p.Source, "sandbox", draw);
+            EditorTitle(view, ref y, p.Name, p.Source, "sandbox_presets", draw);
             y = EditorField(view, y, "Name", "preset.name", p.Name, _newEntry,
                 v => p.Name = v, draw);
             y = EditorArea(view, y, "Description", "preset.description", p.Description,
@@ -201,14 +201,14 @@ namespace SlopWorld
                 float y = DrawCommandFields(view, c, editable, true);
                 EditorButtons(view, y, editable, c.Source,
                     () => SessionHub.Instance.Catalog.SaveCommand(c, () => { _newEntry = false; _error = null; }, msg => _error = msg),
-                    () => Remove("command", c.Name));
+                    () => Remove("app_presets", c.Name));
             }
         }
 
         float DrawCommandFields(Rect view, CommandInfo c, bool editable, bool draw)
         {
             float y = 0f;
-            EditorTitle(view, ref y, c.Name, c.Source, "command", draw);
+            EditorTitle(view, ref y, c.Name, c.Source, "app_presets", draw);
             y = EditorField(view, y, "Name", "command.name", c.Name, _newEntry, v => c.Name = v, draw);
             DrawCommandKind(view, ref y, c, editable, draw);
             y = EditorArea(view, y, "Description", "command.description", c.Description, editable, 44f, v => c.Description = v, draw);
@@ -362,7 +362,7 @@ namespace SlopWorld
         void Remove(string kind, string name)
         {
             Find.WindowStack.Add(ConfirmDialog.Create(
-                kind == "sandbox" && SessionHub.Instance.Presets.Any(p => p.Name == name && p.Source == "override")
+                kind == "sandbox_presets" && SessionHub.Instance.Presets.Any(p => p.Name == name && p.Source == "override")
                     ? "Reset this user override and return to the system preset?"
                     : "Remove this user preset?",
                 () => SessionHub.Instance.Catalog.RemovePreset(kind, name, () =>

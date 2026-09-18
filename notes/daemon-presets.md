@@ -1,6 +1,7 @@
 # Presets and launch resolution
 
-Shipped presets are compiled from `slopd/presets/*.toml`; user files replace entries by name.
+Shipped presets are compiled from `slopd/presets/*.toml`; user files in `sandbox_presets/` and
+`app_presets/` replace entries by name. The API and UI use those exact kind names.
 `presets.rs` owns loading and validation, `Config::sandbox_of` owns dependency expansion,
 and `sandbox/` lowers the result into launch arguments. See [isolation](sandbox-isolation.md)
 for security boundaries; the preset files are the capability inventory.

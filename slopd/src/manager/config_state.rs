@@ -7,9 +7,11 @@ use std::time::SystemTime;
 /// Configuration I/O bookkeeping has a different lifetime from the live session table.
 /// Keeping its stamps and serialization gate together makes it harder for a new config path to
 /// publish a disk stamp before the corresponding contents have been accepted. The maintenance
-/// stamps are separate because config, presets, and jukebox have independent reload deadlines.
+/// stamps are separate because config catalogs, presets, and jukebox have independent reload
+/// deadlines.
 pub(crate) struct ConfigState {
     pub(crate) cfg_mtime: Mutex<Option<SystemTime>>,
+    pub(crate) library_mtime: Mutex<Option<SystemTime>>,
     pub(crate) persist: Arc<tokio::sync::Mutex<()>>,
     pub(crate) presets_mtime: Mutex<Option<SystemTime>>,
     pub(crate) jukebox_mtime: Mutex<Option<SystemTime>>,
@@ -21,11 +23,13 @@ pub(crate) struct ConfigState {
 impl ConfigState {
     pub(crate) fn new(
         cfg_mtime: Option<SystemTime>,
+        library_mtime: Option<SystemTime>,
         presets_mtime: Option<SystemTime>,
         jukebox_mtime: Option<SystemTime>,
     ) -> Self {
         Self {
             cfg_mtime: Mutex::new(cfg_mtime),
+            library_mtime: Mutex::new(library_mtime),
             persist: Arc::new(tokio::sync::Mutex::new(())),
             presets_mtime: Mutex::new(presets_mtime),
             jukebox_mtime: Mutex::new(jukebox_mtime),

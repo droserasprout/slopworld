@@ -7,13 +7,19 @@ variables. Paths marked `0600` are readable only by the owning user.
 
 | Path | Override | Description |
 | --- | --- | --- |
-| `~/.config/slopworld/config.toml` | `SLOPD_CONFIG` | Main daemon configuration and personal library items, seeded on first run. |
+| `~/.config/slopworld/config.toml` | `SLOPD_CONFIG` | Main daemon configuration, seeded on first run. |
 | `~/.config/slopworld/endpoint.toml` | `SLOPD_ENDPOINT` | Effective URL and token while the daemon is running. Mode `0600`. |
-| `~/.config/slopworld/presets/*.toml` | `SLOPD_PRESETS` | User sandbox and command presets. Replaces builtins by name. |
+| `~/.config/slopworld/prompts/<name>.toml` | beside `SLOPD_CONFIG` | Personal prompt library items, one definition per file. |
+| `~/.config/slopworld/breadcrumbs/<name>.toml` | beside `SLOPD_CONFIG` | Personal breadcrumb library items, one definition per file. |
+| `~/.config/slopworld/file_actions/<name>.toml` | beside `SLOPD_CONFIG` | Personal file-action library items, one definition per file. |
+| `~/.config/slopworld/shell_scripts/<name>.toml` | beside `SLOPD_CONFIG` | Personal shell-script library items, one definition per file. |
+| `~/.config/slopworld/agent_templates/<name>.toml` | beside `SLOPD_CONFIG` | Personal agent templates, one definition per file. |
+| `~/.config/slopworld/sandbox_presets/<name>.toml` | `SLOPD_PRESETS` root | User sandbox definitions, one definition per file. |
+| `~/.config/slopworld/app_presets/<name>.toml` | `SLOPD_PRESETS` root | User app definitions, one definition per file. |
 | `~/.config/slopworld/tasks.toml` | beside `SLOPD_CONFIG` | Task mailbox state. |
-| `~/.config/slopworld/agent-templates.toml` | beside `SLOPD_CONFIG` | Personal agent templates. Mode `0600`; definitions are independent of the main config. |
-| `~/.config/slopworld/prompt-summaries.toml` | beside `SLOPD_CONFIG` | Cached prompt titles. Mode `0600`. |
-| `~/.config/slopworld/session-activity.toml` | beside `SLOPD_CONFIG` | Fallback state ages when tmux metadata is unavailable. Mode `0600`. |
+| `~/.cache/slopworld/prompt-summaries.toml` | `SLOPD_CACHE` | Cached prompt titles. Mode `0600`. |
+| `~/.cache/slopworld/session-activity.toml` | `SLOPD_CACHE` | Fallback state ages when tmux metadata is unavailable. Mode `0600`. |
+| `~/.cache/slopworld/.anthropic-usage-*.json` | `SLOPD_CACHE` | Short-lived usage responses and rate-limit backoff. Mode `0600`. |
 
 ## Data
 
@@ -22,7 +28,7 @@ variables. Paths marked `0600` are readable only by the owning user.
 | `$XDG_DATA_HOME/slopworld/sessions/<state-id>/` | `SLOPD_STATE` | Per-agent private state. The daemon assigns the opaque state id at creation. |
 | `$XDG_DATA_HOME/slopworld/sessions/<state-id>/launch-plan.json` | under `SLOPD_STATE` | Sanitized latest sandbox launch plan. Mode `0600`; retained with durable state and never mounted into the guest. |
 | `$XDG_DATA_HOME/slopworld/sessions/.trash/` | under `SLOPD_STATE` | Deleted or reset state, reclaimed after 14 days. |
-| `$XDG_DATA_HOME/slopworld/jukebox/*.toml` | `SLOPD_JUKEBOX` | User-defined radio stations. No stations ship with SlopWorld. |
+| `~/.config/slopworld/jukebox/<name>.toml` | `SLOPD_JUKEBOX` | User-defined radio stations. No stations ship with SlopWorld. |
 | `$XDG_DATA_HOME/slopworld/jukebox.toml` | `XDG_DATA_HOME` | Jukebox likes (`[[like]]` tables). |
 | `$XDG_DATA_HOME/slopworld/profile` | `SLOPWORLD_PROFILE` | Game profile: saves, screenshots, `Config/`. |
 

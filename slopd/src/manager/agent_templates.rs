@@ -258,7 +258,7 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(manager.agent_templates().await.len(), 1);
-        assert!(AgentTemplateStore::path_for(&manager.cfg_path).is_file());
+        assert!(AgentTemplateStore::path_for(&manager.cfg_path).is_dir());
         assert!(!manager.cfg_path.is_file());
         let _ = std::fs::remove_dir_all(root);
     }

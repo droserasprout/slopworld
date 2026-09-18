@@ -125,7 +125,8 @@ impl Manager {
         let (events, _) = broadcast::channel(256);
         let (auth_changes, _) = broadcast::channel(16);
         let mtime = disk_mtime(&cfg_path).await;
-        let presets_mtime = crate::paths::dir_stamp(&crate::presets::Table::dir());
+        let library_mtime = Config::library_stamp_for(&cfg_path);
+        let presets_mtime = crate::presets::Table::stamp();
         let presets_loaded = crate::presets::reload();
         let jukebox_mtime = crate::paths::dir_stamp(&crate::jukebox::Catalog::dir());
         let tasks = crate::tasks::Tasks::load(&cfg_path)
@@ -154,6 +155,7 @@ impl Manager {
             templates: RwLock::new(templates),
             config_state: ConfigState::new(
                 mtime,
+                library_mtime,
                 presets_loaded.then_some(presets_mtime).flatten(),
                 jukebox_loaded.then_some(jukebox_mtime).flatten(),
             ),
@@ -197,6 +199,8 @@ impl Manager {
 
     async fn mark_cfg_mtime(&self) {
         *self.config_state.cfg_mtime.lock().unwrap() = disk_mtime(&self.cfg_path).await;
+        *self.config_state.library_mtime.lock().unwrap() =
+            Config::library_stamp_for(&self.cfg_path);
     }
 
     async fn publish_config(&self, change: ConfigChange, origin: ConfigOrigin) -> ConfigEffects {
@@ -331,22 +335,17 @@ impl Manager {
         // deliberately not held while the rest of synchronization runs below.
         let persist = self.config_state.persist.lock().await;
         let disk = disk_mtime(&self.cfg_path).await;
+        let library_disk = Config::library_stamp_for(&self.cfg_path);
         {
-            let seen = self.config_state.cfg_mtime.lock().unwrap();
-            if *seen == disk {
+            let cfg_seen = self.config_state.cfg_mtime.lock().unwrap();
+            let library_seen = self.config_state.library_mtime.lock().unwrap();
+            if *cfg_seen == disk && *library_seen == library_disk {
                 return false;
             }
         }
 
-        let text = match tokio::fs::read_to_string(&self.cfg_path).await {
-            Ok(t) => t,
-            Err(e) => {
-                tracing::warn!("config changed on disk but is unreadable: {e:#}");
-                return false;
-            }
-        };
-        let (parsed, _) = match Config::parse_document(&text) {
-            Ok(value) => value,
+        let parsed = match Config::load(&self.cfg_path).await {
+            Ok(cfg) => cfg,
             Err(e) => {
                 tracing::warn!("config changed on disk but is invalid, keeping the old one: {e:#}");
                 return false;
@@ -364,6 +363,7 @@ impl Manager {
         let effects = self
             .publish_config(change, ConfigOrigin::DiskReload { mtime: disk })
             .await;
+        *self.config_state.library_mtime.lock().unwrap() = library_disk;
         self.update_endpoint(&effects.endpoint_token).await;
         drop(persist);
         self.finish_config_change(effects).await;
@@ -439,7 +439,7 @@ impl Manager {
     }
 
     pub async fn reload_presets_if_changed(self: &Arc<Self>) -> bool {
-        let disk = crate::paths::dir_stamp(&crate::presets::Table::dir());
+        let disk = crate::presets::Table::stamp();
         let reloaded = {
             let mut seen = self.config_state.presets_mtime.lock().unwrap();
             if *seen == disk || !crate::presets::reload() {
@@ -665,7 +665,12 @@ impl Manager {
         merge_toml(&mut document, patch);
 
         let old = self.cfg.read().await.clone();
-        let (parsed, mut document) = Config::parse_document(&toml::to_string_pretty(&document)?)?;
+        let (mut parsed, mut document) =
+            Config::parse_document(&toml::to_string_pretty(&document)?)?;
+        parsed.library = old.library.clone();
+        if let Some(table) = document.as_table_mut() {
+            table.remove("library");
+        }
         if parsed.daemon.token == crate::config::TOKEN_REDACTED {
             restore_redacted_document_token(&old, &mut document);
         }
@@ -688,7 +693,11 @@ impl Manager {
     async fn replace_config_within_boundary(self: &Arc<Self>, text: &str) -> Result<()> {
         let persist = self.config_state.persist.lock().await;
         let old = self.cfg.read().await.clone();
-        let (parsed, mut document) = Config::parse_document(text)?;
+        let (mut parsed, mut document) = Config::parse_document(text)?;
+        parsed.library = old.library.clone();
+        if let Some(table) = document.as_table_mut() {
+            table.remove("library");
+        }
         if parsed.daemon.token == crate::config::TOKEN_REDACTED {
             restore_redacted_document_token(&old, &mut document);
         }

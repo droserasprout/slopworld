@@ -15,12 +15,12 @@ use std::fmt;
 use crate::config::{Config, DnsConfig, Limits, NetworkMode, ProjectCfg, SessionCfg};
 use crate::presets::{CommandPreset, SandboxPreset};
 
-const STORE_FILE: &str = "agent-templates.toml";
+const INDEX_FILE: &str = ".index.toml";
 // The mod JSON reader represents numbers as doubles; tokens must round-trip exactly.
 const MAX_VERSION: u64 = (1 << 53) - 1;
 
-/// The daemon-owned personal template file. The repeated table name matches the rest of the
-/// daemon's TOML catalogs.
+/// The daemon-owned personal template store. Each template is a direct TOML file, with the
+/// monotonic version cursor kept separately in `.index.toml`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct AgentTemplateStore {
@@ -31,6 +31,13 @@ pub(crate) struct AgentTemplateStore {
     pub(crate) next_version: u64,
     #[serde(default, rename = "template")]
     pub(crate) templates: Vec<AgentTemplate>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct TemplateIndex {
+    #[serde(default = "first_version")]
+    next_version: u64,
 }
 
 impl Default for AgentTemplateStore {
@@ -165,19 +172,62 @@ impl AgentTemplateStore {
         config_path
             .parent()
             .unwrap_or_else(|| Path::new("."))
-            .join(STORE_FILE)
+            .join("agent_templates")
     }
 
     pub(crate) async fn load(path: &Path) -> Result<Self> {
         if !tokio::fs::try_exists(path).await? {
             return Ok(Self::default());
         }
-        let text = tokio::fs::read_to_string(path)
+        let index_path = path.join(INDEX_FILE);
+        let mut store = if tokio::fs::try_exists(&index_path).await? {
+            let text = tokio::fs::read_to_string(&index_path)
+                .await
+                .with_context(|| format!("reading {}", index_path.display()))?;
+            let index: TemplateIndex = toml::from_str(&text)
+                .with_context(|| format!("parsing {}", index_path.display()))?;
+            Self {
+                next_version: index.next_version,
+                templates: Vec::new(),
+            }
+        } else {
+            Self::default()
+        };
+        let mut entries = tokio::fs::read_dir(path)
             .await
             .with_context(|| format!("reading {}", path.display()))?;
-        let store: Self =
-            toml::from_str(&text).with_context(|| format!("parsing {}", path.display()))?;
-        let mut store = store;
+        let mut files = Vec::new();
+        while let Some(entry) = entries.next_entry().await? {
+            let file = entry.path();
+            if file
+                .extension()
+                .is_some_and(|extension| extension == "toml")
+                && file.file_name().and_then(|name| name.to_str()) != Some(INDEX_FILE)
+            {
+                files.push(file);
+            }
+        }
+        files.sort();
+        for file in files {
+            let text = tokio::fs::read_to_string(&file)
+                .await
+                .with_context(|| format!("reading {}", file.display()))?;
+            let template: AgentTemplate =
+                toml::from_str(&text).with_context(|| format!("parsing {}", file.display()))?;
+            let expected = file
+                .file_stem()
+                .and_then(|name| name.to_str())
+                .unwrap_or_default();
+            if expected != template.name {
+                bail!(
+                    "agent template file {} names {:?}, expected {:?}",
+                    file.display(),
+                    template.name,
+                    expected
+                );
+            }
+            store.templates.push(template);
+        }
         store.normalize_versions()?;
         store.validate()?;
         Ok(store)
@@ -210,8 +260,41 @@ impl AgentTemplateStore {
 
     pub(crate) async fn save(&self, path: &Path) -> Result<()> {
         self.validate()?;
-        let text = toml::to_string_pretty(self)?;
-        crate::paths::write_atomic_async(path, &text, Some(0o600)).await
+        tokio::fs::create_dir_all(path).await?;
+        let mut entries = tokio::fs::read_dir(path).await?;
+        let names: HashSet<String> = self
+            .templates
+            .iter()
+            .map(|template| template.name.clone())
+            .collect();
+        while let Some(entry) = entries.next_entry().await? {
+            let file = entry.path();
+            if file
+                .extension()
+                .is_some_and(|extension| extension == "toml")
+                && file.file_name().and_then(|name| name.to_str()) != Some(INDEX_FILE)
+                && file
+                    .file_stem()
+                    .and_then(|name| name.to_str())
+                    .is_some_and(|name| !names.contains(name))
+            {
+                tokio::fs::remove_file(file).await?;
+            }
+        }
+        for template in &self.templates {
+            let file = path.join(format!("{}.toml", template.name));
+            let text = toml::to_string_pretty(template)?;
+            crate::paths::write_atomic_async(&file, &text, Some(0o600)).await?;
+        }
+        let index = TemplateIndex {
+            next_version: self.next_version,
+        };
+        crate::paths::write_atomic_async(
+            &path.join(INDEX_FILE),
+            &toml::to_string_pretty(&index)?,
+            Some(0o600),
+        )
+        .await
     }
 
     pub(crate) fn get(&self, name: &str) -> Option<&AgentTemplate> {
@@ -454,11 +537,10 @@ fn validate_template_name(name: &str) -> Result<()> {
     if name.trim().is_empty() {
         bail!("agent template name must not be empty");
     }
-    if name
-        .chars()
-        .any(|c| c.is_whitespace() || c == ':' || c == '.')
-    {
-        bail!("agent template name must be free of whitespace, ':' and '.'");
+    if name.chars().any(|c| {
+        c.is_whitespace() || c == ':' || c == '.' || c == '/' || c == '\\' || c.is_control()
+    }) {
+        bail!("agent template name must be free of whitespace, ':', '.', or path separators");
     }
     Ok(())
 }
@@ -620,7 +702,7 @@ mod tests {
         let root =
             std::env::temp_dir().join(format!("slopd-template-store-{}", uuid::Uuid::new_v4()));
         std::fs::create_dir_all(&root).unwrap();
-        let path = root.join("agent-templates.toml");
+        let path = root.join("agent_templates");
         let mut saved = template();
         saved.defaults.sandbox = vec!["captured".into()];
         saved.defaults.sandbox_presets = vec![sandbox()];
@@ -646,7 +728,7 @@ mod tests {
             uuid::Uuid::new_v4()
         ));
         std::fs::create_dir_all(&root).unwrap();
-        let path = root.join("agent-templates.toml");
+        let path = root.join("agent_templates");
         let mut store = AgentTemplateStore::default();
         let first = store.create(template()).unwrap();
         store.save(&path).await.unwrap();
@@ -680,7 +762,7 @@ mod tests {
         let root =
             std::env::temp_dir().join(format!("slopd-template-edit-{}", uuid::Uuid::new_v4()));
         std::fs::create_dir_all(&root).unwrap();
-        let path = root.join("agent-templates.toml");
+        let path = root.join("agent_templates");
         let mut store = AgentTemplateStore::default();
         let original = store.create(template()).unwrap();
         let mut other = template();

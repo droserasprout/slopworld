@@ -8,10 +8,10 @@ Project directories are read-write, and agents can modify anything inside them.
 | State | Path | Notes |
 | --- | --- | --- |
 | Daemon configuration | `~/.config/slopworld/config.toml` | Agents, projects, settings, credentials paths. |
-| User presets | `~/.config/slopworld/presets/*.toml` | Custom sandbox and command presets. |
+| User library and catalogs | `~/.config/slopworld/{prompts,breadcrumbs,file_actions,shell_scripts,agent_templates,sandbox_presets,app_presets}/*.toml` | Custom library entries, templates, sandboxes, and apps. |
 | Agent private state | `~/.local/share/slopworld/sessions/` | Per-agent tool state, history, configuration copies. |
 | Game profile | `~/.local/share/slopworld/profile` | Saves, screenshots, mod settings. |
-| Jukebox data | `~/.local/share/slopworld/jukebox/` | User-defined radio stations. |
+| Jukebox stations | `~/.config/slopworld/jukebox/` | User-defined radio stations. |
 | Jukebox likes | `~/.local/share/slopworld/jukebox.toml` | Liked songs. |
 | Task mailbox | `~/.config/slopworld/tasks.toml` | Delegated task state. |
 

@@ -92,10 +92,10 @@ impl Catalog {
         Ok(catalog)
     }
 
-    /// User-owned station definitions live in application data rather than the installed daemon
-    /// or game mod. `SLOPD_JUKEBOX` is useful for tests and an alternate daemon instance.
+    /// User-owned station definitions are configuration, not application data. `SLOPD_JUKEBOX`
+    /// remains useful for tests and an alternate daemon instance.
     pub fn dir() -> PathBuf {
-        crate::paths::dir("SLOPD_JUKEBOX", dirs::data_dir(), "jukebox")
+        crate::paths::dir("SLOPD_JUKEBOX", dirs::config_dir(), "jukebox")
     }
 
     // Reload rejects a partial catalog so the caller can retain the last good snapshot.

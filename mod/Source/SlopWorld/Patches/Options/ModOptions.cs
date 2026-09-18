@@ -24,7 +24,7 @@ namespace SlopWorld
             Commands,
             CommandDefaults,
             CommandBinaries,
-            CommandPresets,
+            AppPresets,
             Storage,
             Appearance,
             AppearanceInterface,
@@ -111,12 +111,12 @@ namespace SlopWorld
                 null),
             new TabSpec(PageId.CommandDefaults, "SlopWorld_CommandDefaults", "Defaults", null,
                 () => new CommandsPage(), PageId.Commands),
-            new TabSpec(PageId.CommandPresets, "SlopWorld_CommandPresets", "Presets", null,
-                () => new SandboxPage(SandboxPage.Section.Commands), PageId.Commands),
+            new TabSpec(PageId.AppPresets, "SlopWorld_AppPresets", "Apps", null,
+                () => new SandboxPage(SandboxPage.Section.AppPresets), PageId.Commands),
             new TabSpec(PageId.CommandBinaries, "SlopWorld_CommandBinaries", "Binaries", null,
                 () => new BinariesPage(), PageId.Commands),
             new TabSpec(PageId.Sandbox, "SlopWorld_Sandbox", "Sandbox", () => Icons.Shield,
-                () => new SandboxPage(SandboxPage.Section.Presets)),
+                () => new SandboxPage(SandboxPage.Section.SandboxPresets)),
             new TabSpec(PageId.Keyboard, "SlopWorld_Keyboard", "Keyboard", () => Icons.Keyboard,
                 () => new KeyBindingsPage()),
             new TabSpec(PageId.Storage, "SlopWorld_Storage", "Storage", () => Icons.Files,
@@ -333,7 +333,7 @@ namespace SlopWorld
 
         public static void OpenNewCommand()
         {
-            var tab = TabFor(PageId.CommandPresets);
+            var tab = TabFor(PageId.AppPresets);
             var page = tab?.PageOf<SandboxPage>();
             if (page == null) return;
             page.NewCommand();

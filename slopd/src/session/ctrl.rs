@@ -105,7 +105,8 @@ pub(crate) fn test_manager_with_socket(config: Config, socket: impl Into<String>
         std::process::id(),
         uuid::Uuid::new_v4()
     ));
-    // Tasks and caches are siblings of config.toml, so the directory must be unique too.
+    // The task store is a sibling of config.toml; caches use the XDG cache root and are
+    // independently redirected by the test environment.
     std::fs::create_dir_all(&directory).expect("test manager directory");
     let cfg_path = directory.join("config.toml");
     let (events, _) = broadcast::channel(16);
@@ -120,7 +121,7 @@ pub(crate) fn test_manager_with_socket(config: Config, socket: impl Into<String>
         temp: RwLock::new(HashMap::new()),
         rules: RwLock::new(Vec::new()),
         rules_revision: AtomicU64::new(0),
-        config_state: super::manager::ConfigState::new(None, None, None),
+        config_state: super::manager::ConfigState::new(None, None, None, None),
         host_metadata_checked: AtomicU64::new(0),
         host_metadata_poll: tokio::sync::Mutex::new(None),
         signals: super::manager::Signals::new(),

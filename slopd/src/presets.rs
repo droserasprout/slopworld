@@ -1,22 +1,22 @@
-use std::collections::{BTreeMap, HashSet};
+use std::collections::BTreeMap;
 use std::fmt;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, OnceLock, RwLock};
 
 use serde::{Deserialize, Serialize};
 
-/// The two top-level preset collections exposed by the HTTP API.
+/// The two top-level preset collections exposed by the HTTP API and stored in config.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PresetKind {
-    Sandbox,
-    Command,
+    SandboxPresets,
+    AppPresets,
 }
 
 impl PresetKind {
     pub fn as_str(self) -> &'static str {
         match self {
-            Self::Sandbox => "sandbox",
-            Self::Command => "command",
+            Self::SandboxPresets => "sandbox_presets",
+            Self::AppPresets => "app_presets",
         }
     }
 }
@@ -32,8 +32,8 @@ impl std::str::FromStr for PresetKind {
 
     fn from_str(kind: &str) -> Result<Self, Self::Err> {
         match kind {
-            "sandbox" => Ok(Self::Sandbox),
-            "command" => Ok(Self::Command),
+            "sandbox_presets" => Ok(Self::SandboxPresets),
+            "app_presets" => Ok(Self::AppPresets),
             _ => Err(format!("unknown preset kind: {kind}")),
         }
     }
@@ -264,23 +264,34 @@ impl PresetSource {
 }
 
 impl Table {
-    /// Alongside `config.toml`, because a preset is edited by hand the way the rest of
-    /// that directory is; the shipped table is the binary's and lives in it.
+    /// The root of the user-owned preset kinds. Builtins remain compiled into the daemon;
+    /// user definitions are direct one-definition files under `sandbox_presets/` and
+    /// `app_presets/`.
     pub fn dir() -> PathBuf {
-        crate::paths::dir("SLOPD_PRESETS", dirs::config_dir(), "presets")
+        crate::paths::dir("SLOPD_PRESETS", dirs::config_dir(), "")
+    }
+
+    pub fn dir_for(kind: PresetKind) -> PathBuf {
+        Self::dir().join(kind.as_str())
+    }
+
+    pub fn stamp() -> Option<std::time::SystemTime> {
+        [PresetKind::SandboxPresets, PresetKind::AppPresets]
+            .into_iter()
+            .filter_map(|kind| crate::paths::dir_stamp(&Self::dir_for(kind)))
+            .max()
     }
 
     pub fn load() -> Self {
         let mut t = Self::builtins();
-        t.merge_dir(&Self::dir());
+        t.merge_user_dirs(&Self::dir());
         t
     }
 
     fn try_load_from(dir: &Path) -> anyhow::Result<Self> {
         let mut t = Self::builtins();
-        for (_, file) in read_user_files(dir)? {
-            t.merge(file);
-        }
+        t.read_user_dir(PresetKind::SandboxPresets, &dir.join("sandbox_presets"))?;
+        t.read_user_dir(PresetKind::AppPresets, &dir.join("app_presets"))?;
         Ok(t)
     }
 
@@ -301,14 +312,20 @@ impl Table {
     /// Only the files in the user directory, for the API's source labels and for editing.
     pub fn users() -> Self {
         let mut t = Self::default();
-        t.merge_dir(&Self::dir());
+        t.merge_user_dirs(&Self::dir());
         t
     }
 
-    /// Read in filename order so two files naming the same preset settle the same way on
-    /// every load. A file that does not parse is complained about and skipped: the rest
-    /// of the table is still worth having.
-    fn merge_dir(&mut self, dir: &std::path::Path) {
+    fn merge_user_dirs(&mut self, root: &Path) {
+        for kind in [PresetKind::SandboxPresets, PresetKind::AppPresets] {
+            self.merge_user_dir(kind, &root.join(kind.as_str()));
+        }
+    }
+
+    /// Read in filename order so a hand-edited duplicate settles deterministically. Each user
+    /// file is one direct sandbox or app definition; malformed files are skipped on startup so
+    /// the rest of the catalog remains usable.
+    fn merge_user_dir(&mut self, kind: PresetKind, dir: &Path) {
         let Ok(entries) = std::fs::read_dir(dir) else {
             return;
         };
@@ -317,7 +334,6 @@ impl Table {
             .filter(|p| p.extension().is_some_and(|x| x == "toml"))
             .collect();
         files.sort();
-
         for path in files {
             let text = match std::fs::read_to_string(&path) {
                 Ok(t) => t,
@@ -326,11 +342,73 @@ impl Table {
                     continue;
                 }
             };
-            match toml::from_str::<PresetFile>(&text) {
-                Ok(f) => self.merge(f),
-                Err(e) => tracing::warn!("{} does not parse: {e}", path.display()),
+            if let Err(e) = self.parse_user_definition(kind, &path, &text) {
+                tracing::warn!("{} does not parse: {e}", path.display());
             }
         }
+    }
+
+    fn read_user_dir(&mut self, kind: PresetKind, dir: &Path) -> anyhow::Result<()> {
+        let entries = match std::fs::read_dir(dir) {
+            Ok(entries) => entries,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+            Err(error) => return Err(error.into()),
+        };
+        let mut files: Vec<PathBuf> = entries
+            .map(|entry| entry.map(|entry| entry.path()))
+            .collect::<std::io::Result<Vec<_>>>()?
+            .into_iter()
+            .filter(|path| {
+                path.extension()
+                    .is_some_and(|extension| extension == "toml")
+            })
+            .collect();
+        files.sort();
+        for path in files {
+            let text = std::fs::read_to_string(&path)?;
+            self.parse_user_definition(kind, &path, &text)?;
+        }
+        Ok(())
+    }
+
+    fn parse_user_definition(
+        &mut self,
+        kind: PresetKind,
+        path: &Path,
+        text: &str,
+    ) -> anyhow::Result<()> {
+        let file_name = path
+            .file_stem()
+            .and_then(|name| name.to_str())
+            .unwrap_or_default();
+        match kind {
+            PresetKind::SandboxPresets => {
+                let preset: SandboxPreset = toml::from_str(text)?;
+                valid_name(&preset.name)?;
+                if file_name != preset.name {
+                    anyhow::bail!("file name does not match sandbox name {:?}", preset.name);
+                }
+                self.merge(PresetFile {
+                    sandbox: vec![preset],
+                    command: Vec::new(),
+                });
+            }
+            PresetKind::AppPresets => {
+                let preset: CommandPreset = toml::from_str(text)?;
+                valid_name(&preset.name)?;
+                if file_name != preset.name {
+                    anyhow::bail!("file name does not match app name {:?}", preset.name);
+                }
+                self.merge(PresetFile {
+                    sandbox: Vec::new(),
+                    command: vec![preset],
+                });
+            }
+        }
+        if file_name.is_empty() {
+            anyhow::bail!("definition file has no name");
+        }
+        Ok(())
     }
 
     /// By name, in place: a user file naming `claude` replaces the builtin rather than
@@ -360,8 +438,8 @@ impl Table {
 
     pub fn definition(&self, kind: PresetKind, name: &str) -> Option<PresetDefinitionRef<'_>> {
         match kind {
-            PresetKind::Sandbox => self.sandbox(name).map(PresetDefinitionRef::Sandbox),
-            PresetKind::Command => self.command(name).map(PresetDefinitionRef::Command),
+            PresetKind::SandboxPresets => self.sandbox(name).map(PresetDefinitionRef::Sandbox),
+            PresetKind::AppPresets => self.command(name).map(PresetDefinitionRef::Command),
         }
     }
 
@@ -390,34 +468,11 @@ fn valid_name(name: &str) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn read_user_files(dir: &std::path::Path) -> anyhow::Result<Vec<(PathBuf, PresetFile)>> {
-    let entries = match std::fs::read_dir(dir) {
-        Ok(entries) => entries,
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
-        Err(e) => return Err(anyhow::anyhow!("reading {}: {e}", dir.display())),
+fn write_definition(path: &std::path::Path, definition: &PresetDefinition) -> anyhow::Result<()> {
+    let text = match definition {
+        PresetDefinition::Sandbox(preset) => toml::to_string_pretty(&**preset)?,
+        PresetDefinition::Command(preset) => toml::to_string_pretty(&**preset)?,
     };
-    let mut paths: Vec<PathBuf> = entries
-        .map(|e| e.map(|e| e.path()))
-        .collect::<std::io::Result<Vec<_>>>()?
-        .into_iter()
-        .filter(|p| p.extension().is_some_and(|x| x == "toml"))
-        .collect();
-    paths.sort();
-
-    paths
-        .into_iter()
-        .map(|path| {
-            let text = std::fs::read_to_string(&path)
-                .map_err(|e| anyhow::anyhow!("reading {}: {e}", path.display()))?;
-            let file = toml::from_str(&text)
-                .map_err(|e| anyhow::anyhow!("{} does not parse: {e}", path.display()))?;
-            Ok((path, file))
-        })
-        .collect()
-}
-
-fn write_file(path: &std::path::Path, file: &PresetFile) -> anyhow::Result<()> {
-    let text = toml::to_string_pretty(file)?;
     // Presets intentionally retain the existing umask-controlled permission policy.
     crate::paths::write_atomic(path, &text, None)
 }
@@ -442,77 +497,35 @@ fn write_user_file_in(
     sandbox: Option<SandboxPreset>,
     command: Option<CommandPreset>,
 ) -> anyhow::Result<()> {
-    std::fs::create_dir_all(dir)?;
-    let target = dir.join(format!("{name}.toml"));
-    let mut files = read_user_files(dir)?;
-    if !files.iter().any(|(path, _)| *path == target) {
-        files.push((target.clone(), PresetFile::default()));
-    }
-
-    // A name is a logical entry even when an older hand-written file put it elsewhere. Remove
-    // just this kind from every file, preserving the other kind and every unrelated preset.
-    let mut changed = HashSet::new();
-    for (path, file) in &mut files {
-        match kind {
-            PresetKind::Sandbox => {
-                let len = file.sandbox.len();
-                file.sandbox.retain(|p| p.name != name);
-                if file.sandbox.len() != len {
-                    changed.insert(path.clone());
-                }
+    let kind_dir = dir.join(kind.as_str());
+    std::fs::create_dir_all(&kind_dir)?;
+    let target = kind_dir.join(format!("{name}.toml"));
+    let definition = match kind {
+        PresetKind::SandboxPresets => {
+            sandbox.map(|preset| PresetDefinition::Sandbox(Box::new(preset)))
+        }
+        PresetKind::AppPresets => command.map(|preset| PresetDefinition::Command(Box::new(preset))),
+    };
+    match definition {
+        Some(definition) => write_definition(&target, &definition),
+        None => {
+            if target.exists() {
+                std::fs::remove_file(target)?;
             }
-            PresetKind::Command => {
-                let len = file.command.len();
-                file.command.retain(|p| p.name != name);
-                if file.command.len() != len {
-                    changed.insert(path.clone());
-                }
-            }
+            Ok(())
         }
     }
-    let target_index = files.iter().position(|(path, _)| *path == target).unwrap();
-    match kind {
-        PresetKind::Sandbox => {
-            if let Some(p) = sandbox {
-                files[target_index].1.sandbox.push(p);
-                changed.insert(target.clone());
-            }
-        }
-        PresetKind::Command => {
-            if let Some(c) = command {
-                files[target_index].1.command.push(c);
-                changed.insert(target.clone());
-            }
-        }
-    }
-
-    // Rewrite the files whose entries changed too. Merely writing the target would leave an
-    // old definition in another user file, and filename order would make the result depend on
-    // an invisible stale copy. Empty files are removed, including the target on delete.
-    for (path, file) in files {
-        if !changed.contains(&path) {
-            continue;
-        }
-        if file.sandbox.is_empty() && file.command.is_empty() {
-            if path.exists() {
-                std::fs::remove_file(path)?;
-            }
-        } else {
-            write_file(&path, &file)?;
-        }
-    }
-    Ok(())
 }
 
 fn save_definition(definition: PresetDefinition) -> anyhow::Result<()> {
     match definition {
         PresetDefinition::Sandbox(preset) => {
             let name = preset.name.clone();
-            write_user_file(PresetKind::Sandbox, &name, Some(*preset), None)
+            write_user_file(PresetKind::SandboxPresets, &name, Some(*preset), None)
         }
         PresetDefinition::Command(preset) => {
             let name = preset.name.clone();
-            write_user_file(PresetKind::Command, &name, None, Some(*preset))
+            write_user_file(PresetKind::AppPresets, &name, None, Some(*preset))
         }
     }
 }
@@ -617,7 +630,7 @@ fn check_delete(
         ));
     }
 
-    if kind == PresetKind::Sandbox && !builtins.contains(PresetKind::Sandbox, name) {
+    if kind == PresetKind::SandboxPresets && !builtins.contains(PresetKind::SandboxPresets, name) {
         for command in users.commands.iter().chain(builtins.commands.iter()) {
             if command.sandbox.iter().any(|dependency| dependency == name) {
                 return Err(PresetError::Invalid(format!(
@@ -783,8 +796,6 @@ mod tests {
             "$SLOPWORLD_GAME",
             "~/GOG Games/RimWorld/game",
             "~/.local/share/slopworld/profile",
-            "$XDG_DATA_HOME/slopworld/jukebox",
-            "~/.local/share/slopworld/jukebox",
             "~/.local/share/slopworld-car",
             "~/.config/unity3d/Ludeon Studios/RimWorld by Ludeon Studios",
             "~/.local/bin",
@@ -993,13 +1004,14 @@ mod tests {
     #[test]
     fn kind_parsing_and_typed_table_dispatch_cover_all_sources() {
         assert_eq!(
-            "sandbox".parse::<PresetKind>().unwrap(),
-            PresetKind::Sandbox
+            "sandbox_presets".parse::<PresetKind>().unwrap(),
+            PresetKind::SandboxPresets
         );
         assert_eq!(
-            "command".parse::<PresetKind>().unwrap(),
-            PresetKind::Command
+            "app_presets".parse::<PresetKind>().unwrap(),
+            PresetKind::AppPresets
         );
+        assert!("app".parse::<PresetKind>().is_err());
         assert_eq!(
             "other".parse::<PresetKind>().unwrap_err(),
             "unknown preset kind: other"
@@ -1028,33 +1040,33 @@ mod tests {
             }],
         };
 
-        assert!(builtins.contains(PresetKind::Sandbox, "system"));
-        assert!(!builtins.contains(PresetKind::Command, "system"));
+        assert!(builtins.contains(PresetKind::SandboxPresets, "system"));
+        assert!(!builtins.contains(PresetKind::AppPresets, "system"));
         assert!(matches!(
-            builtins.definition(PresetKind::Sandbox, "system"),
+            builtins.definition(PresetKind::SandboxPresets, "system"),
             Some(PresetDefinitionRef::Sandbox(_))
         ));
         assert_eq!(
             builtins
-                .source(PresetKind::Sandbox, "system", &users)
+                .source(PresetKind::SandboxPresets, "system", &users)
                 .as_str(),
             "system"
         );
         assert_eq!(
             builtins
-                .source(PresetKind::Sandbox, "user", &users)
+                .source(PresetKind::SandboxPresets, "user", &users)
                 .as_str(),
             "user"
         );
         assert_eq!(
             builtins
-                .source(PresetKind::Command, "command", &users)
+                .source(PresetKind::AppPresets, "command", &users)
                 .as_str(),
             "override"
         );
         assert_eq!(
             builtins
-                .source(PresetKind::Sandbox, "missing", &users)
+                .source(PresetKind::SandboxPresets, "missing", &users)
                 .as_str(),
             "unknown"
         );
@@ -1083,15 +1095,21 @@ mod tests {
             commands: Vec::new(),
         };
 
-        let error =
-            copy_definition(PresetKind::Sandbox, "builtin", "copy", &builtins, &users).unwrap_err();
+        let error = copy_definition(
+            PresetKind::SandboxPresets,
+            "builtin",
+            "copy",
+            &builtins,
+            &users,
+        )
+        .unwrap_err();
         assert_eq!(
             error.to_string(),
             "that preset already has a user definition"
         );
 
         let error = copy_definition(
-            PresetKind::Sandbox,
+            PresetKind::SandboxPresets,
             "builtin",
             "occupied",
             &builtins,
@@ -1116,8 +1134,13 @@ mod tests {
                 ..Default::default()
             }],
         };
-        let error =
-            check_delete(PresetKind::Sandbox, "user-only", &builtins, &command_users).unwrap_err();
+        let error = check_delete(
+            PresetKind::SandboxPresets,
+            "user-only",
+            &builtins,
+            &command_users,
+        )
+        .unwrap_err();
         assert!(error.to_string().contains("dependent-command"));
 
         let sandbox_users = Table {
@@ -1134,8 +1157,13 @@ mod tests {
             ],
             commands: Vec::new(),
         };
-        let error =
-            check_delete(PresetKind::Sandbox, "user-only", &builtins, &sandbox_users).unwrap_err();
+        let error = check_delete(
+            PresetKind::SandboxPresets,
+            "user-only",
+            &builtins,
+            &sandbox_users,
+        )
+        .unwrap_err();
         assert!(error.to_string().contains("dependent-sandbox"));
 
         let override_users = Table {
@@ -1152,7 +1180,13 @@ mod tests {
             }],
             commands: Vec::new(),
         };
-        assert!(check_delete(PresetKind::Sandbox, "builtin", &builtin, &override_users).is_ok());
+        assert!(check_delete(
+            PresetKind::SandboxPresets,
+            "builtin",
+            &builtin,
+            &override_users
+        )
+        .is_ok());
     }
 
     /// A user file replaces the builtin of the same name in place, and adds what it names
@@ -1198,15 +1232,14 @@ mod tests {
     fn saving_one_preset_does_not_reserialize_an_unrelated_file() {
         let dir = std::env::temp_dir().join(format!("slopd-presets-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
-        std::fs::create_dir_all(&dir).unwrap();
-        let untouched = dir.join("handwritten.toml");
-        let original =
-            "# keep this comment\n[[sandbox]]\nname = \"other\"\ndescription = \"handwritten\"\n";
+        std::fs::create_dir_all(dir.join("sandbox_presets")).unwrap();
+        let untouched = dir.join("sandbox_presets/other.toml");
+        let original = "# keep this comment\nname = \"other\"\ndescription = \"handwritten\"\n";
         std::fs::write(&untouched, original).unwrap();
 
         write_user_file_in(
             &dir,
-            PresetKind::Sandbox,
+            PresetKind::SandboxPresets,
             "changed",
             Some(SandboxPreset {
                 name: "changed".into(),
@@ -1217,7 +1250,32 @@ mod tests {
         .unwrap();
 
         assert_eq!(std::fs::read_to_string(untouched).unwrap(), original);
-        assert!(dir.join("changed.toml").exists());
+        assert!(dir.join("sandbox_presets/changed.toml").exists());
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn user_files_are_direct_definitions_in_their_kind_directory() {
+        let dir = std::env::temp_dir().join(format!("slopd-preset-direct-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        write_user_file_in(
+            &dir,
+            PresetKind::AppPresets,
+            "tool",
+            None,
+            Some(CommandPreset {
+                name: "tool".into(),
+                cmd: "tool".into(),
+                ..Default::default()
+            }),
+        )
+        .unwrap();
+
+        let text = std::fs::read_to_string(dir.join("app_presets/tool.toml")).unwrap();
+        assert!(text.contains("name = \"tool\""));
+        assert!(!text.contains("[[command]]"));
+        let loaded = Table::try_load_from(&dir).unwrap();
+        assert_eq!(loaded.command("tool").unwrap().cmd, "tool");
         let _ = std::fs::remove_dir_all(dir);
     }
 }

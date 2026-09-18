@@ -183,8 +183,8 @@ mod tests {
             PresetSource::from_presence(false, false).as_str(),
             "unknown"
         );
-        assert!(parse_kind("sandbox").is_ok());
-        assert!(parse_kind("command").is_ok());
+        assert!(parse_kind("sandbox_presets").is_ok());
+        assert!(parse_kind("app_presets").is_ok());
         let (status, body) = parse_kind("other").unwrap_err();
         assert_eq!(status, StatusCode::BAD_REQUEST);
         assert!(body.0["error"]
