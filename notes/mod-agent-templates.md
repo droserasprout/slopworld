@@ -5,7 +5,7 @@ when Library, the + menu, or agent/template editors open. Library lists template
 other entries. `EditSessionDialog` handles both agents and templates using the same tabs,
 controls, snapshot-aware pickers, and preview. Template mode omits project, mounts, and
 private-state actions; save targets the template catalog. The **+ > Agent** submenu offers
-templates and **Custom**. Template selection happens before the editor opens; the form shows its origin as information and sends portable form overrides
+templates and **Custom**. Template selection happens before the editor opens; the form sends portable form overrides
 to `SessionHub`. There is no template switch/reset in the form.
 
 The existing agent editor's **Save as template** action uses a small naming dialog and the

@@ -203,16 +203,8 @@ message AgentTemplate {
   string name = 1;
   uint64 version = 2;
   string description = 3;
-  AgentTemplateOrigin origin = 4;
+  reserved 4;
   AgentTemplateDefaults defaults = 5;
-}
-
-message AgentTemplateOrigin {
-  string file = 1;
-  string source = 2;
-  string kind = 3;
-  string project = 4;
-  string agent = 5;
 }
 
 message AgentTemplateDefaults {
@@ -698,7 +690,7 @@ message SaveTemplateRequest {
   optional string source = 3;
   optional string duplicate = 4;
   optional uint64 version = 5;
-  AgentTemplateOrigin origin = 6;
+  reserved 6;
   AgentTemplateDefaults defaults = 7;
 }
 

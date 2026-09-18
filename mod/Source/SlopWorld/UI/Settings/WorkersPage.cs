@@ -41,7 +41,7 @@ namespace SlopWorld
             foreach (var template in templates)
             {
                 bool selected = _cfg.WorkerTemplates.Contains(template.Name);
-                string tip = "Personal template. Existing workers keep their captured settings.";
+                string tip = "Template. Existing workers keep their captured settings.";
                 bool next = UiControls.Checkbox(l, template.DisplayLabel, selected, tip);
                 if (next == selected) continue;
                 if (next)

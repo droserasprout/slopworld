@@ -4,7 +4,7 @@ using System.Linq;
 
 namespace SlopWorld
 {
-    // A personal template's catalog projection. The daemon sends snapshots for creation, while
+    // A template's catalog projection. The daemon sends snapshots for creation, while
     // the picker only needs the portable defaults to seed the existing agent form controls.
     public class AgentTemplateInfo
     {
@@ -15,9 +15,6 @@ namespace SlopWorld
         // definition, which lets the same wire model serve capture, duplicate, and edit.
         public long Version;
         public string Description = "";
-        public string Source = "personal";
-        public string OriginProject = "";
-        public string OriginAgent = "";
         public string Command = "";
         public string Cmd = "";
         public List<string> Sandbox = new List<string>();
@@ -33,31 +30,23 @@ namespace SlopWorld
         // name or description must not discard captured preset definitions that are no
         // longer present in the live catalogs.
         public Wire.AgentTemplateDefaults DefaultsSnapshot = new Wire.AgentTemplateDefaults();
-        public Wire.AgentTemplateOrigin OriginSnapshot = new Wire.AgentTemplateOrigin();
 
         public string DisplayLabel
         {
             get
             {
-                string label = string.IsNullOrEmpty(Description) ? Name : Name + "  -  " + Description;
-                if (!string.IsNullOrEmpty(OriginProject) && !string.IsNullOrEmpty(OriginAgent))
-                    label += "  (from " + OriginProject + "/" + OriginAgent + ")";
-                return label;
+                return string.IsNullOrEmpty(Description) ? Name : Name + "  -  " + Description;
             }
         }
 
         public static AgentTemplateInfo FromWire(Wire.AgentTemplate j)
         {
             var d = j.Defaults ?? new Wire.AgentTemplateDefaults();
-            var o = j.Origin ?? new Wire.AgentTemplateOrigin();
             var result = new AgentTemplateInfo
             {
                 Name = j.Name,
                 Version = (long)j.Version,
                 Description = j.Description,
-                Source = o.Source,
-                OriginProject = o.Project,
-                OriginAgent = o.Agent,
                 Command = d.Command?.Name ?? "",
                 Cmd = d.Cmd,
                 Sandbox = d.Sandbox.ToList(),
@@ -70,7 +59,6 @@ namespace SlopWorld
                 Autostart = d.Autostart,
                 AutoResume = d.AutoResume,
                 DefaultsSnapshot = d.Clone(),
-                OriginSnapshot = o.Clone(),
             };
             if (d.HasPersistentTmp) result.SpecifiedFlags.Add("persistent_tmp");
             if (d.HasAutostart) result.SpecifiedFlags.Add("autostart");
@@ -84,9 +72,6 @@ namespace SlopWorld
             Name = Name,
             Version = Version,
             Description = Description,
-            Source = Source,
-            OriginProject = OriginProject,
-            OriginAgent = OriginAgent,
             Command = Command,
             Cmd = Cmd,
             Sandbox = new List<string>(Sandbox),
@@ -99,7 +84,6 @@ namespace SlopWorld
             Autostart = Autostart,
             AutoResume = AutoResume,
             DefaultsSnapshot = DefaultsSnapshot.Clone(),
-            OriginSnapshot = OriginSnapshot.Clone(),
         };
 
         // Editors and previews share the same snapshot-first catalogs used when saving.
@@ -145,7 +129,6 @@ namespace SlopWorld
                 Name = Name,
                 Version = checked((ulong)Version),
                 Description = Description,
-                Origin = OriginSnapshot.Clone(),
                 Defaults = d
             };
         }

@@ -23,7 +23,6 @@ namespace SlopWorld
                 draft.Name = EditIdentity.ForCopy(draft.Name).CopyName(
                     SessionHub.Instance.Templates.Select(t => t.Name), "template");
                 draft.Version = 0;
-                draft.Source = "personal";
             }
             return new EditSessionDialog(null, null, false, draft);
         }

@@ -120,7 +120,7 @@ namespace SlopWorld
             _templates.Invalidate();
             Action<Wire.Ack> done = _ => { RefreshTemplates(); ok?.Invoke(); };
             if (isNew)
-                DaemonClient.Post<Wire.TemplateResult>(TemplatesPath, new Wire.SaveTemplateRequest { Name = body.Name, Description = body.Description, Version = body.Version, Origin = body.Origin, Defaults = body.Defaults }, _ => done(null), fail);
+                DaemonClient.Post<Wire.TemplateResult>(TemplatesPath, new Wire.SaveTemplateRequest { Name = body.Name, Description = body.Description, Version = body.Version, Defaults = body.Defaults }, _ => done(null), fail);
             else
                 DaemonClient.Put<Wire.TemplateResult>($"{TemplatesPath}/{HubWire.Esc(originalName)}", body, _ => done(null), fail);
         }

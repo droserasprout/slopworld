@@ -24,9 +24,6 @@ namespace SlopWorld
                 l.Label("Description");
                 _templateDraft.Description = UiControls.Area(l, 48f, "template.description", _templateDraft.Description);
                 UiLayout.Note(l, "Saved agent customizations. Copied once when creating an agent; project mounts are chosen separately.");
-                l.Label("Personal template");
-                if (!string.IsNullOrEmpty(_templateDraft.OriginProject))
-                    l.Label("Captured from: " + _templateDraft.OriginProject + "/" + _templateDraft.OriginAgent);
             }
             else
             {

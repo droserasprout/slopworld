@@ -49,8 +49,8 @@ impl Default for AgentTemplateStore {
     }
 }
 
-/// One personal agent template. `origin` is presentation metadata only; it is never used to
-/// resolve a project or checkout.
+/// One standalone agent template. It contains reusable agent behavior, not a link to the agent
+/// or project it may have been captured from.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct AgentTemplate {
@@ -61,38 +61,7 @@ pub(crate) struct AgentTemplate {
     pub(crate) version: u64,
     #[serde(default)]
     pub(crate) description: String,
-    #[serde(default)]
-    pub(crate) origin: AgentTemplateOrigin,
     pub(crate) defaults: AgentTemplateDefaults,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub(crate) struct AgentTemplateOrigin {
-    #[serde(default, skip_serializing_if = "String::is_empty")]
-    pub(crate) file: String,
-    /// `personal` for stored definitions.
-    #[serde(default = "personal_source")]
-    pub(crate) source: String,
-    /// Captured agent origin; this is display metadata on personal copies.
-    #[serde(default = "agent_source")]
-    pub(crate) kind: String,
-    #[serde(default)]
-    pub(crate) project: String,
-    #[serde(default)]
-    pub(crate) agent: String,
-}
-
-impl Default for AgentTemplateOrigin {
-    fn default() -> Self {
-        Self {
-            file: String::new(),
-            source: personal_source(),
-            kind: agent_source(),
-            project: String::new(),
-            agent: String::new(),
-        }
-    }
 }
 
 /// Explicit allowlist of reusable session behavior. Names, identity, hierarchy, credentials,
@@ -123,14 +92,6 @@ pub(crate) struct AgentTemplateDefaults {
     pub(crate) autostart: Option<bool>,
     #[serde(default)]
     pub(crate) auto_resume: Option<bool>,
-}
-
-fn personal_source() -> String {
-    "personal".into()
-}
-
-fn agent_source() -> String {
-    "agent".into()
 }
 
 fn first_version() -> u64 {
@@ -464,13 +425,6 @@ impl AgentTemplate {
             name,
             version: 0,
             description,
-            origin: AgentTemplateOrigin {
-                file: String::new(),
-                source: personal_source(),
-                kind: agent_source(),
-                project: source.project.clone(),
-                agent: source.name.clone(),
-            },
             defaults: AgentTemplateDefaults {
                 command,
                 cmd: source.cmd.clone(),
@@ -633,7 +587,6 @@ mod tests {
             name: "reviewer".into(),
             version: 0,
             description: "Review changes".into(),
-            origin: AgentTemplateOrigin::default(),
             defaults: AgentTemplateDefaults {
                 command: Some(command()),
                 cmd: None,
@@ -719,6 +672,24 @@ mod tests {
             "Captured sandbox"
         );
         let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn legacy_origin_is_rejected() {
+        assert!(toml::from_str::<AgentTemplate>(
+            r#"
+name = "legacy"
+version = 4
+
+[origin]
+source = "personal"
+project = "old-project"
+agent = "old-agent"
+
+[defaults]
+"#,
+        )
+        .is_err());
     }
 
     #[tokio::test]
