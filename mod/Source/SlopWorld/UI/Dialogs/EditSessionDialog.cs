@@ -41,7 +41,7 @@ namespace SlopWorld
         // field that is suggested rather than copied.
         public static EditSessionDialog FromTemplate(AgentTemplateInfo template)
         {
-            var dialog = new EditSessionDialog(null, template.Source == "project" ? template.OriginProject : null);
+            var dialog = new EditSessionDialog(null, null);
             dialog.ApplyTemplate(template);
             return dialog;
         }
@@ -134,7 +134,7 @@ namespace SlopWorld
         protected override void DoBody(Rect rect)
         {
             UiLayout.Title(TitleRect(rect), EditingTemplate
-                ? (TemplateReadOnly ? "Inspect template" : _templateDraft.Version == 0 ? "New template" : "Edit template")
+                ? (_templateDraft.Version == 0 ? "New template" : "Edit template")
                 : _identity.Title("agent"));
 
             var layout = TabbedFormLayout.Arrange(SettingsPageLayout.FromRect(rect), 132f,
@@ -143,7 +143,7 @@ namespace SlopWorld
             var body = SettingsPageLayout.ToRect(layout.Body);
 
             bool enabled = GUI.enabled;
-            GUI.enabled = enabled && !_templateBusy && !TemplateReadOnly;
+            GUI.enabled = enabled && !_templateBusy;
             try
             {
                 switch (_tab)
@@ -169,17 +169,15 @@ namespace SlopWorld
             var foot = new UiLayout.Bar(SettingsPageLayout.ToRect(layout.Footer));
             if (EditingTemplate)
             {
-                if ((_templateDraft.Version != 0 || TemplateReadOnly) &&
+                if (_templateDraft.Version != 0 &&
                     foot.Left("Reload", UiTheme.Btn.Ghost, !_templateBusy)) ReloadTemplate();
-                if (TemplateReadOnly && foot.Left("Duplicate", UiTheme.Btn.Ghost, !_templateBusy))
-                    Find.WindowStack.Add(EditTemplate(_templateDraft, true));
             }
             if (!EditingTemplate && !_identity.IsNew && foot.Left("Reset private state", UiTheme.Btn.Danger))
                 Find.WindowStack.Add(CatalogActions.ResetState(_identity.OriginalName));
             if (!EditingTemplate && !_identity.IsNew && foot.Left("Save as template", UiTheme.Btn.Ghost))
                 Find.WindowStack.Add(new SaveAgentTemplateDialog(_identity.OriginalName));
             if (foot.Left("Cancel", UiTheme.Btn.Ghost)) Close();
-            if (!TemplateReadOnly && foot.Right("Save", UiTheme.Btn.Primary, !_templateBusy)) Save();
+            if (foot.Right("Save", UiTheme.Btn.Primary, !_templateBusy)) Save();
         }
 
         void DrawRail(Rect r) => UiLayout.DrawRail(r, new[]
@@ -192,7 +190,7 @@ namespace SlopWorld
 
         void Save()
         {
-            if (_templateBusy || TemplateReadOnly) return;
+            if (_templateBusy) return;
             if (string.IsNullOrWhiteSpace(_s.Name) || (!EditingTemplate && string.IsNullOrEmpty(_s.Project)))
             {
                 UiLayout.Fail(EditingTemplate ? "Template name is required" : "name and project are required");

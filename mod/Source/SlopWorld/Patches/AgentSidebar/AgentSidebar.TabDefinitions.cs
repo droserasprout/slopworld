@@ -221,7 +221,7 @@ namespace SlopWorld
         {
             var r = ActionRect(context);
             DrawFoldAction(ref r);
-            Tab(r, Icons.Refresh, false, "Reload Library, including .slopworld definitions.",
+            Tab(r, Icons.Refresh, false, "Reload Library and templates.",
                 () => LibraryView.Refresh(UiLayout.Fail));
         }
 

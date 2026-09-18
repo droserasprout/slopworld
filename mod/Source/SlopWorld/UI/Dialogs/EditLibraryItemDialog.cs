@@ -113,10 +113,9 @@ namespace SlopWorld
         {
             // A duplicate is a new daemon entry: it must POST rather than PUT, and its
             // name is suggested rather than copied so saving it cannot collide by default.
-            _identity = copy ? EditIdentity.ForCopy(existing?.Name.Split(new[] { "::" }, StringSplitOptions.None).Last()) :
+            _identity = copy ? EditIdentity.ForCopy(existing?.Name) :
                 existing == null ? EditIdentity.ForNew() : EditIdentity.ForEdit(existing.Name);
             _s = existing?.Copy() ?? new LibraryItemInfo();
-            if (copy) _s.Source = "";
             if (copy)
                 _s.Name = _identity.CopyName(SessionHub.Instance.Library.Select(s => s.Name),
                     "library");
@@ -155,15 +154,7 @@ namespace SlopWorld
             UiLayout.Title(TitleRect(rect), _identity.Title("library entry"));
 
             float head = UiTheme.HeaderH + UiTheme.GapS;
-            if (_s.ReadOnly)
-            {
-                string source = "Read-only: " + _s.Source;
-                float height = UiText.StatusLabelHeight(source, rect.width);
-                UiText.StatusLabel(new Rect(rect.x, rect.y + head, rect.width, height), source, UiTheme.Dim);
-                head += height + UiTheme.GapS;
-            }
             bool enabled = GUI.enabled;
-            GUI.enabled = enabled && !_s.ReadOnly;
             float used = DrawFields(new Rect(rect.x, rect.y + head, rect.width, rect.height - head));
             float y = rect.y + head + used + UiTheme.GapL;
             DrawTextEditor(rect, y);
@@ -301,7 +292,7 @@ namespace SlopWorld
         {
             var foot = new UiLayout.Bar(UiLayout.FooterBar(rect));
             if (foot.Left("Cancel", UiTheme.Btn.Ghost)) Close();
-            if (!_s.ReadOnly && foot.Right("Save", UiTheme.Btn.Primary, CurrentKindEnabled)) Save();
+            if (foot.Right("Save", UiTheme.Btn.Primary, CurrentKindEnabled)) Save();
         }
 
         // The three answers, in the words the dropdown shows them in.
@@ -394,7 +385,7 @@ namespace SlopWorld
 
         void Save()
         {
-            if (_s.ReadOnly || !CurrentKindEnabled) return;
+            if (!CurrentKindEnabled) return;
             if (string.IsNullOrEmpty((_s.Name ?? "").Trim()))
             {
                 Messages.Message("SlopWorld: a library entry needs a name.",

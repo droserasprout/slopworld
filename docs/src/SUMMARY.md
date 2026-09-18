@@ -21,7 +21,6 @@
 # Guides
 
 - [Configuring agents](./guides/configuring-agents.md)
-- [Repository Library](./guides/repository-library.md)
 - [Configuring sandboxes](./guides/configuring-sandboxes.md)
 - [Agent collaboration](./guides/agent-collaboration.md)
 - [Using slopctl](./guides/slopctl.md)

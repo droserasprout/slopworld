@@ -15,8 +15,6 @@ namespace SlopWorld
     public class LibraryItemInfo
     {
         public string Name = "";
-        public string Source = "";
-        public bool ReadOnly => !string.IsNullOrEmpty(Source);
         public LibraryItemKind Kind = LibraryItemKind.Prompt;
         public LibraryItemLink Link = LibraryItemLink.Project;
         // The project where it runs when Link is Project; temporary links create a fresh
@@ -39,7 +37,6 @@ namespace SlopWorld
         public static LibraryItemInfo FromJson(JVal j) => new LibraryItemInfo
         {
             Name = j["name"].AsString(),
-            Source = j["source"].AsString(),
             Kind = j["kind"].AsString() == WireProtocol.LibraryKind.Shell ? LibraryItemKind.Shell :
                    j["kind"].AsString() == WireProtocol.LibraryKind.Breadcrumb ? LibraryItemKind.Breadcrumb :
                    j["kind"].AsString() == WireProtocol.LibraryKind.Fa ? LibraryItemKind.FileAction : LibraryItemKind.Prompt,
@@ -87,7 +84,6 @@ namespace SlopWorld
         public LibraryItemInfo Copy() => new LibraryItemInfo
         {
             Name = Name,
-            Source = Source,
             Kind = Kind,
             Link = Link,
             Project = Project,

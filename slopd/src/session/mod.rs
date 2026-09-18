@@ -23,10 +23,9 @@ mod view;
 #[path = "../manager/mod.rs"]
 mod manager;
 
-pub(crate) use agent_templates::{
-    validate_definition as validate_template_definition, AgentTemplate, AgentTemplateError,
-    AgentTemplateStore,
-};
+#[cfg(test)]
+pub(crate) use agent_templates::validate_definition as validate_template_definition;
+pub(crate) use agent_templates::{AgentTemplate, AgentTemplateError, AgentTemplateStore};
 pub(super) use ctrl::CachedScroll;
 #[cfg(test)]
 pub(crate) use ctrl::{test_manager, test_manager_with_socket};

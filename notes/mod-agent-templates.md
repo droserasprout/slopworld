@@ -24,8 +24,7 @@ Shared sandbox pickers show missing references explicitly; direct references are
 while inherited references must be removed from their owning command or preset. No template
 definitions are persisted in RimWorld profile settings.
 
-Repository templates are read-only in the dialog; duplication creates a personal snapshot.
-Library refresh reloads repository definitions through daemon APIs.
+Library refresh reloads the daemon's user-level template catalog through its API.
 
 `DaemonSettingsPreview` renders the daemon's effective settings and contribution sources;
 it does not resolve inheritance locally. Existing-agent editors fetch captured definitions

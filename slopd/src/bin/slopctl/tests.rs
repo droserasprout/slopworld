@@ -119,26 +119,26 @@ fn command_parser_builds_delegation_and_update_commands() {
     );
     assert_eq!(
         parse_command(&words(
-            "agent create worker --project repo --template repo::review --start"
+            "agent create worker --project repo --template team-review --start"
         )),
         Ok(Command::AgentCreate {
             name: "worker".into(),
             project: "repo".into(),
-            template: "repo::review".into(),
+            template: "team-review".into(),
             start: true,
         })
     );
     assert_eq!(
-        parse_command(&words("template show repo::review")),
+        parse_command(&words("template show team-review")),
         Ok(Command::TemplateShow {
-            name: "repo::review".into(),
+            name: "team-review".into(),
             project: None,
         })
     );
     assert_eq!(
-        parse_command(&words("template show repo::review --project repo")),
+        parse_command(&words("template show team-review --project repo")),
         Ok(Command::TemplateShow {
-            name: "repo::review".into(),
+            name: "team-review".into(),
             project: Some("repo".into()),
         })
     );
@@ -461,12 +461,12 @@ fn agent_create_posts_template_project_and_start_to_catalog_endpoint() {
         true,
         "worker",
         "repo",
-        "repo::review",
+        "team-review",
         true,
     )
     .unwrap();
     let request = server.join().unwrap();
-    assert!(request.starts_with("POST /api/templates/repo%3A%3Areview/create HTTP/1.1\r\n"));
+    assert!(request.starts_with("POST /api/templates/team-review/create HTTP/1.1\r\n"));
     let body = request.split("\r\n\r\n").nth(1).unwrap();
     let body: Value = serde_json::from_str(body).unwrap();
     assert_eq!(body["name"], "worker");

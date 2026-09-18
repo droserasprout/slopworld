@@ -203,9 +203,9 @@ impl Manager {
         self.config().await.daemon.worker_templates.clone()
     }
 
-    /// Return the exact enabled definition from the live personal/repository catalog. Policy is
-    /// checked by qualified identity before task/session allocation, so a deleted or unchecked
-    /// template cannot leave a mailbox or private state behind.
+    /// Return the exact enabled definition from the live catalog. Policy is checked before
+    /// task/session allocation, so a deleted or unchecked template cannot leave a mailbox or
+    /// private state behind.
     pub(crate) async fn spawnable_worker_template(
         &self,
         caller: &str,
@@ -282,10 +282,10 @@ mod tests {
     }
 
     #[test]
-    fn worker_policy_round_trips_exact_qualified_template_names() {
+    fn worker_policy_round_trips_exact_template_names() {
         let mut config = Config::default();
         config.daemon.worker_templates =
-            BTreeSet::from(["review".to_string(), "repo::review".to_string()]);
+            BTreeSet::from(["review".to_string(), "team-review".to_string()]);
         let loaded: Config = toml::from_str(&toml::to_string(&config).unwrap()).unwrap();
         assert_eq!(
             loaded.daemon.worker_templates,
@@ -294,10 +294,10 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn worker_policy_keeps_personal_and_repository_names_distinct() {
+    async fn worker_policy_keeps_template_names_distinct() {
         let manager = crate::session::test_manager(Config {
             daemon: Daemon {
-                worker_templates: BTreeSet::from(["repo::review".to_string()]),
+                worker_templates: BTreeSet::from(["team-review".to_string()]),
                 ..Default::default()
             },
             projects: vec![ProjectCfg {
@@ -313,15 +313,15 @@ mod tests {
             ..Default::default()
         });
         manager.templates.write().await.templates =
-            vec![template("review"), template("repo::review")];
+            vec![template("review"), template("team-review")];
 
         assert_eq!(
             manager
-                .spawnable_worker_template(crate::tasks::HOST, "repo", "repo::review")
+                .spawnable_worker_template(crate::tasks::HOST, "repo", "team-review")
                 .await
                 .unwrap()
                 .name,
-            "repo::review"
+            "team-review"
         );
         let error = manager
             .spawnable_worker_template(crate::tasks::HOST, "repo", "review")
@@ -335,9 +335,9 @@ mod tests {
             .write()
             .await
             .templates
-            .retain(|template| template.name != "repo::review");
+            .retain(|template| template.name != "team-review");
         let error = manager
-            .spawnable_worker_template(crate::tasks::HOST, "repo", "repo::review")
+            .spawnable_worker_template(crate::tasks::HOST, "repo", "team-review")
             .await
             .unwrap_err()
             .to_string();

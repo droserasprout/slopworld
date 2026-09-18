@@ -19,8 +19,8 @@ namespace SlopWorld
 
         protected override void AfterLoad()
         {
-            // Repository templates are read from project checkouts, so refresh when the page is
-            // opened/reloaded. New definitions intentionally start unchecked in daemon policy.
+            // Refresh the user-level catalog when the page is opened/reloaded. New definitions
+            // intentionally start unchecked in daemon policy.
             SessionHub.Instance.Catalog.RefreshTemplates();
         }
 
@@ -28,8 +28,7 @@ namespace SlopWorld
         {
             UiLayout.SectionHeading(l, "Available worker templates");
             UiLayout.Note(l, "Checked templates may be used by agents and slopctl to create task " +
-                "workers. Names are qualified so a repository template and a personal template " +
-                "cannot share permission accidentally.");
+                "workers.");
 
             var templates = SessionHub.Instance.Templates
                 .Where(template => template != null)
@@ -37,15 +36,12 @@ namespace SlopWorld
                 .ToList();
             if (templates.Count == 0)
             {
-                UiLayout.Note(l, "No agent templates are available. Create one in Library or " +
-                    "add a repository template under .slopworld/templates.");
+                UiLayout.Note(l, "No agent templates are available. Create one in Library.");
             }
             foreach (var template in templates)
             {
                 bool selected = _cfg.WorkerTemplates.Contains(template.Name);
-                string tip = template.Source == "project"
-                    ? "Repository template. Changes are read on the next catalog refresh."
-                    : "Personal template. Existing workers keep their captured settings.";
+                string tip = "Personal template. Existing workers keep their captured settings.";
                 bool next = UiControls.Checkbox(l, template.DisplayLabel, selected, tip);
                 if (next == selected) continue;
                 if (next)

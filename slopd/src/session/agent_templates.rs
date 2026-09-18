@@ -20,7 +20,7 @@ const STORE_FILE: &str = "agent-templates.toml";
 const MAX_VERSION: u64 = (1 << 53) - 1;
 
 /// The daemon-owned personal template file. The repeated table name matches the rest of the
-/// daemon's TOML catalogs and leaves room for project-local sources later.
+/// daemon's TOML catalogs.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct AgentTemplateStore {
@@ -64,10 +64,10 @@ pub(crate) struct AgentTemplate {
 pub(crate) struct AgentTemplateOrigin {
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub(crate) file: String,
-    /// `personal` for stored snapshots, `project` for discovered read-only definitions.
+    /// `personal` for stored definitions.
     #[serde(default = "personal_source")]
     pub(crate) source: String,
-    /// Captured agent or repository file; origin is display metadata on personal copies.
+    /// Captured agent origin; this is display metadata on personal copies.
     #[serde(default = "agent_source")]
     pub(crate) kind: String,
     #[serde(default)]

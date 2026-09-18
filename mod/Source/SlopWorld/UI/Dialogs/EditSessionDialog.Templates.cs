@@ -14,15 +14,13 @@ namespace SlopWorld
         bool _templateBusy;
 
         bool EditingTemplate => _templateDraft != null;
-        bool TemplateReadOnly => _templateDraft?.Source == "project";
 
         public static EditSessionDialog EditTemplate(AgentTemplateInfo template = null, bool copy = false)
         {
             var draft = template?.Copy() ?? new AgentTemplateInfo();
             if (copy)
             {
-                var name = draft.Name.Split(new[] { "::" }, System.StringSplitOptions.None).Last();
-                draft.Name = EditIdentity.ForCopy(name).CopyName(
+                draft.Name = EditIdentity.ForCopy(draft.Name).CopyName(
                     SessionHub.Instance.Templates.Select(t => t.Name), "template");
                 draft.Version = 0;
                 draft.Source = "personal";
