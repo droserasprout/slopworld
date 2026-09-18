@@ -127,12 +127,7 @@ namespace SlopWorld
                     return;
 
                 _panel.HistoryBarGeometry(body, out var hit, out var track, out var thumb);
-                var rail = new Rect(track.x + 1f, track.y, 1f, track.height);
-                Widgets.DrawBoxSolid(rail, UiTheme.ScrollTrough);
-                bool over = hit.Contains(Event.current.mousePosition);
-                Widgets.DrawBoxSolid(thumb, _panel._historyBarDragging
-                    ? UiTheme.ScrollThumbHeld
-                    : over ? UiTheme.ScrollThumbHover : UiTheme.ScrollThumb);
+                UiScrollbar.Draw(hit, track, thumb, _panel._historyBarDragging);
             }
 
             void PaintRow(Rect body, List<SgrRun> runs, int row, float cw, float ch,

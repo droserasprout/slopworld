@@ -235,8 +235,13 @@ namespace SlopWorld
         public const float ListInset = 4f;
         public const float DisclosureW = 11f;
         public const float ScrollbarW = 18f;
-        public const float ScrollTrackW = 10f;
-        public const float ScrollThumbInset = 2f;
+        public const float ScrollTrackW = 3f;
+        public const float ScrollTrackXInset = 5f;
+        public const float ScrollTrackYInset = 5f;
+        public const float ScrollRailW = 1f;
+        public const float ScrollHitW = 16f;
+        public const float ScrollMinThumbH = 10f;
+        public const float ScrollThumbInset = 0f;
         public const float MenuPadX = 12f;
         public const float MenuPadY = 0f;
         public const float StatusMarker = 8f;

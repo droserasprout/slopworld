@@ -148,15 +148,6 @@ namespace SlopWorld
             SpendWheel();
         }
 
-        // The bar has clear air either side instead of filling its reserved gutter. Every
-        // caller reserves [UiTheme.ScrollbarW], so the narrow steel track lines up across
-        // windows, trees and menus.
-        const float BarW = UiTheme.ScrollTrackW;
-        const float ThumbPad = UiTheme.ScrollThumbInset;
-
-        // Short enough to be a handle on a very long list, long enough to still be one.
-        const float MinThumb = 24f;
-
         // Vertical only. Nothing here scrolls sideways - every caller sizes its view to the
         // outer rect's width less the bar - and a bar drawn for an axis with no travel in it
         // is a control that cannot move.
@@ -164,19 +155,20 @@ namespace SlopWorld
         {
             if (_max.y <= 0f) return;
 
-            var track = new Rect(_outer.xMax - BarW, _outer.y, BarW, _outer.height);
-            float h = ThumbH(track);
+            var track = UiScrollbar.Track(_outer);
+            var hit = UiScrollbar.Hit(_outer, track);
+            float h = UiScrollbar.ThumbHeight(track, _outer.height, _max.y);
 
-            int id = GUIUtility.GetControlID(FocusType.Passive, track);
+            int id = GUIUtility.GetControlID(FocusType.Passive, hit);
             var e = Event.current;
 
             if (GUIUtility.hotControl == 0 && e.type == EventType.MouseDown && e.button == 0 &&
-                track.Contains(e.mousePosition))
+                hit.Contains(e.mousePosition))
             {
                 // On the thumb, it is picked up where it was touched. On the trough, it
                 // arrives centred under the cursor - which is a jump to that point in the
                 // list, and then a drag from it without letting go.
-                var at = ThumbRect(track, h);
+                var at = UiScrollbar.Thumb(track, h, NormalizedPosition());
                 _grab = at.Contains(e.mousePosition) ? e.mousePosition.y - at.y : h / 2f;
                 GUIUtility.hotControl = id;
                 DragTo(e.mousePosition.y, track, h);
@@ -196,23 +188,11 @@ namespace SlopWorld
                 }
             }
 
-            bool held = GUIUtility.hotControl == id;
-            Slab.Fill(track, UiTheme.ScrollTrough);
-            Slab.Fill(ThumbRect(track, h),
-                held ? UiTheme.ScrollThumbHeld : Mouse.IsOver(track)
-                    ? UiTheme.ScrollThumbHover : UiTheme.ScrollThumb);
+            UiScrollbar.Draw(hit, track, UiScrollbar.Thumb(track, h, NormalizedPosition()),
+                GUIUtility.hotControl == id);
         }
 
-        float ThumbH(Rect track) =>
-            Mathf.Clamp(track.height * (track.height / (track.height + _max.y)),
-                Mathf.Min(MinThumb, track.height), track.height);
-
-        Rect ThumbRect(Rect track, float h)
-        {
-            float t = _max.y <= 0f ? 0f : Mathf.Clamp01(_pos.y / _max.y);
-            return new Rect(track.x + ThumbPad, track.y + (track.height - h) * t,
-                track.width - ThumbPad * 2f, h);
-        }
+        float NormalizedPosition() => _max.y <= 0f ? 0f : Mathf.Clamp01(_pos.y / _max.y);
 
         // A hand on the bar is direct manipulation: the list goes where the thumb is put,
         // this frame, with no leftover motion.

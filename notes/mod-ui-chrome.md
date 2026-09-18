@@ -9,7 +9,7 @@ IMGUI events must share stable geometry and control IDs. Measure/draw passes can
 form data differently. Cache layout by content and text metrics (including atlas/UI scale),
 not color alone. `GameFont.Tiny` may actually render Small; use shared measurement helpers.
 
-`SmoothScroll` owns fractional wheel input and scrollbars. Consume precise input once;
+`SmoothScroll` owns fractional wheel input and terminal-style scrollbars. Consume precise input once;
 a delayed Unity wheel event must not scroll a second time. Drawing and hit tests need the
 same viewport clipping. Drag owners must respect `hotControl`, including replayed events.
 Flat result lists route wheel-only passes through `HandleWheel` using their last measured

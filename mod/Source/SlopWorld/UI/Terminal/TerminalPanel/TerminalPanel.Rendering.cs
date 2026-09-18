@@ -142,17 +142,13 @@ namespace SlopWorld
                 ? Mathf.Max(1f, _historyTopOff)
                 : Mathf.Max(off + rows, Mathf.Max(_sentScrollOff, rows));
 
-            const float pad = 5f;
-            track = new Rect(body.xMax - 5f, body.y + pad, 3f,
-                Mathf.Max(1f, body.height - pad * 2f));
-            float thumbH = Mathf.Clamp(
-                track.height * rows / (history + rows), 10f, track.height);
-            float travel = track.height - thumbH;
+            track = UiScrollbar.Track(body);
+            float thumbH = UiScrollbar.ThumbHeight(track, rows, history);
             float fromTop = 1f - Mathf.Clamp01(off / history);
-            thumb = new Rect(track.x, track.y + travel * fromTop, track.width, thumbH);
+            thumb = UiScrollbar.Thumb(track, thumbH, fromTop);
             // The visible chip stays narrow, but its hit target is large enough to grab at
             // the pane edge without stealing any terminal column from the negotiated shape.
-            hit = new Rect(body.xMax - 16f, track.y, 16f, track.height);
+            hit = UiScrollbar.Hit(body, track);
         }
 
         internal bool HandleHistoryBarInput(Rect body, Event e)
