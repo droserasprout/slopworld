@@ -102,15 +102,7 @@ namespace SlopWorld
                 if (IsMouseDownInside(body, e))
                 {
                     string url = _panel.LinkUnder(body, e.mousePosition);
-                    int line = 0;
-                    string menuPath = ControlHeld(e)
-                        ? _panel.PathUnder(body, e.mousePosition, out line) : null;
-                    if (url != null || !IsRelativePath(menuPath))
-                    {
-                        menuPath = null;
-                        line = 0;
-                    }
-                    _panel.OpenMenu(url, menuPath, line);
+                    _panel.OpenMenu(url);
                 }
                 e.Use();
                 return;
@@ -136,14 +128,11 @@ namespace SlopWorld
                 return;
             }
 
-            if (IsPathClick(body, e, out string path))
+            if (IsPathClick(body, e, out string path, out int line))
             {
-                var session = SessionHub.Instance.Get(_panel.SessionName);
-                if (session != null && FilesView.FocusPath(session.Project, path))
-                {
-                    e.Use();
-                    return;
-                }
+                _panel.OpenPathMenu(path, line);
+                e.Use();
+                return;
             }
 
             // Multi-click selection is the terminal's gesture even when the app reports clicks.
@@ -172,17 +161,15 @@ namespace SlopWorld
             MouseType(e) == EventType.MouseDown && e.button == 0 && ControlHeld(e) &&
             body.Contains(e.mousePosition) && _panel.LinkUnder(body, e.mousePosition) != null;
 
-        bool IsPathClick(Rect body, Event e, out string path)
+        bool IsPathClick(Rect body, Event e, out string path, out int line)
         {
             path = null;
+            line = 0;
             if (MouseType(e) != EventType.MouseDown || e.button != 0 || !ControlHeld(e) ||
                 !body.Contains(e.mousePosition)) return false;
-            int line;
             path = _panel.PathUnder(body, e.mousePosition, out line);
             return path != null;
         }
-
-        static bool IsRelativePath(string path) => !string.IsNullOrEmpty(path) && path[0] != '/';
 
         bool ShouldForwardMouse(ScreenBuf live, Event e) =>
             MouseType(e) == EventType.MouseDown && _panel.ScrollOffset == 0 &&

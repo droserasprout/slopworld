@@ -54,7 +54,7 @@ These shortcuts are active inside the terminal pane and cannot be rebound.
 | Middle-click | Paste the host's PRIMARY selection (Wayland/X11). |
 | Shift+PgUp / Shift+PgDn | Scroll the mod's own scrollback (primary screen only). |
 | Shift+F1..F12 | Forward the F-key to the agent. |
-| Ctrl+click | Open a URL printed in the terminal, or navigate to a file path in Files. |
+| Ctrl+click | Open a URL printed in the terminal, or show a file menu (Focus, View, Edit, Open in, File actions, Copy path; where applicable). View and Edit honor a `:line` suffix. |
 | Right-click | Terminal context menu. |
 | Double-click | Select a word and publish it to the host's PRIMARY selection. |
 | Triple-click | Select a line and publish it to the host's PRIMARY selection. |
