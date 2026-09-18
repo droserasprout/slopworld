@@ -317,8 +317,26 @@ namespace SlopWorld
             UiMenu.Open(options);
         }
 
+        static readonly Dictionary<GUIStyle, GUIStyle> FieldStyles = new Dictionary<GUIStyle, GUIStyle>();
+        static readonly Dictionary<GUIStyle, GUIStyle> AreaStyles = new Dictionary<GUIStyle, GUIStyle>();
+        static int _styleRevision = -1;
+
         static GUIStyle Bare(GUIStyle of, bool area)
         {
+            // GUIStyle and RectOffset allocate native objects. Rebuilding them for every
+            // field on every Layout/input/repaint pass turns scrolling forms into native
+            // allocation storms even when wheel-only page drawing has been bypassed.
+            int revision = UiMetrics.Revision;
+            if (_styleRevision != revision)
+            {
+                FieldStyles.Clear();
+                AreaStyles.Clear();
+                _styleRevision = revision;
+            }
+            var styles = area ? AreaStyles : FieldStyles;
+            if (styles.TryGetValue(of, out var cached) && cached.font == of.font &&
+                cached.fontSize == of.fontSize && cached.fontStyle == of.fontStyle)
+                return cached;
             var style = new GUIStyle(of);
 
             // Vanilla's skin can leave an active/on-state texture behind even after the
@@ -357,6 +375,7 @@ namespace SlopWorld
             style.onHover.textColor = Color.white;
             style.onActive.textColor = Color.white;
             style.onFocused.textColor = Color.white;
+            styles[of] = style;
             return style;
         }
     }
