@@ -32,7 +32,7 @@ pub(super) use ctrl::CachedScroll;
 pub(crate) use ctrl::{test_manager, test_manager_with_socket};
 pub use ctrl::{ClientGuard, Manager, WatchGuard};
 pub(crate) use view::FrameViewArgs;
-pub use view::{ScreenView, SessionView};
+pub use view::{ProjectView, ScreenView, SessionView};
 
 use input::{merge_input, Input};
 use template::{render_template, render_template_with, TemplateVars};
@@ -114,7 +114,7 @@ pub enum Event {
         sessions: Vec<SessionView>,
     },
     Projects {
-        projects: Vec<ProjectCfg>,
+        projects: Vec<ProjectView>,
     },
     Library {
         library: Vec<LibraryItemCfg>,

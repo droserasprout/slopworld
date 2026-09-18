@@ -7,7 +7,9 @@ that predecessor, use a full repaint rather than applying incomplete damage.
 
 Parsed runs contain resolved colors. Theme revision must invalidate both parsed and rendered
 caches; Match UI follows the UI scheme, explicit terminal themes do not. Font atlas and UI
-scale changes also affect cell geometry and cached textures.
+scale changes also affect cell geometry and cached textures. Entering or leaving an
+alternate-screen app such as `less` invalidates the pixel cache even when the visible rows and
+content revision happen to be unchanged.
 
 Unity's font path cannot reliably read Noto Color Emoji bitmap tables. The Pango-baked atlas
 handles supplementary-plane glyphs first; requesting only half a surrogate pair from the

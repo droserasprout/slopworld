@@ -329,7 +329,7 @@ namespace SlopWorld
 
         static string ProjectRelative(string project, string path)
         {
-            string root = SessionHub.Instance.Project(project)?.Dir;
+            string root = SessionHub.Instance.Project(project)?.ExpandedDir;
             if (string.IsNullOrEmpty(root) || string.IsNullOrEmpty(path)) return null;
             if (root == "/")
                 return path.StartsWith("/") && path.Length > 1 ? path.Substring(1) : null;

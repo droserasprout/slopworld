@@ -41,3 +41,7 @@ pending replies so re-enabling can request again. See [agent templates](mod-agen
 Connection comes from `endpoint.toml`; daemon settings use partial patches, not hidden
 round-trip fields. See [config ownership](daemon-config-stores.md),
 [protocol](protocol-wire.md), [agent templates](mod-agent-templates.md), and [C# tests](test-csharp.md).
+
+Project catalog responses retain editable `dir` and supply daemon-resolved `expanded_dir`
+for path operations. Never expand these paths using the game process environment: sidecar
+homes and environment variables can differ.

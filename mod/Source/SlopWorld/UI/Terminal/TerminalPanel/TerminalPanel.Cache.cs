@@ -59,6 +59,7 @@ namespace SlopWorld
                 Buffer = buf,
                 Session = _state.Name,
                 Offset = buf.Off,
+                AltScreen = buf.AltScreen,
                 X = body.x,
                 Y = body.y,
                 Width = body.width,
