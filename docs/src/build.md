@@ -45,7 +45,7 @@ Rust formatting and linting use `cargo fmt` and `cargo clippy`.
 
 `make coverage` produces Cobertura XML reports for both halves. It requires `cargo-llvm-cov` (install with `cargo install cargo-llvm-cov --locked`) and the matching `llvm-cov`/`llvm-profdata` binaries. Use `coverage-daemon` or `coverage-mod` to measure one half.
 
-`make bench` runs both game-free benchmark suites; use `BUILD=release` for comparisons.
+`make bench` runs the daemon, C# and IPC benchmark suites serially; use `BUILD=release` for comparisons.
 
 ## Prose linter
 
@@ -64,5 +64,8 @@ slopctl logs --follow                        # combined game + daemon
 ```
 
 `make protobuf-deps` restores the locked Google.Protobuf runtime and its Mono dependencies.
-`make bench-ipc` compares the frozen JSON transport with Protobuf on Mono, .NET 8 and Rust;
+`make bench-report` includes IPC timings, allocations, wire sizes and comparison ratios in its
+three-run averaged report (`notes/perf-suite.md`), replacing the previous report.
+Raw logs and CSVs stay local and ignored.
+`make BUILD=release bench-ipc` compares the frozen JSON transport with Protobuf on Mono, .NET 8 and Rust;
 see [the benchmark suite](../../bench/ipc/README.md) for scope and recorded results.

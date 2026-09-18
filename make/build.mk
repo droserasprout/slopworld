@@ -117,13 +117,9 @@ protobuf-deps: ## Restore Protobuf runtime for Unity Mono
 
 .PHONY: bench-ipc
 bench-ipc: protobuf-deps api-contract ## Compare legacy JSON and production Protobuf without the game
-	@$(DOTNET) build bench/ipc/csharp/IpcBench.csproj --configuration Release --verbosity quiet -p:RestoreLockedMode=true
+	@$(DOTNET) build bench/ipc/csharp/IpcBench.csproj --configuration $(if $(filter release,$(BUILD)),Release,Debug) --verbosity quiet -p:RestoreLockedMode=true
 	@mkdir -p bench/ipc/results
-	@mono bench/ipc/csharp/bin/Release/net472/IpcBench.exe bench/ipc/fixtures > bench/ipc/results/mono.csv
-	@DOTNET_TieredCompilation=0 $(DOTNET) bench/ipc/csharp/bin/Release/net8.0/IpcBench.dll > bench/ipc/results/net8.csv
-	@cd bench/ipc/rust && $(CARGO) run --quiet --release -- ../fixtures > ../results/rust.csv
-	@mono bench/ipc/csharp/bin/Release/net472/IpcBench.exe --verify bench/ipc/fixtures
-
-.PHONY: bench-ipc-report
-bench-ipc-report: ## Repeat the IPC suite three times and summarize medians
-	@$(PYTHON) bench/ipc/report.py
+	@mono bench/ipc/csharp/bin/$(if $(filter release,$(BUILD)),Release,Debug)/net472/IpcBench.exe bench/ipc/fixtures > bench/ipc/results/mono.csv
+	@DOTNET_TieredCompilation=0 $(DOTNET) bench/ipc/csharp/bin/$(if $(filter release,$(BUILD)),Release,Debug)/net8.0/IpcBench.dll > bench/ipc/results/net8.csv
+	@cd bench/ipc/rust && $(CARGO) run --quiet $(CARGOFLAGS) -- ../fixtures > ../results/rust.csv
+	@mono bench/ipc/csharp/bin/$(if $(filter release,$(BUILD)),Release,Debug)/net472/IpcBench.exe --verify bench/ipc/fixtures
