@@ -203,6 +203,13 @@ namespace SlopWorld
             "A fridge is a database.",
             "Within a few months, four patients recognize the man as a frequent presence in their own dreams.",
             "Lowkirkenuinely!",
+            "Software creates soft men.",
+            "Hard men create hardware.",
+            "Good times create software.",
+            "Have fun making AI \"art\", me and ur wife are going shopping for craft supplies. (",
+            "Foolish Samurai, I laced yo shit! (",
+            "Let there be meowls.",
+            "Let there be cabbits.",
 			//
             // Only happy stuff below
             //
