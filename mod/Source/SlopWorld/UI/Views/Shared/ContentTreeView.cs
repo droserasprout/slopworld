@@ -182,9 +182,6 @@ namespace SlopWorld
                     _revealTop = revealTop;
                     _reveal = null;
                 }
-                bool scrollEvent = Event.current.type == EventType.ScrollWheel ||
-                    (Event.current.type == EventType.Used &&
-                        Event.current.rawType == EventType.ScrollWheel);
                 float height = _contentHeight;
                 var geometry = UiScrollBody.Measure(body, height,
                     UiScrollbarReservation.WhenNeeded);
@@ -205,7 +202,7 @@ namespace SlopWorld
                     // Scroll events can arrive in a burst. They only need to update the offset;
                     // painting thousands of tree rows for each queued event makes the input queue
                     // take seconds to drain.
-                    if (!scrollEvent)
+                    if (!SmoothScroll.WheelOnly)
                     {
                         for (int i = _index.First(_visibleTop);
                              i < _items.Count && _items[i].Y < _visibleBottom; i++)

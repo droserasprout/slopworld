@@ -12,6 +12,10 @@ not color alone. `GameFont.Tiny` may actually render Small; use shared measureme
 `SmoothScroll` owns fractional wheel input and scrollbars. Consume precise input once;
 a delayed Unity wheel event must not scroll a second time. Drawing and hit tests need the
 same viewport clipping. Drag owners must respect `hotControl`, including replayed events.
+Flat result lists skip row work on wheel-only passes while still entering/disposing the
+scroll scope; it applies every delta and the next repaint uses the latest position. Do not
+skip nested scroll owners or normal control passes. X11 sampling has a per-frame budget,
+including at most one late-wheel refresh, so queued events cannot each block on X11.
 
 `Window.Margin` translates the GUI group; it is not padding. Shared windows use zero margin
 and explicit body padding. An absorbing window can consume MouseDown before controls see it;

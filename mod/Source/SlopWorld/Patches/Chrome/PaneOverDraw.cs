@@ -12,6 +12,27 @@ namespace SlopWorld
         internal static bool Hidden => TerminalWindow.Covering || Eco.Resting;
         static bool Wanted() => !Hidden;
 
+        // RimWorld 1.6 calls these from MapInterfaceOnGUI_BeforeMainTabs, outside
+        // MapUpdate. Gate the whole traversal, not each pawn's eventual label call.
+        [HarmonyPatch(typeof(ThingOverlays), nameof(ThingOverlays.ThingOverlaysOnGUI))]
+        public static class Patch_ThingLabels
+        {
+            static bool Prefix() => Wanted();
+        }
+
+        [HarmonyPatch(typeof(TooltipGiverList), nameof(TooltipGiverList.DispenseAllThingTooltips))]
+        public static class Patch_ThingTooltips
+        {
+            static bool Prefix() => Wanted();
+        }
+
+        // OnGUI is separate from both FleckManagerDraw and real-time aging.
+        [HarmonyPatch(typeof(FleckManager), nameof(FleckManager.FleckManagerOnGUI))]
+        public static class Patch_FleckGui
+        {
+            static bool Prefix() => Wanted();
+        }
+
         // Terrain, and everything printed into the mesh - here, every plant there is.
         [HarmonyPatch(typeof(MapDrawer), nameof(MapDrawer.DrawMapMesh))]
         public static class Patch_MapMesh

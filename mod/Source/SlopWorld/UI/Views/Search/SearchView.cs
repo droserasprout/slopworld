@@ -287,6 +287,7 @@ namespace SlopWorld
             using (WidgetState.Save())
             using (Scroll.Scope(body, view))
             {
+                if (SmoothScroll.WheelOnly) return;
                 float visibleTop = Scroll.Position.y;
                 float visibleBottom = visibleTop + body.height;
                 int first = Mathf.Max(0,

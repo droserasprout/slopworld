@@ -47,6 +47,7 @@ namespace SlopWorld
 
             using (_scroll.Scope(rect, geometry.View))
             {
+                if (SmoothScroll.WheelOnly) return;
                 if (items.Count == 0)
                 {
                     string note = hub.Online ? EmptyNote : UiLayout.Unreachable;

@@ -31,7 +31,7 @@ namespace SlopWorld
         static ScrollPoint _last;
         static int _lastFrame = -1;
         static float _lastSampleTime = -1f;
-        static int _sampleFrame = -1;
+        static readonly ScrollSampleBudget SampleBudget = new ScrollSampleBudget();
         static bool _sampleUsable;
         static Vector2 _sample;
 
@@ -106,13 +106,12 @@ namespace SlopWorld
         {
             units = Vector2.zero;
             int frame = Time.frameCount;
-            if (!refresh && _sampleFrame == frame)
+            if (!SampleBudget.Take(frame, refresh))
             {
                 units = _sample;
                 return _sampleUsable;
             }
 
-            _sampleFrame = frame;
             _sample = Vector2.zero;
             _sampleUsable = false;
             if (!Ready()) return false;

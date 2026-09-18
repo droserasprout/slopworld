@@ -83,9 +83,21 @@ namespace SlopWorld
         }
 
         static readonly SmoothScroll _scroll = new SmoothScroll();
+        static float _contentHeight;
 
         public static void Draw(Rect body)
         {
+            Lines.Clear();
+            if (SmoothScroll.WheelOnly)
+            {
+                // Reuse the last measured extent while draining input. Rebuilding groups
+                // and template rows for each packet is also proportional to the full list.
+                var cached = UiScrollBody.Measure(body, _contentHeight,
+                    UiScrollbarReservation.WhenNeeded);
+                using (WidgetState.Save())
+                using (_scroll.Scope(body, cached.View)) { }
+                return;
+            }
             using (WidgetState.Save())
             {
                 // Builtins appear in their attached groups. Personal entries belong here,
@@ -107,10 +119,9 @@ namespace SlopWorld
                     Templates[row] = template;
                     _items.Add(row);
                 }
-                Lines.Clear();
-
                 if (_items.Count == 0)
                 {
+                    _contentHeight = 0f;
                     Empty(body);
                     return;
                 }
@@ -119,6 +130,7 @@ namespace SlopWorld
 
                 var list = body;
                 float height = Measure();
+                _contentHeight = height;
                 var geometry = UiScrollBody.Measure(list, height,
                     UiScrollbarReservation.WhenNeeded);
                 var view = geometry.View;
