@@ -17,7 +17,7 @@ drop pods with a short opening delay.
 
 The jukebox is a map building with one click target. No radio stations ship with SlopWorld —
 users add their own as one-station TOML files under
-`~/.local/share/slopworld/jukebox/`.
+`~/.config/slopworld/jukebox/`.
 
 ```toml
 id = "example"

@@ -37,8 +37,11 @@ pub struct Config {
     #[serde(default, rename = "session")]
     pub sessions: Vec<SessionCfg>,
     /// One-shot errands, run by a temporary agent that exists only as long as its
-    /// process does.
-    #[serde(default, rename = "library")]
+    /// process does. The field remains on the in-memory model because library resolution is
+    /// part of configuration behavior, but the catalog is persisted as one file per kind
+    /// under `prompts/`, `breadcrumbs/`, `file_actions/` and `shell_scripts/` rather than in
+    /// the main document.
+    #[serde(default, rename = "library", skip_serializing)]
     pub library: Vec<LibraryItemCfg>,
     /// Host shells opened from a project heading. These are deliberately separate from
     /// `session`: a host terminal is allowed only through the explicit host-shell route and
@@ -727,6 +730,17 @@ pub enum LibraryItemKind {
     Breadcrumb,
     /// A command offered for the selected path in the Files sidebar.
     FileAction,
+}
+
+impl LibraryItemKind {
+    pub fn config_dir(self) -> &'static str {
+        match self {
+            Self::Prompt => "prompts",
+            Self::Shell => "shell_scripts",
+            Self::Breadcrumb => "breadcrumbs",
+            Self::FileAction => "file_actions",
+        }
+    }
 }
 
 crate::wire_enum!(LibraryItemKind, {

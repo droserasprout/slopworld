@@ -30,11 +30,11 @@ struct CacheEntry {
     state_since: u64,
 }
 
-/// Fallback state ages live beside the daemon config, keeping a custom `SLOPD_CONFIG` installation
-/// self-contained. This is deliberately separate from user configuration: it is runtime history
-/// owned by the server, not a setting the mod should round-trip.
-pub fn cache_path(config: &Path) -> PathBuf {
-    config.with_file_name("session-activity.toml")
+/// Fallback state ages are disposable runtime history, so they live under the XDG cache root
+/// rather than beside the daemon configuration. The argument remains for call-site symmetry
+/// and alternate-instance tests.
+pub fn cache_path(_config: &Path) -> PathBuf {
+    crate::paths::cache_root().join("session-activity.toml")
 }
 
 pub struct ActivityCache {
@@ -199,10 +199,7 @@ mod tests {
     #[test]
     fn activity_cache_round_trips_and_clears() {
         let path = test_path();
-        assert_eq!(
-            cache_path(&path),
-            path.parent().unwrap().join("session-activity.toml")
-        );
+        assert!(cache_path(&path).ends_with("session-activity.toml"));
 
         let cache = ActivityCache::load(path.clone());
         cache.remember("agent", State::Waiting, 123).unwrap();

@@ -46,9 +46,10 @@ is selected.
 
 ### How do I add a new agent CLI? {#new-cli}
 
-Create a command preset with the CLI's launch command and a sandbox preset with its
-configuration paths. Place the TOML files in `~/.config/slopworld/presets/`. They
-appear in Settings > Commands without rebuilding. See
+Create an app definition with the CLI's launch command and a sandbox preset with its
+configuration paths. Place the TOML files in `~/.config/slopworld/app_presets/` and
+`~/.config/slopworld/sandbox_presets/`. They
+appear in Settings > Commands > Apps without rebuilding. See
 [Configuring agents](guides/configuring-agents.md).
 
 ### What happens when I restart an agent? {#restart}

@@ -130,8 +130,8 @@ struct AnthropicUsageCache {
     retry_until_ms: Option<u64>,
 }
 
-/// Cache and lock files live beside the daemon config. The credential path and endpoint are part
-/// of the name so two configured accounts or a test proxy cannot reuse one another's answer.
+/// Cache and lock files live under XDG's cache root. The credential path and endpoint are part of
+/// the name so two configured accounts or a test proxy cannot reuse one another's answer.
 fn anthropic_cache_paths(credentials: &Path) -> (PathBuf, PathBuf) {
     let mut hash = 0xcbf29ce484222325u64;
     for byte in credentials
@@ -143,8 +143,7 @@ fn anthropic_cache_paths(credentials: &Path) -> (PathBuf, PathBuf) {
         hash = (hash ^ u64::from(byte)).wrapping_mul(0x100000001b3);
     }
 
-    let base = crate::config::Config::path_in_use()
-        .with_file_name(format!(".anthropic-usage-{hash:016x}"));
+    let base = crate::paths::cache_root().join(format!(".anthropic-usage-{hash:016x}"));
     (base.with_extension("json"), base.with_extension("lock"))
 }
 

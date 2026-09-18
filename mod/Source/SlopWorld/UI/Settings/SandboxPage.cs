@@ -10,7 +10,7 @@ namespace SlopWorld
     // many fields in one definition, but only one preset or command is being edited at once.
     public partial class SandboxPage : IOptionPage
     {
-        public enum Section { Presets, Commands }
+        public enum Section { SandboxPresets, AppPresets }
 
         readonly AsyncLoadState<bool> _load = new AsyncLoadState<bool>();
         readonly Section _section;
@@ -107,11 +107,11 @@ namespace SlopWorld
 
         void DoSection(Rect r)
         {
-            bool presets = _section == Section.Presets;
-            string heading = presets ? "Sandbox presets" : "Command presets";
+            bool presets = _section == Section.SandboxPresets;
+            string heading = presets ? "Sandbox presets" : "Apps";
             string caption = presets
                 ? "System presets are supplied by slopd. Copy one to the user list to edit it; user presets can also be new entries."
-                : "Commands say what an agent runs and which presets it requires. Copy a system command to make a user override.";
+                : "Apps say what an agent runs and which sandbox capabilities it requires. Copy a system app to make a user override.";
             UiLayout.SectionHeading(new Rect(r.x, r.y, r.width, UiTheme.RowH), heading);
 
             float y = r.y + UiTheme.RowH + UiTheme.GapXS;

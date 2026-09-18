@@ -76,6 +76,20 @@ pub fn root(base: Option<PathBuf>) -> PathBuf {
     base.unwrap_or_else(|| PathBuf::from(".")).join("slopworld")
 }
 
+/// The daemon's user configuration root.
+pub fn config_root() -> PathBuf {
+    root(dirs::config_dir())
+}
+
+/// The daemon's persistent cache root. `SLOPD_CACHE` is an alternate-instance/test override;
+/// ordinary installs follow XDG and keep disposable runtime history out of configuration.
+pub fn cache_root() -> PathBuf {
+    if let Ok(dir) = std::env::var("SLOPD_CACHE") {
+        return PathBuf::from(dir);
+    }
+    root(dirs::cache_dir())
+}
+
 /// A configurable application subdirectory below an XDG config or data root.
 pub fn dir(variable: &str, base: Option<PathBuf>, child: &str) -> PathBuf {
     if let Ok(dir) = std::env::var(variable) {

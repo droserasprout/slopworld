@@ -25,14 +25,15 @@ and short hash to the package version.
 | `config.toml` (agents, projects, settings) | Yes |
 | Per-agent private state (`sessions/<state-id>/`) | Yes |
 | Game profile (saves, mod settings) | Yes |
-| User presets (`presets/*.toml`) | Yes |
+| User library, templates, sandboxes, and apps (`{prompts,breadcrumbs,file_actions,shell_scripts,agent_templates,sandbox_presets,app_presets}/*.toml`) | Yes |
 | Jukebox stations and likes | Yes |
 | Task mailbox (`tasks.toml`) | Yes |
 | Prompt summaries | Yes |
 | Daemon token | Yes (regenerated only on first run or manual delete) |
 
 Configuration patches preserve unknown fields, but other configuration writes may drop them.
-Wire formats, config names, and path layouts may change between versions without migration.
+Wire formats, config names, and path layouts may change between versions without compatibility
+support.
 
 ## Compatibility
 

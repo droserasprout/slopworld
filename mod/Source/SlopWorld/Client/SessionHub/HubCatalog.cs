@@ -155,7 +155,7 @@ namespace SlopWorld
         public void SavePreset(PresetInfo p, Action ok, Action<string> fail)
         {
             _presets.Invalidate();
-            DaemonClient.Put($"{PresetsPath}/sandbox/{Uri.EscapeDataString(p.Name)}", p.ToJson(),
+            DaemonClient.Put($"{PresetsPath}/sandbox_presets/{Uri.EscapeDataString(p.Name)}", p.ToJson(),
                 PresetsSaved(ok, fail), fail);
         }
 
@@ -169,7 +169,7 @@ namespace SlopWorld
         public void SaveCommand(CommandInfo c, Action ok, Action<string> fail)
         {
             _presets.Invalidate();
-            DaemonClient.Put($"{PresetsPath}/command/{Uri.EscapeDataString(c.Name)}", c.ToJson(),
+            DaemonClient.Put($"{PresetsPath}/app_presets/{Uri.EscapeDataString(c.Name)}", c.ToJson(),
                 PresetsSaved(ok, fail), fail);
         }
 

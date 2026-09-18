@@ -47,9 +47,9 @@ namespace SlopWorld.Tests
             Action[] writes = {
                 () => hub.SaveProject(new ProjectInfo(), false, "a/b", () => completed++, fail),
                 () => hub.SaveLibraryItem(new LibraryItemInfo(), true, "", () => completed++, fail),
-                () => hub.CopyPreset("sandbox", "a/b", "copy", () => completed++, fail),
+                () => hub.CopyPreset("sandbox_presets", "a/b", "copy", () => completed++, fail),
                 () => hub.SavePreset(new PresetInfo(), () => completed++, fail),
-                () => hub.RemovePreset("sandbox", "a/b", () => completed++, fail),
+                () => hub.RemovePreset("sandbox_presets", "a/b", () => completed++, fail),
                 () => hub.SaveCommand(new CommandInfo(), () => completed++, fail),
             };
             for (int i = 0; i < writes.Length; i++)

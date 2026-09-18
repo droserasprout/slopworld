@@ -566,13 +566,13 @@ token = \"not-a-daemon-token\"
             LibraryItemLink::Ask
         );
 
-        let back = Config::parse(&toml::to_string_pretty(&cfg).unwrap()).unwrap();
+        let back: LibraryItemCfg =
+            toml::from_str(&toml::to_string_pretty(&cfg.library[1]).unwrap()).unwrap();
+        assert_eq!(back.link, LibraryItemLink::Temp);
         assert_eq!(
-            back.library_item("scratch").unwrap().link,
-            LibraryItemLink::Temp
-        );
-        assert_eq!(
-            back.library_item("wherever").unwrap().link,
+            toml::from_str::<LibraryItemCfg>(&toml::to_string_pretty(&cfg.library[2]).unwrap(),)
+                .unwrap()
+                .link,
             LibraryItemLink::Ask
         );
     }
@@ -621,23 +621,22 @@ token = \"not-a-daemon-token\"
             FileActionMode::Nothing
         );
 
-        let text = toml::to_string_pretty(&cfg).unwrap();
+        let text = toml::to_string_pretty(&cfg.library[1]).unwrap();
         assert!(text.contains("mode = \"show_result\""));
-        assert!(text.contains("mode = \"open_terminal\""));
-        assert!(text.contains("mode = \"nothing\""));
-        assert!(!text.contains("name = \"old\"\nkind = \"fa\"\ncommand = \"du -sh\"\nmode"));
+        assert!(!text.contains("name = \"old\""));
 
-        let back = Config::parse(&text).unwrap();
+        let back: LibraryItemCfg = toml::from_str(&text).unwrap();
+        assert_eq!(back.mode, FileActionMode::ShowResult);
         assert_eq!(
-            back.library_item("report").unwrap().mode,
-            FileActionMode::ShowResult
-        );
-        assert_eq!(
-            back.library_item("shell").unwrap().mode,
+            toml::from_str::<LibraryItemCfg>(&toml::to_string_pretty(&cfg.library[2]).unwrap(),)
+                .unwrap()
+                .mode,
             FileActionMode::OpenTerminal
         );
         assert_eq!(
-            back.library_item("quiet").unwrap().mode,
+            toml::from_str::<LibraryItemCfg>(&toml::to_string_pretty(&cfg.library[3]).unwrap(),)
+                .unwrap()
+                .mode,
             FileActionMode::Nothing
         );
     }
@@ -725,10 +724,8 @@ token = \"not-a-daemon-token\"
             agent_template: String::new(),
         });
 
-        let back = Config::parse(&toml::to_string_pretty(&cfg).unwrap()).unwrap();
-        let sc = back
-            .library_item("tests")
-            .expect("library item should survive");
+        let sc: LibraryItemCfg =
+            toml::from_str(&toml::to_string_pretty(&cfg.library[0]).unwrap()).unwrap();
         assert_eq!(sc.kind, LibraryItemKind::Shell);
         assert_eq!(sc.text, "make test");
         assert!(sc.command.is_none());

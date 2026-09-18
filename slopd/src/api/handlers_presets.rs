@@ -44,7 +44,7 @@ pub(crate) fn sandbox_json(
 ) -> serde_json::Value {
     json!({
         "name": p.name,
-        "source": builtins.source(PresetKind::Sandbox, &p.name, users).as_str(),
+        "source": builtins.source(PresetKind::SandboxPresets, &p.name, users).as_str(),
         "description": p.description,
         "requires": p.requires,
         "ro": p.ro,
@@ -70,7 +70,7 @@ pub(crate) fn command_json(
     json!({
         "name": c.name,
         "kind": c.kind,
-        "source": builtins.source(PresetKind::Command, &c.name, users).as_str(),
+        "source": builtins.source(PresetKind::AppPresets, &c.name, users).as_str(),
         "description": c.description,
         "cmd": c.cmd,
         "sandbox": c.sandbox,
@@ -120,10 +120,10 @@ pub(crate) async fn update_preset(
         return Err(err(StatusCode::BAD_REQUEST, "preset name is empty"));
     }
     let mut definition = match kind {
-        PresetKind::Sandbox => crate::presets::PresetDefinition::Sandbox(Box::new(
+        PresetKind::SandboxPresets => crate::presets::PresetDefinition::Sandbox(Box::new(
             serde_json::from_slice(&body).map_err(|e| err(StatusCode::BAD_REQUEST, e))?,
         )),
-        PresetKind::Command => crate::presets::PresetDefinition::Command(Box::new(
+        PresetKind::AppPresets => crate::presets::PresetDefinition::Command(Box::new(
             serde_json::from_slice(&body).map_err(|e| err(StatusCode::BAD_REQUEST, e))?,
         )),
     };

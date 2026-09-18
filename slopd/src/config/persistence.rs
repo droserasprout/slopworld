@@ -1,6 +1,8 @@
 //! Config file loading, serialization, and redacted persistence.
 
-use std::path::{Path, PathBuf};
+use std::collections::HashSet;
+use std::path::{Component, Path, PathBuf};
+use std::time::SystemTime;
 
 use anyhow::{bail, Context, Result};
 
@@ -8,9 +10,27 @@ use super::*;
 
 impl Config {
     pub fn path() -> PathBuf {
-        dirs::config_dir()
-            .unwrap_or_else(|| PathBuf::from("."))
-            .join("slopworld/config.toml")
+        crate::paths::config_root().join("config.toml")
+    }
+
+    pub fn library_dirs_for(config_path: &Path) -> Vec<(LibraryItemKind, PathBuf)> {
+        let root = config_path.parent().unwrap_or_else(|| Path::new("."));
+        [
+            LibraryItemKind::Prompt,
+            LibraryItemKind::Breadcrumb,
+            LibraryItemKind::FileAction,
+            LibraryItemKind::Shell,
+        ]
+        .into_iter()
+        .map(|kind| (kind, root.join(kind.config_dir())))
+        .collect()
+    }
+
+    pub fn library_stamp_for(config_path: &Path) -> Option<SystemTime> {
+        Self::library_dirs_for(config_path)
+            .into_iter()
+            .filter_map(|(_, dir)| crate::paths::dir_stamp(&dir))
+            .max()
     }
 
     /// The file this daemon actually read, `SLOPD_CONFIG` included. `main` loads from it, and
@@ -31,18 +51,33 @@ impl Config {
         let text = tokio::fs::read_to_string(path)
             .await
             .with_context(|| format!("reading {}", path.display()))?;
-        Self::parse_document(&text).map(|(cfg, _)| cfg)
+        let (mut cfg, _) = Self::parse_document(&text)?;
+        cfg.library = load_library(&Self::library_dirs_for(path)).await?;
+        Ok(cfg)
     }
 
     #[cfg(test)]
     pub fn parse(text: &str) -> Result<Self> {
-        Self::parse_document(text).map(|(cfg, _)| cfg)
+        let document: toml::Value = toml::from_str(text).context("parsing config.toml")?;
+        if let Some(daemon) = document.get("daemon").and_then(toml::Value::as_table) {
+            for key in ["usage", "openrouter", "openai"] {
+                if daemon.contains_key(key) {
+                    bail!("[daemon] {key} was removed");
+                }
+            }
+        }
+        let cfg: Self = document.try_into().context("parsing config.toml")?;
+        super::validation::validate_loaded(&cfg)?;
+        Ok(cfg)
     }
 
     /// Validate the current schema while retaining the original document for edits that
     /// preserve unrelated fields and secrets. Loading never rewrites a configuration file.
     pub(crate) fn parse_document(text: &str) -> Result<(Self, toml::Value)> {
         let document: toml::Value = toml::from_str(text).context("parsing config.toml")?;
+        if document.get("library").is_some() {
+            bail!("inline library entries are no longer supported");
+        }
         if let Some(daemon) = document.get("daemon").and_then(toml::Value::as_table) {
             for key in ["usage", "openrouter", "openai"] {
                 if daemon.contains_key(key) {
@@ -71,7 +106,13 @@ impl Config {
                 }
             }
         }
-        Self::save_text(path, &toml::to_string_pretty(&document)?).await
+        if let Some(table) = document.as_table_mut() {
+            // Library entries are a separate catalog, so never serialize the in-memory catalog
+            // into the main configuration document.
+            table.remove("library");
+        }
+        Self::save_text(path, &toml::to_string_pretty(&document)?).await?;
+        save_library(&Self::library_dirs_for(path), &self.library).await
     }
 
     pub async fn save_text(path: &Path, text: &str) -> Result<()> {
@@ -104,6 +145,132 @@ impl Config {
             ..Default::default()
         }
     }
+}
+
+fn validate_library_name(name: &str) -> Result<()> {
+    if name.trim().is_empty() || name == "." || name == ".." {
+        bail!("library item name must be a file name");
+    }
+    if name.bytes().any(|b| b == b'/' || b == b'\\' || b == 0)
+        || name.chars().any(|c| c.is_control())
+    {
+        bail!("library item name must be one safe file name");
+    }
+    match (
+        Path::new(name).components().next(),
+        Path::new(name).components().nth(1),
+    ) {
+        (Some(Component::Normal(_)), None) => Ok(()),
+        _ => bail!("library item name must be one safe file name"),
+    }
+}
+
+async fn load_library(dirs: &[(LibraryItemKind, PathBuf)]) -> Result<Vec<LibraryItemCfg>> {
+    let mut paths = Vec::new();
+    for (kind, dir) in dirs {
+        let mut entries = match tokio::fs::read_dir(dir).await {
+            Ok(entries) => entries,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => continue,
+            Err(error) => return Err(error).with_context(|| format!("reading {}", dir.display())),
+        };
+        while let Some(entry) = entries.next_entry().await? {
+            let path = entry.path();
+            if path
+                .extension()
+                .is_some_and(|extension| extension == "toml")
+            {
+                paths.push((*kind, path));
+            }
+        }
+    }
+    paths.sort_by(|(_, a), (_, b)| a.cmp(b));
+
+    let mut names = HashSet::new();
+    let mut library = Vec::with_capacity(paths.len());
+    for (kind, path) in paths {
+        let text = tokio::fs::read_to_string(&path)
+            .await
+            .with_context(|| format!("reading library item {}", path.display()))?;
+        let mut item: LibraryItemCfg = toml::from_str(&text)
+            .with_context(|| format!("parsing library item {}", path.display()))?;
+        item.builtin = false;
+        if item.kind != kind {
+            bail!(
+                "library item file {} has kind {:?}, but belongs in {:?}",
+                path.display(),
+                item.kind,
+                kind.config_dir()
+            );
+        }
+        validate_library_name(&item.name)
+            .with_context(|| format!("library item in {}", path.display()))?;
+        let expected = path
+            .file_stem()
+            .and_then(|stem| stem.to_str())
+            .unwrap_or_default();
+        if expected != item.name {
+            bail!(
+                "library item file {} names {:?}, expected {:?}",
+                path.display(),
+                item.name,
+                expected
+            );
+        }
+        if !names.insert(item.name.clone()) {
+            bail!("library item {:?} is declared more than once", item.name);
+        }
+        library.push(item);
+    }
+    Ok(library)
+}
+
+async fn save_library(
+    dirs: &[(LibraryItemKind, PathBuf)],
+    library: &[LibraryItemCfg],
+) -> Result<()> {
+    let mut names = HashSet::new();
+    for item in library {
+        validate_library_name(&item.name)?;
+        if !names.insert(item.name.clone()) {
+            bail!("library item {:?} is declared more than once", item.name);
+        }
+    }
+
+    let expected_paths: HashSet<PathBuf> = library
+        .iter()
+        .map(|item| {
+            dirs.iter()
+                .find(|(kind, _)| *kind == item.kind)
+                .map(|(_, dir)| dir.join(format!("{}.toml", item.name)))
+                .ok_or_else(|| anyhow::anyhow!("unknown library item kind {:?}", item.kind))
+        })
+        .collect::<Result<_>>()?;
+
+    for (_, dir) in dirs {
+        tokio::fs::create_dir_all(dir).await?;
+        let mut entries = tokio::fs::read_dir(dir).await?;
+        while let Some(entry) = entries.next_entry().await? {
+            let path = entry.path();
+            if path
+                .extension()
+                .is_some_and(|extension| extension == "toml")
+                && !expected_paths.contains(&path)
+            {
+                tokio::fs::remove_file(&path).await?;
+            }
+        }
+    }
+
+    for item in library {
+        let path = dirs
+            .iter()
+            .find(|(kind, _)| *kind == item.kind)
+            .map(|(_, dir)| dir.join(format!("{}.toml", item.name)))
+            .ok_or_else(|| anyhow::anyhow!("unknown library item kind {:?}", item.kind))?;
+        let text = toml::to_string_pretty(item)?;
+        crate::paths::write_atomic_async(&path, &text, Some(0o600)).await?;
+    }
+    Ok(())
 }
 
 fn preserve_unknown_fields(
@@ -221,6 +388,59 @@ mod tests {
         assert!(text.contains("future_policy = \"keep\""));
         assert!(text.contains("future_agent = \"keep\""));
         assert_eq!(reloaded.daemon.token, "secret");
+        tokio::fs::remove_dir_all(root).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn library_items_round_trip_as_one_file_each() {
+        let root = std::env::temp_dir().join(format!(
+            "slopd-library-files-{}-{}",
+            std::process::id(),
+            uuid::Uuid::new_v4()
+        ));
+        let path = root.join("config.toml");
+        let mut cfg = Config::default();
+        cfg.library.push(LibraryItemCfg {
+            name: "review diff".into(),
+            text: "review it".into(),
+            ..Default::default()
+        });
+        cfg.library.push(LibraryItemCfg {
+            name: "run tests".into(),
+            kind: LibraryItemKind::Shell,
+            text: "make test".into(),
+            ..Default::default()
+        });
+        cfg.library.push(LibraryItemCfg {
+            name: "tips".into(),
+            kind: LibraryItemKind::Breadcrumb,
+            text: "remember the tests".into(),
+            ..Default::default()
+        });
+        cfg.library.push(LibraryItemCfg {
+            name: "show size".into(),
+            kind: LibraryItemKind::FileAction,
+            command: Some("du -sh".into()),
+            ..Default::default()
+        });
+
+        cfg.save(&path).await.unwrap();
+        let document = tokio::fs::read_to_string(&path).await.unwrap();
+        assert!(!document.contains("[[library]]"));
+        let item_path = root.join("prompts/review diff.toml");
+        assert!(item_path.is_file());
+        assert!(root.join("shell_scripts/run tests.toml").is_file());
+        assert!(root.join("breadcrumbs/tips.toml").is_file());
+        assert!(root.join("file_actions/show size.toml").is_file());
+        assert_eq!(
+            Config::load(&path)
+                .await
+                .unwrap()
+                .library_item("review diff")
+                .unwrap()
+                .text,
+            "review it"
+        );
         tokio::fs::remove_dir_all(root).await.unwrap();
     }
 }

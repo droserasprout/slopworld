@@ -4,10 +4,12 @@ The daemon owns machine configuration; the mod owns offline-capable profile pref
 The mod talks to daemon APIs and reads `endpoint.toml` for connection credentials; it must
 not read or rewrite daemon TOML directly. Locations and overrides: [paths](ops-paths.md).
 
-Personal agent templates are a separate daemon-owned `agent-templates.toml` store beside
+Personal agent templates are a separate daemon-owned `agent_templates/` store beside
 the main config. `session/agent_templates.rs` owns its typed definition and snapshot rules;
 the manager loads it at startup and serializes mutations atomically. Personal template origin is
-display metadata only. Library items remain in the personal `config.toml` catalog.
+display metadata only. Library items are one file per kind in `prompts/`, `breadcrumbs/`,
+`file_actions/`, and `shell_scripts/`; sandboxes, apps, and jukebox stations are likewise
+owned by `sandbox_presets/`, `app_presets/`, and `jukebox/`.
 
 Config patches deep-merge the original TOML document, preserving omitted and unknown fields.
 Typed `Config::save` serializes modeled fields and preserves unrelated document fields when

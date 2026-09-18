@@ -20,7 +20,8 @@ Command-only errands should not wait for readiness to deliver empty text.
 Builtin library records are a separate layer. A same-named user record shadows a builtin;
 deleting the user record reveals the builtin again.
 
-Personal library items are stored in the daemon-owned `config.toml`; agent templates are stored
-in `agent-templates.toml` beside it. Presets use the daemon's user-level preset directory. None
+Personal library items are stored one per file in daemon-owned `prompts/`, `breadcrumbs/`,
+`file_actions/`, and `shell_scripts/` directories beside `config.toml`; agent templates are
+stored in `agent_templates/`. Sandboxes and apps use `sandbox_presets/` and `app_presets/`. None
 of these catalogs inspect project checkouts, and instantiated templates still copy dependency
 snapshots.
