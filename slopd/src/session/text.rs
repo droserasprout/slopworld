@@ -72,6 +72,12 @@ where
             }
         }
 
+        // Most terminal output is ASCII; it needs no per-character UTF-8 validation.
+        if byte.is_ascii() {
+            out.push(char::from(byte));
+            continue;
+        }
+
         let ch_len = utf8_len(byte);
         let mut ch = [0; 4];
         ch[0] = byte;
@@ -111,6 +117,22 @@ mod tests {
             "blank".to_string(),
         ];
         assert_eq!(strip_sgr_lines(&lines), strip_sgr(&lines.join("\n")));
+    }
+
+    #[test]
+    fn stripping_preserves_ascii_controls_unicode_and_incomplete_escapes() {
+        assert_eq!(
+            strip_sgr("\x1b[32mASCII\t日本語 🦀\x1b[0m\r\n"),
+            "ASCII\t日本語 🦀\r\n"
+        );
+        assert_eq!(strip_sgr("text\x1b"), "text\x1b");
+        assert_eq!(strip_sgr("text\x1b[31"), "text");
+        assert_eq!(strip_sgr("\x1b]0;title\x07prompt"), "prompt");
+        let ascii: String = (0u8..=127)
+            .filter(|byte| *byte != 0x1b)
+            .map(char::from)
+            .collect();
+        assert_eq!(strip_sgr(&ascii), ascii);
     }
 
     #[test]
