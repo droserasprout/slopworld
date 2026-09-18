@@ -16,7 +16,7 @@ pub(crate) async fn one_project(State(m): State<Mgr>, Path(name): Path<String>) 
     m.projects()
         .await
         .into_iter()
-        .find(|p| p.name == name)
+        .find(|p| p.config.name == name)
         .map(|p| Json(json!(p)))
         .ok_or_else(|| {
             err(

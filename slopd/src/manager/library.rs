@@ -15,8 +15,15 @@ pub(super) fn routed_action_label(name: &str) -> Option<String> {
 }
 
 impl Manager {
-    pub async fn projects(&self) -> Vec<ProjectCfg> {
-        self.cfg.read().await.projects.clone()
+    pub async fn projects(&self) -> Vec<ProjectView> {
+        self.cfg
+            .read()
+            .await
+            .projects
+            .iter()
+            .cloned()
+            .map(ProjectView::from)
+            .collect()
     }
 
     pub(super) async fn announce_projects(&self) {

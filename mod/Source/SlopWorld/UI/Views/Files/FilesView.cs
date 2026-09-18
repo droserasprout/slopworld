@@ -368,7 +368,7 @@ namespace SlopWorld
         {
             var info = SessionHub.Instance.Project(project);
             if (info == null || string.IsNullOrEmpty(info.Dir)) return false;
-            string relative = ToProjectRelative(info.Dir, path);
+            string relative = ToProjectRelative(info.ExpandedDir, path);
             if (relative == null) return false;
             var parts = NormalizeRelative(relative);
             if (parts == null || parts.Count == 0) return false;
@@ -415,7 +415,7 @@ namespace SlopWorld
             var info = SessionHub.Instance.Project(project);
             if (info == null || string.IsNullOrEmpty(info.Dir) || string.IsNullOrEmpty(path))
                 return null;
-            return PathScan.ResolveProjectPath(info.Dir, cwd, path);
+            return PathScan.ResolveProjectPath(info.ExpandedDir, cwd, path);
         }
 
         static List<string> NormalizeRelative(string path)
@@ -566,7 +566,7 @@ namespace SlopWorld
 
         static Node Root(string project)
         {
-            var dir = SessionHub.Instance.Project(project)?.Dir ?? "";
+            var dir = SessionHub.Instance.Project(project)?.ExpandedDir ?? "";
 
             // A project whose directory moved is a different tree under the same heading.
             if (Roots.TryGetValue(project, out var root) && root.Path == dir) return root;

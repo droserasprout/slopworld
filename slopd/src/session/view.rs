@@ -4,6 +4,23 @@ use crate::emu::Frame;
 use serde::Serialize;
 use std::sync::Arc;
 
+// Project config remains editable while filesystem consumers use daemon-local expansion.
+#[derive(Debug, Clone, Serialize)]
+pub struct ProjectView {
+    #[serde(flatten)]
+    pub config: crate::config::ProjectCfg,
+    pub expanded_dir: String,
+}
+
+impl From<crate::config::ProjectCfg> for ProjectView {
+    fn from(config: crate::config::ProjectCfg) -> Self {
+        Self {
+            expanded_dir: crate::config::expand(&config.dir),
+            config,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub struct SessionView {
     pub name: String,
@@ -138,6 +155,31 @@ impl ScreenView {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn project_paths_keep_config_and_daemon_expansion_separate() {
+        let config = crate::config::ProjectCfg {
+            name: "repo".into(),
+            dir: "~/repo".into(),
+            ..Default::default()
+        };
+        let expected = dirs::home_dir().unwrap().join("repo");
+        let view = ProjectView::from(config.clone());
+        let wire = serde_json::to_value(&view).unwrap();
+        assert_eq!(wire["name"], "repo");
+        assert_eq!(wire["dir"], "~/repo");
+        assert_eq!(wire["expanded_dir"], expected.to_string_lossy().as_ref());
+        assert!(wire.get("config").is_none());
+        assert!(serde_json::to_value(config)
+            .unwrap()
+            .get("expanded_dir")
+            .is_none());
+        let event = serde_json::to_value(super::super::Event::Projects {
+            projects: vec![view],
+        })
+        .unwrap();
+        assert_eq!(event["projects"][0], wire);
+    }
 
     #[test]
     fn frame_metadata_is_preserved_on_the_wire_view() {

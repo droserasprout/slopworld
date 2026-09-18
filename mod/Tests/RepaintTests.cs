@@ -247,6 +247,7 @@ namespace SlopWorld.Tests
                 k => { k.Buffer = Screen(new[] { 1 }); return k; },
                 k => { k.Session = "b"; return k; },
                 k => { k.Offset++; return k; },
+                k => { k.AltScreen = !k.AltScreen; return k; },
                 k => { k.Theme++; return k; },
                 k => { k.Font++; return k; },
                 k => { k.X++; return k; },

@@ -9,11 +9,13 @@ namespace SlopWorld
         public ScreenBuf Buffer;
         public string Session;
         public int Offset, Theme, Font;
+        public bool AltScreen;
         public float X, Y, Width, Height, CellW, CellH, Lead;
 
         public bool Matches(TerminalCacheKey other) =>
             ReferenceEquals(Buffer, other.Buffer) && Session == other.Session &&
-            Offset == other.Offset && Theme == other.Theme && Font == other.Font &&
+            Offset == other.Offset && AltScreen == other.AltScreen &&
+            Theme == other.Theme && Font == other.Font &&
             X == other.X && Y == other.Y && Width == other.Width && Height == other.Height &&
             CellW == other.CellW && CellH == other.CellH && Lead == other.Lead;
     }

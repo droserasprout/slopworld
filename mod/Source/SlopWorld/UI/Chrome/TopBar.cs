@@ -322,7 +322,7 @@ namespace SlopWorld
             {
                 var hub = SessionHub.Instance;
                 string project = hub.Get(session)?.Project;
-                string root = string.IsNullOrEmpty(project) ? null : hub.Project(project)?.Dir;
+                string root = string.IsNullOrEmpty(project) ? null : hub.Project(project)?.ExpandedDir;
                 return PagerCommands.RelativeFilePath(root, path);
             }
             string title = SessionHub.Instance.Get(session)?.Title;

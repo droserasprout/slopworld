@@ -119,7 +119,7 @@ namespace SlopWorld
 
         string ProjectRoot => _projectRoot != null
             ? _projectRoot()
-            : SessionHub.Instance.Project(_project)?.Dir;
+            : SessionHub.Instance.Project(_project)?.ExpandedDir;
 
         public bool IsInsideProject(string candidate)
         {

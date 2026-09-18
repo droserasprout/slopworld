@@ -12,6 +12,23 @@ namespace SlopWorld.Tests
             yield return ("coalesces and bounds temporary preview retries", CoalescesPreviewRequests);
             yield return ("temporary preview resumes after mode is disabled", ResumesAfterDisable);
             yield return ("round trips and copies project settings", RoundTripsAndCopiesSettings);
+            yield return ("uses daemon expansion for client paths", ExpandsClientPaths);
+        }
+
+        static void ExpandsClientPaths()
+        {
+            var project = ProjectInfo.FromJson(JVal.Parse(
+                "{\"name\":\"repo\",\"dir\":\"~/repo\",\"expanded_dir\":\"/daemon/home/repo\"}"));
+            AssertEx.Equal("/daemon/home/repo", project.ExpandedDir, "daemon home wins");
+            AssertEx.Equal("~/repo", project.Dir, "editable shorthand is retained");
+            AssertEx.Equal(project.ExpandedDir, project.Copy().ExpandedDir, "copy retains metadata");
+            AssertEx.True(JVal.Parse(project.ToJson())["expanded_dir"].IsNull,
+                          "response metadata is not sent in edits");
+            var literal = ProjectInfo.FromJson(JVal.Parse("{\"dir\":\"/work/repo\"}"));
+            AssertEx.Equal("/work/repo", literal.ExpandedDir, "older daemon literal path");
+            var unavailable = ProjectInfo.FromJson(JVal.Parse(
+                "{\"dir\":\"$UNSET/repo\",\"expanded_dir\":\"\"}"));
+            AssertEx.Equal("", unavailable.ExpandedDir, "empty expansion does not fall back");
         }
 
         static void BuildsTemporaryPaths()

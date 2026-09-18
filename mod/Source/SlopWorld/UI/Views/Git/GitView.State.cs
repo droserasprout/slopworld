@@ -247,7 +247,7 @@ namespace SlopWorld
 
         static Repo Get(string project)
         {
-            var dir = SessionHub.Instance.Project(project)?.Dir ?? "";
+            var dir = SessionHub.Instance.Project(project)?.ExpandedDir ?? "";
 
             // A project whose directory moved is a different repository under the same
             // heading, and what was known about the old one is not about this one.

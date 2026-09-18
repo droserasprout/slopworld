@@ -96,6 +96,11 @@ namespace SlopWorld
         // Every agent in this project receives these direct mounts at its next start.
         public List<MountEntry> Mounts = new List<MountEntry>();
 
+        // Resolve on the daemon: the game can have a different home and environment.
+        // Keep Dir verbatim for editing; older daemons still supply literal paths.
+        public string ExpandedDir => _expandedDir ?? Dir;
+        string _expandedDir;
+
         // The daemon is the only owner of temporary root policy. Missing metadata is explicit
         // so the editor does not silently present a compiled daemon path.
         public static string TempRoot => SessionHub.Instance.Config?.TemporaryRoot ?? "";
@@ -104,6 +109,7 @@ namespace SlopWorld
         {
             Name = j["name"].AsString(),
             Dir = j["dir"].AsString(),
+            _expandedDir = j["expanded_dir"].IsNull ? null : j["expanded_dir"].AsString(),
             Temp = j["temp"].AsBool(false),
             Mounts = j["mounts"].IsNull ? new List<MountEntry>() : MountEntry.ListFromJson(j["mounts"]),
         };
@@ -117,6 +123,7 @@ namespace SlopWorld
         {
             Name = Name,
             Dir = Dir,
+            _expandedDir = _expandedDir,
             Temp = Temp,
             Mounts = Mounts.Select(m => new MountEntry { From = m.From, To = m.To, Mode = m.Mode }).ToList(),
         };

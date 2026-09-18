@@ -242,7 +242,7 @@ namespace SlopWorld
                 group.Matches.Add(new Match
                 {
                     Project = project.Name,
-                    Root = project.Dir,
+                    Root = project.ExpandedDir,
                     Path = row["path"].AsString(),
                     Line = row["line"].AsInt(),
                     Column = row["column"].AsInt(),

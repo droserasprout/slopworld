@@ -369,7 +369,7 @@ namespace SlopWorld
         static Repo Known(string project)
         {
             if (string.IsNullOrEmpty(project)) return null;
-            var dir = SessionHub.Instance.Project(project)?.Dir ?? "";
+            var dir = SessionHub.Instance.Project(project)?.ExpandedDir ?? "";
             if (!Repos.TryGetValue(project, out var repo)) return null;
             return repo.Dir == dir && repo.IsRepo && repo.Error == null ? repo : null;
         }

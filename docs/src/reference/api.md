@@ -117,7 +117,9 @@ neither choice cannot run until configured. Repository template names are qualif
 ### Configuration patching
 
 The patch route deep-merges nested JSON, validates the result, and preserves omitted
-fields. Project JSON carries its directory, temporary flag, and shared `mounts`, for example
+fields. Project responses include `expanded_dir`, resolved using the daemon home and environment;
+`dir` retains the editable configuration value. Project JSON carries its directory, temporary
+flag, and shared `mounts`, for example
 `[{"from":"/work/shared","to":"/mnt/shared","mode":"ro"}]`. Mounts store literal paths,
 not project references. Both TOML and API writes use `from` and `to`. Session JSON
 carries direct agent network, DNS, limits, and startup settings. DNS is tagged JSON:
