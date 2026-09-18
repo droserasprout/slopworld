@@ -381,7 +381,7 @@ namespace SlopWorld
                 AgentSidebar.RememberLibrary(line.Item.Name);
                 e.Use();
                 if (line.Item.Kind == LibraryItemKind.Breadcrumb || line.Item.Kind == LibraryItemKind.FileAction)
-                    TerminalWindow.OpenOverPane(new EditLibraryItemDialog(line.Item));
+                    TerminalWindow.OpenOverPane(EditLibraryItemDialog.ForEdit(line.Item));
                 else
                     Run(line.Item);
                 return;
@@ -439,7 +439,7 @@ namespace SlopWorld
                 opts.Add(new UiSubmenu("Run in", () => WhereOptions(s)));
 
             var edit = new FloatMenuOption("Edit...", () =>
-                TerminalWindow.OpenOverPane(new EditLibraryItemDialog(s)));
+                TerminalWindow.OpenOverPane(EditLibraryItemDialog.ForEdit(s)));
             opts.Add(edit);
 
             var duplicate = new FloatMenuOption("Duplicate...", () =>

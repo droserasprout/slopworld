@@ -264,18 +264,18 @@ namespace SlopWorld
             new FloatMenuOption("Agent template...", () =>
                 TerminalWindow.OpenOverPane(EditSessionDialog.EditTemplate())),
             new FloatMenuOption("Prompt...", () =>
-                TerminalWindow.OpenOverPane(new EditLibraryItemDialog(LibraryItemKind.Prompt))),
+                TerminalWindow.OpenOverPane(new EditPromptDialog(null))),
             BreadcrumbAddOption(),
             new FloatMenuOption("Shell...", () =>
-                TerminalWindow.OpenOverPane(new EditLibraryItemDialog(LibraryItemKind.Shell))),
+                TerminalWindow.OpenOverPane(new EditShellDialog(null))),
             new FloatMenuOption("File Action...", () =>
-                TerminalWindow.OpenOverPane(new EditLibraryItemDialog(LibraryItemKind.FileAction))),
+                TerminalWindow.OpenOverPane(new EditFileActionDialog(null))),
         };
 
         static FloatMenuOption BreadcrumbAddOption()
         {
             var option = new FloatMenuOption("Breadcrumb...", () =>
-                TerminalWindow.OpenOverPane(new EditLibraryItemDialog(LibraryItemKind.Breadcrumb)));
+                TerminalWindow.OpenOverPane(new EditBreadcrumbDialog(null)));
             return option;
         }
 
