@@ -53,6 +53,8 @@ namespace SlopWorld
         // The bar's own geometry, kept from `Begin` because it is drawn in `End` - outside
         // the scroll view's group, which is the only place the outer rect means what it says.
         Rect _outer;
+        Rect _measuredOuter;
+        float _contentHeight = -1f;
         IDisposable _focusRegion;
         Vector2 _max;
         bool _bar;
@@ -87,6 +89,8 @@ namespace SlopWorld
         public void Begin(Rect outer, Rect view, bool showScrollbars = true,
                           bool preciseInput = true)
         {
+            _measuredOuter = outer;
+            _contentHeight = view.height;
             var origin = GUIUtility.GUIToScreenPoint(Vector2.zero);
             var max = new Vector2(
                 Mathf.Max(0f, view.width - outer.width),
@@ -125,6 +129,11 @@ namespace SlopWorld
 
         // Flat lists can route a wheel packet using the last measured extent. No row/model
         // traversal, GUI groups or control allocation is needed until the next normal pass.
+        // Flat owners can use their last Begin measurement without maintaining a second
+        // extent cache. Resize falls back to measurement; the first wheel still warms it.
+        public bool HandleWheel(Rect outer) =>
+            outer.Equals(_measuredOuter) && HandleWheel(outer, _contentHeight);
+
         public bool HandleWheel(Rect outer, float contentHeight)
         {
             if (!WheelOnly || contentHeight < 0f) return false;

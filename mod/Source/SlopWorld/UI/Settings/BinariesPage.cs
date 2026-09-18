@@ -177,6 +177,7 @@ namespace SlopWorld
         void DrawCore(Rect rect)
         {
             var inner = SettingsPageLayout.Body(rect);
+            if (_scroll.HandleWheel(inner)) return;
             string caption = "Host commands used, integrated, or recommended by SlopWorld. " +
                 "A checkmark means the executable is on the game's PATH.";
             float width = UiScrollBody.Measure(inner, 0f,
@@ -187,6 +188,8 @@ namespace SlopWorld
                 UiScrollbarReservation.Always);
             using (_scroll.Scope(inner, geometry.View))
             {
+                // Even the first wheel pass must not construct native path fields.
+                if (SmoothScroll.WheelOnly) return;
                 UiText.StatusLabel(new Rect(0f, 0f, geometry.View.width, captionH), caption,
                     UiTheme.Dim);
                 DrawHeader(new Rect(0f, captionH + UiTheme.GapS, geometry.View.width,
@@ -200,7 +203,7 @@ namespace SlopWorld
                 }
                 else
                 {
-                    DrawRows(geometry.View, top);
+                    DrawRows(geometry.View, top, inner.height);
                 }
             }
 
@@ -230,18 +233,28 @@ namespace SlopWorld
             Slab.Hairline(new Rect(r.x, r.yMax - 1f, r.width, 1f), UiTheme.Edge);
         }
 
-        void DrawRows(Rect view, float y)
+        void DrawRows(Rect view, float y, float viewportHeight)
         {
-            foreach (var group in _results.GroupBy(result => result.Spec.Group))
+            float rowH = BinaryRowHeight(view.width);
+            float scrollY = _scroll.Position.y;
+            string focused = GUI.GetNameOfFocusedControl();
+            string group = null;
+            // Inventory order is already grouped. Do not allocate GroupBy iterators for
+            // every IMGUI pass, and keep offscreen native TextEditors out of the hot path.
+            foreach (var result in _results)
             {
-                UiLayout.SectionHeading(new Rect(0f, y, view.width, UiTheme.RowH), group.Key);
-                y += UiTheme.RowH + UiTheme.GapS;
-                foreach (var result in group)
+                if (group != result.Spec.Group)
                 {
-                    DrawRow(new Rect(0f, y, view.width, BinaryRowHeight(view.width)), result);
-                    y += BinaryRowHeight(view.width);
+                    if (group != null) y += UiTheme.GapS;
+                    group = result.Spec.Group;
+                    if (VisibleRows.Intersects(y, UiTheme.RowH, scrollY, viewportHeight))
+                        UiLayout.SectionHeading(new Rect(0f, y, view.width, UiTheme.RowH), group);
+                    y += UiTheme.RowH + UiTheme.GapS;
                 }
-                y += UiTheme.GapS;
+                if (VisibleRows.Intersects(y, rowH, scrollY, viewportHeight) ||
+                    focused == "binaries.path." + result.Spec.Name)
+                    DrawRow(new Rect(0f, y, view.width, rowH), result);
+                y += rowH;
             }
         }
 
@@ -293,10 +306,14 @@ namespace SlopWorld
 
         float ContentHeight(float width)
         {
-            float rows = Inventory
-                .GroupBy(spec => spec.Group)
-                .Sum(group => UiTheme.RowH + UiTheme.GapS +
-                    group.Count() * BinaryRowHeight(width) + UiTheme.GapS);
+            float rows = Inventory.Length * BinaryRowHeight(width);
+            string group = null;
+            foreach (var spec in Inventory)
+            {
+                if (group == spec.Group) continue;
+                group = spec.Group;
+                rows += UiTheme.RowH + UiTheme.GapS * 2f;
+            }
             return Mathf.Max(rows, UiTheme.LineH);
         }
 

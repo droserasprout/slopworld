@@ -6,6 +6,9 @@ namespace SlopWorld
     // Half-open row intervals keep drawing and hit testing on the same viewport boundaries.
     internal static class VisibleRows
     {
+        public static bool Intersects(float rowTop, float rowHeight, float top, float height) =>
+            rowHeight > 0f && height > 0f && rowTop + rowHeight > top && rowTop < top + height;
+
         public static int First(IList<float> ends, float top)
         {
             int lo = 0, hi = ends.Count;

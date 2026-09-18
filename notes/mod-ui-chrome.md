@@ -15,7 +15,9 @@ same viewport clipping. Drag owners must respect `hotControl`, including replaye
 Flat result lists route wheel-only passes through `HandleWheel` using their last measured
 extent before model filtering, layout rebuilding or control allocation. The next normal pass
 refreshes geometry; clicks and scrollbar drags retain normal control IDs. Do not skip nested
-scroll owners. `ScrollWheelRouter` wraps Settings pages outside their field-focus scope and
+scroll owners. Flat owners can call `HandleWheel(outer)` to reuse their last `Begin` extent;
+resize requires fresh measurement. Keep native row controls clipped to visible rows on
+ordinary passes too, retaining a focused read-only field while it is offscreen. `ScrollWheelRouter` wraps Settings pages outside their field-focus scope and
 records the `SmoothScroll` tree on ordinary passes. Wheel passes replay only those regions,
 with current parent translations and inner-first spending, so page measurement and row work
 cannot amplify a touchpad backlog. Bounds/origin changes, failed captures and intervening
@@ -38,3 +40,7 @@ The top bar has both map and terminal draw paths, but only one may handle input.
 outside the active window: use its own rectangles rather than window-relative hover helpers.
 Resource-owning helpers must restore `RenderTexture.active` and release temporary textures
 on failure as well as success.
+
+`TextEntryController` caches stripped native field/area styles by source style and UI metrics,
+checking font identity/size/style as well. Do not clone `GUIStyle` or allocate `RectOffset`
+per field per event: wheel fast paths do not remove ordinary Layout/repaint allocation costs.
