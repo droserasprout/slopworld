@@ -40,6 +40,7 @@ namespace SlopWorld.Tests
             Terminal();
             ScreenIngestion();
             TerminalHotspots();
+            UrlScanning();
             IdleWork();
             EcoWork();
             GC.KeepAlive(_sink);
@@ -116,6 +117,17 @@ namespace SlopWorld.Tests
                         if (batch.ShouldDispatch(i)) dispatched++;
                     return dispatched;
                 });
+        }
+
+        static void UrlScanning()
+        {
+            Measure("URL ordinary", () =>
+                UrlScan.FindUrls("see https://example.com/path here").Count);
+            foreach (int count in new[] { 128, 1024, 4096 })
+            {
+                string text = "https://example.com/path" + new string(')', count);
+                Measure($"URL trailing brackets {count}", () => UrlScan.FindUrls(text).Count);
+            }
         }
 
         static void IdleWork()

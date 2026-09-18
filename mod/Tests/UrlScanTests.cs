@@ -31,6 +31,9 @@ namespace SlopWorld.Tests
             AssertEx.Equal("https://host/path", mixed[0].Url, "capture starts at the scheme");
             AssertEx.Equal(2, mixed[0].Start, "the span starts after the '='");
 
+            AssertEx.Equal("HtTpS://host/path", UrlScan.FindUrls("HtTpS://host/path")[0].Url,
+                           "scheme matching ignores case without changing the target");
+
             // Letters abutting the scheme are pulled into it, so it no longer reads as http.
             AssertEx.True(UrlScan.FindUrls("prefixhttps://host/path") == null,
                           "letters before the scheme poison it");
@@ -54,6 +57,14 @@ namespace SlopWorld.Tests
             var wiki = UrlScan.FindUrls("https://en.wikipedia.org/wiki/Foo_(bar)");
             AssertEx.Equal("https://en.wikipedia.org/wiki/Foo_(bar)", wiki[0].Url,
                            "a paren the url opened is kept");
+
+            string balanced = "https://a.io/([x])";
+            AssertEx.Equal(balanced, UrlScan.FindUrls(balanced + ")].)];!")[0].Url,
+                           "mixed excess brackets and punctuation preserve balanced suffix");
+            AssertEx.Equal("https://a.io/x", UrlScan.FindUrls("https://a.io/x" +
+                new string(')', 4096))[0].Url, "long unmatched suffix is removed");
+            AssertEx.Equal("https://a.io/(x)", UrlScan.FindUrls("https://a.io/(x)]")[0].Url,
+                           "trimming stops at a balanced closer");
         }
 
         static void ParsesOsc()
