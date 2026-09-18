@@ -10,6 +10,17 @@ namespace SlopWorld.Tests
             AssertEx.Equal(9007199254740991L, template.Version, "version does not round through double");
         }
 
+        public static void TemplateLabelsDoNotExposeCaptureParents()
+        {
+            var template = AgentTemplateInfo.FromWire(ProtobufFixtures.Read<Wire.AgentTemplate>(JVal.Parse(@"{
+                ""name"":""reviewer"", ""description"":""Review changes""
+            }")));
+            AssertEx.Equal("reviewer  -  Review changes", template.DisplayLabel,
+                "template labels do not include source agent metadata");
+            var saved = JVal.Parse(template.ToJson(new SessionInfo()));
+            AssertEx.True(saved["origin"].IsNull, "template writes no origin metadata");
+        }
+
         public static void EditingPreservesSnapshotsAndClearsLimits()
         {
             var template = AgentTemplateInfo.FromWire(ProtobufFixtures.Read<Wire.AgentTemplate>(JVal.Parse(@"{

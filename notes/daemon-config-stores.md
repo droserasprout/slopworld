@@ -6,8 +6,8 @@ not read or rewrite daemon TOML directly. Locations and overrides: [paths](ops-p
 
 Personal agent templates are a separate daemon-owned `agent_templates/` store beside
 the main config. `session/agent_templates.rs` owns its typed definition and snapshot rules;
-the manager loads it at startup and serializes mutations atomically. Personal template origin is
-display metadata only. Library items are one file per kind in `prompts/`, `breadcrumbs/`,
+the manager loads it at startup and serializes mutations atomically. Templates retain no parent
+agent or project metadata. Library items are one file per kind in `prompts/`, `breadcrumbs/`,
 `file_actions/`, and `shell_scripts/`; sandboxes, apps, and jukebox stations are likewise
 owned by `sandbox_presets/`, `app_presets/`, and `jukebox/`.
 

@@ -14,8 +14,7 @@ values stay explicit. Capture copies agent choices and their dependency snapshot
 settings and mounts are excluded. Missing/invalid sandbox
 references ignored at launch cannot block capture. Names, labels, mounts,
 state IDs, worker hierarchy, runtime state, and daemon or worker credentials are not template
-fields. Origin records are for display and do not make a
-template depend on its source checkout.
+fields. Templates retain no source-agent or source-project relationship.
 
 Creation copies the snapshots into the new session configuration and `add_template_session`
 allocates a fresh state ID. The destination project supplies mounts at launch; mounts are never
@@ -29,9 +28,10 @@ publish transaction under the template mutation lock. Edit and delete require th
 expected version and reject stale writes with a conflict; create and duplicate require an absent
 destination. Deleting a template never removes instantiated agents or their snapshots.
 
-The template catalog is sourced only from the daemon-owned store beside `config.toml`. Origin
-metadata on captured templates is display-only; catalog reads and mutations never inspect
-project checkouts.
+The template catalog is sourced only from the daemon-owned store beside `config.toml`. Templates
+are standalone recipes; they retain no parent agent or project metadata, and catalog reads and
+mutations never inspect project checkouts. Unknown fields, including removed origin metadata,
+reject a template file rather than being migrated.
 
 `config/resolution.rs` shares snapshot retention across edits and creation and exposes the
 same scalar/dependency resolution used at launch to the root-only settings preview. No live

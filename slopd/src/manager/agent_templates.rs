@@ -133,7 +133,6 @@ impl Manager {
             .ok_or_else(|| crate::session::AgentTemplateError::Missing(source_name.into()))?;
         copy.name = name;
         copy.description = description.trim().to_string();
-        copy.origin.source = "personal".into();
         self.create_agent_template_definition(copy).await
     }
 

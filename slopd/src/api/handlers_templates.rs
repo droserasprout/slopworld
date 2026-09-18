@@ -89,14 +89,13 @@ pub(crate) async fn save_template(
     // session-capture form below remains intentionally small for the existing agent editor.
     let value: serde_json::Value = domain(value)?;
     if value.get("defaults").is_some() {
-        let mut template = crate::api::parse_template(domain(value)?)?;
+        let template = crate::api::parse_template(domain(value)?)?;
         if template.version != 0 {
             return Err(err(
                 StatusCode::BAD_REQUEST,
                 "new agent templates must omit version",
             ));
         }
-        template.origin.source = "personal".into();
         let saved = m
             .create_agent_template_definition(template)
             .await
@@ -124,14 +123,13 @@ pub(crate) async fn replace_template(
     Path(name): Path<String>,
     Proto(value): Proto<wire::AgentTemplate>,
 ) -> ApiResult<wire::TemplateResult> {
-    let mut template = crate::api::parse_template(domain(value)?)?;
+    let template = crate::api::parse_template(domain(value)?)?;
     if template.version == 0 {
         return Err(err(
             StatusCode::BAD_REQUEST,
             "edit requires template version",
         ));
     }
-    template.origin.source = "personal".into();
     let saved = m
         .replace_agent_template_definition(&name, template.version, template)
         .await

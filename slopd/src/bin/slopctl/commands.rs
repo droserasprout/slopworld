@@ -985,10 +985,6 @@ fn print_template(template: &Value) {
 fn print_template_details(template: &Value) {
     print_template(template);
     println!("version  {}", template["version"].as_u64().unwrap_or(0));
-    println!(
-        "source   {}",
-        template["origin"]["source"].as_str().unwrap_or("personal")
-    );
     let defaults = &template["defaults"];
     let command = defaults["command"]["name"].as_str().unwrap_or("");
     let cmd = defaults["cmd"].as_str().unwrap_or("");
