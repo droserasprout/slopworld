@@ -3,6 +3,8 @@
 `SessionHub` coordinates the main-thread services under `Client/SessionHub/`; use their
 owners for session, catalog, task, terminal and audio operations. Cross-service subscription
 and rename handoffs stay on the hub. `DaemonClient` replays HTTP callbacks on the main thread.
+Its completion pump yields after 32 callbacks or roughly 2 ms; individual callbacks remain
+indivisible, so large result handlers still need bounded work.
 
 `HubCatalog` owns the template catalog. The Add Agent editor uses its templates as
 an optional seed while retaining manual creation; the daemon remains the authority for

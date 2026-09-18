@@ -8,6 +8,9 @@ Status arrives before line counts. Both requests share an operation token; late 
 not overwrite newer paths/statuses or discard expansion. Failure leaves the status usable.
 Capped status gives lower-bound counts and skips numstat. Nested repositories are separate
 working trees, not recursively dirty contents of the parent.
+The daemon limits line counting across repositories separately from status reads. Waiting
+for a count slot consumes the optional-count timeout; under load, paths can arrive without
+line counts until a later refresh.
 
 Diffs run on the daemon host in the project's working directory, without private agent state. Untracked
 files need individual no-index diffs against `/dev/null`; a repository diff omits them.
