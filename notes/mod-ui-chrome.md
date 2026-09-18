@@ -15,7 +15,12 @@ same viewport clipping. Drag owners must respect `hotControl`, including replaye
 Flat result lists route wheel-only passes through `HandleWheel` using their last measured
 extent before model filtering, layout rebuilding or control allocation. The next normal pass
 refreshes geometry; clicks and scrollbar drags retain normal control IDs. Do not skip nested
-scroll owners. X11 discovery and valuator queries run on one dedicated background sampler,
+scroll owners. `ScrollWheelRouter` wraps Settings pages outside their field-focus scope and
+records the `SmoothScroll` tree on ordinary passes. Wheel passes replay only those regions,
+with current parent translations and inner-first spending, so page measurement and row work
+cannot amplify a touchpad backlog. Bounds/origin changes, failed captures and intervening
+GUI groups use the ordinary path; page teardown invalidates the snapshot. Other hosts can
+retain a router around renderers whose wheel handling belongs entirely to `SmoothScroll`. X11 discovery and valuator queries run on one dedicated background sampler,
 with at most one request in flight and no queued backlog. IMGUI only consumes the latest
 completed snapshot and falls back to Unity input while sampling is pending. Logical fallback
 invalidates older native motion so late replies cannot move the viewport twice.
