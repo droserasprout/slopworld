@@ -211,7 +211,7 @@ namespace SlopWorld
         };
 
         static void NewLibraryItem(LibraryItemKind kind) =>
-            TerminalWindow.OpenOverPane(new EditLibraryItemDialog(kind));
+            TerminalWindow.OpenOverPane(EditLibraryItemDialog.New(kind));
 
         static List<SubOption> HostShellSub()
         {

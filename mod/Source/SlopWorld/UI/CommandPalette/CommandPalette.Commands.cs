@@ -101,7 +101,7 @@ namespace SlopWorld
             CommandDef.ForLibraryItem("library.edit", "Library: Edit", LibraryManageSub,
                 s =>
                 {
-                    TerminalWindow.OpenOverPane(new EditLibraryItemDialog(s));
+                    TerminalWindow.OpenOverPane(EditLibraryItemDialog.ForEdit(s));
                 }),
             CommandDef.ForLibraryItem("library.delete", "Library: Delete", LibraryManageSub, s =>
             {
