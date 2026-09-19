@@ -1,12 +1,12 @@
 use super::take_json_flag;
 use super::USAGE;
 use crate::commands::{
-    command_help, parse_command, run_agent_create, run_spawn, task_is_terminal, wait_for_task,
-    Command, InboxFilter, SpawnArgs, UpdateAction, ACCEPT_USAGE, AGENT_CREATE_USAGE, AGENT_USAGE,
-    DELEGATE_USAGE, FAIL_USAGE, FINISH_USAGE, INBOX_USAGE, PEERS_USAGE, PROGRESS_USAGE,
-    PRUNE_USAGE, REMOVE_USAGE, SANDBOX_INSPECT_USAGE, SANDBOX_USAGE, SPAWN_USAGE, STATUS_USAGE,
-    TASK_LIST_USAGE, TASK_SHOW_USAGE, TASK_USAGE, TEMPLATES_USAGE, TEMPLATE_SHOW_USAGE,
-    TEMPLATE_USAGE, WAIT_USAGE, WORKER_USAGE,
+    command_help, parse_command, parse_command_with_task_id, run_agent_create, run_spawn,
+    task_is_terminal, wait_for_task, Command, InboxFilter, SpawnArgs, UpdateAction, ACCEPT_USAGE,
+    AGENT_CREATE_USAGE, AGENT_USAGE, DELEGATE_USAGE, FAIL_USAGE, FINISH_USAGE, INBOX_USAGE,
+    PEERS_USAGE, PROGRESS_USAGE, PRUNE_USAGE, REMOVE_USAGE, SANDBOX_INSPECT_USAGE, SANDBOX_USAGE,
+    SPAWN_USAGE, STATUS_USAGE, TASK_LIST_USAGE, TASK_SHOW_USAGE, TASK_USAGE, TEMPLATES_USAGE,
+    TEMPLATE_SHOW_USAGE, TEMPLATE_USAGE, WAIT_USAGE, WORKER_USAGE,
 };
 use crate::http::{request, Endpoint};
 use crate::logs::{
@@ -250,6 +250,52 @@ fn canonical_task_names_take_precedence_over_legacy_task_ids() {
         parse_command(&words("task task-7")),
         Ok(Command::Task {
             id: "task-7".into()
+        })
+    );
+}
+
+#[test]
+fn task_commands_use_the_worker_task_id_when_id_is_omitted() {
+    let task_id = Some("task-7");
+    assert_eq!(
+        parse_command_with_task_id(&words("task show"), task_id),
+        Ok(Command::Task {
+            id: "task-7".into()
+        })
+    );
+    assert_eq!(
+        parse_command_with_task_id(&words("task wait"), task_id),
+        Ok(Command::Wait {
+            id: "task-7".into()
+        })
+    );
+    for command in ["task accept", "task progress", "task finish", "task fail"] {
+        let action = match command.rsplit_once(' ').unwrap().1 {
+            "accept" => UpdateAction::Accept,
+            "progress" => UpdateAction::Progress,
+            "finish" => UpdateAction::Finish,
+            "fail" => UpdateAction::Fail,
+            _ => unreachable!(),
+        };
+        assert_eq!(
+            parse_command_with_task_id(&words(command), task_id),
+            Ok(Command::Update {
+                action,
+                id: "task-7".into(),
+                note: None,
+            })
+        );
+    }
+    assert_eq!(
+        parse_command_with_task_id(&words("task remove"), task_id),
+        Ok(Command::Remove {
+            id: "task-7".into()
+        })
+    );
+    assert_eq!(
+        parse_command_with_task_id(&words("task show other-task"), task_id),
+        Ok(Command::Task {
+            id: "other-task".into()
         })
     );
 }

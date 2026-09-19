@@ -7,6 +7,10 @@ Use a short shipped breadcrumb when the session has working task credentials:
 > `task list` or `status`. Assigned work ends with `slopctl task finish ID` or
 > `slopctl task fail ID`.
 
+Task-owned workers receive `SLOPWORLD_TASK_ID`; inside one, `slopctl` accepts omitted IDs for
+the task lifecycle commands (`show`, `wait`, `accept`, `progress`, `finish`, `fail`, and
+`remove`).
+
 The root caller can create a task-owned child with
 `slopctl worker spawn [--durable] --project PROJECT --template TEMPLATE TASK...`; the caller owns
 the child in the sidebar, while the selected template supplies its configuration.
