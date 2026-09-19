@@ -24,6 +24,8 @@ namespace SlopWorld
         const float PresetsH = 240f;
         Tab _tab;
         string _templateName;
+        string _error;
+        bool _saving;
 
         // Limits are edited as raw strings so a half-typed number is not lost to a reparse each
         // frame; they are parsed back into `_s.Limits` on Save.
@@ -143,7 +145,7 @@ namespace SlopWorld
             var body = SettingsPageLayout.ToRect(layout.Body);
 
             bool enabled = GUI.enabled;
-            GUI.enabled = enabled && !_templateBusy;
+            GUI.enabled = enabled && !_templateBusy && !_saving;
             try
             {
                 switch (_tab)
@@ -177,7 +179,14 @@ namespace SlopWorld
             if (!EditingTemplate && !_identity.IsNew && foot.Left("Save as template", UiTheme.Btn.Ghost))
                 Find.WindowStack.Add(new SaveAgentTemplateDialog(_identity.OriginalName));
             if (foot.Left("Cancel", UiTheme.Btn.Ghost)) Close();
-            if (foot.Right("Save", UiTheme.Btn.Primary, !_templateBusy)) Save();
+            bool save = foot.Right("Save", UiTheme.Btn.Primary, !_templateBusy && !_saving);
+            if (!string.IsNullOrEmpty(_error))
+            {
+                GUI.color = UiTheme.Bad;
+                UiText.RowLabel(foot.Rest(), _error);
+                GUI.color = Color.white;
+            }
+            if (save) Save();
         }
 
         void DrawRail(Rect r) => UiLayout.DrawRail(r, new[]
@@ -190,22 +199,23 @@ namespace SlopWorld
 
         void Save()
         {
-            if (_templateBusy) return;
+            if (_templateBusy || _saving) return;
+            _error = null;
             if (string.IsNullOrWhiteSpace(_s.Name) || (!EditingTemplate && string.IsNullOrEmpty(_s.Project)))
             {
-                UiLayout.Fail(EditingTemplate ? "Template name is required" : "name and project are required");
+                _error = EditingTemplate ? "Template name is required" : "name and project are required";
                 return;
             }
 
             if (!_resourceLimits.TrySave(out var limits, out var limitError))
             {
-                UiLayout.Fail(limitError);
+                _error = limitError;
                 return;
             }
             string dnsError;
             if (!DnsForm.TrySave(_s.Dns, _dnsServers, out dnsError))
             {
-                UiLayout.Fail("DNS: " + dnsError);
+                _error = "DNS: " + dnsError;
                 return;
             }
             _s.Limits = limits;
@@ -231,11 +241,20 @@ namespace SlopWorld
                 }
                 Close();
             };
+            _saving = true;
             if (_identity.IsNew && !string.IsNullOrEmpty(_templateName))
-                SessionHub.Instance.CreateFromTemplate(_templateName, _s, ok, UiLayout.Fail);
+                SessionHub.Instance.CreateFromTemplate(_templateName, _s, ok, SaveFailed);
             else
                 SessionHub.Instance.Save(_s, _identity.IsNew, _identity.OriginalName, ok,
-                    UiLayout.Fail);
+                    SaveFailed);
+        }
+
+        void SaveFailed(string error)
+        {
+            _saving = false;
+            _error = string.IsNullOrWhiteSpace(error)
+                ? "The daemon rejected the save without an error message."
+                : error;
         }
     }
 

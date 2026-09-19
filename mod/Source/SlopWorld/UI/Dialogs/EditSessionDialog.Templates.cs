@@ -102,7 +102,9 @@ namespace SlopWorld
         void TemplateFailed(string error)
         {
             _templateBusy = false;
-            UiLayout.Fail(error);
+            _error = string.IsNullOrWhiteSpace(error)
+                ? "The daemon rejected the save without an error message."
+                : error;
         }
     }
 }
