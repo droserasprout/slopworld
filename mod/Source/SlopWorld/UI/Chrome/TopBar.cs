@@ -116,7 +116,8 @@ namespace SlopWorld
                 UsageReadout.DrawStrip(new Rect(resources, r.y, quota, r.height),
                     Settings.StatusbarUsage, clockPosition == StatusbarClockMode.Right);
 
-            Status(new Rect(r.x + Pad, r.y, Mathf.Max(0f, statusRight - r.x - Pad), r.height));
+            Status(new Rect(r.x + Pad, r.y, Mathf.Max(0f, statusRight - r.x - Pad), r.height),
+                Settings.StatusbarSummaryPosition == StatusbarSummaryMode.Center);
 
             // The line is drawn over the map, and the map takes whatever the buttons did not:
             // without this a press here starts a drag-selection on the ground behind it. Last,
@@ -254,7 +255,7 @@ namespace SlopWorld
         }
 
         // Show the pane's session, or the selected inspect-pane agent when no pane is open.
-        static void Status(Rect r)
+        static void Status(Rect r, bool centered)
         {
             if (r.width <= 40f) return;
 
@@ -263,7 +264,8 @@ namespace SlopWorld
             if (view != null)
             {
                 GUI.color = UiTheme.Lead;
-                UiText.RowLabel(r, view.Title);
+                UiText.RowLabel(r, view.Title,
+                    centered ? TextAnchor.MiddleCenter : TextAnchor.MiddleLeft);
                 GUI.color = Color.white;
                 return;
             }
@@ -276,13 +278,21 @@ namespace SlopWorld
                 GUI.color = UiTheme.Dim;
                 UiText.RowLabel(r, hub.Online
                     ? $"{hub.Sessions.Count} agent{(hub.Sessions.Count == 1 ? "" : "s")}"
-                    : $"daemon {hub.Status}");
+                    : $"daemon {hub.Status}",
+                    centered ? TextAnchor.MiddleCenter : TextAnchor.MiddleLeft);
                 GUI.color = Color.white;
                 return;
             }
 
             var info = hub.Get(session);
             var state = info?.State ?? AgentState.Down;
+            string tail = Tail(session, state);
+
+            if (centered)
+            {
+                CenteredStatus(r, session, state, tail);
+                return;
+            }
 
             // Scale the status marker inset with the row height.
             float inset = Mathf.Round(r.height * 0.27f);
@@ -305,12 +315,51 @@ namespace SlopWorld
                 return;
             }
 
-            string tail = Tail(session, state);
-
             Text.Font = GameFont.Tiny;
             GUI.color = UiTheme.Dim;
             UiText.RowLabel(rest, tail);
             Text.Font = GameFont.Small;
+            GUI.color = Color.white;
+        }
+
+        static void CenteredStatus(Rect r, string session, AgentState state, string tail)
+        {
+            float markerW = UiTheme.StatusMarker;
+            float nameW = UiTheme.Wide(session) + UiTheme.GapXS;
+            Text.Font = GameFont.Tiny;
+            float tailW = UiTheme.Wide(tail);
+            Text.Font = GameFont.Small;
+
+            float gaps = UiTheme.GapS * 2f;
+            float naturalW = markerW + gaps + nameW + tailW;
+            float nameDrawW = nameW;
+            float tailDrawW = tailW;
+            if (naturalW > r.width)
+            {
+                float available = Mathf.Max(0f, r.width - markerW - gaps);
+                nameDrawW = Mathf.Min(nameW, available * 0.55f);
+                tailDrawW = Mathf.Max(0f, available - nameDrawW);
+            }
+            float contentW = markerW + UiTheme.GapS + nameDrawW
+                + (tailDrawW > 0f ? UiTheme.GapS : 0f) + tailDrawW;
+            float x = r.center.x - contentW / 2f;
+
+            float inset = Mathf.Round(r.height * 0.27f);
+            Slab.Fill(new Rect(x, r.y + inset, markerW, r.height - inset * 2f),
+                TerminalWindow.StateColor(state));
+
+            GUI.color = TerminalWindow.StateColor(state);
+            UiText.RowLabel(new Rect(x + markerW + UiTheme.GapS, r.y, nameDrawW, r.height),
+                session);
+
+            if (tailDrawW > 0f)
+            {
+                Text.Font = GameFont.Tiny;
+                GUI.color = UiTheme.Dim;
+                UiText.RowLabel(new Rect(x + markerW + UiTheme.GapS + nameDrawW + UiTheme.GapS,
+                    r.y, tailDrawW, r.height), tail);
+                Text.Font = GameFont.Small;
+            }
             GUI.color = Color.white;
         }
 

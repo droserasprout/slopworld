@@ -22,7 +22,7 @@ namespace SlopWorld
             UiLayout.SectionHeading(l, "Sidebar");
 
             string side = NavigationSide.Normalize(S.sidebarSide);
-            UiControls.Select(l, "Navigation side", NavigationSide.Label(side),
+            UiControls.Select(l, "Sidebar side", NavigationSide.Label(side),
                 new[]
                 {
                     new SelectorOption("Left", () => SetLayout(ref S.sidebarSide,
@@ -31,18 +31,8 @@ namespace SlopWorld
                         NavigationSide.Right)),
                 }, out _);
 
-            string density = UiDensityPreset.Normalize(S.uiDensity);
-            UiControls.Select(l, "Density", UiDensityPreset.Label(density),
-                new[]
-                {
-                    new SelectorOption("Default", () => SetLayout(ref S.uiDensity,
-                        UiDensityPreset.Default)),
-                    new SelectorOption("Compact", () => SetLayout(ref S.uiDensity,
-                        UiDensityPreset.Compact)),
-                }, out _);
-
-            bool visible = UiControls.Checkbox(l, "Show navigation", !S.sidebarHidden,
-                "Keep the workspace navigation visible. Hidden navigation consumes no width.");
+            bool visible = UiControls.Checkbox(l, "Show sidebar", !S.sidebarHidden,
+                "Keep the sidebar visible. Hidden sidebar consumes no width.");
             if (visible == S.sidebarHidden)
             {
                 S.sidebarHidden = !visible;
@@ -54,17 +44,6 @@ namespace SlopWorld
                 ref S.statusbarAgentIndicators,
                 "Show autostart, resume-on-start, and host-network flags in agent rows.");
 
-            if (UiLayout.Button(l, "Reset sidebar layout", UiTheme.Btn.Ghost))
-            {
-                S.sidebarSide = NavigationSide.Left;
-                S.uiDensity = UiDensityPreset.Default;
-                S.sidebarHidden = false;
-                S.sidebarWidth = WorkspaceLayout.DefaultNavigationWidth;
-                S.MarkDirty();
-                AgentSidebar.LayoutChanged();
-            }
-            UiLayout.Note(l, "Reset sidebar layout affects side, density, visibility, and width. " +
-                "The navigation width is still resized from its edge.");
         }
 
         static void SetLayout(ref string field, string value)

@@ -16,8 +16,8 @@ pub const DEFAULT_USAGE_POLL_SECS: u64 = 60;
 pub const DEFAULT_CLAUDE_CREDENTIALS: &str = "~/.claude/.credentials.json";
 pub const DEFAULT_OPENAI_CREDENTIALS: &str = "~/.codex/auth.json";
 pub const DEFAULT_TITLE_MODEL: &str = "google/gemini-3.1-flash-lite";
-pub const DEFAULT_TITLE_MIN_CHARS: usize = 20;
-pub const DEFAULT_SUMMARY_PROMPT: &str = "Summarise this coding request in at most 6 words for a session title. Reply with only the title, without quotes, punctuation, or commentary.";
+pub const DEFAULT_TITLE_MIN_CHARS: usize = 0;
+pub const DEFAULT_SUMMARY_PROMPT: &str = "Summarise this prompt in at most 6 words for a session title. Reply with only the title in sentence case, without quotes, punctuation, or commentary. If prompt is too short to summarize - return it verbatim.";
 
 /// One TOML file, which the mod reads and writes back verbatim, so hand-edits and
 /// in-game edits use the same format.

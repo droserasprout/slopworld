@@ -127,9 +127,8 @@ namespace SlopWorld
                 begun = true;
                 DrawScale(l);
                 DrawDisplay(l);
-                DrawInterface(l);
-                DrawScheme(l);
                 DrawFont(l);
+                DrawScheme(l);
                 DrawCursor(l);
                 _measuredFieldsH = l.CurHeight - rect.y + UiTheme.GapS;
             }
@@ -141,6 +140,8 @@ namespace SlopWorld
 
         void DrawScale(Listing_Standard l)
         {
+            UiLayout.SectionHeading(l, "Layout");
+
             // The knob and the readout follow the hand; the scale itself is not moved until
             // the slider reports an actual mouse-up, because this is the one row whose value
             // decides where the row is drawn. See UiControls.Slider.
@@ -164,53 +165,67 @@ namespace SlopWorld
                 "Use window-manager fullscreen without changing Unity's render mode.");
             if (fullscreen != S.fullscreen) WindowMaximizer.Set(fullscreen);
 
+            string density = UiDensityPreset.Normalize(S.uiDensity);
+            UiControls.Select(l, "Density", UiDensityPreset.Label(density),
+                new[]
+                {
+                    new SelectorOption("Default", () => SetSidebarLayout(ref S.uiDensity,
+                        UiDensityPreset.Default)),
+                    new SelectorOption("Compact", () => SetSidebarLayout(ref S.uiDensity,
+                        UiDensityPreset.Compact)),
+                }, out _);
+
+            if (UiLayout.Button(l, "Reset sidebar layout", UiTheme.Btn.Ghost))
+            {
+                S.sidebarSide = NavigationSide.Left;
+                S.uiDensity = UiDensityPreset.Default;
+                S.sidebarHidden = false;
+                S.sidebarWidth = WorkspaceLayout.DefaultNavigationWidth;
+                S.MarkDirty();
+                AgentSidebar.LayoutChanged();
+            }
+            UiLayout.Note(l, "Reset sidebar layout affects side, density, visibility, and width. "
+                + "The sidebar width is still resized from its edge.");
+
+        }
+
+        static void SetSidebarLayout(ref string field, string value)
+        {
+            if (field == value) return;
+            field = value;
+            S.MarkDirty();
+            AgentSidebar.LayoutChanged();
         }
 
         static void DrawDisplay(Listing_Standard l)
         {
             UiLayout.SectionHeading(l, "Display");
-            string framePacingTip = FramePolicy.Normalize(S.displayMode) == FramePolicy.Limit
+            string mode = FramePolicy.Normalize(S.displayMode);
+            int fps = FramePolicy.Clamp(S.foregroundFps);
+            string framePacingLabel = mode == FramePolicy.Sync ? "VSync" : fps + " FPS";
+            string framePacingTip = mode == FramePolicy.Limit
                 ? "Disables VSync. Lower limits save power; higher limits improve responsiveness."
-                : FramePolicy.Normalize(S.displayMode) == FramePolicy.Sync
-                    ? "VSync follows the display refresh rate for smooth presentation."
-                    : "Preserve the game's frame rate and VSync settings.";
-            if (UiLayout.Button(l, "Frame pacing: " + FramePolicy.Label(S.displayMode),
+                : "VSync follows the display refresh rate for smooth presentation.";
+            if (UiLayout.Button(l, "Frame pacing: " + framePacingLabel,
                     tip: framePacingTip))
-                Find.WindowStack.Add(new UiMenu(new[] { FramePolicy.Game, FramePolicy.Sync, FramePolicy.Limit }
-                    .Select(mode => new FloatMenuOption(FramePolicy.Label(mode), () =>
+            {
+                var options = new List<FloatMenuOption>
+                {
+                    new FloatMenuOption("VSync", () =>
                     {
-                        S.displayMode = mode;
+                        S.displayMode = FramePolicy.Sync;
                         S.MarkDirty();
-                    })).ToList()));
-            if (FramePolicy.Normalize(S.displayMode) == FramePolicy.Limit)
-            {
-                if (UiLayout.Button(l, "FPS limit: " + FramePolicy.Clamp(S.foregroundFps)))
-                    Find.WindowStack.Add(new UiMenu(new[] { 30, 60, 90, 120, 144 }
-                        .Select(fps => new FloatMenuOption(fps + " FPS", () =>
-                        {
-                            S.foregroundFps = fps;
-                            S.MarkDirty();
-                        })).ToList()));
-                UiControls.SliderSetting(l, "Custom FPS", S, ref S.foregroundFps, 30, 360);
+                    })
+                };
+                options.AddRange(FramePolicy.Presets.Select(preset => new FloatMenuOption(
+                    preset + " FPS", () =>
+                    {
+                        S.displayMode = FramePolicy.Limit;
+                        S.foregroundFps = preset;
+                        S.MarkDirty();
+                    })));
+                Find.WindowStack.Add(new UiMenu(options));
             }
-        }
-
-        void DrawInterface(Listing_Standard l)
-        {
-            bool disableTiny = UiControls.Checkbox(l, "DisableTinyText".Translate(),
-                Prefs.DisableTinyText,
-                "Use the Small font everywhere instead of the game's Tiny font.");
-            if (disableTiny != Prefs.DisableTinyText)
-            {
-                Prefs.DisableTinyText = disableTiny;
-                Widgets.ClearLabelCache();
-                GenUI.ClearLabelWidthCache();
-                if (Current.ProgramState == ProgramState.Playing)
-                    Find.ColonistBar.drawer.ClearLabelCache();
-            }
-
-            l.Gap(UiTheme.GapM);
-
         }
 
         void DrawScheme(Listing_Standard l)
@@ -232,6 +247,7 @@ namespace SlopWorld
 
         void DrawFont(Listing_Standard l)
         {
+            UiLayout.SectionHeading(l, "Font");
             var fontOptions = new List<FloatMenuOption>
             {
                 new FloatMenuOption("Automatic", () =>
@@ -262,12 +278,25 @@ namespace SlopWorld
                 _contentRevision++;
             }
 
-            GUI.color = UiTheme.Faint;
-            l.Label(S.uiFontSize == 0
-                ? "At 0pt the original per-tier sizes are kept (Tiny=11, Small=13, Medium=15); "
-                    + "only the face changes."
-                : "Custom size anchors Small; Tiny and Medium stay 2pt below and above it.");
-            GUI.color = Color.white;
+            if (S.uiFontSize == 0)
+            {
+                GUI.color = UiTheme.Faint;
+                l.Label("At 0pt the original per-tier sizes are kept (Tiny=11, Small=13, Medium=15); "
+                    + "only the face changes.");
+                GUI.color = Color.white;
+            }
+
+            bool disableTiny = UiControls.Checkbox(l, "DisableTinyText".Translate(),
+                Prefs.DisableTinyText,
+                "Use the Small font everywhere instead of the game's Tiny font.");
+            if (disableTiny != Prefs.DisableTinyText)
+            {
+                Prefs.DisableTinyText = disableTiny;
+                Widgets.ClearLabelCache();
+                GenUI.ClearLabelWidthCache();
+                if (Current.ProgramState == ProgramState.Playing)
+                    Find.ColonistBar.drawer.ClearLabelCache();
+            }
 
             l.Gap(UiTheme.GapS);
             if (UiLayout.Button(l, "Rescan installed fonts"))

@@ -27,6 +27,13 @@ namespace SlopWorld
             UiControls.CheckboxSetting(l, "Show spent instead of left", S, ref S.usageSpent,
                 "Applies to every provider. Left is the amount remaining; spent is the " +
                 "provider-facing percentage or amount used.");
+            string summaryPosition = StatusbarSummaryMode.Normalize(S.statusbarSummaryPosition);
+            UiControls.Select(l, "Summary position", StatusbarSummaryMode.Label(summaryPosition),
+                new[]
+                {
+                        new SelectorOption("Left", () => SetSummaryPosition(StatusbarSummaryMode.Left)),
+                        new SelectorOption("Center", () => SetSummaryPosition(StatusbarSummaryMode.Center)),
+                }, out _);
             string clockPosition = StatusbarClockMode.Normalize(S.statusbarClockPosition);
             UiControls.Select(l, "Clock position", StatusbarClockMode.Label(clockPosition),
                 new[]
@@ -43,5 +50,8 @@ namespace SlopWorld
 
         static void SetClockPosition(string position)
             => UiControls.SetSetting(S, ref S.statusbarClockPosition, position);
+
+        static void SetSummaryPosition(string position)
+            => UiControls.SetSetting(S, ref S.statusbarSummaryPosition, position);
     }
 }
