@@ -65,7 +65,7 @@ namespace SlopWorld
             return new List<FloatMenuOption>
             {
                 new UiSubmenu(PlayRow(), StationOptions),
-                RecognizeRow(),
+                Radio.Spotify ? new FloatMenuOption("Open Spotify player", Radio.OpenSpotify) : RecognizeRow(),
                 new FloatMenuOption("Like", Radio.Like),
                 new FloatMenuOption("History", JukeboxHistoryView.Open),
                 UiLayout.MenuToggle("Mute", Radio.Muted, Radio.ToggleMute),
@@ -129,6 +129,7 @@ namespace SlopWorld
 
         static string Playing()
         {
+            if (Radio.Spotify) return "Spotify";
             var on = Radio.Picked;
             return on == null ? "OST" : $"{on.Name} {Radio.RateLabel(on.Rate)}";
         }
@@ -141,8 +142,9 @@ namespace SlopWorld
         {
             var options = new List<FloatMenuOption>
             {
-                new FloatMenuOption(Mark("OST", Radio.Picked == null), Radio.PickOst),
+                new FloatMenuOption(Mark("OST", !Radio.Spotify && Radio.Picked == null), Radio.PickOst),
             };
+            options.Add(new FloatMenuOption(Mark("Spotify (ncspot)", Radio.Spotify), Radio.OpenSpotify));
             foreach (var station in Radio.Stations)
             {
                 var s = station; // the closure outlives the loop

@@ -311,6 +311,12 @@ http:
       path: "/api/audio"
       methods: [GET]
       scope: root
+    ncspot:
+      protobuf:
+        POST: [RedrawReq, SessionResult]
+      path: "/api/ncspot"
+      methods: [POST]
+      scope: root
     jukebox:
       protobuf:
         GET: [Empty, JukeboxCatalog]

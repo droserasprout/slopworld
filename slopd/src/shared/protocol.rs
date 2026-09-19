@@ -117,6 +117,7 @@ pub(crate) mod routes {
     pub(crate) const CLIPBOARD_PRIMARY_TEXT: &str = "/api/clipboard/primary/text";
     pub(crate) const USAGE: &str = "/api/usage";
     pub(crate) const AUDIO: &str = "/api/audio";
+    pub(crate) const NCSPOT: &str = "/api/ncspot";
     pub(crate) const JUKEBOX: &str = "/api/jukebox";
     pub(crate) const BROWSE: &str = "/api/browse";
     pub(crate) const FILE_STAT: &str = "/api/files/stat";

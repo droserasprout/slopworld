@@ -14,7 +14,7 @@ namespace SlopWorld
         public ProjectInfo Project(string name) => new ProjectInfo();
     }
 
-    sealed class PagerTestStore
+    sealed partial class PagerTestStore
     {
         public readonly Queue<Action<string>> Pending = new Queue<Action<string>>();
         public int Starts, Stops;

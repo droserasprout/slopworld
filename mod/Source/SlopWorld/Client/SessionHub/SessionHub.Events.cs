@@ -36,7 +36,7 @@ namespace SlopWorld
                 case Wire.Event.PayloadOneofCase.Audio:
                     Radio.Report(ev.Audio.Playing,
                         ev.Audio.Error,
-                        ev.Audio.Title);
+                        ev.Audio.Title, ev.Audio.Source, ev.Audio.Session);
                     break;
 
                 case Wire.Event.PayloadOneofCase.Screen:

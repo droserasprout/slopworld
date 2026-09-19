@@ -30,6 +30,7 @@ pub struct AudioState {
     pub volume: f32,
     pub error: Option<String>,
     pub title: Option<String>,
+    pub session: Option<String>,
 }
 
 enum Cmd {
@@ -237,7 +238,7 @@ pub fn spawn(m: std::sync::Arc<crate::session::Manager>) -> tokio::task::JoinHan
         tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
         loop {
             tick.tick().await;
-            let now = m.audio.state();
+            let now = m.music_state().await;
             if last.as_ref() == Some(&now) {
                 continue;
             }

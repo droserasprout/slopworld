@@ -311,6 +311,8 @@ pub(crate) struct AudioSelection {
     pub(crate) stream: Option<String>,
     #[serde(default)]
     pub(crate) file: Option<String>,
+    #[serde(default)]
+    pub(crate) ncspot: bool,
 }
 
 /// Tells "the key was absent" from "the key was null", which is the difference between a

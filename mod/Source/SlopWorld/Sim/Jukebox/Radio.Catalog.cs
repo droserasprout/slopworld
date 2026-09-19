@@ -173,7 +173,7 @@ namespace SlopWorld
             }
 
             _stations = next.ToArray();
-            if (!_read) return;
+            if (!_read || _spotify) return;
 
             _station = FindSelection(saved);
             string nextSelection = _station?.SelectionKey(_station.Rate);

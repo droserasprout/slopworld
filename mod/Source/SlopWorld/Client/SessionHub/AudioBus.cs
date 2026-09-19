@@ -12,6 +12,7 @@ namespace SlopWorld
             else request.Stop = new Wire.Empty();
             _transport.Send(new Wire.ClientMessage { Audio = request });
         }
+        public void SendSpotify(float volume) => _transport.Send(new Wire.ClientMessage { Audio = new Wire.AudioRequest { Volume = volume, Selection = new Wire.AudioSelection { Ncspot = true } } });
         public void SendVolume(float volume) => _transport.Send(new Wire.ClientMessage { Audio = new Wire.AudioRequest { Volume = volume } });
     }
 }

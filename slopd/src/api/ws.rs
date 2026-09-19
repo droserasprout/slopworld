@@ -235,7 +235,7 @@ async fn send_initial_snapshot(tx: &WsTx, m: &Mgr, cap: &Cap) -> bool {
         // On connect too, and for the same reason: a game that has just come up has to learn
         // whether the music it asked for last time is playing.
         EventMessage::new(Event::Audio {
-            audio: m.audio.state(),
+            audio: m.music_state().await,
         }),
         EventMessage::new(Event::Jukebox {
             jukebox: crate::jukebox::catalog(),
@@ -353,7 +353,13 @@ async fn handle_client_msg(cm: ClientMsg, m: &Mgr, cap: &Cap, tx: &WsTx, subs: &
             ClientMsg::Mouse(req) => handle_mouse(req, m, cap).await,
             ClientMsg::Paste(req) => handle_paste(req, m, cap).await,
             ClientMsg::Breadcrumb(req) => handle_breadcrumb(req, m, cap).await,
-            ClientMsg::Audio(req) => handle_audio(req, m, cap),
+            ClientMsg::Audio(req) => {
+                if let Some(audio) = handle_audio(req, m, cap).await {
+                    // The game may already be closing its read side after sending Stop.
+                    // A failed audio reply must not prevent draining that queued command.
+                    m.emit(Event::Audio { audio });
+                }
+            }
         }
         true
     })
@@ -450,25 +456,69 @@ async fn handle_breadcrumb(req: BreadcrumbReq, m: &Mgr, cap: &Cap) {
     }
 }
 
-fn handle_audio(req: AudioReq, m: &Mgr, cap: &Cap) {
+async fn handle_audio(req: AudioReq, m: &Mgr, cap: &Cap) -> Option<crate::audio::AudioState> {
     if !cap.may_create() {
-        return;
+        return None;
     }
-    match req.selection {
-        Some(Some(selection)) => match resolve_audio_source(selection) {
-            Ok(source) => m.audio.play(&source, req.volume),
-            Err(e) => {
-                let why = format!("{e:#}");
-                tracing::warn!("{why}");
-                m.audio.reject(why);
+    let spotify = req
+        .selection
+        .as_ref()
+        .and_then(Option::as_ref)
+        .is_some_and(|s| s.ncspot);
+    let _transition = m.music_transition.lock().await;
+    let result = match req.selection {
+        Some(Some(selection)) if selection.ncspot => {
+            if selection.station.is_some() || selection.stream.is_some() || selection.file.is_some()
+            {
+                Err(anyhow::anyhow!(
+                    "ncspot cannot be combined with another audio source"
+                ))
+            } else {
+                m.open_ncspot(None, None, Some(req.volume))
+                    .await
+                    .map(|_| ())
             }
+        }
+        Some(selection) => match m.stop_ncspot().await {
+            Err(e) => Err(e),
+            Ok(()) => match selection {
+                Some(s) => match resolve_audio_source(s) {
+                    Ok(source) => {
+                        m.audio.play(&source, req.volume);
+                        Ok(())
+                    }
+                    Err(e) => Err(e),
+                },
+                None => {
+                    m.audio.stop();
+                    Ok(())
+                }
+            },
         },
-        Some(None) => m.audio.stop(),
-        None => m.audio.set_volume(req.volume),
+        None => m.music_volume(req.volume).await,
+    };
+    if let Err(e) = result {
+        let error = format!("{e:#}");
+        m.audio.reject(error.clone());
+        if spotify {
+            return Some(crate::audio::AudioState {
+                source: Some("ncspot".into()),
+                error: Some(error),
+                ..Default::default()
+            });
+        }
+    }
+    // Reply even when the player was already open and its broadcast state did not change.
+    // Launch and shutdown now use one ordered socket; no late HTTP launch can undo a stop.
+    if spotify {
+        Some(m.music_state().await)
+    } else {
+        None
     }
 }
 
 fn resolve_audio_source(selection: AudioSelection) -> anyhow::Result<String> {
+    anyhow::ensure!(!selection.ncspot, "ncspot is not a decoded audio source");
     match (selection.station, selection.stream, selection.file) {
         (Some(station), Some(stream), None) => crate::jukebox::catalog()
             .resolve(&station, &stream)
@@ -532,6 +582,50 @@ mod tests {
     use crate::grant::Grant;
     use crate::session::{ScreenView, SessionView, State};
     use std::collections::HashSet;
+
+    #[tokio::test]
+    async fn rejected_spotify_selection_replies_without_waiting_for_a_state_change() {
+        // Reject advances the process-wide playback generation. Isolate it from the
+        // decoder tests, which deliberately keep a generation alive across assertions.
+        const CHILD: &str = "SLOPWORLD_TEST_SPOTIFY_REPLY";
+        if std::env::var_os(CHILD).is_none() {
+            let output = crate::process::run_bounded(
+                tokio::process::Command::new(std::env::current_exe().unwrap())
+                    .env(CHILD, "1")
+                    .args(["--exact", "api::ws::tests::rejected_spotify_selection_replies_without_waiting_for_a_state_change"]),
+                Duration::from_secs(10),
+                crate::process::CaptureLimits { stdout: 8192, stderr: 8192 },
+            ).await.unwrap();
+            assert!(output.status.success(), "{output:?}");
+            return;
+        }
+        let manager = crate::session::test_manager_with_socket(
+            crate::config::Config::default(),
+            format!("slop-audio-reply-{}", uuid::Uuid::new_v4()),
+        );
+        // Invalid source combinations fail before any external player is launched.
+        // Each attempt still needs a reply so the terminal-open UI can release its latch.
+        for _ in 0..2 {
+            let reply = handle_audio(
+                AudioReq {
+                    selection: Some(Some(AudioSelection {
+                        ncspot: true,
+                        file: Some("/tmp/song.mp3".into()),
+                        station: None,
+                        stream: None,
+                    })),
+                    volume: 0.42,
+                },
+                &manager,
+                &Cap::Root,
+            )
+            .await
+            .unwrap();
+            assert_eq!(reply.source.as_deref(), Some("ncspot"));
+            assert!(reply.error.unwrap().contains("cannot be combined"));
+            assert!(reply.session.is_none());
+        }
+    }
 
     /// Event filtering reads the name and host flag; the rest is filler that
     /// keeps a `SessionView` compiling without pulling in a whole live manager.
@@ -721,6 +815,7 @@ mod tests {
             station: None,
             stream: None,
             file: Some("/tmp/song.mp3".to_string()),
+            ncspot: false,
         };
         assert_eq!(resolve_audio_source(selection).unwrap(), "/tmp/song.mp3");
     }
@@ -740,6 +835,7 @@ mod tests {
                 station: station.map(str::to_string),
                 stream: stream.map(str::to_string),
                 file: file.map(str::to_string),
+                ncspot: false,
             };
             assert!(
                 resolve_audio_source(selection).is_err(),

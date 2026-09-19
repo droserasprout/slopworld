@@ -88,6 +88,7 @@ pub(crate) fn router(m: Mgr) -> Router {
         .route(routes::CLIPBOARD_PRIMARY_TEXT, get(clip_read_primary_text))
         .route(routes::USAGE, get(usage))
         .route(routes::AUDIO, get(audio))
+        .route(routes::NCSPOT, post(ncspot))
         .route(routes::JUKEBOX, get(jukebox))
         .route(routes::BROWSE, get(browse))
         .route(routes::READ, get(read_file))

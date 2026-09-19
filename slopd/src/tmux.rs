@@ -367,6 +367,36 @@ impl Tmux {
         .filter(|path| !path.is_empty())
     }
 
+    pub(crate) async fn mark_ncspot(&self, name: &str) -> Result<()> {
+        self.run(&["set-option", "-t", name, "@slopworld_ncspot", "1"])
+            .await?;
+        Ok(())
+    }
+
+    pub(crate) async fn is_ncspot(&self, name: &str) -> bool {
+        self.option(name, "@slopworld_ncspot").await.as_deref() == Some("1")
+    }
+
+    pub(crate) async fn ncspot_volume(&self, name: &str) -> Option<f32> {
+        self.option(name, "@slopworld_ncspot_volume")
+            .await?
+            .parse::<f32>()
+            .ok()
+            .filter(|volume| (0.0..=1.0).contains(volume))
+    }
+
+    pub(crate) async fn set_ncspot_volume(&self, name: &str, volume: f32) -> Result<()> {
+        self.run(&[
+            "set-option",
+            "-t",
+            name,
+            "@slopworld_ncspot_volume",
+            &volume.to_string(),
+        ])
+        .await?;
+        Ok(())
+    }
+
     async fn option(&self, name: &str, option: &str) -> Option<String> {
         self.run(&["show-options", "-qv", "-t", name, option])
             .await
@@ -885,6 +915,45 @@ for index, mode in enumerate((b'\x1b[?2004h', b'\x1b[?2004l')):
         );
         assert_eq!(parse_host_metadata("0:0:\n"), None);
         assert_eq!(parse_host_metadata(""), None);
+    }
+
+    #[tokio::test]
+    async fn ncspot_marker_survives_new_handle_and_does_not_mark_other_tabs() {
+        let socket = format!("slop-ncspot-{}", uuid::Uuid::new_v4());
+        let tmux = super::Tmux::new(&socket);
+        struct Cleanup(String);
+        impl Drop for Cleanup {
+            fn drop(&mut self) {
+                let _ = std::process::Command::new("tmux")
+                    .args(["-L", &self.0, "kill-server"])
+                    .output();
+            }
+        }
+        let _cleanup = Cleanup(socket.clone());
+        for name in ["player", "other"] {
+            tmux.run(&[
+                "-f",
+                "/dev/null",
+                "new-session",
+                "-d",
+                "-s",
+                name,
+                "-c",
+                "/",
+                "--",
+                "sleep",
+                "60",
+            ])
+            .await
+            .unwrap();
+        }
+        tmux.mark_ncspot("player").await.unwrap();
+        let adopted = super::Tmux::new(&socket);
+        assert!(adopted.is_ncspot("player").await);
+        assert!(!adopted.is_ncspot("other").await);
+        adopted.kill("player").await.unwrap();
+        assert!(!adopted.exists("player").await);
+        assert!(adopted.exists("other").await);
     }
 
     #[tokio::test]
