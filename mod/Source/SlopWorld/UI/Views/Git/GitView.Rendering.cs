@@ -290,7 +290,15 @@ namespace SlopWorld
             }
         }
 
-        public static void Draw(Rect body, bool anchorBoundary = true) => Tree.Draw(body, anchorBoundary);
+        public static void Draw(Rect body, bool anchorBoundary = true)
+        {
+            if (!SmoothScroll.WheelOnly)
+            {
+                RefreshIfDue();
+                FilesView.RefreshReadersIfDue();
+            }
+            Tree.Draw(body, anchorBoundary);
+        }
         // Folding the change tree only changes navigation; keep the active diff visible while
         // the reader opens or closes directories around it.
         public static void Clicks() => Tree.Clicks();
@@ -303,8 +311,15 @@ namespace SlopWorld
 
         static string DiffKey(string rel) => "diff:" + rel;
 
-        public static bool LockViewerFile(string project, string rel) =>
-            Viewers.LockPreview(project, DiffKey(rel));
+        public static bool LockViewerFile(string project, string rel)
+        {
+            if (_pendingDiffProject == project && _pendingDiffRel == rel)
+            {
+                _pinPendingDiff = true;
+                return true;
+            }
+            return Viewers.LockPreview(project, DiffKey(rel));
+        }
 
         public static bool FocusLocation(string project, string rel)
         {
@@ -315,13 +330,11 @@ namespace SlopWorld
             return true;
         }
 
-        // Left on a change: mark it and read its diff. Clicking the one already open just
-        // brings its pane back - a focus change is a *different* row, and only that replaces
-        // the pager.
+        // Row selection asks for current content; routed headers only restore focus.
         static void Open(Node node, Repo repo)
         {
             Tree.Select(node);
-            if (!Viewers.Reopen(repo.Project, DiffKey(node.Rel))) Diff(node, repo);
+            Diff(node, repo);
         }
 
         // One of the hover strip's three, done. The diff is what the row itself does; the
@@ -399,15 +412,20 @@ namespace SlopWorld
 
         public static void DiffAll(string project)
         {
-            var repo = Known(project);
-            if (repo == null || repo.Changed <= 0)
+            CancelPendingDiff();
+            int request = _diffRequest;
+            Fetch(project, () =>
             {
-                UiLayout.Fail("nothing to diff");
-                return;
-            }
-
-            ClearSelection();
-            Viewers.ForPreview().Open(project, DiffCmd(repo, null, null), "diff-" + project);
+                if (request != _diffRequest) return;
+                var repo = Known(project);
+                if (repo == null || repo.Changed <= 0)
+                {
+                    UiLayout.Fail("nothing to diff");
+                    return;
+                }
+                ClearSelection();
+                Viewers.ForPreview().Open(project, DiffCmd(repo, null, null), "diff-" + project);
+            });
         }
 
         // ------------------------------------------------------------------ menus
@@ -435,11 +453,7 @@ namespace SlopWorld
                 // The whole tree's diff, in the same pager one file's opens in. Tracked as
                 // the viewer, so the next row clicked replaces it.
                 if (repo.Changed > 0)
-                    opts.Add(new FloatMenuOption("Diff all", () =>
-                    {
-                        ClearSelection();
-                        Viewers.ForPreview().Open(project, DiffCmd(repo, null, null), "diff-" + project);
-                    }));
+                    opts.Add(new FloatMenuOption("Diff all", () => DiffAll(project)));
             }
 
             FilesView.AddFileActions(opts, project, repo.Dir, project);
@@ -493,31 +507,66 @@ namespace SlopWorld
 
         // ------------------------------------------------------------------ the diff
         //
-        // Diffs run in one Pager session through an ephemeral agent in the project sandbox.
+        // Diffs run in a host pager session using the project's working directory.
 
         // Files delegates diff creation here; both trees expose the same reader headers.
-        public static void OpenDiff(string project, string abs, string label)
+        static int _diffRequest;
+        static string _pendingDiffProject, _pendingDiffRel;
+        static bool _pinPendingDiff;
+
+        internal static void CancelPendingDiff()
         {
-            var repo = Known(project);
-            string rel = repo == null ? null : RelOf(repo, abs);
-            if (repo == null || rel == null || !repo.Changes.TryGetValue(rel, out var status))
-            {
-                UiLayout.Fail($"nothing to diff in {System.IO.Path.GetFileName(abs)}");
-                return;
-            }
-            Tree.SelectKey(ContentTreeView.SelectionKey(project, rel));
-            AgentSidebar.RememberGit(project, rel);
-            if (Viewers.Reopen(project, DiffKey(rel))) return;
-            Viewers.ForPreview().Open(project, DiffCmd(repo, rel, status), label, DiffKey(rel));
+            ++_diffRequest;
+            _pendingDiffProject = _pendingDiffRel = null;
+            _pinPendingDiff = false;
         }
 
-        static void Diff(Node node, Repo repo)
+        public static void OpenDiff(string project, string abs, string label) =>
+            OpenDiff(project, abs, label, false);
+
+        static void OpenDiff(string project, string abs, string label, bool directory)
         {
-            Tree.Select(node);
-            AgentSidebar.RememberGit(repo.Project, node.Rel);
-            if (Viewers.Reopen(repo.Project, DiffKey(node.Rel))) return;
-            Viewers.ForPreview().Open(repo.Project, DiffCmd(repo, node.Rel, node.Status),
-                "diff-" + node.Name, DiffKey(node.Rel));
+            CancelPendingDiff();
+            int request = _diffRequest;
+            _pendingDiffProject = project;
+            var known = Known(project);
+            _pendingDiffRel = known == null ? null : RelOf(known, abs);
+            Fetch(project, () =>
+            {
+                if (request != _diffRequest) return;
+                bool pin = _pinPendingDiff;
+                _pendingDiffProject = _pendingDiffRel = null;
+                _pinPendingDiff = false;
+                var repo = Known(project);
+                string rel = repo == null ? null : RelOf(repo, abs);
+                string status = null;
+                bool changed = rel != null && (directory
+                    ? HasChangesUnder(repo, rel)
+                    : repo.Changes.TryGetValue(rel, out status));
+                if (!changed)
+                {
+                    if (repo != null && !repo.Truncated && rel != null)
+                        Viewers.Invalidate(tab => tab.Owns(project, DiffKey(rel)));
+                    UiLayout.Fail($"nothing to diff in {System.IO.Path.GetFileName(abs)}");
+                    return;
+                }
+                if (directory) ClearSelection();
+                else Tree.SelectKey(ContentTreeView.SelectionKey(project, rel));
+                AgentSidebar.RememberGit(project, rel);
+                Viewers.OpenFresh(project, DiffCmd(repo, rel, status), label, DiffKey(rel));
+                if (pin) Viewers.LockPreview(project, DiffKey(rel));
+            });
+        }
+
+        static void Diff(Node node, Repo repo) =>
+            OpenDiff(repo.Project, Abs(repo, node), "diff-" + node.Name, node.IsDir);
+
+        static bool HasChangesUnder(Repo repo, string rel)
+        {
+            foreach (var path in repo.Changes.Keys)
+                if (path.StartsWith(rel.TrimEnd('/') + "/", System.StringComparison.Ordinal))
+                    return true;
+            return false;
         }
 
         // Use delta as git's pager because daemon errands are argv, not shell pipelines. Force
@@ -547,6 +596,7 @@ namespace SlopWorld
 
         public static void ReleaseViewer()
         {
+            CancelPendingDiff();
             ClearSelection();
             Viewers.ReleasePreview();
         }

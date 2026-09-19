@@ -17,7 +17,7 @@ namespace SlopWorld
         // Who is showing, or null. Read rather than acted on - the two views use it to tell
         // "click the row that is already open" from "click a different one".
         public string Session => _session;
-        public string FilePath => _filePath;
+        public string FilePath => _pendingCommand == null ? _key : _filePath;
 
         // A single-click preview is replaceable until its routed header is double-clicked.
         // Locked previews deliberately remain ephemeral daemon sessions; "locked" is a UI
@@ -31,6 +31,15 @@ namespace SlopWorld
                 var info = _session == null ? null : SessionHub.Instance.Get(_session);
                 return info != null && info.Alive;
             }
+        }
+
+        public bool Owns(string project, string key) =>
+            (_opening || Alive) && _openProject == project && _key == key;
+
+        public void Invalidate()
+        {
+            _locked = false;
+            Release();
         }
 
         public bool Matches(string project, string key)

@@ -4,6 +4,11 @@
 Files' tree geometry and semantic selection helpers, but is not lazy: status supplies a
 flat changed-path set from which the tree is rebuilt. All Git access happens in the daemon.
 
+Visible Files/Git views poll status on a five-second deadline after each completed read.
+Refreshes during a read coalesce into one follow-up; diff selections wait for that fresh
+snapshot and restart the matching pager while retaining its pin. Routed headers only focus
+existing readers. Navigation cancels pending diff selections.
+
 Status arrives before line counts. Both requests share an operation token; late counts must
 not overwrite newer paths/statuses or discard expansion. Failure leaves the status usable.
 Capped status gives lower-bound counts and skips numstat. Nested repositories are separate

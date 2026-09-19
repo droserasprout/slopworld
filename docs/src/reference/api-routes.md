@@ -22,6 +22,7 @@ grant-visible router; handler guards can impose a stricter access requirement.
 | `DELETE` | `/api/files` | `root-only` | `remove_file` | `FileReq` → `Ack` |
 | `POST` | `/api/files` | `root-only` | `create_file` | `FileReq` → `Ack` |
 | `PUT` | `/api/files` | `root-only` | `rename_file` | `FileReq` → `Ack` |
+| `GET` | `/api/files/stat` | `root-only` | `file_stat` | `Empty` → `FileStatResult` |
 | `GET` | `/api/git` | `root-only` | `git_status` | `Empty` → `GitResult` |
 | `GET` | `/api/grants` | `root-only` | `list_grants` | `Empty` → `GrantsReply` |
 | `POST` | `/api/grants` | `root-only` | `mint_grant` | `GrantReq` → `GrantResult` |

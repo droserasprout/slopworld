@@ -131,6 +131,9 @@ pub(crate) fn encode_request(method: &str, path: &str, value: Value) -> anyhow::
     if method == "GET" && matches("/api/browse", path) {
         return Ok(serde_json::from_value::<wire::Empty>(value)?.encode_to_vec());
     }
+    if method == "GET" && matches("/api/files/stat", path) {
+        return Ok(serde_json::from_value::<wire::Empty>(value)?.encode_to_vec());
+    }
     if method == "GET" && matches("/api/read", path) {
         return Ok(serde_json::from_value::<wire::Empty>(value)?.encode_to_vec());
     }
@@ -363,6 +366,9 @@ pub(crate) fn decode_response(method: &str, path: &str, value: &[u8]) -> anyhow:
     }
     if method == "GET" && matches("/api/browse", path) {
         return Ok(serde_json::to_value(wire::BrowseResult::decode(value)?)?);
+    }
+    if method == "GET" && matches("/api/files/stat", path) {
+        return Ok(serde_json::to_value(wire::FileStatResult::decode(value)?)?);
     }
     if method == "GET" && matches("/api/read", path) {
         return Ok(serde_json::to_value(wire::TextResult::decode(value)?)?);
@@ -604,6 +610,9 @@ pub(crate) fn decode_request(method: &str, path: &str, value: &[u8]) -> anyhow::
     if method == "GET" && matches("/api/browse", path) {
         return Ok(serde_json::to_value(wire::Empty::decode(value)?)?);
     }
+    if method == "GET" && matches("/api/files/stat", path) {
+        return Ok(serde_json::to_value(wire::Empty::decode(value)?)?);
+    }
     if method == "GET" && matches("/api/read", path) {
         return Ok(serde_json::to_value(wire::Empty::decode(value)?)?);
     }
@@ -837,6 +846,9 @@ pub(crate) fn encode_response(method: &str, path: &str, value: Value) -> anyhow:
     }
     if method == "GET" && matches("/api/browse", path) {
         return Ok(serde_json::from_value::<wire::BrowseResult>(value)?.encode_to_vec());
+    }
+    if method == "GET" && matches("/api/files/stat", path) {
+        return Ok(serde_json::from_value::<wire::FileStatResult>(value)?.encode_to_vec());
     }
     if method == "GET" && matches("/api/read", path) {
         return Ok(serde_json::from_value::<wire::TextResult>(value)?.encode_to_vec());

@@ -240,6 +240,8 @@ namespace SlopWorld
                 Locked = false;
             }
 
+            public void Invalidate() => Release();
+
             public void CloseIf(string session) { }
 
             public bool CloseTab(string session)

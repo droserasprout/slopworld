@@ -13,8 +13,12 @@ and scrolling; clipped rows must never catch clicks outside their pane.
 
 A viewer has one replaceable preview and independently pinned readers. Reopening the same
 path reuses its reader, including while hidden; concurrent opens share a pending request.
-Tab changes preserve readers. Explicit dismissal may close a pinned reader; ordinary focus
-changes may not. Files supplies view/edit and Git supplies diffs without changing the active tree.
+Tab changes preserve readers. Explicit dismissal and confirmed file removal may close a
+pinned reader; ordinary focus changes may not. While Files or Git is visible, serialized
+`/api/files/stat` probes reconcile source readers independently of tree filters, folds and
+listing caps. Failed probes preserve readers; replies for replaced readers are ignored.
+Create/rename/remove refresh both trees, and rename/remove dismiss affected source readers.
+Files supplies view/edit and Git supplies diffs without changing the active tree.
 Both tabs show the same routed headers, upper scroll position and saved splitter fraction.
 Pager acquisition releases an unpinned native preview; native preview creation releases the
 shared pager preview. Diff keys use a mode prefix so source and diff readers can coexist.

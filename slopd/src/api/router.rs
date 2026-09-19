@@ -91,6 +91,7 @@ pub(crate) fn router(m: Mgr) -> Router {
         .route(routes::JUKEBOX, get(jukebox))
         .route(routes::BROWSE, get(browse))
         .route(routes::READ, get(read_file))
+        .route(routes::FILE_STAT, get(file_stat))
         .route(routes::HIGHLIGHT, post(highlight))
         .route(routes::IMAGE, get(read_image))
         .route(

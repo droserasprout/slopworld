@@ -177,6 +177,7 @@ namespace SlopWorld
 
         static void OpenRouted(string session)
         {
+            GitView.CancelPendingDiff();
             if (FilesView.OpenViewerHeader(session)) return;
             TerminalWindow.Open(session);
         }

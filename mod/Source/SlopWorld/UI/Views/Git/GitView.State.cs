@@ -50,7 +50,9 @@ namespace SlopWorld
             public string Root;         // the repository's, which may be above it
             public string Branch;
             public bool IsRepo = true;
-            public bool Loading;
+            public readonly RefreshQueue Refreshes = new RefreshQueue();
+            public bool Loading => Refreshes.Loading;
+            public float NextRefresh;
             public readonly OperationGate Operations = new OperationGate();
             public bool CountsComplete;
             public string Error;
@@ -236,13 +238,17 @@ namespace SlopWorld
             foreach (var name in ViewChrome.Projects()) Fetch(name);
         }
 
-        // Arriving in the view. Separate from Refresh only in what it does not do: a tree
-        // already asked about is left alone until the reader asks again, so switching back
-        // and forth across a slow repository does not restart the read every time.
-        public static void Entered()
+        // Files also consumes this cache for its Diff actions.
+        public static void Entered() => Refresh();
+
+        internal static void RefreshIfDue()
         {
+            if (!SessionHub.Instance.Online) return;
             foreach (var name in ViewChrome.Projects())
-                if (!Get(name).Asked) Fetch(name);
+            {
+                var repo = Get(name);
+                if (!repo.Loading && Time.realtimeSinceStartup >= repo.NextRefresh) Fetch(name);
+            }
         }
 
         static Repo Get(string project)
@@ -259,12 +265,11 @@ namespace SlopWorld
             return repo;
         }
 
-        static void Fetch(string project)
+        static void Fetch(string project, System.Action refreshed = null)
         {
             var repo = Get(project);
-            if (repo.Loading || string.IsNullOrEmpty(repo.Dir)) return;
-
-            repo.Loading = true;
+            if (string.IsNullOrEmpty(repo.Dir)) { refreshed?.Invoke(); return; }
+            if (!repo.Refreshes.Request(refreshed)) return;
             repo.Error = null;
             BumpTree();
 
@@ -275,7 +280,6 @@ namespace SlopWorld
                 j =>
                 {
                     if (!repo.Operations.IsCurrent(generation) || repo.Dir != dir) return;
-                    repo.Loading = false;
                     repo.Asked = true;
 
                     repo.IsRepo = j.Repo;
@@ -285,6 +289,7 @@ namespace SlopWorld
                         repo.Tree = null;
                         repo.Changed = repo.Added = repo.Deleted = 0;
                         BumpTree();
+                        FinishFetch(project, repo);
                         return;
                     }
 
@@ -296,12 +301,13 @@ namespace SlopWorld
                     repo.Truncated = j.Truncated;
                     repo.Tree = Fold(repo, j.Files);
                     BumpTree();
-                    if (!repo.Truncated && repo.Changed > 0) FetchCounts(repo, generation);
+                    if (!repo.Refreshes.Pending && !repo.Truncated && repo.Changed > 0)
+                        FetchCounts(repo, generation);
+                    FinishFetch(project, repo);
                 },
                 msg =>
                 {
                     if (!repo.Operations.IsCurrent(generation) || repo.Dir != dir) return;
-                    repo.Loading = false;
                     repo.Asked = true;
                     repo.Error = msg;
                     // The tree goes with it: what is drawn is the error alone, and a stale
@@ -316,7 +322,21 @@ namespace SlopWorld
                     repo.Tree = null;
                     repo.Changes.Clear();
                     BumpTree();
+                    FinishFetch(project, repo);
                 }, null, GitRequestTimeoutMs);
+        }
+
+        static void FinishFetch(string project, Repo repo)
+        {
+            repo.NextRefresh = Time.realtimeSinceStartup + 5f;
+            if (!ReferenceEquals(Get(project), repo)) return;
+            var callbacks = repo.Refreshes.Complete();
+            if (callbacks == null)
+            {
+                Fetch(project);
+                return;
+            }
+            foreach (var callback in callbacks) callback();
         }
 
         // Keep the usable status tree if counting fails. A newer refresh owns its own

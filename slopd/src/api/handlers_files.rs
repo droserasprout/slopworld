@@ -264,6 +264,38 @@ pub(crate) async fn browse(
     }))
 }
 
+// Reader lifetime must not infer deletion from filtered or truncated directory listings.
+// Only a definitive missing/non-file result closes a reader; permission and I/O errors retry.
+async fn reader_is_file(path: &Path) -> std::io::Result<bool> {
+    match tokio::fs::metadata(path).await {
+        Ok(metadata) => Ok(metadata.is_file()),
+        Err(error)
+            if matches!(
+                error.kind(),
+                std::io::ErrorKind::NotFound | std::io::ErrorKind::NotADirectory
+            ) =>
+        {
+            Ok(false)
+        }
+        Err(error) => Err(error),
+    }
+}
+
+pub(crate) async fn file_stat(
+    State(_m): State<Mgr>,
+    Query(q): Query<ReadReq>,
+) -> ApiResult<wire::FileStatResult> {
+    let path = &q.path;
+    if path.trim().is_empty() {
+        return Err(err(StatusCode::BAD_REQUEST, "no path"));
+    }
+    let path = std::path::PathBuf::from(crate::config::expand(path));
+    let is_file = reader_is_file(&path)
+        .await
+        .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
+    reply(json!({ "is_file": is_file }))
+}
+
 pub(crate) async fn read_file(
     State(_m): State<Mgr>,
     Query(q): Query<ReadReq>,
@@ -766,4 +798,28 @@ pub(crate) async fn git_status(
             "deleted": c.deleted,
         })).collect::<Vec<_>>(),
     }))
+}
+
+#[cfg(test)]
+mod reader_tests {
+    use super::reader_is_file;
+
+    #[tokio::test]
+    async fn reader_metadata_distinguishes_missing_files_from_read_errors() {
+        let dir = super::super::tests::fixture("reader-metadata");
+        let file = dir.join("hidden.md");
+        tokio::fs::write(&file, "hello").await.unwrap();
+        assert!(reader_is_file(&file).await.unwrap());
+        assert!(!reader_is_file(&dir).await.unwrap());
+        assert!(!reader_is_file(&file.join("child")).await.unwrap());
+        tokio::fs::remove_file(&file).await.unwrap();
+        assert!(!reader_is_file(&file).await.unwrap());
+        // A symlink loop is an I/O error, never evidence to dismiss a pinned tab.
+        #[cfg(unix)]
+        {
+            std::os::unix::fs::symlink("loop", dir.join("loop")).unwrap();
+            assert!(reader_is_file(&dir.join("loop")).await.is_err());
+        }
+        tokio::fs::remove_dir_all(&dir).await.unwrap();
+    }
 }

@@ -323,6 +323,12 @@ http:
       path: "/api/browse"
       methods: [GET]
       scope: root
+    file_stat:
+      protobuf:
+        GET: [Empty, FileStatResult]
+      path: "/api/files/stat"
+      methods: [GET]
+      scope: root
     read:
       protobuf:
         GET: [Empty, TextResult]

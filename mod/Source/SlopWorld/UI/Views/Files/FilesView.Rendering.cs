@@ -13,7 +13,12 @@ namespace SlopWorld
 
         public static void Draw(Rect body, bool anchorBoundary = true)
         {
-            if (!SmoothScroll.WheelOnly) RefreshIfDue();
+            if (!SmoothScroll.WheelOnly)
+            {
+                RefreshIfDue();
+                GitView.RefreshIfDue();
+                RefreshReadersIfDue();
+            }
             Tree.Draw(body, anchorBoundary);
         }
 
@@ -26,6 +31,7 @@ namespace SlopWorld
         // only that replaces the viewer.
         static void Open(Node node)
         {
+            GitView.CancelPendingDiff();
             Tree.Select(node);
             // Marked, and nobody showing it: whatever was in the pane is not about this row.
             if (!IsText(node.Name))
@@ -332,7 +338,11 @@ namespace SlopWorld
             {
                 DaemonClient.Put(WireProtocol.Routes.Files,
                     new Wire.FileReq { Path = node.Path, Name = name },
-                    _ => Reload(), UiLayout.Fail);
+                    _ =>
+                    {
+                        InvalidateReaders(node.Path);
+                        RefreshAfterFileAction();
+                    }, UiLayout.Fail);
             });
 
         static void Remove(Node node)
@@ -342,7 +352,11 @@ namespace SlopWorld
                 $"Remove {what} '{node.Name}'?",
                 () => DaemonClient.Delete(WireProtocol.Routes.Files,
                     new Wire.FileReq { Path = node.Path },
-                    _ => Reload(), UiLayout.Fail),
+                    _ =>
+                    {
+                        InvalidateReaders(node.Path);
+                        RefreshAfterFileAction();
+                    }, UiLayout.Fail),
                 destructive: true));
         }
 
@@ -353,7 +367,7 @@ namespace SlopWorld
             {
                 DaemonClient.Post(WireProtocol.Routes.Files,
                     new Wire.FileReq { Path = node.Path, Name = name, Kind = kind },
-                    _ => Reload(), UiLayout.Fail);
+                    _ => RefreshAfterFileAction(), UiLayout.Fail);
             });
         }
 
@@ -424,6 +438,7 @@ namespace SlopWorld
         // which tree supplied the click. Opening it preserves the active sidebar tab.
         public static void ViewFile(string project, string path, string label, int line = 0)
         {
+            GitView.CancelPendingDiff();
             // A project that has gone takes the mark with it: the tree would otherwise
             // highlight a row nobody is reading.
             if (!string.IsNullOrEmpty(project) && SessionHub.Instance.Project(project) == null)
@@ -492,6 +507,7 @@ namespace SlopWorld
 
         static void ViewSourceFile(string project, string path, string label)
         {
+            GitView.CancelPendingDiff();
             Tree.SelectKey(ContentTreeView.SelectionKey(project, path));
             if (!string.IsNullOrEmpty(project)) AgentSidebar.RememberFile(project, path);
             if (Viewers.Reopen(project, path)) return;
@@ -500,6 +516,7 @@ namespace SlopWorld
 
         public static void EditFile(string project, string path, string label, int line = 0)
         {
+            GitView.CancelPendingDiff();
             if (!string.IsNullOrEmpty(project)) AgentSidebar.RememberFile(project, path);
             if (string.IsNullOrEmpty(project))
             {
@@ -519,8 +536,49 @@ namespace SlopWorld
 
         public static string ViewerPath(string session) => Viewers.FilePath(session);
 
+        static float _nextReaderCheck;
+        static bool _checkingReaders;
+
+        // Probe exact paths independently of tree filters, folds and listing caps. Serialize
+        // these cheap requests so many pinned readers cannot starve foreground browsing.
+        internal static void RefreshReadersIfDue()
+        {
+            if (_checkingReaders || Time.realtimeSinceStartup < _nextReaderCheck ||
+                !SessionHub.Instance.Online) return;
+            _nextReaderCheck = Time.realtimeSinceStartup + 5f;
+            var readers = new Queue<IPreviewTab>();
+            foreach (var tab in Viewers.All)
+                if (!string.IsNullOrEmpty(tab.FilePath)) readers.Enqueue(tab);
+            foreach (var tab in MarkdownViewers.All) readers.Enqueue(tab);
+            _checkingReaders = true;
+            CheckNextReader(readers);
+        }
+
+        static void CheckNextReader(Queue<IPreviewTab> readers)
+        {
+            if (readers.Count == 0) { _checkingReaders = false; return; }
+            var probe = new ReaderProbe(readers.Dequeue());
+            if (string.IsNullOrEmpty(probe.Path)) { CheckNextReader(readers); return; }
+            DaemonClient.Get<Wire.FileStatResult>(WireProtocol.Routes.FileStat +
+                "?path=" + System.Uri.EscapeDataString(probe.Path), result =>
+                {
+                    probe.Apply(result.IsFile);
+                    CheckNextReader(readers);
+                }, _ => CheckNextReader(readers));
+        }
+
+        static void InvalidateReaders(string path)
+        {
+            System.Predicate<IPreviewTab> removed = tab => tab.FilePath == path ||
+                (tab.FilePath != null && tab.FilePath.StartsWith(path.TrimEnd('/') + "/",
+                    System.StringComparison.Ordinal));
+            Viewers.Invalidate(tab => removed(tab));
+            MarkdownViewers.Invalidate(tab => removed(tab));
+        }
+
         public static void ReleaseViewer()
         {
+            GitView.CancelPendingDiff();
             ClearSelection();
             Viewers.ReleasePreview();
             ReleaseMarkdownPreview();
@@ -565,6 +623,7 @@ namespace SlopWorld
 
         public static bool CloseViewerTab(string session)
         {
+            GitView.CancelPendingDiff();
             if (Viewers.CloseTab(session)) return true;
             if (MarkdownViewers.CloseTab(session)) return true;
 

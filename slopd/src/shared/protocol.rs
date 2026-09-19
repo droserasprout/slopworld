@@ -119,6 +119,7 @@ pub(crate) mod routes {
     pub(crate) const AUDIO: &str = "/api/audio";
     pub(crate) const JUKEBOX: &str = "/api/jukebox";
     pub(crate) const BROWSE: &str = "/api/browse";
+    pub(crate) const FILE_STAT: &str = "/api/files/stat";
     pub(crate) const READ: &str = "/api/read";
     pub(crate) const HIGHLIGHT: &str = "/api/highlight";
     pub(crate) const IMAGE: &str = "/api/image";
