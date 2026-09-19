@@ -393,6 +393,51 @@ mod tests {
     }
 
     #[test]
+    fn preparation_uses_captured_presets_like_the_launch_plan() {
+        let root =
+            std::env::temp_dir().join(format!("slopd-snapshot-prep-{}", uuid::Uuid::new_v4()));
+        let host = root.join("private");
+        std::fs::create_dir_all(host.join("prompts")).unwrap();
+        std::fs::write(host.join("auth.json"), "captured auth").unwrap();
+        std::fs::write(host.join("prompts/one.md"), "prompt").unwrap();
+
+        let state_id = uuid::Uuid::new_v4().to_string();
+        let s = SessionCfg {
+            name: "snapshot-agent".into(),
+            state_id: state_id.clone(),
+            project: "p".into(),
+            sandbox: vec!["codex".into()],
+            // This stands in for a pre-change Codex snapshot: it still seeds its private tree,
+            // while the live builtin now describes a shared credential file.
+            sandbox_snapshots: vec![SandboxPreset {
+                name: "codex".into(),
+                private: vec![host.to_string_lossy().into_owned()],
+                seed: vec![host.join("prompts").to_string_lossy().into_owned()],
+                ..Default::default()
+            }],
+            ..Default::default()
+        };
+        let p = ProjectCfg {
+            name: "p".into(),
+            dir: "/tmp".into(),
+            ..Default::default()
+        };
+
+        let mut cfg = Config::default();
+        cfg.defaults.agent = "codex".into();
+        prepare_network(&cfg, &s, &p).expect("snapshot preparation");
+        let copy = private_path(&state_id, host.to_string_lossy().as_ref()).unwrap();
+        assert_eq!(
+            std::fs::read_to_string(copy.join("auth.json")).unwrap(),
+            "captured auth"
+        );
+        assert!(copy.join("prompts/one.md").is_file());
+
+        std::fs::remove_dir_all(root).unwrap();
+        std::fs::remove_dir_all(state_dir(&s).unwrap()).unwrap();
+    }
+
+    #[test]
     fn stored_state_keys_cannot_escape_or_name_the_trash_root() {
         let root = Path::new("/tmp/state-root");
         assert_eq!(direct_child(root, "one").unwrap(), root.join("one"));

@@ -30,7 +30,10 @@ pub fn prepare_network(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result<(
         NetworkMode::None | NetworkMode::Host => {}
     }
 
-    let t = crate::presets::table();
+    // Keep preparation on the same captured definitions as launch-plan construction. A live
+    // preset can change from seeded state to a shared bind (Codex auth did); mixing the tables
+    // leaves a snapshot session with neither the old seed nor the new mount.
+    let t = s.preset_table();
     for pr in presets_for(cfg, s, p, &t) {
         for path in &pr.private {
             let host = expand(path);
