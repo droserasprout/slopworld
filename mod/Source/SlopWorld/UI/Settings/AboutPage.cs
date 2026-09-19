@@ -102,13 +102,11 @@ namespace SlopWorld
             }
         }
 
-        static readonly Credit[] Libraries =
+        static readonly Credit[] DaemonLibraries =
         {
             new Credit("Rust", "language", "https://www.rust-lang.org/"),
             new Credit("Alacritty", "terminal", "https://alacritty.org/"),
             new Credit("Tokio", "async runtime", "https://tokio.rs/"),
-            new Credit("Markdig", "markdown",
-                "https://github.com/xoofx/markdig"),
             new Credit("Rodio / CPAL / Symphonia", "audio", new[]
             {
                 new CreditLink("Rodio", "https://github.com/RustAudio/rodio"),
@@ -129,6 +127,8 @@ namespace SlopWorld
                 new CreditLink("TOML", "https://github.com/toml-rs/toml"),
                 new CreditLink("JSON", "https://github.com/serde-rs/json"),
             }),
+            new Credit("prost", "Protocol Buffers",
+                "https://github.com/tokio-rs/prost"),
             new Credit("tmux", "sessions", "https://github.com/tmux/tmux/wiki"),
             new Credit("bubblewrap", "isolation",
                 "https://github.com/containers/bubblewrap"),
@@ -144,6 +144,20 @@ namespace SlopWorld
             }),
         };
 
+        static readonly Credit[] ClientLibraries =
+        {
+            new Credit("Markdig", "markdown",
+                "https://github.com/xoofx/markdig"),
+            new Credit("Tomlyn", "TOML configs",
+                "https://github.com/xoofx/Tomlyn"),
+            new Credit("Newtonsoft.Json", "JSON",
+                "https://www.newtonsoft.com/json"),
+            new Credit("Google.Protobuf", "Protocol Buffers",
+                "https://github.com/protocolbuffers/protobuf"),
+            new Credit("SongRec", "song identification",
+                "https://github.com/marin-m/SongRec"),
+        };
+
         static readonly Credit[] Assets =
         {
             new Credit("Codicons", "action icons",
@@ -152,6 +166,8 @@ namespace SlopWorld
                 "https://www.nerdfonts.com/"),
             new Credit("Material Icon Theme", "file icons",
                 "https://github.com/material-extensions/vscode-material-icon-theme"),
+            new Credit("Classic Console Neue", "loading font",
+                "https://webdraft.hu/fonts/classic-console/"),
             new Credit("Noto Color Emoji", "emojis",
                 "https://github.com/googlefonts/noto-emoji"),
         };
@@ -543,8 +559,11 @@ namespace SlopWorld
         float DrawLibraries(Rect r, float y)
         {
             y = NextSection(y);
-            y = SectionHeading(r, y, "Libraries", SubheadingTextSize) + HeadingGap;
-            return CreditGrid(r, y, Libraries, 3);
+            y = SectionHeading(r, y, "Daemon", SubheadingTextSize) + HeadingGap;
+            y = CreditGrid(r, y, DaemonLibraries, 3);
+            y = NextSection(y);
+            y = SectionHeading(r, y, "Client", SubheadingTextSize) + HeadingGap;
+            return CreditGrid(r, y, ClientLibraries, 2);
         }
 
         float DrawAssets(Rect r, float y)
