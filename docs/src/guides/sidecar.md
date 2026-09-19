@@ -35,7 +35,8 @@ loopback port (7718 by default). Add more `--workspace` options when needed.
 
 Add credentials to the initial `start` command with
 `--credential-ro SOURCE=TARGET` or `--credential-rw SOURCE=TARGET`.
-For Codex, mount `$HOME/.codex/auth.json` at `/home/slop/.codex/auth.json` read-only.
+For Codex, mount `$HOME/.codex/auth.json` at `/home/slop/.codex/auth.json` read-write so
+refresh-token updates remain shared with the host.
 Claude's rotating `$HOME/.claude/.credentials.json` needs a read-write mount at
 `/home/slop/.claude/.credentials.json`.
 

@@ -15,7 +15,9 @@ respecting the provider-wide cache/rate limit. Missing optional windows must not
 
 Anthropic's rotating credential is a shared bind. Atomic rename over the mount fails, so
 an in-place writer can briefly expose partial JSON; credential reads retry parse failure.
-Credential changes reset backoff. An expired access token alone is not proof of logout.
+Codex's `~/.codex/auth.json` is shared for the same reason: its refresh-token lineage cannot
+be copied per sandbox. Credential changes reset backoff. An expired access token alone is not
+proof of logout.
 
 The Anthropic cache and lock prevent restart/duplicate-process request bursts. Never store
 credentials in that cache. A zero `Retry-After` must not defeat the minimum 429 backoff.

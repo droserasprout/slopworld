@@ -909,6 +909,12 @@ mod tests {
             }
         }
 
+        assert_eq!(
+            t.sandbox("codex").unwrap().shared,
+            vec!["~/.codex/auth.json"],
+            "Codex auth must remain shared so a host refresh reaches every session"
+        );
+
         // A socket whose far end runs on the host, or a display every window shares.
         for name in [
             "docker",
