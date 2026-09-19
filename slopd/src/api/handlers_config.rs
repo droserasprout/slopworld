@@ -42,6 +42,10 @@ pub(crate) async fn capabilities() -> ApiResult<wire::Capabilities> {
     reply(json!(crate::runtime::capabilities()))
 }
 
+pub(crate) async fn whereis() -> ApiResult<wire::WhereIsReply> {
+    reply(json!({ "binaries": crate::runtime::whereis() }))
+}
+
 pub(crate) async fn put_config(
     State(m): State<Mgr>,
     Proto(req): Proto<wire::ReplaceConfigRequest>,

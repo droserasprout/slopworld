@@ -90,6 +90,7 @@ pub(crate) mod routes {
     pub(crate) const TASKS_REMOVE: &str = "/api/tasks/remove";
     pub(crate) const TASK: &str = "/api/tasks/:id";
     pub(crate) const CAPABILITIES: &str = "/api/capabilities";
+    pub(crate) const WHEREIS: &str = "/api/whereis";
     pub(crate) const PROJECTS: &str = "/api/projects";
     pub(crate) const PROJECT_PREVIEW: &str = "/api/projects/preview";
     pub(crate) const PROJECT: &str = "/api/projects/:name";

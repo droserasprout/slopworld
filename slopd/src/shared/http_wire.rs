@@ -50,6 +50,9 @@ pub(crate) fn encode_request(method: &str, path: &str, value: Value) -> anyhow::
     if method == "GET" && matches("/api/capabilities", path) {
         return Ok(serde_json::from_value::<wire::Empty>(value)?.encode_to_vec());
     }
+    if method == "GET" && matches("/api/whereis", path) {
+        return Ok(serde_json::from_value::<wire::Empty>(value)?.encode_to_vec());
+    }
     if method == "GET" && matches("/api/projects", path) {
         return Ok(serde_json::from_value::<wire::Empty>(value)?.encode_to_vec());
     }
@@ -298,6 +301,9 @@ pub(crate) fn decode_response(method: &str, path: &str, value: &[u8]) -> anyhow:
     }
     if method == "GET" && matches("/api/capabilities", path) {
         return Ok(serde_json::to_value(wire::Capabilities::decode(value)?)?);
+    }
+    if method == "GET" && matches("/api/whereis", path) {
+        return Ok(serde_json::to_value(wire::WhereIsReply::decode(value)?)?);
     }
     if method == "GET" && matches("/api/projects", path) {
         return Ok(serde_json::to_value(wire::ProjectsReply::decode(value)?)?);
@@ -555,6 +561,9 @@ pub(crate) fn decode_request(method: &str, path: &str, value: &[u8]) -> anyhow::
     if method == "GET" && matches("/api/capabilities", path) {
         return Ok(serde_json::to_value(wire::Empty::decode(value)?)?);
     }
+    if method == "GET" && matches("/api/whereis", path) {
+        return Ok(serde_json::to_value(wire::Empty::decode(value)?)?);
+    }
     if method == "GET" && matches("/api/projects", path) {
         return Ok(serde_json::to_value(wire::Empty::decode(value)?)?);
     }
@@ -810,6 +819,9 @@ pub(crate) fn encode_response(method: &str, path: &str, value: Value) -> anyhow:
     }
     if method == "GET" && matches("/api/capabilities", path) {
         return Ok(serde_json::from_value::<wire::Capabilities>(value)?.encode_to_vec());
+    }
+    if method == "GET" && matches("/api/whereis", path) {
+        return Ok(serde_json::from_value::<wire::WhereIsReply>(value)?.encode_to_vec());
     }
     if method == "GET" && matches("/api/projects", path) {
         return Ok(serde_json::from_value::<wire::ProjectsReply>(value)?.encode_to_vec());

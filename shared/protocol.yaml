@@ -139,6 +139,12 @@ http:
       path: "/api/capabilities"
       methods: [GET]
       scope: root
+    whereis:
+      protobuf:
+        GET: [Empty, WhereIsReply]
+      path: "/api/whereis"
+      methods: [GET]
+      scope: root
     projects:
       protobuf:
         GET: [Empty, ProjectsReply]

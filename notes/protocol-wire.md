@@ -35,6 +35,9 @@ terminal limits. `/api/usage` and usage events include catalog metadata plus res
 missing values are represented by an absent row window, never a guessed zero. Older daemons that
 omit metadata leave daemon-policy resets/previews unavailable; only independent client safety
 bounds remain local. Advertised terminal ranges are validated before layout or history arithmetic.
+`GET /api/whereis` is a root-only daemon-environment snapshot for Settings; it reports resolved
+executable paths from slopd's effective `PATH`, which can differ from the game's process PATH in
+native service and sidecar deployments.
 
 Worker template source and caller/task parent are distinct. Use explicit worker metadata,
 never name parsing. Host errands are unsandboxed; project errands use the selected project

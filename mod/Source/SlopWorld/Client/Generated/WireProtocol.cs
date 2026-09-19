@@ -31,6 +31,7 @@ namespace SlopWorld
             public const string TasksRemove = "/api/tasks/remove";
             public const string Task = "/api/tasks/:id";
             public const string Capabilities = "/api/capabilities";
+            public const string Whereis = "/api/whereis";
             public const string Projects = "/api/projects";
             public const string ProjectPreview = "/api/projects/preview";
             public const string Project = "/api/projects/:name";
