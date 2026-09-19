@@ -1,0 +1,2 @@
+# Keep the SlopWorld daemon quiet while the game and agent terminals are active.
+{ "name": "slopd", "type": "BG_CPUIO" }

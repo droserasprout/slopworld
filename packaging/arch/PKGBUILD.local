@@ -22,7 +22,7 @@ optdepends=(
   'xclip: clipboard and PRIMARY selection under X11'
   'xsel: clipboard and PRIMARY selection under X11 (fallback)'
 )
-provides=('slopd')
+provides=('slopd' 'ttf-clacon2')
 conflicts=('slopworld-git')
 options=('!strip' '!debug')
 source=()
@@ -107,6 +107,8 @@ package() {
 
   install -Dm644 packaging/slopworld.desktop \
     "$pkgdir/usr/share/applications/slopworld.desktop"
+  install -Dm644 packaging/arch/slopworld.rules \
+    "$pkgdir/etc/ananicy.d/slopworld.rules"
   # The colonists' own face, with a wilted rose growing from the skull.
   install -Dm644 mod/Textures/SlopWorld/SlopWorld_icon.png \
     "$pkgdir/usr/share/icons/hicolor/128x128/apps/slopworld.png"
