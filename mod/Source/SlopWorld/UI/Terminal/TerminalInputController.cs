@@ -130,6 +130,7 @@ namespace SlopWorld
 
         public void HandleChrome(Event e)
         {
+            if (ShortcutHelpWindow.HandleContentKey(e)) return;
             if (e.type != EventType.KeyDown) return;
 
             // A pending Keyboard-page binding owns the next key, including keys normally

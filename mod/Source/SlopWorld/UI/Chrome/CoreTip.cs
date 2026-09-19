@@ -199,6 +199,7 @@ namespace SlopWorld
             var options = new List<FloatMenuOption>
             {
                 new FloatMenuOption("Hint", HintAction),
+                new FloatMenuOption("Keyboard shortcuts", ShortcutHelpWindow.Toggle),
             };
             // Grandma and eco modes: no destruction allowed.
             if (!Settings.GrandmaMode && !Settings.EcoMode)

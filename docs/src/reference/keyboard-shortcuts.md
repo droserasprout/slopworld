@@ -10,7 +10,9 @@ key-bindings settings page. Hardcoded shortcuts are marked below and cannot be r
 | Ctrl+backquote | Command palette | yes (key; Ctrl fixed) |
 | F11 | Toggle window-manager fullscreen | yes |
 | F12 | Open/close terminal | yes |
-| ? | Show keyboard shortcuts on the map | no |
+| ? | Show keyboard shortcuts view on the map | no |
+
+The view is also available as **Keyboard shortcuts** in the computer core menu.
 
 ## Navigation
 

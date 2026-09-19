@@ -6,10 +6,10 @@ using Verse;
 
 namespace SlopWorld
 {
-    // A map-only reference for both live key bindings and shortcuts that deliberately do not
-    // go through KeyBindingDef. It is a window so it can sit over the map, but it never opens
-    // over TerminalWindow: `?` remains a character the agent can receive there.
-    public sealed class ShortcutHelpWindow : UiWindow
+    // A workspace reference for both live key bindings and shortcuts that deliberately do not
+    // go through KeyBindingDef. It shares TerminalWindow's fullscreen chrome with Settings and
+    // terminal views; the map-only `?` shortcut still never competes with an agent pane.
+    public sealed class ShortcutHelpWindow : ContentView
     {
         sealed class ShortcutRow
         {
@@ -35,56 +35,53 @@ namespace SlopWorld
             }
         }
 
-        const float Width = 700f;
-        const float MaxHeight = 760f;
-        const float MinHeight = 360f;
         const float KeyColumnMin = 104f;
         const float KeyColumnMax = 160f;
-        static float PairGap => UiTheme.GapM;
         static float GroupGap => UiTheme.GapXS;
 
         readonly SmoothScroll _scroll = new SmoothScroll();
 
-        ShortcutHelpWindow()
-        {
-            closeOnClickedOutside = true;
-            forcePause = false;
-            preventCameraMotion = true;
-            layer = WindowLayer.Super;
-        }
-
-        protected override bool Closable => false;
+        public override string Title => "Keyboard shortcuts";
 
         public static bool CanOpen => ModProfile.Ok && !Cutscene.Playing &&
             Current.ProgramState == ProgramState.Playing && Find.CurrentMap != null &&
-            Find.WindowStack != null &&
-            Find.WindowStack.WindowOfType<TerminalWindow>() == null;
+            Find.WindowStack != null;
 
         public static void Toggle()
         {
-            var open = Find.WindowStack?.WindowOfType<ShortcutHelpWindow>();
-            if (open != null)
-            {
-                open.Close();
-                return;
-            }
-
             if (!CanOpen) return;
-
-            Find.WindowStack.Add(new ShortcutHelpWindow());
+            TerminalWindow.ToggleContent(() => new ShortcutHelpWindow());
         }
 
         // GameComponentOnGUI sees the map event before WindowStack and before a focused
-        // vanilla control. The terminal check is repeated here as a guard for future callers.
+        // vanilla control. Keep the host guard here too for callers outside TerminalHotkeys.
         public static bool HandleMapKey(Event e)
         {
-            if (e == null || e.type != EventType.KeyDown || !CanOpen || !IsHelpKey(e))
+            if (e == null || e.type != EventType.KeyDown || !CanOpen || !IsHelpKey(e) ||
+                Find.WindowStack?.WindowOfType<TerminalWindow>() != null)
                 return false;
 
             Toggle();
             e.Use();
             return true;
         }
+
+        // Once help is hosted by TerminalWindow, the map component sees the next `?` while
+        // that host is already present. Preserve the old show/hide shortcut without letting
+        // the same key reach a backing agent.
+        public static bool HandleContentKey(Event e)
+        {
+            if (e == null || !IsKeyDown(e) || !IsHelpKey(e) ||
+                TerminalWindow.ShowingAs<ShortcutHelpWindow>() == null)
+                return false;
+
+            Find.WindowStack?.WindowOfType<TerminalWindow>()?.Leave();
+            e.Use();
+            return true;
+        }
+
+        static bool IsKeyDown(Event e) => e.type == EventType.KeyDown ||
+            (e.type == EventType.Used && e.rawType == EventType.KeyDown);
 
         static bool IsHelpKey(Event e)
         {
@@ -94,31 +91,22 @@ namespace SlopWorld
             return e.character == '?' || (e.keyCode == KeyCode.Slash && e.shift);
         }
 
-        public override Vector2 InitialSize
-        {
-            get
-            {
-                float width = Mathf.Min(Width, Mathf.Max(360f, UI.screenWidth - 32f));
-                float height = Mathf.Min(MaxHeight, Mathf.Max(MinHeight, UI.screenHeight - 32f));
-                return new Vector2(width, height);
-            }
-        }
+        public override void Closed() => _scroll.JumpTo(Vector2.zero);
 
-        protected override void SetInitialSizeAndPosition()
+        public override void Draw(Rect body)
         {
-            var size = InitialSize;
-            windowRect = new Rect((UI.screenWidth - size.x) / 2f,
-                (UI.screenHeight - size.y) / 2f, size.x, size.y);
-        }
+            var panel = OptionsView.Band(body);
+            Slab.Box(panel, UiTheme.WindowBg, UiTheme.Edge);
+            var rect = panel.ContractedBy(UiTheme.GapM);
+            UiLayout.Title(rect, Title);
 
-        protected override void DoBody(Rect rect)
-        {
+            var list = new Rect(rect.x, rect.y + UiTheme.HeaderH + UiTheme.GapS,
+                rect.width, Mathf.Max(0f, rect.height - UiTheme.HeaderH - UiTheme.GapS));
             var groups = Groups();
-            var list = rect;
             float keyWidth = KeyWidth(groups, list.width);
             float total = ContentHeight(groups);
-            var view = new Rect(0f, 0f,
-                Mathf.Max(1f, list.width - UiTheme.ScrollbarW), Mathf.Max(total, list.height));
+            var view = new Rect(0f, 0f, Mathf.Max(1f, list.width - UiTheme.ScrollbarW),
+                Mathf.Max(total, list.height));
 
             using (_scroll.Scope(list, view))
             {
@@ -141,9 +129,9 @@ namespace SlopWorld
                         widest = Mathf.Max(widest, UiTheme.Wide(row.Key) +
                             UiTheme.FieldPadX * 2f);
             }
-            float pairWidth = Mathf.Max(1f, (available - PairGap) / 2f);
-            return Mathf.Clamp(widest, KeyColumnMin,
-                Mathf.Min(KeyColumnMax, pairWidth * 0.55f));
+            float minimum = Mathf.Min(KeyColumnMin, Mathf.Max(1f, available));
+            float maximum = Mathf.Min(KeyColumnMax, Mathf.Max(1f, available - UiTheme.GapS));
+            return Mathf.Clamp(widest, minimum, Mathf.Max(minimum, maximum));
         }
 
         static float ContentHeight(List<ShortcutGroup> groups)
@@ -151,7 +139,7 @@ namespace SlopWorld
             float total = 0f;
             foreach (var group in groups)
                 total += UiTheme.TinyRowH +
-                    ((group.Rows.Count + 1) / 2) * UiTheme.PaletteRowH + GroupGap;
+                    group.Rows.Count * UiTheme.PaletteRowH + GroupGap;
             return total;
         }
 
@@ -167,22 +155,16 @@ namespace SlopWorld
             }
             y += UiTheme.TinyRowH;
 
-            float pairWidth = (width - PairGap) / 2f;
-            int rowCount = (group.Rows.Count + 1) / 2;
-            for (int i = 0; i < rowCount; i++)
+            for (int i = 0; i < group.Rows.Count; i++)
             {
-                DrawPair(group.Rows[i * 2], new Rect(0f, y, pairWidth,
-                    UiTheme.PaletteRowH), keyWidth);
-                if (i * 2 + 1 < group.Rows.Count)
-                    DrawPair(group.Rows[i * 2 + 1], new Rect(pairWidth + PairGap, y,
-                        pairWidth, UiTheme.PaletteRowH), keyWidth);
+                DrawRow(group.Rows[i], new Rect(0f, y, width, UiTheme.PaletteRowH), keyWidth);
                 y += UiTheme.PaletteRowH;
             }
 
             return y + GroupGap;
         }
 
-        static void DrawPair(ShortcutRow shortcut, Rect row, float keyWidth)
+        static void DrawRow(ShortcutRow shortcut, Rect row, float keyWidth)
         {
             if (Mouse.IsOver(row)) Slab.Fill(row, UiTheme.RowBg);
 
@@ -244,7 +226,7 @@ namespace SlopWorld
             }));
             groups.Add(new ShortcutGroup("Built-in · Interface", new[]
             {
-                new ShortcutRow("?", "Show or hide this window on the map"),
+                new ShortcutRow("?", "Show or hide this view on the map"),
             }));
             return groups;
         }
