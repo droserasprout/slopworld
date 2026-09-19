@@ -7,12 +7,31 @@ namespace SlopWorld.Tests
     {
         public static IEnumerable<(string Name, Action Body)> Cases()
         {
+            yield return ("refresh during a read waits for a coalesced follow-up", RefreshDuringRead);
             yield return ("operation gate invalidates older tokens", GateTokens);
             yield return ("late callbacks cannot mutate a newer load", LateCallbacks);
             yield return ("invalidation stops loading without a replacement", Invalidate);
             yield return ("current operations accept multiple callbacks", MultipleCallbacks);
             yield return ("failed loads retain the old value but clear availability", OldValuePolicy);
             yield return ("preview fields apply together after the generation check", PreviewFields);
+        }
+
+        static void RefreshDuringRead()
+        {
+            var queue = new RefreshQueue();
+            int completed = 0;
+            AssertEx.True(queue.Request(() => completed++), "first request starts");
+            AssertEx.False(queue.Request(() => completed++), "mutation queues a follow-up");
+            AssertEx.False(queue.Request(), "repeated refresh is coalesced");
+            AssertEx.Equal<Action[]>(null, queue.Complete(), "old snapshot cannot satisfy consumers");
+            AssertEx.Equal(0, completed, "callbacks wait");
+            AssertEx.True(queue.Request(), "one follow-up starts");
+            foreach (var callback in queue.Complete()) callback();
+            AssertEx.Equal(2, completed, "both consumers get the fresh snapshot");
+            AssertEx.False(queue.Loading, "failure or success finishes loading");
+            AssertEx.False(queue.Pending, "no redundant third request");
+            AssertEx.True(queue.Request(), "retry can start after completion");
+            AssertEx.Equal(0, queue.Complete().Length, "callbacks are not retained for retry");
         }
 
         static void GateTokens()

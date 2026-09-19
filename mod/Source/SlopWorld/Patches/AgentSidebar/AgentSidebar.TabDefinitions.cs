@@ -43,6 +43,7 @@ namespace SlopWorld
                         Close = () =>
                         {
                             EndFilesDivider();
+                            GitView.CancelPendingDiff();
                             FilesView.ClearFocus();
                         },
                         Entered = () =>
@@ -50,7 +51,11 @@ namespace SlopWorld
                             FilesView.Entered();
                             GitView.Entered();
                         },
-                        Reselected = FilesView.Entered,
+                        Reselected = () =>
+                        {
+                            FilesView.Entered();
+                            GitView.Refresh();
+                        },
                     }),
                 new SidebarTabDefinition(
                     SidebarTab.Git, "git", "git",
@@ -65,7 +70,11 @@ namespace SlopWorld
                         FilterChanged = GitView.Refresh,
                         SetAllFolds = GitView.SetAllFolded,
                         AllFolded = () => GitView.AllFolded,
-                        Close = EndFilesDivider,
+                        Close = () =>
+                        {
+                            EndFilesDivider();
+                            GitView.CancelPendingDiff();
+                        },
                         Entered = GitView.Refresh,
                         Reselected = GitView.Refresh,
                     }),

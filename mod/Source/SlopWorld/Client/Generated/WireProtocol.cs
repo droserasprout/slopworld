@@ -60,6 +60,7 @@ namespace SlopWorld
             public const string Audio = "/api/audio";
             public const string Jukebox = "/api/jukebox";
             public const string Browse = "/api/browse";
+            public const string FileStat = "/api/files/stat";
             public const string Read = "/api/read";
             public const string Highlight = "/api/highlight";
             public const string Image = "/api/image";

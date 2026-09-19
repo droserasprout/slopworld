@@ -16,8 +16,30 @@ namespace SlopWorld
         bool Lock();
         bool LockPreview(string project, string key);
         void Release();
+        void Invalidate();
         void CloseIf(string session);
         bool CloseTab(string session);
+    }
+
+    // A metadata reply belongs to the reader that requested it, not its reusable slot.
+    sealed class ReaderProbe
+    {
+        readonly IPreviewTab _tab;
+        readonly string _session;
+        public readonly string Path;
+
+        public ReaderProbe(IPreviewTab tab)
+        {
+            _tab = tab;
+            _session = tab.Session;
+            Path = tab.FilePath;
+        }
+
+        public void Apply(bool isFile)
+        {
+            if (!isFile && _tab.FilePath == Path && _tab.Session == _session)
+                _tab.Invalidate();
+        }
     }
 
     class PreviewTabs<T> where T : class, IPreviewTab
@@ -55,6 +77,23 @@ namespace SlopWorld
                 _preview = _create();
             }
             return _preview;
+        }
+
+        // Includes a pending preview, so deletion can cancel its eventual handoff too.
+        public T Find(System.Predicate<T> matches)
+        {
+            RetireDead();
+            if (matches(_preview)) return _preview;
+            return _locked.Find(matches);
+        }
+
+        public void Invalidate(System.Predicate<T> matches)
+        {
+            RetireDead();
+            if (matches(_preview)) _preview.Invalidate();
+            foreach (var tab in _locked)
+                if (matches(tab)) tab.Invalidate();
+            RetireDead();
         }
 
         public bool Reopen(string project, string key)
@@ -181,6 +220,13 @@ namespace SlopWorld
     // routed header. Files and Git share a collection; Search retains its own readers.
     sealed class PagerTabs : PreviewTabs<Pager>
     {
+        public void OpenFresh(string project, string command, string label, string key)
+        {
+            // Replace the process inside the existing tab, retaining its pin and identity.
+            var pager = Find(tab => tab.Owns(project, key)) ?? ForPreview();
+            pager.Open(project, command, label, key);
+        }
+
         public PagerTabs(System.Action beforePreview = null)
             : base(() => new Pager(), beforePreview) { }
     }

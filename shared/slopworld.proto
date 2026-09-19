@@ -611,6 +611,10 @@ message StoredStates {
   repeated StoredState entries = 1;
 }
 
+message FileStatResult {
+  bool is_file = 1;
+}
+
 message BrowseResult {
   string path = 1;
   optional string parent = 2;

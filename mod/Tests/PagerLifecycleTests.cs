@@ -64,11 +64,79 @@ namespace SlopWorld.Tests
     {
         public static IEnumerable<(string Name, Action Body)> Cases()
         {
+            yield return ("fresh diff replaces a pinned reader without duplicating it", FreshDiff);
+            yield return ("deleted readers close pinned and pending sessions", DeletedReaders);
+            yield return ("late file metadata cannot close a replacement reader", LateMetadata);
             yield return ("fresh reader collection has no viewer path", FreshPaths);
             yield return ("pending file clicks share one start", Pending);
             yield return ("pinned files reopen without a new preview", Pinned);
             yield return ("shared file and diff preview replacement preserves pinned readers", SharedReaders);
             yield return ("pending diff cannot reopen the previous file", PendingDiff);
+        }
+
+        static void FreshDiff()
+        {
+            SessionHub.Instance = new SessionHub();
+            var tabs = new PagerTabs();
+            var store = SessionHub.Instance.SessionStore;
+            tabs.OpenFresh("p", "git diff", "diff-one", "diff:one");
+            store.Complete("old");
+            tabs.Lock("old");
+            tabs.ForPreview().ViewFile("p", "/two", "view-two");
+            store.Complete("two");
+            tabs.OpenFresh("p", "git diff", "diff-one", "diff:one");
+            tabs.OpenFresh("p", "git diff", "diff-one", "diff:one");
+            AssertEx.Equal(3, store.Starts, "pending refresh shares its start");
+            AssertEx.Equal(0, store.Stops, "old diff survives until handoff");
+            store.Complete("fresh");
+            AssertEx.True(tabs.IsLocked("fresh"), "pin survives process replacement");
+            AssertEx.True(tabs.IsSession("two"), "other preview remains open");
+            AssertEx.False(tabs.IsSession("old"), "old snapshot retired");
+            AssertEx.Equal(1, store.Stops, "only old diff stopped");
+        }
+
+        static void DeletedReaders()
+        {
+            SessionHub.Instance = new SessionHub();
+            var tabs = new PagerTabs();
+            var store = SessionHub.Instance.SessionStore;
+            tabs.ForPreview().ViewFile("p", "/gone/pinned", "pinned");
+            store.Complete("pinned");
+            tabs.Lock("pinned");
+            tabs.ForPreview().ViewFile("p", "/gone/pending", "pending");
+            tabs.Invalidate(tab => tab.FilePath != null && tab.FilePath.StartsWith("/gone/"));
+            AssertEx.False(tabs.IsSession("pinned"), "deletion overrides pin");
+            store.Complete("late");
+            AssertEx.False(SessionHub.Instance.Get("late").Alive, "late handoff is stopped");
+            AssertEx.Equal(2, store.Stops, "both deleted readers stopped");
+            tabs.ForPreview().ViewFile("p", "/kept", "kept");
+            store.Complete("kept");
+            tabs.Invalidate(tab => tab.FilePath == "/gone");
+            AssertEx.True(tabs.IsSession("kept"), "unrelated reader survives");
+        }
+
+        static void LateMetadata()
+        {
+            SessionHub.Instance = new SessionHub();
+            var pager = new Pager();
+            var store = SessionHub.Instance.SessionStore;
+            pager.ViewFile("p", "/one", "one");
+            store.Complete("one");
+            var probe = new ReaderProbe(pager);
+            pager.ViewFile("p", "/two", "two");
+            probe.Apply(false);
+            store.Complete("two");
+            AssertEx.True(pager.Alive, "old path cannot cancel a pending replacement");
+            pager.ViewFile("p", "/one", "one");
+            store.Complete("new-one");
+            probe.Apply(false);
+            AssertEx.True(pager.Alive, "old session cannot close a reopened path");
+            var current = new ReaderProbe(pager);
+            current.Apply(true);
+            AssertEx.True(pager.Alive, "existing file stays open");
+            pager.Lock();
+            current.Apply(false);
+            AssertEx.False(pager.Alive, "confirmed deletion closes the current pinned reader");
         }
 
         static void FreshPaths()
