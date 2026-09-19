@@ -14,7 +14,8 @@ operation retains the open draft and offers explicit Reload to discard it and re
 the newest catalog. Catalog request revisions suppress stale refresh responses while settling superseded page loads.
 The form replaces the recipe, preserving unspecified choices: deep merging would retain
 cleared fields. Template flags offer Session default; network/DNS are direct agent choices and
-limits use No cap or Custom. Empty custom limits fail validation. Project mounts are selected
+limits use No cap or Custom. Empty custom limits fail validation. Agent and template save
+failures remain visible in the open editor. Project mounts are selected
 in the project editor and are shown in the agent preview. The naming
 capture dialog always saves the agent's persisted customizations, excluding project settings;
 capture never includes project settings. Agent and template limits use
