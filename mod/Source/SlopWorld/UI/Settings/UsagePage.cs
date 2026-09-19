@@ -42,7 +42,7 @@ namespace SlopWorld
             // A page can be reopened while its shared draft is finishing an in-flight save;
             // the old page's load callback is intentionally not replayed into this instance.
             UiLayout.SectionHeading(l, "Usage");
-            l.Label("Global poll interval (s)");
+            l.Label("Global polling interval (seconds)");
             string pollSecs = _configState.DraftText("usage.poll", "daemon.usage_poll_secs",
                 _cfg.UsagePollSecs.ToString());
             pollSecs = UiControls.Field(l, "usage.poll", pollSecs,
@@ -76,6 +76,12 @@ namespace SlopWorld
         UsageCatalogInfo Entry(string key)
         {
             return Catalog().FirstOrDefault(entry => entry.Key == key);
+        }
+
+        string LabelFor(string key)
+        {
+            string label = Entry(key)?.Label;
+            return string.IsNullOrWhiteSpace(label) ? UsageReadout.Long(key) : label;
         }
 
         DaemonConfig.UsageItemConfig EnsureItem(string key)
@@ -170,8 +176,8 @@ namespace SlopWorld
             {
                 new UiTable.Column("Name", 0f, true, TextAnchor.MiddleLeft, UiTheme.GapS),
                 new UiTable.Column("Icon", iconW, false, TextAnchor.MiddleCenter),
-                new UiTable.Column("Poll", pollW, false, TextAnchor.MiddleCenter),
-                new UiTable.Column("Interval (s)", intervalW, false, TextAnchor.MiddleCenter),
+                new UiTable.Column("Polling", pollW, false, TextAnchor.MiddleCenter),
+                new UiTable.Column("Interval (seconds)", intervalW, false, TextAnchor.MiddleCenter),
             };
             return UiTable.Draw(rect, keys, rowH, columns, (key, row, cells) =>
             {
@@ -179,7 +185,7 @@ namespace SlopWorld
                 var name = cells[0];
                 float namePad = Mathf.Min(UiTheme.GapS, name.width);
                 UiText.RowLabel(new Rect(name.x + namePad, name.y,
-                    Mathf.Max(0f, name.width - namePad), name.height), UsageReadout.Long(key));
+                    Mathf.Max(0f, name.width - namePad), name.height), LabelFor(key));
                 DrawIconButton(cells[1], key);
 
                 SetPoll(key, ToggleCell.DrawCheck(cells[2], item.Poll,
@@ -188,7 +194,9 @@ namespace SlopWorld
 
                 var interval = cells[3];
                 float fieldPad = Mathf.Min(UiTheme.GapXS, interval.width / 2f);
-                var field = new Rect(interval.x + fieldPad, interval.y + UiTheme.GapXS,
+                float fieldBlockH = UiTheme.FieldH + UiTheme.GapXS + UiTheme.LineH;
+                float fieldY = interval.y + Mathf.Max(0f, (interval.height - fieldBlockH) / 2f);
+                var field = new Rect(interval.x + fieldPad, fieldY,
                     Mathf.Max(0f, interval.width - fieldPad * 2f), UiTheme.FieldH);
                 string intervalText = DraftInterval(key, item.IntervalSecs);
                 intervalText = UiText.Field(field, "usage.item." + key,
@@ -207,7 +215,7 @@ namespace SlopWorld
             foreach (string key in keys)
             {
                 var item = EnsureItem(key);
-                UiText.RowLabel(new Rect(rect.x, y, rect.width, UiTheme.RowH), UsageReadout.Long(key));
+                UiText.RowLabel(new Rect(rect.x, y, rect.width, UiTheme.RowH), LabelFor(key));
                 y += UiTheme.RowH;
                 float iconW = Mathf.Min(54f, rect.width / 4f);
                 float pollW = Mathf.Min(64f, rect.width / 4f);
@@ -254,7 +262,7 @@ namespace SlopWorld
         {
             UiPickerWindow.Show(0x51_0F_1000 ^ key.GetHashCode(), pageRect,
                 PickerWidth, PickerHeight,
-                UsageReadout.Long(key), () => _pickingKey = null, Choices.Count + 1,
+                LabelFor(key), () => _pickingKey = null, Choices.Count + 1,
                 _pickScroll, grid => DrawPickerGrid(grid, key));
         }
 

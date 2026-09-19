@@ -29,6 +29,16 @@ namespace SlopWorld
         }
     }
 
+    public static class StatusbarSummaryMode
+    {
+        public const string Left = "left";
+        public const string Center = "center";
+
+        public static string Normalize(string mode) => mode == Center ? Center : Left;
+
+        public static string Label(string mode) => Normalize(mode) == Center ? "Center" : "Left";
+    }
+
     public static class TimeFormat
     {
         public const string TwentyFourHour = "24-hour";
@@ -150,6 +160,7 @@ namespace SlopWorld
         // preferences rather than the things' own switches: hiding the Computer Core does
         // not remove it from the map, and hiding Usage does not stop the daemon polling.
         public bool statusbarUsage = true;
+        public string statusbarSummaryPosition = StatusbarSummaryMode.Left;
         public string statusbarClockPosition = StatusbarClockMode.Right;
         public string timeFormat = TimeFormat.TwentyFourHour;
         public bool statusbarJukebox = true;
@@ -171,8 +182,8 @@ namespace SlopWorld
         // Eco.
         public bool ecoMode;
 
-        // Keep the game's foreground policy unless the user chooses a display override.
-        public string displayMode = FramePolicy.Game;
+        // VSync is the default foreground policy; FPS limits are selected from FramePolicy.Presets.
+        public string displayMode = FramePolicy.Sync;
         public int foregroundFps = 60;
 
         // How far the eco backdrop is taken down behind the agents, 0 being the picture as the
@@ -256,6 +267,7 @@ namespace SlopWorld
             Field("radioHiddenSources", (ModSettings s) => ref s.radioHiddenSources, Text, String),
             Field("radioMute", (ModSettings s) => ref s.radioMute, Bool, String),
             Field("statusbarUsage", (ModSettings s) => ref s.statusbarUsage, Bool, String),
+            Field("statusbarSummaryPosition", (ModSettings s) => ref s.statusbarSummaryPosition, Text, String),
             Field("statusbarClockPosition", (ModSettings s) => ref s.statusbarClockPosition, Text, String),
             Field("timeFormat", (ModSettings s) => ref s.timeFormat, Text, String),
             Field("statusbarJukebox", (ModSettings s) => ref s.statusbarJukebox, Bool, String),
@@ -373,6 +385,8 @@ namespace SlopWorld
         public static string RadioHiddenSources => S.radioHiddenSources ?? "";
         public static bool RadioMute => S.radioMute;
         public static bool StatusbarUsage => S.statusbarUsage;
+        public static string StatusbarSummaryPosition =>
+            StatusbarSummaryMode.Normalize(S.statusbarSummaryPosition);
         public static string StatusbarClockPosition =>
             StatusbarClockMode.Normalize(S.statusbarClockPosition);
         public static string TimeFormat => SlopWorld.TimeFormat.Normalize(S.timeFormat);
