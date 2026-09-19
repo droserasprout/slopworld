@@ -35,19 +35,21 @@ fn launch_command(root: &Path) -> String {
 
 impl Manager {
     // Called after startup adoption and before serving requests. Recovery must not send
-    // a default volume to a player that kept running while the daemon was down.
+    // a default volume to a player with a saved applied volume. A missing marker means
+    // IPC may never have become ready before shutdown, so volume still needs applying.
     pub(super) async fn recover_ncspot(&self, root: &Path) {
         let mut player = self.ncspot.lock().await;
         if player.session.is_some() {
             return;
         }
         if let Some(session) = self.adopted_ncspot().await {
-            let volume = self.tmux.ncspot_volume(&session).await.unwrap_or(1.0);
+            let applied_volume = self.tmux.ncspot_volume(&session).await;
+            let volume = applied_volume.unwrap_or(1.0);
             *player = Player {
                 session: Some(session),
                 socket: Some(root.join("slopworld-ncspot/ncspot/ncspot.sock")),
                 volume,
-                applied_volume: Some(volume),
+                applied_volume,
             };
         }
     }
@@ -205,17 +207,23 @@ impl Manager {
     }
 }
 
+// ncspot uses floor(u16::MAX / 100) per percent: 100 steps leave 35 units.
+// A separate one-percent command reaches the endpoint without overflowing its u16
+// multiplication (a single 101-percent command would overflow).
+fn volume_commands(volume: f32) -> String {
+    let percent = (volume.clamp(0.0, 1.0) * 100.0).round() as u32;
+    let mut commands = format!("voldown 100\nvoldown 1\nvolup {percent}\n");
+    if percent == 100 {
+        commands.push_str("volup 1\n");
+    }
+    commands
+}
+
 async fn snapshot(socket: &Path, volume: Option<f32>) -> Result<(bool, Option<String>)> {
     tokio::time::timeout(Duration::from_millis(250), async {
         let mut stream = tokio::net::UnixStream::connect(socket).await?;
         if let Some(volume) = volume {
-            // ncspot exposes relative volume commands only. Reset then raise to the game's
-            // absolute percentage, once per slider change (never once per status poll).
-            stream
-                .write_all(
-                    format!("voldown 100\nvolup {}\n", (volume * 100.0).round() as u32).as_bytes(),
-                )
-                .await?;
+            stream.write_all(volume_commands(volume).as_bytes()).await?;
         }
         let mut line = String::new();
         BufReader::new(stream)
@@ -256,8 +264,43 @@ fn parse_status(line: &str) -> Result<(bool, Option<String>)> {
 mod tests {
     use super::*;
 
+    #[test]
+    fn relative_commands_reach_volume_endpoints_from_any_start() {
+        for initial in [0, 35, 32768, u16::MAX] {
+            for target in [0.0, 0.42, 1.0] {
+                let mut actual = initial;
+                for line in volume_commands(target).lines() {
+                    let (command, amount) = line.split_once(' ').unwrap();
+                    let delta = (u16::MAX / 100)
+                        .checked_mul(amount.parse().unwrap())
+                        .unwrap();
+                    actual = match command {
+                        "voldown" => actual.saturating_sub(delta),
+                        "volup" => actual.saturating_add(delta),
+                        _ => panic!("unexpected volume command"),
+                    };
+                }
+                let expected = if target == 1.0 {
+                    u16::MAX
+                } else {
+                    (u16::MAX / 100) * (target * 100.0).round() as u16
+                };
+                assert_eq!(actual, expected, "initial={initial}, target={target}");
+            }
+        }
+    }
+
     #[tokio::test]
     async fn recovery_reports_surviving_player_without_changing_its_volume() {
+        check_recovery(Some(0.42)).await;
+    }
+
+    #[tokio::test]
+    async fn recovery_applies_volume_when_no_applied_marker_exists() {
+        check_recovery(None).await;
+    }
+
+    async fn check_recovery(saved_volume: Option<f32>) {
         let id = uuid::Uuid::new_v4();
         let tmux_socket = format!("slop-ncspot-recovery-{id}");
         let root = std::env::temp_dir().join(format!("ncspot-recovery-{id}"));
@@ -294,7 +337,9 @@ mod tests {
             String::from_utf8_lossy(&output.stderr)
         );
         let old_tmux = crate::tmux::Tmux::new(&tmux_socket);
-        old_tmux.set_ncspot_volume("player", 0.42).await.unwrap();
+        if let Some(volume) = saved_volume {
+            old_tmux.set_ncspot_volume("player", volume).await.unwrap();
+        }
 
         let socket_dir = root.join("slopworld-ncspot/ncspot");
         tokio::fs::create_dir_all(&socket_dir).await.unwrap();
@@ -309,9 +354,15 @@ mod tests {
                 .unwrap();
             let mut commands = Vec::new();
             stream.read_to_end(&mut commands).await.unwrap();
-            assert!(
-                commands.is_empty(),
-                "recovery must not change the player's volume"
+            let expected = if saved_volume.is_some() {
+                String::new()
+            } else {
+                volume_commands(1.0)
+            };
+            assert_eq!(
+                commands,
+                expected.as_bytes(),
+                "recovery preserves applied volume but initializes an unapplied volume"
             );
         });
 
@@ -331,7 +382,7 @@ mod tests {
         assert_eq!(state.source.as_deref(), Some("ncspot"));
         assert_eq!(state.session.as_deref(), Some("player"));
         assert_eq!(state.title.as_deref(), Some("Surviving song"));
-        assert_eq!(state.volume, 0.42);
+        assert_eq!(state.volume, saved_volume.unwrap_or(1.0));
         server.await.unwrap();
         manager.stop_ncspot().await.unwrap();
         assert!(!manager.tmux.exists("player").await);
@@ -350,7 +401,8 @@ mod tests {
             let mut command = String::new();
             stream.read_line(&mut command).await.unwrap();
             stream.read_line(&mut command).await.unwrap();
-            assert_eq!(command, "voldown 100\nvolup 42\n");
+            stream.read_line(&mut command).await.unwrap();
+            assert_eq!(command, "voldown 100\nvoldown 1\nvolup 42\n");
             stream.get_mut().write_all(b"{\"mode\":{\"Playing\":{}},\"playable\":{\"title\":\"Song\",\"artists\":[\"A\",\"B\"]}}\n").await.unwrap();
         });
         assert_eq!(
