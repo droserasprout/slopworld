@@ -18,8 +18,9 @@ pub(crate) const SPAWN_USAGE: &str = "usage:
   slopctl worker spawn [--durable] --project PROJECT --template TEMPLATE [--] TASK...
   slopctl spawn [--durable] --project PROJECT --template TEMPLATE [--] TASK...
 
-create a task-owned worker from an enabled agent template. The worker receives
-the task body and its exact task id. --durable keeps the child session after
+create a task-owned worker from an agent template. Scoped callers may use only
+templates enabled by worker policy. The worker receives the task body and its exact task id.
+--durable keeps the child session after
 exit. Options end before TASK; spawn is the short spelling.
 Use -- before task text that starts with an option, such as --durable.
 

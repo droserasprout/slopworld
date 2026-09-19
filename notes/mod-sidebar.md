@@ -17,10 +17,11 @@ handoffs change routed rows locally. Routed headers and tree viewports must shar
 Files/Git's shared draggable split retains independent scroll owners and a stable tree boundary when
 headers change. See [Files](mod-ui-files.md).
 
-Worker hierarchy comes from explicit daemon metadata, never names. Agent and project menus and
-session gizmos open the template-based Spawn Worker dialog; project actions default to the host
-caller and can select an agent, while agent actions supply that context. Host/ephemeral/worker
-rows are not ordinary colonists or part of project agent counts. A short-lived session rename
+Worker hierarchy comes from explicit daemon metadata, never names. The plus menu's Worker action
+opens the template-based Spawn Worker dialog by project; project and agent context menus retain
+their targeted worker actions. Project actions default to the host caller and can select an agent,
+while agent actions supply that context. Host/ephemeral/worker rows are not ordinary colonists or
+part of project agent counts. A short-lived session rename
 mapping preserves membership until the HTTP/socket handoff settles; see [client](mod-client.md).
 
 Resizing must renegotiate each visible terminal's assigned slot. Moving navigation between

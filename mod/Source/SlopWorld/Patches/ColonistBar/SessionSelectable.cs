@@ -94,7 +94,6 @@ namespace SlopWorld
             if (!string.IsNullOrEmpty(info.Project))
             {
                 yield return BuildDuplicateGizmo(info);
-                yield return BuildSpawnWorkerGizmo(info);
             }
 
             yield return BuildRemoveGizmo();
@@ -188,19 +187,6 @@ namespace SlopWorld
                 defaultIconColor = UiTheme.Accent,
                 hotKey = ModDefOf.SlopDuplicateSession,
                 action = () => TerminalWindow.OpenOverPane(EditSessionDialog.Copy(info)),
-            };
-        }
-
-        Gizmo BuildSpawnWorkerGizmo(SessionInfo info)
-        {
-            return new UiCommandAction(UiTheme.Btn.Default)
-            {
-                defaultLabel = "Spawn worker",
-                defaultDesc = $"Start a task-owned worker in {info.Project} from an enabled template.",
-                icon = Icons.Add,
-                defaultIconColor = UiTheme.Accent,
-                action = () => TerminalWindow.OpenOverPane(
-                    new SpawnWorkerDialog(info.Name, info.Project)),
             };
         }
 
