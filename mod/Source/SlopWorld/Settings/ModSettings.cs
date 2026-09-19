@@ -57,6 +57,19 @@ namespace SlopWorld
             time.ToString(Normalize(Settings.TimeFormat) == TwelveHour ? "h:mm:ss tt" : "HH:mm:ss");
     }
 
+    public static class TemperatureUnit
+    {
+        public const string GlazedBald = "glazed-bald";
+        public const string GlazedBaldLabel = "glazed🍩/bald🦅";
+
+        public static bool IsGlazedBald(string unit) => unit == GlazedBald;
+
+        public static string Normalize(string unit) => IsGlazedBald(unit) ? GlazedBald : "";
+
+        public static string Label(string unit, string fallback) =>
+            IsGlazedBald(unit) ? GlazedBaldLabel : fallback;
+    }
+
     // Loading enables the mod unconditionally; settings cover daemon connection and UI
     // appearance, with terminal values sharing this settings file and endpoint discovery.
     public class ModSettings
@@ -176,6 +189,10 @@ namespace SlopWorld
         // background becomes sparkles/rainbows and plague arrivals grow flowers.
         public bool grandmaMode;
 
+        // Blank follows RimWorld's standard temperature preference. The custom unit is an
+        // alias for Fahrenheit and also enables bird sounds for camera/UI one-shots.
+        public string temperatureUnit = "";
+
         // Eco mode: the board stops. The clock is held paused, the map's draw chain stands
         // down, and with the pane closed the menu's own background is
         // drawn where the board was. Everything the terminal is made of keeps running. See
@@ -275,6 +292,7 @@ namespace SlopWorld
             Field("statusbarAgentIndicators", (ModSettings s) => ref s.statusbarAgentIndicators, Bool, String),
             Field("radioStopOnExit", (ModSettings s) => ref s.radioStopOnExit, Bool, String),
             Field("grandmaMode", (ModSettings s) => ref s.grandmaMode, Bool, String),
+            Field("temperatureUnit", (ModSettings s) => ref s.temperatureUnit, Text, String),
             Field("ecoMode", (ModSettings s) => ref s.ecoMode, Bool, String),
             Field("displayMode", (ModSettings s) => ref s.displayMode, Text, String),
             Field("foregroundFps", (ModSettings s) => ref s.foregroundFps, Int, Number),
@@ -396,6 +414,8 @@ namespace SlopWorld
         public static bool StatusbarAgentIndicators => S.statusbarAgentIndicators;
         public static bool RadioStopOnExit => S.radioStopOnExit;
         public static bool GrandmaMode => S.grandmaMode;
+        public static string TemperatureUnit =>
+            SlopWorld.TemperatureUnit.Normalize(S.temperatureUnit);
         public static bool EcoMode => S.ecoMode;
         public static string DisplayMode => FramePolicy.Normalize(S.displayMode);
         public static int ForegroundFps => FramePolicy.Clamp(S.foregroundFps);

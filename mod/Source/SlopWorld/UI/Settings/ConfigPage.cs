@@ -49,13 +49,18 @@ namespace SlopWorld
             l.Gap(UiTheme.GapL);
             UiLayout.SectionHeading(l, "Locale");
             if (UiLayout.Button(l,
-                    "TemperatureMode".Translate() + ": " + Prefs.TemperatureMode.ToStringHuman()))
+                    "TemperatureMode".Translate() + ": " +
+                    TemperatureUnit.Label(Settings.TemperatureUnit,
+                        Prefs.TemperatureMode.ToStringHuman())))
             {
-                Find.WindowStack.Add(new UiMenu(Enum.GetValues(typeof(TemperatureDisplayMode))
+                var choices = Enum.GetValues(typeof(TemperatureDisplayMode))
                     .Cast<TemperatureDisplayMode>()
                     .Select(mode => new FloatMenuOption(mode.ToStringHuman(),
-                        () => Prefs.TemperatureMode = mode))
-                    .ToList()));
+                        () => SetTemperatureUnit(mode)))
+                    .ToList();
+                choices.Add(new FloatMenuOption(TemperatureUnit.GlazedBaldLabel,
+                    SetGlazedBaldTemperatureUnit));
+                Find.WindowStack.Add(new UiMenu(choices));
             }
 
             if (UiLayout.Button(l, "Time format: " + TimeFormat.Label(s.timeFormat)))
@@ -105,6 +110,22 @@ namespace SlopWorld
         {
             var settings = ModEntry.Instance.settings;
             settings.timeFormat = format;
+            settings.MarkDirty();
+        }
+
+        static void SetTemperatureUnit(TemperatureDisplayMode mode)
+        {
+            Prefs.TemperatureMode = mode;
+            var settings = ModEntry.Instance.settings;
+            settings.temperatureUnit = "";
+            settings.MarkDirty();
+        }
+
+        static void SetGlazedBaldTemperatureUnit()
+        {
+            Prefs.TemperatureMode = TemperatureDisplayMode.Fahrenheit;
+            var settings = ModEntry.Instance.settings;
+            settings.temperatureUnit = TemperatureUnit.GlazedBald;
             settings.MarkDirty();
         }
 
