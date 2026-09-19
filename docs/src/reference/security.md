@@ -25,9 +25,10 @@ Network and DNS are agent-owned settings; project mounts are workspace settings.
 
 ## Credentials
 
-Credential files (`~/.claude/.credentials.json`) are `shared` mounts: the host file is
-overlaid read-write into private state so agent-side token refreshes update the host.
-Credential values are re-read each poll and never copied or logged by the daemon.
+Credential files (`~/.claude/.credentials.json` and `~/.codex/auth.json`) are `shared` mounts:
+the host file is overlaid read-write into private state so agent-side token refreshes update the
+host and every sandbox sees the same credential lineage. Credential values are re-read each poll
+and never copied or logged by the daemon.
 
 A bind mount cannot be atomically renamed, so in-sandbox tools write with `O_TRUNC` on
 the host inode.

@@ -64,9 +64,12 @@ private state on exit.
 ## Credentials
 
 `shared` entries overlay a host-owned file read-write into private state. This is used
-for rotating credentials (`~/.claude/.credentials.json`). The agent can read and
-overwrite the file in place, but deletion fails because the file is a mountpoint.
-Shared files are never seeded.
+for rotating credentials (`~/.claude/.credentials.json` and `~/.codex/auth.json`). The
+agent can read and overwrite the file in place, but deletion fails because the file is a
+mountpoint.
+Shared files are never seeded. The built-in Claude and Codex presets use this for their
+rotating auth files, so a host refresh is visible to every sandbox without resetting its
+private state.
 
 ## Escape warnings
 
