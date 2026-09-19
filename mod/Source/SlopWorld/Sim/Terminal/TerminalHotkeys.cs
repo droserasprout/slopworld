@@ -3,7 +3,7 @@ using Verse;
 
 namespace SlopWorld
 {
-    // GameComponentOnGUI owns map-only help and Alt+number paths. Interface function keys
+    // GameComponentOnGUI owns the map help shortcut and Alt+number paths. Interface function keys
     // are dispatched by Patch_InterfaceFunctionKeys before this component or any widget runs.
     public class TerminalHotkeys : GameComponent
     {
@@ -16,7 +16,11 @@ namespace SlopWorld
             if (Cutscene.Playing) return;
 
             // Map-layer number keys mirror portrait selection because components run before the window stack; ask TerminalWindow first, then handle Alt+number with no pane.
-            if (Find.WindowStack?.WindowOfType<TerminalWindow>() != null) return;
+            if (Find.WindowStack?.WindowOfType<TerminalWindow>() != null)
+            {
+                if (ShortcutHelpWindow.HandleContentKey(Event.current)) return;
+                return;
+            }
             if (ShortcutHelpWindow.HandleMapKey(Event.current)) return;
 
             if (Event.current.type != EventType.KeyDown || !Event.current.alt) return;
