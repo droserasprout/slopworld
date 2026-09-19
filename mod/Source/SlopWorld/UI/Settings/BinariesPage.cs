@@ -9,22 +9,35 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Host-side inventory for the commands SlopWorld runs, integrates with, or offers as a
-    // default. The scan is deliberately independent of slopd: this answers what the game can
-    // see on the host, including tools needed before the daemon starts.
+    // Inventory for the commands SlopWorld runs, integrates with, or offers as a default. Host
+    // rows are resolved in the game process; daemon rows come from /api/whereis so native and
+    // sidecar deployments report the environment that actually launches the command.
     public class BinariesPage : IOptionPage
     {
+        enum ProbeKind
+        {
+            HostPath,
+            DaemonPath,
+        }
+
         sealed class BinarySpec
         {
             public readonly string Group;
             public readonly string Name;
             public readonly string Use;
+            public readonly ProbeKind Probe;
 
             public BinarySpec(string group, string name, string use)
+                : this(group, name, use, ProbeKind.HostPath)
+            {
+            }
+
+            public BinarySpec(string group, string name, string use, ProbeKind probe)
             {
                 Group = group;
                 Name = name;
                 Use = use;
+                Probe = probe;
             }
         }
 
@@ -33,24 +46,33 @@ namespace SlopWorld
             public readonly BinarySpec Spec;
             public string Path { get; private set; }
             public bool Resolved { get; private set; }
+            bool _found;
 
             public BinaryResult(BinarySpec spec)
             {
                 Spec = spec;
             }
 
-            public bool Found => Resolved && !string.IsNullOrEmpty(Path);
+            public bool Found => Resolved && _found;
 
             public void SetPath(string path)
             {
                 Path = path;
+                _found = !string.IsNullOrEmpty(path);
+                Resolved = true;
+            }
+
+            public void SetStatus(bool found, string status)
+            {
+                Path = status;
+                _found = found;
                 Resolved = true;
             }
         }
 
-        // Keep this inventory in step with check-reqs.json, the daemon's command defaults, and
-        // the command choices in CommandsPage. Each name gets its own row so alternatives such
-        // as xclip/xsel and the four supported agent CLIs can be compared directly.
+        // Inventory for player-facing integrations and default applications. Daemon rows use
+        // /api/whereis, because the game process's PATH is not the daemon's PATH in a native
+        // service and is especially unhelpful when the daemon runs in slopcar.
         static readonly BinarySpec[] Inventory =
         {
             new BinarySpec("SlopWorld", "slopd", "daemon service"),
@@ -58,59 +80,49 @@ namespace SlopWorld
             new BinarySpec("SlopWorld", "slopworld", "game launcher"),
             new BinarySpec("SlopWorld", "slopcar", "macOS sidecar launcher"),
 
-            new BinarySpec("Runtime", "tmux", "session multiplexer"),
-            new BinarySpec("Runtime", "bwrap", "sandbox isolation"),
-            new BinarySpec("Runtime", "pasta", "private networking"),
+            new BinarySpec("Runtime", "tmux", "session multiplexer", ProbeKind.DaemonPath),
+            new BinarySpec("Runtime", "bwrap", "sandbox isolation", ProbeKind.DaemonPath),
+            new BinarySpec("Runtime", "pasta", "private networking", ProbeKind.DaemonPath),
             new BinarySpec("Runtime", "systemctl", "user service control"),
-            new BinarySpec("Runtime", "systemd-run", "per-agent scopes"),
-            new BinarySpec("Runtime", "pgrep", "game process lookup"),
-            new BinarySpec("Runtime", "rg", "workspace search"),
-            new BinarySpec("Runtime", "git", "Git view and snapshots"),
-            new BinarySpec("Runtime", "bash", "default shell"),
+            new BinarySpec("Runtime", "systemd-run", "per-agent scopes", ProbeKind.DaemonPath),
+            new BinarySpec("Runtime", "ps", "sandbox process inspection", ProbeKind.DaemonPath),
+            new BinarySpec("Runtime", "rg", "workspace search", ProbeKind.DaemonPath),
+            new BinarySpec("Runtime", "git", "Git view and snapshots", ProbeKind.DaemonPath),
+            new BinarySpec("Runtime", "env", "pager environment", ProbeKind.DaemonPath),
+            new BinarySpec("Runtime", "bash", "default shell", ProbeKind.DaemonPath),
+            new BinarySpec("Runtime", "zsh", "alternate shell", ProbeKind.DaemonPath),
+            new BinarySpec("Runtime", "fish", "alternate shell", ProbeKind.DaemonPath),
+            new BinarySpec("Runtime", "nu", "alternate shell", ProbeKind.DaemonPath),
+            new BinarySpec("Runtime", "pwsh", "alternate shell", ProbeKind.DaemonPath),
+            new BinarySpec("Runtime", "sh", "POSIX shell", ProbeKind.DaemonPath),
             new BinarySpec("Runtime", "tail", "slopctl log following"),
             new BinarySpec("Runtime", "journalctl", "slopctl daemon logs"),
 
-            new BinarySpec("Agent CLIs", "claude", "Anthropic agent"),
-            new BinarySpec("Agent CLIs", "codex", "OpenAI agent"),
-            new BinarySpec("Agent CLIs", "opencode", "OpenCode agent"),
-            new BinarySpec("Agent CLIs", "pi", "Pi agent"),
+            new BinarySpec("Agent CLIs", "claude", "Anthropic agent", ProbeKind.DaemonPath),
+            new BinarySpec("Agent CLIs", "codex", "OpenAI agent", ProbeKind.DaemonPath),
+            new BinarySpec("Agent CLIs", "opencode", "OpenCode agent", ProbeKind.DaemonPath),
+            new BinarySpec("Agent CLIs", "pi", "Pi agent", ProbeKind.DaemonPath),
 
-            new BinarySpec("Command tools", "less", "default pager"),
-            new BinarySpec("Command tools", "more", "alternate pager"),
-            new BinarySpec("Command tools", "bat", "pager or syntax highlighter"),
-            new BinarySpec("Command tools", "highlight", "syntax highlighter"),
-            new BinarySpec("Command tools", "micro", "default editor"),
-            new BinarySpec("Command tools", "vim", "alternate editor"),
-            new BinarySpec("Command tools", "nvim", "Neovim editor"),
-            new BinarySpec("Command tools", "nano", "alternate editor"),
-            new BinarySpec("Command tools", "emacsclient", "Emacs editor"),
+            new BinarySpec("Command tools", "less", "default pager", ProbeKind.DaemonPath),
+            new BinarySpec("Command tools", "delta", "Git diff pager", ProbeKind.DaemonPath),
+            new BinarySpec("Command tools", "more", "alternate pager", ProbeKind.DaemonPath),
+            new BinarySpec("Command tools", "bat", "pager or syntax highlighter", ProbeKind.DaemonPath),
+            new BinarySpec("Command tools", "highlight", "syntax highlighter", ProbeKind.DaemonPath),
+            new BinarySpec("Command tools", "micro", "default editor", ProbeKind.DaemonPath),
+            new BinarySpec("Command tools", "vim", "alternate editor", ProbeKind.DaemonPath),
+            new BinarySpec("Command tools", "nvim", "Neovim editor", ProbeKind.DaemonPath),
+            new BinarySpec("Command tools", "nano", "alternate editor", ProbeKind.DaemonPath),
+            new BinarySpec("Command tools", "emacsclient", "Emacs editor", ProbeKind.DaemonPath),
 
-            new BinarySpec("Desktop, audio, and clipboard", "gio", "open host applications"),
-            new BinarySpec("Desktop, audio, and clipboard", "gdbus", "native application chooser"),
-            new BinarySpec("Desktop, audio, and clipboard", "xdg-open", "open links during setup"),
-            new BinarySpec("Desktop, audio, and clipboard", "wl-copy", "Wayland clipboard copy"),
-            new BinarySpec("Desktop, audio, and clipboard", "wl-paste", "Wayland clipboard paste"),
-            new BinarySpec("Desktop, audio, and clipboard", "xclip", "X11 clipboard"),
-            new BinarySpec("Desktop, audio, and clipboard", "xsel", "X11 clipboard fallback"),
+            new BinarySpec("Desktop, audio, and clipboard", "gio", "open host applications", ProbeKind.DaemonPath),
+            new BinarySpec("Desktop, audio, and clipboard", "gdbus", "native application chooser", ProbeKind.DaemonPath),
+            new BinarySpec("Desktop, audio, and clipboard", "wl-copy", "Wayland clipboard copy", ProbeKind.DaemonPath),
+            new BinarySpec("Desktop, audio, and clipboard", "wl-paste", "Wayland clipboard paste", ProbeKind.DaemonPath),
+            new BinarySpec("Desktop, audio, and clipboard", "xclip", "X11 clipboard", ProbeKind.DaemonPath),
+            new BinarySpec("Desktop, audio, and clipboard", "xsel", "X11 clipboard fallback", ProbeKind.DaemonPath),
             new BinarySpec("Desktop, audio, and clipboard", "pactl", "audio device lookup"),
             new BinarySpec("Desktop, audio, and clipboard", "songrec", "jukebox recognition"),
-
-            new BinarySpec("Build and developer", "make", "project command entrypoint"),
-            new BinarySpec("Build and developer", "cargo", "daemon build and tests"),
-            new BinarySpec("Build and developer", "csc", "mod compiler"),
-            new BinarySpec("Build and developer", "dotnet", "C# formatting and tests"),
-            new BinarySpec("Build and developer", "mdbook", "human documentation"),
-            new BinarySpec("Build and developer", "python3", "tooling scripts"),
-            new BinarySpec("Build and developer", "rsvg-convert", "SVG icon fallback"),
-            new BinarySpec("Build and developer", "ldconfig", "library discovery"),
-            new BinarySpec("Build and developer", "fc-match", "font discovery"),
-            new BinarySpec("Build and developer", "fc-list", "font inventory"),
-            new BinarySpec("Build and developer", "ffmpeg", "OST conversion"),
-            new BinarySpec("Build and developer", "xdotool", "screenshot window lookup"),
-            new BinarySpec("Build and developer", "import", "screenshot capture"),
-            new BinarySpec("Build and developer", "curl", "redeploy helper"),
-            new BinarySpec("Build and developer", "docker", "macOS sidecar"),
-            new BinarySpec("Build and developer", "gogdl", "RimWorld installer"),
+            new BinarySpec("Desktop, audio, and clipboard", "ncspot", "Spotify playback", ProbeKind.DaemonPath),
         };
 
         readonly SmoothScroll _scroll = new SmoothScroll();
@@ -119,8 +131,31 @@ namespace SlopWorld
         string _error;
         bool _loading;
         int _resolved;
+        int _hostCount;
+        bool _daemonLoading;
+        string _daemonError;
+        Dictionary<string, string> _daemonPaths;
 
-        public void Load() => Scan();
+        public void Load()
+        {
+            _daemonLoading = true;
+            _daemonError = null;
+            _daemonPaths = null;
+            DaemonClient.Get<Wire.WhereIsReply>(WireProtocol.Routes.Whereis,
+                reply =>
+                {
+                    _daemonPaths = reply.Binaries.ToDictionary(
+                        binary => binary.Name, binary => binary.Path,
+                        StringComparer.OrdinalIgnoreCase);
+                    _daemonLoading = false;
+                },
+                error =>
+                {
+                    _daemonError = error;
+                    _daemonLoading = false;
+                });
+            Scan();
+        }
 
         void Scan()
         {
@@ -130,6 +165,7 @@ namespace SlopWorld
             _resolved = 0;
             var results = Inventory.Select(spec => new BinaryResult(spec)).ToList();
             _results = results;
+            _hostCount = results.Count(result => result.Spec.Probe == ProbeKind.HostPath);
 
             ThreadPool.QueueUserWorkItem(_ =>
             {
@@ -137,6 +173,7 @@ namespace SlopWorld
                 {
                     foreach (var result in results)
                     {
+                        if (result.Spec.Probe != ProbeKind.HostPath) continue;
                         string path = null;
                         try { path = Locate(result.Spec.Name); }
                         catch { /* an unavailable host command is just not found */ }
@@ -157,7 +194,7 @@ namespace SlopWorld
             if (!_operations.IsCurrent(generation) || result.Resolved) return;
             result.SetPath(path);
             _resolved++;
-            if (_resolved >= _results.Count) _loading = false;
+            if (_resolved >= _hostCount) _loading = false;
         }
 
         void Fail(int generation, string message)
@@ -165,8 +202,31 @@ namespace SlopWorld
             if (!_operations.IsCurrent(generation)) return;
             _error = message;
             foreach (var result in _results)
-                if (!result.Resolved) result.SetPath(null);
+                if (!result.Resolved && result.Spec.Probe == ProbeKind.HostPath)
+                    result.SetPath(null);
             _loading = false;
+        }
+
+        void UpdateDaemonResults()
+        {
+            if (_results == null) return;
+            foreach (var result in _results)
+            {
+                if (result.Spec.Probe != ProbeKind.DaemonPath) continue;
+                if (_daemonLoading)
+                {
+                    result.SetStatus(false, "checking daemon...");
+                    continue;
+                }
+                if (_daemonError != null)
+                {
+                    result.SetStatus(false, "daemon unavailable");
+                    continue;
+                }
+                string path = null;
+                if (_daemonPaths != null) _daemonPaths.TryGetValue(result.Spec.Name, out path);
+                result.SetPath(path);
+            }
         }
 
         public void Draw(Rect rect)
@@ -178,8 +238,9 @@ namespace SlopWorld
         {
             var inner = SettingsPageLayout.Body(rect);
             if (_scroll.HandleWheel(inner)) return;
-            string caption = "Host commands used, integrated, or recommended by SlopWorld. " +
-                "A checkmark means the executable is on the game's PATH.";
+            UpdateDaemonResults();
+            string caption = "Commands used, integrated, or recommended by SlopWorld. " +
+                "Host rows check the game's PATH; daemon rows use the daemon's effective PATH.";
             float width = UiScrollBody.Measure(inner, 0f,
                 UiScrollbarReservation.Always).ContentWidth;
             float captionH = UiText.StatusLabelHeight(caption, width);
@@ -208,7 +269,7 @@ namespace SlopWorld
             }
 
             var foot = new UiLayout.Bar(SettingsPageLayout.Footer(rect));
-            if (foot.Left("Refresh", UiTheme.Btn.Ghost, !_loading)) Scan();
+            if (foot.Left("Refresh", UiTheme.Btn.Ghost, !_loading && !_daemonLoading)) Load();
             string status = _results == null ? (_loading ? "Checking..." : "") :
                 $"{_results.Count(result => result.Found)} of {_results.Count} found";
             GUI.color = _error != null ? UiTheme.Bad : UiTheme.Dim;
@@ -221,7 +282,7 @@ namespace SlopWorld
             Slab.Fill(r, UiTheme.RowBg);
             if (r.width < 520f)
             {
-                UiText.RowLabel(r, "Binary / Use / Path");
+                UiText.RowLabel(r, "Binary / Use / Path or status");
                 return;
             }
             float nameW, pathW, useX, useW;
@@ -229,7 +290,7 @@ namespace SlopWorld
             UiText.RowLabel(new Rect(r.x + UiTheme.GapS, r.y, 28f, r.height), "", TextAnchor.MiddleCenter);
             UiText.RowLabel(new Rect(r.x + 28f, r.y, nameW - 28f, r.height), "Binary");
             UiText.RowLabel(new Rect(r.x + nameW, r.y, pathW, r.height), "Path");
-            UiText.RowLabel(new Rect(r.x + useX, r.y, useW, r.height), "Use");
+            UiText.RowLabel(new Rect(r.x + useX, r.y, useW, r.height), "Use / Status");
             Slab.Hairline(new Rect(r.x, r.yMax - 1f, r.width, 1f), UiTheme.Edge);
         }
 

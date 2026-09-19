@@ -87,5 +87,6 @@ grant-visible router; handler guards can impose a stricter access requirement.
 | `POST` | `/api/templates/:name/create` | `root-only` | `create_from_template` | `CreateAgentTemplateReq` → `SessionResult` |
 | `GET` | `/api/templates/spawnable` | `scoped` | `list_spawnable_templates` | `Empty` → `TemplatesReply` |
 | `GET` | `/api/usage` | `root-only` | `usage` | `Empty` → `UsageSnapshot` |
+| `GET` | `/api/whereis` | `root-only` | `whereis` | `Empty` → `WhereIsReply` |
 | `POST` | `/api/workers` | `scoped` | `spawn_worker` | `SpawnWorkerReq` → `WorkerResult` |
 | `GET` | `/ws` | `scoped` | `ws_upgrade` | `ClientMessage` → `Event` |

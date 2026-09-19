@@ -73,6 +73,71 @@ pub fn ncspot_available() -> bool {
     std::env::split_paths(&path).any(|dir| executable(dir.join("ncspot")))
 }
 
+/// Executables whose effective PATH belongs to the daemon rather than to the game process.
+/// Settings uses this snapshot for native and sidecar deployments alike; an empty path means
+/// the daemon cannot resolve the name in its own environment.
+pub fn whereis() -> Vec<BinaryLocation> {
+    const NAMES: &[&str] = &[
+        "tmux",
+        "bwrap",
+        "pasta",
+        "systemd-run",
+        "ps",
+        "rg",
+        "git",
+        "env",
+        "bash",
+        "zsh",
+        "fish",
+        "nu",
+        "pwsh",
+        "sh",
+        "claude",
+        "codex",
+        "opencode",
+        "pi",
+        "less",
+        "delta",
+        "more",
+        "bat",
+        "highlight",
+        "micro",
+        "vim",
+        "nvim",
+        "nano",
+        "emacsclient",
+        "gio",
+        "gdbus",
+        "wl-copy",
+        "wl-paste",
+        "xclip",
+        "xsel",
+        "ncspot",
+    ];
+
+    NAMES
+        .iter()
+        .map(|name| BinaryLocation {
+            name: (*name).into(),
+            path: find_executable(name).unwrap_or_default(),
+        })
+        .collect()
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct BinaryLocation {
+    pub name: String,
+    pub path: String,
+}
+
+fn find_executable(name: &str) -> Option<String> {
+    let path = std::env::var_os("PATH")?;
+    std::env::split_paths(&path)
+        .map(|dir| dir.join(name))
+        .find(|path| executable(path.clone()))
+        .map(|path| path.to_string_lossy().into_owned())
+}
+
 fn executable(path: std::path::PathBuf) -> bool {
     let Ok(metadata) = std::fs::metadata(path) else {
         return false;

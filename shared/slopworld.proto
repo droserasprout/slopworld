@@ -808,3 +808,12 @@ message PresetRequest { oneof definition { SandboxPreset sandbox = 1; CommandPre
 message ProjectPreviewResult { string name = 1; bool temp = 2; string dir = 3; }
 
 message EditableConfig { Daemon daemon = 1; Defaults defaults = 2; CommandDefaults commands = 3; }
+
+message BinaryLocation {
+  string name = 1;
+  string path = 2;
+}
+
+message WhereIsReply {
+  repeated BinaryLocation binaries = 1;
+}
