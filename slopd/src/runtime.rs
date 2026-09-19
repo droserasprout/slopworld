@@ -13,6 +13,7 @@ pub const SLOPCAR: &str = "slopcar";
 pub struct Capabilities {
     pub runtime: &'static str,
     pub audio_playback: bool,
+    pub ncspot: bool,
     pub clipboard: bool,
     pub desktop_open: bool,
     pub per_session_limits: bool,
@@ -42,6 +43,7 @@ pub fn capabilities() -> Capabilities {
     Capabilities {
         runtime: if sidecar { SLOPCAR } else { "native" },
         audio_playback: !sidecar,
+        ncspot: ncspot_available(),
         clipboard: !sidecar,
         desktop_open: !sidecar,
         per_session_limits: !sidecar,
@@ -54,6 +56,38 @@ pub fn capabilities() -> Capabilities {
             min_rows: crate::shared::protocol::TERMINAL_MIN_ROWS,
             max_rows: crate::shared::protocol::TERMINAL_MAX_ROWS,
         },
+    }
+}
+
+/// Whether the daemon can start the optional Spotify player. Keep this a capability rather
+/// than waiting for the first launch attempt: Settings and the jukebox need to make the
+/// unavailable source legible before a user clicks it.
+pub fn ncspot_available() -> bool {
+    if !cfg!(target_os = "linux") || is_slopcar() {
+        return false;
+    }
+
+    let Some(path) = std::env::var_os("PATH") else {
+        return false;
+    };
+    std::env::split_paths(&path).any(|dir| executable(dir.join("ncspot")))
+}
+
+fn executable(path: std::path::PathBuf) -> bool {
+    let Ok(metadata) = std::fs::metadata(path) else {
+        return false;
+    };
+    if !metadata.is_file() {
+        return false;
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        metadata.permissions().mode() & 0o111 != 0
+    }
+    #[cfg(not(unix))]
+    {
+        true
     }
 }
 
@@ -178,6 +212,7 @@ mod tests {
         let caps = Capabilities {
             runtime: "native",
             audio_playback: true,
+            ncspot: true,
             clipboard: true,
             desktop_open: true,
             per_session_limits: true,

@@ -271,6 +271,7 @@ message Capabilities {
   bool host_network_is_container = 6;
   bool host_terminals_are_container = 7;
   TerminalCapabilities terminal = 8;
+  bool ncspot = 9;
 }
 
 message TerminalCapabilities {

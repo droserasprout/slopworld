@@ -32,6 +32,14 @@ namespace SlopWorld
         static bool _openingSpotify;
         static int _selectionRevision;
         public static bool Spotify => _spotify;
+        public const string OstSourceId = "ost";
+        public const string SpotifySourceId = "spotify";
+
+        // Capability data defaults to the native daemon until the first snapshot arrives, so
+        // an older daemon keeps Spotify selectable during connection setup.
+        public static bool SpotifyAvailable => SessionHub.Instance == null
+            || !SessionHub.Instance.Capabilities.Known
+            || SessionHub.Instance.Capabilities.Ncspot;
         static bool _muted;
         static bool _stopOnExit;
 
@@ -158,6 +166,54 @@ namespace SlopWorld
         public static bool StopOnExit
         {
             get { Read(); return _stopOnExit; }
+        }
+
+        public static bool SourceShown(string id)
+        {
+            Read();
+            if (string.IsNullOrEmpty(id)) return false;
+            foreach (string hidden in HiddenSources())
+                if (hidden == id) return false;
+            return true;
+        }
+
+        public static void SetSourceShown(string id, bool shown)
+        {
+            Read();
+            if (string.IsNullOrEmpty(id)) return;
+            var hidden = HiddenSources();
+            hidden.Remove(id);
+            if (!shown) hidden.Add(id);
+            Settings.S.radioHiddenSources = string.Join("\n", hidden);
+            Settings.S.Write();
+        }
+
+        static List<string> HiddenSources()
+        {
+            var result = new List<string>();
+            string text = Settings.S.radioHiddenSources ?? "";
+            foreach (string line in text.Split(new[] { '\r', '\n' },
+                StringSplitOptions.RemoveEmptyEntries))
+            {
+                string id = line.Trim();
+                if (id.Length > 0 && !result.Contains(id)) result.Add(id);
+            }
+            return result;
+        }
+
+        // Called when the daemon's capability snapshot arrives. A saved Spotify selection is
+        // harmless while the connection is unknown, but it must fall back before the first
+        // sidecar/native update once the host says ncspot cannot exist here.
+        public static void CapabilitiesChanged()
+        {
+            if (_quit) return;
+            Read();
+            if (SpotifyAvailable || !_spotify) return;
+            _spotify = false;
+            _station = null;
+            _muted = false;
+            Save();
+            Push();
         }
 
         // "Artist - Song", or null when there is nothing to say: muted, or a station that
@@ -380,11 +436,12 @@ namespace SlopWorld
 
             var candidates = new List<Station>();
             foreach (var candidate in Stations)
-                if (_muted || candidate != _station) candidates.Add(candidate);
+                if (SourceShown(candidate.Id) && (_muted || candidate != _station))
+                    candidates.Add(candidate);
 
             // The OST is one source candidate, but when it is active it is not picked again.
             bool ostCurrent = !_spotify && !_muted && _station == null;
-            bool canPickOst = !ostCurrent;
+            bool canPickOst = SourceShown(OstSourceId) && !ostCurrent;
             int count = candidates.Count + (canPickOst ? 1 : 0);
             if (count == 0) return;
 

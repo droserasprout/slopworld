@@ -11,6 +11,7 @@ namespace SlopWorld
             {
                 case Wire.Event.PayloadOneofCase.Capabilities:
                     Capabilities = DaemonCapabilities.FromWire(ev.Capabilities);
+                    Radio.CapabilitiesChanged();
                     break;
 
                 case Wire.Event.PayloadOneofCase.Sessions:

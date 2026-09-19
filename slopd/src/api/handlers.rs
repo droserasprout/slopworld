@@ -19,6 +19,8 @@ mod handlers_config;
 mod handlers_files;
 #[path = "handlers_grants.rs"]
 mod handlers_grants;
+#[path = "handlers_jukebox.rs"]
+mod handlers_jukebox;
 #[path = "handlers_library.rs"]
 mod handlers_library;
 #[path = "handlers_presets.rs"]
@@ -36,6 +38,7 @@ pub(crate) use handlers_clipboard::*;
 pub(crate) use handlers_config::*;
 pub(crate) use handlers_files::*;
 pub(crate) use handlers_grants::*;
+pub(crate) use handlers_jukebox::*;
 pub(crate) use handlers_library::*;
 pub(crate) use handlers_presets::*;
 pub(crate) use handlers_sessions::*;

@@ -1,0 +1,160 @@
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using UnityEngine;
+using Verse;
+
+namespace SlopWorld
+{
+    // A deliberately small editor for user station definitions. Each stream keeps its own
+    // bitrate and URL, so multi-bitrate presets survive an edit and can be extended here.
+    public sealed class AudioSourceDialog : UiWindow
+    {
+        readonly bool _isNew;
+        readonly string _originalId;
+        readonly JukeboxPresetInfo _source;
+        readonly List<string> _rates = new List<string>();
+        readonly ScrollableListing _listing = new ScrollableListing(420f);
+        string _error;
+        int _removeIndex = -1;
+
+        AudioSourceDialog(JukeboxPresetInfo source, bool isNew, string originalId)
+        {
+            _source = source;
+            _isNew = isNew;
+            _originalId = originalId;
+            EnsureStreams();
+            foreach (var stream in _source.Streams)
+                _rates.Add(stream.Rate.ToString(CultureInfo.InvariantCulture));
+            AcceptOnEnter(Save);
+        }
+
+        public static void OpenNew() =>
+            TerminalWindow.OpenOverPane(NewDialog());
+
+        public static void Open(JukeboxPresetInfo source)
+        {
+            if (source == null)
+            {
+                UiLayout.Fail("source is no longer available");
+                JukeboxPresetStore.Refresh();
+                return;
+            }
+            TerminalWindow.OpenOverPane(new AudioSourceDialog(source.Copy(), false, source.Id));
+        }
+
+        static AudioSourceDialog NewDialog()
+        {
+            var source = new JukeboxPresetInfo
+            {
+                Id = JukeboxPresetInfo.NewId(JukeboxPresetStore.Items),
+                Name = "New source",
+                DefaultRate = 128,
+            };
+            source.Streams.Add(new JukeboxStreamInfo
+            {
+                Rate = 128,
+                Key = source.Id + "-128",
+            });
+            return new AudioSourceDialog(source, true, null);
+        }
+
+        void EnsureStreams()
+        {
+            if (_source.Streams == null) _source.Streams = new List<JukeboxStreamInfo>();
+            if (_source.Streams.Count == 0)
+                _source.Streams.Add(new JukeboxStreamInfo { Rate = 128, Key = _source.Id + "-128" });
+        }
+
+        public override Vector2 InitialSize => new Vector2(600f, 520f);
+
+        protected override void DoBody(Rect rect)
+        {
+            UiLayout.Title(TitleRect(rect), _isNew ? "Add source" : "Edit source");
+            var form = new Rect(rect.x, rect.y + UiTheme.HeaderH + UiTheme.GapM,
+                rect.width, rect.height - UiTheme.HeaderH - UiTheme.GapM - UiTheme.BtnH - UiTheme.GapS);
+            _removeIndex = -1;
+            _listing.Draw(form, DrawFields);
+            if (_removeIndex >= 0)
+            {
+                _source.Streams.RemoveAt(_removeIndex);
+                _rates.RemoveAt(_removeIndex);
+                return;
+            }
+
+            if (!string.IsNullOrEmpty(_error))
+                UiText.StatusLabel(new Rect(rect.x, rect.yMax - UiTheme.BtnH - UiTheme.GapS -
+                    UiTheme.LineH, rect.width, UiTheme.LineH), _error, UiTheme.Bad);
+
+            var foot = new UiLayout.Bar(UiLayout.FooterBar(rect));
+            if (foot.Left("Cancel", UiTheme.Btn.Ghost)) Close();
+            if (foot.Right("Save", UiTheme.Btn.Primary)) Save();
+        }
+
+        void DrawFields(Listing_Standard l)
+        {
+            l.Label("Name");
+            _source.Name = UiControls.Field(l, "jukebox.source.name", _source.Name ?? "");
+            l.Label("Title regex (optional)");
+            _source.TitleRegex = UiControls.Field(l, "jukebox.source.regex", _source.TitleRegex ?? "");
+            l.Gap(UiTheme.GapS);
+            UiLayout.SectionHeading(l, "Bitrate presets");
+
+            for (int i = 0; i < _source.Streams.Count; i++)
+            {
+                var stream = _source.Streams[i];
+                l.Label("Preset " + (i + 1));
+                _rates[i] = UiControls.Field(l, "jukebox.source.rate." + i,
+                    _rates[i] ?? stream.Rate.ToString(CultureInfo.InvariantCulture));
+                l.Label("Stream URL");
+                stream.Url = UiControls.Field(l, "jukebox.source.url." + i, stream.Url ?? "");
+                if (i > 0 && UiLayout.Button(l, "Remove preset", UiTheme.Btn.Ghost))
+                {
+                    _removeIndex = i;
+                    return;
+                }
+            }
+
+            if (UiLayout.Button(l, "Add bitrate preset", UiTheme.Btn.Ghost))
+            {
+                int rate = 128;
+                _source.Streams.Add(new JukeboxStreamInfo
+                {
+                    Rate = rate,
+                    Key = _source.Id + "-" + rate,
+                });
+                _rates.Add(rate.ToString(CultureInfo.InvariantCulture));
+            }
+            UiLayout.Note(l, "User sources are stored in ~/.config/slopworld/jukebox/.");
+        }
+
+        void Save()
+        {
+            string name = (_source.Name ?? "").Trim();
+            if (name.Length == 0) { _error = "Enter a source name."; return; }
+            EnsureStreams();
+            var rates = new HashSet<int>();
+            for (int i = 0; i < _source.Streams.Count; i++)
+            {
+                var stream = _source.Streams[i];
+                int rate;
+                if (!int.TryParse((_rates[i] ?? "").Trim(), NumberStyles.Integer,
+                    CultureInfo.InvariantCulture, out rate) || rate <= 0)
+                { _error = "Enter a positive bitrate for every preset."; return; }
+                string url = (stream.Url ?? "").Trim();
+                if (!(url.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+                      url.StartsWith("https://", StringComparison.OrdinalIgnoreCase)))
+                { _error = "Every stream URL must start with http:// or https://."; return; }
+                if (!rates.Add(rate))
+                { _error = "Each bitrate preset must be unique."; return; }
+
+                stream.Rate = rate;
+                stream.Url = url;
+                if (string.IsNullOrEmpty(stream.Key)) stream.Key = _source.Id + "-" + rate;
+            }
+            if (!rates.Contains(_source.DefaultRate)) _source.DefaultRate = _source.Streams[0].Rate;
+            JukeboxPresetStore.Save(_source, _isNew, _originalId,
+                () => Close(), error => _error = error);
+        }
+    }
+}

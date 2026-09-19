@@ -1,8 +1,14 @@
 # Jukebox boundaries
 
 `Sim/Jukebox/Radio.cs` bridges game audio settings and the daemon; `audio/` owns decoding and
-playback. Station catalogs are user-owned TOML, not shipped content. Stable keys cross the
-wire; stream URLs remain daemon-side. See the book for catalog configuration.
+playback. The source list has built-in `ost` and `spotify` entries plus user-owned TOML station
+presets. Source visibility is a mod preference; preset contents and stream URLs remain daemon-
+owned. Settings edits presets through root-only daemon routes rather than reading `~/.config`
+from the game process. See the book for catalog configuration.
+
+Spotify is shown only while the native daemon reports an executable `ncspot`; it is disabled in
+Audio settings and omitted from the jukebox menu otherwise. A saved Spotify selection falls back
+to OST when the capability snapshot says the player is unavailable.
 
 Native and sidecar playback differ: daemon mode disables vanilla music, while sidecar mode
 uses the native manager for the SlopWorld OST. Mute must stop daemon downloads, not just set

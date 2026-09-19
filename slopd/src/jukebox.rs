@@ -52,7 +52,7 @@ pub struct Catalog {
     pub stations: Vec<Station>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 struct FileStation {
     #[serde(default)]
     id: String,
@@ -64,7 +64,7 @@ struct FileStation {
     streams: Vec<FileStream>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 struct FileStream {
     #[serde(default)]
     rate: u32,
@@ -96,6 +96,12 @@ impl Catalog {
     /// remains useful for tests and an alternate daemon instance.
     pub fn dir() -> PathBuf {
         crate::paths::dir("SLOPD_JUKEBOX", dirs::config_dir(), "jukebox")
+    }
+
+    /// The editor sees the effective user catalog, with stream URLs restored. The normal
+    /// jukebox catalog deliberately omits URLs before it crosses into the mod.
+    pub fn user_presets() -> Vec<Station> {
+        Self::load().stations
     }
 
     // Reload rejects a partial catalog so the caller can retain the last good snapshot.
@@ -155,11 +161,100 @@ impl Catalog {
     }
 }
 
+/// Save one user-owned station definition. The station id is the stable identity used by the
+/// audio protocol; the display name remains editable without renaming the file behind the
+/// daemon's back.
+pub fn save_user(station: Station) -> Result<()> {
+    save_user_in(&Catalog::dir(), station)
+}
+
+fn save_user_in(dir: &Path, station: Station) -> Result<()> {
+    let station = normalize(station, None)?;
+    valid_id(&station.id)?;
+
+    let path = match find_user_file(dir, &station.id)? {
+        Some(path) => path,
+        None => {
+            let path = dir.join(format!("{}.toml", station.id));
+            if path.exists() {
+                bail!("a jukebox definition already exists at {}", path.display());
+            }
+            path
+        }
+    };
+    let file = FileStation {
+        id: station.id,
+        default_rate: station.default_rate,
+        metadata: station.metadata,
+        streams: station
+            .streams
+            .into_iter()
+            .map(|stream| FileStream {
+                rate: stream.rate,
+                key: stream.key,
+                url: stream.url,
+            })
+            .collect(),
+    };
+    let text = toml::to_string_pretty(&file)?;
+    crate::paths::write_atomic(&path, &text, None)
+}
+
+pub fn delete_user(id: &str) -> Result<()> {
+    delete_user_in(&Catalog::dir(), id)
+}
+
+fn delete_user_in(dir: &Path, id: &str) -> Result<()> {
+    let path =
+        find_user_file(dir, id)?.with_context(|| format!("unknown jukebox preset {id:?}"))?;
+    std::fs::remove_file(&path).with_context(|| format!("removing {}", path.display()))
+}
+
+fn find_user_file(dir: &Path, id: &str) -> Result<Option<PathBuf>> {
+    let entries = match std::fs::read_dir(dir) {
+        Ok(entries) => entries,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(error) => return Err(error).with_context(|| format!("reading {}", dir.display())),
+    };
+    let mut paths = entries
+        .map(|entry| entry.map(|entry| entry.path()))
+        .collect::<std::io::Result<Vec<_>>>()?;
+    paths.sort();
+    let mut found = None;
+    for path in paths {
+        if !path
+            .extension()
+            .is_some_and(|ext| ext.to_string_lossy().eq_ignore_ascii_case("toml"))
+        {
+            continue;
+        }
+        let text = std::fs::read_to_string(&path)?;
+        let station = match parse(&text, &path) {
+            Ok(station) => station,
+            Err(_) => continue,
+        };
+        if station.id == id {
+            found = Some(path);
+        }
+    }
+    Ok(found)
+}
+
+fn valid_id(id: &str) -> Result<()> {
+    let mut chars = id.chars();
+    let valid = chars.next().is_some_and(|c| c.is_ascii_alphanumeric())
+        && chars.all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-');
+    if !valid {
+        bail!("invalid jukebox preset id {id:?}; use letters, numbers, '-' or '_'");
+    }
+    Ok(())
+}
+
 fn parse(text: &str, path: &Path) -> Result<Station> {
     let raw: FileStation =
         toml::from_str(text).with_context(|| format!("parsing {}", path.display()))?;
 
-    let mut station = Station {
+    let station = Station {
         id: raw.id,
         default_rate: raw.default_rate,
         metadata: raw.metadata,
@@ -178,9 +273,13 @@ fn parse(text: &str, path: &Path) -> Result<Station> {
             .collect(),
     };
 
+    normalize(station, Some(path))
+}
+
+fn normalize(mut station: Station, path: Option<&Path>) -> Result<Station> {
     if station.id.trim().is_empty() {
         station.id = path
-            .file_stem()
+            .and_then(|path| path.file_stem())
             .and_then(|s| s.to_str())
             .unwrap_or_default()
             .to_string();
@@ -254,6 +353,58 @@ mod tests {
         let dir = temp_dir("empty");
         let catalog = Catalog::load_from(&dir);
         assert!(catalog.stations.is_empty());
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn user_presets_write_edit_and_delete_as_toml() {
+        let dir = temp_dir("crud");
+        let station = Station {
+            id: "custom".into(),
+            default_rate: 96,
+            metadata: Metadata {
+                name: "Custom Radio".into(),
+                donate: "https://example.org/donate".into(),
+                title_regex: String::new(),
+            },
+            streams: vec![
+                Stream {
+                    rate: 96,
+                    key: "custom96".into(),
+                    url: "https://example.org/stream".into(),
+                },
+                Stream {
+                    rate: 64,
+                    key: "custom64".into(),
+                    url: "https://example.org/stream-64".into(),
+                },
+            ],
+        };
+        save_user_in(&dir, station).unwrap();
+
+        let loaded = Catalog::load_from(&dir);
+        assert_eq!(loaded.stations[0].metadata.name, "Custom Radio");
+        assert_eq!(loaded.stations[0].streams.len(), 2);
+        assert_eq!(
+            loaded.stations[0].streams[0].url,
+            "https://example.org/stream"
+        );
+        assert_eq!(
+            loaded.stations[0].streams[1].url,
+            "https://example.org/stream-64"
+        );
+
+        let mut edited = loaded.stations[0].clone();
+        edited.metadata.name = "Edited Radio".into();
+        save_user_in(&dir, edited).unwrap();
+        assert_eq!(
+            Catalog::load_from(&dir).stations[0].metadata.name,
+            "Edited Radio"
+        );
+        assert_eq!(Catalog::load_from(&dir).stations[0].streams.len(), 2);
+
+        delete_user_in(&dir, "custom").unwrap();
+        assert!(Catalog::load_from(&dir).stations.is_empty());
         std::fs::remove_dir_all(dir).unwrap();
     }
 

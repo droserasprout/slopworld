@@ -10,16 +10,17 @@ namespace SlopWorld
     {
         readonly SettingsForm _form = new SettingsForm();
 
-        public void Load() { }
+        public void Load() => JukeboxPresetStore.Refresh();
 
         public void Draw(Rect rect)
         {
-            _form.Draw(SettingsPageLayout.Body(rect, false), DrawFields);
+            _form.Draw(SettingsPageLayout.Body(rect), DrawFields);
+            var foot = new UiLayout.Bar(SettingsPageLayout.Footer(rect));
+            if (foot.Left("Add source", UiTheme.Btn.Primary)) AudioSourceDialog.OpenNew();
         }
 
         void DrawFields(Listing_Standard l)
         {
-
             UiLayout.SectionHeading(l, "Volume");
             Prefs.VolumeMaster = UiControls.Slider(l, "MasterVolume".Translate(),
                 Prefs.VolumeMaster, "MasterVolumeTooltip".Translate());
@@ -31,6 +32,9 @@ namespace SlopWorld
                 Prefs.VolumeAmbient, "AmbientVolumeTooltip".Translate());
             Prefs.VolumeUI = UiControls.Slider(l, "UIVolume".Translate(),
                 Prefs.VolumeUI, "UIVolumeTooltip".Translate());
+
+            l.Gap(UiTheme.GapL);
+            DrawSources(l);
 
             l.Gap(UiTheme.GapL);
             UiLayout.SectionHeading(l, "Jukebox");
@@ -82,6 +86,90 @@ namespace SlopWorld
                 "Stop the daemon's playback when RimWorld exits normally.");
             if (stop != Radio.StopOnExit) Radio.ToggleStopOnExit();
 
+        }
+
+        static void DrawSources(Listing_Standard l)
+        {
+            UiLayout.SectionHeading(l, "Sources");
+            UiLayout.Note(l, "Choose which sources appear in the jukebox.");
+            l.Gap(UiTheme.GapS);
+
+            // Keep the table inside the listing so its rows participate in the page's measured
+            // scroll extent instead of relying on a fixed page width.
+            var header = l.GetRect(UiTheme.RowH);
+            DrawHeader(header);
+            DrawSourceRow(l, "OST", Radio.OstSourceId, true, null);
+            DrawSourceRow(l, "Spotify", Radio.SpotifySourceId, Radio.SpotifyAvailable, null);
+
+            if (JukeboxPresetStore.Loading && JukeboxPresetStore.Items.Count == 0)
+                UiLayout.Note(l, "Loading user sources...");
+            else if (!string.IsNullOrEmpty(JukeboxPresetStore.Error) &&
+                     JukeboxPresetStore.Items.Count == 0)
+                UiLayout.Validation(l, JukeboxPresetStore.Error);
+
+            foreach (var preset in JukeboxPresetStore.Items)
+                DrawSourceRow(l, preset.Name, preset.Id, true, preset);
+        }
+
+        static void DrawHeader(Rect r)
+        {
+            float actionsW = ActionsWidth();
+            float showX = r.xMax - actionsW - UiTheme.GapS - ShowWidth;
+            using (WidgetState.Save())
+            {
+                GUI.color = UiTheme.Faint;
+                UiText.RowLabel(new Rect(r.x, r.y, Mathf.Max(0f, showX - r.x), r.height), "Name");
+                UiText.RowLabel(new Rect(showX, r.y, ShowWidth, r.height), "Show");
+                UiText.RowLabel(new Rect(r.xMax - actionsW, r.y, actionsW, r.height), "Actions");
+            }
+        }
+
+        const float ShowWidth = 84f;
+
+        static float EditWidth => UiLayout.BtnW("Edit", 72f);
+        static float RemoveWidth => UiLayout.BtnW("Remove", 90f);
+        static float ActionsWidth() => EditWidth + UiTheme.GapS + RemoveWidth;
+
+        static void DrawSourceRow(Listing_Standard l, string name, string id, bool available,
+                                  JukeboxPresetInfo preset)
+        {
+            var row = l.GetRect(UiTheme.RowH);
+            float actionsW = ActionsWidth();
+            float showW = ShowWidth;
+            float nameW = Mathf.Max(0f, row.width - actionsW - showW - UiTheme.GapS * 2f);
+            var nameRect = new Rect(row.x, row.y, nameW, row.height);
+            var showRect = new Rect(nameRect.xMax + UiTheme.GapS, row.y, showW, row.height);
+            var editRect = new Rect(row.xMax - actionsW, row.y, EditWidth, row.height);
+            var removeRect = new Rect(editRect.xMax + UiTheme.GapS, row.y,
+                RemoveWidth, row.height);
+
+            using (WidgetState.Save())
+            {
+                GUI.color = available ? UiTheme.Name : UiTheme.Faint;
+                UiText.RowLabel(nameRect, name);
+                GUI.color = Color.white;
+            }
+
+            bool shown = Radio.SourceShown(id);
+            bool next = UiControls.Checkbox(showRect, "", shown,
+                available ? null : "ncspot is not available on the daemon host", !available);
+            if (available && next != shown) Radio.SetSourceShown(id, next);
+
+            if (preset != null)
+            {
+                if (UiButtons.Button(editRect, "Edit", UiTheme.Btn.Ghost))
+                    AudioSourceDialog.Open(preset);
+                if (UiButtons.Button(removeRect, "Remove", UiTheme.Btn.Danger))
+                    ConfirmRemove(preset);
+            }
+        }
+
+        static void ConfirmRemove(JukeboxPresetInfo preset)
+        {
+            Find.WindowStack.Add(ConfirmDialog.Create(
+                $"Remove source '{preset.Name}'? This deletes its user preset from the daemon.",
+                () => JukeboxPresetStore.Remove(preset.Id, null, UiLayout.Fail),
+                destructive: true));
         }
 
         // The recognition control makes the background lookup legible: a transient recognizing
