@@ -53,8 +53,7 @@ namespace SlopWorld
             l.Gap(UiTheme.GapL);
             UiLayout.SectionHeading(l, "Worker bootstrap");
             UiLayout.Note(l, "This prompt is submitted to each worker spawned from a selected " +
-                "template. " +
-                "Use $SLOPWORLD_TASK_ID to refer to its exact mailbox task.");
+                "template. Task lifecycle commands infer the worker's exact mailbox task ID.");
             l.Label("Worker prompt");
             _cfg.WorkerPrompt = UiControls.Area(l, 180f, "instructions.worker_prompt",
                 _cfg.WorkerPrompt, on: true, defaultValue: _cfg.FactoryDefaults?.WorkerPrompt);

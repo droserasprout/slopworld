@@ -379,6 +379,7 @@ mod tests {
     fn worker_prompt_defaults() {
         let instructions = &Config::default().daemon.instructions;
         assert_eq!(instructions.worker_prompt, DEFAULT_WORKER_PROMPT);
+        assert!(!instructions.worker_prompt.contains("SLOPWORLD_TASK_ID"));
         assert_eq!(
             Config::default().daemon.summary_prompt,
             DEFAULT_SUMMARY_PROMPT

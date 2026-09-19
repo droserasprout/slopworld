@@ -176,7 +176,7 @@ pub struct InstructionsCfg {
     pub worker_prompt: String,
 }
 
-pub const DEFAULT_WORKER_PROMPT: &str = "You are a SlopWorld worker. Your assigned task ID is $SLOPWORLD_TASK_ID. Run `slopctl task show \"$SLOPWORLD_TASK_ID\"` once, then `slopctl task accept \"$SLOPWORLD_TASK_ID\"`. Use `slopctl task progress \"$SLOPWORLD_TASK_ID\" \"note\"` while working and conclude with `slopctl task finish \"$SLOPWORLD_TASK_ID\" \"result\"` or `slopctl task fail \"$SLOPWORLD_TASK_ID\" \"reason\"`. Do not search the task list or poll task status.\n\nWorker task: use `$SLOPWORLD_TASK_ID` with `slopctl task show`, then `task accept`, `task progress`, and finally `task finish` or `task fail`. Do not search the task list or poll task status.";
+pub const DEFAULT_WORKER_PROMPT: &str = "You are a SlopWorld worker. Run `slopctl task show` once, then `slopctl task accept`. Use `slopctl task progress` while working and conclude with `slopctl task finish` or `slopctl task fail`. Do not search the task list or poll task status.\n\nWorker task: use `slopctl task show`, then `task accept`, `task progress`, and finally `task finish` or `task fail`. Do not search the task list or poll task status.";
 
 fn default_worker_prompt() -> String {
     DEFAULT_WORKER_PROMPT.into()

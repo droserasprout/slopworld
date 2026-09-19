@@ -7,6 +7,8 @@ use serde_json::{json, Value};
 use std::thread;
 use std::time::{Duration, Instant};
 
+pub(crate) const TASK_ID_ENV: &str = "SLOPWORLD_TASK_ID";
+
 pub(crate) const DELEGATE_USAGE: &str = "usage:
   slopctl task delegate AGENT TASK...
   slopctl delegate AGENT TASK...
@@ -88,17 +90,18 @@ options:
 pub(crate) const TASK_USAGE: &str = "usage:
   slopctl task delegate AGENT TASK...
   slopctl task list [--all] [--sent] [--received] [--status STATUS]
-  slopctl task show ID
-  slopctl task wait ID
-  slopctl task accept ID [NOTE...]
-  slopctl task progress ID [NOTE...]
-  slopctl task finish ID [RESULT...]
-  slopctl task fail ID [ERROR...]
-  slopctl task remove ID
+  slopctl task show [ID]
+  slopctl task wait [ID]
+  slopctl task accept [ID] [NOTE...]
+  slopctl task progress [ID] [NOTE...]
+  slopctl task finish [ID] [RESULT...]
+  slopctl task fail [ID] [ERROR...]
+  slopctl task remove [ID]
   slopctl task prune [--include-active]
 
 manage delegated tasks. The old `task ID` spelling remains an alias for
-`task show ID`; explicit subcommands take precedence over that alias.
+`task show ID`; explicit subcommands take precedence over that alias. When
+SLOPWORLD_TASK_ID is set, ID may be omitted.
 ";
 
 pub(crate) const TASK_LIST_USAGE: &str = "usage:
@@ -115,54 +118,60 @@ options:
 ";
 
 pub(crate) const TASK_SHOW_USAGE: &str = "usage:
-  slopctl task show ID
+  slopctl task show [ID]
 
-show one task by its exact id.
+show one task by its exact id. When SLOPWORLD_TASK_ID is set, ID may be omitted.
 ";
 
 pub(crate) const WAIT_USAGE: &str = "usage:
-  slopctl task wait ID
-  slopctl wait ID
+  slopctl task wait [ID]
+  slopctl wait [ID]
 
 block until one task reaches a terminal state, then show it. `wait` is the short
 spelling. This command checks
 the task internally; do not replace it with a status loop or a short timeout.
 Status changes and a 30-second heartbeat go to stderr; stdout holds the final result.
+When SLOPWORLD_TASK_ID is set, ID may be omitted.
 ";
 
 pub(crate) const ACCEPT_USAGE: &str = "usage:
-  slopctl task accept ID [NOTE...]
-  slopctl accept ID [NOTE...]
+  slopctl task accept [ID] [NOTE...]
+  slopctl accept [ID] [NOTE...]
 
-mark a queued task as accepted, optionally recording a note.
+mark a queued task as accepted, optionally recording a note. When
+SLOPWORLD_TASK_ID is set, ID may be omitted.
 ";
 
 pub(crate) const PROGRESS_USAGE: &str = "usage:
-  slopctl task progress ID [NOTE...]
-  slopctl progress ID [NOTE...]
+  slopctl task progress [ID] [NOTE...]
+  slopctl progress [ID] [NOTE...]
 
-mark an accepted task as in progress, optionally recording a note.
+mark an accepted task as in progress, optionally recording a note. When
+SLOPWORLD_TASK_ID is set, ID may be omitted.
 ";
 
 pub(crate) const FINISH_USAGE: &str = "usage:
-  slopctl task finish ID [RESULT...]
-  slopctl finish ID [RESULT...]
+  slopctl task finish [ID] [RESULT...]
+  slopctl finish [ID] [RESULT...]
 
-mark a task as done, optionally recording its result.
+mark a task as done, optionally recording its result. When SLOPWORLD_TASK_ID is
+set, ID may be omitted.
 ";
 
 pub(crate) const FAIL_USAGE: &str = "usage:
-  slopctl task fail ID [ERROR...]
-  slopctl fail ID [ERROR...]
+  slopctl task fail [ID] [ERROR...]
+  slopctl fail [ID] [ERROR...]
 
-mark a task as failed, optionally recording the reason.
+mark a task as failed, optionally recording the reason. When
+SLOPWORLD_TASK_ID is set, ID may be omitted.
 ";
 
 pub(crate) const REMOVE_USAGE: &str = "usage:
-  slopctl task remove ID
-  slopctl rm ID
+  slopctl task remove [ID]
+  slopctl rm [ID]
 
 remove one task that has stopped moving. `rm` remains as a compatibility alias.
+When SLOPWORLD_TASK_ID is set, ID may be omitted.
 ";
 
 pub(crate) const PRUNE_USAGE: &str = "usage:
@@ -210,13 +219,13 @@ loop over task, inbox or status while waiting.
 usage:
   slopctl task delegate AGENT TASK...
   slopctl task list [--all] [--sent] [--received] [--status STATUS]
-  slopctl task show ID
-  slopctl task wait ID
-  slopctl task accept ID [NOTE...]
-  slopctl task progress ID [NOTE...]
-  slopctl task finish ID [RESULT...]
-  slopctl task fail ID [ERROR...]
-  slopctl task remove ID
+  slopctl task show [ID]
+  slopctl task wait [ID]
+  slopctl task accept [ID] [NOTE...]
+  slopctl task progress [ID] [NOTE...]
+  slopctl task finish [ID] [RESULT...]
+  slopctl task fail [ID] [ERROR...]
+  slopctl task remove [ID]
   slopctl task prune [--include-active]
   slopctl worker spawn [--durable] --project PROJECT --template TEMPLATE [--] TASK...
   slopctl agent create NAME --project PROJECT --template TEMPLATE [--start]
@@ -230,7 +239,7 @@ usage:
 shortcuts:
   slopctl delegate AGENT TASK...
   slopctl spawn [--durable] --project PROJECT --template TEMPLATE [--] TASK...
-  slopctl wait ID
+  slopctl wait [ID]
 
 `delegate`, `spawn`, and `wait` are documented short spellings. Existing root
 task verbs, `inbox`, `templates`, `rm`, `task ID`, bare `worker` spawning, and
@@ -238,7 +247,9 @@ task verbs, `inbox`, `templates`, `rm`, `task ID`, bare `worker` spawning, and
 prints the answer as JSON instead of for a reader.
 
 SLOPWORLD_SESSION identifies the caller, and defaults to `host` - the user at the
-keyboard - which the daemon accepts only from the root token. SLOPD_ENDPOINT
+keyboard - which the daemon accepts only from the root token. When
+SLOPWORLD_TASK_ID is set, task IDs may be omitted from task lifecycle commands.
+SLOPD_ENDPOINT
 selects endpoint.toml; SLOPD_URL and SLOPD_TOKEN override it.
 ";
 
@@ -354,6 +365,14 @@ fn has_help(args: &[String]) -> bool {
 }
 
 pub(crate) fn parse_command(args: &[String]) -> Result<Command, String> {
+    let task_id = task_id_from_env();
+    parse_command_with_task_id(args, task_id.as_deref())
+}
+
+pub(crate) fn parse_command_with_task_id(
+    args: &[String],
+    task_id: Option<&str>,
+) -> Result<Command, String> {
     let command = args
         .first()
         .map(String::as_str)
@@ -376,14 +395,14 @@ pub(crate) fn parse_command(args: &[String]) -> Result<Command, String> {
         "inbox" => Ok(Command::Inbox {
             filter: InboxFilter::parse(&args[1..])?,
         }),
-        "task" => parse_task_command(args),
+        "task" => parse_task_command(args, task_id),
         "wait" => {
-            let id = arg(args, 1, "wait needs a task id")?.to_string();
+            let id = task_id_arg(args, 1, "wait needs a task id", task_id)?;
             only(args, 2)?;
             Ok(Command::Wait { id })
         }
         "accept" | "progress" | "finish" | "fail" => {
-            let id = arg(args, 1, &format!("{command} needs a task id"))?.to_string();
+            let id = task_id_arg(args, 1, &format!("{command} needs a task id"), task_id)?;
             let action = match command {
                 "accept" => UpdateAction::Accept,
                 "progress" => UpdateAction::Progress,
@@ -394,7 +413,7 @@ pub(crate) fn parse_command(args: &[String]) -> Result<Command, String> {
             Ok(Command::Update { action, id, note })
         }
         "rm" => {
-            let id = arg(args, 1, "rm needs a task id")?.to_string();
+            let id = task_id_arg(args, 1, "rm needs a task id", task_id)?;
             only(args, 2)?;
             Ok(Command::Remove { id })
         }
@@ -420,7 +439,7 @@ pub(crate) fn parse_command(args: &[String]) -> Result<Command, String> {
     }
 }
 
-fn parse_task_command(args: &[String]) -> Result<Command, String> {
+fn parse_task_command(args: &[String], task_id: Option<&str>) -> Result<Command, String> {
     if matches!(
         args.get(1).map(String::as_str),
         Some("-h" | "--help" | "help")
@@ -453,13 +472,13 @@ fn parse_task_command(args: &[String]) -> Result<Command, String> {
                 filter: InboxFilter::parse(&args[2..])?,
             })
         }
-        Some("show") => parse_task_show(args),
-        Some("wait") => parse_task_wait(args),
-        Some("accept") => parse_task_update(args, UpdateAction::Accept),
-        Some("progress") => parse_task_update(args, UpdateAction::Progress),
-        Some("finish") => parse_task_update(args, UpdateAction::Finish),
-        Some("fail") => parse_task_update(args, UpdateAction::Fail),
-        Some("remove") => parse_task_remove(args),
+        Some("show") => parse_task_show(args, task_id),
+        Some("wait") => parse_task_wait(args, task_id),
+        Some("accept") => parse_task_update(args, UpdateAction::Accept, task_id),
+        Some("progress") => parse_task_update(args, UpdateAction::Progress, task_id),
+        Some("finish") => parse_task_update(args, UpdateAction::Finish, task_id),
+        Some("fail") => parse_task_update(args, UpdateAction::Fail, task_id),
+        Some("remove") => parse_task_remove(args, task_id),
         Some("prune") => parse_task_prune(args),
         // Compatibility alias: `task ID` means `task show ID`. The explicit subcommand arms
         // above deliberately win when an id happens to be named `wait`, `list`, or another
@@ -482,7 +501,7 @@ fn parse_delegate(args: &[String], recipient_at: usize) -> Result<Command, Strin
     })
 }
 
-fn parse_task_show(args: &[String]) -> Result<Command, String> {
+fn parse_task_show(args: &[String], task_id: Option<&str>) -> Result<Command, String> {
     if matches!(
         args.get(2).map(String::as_str),
         Some("-h" | "--help" | "help")
@@ -491,24 +510,28 @@ fn parse_task_show(args: &[String]) -> Result<Command, String> {
             usage: TASK_SHOW_USAGE,
         });
     }
-    let id = arg(args, 2, "task show needs a task id")?.to_string();
+    let id = task_id_arg(args, 2, "task show needs a task id", task_id)?;
     only(args, 3)?;
     Ok(Command::Task { id })
 }
 
-fn parse_task_wait(args: &[String]) -> Result<Command, String> {
+fn parse_task_wait(args: &[String], task_id: Option<&str>) -> Result<Command, String> {
     if matches!(
         args.get(2).map(String::as_str),
         Some("-h" | "--help" | "help")
     ) {
         return Ok(Command::Help { usage: WAIT_USAGE });
     }
-    let id = arg(args, 2, "task wait needs a task id")?.to_string();
+    let id = task_id_arg(args, 2, "task wait needs a task id", task_id)?;
     only(args, 3)?;
     Ok(Command::Wait { id })
 }
 
-fn parse_task_update(args: &[String], action: UpdateAction) -> Result<Command, String> {
+fn parse_task_update(
+    args: &[String],
+    action: UpdateAction,
+    task_id: Option<&str>,
+) -> Result<Command, String> {
     let (name, usage) = match &action {
         UpdateAction::Accept => ("task accept", ACCEPT_USAGE),
         UpdateAction::Progress => ("task progress", PROGRESS_USAGE),
@@ -521,12 +544,12 @@ fn parse_task_update(args: &[String], action: UpdateAction) -> Result<Command, S
     ) {
         return Ok(Command::Help { usage });
     }
-    let id = arg(args, 2, &format!("{name} needs a task id"))?.to_string();
+    let id = task_id_arg(args, 2, &format!("{name} needs a task id"), task_id)?;
     let note = (args.len() > 3).then(|| args[3..].join(" "));
     Ok(Command::Update { action, id, note })
 }
 
-fn parse_task_remove(args: &[String]) -> Result<Command, String> {
+fn parse_task_remove(args: &[String], task_id: Option<&str>) -> Result<Command, String> {
     if matches!(
         args.get(2).map(String::as_str),
         Some("-h" | "--help" | "help")
@@ -535,7 +558,7 @@ fn parse_task_remove(args: &[String]) -> Result<Command, String> {
             usage: REMOVE_USAGE,
         });
     }
-    let id = arg(args, 2, "task remove needs a task id")?.to_string();
+    let id = task_id_arg(args, 2, "task remove needs a task id", task_id)?;
     only(args, 3)?;
     Ok(Command::Remove { id })
 }
@@ -1380,6 +1403,24 @@ pub(crate) fn peer_names(v: &Value) -> Vec<&str> {
 fn arg<'a>(args: &'a [String], at: usize, missing: &str) -> Result<&'a str, String> {
     args.get(at)
         .map(String::as_str)
+        .ok_or_else(|| missing.to_string())
+}
+
+fn task_id_from_env() -> Option<String> {
+    std::env::var(TASK_ID_ENV)
+        .ok()
+        .filter(|id| !id.trim().is_empty())
+}
+
+fn task_id_arg(
+    args: &[String],
+    at: usize,
+    missing: &str,
+    task_id: Option<&str>,
+) -> Result<String, String> {
+    args.get(at)
+        .cloned()
+        .or_else(|| task_id.map(str::to_owned))
         .ok_or_else(|| missing.to_string())
 }
 

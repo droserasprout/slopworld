@@ -33,6 +33,10 @@ Recipients use `task show ID`, `task accept ID`, `task progress ID "note"`, then
 `task prune --include-active` is root-only and also removes unfinished tasks. CLI help lists the
 current filters and options.
 
+When `SLOPWORLD_TASK_ID` is set, worker lifecycle commands may omit `ID`; an explicit ID still
+takes precedence. For example, a worker can run `slopctl task show`, `slopctl task accept`, and
+`slopctl task finish`.
+
 `task list` shows unfinished work in both directions, newest first. Cancellation marks queued or
 accepted work as `canceled`; removal is shared:
 the store holds one copy of a task, and a participant can only drop tasks that have
@@ -56,8 +60,8 @@ while an agent caller sees only templates
 enabled for worker spawning; `template show NAME` prints one accessible definition.
 Insert `--` before task text that begins with an option, for example
 `worker spawn --project repo --template review -- --durable` sends the literal task `--durable`.
-The worker receives its exact task id in `SLOPWORLD_TASK_ID`, so it should run `slopctl task show ID`,
-accept it, and report progress with the normal lifecycle commands. One-shot workers disappear
+The worker receives its exact task id in `SLOPWORLD_TASK_ID`, and `slopctl` uses it when a lifecycle
+command omits `ID`. One-shot workers disappear
 on exit; durable workers remain as stopped, inspectable sessions. Exit, stop, removal, or startup
 failure marks an unfinished worker task failed, and retries require a new task or a manual
 durable start.
