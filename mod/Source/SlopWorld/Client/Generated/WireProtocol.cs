@@ -58,6 +58,7 @@ namespace SlopWorld
             public const string ClipboardPrimaryText = "/api/clipboard/primary/text";
             public const string Usage = "/api/usage";
             public const string Audio = "/api/audio";
+            public const string Ncspot = "/api/ncspot";
             public const string Jukebox = "/api/jukebox";
             public const string Browse = "/api/browse";
             public const string FileStat = "/api/files/stat";

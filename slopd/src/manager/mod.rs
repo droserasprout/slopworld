@@ -10,6 +10,7 @@ mod config_state;
 mod desktop;
 mod errands;
 mod library;
+pub(crate) mod ncspot;
 mod reconcile;
 mod session_lifecycle;
 mod session_state;

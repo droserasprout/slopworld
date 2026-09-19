@@ -306,6 +306,7 @@ message AudioState {
   float volume = 3;
   optional string error = 4;
   optional string title = 5;
+  optional string session = 6;
 }
 
 message StationMetadata {
@@ -441,6 +442,7 @@ message AudioSelection {
   optional string station = 1;
   optional string stream = 2;
   optional string file = 3;
+  bool ncspot = 4;
 }
 
 message PasteReq {

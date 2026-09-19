@@ -19,3 +19,15 @@ a terminal I/O error; `Interrupted` tells readers to retry and spins retired fee
 Decoder/source generations guard late playback and metadata. A stale title is still stale
 state even if the corresponding audio was discarded. [Likes and recognition](mod-jukebox-library.md)
 cover the other side of that identity boundary.
+
+The ncspot proof of concept is coordinated by `manager/ncspot.rs`: it owns a host
+errand terminal, a private IPC runtime directory and bounded status reads. The tmux
+`@slopworld_ncspot` marker identifies the player across redeploy; names and adopted
+host commands do not. Startup restores the player after session adoption, preserving its
+last applied volume without sending volume commands. The mod launches through WebSocket
+audio selection and opens the terminal named in the audio reply; shutdown's stop uses the
+same ordered connection. Source transitions share a daemon mutex with the explicit HTTP
+launch API. Stop the managed terminal before starting OST/radio;
+muting currently stops it too. `Radio` keeps Spotify selection separate from the
+null-station OST case and ignores mismatched source metadata during transitions.
+See the [tour](../docs/src/tour/fun.md#spotify-proof-of-concept) for setup and limits.

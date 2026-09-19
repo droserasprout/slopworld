@@ -125,6 +125,9 @@ pub(crate) fn encode_request(method: &str, path: &str, value: Value) -> anyhow::
     if method == "GET" && matches("/api/audio", path) {
         return Ok(serde_json::from_value::<wire::Empty>(value)?.encode_to_vec());
     }
+    if method == "POST" && matches("/api/ncspot", path) {
+        return Ok(serde_json::from_value::<wire::RedrawReq>(value)?.encode_to_vec());
+    }
     if method == "GET" && matches("/api/jukebox", path) {
         return Ok(serde_json::from_value::<wire::Empty>(value)?.encode_to_vec());
     }
@@ -360,6 +363,9 @@ pub(crate) fn decode_response(method: &str, path: &str, value: &[u8]) -> anyhow:
     }
     if method == "GET" && matches("/api/audio", path) {
         return Ok(serde_json::to_value(wire::AudioState::decode(value)?)?);
+    }
+    if method == "POST" && matches("/api/ncspot", path) {
+        return Ok(serde_json::to_value(wire::SessionResult::decode(value)?)?);
     }
     if method == "GET" && matches("/api/jukebox", path) {
         return Ok(serde_json::to_value(wire::JukeboxCatalog::decode(value)?)?);
@@ -604,6 +610,9 @@ pub(crate) fn decode_request(method: &str, path: &str, value: &[u8]) -> anyhow::
     if method == "GET" && matches("/api/audio", path) {
         return Ok(serde_json::to_value(wire::Empty::decode(value)?)?);
     }
+    if method == "POST" && matches("/api/ncspot", path) {
+        return Ok(serde_json::to_value(wire::RedrawReq::decode(value)?)?);
+    }
     if method == "GET" && matches("/api/jukebox", path) {
         return Ok(serde_json::to_value(wire::Empty::decode(value)?)?);
     }
@@ -840,6 +849,9 @@ pub(crate) fn encode_response(method: &str, path: &str, value: Value) -> anyhow:
     }
     if method == "GET" && matches("/api/audio", path) {
         return Ok(serde_json::from_value::<wire::AudioState>(value)?.encode_to_vec());
+    }
+    if method == "POST" && matches("/api/ncspot", path) {
+        return Ok(serde_json::from_value::<wire::SessionResult>(value)?.encode_to_vec());
     }
     if method == "GET" && matches("/api/jukebox", path) {
         return Ok(serde_json::from_value::<wire::JukeboxCatalog>(value)?.encode_to_vec());

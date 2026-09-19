@@ -26,8 +26,12 @@ namespace SlopWorld
                 : System.IO.Path.Combine(root, "Sounds", "SlopWorld", "OST");
         }
 
-        // Null is the OST, which is the one thing played that is not a station.
+        // A null station means OST unless Spotify is selected.
         static Station _station;
+        static bool _spotify;
+        static bool _openingSpotify;
+        static int _selectionRevision;
+        public static bool Spotify => _spotify;
         static bool _muted;
         static bool _stopOnExit;
 
@@ -199,6 +203,7 @@ namespace SlopWorld
         // the station reported beside what Shazam heard rather than silently replacing it.
         static string StationNowPlaying()
         {
+            if (_spotify) return _rawTitle;
             return _station != null
                 ? FormatTitle(_station, _rawTitle)
                 : string.IsNullOrEmpty(_rawTitle)
@@ -313,7 +318,7 @@ namespace SlopWorld
         static bool HasRecognition() => !string.IsNullOrEmpty(_recognizedArtist)
             && !string.IsNullOrEmpty(_recognizedTitle);
 
-        static string SourceLabel() => _station == null ? "SlopWorld OST" : _station.Name;
+        static string SourceLabel() => _spotify ? "Spotify" : _station == null ? "SlopWorld OST" : _station.Name;
 
         static string OriginalArtist()
         {
@@ -325,6 +330,7 @@ namespace SlopWorld
 
         static void CurrentParts(out string artist, out string title)
         {
+            if (_spotify) { artist = ""; title = _rawTitle; return; }
             if (HasRecognition())
             {
                 artist = _recognizedArtist;
@@ -358,6 +364,7 @@ namespace SlopWorld
         {
             Read();
             _station = null;
+            _spotify = false;
             _muted = false;
             _blamed = false;
             Save();
@@ -376,7 +383,7 @@ namespace SlopWorld
                 if (_muted || candidate != _station) candidates.Add(candidate);
 
             // The OST is one source candidate, but when it is active it is not picked again.
-            bool ostCurrent = !_muted && _station == null;
+            bool ostCurrent = !_spotify && !_muted && _station == null;
             bool canPickOst = !ostCurrent;
             int count = candidates.Count + (canPickOst ? 1 : 0);
             if (count == 0) return;
@@ -424,8 +431,9 @@ namespace SlopWorld
             // Picking something is asking to hear it, which answers the mute as well - a
             // menu row that does nothing because of a tick two rows down is a menu row
             // nobody can explain.
-            if (_station == s && (s == null || s.Rate == rate) && !_muted) return;
+            if (!_spotify && _station == s && (s == null || s.Rate == rate) && !_muted) return;
 
+            _spotify = false;
             _station = s;
             // On the station rather than beside it, so the one being left keeps the quality
             // it was left on. Picking the OST changes nobody's.
@@ -516,19 +524,25 @@ namespace SlopWorld
         static string Selection()
         {
             if (_muted) return "stop";
+            if (_spotify) return "ncspot";
             if (_station != null) return "station:" + _station.SelectionKey(_station.Rate);
             if (!_catalogReady && IsSavedStation()) return "stop";
             string path = OstPath();
             return path == null ? "stop" : "file:" + path;
         }
 
-        static bool IsSavedStation() => !string.IsNullOrEmpty(Settings.Radio) && Settings.Radio != "ost";
+        static bool IsSavedStation() => !string.IsNullOrEmpty(Settings.Radio) && Settings.Radio != "ost" && Settings.Radio != "ncspot";
 
         static void SendSelection(SessionHub hub, float volume, string selection)
         {
             if (selection == "stop")
             {
                 hub.Audio.SendAudio(null, null, null, volume);
+                return;
+            }
+            if (_spotify)
+            {
+                hub.Audio.SendSpotify(volume);
                 return;
             }
             if (_station != null)
@@ -542,8 +556,10 @@ namespace SlopWorld
         // The daemon's answer to what was asked of it. A station that will not play is
         // said once and handed back to the OST; the OST failing is not something to fall
         // back from, so it is left to the log.
-        public static void Report(bool playing, string error, string title)
+        public static void Report(bool playing, string error, string title, string source = null, string session = null)
         {
+            ReportSpotify(error, source, session);
+            if (_spotify != (source == "ncspot") && string.IsNullOrEmpty(error)) return;
             bool identityChanged = RecognitionTrack.Update(playing, _muted, SourceLabel());
             if (identityChanged)
             {
@@ -603,6 +619,8 @@ namespace SlopWorld
         // and the old song's name on the new station is worse than no name at all.
         static void Push()
         {
+            _selectionRevision++;
+            _openingSpotify = false;
             _told = false;
             _playing = false;
             _rawTitle = null;
@@ -612,12 +630,12 @@ namespace SlopWorld
             RecognitionTrack.Advance();
         }
 
-        // Saved as "station-id:stream-key" - or "ost". The stream key keeps the setting
+        // Saved as "station-id:stream-key", "ncspot", or "ost". The stream key keeps the setting
         // readable, while the id prevents two user stations serving the same path from
         // stealing one another's selection.
         static void Save()
         {
-            Settings.S.radio = _station == null ? "ost" : _station.SelectionKey(_station.Rate);
+            Settings.S.radio = _spotify ? "ncspot" : _station == null ? "ost" : _station.SelectionKey(_station.Rate);
             Settings.S.radioMute = _muted;
             Settings.S.radioStopOnExit = _stopOnExit;
             Settings.S.Write();
@@ -633,6 +651,7 @@ namespace SlopWorld
 
             // The catalog arrives over the socket. If it has not arrived yet, keep the saved
             // key in Settings and SetStations will restore it when the daemon sends the list.
+            _spotify = Settings.Radio == "ncspot";
             _station = FindSelection(Settings.Radio);
         }
     }

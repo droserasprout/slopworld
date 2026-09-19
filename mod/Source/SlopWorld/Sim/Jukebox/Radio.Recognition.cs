@@ -51,7 +51,7 @@ namespace SlopWorld
         public static void Recognize()
         {
             Read();
-            if (!RecognitionTrack.Eligible)
+            if (_spotify || !RecognitionTrack.Eligible)
             {
                 UiLayout.Fail("nothing is playing");
                 return;

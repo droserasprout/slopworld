@@ -36,6 +36,7 @@ grant-visible router; handler guards can impose a stricter access requirement.
 | `DELETE` | `/api/library/:name` | `root-only` | `destroy_library_item` | `Empty` → `Ack` |
 | `PUT` | `/api/library/:name` | `root-only` | `update_library_item` | `LibraryItem` → `Ack` |
 | `POST` | `/api/library/:name/run` | `root-only` | `run_library_item` | `RunWhere` → `SessionResult` |
+| `POST` | `/api/ncspot` | `root-only` | `ncspot` | `RedrawReq` → `SessionResult` |
 | `GET` | `/api/open-apps` | `root-only` | `open_apps` | `Empty` → `AppsReply` |
 | `GET` | `/api/presets` | `root-only` | `presets` | `Empty` → `PresetsReply` |
 | `DELETE` | `/api/presets/:kind/:name` | `root-only` | `delete_preset` | `Empty` → `Ack` |

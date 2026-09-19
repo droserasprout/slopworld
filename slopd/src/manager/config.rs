@@ -165,6 +165,8 @@ impl Manager {
             scroll_cache: Mutex::new(HashMap::new()),
             activity_cache,
             audio: crate::audio::Audio::new(),
+            music_transition: tokio::sync::Mutex::new(()),
+            ncspot: tokio::sync::Mutex::new(Default::default()),
             events,
             auth_generation: AtomicU64::new(0),
             auth_changes,
@@ -182,6 +184,9 @@ impl Manager {
         }
         m.tmux.ensure_server().await;
         m.sync_from_config().await;
+        if let Ok(root) = super::ncspot::runtime() {
+            m.recover_ncspot(&root).await;
+        }
         m
     }
 

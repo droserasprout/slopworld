@@ -42,3 +42,20 @@ SlopWorld OST instead.
 
 The jukebox menu also offers song recognition via `songrec`, a like button that appends
 to `jukebox.toml`, and a history view.
+
+### Spotify proof of concept
+
+On a native Linux daemon, install `ncspot` and choose **Play → Spotify (ncspot)**
+in the jukebox menu. A Spotify Premium account is required. Complete ncspot's login
+and choose music in its terminal. **Open Spotify player** returns to that terminal;
+hiding it leaves playback running. The jukebox displays the track reported by ncspot.
+
+This version closes ncspot when muted or when switching to OST/radio. Unmuting
+starts the player again; use its terminal to resume or choose music. The existing
+**Stop on exit** setting also applies. Playback controls and Spotify library changes
+stay inside ncspot; the jukebox Like action still writes only SlopWorld's likes.
+
+The daemon needs `XDG_RUNTIME_DIR` and host audio access. The player uses a private
+runtime directory beneath it, preserving `PULSE_SERVER` or using the host's usual
+PulseAudio/PipeWire socket. ncspot retains ownership of its normal configuration and
+login credentials. Sidecar playback is not supported by this proof of concept.
