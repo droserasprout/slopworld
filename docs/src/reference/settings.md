@@ -11,7 +11,8 @@ audio, RimWorld options, and credits. The [agent configuration guide](../guides/
 
 Worker settings are under **Settings > Integrations > Workers**. The page selects the agent
 templates that agents may use for worker spawning and edits the bootstrap prompt. Spawned
-workers always receive the saved prompt; changing the allowlist does not alter existing workers.
+workers always receive the saved prompt; the user Worker menu can use any catalog template;
+changing the allowlist does not alter existing workers.
 
 ## Configuration file
 

@@ -34,7 +34,7 @@ namespace SlopWorld
 
             Slab.Fill(r, over ? UiTheme.Hover : UiTheme.Panel);
             TooltipHandler.TipRegion(r,
-                "Add a project, an agent, a library item, a sandbox preset, a command or a host shell");
+                "Add a project, agent, worker, task, library item, sandbox preset, command or host shell");
             Slab.Hairline(new Rect(r.x, r.y, r.width, 1f), UiTheme.Edge);
 
             float d = AddIcon;

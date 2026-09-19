@@ -67,8 +67,8 @@ namespace SlopWorld
             bool templateCanChoose = templateOptions.Count > 0;
             UiControls.Select(templateRect, "Template", TemplateLabel(_template),
                 templateOptions, out _, templateCanChoose
-                    ? "Only templates checked in Settings > Workers can be used."
-                    : "No worker templates are enabled in Settings > Workers.",
+                    ? "All agent templates are available to you. Settings > Workers controls agents."
+                    : "No agent templates are available in the catalog.",
                 templateCanChoose);
 
             y = templateRect.yMax + UiTheme.GapM;
@@ -107,11 +107,8 @@ namespace SlopWorld
 
         IEnumerable<AgentTemplateInfo> AvailableTemplates()
         {
-            var enabled = new HashSet<string>(
-                SessionHub.Instance.Config.WorkerTemplates ?? new List<string>(),
-                StringComparer.Ordinal);
             return SessionHub.Instance.Templates
-                .Where(template => template != null && enabled.Contains(template.Name))
+                .Where(template => template != null)
                 .OrderBy(template => template.Name, StringComparer.OrdinalIgnoreCase);
         }
 

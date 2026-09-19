@@ -101,7 +101,8 @@ cache entry.
 
 Settings > Integrations > Workers controls both the bootstrap prompt and the templates that
 agents may use to spawn workers. Check a template to add its name to the worker allowlist; new
-templates are unchecked. The prompt can refer to `$SLOPWORLD_TASK_ID`; the default includes the
+templates are unchecked. The user Worker menu can use any catalog template. The prompt can refer
+to `$SLOPWORLD_TASK_ID`; the default includes the
 worker task workflow. The setting lives under `[daemon.instructions]` as
 `worker_prompt`, with the allowlist under `[daemon] worker_templates`. See [Using slopctl](slopctl.md).
 

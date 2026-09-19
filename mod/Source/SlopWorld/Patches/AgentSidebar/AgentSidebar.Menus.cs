@@ -232,6 +232,7 @@ namespace SlopWorld
                 new FloatMenuOption("Project...", () =>
                     TerminalWindow.OpenOverPane(new EditProjectDialog(null))),
                 new UiSubmenu("Agent", AgentCreationOptions),
+                new UiSubmenu("Worker", WorkerOptions),
                 new FloatMenuOption("Task", () =>
                     TerminalWindow.OpenOverPane(new DelegateTaskDialog(null))),
                 new UiSubmenu("Library", LibraryItemOptions),
@@ -256,6 +257,22 @@ namespace SlopWorld
             if (options.Count > 0) options.Add(UiMenu.Separator());
             options.Add(new FloatMenuOption("Custom", () =>
                 TerminalWindow.OpenOverPane(new EditSessionDialog(null))));
+            return options;
+        }
+
+        static List<FloatMenuOption> WorkerOptions()
+        {
+            var options = new List<FloatMenuOption>();
+            foreach (var project in SessionHub.Instance.Projects
+                .Where(p => Passes(p.Name))
+                .OrderBy(p => p.Name, StringComparer.OrdinalIgnoreCase))
+            {
+                var captured = project.Name;
+                options.Add(new FloatMenuOption($"{project.Name}  -  {project.Dir}", () =>
+                    TerminalWindow.OpenOverPane(new SpawnWorkerDialog(null, captured))));
+            }
+            if (options.Count == 0)
+                options.Add(new FloatMenuOption("(no projects)", null));
             return options;
         }
 

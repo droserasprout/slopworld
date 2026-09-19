@@ -21,8 +21,9 @@ its configuration (`PUT /api/sessions/:name`) require root authority. Scoped `rw
 input, label, and permitted lifecycle operations. Removing or renaming a session invalidates its
 target memberships and owned grants, and closes affected WebSockets; name reuse needs a new grant.
 `POST /api/workers` creates a task-owned child from the Protobuf fields project, template, body, and
-durable. The selected template must be enabled in the daemon worker policy; scoped
-callers are limited to their own project. The response contains the new task and worker identity.
+durable. Root callers may choose any template in the catalog; scoped callers must choose a
+template enabled in the daemon worker policy and are limited to their own project. The response
+contains the new task and worker identity.
 It uses the template's captured settings, fresh private identity, and the caller only for
 task/sidebar parentage.
 `GET /api/sessions/:name/sandbox` returns the sanitized saved launch plan and a best-effort live

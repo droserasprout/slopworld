@@ -203,9 +203,10 @@ impl Manager {
         self.config().await.daemon.worker_templates.clone()
     }
 
-    /// Return the exact enabled definition from the live catalog. Policy is checked before
-    /// task/session allocation, so a deleted or unchecked template cannot leave a mailbox or
-    /// private state behind.
+    /// Return the exact definition from the live catalog. Scoped agent callers must be enabled
+    /// by worker policy; the host is the user at the keyboard and may choose any catalog
+    /// template. Validation happens before task/session allocation, so a deleted template cannot
+    /// leave a mailbox or private state behind.
     pub(crate) async fn spawnable_worker_template(
         &self,
         caller: &str,
@@ -225,7 +226,7 @@ impl Manager {
                 bail!("caller {caller} is not authorized for project {project}");
             }
         }
-        if !cfg.daemon.worker_templates.contains(requested) {
+        if caller != crate::tasks::HOST && !cfg.daemon.worker_templates.contains(requested) {
             bail!("agent template {requested} is not enabled for workers");
         }
         drop(cfg);
@@ -324,7 +325,7 @@ mod tests {
             "team-review"
         );
         let error = manager
-            .spawnable_worker_template(crate::tasks::HOST, "repo", "review")
+            .spawnable_worker_template("caller", "repo", "review")
             .await
             .unwrap_err()
             .to_string();
@@ -344,8 +345,16 @@ mod tests {
         assert!(error.contains("no such agent template"), "{error}");
 
         manager.cfg.write().await.daemon.worker_templates.clear();
+        assert_eq!(
+            manager
+                .spawnable_worker_template(crate::tasks::HOST, "repo", "review")
+                .await
+                .unwrap()
+                .name,
+            "review"
+        );
         let error = manager
-            .spawnable_worker_template(crate::tasks::HOST, "repo", "review")
+            .spawnable_worker_template("caller", "repo", "review")
             .await
             .unwrap_err()
             .to_string();

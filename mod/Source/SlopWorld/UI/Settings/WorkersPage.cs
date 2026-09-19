@@ -27,8 +27,8 @@ namespace SlopWorld
         protected override void DrawFields(Listing_Standard l)
         {
             UiLayout.SectionHeading(l, "Available worker templates");
-            UiLayout.Note(l, "Checked templates may be used by agents and slopctl to create task " +
-                "workers.");
+            UiLayout.Note(l, "Checked templates may be used by agents to create task workers. " +
+                "You can use any template from the Worker menu.");
 
             var templates = SessionHub.Instance.Templates
                 .Where(template => template != null)

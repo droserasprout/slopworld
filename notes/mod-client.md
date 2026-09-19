@@ -31,8 +31,9 @@ Worker-template sets remain sorted and deduplicated. Secrets and response metada
 the editable projection.
 
 Project, template and agent settings previews resolve on the daemon. Worker creation also stays
-daemon-owned: `SessionHub` sends caller context, project, selected allowlisted template, task
-body, and durability, then refreshes tasks/sessions before opening the returned terminal.
+daemon-owned: `SessionHub` sends caller context, project, selected template, task body, and
+durability; the daemon applies the worker allowlist to scoped agent callers, then refreshes
+tasks/sessions before opening the returned terminal.
 `DaemonSettingsPreview` retains one draft response per editor and invalidates it on draft,
 catalog or connection changes. Refresh retries failures and rereads external files.
 Temporary-path previews coalesce unchanged names; disabling temporary mode invalidates
