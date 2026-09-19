@@ -15,9 +15,13 @@ drop pods with a short opening delay.
 
 ## Jukebox
 
-The jukebox is a map building with one click target. No radio stations ship with SlopWorld —
-users add their own as one-station TOML files under
+The jukebox is a map building with one click target. It always includes the SlopWorld OST; on a
+native Linux daemon with `ncspot` installed it also includes Spotify. Add user radio stations
+from **Settings → Audio → Add source**, or manage their one-station TOML files under
 `~/.config/slopworld/jukebox/`.
+
+The **Sources** table controls which entries appear in the jukebox. Spotify is disabled in
+Settings and hidden from the jukebox when `ncspot` is unavailable on the daemon host.
 
 ```toml
 id = "example"

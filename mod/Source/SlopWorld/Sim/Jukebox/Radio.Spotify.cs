@@ -6,6 +6,8 @@ namespace SlopWorld
         {
             if (_quit || _openingSpotify) return;
             Read();
+            if (!SpotifyAvailable)
+            { UiLayout.Fail("ncspot is not available on the daemon host"); return; }
             var hub = SessionHub.Instance;
             if (hub == null || !hub.Online) { UiLayout.Fail("daemon is offline"); return; }
             if (!hub.Capabilities.AudioPlayback)

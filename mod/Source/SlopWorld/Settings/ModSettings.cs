@@ -137,6 +137,10 @@ namespace SlopWorld
         // than buried with this one. A preset this build no longer lists reads as the OST.
         public string radio = "ost";
 
+        // Source ids hidden from the jukebox menu, one per line. An empty list keeps the
+        // built-in OST, Spotify, and every user station visible by default.
+        public string radioHiddenSources = "";
+
         // The jukebox's off switch: it is a stop rather than a volume of zero, so nothing
         // is downloaded for nobody. Kept apart from the station so unmuting comes back to
         // what was on.
@@ -249,6 +253,7 @@ namespace SlopWorld
             Field("cursor", (ModSettings s) => ref s.cursor, Text, String),
             Field("cursorGrayscale", (ModSettings s) => ref s.cursorGrayscale, Bool, String),
             Field("radio", (ModSettings s) => ref s.radio, Text, String),
+            Field("radioHiddenSources", (ModSettings s) => ref s.radioHiddenSources, Text, String),
             Field("radioMute", (ModSettings s) => ref s.radioMute, Bool, String),
             Field("statusbarUsage", (ModSettings s) => ref s.statusbarUsage, Bool, String),
             Field("statusbarClockPosition", (ModSettings s) => ref s.statusbarClockPosition, Text, String),
@@ -365,6 +370,7 @@ namespace SlopWorld
         public static string Cursor => S.cursor ?? "tame";
         public static bool CursorGrayscale => S.cursorGrayscale;
         public static string Radio => S.radio ?? "";
+        public static string RadioHiddenSources => S.radioHiddenSources ?? "";
         public static bool RadioMute => S.radioMute;
         public static bool StatusbarUsage => S.statusbarUsage;
         public static string StatusbarClockPosition =>

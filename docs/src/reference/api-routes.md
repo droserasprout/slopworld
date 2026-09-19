@@ -31,6 +31,10 @@ grant-visible router; handler guards can impose a stricter access requirement.
 | `POST` | `/api/highlight` | `root-only` | `highlight` | `HighlightReq` → `TextResult` |
 | `GET` | `/api/image` | `root-only` | `read_image` | `Empty` → `ImageResult` |
 | `GET` | `/api/jukebox` | `root-only` | `jukebox` | `Empty` → `JukeboxCatalog` |
+| `GET` | `/api/jukebox/presets` | `root-only` | `jukebox_presets` | `Empty` → `JukeboxCatalog` |
+| `POST` | `/api/jukebox/presets` | `root-only` | `create_jukebox_preset` | `Station` → `Ack` |
+| `DELETE` | `/api/jukebox/presets/:id` | `root-only` | `delete_jukebox_preset` | `Empty` → `Ack` |
+| `PUT` | `/api/jukebox/presets/:id` | `root-only` | `update_jukebox_preset` | `Station` → `Ack` |
 | `GET` | `/api/library` | `root-only` | `list_library` | `Empty` → `LibraryReply` |
 | `POST` | `/api/library` | `root-only` | `create_library_item` | `LibraryItem` → `Ack` |
 | `DELETE` | `/api/library/:name` | `root-only` | `destroy_library_item` | `Empty` → `Ack` |

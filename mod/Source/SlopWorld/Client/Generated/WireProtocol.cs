@@ -60,6 +60,8 @@ namespace SlopWorld
             public const string Audio = "/api/audio";
             public const string Ncspot = "/api/ncspot";
             public const string Jukebox = "/api/jukebox";
+            public const string JukeboxPresets = "/api/jukebox/presets";
+            public const string JukeboxPreset = "/api/jukebox/presets/:id";
             public const string Browse = "/api/browse";
             public const string FileStat = "/api/files/stat";
             public const string Read = "/api/read";

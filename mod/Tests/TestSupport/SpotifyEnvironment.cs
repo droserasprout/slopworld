@@ -10,6 +10,7 @@ namespace SlopWorld
         static void Read() { }
         static void Save() { }
         static void Push() { _selectionRevision++; _openingSpotify = false; }
+        static bool SpotifyAvailable => true;
         internal static void ResetSpotifyTest()
         {
             _quit = _openingSpotify = _spotify = _muted = _blamed = false;

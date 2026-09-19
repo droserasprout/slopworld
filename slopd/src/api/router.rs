@@ -90,6 +90,14 @@ pub(crate) fn router(m: Mgr) -> Router {
         .route(routes::AUDIO, get(audio))
         .route(routes::NCSPOT, post(ncspot))
         .route(routes::JUKEBOX, get(jukebox))
+        .route(
+            routes::JUKEBOX_PRESETS,
+            get(jukebox_presets).post(create_jukebox_preset),
+        )
+        .route(
+            routes::JUKEBOX_PRESET,
+            put(update_jukebox_preset).delete(delete_jukebox_preset),
+        )
         .route(routes::BROWSE, get(browse))
         .route(routes::READ, get(read_file))
         .route(routes::FILE_STAT, get(file_stat))

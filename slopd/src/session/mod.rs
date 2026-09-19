@@ -396,6 +396,7 @@ mod tests {
                     capabilities: crate::runtime::Capabilities {
                         runtime: "native",
                         audio_playback: true,
+                        ncspot: true,
                         clipboard: true,
                         desktop_open: true,
                         per_session_limits: true,

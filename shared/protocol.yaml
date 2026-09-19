@@ -323,6 +323,20 @@ http:
       path: "/api/jukebox"
       methods: [GET]
       scope: root
+    jukebox_presets:
+      protobuf:
+        GET: [Empty, JukeboxCatalog]
+        POST: [Station, Ack]
+      path: "/api/jukebox/presets"
+      methods: [GET, POST]
+      scope: root
+    jukebox_preset:
+      protobuf:
+        PUT: [Station, Ack]
+        DELETE: [Empty, Ack]
+      path: "/api/jukebox/presets/:id"
+      methods: [PUT, DELETE]
+      scope: root
     browse:
       protobuf:
         GET: [Empty, BrowseResult]

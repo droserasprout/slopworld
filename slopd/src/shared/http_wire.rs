@@ -131,6 +131,12 @@ pub(crate) fn encode_request(method: &str, path: &str, value: Value) -> anyhow::
     if method == "GET" && matches("/api/jukebox", path) {
         return Ok(serde_json::from_value::<wire::Empty>(value)?.encode_to_vec());
     }
+    if method == "GET" && matches("/api/jukebox/presets", path) {
+        return Ok(serde_json::from_value::<wire::Empty>(value)?.encode_to_vec());
+    }
+    if method == "POST" && matches("/api/jukebox/presets", path) {
+        return Ok(serde_json::from_value::<wire::Station>(value)?.encode_to_vec());
+    }
     if method == "GET" && matches("/api/browse", path) {
         return Ok(serde_json::from_value::<wire::Empty>(value)?.encode_to_vec());
     }
@@ -231,6 +237,12 @@ pub(crate) fn encode_request(method: &str, path: &str, value: Value) -> anyhow::
         return Ok(serde_json::from_value::<wire::Empty>(value)?.encode_to_vec());
     }
     if method == "POST" && matches("/api/state/trash/:key/restore", path) {
+        return Ok(serde_json::from_value::<wire::Empty>(value)?.encode_to_vec());
+    }
+    if method == "PUT" && matches("/api/jukebox/presets/:id", path) {
+        return Ok(serde_json::from_value::<wire::Station>(value)?.encode_to_vec());
+    }
+    if method == "DELETE" && matches("/api/jukebox/presets/:id", path) {
         return Ok(serde_json::from_value::<wire::Empty>(value)?.encode_to_vec());
     }
     if method == "DELETE" && matches("/api/state/:kind/:key", path) {
@@ -370,6 +382,12 @@ pub(crate) fn decode_response(method: &str, path: &str, value: &[u8]) -> anyhow:
     if method == "GET" && matches("/api/jukebox", path) {
         return Ok(serde_json::to_value(wire::JukeboxCatalog::decode(value)?)?);
     }
+    if method == "GET" && matches("/api/jukebox/presets", path) {
+        return Ok(serde_json::to_value(wire::JukeboxCatalog::decode(value)?)?);
+    }
+    if method == "POST" && matches("/api/jukebox/presets", path) {
+        return Ok(serde_json::to_value(wire::Ack::decode(value)?)?);
+    }
     if method == "GET" && matches("/api/browse", path) {
         return Ok(serde_json::to_value(wire::BrowseResult::decode(value)?)?);
     }
@@ -471,6 +489,12 @@ pub(crate) fn decode_response(method: &str, path: &str, value: &[u8]) -> anyhow:
     }
     if method == "POST" && matches("/api/state/trash/:key/restore", path) {
         return Ok(serde_json::to_value(wire::SessionResult::decode(value)?)?);
+    }
+    if method == "PUT" && matches("/api/jukebox/presets/:id", path) {
+        return Ok(serde_json::to_value(wire::Ack::decode(value)?)?);
+    }
+    if method == "DELETE" && matches("/api/jukebox/presets/:id", path) {
+        return Ok(serde_json::to_value(wire::Ack::decode(value)?)?);
     }
     if method == "DELETE" && matches("/api/state/:kind/:key", path) {
         return Ok(serde_json::to_value(wire::Ack::decode(value)?)?);
@@ -616,6 +640,12 @@ pub(crate) fn decode_request(method: &str, path: &str, value: &[u8]) -> anyhow::
     if method == "GET" && matches("/api/jukebox", path) {
         return Ok(serde_json::to_value(wire::Empty::decode(value)?)?);
     }
+    if method == "GET" && matches("/api/jukebox/presets", path) {
+        return Ok(serde_json::to_value(wire::Empty::decode(value)?)?);
+    }
+    if method == "POST" && matches("/api/jukebox/presets", path) {
+        return Ok(serde_json::to_value(wire::Station::decode(value)?)?);
+    }
     if method == "GET" && matches("/api/browse", path) {
         return Ok(serde_json::to_value(wire::Empty::decode(value)?)?);
     }
@@ -718,6 +748,12 @@ pub(crate) fn decode_request(method: &str, path: &str, value: &[u8]) -> anyhow::
         return Ok(serde_json::to_value(wire::Empty::decode(value)?)?);
     }
     if method == "POST" && matches("/api/state/trash/:key/restore", path) {
+        return Ok(serde_json::to_value(wire::Empty::decode(value)?)?);
+    }
+    if method == "PUT" && matches("/api/jukebox/presets/:id", path) {
+        return Ok(serde_json::to_value(wire::Station::decode(value)?)?);
+    }
+    if method == "DELETE" && matches("/api/jukebox/presets/:id", path) {
         return Ok(serde_json::to_value(wire::Empty::decode(value)?)?);
     }
     if method == "DELETE" && matches("/api/state/:kind/:key", path) {
@@ -856,6 +892,12 @@ pub(crate) fn encode_response(method: &str, path: &str, value: Value) -> anyhow:
     if method == "GET" && matches("/api/jukebox", path) {
         return Ok(serde_json::from_value::<wire::JukeboxCatalog>(value)?.encode_to_vec());
     }
+    if method == "GET" && matches("/api/jukebox/presets", path) {
+        return Ok(serde_json::from_value::<wire::JukeboxCatalog>(value)?.encode_to_vec());
+    }
+    if method == "POST" && matches("/api/jukebox/presets", path) {
+        return Ok(serde_json::from_value::<wire::Ack>(value)?.encode_to_vec());
+    }
     if method == "GET" && matches("/api/browse", path) {
         return Ok(serde_json::from_value::<wire::BrowseResult>(value)?.encode_to_vec());
     }
@@ -957,6 +999,12 @@ pub(crate) fn encode_response(method: &str, path: &str, value: Value) -> anyhow:
     }
     if method == "POST" && matches("/api/state/trash/:key/restore", path) {
         return Ok(serde_json::from_value::<wire::SessionResult>(value)?.encode_to_vec());
+    }
+    if method == "PUT" && matches("/api/jukebox/presets/:id", path) {
+        return Ok(serde_json::from_value::<wire::Ack>(value)?.encode_to_vec());
+    }
+    if method == "DELETE" && matches("/api/jukebox/presets/:id", path) {
+        return Ok(serde_json::from_value::<wire::Ack>(value)?.encode_to_vec());
     }
     if method == "DELETE" && matches("/api/state/:kind/:key", path) {
         return Ok(serde_json::from_value::<wire::Ack>(value)?.encode_to_vec());
