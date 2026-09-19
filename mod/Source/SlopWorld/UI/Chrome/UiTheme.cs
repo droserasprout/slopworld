@@ -177,7 +177,8 @@ namespace SlopWorld
                 var key = new TextCacheKey(value, 0f);
                 if (WidthCache.TryGetValue(key, out float cached)) return cached;
                 if (WidthCache.Count >= TextCacheLimit) WidthCache.Clear();
-                return WidthCache[key] = Verse.Text.CalcSize(value).x;
+                return WidthCache[key] = UiEmoji.Measure(value, LineHOf(Verse.Text.Font),
+                    plain => Verse.Text.CalcSize(plain).x);
             }
         }
 

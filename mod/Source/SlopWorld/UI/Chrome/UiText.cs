@@ -37,6 +37,12 @@ namespace SlopWorld
 
         public static void RowLabel(Rect r, string text, TextAnchor anchor = TextAnchor.MiddleLeft)
         {
+            if (UiEmoji.HasSupported(text))
+            {
+                DrawEmojiRowLabel(r, text, anchor, false);
+                return;
+            }
+
             DrawRowLabel(r, text, anchor,
                 (line, label) => Widgets.Label(line, label));
         }
@@ -49,6 +55,12 @@ namespace SlopWorld
             if (!italic)
             {
                 RowLabel(r, text, anchor);
+                return;
+            }
+
+            if (UiEmoji.HasSupported(text))
+            {
+                DrawEmojiRowLabel(r, text, anchor, true);
                 return;
             }
 
@@ -92,6 +104,92 @@ namespace SlopWorld
                 float h = Mathf.Max(lineH, yMax - y);
                 draw(new Rect(r.x, y, r.width, h), label);
             }
+        }
+
+        static void DrawEmojiRowLabel(Rect r, string text, TextAnchor anchor, bool italic)
+        {
+            using (WidgetState.Save())
+            {
+                Verse.Text.WordWrap = false;
+                Verse.Text.Anchor = UpperAnchor(anchor);
+                float lineH = LineHOf(Verse.Text.Font);
+                float y = Slab.SnapY(r.y + (r.height - lineH) * VerticalFactor(anchor));
+                float yMax = Slab.SnapY(y + lineH);
+                float h = Mathf.Max(lineH, yMax - y);
+                var line = new Rect(r.x, y, r.width, h);
+                var source = Verse.Text.CurFontStyle;
+                if (source == null)
+                {
+                    Widgets.Label(line, text ?? "");
+                    return;
+                }
+
+                var style = new GUIStyle(source)
+                {
+                    fontStyle = italic ? Italic(source.fontStyle) : source.fontStyle,
+                    alignment = TextAnchor.UpperLeft,
+                    wordWrap = false,
+                    clipping = TextClipping.Clip,
+                };
+                string label = text ?? "";
+                float width = UiEmoji.Measure(label, lineH,
+                    plain => Verse.Text.CalcSize(plain).x);
+                float x = line.x;
+                switch (anchor)
+                {
+                    case TextAnchor.UpperCenter:
+                    case TextAnchor.MiddleCenter:
+                    case TextAnchor.LowerCenter:
+                        x += Mathf.Max(0f, (line.width - width) * 0.5f);
+                        break;
+                    case TextAnchor.UpperRight:
+                    case TextAnchor.MiddleRight:
+                    case TextAnchor.LowerRight:
+                        x += Mathf.Max(0f, line.width - width);
+                        break;
+                }
+
+                int from = 0;
+                for (int i = 0; i < label.Length; i++)
+                {
+                    int length;
+                    if (!TerminalEmoji.IsSupportedAt(label, i, out length))
+                        continue;
+
+                    DrawInlineText(label, from, i, ref x, y, lineH, style);
+                    Color textColor = GUI.color;
+                    GUI.color = Color.white;
+                    // The atlas is a color texture; never tint it with a button's text color.
+                    int drawnLength;
+                    bool drawn = TerminalEmoji.TryDrawInline(label, i, x, y, lineH,
+                        out drawnLength);
+                    GUI.color = textColor;
+                    if (drawn)
+                    {
+                        x += lineH;
+                    }
+                    else
+                    {
+                        // Keep the fallback path safe if a packaged atlas is missing.
+                        GUI.Label(new Rect(x, y, lineH * 2f, lineH),
+                            label.Substring(i, length), style);
+                        x += lineH * 2f;
+                    }
+                    i += length - 1;
+                    from = i + 1;
+                }
+                DrawInlineText(label, from, label.Length, ref x, y, lineH, style);
+            }
+        }
+
+        static void DrawInlineText(string text, int from, int to, ref float x,
+                                   float y, float h, GUIStyle style)
+        {
+            if (to <= from) return;
+            string segment = text.Substring(from, to - from);
+            float width = Verse.Text.CalcSize(segment).x;
+            GUI.Label(new Rect(x, y, width + 1f, h), segment, style);
+            x += width;
         }
 
         static FontStyle Italic(FontStyle style)

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Defs>
+  <SoundDef>
+    <defName>SlopWorld_UIBird</defName>
+    <maxSimultaneous>1</maxSimultaneous>
+    <subSounds>
+      <li>
+        <onCamera>True</onCamera>
+        <grains>
+          <li Class="AudioGrain_Folder">
+            <clipFolderPath>Pawn/Animal/Chicken/Chick_Call</clipFolderPath>
+          </li>
+        </grains>
+        <volumeRange>100~140</volumeRange>
+        <pitchRange>0.9770588~1.137647</pitchRange>
+      </li>
+    </subSounds>
+  </SoundDef>
+</Defs>

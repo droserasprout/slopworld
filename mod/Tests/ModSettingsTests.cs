@@ -32,7 +32,7 @@ namespace SlopWorld.Tests
                 settings.Write();
                 string path = Path.Combine(profile, "Config", "SlopWorld.toml");
                 string saved = File.ReadAllText(path);
-                AssertEx.Equal(41, Toml.ParseFlat(saved).Count, "persisted key count excludes runtime state");
+                AssertEx.Equal(42, Toml.ParseFlat(saved).Count, "persisted key count excludes runtime state");
                 AssertEx.True(saved.Contains("ecoDim = 0.375"), "invariant float");
                 var loaded = ModSettings.Load();
                 foreach (var field in typeof(ModSettings).GetFields(BindingFlags.Instance | BindingFlags.Public))
@@ -70,6 +70,14 @@ namespace SlopWorld.Tests
                 AssertEx.Equal("match-ui", ModSettings.Load().theme, "malformed TOML defaults");
                 AssertEx.Equal("right", StatusbarClockMode.Normalize("unknown"), "clock normalization");
                 AssertEx.Equal("24-hour", TimeFormat.Normalize("unknown"), "time normalization");
+                AssertEx.Equal(TemperatureUnit.GlazedBald,
+                    TemperatureUnit.Normalize(TemperatureUnit.GlazedBald),
+                    "custom temperature unit normalization");
+                AssertEx.Equal(TemperatureUnit.GlazedBaldLabel,
+                    TemperatureUnit.Label(TemperatureUnit.GlazedBald, "Fahrenheit"),
+                    "custom temperature unit label");
+                AssertEx.Equal("glazed🍩/bald🦅", TemperatureUnit.GlazedBaldLabel,
+                    "custom temperature unit keeps the real emoji label");
             }
             finally
             {
