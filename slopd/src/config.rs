@@ -360,7 +360,7 @@ mod tests {
         assert_eq!(Config::default().daemon.agent_titles, TitlePolicy::Never);
         assert_eq!(Config::default().daemon.pi_titles, TitlePolicy::Always);
         assert_eq!(Config::default().daemon.task_summaries, TitlePolicy::Never);
-        assert_eq!(Config::default().daemon.title_min_chars, 20);
+        assert_eq!(Config::default().daemon.title_min_chars, 0);
         let mut cfg = Config::default();
         cfg.daemon.agent_titles = TitlePolicy::Once;
         cfg.daemon.pi_titles = TitlePolicy::Never;

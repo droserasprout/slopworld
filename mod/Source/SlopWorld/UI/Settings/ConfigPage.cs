@@ -13,7 +13,6 @@ namespace SlopWorld
         protected override bool DrawFieldsBeforeLoad => true;
         protected override bool ShowEditButton => true;
         protected override bool ShowSaveButton => true;
-        protected override string SaveScope => "Experimental only";
 
         protected override void DrawFields(Listing_Standard l)
         {

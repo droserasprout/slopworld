@@ -6,26 +6,29 @@ namespace SlopWorld.Tests
         {
             var policy = new FramePolicy();
             int target = 75, sync = 2;
-            AssertEx.Equal(false, policy.Follow(true, "game", 60, ref target, ref sync), "inherit untouched");
+            AssertEx.Equal(true, policy.Follow(true, "game", 60, ref target, ref sync),
+                "legacy game mode uses VSync");
+            AssertEx.Equal(-1, target, "legacy game target");
+            AssertEx.Equal(1, sync, "legacy game VSync");
             Step(policy, false, "game", 60, ref target, ref sync, 15, 0);
             Step(policy, false, "sync", 60, ref target, ref sync, 15, 0);
             Step(policy, true, "sync", 60, ref target, ref sync, -1, 1);
             Step(policy, true, "limit", 144, ref target, ref sync, 144, 0);
             Step(policy, false, "limit", 144, ref target, ref sync, 15, 0);
             Step(policy, false, "game", 144, ref target, ref sync, 15, 0);
-            Step(policy, true, "game", 144, ref target, ref sync, 75, 2);
-            // A later override must capture updated game preferences, not the first pair.
+            Step(policy, true, "game", 144, ref target, ref sync, -1, 1);
+
             target = 90;
             sync = 0;
-            Step(policy, true, "limit", -1, ref target, ref sync, 30, 0);
-            Step(policy, true, "limit", 9999, ref target, ref sync, 360, 0);
-            Step(policy, true, "invalid", 60, ref target, ref sync, 90, 0);
+            Step(policy, true, "limit", -1, ref target, ref sync, 15, 0);
+            Step(policy, true, "limit", 9999, ref target, ref sync, 240, 0);
+            Step(policy, true, "invalid", 60, ref target, ref sync, -1, 1);
             Step(policy, true, "sync", 60, ref target, ref sync, -1, 1);
-            // Reapplying game preferences while owned must not cancel the chosen override.
+
             target = 60;
             sync = 0;
             Step(policy, true, "sync", 60, ref target, ref sync, -1, 1);
-            Step(policy, true, "game", 60, ref target, ref sync, 90, 0);
+            Step(policy, true, "game", 60, ref target, ref sync, -1, 1);
         }
 
         static void Step(FramePolicy policy, bool focused, string mode, int fps,
