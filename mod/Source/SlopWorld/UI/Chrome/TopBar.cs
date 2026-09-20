@@ -91,6 +91,7 @@ namespace SlopWorld
             string clockPosition = Settings.StatusbarClockPosition;
             float statusRight = r.center.x - Pad;
             float resources = r.center.x + Pad;
+            bool centeredClock = false;
 
             if (clockPosition == StatusbarClockMode.Center)
             {
@@ -105,19 +106,23 @@ namespace SlopWorld
                     GUI.color = clockColor;
                     statusRight = clockX - Pad;
                     resources = clockX + clockWidth + Pad;
+                    centeredClock = true;
                 }
             }
 
             // Omit usage when the doors leave no room. A centered clock owns its own gap;
             // right mode keeps the original quota-strip layout.
             float quota = right - resources;
-            if (quota > 0f && (Settings.StatusbarUsage
-                || clockPosition == StatusbarClockMode.Right))
+            bool showResources = quota > 0f && (Settings.StatusbarUsage
+                || clockPosition == StatusbarClockMode.Right);
+            if (showResources)
                 UsageReadout.DrawStrip(new Rect(resources, r.y, quota, r.height),
                     Settings.StatusbarUsage, clockPosition == StatusbarClockMode.Right);
 
+            bool centeredSummary = Settings.StatusbarSummaryPosition == StatusbarSummaryMode.Center;
+            float summaryRight = centeredClock ? statusRight : showResources ? resources : right;
             Status(new Rect(r.x + Pad, r.y, Mathf.Max(0f, statusRight - r.x - Pad), r.height),
-                Settings.StatusbarSummaryPosition == StatusbarSummaryMode.Center);
+                centeredSummary, summaryRight);
 
             // The line is drawn over the map, and the map takes whatever the buttons did not:
             // without this a press here starts a drag-selection on the ground behind it. Last,
@@ -255,7 +260,7 @@ namespace SlopWorld
         }
 
         // Show the pane's session, or the selected inspect-pane agent when no pane is open.
-        static void Status(Rect r, bool centered)
+        static void Status(Rect r, bool centered, float summaryRight)
         {
             if (r.width <= 40f) return;
 
@@ -290,7 +295,7 @@ namespace SlopWorld
 
             if (centered)
             {
-                CenteredStatus(r, session, state, tail);
+                CenteredSummary(r, session, state, tail, summaryRight);
                 return;
             }
 
@@ -322,7 +327,10 @@ namespace SlopWorld
             GUI.color = Color.white;
         }
 
-        static void CenteredStatus(Rect r, string session, AgentState state, string tail)
+        // Center only the dim summary; the colored marker and terminal name remain the
+        // status anchor at the left edge of the bar.
+        static void CenteredSummary(Rect r, string session, AgentState state, string tail,
+                                    float summaryRight)
         {
             float markerW = UiTheme.StatusMarker;
             float nameW = UiTheme.Wide(session) + UiTheme.GapXS;
@@ -331,18 +339,9 @@ namespace SlopWorld
             Text.Font = GameFont.Small;
 
             float gaps = UiTheme.GapS * 2f;
-            float naturalW = markerW + gaps + nameW + tailW;
-            float nameDrawW = nameW;
-            float tailDrawW = tailW;
-            if (naturalW > r.width)
-            {
-                float available = Mathf.Max(0f, r.width - markerW - gaps);
-                nameDrawW = Mathf.Min(nameW, available * 0.55f);
-                tailDrawW = Mathf.Max(0f, available - nameDrawW);
-            }
-            float contentW = markerW + UiTheme.GapS + nameDrawW
-                + (tailDrawW > 0f ? UiTheme.GapS : 0f) + tailDrawW;
-            float x = r.center.x - contentW / 2f;
+            float nameDrawW = Mathf.Min(nameW,
+                Mathf.Max(0f, r.width - markerW - gaps));
+            float x = r.x;
 
             float inset = Mathf.Round(r.height * 0.27f);
             Slab.Fill(new Rect(x, r.y + inset, markerW, r.height - inset * 2f),
@@ -352,12 +351,17 @@ namespace SlopWorld
             UiText.RowLabel(new Rect(x + markerW + UiTheme.GapS, r.y, nameDrawW, r.height),
                 session);
 
+            float summaryLeft = x + markerW + UiTheme.GapS + nameDrawW + UiTheme.GapS;
+            float available = Mathf.Max(0f, summaryRight - summaryLeft);
+            float tailDrawW = Mathf.Min(tailW, available);
             if (tailDrawW > 0f)
             {
                 Text.Font = GameFont.Tiny;
                 GUI.color = UiTheme.Dim;
-                UiText.RowLabel(new Rect(x + markerW + UiTheme.GapS + nameDrawW + UiTheme.GapS,
-                    r.y, tailDrawW, r.height), tail);
+                float center = Mathf.Clamp(UI.screenWidth / 2f,
+                    summaryLeft + tailDrawW / 2f, summaryRight - tailDrawW / 2f);
+                UiText.RowLabel(new Rect(center - tailDrawW / 2f, r.y, tailDrawW, r.height), tail,
+                    TextAnchor.MiddleCenter);
                 Text.Font = GameFont.Small;
             }
             GUI.color = Color.white;
