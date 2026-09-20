@@ -144,10 +144,8 @@ namespace SlopWorld
                     Texture2D tex = null;
                     try
                     {
-                        // LoadImage sniffs the header. Non-readable drops the CPU-side copy
-                        // Unity keeps beside the GPU one, half the set's resident cost.
                         tex = new Texture2D(2, 2, TextureFormat.RGB24, false);
-                        if (!tex.LoadImage(File.ReadAllBytes(path), true))
+                        if (!LoadFrame(tex, File.ReadAllBytes(path)))
                         {
                             UnityEngine.Object.Destroy(tex);
                             tex = null;
@@ -175,6 +173,37 @@ namespace SlopWorld
                 DestroyFrames(frames);
                 throw;
             }
+        }
+
+        static bool _compressionFailed;
+
+        // Keep the JPEG cache portable. Compress one decoded frame at a time, before dropping
+        // CPU pixels; LoadImage's implicit DXT conversion differs between Unity versions.
+        // Both fresh bakes and cache hits pass through here for identical playback pixels.
+        static bool LoadFrame(Texture2D tex, byte[] jpg)
+        {
+            if (!tex.LoadImage(jpg, false)) return false;
+            if (!_compressionFailed && SystemInfo.SupportsTextureFormat(TextureFormat.DXT1) &&
+                tex.width % 4 == 0 && tex.height % 4 == 0)
+            {
+                try
+                {
+                    tex.Compress(true);
+                    if (tex.format != TextureFormat.DXT1)
+                        throw new InvalidOperationException($"expected DXT1, got {tex.format}");
+                }
+                catch (Exception e)
+                {
+                    _compressionFailed = true;
+                    Log.Warning($"[SlopWorld] background BC1 unavailable, using RGB24: {e.Message}");
+                    // Compression may have changed the texture before failing. Restore from
+                    // the JPEG in an explicit RGB24 texture, avoiding implicit DXT loading.
+                    if (!tex.Reinitialize(2, 2, TextureFormat.RGB24, false)) return false;
+                    if (!tex.LoadImage(jpg, false)) return false;
+                }
+            }
+            tex.Apply(false, true);
+            return true;
         }
 
         // The still inputs every stage of a preset shares, worked out once rather than per stage.
@@ -267,7 +296,7 @@ namespace SlopWorld
 
                             // Reload the JPEG so the first launch and cached reload use identical
                             // pixels. A failed reload does not transfer ownership.
-                            if (!tex.LoadImage(jpg, true))
+                            if (!LoadFrame(tex, jpg))
                                 throw new InvalidDataException("Unity could not reload baked JPEG");
                             tex.filterMode = FilterMode.Bilinear;
                             tex.wrapMode = TextureWrapMode.Clamp;
