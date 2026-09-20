@@ -65,7 +65,7 @@ namespace SlopWorld
         {
             if (!Enabled) return;
             float now = Time.realtimeSinceStartup;
-            if (now < _nextReport || Samples.Count == 0) return;
+            if (now < _nextReport) return;
             _nextReport = now + 1f;
 
             var text = new StringBuilder("[SlopWorld] perf");
@@ -104,6 +104,7 @@ namespace SlopWorld
                     text.Append(" backlog=").Append(sample.PeakBacklog);
                 text.Append(';');
             }
+            MemoryTrace.Append(text, now);
             Log.Message(text.ToString());
             Samples.Clear();
         }

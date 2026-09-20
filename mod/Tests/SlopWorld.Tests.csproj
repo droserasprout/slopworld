@@ -18,6 +18,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Reference Include="0Harmony">
+      <HintPath>../Assemblies/0Harmony.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+    <Compile Include="../Source/SlopWorld/Patches/Eco/EcoMapMemory.cs" Link="Source/EcoMapMemory.cs" />
     <Reference Include="Newtonsoft.Json">
       <HintPath>../Assemblies/Newtonsoft.Json.dll</HintPath>
       <Private>true</Private>

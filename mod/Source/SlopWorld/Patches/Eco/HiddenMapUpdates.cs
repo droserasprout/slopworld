@@ -28,8 +28,12 @@ namespace SlopWorld
         [HarmonyPatch(typeof(MapDrawer), nameof(MapDrawer.MapMeshDrawerUpdate_First))]
         static class Mesh
         {
-            static bool Prefix(MapDrawer __instance, out long __state) =>
-                Begin(__instance, "hidden-mesh-skips", out __state);
+            static bool Prefix(MapDrawer __instance, out long __state)
+            {
+                __state = 0;
+                return EcoMapMemory.BeforeMeshUpdate(__instance) &&
+                    Begin(__instance, "hidden-mesh-skips", out __state);
+            }
             static void Postfix(long __state) => PerfTrace.End("map-mesh-maintenance", __state, 1);
         }
 
