@@ -4,7 +4,7 @@ namespace SlopWorld
 {
     internal static class MenuBackgroundTuning
     {
-        // Resident RGB24 frames make this a memory limit (~110MB for the rotting set).
+        // Resident frames make this a memory limit (~18MB BC1, ~110MB RGB24 fallback).
         internal const int Onset = 14;
 
         // The frame-side ceiling.

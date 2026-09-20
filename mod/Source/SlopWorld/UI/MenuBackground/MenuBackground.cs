@@ -156,10 +156,17 @@ namespace SlopWorld
             // content pack), so a failed replacement must leave both it and the current frames
             // available for the caller to keep drawing.
             Texture2D[] replacement = null;
+            var loadTimer = System.Diagnostics.Stopwatch.StartNew();
+            long workingSetBefore = MenuBackgroundMemory.WorkingSet();
+            bool baked = false;
             try
             {
-                replacement = MenuBackgroundBake.Load(key, preset) ??
-                    MenuBackgroundBake.Bake(source, key, preset);
+                replacement = MenuBackgroundBake.Load(key, preset);
+                if (replacement == null)
+                {
+                    baked = true;
+                    replacement = MenuBackgroundBake.Bake(source, key, preset);
+                }
             }
             catch (Exception e)
             {
@@ -190,6 +197,9 @@ namespace SlopWorld
             _preset = preset;
             _began = -1f;
             MenuBackgroundBake.DestroyFrames(retired);
+            loadTimer.Stop();
+            MenuBackgroundMemory.Report(replacement, baked, loadTimer.ElapsedMilliseconds,
+                workingSetBefore);
             MenuBackgroundBake.Sweep(key);
             return true;
         }
