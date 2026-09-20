@@ -5,7 +5,7 @@ using Verse;
 namespace SlopWorld
 {
     // Skip map mesh, dynamic things, and flecks while a terminal covers the map or Eco replaces
-    // it. HiddenMapUpdates keeps mesh maintenance warm and restores it immediately on reveal.
+    // it. Eco releases audited geometry; ordinary terminal coverage keeps it warm.
     public static class PaneOverDraw
     {
         // Prefixes return "run the original", so this is the sense the game wants.
@@ -37,7 +37,13 @@ namespace SlopWorld
         [HarmonyPatch(typeof(MapDrawer), nameof(MapDrawer.DrawMapMesh))]
         public static class Patch_MapMesh
         {
-            static bool Prefix() => Wanted();
+            static bool Prefix(MapDrawer __instance)
+            {
+                if (!Wanted()) return false;
+                // Draw can precede maintenance when a setting or cutscene reveals the board.
+                EcoMapMemory.Restore(__instance);
+                return true;
+            }
         }
 
         // Pawns and fires: the render trees, the faceplate node with them.

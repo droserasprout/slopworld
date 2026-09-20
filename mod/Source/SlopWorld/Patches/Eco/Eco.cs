@@ -76,8 +76,15 @@ namespace SlopWorld
             {
                 _backdropTexture = tex;
                 _backdropDim = dim;
-                _backdropMaterial = MaterialPool.MatFrom(tex, ShaderDatabase.Cutout,
-                    new Color(1f - dim, 1f - dim, 1f - dim, 1f), Underneath);
+                // One owned material; pooling every (frame, dim) pair retains slider history.
+                if (_backdropMaterial == null)
+                    _backdropMaterial = new Material(ShaderDatabase.Cutout)
+                    {
+                        name = "SlopWorld Eco backdrop",
+                        renderQueue = Underneath
+                    };
+                _backdropMaterial.mainTexture = tex;
+                _backdropMaterial.color = new Color(1f - dim, 1f - dim, 1f - dim, 1f);
                 _backdropGeometryReady = false;
             }
 

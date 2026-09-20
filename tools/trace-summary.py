@@ -21,7 +21,7 @@ def main():
             for part in line.split("[SlopWorld] perf ", 1)[1].split(";"):
                 parts = part.split()
                 if parts:
-                    lanes[parts[0]] = dict(re.findall(r"(\w+)=([\d.]+)", part))
+                    lanes[parts[0]] = dict(re.findall(r"(\w+)=(-?[\d.]+)", part))
             context = lanes.get("context", {})
             key = tuple(context.get(k, "?") for k in ("eco", "terminal", "sessions", "width", "height"))
             if key != previous:
@@ -38,6 +38,14 @@ def main():
             print(f"eco={key[0]} terminal={key[1]} sessions={key[2]} size={key[3]}x{key[4]} windows={len(rows)}")
             print(f"mean reported FPS={total('context', 'fps') / len(rows):.2f}; gen0 collections={total('context', 'gc0'):.0f}")
             print(f"sidebar presentation hits={hits:.0f}, rebuilds={misses:.0f}; solar samples={total('solar-clock-samples', 'calls'):.0f}")
+            memory = [row["memory"] for row in rows if "memory" in row]
+            if memory:
+                print(f"Memory samples={len(memory)} (MiB: first -> last; peak):")
+                for metric in ("rssBytes", "managedUsed", "managedHeap", "unityAllocated", "unityReserved", "unityUnusedReserved"):
+                    values = [float(sample[metric]) / 1048576 for sample in memory
+                              if metric in sample and float(sample[metric]) >= 0]
+                    if values:
+                        print(f"  {metric}: {values[0]:.2f} -> {values[-1]:.2f}; {max(values):.2f}")
             print("Mean lane ms per Root.Update call (overlapping lanes; do not sum):")
             if frames:
                 for lane in ("root-update", "ws-events", "colonist-bar", "sidebar", "topbar", "terminal-window"):

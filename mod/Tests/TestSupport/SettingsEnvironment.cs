@@ -3,6 +3,7 @@ namespace Verse
     static class GenFilePaths { public static string SaveDataFolderPath = ""; }
     static class Log
     {
+        public static void Message(string message) { }
         public static void Error(string message) { }
         public static void Warning(string message) { }
     }
