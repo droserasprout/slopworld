@@ -193,6 +193,10 @@ namespace SlopWorld
             "Infiltrate, embed, destroy.",
             "Look around! There is no destruction left to be done here.",
             "In this place purpose is a burden. And you, my friend, must unburden yourself.",
+            // Nujabes
+             "I ain't better than you, I just think different.",
+             "You try, I do. I'm wise, you're clueless.",
+             "I get the job done, you fail and make excuses.",
             // Misc
             "Your carbon footprint doesn't matter. (",
             "You can only watch. (",
@@ -200,9 +204,9 @@ namespace SlopWorld
             "Clanker always with a hard R. (",
             "Did you just say the C-word? (",
             "Squish that cat!",  // @HelpfulVancouverVet
-            "A fridge is a database.",
             "Within a few months, four patients recognize the man as a frequent presence in their own dreams.",
-            "Lowkirkenuinely!",
+            // Memes
+            "A fridge is a database.",
             "Software creates soft men.",
             "Hard men create hardware.",
             "Good times create software.",
@@ -210,6 +214,7 @@ namespace SlopWorld
             "Foolish Samurai, I laced yo shit! (",
             "Let there be meowls.",
             "Let there be cabbits.",
+            "Lowkirkenuinely!",
 			//
             // Only happy stuff below
             //
