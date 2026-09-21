@@ -343,6 +343,15 @@ namespace SlopWorld
             return (act & (RowAct.View | RowAct.Edit | RowAct.Diff)) != 0;
         }
 
+        // Open beside follows the live sidebar, not the daemon's complete session inventory.
+        // In particular, an unpinned diff's process remains queryable until it exits but has no
+        // routed row; a stopped agent likewise has a row for restart actions, not a usable pane.
+        internal static bool IsOpenBesideCandidate(SessionInfo info)
+        {
+            if (info == null || !info.Alive || !Passes(info.Project)) return false;
+            return RoutedAction(info) != RowAct.Diff || FileReaders.IsSession(info.Name);
+        }
+
         static void PrepareRouted(SidebarTab tab)
         {
             PerfTrace.Count("sidebar-routed-rebuilds");

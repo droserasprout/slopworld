@@ -240,8 +240,10 @@ namespace SlopWorld
             _openProject = null;
             _key = null;
             if (s == null) return;
-            var info = SessionHub.Instance.Get(s);
-            if (info != null && info.Alive) SessionHub.Instance.SessionStore.Stop(s);
+            // The session snapshot can lose this name while a replacement or a reconnect is
+            // settling. This pager owns the session, so stop it by name rather than making
+            // cleanup depend on the snapshot still containing it.
+            SessionHub.Instance.SessionStore.Stop(s);
         }
 
         // The terminal's own close, for the session it was showing. The pane is the pager's
@@ -264,8 +266,10 @@ namespace SlopWorld
         static void StopIf(string session)
         {
             if (session == null) return;
-            var info = SessionHub.Instance.Get(session);
-            if (info != null && info.Alive) SessionHub.Instance.SessionStore.Stop(session);
+            // A superseded run is exactly the case where the latest session snapshot may not
+            // contain the returned name. Let the daemon answer an already-gone session; do not
+            // turn a missing local row into an orphaned tmux process.
+            SessionHub.Instance.SessionStore.Stop(session);
         }
 
         public static string Quote(string s) => PagerCommands.Quote(s);

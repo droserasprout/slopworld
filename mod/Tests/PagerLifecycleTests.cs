@@ -34,10 +34,11 @@ namespace SlopWorld
             SessionHub.Instance.Sessions[name] = new SessionInfo { Name = name, Alive = true };
             Pending.Dequeue()(name);
         }
+        public void CompleteUnlisted(string name) => Pending.Dequeue()(name);
         public void Stop(string name)
         {
             Stops++;
-            SessionHub.Instance.Sessions[name].Alive = false;
+            if (SessionHub.Instance.Sessions.TryGetValue(name, out var info)) info.Alive = false;
         }
     }
 
@@ -72,6 +73,7 @@ namespace SlopWorld.Tests
             yield return ("pinned files reopen without a new preview", Pinned);
             yield return ("shared file and diff preview replacement preserves pinned readers", SharedReaders);
             yield return ("pending diff cannot reopen the previous file", PendingDiff);
+            yield return ("late unlisted diff completion is stopped", LateUnlistedCompletion);
         }
 
         static void FreshDiff()
@@ -164,6 +166,17 @@ namespace SlopWorld.Tests
             AssertEx.True(tabs.Reopen("p", "diff:one"), "completed diff can reopen");
             AssertEx.Equal("diff", TerminalWindow.Current, "correct reader is active");
             AssertEx.Equal(1, store.Stops, "source retired after diff handoff");
+        }
+
+        static void LateUnlistedCompletion()
+        {
+            SessionHub.Instance = new SessionHub();
+            var pager = new Pager();
+            var store = SessionHub.Instance.SessionStore;
+            pager.Open("p", "git diff", "diff-one", "diff:one");
+            pager.Release();
+            store.CompleteUnlisted("late-diff");
+            AssertEx.Equal(1, store.Stops, "superseded run is stopped without a session snapshot row");
         }
 
         static void SharedReaders()
