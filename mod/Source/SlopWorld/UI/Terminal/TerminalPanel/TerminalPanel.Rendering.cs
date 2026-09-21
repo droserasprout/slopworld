@@ -247,32 +247,33 @@ namespace SlopWorld
         // Every char the face cannot advance by exactly one cell is placed alone on its own
         // column. Claude Code's prompt chevron is in no mono face here, and drawn inline it
         // took no width and slid the whole input line a cell left.
-        internal static void DrawRun(string text, float x, float y, float cw, float ch, GUIStyle style)
+        internal static void DrawRun(string text, float x, float y, float cw, float ch,
+                                     GUIStyle style, int columns)
         {
             TerminalFont.Prepare(text, style.fontStyle);
-            int start = 0;
-            int i = 0;
-            while (i < text.Length)
+            int start = 0, startCol = 0, col = 0;
+            for (int i = 0; i < text.Length;)
             {
-                int emojiLength;
-                if (TerminalEmoji.TryDraw(text, i, x, y, cw, ch, out emojiLength))
+                int units = TerminalColumns.ScalarUnits(text, i);
+                int width = i + units == text.Length ? columns - col : 1;
+                if (units == 1 && width == 1 && TerminalFont.FitsCell(text[i]))
                 {
-                    DrawSpan(text, start, i, x, y, cw, ch, style);
-                    i += emojiLength;
-                    start = i;
+                    i++;
+                    col++;
                     continue;
                 }
 
-                // A surrogate pair is one glyph, and never a one-cell one.
-                int len = char.IsHighSurrogate(text[i]) && i + 1 < text.Length ? 2 : 1;
-                if (len == 1 && TerminalFont.FitsCell(text[i])) { i++; continue; }
-
-                DrawSpan(text, start, i, x, y, cw, ch, style);
-                GUI.Label(new Rect(x + i * cw, y, cw * 2f, ch), text.Substring(i, len), style);
-                i += len;
+                DrawSpan(text, start, i, x + startCol * cw, y, cw, ch, style);
+                if (!TerminalEmoji.TryDraw(text, i, x + col * cw, y, cw, ch, width, out _))
+                    // Allow font overhang without changing the daemon's cell advance.
+                    GUI.Label(new Rect(x + col * cw, y, cw * width + cw, ch),
+                              text.Substring(i, units), style);
+                i += units;
+                col += width;
                 start = i;
+                startCol = col;
             }
-            DrawSpan(text, start, text.Length, x, y, cw, ch, style);
+            DrawSpan(text, start, text.Length, x + startCol * cw, y, cw, ch, style);
         }
 
         static void DrawSpan(string text, int from, int to,
@@ -280,7 +281,7 @@ namespace SlopWorld
         {
             if (to <= from) return;
             string seg = from == 0 && to == text.Length ? text : text.Substring(from, to - from);
-            GUI.Label(new Rect(x + from * cw, y, seg.Length * cw + cw, ch), seg, style);
+            GUI.Label(new Rect(x, y, seg.Length * cw + cw, ch), seg, style);
         }
 
 
@@ -300,7 +301,11 @@ namespace SlopWorld
             if (x < body.x || x >= body.xMax || y >= body.yMax || y + ch <= body.y)
                 return;
 
-            float l = SnapX(x), r = SnapX(x + cw);
+            var cells = TerminalColumns.Cells(buf.Runs[buf.Cy]);
+            int first = buf.Cx, end = first + 1;
+            if (first < cells.Length) TerminalColumns.ExpandWideRange(cells, ref first, ref end);
+            float l = SnapX(x + (first - buf.Cx) * cw);
+            float r = SnapX(x + (end - buf.Cx) * cw);
             float t = SnapY(y), b = SnapY(y + ch);
 
             var col = TerminalTheme.CursorColor;
@@ -316,26 +321,19 @@ namespace SlopWorld
                     // Opaque with the glyph put back over it: a block cursor is a reversed
                     // cell, and a translucent box left the character half-legible.
                     Widgets.DrawBoxSolid(new Rect(l, t, r - l, b - t), col);
-                    DrawCursorGlyph(buf, x, y, cw, ch);
+                    DrawCursorGlyph(cells, first, end, x + (first - buf.Cx) * cw, y, cw, ch);
                     break;
             }
         }
 
-        void DrawCursorGlyph(ScreenBuf buf, float x, float y, float cw, float ch)
+        void DrawCursorGlyph(string[] cells, int first, int end,
+                             float x, float y, float cw, float ch)
         {
-            if (buf.Cy >= buf.Runs.Length) return;
-
-            foreach (var run in buf.Runs[buf.Cy])
-            {
-                if (buf.Cx < run.Col || buf.Cx >= run.Col + run.Text.Length) continue;
-                char c = run.Text[buf.Cx - run.Col];
-                if (c == ' ' || c == '\0') return;
-
-                var style = TerminalFont.Style;
-                style.normal.textColor = TerminalTheme.Current.CursorText;
-                DrawRun(c.ToString(), x, y, cw, ch, style);
-                return;
-            }
+            string glyph = TerminalColumns.GlyphText(cells, first);
+            if (glyph.Length == 0 || glyph == " ") return;
+            var style = TerminalFont.Style;
+            style.normal.textColor = TerminalTheme.Current.CursorText;
+            DrawRun(glyph, x, y, cw, ch, style, end - first);
         }
 
 

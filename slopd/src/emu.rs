@@ -34,9 +34,8 @@ impl Dimensions for Dims {
     }
 }
 
-/// `cy == rows` hides the cursor. Rows carry `\x1b[<n>G` (CHA) ahead of any run whose true
-/// column diverges from the pen - which is where a wide char skipped a cell - and the mod
-/// redraws those runs at their absolute column.
+/// `cy == rows` hides the cursor. Rows carry `\x1b[<n>G` (CHA) immediately after wide
+/// glyphs, including at the trimmed tail, to preserve their occupied end for the mod.
 #[derive(Clone)]
 pub struct Frame {
     pub lines: Vec<Arc<str>>,
@@ -868,6 +867,13 @@ fn serialize_row(row: &[Slot]) -> String {
         }
         out.push(c);
         expected += 1;
+        // Preserve the occupied end even when trimming removes the final spacer.
+        // CHA closes a wide glyph on the wire; the client never guesses Unicode widths.
+        if matches!(row.get(col + 1), Some(Slot::Spacer)) {
+            use std::fmt::Write;
+            expected = col + 2;
+            let _ = write!(out, "\x1b[{}G", expected + 1);
+        }
     }
     if !cur_uri.is_empty() {
         out.push_str("\x1b]8;;\x1b\\");
@@ -1284,6 +1290,26 @@ mod tests {
         e.feed("\u{4f60}X".as_bytes());
         let f = e.render();
         assert_eq!(f.lines[0].as_ref(), "\x1b[0m\u{4f60}\x1b[3GX");
+    }
+
+    #[test]
+    fn supplementary_narrow_glyph_does_not_reserve_a_spacer() {
+        let mut e = SessionEmu::new(20, 2);
+        e.feed("\u{1d400}x".as_bytes());
+        assert_eq!(e.render().lines[0].as_ref(), "\x1b[0m\u{1d400}x");
+    }
+
+    #[test]
+    fn trailing_wide_glyph_preserves_occupied_end() {
+        for glyph in ["好", "\u{20000}", "\u{1f600}"] {
+            let mut e = SessionEmu::new(2, 2);
+            e.feed(format!("\x1b[41m{glyph}").as_bytes());
+            let f = e.render();
+            assert_eq!(
+                f.lines[0].as_ref(),
+                format!("\x1b[0m\x1b[0;41m{glyph}\x1b[3G")
+            );
+        }
     }
 
     #[test]

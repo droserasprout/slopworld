@@ -45,9 +45,12 @@ namespace SlopWorld
 
                 for (int row = Mathf.Max(0, a.y); row <= Mathf.Min(rows - 1, b.y); row++)
                 {
-                    int lineLen = TerminalColumns.ContentColumns(TerminalColumns.Cells(buf.Runs[row]));
+                    var cells = TerminalColumns.Cells(buf.Runs[row]);
+                    int lineLen = TerminalColumns.ContentColumns(cells);
                     int startCol = Mathf.Max(0, row == a.y ? a.x : 0);
                     int endCol = row == b.y ? b.x + 1 : lineLen;
+                    endCol = Mathf.Clamp(endCol, startCol, lineLen);
+                    TerminalColumns.ExpandWideRange(cells, ref startCol, ref endCol);
                     endCol = Mathf.Clamp(endCol, startCol, lineLen);
 
                     float y = body.y + shift + row * ch;
@@ -141,22 +144,23 @@ namespace SlopWorld
                 foreach (var run in runs)
                 {
                     float x = body.x + run.Col * cw;
+                    int endCol = run.Col + run.Columns;
                     if (run.HasBg)
                     {
                         float bgL = _panel.SnapX(x);
-                        float bgR = _panel.SnapX(body.x + (run.Col + run.Text.Length) * cw);
+                        float bgR = _panel.SnapX(body.x + endCol * cw);
                         Widgets.DrawBoxSolid(new Rect(bgL, bgTop, bgR - bgL, bgBot - bgTop), run.Bg);
                     }
 
                     style.normal.textColor = run.Fg;
-                    TerminalPanel.DrawRun(run.Text, x, y, cw, ch, style);
+                    TerminalPanel.DrawRun(run.Text, x, y, cw, ch, style, run.Columns);
                     if (run.Url != null)
                     {
                         var underline = run.Fg;
                         underline.a *= 0.5f;
                         Widgets.DrawBoxSolid(new Rect(
                             _panel.SnapX(x), bgBot - 1f,
-                            _panel.SnapX(body.x + (run.Col + run.Text.Length) * cw) - _panel.SnapX(x),
+                            _panel.SnapX(body.x + endCol * cw) - _panel.SnapX(x),
                             1f), underline);
                     }
                 }

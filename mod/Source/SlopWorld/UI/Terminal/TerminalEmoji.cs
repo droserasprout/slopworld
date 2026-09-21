@@ -12,11 +12,10 @@ namespace SlopWorld
         static Texture2D _atlas;
         static bool _looked;
 
-        // Draw a supplementary-plane emoji at the same two-cell footprint as DrawRun's
-        // surrogate-pair path. Return false when the atlas has no cell so the ordinary font
-        // fallback still gets a chance for a codepoint added after the bake.
+        // Draw an emoji within the daemon's occupied cells. Return false when the atlas
+        // has no cell so the font fallback can handle codepoints added after the bake.
         public static bool TryDraw(string text, int offset,
-            float x, float y, float cw, float ch, out int length)
+            float x, float y, float cw, float ch, int columns, out int length)
         {
             length = 0;
             int slot;
@@ -25,8 +24,8 @@ namespace SlopWorld
             var atlas = Texture;
             if (atlas == null) { length = 0; return false; }
 
-            float side = Mathf.Min(cw * 2f, ch);
-            float left = x + offset * cw + (cw * 2f - side) / 2f;
+            float side = Mathf.Min(cw * columns, ch);
+            float left = x + (cw * columns - side) / 2f;
             float top = y + (ch - side) / 2f;
             DrawSlot(slot, new Rect(left, top, side, side), atlas);
             return true;

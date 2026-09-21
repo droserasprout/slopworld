@@ -18,6 +18,10 @@ Session rename, process replacement and transport reconnect are different identi
 HTTP mutation responses can trail socket snapshots, requiring a temporary rename handoff in
 the [mod client](mod-client.md).
 
+Terminal row strings carry SGR/OSC styling and CHA column markers. Each emitted scalar
+advances the client's pen by one cell; a CHA immediately after a wide glyph supplies its
+occupied end, including at the trimmed row tail. The emulator's spacer cells own this geometry.
+
 Live screens may coalesce; history, request replies and control events preserve ordering.
 History extent and echoed request identity are necessary to translate delayed snapshots.
 Metadata/title/bell changes must still reach inactive tabs without a text redraw.
