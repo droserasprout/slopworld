@@ -25,9 +25,13 @@ to an absolute executable path and emitted as the sandbox `SHELL`; a missing or 
 selection fails that launch. Project mounts are literal source/destination paths applied at each
 start with their saved access mode. Validate both paths; missing sources fail launch. Workspace
 binds precede private state and DNS overlays, and source aliases cannot expose effective private
-preset roots. Writable project `.git` intentionally permits hook/config changes.
+preset roots, including aliases used as the primary project directory. A containing primary
+workspace keeps private overlays at their original paths. Writable project `.git` intentionally permits hook/config changes.
 
-Host Git inspection uses `git.rs` and `git_exec.rs`: known helpers are disabled, and Linux
+Project mount sources remain absolute host paths; sandbox destinations may be relative to the
+expanded project directory and are resolved before validation and bwrap assembly. The primary
+project bind can be overridden read-only by a same-path mount row. Host Git inspection uses
+`git.rs` and `git_exec.rs`: known helpers are disabled, and Linux
 seccomp blocks child processes while allowing index threads. This also blocks clean/process
 filters without racing repository configuration edits. Required filters or unavailable seccomp
 can make inspection fail; repository and global configuration remain writable and unchanged.

@@ -90,7 +90,8 @@ namespace SlopWorld
             // First, because it is the one thing here about the ground rather than about the
             // sandbox around it.
             if (p.Temp) bits.Add("temporary");
-            bits.Add(p.Mounts.Count == 0 ? "no extra mounts" : p.Mounts.Count + " shared mounts");
+            int extras = p.Mounts.Count(m => !p.IsPrimaryMount(m));
+            bits.Add(extras == 0 ? "no extra mounts" : extras + " shared mounts");
             return string.Join(", ", bits.ToArray());
         }
     }
@@ -178,9 +179,12 @@ namespace SlopWorld
             _p.Name = UiControls.Field(l, "project.name", _p.Name);
 
             _p.Temp = UiControls.Checkbox(l, "Temporary - scratch space under /tmp", _p.Temp,
-                "The directory is made for you under " + ProjectInfo.TempRoot + ", named after " +
-                "this project, and it is there the first time an agent starts. Nothing " +
-                "deletes it; the machine clears /tmp.");
+                _identity.IsNew
+                    ? "The directory is made for you under " + ProjectInfo.TempRoot + ", named after " +
+                      "this project, and it is there the first time an agent starts. Nothing " +
+                      "deletes it; the machine clears /tmp."
+                    : "Temporary mode is fixed when the project is created.",
+                locked: !_identity.IsNew);
 
             l.Label("Directory");
             if (_p.Temp)
@@ -205,14 +209,13 @@ namespace SlopWorld
         void DrawMounts(Rect rect)
         {
             UiText.RowLabel(new Rect(rect.x, rect.y, rect.width, UiTheme.LineH),
-                "Mounts apply at next start. Add project copies its current paths into an editable row.");
+                "Mounts apply at next start. Absolute paths stay absolute; relative paths start at the project directory.");
             float y = rect.y + UiTheme.LineH + UiTheme.GapS;
             if (UiButtons.Button(new Rect(rect.x, y, 110f, UiTheme.RowH), "Add path", UiTheme.Btn.Default))
                 _p.Mounts.Add(new MountEntry());
             if (UiButtons.Button(new Rect(rect.x + 120f, y, 120f, UiTheme.RowH), "Add project", UiTheme.Btn.Default))
             {
                 var projects = SessionHub.Instance.Projects.Where(p => p.Name != _p.Name).ToList();
-                if (!string.IsNullOrWhiteSpace(_p.Name)) projects.Add(_p);
                 var options = projects.OrderBy(p => p.Name, StringComparer.OrdinalIgnoreCase)
                     .Select(p => new FloatMenuOption(p.Name, () => _p.Mounts.Add(new MountEntry
                     {
@@ -227,22 +230,35 @@ namespace SlopWorld
             float width = rect.width - UiTheme.ListInset * 2f - UiTheme.ScrollbarW;
             float pathW = (width - modeW - removeW - gap * 3f) / 2f;
             UiText.RowLabel(new Rect(rect.x + UiTheme.ListInset, y, pathW, UiTheme.LineH), "From (host path)");
-            UiText.RowLabel(new Rect(rect.x + UiTheme.ListInset + pathW + gap, y, pathW, UiTheme.LineH), "To (sandbox path)");
+            UiText.RowLabel(new Rect(rect.x + UiTheme.ListInset + pathW + gap, y, pathW, UiTheme.LineH),
+                "To (sandbox path; absolute or project-relative)");
             y += UiTheme.LineH;
             var listRect = new Rect(rect.x, y, rect.width, Mathf.Max(0f, rect.yMax - y));
             Slab.Box(listRect, UiTheme.Well, UiTheme.Edge);
             var pad = listRect.ContractedBy(UiTheme.ListInset);
+            MountEntry projectMount = _p.EnsurePrimaryMount();
             var inner = new Rect(0f, 0f, width, _p.Mounts.Count * (UiTheme.RowH + gap));
             MountEntry remove = null;
             using (_mountsScroll.Scope(pad, inner))
             {
                 float ry = 0f;
-                foreach (var mount in _p.Mounts)
+                foreach (var mount in _p.Mounts.OrderBy(m => m == projectMount ? 0 : 1))
                 {
-                    mount.From = UiText.Field(new Rect(0f, ry, pathW, UiTheme.RowH),
-                        "mount.from." + mount.FieldId, mount.From);
-                    mount.To = UiText.Field(new Rect(pathW + gap, ry, pathW, UiTheme.RowH),
-                        "mount.to." + mount.FieldId, mount.To);
+                    bool isProject = mount == projectMount;
+                    if (isProject)
+                    {
+                        UiText.ReadOnlyField(new Rect(0f, ry, pathW, UiTheme.RowH),
+                            "mount.from." + mount.FieldId, mount.From);
+                        UiText.ReadOnlyField(new Rect(pathW + gap, ry, pathW, UiTheme.RowH),
+                            "mount.to." + mount.FieldId, mount.To);
+                    }
+                    else
+                    {
+                        mount.From = UiText.Field(new Rect(0f, ry, pathW, UiTheme.RowH),
+                            "mount.from." + mount.FieldId, mount.From);
+                        mount.To = UiText.Field(new Rect(pathW + gap, ry, pathW, UiTheme.RowH),
+                            "mount.to." + mount.FieldId, mount.To);
+                    }
                     if (UiButtons.Button(new Rect(2f * (pathW + gap), ry, modeW, UiTheme.RowH),
                         MountEntry.ModeLabel(mount.Mode), UiTheme.Btn.Ghost))
                         Find.WindowStack.Add(new UiMenu(new List<FloatMenuOption>
@@ -250,7 +266,7 @@ namespace SlopWorld
                             new FloatMenuOption("Read-only", () => mount.Mode = MountMode.Ro),
                             new FloatMenuOption("Read-write", () => mount.Mode = MountMode.Rw),
                         }));
-                    if (UiButtons.Button(new Rect(width - removeW, ry, removeW, UiTheme.RowH), "×", UiTheme.Btn.Ghost))
+                    if (!isProject && UiButtons.Button(new Rect(width - removeW, ry, removeW, UiTheme.RowH), "×", UiTheme.Btn.Ghost))
                         remove = mount;
                     ry += UiTheme.RowH + gap;
                 }
@@ -269,13 +285,21 @@ namespace SlopWorld
             // on the way in - this is only so the list has the right path before the answer
             // comes back.
             if (_p.Temp)
-                _p.Dir = _tempPreview.Name == _p.Name ? _tempPreview.Dir : null;
+            {
+                if (_tempPreview.Name != _p.Name || string.IsNullOrEmpty(_tempPreview.Dir))
+                {
+                    UiLayout.Fail("temporary project path is not available yet");
+                    return;
+                }
+                _p.Dir = _tempPreview.Dir;
+            }
             else if (string.IsNullOrEmpty((_p.Dir ?? "").Trim()))
             {
                 UiLayout.Fail("a project needs a directory");
                 return;
             }
 
+            _p.EnsurePrimaryMount();
             SessionHub.Instance.Catalog.SaveProject(_p, _identity.IsNew,
                 _identity.OriginalName,
                 ok: () => Close(),
@@ -297,8 +321,11 @@ namespace SlopWorld
                     if (string.IsNullOrEmpty(dir))
                         _tempPreview.Fail(serial, _p.Temp, _p.Name,
                             "Daemon preview did not include a path.", DateTime.UtcNow);
-                    else
-                        _tempPreview.Accept(serial, _p.Temp, _p.Name, dir);
+                    else if (_tempPreview.Accept(serial, _p.Temp, _p.Name, dir))
+                    {
+                        _p.Dir = dir;
+                        _p.EnsurePrimaryMount();
+                    }
                 },
                 error =>
                 {

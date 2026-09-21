@@ -251,13 +251,41 @@ pub fn expand(path: &str) -> String {
     out
 }
 
+/// Resolve a sandbox destination. Absolute destinations retain their existing meaning;
+/// relative destinations are rooted at the project's expanded directory.
+pub(crate) fn mount_target(project: &ProjectCfg, raw: &str) -> String {
+    let expanded = expand(raw);
+    let path = if std::path::Path::new(&expanded).is_absolute() {
+        std::path::PathBuf::from(expanded)
+    } else {
+        std::path::Path::new(&expand(&project.dir)).join(expanded)
+    };
+    normalize_path(path).to_string_lossy().into_owned()
+}
+
+fn normalize_path(path: std::path::PathBuf) -> std::path::PathBuf {
+    let mut normalized = std::path::PathBuf::new();
+    for component in path.components() {
+        match component {
+            std::path::Component::RootDir => normalized.push(std::path::Path::new("/")),
+            std::path::Component::CurDir => {}
+            std::path::Component::ParentDir => {
+                normalized.pop();
+            }
+            std::path::Component::Normal(part) => normalized.push(part),
+            std::path::Component::Prefix(prefix) => normalized.push(prefix.as_os_str()),
+        }
+    }
+    normalized
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
-        expand, redact_token_text, resolvers_from, temp_dir, Config, DnsConfig, FileActionMode,
-        HostTerminalCfg, LibraryItemCfg, LibraryItemKind, LibraryItemLink, Limits, NetworkMode,
-        ProjectCfg, SessionCfg, TitlePolicy, DEFAULT_SUMMARY_PROMPT, DEFAULT_WORKER_PROMPT,
-        TOKEN_REDACTED,
+        expand, mount_target, redact_token_text, resolvers_from, temp_dir, Config, DnsConfig,
+        FileActionMode, HostTerminalCfg, LibraryItemCfg, LibraryItemKind, LibraryItemLink, Limits,
+        NetworkMode, ProjectCfg, SessionCfg, TitlePolicy, DEFAULT_SUMMARY_PROMPT,
+        DEFAULT_WORKER_PROMPT, TOKEN_REDACTED,
     };
 
     #[test]
@@ -287,6 +315,17 @@ mod tests {
         let text = toml::to_string_pretty(&cfg).unwrap();
         let back = Config::parse(&text).unwrap();
         assert_eq!(back.session("agent").unwrap().dns, session.dns);
+    }
+
+    #[test]
+    fn mount_destinations_accept_absolute_and_project_relative_paths() {
+        let project = ProjectCfg {
+            dir: "/work/repo".into(),
+            ..Default::default()
+        };
+        assert_eq!(mount_target(&project, "/mnt/shared"), "/mnt/shared");
+        assert_eq!(mount_target(&project, "vendor"), "/work/repo/vendor");
+        assert_eq!(mount_target(&project, "."), "/work/repo");
     }
 
     #[test]

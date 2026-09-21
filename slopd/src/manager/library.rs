@@ -54,12 +54,15 @@ impl Manager {
         settle(&mut p);
         check_project(&p)?;
         self.update_cfg(|cfg| {
-            check_project_mounts(cfg, &p)?;
             let idx = cfg
                 .projects
                 .iter()
                 .position(|x| x.name == name)
                 .ok_or_else(|| anyhow!("no such project: {name}"))?;
+            if cfg.projects[idx].temp != p.temp {
+                bail!("project temporary mode cannot be changed after creation");
+            }
+            check_project_mounts(cfg, &p)?;
             if p.name != name && cfg.project(&p.name).is_some() {
                 bail!("project {} already exists", p.name);
             }
@@ -688,6 +691,32 @@ mod tests {
             Some("link-guide.md")
         );
         assert_eq!(routed_action_label("terminal-README.md"), None);
+    }
+
+    #[tokio::test]
+    async fn project_temporary_mode_is_immutable_after_creation() {
+        let manager = crate::session::test_manager(Config {
+            projects: vec![ProjectCfg {
+                name: "scratch".into(),
+                dir: "/tmp/slopworld-scratch".into(),
+                temp: true,
+                ..Default::default()
+            }],
+            ..Default::default()
+        });
+        let error = manager
+            .update_project(
+                "scratch",
+                ProjectCfg {
+                    name: "scratch".into(),
+                    dir: "/tmp/slopworld-scratch".into(),
+                    temp: false,
+                    ..Default::default()
+                },
+            )
+            .await
+            .expect_err("temporary mode changed");
+        assert!(error.to_string().contains("cannot be changed"), "{error}");
     }
 
     #[test]
