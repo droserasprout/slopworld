@@ -1320,4 +1320,120 @@ mod tests {
             .as_deref()
             .is_some_and(|error| error.contains("shape slopd does not know")));
     }
+    fn session_snapshot(pct: u32) -> Snapshot {
+        parse(
+            &serde_json::json!({"five_hour": {"utilization": pct}}),
+            "max".into(),
+        )
+    }
+
+    #[test]
+    fn polling_failure_backoff_recovers_and_disabling_resets_schedules() {
+        let mut poller = Poller::new("Anthropic");
+        poller.snap = session_snapshot(42);
+        for (attempt, delay) in [(1, 60), (2, 120)] {
+            let before = Instant::now();
+            poller.settle(Snapshot::failed(&poller.snap, "offline"), None, 60);
+            assert_eq!(poller.fails, attempt);
+            assert_eq!(poller.snap.windows[0].pct, 42.0);
+            assert_eq!(
+                poller.snap.error,
+                Some(format!("offline - next try in {}m", delay / 60))
+            );
+            assert!(poller.due >= before + Duration::from_secs(delay));
+            assert!(poller.due <= Instant::now() + Duration::from_secs(delay));
+        }
+        poller.settle(session_snapshot(55), None, 60);
+        assert_eq!(poller.fails, 0);
+        assert!(poller.snap.ok);
+        assert!(poller.snap.error.is_none());
+        assert_eq!(poller.snap.windows[0].pct, 55.0);
+        poller.item_due.insert(
+            CLAUDE_SESSION.into(),
+            Instant::now() + Duration::from_secs(600),
+        );
+        assert!(poller.clear());
+        assert_eq!(poller.snap, Snapshot::default());
+        assert!(poller.item_due.is_empty());
+        assert!(poller.due <= Instant::now());
+        assert!(!poller.clear());
+    }
+
+    #[test]
+    fn row_schedule_retains_values_until_due_and_expires_missing_windows() {
+        let daemon = crate::config::Daemon::default();
+        let mut poller = Poller::new("Anthropic");
+        let now = Instant::now();
+        let interval = Duration::from_secs(item_interval(&daemon, "anthropic", CLAUDE_SESSION));
+        poller.snap = filter_snapshot(&mut poller, session_snapshot(10), &daemon, "anthropic", now);
+        assert_eq!(poller.item_due[CLAUDE_SESSION], now + interval);
+        let early = filter_snapshot(
+            &mut poller,
+            session_snapshot(90),
+            &daemon,
+            "anthropic",
+            now + Duration::from_secs(1),
+        );
+        assert_eq!(early.windows[0].pct, 10.0);
+        let missing = Snapshot {
+            ok: true,
+            ..Default::default()
+        };
+        let early_missing = filter_snapshot(
+            &mut poller,
+            missing.clone(),
+            &daemon,
+            "anthropic",
+            now + Duration::from_secs(1),
+        );
+        assert_eq!(early_missing.windows, poller.snap.windows);
+        let expired = filter_snapshot(&mut poller, missing, &daemon, "anthropic", now + interval);
+        assert!(expired.windows.is_empty());
+        let refreshed = filter_snapshot(
+            &mut poller,
+            session_snapshot(90),
+            &daemon,
+            "anthropic",
+            now + interval,
+        );
+        assert_eq!(refreshed.windows[0].pct, 90.0);
+        assert_eq!(poller.item_due[CLAUDE_SESSION], now + interval + interval);
+    }
+
+    #[test]
+    fn shorter_intervals_refresh_immediately_and_disabled_rows_clear_schedules() {
+        let mut daemon = crate::config::Daemon::default();
+        daemon.usage_items.insert(
+            CLAUDE_SESSION.into(),
+            crate::config::UsageItem {
+                poll: true,
+                interval_secs: Some(3600),
+            },
+        );
+        let mut poller = Poller::new("Anthropic");
+        let now = Instant::now();
+        poller.snap = filter_snapshot(&mut poller, session_snapshot(10), &daemon, "anthropic", now);
+        daemon
+            .usage_items
+            .get_mut(CLAUDE_SESSION)
+            .unwrap()
+            .interval_secs = Some(300);
+        let refreshed =
+            filter_snapshot(&mut poller, session_snapshot(90), &daemon, "anthropic", now);
+        assert_eq!(refreshed.windows[0].pct, 90.0);
+        assert_eq!(
+            poller.item_due[CLAUDE_SESSION],
+            now + Duration::from_secs(300)
+        );
+        let failed = Snapshot::failed(&poller.snap, "offline");
+        assert_eq!(
+            filter_snapshot(&mut poller, failed.clone(), &daemon, "anthropic", now),
+            failed
+        );
+        daemon.usage_items.get_mut(CLAUDE_SESSION).unwrap().poll = false;
+        let disabled =
+            filter_snapshot(&mut poller, session_snapshot(99), &daemon, "anthropic", now);
+        assert!(disabled.windows.is_empty());
+        assert!(poller.item_due.is_empty());
+    }
 }
