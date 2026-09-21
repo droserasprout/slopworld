@@ -19,8 +19,6 @@ namespace SlopWorld
         const int AtWord = 40;      // ...and starts a word
         const int LeadMax = 12;     // most a late first character can cost
 
-        // The color matched characters are marked up in. Bright enough to read against
-        // both the selected row's fill and the plain one.
         const string Mark = "#7FC8FF";
 
         /// <summary>
@@ -63,9 +61,6 @@ namespace SlopWorld
             return Match(text, query, out score, out _);
         }
 
-        /// <summary>
-        /// Wraps hit positions in color markup; null or empty hits return the text unchanged.
-        /// </summary>
         public static string Highlight(string text, List<int> hits)
         {
             if (hits == null || hits.Count == 0) return text;

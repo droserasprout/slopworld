@@ -5,7 +5,6 @@ using Verse;
 
 namespace SlopWorld
 {
-    // TasksView row selection and sidebar hit testing.
     public static partial class TasksView
     {
         public static void Clicks()

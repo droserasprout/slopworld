@@ -60,13 +60,8 @@ namespace SlopWorld
 
         public static Texture2D Library => Get("library");
 
-        // Tasks are a mailbox, and the existing checked-list glyph says that more clearly than
-        // borrowing the Library lightning or the agent robot for another kind of work.
         public static Texture2D Tasks => Check;
 
-        // The options column's Keyboard row. Not the lightning of Library: that one is
-        // the sidebar's errands, and lending it to key bindings was the tab being read as
-        // the errand list.
         public static Texture2D Keyboard => Get("keyboard");
 
         // The dotfile switch and a row's view action. Reading is what both are about, and
@@ -104,9 +99,6 @@ namespace SlopWorld
 
         public static Texture2D Time => Get("time");
 
-        // The sidebar's one add button, which used to be a "+" in GameFont.Medium: a
-        // glyph is drawn heavier than the font's plus and can be given whatever size the
-        // strip has room for, the font's largest being all vanilla had to offer.
         public static Texture2D Add => Get("add");
 
         // ------------------------------------------------------------------ the loader

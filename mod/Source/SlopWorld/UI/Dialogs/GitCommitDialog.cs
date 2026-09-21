@@ -2,9 +2,6 @@ using UnityEngine;
 
 namespace SlopWorld
 {
-    // A short commit message is enough for the first writable Git pass. The commit itself still
-    // runs on the host, where the Git view read its repository and where the agent worktrees do
-    // not hide the repository metadata from the user.
     public sealed class GitCommitDialog : UiWindow
     {
         readonly string _project;

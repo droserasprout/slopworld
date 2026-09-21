@@ -94,10 +94,7 @@ namespace SlopWorld
         // The Linux popup window starts borderless to avoid Unity's Alt+Tab freeze. Keep
         // fullscreen on by default, but let the player return to that launch window.
         public bool fullscreen = true;
-        // The column's width, dragged rather than typed, and the projects rolled up in it.
-        // Both are about this screen the way the layout itself is, so they live beside it -
-        // and a project is the daemon's rather than a colony's, so neither belongs in a save.
-        // Folds are one name per line; a project that has gone is a name nothing matches.
+        // Sidebar preferences belong to the profile, not the colony save.
         public bool sidebarHidden;
         public float sidebarWidth = 210f;
         // The Files tab's open-file pane as a normalized share of the space above its tree.
@@ -106,19 +103,16 @@ namespace SlopWorld
         // normalized by Settings so older or hand-edited files remain safe.
         public string sidebarSide = NavigationSide.Left;
         public string uiDensity = UiDensityPreset.Default;
+        // One project name per line; deleted projects are ignored.
         public string foldedProjects = "";
-        // Which of the column's two views is up, and whether its tree says anything about
-        // dotfiles. Same argument: about this screen, not about a colony. A name this build
-        // does not know reads as the agents, which is the view that is always worth having.
+        // Unknown tab names fall back to Agents.
         public string sidebarTab = "agents";
         public bool sidebarShowHidden;
         public bool sidebarShowGitignored;
         // Agent-row visibility: all, or a comma-separated selection of active (working or
         // waiting), idle and down.
         public string sidebarAgentStatus = "all";
-        // The projects ticked in the column's filter, one name a line and blank for all of
-        // them - the folds' own format, kept here for the folds' own reason. See
-        // AgentSidebar for what an unticked name and the `[none]` line mean.
+        // One project name per line, blank for all. AgentSidebar defines `[none]` semantics.
         public string sidebarFilter = "";
 
         // Command ids, newest first, one per line. The palette validates these against its
@@ -144,9 +138,7 @@ namespace SlopWorld
 
         // Match UI follows the chrome palette; a named terminal palette is an override.
         public string theme = "match-ui";
-        // "#rrggbb", or blank for the scheme's own. The one color worth overriding on
-        // its own: everything else is the scheme's business, and a cursor you cannot find
-        // is about the screen it is on.
+        // "#rrggbb", or blank for the scheme's cursor color.
         public string cursorColor = "";
 
         // The hardware cursor's game-asset design. Kept as a key rather than a texture path
@@ -154,19 +146,14 @@ namespace SlopWorld
         public string cursor = "tame";
         public bool cursorGrayscale = true;
 
-        // Which station the jukebox is on: "ost", or "station-id:stream-key" from the
-        // daemon's catalog. Here rather than in a save for the reason the theme is: it is
-        // about this room and these ears, and it is wanted back on the next colony rather
-        // than buried with this one. A preset this build no longer lists reads as the OST.
+        // "ost" or "station-id:stream-key" from the daemon's catalog. Unknown presets use OST.
         public string radio = "ost";
 
         // Source ids hidden from the jukebox menu, one per line. An empty list keeps the
         // built-in OST, Spotify, and every user station visible by default.
         public string radioHiddenSources = "";
 
-        // The jukebox's off switch: it is a stop rather than a volume of zero, so nothing
-        // is downloaded for nobody. Kept apart from the station so unmuting comes back to
-        // what was on.
+        // Stops downloads while retaining the selected station for unmute.
         public bool radioMute;
 
         // Which optional instruments are visible in the top statusbar. These are display
@@ -193,19 +180,13 @@ namespace SlopWorld
         // alias for Fahrenheit and also enables bird sounds for camera/UI one-shots.
         public string temperatureUnit = "";
 
-        // Eco mode: the board stops. The clock is held paused, the map's draw chain stands
-        // down, and with the pane closed the menu's own background is
-        // drawn where the board was. Everything the terminal is made of keeps running. See
-        // Eco.
+        // Pauses simulation and map drawing while terminals keep running. See Eco.
         public bool ecoMode;
 
-        // VSync is the default foreground policy; FPS limits are selected from FramePolicy.Presets.
         public string displayMode = FramePolicy.Sync;
         public int foregroundFps = 60;
 
-        // How far the eco backdrop is taken down behind the agents, 0 being the picture as the
-        // menu draws it. Eco is a mode somebody leaves the game sitting in, so this is taste
-        // and not a constant. See Eco.Shade.
+        // Backdrop dimming: 0 leaves the menu background unchanged. See Eco.Shade.
         public float ecoDim = 0.45f;
 
         public static ModSettings Load()
@@ -366,7 +347,6 @@ namespace SlopWorld
                 .AppendLine();
     }
 
-    // Static shorthand so call sites don't reach through the Mod instance.
     public static class Settings
     {
         public static ModSettings S => ModEntry.Instance.settings;

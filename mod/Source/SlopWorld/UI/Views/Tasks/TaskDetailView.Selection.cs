@@ -4,7 +4,6 @@ using Verse;
 
 namespace SlopWorld
 {
-    // TaskDetailView text selection and clipboard actions.
     public sealed partial class TaskDetailView
     {
         void DrawSelectableText(float viewportHeight)

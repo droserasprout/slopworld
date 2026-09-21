@@ -58,9 +58,6 @@ namespace SlopWorld
             return any;
         }
 
-        // Remove headings that no longer exist, but leave surviving keys untouched. This keeps
-        // a project's fold choice through a refresh while preventing a deleted project from
-        // affecting the next all-folded query.
         public void SyncGroups(IEnumerable<string> keys)
         {
             var present = new HashSet<string>(keys ?? Empty);

@@ -22,8 +22,6 @@ pub(crate) const READ_LIMIT: u64 = 512 * 1024;
 /// screenshots while keeping one Markdown page from allocating an unbounded JSON response.
 pub(crate) const IMAGE_LIMIT: u64 = 8 * 1024 * 1024;
 
-/// Enough to fill a column several screens deep, and short of the answer to
-/// `read_dir` on `.git` or `node_modules` being a reply nobody reads.
 pub(crate) const BROWSE_LIMIT: usize = 500;
 const GITIGNORE_TIMEOUT: Duration = Duration::from_secs(3);
 
@@ -31,9 +29,6 @@ pub(crate) fn browse_limit(requested: Option<usize>) -> usize {
     requested.unwrap_or(BROWSE_LIMIT).clamp(1, BROWSE_LIMIT)
 }
 
-/// What one directory holds, as far as this endpoint is concerned. Split out from the
-/// handler so the rules below can be tested against a real directory without standing a
-/// manager and a router up around them.
 pub(crate) struct Listing {
     pub(crate) dirs: Vec<String>,
     pub(crate) empty_dirs: Vec<String>,

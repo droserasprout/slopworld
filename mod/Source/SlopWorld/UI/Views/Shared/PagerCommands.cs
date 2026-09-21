@@ -3,10 +3,6 @@ using System.IO;
 
 namespace SlopWorld
 {
-    // The command-line construction half of Pager, carved out because it is pure string
-    // work: quoting, argv templating, and the pager/editor command shapes. The configured
-    // commands are passed in rather than read from SessionHub, so this can be unit-tested
-    // without a live daemon. Pager keeps thin wrappers that supply the config.
     public static class PagerCommands
     {
         public static string RelativeFilePath(string root, string path)

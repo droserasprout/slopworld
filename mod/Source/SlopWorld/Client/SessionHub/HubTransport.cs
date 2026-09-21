@@ -6,10 +6,7 @@ using Verse;
 
 namespace SlopWorld
 {
-    // The socket half of the hub: owns the WebSocket, reconnects with backoff, and is pumped
-    // once per frame on the main thread. It knows nothing about sessions, projects, or config
-    // — on connect it raises OnConnected, and each incoming event goes to OnMessage. The
-    // coordinator wires those to the stores.
+    // Main-thread WebSocket pump with reconnect backoff. The coordinator dispatches its events.
     class HubTransport
     {
         // Set by the coordinator after the services exist, so the transport can stay unaware

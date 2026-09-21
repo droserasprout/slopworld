@@ -62,10 +62,7 @@ namespace SlopWorld
             public Node Tree;
             public HashSet<string> Shut = new HashSet<string>();  // folded directories, by Rel
 
-            // The same changes as the tree, flat and by relative path, with the porcelain pair
-            // for each. The tree is for drawing; this is for answering the files view, which
-            // asks about one absolute path at a time and would otherwise walk a tree per row
-            // per frame.
+            // Porcelain status by relative path, for Files lookups without a tree walk per row.
             public Dictionary<string, string> Changes = new Dictionary<string, string>();
         }
 
@@ -326,10 +323,7 @@ namespace SlopWorld
                     if (!repo.Operations.IsCurrent(generation) || repo.Dir != dir) return;
                     repo.Asked = true;
                     repo.Error = msg;
-                    // The tree goes with it: what is drawn is the error alone, and a stale
-                    // tree under a message about why it could not be read is two answers. The
-                    // flat table goes for the same reason - the files view would otherwise
-                    // offer a diff off a reading that failed.
+                    // Clear stale status too, so Files cannot offer diffs from a failed read.
                     repo.IsRepo = false;
                     repo.Root = null;
                     repo.Branch = null;
@@ -421,11 +415,8 @@ namespace SlopWorld
             return true;
         }
 
-        // The flat list of changed paths, folded into the tree it describes. The daemon sends
-        // them sorted, so a directory's rows arrive together and the walk down never has to
-        // look back; every interior node is a directory because something under it changed,
-        // which is the whole difference between this tree and the files view's. A truncated
-        // answer deliberately remains a valid partial tree.
+        // Requires sorted paths so each directory's entries are contiguous.
+        // Truncated responses still produce a valid partial tree.
         static Node Fold(Repo repo, IEnumerable<Wire.GitFile> files)
         {
             var root = new Node
@@ -485,10 +476,7 @@ namespace SlopWorld
                 });
             }
 
-            // A directory holding one directory holding one file is three rows saying one
-            // thing. Squashed the way every git client squashes it: `slopd/src` is one row.
-            // Depth is written afterwards rather than kept in step through the squash, a
-            // collapsed chain moving everything under it up by however long the chain was.
+            // Assign depths after collapsing directory chains, which moves descendants up.
             Squash(root);
             Depths(root, -1);
             return root;

@@ -2,9 +2,6 @@ namespace SlopWorld
 {
     public partial class SessionHub
     {
-        // The coordinator's one job on the socket: route each pushed event to the store that
-        // owns it. The stores apply their own updates; Usage and the jukebox are small enough
-        // to land here.
         void Handle(Wire.Event ev)
         {
             switch (ev.PayloadCase)

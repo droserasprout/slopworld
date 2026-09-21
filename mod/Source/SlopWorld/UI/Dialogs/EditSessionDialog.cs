@@ -6,9 +6,7 @@ using Verse;
 
 namespace SlopWorld
 {
-    // What is left here is the two things about the agent: its name and what it runs.
-    // Where it works moved to the project, which is why picking one is mandatory and
-    // there is no directory field; network reach is an agent-level setting here.
+    // Project selection owns the working directory; network settings belong to the agent.
     public partial class EditSessionDialog : UiWindow
     {
         enum Tab { General, Sandbox, ResourceLimits, Preview }
@@ -37,10 +35,6 @@ namespace SlopWorld
         // Preselected project, for "add an agent here" from the projects list.
         public EditSessionDialog(SessionInfo existing, string project) : this(existing, project, false) { }
 
-        // Everything the dialog can edit comes over - the project above all, since a
-        // second agent in the same repo is what this is for and picking that project
-        // again by hand is the step that gets it wrong. The name cannot, so it is the one
-        // field that is suggested rather than copied.
         public static EditSessionDialog FromTemplate(AgentTemplateInfo template)
         {
             var dialog = new EditSessionDialog(null, null);
@@ -52,9 +46,6 @@ namespace SlopWorld
 
         EditSessionDialog(SessionInfo existing, string project, bool copy, AgentTemplateInfo template = null)
         {
-            // A copy is a new agent in every way that matters here: nothing on the daemon
-            // knows about it, so Save posts rather than puts and there is no rename to carry
-            // a colonist across.
             _identity = copy ? EditIdentity.ForCopy(existing?.Name) :
                 existing == null ? EditIdentity.ForNew() : EditIdentity.ForEdit(existing.Name);
             _s = existing == null

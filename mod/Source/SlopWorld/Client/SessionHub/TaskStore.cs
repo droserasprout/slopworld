@@ -52,12 +52,8 @@ namespace SlopWorld
 
         public void Update(bool needsData)
         {
-            // Tasks use HTTP rather than the session WebSocket. Keep polling when the socket is
-            // down too: the daemon can answer the mailbox even while the live pane reconnects.
-            // There is no reason to wake the HTTP poller while its view (and any badge that
-            // might consume it) is hidden. Use monotonic time here: unlike task timestamps,
-            // this deadline is not data sent by the daemon and must not cost a wall-clock query
-            // on every rendered frame.
+            // Poll visible task data even while the WebSocket reconnects; HTTP is independent.
+            // Use monotonic time for this local deadline.
             if (!needsData || _loading || UnityEngine.Time.realtimeSinceStartupAsDouble < _nextPoll)
                 return;
             Refresh();

@@ -6,7 +6,6 @@ using Verse;
 
 namespace SlopWorld
 {
-    // TasksView filtering and filter menu construction.
     public static partial class TasksView
     {
         static bool Matches(TaskInfo task)
