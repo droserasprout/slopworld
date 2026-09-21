@@ -71,10 +71,10 @@ slopctl logs --follow                        # combined game + daemon
 ```
 
 `make protobuf-deps` restores the locked Google.Protobuf runtime and its Mono dependencies.
-`make bench-report` includes IPC timings, allocations, wire sizes and comparison ratios in its
+`make bench-report` includes IPC timings, allocations and wire sizes in its
 three-run averaged report (`notes/perf-suite.md`), replacing the previous report.
 Raw logs and CSVs stay local and ignored.
-`make BUILD=release bench-ipc` compares the frozen JSON transport with Protobuf on Mono, .NET 8 and Rust;
+`make BUILD=release bench-ipc` measures Protobuf on Mono, .NET 8 and Rust;
 see [the benchmark suite](../../bench/ipc/README.md) for scope and recorded results.
 
 ## Occasional maintenance

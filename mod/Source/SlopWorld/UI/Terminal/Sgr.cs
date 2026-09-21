@@ -93,13 +93,8 @@ namespace SlopWorld
             if (scratch == null || scratch.Length != rows.Length * width)
                 scratch = new char[rows.Length * width];
             var chars = scratch;
-            for (int i = 0; i < chars.Length; i++) chars[i] = ' ';
             for (int row = 0; row < rows.Length; row++)
-            {
-                int offset = row * width;
-                string line = TerminalColumns.Line(TerminalColumns.Cells(rows[row]));
-                line.CopyTo(0, chars, offset, Math.Min(width, line.Length));
-            }
+                TerminalColumns.WriteScanLine(rows[row], chars, row * width, width);
 
             var global = UrlScan.FindUrls(new string(chars));
             if (global == null) return null;
@@ -416,7 +411,9 @@ namespace SlopWorld
         {
             if (runs.Count == 0) return;
 
-            var spans = UrlScan.FindUrls(TerminalColumns.Line(TerminalColumns.Cells(runs)));
+            var chars = new char[RowWidth(runs)];
+            TerminalColumns.WriteScanLine(runs, chars, 0, chars.Length);
+            var spans = UrlScan.FindUrls(new string(chars));
             if (spans != null) Split(runs, spans);
         }
 

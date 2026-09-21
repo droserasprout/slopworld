@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Runtime.CompilerServices;
 
 namespace SlopWorld
 {
@@ -8,6 +9,7 @@ namespace SlopWorld
     // Runs end at a wide glyph; only their final scalar can reserve additional cells.
     public static class TerminalColumns
     {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int ScalarUnits(string text, int offset) =>
             char.IsHighSurrogate(text[offset]) && offset + 1 < text.Length &&
             char.IsLowSurrogate(text[offset + 1]) ? 2 : 1;
@@ -52,6 +54,32 @@ namespace SlopWorld
                         if (col >= 0) cells[col] = null;
                 }
             return cells;
+        }
+
+        // Link scans need one UTF-16 unit per column, not per-cell strings for copy/selection.
+        // Write directly into reusable screen storage; supplementary scalars are delimiters,
+        // and daemon-reserved continuation cells remain blanks even after overlapping runs.
+        internal static void WriteScanLine(List<SgrRun> runs, char[] buffer, int offset, int width)
+        {
+            for (int c = 0; c < width; c++) buffer[offset + c] = ' ';
+            foreach (var run in runs)
+            {
+                if (run.Text == null) continue;
+                int col = run.Col;
+                for (int i = 0; i < run.Text.Length && col < width;)
+                {
+                    char ch = run.Text[i++];
+                    if (char.IsHighSurrogate(ch) && i < run.Text.Length && char.IsLowSurrogate(run.Text[i]))
+                    {
+                        ch = '\ufffd';
+                        i++;
+                    }
+                    if (col >= 0) buffer[offset + col] = ch;
+                    col++;
+                }
+                for (; col < run.Col + run.Columns && col < width; col++)
+                    if (col >= 0) buffer[offset + col] = ' ';
+            }
         }
 
         // Shared by paint and copy so either half selects the same complete glyph.

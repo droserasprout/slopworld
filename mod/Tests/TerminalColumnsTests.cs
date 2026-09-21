@@ -7,6 +7,8 @@ namespace SlopWorld.Tests
     {
         public static IEnumerable<(string Name, Action Body)> Cases()
         {
+            yield return ("scanner preserves columns within its buffer slice", ScanLineGeometry);
+            yield return ("scanner reuses storage without allocating", ScanLineAllocations);
             yield return ("daemon markers own geometry", DaemonGeometry);
             yield return ("supplementary glyphs retain complete copy text", SupplementaryCopy);
             yield return ("selection copies either half of a trailing glyph", SelectionCopy);
@@ -29,6 +31,29 @@ namespace SlopWorld.Tests
             var list = new List<SgrRun>();
             foreach (var run in runs) list.Add(new SgrRun { Col = run.Col, Text = run.Text });
             return list;
+        }
+
+        static void ScanLineGeometry()
+        {
+            var runs = Row((-1, "ab"), (2, "😀x"), (5, "q"), (7, "clipped"));
+            runs.Add(new SgrRun { Col = 4, Text = "好", CellWidth = 2 });
+            var buffer = "!!!!!!!!!!".ToCharArray();
+            TerminalColumns.WriteScanLine(runs, buffer, 1, 8);
+            AssertEx.Equal("!b \ufffdx好  c!", new string(buffer), "scalar, gap, wide continuation and clipping");
+            TerminalColumns.WriteScanLine(Row((0, "z")), buffer, 1, 8);
+            AssertEx.Equal("!z       !", new string(buffer), "reuse clears stale characters without touching neighbors");
+        }
+
+        static void ScanLineAllocations()
+        {
+            var runs = Row((0, new string('x', 120)), (120, "😀"));
+            var buffer = new char[122];
+            TerminalColumns.WriteScanLine(runs, buffer, 0, buffer.Length);
+            long before = GC.GetAllocatedBytesForCurrentThread();
+            for (int i = 0; i < 100; i++)
+                TerminalColumns.WriteScanLine(runs, buffer, 0, buffer.Length);
+            long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+            AssertEx.Equal(0L, allocated, "screen scanning must not allocate per row or scalar");
         }
 
         static void DaemonGeometry()
