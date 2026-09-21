@@ -58,8 +58,9 @@ namespace SlopWorld
                     .Select(mode => new FloatMenuOption(mode.ToStringHuman(),
                         () => SetTemperatureUnit(mode)))
                     .ToList();
-                choices.Add(new FloatMenuOption(TemperatureUnit.GlazedBaldLabel,
-                    SetGlazedBaldTemperatureUnit));
+                if (Prefs.TemperatureMode == TemperatureDisplayMode.Fahrenheit)
+                    choices.Add(new FloatMenuOption(TemperatureUnit.GlazedBaldLabel,
+                        SetGlazedBaldTemperatureUnit));
                 Find.WindowStack.Add(new UiMenu(choices));
             }
 
