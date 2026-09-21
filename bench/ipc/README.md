@@ -1,7 +1,7 @@
 # IPC codec benchmark
 
 Run `make BUILD=release bench-ipc` for one focused run. `make bench-report` includes all
-IPC metrics in the main three-run averaged performance report, alongside daemon and C#
+IPC metrics in the main three-run median/range performance report, alongside daemon and C#
 benchmarks. The current [processed report](../../notes/perf-suite.md) is replaced on each run.
 Raw per-run logs and IPC CSVs stay local and ignored. No game or daemon service is started. Requires Mono, .NET 8,
 Rust and protoc, plus the normal repository build dependencies.
@@ -20,7 +20,7 @@ Each lane warms up for 300 operations, then records 21 batches. C# uses 500 oper
 per receive batch or 150 per burst; Rust uses 1,000. p50/p95 are percentiles of batch
 averages, not individual-message tail latency. C# allocations use the runtime's thread
 allocation counter. Fixture construction and forced GC are outside timed regions.
-.NET tiered compilation is disabled. The main report averages three run p50s/p95s.
+.NET tiered compilation is disabled. The main report builds once, then reports the median and min–max range of three run p50s/p95s.
 
 These are codec/queue measurements. They exclude kernel IPC, WebSocket framing, HTTP,
 terminal capture/rendering and cold configuration projection costs. They establish neither

@@ -1,7 +1,7 @@
 //! Deterministic, game-free daemon performance benchmark.
 
 use std::hint::black_box;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use anyhow::Result;
 
@@ -12,11 +12,13 @@ use crate::session::{Event, EventMessage, ScreenView};
 const COLS: u16 = 120;
 const ROWS: u16 = 34;
 const WARMUP: usize = 40;
-const SAMPLES: usize = 200;
+const SAMPLES: usize = 50;
+const MIN_BATCH: Duration = Duration::from_millis(2);
+const MAX_BATCH: usize = 65_536;
 
 pub(crate) fn run() -> Result<()> {
     println!("SlopWorld daemon benchmark ({COLS}x{ROWS}, {SAMPLES} samples)");
-    println!("timings are microseconds; warmup={WARMUP}");
+    println!("timings are microseconds per operation in warmed batches; warmup={WARMUP}");
 
     benchmark_render_cases();
     benchmark_ansi_strip();
@@ -157,22 +159,37 @@ where
         black_box(action(sample));
     }
 
-    let mut timings = Vec::with_capacity(SAMPLES);
-    for sample in 0..SAMPLES {
+    // Keep the operation index advancing across batches: alternating edits must not
+    // become repeated no-ops when calibration changes the batch size.
+    let mut operation = WARMUP;
+    let mut batch = 1;
+    loop {
         let started = Instant::now();
-        black_box(action(sample));
-        timings.push(started.elapsed().as_nanos());
+        for _ in 0..batch {
+            black_box(action(operation));
+            operation += 1;
+        }
+        if started.elapsed() >= MIN_BATCH || batch == MAX_BATCH {
+            break;
+        }
+        batch *= 2;
     }
-    timings.sort_unstable();
-    println!(
-        "{name:<44} p50={:.2} p95={:.2}",
-        nanos_us(timings[(timings.len() - 1) * 50 / 100]),
-        nanos_us(timings[(timings.len() - 1) * 95 / 100]),
-    );
-}
 
-fn nanos_us(nanos: u128) -> f64 {
-    nanos as f64 / 1_000.0
+    let mut timings = Vec::with_capacity(SAMPLES);
+    for _ in 0..SAMPLES {
+        let started = Instant::now();
+        for _ in 0..batch {
+            black_box(action(operation));
+            operation += 1;
+        }
+        timings.push(started.elapsed().as_secs_f64() * 1e6 / batch as f64);
+    }
+    timings.sort_by(f64::total_cmp);
+    println!(
+        "{name:<44} p50={:.3} p95={:.3}",
+        timings[(timings.len() - 1) * 50 / 100],
+        timings[(timings.len() - 1) * 95 / 100],
+    );
 }
 
 fn seeded() -> SessionEmu {
