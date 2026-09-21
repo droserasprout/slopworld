@@ -27,7 +27,8 @@ scalars. Build details belong in [tools](build-tools.md).
 Autolinks may span physical rows and color runs. Explicit OSC 8 targets win; a blank tail
 ends continuation. Compare link spans against the last parse, not the last received frame:
 multiple updates can arrive before a draw. Parsed rows and span metadata stay immutable
-when shared with snapshots.
+when shared with snapshots. Link scans write column-indexed characters directly into
+reused storage; do not materialize selection/copy cell strings on this hot path.
 
 File-link activation is deliberately lazy: recognize on Ctrl+left-click, then open a dedicated file menu.
 Resolve against the terminal cwd; View and Edit preserve diagnostic line numbers.

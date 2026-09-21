@@ -81,8 +81,14 @@ def run_bench(build: str, run_number: int, raw_path: Path) -> OrderedDict[str, S
         shutil.copyfile(path, raw_path / f"{runtime}-{run_number}.csv")
         with path.open() as stream:
             rows = list(csv.DictReader(stream))
-        if len(rows) != 16:
-            raise RuntimeError(f"{runtime} IPC benchmark produced {len(rows)} rows, expected 16")
+        lanes = ("protobuf-encode", "protobuf-decode") if runtime == "rust" else ("protobuf-receive", "protobuf-burst8")
+        expected = {(fixture, lane) for fixture in ("plain", "ansi", "unicode", "large") for lane in lanes}
+        actual = {(row["fixture"], row["lane"]) for row in rows}
+        if len(rows) != len(expected) or actual != expected:
+            raise RuntimeError(
+                f"{runtime} IPC benchmark produced {len(rows)} rows, expected {len(expected)}; "
+                f"missing: {sorted(expected - actual)}; unexpected: {sorted(actual - expected)}"
+            )
         for row in rows:
             name = f"IPC/{runtime}/{row['fixture']}/{row['lane']}"
             if name in samples:
@@ -132,6 +138,10 @@ def commit_hash() -> str:
     ).strip()
 
 
+def format_timing(value: float) -> str:
+    return f"{value:.3f}" if value < 0.1 else f"{value:.2f}"
+
+
 def write_note(
     output_path: Path,
     build: str,
@@ -160,20 +170,9 @@ def write_note(
     ]
     for name, sample in results.items():
         escaped_name = name.replace("|", "\\|")
-        bytes_value = f"{sample.bytes_per_op:.1f}" if sample.bytes_per_op is not None else "n/a"
+        bytes_value = f"{sample.bytes_per_op:.0f}" if sample.bytes_per_op is not None else "n/a"
         wire_value = f"{sample.wire_bytes:.0f}" if sample.wire_bytes is not None else "n/a"
-        lines.append(f"| {escaped_name} | {sample.p50:.3f} | {sample.p95:.3f} | {bytes_value} | {wire_value} |")
-    lines += ["", "## IPC comparison", "", "Ratios use the averaged p50 values above.", "",
-              "| Runtime / fixture / operation | Speedup | Allocation reduction |",
-              "| --- | ---: | ---: |"]
-    for name, old in results.items():
-        if not name.startswith("IPC/") or "/json-" not in name:
-            continue
-        new = results[name.replace("/json-", "/protobuf-")]
-        reduction = (f"{100 * (1 - new.bytes_per_op / old.bytes_per_op):.1f}%"
-                     if old.bytes_per_op and new.bytes_per_op is not None else "n/a")
-        lines.append(f"| {name.removeprefix('IPC/').replace('/json-', '/')} | "
-                     f"{old.p50 / new.p50:.2f}× | {reduction} |")
+        lines.append(f"| {escaped_name} | {format_timing(sample.p50)} | {format_timing(sample.p95)} | {bytes_value} | {wire_value} |")
     lines.append("")
     output_path.write_text("\n".join(lines), encoding="utf-8")
 
