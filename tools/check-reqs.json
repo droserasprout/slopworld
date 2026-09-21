@@ -5,7 +5,7 @@
       "required": true,
       "checks": [
         {"label": "Rust/Cargo", "kind": "command", "commands": ["cargo"]},
-        {"label": "Mono C# compiler", "kind": "command", "commands": ["csc"]},
+        {"label": ".NET SDK", "kind": "command", "commands": ["dotnet"]},
         {"label": "RimWorld reference assemblies", "kind": "rimworld_assemblies"}
       ]
     },
@@ -46,7 +46,7 @@
       "required": false,
       "checks": [
         {"label": "redeploy helper", "kind": "command", "commands": ["curl"]},
-        {"label": "C# formatting/linting", "kind": "command", "commands": ["dotnet"]},
+        {"label": "Mono IPC benchmark", "kind": "command", "commands": ["mono"]},
         {"label": "human docs", "kind": "command", "commands": ["mdbook"]},
         {"label": "game screenshot window lookup", "kind": "command", "commands": ["xdotool"]},
         {"label": "game screenshot capture", "kind": "command", "commands": ["import"]},

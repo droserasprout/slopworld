@@ -1,7 +1,7 @@
 # Mod source layout
 
 Source files stay in the single `SlopWorld` namespace; directories describe ownership and
-do not create assembly boundaries. The Makefile discovers production C# sources recursively.
+do not create assembly boundaries. The SDK project discovers production C# sources recursively.
 
 - `Bootstrap/` owns startup, profile gating and the RimWorld `Mod` entry point.
 - `Client/` is split into `Daemon/`, `Transport/`, `SessionHub/` and generated protocol, defaults and usage data.

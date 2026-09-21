@@ -3,8 +3,9 @@
 ## Toolchain
 
 - **Rust** stable toolchain — builds the daemon and launcher.
-- **Mono** (`csc`) — compiles the mod. The .NET SDK is optional for builds, but required by
-  `format-mod` and `lint-mod` for `dotnet format`.
+- **.NET SDK** — builds the `net472` mod and runs C# tests and formatting.
+  Framework reference assemblies are restored through NuGet; Mono is only needed
+  to run the Mono IPC benchmark.
 - **Protobuf compiler (`protoc`)** — Debian/Ubuntu: `protobuf-compiler`; Arch: `protobuf`; macOS: `brew install protobuf`. Required by Rust builds and `make api-contract`.
 - **GNU Make** — all targets go through the Makefile. On macOS, install GNU Make with `brew install make` and use `gmake`.
 - **PyYAML** — parses the compact shared wire contract used by `make api-contract`.
@@ -13,7 +14,9 @@ Set `RIMWORLD` to the Linux game directory (the folder containing `RimWorldLinux
 
 ## Targets
 
-Run `make` for primary target help. Build with `make all`, or select `daemon` or
+Run `make` for target help. Make owns dependencies and shared settings; scripts in
+`tools/` own coverage, IPC benchmarks, and platform checks.
+`mod/Source/SlopWorld/SlopWorld.csproj` owns C# compiler settings and references. Build with `make all`, or select `daemon` or
 `mod`. Component checks also have `-daemon` and `-mod` targets.
 
 `make install` installs the daemon, systemd unit, launcher, mod, and bundled UI
@@ -35,7 +38,7 @@ The bundled `assets/fonts/clacon2.ttf` is installed to the current user's
 
 ## Formatting
 
-C# formatting uses `dotnet format` in folder mode; `.editorconfig` preserves single-line statements. Override `CSC` or `CSC_API` when the compiler or Mono reference assemblies are elsewhere. Both `format-mod` and `lint-mod` require the .NET SDK; `make mod` does not.
+C# formatting uses `dotnet format` in folder mode; `.editorconfig` preserves single-line statements. Override `DOTNET` to select the SDK command and `MANAGED` to select the game reference directory. `lint-mod` builds Release with warnings treated as errors.
 
 Rust formatting and linting use `cargo fmt` and `cargo clippy`.
 
@@ -45,9 +48,7 @@ Rust formatting and linting use `cargo fmt` and `cargo clippy`.
 
 `make coverage` produces Cobertura XML reports for both halves. It requires `cargo-llvm-cov` (install with `cargo install cargo-llvm-cov --locked`) and the matching `llvm-cov`/`llvm-profdata` binaries. Use `coverage-daemon` or `coverage-mod` to measure one half.
 
-Shortcuts: `make cov` runs both suites, `make cov-daemon` measures Rust, and
-`make cov-client` measures the game-free C# client (`coverage-client` is also an alias
-for `coverage-mod`). Each run prints a coverage summary and writes its fresh report to
+Each run prints a coverage summary and writes its fresh report to
 `coverage/rust.cobertura.xml` or `coverage/csharp.cobertura.xml`. Client coverage measures
 the production files linked into the test harness, not the entire game-bound mod.
 
@@ -75,3 +76,13 @@ three-run averaged report (`notes/perf-suite.md`), replacing the previous report
 Raw logs and CSVs stay local and ignored.
 `make BUILD=release bench-ipc` compares the frozen JSON transport with Protobuf on Mono, .NET 8 and Rust;
 see [the benchmark suite](../../bench/ipc/README.md) for scope and recorded results.
+
+## Occasional maintenance
+
+Run these scripts from the repository root, passing their options directly:
+
+- `python3 tools/appicon.py`, `python3 tools/icons.py`, and `python3 tools/emoji_atlas.py` regenerate assets.
+- `python3 tools/analyze_ui_schemes.py --check-warm` checks UI scheme luminance.
+- `python3 tools/loc-report.py` writes a line-count snapshot.
+- `bash tools/fetch-harmony.sh` updates Harmony.
+- `bash tools/shot.sh OUTPUT` captures the game window (requires the `x11` sandbox preset).

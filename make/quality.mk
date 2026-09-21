@@ -15,7 +15,7 @@ lint-daemon:
 	@cd slopd && $(CARGO) clippy --all-targets -- -D warnings
 
 lint-mod: override BUILD := release
-lint-mod: override CSC_WARNINGS := -warnaserror
+lint-mod: override MOD_WARNINGS_AS_ERRORS := true
 lint-mod: mod
 	@$(DOTNET) format whitespace mod/Source/SlopWorld --folder --exclude obj Client/Generated --verify-no-changes
 

@@ -1,4 +1,4 @@
-.PHONY: logs check-reqs shot pkg-arch docs docs-serve devloop
+.PHONY: logs check-reqs pkg-arch docs docs-serve devloop
 
 ##
 
@@ -19,10 +19,6 @@ trace-summary:     ## Summarize captured windows by observed Eco/terminal/sessio
 
 check-reqs:        ## Print required and optional host requirements
 	@RIMWORLD="$(RIMWORLD)" $(PYTHON) tools/check-reqs.py
-
-# Needs the `x11` preset on this project's sandbox; see tools/shot.sh.
-shot:              ## Screenshot the game window into OUT
-	@tools/shot.sh $(OUT)
 
 pkg-arch:          ## Build and install Arch package
 	cd packaging/arch && makepkg -p PKGBUILD.local -sif
