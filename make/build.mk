@@ -10,8 +10,8 @@ bench-daemon: api-contract ## Run the game-free daemon performance benchmark
 	@cd slopd && $(CARGO) run --quiet --bin slopd $(CARGOFLAGS) -- --perf-bench
 
 bench-report: BUILD := release
-bench-report:        ## Run the full performance suite three times and write an averaged note
-	@$(PYTHON) tools/bench-report.py --build "$(BUILD)"
+bench-report:        ## Run the full performance suite three times and write medians and ranges
+	@MAKE_CMD="$(MAKE_BIN)" $(PYTHON) tools/bench-report.py --build "$(BUILD)"
 
 .PHONY: bench-mod
 bench-mod: api-contract ## Benchmark C# helpers without RimWorld or Unity
@@ -84,3 +84,11 @@ protobuf-deps: ## Restore Protobuf runtime for Unity Mono
 .PHONY: bench-ipc
 bench-ipc: protobuf-deps api-contract ## Measure production Protobuf IPC without the game
 	@bash tools/bench-ipc.sh
+
+.PHONY: bench-build
+bench-build: api-contract protobuf-deps
+	@bash tools/bench.sh build
+
+.PHONY: test-bench-report
+test-bench-report:
+	@$(PYTHON) tools/test_bench_report.py

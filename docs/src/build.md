@@ -52,7 +52,7 @@ Each run prints a coverage summary and writes its fresh report to
 `coverage/rust.cobertura.xml` or `coverage/csharp.cobertura.xml`. Client coverage measures
 the production files linked into the test harness, not the entire game-bound mod.
 
-`make bench` runs the daemon, C# and IPC benchmark suites serially; use `BUILD=release` for comparisons.
+`make bench` builds all benchmark binaries first, then runs the daemon, C# and IPC suites serially; use `BUILD=release` for comparisons.
 
 ## Prose linter
 
@@ -72,7 +72,10 @@ slopctl logs --follow                        # combined game + daemon
 
 `make protobuf-deps` restores the locked Google.Protobuf runtime and its Mono dependencies.
 `make bench-report` includes IPC timings, allocations and wire sizes in its
-three-run averaged report (`notes/perf-suite.md`), replacing the previous report.
+three-run median/range report (`notes/perf-suite.md`), replacing the previous report.
+The report builds once before all three measurement runs. Timing columns show the median
+of run p50s/p95s and their min–max ranges, not confidence intervals. Daemon measurements
+use calibrated batches of operations.
 Raw logs and CSVs stay local and ignored.
 `make BUILD=release bench-ipc` measures Protobuf on Mono, .NET 8 and Rust;
 see [the benchmark suite](../../bench/ipc/README.md) for scope and recorded results.
