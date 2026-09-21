@@ -9,6 +9,10 @@ use serde_json::Value;
 
 use super::{Poller, Snapshot};
 
+#[cfg(test)]
+#[path = "providers_tests.rs"]
+mod tests;
+
 const USAGE_URL: &str = "https://api.anthropic.com/api/oauth/usage";
 const CREDITS_URL: &str = "https://openrouter.ai/api/v1/credits";
 const OPENAI_USAGE_URL: &str = "https://chatgpt.com/backend-api/wham/usage";

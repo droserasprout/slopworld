@@ -7,6 +7,10 @@ use serde::Serialize;
 
 use crate::config::SessionCfg;
 
+#[cfg(test)]
+#[path = "state_tests.rs"]
+mod tests;
+
 /// Where a session keeps what is its own. Under `~/.local/share` rather than `TEMP_ROOT`,
 /// because what lives here is an agent's memory of itself and a reboot is not a reason to
 /// forget it. `SLOPD_STATE` moves it, which is what the tests use.
