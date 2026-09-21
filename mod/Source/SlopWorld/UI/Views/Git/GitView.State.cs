@@ -270,37 +270,53 @@ namespace SlopWorld
             var repo = Get(project);
             if (string.IsNullOrEmpty(repo.Dir)) { refreshed?.Invoke(); return; }
             if (!repo.Refreshes.Request(refreshed)) return;
+            bool showLoading = repo.Tree == null;
+            bool clearError = repo.Error != null;
             repo.Error = null;
-            BumpTree();
+            if (showLoading || clearError) BumpTree();
 
             string dir = repo.Dir;
             int generation = repo.Operations.Begin();
-            repo.CountsComplete = false;
             DaemonClient.Get<Wire.GitResult>(WireProtocol.Routes.Git + "?counts=false&path=" + System.Uri.EscapeDataString(dir),
                 j =>
                 {
                     if (!repo.Operations.IsCurrent(generation) || repo.Dir != dir) return;
                     repo.Asked = true;
 
-                    repo.IsRepo = j.Repo;
-                    repo.Changes.Clear();
-                    if (!repo.IsRepo)
+                    if (!j.Repo)
                     {
+                        bool changed = repo.IsRepo || repo.Tree != null || repo.Changed != 0 ||
+                            repo.Added != 0 || repo.Deleted != 0 || repo.Changes.Count != 0;
+                        repo.IsRepo = false;
                         repo.Tree = null;
                         repo.Changed = repo.Added = repo.Deleted = 0;
-                        BumpTree();
+                        repo.CountsComplete = false;
+                        repo.Root = null;
+                        repo.Branch = null;
+                        repo.Truncated = false;
+                        repo.Changes.Clear();
+                        if (changed) BumpTree();
                         FinishFetch(project, repo);
                         return;
                     }
 
+                    bool sameStatus = SameStatus(repo, j);
+                    bool sameTree = sameStatus && repo.Root == j.Root &&
+                        repo.Changed == (int)j.Changed && repo.Truncated == j.Truncated;
+                    bool changedState = !sameTree || repo.Branch != j.Branch;
+                    repo.IsRepo = true;
                     repo.Root = j.Root;
                     repo.Branch = j.Branch;
                     repo.Changed = (int)j.Changed;
-                    repo.Added = (int)j.Added;
-                    repo.Deleted = (int)j.Deleted;
                     repo.Truncated = j.Truncated;
-                    repo.Tree = Fold(repo, j.Files);
-                    BumpTree();
+                    if (!sameTree)
+                    {
+                        repo.Changes.Clear();
+                        repo.Added = repo.Deleted = 0;
+                        repo.CountsComplete = false;
+                        repo.Tree = Fold(repo, j.Files);
+                    }
+                    if (changedState) BumpTree();
                     if (!repo.Refreshes.Pending && !repo.Truncated && repo.Changed > 0)
                         FetchCounts(repo, generation);
                     FinishFetch(project, repo);
@@ -321,9 +337,30 @@ namespace SlopWorld
                     repo.Truncated = false;
                     repo.Tree = null;
                     repo.Changes.Clear();
+                    repo.CountsComplete = false;
                     BumpTree();
                     FinishFetch(project, repo);
                 }, null, GitRequestTimeoutMs);
+        }
+
+        // The status request intentionally omits line counts. Keep the existing tree when its
+        // path/status snapshot is identical so a five-second poll does not erase visible stats
+        // and rebuild them when the optional count request returns.
+        static bool SameStatus(Repo repo, Wire.GitResult result)
+        {
+            if (!repo.IsRepo || repo.Tree == null)
+                return false;
+
+            int paths = 0;
+            foreach (var file in result.Files)
+            {
+                if (string.IsNullOrEmpty(file.Path)) continue;
+                paths++;
+                if (!repo.Changes.TryGetValue(file.Path, out var status) ||
+                    status != file.Status)
+                    return false;
+            }
+            return paths == repo.Changes.Count;
         }
 
         static void FinishFetch(string project, Repo repo)
@@ -357,22 +394,31 @@ namespace SlopWorld
                     }
                     // The checkout may have changed between the two requests.
                     if (files.Count != repo.Changes.Count) return;
-                    ApplyCounts(repo.Tree, files);
-                    repo.Added = (int)j.Added;
-                    repo.Deleted = (int)j.Deleted;
+                    bool changed = ApplyCounts(repo.Tree, files);
+                    int added = (int)j.Added;
+                    int deleted = (int)j.Deleted;
+                    changed |= !repo.CountsComplete || repo.Added != added ||
+                        repo.Deleted != deleted;
+                    repo.Added = added;
+                    repo.Deleted = deleted;
                     repo.CountsComplete = true;
-                    BumpTree();
+                    if (changed) BumpTree();
                 }, null, null, GitRequestTimeoutMs);
         }
 
-        static void ApplyCounts(Node node, Dictionary<string, Wire.GitFile> files)
+        static bool ApplyCounts(Node node, Dictionary<string, Wire.GitFile> files)
         {
-            if (node == null) return;
+            if (node == null) return false;
+            bool changed = false;
             if (node.Kids != null)
-                foreach (var child in node.Kids) ApplyCounts(child, files);
-            if (!files.TryGetValue(node.Rel, out var f)) return;
-            node.Added = !f.HasAdded ? -1 : (int)f.Added;
-            node.Deleted = !f.HasDeleted ? -1 : (int)f.Deleted;
+                foreach (var child in node.Kids) changed |= ApplyCounts(child, files);
+            if (!files.TryGetValue(node.Rel, out var f)) return changed;
+            int added = !f.HasAdded ? -1 : (int)f.Added;
+            int deleted = !f.HasDeleted ? -1 : (int)f.Deleted;
+            if (node.Added == added && node.Deleted == deleted) return changed;
+            node.Added = added;
+            node.Deleted = deleted;
+            return true;
         }
 
         // The flat list of changed paths, folded into the tree it describes. The daemon sends
