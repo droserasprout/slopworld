@@ -180,7 +180,11 @@ fn select_tree(root: u32, mut all: Vec<Process>, scope: Option<&str>) -> Vec<Pro
 }
 
 fn read_proc(pid: u32) -> Option<Process> {
-    let root = Path::new("/proc").join(pid.to_string());
+    read_proc_at(Path::new("/proc"), pid)
+}
+
+fn read_proc_at(proc_root: &Path, pid: u32) -> Option<Process> {
+    let root = proc_root.join(pid.to_string());
     let bytes = std::fs::read(root.join("cmdline")).ok()?;
     let argv = bytes
         .split(|byte| *byte == 0)
@@ -224,8 +228,12 @@ async fn ps_tree(root: u32) -> Option<Vec<Process>> {
     if !output.status.success() {
         return None;
     }
+    parse_ps_tree(root, &String::from_utf8_lossy(&output.stdout))
+}
+
+fn parse_ps_tree(root: u32, output: &str) -> Option<Vec<Process>> {
     let mut all = Vec::new();
-    for line in String::from_utf8_lossy(&output.stdout).lines() {
+    for line in output.lines() {
         let mut fields = line.split_whitespace();
         let Some(pid) = fields.next().and_then(|value| value.parse().ok()) else {
             continue;
@@ -292,6 +300,94 @@ fn executable(value: &str) -> &str {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn host_inspection_bypasses_invalid_sandbox_identity() {
+        let tmux = Tmux::new(format!("slopd-observe-{}", uuid::Uuid::new_v4()));
+        let view = inspect_session(
+            &tmux,
+            "host",
+            &SessionCfg {
+                state_id: "../invalid".into(),
+                ..Default::default()
+            },
+            true,
+        )
+        .await
+        .unwrap();
+        assert_eq!(view["session"], "host");
+        assert_eq!(view["host"], true);
+        assert!(view["plan"].is_null());
+        assert_eq!(view["live"]["status"], "not-applicable");
+        assert_eq!(view["live"]["processes"], json!([]));
+        assert_eq!(view["comparison"], "not-applicable");
+    }
+
+    #[tokio::test]
+    async fn missing_pane_is_not_evidence_of_a_successful_launch() {
+        let tmux = Tmux::new(format!("slopd-observe-{}", uuid::Uuid::new_v4()));
+        let session = SessionCfg {
+            state_id: uuid::Uuid::new_v4().to_string(),
+            ..Default::default()
+        };
+        let view = inspect_session(&tmux, "gone", &session, false)
+            .await
+            .unwrap();
+        assert!(view["plan"].is_null());
+        assert_eq!(view["live"]["status"], "not-running");
+        assert!(view["live"]["pane_pid"].is_null());
+        assert_eq!(view["live"]["processes"], json!([]));
+        assert_eq!(view["comparison"], "unavailable");
+        assert!(inspect_session(
+            &tmux,
+            "bad",
+            &SessionCfg {
+                state_id: "../invalid".into(),
+                ..Default::default()
+            },
+            false
+        )
+        .await
+        .is_err());
+    }
+
+    #[test]
+    fn ps_output_selects_unsorted_descendants_and_tolerates_missing_arguments() {
+        let output = " 13 12 /bin/agent --token secret\ninvalid\n12 10\n10 1 /bin/sh\n20 1 unrelated\n21 nope ignored\n";
+        let rows = parse_ps_tree(10, output).unwrap();
+        assert_eq!(
+            rows.iter().map(|row| row.pid).collect::<Vec<_>>(),
+            [10, 12, 13]
+        );
+        assert_eq!(rows[1].argv, ["<unavailable>"]);
+        assert_eq!(rows[2].argv, ["/bin/agent", "--token", "secret"]);
+        assert!(rows.iter().all(|row| row.cgroup.is_none()));
+        assert!(parse_ps_tree(99, output).is_none());
+        assert!(parse_ps_tree(10, "").is_none());
+    }
+
+    #[test]
+    fn proc_files_preserve_argument_boundaries_and_handle_vanished_processes() {
+        let root = std::env::temp_dir().join(format!("slopd-proc-{}", uuid::Uuid::new_v4()));
+        let directory = root.join("42");
+        std::fs::create_dir_all(&directory).unwrap();
+        assert!(read_proc_at(&root, 42).is_none());
+        std::fs::write(directory.join("cmdline"), b"/bin/agent\0two words\0\xff\0").unwrap();
+        assert!(read_proc_at(&root, 42).is_none());
+        std::fs::write(directory.join("status"), "Name: agent\nPPid:\t7\n").unwrap();
+        let row = read_proc_at(&root, 42).unwrap();
+        assert_eq!((row.pid, row.ppid), (42, 7));
+        assert_eq!(row.argv, ["/bin/agent", "two words", "�"]);
+        assert!(row.cgroup.is_none());
+        std::fs::write(directory.join("cgroup"), "0::/user.slice/launch.scope\n").unwrap();
+        std::fs::write(directory.join("cmdline"), []).unwrap();
+        let row = read_proc_at(&root, 42).unwrap();
+        assert_eq!(row.argv, ["<unavailable>"]);
+        assert_eq!(row.cgroup.as_deref(), Some("/user.slice/launch.scope"));
+        std::fs::write(directory.join("status"), "PPid: invalid\n").unwrap();
+        assert!(read_proc_at(&root, 42).is_none());
+        std::fs::remove_dir_all(root).unwrap();
+    }
 
     fn process(pid: u32, ppid: u32, cgroup: Option<&str>) -> Process {
         Process {
