@@ -801,6 +801,10 @@ pub(crate) async fn git_status(
 }
 
 #[cfg(test)]
+#[path = "handlers_files_tests.rs"]
+mod mutation_tests;
+
+#[cfg(test)]
 mod reader_tests {
     use super::reader_is_file;
 

@@ -9,10 +9,6 @@ Use existing game-free harnesses; this plan excludes transport/queue work.
   failures must leave no orphaned state. Preserve the session-operation boundary.
 - Extend `PagerLifecycleTests` for release/close/death and delayed starts. Pinned readers survive
   preview release; obsolete completions cannot revive readers or leak sessions. Check stop counts.
-- Exercise file mutation handlers directly with temporary directories. Verify successful create/
-  rename/remove and rejection without data loss for duplicates, invalid/relative names, missing
-  or non-directory parents and unsupported kinds. Symlink removal must preserve external targets,
-  including dangling links.
 - Add ordinary push/PR CI using Rust and .NET 8. Run `make test` plus isolated `make test-pager`
   with required tmux/less dependencies; no game assemblies. Keep coverage tooling separate and
   avoid a misleading whole-repo threshold from linked-source C# or stale Rust reports.
