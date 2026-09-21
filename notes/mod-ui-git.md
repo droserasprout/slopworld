@@ -11,6 +11,8 @@ existing readers. Navigation cancels pending diff selections.
 
 Status arrives before line counts. Both requests share an operation token; late counts must
 not overwrite newer paths/statuses or discard expansion. Failure leaves the status usable.
+Unchanged status snapshots retain their last line counts, and a count reply invalidates the tree
+only when a displayed count or its completeness changes.
 Capped status gives lower-bound counts and skips numstat. Nested repositories are separate
 working trees, not recursively dirty contents of the parent.
 The daemon limits line counting across repositories separately from status reads. Waiting
