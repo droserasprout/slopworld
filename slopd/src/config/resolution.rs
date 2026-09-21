@@ -250,6 +250,92 @@ mod tests {
     use crate::session::AgentTemplate;
 
     #[test]
+    fn changing_command_keeps_only_explicit_sandbox_and_its_dependencies() {
+        let source = SessionCfg {
+            command: "old-command".into(),
+            command_snapshot: Some(CommandPreset {
+                name: "old-command".into(),
+                sandbox: vec!["command-only".into()],
+                ..Default::default()
+            }),
+            sandbox_snapshots: vec![
+                SandboxPreset {
+                    name: "command-only".into(),
+                    ..Default::default()
+                },
+                SandboxPreset {
+                    name: "selected".into(),
+                    requires: vec!["dependency".into()],
+                    ..Default::default()
+                },
+                SandboxPreset {
+                    name: "dependency".into(),
+                    ..Default::default()
+                },
+                SandboxPreset {
+                    name: "unused".into(),
+                    ..Default::default()
+                },
+            ],
+            ..Default::default()
+        };
+        let mut edit = source.clone();
+        edit.command = "new-command".into();
+        edit.sandbox = vec!["selected".into()];
+        edit.preserve_selected_snapshots(&source);
+        assert!(edit.command_snapshot.is_none());
+        assert_eq!(
+            edit.sandbox_snapshots
+                .iter()
+                .map(|p| p.name.as_str())
+                .collect::<Vec<_>>(),
+            ["selected", "dependency"]
+        );
+        edit.sandbox_snapshots[0].requires.clear();
+        assert_eq!(source.sandbox_snapshots[1].requires, ["dependency"]);
+        assert!(source.command_snapshot.is_some());
+    }
+
+    #[test]
+    fn snapshot_selection_handles_cycles_shared_dependencies_and_missing_definitions() {
+        let source = SessionCfg {
+            sandbox_snapshots: vec![
+                SandboxPreset {
+                    name: "a".into(),
+                    requires: vec!["b".into(), "missing".into()],
+                    ..Default::default()
+                },
+                SandboxPreset {
+                    name: "b".into(),
+                    requires: vec!["a".into()],
+                    ..Default::default()
+                },
+                SandboxPreset {
+                    name: "unused".into(),
+                    ..Default::default()
+                },
+            ],
+            ..Default::default()
+        };
+        let mut edit = SessionCfg {
+            sandbox: vec!["a".into(), "b".into(), "missing".into()],
+            ..Default::default()
+        };
+        edit.preserve_selected_snapshots(&source);
+        assert_eq!(
+            edit.sandbox_snapshots
+                .iter()
+                .map(|p| p.name.as_str())
+                .collect::<Vec<_>>(),
+            ["a", "b"]
+        );
+        assert_eq!(edit.sandbox, ["a", "b", "missing"]);
+        edit.sandbox.clear();
+        edit.preserve_selected_snapshots(&source);
+        assert!(edit.sandbox_snapshots.is_empty());
+    }
+
+    #[test]
     fn sparse_recipe_uses_documented_agent_defaults() {
         let sparse: AgentTemplate = toml::from_str("name = 'sparse'\n[defaults]\n").unwrap();
         crate::session::validate_template_definition(&sparse).unwrap();
