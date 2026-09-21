@@ -285,3 +285,147 @@ async fn recursive_remove_does_not_follow_nested_directory_symlinks() {
         b"external data"
     );
 }
+
+#[tokio::test]
+async fn highlighter_preserves_text_and_removes_its_temporary_input() {
+    for (language, extension) in [
+        (" .rs/../../escape", "rs"),
+        ("../bad", "txt"),
+        ("c++", "c++"),
+    ] {
+        // Emit the input path as well as its contents so cleanup is observable.
+        let output = highlight_text(
+            "sh -c 'echo \"$1\"; cat \"$1\"' sh %s",
+            language,
+            "café\n\u{1b}[31mtext\n",
+        )
+        .await
+        .unwrap();
+        let (path, text) = output.split_once('\n').unwrap();
+        assert_eq!(Path::new(path).extension().unwrap(), extension);
+        assert_eq!(text, "café\n\u{1b}[31mtext\n");
+        assert!(!Path::new(path).exists());
+    }
+}
+
+#[tokio::test]
+async fn highlighter_reports_failure_and_cleans_up_input() {
+    let error = highlight_text("sh -c 'echo \"$1\" >&2; exit 7' sh %s", "rust", "input")
+        .await
+        .unwrap_err()
+        .to_string();
+    let path = error.strip_prefix("syntax highlighter failed: ").unwrap();
+    assert!(Path::new(path).is_absolute());
+    assert!(!Path::new(path).exists());
+    assert_eq!(
+        highlight_text("  ", "rs", "input")
+            .await
+            .unwrap_err()
+            .to_string(),
+        "syntax highlighter is disabled"
+    );
+}
+
+#[tokio::test]
+async fn highlighter_rejects_invalid_output_missing_program_and_timeout() {
+    let fixture = Fixture::new();
+    let input = fixture.0.join("input");
+    std::fs::write(&input, "text").unwrap();
+    for (command, expected) in [
+        (
+            "sh -c 'printf \"\\377\"'",
+            "syntax highlighter output is not valid UTF-8",
+        ),
+        (
+            "/nonexistent-slopworld-highlighter",
+            "starting syntax highlighter",
+        ),
+        ("sh -c 'exec sleep 10'", "syntax highlighter timed out"),
+        (
+            "sh -c 'head -c 2097153 /dev/zero'",
+            "syntax highlighter output exceeded the preview limit",
+        ),
+    ] {
+        assert_eq!(
+            run_highlighter(command, &input)
+                .await
+                .unwrap_err()
+                .to_string(),
+            expected
+        );
+        assert_eq!(std::fs::read_to_string(&input).unwrap(), "text");
+    }
+}
+
+fn search_request(path: &Path, query: &str, limit: usize) -> SearchReq {
+    serde_json::from_value(json!({
+        "path": path, "q": query, "limit": limit,
+    }))
+    .unwrap()
+}
+
+#[tokio::test]
+async fn search_reports_relative_paths_byte_columns_and_real_truncation() {
+    let fixture = Fixture::new();
+    std::fs::write(fixture.0.join("café.txt"), "é needle\nneedle again\n").unwrap();
+    let manager = crate::session::test_manager(crate::config::Config::default());
+    let result = search(
+        State(manager.clone()),
+        Query(search_request(&fixture.0, "needle", 2)),
+    )
+    .await
+    .unwrap()
+    .0;
+    assert!(!result.truncated);
+    assert_eq!(result.matches.len(), 2);
+    assert_eq!(result.matches[0].path, "café.txt");
+    assert_eq!(result.matches[0].line, 1);
+    assert_eq!(result.matches[0].column, 4);
+    assert_eq!(result.matches[0].text, "é needle");
+    assert_eq!(result.matches[1].line, 2);
+    for limit in [0, 1] {
+        let result = search(
+            State(manager.clone()),
+            Query(search_request(&fixture.0, "needle", limit)),
+        )
+        .await
+        .unwrap()
+        .0;
+        assert!(result.truncated);
+        assert_eq!(result.matches.len(), 1);
+    }
+    let result = search(
+        State(manager),
+        Query(search_request(&fixture.0, "absent", 2)),
+    )
+    .await
+    .unwrap()
+    .0;
+    assert!(result.matches.is_empty());
+    assert!(!result.truncated);
+}
+
+#[tokio::test]
+async fn search_distinguishes_invalid_requests_from_no_matches() {
+    let fixture = Fixture::new();
+    let manager = crate::session::test_manager(crate::config::Config::default());
+    for (request, expected) in [
+        (search_request(Path::new(""), "query", 1), "no path"),
+        (search_request(&fixture.0, "", 1), "no query"),
+        (
+            search_request(&fixture.0.join("missing"), "query", 1),
+            "could not run rg",
+        ),
+    ] {
+        let (status, Proto(error)) = search(State(manager.clone()), Query(request))
+            .await
+            .unwrap_err();
+        assert_eq!(status, StatusCode::BAD_REQUEST);
+        assert!(error.error.contains(expected), "{}", error.error);
+    }
+    let mut request = search_request(&fixture.0, "[", 1);
+    request.regex = true;
+    let (status, Proto(error)) = search(State(manager), Query(request)).await.unwrap_err();
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert!(error.error.contains("rg exited with"), "{}", error.error);
+}
