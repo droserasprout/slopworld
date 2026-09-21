@@ -34,3 +34,8 @@ together. Action icons use the separate [shared bake](mod-icons.md).
 Wheel bursts reuse the tree's measured extent before refresh, group or layout work. Refresh
 and pending selection reveals resume on normal GUI passes. Routed reader headers use an
 indexed visible-row range rather than scanning every open reader.
+
+“Open in” keeps associated apps in the submenu. “Other…” uses GTK’s native application
+chooser with all installed apps visible when host Python 3/PyGObject/GTK 3 are available,
+falling back to the desktop portal otherwise. The chooser detaches from the bounded file
+action so waiting for user input does not time out.
