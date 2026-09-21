@@ -1,83 +1,108 @@
+using System;
 using System.Collections.Generic;
 using System.Text;
 
 namespace SlopWorld
 {
-    // Screen columns are not string offsets. The daemon reserves two columns for a wide
-    // glyph and re-anchors the run after it with a CHA marker, so every run carries an
-    // absolute Col and a plain concatenation of run text drifts left of the real columns
-    // by one per wide glyph. The renderer and cursor honour Col (see Paint and
-    // DrawCursorGlyph); selection, copy and path detection go through here so they measure
-    // and slice in the same column space instead of a packed string.
+    // Geometry comes from daemon CHA markers, not font metrics or Unicode width tables.
+    // Runs end at a wide glyph; only their final scalar can reserve additional cells.
     public static class TerminalColumns
     {
-        // Column-indexed glyphs for one row. cells[c] is the character drawn at column c;
-        // a wide glyph's reserved trailing column holds '\0'. A run's chars land at
-        // run.Col, and a wide glyph is always the last char of its run - the daemon breaks
-        // the run at the CHA that follows the spacer cell - so run.Col + k is the column of
-        // every char in the run.
-        public static char[] Cells(List<SgrRun> runs)
+        public static int ScalarUnits(string text, int offset) =>
+            char.IsHighSurrogate(text[offset]) && offset + 1 < text.Length &&
+            char.IsLowSurrogate(text[offset + 1]) ? 2 : 1;
+
+        public static int ScalarCount(string text)
+        {
+            int count = 0;
+            if (text != null)
+                for (int i = 0; i < text.Length; i += ScalarUnits(text, i)) count++;
+            return count;
+        }
+
+        public static int TextOffset(string text, int column)
+        {
+            int i = 0;
+            while (column-- > 0 && i < text.Length) i += ScalarUnits(text, i);
+            return i;
+        }
+
+        // Complete scalar strings occupy leading cells. Null means a continuation;
+        // unoccupied gaps are spaces, so selection cannot mistake them for wide glyphs.
+        public static string[] Cells(List<SgrRun> runs)
         {
             int width = 0;
             if (runs != null)
-                foreach (var run in runs)
-                {
-                    int end = run.Col + (run.Text == null ? 0 : run.Text.Length);
-                    if (end > width) width = end;
-                }
-
-            var cells = new char[width]; // default '\0' marks a reserved (spacer) column
+                foreach (var run in runs) width = Math.Max(width, run.Col + run.Columns);
+            var cells = new string[width];
+            for (int c = 0; c < width; c++) cells[c] = " ";
             if (runs != null)
                 foreach (var run in runs)
                 {
-                    string text = run.Text;
-                    if (text == null) continue;
-                    for (int k = 0; k < text.Length; k++)
+                    if (run.Text == null) continue;
+                    int col = run.Col;
+                    for (int i = 0; i < run.Text.Length;)
                     {
-                        int c = run.Col + k;
-                        if (c >= 0 && c < width) cells[c] = text[k];
+                        int units = ScalarUnits(run.Text, i);
+                        if (col >= 0 && col < width) cells[col] = run.Text.Substring(i, units);
+                        col++;
+                        i += units;
                     }
+                    for (; col < run.Col + run.Columns; col++)
+                        if (col >= 0) cells[col] = null;
                 }
             return cells;
         }
 
-        // Columns of content, trailing blanks dropped. A wide glyph's reserved column
-        // ('\0') is kept so the whole glyph stays selectable and its highlight covers it.
-        public static int ContentColumns(char[] cells)
+        // Shared by paint and copy so either half selects the same complete glyph.
+        public static void ExpandWideRange(string[] cells, ref int first, ref int end)
+        {
+            if (cells == null || cells.Length == 0 || end <= first) return;
+            first = Math.Max(0, Math.Min(first, cells.Length));
+            end = Math.Max(first, Math.Min(end, cells.Length));
+            while (first > 0 && first < cells.Length && cells[first] == null) first--;
+            while (end < cells.Length && cells[end] == null) end++;
+        }
+
+        public static int ContentColumns(string[] cells)
         {
             int n = cells.Length;
-            while (n > 0 && cells[n - 1] == ' ') n--;
+            while (n > 0 && cells[n - 1] == " ") n--;
             return n;
         }
 
-        // The glyph occupying a column. A wide glyph's reserved column reports the glyph
-        // itself, so a click on either half resolves to the same character.
-        public static char Glyph(char[] cells, int col)
+        public static string GlyphText(string[] cells, int col)
         {
-            if (col < 0 || col >= cells.Length) return '\0';
-            char c = cells[col];
-            while (c == '\0' && col > 0) c = cells[--col];
-            return c;
+            if (col < 0 || col >= cells.Length) return "";
+            while (col > 0 && cells[col] == null) col--;
+            return cells[col] ?? "";
         }
 
-        // Text under an inclusive column range, reserved columns dropped so a wide glyph
-        // copies once rather than as a glyph followed by a blank.
-        public static string Slice(char[] cells, int firstColumn, int lastColumn)
+        // Word selection needs a character class; copy keeps the entire scalar string.
+        public static char Glyph(string[] cells, int col)
         {
-            if (firstColumn < 0) firstColumn = 0;
-            if (lastColumn > cells.Length - 1) lastColumn = cells.Length - 1;
+            string glyph = GlyphText(cells, col);
+            return glyph.Length == 0 ? '\0' : glyph[0];
+        }
+
+        public static string Slice(string[] cells, int firstColumn, int lastColumn)
+        {
+            int end = Math.Min(cells.Length, lastColumn + 1);
+            firstColumn = Math.Max(0, firstColumn);
+            if (end <= firstColumn) return "";
+            ExpandWideRange(cells, ref firstColumn, ref end);
             var sb = new StringBuilder();
-            for (int c = firstColumn; c <= lastColumn; c++)
-                if (cells[c] != '\0') sb.Append(cells[c]);
+            for (int c = firstColumn; c < end; c++) sb.Append(cells[c]);
             return sb.ToString();
         }
 
-        // A flat line whose index is its column, reserved columns rendered as a space. For
-        // scanners that want a string and a column to point into it at once.
-        public static string Line(char[] cells)
+        // Scanners need one UTF-16 unit per column. Supplementary scalars are opaque
+        // delimiters here; the complete text is retained in Cells for selection and copy.
+        public static string Line(string[] cells)
         {
             var sb = new StringBuilder(cells.Length);
-            foreach (char c in cells) sb.Append(c == '\0' ? ' ' : c);
+            foreach (string glyph in cells)
+                sb.Append(glyph == null ? ' ' : glyph.Length == 1 ? glyph[0] : '\ufffd');
             return sb.ToString();
         }
     }

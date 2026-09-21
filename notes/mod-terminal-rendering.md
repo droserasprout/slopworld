@@ -11,6 +11,11 @@ scale changes also affect cell geometry and cached textures. Entering or leaving
 alternate-screen app such as `less` invalidates the pixel cache even when the visible rows and
 content revision happen to be unchanged.
 
+The daemon owns cell geometry. Its CHA markers close wide glyphs even at the trimmed row
+end; parsed runs retain that occupied width, and must not merge past a wide glyph. Never
+reconstruct widths from Unicode ranges or font metrics. Selection and copy share glyph
+boundaries; complete scalar strings are kept separately from continuation cells.
+
 Unity's font path cannot reliably read Noto Color Emoji bitmap tables. The Pango-baked atlas
 handles supplementary-plane glyphs first; requesting only half a surrogate pair from the
 fallback font is invalid. Build details belong in [tools](build-tools.md).

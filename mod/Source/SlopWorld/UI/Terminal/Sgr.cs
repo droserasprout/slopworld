@@ -9,9 +9,12 @@ namespace SlopWorld
     public struct SgrRun
     {
         public string Text;
-        // Absolute start column, set from the `\x1b[<n>G` (CHA) markers the daemon emits
-        // ahead of runs whose column jumped past a wide char.
+        // Absolute start column, advanced by scalars and the daemon's CHA markers.
         public int Col;
+        // Every scalar occupies one cell except the final glyph, whose extra cell
+        // is explicitly closed by the daemon's CHA marker. Never merge past that glyph.
+        public int CellWidth;
+        public int Columns => CellWidth > 0 ? CellWidth : TerminalColumns.ScalarCount(Text);
         public Color Fg;
         public Color Bg;
         public bool HasBg;
@@ -94,12 +97,8 @@ namespace SlopWorld
             for (int row = 0; row < rows.Length; row++)
             {
                 int offset = row * width;
-                foreach (var run in rows[row])
-                    for (int k = 0; k < run.Text.Length; k++)
-                    {
-                        int col = run.Col + k;
-                        if (col >= 0 && col < width) chars[offset + col] = run.Text[k];
-                    }
+                string line = TerminalColumns.Line(TerminalColumns.Cells(rows[row]));
+                line.CopyTo(0, chars, offset, Math.Min(width, line.Length));
             }
 
             var global = UrlScan.FindUrls(new string(chars));
@@ -205,7 +204,17 @@ namespace SlopWorld
                     {
                         Flush(runs, sb, attr, runStart, url);
                         int n = ParseParam(line, i + 2, j);
-                        penCol = n > 0 ? n - 1 : 0;
+                        int next = n > 0 ? n - 1 : 0;
+                        if (next == penCol + 1 && runs.Count > 0)
+                        {
+                            var last = runs[runs.Count - 1];
+                            if (last.Col + last.Columns == penCol)
+                            {
+                                last.CellWidth = last.Columns + 1;
+                                runs[runs.Count - 1] = last;
+                            }
+                        }
+                        penCol = next;
                         runStart = penCol;
                     }
                     i = j + 1;
@@ -228,9 +237,10 @@ namespace SlopWorld
                 }
 
                 if (sb.Length == 0) runStart = penCol;
-                sb.Append(line[i]);
+                int units = TerminalColumns.ScalarUnits(line, i);
+                sb.Append(line, i, units);
                 penCol++;
-                i++;
+                i += units;
             }
 
             Flush(runs, sb, attr, runStart, url);
@@ -268,22 +278,26 @@ namespace SlopWorld
             if (last >= 0)
             {
                 var prev = runs[last];
-                if (prev.Col + prev.Text.Length == col &&
+                if (prev.Col + prev.Columns == col &&
+                    prev.Columns == TerminalColumns.ScalarCount(prev.Text) &&
                     prev.Fg == fg && prev.HasBg == hasBg && (!hasBg || prev.Bg == bg) &&
                     prev.Url == url)
                 {
                     sb.Insert(0, prev.Text);
                     prev.Text = sb.ToString();
+                    prev.CellWidth = TerminalColumns.ScalarCount(prev.Text);
                     runs[last] = prev;
                     sb.Length = 0;
                     return;
                 }
             }
 
+            string text = sb.ToString();
             runs.Add(new SgrRun
             {
-                Text = sb.ToString(),
+                Text = text,
                 Col = col,
+                CellWidth = TerminalColumns.ScalarCount(text),
                 Fg = fg,
                 Bg = bg,
                 HasBg = hasBg,
@@ -402,20 +416,7 @@ namespace SlopWorld
         {
             if (runs.Count == 0) return;
 
-            int width = 0;
-            foreach (var r in runs) width = Mathf.Max(width, r.Col + r.Text.Length);
-            if (width <= 0) return;
-
-            var chars = new char[width];
-            for (int i = 0; i < width; i++) chars[i] = ' ';
-            foreach (var r in runs)
-                for (int k = 0; k < r.Text.Length; k++)
-                {
-                    int c = r.Col + k;
-                    if (c >= 0 && c < width) chars[c] = r.Text[k];
-                }
-
-            var spans = UrlScan.FindUrls(new string(chars));
+            var spans = UrlScan.FindUrls(TerminalColumns.Line(TerminalColumns.Cells(runs)));
             if (spans != null) Split(runs, spans);
         }
 
@@ -431,7 +432,7 @@ namespace SlopWorld
         static int RowWidth(List<SgrRun> row)
         {
             int width = 0;
-            foreach (var run in row) width = Mathf.Max(width, run.Col + run.Text.Length);
+            foreach (var run in row) width = Mathf.Max(width, run.Col + run.Columns);
             return width;
         }
 
@@ -450,7 +451,7 @@ namespace SlopWorld
             var cut = new List<SgrRun>(runs.Count + spans.Count * 2);
             foreach (var r in runs)
             {
-                int start = r.Col, end = r.Col + r.Text.Length;
+                int start = r.Col, end = r.Col + r.Columns;
                 if (r.Url != null || end <= start) { cut.Add(r); continue; }
 
                 int at = start;
@@ -459,6 +460,13 @@ namespace SlopWorld
                     if (span.End <= at || span.Start >= end) continue;
                     int a = Mathf.Max(span.Start, at);
                     int b = Mathf.Min(span.End, end);
+                    // A guessed link cannot split the final glyph from its continuation.
+                    if (r.Columns > TerminalColumns.ScalarCount(r.Text))
+                    {
+                        if (a == end - 1) a--;
+                        if (b == end - 1) b++;
+                        a = Mathf.Max(a, at);
+                    }
                     if (a > at) cut.Add(Slice(r, at, a, null));
                     cut.Add(Slice(r, a, b, span.Url));
                     at = b;
@@ -471,7 +479,9 @@ namespace SlopWorld
 
         static SgrRun Slice(SgrRun r, int from, int to, string url) => new SgrRun
         {
-            Text = r.Text.Substring(from - r.Col, to - from),
+            Text = r.Text.Substring(TerminalColumns.TextOffset(r.Text, from - r.Col),
+                TerminalColumns.TextOffset(r.Text, to - r.Col) - TerminalColumns.TextOffset(r.Text, from - r.Col)),
+            CellWidth = to - from,
             Col = from,
             Fg = r.Fg,
             Bg = r.Bg,
