@@ -16,9 +16,13 @@ end; parsed runs retain that occupied width, and must not merge past a wide glyp
 reconstruct widths from Unicode ranges or font metrics. Selection and copy share glyph
 boundaries; complete scalar strings are kept separately from continuation cells.
 
-Unity's font path cannot reliably read Noto Color Emoji bitmap tables. The Pango-baked atlas
-handles supplementary-plane glyphs first; requesting only half a surrogate pair from the
-fallback font is invalid. Build details belong in [tools](build-tools.md).
+`UI/Text/InlineTextLayout` positions both font spans and catalog sprites; `SharedTextRenderer`
+owns their clipped drawing for terminal runs and UI labels. Terminal layout consumes daemon
+columns, while UI layout measures plain spans and reserves a line-height box for sprites.
+The generated catalog matches text keys, including baked sequences, without width tables.
+Catalog glyphs never reach Unity's font loader; missing artwork occupies the same measured
+box with a replacement character. Unknown supplementary text reaches font fallback as complete
+scalars. Build details belong in [tools](build-tools.md).
 
 Autolinks may span physical rows and color runs. Explicit OSC 8 targets win; a blank tail
 ends continuation. Compare link spans against the last parse, not the last received frame:

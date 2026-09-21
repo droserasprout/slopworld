@@ -10,6 +10,8 @@ namespace UnityEngine
         public float ascent = 12f;
         public float Height = 18f;
         public bool Monospace;
+        public readonly System.Collections.Generic.List<string> Prepared = new System.Collections.Generic.List<string>();
+        public void RequestCharactersInTexture(string text, int size, FontStyle style) => Prepared.Add(text);
     }
     public class Texture2D { public int width = 20, height = 20; }
     public class GUIStyleState { public Color textColor; }

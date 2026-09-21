@@ -48,7 +48,7 @@ mod: daemon validate-themes protobuf-deps        ## Build the mod against the ga
 test-daemon: api-contract test-wire-contract
 	@cd slopd && $(CARGO) test --quiet
 
-test-mod: protobuf-deps api-contract test-wire-contract test-themes
+test-mod: protobuf-deps api-contract test-wire-contract test-themes test-text-sprites
 	@$(DOTNET) run --project "$(TEST_PROJECT)" --configuration Release -- --quiet
 
 .PHONY: test-pager
@@ -84,8 +84,12 @@ appicon:           ## Regenerate the app icon (robot face + wilted rose)
 icons:             ## Rebake the action icons from a Nerd Font's Codicons
 	@$(PYTHON) tools/icons.py
 
-emoji-atlas:       ## Rebake the legacy terminal's emoji atlas with Pango
-	@$(PYTHON) tools/emoji_atlas.py
+.PHONY: test-text-sprites
+test-text-sprites: ## Test generated text sprite metadata without fonts or images
+	@$(PYTHON) tools/test_text_sprites.py
+
+emoji-atlas:       ## Rebake the shared text sprite atlas with Pango
+	@$(PYTHON) tools/emoji_atlas.py $(EMOJI_ATLAS_ARGS)
 
 reference:         ## Generate the environment/API/CLI reference
 	@$(PYTHON) tools/reference.py

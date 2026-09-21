@@ -4,6 +4,10 @@ Use Makefile targets; [build commands](build-commands.md) and the
 [build guide](../docs/src/build.md) own workflows. `tools/` is the script inventory.
 
 Committed icon/emoji assets keep ordinary builds independent of local bake fonts.
+`make emoji-atlas` generates the shared text sprite texture and `UI/Text/TextSpriteData.cs`
+together. Optional `EMOJI_ATLAS_ARGS='--sequences /path/to/keys.txt'` adds literal UTF-8
+text keys, one per line; runtime matches the longest baked key. Metadata order is atlas slot
+order, so never sort or extend the generated keys without rebaking their artwork.
 Action icons, file icons and terminal emoji have different manifests/loaders; see
 [icons](mod-icons.md) before rebaking. OST staging and installation are separate steps;
 installation updates both audio files and SongDefs.

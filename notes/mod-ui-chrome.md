@@ -5,6 +5,11 @@ should use their measurement, styling and hit paths. `WorkspaceLayout` owns the 
 snapshot shared by rendering, input, terminal size and Harmony hooks. See
 [layout ownership](ui-dynamic-layout-architecture.md) and [focus](ui-focus.md).
 
+Labels containing catalog sprites use the shared text layout/renderer in `UI/Text/`.
+Measurement and truncation preserve catalog keys and plain text elements; drawing clips the
+positioned spans to the label box. The atlas preserves caller opacity without inheriting text
+tint, and missing artwork cannot change layout. Plain labels retain the native text path.
+
 IMGUI events must share stable geometry and control IDs. Measure/draw passes cannot mutate
 form data differently. Cache layout by content and text metrics (including atlas/UI scale),
 not color alone. `GameFont.Tiny` may actually render Small; use shared measurement helpers.
