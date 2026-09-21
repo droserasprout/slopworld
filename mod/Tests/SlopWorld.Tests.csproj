@@ -125,6 +125,10 @@
     <Compile Include="../Source/SlopWorld/UI/Terminal/TerminalColumns.cs" Link="Source/UI/Terminal/TerminalColumns.cs" />
     <Compile Include="../Source/SlopWorld/UI/Terminal/TerminalHistory.cs" Link="Source/UI/Terminal/TerminalHistory.cs" />
     <Compile Include="../Source/SlopWorld/UI/Terminal/TerminalRunCache.cs" Link="Source/UI/Terminal/TerminalRunCache.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Text/SharedTextRenderer.cs" Link="Source/UI/Text/SharedTextRenderer.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Text/InlineTextLayout.cs" Link="Source/UI/Text/InlineTextLayout.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Text/TextSpriteCatalog.cs" Link="Source/UI/Text/TextSpriteCatalog.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Text/TextSpriteData.cs" Link="Source/UI/Text/TextSpriteData.cs" />
     <Compile Include="../Source/SlopWorld/UI/Text/TextSelectionRules.cs" Link="Source/UI/Text/TextSelectionRules.cs" />
     <Compile Include="../Source/SlopWorld/UI/Views/Shared/PagerCommands.cs" Link="Source/UI/Views/Shared/PagerCommands.cs" />
     <Compile Include="../Source/SlopWorld/UI/Views/Shared/OperationGate.cs" Link="Source/UI/Views/Shared/OperationGate.cs" />

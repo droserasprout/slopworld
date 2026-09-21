@@ -21,13 +21,6 @@ namespace SlopWorld
             "Consolas",
             "Courier New",
             "Monospace",
-            // Unity's dynamic font can use the installed emoji face as a fallback for
-            // supplementary-plane glyphs that ordinary mono and symbol faces do not carry.
-            // Keep it ahead of the broad monochrome fallbacks: some of those cover the same
-            // code points with tofu or text-style glyphs and would otherwise win first.
-            "Noto Color Emoji",
-            "NotoColorEmoji",
-            "EmojiOne Color",
             "Noto Sans Symbols 2",
             "Noto Sans Symbols",
             "Symbola",
@@ -137,27 +130,6 @@ namespace SlopWorld
         {
             _rev++;
             _fits.Clear();
-        }
-
-        // Legacy IMGUI often requests a dynamic font one UTF-16 code unit at a time. Ask for
-        // the complete supplementary glyph before drawing the cached pane so a surrogate pair
-        // can reach the selected fallback face and its atlas is ready for GUI.Label.
-        public static void Prepare(string text, FontStyle fontStyle)
-        {
-            if (string.IsNullOrEmpty(text) || _font == null) return;
-
-            bool supplementary = false;
-            for (int i = 0; i + 1 < text.Length; i++)
-            {
-                if (char.IsHighSurrogate(text[i]) && char.IsLowSurrogate(text[i + 1]))
-                {
-                    supplementary = true;
-                    break;
-                }
-            }
-
-            if (supplementary)
-                _font.RequestCharactersInTexture(text, _size, fontStyle);
         }
 
         static string[] Chain(string name)

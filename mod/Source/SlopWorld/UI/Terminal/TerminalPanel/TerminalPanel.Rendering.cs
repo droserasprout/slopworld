@@ -250,38 +250,10 @@ namespace SlopWorld
         internal static void DrawRun(string text, float x, float y, float cw, float ch,
                                      GUIStyle style, int columns)
         {
-            TerminalFont.Prepare(text, style.fontStyle);
-            int start = 0, startCol = 0, col = 0;
-            for (int i = 0; i < text.Length;)
-            {
-                int units = TerminalColumns.ScalarUnits(text, i);
-                int width = i + units == text.Length ? columns - col : 1;
-                if (units == 1 && width == 1 && TerminalFont.FitsCell(text[i]))
-                {
-                    i++;
-                    col++;
-                    continue;
-                }
-
-                DrawSpan(text, start, i, x + startCol * cw, y, cw, ch, style);
-                if (!TerminalEmoji.TryDraw(text, i, x + col * cw, y, cw, ch, width, out _))
-                    // Allow font overhang without changing the daemon's cell advance.
-                    GUI.Label(new Rect(x + col * cw, y, cw * width + cw, ch),
-                              text.Substring(i, units), style);
-                i += units;
-                col += width;
-                start = i;
-                startCol = col;
-            }
-            DrawSpan(text, start, text.Length, x + startCol * cw, y, cw, ch, style);
-        }
-
-        static void DrawSpan(string text, int from, int to,
-            float x, float y, float cw, float ch, GUIStyle style)
-        {
-            if (to <= from) return;
-            string seg = from == 0 && to == text.Length ? text : text.Substring(from, to - from);
-            GUI.Label(new Rect(x, y, seg.Length * cw + cw, ch), seg, style);
+            var layout = InlineTextLayout.Cells(text, columns, cw, TextSpriteCatalog.Shared,
+                                          TerminalFont.FitsCell);
+            SharedTextRenderer.Draw(layout, new Rect(x, y, layout.Width + cw, ch),
+                                    ch, style, overhang: cw);
         }
 
 

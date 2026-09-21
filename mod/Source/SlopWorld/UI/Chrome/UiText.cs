@@ -37,9 +37,9 @@ namespace SlopWorld
 
         public static void RowLabel(Rect r, string text, TextAnchor anchor = TextAnchor.MiddleLeft)
         {
-            if (UiEmoji.HasSupported(text))
+            if (TextSpriteCatalog.Shared.Contains(text))
             {
-                DrawEmojiRowLabel(r, text, anchor, false);
+                DrawSpriteRowLabel(r, text, anchor, false);
                 return;
             }
 
@@ -58,9 +58,9 @@ namespace SlopWorld
                 return;
             }
 
-            if (UiEmoji.HasSupported(text))
+            if (TextSpriteCatalog.Shared.Contains(text))
             {
-                DrawEmojiRowLabel(r, text, anchor, true);
+                DrawSpriteRowLabel(r, text, anchor, true);
                 return;
             }
 
@@ -106,7 +106,7 @@ namespace SlopWorld
             }
         }
 
-        static void DrawEmojiRowLabel(Rect r, string text, TextAnchor anchor, bool italic)
+        static void DrawSpriteRowLabel(Rect r, string text, TextAnchor anchor, bool italic)
         {
             using (WidgetState.Save())
             {
@@ -131,65 +131,24 @@ namespace SlopWorld
                     wordWrap = false,
                     clipping = TextClipping.Clip,
                 };
-                string label = text ?? "";
-                float width = UiEmoji.Measure(label, lineH,
-                    plain => Verse.Text.CalcSize(plain).x);
-                float x = line.x;
+                var layout = InlineTextLayout.Proportional(text, TextSpriteCatalog.Shared, lineH,
+                    plain => style.CalcSize(new GUIContent(plain)).x, line.width);
+                float offset = 0f;
                 switch (anchor)
                 {
                     case TextAnchor.UpperCenter:
                     case TextAnchor.MiddleCenter:
                     case TextAnchor.LowerCenter:
-                        x += Mathf.Max(0f, (line.width - width) * 0.5f);
+                        offset = Mathf.Max(0f, (line.width - layout.Width) * 0.5f);
                         break;
                     case TextAnchor.UpperRight:
                     case TextAnchor.MiddleRight:
                     case TextAnchor.LowerRight:
-                        x += Mathf.Max(0f, line.width - width);
+                        offset = Mathf.Max(0f, line.width - layout.Width);
                         break;
                 }
-
-                int from = 0;
-                for (int i = 0; i < label.Length; i++)
-                {
-                    int length;
-                    if (!TerminalEmoji.IsSupportedAt(label, i, out length))
-                        continue;
-
-                    DrawInlineText(label, from, i, ref x, y, lineH, style);
-                    Color textColor = GUI.color;
-                    GUI.color = Color.white;
-                    // The atlas is a color texture; never tint it with a button's text color.
-                    int drawnLength;
-                    bool drawn = TerminalEmoji.TryDrawInline(label, i, x, y, lineH,
-                        out drawnLength);
-                    GUI.color = textColor;
-                    if (drawn)
-                    {
-                        x += lineH;
-                    }
-                    else
-                    {
-                        // Keep the fallback path safe if a packaged atlas is missing.
-                        GUI.Label(new Rect(x, y, lineH * 2f, lineH),
-                            label.Substring(i, length), style);
-                        x += lineH * 2f;
-                    }
-                    i += length - 1;
-                    from = i + 1;
-                }
-                DrawInlineText(label, from, label.Length, ref x, y, lineH, style);
+                SharedTextRenderer.Draw(layout, line, lineH, style, offset);
             }
-        }
-
-        static void DrawInlineText(string text, int from, int to, ref float x,
-                                   float y, float h, GUIStyle style)
-        {
-            if (to <= from) return;
-            string segment = text.Substring(from, to - from);
-            float width = Verse.Text.CalcSize(segment).x;
-            GUI.Label(new Rect(x, y, width + 1f, h), segment, style);
-            x += width;
         }
 
         static FontStyle Italic(FontStyle style)
