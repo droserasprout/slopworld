@@ -200,18 +200,7 @@ namespace SlopWorld
         static void OpenInOther(string path)
         {
             if (string.IsNullOrEmpty(path)) return;
-            // OpenFile with ask=true is the desktop portal's native "choose an application"
-            // gdbus' `3<FILE` form is shell redirection that opens fd 3; the daemon normally
-            // launches argv directly, so put only this command behind bash. The nested quotes
-            // keep spaces and shell characters in the selected path intact.
-            string script =
-                "gdbus call --session --dest org.freedesktop.portal.Desktop " +
-                "--object-path /org/freedesktop/portal/desktop " +
-                "--method org.freedesktop.portal.OpenURI.OpenFile " +
-                Pager.Quote("") + " 3 " + Pager.Quote("{'ask': <true>}") +
-                " 3<" + Pager.Quote(path);
-            string command = "bash -lc " + Pager.Quote(script);
-            HostFileAction(path, command);
+            HostFileAction(path, NativeAppPicker.Command(path));
         }
 
         static void HostFileAction(string path, string command)
