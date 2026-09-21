@@ -26,5 +26,4 @@ operations such as stopping/removing agents or destroying private state, not app
 
 Experimental switches retain disabled preferences. Mount changes require agent restart;
 pending prompt delivery has separate cancellation rules. Worker bootstrap is unconditional
-although its editor is currently gated. Known gaps belong in the
-[experimental-feature plan](plan-review-experimental-features.md), not assumed guarantees here.
+although its editor is currently gated.

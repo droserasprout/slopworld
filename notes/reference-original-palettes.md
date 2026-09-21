@@ -218,11 +218,8 @@ because both belong to Dark+. Pin an upstream release before implementing exact 
 
 ## Local follow-up
 
-`UIScheme.Classic` generates text opacity, row/control washes and borders;
-`UIScheme.Sel` is universally 35% accent. `TerminalTheme` multiplies every selection
-alpha by 0.35. These are local policies, not original palette definitions.
-Replace them with sourced per-theme roles when restoring fidelity. Missing upstream
-roles need an explicit documented mapping, not an invented claim of originality.
-
-The current contrast tool excludes Classic tables and only enforces Warm-versus-Cold
-metric similarity. Imported colors should not be adjusted to satisfy that check.
+Shipped role values now live in the [theme catalogs](mod-ui-identity.md).
+`UIScheme.Sel` remains 35% accent, and `TerminalTheme` multiplies selection alpha by
+0.35. These are local policies, not original palette definitions. Missing upstream
+roles need an explicit documented mapping; imported colors should not be adjusted
+to satisfy local contrast checks.
