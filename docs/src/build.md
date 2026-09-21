@@ -45,6 +45,12 @@ Rust formatting and linting use `cargo fmt` and `cargo clippy`.
 
 `make coverage` produces Cobertura XML reports for both halves. It requires `cargo-llvm-cov` (install with `cargo install cargo-llvm-cov --locked`) and the matching `llvm-cov`/`llvm-profdata` binaries. Use `coverage-daemon` or `coverage-mod` to measure one half.
 
+Shortcuts: `make cov` runs both suites, `make cov-daemon` measures Rust, and
+`make cov-client` measures the game-free C# client (`coverage-client` is also an alias
+for `coverage-mod`). Each run prints a coverage summary and writes its fresh report to
+`coverage/rust.cobertura.xml` or `coverage/csharp.cobertura.xml`. Client coverage measures
+the production files linked into the test harness, not the entire game-bound mod.
+
 `make bench` runs the daemon, C# and IPC benchmark suites serially; use `BUILD=release` for comparisons.
 
 ## Prose linter

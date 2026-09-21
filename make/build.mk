@@ -57,7 +57,13 @@ test-pager:       ## Test pager geometry with isolated tmux and less (no game)
 
 coverage: coverage-daemon coverage-mod ## Measure Rust and game-free C# test coverage
 
-coverage-daemon:
+.PHONY: cov cov-daemon cov-client coverage-client
+cov: coverage ## Run both coverage suites and print their reports
+cov-daemon: coverage-daemon ## Report Rust daemon coverage
+cov-client: coverage-mod ## Report game-free C# client coverage
+coverage-client: coverage-mod ## Alias for coverage-mod
+
+coverage-daemon: ## Measure Rust coverage and write coverage/rust.cobertura.xml
 	@command -v cargo-llvm-cov >/dev/null || { echo "missing cargo-llvm-cov; install it with: cargo install cargo-llvm-cov --locked" >&2; exit 1; }
 	@command -v llvm-cov >/dev/null && command -v llvm-profdata >/dev/null || { echo "missing LLVM coverage tools" >&2; exit 1; }
 	@mkdir -p "$(COVERAGE_DIR)"
@@ -65,7 +71,7 @@ coverage-daemon:
 		$(CARGO) llvm-cov --cobertura --output-path "../$(COVERAGE_DIR)/rust.cobertura.xml"
 	@$(PYTHON) tools/coverage_summary.py "$(COVERAGE_DIR)/rust.cobertura.xml" Rust
 
-coverage-mod:
+coverage-mod: ## Measure game-free C# coverage and write coverage/csharp.cobertura.xml
 	@$(DOTNET) tool restore
 	@mkdir -p "$(COVERAGE_DIR)"
 	@$(DOTNET) build "$(TEST_PROJECT)" --configuration Release -p:Coverage=true
