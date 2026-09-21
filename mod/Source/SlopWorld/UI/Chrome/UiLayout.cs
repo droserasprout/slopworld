@@ -51,10 +51,6 @@ namespace SlopWorld
             return clicked;
         }
 
-        // An icon that answers to a press, in the chrome's own rectangular hover surface.
-        //
-        // `tint` is the icon's color at rest - a disabled errand hands over a faded one -
-        // and it goes to full white under the mouse.
         public static bool IconButton(Rect r, Texture2D icon, Color tint, bool on = true)
         {
             return IconButton(r, icon, tint, IconInset, on);
@@ -175,10 +171,6 @@ namespace SlopWorld
         public static void Fail(string msg) =>
             Messages.Message($"SlopWorld: {msg}", MessageTypeDefOf.RejectInput, false);
 
-        // A checked menu row wears the same box a settings page does, before the label
-        // rather than after it: `UiMenu` reads `extraPartRightJustified` and puts the
-        // part on the left when it is false. One checkbox everywhere, so a tick means the
-        // same thing wherever it is read.
         public static FloatMenuOption MenuToggle(string label, bool on, Action act)
         {
             var opt = new FloatMenuOption(label, act, MenuOptionPriority.Default, null, null,

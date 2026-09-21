@@ -19,8 +19,6 @@ pub const DEFAULT_TITLE_MODEL: &str = "google/gemini-3.1-flash-lite";
 pub const DEFAULT_TITLE_MIN_CHARS: usize = 0;
 pub const DEFAULT_SUMMARY_PROMPT: &str = "Summarise this prompt in at most 6 words for a session title. Reply with only the title in sentence case, without quotes, punctuation, or commentary. If prompt is too short to summarize - return it verbatim.";
 
-/// One TOML file, which the mod reads and writes back verbatim, so hand-edits and
-/// in-game edits use the same format.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Config {
     #[serde(default)]
@@ -260,8 +258,6 @@ impl Default for Daemon {
     }
 }
 
-/// Both fields name a *command preset*. What one runs is that preset's file, so this
-/// section says which agent is meant rather than what it is.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Defaults {
     /// What an agent that names no command of its own runs.
@@ -716,12 +712,8 @@ impl Default for SessionCfg {
     }
 }
 
-/// The only thing the two kinds disagree about at the far end: an agent's input
-/// field, or a shell's prompt.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum LibraryItemKind {
-    /// Claude Code unless the entry says otherwise, which is what makes it a prompt
-    /// rather than a command.
     #[default]
     Prompt,
     /// Handed to an interactive shell inside the project's sandbox.
@@ -826,8 +818,6 @@ pub struct LibraryItemCfg {
     pub builtin: bool,
 }
 
-/// The builtin breadcrumbs, in the order the GUI lists them. `include_str!` is not worth a
-/// file each: unlike a preset these are one string with no table around them.
 pub fn builtin_library_items() -> &'static [LibraryItemCfg] {
     static BUILTIN: OnceLock<Vec<LibraryItemCfg>> = OnceLock::new();
     BUILTIN.get_or_init(|| {

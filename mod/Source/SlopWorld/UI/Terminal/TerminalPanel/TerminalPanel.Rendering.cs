@@ -4,7 +4,6 @@ using Verse;
 
 namespace SlopWorld
 {
-    // TerminalPanel pane rendering, cache, and pointer-overlays.
     sealed partial class TerminalPanel
     {
         void DrawScreen(Rect body, ScreenBuf buf, float shift)

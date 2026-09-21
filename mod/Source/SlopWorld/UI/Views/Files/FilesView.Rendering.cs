@@ -6,7 +6,6 @@ using Verse;
 
 namespace SlopWorld
 {
-    // FilesView rendering, interaction, actions, and viewer lifecycle.
     public static partial class FilesView
     {
         // ------------------------------------------------------------------ drawing
@@ -25,10 +24,6 @@ namespace SlopWorld
 
         public static void Clicks() => Tree.Clicks(ReleaseViewerForTree);
 
-        // Left on a file: mark it and read it. Text files open in `less` in a pane over the
-        // tree; a binary file is marked but nobody is handed it. Clicking the file already
-        // being read just brings its pane back - a focus change is a *different* file, and
-        // only that replaces the viewer.
         static void Open(Node node)
         {
             GitView.CancelPendingDiff();
@@ -73,17 +68,12 @@ namespace SlopWorld
 
         // ------------------------------------------------------------------ menu
 
-        // `project` is set on a heading and null on everything below it: a project's own menu
-        // is this one plus what the agents view's heading offers, since the two headings name
-        // the same thing and a reader who found the option in one view will look for it in
-        // the other.
+        // `project` is non-null only for project headings, which also offer a host terminal.
         static List<FloatMenuOption> Menu(Node node, string project = null)
         {
             return MenuBuilder.Build(node, project);
         }
 
-        // Menu construction is a separate concern from tree state. It consumes a node
-        // snapshot and points actions back at FilesView for the lifecycle-sensitive work.
         static class MenuBuilder
         {
             public static List<FloatMenuOption> Build(Node node, string project = null)
@@ -105,10 +95,6 @@ namespace SlopWorld
                 FilesView.AddFileActions(opts, node.Project, node.Path, node.Name,
                     FilesView.Relative(node));
 
-                // Only files, and only because a directory in `less` is a listing nobody asked
-                // for and a directory in `micro` is a file browser inside a game. The left
-                // button views a text file; the menu's View routes through the same tracked
-                // viewer so it is replaced or closed like any other.
                 if (!node.IsDir && FilesView.IsText(node.Name))
                 {
                     opts.Add(new FloatMenuOption("View", () => FilesView.View(node)));
@@ -125,9 +111,7 @@ namespace SlopWorld
                     opts.Add(new FloatMenuOption("Remove", () => FilesView.Remove(node)));
                 }
 
-                // Files and directories use the same host application picker. The desktop MIME
-                // database knows that a directory is an inode/directory and returns file
-                // managers, while a regular file returns its associated editors/viewers.
+                // The desktop MIME database resolves directory paths to file managers.
                 FilesView.AddOpenIn(opts, node.Path);
 
                 if (node.IsDir)
@@ -362,11 +346,8 @@ namespace SlopWorld
 
         static void ShellHere(Node node)
         {
-            // Errands are argv, not shell command lines. Invoke bash explicitly so the
-            // directory change and the final interactive shell happen in one process, while
-            // keeping the selected path quoted for both the daemon splitter and bash itself.
-            // This is intentionally a host errand: the Files tree can show a project path,
-            // but "Shell here" is for the host filesystem rather than that project's sandbox.
+            // Host errands take argv: quote once for bash and again for the daemon splitter.
+            // "Shell here" opens on the host, even for a sandboxed project.
             string script = "cd -- " + Pager.Quote(node.Path) +
                 " && exec \"${SHELL:-bash}\"";
             string command = "bash -lc " + Pager.Quote(script);

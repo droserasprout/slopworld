@@ -4,7 +4,6 @@ using Verse;
 
 namespace SlopWorld
 {
-    // TerminalWindow session binding and Window lifecycle.
     public partial class TerminalWindow
     {
         public static TerminalWindow Open(string name)

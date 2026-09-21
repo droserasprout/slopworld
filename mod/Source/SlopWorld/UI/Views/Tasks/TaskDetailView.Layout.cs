@@ -4,7 +4,6 @@ using Verse;
 
 namespace SlopWorld
 {
-    // TaskDetailView text wrapping and cached message geometry.
     public sealed partial class TaskDetailView
     {
         void EnsureLayout(float width, string body, string note)

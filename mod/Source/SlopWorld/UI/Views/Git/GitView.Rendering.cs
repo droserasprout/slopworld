@@ -5,7 +5,6 @@ using Verse;
 
 namespace SlopWorld
 {
-    // GitView status rendering, interaction, actions, and viewer lifecycle.
     public static partial class GitView
     {
         // The state line and then the tree, or the state line alone where there is no tree to
@@ -337,10 +336,6 @@ namespace SlopWorld
             Diff(node, repo);
         }
 
-        // One of the hover strip's three, done. The diff is what the row itself does; the
-        // other two are the file the change is about, opened in the same errands the files
-        // view opens them in - a reader in this view should not have to cross to the other one
-        // to read the file a diff is about.
         static void Act(Node node, Repo repo, RowAct act)
         {
             string abs = Abs(repo, node);
@@ -367,14 +362,8 @@ namespace SlopWorld
         static string Abs(Repo repo, Node node) =>
             (repo.Root ?? "").TrimEnd('/') + "/" + node.Rel;
 
-        // ------------------------------------------------------------------ what the files
-        //                                                                     view asks
-        //
-        // FilesView queries only the already-read repository cache; this path never fetches.
+        // FilesView queries only the repository cache; these lookups never fetch.
 
-        // The repository as it stands for a project, or null where there is none to speak of:
-        // never read, read and refused, not a repository, or read about a directory this
-        // project no longer points at.
         static Repo Known(string project)
         {
             if (string.IsNullOrEmpty(project)) return null;

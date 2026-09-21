@@ -160,9 +160,6 @@ namespace SlopWorld
             SpendWheel();
         }
 
-        // Vertical only. Nothing here scrolls sideways - every caller sizes its view to the
-        // outer rect's width less the bar - and a bar drawn for an axis with no travel in it
-        // is a control that cannot move.
         void DrawBar()
         {
             if (_max.y <= 0f) return;
@@ -177,9 +174,6 @@ namespace SlopWorld
             if (GUIUtility.hotControl == 0 && e.type == EventType.MouseDown && e.button == 0 &&
                 hit.Contains(e.mousePosition))
             {
-                // On the thumb, it is picked up where it was touched. On the trough, it
-                // arrives centred under the cursor - which is a jump to that point in the
-                // list, and then a drag from it without letting go.
                 var at = UiScrollbar.Thumb(track, h, NormalizedPosition());
                 _grab = at.Contains(e.mousePosition) ? e.mousePosition.y - at.y : h / 2f;
                 GUIUtility.hotControl = id;

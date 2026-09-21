@@ -79,10 +79,6 @@ namespace SlopWorld
 
         float DrawLocation(Rect r, SessionInfo s)
         {
-            // The project first, because it answers where this agent runs and what it can
-            // reach. A blank project is an entry pointing at one that has gone, which is
-            // worth saying; a temporary agent says so instead, the interesting thing about
-            // that row being that it is on its way out.
             string terminal = SessionHub.Instance.Capabilities.TerminalName;
             string where = s.Host
                 ? (string.IsNullOrEmpty(s.Project)
@@ -111,11 +107,6 @@ namespace SlopWorld
             float top = r.y + 1f;
             float right = UiListRow.Right(r);
 
-            // The top line is the two buttons that open a dialog, the bottom one everything
-            // that acts on the agent directly, terminal last.
-            // Every width here is measured, floored at the figure it used to be written as:
-            // "Duplicate" in a box counted off one font is a word with both ends cut off in
-            // the next, a press being centred in what it was given.
             float dupW = UiLayout.BtnW("Duplicate", 74f);
             float editW = UiLayout.BtnW("Edit", 96f);
 
@@ -127,9 +118,6 @@ namespace SlopWorld
                         UiTheme.RowBtnH), "Edit"))
                 TerminalWindow.OpenOverPane(new EditSessionDialog(s));
 
-            // Next to Edit rather than down with Del and Start, because what it does is open
-            // the same dialog. It is the one of the two that still means something for a
-            // temporary agent - "keep this one".
             if (!s.Host && !string.IsNullOrEmpty(s.Project))
             {
                 var dup = new Rect(right - dupW, top, dupW, UiTheme.RowBtnH);

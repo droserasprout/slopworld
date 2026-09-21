@@ -168,10 +168,7 @@ namespace SlopWorld
                     UiScrollbarReservation.WhenNeeded);
                 var view = geometry.View;
 
-                // GUI rather than GUILayout, so this is safe in a pass that declines Layout
-                // events - see AgentSidebar.DrawBack. Closed from a finally the way the files
-                // view closes its own: a scroll view left open is every window drawn after it
-                // drawn somewhere else.
+                // AgentSidebar.DrawBack skips Layout events, so use GUI rather than GUILayout.
                 using (_scroll.Scope(list, view))
                 {
                     float y = Pad;

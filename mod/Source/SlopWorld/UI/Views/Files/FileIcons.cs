@@ -171,10 +171,7 @@ namespace SlopWorld
         public static Texture2D Of(string name, bool isDir) =>
             Tex(isDir ? Folder : Pick(name));
 
-        // Whole name first, then the longest extension that resolves, so `x.tar.gz` is an
-        // archive where `x.gz` is one too and `Cargo.toml` never reaches the extension table
-        // at all. A dotfile with nothing after the dot (`.envrc`) has no extension by this
-        // reading, which is why the name table carries those.
+        // Prefer exact names, then the longest matching extension. Dotfiles use the name table.
         static string Pick(string name)
         {
             if (string.IsNullOrEmpty(name)) return Plain;

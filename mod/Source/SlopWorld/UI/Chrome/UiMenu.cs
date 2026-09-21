@@ -7,18 +7,13 @@ using Verse.Sound;
 
 namespace SlopWorld
 {
-    // FloatMenuOption has no child collection; this subclass supplies the nesting data
-    // required by [UiMenu]. Everything else is read from the base row, including `Disabled`.
     public class UiSubmenu : FloatMenuOption
     {
         // Asked when the pointer arrives rather than when the parent is built: a station's
         // presets carry which one is playing, and a tree built up front would say so once.
         public readonly Func<List<FloatMenuOption>> Children;
 
-        // The action is a stand-in and is never run: [UiMenu] answers a row with a list on
-        // it by opening the list. It cannot be null, because `Disabled` *is* `action == null`
-        // on this class - setting the property nulls the action, and reading it asks whether
-        // the action is there - so a submenu built without one arrives greyed out and dead.
+        // FloatMenuOption treats a null action as disabled, even for submenu openers.
         public UiSubmenu(string label, Func<List<FloatMenuOption>> children)
             : base(label, () => { })
         {
@@ -26,10 +21,6 @@ namespace SlopWorld
         }
     }
 
-    // Dark-chrome replacement for FloatMenu. It accepts the existing option lists and only
-    // relies on label, action, Disabled, and the checkbox extra-part used by this mod.
-    // Submenus are sibling windows linked by parent/child references so closing a branch
-    // removes every level above it.
     public partial class UiMenu : Window
     {
         sealed class SeparatorOption : FloatMenuOption
@@ -53,9 +44,7 @@ namespace SlopWorld
         UiMenu _parent;
         UiMenu _child;
 
-        // The row `_child` hangs off, kept lit for as long as it stands - the pointer has
-        // moved on to the child by then, and an unlit row over an open list reads as a menu
-        // that belongs to nothing.
+        // Keep the parent row lit while the pointer is in its child menu.
         int _open = -1;
 
         // The row the pointer is on and when it arrived there, which is what the delay before
@@ -72,27 +61,16 @@ namespace SlopWorld
         // and because a child narrowed to fit one side must widen again if the room returns.
         Vector2 _want;
 
-        // Vanilla's own ceiling on a menu's width, kept: a label longer than this is a path
-        // or a URL, and past three hundred pixels a wider menu does not make it readable.
         const float MaxW = 300f;
         const float MinW = 160f;
 
-        // The clear space either side of a label. Rows touch the frame vertically so a menu
-        // does not grow a needless blank strip above and below its first and last action.
         const float PadX = UiTheme.MenuPadX;
         const float PadY = UiTheme.MenuPadY;
 
-        // How much of the screen a menu may take before it scrolls instead of growing. The
-        // jukebox's station list is the one that reaches it.
         const float MaxScreen = 0.6f;
 
-        // The mark on a row with a list under it, drawn in the arrow a folded project head
-        // wears in the sidebar: one shape for "there is more here than this line".
         const float ArrowW = UiTheme.DisclosureW;
 
-        // How long the pointer rests on a row before its list opens. Long enough that a
-        // pointer crossing the menu on its way to a row further down does not leave a trail
-        // of opened lists behind it, short enough not to read as waiting for the menu.
         const float OpenDelay = 0.18f;
 
         static float RowH => UiTheme.MenuRowH;
@@ -156,10 +134,7 @@ namespace SlopWorld
             return false;
         }
 
-        // A separator is a structural row, not a disabled action. It needs its own type
-        // because FloatMenuOption turns an empty label into "(missing label)" in its setter.
-        // Keeping it in the same list preserves the menu's simple measurement and lets
-        // callers put a rule exactly between related groups of actions.
+        // FloatMenuOption replaces empty labels with "(missing label)"; use a distinct row type.
         public static FloatMenuOption Separator() => new SeparatorOption();
 
         // The width a plain labelled picker gets when its menu contains the same labels. Keep
@@ -213,8 +188,6 @@ namespace SlopWorld
             new Vector2(Mathf.Clamp(WidestLabel() + PadX * 2f, MinW, MaxW),
                 Mathf.Min(ContentH, UI.screenHeight * MaxScreen));
 
-        // Root menus open at the pointer and clamp to the screen; child menus use their
-        // parent anchor. Root PreOpen closes unrelated menus while preserving the chain.
         public override void PreOpen()
         {
             base.PreOpen();
@@ -352,10 +325,6 @@ namespace SlopWorld
             return -1;
         }
 
-        // The pointer walks the tree, once a frame. A row with a list opens it once the
-        // pointer has rested the delay out; a row without one shuts the branch at once; a
-        // pointer that has left this menu - into the child, which is another window, or off
-        // the menu entirely - leaves what is open standing.
         void Pointer(int hot)
         {
             if (_keyboardSelection) return;
@@ -387,8 +356,6 @@ namespace SlopWorld
             if (Time.realtimeSinceStartup - _hotAt >= OpenDelay) OpenChild(hot, sub);
         }
 
-        // Null where the row has no list or is disabled, which is the same answer as far as
-        // the pointer is concerned: neither is a place a live list belongs beside.
         UiSubmenu Sub(int i) =>
             _options[i].Disabled ? null : _options[i] as UiSubmenu;
 
@@ -426,9 +393,6 @@ namespace SlopWorld
                 RowSelectionStyle.Hover);
             if (o.tooltip.HasValue) TooltipHandler.TipRegion(r, o.tooltip.Value);
 
-            // The extra part is the checkbox [UiLayout.MenuToggle] draws, before the
-            // label or after it as the option asks - a tick goes where a settings page
-            // puts it, which is in front.
             float extra = o.extraPartWidth;
             bool right = o.extraPartRightJustified;
             if (o.extraPartOnGUI != null && extra > 0f)

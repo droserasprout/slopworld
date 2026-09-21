@@ -148,10 +148,7 @@ namespace SlopWorld
                 }, host: true);
         }
 
-        // Search results need the same tracked reader, but positioned before its first draw.
-        // It deliberately starts a fresh pager: less's `:e` has no atomic "open at line"
-        // form, and flashing the previous file before a second key arrives is worse than the
-        // small process cost of a result click.
+        // Start a fresh pager at the requested line; less's `:e` cannot open at a line atomically.
         public void ViewFileAt(string project, string filePath, int line, string label)
         {
             Open(project, PagerCommand(filePath, line), label);
@@ -224,10 +221,7 @@ namespace SlopWorld
             return true;
         }
 
-        // A session nobody is looking at any more: the sidebar left the view, the terminal it
-        // was shown in closed, or something else was selected. Stopping the ephemeral agent is
-        // what closes the process; the pane over it noticing the session is gone is what closes
-        // itself.
+        // Stopping the owned session closes its process; the pane reacts to session removal.
         public void Release()
         {
             if (_locked) return;

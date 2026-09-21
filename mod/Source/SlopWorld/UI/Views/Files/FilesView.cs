@@ -390,10 +390,7 @@ namespace SlopWorld
             return true;
         }
 
-        // An absolute path is only reachable if it sits inside the project's own tree - the
-        // one root Files can list - so it is stripped back to a project-relative path here,
-        // and a path outside the root is refused so the click falls through. Relative paths
-        // pass straight on.
+        // Reject absolute paths outside the project so the click can fall through.
         static string ToProjectRelative(string dir, string path)
         {
             if (string.IsNullOrEmpty(path) || path[0] != '/') return path;
@@ -478,11 +475,8 @@ namespace SlopWorld
             RefreshIfDue();
         }
 
-        // The daemon deliberately has no filesystem event stream. Keep the visible tree fresh
-        // while Files is open, but leave unopened directories lazy and preserve the old nodes
-        // when a listing lands so an external change does not fold the user's tree. A collapsed
-        // directory row is still visible, so reread its already-loaded listing too; otherwise a
-        // newly-created child can leave the row without a disclosure arrow forever.
+        // Poll because the daemon has no filesystem event stream; preserve existing expansion state.
+        // Refresh loaded collapsed directories too, so new children restore their disclosure arrow.
         static void RefreshIfDue()
         {
             float now = Time.realtimeSinceStartup;
@@ -578,10 +572,7 @@ namespace SlopWorld
                 Path = dir,
                 Name = project,
                 IsDir = true,
-                // A root is always open; the controller's group state folds the project
-                // heading rather than this root row. Left false, Rows
-                // would return before it ever asked the daemon and every project would draw
-                // as an empty one.
+                // Project headings own folding; the root must stay expanded to request its listing.
                 Expanded = true,
                 Root = dir,
                 Project = project,

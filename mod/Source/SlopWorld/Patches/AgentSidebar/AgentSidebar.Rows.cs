@@ -5,7 +5,6 @@ using Verse;
 
 namespace SlopWorld
 {
-    // AgentSidebar row rendering and routed-row interaction.
     public static partial class AgentSidebar
     {
         public static float DrawRouted(Rect body, SidebarTab tab)

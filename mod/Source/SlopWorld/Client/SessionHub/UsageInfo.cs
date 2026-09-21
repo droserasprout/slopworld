@@ -22,10 +22,8 @@ namespace SlopWorld
         // current. The readout uses this list to dim only rows belonging to the failed seller.
         public List<string> FailedSources = new List<string>();
 
-        // realtimeSinceStartup when these *numbers* were current - what ages them and what the
-        // countdown runs from. A failed poll carries the last good windows, so it carries this
-        // with them: taking the arrival time would make a snapshot half an hour old read as
-        // fresh, and would hand every reset countdown back its full span once a minute.
+        // Monotonic timestamp of the last good data. Failed polls retain it so stale snapshots
+        // do not appear fresh or restart reset countdowns.
         public float Heard;
 
         public bool Any => Windows.Count > 0;

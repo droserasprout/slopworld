@@ -4,10 +4,7 @@ using System.Linq;
 
 namespace SlopWorld
 {
-    // The session list the daemon reports, the screen buffers it streams, and every mutation
-    // that changes what sessions exist. Mutations go over HTTP rather than the socket: they
-    // rewrite config.toml, and the error body matters. The list and screens are updated both
-    // here and from the socket, so the coordinator hands screen/session events straight in.
+    // HTTP mutations report errors; HTTP replies and socket events both update session state.
     class SessionStore
     {
         const string SessionsPath = WireProtocol.Routes.Sessions;
@@ -199,10 +196,7 @@ namespace SlopWorld
             buf.FromWire(screen);
         }
 
-        // Both stores are keyed by session name and nothing else ever drops from them, so an
-        // agent that has been removed - or a temporary errand, which mints a fresh name every
-        // time one is run - would leave its last screen behind for as long as the game is up.
-        // The session list is the daemon's own answer to "what exists", so it is what prunes.
+        // Prune against the daemon session list so finished errands do not retain screen buffers.
         void ForgetScreens()
         {
             Prune(_screens);

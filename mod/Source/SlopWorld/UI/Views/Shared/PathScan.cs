@@ -2,13 +2,8 @@ using System;
 
 namespace SlopWorld
 {
-    // Click-time recognition only. Paths do not join URL autolinking because repaint and
-    // pointer motion are hot paths; one row scan after Ctrl+MouseDown is both cheaper and
-    // less eager about ordinary terminal text that happens to contain a slash.
-    //
-    // Both relative (`./x`, `../x`, a token with a `/`, or an extension-bearing root file)
-    // and absolute (`/x/y`) forms are returned; whether an absolute path can actually be
-    // shown is FilesView's call, since it alone knows which project roots the tree can reach.
+    // Scan on Ctrl+MouseDown, not repaint or pointer motion.
+    // Recognize relative and absolute paths; FilesView validates project reachability.
     public static class PathScan
     {
         public static string At(string text, int column) => At(text, column, out _);
