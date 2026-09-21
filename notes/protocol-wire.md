@@ -8,6 +8,10 @@ presence where omission selects a daemon default. Both peers require protocol ve
 HTTP uses `application/x-protobuf`; WebSockets require `slopworld.protobuf.v2` and binary
 frames. The [API reference](../docs/src/reference/api.md) owns public guidance.
 
+Usage, audio and jukebox state already arrive through socket events; check those before
+adding frontend query paths. HTTP query routes also serve external clients, so absence of
+an in-repo caller is not evidence that a route is dead.
+
 Rust cold handlers adapt existing Serde domain projections to generated messages in memory;
 unknown fields fail conversion rather than silently disappearing. Screen events convert
 directly and cache encoded bytes for fanout. Persisted TOML and external-provider JSON are

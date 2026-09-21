@@ -1,4 +1,4 @@
-# De-Verse-ing scope
+# Standalone frontend scope
 
 Scope for a standalone Unity/C# SlopWorld frontend with the non-game workspace
 available permanently. Retain the Rust daemon and its protocol; remove the dependency
