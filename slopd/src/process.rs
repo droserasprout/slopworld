@@ -146,6 +146,100 @@ mod tests {
     use std::{fs, process::Command as StdCommand, time::Instant};
 
     #[tokio::test]
+    async fn zero_limit_distinguishes_empty_from_discarded_output() {
+        for (input, expected_truncated) in [(&b""[..], false), (&b"payload"[..], true)] {
+            let (output, truncated) = read_bounded(input, 0).await.unwrap();
+            assert!(output.is_empty());
+            assert_eq!(truncated, expected_truncated);
+        }
+    }
+
+    #[tokio::test]
+    async fn bounded_reader_drains_past_the_limit_and_propagates_late_errors() {
+        use tokio::io::AsyncReadExt;
+        struct FailedReader;
+        impl AsyncRead for FailedReader {
+            fn poll_read(
+                self: std::pin::Pin<&mut Self>,
+                _: &mut std::task::Context<'_>,
+                _: &mut tokio::io::ReadBuf<'_>,
+            ) -> std::task::Poll<io::Result<()>> {
+                std::task::Poll::Ready(Err(io::Error::new(
+                    io::ErrorKind::ConnectionReset,
+                    "lost stream",
+                )))
+            }
+        }
+        let reader = (&b"more than the limit"[..]).chain(FailedReader);
+        let error = read_bounded(reader, 4).await.unwrap_err();
+        assert_eq!(error.kind(), io::ErrorKind::ConnectionReset);
+    }
+
+    #[tokio::test]
+    async fn missing_executable_preserves_spawn_error() {
+        let missing = std::env::temp_dir().join(format!("slopd-missing-{}", uuid::Uuid::new_v4()));
+        let error = run_bounded(
+            &mut Command::new(missing),
+            Duration::from_secs(5),
+            CaptureLimits {
+                stdout: 8,
+                stderr: 8,
+            },
+        )
+        .await
+        .unwrap_err();
+        assert_eq!(
+            error.downcast_ref::<io::Error>().unwrap().kind(),
+            io::ErrorKind::NotFound
+        );
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn nonzero_exit_preserves_both_streams_and_independent_limits() {
+        let mut command = Command::new("sh");
+        command.args(["-c", "printf abc; printf error >&2; exit 7"]);
+        let output = run_bounded(
+            &mut command,
+            Duration::from_secs(5),
+            CaptureLimits {
+                stdout: 3,
+                stderr: 2,
+            },
+        )
+        .await
+        .unwrap();
+        assert_eq!(output.status.code(), Some(7));
+        assert_eq!(output.stdout, b"abc");
+        assert_eq!(output.stderr, b"er");
+        assert!(!output.stdout_truncated);
+        assert!(output.stderr_truncated);
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn supplied_stdin_is_closed_after_writing() {
+        let mut command = Command::new("sh");
+        command.args(["-c", "cat; printf eof"]);
+        let output = run_bounded_with_stdin(
+            &mut command,
+            b"payload",
+            Duration::from_secs(5),
+            CaptureLimits {
+                stdout: 32,
+                stderr: 32,
+            },
+        )
+        .await
+        .unwrap();
+        assert!(output.status.success());
+        assert_eq!(output.stdout, b"payloadeof");
+        assert!(output.stderr.is_empty());
+        assert!(!output.stdout_truncated);
+        assert!(!output.stderr_truncated);
+    }
+
+    #[tokio::test]
     async fn exact_limit_is_not_truncated() {
         let (output, truncated) = read_bounded(&b"hello"[..], 5).await.unwrap();
         assert_eq!(output, b"hello");

@@ -293,6 +293,116 @@ fn executable(value: &str) -> &str {
 mod tests {
     use super::*;
 
+    fn process(pid: u32, ppid: u32, cgroup: Option<&str>) -> Process {
+        Process {
+            pid,
+            ppid,
+            argv: vec!["agent".into()],
+            cgroup: cgroup.map(str::to_string),
+        }
+    }
+
+    fn plan(limits: Vec<String>) -> PlanView {
+        PlanView {
+            version: 1,
+            session: "test".into(),
+            limits,
+            pasta: Vec::new(),
+            bwrap: Vec::new(),
+            environment: Vec::new(),
+            mounts: Vec::new(),
+            command: vec!["agent".into()],
+            argv: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn launch_scope_requires_a_valid_slopworld_uuid_unit() {
+        for invalid in [
+            "slopworld-11111111-1111-4111-8111-111111111111.scope",
+            "--unit=other-11111111-1111-4111-8111-111111111111.scope",
+            "--unit=slopworld-not-a-uuid.scope",
+            "--unit=slopworld-11111111-1111-4111-8111-111111111111.service",
+        ] {
+            assert_eq!(
+                expected_scope(&plan(vec![invalid.into()])),
+                None,
+                "{invalid}"
+            );
+        }
+        let scope = "slopworld-11111111-1111-4111-8111-111111111111.scope";
+        let plan = plan(vec![
+            "--user".into(),
+            "--unit=invalid".into(),
+            format!("--unit={scope}"),
+        ]);
+        assert_eq!(expected_scope(&plan), Some(scope));
+        assert_eq!(expected_scope(&self::plan(Vec::new())), None);
+    }
+
+    #[test]
+    fn scope_membership_matches_whole_path_components() {
+        for (group, expected) in [
+            (None, false),
+            (Some("/user.slice/launch.scope"), true),
+            (Some("/user.slice/launch.scope/child"), true),
+            (Some("/user.slice/prefix-launch.scope"), false),
+            (Some("/user.slice/launch.scope-suffix"), false),
+        ] {
+            assert_eq!(in_scope(&process(1, 0, group), "launch.scope"), expected);
+        }
+    }
+
+    #[test]
+    fn tree_selection_reaches_unsorted_descendants_and_reparented_children() {
+        let rows = vec![
+            process(32, 31, None),
+            process(31, 1, Some("/launch.scope")),
+            process(13, 12, Some("/launch.scope")),
+            process(12, 11, None),
+            process(11, 10, None),
+            process(10, 1, None),
+            process(99, 1, Some("/launch.scope-suffix")),
+            process(98, 98, None),
+        ];
+        let ids = |rows: Vec<Process>| rows.into_iter().map(|row| row.pid).collect::<Vec<_>>();
+        assert_eq!(ids(select_tree(10, rows.clone(), None)), [10, 11, 12, 13]);
+        assert_eq!(
+            ids(select_tree(10, rows, Some("launch.scope"))),
+            [10, 11, 12, 13, 31, 32]
+        );
+    }
+
+    #[test]
+    fn cgroup_parser_skips_root_empty_and_malformed_entries() {
+        assert_eq!(cgroup_key("malformed\n0::/\n1:cpu:  \n"), None);
+        assert_eq!(
+            cgroup_key("0::/\n1:cpu: /user.slice/launch.scope \n2:memory:/other"),
+            Some("/user.slice/launch.scope".into())
+        );
+        assert_eq!(
+            cgroup_key("0::/unified.scope\n"),
+            Some("/unified.scope".into())
+        );
+    }
+
+    #[test]
+    fn comparison_uses_executable_not_an_argument_or_prefix() {
+        let mut plan = plan(Vec::new());
+        plan.command = vec!["/opt/bin/agent".into()];
+        let mut row = process(1, 0, None);
+        row.argv = vec!["/bin/shell".into(), "agent".into()];
+        assert_eq!(compare(Some(&plan), &[row.clone()]), "different");
+        row.argv = vec!["agent-helper".into()];
+        assert_eq!(compare(Some(&plan), &[row.clone()]), "different");
+        row.argv.clear();
+        assert_eq!(compare(Some(&plan), &[row.clone()]), "different");
+        row.argv = vec!["/another/bin/agent".into()];
+        assert_eq!(compare(Some(&plan), &[row.clone()]), "compatible");
+        plan.command.clear();
+        assert_eq!(compare(Some(&plan), &[row]), "different");
+    }
+
     #[test]
     fn cgroup_expansion_requires_the_exact_launch_scope_and_a_descendant() {
         let scope = "slopworld-11111111-1111-4111-8111-111111111111.scope";
