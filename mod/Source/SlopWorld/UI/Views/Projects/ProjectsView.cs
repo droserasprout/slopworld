@@ -217,7 +217,7 @@ namespace SlopWorld
                     .Select(p => new FloatMenuOption(p.Name, () => _p.Mounts.Add(new MountEntry
                     {
                         From = p.Dir,
-                        To = p.Name == _p.Name ? p.Dir : "/mnt/" + p.Name,
+                        To = p.Dir,
                     }))).ToList();
                 if (options.Count == 0) options.Add(new FloatMenuOption("No projects", null));
                 Find.WindowStack.Add(new UiMenu(options));

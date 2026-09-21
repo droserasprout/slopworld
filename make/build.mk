@@ -116,7 +116,7 @@ protobuf-deps: ## Restore Protobuf runtime for Unity Mono
 	@$(DOTNET) build mod/Dependencies/Protobuf.csproj --configuration Release --verbosity quiet -p:RestoreLockedMode=true
 
 .PHONY: bench-ipc
-bench-ipc: protobuf-deps api-contract ## Compare legacy JSON and production Protobuf without the game
+bench-ipc: protobuf-deps api-contract ## Measure production Protobuf IPC without the game
 	@$(DOTNET) build bench/ipc/csharp/IpcBench.csproj --configuration $(if $(filter release,$(BUILD)),Release,Debug) --verbosity quiet -p:RestoreLockedMode=true
 	@mkdir -p bench/ipc/results
 	@mono bench/ipc/csharp/bin/$(if $(filter release,$(BUILD)),Release,Debug)/net472/IpcBench.exe bench/ipc/fixtures > bench/ipc/results/mono.csv

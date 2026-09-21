@@ -482,7 +482,7 @@ mod tests {
             "name": "worker",
             "version": 1,
             "defaults": {
-                "command": {"name": "codex", "cmd": "codex --full-auto", "sandbox": []},
+                "command": {"name": "codex", "kind": "agent", "cmd": "codex --full-auto", "sandbox": []},
                 "sandbox": ["captured"],
                 "sandbox_presets": [{"name": "captured"}],
                 "persistent_tmp": false,

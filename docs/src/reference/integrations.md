@@ -38,8 +38,7 @@ and the model. Host terminal titles come from the terminal application unless a 
 from the host terminal's context menu.
 The OpenRouter key path is configured on the Credentials page.
 
-Settings > Integrations > Workers edits the bootstrap prompt used by `slopctl worker spawn`
-(also available through the documented `slopctl spawn` shortcut).
+Settings > Integrations > Workers edits the bootstrap prompt used by `slopctl worker spawn`.
 The prompt is independent of agent creation and can refer to `$SLOPWORLD_TASK_ID`.
 
 ## Library items and errands

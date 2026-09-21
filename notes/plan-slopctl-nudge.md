@@ -61,5 +61,5 @@ game. Use relevant Makefile contract, daemon test/lint and API documentation tar
 Start in `slopd/src/bin/slopctl/`, `api/ws.rs`, `api/router.rs` and
 `manager/capture_input.rs`; preserve the boundaries in [grants](agent-grants.md).
 Document the command and a delegate-then-nudge workflow in the
-[slopctl guide](../docs/src/guides/slopctl.md), keeping `slopctl wait ID` for task
+[slopctl guide](../docs/src/guides/slopctl.md), keeping `slopctl task wait ID` for task
 completion. Remove this plan after implementation and review.

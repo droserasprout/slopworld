@@ -1,7 +1,6 @@
 using System;
 using Google.Protobuf;
 using System.Collections.Generic;
-using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
@@ -9,7 +8,7 @@ using System.Runtime.InteropServices;
 
 namespace SlopWorld.Tests
 {
-    // Uses the same linked production helpers as the tests. Reference cases model the old
+    // Uses the same linked production helpers as the tests. Reference cases model simple
     // traversal/allocation patterns; neither path includes Unity drawing or event dispatch.
     static class Benchmarks
     {
@@ -32,7 +31,7 @@ namespace SlopWorld.Tests
             Console.WriteLine("Release build; tiered compilation disabled by Make.");
 #endif
             Console.WriteLine("50 warmed batch samples; p50/p95 are microseconds per operation.");
-            Console.WriteLine("B/op counts managed allocations on this thread. References model old algorithms, not old builds.");
+            Console.WriteLine("B/op counts managed allocations on this thread. References model simple baseline algorithms.");
             Console.WriteLine($"{"case",-48} {"p50 us",10} {"p95 us",10} {"B/op",12}");
             foreach (int count in new[] { 100, 10000, 100000 }) Viewports(count);
             Projects();
@@ -50,12 +49,10 @@ namespace SlopWorld.Tests
         static void ScreenIngestion()
         {
             var lines = Enumerable.Repeat(new string('x', 160), 200).ToArray();
-            string json = "{\"seq\":1,\"rows\":200,\"cols\":160,\"cy\":199,\"lines\":[" +
-                string.Join(",", lines.Select(JVal.Q)) + "]}";
-            var payload = ProtobufFixtures.Read<Wire.ScreenView>(JVal.Parse(json));
+            var payload = new Wire.ScreenView { Seq = 1, Rows = 200, Cols = 160, Cy = 199 };
+            foreach (string line in lines) payload.Lines.Add(line);
             var screen = new ScreenBuf();
             screen.FromWire(payload);
-            Measure("screen JSON parse 200x160", () => JVal.Parse(json)["lines"].Count);
             Measure("screen unchanged 200 repeated rows", () =>
             {
                 screen.Seq = 0;
@@ -82,11 +79,15 @@ namespace SlopWorld.Tests
                     var lines = Enumerable.Range(0, rows)
                         .Select(i => "\x1b[31mrow " + i + "\x1b[0m " + new string('x', 80)).ToArray();
                     if (link) lines[0] = "https://example.com/static-link";
-                    Func<string, JVal> payload = tail => JVal.Parse(
-                        "{\"rows\":" + rows + ",\"cols\":120,\"lines\":[" +
-                        string.Join(",", lines.Take(rows - 1).Concat(new[] { tail }).Select(JVal.Q)) + "]}");
-                    var a = ProtobufFixtures.Read<Wire.ScreenView>(payload("progress A"));
-                    var b = ProtobufFixtures.Read<Wire.ScreenView>(payload("progress B"));
+                    Func<string, Wire.ScreenView> payload = tail =>
+                    {
+                        var value = new Wire.ScreenView { Rows = (uint)rows, Cols = 120 };
+                        foreach (string line in lines.Take(rows - 1)) value.Lines.Add(line);
+                        value.Lines.Add(tail);
+                        return value;
+                    };
+                    var a = payload("progress A");
+                    var b = payload("progress B");
                     var screen = new ScreenBuf();
                     var cache = new TerminalRunCache();
                     bool flip = false;
@@ -101,12 +102,12 @@ namespace SlopWorld.Tests
                 }
             }
 
-            string json = "{\"t\":\"screen\",\"screen\":{\"name\":\"bench\",\"lines\":[" +
-                string.Join(",", Enumerable.Repeat(JVal.Q(new string('x', 160)), 200)) + "]}}";
+            var frame = new Wire.Event { Screen = new Wire.ScreenView { Name = "bench", Rows = 200, Cols = 160 } };
+            for (int i = 0; i < 200; i++) frame.Screen.Lines.Add(new string('x', 160));
             var incoming = new IncomingMessageQueue();
             var batch = new HubEventBatch();
             Action<Exception> onError = error => throw error;
-            var binary = ProtobufFixtures.Event(json);
+            var binary = frame.ToByteArray();
             foreach (int count in new[] { 1, 8, 32 })
                 Measure($"screen batch {count} frames / one session", () =>
                 {
@@ -132,21 +133,10 @@ namespace SlopWorld.Tests
 
         static void IdleWork()
         {
-            var incoming = new ConcurrentQueue<string>();
             var binaryIncoming = new IncomingMessageQueue();
             var batch = new HubEventBatch();
             Action<Exception> onError = _ => { };
-            Compare("idle socket batch", () =>
-            {
-                var events = new List<JVal>(32);
-                while (events.Count < 32 && incoming.TryDequeue(out var text))
-                    events.Add(JVal.Parse(text));
-                var latest = new Dictionary<string, int>(StringComparer.Ordinal);
-                // The empty-frame reference is the old allocation pattern, with no messages to dispatch.
-                GC.KeepAlive(events);
-                GC.KeepAlive(latest);
-                return events.Count;
-            }, () => batch.Read(binaryIncoming, onError));
+            Measure("idle socket batch", () => batch.Read(binaryIncoming, onError));
 
             var titles = new SidebarTitleCache();
             var info = new SessionInfo { Title = "agent: compiling a project and checking its tests" };

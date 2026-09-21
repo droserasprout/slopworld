@@ -42,6 +42,6 @@ loop overhead, and allocation counts cover the current thread. These .NET 8 help
 not predict Unity/Mono frame time or texture performance. Benchmarks have no timing thresholds
 and do not run during `make test`; `make bench` runs both language suites.
 
-Legacy JSON fixtures live only in test/benchmark support. Production socket tests exercise
+JSON fixtures live only in test support. Production socket tests exercise
 binary fragmentation, ping/pong and masked writes without the game. `make bench-ipc` adds
 Mono measurements and C#/Rust binary fixture roundtrips.

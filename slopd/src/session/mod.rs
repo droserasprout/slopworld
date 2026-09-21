@@ -1055,7 +1055,7 @@ pattern = '(?i)(esc to interrupt|to interrupt\))'
     }
 
     #[test]
-    fn check_project_rejects_unsafe_guest_aliases() {
+    fn check_project_rejects_unsafe_names() {
         for name in ["../escape", "one/two", "/tmp/escape", ".", "..", r"one\two"] {
             let error = check_project(&ProjectCfg {
                 name: name.into(),
