@@ -18,6 +18,8 @@ mod sandbox;
 mod session;
 mod shared;
 mod tasks;
+#[cfg(test)]
+mod test_support;
 mod title;
 mod tmux;
 mod usage;
