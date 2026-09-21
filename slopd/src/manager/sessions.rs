@@ -1211,4 +1211,252 @@ mod tests {
         assert!(!live.process_running);
         assert!(!update_host_process(&mut live, "/bin/bash"));
     }
+
+    async fn metadata_fixture() -> Arc<Manager> {
+        let manager = crate::session::test_manager(Config::default());
+        let dir = manager
+            .cfg_path
+            .parent()
+            .unwrap()
+            .to_string_lossy()
+            .into_owned();
+        manager
+            .update_cfg(|cfg| {
+                cfg.projects.push(ProjectCfg {
+                    name: "repo".into(),
+                    dir,
+                    ..Default::default()
+                });
+                cfg.sessions.push(SessionCfg {
+                    name: "agent".into(),
+                    project: "repo".into(),
+                    ..Default::default()
+                });
+                Ok(())
+            })
+            .await
+            .unwrap();
+        manager
+            .remember_host_terminal("shell", "repo", "/old")
+            .await
+            .unwrap();
+        for (name, host) in [("shell", true), ("agent", false)] {
+            let mut live = Live::new(
+                SessionCfg {
+                    name: name.into(),
+                    project: "repo".into(),
+                    ..Default::default()
+                },
+                TitleCapture::default(),
+            );
+            live.host = host;
+            live.host_path = "/old".into();
+            live.state = State::Idle;
+            live.run_id = 17;
+            manager.live.write().await.insert(name.into(), live);
+        }
+        manager
+    }
+
+    #[tokio::test]
+    async fn host_metadata_ignores_stale_runs_down_sessions_and_agents() {
+        let manager = metadata_fixture().await;
+        assert_eq!(
+            manager.host_metadata_targets().await,
+            vec![("shell".into(), 17)]
+        );
+        for (name, run, path) in [
+            ("shell", 16, "/stale"),
+            ("agent", 17, "/agent"),
+            ("missing", 17, "/missing"),
+            ("shell", 17, "  "),
+        ] {
+            assert!(!manager.remember_host_path_for_run(name, run, path).await);
+        }
+        manager.live.write().await.get_mut("shell").unwrap().state = State::Down;
+        assert!(manager.host_metadata_targets().await.is_empty());
+        assert!(
+            !manager
+                .remember_host_path_for_run("shell", 17, "/down")
+                .await
+        );
+        assert_eq!(manager.live.read().await["shell"].host_path, "/old");
+        assert_eq!(manager.config().await.host_terminals[0].path, "/old");
+        std::fs::remove_dir_all(manager.cfg_path.parent().unwrap()).unwrap();
+    }
+
+    #[tokio::test]
+    async fn current_host_metadata_persists_path_and_updates_foreground_process() {
+        let manager = metadata_fixture().await;
+        let metadata = |path: &str, command: &str| {
+            [(
+                "shell".into(),
+                crate::tmux::HostMetadata {
+                    path: Some(path.into()),
+                    command: Some(command.into()),
+                },
+            )]
+            .into_iter()
+            .collect()
+        };
+        manager
+            .apply_host_metadata(vec![("shell".into(), 16)], metadata("/stale", "python"))
+            .await;
+        assert!(!manager.live.read().await["shell"].process_running);
+        manager
+            .apply_host_metadata(
+                vec![("shell".into(), 17), ("missing".into(), 17)],
+                metadata("/current", "python"),
+            )
+            .await;
+        assert_eq!(manager.live.read().await["shell"].host_path, "/current");
+        assert!(manager.live.read().await["shell"].process_running);
+        let saved: Config =
+            toml::from_str(&std::fs::read_to_string(&manager.cfg_path).unwrap()).unwrap();
+        assert_eq!(saved.host_terminals[0].path, "/current");
+        assert!(
+            !manager
+                .remember_host_path_for_run("shell", 17, "/current")
+                .await
+        );
+        manager
+            .apply_host_metadata(
+                vec![("shell".into(), 17)],
+                metadata("/current", "/bin/bash"),
+            )
+            .await;
+        assert!(!manager.live.read().await["shell"].process_running);
+        std::fs::remove_dir_all(manager.cfg_path.parent().unwrap()).unwrap();
+    }
+
+    #[tokio::test]
+    async fn remembered_host_edits_preserve_labels_and_reject_agent_collisions() {
+        let manager = metadata_fixture().await;
+        manager
+            .set_label("shell", "  My shell  ".into())
+            .await
+            .unwrap();
+        manager
+            .remember_host_terminal("shell", "repo", "/new")
+            .await
+            .unwrap();
+        let cfg = manager.config().await;
+        assert_eq!(cfg.host_terminals.len(), 1);
+        assert_eq!(cfg.host_terminals[0].label.as_deref(), Some("My shell"));
+        assert_eq!(cfg.host_terminals[0].path, "/new");
+        assert!(cfg.host_terminals[0].autostart);
+        assert!(manager
+            .remember_host_terminal("agent", "repo", "/collision")
+            .await
+            .unwrap_err()
+            .to_string()
+            .contains("conflicts"));
+        assert_eq!(manager.config().await.host_terminals.len(), 1);
+        std::fs::remove_dir_all(manager.cfg_path.parent().unwrap()).unwrap();
+    }
+
+    #[tokio::test]
+    async fn manual_labels_count_unicode_characters_clear_and_invalidate_pending_titles() {
+        let manager = metadata_fixture().await;
+        for name in ["agent", "shell"] {
+            let generation = {
+                let mut live = manager.live.write().await;
+                let row = live.get_mut(name).unwrap();
+                row.title.pending = true;
+                row.title.override_title = Some("old automatic title".into());
+                row.title.generation
+            };
+            let label = "界".repeat(MAX_MANUAL_LABEL_CHARS);
+            manager
+                .set_label(name, format!("  {label}  "))
+                .await
+                .unwrap();
+            {
+                let live = manager.live.read().await;
+                assert_eq!(live[name].cfg.label.as_deref(), Some(label.as_str()));
+                assert_eq!(live[name].title.generation, generation.wrapping_add(1));
+                assert!(!live[name].title.pending);
+                if name == "shell" {
+                    assert!(live[name].title.override_title.is_none());
+                }
+            }
+            assert!(manager
+                .set_label(name, "界".repeat(MAX_MANUAL_LABEL_CHARS + 1))
+                .await
+                .is_err());
+            assert_eq!(
+                manager.live.read().await[name].cfg.label.as_deref(),
+                Some(label.as_str())
+            );
+            manager.set_label(name, "  ".into()).await.unwrap();
+            assert!(manager.live.read().await[name].cfg.label.is_none());
+        }
+        let saved: Config =
+            toml::from_str(&std::fs::read_to_string(&manager.cfg_path).unwrap()).unwrap();
+        assert!(saved.sessions[0].label.is_none());
+        assert!(saved.host_terminals[0].label.is_none());
+        assert!(manager
+            .set_label("missing", "label".into())
+            .await
+            .unwrap_err()
+            .to_string()
+            .contains("no such session"));
+        std::fs::remove_dir_all(manager.cfg_path.parent().unwrap()).unwrap();
+    }
+
+    #[tokio::test]
+    async fn ephemeral_labels_stay_runtime_only() {
+        let manager = metadata_fixture().await;
+        let before = std::fs::read(&manager.cfg_path).unwrap();
+        let mut live = Live::new(
+            SessionCfg {
+                name: "worker".into(),
+                project: "repo".into(),
+                ..Default::default()
+            },
+            TitleCapture::default(),
+        );
+        live.ephemeral = true;
+        manager.live.write().await.insert("worker".into(), live);
+        manager
+            .set_label("worker", "Temporary worker".into())
+            .await
+            .unwrap();
+        assert_eq!(
+            manager.live.read().await["worker"].cfg.label.as_deref(),
+            Some("Temporary worker")
+        );
+        assert!(manager.config().await.session("worker").is_none());
+        assert_eq!(std::fs::read(&manager.cfg_path).unwrap(), before);
+        std::fs::remove_dir_all(manager.cfg_path.parent().unwrap()).unwrap();
+    }
+
+    #[tokio::test]
+    async fn failed_label_persistence_keeps_live_and_config_labels_unchanged() {
+        let manager = metadata_fixture().await;
+        manager.set_label("agent", "Original".into()).await.unwrap();
+        let generation = manager.live.read().await["agent"].title.generation;
+        std::fs::remove_file(&manager.cfg_path).unwrap();
+        std::fs::create_dir(&manager.cfg_path).unwrap();
+        assert!(manager.set_label("agent", "Unsaved".into()).await.is_err());
+        assert_eq!(
+            manager.live.read().await["agent"].cfg.label.as_deref(),
+            Some("Original")
+        );
+        assert_eq!(
+            manager.live.read().await["agent"].title.generation,
+            generation
+        );
+        assert_eq!(
+            manager
+                .config()
+                .await
+                .session("agent")
+                .unwrap()
+                .label
+                .as_deref(),
+            Some("Original")
+        );
+        std::fs::remove_dir_all(manager.cfg_path.parent().unwrap()).unwrap();
+    }
 }

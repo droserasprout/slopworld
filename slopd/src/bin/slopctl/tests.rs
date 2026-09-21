@@ -901,3 +901,86 @@ fn command_dispatch_propagates_daemon_rejection() {
     assert_eq!(body["to"], "other");
     assert_eq!(body["body"], "do work");
 }
+
+#[test]
+fn construction_commands_report_missing_values_and_unknown_options() {
+    for (input, message) in [
+        ("worker spawn --project", "--project needs a value"),
+        (
+            "worker spawn --project repo --template",
+            "--template needs a value",
+        ),
+        ("worker spawn --project repo work", "requires --template"),
+        (
+            "worker spawn --project repo --template coder",
+            "needs a task body",
+        ),
+        ("agent create", "needs a name"),
+        ("agent create worker --project", "--project needs a value"),
+        ("agent create worker --template", "--template needs a value"),
+        ("agent create worker --template coder", "needs --project"),
+        ("agent create worker --project repo", "needs --template"),
+        (
+            "agent create worker --unknown",
+            "unknown agent create option",
+        ),
+        ("agent delete worker", "needs the create subcommand"),
+        ("template show", "needs a template name"),
+        ("template show coder --project", "--project needs a value"),
+        ("template list --project", "--project needs a value"),
+        ("template show coder --unknown", "unexpected argument"),
+        (
+            "template list --project repo extra",
+            "unexpected argument: extra",
+        ),
+        ("template delete coder", "needs the list or show subcommand"),
+        ("sandbox inspect", "needs a session name"),
+        ("sandbox inspect agent extra", "unexpected argument: extra"),
+        ("sandbox delete agent", "needs the inspect subcommand"),
+    ] {
+        let error = parse_command_with_task_id(&words(input), None).unwrap_err();
+        assert!(error.contains(message), "{input}: {error}");
+    }
+}
+
+#[test]
+fn agent_create_preserves_names_and_defaults_to_stopped() {
+    assert_eq!(
+        parse_command(&[
+            "agent".into(),
+            "create".into(),
+            "review worker".into(),
+            "--template".into(),
+            "team/café".into(),
+            "--project".into(),
+            "my repo".into(),
+        ]),
+        Ok(Command::AgentCreate {
+            name: "review worker".into(),
+            project: "my repo".into(),
+            template: "team/café".into(),
+            start: false,
+        })
+    );
+}
+
+#[test]
+fn agent_creation_encodes_template_path_and_preserves_body_fields() {
+    let (endpoint, server) = serve("200 OK", r#"{"session":"review worker"}"#);
+    let result = run_agent_create(
+        &endpoint,
+        "host",
+        true,
+        "review worker",
+        "my repo",
+        "team/café?x#y",
+        false,
+    );
+    let request = server.join().unwrap();
+    result.unwrap();
+    assert!(request.starts_with("POST /api/templates/team%2Fcaf%C3%A9%3Fx%23y/create HTTP/1.1\r\n"));
+    let body: Value = serde_json::from_str(request.split_once("\r\n\r\n").unwrap().1).unwrap();
+    assert_eq!(body["name"], "review worker");
+    assert_eq!(body["project"], "my repo");
+    assert_eq!(body["start"], false);
+}
