@@ -3,6 +3,14 @@
 Use `make` (`gmake` on macOS); its default target lists commands. The
 [build guide](../docs/src/build.md) owns toolchains, tests, coverage and installation.
 
+Make owns target dependencies and exports settings from `make/config.mk` to the
+maintenance scripts in `tools/`. Keep multi-step shell logic there.
+
+The mod SDK project owns compiler settings, references and assembly metadata. Make
+passes the configuration, game assembly path and daemon version. NuGet restores
+locked .NET Framework reference assemblies; Mono is only needed for IPC benchmarks.
+Game references must keep `Private=false`: RimWorld loads every DLL in `Assemblies/`.
+
 The mod links against a real RimWorld install. Debug and release overwrite the same
 `mod/Assemblies/SlopWorld.dll`; `lint-mod` rebuilds Release. Do not infer the installed
 assembly's build mode from its path.
@@ -19,5 +27,5 @@ CLI installed by `make install-daemon`. Existing agents retain their launch envi
 The installer compares both the running binary and installed unit before skipping restart.
 
 `make bench-report` records three-run averages including Mono/.NET/Rust IPC metrics and keeps
-raw runs ignored locally; only the current processed report is committed; `make loc-report` creates an on-demand
+raw runs ignored locally; only the current processed report is committed; `python3 tools/loc-report.py` creates an on-demand
 count snapshot. Keep reports only when they support a concrete comparison.

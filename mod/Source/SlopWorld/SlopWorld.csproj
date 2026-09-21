@@ -6,59 +6,64 @@
     <RootNamespace>SlopWorld</RootNamespace>
     <LangVersion>latest</LangVersion>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
-    <OutputPath>..\..\Assemblies\</OutputPath>
+    <OutputPath>../../Assemblies/</OutputPath>
     <EnableDefaultCompileItems>true</EnableDefaultCompileItems>
     <DebugType>none</DebugType>
-    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+    <AssemblyVersion>0.0.0.0</AssemblyVersion>
+    <FileVersion>0.0.0.0</FileVersion>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+    <GenerateDependencyFile>false</GenerateDependencyFile>
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
     <!-- Nothing here should ever be copied next to the mod: RimWorld loads every
          DLL in Assemblies/, and a stray copy of a game assembly breaks the game. -->
     <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(RimWorldManaged)' == ''">
-    <RimWorldManaged>$(HOME)\.rimworld\drive_c\GOG Games\RimWorld\RimWorldWin64_Data\Managed</RimWorldManaged>
+    <RimWorldManaged>$(HOME)/GOG Games/RimWorld/game/RimWorldLinux_Data/Managed</RimWorldManaged>
   </PropertyGroup>
 
   <ItemGroup>
     <Reference Include="0Harmony">
-      <HintPath>..\..\Assemblies\0Harmony.dll</HintPath>
+      <HintPath>../../Assemblies/0Harmony.dll</HintPath>
       <Private>false</Private>
     </Reference>
     <Reference Include="Markdig">
-      <HintPath>..\..\Assemblies\Markdig.dll</HintPath>
+      <HintPath>../../Assemblies/Markdig.dll</HintPath>
       <Private>false</Private>
     </Reference>
     <Reference Include="Newtonsoft.Json">
-      <HintPath>..\..\Assemblies\Newtonsoft.Json.dll</HintPath>
+      <HintPath>../../Assemblies/Newtonsoft.Json.dll</HintPath>
       <Private>false</Private>
     </Reference>
     <Reference Include="Tomlyn">
-      <HintPath>..\..\Assemblies\Tomlyn.dll</HintPath>
+      <HintPath>../../Assemblies/Tomlyn.dll</HintPath>
       <Private>false</Private>
     </Reference>
     <Reference Include="Assembly-CSharp">
-      <HintPath>$(RimWorldManaged)\Assembly-CSharp.dll</HintPath>
+      <HintPath>$(RimWorldManaged)/Assembly-CSharp.dll</HintPath>
       <Private>false</Private>
     </Reference>
     <Reference Include="UnityEngine.CoreModule">
-      <HintPath>$(RimWorldManaged)\UnityEngine.CoreModule.dll</HintPath>
+      <HintPath>$(RimWorldManaged)/UnityEngine.CoreModule.dll</HintPath>
       <Private>false</Private>
     </Reference>
     <Reference Include="UnityEngine.IMGUIModule">
-      <HintPath>$(RimWorldManaged)\UnityEngine.IMGUIModule.dll</HintPath>
+      <HintPath>$(RimWorldManaged)/UnityEngine.IMGUIModule.dll</HintPath>
       <Private>false</Private>
     </Reference>
     <Reference Include="UnityEngine.TextRenderingModule">
-      <HintPath>$(RimWorldManaged)\UnityEngine.TextRenderingModule.dll</HintPath>
+      <HintPath>$(RimWorldManaged)/UnityEngine.TextRenderingModule.dll</HintPath>
       <Private>false</Private>
     </Reference>
     <Reference Include="UnityEngine.InputLegacyModule">
-      <HintPath>$(RimWorldManaged)\UnityEngine.InputLegacyModule.dll</HintPath>
+      <HintPath>$(RimWorldManaged)/UnityEngine.InputLegacyModule.dll</HintPath>
       <Private>false</Private>
     </Reference>
     <!-- EncodeToPNG/LoadImage, which is how the baked backgrounds reach the cache. -->
     <Reference Include="UnityEngine.ImageConversionModule">
-      <HintPath>$(RimWorldManaged)\UnityEngine.ImageConversionModule.dll</HintPath>
+      <HintPath>$(RimWorldManaged)/UnityEngine.ImageConversionModule.dll</HintPath>
       <Private>false</Private>
     </Reference>
     <Reference Include="System" />
@@ -66,10 +71,14 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Reference Include="Google.Protobuf"><HintPath>../../Assemblies/Google.Protobuf.dll</HintPath><Private>true</Private></Reference>
-    <Reference Include="System.Memory"><HintPath>../../Assemblies/System.Memory.dll</HintPath><Private>true</Private></Reference>
-    <Reference Include="System.Buffers"><HintPath>../../Assemblies/System.Buffers.dll</HintPath><Private>true</Private></Reference>
-    <Reference Include="System.Numerics.Vectors"><HintPath>../../Assemblies/System.Numerics.Vectors.dll</HintPath><Private>true</Private></Reference>
-    <Reference Include="System.Runtime.CompilerServices.Unsafe"><HintPath>../../Assemblies/System.Runtime.CompilerServices.Unsafe.dll</HintPath><Private>true</Private></Reference>
+    <Reference Include="Google.Protobuf"><HintPath>../../Assemblies/Google.Protobuf.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="System.Memory"><HintPath>../../Assemblies/System.Memory.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="System.Buffers"><HintPath>../../Assemblies/System.Buffers.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="System.Numerics.Vectors"><HintPath>../../Assemblies/System.Numerics.Vectors.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="System.Runtime.CompilerServices.Unsafe"><HintPath>../../Assemblies/System.Runtime.CompilerServices.Unsafe.dll</HintPath><Private>false</Private></Reference>
   </ItemGroup>
+  <Target Name="CheckRimWorldReferences" BeforeTargets="ResolveReferences">
+    <Error Condition="!Exists('$(RimWorldManaged)/Assembly-CSharp.dll')"
+           Text="Missing RimWorld assemblies under $(RimWorldManaged); set RIMWORLD or MANAGED when using Make, or RimWorldManaged when using dotnet build." />
+  </Target>
 </Project>

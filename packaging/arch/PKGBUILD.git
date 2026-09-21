@@ -14,7 +14,7 @@ url="https://github.com/droserasprout/slopworld"
 license=('custom')
 depends=('alsa-lib' 'bash' 'bubblewrap' 'git' 'glib2' 'highlight' 'less' 'micro'
   'passt' 'procps-ng' 'ripgrep' 'systemd' 'tmux')
-makedepends=('cargo' 'git' 'mono' 'lld')
+makedepends=('cargo' 'git' 'dotnet-sdk' 'lld')
 optdepends=(
   'wl-clipboard: clipboard and PRIMARY selection under Wayland'
   'xclip: clipboard and PRIMARY selection under X11'

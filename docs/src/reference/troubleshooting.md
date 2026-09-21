@@ -96,11 +96,6 @@ apply behavior.
 Saves and configuration created with removed defs are not migrated. Start a new planet
 if the mod's defs have changed since the save was created.
 
-## `dotnet format` fails but `make mod` works
-
-`format-mod` requires the .NET SDK. The mod compiler uses Mono `csc` directly, so
-`make mod` works without the SDK. `lint-mod` also verifies formatting and requires the SDK.
-
 ## Known limitations
 
 ### No seccomp or disk quota {#no-seccomp}

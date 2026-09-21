@@ -42,7 +42,7 @@ def write_note(
         "",
         f"- Generated: {generated.isoformat(timespec='seconds')}",
         f"- Commit: `{revision}`",
-        "- Command: `make loc-report`",
+        "- Command: `python3 tools/loc-report.py`",
         "",
         "Counts cover tracked Python, C#, and Rust files. Build output, ignored files, and "
         "Markdown are excluded. A line containing both code and a trailing comment is counted "

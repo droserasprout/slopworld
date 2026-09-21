@@ -17,7 +17,7 @@ Tested with GOG; Steam should work the same way.
 ## macOS
 
 - **macOS** with a native RimWorld 1.6 app.
-- **Homebrew**. The setup command installs GNU Make, Mono, and Docker Desktop.
+- **Homebrew**. The setup command installs GNU Make, the .NET SDK, and Docker Desktop.
 
 See [macOS](guides/macos.md) for the installation steps.
 

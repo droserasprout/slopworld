@@ -1,5 +1,5 @@
-.PHONY: daemon mod validate-themes bench-daemon bench-report loc-report test-wire-contract test-daemon test-mod coverage coverage-daemon coverage-mod test-prose \
-	appicon icons emoji-atlas reference api-contract api-docs scheme-report harmony clean
+.PHONY: daemon mod validate-themes bench-daemon bench-report test-wire-contract test-daemon test-mod coverage coverage-daemon coverage-mod test-prose \
+	reference api-contract api-docs clean
 
 ##
 
@@ -12,9 +12,6 @@ bench-daemon: api-contract ## Run the game-free daemon performance benchmark
 bench-report: BUILD := release
 bench-report:        ## Run the full performance suite three times and write an averaged note
 	@$(PYTHON) tools/bench-report.py --build "$(BUILD)"
-
-loc-report:          ## Measure Python, C#, and Rust lines and write a dated note
-	@$(PYTHON) tools/loc-report.py $(LOC_REPORT_ARGS)
 
 .PHONY: bench-mod
 bench-mod: api-contract ## Benchmark C# helpers without RimWorld or Unity
@@ -31,19 +28,11 @@ test-themes: validate-themes ## Test theme catalog build validation
 	@$(PYTHON) tools/test_validate_themes.py
 
 mod: daemon validate-themes protobuf-deps        ## Build the mod against the game's assemblies
-	@test -f "$(CSC_API)/mscorlib.dll" || { echo "missing Mono reference assemblies under $(CSC_API)" >&2; exit 1; }
-	@test -f "$(MANAGED)/Assembly-CSharp.dll" || { echo "missing RimWorld assemblies under $(MANAGED)" >&2; exit 1; }
 	@version="$(VERSION)"; \
-	if test -z "$$version"; then version="$$($(RUNNER) --version)"; fi; \
-	mkdir -p "$(dir $(MOD_ASSEMBLY_INFO))"; \
-	{ \
-		printf '%s\n' \
-			'using System.Reflection;' \
-			"[assembly: AssemblyInformationalVersion(\"$$version\")]"; \
-	} > "$(MOD_ASSEMBLY_INFO)"
-	@$(CSC) -nologo -noconfig -target:library -langversion:latest \
-		-out:"$(MOD_DLL)" $(CSC_OPTIMIZE) $(CSC_WARNINGS) \
-		$(CSC_REFS) "$(MOD_ASSEMBLY_INFO)" $(CSC_SOURCES)
+	if test -z "$$version"; then version="$$("$(RUNNER)" --version)" || exit; fi; \
+	$(DOTNET) build "$(MOD_PROJECT)" --configuration $(if $(filter release,$(BUILD)),Release,Debug) \
+		-p:RimWorldManaged="$(if $(filter /%,$(MANAGED)),$(MANAGED),$(CURDIR)/$(MANAGED))" -p:InformationalVersion="$$version" \
+		-p:TreatWarningsAsErrors=$(MOD_WARNINGS_AS_ERRORS) -p:RestoreLockedMode=true
 
 test-daemon: api-contract test-wire-contract
 	@cd slopd && $(CARGO) test --quiet
@@ -57,45 +46,18 @@ test-pager:       ## Test pager geometry with isolated tmux and less (no game)
 
 coverage: coverage-daemon coverage-mod ## Measure Rust and game-free C# test coverage
 
-.PHONY: cov cov-daemon cov-client coverage-client
-cov: coverage ## Run both coverage suites and print their reports
-cov-daemon: coverage-daemon ## Report Rust daemon coverage
-cov-client: coverage-mod ## Report game-free C# client coverage
-coverage-client: coverage-mod ## Alias for coverage-mod
-
 coverage-daemon: ## Measure Rust coverage and write coverage/rust.cobertura.xml
-	@command -v cargo-llvm-cov >/dev/null || { echo "missing cargo-llvm-cov; install it with: cargo install cargo-llvm-cov --locked" >&2; exit 1; }
-	@command -v llvm-cov >/dev/null && command -v llvm-profdata >/dev/null || { echo "missing LLVM coverage tools" >&2; exit 1; }
-	@mkdir -p "$(COVERAGE_DIR)"
-	@cd slopd && LLVM_COV="$$(command -v llvm-cov)" LLVM_PROFDATA="$$(command -v llvm-profdata)" \
-		$(CARGO) llvm-cov --cobertura --output-path "../$(COVERAGE_DIR)/rust.cobertura.xml"
-	@$(PYTHON) tools/coverage_summary.py "$(COVERAGE_DIR)/rust.cobertura.xml" Rust
+	@bash tools/coverage.sh daemon
 
 coverage-mod: ## Measure game-free C# coverage and write coverage/csharp.cobertura.xml
-	@$(DOTNET) tool restore
-	@mkdir -p "$(COVERAGE_DIR)"
-	@$(DOTNET) build "$(TEST_PROJECT)" --configuration Release -p:Coverage=true
-	@$(DOTNET) tool run coverlet -- "$(TEST_DLL)" \
-		--target dotnet --targetargs "$(TEST_DLL) --quiet" \
-		--include-test-assembly --exclude-by-file '**/mod/Tests/**/*.cs' \
-		--format cobertura --output "$(COVERAGE_DIR)/csharp.cobertura.xml"
-	@$(PYTHON) tools/coverage_summary.py "$(COVERAGE_DIR)/csharp.cobertura.xml" C\#
+	@bash tools/coverage.sh mod
 
 test-prose:        ## Test the prose linter
 	@$(PYTHON) tools/test_prose_lint.py --quiet
 
-appicon:           ## Regenerate the app icon (robot face + wilted rose)
-	@$(PYTHON) tools/appicon.py
-
-icons:             ## Rebake the action icons from a Nerd Font's Codicons
-	@$(PYTHON) tools/icons.py
-
 .PHONY: test-text-sprites
 test-text-sprites: ## Test generated text sprite metadata without fonts or images
 	@$(PYTHON) tools/test_text_sprites.py
-
-emoji-atlas:       ## Rebake the shared text sprite atlas with Pango
-	@$(PYTHON) tools/emoji_atlas.py $(EMOJI_ATLAS_ARGS)
 
 reference:         ## Generate the environment/API/CLI reference
 	@$(PYTHON) tools/reference.py
@@ -109,12 +71,6 @@ api-contract: shared/protocol.yaml shared/slopworld.proto tools/wire_contract.py
 api-docs: api-contract ## Generate the mdBook API route inventory
 	@$(PYTHON) tools/api_docs.py
 
-scheme-report:     ## Analyze the complete UI schemes and check Warm's luminance hierarchy
-	@$(PYTHON) tools/analyze_ui_schemes.py --check-warm
-
-harmony:           ## Fetch the latest Harmony release into the mod
-	@tools/fetch-harmony.sh
-
 clean:             ## Drop build output
 	@cd slopd && $(CARGO) clean
 	@rm -f "$(MOD_DLL)"
@@ -127,9 +83,4 @@ protobuf-deps: ## Restore Protobuf runtime for Unity Mono
 
 .PHONY: bench-ipc
 bench-ipc: protobuf-deps api-contract ## Measure production Protobuf IPC without the game
-	@$(DOTNET) build bench/ipc/csharp/IpcBench.csproj --configuration $(if $(filter release,$(BUILD)),Release,Debug) --verbosity quiet -p:RestoreLockedMode=true
-	@mkdir -p bench/ipc/results
-	@mono bench/ipc/csharp/bin/$(if $(filter release,$(BUILD)),Release,Debug)/net472/IpcBench.exe bench/ipc/fixtures > bench/ipc/results/mono.csv
-	@DOTNET_TieredCompilation=0 $(DOTNET) bench/ipc/csharp/bin/$(if $(filter release,$(BUILD)),Release,Debug)/net8.0/IpcBench.dll > bench/ipc/results/net8.csv
-	@cd bench/ipc/rust && $(CARGO) run --quiet $(CARGOFLAGS) -- ../fixtures > ../results/rust.csv
-	@mono bench/ipc/csharp/bin/$(if $(filter release,$(BUILD)),Release,Debug)/net472/IpcBench.exe --verify bench/ipc/fixtures
+	@bash tools/bench-ipc.sh

@@ -49,9 +49,6 @@ MAC_RESOURCES   ?= $(MAC_RIMWORLD)/Contents/Resources
 MAC_MANAGED     ?= $(MAC_RESOURCES)/Data/Managed
 MAC_MODS        ?= $(MAC_RIMWORLD)/Mods
 MAC_PROFILE     ?= $(HOME)/Library/Application Support/SlopWorld/sidecar-profile
-MAC_CSC         ?= csc
-MAC_MONO_PREFIX := $(shell command -v brew >/dev/null 2>&1 && brew --prefix mono 2>/dev/null)
-MAC_CSC_API     ?= $(if $(MAC_MONO_PREFIX),$(MAC_MONO_PREFIX)/lib/mono/4.7.2-api,$(CSC_API))
 MAC_GAME_ARGS   ?=
 
 # Which half of the split every build, install and run target follows.
@@ -69,34 +66,14 @@ SLOPCTL     = $(TARGET)/slopctl
 CARGO       ?= cargo
 DOTNET      ?= dotnet
 PYTHON      ?= python3
-CSC         ?= csc
-CSC_API     ?= /usr/lib/mono/4.7.2-api
-CSC_SOURCES = $(shell find mod/Source/SlopWorld -type f -name '*.cs' -not -path '*/obj/*' -print | sort)
-CSC_REFS    = \
-	-r:"$(CSC_API)/mscorlib.dll" \
-	-r:"$(CSC_API)/Facades/netstandard.dll" \
-	-r:"$(CSC_API)/System.dll" \
-	-r:"$(CSC_API)/System.Core.dll" \
-	-r:"$(CSC_API)/System.Xml.dll" \
-	-r:mod/Assemblies/0Harmony.dll \
-	-r:mod/Assemblies/Markdig.dll \
-	-r:mod/Assemblies/Newtonsoft.Json.dll \
-	-r:mod/Assemblies/Google.Protobuf.dll \
-	-r:mod/Assemblies/System.Memory.dll \
-	-r:mod/Assemblies/System.Buffers.dll \
-	-r:mod/Assemblies/System.Numerics.Vectors.dll \
-	-r:mod/Assemblies/System.Runtime.CompilerServices.Unsafe.dll \
-	-r:mod/Assemblies/Tomlyn.dll \
-	-r:"$(MANAGED)/Assembly-CSharp.dll" \
-	-r:"$(MANAGED)/UnityEngine.CoreModule.dll" \
-	-r:"$(MANAGED)/UnityEngine.IMGUIModule.dll" \
-	-r:"$(MANAGED)/UnityEngine.TextRenderingModule.dll" \
-	-r:"$(MANAGED)/UnityEngine.InputLegacyModule.dll" \
-	-r:"$(MANAGED)/UnityEngine.ImageConversionModule.dll"
-CSC_OPTIMIZE = $(if $(filter release,$(BUILD)),-optimize+,)
-CSC_WARNINGS ?=
+MOD_PROJECT  := mod/Source/SlopWorld/SlopWorld.csproj
+MOD_WARNINGS_AS_ERRORS ?= false
 MOD_DLL      := mod/Assemblies/SlopWorld.dll
-MOD_ASSEMBLY_INFO := mod/Source/SlopWorld/obj/AssemblyInfo.cs
 TEST_PROJECT := mod/Tests/SlopWorld.Tests.csproj
 TEST_DLL     := mod/Tests/bin/Release/net8.0/SlopWorld.Tests.dll
 COVERAGE_DIR := coverage
+
+# Settings passed to maintenance scripts.
+export BUILD CARGO CARGOFLAGS COVERAGE_DIR DOTNET PYTHON
+export GOGDL GOGDL_AUTH GOGDL_ID GOGDL_LOGIN_URL GOGDL_PATH RIMWORLD
+export MAC_GAME MAC_MANAGED MAC_MODS TEST_PROJECT TEST_DLL

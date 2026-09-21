@@ -9,7 +9,7 @@ loaded through `UI/Chrome/Icons.cs`. The slot names are semantic (`Icons.Agents`
 `tools/icons/manifest.toml` maps slots to glyph names and codepoints; the generated
 files live in `mod/Textures/SlopWorld/Icons/`. The manifest and `UI/Chrome/Icons.cs` are
 kept in sync by hand; the mod's flat settings parser does not load this catalog.
-Run `make icons`; `--report` prints glyph size and ink coverage.
+Run `python3 tools/icons.py`; `--report` prints glyph size and ink coverage.
 
 The baker accepts any installed Nerd Font through FreeType. The font is not shipped:
 committed PNGs make builds independent of the local font, while the manifest's
