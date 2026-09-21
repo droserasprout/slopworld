@@ -784,3 +784,120 @@ fn request_preserves_structured_and_plain_refusal_details() {
     assert!(error.contains("response 200"), "{error}");
     server.join().unwrap();
 }
+
+#[test]
+fn lifecycle_commands_send_the_intended_status_and_note() {
+    for (action, status, note) in [
+        (UpdateAction::Accept, "accepted", None),
+        (UpdateAction::Progress, "working", Some("café: halfway")),
+        (UpdateAction::Finish, "done", Some("")),
+        (UpdateAction::Fail, "failed", Some("build failed")),
+    ] {
+        let (endpoint, server) = serve("200 OK", r#"{"task":{"id":"t1","status":"done"}}"#);
+        let result = Command::Update {
+            action,
+            id: "t1".into(),
+            note: note.map(str::to_owned),
+        }
+        .run(&endpoint, "agent", true);
+        let request = server.join().unwrap();
+        result.unwrap();
+        assert!(request.starts_with("POST /api/tasks/t1 HTTP/1.1\r\n"));
+        let body: Value = serde_json::from_str(request.split_once("\r\n\r\n").unwrap().1).unwrap();
+        assert_eq!(body["status"], status);
+        assert_eq!(body["note"], json!(note));
+    }
+}
+
+#[test]
+fn task_dispatch_uses_read_delete_and_prune_routes() {
+    for (command, route, response) in [
+        (
+            Command::Task { id: "t1".into() },
+            "GET /api/tasks/t1",
+            r#"{"task":{"id":"t1","status":"done"}}"#,
+        ),
+        (
+            Command::Wait { id: "t1".into() },
+            "GET /api/tasks/t1",
+            r#"{"task":{"id":"t1","status":"canceled"}}"#,
+        ),
+        (
+            Command::Remove { id: "t1".into() },
+            "DELETE /api/tasks/t1",
+            r#"{"task":{"id":"t1","status":"done"}}"#,
+        ),
+        (
+            Command::Prune { all: false },
+            "DELETE /api/tasks",
+            r#"{"removed":2}"#,
+        ),
+        (
+            Command::Prune { all: true },
+            "DELETE /api/tasks?all=true",
+            r#"{"removed":3}"#,
+        ),
+    ] {
+        let (endpoint, server) = serve("200 OK", response);
+        let result = command.run(&endpoint, "agent", true);
+        let request = server.join().unwrap();
+        result.unwrap();
+        assert!(
+            request.starts_with(&format!("{route} HTTP/1.1\r\n")),
+            "{request}"
+        );
+    }
+}
+
+#[test]
+fn template_lookup_respects_caller_scope_and_encodes_project() {
+    for (caller, route) in [
+        ("host", "/api/templates"),
+        ("agent", "/api/templates/spawnable"),
+    ] {
+        for show in [false, true] {
+            let (endpoint, server) = serve("200 OK", r#"{"templates":[{"name":"coder"}]}"#);
+            let project = Some("a & café/?".into());
+            let command = if show {
+                Command::TemplateShow {
+                    name: "coder".into(),
+                    project,
+                }
+            } else {
+                Command::Templates { project }
+            };
+            let result = command.run(&endpoint, caller, true);
+            let request = server.join().unwrap();
+            result.unwrap();
+            assert!(
+                request.starts_with(&format!(
+                    "GET {route}?project=a%20%26%20caf%C3%A9%2F%3F HTTP/1.1\r\n"
+                )),
+                "{request}"
+            );
+        }
+    }
+    let (endpoint, server) = serve("200 OK", r#"{"templates":[]}"#);
+    let result = Command::TemplateShow {
+        name: "missing".into(),
+        project: None,
+    }
+    .run(&endpoint, "agent", true);
+    server.join().unwrap();
+    assert_eq!(result, Err("no accessible agent template: missing".into()));
+}
+
+#[test]
+fn command_dispatch_propagates_daemon_rejection() {
+    let (endpoint, server) = serve("403 Forbidden", r#"{"error":"outside grant"}"#);
+    let result = Command::Delegate {
+        to: "other".into(),
+        body: "do work".into(),
+    }
+    .run(&endpoint, "agent", true);
+    let request = server.join().unwrap();
+    assert!(result.unwrap_err().contains("outside grant"));
+    let body: Value = serde_json::from_str(request.split_once("\r\n\r\n").unwrap().1).unwrap();
+    assert_eq!(body["to"], "other");
+    assert_eq!(body["body"], "do work");
+}
