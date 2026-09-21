@@ -534,5 +534,20 @@ namespace SlopWorld
             return order;
         }
 
+        // The split menu names sessions that are currently usable from the sidebar. Keep this
+        // separate from TabOrder: keyboard cycling deliberately reaches folded and ephemeral
+        // sessions, while an old diff process that is no longer a reader has no sidebar row.
+        internal static List<string> OpenBesideOrder()
+        {
+            var order = new List<string>();
+            foreach (string session in TabOrder())
+            {
+                var info = SessionHub.Instance.Get(session);
+                if (!AgentSidebar.IsOpenBesideCandidate(info)) continue;
+                order.Add(session);
+            }
+            return order;
+        }
+
     }
 }

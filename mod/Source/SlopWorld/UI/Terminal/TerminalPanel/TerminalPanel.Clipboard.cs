@@ -96,7 +96,7 @@ namespace SlopWorld
             options.Add(new UiSubmenu("Open beside", () =>
             {
                 var sessions = new List<FloatMenuOption>();
-                foreach (string session in TerminalWindow.TabOrder())
+                foreach (string session in TerminalWindow.OpenBesideOrder())
                 {
                     if (session == _state.Name) continue;
                     string picked = session;

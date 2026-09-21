@@ -50,6 +50,9 @@ namespace SlopWorld
 
         internal static List<string> TabOrder() => TerminalInputController.TabOrder();
 
+        internal static List<string> OpenBesideOrder() =>
+            TerminalInputController.OpenBesideOrder();
+
         internal static EventType MouseType(Event e) => TerminalInputController.MouseType(e);
 
         // Window.InnerWindowOnGUI opens a GUI group on the contracted rect, translating
