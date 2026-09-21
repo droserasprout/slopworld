@@ -89,7 +89,27 @@ namespace SlopWorld
     public class ProjectInfo
     {
         public string Name = "";
-        public string Dir = "";
+        string _dir = "";
+        MountEntry _directoryMount;
+        public string Dir
+        {
+            get => _dir;
+            set
+            {
+                if (_dir == value) return;
+                // Keep the row through an empty text field while the user replaces a path.
+                var primary = Mounts.FirstOrDefault(IsPrimaryMount) ??
+                    (Mounts.Contains(_directoryMount) ? _directoryMount : null);
+                _directoryMount = primary;
+                _dir = value;
+                _expandedDir = null;
+                if (primary != null)
+                {
+                    primary.From = value;
+                    primary.To = value;
+                }
+            }
+        }
         // The daemon coins TempRoot/name and makes it when the first agent starts there. It
         // is /tmp that is temporary, not the entry.
         public bool Temp;
@@ -100,6 +120,35 @@ namespace SlopWorld
         // Keep Dir verbatim for editing; older daemons still supply literal paths.
         public string ExpandedDir => _expandedDir ?? Dir;
         string _expandedDir;
+
+        public bool IsPrimaryMount(MountEntry mount) => mount != null &&
+            IsProjectPath(mount.From) &&
+            (IsProjectPath(mount.To) || NormalizeMountPath(mount.To) == ".");
+
+        bool IsProjectPath(string path) => !string.IsNullOrEmpty(path) &&
+            ((!string.IsNullOrEmpty(Dir) && NormalizeMountPath(path) == NormalizeMountPath(Dir)) ||
+             (!string.IsNullOrEmpty(ExpandedDir) && NormalizeMountPath(path) == NormalizeMountPath(ExpandedDir)));
+
+        // Paths belong to the Linux daemon, not the game's host OS. Only normalize lexical
+        // spelling here; environment variables and home expansion remain daemon-owned.
+        static string NormalizeMountPath(string path)
+        {
+            if (string.IsNullOrEmpty(path)) return "";
+            string parts = string.Join("/", path.Split('/').Where(p => p.Length > 0 && p != ".").ToArray());
+            return path.StartsWith("/", StringComparison.Ordinal) ? "/" + parts : parts.Length == 0 ? "." : parts;
+        }
+
+        public MountEntry EnsurePrimaryMount()
+        {
+            if (string.IsNullOrEmpty(Dir)) return null;
+            var primary = Mounts.FirstOrDefault(IsPrimaryMount);
+            if (primary == null)
+            {
+                primary = new MountEntry { From = Dir, To = Dir };
+                Mounts.Insert(0, primary);
+            }
+            return primary;
+        }
 
         // The daemon is the only owner of temporary root policy. Missing metadata is explicit
         // so the editor does not silently present a compiled daemon path.

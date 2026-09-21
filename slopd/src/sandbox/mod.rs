@@ -10,7 +10,7 @@ use std::path::Path;
 
 use anyhow::{bail, Result};
 
-use crate::config::{expand, Config, MountMode, ProjectCfg, SessionCfg};
+use crate::config::{expand, mount_target, Config, MountMode, ProjectCfg, SessionCfg};
 use crate::presets::{SandboxPreset, Table};
 
 pub use host::{host_argv, host_session_name, is_shell_command, shell_split};
@@ -58,6 +58,22 @@ pub(crate) fn build_plan(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result
     let home = dirs::home_dir()
         .map(|path| path.to_string_lossy().into_owned())
         .unwrap_or_else(|| "/root".into());
+    // A containing project at its original path is safe because private overlays cover it.
+    // An alias (or a project inside private state) would expose originals elsewhere.
+    for private in presets.iter().flat_map(|preset| &preset.private) {
+        let private = expand(private);
+        if !private.is_empty()
+            && paths::overlaps(&dir, &private)
+            && !Path::new(&private).starts_with(Path::new(&dir))
+        {
+            bail!(
+                "project {} primary source {} exposes private preset state {}",
+                p.name,
+                dir,
+                private
+            );
+        }
+    }
     let mut mounts = vec![ResolvedMount {
         host_dir: dir.clone(),
         // The primary project keeps the exact configured path inside the sandbox. This is
@@ -68,7 +84,7 @@ pub(crate) fn build_plan(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result
     crate::config::validate_mount_paths(p)?;
     for m in &p.mounts {
         let source = expand(&m.from);
-        let target = expand(&m.to);
+        let target = mount_target(p, &m.to);
         for private in presets.iter().flat_map(|preset| &preset.private) {
             let private = expand(private);
             if Path::new(&target) != Path::new(&dir)

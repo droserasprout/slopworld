@@ -13,6 +13,9 @@ namespace SlopWorld.Tests
             yield return ("temporary preview resumes after mode is disabled", ResumesAfterDisable);
             yield return ("round trips and copies project settings", RoundTripsAndCopiesSettings);
             yield return ("uses daemon expansion for client paths", ExpandsClientPaths);
+            yield return ("recognizes the primary project mount", RecognizesPrimaryMount);
+            yield return ("directory changes preserve primary mount access", MovesPrimaryMount);
+            yield return ("relative primary mounts survive editing", KeepsRelativePrimaryMount);
         }
 
         static void ExpandsClientPaths()
@@ -29,6 +32,64 @@ namespace SlopWorld.Tests
             var unavailable = ProjectInfo.FromWire(ProtobufFixtures.Read<Wire.Project>(JVal.Parse(
                 "{\"dir\":\"$UNSET/repo\",\"expanded_dir\":\"\"}")));
             AssertEx.Equal("", unavailable.ExpandedDir, "empty expansion does not fall back");
+        }
+
+        static void RecognizesPrimaryMount()
+        {
+            var project = ProjectInfo.FromWire(ProtobufFixtures.Read<Wire.Project>(JVal.Parse(
+                "{\"dir\":\"~/repo\",\"expanded_dir\":\"/home/test/repo\"}")));
+            AssertEx.True(project.IsPrimaryMount(new MountEntry { From = "~/repo", To = "~/repo" }),
+                          "configured primary mount");
+            AssertEx.True(project.IsPrimaryMount(new MountEntry
+            {
+                From = "/home/test/repo", To = "/home/test/repo"
+            }), "expanded primary mount");
+            AssertEx.False(project.IsPrimaryMount(new MountEntry { From = "/mnt", To = "/mnt" }),
+                           "extra mount is not primary");
+        }
+
+        static void MovesPrimaryMount()
+        {
+            foreach (bool temporary in new[] { false, true })
+            {
+                var project = ProjectInfo.FromWire(ProtobufFixtures.Read<Wire.Project>(JVal.Parse(
+                    "{\"dir\":\"/work/old\",\"expanded_dir\":\"/work/old\"}")));
+                project.Temp = temporary;
+                project.EnsurePrimaryMount().Mode = MountMode.Ro;
+                var extra = new MountEntry { From = "/shared", To = "shared" };
+                project.Mounts.Add(extra);
+                var copy = project.Copy();
+                copy.Dir = "/work/new";
+                copy.EnsurePrimaryMount();
+                var saved = ProjectInfo.FromWire(copy.ToWire());
+                AssertEx.Equal(2, saved.Mounts.Count, "no old primary left behind");
+                AssertEx.Equal("/work/new", saved.Mounts[0].From, "source follows directory");
+                AssertEx.Equal("/work/new", saved.Mounts[0].To, "destination follows directory");
+                AssertEx.Equal(MountMode.Ro, saved.Mounts[0].Mode, "read-only survives editing");
+                AssertEx.Equal("/work/new", copy.ExpandedDir, "old expansion is invalidated");
+                AssertEx.Equal("/work/old", project.Mounts[0].From, "copy leaves original intact");
+                AssertEx.Equal("shared", saved.Mounts[1].To, "extra mount is unchanged");
+                copy.Dir = "";
+                copy.Dir = "/work/third";
+                AssertEx.Equal("/work/third", copy.EnsurePrimaryMount().From, "repeated edits follow");
+            }
+        }
+
+        static void KeepsRelativePrimaryMount()
+        {
+            foreach (string target in new[] { ".", "./", "././", "/home/test/repo/./" })
+            {
+                var project = ProjectInfo.FromWire(ProtobufFixtures.Read<Wire.Project>(JVal.Parse(
+                    "{\"dir\":\"~/repo\",\"expanded_dir\":\"/home/test/repo\"}")));
+                project.Mounts.Add(new MountEntry { From = "/home/test/repo/", To = target, Mode = MountMode.Ro });
+                project.EnsurePrimaryMount();
+                var saved = project.ToWire();
+                AssertEx.Equal(1, saved.Mounts.Count, "saving does not duplicate a relative primary");
+                AssertEx.Equal("ro", saved.Mounts[0].Mode, "existing access survives");
+                AssertEx.Equal(target, saved.Mounts[0].To, "unchanged destination retains spelling");
+                project.Dir = "/work/new";
+                AssertEx.Equal("/work/new", project.EnsurePrimaryMount().From, "expanded source follows edit");
+            }
         }
 
         static void BuildsTemporaryPaths()

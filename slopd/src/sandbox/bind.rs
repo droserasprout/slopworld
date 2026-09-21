@@ -256,6 +256,50 @@ mod tests {
         std::fs::remove_dir_all(root).unwrap();
     }
 
+    #[cfg(unix)]
+    #[test]
+    fn primary_aliases_cannot_expose_private_originals() {
+        use std::os::unix::fs::symlink;
+
+        let root =
+            std::env::temp_dir().join(format!("slopd-primary-alias-{}", uuid::Uuid::new_v4()));
+        let private = root.join("private");
+        let alias = root.join("alias");
+        std::fs::create_dir_all(private.join("child")).unwrap();
+        symlink(&private, &alias).unwrap();
+        let session = SessionCfg {
+            name: "agent".into(),
+            project: "repo".into(),
+            cmd: Some("true".into()),
+            sandbox: vec!["saved".into()],
+            sandbox_snapshots: vec![crate::presets::SandboxPreset {
+                name: "saved".into(),
+                private: vec![private.to_string_lossy().into()],
+                ..Default::default()
+            }],
+            ..Default::default()
+        };
+        let mut project = ProjectCfg {
+            name: "repo".into(),
+            ..Default::default()
+        };
+        for source in [&alias, &alias.join("child"), &private.join("child")] {
+            project.dir = source.to_string_lossy().into();
+            let error = build_argv(&Config::default(), &session, &project).unwrap_err();
+            assert!(
+                error.to_string().contains("private preset state"),
+                "{error}"
+            );
+        }
+        // A normal containing workspace remains usable; the private overlay covers originals.
+        project.dir = root.to_string_lossy().into();
+        let argv = build_argv(&Config::default(), &session, &project).unwrap();
+        assert!(argv.windows(3).any(|w| w[0] == "--bind"
+            && w[2] == private.to_string_lossy()
+            && w[1] != private.to_string_lossy()));
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
     #[test]
     fn network_mode_selects_the_expected_namespace() {
         let cfg = Config::default();
@@ -765,6 +809,35 @@ mod tests {
         assert!(
             a.windows(2).any(|w| w[0] == "--chdir" && w[1] == "/tmp"),
             "cwd not the configured project path: {a:?}"
+        );
+    }
+
+    #[test]
+    fn a_relative_mount_destination_is_under_the_project_directory() {
+        use crate::config::{Mount, MountMode};
+
+        let cfg = Config::default();
+        let s = SessionCfg {
+            name: "a".into(),
+            project: "main".into(),
+            ..Default::default()
+        };
+        let p = ProjectCfg {
+            name: "main".into(),
+            dir: "/tmp".into(),
+            mounts: vec![Mount {
+                from: "/usr".into(),
+                to: "vendor".into(),
+                mode: MountMode::Ro,
+            }],
+            ..Default::default()
+        };
+        let a = build_argv(&cfg, &s, &p).expect("relative mount destination");
+
+        assert!(
+            a.windows(3)
+                .any(|w| w[0] == "--ro-bind" && w[1] == "/usr" && w[2] == "/tmp/vendor"),
+            "relative mount did not use the project directory: {a:?}"
         );
     }
 
