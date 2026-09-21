@@ -6,20 +6,15 @@ benchmarks. The current [processed report](../../notes/perf-suite.md) is replace
 Raw per-run logs and IPC CSVs stay local and ignored. No game or daemon service is started. Requires Mono, .NET 8,
 Rust and protoc, plus the normal repository build dependencies.
 
-The JSON baseline is frozen from commit `7251189d` (the transport before migration).
-`legacy/` contains its parser, envelope scanner, bounded queue and event batch. Only
-transport type names were prefixed to let both implementations run in one process.
-These files never ship in the mod. The Protobuf lanes link production generated messages,
-`ReceivedEvent`, queue and event batch. `Google.Protobuf` is pinned to 3.36.1;
+The benchmark measures the production Protobuf transport. Its C# lane links production
+generated messages, `ReceivedEvent`, queue and event batch. `Google.Protobuf` is pinned to 3.36.1;
 Rust uses prost 0.14.4. Package lockfiles are checked in.
 
-C# measures UTF-8 receive/parse/line traversal and eight unsolicited live screens for one
-session (enqueue, coalesce, drain). JSON scans every frame and parses the retained screen;
-Protobuf decodes every frame before coalescing. This intentionally preserves each production
-algorithm. Queue limits, error handling and WebSocket framing have separate tests.
-Rust measures serde_json versus prost encoding/decoding of the same screen values.
-Fixtures cover plain text, ANSI escape sequences, Unicode and a larger viewport.
-Both languages assert equivalent decoded data; Rust re-encodes fixtures and Mono checks them.
+C# measures binary receive/parse/line traversal and eight unsolicited live screens for one
+session (enqueue, coalesce, drain). Protobuf decodes every frame before coalescing. Queue
+limits, error handling and WebSocket framing have separate tests. Fixtures cover plain text,
+ANSI escape sequences, Unicode and a larger viewport. Both languages assert decoded data;
+Rust re-encodes fixtures and Mono checks them.
 
 Each lane warms up for 300 operations, then records 21 batches. C# uses 500 operations
 per receive batch or 150 per burst; Rust uses 1,000. p50/p95 are percentiles of batch
@@ -40,10 +35,8 @@ an FPS improvement nor an end-to-end latency claim. Raw CSV files under `results
 | Authored contract | 811-line `.proto` plus route/type inventory |
 | Generated C# | About 38,000 lines; regenerate, never edit |
 | Runtime package | Five DLLs, about 0.8 MiB total |
-| Removed client machinery | 504-line JSON wrapper/scanner; JSON envelope construction replaced by typed messages |
 | Remaining editor support | 83-line schema-reflection helper for draft leaf diffs and explicit patch paths |
 | Remaining Rust adapter | Cold domain projections use Serde values in memory; no JSON text in IPC |
 
-This favors a single typed protocol over maintaining both codecs. It reduces handwritten
-client parsing and request construction, but adds generated source, build tooling and runtime
-assemblies. It does not eliminate serialization used for persistence or third-party APIs.
+The benchmark follows the single typed protocol used by the daemon and mod. It does not
+measure serialization used for persistence or third-party APIs.

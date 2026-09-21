@@ -2,9 +2,7 @@
   <PropertyGroup><OutputType>Exe</OutputType><TargetFrameworks>net472;net8.0</TargetFrameworks><LangVersion>latest</LangVersion><EnableDefaultCompileItems>false</EnableDefaultCompileItems><RestorePackagesWithLockFile>true</RestorePackagesWithLockFile></PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Google.Protobuf" Version="3.36.1" />
-    <Reference Include="Newtonsoft.Json"><HintPath>../../../mod/Assemblies/Newtonsoft.Json.dll</HintPath></Reference>
     <Compile Include="Program.cs" />
-    <Compile Include="../legacy/*.cs" />
     <Compile Include="../../../mod/Source/SlopWorld/Client/Generated/*.cs" />
     <Compile Include="../../../mod/Source/SlopWorld/Client/Transport/MiniWebSocket*.cs" />
     <Compile Include="../../../mod/Source/SlopWorld/Client/Transport/ReceivedEvent.cs" />

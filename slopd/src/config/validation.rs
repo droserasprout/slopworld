@@ -10,8 +10,8 @@ use uuid::Uuid;
 
 use super::{Config, ProjectCfg};
 
-/// A project name is also the guest-side alias under `/mnt`. Keep it to one normal path
-/// component so a config edit cannot change the mount target through separators or traversal.
+/// Keep project names to one normal component so config edits cannot introduce ambiguous
+/// project identities or traversal-like values.
 pub(crate) fn project_name_component(name: &str) -> Result<&str> {
     if name.trim().is_empty() {
         bail!("project name must not be empty");
@@ -129,12 +129,11 @@ pub(crate) fn validate_mount_paths(project: &ProjectCfg) -> Result<()> {
             );
         }
         let primary = std::path::PathBuf::from(super::expand(&project.dir));
-        let alias = std::path::PathBuf::from(format!("/mnt/{}", project.name));
-        if (primary.starts_with(&target) || target == alias)
+        if primary.starts_with(&target)
             && (target != primary || Path::new(&super::expand(&mount.from)) != primary)
         {
             bail!(
-                "project {} mount cannot replace its primary directory or alias",
+                "project {} mount cannot replace its primary directory",
                 project.name
             );
         }
@@ -161,7 +160,6 @@ mod mount_tests {
             ("/", "/mnt/extra"),
             ("/work/extra", "/"),
             ("/work/extra", "/work/repo"),
-            ("/work/extra", "/mnt/repo"),
             ("/work/extra", "/mnt/../repo"),
         ] {
             p.mounts = vec![Mount {

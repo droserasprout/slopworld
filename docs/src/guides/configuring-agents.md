@@ -3,8 +3,7 @@
 ## Projects
 
 A project owns a directory and the shared path mounts visible to its agents.
-Inside the sandbox, the project is mounted at its configured absolute path;
-`/mnt/<project-name>` is a compatibility symlink to that same directory. Mount changes
+Inside the sandbox, the project is mounted at its configured absolute path. Mount changes
 apply when agents start again, so running sandboxes are unchanged.
 
 Create a project in the sidebar's add strip or through the command palette. The project
@@ -18,7 +17,7 @@ directory is mounted read-write by default. A row with the project directory in 
 
 The project form has **General** and **Mounts** tabs. **Mounts** has editable **From**, **To**, and access-mode columns. **Add path**
 adds a blank row. **Add project** copies the selected project's current directory into From
-and `/mnt/<name>` into To (its own directory for the primary project). These are ordinary
+and the selected project's configured directory into To. These are ordinary
 editable values: later project renames, directory edits, or deletion do not retarget the row.
 Remove a row with **×**. Paths must be absolute after daemon expansion; sources may be files
 or directories and must exist at launch. Protected daemon and private-state paths remain blocked.

@@ -8,7 +8,7 @@ using Newtonsoft.Json.Linq;
 
 namespace SlopWorld
 {
-    // Wire accessors over Json.NET tokens, with missing-value and patch semantics.
+    // Test accessors over Json.NET tokens, with missing-value and patch semantics.
     public sealed class JVal
     {
         readonly JToken _token;
@@ -78,8 +78,8 @@ namespace SlopWorld
         internal static JVal Wrap(JToken token) => token == null || token.Type == JTokenType.Null
             ? Null : new JVal(token);
 
-        // Construction helpers keep editable projections in the token tree. Callers should
-        // only turn the finished value into text at the transport boundary.
+        // Construction helpers keep test projections in the token tree. Callers should only
+        // turn the finished value into text at the test boundary.
         internal static JVal ObjectValue() => new JVal(new JObject());
         internal static JVal ArrayValue() => new JVal(new JArray());
         internal static JVal StringValue(string value) => new JVal(new JValue(value ?? ""));
@@ -178,7 +178,7 @@ namespace SlopWorld
         }
     }
 
-    // Json.NET reader used for retained library trees and full message decoding.
+    // Strict Json.NET reader used by test fixtures and parser tests.
     internal sealed class JsonReader : JsonTextReader
     {
         // Avoid unused per-token source locations.
@@ -303,10 +303,8 @@ namespace SlopWorld
             new FormatException(message ?? "Invalid JSON at token " + TokenType);
     }
 
-    // A strict structural pass used for envelope inspection and skipped values. Json.NET
-    // necessarily materializes every string token even when a live frame will be coalesced
-    // away; this scanner validates the same JSON grammar without decoding those discarded
-    // strings. Retained values still go through JsonReader/JToken.ReadFrom below.
+    // A strict structural pass used by parser tests and skipped values. Retained values still
+    // go through JsonReader/JToken.ReadFrom below.
     internal struct JsonScanner
     {
         readonly string _text;

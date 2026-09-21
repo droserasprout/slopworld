@@ -111,7 +111,6 @@ pub enum CommandKind {
 #[serde(deny_unknown_fields)]
 pub struct CommandPreset {
     pub name: String,
-    #[serde(default)]
     pub kind: CommandKind,
     #[serde(default)]
     pub description: String,
@@ -994,17 +993,16 @@ mod tests {
     }
 
     #[test]
-    fn command_kind_defaults_to_agent_for_legacy_files() {
-        let file: PresetFile = toml::from_str(
+    fn command_kind_is_required() {
+        let file = toml::from_str::<PresetFile>(
             r#"
             [[command]]
             name = "legacy"
             cmd = "legacy"
             "#,
-        )
-        .unwrap();
+        );
 
-        assert_eq!(file.command[0].kind, CommandKind::Agent);
+        assert!(file.is_err());
     }
 
     #[test]
@@ -1208,6 +1206,7 @@ mod tests {
                 rw = ["~/.claude"]
                 [[command]]
                 name = "claude"
+                kind = "agent"
                 cmd = "claude"
                 "#,
             )
@@ -1218,10 +1217,12 @@ mod tests {
                 r#"
                 [[command]]
                 name = "claude"
+                kind = "agent"
                 cmd = "claude --model opus"
                 sandbox = ["claude", "docker"]
                 [[command]]
                 name = "codex"
+                kind = "agent"
                 cmd = "codex --yolo"
                 "#,
             )

@@ -1,8 +1,6 @@
 use prost::Message;
 use std::{hint::black_box, time::Instant};
 #[allow(dead_code)] mod wire { include!(concat!(env!("OUT_DIR"), "/slopworld.rs")); }
-#[derive(serde::Serialize, serde::Deserialize)]
-struct Legacy { t: String, screen: wire::ScreenView }
 fn measure(name: &str, lane: &str, size: usize, mut action: impl FnMut()) {
     for _ in 0..300 { action(); }
     let mut samples = Vec::new();
@@ -18,17 +16,13 @@ fn main() {
     let dir = std::env::args().nth(1).expect("fixture directory");
     println!("fixture,lane,wire_bytes,p50_us,p95_us");
     for name in ["plain", "ansi", "unicode", "large"] {
-        let json = std::fs::read(format!("{dir}/{name}.json")).unwrap();
         let binary = std::fs::read(format!("{dir}/{name}.pb")).unwrap();
-        let legacy: Legacy = serde_json::from_slice(&json).unwrap();
         let event = wire::Event::decode(binary.as_slice()).unwrap();
-        assert_eq!(event.payload, Some(wire::event::Payload::Screen(legacy.screen.clone())));
+        assert!(matches!(event.payload, Some(wire::event::Payload::Screen(_))));
         let reencoded = event.encode_to_vec();
         std::fs::write(format!("{dir}/{name}.rust.pb"), &reencoded).unwrap();
         assert_eq!(wire::Event::decode(reencoded.as_slice()).unwrap(), event);
-        measure(name, "json-encode", json.len(), || { black_box(serde_json::to_vec(&legacy).unwrap()); });
         measure(name, "protobuf-encode", binary.len(), || { black_box(event.encode_to_vec()); });
-        measure(name, "json-decode", json.len(), || { black_box(serde_json::from_slice::<Legacy>(&json).unwrap()); });
         measure(name, "protobuf-decode", binary.len(), || { black_box(wire::Event::decode(binary.as_slice()).unwrap()); });
     }
 }

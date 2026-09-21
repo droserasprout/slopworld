@@ -11,19 +11,17 @@ pub(crate) const TASK_ID_ENV: &str = "SLOPWORLD_TASK_ID";
 
 pub(crate) const DELEGATE_USAGE: &str = "usage:
   slopctl task delegate AGENT TASK...
-  slopctl delegate AGENT TASK...
 
-send TASK to AGENT. `delegate` is the short spelling; the task command is canonical.
+send TASK to AGENT.
 ";
 
 pub(crate) const SPAWN_USAGE: &str = "usage:
   slopctl worker spawn [--durable] --project PROJECT --template TEMPLATE [--] TASK...
-  slopctl spawn [--durable] --project PROJECT --template TEMPLATE [--] TASK...
 
 create a task-owned worker from an agent template. Scoped callers may use only
 templates enabled by worker policy. The worker receives the task body and its exact task id.
 --durable keeps the child session after
-exit. Options end before TASK; spawn is the short spelling.
+exit. Options end before TASK.
 Use -- before task text that starts with an option, such as --durable.
 
 The project and template are required. The old parent/clone form is rejected;
@@ -33,13 +31,11 @@ choose the template explicitly so the daemon can enforce worker policy.
 pub(crate) const WORKER_USAGE: &str = "usage:
   slopctl worker spawn [--durable] --project PROJECT --template TEMPLATE [--] TASK...
 
-create a task-owned worker. The old bare `worker` spelling remains an alias for
-`worker spawn` for compatibility.
+create a task-owned worker from an agent template.
 ";
 
 pub(crate) const TEMPLATES_USAGE: &str = "usage:
   slopctl template list [--project PROJECT]
-  slopctl templates [--project PROJECT]
 
 list agent templates. Root callers see the complete catalog; agents see only
 templates enabled for worker spawning in their project. --project selects the
@@ -73,20 +69,6 @@ create an agent from a daemon catalog template. Creation does not start the
 agent unless --start is supplied; the daemon returns the new identity.
 ";
 
-pub(crate) const INBOX_USAGE: &str = "usage:
-  slopctl task list [--all] [--sent] [--received] [--status STATUS]
-  slopctl inbox [--all] [--sent] [--received] [--status STATUS]
-
-list tasks involving the current caller, newest first. Finished, failed and canceled
-tasks are hidden unless --all or --status is supplied.
-
-options:
-  --all             include finished, failed and canceled tasks
-  --sent            show only tasks sent by you
-  --received        show only tasks sent to you
-  --status STATUS   show only tasks with this status
-";
-
 pub(crate) const TASK_USAGE: &str = "usage:
   slopctl task delegate AGENT TASK...
   slopctl task list [--all] [--sent] [--received] [--status STATUS]
@@ -99,9 +81,7 @@ pub(crate) const TASK_USAGE: &str = "usage:
   slopctl task remove [ID]
   slopctl task prune [--include-active]
 
-manage delegated tasks. The old `task ID` spelling remains an alias for
-`task show ID`; explicit subcommands take precedence over that alias. When
-SLOPWORLD_TASK_ID is set, ID may be omitted.
+manage delegated tasks. When SLOPWORLD_TASK_ID is set, ID may be omitted.
 ";
 
 pub(crate) const TASK_LIST_USAGE: &str = "usage:
@@ -125,10 +105,8 @@ show one task by its exact id. When SLOPWORLD_TASK_ID is set, ID may be omitted.
 
 pub(crate) const WAIT_USAGE: &str = "usage:
   slopctl task wait [ID]
-  slopctl wait [ID]
 
-block until one task reaches a terminal state, then show it. `wait` is the short
-spelling. This command checks
+block until one task reaches a terminal state, then show it. This command checks
 the task internally; do not replace it with a status loop or a short timeout.
 Status changes and a 30-second heartbeat go to stderr; stdout holds the final result.
 When SLOPWORLD_TASK_ID is set, ID may be omitted.
@@ -136,7 +114,6 @@ When SLOPWORLD_TASK_ID is set, ID may be omitted.
 
 pub(crate) const ACCEPT_USAGE: &str = "usage:
   slopctl task accept [ID] [NOTE...]
-  slopctl accept [ID] [NOTE...]
 
 mark a queued task as accepted, optionally recording a note. When
 SLOPWORLD_TASK_ID is set, ID may be omitted.
@@ -144,7 +121,6 @@ SLOPWORLD_TASK_ID is set, ID may be omitted.
 
 pub(crate) const PROGRESS_USAGE: &str = "usage:
   slopctl task progress [ID] [NOTE...]
-  slopctl progress [ID] [NOTE...]
 
 mark an accepted task as in progress, optionally recording a note. When
 SLOPWORLD_TASK_ID is set, ID may be omitted.
@@ -152,7 +128,6 @@ SLOPWORLD_TASK_ID is set, ID may be omitted.
 
 pub(crate) const FINISH_USAGE: &str = "usage:
   slopctl task finish [ID] [RESULT...]
-  slopctl finish [ID] [RESULT...]
 
 mark a task as done, optionally recording its result. When SLOPWORLD_TASK_ID is
 set, ID may be omitted.
@@ -160,7 +135,6 @@ set, ID may be omitted.
 
 pub(crate) const FAIL_USAGE: &str = "usage:
   slopctl task fail [ID] [ERROR...]
-  slopctl fail [ID] [ERROR...]
 
 mark a task as failed, optionally recording the reason. When
 SLOPWORLD_TASK_ID is set, ID may be omitted.
@@ -168,18 +142,15 @@ SLOPWORLD_TASK_ID is set, ID may be omitted.
 
 pub(crate) const REMOVE_USAGE: &str = "usage:
   slopctl task remove [ID]
-  slopctl rm [ID]
 
-remove one task that has stopped moving. `rm` remains as a compatibility alias.
+remove one task that has stopped moving.
 When SLOPWORLD_TASK_ID is set, ID may be omitted.
 ";
 
 pub(crate) const PRUNE_USAGE: &str = "usage:
   slopctl task prune [--include-active]
-  slopctl prune [--all]
 
-remove terminal tasks. --include-active removes every task and is root-only;
-legacy --all is an alias.
+remove terminal tasks. --include-active removes every task and is root-only.
 ";
 
 pub(crate) const PEERS_USAGE: &str = "usage:
@@ -236,15 +207,7 @@ usage:
   slopctl status
   slopctl logs [game|daemon|all] [--lines N] [--follow]
 
-shortcuts:
-  slopctl delegate AGENT TASK...
-  slopctl spawn [--durable] --project PROJECT --template TEMPLATE [--] TASK...
-  slopctl wait [ID]
-
-`delegate`, `spawn`, and `wait` are documented short spellings. Existing root
-task verbs, `inbox`, `templates`, `rm`, `task ID`, bare `worker` spawning, and
-`prune --all` remain compatibility aliases. --json is accepted anywhere and
-prints the answer as JSON instead of for a reader.
+--json is accepted anywhere and prints the answer as JSON instead of for a reader.
 
 SLOPWORLD_SESSION identifies the caller, and defaults to `host` - the user at the
 keyboard - which the daemon accepts only from the root token. When
@@ -332,21 +295,10 @@ impl UpdateAction {
 
 pub(crate) fn command_help(command: &str) -> Option<&'static str> {
     Some(match command {
-        "delegate" => DELEGATE_USAGE,
-        "spawn" => SPAWN_USAGE,
         "worker" => WORKER_USAGE,
-        "templates" => TEMPLATES_USAGE,
         "template" => TEMPLATE_USAGE,
         "agent" => AGENT_USAGE,
-        "inbox" => INBOX_USAGE,
         "task" => TASK_USAGE,
-        "wait" => WAIT_USAGE,
-        "accept" => ACCEPT_USAGE,
-        "progress" => PROGRESS_USAGE,
-        "finish" => FINISH_USAGE,
-        "fail" => FAIL_USAGE,
-        "rm" => REMOVE_USAGE,
-        "prune" => PRUNE_USAGE,
         "peers" => PEERS_USAGE,
         "status" => STATUS_USAGE,
         "sandbox" => SANDBOX_USAGE,
@@ -386,46 +338,10 @@ pub(crate) fn parse_command_with_task_id(
         "logs" => Ok(Command::Logs {
             args: args[1..].to_vec(),
         }),
-        "delegate" => parse_delegate(args, 1),
-        "spawn" => parse_spawn(args, 1),
         "worker" => parse_worker_command(args),
-        "templates" => parse_templates_command(args, 1),
         "template" => parse_template_command(args),
         "agent" => parse_agent_command(args),
-        "inbox" => Ok(Command::Inbox {
-            filter: InboxFilter::parse(&args[1..])?,
-        }),
         "task" => parse_task_command(args, task_id),
-        "wait" => {
-            let id = task_id_arg(args, 1, "wait needs a task id", task_id)?;
-            only(args, 2)?;
-            Ok(Command::Wait { id })
-        }
-        "accept" | "progress" | "finish" | "fail" => {
-            let id = task_id_arg(args, 1, &format!("{command} needs a task id"), task_id)?;
-            let action = match command {
-                "accept" => UpdateAction::Accept,
-                "progress" => UpdateAction::Progress,
-                "finish" => UpdateAction::Finish,
-                _ => UpdateAction::Fail,
-            };
-            let note = (args.len() > 2).then(|| args[2..].join(" "));
-            Ok(Command::Update { action, id, note })
-        }
-        "rm" => {
-            let id = task_id_arg(args, 1, "rm needs a task id", task_id)?;
-            only(args, 2)?;
-            Ok(Command::Remove { id })
-        }
-        "prune" => {
-            let all = match args.get(1).map(String::as_str) {
-                None => false,
-                Some("--all") => true,
-                Some(flag) => return Err(format!("unknown flag: {flag}\n\n{USAGE}")),
-            };
-            only(args, 2)?;
-            Ok(Command::Prune { all })
-        }
         "peers" => {
             only(args, 1)?;
             Ok(Command::Peers)
@@ -480,17 +396,10 @@ fn parse_task_command(args: &[String], task_id: Option<&str>) -> Result<Command,
         Some("fail") => parse_task_update(args, UpdateAction::Fail, task_id),
         Some("remove") => parse_task_remove(args, task_id),
         Some("prune") => parse_task_prune(args),
-        // Compatibility alias: `task ID` means `task show ID`. The explicit subcommand arms
-        // above deliberately win when an id happens to be named `wait`, `list`, or another
-        // canonical task verb.
-        Some(_) => {
-            let id = arg(args, 1, "task needs a task id")?.to_string();
-            only(args, 2)?;
-            Ok(Command::Task { id })
-        }
-        None => Err(format!(
-            "task needs a subcommand or task id\n\n{TASK_USAGE}"
+        Some(subcommand) => Err(format!(
+            "unknown task subcommand: {subcommand}\n\n{TASK_USAGE}"
         )),
+        None => Err(format!("task needs a subcommand\n\n{TASK_USAGE}")),
     }
 }
 
@@ -572,7 +481,7 @@ fn parse_task_prune(args: &[String]) -> Result<Command, String> {
     }
     let all = match args.get(2).map(String::as_str) {
         None => false,
-        Some("--include-active" | "--all") => true,
+        Some("--include-active") => true,
         Some(flag) => return Err(format!("unknown flag: {flag}\n\n{TASK_USAGE}")),
     };
     only(args, 3)?;
@@ -597,8 +506,9 @@ fn parse_worker_command(args: &[String]) -> Result<Command, String> {
         }
         return parse_spawn(args, 2);
     }
-    // Compatibility alias: before the command tree, `worker` was a bare spelling of spawn.
-    parse_spawn(args, 1)
+    Err(format!(
+        "worker needs the spawn subcommand\n\n{WORKER_USAGE}"
+    ))
 }
 
 fn parse_sandbox(args: &[String]) -> Result<Command, String> {
@@ -720,19 +630,6 @@ fn parse_template_command(args: &[String]) -> Result<Command, String> {
     let name = arg(args, 2, "template show needs a template name")?.to_string();
     let project = optional_project(args, 3, TEMPLATE_SHOW_USAGE)?;
     Ok(Command::TemplateShow { name, project })
-}
-
-fn parse_templates_command(args: &[String], project_at: usize) -> Result<Command, String> {
-    if matches!(
-        args.get(1).map(String::as_str),
-        Some("-h" | "--help" | "help")
-    ) {
-        return Ok(Command::Help {
-            usage: TEMPLATES_USAGE,
-        });
-    }
-    let project = optional_project(args, project_at, TEMPLATES_USAGE)?;
-    Ok(Command::Templates { project })
 }
 
 fn optional_project(

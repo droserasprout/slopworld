@@ -15,9 +15,8 @@ The root caller can create a task-owned child with
 `slopctl worker spawn [--durable] --project PROJECT --template TEMPLATE TASK...`; the caller owns
 the child in the sidebar, while the selected template supplies its configuration.
 
-The documented `delegate`, `spawn`, and `wait` spellings remain shortcuts for these task and
-worker commands. Existing lifecycle verbs and `task ID` continue to work as compatibility
-aliases.
+Task and worker commands use their explicit command trees; there are no root-level shorthand
+aliases. Task lifecycle commands use the `task` command tree.
 
 Keep transport, grants, and policy out of the prompt. Project instruction files do not
 own this capability because it belongs to a live SlopWorld session.

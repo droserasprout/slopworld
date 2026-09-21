@@ -58,8 +58,7 @@ pub(super) fn push_skeleton(a: &mut Vec<String>, network: NetworkMode) {
     push_args(a, &["--proc", "/proc"]);
     push_args(a, &["--dev", "/dev"]);
     push_args(a, &["--tmpfs", "/tmp"]);
-    // The primary project is exposed below /mnt through a symlink. Create its parent before
-    // the alias is installed; ordinary bind mounts would create this parent implicitly.
+    // Explicit user mounts may target /mnt; create its parent before those binds are applied.
     push_args(a, &["--dir", "/mnt"]);
 }
 
@@ -135,12 +134,8 @@ pub(super) fn push_private_binds(a: &mut Vec<String>, bind: &BindContext<'_>) {
 }
 
 /// Exposes the primary project at its configured path and binds literal source/destination
-/// pairs. The primary project's `/mnt` entry remains a symlink to that single directory bind.
-pub(super) fn push_mounts(a: &mut Vec<String>, mounts: &[ResolvedMount], primary_name: &str) {
-    if let Some(primary) = mounts.first() {
-        let alias = format!("/mnt/{primary_name}");
-        push_args(a, &["--symlink", &primary.guest_dir, &alias]);
-    }
+/// pairs.
+pub(super) fn push_mounts(a: &mut Vec<String>, mounts: &[ResolvedMount]) {
     for m in mounts {
         match m.mode {
             MountMode::Ro => push_args(a, &["--ro-bind", &m.host_dir, &m.guest_dir]),

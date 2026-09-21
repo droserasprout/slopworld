@@ -93,7 +93,7 @@ pub(super) fn assemble_plan(args: BuildArgs<'_>) -> Result<LaunchPlan> {
     mounts::push_skeleton(&mut bwrap, network);
     mounts::push_ro_binds(&mut mounts_args, &bind);
     mounts::push_persistent_tmp(&mut mounts_args, &bind);
-    mounts::push_mounts(&mut mounts_args, mounts, &p.name);
+    mounts::push_mounts(&mut mounts_args, mounts);
     mounts::push_private_binds(&mut mounts_args, &bind);
     mounts::push_env(
         &mut environment,
@@ -703,7 +703,7 @@ mod tests {
     }
 
     #[test]
-    fn the_primary_project_keeps_its_path_and_gets_a_mnt_alias() {
+    fn the_primary_project_keeps_its_configured_path() {
         let a = argv();
         assert!(
             a.windows(3)
@@ -711,14 +711,8 @@ mod tests {
             "primary project not mounted at its configured path: {a:?}"
         );
         assert!(
-            a.windows(3)
-                .any(|w| w[0] == "--symlink" && w[1] == "/tmp" && w[2] == "/mnt/p"),
-            "primary project has no /mnt/p alias: {a:?}"
-        );
-        assert!(
-            !a.windows(3)
-                .any(|w| w[0] == "--bind" && w[1] == "/tmp" && w[2] == "/mnt/p"),
-            "primary project was mounted a second time: {a:?}"
+            !a.iter().any(|arg| arg == "/mnt/p"),
+            "removed project alias survived: {a:?}"
         );
         assert!(
             a.windows(2).any(|w| w[0] == "--chdir" && w[1] == "/tmp"),
@@ -765,11 +759,6 @@ mod tests {
         );
         assert!(
             a.windows(3)
-                .any(|w| w[0] == "--symlink" && w[1] == "/tmp" && w[2] == "/mnt/main"),
-            "primary project has no /mnt/main alias: {a:?}"
-        );
-        assert!(
-            a.windows(3)
                 .any(|w| w[0] == "--ro-bind" && w[1] == "/usr" && w[2] == "/mnt/lib"),
             "lib mount not at /mnt/lib: {a:?}"
         );
@@ -780,7 +769,7 @@ mod tests {
     }
 
     #[test]
-    fn sandbox_rejects_unsafe_project_aliases() {
+    fn sandbox_rejects_unsafe_project_names() {
         let cfg = Config::default();
         let s = SessionCfg {
             name: "a".into(),

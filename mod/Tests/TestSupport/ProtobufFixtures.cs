@@ -1,6 +1,5 @@
 using System;
 using System.Collections;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using Google.Protobuf;
@@ -40,45 +39,6 @@ namespace SlopWorld
             if (value is string) return new JValue(value);
             if (value is IEnumerable items) return new JArray(items.Cast<object>().Select(Token));
             return new JValue(value);
-        }
-        public static byte[] Event(string text)
-        {
-            try
-            {
-                var j = JVal.Parse(text);
-                var value = new Wire.Event();
-                switch (j["t"].AsString())
-                {
-                    case "screen": value.Screen = Read<Wire.ScreenView>(j["screen"]); break;
-                    case "sessions": value.Sessions = Read<Wire.SessionsReply>(j); break;
-                    case "projects": value.Projects = Read<Wire.ProjectsReply>(j); break;
-                    case "library": value.Library = Read<Wire.LibraryReply>(j); break;
-                    case "usage": value.Usage = Read<Wire.UsageSnapshot>(j["usage"]); break;
-                    case "audio": value.Audio = Read<Wire.AudioState>(j["audio"]); break;
-                    case "capabilities": value.Capabilities = Read<Wire.Capabilities>(j["capabilities"]); break;
-                    case "jukebox": value.Jukebox = Read<Wire.JukeboxCatalog>(j["jukebox"]); break;
-                }
-                return value.ToByteArray();
-            }
-            catch { return new byte[] { 0x80 }; }
-        }
-        public static JVal EventJson(Wire.Event value)
-        {
-            if (value == null) return JVal.Null;
-            var result = JObject.Parse(JVal.ToJson(Json(value)));
-            string name = value.PayloadCase.ToString().ToLowerInvariant();
-            if (name == "sessions" || name == "projects" || name == "library") result[name] = result[name][name];
-            result["t"] = name;
-            return JVal.Parse(result.ToString());
-        }
-        public static IncomingEnqueueResult Enqueue(this IncomingMessageQueue queue, string text) => queue.Enqueue(Event(text));
-        public static int Read(this HubEventBatch batch, ConcurrentQueue<string> queue, Action<Exception> error)
-        {
-            var incoming = new IncomingMessageQueue();
-            {
-                for (int i = 0; i < HubEventBatch.Limit && queue.TryDequeue(out var text); i++) incoming.Enqueue(Event(text));
-                return batch.Read(incoming, error);
-            }
         }
         public static string ToJson(this AgentTemplateInfo value, SessionInfo form) => JVal.ToJson(Json(value.ToWire(form)));
         public static string ToJson(this PresetInfo value) => Token(value.ToWire()).ToString(Newtonsoft.Json.Formatting.None);

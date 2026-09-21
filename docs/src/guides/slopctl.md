@@ -42,10 +42,6 @@ accepted work as `canceled`; removal is shared:
 the store holds one copy of a task, and a participant can only drop tasks that have
 stopped moving. The root token can remove tasks still in flight.
 
-`delegate`, `spawn`, and `wait` remain documented shortcuts for `task delegate`,
-`worker spawn`, and `task wait`. Existing root task verbs, `inbox`, `templates`,
-`rm`, `task ID`, bare `worker` spawning, and `prune --all` remain compatibility aliases.
-
 `wait` blocks until `done`, `failed`, or `canceled`, then prints the final task.
 It polls internally; do not loop over `task show`, `task list`, or `status`.
 It prints the current state to stderr on the first pending response, on state changes,
@@ -53,7 +49,7 @@ and every 30 seconds while waiting. Keep the same command running and read its o
 stdout (including `--json`) contains only the final task result.
 
 `worker spawn [--durable] --project PROJECT --template TEMPLATE "task description"` creates the
-task and child session in one daemon operation. `spawn` is its documented shortcut. Workers are
+task and child session in one daemon operation. Workers are
 instantiated from the selected, enabled template; an existing agent is never cloned. The caller
 named by `SLOPWORLD_SESSION` owns the task and sidebar child. `template list` lists the catalog,
 while an agent caller sees only templates
@@ -70,7 +66,7 @@ Create a normal agent from the same catalog with
 `agent create NAME --project PROJECT --template TEMPLATE`; creation does not start it unless
 `--start` is supplied. Both worker and ordinary-agent creation use the daemon's template
 validation and fresh private identity allocation.
-Use `template list` to discover available templates; `templates` remains its compatibility alias.
+Use `template list` to discover available templates.
 
 ## Diagnostics
 

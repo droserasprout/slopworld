@@ -2,11 +2,10 @@ use super::take_json_flag;
 use super::USAGE;
 use crate::commands::{
     command_help, parse_command, parse_command_with_task_id, run_agent_create, run_spawn,
-    task_is_terminal, wait_for_task, Command, InboxFilter, SpawnArgs, UpdateAction, ACCEPT_USAGE,
-    AGENT_CREATE_USAGE, AGENT_USAGE, DELEGATE_USAGE, FAIL_USAGE, FINISH_USAGE, INBOX_USAGE,
-    PEERS_USAGE, PROGRESS_USAGE, PRUNE_USAGE, REMOVE_USAGE, SANDBOX_INSPECT_USAGE, SANDBOX_USAGE,
+    task_is_terminal, wait_for_task, Command, InboxFilter, SpawnArgs, UpdateAction,
+    AGENT_CREATE_USAGE, AGENT_USAGE, PEERS_USAGE, SANDBOX_INSPECT_USAGE, SANDBOX_USAGE,
     SPAWN_USAGE, STATUS_USAGE, TASK_LIST_USAGE, TASK_SHOW_USAGE, TASK_USAGE, TEMPLATES_USAGE,
-    TEMPLATE_SHOW_USAGE, TEMPLATE_USAGE, WAIT_USAGE, WORKER_USAGE,
+    TEMPLATE_SHOW_USAGE, TEMPLATE_USAGE, WORKER_USAGE,
 };
 use crate::http::{request, Endpoint};
 use crate::logs::{
@@ -93,14 +92,14 @@ fn serve(status: &str, body: &str) -> (Endpoint, thread::JoinHandle<String>) {
 #[test]
 fn command_parser_builds_delegation_and_update_commands() {
     assert_eq!(
-        parse_command(&words("delegate agent fix the pane")),
+        parse_command(&words("task delegate agent fix the pane")),
         Ok(Command::Delegate {
             to: "agent".to_string(),
             body: "fix the pane".to_string(),
         })
     );
     assert_eq!(
-        parse_command(&words("finish task-7 shipped safely")),
+        parse_command(&words("task finish task-7 shipped safely")),
         Ok(Command::Update {
             action: UpdateAction::Finish,
             id: "task-7".to_string(),
@@ -108,14 +107,14 @@ fn command_parser_builds_delegation_and_update_commands() {
         })
     );
     assert_eq!(
-        parse_command(&words("wait task-7")),
+        parse_command(&words("task wait task-7")),
         Ok(Command::Wait {
             id: "task-7".to_string(),
         })
     );
     assert_eq!(
         parse_command(&words(
-            "spawn --durable --project repo --template codex inspect the build"
+            "worker spawn --durable --project repo --template codex inspect the build"
         )),
         Ok(Command::Spawn {
             project: "repo".to_string(),
@@ -126,7 +125,7 @@ fn command_parser_builds_delegation_and_update_commands() {
     );
     assert_eq!(
         parse_command(&words(
-            "worker --project repo --template codex run the checks"
+            "worker spawn --project repo --template codex run the checks"
         )),
         Ok(Command::Spawn {
             project: "repo".to_string(),
@@ -167,11 +166,11 @@ fn command_parser_builds_delegation_and_update_commands() {
         })
     );
     assert_eq!(
-        parse_command(&words("templates")),
+        parse_command(&words("template list")),
         Ok(Command::Templates { project: None })
     );
     assert_eq!(
-        parse_command(&words("templates --project repo")),
+        parse_command(&words("template list --project repo")),
         Ok(Command::Templates {
             project: Some("repo".into())
         })
@@ -179,63 +178,31 @@ fn command_parser_builds_delegation_and_update_commands() {
 }
 
 #[test]
-fn canonical_command_tree_maps_to_the_existing_requests() {
-    assert_eq!(
-        parse_command(&words("task delegate agent fix the pane")),
-        parse_command(&words("delegate agent fix the pane"))
-    );
-    assert_eq!(
-        parse_command(&words("task list --all --sent")),
-        parse_command(&words("inbox --all --sent"))
-    );
-    assert_eq!(
-        parse_command(&words("task show task-7")),
-        parse_command(&words("task task-7"))
-    );
-    assert_eq!(
-        parse_command(&words("task wait task-7")),
-        parse_command(&words("wait task-7"))
-    );
-    assert_eq!(
-        parse_command(&words("task accept task-7 accepted")),
-        parse_command(&words("accept task-7 accepted"))
-    );
-    assert_eq!(
-        parse_command(&words("task progress task-7 still working")),
-        parse_command(&words("progress task-7 still working"))
-    );
-    assert_eq!(
-        parse_command(&words("task finish task-7 shipped")),
-        parse_command(&words("finish task-7 shipped"))
-    );
-    assert_eq!(
-        parse_command(&words("task fail task-7 blocked")),
-        parse_command(&words("fail task-7 blocked"))
-    );
-    assert_eq!(
-        parse_command(&words("task remove task-7")),
-        parse_command(&words("rm task-7"))
-    );
-    assert_eq!(
-        parse_command(&words("task prune --include-active")),
-        parse_command(&words("prune --all"))
-    );
-    assert_eq!(
-        parse_command(&words(
-            "worker spawn --durable --project repo --template codex inspect the build"
-        )),
-        parse_command(&words(
-            "spawn --durable --project repo --template codex inspect the build"
-        ))
-    );
-    assert_eq!(
-        parse_command(&words("template list --project repo")),
-        parse_command(&words("templates --project repo"))
-    );
+fn compatibility_command_aliases_are_rejected() {
+    for command in [
+        "delegate agent fix the pane",
+        "spawn --project repo --template codex inspect the build",
+        "wait task-7",
+        "accept task-7 accepted",
+        "progress task-7 working",
+        "finish task-7 done",
+        "fail task-7 failed",
+        "rm task-7",
+        "prune --all",
+        "inbox --all",
+        "templates",
+    ] {
+        assert!(
+            parse_command(&words(command)).is_err(),
+            "accepted alias: {command}"
+        );
+    }
+    assert!(parse_command(&words("worker --project repo --template codex task")).is_err());
+    assert!(parse_command(&words("task task-7")).is_err());
 }
 
 #[test]
-fn canonical_task_names_take_precedence_over_legacy_task_ids() {
+fn task_commands_require_explicit_subcommands() {
     assert_eq!(
         parse_command(&words("task wait")).unwrap_err(),
         "task wait needs a task id"
@@ -246,12 +213,7 @@ fn canonical_task_names_take_precedence_over_legacy_task_ids() {
             id: "task-7".into()
         })
     );
-    assert_eq!(
-        parse_command(&words("task task-7")),
-        Ok(Command::Task {
-            id: "task-7".into()
-        })
-    );
+    assert!(parse_command(&words("task task-7")).is_err());
 }
 
 #[test]
@@ -363,7 +325,7 @@ fn command_tree_has_group_and_leaf_help() {
 #[test]
 fn task_text_preserves_help_words_and_flags() {
     for text in ["help", "please help me", "--help", "-h"] {
-        let mut args = words("delegate agent");
+        let mut args = words("task delegate agent");
         args.extend(words(text));
         assert_eq!(
             parse_command(&args),
@@ -378,7 +340,7 @@ fn task_text_preserves_help_words_and_flags() {
             ("finish", UpdateAction::Finish),
             ("fail", UpdateAction::Fail),
         ] {
-            let mut args = words(&format!("{command} task-7"));
+            let mut args = words(&format!("task {command} task-7"));
             args.extend(words(text));
             assert_eq!(
                 parse_command(&args),
@@ -394,30 +356,28 @@ fn task_text_preserves_help_words_and_flags() {
 
 #[test]
 fn spawn_preserves_task_text_after_template_options() {
-    for command in ["spawn", "worker"] {
-        for durable in [false, true] {
-            for text in ["- investigate the failure", "help", "--help", "-h"] {
-                // Check both a quoted body and a body spread over several arguments.
-                for body_args in [vec![text.to_string()], words(text)] {
-                    let mut args = vec![command.to_string()];
-                    if durable {
-                        args.push("--durable".into());
-                    }
-                    args.push("--project".into());
-                    args.push("repo".into());
-                    args.push("--template".into());
-                    args.push("codex".into());
-                    args.extend(body_args);
-                    assert_eq!(
-                        parse_command(&args),
-                        Ok(Command::Spawn {
-                            project: "repo".into(),
-                            template: "codex".into(),
-                            durable,
-                            body: text.into(),
-                        })
-                    );
+    for durable in [false, true] {
+        for text in ["- investigate the failure", "help", "--help", "-h"] {
+            // Check both a quoted body and a body spread over several arguments.
+            for body_args in [vec![text.to_string()], words(text)] {
+                let mut args = words("worker spawn");
+                if durable {
+                    args.push("--durable".into());
                 }
+                args.push("--project".into());
+                args.push("repo".into());
+                args.push("--template".into());
+                args.push("codex".into());
+                args.extend(body_args);
+                assert_eq!(
+                    parse_command(&args),
+                    Ok(Command::Spawn {
+                        project: "repo".into(),
+                        template: "codex".into(),
+                        durable,
+                        body: text.into(),
+                    })
+                );
             }
         }
     }
@@ -425,58 +385,42 @@ fn spawn_preserves_task_text_after_template_options() {
 
 #[test]
 fn spawn_delimiter_preserves_options_as_literal_task_text() {
-    for command in ["spawn", "worker"] {
-        for durable in [false, true] {
-            for json in [false, true] {
-                for body in [
-                    "--durable",
-                    "--template other --project elsewhere",
-                    "--json",
-                    "--",
-                ] {
-                    let mut args = words(&format!(
-                        "{command} --project repo --template review {} {} -- {body}",
-                        if durable { "--durable" } else { "" },
-                        if json { "--json" } else { "" },
-                    ));
-                    assert_eq!(take_json_flag(&mut args), json);
-                    assert_eq!(
-                        parse_command(&args),
-                        Ok(Command::Spawn {
-                            project: "repo".into(),
-                            template: "review".into(),
-                            durable,
-                            body: body.into(),
-                        })
-                    );
-                }
+    for durable in [false, true] {
+        for json in [false, true] {
+            for body in [
+                "--durable",
+                "--template other --project elsewhere",
+                "--json",
+                "--",
+            ] {
+                let mut args = words(&format!(
+                    "worker spawn --project repo --template review {} {} -- {body}",
+                    if durable { "--durable" } else { "" },
+                    if json { "--json" } else { "" },
+                ));
+                assert_eq!(take_json_flag(&mut args), json);
+                assert_eq!(
+                    parse_command(&args),
+                    Ok(Command::Spawn {
+                        project: "repo".into(),
+                        template: "review".into(),
+                        durable,
+                        body: body.into(),
+                    })
+                );
             }
         }
-        assert!(parse_command(&words(&format!(
-            "{command} --project repo --template review --"
-        )))
-        .is_err());
     }
+    assert!(parse_command(&words("worker spawn --project repo --template review --")).is_err());
 }
 
 #[test]
 fn every_command_has_nested_help() {
     let commands = [
-        ("delegate", DELEGATE_USAGE),
-        ("spawn", SPAWN_USAGE),
         ("worker", WORKER_USAGE),
-        ("templates", TEMPLATES_USAGE),
         ("template", TEMPLATE_USAGE),
         ("agent", AGENT_USAGE),
-        ("inbox", INBOX_USAGE),
         ("task", TASK_USAGE),
-        ("wait", WAIT_USAGE),
-        ("accept", ACCEPT_USAGE),
-        ("progress", PROGRESS_USAGE),
-        ("finish", FINISH_USAGE),
-        ("fail", FAIL_USAGE),
-        ("rm", REMOVE_USAGE),
-        ("prune", PRUNE_USAGE),
         ("peers", PEERS_USAGE),
         ("status", STATUS_USAGE),
         ("sandbox", SANDBOX_USAGE),
@@ -551,17 +495,17 @@ fn command_parser_validates_fixed_arity_and_flags() {
         "unexpected argument: now\n\n".to_string() + USAGE
     );
     assert!(parse_command(&words("task")).is_err());
-    assert!(parse_command(&words("prune --wat")).is_err());
-    assert!(parse_command(&words("inbox --status")).is_err());
-    assert!(parse_command(&words("spawn parent task")).is_err());
-    assert!(parse_command(&words("templates --wat")).is_err());
-    assert!(parse_command(&words("wait")).is_err());
-    assert!(parse_command(&words("wait task-7 extra")).is_err());
+    assert!(parse_command(&words("task prune --wat")).is_err());
+    assert!(parse_command(&words("task list --status")).is_err());
+    assert!(parse_command(&words("worker spawn parent task")).is_err());
+    assert!(parse_command(&words("template list --wat")).is_err());
+    assert!(parse_command(&words("task wait")).is_err());
+    assert!(parse_command(&words("task wait task-7 extra")).is_err());
 }
 
 #[test]
 fn global_json_flag_is_removed_before_command_parsing() {
-    let mut args = words("--json inbox --all --json");
+    let mut args = words("--json task list --all --json");
     assert!(take_json_flag(&mut args));
     assert_eq!(
         parse_command(&args),
