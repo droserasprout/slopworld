@@ -25,6 +25,8 @@ retained local branch. External checkouts are only unregistered; `main` is never
 No forced deletion or automatic commits. Interrupted operations stay visible; recovery recognizes
 completed allocation but never relaunches workers or automatically deletes files. Missing-checkout
 removal retries clean up only that Git registration and its empty owned container.
+Only ready worktrees with an existing checkout can be attached; interrupted and missing records
+remain available for inspection and explicit removal.
 
 Resolve worktree paths before sandbox construction and file actions. Linked worktrees mount
 metadata at real paths, checked against the registered repository. Literal mounts exposing the

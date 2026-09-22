@@ -52,7 +52,7 @@ namespace SlopWorld
                     projectOptions, out _);
 
                 if (_worktreeProject != _s.Project) RefreshWorktreeChoices();
-                var worktreeOptions = _worktreeChoices.Where(w => w.Phase != "removing").Select(w => new SelectorOption(
+                var worktreeOptions = _worktreeChoices.Where(w => w.Phase == "ready").Select(w => new SelectorOption(
                     w.Name, () => _s.Worktree = w.Id)).ToList();
                 UiControls.Select(l, "Worktree", _worktreeChoices.FirstOrDefault(w => w.Id == _s.Worktree)?.Name ??
                     (string.IsNullOrEmpty(_s.Worktree) ? "Main checkout" : _s.Worktree), worktreeOptions, out _);
