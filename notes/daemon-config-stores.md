@@ -3,6 +3,8 @@
 The daemon owns machine configuration; the mod owns offline-capable profile preferences.
 The mod talks to daemon APIs and reads `endpoint.toml` for connection credentials; it must
 not read or rewrite daemon TOML directly. Locations and overrides: [paths](ops-paths.md).
+The proposed per-record split of projects, agents and host terminals is scoped in the
+[config split plan](plan-config-split.md).
 
 Personal agent templates are a separate daemon-owned `agent_templates/` store beside
 the main config. `session/agent_templates.rs` owns its typed definition and snapshot rules;
