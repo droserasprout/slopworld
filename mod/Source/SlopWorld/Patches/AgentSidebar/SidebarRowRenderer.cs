@@ -177,7 +177,7 @@ namespace SlopWorld
 
             Text.Font = GameFont.Small;
             GUI.color = tint;
-            UiText.RowLabel(name, session ?? "?");
+            UiText.RowLabel(name, (session ?? "?") + (string.IsNullOrEmpty(info?.WorktreeName) ? "" : " · " + info.WorktreeName));
 
             Text.Font = GameFont.Tiny;
             string indicators = Settings.StatusbarAgentIndicators

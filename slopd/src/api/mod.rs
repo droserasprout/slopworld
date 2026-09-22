@@ -46,6 +46,7 @@ pub(super) fn parse_session(value: Value) -> Result<crate::config::SessionCfg, A
             "name",
             "label",
             "state_id",
+            "worktree",
             "project",
             "command",
             "cmd",
@@ -66,7 +67,10 @@ pub(super) fn parse_session(value: Value) -> Result<crate::config::SessionCfg, A
 }
 
 pub(super) fn parse_project(value: Value) -> Result<crate::config::ProjectCfg, ApiError> {
-    parse_owned(value, &["name", "dir", "temp", "mounts"])
+    parse_owned(
+        value,
+        &["name", "dir", "temp", "mounts", "id", "worktree_root"],
+    )
 }
 
 pub(super) fn parse_template(value: Value) -> Result<crate::session::AgentTemplate, ApiError> {

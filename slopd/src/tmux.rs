@@ -36,6 +36,8 @@ pub struct Tmux {
 
 #[derive(Debug, Clone)]
 pub struct WorkerMetadata {
+    pub project: Option<String>,
+    pub worktree: Option<String>,
     pub parent: String,
     pub task_id: String,
     pub durable: bool,
@@ -305,11 +307,41 @@ impl Tmux {
         Ok(())
     }
 
+    pub async fn set_worker_worktree(
+        &self,
+        name: &str,
+        project: &str,
+        worktree: &str,
+    ) -> Result<()> {
+        self.run(&[
+            "set-option",
+            "-t",
+            name,
+            "@slopworld-worker-project",
+            project,
+        ])
+        .await?;
+        self.run(&[
+            "set-option",
+            "-t",
+            name,
+            "@slopworld-worker-worktree",
+            worktree,
+        ])
+        .await?;
+        Ok(())
+    }
+
     pub async fn worker_metadata(&self, name: &str) -> Option<WorkerMetadata> {
         if self.option(name, WORKER).await?.trim() != "1" {
             return None;
         }
         Some(WorkerMetadata {
+            project: self.option(name, "@slopworld-worker-project").await,
+            worktree: match self.option(name, "@slopworld-worker-worktree").await {
+                Some(value) => Some(value),
+                None => self.option(name, "@slopworld-worker-workspace").await,
+            },
             parent: self.option(name, WORKER_PARENT).await?,
             task_id: self.option(name, WORKER_TASK).await?,
             durable: self

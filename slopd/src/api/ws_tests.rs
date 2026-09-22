@@ -51,6 +51,8 @@ async fn rejected_spotify_selection_replies_without_waiting_for_a_state_change()
 /// keeps a `SessionView` compiling without pulling in a whole live manager.
 fn view(name: &str) -> SessionView {
     SessionView {
+        worktree: String::new(),
+        worktree_name: String::new(),
         name: name.to_string(),
         label: String::new(),
         project: String::new(),

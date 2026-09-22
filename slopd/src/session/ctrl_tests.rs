@@ -47,6 +47,7 @@ pub(crate) fn test_manager_with_socket(config: Config, socket: impl Into<String>
             crate::tasks::Tasks::load(&cfg_path).expect("test task store"),
         ),
         worker_spawn: tokio::sync::Mutex::new(()),
+        worktree_mutation: tokio::sync::Mutex::new(()),
         title_cache: crate::title::SummaryCache::load(crate::title::cache_path(&cfg_path)),
     })
 }

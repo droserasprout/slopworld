@@ -93,3 +93,7 @@ pub(super) fn guard_root(cap: &Cap) -> Result<(), crate::api::protobuf::ApiError
 #[cfg(test)]
 #[path = "handlers_tests.rs"]
 mod tests;
+
+#[path = "handlers_worktrees.rs"]
+mod handlers_worktrees;
+pub(crate) use handlers_worktrees::*;

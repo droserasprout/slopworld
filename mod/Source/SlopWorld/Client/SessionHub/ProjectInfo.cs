@@ -89,6 +89,7 @@ namespace SlopWorld
     public class ProjectInfo
     {
         public string Name = "";
+        public string WorktreeRoot = "";
         string _dir = "";
         MountEntry _directoryMount;
         public string Dir
@@ -157,6 +158,7 @@ namespace SlopWorld
         public static ProjectInfo FromWire(Wire.Project j) => new ProjectInfo
         {
             Name = j.Name,
+            WorktreeRoot = j.WorktreeRoot,
             Dir = j.Dir,
             _expandedDir = !j.HasExpandedDir ? null : j.ExpandedDir,
             Temp = j.Temp,
@@ -166,14 +168,16 @@ namespace SlopWorld
         public Wire.Project ToWire() => new Wire.Project
         {
             Name = Name,
+            WorktreeRoot = WorktreeRoot,
             Dir = Dir,
             Temp = Temp,
-            Mounts = { Mounts.Select(m => m.ToWire()) },
+            Mounts = { Mounts.Where(m => !IsPrimaryMount(m) || m.Mode != MountMode.Rw).Select(m => m.ToWire()) },
         };
 
         public ProjectInfo Copy() => new ProjectInfo
         {
             Name = Name,
+            WorktreeRoot = WorktreeRoot,
             Dir = Dir,
             _expandedDir = _expandedDir,
             Temp = Temp,

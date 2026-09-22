@@ -94,8 +94,19 @@ pub(crate) async fn spawn_worker(
     headers: HeaderMap,
     Proto(value): Proto<wire::SpawnWorkerReq>,
 ) -> ApiResult<wire::WorkerResult> {
-    let q: SpawnWorkerReq =
-        super::super::parse_owned(domain(value)?, &["project", "template", "body", "durable"])?;
+    let q: SpawnWorkerReq = super::super::parse_owned(
+        domain(value)?,
+        &[
+            "project",
+            "template",
+            "body",
+            "durable",
+            "worktree",
+            "new_worktree",
+            "base",
+            "worktree_name",
+        ],
+    )?;
     let from = task_principal(&cap, &headers)?;
     if !task_endpoint_known(&m, &from).await {
         return Err(err(
@@ -103,8 +114,73 @@ pub(crate) async fn spawn_worker(
             format!("no such session: {from}"),
         ));
     }
+    let project = m
+        .worker_project(&from, &q.project)
+        .await
+        .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
+    if !q.new_worktree && (!q.base.is_empty() || !q.worktree_name.is_empty()) {
+        return Err(err(
+            StatusCode::BAD_REQUEST,
+            "base and worktree_name require new_worktree",
+        ));
+    }
+    if q.body.trim().is_empty() {
+        return Err(err(
+            StatusCode::BAD_REQUEST,
+            "worker task body must not be empty",
+        ));
+    }
+    let worktree = if q.new_worktree {
+        if !q.worktree.is_empty() {
+            return Err(err(
+                StatusCode::BAD_REQUEST,
+                "choose an existing worktree or a new worktree",
+            ));
+        }
+        let template = m
+            .spawnable_worker_template(&from, &project, &q.template)
+            .await
+            .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
+        let cfg = m.config().await;
+        let candidate = template.instantiate("worktree-validation".into(), project.clone());
+        let owner = cfg
+            .project(&project)
+            .ok_or_else(|| err(StatusCode::BAD_REQUEST, "worker project disappeared"))?;
+        if cfg.network_of(&candidate, owner) == crate::config::NetworkMode::None
+            || cfg.command_of(&candidate).trim().is_empty()
+        {
+            return Err(err(
+                StatusCode::BAD_REQUEST,
+                "worker template needs networking and an executable command",
+            ));
+        }
+        crate::runtime::validate_limits(&candidate.limits)
+            .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
+        let base = m
+            .worktree_base(&from, &project, &q.base)
+            .await
+            .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
+        m.create_worktree(crate::session::WorktreeRequest {
+            project: project.clone(),
+            name: q.worktree_name,
+            base,
+            path: String::new(),
+        })
+        .await
+        .map_err(|e| err(StatusCode::BAD_REQUEST, e))?
+        .id
+    } else {
+        q.worktree
+    };
     let worker = m
-        .spawn_worker(from.clone(), q.project, q.template, q.body, q.durable)
+        .spawn_worker_worktree(
+            from.clone(),
+            project,
+            q.template,
+            q.body,
+            q.durable,
+            worktree,
+        )
         .await
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
     reply(json!({

@@ -375,23 +375,26 @@ crate::wire_enum!(NetworkMode, {
     NetworkMode::Host => crate::shared::protocol::enums::network_mode::HOST,
 });
 
-/// Read-only or read-write access for a project mount.
+/// Access and storage policy for a project mount.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum MountMode {
     Ro,
     #[default]
     Rw,
+    Cache,
 }
 
 crate::wire_enum!(MountMode, {
     MountMode::Ro => crate::shared::protocol::enums::mount_mode::RO,
     MountMode::Rw => crate::shared::protocol::enums::mount_mode::RW,
+    MountMode::Cache => crate::shared::protocol::enums::mount_mode::CACHE,
 });
 
 /// A literal host path bound at an explicit sandbox path. Project shortcuts copy these values.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Mount {
+    #[serde(default)]
     pub from: String,
     pub to: String,
     #[serde(default)]
@@ -575,6 +578,11 @@ impl Limits {
 /// implicit; a row with that directory as both source and destination changes its mode.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ProjectCfg {
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub id: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    #[serde(alias = "workspace_root")]
+    pub worktree_root: String,
     pub name: String,
     /// Defaulted rather than required, because a temporary project has none to give.
     /// `check_project` is what insists on one for every other kind.
@@ -594,6 +602,10 @@ pub struct ProjectCfg {
 /// project so every agent in the same project starts from the same directory view.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SessionCfg {
+    /// Empty selects the original project checkout.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    #[serde(alias = "workspace")]
+    pub worktree: String,
     pub name: String,
     /// A non-empty manual sidebar label disables automatic title summaries for this agent.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -689,6 +701,7 @@ impl Default for HostTerminalCfg {
 impl Default for SessionCfg {
     fn default() -> Self {
         Self {
+            worktree: String::new(),
             name: String::new(),
             label: None,
             state_id: uuid::Uuid::new_v4().to_string(),

@@ -1,7 +1,7 @@
 # House rules
 
 - **Commit on `main`.** This repository has one author and a linear history.
-  Use branches only for work that will be merged back; pull requests are outside
+  Use branches, including worker worktree branches, for work that will be merged back; pull requests are outside
   the workflow.
 - **Keep `AGENTS.md` concise.** Keep topical facts in a file here, and update its
   focused note when its ownership or behavior changes.

@@ -84,6 +84,29 @@ impl Manager {
         if !fresh && cfg.project(&named).is_none() {
             bail!("no such project: {named}");
         }
+        let selected_worktree = if want.worktree.is_empty() && !like.is_empty() {
+            cfg.session(like)
+                .map(|s| s.worktree.clone())
+                .unwrap_or_default()
+        } else {
+            want.worktree.clone()
+        };
+        let worktree_path = if !fresh {
+            let p = cfg
+                .project(&named)
+                .ok_or_else(|| anyhow!("no project {named}"))?;
+            let worktree = if want.worktree.is_empty() && !like.is_empty() {
+                cfg.session(like).map(|s| s.worktree.as_str()).unwrap_or("")
+            } else {
+                &want.worktree
+            };
+            Some(self.resolve_worktree(p, worktree).await?)
+        } else {
+            if !want.worktree.is_empty() {
+                bail!("temporary errands cannot select a worktree");
+            }
+            None
+        };
         let name = if persistent_host {
             let live = self.live.read().await;
             free_name(&live, cfg, &crate::sandbox::host_session_name(&named))
@@ -98,8 +121,8 @@ impl Manager {
             if let Some(existing) = live.get(&name) {
                 if existing.host == host {
                     if persistent_host {
-                        let path = cfg
-                            .project(&named)
+                        let path = worktree_path
+                            .as_ref()
                             .map(|project| crate::config::expand(&project.dir))
                             .unwrap_or_default();
                         drop(live);
@@ -112,8 +135,8 @@ impl Manager {
         }
 
         if persistent_host {
-            let path = cfg
-                .project(&named)
+            let path = worktree_path
+                .as_ref()
                 .map(|project| crate::config::expand(&project.dir))
                 .ok_or_else(|| anyhow!("no such project: {named}"))?;
             self.remember_host_terminal(&name, &named, &path).await?;
@@ -137,6 +160,7 @@ impl Manager {
                     dir: crate::config::temp_dir(&project_name),
                     temp: true,
                     mounts: Vec::new(),
+                    ..Default::default()
                 },
             );
             project_name
@@ -144,7 +168,8 @@ impl Manager {
             named
         };
 
-        let base = cfg.session_for(sc, name.clone(), project.clone());
+        let mut base = cfg.session_for(sc, name.clone(), project.clone());
+        base.worktree = want.worktree.clone();
         let mut session = if let Some(template) = template {
             let mut session = template.instantiate(name.clone(), project);
             // A shell errand or explicit command keeps its own executable while retaining the
@@ -203,12 +228,13 @@ impl Manager {
                 crate::shared::protocol::TERMINAL_MAX_ROWS,
             );
         }
+        state.cfg.worktree = selected_worktree;
         state.ephemeral = true;
         state.host = host;
         state.persistent_host = persistent_host;
         if persistent_host {
-            state.host_path = cfg
-                .project(&state.cfg.project)
+            state.host_path = worktree_path
+                .as_ref()
                 .map(|project| crate::config::expand(&project.dir))
                 .unwrap_or_default();
         }

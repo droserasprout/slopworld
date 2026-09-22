@@ -263,8 +263,11 @@ namespace SlopWorld
         // Host terminal leaves command/label empty: slopd chooses `$SHELL` and returns the
         // generated project-shell session name.
         public void RunHostShell(string project, Action<string> started,
-                                 Action<string> fail = null) =>
-            Run(project, "", "", started, fail, shell: true, host: true);
+                                 Action<string> fail = null, string worktree = "")
+        {
+            DaemonClient.Post<Wire.SessionResult>(RunPath, new Wire.RunReq { Project = project ?? "", Worktree = worktree ?? "", Kind = "shell", Host = true },
+                j => Started(j, started, fail), fail);
+        }
 
         // The sessions list is fetched again before the answer is handed on: a terminal opened
         // on a session this end has never heard of closes itself next frame. `project` and

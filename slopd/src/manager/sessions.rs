@@ -34,7 +34,7 @@ impl Manager {
 
     pub(super) async fn project_for(&self, cfg: &Config, s: &SessionCfg) -> Option<ProjectCfg> {
         if let Some(p) = cfg.project_of(s) {
-            return Some(p.clone());
+            return self.resolve_worktree(p, &s.worktree).await.ok();
         }
         if let Some(p) = self.temp.read().await.get(&s.project).cloned() {
             return Some(p);
@@ -272,6 +272,9 @@ impl Manager {
         preserve_snapshots: bool,
     ) -> Result<()> {
         self.reload_if_changed().await;
+        if let Some(p) = self.config().await.project(&s.project) {
+            self.resolve_worktree(p, &s.worktree).await?;
+        }
         let (autostart, name) = self
             .update_cfg(|cfg| {
                 if cfg.session(&s.name).is_some() {
@@ -328,6 +331,16 @@ impl Manager {
 
     async fn update_within_boundary(self: &Arc<Self>, name: &str, mut s: SessionCfg) -> Result<()> {
         self.reload_if_changed().await;
+        if let Some(p) = self.config().await.project(&s.project) {
+            self.resolve_worktree(p, &s.worktree).await?;
+        }
+        if let Some(old) = self.session_cfg(name).await {
+            if (old.worktree != s.worktree || old.project != s.project)
+                && self.tmux.exists(name).await
+            {
+                bail!("stop the session before moving it to another worktree");
+            }
+        }
         let renamed = s.name != name;
         check_name(&s.name)?;
         let new_name = s.name.clone();
@@ -643,10 +656,14 @@ impl Manager {
     }
 
     pub async fn stored_states(&self) -> Result<Vec<crate::sandbox::StoredState>> {
-        let sessions = self.config().await.sessions;
-        tokio::task::spawn_blocking(move || crate::sandbox::stored_states(&sessions))
-            .await
-            .map_err(|e| anyhow!("scanning private state: {e}"))
+        let cfg = self.config().await;
+        tokio::task::spawn_blocking(move || {
+            let mut entries = crate::sandbox::stored_states(&cfg.sessions);
+            entries.extend(crate::sandbox::cache::inventory(&cfg.projects));
+            entries
+        })
+        .await
+        .map_err(|e| anyhow!("scanning private state: {e}"))
     }
 
     pub async fn empty_trash(&self) -> Result<()> {

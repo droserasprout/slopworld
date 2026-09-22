@@ -17,6 +17,7 @@ variables. Paths marked `0600` are readable only by the owning user.
 | `~/.config/slopworld/sandbox_presets/<name>.toml` | `SLOPD_PRESETS` root | User sandbox definitions, one definition per file. |
 | `~/.config/slopworld/app_presets/<name>.toml` | `SLOPD_PRESETS` root | User app definitions, one definition per file. |
 | `~/.config/slopworld/tasks.toml` | beside `SLOPD_CONFIG` | Task mailbox state. |
+| `~/.cache/slopworld/mounts/<project-id>/` | `SLOPD_CACHE` | Shared managed cache mounts; retained independently of worktrees. |
 | `~/.cache/slopworld/prompt-summaries.toml` | `SLOPD_CACHE` | Cached prompt titles. Mode `0600`. |
 | `~/.cache/slopworld/session-activity.toml` | `SLOPD_CACHE` | Fallback state ages when tmux metadata is unavailable. Mode `0600`. |
 | `~/.cache/slopworld/.anthropic-usage-*.json` | `SLOPD_CACHE` | Short-lived usage responses and rate-limit backoff. Mode `0600`. |

@@ -175,6 +175,8 @@ namespace SlopWorld.Tests
                 {
                     new MountEntry { From = "shared", To = "/mnt/shared", Mode = MountMode.Ro },
                     new MountEntry { From = "tools", To = "/mnt/tools", Mode = MountMode.Rw },
+                    new MountEntry { From = "", To = "target", Mode = MountMode.Cache },
+                    new MountEntry { From = "/shared/cache", To = "deps", Mode = MountMode.Cache },
                 },
             };
 
@@ -183,16 +185,19 @@ namespace SlopWorld.Tests
             AssertEx.Equal("repo", parsed.Name, "project name");
             AssertEx.Equal("/work/repo", parsed.Dir, "project directory");
             AssertEx.True(parsed.Temp, "temporary flag");
-            AssertEx.Equal(2, parsed.Mounts.Count, "project mounts");
+            AssertEx.Equal(4, parsed.Mounts.Count, "project mounts");
             AssertEx.Equal("shared", parsed.Mounts[0].From, "first mount project");
             AssertEx.Equal(MountMode.Ro, parsed.Mounts[0].Mode, "first mount mode");
+            AssertEx.Equal(MountMode.Cache, parsed.Mounts[2].Mode, "managed cache mode");
+            AssertEx.Equal("", parsed.Mounts[2].From, "managed cache source");
+            AssertEx.Equal(MountMode.Cache, parsed.Mounts[3].Mode, "external cache mode");
             AssertEx.Equal(project.ToJson(), parsed.ToJson(), "project JSON round trip");
 
             var copy = project.Copy();
             copy.Mounts[0].From = "changed";
             copy.Mounts.Add(new MountEntry { From = "another", To = "/mnt/another", Mode = MountMode.Ro });
             AssertEx.Equal("shared", project.Mounts[0].From, "copy owns mount entries");
-            AssertEx.Equal(2, project.Mounts.Count, "copy owns mount list");
+            AssertEx.Equal(4, project.Mounts.Count, "copy owns mount list");
         }
     }
 }

@@ -8,6 +8,8 @@ namespace SlopWorld
     {
         public string Name = "";
         public string Project = "";
+        public string Worktree = "";
+        public string WorktreeName = "";
         // Repeated on the wire so a session list reads without a join. Blank when the entry
         // names a project that has gone.
         public string Dir = "";
@@ -113,6 +115,7 @@ namespace SlopWorld
             {
                 Name = Name,
                 Project = Project,
+                Worktree = Worktree,
                 Command = Command,
                 Sandbox = { Sandbox },
                 PersistentTmp = PersistentTmp,

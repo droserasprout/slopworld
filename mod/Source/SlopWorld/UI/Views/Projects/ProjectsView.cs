@@ -99,7 +99,8 @@ namespace SlopWorld
     // Projects edit workspace identity and shared path mounts.
     public class EditProjectDialog : UiWindow
     {
-        enum Tab { General, Mounts }
+        enum Tab { General, Mounts, Worktrees }
+        ProjectWorktrees _worktrees;
 
         readonly EditIdentity _identity;
         readonly ProjectInfo _p;
@@ -122,6 +123,7 @@ namespace SlopWorld
             _identity = copy ? EditIdentity.ForCopy(existing?.Name) :
                 existing == null ? EditIdentity.ForNew() : EditIdentity.ForEdit(existing.Name);
             _p = existing?.Copy() ?? new ProjectInfo();
+            if (existing != null && !copy) _worktrees = new ProjectWorktrees(existing);
             if (copy)
             {
                 _p.Name = _identity.CopyName(SessionHub.Instance.Projects.Select(p => p.Name),
@@ -154,6 +156,10 @@ namespace SlopWorld
                 case Tab.Mounts:
                     DrawMounts(body);
                     break;
+                case Tab.Worktrees:
+                    if (_worktrees == null) Widgets.Label(body, "Save the project before managing worktrees.");
+                    else _worktrees.Draw(body);
+                    break;
 
             }
 
@@ -166,6 +172,7 @@ namespace SlopWorld
         {
             ("General", Tab.General),
             ("Mounts", Tab.Mounts),
+            ("Worktrees", Tab.Worktrees),
         }, ref _tab);
 
         // The project itself: its name, directory and whether that directory is temporary.
@@ -177,6 +184,8 @@ namespace SlopWorld
             // the group, and CurHeight back to nearly nothing.
             l.Label("Name");
             _p.Name = UiControls.Field(l, "project.name", _p.Name);
+            l.Label("Managed worktree root (optional)");
+            _p.WorktreeRoot = UiControls.Field(l, "project.worktree-root", _p.WorktreeRoot);
 
             _p.Temp = UiControls.Checkbox(l, "Temporary - scratch space under /tmp", _p.Temp,
                 _identity.IsNew
@@ -229,7 +238,7 @@ namespace SlopWorld
             float modeW = 100f, removeW = 32f, gap = UiTheme.GapS;
             float width = rect.width - UiTheme.ListInset * 2f - UiTheme.ScrollbarW;
             float pathW = (width - modeW - removeW - gap * 3f) / 2f;
-            UiText.RowLabel(new Rect(rect.x + UiTheme.ListInset, y, pathW, UiTheme.LineH), "From (host path)");
+            UiText.RowLabel(new Rect(rect.x + UiTheme.ListInset, y, pathW, UiTheme.LineH), "From (blank = managed cache)");
             UiText.RowLabel(new Rect(rect.x + UiTheme.ListInset + pathW + gap, y, pathW, UiTheme.LineH),
                 "To (sandbox path; absolute or project-relative)");
             y += UiTheme.LineH;
@@ -261,11 +270,15 @@ namespace SlopWorld
                     }
                     if (UiButtons.Button(new Rect(2f * (pathW + gap), ry, modeW, UiTheme.RowH),
                         MountEntry.ModeLabel(mount.Mode), UiTheme.Btn.Ghost))
-                        Find.WindowStack.Add(new UiMenu(new List<FloatMenuOption>
+                    {
+                        var modes = new List<FloatMenuOption>
                         {
                             new FloatMenuOption("Read-only", () => mount.Mode = MountMode.Ro),
                             new FloatMenuOption("Read-write", () => mount.Mode = MountMode.Rw),
-                        }));
+                        };
+                        if (!isProject) modes.Add(new FloatMenuOption("Cache", () => mount.Mode = MountMode.Cache));
+                        Find.WindowStack.Add(new UiMenu(modes));
+                    }
                     if (!isProject && UiButtons.Button(new Rect(width - removeW, ry, removeW, UiTheme.RowH), "×", UiTheme.Btn.Ghost))
                         remove = mount;
                     ry += UiTheme.RowH + gap;

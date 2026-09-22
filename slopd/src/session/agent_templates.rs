@@ -477,6 +477,7 @@ impl AgentTemplate {
         session.cmd = overrides.cmd.clone();
         session.sandbox = overrides.sandbox.clone();
         session.persistent_tmp = overrides.persistent_tmp;
+        session.worktree = overrides.worktree.clone();
         session.network = overrides.network;
         session.dns = overrides.dns.clone();
         session.limits = overrides.limits;

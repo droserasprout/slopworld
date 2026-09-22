@@ -139,7 +139,9 @@ pub(super) fn push_mounts(a: &mut Vec<String>, mounts: &[ResolvedMount]) {
     for m in mounts {
         match m.mode {
             MountMode::Ro => push_args(a, &["--ro-bind", &m.host_dir, &m.guest_dir]),
-            MountMode::Rw => push_args(a, &["--bind", &m.host_dir, &m.guest_dir]),
+            MountMode::Rw | MountMode::Cache => {
+                push_args(a, &["--bind", &m.host_dir, &m.guest_dir])
+            }
         }
     }
 }

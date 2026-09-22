@@ -13,14 +13,18 @@ directory is mounted read-write by default. A row with the project directory in 
 | Field | Description |
 | --- | --- |
 | `dir` | Project directory on the host. |
-| `mounts` | Host `from` path, sandbox `to` path, and access `mode` (`ro` or `rw`) for each shared bind. |
+| `mounts` | Host `from` path, sandbox `to` path, and access `mode` (`ro`, `rw`, or `cache`) for each shared bind. |
 
-The project form has **General** and **Mounts** tabs. **Mounts** has editable **From**, **To**, and access-mode columns. **Add path**
+The project form has **General**, **Mounts**, and **Worktrees** tabs. **Mounts** has editable **From**, **To**, and access-mode columns. **Add path**
 adds a blank row. **Add project** copies the selected project's current directory into From
 and the selected project's configured directory into To. These are ordinary
 editable values: later project renames, directory edits, or deletion do not retarget the row.
-Remove a row with **×**. Paths must be absolute after daemon expansion; sources may be files
-or directories and must exist at launch. Protected daemon and private-state paths remain blocked.
+Remove a row with **×**. Sources must be absolute after daemon expansion; destinations can be
+absolute or relative to the selected checkout. Read-only/read-write sources may be files or
+directories and must exist at launch. **Cache** sources are shared writable directories created
+if missing; leave From blank for managed storage. Both managed and explicit caches appear in
+Settings → Storage. See [project worktrees and cache mounts](project-worktrees.md).
+Protected daemon and private-state paths remain blocked.
 
 ## Agents
 

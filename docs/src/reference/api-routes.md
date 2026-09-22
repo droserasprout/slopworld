@@ -89,4 +89,8 @@ grant-visible router; handler guards can impose a stricter access requirement.
 | `GET` | `/api/usage` | `root-only` | `usage` | `Empty` → `UsageSnapshot` |
 | `GET` | `/api/whereis` | `root-only` | `whereis` | `Empty` → `WhereIsReply` |
 | `POST` | `/api/workers` | `scoped` | `spawn_worker` | `SpawnWorkerReq` → `WorkerResult` |
+| `GET` | `/api/worktrees` | `scoped` | `list_worktrees` | `Empty` → `WorktreesReply` |
+| `POST` | `/api/worktrees` | `scoped` | `create_worktree` | `CreateWorktreeReq` → `Worktree` |
+| `DELETE` | `/api/worktrees/:id` | `root-only` | `remove_worktree` | `Empty` → `Ack` |
+| `POST` | `/api/worktrees/preview` | `scoped` | `preview_worktree` | `CreateWorktreeReq` → `WorktreeBase` |
 | `GET` | `/ws` | `scoped` | `ws_upgrade` | `ClientMessage` → `Event` |

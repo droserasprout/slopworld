@@ -17,6 +17,8 @@ namespace SlopWorld
             public string Kind;
             public string Key;
             public string Session;
+            public string Project;
+            public bool Cache => Kind == "cache-managed" || Kind == "cache-external";
             public string Path;
             public long Bytes;
             public long Modified;
@@ -26,6 +28,7 @@ namespace SlopWorld
                 Kind = j.Kind,
                 Key = j.Key,
                 Session = !j.HasSession ? null : j.Session,
+                Project = !j.HasProject ? null : j.Project,
                 Path = j.Path,
                 Bytes = (long)j.Bytes,
                 Modified = (long)j.Modified,
@@ -63,7 +66,7 @@ namespace SlopWorld
             var inner = SettingsPageLayout.Body(rect);
 
             string caption = $"{Human(_entries.Sum(e => e.Bytes))} total. Configured agents are retained; " +
-                "deleted/reset state expires after 14 days.";
+                "deleted/reset state expires after 14 days. Shared caches are retained.";
             float width = UiScrollBody.Measure(inner, 0f,
                 UiScrollbarReservation.Always).ContentWidth;
             float captionH = UiText.StatusLabelHeight(caption, width);
@@ -86,7 +89,7 @@ namespace SlopWorld
             {
                 UiText.StatusLabel(new Rect(list.x, list.y + captionH + UiTheme.GapS,
                         list.width, Mathf.Max(0f, list.height - captionH - UiTheme.GapS)),
-                    _error ?? (_loading ? "Scanning..." : "No private state on disk."),
+                    _error ?? (_loading ? "Scanning..." : "No storage entries."),
                     _error != null ? UiTheme.Bad : UiTheme.Dim);
             }
 
@@ -126,7 +129,7 @@ namespace SlopWorld
         {
             bool over = RowChrome.Hover(r, false, true, RowHoverPolicy.OverlayAware);
             if (over)
-                TooltipHandler.TipRegion(r, "Open this private directory in the Files sidebar.");
+                TooltipHandler.TipRegion(r, "Open in the Files sidebar.\n" + e.Path);
 
             bool stacked = StackActions(r.width);
             float actionW = Mathf.Min(UiLayout.BtnW("Restore", 78f),
@@ -147,14 +150,18 @@ namespace SlopWorld
             float line2 = UiListRow.LineY(r, 1);
             GUI.color = UiTheme.Lead;
             UiText.RowLabel(new Rect(r.x + UiTheme.GapS, line1, labelW, UiTheme.LineH),
-                e.Session ?? e.Key);
+                e.Project ?? e.Session ?? e.Key);
             GUI.color = UiTheme.Dim;
-            string note = e.Kind == "active" ? "configured agent" :
+            string note = e.Kind == "cache-managed" ? "managed shared cache" :
+                e.Kind == "cache-external" ? "external shared cache" :
+                e.Kind == "active" ? "configured agent" :
                 e.Kind == "orphan" ? "unclaimed orphan state" :
                 e.Session != null ? $"trash for {e.Session}" : "trash (agent removed)";
             UiText.RowLabel(new Rect(r.x + UiTheme.GapS, line2, labelW, UiTheme.LineH),
                 $"{note}  -  {Human(e.Bytes)}  -  {When(e.Modified)}");
             GUI.color = Color.white;
+
+            if (e.Cache) return;
 
             if (e.Kind == "active")
             {
@@ -179,10 +186,10 @@ namespace SlopWorld
         {
             if (string.IsNullOrEmpty(e.Path))
             {
-                UiLayout.Fail("private-state path is unavailable");
+                UiLayout.Fail("storage path is unavailable");
                 return;
             }
-            FilesView.FocusDirectory(e.Path, e.Session ?? e.Key);
+            FilesView.FocusDirectory(e.Path, e.Project ?? e.Session ?? e.Key);
         }
 
         public static void FocusAgent(string name)
@@ -243,7 +250,7 @@ namespace SlopWorld
             return unit == 0 ? $"{value:0} {units[unit]}" : $"{value:0.#} {units[unit]}";
         }
 
-        static int KindRank(string kind) => kind == "active" ? 0 : kind == "orphan" ? 1 : 2;
+        static int KindRank(string kind) => kind == "active" ? 0 : kind.StartsWith("cache-", StringComparison.Ordinal) ? 1 : kind == "orphan" ? 2 : 3;
 
         static readonly DateTime Epoch =
             new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);

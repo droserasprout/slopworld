@@ -192,6 +192,25 @@ http:
       path: "/api/run"
       methods: [POST]
       scope: root
+    worktrees:
+      protobuf:
+        GET: [Empty, WorktreesReply]
+        POST: [CreateWorktreeReq, Worktree]
+      path: "/api/worktrees"
+      methods: [GET, POST]
+      scope: scoped
+    worktree_preview:
+      protobuf:
+        POST: [CreateWorktreeReq, WorktreeBase]
+      path: "/api/worktrees/preview"
+      methods: [POST]
+      scope: scoped
+    worktree:
+      protobuf:
+        DELETE: [Empty, Ack]
+      path: "/api/worktrees/:id"
+      methods: [DELETE]
+      scope: root
     workers:
       protobuf:
         POST: [SpawnWorkerReq, WorkerResult]
@@ -423,7 +442,7 @@ websocket:
 enums:
   agent_state: [down, working, waiting, idle]
   network_mode: [none, private, host]
-  mount_mode: [ro, rw]
+  mount_mode: [ro, rw, cache]
   dns_mode: [resolved, servers]
   library_kind: [prompt, shell, breadcrumb, fa]
   library_link: [project, temp, ask]

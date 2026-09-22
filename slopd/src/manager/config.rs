@@ -175,12 +175,16 @@ impl Manager {
             template_mutation: tokio::sync::Mutex::new(()),
             tasks: crate::session::manager::TaskStore::new(tasks),
             worker_spawn: tokio::sync::Mutex::new(()),
+            worktree_mutation: tokio::sync::Mutex::new(()),
             title_cache,
         });
         if let Ok(n) = crate::sandbox::purge_trash() {
             if n > 0 {
                 tracing::info!("purged {n} expired private-state trash entries");
             }
+        }
+        if let Err(error) = m.recover_worktrees().await {
+            tracing::error!("worktree recovery failed; records retained: {error:#}");
         }
         m.tmux.ensure_server().await;
         m.sync_from_config().await;
@@ -302,6 +306,7 @@ impl Manager {
             return Ok((result, None));
         }
 
+        self.validate_worktree_config(&old, &candidate).await?;
         let change = prepare_candidate(&old, candidate)?;
         Ok((
             result,
@@ -357,6 +362,10 @@ impl Manager {
             }
         };
         let old = self.cfg.read().await.clone();
+        if let Err(error) = self.validate_worktree_config(&old, &parsed).await {
+            tracing::warn!("config worktree validation failed: {error:#}");
+            return false;
+        }
         let change = match prepare_candidate(&old, parsed) {
             Ok(change) => change,
             Err(e) => {
@@ -679,6 +688,7 @@ impl Manager {
         if parsed.daemon.token == crate::config::TOKEN_REDACTED {
             restore_redacted_document_token(&old, &mut document);
         }
+        self.validate_worktree_config(&old, &parsed).await?;
         let change = prepare_candidate(&old, parsed)?;
 
         let text = toml::to_string_pretty(&document)?;
@@ -706,6 +716,7 @@ impl Manager {
         if parsed.daemon.token == crate::config::TOKEN_REDACTED {
             restore_redacted_document_token(&old, &mut document);
         }
+        self.validate_worktree_config(&old, &parsed).await?;
         let change = prepare_candidate(&old, parsed)?;
         self.persist_cfg_text(&toml::to_string_pretty(&document)?)
             .await?;

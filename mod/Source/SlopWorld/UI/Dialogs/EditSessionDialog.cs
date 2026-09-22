@@ -58,6 +58,8 @@ namespace SlopWorld
                         : existing.Name,
                     Label = copy ? "" : existing.Label,
                     Project = existing.Project,
+                    Worktree = existing.Worktree,
+                    WorktreeName = existing.WorktreeName,
                     Command = existing.Command,
                     CommandPreset = existing.CommandPreset,
                     Cmd = existing.Cmd,

@@ -23,7 +23,9 @@ be enforced or fail launch. They are optional; there is no disk quota or general
 policy. The agent-shell setting is resolved at launch from its command preset or custom command
 to an absolute executable path and emitted as the sandbox `SHELL`; a missing or non-executable
 selection fails that launch. Project mounts are literal source/destination paths applied at each
-start with their saved access mode. Validate both paths; missing sources fail launch. Workspace
+start with their saved access mode. Validate both paths; missing literal ro/rw sources fail
+launch. Cache mounts create missing directories and bind them writable across worktrees.
+Blank cache sources use project-owned storage outside checkouts; explicit sources stay literal. Workspace
 binds precede private state and DNS overlays, and source aliases cannot expose effective private
 preset roots, including aliases used as the primary project directory. A containing primary
 workspace keeps private overlays at their original paths. Writable project `.git` intentionally permits hook/config changes.
@@ -43,3 +45,7 @@ Launch inspection treats live argv (including process titles and option names) a
 only fixed diagnostic flags survive redaction. Cgroup expansion requires the saved per-launch
 scope identity and a pane descendant in that scope. Older plans use ancestry alone, never the
 shared tmux cgroup, to avoid reporting unrelated sessions.
+
+Linked project worktrees mount only their Git metadata at its real paths. Worktree removal
+runs Git in a minimal Bubblewrap namespace because it forks a status helper; allocation and
+inspection retain the host no-child-process restriction. See [worktree ownership](daemon-worktrees.md).

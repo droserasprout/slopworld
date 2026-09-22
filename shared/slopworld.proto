@@ -66,6 +66,8 @@ message Project {
   optional bool temp = 3;
   repeated Mount mounts = 4;
   optional string expanded_dir = 5;
+  optional string id = 6;
+  optional string worktree_root = 7;
 }
 
 message SessionConfig {
@@ -87,6 +89,7 @@ message SessionConfig {
   optional bool worker = 16;
   optional string parent = 17;
   optional string task_id = 18;
+  optional string worktree = 19;
 }
 
 message HostTerminalCfg {
@@ -150,6 +153,8 @@ message SessionView {
   bool bell = 32;
   uint64 run_id = 33;
   uint64 seq = 34;
+  string worktree = 35;
+  string worktree_name = 36;
 }
 
 message ScreenView {
@@ -343,6 +348,10 @@ message SpawnWorkerReq {
   optional string template = 2;
   optional string body = 3;
   optional bool durable = 4;
+  optional string worktree = 5;
+  optional bool new_worktree = 6;
+  optional string base = 7;
+  optional string worktree_name = 8;
 }
 
 message UpdateTaskReq {
@@ -387,6 +396,7 @@ message RunReq {
   optional bool host = 12;
   optional string agent_template = 13;
   optional string like = 14;
+  optional string worktree = 15;
 }
 
 message FileActionReq {
@@ -608,6 +618,7 @@ message StoredState {
   string path = 4;
   uint64 bytes = 5;
   uint64 modified = 6;
+  optional string project = 7;
 }
 
 message StoredStates {
@@ -707,6 +718,7 @@ message RunWhere {
   optional string project = 3;
   bool temp = 4;
   repeated string random_tips = 5;
+  optional string worktree = 6;
 }
 
 message SettingsPreviewRequest {
@@ -817,3 +829,28 @@ message BinaryLocation {
 message WhereIsReply {
   repeated BinaryLocation binaries = 1;
 }
+
+message Worktree {
+  string id = 1;
+  string project_id = 2;
+  string name = 3;
+  string path = 4;
+  string repository = 5;
+  bool managed = 6;
+  string initial_branch = 7;
+  string base = 8;
+  string phase = 9;
+  string error = 10;
+  string branch = 11;
+  string head = 12;
+  repeated string attachments = 13;
+}
+message WorktreesReply { repeated Worktree worktrees = 1; }
+message CreateWorktreeReq {
+  string project = 1;
+  optional string name = 2;
+  optional string base = 3;
+  optional string path = 4;
+}
+
+message WorktreeBase { string commit = 1; }

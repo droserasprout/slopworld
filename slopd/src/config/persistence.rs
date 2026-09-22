@@ -58,7 +58,8 @@ impl Config {
 
     #[cfg(test)]
     pub fn parse(text: &str) -> Result<Self> {
-        let document: toml::Value = toml::from_str(text).context("parsing config.toml")?;
+        let mut document: toml::Value = toml::from_str(text).context("parsing config.toml")?;
+        normalize_worktree_fields(&mut document)?;
         if let Some(daemon) = document.get("daemon").and_then(toml::Value::as_table) {
             for key in ["usage", "openrouter", "openai"] {
                 if daemon.contains_key(key) {
@@ -74,7 +75,8 @@ impl Config {
     /// Validate the current schema while retaining the original document for edits that
     /// preserve unrelated fields and secrets. Loading never rewrites a configuration file.
     pub(crate) fn parse_document(text: &str) -> Result<(Self, toml::Value)> {
-        let document: toml::Value = toml::from_str(text).context("parsing config.toml")?;
+        let mut document: toml::Value = toml::from_str(text).context("parsing config.toml")?;
+        normalize_worktree_fields(&mut document)?;
         if document.get("library").is_some() {
             bail!("inline library entries are no longer supported");
         }
@@ -97,7 +99,8 @@ impl Config {
         let mut document = toml::Value::try_from(self)?;
         if tokio::fs::try_exists(path).await? {
             if let Ok(text) = tokio::fs::read_to_string(path).await {
-                if let Ok(previous) = toml::from_str::<toml::Value>(&text) {
+                if let Ok(mut previous) = toml::from_str::<toml::Value>(&text) {
+                    normalize_worktree_fields(&mut previous)?;
                     let previous_config: Self = previous.clone().try_into().context(
                         "reading modeled fields before preserving unknown configuration",
                     )?;
@@ -269,6 +272,32 @@ async fn save_library(
             .ok_or_else(|| anyhow::anyhow!("unknown library item kind {:?}", item.kind))?;
         let text = toml::to_string_pretty(item)?;
         crate::paths::write_atomic_async(&path, &text, Some(0o600)).await?;
+    }
+    Ok(())
+}
+
+// Normalize WIP aliases in memory so unknown-field preservation cannot reintroduce an
+// old spelling next to the new modeled field. Loading still leaves the file untouched.
+fn normalize_worktree_fields(document: &mut toml::Value) -> Result<()> {
+    for (section, old, new) in [
+        ("project", "workspace_root", "worktree_root"),
+        ("session", "workspace", "worktree"),
+    ] {
+        if let Some(rows) = document
+            .get_mut(section)
+            .and_then(toml::Value::as_array_mut)
+        {
+            for row in rows {
+                if let Some(table) = row.as_table_mut() {
+                    if let Some(value) = table.remove(old) {
+                        if table.contains_key(new) {
+                            bail!("{section} contains both {old} and {new}");
+                        }
+                        table.insert(new.into(), value);
+                    }
+                }
+            }
+        }
     }
     Ok(())
 }

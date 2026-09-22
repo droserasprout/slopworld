@@ -73,6 +73,10 @@ pub(crate) async fn settings_preview(
     if !req.recipe && !session.project.is_empty() && project.name.is_empty() {
         return Err(err(StatusCode::BAD_REQUEST, "Choose an available project"));
     }
+    let project = m
+        .resolve_worktree(&project, &session.worktree)
+        .await
+        .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
     let definitions = json!({"defaults": {
         "command": session.command_snapshot,
         "sandbox_presets": session.sandbox_snapshots,

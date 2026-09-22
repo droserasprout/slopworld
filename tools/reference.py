@@ -221,6 +221,8 @@ def api_routes(files: dict[Path, str]) -> list[Route]:
                 route_paths[match.group(1)] = match.group(2)
     method_pattern = re.compile(r"\b(get|post|put|delete|patch|head|options|trace)\s*\(\s*([A-Za-z_][A-Za-z0-9_]*)")
     for path, text in files.items():
+        if path != ROOT / "slopd/src/api/router.rs":
+            continue
         for match in re.finditer(r"\.route\s*\(", text):
             end = matching_close(text, text.find("(", match.start()))
             body = text[match.end() : end]

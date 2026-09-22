@@ -48,7 +48,7 @@ It prints the current state to stderr on the first pending response, on state ch
 and every 30 seconds while waiting. Keep the same command running and read its output;
 stdout (including `--json`) contains only the final task result.
 
-`worker spawn [--durable] --project PROJECT --template TEMPLATE "task description"` creates the
+`worker spawn [--one-shot] --project PROJECT --template TEMPLATE "task description"` creates the
 task and child session in one daemon operation. Workers are
 instantiated from the selected, enabled template; an existing agent is never cloned. The caller
 named by `SLOPWORLD_SESSION` owns the task and sidebar child. `template list` lists the catalog,
@@ -57,7 +57,7 @@ enabled for worker spawning; `template show NAME` prints one accessible definiti
 Insert `--` before task text that begins with an option, for example
 `worker spawn --project repo --template review -- --durable` sends the literal task `--durable`.
 The worker receives its exact task id in `SLOPWORLD_TASK_ID`, and `slopctl` uses it when a lifecycle
-command omits `ID`. One-shot workers disappear
+command omits `ID`. Workers are durable by default; `--one-shot` workers disappear
 on exit; durable workers remain as stopped, inspectable sessions. Exit, stop, removal, or startup
 failure marks an unfinished worker task failed, and retries require a new task or a manual
 durable start.
@@ -67,6 +67,9 @@ Create a normal agent from the same catalog with
 `--start` is supplied. Both worker and ordinary-agent creation use the daemon's template
 validation and fresh private identity allocation.
 Use `template list` to discover available templates.
+
+For independent checkout creation, worker worktree selection and manual teardown, see
+[Project worktrees](project-worktrees.md).
 
 ## Diagnostics
 

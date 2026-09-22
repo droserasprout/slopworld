@@ -264,7 +264,7 @@ namespace SlopWorld
                 (ageW > 0f ? ageW + UiTheme.GapXS : 0f));
             var name = new Rect(row.Text.x, row.Text.y, nameW, row.Text.height);
             GUI.color = tint;
-            UiText.RowLabel(name, info?.Name ?? row.Session);
+            UiText.RowLabel(name, (info?.Name ?? row.Session) + (string.IsNullOrEmpty(info?.WorktreeName) ? "" : " · " + info.WorktreeName));
             if (ageW > 0f)
             {
                 var time = new Rect(row.Text.xMax - ageW, row.Text.y, ageW, row.Text.height);

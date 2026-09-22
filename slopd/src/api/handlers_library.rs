@@ -119,7 +119,13 @@ pub(crate) async fn run(
     State(m): State<Mgr>,
     Proto(q): Proto<wire::RunReq>,
 ) -> ApiResult<wire::SessionResult> {
-    let q: RunReq = domain(q)?;
+    let mut q: RunReq = domain(q)?;
+    if q.worktree.is_empty() && !q.path.is_empty() {
+        q.worktree = m
+            .worktree_for_path(&q.project, &q.path)
+            .await
+            .map_err(|e| err(axum::http::StatusCode::BAD_REQUEST, e))?;
+    }
     let project = q.project.trim();
     let command = if q.path.trim().is_empty() {
         q.command.trim().to_string()
@@ -177,6 +183,7 @@ pub(crate) async fn run(
     // The project is checked by `run_errand` itself, which is also where a temporary one is
     // coined - so `temp` rides over as the override it already is rather than a second road.
     let want = RunWhere {
+        worktree: q.worktree,
         cols: q.cols,
         rows: q.rows,
         project: None,

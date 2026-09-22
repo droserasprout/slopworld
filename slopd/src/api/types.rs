@@ -1,5 +1,9 @@
 use serde::Deserialize;
 
+fn durable_default() -> bool {
+    true
+}
+
 #[derive(Deserialize)]
 pub(crate) struct CreateTaskReq {
     pub(crate) to: String,
@@ -14,8 +18,16 @@ pub(crate) struct SpawnWorkerReq {
     /// Qualified identity from the daemon's spawnable-template catalog.
     pub(crate) template: String,
     pub(crate) body: String,
-    #[serde(default)]
+    #[serde(default = "durable_default")]
     pub(crate) durable: bool,
+    #[serde(default)]
+    pub(crate) worktree: String,
+    #[serde(default)]
+    pub(crate) new_worktree: bool,
+    #[serde(default)]
+    pub(crate) base: String,
+    #[serde(default)]
+    pub(crate) worktree_name: String,
 }
 
 #[derive(Debug, Deserialize, Default)]
@@ -96,6 +108,8 @@ pub(crate) struct CreateAgentTemplateReq {
 /// required of an entry - `less` on a file is a command with nothing to type after it.
 #[derive(Deserialize)]
 pub(crate) struct RunReq {
+    #[serde(default)]
+    pub(crate) worktree: String,
     pub(crate) cols: Option<u16>,
     pub(crate) rows: Option<u16>,
     #[serde(default)]

@@ -40,6 +40,7 @@ pub struct Manager {
     /// Serializes daemon-owned worker creation so two root requests cannot reserve one child name
     /// or split task/session persistence between each other.
     pub(super) worker_spawn: tokio::sync::Mutex<()>,
+    pub(super) worktree_mutation: tokio::sync::Mutex<()>,
     pub(super) title_cache: crate::title::SummaryCache,
 }
 

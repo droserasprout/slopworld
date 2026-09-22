@@ -263,6 +263,10 @@ pub(super) fn recovered_worker_cfg(
 ) -> SessionCfg {
     let mut session = cfg.session(&metadata.parent).cloned().unwrap_or_default();
     session.name = name.to_string();
+    if let Some(project) = &metadata.project {
+        session.project = project.clone();
+    }
+    session.worktree = metadata.worktree.clone().unwrap_or_default();
     session.state_id = metadata
         .state_id
         .clone()

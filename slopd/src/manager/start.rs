@@ -32,16 +32,20 @@ impl Manager {
                 .await
                 .ok_or_else(|| anyhow!("no such session: {name}"))?,
         };
-        let project = self.project_for(cfg, &session).await.ok_or_else(|| {
-            if session.project.is_empty() {
-                anyhow!("session {name} belongs to no project")
-            } else {
-                anyhow!(
-                    "session {name} belongs to project {}, which does not exist",
-                    session.project
-                )
-            }
-        })?;
+        let project = if let Some(project) = cfg.project_of(&session) {
+            self.resolve_worktree(project, &session.worktree).await?
+        } else {
+            self.project_for(cfg, &session).await.ok_or_else(|| {
+                if session.project.is_empty() {
+                    anyhow!("session {name} belongs to no project")
+                } else {
+                    anyhow!(
+                        "session {name} belongs to project {}, which does not exist",
+                        session.project
+                    )
+                }
+            })?
+        };
         Ok((session, project))
     }
 
@@ -178,6 +182,9 @@ impl Manager {
         }
 
         if plan.is_worker() {
+            self.tmux
+                .set_worker_worktree(name, &plan.session.project, &plan.session.worktree)
+                .await?;
             let durable = !self.is_ephemeral(name).await;
             if let Err(error) = self
                 .tmux

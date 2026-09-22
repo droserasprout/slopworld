@@ -38,11 +38,14 @@ pub(crate) fn router(m: Mgr) -> Router {
         )
         .route(routes::SPAWNABLE_TEMPLATES, get(list_spawnable_templates))
         .route(routes::WORKERS, post(spawn_worker))
+        .route(routes::WORKTREE_PREVIEW, post(preview_worktree))
+        .route(routes::WORKTREES, get(list_worktrees).post(create_worktree))
         .route(crate::shared::protocol::WS_PATH, get(ws_upgrade))
         .layer(middleware::from_fn_with_state(m.clone(), scoped_request));
 
     // Host controls and configuration default to root-only access.
     let root = Router::new()
+        .route(routes::WORKTREE, delete(remove_worktree))
         .route(routes::SESSION_UPDATE, put(update))
         .route(routes::SETTINGS_PREVIEW, post(settings_preview))
         .route(routes::TEMPLATES, get(list_templates).post(save_template))
