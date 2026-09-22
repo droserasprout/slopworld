@@ -19,6 +19,60 @@ namespace SlopWorld.Tests
             yield return ("passes the monitor device to songrec", PassesDeviceToSongrec);
         }
 
+        public static void CanceledLookupDoesNotStartRecognition()
+        {
+            using var cancel = new CancellationTokenSource();
+            cancel.Cancel();
+            var runner = Runner(Missing(), Ok(TrackJson("A", "B")));
+            var result = new SongRecognizer(runner).Recognize(new AudioInput("device", "chosen input"), cancel.Token);
+            AssertEx.Equal(RecognitionStatus.Canceled, result.Status, "canceled lookup is quiet");
+            AssertEx.Equal("chosen input", result.Input, "input label survives cancellation");
+            AssertEx.Equal(0, runner.Calls.Count, "already canceled recognition launches nothing");
+        }
+
+        public static void RunnerCancellationOverridesSuccessfulOutput()
+        {
+            var run = Ok(TrackJson("A", "B"));
+            run.Canceled = true;
+            var result = new SongRecognizer(Runner(Missing(), run)).Recognize(new AudioInput(null, "fallback"));
+            AssertEx.Equal(RecognitionStatus.Canceled, result.Status, "canceled subprocess result is not a match");
+            AssertEx.Equal(null, result.Artist, "canceled output is not published");
+            AssertEx.Equal("fallback", result.Input, "failed lookup retains input identity");
+        }
+
+        public static void FailedSinkProbesIgnoreOutputAndUseDefaultInput()
+        {
+            foreach (var probe in new ProcessRun[]
+            {
+                null,
+                new ProcessRun { Started = true, TimedOut = true, StandardOutput = "stale" },
+                new ProcessRun { Started = true, Canceled = true, StandardOutput = "stale" },
+                new ProcessRun { Started = true, ExitCode = 1, StandardOutput = "stale" },
+                new ProcessRun { Started = true, StandardOutput = null },
+                Ok("   "),
+            })
+            {
+                var runner = Runner(probe, null);
+                var recognizer = new SongRecognizer(runner);
+                var input = recognizer.SelectInput();
+                AssertEx.Equal(null, input.Device, "failed or empty probe does not invent monitor");
+                AssertEx.Equal("default input", input.Label, "fallback label");
+                AssertEx.Equal(1000, runner.Calls[0].TimeoutMs, "probe is bounded");
+                var result = recognizer.Recognize((AudioInput)null);
+                AssertEx.Equal(RecognitionStatus.ProcessMissing, result.Status, "null runner reply is process missing");
+                AssertEx.Equal("default input", result.Input, "null input triggers selection");
+            }
+        }
+
+        public static void DiagnosticsAreTrimmedAndBounded()
+        {
+            AssertEx.Equal("fallback", SongRecognizer.ShortError(null, "fallback"), "null diagnostics use fallback");
+            AssertEx.Equal("fallback", SongRecognizer.ShortError(" \r\n ", "fallback"), "blank diagnostics use fallback");
+            AssertEx.Equal("first", SongRecognizer.ShortError("  first  \r\nsecond", "fallback"), "only first trimmed line is shown");
+            AssertEx.Equal(new string('x', 240), SongRecognizer.ShortError(new string('x', 300), "fallback"), "long diagnostics are capped");
+            AssertEx.Throws<ArgumentNullException>(() => new SongRecognizer(null), "runner is required");
+        }
+
         // A runner that answers each command from a table keyed on the executable name and
         // records the specs it was asked to run, so a test can also assert the argv.
         sealed class FakeRunner : IProcessRunner
