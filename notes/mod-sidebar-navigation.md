@@ -6,7 +6,10 @@ Unknown tabs fall back to Agents; stale history targets may select a tab without
 Library targets distinguish templates from ordinary entries even when names match.
 Library selection resolves catalog identity after refresh; row clicks select, while details
 own execution/editing. Its list viewport excludes search and details for both scrolling and
-hit testing. Global Library definitions remain visible under project filters.
+hit testing. Global Library definitions remain visible under project filters. The Library
+action strip provides quick access to Projects, Worktrees, Sandbox presets and App presets.
+Project and worktree choices follow the shared project filter; project creation is also
+available there.
 
 Tab changes close menus and view-local input state, but preserve preview readers. Reselection
 refreshes without repeating close/enter lifetime changes. Files also primes Git's shared

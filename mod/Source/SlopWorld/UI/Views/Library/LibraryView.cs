@@ -219,6 +219,57 @@ namespace SlopWorld
             !Templates.ContainsKey(item) &&
             (item.Kind == LibraryItemKind.Prompt || item.Kind == LibraryItemKind.Shell);
 
+        public static void OpenQuickAccessMenu(Rect button)
+        {
+            var options = new List<FloatMenuOption>
+            {
+                new UiSubmenu("Projects", () => ProjectOptions(false)),
+                new UiSubmenu("Worktrees", () => ProjectOptions(true)),
+                new FloatMenuOption("Sandbox presets...", () =>
+                    ModOptions.OpenCategory(ModOptions.CategoryFor(ModOptions.PageId.Sandbox))),
+                new FloatMenuOption("App presets...", () =>
+                    ModOptions.OpenCategory(ModOptions.CategoryFor(ModOptions.PageId.AppPresets))),
+            };
+
+            TerminalWindow.OpenOverPane(new UiMenu(options,
+                new Vector2(button.x, button.yMax)));
+        }
+
+        static List<FloatMenuOption> ProjectOptions(bool worktrees)
+        {
+            var allProjects = SessionHub.Instance.Projects;
+            var projects = allProjects
+                .Where(project => AgentSidebar.Passes(project.Name))
+                .OrderBy(project => project.Name, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            var options = new List<FloatMenuOption>();
+
+            if (!worktrees)
+                options.Add(new FloatMenuOption("New project/workspace...", () =>
+                    TerminalWindow.OpenOverPane(new EditProjectDialog(null))));
+
+            if (projects.Count > 0)
+            {
+                if (options.Count > 0) options.Add(UiMenu.Separator());
+                foreach (var project in projects)
+                {
+                    var captured = project;
+                    options.Add(new FloatMenuOption($"{captured.Name}  -  {captured.Dir}", () =>
+                        TerminalWindow.OpenOverPane(worktrees
+                            ? EditProjectDialog.ForWorktrees(captured)
+                            : new EditProjectDialog(captured))));
+                }
+            }
+            else
+            {
+                options.Add(new FloatMenuOption(
+                    allProjects.Count > 0 && AgentSidebar.Filtering
+                        ? "(no projects in this filter)" : "(no projects)", null));
+            }
+
+            return options;
+        }
+
         static void Edit(LibraryItemInfo item)
         {
             if (Templates.TryGetValue(item, out var template))

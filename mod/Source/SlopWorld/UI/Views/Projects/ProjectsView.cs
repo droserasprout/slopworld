@@ -112,10 +112,13 @@ namespace SlopWorld
 
         public EditProjectDialog(ProjectInfo existing) : this(existing, false) { }
 
+        public static EditProjectDialog ForWorktrees(ProjectInfo existing) =>
+            new EditProjectDialog(existing, false, Tab.Worktrees);
+
         // Copy a project's directory and mounts; only the name is regenerated because the daemon treats the result as new.
         public static EditProjectDialog Copy(ProjectInfo of) => new EditProjectDialog(of, true);
 
-        EditProjectDialog(ProjectInfo existing, bool copy)
+        EditProjectDialog(ProjectInfo existing, bool copy, Tab tab = Tab.General)
         {
             // A copy is a new project in every way that matters here: nothing on the daemon
             // knows it, so Save posts rather than puts and there is no rename to carry any
@@ -123,6 +126,7 @@ namespace SlopWorld
             _identity = copy ? EditIdentity.ForCopy(existing?.Name) :
                 existing == null ? EditIdentity.ForNew() : EditIdentity.ForEdit(existing.Name);
             _p = existing?.Copy() ?? new ProjectInfo();
+            _tab = tab;
             if (existing != null && !copy) _worktrees = new ProjectWorktrees(existing);
             if (copy)
             {
