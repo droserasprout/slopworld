@@ -10,6 +10,8 @@ missing host resources. Preset changes take effect only after the agent restarts
 - The debug preset binds daemon config/endpoint and journal files read-only and shares
   the session bus. `systemctl --user` therefore reaches host services; it is a host action.
   See [presets](daemon-presets.md) for the complete diagnostic capability boundary.
+- With `slopworld-debug`, game-related work can run as the host against the host game install
+  and profile.
 
 `slopd.service` uses `Type=simple`: active status alone does not prove startup reached
 `TcpListener::bind`. On the host, compare the listener with the startup journal:

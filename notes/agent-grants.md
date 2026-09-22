@@ -1,8 +1,8 @@
 # Scoped grants
 
 A scoped grant lets one caller watch or drive selected non-host sessions without
-exposing host sessions. Grants are bearer tokens minted in memory by root-authorized
-requests or by the daemon when it starts a worker.
+exposing host sessions. Grants are bearer tokens minted by root-authorized requests or
+by the daemon when it starts a worker, then persisted in the private `grants.toml` store.
 See [wire-protocol](protocol-wire.md) and [agent-tasks](agent-tasks.md).
 
 ## Permissions
@@ -12,7 +12,8 @@ See [wire-protocol](protocol-wire.md) and [agent-tasks](agent-tasks.md).
 - Session creation, full configuration replacement, and host-session access remain root-only.
 - Removal, rename, or identity replacement revokes every grant owned by or targeting that
   session, including access to its other targets. Callers need a fresh grant afterward.
-  Stop/start preserves ordinary session grants; daemon restart drops all grants.
+  Stop/start preserves ordinary session grants. Daemon restart restores grants only when the
+  same grantor and target identities are still present; stale grants are pruned at startup.
 
 REST and WebSocket authorization resolve the token to its session scope. Session views
 hide out-of-scope entries, and host sessions are filtered centrally from non-root grants.

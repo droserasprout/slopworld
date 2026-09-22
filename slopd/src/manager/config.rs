@@ -129,6 +129,8 @@ impl Manager {
         let presets_mtime = crate::presets::Table::stamp();
         let presets_loaded = crate::presets::reload();
         let jukebox_mtime = crate::paths::dir_stamp(&crate::jukebox::Catalog::dir());
+        let grants = crate::grant::Grants::load(&cfg_path)
+            .unwrap_or_else(|error| panic!("grant store for {}: {error:#}", cfg_path.display()));
         let tasks = crate::tasks::Tasks::load(&cfg_path)
             .unwrap_or_else(|e| panic!("task store {}: {e:#}", cfg_path.display()));
         let title_cache = crate::title::SummaryCache::load(crate::title::cache_path(&cfg_path));
@@ -170,7 +172,7 @@ impl Manager {
             events,
             auth_generation: AtomicU64::new(0),
             auth_changes,
-            grants: RwLock::new(crate::grant::Grants::default()),
+            grants: RwLock::new(grants),
             session_boundary: tokio::sync::Mutex::new(()),
             template_mutation: tokio::sync::Mutex::new(()),
             tasks: crate::session::manager::TaskStore::new(tasks),
@@ -188,6 +190,27 @@ impl Manager {
         }
         m.tmux.ensure_server().await;
         m.sync_from_config().await;
+        let (state_ids, host_sessions) = {
+            let live = m.live.read().await;
+            let mut state_ids = HashMap::new();
+            let mut host_sessions = std::collections::HashSet::new();
+            for (name, session) in live.iter() {
+                if session.host {
+                    host_sessions.insert(name.clone());
+                } else {
+                    state_ids.insert(name.clone(), session.cfg.state_id.clone());
+                }
+            }
+            (state_ids, host_sessions)
+        };
+        if let Err(error) = m
+            .grants
+            .write()
+            .await
+            .prune_stale(&state_ids, &host_sessions)
+        {
+            tracing::error!("could not prune stale persisted grants: {error:#}");
+        }
         if let Ok(root) = super::ncspot::runtime() {
             m.recover_ncspot(&root).await;
         }
