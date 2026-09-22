@@ -30,6 +30,11 @@ namespace SlopWorld
     {
         public static readonly List<(string Name, Rect Rect)> Draws = new List<(string, Rect)>();
         public static string EditValue;
+        public static readonly Dictionary<string, string> Edits = new Dictionary<string, string>();
+        public static readonly Dictionary<string, string> FieldValues = new Dictionary<string, string>();
+        public static readonly Dictionary<string, bool> Checks = new Dictionary<string, bool>();
+        public static readonly HashSet<string> Clicks = new HashSet<string>();
+        public static string PickRow, PickOption;
         public static void Record(string name, Rect r) => Draws.Add((name, r));
     }
 
@@ -52,18 +57,24 @@ namespace SlopWorld
         public static string Field(Rect r, string name, string value, bool on)
         {
             EditorTrace.Record(name, r);
-            return on ? EditorTrace.EditValue ?? value : value;
+            EditorTrace.FieldValues[name] = value;
+            return on ? (EditorTrace.Edits.TryGetValue(name, out var edit) ? edit : EditorTrace.EditValue ?? value) : value;
         }
         public static string Area(Rect r, string name, string value, bool on) => Field(r, name, value, on);
     }
 
     static class UiButtons
     {
-        public static bool RowButton(Rect r) => false;
+        public static bool RowButton(Rect r)
+        {
+            if (EditorTrace.Draws[EditorTrace.Draws.Count - 1].Name != EditorTrace.PickRow) return false;
+            EditorTrace.PickRow = null;
+            return true;
+        }
         public static bool Button(Rect r, string label, UiTheme.Btn kind = UiTheme.Btn.Default)
         {
             EditorTrace.Record(label, r);
-            return false;
+            return EditorTrace.Clicks.Remove(label);
         }
     }
 
@@ -74,7 +85,7 @@ namespace SlopWorld
         {
             readonly Rect _rect;
             public Bar(Rect rect) { _rect = rect; }
-            public bool Left(string label, UiTheme.Btn kind) => false;
+            public bool Left(string label, UiTheme.Btn kind) => EditorTrace.Clicks.Remove(label);
             public Rect Rest() => _rect;
         }
     }
@@ -83,10 +94,12 @@ namespace SlopWorld
     {
         public readonly string Label;
         public readonly Action Choose;
+        public readonly bool Enabled;
         public SelectorOption(string label, Action choose, bool enabled = true)
         {
             Label = label;
             Choose = choose;
+            Enabled = enabled;
         }
     }
     static class UiControls
@@ -105,13 +118,21 @@ namespace SlopWorld
         public static bool Checkbox(Rect r, string name, bool on, string tip, bool locked, bool warn)
         {
             EditorTrace.Record("check:" + name, r);
-            return on;
+            return !locked && EditorTrace.Checks.TryGetValue(name, out var next) ? next : on;
         }
         public static void Select(Rect r, string label, string value, SelectorOption[] options,
                                   out Rect box, bool on)
         {
             box = r;
             EditorTrace.Record(label, r);
+            if (on)
+                foreach (var option in options)
+                    if (option.Enabled && option.Label == EditorTrace.PickOption)
+                    {
+                        EditorTrace.PickOption = null;
+                        option.Choose();
+                        break;
+                    }
         }
     }
     enum RowHoverPolicy { OverlayAware }
@@ -146,7 +167,12 @@ namespace SlopWorld
     }
     static class ConfirmDialog
     {
-        public static object Create(string text, Action action) => throw new InvalidOperationException(text);
+        public sealed class Prompt
+        {
+            public string Text;
+            public Action Confirm;
+        }
+        public static object Create(string text, Action action) => new Prompt { Text = text, Confirm = action };
     }
     sealed partial class SessionHub
     {
@@ -162,8 +188,16 @@ namespace SlopWorld
         CommandInfo _command;
         bool _newEntry;
         string _error;
-        void Load() => throw new InvalidOperationException("unexpected load");
-        void NewCommand() => throw new InvalidOperationException("unexpected new command");
+        public int TestLoads, TestNewCommands;
+        void Load() => TestLoads++;
+        void NewCommand() => TestNewCommands++;
+        public PresetInfo TestSelectedPreset => _preset;
+        public CommandInfo TestSelectedCommand => _command;
+        public bool TestNewEntry { get => _newEntry; set => _newEntry = value; }
+        public string TestError { get => _error; set => _error = value; }
+        public void TestPresetList(float width) => DrawPresetList(new Rect(0, 0, width, 20));
+        public void TestCommandList(float width) => DrawCommandList(new Rect(0, 0, width, 20));
+        public void TestFooter() => DoFooter(new Rect(0, 0, 200, 30));
         public float TestPreset(PresetInfo p, float width, bool draw, bool isNew = false)
         {
             _newEntry = isNew;

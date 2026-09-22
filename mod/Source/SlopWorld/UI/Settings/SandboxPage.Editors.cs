@@ -283,8 +283,9 @@ namespace SlopWorld
             if (draw)
             {
                 EditorCaption(view, y, label);
-                set(UiText.Field(new Rect(0f, y + UiTheme.LineH + UiTheme.GapXS,
-                    view.width, UiTheme.FieldH), name, value, editable));
+                string next = UiText.Field(new Rect(0f, y + UiTheme.LineH + UiTheme.GapXS,
+                    view.width, UiTheme.FieldH), name, value, editable);
+                if (editable && next != value) set(next);
             }
             return y + FieldHeight();
         }
@@ -298,8 +299,10 @@ namespace SlopWorld
             if (draw)
             {
                 EditorCaption(view, y, label);
-                set(UiText.Area(new Rect(0f, y + UiTheme.LineH + UiTheme.GapXS,
-                    view.width, actual), name, value, editable));
+                string next = UiText.Area(new Rect(0f, y + UiTheme.LineH + UiTheme.GapXS,
+                    view.width, actual), name, value, editable);
+                // List/environment setters normalize text; repainting must not rewrite it.
+                if (editable && next != value) set(next);
             }
             return y + UiTheme.LineH + UiTheme.GapXS + actual + UiTheme.GapS;
         }
