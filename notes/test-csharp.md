@@ -21,6 +21,9 @@ pinned-reader dismissal, missing session snapshots and replacement after process
 Markdown tests cover supported HTML and Markdown parsing, project-local resource paths,
 image geometry without loading images, quote/table layout, reflow invalidation and highlighted
 code copy fidelity. Reference-definition metadata must not produce visible quote blocks.
+Sandbox editor interaction tests drive selection, edits, confirmation and catalog callbacks
+through recorded controls. Unchanged fields must preserve literal paths and environment values.
+Settings tests cover delayed dirty flushing, profile fallback and live preference normalization.
 
 `Program.cs` runs NUnitLite and defaults its work directory to the executable's output
 directory under `mod/Tests/bin/`, keeping `TestResult.xml` there even when invoked from
