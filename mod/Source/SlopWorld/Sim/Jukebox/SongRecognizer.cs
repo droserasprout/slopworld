@@ -254,8 +254,8 @@ namespace SlopWorld
 
     // The real seam: a child process whose stdout/stderr are drained while it runs, killed on
     // timeout or on cancellation. Kept beside the recognizer because it too avoids Unity, so
-    // the whole file compiles into the test assembly even though only the fake runner is used
-    // there.
+    // the whole file compiles into the test assembly. Local helper commands exercise process
+    // output, timeout and cancellation without invoking audio capture or SongRec.
     public sealed class SystemProcessRunner : IProcessRunner
     {
         public ProcessRun Run(ProcessSpec spec, CancellationToken cancel)
