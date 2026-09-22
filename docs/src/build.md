@@ -59,11 +59,14 @@ Each run prints a coverage summary and writes its fresh report to
 the production files linked into the test harness, not the entire game-bound mod.
 
 Rust also writes `coverage/rust.filtered.cobertura.xml` and a native per-file table at
-`coverage/rust.files.txt`, using the same test run. The inclusive report retains all files
-reported by cargo-llvm-cov. The filtered report applies `RUST_COVERAGE_EXCLUDE` from
+`coverage/rust.files.txt`, using the same test run. The default report follows cargo-llvm-cov's
+built-in exclusions, including `tests.rs` and `*_tests.rs`. The filtered report also applies
+`RUST_COVERAGE_EXCLUDE` from
 `make/config.mk` to omit generated bindings, standalone test files, benchmarks, and external
-Rust library sources. Override that variable to change the file scope. **Inline tests remain
-included** in both reports; the filtered percentage is not production-only coverage.
+Rust library sources. Override that variable to change the file scope. Unit tests live in
+adjacent `*_tests.rs` or `tests.rs` files, loaded as child modules with `#[cfg(test)]` and
+`#[path]`; they retain access to private implementation details. Small test hooks embedded
+in production code remain measured by the file-based filter.
 `make coverage-summary` prints both rates. File paths shared by multiple binaries may appear
 more than once in LLVM reports.
 

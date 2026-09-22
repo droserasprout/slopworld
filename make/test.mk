@@ -38,7 +38,7 @@ coverage-mod: protobuf-deps api-contract ## Measure game-free C# coverage and wr
 	@bash tools/coverage.sh mod
 
 coverage-summary: ## Summarize existing Rust and C# coverage reports
-	@$(PYTHON) tools/coverage_summary.py "$(COVERAGE_DIR)/rust.cobertura.xml" 'Rust (inclusive)'
-	@$(PYTHON) tools/coverage_summary.py "$(COVERAGE_DIR)/rust.filtered.cobertura.xml" 'Rust (file exclusions; includes inline tests)'
+	@$(PYTHON) tools/coverage_summary.py "$(COVERAGE_DIR)/rust.cobertura.xml" 'Rust (default scope)'
+	@$(PYTHON) tools/coverage_summary.py "$(COVERAGE_DIR)/rust.filtered.cobertura.xml" 'Rust (excluding test/generated/benchmark files)'
 	@echo
 	@$(PYTHON) tools/coverage_summary.py "$(COVERAGE_DIR)/csharp.cobertura.xml" 'C#'

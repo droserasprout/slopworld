@@ -72,7 +72,7 @@ MOD_DLL      := mod/Assemblies/SlopWorld.dll
 TEST_PROJECT := mod/Tests/SlopWorld.Tests.csproj
 TEST_DLL     := mod/Tests/bin/Release/net8.0/SlopWorld.Tests.dll
 COVERAGE_DIR := coverage
-# Native llvm-cov file filter; inline test modules remain measured.
+# Native llvm-cov file filter; test modules live in adjacent excluded files.
 RUST_COVERAGE_EXCLUDE ?= /tests/|/benches/|/(tests|test_support|benchmark|[^/]*_tests)\.rs$$|/shared/(http_wire|protocol)\.rs$$|/target/|/rustc[^/]*/library/
 
 # Settings passed to maintenance scripts.

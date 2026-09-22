@@ -19,8 +19,8 @@ mkdir -p "${COVERAGE_DIR}"
     ${CARGO} llvm-cov report --ignore-filename-regex "${RUST_COVERAGE_EXCLUDE}" \
         > "../${COVERAGE_DIR}/rust.files.txt"
 )
-${PYTHON} tools/coverage_summary.py "${COVERAGE_DIR}/rust.cobertura.xml" 'Rust (inclusive)'
-${PYTHON} tools/coverage_summary.py "${COVERAGE_DIR}/rust.filtered.cobertura.xml" 'Rust (file exclusions; includes inline tests)'
+${PYTHON} tools/coverage_summary.py "${COVERAGE_DIR}/rust.cobertura.xml" 'Rust (default scope)'
+${PYTHON} tools/coverage_summary.py "${COVERAGE_DIR}/rust.filtered.cobertura.xml" 'Rust (excluding test/generated/benchmark files)'
 echo "Per-file coverage: ${COVERAGE_DIR}/rust.files.txt"
 ;;
 mod)
