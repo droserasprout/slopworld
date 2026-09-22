@@ -59,15 +59,16 @@ namespace SlopWorld
 
     public static class TemperatureUnit
     {
-        public const string GlazedBald = "glazed-bald";
-        public const string GlazedBaldLabel = "glazed🍩/bald🦅";
+        public const string Alternate = "alternate";
+        public static readonly string AlternateLabel =
+            System.Text.Encoding.UTF8.GetString(new byte[] { 0x67, 0x6C, 0x61, 0x7A, 0x65, 0x64, 0xF0, 0x9F, 0x8D, 0xA9, 0x2F, 0x62, 0x61, 0x6C, 0x64, 0xF0, 0x9F, 0xA6, 0x85 });
 
-        public static bool IsGlazedBald(string unit) => unit == GlazedBald;
+        public static bool IsAlternate(string unit) => unit == Alternate;
 
-        public static string Normalize(string unit) => IsGlazedBald(unit) ? GlazedBald : "";
+        public static string Normalize(string unit) => IsAlternate(unit) ? Alternate : "";
 
         public static string Label(string unit, string fallback) =>
-            IsGlazedBald(unit) ? GlazedBaldLabel : fallback;
+            IsAlternate(unit) ? AlternateLabel : fallback;
     }
 
     // Loading enables the mod unconditionally; settings cover daemon connection and UI

@@ -172,11 +172,11 @@ namespace SlopWorld.Tests
             AssertEx.Equal(119, settings.foregroundFps, "read does not rewrite stored FPS");
             settings.sidebarSide = NavigationSide.Right;
             settings.displayMode = FramePolicy.Limit;
-            settings.temperatureUnit = TemperatureUnit.GlazedBald;
+            settings.temperatureUnit = TemperatureUnit.Alternate;
             settings.sidebarFilesOpenFraction = 2;
             AssertEx.Equal(NavigationSide.Right, Settings.SidebarSide, "explicit right side retained");
             AssertEx.Equal(FramePolicy.Limit, Settings.DisplayMode, "explicit FPS cap retained");
-            AssertEx.Equal(TemperatureUnit.GlazedBald, Settings.TemperatureUnit, "custom unit retained");
+            AssertEx.Equal(TemperatureUnit.Alternate, Settings.TemperatureUnit, "custom unit retained");
             AssertEx.Equal(1f, Settings.SidebarFilesOpenFraction, "runtime fraction clamped");
             AssertEx.Equal("Celsius", TemperatureUnit.Label("unknown", "Celsius"), "unknown unit uses supplied label");
         });

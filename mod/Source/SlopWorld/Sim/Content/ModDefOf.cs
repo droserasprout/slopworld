@@ -100,8 +100,8 @@ namespace SlopWorld
         // gets a field here.
         public static SoundDef LetterArrive_BadUrgent;
 
-        /// The bird-call replacement for camera/UI one-shots in the glazed/bald mode.
-        public static SoundDef SlopWorld_UIBird;
+        /// Alternate camera/UI one-shot sound.
+        public static SoundDef SlopWorld_UIAlternate;
 
         static ModDefOf() => DefOfHelper.EnsureInitializedInCtor(typeof(ModDefOf));
     }

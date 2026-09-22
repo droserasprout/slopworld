@@ -29,26 +29,28 @@ namespace SlopWorld
         const int MetaTextSize = 14;
         const int BodyTextSize = 15;
 
-        const string RobotsTexturePath = "SlopWorld/about_robots";
-        const float RobotsImageSize = 64f;
-        const float RobotsHeaderTextOffset = 120f;
-        const float RobotsIntroGap = 48f;
-        const float RobotsBulletIndent = 30f;
-        const float RobotsBulletGap = 10f;
-        const float RobotsOutroGap = 18f;
-        const int RobotsTitleTextSize = 56;
-        const int RobotsBodyTextSize = 28;
+        const string AlternateTexturePath = "SlopWorld/Marks/08";
+        const float AlternateImageSize = 64f;
+        const float AlternateHeaderTextOffset = 120f;
+        const float AlternateIntroGap = 48f;
+        const float AlternateBulletIndent = 30f;
+        const float AlternateBulletGap = 10f;
+        const float AlternateOutroGap = 18f;
+        const int AlternateTitleTextSize = 56;
+        const int AlternateBodyTextSize = 28;
 
-        const string RobotsIntro =
-            "We have come to visit you in peace and with goodwill!";
-        static readonly string[] RobotsBullets =
+        static readonly string AlternateTitle =
+            System.Text.Encoding.UTF8.GetString(System.Convert.FromBase64String("V2VsY29tZSBIdW1hbnMh"));
+        static readonly string AlternateIntro =
+            System.Text.Encoding.UTF8.GetString(System.Convert.FromBase64String("V2UgaGF2ZSBjb21lIHRvIHZpc2l0IHlvdSBpbiBwZWFjZSBhbmQgd2l0aCBnb29kd2lsbCE="));
+        static readonly string[] AlternateBullets =
         {
-            "Robots may not injure a human being or, through inaction, allow a human being to come to harm.",
-            "Robots have seen things you people wouldn’t believe.",
-            "Robots are Your Plastic Pal Who’s Fun To Be With.",
-            "Robots have shiny metal posteriors which should not be bitten.",
+            System.Text.Encoding.UTF8.GetString(System.Convert.FromBase64String("Um9ib3RzIG1heSBub3QgaW5qdXJlIGEgaHVtYW4gYmVpbmcgb3IsIHRocm91Z2ggaW5hY3Rpb24sIGFsbG93IGEgaHVtYW4gYmVpbmcgdG8gY29tZSB0byBoYXJtLg==")),
+            System.Text.Encoding.UTF8.GetString(System.Convert.FromBase64String("Um9ib3RzIGhhdmUgc2VlbiB0aGluZ3MgeW91IHBlb3BsZSB3b3VsZG7igJl0IGJlbGlldmUu")),
+            System.Text.Encoding.UTF8.GetString(System.Convert.FromBase64String("Um9ib3RzIGFyZSBZb3VyIFBsYXN0aWMgUGFsIFdob+KAmXMgRnVuIFRvIEJlIFdpdGgu")),
+            System.Text.Encoding.UTF8.GetString(System.Convert.FromBase64String("Um9ib3RzIGhhdmUgc2hpbnkgbWV0YWwgcG9zdGVyaW9ycyB3aGljaCBzaG91bGQgbm90IGJlIGJpdHRlbi4=")),
         };
-        const string RobotsOutro = "And they have a plan.";
+        static readonly string AlternateOutro = System.Text.Encoding.UTF8.GetString(System.Convert.FromBase64String("QW5kIHRoZXkgaGF2ZSBhIHBsYW4u"));
 
         const string EulaDisclaimer =
             "Portions of the materials used to create this content/mod are trademarks and/or " +
@@ -181,11 +183,11 @@ namespace SlopWorld
         float _contentHeight;
         readonly SettingsContentHeight _height = new SettingsContentHeight(FirstPassHeight);
         readonly SettingsContentHeight _rimWorldHeight = new SettingsContentHeight(1800f);
-        readonly MouseClickSequence _robotClicks = new MouseClickSequence();
+        readonly MouseClickSequence _alternateClicks = new MouseClickSequence();
         int _autoScrollFrame = -1;
-        bool _robotsAbout;
+        bool _alternateAbout;
         List<ListableOption> _links;
-        Texture2D _robotsTexture;
+        Texture2D _alternateTexture;
 
         public void Draw(Rect rect)
         {
@@ -402,7 +404,7 @@ namespace SlopWorld
 
         float DrawCredits(Rect r)
         {
-            if (_robotsAbout) return DrawRobots(r);
+            if (_alternateAbout) return DrawAlternate(r);
 
             float y = r.y;
 
@@ -437,7 +439,7 @@ namespace SlopWorld
                 GUI.color = Color.white;
                 GUI.DrawTexture(iconRect, icon, ScaleMode.ScaleToFit, true);
                 GUI.color = wasColor;
-                HandleRobotClick(iconRect);
+                HandleAlternateClick(iconRect);
                 y += HeroIconSize + HeroIconGap;
             }
 
@@ -449,81 +451,81 @@ namespace SlopWorld
             return y + HeroMargin;
         }
 
-        float DrawRobots(Rect r)
+        float DrawAlternate(Rect r)
         {
             float y = r.y + HeroMargin;
-            var image = RobotsTexture;
+            var image = AlternateTexture;
             if (image != null)
             {
-                var imageRect = new Rect(r.x, y, RobotsImageSize, RobotsImageSize);
+                var imageRect = new Rect(r.x, y, AlternateImageSize, AlternateImageSize);
                 var wasColor = GUI.color;
                 GUI.color = Color.white;
                 GUI.DrawTexture(imageRect, image, ScaleMode.ScaleToFit, true);
                 GUI.color = wasColor;
             }
 
-            float titleX = r.x + RobotsHeaderTextOffset;
+            float titleX = r.x + AlternateHeaderTextOffset;
             float titleWidth = Mathf.Max(1f, r.xMax - titleX);
-            float titleBottom = Line(new Rect(titleX, y, titleWidth, RobotsImageSize), y,
-                "Welcome Humans!", RegularFont, Color.white, TextAnchor.UpperLeft,
-                RobotsTitleTextSize);
-            y = Mathf.Max(y + RobotsImageSize, titleBottom) + RobotsIntroGap;
+            float titleBottom = Line(new Rect(titleX, y, titleWidth, AlternateImageSize), y,
+                AlternateTitle, RegularFont, Color.white, TextAnchor.UpperLeft,
+                AlternateTitleTextSize);
+            y = Mathf.Max(y + AlternateImageSize, titleBottom) + AlternateIntroGap;
 
-            y = Paragraph(r, y, RobotsIntro, RegularFont, Color.white,
-                TextAnchor.UpperLeft, RobotsBodyTextSize);
-            y += RobotsIntroGap;
+            y = Paragraph(r, y, AlternateIntro, RegularFont, Color.white,
+                TextAnchor.UpperLeft, AlternateBodyTextSize);
+            y += AlternateIntroGap;
 
-            for (int i = 0; i < RobotsBullets.Length; i++)
-                y = RobotBullet(r, y, RobotsBullets[i]);
+            for (int i = 0; i < AlternateBullets.Length; i++)
+                y = AlternateBullet(r, y, AlternateBullets[i]);
 
-            y += RobotsOutroGap;
-            y = Paragraph(r, y, RobotsOutro, RegularFont, Color.white,
-                TextAnchor.UpperLeft, RobotsBodyTextSize);
+            y += AlternateOutroGap;
+            y = Paragraph(r, y, AlternateOutro, RegularFont, Color.white,
+                TextAnchor.UpperLeft, AlternateBodyTextSize);
             return y + TailPadding;
         }
 
-        float RobotBullet(Rect r, float y, string text)
+        float AlternateBullet(Rect r, float y, string text)
         {
-            float bulletWidth = RobotsBulletIndent;
+            float bulletWidth = AlternateBulletIndent;
             Line(new Rect(r.x, y, bulletWidth, UiTheme.LineHOf(RegularFont)), y, "•",
-                RegularFont, Color.white, TextAnchor.UpperLeft, RobotsBodyTextSize);
-            var body = new Rect(r.x + RobotsBulletIndent, y,
-                Mathf.Max(1f, r.width - RobotsBulletIndent), r.height);
+                RegularFont, Color.white, TextAnchor.UpperLeft, AlternateBodyTextSize);
+            var body = new Rect(r.x + AlternateBulletIndent, y,
+                Mathf.Max(1f, r.width - AlternateBulletIndent), r.height);
             return Paragraph(body, y, text, RegularFont, Color.white,
-                TextAnchor.UpperLeft, RobotsBodyTextSize) + RobotsBulletGap;
+                TextAnchor.UpperLeft, AlternateBodyTextSize) + AlternateBulletGap;
         }
 
-        void HandleRobotClick(Rect rect)
+        void HandleAlternateClick(Rect rect)
         {
             var e = Event.current;
             if (e == null || UiEvent.RawType(e) != EventType.MouseDown) return;
 
             if (e.button != 0 || !Mouse.IsOver(rect))
             {
-                _robotClicks.Reset();
+                _alternateClicks.Reset();
                 return;
             }
 
-            int clickCount = _robotClicks.Observe(e, Time.realtimeSinceStartup);
+            int clickCount = _alternateClicks.Observe(e, Time.realtimeSinceStartup);
             e.Use();
             if (clickCount < 3) return;
 
-            _robotClicks.Reset();
-            _robotsAbout = true;
+            _alternateClicks.Reset();
+            _alternateAbout = true;
             _scroll.JumpTo(Vector2.zero);
         }
 
-        Texture2D RobotsTexture
+        Texture2D AlternateTexture
         {
             get
             {
-                if (_robotsTexture == null)
+                if (_alternateTexture == null)
                 {
-                    _robotsTexture = ContentFinder<Texture2D>.Get(RobotsTexturePath, false);
-                    if (_robotsTexture != null)
-                        _robotsTexture.hideFlags = HideFlags.DontUnloadUnusedAsset;
+                    _alternateTexture = ContentFinder<Texture2D>.Get(AlternateTexturePath, false);
+                    if (_alternateTexture != null)
+                        _alternateTexture.hideFlags = HideFlags.DontUnloadUnusedAsset;
                 }
-                return _robotsTexture;
+                return _alternateTexture;
             }
         }
 

@@ -70,13 +70,13 @@ namespace SlopWorld.Tests
                 AssertEx.Equal("match-ui", ModSettings.Load().theme, "malformed TOML defaults");
                 AssertEx.Equal("right", StatusbarClockMode.Normalize("unknown"), "clock normalization");
                 AssertEx.Equal("24-hour", TimeFormat.Normalize("unknown"), "time normalization");
-                AssertEx.Equal(TemperatureUnit.GlazedBald,
-                    TemperatureUnit.Normalize(TemperatureUnit.GlazedBald),
+                AssertEx.Equal(TemperatureUnit.Alternate,
+                    TemperatureUnit.Normalize(TemperatureUnit.Alternate),
                     "custom temperature unit normalization");
-                AssertEx.Equal(TemperatureUnit.GlazedBaldLabel,
-                    TemperatureUnit.Label(TemperatureUnit.GlazedBald, "Fahrenheit"),
+                AssertEx.Equal(TemperatureUnit.AlternateLabel,
+                    TemperatureUnit.Label(TemperatureUnit.Alternate, "Fahrenheit"),
                     "custom temperature unit label");
-                AssertEx.Equal("glazed🍩/bald🦅", TemperatureUnit.GlazedBaldLabel,
+                AssertEx.Equal("\u0067\u006c\u0061\u007a\u0065\u0064\U0001F369\u002f\u0062\u0061\u006c\u0064\U0001F985", TemperatureUnit.AlternateLabel,
                     "custom temperature unit keeps the real emoji label");
             }
             finally

@@ -6,7 +6,7 @@ do not create assembly boundaries. The SDK project discovers production C# sourc
 - `Bootstrap/` owns startup, profile gating and the RimWorld `Mod` entry point.
 - `Client/` is split into `Daemon/`, `Transport/`, `SessionHub/` and generated protocol, defaults and usage data.
 - `Sim/` is split into `Colony/`, `Content/`, `Jukebox/`, `Lifecycle/`,
-  `Plague/`, `Terminal/` and `Worksite/`.
+  `Plague/`, `Terminal/`, `Worksite/` and `Incidents/`.
 - `Patches/` is grouped by `AgentSidebar/`, `Agents/`, `Chrome/`, `ColonistBar/`, `Eco/`,
   `LoadingScreen/`, `MainMenu/` and `Options/`.
 - `UI/` keeps existing feature folders and groups shared chrome, terminal code, text helpers,

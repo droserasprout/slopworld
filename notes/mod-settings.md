@@ -13,8 +13,7 @@ Eco must not become a second foreground pacing owner. Font and terminal-theme ch
 explicit cache invalidation; ordinary UI colors resolve on read. Visibility preferences
 hide presentation without disabling polling, audio, or the corresponding map object.
 
-The locale page's `glazed🍩/bald🦅` temperature choice aliases Fahrenheit and enables 5x bird
-audio for camera/UI one-shots. Its literal emoji label is drawn from the Pango-baked UI atlas
-because Unity's dynamic font path does not reliably render color emoji. It is stored separately because
-`TemperatureDisplayMode` is a closed RimWorld enum; map-scoped sounds keep their original
-definitions.
+Custom temperature aliases are stored separately because `TemperatureDisplayMode` is a
+closed RimWorld enum. Emoji labels use the Pango-baked UI atlas because Unity's dynamic
+font path does not reliably render color emoji. Audio overrides apply only to camera/UI
+one-shots; map-scoped sounds retain their original definitions.
