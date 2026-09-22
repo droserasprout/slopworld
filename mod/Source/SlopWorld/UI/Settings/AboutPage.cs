@@ -30,14 +30,14 @@ namespace SlopWorld
         const int BodyTextSize = 15;
 
         const string AlternateTexturePath = "SlopWorld/Marks/08";
-        const float AlternateImageSize = 64f;
+        const float AlternateImageSize = 88f;
         const float AlternateHeaderTextOffset = 120f;
         const float AlternateIntroGap = 48f;
         const float AlternateBulletIndent = 30f;
         const float AlternateBulletGap = 10f;
         const float AlternateOutroGap = 18f;
         const int AlternateTitleTextSize = 56;
-        const int AlternateBodyTextSize = 28;
+        const int AlternateBodyTextSize = 26;
 
         static readonly string AlternateTitle =
             System.Text.Encoding.UTF8.GetString(System.Convert.FromBase64String("V2VsY29tZSBIdW1hbnMh"));
@@ -51,6 +51,12 @@ namespace SlopWorld
             System.Text.Encoding.UTF8.GetString(System.Convert.FromBase64String("Um9ib3RzIGhhdmUgc2hpbnkgbWV0YWwgcG9zdGVyaW9ycyB3aGljaCBzaG91bGQgbm90IGJlIGJpdHRlbi4=")),
         };
         static readonly string AlternateOutro = System.Text.Encoding.UTF8.GetString(System.Convert.FromBase64String("QW5kIHRoZXkgaGF2ZSBhIHBsYW4u"));
+
+        static readonly string AlternateRetryLabel =
+            System.Text.Encoding.UTF8.GetString(System.Convert.FromBase64String("VHJ5IEFnYWlu"));
+
+        static readonly string AlternateRetryWarning =
+            System.Text.Encoding.UTF8.GetString(System.Convert.FromBase64String("UGxlYXNlIGRvbid0IHByZXNzIHRoaXMgYnV0dG9uIGFnYWluLg=="));
 
         const string EulaDisclaimer =
             "Portions of the materials used to create this content/mod are trademarks and/or " +
@@ -186,6 +192,7 @@ namespace SlopWorld
         readonly MouseClickSequence _alternateClicks = new MouseClickSequence();
         int _autoScrollFrame = -1;
         bool _alternateAbout;
+        int _alternateRetry;
         List<ListableOption> _links;
         Texture2D _alternateTexture;
 
@@ -204,11 +211,13 @@ namespace SlopWorld
                 var content = new Rect(ContentPaddingX, ContentPaddingY,
                     Mathf.Max(1f, view.width - ContentPaddingX * 2f),
                     Mathf.Max(1f, view.height - ContentPaddingY * 2f));
-                _contentHeight = DrawCredits(content) + ContentPaddingY;
+                _contentHeight = (_alternateAbout
+                    ? DrawAlternate(content, inner.height - ContentPaddingY * 2f)
+                    : DrawCredits(content)) + ContentPaddingY;
                 _height.Measure(_contentHeight);
             }
 
-            AdvanceAutoScroll(inner, _contentHeight);
+            if (!_alternateAbout) AdvanceAutoScroll(inner, _contentHeight);
         }
 
         void AdvanceAutoScroll(Rect viewport, float contentHeight)
@@ -404,8 +413,6 @@ namespace SlopWorld
 
         float DrawCredits(Rect r)
         {
-            if (_alternateAbout) return DrawAlternate(r);
-
             float y = r.y;
 
             y = DrawEulaDisclaimer(r, y);
@@ -451,48 +458,75 @@ namespace SlopWorld
             return y + HeroMargin;
         }
 
-        float DrawAlternate(Rect r)
+        float DrawAlternate(Rect r, float viewportHeight)
         {
-            float y = r.y + HeroMargin;
-            var image = AlternateTexture;
-            if (image != null)
+            // Center against the viewport, never the previous scroll-content height.
+            float scale = Mathf.Clamp(r.width / 1320f, 0.6f, 1f);
+            float width = Mathf.Min(r.width, 1320f);
+            r = new Rect(r.center.x - width / 2f, r.y, width, r.height);
+            float offset = r.width < 480f ? 0f : AlternateHeaderTextOffset * scale;
+            var body = new Rect(r.x + offset, r.y, Mathf.Max(1f, r.width - offset), r.height);
+            var title = SizedStyle(RegularFont, Mathf.RoundToInt(AlternateTitleTextSize * scale),
+                TextAnchor.MiddleLeft, true);
+            title.fontStyle = FontStyle.Bold;
+            var text = SizedStyle(RegularFont, Mathf.RoundToInt(AlternateBodyTextSize * scale),
+                TextAnchor.UpperLeft, true);
+            var outro = SizedStyle(RegularFont, Mathf.RoundToInt(22f * scale),
+                TextAnchor.UpperLeft, true);
+            float iconSize = AlternateImageSize * scale;
+            float headerHeight = Mathf.Max(iconSize,
+                title.CalcHeight(new GUIContent(AlternateTitle), body.width));
+            float introHeight = text.CalcHeight(new GUIContent(AlternateIntro), body.width);
+            float indent = AlternateBulletIndent * scale;
+            float bulletWidth = Mathf.Max(1f, body.width - indent * 1.6f);
+            float total = headerHeight + AlternateIntroGap * scale + introHeight + 26f * scale;
+            foreach (string bullet in AlternateBullets)
+                total += text.CalcHeight(new GUIContent(bullet), bulletWidth) + AlternateBulletGap * scale;
+            float outroHeight = outro.CalcHeight(new GUIContent(AlternateOutro), body.width);
+            float buttonHeight = Mathf.Max(54f * scale,
+                text.CalcHeight(new GUIContent(AlternateRetryWarning), body.width) + 16f * scale);
+            // Reserve the button's space after it disappears to avoid shifting the page.
+            total += AlternateOutroGap * scale + outroHeight + 32f * scale + buttonHeight;
+            if (offset == 0f) total += iconSize + 16f * scale;
+            float y = r.y + Mathf.Max(0f, (viewportHeight - total) / 2f);
+            var wasColor = GUI.color;
+            GUI.color = Color.white;
+            try
             {
-                var imageRect = new Rect(r.x, y, AlternateImageSize, AlternateImageSize);
-                var wasColor = GUI.color;
-                GUI.color = Color.white;
-                GUI.DrawTexture(imageRect, image, ScaleMode.ScaleToFit, true);
+                if (AlternateTexture != null)
+                    GUI.DrawTexture(new Rect(r.x, y, iconSize, iconSize), AlternateTexture,
+                        ScaleMode.ScaleToFit, true);
+                if (offset == 0f) y += iconSize + 16f * scale;
+                GUI.Label(new Rect(body.x, y, body.width, headerHeight), AlternateTitle, title);
+                y += headerHeight + AlternateIntroGap * scale;
+                GUI.Label(new Rect(body.x, y, body.width, introHeight), AlternateIntro, text);
+                y += introHeight + 26f * scale;
+                foreach (string bullet in AlternateBullets)
+                {
+                    float height = text.CalcHeight(new GUIContent(bullet), bulletWidth);
+                    GUI.Label(new Rect(body.x + indent * 0.6f, y, indent, height), "•", text);
+                    GUI.Label(new Rect(body.x + indent * 1.6f, y, bulletWidth, height), bullet, text);
+                    y += height + AlternateBulletGap * scale;
+                }
+                y += AlternateOutroGap * scale;
+                GUI.Label(new Rect(body.x, y, body.width, outroHeight), AlternateOutro, outro);
+                y += outroHeight + 32f * scale;
+                if (_alternateRetry < 2)
+                {
+                    string label = _alternateRetry == 0 ? AlternateRetryLabel : AlternateRetryWarning;
+                    float buttonWidth = Mathf.Min(body.width,
+                        Mathf.Max(190f * scale, text.CalcSize(new GUIContent(label)).x + 48f * scale));
+                    var button = new Rect(body.x, y, buttonWidth, buttonHeight);
+                    if (UiButtons.Button(button, "")) _alternateRetry++;
+                    text.alignment = TextAnchor.MiddleCenter;
+                    GUI.Label(button, label, text);
+                }
+                return y + buttonHeight + TailPadding;
+            }
+            finally
+            {
                 GUI.color = wasColor;
             }
-
-            float titleX = r.x + AlternateHeaderTextOffset;
-            float titleWidth = Mathf.Max(1f, r.xMax - titleX);
-            float titleBottom = Line(new Rect(titleX, y, titleWidth, AlternateImageSize), y,
-                AlternateTitle, RegularFont, Color.white, TextAnchor.UpperLeft,
-                AlternateTitleTextSize);
-            y = Mathf.Max(y + AlternateImageSize, titleBottom) + AlternateIntroGap;
-
-            y = Paragraph(r, y, AlternateIntro, RegularFont, Color.white,
-                TextAnchor.UpperLeft, AlternateBodyTextSize);
-            y += AlternateIntroGap;
-
-            for (int i = 0; i < AlternateBullets.Length; i++)
-                y = AlternateBullet(r, y, AlternateBullets[i]);
-
-            y += AlternateOutroGap;
-            y = Paragraph(r, y, AlternateOutro, RegularFont, Color.white,
-                TextAnchor.UpperLeft, AlternateBodyTextSize);
-            return y + TailPadding;
-        }
-
-        float AlternateBullet(Rect r, float y, string text)
-        {
-            float bulletWidth = AlternateBulletIndent;
-            Line(new Rect(r.x, y, bulletWidth, UiTheme.LineHOf(RegularFont)), y, "•",
-                RegularFont, Color.white, TextAnchor.UpperLeft, AlternateBodyTextSize);
-            var body = new Rect(r.x + AlternateBulletIndent, y,
-                Mathf.Max(1f, r.width - AlternateBulletIndent), r.height);
-            return Paragraph(body, y, text, RegularFont, Color.white,
-                TextAnchor.UpperLeft, AlternateBodyTextSize) + AlternateBulletGap;
         }
 
         void HandleAlternateClick(Rect rect)
@@ -512,6 +546,7 @@ namespace SlopWorld
 
             _alternateClicks.Reset();
             _alternateAbout = true;
+            _alternateRetry = 0;
             _scroll.JumpTo(Vector2.zero);
         }
 
