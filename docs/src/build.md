@@ -58,6 +58,15 @@ Each run prints a coverage summary and writes its fresh report to
 `coverage/rust.cobertura.xml` or `coverage/csharp.cobertura.xml`. Client coverage measures
 the production files linked into the test harness, not the entire game-bound mod.
 
+Rust also writes `coverage/rust.filtered.cobertura.xml` and a native per-file table at
+`coverage/rust.files.txt`, using the same test run. The inclusive report retains all files
+reported by cargo-llvm-cov. The filtered report applies `RUST_COVERAGE_EXCLUDE` from
+`make/config.mk` to omit generated bindings, standalone test files, benchmarks, and external
+Rust library sources. Override that variable to change the file scope. **Inline tests remain
+included** in both reports; the filtered percentage is not production-only coverage.
+`make coverage-summary` prints both rates. File paths shared by multiple binaries may appear
+more than once in LLVM reports.
+
 `make bench` builds all benchmark binaries first, then runs the daemon, C# and IPC suites serially; use `BUILD=release` for comparisons.
 
 ## Prose linter

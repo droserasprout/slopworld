@@ -68,6 +68,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: coverage
-          path: coverage/*.cobertura.xml
+          path: |
+            coverage/*.cobertura.xml
+            coverage/rust.files.txt
           if-no-files-found: error
-

@@ -1459,4 +1459,92 @@ mod tests {
         );
         std::fs::remove_dir_all(manager.cfg_path.parent().unwrap()).unwrap();
     }
+    #[tokio::test]
+    async fn remove_and_restore_roll_back_private_state_when_config_cannot_be_saved() {
+        let Some(_) = crate::test_support::isolated() else {
+            return;
+        };
+        let (manager, root, socket) = rename_fixture(false).await;
+        let session = manager.config().await.sessions[0].clone();
+        let private = crate::sandbox::state_dir(&session).unwrap();
+        std::fs::create_dir_all(&private).unwrap();
+        std::fs::write(private.join("memory"), "remember me").unwrap();
+        let saved = std::fs::read(&manager.cfg_path).unwrap();
+        let blocker = manager.cfg_path.with_extension("toml.tmp");
+        std::fs::create_dir_all(&blocker).unwrap();
+        assert!(manager.remove("old").await.is_err());
+        assert_eq!(std::fs::read(&manager.cfg_path).unwrap(), saved);
+        assert_eq!(
+            std::fs::read_to_string(private.join("memory")).unwrap(),
+            "remember me"
+        );
+        assert!(manager.config().await.session("old").is_some());
+        assert!(manager.live.read().await.contains_key("old"));
+        assert!(!manager
+            .stored_states()
+            .await
+            .unwrap()
+            .iter()
+            .any(|s| s.kind == "trash"));
+        std::fs::remove_dir_all(&blocker).unwrap();
+
+        manager.remove("old").await.unwrap();
+        assert!(!private.exists());
+        assert!(manager.config().await.session("old").is_none());
+        assert!(!manager.live.read().await.contains_key("old"));
+        let entries = manager.stored_states().await.unwrap();
+        let archived = entries.iter().find(|s| s.kind == "trash").unwrap();
+        assert_eq!(archived.session.as_deref(), Some("old"));
+        std::fs::create_dir_all(&blocker).unwrap();
+        assert!(manager.restore_stored_state(&archived.key).await.is_err());
+        assert!(!private.exists());
+        assert!(manager.config().await.session("old").is_none());
+        assert_eq!(
+            std::fs::read_to_string(std::path::Path::new(&archived.path).join("memory")).unwrap(),
+            "remember me"
+        );
+        std::fs::remove_dir_all(&blocker).unwrap();
+        assert_eq!(
+            manager.restore_stored_state(&archived.key).await.unwrap(),
+            "old"
+        );
+        assert_eq!(
+            manager.config().await.session("old").unwrap().state_id,
+            session.state_id
+        );
+        assert_eq!(
+            Config::load(&manager.cfg_path)
+                .await
+                .unwrap()
+                .session("old")
+                .unwrap()
+                .state_id,
+            session.state_id
+        );
+        assert_eq!(
+            std::fs::read_to_string(private.join("memory")).unwrap(),
+            "remember me"
+        );
+        assert!(manager.live.read().await.contains_key("old"));
+
+        // Reset archives private state while retaining the configured agent identity.
+        manager.reset_state("old").await.unwrap();
+        assert!(!private.exists());
+        assert_eq!(
+            manager.config().await.session("old").unwrap().state_id,
+            session.state_id
+        );
+        let entries = manager.stored_states().await.unwrap();
+        let archived = entries.iter().find(|s| s.kind == "trash").unwrap();
+        assert_eq!(
+            manager.restore_stored_state(&archived.key).await.unwrap(),
+            "old"
+        );
+        assert_eq!(manager.config().await.sessions.len(), 1);
+        assert_eq!(
+            std::fs::read_to_string(private.join("memory")).unwrap(),
+            "remember me"
+        );
+        cleanup_rename_fixture(&manager, root, &socket, &["old"]).await;
+    }
 }
