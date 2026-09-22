@@ -9,9 +9,19 @@ if ! command -v llvm-cov >/dev/null || ! command -v llvm-profdata >/dev/null; th
     echo "missing LLVM coverage tools" >&2; exit 1
 fi
 mkdir -p "${COVERAGE_DIR}"
-(cd slopd && LLVM_COV="$(command -v llvm-cov)" LLVM_PROFDATA="$(command -v llvm-profdata)" \
-	${CARGO} llvm-cov --cobertura --output-path "../${COVERAGE_DIR}/rust.cobertura.xml")
-${PYTHON} tools/coverage_summary.py "${COVERAGE_DIR}/rust.cobertura.xml" Rust
+(
+    cd slopd
+    export LLVM_COV="$(command -v llvm-cov)" LLVM_PROFDATA="$(command -v llvm-profdata)"
+    ${CARGO} llvm-cov --no-report
+    ${CARGO} llvm-cov report --cobertura --output-path "../${COVERAGE_DIR}/rust.cobertura.xml"
+    ${CARGO} llvm-cov report --ignore-filename-regex "${RUST_COVERAGE_EXCLUDE}" \
+        --cobertura --output-path "../${COVERAGE_DIR}/rust.filtered.cobertura.xml"
+    ${CARGO} llvm-cov report --ignore-filename-regex "${RUST_COVERAGE_EXCLUDE}" \
+        > "../${COVERAGE_DIR}/rust.files.txt"
+)
+${PYTHON} tools/coverage_summary.py "${COVERAGE_DIR}/rust.cobertura.xml" 'Rust (inclusive)'
+${PYTHON} tools/coverage_summary.py "${COVERAGE_DIR}/rust.filtered.cobertura.xml" 'Rust (file exclusions; includes inline tests)'
+echo "Per-file coverage: ${COVERAGE_DIR}/rust.files.txt"
 ;;
 mod)
 ${DOTNET} tool restore

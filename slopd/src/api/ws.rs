@@ -843,4 +843,320 @@ mod tests {
             );
         }
     }
+    type ClientSocket = tokio_tungstenite::WebSocketStream<
+        tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>,
+    >;
+
+    struct SocketPair {
+        tx: WsTx,
+        client: ClientSocket,
+        server: JoinHandle<()>,
+    }
+
+    impl Drop for SocketPair {
+        fn drop(&mut self) {
+            self.server.abort();
+        }
+    }
+
+    async fn socket_pair() -> SocketPair {
+        let (ready, socket) = tokio::sync::oneshot::channel();
+        let ready = Arc::new(Mutex::new(Some(ready)));
+        let app = axum::Router::new().route(
+            "/",
+            axum::routing::get(move |upgrade: WebSocketUpgrade| {
+                let ready = ready.clone();
+                async move {
+                    upgrade.on_upgrade(move |socket| async move {
+                        ready
+                            .lock()
+                            .await
+                            .take()
+                            .unwrap()
+                            .send(socket)
+                            .ok()
+                            .unwrap();
+                    })
+                }
+            }),
+        );
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            axum::serve(listener, app).await.unwrap();
+        });
+        let (client, _) = tokio_tungstenite::connect_async(format!("ws://{address}/"))
+            .await
+            .unwrap();
+        let (tx, _) = socket.await.unwrap().split();
+        SocketPair {
+            tx: Arc::new(Mutex::new(tx)),
+            client,
+            server,
+        }
+    }
+
+    async fn receive(client: &mut ClientSocket) -> crate::shared::wire::event::Payload {
+        use prost::Message as _;
+        let frame = tokio::time::timeout(Duration::from_secs(2), client.next())
+            .await
+            .expect("socket response timed out")
+            .unwrap()
+            .unwrap();
+        let tokio_tungstenite::tungstenite::Message::Binary(bytes) = frame else {
+            panic!("expected binary event")
+        };
+        crate::shared::wire::Event::decode(bytes.as_slice())
+            .unwrap()
+            .payload
+            .unwrap()
+    }
+
+    fn screen(name: &str, seq: u64) -> ScreenView {
+        ScreenView {
+            name: name.into(),
+            seq,
+            cols: 80,
+            rows: 24,
+            cx: 0,
+            cy: 0,
+            off: 0,
+            history: 0,
+            cursor_shape: 0,
+            cursor_blink: false,
+            app_mouse: false,
+            app_drag: false,
+            alt_screen: false,
+            title: String::new(),
+            request_id: 0,
+            lines: vec![format!("frame {seq}").into()],
+        }
+    }
+
+    #[tokio::test]
+    async fn initial_snapshots_send_binary_host_state_only_to_root() {
+        use crate::shared::wire::event::Payload as P;
+        let manager = crate::session::test_manager(crate::config::Config {
+            sessions: vec![
+                crate::config::SessionCfg {
+                    name: "a".into(),
+                    ..Default::default()
+                },
+                crate::config::SessionCfg {
+                    name: "b".into(),
+                    ..Default::default()
+                },
+            ],
+            ..Default::default()
+        });
+        manager.sync_from_config().await;
+        let mut socket = socket_pair().await;
+        assert!(send_initial_snapshot(&socket.tx, &manager, &Cap::Root).await);
+        assert!(matches!(
+            receive(&mut socket.client).await,
+            P::Capabilities(_)
+        ));
+        let P::Sessions(list) = receive(&mut socket.client).await else {
+            panic!("sessions")
+        };
+        assert_eq!(
+            list.sessions
+                .iter()
+                .map(|s| s.name.as_str())
+                .collect::<Vec<_>>(),
+            vec!["a", "b"]
+        );
+        assert!(matches!(receive(&mut socket.client).await, P::Usage(_)));
+        assert!(matches!(receive(&mut socket.client).await, P::Projects(_)));
+        assert!(matches!(receive(&mut socket.client).await, P::Library(_)));
+        assert!(matches!(receive(&mut socket.client).await, P::Audio(_)));
+        assert!(matches!(receive(&mut socket.client).await, P::Jukebox(_)));
+        assert!(send_initial_snapshot(&socket.tx, &manager, &scoped(&["a"], Level::Ro)).await);
+        // A subsequent marker proves no host-wide events were queued after the scoped list.
+        send(
+            &socket.tx,
+            &Cap::Root,
+            &message(Event::Screen {
+                screen: screen("marker", 9),
+            }),
+        )
+        .await
+        .unwrap();
+        let P::Sessions(list) = receive(&mut socket.client).await else {
+            panic!("scoped sessions")
+        };
+        assert_eq!(
+            list.sessions
+                .iter()
+                .map(|s| s.name.as_str())
+                .collect::<Vec<_>>(),
+            vec!["a"]
+        );
+        assert!(matches!(receive(&mut socket.client).await, P::Screen(s) if s.name == "marker"));
+        std::fs::remove_dir_all(manager.cfg_path.parent().unwrap()).unwrap();
+    }
+
+    #[tokio::test]
+    async fn subscriptions_filter_frames_and_flush_latest_frames_before_control_events() {
+        use crate::shared::wire::event::Payload as P;
+        let manager = crate::session::test_manager(crate::config::Config::default());
+        let mut socket = socket_pair().await;
+        let subs: WsSubs = Default::default();
+        let cap = scoped(&["a", "b"], Level::Ro);
+        for name in ["a", "b", "secret", "a"] {
+            assert!(
+                handle_client_msg(
+                    ClientMsg::Sub { name: name.into() },
+                    &manager,
+                    &cap,
+                    &socket.tx,
+                    &subs
+                )
+                .await
+            );
+        }
+        assert_eq!(subs.lock().await.len(), 2);
+        let (events, rx) = broadcast::channel(32);
+        let pump = spawn_frame_pump(rx, socket.tx.clone(), subs.clone(), cap.clone());
+        for (name, seq) in [
+            ("secret", 99),
+            ("a", 1),
+            ("a", 2),
+            ("b", 3),
+            ("a", 4),
+            ("b", 5),
+        ] {
+            events
+                .send(message(Event::Screen {
+                    screen: screen(name, seq),
+                }))
+                .ok()
+                .unwrap();
+        }
+        events
+            .send(message(Event::Usage {
+                usage: Default::default(),
+            }))
+            .ok()
+            .unwrap();
+        events
+            .send(message(Event::Sessions {
+                sessions: vec![view("a"), view("secret")],
+            }))
+            .ok()
+            .unwrap();
+        let mut latest = HashMap::new();
+        loop {
+            match receive(&mut socket.client).await {
+                P::Screen(s) => {
+                    assert!(s.name == "a" || s.name == "b");
+                    if let Some(previous) = latest.insert(s.name, s.seq) {
+                        assert!(s.seq > previous);
+                    }
+                }
+                P::Sessions(s) => {
+                    assert_eq!(s.sessions.len(), 1);
+                    assert_eq!(s.sessions[0].name, "a");
+                    break;
+                }
+                other => panic!("scoped socket received {other:?}"),
+            }
+        }
+        assert_eq!(latest.get("a"), Some(&4));
+        assert_eq!(latest.get("b"), Some(&5));
+        assert!(
+            handle_client_msg(
+                ClientMsg::Unsub { name: "a".into() },
+                &manager,
+                &cap,
+                &socket.tx,
+                &subs
+            )
+            .await
+        );
+        assert!(!subs.lock().await.contains_key("a"));
+        events
+            .send(message(Event::Screen {
+                screen: screen("a", 6),
+            }))
+            .ok()
+            .unwrap();
+        events
+            .send(message(Event::Sessions { sessions: vec![] }))
+            .ok()
+            .unwrap();
+        assert!(matches!(receive(&mut socket.client).await, P::Sessions(_)));
+        drop(events);
+        tokio::time::timeout(Duration::from_secs(2), pump)
+            .await
+            .unwrap()
+            .unwrap();
+        subs.lock().await.clear();
+        std::fs::remove_dir_all(manager.cfg_path.parent().unwrap()).unwrap();
+    }
+
+    #[tokio::test]
+    async fn scroll_replies_keep_request_order_and_skip_missing_or_cancelled_captures() {
+        use crate::shared::wire::event::Payload as P;
+        let mut socket = socket_pair().await;
+        let (release, ready) = tokio::sync::oneshot::channel();
+        let first = tokio::spawn(async move {
+            ready.await.unwrap();
+            Some(screen("a", 1))
+        });
+        let cancelled = tokio::spawn(std::future::pending::<Option<ScreenView>>());
+        cancelled.abort();
+        let mut pending = VecDeque::from([
+            first,
+            tokio::spawn(async { None }),
+            cancelled,
+            tokio::spawn(async { Some(screen("a", 2)) }),
+        ]);
+        release.send(()).unwrap();
+        assert!(flush_scrolls(&socket.tx, &Cap::Root, &mut pending).await);
+        assert!(pending.is_empty());
+        for expected in [1, 2] {
+            assert!(matches!(receive(&mut socket.client).await, P::Screen(s) if s.seq == expected));
+        }
+        let cap = scoped(&["a"], Level::Ro);
+        let Cap::Scoped(grant) = &cap else {
+            unreachable!()
+        };
+        grant
+            .revoked
+            .store(true, std::sync::atomic::Ordering::Release);
+        pending.push_back(tokio::spawn(async { Some(screen("a", 3)) }));
+        assert!(!flush_scrolls(&socket.tx, &cap, &mut pending).await);
+    }
+
+    #[tokio::test]
+    async fn auth_changes_ignore_unrelated_credentials_but_close_on_revocation_or_lost_events() {
+        let (events, mut rx) = broadcast::channel(2);
+        events.send(AuthChange::GrantsRevoked).unwrap();
+        events.send(AuthChange::RootTokenChanged).unwrap();
+        assert!(auth_invalidated(&mut rx, &Cap::Root).await);
+        let cap = scoped(&["a"], Level::Ro);
+        events.send(AuthChange::RootTokenChanged).unwrap();
+        events.send(AuthChange::GrantsRevoked).unwrap();
+        assert!(
+            tokio::time::timeout(Duration::from_millis(20), auth_invalidated(&mut rx, &cap))
+                .await
+                .is_err()
+        );
+        let Cap::Scoped(grant) = &cap else {
+            unreachable!()
+        };
+        grant
+            .revoked
+            .store(true, std::sync::atomic::Ordering::Release);
+        events.send(AuthChange::GrantsRevoked).unwrap();
+        assert!(auth_invalidated(&mut rx, &cap).await);
+        for _ in 0..3 {
+            events.send(AuthChange::RootTokenChanged).unwrap();
+        }
+        assert!(auth_invalidated(&mut rx, &Cap::Root).await); // lagged
+        drop(events);
+        while rx.try_recv().is_ok() {}
+        assert!(auth_invalidated(&mut rx, &Cap::Root).await); // closed
+    }
 }
