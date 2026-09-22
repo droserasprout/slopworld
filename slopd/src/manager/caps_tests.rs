@@ -45,7 +45,7 @@ async fn capabilities_resolve_and_grants_stay_scoped() {
     assert!(manager.cap_ok(&cap, "target", Level::Ro).await);
     assert!(!manager.cap_ok(&cap, "target", Level::Rw).await);
 
-    manager.revoke_grants("grantor").await;
+    manager.revoke_grants("grantor").await.unwrap();
     assert_eq!(manager.grant_count().await, 0);
     assert!(!manager.cap_ok(&cap, "target", Level::Ro).await);
     assert!(manager.resolve_cap(Some(&token)).await.is_none());

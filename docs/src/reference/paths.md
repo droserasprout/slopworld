@@ -9,6 +9,7 @@ variables. Paths marked `0600` are readable only by the owning user.
 | --- | --- | --- |
 | `~/.config/slopworld/config.toml` | `SLOPD_CONFIG` | Main daemon configuration, seeded on first run. |
 | `~/.config/slopworld/endpoint.toml` | `SLOPD_ENDPOINT` | Effective URL and token while the daemon is running. Mode `0600`. |
+| `~/.config/slopworld/grants.toml` | beside `SLOPD_CONFIG` | Active scoped bearer grants. Mode `0600`. |
 | `~/.config/slopworld/prompts/<name>.toml` | beside `SLOPD_CONFIG` | Personal prompt library items, one definition per file. |
 | `~/.config/slopworld/breadcrumbs/<name>.toml` | beside `SLOPD_CONFIG` | Personal breadcrumb library items, one definition per file. |
 | `~/.config/slopworld/file_actions/<name>.toml` | beside `SLOPD_CONFIG` | Personal file-action library items, one definition per file. |

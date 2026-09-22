@@ -14,8 +14,9 @@ delegate terminal access themselves.
 Session creation is root-only (the mod's token). Host sessions are never in a grant's
 scope; only the root token can touch them.
 
-Grants live in daemon memory and are dropped when the daemon restarts or the grantor
-session disappears. The daemon checks token capabilities on each request.
+Grants are persisted in a private file beside daemon configuration and restored after a daemon
+restart when the grantor and target session identities are still present. Removing or replacing
+one of those sessions revokes its grants. The daemon checks token capabilities on each request.
 
 ## Delivery
 

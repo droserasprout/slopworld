@@ -44,7 +44,19 @@ impl Manager {
         }
         let cfg = self.config().await;
         let live = self.live.read().await;
+        let grantor_state_id = match live.get(&grantor) {
+            Some(session) if session.host => String::new(),
+            Some(session) => session.cfg.state_id.clone(),
+            None => cfg
+                .session(&grantor)
+                .map(|session| session.state_id.clone())
+                .unwrap_or_default(),
+        };
+        if grantor_state_id.is_empty() && !live.get(&grantor).is_some_and(|session| session.host) {
+            bail!("session {grantor} has no stable identity for a grant");
+        }
         let mut scope = std::collections::HashSet::new();
+        let mut session_state_ids = std::collections::BTreeMap::new();
         for s in sessions {
             if live.get(&s).map(|l| l.host).unwrap_or(false) {
                 bail!("the host terminal cannot be granted: {s}");
@@ -52,25 +64,45 @@ impl Manager {
             if !live.contains_key(&s) && cfg.session(&s).is_none() {
                 bail!("no such session to grant: {s}");
             }
+            let state_id = live
+                .get(&s)
+                .map(|session| session.cfg.state_id.clone())
+                .or_else(|| cfg.session(&s).map(|session| session.state_id.clone()))
+                .unwrap_or_default();
+            if state_id.is_empty() {
+                bail!("session {s} has no stable identity for a grant");
+            }
+            session_state_ids.insert(s.clone(), state_id);
             scope.insert(s);
         }
         drop(live);
-        Ok(self.grants.write().await.mint(crate::grant::Grant {
-            grantor,
-            sessions: scope,
-            level,
-            revoked: Default::default(),
-        }))
+        self.grants.write().await.mint_persisted(
+            crate::grant::Grant {
+                grantor,
+                sessions: scope,
+                level,
+                revoked: Default::default(),
+            },
+            grantor_state_id,
+            session_state_ids,
+        )
     }
 
-    pub async fn revoke_grants(&self, grantor: &str) {
+    pub async fn revoke_grants(&self, grantor: &str) -> Result<()> {
         self.session_operation(self.revoke_grants_within_boundary(grantor))
             .await
     }
 
-    async fn revoke_grants_within_boundary(&self, grantor: &str) {
-        self.grants.write().await.revoke_grantor(grantor);
-        self.invalidate_auth(crate::session::AuthChange::GrantsRevoked);
+    async fn revoke_grants_within_boundary(&self, grantor: &str) -> Result<()> {
+        let mut grants = self.grants.write().await;
+        let count = grants.count();
+        let result = grants.try_revoke_grantor(grantor);
+        let changed = grants.count() < count;
+        drop(grants);
+        if changed {
+            self.invalidate_auth(crate::session::AuthChange::GrantsRevoked);
+        }
+        result.map(|_| ())
     }
 
     /// Revoke whole grants owned by or targeting a disappearing session.
@@ -80,7 +112,14 @@ impl Manager {
     }
 
     async fn invalidate_session_within_boundary(&self, name: &str) {
-        if self.grants.write().await.invalidate_session(name) {
+        let mut grants = self.grants.write().await;
+        let count = grants.count();
+        if let Err(error) = grants.try_invalidate_session(name) {
+            tracing::error!("persisting grants invalidated with session {name}: {error:#}");
+        }
+        let changed = grants.count() < count;
+        drop(grants);
+        if changed {
             self.invalidate_auth(crate::session::AuthChange::GrantsRevoked);
         }
     }
