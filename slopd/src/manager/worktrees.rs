@@ -198,11 +198,15 @@ impl Manager {
             .iter()
             .find(|w| w.id == id && w.project_id == p.id && !p.id.is_empty())
             .ok_or_else(|| anyhow!("no worktree {id} in project {}", p.name))?;
-        if w.phase == "removing" {
-            bail!("worktree {id} has an interrupted removal; retry removal first");
+        if w.phase != "ready" {
+            bail!("worktree {id} is not ready (phase {})", w.phase);
+        }
+        let checkout = Path::new(&w.path);
+        if checkout.is_symlink() || !checkout.is_dir() {
+            bail!("worktree {id} checkout is missing or is not a directory");
         }
         let repository = Path::new(&w.repository).canonicalize()?;
-        for metadata in crate::worktrees::metadata_paths(Path::new(&w.path))? {
+        for metadata in crate::worktrees::metadata_paths(checkout)? {
             if !metadata.starts_with(&repository) {
                 bail!("worktree Git metadata no longer belongs to its registered repository");
             }

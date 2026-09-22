@@ -43,7 +43,12 @@ namespace SlopWorld
                 .OrderBy(s => s.Name, StringComparer.OrdinalIgnoreCase).ToList();
             _template = AvailableTemplates().FirstOrDefault()?.Name ?? "";
             DaemonClient.Get<Wire.WorktreesReply>(WireProtocol.Routes.Worktrees + "?project=" + Uri.EscapeDataString(_project),
-                reply => { _worktrees = reply.Worktrees.ToList(); if (!_newWorktree && !_worktrees.Any(w => w.Id == _worktree)) _worktree = "main"; }, error => _error = error, TaskInfo.Host, 60000);
+                reply =>
+                {
+                    _worktrees = reply.Worktrees.ToList();
+                    if (!_newWorktree && !_worktrees.Any(w => w.Id == _worktree && w.Phase == "ready"))
+                        _worktree = "main";
+                }, error => _error = error, TaskInfo.Host, 60000);
         }
 
         public override Vector2 InitialSize => new Vector2(680f, 740f);
