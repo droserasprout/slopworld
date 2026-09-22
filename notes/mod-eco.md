@@ -30,7 +30,8 @@ pod destination. Autosave skips the unchanged board. Foreground frame pacing rem
 `FramePolicy`'s job, independent of Eco.
 
 The backdrop reuses [menu frames](mod-background.md). One owned material changes texture and
-tint in place, avoiding pooled materials for every frame/dimming combination. Its camera fit is retained;
-fully covering content suppresses even backdrop lookup/drift. Only the current map submits it.
+tint in place, avoiding pooled materials for every frame/dimming combination. Its position stays
+fixed at the camera fit; fully covering content suppresses even backdrop lookup. Only the current
+map submits it.
 Cancel pending destructive effects when Eco/Grandma disables them, rather than deferring a
 surprise strike until the mode changes back.
