@@ -231,6 +231,12 @@ namespace SlopWorld
         {
             var r = ActionRect(context);
             DrawFoldAction(ref r);
+            r.x -= TabIcon + 3f;
+            var libraryMenuButton = r;
+            Tab(r, Icons.Edit, false,
+                "Projects, Worktrees, Sandbox presets, and App presets.",
+                () => LibraryView.OpenQuickAccessMenu(libraryMenuButton));
+            r.x -= TabIcon + 3f;
             Tab(r, Icons.Refresh, false, "Reload Library and templates.",
                 () => LibraryView.Refresh(UiLayout.Fail));
         }
