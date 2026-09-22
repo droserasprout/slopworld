@@ -119,6 +119,10 @@ namespace SlopWorld
                     return ConvertBlankLine(blank);
                 case LinkReferenceDefinition linkReference:
                     return ConvertLinkReference(linkReference);
+                // Markdig groups reference definitions in a container. It is metadata too;
+                // converting it as a generic container would draw an empty quote.
+                case LinkReferenceDefinitionGroup _:
+                    return null;
                 case HeadingBlock heading:
                     return ConvertHeading(heading);
                 case ParagraphBlock paragraph:

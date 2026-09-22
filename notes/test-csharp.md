@@ -18,6 +18,9 @@ control callback order to exercise stale replies and lifecycle changes.
 Preset and command tests cover copy isolation and wire round-trips, including daemon-owned
 source metadata. Pager lifecycle tests cover failed and delayed starts, stale callbacks,
 pinned-reader dismissal, missing session snapshots and replacement after process death.
+Markdown tests cover supported HTML and Markdown parsing, project-local resource paths,
+image geometry without loading images, quote/table layout, reflow invalidation and highlighted
+code copy fidelity. Reference-definition metadata must not produce visible quote blocks.
 
 `Program.cs` runs NUnitLite and defaults its work directory to the executable's output
 directory under `mod/Tests/bin/`, keeping `TestResult.xml` there even when invoked from
