@@ -44,7 +44,13 @@ Rust formatting and linting use `cargo fmt` and `cargo clippy`.
 
 ## Tests and coverage
 
-`make test` runs Rust unit tests, game-free C# tests under `mod/Tests/`, and the prose linter's own tests.
+`make test` runs all game-free tests: Rust, C# under `mod/Tests/`, supporting tools,
+and pager integration. Pager tests require `tmux` and `less`. Use `test-daemon`,
+`test-mod`, `test-tools`, or `test-pager` to run a subset.
+
+`make ci` runs the Rust and C# suites under coverage, supporting-tool and pager tests,
+Rust lint, and generated-contract drift checks. GitHub Actions calls this same target;
+it needs no game assemblies. `make coverage-summary` summarizes existing reports.
 
 `make coverage` produces Cobertura XML reports for both halves. It requires `cargo-llvm-cov` (install with `cargo install cargo-llvm-cov --locked`) and the matching `llvm-cov`/`llvm-profdata` binaries. Use `coverage-daemon` or `coverage-mod` to measure one half.
 

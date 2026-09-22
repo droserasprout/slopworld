@@ -1,6 +1,6 @@
 .PHONY: sidecar-run sidecar-build sidecar-doctor sidecar-devloop
 
-##
+## Linux sidecar
 
 sidecar-run: daemon ## Run a separate profile against the running sidecar daemon (start the sidecar first)
 	SLOPD_ENDPOINT="$(SLOPCAR_ENDPOINT)" \
