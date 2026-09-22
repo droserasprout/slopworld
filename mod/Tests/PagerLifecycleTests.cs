@@ -17,6 +17,7 @@ namespace SlopWorld
     sealed partial class PagerTestStore
     {
         public readonly Queue<Action<string>> Pending = new Queue<Action<string>>();
+        public readonly List<Action<string>> Failures = new List<Action<string>>();
         public int Starts, Stops;
         public bool Host, Temp;
         public string Project;
@@ -28,6 +29,7 @@ namespace SlopWorld
             Temp = temp;
             Project = project;
             Pending.Enqueue(started);
+            Failures.Add(fail);
         }
         public void Complete(string name)
         {
@@ -74,6 +76,123 @@ namespace SlopWorld.Tests
             yield return ("shared file and diff preview replacement preserves pinned readers", SharedReaders);
             yield return ("pending diff cannot reopen the previous file", PendingDiff);
             yield return ("late unlisted diff completion is stopped", LateUnlistedCompletion);
+            foreach (bool file in new[] { true, false })
+            {
+                string kind = file ? "file" : "command";
+                yield return (kind + " replacement failure retires the old reader and permits retry", () => FailedReplacement(file));
+                yield return (kind + " stale failure leaves the replacement alone", () => StaleFailure(file));
+                yield return (kind + " pinned pending reader survives release and closes explicitly", () => PinnedPending(file));
+                yield return (kind + " close cancels pending replacement", () => ClosePending(file));
+                yield return (kind + " dead reader can be replaced", () => DeadReader(file));
+            }
+        }
+
+        static void Start(Pager pager, bool file, string key)
+        {
+            if (file) pager.ViewFile("p", key, key);
+            else pager.Open("p", "cat " + key, key, key);
+        }
+
+        static void FailedReplacement(bool file)
+        {
+            SessionHub.Instance = new SessionHub();
+            var pager = new Pager();
+            var store = SessionHub.Instance.SessionStore;
+            Start(pager, file, "/one");
+            store.Complete("one");
+            Start(pager, file, "/two");
+            AssertEx.Equal("one", pager.Session, "old reader remains visible during handoff");
+            var error = AssertEx.Throws<Exception>(() => store.Failures[1]("start failed"), "failure reaches UI");
+            store.Pending.Dequeue();
+            AssertEx.Equal("start failed", error.Message, "original failure is reported");
+            AssertEx.Equal<string>(null, pager.Session, "failed handoff clears the reader");
+            AssertEx.False(pager.Owns("p", "/two"), "failed request no longer owns the key");
+            AssertEx.False(pager.Reopen(), "failed reader cannot reopen");
+            AssertEx.Equal(1, store.Stops, "old reader is stopped once");
+            Start(pager, file, "/two");
+            store.Complete("retry");
+            AssertEx.True(pager.Matches("p", "/two"), "same key can retry after failure");
+            AssertEx.Equal(3, store.Starts, "retry starts a new reader");
+        }
+
+        static void StaleFailure(bool file)
+        {
+            SessionHub.Instance = new SessionHub();
+            var pager = new Pager();
+            var store = SessionHub.Instance.SessionStore;
+            Start(pager, file, "/one");
+            Start(pager, file, "/two");
+            store.Failures[0]("obsolete failure");
+            store.Pending.Dequeue();
+            AssertEx.True(pager.Owns("p", "/two"), "stale failure preserves pending identity");
+            store.Complete("two");
+            AssertEx.True(pager.Matches("p", "/two"), "replacement completes normally");
+            AssertEx.Equal("two", TerminalWindow.Current, "replacement has focus");
+            AssertEx.Equal(0, store.Stops, "stale failure cannot stop the replacement");
+        }
+
+        static void PinnedPending(bool file)
+        {
+            SessionHub.Instance = new SessionHub();
+            var pager = new Pager();
+            var store = SessionHub.Instance.SessionStore;
+            AssertEx.False(pager.Lock(), "empty reader cannot pin");
+            Start(pager, file, "/one");
+            AssertEx.False(pager.LockPreview("other", "/one"), "project identity must match");
+            AssertEx.False(pager.LockPreview("p", "/other"), "key identity must match");
+            AssertEx.True(pager.LockPreview("p", "/one"), "pending reader can pin by identity");
+            pager.Release();
+            store.Complete("one");
+            pager.CloseIf("one");
+            AssertEx.True(pager.Alive && pager.Locked, "preview release and panel close preserve pinned reader");
+            AssertEx.Equal(0, store.Stops, "pinned reader has not been stopped");
+            AssertEx.False(pager.CloseTab(null), "null tab cannot dismiss reader");
+            AssertEx.False(pager.CloseTab("other"), "unrelated tab cannot dismiss reader");
+            AssertEx.True(pager.CloseTab("one"), "explicit dismissal closes pinned reader");
+            AssertEx.False(pager.Locked || pager.Alive, "dismissal clears pin and session");
+            pager.Release();
+            AssertEx.Equal(1, store.Stops, "repeated release does not stop twice");
+        }
+
+        static void ClosePending(bool file)
+        {
+            SessionHub.Instance = new SessionHub();
+            TerminalWindow.Current = null;
+            var pager = new Pager();
+            var store = SessionHub.Instance.SessionStore;
+            Start(pager, file, "/one");
+            store.Complete("one");
+            pager.CloseIf(null);
+            pager.CloseIf("other");
+            AssertEx.True(pager.Alive, "unrelated panel close leaves reader alive");
+            Start(pager, file, "/two");
+            SessionHub.Instance.Sessions.Remove("one");
+            pager.CloseIf("one");
+            AssertEx.Equal(1, store.Stops, "owned reader is stopped even without snapshot metadata");
+            store.Complete("late");
+            AssertEx.False(SessionHub.Instance.Get("late").Alive, "late completion is stopped");
+            AssertEx.Equal<string>(null, pager.Session, "late completion cannot revive closed reader");
+            AssertEx.Equal("one", TerminalWindow.Current, "late completion cannot take focus");
+            AssertEx.Equal(2, store.Stops, "old and late readers are each stopped once");
+        }
+
+        static void DeadReader(bool file)
+        {
+            SessionHub.Instance = new SessionHub();
+            var pager = new Pager();
+            var store = SessionHub.Instance.SessionStore;
+            Start(pager, file, "/one");
+            store.Complete("dead");
+            SessionHub.Instance.Get("dead").Alive = false;
+            AssertEx.False(pager.Reopen(), "dead reader cannot reopen");
+            AssertEx.False(pager.Lock(), "dead reader cannot pin");
+            AssertEx.False(pager.Owns("p", "/one"), "dead reader releases its identity");
+            Start(pager, file, "/one");
+            store.Complete("replacement");
+            AssertEx.Equal(2, store.Starts, "same key starts again after process death");
+            AssertEx.True(pager.Matches("p", "/one"), "replacement owns the identity");
+            AssertEx.Equal("replacement", TerminalWindow.Current, "replacement takes focus");
+            AssertEx.Equal(1, store.Stops, "old session cleanup is requested once");
         }
 
         static void FreshDiff()

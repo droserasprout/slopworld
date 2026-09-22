@@ -17,9 +17,11 @@ mod)
 ${DOTNET} tool restore
 mkdir -p "${COVERAGE_DIR}"
 ${DOTNET} build "${TEST_PROJECT}" --configuration Release -p:Coverage=true
+# Measure handwritten behavior, not protoc's generated serialization machinery.
 ${DOTNET} tool run coverlet -- "${TEST_DLL}" \
 	--target dotnet --targetargs "${TEST_DLL} --quiet" \
 	--include-test-assembly --exclude-by-file '**/mod/Tests/**/*.cs' \
+	--exclude-by-file '**/Client/Generated/Slopworld.cs' \
 	--format cobertura --output "${COVERAGE_DIR}/csharp.cobertura.xml"
 ${PYTHON} tools/coverage_summary.py "${COVERAGE_DIR}/csharp.cobertura.xml" C\#
 ;;
