@@ -3,6 +3,13 @@
 Paths below are relative to `slopd/src/`. Use module declarations for the current
 file inventory; this map identifies subsystem boundaries.
 
+Rust unit tests live beside their owners in `*_tests.rs` (or `tests.rs` for `mod.rs`),
+loaded through `#[cfg(test)]` and `#[path]` so module names and private access stay intact.
+Binary-root tests use the binary's existing subdirectory: files directly in `src/bin/`
+become Cargo executables. Keep test bodies and standalone fixtures in excluded test files;
+small instrumentation hooks can remain with production code. Coverage scope is configured
+in `make/config.mk`.
+
 | Area | Responsibility |
 | --- | --- |
 | `main.rs` | Startup, retick loop, token middleware. |

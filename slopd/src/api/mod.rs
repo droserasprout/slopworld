@@ -93,46 +93,9 @@ pub(crate) fn presented_token(headers: &HeaderMap) -> Option<String> {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use axum::http::HeaderValue;
-
-    #[test]
-    fn errors_keep_the_status_and_put_the_message_in_json() {
-        let (status, Proto(body)) = err(StatusCode::BAD_REQUEST, "bad request body");
-        let body = serde_json::to_value(body).unwrap();
-        assert_eq!(status, StatusCode::BAD_REQUEST);
-        assert_eq!(body, json!({ "error": "bad request body" }));
-    }
-
-    #[test]
-    fn presented_token_accepts_only_a_valid_header_value() {
-        let mut headers = HeaderMap::new();
-        assert_eq!(presented_token(&headers), None);
-
-        headers.insert(TOKEN_HEADER, HeaderValue::from_static("secret"));
-        assert_eq!(presented_token(&headers).as_deref(), Some("secret"));
-
-        headers.insert(
-            TOKEN_HEADER,
-            HeaderValue::from_bytes(&[0xff]).expect("opaque header value"),
-        );
-        assert_eq!(presented_token(&headers), None);
-    }
-}
+#[path = "tests.rs"]
+mod tests;
 
 #[cfg(test)]
-mod request_tests {
-    use super::*;
-
-    #[test]
-    fn current_requests_reject_unknown_fields_without_compatibility_rewrites() {
-        assert!(parse_session(json!({"name":"agent", "netwrok":"none"})).is_err());
-        assert!(parse_project(json!({"name":"repo", "unexpected":true})).is_err());
-        let project = parse_project(json!({"name":"repo", "dir":"/work/repo",
-            "mounts":[{"from":"/work/shared", "to":"/mnt/shared", "mode":"ro"}]}))
-        .unwrap();
-        assert_eq!(project.mounts[0].from, "/work/shared");
-        assert!(parse_template(json!({"name":"review", "defaults":{"unexpected":true}})).is_err());
-    }
-}
+#[path = "request_tests.rs"]
+mod request_tests;
