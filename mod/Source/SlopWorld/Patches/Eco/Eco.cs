@@ -22,7 +22,7 @@ namespace SlopWorld
             {
                 if (!Resting) return;
                 // MapUpdate runs for every loaded map. Only the displayed map submits a
-                // backdrop; frame lookup and drift math both stay behind the visibility gate.
+                // backdrop; frame lookup and drawing both stay behind the visibility gate.
                 if (__instance != Find.CurrentMap) return;
                 // TerminalWindow also hosts every maximized content view, including views
                 // opened without an agent. All of them cover the animated background.
@@ -36,15 +36,7 @@ namespace SlopWorld
         // Keep the frame below any unexpected world draw regardless of its altitude.
         const int Underneath = 1000;
 
-        // Oversize past what the crop needs, so both axes have margin to drift inside; the
-        // crop alone leaves one of them exactly on the view. Laps are long and incommensurate.
-        const float Zoom = 1.05f;
-        const float PanX = 47f;
-        const float PanZ = 61f;
-        // Short of the whole margin, or a lap would show past the edge of the picture.
-        const float PanRoom = 0.85f;
-
-        // MapUpdate still runs while Eco is resting so the resident frame can drift. Keep the
+        // MapUpdate still runs while Eco is resting so the resident frame can be drawn. Keep the
         // expensive, unchanged parts of that submission out of the frame: MenuBackground owns
         // the animated texture choice, while this cache owns its material and the projection
         // fit. Camera input is blocked in Eco, but transform and resolution keys still catch
@@ -63,7 +55,7 @@ namespace SlopWorld
         static Rect _backdropPixelRect;
         static int _backdropScreenWidth = -1;
         static int _backdropScreenHeight = -1;
-        static float _backdropViewW, _backdropViewH, _backdropW, _backdropH;
+        static float _backdropW, _backdropH;
         static Vector3 _backdropCenter;
 
         static void Backdrop()
@@ -91,15 +83,8 @@ namespace SlopWorld
             Map map = Find.CurrentMap;
             if (!FitBackdrop(map, tex)) return;
 
-            float t = Time.realtimeSinceStartup;
-            float dx = (_backdropW - _backdropViewW) * 0.5f * PanRoom *
-                Mathf.Sin(t * 2f * Mathf.PI / PanX);
-            float dz = (_backdropH - _backdropViewH) * 0.5f * PanRoom *
-                Mathf.Sin(t * 2f * Mathf.PI / PanZ);
-
-            var at = new Vector3(_backdropCenter.x + dx, 0f, _backdropCenter.z + dz);
             Graphics.DrawMesh(MeshPool.plane10,
-                Matrix4x4.TRS(at, Quaternion.identity,
+                Matrix4x4.TRS(_backdropCenter, Quaternion.identity,
                     new Vector3(_backdropW, 1f, _backdropH)), _backdropMaterial, 0);
         }
 
@@ -135,10 +120,8 @@ namespace SlopWorld
             if (want > w / h) w = h * want;
             else h = w / want;
 
-            _backdropViewW = viewW;
-            _backdropViewH = viewH;
-            _backdropW = w * Zoom;
-            _backdropH = h * Zoom;
+            _backdropW = w;
+            _backdropH = h;
             _backdropCenter = new Vector3((a.x + b.x) * 0.5f, 0f, (a.z + b.z) * 0.5f);
             _backdropMap = map;
             _backdropCamera = camera;
