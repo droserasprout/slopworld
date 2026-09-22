@@ -59,8 +59,8 @@ namespace SlopWorld
                         () => SetTemperatureUnit(mode)))
                     .ToList();
                 if (Prefs.TemperatureMode == TemperatureDisplayMode.Fahrenheit)
-                    choices.Add(new FloatMenuOption(TemperatureUnit.GlazedBaldLabel,
-                        SetGlazedBaldTemperatureUnit));
+                    choices.Add(new FloatMenuOption(TemperatureUnit.AlternateLabel,
+                        SetAlternateTemperatureUnit));
                 Find.WindowStack.Add(new UiMenu(choices));
             }
 
@@ -122,11 +122,11 @@ namespace SlopWorld
             settings.MarkDirty();
         }
 
-        static void SetGlazedBaldTemperatureUnit()
+        static void SetAlternateTemperatureUnit()
         {
             Prefs.TemperatureMode = TemperatureDisplayMode.Fahrenheit;
             var settings = ModEntry.Instance.settings;
-            settings.temperatureUnit = TemperatureUnit.GlazedBald;
+            settings.temperatureUnit = TemperatureUnit.Alternate;
             settings.MarkDirty();
         }
 

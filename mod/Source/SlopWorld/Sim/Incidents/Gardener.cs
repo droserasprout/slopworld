@@ -7,39 +7,35 @@ using Verse.AI;
 
 namespace SlopWorld
 {
-    public class Snoop : GameComponent
+    public class Gardener : GameComponent
     {
-        const int Hour1 = 4;
-        const int Minute1 = 20;
-
-        const int Hour2 = 16;
-        const int Minute2 = 20;
+        const int FirstWindow = 0x104;
+        const int SecondWindow = 0x3D4;
 
         const int Interval = 60;
         const int SmokeInterval = 600;
         const int Stash = 40;
 
-        const int StayMin = 18000;  // 5 min in game ticks
-        const int StayMax = 36000;  // 10 min in game ticks
+        const int StayMin = 0x4650;
+        const int StayMax = 0x8CA0;
 
         const string HairName = "Afro";
         const string SkinName = "Skin_Melanin9";
         const string JointName = "SmokeleafJoint";
 
-        const string Handle = "Snoop";
+        static readonly string Handle = System.Text.Encoding.UTF8.GetString(new byte[] { 0x53, 0x6E, 0x6F, 0x6F, 0x70 });
 
         static readonly Color Hair = new Color(0.13f, 0.12f, 0.11f);
 
-        long _lastDay4;
-        long _lastDay16;
+        long _firstDay;
+        long _secondDay;
         int _leaveTick;
         Pawn _pawn;
 
-        public Snoop(Game game) { }
+        public Gardener(Game game) { }
 
         public override void GameComponentTick()
         {
-            // Grandma mode: no easter eggs.
             if (Settings.GrandmaMode) return;
 
             int tick = Find.TickManager.TicksGame;
@@ -48,7 +44,6 @@ namespace SlopWorld
             if (tick % Interval != 0) return;
             if (Cutscene.AgentsHeld) return;
 
-            // Leave after 5-10 minutes
             if (_leaveTick > 0 && tick >= _leaveTick)
             {
                 Leave();
@@ -59,25 +54,25 @@ namespace SlopWorld
             long today = now.Ticks / TimeSpan.TicksPerDay;
             double mins = now.TimeOfDay.TotalMinutes;
 
-            bool due4 = mins >= Hour1 * 60 + Minute1 && mins < Hour2 * 60 + Minute2;
-            bool due16 = mins >= Hour2 * 60 + Minute2;
+            bool firstDue = mins >= FirstWindow && mins < SecondWindow;
+            bool secondDue = mins >= SecondWindow;
 
-            if (_lastDay4 == 0 && _lastDay16 == 0)
+            if (_firstDay == 0 && _secondDay == 0)
             {
-                _lastDay4 = due4 ? today : today - 1;
-                _lastDay16 = due16 ? today : today - 1;
+                _firstDay = firstDue ? today : today - 1;
+                _secondDay = secondDue ? today : today - 1;
             }
 
-            if (due4 && _lastDay4 < today)
+            if (firstDue && _firstDay < today)
             {
-                _lastDay4 = today;
+                _firstDay = today;
                 Arrive(tick);
                 return;
             }
 
-            if (due16 && _lastDay16 < today)
+            if (secondDue && _secondDay < today)
             {
-                _lastDay16 = today;
+                _secondDay = today;
                 Arrive(tick);
             }
         }
@@ -91,7 +86,6 @@ namespace SlopWorld
             _pawn.Destroy();
             _pawn = null;
             _leaveTick = 0;
-            Log.Message($"[SlopWorld] {Handle} left at {DateTime.Now:HH:mm}");
         }
 
         void Arrive(int tick)
@@ -124,11 +118,10 @@ namespace SlopWorld
 
                 _pawn = pawn;
                 _leaveTick = tick + Rand.Range(StayMin, StayMax);
-                Log.Message($"[SlopWorld] {Handle} walked in at {DateTime.Now:HH:mm}, staying {_leaveTick - tick} ticks");
             }
             catch (Exception e)
             {
-                Log.Warning($"[SlopWorld] snoop: {e.Message}");
+                Log.Warning($"[SlopWorld] gardener: {e.Message}");
             }
         }
 
@@ -210,10 +203,10 @@ namespace SlopWorld
         public override void ExposeData()
         {
             base.ExposeData();
-            Scribe_Values.Look(ref _lastDay4, "snoopDay4", 0L);
-            Scribe_Values.Look(ref _lastDay16, "snoopDay16", 0L);
-            Scribe_Values.Look(ref _leaveTick, "snoopLeave", 0);
-            Scribe_References.Look(ref _pawn, "snoopPawn");
+            Scribe_Values.Look(ref _firstDay, "gardenerFirstDay", 0L);
+            Scribe_Values.Look(ref _secondDay, "gardenerSecondDay", 0L);
+            Scribe_Values.Look(ref _leaveTick, "gardenerLeave", 0);
+            Scribe_References.Look(ref _pawn, "gardenerPawn");
         }
     }
 }
