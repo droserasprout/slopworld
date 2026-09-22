@@ -15,11 +15,16 @@ parsing/history, transport buffering and reconnects, session rename reconciliati
 pager lifecycle, and pure layout/repaint policies. `Pager` and `Sgr` are linked directly;
 their external dependencies use test substitutes. `HubCatalogTests` and transport tests
 control callback order to exercise stale replies and lifecycle changes.
+Preset and command tests cover copy isolation and wire round-trips, including daemon-owned
+source metadata. Pager lifecycle tests cover failed and delayed starts, stale callbacks,
+pinned-reader dismissal, missing session snapshots and replacement after process death.
 
 `Program.cs` runs NUnitLite and defaults its work directory to the executable's output
 directory under `mod/Tests/bin/`, keeping `TestResult.xml` there even when invoked from
 the repository root. The make targets retain quiet summaries and nonzero failure status.
-Coverage excludes test and substitute sources, measuring linked production code.
+Coverage excludes test and substitute sources and the protoc-generated
+`Client/Generated/Slopworld.cs`, measuring linked production code. Handwritten wire
+conversions remain measured, and serialization tests still run against the generated types.
 
 Keep test output under `mod/Tests/`, never `mod/Assemblies/`: RimWorld loads every DLL
 in that directory. Linking production helpers avoids duplicating their behavior in tests,
