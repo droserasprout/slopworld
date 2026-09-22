@@ -2,7 +2,7 @@
 	mac-status mac-logs mac-setup mac-docker-check mac-game-check mac-check \
 	mac-mod mac-profile mac-mod-check
 
-##
+## macOS
 
 mac-install: mac-game-check mac-doctor install-mod ## Build the sidecar and install the mod into native macOS RimWorld
 mac-install: override MANAGED := $(MAC_MANAGED)

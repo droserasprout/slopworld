@@ -1,6 +1,6 @@
-.PHONY: all format lint test bench bench-daemon install run
+.PHONY: all format lint test bench install run ci
 
-##
+## Common commands
 
 all: daemon mod   ## Build both halves
 
@@ -8,7 +8,9 @@ format: format-daemon format-mod ## Format both halves
 
 lint: lint-daemon lint-mod ## Lint both halves
 
-test: test-daemon test-mod test-prose test-bench-report ## Run the daemon and game-free mod tests
+test: test-daemon test-mod test-tools test-pager ## Run all game-free tests (requires tmux and less)
+
+ci: coverage test-tools test-pager lint-daemon check-generated ## Run game-free CI checks with coverage
 
 bench: bench-build ## Run the game-free daemon, C# and IPC benchmarks
 	@bash tools/bench.sh run

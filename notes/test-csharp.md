@@ -1,7 +1,7 @@
 # C# tests
 
-`make test-mod` runs the game-free C# suite; `make test` includes it alongside the daemon
-and contract checks. `mod/Tests/SlopWorld.Tests.csproj` links selected production files
+`make test-mod` runs the game-free C# suite; `make test` includes it alongside the daemon,
+supporting-tool and pager checks. `mod/Tests/SlopWorld.Tests.csproj` links selected production files
 into a .NET 8 executable using NUnit and NUnitLite instead of loading the game-bound mod assembly.
 `NUnitTestHarness.cs` discovers static test classes by their `Tests` suffix, exposing their
 `Cases()` entries and public parameterless void methods as individually named NUnit cases.

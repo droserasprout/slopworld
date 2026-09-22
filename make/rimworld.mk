@@ -1,6 +1,6 @@
 .PHONY: gogdl-login gogdl-install gogdl-update
 
-##
+## GOG game installation
 
 gogdl-login:       ## Log into GOG interactively and save the gogdl token
 	@bash tools/gogdl.sh login

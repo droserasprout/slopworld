@@ -1,0 +1,73 @@
+name: Test
+
+on:
+  push:
+    branches:
+      - '**'
+  pull_request:
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      ref:
+        description: Git ref to test
+        required: false
+        default: ''
+        type: string
+    outputs:
+      commit:
+        description: Tested commit
+        value: ${{ jobs.test.outputs.commit }}
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    outputs:
+      commit: ${{ steps.revision.outputs.commit }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+
+      - name: Record tested revision
+        id: revision
+        run: echo "commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: llvm-tools-preview
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: slopd
+
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y libasound2-dev protobuf-compiler python3-yaml tmux less
+
+      - name: Install Rust coverage tooling
+        run: |
+          cargo install cargo-llvm-cov --locked
+          echo "$(dirname "$(rustc --print target-libdir)")/bin" >> "$GITHUB_PATH"
+
+      - name: Run game-free CI checks
+        run: make ci
+
+      - name: Report coverage
+        run: |
+          make coverage-summary >> "$GITHUB_STEP_SUMMARY"
+          echo 'C# coverage measures linked production files in the game-free harness, not the entire mod. No percentage threshold is enforced.' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload coverage reports
+        if: ${{ !cancelled() && hashFiles('coverage/*.cobertura.xml') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage/*.cobertura.xml
+          if-no-files-found: error
+

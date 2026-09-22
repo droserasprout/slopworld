@@ -1,6 +1,6 @@
 .PHONY: logs check-reqs pkg-arch docs docs-serve devloop
 
-##
+## Development tools
 
 logs:              ## Tail the game's Player.log
 	@tail -f "$(LOG)"

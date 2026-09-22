@@ -1,7 +1,7 @@
 .PHONY: install-daemon install-runner install-mod install-font \
 	uninstall uninstall-daemon uninstall-runner uninstall-mod uninstall-font
 
-##
+## Installation
 
 install-daemon: daemon ## Install the binary and the unit, restarting only when needed
 	TARGET="$(TARGET)" BIN="$(BIN)" UNITS="$(UNITS)" BUILD="$(BUILD)" \
