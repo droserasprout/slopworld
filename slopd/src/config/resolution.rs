@@ -167,6 +167,7 @@ impl Config {
                             match mount.mode {
                                 super::MountMode::Ro => "read-only",
                                 super::MountMode::Rw => "read-write",
+                                super::MountMode::Cache => "shared cache",
                             }
                         )
                     })

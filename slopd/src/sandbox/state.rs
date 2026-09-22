@@ -58,6 +58,7 @@ pub struct StoredState {
     pub kind: String,
     pub key: String,
     pub session: Option<String>,
+    pub project: Option<String>,
     pub path: String,
     pub bytes: u64,
     pub modified: u64,
@@ -78,7 +79,12 @@ fn tree_size(path: &Path) -> u64 {
         .sum()
 }
 
-fn stored_entry(kind: &str, key: String, session: Option<String>, path: &Path) -> StoredState {
+pub(super) fn stored_entry(
+    kind: &str,
+    key: String,
+    session: Option<String>,
+    path: &Path,
+) -> StoredState {
     let modified = std::fs::symlink_metadata(path)
         .and_then(|m| m.modified())
         .ok()
@@ -89,6 +95,7 @@ fn stored_entry(kind: &str, key: String, session: Option<String>, path: &Path) -
         kind: kind.into(),
         key,
         session,
+        project: None,
         path: path.to_string_lossy().into_owned(),
         bytes: tree_size(path),
         modified,

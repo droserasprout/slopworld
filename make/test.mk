@@ -6,7 +6,7 @@
 test-tools: test-wire-contract test-themes test-text-sprites test-prose test-bench-report ## Test supporting tools and generated data
 
 test-daemon: api-contract ## Run Rust tests
-	@cd slopd && $(CARGO) test --quiet
+	@cd slopd && $(CARGO) test --quiet $(TEST_ARGS)
 
 test-mod: protobuf-deps api-contract ## Run game-free C# tests
 	@$(DOTNET) run --project "$(TEST_PROJECT)" --configuration Release -- --quiet

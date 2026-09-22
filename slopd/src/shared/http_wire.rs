@@ -71,6 +71,15 @@ pub(crate) fn encode_request(method: &str, path: &str, value: Value) -> anyhow::
     if method == "POST" && matches("/api/run", path) {
         return Ok(serde_json::from_value::<wire::RunReq>(value)?.encode_to_vec());
     }
+    if method == "GET" && matches("/api/worktrees", path) {
+        return Ok(serde_json::from_value::<wire::Empty>(value)?.encode_to_vec());
+    }
+    if method == "POST" && matches("/api/worktrees", path) {
+        return Ok(serde_json::from_value::<wire::CreateWorktreeReq>(value)?.encode_to_vec());
+    }
+    if method == "POST" && matches("/api/worktrees/preview", path) {
+        return Ok(serde_json::from_value::<wire::CreateWorktreeReq>(value)?.encode_to_vec());
+    }
     if method == "POST" && matches("/api/workers", path) {
         return Ok(serde_json::from_value::<wire::SpawnWorkerReq>(value)?.encode_to_vec());
     }
@@ -236,6 +245,9 @@ pub(crate) fn encode_request(method: &str, path: &str, value: Value) -> anyhow::
     if method == "POST" && matches("/api/library/:name/run", path) {
         return Ok(serde_json::from_value::<wire::RunWhere>(value)?.encode_to_vec());
     }
+    if method == "DELETE" && matches("/api/worktrees/:id", path) {
+        return Ok(serde_json::from_value::<wire::Empty>(value)?.encode_to_vec());
+    }
     if method == "DELETE" && matches("/api/grants/:grantor", path) {
         return Ok(serde_json::from_value::<wire::Empty>(value)?.encode_to_vec());
     }
@@ -324,6 +336,15 @@ pub(crate) fn decode_response(method: &str, path: &str, value: &[u8]) -> anyhow:
     }
     if method == "POST" && matches("/api/run", path) {
         return Ok(serde_json::to_value(wire::SessionResult::decode(value)?)?);
+    }
+    if method == "GET" && matches("/api/worktrees", path) {
+        return Ok(serde_json::to_value(wire::WorktreesReply::decode(value)?)?);
+    }
+    if method == "POST" && matches("/api/worktrees", path) {
+        return Ok(serde_json::to_value(wire::Worktree::decode(value)?)?);
+    }
+    if method == "POST" && matches("/api/worktrees/preview", path) {
+        return Ok(serde_json::to_value(wire::WorktreeBase::decode(value)?)?);
     }
     if method == "POST" && matches("/api/workers", path) {
         return Ok(serde_json::to_value(wire::WorkerResult::decode(value)?)?);
@@ -490,6 +511,9 @@ pub(crate) fn decode_response(method: &str, path: &str, value: &[u8]) -> anyhow:
     if method == "POST" && matches("/api/library/:name/run", path) {
         return Ok(serde_json::to_value(wire::SessionResult::decode(value)?)?);
     }
+    if method == "DELETE" && matches("/api/worktrees/:id", path) {
+        return Ok(serde_json::to_value(wire::Ack::decode(value)?)?);
+    }
     if method == "DELETE" && matches("/api/grants/:grantor", path) {
         return Ok(serde_json::to_value(wire::Ack::decode(value)?)?);
     }
@@ -583,6 +607,19 @@ pub(crate) fn decode_request(method: &str, path: &str, value: &[u8]) -> anyhow::
     }
     if method == "POST" && matches("/api/run", path) {
         return Ok(serde_json::to_value(wire::RunReq::decode(value)?)?);
+    }
+    if method == "GET" && matches("/api/worktrees", path) {
+        return Ok(serde_json::to_value(wire::Empty::decode(value)?)?);
+    }
+    if method == "POST" && matches("/api/worktrees", path) {
+        return Ok(serde_json::to_value(wire::CreateWorktreeReq::decode(
+            value,
+        )?)?);
+    }
+    if method == "POST" && matches("/api/worktrees/preview", path) {
+        return Ok(serde_json::to_value(wire::CreateWorktreeReq::decode(
+            value,
+        )?)?);
     }
     if method == "POST" && matches("/api/workers", path) {
         return Ok(serde_json::to_value(wire::SpawnWorkerReq::decode(value)?)?);
@@ -753,6 +790,9 @@ pub(crate) fn decode_request(method: &str, path: &str, value: &[u8]) -> anyhow::
     if method == "POST" && matches("/api/library/:name/run", path) {
         return Ok(serde_json::to_value(wire::RunWhere::decode(value)?)?);
     }
+    if method == "DELETE" && matches("/api/worktrees/:id", path) {
+        return Ok(serde_json::to_value(wire::Empty::decode(value)?)?);
+    }
     if method == "DELETE" && matches("/api/grants/:grantor", path) {
         return Ok(serde_json::to_value(wire::Empty::decode(value)?)?);
     }
@@ -840,6 +880,15 @@ pub(crate) fn encode_response(method: &str, path: &str, value: Value) -> anyhow:
     }
     if method == "POST" && matches("/api/run", path) {
         return Ok(serde_json::from_value::<wire::SessionResult>(value)?.encode_to_vec());
+    }
+    if method == "GET" && matches("/api/worktrees", path) {
+        return Ok(serde_json::from_value::<wire::WorktreesReply>(value)?.encode_to_vec());
+    }
+    if method == "POST" && matches("/api/worktrees", path) {
+        return Ok(serde_json::from_value::<wire::Worktree>(value)?.encode_to_vec());
+    }
+    if method == "POST" && matches("/api/worktrees/preview", path) {
+        return Ok(serde_json::from_value::<wire::WorktreeBase>(value)?.encode_to_vec());
     }
     if method == "POST" && matches("/api/workers", path) {
         return Ok(serde_json::from_value::<wire::WorkerResult>(value)?.encode_to_vec());
@@ -1005,6 +1054,9 @@ pub(crate) fn encode_response(method: &str, path: &str, value: Value) -> anyhow:
     }
     if method == "POST" && matches("/api/library/:name/run", path) {
         return Ok(serde_json::from_value::<wire::SessionResult>(value)?.encode_to_vec());
+    }
+    if method == "DELETE" && matches("/api/worktrees/:id", path) {
+        return Ok(serde_json::from_value::<wire::Ack>(value)?.encode_to_vec());
     }
     if method == "DELETE" && matches("/api/grants/:grantor", path) {
         return Ok(serde_json::from_value::<wire::Ack>(value)?.encode_to_vec());

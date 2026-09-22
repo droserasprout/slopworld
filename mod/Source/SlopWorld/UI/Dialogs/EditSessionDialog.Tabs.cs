@@ -8,6 +8,21 @@ namespace SlopWorld
     // Agent editor fields, tab bodies, and their tab-specific option lists.
     public partial class EditSessionDialog
     {
+        List<Wire.Worktree> _worktreeChoices = new List<Wire.Worktree>();
+        string _worktreeProject;
+        string _worktreeError;
+
+        void RefreshWorktreeChoices()
+        {
+            string project = _s.Project;
+            _worktreeProject = project;
+            _worktreeChoices.Clear();
+            _worktreeError = null;
+            if (string.IsNullOrEmpty(project)) return;
+            DaemonClient.Get<Wire.WorktreesReply>(WireProtocol.Routes.Worktrees + "?project=" + System.Uri.EscapeDataString(project),
+                reply => { if (_s.Project == project) _worktreeChoices = reply.Worktrees.ToList(); },
+                error => { if (_s.Project == project) _worktreeError = error; }, TaskInfo.Host, 60000);
+        }
         // The agent itself: what it is called, where it works and what it runs. Everything a
         // new agent must have to start; the other tabs only refine it.
         void DrawGeneral(Listing_Standard l)
@@ -29,13 +44,19 @@ namespace SlopWorld
             {
                 var projectOptions = SessionHub.Instance.Projects
                     .Select(p => new SelectorOption($"{p.Name}  -  {p.Dir}",
-                        () => _s.Project = p.Name)).ToList();
+                        () => { _s.Project = p.Name; _s.Worktree = ""; RefreshWorktreeChoices(); })).ToList();
                 projectOptions.Add(new SelectorOption("New project...",
                     () => Find.WindowStack.Add(new EditProjectDialog(null))));
                 UiControls.Select(l, "Project (the directory and shared mounts it uses)",
                     string.IsNullOrEmpty(_s.Project) ? "Pick a project..." : _s.Project,
                     projectOptions, out _);
 
+                if (_worktreeProject != _s.Project) RefreshWorktreeChoices();
+                var worktreeOptions = _worktreeChoices.Where(w => w.Phase != "removing").Select(w => new SelectorOption(
+                    w.Name, () => _s.Worktree = w.Id)).ToList();
+                UiControls.Select(l, "Worktree", _worktreeChoices.FirstOrDefault(w => w.Id == _s.Worktree)?.Name ??
+                    (string.IsNullOrEmpty(_s.Worktree) ? "Main checkout" : _s.Worktree), worktreeOptions, out _);
+                if (!string.IsNullOrEmpty(_worktreeError)) UiLayout.Note(l, _worktreeError);
                 var project = SessionHub.Instance.Project(_s.Project);
                 GUI.color = UiTheme.Dim;
                 l.Label(project != null

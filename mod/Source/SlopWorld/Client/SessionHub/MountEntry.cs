@@ -3,7 +3,7 @@ using System.Linq;
 
 namespace SlopWorld
 {
-    public enum MountMode { None, Ro, Rw }
+    public enum MountMode { None, Ro, Rw, Cache }
 
     public class MountEntry
     {
@@ -18,15 +18,17 @@ namespace SlopWorld
             {
                 case WireProtocol.MountMode.Ro: return MountMode.Ro;
                 case WireProtocol.MountMode.Rw: return MountMode.Rw;
+                case WireProtocol.MountMode.Cache: return MountMode.Cache;
                 default: return MountMode.Rw;
             }
         }
 
         public static string ModeName(MountMode mode) =>
+            mode == MountMode.Cache ? WireProtocol.MountMode.Cache :
             mode == MountMode.Ro ? WireProtocol.MountMode.Ro : WireProtocol.MountMode.Rw;
 
         public static string ModeLabel(MountMode mode) =>
-            mode == MountMode.None ? "None" : mode == MountMode.Ro ? "Read-only" : "Read-write";
+            mode == MountMode.Cache ? "Cache" : mode == MountMode.None ? "None" : mode == MountMode.Ro ? "Read-only" : "Read-write";
 
         public static MountEntry FromWire(Wire.Mount j) => new MountEntry
         {

@@ -30,4 +30,4 @@ docs-serve:        ## Serve human docs
 	cd docs && mdbook serve
 
 devloop:           ## Reinstall and relaunch after every game exit
-	MAKE_CMD="$(MAKE_BIN)" tools/devloop.sh
+	+MAKE_CMD="$(MAKE_BIN)" tools/devloop.sh

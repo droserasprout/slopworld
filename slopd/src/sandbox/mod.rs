@@ -1,4 +1,5 @@
 mod bind;
+pub(crate) mod cache;
 mod host;
 mod network;
 mod observe;
@@ -81,9 +82,36 @@ pub(crate) fn build_plan(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result
         guest_dir: dir.clone(),
         mode: MountMode::Rw,
     }];
+    for metadata in crate::worktrees::metadata_paths(Path::new(&dir))? {
+        let metadata = metadata.to_string_lossy().into_owned();
+        for private in presets.iter().flat_map(|preset| &preset.private) {
+            let private = expand(private);
+            if !private.is_empty() && paths::overlaps(&metadata, &private) {
+                bail!("Git metadata exposes private preset state {private}");
+            }
+        }
+        mounts.push(ResolvedMount {
+            host_dir: metadata.clone(),
+            guest_dir: metadata,
+            mode: MountMode::Rw,
+        });
+    }
     crate::config::validate_mount_paths(p)?;
     for m in &p.mounts {
-        let source = expand(&m.from);
+        let source = if m.mode == MountMode::Cache {
+            let owner = cfg
+                .projects
+                .iter()
+                .find(|original| original.name == p.name)
+                .unwrap_or(p);
+            let source = cache::validate(owner, m)?;
+            if paths::overlaps(&source.to_string_lossy(), &dir) {
+                bail!("cache source must be outside the selected worktree");
+            }
+            source.to_string_lossy().into_owned()
+        } else {
+            expand(&m.from)
+        };
         let target = mount_target(p, &m.to);
         for private in presets.iter().flat_map(|preset| &preset.private) {
             let private = expand(private);
@@ -97,6 +125,12 @@ pub(crate) fn build_plan(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result
                     source,
                     private
                 );
+            }
+        }
+        if m.mode == MountMode::Cache {
+            std::fs::create_dir_all(&source)?;
+            if !Path::new(&source).is_dir() {
+                bail!("cache source must be a directory");
             }
         }
         if !Path::new(&source).exists() {

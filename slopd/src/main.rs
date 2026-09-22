@@ -25,6 +25,7 @@ mod tmux;
 mod usage;
 #[cfg(test)]
 mod version;
+mod worktrees;
 
 use std::sync::Arc;
 

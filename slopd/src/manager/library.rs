@@ -35,6 +35,7 @@ impl Manager {
     pub async fn add_project(self: &Arc<Self>, mut p: ProjectCfg) -> Result<()> {
         self.reload_if_changed().await;
         settle(&mut p);
+        p.id = uuid::Uuid::new_v4().to_string();
         check_project(&p)?;
         self.update_cfg(|cfg| {
             check_project_mounts(cfg, &p)?;
@@ -52,7 +53,6 @@ impl Manager {
     pub async fn update_project(self: &Arc<Self>, name: &str, mut p: ProjectCfg) -> Result<()> {
         self.reload_if_changed().await;
         settle(&mut p);
-        check_project(&p)?;
         self.update_cfg(|cfg| {
             let idx = cfg
                 .projects
@@ -62,6 +62,11 @@ impl Manager {
             if cfg.projects[idx].temp != p.temp {
                 bail!("project temporary mode cannot be changed after creation");
             }
+            p.id = cfg.projects[idx].id.clone();
+            if p.id.is_empty() {
+                p.id = uuid::Uuid::new_v4().to_string();
+            }
+            check_project(&p)?;
             check_project_mounts(cfg, &p)?;
             if p.name != name && cfg.project(&p.name).is_some() {
                 bail!("project {} already exists", p.name);
@@ -83,6 +88,18 @@ impl Manager {
 
     pub async fn remove_project(self: &Arc<Self>, name: &str) -> Result<()> {
         self.reload_if_changed().await;
+        let cfg = self.config().await;
+        if let Some(p) = cfg.project(name) {
+            if !p.id.is_empty()
+                && crate::worktrees::Store::load(&self.cfg_path)
+                    .await?
+                    .worktrees
+                    .iter()
+                    .any(|w| w.project_id == p.id)
+            {
+                bail!("remove project worktrees explicitly first");
+            }
+        }
         self.update_cfg(|cfg| {
             if cfg.project(name).is_none() {
                 bail!("no such project: {name}");
@@ -302,7 +319,7 @@ impl Manager {
         host: bool,
     ) -> Result<String> {
         self.reload_if_changed().await;
-        let cfg = self.config().await;
+        let cfg = self.config_for_worktree_path(project, raw_path).await?;
         let (p, s) = Self::resolve_file_action(&cfg, project, raw_path, command, host)?;
         Self::execute_file_action(&cfg, &s, &p).await
     }
@@ -315,7 +332,7 @@ impl Manager {
         host: bool,
     ) -> Result<String> {
         self.reload_if_changed().await;
-        let cfg = self.config().await;
+        let cfg = self.config_for_worktree_path(project, raw_path).await?;
         let path = if host {
             absolute_path(raw_path)?
         } else {

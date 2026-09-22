@@ -39,6 +39,9 @@ namespace SlopWorld
             public const string LibraryItem = "/api/library/:name";
             public const string LibraryItemRun = "/api/library/:name/run";
             public const string Run = "/api/run";
+            public const string Worktrees = "/api/worktrees";
+            public const string WorktreePreview = "/api/worktrees/preview";
+            public const string Worktree = "/api/worktrees/:id";
             public const string Workers = "/api/workers";
             public const string FileAction = "/api/file-action";
             public const string OpenApps = "/api/open-apps";
@@ -118,6 +121,7 @@ namespace SlopWorld
         {
             public const string Ro = "ro";
             public const string Rw = "rw";
+            public const string Cache = "cache";
         }
 
         internal static class DnsMode

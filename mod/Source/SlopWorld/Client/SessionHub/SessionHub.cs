@@ -150,17 +150,17 @@ namespace SlopWorld
         // context, while the selected template supplies the child's captured configuration.
         // Refresh both stores before exposing the returned terminal to the UI.
         public void SpawnWorker(string caller, string project, string template, string body,
-                                bool durable, Action<string> started, Action<string> fail)
+                                bool durable, Action<string> started, Action<string> fail, string worktree = "", bool newWorktree = false, string baseRevision = "", string worktreeName = "")
         {
-            DaemonClient.Post<Wire.WorkerResult>(WireProtocol.Routes.Workers,
-                new Wire.SpawnWorkerReq { Project = project ?? "", Template = template ?? "", Body = body ?? "", Durable = durable },
+            DaemonClient.Send<Wire.WorkerResult>("POST", WireProtocol.Routes.Workers,
+                new Wire.SpawnWorkerReq { Project = project ?? "", Template = template ?? "", Body = body ?? "", Durable = durable, Worktree = worktree, NewWorktree = newWorktree, Base = baseRevision, WorktreeName = worktreeName },
                 j =>
                 {
                     string worker = j.Worker.Session;
                     _tasks.Add(TaskInfo.FromWire(j.Task));
                     _tasks.Refresh();
                     _sessions.Refresh(() => started?.Invoke(worker), fail);
-                }, fail, string.IsNullOrEmpty(caller) ? TaskInfo.Host : caller);
+                }, fail, string.IsNullOrEmpty(caller) ? TaskInfo.Host : caller, 60000);
         }
 
         public void SaveAgentTemplate(string source, string name, string description,

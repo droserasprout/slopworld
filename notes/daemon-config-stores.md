@@ -16,8 +16,11 @@ Typed `Config::save` serializes modeled fields and preserves unrelated document 
 editing an existing file. The redacted-token sentinel means keep the stored token; empty means
 replace it with empty. Never round-trip the endpoint secret through a settings draft.
 
-Projects own directories, temporary-project behavior, and shared mounts. Mount rows store
-literal `from`/`to` paths and modes, read when each agent starts. The project shortcut copies paths once; a running sandbox is not rebuilt. Agents own command, sandbox additions,
+Projects own directories, temporary-project behavior, and shared mounts. Independent worktree
+records live in `worktrees.toml` beside config; [worktree ownership](daemon-worktrees.md) covers
+project IDs, session selection and manual teardown. Mount rows store
+`from`/`to` paths and modes, read when each agent starts. Cache mode permits a blank
+source for managed project storage; other sources remain literal host paths. The project shortcut copies paths once; a running sandbox is not rebuilt. Agents own command, sandbox additions,
 network, DNS, resource limits, and startup/private-state behavior. Network defaults to private,
 DNS `resolved` follows the current daemon/container resolver, and an unset limit means no cap.
 The daemon default `agent_shell` is resolved to an absolute executable path at each agent start and

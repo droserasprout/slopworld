@@ -16,12 +16,12 @@ send TASK to AGENT.
 ";
 
 pub(crate) const SPAWN_USAGE: &str = "usage:
-  slopctl worker spawn [--durable] --project PROJECT --template TEMPLATE [--] TASK...
+  slopctl worker spawn [--one-shot] [--worktree ID | --new-worktree] [--base REV] --project PROJECT --template TEMPLATE [--] TASK...
 
 create a task-owned worker from an agent template. Scoped callers may use only
 templates enabled by worker policy. The worker receives the task body and its exact task id.
---durable keeps the child session after
-exit. Options end before TASK.
+Workers remain after exit by default; --one-shot removes the worker after exit.
+Worktrees remain until explicitly removed. --worktree-name names a new worktree. Options end before TASK.
 Use -- before task text that starts with an option, such as --durable.
 
 The project and template are required. The old parent/clone form is rejected;
@@ -29,7 +29,7 @@ choose the template explicitly so the daemon can enforce worker policy.
 ";
 
 pub(crate) const WORKER_USAGE: &str = "usage:
-  slopctl worker spawn [--durable] --project PROJECT --template TEMPLATE [--] TASK...
+  slopctl worker spawn [--one-shot] [--worktree ID | --new-worktree] [--base REV] --project PROJECT --template TEMPLATE [--] TASK...
 
 create a task-owned worker from an agent template.
 ";
@@ -198,10 +198,13 @@ usage:
   slopctl task fail [ID] [ERROR...]
   slopctl task remove [ID]
   slopctl task prune [--include-active]
-  slopctl worker spawn [--durable] --project PROJECT --template TEMPLATE [--] TASK...
+  slopctl worker spawn [--one-shot] [--worktree ID | --new-worktree] [--base REV] --project PROJECT --template TEMPLATE [--] TASK...
   slopctl agent create NAME --project PROJECT --template TEMPLATE [--start]
   slopctl template list [--project PROJECT]
   slopctl template show NAME [--project PROJECT]
+  slopctl worktree list --project PROJECT
+  slopctl worktree create --project PROJECT [--name NAME] [--base REV] [--path CHECKOUT]
+  slopctl worktree remove ID --project PROJECT
   slopctl sandbox inspect NAME
   slopctl peers
   slopctl status
@@ -216,8 +219,26 @@ SLOPD_ENDPOINT
 selects endpoint.toml; SLOPD_URL and SLOPD_TOKEN override it.
 ";
 
+#[derive(Debug, Default, PartialEq, Eq)]
+pub(crate) struct WorktreeChoice {
+    pub worktree: String,
+    pub new_worktree: bool,
+    pub base: String,
+    pub worktree_name: String,
+}
+
+pub(crate) const WORKTREE_USAGE: &str = "usage:\n  slopctl worktree list --project PROJECT\n  slopctl worktree create --project PROJECT [--name NAME] [--base REV] [--path EXISTING_CHECKOUT]\n  slopctl worktree remove ID --project PROJECT\n\nRemoval is explicit and root-only. External checkouts are only unregistered.\n";
+
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) enum Command {
+    Worktree {
+        action: String,
+        project: String,
+        name: String,
+        base: String,
+        path: String,
+        id: String,
+    },
     Help {
         usage: &'static str,
     },
@@ -232,6 +253,7 @@ pub(crate) enum Command {
         project: String,
         template: String,
         durable: bool,
+        worktree: WorktreeChoice,
         body: String,
     },
     Templates {
@@ -296,6 +318,7 @@ impl UpdateAction {
 pub(crate) fn command_help(command: &str) -> Option<&'static str> {
     Some(match command {
         "worker" => WORKER_USAGE,
+        "worktree" => WORKTREE_USAGE,
         "template" => TEMPLATE_USAGE,
         "agent" => AGENT_USAGE,
         "task" => TASK_USAGE,
@@ -339,6 +362,7 @@ pub(crate) fn parse_command_with_task_id(
             args: args[1..].to_vec(),
         }),
         "worker" => parse_worker_command(args),
+        "worktree" => parse_worktree(args),
         "template" => parse_template_command(args),
         "agent" => parse_agent_command(args),
         "task" => parse_task_command(args, task_id),
@@ -539,7 +563,8 @@ fn parse_sandbox(args: &[String]) -> Result<Command, String> {
 }
 
 fn parse_spawn(args: &[String], options_at: usize) -> Result<Command, String> {
-    let mut durable = false;
+    let mut durable = true;
+    let mut worktree = WorktreeChoice::default();
     let mut project = None;
     let mut template = None;
     let mut i = options_at;
@@ -550,6 +575,21 @@ fn parse_spawn(args: &[String], options_at: usize) -> Result<Command, String> {
                 break;
             }
             "--durable" => durable = true,
+            "--one-shot" => durable = false,
+            "--new-worktree" => worktree.new_worktree = true,
+            "--worktree" | "--base" | "--worktree-name" => {
+                let flag = args[i].clone();
+                i += 1;
+                let value = args
+                    .get(i)
+                    .ok_or_else(|| format!("{flag} needs a value"))?
+                    .clone();
+                match flag.as_str() {
+                    "--worktree" => worktree.worktree = value,
+                    "--base" => worktree.base = value,
+                    _ => worktree.worktree_name = value,
+                }
+            }
             "--project" => {
                 i += 1;
                 project = Some(
@@ -585,10 +625,17 @@ fn parse_spawn(args: &[String], options_at: usize) -> Result<Command, String> {
     if args.len() <= i {
         return Err(format!("spawn needs a task body\n\n{SPAWN_USAGE}"));
     }
+    if worktree.new_worktree && !worktree.worktree.is_empty() {
+        return Err("choose --worktree or --new-worktree".into());
+    }
+    if !worktree.new_worktree && (!worktree.base.is_empty() || !worktree.worktree_name.is_empty()) {
+        return Err("--base and --worktree-name require --new-worktree".into());
+    }
     Ok(Command::Spawn {
         project,
         template,
         durable,
+        worktree,
         body: args[i..].join(" "),
     })
 }
@@ -722,6 +769,73 @@ fn parse_agent_command(args: &[String]) -> Result<Command, String> {
 impl Command {
     pub(crate) fn run(self, endpoint: &Endpoint, session: &str, json: bool) -> Result<(), String> {
         match self {
+            Self::Worktree {
+                action,
+                project,
+                name,
+                base,
+                path,
+                id,
+            } => {
+                let url = if action == "remove" {
+                    format!(
+                        "{}/{}?project={}",
+                        routes::WORKTREES,
+                        encode_component(&id),
+                        encode_component(&project)
+                    )
+                } else {
+                    format!(
+                        "{}?project={}",
+                        routes::WORKTREES,
+                        encode_component(&project)
+                    )
+                };
+                let (method, body) = match action.as_str() {
+                    "create" => (
+                        "POST",
+                        Some(json!({"project":project,"name":name,"base":base,"path":path})),
+                    ),
+                    "remove" => ("DELETE", None),
+                    _ => ("GET", None),
+                };
+                let value = request(endpoint, session, method, &url, body)?;
+                if json {
+                    print_json(&value);
+                } else if action == "remove" {
+                    println!("Worktree removed; branches retained.");
+                } else {
+                    let rows: Vec<&Value> = value["worktrees"]
+                        .as_array()
+                        .map(|v| v.iter().collect())
+                        .unwrap_or_else(|| vec![&value]);
+                    for w in rows {
+                        println!(
+                            "{}  {}  {}\n  {}",
+                            w["id"].as_str().unwrap_or(""),
+                            w["name"].as_str().unwrap_or(""),
+                            w["branch"].as_str().unwrap_or(""),
+                            w["path"].as_str().unwrap_or("")
+                        );
+                        if let Some(error) = w["error"].as_str().filter(|s| !s.is_empty()) {
+                            println!("  {error}");
+                        }
+                        if let Some(attachments) =
+                            w["attachments"].as_array().filter(|v| !v.is_empty())
+                        {
+                            println!(
+                                "  attached: {}",
+                                attachments
+                                    .iter()
+                                    .filter_map(Value::as_str)
+                                    .collect::<Vec<_>>()
+                                    .join(", ")
+                            );
+                        }
+                    }
+                }
+                Ok(())
+            }
             Self::Help { .. } => unreachable!("help is handled before endpoint load"),
             Self::Logs { .. } => unreachable!("local commands are dispatched before endpoint load"),
             Self::Delegate { to, body } => run_delegate(endpoint, session, json, &to, &body),
@@ -729,6 +843,7 @@ impl Command {
                 project,
                 template,
                 durable,
+                worktree,
                 body,
             } => run_spawn(
                 endpoint,
@@ -738,6 +853,7 @@ impl Command {
                     project: &project,
                     template: &template,
                     durable,
+                    worktree: &worktree,
                     body: &body,
                 },
             ),
@@ -791,6 +907,7 @@ pub(crate) struct SpawnArgs<'a> {
     pub(crate) project: &'a str,
     pub(crate) template: &'a str,
     pub(crate) durable: bool,
+    pub(crate) worktree: &'a WorktreeChoice,
     pub(crate) body: &'a str,
 }
 
@@ -810,6 +927,10 @@ pub(crate) fn run_spawn(
             "template": args.template,
             "body": args.body,
             "durable": args.durable,
+            "worktree": args.worktree.worktree,
+            "new_worktree": args.worktree.new_worktree,
+            "base": args.worktree.base,
+            "worktree_name": args.worktree.worktree_name,
         })),
     )?;
     emit(&v, json);
@@ -1333,4 +1454,42 @@ fn only(args: &[String], at: usize) -> Result<(), String> {
         None => Ok(()),
         Some(extra) => Err(format!("unexpected argument: {extra}\n\n{USAGE}")),
     }
+}
+
+fn parse_worktree(args: &[String]) -> Result<Command, String> {
+    let action = args.get(1).ok_or(WORKTREE_USAGE)?.clone();
+    if !["list", "create", "remove"].contains(&action.as_str()) {
+        return Err(WORKTREE_USAGE.into());
+    }
+    let mut project = String::new();
+    let mut name = String::new();
+    let mut base = String::new();
+    let mut path = String::new();
+    let mut id = String::new();
+    let mut i = 2;
+    if action == "remove" {
+        id = args.get(i).ok_or(WORKTREE_USAGE)?.clone();
+        i += 1;
+    }
+    while i < args.len() {
+        let flag = &args[i];
+        i += 1;
+        let value = args.get(i).ok_or(WORKTREE_USAGE)?.clone();
+        i += 1;
+        match flag.as_str() {
+            "--project" => project = value,
+            "--name" if action == "create" => name = value,
+            "--base" if action == "create" => base = value,
+            "--path" if action == "create" => path = value,
+            _ => return Err(WORKTREE_USAGE.into()),
+        }
+    }
+    Ok(Command::Worktree {
+        action,
+        project,
+        name,
+        base,
+        path,
+        id,
+    })
 }

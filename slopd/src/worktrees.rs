@@ -1,0 +1,269 @@
+//! Durable checkout records. Task and session cleanup never mutate this store or its trees.
+use anyhow::{bail, Context, Result};
+use serde::{Deserialize, Serialize};
+use std::path::{Path, PathBuf};
+use std::time::Duration;
+#[path = "worktree_write_guard.rs"]
+mod write_guard;
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub(crate) struct Worktree {
+    pub id: String,
+    pub project_id: String,
+    pub name: String,
+    pub path: String,
+    pub repository: String,
+    pub managed: bool,
+    pub initial_branch: String,
+    pub base: String,
+    pub phase: String,
+    pub error: String,
+}
+
+#[derive(Default, Serialize, Deserialize)]
+pub(crate) struct Store {
+    #[serde(default, alias = "workspaces")]
+    pub worktrees: Vec<Worktree>,
+}
+impl Store {
+    pub async fn load(config: &Path) -> Result<Self> {
+        match tokio::fs::read_to_string(config.with_file_name("worktrees.toml")).await {
+            Ok(text) => Ok(toml::from_str(&text)?),
+            // Keep WIP records usable after the terminology change. Once saved, the new
+            // store is authoritative; the old file is never automatically deleted.
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+                match tokio::fs::read_to_string(config.with_file_name("workspaces.toml")).await {
+                    Ok(text) => Ok(toml::from_str(&text)?),
+                    Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(Self::default()),
+                    Err(e) => Err(e.into()),
+                }
+            }
+            Err(e) => Err(e.into()),
+        }
+    }
+    pub async fn save(&self, config: &Path) -> Result<()> {
+        crate::paths::write_atomic_async(
+            &config.with_file_name("worktrees.toml"),
+            &toml::to_string(self)?,
+            Some(0o600),
+        )
+        .await
+    }
+}
+
+/// All host Git operations have bounded output/time and the inspection helper restrictions.
+pub(crate) async fn git(path: &Path, args: &[&str]) -> Result<String> {
+    git_command(path, args, &[]).await
+}
+
+async fn git_command(path: &Path, args: &[&str], writable: &[&Path]) -> Result<String> {
+    let mut command = crate::git::inspection_std_command(path);
+    if !writable.is_empty() {
+        write_guard::restrict(&mut command, writable)?;
+    }
+    let mut command = tokio::process::Command::from(command);
+    command
+        .args(args)
+        .env_remove("GIT_DIR")
+        .env_remove("GIT_WORK_TREE")
+        .env_remove("GIT_INDEX_FILE")
+        .env("GIT_OPTIONAL_LOCKS", "0");
+    let output = crate::process::run_bounded(
+        &mut command,
+        Duration::from_secs(30),
+        crate::process::CaptureLimits {
+            stdout: 1024 * 1024,
+            stderr: 8192,
+        },
+    )
+    .await?;
+    if !output.status.success() {
+        bail!(
+            "Git {}: {}",
+            args.first().unwrap_or(&""),
+            String::from_utf8_lossy(&output.stderr).trim()
+        );
+    }
+    if output.stdout_truncated || output.stderr_truncated {
+        bail!("Git output exceeded limit");
+    }
+    Ok(String::from_utf8(output.stdout)?
+        .trim_end_matches('\n')
+        .to_string())
+}
+
+/// `worktree add -b` forks Git helpers. Allocate without checkout, then invoke each builtin
+/// directly under the same no-child-process restriction used for repository inspection.
+pub(crate) async fn allocate(root: &Path, path: &Path, branch: &str, base: &str) -> Result<()> {
+    let target = path.to_str().context("worktree path is not UTF-8")?;
+    let repository = PathBuf::from(
+        git(
+            root,
+            &["rev-parse", "--path-format=absolute", "--git-common-dir"],
+        )
+        .await?,
+    )
+    .canonicalize()?;
+    let container = path.parent().context("worktree container")?;
+    let writable = [repository.as_path(), container];
+    git_command(
+        root,
+        &["worktree", "add", "--detach", "--no-checkout", target, base],
+        &writable,
+    )
+    .await?;
+    let reference = format!("refs/heads/{branch}");
+    git_command(root, &["update-ref", &reference, base, ""], &writable).await?;
+    git_command(path, &["symbolic-ref", "HEAD", &reference], &writable).await?;
+    git_command(path, &["read-tree", "--reset", "-u", "HEAD"], &writable).await?;
+    Ok(())
+}
+
+pub(crate) fn default_root() -> Result<PathBuf> {
+    Ok(dirs::data_dir()
+        .context("no user data directory")?
+        .join("slopworld/worktrees"))
+}
+
+/// Only metadata is mounted; mounting the main checkout would expose unrelated source files.
+pub(crate) fn metadata_paths(path: &Path) -> Result<Vec<PathBuf>> {
+    let dot = path.join(".git");
+    if !dot.is_file() {
+        return Ok(Vec::new());
+    }
+    let text = std::fs::read_to_string(&dot)?;
+    let target = text
+        .trim()
+        .strip_prefix("gitdir: ")
+        .context("invalid .git file")?;
+    let gitdir = path.join(target).canonicalize()?;
+    if !gitdir.is_dir() || !gitdir.join("HEAD").is_file() {
+        bail!("linked Git directory has no HEAD");
+    }
+    let mut paths = vec![gitdir.clone()];
+    if let Ok(common) = std::fs::read_to_string(gitdir.join("commondir")) {
+        let common = gitdir.join(common.trim()).canonicalize()?;
+        if !common.join("objects").is_dir() {
+            bail!("linked Git common directory has no object store");
+        }
+        paths.push(common);
+    }
+    for p in &paths {
+        if let Some(why) = crate::sandbox::refused(&p.to_string_lossy()) {
+            bail!("Git metadata path {} reaches {why}", p.display());
+        }
+    }
+    Ok(paths)
+}
+
+#[cfg(test)]
+#[path = "worktrees_tests.rs"]
+mod tests;
+
+/// Git removal forks its own status command. Run that command tree in a minimal namespace,
+/// with only this worktree's container and the shared Git metadata writable. Never mount the
+/// original source checkout or host home/config; repository helpers cannot reach host secrets.
+pub(crate) async fn remove_tree(w: &Worktree) -> Result<()> {
+    let checkout = Path::new(&w.path);
+    let container = checkout.parent().context("missing worktree container")?;
+    if checkout.file_name().and_then(|s| s.to_str()) != Some("checkout")
+        || container.file_name().and_then(|s| s.to_str()) != Some(&w.id)
+    {
+        bail!("worktree has no recorded managed container");
+    }
+    if container.canonicalize()? != container {
+        bail!("worktree container path changed");
+    }
+    for entry in std::fs::read_dir(container)? {
+        if entry?.path() != checkout {
+            bail!("worktree container has unexpected files");
+        }
+    }
+    let repo = Path::new(&w.repository).canonicalize()?;
+    if let Some(reason) = crate::sandbox::refused(&repo.to_string_lossy()) {
+        bail!("Git metadata reaches {reason}");
+    }
+    let mut command = tokio::process::Command::new("bwrap");
+    command.args([
+        "--die-with-parent",
+        "--unshare-all",
+        "--new-session",
+        "--clearenv",
+        "--ro-bind",
+        "/usr",
+        "/usr",
+        "--proc",
+        "/proc",
+        "--dev",
+        "/dev",
+        "--tmpfs",
+        "/tmp",
+    ]);
+    for name in ["/lib", "/lib64", "/bin", "/sbin"] {
+        if Path::new(name).exists() {
+            command.args(["--ro-bind", name, name]);
+        }
+    }
+    command
+        .arg("--bind")
+        .arg(&repo)
+        .arg(&repo)
+        .arg("--bind")
+        .arg(container)
+        .arg(container)
+        .args([
+            "--setenv",
+            "PATH",
+            "/usr/bin:/bin",
+            "--setenv",
+            "HOME",
+            "/tmp",
+            "--setenv",
+            "GIT_CONFIG_NOSYSTEM",
+            "1",
+            "--setenv",
+            "GIT_CONFIG_GLOBAL",
+            "/dev/null",
+            "--setenv",
+            "GIT_TERMINAL_PROMPT",
+            "0",
+            "--setenv",
+            "LC_ALL",
+            "C",
+            "--chdir",
+        ])
+        .arg(&repo)
+        .args(["--", "/usr/bin/git"])
+        .args(crate::git::inspection_args())
+        .args(["worktree", "remove"])
+        .arg(checkout);
+    let output = crate::process::run_bounded(
+        &mut command,
+        Duration::from_secs(30),
+        crate::process::CaptureLimits {
+            stdout: 8192,
+            stderr: 8192,
+        },
+    )
+    .await?;
+    if !output.status.success() {
+        bail!(
+            "Git worktree removal: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+    if checkout.exists() {
+        bail!("Git reported removal but checkout still exists");
+    }
+    // Only an empty, daemon-allocated container is discarded; unexpected data is retained.
+    std::fs::remove_dir(container).context("removing empty worktree container")?;
+    Ok(())
+}
+
+/// Retry a previously authorized removal whose checkout has already disappeared. Constrain
+/// writes to Git metadata so a concurrent recreation cannot turn this into file deletion.
+pub(crate) async fn forget_missing(w: &Worktree) -> Result<()> {
+    let repo = Path::new(&w.repository);
+    git_command(repo, &["worktree", "remove", &w.path], &[repo]).await?;
+    Ok(())
+}

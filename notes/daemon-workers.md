@@ -11,8 +11,10 @@ token. Scoped callers can use only their own project.
 
 Persist the task before starting its process. Failed starts and premature exits fail unfinished
 tasks; cleanup must never overwrite a terminal task result. Autostart/auto-resume are disabled
-to prevent accidental task retries. Durable workers remain inspectable; one-shot workers
+to prevent accidental task retries. Workers default to durable and remain inspectable; one-shot workers
 normally disappear on exit, but surviving tmux metadata permits redeploy adoption.
 
 Removing a parent does not cascade: orphaned children become top-level rows. Worker bootstrap
 is submitted for every spawned worker.
+
+Task completion and worker removal never checkpoint or tear down [project worktrees](daemon-worktrees.md).

@@ -101,9 +101,16 @@ pub(super) fn validate_loaded(cfg: &Config) -> Result<()> {
 pub(crate) fn validate_mount_paths(project: &ProjectCfg) -> Result<()> {
     let mut targets = HashSet::new();
     for mount in &project.mounts {
-        let source = super::expand(&mount.from);
+        let cache = mount.mode == super::MountMode::Cache;
+        let source = if cache && mount.from.trim().is_empty() {
+            crate::sandbox::cache::source(project, mount)?
+                .to_string_lossy()
+                .into_owned()
+        } else {
+            super::expand(&mount.from)
+        };
         let source_path = Path::new(&source);
-        if mount.from.trim().is_empty()
+        if (!cache && mount.from.trim().is_empty())
             || !source_path.is_absolute()
             || source.chars().any(|c| c.is_control())
             || source_path
@@ -160,6 +167,12 @@ pub(crate) fn validate_mount_paths(project: &ProjectCfg) -> Result<()> {
             );
         }
         let primary = std::path::PathBuf::from(super::expand(&project.dir));
+        if cache {
+            crate::sandbox::cache::validate(project, mount)?;
+            if target == primary || target.components().any(|c| c.as_os_str() == ".git") {
+                bail!("cache cannot replace a checkout or Git metadata");
+            }
+        }
         if primary.starts_with(target) && (target != primary || source_path != primary) {
             bail!(
                 "project {} mount cannot replace its primary directory",

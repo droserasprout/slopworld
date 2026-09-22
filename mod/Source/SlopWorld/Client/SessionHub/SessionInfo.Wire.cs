@@ -12,6 +12,8 @@ namespace SlopWorld
         {
             (s, j) => s.Name = j.Name,
             (s, j) => s.Project = j.Project,
+            (s, j) => s.Worktree = j.Worktree,
+            (s, j) => s.WorktreeName = j.WorktreeName,
             (s, j) => s.Dir = j.Dir,
             (s, j) => s.Command = j.Command,
             (s, j) => s.CommandPreset = j.CommandPreset,

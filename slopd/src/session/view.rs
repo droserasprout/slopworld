@@ -23,6 +23,8 @@ impl From<crate::config::ProjectCfg> for ProjectView {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct SessionView {
+    pub worktree: String,
+    pub worktree_name: String,
     pub name: String,
     pub label: String,
     pub project: String,

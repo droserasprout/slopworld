@@ -98,6 +98,9 @@ pub(crate) mod routes {
     pub(crate) const LIBRARY_ITEM: &str = "/api/library/:name";
     pub(crate) const LIBRARY_ITEM_RUN: &str = "/api/library/:name/run";
     pub(crate) const RUN: &str = "/api/run";
+    pub(crate) const WORKTREES: &str = "/api/worktrees";
+    pub(crate) const WORKTREE_PREVIEW: &str = "/api/worktrees/preview";
+    pub(crate) const WORKTREE: &str = "/api/worktrees/:id";
     pub(crate) const WORKERS: &str = "/api/workers";
     pub(crate) const FILE_ACTION: &str = "/api/file-action";
     pub(crate) const OPEN_APPS: &str = "/api/open-apps";
@@ -171,6 +174,7 @@ pub(crate) mod enums {
     pub(crate) mod mount_mode {
         pub(crate) const RO: &str = "ro";
         pub(crate) const RW: &str = "rw";
+        pub(crate) const CACHE: &str = "cache";
     }
     pub(crate) mod dns_mode {
         pub(crate) const RESOLVED: &str = "resolved";

@@ -17,6 +17,8 @@ fn recovered_worker_uses_parent_settings_and_task_identity() {
         &cfg,
         "parent-worker",
         &crate::tmux::WorkerMetadata {
+            project: Some("repo".into()),
+            worktree: Some("worker-worktree".into()),
             parent: "parent".into(),
             task_id: "task-7".into(),
             durable: false,
@@ -29,6 +31,7 @@ fn recovered_worker_uses_parent_settings_and_task_identity() {
     assert_eq!(worker.task_id, "task-7");
     assert_eq!(worker.state_id, "11111111-1111-4111-8111-111111111111");
     assert_eq!(worker.project, "repo");
+    assert_eq!(worker.worktree, "worker-worktree");
     assert_eq!(worker.command, "codex");
     assert_eq!(worker.sandbox, ["gpu"]);
     assert!(!worker.autostart);

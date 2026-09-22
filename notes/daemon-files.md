@@ -21,6 +21,7 @@ in `make/config.mk`.
 | `emu.rs`, `tmux.rs` | Terminal mirror and tmux transport. |
 | `sandbox/`, `presets.rs` | Sandbox construction and preset resolution. |
 | `config/`, `config.rs` | Configuration model, persistence, validation, ownership and resolution. |
+| `worktrees.rs` | Independent worktree records and bounded Git operations; [worktree ownership](daemon-worktrees.md). |
 | `tasks.rs`, `grant.rs` | Durable mailboxes and scoped authority. |
 | `audio/`, `jukebox.rs` | Playback and station catalog. |
 | `usage/`, `usage.rs` | Provider polling and quota normalization. |

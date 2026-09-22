@@ -10,6 +10,9 @@ namespace SlopWorld
     // context only; no existing agent configuration is copied into the child.
     public sealed class SpawnWorkerDialog : UiWindow
     {
+        static readonly Dictionary<string, (string Worktree, bool NewWorktree)> WorktreeChoices =
+            new Dictionary<string, (string Worktree, bool NewWorktree)>();
+        string ChoiceKey => DaemonClient.BaseUrl + "\n" + _project;
         readonly string _fixedCaller;
         readonly string _project;
         readonly List<SessionInfo> _agents;
@@ -17,22 +20,33 @@ namespace SlopWorld
         string _template;
         string _body = "";
         string _error;
-        bool _durable;
+        bool _durable = true;
         bool _sending;
+        List<Wire.Worktree> _worktrees = new List<Wire.Worktree>();
+        string _worktree = "";
+        bool _newWorktree = true;
+        string _baseRevision = "";
+        string _worktreeName = "";
+        string _baseCommit = "";
+        string _previewKey = "";
+        string _previewError;
 
         public SpawnWorkerDialog(string caller, string project)
         {
             _fixedCaller = caller;
             _project = project ?? "";
+            if (WorktreeChoices.TryGetValue(ChoiceKey, out var choice)) { _worktree = choice.Worktree; _newWorktree = choice.NewWorktree; }
             _caller = string.IsNullOrEmpty(caller) ? TaskInfo.Host : caller;
             _agents = SessionHub.Instance.Sessions
                 .Where(s => s != null && !s.Host && s.Project == _project &&
                     !string.IsNullOrEmpty(s.Name))
                 .OrderBy(s => s.Name, StringComparer.OrdinalIgnoreCase).ToList();
             _template = AvailableTemplates().FirstOrDefault()?.Name ?? "";
+            DaemonClient.Get<Wire.WorktreesReply>(WireProtocol.Routes.Worktrees + "?project=" + Uri.EscapeDataString(_project),
+                reply => { _worktrees = reply.Worktrees.ToList(); if (!_newWorktree && !_worktrees.Any(w => w.Id == _worktree)) _worktree = "main"; }, error => _error = error, TaskInfo.Host, 60000);
         }
 
-        public override Vector2 InitialSize => new Vector2(620f, 430f);
+        public override Vector2 InitialSize => new Vector2(680f, 740f);
 
         protected override void DoBody(Rect rect)
         {
@@ -72,6 +86,33 @@ namespace SlopWorld
                 templateCanChoose);
 
             y = templateRect.yMax + UiTheme.GapM;
+            var worktreeRect = new Rect(rect.x, y, rect.width, UiTheme.LineH + UiTheme.GapXS + UiTheme.CompactH);
+            var choices = new List<SelectorOption> { new SelectorOption("New worktree", () => { _newWorktree = true; _worktree = ""; }) };
+            choices.AddRange(_worktrees.Where(w => w.Phase == "ready").Select(w => new SelectorOption(
+                w.Name + (string.IsNullOrEmpty(w.Branch) ? " (detached)" : " — " + w.Branch),
+                () => { _newWorktree = false; _worktree = w.Id; })));
+            UiControls.Select(worktreeRect, "Worktree", _newWorktree ? "New worktree" :
+                _worktrees.FirstOrDefault(w => w.Id == _worktree)?.Name ?? "Main checkout", choices, out _);
+            y = worktreeRect.yMax + UiTheme.GapS;
+            if (_newWorktree)
+            {
+                UiText.RowLabel(new Rect(rect.x, y, rect.width, UiTheme.LineH), "Base revision (empty uses caller HEAD)");
+                y += UiTheme.LineH;
+                _baseRevision = UiText.Field(new Rect(rect.x, y, rect.width, UiTheme.CompactH), "spawn-worker.base", _baseRevision);
+                y += UiTheme.CompactH + UiTheme.GapS;
+                UiText.RowLabel(new Rect(rect.x, y, rect.width, UiTheme.LineH), "Worktree name (optional)");
+                y += UiTheme.LineH;
+                _worktreeName = UiText.Field(new Rect(rect.x, y, rect.width, UiTheme.CompactH), "spawn-worker.worktree-name", _worktreeName);
+                y += UiTheme.CompactH + UiTheme.GapS;
+                UiText.RowLabel(new Rect(rect.x, y, rect.width, UiTheme.LineH), "Only committed files are copied; dirty caller files stay behind.");
+                y += UiTheme.LineH + UiTheme.GapS;
+                string previewKey = _caller + "\n" + _baseRevision;
+                if (previewKey != _previewKey) ResolveBase();
+                if (UiButtons.Button(new Rect(rect.x, y, 130f, UiTheme.BtnH), "Resolve base", on: !_sending)) ResolveBase();
+                UiText.RowLabel(new Rect(rect.x + 140f, y, rect.width - 140f, UiTheme.BtnH),
+                    _previewError ?? (string.IsNullOrEmpty(_baseCommit) ? "Resolve the committed base before spawning." : _baseCommit));
+                y += UiTheme.BtnH + UiTheme.GapS;
+            }
             GUI.color = UiTheme.Name;
             UiText.RowLabel(new Rect(rect.x, y, rect.width, UiTheme.LineH), "Task");
             GUI.color = Color.white;
@@ -99,7 +140,7 @@ namespace SlopWorld
             var foot = new UiLayout.Bar(UiLayout.FooterBar(rect));
             if (foot.Left("Cancel", UiTheme.Btn.Ghost, !_sending)) Close();
 
-            bool ready = !_sending && !string.IsNullOrEmpty(_caller) &&
+            bool ready = !_sending && (!_newWorktree || !string.IsNullOrEmpty(_baseCommit)) && !string.IsNullOrEmpty(_caller) &&
                 !string.IsNullOrEmpty(_project) && !string.IsNullOrEmpty(_template) &&
                 !string.IsNullOrWhiteSpace(_body);
             if (foot.Right("Spawn", UiTheme.Btn.Primary, ready)) Send();
@@ -131,6 +172,18 @@ namespace SlopWorld
         static string AgentLabel(SessionInfo agent) =>
             agent == null ? "Choose an agent..." : $"{agent.Name}  -  {agent.Project}";
 
+        void ResolveBase()
+        {
+            string key = _caller + "\n" + _baseRevision;
+            _previewKey = key;
+            _baseCommit = "";
+            _previewError = null;
+            DaemonClient.Post<Wire.WorktreeBase>(WireProtocol.Routes.WorktreePreview,
+                new Wire.CreateWorktreeReq { Project = _project, Base = _baseRevision },
+                reply => { if (_caller + "\n" + _baseRevision == key) _baseCommit = reply.Commit; },
+                error => { if (_caller + "\n" + _baseRevision == key) _previewError = error; }, _caller);
+        }
+
         void Send()
         {
             _sending = true;
@@ -138,6 +191,7 @@ namespace SlopWorld
             SessionHub.Instance.SpawnWorker(_caller, _project, _template, _body.Trim(), _durable,
                 worker =>
                 {
+                    WorktreeChoices[ChoiceKey] = (_worktree, _newWorktree);
                     TerminalWindow.Open(worker);
                     Close();
                 },
@@ -145,7 +199,7 @@ namespace SlopWorld
                 {
                     _sending = false;
                     _error = error;
-                });
+                }, _worktree, _newWorktree, _newWorktree ? _baseCommit : "", _worktreeName);
         }
     }
 }

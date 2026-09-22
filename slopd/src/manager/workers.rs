@@ -15,6 +15,7 @@ impl Manager {
     /// Create the mailbox record first, then the child session, then launch it. A failed launch
     /// leaves the task and (for durable workers) the stopped session visible so a restart or
     /// operator can diagnose it instead of losing a half-created child between two API calls.
+    #[cfg(test)]
     pub async fn spawn_worker(
         self: &Arc<Self>,
         caller: String,
@@ -23,8 +24,21 @@ impl Manager {
         body: String,
         durable: bool,
     ) -> Result<WorkerSpawn> {
+        self.spawn_worker_worktree(caller, project, template, body, durable, String::new())
+            .await
+    }
+
+    pub(crate) async fn spawn_worker_worktree(
+        self: &Arc<Self>,
+        caller: String,
+        project: String,
+        template: String,
+        body: String,
+        durable: bool,
+        worktree: String,
+    ) -> Result<WorkerSpawn> {
         self.session_operation(
-            self.spawn_worker_within_boundary(caller, project, template, body, durable),
+            self.spawn_worker_within_boundary(caller, project, template, body, durable, worktree),
         )
         .await
     }
@@ -36,6 +50,7 @@ impl Manager {
         template_name: String,
         body: String,
         durable: bool,
+        worktree: String,
     ) -> Result<WorkerSpawn> {
         let _spawn = self.worker_spawn.lock().await;
         self.reload_if_changed().await;
@@ -56,6 +71,8 @@ impl Manager {
             .cloned()
             .ok_or_else(|| anyhow!("no such worker project: {project}"))?;
 
+        self.resolve_worktree(&p, &worktree).await?;
+
         // The selected template supplies behavior; the invoking session owns the child in the
         // task mailbox and sidebar. No caller configuration is copied into the worker.
         let mut session = worker_session_from_template(
@@ -64,6 +81,7 @@ impl Manager {
             &project,
             &caller,
         );
+        session.worktree = worktree;
         // A worker must be able to reach the daemon. Worker metadata supplies its task API
         // capability; the selected template supplies the normal tool and state configuration.
         if cfg.network_of(&session, &p) == NetworkMode::None {

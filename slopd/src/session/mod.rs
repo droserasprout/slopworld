@@ -24,6 +24,7 @@ mod view;
 
 #[path = "../manager/mod.rs"]
 mod manager;
+pub(crate) use manager::WorktreeRequest;
 
 #[cfg(test)]
 pub(crate) use agent_templates::validate_definition as validate_template_definition;
@@ -96,6 +97,8 @@ crate::wire_enum!(State, {
 
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct RunWhere {
+    #[serde(default)]
+    pub worktree: String,
     pub cols: Option<u16>,
     pub rows: Option<u16>,
     #[serde(default)]

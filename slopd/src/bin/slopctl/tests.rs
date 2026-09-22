@@ -117,6 +117,7 @@ fn command_parser_builds_delegation_and_update_commands() {
             "worker spawn --durable --project repo --template codex inspect the build"
         )),
         Ok(Command::Spawn {
+            worktree: Default::default(),
             project: "repo".to_string(),
             template: "codex".to_string(),
             durable: true,
@@ -128,9 +129,10 @@ fn command_parser_builds_delegation_and_update_commands() {
             "worker spawn --project repo --template codex run the checks"
         )),
         Ok(Command::Spawn {
+            worktree: Default::default(),
             project: "repo".to_string(),
             template: "codex".to_string(),
-            durable: false,
+            durable: true,
             body: "run the checks".to_string(),
         })
     );
@@ -363,6 +365,8 @@ fn spawn_preserves_task_text_after_template_options() {
                 let mut args = words("worker spawn");
                 if durable {
                     args.push("--durable".into());
+                } else {
+                    args.push("--one-shot".into());
                 }
                 args.push("--project".into());
                 args.push("repo".into());
@@ -372,6 +376,7 @@ fn spawn_preserves_task_text_after_template_options() {
                 assert_eq!(
                     parse_command(&args),
                     Ok(Command::Spawn {
+                        worktree: Default::default(),
                         project: "repo".into(),
                         template: "codex".into(),
                         durable,
@@ -395,13 +400,14 @@ fn spawn_delimiter_preserves_options_as_literal_task_text() {
             ] {
                 let mut args = words(&format!(
                     "worker spawn --project repo --template review {} {} -- {body}",
-                    if durable { "--durable" } else { "" },
+                    if durable { "--durable" } else { "--one-shot" },
                     if json { "--json" } else { "" },
                 ));
                 assert_eq!(take_json_flag(&mut args), json);
                 assert_eq!(
                     parse_command(&args),
                     Ok(Command::Spawn {
+                        worktree: Default::default(),
                         project: "repo".into(),
                         template: "review".into(),
                         durable,
@@ -449,6 +455,7 @@ fn spawn_posts_template_and_task_body_to_worker_endpoint() {
         "host",
         true,
         SpawnArgs {
+            worktree: &Default::default(),
             project: "repo",
             template: "codex",
             durable: true,
@@ -983,4 +990,31 @@ fn agent_creation_encodes_template_path_and_preserves_body_fields() {
     assert_eq!(body["name"], "review worker");
     assert_eq!(body["project"], "my repo");
     assert_eq!(body["start"], false);
+}
+
+#[test]
+fn worktree_options_preserve_selection_and_reject_ambiguous_requests() {
+    use super::commands::WorktreeChoice;
+    assert_eq!(parse_command(&words("worker spawn --project repo --template codex --new-worktree --base HEAD --worktree-name feature task")),
+        Ok(Command::Spawn { project: "repo".into(), template: "codex".into(), durable: true, body: "task".into(),
+            worktree: WorktreeChoice { new_worktree: true, base: "HEAD".into(), worktree_name: "feature".into(), ..Default::default() } }));
+    assert!(parse_command(&words(
+        "worker spawn --project repo --template codex --worktree abc --new-worktree task"
+    ))
+    .is_err());
+    assert!(parse_command(&words(
+        "worker spawn --project repo --template codex --base HEAD task"
+    ))
+    .is_err());
+    assert_eq!(
+        parse_command(&words("worktree remove abc --project repo")),
+        Ok(Command::Worktree {
+            action: "remove".into(),
+            project: "repo".into(),
+            id: "abc".into(),
+            name: String::new(),
+            base: String::new(),
+            path: String::new()
+        })
+    );
 }
