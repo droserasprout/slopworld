@@ -61,7 +61,7 @@ impl Manager {
                     return;
                 };
                 let sent = manager
-                    .session_operation(async {
+                    .session_read_operation(async {
                         // Queued input belongs to the session and process that accepted it.
                         if !manager.live.read().await.get(&name).is_some_and(|live| {
                             live.cfg.state_id == identity
@@ -236,6 +236,9 @@ impl Manager {
     }
 
     pub async fn resize(&self, name: &str, cols: u16, rows: u16) -> Result<()> {
+        // Shared session requests may resize concurrently. Keep each tmux acceptance and
+        // published dimension pair in request order.
+        let _resize = self.resize_mutation.lock().await;
         let cols = cols.clamp(
             crate::shared::protocol::TERMINAL_MIN_COLS,
             crate::shared::protocol::TERMINAL_MAX_COLS,

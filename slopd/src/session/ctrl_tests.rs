@@ -41,7 +41,8 @@ pub(crate) fn test_manager_with_socket(config: Config, socket: impl Into<String>
         auth_generation: AtomicU64::new(0),
         auth_changes,
         grants: RwLock::new(crate::grant::Grants::default()),
-        session_boundary: tokio::sync::Mutex::new(()),
+        session_boundary: tokio::sync::RwLock::new(()),
+        resize_mutation: tokio::sync::Mutex::new(()),
         template_mutation: tokio::sync::Mutex::new(()),
         tasks: super::super::manager::TaskStore::new(
             crate::tasks::Tasks::load(&cfg_path).expect("test task store"),

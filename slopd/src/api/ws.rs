@@ -161,7 +161,7 @@ async fn ws_run(socket: WebSocket, m: Mgr, cap: Cap, generation: u64) {
                     let cap = cap.clone();
                     pending_scrolls.push_back(tokio::spawn(async move {
                         let _permit = permit;
-                        manager.session_operation(async {
+                        manager.session_read_operation(async {
                             if !manager.cap_ok(&cap, &req.name, Level::Ro).await { return None; }
                             manager.scroll_capture(&req.name, req.off, req.request_id).await
                         }).await
@@ -350,7 +350,15 @@ async fn handle_client_msg(cm: ClientMsg, m: &Mgr, cap: &Cap, tx: &WsTx, subs: &
     if let ClientMsg::Sub { name } = cm {
         return handle_sub(name, m, cap, tx, subs).await;
     }
-    m.session_operation(async {
+    let shared = matches!(
+        &cm,
+        ClientMsg::Keys(_)
+            | ClientMsg::Resize(_)
+            | ClientMsg::Mouse(_)
+            | ClientMsg::Paste(_)
+            | ClientMsg::Breadcrumb(_)
+    );
+    let operation = async {
         match cm {
             ClientMsg::Redraw { cols, rows } => handle_redraw(m, cap, cols.zip(rows)),
             ClientMsg::Sub { .. } => unreachable!(),
@@ -372,8 +380,12 @@ async fn handle_client_msg(cm: ClientMsg, m: &Mgr, cap: &Cap, tx: &WsTx, subs: &
             }
         }
         true
-    })
-    .await
+    };
+    if shared {
+        m.session_read_operation(operation).await
+    } else {
+        m.session_operation(operation).await
+    }
 }
 
 fn handle_redraw(m: &Mgr, cap: &Cap, shape: Option<(u16, u16)>) {
@@ -387,7 +399,7 @@ fn handle_redraw(m: &Mgr, cap: &Cap, shape: Option<(u16, u16)>) {
 
 async fn handle_sub(name: String, m: &Mgr, cap: &Cap, tx: &WsTx, subs: &WsSubs) -> bool {
     let screen = m
-        .session_operation(async {
+        .session_read_operation(async {
             if !m.cap_ok(cap, &name, Level::Ro).await {
                 return None;
             }

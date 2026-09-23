@@ -4,6 +4,39 @@ use serde_json::json;
 use tower::ServiceExt;
 
 #[tokio::test]
+async fn shared_health_and_task_routes_continue_during_worktree_guard() {
+    let manager = crate::session::test_manager(crate::config::Config::default());
+    let app = crate::api::router(manager.clone()).layer(Extension(crate::grant::Cap::Root));
+    let (release, wait) = tokio::sync::oneshot::channel::<()>();
+    let (started, started_wait) = tokio::sync::oneshot::channel();
+    let checkout = manager.session_read_operation(async {
+        started.send(()).unwrap();
+        wait.await.unwrap();
+    });
+    tokio::pin!(checkout);
+    tokio::select! {
+        _ = checkout.as_mut() => panic!("checkout guard ended early"),
+        _ = started_wait => {},
+    }
+    for path in ["/api/health", "/api/tasks"] {
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri(path)
+                    .header(crate::shared::protocol::SESSION_HEADER, "host")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK, "{path}");
+    }
+    release.send(()).unwrap();
+    checkout.await;
+}
+
+#[tokio::test]
 async fn read_routes_emit_the_declared_binary_payloads() {
     let manager = crate::session::test_manager(crate::config::Config::default());
     std::fs::write(

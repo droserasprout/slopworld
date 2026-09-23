@@ -173,7 +173,8 @@ impl Manager {
             auth_generation: AtomicU64::new(0),
             auth_changes,
             grants: RwLock::new(grants),
-            session_boundary: tokio::sync::Mutex::new(()),
+            session_boundary: tokio::sync::RwLock::new(()),
+            resize_mutation: tokio::sync::Mutex::new(()),
             template_mutation: tokio::sync::Mutex::new(()),
             tasks: crate::session::manager::TaskStore::new(tasks),
             worker_spawn: tokio::sync::Mutex::new(()),
@@ -305,7 +306,7 @@ impl Manager {
             .await
     }
 
-    async fn update_cfg_if_changed_within_boundary<T>(
+    pub(super) async fn update_cfg_if_changed_within_boundary<T>(
         &self,
         update: impl FnOnce(&mut Config) -> Result<(T, bool)>,
     ) -> Result<T> {
@@ -360,6 +361,16 @@ impl Manager {
         }
         self.session_operation(self.reload_if_changed_within_boundary())
             .await
+    }
+
+    pub(super) async fn reload_if_stale(self: &Arc<Self>) {
+        let disk = disk_mtime(&self.cfg_path).await;
+        let library = Config::library_stamp_for(&self.cfg_path);
+        let stale = *self.config_state.cfg_mtime.lock().unwrap() != disk
+            || *self.config_state.library_mtime.lock().unwrap() != library;
+        if stale {
+            self.reload_if_changed().await;
+        }
     }
 
     async fn reload_if_changed_within_boundary(self: &Arc<Self>) -> bool {

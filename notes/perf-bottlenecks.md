@@ -2,21 +2,22 @@
 
 ## Follow-up — 2026-09-23
 
+- **Improved 1:** terminal input, task routes, and direct worktree creation now share an identity guard;
+  lifecycle and grant changes require its exclusive guard. Queued input keeps its run-identity
+  check under the shared guard. Direct Git checkout can proceed concurrently with terminal input.
+  Worker spawn with a new worktree still holds the exclusive guard through its combined
+  task/session transaction.
 - **Fixed 2:** the emulator reuses the hidden-history extent across cursor-only renders and
   invalidates it for operations that can change history. The 10,000-blank-row benchmark fell
   from 6.39 ms to 0.97 µs per render on the same machine.
 - **Fixed 4:** session views retain an indexed worktree catalog. File stamps reload externally
   edited catalogs, including the legacy-to-current file transition.
-- **Improved 3:** progress and summary updates append one task record to a generation-tagged
+- **Fixed 3:** progress and summary updates append one task record to a generation-tagged
   journal. The 1,000-record update fell from 13.88 ms to 6.98 µs on this machine. Creation
-  and removal still write complete snapshots. The task HTTP request still holds the global
-  session boundary while it writes.
+  and removal still write complete snapshots. Task routes share the identity guard with input.
 - **Fixed 5:** sparse link edits rescan the edited row and connected wrapped-link region while
   retaining unrelated immutable spans. The 200-row URL fixture fell from 88.65 to 6.59 µs
   and from 56,504 to 8,640 B per update. Game-free link and snapshot tests pass.
-- **Open 1 and 3:** the global session boundary still covers worktree checkout and task writes.
-  Narrowing it requires coordinated changes to authorization lifetime and session identity.
-
 The measurements and source links below describe the original baseline, before these fixes.
 
 Measured in the current worktree based on `7b56915513d0f03e5300da582c9a014215f1bb95`, with pre-existing edits. Release build on AMD Ryzen 7 4800HS, Linux x86-64. These are warmed helper benchmarks, not a Unity profile or end-to-end latency measurements. No game was launched, and no screenshots or images were inspected.

@@ -16,7 +16,6 @@ use super::{err, Mgr};
 pub(crate) fn router(m: Mgr) -> Router {
     // Scoped routes revalidate credentials and hold the session boundary through each request.
     let scoped = Router::new()
-        .route(routes::HEALTH, get(health))
         .route(routes::SESSIONS, get(list).post(create))
         .route(routes::SESSION, get(one).delete(destroy))
         .route(routes::SESSION_CWD, get(cwd))
@@ -26,6 +25,15 @@ pub(crate) fn router(m: Mgr) -> Router {
         .route(routes::SESSION_RESTART, post(restart))
         .route(routes::SESSION_LABEL, put(set_label))
         .route(routes::SESSION_STATE_RESET, post(reset_state))
+        .route(routes::SPAWNABLE_TEMPLATES, get(list_spawnable_templates))
+        .route(routes::WORKERS, post(spawn_worker))
+        .route(crate::shared::protocol::WS_PATH, get(ws_upgrade))
+        .layer(middleware::from_fn_with_state(m.clone(), scoped_request));
+
+    // These handlers keep session identity fixed but do not mutate it. Sharing the guard
+    // allows terminal input while Git checkout or task persistence is in progress.
+    let shared = Router::new()
+        .route(routes::HEALTH, get(health))
         .route(
             routes::TASKS,
             get(list_tasks).post(create_task).delete(prune_tasks),
@@ -36,12 +44,9 @@ pub(crate) fn router(m: Mgr) -> Router {
             routes::TASK,
             get(one_task).post(update_task).delete(remove_task),
         )
-        .route(routes::SPAWNABLE_TEMPLATES, get(list_spawnable_templates))
-        .route(routes::WORKERS, post(spawn_worker))
         .route(routes::WORKTREE_PREVIEW, post(preview_worktree))
         .route(routes::WORKTREES, get(list_worktrees).post(create_worktree))
-        .route(crate::shared::protocol::WS_PATH, get(ws_upgrade))
-        .layer(middleware::from_fn_with_state(m.clone(), scoped_request));
+        .layer(middleware::from_fn_with_state(m.clone(), shared_request));
 
     // Host controls and configuration default to root-only access.
     let root = Router::new()
@@ -115,10 +120,18 @@ pub(crate) fn router(m: Mgr) -> Router {
         .route(routes::GIT, get(git_status))
         .layer(middleware::from_fn(require_root));
 
-    scoped.merge(root).with_state(m)
+    scoped.merge(shared).merge(root).with_state(m)
 }
 
 async fn scoped_request(State(m): State<Mgr>, req: Request, next: Next) -> Response {
+    bounded_request(m, req, next, false).await
+}
+
+async fn shared_request(State(m): State<Mgr>, req: Request, next: Next) -> Response {
+    bounded_request(m, req, next, true).await
+}
+
+async fn bounded_request(m: Mgr, req: Request, next: Next, shared: bool) -> Response {
     // Read uploads before taking the session boundary: a stalled client must not block
     // lifecycle changes or revocation. Use the extractor to preserve Axum's body limit.
     let (parts, body) = req.into_parts();
@@ -127,7 +140,7 @@ async fn scoped_request(State(m): State<Mgr>, req: Request, next: Next) -> Respo
         Err(rejection) => return rejection.into_response(),
     };
     let req = Request::from_parts(parts, Body::from(bytes));
-    m.session_request(async {
+    let operation = async {
         if req
             .extensions()
             .get::<Cap>()
@@ -136,8 +149,12 @@ async fn scoped_request(State(m): State<Mgr>, req: Request, next: Next) -> Respo
             return err(StatusCode::UNAUTHORIZED, "capability revoked").into_response();
         }
         next.run(req).await
-    })
-    .await
+    };
+    if shared {
+        m.session_read_request(operation).await
+    } else {
+        m.session_request(operation).await
+    }
 }
 
 /// The default-deny half of the API: everything but the session read/drive routes is the mod's.
