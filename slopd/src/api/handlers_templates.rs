@@ -41,7 +41,7 @@ pub(crate) async fn list_templates(
 }
 
 /// Scoped discovery exposes only definitions explicitly enabled by the root worker policy. A
-/// caller's project is the default context; root callers may provide one or omit it to inspect
+/// caller's project is the default context. Root callers may provide one or omit it to inspect
 /// the complete enabled catalog. The response uses the same template shape as the root catalog
 /// so agents and the CLI cannot grow a second definition parser.
 pub(crate) async fn list_spawnable_templates(
@@ -93,7 +93,7 @@ pub(crate) async fn save_template(
         if template.version != 0 {
             return Err(err(
                 StatusCode::BAD_REQUEST,
-                "new agent templates must omit version",
+                "Use version 0 for a new agent template.",
             ));
         }
         let saved = m

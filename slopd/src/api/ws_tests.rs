@@ -42,12 +42,15 @@ async fn rejected_spotify_selection_replies_without_waiting_for_a_state_change()
         .await
         .unwrap();
         assert_eq!(reply.source.as_deref(), Some("ncspot"));
-        assert!(reply.error.unwrap().contains("cannot be combined"));
+        assert!(reply
+            .error
+            .unwrap()
+            .contains("Select ncspot or another audio source, not both."));
         assert!(reply.session.is_none());
     }
 }
 
-/// Event filtering reads the name and host flag; the rest is filler that
+/// Event filtering reads the name and host flag. The rest is filler that
 /// keeps a `SessionView` compiling without pulling in a whole live manager.
 fn view(name: &str) -> SessionView {
     SessionView {
@@ -140,7 +143,7 @@ fn root_sees_every_event_unfiltered() {
     }
 }
 
-/// A scoped grant's session list is cut down to the names it may see; the rest never
+/// A scoped grant's session list is cut down to the names it may see. The rest never
 /// reach the socket, so the holder does not even learn they exist.
 #[test]
 fn a_scoped_grant_sees_only_the_sessions_it_names() {
@@ -167,7 +170,7 @@ fn a_scoped_grant_with_no_matches_gets_an_empty_list() {
     assert!(names(&scope_event(&cap, ev).expect("still an event")).is_empty());
 }
 
-/// The grant subscribes to a session's screen and must keep receiving it; screens are the
+/// The grant subscribes to a session's screen and must keep receiving it. Screens are the
 /// one non-session category a scoped socket is allowed to see.
 #[test]
 fn screens_require_a_live_grant_for_the_named_session() {
@@ -230,7 +233,7 @@ fn a_scoped_grant_is_denied_host_wide_categories() {
 }
 
 /// A jukebox pick names a station and a stream together, or names a plain file, and nothing
-/// in between; a plain file passes straight through.
+/// in between. A plain file passes straight through.
 #[test]
 fn resolve_audio_accepts_a_plain_file() {
     let selection = AudioSelection {

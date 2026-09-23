@@ -166,9 +166,9 @@ async fn invalid_names_cannot_create_or_move_entries() {
 async fn mutations_reject_empty_and_relative_paths() {
     for path in ["", " \t ", "relative", "./relative", "../relative"] {
         let expected = if path.trim().is_empty() {
-            "no path"
+            "A path is required."
         } else {
-            "path must be absolute"
+            "Use an absolute path."
         };
         rejected(
             create_file(request(Path::new(path), "child", "file")).await,
@@ -192,7 +192,7 @@ async fn create_rejects_missing_or_file_parents_and_unsupported_kinds() {
     std::fs::write(&file, "unchanged").unwrap();
     rejected(
         create_file(request(&fixture.0.join("missing"), "child", "file")).await,
-        "reading parent directory",
+        "The daemon could not read the parent directory",
     );
     rejected(
         create_file(request(&file, "child", "file")).await,
@@ -201,7 +201,7 @@ async fn create_rejects_missing_or_file_parents_and_unsupported_kinds() {
     for kind in ["", "directory", "symlink", "FILE"] {
         rejected(
             create_file(request(&fixture.0, "child", kind)).await,
-            "kind must be file or folder",
+            "Set kind to file or folder.",
         );
     }
     assert_eq!(std::fs::read(&file).unwrap(), b"unchanged");
@@ -214,9 +214,12 @@ async fn rename_and_remove_missing_paths_do_not_create_entries() {
     let missing = fixture.0.join("missing");
     rejected(
         rename_file(request(&missing, "target", "")).await,
-        "reading",
+        "could not read",
     );
-    rejected(remove_file(request(&missing, "", "")).await, "reading");
+    rejected(
+        remove_file(request(&missing, "", "")).await,
+        "could not read",
+    );
     assert_eq!(std::fs::read_dir(&fixture.0).unwrap().count(), 0);
 }
 
@@ -314,7 +317,9 @@ async fn highlighter_reports_failure_and_cleans_up_input() {
         .await
         .unwrap_err()
         .to_string();
-    let path = error.strip_prefix("syntax highlighter failed: ").unwrap();
+    let path = error
+        .strip_prefix("The syntax highlighter failed: ")
+        .unwrap();
     assert!(Path::new(path).is_absolute());
     assert!(!Path::new(path).exists());
     assert_eq!(
@@ -322,7 +327,7 @@ async fn highlighter_reports_failure_and_cleans_up_input() {
             .await
             .unwrap_err()
             .to_string(),
-        "syntax highlighter is disabled"
+        "The syntax highlighter is disabled."
     );
 }
 
@@ -334,16 +339,16 @@ async fn highlighter_rejects_invalid_output_missing_program_and_timeout() {
     for (command, expected) in [
         (
             "sh -c 'printf \"\\377\"'",
-            "syntax highlighter output is not valid UTF-8",
+            "The syntax highlighter output is not valid UTF-8.",
         ),
         (
             "/nonexistent-slopworld-highlighter",
-            "starting syntax highlighter",
+            "The daemon could not start the syntax highlighter.",
         ),
-        ("sh -c 'exec sleep 10'", "syntax highlighter timed out"),
+        ("sh -c 'exec sleep 10'", "The syntax highlighter timed out."),
         (
             "sh -c 'head -c 2097153 /dev/zero'",
-            "syntax highlighter output exceeded the preview limit",
+            "The syntax highlighter output exceeds the preview limit.",
         ),
     ] {
         assert_eq!(
@@ -410,11 +415,17 @@ async fn search_distinguishes_invalid_requests_from_no_matches() {
     let fixture = Fixture::new();
     let manager = crate::session::test_manager(crate::config::Config::default());
     for (request, expected) in [
-        (search_request(Path::new(""), "query", 1), "no path"),
-        (search_request(&fixture.0, "", 1), "no query"),
+        (
+            search_request(Path::new(""), "query", 1),
+            "A path is required.",
+        ),
+        (
+            search_request(&fixture.0, "", 1),
+            "A search query is required.",
+        ),
         (
             search_request(&fixture.0.join("missing"), "query", 1),
-            "could not run rg",
+            "The daemon could not start ripgrep",
         ),
     ] {
         let (status, Proto(error)) = search(State(manager.clone()), Query(request))
@@ -427,5 +438,9 @@ async fn search_distinguishes_invalid_requests_from_no_matches() {
     request.regex = true;
     let (status, Proto(error)) = search(State(manager), Query(request)).await.unwrap_err();
     assert_eq!(status, StatusCode::BAD_REQUEST);
-    assert!(error.error.contains("rg exited with"), "{}", error.error);
+    assert!(
+        error.error.contains("Ripgrep exited with status"),
+        "{}",
+        error.error
+    );
 }

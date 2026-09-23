@@ -14,12 +14,11 @@ use tokio::process::Command;
 use super::super::types::*;
 use super::{err, ApiResult, Mgr};
 
-/// A preview is a UI document, not a file transfer. Keep the response bounded so a generated
-/// README cannot turn one click into an unbounded JSON allocation in the daemon or the game.
+/// Limit preview response size to bound memory use in the daemon and game.
+/// Generated documents can exceed the size needed for a UI preview.
 pub(crate) const READ_LIMIT: u64 = 512 * 1024;
 
-/// Images are a bounded preview transfer, not a general file download. This leaves room for
-/// screenshots while keeping one Markdown page from allocating an unbounded JSON response.
+/// Limit image preview size to bound response memory use while permitting screenshots.
 pub(crate) const IMAGE_LIMIT: u64 = 8 * 1024 * 1024;
 
 pub(crate) const BROWSE_LIMIT: usize = 500;
@@ -61,10 +60,9 @@ pub(crate) async fn list_dir(
         }
 
         let t = e.file_type().await?;
-        // `DirEntry::file_type` is an lstat: a symlink is a symlink and never the thing it
-        // points at, so a symlinked directory would come out neither a dir nor a file and
-        // read in the tree as one that had gone. One stat per link, and a broken one falls
-        // out of both lists rather than being guessed at.
+        // `DirEntry::file_type` identifies symbolic links without following them.
+        // Read target metadata to classify linked directories correctly.
+        // Exclude a link if its target metadata is unavailable.
         let is_dir = if t.is_symlink() {
             match tokio::fs::metadata(e.path()).await {
                 Ok(m) => m.is_dir(),
@@ -75,23 +73,22 @@ pub(crate) async fn list_dir(
         };
 
         if !is_dir && !want_files {
-            // Not asked for, so not counted either: a directory holding three folders and
-            // ten thousand files is three rows, not a truncated answer.
+            // Exclude unrequested files from the count.
+            // A directory with three subdirectories and ten thousand files then returns three rows without truncation.
             continue;
         }
 
         let count = out.dirs.len() + out.files.len();
         if count >= limit {
-            // This qualifying entry is the evidence that the answer really was cut short.
-            // Merely reaching the limit is not: a directory may contain exactly that many.
+            // This additional matching entry confirms truncation.
+            // Reaching the limit alone does not prove that more entries exist.
             out.truncated = true;
             break;
         }
 
         if is_dir {
-            // The Files tree needs to distinguish a directory that has not been opened yet
-            // from one that is genuinely empty. Probe only when files are requested: the
-            // project-dir picker asks for directories alone and does not need this metadata.
+            // The Files tree must distinguish unopened directories from empty directories.
+            // Check only when the request includes files. The project directory selector does not need this metadata.
             if want_files && matches!(directory_is_empty(&e.path(), hidden).await, Ok(true)) {
                 out.empty_dirs.push(name.clone());
             }
@@ -107,9 +104,9 @@ pub(crate) async fn list_dir(
     Ok(out)
 }
 
-/// Whether a directory has any child the Files tree would show. A failed child stat is left as
-/// an unknown result by the caller, so a permission problem keeps the disclosure arrow rather
-/// than falsely claiming that the directory is empty.
+/// Check whether a directory contains entries that the Files tree can show.
+/// The caller treats failed checks as unknown and preserves the expansion arrow.
+/// Thus, permission errors do not make a directory appear empty.
 async fn directory_is_empty(path: &std::path::Path, hidden: bool) -> std::io::Result<bool> {
     let mut rd = tokio::fs::read_dir(path).await?;
     while let Some(e) = rd.next_entry().await? {
@@ -127,10 +124,9 @@ async fn directory_is_empty(path: &std::path::Path, hidden: bool) -> std::io::Re
     Ok(true)
 }
 
-/// Classify entries that `.gitignore` rules cover. Runs `git check-ignore` in the listed
-/// directory; silently skips classification when git is absent or the path is outside a repo.
-/// When `hide` is false, the classified entries stay in the listing so the Files tab can tint
-/// them while showing them.
+/// Classify entries with `git check-ignore` in the listed directory.
+/// Skip classification without an error if Git is unavailable or the path is outside a repository.
+/// When `hide` is false, keep ignored entries so the Files tab can show them with a different color.
 pub(crate) async fn filter_gitignored(base: &std::path::Path, listing: &mut Listing, hide: bool) {
     if listing.dirs.is_empty() && listing.files.is_empty() {
         return;
@@ -222,9 +218,8 @@ pub(crate) async fn filter_gitignored(base: &std::path::Path, listing: &mut List
     }
 }
 
-/// So the dialog can pick a project dir, and the files view can draw a tree, without
-/// the mod touching the host filesystem itself. `dirs` is what it always was; `files`
-/// is asked for.
+/// Supply directory listings for project selection and the Files tree without direct host filesystem access from the mod.
+/// Always include directories. Include files only when requested.
 pub(crate) async fn browse(
     State(_m): State<Mgr>,
     Query(q): Query<BrowseReq>,
@@ -259,8 +254,9 @@ pub(crate) async fn browse(
     }))
 }
 
-// Reader lifetime must not infer deletion from filtered or truncated directory listings.
-// Only a definitive missing/non-file result closes a reader; permission and I/O errors retry.
+// Do not infer file deletion from filtered or truncated directory listings.
+// Close a reader only when its path is missing or is not a file.
+// Retry after permission and I/O errors.
 async fn reader_is_file(path: &Path) -> std::io::Result<bool> {
     match tokio::fs::metadata(path).await {
         Ok(metadata) => Ok(metadata.is_file()),
@@ -282,7 +278,7 @@ pub(crate) async fn file_stat(
 ) -> ApiResult<wire::FileStatResult> {
     let path = &q.path;
     if path.trim().is_empty() {
-        return Err(err(StatusCode::BAD_REQUEST, "no path"));
+        return Err(err(StatusCode::BAD_REQUEST, "A path is required."));
     }
     let path = std::path::PathBuf::from(crate::config::expand(path));
     let is_file = reader_is_file(&path)
@@ -297,7 +293,7 @@ pub(crate) async fn read_file(
 ) -> ApiResult<wire::TextResult> {
     let path = q.path.trim();
     if path.is_empty() {
-        return Err(err(StatusCode::BAD_REQUEST, "no path"));
+        return Err(err(StatusCode::BAD_REQUEST, "A path is required."));
     }
 
     let path = std::path::PathBuf::from(crate::config::expand(path));
@@ -322,7 +318,7 @@ pub(crate) async fn highlight(
     if q.text.len() as u64 > READ_LIMIT {
         return Err(err(
             StatusCode::BAD_REQUEST,
-            "code is larger than the preview limit",
+            "The code is larger than the preview limit.",
         ));
     }
     let command = m.config().await.commands.highlighter;
@@ -334,7 +330,7 @@ pub(crate) async fn highlight(
 
 async fn highlight_text(command: &str, language: &str, text: &str) -> anyhow::Result<String> {
     if command.trim().is_empty() {
-        bail!("syntax highlighter is disabled");
+        bail!("The syntax highlighter is disabled.");
     }
 
     let dir = std::path::PathBuf::from(crate::config::temp_dir("highlight"));
@@ -365,11 +361,11 @@ pub(crate) fn highlighter_argv(
 ) -> anyhow::Result<Vec<String>> {
     let mut argv = crate::sandbox::shell_split(command);
     if argv.is_empty() {
-        bail!("syntax highlighter is disabled");
+        bail!("The syntax highlighter is disabled.");
     }
     let path = path
         .to_str()
-        .ok_or_else(|| anyhow::anyhow!("highlight path is not valid UTF-8"))?;
+        .ok_or_else(|| anyhow::anyhow!("The temporary file path is not valid UTF-8."))?;
     let mut replaced = false;
     for arg in &mut argv {
         if arg.contains("%s") {
@@ -398,21 +394,21 @@ async fn run_highlighter(command: &str, path: &std::path::Path) -> anyhow::Resul
     .await
     .map_err(|error| {
         if error.downcast_ref::<crate::process::TimedOut>().is_some() {
-            anyhow::anyhow!("syntax highlighter timed out")
+            anyhow::anyhow!("The syntax highlighter timed out.")
         } else {
-            error.context("starting syntax highlighter")
+            error.context("The daemon could not start the syntax highlighter.")
         }
     })?;
     if output.stdout_truncated {
-        bail!("syntax highlighter output exceeded the preview limit");
+        bail!("The syntax highlighter output exceeds the preview limit.");
     }
     if !output.status.success() {
         bail!(
-            "syntax highlighter failed: {}",
+            "The syntax highlighter failed: {}",
             String::from_utf8_lossy(&output.stderr).trim()
         );
     }
-    String::from_utf8(output.stdout).context("syntax highlighter output is not valid UTF-8")
+    String::from_utf8(output.stdout).context("The syntax highlighter output is not valid UTF-8.")
 }
 
 pub(crate) async fn read_image(
@@ -421,7 +417,7 @@ pub(crate) async fn read_image(
 ) -> ApiResult<wire::ImageResult> {
     let path = q.path.trim();
     if path.is_empty() {
-        return Err(err(StatusCode::BAD_REQUEST, "no path"));
+        return Err(err(StatusCode::BAD_REQUEST, "A path is required."));
     }
 
     let path = std::path::PathBuf::from(crate::config::expand(path));
@@ -438,7 +434,7 @@ pub(crate) async fn read_image(
 async fn read_file_bounded(path: &Path, limit: u64, label: &str) -> Result<Vec<u8>> {
     let metadata = tokio::fs::metadata(path).await?;
     if !metadata.is_file() {
-        bail!("path is not a file");
+        bail!("The path does not identify a file.");
     }
     let (unit, unit_size) = if label == "image" {
         ("MiB", 1024_u64 * 1024)
@@ -447,7 +443,7 @@ async fn read_file_bounded(path: &Path, limit: u64, label: &str) -> Result<Vec<u
     };
     if metadata.len() > limit {
         bail!(
-            "{label} is larger than the {} {} preview limit",
+            "The {label} is larger than the preview limit of {} {}.",
             limit / unit_size,
             unit
         );
@@ -460,7 +456,7 @@ async fn read_file_bounded(path: &Path, limit: u64, label: &str) -> Result<Vec<u
         .await?;
     if bytes.len() as u64 > limit {
         bail!(
-            "{label} grew beyond the {} {} preview limit",
+            "The {label} exceeded the preview limit of {} {} during the read.",
             limit / unit_size,
             unit
         );
@@ -474,18 +470,18 @@ pub(crate) async fn read_image_bytes(path: &Path) -> Result<Vec<u8>> {
 
 pub(crate) async fn read_preview(path: &Path) -> Result<String> {
     let bytes = read_file_bounded(path, READ_LIMIT, "file").await?;
-    String::from_utf8(bytes).context("file is not valid UTF-8")
+    String::from_utf8(bytes).context("The file is not valid UTF-8.")
 }
 
 pub(crate) fn file_path(path: &str) -> anyhow::Result<std::path::PathBuf> {
     let path = crate::config::expand(path);
     if path.trim().is_empty() {
-        bail!("no path");
+        bail!("A path is required.");
     }
 
     let path = std::path::PathBuf::from(path);
     if !path.is_absolute() {
-        bail!("path must be absolute");
+        bail!("Use an absolute path.");
     }
     Ok(path)
 }
@@ -493,10 +489,10 @@ pub(crate) fn file_path(path: &str) -> anyhow::Result<std::path::PathBuf> {
 pub(crate) fn entry_name(name: &str) -> anyhow::Result<&str> {
     let name = name.trim();
     if name.is_empty() || name == "." || name == ".." {
-        bail!("name is empty");
+        bail!("Enter a name other than . or ..");
     }
     if name.contains('/') || name.contains('\\') || name.contains('\0') {
-        bail!("name must be one path component");
+        bail!("Enter one file or folder name without path separators or null characters.");
     }
     Ok(name)
 }
@@ -507,12 +503,17 @@ pub(crate) async fn create_file(Proto(q): Proto<wire::FileReq>) -> ApiResult<wir
     let name = entry_name(&q.name).map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
     let meta = tokio::fs::metadata(&parent)
         .await
-        .with_context(|| format!("reading parent directory {}", parent.display()))
+        .with_context(|| {
+            format!(
+                "The daemon could not read the parent directory {}.",
+                parent.display()
+            )
+        })
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
     if !meta.is_dir() {
         return Err(err(
             StatusCode::BAD_REQUEST,
-            format!("not a directory: {}", parent.display()),
+            format!("The parent path is not a directory: {}.", parent.display()),
         ));
     }
 
@@ -520,7 +521,7 @@ pub(crate) async fn create_file(Proto(q): Proto<wire::FileReq>) -> ApiResult<wir
     if tokio::fs::symlink_metadata(&target).await.is_ok() {
         return Err(err(
             StatusCode::BAD_REQUEST,
-            format!("already exists: {}", target.display()),
+            format!("A path already exists: {}.", target.display()),
         ));
     }
 
@@ -531,13 +532,13 @@ pub(crate) async fn create_file(Proto(q): Proto<wire::FileReq>) -> ApiResult<wir
             .open(&target)
             .await
             .map(|_| ())
-            .with_context(|| format!("creating {}", target.display()))
+            .with_context(|| format!("The daemon could not create {}.", target.display()))
     } else if q.kind.trim() == "folder" {
         tokio::fs::create_dir(&target)
             .await
-            .with_context(|| format!("creating {}", target.display()))
+            .with_context(|| format!("The daemon could not create {}.", target.display()))
     } else {
-        return Err(err(StatusCode::BAD_REQUEST, "kind must be file or folder"));
+        return Err(err(StatusCode::BAD_REQUEST, "Set kind to file or folder."));
     };
     result.map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
 
@@ -551,22 +552,22 @@ pub(crate) async fn rename_file(Proto(q): Proto<wire::FileReq>) -> ApiResult<wir
     let parent = source
         .parent()
         .filter(|p| !p.as_os_str().is_empty())
-        .ok_or_else(|| err(StatusCode::BAD_REQUEST, "cannot rename this path"))?;
+        .ok_or_else(|| err(StatusCode::BAD_REQUEST, "You cannot rename this path."))?;
     tokio::fs::symlink_metadata(&source)
         .await
-        .with_context(|| format!("reading {}", source.display()))
+        .with_context(|| format!("The daemon could not read {}.", source.display()))
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
 
     let target = parent.join(name);
     if tokio::fs::symlink_metadata(&target).await.is_ok() {
         return Err(err(
             StatusCode::BAD_REQUEST,
-            format!("already exists: {}", target.display()),
+            format!("A path already exists: {}.", target.display()),
         ));
     }
     tokio::fs::rename(&source, &target)
         .await
-        .with_context(|| format!("renaming {}", source.display()))
+        .with_context(|| format!("The daemon could not rename {}.", source.display()))
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
     reply(json!({ "ok": true }))
 }
@@ -576,30 +577,30 @@ pub(crate) async fn remove_file(Proto(q): Proto<wire::FileReq>) -> ApiResult<wir
     let path = file_path(&q.path).map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
     let meta = tokio::fs::symlink_metadata(&path)
         .await
-        .with_context(|| format!("reading {}", path.display()))
+        .with_context(|| format!("The daemon could not read {}.", path.display()))
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
     if path.parent().is_none() {
-        return Err(err(StatusCode::BAD_REQUEST, "cannot remove this path"));
+        return Err(err(StatusCode::BAD_REQUEST, "You cannot remove this path."));
     }
 
     if meta.is_dir() {
         tokio::fs::remove_dir_all(&path)
             .await
-            .with_context(|| format!("removing {}", path.display()))
+            .with_context(|| format!("The daemon could not remove {}.", path.display()))
             .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
     } else {
         tokio::fs::remove_file(&path)
             .await
-            .with_context(|| format!("removing {}", path.display()))
+            .with_context(|| format!("The daemon could not remove {}.", path.display()))
             .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
     }
     reply(json!({ "ok": true }))
 }
 
 pub(crate) const SEARCH_LIMIT: usize = 200;
-// `rg --max-columns` controls its human output, but JSON match records still carry the whole
-// line. A generated or minified asset can therefore turn one sidebar row into tens of thousands
-// of glyphs. Keep the answer a preview, centred near the first match when there is room.
+// `rg --max-columns` limits text output, but JSON matches contain complete lines.
+// Generated or minified files can produce sidebar rows with tens of thousands of characters.
+// Limit preview length. Center the preview near the first match when space permits.
 pub(crate) const SEARCH_TEXT_LIMIT: usize = 1_000;
 
 pub(crate) fn search_preview(text: &str, column: usize) -> String {
@@ -667,10 +668,10 @@ pub(crate) fn build_rg_command(path: &std::path::Path, q: &SearchReq) -> tokio::
     cmd
 }
 
-/// Search one project without putting a pattern or path through a shell. `rg --json` keeps
-/// filenames and matching text unambiguous; reading it a line at a time lets the endpoint
-/// stop the process once the UI-sized answer is full rather than collecting an unbounded
-/// repository search in memory.
+/// Search one project without sending patterns or paths through a shell.
+/// `rg --json` distinguishes filenames from matching text.
+/// Read one line at a time to stop the process when the response reaches the UI limit.
+/// This bounds the memory needed for repository search results.
 pub(crate) async fn search(
     State(_m): State<Mgr>,
     Query(q): Query<SearchReq>,
@@ -679,22 +680,25 @@ pub(crate) async fn search(
     use tokio::io::{AsyncBufReadExt, BufReader};
 
     if q.path.is_empty() {
-        return Err(err(StatusCode::BAD_REQUEST, "no path"));
+        return Err(err(StatusCode::BAD_REQUEST, "A path is required."));
     }
     if q.q.is_empty() {
-        return Err(err(StatusCode::BAD_REQUEST, "no query"));
+        return Err(err(StatusCode::BAD_REQUEST, "A search query is required."));
     }
 
     let dir = std::path::PathBuf::from(crate::config::expand(&q.path));
     let limit = q.limit.unwrap_or(SEARCH_LIMIT).clamp(1, SEARCH_LIMIT);
 
-    let mut child = build_rg_command(&dir, &q)
-        .spawn()
-        .map_err(|e| err(StatusCode::BAD_REQUEST, format!("could not run rg: {e}")))?;
+    let mut child = build_rg_command(&dir, &q).spawn().map_err(|e| {
+        err(
+            StatusCode::BAD_REQUEST,
+            format!("The daemon could not start ripgrep: {e}"),
+        )
+    })?;
     let stdout = child.stdout.take().ok_or_else(|| {
         err(
             StatusCode::INTERNAL_SERVER_ERROR,
-            "could not read rg output",
+            "The daemon could not read ripgrep output.",
         )
     })?;
     let mut lines = BufReader::new(stdout).lines();
@@ -742,7 +746,7 @@ pub(crate) async fn search(
         if !status.success() && status.code() != Some(1) {
             return Err(err(
                 StatusCode::BAD_REQUEST,
-                format!("rg exited with {status}"),
+                format!("Ripgrep exited with status {status}."),
             ));
         }
     }
@@ -756,15 +760,16 @@ pub(crate) async fn search(
     }))
 }
 
-/// Returns a project's changed files for the git view; the game cannot run `git` inside agent
-/// mount namespaces. Non-repositories return 200 with `repo: false`.
+/// Return a project's changed files for the Git view.
+/// The game cannot run `git` inside agent mount namespaces.
+/// Paths outside repositories return 200 with `repo: false`.
 pub(crate) async fn git_status(
     State(_m): State<Mgr>,
     Query(q): Query<GitReq>,
 ) -> ApiResult<wire::GitResult> {
     let _perf = crate::perf::timer("http-git");
     if q.path.is_empty() {
-        return Err(err(StatusCode::BAD_REQUEST, "no path"));
+        return Err(err(StatusCode::BAD_REQUEST, "A path is required."));
     }
     let dir = std::path::PathBuf::from(crate::config::expand(&q.path));
 

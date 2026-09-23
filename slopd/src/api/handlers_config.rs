@@ -16,10 +16,9 @@ pub(crate) async fn get_config(State(m): State<Mgr>) -> ApiResult<wire::ConfigRe
     m.reload_if_changed().await;
     let text = std::fs::read_to_string(&m.cfg_path)
         .map_err(|e| err(StatusCode::INTERNAL_SERVER_ERROR, e))?;
-    // The token never leaves the daemon as written: the raw text and the parsed values both
-    // carry the sentinel, and a write that sends it back is read as "unchanged". The endpoint
-    // is behind the token itself, so this guards the one case that is not - the raw editor,
-    // and any future client that reaches the config without holding the secret first.
+    // Replace the token with the redaction sentinel in raw text and parsed values.
+    // Writing the sentinel preserves the token. Authentication still protects this endpoint.
+    // Redaction prevents the raw editor and other configuration readers from displaying the secret.
     let cfg = m.config().await;
     let factory = crate::config::Config::default();
     let caps = crate::runtime::capabilities();

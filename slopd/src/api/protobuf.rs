@@ -35,7 +35,7 @@ impl<S: Send + Sync, T: Message + Default> FromRequest<S> for Proto<T> {
         {
             return Err(super::err(
                 StatusCode::UNSUPPORTED_MEDIA_TYPE,
-                "expected application/x-protobuf (protocol 2)",
+                "Set the Content-Type header to application/x-protobuf. Use protocol version 2.",
             ));
         }
         let bytes = Bytes::from_request(req, state)
@@ -73,7 +73,7 @@ pub(crate) fn config_patch(patch: wire::ConfigPatch) -> Result<serde_json::Value
         {
             return Err(super::err(
                 StatusCode::BAD_REQUEST,
-                "invalid editable config path",
+                "This config path is not valid for editing.",
             ));
         }
         let mut source = &values;
@@ -88,20 +88,22 @@ pub(crate) fn config_patch(patch: wire::ConfigPatch) -> Result<serde_json::Value
         if source.is_object() {
             return Err(super::err(
                 StatusCode::BAD_REQUEST,
-                "config path must name a leaf",
+                "Choose a config path that identifies one value.",
             ));
         }
         let mut target = &mut result;
         for part in &parts[..parts.len() - 1] {
             target = target
                 .as_object_mut()
-                .ok_or_else(|| super::err(StatusCode::BAD_REQUEST, "overlapping config paths"))?
+                .ok_or_else(|| {
+                    super::err(StatusCode::BAD_REQUEST, "Config paths must not overlap.")
+                })?
                 .entry(part.clone())
                 .or_insert_with(|| serde_json::json!({}));
         }
         target
             .as_object_mut()
-            .ok_or_else(|| super::err(StatusCode::BAD_REQUEST, "overlapping config paths"))?
+            .ok_or_else(|| super::err(StatusCode::BAD_REQUEST, "Config paths must not overlap."))?
             .insert(parts.last().unwrap().clone(), source.clone());
     }
     Ok(result)

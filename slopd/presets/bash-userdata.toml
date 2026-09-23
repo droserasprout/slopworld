@@ -1,5 +1,5 @@
-# Optional shell userdata: startup files are shared read-only, while history remains writable
-# so a shell can record commands without allowing it to rewrite the user's shell setup.
+# This optional preset mounts shell startup files with read-only access.
+# It mounts history with write access so the shell can record commands without changing startup files.
 [[sandbox]]
 name = "bash-userdata"
 description = "Bash startup files and command history"

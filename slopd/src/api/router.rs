@@ -140,16 +140,16 @@ async fn scoped_request(State(m): State<Mgr>, req: Request, next: Next) -> Respo
     .await
 }
 
-/// The default-deny half of the API: everything but the session read/drive routes is the mod's,
-/// so a scoped grant gets 403 here before a handler runs. The capability was resolved and hung
-/// on the request by `auth`, which is the outer layer, so it is always present by now.
+/// The default-deny half of the API: everything but the session read/drive routes is the mod's.
+/// Therefore, a scoped grant gets 403 here before a handler runs. The capability was resolved and
+/// hung on the request by `auth`, which is the outer layer, so it is always present by now.
 async fn require_root(Extension(cap): Extension<Cap>, req: Request, next: Next) -> Response {
     if cap.may_create() {
         next.run(req).await
     } else {
         err(
             StatusCode::FORBIDDEN,
-            "this route needs the daemon's own token",
+            "Only the root token can access this route.",
         )
         .into_response()
     }

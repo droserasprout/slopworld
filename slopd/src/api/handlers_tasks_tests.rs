@@ -313,7 +313,7 @@ async fn unknown_task_endpoints_fail_before_persistence() {
         .await;
         let (status, Proto(error)) = result.unwrap_err();
         assert_eq!(status, StatusCode::BAD_REQUEST);
-        assert!(error.error.contains("no such session: missing"));
+        assert!(error.error.contains("Session missing does not exist."));
         assert!(m.tasks.all_tasks().is_empty());
     }
 }

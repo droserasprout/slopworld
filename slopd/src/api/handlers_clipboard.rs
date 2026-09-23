@@ -9,8 +9,7 @@ use serde_json::json;
 use super::super::types::ClipReq;
 use super::{err, ApiResult};
 
-/// A tool that is missing or wedged is a 502 rather than a 400, because nothing
-/// about the request was wrong.
+/// Return 502 for a missing or unresponsive tool. The request itself is valid.
 pub(crate) async fn clip_read() -> ApiResult<wire::TextResult> {
     let text = crate::clipboard::read()
         .await

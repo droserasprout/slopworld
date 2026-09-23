@@ -1,4 +1,4 @@
-//! Task mailbox and worker-construction HTTP boundaries.
+//! HTTP handlers for task mailboxes and worker creation.
 use crate::api::protobuf::{domain, reply, Proto};
 use crate::shared::wire;
 
@@ -30,25 +30,25 @@ pub(crate) fn task_principal(
         .ok_or_else(|| {
             err(
                 StatusCode::BAD_REQUEST,
-                format!("root task requests need {SESSION_HEADER}"),
+                format!("Set the {SESSION_HEADER} header for this root task request."),
             )
         })?;
-    // The root token is the only thing that speaks for the user at the keyboard. A grant resolves
-    // to its grantor's name, so this covers a session that happens to be called `host` too: it may
-    // hold a grant, but it cannot wear the host's identity with it.
+    // The root token represents the user at the keyboard.
+    // A grant uses its grantor's session name as the caller identity.
+    // A session named `host` cannot use the host identity through a grant.
     if who == crate::tasks::HOST && !cap.may_create() {
         return Err(err(
             StatusCode::FORBIDDEN,
-            "only the daemon's own token speaks as the host",
+            "Only the root token can use the host identity.",
         ));
     }
     Ok(who)
 }
 
-/// A task endpoint is a live session or the host. The host is checked here rather than through
-/// `guard`, because it is not a session: it has no host-ness flag to look up, appears in no
-/// grant's scope, and names nothing a scoped caller could learn from reaching it. An agent
-/// reporting back to the user is what the mailbox is for.
+/// A task endpoint can be a live session or `host`.
+/// The daemon checks `host` here because it is not a session.
+/// It has no session record for the access check, and grants cannot include it.
+/// Agents can use the host mailbox to report results to the user.
 pub(crate) async fn task_endpoint_known(m: &Mgr, who: &str) -> bool {
     who == crate::tasks::HOST || m.session_known(who).await
 }
@@ -64,13 +64,13 @@ pub(crate) async fn create_task(
     if !task_endpoint_known(&m, &from).await {
         return Err(err(
             StatusCode::BAD_REQUEST,
-            format!("no such session: {from}"),
+            format!("Session {from} does not exist."),
         ));
     }
     if !task_endpoint_known(&m, &q.to).await {
         return Err(err(
             StatusCode::BAD_REQUEST,
-            format!("no such session: {}", q.to),
+            format!("Session {} does not exist.", q.to),
         ));
     }
     if q.to != crate::tasks::HOST {
@@ -84,10 +84,11 @@ pub(crate) async fn create_task(
     reply(json!({ "task": task }))
 }
 
-/// Atomically coordinates the mailbox task and child-session setup. The task is written before
-/// the worker can start; a failed launch leaves a failed, queryable task (and a durable stopped
-/// session when requested). Root callers may choose any project, while scoped agents are limited
-/// to their own project and the daemon's worker-template allowlist is checked before allocation.
+/// Create the task and child session as one operation.
+/// The daemon saves the task before it starts the worker.
+/// A failed start leaves a failed, queryable task and, when requested, a stopped session.
+/// Root callers can choose any project. Scoped agents can use only their own project.
+/// The daemon checks that the selected template is allowed before it creates the worker.
 pub(crate) async fn spawn_worker(
     State(m): State<Mgr>,
     Extension(cap): Extension<Cap>,
@@ -111,7 +112,7 @@ pub(crate) async fn spawn_worker(
     if !task_endpoint_known(&m, &from).await {
         return Err(err(
             StatusCode::BAD_REQUEST,
-            format!("no such session: {from}"),
+            format!("Session {from} does not exist."),
         ));
     }
     let project = m
@@ -121,20 +122,20 @@ pub(crate) async fn spawn_worker(
     if !q.new_worktree && (!q.base.is_empty() || !q.worktree_name.is_empty()) {
         return Err(err(
             StatusCode::BAD_REQUEST,
-            "base and worktree_name require new_worktree",
+            "Set new_worktree to true to use base or worktree_name.",
         ));
     }
     if q.body.trim().is_empty() {
         return Err(err(
             StatusCode::BAD_REQUEST,
-            "worker task body must not be empty",
+            "Worker task text cannot be empty.",
         ));
     }
     let worktree = if q.new_worktree {
         if !q.worktree.is_empty() {
             return Err(err(
                 StatusCode::BAD_REQUEST,
-                "choose an existing worktree or a new worktree",
+                "Choose an existing worktree or request a new one.",
             ));
         }
         let template = m
@@ -145,13 +146,13 @@ pub(crate) async fn spawn_worker(
         let candidate = template.instantiate("worktree-validation".into(), project.clone());
         let owner = cfg
             .project(&project)
-            .ok_or_else(|| err(StatusCode::BAD_REQUEST, "worker project disappeared"))?;
+            .ok_or_else(|| err(StatusCode::BAD_REQUEST, "The project no longer exists."))?;
         if cfg.network_of(&candidate, owner) == crate::config::NetworkMode::None
             || cfg.command_of(&candidate).trim().is_empty()
         {
             return Err(err(
                 StatusCode::BAD_REQUEST,
-                "worker template needs networking and an executable command",
+                "A worker template must allow network access and define a command.",
             ));
         }
         crate::runtime::validate_limits(&candidate.limits)
@@ -204,7 +205,7 @@ pub(crate) async fn list_tasks(
     if q.all && !cap.may_create() {
         return Err(err(
             StatusCode::FORBIDDEN,
-            "only the daemon's own token lists every task",
+            "Only the root token can list all tasks.",
         ));
     }
     let tasks = if q.all {
@@ -225,7 +226,12 @@ pub(crate) async fn one_task(
     m.tasks
         .task_for(&who, &id)
         .map(|task| reply(json!({ "task": task })))
-        .ok_or_else(|| err(StatusCode::NOT_FOUND, format!("no such task: {id}")))?
+        .ok_or_else(|| {
+            err(
+                StatusCode::NOT_FOUND,
+                format!("Task {id} was not found or is not available to this caller."),
+            )
+        })?
 }
 
 pub(crate) async fn update_task(
@@ -254,7 +260,7 @@ pub(crate) async fn prune_tasks(
     if q.all && !cap.may_create() {
         return Err(err(
             StatusCode::FORBIDDEN,
-            "only the daemon's own token prunes every mailbox",
+            "Only the root token can prune tasks for all participants.",
         ));
     }
     let removed = m

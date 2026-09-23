@@ -41,7 +41,7 @@ pub(crate) async fn create_worktree(
     if !q.path.is_empty() && !cap.may_create() {
         return Err(err(
             StatusCode::FORBIDDEN,
-            "only the host registers external checkouts",
+            "Only the root token can register an external checkout.",
         ));
     }
     let caller = super::task_principal(&cap, &headers)?;
