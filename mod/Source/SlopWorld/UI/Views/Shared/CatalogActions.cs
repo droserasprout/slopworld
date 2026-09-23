@@ -1,6 +1,6 @@
 namespace SlopWorld
 {
-    // Callers retain visibility rules and window placement; confirmations share the action.
+    // Callers retain visibility rules and window placement. Confirmations share the action.
     static class CatalogActions
     {
         public static Verse.Window ResetState(string name) => ConfirmDialog.Create(

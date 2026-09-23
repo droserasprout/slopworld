@@ -6,9 +6,9 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Workspace search is a sidebar body rather than a terminal command: the daemon runs
-    // ripgrep where it can see the projects, and this side keeps only the small structured
-    // answer needed to group matches and open the existing pager on one of them.
+    // Workspace search is a sidebar view, not a terminal command.
+    // The daemon runs ripgrep where it can access the projects.
+    // The client keeps only the structured results that it needs to group matches and open the pager.
     public static partial class SearchView
     {
         static float RowH => UiTheme.TinyRowH;
@@ -114,8 +114,8 @@ namespace SlopWorld
                 _focus = false;
             }
 
-            // The tab gives this field focus when it is opened, but a sidebar entry must not
-            // keep the game's shortcuts captive after a search, an Escape, or a click elsewhere.
+            // The tab focuses this field when it opens. A sidebar entry must not keep game shortcuts
+            // captive after a search, Escape, or a click elsewhere.
             if (e.type == EventType.MouseDown && !field.Contains(e.mousePosition))
                 ReleaseFocus();
             if (e.type == EventType.KeyDown && e.keyCode == KeyCode.Escape && Focused)
@@ -148,14 +148,14 @@ namespace SlopWorld
                 w, UiTheme.RowH), "Include ignored", _includeIgnored,
                 "Include files ignored by Git");
 
-            // Changing text does not search on every frame; Enter is the deliberate boundary
+            // Changing text does not search on every frame. Enter is the deliberate boundary
             // between editing a potentially expensive expression and running it.
             if (was != _query) _selected = null;
         }
 
         static bool Focused => GUI.GetNameOfFocusedControl() == "search.query";
 
-        // Public because changing sidebar tabs removes the entry that owns this focus; without
+        // Public because changing sidebar tabs removes the entry that owns this focus. Without
         // clearing it first, Unity keeps reporting a text field after that entry is gone.
         public static void ReleaseFocus()
         {

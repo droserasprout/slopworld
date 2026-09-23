@@ -60,8 +60,8 @@ namespace SlopWorld
 
             float l1 = UiListRow.LineY(r, 0);
 
-            // The name's column and the state's beside it, off the font: at 200 and 230 the
-            // pair held for one face at one size and overlapped at the next.
+            // The name's column and the state's beside it, off the font. At 200 and 230 the pair
+            // held for one face at one size and overlapped at the next.
             float nameW = Mathf.Max(UiTheme.Wide("mmmmmmmmmmmmmmmm"), 200f);
             float stateX = r.x + 24f + nameW + UiTheme.GapM;
 
@@ -91,9 +91,8 @@ namespace SlopWorld
                 : s.Ephemeral
                     ? $"temporary in {s.Project} - it goes when it exits"
                     : $"{s.Project}  -  {s.Dir}";
-            // Cut rather than wrapped: this is the one line here with spaces in it, and a
-            // sentence that wrapped inside a one-line slot lost the bottom half of both lines
-            // and the buttons' row with them.
+            // Truncate this text instead of wrapping it.
+            // Wrapped text exceeds the one-line slot and can cover the button row.
             UiText.RowLabel(
                 new Rect(r.x + 24f, r.y, Mathf.Max(60f, r.width - 340f), UiTheme.LineH),
                 where);
@@ -110,7 +109,7 @@ namespace SlopWorld
             float dupW = UiLayout.BtnW("Duplicate", 74f);
             float editW = UiLayout.BtnW("Edit", 96f);
 
-            // Nothing in config.toml stands behind a temporary agent, so the dialog would
+            // Nothing in config.toml stands behind a temporary agent. Therefore, the dialog would
             // write an entry the daemon has never had and the save would be refused.
             if (!s.Ephemeral && !s.Host &&
                 UiButtons.Button(

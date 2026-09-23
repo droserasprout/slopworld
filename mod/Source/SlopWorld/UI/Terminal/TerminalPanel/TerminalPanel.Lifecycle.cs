@@ -35,8 +35,8 @@ namespace SlopWorld
             ReleasePanelInput();
             SaveScrollbackState(_state.Name);
             _historyCoordinator.SaveCache(_state.Name);
-            // A window opened on content alone has no pane to let go of, and a subscription
-            // named null is one the daemon would have to answer.
+            // A content-only window has no terminal pane to unsubscribe.
+            // Do not send an unsubscribe request for a null session.
             if (_opened && _state.Name != null) SessionHub.Instance.Unsubscribe(_state.Name);
             _state.Name = name;
             if (_state.Name != null)
@@ -122,13 +122,13 @@ namespace SlopWorld
         {
             var info = hub.Get(_state.Name);
             if (info != null && info.Alive) _state.ShowStopped = false;
-            // An agent that exits during normal terminal use stays in its pane. An
-            // intentionally selected stopped agent is held for its action gizmos; content
-            // views keep the window for their chrome.
+            // Keep the pane open when an agent exits during normal terminal use.
+            // Keep a selected stopped agent visible so its action gizmos remain available.
+            // Keep content views open so the window can show their chrome.
             if (_state.Name != null && (info == null || info.Gone))
             {
                 // A rename event removes the old name before the save response retargets this
-                // window. Hold the pane through that expected gap; otherwise the normal exit
+                // window. Hold the pane through that expected gap. Otherwise the normal exit
                 // handoff steals focus from the agent being renamed.
                 if (hub.TryPendingRename(_state.Name, out _)) return true;
 

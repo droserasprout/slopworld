@@ -4,9 +4,9 @@ using System.Linq;
 
 namespace SlopWorld
 {
-    // The page is disposable UI; this state is the session-owned draft behind it. A record is
-    // selected by stable page identity and daemon endpoint, so closing Settings cannot discard
-    // an edit and an endpoint switch cannot leak one daemon's draft into another.
+    // The page is disposable UI. This state is the session-owned draft behind it. A record is
+    // selected by stable page identity and daemon endpoint. Therefore, closing Settings cannot
+    // discard an edit and an endpoint switch cannot leak one daemon's draft into another.
     public sealed class DaemonConfigState
     {
         static readonly Dictionary<string, DaemonConfigDraft> Drafts =

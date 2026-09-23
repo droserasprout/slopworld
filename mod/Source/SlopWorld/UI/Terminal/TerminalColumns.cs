@@ -6,7 +6,7 @@ using System.Runtime.CompilerServices;
 namespace SlopWorld
 {
     // Geometry comes from daemon CHA markers, not font metrics or Unicode width tables.
-    // Runs end at a wide glyph; only their final scalar can reserve additional cells.
+    // Runs end at a wide glyph. Only their final scalar can reserve additional cells.
     public static class TerminalColumns
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -29,7 +29,7 @@ namespace SlopWorld
             return i;
         }
 
-        // Complete scalar strings occupy leading cells. Null means a continuation;
+        // Complete scalar strings occupy leading cells. Null means a continuation.
         // unoccupied gaps are spaces, so selection cannot mistake them for wide glyphs.
         public static string[] Cells(List<SgrRun> runs)
         {
@@ -57,8 +57,8 @@ namespace SlopWorld
         }
 
         // Link scans need one UTF-16 unit per column, not per-cell strings for copy/selection.
-        // Write directly into reusable screen storage; supplementary scalars are delimiters,
-        // and daemon-reserved continuation cells remain blanks even after overlapping runs.
+        // Write directly into reusable screen storage. Treat supplementary scalars as delimiters.
+        // Keep daemon-reserved continuation cells blank after overlapping runs.
         internal static void WriteScanLine(List<SgrRun> runs, char[] buffer, int offset, int width)
         {
             for (int c = 0; c < width; c++) buffer[offset + c] = ' ';
@@ -106,7 +106,7 @@ namespace SlopWorld
             return cells[col] ?? "";
         }
 
-        // Word selection needs a character class; copy keeps the entire scalar string.
+        // Word selection needs a character class. Copy keeps the entire scalar string.
         public static char Glyph(string[] cells, int col)
         {
             string glyph = GlyphText(cells, col);
@@ -124,8 +124,8 @@ namespace SlopWorld
             return sb.ToString();
         }
 
-        // Scanners need one UTF-16 unit per column. Supplementary scalars are opaque
-        // delimiters here; the complete text is retained in Cells for selection and copy.
+        // Scanners need one UTF-16 unit per column. Treat supplementary scalars as opaque delimiters.
+        // Keep complete text in Cells for selection and copy.
         public static string Line(string[] cells)
         {
             var sb = new StringBuilder(cells.Length);

@@ -9,9 +9,9 @@ namespace SlopWorld
     // input models can evolve without making the layout path harder to follow.
     public partial class UiMenu
     {
-        // Keyboard selection is independent of the pointer: a menu opened from a focused
-        // control may have no useful mouse position at all, and moving an arrow key should
-        // not be reset by the pointer's hover pass.
+        // Keyboard selection is independent of the pointer. A menu opened from a focused control
+        // may have no useful mouse position at all, and moving an arrow key should not be reset by
+        // the pointer's hover pass.
         int _selected = -1;
         bool _keyboardSelection;
         Event _acceptEvent;
@@ -23,7 +23,7 @@ namespace SlopWorld
         bool HandleKeyboard()
         {
             // Accept is dispatched by WindowStack before window contents. The menu handles
-            // it there so an accepted form underneath cannot submit at the same time; skip
+            // it there so an accepted form underneath cannot submit at the same time. Skip
             // the same event when the body is reached.
             if (Event.current != null &&
                 ReferenceEquals(Event.current, _acceptEvent)) return true;
@@ -36,9 +36,9 @@ namespace SlopWorld
                 return true;
             }
 
-            // Never on the frame it opened. A menu put up from a key - the palette's own
-            // pickers are - would otherwise be shut by the character event IMGUI sends after
-            // the key that produced it, the press arriving as two events and both being read.
+            // Never close a menu on the frame that opened it.
+            // IMGUI sends a character event after the key event that opens a keyboard menu.
+            // Without this delay, the character event would close the new menu.
             if (Time.frameCount == _born) return false;
 
             var e = Event.current;

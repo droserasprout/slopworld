@@ -6,7 +6,7 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Appearance page for global UI scale, scheme, fonts, and cursor; font changes affect every
+    // Appearance page for global UI scale, scheme, fonts, and cursor. Font changes affect every
     // `Widgets.Label`/`Text.CalcSize`, including vanilla dialogs. ModOptions hosts the page.
     public class AppearancePage : IOptionPage
     {
@@ -52,7 +52,7 @@ namespace SlopWorld
             float formH = _fieldsH > 0f ? _fieldsH : EstimateFieldsHeight();
             float blockH = UiTheme.RowH + UiTheme.GapXS + previewH;
             // Keep the preview pinned to the bottom while there is room for at least one
-            // usable form row. The form owns its scrollbar; only genuinely short windows
+            // usable form row. The form owns its scrollbar. Only genuinely short windows
             // move the preview into the shared scrolling column.
             float minimumFormViewport = UiTheme.RowH;
             bool stacked = inner.height < minimumFormViewport + UiTheme.GapM + blockH;
@@ -142,9 +142,8 @@ namespace SlopWorld
         {
             UiLayout.SectionHeading(l, "Layout");
 
-            // The knob and the readout follow the hand; the scale itself is not moved until
-            // the slider reports an actual mouse-up, because this is the one row whose value
-            // decides where the row is drawn. See UiControls.Slider.
+            // The knob and readout follow the mouse. Apply the scale only after mouse release.
+            // The scale changes this row's position. See UiControls.Slider.
             float shown = _scaleHeld ?? UiScale.Current;
             float scale = UiControls.Slider(l, "UI scale", shown,
                 UiScale.Min, UiScale.Max, UiScale.Readout(shown), out bool held,
@@ -230,8 +229,8 @@ namespace SlopWorld
 
         void DrawScheme(Listing_Standard l)
         {
-            // Nothing to invalidate on the way out: every color in the mod is read through
-            // shared UI chrome on the frame it is drawn, so the page under the dropdown has
+            // Nothing to invalidate on the way out: every color in the mod is read through shared
+            // UI chrome on the frame it is drawn. Therefore, the page under the dropdown has
             // already changed by the time the menu closes over it. See UIScheme.
             UiControls.Select(l, "Color scheme", UIScheme.Current.Label,
                 UIScheme.All.Select(s => new SelectorOption(s.Label, () =>
@@ -324,10 +323,10 @@ namespace SlopWorld
 
         }
 
-        // The scheme, drawn rather than described - the Terminal page's swatch strip, over
-        // the surface these will actually be read on rather than over the page. The washes
-        // among them are the point: a text ramp is five strengths of one color, and the
-        // only way to see whether the fifth is still a color is to lay it on its own well.
+        // The scheme, drawn rather than described - the Terminal page's swatch strip, over the
+        // surface these will actually be read on rather than over the page. The washes among them
+        // are the point. A text ramp is five strengths of one color. The only way to see whether
+        // the fifth is still a color is to lay it on its own well.
         static void DrawSwatches(Rect r)
         {
             var scheme = UIScheme.Current;

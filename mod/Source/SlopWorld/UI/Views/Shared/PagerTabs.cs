@@ -217,7 +217,7 @@ namespace SlopWorld
     }
 
     // One replaceable preview plus any previews the user pinned by double-clicking their
-    // routed header. Files and Git share a collection; Search retains its own readers.
+    // routed header. Files and Git share a collection. Search retains its own readers.
     sealed class PagerTabs : PreviewTabs<Pager>
     {
         public void OpenFresh(string project, string command, string label, string key)

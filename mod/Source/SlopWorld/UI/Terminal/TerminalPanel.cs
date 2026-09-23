@@ -3,7 +3,7 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Workspace actions stay on the host; terminal controllers only know this boundary.
+    // Workspace actions stay on the host. Terminal controllers only know this boundary.
     interface ITerminalPanelHost
     {
         IContentView Content { get; }
@@ -14,7 +14,7 @@ namespace SlopWorld
     }
 
     // Owns terminal state, rendering, history and input. The host only places this panel
-    // and handles workspace navigation; resizing never replaces these service instances.
+    // and handles workspace navigation. Resizing never replaces these service instances.
     sealed partial class TerminalPanel : ContentView
     {
         readonly ITerminalPanelHost _host;
@@ -101,9 +101,9 @@ namespace SlopWorld
 
             if (input && historyGesture)
             {
-                // This pane has no nested scroll owner. Spend the claimed packet after the
-                // input controller has had a chance to claim the scrollbar drag, so the
-                // request and repaint both see this event's position.
+                // This pane has no nested scroll owner. Spend the claimed packet after the input
+                // controller has had a chance to claim the scrollbar drag. Therefore, the request
+                // and repaint both see this event's position.
                 _historyScroll.EndInput();
             }
 

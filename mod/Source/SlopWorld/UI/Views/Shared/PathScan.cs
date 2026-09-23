@@ -3,7 +3,7 @@ using System;
 namespace SlopWorld
 {
     // Scan on Ctrl+MouseDown, not repaint or pointer motion.
-    // Recognize relative and absolute paths; FilesView validates project reachability.
+    // Recognize relative and absolute paths. FilesView validates project reachability.
     public static class PathScan
     {
         public static string At(string text, int column) => At(text, column, out _);
@@ -35,7 +35,7 @@ namespace SlopWorld
 
             if (end <= start) return null;
             string path = text.Substring(start, end - start);
-            // A scheme's `//` is not a directory separator; leave URLs to UrlScan.
+            // A scheme's `//` is not a directory separator. Leave URLs to UrlScan.
             if (path.IndexOf("://", StringComparison.Ordinal) >= 0)
                 return null;
             if (path[0] == '/')

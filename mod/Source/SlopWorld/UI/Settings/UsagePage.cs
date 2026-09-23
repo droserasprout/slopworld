@@ -39,7 +39,7 @@ namespace SlopWorld
 
         protected override void DrawFields(Listing_Standard l)
         {
-            // A page can be reopened while its shared draft is finishing an in-flight save;
+            // A page can be reopened while its shared draft is finishing an in-flight save.
             // the old page's load callback is intentionally not replayed into this instance.
             UiLayout.SectionHeading(l, "Usage");
             l.Label("Global polling interval (seconds)");
@@ -297,8 +297,8 @@ namespace SlopWorld
                 }
                 else
                 {
-                    // Grey, and drawn a little smaller than a thing: it is the one cell
-                    // here that is not an item, and it should not read as the loudest.
+                    // Grey, and drawn a little smaller than a thing. It is the one cell here that
+                    // is not an item, and it should not read as the loudest.
                     GUI.color = UiTheme.Dim;
                     GUI.DrawTexture(box.ContractedBy(UiTheme.IconInset + 1f), Icons.Cross);
                 }
@@ -324,7 +324,7 @@ namespace SlopWorld
 
         // ------------------------------------------------------------------ palette
 
-        // The picker uses a hand-picked, one-screen subset; resolve names against defs and drop
+        // The picker uses a hand-picked, one-screen subset. Resolve names against defs and drop
         // missing entries. Carpet is a TerrainDef in 1.6, not a ThingDef, so it is excluded.
         static readonly string[] Palette =
         {
@@ -335,30 +335,30 @@ namespace SlopWorld
             "Chemfuel", "Neutroamine", "ReinforcedBarrel", "Wort",
             // Medicine.
             "MedicineHerbal", "MedicineIndustrial", "MedicineUltratech",
-            // Every drug in the game, the two serums included - vanilla files those under
-            // Drugs as well, and they are the two best-looking vials on this list.
+            // Every drug in the game, the two serums included - vanilla files those under Drugs as
+            // well. They are the two best-looking vials on this list.
             "Ambrosia", "Beer", "Flake", "GoJuice", "Luciferium", "Penoxycyline",
             "PsychiteTea", "SmokeleafJoint", "WakeUp", "Yayo",
             "MechSerumHealer", "MechSerumResurrector",
-            // Textiles and leather. One wool and three of the twenty leathers - they are all
-            // one texture and differ only in color, so these are the three that read apart
-            // at this size: brown, elephant grey, thrumbo white.
+            // Textiles and leather. One wool and three of the twenty leathers - they are all one
+            // texture and differ only in color. Therefore, these are the three that read apart at
+            // this size: brown, elephant grey, thrumbo white.
             "Cloth", "Synthread", "Hyperweave", "DevilstrandCloth", "WoolMegasloth",
             "Leather_Plain", "Leather_Elephant", "Leather_Thrumbo",
             // Food.
             "Pemmican", "Chocolate", "MealSurvivalPack", "MealFine", "MealLavish",
             "RawBerries", "Hay", "InsectJelly", "Milk", "Dye",
-            // And the odd ones, which is where anything with a silhouette worth having ends
-            // up: a skull is a fine thing for a quota to run out of.
+            // And the odd ones, which is where anything with a silhouette worth having ends up. A
+            // skull is a fine thing for a quota to run out of.
             "WoodLog", "ElephantTusk", "ThrumboHorn", "Skull", "PsychicAmplifier",
             "PsychicSoothePulser", "Shell_HighExplosive", "Shell_AntigrainWarhead",
         };
 
         static List<ThingDef> _palette;
 
-        // Resolved once and on first use rather than in a field initialiser: the database is
-        // filled during startup, and a static touched too early caches a row of nulls. A def
-        // this build has not got is one cell fewer, not a hole.
+        // Resolved once and on first use rather than in a field initialiser. The database is filled
+        // during startup, and a static touched too early caches a row of nulls. A def this build
+        // has not got is one cell fewer, not a hole.
         static List<ThingDef> Choices
         {
             get

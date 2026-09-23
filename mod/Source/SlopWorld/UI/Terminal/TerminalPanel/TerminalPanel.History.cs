@@ -47,7 +47,7 @@ namespace SlopWorld
             new Dictionary<string, ScrollbackState>();
         // Inactive tabs retain their indexed rows, but not pending requests. A subscription
         // clears the daemon's reply queue, so requests must be planned again when the tab
-        // returns; the rows themselves can still satisfy the restored viewport immediately.
+        // returns. The rows themselves can still satisfy the restored viewport immediately.
         readonly Dictionary<string, HistoryCacheState> _historyCaches =
             new Dictionary<string, HistoryCacheState>();
         HistoryCacheState _activeHistoryCache;
@@ -81,7 +81,7 @@ namespace SlopWorld
         readonly Dictionary<ulong, HistoryRequest> _historyRequests =
             new Dictionary<ulong, HistoryRequest>();
         // Total live rows translated since the cache was seeded. Retain request-time values
-        // only for legacy replies; current replies carry their capture-time history extent.
+        // only for legacy replies. Current replies carry their capture-time history extent.
         int _historyCoordinateShift;
         // Stable fallback while the first prefetched window for a new position is in flight.
         ScreenBuf _historyDisplayedFrame;
@@ -92,11 +92,11 @@ namespace SlopWorld
 
         bool HistoryInputEnabled(ScreenBuf live) => _historyCoordinator.InputEnabled(live);
 
-        // A durable session name can be reused for a new process. Do not let the new
-        // emulator inherit the old run's indexed rows, request ids, or fractional position.
-        // The stopped branch calls this before the replacement process publishes its first
-        // frame, so the first frame is treated as a new live bottom even when the tab stays
-        // open throughout a restart/auto-resume.
+        // A durable session name can be reused for a new process. Do not let the new emulator
+        // inherit the old run's indexed rows, request ids, or fractional position. The stopped
+        // branch calls this before the replacement process publishes its first frame. Therefore,
+        // The first frame is treated as a new live bottom even when the tab stays open throughout a
+        // restart/auto-resume.
         internal void ResetHistoryForNewRun() => _historyCoordinator.ResetForNewRun();
 
         bool IsEditorSession()

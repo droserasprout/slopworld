@@ -74,9 +74,9 @@ namespace SlopWorld
         // the measuring, so nothing here has to know how wide a number is.
         static float Tail(float right, float y, string text, Color color)
         {
-            // A pixel either side of the measurement: a rect exactly as wide as its own
-            // CalcSize clips the last glyph's overhang on a face whose advance is narrower
-            // than its ink, which on a number is the whole of what there was to read.
+            // Add one pixel on each side of the measured width.
+            // Some fonts have glyph ink that extends beyond the reported advance.
+            // Without the added pixels, the rect can clip the last digit.
             float w = UiTheme.Wide(text) + 2f;
             GUI.color = color;
             UiText.RowLabel(new Rect(right - w, y, w, UiTheme.TinyRowH), text,
@@ -207,7 +207,7 @@ namespace SlopWorld
             return Tail(right, row.y, Mark(node.Status), MarkColor(node.Status));
         }
 
-        // Every changed file offers Diff; existing files additionally offer Edit and text files
+        // Every changed file offers Diff. Existing files additionally offer Edit and text files
         // offer View.
         static RowAct Acts(Node node)
         {
@@ -242,7 +242,7 @@ namespace SlopWorld
             return (staged != ' ' && staged != '?' ? staged : worktree).ToString();
         }
 
-        // Staged is the color of a thing that is going somewhere; everything else is the
+        // Staged is the color of a thing that is going somewhere. Everything else is the
         // color of a thing that is not. Untracked is neither, and is dimmer than both.
         static Color MarkColor(string status)
         {
@@ -298,7 +298,7 @@ namespace SlopWorld
             }
             Tree.Draw(body, anchorBoundary);
         }
-        // Folding the change tree only changes navigation; keep the active diff visible while
+        // Folding the change tree only changes navigation. Keep the active diff visible while
         // the reader opens or closes directories around it.
         public static void Clicks() => Tree.Clicks();
 
@@ -329,7 +329,7 @@ namespace SlopWorld
             return true;
         }
 
-        // Row selection asks for current content; routed headers only restore focus.
+        // Row selection asks for current content. Routed headers only restore focus.
         static void Open(Node node, Repo repo)
         {
             Tree.Select(node);
@@ -362,7 +362,7 @@ namespace SlopWorld
         static string Abs(Repo repo, Node node) =>
             (repo.Root ?? "").TrimEnd('/') + "/" + node.Rel;
 
-        // FilesView queries only the repository cache; these lookups never fetch.
+        // FilesView queries only the repository cache. These lookups never fetch.
 
         static Repo Known(string project)
         {
@@ -480,8 +480,8 @@ namespace SlopWorld
 
             opts.Add(new FloatMenuOption("Diff", () =>
             {
-                // A directory's diff is every change under it and no one row's, so nothing
-                // is marked; a file's is the row itself.
+                // A directory diff includes every change under it, so the view marks no row.
+                // A file diff applies to the row itself.
                 if (node.IsDir) ClearSelection();
                 else Tree.Select(node);
                 Diff(node, repo);
@@ -498,7 +498,7 @@ namespace SlopWorld
         //
         // Diffs run in a host pager session using the project's working directory.
 
-        // Files delegates diff creation here; both trees expose the same reader headers.
+        // Files delegates diff creation here. Both trees expose the same reader headers.
         static int _diffRequest;
         static string _pendingDiffProject, _pendingDiffRel;
         static bool _pinPendingDiff;
@@ -560,7 +560,7 @@ namespace SlopWorld
 
         // Use delta as git's pager because daemon errands are argv, not shell pipelines. Force
         // color and LESS=R: git's default X avoids the alternate screen, preventing the pane
-        // from sending wheel input to less; F would quit on short diffs. `-C` anchors paths
+        // from sending wheel input to less. F would quit on short diffs. `-C` anchors paths
         // when a project points below the repository root.
         static string DiffCmd(Repo repo, string rel, string status)
         {
@@ -569,14 +569,14 @@ namespace SlopWorld
 
             // A truly untracked file has no index entry or HEAD blob to diff against.
             // `--no-index` against the empty file shows its current contents as added. An
-            // unstaged add (` A`) can still be diffed against HEAD; sending it through
+            // unstaged add (` A`) can still be diffed against HEAD. Sending it through
             // `--no-index` makes the pager finish without leaving the diff visible.
             if (status == "??")
                 return git + " diff --color=always --no-index -- /dev/null " + Pager.Quote(rel);
 
-            // Against HEAD rather than the index or the worktree alone: what a reader means by
-            // "what changed here" is both halves at once, which is also what the counts beside
-            // the row are.
+            // Against HEAD rather than the index or the worktree alone. What a reader means by
+            // "what changed here" is both halves at once, which is also what the counts beside the
+            // row are.
             string cmd = git + " diff --color=always HEAD";
             return rel == null ? cmd : cmd + " -- " + Pager.Quote(rel);
         }

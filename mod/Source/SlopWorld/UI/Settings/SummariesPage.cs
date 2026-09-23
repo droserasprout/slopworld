@@ -6,7 +6,7 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Title policies and models; see notes/agent-titles.md.
+    // Title policies and models. See notes/agent-titles.md.
     public class SummariesPage : DaemonConfigPage
     {
         static readonly (string Label, Func<DaemonConfig, string> GetPolicy,

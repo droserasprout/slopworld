@@ -112,12 +112,12 @@ namespace SlopWorld
             }
         }
 
-        // A filtered list is ranked rather than grouped: the answer is the top row, and a
-        // heading between every pair of rows is where that stops reading as an order.
+        // A filtered list shows matches in rank order, with the best match first.
+        // Omit group headings to make this order clear.
         bool Grouped => _filter.Length == 0;
 
-        // Recent entries (front of the list, no filter) group under "Recently"; everything
-        // else under its own category.
+        // Without a filter, recent entries appear first under "Recently".
+        // Other entries appear under their own categories.
         string GroupOf(int index) =>
             index < _recentInList ? "Recently" : _matches[index].Command.Group;
 

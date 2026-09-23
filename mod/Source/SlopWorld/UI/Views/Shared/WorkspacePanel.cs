@@ -13,7 +13,7 @@ namespace SlopWorld
     }
 
     // Identity belongs to the instance, not its title or session name. Minimum size is
-    // a placement preference; a viewport smaller than it must still remain bounded.
+    // a placement preference. A viewport smaller than it must still remain bounded.
     public interface IWorkspacePanel
     {
         string PanelId { get; }

@@ -119,7 +119,7 @@ namespace SlopWorld
                     return ConvertBlankLine(blank);
                 case LinkReferenceDefinition linkReference:
                     return ConvertLinkReference(linkReference);
-                // Markdig groups reference definitions in a container. It is metadata too;
+                // Markdig groups reference definitions in a container. It is metadata too.
                 // converting it as a generic container would draw an empty quote.
                 case LinkReferenceDefinitionGroup _:
                     return null;
@@ -158,7 +158,7 @@ namespace SlopWorld
         MarkdownBlock ConvertLinkReference(LinkReferenceDefinition block)
         {
             // AutoIdentifiers stores heading anchors as document-level link definitions.
-            // They are parser metadata, not visible blocks; stringifying them would leak
+            // They are parser metadata, not visible blocks. Stringifying them would leak
             // names such as HeadingLinkReferenceDefinition into the preview.
             return null;
         }
@@ -529,7 +529,7 @@ namespace SlopWorld
             }
 
             // Span is intentionally style-free. It is common in generated Markdown and
-            // stripping only this structural tag is safe; CSS is deliberately not interpreted.
+            // stripping only this structural tag is safe. CSS is deliberately not interpreted.
             if (name == "span") return true;
 
             return false;

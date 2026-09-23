@@ -5,7 +5,7 @@ using Verse;
 
 namespace SlopWorld
 {
-    // One owner per form lifetime. Restore focus only when the form regains input;
+    // One owner per form lifetime. Restore focus only when the form regains input.
     // keyboard traversal is deferred and this scope does not consume Tab events.
     sealed class FieldFocusScope : IDisposable
     {

@@ -4,7 +4,7 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Render Dialog_Options as content inside the chrome; a stacked window would block sidebar
+    // Render Dialog_Options as content inside the chrome. A stacked window would block sidebar
     // input. Preserve vanilla's GUI-coordinate category layout inside a temporary group.
     public class OptionsView : ContentView
     {
@@ -25,7 +25,7 @@ namespace SlopWorld
         public static bool Drawing { get; private set; }
 
         // Dialog_Options has no retained scroll position for its category column. The patch
-        // around DoCategoryRow uses this local viewport while the content view is drawing;
+        // around DoCategoryRow uses this local viewport while the content view is drawing.
         // the main-menu window keeps the game's own category layout.
         static Rect _railViewport;
         public static Rect RailViewport => _railViewport;
@@ -42,7 +42,7 @@ namespace SlopWorld
 
         public override string Title => "Settings";
 
-        // The tab the column is on, so the doors that used to swap a category on an open
+        // The tab the column is on. Therefore, the doors that used to swap a category on an open
         // dialog still have something to swap it on.
         public OptionCategoryDef Category
         {
@@ -64,9 +64,9 @@ namespace SlopWorld
             return new Rect(r.x + (r.width - w) / 2f, r.y + PadY, w, r.height - PadY);
         }
 
-        // The height is the band's plus the row vanilla takes off for the OK button, so the
-        // options list fills the band and the button - suppressed, see Patch_OptionsOk - is
-        // laid out past the bottom of the group.
+        // The height is the band's plus the row vanilla takes off for the OK button. Therefore, the
+        // options list fills the band and the button - suppressed, see Patch_OptionsOk - is laid
+        // out past the bottom of the group.
         public static Rect Inner(Rect band) =>
             new Rect(0f, 0f, band.width, band.height + OkRow);
 

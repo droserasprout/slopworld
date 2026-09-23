@@ -13,7 +13,7 @@ namespace SlopWorld
     // Owns the offline cache and image-generation side of the menu background.
     internal static class MenuBackgroundBake
     {
-        // Reproducible 256x256 float value-noise LUT; cheaper to sample than Unity Perlin.
+        // Reproducible 256x256 float value-noise LUT. Cheaper to sample than Unity Perlin.
         static readonly float[] _noiseLut = new float[LutSide * LutSide];
 
         // Tabulated cosine hue palette: branch-free full-circle hues at lower per-pixel cost.
@@ -37,14 +37,14 @@ namespace SlopWorld
             }
         }
 
-        // Wrap hue indices because hue is circular; the mask also handles negative values.
+        // Wrap hue indices because hue is circular. The mask also handles negative values.
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         static Color Hue(float t) => _hueLut[Mathf.FloorToInt(t * HueSide) & HueMask];
 
-        // The name changes when the player picks another expansion's background, so keying on
-        // it is what makes that switch rebake. The preset is in here for the same reason and
-        // one more: both sets survive on disk, so turning the setting back is a load rather
-        // than a second bake.
+        // The name changes when the player picks another expansion's background, so keying on it is
+        // what makes that switch rebake. The preset is in here for the same reason and one more:
+        // both sets survive on disk. Therefore, turning the setting back is a load rather than a
+        // second bake.
         internal static string Key(Texture2D src, MenuBackgroundPreset preset)
         {
             string name = string.IsNullOrEmpty(src.name) ? "bg" : src.name;
@@ -91,7 +91,7 @@ namespace SlopWorld
 
         static string Dir(string key) => Path.Combine(Root(), key);
 
-        // Not GenFilePaths, which is config and saves; a derived texture is regenerable and so
+        // Not GenFilePaths, which is config and saves. A derived texture is regenerable and so
         // safe to delete.
         static string CacheRoot()
         {
@@ -133,7 +133,7 @@ namespace SlopWorld
             {
                 for (int i = 0; i < frames.Length; i++)
                 {
-                    // D2 holds a set of up to a hundred; past that this needs widening.
+                    // D2 holds a set of up to a hundred. Past that this needs widening.
                     string path = Path.Combine(dir, $"{i:D2}.jpg");
                     if (!File.Exists(path))
                     {
@@ -178,7 +178,7 @@ namespace SlopWorld
         static bool _compressionFailed;
 
         // Keep the JPEG cache portable. Compress one decoded frame at a time, before dropping
-        // CPU pixels; LoadImage's implicit DXT conversion differs between Unity versions.
+        // CPU pixels. LoadImage's implicit DXT conversion differs between Unity versions.
         // Both fresh bakes and cache hits pass through here for identical playback pixels.
         static bool LoadFrame(Texture2D tex, byte[] jpg)
         {
@@ -263,7 +263,7 @@ namespace SlopWorld
             string dir = Dir(key);
             Directory.CreateDirectory(dir);
 
-            // Pixel math is thread-safe; Texture2D encoding/loading must remain on the main
+            // Pixel math is thread-safe. Texture2D encoding/loading must remain on the main
             // thread, so compute batches in parallel and write them in order.
             int total = preset.Total;
             int batch = Mathf.Clamp((BakeBudgetMB << 20) / Mathf.Max(1, bw * bh * 16), 1, total);
@@ -323,7 +323,7 @@ namespace SlopWorld
             }
         }
 
-        // Apply smear, grade/tint, then emissive fire; JPEG artifacts are applied last.
+        // Apply smear, grade/tint, and emissive fire. Apply JPEG artifacts last.
         // The caller owns `dst`.
         static void Rot(Color[] src, Color[] dst, float[] fuel, int w, int h, float k, int phase)
         {
@@ -357,7 +357,7 @@ namespace SlopWorld
             Mathf.Lerp(0f, 0.75f, k),       // drain toward luminance
             Sick, Mathf.Lerp(0f, 0.42f, k));
 
-        // Cheer raises contrast/blacks and boosts saturation without tint; at k=0 it is identity.
+        // Cheer raises contrast/blacks and boosts saturation without tint. At k=0 it is identity.
         static Grade Cheer(float k) => Affine(
             Mathf.Lerp(1f, 1.06f, k), Mathf.Lerp(0f, 0.05f, k), Mathf.Lerp(0f, -0.35f, k),
             Color.white, 0f);
@@ -427,7 +427,7 @@ namespace SlopWorld
         }
 
         // What stands between a burning planet and a sky full of vertical streaks. Brightness
-        // cannot tell a star from a lit planet; size can - a star vanishes under a window this
+        // cannot tell a star from a lit planet. Size can - a star vanishes under a window this
         // wide and a planet does not notice it.
         static float[] Erode(float[] src, int w, int h, int r)
         {
@@ -461,7 +461,7 @@ namespace SlopWorld
             return dst;
         }
 
-        // Fuel gates the fire; low-resolution bilinear noise supplies moving shape at bakeable cost.
+        // Fuel gates the fire. Low-resolution bilinear noise supplies moving shape at bakeable cost.
         static void Burn(Color[] px, float[] fuel, int w, int h, float k, int phase)
         {
             float heat = Mathf.InverseLerp(FireFrom, 1f, k);
@@ -497,7 +497,7 @@ namespace SlopWorld
                     c0 += (noise[r1 + nx1] - c0) * fx;
                     float n = a + (c0 - a) * fy;
 
-                    // Fuel controls location; shaped noise controls form.
+                    // Fuel controls location. Shaped noise controls form.
                     float s = (n - NoiseLow) * band;
                     s = s < 0f ? 0f : (s > 1f ? 1f : s);
                     float t = f * (s * s * (3f - 2f * s)) * heat;
@@ -515,7 +515,7 @@ namespace SlopWorld
             }
         }
 
-        // Sparkle adds closed-loop sheen and stars to the graded source; the caller owns `dst`.
+        // Sparkle adds closed-loop sheen and stars to the graded source. The caller owns `dst`.
         static void Sparkle(Color[] src, Color[] dst, float[] haze, Spark[] sparks,
                             int w, int h, float s, float k)
         {
@@ -588,8 +588,8 @@ namespace SlopWorld
             return sparks;
         }
 
-        // Each star is lit by a raised cosine of s, on its own rate and its own phase, so the
-        // constellation is never all up at once and never all down. Squared, because a blink
+        // Each star is lit by a raised cosine of s, on its own rate and its own phase. Therefore,
+        // The constellation is never all up at once and never all down. Squared, because a blink
         // wants a short peak and a long dark where the cosine gives it even halves.
         static void Twinkle(Color[] px, Spark[] sparks, int w, int h, float s, float k)
         {
@@ -623,9 +623,9 @@ namespace SlopWorld
                         float tx = 1f - ax * SparkThick; if (tx < 0f) tx = 0f;
 
                         // The cross is one arm long and thin and the same turned over. Their sum
-                        // alone gives a middle no brighter than twice an arm, so the core is a
-                        // separate round term - and it is white rather than tinted, a star being
-                        // hot in the middle and colored at the edges.
+                        // alone gives a middle no brighter than twice an arm. Therefore, the core
+                        // is a separate round term - and it is white rather than tinted, a star
+                        // being hot in the middle and colored at the edges.
                         float cross = fx * ty + fy * tx;
                         float d = 1f - Mathf.Sqrt(ax * ax + ay * ay);
                         float core = d > 0f ? d * d * d : 0f;
@@ -681,7 +681,7 @@ namespace SlopWorld
             return dst;
         }
 
-        // Bilinear sample of the wrapped 2D LUT; wrap x and y independently to avoid row seams.
+        // Bilinear sample of the wrapped 2D LUT. Wrap x and y independently to avoid row seams.
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         static float Noise(float x, float y)
         {
@@ -726,10 +726,10 @@ namespace SlopWorld
             return field;
         }
 
-        // A running-sum box blur is fast enough after contrast crush; grade during the same pass.
+        // A running-sum box blur is fast enough after contrast crush. Grade during the same pass.
         static void Smear(Color[] src, Color[] dst, int w, int h, int radius, ref Grade t)
         {
-            // Reciprocal rather than a divide per channel per pixel; the last bit of difference
+            // Reciprocal rather than a divide per channel per pixel. The last bit of difference
             // is thrown away by the encoder several times over.
             float n = 1f / (radius * 2 + 1);
 
@@ -745,8 +745,8 @@ namespace SlopWorld
                     r += c.r; g += c.g; b += c.b;
                 }
 
-                // The clamps only bite within a radius of either end, so the bulk of the row
-                // runs with the window wholly inside it and no bounds arithmetic at all.
+                // The clamps only bite within a radius of either end. Therefore, the bulk of the
+                // row runs with the window wholly inside it and no bounds arithmetic at all.
                 int lo = Mathf.Min(radius, w), hi = Mathf.Max(lo, w - radius - 1);
 
                 for (int x = 0; x < lo; x++)

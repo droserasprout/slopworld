@@ -139,7 +139,7 @@ namespace SlopWorld
             }
 
             // Draw the unfocused child first. A navigation event in the focused child may
-            // change selection or close the split; its replacement must not see that event.
+            // change selection or close the split. Its replacement must not see that event.
             var selected = Selected;
             var other = selected == First ? Second : First;
             if (other != null) other.Draw(RectOf(other.Bounds));

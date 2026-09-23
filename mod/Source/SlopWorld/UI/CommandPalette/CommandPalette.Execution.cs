@@ -202,9 +202,8 @@ namespace SlopWorld
                 }
                 else if (Fuzzy.Match(e.Id, _filter, out score))
                 {
-                    // The id is the command's other name - "view.config" for anyone who
-                    // types the dotted form - and none of it is on screen to mark up, so
-                    // the row draws plain and ranks below anything the name itself found.
+            // The ID is not visible, so display the label without highlighting it.
+            // Rank this result below commands whose labels match the filter.
                     scored.Add(new Hit
                     {
                         Command = e,
@@ -214,14 +213,14 @@ namespace SlopWorld
                 }
             }
 
-            // Stable, so commands scoring the same keep the catalogue's order.
+            // Keep catalog order when commands have the same score.
             _matches.AddRange(scored.OrderByDescending(h => h.Score));
         }
 
         bool Listed(CommandDef e) => _matches.Any(h => h.Command == e);
 
-        // What a command was used recently is worth: enough to break a tie between two
-        // equally good matches, never enough to outrank a better one.
+        // Give recent commands a small score bonus.
+        // The bonus breaks ties but cannot outrank a better match.
         static int RecentBonus(string id)
         {
             int i = _recent.IndexOf(id);
@@ -307,7 +306,7 @@ namespace SlopWorld
             }
             else
             {
-                // Walked the way the list is drawn, so the headings are counted.
+                // Count group headings in the same order as the rendered list.
                 body = 0f;
                 string prev = null;
                 for (int i = 0; i < _matches.Count && body < MaxH; i++)

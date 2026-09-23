@@ -7,7 +7,7 @@ using TomlynTable = global::Tomlyn.Model.TomlTable;
 namespace SlopWorld
 {
     // Runtime data boundary for shipped themes. Settings deliberately remain a flat TOML
-    // schema; this reader owns the structured per-file catalog schema and returns typed data.
+    // schema. This reader owns the structured per-file catalog schema and returns typed data.
     public sealed class ThemeCatalog
     {
         public sealed class UiRecord

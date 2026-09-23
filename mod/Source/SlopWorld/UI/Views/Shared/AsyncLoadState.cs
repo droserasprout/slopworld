@@ -2,7 +2,7 @@ using System;
 
 namespace SlopWorld
 {
-    // Request state owns waiting/error/retry bookkeeping; the request delegate performs the
+    // Request state owns waiting/error/retry bookkeeping. The request delegate performs the
     // endpoint-specific work, so rendering never starts a network call.
     public sealed class AsyncLoadState<T>
     {

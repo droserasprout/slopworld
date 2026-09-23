@@ -7,22 +7,21 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Ctrl+backquote opens a filtered command palette; all window and button actions, including nested selections, are registered here.
+    // Ctrl+backquote opens a filtered command palette. All window and button actions, including nested selections, are registered here.
     public partial class CommandPalette : Window
     {
         const float Width = 520f;
         const float MaxH = 440f;
         static float Pad => UiTheme.GapS;
 
-        // The three heights this list is built from, off the font rather than written down:
-        // an input is a field, a row is a line with room round it, and a group heading is a
-        // tiny line. A figure here holds only for the face it was set against, and a row
-        // shorter than its line loses the top and bottom of every label in the palette.
+        // Measure all three heights against the active font.
+        // Inputs use field height. Results use a line with padding. Group titles use a small line.
+        // A row that is too short can clip labels in another font.
         static float InputH => UiTheme.FieldH;
         static float RowH => UiTheme.PaletteRowH;
         static float GroupH => UiTheme.TinyRowH;
         const int RecentMax = 8;
-        // What a hit found only in a command's id is docked, the name being what is read.
+        // Apply a penalty when search matches a hidden command ID.
         const int IdCost = 80;
 
         string _input = "";

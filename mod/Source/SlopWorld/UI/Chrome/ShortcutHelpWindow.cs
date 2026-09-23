@@ -8,7 +8,7 @@ namespace SlopWorld
 {
     // A workspace reference for both live key bindings and shortcuts that deliberately do not
     // go through KeyBindingDef. It shares TerminalWindow's fullscreen chrome with Settings and
-    // terminal views; the map-only `?` shortcut still never competes with an agent pane.
+    // terminal views. The map-only `?` shortcut still never competes with an agent pane.
     public sealed class ShortcutHelpWindow : ContentView
     {
         sealed class ShortcutRow
@@ -86,7 +86,7 @@ namespace SlopWorld
         static bool IsHelpKey(Event e)
         {
             if (e.control || e.alt || e.command) return false;
-            // The character catches non-US layouts; Slash+Shift covers Unity players that
+            // The character catches non-US layouts. Slash+Shift covers Unity players that
             // report the physical key but lose the resolved question-mark character.
             return e.character == '?' || (e.keyCode == KeyCode.Slash && e.shift);
         }

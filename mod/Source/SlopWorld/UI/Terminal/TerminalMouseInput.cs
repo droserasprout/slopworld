@@ -6,7 +6,7 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Terminal mouse-wheel, mouse-reporting, and selection input policy.
+    // Handles terminal wheel input, mouse reports, and text selection.
     sealed partial class TerminalInputController
     {
         internal void HandleWheel(Rect body, Event e)
@@ -16,19 +16,16 @@ namespace SlopWorld
             var live = SessionHub.Instance.Screen(_panel.SessionName);
             bool editor = IsEditorSession();
 
-            // Already in scrollback: stay there, whatever the live app is doing.
-            // The app mode check below would otherwise hijack the wheel and send it
-            // into the live app while the user is reading historical output.
+            // Keep wheel input in history while the user reads old output.
+            // Do not send it to the live app.
             if (_panel.ScrollOffset > 0)
             {
-                // SmoothScroll owns the event after this handler returns. It advances the
-                // local pixel position immediately and requests the next integer snapshot
-                // from the draw pass, so history never waits on a wheel round trip.
+                // SmoothScroll updates the local pixel position after this handler returns.
+                // The draw pass requests the next integer snapshot. This keeps wheel input responsive.
                 return;
             }
 
-            // App wants the mouse: forward wheel reports at the pointer cell. Batched - `step`
-            // is one tmux write, not one tmux process per scrolled line.
+            // Send batched wheel reports to the pointer cell. `step` sets the count for one tmux write.
             if (live != null && live.AppMouse)
             {
                 if (e.delta.y == 0f) return;
@@ -41,17 +38,12 @@ namespace SlopWorld
                 return;
             }
 
-            // Alt-screen app with no mouse (less, man, git log): the terminal convention is
-            // to translate the wheel to arrow keys.
-            // The first frame after an editor errand starts can still be the shell frame:
-            // the command has been launched, but the screen event carrying AltScreen has not
-            // reached the client yet. Keep that race from turning the first wheel into the
-            // terminal's own scrollback; arrows are micro's native scroll path and are harmless
-            // while the shell is handing control to it.
+            // Translate wheel input to arrow keys for alternate-screen apps without mouse reporting.
+            // An editor task can start before the client receives its alternate-screen event.
+            // During that frame, arrow keys scroll micro and are safe while the shell hands control to it.
             if (editor || (live != null && live.AltScreen))
             {
-                // Use the dominant axis so slight touchpad drift does not mix vertical
-                // movement into a sideways gesture. Pagers receive their normal arrow keys.
+                // Use the dominant axis to ignore slight touchpad drift. Pagers receive normal arrow keys.
                 bool horizontal = Mathf.Abs(e.delta.x) > Mathf.Abs(e.delta.y);
                 float delta = horizontal ? e.delta.x : e.delta.y;
                 int step = Mathf.Clamp(Mathf.RoundToInt(Mathf.Abs(delta)), 1, 5);
@@ -65,10 +57,7 @@ namespace SlopWorld
                 return;
             }
 
-            // Walk our own scrollback view.
-            // SmoothScroll owns the event after this handler returns. Its fractional X11
-            // sample preserves touchpad movement; the draw pass converts it to history
-            // snapshot requests without blocking the local motion.
+            // SmoothScroll keeps fractional X11 wheel input. The draw pass requests history snapshots without blocking local motion.
         }
 
         bool IsEditorSession()
@@ -82,21 +71,19 @@ namespace SlopWorld
 
         internal void HandleMouse(Rect body, Event e)
         {
-            // Consumed window events are replayed below, but a real drag owner (sidebar
-            // resize, scrollbar or divider) must not also start terminal selection/input.
+            // Do not start terminal input when another control owns the drag, such as the sidebar, scrollbar, or divider.
             if (MouseType(e) == EventType.MouseDown && GUIUtility.hotControl != 0) return;
-            // A forwarded press owns its continuation even if Shift or app mode changes.
+            // Continue a forwarded press even if Shift or app mode changes.
             if (_panel.OwnsForwardedMouse(e))
             {
                 if (_panel.HandleMouseForward(body, e)) return;
                 _panel.SelectionInput.Handle(body, e);
                 return;
             }
-            // The scrollbar sits over the terminal's rightmost cells. Give it first refusal
-            // so a click or drag there cannot start a text selection underneath it.
+            // Handle the scrollbar before terminal input. It covers the terminal's rightmost cells.
             if (_panel.HandleHistoryBarInput(body, e)) return;
 
-            // The pane's own menu is reachable in every mode, including a full-screen TUI.
+            // Keep the pane menu available in every mode, including full-screen TUIs.
             if (IsContextMenuEvent(e))
             {
                 if (IsMouseDownInside(body, e))
@@ -108,9 +95,7 @@ namespace SlopWorld
                 return;
             }
 
-            // Terminal middle-click is the conventional paste gesture. Handle it before app
-            // mouse reporting: the primary selection belongs to the terminal even while an
-            // alternate-screen application has enabled mouse mode.
+            // Middle-click pastes the PRIMARY selection. Handle it before app mouse reporting.
             if (IsPrimaryPasteEvent(body, e))
             {
                 _panel.JumpToLive();
@@ -119,8 +104,7 @@ namespace SlopWorld
                 return;
             }
 
-            // A URL printed inside a TUI is over something that wants the mouse as often as
-            // not, so Ctrl+click takes precedence over app mouse reporting.
+            // Open URLs with Ctrl+click before app mouse reporting. A TUI may consume the click.
             if (IsLinkClick(body, e))
             {
                 TerminalPanel.OpenUrl(_panel.LinkUnder(body, e.mousePosition));
@@ -135,14 +119,14 @@ namespace SlopWorld
                 return;
             }
 
-            // Multi-click selection is the terminal's gesture even when the app reports clicks.
+            // Handle multi-click selection even when the app reports mouse input.
             if (_panel.SelectionInput.TryHandleMultiClick(body, e))
             {
                 return;
             }
 
             var live = SessionHub.Instance.Screen(_panel.SessionName);
-            // Shift forces our own selection, like a real terminal.
+            // Shift selects text instead of sending the click to the app.
             if (ShouldForwardMouse(live, e) && _panel.HandleMouseForward(body, e)) return;
             if (!IsPrimaryMouse(e)) return;
 
@@ -177,9 +161,7 @@ namespace SlopWorld
 
         static bool IsPrimaryMouse(Event e) => e.button == 0;
 
-        // A window can receive a mouse event after WindowStack has marked it Used. Keep the
-        // original type for all terminal gesture dispatch; otherwise Ctrl+clicks (and ordinary
-        // selection presses) disappear before the pane sees them.
+        // WindowStack can mark a mouse event Used before the window receives it. Read its original type to keep clicks and selection working.
         internal static EventType MouseType(Event e) =>
             UiEvent.RawType(e);
 
@@ -190,8 +172,7 @@ namespace SlopWorld
 
         static string MapKey(Event e, bool altScreen)
         {
-            // Use tmux's modifier names; Shift is forwarded only on the alt screen because
-            // shells do not define the corresponding xterm sequences.
+            // Use tmux modifier names. Send Shift only on the alternate screen because shells do not define those xterm sequences.
             string mod = "";
             if (e.control) mod += "C-";
             if (e.alt) mod += "M-";
@@ -228,7 +209,7 @@ namespace SlopWorld
                 case KeyCode.F12: return "F12";
             }
 
-            // Ctrl+V is a paste, handled by the caller, not a key to forward.
+            // The caller handles Ctrl+V as paste. Do not forward it as a key.
             if (e.control && e.keyCode == KeyCode.V) return null;
 
             if (e.control)

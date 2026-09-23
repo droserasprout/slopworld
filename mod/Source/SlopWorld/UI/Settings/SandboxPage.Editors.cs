@@ -48,9 +48,9 @@ namespace SlopWorld
                 bool selected = (item is PresetInfo p && p == _preset) ||
                                 (item is CommandInfo c && c == _command);
                 RowChrome.Hover(cell, selected, true, RowHoverPolicy.OverlayAware);
-                // A preset that hands the sandbox a road back out is dangerous even when it
-                // is selected: the yellow stays on the name so the warning is visible in the
-                // library, not only after opening its editor.
+                // A preset that hands the sandbox a road back out is dangerous even when it is
+                // selected. The yellow stays on the name so the warning is visible in the library,
+                // not only after opening its editor.
                 bool dangerous = item is PresetInfo dangerousPreset && dangerousPreset.IsEscape;
                 bool global = item is PresetInfo globalPreset && globalPreset.Name == "global";
                 GUI.color = dangerous ? UiTheme.Warn
@@ -112,7 +112,7 @@ namespace SlopWorld
             var p = _preset;
             bool editable = _newEntry || p.Source != "system";
             var view = new Rect(0f, 0f, Mathf.Max(0f, r.width - UiTheme.ScrollbarW), 0f);
-            // The same form measures and draws; measurement must not invoke controls or setters.
+            // The same form measures and draws. Measurement must not invoke controls or setters.
             view.height = Mathf.Max(DrawPresetFields(view, 0f, p, editable, false) +
                 UiTheme.BtnH + UiTheme.GapM, r.height);
             using (_editorScroll.Scope(r, view))
@@ -301,7 +301,7 @@ namespace SlopWorld
                 EditorCaption(view, y, label);
                 string next = UiText.Area(new Rect(0f, y + UiTheme.LineH + UiTheme.GapXS,
                     view.width, actual), name, value, editable);
-                // List/environment setters normalize text; repainting must not rewrite it.
+                // List/environment setters normalize text. Repainting must not rewrite it.
                 if (editable && next != value) set(next);
             }
             return y + UiTheme.LineH + UiTheme.GapXS + actual + UiTheme.GapS;
@@ -348,7 +348,7 @@ namespace SlopWorld
 
         static float Rule(float width, float y, bool draw)
         {
-            // The hairline sits inside the gap; it does not add another unit of height.
+            // The hairline sits inside the gap. It does not add another unit of height.
             if (draw) Slab.Hairline(new Rect(0f, y, width, 1f), UiTheme.Edge);
             return y + UiTheme.GapM;
         }

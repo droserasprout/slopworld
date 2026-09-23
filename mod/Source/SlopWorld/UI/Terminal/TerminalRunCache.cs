@@ -9,7 +9,7 @@ namespace SlopWorld
     internal sealed class TerminalRunCache
     {
         const int MaxRows = 2_048;
-        // Scratch text never escapes the scan; snapshots share only immutable link spans.
+        // Scratch text never escapes the scan. Snapshots share only immutable link spans.
         char[] _linkChars;
         readonly Dictionary<Key, List<SgrRun>> _rows =
             new Dictionary<Key, List<SgrRun>>();
@@ -54,7 +54,7 @@ namespace SlopWorld
 
             // First retain/parse only the ANSI rows. Link decoration is a separate pass because
             // a URL can connect rows that are otherwise unchanged. Null decorated rows also
-            // mark pending source edits; keep base arrays intact until this parse copies them.
+            // mark pending source edits. Keep base arrays intact until this parse copies them.
             bool reuseBase = screen?.BaseRuns != null && screen.BaseRuns.Length == lines.Length &&
                 screen.BaseRunsRev == themeRev && screen.Runs != null &&
                 screen.Runs.Length == lines.Length;

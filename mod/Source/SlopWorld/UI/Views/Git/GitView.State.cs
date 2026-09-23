@@ -13,7 +13,7 @@ namespace SlopWorld
     {
         const int GitRequestTimeoutMs = 15_000;
 
-        // A directory holds children; a file holds the daemon's row.
+        // A directory holds children. A file holds the daemon's row.
         class Node : IContentTreeNode
         {
             public string Name;
@@ -40,9 +40,9 @@ namespace SlopWorld
             IEnumerable<IContentTreeNode> IContentTreeNode.Children => Kids;
         }
 
-        // One project's answer, as it stands. Keyed by project name for the reason the files
-        // view keys its roots that way: two projects on one directory are two headings, and
-        // renaming a project is a heading that has gone.
+        // One project's answer, as it stands. Keyed by project name for the reason the files view
+        // keys its roots that way. Two projects on one directory are two headings, and renaming a
+        // project is a heading that has gone.
         class Repo
         {
             public string Project;      // whose heading this is, so a row can name it in an errand
@@ -110,7 +110,7 @@ namespace SlopWorld
                 var repo = Get(project);
                 groups.Add(new ContentTreeGroup(project, project, repo.Dir, repo, repo.Tree));
             }
-            // Filtering hides headings temporarily; only catalog removal forgets a fold.
+            // Filtering hides headings temporarily. Only catalog removal forgets a fold.
             TreeController.SyncGroups(SessionHub.Instance.Projects.Select(p => p.Name));
             return groups;
         }
@@ -227,9 +227,8 @@ namespace SlopWorld
 
         // ------------------------------------------------------------------ asking
 
-        // Every project's tree read again. This is what the refresh button does, and what
-        // arriving in the view does - a working tree changes under this column all day and
-        // nothing tells it so, the agents being the ones doing the changing.
+        // Read every project tree again when the user refreshes or opens this view.
+        // Agents can change a working tree without sending a change notification to this view.
         public static void Refresh()
         {
             foreach (var name in ViewChrome.Projects()) Fetch(name);

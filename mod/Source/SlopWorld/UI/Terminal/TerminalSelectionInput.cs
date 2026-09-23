@@ -8,7 +8,7 @@ using Verse;
 namespace SlopWorld
 {
     // Owns mouse selection gesture state and routing. The terminal window still owns the
-    // selection model for now; keeping this event choreography here prevents input dispatch
+    // selection model for now. Keeping this event choreography here prevents input dispatch
     // from also knowing how a drag, word selection, and line selection are completed.
     sealed class TerminalSelectionInput
     {
@@ -106,10 +106,10 @@ namespace SlopWorld
             }
 
             // A double click selects a word and a triple click replaces it with a row. Do not
-            // copy the intermediate word to CLIPBOARD; the completed triple-click line is
+            // copy the intermediate word to CLIPBOARD. The completed triple-click line is
             // published to PRIMARY by TripleClickSelect.
             // Mouse selection belongs to the host PRIMARY surface. Ordinary drag selection
-            // must not overwrite CLIPBOARD; explicit Ctrl+C and the menu still use it.
+            // must not overwrite CLIPBOARD. Explicit Ctrl+C and the menu still use it.
             bool copyPrimary = !_panel.MultiClickSelection || _panel.SelectionMoved;
             if (_panel.LineDragging)
             {

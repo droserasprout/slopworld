@@ -10,7 +10,7 @@ using Verse;
 namespace SlopWorld
 {
     // Inventory for the commands SlopWorld runs, integrates with, or offers as a default. Host
-    // rows are resolved in the game process; daemon rows come from /api/whereis so native and
+    // The game resolves host rows. Daemon rows come from /api/whereis so native and
     // sidecar deployments report the environment that actually launches the command.
     public class BinariesPage : IOptionPage
     {

@@ -9,7 +9,7 @@ namespace SlopWorld
     }
 
     // Pure scroll measurement. The viewport is the frame-sized content area after the named
-    // scrollbar policy has reserved its gutter; callers still own the SmoothScroll instance.
+    // scrollbar policy has reserved its gutter. Callers still own the SmoothScroll instance.
     public readonly struct ScrollableGeometry
     {
         public readonly UiLayoutRect View;

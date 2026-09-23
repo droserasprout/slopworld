@@ -51,9 +51,9 @@ namespace SlopWorld
                 Text.Font = GameFont.Small;
                 UiLayout.PageCaption(TitleRect(rect), string.IsNullOrEmpty(_path) ? "config.toml" : _path);
 
-                // The caption above and the footer below, both off the font: the figures here
-                // were 24, 28 and 100, and the last of them left the error line lying across
-                // the footer as soon as a line grew.
+                // The caption above and the footer below, both off the font. The figures here were
+                // 24, 28 and 100. The last of them left the error line lying across the footer as
+                // soon as a line grew.
                 float top = rect.y + UiTheme.RowH + UiTheme.GapXS;
                 float foot = UiTheme.BtnH + UiTheme.GapS + UiTheme.LineH
                              + UiTheme.GapXS;
@@ -63,9 +63,9 @@ namespace SlopWorld
                         area.width - UiTheme.ScrollbarW - UiTheme.FieldPadX * 2f)
                         + UiTheme.GapL + UiTheme.GapM));
 
-                // The box is the scroll view's frame, so it is drawn round the outside and the
-                // area inside it draws none of its own: a well as tall as the content would put
-                // its border somewhere off the bottom of the window.
+                // The box is the scroll view's frame, so it is drawn round the outside and the area
+                // inside it draws none of its own. A well as tall as the content would put its
+                // border somewhere off the bottom of the window.
                 Slab.Box(area, UiTheme.Well, UiTheme.Edge);
                 using (_scroll.Scope(area, view))
                     _text = UiText.Area(view.ContractedBy(UiTheme.FieldPadX,

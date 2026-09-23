@@ -24,21 +24,19 @@ namespace SlopWorld
         public string Url;
     }
 
-    // The daemon's emulator already did the hard part, so we only ever see SGR color
+    // The daemon's emulator already did the hard part. Therefore, we only ever see SGR color
     // escapes, CHA column markers and the OSC 8 links it passes on.
     public static class Sgr
     {
-        // The palette is the scheme's; these two are read all over the window as "what
-        // the pane is when nothing has said otherwise".
+        // The active scheme supplies the default pane foreground and background colors.
         public static Color DefaultFg => TerminalTheme.Current.Fg;
         public static Color DefaultBg => TerminalTheme.Current.Bg;
 
         static Color[] Basic16 => TerminalTheme.Current.Ansi;
 
-        // How much of a faint run's own color survives. Low enough that a completion hint
-        // reads as a hint next to the line it is offered under, high enough that it is still
-        // that color rather than a grey - agents state 2 over an ANSI color as often as over
-        // the default foreground.
+        // Set the retained color strength for faint text.
+        // Completion hints must appear dimmer than adjacent text but must retain their ANSI color.
+        // Agents apply SGR 2 to ANSI colors and to the default foreground.
         const float FaintMix = 0.55f;
 
         struct Attr
@@ -47,9 +45,9 @@ namespace SlopWorld
             public Color Bg;
             public bool HasBg;
             public bool Bold;
-            // SGR 2. A color rather than a weight: the cell keeps the foreground it was
-            // given and the terminal is what decides how far towards the background it is
-            // drawn. Which is why it cannot be resolved in the daemon - see Flush.
+            // SGR 2. A color rather than a weight. The cell keeps the foreground it was given and
+            // the terminal is what decides how far towards the background it is drawn. Which is why
+            // it cannot be resolved in the daemon - see Flush.
             public bool Faint;
             public bool Reverse;
         }
@@ -122,13 +120,13 @@ namespace SlopWorld
             return SplitCopy(baseRuns, spans);
         }
 
-        // Avoid the rows-by-columns URL grid for ordinary output. OSC 8 still takes the parser
-        // path above and already carries link metadata, while visible URLs necessarily contain
+        // Avoid the rows-by-columns URL grid for ordinary output. OSC 8 still takes the parser path
+        // above and already carries link metadata. In contrast, Visible URLs necessarily contain
         // this delimiter even when it is split across SGR runs or physical rows.
         internal static bool MayContainLink(string[] lines)
         {
             // Ordinary output needs no escape-aware scan. IndexOf can reject whole spans
-            // cheaply; any raw colon still takes the conservative path below.
+            // cheaply. Any raw colon still takes the conservative path below.
             bool colon = false;
             foreach (string line in lines)
                 if (line != null && line.IndexOf(':') >= 0) { colon = true; break; }
@@ -177,7 +175,7 @@ namespace SlopWorld
             string url = null;
             var sb = new StringBuilder();
             int i = 0;
-            // Column the pen is at; where the next appended char lands.
+            // Column the pen is at. Where the next appended char lands.
             int penCol = 0;
             // Column the run currently in `sb` began at.
             int runStart = 0;
@@ -216,8 +214,8 @@ namespace SlopWorld
                     continue;
                 }
 
-                // OSC, which off this wire is only ever `8;;<uri>` - the hyperlink the app
-                // stated, handed on by the daemon rather than resolved.
+                // The wire uses OSC only for the OSC 8 hyperlink that the application supplied.
+                // The daemon forwards the hyperlink without resolving it.
                 if (line[i] == '\x1b' && i + 1 < line.Length && line[i + 1] == ']')
                 {
                     int j = i + 2;
@@ -246,7 +244,7 @@ namespace SlopWorld
         {
             if (sb.Length == 0) return;
 
-            // Reverse video swaps the pair; the cursor and selections rely on it.
+            // Reverse video swaps the pair. The cursor and selections rely on it.
             var fg = a.Reverse ? (a.HasBg ? a.Bg : DefaultBg) : a.Fg;
             var bg = a.Reverse ? a.Fg : a.Bg;
             bool hasBg = a.Reverse || a.HasBg;
@@ -256,19 +254,19 @@ namespace SlopWorld
                                Mathf.Min(1f, fg.g * 1.25f),
                                Mathf.Min(1f, fg.b * 1.25f));
 
-            // Towards the background rather than towards black: on a light scheme a faint run
-            // scaled down is *darker* than the ordinary text it is meant to recede behind.
-            // Skipped under reverse for the reason bold is - the pair has been swapped, and
-            // what would be dimmed there is the fill.
+            // Towards the background rather than towards black. On a light scheme a faint run
+            // scaled down is *darker* than the ordinary text it is meant to recede behind. Skipped
+            // under reverse for the reason bold is - the pair has been swapped, and what would be
+            // dimmed there is the fill.
             if (a.Faint && !a.Reverse)
                 fg = Color.Lerp(hasBg ? bg : DefaultBg, fg, FaintMix);
 
             if (string.IsNullOrEmpty(url)) url = null;
 
-            // A run is flushed on every escape and most escapes change nothing a viewer can
-            // see - a TUI re-states attributes constantly. What decides whether two runs
-            // are one is the drawn colors, not the codes behind them, and never across a
-            // column jump: a CHA is the one thing that says the pen moved.
+            // A run is flushed on every escape and most escapes change nothing a viewer can see - a
+            // TUI re-states attributes constantly. What decides whether two runs are one is the
+            // drawn colors, not the codes behind them, and never across a column jump. A CHA is the
+            // one thing that says the pen moved.
             int last = runs.Count - 1;
             if (last >= 0)
             {
@@ -391,7 +389,7 @@ namespace SlopWorld
 
             if (i < 232)
             {
-                // 6x6x6 color cube; levels are not linear.
+                // 6x6x6 color cube. Levels are not linear.
                 int n = i - 16;
                 int r = n / 36, g = (n % 36) / 6, b = n % 6;
                 return new Color(Level(r), Level(g), Level(b));
@@ -406,7 +404,7 @@ namespace SlopWorld
         // ------------------------------------------------------------------ links
 
         // Scan characters rather than SGR runs, because a plain URL may cross colors. The
-        // screen-wide overload also joins only physical row edges; a blank tail still breaks.
+        // screen-wide overload also joins only physical row edges. A blank tail still breaks.
         static void Autolink(List<SgrRun> runs)
         {
             if (runs.Count == 0) return;
@@ -433,9 +431,9 @@ namespace SlopWorld
             return width;
         }
 
-        // Runs are cut where the spans cross them, so a link that starts mid-word or ends
-        // mid-color keeps every one of the colors it was drawn in. A run the app already
-        // linked is left alone: what it says beats what the text looks like.
+        // Runs are cut where the spans cross them. Therefore, a link that starts mid-word or ends
+        // mid-color keeps every one of the colors it was drawn in. A run the app already linked is
+        // left alone: what it says beats what the text looks like.
         static void Split(List<SgrRun> runs, List<UrlSpan> spans)
         {
             var cut = SplitCopy(runs, spans);

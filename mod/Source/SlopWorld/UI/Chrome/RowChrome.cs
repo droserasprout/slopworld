@@ -12,7 +12,7 @@ namespace SlopWorld
 
     public enum RowSelectionStyle { Standard, Palette, Hover }
 
-    // The single shared row contract. OverlayAware is the normal interactive policy;
+    // The single shared row contract. OverlayAware is the normal interactive policy.
     // popovers and other window-local controls must request Local deliberately.
     public static class RowChrome
     {

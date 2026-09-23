@@ -60,7 +60,7 @@ namespace SlopWorld
 
         // A word selection starts with the clicked word already selected. Extending to the
         // right must keep that whole word even when the pointer is still in a shorter adjacent
-        // run; extending left keeps the original word as the opposite endpoint.
+        // run. Extending left keeps the original word as the opposite endpoint.
         public static TextSelectionRange ExpandWordSelection(TextSelectionRange original,
                                                               TextSelectionRange destination)
         {

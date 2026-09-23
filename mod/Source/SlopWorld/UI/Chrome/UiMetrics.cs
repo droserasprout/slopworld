@@ -4,9 +4,9 @@ using Verse;
 
 namespace SlopWorld
 {
-    // The values used by layout are captured once per IMGUI frame. A settings action may
-    // change density, a font, or scale while the page is being drawn, but all of the passes
-    // belonging to that frame must continue to use one coherent set of measurements.
+    // The values used by layout are captured once per IMGUI frame. A settings action may change
+    // density, a font, or scale while the page is being drawn. However, All of the passes belonging
+    // to that frame must continue to use one coherent set of measurements.
     public readonly struct UiMetricValues
     {
         public readonly string Density;
@@ -101,7 +101,7 @@ namespace SlopWorld
         public static float PaletteMinH => Current.PaletteMinH;
 
         // WorkspaceLayout calls this before reading screen bounds. Other chrome can call it
-        // first; the frame number makes both paths resolve to the same immutable snapshot.
+        // first. The frame number makes both paths resolve to the same immutable snapshot.
         public static void BeginFrame()
         {
             if (_frame == Time.frameCount) return;

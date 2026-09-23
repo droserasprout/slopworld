@@ -172,7 +172,7 @@ namespace SlopWorld
                 destructive: true));
         }
 
-        // The recognition control makes the background lookup legible: a transient recognizing
+        // The recognition control makes the background lookup legible. A transient recognizing
         // state that names its input and can be cancelled, or a Recognize/Retry button that
         // surfaces the last failure instead of leaving it in a vanished toast.
         static void DrawRecognition(Listing_Standard l)

@@ -7,7 +7,7 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Draw type-grouped library rows from AgentSidebar's back pass; the shared AddBar owns
+    // Draw type-grouped library rows from AgentSidebar's back pass. The shared AddBar owns
     // creation and keeps the view usable over a terminal.
     public static class LibraryView
     {
@@ -33,7 +33,7 @@ namespace SlopWorld
             _worktreeRequestKey = null;
         }
 
-        // Grouped by catalog kind; the Library owns its project scope independently from the
+        // Grouped by catalog kind. The Library owns its project scope independently from the
         // global sidebar filter.
         static readonly Dictionary<string, List<LibraryItemInfo>> Groups =
             new Dictionary<string, List<LibraryItemInfo>>();
@@ -76,9 +76,8 @@ namespace SlopWorld
             if (GUI.GetNameOfFocusedControl() == "library.query") GUI.FocusControl(null);
         }
 
-        // Which headings are rolled up. Kept in memory only, the way the files view keeps
-        // its folds and the agents view keeps its own - a fold is about the view, not the
-        // colony, so it does not belong in a save.
+        // Record collapsed headings only in memory.
+        // Like folds in other views, this state belongs to the view and not to the saved colony.
         static readonly HashSet<string> Folded = new HashSet<string>();
 
         public static bool AllFolded => Order.Count + VisibleMainCategories.Count > 0 &&
@@ -954,7 +953,7 @@ namespace SlopWorld
 
                 if (line.Head)
                 {
-                    // Headings only fold; item actions belong to their own rows.
+                    // Headings only fold. Item actions belong to their own rows.
                     if (e.button == 0)
                     {
                         if (!Folded.Remove(line.Key)) Folded.Add(line.Key);
@@ -1062,8 +1061,8 @@ namespace SlopWorld
             SessionHub.Instance.SessionStore.RunLibraryItem(s.Name,
                 session => TerminalWindow.Open(session),
                 UiLayout.Fail,
-                // A project named outright wins; a temporary run has none, whichever of
-                // the two said so; otherwise the entry's own.
+                // A project named outright wins. A temporary run has none, whichever of
+                // the two said so. Otherwise the entry's own.
                 project ?? (scratch ? null : s.Project),
                 scratch, Patch_LoadingTips.RandomTips(Patch_LoadingTips.TipBatch));
         }

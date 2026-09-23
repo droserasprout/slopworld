@@ -6,7 +6,7 @@ using Verse.Sound;
 namespace SlopWorld
 {
     // Small interactive cells use an explicit hover policy so local dialogs cannot answer
-    // map-overlay hover, while map rows can opt into OverlayAware at their call site.
+    // map-overlay hover. In contrast, Map rows can opt into OverlayAware at their call site.
     public static class ToggleCell
     {
         public static bool Draw(Rect rect, string label, bool on, string tip = null,
@@ -46,7 +46,7 @@ namespace SlopWorld
         }
     }
 
-    // Icon picker cells own the standard well and hit target; the caller only supplies the
+    // Icon picker cells own the standard well and hit target. The caller only supplies the
     // icon drawing because cursor previews and ThingDefs have different render primitives.
     public static class IconPickerCell
     {
@@ -119,7 +119,7 @@ namespace SlopWorld
     }
 
     // Framed choice-list contract: inset, empty state, scrolling, row pitch, and checkbox
-    // input are shared; adapters calculate dependency/implicit state and receive changes.
+    // input are shared. Adapters calculate dependency/implicit state and receive changes.
     public static class UiChoiceList<T>
     {
         public static void Draw(Rect outer, System.Collections.Generic.IList<UiChoice<T>> choices,

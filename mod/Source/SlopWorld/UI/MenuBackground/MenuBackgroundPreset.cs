@@ -9,7 +9,7 @@ namespace SlopWorld
         // A single depth has no moving layer.
         public readonly int Depths;
         public readonly int Phases;
-        // Closed motion must be played in phase order; independent noise does not.
+        // Closed motion must be played in phase order. Independent noise does not.
         public readonly bool Closed;
 
         public MenuBackgroundPreset(string name, int depths, int phases, bool closed)

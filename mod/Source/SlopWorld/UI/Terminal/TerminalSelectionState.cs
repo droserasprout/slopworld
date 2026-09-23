@@ -3,7 +3,7 @@ using UnityEngine;
 namespace SlopWorld
 {
     // Selection state is kept separately from TerminalWindow's session and render state. The
-    // gesture controller gets a narrow panel surface; panel partials use this state directly.
+    // gesture controller gets a narrow panel surface. Panel partials use this state directly.
     sealed class TerminalSelectionState
     {
         public bool Dragging;

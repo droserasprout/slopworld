@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace SlopWorld
 {
-    // Each editor owns its request state. A different draft or connection invalidates replies;
+    // Each editor owns its request state. A different draft or connection invalidates replies.
     // failed requests require an explicit retry rather than an HTTP request every frame.
     public sealed class DaemonSettingsPreview
     {

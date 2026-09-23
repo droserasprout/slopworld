@@ -75,7 +75,7 @@ namespace SlopWorld
 
         public static void CollectTable(List<SelectionLine> target, Placement placement)
         {
-            // Copy each cell in full; hit testing uses its own spatial order.
+            // Copy each cell in full. Hit testing uses its own spatial order.
             foreach (var row in placement.Table.Rows)
             {
                 float x = placement.X;

@@ -11,10 +11,9 @@ namespace SlopWorld
             // The current session follows the pane.
             SessionSelectable.Current = name;
 
-            // Re-opening the same session should focus it, not stack a second copy. Asking
-            // for a pane always puts the pane back, though, even the one already behind the
-            // content: a portrait clicked while the options menu is up is a request to see
-            // that agent.
+            // Re-opening the same session should focus it, not stack a second copy. Asking for a
+            // pane always puts the pane back, though, even the one already behind the content. A
+            // portrait clicked while the options menu is up is a request to see that agent.
             var existing = Find.WindowStack.WindowOfType<TerminalWindow>();
             if (existing != null)
             {
@@ -28,9 +27,9 @@ namespace SlopWorld
             return w;
         }
 
-        // Opens whatever the chrome is being asked to show. With a pane already up the pane
-        // stays behind it - Leave puts it back - and with nothing up the window opens on the
-        // content alone, which is the options menu reached from the map.
+        // Open the requested content view.
+        // If a pane is open, keep it behind the content so Leave can restore it.
+        // If no pane is open, show only the content view, such as the map options menu.
         public static void OpenContent(IContentView view)
         {
             if (view == null || Find.WindowStack == null) return;
@@ -43,9 +42,8 @@ namespace SlopWorld
             w.SetContent(view);
         }
 
-        // The pane's session, and *only* while the pane is what is on show: with content up
-        // there is no current agent, which is what keeps a row from reading as selected under
-        // the options menu and what makes clicking that row open it again.
+        // Return the pane session only while the window shows the pane.
+        // A content view has no current agent. Its agent rows remain unselected and can open their panes.
         public static string CurrentName
         {
             get
@@ -55,14 +53,14 @@ namespace SlopWorld
             }
         }
 
-        // Content views hide the active session from CurrentName, but F12 still needs to know
+        // Content views hide the active session from CurrentName. However, F12 still needs to know
         // whether leaving the view will reveal a pane or remove a content-only host.
         internal static bool HasBackingPane =>
             Find.WindowStack?.WindowOfType<TerminalWindow>()?._name != null;
 
-        // A successful rename must not go through Open: that would reset the pane and can
-        // briefly bind it to the old name while the sessions snapshot catches up. Keep the
-        // existing window, scrollback and selection, changing only the session handle.
+        // A successful rename must not go through Open. That would reset the pane and can briefly
+        // bind it to the old name while the sessions snapshot catches up. Keep the existing window,
+        // scrollback and selection, changing only the session handle.
         internal static void RenameActive(string oldName, string newName)
         {
             if (string.IsNullOrEmpty(oldName) || string.IsNullOrEmpty(newName) ||
@@ -87,14 +85,13 @@ namespace SlopWorld
         public static IContentView Showing =>
             Find.WindowStack?.WindowOfType<TerminalWindow>()?._content;
 
-        // The one of a kind already up, so a door that opens a view can hand the same one
-        // back rather than build a second: pressing `config` twice is a toggle, not a reset.
+        // The one of a kind already up, so a door that opens a view can hand the same one back
+        // rather than build a second. Pressing `config` twice is a toggle, not a reset.
         public static T ShowingAs<T>() where T : class, IContentView => Showing as T;
 
-        // Up means leave it; down means show it, and the view is built only in the second
-        // case - the factory rather than an instance, so a press that turns out to be a
-        // close asks the daemon for nothing. Every door onto a view takes this road, which
-        // is what makes each of them a switch.
+        // If this view is already open, close it. Otherwise, create and open it.
+        // Accept a factory so a close action does not create a view or query the daemon.
+        // Route every view entry point here to keep toggles consistent.
         public static void ToggleContent<T>(System.Func<T> make) where T : class, IContentView
         {
             if (ShowingAs<T>() != null)

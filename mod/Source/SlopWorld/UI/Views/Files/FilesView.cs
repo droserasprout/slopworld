@@ -7,16 +7,16 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Files view is a lazy directory tree rendered from AgentSidebar's back pass; the daemon
+    // Files view is a lazy directory tree rendered from AgentSidebar's back pass. The daemon
     // owns browsing because the game is outside every session's mount namespace.
     public static partial class FilesView
     {
         // A directory is a rung above a file, which is the whole of the distinction this view
-        // draws between them; both, and the greys around them, use the shared UI scheme.
+        // draws between them. Both, and the greys around them, use the shared UI scheme.
 
         // One directory, once it has been asked about. `Children` null is "never asked", which is
-        // what makes the tree lazy: a project root is a hundred thousand files deep and the
-        // column shows thirty rows.
+        // what makes the tree lazy. A project root is a hundred thousand files deep and the column
+        // shows thirty rows.
         class Node : IContentTreeNode
         {
             public string Path;
@@ -142,8 +142,8 @@ namespace SlopWorld
                 Menu((Node)node);
         }
 
-        // Keyed by project name rather than by directory: two projects on one directory are
-        // two headings, and renaming a project is a heading that has gone.
+        // Keyed by project name rather than by directory. Two projects on one directory are two
+        // headings, and renaming a project is a heading that has gone.
         static readonly FilesStore Store = new FilesStore();
         static readonly FilesViewerController Viewer = new FilesViewerController();
 
@@ -191,7 +191,7 @@ namespace SlopWorld
         }
 
         // One replaceable preview and any previews the user pinned by double-clicking a
-        // routed header. The tree owns selection; each pager owns its ephemeral session.
+        // routed header. The tree owns selection. Each pager owns its ephemeral session.
         static PagerTabs Viewers => FileReaders.Tabs;
 
         // Markdown is a native content view rather than a daemon session. It adapts its
@@ -271,9 +271,9 @@ namespace SlopWorld
 
         static PreviewTabs<MarkdownTab> MarkdownViewers => Viewer.MarkdownTabs;
 
-        // Extensions `less` would rather not be handed: the viewer is for reading, and an
-        // image or a zip in a text pager is a listing nobody asked for. Everything else is
-        // text enough to try.
+        // Extensions `less` would rather not be handed. The viewer is for reading, and an image or
+        // a zip in a text pager is a listing nobody asked for. Everything else is text enough to
+        // try.
         static readonly HashSet<string> BinaryExt = new HashSet<string>
         {
             ".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".ico", ".tga",
@@ -285,8 +285,8 @@ namespace SlopWorld
             ".bin", ".o", ".a", ".class", ".pyc", ".pyo", ".jar", ".iso", ".img",
         };
 
-        // Public because the git view asks it about the rows it draws: the same question about
-        // the same files, and one list of extensions is the point of asking it here.
+        // Public because the git view asks it about the rows it draws. The same question about the
+        // same files, and one list of extensions is the point of asking it here.
         public static bool IsText(string name)
         {
             int dot = name.LastIndexOf('.');
@@ -336,7 +336,7 @@ namespace SlopWorld
                 var root = Root(project);
                 groups.Add(new ContentTreeGroup(project, project, root.Path, project, root));
             }
-            // Filtering hides headings temporarily; only catalog removal forgets a fold.
+            // Filtering hides headings temporarily. Only catalog removal forgets a fold.
             TreeController.SyncGroups(SessionHub.Instance.Projects.Select(p => p.Name));
             return groups;
         }
@@ -408,7 +408,7 @@ namespace SlopWorld
 
         // Diagnostics printed by a shell are relative to that shell's cwd. Resolve them to an
         // absolute path for Viewer/Pager, while refusing to let a path escape the project tree.
-        // `cwd` is supplied by tmux; null keeps the project-root behavior for other callers.
+        // `cwd` is supplied by tmux. Null keeps the project-root behavior for other callers.
         public static string ResolveProjectPath(string project, string path, string cwd = null)
         {
             var info = SessionHub.Instance.Project(project);
@@ -475,7 +475,7 @@ namespace SlopWorld
             RefreshIfDue();
         }
 
-        // Poll because the daemon has no filesystem event stream; preserve existing expansion state.
+        // Poll because the daemon has no filesystem event stream. Preserve existing expansion state.
         // Refresh loaded collapsed directories too, so new children restore their disclosure arrow.
         static void RefreshIfDue()
         {
@@ -557,7 +557,7 @@ namespace SlopWorld
             n.ListingVersion++;
             // Keep Children as a stale snapshot so Listed can reuse these nodes, including
             // their expansion state. Reload resets the deadline, and the root refresh replaces
-            // each loaded listing; an actually unopened directory still has Children == null.
+            // each loaded listing. An actually unopened directory still has Children == null.
         }
 
         static Node Root(string project)
@@ -572,7 +572,7 @@ namespace SlopWorld
                 Path = dir,
                 Name = project,
                 IsDir = true,
-                // Project headings own folding; the root must stay expanded to request its listing.
+                // Project headings own folding. The root must stay expanded to request its listing.
                 Expanded = true,
                 Root = dir,
                 Project = project,
@@ -583,7 +583,7 @@ namespace SlopWorld
             return root;
         }
 
-        // Text files offer View/Edit; changed files additionally offer Diff. Directories and
+        // Text files offer View/Edit. Changed files additionally offer Diff. Directories and
         // binary files offer no row actions.
         static RowAct Acts(Node node)
         {

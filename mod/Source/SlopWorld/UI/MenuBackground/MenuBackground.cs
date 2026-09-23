@@ -7,13 +7,13 @@ using static SlopWorld.MenuBackgroundTuning;
 
 namespace SlopWorld
 {
-    // Draws a ramp plus a Depths x Phases frame grid; see mod-background.md.
+    // Draws a ramp plus a Depths x Phases frame grid. See mod-background.md.
     [StaticConstructorOnStartup]
     public static class MenuBackground
     {
         static MenuBackgroundPreset Chosen => MenuBackgroundPresets.Chosen;
 
-        // The resident frame set and its source are runtime layout state; animation never needs
+        // The resident frame set and its source are runtime layout state. Animation never needs
         // to know how the set was loaded or which cache directory produced it.
         struct LayoutState
         {
@@ -133,7 +133,7 @@ namespace SlopWorld
             if (t - _phaseAt < PhaseSecs) return;
             _phaseAt = t;
 
-            // Drawn from the others, so a redraw always redraws; picking uniformly would repeat
+            // Drawn from the others, so a redraw always redraws. Picking uniformly would repeat
             // one time in Phases, which reads as the animation catching.
             int step = 1 + _walkRng.Next(_preset.Phases - 1);
             _phase = (_phase + step) % _preset.Phases;
@@ -153,8 +153,8 @@ namespace SlopWorld
                 return _frames != null;
 
             // Build before touching the resident layout. The source belongs to vanilla (or the
-            // content pack), so a failed replacement must leave both it and the current frames
-            // available for the caller to keep drawing.
+            // content pack). Therefore, a failed replacement must leave both it and the current
+            // frames available for the caller to keep drawing.
             Texture2D[] replacement = null;
             var loadTimer = System.Diagnostics.Stopwatch.StartNew();
             long workingSetBefore = MenuBackgroundMemory.WorkingSet();
@@ -189,7 +189,7 @@ namespace SlopWorld
             _failedKey = null;
 
             // Transfer ownership on the main thread, then release only the retired set. The
-            // source is never ours to destroy; it remains the bake input across preset changes.
+            // source is never ours to destroy. It remains the bake input across preset changes.
             Texture2D[] retired = _frames;
             _frames = replacement;
             _src = source;
@@ -226,7 +226,7 @@ namespace SlopWorld
             // Never rebake from an already-rotted frame.
             if (MenuBackground.IsOurs(src)) src = null;
 
-            // Supply vanilla's source only before the first bake; ContentFinder scans loaded mods.
+            // Supply vanilla's source only before the first bake. ContentFinder scans loaded mods.
             if (src == null && !MenuBackground.HasFrames)
                 src = ContentFinder<Texture2D>.Get("UI/HeroArt/BGPlanet", false);
 

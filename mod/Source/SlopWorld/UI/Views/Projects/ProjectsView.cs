@@ -17,7 +17,7 @@ namespace SlopWorld
 
         public override string Title => "Projects";
 
-        // The second line holds a row button, so the pitch is off that rather than off two
+        // The second line holds a row button. Therefore, the pitch is off that rather than off two
         // line heights - see SessionsView, which has the same two-line row.
         protected override float RowH => UiListRow.TwoLineH;
 
@@ -43,19 +43,18 @@ namespace SlopWorld
         {
             UiListRow.Prepare(r);
 
-            // The two lines of the row, off the font rather than off a pair of figures four
-            // pixels apart: `Widgets.Label` clips to the rect it is handed, so a literal here
-            // is one that crops descenders on any font but the one it was chosen against.
+            // Measure both row lines from the active font.
+            // `Widgets.Label` clips to its rect, so fixed offsets can crop descenders in another font.
             float l1 = UiListRow.LineY(r, 0), l2 = UiListRow.LineY(r, 1);
 
-            // The name's column, measured: 200 and 214 held for one face at one size.
+            // Measure the name column from the active font. Fixed widths worked for only one font and size.
             float nameW = Mathf.Max(UiTheme.Wide("mmmmmmmmmmmmmmmm"), 200f);
 
             GUI.color = UiTheme.Lead;
             UiText.RowLabel(
                 new Rect(r.x + UiTheme.GapS, l1, nameW, UiTheme.LineH), p.Name);
 
-            // The number that decides whether this project can be deleted at all.
+            // Count agents before allowing project deletion.
             var hub = SessionHub.Instance;
             int agents = _counts.Get(hub.Sessions, hub.SessionsVersion, p.Name);
             GUI.color = UiTheme.Dim;
@@ -64,9 +63,8 @@ namespace SlopWorld
                     UiTheme.Wide("99 agents") + 4f, UiTheme.LineH),
                 agents == 1 ? "1 agent" : $"{agents} agents");
 
-            // Cut rather than wrapped: a directory and a summary beside it have spaces in
-            // them, and a wrapped line in a one-line slot loses the half of each that is
-            // outside the rect.
+            // Truncate this text instead of wrapping it.
+            // The slot has one line, and both the directory and summary can contain spaces.
             UiText.RowLabel(
                 new Rect(r.x + UiTheme.GapS, l2, Mathf.Max(60f, r.width - 150f),
                     UiTheme.LineH), $"{p.Dir}  ({Summary(p)})");
@@ -115,14 +113,14 @@ namespace SlopWorld
         public static EditProjectDialog ForWorktrees(ProjectInfo existing) =>
             new EditProjectDialog(existing, false, Tab.Worktrees);
 
-        // Copy a project's directory and mounts; only the name is regenerated because the daemon treats the result as new.
+        // Copy a project's directory and mounts. Only the name is regenerated because the daemon treats the result as new.
         public static EditProjectDialog Copy(ProjectInfo of) => new EditProjectDialog(of, true);
 
         EditProjectDialog(ProjectInfo existing, bool copy, Tab tab = Tab.General)
         {
-            // A copy is a new project in every way that matters here: nothing on the daemon
-            // knows it, so Save posts rather than puts and there is no rename to carry any
-            // agents across.
+            // A copy is a new project in every way that matters here: nothing on the daemon knows
+            // it. Therefore, save posts rather than puts and there is no rename to carry any agents
+            // across.
             _identity = copy ? EditIdentity.ForCopy(existing?.Name) :
                 existing == null ? EditIdentity.ForNew() : EditIdentity.ForEdit(existing.Name);
             _p = existing?.Copy() ?? new ProjectInfo();
@@ -132,8 +130,8 @@ namespace SlopWorld
             {
                 _p.Name = _identity.CopyName(SessionHub.Instance.Projects.Select(p => p.Name),
                     "project");
-                // A temporary project's ground is named after the project, so the copy's is
-                // named after the copy rather than pointing back at what it came from.
+                // Temporary project storage uses the project name as its directory.
+                // The copy therefore gets a new directory name.
                 if (_p.Temp) RequestTempPreview();
             }
             resizeable = true;
@@ -182,10 +180,9 @@ namespace SlopWorld
         // The project itself: its name, directory and whether that directory is temporary.
         void DrawGeneral(Listing_Standard l)
         {
-            // Begun on the room it has and pinned to one column. Listing_Standard breaks to a
-            // second column the moment a control would cross the bottom of the rect it was
-            // begun on - curX past the whole width, so everything after is clipped away by
-            // the group, and CurHeight back to nearly nothing.
+            // Limit this listing to one column in the available rect.
+            // Listing_Standard otherwise creates an offscreen column when a control crosses the bottom.
+            // It also resets CurHeight, which would corrupt later layout.
             l.Label("Name");
             _p.Name = UiControls.Field(l, "project.name", _p.Name);
             l.Label("Managed worktree root (optional)");
@@ -298,9 +295,8 @@ namespace SlopWorld
                 UiLayout.Fail("a project needs a name");
                 return;
             }
-            // A temporary project's directory is the daemon's to coin, and it coins it again
-            // on the way in - this is only so the list has the right path before the answer
-            // comes back.
+            // The daemon selects the temporary project directory and selects it again during creation.
+            // Set this preview so the list shows the expected path before the daemon responds.
             if (_p.Temp)
             {
                 if (_tempPreview.Name != _p.Name || string.IsNullOrEmpty(_tempPreview.Dir))

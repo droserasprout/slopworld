@@ -47,9 +47,9 @@ namespace SlopWorld
                 (line, label) => Widgets.Label(line, label));
         }
 
-        // A preview tab uses italic text to signal that a single click may replace it. Keep
-        // this as a row-label variant rather than changing Text.Font globally: the sidebar's
-        // action icon and its project context are still rendered with their normal face.
+        // A preview tab uses italic text to signal that a single click may replace it. Keep this as
+        // a row-label variant rather than changing Text.Font globally. The sidebar's action icon
+        // and its project context are still rendered with their normal face.
         public static void RowLabel(Rect r, string text, TextAnchor anchor, bool italic)
         {
             if (!italic)
@@ -99,7 +99,7 @@ namespace SlopWorld
                 float lineH = LineHOf(Verse.Text.Font);
                 float y = Slab.SnapY(r.y + (r.height - lineH) * VerticalFactor(anchor));
                 float yMax = Slab.SnapY(y + lineH);
-                // A fractional scroll offset can snap the two edges inward by one pixel;
+                // A fractional scroll offset can snap the two edges inward by one pixel.
                 // never let screen-pixel snapping make the label shorter than its metric.
                 float h = Mathf.Max(lineH, yMax - y);
                 draw(new Rect(r.x, y, r.width, h), label);
@@ -248,7 +248,7 @@ namespace SlopWorld
             return TextEntryController.Draw(inner, text, true, focused, name);
         }
 
-        // Null means no default; an empty string is a real default. Reserve a right-hand
+        // Null means no default. An empty string is a real default. Reserve a right-hand
         // gutter so wrapped text and selection never overlap the reset hit target.
         static string ResetDefault(Rect r, ref Rect inner, string name, string text,
                                    string defaultValue, bool on)
@@ -263,7 +263,7 @@ namespace SlopWorld
                     size / 4f + IconInset / 2f,
                     on && (text ?? "") != defaultValue)) return text;
 
-            // Update Unity's focused editor as well as the form value; otherwise its cached
+            // Update Unity's focused editor as well as the form value. Otherwise its cached
             // text can restore the old value on the next draw.
             var editor = TextEntryController.CurrentEditor(name);
             if (editor != null)

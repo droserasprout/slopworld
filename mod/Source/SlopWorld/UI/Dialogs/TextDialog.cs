@@ -4,7 +4,7 @@ using Verse;
 namespace SlopWorld
 {
     // Shared single-line form contract: title, optional note, field, error row, and footer
-    // spacing are common; validation, field meaning, and button actions stay with the caller.
+    // spacing are common. Validation, field meaning, and button actions stay with the caller.
     public static class TextDialog
     {
         public static string Draw(Rect rect, string title, string note, string fieldName,

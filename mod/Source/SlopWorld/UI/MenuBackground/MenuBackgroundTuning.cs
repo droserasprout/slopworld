@@ -17,7 +17,7 @@ namespace SlopWorld
 
         internal const float OnsetSecs = 2f;
 
-        // Mean-reverting walk avoids a learnable period; step/pull/jitter set the baked range.
+        // Mean-reverting walk avoids a learnable period. Step/pull/jitter set the baked range.
         internal const float WalkStep = 0.28f;
         internal const float WalkPull = 0.22f;
         internal const float WalkJitter = 0.24f;
@@ -59,11 +59,11 @@ namespace SlopWorld
         internal static readonly Color Ember = new Color(1f, 0.24f, 0.05f, 1f);
         internal static readonly Color Flame = new Color(1f, 0.76f, 0.28f, 1f);
 
-        // ---- Grandma's visiting ----
+        // ---- Gentle mode ----
 
         // Non-integer diagonal hue period avoids a spatial seam while closing in time.
         internal const float SheenCycles = 1.6f;
-        // Palette swing around grey; this is chroma at full mask.
+        // Palette swing around grey. This is chroma at full mask.
         internal const float SheenGain = 0.85f;
         // Band the still fBm field so the sheen has a body and gap rather than an even wash.
         internal const float HazeLow = 0.40f;
@@ -83,7 +83,7 @@ namespace SlopWorld
         internal const int SparkRateMin = 1;
         internal const int SparkRateMax = 4;
 
-        // Reproducible 256x256 float value-noise LUT; cheaper to sample than Unity Perlin.
+        // Reproducible 256x256 float value-noise LUT. Cheaper to sample than Unity Perlin.
         internal const int LutSide = 256;
         internal const int LutMask = LutSide - 1;
 
@@ -94,7 +94,7 @@ namespace SlopWorld
         // Low JPEG quality supplies the intended block/chroma artifacts and keeps the cache small.
         internal const int JpegQuality = 10;
 
-        // Bump when bake arithmetic changes; tuning constants are already in the cache key.
+        // Bump when bake arithmetic changes. Tuning constants are already in the cache key.
         internal const int Version = 3;
 
         // Batch scratch buffers to cap transient memory and parallelism independently of set size.

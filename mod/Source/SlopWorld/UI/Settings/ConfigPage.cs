@@ -6,7 +6,7 @@ using Verse;
 
 namespace SlopWorld
 {
-    // General options page for install/game controls; the daemon file stays in raw TOML.
+    // General page for connection and game settings. The daemon config stays in raw TOML.
     public class ConfigPage : DaemonConfigPage
     {
         protected override bool RefreshHealthOnLoad => true;
@@ -25,9 +25,8 @@ namespace SlopWorld
             bool eco = UiControls.Checkbox(l, "Eco mode", s.ecoMode,
                 "80% less CPU, 0.1% less guilt. You're welcome, Earth!");
 
-            // Only with the mode on: a slider for a backdrop nothing is drawing is a knob that
-            // does nothing. Stepped to twentieths because
-            // the value keys a material - see Eco.Shade.
+            // Show the dimming slider only when Eco mode draws the backdrop.
+            // Use 0.05 steps because Eco.Shade uses the value as a material key.
             if (s.ecoMode)
             {
                 l.Gap(UiTheme.GapS);

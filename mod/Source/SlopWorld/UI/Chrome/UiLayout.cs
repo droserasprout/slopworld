@@ -27,7 +27,7 @@ namespace SlopWorld
         public static float TopInset => Snapshot.TopInset;
         public static Rect ContentRect => Snapshot.Content;
 
-        // Screenshot mode filters vanilla chrome separately; the top bar and inspect controls
+        // Screenshot mode filters vanilla chrome separately. The top bar and inspect controls
         // run before that filter, so Hidden is independent of layout insets.
         public static bool Hidden => Find.ScreenshotModeHandler?.FiltersCurrentEvent ?? false;
 
@@ -36,7 +36,7 @@ namespace SlopWorld
         public static float BtnW(string label, float floor) =>
             Mathf.Max(Wide(label) + ButtonPadX * 2f, floor);
 
-        // Form buttons use their content width; callers that own fixed geometry (row action
+        // Form buttons use their content width. Callers that own fixed geometry (row action
         // clusters, key cells, footer bars) continue to use Button(Rect, ...).
         public static bool Button(Listing_Standard l, string label, Btn kind = Btn.Default,
                                   bool on = true, string tip = null)
@@ -152,9 +152,9 @@ namespace SlopWorld
                     UiTheme.BtnH);
             }
 
-            // Measured at Small whatever the caller left the font at. [BtnH] is a fixed
-            // height cut for that face, so a width taken against another one gives a box
-            // that does not match its own row.
+            // Measured at Small whatever the caller left the font at. [BtnH] is a fixed height cut
+            // for that face. Therefore, a width taken against another one gives a box that does not
+            // match its own row.
             static float Wide(string label)
             {
                 using (WidgetState.Save())
@@ -218,7 +218,7 @@ namespace SlopWorld
         static bool DrawTick(Rect r, bool on)
         {
             TickBox(r, on);
-            // extraPartOnGUI's return means the extra part handled the click; the row does.
+            // extraPartOnGUI's return means the extra part handled the click. The row does.
             return false;
         }
 

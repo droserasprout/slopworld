@@ -5,7 +5,7 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Fullscreen workspace host. TerminalPanel owns terminal rendering and input;
+    // Fullscreen workspace host. TerminalPanel owns terminal rendering and input.
     // this window places the active panel and draws shared chrome.
     public partial class TerminalWindow : Window, ITerminalPanelHost
     {
@@ -55,9 +55,9 @@ namespace SlopWorld
 
         internal static EventType MouseType(Event e) => TerminalInputController.MouseType(e);
 
-        // Window.InnerWindowOnGUI opens a GUI group on the contracted rect, translating
-        // everything drawn here by the margin without moving GUI.matrix or mousePosition with
-        // it, so anything working in screen coordinates lands 18px off.
+        // Window.InnerWindowOnGUI opens a GUI group on the contracted rect, translating everything
+        // drawn here by the margin without moving GUI.matrix or mousePosition with it. Therefore,
+        // anything working in screen coordinates lands 18px off.
         protected override float Margin => 0f;
 
         protected override void SetInitialSizeAndPosition() =>

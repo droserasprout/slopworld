@@ -28,7 +28,7 @@ namespace SlopWorld
                 page.Width, Math.Min(page.Height, Math.Max(0f, height)));
     }
 
-    // Drawing measures IMGUI content; publish the result on the next frame so input
+    // Drawing measures IMGUI content. Publish the result on the next frame so input
     // and repaint within a frame see the same scroll extent.
     public sealed class SettingsContentHeight
     {

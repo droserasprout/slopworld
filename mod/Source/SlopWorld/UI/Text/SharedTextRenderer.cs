@@ -4,7 +4,7 @@ using Verse;
 namespace SlopWorld
 {
     // Both layout policies paint through here. Only ordinary text reaches Unity's font
-    // system; catalog glyphs use the packaged atlas and retain their size if it is missing.
+    // system. Catalog glyphs use the packaged atlas and retain their size if it is missing.
     static class SharedTextRenderer
     {
         const string AtlasPath = "SlopWorld/TerminalEmoji";
@@ -24,7 +24,7 @@ namespace SlopWorld
             }
         }
 
-        // Bounds are the caller's actual clipping rectangle; glyph overhang never changes
+        // Bounds are the caller's actual clipping rectangle. Glyph overhang never changes
         // advance. UI passes its label box, terminal runs remain inside the pane's clip.
         public static void Draw(InlineTextLayout layout, Rect bounds, float lineHeight,
                                 GUIStyle style, float offsetX = 0f, float overhang = 1f)

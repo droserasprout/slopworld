@@ -108,7 +108,7 @@ namespace SlopWorld
             float max = cellH * TerminalHistory.ScrollLimit(live, _historyTopOff);
             if (!_historyScrollReady || Mathf.Abs(_historyMax - max) > 0.01f)
             {
-                // Growing history moves the bottom coordinate; keep the reader's offset
+                // Growing history moves the bottom coordinate. Keep the reader's offset
                 // from that bottom, rather than resetting it whenever the extent changes.
                 float pixels = _historyScrollReady ? HistoryOffsetPixels() : 0f;
                 _historyMax = max;
@@ -175,7 +175,7 @@ namespace SlopWorld
                 }
                 // There is no reason to send a coalesced prefetch after the live view has
                 // become authoritative. An already-running request may still drain and seed
-                // the warm cache; only the not-yet-sent request is cancelled here.
+                // the warm cache. Cancel only the unsent request.
                 _scrollPending = false;
                 _wantedScrollOff = 0;
                 _scrollOff = 0;
@@ -197,7 +197,7 @@ namespace SlopWorld
             if (!_history.Covers(target, fractional))
             {
                 // Near the live edge, one lookahead frame overlaps live and covers both jobs.
-                // A larger leap needs its exact viewport first; if that viewport is present but
+                // A larger leap needs its exact viewport first. If that viewport is present but
                 // lacks the fractional edge row, fetch a newer bridge into the cached range.
                 if (fromLive && target <= lookahead) request = probe;
                 else if (!_history.Covers(target, false)) request = target;
