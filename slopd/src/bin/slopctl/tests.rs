@@ -917,7 +917,10 @@ fn construction_commands_report_missing_values_and_unknown_options() {
             "worker spawn --project repo --template",
             "--template needs a value",
         ),
-        ("worker spawn --project repo work", "requires --template"),
+        (
+            "worker spawn --project repo work",
+            "requires --project PROJECT and --template TEMPLATE",
+        ),
         (
             "worker spawn --project repo --template coder",
             "needs a task body",

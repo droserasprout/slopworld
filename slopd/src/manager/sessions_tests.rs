@@ -224,18 +224,18 @@ async fn persistence_failure_restores_tmux_or_reports_failed_rollback() {
             .unwrap_err()
             .to_string();
         assert!(
-            error.contains("could not persist session rename"),
+            error.contains("Could not persist session rename"),
             "{error}"
         );
         if rollback_fails {
-            assert!(error.contains("rollback to old also failed"), "{error}");
+            assert!(error.contains("Could not restore tmux to old"), "{error}");
             assert!(
-                error.contains("actual tmux identity: renamed session renamed is present"),
+                error.contains("Actual tmux identity: renamed session renamed is present"),
                 "{error}"
             );
-            assert!(error.contains("manual recovery required"), "{error}");
+            assert!(error.contains("Manual recovery is required"), "{error}");
         } else {
-            assert!(error.contains("tmux was restored to old"), "{error}");
+            assert!(error.contains("Restored tmux to old"), "{error}");
             assert_rename_input(&manager, "old", "after-rollback").await;
         }
         assert_eq!(manager.tmux.exists("old").await, !rollback_fails);
