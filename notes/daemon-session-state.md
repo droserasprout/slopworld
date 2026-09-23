@@ -1,53 +1,74 @@
 # Session state and terminal capture
 
-`manager/session_state.rs` owns classification; `capture_reader.rs` and `capture_frame.rs`
-connect tmux output to the emulator and session events.
+`manager/session_state.rs` controls classification.
+`capture_reader.rs` and `capture_frame.rs` connect tmux output to the emulator and session events.
 
-Session edits validate a complete config candidate before renaming tmux. The session boundary
-and config persistence gate protect preparation through commit; a detached task completes
-commit or rollback even if the request is cancelled. Persistence failure rolls tmux back.
-If rollback also fails, the error and log report both failures and the observed tmux names;
-config and live state retain the old name and require manual recovery.
+Session edits check a complete candidate configuration before renaming tmux.
+The session boundary and configuration persistence gate protect the operation from preparation through commit.
+A detached task completes its commit or rollback even if a caller cancels the request.
+A persistence failure restores the old tmux name.
+If rollback also fails, the error and log report both failures and the observed tmux names.
+Configuration and live state retain the old name and require manual recovery.
 
-Rules search the nonblank tail from bottom upward; lowest line wins, then configuration
-order. Waiting/Idle matches are authoritative. Working matches still decay without activity:
-agent TUIs can leave stale interrupt indicators visible indefinitely. A live row caches the
-match for its stripped text and rules revision; the activity-age decision is evaluated separately.
+Rules search the nonblank terminal tail from bottom to top.
+The lowest matching line determines the result. Configuration order resolves matches on the same line.
+Waiting/Idle matches are authoritative.
+Working matches still expire without activity because agent TUIs can leave old interrupt indicators visible indefinitely.
 
-Activity uses a separate content hash from rendering. Faint single-dot Braille particles in
-near-background gray (observed in Codex's prompt animation) normalize to background spaces
-for activity only; real text, other Braille and visible style changes remain activity.
-Mode/title changes also update `last_change`; cursor position, shape and blink-only redraws do not.
-`state_since` is separate and changes only on transitions through `Live::set_state`.
-Retick discards classifications if the run, frame sequence, state, or rules revision changed
-while it awaited the rules lock; stale snapshots must not mark newer frames as classified.
-Capture retries classification when only state or rules change, preserving pending terminal
-output; it drops captures superseded by a newer run/frame. Stop/reset advances the run identity so an old reader
-cannot revive a down row.
-Surviving tmux activity options outrank the disk fallback on adoption; explicit stop/start
-must clear that history. Persisted activity remains epoch milliseconds; an adopted Working row
-uses the adoption sample as its runtime decay clock until its first frame, while `state_since`
-keeps the restored user-visible age. See [redeploy](daemon-redeploy.md).
+A live row caches the match for its stripped text and rules revision.
+The activity-age decision is separate.
+Activity uses a different content hash from rendering.
+Faint single-dot Braille particles in near-background gray count as background spaces for activity only.
+Codex's prompt animation uses these particles.
+Real text, other Braille, and visible style changes remain activity.
 
-Clean readers have no recurring timer. Output, subscription changes, and completed clipboard
-writes wake readers on demand; subscription changes remain pending across rendering awaits; watched output keeps the 16 ms flush and unwatched output
-keeps the 200 ms render limit. Daemon maintenance uses independent monotonic deadlines for
-config, presets, jukebox, host metadata, and idle classification.
+Mode and title changes also update `last_change`.
+Changes only to cursor position, shape, or blink do not update it.
+`state_since` is separate. It changes only on transitions through `Live::set_state`.
+Retick discards classifications if the run, frame sequence, state, or rules revision changed while it waited for the rules lock.
+Old snapshots must not mark newer frames as classified.
 
-Tmux answers terminal queries. The local VT mirror must ignore `PtyWrite`, or duplicate
-replies leak into shell input as text such as `?6c`. Its erase/resize behavior intentionally
-matches tmux rather than every Alacritty default. Preserve real and styled history while
-excluding untouched leading padding; scroll snapshots must not consume bells.
+Capture retries classification when only state or rules change. It preserves pending terminal output.
+It discards captures that a newer run or frame replaces.
+Stop and reset advance the run identity so an old reader cannot restore a down row.
 
-New sessions create a silent placeholder pane, attach the control reader, then replace the
-placeholder with the real command. Starting the command before capture/attach loses output
-in that gap; a pager can stay blank until input triggers a redraw. This ordering belongs to
-startup, not the mod's pixel cache. Adoption still seeds an already running pane.
+On adoption, existing tmux activity options take precedence over the disk fallback.
+Explicit stop/start must clear that history.
+Persisted activity remains epoch milliseconds.
+An adopted Working row uses the adoption sample as its runtime decay clock until its first frame.
+The `state_since` value retains the restored age shown to the user.
+See [redeploy](daemon-redeploy.md).
 
-Terminal bytes are lossless under backpressure. A bounded byte-chunk queue must still
-reassemble long control lines after dequeue. Dropping its receiver must wake the blocking
-reader; child cleanup needs kill and reap before session teardown.
+Clean readers have no recurring timer.
+Output, subscription changes, and completed clipboard writes wake readers as necessary.
+Subscription changes remain pending while readers wait for rendering.
+Watched output retains the 16 ms flush interval. Unwatched output retains the 200 ms render limit.
+Daemon maintenance uses independent monotonic deadlines for configuration, presets, jukebox, host metadata, and idle classification.
 
-Titles and bells invalidate session metadata even without visible text changes. Inactive
-tabs depend on those events. Presentation, activity, and list invalidation are different
-contracts and must not be collapsed into one dirty flag.
+Tmux answers terminal queries.
+The local VT mirror must ignore `PtyWrite`.
+Otherwise, duplicate replies appear in shell input as text such as `?6c`.
+Its erase and resize behavior matches tmux rather than every Alacritty default.
+Preserve real and styled history but exclude untouched leading padding.
+Scroll snapshots must not consume bells.
+
+New sessions use this sequence:
+
+1. Create a silent placeholder pane.
+2. Attach the control reader.
+3. Replace the placeholder with the real command.
+
+Starting the command before capture and attachment loses output during that interval.
+A pager can remain blank until input triggers a redraw.
+Startup controls this sequence, not the mod's pixel cache.
+Adoption still initializes the mirror from an already running pane.
+
+Terminal bytes remain complete under backpressure.
+A bounded queue of byte chunks must still reassemble long control lines after dequeue.
+Dropping its receiver must wake the blocking reader.
+Child cleanup must kill and reap the child before session removal.
+
+Titles and bells invalidate session metadata even without visible text changes.
+Inactive tabs depend on those events.
+Presentation, activity, and list invalidation have different requirements.
+Do not combine them into one dirty flag.

@@ -1,14 +1,14 @@
 # Daemon source map
 
 Paths below are relative to `slopd/src/`. Use module declarations for the current
-file inventory; this map identifies subsystem boundaries.
+file inventory. This map identifies subsystem boundaries.
 
 Rust unit tests live beside their owners in `*_tests.rs` (or `tests.rs` for `mod.rs`),
 loaded through `#[cfg(test)]` and `#[path]` so module names and private access stay intact.
 Binary-root tests use the binary's existing subdirectory: files directly in `src/bin/`
-become Cargo executables. Keep test bodies and standalone fixtures in excluded test files;
-small instrumentation hooks can remain with production code. Coverage scope is configured
-in `make/config.mk`.
+become Cargo executables. Keep test bodies and standalone fixtures in excluded test files.
+Small instrumentation hooks can remain with production code. `make/config.mk` sets the
+coverage scope.
 
 | Area | Responsibility |
 | --- | --- |
@@ -21,7 +21,7 @@ in `make/config.mk`.
 | `emu.rs`, `tmux.rs` | Terminal mirror and tmux transport. |
 | `sandbox/`, `presets.rs` | Sandbox construction and preset resolution. |
 | `config/`, `config.rs` | Configuration model, persistence, validation, ownership and resolution. |
-| `worktrees.rs` | Independent worktree records and bounded Git operations; [worktree ownership](daemon-worktrees.md). |
+| `worktrees.rs` | Independent worktree records and bounded Git operations. See [worktree ownership](daemon-worktrees.md). |
 | `tasks.rs`, `grant.rs` | Durable mailboxes and scoped authority. |
 | `audio/`, `jukebox.rs` | Playback and station catalog. |
 | `usage/`, `usage.rs` | Provider polling and quota normalization. |

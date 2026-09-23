@@ -1,18 +1,18 @@
 # Keyboard shortcuts
 
-Rebindable shortcuts are defined as `KeyBindingDef`s and can be changed in the game's
-key-bindings settings page. Hardcoded shortcuts are marked below and cannot be rebound.
+`KeyBindingDef`s define shortcuts that you can change on the game's key-bindings settings page.
+The tables identify fixed shortcuts that you cannot change.
 
 ## Interface
 
 | Default | Action | Rebindable |
 | --- | --- | --- |
-| Ctrl+backquote | Command palette | yes (key; Ctrl fixed) |
+| Ctrl+backquote | Command palette | yes (key only, Ctrl is fixed) |
 | F11 | Toggle window-manager fullscreen | yes |
 | F12 | Open/close terminal | yes |
 | ? | Show keyboard shortcuts view on the map | no |
 
-The view is also available as **Keyboard shortcuts** in the computer core menu.
+Open **Keyboard shortcuts** from the computer core menu to show the view.
 
 ## Navigation
 
@@ -27,7 +27,8 @@ The view is also available as **Keyboard shortcuts** in the computer core menu.
 | Alt+Z | Previous session | no |
 | Alt+X | Next session | no |
 
-Bare F-keys are the mod's; Shift+F-key passes the F-key through to the agent.
+The mod handles F-keys without Shift.
+Shift+F-key sends the F-key to the agent.
 
 ## Agent (map, with agent selected)
 
@@ -38,7 +39,7 @@ Bare F-keys are the mod's; Shift+F-key passes the F-key through to the agent.
 | E | Edit agent | yes |
 | D | Duplicate agent | yes |
 | L | Label selected session | yes |
-| Delete | Remove agent | yes |
+| Delete | Delete agent | yes |
 
 ## Terminal (hardcoded)
 
@@ -49,14 +50,14 @@ These shortcuts are active inside the terminal pane and cannot be rebound.
 | Escape | Forwarded to the agent. |
 | Shift+Escape | Close the terminal. |
 | Alt+1..9, Alt+0 | Select agent by sidebar position (0 is tenth). |
-| Alt+Z / Alt+X | Walk to previous/next session. |
+| Alt+Z / Alt+X | Select the previous/next session. |
 | Shift+Enter | Send `\e[13;2u` (newline without submitting). |
-| Ctrl+C | Copy when text is selected; SIGINT otherwise. |
+| Ctrl+C | Copy selected text. Without a selection, send SIGINT. |
 | Ctrl+V | Paste from clipboard. Codex panes paste text normally and forward image data to Codex for attachments. |
 | Middle-click | Paste the host's PRIMARY selection (Wayland/X11). |
 | Shift+PgUp / Shift+PgDn | Scroll the mod's own scrollback (primary screen only). |
 | Shift+F1..F12 | Forward the F-key to the agent. |
-| Ctrl+click | Open a URL printed in the terminal, or show a file menu (Focus, View, Edit, Open in, File actions, Copy path; where applicable). View and Edit honor a `:line` suffix. |
+| Ctrl+click | Open a URL printed in the terminal, or show a file menu. The menu offers applicable Focus, View, Edit, Choose an application, File actions, and Copy path actions. View and Edit honor a `:line` suffix. |
 | Right-click | Terminal context menu. |
 | Double-click | Select a word and publish it to the host's PRIMARY selection. |
 | Triple-click | Select a line and publish it to the host's PRIMARY selection. |
@@ -65,7 +66,7 @@ These shortcuts are active inside the terminal pane and cannot be rebound.
 
 On the primary screen, the mouse wheel scrolls the mod's scrollback history. On the
 alternate screen, the wheel sends arrow keys (Up/Down) to the application. When the
-application has enabled mouse reporting, the wheel is forwarded as mouse events.
+application requests mouse reporting, the mod forwards wheel input as mouse events.
 
 ## Player pawn (map)
 
@@ -79,8 +80,8 @@ application has enabled mouse reporting, the wheel is forwarded as mouse events.
 
 ## Command palette
 
-Ctrl+backquote (by default) opens a filtered command list. Type to filter; arrow keys and
-Enter navigate. The palette lists all window and sidebar actions, agent operations,
+Ctrl+backquote (by default) opens a filtered command list. Type to filter.
+Use the arrow keys and Enter to navigate. The palette lists all window and sidebar actions, agent operations,
 library errands, and configuration commands. Recently used commands appear first when
 unfiltered.
 

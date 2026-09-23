@@ -12,8 +12,9 @@ Remeasure layout and contrast before applying fixes. Paths below are relative to
    `UI/Views/Search/SearchView.cs`.
 3. **Recheck light-scheme status contrast.** Measure GNOME Light waiting text and
    Tango Light working text against their backgrounds. Separate readable status-text
-   roles from marker colors where needed; preserve imported palette tokens and use
-   explicit mappings from [palette references](reference-original-palettes.md).
+   roles from marker colors where necessary.
+   Preserve imported palette tokens.
+   Use explicit mappings from [palette references](reference-original-palettes.md).
    Palette values live in `mod/Themes/UI/gnome-light.toml` and
    `mod/Themes/UI/tango-light.toml` (repository-relative paths).
    `UI/Chrome/UIScheme.cs`, `UI/Views/Tasks/TasksView.cs`, `UI/Chrome/TopBar.cs`.
@@ -28,16 +29,17 @@ Remeasure layout and contrast before applying fixes. Paths below are relative to
    when both are hidden. Extend it to the remaining space before the doors.
    `UI/Chrome/TopBar.cs`.
 6. **Closing rules use logical-pixel offsets.** `yMax - 1f` can leave seams at larger UI
-   scales. Use `Slab.LineW` for rules intended to close a frame; verify at fractional scales.
+   scales. Use `Slab.LineW` for rules intended to close a frame.
+   Check at fractional scales.
    `UI/Chrome/UiTable.cs`, `Patches/AgentSidebar/AgentSidebar.Chrome.cs`.
 
 ## Low priority
 
 7. **Slider alignment depends on label width.** Labels exceeding the 120px minimum stagger
-   tracks; fixed 46px readouts risk clipping larger fonts. Share label-column widths within
-   groups and measure readouts. `UI/Chrome/UiControls.cs`.
+   tracks. Fixed 46px readouts risk clipping larger fonts.
+   Share label-column widths within groups. Measure readouts. `UI/Chrome/UiControls.cs`.
 8. **Picker close buttons differ from window chrome.** Pickers use a 44px-wide text X with
-    dynamic height; windows use a 22px square icon. Reuse shared close chrome.
+    dynamic height. Windows use a 22px square icon. Reuse shared close chrome.
     `UI/Chrome/UiPickerWindow.cs`, `UI/Chrome/UiWindow.cs`.
 9. **Jukebox headers use the selection color.** Use `RowBg` instead of `RowOn` to match
     shared table headers. `UI/Jukebox/JukeboxHistoryView.cs`, `UI/Chrome/UiTable.cs`.
@@ -45,4 +47,4 @@ Remeasure layout and contrast before applying fixes. Paths below are relative to
 ## Excluded
 
 - Different scrollbar-gutter policies are reasonable for forms and lists.
-- Logical `1f` content padding is not inherently a defect; the rule-offset finding is narrower.
+- Logical `1f` content padding is not inherently a defect. The rule-offset finding has a narrower scope.

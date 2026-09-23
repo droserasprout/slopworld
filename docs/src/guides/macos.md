@@ -1,8 +1,8 @@
 # macOS
 
 The macOS workflow runs RimWorld and the mod natively. The daemon and agent sandboxes
-run in Docker. This page covers the Mac installation; see [Sidecar worker](sidecar.md)
-for the standalone worker workflow.
+run in Docker. This page covers the Mac installation.
+See [Sidecar worker](sidecar.md) for the standalone worker procedure.
 
 ## Prerequisites
 
@@ -11,7 +11,7 @@ for the standalone worker workflow.
 
 ## Install
 
-Clone the repository and run these commands from its root:
+Run these commands to clone the repository and install SlopWorld:
 
 ```sh
 git clone https://github.com/droserasprout/slopworld.git
@@ -32,13 +32,14 @@ for a Steam or other install:
 MAC_RIMWORLD=/path/to/RimWorld.app gmake mac
 ```
 
-The game uses a separate SlopWorld profile. `mac-run` uses the Rust `slopworld` launcher
-with the native app executable, working directory, Mods directory and sidecar endpoint
-passed explicitly, so profile seeding and launch safety stay shared with Linux.
+The game uses a separate SlopWorld profile. `mac-run` uses the Rust `slopworld` launcher.
+It explicitly supplies the native app executable, working directory, Mods directory, and sidecar endpoint.
+The Mac and Linux launchers thus use the same profile initialization and launch safety checks.
 
 ## Updating
 
-Pull changes and run:
+Get the latest changes.
+Then run:
 
 ```sh
 gmake mac

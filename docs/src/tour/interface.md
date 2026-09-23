@@ -1,6 +1,6 @@
 # Interface
 
-SlopWorld replaces RimWorld's colony management with a coding workspace. The main pieces
+SlopWorld replaces RimWorld's colony management with a coding workspace. The main parts
 are the sidebar, the terminal, and the top bar.
 
 ## Sidebar
@@ -10,45 +10,50 @@ The sidebar groups agents by project. Select an agent to open its terminal.
 Six tabs share the panel:
 
 - **Agents** — the default. Right-click an agent for its context menu (start/stop,
-  terminal, edit, duplicate, shell, remove); drag the grip to resize the panel.
+  terminal, edit, duplicate, shell, remove).
+  Drag the grip to resize the panel.
   Shell opens a shell errand inside the same sandbox as the agent.
 - **Files** — a tree of the selected project directory. Right-click for view, edit, diff,
   and File Action entries.
 - **Search** — workspace text search with a result pager.
 - **Git** — browse changes, stage and unstage files, commit staged changes, and view diffs.
 - **Library** — searchable agent templates, prompts, shell commands, breadcrumbs, and file
-  actions, grouped by type. Click an entry to select it; the details area offers **Run**,
-  **Run in…**, **Create agent…**, or **Edit** as appropriate. Search matches names and content;
-  the type selector narrows the list. Global entries remain visible under project filters.
+  actions, grouped by type. Click an entry to select it. The details area offers **Run**,
+  **Choose a project**, **Create agent**, or **Edit** as appropriate. Search matches names and content.
+  The type selector limits the list by type. Global entries remain visible under project filters.
+
   Projects, Worktrees, Sandbox presets, and App presets appear as expandable main categories
-  below those groups. Their entries are selectable rows with summaries and actions: Projects and
-  Worktrees follow the Library’s independent project filter, while Sandbox and App presets show
-  user entries and overrides. Use the shared **+** to create projects and other entries. Catalog
-  rows support right-click and **…** menus; category entries expose their actions in the details
-  area.
-- **Tasks** — the durable task mailbox. Click a task to open its maximized dialogue reader, with
-  timestamped, selectable message text and a Copy all action; Ctrl+Click toggles task rows and
-  Shift+Click selects a range. Right-click for status actions, terminal access, cancellation of
-  queued or accepted tasks, or removal of selected terminal tasks.
+  below those groups. Their entries are selectable rows with summaries and actions.
+  Projects and Worktrees use the Library’s independent project filter.
+  Sandbox and App presets show user entries and overrides.
+
+  Use the shared **+** to create projects and other entries.
+  Catalog rows have right-click menus. A three-dot button opens more actions.
+  Category entries have actions in the details area.
+- **Tasks** — the durable task mailbox. Click a task to open its maximized dialogue reader.
+  The reader has timestamped, selectable message text and a Copy all action.
+  Ctrl+Click selects or clears individual task rows. Shift+Click selects a range.
+
+  Right-click for status actions and terminal access.
+  The menu also lets you cancel queued or accepted tasks and remove selected tasks in a terminal state.
 
 A project filter at the top of the tab strip limits every view to the selected projects.
 
 The add strip at the bottom offers new projects, agents, sandbox presets, commands, and
-host shells. The sidebar can be hidden entirely with the **View: Toggle Sidebar** command
-in the palette.
+host shells. Use **View: Toggle Sidebar** in the command palette to hide the sidebar.
 
 ## Terminal
 
-The terminal displays the selected agent's tmux pane and sends input through the daemon.
-Keyboard and mouse behavior is documented in [Keyboard shortcuts](../reference/keyboard-shortcuts.md).
+The terminal shows the selected agent's tmux pane and sends input through the daemon.
+See keyboard and mouse behavior in [Keyboard shortcuts](../reference/keyboard-shortcuts.md).
 
 ## Top bar
 
 The top bar provides:
 
-- quota usage from configured providers;
-- the current clock; and
-- links to the jukebox and computer core when those map objects exist.
+- Quota usage from configured providers.
+- The current clock.
+- Links to the jukebox and computer core when those map objects exist.
 
 ## Eco mode
 
@@ -57,6 +62,6 @@ from Settings under "Game". It leaves terminal responsiveness and foreground fra
 unchanged.
 
 The independent "Display" section offers VSync or FPS presets at 15, 30, 60, 120, 144,
-and 240 FPS. FPS limits disable VSync; lower limits save power at the cost of
-responsiveness.
-All modes use 15 FPS while the window is unfocused and restore foreground pacing on return.
+and 240 FPS. FPS limits disable VSync. Lower limits save power but reduce responsiveness.
+All modes use 15 FPS while the window does not have focus.
+They restore foreground pacing when the window gets focus.

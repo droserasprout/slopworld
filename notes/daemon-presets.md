@@ -1,24 +1,32 @@
 # Presets and launch resolution
 
-Shipped presets are compiled from `slopd/presets/*.toml`; user files in `sandbox_presets/` and
-`app_presets/` replace entries by name. The API and UI use those exact kind names.
+The build compiles supplied presets from `slopd/presets/*.toml`.
+User files in `sandbox_presets/` and `app_presets/` replace entries by name. The API and UI use those exact kind names.
 `presets.rs` owns loading and validation, `Config::sandbox_of` owns dependency expansion,
 and `sandbox/` lowers the result into launch arguments. See [isolation](sandbox-isolation.md)
-for security boundaries; the preset files are the capability inventory.
+for security boundaries. The preset files list the capabilities.
 
 `global` is implicit, before command/project/session additions. It is not a project checkbox.
-Dependencies are cycle-safe; deleting an override reveals its builtin. Unknown fields reject
-a preset file so obsolete definitions cannot silently become partial current definitions.
+Dependency resolution handles cycles safely.
+Deleting an override restores the supplied preset.
+The daemon rejects preset files with unknown fields.
+This prevents obsolete definitions from silently becoming incomplete current definitions.
 
-A command preset supplies sandbox dependencies; a literal command without a preset does not.
+A command preset supplies sandbox dependencies.
+A literal command without a preset does not.
 Choosing a shell does not share its host dotfiles: the separate userdata presets are opt-in.
 Required capabilities must remain visible but unselectable in the editor.
 
-Mount order matters: skeleton first, ordinary binds before private overlays, resolver last.
+Apply mounts in this order:
+
+1. The basic mounts.
+2. Ordinary binds.
+3. Private overlays.
+4. The resolver.
 Unset variables invalidate the whole path rather than leaving an empty component that could
 expand to `/`. Device binds and socket-directory binds are not interchangeable with files.
-Environment starts empty; configuration-root overrides such as `CODEX_HOME` must not redirect
-a tool away from its private default state.
+The environment is empty at launch.
+Configuration-root overrides such as `CODEX_HOME` must not redirect a tool away from its private default state.
 
 `slopworld-debug` is an intentional host escape, including host processes, tmux, Docker,
 desktop services and writable development/install paths. Its `daemon_config` capability is

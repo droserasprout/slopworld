@@ -7,8 +7,8 @@
 - Command: `make BUILD=release bench-report`
 
 Build once, then measure three complete suite runs. Each timing is the median of the run percentiles, followed by their minimum–maximum range in brackets. Ranges describe between-run variation, not confidence intervals. Units are microseconds per operation.
-B/op is median managed allocation per operation; a range is shown when runs differ.
-All p50/p95 values describe batch averages, not individual-operation tail latency. Burst8 is eight live frames including coalescing; wire bytes count the whole burst. Codec/queue measurements exclude network and rendering. Mono and .NET 8 are reported separately.
+B/op is the median managed allocation per operation. A range appears when runs differ.
+All p50/p95 values describe batch averages, not individual-operation tail latency. Burst8 is eight live frames, including coalescing. Wire bytes count the full burst. Codec/queue measurements exclude network and rendering. The report shows Mono and .NET 8 measurements separately.
 Raw run logs and IPC CSVs (local, ignored): `perf-suite.raw/`.
 
 | Benchmark | p50 median [range] (µs) | p95 median [range] (µs) | B/op | Wire bytes |

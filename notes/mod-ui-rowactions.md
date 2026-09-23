@@ -1,6 +1,7 @@
 # Row action hit testing
 
-`RowActions` paints view/edit/diff affordances; callers dispatch hits in a separate pass.
+`RowActions` draws view, edit, and diff controls.
+Callers dispatch hits in a separate pass.
 Test the action strip before the row so one press cannot also open/select the row itself.
 Both passes need the same scroll-adjusted, clipped geometry. Button hover owns its tooltip.
 

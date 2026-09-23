@@ -1,21 +1,22 @@
 # SlopWorld
 
-RimWorld 1.6 as a frontend for live coding agents. Rust `slopd` owns sessions, tmux,
-sandboxes and terminal emulation; the C#/Harmony mod mirrors them into colony and UI.
-They communicate over HTTP/WebSocket. `slopcar/` packages the Linux daemon for sidecar use.
+SlopWorld uses RimWorld 1.6 as the interface for live coding agents. The Rust daemon,
+`slopd`, controls sessions, tmux, sandboxes, and terminal emulation. The C# mod uses
+Harmony to show this state in the colony and user interface. The mod and daemon
+communicate through HTTP and WebSocket. `slopcar/` packages the Linux daemon for sidecar use.
 
 ## Working rules
 
-- Use Makefile targets; `make` lists commands. Follow [house rules](notes/core-house-rules.md).
-- Do not run the game, take screenshots, or inspect images unless directly asked.
-- Keep notes to high-level guides, ownership boundaries and non-obvious traps; update the
-  focused note when those change. See [note policy](notes/README.md).
+- Use Makefile targets. Run `make` to list them. Follow the [house rules](notes/core-house-rules.md).
+- Do not run the game, take screenshots, or inspect images unless the user asks.
+- Keep notes to high-level guides, ownership boundaries, and non-obvious traps. Update the
+  focused note when an ownership rule or behavior changes. See the [note policy](notes/README.md).
 
 ## Find the owner
 
-Start with the relevant map, follow its focused links, then read source/tests. Do not load
-all notes. User workflows live in the [book index](docs/src/SUMMARY.md); `notes/plan-*`
-records unresolved work, not implemented behavior.
+Start with the relevant map. Follow its focused links. Then read the source and tests.
+Do not read every note. User workflows live in the [book index](docs/src/SUMMARY.md).
+A `notes/plan-*` file records unfinished work. It does not describe implemented behavior.
 
 | Area | Starting points |
 | --- | --- |
@@ -28,8 +29,10 @@ records unresolved work, not implemented behavior.
 
 ## Delegation
 
-Delegate only when asked by user implicitly
+Delegate only when the user clearly implies that they want you to delegate.
 
-Use `slopctl worker spawn ...` to delegate work to other agents. Retain the ID.
-Use `slopctl task wait ID` until terminal; do not poll `task list`/`status` or use short timeouts.
-Assigned work follows `task show ID`, `task accept`, `task progress`, then `task finish` or `task fail`.
+Use `slopctl worker spawn ...` to assign work to another agent. Keep the task ID.
+Run `slopctl task wait ID` until the task ends. Do not poll `task list` or `task status`.
+Do not use short timeouts.
+For assigned work, run `task show ID`, then `task accept`, then `task progress`.
+When work ends, run `task finish` or `task fail`.

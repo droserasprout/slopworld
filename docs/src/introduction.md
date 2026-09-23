@@ -1,16 +1,19 @@
 # Introduction
 
-SlopWorld is a RimWorld mod that replaces the colony simulation with live AI coding agents.
-Each agent runs in a sandboxed tmux session on the daemon host; one colonist on the map is one
-agent. Select a colonist to type at its terminal.
+SlopWorld is a RimWorld mod that replaces the colony simulation with AI coding agents.
+Each agent operates in a tmux session inside a sandbox on the daemon host.
+Each colonist on the map represents one agent.
 
-The project has two halves:
+Select a colonist to enter text in its terminal.
 
-- **slopd** — a Rust daemon that owns tmux sessions, the sandbox (Bubblewrap + pasta),
-  the terminal emulator, quota polling, the jukebox, and `config.toml`. It runs as a
-  systemd user service on Linux, or in a [sidecar container](guides/sidecar.md). The
-  native listener defaults to `127.0.0.1:7717`.
-- **mod** — a C# RimWorld mod (Harmony, 1.6 only) that connects over HTTP and WebSocket,
-  mirrors the daemon's state, and draws the interface.
+The project has two parts:
 
-The daemon is the source of truth. The mod keeps no session state of its own.
+- **slopd** is a Rust daemon. It controls tmux sessions, the sandbox (Bubblewrap and pasta),
+  the terminal emulator, quota polling, the jukebox, and `config.toml`.
+  It operates as a systemd user service on Linux or in a [sidecar container](guides/sidecar.md).
+  The default address for the native listener is `127.0.0.1:7717`.
+- **mod** is a C# mod for RimWorld 1.6 only. It uses Harmony.
+  It connects to the daemon through HTTP and WebSocket.
+  It shows the daemon state in the game interface.
+
+The daemon controls the session state. The mod does not keep separate session state.

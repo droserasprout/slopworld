@@ -3,14 +3,13 @@
 SlopWorld is not production-grade security software. It gives more isolation than running
 agents unsandboxed on your desktop, but that is the extent of the guarantee.
 
-**Back up your data before using SlopWorld.**
+**Before you use SlopWorld, make a backup copy of your data.**
 
 ## Sandbox stack
 
 Each agent runs inside a layered sandbox:
 
-- **systemd-run** wraps the process tree in a transient user scope when resource limits
-  are configured.
+- **systemd-run** wraps the process tree in a transient user scope when you configure resource limits.
 - **Bubblewrap** (bwrap) provides filesystem isolation through bind mounts with
   `--clearenv`.
 - **pasta** provides network isolation with a synthetic DNS resolver.
@@ -18,17 +17,17 @@ Each agent runs inside a layered sandbox:
 
 ## Sandbox configuration
 
-The [sandbox guide](../guides/configuring-sandboxes.md) owns bind kinds, protected
+The [sandbox guide](../guides/configuring-sandboxes.md) describes bind kinds, protected
 paths, private-state lifecycle, and resource limits. The
 [agent guide](../guides/configuring-agents.md#network) describes network modes and DNS.
-Network and DNS are agent-owned settings; project mounts are workspace settings.
+Network and DNS are agent settings. Project mounts are workspace settings.
 
 ## Credentials
 
-Credential files (`~/.claude/.credentials.json` and `~/.codex/auth.json`) are `shared` mounts:
-the host file is overlaid read-write into private state so agent-side token refreshes update the
-host and every sandbox sees the same credential lineage. Credential values are re-read each poll
-and never copied or logged by the daemon.
+Credential files (`~/.claude/.credentials.json` and `~/.codex/auth.json`) use `shared` mounts.
+Each mount gives private state read-write access to the host file.
+Token refreshes from agents update the host file, so every sandbox sees the same credentials.
+The daemon reads credential values again on each poll. It never copies or logs these values.
 
 A bind mount cannot be atomically renamed, so in-sandbox tools write with `O_TRUNC` on
 the host inode.
@@ -36,14 +35,14 @@ the host inode.
 ## Scoped grants
 
 [Agent collaboration](../guides/agent-collaboration.md) describes scoped terminal
-access and task authority. Only root-authorized callers can create grants; the daemon
-also creates scoped credentials for workers. Host sessions remain root-only.
+access and task authority. Only callers with root authorization can create grants.
+The daemon also creates scoped credentials for workers. Host sessions remain root-only.
 
 ## Remaining exposure
 
 - No seccomp, `--new-session`, or disk quota.
-- Project directories, including `.git`, are read-write. Agents can install hooks or
+- SlopWorld mounts project directories, including `.git`, with read-write access. Agents can install hooks or
   alter git configuration.
-- Resource caps are off unless configured.
+- Resource limits apply only when configured.
 - The `slopworld-debug` preset is an intentionally broad host escape for game
-  development. Its `escapes` warning is not cosmetic.
+  development. Its `escapes` warning identifies actual host access.

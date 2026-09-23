@@ -1,11 +1,13 @@
 # Native Markdown
 
 `UI/MarkdownPreview/` separates parsing, resources, layout, drawing and selection.
-Files and inline Settings previews share the renderer; inline text skips daemon file reads.
-Markdig's shipped version avoids extra runtime dependencies under RimWorld Mono.
+Files and inline Settings previews share the renderer.
+Inline text skips daemon file reads.
+The supplied Markdig version avoids extra runtime dependencies under RimWorld Mono.
 
-The daemon bounds file/image/highlighter access. HTML support is a small scanner, not a
-browser: unsupported markup remains text, and remote/data images do not become fetches.
+The daemon bounds file, image, and highlighter access.
+A small scanner handles HTML without browser behavior.
+Unsupported markup remains text. The scanner does not fetch remote or data images.
 Local resource paths must stay inside the owning project. Resource callbacks need document
 identity checks so a replaced preview cannot receive stale images or highlighting.
 
@@ -15,18 +17,20 @@ code continuation marks are part of the text geometry, so selection and links mu
 same offsets. Typography invalidation rebuilds Markdown styles and character-width caches before
 reflow, including the independent terminal-font revision. Heading code keeps the terminal
 face at the heading size, including game styles whose size is implicit in a baked font.
-Mixed runs use font ascent; line bounds include shifted descenders and inline images.
+Mixed runs use font ascent.
+Line bounds include shifted descenders and inline images.
 
 Table drawing clips each cell when even one glyph cannot fit. Translate clipped link regions
 back to document coordinates and constrain selection highlights without truncating copied text.
-Game-free tests exercise production styles and block layout with variable font metrics;
-runtime appearance still needs in-game validation.
+Tests without the game check production styles and block layout with variable font metrics.
+Runtime appearance still needs checks in the game.
 
-Reflow depends on settled width. Probe scrollbar need on invalidation, not every repaint;
-selection geometry and offscreen placements reuse that layout. Read-only previews still own
+Reflow depends on settled width. Check whether a scrollbar is necessary on invalidation, not on every repaint.
+Selection geometry and offscreen placements reuse that layout. Read-only previews still own
 selection/copy, while paste may target the retained terminal behind them. Preserve that input
 boundary when adding controls.
 
-Selection copies blocks and complete table cells in document order; hit testing keeps a
-separate spatial order. Soft wraps retain clipped whitespace without adding newlines.
-Image state belongs to the document generation and is cleared on replacement or close.
+Selection copies blocks and complete table cells in document order.
+Hit testing keeps a separate spatial order. Soft wraps retain clipped whitespace without adding newlines.
+The preview ties image state to the document generation. It clears that state when it replaces
+or closes the document.

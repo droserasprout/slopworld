@@ -20,11 +20,12 @@ and runtime behavior before selecting a version or fork.
 - Preserve reconnect generation isolation, including reconnects inside callbacks, and
   malformed-envelope handling before screen replacement.
 - Pin a compatible dependency and stage only intended assemblies. Demonstrate behavior on
-  supported Unity Mono/Wine runtime paths before declaring the replacement complete;
-  game execution requires an explicit user request.
+  supported Unity Mono/Wine runtime paths before declaring the replacement complete.
+  Game execution requires an explicit user request.
 
 First build a bounded transport adapter and exercise it against a controllable local peer:
 fragmented/oversized messages, handshake stalls, disconnects and congested queues. Run
-`make test-mod` and `make lint-mod`; game-free .NET 8 tests are necessary but insufficient
-runtime evidence. Retain the current transport if the candidate cannot meet these constraints.
-Record the selected transport's traps in `mod-client.md` and delete this plan on resolution.
+`make test-mod` and `make lint-mod`.
+Tests with .NET 8 and without the game are necessary but insufficient runtime evidence. Retain the current transport if the candidate cannot meet these constraints.
+Record the selected transport's constraints in `mod-client.md`.
+Delete this plan when you resolve the work.

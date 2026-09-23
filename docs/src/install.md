@@ -2,7 +2,8 @@
 
 ## Linux
 
-Install the prerequisites from [Requirements](requirements.md), then run:
+Install the prerequisites from [Requirements](requirements.md).
+Then run these commands:
 
 ```sh
 git clone https://github.com/droserasprout/slopworld.git
@@ -11,15 +12,15 @@ RIMWORLD=/path/to/RimWorld/game make install
 slopworld
 ```
 
-`RIMWORLD` is the directory containing the native Linux game executable. The launcher
-must be used so SlopWorld gets its own game profile. The install also places the bundled
-UI font in `$XDG_DATA_HOME/fonts` (`~/.local/share/fonts` by default).
-Restart RimWorld after installing so Unity rescans the operating system's fonts.
+`RIMWORLD` is the directory that contains the native Linux game executable.
+Use the launcher to give SlopWorld its own game profile.
+The installer also puts the supplied UI font in `$XDG_DATA_HOME/fonts` (`~/.local/share/fonts` by default).
+After installation, restart RimWorld to let Unity scan the operating system fonts again.
 
 ## macOS
 
-Use the separate [macOS installation](guides/macos.md). It installs the mod into the
-native Mac game and runs the daemon in Docker.
+Follow the [macOS installation guide](guides/macos.md).
+This procedure installs the mod into the native Mac game and runs the daemon in Docker.
 
 ## Sidecar worker
 

@@ -1,11 +1,13 @@
 # Prose guide
 
-Devnotes answer where to start, which boundary to preserve, or why an obvious approach
-fails. They are not a second description of the implementation.
+Developer notes explain where to start, which component responsibilities to preserve, or why an approach fails.
+Do not use them to repeat implementation details.
 
-Keep facts beside their owner; link to code, tests, or the canonical book page instead of
-copying inventories, defaults, control lists, or procedures. Keep source-specific rationale
-in source comments. Do not move comments into notes merely because they are long.
+Keep facts with the component that they describe.
+Link to code, tests, or the main book page for the subject.
+Do not copy inventories, defaults, control lists, or procedures.
+Use source comments to explain decisions about that source.
+Do not move comments into notes because they are long.
 
 Prefer a few short paragraphs. Preserve a longer sequence only when shortening it would
-hide a cross-component invariant. Delete completed migration instructions and session history.
+hide a requirement that applies to multiple components. Delete completed migration instructions and session history.

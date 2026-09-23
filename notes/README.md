@@ -1,9 +1,14 @@
-# Devnotes
+# Developer notes
 
-Keep high-level navigation, ownership boundaries, and non-obvious traps. Do not inventory
-methods, fields, widgets, or ordinary behavior that source and tests already explain.
-Operational instructions belong in `docs/`; link instead of repeating them.
+Link to notes on related subjects.
+Record component responsibilities and problems that are hard to find.
+Do not list methods, fields, widgets, or behavior that the source code and tests already explain.
+Put operating instructions in `docs/`. Link to those instructions instead of repeating them.
 
-Use domain prefixes and one subject per note. `plan-` holds unresolved work: keep the
-problem and acceptance constraints, then delete the plan when complete. Dated measurements
-are evidence, not current behavior. Remove stale or redundant notes instead of archiving them here.
+Start each filename with its subject area. Use one subject in each note.
+Use the `plan-` prefix for work that is not complete.
+Record the problem and the requirements for completion.
+When the work is complete, delete the plan.
+Measurements with dates describe past behavior. They do not prove current behavior.
+Delete notes that are no longer correct.
+Delete notes that repeat other notes. Do not archive old notes.

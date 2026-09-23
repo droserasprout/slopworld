@@ -1,7 +1,7 @@
 # Settings
 
-Settings is the gear icon in the top bar or the `Settings` command in the palette. It
-opens a tabbed view over the terminal pane.
+Open Settings with the gear icon in the top bar or the **Settings** command in the palette.
+Settings opens as tabs over the terminal pane.
 
 Settings groups controls by function: general game and daemon controls, appearance and
 terminal presentation, sandbox and command definitions, integrations, keyboard, storage,
@@ -9,33 +9,42 @@ audio, RimWorld options, and credits. The [agent configuration guide](../guides/
 [sandbox guide](../guides/configuring-sandboxes.md), and
 [integration reference](integrations.md) describe the fields managed by those groups.
 
-Worker settings are under **Settings > Integrations > Workers**. The page selects the agent
-templates that agents may use for worker spawning and edits the bootstrap prompt. Spawned
-workers always receive the saved prompt; the user Worker menu can use any catalog template;
-changing the allowlist does not alter existing workers.
+The **Storage** page lists private agent state and shared caches. Use it to reset an agent,
+restore state from trash, delete orphaned or trashed state, or empty the trash.
+
+Worker settings are under **Settings > Agents > Workers**. Add templates to the worker
+allowlist so agents can use them to create workers. New templates do not enter the allowlist
+automatically. Edit the initial worker prompt on this page. New workers receive the saved
+prompt. The Worker menu can use any catalog template. Allowlist changes do not affect
+existing workers.
 
 ## Configuration file
 
-The palette's **Configuration: Edit config.toml** action opens the complete daemon
-configuration, including fields without a Settings page. The editor redacts the daemon
-token; saving parses and validates the replacement before writing it atomically.
+The palette's **Configuration: Edit config.toml** action opens the full daemon
+configuration, including fields without a Settings page. The editor hides the daemon token.
+Before it saves, it parses and checks the replacement. It then writes the file atomically.
 
 ## Applying changes
 
-Local mod and audio changes take effect immediately; settings that are edited as a group
-are written when the Settings view closes.
+Local mod and audio settings take effect immediately.
+The game saves grouped settings when you close Settings.
 
-Daemon-backed pages stage changes until **Save**. The save validates the values, patches the
-daemon, and rereads the page. Raw `config.toml` edits are parsed and replaced atomically.
+Daemon settings pages keep edits until you select **Save**. The daemon checks and applies
+the values. The page then reloads.
+The daemon also reloads valid external edits to `config.toml`. If an edit is invalid, it keeps
+the current settings.
 
-Preset, agent, project, and library item editors have their own Save action. Running agents keep
-their current sandbox until they are restarted; startup-only daemon values such as the
-listener bind address require a daemon restart.
+Preset, agent, project, and library editors have separate **Save** actions. Running agents keep
+their current sandbox until restart.
+Settings that apply only at daemon startup, such as the listener address, require a restart.
 
-Network, DNS, sandbox, mount, and other agent-start settings take effect on the next start.
+Agent settings such as network, DNS, sandbox, and mounts take effect on the next start.
 
 ## Confirmation dialogs
 
-Confirmations are reserved for destructive operations: killing or removing agents and
-projects, resetting or deleting private state. Reversible appearance, audio, and mode
-switches apply without a modal.
+Confirmation dialogs apply only to destructive operations:
+
+- Stopping or removing agents and projects.
+- Resetting or deleting private state.
+
+Reversible appearance, audio, and mode changes apply without a dialog.
