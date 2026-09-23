@@ -16,6 +16,8 @@ For removal, mount only that container and shared Git metadata in a minimal Bubb
 Git can run its status helper and delete the checkout without access to the original source tree or host home.
 Host Git checks block repository helpers from launching child processes.
 Allocation registers the worktree without a checkout, then runs Git commands to create its branch and index.
+The shared session boundary protects authorization and project identity through direct allocation
+while allowing terminal input. The worktree mutation lock serializes catalog writes and Git work.
 Landlock ABI 3 restricts writes to the container and shared metadata, even if an agent changes metadata symlinks.
 Allocation fails if the daemon cannot enforce this restriction.
 Required repository filters can also fail allocation. Keep the record and partial tree for inspection.

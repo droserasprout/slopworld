@@ -6,6 +6,7 @@ use std::sync::Arc;
 
 tokio::task_local! {
     static OWNER: usize;
+    static READ_OWNER: usize;
     static REQUEST: usize;
 }
 
@@ -25,6 +26,32 @@ impl Manager {
         .await
     }
 
+    /// Read operations hold identity and revocation stable while remaining concurrent with
+    /// terminal input and worktree Git work. Reload before taking the shared guard.
+    pub(crate) async fn session_read_request<F: Future>(self: &Arc<Self>, request: F) -> F::Output {
+        self.reload_if_stale().await;
+        self.session_read_operation(REQUEST.scope(Arc::as_ptr(self) as usize, request))
+            .await
+    }
+
+    pub(crate) fn session_read_operation<'a, F: Future + 'a>(
+        &'a self,
+        operation: F,
+    ) -> impl Future<Output = F::Output> + 'a {
+        async move {
+            let owner = self as *const Self as usize;
+            if OWNER.try_with(|current| *current == owner).unwrap_or(false)
+                || READ_OWNER
+                    .try_with(|current| *current == owner)
+                    .unwrap_or(false)
+            {
+                return operation.await;
+            }
+            let _guard = self.session_boundary.read().await;
+            READ_OWNER.scope(owner, operation).await
+        }
+    }
+
     /// Nested lifecycle calls share the boundary. Spawned tasks must acquire their own boundary.
     pub(crate) fn session_operation<'a, F: Future + 'a>(
         &'a self,
@@ -36,7 +63,13 @@ impl Manager {
             if OWNER.try_with(|current| *current == owner).unwrap_or(false) {
                 return operation.await;
             }
-            let _guard = self.session_boundary.lock().await;
+            assert!(
+                !READ_OWNER
+                    .try_with(|current| *current == owner)
+                    .unwrap_or(false),
+                "exclusive session operation inside a shared boundary"
+            );
+            let _guard = self.session_boundary.write().await;
             OWNER.scope(owner, operation).await
         }
     }

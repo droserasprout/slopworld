@@ -366,13 +366,13 @@ impl Manager {
     }
 
     pub(crate) async fn create_worktree(self: &Arc<Self>, q: WorktreeRequest) -> Result<Worktree> {
+        self.reload_if_changed().await;
         let manager = self.clone();
         manager
-            .session_operation(async {
+            .session_read_operation(async {
                 let _lock = manager.worktree_mutation.lock().await;
-                manager.reload_if_changed().await;
                 let p = manager
-                    .update_cfg(|cfg| {
+                    .update_cfg_if_changed_within_boundary(|cfg| {
                         let p = cfg
                             .projects
                             .iter_mut()
@@ -382,7 +382,7 @@ impl Manager {
                             p.id = uuid::Uuid::new_v4().to_string();
                         }
                         uuid::Uuid::parse_str(&p.id).context("invalid project identity")?;
-                        Ok(p.clone())
+                        Ok((p.clone(), true))
                     })
                     .await?;
                 let root = PathBuf::from(expand(&p.dir)).canonicalize()?;

@@ -5,6 +5,10 @@
 
 Session edits check a complete candidate configuration before renaming tmux.
 The session boundary and configuration persistence gate protect the operation from preparation through commit.
+Session identity and grant changes take the exclusive boundary. Terminal input, task routes,
+and direct worktree creation hold the shared boundary, so checkout and task persistence do not stop
+unrelated input. A queued input item rechecks its session and run identity under that guard.
+Resize requests serialize their tmux update and dimension publication separately.
 A detached task completes its commit or rollback even if a caller cancels the request.
 A persistence failure restores the old tmux name.
 If rollback also fails, the error and log report both failures and the observed tmux names.

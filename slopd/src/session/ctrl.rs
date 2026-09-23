@@ -31,7 +31,8 @@ pub struct Manager {
     pub(super) auth_generation: AtomicU64,
     pub(super) auth_changes: broadcast::Sender<AuthChange>,
     pub(super) grants: RwLock<crate::grant::Grants>,
-    pub(super) session_boundary: tokio::sync::Mutex<()>,
+    pub(super) session_boundary: tokio::sync::RwLock<()>,
+    pub(super) resize_mutation: tokio::sync::Mutex<()>,
     /// Serialize template transactions through reading, comparison, writing, and publication.
     /// Checking versions outside this lock could let two editors pass and overwrite one draft.
     pub(super) template_mutation: tokio::sync::Mutex<()>,
