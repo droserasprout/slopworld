@@ -441,7 +441,7 @@ async fn worktree_resolution_mounts_metadata_and_keeps_project_scope() {
 }
 
 #[tokio::test]
-async fn wip_store_remains_readable_and_new_store_takes_precedence() {
+async fn store_reads_only_worktree_catalog_and_fields() {
     let root = std::env::temp_dir().join(format!("slopd-worktree-store-{}", uuid::Uuid::new_v4()));
     std::fs::create_dir_all(&root).unwrap();
     let config = root.join("config.toml");
@@ -456,10 +456,9 @@ async fn wip_store_remains_readable_and_new_store_takes_precedence() {
     .unwrap()
     .replace("[[worktrees]]", "[[workspaces]]");
     std::fs::write(root.join("workspaces.toml"), legacy).unwrap();
-    assert_eq!(
-        Store::load(&config).await.unwrap().worktrees[0].id,
-        "retained"
-    );
+    assert!(Store::load(&config).await.unwrap().worktrees.is_empty());
+    std::fs::write(root.join("worktrees.toml"), "[[workspaces]]\nid = 'old'\n").unwrap();
+    assert!(Store::load(&config).await.is_err());
     Store::default().save(&config).await.unwrap();
     assert!(Store::load(&config).await.unwrap().worktrees.is_empty());
     assert!(root.join("workspaces.toml").exists());

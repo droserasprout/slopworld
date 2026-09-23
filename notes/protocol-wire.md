@@ -44,8 +44,8 @@ Map keys escape `~` as `~0` and `.` as `~1`. The serializer omits secrets and re
 `GET /api/config` includes factory defaults, the usage catalog, temporary-root policy and
 terminal limits.
 `/api/usage` and usage events include catalog metadata plus resolved rows.
-An absent row window represents missing values. Never substitute a guessed zero. Older daemons that
-omit metadata make daemon-policy resets and previews unavailable.
+An absent row window represents missing values. Never substitute a guessed zero. Missing metadata
+makes daemon-policy resets and previews unavailable.
 Keep only independent client safety bounds local. Check advertised terminal ranges before layout or history arithmetic.
 `GET /api/whereis` is a root-only snapshot of the daemon environment for Settings.
 It reports resolved executable paths from slopd's effective `PATH`.

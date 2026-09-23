@@ -11,7 +11,7 @@ type FileStamp = (SystemTime, u64, u64, u64);
 
 #[derive(Default)]
 pub(crate) struct WorktreeViewCache {
-    stamp: Option<(Option<FileStamp>, Option<FileStamp>)>,
+    stamp: Option<Option<FileStamp>>,
     by_id: Arc<HashMap<String, Worktree>>,
 }
 
@@ -47,14 +47,10 @@ pub(crate) struct WorktreeView {
 }
 
 impl Manager {
-    /// The legacy file remains authoritative only until the new catalog exists.
-    /// Compare both stamps so external edits and the first new-format write reload the view.
+    /// Reload the index when the catalog is replaced or edited externally.
     pub(super) async fn worktree_view_index(&self) -> Arc<HashMap<String, Worktree>> {
         let mut cache = self.worktree_views.lock().await;
-        let stamp = (
-            file_stamp(&self.cfg_path.with_file_name("worktrees.toml")).await,
-            file_stamp(&self.cfg_path.with_file_name("workspaces.toml")).await,
-        );
+        let stamp = file_stamp(&self.cfg_path.with_file_name("worktrees.toml")).await;
         if cache.stamp.as_ref() != Some(&stamp) {
             let store = Store::load(&self.cfg_path).await.unwrap_or_default();
             cache.by_id = Arc::new(

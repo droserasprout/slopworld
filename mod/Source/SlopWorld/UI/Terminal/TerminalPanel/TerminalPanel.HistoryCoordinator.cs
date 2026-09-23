@@ -57,7 +57,6 @@ namespace SlopWorld
                 {
                     History = _panel._history,
                     TopOffset = _panel._historyTopOff,
-                    CoordinateShift = _panel._historyCoordinateShift,
                     Warmed = _panel._historyWarmed,
                     RefreshPending = _panel._historyRefreshPending,
                     RunId = info.RunId,
@@ -92,7 +91,6 @@ namespace SlopWorld
                 _panel._activeHistoryCache = cache;
                 _panel._history = cache.History ?? new TerminalHistory();
                 _panel._historyTopOff = cache.TopOffset;
-                _panel._historyCoordinateShift = cache.CoordinateShift;
                 _panel._historyWarmed = cache.Warmed;
                 _panel._historyRefreshPending = cache.RefreshPending;
                 _panel._historyLiveSeq = cache.LiveSeq;
@@ -123,10 +121,9 @@ namespace SlopWorld
                 if (compatible && _panel._historyLiveSeq >= 0 &&
                     live.Seq == _panel._historyLiveSeq)
                 {
-                    compatible = _panel._historyLiveHistory < 0 || live.History < 0 ||
-                        live.History == _panel._historyLiveHistory;
+                    compatible = live.History == _panel._historyLiveHistory;
                 }
-                else if (compatible && _panel._historyLiveHistory >= 0 && live.History >= 0)
+                else if (compatible && _panel._historyLiveHistory >= 0)
                 {
                     shift = live.History - _panel._historyLiveHistory;
                     compatible = shift >= 0;
@@ -142,7 +139,6 @@ namespace SlopWorld
                 _panel._activeHistoryCache = null;
                 _panel._history = new TerminalHistory();
                 _panel._historyTopOff = -1;
-                _panel._historyCoordinateShift = 0;
                 _panel._historyWarmed = false;
                 _panel._historyRefreshPending = false;
                 _panel._historyDisplayedFrame = null;
@@ -201,7 +197,6 @@ namespace SlopWorld
                 _panel._historyRestorePending = false;
                 _panel._history = new TerminalHistory();
                 _panel._historyRequests.Clear();
-                _panel._historyCoordinateShift = 0;
                 _panel._historyDisplayedFrame = null;
                 _panel._historyLiveSeq = -1;
                 _panel._historyLiveHistory = -1;
@@ -237,25 +232,13 @@ namespace SlopWorld
                     if (!pending) continue;
 
                     _panel._historyRequests.Remove(sb.ScrollRequestId);
-                    int shift = TerminalHistory.CaptureShift(sb, live,
-                        _panel._historyCoordinateShift - request.CoordinateShift);
-                    _panel._history.Add(sb, live, request.Offset, shift, allowStale: !current);
-                    if (sb.History >= 0)
-                    {
-                        int history = sb.History + shift;
-                        if (live != null && live.History >= 0 && live.Seq >= sb.Seq)
-                            history = live.History;
-                        _panel._historyTopOff = Mathf.Clamp(history, 0, _panel.MaxScrollLines);
-                        ClampTarget();
-                    }
-                    else if (sb.Off + shift < request.Offset)
-                    {
-                        int achieved = sb.Off + shift;
-                        if (live != null && live.History >= 0 && live.Seq >= sb.Seq)
-                            achieved = live.History;
-                        _panel._historyTopOff = Mathf.Max(0, achieved);
-                        ClampTarget();
-                    }
+                    int shift = TerminalHistory.CaptureShift(sb, live);
+                    _panel._history.Add(sb, live, request.Offset, allowStale: !current);
+                    int history = sb.History + shift;
+                    if (live != null && live.Seq >= sb.Seq)
+                        history = live.History;
+                    _panel._historyTopOff = Mathf.Clamp(history, 0, _panel.MaxScrollLines);
+                    ClampTarget();
                     _panel._historyRefreshPending = false;
                 }
             }

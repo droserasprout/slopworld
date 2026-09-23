@@ -58,25 +58,23 @@ namespace SlopWorld
         // Several streamed frames can arrive between panel draws. The most recent frame's
         // LiveShift covers only its predecessor, not the cache's last observation.
         public static int ShiftSince(int previousHistory, ScreenBuf live) =>
-            previousHistory >= 0 && live.History >= 0 && live.History < MaxHistoryRows
+            previousHistory >= 0 && live.History < MaxHistoryRows
                 ? Math.Max(0, live.History - previousHistory) : live.LiveShift;
 
-        // Live metadata is authoritative even before warmup, and after an application
-        // clears history. Only older daemons need a capture to discover the scroll limit.
-        public static int ScrollLimit(ScreenBuf live, int knownTop)
+        // Live metadata is authoritative even before warmup and after an application clears history.
+        public static int ScrollLimit(ScreenBuf live)
         {
-            int extent = live != null && live.History >= 0 ? live.History : knownTop;
-            return extent < 0 ? MaxHistoryRows : Math.Min(MaxHistoryRows, extent);
+            return live == null ? 0 : Math.Min(MaxHistoryRows, live.History);
         }
 
         // Fill overlapping windows progressively, nearest first. The caller sends only one
         // request at a time, so a gesture can replace speculative work after the next reply.
-        public int WarmupOffset(ScreenBuf live, int knownTop)
+        public int WarmupOffset(ScreenBuf live)
         {
             if (live == null || live.AltScreen || live.AppMouse || live.Off != 0 ||
                 live.Rows < 2 || live.Cols <= 0 || live.Lines == null ||
                 live.Lines.Length == 0) return 0;
-            int extent = ScrollLimit(live, knownTop);
+            int extent = ScrollLimit(live);
             if (extent == 0) return 0;
             int offset = PrefetchOffset(0, live.Rows, true, extent);
             return Math.Max(0, offset);
@@ -135,7 +133,7 @@ namespace SlopWorld
         {
             if (live == null) return false;
             if (_template != null && (!SameViewport(live) ||
-                (live.History >= 0 && _template.History > live.History)))
+                _template.History > live.History))
             {
                 Reset(live);
                 return false;
@@ -151,9 +149,8 @@ namespace SlopWorld
                 // A TUI may rewrite its prompt before scrolling between streamed frames.
                 // Those old live rows are not evidence of what entered daemon history.
                 // Leave holes for authoritative captures rather than caching phantom text.
-                if (live.History >= 0)
-                    for (int row = 0; row < Math.Min(shift, Rows); row++)
-                        _lines.Remove(Storage(row));
+                for (int row = 0; row < Math.Min(shift, Rows); row++)
+                    _lines.Remove(Storage(row));
                 Shift(shift);
                 if (_pinnedView != null) _pinnedView.Off += shift;
             }
@@ -174,8 +171,7 @@ namespace SlopWorld
             return true;
         }
 
-        public void Add(ScreenBuf frame, ScreenBuf live, int nearOff,
-                        int coordinateShift = 0, bool allowStale = false)
+        public void Add(ScreenBuf frame, ScreenBuf live, int nearOff, bool allowStale = false)
         {
             if (frame == null || frame.Lines == null || frame.Lines.Length == 0) return;
             bool current = live == null || live.Seq == frame.Seq;
@@ -195,19 +191,17 @@ namespace SlopWorld
             // The overlap at global row zero belongs to the current live frame. An older response
             // can still contribute its negative history rows. However, Must not overwrite newer
             // content that was redrawn in place while the request was in flight.
-            int off = Math.Max(0, frame.Off + CaptureShift(frame, live, coordinateShift));
+            int off = Math.Max(0, frame.Off + CaptureShift(frame, live));
             if (Index(frame, off, current)) Changed();
         }
 
         // Off belongs to the daemon's capture time, not the time we sent the request.
         // Output before capture is already represented in the reply. Translating it again
         // overwrites neighboring cached rows and makes input/answer lines disappear.
-        public static int CaptureShift(ScreenBuf frame, ScreenBuf live, int requestShift)
+        public static int CaptureShift(ScreenBuf frame, ScreenBuf live)
         {
             if (live == null || frame.Seq == live.Seq) return 0;
-            if (frame.History >= 0 && live.History >= 0)
-                return Math.Max(0, live.History - frame.History);
-            return requestShift;
+            return Math.Max(0, live.History - frame.History);
         }
 
         public bool TryView(int anchor, bool extraRow, out ScreenBuf view, bool freeze = false)

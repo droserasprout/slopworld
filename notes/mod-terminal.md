@@ -10,7 +10,7 @@ If returned frames disagree, send another resize request. A redeploy can lose th
 Do not send one grid size to both split panes. Do not restore a static size from the last session.
 The app does not save split placement. Daemon capabilities report the supported dimension range and history capacity.
 The client checks and limits these values before layout and cache allocation. The client also applies its own allocation limits.
-If an older daemon omits this capability, the client uses local safety limits.
+Before the capability announcement arrives, the client uses local safety limits.
 
 Escape belongs to the application. The workspace handles close and leave keys before it forwards input.
 Send shifted navigation keys to the application on alternate screens.

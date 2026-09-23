@@ -1,7 +1,7 @@
 use super::*;
 
 #[tokio::test]
-async fn view_index_reloads_external_catalog_and_new_format_precedence() {
+async fn view_index_reloads_external_catalog_edits() {
     let manager = crate::session::test_manager(Config::default());
     assert!(manager.worktree_view_index().await.is_empty());
     let catalog = |id: &str, name: &str| {
@@ -14,22 +14,12 @@ async fn view_index_reloads_external_catalog_and_new_format_precedence() {
         })
         .unwrap()
     };
-    let legacy = manager.cfg_path.with_file_name("workspaces.toml");
-    tokio::fs::write(
-        &legacy,
-        catalog("old", "legacy").replace("[[worktrees]]", "[[workspaces]]"),
-    )
-    .await
-    .unwrap();
-    assert_eq!(manager.worktree_view_index().await["old"].name, "legacy");
-
     let current = manager.cfg_path.with_file_name("worktrees.toml");
     tokio::fs::write(&current, catalog("new", "current"))
         .await
         .unwrap();
     let index = manager.worktree_view_index().await;
     assert_eq!(index["new"].name, "current");
-    assert!(!index.contains_key("old"));
     tokio::fs::write(&current, catalog("new", "external edit"))
         .await
         .unwrap();

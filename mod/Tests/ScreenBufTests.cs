@@ -102,7 +102,7 @@ namespace SlopWorld.Tests
             AssertEx.Equal(0, screen.Cx, "cursor x default");
             AssertEx.Equal(0, screen.Cy, "cursor y default");
             AssertEx.Equal(0, screen.Off, "scroll offset default");
-            AssertEx.Equal(-1, screen.History, "history extent default");
+            AssertEx.Equal(0, screen.History, "history extent default");
             AssertEx.Equal(0UL, screen.ScrollRequestId, "request id default");
             AssertEx.Equal(0, screen.CursorShape, "cursor shape default");
             AssertEx.True(screen.CursorBlink, "cursor blink default");
@@ -117,10 +117,10 @@ namespace SlopWorld.Tests
         {
             var screen = new ScreenBuf();
             screen.FromWire(ProtobufFixtures.Read<Wire.ScreenView>(JVal.Parse(
-                "{\"seq\":1,\"cols\":20,\"rows\":3,\"cy\":2," +
+                "{\"seq\":1,\"cols\":20,\"rows\":3,\"cy\":2,\"history\":5," +
                 "\"off\":0,\"lines\":[\"one\",\"two\",\"three\"]}")));
             screen.FromWire(ProtobufFixtures.Read<Wire.ScreenView>(JVal.Parse(
-                "{\"seq\":2,\"cols\":20,\"rows\":3,\"cy\":2," +
+                "{\"seq\":2,\"cols\":20,\"rows\":3,\"cy\":2,\"history\":6," +
                 "\"off\":0,\"lines\":[\"two\",\"three\",\"four\"]}")));
 
             AssertEx.Equal(1, screen.LiveShift, "live row shift");
@@ -130,10 +130,10 @@ namespace SlopWorld.Tests
         {
             var screen = new ScreenBuf();
             screen.FromWire(ProtobufFixtures.Read<Wire.ScreenView>(JVal.Parse(
-                "{\"seq\":1,\"cols\":20,\"rows\":4,\"cy\":3," +
+                "{\"seq\":1,\"cols\":20,\"rows\":4,\"cy\":3,\"history\":5," +
                 "\"off\":0,\"lines\":[\"same\",\"same\",\"line-2\",\"line-3\"]}")));
             screen.FromWire(ProtobufFixtures.Read<Wire.ScreenView>(JVal.Parse(
-                "{\"seq\":2,\"cols\":20,\"rows\":4,\"cy\":3," +
+                "{\"seq\":2,\"cols\":20,\"rows\":4,\"cy\":3,\"history\":6," +
                 "\"off\":0,\"lines\":[\"same\",\"line-2\",\"line-3\",\"line-4\"]}")));
 
             AssertEx.Equal(1, screen.LiveShift,

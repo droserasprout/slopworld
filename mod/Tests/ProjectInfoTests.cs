@@ -28,7 +28,7 @@ namespace SlopWorld.Tests
             AssertEx.True(JVal.Parse(project.ToJson())["expanded_dir"].IsNull,
                           "response metadata is not sent in edits");
             var literal = ProjectInfo.FromWire(ProtobufFixtures.Read<Wire.Project>(JVal.Parse("{\"dir\":\"/work/repo\"}")));
-            AssertEx.Equal("/work/repo", literal.ExpandedDir, "older daemon literal path");
+            AssertEx.Equal("", literal.ExpandedDir, "missing daemon expansion stays unavailable");
             var unavailable = ProjectInfo.FromWire(ProtobufFixtures.Read<Wire.Project>(JVal.Parse(
                 "{\"dir\":\"$UNSET/repo\",\"expanded_dir\":\"\"}")));
             AssertEx.Equal("", unavailable.ExpandedDir, "empty expansion does not fall back");

@@ -2,14 +2,13 @@
 
 `TerminalHistory` indexes snapshots in live-bottom coordinates. Live growth shifts that
 coordinate system.
-Translate delayed replies using the captured and current history extents. Request-time movement is only a fallback for frames lacking metadata.
+Translate delayed replies using the captured and current history extents.
 
 A TUI may rewrite its prompt before scrolling. Old live rows and a delayed capture's live
 tail cannot prove historical content.
 Fetch those rows again. Confirmed older history stays
 cached. Real daemon extent outranks visual overlap guesses and bounds even the first gesture. The
 advertised daemon history capacity bounds local cache coordinates.
-Request-time movement remains the compatibility fallback only for frames without history metadata.
 
 Warmup is speculative and bounded.
 It must not change the displayed scroll position. Missing

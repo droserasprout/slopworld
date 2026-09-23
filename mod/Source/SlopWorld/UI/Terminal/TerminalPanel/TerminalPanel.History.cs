@@ -31,7 +31,6 @@ namespace SlopWorld
         {
             public TerminalHistory History;
             public int TopOffset;
-            public int CoordinateShift;
             public bool Warmed;
             public bool RefreshPending;
             public long RunId;
@@ -69,20 +68,15 @@ namespace SlopWorld
         struct HistoryRequest
         {
             public int Offset;
-            public int CoordinateShift;
 
-            public HistoryRequest(int offset, int coordinateShift)
+            public HistoryRequest(int offset)
             {
                 Offset = offset;
-                CoordinateShift = coordinateShift;
             }
         }
 
         readonly Dictionary<ulong, HistoryRequest> _historyRequests =
             new Dictionary<ulong, HistoryRequest>();
-        // Total live rows translated since the cache was seeded. Retain request-time values
-        // only for legacy replies. Current replies carry their capture-time history extent.
-        int _historyCoordinateShift;
         // Stable fallback while the first prefetched window for a new position is in flight.
         ScreenBuf _historyDisplayedFrame;
 

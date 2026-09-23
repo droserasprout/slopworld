@@ -11,7 +11,7 @@
   invalidates it for operations that can change history. The 10,000-blank-row benchmark fell
   from 6.39 ms to 0.97 µs per render on the same machine.
 - **Fixed 4:** session views retain an indexed worktree catalog. File stamps reload externally
-  edited catalogs, including the legacy-to-current file transition.
+  edited catalogs.
 - **Fixed 3:** progress and summary updates append one task record to a generation-tagged
   journal. The 1,000-record update fell from 13.88 ms to 6.98 µs on this machine. Creation
   and removal still write complete snapshots. Task routes share the identity guard with input.

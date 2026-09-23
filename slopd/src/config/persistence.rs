@@ -58,8 +58,8 @@ impl Config {
 
     #[cfg(test)]
     pub fn parse(text: &str) -> Result<Self> {
-        let mut document: toml::Value = toml::from_str(text).context("parsing config.toml")?;
-        normalize_worktree_fields(&mut document)?;
+        let document: toml::Value = toml::from_str(text).context("parsing config.toml")?;
+        reject_removed_worktree_fields(&document)?;
         if let Some(daemon) = document.get("daemon").and_then(toml::Value::as_table) {
             for key in ["usage", "openrouter", "openai"] {
                 if daemon.contains_key(key) {
@@ -75,8 +75,8 @@ impl Config {
     /// Validate the current schema. Keep the original document to preserve unrelated fields and secrets during edits.
     /// Loading does not rewrite the configuration file.
     pub(crate) fn parse_document(text: &str) -> Result<(Self, toml::Value)> {
-        let mut document: toml::Value = toml::from_str(text).context("parsing config.toml")?;
-        normalize_worktree_fields(&mut document)?;
+        let document: toml::Value = toml::from_str(text).context("parsing config.toml")?;
+        reject_removed_worktree_fields(&document)?;
         if document.get("library").is_some() {
             bail!("inline library entries are no longer supported");
         }
@@ -99,8 +99,8 @@ impl Config {
         let mut document = toml::Value::try_from(self)?;
         if tokio::fs::try_exists(path).await? {
             if let Ok(text) = tokio::fs::read_to_string(path).await {
-                if let Ok(mut previous) = toml::from_str::<toml::Value>(&text) {
-                    normalize_worktree_fields(&mut previous)?;
+                if let Ok(previous) = toml::from_str::<toml::Value>(&text) {
+                    reject_removed_worktree_fields(&previous)?;
                     let previous_config: Self = previous.clone().try_into().context(
                         "reading modeled fields before preserving unknown configuration",
                     )?;
@@ -276,28 +276,18 @@ async fn save_library(
     Ok(())
 }
 
-// Normalize legacy aliases in memory before preserving unknown fields.
-// This prevents old and new field names from appearing together.
-// Loading does not change the file.
-fn normalize_worktree_fields(document: &mut toml::Value) -> Result<()> {
-    for (section, old, new) in [
+// Reject retired names before unknown-field preservation can retain them as extensions.
+fn reject_removed_worktree_fields(document: &toml::Value) -> Result<()> {
+    for (section, old, replacement) in [
         ("project", "workspace_root", "worktree_root"),
         ("session", "workspace", "worktree"),
     ] {
-        if let Some(rows) = document
-            .get_mut(section)
-            .and_then(toml::Value::as_array_mut)
+        if document
+            .get(section)
+            .and_then(toml::Value::as_array)
+            .is_some_and(|rows| rows.iter().any(|row| row.get(old).is_some()))
         {
-            for row in rows {
-                if let Some(table) = row.as_table_mut() {
-                    if let Some(value) = table.remove(old) {
-                        if table.contains_key(new) {
-                            bail!("{section} contains both {old} and {new}");
-                        }
-                        table.insert(new.into(), value);
-                    }
-                }
-            }
+            bail!("{section}.{old} was removed; use {replacement}");
         }
     }
     Ok(())
