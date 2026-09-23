@@ -5,7 +5,7 @@ Documentation=https://github.com/droserasprout/slopworld
 [Service]
 Type=simple
 # Preserve the service environment's PATH while preferring developer-installed tools.
-# ExecStart expands ${PATH}; Environment= does not expand variable references.
+# ExecStart expands ${PATH}. Environment= does not expand variable references.
 ExecStart=/usr/bin/env "PATH=%h/.local/bin:${PATH}" %h/.local/bin/slopd
 Restart=on-failure
 RestartSec=2
@@ -14,7 +14,7 @@ Environment=SLOPD_LOG=slopd=info
 # Stop slopd, not everything under it. Any tmux command forks the server if it is
 # not up, into this cgroup, where the default KillMode=control-group would SIGTERM
 # it on a daemon restart and take every agent with it.
-# Tmux::ensure_server normally keeps the server out of here; this covers the one
+# Tmux::ensure_server normally keeps the server out of here. This covers the one
 # forked some other way.
 KillMode=process
 
