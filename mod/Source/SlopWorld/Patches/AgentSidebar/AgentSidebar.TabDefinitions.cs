@@ -107,7 +107,7 @@ namespace SlopWorld
                     }),
                 new SidebarTabDefinition(
                     SidebarTab.Library, "library", "library",
-                    "Library - agent templates, prompts, errands, breadcrumbs and file actions",
+                    "Library - templates, prompts, commands, breadcrumbs, file actions, projects and presets",
                     true, true, false,
                     new SidebarTabHandlers
                     {
@@ -116,6 +116,7 @@ namespace SlopWorld
                         Close = LibraryView.Closed,
                         DrawActions = DrawLibraryActions,
                         Refresh = () => LibraryView.Refresh(UiLayout.Fail),
+                        FilterChanged = LibraryView.FilterChanged,
                         // Fetch on entry as well, including when socket updates are unavailable.
                         Entered = () => LibraryView.Refresh(),
                         SetAllFolds = LibraryView.SetAllFolded,
@@ -231,12 +232,6 @@ namespace SlopWorld
         {
             var r = ActionRect(context);
             DrawFoldAction(ref r);
-            r.x -= TabIcon + 3f;
-            var libraryMenuButton = r;
-            Tab(r, Icons.Edit, false,
-                "Projects, Worktrees, Sandbox presets, and App presets.",
-                () => LibraryView.OpenQuickAccessMenu(libraryMenuButton));
-            r.x -= TabIcon + 3f;
             Tab(r, Icons.Refresh, false, "Reload Library and templates.",
                 () => LibraryView.Refresh(UiLayout.Fail));
         }

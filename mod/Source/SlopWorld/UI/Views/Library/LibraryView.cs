@@ -26,18 +26,35 @@ namespace SlopWorld
 
         public static void Refresh(Action<string> fail = null)
         {
+            SessionHub.Instance.Catalog.RefreshProjects(fail);
             SessionHub.Instance.Catalog.RefreshLibrary(fail);
             SessionHub.Instance.Catalog.RefreshTemplates(fail);
+            SessionHub.Instance.Catalog.LoadPresets(fail: fail);
+            _worktreeRequestKey = null;
         }
 
         // Grouped by catalog kind; scope remains a separate sidebar filter.
         static readonly Dictionary<string, List<LibraryItemInfo>> Groups =
             new Dictionary<string, List<LibraryItemInfo>>();
         static readonly List<string> Order = new List<string>();
-        static readonly string[] Kinds = { "Agent templates", "Prompts", "Shell commands", "Breadcrumbs", "File actions" };
+        static readonly string[] Kinds =
+        {
+            "Agent templates", "Prompts", "Shell commands", "Breadcrumbs", "File actions",
+            "Projects", "Worktrees", "Sandbox presets", "App presets"
+        };
+        static readonly string[] MainCategoryOrder =
+            { "Projects", "Worktrees", "Sandbox presets", "App presets" };
+        static readonly Dictionary<string, List<MainCategoryAction>> MainCategories =
+            new Dictionary<string, List<MainCategoryAction>>();
+        static readonly List<string> VisibleMainCategories = new List<string>();
+        static readonly Dictionary<string, List<WorktreeEntry>> WorktreesByProject =
+            new Dictionary<string, List<WorktreeEntry>>();
+        static string _worktreeRequestKey;
+        static int _worktreeGeneration;
         static string _query = "";
         static string _kind = "";
         static string _selection;
+        static string _mainSelection;
         static bool _revealSelection;
         static Rect _list;
         static FieldLifetime _fieldLifetime = new FieldLifetime();
@@ -62,13 +79,17 @@ namespace SlopWorld
         // colony, so it does not belong in a save.
         static readonly HashSet<string> Folded = new HashSet<string>();
 
-        public static bool AllFolded => Order.Count > 0 && Order.All(Folded.Contains);
+        public static bool AllFolded => Order.Count + VisibleMainCategories.Count > 0 &&
+            Order.All(Folded.Contains) && VisibleMainCategories.All(Folded.Contains);
 
         public static void SetAllFolded(bool folded)
         {
             Folded.Clear();
             if (folded)
+            {
                 foreach (var key in Order) Folded.Add(key);
+                foreach (var key in MainCategoryOrder) Folded.Add(key);
+            }
         }
 
         // Resolve selection by catalog identity after each refresh.
@@ -79,10 +100,32 @@ namespace SlopWorld
         struct Line
         {
             public LibraryItemInfo Item;
+            public MainCategoryAction MainAction;
             public bool Head;    // true on a heading, false on a row
             public string Key;   // kind heading
             public Rect Rect;
         }
+
+        sealed class MainCategoryAction
+        {
+            public string Key;
+            public string Label;
+            public string Tooltip;
+            public Texture2D Icon;
+            public List<string> Details = new List<string>();
+            public string PrimaryLabel;
+            public Action Primary;
+            public string SecondaryLabel;
+            public Action Secondary;
+            public Action More;
+        }
+
+        sealed class WorktreeEntry
+        {
+            public string Project;
+            public Wire.Worktree Tree;
+        }
+
         static readonly List<Line> Lines = new List<Line>();
 
         // ------------------------------------------------------------------ drawing
@@ -128,25 +171,31 @@ namespace SlopWorld
                 _items = _items.Where(item => (_kind.Length == 0 || GroupKey(item) == _kind) &&
                     (item.Name.IndexOf(_query, StringComparison.OrdinalIgnoreCase) >= 0 ||
                      (item.Text ?? "").IndexOf(_query, StringComparison.OrdinalIgnoreCase) >= 0)).ToList();
+                BuildMainCategories();
                 _selected = _items.FirstOrDefault(item => Identity(item) == _selection);
+                var selectedMain = FindMainAction(_mainSelection);
+                if (selectedMain == null) _mainSelection = null;
                 float top = body.y + 2f * (UiTheme.FieldH + Pad) + Pad;
                 float available = Mathf.Max(0f, body.yMax - top);
-                float detailHeight = _selected == null ? 0f :
+                float detailHeight = _selected == null && selectedMain == null ? 0f :
                     Mathf.Min(RowH * 5f + UiTheme.FieldH * 2f + Pad * 4f,
                         Mathf.Max(0f, available - RowH * 2f));
                 _list = new Rect(body.x, top, body.width, Mathf.Max(0f, available - detailHeight));
                 if (_selected != null && detailHeight > 0f)
                     DrawDetails(new Rect(body.x + CellX, _list.yMax,
                         body.width - CellX * 2f, detailHeight), _selected);
+                else if (selectedMain != null && detailHeight > 0f)
+                    DrawMainDetails(new Rect(body.x + CellX, _list.yMax,
+                        body.width - CellX * 2f, detailHeight), selectedMain);
                 Group();
-                if (_items.Count == 0)
+                if (_items.Count == 0 && VisibleMainCategories.Count == 0)
                 {
                     _contentHeight = 0f;
                     Empty(_list);
                     return;
                 }
                 var list = _list;
-                if (_revealSelection && _selected != null)
+                if (_revealSelection)
                 {
                     float y = Pad;
                     foreach (var key in Order)
@@ -156,6 +205,17 @@ namespace SlopWorld
                         foreach (var item in Groups[key])
                         {
                             if (Identity(item) == _selection)
+                                _scroll.Reveal(y, RowH, list.height);
+                            y += RowH;
+                        }
+                    }
+                    foreach (var key in VisibleMainCategories)
+                    {
+                        y += HeadH;
+                        if (Folded.Contains(key)) continue;
+                        foreach (var action in MainCategories[key])
+                        {
+                            if (action.Key == _mainSelection)
                                 _scroll.Reveal(y, RowH, list.height);
                             y += RowH;
                         }
@@ -175,6 +235,8 @@ namespace SlopWorld
 
                     foreach (var key in Order)
                         y += DrawGroup(view, y, key, Groups[key]);
+                    foreach (var key in VisibleMainCategories)
+                        y += DrawMainCategory(view, y, key, MainCategories[key]);
                 }
             }
         }
@@ -219,55 +281,316 @@ namespace SlopWorld
             !Templates.ContainsKey(item) &&
             (item.Kind == LibraryItemKind.Prompt || item.Kind == LibraryItemKind.Shell);
 
-        public static void OpenQuickAccessMenu(Rect button)
+        static void BuildMainCategories()
         {
-            var options = new List<FloatMenuOption>
-            {
-                new UiSubmenu("Projects", () => ProjectOptions(false)),
-                new UiSubmenu("Worktrees", () => ProjectOptions(true)),
-                new FloatMenuOption("Sandbox presets...", () =>
-                    ModOptions.OpenCategory(ModOptions.CategoryFor(ModOptions.PageId.Sandbox))),
-                new FloatMenuOption("App presets...", () =>
-                    ModOptions.OpenCategory(ModOptions.CategoryFor(ModOptions.PageId.AppPresets))),
-            };
+            MainCategories.Clear();
+            VisibleMainCategories.Clear();
+            foreach (var key in MainCategoryOrder)
+                MainCategories[key] = new List<MainCategoryAction>();
 
-            TerminalWindow.OpenOverPane(new UiMenu(options,
-                new Vector2(button.x, button.yMax)));
-        }
+            string query = _query.Trim();
+            bool Matches(string value) => query.Length == 0 ||
+                (value ?? "").IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0;
 
-        static List<FloatMenuOption> ProjectOptions(bool worktrees)
-        {
-            var allProjects = SessionHub.Instance.Projects;
-            var projects = allProjects
+            var projects = SessionHub.Instance.Projects
                 .Where(project => AgentSidebar.Passes(project.Name))
                 .OrderBy(project => project.Name, StringComparer.OrdinalIgnoreCase)
                 .ToList();
-            var options = new List<FloatMenuOption>();
 
-            if (!worktrees)
-                options.Add(new FloatMenuOption("New project/workspace...", () =>
-                    TerminalWindow.OpenOverPane(new EditProjectDialog(null))));
-
-            if (projects.Count > 0)
+            if (MainCategoryEnabled("Projects"))
             {
-                if (options.Count > 0) options.Add(UiMenu.Separator());
                 foreach (var project in projects)
                 {
                     var captured = project;
-                    options.Add(new FloatMenuOption($"{captured.Name}  -  {captured.Dir}", () =>
-                        TerminalWindow.OpenOverPane(worktrees
-                            ? EditProjectDialog.ForWorktrees(captured)
-                            : new EditProjectDialog(captured))));
+                    AddMainAction(MainCategories["Projects"], "project:" + captured.Name,
+                        captured.Name, captured.Name + "  -  " + captured.Dir, Icons.Files,
+                        new[] { captured.Name, "Project", captured.Dir, ProjectsView.Summary(captured) },
+                        "Edit", () => TerminalWindow.OpenOverPane(new EditProjectDialog(captured)),
+                        "Worktrees", () => TerminalWindow.OpenOverPane(EditProjectDialog.ForWorktrees(captured)),
+                        () => ProjectMenu(captured),
+                        Matches("Projects") || Matches(captured.Name) || Matches(captured.Dir));
                 }
             }
-            else
+
+            if (MainCategoryEnabled("Worktrees"))
             {
-                options.Add(new FloatMenuOption(
-                    allProjects.Count > 0 && AgentSidebar.Filtering
-                        ? "(no projects in this filter)" : "(no projects)", null));
+                EnsureWorktrees(projects);
+                foreach (var project in projects)
+                {
+                    if (!WorktreesByProject.TryGetValue(project.Name, out var worktrees)) continue;
+                    foreach (var worktree in worktrees)
+                    {
+                        var captured = worktree;
+                        var tree = captured.Tree;
+                        string treeName = tree.Id == "main" ? "main" :
+                            string.IsNullOrEmpty(tree.Name) ? tree.Id : tree.Name;
+                        string label = captured.Project + "  ·  " + treeName;
+                        AddMainAction(MainCategories["Worktrees"],
+                            "worktree:" + captured.Project + ":" + tree.Id, label,
+                            label + "  -  " + tree.Path, Icons.Git,
+                            WorktreeDetails(captured), "Terminal",
+                            () => SessionHub.Instance.SessionStore.RunHostShell(captured.Project,
+                                name => TerminalWindow.Open(name), UiLayout.Fail, tree.Id),
+                            "Project", () => OpenProjectWorktrees(captured.Project),
+                            () => WorktreeMenu(captured),
+                            Matches("Worktrees") || Matches(captured.Project) ||
+                            Matches(treeName) || Matches(tree.Path) || Matches(tree.Branch));
+                    }
+                }
             }
 
-            return options;
+            if (MainCategoryEnabled("Sandbox presets"))
+            {
+                foreach (var preset in SessionHub.Instance.Presets
+                    .Where(preset => preset.Source != "system")
+                    .OrderBy(preset => preset.Name, StringComparer.OrdinalIgnoreCase))
+                {
+                    var captured = preset;
+                    string label = PresetLabel(captured.Name, captured.Source);
+                    AddMainAction(MainCategories["Sandbox presets"],
+                        "sandbox:" + captured.Name, label, captured.Description, Icons.Shield,
+                        SandboxDetails(captured), "Edit",
+                        () => ModOptions.OpenSandboxPreset(captured.Name),
+                        captured.Source == "override" ? "Reset" : "Remove",
+                        () => RemovePreset("sandbox_presets", captured), null,
+                        Matches("Sandbox presets") || Matches(captured.Name) ||
+                        Matches(captured.Description));
+                }
+            }
+
+            if (MainCategoryEnabled("App presets"))
+            {
+                foreach (var command in SessionHub.Instance.Commands
+                    .Where(command => command.Source != "system")
+                    .OrderBy(command => command.Name, StringComparer.OrdinalIgnoreCase))
+                {
+                    var captured = command;
+                    string label = PresetLabel(captured.Name, captured.Source);
+                    AddMainAction(MainCategories["App presets"],
+                        "app:" + captured.Name, label, captured.Description, Icons.Terminal,
+                        AppPresetDetails(captured), "Edit",
+                        () => ModOptions.OpenAppPreset(captured.Name),
+                        captured.Source == "override" ? "Reset" : "Remove",
+                        () => RemovePreset("app_presets", captured), null,
+                        Matches("App presets") || Matches(captured.Name) ||
+                        Matches(captured.Description) || Matches(captured.Cmd));
+                }
+            }
+
+            foreach (var key in MainCategoryOrder)
+                if (MainCategories[key].Count > 0) VisibleMainCategories.Add(key);
+        }
+
+        static bool MainCategoryEnabled(string key) => _kind.Length == 0 || _kind == key;
+
+        static void AddMainAction(List<MainCategoryAction> items, string key, string label,
+            string tooltip, Texture2D icon, IEnumerable<string> details, string primaryLabel,
+            Action primary, string secondaryLabel, Action secondary, Action more, bool include)
+        {
+            if (!include) return;
+            items.Add(new MainCategoryAction
+            {
+                Key = key,
+                Label = label,
+                Tooltip = tooltip,
+                Icon = icon,
+                Details = details.Where(detail => !string.IsNullOrEmpty(detail)).ToList(),
+                PrimaryLabel = primaryLabel,
+                Primary = primary,
+                SecondaryLabel = secondaryLabel,
+                Secondary = secondary,
+                More = more,
+            });
+        }
+
+        static void EnsureWorktrees(List<ProjectInfo> projects)
+        {
+            string key = SessionHub.Instance.Catalog.ProjectsRevision + "\n" +
+                string.Join("\n", projects.Select(project =>
+                    project.Name + "\t" + project.ExpandedDir).ToArray());
+            if (_worktreeRequestKey == key) return;
+
+            _worktreeRequestKey = key;
+            WorktreesByProject.Clear();
+            int generation = ++_worktreeGeneration;
+            foreach (var project in projects)
+            {
+                var captured = project;
+                DaemonClient.Get<Wire.WorktreesReply>(
+                    WireProtocol.Routes.Worktrees + "?project=" + Uri.EscapeDataString(captured.Name),
+                    reply =>
+                    {
+                        if (generation != _worktreeGeneration) return;
+                        var rows = reply.Worktrees.Select(tree => new WorktreeEntry
+                        {
+                            Project = captured.Name,
+                            Tree = tree,
+                        }).ToList();
+                        if (!rows.Any(row => row.Tree.Id == "main"))
+                            rows.Insert(0, new WorktreeEntry
+                            {
+                                Project = captured.Name,
+                                Tree = new Wire.Worktree
+                                {
+                                    Id = "main", Name = "main", Path = captured.ExpandedDir,
+                                    Phase = "ready"
+                                }
+                            });
+                        WorktreesByProject[captured.Name] = rows
+                            .OrderBy(row => row.Tree.Id == "main" ? 0 : 1)
+                            .ThenBy(row => row.Tree.Name, StringComparer.OrdinalIgnoreCase)
+                            .ToList();
+                    },
+                    error =>
+                    {
+                        if (generation == _worktreeGeneration)
+                            WorktreesByProject[captured.Name] = new List<WorktreeEntry>();
+                    }, TaskInfo.Host, 60000);
+            }
+        }
+
+        static MainCategoryAction FindMainAction(string key)
+        {
+            if (string.IsNullOrEmpty(key)) return null;
+            foreach (var category in VisibleMainCategories)
+            {
+                var action = MainCategories[category].FirstOrDefault(item => item.Key == key);
+                if (action != null) return action;
+            }
+            return null;
+        }
+
+        static string PresetLabel(string name, string source) =>
+            name + (source == "override" ? "  (override)" : "");
+
+        static List<string> SandboxDetails(PresetInfo preset)
+        {
+            var details = new List<string>
+            {
+                preset.Name,
+                "Sandbox preset · " + SourceName(preset.Source),
+            };
+            if (!string.IsNullOrEmpty(preset.Description)) details.Add(preset.Description);
+            if (preset.Requires.Count > 0)
+                details.Add("Requires: " + string.Join(", ", preset.Requires.ToArray()));
+            if (preset.Gives.Count > 0)
+                details.Add("Provides: " + string.Join(", ", preset.Gives.ToArray()));
+            return details;
+        }
+
+        static List<string> AppPresetDetails(CommandInfo command)
+        {
+            var details = new List<string>
+            {
+                command.Name,
+                "App preset · " + SourceName(command.Source),
+            };
+            if (!string.IsNullOrEmpty(command.Description)) details.Add(command.Description);
+            details.Add("Kind: " + (string.IsNullOrEmpty(command.Kind) ? "agent" : command.Kind));
+            if (!string.IsNullOrEmpty(command.Cmd)) details.Add("Command: " + command.Cmd);
+            if (command.Sandbox.Count > 0)
+                details.Add("Sandbox: " + string.Join(", ", command.Sandbox.ToArray()));
+            return details;
+        }
+
+        static string SourceName(string source) => source == "override" ? "user override" : "user";
+
+        static List<string> WorktreeDetails(WorktreeEntry entry)
+        {
+            var tree = entry.Tree;
+            var details = new List<string>
+            {
+                tree.Id == "main" ? "main" : tree.Name,
+                "Worktree · " + entry.Project,
+                "Phase: " + (string.IsNullOrEmpty(tree.Phase) ? "unknown" : tree.Phase),
+            };
+            if (!string.IsNullOrEmpty(tree.Branch)) details.Add("Branch: " + tree.Branch);
+            else details.Add("Branch: detached");
+            if (!string.IsNullOrEmpty(tree.Path)) details.Add(tree.Path);
+            if (!string.IsNullOrEmpty(tree.Head)) details.Add("HEAD: " + tree.Head);
+            if (tree.Attachments.Count > 0)
+                details.Add("Attached: " + string.Join(", ", tree.Attachments.ToArray()));
+            if (!string.IsNullOrEmpty(tree.Error)) details.Add(tree.Error);
+            return details;
+        }
+
+        static void OpenProjectWorktrees(string project)
+        {
+            var info = SessionHub.Instance.Catalog.Project(project);
+            if (info != null) TerminalWindow.OpenOverPane(EditProjectDialog.ForWorktrees(info));
+        }
+
+        static void ProjectMenu(ProjectInfo project)
+        {
+            var options = new List<FloatMenuOption>
+            {
+                new FloatMenuOption("Edit...", () =>
+                    TerminalWindow.OpenOverPane(new EditProjectDialog(project))),
+                new FloatMenuOption("Duplicate...", () =>
+                    TerminalWindow.OpenOverPane(EditProjectDialog.Copy(project))),
+                new FloatMenuOption("Worktrees...", () => OpenProjectWorktrees(project.Name)),
+                new FloatMenuOption("Terminal (host)", () =>
+                    SessionHub.Instance.SessionStore.RunHostShell(project.Name,
+                        name => TerminalWindow.Open(name), UiLayout.Fail)),
+                new FloatMenuOption("Delete", () => TerminalWindow.OpenOverPane(
+                    CatalogActions.RemoveProject(project.Name))),
+            };
+            TerminalWindow.OpenOverPane(new UiMenu(options));
+        }
+
+        static void WorktreeMenu(WorktreeEntry entry)
+        {
+            var tree = entry.Tree;
+            var options = new List<FloatMenuOption>
+            {
+                new FloatMenuOption("Terminal", () =>
+                    SessionHub.Instance.SessionStore.RunHostShell(entry.Project,
+                        name => TerminalWindow.Open(name), UiLayout.Fail, tree.Id)),
+                new FloatMenuOption("Project", () => OpenProjectWorktrees(entry.Project)),
+            };
+            if (tree.Id != "main")
+                options.Add(new FloatMenuOption("Remove", () => RemoveWorktree(entry)));
+            TerminalWindow.OpenOverPane(new UiMenu(options));
+        }
+
+        static void RemoveWorktree(WorktreeEntry entry)
+        {
+            if (entry.Tree.Attachments.Count > 0) return;
+            TerminalWindow.OpenOverPane(ConfirmDialog.Create(
+                "Remove worktree '" + entry.Tree.Name + "'? Managed files are removed; " +
+                "unmanaged files are only unregistered.",
+                () =>
+                {
+                    _worktreeRequestKey = null;
+                    DaemonClient.Send<Wire.Ack>("DELETE",
+                        WireProtocol.Routes.Worktrees + "/" + Uri.EscapeDataString(entry.Tree.Id) +
+                        "?project=" + Uri.EscapeDataString(entry.Project), null,
+                        _ => { }, UiLayout.Fail, TaskInfo.Host, 60000);
+                }, destructive: true));
+        }
+
+        static void RemovePreset(string kind, PresetInfo preset)
+        {
+            string message = preset.Source == "override"
+                ? "Reset this user override and return to the system preset?"
+                : "Remove this user preset?";
+            TerminalWindow.OpenOverPane(ConfirmDialog.Create(message, () =>
+                SessionHub.Instance.Catalog.RemovePreset(kind, preset.Name, () =>
+                {
+                    _mainSelection = null;
+                }, UiLayout.Fail), destructive: true));
+        }
+
+        static void RemovePreset(string kind, CommandInfo command)
+        {
+            string message = command.Source == "override"
+                ? "Reset this user override and return to the system preset?"
+                : "Remove this user preset?";
+            TerminalWindow.OpenOverPane(ConfirmDialog.Create(message, () =>
+                SessionHub.Instance.Catalog.RemovePreset(kind, command.Name, () =>
+                {
+                    _mainSelection = null;
+                }, UiLayout.Fail), destructive: true));
         }
 
         static void Edit(LibraryItemInfo item)
@@ -346,6 +669,42 @@ namespace SlopWorld
                 Menu(item);
         }
 
+        static void DrawMainDetails(Rect r, MainCategoryAction action)
+        {
+            Slab.Hairline(new Rect(r.x, r.y, r.width, 1f), UiTheme.Edge);
+            float actionsH = UiTheme.FieldH * 2f + Pad;
+            float y = r.y + Pad;
+            float textBottom = r.yMax - actionsH - Pad;
+            using (WidgetState.Save())
+            {
+                Text.Font = GameFont.Tiny;
+                Text.Anchor = TextAnchor.MiddleLeft;
+                foreach (var line in action.Details)
+                {
+                    if (y + RowH > textBottom) break;
+                    UiText.RowLabel(new Rect(r.x, y, r.width, RowH), OneLine(line));
+                    y += RowH;
+                }
+                TooltipHandler.TipRegion(new Rect(r.x, r.y, r.width,
+                    Mathf.Max(0f, textBottom - r.y)), string.Join("\n", action.Details.ToArray()));
+            }
+            if (r.height < actionsH + Pad * 2f) return;
+
+            float moreW = action.More == null ? 0f : UiTheme.FieldH;
+            float secondaryW = Mathf.Max(0f, r.width - moreW - (moreW > 0f ? Pad : 0f));
+            var primary = new Rect(r.x, r.yMax - actionsH - Pad, r.width, UiTheme.FieldH);
+            if (UiButtons.Button(primary, action.PrimaryLabel ?? "Open", UiTheme.Btn.Primary))
+                action.Primary?.Invoke();
+
+            var secondary = new Rect(r.x, primary.yMax + Pad, secondaryW, UiTheme.FieldH);
+            if (action.Secondary != null && UiButtons.Button(secondary,
+                    action.SecondaryLabel ?? "More", UiTheme.Btn.Ghost))
+                action.Secondary();
+            if (action.More != null && UiButtons.Button(
+                    new Rect(r.xMax - moreW, secondary.y, moreW, secondary.height), "…"))
+                action.More();
+        }
+
         static float DrawGroup(Rect view, float y, string key, List<LibraryItemInfo> bucket)
         {
             float start = y;
@@ -358,6 +717,22 @@ namespace SlopWorld
                 {
                     var row = new Rect(0f, y, view.width, RowH);
                     y += DrawLibraryRow(view, row, item);
+                }
+            return y - start;
+        }
+
+        static float DrawMainCategory(Rect view, float y, string key,
+            List<MainCategoryAction> actions)
+        {
+            float start = y;
+            bool folded = Folded.Contains(key);
+            var headRect = new Rect(0f, y, view.width, HeadH);
+            y += DrawHeading(view, headRect, key, key, actions.Count, folded);
+            if (!folded)
+                foreach (var action in actions)
+                {
+                    var row = new Rect(0f, y, view.width, RowH);
+                    y += DrawMainActionRow(view, row, action);
                 }
             return y - start;
         }
@@ -418,6 +793,25 @@ namespace SlopWorld
             return RowH;
         }
 
+        static float DrawMainActionRow(Rect view, Rect r, MainCategoryAction action)
+        {
+            RowChrome.Hover(r, action.Key == _mainSelection, true, RowHoverPolicy.OverlayAware);
+            using (WidgetState.Save())
+            {
+                Text.Font = GameFont.Tiny;
+                Text.Anchor = TextAnchor.MiddleLeft;
+                GUI.color = action.Primary == null ? UiTheme.Faint : UiTheme.Dim;
+                GUI.DrawTexture(new Rect(CellX, r.y + (RowH - ArrowW) / 2f, ArrowW, ArrowW),
+                    action.Icon);
+                GUI.color = action.Primary == null ? UiTheme.Faint : UiTheme.Lead;
+                UiText.RowLabel(new Rect(CellX + ArrowW + Pad, r.y,
+                    Mathf.Max(0f, r.width - CellX * 2f - ArrowW - Pad), RowH), action.Label);
+            }
+            TooltipHandler.TipRegion(r, action.Tooltip);
+            Lines.Add(new Line { MainAction = action, Rect = Screen(r) });
+            return RowH;
+        }
+
         // The height the rows want, measured off the same folds the draw reads.
         static float Measure()
         {
@@ -426,6 +820,11 @@ namespace SlopWorld
             {
                 h += HeadH;
                 if (!Folded.Contains(key)) h += Groups[key].Count * RowH;
+            }
+            foreach (var key in VisibleMainCategories)
+            {
+                h += HeadH;
+                if (!Folded.Contains(key)) h += MainCategories[key].Count * RowH;
             }
             return h + Pad;
         }
@@ -510,8 +909,30 @@ namespace SlopWorld
                     return;
                 }
 
+                if (line.Item == null)
+                {
+                    if (e.button == 0 && line.MainAction != null)
+                    {
+                        _mainSelection = line.MainAction.Key;
+                        _selection = null;
+                        _selected = null;
+                        _revealSelection = true;
+                    }
+                    if (e.button == 1 && line.MainAction?.More != null)
+                    {
+                        _mainSelection = line.MainAction.Key;
+                        _selection = null;
+                        _selected = null;
+                        _revealSelection = true;
+                        line.MainAction.More();
+                    }
+                    e.Use();
+                    return;
+                }
+
                 _selected = line.Item;
                 _selection = Identity(line.Item);
+                _mainSelection = null;
                 _revealSelection = true;
                 AgentSidebar.RememberLibrary(line.Item.Name, Templates.ContainsKey(line.Item));
                 if (e.button == 1) Menu(line.Item);
@@ -642,11 +1063,19 @@ namespace SlopWorld
                 : SessionHub.Instance.Library.Any(candidate => candidate.Name == name && !candidate.Builtin);
             if (!exists) return false;
             _selection = (template ? "template:" : "item:") + name;
+            _mainSelection = null;
             _revealSelection = true;
             _query = "";
             _kind = "";
             Folded.Clear();
             return true;
+        }
+
+        public static void FilterChanged()
+        {
+            _worktreeRequestKey = null;
+            _mainSelection = null;
+            _scroll.JumpTo(Vector2.zero);
         }
     }
 }
