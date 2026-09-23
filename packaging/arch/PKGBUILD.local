@@ -88,14 +88,15 @@ package() {
   install -Dm755 target/release/slopctl "$pkgdir/usr/bin/slopctl"
   install -Dm755 target/release/slopworld "$pkgdir/usr/bin/slopworld"
 
-  # The shipped unit runs the binary out of ~/.local/bin, which is where `make
-  # install-daemon` puts it; a packaged one lives on PATH.
+  # The unit in the source tree runs the binary from ~/.local/bin.
+  # The package installs the binary on PATH.
   install -Dm644 slopd/slopd.service "$pkgdir/usr/lib/systemd/user/slopd.service"
   sed -i 's|%h/.local/bin/slopd|/usr/bin/slopd|' \
     "$pkgdir/usr/lib/systemd/user/slopd.service"
 
-  # RimWorld only loads mods from under its own install, which is not ours to
-  # write to. Staged here; the install hook prints the user-owned link command.
+  # RimWorld loads mods only from its installation directory.
+  # Stage the mod here because the package must not write to that directory.
+  # The install hook prints the link command for the user.
   local _mod="$pkgdir/usr/share/slopworld/SlopWorld"
   install -d "$_mod"
   cp -r mod/{About,Defs,Patches,Sounds,Textures,Assemblies} "$_mod/"

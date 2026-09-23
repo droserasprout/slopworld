@@ -2,13 +2,13 @@
 
 # SlopWorld
 
-RimWorld with colonists replaced by coding agents running in tmux.
+SlopWorld replaces RimWorld colonists with coding agents. Each agent operates in a tmux session.
 
 See the [requirements](docs/src/requirements.md), [installation](docs/src/install.md),
 [macOS](docs/src/guides/macos.md), and [sidecar worker](docs/src/guides/sidecar.md) guides
-for setup details.
+for setup instructions.
 
-## Linux quickstart
+## Linux installation
 
 ```sh
 git clone https://github.com/droserasprout/slopworld.git
@@ -19,4 +19,4 @@ slopworld
 
 `RIMWORLD` defaults to `~/GOG Games/RimWorld/game`. Run `make gogdl-login gogdl-install` to install a GOG copy.
 
-Always launch with `slopworld`; launching RimWorld directly bypasses SlopWorld's isolated profile.
+Always start the game with `slopworld`. If you start RimWorld directly, it does not use the separate SlopWorld profile.

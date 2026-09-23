@@ -6,9 +6,9 @@ MAKE_BIN := $(MAKE)
 #
 ##  🤖 SlopWorld developer tools
 #
-##  RIMWORLD must point at a real install; the mod builds against the game's
-##  own assemblies. PROFILE picks the save data folder `run` launches into.
-##  BUILD is debug or release and every target follows it, install included:
+##  RIMWORLD must identify a real game installation. The mod uses its assemblies.
+##  PROFILE selects the save data folder for `run`.
+##  BUILD is debug or release. It applies to every target, including install:
 ##  `make BUILD=release install`.
 #
 

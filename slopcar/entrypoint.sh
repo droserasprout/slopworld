@@ -21,7 +21,7 @@ for path in "$config" "$data"; do
 done
 
 if [ ! -f "$config/config.toml" ]; then
-    echo "slopcar: missing $config/config.toml; create the container with the host launcher" >&2
+    echo "slopcar: missing $config/config.toml. Create the container with the host launcher." >&2
     exit 1
 fi
 

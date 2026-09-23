@@ -1,8 +1,9 @@
 # slopcar
 
 `slopcar` packages the Linux daemon, tmux, Bubblewrap, pasta, and bundled agent CLIs
-in a Debian container. The base supports amd64 and arm64; sandbox construction
-uses the container's usr-merge layout at runtime.
+in a Debian container.
+The base supports amd64 and arm64.
+Sandbox construction uses the container's usr-merge layout at runtime.
 
 For setup, workspace and credential mounts, client connection, and lifecycle, see
 the [sidecar guide](../docs/src/guides/sidecar.md). Native macOS game setup is in
@@ -10,10 +11,15 @@ the [macOS guide](../docs/src/guides/macos.md).
 
 ## Outer isolation
 
-The container runs as uid 1000 with every capability dropped, a read-only root filesystem and one
-outer memory/CPU/PID budget. Nested user/mount/network namespaces need three deliberate exceptions:
-the `seccomp.json` allowlist, Docker's `systempaths=unconfined`, and `/dev/net/tun`. `doctor`
-exercises Bubblewrap and pasta together under exactly those flags. Bubblewrap cannot create
+The container runs as UID 1000 with no capabilities and a read-only root filesystem.
+One outer set of memory, CPU, and PID limits applies to the container.
+Nested user, mount, and network namespaces require three deliberate exceptions:
+
+- The `seccomp.json` allowlist.
+- Docker's `systempaths=unconfined`.
+- `/dev/net/tun`.
+
+`doctor` checks Bubblewrap and pasta together with exactly those flags. Bubblewrap cannot create
 its nested user namespace under Docker's `no-new-privileges`, so that option is intentionally not
 set.
 

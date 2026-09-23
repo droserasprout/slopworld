@@ -3,7 +3,7 @@
  *
  * Fires a cheap OpenRouter model to summarise the first message into <=6 words
  * and calls both `pi.setSessionName()` and `ctx.ui.setTitle()`.  The session
- * name persists the summary in pi's session state so it survives restarts;
+ * name persists the summary in pi's session state so it survives restarts.
  * `setTitle` then overrides the window/tab title to just the summary (without
  * the `π -` prefix or project postfix pi would normally add).
  * Fire-and-forget: the agent starts immediately, the title arrives a beat later.
@@ -110,7 +110,7 @@ async function nameFromPrompt(
 			// Persist the summary in pi's session state so it survives
 			// across daemon/game restarts.  pi.setSessionName() fires
 			// session_info_changed which triggers updateTerminalTitle()
-			// setting the title to "π - summary - project"; the
+			// setting the title to "π - summary - project". The
 			// ctx.ui.setTitle() call below overrides it to just the
 			// clean summary, so the window/tab title shows only what
 			// the summariser produced.
