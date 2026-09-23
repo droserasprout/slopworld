@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Wrapped, like every operation of ours that rewrites a def the base game
-  shipped: outside a SlopWorld profile it is not applied at all. See
+  This operation changes base game definitions only inside a SlopWorld profile.
+  All SlopWorld operations that change base game definitions use this wrapper. See
   Source/SlopWorld/Bootstrap/ModProfile.cs.
 -->
 <Patch>

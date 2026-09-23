@@ -6,5 +6,5 @@ the game's Unity Mono runtime. The standalone IPC benchmark runs the same codec 
 
 The shipped System.Memory, System.Buffers, System.Numerics.Vectors and
 System.Runtime.CompilerServices.Unsafe versions come from `packages.lock.json`.
-Corresponding licenses are included beside the assemblies. Json.NET remains because the
-external SongRec integration consumes JSON; it is no longer part of the daemon IPC client.
+The corresponding licenses are beside the assemblies. Json.NET remains because the
+external SongRec integration uses JSON. The daemon IPC client no longer uses Json.NET.

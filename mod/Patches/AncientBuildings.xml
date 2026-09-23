@@ -1,25 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Ruins, handed a frame.
+  The base game uses racks, monitor banks, and lamps as scenery placed by map generation.
+  Players cannot normally build them.
+  BuildableDef.BuildableByPlayer tests designationCategory != null.
+  A non-null category thus permits blueprint and frame creation, which makes these definitions available to Worksite.
 
-  Vanilla's machine kit - the racks, the monitor banks, the lamps - is all
-  scenery: it is dropped onto maps by the generator and no player ever builds
-  it. A def gets a blueprint and a frame if and only if BuildableDef
-  BuildableByPlayer is literally "designationCategory != null", which is the
-  only condition separating Worksite from a server rack. The category
-  itself never shows: the Architect button is stripped and the two roads into
-  its menu are gated on the same Visible the bar reads.
+  The category remains hidden. SlopWorld removes the Architect button.
+  Both paths into its menu use the same Visible condition as the bar.
 
-  They are the right shape for this map in a way nothing player-buildable is.
-  They cost nothing and want no stuff, so a frame is ready the tick it is
-  placed; they ask for no construction skill, so every agent that lands can
-  raise one; and they arrive already ruined, which is what a machine told
-  nothing about what for builds when it copies the world it came out of.
+  These ruined structures provide the intended appearance for this map.
+  They have no cost or stuff requirement, so their frames are ready on the placement tick.
+  They require no construction skill, so every arriving agent can build them.
 
-  Wrapped, like every operation of ours that rewrites a def the base game
-  shipped: outside a SlopWorld profile it is not applied at all - the Architect
-  menu that stays stripped here is a menu somebody else still uses. See
-  Source/SlopWorld/Bootstrap/ModProfile.cs.
+  This operation changes base game definitions only inside a SlopWorld profile.
+  Other profiles retain their original Architect menu behavior.
+  See Source/SlopWorld/Bootstrap/ModProfile.cs.
 -->
 <Patch>
   <Operation Class="SlopWorld.PatchOperationInProfile">
@@ -39,10 +34,10 @@
       </li>
 
       <!--
-        The ancient machine is Impassable and only half-filling, and ThingDef
-        ConfigErrors calls that combination an error the moment a def becomes
-        player-buildable - a wall you can shoot over. Nothing on this map shoots.
-      -->
+        AncientMachine is Impassable but fills only half its cell.
+        ThingDef.ConfigErrors rejects this combination for a player-buildable definition because shots can pass over it.
+        This map does not use shooting, so disable that configuration error.
+-->
       <li Class="PatchOperationAdd">
         <xpath>/Defs/ThingDef[defName='AncientMachine']</xpath>
         <value>

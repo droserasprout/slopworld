@@ -2,19 +2,18 @@
 <Defs>
 
   <!--
-    Every cloud on this map, modelled on Fleck_ToxGasSmall. Smoke is the wrong def:
-    it is solid for six seconds and fades for another three, so a tint on it leaves
-    hard colored decals lying about the map instead of a haze passing over it.
+    All map clouds use this definition, modeled on Fleck_ToxGasSmall.
+    Smoke stays solid for six seconds, then fades for three seconds.
+    Tinting Smoke leaves distinct colored marks instead of moving haze.
 
-    The color lives here rather than in FleckCreationData.instanceColor because
-    alpha is the whole point: instanceColor is combined with a separately computed
-    fade alpha, where graphicData's is baked into the material. That is also why
-    the plague's hue is three defs below rather than a roll on one - a color this
-    side of the fence can only vary by being another def.
+    Set color in graphicData rather than FleckCreationData.instanceColor to preserve alpha in the material.
+    instanceColor combines with a separately calculated fade alpha.
+    graphicData includes alpha in the material itself.
+    Color variation here therefore requires separate definitions, which supply the three plague hues below.
 
-    The rise is gentle for the same reason the flecks are slow (PlagueFx): the
-    acceleration is what carries a cloud up-map, and a haze that climbs faster than
-    it spreads reads as exhaust.
+    Keep the rise gradual, consistent with the slow flecks in PlagueFx.
+    Acceleration moves clouds toward the top of the map.
+    Haze that rises faster than it spreads looks like exhaust.
   -->
   <FleckDef Name="SlopGasBase" ParentName="FleckBase_Thrown" Abstract="True">
     <altitudeLayer>MoteOverhead</altitudeLayer>
@@ -29,7 +28,7 @@
     </graphicData>
   </FleckDef>
 
-  <!-- The plague's tell, and the middle of its three hues. -->
+  <!-- The plague indicator uses the middle of its three hues. -->
   <FleckDef ParentName="SlopGasBase">
     <defName>SlopPlagueGas</defName>
     <graphicData>
@@ -38,10 +37,9 @@
   </FleckDef>
 
   <!--
-    The other two, rolled per cloud rather than per fleck: a puff is one shade and
-    the map is three, which is the difference between a color that shimmers and
-    weather that varies. Both sit within a hand's width of the first - the spread
-    has to read as the same gas seen twice, not as a second thing arriving.
+    Select the other two hues per cloud, not per fleck.
+    Each cloud has one shade. The map has three shades without color shimmer inside a cloud.
+    Keep both hues close to the first so they appear to be the same gas, not a separate effect.
   -->
   <FleckDef ParentName="SlopGasBase">
     <defName>SlopPlagueGasDeep</defName>
@@ -58,11 +56,11 @@
   </FleckDef>
 
   <!--
-    The cat's tell: deliberately the same cloud in the other color, so the two
-    read as one weather with two directions. A cleaning mote would say a chore was
-    done, where this has to say what the violet says. Paler, the aura being a
-    handful of cells against a circle that eats the map. One hue, not three: it
-    only ever puts up one puff at a time.
+    The cat indicator uses the same cloud shape with a different color.
+    Both effects must look like related weather with opposite effects.
+    A cleaning mote would imply a completed task instead of an ongoing field.
+    Use a paler color because the cat aura covers only a few cells while the plague expands across the map.
+    One hue is sufficient because the cat produces only one cloud at a time.
   -->
   <FleckDef ParentName="SlopGasBase">
     <defName>SlopCleanAir</defName>

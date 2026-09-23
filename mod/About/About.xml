@@ -3,9 +3,9 @@
   <packageId>drsr.slopworld</packageId>
   <name>SlopWorld</name>
   <author>droserasprout</author>
-  <description>Strips the colony sim. Each colonist is a live AI coding agent session running in tmux under bubblewrap, managed by the slopd daemon. Select a colonist and open their terminal.
+  <description>Disables the colony simulation. Each colonist represents a live AI coding agent session. The slopd daemon manages these sessions in tmux under bubblewrap. Select a colonist. Open its terminal.
 
-Requires slopd running on the host (systemd user service).</description>
+The mod requires slopd on the host as a systemd user service.</description>
   <supportedVersions>
     <li>1.6</li>
   </supportedVersions>

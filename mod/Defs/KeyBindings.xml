@@ -113,8 +113,8 @@
     <defaultKeyCodeA>L</defaultKeyCodeA>
   </KeyBindingDef>
 
-  <!-- In and out of the terminal from anywhere. F12 because vanilla spends
-       nothing on it; see TerminalHotkeys.cs. -->
+  <!-- F12 opens or closes the terminal from anywhere. The base game does not use F12.
+       See TerminalHotkeys.cs. -->
   <KeyBindingDef>
     <defName>SlopQuickTerminal</defName>
     <label>Open/close agent terminal</label>
@@ -130,8 +130,8 @@
     <defaultKeyCodeA>F11</defaultKeyCodeA>
   </KeyBindingDef>
 
-  <!-- F1 through F6: focus the sidebar views in their left-to-right order. Bare key = sidebar;
-       Shift+F = that F-key passes through to the agent/tui. -->
+  <!-- F1 through F6 focus sidebar views in their left-to-right order.
+       Without Shift, the key selects the sidebar view. Shift sends the F-key to the agent TUI. -->
   <KeyBindingDef>
     <defName>SlopSidebarAgents</defName>
     <label>Sidebar: agents view</label>
