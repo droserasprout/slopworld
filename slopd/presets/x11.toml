@@ -1,9 +1,8 @@
-# $XAUTHORITY as well as the classic path: Xwayland writes the cookie under
-# $XDG_RUNTIME_DIR under a name of its own and leaves ~/.Xauthority absent. Made once per
-# login, so bound by name rather than by directory.
+# Include $XAUTHORITY because Xwayland stores its cookie under $XDG_RUNTIME_DIR and can leave ~/.Xauthority absent.
+# The cookie file is created once per login, so mount the file directly.
 [[sandbox]]
 name = "x11"
-description = "X11 display, for anything that opens or reads a window"
-escapes = "every X client shares one input stream: this can read other windows and type into them"
+description = "X11 display access"
+escapes = "The sandbox can read other X11 windows and send input to them"
 ro = ["/tmp/.X11-unix", "~/.Xauthority", "$XAUTHORITY"]
 env = ["DISPLAY", "XAUTHORITY"]

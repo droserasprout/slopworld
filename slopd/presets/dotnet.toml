@@ -1,10 +1,10 @@
-# NuGet.Config and the plugins beside it name credential-provider executables that the host's
-# next restore runs, so both stay read-only.
+# NuGet.Config and its adjacent plugins specify credential-provider executables for host restore operations.
+# Keep both paths read-only.
 [[sandbox]]
 name = "dotnet"
-description = ".NET CLI state and NuGet configuration, one copy per session"
+description = "Private .NET CLI state and read-only NuGet configuration"
 ro = ["~/.nuget/NuGet/NuGet.Config", "~/.nuget/plugins"]
-# A copy because ~/.dotnet/tools holds executables on the user's own PATH.
+# Use a private copy because ~/.dotnet/tools contains executables on the host user PATH.
 private = ["~/.dotnet"]
-# DOTNET_CLI_HOME and NUGET_PACKAGES are omitted because each relocates a path bound here.
+# Omit DOTNET_CLI_HOME and NUGET_PACKAGES because each changes a path that this preset mounts.
 env = ["DOTNET_ROOT"]

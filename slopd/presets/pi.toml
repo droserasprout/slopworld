@@ -1,14 +1,11 @@
-# Private for the same reason `claude` is.
-#
-# `agent/` is the whole of pi's state - the model selection in `models-store.json`, what it
-# trusts, and 21MB of session transcripts under `sessions/`. Seeded whole and cut back, rather
-# than named file by file: the first attempt here guessed at `agents`, `extensions` and
-# `prompts`, none of which pi has ever made, and the agent came up having forgotten which model
-# it was. What is left out is the transcripts, which are the one thing a session should not
-# inherit from the user or from its predecessor anyway.
+# Use private state for each session, as for the Claude preset.
+# `agent/` contains model selection in `models-store.json`, trust settings, and transcripts in `sessions/`.
+# Copy the directory, then exclude transcripts.
+# Selecting individual files previously omitted model settings.
+# A new session must not inherit transcripts from the user or a previous session.
 [[sandbox]]
 name = "pi"
-description = "pi coding agent's own state, config and credentials, one copy per session"
+description = "Private pi state, configuration, and credentials for each session"
 private = ["~/.pi"]
 seed = ["~/.pi/agent"]
 skip = ["~/.pi/agent/sessions"]

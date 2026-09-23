@@ -1,7 +1,7 @@
-# This is intentionally the socket, not ~/.gnupg: the latter also holds private keys.
-# If gpg-agent restarts, restart the sandbox session too: a socket bind pins its inode.
+# Mount only the socket. The ~/.gnupg directory also contains private keys.
+# Restart the sandbox session if gpg-agent restarts because the socket mount retains its inode.
 [[sandbox]]
 name = "gpg-agent"
 description = "host GnuPG agent socket"
-escapes = "the agent signs or decrypts with keys this sandbox never holds"
+escapes = "The sandbox can request signatures and decryption with host GnuPG keys. It does not receive the keys"
 rw = ["~/.gnupg/S.gpg-agent"]

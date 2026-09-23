@@ -1,5 +1,5 @@
 [[sandbox]]
 name = "git"
-description = "global git identity and config"
+description = "Global Git identity and configuration"
 ro = ["~/.gitconfig", "~/.config/git"]
 env = ["GIT_AUTHOR_NAME", "GIT_AUTHOR_EMAIL", "EMAIL"]

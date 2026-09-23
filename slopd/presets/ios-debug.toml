@@ -3,9 +3,9 @@ name = "ios-debug"
 description = "iOS simulator and connected-device debugging"
 requires = ["ios-dev"]
 # CoreSimulator state is writable because booted devices, app data and logs are mutable. The
-# USB path is present for Linux workers that expose a compatible device bridge; native macOS
+# USB path is present for Linux workers that expose a compatible device bridge. Native macOS
 # workers use the platform's device service instead.
 rw = ["~/Library/Developer/CoreSimulator", "~/Library/Logs/CoreSimulator"]
 ro = ["/proc", "/sys", "/run/udev", "~/Library/Logs/DiagnosticReports"]
 dev = ["/dev/bus/usb"]
-escapes = "can inspect and control host iOS simulators and connected devices"
+escapes = "The sandbox can inspect and control host iOS simulators and connected devices"

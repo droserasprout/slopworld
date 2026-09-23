@@ -12,12 +12,12 @@ requires = [
     "nuget-cache",
     "ccache",
     "python",
-    # The macOS sidecar (slopcar) is a Docker container; debugging it means building, running and
+    # The macOS sidecar (slopcar) is a Docker container. Debugging it means building, running and
     # exec-ing into it, which needs the host Docker socket.
     "docker",
 ]
-# This is deliberately writable: the debug agent may build/install the mod, run the game and
-# edit the SlopWorld profile. The ordinary project directory is writable separately by design.
+# These paths are writable so the debug agent can build and install the mod, run the game, and edit the profile.
+# The project directory has separate write access.
 rw = [
     "$SLOPWORLD_PROFILE",
     "$XDG_DATA_HOME/slopworld/profile",
@@ -33,7 +33,7 @@ rw = [
     "~/.local/bin",
     "~/.config/systemd/user",
     # A slopcar sidecar running beside the native daemon keeps its host-side config, endpoint
-    # descriptor and session state under the documented "-car" coexistence dirs; bind them so the
+    # descriptor and session state under the documented "-car" coexistence dirs. Bind them so the
     # debug agent can read the token/url and inspect or reset the sidecar's sessions. Skipped when
     # absent, so this costs nothing when no sidecar is in use.
     "~/.config/slopworld-car",
@@ -41,8 +41,8 @@ rw = [
     # sidecar state root, so its saves and settings survive the debug agent sandbox.
     "~/.local/share/slopworld-car",
 ]
-# Desktop metadata lets gio/GTK reproduce the host application's associations and chooser.
-# /proc and /sys are host diagnostics; /run/udev lets graphics/device enumeration work.
+# Desktop metadata lets gio and GTK use host application associations and the file chooser.
+# /proc and /sys provide host diagnostics. /run/udev supports graphics and device enumeration.
 ro = [
     "/proc",
     "/sys",
@@ -62,12 +62,12 @@ ro = [
     "~/.config/gtk-3.0",
     "~/.config/gtk-4.0",
 ]
-# Bind the daemon's configured tmux socket, not the user's other tmux servers.
+# Bind the daemon's configured tmux socket. Exclude other host tmux servers.
 tmux = true
-# Bind config.toml and endpoint.toml for connection diagnostics. This is a generated,
-# read-only exception to the ordinary preset path guard.
+# Bind config.toml and endpoint.toml read-only for connection diagnostics.
+# This generated mount is an exception to the ordinary preset path restriction.
 daemon_config = true
-escapes = "can modify the host game/profile, read and control host terminals, share displays and devices, expose host processes, control the host Docker daemon, and talk to desktop/systemd services"
+escapes = "The sandbox can modify host game files and profiles, read and control host terminals, and access displays, devices, and host processes. It can also control the host Docker daemon and communicate with desktop and systemd services"
 env = [
     "SLOPWORLD_PROFILE",
     "SLOPWORLD_GAME",
@@ -91,7 +91,6 @@ env = [
     "XDG_RUNTIME_DIR",
 ]
 
-# Any slopd/slopctl the agent runs by hand prints a full panic backtrace instead of a bare
-# "note run with RUST_BACKTRACE=1" line.
+# Manually started slopd and slopctl processes print full panic backtraces.
 [sandbox.setenv]
 RUST_BACKTRACE = "1"

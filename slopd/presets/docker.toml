@@ -1,6 +1,6 @@
 [[sandbox]]
 name = "docker"
-description = "the Docker daemon's socket"
-escapes = "the daemon runs as root on the host, and a container can be asked for all of it"
+description = "Host Docker daemon socket"
+escapes = "The host Docker daemon runs as root. Containers can request full host access"
 rw = ["/var/run/docker.sock"]
 env = ["DOCKER_HOST"]

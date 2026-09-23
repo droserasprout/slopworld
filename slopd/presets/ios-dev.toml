@@ -1,9 +1,9 @@
-# Xcode is a macOS toolchain, so these paths are intentionally harmless on Linux and become
-# useful to a future native macOS worker. Build products remain writable, while Xcode's user
-# settings get a per-session copy rather than changing the host's IDE configuration.
+# Xcode is a macOS toolchain. These paths support future native macOS workers.
+# Missing paths create no mounts on Linux. Build output directories remain writable.
+# Give each session private Xcode user settings to preserve host IDE configuration.
 [[sandbox]]
 name = "ios-dev"
-description = "Xcode and iOS build tooling, one copy per session"
+description = "Read-only Xcode tools, writable build directories, and private user settings"
 ro = [
     "$DEVELOPER_DIR",
     "/Applications/Xcode.app",

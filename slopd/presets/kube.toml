@@ -1,5 +1,5 @@
 [[sandbox]]
 name = "kube"
-description = "kubectl config and cluster credentials"
+description = "kubectl configuration and cluster credentials"
 ro = ["~/.kube"]
 env = ["KUBECONFIG"]

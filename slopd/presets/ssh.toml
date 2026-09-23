@@ -1,11 +1,11 @@
 [[sandbox]]
 name = "ssh"
-description = "SSH config and known hosts"
+description = "SSH configuration and known hosts"
 ro = [
     "~/.ssh/config",
     "~/.ssh/known_hosts",
     "~/.ssh/known_hosts.old",
 ]
-# OpenSSH checks included system files' ownership. A per-session copy keeps bwrap's uid-0
-# mapping from making host-root-owned drop-ins look unsafe.
+# OpenSSH checks the ownership of included system files.
+# Give each session a private copy to prevent ownership errors from the bwrap UID 0 mapping.
 private = ["/etc/ssh/ssh_config.d"]

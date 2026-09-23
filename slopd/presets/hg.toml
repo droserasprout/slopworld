@@ -1,5 +1,5 @@
-# The [extensions] section of ~/.hgrc names Python modules that Mercurial imports on every
-# command, including the host's, so this is read-only.
+# The [extensions] section of ~/.hgrc specifies Python modules for Mercurial to import with every command.
+# Keep this file read-only because host Mercurial also imports these modules.
 [[sandbox]]
 name = "hg"
 description = "global Mercurial identity and configuration"

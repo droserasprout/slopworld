@@ -2,13 +2,13 @@
 name = "systemd"
 description = "systemctl --user, journalctl (needs dbus)"
 requires = ["dbus"]
-escapes = "`systemd --user` starts what it is asked to, outside this sandbox"
+escapes = "The sandbox can request host processes through `systemd --user`"
 ro = ["/run/systemd", "/sys/fs/cgroup", "/var/log/journal", "/run/log/journal"]
 rw = ["$XDG_RUNTIME_DIR/systemd"]
 env = ["XDG_RUNTIME_DIR"]
 
-# systemctl talks to $XDG_RUNTIME_DIR/systemd/private first, and that handshake does not
-# survive bwrap's user namespace (AUTHENTICATING -> CLOSED). The session bus reaches the
-# same manager, which is why this preset is no use without `dbus`.
+# systemctl first connects to $XDG_RUNTIME_DIR/systemd/private.
+# That handshake fails in the bwrap user namespace (AUTHENTICATING -> CLOSED).
+# The session bus connects to the same manager, so this preset requires `dbus`.
 [sandbox.setenv]
 SYSTEMCTL_FORCE_BUS = "1"
