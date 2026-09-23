@@ -22,6 +22,8 @@ namespace SlopWorld
         readonly SmoothScroll _editorScroll = new SmoothScroll();
         PresetInfo _preset;
         CommandInfo _command;
+        string _pendingPreset;
+        string _pendingCommand;
         bool _newEntry;
         bool _newPresetRequested;
         bool _newCommandRequested;
@@ -39,10 +41,58 @@ namespace SlopWorld
                     _preset = SessionHub.Instance.Presets.FirstOrDefault(p => p.Name == _preset.Name);
                 if (_command != null && !_newEntry)
                     _command = SessionHub.Instance.Commands.FirstOrDefault(c => c.Name == _command.Name);
+                if (_pendingPreset != null)
+                {
+                    _preset = SessionHub.Instance.Presets.FirstOrDefault(p => p.Name == _pendingPreset);
+                    _pendingPreset = null;
+                    _command = null;
+                    _newEntry = false;
+                }
+                if (_pendingCommand != null)
+                {
+                    _command = SessionHub.Instance.Commands.FirstOrDefault(c => c.Name == _pendingCommand);
+                    _pendingCommand = null;
+                    _preset = null;
+                    _newEntry = false;
+                }
                 _error = null;
                 if (_newPresetRequested) NewPreset();
                 else if (_newCommandRequested) NewCommand();
             });
+        }
+
+        public void SelectPreset(string name)
+        {
+            _newPresetRequested = false;
+            _newCommandRequested = false;
+            _pendingCommand = null;
+            if (!_loaded)
+            {
+                _pendingPreset = name;
+                return;
+            }
+
+            _pendingPreset = null;
+            _preset = SessionHub.Instance.Presets.FirstOrDefault(p => p.Name == name);
+            _command = null;
+            _newEntry = false;
+        }
+
+        public void SelectCommand(string name)
+        {
+            _newPresetRequested = false;
+            _newCommandRequested = false;
+            _pendingPreset = null;
+            if (!_loaded)
+            {
+                _pendingCommand = name;
+                return;
+            }
+
+            _pendingCommand = null;
+            _command = SessionHub.Instance.Commands.FirstOrDefault(c => c.Name == name);
+            _preset = null;
+            _newEntry = false;
         }
 
         public void NewPreset()

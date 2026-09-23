@@ -345,6 +345,24 @@ namespace SlopWorld
             OpenCategory(tab.Def);
         }
 
+        public static void OpenSandboxPreset(string name)
+        {
+            var tab = TabFor(PageId.Sandbox);
+            var page = tab?.PageOf<SandboxPage>();
+            if (page == null) return;
+            page.SelectPreset(name);
+            OpenCategory(tab.Def);
+        }
+
+        public static void OpenAppPreset(string name)
+        {
+            var tab = TabFor(PageId.AppPresets);
+            var page = tab?.PageOf<SandboxPage>();
+            if (page == null) return;
+            page.SelectCommand(name);
+            OpenCategory(tab.Def);
+        }
+
         // Preserve the last page because each toggle rebuilds the view and reloads config.
         static OptionCategoryDef _lastCategory;
 

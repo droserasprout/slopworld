@@ -20,7 +20,11 @@ Six tabs share the panel:
   actions, grouped by type. Click an entry to select it; the details area offers **Run**,
   **Run in…**, **Create agent…**, or **Edit** as appropriate. Search matches names and content;
   the type selector narrows the list. Global entries remain visible under project filters.
-  Right-click or use **…** for additional actions; use the shared **+** to create entries.
+  Projects, Worktrees, Sandbox presets, and App presets appear as expandable main categories
+  below those groups. Their entries are selectable rows with summaries and actions: Projects and
+  Worktrees follow the shared project filter, while Sandbox and App presets show user entries and
+  overrides. Use the shared **+** to create projects and other entries. Catalog rows support
+  right-click and **…** menus; category entries expose their actions in the details area.
 - **Tasks** — the durable task mailbox. Click a task to open its maximized dialogue reader, with
   timestamped, selectable message text and a Copy all action; Ctrl+Click toggles task rows and
   Shift+Click selects a range. Right-click for status actions, terminal access, cancellation of
