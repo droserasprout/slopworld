@@ -1,4 +1,5 @@
-//! Polls provider usage with fresh credentials, narrow parsing, and snapshot-preserving failures; unknown responses yield no figures rather than false zeroes.
+//! Poll provider usage with current credentials and validated response fields.
+//! Preserve snapshots after failures. Unknown responses supply no values, instead of incorrect zero values.
 
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -32,8 +33,7 @@ use providers::{
     save_anthropic_cache, save_anthropic_rate_limit,
 };
 
-/// Rides on the wire rather than being worked out from the key: the one thing this
-/// must never do is let a percentage and a sum of money look alike.
+/// Include units in the protocol so clients can distinguish percentages from monetary amounts without interpreting keys.
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub enum Unit {
     /// Percent of a window spent, which is every rate limit.
@@ -48,24 +48,20 @@ crate::wire_enum!(Unit, {
     Unit::Usd => crate::shared::protocol::enums::usage_unit::USD,
 });
 
-/// Every rate-limit window is one of these, and so is the extra-usage budget -
-/// same shape, told apart by `unit`.
+/// A rate-limit window or extra-usage budget. The `unit` field distinguishes their values.
 #[derive(Debug, Clone, Serialize, PartialEq)]
 pub struct Window {
     pub key: String,
     pub label: String,
-    /// 0-100, always present: a budget's percentage is true whether or not its dollars
-    /// could be read.
+    /// Percentage from 0 to 100. Always present, even when the monetary amount is unavailable.
     pub pct: f32,
     pub unit: Unit,
-    /// Absent when the payload gave no figure to put a `$` on, which leaves the row a
-    /// percentage.
+    /// Monetary amount, if supplied by the response. Otherwise, the row shows only a percentage.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub amount: Option<f32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub limit: Option<f32>,
-    /// Counted down by the mod against its own clock, so a stale snapshot still reads
-    /// sensibly.
+    /// Time until reset. The mod uses its own clock to update the countdown between snapshots.
     pub resets_in: Option<u64>,
 }
 
@@ -155,23 +151,22 @@ pub struct UsageRow {
 
 #[derive(Debug, Clone, Serialize, PartialEq)]
 pub struct Snapshot {
-    /// False leaves `windows` as whatever the last good poll held, so the readout goes
-    /// stale rather than empty while the network is out.
+    /// If false, `windows` retains the last successful poll results.
+    /// This preserves previous values during network failures.
     pub ok: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
-    /// Straight from the credentials file: "pro", "max", ...
+    /// The daemon reads this value from the credentials file. Examples include "pro" and "max".
     pub plan: String,
     /// Unix millis of the last successful poll, so the mod can age the numbers.
     pub fetched_ms: u64,
-    /// Which sellers are switched on, whether or not they answered. The mod draws a row per
-    /// resource it *expects*, so a source that is down leaves its icons on the line with no
-    /// number instead of taking them off the screen - which is the one thing a readout in the
-    /// corner must not do, an icon that comes and goes being harder to read than an empty one.
+    /// Enabled providers, including those without responses.
+    /// The mod keeps a row for each expected resource.
+    /// Unavailable sources keep their icons without values so the display layout remains stable.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub sources: Vec<String>,
-    /// Enabled sources whose last poll failed. Kept separate from `ok`: the latter describes
-    /// the merged readout, while the mod needs to dim only the seller that is stale.
+    /// Enabled sources whose last poll failed.
+    /// `ok` describes the combined display. This list lets the mod dim only providers with outdated data.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub failed_sources: Vec<String>,
     pub windows: Vec<Window>,
@@ -188,8 +183,8 @@ impl Snapshot {
         }
     }
 
-    /// Compare only readout fields; fetched time ages values, while sources and failures
-    /// preserve placeholder rows and provider-local stale state.
+    /// Compare display fields. Fetch time indicates the age of values.
+    /// Sources and failures preserve placeholder rows and identify outdated provider data.
     pub fn same_readout(&self, other: &Snapshot) -> bool {
         self.ok == other.ok
             && self.error == other.error
@@ -225,14 +220,13 @@ fn now_ms() -> u64 {
         .unwrap_or(0)
 }
 
-/// The shortest window reported runs five hours, so half an hour behind is still worth
-/// drawing. Also bounds how long a fixed login goes unnoticed, the loop only looking at the
-/// config between sleeps.
+/// Limit the calculated retry delay to half an hour.
+/// This preserves periodic retries after credential problems without frequent requests during failures.
 const BACKOFF_CAP: u64 = 1800;
 
-/// A 429 answered at the rate that earned it is a daemon feeding its own rate limit. The
-/// endpoint has returned `Retry-After: 0` while continuing to reject requests, so every
-/// rate-limited failure gets the same five-minute floor. A longer server answer still wins.
+/// Delay retries after 429 responses to avoid repeated rate-limit failures.
+/// The endpoint has returned `Retry-After: 0` while still rejecting requests.
+/// Use a minimum delay of five minutes. Use a longer delay if the server requests one.
 fn backoff(base: u64, fails: u32, asked: Option<u64>) -> u64 {
     let grown = base
         .saturating_mul(1u64 << fails.saturating_sub(1).min(16))
@@ -252,16 +246,15 @@ fn human(secs: u64) -> String {
     }
 }
 
-/// One seller, on its own clock. Two of these rather than one loop asking both: a source
-/// that is rate-limiting us must not slow the other one down, and a key that has gone bad
-/// must not take the other's numbers off the screen.
+/// Independent polling state for one provider.
+/// Rate limits and credential failures for this provider must not delay other providers or remove their values.
 struct Poller {
     who: &'static str,
     snap: Snapshot,
-    /// Any poll that comes back with numbers puts it back to zero.
+    /// Failure count. A poll that returns usable values resets it to zero.
     fails: u32,
-    /// When this source is next due. Now, on the first lap and whenever it is switched back
-    /// on, so a setting turned on in the GUI answers rather than serving out a backoff.
+    /// The next polling time for this source.
+    /// Poll immediately at startup and when the user enables the source again.
     due: Instant,
     /// Provider responses contain several windows, so each returned window keeps its own
     /// schedule even though the request itself is shared.
@@ -279,8 +272,8 @@ impl Poller {
         }
     }
 
-    /// Switched off. Its rows go and the other source's stay, which is the whole point of
-    /// there being two of these. Answers whether anything actually changed.
+    /// Clear this disabled source's rows without changing other sources.
+    /// Return whether the state changed.
     fn clear(&mut self) -> bool {
         self.fails = 0;
         self.due = Instant::now();
@@ -308,12 +301,16 @@ impl Poller {
         // only the game can answer.
         match (&next.error, was_ok) {
             (Some(e), true) => tracing::warn!(
-                "{} usage poll failed: {e}; next try in {}",
+                "{} usage poll failed: {e}. Next try in {}.",
                 self.who,
                 human(delay)
             ),
             (Some(e), false) => {
-                tracing::debug!("{} usage poll: {e}; next try in {}", self.who, human(delay))
+                tracing::debug!(
+                    "{} usage poll: {e}. Next try in {}.",
+                    self.who,
+                    human(delay)
+                )
             }
             (None, false) => tracing::info!(
                 "{} usage: {}",
@@ -432,10 +429,10 @@ fn item_interval(d: &crate::config::Daemon, source: &str, key: &str) -> u64 {
         .max(minimum_poll_secs(source))
 }
 
-/// Providers answer several windows in one request. Poll at the fastest enabled row interval;
-/// each row's toggle is still applied to the merged snapshot, while a slow row never makes a
-/// faster row wait for it. Once the provider has answered, rows absent from that answer cannot
-/// make the shared request faster (for example, an optional Claude model window may be null).
+/// Providers return multiple windows per request. Poll at the shortest interval among enabled rows.
+/// Apply each row's enabled setting to the combined snapshot.
+/// After a provider responds, exclude absent rows when selecting the shortest interval.
+/// For example, an optional Claude model window can be null.
 fn provider_interval(d: &crate::config::Daemon, source: &str, poller: &Poller) -> u64 {
     let has_answer = poller.snap.fetched_ms > 0;
     d.usage_items
@@ -588,10 +585,9 @@ fn preserve_parse_failure(previous: &Snapshot, parsed: Snapshot) -> Snapshot {
     }
 }
 
-/// A login renewed on the host is the one thing that can turn "expired" back into numbers, and
-/// the backoff a dead token earned is up to half an hour long - so the file is watched rather
-/// than waited out. This is an optional provider hook because the other credential sources do
-/// not have Claude's shared-file renewal behavior.
+/// Watch the credential file to detect host login renewal before a retry delay ends.
+/// An expired token can cause a delay of up to half an hour.
+/// This optional hook supports Claude's shared credential file. Other credential sources do not use this renewal mechanism.
 fn watch_anthropic_stamp(
     d: &crate::config::Daemon,
     poller: &mut Poller,
@@ -603,10 +599,9 @@ fn watch_anthropic_stamp(
         .and_then(|md| md.modified())
         .ok();
     if stamp != *creds_stamp {
-        // Only while it is failing, and never on the first lap: this cuts a backoff short rather
-        // than being a second way to ask. Claude Code rewrites that file whenever it refreshes a
-        // token, and a healthy poller answering every rewrite would be a poll rate set by another
-        // program.
+        // End a retry delay early only after a failure and after the first file check.
+        // Claude Code rewrites this file when it refreshes a token.
+        // Do not let those writes control the polling rate when polls succeed.
         if creds_stamp.is_some() && poller.fails > 0 {
             poller.fails = 0;
             poller.due = now;
@@ -628,8 +623,8 @@ fn settle_join(
     }
 }
 
-/// Read, fetch, parse and settle one provider. The descriptor supplies the provider-specific
-/// functions; all scheduling, failure backoff and snapshot preservation stay here.
+/// Poll one provider and update its state. The descriptor supplies provider-specific functions.
+/// Keep scheduling, retry delays, and snapshot preservation here.
 async fn poll_one(
     provider: &mut Provider<'_>,
     d: &crate::config::Daemon,
@@ -665,10 +660,10 @@ async fn poll_one(
     true
 }
 
-/// One list for the mod, which draws resources rather than sellers. `ok` is *every* live
-/// source being current, because a row nobody could tell from a live one is the one thing
-/// this must never draw; the errors are joined so the tooltip says which half is out. A
-/// source that is off contributes nothing at all, so switching one off is not a failure.
+/// Combine provider snapshots into one resource list for the mod.
+/// Set `ok` only when every enabled source has current data.
+/// Combine errors so the tooltip identifies unavailable sources.
+/// Exclude disabled sources. Disabling a source is not a failure.
 fn merge<'a>(
     parts: impl IntoIterator<Item = (&'a str, &'a Snapshot)>,
     d: &crate::config::Daemon,
@@ -704,19 +699,19 @@ fn merge<'a>(
         return Snapshot::default();
     }
     if !errors.is_empty() {
-        out.error = Some(errors.join("; "));
+        out.error = Some(errors.join(". "));
     }
     out.catalog = resolved_catalog(&out.windows);
     out.rows = resolve_rows(&out, d);
     out
 }
 
-/// How long a lap can be even with both sources due much later: what turns a source on is
-/// `config.toml`, and this loop only looks at it between sleeps.
+/// Maximum sleep before checking configuration again, even if provider polls are due later.
+/// This lets the loop detect newly enabled sources.
 const LOOK: Duration = Duration::from_secs(30);
 
-/// Started from main once, and quiet in the log unless something is wrong: this
-/// runs every minute forever.
+/// Provider polling state for the background task started by main.
+/// Log errors without logging each successful poll.
 struct UsagePollers {
     anth: Poller,
     cred: Poller,
@@ -782,8 +777,8 @@ impl UsagePollers {
             }
 
             if !(provider.enabled)(d) {
-                // Off is a setting that can be turned back on without a restart, so this
-                // drops the rows rather than returning.
+                // Clear disabled rows, but keep the loop active.
+                // The user can enable the source again without a restart.
                 moved |= provider.poller.clear();
                 continue;
             }
@@ -813,8 +808,7 @@ impl UsagePollers {
             moved |= poll_one(provider, d, now, interval).await;
         }
 
-        // One event for both, and only when something actually moved: `set_usage`
-        // re-announces to every client.
+        // Send one combined event only when data changes. `set_usage` broadcasts to all clients.
         if moved {
             let mut out = merge(
                 providers
@@ -822,9 +816,8 @@ impl UsagePollers {
                     .map(|provider| (provider.source, &provider.poller.snap)),
                 d,
             );
-            // Said here rather than in `merge`, which knows about snapshots and not about
-            // switches. A seller that is on but has never answered is exactly the case
-            // this is for, so it goes on the list whatever its snapshot holds.
+            // Add enabled sources here because merge handles snapshots without configuration flags.
+            // Include each enabled provider even if it has never supplied a snapshot.
             out.sources.extend(
                 providers
                     .iter()
