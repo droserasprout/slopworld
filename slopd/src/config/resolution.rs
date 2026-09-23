@@ -1,11 +1,12 @@
-//! Shared configuration resolution for editor previews. Launch uses the same scalar and
-//! dependency resolvers; previews never prepare private state or start a process.
+//! Shared configuration resolution for editor previews.
+//! Launch uses the same scalar and dependency resolvers.
+//! Previews do not prepare private state or start a process.
 use super::{Config, DnsConfig, ProjectCfg, SessionCfg};
 use serde_json::{json, Value};
 
 impl SessionCfg {
-    /// Preserve only still-selected captured definitions, including transitive dependencies.
-    /// A command-line override changes execution, not the selected preset's wiring.
+    /// Keep captured definitions only for selected presets and their transitive dependencies.
+    /// A command-line override changes execution but preserves the selected preset's configuration.
     pub(crate) fn preserve_selected_snapshots(&mut self, previous: &Self) {
         self.command_snapshot = if self.command == previous.command {
             previous.command_snapshot.clone()
@@ -48,7 +49,7 @@ impl Config {
         };
         let command = self.command_of(s);
         let command = if command.is_empty() {
-            "Unavailable command preset; choose an installed command".into()
+            "Unavailable command preset. Choose an installed command.".into()
         } else {
             command
         };
@@ -138,7 +139,7 @@ impl Config {
             let status = if effective.iter().any(|v| v.name == name) {
                 definition
             } else {
-                "missing or invalid; ignored at launch"
+                "This setting is missing or invalid. The daemon ignores it at launch."
             };
             selections.push(format!("{name} — {} — {status}", owners.join(" + ")));
         }
@@ -225,8 +226,8 @@ impl Config {
                 .collect(),
         );
         json!({"title": if recipe { "Template recipe" } else { "Effective settings for next start" },
-            "subtitle": if recipe { "Portable agent settings; project mounts are applied by the destination project".to_string() } else { format!("Project: {} — {}", p.name, p.dir) },
-            "notes": ["This is saved/draft configuration, not the sandbox of an already running process. Mount existence and protected-path checks are applied at launch."],
+            "subtitle": if recipe { "Portable agent settings. The destination project applies project mounts.".to_string() } else { format!("Project: {} — {}", p.name, p.dir) },
+            "notes": ["This is saved or draft configuration. It does not describe a running process. The daemon checks mount existence and protected paths at launch."],
             "fields": fields})
     }
 }

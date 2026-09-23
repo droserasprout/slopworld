@@ -9,8 +9,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::presets::{CommandPreset, SandboxPreset};
 
-// These are daemon policy, not a wire schema. Keep them beside the Rust owners that apply
-// them so a client can only learn the effective/factory values through an API read model.
+// These constants define daemon policy. Keep them beside the Rust modules that apply them.
+// Clients obtain effective values and factory defaults through API read models.
 pub const DEFAULT_BIND: &str = "127.0.0.1:7717";
 pub const DEFAULT_USAGE_POLL_SECS: u64 = 60;
 pub const DEFAULT_CLAUDE_CREDENTIALS: &str = "~/.claude/.credentials.json";
@@ -28,22 +28,21 @@ pub struct Config {
     /// Commands the client uses for file viewers, editors, syntax highlighting and links.
     #[serde(default)]
     pub commands: CommandDefaults,
-    /// A session is an agent *in* one of these, and takes its directory and shared mounts from
-    /// it. Process settings remain on the agent.
+    /// Projects supply each agent session's directory and shared mounts.
+    /// The agent owns its process settings.
     #[serde(default, rename = "project")]
     pub projects: Vec<ProjectCfg>,
     #[serde(default, rename = "session")]
     pub sessions: Vec<SessionCfg>,
-    /// One-shot errands, run by a temporary agent that exists only as long as its
-    /// process does. The field remains on the in-memory model because library resolution is
-    /// part of configuration behavior, but the catalog is persisted as one file per kind
-    /// under `prompts/`, `breadcrumbs/`, `file_actions/` and `shell_scripts/` rather than in
-    /// the main document.
+    /// Library entries include errands that temporary agents run for the duration of a process.
+    /// The in-memory configuration model keeps this field for library resolution.
+    /// Separate catalog files under `prompts/`, `breadcrumbs/`, `file_actions/`, and `shell_scripts/` store the entries.
+    /// The main configuration document does not store them.
     #[serde(default, rename = "library", skip_serializing)]
     pub library: Vec<LibraryItemCfg>,
-    /// Host shells opened from a project heading. These are deliberately separate from
-    /// `session`: a host terminal is allowed only through the explicit host-shell route and
-    /// never becomes an agent merely because a config entry was edited.
+    /// Host shells opened from a project heading. These records are separate from `session`.
+    /// Only the explicit host-shell route permits a host terminal.
+    /// A configuration edit cannot convert a host terminal to an agent.
     #[serde(
         default,
         rename = "host_terminal",
@@ -54,17 +53,17 @@ pub struct Config {
     pub state_rules: Vec<StateRule>,
 }
 
-/// Wire sentinel for a redacted token and for writes meaning "unchanged"; a new value or empty
-/// string is an explicit change.
+/// Protocol sentinel for a redacted token. Writing this value preserves the token.
+/// Writing a new value or an empty string changes the token.
 pub const TOKEN_REDACTED: &str = "<redacted>";
 
 // These are daemon identity and scheduling policy, not user configuration. The private tmux
 // name is part of the sandbox/debug contract.
 pub const SCROLLBACK_LINES: u32 = 10_000;
 
-/// The private tmux socket name (`tmux -L <name>`). `SLOPD_TMUX_SOCKET` overrides it so a
-/// throwaway daemon can run beside the real one without sharing its tmux server; production
-/// leaves it unset and gets `slopworld`. Read once and cached, since it is daemon identity.
+/// The private tmux socket name (`tmux -L <name>`). The default is `slopworld`.
+/// `SLOPD_TMUX_SOCKET` lets a temporary daemon use a separate tmux server.
+/// Production leaves this variable unset. Read and cache the name once because it identifies the daemon.
 pub fn tmux_socket() -> &'static str {
     static SOCKET: OnceLock<String> = OnceLock::new();
     SOCKET.get_or_init(|| {
@@ -76,15 +75,15 @@ pub fn tmux_socket() -> &'static str {
     })
 }
 
-/// Redacts only a non-empty `[daemon] token` in raw config text, preserving comments and blanks;
-/// `Manager::replace_config` restores the real value when the sentinel is written back.
+/// Redact a nonempty `[daemon] token` in configuration text. Preserve comments and blank lines.
+/// `Manager::replace_config` restores the real value when a client writes the sentinel.
 pub fn redact_token_text(text: &str) -> String {
     let mut out = String::with_capacity(text.len() + TOKEN_REDACTED.len());
     let mut in_daemon = false;
     for line in text.lines() {
         let t = line.trim_start();
         if t.starts_with('[') {
-            // `[daemon.x]` is a different table and leaves the section, which is what we want.
+            // A different table, such as `[daemon.x]`, ends the daemon section.
             in_daemon = t.starts_with("[daemon]");
         }
         let redacted = in_daemon
@@ -108,30 +107,31 @@ pub fn redact_token_text(text: &str) -> String {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Daemon {
     pub bind: String,
-    /// Empty means no auth, which is fine on a loopback bind. Never leaves the daemon as
-    /// written: `GET /api/config` swaps it for `TOKEN_REDACTED`, and a write of the sentinel
-    /// restores it - see `redact_token_text` and `Manager::replace_config`.
+    /// An empty token disables authentication.
+    /// `GET /api/config` replaces a nonempty token with `TOKEN_REDACTED`.
+    /// Writing the sentinel preserves the token. See `redact_token_text` and `Manager::replace_config`.
     #[serde(default)]
     pub token: String,
-    /// The windows it reports move in minutes; ordinary providers are floored at 10 seconds,
-    /// while Anthropic is floored at five minutes because its OAuth usage endpoint is
-    /// account-rate-limited.
+    /// Poll interval for usage windows that change over minutes.
+    /// Most providers have a minimum interval of 10 seconds.
+    /// Anthropic has a minimum interval of five minutes because its OAuth usage endpoint limits requests per account.
     #[serde(default = "default_usage_poll")]
     pub usage_poll_secs: u64,
-    /// Per-window usage settings. An explicit `interval_secs` overrides only the global
-    /// interval; source defaults apply until a source's rows are configured.
+    /// Usage settings for each window. An explicit `interval_secs` overrides only the global interval.
+    /// Source defaults apply until the source has configured rows.
     #[serde(default)]
     pub usage_items: BTreeMap<String, UsageItem>,
-    /// Read fresh each time and never copied, so a refresh behind us is picked up.
+    /// Read the file each time to receive credential updates. Do not copy it.
     #[serde(default = "default_credentials")]
     pub claude_credentials: String,
-    /// Blank reads `OPENROUTER_API_KEY` out of slopd's own environment. A path here is read
-    /// fresh per request and trimmed, the way the credentials file is, and neither is ever
-    /// logged or written back.
+    /// An empty path selects `OPENROUTER_API_KEY` from the slopd environment.
+    /// Otherwise, read the file for each request and trim whitespace from its contents.
+    /// Do not log or write either secret.
     #[serde(default)]
     pub openrouter_key_file: String,
-    /// Codex signs in with ChatGPT and keeps the short-lived access token here. Like the
-    /// Claude credentials this is read fresh, never copied or sent over the wire.
+    /// Codex stores its ChatGPT access token here.
+    /// Read the file each time, as for Claude credentials.
+    /// Do not copy the credentials or send them through the daemon API.
     #[serde(default = "default_openai_credentials")]
     pub openai_credentials: String,
     /// Automatic task titles are opt-in because a title request sends part of a prompt to
@@ -144,24 +144,23 @@ pub struct Daemon {
     /// Instruction prepended to prompts sent to OpenRouter for session and task summaries.
     #[serde(default = "default_summary_prompt")]
     pub summary_prompt: String,
-    /// Prompts shorter than this are not worth an external title request.
+    /// Do not request an external title for prompts shorter than this limit.
     /// Count Unicode characters so the setting does not depend on UTF-8 byte width.
     #[serde(default = "default_title_min_chars")]
     pub title_min_chars: usize,
-    /// Pi follows the daemon title path. It historically renamed on every prompt, so that
-    /// remains its default.
+    /// Pi uses daemon title generation. Its default remains one title update for each prompt.
     #[serde(default = "default_pi_title_policy")]
     pub pi_titles: TitlePolicy,
-    /// Delegated tasks are separate one-shot conversations, so `once` summarizes each task
-    /// body at most once and `never` leaves the sidebar with its local preview.
+    /// Each delegated task is a separate conversation.
+    /// `once` summarizes each task body at most once. `never` uses the local sidebar preview.
     #[serde(default)]
     pub task_summaries: TitlePolicy,
     /// Prompt delivered to a newly spawned task worker.
     #[serde(default)]
     pub instructions: InstructionsCfg,
-    /// Agent-template identities allowed as task-worker sources. This policy is deliberately
-    /// separate from the template catalog so editing or deleting a definition never changes an
-    /// existing worker.
+    /// Agent templates permitted as task worker sources.
+    /// Keep this policy separate from the template catalog.
+    /// Editing or deleting a template definition does not change an existing worker.
     #[serde(default, skip_serializing_if = "BTreeSet::is_empty")]
     pub worker_templates: BTreeSet<String>,
 }
@@ -260,13 +259,13 @@ impl Default for Daemon {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Defaults {
-    /// What an agent that names no command of its own runs.
+    /// The default command preset for agents without an explicit command.
     pub agent: String,
     /// The shell agents should advertise to tools that run commands inside the sandbox.
     #[serde(default = "default_agent_shell")]
     pub agent_shell: String,
-    /// What a shell errand runs. Here rather than in every library item: which shell this
-    /// machine has is the machine's answer.
+    /// The default shell for shell errands.
+    /// Store this machine setting here so each library entry does not need to specify it.
     #[serde(default = "default_shell")]
     pub shell: String,
 }
@@ -293,8 +292,9 @@ impl Default for Defaults {
     }
 }
 
-/// Host applications used by the mod for transient file actions. These are command templates,
-/// split into argv without a shell; the client expands `{file}` and `{line}` where supported.
+/// Host applications that the mod uses for temporary file actions.
+/// Split command templates into arguments without a shell.
+/// The client expands `{file}` and `{line}` where supported.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CommandDefaults {
     /// Pager command. The client appends the file unless `{file}` is present.
@@ -330,17 +330,16 @@ impl Default for CommandDefaults {
     }
 }
 
-/// Under `/tmp` deliberately: the machine clears it, so nothing here has to decide
-/// when scratch work has outlived its use.
+/// Store temporary work under `/tmp` so the host controls its removal.
 pub const TEMP_ROOT: &str = "/tmp/slopworld";
 
-/// Coined rather than typed, which is the whole point of the flag.
+/// Generate the temporary directory path from the project name.
 pub fn temp_dir(name: &str) -> String {
     format!("{TEMP_ROOT}/{}", temp_slug(name))
 }
 
-/// The normalized temporary project path is a daemon-owned preview/create contract. Keep the
-/// slugger here so project create, rename, and ephemeral errands cannot drift apart.
+/// The daemon uses the same normalized temporary project path for previews and creation.
+/// Keep normalization here for consistent project creation, renaming, and temporary errands.
 pub fn temp_slug(name: &str) -> String {
     let mut out = String::with_capacity(name.len());
     for ch in name.trim().chars() {
@@ -401,9 +400,9 @@ pub struct Mount {
     pub mode: MountMode,
 }
 
-/// How private or host-mode sandboxes resolve names. The implicit answer follows the daemon's
-/// current `/etc/resolv.conf`, including Docker's embedded resolver in slopcar. Explicit servers
-/// are an opt-in for machines or projects that deliberately do not use the system resolver.
+/// DNS resolution for private and host-mode sandboxes.
+/// The default uses the daemon's current `/etc/resolv.conf`, including the Docker resolver in slopcar.
+/// Explicit servers override the system resolver for a machine or project.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub enum DnsConfig {
     #[default]
@@ -473,7 +472,7 @@ impl DnsConfig {
             return Ok(());
         };
         if servers.is_empty() {
-            bail!("{owner} DNS server list must not be empty; use mode = \"resolved\"");
+            bail!("The {owner} DNS server list must not be empty. Set `mode = \"resolved\"`.");
         }
         if servers.len() > 2 {
             bail!("{owner} may configure at most two DNS servers");
@@ -531,14 +530,15 @@ pub(crate) fn resolvers_from(text: &str) -> Vec<String> {
     out
 }
 
-/// Per-agent resource caps, enforced by the systemd scope `build_argv` wraps the agent in.
-/// Every field is optional: unset means no cap. Reach is the sandbox's job; this is only how much.
+/// The systemd scope created by `build_argv` enforces these agent resource limits.
+/// Each field is optional. An unset field means no limit.
+/// These settings limit resource use. The sandbox controls access.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Limits {
-    /// Hard memory ceiling in MiB (systemd `MemoryMax`); the kernel OOM-kills the tree at it.
+    /// Maximum memory in MiB (systemd `MemoryMax`). The kernel enforces this limit through OOM termination.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub memory_mb: Option<u32>,
-    /// The most tasks - processes and threads together - the agent's tree may hold (`TasksMax`).
+    /// Maximum number of tasks in the agent's process tree (`TasksMax`). Tasks include processes and threads.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pids: Option<u32>,
     /// Open-file-descriptor ceiling for each process in the tree (`LimitNOFILE`).
@@ -557,8 +557,8 @@ impl Limits {
             && self.cpu_pct.is_none()
     }
 
-    /// A cap of zero is not a cap, it is a session that cannot start: refuse it where it is
-    /// written rather than let the agent OOM or fail to fork on its first breath.
+    /// Reject zero limits when saving configuration.
+    /// These limits can prevent session startup through OOM termination or failure to create a process.
     pub fn validate(&self) -> Result<()> {
         for (what, value) in [
             ("memory_mb", self.memory_mb),
@@ -574,8 +574,8 @@ impl Limits {
     }
 }
 
-/// A project owns the paths it exposes to every agent in it. The primary directory is
-/// implicit; a row with that directory as both source and destination changes its mode.
+/// A project owns the paths it exposes to its agents. It includes the primary directory implicitly.
+/// A mount with that directory as both source and destination changes its mode.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ProjectCfg {
     #[serde(default, skip_serializing_if = "String::is_empty")]
@@ -584,13 +584,13 @@ pub struct ProjectCfg {
     #[serde(alias = "workspace_root")]
     pub worktree_root: String,
     pub name: String,
-    /// Defaulted rather than required, because a temporary project has none to give.
-    /// `check_project` is what insists on one for every other kind.
+    /// Temporary projects can omit this directory.
+    /// `check_project` requires a directory for other project types.
     #[serde(default)]
     pub dir: String,
-    /// The directory is `TEMP_ROOT/<name>`, coined when the entry is written and made when
-    /// the first agent starts: what is temporary is the *ground*, not the entry. The other
-    /// kind is never written here at all; see `LibraryItemLink::Temp`.
+    /// Generate the directory path `TEMP_ROOT/<name>` when saving the entry.
+    /// Create the directory when the first agent starts. The directory is temporary, but the entry persists.
+    /// Library errands use a separate temporary workspace without a stored project entry. See `LibraryItemLink::Temp`.
     #[serde(default)]
     pub temp: bool,
     /// Literal host/sandbox path pairs. Project shortcuts copy paths once, never references.
@@ -598,8 +598,8 @@ pub struct ProjectCfg {
     pub mounts: Vec<Mount>,
 }
 
-/// An agent is a command preset plus its process settings.  Workspace mounts belong to the
-/// project so every agent in the same project starts from the same directory view.
+/// An agent is a command preset plus its process settings. Workspace mounts belong to the project
+/// so every agent in the same project starts from the same directory view.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SessionCfg {
     /// Empty selects the original project checkout.
@@ -610,42 +610,42 @@ pub struct SessionCfg {
     /// A non-empty manual sidebar label disables automatic title summaries for this agent.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub label: Option<String>,
-    /// Stable, daemon-owned UUID identity of this agent's private state. Names are UI and tmux
-    /// handles and may change or be reused; this is deliberately neither.
+    /// The daemon owns this stable UUID for the agent's private state.
+    /// UI and tmux names can change or identify a different agent later. This UUID cannot.
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub state_id: String,
     /// The project supplies the workspace and shared mounts.
     #[serde(default)]
     pub project: String,
-    /// A command preset's name. Empty is `[defaults] agent`, or nothing at all when this
-    /// entry states a `cmd` of its own.
+    /// The command preset name. An empty name selects `[defaults] agent` unless this entry has an explicit `cmd`.
     #[serde(default)]
     pub command: String,
-    /// This agent's own answer to what that preset runs.
+    /// An explicit command line that overrides the preset command.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cmd: Option<String>,
-    /// A daemon-owned command definition captured when this agent came from a template.
-    /// Manual session requests cannot set it; the manager preserves it across edits.
+    /// A command definition that the daemon captures when it creates this agent from a template.
+    /// Manual session requests cannot set it. The manager preserves it during edits.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(crate) command_snapshot: Option<CommandPreset>,
     /// Sandbox presets this agent adds to its command's presets.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub sandbox: Vec<String>,
-    /// Daemon-owned definitions captured for this agent. Names in `sandbox` prefer these
-    /// definitions over the live preset catalog, keeping an instantiated template stable.
+    /// Preset definitions that the daemon captures for this agent.
+    /// Names in `sandbox` use these definitions before the live preset catalog.
+    /// This preserves the template definitions after agent creation.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub(crate) sandbox_snapshots: Vec<SandboxPreset>,
     /// Give this agent a durable, private `/tmp` instead of the sandbox's per-run tmpfs.
     #[serde(default, skip_serializing_if = "is_false")]
     pub persistent_tmp: bool,
-    /// Network mode for this agent.  It is always explicit; templates may leave their creation
-    /// recipe unspecified, in which case the daemon's documented agent default is copied.
+    /// The explicit network mode for this agent.
+    /// If a template does not specify a mode, copy the daemon's documented agent default.
     #[serde(default)]
     pub network: NetworkMode,
-    /// DNS for this agent.  `resolved` retains the daemon's current resolver at launch.
+    /// DNS for this agent. `resolved` retains the daemon's current resolver at launch.
     #[serde(default)]
     pub dns: DnsConfig,
-    /// This agent's final resource caps.  An unset field means no configured cap.
+    /// This agent's final resource caps. An unset field means no configured cap.
     #[serde(default, skip_serializing_if = "Limits::is_empty")]
     pub limits: Limits,
     #[serde(default)]
@@ -653,22 +653,24 @@ pub struct SessionCfg {
     /// After a fresh process reaches its first settled prompt, select its latest conversation.
     #[serde(default)]
     pub auto_resume: bool,
-    /// Daemon-owned metadata for a task-owned child. Ordinary session creation clears these
-    /// fields; worker creation is the only route that sets them.
+    /// Metadata that the daemon owns for a task's child session.
+    /// Ordinary session creation clears these fields. Only worker creation sets them.
     #[serde(default, skip_serializing_if = "is_false")]
     pub worker: bool,
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub parent: String,
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub task_id: String,
-    /// Runtime-only scoped credential passed to a task worker. It is never persisted or exposed
-    /// in session views; a fresh grant is minted for every worker run.
+    /// A scoped credential for a task worker that exists only in memory.
+    /// The daemon does not save it or expose it in session views.
+    /// Each worker run receives a new grant.
     #[serde(skip)]
     pub(crate) worker_token: Option<String>,
 }
 
-/// A durable host terminal tab. The daemon owns this small record so a game or daemon restart
-/// can put the shell back in the sidebar without making host execution a property of an agent.
+/// A persistent host terminal tab. The daemon owns this record.
+/// It restores the shell in the sidebar after a game or daemon restart.
+/// Host execution remains separate from agent settings.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HostTerminalCfg {
     pub name: String,
@@ -677,8 +679,8 @@ pub struct HostTerminalCfg {
     pub label: Option<String>,
     #[serde(default)]
     pub project: String,
-    /// The last directory observed from tmux. It is kept separately from the project's root so
-    /// a shell that `cd`s somewhere remains there after the next daemon start.
+    /// The last directory reported by tmux, separate from the project root.
+    /// This preserves shell directory changes after a daemon restart.
     #[serde(default)]
     pub path: String,
     /// Recreate the tmux shell when slopd starts after the machine has rebooted.
@@ -755,17 +757,16 @@ crate::wire_enum!(LibraryItemKind, {
     LibraryItemKind::FileAction => crate::shared::protocol::enums::library_kind::FA,
 });
 
-/// The one thing about a library item allowed not to be decided in advance.
+/// How a library item selects its project for each run.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum LibraryItemLink {
-    /// The default, because it is what every library item written before this existed
-    /// meant.
+    /// Use the configured project. This default preserves the behavior of older library entries.
     #[default]
     Project,
-    /// One per run, never written to this file. The entry's `project`, if it names one, is
-    /// what the fresh one copies its sandbox from.
+    /// Create a temporary workspace for each run. Do not save it in this file.
+    /// If the entry names a project, copy that project's sandbox settings.
     Temp,
-    /// Whoever runs it says where, per run.
+    /// Let the caller select the project for each run.
     Ask,
 }
 
@@ -793,19 +794,19 @@ crate::wire_enum!(FileActionMode, {
     FileActionMode::Nothing => crate::shared::protocol::enums::file_action_mode::NOTHING,
 });
 
-/// A session template with a line of text attached. Spelled out rather than pointing at an
-/// existing session, which would stop working the day that session was deleted.
+/// A session template with attached text.
+/// Store the definition directly so deletion of an existing session cannot invalidate it.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct LibraryItemCfg {
-    /// Labels a button and seeds a colonist's name; the session name derived from it
-    /// is sanitised (see `slug`).
+    /// The button label and initial colonist name.
+    /// `slug` converts it to a valid session name.
     pub name: String,
     #[serde(default)]
     pub kind: LibraryItemKind,
     #[serde(default)]
     pub link: LibraryItemLink,
-    /// Read as the project to run in when `link` is `project`; temporary links create a fresh
-    /// workspace and ask links leave the destination to the caller.
+    /// The project to use when `link` is `project`.
+    /// Temporary links create a new workspace. Ask links let the caller select the destination.
     #[serde(default)]
     pub project: String,
     /// A prompt for the agent, a command line for the shell.
@@ -823,10 +824,9 @@ pub struct LibraryItemCfg {
     /// What a file action does after selection. `ask` keeps the old per-invocation menu.
     #[serde(default, skip_serializing_if = "is_file_action_mode_default")]
     pub mode: FileActionMode,
-    /// Set on the entries the daemon ships. They are never in `config.toml` - the flag rides
-    /// the wire so the GUI can keep them out of the library table and refuse to edit them,
-    /// while the breadcrumb lists still offer them like any other. Skipped when false so an
-    /// ordinary entry's TOML is unchanged.
+    /// Identifies entries supplied with the daemon. `config.toml` does not contain these entries.
+    /// The protocol includes this flag so the GUI can exclude them from the library table and prevent edits.
+    /// Breadcrumb lists still include them. Serialization omits a false value to preserve the TOML format of ordinary entries.
     #[serde(default, skip_serializing_if = "not_set")]
     pub builtin: bool,
 }

@@ -33,9 +33,9 @@ impl Config {
             .max()
     }
 
-    /// The file this daemon actually read, `SLOPD_CONFIG` included. `main` loads from it, and
-    /// `sandbox::refused` keeps every bind list away from it: the token is in there, and an
-    /// agent that can read it is an agent that can ask for a host terminal.
+    /// The configuration path, including any `SLOPD_CONFIG` override. `main` loads this file.
+    /// `sandbox::refused` prevents bind mounts from exposing it because it contains the root token.
+    /// An agent with this token can request a host terminal.
     pub fn path_in_use() -> PathBuf {
         std::env::var("SLOPD_CONFIG")
             .map(PathBuf::from)
@@ -72,8 +72,8 @@ impl Config {
         Ok(cfg)
     }
 
-    /// Validate the current schema while retaining the original document for edits that
-    /// preserve unrelated fields and secrets. Loading never rewrites a configuration file.
+    /// Validate the current schema. Keep the original document to preserve unrelated fields and secrets during edits.
+    /// Loading does not rewrite the configuration file.
     pub(crate) fn parse_document(text: &str) -> Result<(Self, toml::Value)> {
         let mut document: toml::Value = toml::from_str(text).context("parsing config.toml")?;
         normalize_worktree_fields(&mut document)?;
@@ -84,7 +84,7 @@ impl Config {
             for key in ["usage", "openrouter", "openai"] {
                 if daemon.contains_key(key) {
                     bail!(
-                        "[daemon] {key} was removed; configure usage rows under [daemon.usage_items.*]"
+                        "The daemon no longer accepts [daemon] {key}. Configure usage rows under [daemon.usage_items.*]."
                     );
                 }
             }
@@ -110,8 +110,8 @@ impl Config {
             }
         }
         if let Some(table) = document.as_table_mut() {
-            // Library entries are a separate catalog, so never serialize the in-memory catalog
-            // into the main configuration document.
+            // Library entries have a separate catalog.
+            // Do not serialize the in-memory catalog into the main configuration document.
             table.remove("library");
         }
         Self::save_text(path, &toml::to_string_pretty(&document)?).await?;
@@ -122,9 +122,9 @@ impl Config {
         crate::paths::write_atomic_async(path, text, Some(0o600)).await
     }
 
-    /// A clone safe to hand a client: a set token becomes the sentinel, so `GET /api/config`
-    /// never carries the secret to anything that reaches the endpoint. An empty token stays
-    /// empty - "no auth" is a fact worth telling honestly, and there is nothing to leak.
+    /// Create a copy for clients. Replace a nonempty token with the redaction sentinel.
+    /// This prevents `GET /api/config` from exposing the secret.
+    /// Keep an empty token to indicate that authentication is disabled.
     pub fn redacted(&self) -> Self {
         let mut c = self.clone();
         if !c.daemon.token.is_empty() {
@@ -220,7 +220,7 @@ async fn load_library(dirs: &[(LibraryItemKind, PathBuf)]) -> Result<Vec<Library
             );
         }
         if !names.insert(item.name.clone()) {
-            bail!("library item {:?} is declared more than once", item.name);
+            bail!("Declare library item {:?} only once.", item.name);
         }
         library.push(item);
     }
@@ -235,7 +235,7 @@ async fn save_library(
     for item in library {
         validate_library_name(&item.name)?;
         if !names.insert(item.name.clone()) {
-            bail!("library item {:?} is declared more than once", item.name);
+            bail!("Declare library item {:?} only once.", item.name);
         }
     }
 
@@ -276,8 +276,9 @@ async fn save_library(
     Ok(())
 }
 
-// Normalize WIP aliases in memory so unknown-field preservation cannot reintroduce an
-// old spelling next to the new modeled field. Loading still leaves the file untouched.
+// Normalize legacy aliases in memory before preserving unknown fields.
+// This prevents old and new field names from appearing together.
+// Loading does not change the file.
 fn normalize_worktree_fields(document: &mut toml::Value) -> Result<()> {
     for (section, old, new) in [
         ("project", "workspace_root", "worktree_root"),

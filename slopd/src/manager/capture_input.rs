@@ -253,8 +253,8 @@ impl Manager {
                 return Ok(());
             }
         }
-        // Do not publish the requested shape until tmux has accepted it. Otherwise a
-        // transient tmux failure makes the identical retry look complete forever.
+        // Publish the requested dimensions only after tmux accepts them.
+        // Otherwise, a temporary tmux failure can make a later retry incorrectly appear complete.
         if self.tmux.exists(name).await {
             self.tmux.resize(name, cols, rows).await?;
         }

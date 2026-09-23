@@ -52,14 +52,15 @@ impl Manager {
     pub(super) fn validate_dir(project: &ProjectCfg) -> Result<String> {
         let dir = expand(&project.dir);
         if project.temp {
-            std::fs::create_dir_all(&dir).with_context(|| format!("making {dir}"))?;
+            std::fs::create_dir_all(&dir)
+                .with_context(|| format!("The daemon could not create project directory {dir}."))?;
         }
         if !std::path::Path::new(&dir).is_dir() {
-            bail!("{dir} is not a directory");
+            bail!("The working directory is not a directory: {dir}.");
         }
         if let Some(what) = crate::sandbox::refused(&dir) {
             bail!(
-                "project {} cannot live at {dir}: it reaches {what}",
+                "Project {:?} cannot use directory {dir}. The path overlaps a protected location: {what}.",
                 project.name
             );
         }
@@ -70,20 +71,17 @@ impl Manager {
         let cfg = self.config().await;
         let (mut session, project) = self.resolve_target(&cfg, name).await?;
         if self.tmux.exists(name).await {
-            bail!("session {name} is already running");
+            bail!("Session {name} is already running.");
         }
         if cfg.command_of(&session).trim().is_empty() {
-            bail!(
-                "session {name} names command preset {:?}, which has no file",
-                session.command
-            );
+            bail!("Session {name} has no command. Check its command settings.");
         }
         if session.worker {
             if session.task_id.trim().is_empty() || session.parent.trim().is_empty() {
-                bail!("worker session {name} has incomplete task ownership metadata");
+                bail!("Worker {name} must have a task ID and a parent session.");
             }
             if cfg.network_of(&session, &project) == NetworkMode::None {
-                bail!("worker session {name} cannot reach the task API with networking disabled");
+                bail!("Worker {name} needs network access to use the task API.");
             }
         }
         let (cols, rows, host, host_path) = match self.live.read().await.get(name) {
@@ -101,7 +99,7 @@ impl Manager {
             Self::validate_dir(&project)?
         };
         if !std::path::Path::new(&dir).is_dir() {
-            bail!("{dir} is not a directory");
+            bail!("The working directory is not a directory: {dir}.");
         }
 
         if session.worker {
@@ -160,8 +158,8 @@ impl Manager {
     async fn launch_tmux(&self, name: &str, plan: &StartPlan) -> Result<()> {
         if let Err(error) = self
             .tmux
-            // Keep the pane silent until the control reader is attached. Capturing an
-            // already running command and then attaching loses bytes between those steps.
+            // Keep the pane silent until the control reader attaches.
+            // Capturing a running command before attachment can lose output produced between these operations.
             .spawn(
                 name,
                 &plan.dir,
@@ -173,8 +171,8 @@ impl Manager {
             .await
         {
             if plan.is_worker() {
-                // tmux includes its complete argv in command errors. Do not let the worker's
-                // bearer credential escape into a persisted task failure note or daemon log.
+                // tmux command errors include all arguments.
+                // Do not expose the worker bearer credential in saved task errors or daemon logs.
                 tracing::warn!("could not create worker session {name}: tmux spawn failed");
                 return Err(anyhow!("could not create worker session {name}"));
             }
@@ -262,7 +260,7 @@ impl Manager {
             Ok(false) => {
                 self.cleanup_failed_start(name, plan.is_worker()).await;
                 return Err(anyhow!(
-                    "control reader for {name} was not attached during startup"
+                    "Control reader for {name} did not attach during startup."
                 ));
             }
             Err(error) => {
@@ -285,8 +283,8 @@ impl Manager {
     }
 
     async fn cleanup_failed_start(&self, name: &str, worker: bool) {
-        // A session created above is not useful without a newly attached control reader. Treat
-        // a refused attach as a failed start so a stale reader cannot make it look healthy.
+        // The new session requires a new control reader.
+        // Treat failed attachment as failed startup so an old reader cannot imply successful startup.
         let ephemeral = self
             .live
             .read()

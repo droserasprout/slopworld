@@ -1,7 +1,7 @@
-//! Scoped credentials: one agent allowed to watch or drive another, and never the host. See
-//! [notes/agent-grants.md]. The token is no longer all-or-nothing - the mod's `[daemon] token` is
-//! the *root*, and any other live credential is a `Grant` persisted beside daemon config and
-//! revoked when its grantor or a target session goes away.
+//! Scoped credentials let an agent monitor or control another agent, but not a host session.
+//! See [notes/agent-grants.md]. The mod uses `[daemon] token` as the root credential.
+//! The daemon stores each other live credential as a `Grant` beside its configuration.
+//! It revokes the grant when the grantor or a target session no longer exists.
 
 use anyhow::{bail, Context, Result};
 use serde::{Deserialize, Serialize};
@@ -13,7 +13,7 @@ use std::sync::{
     Arc,
 };
 
-/// What a grant lets its holder do to the sessions it names.
+/// The operations a grant permits on its specified sessions.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Level {
@@ -24,26 +24,27 @@ pub enum Level {
 }
 
 impl Level {
-    /// rw answers a demand for either; ro answers only ro.
+    /// `Rw` satisfies either access level. `Ro` satisfies only `Ro`.
     pub fn satisfies(self, need: Level) -> bool {
         matches!((self, need), (Level::Rw, _) | (Level::Ro, Level::Ro))
     }
 }
 
-/// A credential, revoked when its grantor or any target disappears.
+/// A credential that the daemon revokes when its grantor or any target no longer exists.
 #[derive(Debug, Clone)]
 pub struct Grant {
-    /// The session this grant's life is tied to. When it goes, the grant goes.
+    /// The grantor session. The daemon revokes the grant when this session no longer exists.
     pub grantor: String,
-    /// The sessions the holder may touch. A mint never puts a host session here.
+    /// The sessions the holder may access. Grant creation excludes host sessions.
     pub sessions: HashSet<String>,
     pub level: Level,
-    /// Every resolved copy shares revocation; scopes never change after minting.
+    /// All resolved copies share revocation state. Scopes do not change after grant creation.
     pub(crate) revoked: Arc<AtomicBool>,
 }
 
-/// What `auth` resolved a request's token to. `Root` is the mod: every session, host ones
-/// included, read and write. `Scoped` is a minted grant, which never covers a host session.
+/// The capability that `auth` resolves from a request token.
+/// `Root` gives the mod read and write access to all sessions, including host sessions.
+/// `Scoped` is a grant that excludes host sessions.
 #[derive(Debug, Clone)]
 pub enum Cap {
     Root,
@@ -64,10 +65,10 @@ impl Cap {
             Cap::Scoped(g) => Some(&g.grantor),
         }
     }
-    /// May this capability touch `session` at `need`? `is_host` is the session's own flag,
-    /// looked up by the caller. Root touches anything; a scoped grant touches a session it
-    /// names, at a level that satisfies the demand, and never a host one - the last a
-    /// backstop, since a mint never scopes a host session to begin with.
+    /// Check whether this capability permits access to `session` at level `need`.
+    /// The caller supplies the session flag `is_host`. Root permits all access.
+    /// A scoped grant must be valid, name the session, and satisfy the required access level.
+    /// This check also excludes host sessions, although grant creation already excludes them.
     pub fn allows(&self, session: &str, is_host: bool, need: Level) -> bool {
         match self {
             Cap::Root => true,
@@ -80,14 +81,13 @@ impl Cap {
         }
     }
 
-    /// Whether a list should show this holder `session`. The read half of `allows`: a name a
-    /// grant cannot read is a name it never learns exists.
+    /// Check whether a list can show `session` to this holder.
+    /// Lists exclude session names when the grant does not permit read access.
     pub fn can_see(&self, session: &str, is_host: bool) -> bool {
         self.allows(session, is_host, Level::Ro)
     }
 
-    /// Only the root creates sessions - a new agent, an errand. A grant is a handle on what is
-    /// already there.
+    /// Only root can create sessions. Grants permit access to existing sessions.
     pub fn may_create(&self) -> bool {
         matches!(self, Cap::Root)
     }
@@ -96,8 +96,8 @@ impl Cap {
 #[derive(Debug, Clone)]
 struct Entry {
     grant: Grant,
-    /// Stable agent identities prevent a grant from silently attaching to a reused session name
-    /// after the daemon was down. Host terminals have no persistent state id and store this empty.
+    /// Stable agent identities prevent grants from attaching to reused session names after a daemon restart.
+    /// Host terminals have no persistent state ID and leave this field empty.
     grantor_state_id: String,
     session_state_ids: BTreeMap<String, String>,
 }
@@ -119,8 +119,8 @@ struct StoredGrant {
     level: Level,
 }
 
-/// Active grants are indexed by bearer token and persisted in a private sibling file. A default
-/// store remains available for capability-only unit fixtures that do not need disk persistence.
+/// This store indexes active grants by bearer token and saves them in a private sibling file.
+/// The default store supports capability tests that do not need disk persistence.
 #[derive(Default)]
 pub struct Grants {
     path: Option<PathBuf>,
@@ -205,9 +205,10 @@ impl Grants {
         })
     }
 
-    /// The capability a request carries. `root` is `[daemon] token`. An empty root is the
-    /// "no auth" contract - fine on a loopback bind - and resolves Root for anyone. A set root
-    /// matches only itself; any other token must name a live grant, or the request is nobody.
+    /// Resolve the capability for a request. `root` is `[daemon] token`.
+    /// An empty root disables authentication and gives every request `Root` access.
+    /// A nonempty root gives `Root` access only when the token matches.
+    /// Any other token must identify a live grant. Otherwise, the request has no capability.
     pub fn resolve(&self, presented: Option<&str>, root: &str) -> Option<Cap> {
         if root.is_empty() {
             return Some(Cap::Root);
@@ -222,14 +223,15 @@ impl Grants {
         }
     }
 
-    /// Mint an in-memory grant for capability-only callers that do not own a persistent store.
+    /// Create an in-memory grant for callers that do not own a persistent store.
     pub fn mint(&mut self, grant: Grant) -> String {
         self.mint_with_identity(grant, String::new(), BTreeMap::new())
             .expect("in-memory grant cannot fail to persist")
     }
 
-    /// Mint and persist before returning the token to its caller. The manager supplies stable
-    /// session identities so startup can discard grants for removed or replaced sessions.
+    /// Create and save a grant before returning its token.
+    /// The manager supplies stable session identities.
+    /// These let the daemon remove grants for deleted or replaced sessions at startup.
     pub fn mint_persisted(
         &mut self,
         grant: Grant,
@@ -266,7 +268,7 @@ impl Grants {
         Ok(token)
     }
 
-    /// Drop every grant a session owns and persist the revocation before returning.
+    /// Revoke every grant that a session owns. Save the revocation before returning.
     pub fn revoke_grantor(&mut self, grantor: &str) {
         let _ = self.try_revoke_grantor(grantor);
     }
@@ -275,7 +277,7 @@ impl Grants {
         self.revoke_matching(|entry| entry.grant.grantor == grantor)
     }
 
-    /// Losing any target or the grantor revokes the entire grant before name reuse.
+    /// Revoke the entire grant when any target or the grantor no longer exists, before session name reuse.
     pub fn invalidate_session(&mut self, name: &str) -> bool {
         self.try_invalidate_session(name).unwrap_or(false)
     }
@@ -286,8 +288,8 @@ impl Grants {
         })
     }
 
-    /// Drop credentials that do not bind to the current session identities. This also removes
-    /// grants whose sessions disappeared while the daemon was not running.
+    /// Remove credentials that do not match the current session identities.
+    /// This also removes grants for sessions that disappeared while the daemon was not running.
     pub fn prune_stale(
         &mut self,
         state_ids: &HashMap<String, String>,
@@ -325,8 +327,8 @@ impl Grants {
             }
         }
         if let Err(error) = self.persist() {
-            // If the reduced store cannot be written, clear the previous bearer tokens so a
-            // restart cannot restore credentials that this process has already revoked.
+            // If saving the reduced store fails, delete the stored bearer tokens.
+            // This prevents a restart from restoring credentials that this process already revoked.
             if let Some(path) = &self.path {
                 match fs::remove_file(path) {
                     Ok(()) => {
@@ -374,8 +376,7 @@ impl Grants {
             .with_context(|| format!("writing {}", path.display()))
     }
 
-    /// Grants the given session may touch, for the mod's readout. Not scoped by host-ness here:
-    /// a mint never names one.
+    /// The total number of stored grants, for the mod's display.
     pub fn count(&self) -> usize {
         self.by_token.len()
     }
@@ -385,9 +386,9 @@ fn valid_token(token: &str) -> bool {
     token.len() == 32 && token.bytes().all(|byte| byte.is_ascii_hexdigit())
 }
 
-/// 128 bits of urandom, hex. A grant token is a bearer secret, so it comes from the same place
-/// a session key would; the fallback is only for a machine with no `/dev/urandom`, which is not
-/// Linux, and even then two grants do not collide within a daemon's life.
+/// Generate a hexadecimal token from 128 bits of `/dev/urandom` data.
+/// A grant token is a bearer secret, like a session key.
+/// If `/dev/urandom` is unavailable, use time and a counter to distinguish tokens within this daemon process.
 fn gen_token() -> String {
     use std::io::Read;
     let mut buf = [0u8; 16];
@@ -395,7 +396,7 @@ fn gen_token() -> String {
         .and_then(|mut f| f.read_exact(&mut buf))
         .is_err()
     {
-        // Time and a bump, so a urandom-less host still gets distinct tokens.
+        // Use time and a counter to distinguish tokens when `/dev/urandom` is unavailable.
         use std::sync::atomic::{AtomicU64, Ordering};
         static BUMP: AtomicU64 = AtomicU64::new(0);
         let n = std::time::SystemTime::now()

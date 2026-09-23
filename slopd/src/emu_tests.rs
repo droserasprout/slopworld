@@ -61,8 +61,8 @@ fn parses_output_line() {
     assert_eq!(parse_output(b"%output %0 \\015hi").unwrap(), b"\rhi");
     assert!(parse_output(b"%exit").is_none());
     assert!(parse_output(b"%session-changed $0 name").is_none());
-    // A line ending mid-UTF-8 must still parse; the raw bytes pass through for the VT
-    // parser to reassemble.
+    // Parse a line that ends inside a UTF-8 sequence.
+    // Pass the raw bytes to the VT parser so it can reconstruct the sequence.
     assert_eq!(parse_output(b"%output %0 A\xf0\x9f").unwrap(), b"A\xf0\x9f");
 }
 
@@ -292,8 +292,7 @@ fn maps_color_to_index_sgr() {
     assert_eq!(f.lines[0].as_ref(), "\x1b[0m\x1b[0;1;31mX");
 }
 
-// Faint is an attribute rather than a color, so dropping it here left the mod nothing to
-// tell a completion hint from the line above it.
+// Preserve the faint attribute so the mod can distinguish completion hints from ordinary text.
 #[test]
 fn carries_faint_through() {
     let mut e = SessionEmu::new(20, 2);
@@ -314,8 +313,7 @@ fn trims_trailing_default_cells() {
 #[test]
 fn wide_char_emits_cha_for_following_run() {
     let mut e = SessionEmu::new(20, 2);
-    // A CJK char occupies two cells, so the run after it must be re-anchored with CHA
-    // to column 3.
+    // This CJK character occupies two cells. Position the next run at column 3 with CHA.
     e.feed("\u{4f60}X".as_bytes());
     let f = e.render();
     assert_eq!(f.lines[0].as_ref(), "\x1b[0m\u{4f60}\x1b[3GX");
@@ -430,14 +428,15 @@ fn legacy_mouse_report_offsets_by_32() {
 #[test]
 fn reports_cursor_shape_and_modes() {
     let mut e = SessionEmu::new(20, 2);
-    // DECSCUSR 6 -> steady bar; enable SGR mouse click reporting.
+    // Select a steady bar cursor with DECSCUSR 6.
+    // Enable SGR mouse click reporting.
     e.feed(b"\x1b[6 q\x1b[?1006h\x1b[?1000h");
     let f = e.render();
     assert_eq!(f.cursor_shape, 2);
     assert!(f.app_mouse);
     assert!(!f.alt_screen);
     assert!(!f.cursor_blink);
-    // Clicks only: the drag is still the terminal's to select with.
+    // Report clicks only. Keep drag events available for terminal selection.
     assert!(!f.app_drag);
     e.feed(b"\x1b[?1002h");
     assert!(e.render().app_drag);
@@ -449,7 +448,7 @@ fn takes_the_title_the_app_states() {
     assert_eq!(e.render().title, "");
     e.feed(b"\x1b]0;claude - slopworld\x07");
     assert_eq!(e.render().title, "claude - slopworld");
-    // OSC 2 is the same errand, and an empty one is a reset.
+    // OSC 2 also sets the title. An empty title value clears it.
     e.feed(b"\x1b]2;another\x1b\\");
     assert_eq!(e.render().title, "another");
     e.feed(b"\x1b]0;\x07");
@@ -503,14 +502,14 @@ fn takes_a_bell_once_per_frame() {
     let mut e = SessionEmu::new(20, 2);
     assert!(!e.render().bell);
     e.feed(b"ready\x07");
-    // The frame that follows the ring carries it, and only that one: what holds a bell
-    // until somebody looks is the session table.
+    // Report the bell in the next frame only.
+    // The session table keeps the notification until the user views the session.
     assert!(e.render().bell);
     assert!(!e.render().bell);
-    // Twice between renders is still one bell.
+    // Report multiple bells between renders as one bell event.
     e.feed(b"\x07\x07");
     assert!(e.render().bell);
-    // A scroll snapshot must not swallow it.
+    // Preserve a pending bell when creating a scroll snapshot.
     e.feed(b"\x07");
     e.scroll_snapshot(0);
     assert!(e.render().bell);
@@ -523,12 +522,12 @@ fn takes_an_osc52_copy() {
     // "hello world", base64, for the clipboard selection.
     e.feed(b"\x1b]52;c;aGVsbG8gd29ybGQ=\x07");
     assert_eq!(e.take_clip().as_deref(), Some("hello world"));
-    // Draining is one-shot.
+    // Taking a clipboard update removes it from the queue.
     assert!(e.take_clip().is_none());
-    // Only the last one survives: a clipboard holds one thing.
+    // Keep only the latest clipboard update.
     e.feed(b"\x1b]52;c;Zmlyc3Q=\x07\x1b]52;c;c2Vjb25k\x07");
     assert_eq!(e.take_clip().as_deref(), Some("second"));
-    // The primary selection is not the clipboard, and we have no tool for it.
+    // Ignore primary-selection updates because the clipboard tools do not support them.
     e.feed(b"\x1b]52;p;cHJpbWFyeQ==\x07");
     assert!(e.take_clip().is_none());
 }

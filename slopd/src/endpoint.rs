@@ -33,9 +33,9 @@ pub async fn write(bind: &str, token: &str) -> Result<()> {
     Ok(())
 }
 
-/// Update only the secret after a live config edit. The listener's address is fixed until
-/// restart, so changing `[daemon] bind` must not make the descriptor advertise an address the
-/// current process is not listening on.
+/// Update only the token after a live configuration change.
+/// The listener keeps its address until restart.
+/// A change to `[daemon] bind` must not make the descriptor report an address that the current process does not use.
 pub async fn update_token(path: &Path, token: &str) -> Result<()> {
     if !tokio::fs::try_exists(path).await? {
         return Ok(());

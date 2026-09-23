@@ -142,8 +142,8 @@ fn worker_prompt_defaults() {
     );
 }
 
-/// What a client sees never carries the secret, and a token that is not set still reads as
-/// not set - "no auth" being a fact worth telling straight.
+/// Redact nonempty tokens from client responses.
+/// Preserve an empty token so the client can identify a daemon without authentication.
 #[test]
 fn a_set_token_is_redacted_and_an_empty_one_is_left() {
     let mut cfg = Config::default();
@@ -154,8 +154,8 @@ fn a_set_token_is_redacted_and_an_empty_one_is_left() {
     assert_eq!(cfg.redacted().daemon.token, "");
 }
 
-/// The raw editor's copy is redacted in place: the token line, and nothing else - not a
-/// `token` under another table, not an empty one, not the comments around it.
+/// Redact only the nonempty daemon token in the raw editor's text.
+/// Preserve other token keys, empty values, and comments.
 #[test]
 fn redacting_the_text_touches_only_the_daemon_token() {
     let text = "\
@@ -172,16 +172,16 @@ token = \"not-a-daemon-token\"
     assert!(out.contains(&format!("token = \"{TOKEN_REDACTED}\"")));
     assert!(!out.contains("s3cr3t"));
     assert!(out.contains("# keep me"));
-    // A `token` key in another table is a different thing and is left exactly.
+    // Preserve a `token` key in another table.
     assert!(out.contains("token = \"not-a-daemon-token\""));
 
-    // Nothing to hide: an unset token is not rewritten to the sentinel.
+    // Preserve an empty token instead of inserting the redaction sentinel.
     let empty = "[daemon]\ntoken = \"\"\n";
     assert_eq!(redact_token_text(empty), empty);
 }
 
-/// The round trip a save has to survive: the sentinel a client hands back parses as the
-/// sentinel, which the manager restores. Here we prove the shape a write receives.
+/// Preserve the client's redaction sentinel during parsing.
+/// The manager uses this sentinel to restore the saved token.
 #[test]
 fn the_sentinel_round_trips_as_itself() {
     let cfg = Config::parse(&format!(
@@ -198,7 +198,7 @@ fn a_path_naming_a_variable_this_machine_lacks_is_nothing() {
     assert_eq!(expand("$SLOPD_NO_SUCH_VAR_A/$SLOPD_NO_SUCH_VAR_B"), "");
     assert_eq!(expand("${SLOPD_NO_SUCH_VAR_A}/thing"), "");
 
-    // What has no variable in it is left exactly, and one that is set is filled in.
+    // Preserve literal paths. Expand variables that have values.
     assert_eq!(expand("/usr/lib"), "/usr/lib");
     assert!(expand("$PATH/bin").ends_with("/bin"));
     assert_ne!(expand("$PATH/bin"), "/bin");
@@ -237,7 +237,7 @@ fn library_become_sessions() {
 
     let sc = cfg.library_item("review diff").unwrap();
     let prompt = cfg.session_for(&sc, "review-diff".into(), sc.project.clone());
-    // The preset this machine calls its default, rather than that preset's command.
+    // Store the default preset name instead of its command line.
     assert_eq!(prompt.command, "pi");
     assert_eq!(prompt.cmd, None);
     assert_eq!(cfg.command_of(&prompt), "pi");
@@ -255,8 +255,8 @@ fn library_become_sessions() {
     assert_eq!(shell.command, "bash");
     assert_eq!(cfg.command_of(&shell), "bash");
 
-    // A command line rather than a preset name: run as it stands, with only the implicit
-    // global base and no agent's state directory.
+    // Preserve a custom command line without selecting an agent preset.
+    // Apply only the implicit global sandbox preset.
     let custom = cfg.session_for(
         &cfg.library_item("codex").unwrap(),
         "codex".into(),
@@ -266,8 +266,7 @@ fn library_become_sessions() {
     assert_eq!(cfg.command_of(&custom), "codex --yolo");
     assert_eq!(cfg.sandbox_of(&custom, &Default::default()), vec!["global"]);
 
-    // The place is the caller's answer and not the entry's, which is what lets one
-    // errand be run somewhere it never named.
+    // Use the caller's project selection instead of the library item's project.
     let anywhere = cfg.session_for(&sc, "review-diff-2".into(), "elsewhere".into());
     assert_eq!(anywhere.project, "elsewhere");
 }
@@ -286,8 +285,8 @@ fn preset_dependencies_arrive_before_the_preset_that_needs_them() {
     );
 }
 
-/// An entry written before links existed has to keep meaning what it did: a
-/// A library item that names a project runs there.
+/// Preserve compatibility with library entries saved before explicit links existed.
+/// An entry that names a project defaults to a project link.
 #[test]
 fn library_item_links_round_trip_and_default_to_the_project() {
     let cfg = Config::parse(
@@ -398,7 +397,7 @@ fn file_action_modes_round_trip_and_default_to_the_menu() {
     );
 }
 
-/// The directory under it is coined; the point is that nobody typed it.
+/// Generate a temporary project's directory from its name.
 #[test]
 fn temp_projects_name_their_own_directory() {
     assert_eq!(temp_dir("scratch"), "/tmp/slopworld/scratch");
@@ -414,7 +413,7 @@ fn temp_projects_name_their_own_directory() {
     .expect("a temp project should parse");
 
     assert!(cfg.project("scratch").unwrap().temp);
-    // And an ordinary one is not one by accident.
+    // Projects are not temporary by default.
     let plain = Config::parse(
         r#"
             [[project]]
@@ -463,8 +462,8 @@ fn agent_network_is_independent_of_project() {
     );
 }
 
-/// A library item that came back as a prompt would run the wrong thing in the right
-/// place.
+/// Preserve the library item's type during TOML serialization and parsing.
+/// A shell item must not become a prompt.
 #[test]
 fn library_round_trip_through_toml() {
     let mut cfg = Config::default();
@@ -517,9 +516,8 @@ fn persistent_tmp_is_an_opt_in_session_setting() {
     assert!(toml::from_str::<SessionCfg>(&text).unwrap().persistent_tmp);
 }
 
-/// A shipped breadcrumb is offered like any other and written down like none of them:
-/// the file is what a person owns, and a builtin that leaked into it would come back as
-/// an ordinary entry the next binary could not correct.
+/// Include the built-in breadcrumb in the library without saving it in user configuration.
+/// Saving it as a user entry would prevent later daemon versions from updating the built-in content.
 #[test]
 fn the_shipped_breadcrumb_is_offered_but_never_written_down() {
     let cfg = Config::default();
@@ -537,7 +535,7 @@ fn the_shipped_breadcrumb_is_offered_but_never_written_down() {
         .iter()
         .any(|s| s.name == "Useful tips" && s.builtin));
 
-    // Saving the config states nothing about it, and reading it back does not double it.
+    // Omit the built-in entry from saved configuration. Loading must not duplicate it.
     let text = toml::to_string_pretty(&cfg).unwrap();
     assert!(!text.contains("Useful tips"));
     let back = Config::parse(&text).unwrap();
@@ -550,8 +548,8 @@ fn the_shipped_breadcrumb_is_offered_but_never_written_down() {
     );
 }
 
-/// The same rule a user preset gets: a written entry of that name is the one that is
-/// read, and the builtin stops being one - so it can be edited and deleted again.
+/// A user entry overrides a built-in entry with the same name.
+/// Treat the replacement as a user entry that permits editing and deletion.
 #[test]
 fn a_written_entry_shadows_the_builtin_it_is_named_after() {
     let mut cfg = Config::default();
@@ -670,7 +668,7 @@ fn config_rejects_unsafe_or_duplicate_project_names() {
             dir = "/tmp/two"
         "#;
     let error = Config::parse(duplicate).unwrap_err().to_string();
-    assert!(error.contains("duplicate"), "{error}");
+    assert!(error.contains("already exists"), "{error}");
 
     assert!(Config::parse("[[project]]\nname = \"repo.v2\"\ndir = \"/tmp\"\n").is_ok());
 }
@@ -687,7 +685,10 @@ fn config_rejects_duplicate_state_ids() {
             state_id = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
         "#;
     let error = Config::parse(text).unwrap_err().to_string();
-    assert!(error.contains("duplicate"), "{error}");
+    assert!(
+        error.contains("Two sessions use the same private-state ID"),
+        "{error}"
+    );
 }
 
 #[test]

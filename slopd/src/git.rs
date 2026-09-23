@@ -42,7 +42,7 @@ pub struct Status {
 }
 
 /// A status row before it is exposed to the client. Git emits a rename's old path in a
-/// second NUL-delimited field; it is not drawn, but numstat needs it as a pathspec for Git to
+/// second NUL-delimited field. It is not drawn, but numstat needs it as a pathspec for Git to
 /// recognize the rename instead of treating the new path as a full-file addition.
 struct StatusRow {
     path: String,
@@ -58,7 +58,7 @@ const NO_INDEX_CONCURRENCY: usize = 4;
 // across repositories while leaving status-only reads free to deliver paths immediately.
 static NUMSTAT_SLOTS: tokio::sync::Semaphore = tokio::sync::Semaphore::const_new(2);
 
-/// Disable known helpers; seccomp also blocks filters and other child processes.
+/// Disable known helpers. Seccomp also blocks filters and other child processes.
 pub(crate) fn inspection_args() -> &'static [&'static str] {
     &[
         "-c",
@@ -106,9 +106,8 @@ async fn warm(dir: &Path) -> std::io::Result<()> {
     Ok(())
 }
 
-/// Whether `dir` is inside a repository, and what has changed in it. `Ok(None)` is "not a
-/// repository" - a plain answer rather than an error, because half the projects on a machine
-/// are not one and the view says so in a line.
+/// Return changes in the repository that contains `dir`.
+/// Return `Ok(None)` when `dir` is not in a repository because this is a normal project state.
 #[cfg(test)]
 pub async fn status(dir: &Path) -> std::io::Result<Option<Status>> {
     status_with_counts(dir, true).await
@@ -124,13 +123,13 @@ pub async fn status_with_counts(
         return Ok(None);
     };
 
-    // Both readings are against the root rather than the directory asked about: a project
-    // pointed at a subdirectory of a repository is still that repository, and a path relative
-    // to the root is the one form `git diff` will take back without a second guess about cwd.
-    // Start with Git's one-row-per-directory untracked summary. It can skip ignored trees, which
-    // matters for projects that contain build outputs or nested checkouts. Ordinary untracked
-    // directories are expanded in one batch below; a nested repository remains a boundary row
-    // and its own working tree is never inspected as part of the parent.
+    // Read status and diffs relative to the repository root.
+    // A project can select a subdirectory, but Git still requires root-relative diff paths.
+    // Start with Git's one-row-per-directory summary for untracked content.
+    // It can omit ignored trees, including build output and nested checkouts.
+    // Expand ordinary untracked directories in one batch below.
+    // Keep nested repositories as boundary rows.
+    // own working tree is never inspected as part of the parent.
     let (rows_result, branch) = tokio::join!(status_rows(&root), branch(&root));
     let (rows, truncated) = rows_result?;
     crate::perf::count("git-status-rows", rows.len() as u64);
@@ -174,8 +173,8 @@ pub async fn status_with_counts(
     }))
 }
 
-/// Read the status stream only far enough to fill the sidebar tree. `status -z` puts the old
-/// name of a rename/copy in a second NUL-delimited field, so consume that field before deciding
+/// Read the status stream only far enough to fill the sidebar tree. `status -z` puts the old name
+/// of a rename/copy in a second NUL-delimited field. Therefore, consume that field before deciding
 /// whether the next row crossed the cap.
 async fn status_rows(root: &Path) -> std::io::Result<(Vec<StatusRow>, bool)> {
     let _perf = crate::perf::timer("git-status");
@@ -230,7 +229,7 @@ async fn status_rows_command(
     let mut child = command
         // Let Git persist its untracked-directory cache in the index. The first scan of a large
         // worktree can still be cold, but without this cache every daemon restart pays that
-        // directory walk again; later sidebar refreshes are then only metadata checks.
+        // directory walk again. Later sidebar refreshes are then only metadata checks.
         .env("GIT_OPTIONAL_LOCKS", "1")
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -266,7 +265,7 @@ async fn status_rows_command(
             continue;
         };
         let source = if renamed {
-            // The source path is not drawn, but it is part of this status record and is
+            // The source path is not drawn. However, It is part of this status record and is
             // required as a pathspec for numstat to retain rename detection.
             fields.clear();
             if stdout.read_until(0, &mut fields).await? == 0 {
@@ -308,7 +307,7 @@ async fn status_rows_command(
 }
 
 /// The repository root, or `None` where there is none. An error here is git missing or
-/// unrunnable, which is worth saying; a non-zero exit is only "not a repository".
+/// unrunnable, which is worth saying. A non-zero exit is only "not a repository".
 async fn toplevel(dir: &Path) -> std::io::Result<Option<PathBuf>> {
     let out = inspection_command(dir)
         .args(["rev-parse", "--show-toplevel"])
@@ -321,8 +320,8 @@ async fn toplevel(dir: &Path) -> std::io::Result<Option<PathBuf>> {
     Ok((!path.is_empty()).then(|| PathBuf::from(path)))
 }
 
-/// The branch name, the short hash when the head is detached, and empty when neither answers -
-/// a repository with nothing committed yet has a head pointing at a branch that does not exist.
+/// Return the branch name or the short hash for a detached head.
+/// Return an empty string for a new repository whose branch does not exist yet.
 async fn branch(root: &Path) -> String {
     if let Ok(out) = run(root, &["symbolic-ref", "--short", "-q", "HEAD"]).await {
         let name = out.trim().to_string();
@@ -470,8 +469,8 @@ async fn no_index_numstat(root: &Path, path: &str) -> Option<(Option<u32>, Optio
     None
 }
 
-/// `git` in the repository, with its own environment kept out of the way: a pager here would
-/// wait for a terminal nobody has, and a locale would translate the words this parses.
+/// `git` in the repository, with its own environment kept out of the way. A pager here would wait
+/// for a terminal nobody has, and a locale would translate the words this parses.
 async fn run(root: &Path, args: &[&str]) -> std::io::Result<String> {
     let out = inspection_command(root)
         .args(args)
@@ -527,7 +526,7 @@ fn parse_numstat(out: &str) -> HashMap<String, (Option<u32>, Option<u32>)> {
     let mut map = HashMap::new();
     let mut fields = out.split('\0').filter(|s| !s.is_empty());
     while let Some(head) = fields.next() {
-        // The counts occupy the first two tab-separated fields; keep the rest intact because
+        // The counts occupy the first two tab-separated fields. Keep the rest intact because
         // Git permits a tab in a filename. Renames use an empty third field and carry both
         // names as their following NUL-separated fields.
         let mut parts = head.splitn(3, '\t');

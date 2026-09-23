@@ -13,9 +13,9 @@ fn update_host_process(l: &mut Live, command: &str) -> bool {
 }
 
 impl Manager {
-    /// Return a sanitized launch report for an authorized diagnostic request. The sandbox module
-    /// owns both artifact parsing and process observation so API and CLI cannot accidentally grow
-    /// a second, less careful rendering path.
+    /// Return a sanitized launch report for an authorized diagnostic request.
+    /// The sandbox module owns artifact parsing and process observation.
+    /// API and CLI callers use this shared path to apply the same safeguards.
     pub(crate) async fn sandbox_inspect(&self, name: &str) -> Result<serde_json::Value> {
         let session = self
             .session_cfg(name)
@@ -39,9 +39,8 @@ impl Manager {
         if let Some(p) = self.temp.read().await.get(&s.project).cloned() {
             return Some(p);
         }
-        // A host tab may outlive the project entry that created it. Its last tmux cwd is
-        // still a safe host starting point, so keep the tab usable and ungrouped instead of
-        // making it impossible to restart.
+        // A host tab can remain after deletion of its project entry.
+        // Use its last tmux working directory so the ungrouped tab can still restart.
         let path = self
             .live
             .read()
@@ -244,7 +243,7 @@ impl Manager {
                         .await;
                 }
                 Err(error) => {
-                    tracing::debug!(error = %error, "host metadata poll failed; retaining known state");
+                    tracing::debug!(error = %error, "Host metadata poll failed. Retaining known state.");
                 }
             }
             tracing::debug!(
@@ -288,13 +287,13 @@ impl Manager {
                 check_belongs(cfg, &s)?;
                 s.limits.validate()?;
                 crate::runtime::validate_limits(&s.limits)?;
-                // Worker identity is daemon-owned. The ordinary session editor cannot create a child by
-                // smuggling hierarchy fields through this route; `spawn_worker` is the only constructor.
+                // The daemon owns worker identity. Only spawn_worker can create a child session.
+                // Ignore hierarchy fields supplied through the ordinary session editor.
                 s.worker = false;
                 s.parent.clear();
                 s.task_id.clear();
-                // A client has no authority over which durable state an agent receives. Always mint
-                // a fresh key, including if a hand-written request carried a stale one.
+                // Clients cannot select an agent's persistent state identity.
+                // Generate a new key even if the request supplies an old one.
                 s.state_id = uuid::Uuid::new_v4().to_string();
                 let autostart = s.autostart;
                 let name = s.name.clone();
@@ -304,9 +303,8 @@ impl Manager {
             .await?;
 
         self.sync_from_config().await;
-        // sync_from_config already attempts autostart for the newly persisted session. Retry
-        // only when that attempt left no tmux session; otherwise this second start would turn a
-        // successful add into an "already running" error.
+        // sync_from_config already attempts autostart for the saved session.
+        // Retry only if no tmux session exists. Otherwise, a successful addition would report an already-running error.
         if autostart && !self.tmux.exists(&name).await {
             self.start(&name).await?;
         }
@@ -314,10 +312,10 @@ impl Manager {
     }
 
     pub async fn update(self: &Arc<Self>, name: &str, s: SessionCfg) -> Result<()> {
-        // Once tmux has accepted the new name, the rest of the transaction must not be
-        // cancellable: dropping the HTTP future cannot strand tmux under a name that was never
-        // persisted. The detached task still owns the session boundary while it commits or
-        // rolls back, and its result is awaited when the caller remains interested.
+        // After tmux accepts the new name, finish the transaction even if the caller cancels the HTTP request.
+        // This prevents tmux from retaining a name that was never saved.
+        // The detached task holds the session boundary while it commits or restores the previous state.
+        // A connected caller waits for the result.
         let manager = self.clone();
         let name = name.to_string();
         tokio::spawn(async move {
@@ -362,7 +360,7 @@ impl Manager {
                     .position(|x| x.name == name)
                     .ok_or_else(|| anyhow!("no such session: {name}"))?;
                 if cfg.sessions[idx].worker {
-                    bail!("task-owned worker {name} cannot be edited; retry its task instead");
+                    bail!("Task-owned worker {name} cannot be edited. Retry its task instead.");
                 }
                 if renamed
                     && (cfg
@@ -388,8 +386,8 @@ impl Manager {
                 s.worker = previous.worker;
                 s.parent = previous.parent;
                 s.task_id = previous.task_id;
-                // Keep private state with the agent across every edit, particularly a rename. The
-                // wire deliberately does not expose this field, but also must not be able to change it.
+                // Preserve the agent's private state identity during all edits, including renames.
+                // The protocol does not expose this field and must not permit changes to it.
                 s.state_id = previous.state_id;
                 cfg.sessions[idx] = s.clone();
                 Ok(((), true))
@@ -426,11 +424,11 @@ impl Manager {
     ) -> Result<()> {
         match self.tmux.rename(new, old).await {
             Ok(()) => Err(anyhow!(
-                "could not persist session rename {old} -> {new}: {persist_error:#}; tmux was restored to {old}"
+                "Could not persist session rename {old} -> {new}: {persist_error:#}. Restored tmux to {old}."
             )),
             Err(rollback_error) => {
-                // Keep config/live state at the persisted identity. A second failure requires
-                // manual recovery; report observed tmux names rather than inventing unsaved state.
+                // Keep configuration and live state at the saved identity.
+                // A second failure requires manual recovery. Report observed tmux names without creating unsaved state.
                 let identity = self.tmux_identity(old, new).await;
                 tracing::error!(
                     old,
@@ -441,9 +439,9 @@ impl Manager {
                     "session rename recovery could not restore tmux"
                 );
                 Err(anyhow!(
-                    "could not persist session rename {old} -> {new}: {persist_error:#}; \
-                     rollback to {old} also failed: {rollback_error:#}; \
-                     actual tmux identity: {identity}; manual recovery required"
+                    "Could not persist session rename {old} -> {new}: {persist_error:#}. \
+                     Could not restore tmux to {old}: {rollback_error:#}. \
+                     Actual tmux identity: {identity}. Manual recovery is required."
                 ))
             }
         }
@@ -465,9 +463,8 @@ impl Manager {
         }
     }
 
-    /// Set the optional manual sidebar label without making the edit dialog round-trip
-    /// read-only session fields. Host labels live in the durable host-terminal record even
-    /// though host rows use the ephemeral presentation internally.
+    /// Set the optional sidebar label without requiring the edit dialog to send read-only session fields.
+    /// Store host labels in persistent host-terminal records, although host rows use the temporary-session presentation.
     pub async fn set_label(self: &Arc<Self>, name: &str, label: String) -> Result<()> {
         self.reload_if_changed().await;
         let label = label.trim().to_string();
@@ -516,7 +513,7 @@ impl Manager {
     }
 
     pub(super) async fn readopt(self: &Arc<Self>, old: &str, new: &str) {
-        // The control reader is attached by tmux name; renaming requires a fresh capture/emulator.
+        // The control reader attaches by tmux name. A rename requires a new capture and emulator.
         let (running, title, reader) = {
             let mut live = self.live.write().await;
             let mut l = match live.remove(old) {
@@ -524,9 +521,9 @@ impl Manager {
                 None => return,
             };
             let reader = take_reader_for_abort(&mut l);
-            // The input consumer captures the tmux target when it is spawned. Drop its
-            // sender so the next key creates a consumer addressed to the new name; keeping
-            // it would silently route every later key to the vanished old session.
+            // The input consumer captures its tmux target at startup.
+            // Drop its sender so the next key creates a consumer for the new name.
+            // Otherwise, later keys would target the old session name.
             l.input = None;
             let running = l.emu.take().is_some();
             l.reader_token = None;
@@ -536,8 +533,8 @@ impl Manager {
             (running, title, reader)
         };
         finish_reader(reader);
-        // The cache is keyed by name, and the frames under the old one describe a pane that
-        // is about to be re-captured against a fresh emulator.
+        // The cache is keyed by name. The frames under the old one describe a pane that is about to
+        // be re-captured against a fresh emulator.
         self.forget_scroll(old);
         self.forget_scroll(new);
         if let Err(error) = self.activity_cache.rename(old, new) {
@@ -617,7 +614,7 @@ impl Manager {
         {
             if let Some(path) = trashed.as_deref() {
                 if let Err(restore) = crate::sandbox::restore_trashed_state(&session, path) {
-                    tracing::error!("config delete failed: {e:#}; private-state restore also failed: {restore:#}");
+                    tracing::error!("Config deletion failed: {e:#}. Restoring private state also failed: {restore:#}.");
                 }
             }
             return Err(e);
@@ -629,8 +626,8 @@ impl Manager {
         Ok(())
     }
 
-    /// Stop an agent and discard only its private tool state.  The old tree is recoverable in
-    /// the daemon-owned trash for two weeks; the configured agent remains and reseeds on start.
+    /// Stop the agent. Move its private tool state to the daemon trash for two weeks of recovery.
+    /// Keep the configured agent. Initialize new private state when it starts again.
     pub async fn reset_state(self: &Arc<Self>, name: &str) -> Result<()> {
         self.session_operation(self.reset_state_within_boundary(name))
             .await
@@ -721,7 +718,7 @@ impl Manager {
                 .await
             {
                 if let Err(rollback) = crate::sandbox::rollback_restored_state(key, &session) {
-                    tracing::error!("restored-agent config save failed: {e:#}; state rollback also failed: {rollback:#}");
+                    tracing::error!("Saving the restored agent config failed: {e:#}. Rolling back state also failed: {rollback:#}.");
                 }
                 return Err(e);
             }

@@ -3,9 +3,8 @@
 use super::super::*;
 use super::session_lifecycle::{finish_reader, DetachCause, ReaderDisposition};
 
-/// Keeps the ordering of durable configuration reconciliation in one named owner. The manager
-/// remains the public façade because callers must not be able to skip pruning or autostart
-/// ordering.
+/// Control the order of persistent configuration reconciliation in one component.
+/// Callers use the manager interface so they cannot skip pruning or change autostart order.
 pub(super) struct ConfigReconciler;
 
 impl ConfigReconciler {
@@ -52,8 +51,8 @@ impl Manager {
                 .collect::<Vec<_>>()
         };
 
-        // Abort the entire batch before cleanup can yield. Cancellation during one cleanup
-        // must not drop the remaining JoinHandles and detach readers with no live rows.
+        // Abort all readers in the batch before cleanup can yield.
+        // Ensure cancellation does not leave readers running after cleanup removes their live rows.
         for plan in &mut plans {
             finish_reader(std::mem::replace(&mut plan.reader, ReaderDisposition::None));
         }
@@ -71,8 +70,8 @@ impl Manager {
             live.entry(s.name.clone())
                 .and_modify(|l| {
                     l.cfg = s.clone();
-                    // Discovery is armed only when the next process starts. Named
-                    // breadcrumbs are never copied into live state automatically.
+                    // Enable discovery only when the next process starts.
+                    // Do not automatically copy named breadcrumbs into live state.
                     l.breadcrumbs_pending = false;
                     l.breadcrumbs.clear();
                 })
@@ -130,7 +129,8 @@ impl Manager {
     }
 
     pub(super) async fn autostart(self: &Arc<Self>, cfg: &Config) {
-        // Task workers are explicit, one-shot work; old autostart flags must not relaunch them.
+        // Task workers run only when explicitly requested.
+        // Old autostart flags must not restart them.
         for s in cfg.sessions.iter().filter(|s| s.autostart && !s.worker) {
             if !self.tmux.exists(&s.name).await {
                 if let Err(e) = self.start(&s.name).await {

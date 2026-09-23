@@ -53,9 +53,9 @@ impl Manager {
         let content_changed = previous.initial || content_hash != previous.content_hash;
         let cursor_changed = !previous.initial && (frame.cx, frame.cy) != previous.cursor;
         let metadata_changed = !previous.initial && meta != previous.meta;
-        // Cursor position, shape and blinking are presentation state, not pane activity. TUIs
-        // update these while otherwise quiet; counting them as redraws keeps resetting
-        // the idle clock without changing the visible terminal content.
+        // Cursor position, shape, and blinking describe presentation rather than pane activity.
+        // Terminal applications can update these while otherwise idle.
+        // Counting those changes as activity would reset the idle clock without changes to terminal content.
         let activity_changed = previous.initial
             || frame.activity_hash != previous.activity_hash
             || meta.app_mouse != previous.meta.app_mouse
@@ -63,9 +63,8 @@ impl Manager {
             || meta.alt_screen != previous.meta.alt_screen
             || meta.title != previous.meta.title;
         let screen_changed = content_changed || cursor_changed || metadata_changed;
-        // Cursor/mode/title-only frames still need classification, but their visible text is
-        // unchanged. Reuse the last stripped text instead of joining and stripping the full
-        // terminal viewport again.
+        // Classify frames even if only the cursor, mode, or title changed.
+        // Reuse the previous normalized text because the visible text is unchanged.
         crate::perf::count(
             if content_changed {
                 "frame-content-changed"
@@ -149,10 +148,10 @@ impl Manager {
             {
                 let mut live = self.live.write().await;
                 let Some(l) = live.get_mut(name) else { return };
-                // Classification waits on the rules lock. Do not let that wait turn an old
-                // capture into a replacement, nor let it overwrite a newer frame/run. State
-                // changes and rules changes require fresh classification, but must not discard
-                // terminal output from the same run and frame sequence.
+                // Classification waits for the rules lock. The frame or process can change during that wait.
+                // Do not overwrite a newer frame or process with an old capture.
+                // State and rule changes require new classification.
+                // Preserve terminal output if the run and frame sequence still match.
                 if l.run_id != previous.run_id || l.seq != previous.seq {
                     return;
                 }
@@ -175,9 +174,8 @@ impl Manager {
                     if delta.activity_changed && !previous.initial {
                         l.last_change = now_ms();
                     } else if previous.initial {
-                        // The first capture is a snapshot, not a new pane update. Keep the
-                        // cached state age, but give working classification a fresh decay sample
-                        // because there is no prior frame to compare against after a restart.
+                        // The first capture shows existing content. Preserve the cached state age.
+                        // Start a new activity timeout for working classification because a restart leaves no previous frame for comparison.
                         l.last_change = if delta.next_state == State::Idle {
                             0
                         } else {

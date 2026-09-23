@@ -117,7 +117,7 @@ async fn a_directory_that_is_no_repository_is_not_an_error() {
     let dir = std::env::temp_dir().join("slopd-git-none");
     let _ = tokio::fs::create_dir_all(&dir).await;
     // Only meaningful where the temp dir is not itself inside a checkout, which is the
-    // usual arrangement; a machine where it is would make this vacuous rather than wrong.
+    // usual arrangement. A machine where it is would make this vacuous rather than wrong.
     if let Ok(answer) = status(&dir).await {
         assert!(answer.is_none() || answer.unwrap().root != dir);
     }
@@ -547,7 +547,7 @@ async fn a_large_status_is_capped_before_numstat() {
     tokio::fs::remove_dir_all(&dir).await.unwrap();
 }
 
-/// Parse `status --porcelain=v1 -z` without Git's quote escaping; discard a rename's old path and keep the current path.
+/// Parse `status --porcelain=v1 -z` without Git's quote escaping. Discard a rename's old path and keep the current path.
 fn parse_porcelain(out: &str) -> Vec<(String, String)> {
     let mut rows = Vec::new();
     let mut fields = out.split('\0').filter(|s| !s.is_empty());

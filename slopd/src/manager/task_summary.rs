@@ -78,7 +78,7 @@ impl Manager {
                 target: "slopd::task_summaries",
                 task = %task.id,
                 outcome = "task_missing",
-                "task was removed before its summary completed"
+                "The daemon removed the task before its summary completed."
             ),
             Err(error) => tracing::warn!(
                 target: "slopd::task_summaries",

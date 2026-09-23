@@ -4,8 +4,8 @@ use crate::session::Input;
 use std::os::unix::process::ExitStatusExt;
 use std::process::ExitStatus;
 
-/// A normal exit with the given code, the way the OS hands it back: the low byte is the
-/// signal (none here) and the code sits above it.
+/// Construct a normal Unix exit status with the supplied exit code in the high byte.
+/// Keep the low byte zero to indicate no termination signal.
 fn exit(code: i32) -> ExitStatus {
     ExitStatus::from_raw(code << 8)
 }
@@ -30,8 +30,8 @@ fn auto_resume_types_the_command_and_two_enters_in_order() {
     ));
 }
 
-/// stdout alone comes back trimmed of its trailing newline; empty output is spelled out
-/// rather than handed back blank.
+/// Remove trailing whitespace from stdout.
+/// Return an explicit message when output is empty or contains only whitespace.
 #[test]
 fn file_action_result_returns_trimmed_stdout() {
     assert_eq!(
@@ -56,8 +56,7 @@ fn file_action_result_returns_trimmed_stdout() {
     );
 }
 
-/// stderr is appended below stdout, with a separating newline inserted only when stdout did
-/// not already end in one.
+/// Append stderr below stdout. Insert a newline only if stdout does not already end with one.
 #[test]
 fn file_action_result_appends_stderr_below_stdout() {
     assert_eq!(
@@ -84,7 +83,7 @@ fn file_action_result_appends_stderr_below_stdout() {
     );
 }
 
-/// A truncation marker is tacked on when either stream was cut short.
+/// Append a truncation marker when either output stream exceeds its limit.
 #[test]
 fn file_action_result_flags_truncation() {
     let out =
@@ -93,8 +92,7 @@ fn file_action_result_flags_truncation() {
     assert!(out.contains("[output truncated]"), "got {out:?}");
 }
 
-/// A non-zero exit is an error, and the combined output rides along in the message rather
-/// than being returned as success.
+/// Return an error for a nonzero exit code. Include combined output in the error message.
 #[test]
 fn file_action_result_fails_on_nonzero_exit() {
     let err =
@@ -103,8 +101,8 @@ fn file_action_result_fails_on_nonzero_exit() {
     assert!(err.to_string().contains("boom"), "got {err}");
 }
 
-/// Breadcrumb and file-action library are handles on something, not runnable prompts; only
-/// prompt and shell library may be launched as an agent errand.
+/// Permit only prompt and shell library items as agent errands.
+/// Reject breadcrumb and file-action items.
 #[test]
 fn only_runnable_library_pass_the_errand_guard() {
     let sc = |kind| LibraryItemCfg {
@@ -158,7 +156,12 @@ async fn project_temporary_mode_is_immutable_after_creation() {
         )
         .await
         .expect_err("temporary mode changed");
-    assert!(error.to_string().contains("cannot be changed"), "{error}");
+    assert!(
+        error
+            .to_string()
+            .contains("cannot change project temporary mode"),
+        "{error}"
+    );
 }
 
 #[test]

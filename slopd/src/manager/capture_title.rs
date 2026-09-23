@@ -15,7 +15,7 @@ impl Manager {
                 session = %name,
                 generation = request.generation,
                 outcome = "skipped_disabled",
-                "discarding title request after its policy was disabled"
+                "Discarding the title request because its policy is disabled"
             );
             return;
         }
@@ -116,7 +116,7 @@ impl Manager {
                 session = %name,
                 generation = request.generation,
                 outcome = "stale_disabled",
-                "discarding title response after its policy was disabled"
+                "Discarding the title response because its policy is disabled"
             );
             return false;
         }
@@ -194,9 +194,9 @@ impl Manager {
         }
     }
 
-    /// A settings change must invalidate title work already captured for a session. Otherwise a
-    /// request queued just before turning summaries off can still reach OpenRouter or overwrite
-    /// a terminal's native title after the save has completed.
+    /// Invalidate pending title work when settings change.
+    /// Otherwise, the queue could send a request to OpenRouter after the user disables summaries.
+    /// It could also overwrite the terminal's native title after the settings save.
     pub(crate) async fn reconcile_title_settings(&self, cfg: &Config) -> bool {
         let mut clear = Vec::new();
         let mut changed = false;

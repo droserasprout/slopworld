@@ -16,7 +16,7 @@ impl Manager {
             .unwrap_or(false)
     }
 
-    /// Reload before authorization, then defer disk reloads until the request completes.
+    /// Reload before authorization. Defer further disk reloads until the request completes.
     pub(crate) async fn session_request<F: Future>(self: &Arc<Self>, request: F) -> F::Output {
         self.session_operation(async {
             self.reload_if_changed().await;
@@ -25,7 +25,7 @@ impl Manager {
         .await
     }
 
-    /// Nested lifecycle calls share the boundary; spawned tasks must acquire their own.
+    /// Nested lifecycle calls share the boundary. Spawned tasks must acquire their own boundary.
     pub(crate) fn session_operation<'a, F: Future + 'a>(
         &'a self,
         operation: F,

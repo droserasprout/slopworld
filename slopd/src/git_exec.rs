@@ -82,7 +82,7 @@ fn install() -> std::io::Result<()> {
         len: filter.len() as u16,
         filter: filter.as_ptr() as *mut _,
     };
-    // SAFETY: prctl reads the valid filter during this call; it retains no userspace pointer.
+    // SAFETY: prctl reads the valid filter during this call. It retains no userspace pointer.
     unsafe {
         if libc::prctl(libc::PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) != 0
             || libc::prctl(libc::PR_SET_SECCOMP, libc::SECCOMP_MODE_FILTER, &program) != 0

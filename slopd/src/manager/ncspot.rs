@@ -1,5 +1,6 @@
-//! Native Linux proof of concept. ncspot owns Spotify credentials and playback; SlopWorld
-//! owns one host terminal and a private IPC runtime directory, never the user's other player.
+//! Native Linux proof of concept. ncspot owns Spotify credentials and playback.
+//! SlopWorld owns one host terminal and a private IPC runtime directory.
+//! It does not control other players owned by the user.
 use super::super::*;
 use anyhow::{Context, Result};
 use std::path::{Path, PathBuf};
@@ -80,7 +81,7 @@ impl Manager {
         let root = runtime()?;
         let mut player = self.ncspot.lock().await;
         let command = launch_command(&root);
-        // The explicit tmux marker survives redeploy; labels and reconstructed commands do not.
+        // The explicit tmux marker survives daemon deployment. Labels and reconstructed commands do not.
         if player.session.is_none() {
             player.session = self.adopted_ncspot().await;
         }
@@ -111,8 +112,10 @@ impl Manager {
         use std::os::unix::fs::PermissionsExt;
         tokio::fs::set_permissions(&directory, std::fs::Permissions::from_mode(0o700)).await?;
         let socket = directory.join("ncspot/ncspot.sock");
-        anyhow::ensure!(tokio::net::UnixStream::connect(&socket).await.is_err(),
-            "an unmanaged ncspot is using the SlopWorld socket; close it before opening this player");
+        anyhow::ensure!(
+            tokio::net::UnixStream::connect(&socket).await.is_err(),
+            "An unmanaged ncspot uses the SlopWorld socket. Close it before opening this player."
+        );
         self.audio.stop();
         let session = self
             .run_errand(
@@ -181,7 +184,7 @@ impl Manager {
             ..Default::default()
         };
         if !self.tmux.is_ncspot(name).await {
-            state.error = Some("ncspot exited; open Spotify again to restart it".into());
+            state.error = Some("ncspot exited. Open Spotify again to restart it.".into());
             return state;
         }
         let Some(socket) = player.socket.as_ref() else {
@@ -199,8 +202,8 @@ impl Manager {
                 }
                 player.applied_volume = Some(player.volume);
             }
-            // Authentication happens before ncspot creates its socket. Keep the terminal
-            // usable while login is pending; a missing socket is not a playback failure.
+            // ncspot authenticates before creating its socket.
+            // Keep the terminal usable during login. A missing socket does not indicate playback failure.
             Err(e) => tracing::debug!("ncspot IPC not ready: {e:#}"),
         }
         state

@@ -19,9 +19,9 @@ fn classify_match(matched: Option<State>, changed: bool, last_change: u64) -> St
             // A prompt remains a prompt until the agent changes it or the user answers it.
             // An explicit idle rule is likewise authoritative.
             State::Waiting | State::Idle => return state,
-            // Some agent TUIs leave their working status line on screen after they stop
-            // producing output. Let that stale match decay with the same activity clock as
-            // the fallback classifier, or it can keep an agent working forever.
+            // Some agent interfaces retain a working status line after output stops.
+            // Apply the fallback classifier's activity timeout to these matches.
+            // Otherwise, the agent could remain in Working state indefinitely.
             State::Working if !changed && now_ms().saturating_sub(last_change) >= IDLE_MS => {
                 return State::Idle;
             }
@@ -48,9 +48,8 @@ impl Manager {
             .values()
             .map(|l| {
                 let p = cfg.project_of(&l.cfg).or_else(|| temp.get(&l.cfg.project));
-                // An unassigned host shell uses a disposable project only to own its
-                // working directory. Keep that implementation detail out of sidebar
-                // grouping so it remains in the top host-terminal rows.
+                // An unassigned host shell uses a temporary project to hold its working directory.
+                // Exclude that project from sidebar grouping so the shell stays with the top host-terminal rows.
                 let display_project = if l.host && temp.contains_key(&l.cfg.project) {
                     String::new()
                 } else {
@@ -139,9 +138,9 @@ impl Manager {
         text: &str,
         cache: Option<&RuleCache>,
     ) -> Classification {
-        // Keep even cache hits under the rules read lock. This makes the revision and the
-        // cached result one coherent snapshot while still avoiding regex work for unchanged
-        // text; a config publish replaces both together under the write lock.
+        // Hold the rules read lock even for cache hits to keep the revision and cached result consistent.
+        // Reuse cached results for unchanged text to avoid regex processing.
+        // Configuration publication replaces both values together under the write lock.
         let rules = self.rules.read().await;
         let current_revision = self
             .rules_revision

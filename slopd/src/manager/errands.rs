@@ -4,9 +4,9 @@ use super::super::*;
 use anyhow::anyhow;
 
 impl Manager {
-    /// Reserve the live row for an errand before startup. This owner handles name allocation,
-    /// temporary project creation, host-tab persistence, and the optional agent-settings clone; launch
-    /// and delivery remain lifecycle concerns in their callers.
+    /// Reserve an errand's live row before startup.
+    /// Manage name allocation, temporary project creation, host-tab storage, and optional copying of agent settings here.
+    /// Callers control launch and input delivery.
     pub(super) async fn create_errand_session(
         &self,
         cfg: &Config,
@@ -76,13 +76,13 @@ impl Manager {
             (Some(project), _) => project.clone(),
             (None, LibraryItemLink::Ask) => {
                 bail!(
-                    "library item {item_name} asks where to run; name a project or ask for a temporary one"
+                    "Choose a project or request a temporary project for library item {item_name:?}."
                 )
             }
             (None, _) => sc.project.clone(),
         };
         if !fresh && cfg.project(&named).is_none() {
-            bail!("no such project: {named}");
+            bail!("Project {named:?} does not exist.");
         }
         let selected_worktree = if want.worktree.is_empty() && !like.is_empty() {
             cfg.session(like)
@@ -94,7 +94,7 @@ impl Manager {
         let worktree_path = if !fresh {
             let p = cfg
                 .project(&named)
-                .ok_or_else(|| anyhow!("no project {named}"))?;
+                .ok_or_else(|| anyhow!("Project {named:?} does not exist."))?;
             let worktree = if want.worktree.is_empty() && !like.is_empty() {
                 cfg.session(like).map(|s| s.worktree.as_str()).unwrap_or("")
             } else {
@@ -138,7 +138,7 @@ impl Manager {
             let path = worktree_path
                 .as_ref()
                 .map(|project| crate::config::expand(&project.dir))
-                .ok_or_else(|| anyhow!("no such project: {named}"))?;
+                .ok_or_else(|| anyhow!("Project {named:?} does not exist."))?;
             self.remember_host_terminal(&name, &named, &path).await?;
         }
 
@@ -191,9 +191,9 @@ impl Manager {
         };
         session.autostart = false;
         session.auto_resume = false;
-        // The tmux-safe session name is slugged, which turns a file extension's dot into a
-        // dash. Keep the original routed-tab label in the ephemeral session metadata so the
-        // client can display the filename exactly as Files supplied it.
+        // Session name normalization replaces a file extension's dot with a dash for tmux.
+        // Preserve the original tab label in temporary session metadata.
+        // The client can then display the exact filename supplied by Files.
         session.label = super::library::routed_action_label(&sc.name);
         if !like.is_empty() {
             if let Some(source) = cfg.session(like) {

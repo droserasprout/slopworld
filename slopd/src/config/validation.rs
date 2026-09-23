@@ -10,20 +10,24 @@ use uuid::Uuid;
 
 use super::{mount_target, Config, ProjectCfg};
 
-/// Keep project names to one normal component so config edits cannot introduce ambiguous
-/// project identities or traversal-like values.
+/// Limit project names to one normal path component.
+/// This prevents configuration edits from creating ambiguous project identities or paths that traverse directories.
 pub(crate) fn project_name_component(name: &str) -> Result<&str> {
     if name.trim().is_empty() {
-        bail!("project name must not be empty");
+        bail!("Project name cannot be empty.");
     }
     if name.bytes().any(|b| matches!(b, b'/' | b'\\' | 0)) || name.chars().any(|c| c.is_control()) {
-        bail!("project name must be one safe path component");
+        bail!(
+            "Project names must be one path component. Do not use slashes, control characters, '.' or '..'."
+        );
     }
 
     let mut components = Path::new(name).components();
     match (components.next(), components.next()) {
         (Some(Component::Normal(_)), None) => Ok(name),
-        _ => bail!("project name must be one safe path component"),
+        _ => bail!(
+            "Project names must be one path component. Do not use slashes, control characters, '.' or '..'."
+        ),
     }
 }
 
@@ -31,41 +35,42 @@ pub(crate) fn validate_project_names(projects: &[ProjectCfg]) -> Result<()> {
     let mut names = HashSet::new();
     for project in projects {
         if let Err(error) = project_name_component(&project.name) {
-            bail!("project {:?} has invalid name: {error}", project.name);
+            bail!("Project name {:?} is invalid: {error}", project.name);
         }
         if !names.insert(project.name.as_str()) {
-            bail!("projects contain duplicate name {:?}", project.name);
+            bail!("A project with name {:?} already exists.", project.name);
         }
     }
     Ok(())
 }
 
-/// Check the part of a session identity that is required before it can become a path
-/// component. The persisted form adds the stronger UUID check below, while this shared
-/// predicate also protects runtime-only session records constructed inside the daemon.
+/// Check whether a session identity can be a path component.
+/// Stored identities must also pass the UUID check below.
+/// This shared check also protects session records that exist only in daemon memory.
 pub(crate) fn state_id_component(state_id: &str) -> Result<&str> {
     if state_id.is_empty()
         || state_id == ".trash"
         || state_id.bytes().any(|b| b == b'/' || b == b'\\')
     {
-        bail!("private-state identity must be one path component");
+        bail!("The private-state ID must be one path component.");
     }
 
     let mut components = Path::new(state_id).components();
     match (components.next(), components.next()) {
         (Some(Component::Normal(_)), None) => Ok(state_id),
-        _ => bail!("private-state identity must be one path component"),
+        _ => bail!("The private-state ID must be one path component."),
     }
 }
 
-/// Persisted identities are daemon-minted canonical UUIDs. Keeping this stricter than the
-/// path-component check prevents hand-edited names from becoming durable state namespaces.
+/// The daemon creates canonical UUIDs for stored identities.
+/// This check is stricter than the path component check.
+/// It prevents manually edited names from becoming persistent state namespaces.
 pub(crate) fn validate_state_id(state_id: &str) -> Result<()> {
     state_id_component(state_id)?;
     let uuid = Uuid::parse_str(state_id)
-        .map_err(|_| anyhow::anyhow!("private-state identity must be a canonical UUID"))?;
+        .map_err(|_| anyhow::anyhow!("Use a canonical UUID for the private-state ID."))?;
     if uuid.to_string() != state_id {
-        bail!("private-state identity must be a canonical UUID");
+        bail!("Use a canonical UUID for the private-state ID.");
     }
     Ok(())
 }
@@ -80,14 +85,14 @@ pub(super) fn validate_loaded(cfg: &Config) -> Result<()> {
     for session in &cfg.sessions {
         if let Err(error) = validate_state_id(&session.state_id) {
             bail!(
-                "session {:?} has invalid private-state identity {:?}: {error}",
+                "Session {:?} has invalid private-state ID {:?}: {error}",
                 session.name,
                 session.state_id
             );
         }
         if !state_ids.insert(&session.state_id) {
             bail!(
-                "sessions contain duplicate private-state identity {:?}",
+                "Two sessions use the same private-state ID {:?}.",
                 session.state_id
             );
         }
@@ -95,9 +100,9 @@ pub(super) fn validate_loaded(cfg: &Config) -> Result<()> {
     Ok(())
 }
 
-/// Validate host sources and sandbox destinations. A relative destination is rooted at the
-/// project's expanded directory. Existence is a launch-time check so disconnected disks can
-/// remain configured.
+/// Validate host sources and sandbox destinations.
+/// Resolve relative destinations from the project's expanded directory.
+/// Check whether paths exist at launch so configuration can include disconnected disks.
 pub(crate) fn validate_mount_paths(project: &ProjectCfg) -> Result<()> {
     let mut targets = HashSet::new();
     for mount in &project.mounts {
@@ -118,15 +123,14 @@ pub(crate) fn validate_mount_paths(project: &ProjectCfg) -> Result<()> {
                 .any(|c| matches!(c, Component::ParentDir))
         {
             bail!(
-                "project {} mount from must be an absolute path without parent traversal",
+                "Set the mount source for project {:?} to an absolute path without control characters or '..' components.",
                 project.name
             );
         }
         if let Some(what) = crate::sandbox::refused(&source) {
             bail!(
-                "project {} mount from {:?} reaches {what}",
+                "Mount source {source:?} for project {:?} overlaps a protected location: {what}.",
                 project.name,
-                mount.from
             );
         }
 
@@ -140,7 +144,7 @@ pub(crate) fn validate_mount_paths(project: &ProjectCfg) -> Result<()> {
                 .any(|c| matches!(c, Component::ParentDir))
         {
             bail!(
-                "project {} mount to must be a path without parent traversal",
+                "Set the mount destination for project {:?} to a path without control characters or '..' components.",
                 project.name
             );
         }
@@ -148,20 +152,20 @@ pub(crate) fn validate_mount_paths(project: &ProjectCfg) -> Result<()> {
         let target = Path::new(&target_string);
         if !target.is_absolute() {
             bail!(
-                "project {} mount to must resolve to an absolute path",
+                "The mount destination for project {:?} does not resolve to an absolute path.",
                 project.name
             );
         }
         if let Some(what) = crate::sandbox::refused(target.to_string_lossy().as_ref()) {
             bail!(
-                "project {} mount to {:?} reaches {what}",
+                "Mount destination {:?} for project {:?} overlaps a protected location: {what}.",
+                mount.to,
                 project.name,
-                mount.to
             );
         }
         if !targets.insert(target.to_path_buf()) {
             bail!(
-                "project {} has duplicate mount destination {}",
+                "Two mounts in project {:?} use the same destination {}.",
                 project.name,
                 target.display()
             );
@@ -170,12 +174,13 @@ pub(crate) fn validate_mount_paths(project: &ProjectCfg) -> Result<()> {
         if cache {
             crate::sandbox::cache::validate(project, mount)?;
             if target == primary || target.components().any(|c| c.as_os_str() == ".git") {
-                bail!("cache cannot replace a checkout or Git metadata");
+                bail!("A cache mount cannot replace the checkout or Git metadata.");
             }
         }
         if primary.starts_with(target) && (target != primary || source_path != primary) {
             bail!(
-                "project {} mount cannot replace its primary directory",
+                "Mount destination {:?} cannot cover the primary directory of project {:?}.",
+                mount.to,
                 project.name
             );
         }

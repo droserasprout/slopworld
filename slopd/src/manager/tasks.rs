@@ -3,8 +3,8 @@
 use super::super::*;
 use crate::tasks::{Status, Task};
 
-/// The task file has one synchronous boundary. Keep its mutex and concrete store out of the
-/// manager's configuration owner; callers use typed operations on this owner instead.
+/// Keep synchronous task-file access here with its mutex and store.
+/// The configuration manager and other callers use this owner's typed operations.
 pub(crate) struct TaskStore(std::sync::Mutex<crate::tasks::Tasks>);
 
 impl TaskStore {

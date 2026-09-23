@@ -1,7 +1,6 @@
-//! The host's clipboard, on the game's behalf. The mod cannot reach it: RimWorld is a Unity
-//! player, and `systemCopyBuffer` there is the process's own buffer as often as the desktop's.
-//! Which tool does it is the desktop's business - anything missing is skipped, and that is not
-//! an error until every one of them is.
+//! Access the host clipboard for the game.
+//! Unity's `systemCopyBuffer` can refer to a process buffer instead of the desktop clipboard.
+//! Try the available desktop tools. Skip missing tools and report an error if none succeeds.
 
 use std::process::Stdio;
 use std::time::Duration;
@@ -10,15 +9,14 @@ use anyhow::{bail, Result};
 use tokio::io::AsyncWriteExt;
 use tokio::process::Command;
 
-/// The mod's HTTP client gives up at five seconds, so an answer has to beat that;
-/// a compositor or an X server can be wedged.
+/// Finish before the mod's five-second HTTP timeout, even if the compositor or X server is unresponsive.
 const TIMEOUT: Duration = Duration::from_secs(3);
 
 struct Tool {
     copy: &'static [&'static str],
     primary_copy: &'static [&'static str],
-    // Agent terminals ask for the original selection; binary results are discarded before the
-    // HTTP handler turns the result into text.
+    // Agent terminals request the original selection.
+    // Discard binary results before the HTTP handler converts the result to text.
     paste: &'static [&'static str],
     // Host shells must only receive textual clipboard data.
     paste_text: &'static [&'static str],
@@ -26,10 +24,10 @@ struct Tool {
     primary_text: &'static [&'static str],
 }
 
-/// Try Wayland first: a compositor's clipboard is what its Xwayland clients
-/// read too, while the X11 tools see only the Xwayland half. Do not prefilter
-/// by DISPLAY/WAYLAND_DISPLAY: slopd is a user service and those variables may
-/// be absent even when the installed tool can use its platform default.
+/// Try Wayland first because Xwayland clients also read the compositor clipboard.
+/// X11 tools can access only the Xwayland clipboard.
+/// Do not filter tools by DISPLAY or WAYLAND_DISPLAY.
+/// These variables can be absent in the slopd service even when tools can use platform defaults.
 const TOOLS: &[Tool] = &[
     Tool {
         copy: &["wl-copy"],
@@ -71,8 +69,8 @@ const TOOLS: &[Tool] = &[
     },
 ];
 
-/// "No such binary" means try the next tool rather than give up: a host with
-/// `xclip` and no `xsel` is the ordinary case.
+/// Check whether a missing executable caused the error.
+/// If so, try the next tool because a host might have only some clipboard tools.
 fn missing(e: &anyhow::Error) -> bool {
     e.downcast_ref::<std::io::Error>()
         .map(|io| io.kind() == std::io::ErrorKind::NotFound)
@@ -110,7 +108,7 @@ pub async fn read_primary_text() -> Result<String> {
     run(None, |t| t.primary_text).await
 }
 
-/// `text` goes down the tool's stdin on a copy; a paste passes `None`.
+/// Send `text` to the tool's stdin for a copy. Use `None` for a paste.
 async fn run(text: Option<&str>, pick: fn(&Tool) -> &'static [&'static str]) -> Result<String> {
     let mut last: Option<anyhow::Error> = None;
     for tool in TOOLS {
@@ -136,10 +134,9 @@ async fn one(argv: &[&str], text: Option<&str>) -> Result<String> {
         return paste(argv).await;
     };
 
-    // A copy tool keeps *serving* the selection after reading it, forking a holder and letting
-    // the parent exit - so the output is never collected: the fork inherits the pipes and
-    // holds them open, and `wait_with_output` would wait forever. The price is that a failure
-    // is an exit status rather than a sentence.
+    // A copy tool can start a child to serve the selection after its parent exits.
+    // The child inherits pipes and keeps them open, so wait_with_output could wait indefinitely.
+    // Do not collect output. Report failures through exit status.
     let mut child = Command::new(argv[0])
         .args(&argv[1..])
         .stdin(Stdio::piped())
@@ -181,10 +178,10 @@ async fn paste(argv: &[&str]) -> Result<String> {
             String::from_utf8_lossy(&out.stderr).trim()
         );
     }
-    // Clipboard selections can contain arbitrary bytes (for example GIF data). Never turn
-    // those bytes into replacement-character text: the caller may put the returned string into
-    // a JSON paste event and deliver it straight to a shell or TUI. Text selections are UTF-8;
-    // anything else is an image/file payload that this text endpoint must leave untouched.
+    // Clipboard selections can contain binary data, such as GIF images.
+    // Do not replace invalid UTF-8 bytes with text characters.
+    // The caller can send the returned string directly to a shell or terminal application in a JSON paste event.
+    // This text endpoint accepts UTF-8 and excludes other data.
     Ok(text_output(&out.stdout))
 }
 

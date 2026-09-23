@@ -5,9 +5,9 @@ use anyhow::anyhow;
 
 const CONTROL_ATTACH_TIMEOUT: Duration = Duration::from_secs(5);
 
-// Keep the reader's queued transport bytes bounded without imposing a line-size limit. tmux
-// escapes newlines inside %output, so fixed-size chunks can be reassembled into control lines on
-// the async side and preserve every terminal byte, including a very long logical line.
+// Limit queued transport bytes without limiting line size.
+// tmux escapes newlines inside %output. The asynchronous receiver joins fixed-size chunks into control lines.
+// This preserves every terminal byte, including long logical lines.
 const CONTROL_QUEUE_CHUNK_BYTES: usize = 16 * 1024;
 const CONTROL_QUEUE_CHUNKS: usize = 256;
 
@@ -72,7 +72,7 @@ impl FrameSnapshot {
         Self {
             content_hash: l.hash,
             activity_hash: l.activity_hash,
-            // Strings are immutable; keep the prior value without copying it for every frame.
+            // Strings are immutable. Share the previous value without copying its contents for each frame.
             plain: l.plain.clone(),
             state: l.state,
             last_change: l.last_change,
@@ -228,10 +228,10 @@ impl ControlLineReceiver {
         }
     }
 
-    // Read chunks from the bounded channel and expose tmux's newline-delimited control lines.
-    // The old producer used read_until plus line.clone(), which made both the temporary line and
-    // an unbounded copy resident. Only the current logical line may grow here; queued transport
-    // memory is limited to CONTROL_QUEUE_CHUNKS * CONTROL_QUEUE_CHUNK_BYTES.
+    // Read chunks from the bounded channel and return tmux control lines separated by newlines.
+    // Previously, read_until and line.clone() held both a temporary line and an unbounded copy in memory.
+    // Only the current logical line can grow here.
+    // Limit queued transport memory to CONTROL_QUEUE_CHUNKS * CONTROL_QUEUE_CHUNK_BYTES.
     async fn recv(&mut self) -> Option<Vec<u8>> {
         loop {
             if let Some(offset) = self.pending[self.searched..]
@@ -245,9 +245,8 @@ impl ControlLineReceiver {
                 if line.last() == Some(&b'\r') {
                     line.pop();
                 }
-                // Do not keep a giant logical-line allocation on the receiver after its bytes
-                // have moved to the emulator. The next queued chunk is small and can start with
-                // a fresh buffer instead of inheriting that transient line's capacity.
+                // Release a large line allocation after sending its bytes to the emulator.
+                // The next small chunk can use a new buffer without retaining the previous capacity.
                 if self.pending.len() < CONTROL_QUEUE_CHUNK_BYTES
                     && self.pending.capacity() > CONTROL_QUEUE_CHUNK_BYTES * 2
                 {
@@ -256,8 +255,8 @@ impl ControlLineReceiver {
                 return Some(line);
             }
 
-            // Keep the scan cursor in receiver state across awaits (and select! cancellation),
-            // so long lines scan each byte once instead of rescanning every earlier chunk.
+            // Preserve the scan cursor across awaits and select! cancellation.
+            // This scans each byte once without scanning earlier chunks again.
             self.searched = self.pending.len();
             match self.rx.recv().await {
                 Some(chunk) => self.pending.extend_from_slice(&chunk),

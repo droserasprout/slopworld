@@ -62,8 +62,8 @@ pub(crate) fn finish_reader(reader: ReaderDisposition) {
     }
 }
 
-/// Clear the process-owned part of a live row. The transition itself remains lock-local; all
-/// cache, task, grant, and event effects happen in `execute_cleanup` after the lock is released.
+/// Clear the process state in a live row while holding the lock.
+/// After releasing the lock, `execute_cleanup` updates caches, tasks, grants, and events.
 pub(crate) fn reset_process_state(live: &mut Live) {
     // A stop or replacement invalidates captures that were classified before the process
     // teardown. The next process receives a distinct identity even when the durable name is
@@ -81,9 +81,9 @@ pub(crate) fn reset_process_state(live: &mut Live) {
 }
 
 impl Manager {
-    /// Decide ownership and retain/remove the live row while the map is locked. The returned
-    /// plan contains only owned values, so its executor never needs to hold the live lock across
-    /// filesystem, tmux, task, grant, or event work.
+    /// Determine ownership while holding the map lock. Keep or remove the live row as required.
+    /// The returned plan contains only owned values.
+    /// Its executor can release the live lock before filesystem, tmux, task, grant, or event operations.
     pub(super) fn detach_live_locked(
         &self,
         live: &mut HashMap<String, Live>,
@@ -118,10 +118,12 @@ impl Manager {
         let project = session.project.clone();
         let worker_failure = session.worker.then(|| {
             let note = match &cause {
-                DetachCause::Stop => format!("worker session {name} was stopped"),
+                DetachCause::Stop => format!("The daemon stopped worker session {name}."),
                 DetachCause::ProcessExit { .. } => format!("worker session {name} exited"),
-                DetachCause::ConfigRemoval => format!("worker session {name} was removed"),
-                DetachCause::Forget => format!("worker session {name} exited or was stopped"),
+                DetachCause::ConfigRemoval => format!("The daemon removed worker session {name}."),
+                DetachCause::Forget => {
+                    format!("Worker session {name} exited, or the daemon stopped it.")
+                }
             };
             (session.task_id.clone(), note)
         });
@@ -157,8 +159,8 @@ impl Manager {
         finish_reader(plan.reader);
         self.forget_scroll(&plan.name);
         if plan.announce_sessions {
-            // The visible transition goes first. Cleanup may query a tmux session that has
-            // already disappeared, and must not hold back the next session snapshot.
+            // Announce the state change before cleanup.
+            // Cleanup can query a tmux session that no longer exists. It must not delay the next session snapshot.
             self.announce_sessions().await;
         }
         self.clear_activity(&plan.name).await;
