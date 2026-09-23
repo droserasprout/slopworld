@@ -24,7 +24,7 @@ def main():
         original = os.fstat(source.fileno())
         source.seek(0, 2)
         output.write(f"# {args.label} {datetime.datetime.now().astimezone().isoformat()}\n")
-        output.write(f"# duration={args.seconds}s; first record may span pre-capture work\n")
+        output.write(f"# duration={args.seconds}s. The first record may span pre-capture work.\n")
         output.flush()
         deadline = time.monotonic() + args.seconds
         while time.monotonic() < deadline:
@@ -33,7 +33,7 @@ def main():
                 # Refuse a restart/truncation: mixing two processes is not a sample.
                 current = args.log.stat()
                 if (current.st_dev, current.st_ino) != (original.st_dev, original.st_ino) or current.st_size < source.tell():
-                    raise RuntimeError("Game log replaced/truncated; repeat after startup")
+                    raise RuntimeError("The game log was replaced or truncated. Repeat the capture after startup.")
                 time.sleep(0.1)
                 continue
             if "[SlopWorld] perf " in line:

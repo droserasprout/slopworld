@@ -13,7 +13,7 @@ if systemctl --user is-active --quiet slopd.service; then
 	if test "$pid" -gt 0 2>/dev/null && cmp -s "$target/slopd" "/proc/$pid/exe" \
 		&& cmp -s "$repo/slopd/slopd.service" "$units/slopd.service"; then
 		restart=no
-		echo "slopd already runs the latest $build build and service unit; skipping restart"
+		echo "slopd already runs the latest $build build and service unit. The daemon does not need a restart."
 	fi
 fi
 

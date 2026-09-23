@@ -18,7 +18,7 @@ protobuf-deps: ## Restore Protobuf runtime for Unity Mono
 validate-themes: ## Validate the shipped UI and terminal theme catalogs
 	@$(PYTHON) tools/validate_themes.py
 
-clean:             ## Drop build output
+clean:             ## Remove build output
 	@cd slopd && $(CARGO) clean
 	@rm -f "$(MOD_DLL)"
 	@rm -rf mod/Source/SlopWorld/obj

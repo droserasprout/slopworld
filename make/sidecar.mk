@@ -10,7 +10,7 @@ sidecar-run: daemon ## Run a separate profile against the running sidecar daemon
 sidecar-build:     ## Build the Linux sidecar image
 	$(SLOPCAR) build
 
-sidecar-doctor:    ## Prove nested bwrap, pasta and tmux in the sidecar
+sidecar-doctor:    ## Check nested Bubblewrap, pasta, and tmux in the sidecar
 	$(SLOPCAR) doctor
 
 sidecar-devloop:   ## Rebuild and redeploy the sidecar before each game launch

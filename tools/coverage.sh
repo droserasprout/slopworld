@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Called by Make from the repository root; settings come from make/config.mk.
+# Called by Make from the repository root. Settings come from make/config.mk.
 set -euo pipefail
 
 case "${1:-}" in
 daemon)
-command -v cargo-llvm-cov >/dev/null || { echo "missing cargo-llvm-cov; install it with: cargo install cargo-llvm-cov --locked" >&2; exit 1; }
+command -v cargo-llvm-cov >/dev/null || { echo "Missing cargo-llvm-cov. Install it with: cargo install cargo-llvm-cov --locked" >&2; exit 1; }
 if ! command -v llvm-cov >/dev/null || ! command -v llvm-profdata >/dev/null; then
-    echo "missing LLVM coverage tools" >&2; exit 1
+    echo "Missing LLVM coverage tools." >&2; exit 1
 fi
 mkdir -p "${COVERAGE_DIR}"
 (

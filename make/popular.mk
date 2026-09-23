@@ -2,11 +2,11 @@
 
 ## Common commands
 
-all: daemon mod   ## Build both halves
+all: daemon mod   ## Build the daemon and mod
 
-format: format-daemon format-csharp ## Format both halves
+format: format-daemon format-csharp ## Format Rust and C# sources
 
-lint: lint-daemon lint-mod ## Lint both halves
+lint: lint-daemon lint-mod ## Check Rust and C# sources
 
 test: test-daemon test-mod test-tools test-pager ## Run all game-free tests (requires tmux and less)
 

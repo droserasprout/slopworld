@@ -2,14 +2,14 @@
 
 ## Development tools
 
-logs:              ## Tail the game's Player.log
+logs:              ## Show new entries in the game's Player.log
 	@tail -f "$(LOG)"
 
 .PHONY: trace-mod
 TRACE_SECONDS ?= 30
 TRACE_LABEL ?= current
 TRACE_OUT ?= notes/trace-$(TRACE_LABEL).log
-trace-mod:         ## Capture new mod perf lines; launch with SLOPWORLD_DEBUG=1 first
+trace-mod:         ## Capture new performance log entries. First launch with SLOPWORLD_DEBUG=1.
 	@$(PYTHON) tools/trace-mod.py --log "$(LOG)" --seconds "$(TRACE_SECONDS)" --label "$(TRACE_LABEL)" --output "$(TRACE_OUT)"
 
 .PHONY: trace-summary
@@ -23,10 +23,10 @@ check-reqs:        ## Print required and optional host requirements
 pkg-arch:          ## Build and install Arch package
 	cd packaging/arch && makepkg -p PKGBUILD.local -sif
 
-docs: api-docs     ## Build human docs
+docs: api-docs     ## Build user documentation
 	cd docs && mdbook build
 
-docs-serve:        ## Serve human docs
+docs-serve:        ## Serve user documentation
 	cd docs && mdbook serve
 
 devloop:           ## Reinstall and relaunch after every game exit

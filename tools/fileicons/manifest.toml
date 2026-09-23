@@ -1,16 +1,16 @@
 # What the files view draws beside a name, and what earns each icon.
 #
-# One table per icon. The key is the upstream SVG's name in the Material Icon Theme
-# (see LICENSE beside this file) and the name of the PNG the bake writes, which is
-# also the string FileIcons.cs looks up - so a row added here is a row added there
-# and nowhere else.
+# Use one table for each icon.
+# The key is the upstream SVG name in the Material Icon Theme.
+# The key is also the generated PNG name and the value that FileIcons.cs uses.
+# See the LICENSE file in this directory.
 #
 #   ext   = extensions, without the dot, matched case-insensitively and
 #           longest-first, so `tar.gz` beats `gz`.
 #   names = whole filenames, matched before any extension is considered.
 #
-# The two reserved names are `folder-base`, the directory, and `document`, which is
-# also what a file nothing else claims comes out as.
+# `folder-base` identifies directories.
+# `document` identifies files that match no other entry.
 
 [folder-base]
 

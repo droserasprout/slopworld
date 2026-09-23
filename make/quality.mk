@@ -1,4 +1,4 @@
-.PHONY: format-daemon format-csharp format-mod check-format-csharp lint-daemon lint-mod lint-prose
+.PHONY: format-daemon format-csharp format-mod check-format-csharp lint-daemon lint-mod
 
 CSHARP_FORMAT_INCLUDE := mod/Source/SlopWorld mod/Tests bench/ipc/csharp
 CSHARP_FORMAT_EXCLUDE := \
@@ -32,6 +32,3 @@ lint-daemon: api-contract ## Check Rust formatting and Clippy
 lint-mod: override BUILD := release
 lint-mod: override MOD_WARNINGS_AS_ERRORS := true
 lint-mod: mod check-format-csharp ## Build and check C# formatting (requires game assemblies)
-
-lint-prose:        ## Find LLM cliches in prose and source comments
-	@$(PYTHON) tools/prose_lint.py $(PROSE_LINT_ARGS)

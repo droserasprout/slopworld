@@ -1,29 +1,23 @@
 #!/usr/bin/env python3
-"""Bakes icon PNGs from emoji glyphs.
+"""Bake icon PNG files from emoji glyphs.
 
 Usage: python3 tools/emoji.py --emoji 🏆 --name trophy [--size 32] [--out DIR]
        python3 tools/emoji.py --emoji 🏆 --name trophy --emoji 🎯 --name target
        python3 tools/emoji.py --emoji 📻 --name Jukebox --size 128 --color
 
-Renders each emoji from the Noto Color Emoji face via PangoCairo and keeps only
-its alpha - the outline of the glyph - writing <out>/<name>.png. A mono icon is
-an alpha mask: RGB is white outright, so the caller tints it, exactly the way the
-procedural icons here are drawn (GearIcon, TerminalIcon, TabIcons).
+The tool renders each emoji from Noto Color Emoji through PangoCairo.
+It writes each result to <out>/<name>.png.
+For monochrome output, the tool keeps the glyph alpha and sets each RGB channel to white.
+The caller can then tint the icon like other procedural icons.
 
-The color is stripped by default on purpose: it is the shape that makes an icon,
-and a flat white glyph reads on the column's dark rows the way the other icons
-do. `--color` keeps the face's own colors instead, which is what a thing
-standing on the map wants - a silhouette there is a box, not a jukebox.
-Pango is used rather than PIL's FreeType because NotoColorEmoji is a color
-font with CBDT/CBLC tables FreeType cannot load, and because the color glyphs
-(Pango draws them) are solid where the monochrome fallback-font glyphs are thin
-outlines or tofu boxes.
+By default, the tool removes color so the icon matches other sidebar icons.
+Use `--color` to preserve the glyph colors for map objects.
+Pillow FreeType cannot load the CBDT and CBLC tables in Noto Color Emoji.
+Pango renders the color glyphs; fallback fonts may produce thin outlines or missing-glyph boxes.
 
-Rendered at a probe bigger than the final edge and resampled down by LANCZOS,
-the same trick tools/fileicons.py and tools/roboface.py play: a glyph's
-hairlines survive better than a 32px raster would. The content is boxed and
-recentred on the output square, because Pango anchors the glyph at its ink
-origin, not its visual centre.
+The tool renders above the output size and then applies a LANCZOS filter.
+This process preserves thin strokes better than direct 32-pixel rendering.
+The tool centers the content because Pango positions a glyph from its ink origin.
 """
 
 import argparse
@@ -37,11 +31,11 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 DEFAULT_OUT = os.path.join(ROOT, "mod", "Textures", "SlopWorld", "FileIcons")
 
-# The color emoji face, found by name so a machine without it says so rather
-# than baking a tofu. Fall back on the system's emoji font if the name differs.
+# Find the color emoji font by name so a missing font causes an error.
+# Try common alternative names before reporting the error.
 EMOJI_FONTS = ["Noto Color Emoji", "NotoColorEmoji", "EmojiOne Color"]
 
-# Probe edge, and the margin of content box around the glyph's own box.
+# Set the probe edge and the margin around the glyph bounds.
 PROBE = 256
 BREATHE = 1.08
 
@@ -68,7 +62,7 @@ def render(emoji, size):
     for name in EMOJI_FONTS:
         fd = Pango.FontDescription.from_string(f"{name} {size // 2}")
         layout.set_font_description(fd)
-        # Ask Pango whether it found the face; if not, merge in the next guess.
+        # Check whether Pango found this font. If not, try the next name.
         if Pango.FontDescription.get_family(fd):
             desc = fd
             break
@@ -81,15 +75,15 @@ def render(emoji, size):
     ctx.set_source_rgb(1.0, 1.0, 1.0)
     PangoCairo.show_layout(ctx, layout)
 
-    # Cairo ARGB32 is premultiplied BGRA in memory; the alpha is the shape.
+    # Cairo stores premultiplied ARGB32 data as BGRA bytes. The alpha channel defines the shape.
     buf = np.frombuffer(surface.get_data(), dtype=np.uint8).reshape(size, size, 4)
     return buf[..., [2, 1, 0, 3]].astype(np.float32) / 255.0
 
 
 def bake(emoji, name, size, out, color=False):
     try:
-        # Premultiplied throughout: it is what survives a LANCZOS resample without
-        # the transparent pixels' black bleeding into the edge of the glyph.
+        # Keep premultiplied color during the LANCZOS filter.
+        # This prevents transparent black pixels from darkening the glyph edge.
         img = render(emoji, PROBE)
     except Exception as e:
         print(f"  {name}: could not render {emoji!r}: {e}", file=sys.stderr)
@@ -101,8 +95,8 @@ def bake(emoji, name, size, out, color=False):
         print(f"  {name}: {emoji!r} rendered nothing", file=sys.stderr)
         return False
 
-    # The glyph's own box, grown to a square around its centre, clamped to the
-    # probe so we never crop outside the rendered surface.
+    # Expand the glyph bounds to a centered square.
+    # Limit the square to the probe surface.
     cy, cx = (ys.min() + ys.max()) / 2, (xs.min() + xs.max()) / 2
     side = int(max(ys.max() - ys.min(), xs.max() - xs.min()) * BREATHE)
     side = min(side, PROBE)  # cap at probe edge
@@ -113,7 +107,7 @@ def bake(emoji, name, size, out, color=False):
     if x0 + side > PROBE: x0 = PROBE - side
     crop = img[y0:y0 + side, x0:x0 + side]
 
-    # The crop may be a hair off-square; pad to the larger edge before resize.
+    # The crop may be a hair off-square. Pad to the larger edge before resize.
     m = max(crop.shape[:2])
     padded = np.zeros((m, m, 4), dtype=np.float32)
     py, px = (m - crop.shape[0]) // 2, (m - crop.shape[1]) // 2

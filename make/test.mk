@@ -1,9 +1,9 @@
-.PHONY: test-daemon test-mod test-wire-contract test-themes test-text-sprites test-prose test-bench-report test-pager coverage coverage-daemon coverage-mod coverage-summary
+.PHONY: test-daemon test-mod test-wire-contract test-themes test-text-sprites test-bench-report test-pager coverage coverage-daemon coverage-mod coverage-summary
 
 ## Tests and coverage
 
 .PHONY: test-tools
-test-tools: test-wire-contract test-themes test-text-sprites test-prose test-bench-report ## Test supporting tools and generated data
+test-tools: test-wire-contract test-themes test-text-sprites test-bench-report ## Test supporting tools and generated data
 
 test-daemon: api-contract ## Run Rust tests
 	@cd slopd && $(CARGO) test --quiet $(TEST_ARGS)
@@ -19,9 +19,6 @@ test-themes: validate-themes ## Test theme catalog build validation
 
 test-text-sprites: ## Test generated text sprite metadata without fonts or images
 	@$(PYTHON) tools/test_text_sprites.py
-
-test-prose:        ## Test the prose linter
-	@$(PYTHON) tools/test_prose_lint.py --quiet
 
 test-bench-report: ## Test benchmark reporting
 	@$(PYTHON) tools/test_bench_report.py

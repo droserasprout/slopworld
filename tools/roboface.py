@@ -1,24 +1,25 @@
 #!/usr/bin/env python3
-"""Draws faceplate textures for agent pawns.
+"""Draw faceplate textures for agent pawns.
 
 Usage: python3 tools/roboface.py [variant ...]
   Variants: blue red green purple yellow white missing (default: all)
 
-Each variant generates RobotFace_{Variant}_{south,east}.png in the mod textures
-directory. Needs numpy and pillow.
+Each variant creates RobotFace_{Variant}_{south,east}.png in the mod textures directory.
+The tool requires NumPy and Pillow.
 
-The base plate (metal, mouth, bolts, sockets) and the eyes are rendered
-separately at supersampled resolution, then each is box-filtered down to the
-final 128×128 before compositing. This guarantees the base is pixel-identical
-across all variants — only the eye region changes.
+The tool renders the base plate and eyes separately at supersampled resolution.
+It applies a box filter to make each part 128 by 128 pixels.
+It then combines the parts.
+This process keeps the base pixels identical across variants and changes only the eyes.
 
-The faceplate is geometry, not art. It is an overlay, not a head. Every constant
-below is in the *head's* frame - a 128x128 texture whose skull is a ~47px blob
-centred at (64, 64.5) - and the metal is clipped to that skull rather than drawn
-as a shape of its own.
+The faceplate is a geometric overlay, not a head.
+Each constant below uses the 128 by 128 pixel head coordinate system.
+The skull is approximately 47 pixels wide and has its center at (64, 64.5).
+The tool clips the metal to the skull.
 
-No north texture: a faceplate has no back, and the node's visibleFacing leaves
-the pawn's own head showing when it turns away. West is Graphic_Multi's mirror.
+The tool does not create a north texture because the faceplate has no back.
+The node leaves the pawn's head visible when the pawn faces away.
+Graphic_Multi creates the west texture by mirroring the east texture.
 """
 import os
 import sys

@@ -1,28 +1,23 @@
 #!/usr/bin/env python3
-"""Counts what this repo is made of, with and without its comments.
+"""Count repository lines with and without comments.
 
-Run `python3 tools/loc.py` for a table by language, or hand it paths
-(`python3 tools/loc.py slopd mod/Source`) to count only those. `--docs` adds the
-markdown, which is otherwise left out: AGENTS.md alone is longer than most of
-the files it describes, so counting it with them says nothing about either.
+Run `python3 tools/loc.py` to print a table by language.
+Add paths to count only those paths.
+Use `--docs` to include Markdown files.
+The default excludes Markdown because documentation size does not measure source-code size.
 
-`--comments` prints the comments instead of counting them - every comment in the
-C# and Rust, in file order, markers stripped and neighbouring lines joined into
-one block, which is the shape something reading the whole repo's prose at once
-wants. Add `--min=N` to keep only blocks of N lines or more, which is the quick
-way to find the paragraphs that have grown into documentation and belong in
-`notes/` instead.
+Use `--comments` to print C# and Rust comments in file order.
+The output removes comment markers and joins adjacent comment lines.
+Add `--min=N` to show only blocks with at least N lines.
+Use this option to find long comments that may belong in `notes/`.
 
-Files come from `git ls-files`, so anything untracked or ignored - build output,
-`mod/Assemblies`, `target/` - is out by construction rather than by a list of
-directories to skip that would need keeping in step with .gitignore.
+The tool gets its file list from `git ls-files`.
+This excludes untracked and ignored files without a separate exclusion list.
 
-A line is blank if there is nothing on it, a comment if everything on it is one,
-and code otherwise - a line of code with a comment after it is code, which is
-cloc's rule and the one that makes "code" mean what a reader would guess. The
-scanner knows string literals well enough that a `//` inside one is not a
-comment; what it does not know is Rust's raw strings or anything else where the
-quote is spelled differently, which in this repo is a handful of lines at most.
+The tool counts an empty line as blank.
+It counts a line as a comment only when the complete line is a comment.
+A source line with a trailing comment counts as code, which matches cloc.
+The scanner recognizes quoted strings but not Rust raw strings.
 """
 
 import os
@@ -35,8 +30,8 @@ C_LIKE = (("//",), (("/*", "*/"),), ('"', "'"))
 HASH = (("#",), (), ('"', "'"))
 XML = ((), (("<!--", "-->"),), ())
 
-# Python's docstrings are comments wherever they are not assigned to anything,
-# which is every one in this repo, so the triple quotes are spelled as a block.
+# Treat unassigned Python docstrings as comments.
+# All docstrings in this repository meet that condition.
 PY = (("#",), (('"""', '"""'), ("'''", "'''")), ("'", '"'))
 
 LANGS = {
@@ -64,12 +59,11 @@ def syntax_for(path):
 
 
 def scan(line, syn, block):
-    """Walks one line. Returns (has code, comment text, block still open).
+    """Scan one line and return its code state, comment text, and block state.
 
-    The text is what the comment markers on this line enclose, joined if there
-    is more than one of them, and None when there are none. It is not falsiness
-    that says whether the line had a comment, because a bare `//` has a comment
-    and no text, and cloc and this counter both call that line a comment.
+    Join text from multiple comments on one line.
+    Return None when the line has no comment.
+    An empty string identifies a comment marker without text.
     """
     lines, blocks, quotes = syn
     code = False
@@ -86,19 +80,16 @@ def scan(line, syn, block):
             i, block = at + len(end), None
             continue
         ch = line[i]
-        # Blocks before quotes, because Python's block *is* a quote: `"""` read
-        # a character at a time is a string that opens and closes immediately.
+        # Detect blocks before strings because Python docstrings use quote characters.
         opened = next((b for b in blocks if line.startswith(b[0], i)), None)
         if opened:
             block = opened
             i += len(opened[0])
-            # Empty, so that a line whose block opens at the end of it is still
-            # a line with a comment on it. The join drops it if it stays empty.
+            # Record an empty value so a block opener still counts as a comment.
             said.append("")
             continue
         if ch in quotes:
-            # A string is code, and the rest of it is nothing else. An unclosed
-            # one is a line continuation we do not follow: take the rest as code.
+            # Count a string as code. Treat an unclosed string as code through the end of the line.
             code = True
             end = line.find(ch, i + 1)
             i = len(line) if end < 0 else end + 1
@@ -114,12 +105,10 @@ def scan(line, syn, block):
 
 
 def join(said):
-    """The comment text of one line: markers gone, indentation gone, or None.
+    """Return comment text without markers or indentation, or return None.
 
-    A doc comment's extra marker (`///`, `//!`, `/** ... * ...`) is left over
-    once the opener is cut, and reads as content unless it goes too. Stripping
-    the whole leading run costs nothing real: no comment in either language
-    starts on a slash or a star that the reader was meant to see.
+    Remove additional markers from documentation comments.
+    Repository comments do not use a leading slash or asterisk as content.
     """
     if not said:
         return None
@@ -145,7 +134,7 @@ def count(path, syn):
         elif not line.strip():
             blank += 1
         else:
-            code += 1  # inside a block we cannot read: call it code, not nothing.
+            code += 1  # Count an unrecognized nonempty line as code.
     return total, blank, comment, code
 
 
@@ -153,12 +142,10 @@ PROSE = {"C#", "Rust"}
 
 
 def blocks(path, syn):
-    """The comments of one file, as (first line number, [text, ...]) runs.
+    """Return comment blocks as a line number and a list of text lines.
 
-    Neighbouring comment lines are one run: a paragraph broken across four
-    `//` lines is one thought, and reading it as four is reading it wrong. A
-    comment sitting after code on its own line ends the run, because the thing
-    it is about is that line and not the sentence above it.
+    Join adjacent comment lines into one block.
+    Keep a trailing source comment separate from the preceding block.
     """
     try:
         text = path.read_text(encoding="utf-8", errors="replace")
@@ -176,7 +163,7 @@ def blocks(path, syn):
         if run:
             yield start, run
         run = []
-        if said:  # a trailing comment: its own one-line run, then nothing.
+        if said:  # Return a trailing comment as a separate one-line block.
             yield n, [said]
     if run:
         yield start, run
