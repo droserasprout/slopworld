@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Defs>
 
-  <!-- The colony's radio set, dropped out of the sky with the first clanker. LMB on it
-       opens the station menu; Jukebox.cs owns the click and Radio.cs owns the sound.
-       Nothing builds it, nothing powers it and nothing can break it: it is scenery with
-       one control on it, so it has zero hit points, cannot catch fire, and occupies no edifice grid cell -
-       pawns walk over it and the ground it lands on stays whatever it was. -->
+  <!-- The colony radio arrives from the sky with the first robot.
+       Left-click opens the station menu. Jukebox.cs handles clicks. Radio.cs controls sound.
+       The radio needs no construction or power and cannot break.
+       It has zero hit points, cannot catch fire, and occupies no edifice grid cell.
+       Pawns can walk over it. Landing does not change the ground. -->
   <ThingDef>
     <defName>SlopJukebox</defName>
     <label>jukebox</label>

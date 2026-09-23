@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Defs>
 
-  <!-- Caps consciousness, so the pawn collapses but stays alive and clickable
-       and the same colonist gets up when its process comes back. -->
+  <!-- Limits consciousness so the pawn collapses but remains alive and selectable.
+       The same colonist stands again when its process restarts. -->
   <HediffDef>
     <defName>SlopOffline</defName>
     <hediffClass>HediffWithComps</hediffClass>
@@ -23,8 +23,8 @@
     </stages>
   </HediffDef>
 
-  <!-- A tag, nothing more: with the sim stripped health never ticks, so severity
-       would never move. Plague drives every effect itself. -->
+  <!-- This definition supplies only a tag. Disabled health ticks prevent severity changes.
+       Plague controls every effect itself. -->
   <HediffDef>
     <defName>SlopPlague</defName>
     <hediffClass>HediffWithComps</hediffClass>
