@@ -38,7 +38,7 @@ The bundled `assets/fonts/clacon2.ttf` is installed to the current user's
 
 ## Formatting
 
-C# formatting uses `dotnet format` in folder mode; `.editorconfig` preserves single-line statements. Override `DOTNET` to select the SDK command and `MANAGED` to select the game reference directory. `lint-mod` builds Release with warnings treated as errors.
+C# formatting uses `dotnet format` in folder mode across production, tests and IPC benchmark sources; generated client bindings and build output are excluded. `.editorconfig` preserves single-line statements. `make check-format-csharp` verifies this scope without game assemblies and runs in `make ci`. `lint-mod` also checks formatting after its Release build with warnings treated as errors.
 
 Rust formatting and linting use `cargo fmt` and `cargo clippy`.
 

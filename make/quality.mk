@@ -1,12 +1,27 @@
-.PHONY: format-daemon format-mod lint-daemon lint-mod lint-prose
+.PHONY: format-daemon format-csharp format-mod check-format-csharp lint-daemon lint-mod lint-prose
+
+CSHARP_FORMAT_INCLUDE := mod/Source/SlopWorld mod/Tests bench/ipc/csharp
+CSHARP_FORMAT_EXCLUDE := \
+	mod/Source/SlopWorld/obj \
+	mod/Tests/obj \
+	bench/ipc/csharp/obj \
+	mod/Source/SlopWorld/Client/Generated
+CSHARP_FORMAT_COMMAND = $(DOTNET) format whitespace . --folder \
+	--include $(CSHARP_FORMAT_INCLUDE) \
+	--exclude $(CSHARP_FORMAT_EXCLUDE)
 
 ## Formatting
 
 format-daemon: ## Format Rust sources
 	@cd slopd && $(CARGO) fmt
 
-format-mod: ## Format C# sources
-	@$(DOTNET) format whitespace mod/Source/SlopWorld --folder --exclude obj Client/Generated
+format-csharp: ## Format C# production, test and benchmark sources
+	@$(CSHARP_FORMAT_COMMAND)
+
+format-mod: format-csharp ## Alias for formatting all C# sources
+
+check-format-csharp: ## Check formatting across C# production, tests and benchmarks
+	@$(CSHARP_FORMAT_COMMAND) --verify-no-changes
 
 ## Lint
 
@@ -16,8 +31,7 @@ lint-daemon: api-contract ## Check Rust formatting and Clippy
 
 lint-mod: override BUILD := release
 lint-mod: override MOD_WARNINGS_AS_ERRORS := true
-lint-mod: mod ## Build and check C# formatting (requires game assemblies)
-	@$(DOTNET) format whitespace mod/Source/SlopWorld --folder --exclude obj Client/Generated --verify-no-changes
+lint-mod: mod check-format-csharp ## Build and check C# formatting (requires game assemblies)
 
 lint-prose:        ## Find LLM cliches in prose and source comments
 	@$(PYTHON) tools/prose_lint.py $(PROSE_LINT_ARGS)
