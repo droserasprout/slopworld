@@ -12,34 +12,35 @@ pub(crate) const TASK_ID_ENV: &str = "SLOPWORLD_TASK_ID";
 pub(crate) const DELEGATE_USAGE: &str = "usage:
   slopctl task delegate AGENT TASK...
 
-send TASK to AGENT.
+Send TASK to AGENT.
 ";
 
 pub(crate) const SPAWN_USAGE: &str = "usage:
   slopctl worker spawn [--one-shot] [--worktree ID | --new-worktree] [--base REV] --project PROJECT --template TEMPLATE [--] TASK...
 
-create a task-owned worker from an agent template. Scoped callers may use only
-templates enabled by worker policy. The worker receives the task body and its exact task id.
-Workers remain after exit by default; --one-shot removes the worker after exit.
-Worktrees remain until explicitly removed. --worktree-name names a new worktree. Options end before TASK.
-Use -- before task text that starts with an option, such as --durable.
+Create a task-owned worker from an agent template. Scoped callers may use only
+templates that worker policy allows. The worker receives the task body and its exact task ID.
+By default, the daemon keeps worker sessions after they exit.
+Use --one-shot to remove a session on exit.
+The worktree stays until you remove it.
+Use --worktree-name to name a new worktree.
+Options end before TASK. Put -- before task text that starts with an option, such as --durable.
 
-The project and template are required. The old parent/clone form is rejected;
-choose the template explicitly so the daemon can enforce worker policy.
+The project and template are required. The old parent/clone syntax is unsupported.
 ";
 
 pub(crate) const WORKER_USAGE: &str = "usage:
   slopctl worker spawn [--one-shot] [--worktree ID | --new-worktree] [--base REV] --project PROJECT --template TEMPLATE [--] TASK...
 
-create a task-owned worker from an agent template.
+Create a task-owned worker from an agent template.
 ";
 
 pub(crate) const TEMPLATES_USAGE: &str = "usage:
   slopctl template list [--project PROJECT]
 
-list agent templates. Root callers see the complete catalog; agents see only
-templates enabled for worker spawning in their project. --project selects the
-worker project context for a root caller.
+List agent templates. Root callers see the complete catalog. Agents see only
+templates that worker policy enables for their project. For a root caller, --project
+selects the worker project.
 ";
 
 pub(crate) const TEMPLATE_USAGE: &str = "usage:
@@ -52,21 +53,21 @@ discover and inspect agent templates. Use `template list` or `template show`.
 pub(crate) const TEMPLATE_SHOW_USAGE: &str = "usage:
   slopctl template show NAME [--project PROJECT]
 
-show one agent template. Agent callers may inspect only templates enabled for
-worker spawning. --project selects the worker project context for a root caller.
+Show one agent template. Agent callers may inspect only templates enabled for
+worker spawning. For a root caller, --project selects the worker project.
 ";
 
 pub(crate) const AGENT_USAGE: &str = "usage:
   slopctl agent create NAME --project PROJECT --template TEMPLATE [--start]
 
-create and manage agents from the daemon's template catalog.
+Create and manage agents from the daemon's template catalog.
 ";
 
 pub(crate) const AGENT_CREATE_USAGE: &str = "usage:
   slopctl agent create NAME --project PROJECT --template TEMPLATE [--start]
 
-create an agent from a daemon catalog template. Creation does not start the
-agent unless --start is supplied; the daemon returns the new identity.
+Create an agent from a daemon catalog template. The daemon does not start the
+agent unless you use --start. The daemon returns the new identity.
 ";
 
 pub(crate) const TASK_USAGE: &str = "usage:
@@ -81,17 +82,18 @@ pub(crate) const TASK_USAGE: &str = "usage:
   slopctl task remove [ID]
   slopctl task prune [--include-active]
 
-manage delegated tasks. When SLOPWORLD_TASK_ID is set, ID may be omitted.
+Manage delegated tasks. Omit ID when SLOPWORLD_TASK_ID is set.
 ";
 
 pub(crate) const TASK_LIST_USAGE: &str = "usage:
   slopctl task list [--all] [--sent] [--received] [--status STATUS]
 
-list unfinished tasks involving the current caller, newest first. Finished,
-failed and canceled tasks are hidden unless --all or --status is supplied.
+List unfinished tasks that involve the current caller. The list shows the newest
+tasks first. Done, failed, and canceled tasks stay hidden unless you use --all
+or --status.
 
 options:
-  --all             include finished, failed and canceled tasks
+  --all             include done, failed and canceled tasks
   --sent            show only tasks sent by you
   --received        show only tasks sent to you
   --status STATUS   show only tasks with this status
@@ -100,63 +102,59 @@ options:
 pub(crate) const TASK_SHOW_USAGE: &str = "usage:
   slopctl task show [ID]
 
-show one task by its exact id. When SLOPWORLD_TASK_ID is set, ID may be omitted.
+Show one task by its exact ID. Omit ID when SLOPWORLD_TASK_ID is set.
 ";
 
 pub(crate) const WAIT_USAGE: &str = "usage:
   slopctl task wait [ID]
 
-block until one task reaches a terminal state, then show it. This command checks
-the task internally; do not replace it with a status loop or a short timeout.
-Status changes and a 30-second heartbeat go to stderr; stdout holds the final result.
-When SLOPWORLD_TASK_ID is set, ID may be omitted.
+Wait until one task reaches a terminal state. Then show the task. The command checks
+task status internally. Do not use a status loop or a short timeout.
+The command writes status changes and a 30-second heartbeat to stderr.
+It writes the final result to stdout. Omit ID when SLOPWORLD_TASK_ID is set.
 ";
 
 pub(crate) const ACCEPT_USAGE: &str = "usage:
   slopctl task accept [ID] [NOTE...]
 
-mark a queued task as accepted, optionally recording a note. When
-SLOPWORLD_TASK_ID is set, ID may be omitted.
+Accept a queued task. Add an optional note. When SLOPWORLD_TASK_ID is set, omit ID.
 ";
 
 pub(crate) const PROGRESS_USAGE: &str = "usage:
   slopctl task progress [ID] [NOTE...]
 
-mark an accepted task as in progress, optionally recording a note. When
-SLOPWORLD_TASK_ID is set, ID may be omitted.
+Set an accepted task to working. Add an optional note. When SLOPWORLD_TASK_ID is set, omit ID.
 ";
 
 pub(crate) const FINISH_USAGE: &str = "usage:
   slopctl task finish [ID] [RESULT...]
 
-mark a task as done, optionally recording its result. When SLOPWORLD_TASK_ID is
-set, ID may be omitted.
+Mark a task as done. Add an optional result. When SLOPWORLD_TASK_ID is set, omit ID.
 ";
 
 pub(crate) const FAIL_USAGE: &str = "usage:
   slopctl task fail [ID] [ERROR...]
 
-mark a task as failed, optionally recording the reason. When
-SLOPWORLD_TASK_ID is set, ID may be omitted.
+Mark a task as failed. Add an optional reason. When SLOPWORLD_TASK_ID is set, omit ID.
 ";
 
 pub(crate) const REMOVE_USAGE: &str = "usage:
   slopctl task remove [ID]
 
-remove one task that has stopped moving.
-When SLOPWORLD_TASK_ID is set, ID may be omitted.
+Remove one task that is done, failed, or canceled. When SLOPWORLD_TASK_ID is set, omit ID.
 ";
 
 pub(crate) const PRUNE_USAGE: &str = "usage:
   slopctl task prune [--include-active]
 
-remove terminal tasks. --include-active removes every task and is root-only.
+Remove terminal tasks that you sent or received. Add --include-active to remove every task.
+This option requires the root token.
 ";
 
 pub(crate) const PEERS_USAGE: &str = "usage:
   slopctl peers
 
-list sessions visible to the current caller, including host.
+List sessions visible to the current caller, including host.
 ";
 
 pub(crate) const STATUS_USAGE: &str = "usage:
@@ -184,8 +182,8 @@ common delegation flow:
   slopctl task delegate AGENT TASK...  # create a task and keep its ID
   slopctl task wait ID                # block for its terminal result
 
-wait performs the polling internally and has no short completion timeout. Do not
-loop over task, inbox or status while waiting.
+The task wait command polls until the task reaches a terminal state. It has no
+short timeout. Do not poll task, inbox, or status while it waits.
 
 usage:
   slopctl task delegate AGENT TASK...
@@ -210,13 +208,12 @@ usage:
   slopctl status
   slopctl logs [game|daemon|all] [--lines N] [--follow]
 
---json is accepted anywhere and prints the answer as JSON instead of for a reader.
+Use --json anywhere to print JSON instead of human-readable output.
 
-SLOPWORLD_SESSION identifies the caller, and defaults to `host` - the user at the
-keyboard - which the daemon accepts only from the root token. When
-SLOPWORLD_TASK_ID is set, task IDs may be omitted from task lifecycle commands.
-SLOPD_ENDPOINT
-selects endpoint.toml; SLOPD_URL and SLOPD_TOKEN override it.
+SLOPWORLD_SESSION identifies the caller. It defaults to `host`, the user at the
+keyboard. The daemon accepts `host` only with the root token. When
+SLOPWORLD_TASK_ID is set, omit IDs from task lifecycle commands.
+SLOPD_ENDPOINT selects endpoint.toml. SLOPD_URL and SLOPD_TOKEN override it.
 ";
 
 #[derive(Debug, Default, PartialEq, Eq)]
@@ -227,7 +224,7 @@ pub(crate) struct WorktreeChoice {
     pub worktree_name: String,
 }
 
-pub(crate) const WORKTREE_USAGE: &str = "usage:\n  slopctl worktree list --project PROJECT\n  slopctl worktree create --project PROJECT [--name NAME] [--base REV] [--path EXISTING_CHECKOUT]\n  slopctl worktree remove ID --project PROJECT\n\nRemoval is explicit and root-only. External checkouts are only unregistered.\n";
+pub(crate) const WORKTREE_USAGE: &str = "usage:\n  slopctl worktree list --project PROJECT\n  slopctl worktree create --project PROJECT [--name NAME] [--base REV] [--path EXISTING_CHECKOUT]\n  slopctl worktree remove ID --project PROJECT\n\nYou need the root token to remove a worktree.\nThe daemon unregisters external checkouts and keeps their files.\n";
 
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) enum Command {
@@ -331,8 +328,8 @@ pub(crate) fn command_help(command: &str) -> Option<&'static str> {
 }
 
 fn has_help(args: &[String]) -> bool {
-    // Help is recognized immediately after a command name. Everything after a task recipient or
-    // id may be literal task text or a note, including help words.
+    // Recognize help immediately after a command name.
+    // Arguments after a task recipient or ID can be task text or notes, including help words.
     matches!(
         args.first().map(String::as_str),
         Some("-h" | "--help" | "help")
@@ -606,20 +603,20 @@ fn parse_spawn(args: &[String], options_at: usize) -> Result<Command, String> {
                         .clone(),
                 );
             }
-            // The first non-option is the task body. Everything after it is literal task text,
-            // including words that look like flags. This keeps delegation parsing intact.
+            // The first argument that is not an option starts the task body.
+            // Treat all subsequent arguments as task text, including words that resemble flags.
             _ => break,
         }
         i += 1;
     }
     let Some(project) = project else {
         return Err(format!(
-            "spawn now requires --project PROJECT and --template TEMPLATE; the old parent/clone syntax is no longer supported\n\n{SPAWN_USAGE}"
+            "spawn requires --project PROJECT and --template TEMPLATE.\n\n{SPAWN_USAGE}"
         ));
     };
     let Some(template) = template else {
         return Err(format!(
-            "spawn now requires --template TEMPLATE; workers are created from templates, not parent clones\n\n{SPAWN_USAGE}"
+            "spawn requires --project PROJECT and --template TEMPLATE.\n\n{SPAWN_USAGE}"
         ));
     };
     if args.len() <= i {
@@ -803,7 +800,7 @@ impl Command {
                 if json {
                     print_json(&value);
                 } else if action == "remove" {
-                    println!("Worktree removed; branches retained.");
+                    println!("Worktree removed. Branches retained.");
                 } else {
                     let rows: Vec<&Value> = value["worktrees"]
                         .as_array()
@@ -1119,7 +1116,7 @@ fn run_inbox(
     if json {
         print_json(&Value::Array(tasks.into_iter().cloned().collect()));
     } else if tasks.is_empty() {
-        // stderr, so an empty inbox stays an empty stdout for whatever is reading it.
+        // Use stderr so an empty inbox produces no stdout content.
         eprintln!("no tasks");
     } else {
         tasks.iter().for_each(|t| print_task(t));
@@ -1165,12 +1162,12 @@ pub(crate) fn wait_for_task(
         if task_is_terminal(&v)? {
             return Ok(v);
         }
-        // Keep long waits visibly alive without mixing diagnostics into the final JSON.
-        // Reuse the response we already fetched; observers need no separate status poll.
+        // Show progress during long waits without adding diagnostics to the final JSON.
+        // Reuse the response instead of making a separate status request.
         let status = v["task"]["status"].as_str().unwrap();
         if status != reported_status || reported_at.elapsed() >= Duration::from_secs(30) {
             eprintln!(
-                "waiting for task {id}: {status} ({}s elapsed); wait is active, no separate status polling needed",
+                "Waiting for task {id}: {status} ({} s elapsed). The wait is active. Do not poll status separately.",
                 started.elapsed().as_secs()
             );
             reported_status = status.to_owned();
@@ -1349,8 +1346,9 @@ fn shell_quote(value: &str) -> String {
     format!("'{}'", value.replace('\'', "'\\''"))
 }
 
-/// What `inbox` was asked to leave out. The store hands back everything the caller is party to,
-/// in the order it was written; the shaping is here, where the person reading it is.
+/// Filters for the inbox display.
+/// The store returns all tasks involving the caller in storage order.
+/// The CLI filters and sorts these tasks for display.
 #[derive(Debug, Default, PartialEq, Eq)]
 pub(crate) struct InboxFilter {
     pub(crate) all: bool,
@@ -1382,18 +1380,18 @@ impl InboxFilter {
         let status = task["status"].as_str().unwrap_or("");
         let from_me = task["from"].as_str() == Some(me);
         let to_me = task["to"].as_str() == Some(me);
-        // Neither direction flag, or both, means both - there is no third direction to ask for.
+        // Include both directions when neither flag is set or both flags are set.
         if self.sent != self.received && ((self.sent && !from_me) || (self.received && !to_me)) {
             return false;
         }
         match &self.status {
             Some(want) => status == want,
-            // Finished work is still readable by id; it just stops crowding the list.
+            // Omit terminal tasks by default. They remain available by ID.
             None => self.all || !matches!(status, "done" | "failed" | "canceled"),
         }
     }
 
-    /// Newest first: what arrived while you were away is what the list is opened to find.
+    /// Filter tasks and sort them from newest to oldest.
     pub(crate) fn apply<'a>(&self, v: &'a Value, me: &str) -> Vec<&'a Value> {
         let mut tasks: Vec<&Value> = v
             .get("tasks")
@@ -1411,7 +1409,7 @@ pub(crate) fn peer_names(v: &Value) -> Vec<&str> {
         .and_then(Value::as_array)
         .map(|s| s.iter().filter_map(|s| s["name"].as_str()).collect())
         .unwrap_or_default();
-    // The host is a mailbox without being a session, so it is named here or it is never found.
+    // Add the host mailbox explicitly because it has no session entry.
     names.push(HOST);
     names.sort_unstable();
     names.dedup();

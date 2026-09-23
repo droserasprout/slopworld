@@ -37,8 +37,8 @@ fn run() -> Result<(), String> {
         print!("{USAGE}");
         return Ok(());
     }
-    // A global: it changes how an answer is rendered, never which answer is asked for, so it is
-    // taken out of the argument list before any command has to think about it.
+    // The global JSON flag changes output formatting without changing the request.
+    // Remove it before parsing the command.
     let json = take_json_flag(&mut args);
     if args.is_empty() {
         print!("{USAGE}");
@@ -54,8 +54,8 @@ fn run() -> Result<(), String> {
         print!("{usage}");
         return Ok(());
     }
-    // Logs are deliberately local: they remain useful when slopd is down and do not need the
-    // endpoint token. Dispatch before loading endpoint.toml for that reason.
+    // Read local log files so they remain available while slopd is down.
+    // Handle this command before loading endpoint.toml because it does not need the endpoint token.
     if let Command::Logs { ref args } = command {
         if args
             .iter()
@@ -68,8 +68,8 @@ fn run() -> Result<(), String> {
     }
 
     let endpoint = load_endpoint()?;
-    // Unset means the host: running `slopctl` by hand is the common case, and asking the user to
-    // name themselves before they can read their own inbox buys nothing.
+    // Use the host identity when SLOPWORLD_SESSION is absent or empty.
+    // This lets users read the host inbox without specifying an identity.
     let session = std::env::var("SLOPWORLD_SESSION")
         .ok()
         .filter(|s| !s.trim().is_empty())

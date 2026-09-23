@@ -93,8 +93,7 @@ pub(crate) fn parse_logs_args(args: &[String]) -> Result<LogsOptions, String> {
                 lines = parse_log_lines(&value)?;
             }
             "--help" | "-h" | "help" => {
-                // Handled by run(), but retaining this arm makes the parser safe to call in
-                // isolation and keeps its error surface unsurprising in tests.
+                // run() handles help before parsing. Also handle it here for independent parser calls and tests.
                 return Err(LOGS_USAGE.to_string());
             }
             unknown if unknown.starts_with('-') => {
@@ -172,8 +171,7 @@ pub(crate) fn source_command(
             let mut command = ProcessCommand::new("tail");
             command.arg("--lines").arg(options.lines.to_string());
             if options.follow {
-                // -F follows the name, so restarting RimWorld or replacing Player.log does not
-                // strand the diagnostic terminal on the old inode.
+                // -F follows the file name so output continues after a RimWorld restart or Player.log replacement.
                 command.arg("--follow=name");
             }
             command.arg("--").arg(game_log_path()?);
@@ -407,9 +405,9 @@ fn run_all_logs(options: LogsOptions, json: bool) -> Result<(), String> {
         }
     }
 
-    // Breaking from the receiver loop drops the channel before joining. Kill the children
-    // explicitly as well: a worker may already have sent its last line and be blocked waiting for
-    // a follow process that has no more output yet.
+    // Leaving the receiver loop drops the channel before the worker joins.
+    // Also kill child processes after an output error.
+    // A worker can still be waiting for a process that follows logs but has no new output.
     if output_error.is_some() {
         for child in &children {
             kill_child(child);
@@ -429,6 +427,6 @@ fn run_all_logs(options: LogsOptions, json: bool) -> Result<(), String> {
     if errors.is_empty() {
         Ok(())
     } else {
-        Err(errors.join("; "))
+        Err(errors.join(". "))
     }
 }

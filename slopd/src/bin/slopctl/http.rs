@@ -16,12 +16,10 @@ pub(crate) struct Endpoint {
 
 pub(crate) fn load_endpoint() -> Result<Endpoint, String> {
     if let Ok(url) = std::env::var("SLOPD_URL") {
-        // An empty root token is the daemon's "no auth" contract, so `SLOPD_TOKEN=` is a real
-        // answer and kept. Unset is not one - it is the variable that was forgotten - and sending
-        // an empty token on its behalf only turns the mistake into a 401 raised somewhere else.
+        // Permit an explicitly empty SLOPD_TOKEN for a daemon without authentication.
+        // Reject an absent variable here instead of sending an empty token that could cause an HTTP 401 response.
         let token = std::env::var("SLOPD_TOKEN").map_err(|_| {
-            "SLOPD_URL is set but SLOPD_TOKEN is not; \
-             set SLOPD_TOKEN= for a daemon with no token"
+            "SLOPD_URL is set, but SLOPD_TOKEN is missing. Set SLOPD_TOKEN= if the daemon has no token."
                 .to_string()
         })?;
         return Ok(Endpoint { url, token });
@@ -46,9 +44,8 @@ pub(crate) fn request(
     body: Option<Value>,
 ) -> Result<Value, String> {
     let url = format!("{}{}", endpoint.url.trim_end_matches('/'), path);
-    // A refusal carries the daemon's reason in its body, and that sentence is the whole value of
-    // the reply - "a task still in flight cannot be removed" tells the user what to do next, where
-    // a bare 400 does not. So a status is not an error here; it is read below, body first.
+    // Read the response body before handling an error status.
+    // The body explains why the daemon rejected the request. The HTTP status alone cannot supply this detail.
     let mut res = match (method, body) {
         ("GET", None) => ureq::get(&url)
             .config()
@@ -104,8 +101,8 @@ pub(crate) fn request(
     Ok(value)
 }
 
-/// Identity, reachability and what is waiting - the three things to check before believing any
-/// other answer this CLI gives. Unreachable is reported, not raised: that *is* the status.
+/// Report the caller's identity, daemon connection status, and pending task counts.
+/// Include connection failures in the status value instead of returning an error.
 pub(crate) fn status_value(endpoint: &Endpoint, session: &str) -> Value {
     let mut out = json!({ "session": session, "endpoint": endpoint.url });
     match request(
