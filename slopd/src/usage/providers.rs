@@ -35,8 +35,8 @@ fn openai_usage_url() -> String {
     std::env::var("SLOPD_OPENAI_USAGE_URL").unwrap_or_else(|_| OPENAI_USAGE_URL.to_string())
 }
 
-/// Read per poll and dropped immediately after the request; the token never
-/// reaches a log line, the config file or the wire.
+/// Read credentials for each poll and release them after the request.
+/// Do not include the token in logs, configuration files, or daemon API responses.
 pub(super) struct Creds {
     pub(super) token: String,
     pub(super) plan: String,
@@ -50,19 +50,18 @@ pub(super) struct OpenAiCreds {
     account_id: Option<String>,
 }
 
-/// The three credential shapes are different, but the poll loop only needs to pass one of
-/// them from the provider's reader to its fetcher. Keeping that difference here leaves the
-/// provider table below as data rather than three copies of the blocking workflow.
+/// Provider-specific credentials passed from the credential reader to the request function.
+/// This enum lets all providers use the same polling workflow.
 pub(super) enum ProviderCredentials {
     Anthropic(Creds),
     OpenRouter(String),
     OpenAi(OpenAiCreds),
 }
 
-/// Retry one JSON parse after 50ms. A sandboxed Claude cannot rename over the shared
-/// credential bind mount, so its fallback truncates and rewrites the host inode in place.
-/// Readers can catch that brief invalid-JSON window. IO errors are persistent states and
-/// return immediately.
+/// Retry a failed JSON parse once after 50 ms.
+/// Sandboxed Claude cannot rename a file over the shared credential bind mount.
+/// It can instead truncate and rewrite the host inode, which temporarily leaves invalid JSON.
+/// Return I/O errors immediately.
 pub(super) fn read_creds(path: &PathBuf) -> anyhow::Result<Creds> {
     match read_creds_once(path) {
         Err(e) if e.downcast_ref::<serde_json::Error>().is_some() => {
@@ -171,9 +170,8 @@ pub(super) fn cached_anthropic_retry(path: &Path) -> Option<u64> {
     (remaining_ms > 0).then(|| remaining_ms.saturating_add(999) / 1000)
 }
 
-/// A blocking advisory lock is intentional: another daemon holding it is either reading a fresh
-/// cache or making the one upstream request, and waiting up to the HTTP timeout is cheaper than
-/// making another account-level usage request.
+/// Wait for the advisory lock while another daemon reads the cache or requests usage data.
+/// Waiting up to the HTTP timeout avoids an additional request for the same account.
 pub(super) fn lock_anthropic_cache(path: &Path) -> Option<nix::fcntl::Flock<File>> {
     let file = OpenOptions::new()
         .create(true)
@@ -232,7 +230,7 @@ pub(super) fn read_openai(d: &crate::config::Daemon) -> anyhow::Result<ProviderC
 }
 
 /// Explain why polling cannot proceed. Timestamps are epoch milliseconds. An expired access
-/// token only needs any host or agent Claude command; Claude refreshes it lazily into the
+/// token only needs any host or agent Claude command. Claude refreshes it lazily into the
 /// shared credential file. Only an expired refresh token requires `claude auth`.
 pub(super) fn expiry_error(
     exp: Option<u64>,
@@ -243,17 +241,16 @@ pub(super) fn expiry_error(
         return None;
     }
     if refresh_exp.is_some_and(|e| e < now) {
-        return Some("Claude login expired; run `claude auth` on the host");
+        return Some("Claude login expired. Run `claude auth` on the host.");
     }
-    Some("the cached Claude token needs renewing; run any `claude` command, host or agent")
+    Some("The cached Claude token needs renewal. Run any `claude` command on the host or agent.")
 }
 
-/// The wait is carried rather than worked out: on a 429 the endpoint's own
-/// `Retry-After` is the only thing anyone has been told about its limits.
+/// Preserve the retry delay from a 429 response because Retry-After describes the server's requested wait.
 pub(super) struct PollErr {
     pub(super) msg: String,
-    /// From `Retry-After`, or the floor a 429 gets when it does not say. None for
-    /// failures that are nobody's rate limit.
+    /// Delay from Retry-After, or the minimum delay for a 429 response without that header.
+    /// None for failures unrelated to rate limits.
     pub(super) retry_after: Option<u64>,
 }
 
@@ -291,8 +288,8 @@ pub(super) fn fetch(creds: &Creds) -> Result<Value, PollErr> {
     let mut res = ureq::get(usage_url())
         .config()
         .timeout_global(Some(TIMEOUT))
-        // Statuses read rather than raised: ureq's `StatusCode` error has thrown the response
-        // away by the time we see it, and with it a 429's `Retry-After`.
+        // Read status codes directly to preserve the response and its Retry-After header.
+        // A ureq StatusCode error would discard them.
         .http_status_as_error(false)
         .build()
         .header("Authorization", format!("Bearer {}", creds.token))
@@ -316,7 +313,7 @@ pub(super) fn fetch(creds: &Creds) -> Result<Value, PollErr> {
         // fixes rather than waits out.
         401 => {
             return Err(PollErr::new(
-                "Claude rejected the login (401); is the host still signed in?",
+                "Claude rejected the login (401). Is the host still signed in?",
             ))
         }
         s if !(200..300).contains(&s) => {
@@ -328,15 +325,17 @@ pub(super) fn fetch(creds: &Creds) -> Result<Value, PollErr> {
     res.body_mut().read_json::<Value>().map_err(PollErr::new)
 }
 
-/// Blank names slopd's own environment rather than a file: that is where the `pi` preset
-/// forwards `OPENROUTER_API_KEY` from, so the machine that can already run the agent can
-/// answer this without the key being written down a second time. A file is read fresh per
-/// poll and trimmed, and neither road copies, logs or writes the key back.
+/// An empty path selects OPENROUTER_API_KEY from the slopd environment, as used by the pi preset.
+/// This avoids storing a second copy of the key.
+/// Otherwise, read the file for each poll and trim whitespace.
+/// Do not log, save, or copy the key to another file.
 pub(super) fn read_key(file: &str) -> anyhow::Result<String> {
     if file.trim().is_empty() {
         let key = std::env::var(KEY_ENV).unwrap_or_default();
         if key.trim().is_empty() {
-            anyhow::bail!("no ${KEY_ENV} in slopd's environment; export it or name a key file");
+            anyhow::bail!(
+                "${KEY_ENV} is missing from slopd's environment. Export it or specify a key file."
+            );
         }
         return Ok(key.trim().to_string());
     }
@@ -350,9 +349,7 @@ pub(super) fn read_key(file: &str) -> anyhow::Result<String> {
     Ok(key.to_string())
 }
 
-/// Same shape as `fetch`, and deliberately not folded together with it: what the two
-/// endpoints share is four lines of status handling, and what they do not is every header
-/// and every error sentence.
+/// Request credit data separately from `fetch` because the endpoints use different headers and error messages.
 pub(super) fn fetch_credits(key: &str) -> Result<Value, PollErr> {
     let mut res = ureq::get(credits_url())
         .config()
@@ -372,11 +369,11 @@ pub(super) fn fetch_credits(key: &str) -> Result<Value, PollErr> {
                 retry_after: Some(rate_limit_delay(&res)),
             })
         }
-        // Something the user fixes rather than waits out, and the one failure worth naming
-        // the key in: this is the only thing here that could be a stale copy in a file.
+        // Something the user fixes rather than waits out, and the one failure worth naming the key
+        // in. This is the only thing here that could be a stale copy in a file.
         401 | 403 => {
             return Err(PollErr::new(format!(
-                "OpenRouter rejected the key ({status}); is it still good?"
+                "OpenRouter rejected the key ({status}). Is the key still valid?"
             )))
         }
         s if !(200..300).contains(&s) => {
@@ -411,7 +408,7 @@ pub(super) fn fetch_openai(creds: &OpenAiCreds) -> Result<Value, PollErr> {
         }
         401 | 403 => {
             return Err(PollErr::new(format!(
-                "OpenAI rejected the Codex login ({status}); sign in with `codex login`"
+                "OpenAI rejected the Codex login ({status}). Sign in with `codex login`."
             )))
         }
         s if !(200..300).contains(&s) => {
@@ -496,8 +493,8 @@ pub(super) fn fetch_openai_provider(
     fetch_openai(&creds).map(|body| ProviderResponse { body, plan: None })
 }
 
-/// Parse either Retry-After form. A past HTTP date is a valid zero-second answer; `backoff`
-/// applies the rate-limit floor rather than turning that into an immediate retry.
+/// Parse either Retry-After format. A past HTTP date gives a valid zero-second delay.
+/// `backoff` then applies the minimum rate-limit delay to prevent an immediate retry.
 pub(super) fn retry_after<T>(res: &ureq::http::Response<T>) -> Option<u64> {
     let raw = res.headers().get("retry-after")?.to_str().ok()?;
     parse_retry_after(raw, SystemTime::now())

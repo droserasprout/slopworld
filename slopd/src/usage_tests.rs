@@ -94,16 +94,15 @@ fn anthropic_cache_shares_successes_and_rate_limit_backoff() {
     std::fs::remove_file(path).unwrap();
 }
 
-/// The file has no atomic writer any more: inside a sandbox the rename fails with `EBUSY`
-/// and Claude Code truncates the host's inode in place instead, so a poll can read a file
-/// mid-write. Half-written is a *parse* error, and one retry is what keeps a microsecond
-/// window from costing half an hour of a wrong readout.
+/// Credential writes can truncate the existing file when a sandbox bind mount prevents atomic replacement.
+/// A concurrent read can then encounter incomplete JSON.
+/// Retry a parse failure once to avoid reporting a temporary write as a credential error.
 #[test]
 fn a_half_written_credentials_file_is_read_again_rather_than_failed() {
     let path = std::env::temp_dir().join(format!("slopd-torn-{}.json", std::process::id()));
     let whole = r#"{"claudeAiOauth":{"accessToken":"t","subscriptionType":"max"}}"#;
 
-    // The state O_TRUNC leaves behind, before the write lands.
+    // Simulate an empty file after O_TRUNC and before the writer supplies new contents.
     std::fs::write(&path, "").unwrap();
     let writer = {
         let path = path.clone();
@@ -120,20 +119,17 @@ fn a_half_written_credentials_file_is_read_again_rather_than_failed() {
         "the retry did not pick up the write"
     );
 
-    // And a file that is still not JSON once the window has passed is a real error, not
-    // something to keep quiet about.
+    // Report a parse error if the retry also reads invalid JSON.
     std::fs::write(&path, "half a {").unwrap();
     assert!(read_creds(&path).is_err());
 
-    // A missing file is not retried at all - it is an IO error, and it will still be
-    // missing in 50ms.
+    // Report a missing file as an I/O error without a retry.
     std::fs::remove_file(&path).unwrap();
     assert!(read_creds(&path).is_err());
 }
 
-/// Both stamps are epoch milliseconds. Written as a real pair off a live credentials
-/// file, because the failure this guards is a unit slip and a synthetic `100 < 200`
-/// would survive one.
+/// Compare expiry timestamps in milliseconds since the Unix epoch.
+/// Use realistic timestamp values to expose incorrect unit conversions.
 #[test]
 fn expiry_reads_milliseconds() {
     // Issued 15:10 UTC-3, eight hours to run.
@@ -143,14 +139,13 @@ fn expiry_reads_milliseconds() {
     assert!(expiry_error(Some(exp), Some(refresh), exp - 1).is_none());
     assert!(expiry_error(Some(exp), Some(refresh), exp + 1).is_some());
 
-    // The slip that started this: seconds either side of the comparison, and a token
-    // three hours dead reads as good until the year 58,000.
+    // Incorrect conversion of either timestamp changes the expiry result.
+    // These comparisons show why callers must supply consistent units.
     assert!(expiry_error(Some(exp), Some(refresh), exp / 1000).is_none());
     assert!(expiry_error(Some(exp * 1000), Some(refresh), exp + 10_800_000).is_none());
 }
 
-/// The whole point of telling them apart: an access token the host will renew on its
-/// own must not send anyone to `claude auth`.
+/// Do not request `claude auth` when the host can renew the access token.
 #[test]
 fn a_renewable_token_is_not_a_logged_out_host() {
     let now = 1_786_327_807_534;
@@ -158,18 +153,18 @@ fn a_renewable_token_is_not_a_logged_out_host() {
     let live_refresh = now + 30 * 86_400_000;
 
     let renew = expiry_error(Some(stale), Some(live_refresh), now).unwrap();
-    assert!(renew.contains("needs renewing"));
+    assert!(renew.contains("needs renewal"));
     assert!(!renew.contains("claude auth"));
 
     let relogin = expiry_error(Some(stale), Some(stale), now).unwrap();
     assert!(relogin.contains("claude auth"));
 
-    // No refresh stamp at all is not a dead one.
+    // An absent refresh expiry does not prove that the refresh token has expired.
     assert!(!expiry_error(Some(stale), None, now)
         .unwrap()
         .contains("claude auth"));
 
-    // Nothing said about expiry is not an expired token.
+    // An absent access-token expiry does not prove that the access token has expired.
     assert!(expiry_error(None, Some(stale), now).is_none());
 }
 
@@ -182,8 +177,8 @@ fn backoff_doubles_and_caps() {
     assert_eq!(backoff(60, 30, None), BACKOFF_CAP);
 }
 
-/// `Retry-After` beats both the doubling and the cap, but may not make the poll
-/// faster than the rate-limit floor.
+/// `Retry-After` overrides exponential backoff and its upper limit.
+/// The delay must still meet the minimum rate-limit interval.
 #[test]
 fn retry_after_beats_the_guess() {
     assert_eq!(backoff(60, 1, Some(900)), 900);
@@ -213,7 +208,7 @@ fn retry_after_parses_seconds_and_http_dates() {
     assert_eq!(parse_retry_after("999999", now), Some(6 * 3600));
 }
 
-/// The mod draws resources, not sellers: three sources are one list.
+/// Merge resource windows from three providers into one list for the mod.
 #[test]
 fn sources_merge_into_one_list() {
     let a = parse(&serde_json::from_str(REAL).unwrap(), "max".into());
@@ -231,7 +226,7 @@ fn sources_merge_into_one_list() {
     assert!(m.ok);
     assert_eq!(m.windows.len(), a.windows.len() + 2);
     assert_eq!(m.windows.last().unwrap().key, "openai_session");
-    // The plan is the subscription's, and only one source has one.
+    // Only one source supplies a subscription plan in this fixture.
     assert_eq!(m.plan, "max");
     assert!(m.error.is_none());
 }
@@ -340,10 +335,9 @@ fn a_partial_provider_table_disables_implicit_rows() {
     }
 }
 
-/// Turning a seller off is a change the mod has to hear about even when every figure it
-/// was already drawing stayed put: it draws a row per *expected* source, so a snapshot
-/// that differs only in `sources` must not be swallowed as "nothing moved". `fetched_ms`
-/// is the other way round - it moves every lap and is not worth a broadcast on its own.
+/// A change to `sources` must trigger an update even when usage values stay the same.
+/// The mod uses this list to determine which sources to display.
+/// A change to `fetched_ms` alone must not trigger an update.
 #[test]
 fn a_source_switched_off_is_not_the_same_readout() {
     let base = Snapshot {
@@ -375,8 +369,8 @@ fn a_source_switched_off_is_not_the_same_readout() {
     );
 }
 
-/// One source failing dims the readout and says which, and never empties the other's
-/// numbers. A source switched off contributes nothing and is not a failure.
+/// Report a failed source while preserving values from other sources.
+/// A disabled source contributes no values and does not count as a failure.
 #[test]
 fn one_source_down_keeps_the_others_rows() {
     let a = parse(&serde_json::from_str(REAL).unwrap(), "max".into());
@@ -395,7 +389,7 @@ fn one_source_down_keeps_the_others_rows() {
     assert_eq!(m.failed_sources, vec!["openrouter"]);
     assert!(m.error.unwrap().contains("OpenRouter"));
 
-    // Off on both sides is the snapshot the readout draws nothing from.
+    // With all sources disabled, return an empty snapshot.
     assert_eq!(
         merge(
             [
@@ -407,7 +401,7 @@ fn one_source_down_keeps_the_others_rows() {
         ),
         Snapshot::default()
     );
-    // And one of them off leaves the other exactly as it was.
+    // Disabled sources do not change values from the remaining source.
     let only = merge(
         [
             ("anthropic", &a),
@@ -420,8 +414,7 @@ fn one_source_down_keeps_the_others_rows() {
     assert_eq!(only.windows, a.windows);
 }
 
-/// A readout that empties itself every time the wifi hiccups is worse than a stale
-/// one.
+/// Preserve the last successful values when a network request fails.
 #[test]
 fn failure_keeps_the_last_good_numbers() {
     let good = parse(

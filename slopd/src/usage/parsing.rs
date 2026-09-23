@@ -69,8 +69,8 @@ pub(super) fn parse_openai_response(response: ProviderResponse) -> Snapshot {
     parse_openai(&response.body)
 }
 
-/// One row, in money. Both figures are wanted - a balance is a subtraction - and anything
-/// else reads as "no numbers", for the reason `parse` does.
+/// Parse one monetary row. Require both figures to calculate the balance.
+/// Return no values if the response is incomplete or unrecognized, as in `parse`.
 pub(super) fn parse_credits(v: &Value) -> Snapshot {
     let d = v.get("data").and_then(Value::as_object);
     let used = d.and_then(|d| d.get("total_usage")).and_then(Value::as_f64);
@@ -83,8 +83,7 @@ pub(super) fn parse_credits(v: &Value) -> Snapshot {
         return Snapshot {
             ok: false,
             error: Some(match used {
-                // A key with no ceiling on it: the figure exists, there is just no balance
-                // to count down. Said plainly rather than drawn as a full bar.
+                // This key has no spending limit. Show its value without implying a remaining balance.
                 Some(_) => "OpenRouter reports no credit limit on this key".into(),
                 None => "OpenRouter answered in a shape slopd does not know".into(),
             }),
@@ -100,8 +99,8 @@ pub(super) fn parse_credits(v: &Value) -> Snapshot {
         windows: vec![Window {
             key: OPENROUTER_BALANCE.into(),
             label: "balance".into(),
-            // Nothing bought is nothing left, which is 100% spent. Zero would draw a full
-            // account beside an empty one.
+            // With no purchased credits, the remaining balance is zero.
+            // Show 100% spent so an empty account does not appear full.
             pct: if credits > 0.0 {
                 ((used / credits) * 100.0).clamp(0.0, 100.0) as f32
             } else {
@@ -117,7 +116,8 @@ pub(super) fn parse_credits(v: &Value) -> Snapshot {
     }
 }
 
-/// Parse known window families and extra-usage money; unknown shapes produce an empty result rather than a false zero.
+/// Parse known usage windows and extra-usage amounts.
+/// Return an empty result for unknown response formats instead of incorrect zero values.
 pub(super) fn parse(v: &Value, plan: String) -> Snapshot {
     let mut windows = Vec::new();
 
@@ -145,8 +145,8 @@ pub(super) fn parse(v: &Value, plan: String) -> Snapshot {
         }
     }
 
-    // Judged on the rate limits alone and before the money is added: an unrecognised payload
-    // has to read as "no numbers" even if something in it was spend-shaped.
+    // Validate rate-limit fields before adding monetary values.
+    // An unrecognized response must produce no values, even if it contains apparent spending data.
     if windows.is_empty() {
         tracing::debug!("unrecognised usage payload: {v}");
         return Snapshot {
@@ -173,18 +173,17 @@ pub(super) fn parse(v: &Value, plan: String) -> Snapshot {
     }
 }
 
-/// Not part of `family`: `extra_usage` and `spend` both carry a `utilization`, and letting
-/// either through the rate-limit path is how a quota row becomes a dollar row.
-/// `monthly_limit` is minor units - 10000 is the $100 cap. A budget whose size cannot be read
-/// still leaves a row, without an amount.
+/// Parse monetary usage separately from `family`.
+/// Both `extra_usage` and `spend` contain `utilization`, but they are not rate-limit windows.
+/// `monthly_limit` uses minor units: 10000 means $100.
+/// Keep a row without an amount if its budget size is unavailable.
 fn spend(v: &Value) -> Option<Window> {
     let e = &v["extra_usage"];
     if e.is_null() {
         return None;
     }
 
-    // Off is not the same as nothing spent: a row reading $0 would say the account
-    // had a budget.
+    // A disabled budget is different from zero spending. A $0 row would imply an active budget.
     if e["is_enabled"].as_bool() == Some(false) {
         return None;
     }
@@ -245,8 +244,8 @@ fn family(name: &str) -> Option<(String, String)> {
     }
 }
 
-/// A percentage here - 52.0 means 52% - where the same figure rides the API's response
-/// headers as a fraction. Guessing between them by size reads 0.8% spent as 80%.
+/// Read a percentage: 52.0 means 52%. Response headers use fractions instead.
+/// Do not infer the unit from the value because that could convert 0.8% to 80%.
 fn percent(w: &Value) -> Option<f32> {
     for k in ["utilization", "used_pct", "used_percent", "percent_used"] {
         if let Some(p) = w[k].as_f64() {
@@ -324,8 +323,8 @@ fn days_in_month(year: i64, month: i64) -> i64 {
     }
 }
 
-/// 0 for `Z` or a missing zone. None for a zone this cannot read, which fails the
-/// whole timestamp rather than placing the reset in the wrong hour.
+/// Return zero for `Z` or an absent time zone.
+/// Return None for an invalid zone to reject the timestamp instead of using an incorrect reset hour.
 fn offset_secs(s: &str) -> Option<i64> {
     // Skip the date-time, and any fractional seconds after it.
     let zone = s[19..].trim_start_matches(|c: char| c == '.' || c.is_ascii_digit());

@@ -27,8 +27,8 @@ fn reads_the_shape_the_endpoint_speaks() {
     assert!(s.windows[0].resets_in.unwrap() > 0);
 }
 
-/// The money has a `utilization` too, so it must never come through as a rate
-/// limit. `monthly_limit` is cents: 10000 is the $100 cap.
+/// Keep monetary utilization separate from rate-limit percentages.
+/// Convert `monthly_limit` from cents: 10000 represents a $100 limit.
 #[test]
 fn spend_is_money_and_not_a_rate_limit() {
     let s = parse(&serde_json::from_str(REAL).unwrap(), String::new());
@@ -46,8 +46,7 @@ fn spend_is_money_and_not_a_rate_limit() {
     assert!((m.amount.unwrap() - 20.93).abs() < 0.01);
 }
 
-/// A budget whose size cannot be read still leaves a row; it just stays a
-/// percentage.
+/// Keep the spending row as a percentage when the budget amount is unavailable.
 #[test]
 fn spend_without_a_readable_budget_stays_a_percentage() {
     let v: Value = serde_json::from_str(
@@ -75,7 +74,7 @@ fn the_unit_is_on_the_wire() {
         .contains(r#""unit":"pct""#));
 }
 
-/// Extra usage switched off has no budget to draw.
+/// Omit the spending row when extra usage is disabled.
 #[test]
 fn spend_off_is_not_spend_zero() {
     let v: Value = serde_json::from_str(
@@ -90,16 +89,16 @@ fn spend_off_is_not_spend_zero() {
         .all(|w| w.key != "claude_spend"));
 }
 
-/// The same figure is a fraction in the API's response headers, and guessing by
-/// size reads a window that is 0.8% spent as 80%.
+/// Treat body utilization values as percentages regardless of magnitude.
+/// Converting 0.8 as a fraction would incorrectly report 80% instead of 0.8%.
 #[test]
 fn utilization_is_a_percentage_not_a_fraction() {
     let v: Value = serde_json::from_str(r#"{"five_hour":{"utilization":0.8}}"#).unwrap();
     assert_eq!(parse(&v, String::new()).windows[0].pct, 0.8);
 }
 
-/// Null on this plan and populated on others, so matched by family rather than by
-/// a list of names.
+/// Recognize model-specific weekly windows by their key prefix.
+/// Do not restrict parsing to a fixed list of model names.
 #[test]
 fn per_model_weeks_come_through_named() {
     let v: Value = serde_json::from_str(
@@ -126,8 +125,8 @@ fn remaining_over_limit_is_inverted() {
     assert_eq!(parse(&v, String::new()).windows[0].pct, 75.0);
 }
 
-/// An unrecognised payload has to read as "no numbers", never as a colony sitting
-/// comfortably at zero.
+/// Report an unrecognized payload as an error with no usage values.
+/// Do not interpret missing data as zero usage.
 #[test]
 fn unknown_payload_is_not_zero_percent() {
     let v: Value = serde_json::from_str(r#"{"something_else":{"nope":1}}"#).unwrap();
@@ -145,7 +144,7 @@ fn rfc3339_matches_a_known_instant() {
     assert_eq!(epoch_from_rfc3339("not a date"), None);
 }
 
-/// The three ways this endpoint has spelled the same instant.
+/// Parse fractional seconds and explicit UTC offsets.
 #[test]
 fn rfc3339_handles_fractions_and_offsets() {
     let z = epoch_from_rfc3339("2026-07-26T00:00:00Z").unwrap();
@@ -159,7 +158,7 @@ fn rfc3339_handles_fractions_and_offsets() {
         epoch_from_rfc3339("2026-07-26T00:00:00-05:00"),
         Some(z + 5 * 3600)
     );
-    // A zone this cannot read fails the timestamp rather than guessing UTC.
+    // Reject unsupported time-zone syntax instead of assuming UTC.
     assert_eq!(epoch_from_rfc3339("2026-07-26T00:00:00+0500"), None);
 }
 
@@ -180,7 +179,7 @@ fn rfc3339_rejects_out_of_range_fields_and_trailing_zone_text() {
     assert!(epoch_from_rfc3339("2024-02-29T00:00:00Z").is_some());
 }
 
-/// Credits bought less credits spent, in money, on the same wire as a rate limit.
+/// Represent purchased and used credits as monetary values in the shared usage format.
 #[test]
 fn credits_are_a_balance_in_money() {
     let v: Value = serde_json::from_str(
@@ -196,12 +195,12 @@ fn credits_are_a_balance_in_money() {
     assert_eq!(w.amount, Some(10.0));
     assert_eq!(w.limit, Some(25.0));
     assert_eq!(w.pct, 40.0);
-    // Bought rather than granted: there is nothing to count down to.
+    // Purchased credits have no scheduled reset.
     assert!(w.resets_in.is_none());
 }
 
-/// Nothing bought is nothing left. Zero percent spent would draw an empty account
-/// beside a full one.
+/// Report an account with no purchased credits as fully used.
+/// Reporting zero usage would incorrectly suggest available credit.
 #[test]
 fn no_credits_is_spent_rather_than_untouched() {
     let v: Value = serde_json::from_str(r#"{"data":{"total_credits":0,"total_usage":0}}"#).unwrap();
