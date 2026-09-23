@@ -1,4 +1,4 @@
-//! Worktree operations are independent from task outcomes and worker lifetimes.
+//! Worktree operations do not depend on task outcomes or worker lifetimes.
 use super::super::*;
 use crate::worktrees::{git, Store, Worktree};
 use anyhow::anyhow;
@@ -11,7 +11,7 @@ pub(crate) struct WorktreeRequest {
     pub name: String,
     #[serde(default)]
     pub base: String,
-    /// An existing external checkout; empty allocates a managed worktree.
+    /// An existing external checkout path. An empty path allocates a managed worktree.
     #[serde(default)]
     pub path: String,
 }
@@ -124,7 +124,7 @@ impl Manager {
                 w.error.clear();
             } else {
                 w.error = format!(
-                    "Interrupted {}; inspect the checkout or retry manual removal",
+                    "Operation {} was interrupted. Inspect the checkout or try manual removal.",
                     w.phase
                 );
                 w.phase = "error".into();
@@ -229,7 +229,7 @@ impl Manager {
                 || original.starts_with(&source)
                 || (std::path::Path::new(&mount.to).is_absolute() && target.starts_with(&original))
             {
-                bail!("project mount {} -> {} exposes the original checkout; edit the mount before selecting a worktree", mount.from, mount.to);
+                bail!("Project mount {} -> {} exposes the original checkout. Edit the mount before selecting a worktree.", mount.from, mount.to);
             }
         }
         let mut resolved = p.clone();
@@ -292,15 +292,15 @@ impl Manager {
             let branch = git(path, &["symbolic-ref", "--quiet", "--short", "HEAD"])
                 .await
                 .unwrap_or_default();
-            // An interrupted request in this daemon run remains inspectable; startup recovery
-            // classifies completed allocation without restarting any worker.
+            // Keep interrupted requests visible for inspection during this daemon run.
+            // Startup recovery identifies completed allocations but never restarts workers.
             if w.phase == "allocating" {
-                w.error = "Allocation interrupted; inspect before removal or reuse".into();
+                w.error = "Allocation was interrupted. Inspect the worktree before you remove or reuse it.".into();
             }
             if !path.is_dir() {
                 w.phase = "error".into();
                 w.error =
-                    "Checkout directory is missing; retry manual removal to reconcile its record"
+                    "The checkout directory is missing. Retry manual removal to reconcile its record."
                         .into();
             }
             let mut attachments = self.worktree_attachments(&w).await;
@@ -479,25 +479,25 @@ impl Manager {
                 .ok_or_else(|| anyhow!("no removable worktree {id}"))?;
             let w = store.worktrees[i].clone();
             let users = manager.worktree_attachments(&w).await;
-            if !users.is_empty() { bail!("worktree still attached to {}; remove or move these sessions first", users.join(", ")); }
+            if !users.is_empty() { bail!("Worktree remains attached to {}. Remove or move these sessions first.", users.join(", ")); }
             store.worktrees[i].phase = "removing".into(); store.save(&manager.cfg_path).await?;
             let result = async {
-                if !w.managed { return Ok(()); } // Unregister external checkouts; never delete their files.
+                if !w.managed { return Ok(()); } // Unregister external checkouts. Never delete their files.
                 let path = Path::new(&w.path);
                 if path.exists() {
-                    if path.is_symlink() { bail!("worktree path was replaced by a symlink"); }
+                    if path.is_symlink() { bail!("A symlink replaced the worktree path."); }
                     let common = git(path, &["rev-parse", "--path-format=absolute", "--git-common-dir"]).await?;
                     if Path::new(&common).canonicalize()? != Path::new(&w.repository).canonicalize()? { bail!("worktree repository identity changed"); }
                     let status = git(path, &["status", "--porcelain=v1", "--untracked-files=all", "--ignored", "--ignore-submodules=none"]).await?;
-                    if !status.is_empty() { bail!("worktree has changed, untracked or ignored files; resolve them before removal"); }
+                    if !status.is_empty() { bail!("The worktree has tracked changes, untracked files, or ignored files. Resolve them before removal."); }
                     let head = git(path, &["rev-parse", "--verify", "HEAD"]).await?;
                     if git(path, &["for-each-ref", "--format=%(refname)", &format!("--contains={head}"), "refs/heads/"]).await?.is_empty() {
-                        bail!("HEAD has no retained local branch; create one before removal");
+                        bail!("HEAD has no retained local branch. Create one before you remove the worktree.");
                     }
                     crate::worktrees::remove_tree(&w).await?;
                 } else {
-                    // A crash may occur after Git removed the tree but before the record was
-                    // saved. Remove only this registration, never prune unrelated worktrees.
+                    // Git can remove the checkout before the daemon saves the record.
+                    // Remove only this Git registration. Do not prune other worktrees.
                     let listing = git(Path::new(&w.repository), &["worktree", "list", "--porcelain", "-z"]).await?;
                     if listing.split('\0').any(|line| line == format!("worktree {}", w.path)) {
                         crate::worktrees::forget_missing(&w).await?;

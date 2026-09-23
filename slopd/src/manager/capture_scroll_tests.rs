@@ -47,7 +47,8 @@ async fn changed_offset_sequence_and_dimensions_invalidate_cached_scroll() {
     let older = m.scroll_capture("agent", 2, 2).await.unwrap();
     assert_eq!(older.off, 2);
     assert_ne!(older.lines, first.lines);
-    // Poison only the cached payload: every key component must independently reject it.
+    // Replace only the cached payload with invalid data.
+    // A change to any cache-key component must prevent reuse of this payload.
     for field in ["seq", "cols", "rows"] {
         {
             let mut cache = m.scroll_cache.lock().unwrap();

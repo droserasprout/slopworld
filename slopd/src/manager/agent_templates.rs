@@ -11,8 +11,8 @@ impl Manager {
         self.templates.read().await.templates.clone()
     }
 
-    /// Capture a configured agent into the personal catalog. The source is copied immediately;
-    /// no live link to its project, preset files, library entries, or private state is retained.
+    /// Copy a configured agent into the personal catalog immediately.
+    /// Do not retain links to its project, preset files, library entries, or private state.
     #[cfg(test)]
     pub(crate) async fn save_agent_template(
         self: &Arc<Self>,
@@ -51,7 +51,7 @@ impl Manager {
             .cloned()
             .ok_or_else(|| anyhow::anyhow!("no configured agent: {source_name}"))?;
         if source.worker {
-            bail!("task-owned worker {source_name} cannot be saved as a template");
+            bail!("The daemon cannot save task-owned worker {source_name} as a template.");
         }
         let project = cfg
             .project_of(&source)
@@ -68,9 +68,9 @@ impl Manager {
         self.create_agent_template_definition(template).await
     }
 
-    /// Create a session from a template. The caller supplies identity and project; the optional
-    /// form payload supplies portable overrides, never identity, state, hierarchy, credentials,
-    /// or runtime fields into the new session. Project mounts are resolved at start time.
+    /// Create a session from a template. The caller supplies the identity and project.
+    /// The optional form supplies portable overrides. Exclude identity, state, hierarchy, credentials, and runtime fields from those overrides.
+    /// Resolve project mounts at startup.
     pub(crate) async fn create_from_agent_template(
         self: &Arc<Self>,
         template_name: &str,
@@ -97,8 +97,8 @@ impl Manager {
         Ok(name)
     }
 
-    /// Add a definition only when its destination is absent. The daemon assigns the version;
-    /// callers cannot choose one for a new definition.
+    /// Add a definition only if its destination is absent.
+    /// The daemon assigns the version. Callers cannot select a version for a new definition.
     pub(crate) async fn create_agent_template_definition(
         &self,
         template: AgentTemplate,

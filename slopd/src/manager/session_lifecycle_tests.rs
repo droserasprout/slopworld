@@ -222,7 +222,7 @@ async fn stopping_a_temporary_worker_revokes_authority_and_cleans_owned_state() 
     assert_eq!(saved.status, crate::tasks::Status::Failed);
     assert_eq!(
         saved.note.as_deref(),
-        Some("worker session child was stopped")
+        Some("The daemon stopped worker session child.")
     );
     // Cleanup remains safe after the row, process and private directory have gone.
     manager.stop("child").await.unwrap();

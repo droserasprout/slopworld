@@ -4,11 +4,9 @@ use std::sync::atomic::AtomicU64;
 use std::sync::{Arc, Mutex};
 use std::time::SystemTime;
 
-/// Configuration I/O bookkeeping has a different lifetime from the live session table.
-/// Keeping its stamps and serialization gate together makes it harder for a new config path to
-/// publish a disk stamp before the corresponding contents have been accepted. The maintenance
-/// stamps are separate because config catalogs, presets, and jukebox have independent reload
-/// deadlines.
+/// Configuration I/O state has a different lifetime from the live session table.
+/// Keep timestamps and the serialization lock together to prevent timestamp publication before acceptance of the corresponding contents.
+/// Configuration catalogs, presets, and jukebox definitions have separate maintenance timestamps because their reload deadlines differ.
 pub(crate) struct ConfigState {
     pub(crate) cfg_mtime: Mutex<Option<SystemTime>>,
     pub(crate) library_mtime: Mutex<Option<SystemTime>>,

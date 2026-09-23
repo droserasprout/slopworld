@@ -129,8 +129,8 @@ async fn an_instantiated_template_can_still_be_edited_without_live_dependencies(
         .await
         .unwrap();
 
-    // This is the shape sent by the mod editor. Snapshot fields are not on the wire, so the
-    // manager must restore the instance's private definitions before validation.
+    // This update matches the mod editor's request format, which omits snapshot fields.
+    // The manager must restore the instance's private definitions before validation.
     let update = SessionCfg {
         name: "new-agent".into(),
         project: "repo".into(),
@@ -183,7 +183,7 @@ async fn template_writes_compare_versions_and_preserve_rejected_drafts() {
         .unwrap();
     assert!(winner.version > original.version);
 
-    // Two clients that loaded the same revision can race, but exactly one wins.
+    // Two clients can submit changes to the same revision. Accept exactly one update.
     let mut left = winner.clone();
     left.description = "winner".into();
     let right = left.clone();

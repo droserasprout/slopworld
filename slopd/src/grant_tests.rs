@@ -9,7 +9,7 @@ fn grant(sessions: &[&str], level: Level) -> Grant {
     }
 }
 
-/// rw is a superset of ro, and ro is not rw.
+/// Read-write access includes read-only access. Read-only access does not permit writes.
 #[test]
 fn a_level_satisfies_itself_and_rw_satisfies_ro() {
     assert!(Level::Rw.satisfies(Level::Rw));
@@ -18,8 +18,8 @@ fn a_level_satisfies_itself_and_rw_satisfies_ro() {
     assert!(!Level::Ro.satisfies(Level::Rw));
 }
 
-/// The heart of the model: a scoped grant reaches a session it names at its level, reaches
-/// nothing it does not, and reaches no host session at all. Root reaches everything.
+/// A scoped grant permits access only to named sessions at its assigned level.
+/// Scoped grants never permit host-session access. Root access has no such restrictions.
 #[test]
 fn a_scoped_grant_reaches_only_what_it_names_and_never_the_host() {
     let ro = Cap::Scoped(grant(&["a", "b"], Level::Ro));
@@ -33,15 +33,16 @@ fn a_scoped_grant_reaches_only_what_it_names_and_never_the_host() {
     assert!(rw.allows("a", false, Level::Ro));
     assert!(!rw.allows("a", true, Level::Rw)); // still never the host
 
-    // Root is unconditional, host included - it is the mod.
+    // Root access permits all operations, including host-session access.
     assert!(Cap::Root.allows("anything", true, Level::Rw));
     assert!(Cap::Root.can_see("anything", true));
     assert!(Cap::Root.may_create());
     assert!(!Cap::Scoped(grant(&["a"], Level::Rw)).may_create());
 }
 
-/// Empty root is no-auth for anyone; a set root matches itself; anything else must name a
-/// live grant; a wrong or absent token under a set root is nobody.
+/// An empty root token disables authentication and gives all callers root access.
+/// Otherwise, accept the root token or a current grant token.
+/// Reject absent or unknown tokens when authentication is enabled.
 #[test]
 fn resolving_a_token_against_root_and_the_grants() {
     let mut grants = Grants::default();
@@ -63,8 +64,7 @@ fn resolving_a_token_against_root_and_the_grants() {
     }
 }
 
-/// The ephemeral contract: a grantor going away takes its grants with it, and nobody
-/// else's.
+/// Revoking a grantor removes only that grantor's grants.
 #[test]
 fn revoking_a_grantor_drops_its_grants_alone() {
     let mut grants = Grants::default();
@@ -87,7 +87,7 @@ fn revoking_a_grantor_drops_its_grants_alone() {
     assert_eq!(grants.count(), 1);
 }
 
-/// Two mints do not collide, and a token is the width we asked for.
+/// Generated tokens differ and have the required length.
 #[test]
 fn a_minted_token_is_distinct_and_wide() {
     let mut grants = Grants::default();

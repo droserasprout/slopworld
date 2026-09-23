@@ -1,4 +1,5 @@
-//! Daemon-owned station catalog and URL resolver; it reads/reloads TOML and sends the mod only station, stream, and display metadata.
+//! Station catalog and URL resolver owned by the daemon.
+//! Read and reload TOML definitions. Send only station, stream, and display metadata to the mod.
 
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
@@ -7,7 +8,7 @@ use std::sync::{OnceLock, RwLock};
 use anyhow::{bail, Context, Result};
 use serde::{Deserialize, Serialize};
 
-/// What the UI can say about a station without knowing how it is played.
+/// Station display metadata, independent of playback details.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Metadata {
     #[serde(default)]
@@ -20,9 +21,8 @@ pub struct Metadata {
     pub title_regex: String,
 }
 
-/// One stream exposed to clients by its quality and stable key. The URL is deliberately not
-/// serialized: it is an implementation detail of the daemon and the audio worker is the only
-/// code that needs it.
+/// A stream identified by its quality and stable key.
+/// Do not serialize the URL. Only the daemon's audio worker needs it.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Stream {
     pub rate: u32,
@@ -41,8 +41,7 @@ pub struct Station {
     pub default_rate: u32,
     #[serde(default)]
     pub metadata: Metadata,
-    /// `[[stream]]` in TOML, `streams` on the wire: an array of tables reads as the singular
-    /// in a definition file, and as the plural in the catalog the mod is handed.
+    /// Use `[[stream]]` tables in TOML definitions and a `streams` array in the protocol catalog.
     #[serde(rename(serialize = "streams", deserialize = "stream"), default)]
     pub streams: Vec<Stream>,
 }
@@ -136,9 +135,8 @@ impl Catalog {
         Ok(())
     }
 
-    /// A later user file with an existing id replaces the earlier entry in place; a new id is
-    /// appended in filename order. This keeps the menu order stable and makes overrides
-    /// predictable when more than one user file names the same station.
+    /// Replace an existing station in place when a later user file has the same ID.
+    /// Append new IDs in filename order. This preserves menu order and resolves duplicate station definitions consistently.
     fn merge(&mut self, station: Station) {
         match self.stations.iter_mut().find(|s| s.id == station.id) {
             Some(slot) => *slot = station,
@@ -161,9 +159,8 @@ impl Catalog {
     }
 }
 
-/// Save one user-owned station definition. The station id is the stable identity used by the
-/// audio protocol; the display name remains editable without renaming the file behind the
-/// daemon's back.
+/// Save one user station definition. The audio protocol uses the stable station ID.
+/// Users can edit the display name without renaming the file.
 pub fn save_user(station: Station) -> Result<()> {
     save_user_in(&Catalog::dir(), station)
 }
@@ -245,7 +242,7 @@ fn valid_id(id: &str) -> Result<()> {
     let valid = chars.next().is_some_and(|c| c.is_ascii_alphanumeric())
         && chars.all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-');
     if !valid {
-        bail!("invalid jukebox preset id {id:?}; use letters, numbers, '-' or '_'");
+        bail!("Invalid jukebox preset ID {id:?}. Use letters, numbers, '-' or '_'.");
     }
     Ok(())
 }

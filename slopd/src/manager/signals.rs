@@ -6,8 +6,8 @@ use std::sync::{Arc, Mutex};
 
 use tokio::sync::RwLock;
 
-/// Signals are deliberately separate from durable configuration and live pane state. They are
-/// short-lived coordination state for clients and redraw publication, not a generic manager bag.
+/// Temporary state for client coordination and redraw publication.
+/// Keep it separate from persistent configuration and live pane state.
 pub(crate) struct Signals {
     pub(crate) usage: RwLock<crate::usage::Snapshot>,
     pub(crate) clients: AtomicUsize,

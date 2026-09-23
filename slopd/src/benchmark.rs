@@ -9,6 +9,8 @@ use crate::emu::{benchmark_content_hash as hash_content, Frame, SessionEmu};
 use crate::perf;
 use crate::session::{Event, EventMessage, ScreenView};
 
+mod storage;
+
 const COLS: u16 = 120;
 const ROWS: u16 = 34;
 const WARMUP: usize = 40;
@@ -18,12 +20,14 @@ const MAX_BATCH: usize = 65_536;
 
 pub(crate) fn run() -> Result<()> {
     println!("SlopWorld daemon benchmark ({COLS}x{ROWS}, {SAMPLES} samples)");
-    println!("timings are microseconds per operation in warmed batches; warmup={WARMUP}");
+    println!("Timings are microseconds per operation in warmed batches. Warmup: {WARMUP}");
 
     benchmark_render_cases();
+    benchmark_history_padding();
     benchmark_ansi_strip();
     benchmark_content_hash();
     benchmark_websocket_serialization();
+    storage::run()?;
 
     if let Some(line) = perf::report() {
         println!("{line}");
@@ -70,6 +74,49 @@ fn benchmark_render_cases() {
         |emu, sample| emu.feed(&full_redraw(sample % 2 == 0)),
         |emu| emu.render(),
     );
+}
+
+fn benchmark_history_padding() {
+    // Clients do not show leading blank history, but the VT grid retains it. Exercise
+    // cursor damage after scrolling it in: the ordinary seeded fixture has no history.
+    for (count, blank) in [
+        (0, true),
+        (100, true),
+        (1_000, true),
+        (10_000, true),
+        (10_000, false),
+    ] {
+        let mut emu = SessionEmu::new(COLS, ROWS);
+        // Make the nonblank control's oldest row nonblank too. Otherwise moving the cursor
+        // straight to the bottom seeds an unrelated blank prefix in that control.
+        if !blank {
+            emu.feed(b"history");
+        }
+        emu.feed(format!("\x1b[{ROWS};1H").as_bytes());
+        let line = if blank { "\r\n" } else { "history\r\n" };
+        emu.feed(line.repeat(count).as_bytes());
+        let frame = emu.render();
+        if blank {
+            assert_eq!(frame.history, 0);
+        } else {
+            assert_eq!(frame.history, count as u32);
+        }
+        benchmark_render(
+            &format!(
+                "render cursor history={count} {}",
+                if blank { "blank" } else { "text" }
+            ),
+            emu,
+            |emu, sample| {
+                emu.feed(if sample % 2 == 0 {
+                    b"\x1b[1;1H"
+                } else {
+                    b"\x1b[1;2H"
+                });
+            },
+            |emu| emu.render(),
+        );
+    }
 }
 
 fn benchmark_render<P, A>(name: &str, mut emu: SessionEmu, mut prepare: P, mut action: A)

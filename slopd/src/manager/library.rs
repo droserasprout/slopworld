@@ -58,9 +58,9 @@ impl Manager {
                 .projects
                 .iter()
                 .position(|x| x.name == name)
-                .ok_or_else(|| anyhow!("no such project: {name}"))?;
+                .ok_or_else(|| anyhow!("Project {name:?} does not exist."))?;
             if cfg.projects[idx].temp != p.temp {
-                bail!("project temporary mode cannot be changed after creation");
+                bail!("The daemon cannot change project temporary mode after creation.");
             }
             p.id = cfg.projects[idx].id.clone();
             if p.id.is_empty() {
@@ -102,7 +102,7 @@ impl Manager {
         }
         self.update_cfg(|cfg| {
             if cfg.project(name).is_none() {
-                bail!("no such project: {name}");
+                bail!("Project {name:?} does not exist.");
             }
             let users: Vec<&str> = cfg
                 .sessions
@@ -162,7 +162,7 @@ impl Manager {
         self.update_cfg(|cfg| {
             sc.builtin = false;
             if cfg.is_builtin_library_item(name) {
-                bail!("library item {name} is built in and cannot be edited");
+                bail!("The daemon cannot edit built-in library item {name}.");
             }
             check_library_item(cfg, &sc)?;
             let idx = cfg
@@ -186,7 +186,7 @@ impl Manager {
         self.reload_if_changed().await;
         self.update_cfg(|cfg| {
             if cfg.is_builtin_library_item(name) {
-                bail!("library item {name} is built in and cannot be deleted");
+                bail!("The daemon cannot delete built-in library item {name}.");
             }
             if cfg.library_item(name).is_none() {
                 bail!("no such library item: {name}");
@@ -226,7 +226,7 @@ impl Manager {
             let p = cfg
                 .project(project.trim())
                 .cloned()
-                .ok_or_else(|| anyhow!("no such project: {project}"))?;
+                .ok_or_else(|| anyhow!("Project {project:?} does not exist."))?;
             let path = project_action_path(&p, raw_path)?;
             (p, path)
         };
@@ -299,7 +299,8 @@ impl Manager {
     }
 
     async fn execute_file_action(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result<String> {
-        // File actions are user operations; project scope validates paths, not execution.
+        // File actions execute on the host as user operations.
+        // Project scope validates their paths without restricting execution to the project sandbox.
         let argv = crate::sandbox::host_argv(cfg, s, p);
         let output = Self::run_file_action_command(&argv, &expand(&p.dir)).await?;
         Self::format_file_action_result(
@@ -338,7 +339,7 @@ impl Manager {
         } else {
             let p = cfg
                 .project(project.trim())
-                .ok_or_else(|| anyhow!("no such project: {project}"))?;
+                .ok_or_else(|| anyhow!("Project {project:?} does not exist."))?;
             project_action_path(p, raw_path)?
         };
         Ok(normalize_action_command(&path, command))
@@ -411,11 +412,13 @@ impl Manager {
     ) {
         match self.wait_ready(name).await {
             Ready::Gone => {
-                tracing::warn!("{name} was gone before its library item text could be sent");
+                tracing::warn!(
+                    "The daemon could not send library text because session {name} is gone."
+                );
                 return;
             }
             Ready::Timeout => tracing::warn!(
-                "{name} never went quiet after {}ms; sending its library item text anyway",
+                "{name} did not become idle within {} ms. Sending its library item text anyway.",
                 READY_MS
             ),
             Ready::Settled => {}
@@ -425,8 +428,8 @@ impl Manager {
             tracing::error!("sending library item text to {name}: {e:#}");
             return;
         }
-        // Delivery owns the complete startup prompt sequence. Keep its Enter out of send_keys,
-        // whose generated-instruction hook can otherwise splice the first prompt incorrectly.
+        // Delivery controls the complete startup prompt sequence.
+        // Do not send its Enter through send_keys because that hook could insert generated instructions into the wrong position.
         if let Some(breadcrumbs) = self.consume_breadcrumbs(name, &random_tips).await {
             if !breadcrumbs.is_empty() {
                 self.queue_paste(name, breadcrumbs).await;
@@ -469,7 +472,7 @@ impl Manager {
             }
             Ready::Timeout => {
                 tracing::warn!(
-                    "{name} never went quiet after {}ms; skipping auto-resume",
+                    "{name} did not become idle within {} ms. Skipping auto-resume.",
                     READY_MS
                 );
                 self.finish_auto_resume(name, run_id).await;
@@ -478,8 +481,9 @@ impl Manager {
             Ready::Settled => {}
         }
 
-        // This is startup control input, not the agent's first prompt. Keep it out of title
-        // capture and the breadcrumb Enter hook; breadcrumbs remain pending for the user's prompt.
+        // This input controls startup. It does not contain the agent's first prompt.
+        // Exclude it from title capture and the breadcrumb Enter hook.
+        // Keep breadcrumbs pending for the user's prompt.
         for input in auto_resume_inputs() {
             self.queue_input(name, input).await;
         }

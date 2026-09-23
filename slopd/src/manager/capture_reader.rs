@@ -13,9 +13,9 @@ use anyhow::anyhow;
 const FAST_TICK: Duration = Duration::from_millis(16);
 const SLOW_TICK: Duration = Duration::from_millis(UNWATCHED_MS);
 
-/// A reader sleeps only while a dirty frame, a new subscription, or a completed clipboard
-/// write needs work. The clock is Tokio's monotonic clock so tests and production use the same
-/// deadline arithmetic; no wall-clock activity timestamp is used for rendering cadence.
+/// Schedule reader work for changed frames, new subscriptions, and completed clipboard writes.
+/// Use Tokio's monotonic clock so tests and production calculate deadlines consistently.
+/// Do not use wall-clock activity timestamps to schedule rendering.
 #[derive(Default)]
 struct DrawSchedule {
     dirty: bool,
@@ -91,7 +91,7 @@ impl Manager {
             .await
         {
             let mut seed = String::new();
-            // tmux returns primary history with the alternate screen; seed each buffer separately.
+            // tmux returns primary history with the alternate screen. Initialize each buffer separately.
             let visible = if cap.alt_screen {
                 let split = cap.lines.len().saturating_sub(rows as usize);
                 if split > 0 {
@@ -132,9 +132,9 @@ impl Manager {
         let replaced_reader = {
             let mut live = self.live.write().await;
             match live.get_mut(name) {
-                // Recheck under the write lock because capture awaits; abort this attach if
-                // another caller installed the reader. The startup gate keeps run_control from
-                // trying to clean up before its handle and ownership token are installed.
+                // Recheck under the write lock because capture can yield.
+                // Cancel this attachment if another caller installed the reader.
+                // The startup gate prevents run_control cleanup before installation of its handle and ownership token.
                 Some(l) if l.emu.is_none() => {
                     l.emu = Some(emu.clone());
                     l.reader_token = Some(reader_token.clone());
@@ -259,10 +259,10 @@ impl Manager {
         let _ = ready_tx.send(Ok(()));
         self.run_control_loop(&name, emu, rx, pending).await;
 
-        // Stop and reap the control client before touching the session in mark_down. The child
-        // owns the PTY slave; kill_on_drop only starts an asynchronous kill, so merely dropping
-        // it can leave cleanup racing the same tmux client that just reported %exit. That race
-        // makes a shell's Ctrl+D appear to hang until tmux times the client out.
+        // Stop and reap the control client before mark_down changes the session.
+        // The child owns the PTY slave. kill_on_drop starts termination but does not wait for completion.
+        // Dropping the child alone can let cleanup overlap the client that reported %exit.
+        // That race can delay shell exit after Ctrl+D until the tmux client timeout.
         if let Err(error) = child.kill().await {
             tracing::debug!("stopping control client for {name}: {error}");
         }

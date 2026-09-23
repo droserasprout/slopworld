@@ -1,5 +1,6 @@
-//! Task-owned worker creation. A worker is a normal sandboxed session with explicit ownership
-//! metadata and a durable mailbox task; its name is never used to reconstruct that relationship.
+//! Create workers owned by tasks.
+//! A worker is a sandboxed session with explicit ownership metadata and a persistent mailbox task.
+//! Do not infer ownership from its name.
 
 use super::super::*;
 
@@ -12,9 +13,9 @@ pub struct WorkerSpawn {
 }
 
 impl Manager {
-    /// Create the mailbox record first, then the child session, then launch it. A failed launch
-    /// leaves the task and (for durable workers) the stopped session visible so a restart or
-    /// operator can diagnose it instead of losing a half-created child between two API calls.
+    /// Create the mailbox record first. Then create and launch the child session.
+    /// A failed launch preserves the task and, for persistent workers, the stopped session.
+    /// These records support diagnosis and recovery after a restart.
     #[cfg(test)]
     pub async fn spawn_worker(
         self: &Arc<Self>,
@@ -73,8 +74,9 @@ impl Manager {
 
         self.resolve_worktree(&p, &worktree).await?;
 
-        // The selected template supplies behavior; the invoking session owns the child in the
-        // task mailbox and sidebar. No caller configuration is copied into the worker.
+        // The selected template supplies behavior.
+        // The invoking session owns the child in the task mailbox and sidebar.
+        // Do not copy caller configuration into the worker.
         let mut session = worker_session_from_template(
             &template,
             self.fresh_worker_name(&caller).await,
@@ -82,11 +84,11 @@ impl Manager {
             &caller,
         );
         session.worktree = worktree;
-        // A worker must be able to reach the daemon. Worker metadata supplies its task API
-        // capability; the selected template supplies the normal tool and state configuration.
+        // A worker must have access to the daemon. Worker metadata supplies its task API capability.
+        // The selected template supplies tool and state configuration.
         if cfg.network_of(&session, &p) == NetworkMode::None {
             bail!(
-                "worker template {} disables networking; task API access needs a network",
+                "Worker template {} disables networking. Task API access requires a network.",
                 template.name
             );
         }
@@ -176,9 +178,9 @@ impl Manager {
     }
 }
 
-/// Validate the project context a worker caller is allowed to use. Root callers may choose any
-/// registered project; an agent may only create a worker in its own project. Keeping this check
-/// here as well as in the HTTP handler protects direct manager callers and future transports.
+/// Validate the caller's permitted project context.
+/// Root callers may select any registered project. Agents may create workers only in their own project.
+/// Repeat the HTTP handler check here to protect direct manager calls and future transports.
 impl Manager {
     pub(crate) async fn worker_project(&self, caller: &str, requested: &str) -> Result<String> {
         let requested = requested.trim();
@@ -189,7 +191,7 @@ impl Manager {
                 .await
                 .ok_or_else(|| anyhow!("no such caller session: {caller}"))?;
             if self.is_host(caller).await {
-                bail!("a host terminal cannot own a worker; choose an agent caller");
+                bail!("A host terminal cannot own a worker. Choose an agent caller.");
             }
             let project = session.project.trim();
             if project.is_empty() {
@@ -221,10 +223,9 @@ impl Manager {
         self.config().await.daemon.worker_templates.clone()
     }
 
-    /// Return the exact definition from the live catalog. Scoped agent callers must be enabled
-    /// by worker policy; the host is the user at the keyboard and may choose any catalog
-    /// template. Validation happens before task/session allocation, so a deleted template cannot
-    /// leave a mailbox or private state behind.
+    /// Return the definition from the current catalog. Worker policy must permit scoped agent callers.
+    /// The host user may select any catalog template.
+    /// Validate before creating tasks or sessions so a deleted template cannot leave mailbox records or private state.
     pub(crate) async fn spawnable_worker_template(
         &self,
         caller: &str,
@@ -241,11 +242,11 @@ impl Manager {
                 .await
                 .ok_or_else(|| anyhow!("no such caller session: {caller}"))?;
             if session.project.trim() != project {
-                bail!("caller {caller} is not authorized for project {project}");
+                bail!("Caller {caller} cannot use project {project}.");
             }
         }
         if caller != crate::tasks::HOST && !cfg.daemon.worker_templates.contains(requested) {
-            bail!("agent template {requested} is not enabled for workers");
+            bail!("Worker policy does not allow agent template {requested}.");
         }
         drop(cfg);
         self.agent_templates()
@@ -256,10 +257,9 @@ impl Manager {
     }
 }
 
-/// Instantiate a selected recipe with a new private identity and daemon-owned hierarchy
-/// metadata. Workers use the selected project's live mounts and never inherit caller settings.
-/// They are deliberately stopped after their task exits: retrying a task is an explicit operator
-/// decision, not a daemon loop.
+/// Create a session from the selected template with a new private identity and hierarchy metadata owned by the daemon.
+/// Workers use the selected project's current mounts without inheriting caller settings.
+/// Stop workers after their tasks exit. The operator must explicitly request a retry.
 fn worker_session_from_template(
     template: &AgentTemplate,
     name: String,

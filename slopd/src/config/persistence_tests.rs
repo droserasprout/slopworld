@@ -103,7 +103,7 @@ async fn library_load_rejects_duplicate_names_across_kinds() {
     let error = load_library(&fixture.dirs()).await.unwrap_err();
     assert_eq!(
         error.to_string(),
-        "library item \"shared\" is declared more than once"
+        "Declare library item \"shared\" only once."
     );
 }
 

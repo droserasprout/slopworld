@@ -21,8 +21,8 @@ impl Config {
         self.projects.iter().find(|p| p.name == name)
     }
 
-    /// The file first, so an entry a person wrote shadows a builtin of the same name the way
-    /// a user preset replaces a shipped one.
+    /// File entries take precedence over built-in entries with the same name.
+    /// User presets take precedence over supplied presets in the same way.
     pub fn library_item(&self, name: &str) -> Option<LibraryItemCfg> {
         self.library
             .iter()
@@ -31,7 +31,7 @@ impl Config {
             .cloned()
     }
 
-    /// What a client is shown: the file's entries, then the builtins nothing has shadowed.
+    /// Return file entries, then built-in entries whose names do not occur in the file.
     pub fn library_items_all(&self) -> Vec<LibraryItemCfg> {
         let mut all = self.library.clone();
         all.extend(
@@ -43,14 +43,15 @@ impl Config {
         all
     }
 
-    /// A name only the daemon owns: not editable, not deletable, and not in the file.
+    /// Check whether this name identifies a built-in entry without a file override.
+    /// Clients cannot edit or delete these entries.
     pub fn is_builtin_library_item(&self, name: &str) -> bool {
         !self.library.iter().any(|s| s.name == name)
             && builtin_library_items().iter().any(|b| b.name == name)
     }
 
-    /// A commandless prompt uses the `[defaults] agent` preset; explicit presets or command
-    /// lines keep their own command. The project may be empty.
+    /// A prompt without a command uses the `[defaults] agent` preset.
+    /// Explicit presets and command lines keep their own command. The project may be empty.
     pub fn session_for(&self, sc: &LibraryItemCfg, name: String, project: String) -> SessionCfg {
         let t = crate::presets::table();
         let own = sc
@@ -66,7 +67,7 @@ impl Config {
             (LibraryItemKind::Prompt, None, None) => {
                 (self.command_name(&SessionCfg::default()), None)
             }
-            // The shell preset, so a line typed on the errand still runs in one.
+            // Use the shell preset to run the errand command in a shell.
             (LibraryItemKind::Shell, None, line) => (
                 self.defaults.shell.trim().to_string(),
                 line.map(str::to_string),
@@ -84,14 +85,14 @@ impl Config {
         }
     }
 
-    /// A session naming one that has gone is an error where it matters (starting it)
-    /// and a blank directory where it does not (listing it), so the caller decides.
+    /// Return the session's project, if it exists. The caller handles a missing project.
+    /// Session startup reports an error. Session lists show an empty directory.
     pub fn project_of(&self, s: &SessionCfg) -> Option<&ProjectCfg> {
         self.project(&s.project)
     }
 
-    /// Network is an agent-owned launch setting.  The project argument remains in this helper's
-    /// signature so launch and preview callers cannot accidentally grow a second resolver.
+    /// The agent owns the network launch setting.
+    /// Keep the project argument so launch and preview callers use the same resolver.
     pub fn network_of(&self, s: &SessionCfg, _p: &ProjectCfg) -> NetworkMode {
         s.network
     }
@@ -100,14 +101,14 @@ impl Config {
         s.dns.clone()
     }
 
-    /// Resource limits are final agent settings. A cap is a guardrail, not a boundary.
+    /// Resource limits are final agent settings. They do not provide an isolation boundary.
     pub fn limits_of(&self, s: &SessionCfg, _p: &ProjectCfg) -> Limits {
         s.limits
     }
 
-    /// The command preset a session runs under, by name. Empty when it states a command
-    /// line of its own: an agent that named no preset is not handed one, which is what
-    /// keeps `~/.claude` off a session running something else.
+    /// Return the session's command preset name.
+    /// An explicit command line without a preset gives an empty name.
+    /// This prevents unrelated sessions from receiving preset mounts such as `~/.claude`.
     pub fn command_name(&self, s: &SessionCfg) -> String {
         if let Some(snapshot) = &s.command_snapshot {
             return snapshot.name.clone();
@@ -129,8 +130,8 @@ impl Config {
         }
     }
 
-    /// As it will be exec'd: the entry's own answer, else its command preset's. Empty when
-    /// it names a preset there is no file for, which `start` refuses rather than guesses at.
+    /// Return the command to execute: the explicit command line, the snapshot, or the command preset.
+    /// A missing preset gives an empty command, which `start` rejects.
     pub fn command_of(&self, s: &SessionCfg) -> String {
         if let Some(c) = s.cmd.as_deref().map(str::trim).filter(|c| !c.is_empty()) {
             return c.to_string();
@@ -144,9 +145,9 @@ impl Config {
             .unwrap_or_default()
     }
 
-    /// The implicit global base, then the command preset's sandbox presets, then the agent's
-    /// additions, plus every preset dependency before the thing that needs it. First mention
-    /// wins, as in `paths()`.
+    /// Resolve sandbox presets in this order: global, command preset, then agent additions.
+    /// Each dependency precedes the preset that requires it.
+    /// Use the first occurrence of each preset, as in `paths()`.
     pub fn sandbox_of(&self, s: &SessionCfg, _p: &ProjectCfg) -> Vec<String> {
         let t = crate::presets::table();
         let command_sandbox = s
@@ -201,8 +202,8 @@ impl Config {
     }
 }
 
-/// Expands `~` and environment variables for bwrap; unset variables yield an empty path so
-/// `$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY` cannot collapse to `/` and bind the filesystem.
+/// Expand `~` and environment variables for bwrap. Unset variables give an empty path.
+/// This prevents `$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY` from becoming `/` and mounting the entire filesystem.
 pub fn expand(path: &str) -> String {
     let path = if let Some(rest) = path.strip_prefix("~/") {
         match dirs::home_dir() {
@@ -251,8 +252,8 @@ pub fn expand(path: &str) -> String {
     out
 }
 
-/// Resolve a sandbox destination. Absolute destinations retain their existing meaning;
-/// relative destinations are rooted at the project's expanded directory.
+/// Resolve a sandbox destination. Absolute destinations keep their existing meaning.
+/// Resolve relative destinations from the project's expanded directory.
 pub(crate) fn mount_target(project: &ProjectCfg, raw: &str) -> String {
     let expanded = expand(raw);
     let path = if std::path::Path::new(&expanded).is_absolute() {

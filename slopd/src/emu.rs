@@ -1,6 +1,5 @@
-//! One `SessionEmu` per running session, driving an `alacritty_terminal` VT engine off the
-//! raw bytes tmux control mode gives us and serialising back into the SGR-colored line
-//! format the mod speaks.
+//! Each running session has one `SessionEmu` with an `alacritty_terminal` VT engine.
+//! It processes raw bytes from tmux control mode and produces lines with SGR colors for the mod.
 
 use std::hash::{Hash, Hasher};
 use std::sync::{Arc, Mutex};
@@ -52,16 +51,16 @@ pub struct Frame {
     pub cursor_shape: u8,
     pub cursor_blink: bool,
     pub app_mouse: bool,
-    /// Apps that did not ask - Claude Code among them - leave the drag to the
-    /// terminal, which is what lets the pane select text without holding Shift.
+    /// Whether the application requests mouse drag reports.
+    /// Otherwise, the terminal uses drags to select text without Shift.
     pub app_drag: bool,
     /// The app is on the alternate screen (no scrollback of its own).
     pub alt_screen: bool,
-    /// What the app called itself (OSC 0/2 or tmux's `ESC k` title form); empty until it says,
-    /// and empty again when it resets.
+    /// The application title from OSC 0/2 or the tmux `ESC k` sequence.
+    /// Empty before the application sets a title and after a reset.
     pub title: String,
-    /// The app rang BEL since the last live render. An event rather than a state, so it is
-    /// true on exactly one frame and the session table is what holds it after that.
+    /// Whether the application sent BEL since the last live render.
+    /// True for one frame. The session table preserves the notification after that frame.
     pub bell: bool,
 }
 
@@ -99,13 +98,13 @@ impl RenderCache {
     }
 }
 
-/// Everything the VT engine hands *back* rather than draws.
+/// VT engine events that do not draw screen content.
 #[derive(Default)]
 struct Side {
-    /// The last OSC 52 store. One slot rather than a queue: a clipboard holds one thing.
+    /// The latest OSC 52 clipboard write. Each write replaces the previous value.
     clip: Option<String>,
     title: Option<String>,
-    /// BEL since the last render. A flag rather than a count: twice is still "look at me".
+    /// Whether BEL occurred since the last render. Multiple events set the same flag.
     bell: bool,
 }
 
@@ -159,8 +158,7 @@ impl SessionEmu {
             cols: cols as usize,
             rows: rows as usize,
         };
-        // A blinking block, so unstyled shells keep the familiar blink; DECSCUSR still
-        // overrides it.
+        // Use a blinking block cursor by default. DECSCUSR can override this style.
         let config = Config {
             default_cursor_style: CursorStyle {
                 shape: CursorShape::Block,
@@ -268,14 +266,14 @@ impl SessionEmu {
         }
     }
 
-    /// Left in place if the caller does not ask, so a write in flight never loses the copy
-    /// that came after it.
+    /// Take the latest clipboard write. Keep it until the caller requests it.
+    /// This preserves a new copy while an earlier write is in progress.
     pub fn take_clip(&mut self) -> Option<String> {
         self.side.lock().ok().and_then(|mut s| s.clip.take())
     }
 
-    /// One-shot, and the frame is where it goes: what holds a bell until someone has looked
-    /// at the pane is the session table, this being an event with no state behind it.
+    /// Take the BEL event for the next live frame.
+    /// The session table preserves the notification until the user views the pane.
     fn take_bell(&self) -> bool {
         self.side
             .lock()
@@ -327,7 +325,7 @@ impl SessionEmu {
         });
         // A bottom-positioned prompt can push blank top padding into history on each
         // shrink, not just the first boot-size negotiation. Discard only an entirely
-        // blank history created by this resize; existing history and displaced text stay.
+        // blank history created by this resize. Existing history and displaced text stay.
         let history_after = self.history_lines();
         let blank = Cell::default();
         if history_before == 0
@@ -344,15 +342,14 @@ impl SessionEmu {
     pub fn render(&mut self) -> Frame {
         let _perf = crate::perf::timer("emulator-render");
         let mut frame = self.render_frame(false);
-        // Taken here rather than in render_frame: a wheel asks for a scroll snapshot off the
-        // same emulator, and a bell swallowed by somebody's scrollback never reaches the
-        // column.
+        // Take BEL here because render_frame also serves scrollback requests.
+        // A scrollback request must not consume the notification before it reaches the column.
         frame.bell = self.take_bell();
         frame
     }
 
-    /// `None` when the app isn't asking for mouse reports, or for a drag it didn't opt
-    /// into - the caller then falls back to local scroll/selection.
+    /// Return `None` if the application does not request mouse reports or the requested drag type.
+    /// The caller then uses local scrolling or selection.
     pub fn mouse_report(&self, m: &MouseInput) -> Option<Vec<u8>> {
         let mode = self.term.mode();
         if !mode.intersects(TermMode::MOUSE_MODE) {
@@ -368,7 +365,7 @@ impl SessionEmu {
         let utf8 = mode.contains(TermMode::UTF8_MOUSE);
         let release = matches!(m.action, MouseAction::Release);
         let button = m.button as u32 & 3;
-        // Low 2 bits pick the button; bit 5 (32) marks motion; wheel is 64+.
+        // The lowest two bits select the button. Bit 5 (32) indicates motion. Wheel codes start at 64.
         let cb: u32 = match m.action {
             MouseAction::WheelUp => 64,
             MouseAction::WheelDown => 65,
@@ -400,11 +397,11 @@ impl SessionEmu {
         Some(out)
     }
 
-    /// Restores the live view afterwards; the cursor is always hidden in a history
-    /// view. Returns the offset actually reached, clamped to history.
+    /// Capture history with a hidden cursor, then restore the live view.
+    /// Return the actual offset, limited to the available history.
     pub fn scroll_snapshot(&mut self, off: u32) -> (Vec<Vec<Slot>>, u32, u32, String) {
-        // u32 off the wire, but the alacritty grid counts in isize; a history beyond
-        // i32::MAX lines is not a thing a terminal holds.
+        // The protocol offset is u32, but the alacritty grid uses signed offsets.
+        // Limit the offset to i32::MAX lines before conversion.
         let history = self.history_extent();
         let off = off.min(history).min(i32::MAX as u32) as i32;
         let cur = self.term.grid().display_offset() as i32;
@@ -417,8 +414,8 @@ impl SessionEmu {
         (grid, achieved, history, title)
     }
 
-    /// Builds a scrollback frame from a grid captured by `scroll_snapshot`. Runs outside
-    /// the emulator lock. The cursor is parked off-screen; a history view has no cursor.
+    /// Build a scrollback frame from a grid captured by `scroll_snapshot`.
+    /// Run outside the emulator lock. Hide the cursor in the history view.
     pub fn frame_from_grid(grid: Vec<Vec<Slot>>, _cols: u16, rows: u16, title: String) -> Frame {
         let lines: Vec<Arc<str>> = grid.iter().map(|r| Arc::from(serialize_row(r))).collect();
         let row_hashes = lines.iter().map(hash_row).collect::<Vec<_>>();
@@ -648,7 +645,7 @@ fn slot_from_cell(cell: &Cell) -> Slot {
 
 // Codex's prompt particles are single-dot Braille glyphs in near-background gray.
 // They arrive as ordinary cell writes, not cursor events. Normalize only that narrow
-// decoration for activity; the presentation hash and rendered rows remain lossless.
+// decoration for activity. The presentation hash and rendered rows remain lossless.
 fn activity_row_hash(row: &[Slot]) -> u64 {
     let normalized: Vec<Slot> = row
         .iter()
@@ -674,7 +671,7 @@ fn activity_row_hash(row: &[Slot]) -> u64 {
 
 fn faint_particle(c: char, fg: Color, bg: Color) -> bool {
     // Live captures used gray 13..28 against gray 30. Keep the tolerance below
-    // one tenth of the channel range; normal high-contrast Braille remains text.
+    // one tenth of the channel range. Normal high-contrast Braille remains text.
     let dot = (c as u32).wrapping_sub(0x2800);
     if dot > 0x80 || !dot.is_power_of_two() {
         return false;
@@ -721,13 +718,13 @@ fn recover_tmux_title(plain: &mut Vec<u8>, title: Vec<u8>, suffix: &[u8]) {
 pub(crate) enum Slot {
     /// Never-touched cell: a default-attribute space.
     Blank,
-    /// The second half of a wide char; produces no output of its own.
+    /// The second half of a wide character. It produces no output.
     Spacer,
     Ch(char, Color, Color, Flags, Option<Hyperlink>),
 }
 
-/// Render-ready cell style; `Color::Named` values can emit no code, so compare normalized pens
-/// rather than raw attributes and avoid formatting strings per cell.
+/// Cell style ready for rendering. Some `Color::Named` values emit no code.
+/// Compare normalized pens to avoid formatting strings for each cell.
 #[derive(Clone, Copy, PartialEq, Eq, Default)]
 struct Pen {
     bold: bool,
@@ -737,10 +734,10 @@ struct Pen {
     bg: Ink,
 }
 
-/// A color as the offset it contributes to `30`/`40`, rather than as the string it becomes.
+/// A color representation that stores basic colors as offsets from SGR codes `30` and `40`.
 #[derive(Clone, Copy, PartialEq, Eq, Default)]
 enum Ink {
-    /// Emits nothing: the mod's own default for that half.
+    /// Emit no code. Use the mod's default foreground or background color.
     #[default]
     Unsaid,
     Basic(u16),
@@ -748,7 +745,7 @@ enum Ink {
     Rgb(u8, u8, u8),
 }
 
-/// Index-based rather than resolved RGB, so the mod's palette keeps its look.
+/// Preserve color indices so the mod can apply its palette.
 fn ink(c: Color) -> Ink {
     match c {
         Color::Named(n) => match n as u16 {
@@ -769,9 +766,8 @@ impl Pen {
     fn of(fg: Color, bg: Color, flags: Flags) -> Self {
         Self {
             bold: flags.contains(Flags::BOLD),
-            // Dropping this is what drew Claude Code's greyed-out completions as ordinary
-            // text: the color on a faint cell is the *full* one, the dimming being an
-            // attribute rather than a palette entry.
+            // Preserve the dim attribute for faint text, such as Claude Code completions.
+            // A faint cell stores its full color. The attribute controls dimming.
             dim: flags.contains(Flags::DIM),
             inverse: flags.contains(Flags::INVERSE),
             fg: ink(fg),
@@ -779,8 +775,8 @@ impl Pen {
         }
     }
 
-    /// Straight onto the row's buffer. The mod renders only bold, faint, reverse and color,
-    /// so that is all this emits, and the order is the one the runs were always written in.
+    /// Write directly to the row buffer in the existing attribute order.
+    /// Emit only the attributes that the mod renders: bold, faint, reverse, and color.
     fn write(&self, out: &mut String) {
         if *self == Self::default() {
             out.push_str("\x1b[0m");
@@ -818,8 +814,8 @@ fn write_ink(out: &mut String, ink: Ink, base: u16) {
     }
 }
 
-/// Serialize self-contained rows with reset/trimmed defaults and only necessary CHA, pen, and
-/// link updates; avoid per-cell allocation.
+/// Serialize each row independently. Reset attributes and trim trailing default cells.
+/// Emit only necessary CHA, pen, and link updates. Avoid allocating memory for each cell.
 fn serialize_row(row: &[Slot]) -> String {
     let mut out = String::from("\x1b[0m");
 
@@ -836,10 +832,10 @@ fn serialize_row(row: &[Slot]) -> String {
     let Some(last) = last else { return out };
 
     let mut cur_pen = Pen::default();
-    // Compared raw and sanitised only on a change: `safe_uri` allocates, and a link covers a
-    // run of cells rather than one.
+    // Compare raw URIs. Call `safe_uri` only when the URI changes because it allocates memory.
+    // A link can cover multiple cells.
     let mut cur_uri: &str = "";
-    // Where the mod's pen lands with no CHA: one column per emitted char.
+    // Without CHA, the mod advances one column for each emitted character.
     let mut expected = 0usize;
     for (col, slot) in row[..=last].iter().enumerate() {
         let (c, pen, uri) = match slot {
@@ -868,7 +864,7 @@ fn serialize_row(row: &[Slot]) -> String {
         out.push(c);
         expected += 1;
         // Preserve the occupied end even when trimming removes the final spacer.
-        // CHA closes a wide glyph on the wire; the client never guesses Unicode widths.
+        // CHA closes a wide glyph on the wire. The client never guesses Unicode widths.
         if matches!(row.get(col + 1), Some(Slot::Spacer)) {
             use std::fmt::Write;
             expected = col + 2;
@@ -927,9 +923,9 @@ fn push_coord(out: &mut Vec<u8>, v: u32, utf8: bool) {
     out.push(v.min(255) as u8);
 }
 
-/// Line shape: `%output %<pane> <data>`. Raw bytes, never a `&str`: tmux emits UTF-8 literally
-/// and splits chunks on arbitrary byte boundaries, so a line can end mid-character. The halves
-/// flow through to the VT parser, which reassembles across feeds.
+/// Parse a line with the format `%output %<pane> <data>`.
+/// Use raw bytes because tmux can split UTF-8 characters at any byte boundary.
+/// The VT parser combines incomplete characters across input chunks.
 pub fn parse_output(line: &[u8]) -> Option<Vec<u8>> {
     let rest = line.strip_prefix(b"%output ".as_slice())?;
     let sp = rest.iter().position(|&b| b == b' ')?;

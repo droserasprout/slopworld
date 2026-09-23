@@ -66,7 +66,7 @@ async fn worker_policy_keeps_template_names_distinct() {
         .await
         .unwrap_err()
         .to_string();
-    assert!(error.contains("not enabled for workers"), "{error}");
+    assert!(error.contains("Worker policy does not allow"), "{error}");
 
     manager
         .templates
@@ -95,7 +95,7 @@ async fn worker_policy_keeps_template_names_distinct() {
         .await
         .unwrap_err()
         .to_string();
-    assert!(error.contains("not enabled for workers"), "{error}");
+    assert!(error.contains("Worker policy does not allow"), "{error}");
 }
 
 #[tokio::test]

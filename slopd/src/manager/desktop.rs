@@ -14,17 +14,16 @@ const DESKTOP_COMMAND_TIMEOUT: Duration = Duration::from_secs(3);
 pub(crate) struct DesktopApp {
     pub(crate) id: String,
     pub(crate) name: String,
-    /// `gio launch` needs the desktop file location, not the desktop-file ID printed by
-    /// `gio mime`. Keep the ID for stable identity/display fallback, but give callers the
-    /// resolved path for launching.
+    /// `gio launch` requires a desktop file path. `gio mime` returns its ID.
+    /// Keep the ID as a stable identifier and alternative display label.
+    /// Supply the resolved path for launch requests.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) desktop_file: Option<String>,
 }
 
 impl Manager {
-    /// Ask the host desktop's MIME database for the applications associated with a path. The
-    /// result keeps the desktop-file ID and display name, plus the resolved desktop-file path
-    /// that `gio launch` needs.
+    /// Query the host MIME database for applications associated with a path.
+    /// Return each desktop file's ID, display name, and resolved path for `gio launch`.
     pub async fn open_apps(&self, raw_path: &str) -> Result<Vec<DesktopApp>> {
         let path = absolute_path(raw_path)?;
         let path = path

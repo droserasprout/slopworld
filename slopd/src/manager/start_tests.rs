@@ -79,13 +79,13 @@ fn directory_validation_creates_only_temporary_projects_and_rejects_files() {
     assert!(Manager::validate_dir(&project)
         .unwrap_err()
         .to_string()
-        .contains("making"));
+        .contains("could not create project directory"));
     project.dir = "/".into();
     project.temp = false;
     assert!(Manager::validate_dir(&project)
         .unwrap_err()
         .to_string()
-        .contains("cannot live at"));
+        .contains("overlaps a protected location"));
     std::fs::remove_dir_all(root).unwrap();
 }
 
@@ -98,7 +98,7 @@ async fn preparation_rejects_missing_commands_and_invalid_worker_ownership() {
         cfg.sessions[0].command = format!("missing-{}", uuid::Uuid::new_v4());
     }
     let error = manager.prepare_start("agent").await.err().unwrap();
-    assert!(error.to_string().contains("has no file"));
+    assert!(error.to_string().contains("has no command"));
     for (parent, task) in [("", "task"), ("parent", " ")] {
         {
             let mut cfg = manager.cfg.write().await;
@@ -109,7 +109,9 @@ async fn preparation_rejects_missing_commands_and_invalid_worker_ownership() {
             session.task_id = task.into();
         }
         let error = manager.prepare_start("agent").await.err().unwrap();
-        assert!(error.to_string().contains("incomplete task ownership"));
+        assert!(error
+            .to_string()
+            .contains("must have a task ID and a parent session"));
     }
     {
         let mut cfg = manager.cfg.write().await;
@@ -117,7 +119,7 @@ async fn preparation_rejects_missing_commands_and_invalid_worker_ownership() {
         cfg.sessions[0].network = NetworkMode::None;
     }
     let error = manager.prepare_start("agent").await.err().unwrap();
-    assert!(error.to_string().contains("networking disabled"));
+    assert!(error.to_string().contains("needs network access"));
     assert!(!manager.tmux.exists("agent").await);
 }
 

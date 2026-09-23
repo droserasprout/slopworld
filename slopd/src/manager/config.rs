@@ -140,10 +140,10 @@ impl Manager {
             .unwrap_or_else(|e| panic!("agent template store {}: {e:#}", template_path.display()));
         let activity_cache =
             crate::activity::ActivityCache::load(crate::activity::cache_path(&cfg_path));
-        // `main` logs the catalogs before constructing the manager. Refresh them here as well so
-        // a definition copied between those two reads cannot leave a static catalog stale while
-        // the watcher starts with the directory's already-current timestamp. A failed reload
-        // leaves its stamp unset so the watcher retries it.
+        // main logs catalogs before constructing the manager. Refresh them again here.
+        // A definition can change between those reads.
+        // Without this refresh, the watcher could record the current timestamp while the catalog still contains old data.
+        // Leave the timestamp unset after a failed reload so the watcher retries.
         let jukebox_loaded = crate::jukebox::reload();
         let m = Arc::new(Self {
             tmux: Tmux::new(crate::config::tmux_socket()),
@@ -186,7 +186,7 @@ impl Manager {
             }
         }
         if let Err(error) = m.recover_worktrees().await {
-            tracing::error!("worktree recovery failed; records retained: {error:#}");
+            tracing::error!("Worktree recovery failed. Records remain: {error:#}");
         }
         m.tmux.ensure_server().await;
         m.sync_from_config().await;
@@ -269,7 +269,7 @@ impl Manager {
 
     async fn update_endpoint(&self, token: &str) {
         if let Err(e) = crate::endpoint::update_token(&self.endpoint_path, token).await {
-            tracing::warn!("config accepted but endpoint descriptor was not updated: {e:#}");
+            tracing::warn!("The daemon accepted the config but could not update the endpoint descriptor: {e:#}");
         }
     }
 
@@ -286,9 +286,8 @@ impl Manager {
         }
     }
 
-    /// Apply a config mutation to a private snapshot, persist it without holding `cfg`, then
-    /// publish it. The second lock serializes snapshots so concurrent requests cannot overwrite
-    /// one another while a slow filesystem is servicing an earlier write.
+    /// Apply a configuration change to a private snapshot. Save it without holding cfg, then publish it.
+    /// The second lock serializes snapshots to prevent concurrent requests from overwriting each other during filesystem writes.
     pub(super) async fn update_cfg<T>(
         &self,
         update: impl FnOnce(&mut Config) -> Result<T>,
@@ -346,9 +345,8 @@ impl Manager {
         let effects = self
             .publish_config(change, ConfigOrigin::StructuredMutation)
             .await;
-        // Keep the descriptor update in the same serialized section as the config write. If two
-        // token changes finish out of order after releasing `persist`, the mod can be handed a
-        // token that no longer matches the published config.
+        // Update the endpoint descriptor while holding the same lock as the configuration write.
+        // Otherwise, token changes could finish out of order and give the mod a token that differs from the published configuration.
         self.update_endpoint(&effects.endpoint_token).await;
         drop(_persist);
         debug_assert!(!effects.reconcile);
@@ -420,8 +418,8 @@ impl Manager {
         }
     }
 
-    /// Return the next maintenance deadline as a monotonic duration. Persisted activity uses
-    /// epoch milliseconds for restart compatibility; only this conversion touches wall time.
+    /// Return the next maintenance deadline as a monotonic duration.
+    /// Stored activity uses epoch milliseconds to support restarts. Only this conversion uses wall time.
     pub(crate) async fn maintenance_delay(&self) -> Duration {
         let now = now_ms();
         let mut deadline = next_periodic_deadline(
@@ -609,9 +607,9 @@ impl Manager {
         }
     }
 
-    /// Ask every live tmux-backed pane to repaint after the game's sidebar changes its layout.
-    /// This is detached from the WebSocket handler because each nudge waits briefly between the
-    /// temporary shrink and restore, and viewer/editor errands live in the same table as agents.
+    /// Request a repaint from every live tmux pane after a sidebar layout change.
+    /// Run separately from the WebSocket handler because each repaint waits between temporarily shrinking and restoring the pane.
+    /// The session table includes viewers and editors as well as agents.
     pub fn request_redraw(self: &Arc<Self>, shape: Option<(u16, u16)>) {
         let shape = shape.map(|(cols, rows)| {
             (
@@ -658,7 +656,7 @@ impl Manager {
     }
 
     pub(super) async fn nudge_redraw(self: &Arc<Self>, name: &str) {
-        // A capture cannot restore terminal modes; SIGWINCH makes TUIs reassert them.
+        // A capture cannot restore terminal modes. SIGWINCH makes terminal applications set them again.
         let Some((cols, rows)) = self.size_of(name).await else {
             return;
         };

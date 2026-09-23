@@ -23,7 +23,7 @@ impl Handler for Mirror<'_> {
     fn clear_screen(&mut self, mode: ClearMode) {
         match mode {
             // Alacritty preserves the erased viewport in scrollback. tmux erases it
-            // in place; preserving it here creates history on every TUI startup/redraw.
+            // in place. Preserving it here creates history on every TUI startup/redraw.
             ClearMode::All => {
                 self.term.grid_mut().reset_region(..);
                 self.term.selection = None;

@@ -95,13 +95,13 @@ impl Manager {
         }
     }
 
-    /// Rebuild the smallest durable view of every tmux session the config does not currently
-    /// describe. Workers use daemon-owned tmux metadata; host shells use their host marker and
-    /// catalog entry. The reader is attached only after the live row has been reconstructed so
-    /// a recovered pane follows the same state and resize path as a normal session.
+    /// Reconstruct each tmux session missing from the current configuration.
+    /// Workers use tmux metadata owned by the daemon. Host shells use their host marker and catalog entry.
+    /// Attach the reader after reconstructing the live row.
+    /// Recovered panes then use the normal session state and resize operations.
     pub(super) async fn adopt_orphans(self: &Arc<Self>, cfg: &Config) -> bool {
-        // Reconciliation invokes this under session_operation. Probes may yield, but decisions,
-        // live-row mutation and reader attachment remain ordered inside that same boundary.
+        // Reconciliation calls this within session_operation. Probes can yield.
+        // Keep decisions, live-row changes, and reader attachment ordered within the same session boundary.
         let names = self.tmux.list().await;
         let probes =
             futures::future::join_all(names.into_iter().map(|name| self.probe_orphan(cfg, name)))
@@ -201,8 +201,9 @@ impl Manager {
             live.get(&name).is_some_and(|l| l.emu.is_none())
         };
 
-        // An established reader already knows its dimensions. Query tmux only for a newly
-        // adopted or reader-less session, and do not hold the live-table lock across the await.
+        // An established reader already has its dimensions.
+        // Query tmux only for a newly adopted session or one without a reader.
+        // Release the live-table lock before awaiting the result.
         if needs_size {
             self.refresh_readerless_size(&name).await;
         }
@@ -234,9 +235,10 @@ impl Manager {
         let Some(activity) = activity else { return };
         l.state = activity.state;
         l.state_since = activity.state_since;
-        // Working classification uses pane activity as a decay clock. A daemon restart has
-        // no frame to compare against, so let the first live frame/ten-second decay establish
-        // a fresh last-change sample while preserving the user-visible state age above.
+        // Working classification uses elapsed time since pane activity.
+        // After a restart, the daemon has no previous frame for comparison.
+        // Establish a new last-change sample through the first live frame or the ten-second activity timeout.
+        // Preserve the displayed state age set above.
         l.last_change = if activity.state == State::Working {
             now_ms()
         } else {

@@ -84,9 +84,9 @@ async fn main() -> Result<()> {
     let bind = cfg.daemon.bind.clone();
     let m = Manager::new(cfg, cfg_path).await;
 
-    // The first tracked-file scan of a large project is unavoidable, but it should not happen
-    // while the player is waiting for the Git sidebar. Seed Git's filesystem and untracked
-    // caches before publishing the daemon endpoint; the next status request is incremental.
+    // Scan tracked files before the player opens the Git sidebar.
+    // Initialize Git's filesystem and untracked caches before publishing the daemon endpoint.
+    // The next status request can use these caches for an incremental scan.
     git::warm_projects(git_dirs).await;
 
     let poller = {
@@ -103,11 +103,10 @@ async fn main() -> Result<()> {
         })
     };
 
-    // It sleeps rather than exits when the setting is off, so turning it back on
-    // needs no restart.
+    // The usage task waits while polling is disabled. Users can enable polling without restarting the daemon.
     let usage = usage::spawn(m.clone());
 
-    // Watches the jukebox rather than driving it: what to play is the mod's to say.
+    // Monitor the jukebox. The mod selects what to play.
     let audio = audio::spawn(m.clone());
 
     let app = api::router(m.clone())
@@ -133,8 +132,8 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-/// SIGTERM is the case that matters: `make install-daemon` restarts the unit under a live
-/// game, and without this sockets died mid-frame instead of closing.
+/// Handle SIGTERM so daemon installation can restart the unit while the game runs.
+/// Close sockets cleanly to avoid interrupting a frame.
 async fn shutdown() {
     use tokio::signal::unix::{signal, SignalKind};
     let mut term = match signal(SignalKind::terminate()) {
@@ -151,10 +150,10 @@ async fn shutdown() {
     }
 }
 
-/// Resolves the request's token to a capability and hangs it on the request, so a handler can
-/// ask what this caller may touch without reading the header itself. Root or a minted grant
-/// passes; anything else is 401 here and never reaches a handler. The /ws route re-resolves,
-/// because the mod sends the header on the upgrade request only.
+/// Resolve the request token to a capability and attach it to the request.
+/// Handlers use this capability to check access without reading the header.
+/// Permit root credentials and grants. Return 401 for other credentials before calling a handler.
+/// The /ws route resolves credentials again because the mod sends the header only with the upgrade request.
 async fn auth(
     State(m): State<Arc<Manager>>,
     mut req: Request,
