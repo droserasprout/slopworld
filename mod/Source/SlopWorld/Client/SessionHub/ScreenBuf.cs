@@ -16,8 +16,8 @@ namespace SlopWorld
         public bool LinksKnown;
         // Scroll offset in history rows. Zero for a live frame at the bottom.
         public int Off;
-        // Total available history rows. -1 indicates an older daemon without this field.
-        public int History = -1;
+        // Total available history rows.
+        public int History;
         // Number of rows that live output moved upward since the previous frame.
         // History frames leave this at zero.
         // The terminal uses this value to keep selections attached to output as it scrolls into history.

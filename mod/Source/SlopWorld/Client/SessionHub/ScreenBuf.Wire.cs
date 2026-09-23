@@ -29,7 +29,7 @@ namespace SlopWorld
             Cx = (int)s.Cx;
             Cy = (int)s.Cy;
             Off = (int)s.Off;
-            History = s.HasHistory ? (int)Math.Min(int.MaxValue, s.History) : -1;
+            History = (int)Math.Min(int.MaxValue, s.History);
             CursorShape = (int)s.CursorShape;
             CursorBlink = !s.HasCursorBlink || s.CursorBlink;
             AppMouse = s.AppMouse;
@@ -95,12 +95,8 @@ namespace SlopWorld
                 !previousAltScreen && !AltScreen
                 ? VerticalShift(previousLines, Lines, previousRows, Rows, previousCy)
                 : 0;
-            // `-1` means the daemon did not provide a history extent. Learning that an
-            // otherwise unchanged live frame has zero history is metadata hydration, not one
-            // row of terminal scrollback. This matters when a tab is subscribed again and its
-            // retained frame is updated by the first reply from the current daemon.
             int historyShift = Off == 0 && newer &&
-                !previousAltScreen && !AltScreen && previousHistory >= 0 &&
+                !previousAltScreen && !AltScreen &&
                 History > previousHistory
                 ? History - previousHistory : 0;
             // Visible-row overlap is precise for small shifts, but it cannot identify a
@@ -109,8 +105,7 @@ namespace SlopWorld
             // overlap detector remains the fallback.
             // Before the history limit, its extent is authoritative even when unchanged.
             // A TUI repaint can match a suffix of blank/prompt rows without scrolling.
-            LiveShift = previousHistory >= 0 && History >= 0 &&
-                History < DaemonCapabilities.Current.Terminal.ScrollbackLines ? historyShift :
+            LiveShift = History < DaemonCapabilities.Current.Terminal.ScrollbackLines ? historyShift :
                 System.Math.Max(visibleShift, historyShift);
         }
 

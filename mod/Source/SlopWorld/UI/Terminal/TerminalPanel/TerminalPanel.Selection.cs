@@ -116,15 +116,12 @@ namespace SlopWorld
             ScrollDebugUpdateLive(historyStarted);
             if (retained)
             {
-                _historyCoordinateShift = Mathf.Clamp(
-                    _historyCoordinateShift + liveShift, 0, MaxScrollLines);
                 return;
             }
 
             _historyRequests.Clear();
             _scrollPending = false;
             _wantedScrollOff = 0;
-            _historyCoordinateShift = 0;
             _historyTopOff = -1;
             _historyRefreshPending = true;
             _historyWarmed = false;

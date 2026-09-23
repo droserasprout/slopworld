@@ -1,7 +1,9 @@
+using System;
+
 namespace SlopWorld
 {
-    // Runtime features announced before the rest of the WebSocket snapshot. Defaults describe
-    // the native Linux daemon so an older daemon keeps the behavior it had before this event.
+    // Runtime features are announced before the rest of the WebSocket snapshot.
+    // Defaults describe the native Linux daemon while the announcement is pending.
     public sealed class DaemonCapabilities
     {
         public static DaemonCapabilities Current = new DaemonCapabilities();
@@ -21,7 +23,7 @@ namespace SlopWorld
 
         public static DaemonCapabilities FromWire(Wire.Capabilities j)
         {
-            if (j == null) return Current = new DaemonCapabilities();
+            if (j == null) throw new ArgumentNullException(nameof(j));
             return Current = new DaemonCapabilities
             {
                 Known = true,

@@ -54,7 +54,6 @@ namespace SlopWorld
             _sentScrollOff = 0;
             _nextScrollSend = 0f;
             _hasWheelDirection = false;
-            _historyCoordinateShift = 0;
             _historyTopOff = -1;
             _historyViewReady = false;
             _historyRefreshPending = false;
@@ -105,7 +104,7 @@ namespace SlopWorld
         {
             if (cellH <= 0.01f) return;
 
-            float max = cellH * TerminalHistory.ScrollLimit(live, _historyTopOff);
+            float max = cellH * TerminalHistory.ScrollLimit(live);
             if (!_historyScrollReady || Mathf.Abs(_historyMax - max) > 0.01f)
             {
                 // Growing history moves the bottom coordinate. Keep the reader's offset
@@ -141,7 +140,7 @@ namespace SlopWorld
             int target = pixels <= 0.01f
                 ? 0
                 : Mathf.Clamp(Mathf.CeilToInt(pixels / cellH - 0.0001f), 1, MaxScrollLines);
-            int limit = TerminalHistory.ScrollLimit(live, _historyTopOff);
+            int limit = TerminalHistory.ScrollLimit(live);
             if (target > limit)
             {
                 target = limit;
@@ -160,8 +159,7 @@ namespace SlopWorld
                 {
                     _history.Reset(live);
                     _historyRequests.Clear();
-                    _historyCoordinateShift = 0;
-                    _historyTopOff = live != null && live.History >= 0 ? live.History : -1;
+                    _historyTopOff = live != null ? live.History : -1;
                 }
                 _historyDisplayedFrame = live?.Snapshot();
                 _historyWarmed = true;
@@ -232,12 +230,11 @@ namespace SlopWorld
                 (_state.Rows > 0 && live.Rows != _state.Rows))
                 return;
 
-            int offset = _history.WarmupOffset(live, _historyTopOff);
+            int offset = _history.WarmupOffset(live);
             if (offset <= 0) return;
             if (!_historyWarmed)
             {
                 _history.Reset(live);
-                _historyCoordinateShift = 0;
                 _historyWarmed = true;
             }
             // Use capture bookkeeping without QueueScroll's gesture/direction state. Neither
@@ -250,7 +247,7 @@ namespace SlopWorld
         internal void JumpHistoryTo(int off)
         {
             off = Mathf.Clamp(off, 0,
-                TerminalHistory.ScrollLimit(SessionHub.Instance.Screen(_state.Name), _historyTopOff));
+                TerminalHistory.ScrollLimit(SessionHub.Instance.Screen(_state.Name)));
             _historyJumpPending = true;
             _historyJumpOff = off;
             _historyJumpPixels = -1f;
@@ -281,8 +278,7 @@ namespace SlopWorld
             _nextScrollSend = Time.realtimeSinceStartup + ScrollBeat;
 
             ulong id = ++_nextScrollRequestId;
-            _historyRequests[id] = new HistoryRequest(
-                _sentScrollOff, _historyCoordinateShift);
+            _historyRequests[id] = new HistoryRequest(_sentScrollOff);
             SessionHub.Instance.Terminal.RequestScroll(_state.Name, _sentScrollOff, id);
             ScrollDebugSent(_sentScrollOff);
         }

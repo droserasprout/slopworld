@@ -581,7 +581,6 @@ pub struct ProjectCfg {
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub id: String,
     #[serde(default, skip_serializing_if = "String::is_empty")]
-    #[serde(alias = "workspace_root")]
     pub worktree_root: String,
     pub name: String,
     /// Temporary projects can omit this directory.
@@ -604,7 +603,6 @@ pub struct ProjectCfg {
 pub struct SessionCfg {
     /// Empty selects the original project checkout.
     #[serde(default, skip_serializing_if = "String::is_empty")]
-    #[serde(alias = "workspace")]
     pub worktree: String,
     pub name: String,
     /// A non-empty manual sidebar label disables automatic title summaries for this agent.
@@ -760,7 +758,7 @@ crate::wire_enum!(LibraryItemKind, {
 /// How a library item selects its project for each run.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum LibraryItemLink {
-    /// Use the configured project. This default preserves the behavior of older library entries.
+    /// Use the configured project when an entry does not specify a link mode.
     #[default]
     Project,
     /// Create a temporary workspace for each run. Do not save it in this file.
@@ -776,8 +774,7 @@ crate::wire_enum!(LibraryItemLink, {
     LibraryItemLink::Ask => crate::shared::protocol::enums::library_link::ASK,
 });
 
-/// What the Files sidebar does after a file action is selected. `Ask` is the compatibility
-/// default for entries written before file actions had a saved mode.
+/// What the Files sidebar does after a file action is selected. `Ask` is the default mode.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum FileActionMode {
     #[default]

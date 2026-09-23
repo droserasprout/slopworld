@@ -366,15 +366,15 @@ namespace SlopWorld.Tests
                 anchor = anchor == 1 ? 2 : 1;
                 return history.TryView(anchor, true, out var view) ? view.Lines.Length : -1;
             });
-            Measure("history prefetch next-window plan", () => history.WarmupOffset(live, -1));
-            for (int offset = history.WarmupOffset(live, -1); offset > 0;
-                 offset = history.WarmupOffset(live, -1))
+            Measure("history prefetch next-window plan", () => history.WarmupOffset(live));
+            for (int offset = history.WarmupOffset(live); offset > 0;
+                 offset = history.WarmupOffset(live))
                 history.Add(new ScreenBuf
                 {
                     Seq = 1, Cols = 120, Rows = 34, Off = offset, History = 1000,
                     Lines = Enumerable.Range(-offset, 34).Select(i => "row " + i).ToArray(),
                 }, live, offset);
-            Measure("history eight-screen coverage check", () => history.WarmupOffset(live, -1));
+            Measure("history eight-screen coverage check", () => history.WarmupOffset(live));
         }
     }
 }

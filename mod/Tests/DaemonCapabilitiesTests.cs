@@ -7,14 +7,14 @@ namespace SlopWorld.Tests
     {
         public static IEnumerable<(string Name, Action Body)> Cases()
         {
-            yield return ("defaults old daemons to native features", DefaultsToNative);
+            yield return ("uses native defaults before capabilities arrive", DefaultsToNative);
             yield return ("reads slopcar feature differences", ReadsSlopcar);
             yield return ("bounds malformed terminal advertisements", BoundsMalformedTerminal);
         }
 
         static void DefaultsToNative()
         {
-            var caps = DaemonCapabilities.FromWire(ProtobufFixtures.Read<Wire.Capabilities>(null));
+            var caps = new DaemonCapabilities();
             AssertEx.False(caps.Known, "known");
             AssertEx.Equal("native", caps.Runtime, "runtime");
             AssertEx.True(caps.AudioPlayback, "audio");
@@ -24,7 +24,7 @@ namespace SlopWorld.Tests
             AssertEx.False(caps.HostNetworkIsContainer, "network");
             AssertEx.False(caps.HostTerminalsAreContainer, "terminals");
             AssertEx.Equal("host terminal", caps.TerminalName, "terminal name");
-            AssertEx.Equal(10000, caps.Terminal.ScrollbackLines, "legacy history limit");
+            AssertEx.Equal(10000, caps.Terminal.ScrollbackLines, "initial history limit");
         }
 
         static void ReadsSlopcar()
@@ -48,9 +48,9 @@ namespace SlopWorld.Tests
             AssertEx.Equal(302, caps.Terminal.MaxCols, "maximum columns");
             AssertEx.Equal(7, caps.Terminal.MinRows, "minimum rows");
             AssertEx.Equal(102, caps.Terminal.MaxRows, "maximum rows");
-            // The production parser updates the process-wide capability read model. Restore the
-            // legacy native view so game-free tests that exercise history/layout stay isolated.
-            DaemonCapabilities.FromWire(ProtobufFixtures.Read<Wire.Capabilities>(null));
+            // The parser updates the process-wide capability read model. Restore the initial
+            // native view so game-free tests that exercise history/layout stay isolated.
+            DaemonCapabilities.Current = new DaemonCapabilities();
         }
 
         static void BoundsMalformedTerminal()
@@ -67,7 +67,7 @@ namespace SlopWorld.Tests
             AssertEx.Equal(5, caps.Terminal.MinRows, "invalid row range fallback");
             AssertEx.Equal(TerminalLimits.ClientMaxRows, caps.Terminal.MaxRows,
                            "row allocation cap");
-            DaemonCapabilities.FromWire(ProtobufFixtures.Read<Wire.Capabilities>(null));
+            DaemonCapabilities.Current = new DaemonCapabilities();
         }
     }
 }

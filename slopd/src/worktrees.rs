@@ -21,23 +21,16 @@ pub(crate) struct Worktree {
 }
 
 #[derive(Default, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub(crate) struct Store {
-    #[serde(default, alias = "workspaces")]
+    #[serde(default)]
     pub worktrees: Vec<Worktree>,
 }
 impl Store {
     pub async fn load(config: &Path) -> Result<Self> {
         match tokio::fs::read_to_string(config.with_file_name("worktrees.toml")).await {
             Ok(text) => Ok(toml::from_str(&text)?),
-            // Read legacy records if the new store does not exist.
-            // After saving, use the new store. Do not automatically delete the old file.
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-                match tokio::fs::read_to_string(config.with_file_name("workspaces.toml")).await {
-                    Ok(text) => Ok(toml::from_str(&text)?),
-                    Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(Self::default()),
-                    Err(e) => Err(e.into()),
-                }
-            }
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(Self::default()),
             Err(e) => Err(e.into()),
         }
     }

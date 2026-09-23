@@ -45,6 +45,6 @@ Blank sources use managed storage keyed by project ID and destination. Explicit 
 Removing a worktree does not delete managed or external cache storage.
 See [sandbox](sandbox-isolation.md) and [usage](../docs/src/guides/project-worktrees.md).
 
-The daemon can read legacy `workspaces.toml` records and field names.
-New writes use the worktree field names. `worktrees.toml` takes precedence and does not delete the old file.
-Session views retain a worktree index and reload it when either catalog file changes.
+The daemon reads and writes only `worktrees.toml` with `worktrees` records.
+Config fields are `project.worktree_root` and `session.worktree`; removed workspace names fail config loading.
+Session views retain a worktree index and reload it when the catalog changes.

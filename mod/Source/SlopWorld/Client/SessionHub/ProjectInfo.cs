@@ -118,7 +118,7 @@ namespace SlopWorld
         public List<MountEntry> Mounts = new List<MountEntry>();
 
         // Resolve paths on the daemon because the game can have a different home directory and environment.
-        // Preserve Dir for editing. Use it as a fallback for older daemons that supply literal paths.
+        // Preserve Dir for editing. After a local edit, preview the literal path until the daemon resolves it.
         public string ExpandedDir => _expandedDir ?? Dir;
         string _expandedDir;
 
@@ -160,7 +160,7 @@ namespace SlopWorld
             Name = j.Name,
             WorktreeRoot = j.WorktreeRoot,
             Dir = j.Dir,
-            _expandedDir = !j.HasExpandedDir ? null : j.ExpandedDir,
+            _expandedDir = j.ExpandedDir,
             Temp = j.Temp,
             Mounts = MountEntry.ListFromWire(j.Mounts),
         };

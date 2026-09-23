@@ -293,7 +293,7 @@ async fn library_items_round_trip_as_one_file_each() {
 }
 
 #[tokio::test]
-async fn wip_worktree_aliases_survive_load_save_without_duplicate_fields() {
+async fn removed_worktree_aliases_fail_load_and_save() {
     let root =
         std::env::temp_dir().join(format!("slopd-worktree-aliases-{}", uuid::Uuid::new_v4()));
     tokio::fs::create_dir_all(&root).await.unwrap();
@@ -311,15 +311,37 @@ workspace = "tree-id"
 state_id = "11111111-1111-4111-8111-111111111111"
 "#;
     tokio::fs::write(&path, text).await.unwrap();
-    let cfg = Config::load(&path).await.unwrap();
+    let err = Config::load(&path).await.unwrap_err();
+    assert!(err
+        .to_string()
+        .contains("project.workspace_root was removed"));
     assert_eq!(tokio::fs::read_to_string(&path).await.unwrap(), text);
-    assert_eq!(cfg.sessions[0].worktree, "tree-id");
-    cfg.save(&path).await.unwrap();
-    let saved = tokio::fs::read_to_string(&path).await.unwrap();
-    assert!(!saved.contains("workspace"));
-    assert!(saved.contains("future_project"));
+    let cfg = Config::default();
+    assert!(cfg
+        .save(&path)
+        .await
+        .unwrap_err()
+        .to_string()
+        .contains("project.workspace_root was removed"));
+    let text = text.replace(
+        "workspace_root = \"/tmp/trees\"",
+        "worktree_root = \"/tmp/trees\"",
+    );
+    tokio::fs::write(&path, &text).await.unwrap();
+    assert!(Config::load(&path)
+        .await
+        .unwrap_err()
+        .to_string()
+        .contains("session.workspace was removed"));
+    let text = text.replace("workspace = \"tree-id\"", "worktree = \"tree-id\"");
+    tokio::fs::write(&path, &text).await.unwrap();
     let loaded = Config::load(&path).await.unwrap();
     assert_eq!(loaded.projects[0].worktree_root, "/tmp/trees");
     assert_eq!(loaded.sessions[0].worktree, "tree-id");
+    loaded.save(&path).await.unwrap();
+    assert!(tokio::fs::read_to_string(&path)
+        .await
+        .unwrap()
+        .contains("future_project"));
     tokio::fs::remove_dir_all(root).await.unwrap();
 }

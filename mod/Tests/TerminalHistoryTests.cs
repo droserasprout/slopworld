@@ -72,6 +72,7 @@ namespace SlopWorld.Tests
             Cols = 20,
             Rows = 3,
             Off = off,
+            History = 100,
             Lines = lines,
         };
 
@@ -79,21 +80,16 @@ namespace SlopWorld.Tests
         {
             var live = Frame(0, "codex", "", "prompt");
             live.History = 0;
-            AssertEx.Equal(0, TerminalHistory.ScrollLimit(live, -1),
+            AssertEx.Equal(0, TerminalHistory.ScrollLimit(live),
                 "fresh pane cannot move while waiting for its first capture");
-            AssertEx.Equal(0, TerminalHistory.ScrollLimit(live, 1),
+            AssertEx.Equal(0, TerminalHistory.ScrollLimit(live),
                 "a stale one-row extent cannot override an empty live frame");
             live.History = 12;
-            AssertEx.Equal(12, TerminalHistory.ScrollLimit(live, 0),
+            AssertEx.Equal(12, TerminalHistory.ScrollLimit(live),
                 "new output can extend a previously empty history");
             live.History = 0;
-            AssertEx.Equal(0, TerminalHistory.ScrollLimit(live, 12),
+            AssertEx.Equal(0, TerminalHistory.ScrollLimit(live),
                 "clearing history immediately removes the old scroll range");
-            live.History = -1;
-            AssertEx.Equal(5, TerminalHistory.ScrollLimit(live, 5),
-                "legacy frames use the last capture extent");
-            AssertEx.Equal(10000, TerminalHistory.ScrollLimit(live, -1),
-                "unknown legacy history retains discovery through capture");
         }
 
         static void CaptureAfterOutput()
@@ -110,7 +106,7 @@ namespace SlopWorld.Tests
             var reply = Frame(2, "input", "answer-0", "answer-1");
             reply.Seq = next.Seq;
             reply.History = next.History;
-            history.Add(reply, next, 2, coordinateShift: 2);
+            history.Add(reply, next, 2);
 
             AssertEx.True(history.TryView(2, false, out var view), "requested rows are covered");
             AssertEx.Sequence(reply.Lines, view.Lines,
@@ -128,7 +124,7 @@ namespace SlopWorld.Tests
             reply.Seq = 9;
             reply.History = 12;
             // Three rows since request, but only one since this reply was captured.
-            history.Add(reply, live, 2, coordinateShift: 3, allowStale: true);
+            history.Add(reply, live, 2, allowStale: true);
             AssertEx.True(history.TryLine(-3, out var input), "captured input has a known coordinate");
             AssertEx.Equal("input", input, "translation starts at capture, not request");
         }
@@ -204,8 +200,8 @@ namespace SlopWorld.Tests
             var next = Frame(0, "live-1", "live-2", "live-3");
             history.UpdateLive(next, 1);
             middle.Off++;
-            AssertEx.Equal(expected, history.SelectionText(middle, 2, -2, 2, 4),
-                "history translation preserves the selected rows");
+            AssertEx.Equal("", history.SelectionText(middle, 2, -2, 2, 4),
+                "uncaptured rows cannot be copied after live output scrolls");
         }
 
         static void SelectionGaps()
@@ -225,7 +221,7 @@ namespace SlopWorld.Tests
             var live = Frame(0, "live-0", "live-1", "live-2");
             live.History = 50;
             var history = new TerminalHistory();
-            int offset = history.WarmupOffset(live, -1);
+            int offset = history.WarmupOffset(live);
             AssertEx.Equal(1, offset, "half-viewport capture");
             history.Reset(live);
             history.Add(Frame(offset, "old", "live-0", "live-1"), live, offset);
@@ -233,30 +229,27 @@ namespace SlopWorld.Tests
             AssertEx.Sequence(new[] { "old", "live-0", "live-1", "live-2" }, view.Lines,
                 "history overlaps live rows");
             AssertEx.Equal(0, live.Off, "warmup does not move live pane");
-            AssertEx.Equal(2, history.WarmupOffset(live, -1), "next overlapping window warms deeper");
+            AssertEx.Equal(2, history.WarmupOffset(live), "next overlapping window warms deeper");
         }
 
         static void WarmupEligibility()
         {
             var history = new TerminalHistory();
-            AssertEx.Equal(0, history.WarmupOffset(null, -1), "no frame");
+            AssertEx.Equal(0, history.WarmupOffset(null), "no frame");
             var live = Frame(0, "a", "b", "c");
             live.History = 0;
-            AssertEx.Equal(0, history.WarmupOffset(live, -1), "known empty history");
-            live.History = -1;
-            AssertEx.Equal(0, history.WarmupOffset(live, 0), "empty extent learned from reply");
-            AssertEx.Equal(1, history.WarmupOffset(live, -1), "unknown extent can be probed");
+            AssertEx.Equal(0, history.WarmupOffset(live), "known empty history");
             live.History = 1;
             live.Rows = 24;
-            AssertEx.Equal(1, history.WarmupOffset(live, -1), "short history caps capture");
+            AssertEx.Equal(1, history.WarmupOffset(live), "short history caps capture");
             live.AltScreen = true;
-            AssertEx.Equal(0, history.WarmupOffset(live, -1), "alternate screen");
+            AssertEx.Equal(0, history.WarmupOffset(live), "alternate screen");
             live.AltScreen = false;
             live.AppMouse = true;
-            AssertEx.Equal(0, history.WarmupOffset(live, -1), "mouse reporting");
+            AssertEx.Equal(0, history.WarmupOffset(live), "mouse reporting");
             live.AppMouse = false;
             live.Off = 1;
-            AssertEx.Equal(0, history.WarmupOffset(live, -1), "not live bottom");
+            AssertEx.Equal(0, history.WarmupOffset(live), "not live bottom");
         }
 
         static void WarmupInvalidation()
@@ -268,9 +261,9 @@ namespace SlopWorld.Tests
             history.Add(Frame(1, "old", "a", "b"), live, 1);
             live.Seq++;
             history.UpdateLive(live, 0);
-            AssertEx.Equal(2, history.WarmupOffset(live, -1), "live redraw retains first warm window");
+            AssertEx.Equal(2, history.WarmupOffset(live), "live redraw retains first warm window");
             history.Reset(live);
-            AssertEx.Equal(1, history.WarmupOffset(live, -1), "discarded epoch needs new capture");
+            AssertEx.Equal(1, history.WarmupOffset(live), "discarded epoch needs new capture");
         }
 
         static void AggressivePrefetch()
@@ -283,8 +276,8 @@ namespace SlopWorld.Tests
             var history = new TerminalHistory();
             history.Reset(live);
             int requests = 0;
-            for (int offset = history.WarmupOffset(live, -1); offset > 0;
-                 offset = history.WarmupOffset(live, -1))
+            for (int offset = history.WarmupOffset(live); offset > 0;
+                 offset = history.WarmupOffset(live))
             {
                 requests++;
                 AssertEx.True(requests <= 16, "warmup is bounded");
@@ -386,8 +379,13 @@ namespace SlopWorld.Tests
             next.LiveShift = 1;
             AssertEx.True(history.UpdateLive(next, 1),
                 "a compatible live scroll keeps the history cache");
+            AssertEx.False(history.TryView(2, true, out _),
+                "uncaptured live rows leave a history gap");
+            var capture = Frame(3, "old-2", "old-1", "live-0");
+            capture.Seq = next.Seq;
+            history.Add(capture, next, 3);
             AssertEx.True(history.TryView(2, true, out var view),
-                "translated history remains readable after live output scrolls");
+                "a daemon capture fills the translated history gap");
             AssertEx.Sequence(
                 new[] { "old-1", "live-0", "live-1", "live-2" }, view.Lines,
                 "cached rows move with the live bottom");
@@ -471,6 +469,11 @@ namespace SlopWorld.Tests
             var next = Frame(0, "live-1", "live-2", "live-3");
             next.Seq = 9;
             history.UpdateLive(next, 1);
+            AssertEx.False(history.TryView(4, true, out _),
+                "live rows need a capture after they enter daemon history");
+            var capture = Frame(4, "old-3", "old-2", "old-1", "timer-1");
+            capture.Seq = next.Seq;
+            history.Add(capture, next, 4);
             AssertEx.True(history.TryView(4, true, out var shifted),
                 "fractional view remains covered after a real scroll");
             AssertEx.Sequence(after.Lines, shifted.Lines,
@@ -530,6 +533,7 @@ namespace SlopWorld.Tests
                 Cols = 20,
                 Rows = 4,
                 Cy = 3,
+                History = 5,
                 Lines = new[] { "same", "same", "line-2", "line-3" },
             };
             var history = new TerminalHistory();
@@ -545,17 +549,25 @@ namespace SlopWorld.Tests
 
             var next = new ScreenBuf();
             next.FromWire(ProtobufFixtures.Read<Wire.ScreenView>(JVal.Parse(
-                "{\"seq\":1,\"cols\":20,\"rows\":4,\"cy\":3," +
+                "{\"seq\":1,\"cols\":20,\"rows\":4,\"cy\":3,\"history\":5," +
                 "\"off\":0,\"lines\":[\"same\",\"same\",\"line-2\",\"line-3\"]}")));
             next.FromWire(ProtobufFixtures.Read<Wire.ScreenView>(JVal.Parse(
-                "{\"seq\":2,\"cols\":20,\"rows\":4,\"cy\":3," +
+                "{\"seq\":2,\"cols\":20,\"rows\":4,\"cy\":3,\"history\":6," +
                 "\"off\":0,\"lines\":[\"same\",\"line-2\",\"line-3\",\"line-4\"]}")));
 
             AssertEx.Equal(1, next.LiveShift, "streaming frame reports its row scroll");
             AssertEx.True(history.UpdateLive(next, next.LiveShift),
                 "the compatible stream keeps the history cache");
+            AssertEx.False(history.TryView(3, true, out _),
+                "rows entering history need a daemon capture");
+            var capture = new ScreenBuf
+            {
+                Seq = 2, Cols = 20, Rows = 4, Off = 3, History = 6,
+                Lines = new[] { "old-2", "old-1", "same", "same" },
+            };
+            history.Add(capture, next, 3);
             AssertEx.True(history.TryView(3, true, out var view),
-                "the translated history view remains complete");
+                "the daemon capture restores the translated view");
             AssertEx.Sequence(
                 new[] { "old-2", "old-1", "same", "same", "line-2" }, view.Lines,
                 "all visible rows stay anchored while the live pane advances");
@@ -592,6 +604,13 @@ namespace SlopWorld.Tests
             }
 
             AssertEx.True(history.Count <= 10_200, "cache remains within its coordinate bounds");
+            AssertEx.False(history.TryView(252, false, out _),
+                "live rows are withheld until a daemon capture confirms them");
+            var captured = Frame(252, "old-2", "old-1", "live-0");
+            captured.Seq = 257;
+            var finalLive = Frame(0, "live-250", "live-251", "live-252");
+            finalLive.Seq = 257;
+            history.Add(captured, finalLive, 252);
             AssertEx.True(history.TryView(252, false, out var view),
                 "rows remain addressable after many logical shifts");
             AssertEx.Sequence(new[] { "old-2", "old-1", "live-0" }, view.Lines,
