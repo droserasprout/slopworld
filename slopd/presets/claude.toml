@@ -1,43 +1,37 @@
-# Private rather than shared, and this is the reason: `~/.claude/settings.json` names hooks
-# and `~/.claude.json` names MCP servers, both of them command lines the *host's* Claude Code
-# runs the next time the user starts one. A sandbox that can write them is a sandbox with a
-# delayed shell on the far side of the wall. Every session gets its own copy instead, seeded
-# once from the user's and never written back.
+# Each session receives private copies of Claude configuration files.
+# `~/.claude/settings.json` defines hooks. `~/.claude.json` defines MCP servers.
+# Host Claude Code executes these commands when it starts.
+# Private copies prevent sandbox edits from defining commands for the host.
+# Initialize each copy from the user's files once. Do not write changes to the host files.
 #
-# The rest follows: two agents no longer read each other's transcripts under `projects/`, and
-# neither reads the user's.
+# Private `projects/` directories also prevent agents from reading host transcripts or other agents' transcripts.
 [[sandbox]]
 name = "claude"
-description = "Claude Code's own state and credentials, one copy per session"
-# Claude Code writes its scratchpad under /tmp/claude-0/. The skeleton mounts its own tmpfs
-# there, so the directory vanishes between runs. Making it private gives each session a
-# persistent copy in its state directory - subagent intermediates, analysis outputs and
-# temporary scripts survive a restart without poisoning the rest of /tmp.
+description = "Private Claude Code state and shared credentials"
+# Claude Code stores temporary work in /tmp/claude-0/.
+# The sandbox tmpfs normally removes this directory between runs.
+# A private copy in the session state directory preserves this work after a restart.
+# It keeps subagent files, analysis output, and temporary scripts separate from other /tmp data.
 private = ["~/.claude", "~/.claude.json", "/tmp/claude-0"]
-# The one file that cannot be a copy. Claude Code's access token lasts 8 hours and the refresh
-# token behind it is replaced on every use, so a tree seeded once is a tree that logs in until
-# it doesn't - and the only cure was deleting the session, which is also how its transcripts
-# went. Shared, so a refresh made inside lands where the host and every other session read it.
+# Share the credential file so the host and all sessions receive refreshed tokens.
+# A private copy can become invalid when another session replaces the refresh token.
+# Previously, recovery required session deletion, which also removed its transcripts.
 #
-# It is safe in a way `settings.json` next to it is not: it names no command. Nothing in it
-# becomes a host command line, so what a sandbox gains by writing it is the ability to log the
-# user out, and never the ability to run something. See `SandboxPreset::shared` - files only.
+# This file contains no commands, unlike settings.json.
+# Sandbox writes can invalidate the user's login but cannot define a host command.
+# `SandboxPreset::shared` permits only regular files.
 shared = ["~/.claude/.credentials.json"]
-# What the user wrote, as against what the tool wrote about them. Credentials and settings are
-# files at the top of `~/.claude` and come across without being named.
+# Copy user definitions. Top-level files in `~/.claude`, including settings, are copied automatically.
 #
-# `plugins` is deliberately absent: it is 13MB of language servers and marketplace clones, and
-# a session that will never open one should not carry a copy. A project that wants them says so
-# in its own `seed` - the whole directory, or just the one plugin it uses.
+# Omit `plugins` to avoid copying language servers and marketplace repositories that the session does not need.
+# Add required plugin directories to `seed`.
 seed = [
     "~/.claude/agents",
     "~/.claude/commands",
     "~/.claude/skills",
 ]
-# Cut back out of the files at the top, which otherwise come across because they are there.
-# `history.jsonl` is every prompt typed on this machine, in every project, and it is the user's
-# rather than the tool's - the one file the top-level sweep was never meant to catch. The two
-# caches are merely bulk that is wrong the moment it is copied.
+# Exclude user prompt history, cached statistics, and the settings backup from automatic copying.
+# These files are not needed to initialize a session.
 skip = [
     "~/.claude/history.jsonl",
     "~/.claude/stats-cache.json",

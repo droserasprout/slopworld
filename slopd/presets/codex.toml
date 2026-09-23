@@ -1,16 +1,15 @@
-# Private for the same reason `claude` is: `~/.codex/config.toml` names MCP servers, and the
-# host runs them the next time it starts a Codex of its own. The auth file is the exception:
-# OAuth refresh tokens are single-use, so a copied auth file becomes invalid when another Codex
-# refreshes the host login. Keep one live host-owned file for every Codex session instead.
+# Use private configuration because `~/.codex/config.toml` defines MCP servers that host Codex executes at startup.
+# Share the authentication file because OAuth refresh tokens are single-use.
+# A copied authentication file can become invalid when another Codex session refreshes the host login.
 [[sandbox]]
 name = "codex"
-description = "OpenAI Codex CLI's own state and config, with shared auth"
-# Codex's Ctrl+V image attachment path reads the desktop clipboard from inside the TUI. These
-# are optional on hosts without the corresponding display, but harmless when one is absent.
+description = "Private OpenAI Codex CLI state and configuration with shared credentials"
+# Codex reads the desktop clipboard for Ctrl+V image attachments in its terminal interface.
+# These display presets create no mounts for missing paths.
 requires = ["x11", "wayland"]
 private = ["~/.codex"]
-# Codex persists refreshed access and refresh tokens in place. Sharing this file keeps the host
-# and all sandboxes on the same token lineage without exposing the private config/MCP tree.
+# Codex saves refreshed tokens in this file. Sharing it gives the host and all sandboxes the same tokens.
+# Configuration and MCP definitions remain private.
 shared = ["~/.codex/auth.json"]
 seed = ["~/.codex/prompts"]
 env = [

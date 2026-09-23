@@ -1,11 +1,9 @@
-# Split three ways, because the four directories are three different things. The config is
-# read-only: OpenCode reads it and the user writes it, so nothing is lost by making that true
-# inside the sandbox, and an agent that cannot write it cannot name a command for the host's
-# next OpenCode to run. Auth and state are private, one copy per session. The cache is private
-# too - not for safety, but because two agents grinding one cache is how a cache gets corrupt.
+# Mount OpenCode configuration read-only to prevent sandbox changes from defining commands for host OpenCode.
+# Give each session private copies of credentials and state.
+# Give each session a private cache to prevent corruption from concurrent writes by multiple agents.
 [[sandbox]]
 name = "opencode"
-description = "OpenCode's own config, credentials and state, one copy per session"
+description = "Read-only OpenCode configuration and private credentials, state, and cache"
 ro = ["~/.config/opencode"]
 private = [
     "~/.local/share/opencode",

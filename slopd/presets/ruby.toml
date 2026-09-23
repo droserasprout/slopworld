@@ -1,5 +1,5 @@
-# RubyGems loads rubygems_plugin.rb from every installed gem on every gem command, including the
-# host's, so the gem tree stays read-only.
+# RubyGems loads rubygems_plugin.rb from each installed gem for every gem command, including host commands.
+# Keep the gem directory read-only to prevent changes to host plugins.
 [[sandbox]]
 name = "ruby"
 description = "user-installed gems and Bundler configuration, read-only"

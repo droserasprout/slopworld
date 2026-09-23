@@ -1,6 +1,6 @@
 [[sandbox]]
 name = "podman"
-description = "rootless podman"
-escapes = "a container it starts runs beside this sandbox, not inside it"
+description = "Rootless Podman"
+escapes = "Containers started through Podman run outside this sandbox"
 rw = ["$XDG_RUNTIME_DIR/podman", "~/.local/share/containers"]
 env = ["XDG_RUNTIME_DIR", "CONTAINER_HOST"]

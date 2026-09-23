@@ -1,5 +1,5 @@
 [[sandbox]]
 name = "aws"
-description = "AWS SDK credentials and config"
+description = "AWS SDK credentials and configuration"
 ro = ["~/.aws"]
 env = ["AWS_PROFILE", "AWS_REGION", "AWS_DEFAULT_REGION"]

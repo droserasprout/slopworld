@@ -1,5 +1,5 @@
 [[sandbox]]
 name = "gh"
-description = "GitHub CLI config and auth, one copy per session"
+description = "Private GitHub CLI configuration and credentials for each session"
 private = ["~/.config/gh"]
 env = ["GH_TOKEN", "GITHUB_TOKEN"]
