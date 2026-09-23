@@ -8,38 +8,38 @@ namespace SlopWorld
 
         public int Seq = -1;
         public int Cols, Rows, Cx, Cy;
-        // ContentRevision changes only when visible row text or the terminal shape changes;
-        // cursor-only frames can therefore reuse the cached paint surface.
+        // Change ContentRevision only when visible row text or terminal dimensions change.
+        // Frames with only cursor changes can reuse the cached rendering surface.
         public int ContentRevision;
         public int[] ChangedRows = NoChangedRows;
         public bool HasLinks;
         public bool LinksKnown;
-        // Lines scrolled up into scrollback; 0 for a live bottom frame.
+        // Scroll offset in history rows. Zero for a live frame at the bottom.
         public int Off;
-        // Total available history rows; -1 when talking to a daemon predating this field.
+        // Total available history rows. -1 indicates an older daemon without this field.
         public int History = -1;
-        // Rows the live frame moved upward since the previous live frame. Scrollback frames
-        // leave this at zero; the terminal uses it to keep a selection attached to output that
-        // just scrolled off the bottom.
+        // Number of rows that live output moved upward since the previous frame.
+        // History frames leave this at zero.
+        // The terminal uses this value to keep selections attached to output as it scrolls into history.
         public int LiveShift;
-        // Echoed from the scroll request this frame answers; 0 for a live frame. The terminal
-        // accepts only the response to its latest request, so a stale reply cannot clamp it.
+        // ID of the scroll request that this frame answers. Zero for a live frame.
+        // Accept only the latest request's response so stale replies cannot change the scroll position.
         public ulong ScrollRequestId;
         // 0 = block, 1 = underline, 2 = beam.
         public int CursorShape;
         public bool CursorBlink = true;
         public bool AppMouse;
-        // Without this a drag is ours, and selecting text in a pane needs no Shift.
+        // When false, dragging selects terminal text without requiring Shift.
         public bool AppDrag;
         // The app is on the alternate screen (no scrollback of its own).
         public bool AltScreen;
-        // What the app calls itself (OSC 0/2); empty until it says.
+        // Application title from OSC 0/2. Empty until the application supplies a title.
         public string Title = "";
         public string[] Lines = new string[0];
 
-        // Parsed lazily by the terminal window and thrown away when Seq moves.
+        // The terminal window parses runs on demand and invalidates them when Seq changes.
         public List<SgrRun>[] Runs;
-        // Which palette the runs were parsed against; a scheme change re-parses them.
+        // Palette revision used to parse the runs. A scheme change requires parsing again.
         public int RunsRev = -1;
         public bool RunsComplete;
         // ANSI parsing is independent of screen-wide autolink decoration. Keeping the base
@@ -51,10 +51,9 @@ namespace SlopWorld
         // spans also invalidates unchanged rows of URLs edited while this tab was not drawn.
         internal List<UrlScan.Span>[] AutoLinks;
 
-        // The history row cache needs a stable live frame while the streamed buffer continues
-        // to receive output. Keep parsed runs shared; FromWire replaces them only on the mutable
-        // source buffer. Copy incomplete arrays so lazy parsing can fill their null slots
-        // independently in the source and snapshot.
+        // The history cache needs a stable frame while the live buffer continues receiving output.
+        // Share parsed runs. FromWire replaces them only in the source buffer.
+        // Copy incomplete arrays so parsing can fill null slots independently in the source and snapshot.
         public ScreenBuf Snapshot()
         {
             return new ScreenBuf

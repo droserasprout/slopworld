@@ -4,8 +4,8 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Agents must not lose construction progress to vanilla's per-tick success roll.
-    // Override the stat through a `StatPart`, scoped to agent pawns.
+    // Prevent agent construction failures by setting the success chance to one.
+    // Apply the StatPart only to agent pawns.
     public class StatPart_SteadyHands : StatPart
     {
         public override void TransformValue(StatRequest req, ref float val)
@@ -21,15 +21,13 @@ namespace SlopWorld
         }
     }
 
-    // Added to the def rather than written into one, because the stat is vanilla's and
-    // the part is ours.
+    // Add the custom stat part to the base game definition at startup.
     [StaticConstructorOnStartup]
     public static class SteadyHands
     {
         static SteadyHands()
         {
-            // A part welded onto a vanilla stat is exactly the sort of thing that has no
-            // business happening in somebody's own game. See ModProfile.
+            // Apply this change only in a SlopWorld profile. See ModProfile.
             if (!ModProfile.Ok) return;
 
             var stat = StatDefOf.ConstructSuccessChance;

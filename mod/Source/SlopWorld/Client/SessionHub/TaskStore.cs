@@ -4,8 +4,9 @@ using System.Linq;
 
 namespace SlopWorld
 {
-    // REST-backed host task board. The daemon has no task socket event yet, so this store polls at a
-    // quiet cadence for the sidebar badge and refreshes immediately when the tab is opened.
+    // Host task board backed by HTTP requests.
+    // The daemon has no task socket event, so poll periodically for the sidebar badge.
+    // Refresh immediately when the tab opens.
     sealed class TaskStore
     {
         public List<TaskInfo> Tasks = new List<TaskInfo>();
@@ -52,7 +53,7 @@ namespace SlopWorld
 
         public void Update(bool needsData)
         {
-            // Poll visible task data even while the WebSocket reconnects; HTTP is independent.
+            // Poll visible task data during WebSocket reconnection because HTTP is independent.
             // Use monotonic time for this local deadline.
             if (!needsData || _loading || UnityEngine.Time.realtimeSinceStartupAsDouble < _nextPoll)
                 return;
@@ -174,8 +175,8 @@ namespace SlopWorld
             var batchIds = new List<string>();
             foreach (string id in ids.Where(value => !string.IsNullOrEmpty(value)).Distinct())
             {
-                // A second click while a batch is draining must not create a duplicate
-                // request that can only return "no such task" after the first one wins.
+                // Ignore repeated clicks while the batch is pending.
+                // Duplicate requests could report missing tasks after the first request removes them.
                 if (!_removingIds.Add(id)) continue;
                 batchIds.Add(id);
             }

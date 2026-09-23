@@ -10,23 +10,21 @@ namespace SlopWorld
         public string Project = "";
         public string Worktree = "";
         public string WorktreeName = "";
-        // Repeated on the wire so a session list reads without a join. Blank when the entry
-        // names a project that has gone.
+        // Include the project directory in each session response to avoid a separate project lookup.
+        // Empty when the named project no longer exists.
         public string Dir = "";
-        // A command preset's explicit name. Blank means this agent states a command line of
-        // its own, or falls through to the daemon default when Cmd is also blank.
+        // Explicit command preset name. When empty, use Cmd or the daemon default if Cmd is also empty.
         public string Command = "";
         // The command preset after the daemon resolves [defaults] agent. Unlike Command,
         // this is also populated when the session leaves its command blank for that default.
         public string CommandPreset = "";
-        // This agent's own answer to what that preset runs. Blank is the preset's.
+        // Custom command line for this agent. An empty value uses the preset's command.
         public string Cmd = "";
         // Sandbox presets selected by this agent, in addition to its command dependencies.
         public List<string> Sandbox = new List<string>();
-        // Replaces the sandbox's per-run /tmp tmpfs with a private copy kept in this agent's
-        // durable state directory.
+        // Use a private directory in persistent agent state instead of a new /tmp tmpfs for each run.
         public bool PersistentTmp;
-        // As the daemon will exec it, preset and defaults resolved. Read-only here.
+        // Read-only command after the daemon resolves presets and defaults.
         public string Agent = "";
         public AgentState State = AgentState.Down;
         public bool Alive;
@@ -36,22 +34,22 @@ namespace SlopWorld
         public DnsConfig Dns = DnsConfig.Resolved();
         // Resource limits owned by this agent. Null fields mean no cap.
         public SessionLimits Limits;
-        // Project-owned mounts shown for the next start; they are not written with the agent.
+        // Project mounts for the next start. Do not save these mounts with the agent.
         public List<MountEntry> Mounts = new List<MountEntry>();
         public bool Autostart;
         public bool AutoResume;
-        // Read-only here: slopd is waiting to run or finish startup auto-resume. Keyboard input
-        // stays behind that ordered sequence.
+        // Read-only status: startup auto-resume is pending or active.
+        // Queue keyboard input after the auto-resume sequence.
         public bool AutoResumePending;
-        // Task-owned worker metadata. Parentage is explicit on the wire; names and projects are
-        // never inspected to guess a child relationship.
+        // Worker metadata from the task. The wire response explicitly identifies the parent.
+        // Do not infer parent relationships from names or projects.
         public bool Worker;
         public string Parent = "";
         public string TaskId = "";
         public bool Durable;
-        // A library item's errand or a tmux session started by hand: it leaves the colony when its
-        // process exits, and there is no entry to edit or delete. Durable host tabs also use
-        // the ghost-row presentation, but are identified separately by Host.
+        // A library item's errand or a tmux session started by hand. It leaves the colony when its
+        // process exits, and there is no entry to edit or delete. Durable host tabs also use the
+        // ghost-row presentation, but are identified separately by Host.
         public bool Ephemeral;
         // A durable host shell tab. It uses the ghost-row presentation but is not a sandboxed
         // agent and remains in the sidebar when its shell is down.
@@ -72,22 +70,22 @@ namespace SlopWorld
         // daemon-side title summaries for this session.
         public string Label = "";
 
-        // The app rang the bell and nobody has looked since. Cleared by the daemon the moment
-        // a pane is subscribed to, so opening the terminal is what answers it.
+        // The application sent a bell that the user has not acknowledged.
+        // The daemon clears it when the client subscribes to the pane on opening the terminal.
         public bool Bell;
 
-        // Unix millis of the last pane change. Zero before it has ever drawn anything.
+        // Last pane change in milliseconds since the Unix epoch. Zero before the first output.
         public long LastChange;
 
-        // Unix millis of the last state move, and a different clock from the one above: a
-        // working agent redraws several times a second, so its LastChange is always now and
-        // an age off it reads "0s" forever. This is what "working 3m" is measured from.
+        // Last state change in milliseconds since the Unix epoch.
+        // Use this timestamp for state duration, such as "working 3m".
+        // LastChange can update on every redraw and does not measure time in the current state.
         public long StateSince;
 
         public bool Gone => !Alive;
 
-        // The daemon's clock is this machine's, so the two agree without anything being sent
-        // to keep them in step: an age is the difference and not a countdown the daemon owns.
+        // Calculate elapsed time locally from the daemon's Unix timestamps.
+        // This assumes that the game and daemon clocks agree.
         static readonly DateTime Epoch = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
         // Distinguishes successive processes under one durable session name. Terminal history
@@ -107,8 +105,8 @@ namespace SlopWorld
             }
         }
 
-        // `Agent` never rides along: it is what the daemon resolved, and writing it back would
-        // pin today's answer into the file forever.
+        // Exclude Agent because it contains the daemon's resolved command.
+        // Saving it would prevent later preset or default changes from taking effect.
         public Wire.SessionConfig ToWire()
         {
             var value = new Wire.SessionConfig

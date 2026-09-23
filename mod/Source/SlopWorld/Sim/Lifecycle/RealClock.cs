@@ -7,25 +7,21 @@ namespace SlopWorld
 {
     // Bridges game and wall clocks. Normal speed makes game-tick spans real-time spans.
     // The calendar instead maps one game day to one real day by rewriting
-    // gameStartAbsTick; all vanilla sky, hour, season, and date readers then agree.
+    // gameStartAbsTick. All vanilla sky, hour, season, and date readers then agree.
     // Absolute-tick timestamps must convert through SecondsPerAbsTick.
     public class RealClock : GameComponent
     {
         // Ticks the game runs per real second at Normal speed.
         public const float TicksPerRealSecond = 60f;
 
-        // Real seconds one absolute tick stands for, the calendar being pinned to the
-        // wall clock at a game day to the real day.
+        // Real seconds per absolute tick. One calendar day equals one real day.
         public const float SecondsPerAbsTick = 86400f / GenDate.TicksPerDay;
 
-        // Scribed, because a colony that coined this afresh on every load would walk its
-        // date - and with it its season - back to the start every time it was opened.
+        // Save the epoch so loading a colony does not reset its date and season.
         long _epoch;
 
-        // The sun moves ~0.4° per real minute; recalculating 60 times a second is wasteful.
-        // We cache the solar tick for a real second before calling DateTime.Now
-        // again. Between recalculations, gameStartAbsTick drifts correctly because it is
-        // recomputed every frame from the cached solar tick minus the current TicksGame.
+        // Cache the solar tick for one real second to limit DateTime.Now calls.
+        // Each frame computes gameStartAbsTick from the cached solar tick minus the current TicksGame.
         PeriodicWork _solarRecalc;
         int? _cachedSolar;
         bool _wasPlaying;
@@ -35,12 +31,11 @@ namespace SlopWorld
 
         public RealClock(Game game) { }
 
-        // Exact for anything the clock ran straight through, and a floor for anything it
-        // did not.
+        // Convert game ticks to seconds at normal speed.
+        // Pauses and delayed ticks make this value lower than elapsed wall time.
         public static float Seconds(int ticks) => ticks / TicksPerRealSecond;
 
-        // Exact: absolute ticks are wall-clock instants, so a stamp keeps its distance
-        // across a pause, a stutter, and the time the game spent closed.
+        // Absolute ticks represent wall time, including pauses, delayed frames, and time while the game was not running.
         public static float SecondsSince(int absTick)
         {
             if (Verse.Current.ProgramState != ProgramState.Playing) return 0f;
@@ -51,8 +46,7 @@ namespace SlopWorld
             return Mathf.Max((ticks.TicksAbs - absTick) * SecondsPerAbsTick, 0f);
         }
 
-        // Minutes are the odd one out - the vanilla calendar has no such unit, so there
-        // is no key to reuse and the words are the mod's own.
+        // The base-game calendar has no minute unit. Supply the mod's own words for minutes.
         public static string Period(float seconds, bool shortForm = false)
         {
             float s = Mathf.Max(seconds, 0f);
@@ -96,9 +90,9 @@ namespace SlopWorld
             _lastMap = map;
             bool eco = Eco.Resting;
 
-            // Eco freezes game ticks, but absolute ticks still represent wall time for dates
-            // and log-entry ages. Sample once per second and on transitions; skip only the
-            // unchanged frames between samples. Both Eco edges refresh immediately.
+            // Eco stops game ticks. Absolute ticks still represent wall time for dates and log-entry ages.
+            // Sample once per second and when state changes.
+            // Refresh immediately on entering or leaving Eco.
             bool solarDue = _solarRecalc.Due(Time.realtimeSinceStartupAsDouble, 1.0);
             bool ecoRefresh = eco && (!_wasPlaying || !_wasEco || mapChanged ||
                 ticks.TicksGame != _ecoTicks || _cachedSolar == null || solarDue);
@@ -122,10 +116,9 @@ namespace SlopWorld
             _wasEco = false;
             if (mapChanged) _cachedSolar = null;
 
-            // Recalculate the solar tick once per elapsed second, independent of FPS.
-            // Between recalculations the cached value stays correct: the formula
-            // gameStartAbsTick = solarTick - TicksGame is evaluated every frame,
-            // and only solarTick is cached — TicksGame is always current.
+            // Recalculate the solar tick once per elapsed second, independent of frame rate.
+            // Every frame computes gameStartAbsTick = solarTick - TicksGame.
+            // Only solarTick is cached. TicksGame remains current.
             if (solarDue || leavingEco || _cachedSolar == null)
             {
                 _cachedSolar = SolarTick();
@@ -139,40 +132,36 @@ namespace SlopWorld
         {
             int start = _cachedSolar.Value - ticks.TicksGame;
 
-            // Never zero: TickManager reads that as "not set yet", logs about it and hands
-            // back the game tick instead.
+            // Avoid zero because TickManager treats it as uninitialized.
+            // That case logs a message and returns the game tick instead.
             ticks.gameStartAbsTick = start != 0 ? start : 1;
         }
 
-        // Null while there is no tile to take a longitude from - map generation, mostly -
-        // where vanilla's own clock is left where it is.
+        // Return null when no tile supplies a longitude, such as during map generation.
+        // Leave the base-game clock unchanged in that case.
         int? SolarTick()
         {
             PerfTrace.Count("solar-clock-samples");
             float? longitude = Longitude;
             if (longitude == null) return null;
 
-            // Local rather than UTC, so the machine's timezone and daylight saving both
-            // arrive already applied.
+            // Use local time to include the machine's time zone and daylight-saving adjustment.
             DateTime now = DateTime.Now;
             long today = now.Ticks / TimeSpan.TicksPerDay;
             if (_epoch == 0) _epoch = today;
 
-            // Day one rather than day zero, so the hour the longitude costs cannot put the
-            // colony's first morning before the start of the year.
+            // Start at day one so the longitude adjustment cannot place the first morning before the year starts.
             long day = today - _epoch + 1;
             int within = (int)(now.TimeOfDay.TotalSeconds / 86400.0 * GenDate.TicksPerDay);
 
-            // Everything downstream adds an hour per fifteen degrees of longitude before it
-            // reads an hour off this, so taking that back off here is what leaves the tile's
-            // local time equal to the player's. The same sum vanilla does in
-            // GenCelestial.TicksAbsForSunPosInWorldSpace to find noon.
+            // Subtract the longitude offset that downstream clock readers add.
+            // This makes the tile's local time match the player's local time.
+            // GenCelestial.TicksAbsForSunPosInWorldSpace uses the same adjustment to calculate noon.
             return (int)(day * GenDate.TicksPerDay + within
                          - GenDate.LocalTicksOffsetFromLongitude(longitude.Value));
         }
 
-        // The current map for all of this colony's life; the tile that was picked, for
-        // the frames between a world existing and a map standing on it.
+        // Use an existing map's longitude, or the selected starting tile before map creation.
         static float? Longitude
         {
             get
@@ -195,9 +184,8 @@ namespace SlopWorld
         {
             base.ExposeData();
             Scribe_Values.Look(ref _epoch, "solarEpochDay", 0L);
-            // These are derived frame state, not part of the colony clock. A load may restore
-            // a different map or tick before the next update, so force the first post-load
-            // update through the same edge path used by Eco entry.
+            // Reset derived frame state because loading can restore a different map or tick.
+            // The next update must refresh the clock through the same path as Eco entry.
             _wasPlaying = false;
             _wasEco = false;
             _cachedSolar = null;

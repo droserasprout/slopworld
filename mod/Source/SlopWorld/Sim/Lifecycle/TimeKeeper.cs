@@ -4,8 +4,8 @@ using Verse;
 
 namespace SlopWorld
 {
-    // GameComponentUpdate runs after ticking. Enforce Eco at the tick boundary as well,
-    // letting vanilla clear ticksThisFrame and take its normal paused return.
+    // GameComponentUpdate runs after game ticks.
+    // Also enforce Eco before TickManagerUpdate so the base game clears ticksThisFrame and returns through its paused branch.
     [HarmonyPatch(typeof(TickManager), nameof(TickManager.TickManagerUpdate))]
     public static class Patch_EcoTickBoundary
     {
@@ -16,16 +16,15 @@ namespace SlopWorld
         }
     }
 
-    // Own the game clock: start fresh colonies, hold Eco paused, and resume only pauses this
-    // component owns. Vanilla time controls are hidden, so an external pause needs this fallback.
+    // Keep the game paused during Eco and resume normal speed afterward.
+    // Outside Eco, also resume other pauses unless an open window requires a pause.
+    // The mod hides the base-game time controls, so this fallback is necessary.
     public class TimeKeeper : GameComponent
     {
-        // Logged once: knowing that something out there still pauses the game, and when,
-        // is worth one line.
+        // Log only the first pause caused outside this component.
         bool _reported;
 
-        // Whether the pause about to be lifted is the one this component put there. Eco's
-        // stop is not news, and the line below is about the pauses nobody here asked for.
+        // Track pauses set by this component so normal Eco pauses do not produce diagnostics.
         bool _ours;
 
         public TimeKeeper(Game game) { }
@@ -37,9 +36,8 @@ namespace SlopWorld
             var ticks = Find.TickManager;
             if (ticks == null) return;
 
-            // Eco mode holds it stopped. Written every frame rather than on the edge:
-            // anything that sets a speed - a key, a load, a window closing - is undone on
-            // the next one, which is the same insistence the resume below is.
+            // Enforce the Eco pause every frame.
+            // This corrects speed changes from keyboard input, loading, or window closure on the next frame.
             if (Eco.Resting)
             {
                 if (ticks.CurTimeSpeed != TimeSpeed.Paused)
@@ -56,7 +54,7 @@ namespace SlopWorld
             if (_ours) { _ours = false; return; }
             if (_reported) return;
             _reported = true;
-            Log.Message($"[SlopWorld] something paused the game at tick {ticks.TicksGame}; resumed");
+            Log.Message($"[SlopWorld] Something paused the game at tick {ticks.TicksGame}. Resumed it.");
         }
     }
 

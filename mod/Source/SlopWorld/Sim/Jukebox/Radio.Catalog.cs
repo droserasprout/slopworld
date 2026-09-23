@@ -5,13 +5,11 @@ using Verse;
 
 namespace SlopWorld
 {
-    // The station catalog and the nested types that describe one station. The daemon owns the
-    // catalog and sends metadata and stable stream keys, never URLs; the mod selects an opaque
-    // station key. Kept beside the playback core in its own partial so the wire logic stays read.
+    // Describe stations from the daemon catalog.
+    // The daemon sends metadata and stable stream keys without URLs. The mod selects stations by key.
     public static partial class Radio
     {
-        // The part of a station the UI will eventually use in addition to its streams. Keep
-        // donation links here, beside the name, rather than throwing them away in the loader.
+        // Retain station metadata, including donation links, for UI use.
         public sealed class Metadata
         {
             public readonly string Name;
@@ -26,8 +24,8 @@ namespace SlopWorld
             }
         }
 
-        // A station from the daemon's catalog: metadata and the qualities it serves. URLs stay
-        // out of selection messages; only stable ids and stream keys cross that boundary.
+        // Store station metadata and available stream rates.
+        // Selection messages contain stable identifiers and stream keys without URLs.
         public sealed class Station
         {
             public readonly string Id;
@@ -35,16 +33,13 @@ namespace SlopWorld
 
             public string Name => Metadata.Name;
 
-            // The qualities this one answers on. One entry is a whole list, and the menu
-            // is built the same way either way - see Jukebox.Presets.
+            // Available stream rates. Jukebox.Presets uses the same menu logic for one or multiple rates.
             public readonly int[] Rates;
 
             readonly string[] _keys;
             readonly Regex _titleRegex;
 
-            // The quality it was last left on, so a switch away and back comes up where it
-            // was. Kept per station rather than as one number for the lot of them: the
-            // lists do not overlap, so one station's quality is not assumed to work for another.
+            // Remember the selected rate for each station. Different stations can offer different rates.
             public int Rate;
 
             internal Station(string id, string name, string donate, string titleRegex,
@@ -68,8 +63,7 @@ namespace SlopWorld
                 }
             }
 
-            // The stream's stable key at a rate, as supplied by the user definition.
-            // It gives the setting a human-editable tail.
+            // Return the stable stream key for a rate. User definitions supply these keys.
             public string Path(int rate)
             {
                 int index = Find(rate);
@@ -113,15 +107,14 @@ namespace SlopWorld
         }
 
         static Station[] _stations = new Station[0];
-        // Before the first catalog, a null station can still be a saved radio selection.
+        // Before the first catalog arrives, a saved radio selection can have no matching station object.
         static bool _catalogReady;
 
-        // Stations in daemon catalog order. The last catalog remains in memory while the
-        // socket reconnects, so a temporary daemon restart does not empty an open menu.
+        // Return stations in daemon catalog order.
+        // Retain the previous catalog during reconnection so a daemon restart does not empty the menu.
         public static Station[] Stations => _stations;
 
-        // The daemon sends metadata and stable keys, never stream URLs. Invalid entries are
-        // ignored individually so one bad user definition cannot take the whole menu down.
+        // Load metadata and stable stream keys. Skip invalid stations individually so other stations remain available.
         public static void SetStations(Wire.JukeboxCatalog catalog)
         {
             if (catalog == null) return;
@@ -182,8 +175,8 @@ namespace SlopWorld
                 Save();
                 Push();
             }
-            // This also covers the first catalog arriving after Read selected the OST
-            // provisionally, and a reload that changes the URL behind the same stable key.
+            // Apply the selection when the first catalog replaces the temporary OST choice.
+            // Also apply it after a reload changes the URL for an existing key.
             if (nextSelection != null) Push();
         }
 

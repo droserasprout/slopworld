@@ -7,9 +7,8 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Opt-in, once-per-second aggregates for profiling the client without turning the normal
-    // frame into a logging workload. The environment flag is read once because the process
-    // does not need a live switch for diagnostics.
+    // When enabled, report aggregate profiling data once per second to limit logging work during each frame.
+    // Read the environment flag once. Diagnostics do not need a runtime switch.
     static class PerfTrace
     {
         internal static readonly bool Enabled = DebugFlag();
@@ -69,8 +68,8 @@ namespace SlopWorld
             _nextReport = now + 1f;
 
             var text = new StringBuilder("[SlopWorld] perf");
-            // Window context permits like-for-like captures without observing the screen.
-            // GC collections are process-wide; this is not an allocation-byte measurement.
+            // Window context lets users compare captures without viewing the screen.
+            // GC collection counts apply to the whole process. They do not measure allocated bytes.
             float seconds = now - _lastReport;
             int frame = Time.frameCount;
             int gc = GC.CollectionCount(0);

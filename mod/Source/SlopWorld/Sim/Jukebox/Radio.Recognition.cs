@@ -5,15 +5,13 @@ using Verse;
 
 namespace SlopWorld
 {
-    // The Shazam-style background lookup. SongRecognizer owns the capture device and child
-    // process; this partial serialises its state across the worker thread and the UI, and binds
-    // each result to the track that was heard so a late answer never lands on the wrong song.
+    // Run song recognition in the background. SongRecognizer owns the capture device and child process.
+    // Synchronize recognition state between the worker thread and UI.
+    // Check each result against playback state before applying it.
     public static partial class Radio
     {
-        // Recognition is a background lookup; the gate serialises its state across the worker
-        // thread and the UI. Input and error are kept for the UI to make the operation legible:
-        // where it listened, and why it came back empty. The token source lets a cancel action
-        // stop a slow Shazam call.
+        // Use a lock for recognition state shared by the worker thread and UI.
+        // Retain the input label and error for display. The cancellation token can stop a slow request.
         static readonly object RecognitionGate = new object();
         static bool _recognizing;
         static string _recognitionInput;
@@ -21,14 +19,12 @@ namespace SlopWorld
         static CancellationTokenSource _recognitionCancel;
         static readonly RecognitionTrackState RecognitionTrack = new RecognitionTrackState();
 
-        // Tests and alternate hosts can inject the service at the Radio boundary. The default
-        // remains the real SongRec process, but eligibility and late-result behavior no longer
-        // require starting a child process to exercise them.
+        // Permit tests and other hosts to supply a recognition service.
+        // Use SongRec by default. Tests can check eligibility and delayed results without starting a process.
         internal static Func<IRecognitionService> RecognitionFactory = () =>
             new SongRecognizer(new SystemProcessRunner());
 
-        // The UI's window onto the background lookup. Read under the gate because the worker
-        // thread writes them; each answers one question the recognizing state needs to show.
+        // Read recognition state under the lock because the worker thread also accesses it.
         public static bool Recognizing
         {
             get { lock (RecognitionGate) return _recognizing; }
@@ -44,10 +40,9 @@ namespace SlopWorld
             get { lock (RecognitionGate) return _recognitionError; }
         }
 
-        // Start one lookup at a time. SongRecognizer owns the capture device, the child process,
-        // its JSON and its timeout; this keeps it off the Unity thread so a slow Shazam response
-        // cannot freeze the game, and binds the result to the track that was heard. Duplicate
-        // requests are refused rather than queued: two Shazam calls on one song help nobody.
+        // Run one request at a time outside the Unity thread. Reject duplicate requests.
+        // SongRecognizer controls capture, process execution, JSON parsing, and timeouts.
+        // Retain the playback revision and source to validate the result.
         public static void Recognize()
         {
             Read();
@@ -76,12 +71,11 @@ namespace SlopWorld
                 source = RecognitionTrack.Source;
             }
 
-            Messages.Message("Jukebox: recognizing...", MessageTypeDefOf.NeutralEvent, false);
+            Messages.Message("Jukebox: Recognizing", MessageTypeDefOf.NeutralEvent, false);
             ThreadPool.QueueUserWorkItem(_ => RunRecognition(version, source, token));
         }
 
-        // Cancel an in-flight lookup. The worker's result then comes back Canceled and is
-        // dropped without a toast, because the player already knows they stopped it.
+        // Cancel the active request. Discard its result without a notification.
         public static void CancelRecognition()
         {
             CancellationTokenSource cancel;
@@ -99,8 +93,7 @@ namespace SlopWorld
             try
             {
                 IRecognitionService recognizer = RecognitionFactory();
-                // Choose the input first and publish its label so the recognizing state can
-                // name where it is listening while the slow lookup runs.
+                // Publish the selected input label before starting recognition so the UI can show the capture source.
                 AudioInput input = recognizer.SelectInput(token);
                 DaemonClient.OnMainThread(() => SetRecognitionInput(input.Label));
                 result = recognizer.Recognize(input, token);
@@ -123,8 +116,7 @@ namespace SlopWorld
                 if (_recognizing) _recognitionInput = label;
         }
 
-        // Apply a result only if it still belongs to what is playing: SongRec heard a snippet,
-        // and by the time it answers the station may have moved on or the source been switched.
+        // Apply the result only if playback still matches the recorded revision and source.
         static void FinishRecognition(int version, string source, CancellationToken token,
                                        RecognitionResult result)
         {

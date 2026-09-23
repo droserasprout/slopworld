@@ -15,8 +15,8 @@ namespace SlopWorld
         }
     }
 
-    // UI one-shots are camera sounds without a map restriction. Map sounds using the same
-    // API pass their map explicitly, so they retain their normal audio in alternate mode.
+    // Replace camera sounds without a map restriction in alternate mode.
+    // Sounds with an explicit map retain their normal audio.
     [HarmonyPatch(typeof(SoundStarter), nameof(SoundStarter.PlayOneShotOnCamera))]
     public static class Patch_UiTemperatureSounds
     {

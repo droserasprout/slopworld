@@ -5,11 +5,9 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Retains arrow-key camera and Accept/Cancel bindings; the removed gameplay systems
-    // leave the other vanilla bindings inert. Keep every def in the database because
-    // KeyPrefs and other readers key on it. "Dropped" means omitted by KeyBindingsPage and
-    // forced to NotBound below. Cancel must remain: WindowStack reads it by name to close
-    // windows.
+    // Retain camera, Accept, Cancel, and mod key bindings.
+    // Keep all definitions because KeyPrefs and other readers reference them.
+    // KeyBindingsPage omits disabled bindings, and NotBound suppresses their input. WindowStack requires Cancel to close windows.
     public static class StripKeys
     {
         static readonly string[] CameraDolly =
@@ -34,19 +32,14 @@ namespace SlopWorld
             "Accept", "Cancel",
         };
 
-        // Ours by content pack rather than by name: every binding this mod ships is one it
-        // put there on purpose, and a table of them here would be a second place to
-        // remember when Defs/KeyBindings.xml grows a row.
+        // Identify mod bindings by content pack so new definitions require no additional list entry.
         public static bool Kept(KeyBindingDef def) =>
             def != null
             && (Keep.Contains(def.defName)
                 || (ModEntry.Instance != null
                     && def.modContentPack == ModEntry.Instance.Content));
 
-        // The four ways vanilla asks whether a binding is down, patched from a table the
-        // way Patch_HideGui's targets are. MainKey is left off it: that is what a label is
-        // drawn from, and every label of a dropped binding belongs to something that is not
-        // drawn either.
+        // Patch the four input state getters. Leave MainKey available for labels.
         static readonly string[] Reads =
         {
             "KeyDownEvent", "IsDownEvent", "JustPressed", "IsDown",
@@ -66,9 +59,8 @@ namespace SlopWorld
                 postfix: new HarmonyMethod(
                     AccessTools.Method(typeof(StripKeys), nameof(AfterKeyPrefsReset))));
 
-            // KeyPrefs.Init normally runs after mod static constructors. Sanitize immediately
-            // as well for a reload path where it has already run, and again from the Init and
-            // reset postfixes so existing preferences and restored defaults agree.
+            // Remove conflicting camera keys now in case preferences have already loaded.
+            // Repeat after initialization and reset so saved preferences and defaults use the same rules.
             SanitizeCameraKeys(KeyPrefs.KeyPrefsData);
         }
 
@@ -96,7 +88,7 @@ namespace SlopWorld
             if (changed && ReferenceEquals(KeyPrefs.KeyPrefsData, data)) KeyPrefs.Save();
         }
 
-        // Patch KeyBindingDef reads because hidden bindings still reach ScreenshotTaker and MainButtonsOnGUI (F10, Tab, and F1-F9).
+        // Suppress input for hidden bindings because ScreenshotTaker and MainButtonsOnGUI still read them.
         static bool NotBound(KeyBindingDef __instance, ref bool __result)
         {
             if (Kept(__instance)) return true;

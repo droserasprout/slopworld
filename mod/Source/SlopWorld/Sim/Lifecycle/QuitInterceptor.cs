@@ -3,14 +3,14 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Intercept OS close requests so the game saves before exit: cancel wantsToQuit, save on
-    // the next frame, then call Root.Shutdown. A second request and programmatic shutdown pass.
+    // Intercept the first OS close request to save before exit.
+    // Cancel wantsToQuit and defer saving and Root.Shutdown until the next frame.
+    // Permit repeated requests and programmatic shutdown.
     public static class QuitInterceptor
     {
         // null = idle, "pending" = save and quit on next frame
         static string _state;
-        // Set before calling Root.Shutdown, so the wantsToQuit event that fires when
-        // Root.Shutdown calls Application.Quit is let through instead of looping.
+        // Set before Root.Shutdown so its Application.Quit call can pass through wantsToQuit without repeating the save sequence.
         static bool _shuttingDown;
 
         public static void Register()
@@ -22,20 +22,20 @@ namespace SlopWorld
         // Must return true to allow the quit, false to cancel it.
         static bool OnWantsToQuit()
         {
-            // Already shutting down from a previous close request: let the second one
-            // through to avoid blocking the exit.
+            // Permit another close request when shutdown is pending or active.
             if (_state != null || _shuttingDown) return true;
 
             // Programmatic shutdown (profile Quit button): let it through.
             if (SaveCoordinator.ConsumeProgrammaticShutdown()) return true;
 
             _state = "pending";
-            // Cancel the OS quit; the save and clean shutdown happen on the next frame.
+            // Cancel this OS quit request.
+            // Save and shut down on the next frame.
             return false;
         }
 
-        // Called every frame from Patch_Root_Update.  Saves the game and calls
-        // Root.Shutdown to quit cleanly.
+        // Patch_Root_Update calls this each frame.
+        // For a pending request, attempt to save before calling Root.Shutdown.
         public static void Check()
         {
             if (_state != "pending") return;

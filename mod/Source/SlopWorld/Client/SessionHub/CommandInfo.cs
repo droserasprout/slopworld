@@ -3,9 +3,8 @@ using System.Linq;
 
 namespace SlopWorld
 {
-    // What a session runs, and the sandbox presets that come with it. Fetched for the same
-    // reason presets are: a command file added while the game was up is one the dropdown
-    // has to be able to show.
+    // A session command and its required sandbox presets.
+    // Fetch current definitions so the dropdown can show command files added while the game runs.
     public class CommandInfo
     {
         public const string AgentKind = "agent";
@@ -16,7 +15,7 @@ namespace SlopWorld
         public string Kind = AgentKind;
         public string Description = "";
         public string Source = "";
-        // What it runs before this machine's `[defaults]` and the agent's own override.
+        // Base command before applying machine defaults and the agent's override.
         public string Cmd = "";
         public List<string> Sandbox = new List<string>();
 

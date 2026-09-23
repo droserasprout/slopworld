@@ -5,16 +5,14 @@ using Verse;
 
 namespace SlopWorld
 {
-    // QuickStart may choose any tile, but this map needs green, open, walkable ground:
-    // rock traps agents and gives the plague no targets. Choose a forest/swamp tile in the
-    // map-generation long event, before InitGameStart reads `startingTile`.
+    // Choose a forest or swamp tile with open ground for agents and plague targets.
+    // Run during map generation, before InitGameStart reads startingTile.
     public static class LandingSite
     {
-        // Swamp is the same climate with worse footing, so it is a fallback rather than
-        // an equal.
+        // Consider tropical rainforest and swamp tiles.
         static readonly string[] Tropical = { "TropicalRainforest", "TropicalSwamp" };
 
-        // Not tropical, still green. Some planets generate with no tropics at all.
+        // Use temperate biomes if no suitable tropical tile exists.
         static readonly string[] Temperate = { "TemperateForest", "TemperateSwamp" };
 
         public static void Choose()
@@ -23,8 +21,7 @@ namespace SlopWorld
             var layer = Find.WorldGrid?.Surface;
             if (init == null || layer == null) return;
 
-            // The biome matters more than the ground does - a hilly rainforest still beats a
-            // flat temperate one for the look of the thing.
+            // Prefer tropical biomes, even if they have more hills than a temperate tile.
             var tile = Pick(layer, Tropical, Hilliness.Flat)
                     ?? Pick(layer, Tropical, Hilliness.SmallHills)
                     ?? Pick(layer, Temperate, Hilliness.Flat)
@@ -32,9 +29,8 @@ namespace SlopWorld
 
             if (tile == null)
             {
-                // Vanilla's tile is already in place, so leaving it alone is the fallback; say
-                // so, because the colony will look wrong and this is why.
-                Log.Warning("[SlopWorld] no green lowland tile on this planet; keeping the random one");
+                // Keep the random tile if no suitable tile exists. Log the reason for the fallback.
+                Log.Warning("[SlopWorld] No green lowland tile exists on this planet. Keeping the random tile.");
                 return;
             }
 
@@ -43,9 +39,8 @@ namespace SlopWorld
                         $"at tile {tile.Value}");
         }
 
-        // Scans the layer once and picks among the hits rather than calling vanilla's
-        // weighted finder with a predicate: that logs an error when it comes up empty,
-        // and coming up empty is the normal case here.
+        // Scan the layer once and select a matching tile at random.
+        // The base game finder logs an error if no tile matches. Here, no match is an expected result.
         static PlanetTile? Pick(PlanetLayer layer, string[] biomes, Hilliness maxHills)
         {
             var hits = new List<PlanetTile>();
@@ -56,8 +51,8 @@ namespace SlopWorld
                 var t = new PlanetTile(i, layer);
                 var tile = grid[t];
                 if (tile == null) continue;
-                // Undefined sorts below Flat, so it would pass a plain <= test. It means the tile
-                // never had terrain generated - ocean, mostly.
+                // Undefined sorts below Flat, so a comparison with maxHills alone would accept it.
+                // Exclude tiles without generated terrain, such as ocean tiles.
                 if (tile.hilliness == Hilliness.Undefined) continue;
                 if (tile.hilliness > maxHills) continue;
 
@@ -65,8 +60,7 @@ namespace SlopWorld
                 if (biome == null) continue;
                 if (System.Array.IndexOf(biomes, biome.defName) < 0) continue;
 
-                // Last, because it is much the most expensive of the four: it walks the tile's
-                // neighbours, roads and existing settlements.
+                // Check settlement validity last because it also checks nearby tiles, roads, and settlements.
                 if (!TileFinder.IsValidTileForNewSettlement(t)) continue;
 
                 hits.Add(t);

@@ -8,9 +8,9 @@ namespace SlopWorld
 {
     public partial class Worksite
     {
-        // A run is Least..Most items in Lines rows with Gap cells between them. The whole
-        // run is pitched in one pass so its frames reserve the ground before construction;
-        // spacing comes from the rotated footprint rather than duplicated def dimensions.
+        // A run contains Least to Most items per row, with Lines rows and Gap cells between items.
+        // Place all frames in one pass to reserve the ground before construction.
+        // Calculate spacing from rotated footprints.
         struct Run
         {
             public int Least, Most, Lines, Gap;
@@ -25,14 +25,13 @@ namespace SlopWorld
             public Run Run; // how many go down at once, and in what shape
         }
 
-        // Keyed on what is being built, not on the frame, which is gone by the time
-        // anything asks twice. Static: Patch_ErrandWork has no map to ask.
+        // Key these tables by the buildable definition because completed frames no longer exist.
+        // Use static tables because Patch_ErrandWork has no map reference.
         static readonly Dictionary<BuildableDef, float> Work = new Dictionary<BuildableDef, float>();
         static readonly Dictionary<BuildableDef, float> Blooms = new Dictionary<BuildableDef, float>();
 
-        // Ensure() here rather than at the next errand: a load comes back with frames on
-        // the board and pawns already swinging, and the first thing to ask about one is
-        // Patch_ErrandWork. An empty table there is a plate costing vanilla's 1100 ticks.
+        // Initialize the table before reading work requirements.
+        // After a load, Patch_ErrandWork can request this value before the next errand starts.
         public static float WorkFor(BuildableDef def)
         {
             if (def == null) return 0f;
@@ -49,7 +48,7 @@ namespace SlopWorld
 
         static void Ensure() { if (_errands == null) { var _ = Errands; } }
 
-        // Nothing on the list is the map's; the stone is, and Blocks() settles that.
+        // The errand list is independent of the map. Blocks() selects stone for each map.
         static List<Errand> _errands;
         static bool _grandmaModeCached;
         static TerrainDef _plate;
@@ -62,9 +61,8 @@ namespace SlopWorld
             public List<Pawn> Stale;
         }
 
-        // Assignment state is transient: jobs and pawns are rebuilt by the game around a
-        // map load. Keep it beside the errand selection and its cleanup, rather than with
-        // the quarry's persistent material and placement state.
+        // Keep assignment state only in memory. The game restores jobs and pawns when it loads a map.
+        // Store this state with errand selection and cleanup.
         AssignmentState _assignments = new AssignmentState
         {
             Sent = new Dictionary<Pawn, Frame>(),
@@ -87,8 +85,7 @@ namespace SlopWorld
                 _grandmaModeCached = grandma;
                 _errands = new List<Errand>();
 
-                // Metal plate rather than the tile's flagstone, which read as a garden path
-                // through a dead world.
+                // Use metal tiles for the industrial appearance.
                 _plate = DefDatabase<TerrainDef>.GetNamedSilentFail("MetalTile");
 
                 Add(_plate, PavingSeconds, PavingOdds, PavingBloom,
@@ -96,7 +93,7 @@ namespace SlopWorld
 
                 if (grandma)
                 {
-                    // Grandma mode: furniture and flower pots instead of graves and obelisks.
+                    // Use furniture and flower pots in Gentle mode.
                     Add(Named("FlowerPot"), SmallSeconds, 5f, SmallBloom,
                         new Run { Least = 3, Most = 6, Gap = 1 });
                     Add(Named("Chair"), SmallSeconds, 3f, SmallBloom,
@@ -119,10 +116,8 @@ namespace SlopWorld
                     Add(Named("SteleGrand"), MonumentSeconds, SteleGrandOdds, MonumentBloom);
                 }
 
-                // Ruin scenery vanilla lets no player build; Patches/AncientBuildings.xml is
-                // what hands them a frame. They cost nothing and want no skill. The lamp is
-                // the only one that is not decoration - a CompGlower with neither a power
-                // comp nor a fuel one, the one light in the game that simply burns.
+                // Patches/AncientBuildings.xml adds frames for these ancient buildings.
+                // They require no resources or skills. AncientLamp supplies light without power or fuel.
                 Add(Named("AncientLamp"), SmallSeconds, LampOdds, SmallBloom);
                 Add(Named("AncientLamppost"), SmallSeconds, LamppostOdds, SmallBloom);
                 Add(Named("AncientSystemRack"), MediumSeconds, RackOdds, MediumBloom);
@@ -132,7 +127,7 @@ namespace SlopWorld
                 Add(Named("AncientMachine"), MonumentSeconds, MachineOdds, MonumentBloom);
 
                 if (_errands.Count == 0)
-                    Log.Warning("[SlopWorld] no errands this build knows how to build; agents will stand about");
+                    Log.Warning("[SlopWorld] This build has no errands to assign. Agents will wait.");
 
                 return _errands;
             }
@@ -143,7 +138,7 @@ namespace SlopWorld
         {
             if (what == null || what.frameDef == null) return;
 
-            // So an omitted run is one thing on its own rather than none of it.
+            // Use one item if the caller omits the run.
             run.Least = Mathf.Max(1, run.Least);
             run.Most = Mathf.Max(run.Least, run.Most);
             run.Lines = Mathf.Max(1, run.Lines);
@@ -163,8 +158,7 @@ namespace SlopWorld
 
         static ThingDef Named(string name) => DefDatabase<ThingDef>.GetNamedSilentFail(name);
 
-        // An agent gone quiet puts the hammer down where it stands; the frame keeps what
-        // it has been given.
+        // Stop construction. Retain progress in the frame.
         void Stop(Pawn pawn)
         {
             _sent.Remove(pawn);
@@ -174,8 +168,8 @@ namespace SlopWorld
             Allow(pawn, false);
         }
 
-        // Override vanilla work only while the process is busy; otherwise its work givers
-        // fight daemon assignments and make pawns turn between sweeps.
+        // Enable construction only while the agent works.
+        // Otherwise, base game work givers can assign jobs that conflict with daemon assignments.
         static void Allow(Pawn pawn, bool building)
         {
             var work = pawn.workSettings;
@@ -190,16 +184,15 @@ namespace SlopWorld
                 if (pawn.WorkTypeIsDisabled(type)) continue;
 
                 int want = building && type == WorkTypeDefOf.Construction ? 3 : 0;
-                // Only on a change: the setter dirties the pawn's work giver lists, and this
-                // is asked of every agent four times a second.
+                // Change priority only when necessary. The setter invalidates the pawn work giver lists.
                 if (work.GetPriority(type) != want) work.SetPriority(type, want);
             }
         }
 
         void Send(Pawn pawn)
         {
-            // Vanilla has sent the pawn to stand clear of a frame so it can be built.
-            // Forcing the errand back over that job is how a clanker walks on the spot.
+            // Allow the pawn to finish moving away from a frame.
+            // Assigning construction again can repeatedly interrupt this movement.
             if (pawn.CurJobDef == JobDefOf.Goto) return;
 
             if (!Ready(pawn)) return;
@@ -214,8 +207,7 @@ namespace SlopWorld
             var frame = Free(pawn) ?? Open(pawn);
             if (frame == null) return;
 
-            // Asked of an opened frame too: one can be blocked the moment it is placed, by
-            // whoever wandered past or by the pawn that asked for it.
+            // Check newly placed frames too. A pawn can block a frame immediately after placement.
             if (!Buildable(frame, pawn)) return;
 
             Fill(frame);
@@ -223,14 +215,12 @@ namespace SlopWorld
                 _sent[pawn] = frame;
         }
 
-        // Use the driver's fail condition one tick early and with skills disabled; otherwise
-        // an under-skilled pawn receives an unreachable frame and retries it forever.
+        // Check the job driver construction conditions before assignment. Disable the skill check here.
         static bool Buildable(Frame frame, Pawn pawn) =>
             GenConstruct.CanConstruct(frame, pawn, true, false);
 
-        // Construction has to stay *on* while the hammer swings: CanConstruct reads the
-        // work settings and the driver fails on that every tick. Patch_AgentsCanBuild is
-        // what lets the answer be yes whatever backstory the pawn was handed.
+        // Keep Construction enabled during the job because CanConstruct checks work settings each tick.
+        // Patch_AgentsCanBuild permits construction regardless of pawn backstory.
         static bool Ready(Pawn pawn)
         {
             if (pawn.jobs == null || pawn.workSettings == null) return false;
@@ -240,8 +230,7 @@ namespace SlopWorld
             return true;
         }
 
-        // Free = unreserved, which is the same question the driver asks on the way in.
-        // Nearest first, so two agents do not cross the map past each other.
+        // Select the nearest frame that the pawn can reserve and construct.
         Frame Free(Pawn pawn)
         {
             Frame best = null;
@@ -253,11 +242,10 @@ namespace SlopWorld
                 if (frame == null || !frame.Spawned) continue;
                 if (WorkFor(frame.def?.entityDefToBuild) <= 0f) continue;
                 if (_shunned.Contains(frame)) continue;
-                // Farther frames cannot replace the current choice. Reject them before
-                // asking vanilla to check reservations and construction eligibility.
+                // Reject more distant frames before checking reservations and construction eligibility.
                 float d = frame.Position.DistanceToSquared(pawn.Position);
                 if (d >= nearest) continue;
-                // Cheap first: a dictionary lookup before a path.
+                // Check reservations before construction eligibility.
                 if (!pawn.CanReserve(frame)) continue;
                 if (!Buildable(frame, pawn)) continue;
 
@@ -268,11 +256,11 @@ namespace SlopWorld
             return best;
         }
 
-        // Start a bounded sweep. Exclude frames blocked by vanilla's first blocking thing:
-        // they would consume MaxOpen forever, and no agent or hauler can remove the blocker.
+        // Start a sweep with a fixed frame limit.
+        // Remove blocked frames so they do not permanently consume the open frame limit.
         void BeginSweep()
         {
-            // A frame nobody on the map is skilled enough for is rubbish the same way.
+            // Collect agents to check whether any can meet each frame skill requirement.
             _hands.Clear();
             var colony = AgentColony.Current;
             if (colony != null)
@@ -310,21 +298,21 @@ namespace SlopWorld
             _runtime.SweepCursor = end;
             if (end < _runtime.SweepLimit) return;
 
-            // The ones that deserved shunning for good have just been destroyed.
+            // Clear excluded frames before removing blocked frames and frames that no agent can construct.
             _shunned.Clear();
             Prune();
 
             for (int i = 0; i < _sweepDoomed.Count; i++)
                 if (!_sweepDoomed[i].Destroyed) _sweepDoomed[i].Destroy(DestroyMode.Vanish);
 
-            // Room where there was none; the last round of darts is out of date.
+            // Reset failed placement attempts because frame removal can make space available.
             _blocked = 0;
             _sweepDoomed.Clear();
             _runtime.SweepPending = false;
             _runtime.FrameIndexDirty = true;
         }
 
-        // An empty colony is not the same answer as a colony of clumsy hands.
+        // Retain frames when no agents exist. Otherwise, require at least one agent with sufficient skills.
         bool Anyone(BuildableDef what)
         {
             if (_hands.Count == 0) return true;
@@ -333,7 +321,7 @@ namespace SlopWorld
             return false;
         }
 
-        // A dictionary keyed on pawns would hold every agent that ever landed.
+        // Remove assignments for pawns or frames that no longer exist on the map.
         void Prune()
         {
             if (_sent.Count == 0) return;
@@ -346,8 +334,7 @@ namespace SlopWorld
             for (int i = 0; i < _stale.Count; i++) _sent.Remove(_stale[i]);
         }
 
-        // Weighted, and only over what the pawn asking could finish - a clanker that opens
-        // a frame beyond its own hands has built the trap it walks into.
+        // Select an errand by weight from those that the pawn has sufficient skills to complete.
         Errand? Pick(Pawn pawn)
         {
             var list = Errands;
@@ -369,8 +356,7 @@ namespace SlopWorld
             return last;
         }
 
-        // The half of CanConstruct that is about the pawn rather than the ground - the
-        // only half that can be asked before the frame exists.
+        // Check pawn skill requirements before a frame exists.
         static bool Skilled(BuildableDef what, Pawn pawn)
         {
             var skills = pawn?.skills;

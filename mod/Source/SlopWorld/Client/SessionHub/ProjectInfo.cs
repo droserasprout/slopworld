@@ -82,7 +82,7 @@ namespace SlopWorld
         }
 
         public string Status => Dir ?? (Pending
-            ? "Waiting for daemon preview…"
+            ? "Waiting for daemon preview"
             : Attempts >= MaxAttempts ? "Preview unavailable after three attempts." : Error ?? "");
     }
 
@@ -111,14 +111,14 @@ namespace SlopWorld
                 }
             }
         }
-        // The daemon coins TempRoot/name and makes it when the first agent starts there. It
-        // is /tmp that is temporary, not the entry.
+        // The daemon generates TempRoot/name and creates the directory when the first agent starts there.
+        // The project entry persists after the daemon removes the temporary directory.
         public bool Temp;
         // Every agent in this project receives these direct mounts at its next start.
         public List<MountEntry> Mounts = new List<MountEntry>();
 
-        // Resolve on the daemon: the game can have a different home and environment.
-        // Keep Dir verbatim for editing; older daemons still supply literal paths.
+        // Resolve paths on the daemon because the game can have a different home directory and environment.
+        // Preserve Dir for editing. Use it as a fallback for older daemons that supply literal paths.
         public string ExpandedDir => _expandedDir ?? Dir;
         string _expandedDir;
 
@@ -130,8 +130,8 @@ namespace SlopWorld
             ((!string.IsNullOrEmpty(Dir) && NormalizeMountPath(path) == NormalizeMountPath(Dir)) ||
              (!string.IsNullOrEmpty(ExpandedDir) && NormalizeMountPath(path) == NormalizeMountPath(ExpandedDir)));
 
-        // Paths belong to the Linux daemon, not the game's host OS. Only normalize lexical
-        // spelling here; environment variables and home expansion remain daemon-owned.
+        // These paths use the Linux daemon's filesystem rules.
+        // Normalize only the path text here. The daemon expands environment variables and home-directory prefixes.
         static string NormalizeMountPath(string path)
         {
             if (string.IsNullOrEmpty(path)) return "";
@@ -151,8 +151,8 @@ namespace SlopWorld
             return primary;
         }
 
-        // The daemon is the only owner of temporary root policy. Missing metadata is explicit
-        // so the editor does not silently present a compiled daemon path.
+        // The daemon supplies the temporary root directory.
+        // Return an empty value when metadata is missing instead of displaying a compiled default path.
         public static string TempRoot => SessionHub.Instance.Config?.TemporaryRoot ?? "";
 
         public static ProjectInfo FromWire(Wire.Project j) => new ProjectInfo

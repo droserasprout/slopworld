@@ -3,8 +3,8 @@ using System.Collections.Generic;
 
 namespace SlopWorld
 {
-    // Owns connection lifecycle and operations spanning multiple stores. Callers use the
-    // owning service directly for independent mutations and terminal/audio commands.
+    // Manage connection lifetime and operations that involve multiple stores.
+    // Use each responsible service directly for independent changes and terminal or audio commands.
     public partial class SessionHub
     {
         public static readonly SessionHub Instance = new SessionHub();
@@ -22,13 +22,12 @@ namespace SlopWorld
         internal AudioBus Audio => _audio;
         int _connectionGeneration;
 
-        // Defaults for transient host applications, refreshed on connect and after any settings
-        // page saves. Settable because those pages write it back optimistically before the
-        // daemon answers; the initial object keeps file actions usable before the first response.
+        // Refresh host-application defaults on connection and after settings saves.
+        // Settings pages can update these values before the daemon responds.
+        // Initial defaults keep file actions usable before the first response.
         public DaemonConfig Config = new DaemonConfig();
         public DaemonCapabilities Capabilities = new DaemonCapabilities();
-        // Never null: an empty one draws as "no numbers", which is what a daemon that has not
-        // answered yet means.
+        // Keep this non-null. An empty object indicates unavailable usage data before the daemon responds.
         public UsageInfo Usage = new UsageInfo();
         public DaemonHealth Health = new DaemonHealth();
 
@@ -113,8 +112,7 @@ namespace SlopWorld
 
         // ---- config --------------------------------------------------------------------
 
-        // Mutations go over HTTP rather than the socket: they rewrite config.toml, and the
-        // error body matters.
+        // Send configuration changes through HTTP to retain error details when saving config.toml fails.
         public void RefreshConfig(Action<string> fail = null) =>
             DaemonClient.Get<Wire.ConfigResult>(WireProtocol.Routes.Config,
                 j => Config = DaemonConfig.FromWire(j.Values, j.Metadata), fail);
@@ -146,9 +144,9 @@ namespace SlopWorld
                 }, fail);
         }
 
-        // Worker construction is a daemon-owned transaction: the caller and project are
-        // context, while the selected template supplies the child's captured configuration.
-        // Refresh both stores before exposing the returned terminal to the UI.
+        // The daemon creates workers from the selected template's saved configuration and the caller's project context.
+        // Start task and session refreshes before opening the worker terminal.
+        // Wait for the session refresh to succeed before notifying the UI.
         public void SpawnWorker(string caller, string project, string template, string body,
                                 bool durable, Action<string> started, Action<string> fail, string worktree = "", bool newWorktree = false, string baseRevision = "", string worktreeName = "")
         {

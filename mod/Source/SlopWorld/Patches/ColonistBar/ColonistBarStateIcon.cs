@@ -4,8 +4,8 @@ using Verse.AI;
 
 namespace SlopWorld
 {
-    // The daemon's state dot replaces the colonist bar's idle/down icon strip. Keep vanilla
-    // from deciding that an agent is idle so it cannot reintroduce that indicator elsewhere.
+    // Use the daemon state indicator instead of the base game idle indicator.
+    // Prevent the base game from classifying agent pawns as idle.
     [HarmonyPatch(typeof(Pawn_MindState), nameof(Pawn_MindState.IsIdle), MethodType.Getter)]
     public static class Patch_AgentNeverIdle
     {

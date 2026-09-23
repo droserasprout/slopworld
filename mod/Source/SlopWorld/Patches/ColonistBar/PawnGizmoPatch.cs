@@ -8,29 +8,28 @@ using Verse;
 
 namespace SlopWorld
 {
-    /// <summary>Pawn gizmos stay vanilla; session actions come from the current
-    /// <see cref="SessionSelectable"/> inserted by <see cref="SessionGizmoSelection"/>.</summary>
+    /// <summary>Retain base game pawn gizmos. Session actions come from
+    /// <see cref="SessionSelectable"/> through <see cref="SessionGizmoSelection"/>.</summary>
     [HarmonyPatch(typeof(Pawn), nameof(Pawn.GetGizmos))]
     public static class Patch_Pawn_GetGizmos
     {
-        // Empty - the pawn shows whatever vanilla gave it; session gizmos come from
-        // the SessionSelectable on the gizmo grid.
+        // Keep pawn gizmos unchanged. SessionSelectable supplies session actions separately.
     }
 
-    /// <summary><c>PriorityWork</c> is never assigned by this mod, but a zeroed saved cell
-    /// can make vanilla emit "Clear prioritized work"; remove the no-op button.</summary>
+    /// <summary>The mod does not assign <c>PriorityWork</c>. A saved cell with zero coordinates
+    /// can still produce a "Clear prioritized work" button. Remove that unused action.</summary>
     [HarmonyPatch(typeof(PriorityWork), nameof(PriorityWork.GetGizmos))]
     public static class Patch_NoPrioritizedWorkGizmo
     {
         static readonly FieldInfo PawnField = AccessTools.Field(typeof(PriorityWork), "pawn");
 
-        // A reflection target that stops resolving must be loud once, not silently inert.
+        // Log one error if the reflected field is unavailable.
         static readonly bool Ready = Check();
 
         static bool Check()
         {
             if (PawnField != null) return true;
-            Log.Error("[SlopWorld] PriorityWork.pawn moved; the work gizmo stays");
+            Log.Error("[SlopWorld] PriorityWork.pawn moved. The work gizmo stays.");
             return false;
         }
 

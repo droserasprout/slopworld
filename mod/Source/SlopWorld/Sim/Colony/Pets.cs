@@ -7,19 +7,18 @@ using Verse.AI;
 
 namespace SlopWorld
 {
-    // The colony's cat: the one living thing nothing kills, which is `Plague.Infectable`
-    // sparing the player faction. The API stays plural so the count is a policy in Place
-    // rather than an assumption in three files.
+    // Manage the colony's pet. Plague.Infectable excludes the player faction.
+    // Keep the API plural so Place controls the pet count without assumptions in other callers.
     public static class Pets
     {
         const int PlacementTries = 40;
 
-        // A drag box calls Select once per thing inside it, so without this a stray drag sets
-        // off every animal on the map.
+        // Drag selection calls Select for each enclosed object.
+        // Limit repeated selection effects for each pet.
         const float PokeCooldown = 0.4f;
 
-        // A refused attack is refused every tick the animal keeps trying, and a mental state
-        // hands it the attack job straight back.
+        // Limit repeated nuzzle replacements when an animal keeps trying to attack.
+        // A mental state can assign another attack job after interruption.
         const float NuzzleCooldown = 20f;
 
         // What vanilla's own nuzzle job allows.
@@ -36,15 +35,15 @@ namespace SlopWorld
         public static List<Pawn> On(Map map) =>
             map?.mapPawns?.SpawnedColonyAnimals?.Where(Is).ToList() ?? new List<Pawn>();
 
-        // Called once by the intro, before anything falls. Anywhere standable rather than near
-        // the middle: a cat that lands on the mark is a delivery.
+        // The intro calls this before pod arrivals.
+        // Prefer a random standable cell so the pet does not appear to arrive with the pods.
         public static void Place(Map map)
         {
             if (map == null) return;
 
-            // ModScenario takes the scenario's own starting animal off at source; this closes
-            // the rest, including this method running twice, IntroDirector._armed being
-            // runtime state under a persisted phase.
+            // ModScenario removes the scenario's starting animal.
+            // Remove any remaining colony animals, including pets from a repeated Place call.
+            // The intro can repeat because _armed is runtime state while its phase persists.
             foreach (var other in On(map))
             {
                 Log.Message($"[SlopWorld] removing stray colony animal '{other.LabelShort}'");
@@ -54,7 +53,7 @@ namespace SlopWorld
             var cat = ModDefOf.Cat;
             if (cat == null)
             {
-                Log.Warning("[SlopWorld] no Cat def; colony starts with nothing living on it");
+                Log.Warning("[SlopWorld] No Cat definition exists. The colony starts without an animal.");
                 return;
             }
 
@@ -85,8 +84,8 @@ namespace SlopWorld
             }
         }
 
-        // DoCall picks the species' soundCall over its soundAngry for anything not currently
-        // aggressive, which a tame pet never is. Also the whole of the input to Aura.
+        // DoCall uses the species' normal call when the pet is not aggressive.
+        // Also notify the cursor and Aura of the interaction.
         public static void Poke(Pawn pet)
         {
             if (pet == null || pet.Dead || !pet.Spawned) return;
@@ -101,8 +100,8 @@ namespace SlopWorld
             Aura.Of(pet.Map)?.Pat(pet);
         }
 
-        // Vanilla's nuzzle is a job pointed at a pawn. Forced, because the job it replaces came
-        // from a mental state or a hunt and neither stands aside politely.
+        // Assign the base game's nuzzle job with the agent as its target.
+        // Force interruption of the previous hunt or mental-state job.
         public static void NuzzleInstead(Pawn pet, Pawn agent)
         {
             if (pet == null || pet.Dead || !pet.Spawned || pet.jobs == null) return;

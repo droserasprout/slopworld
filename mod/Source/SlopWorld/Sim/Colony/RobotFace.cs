@@ -11,9 +11,8 @@ namespace SlopWorld
     {
         static readonly Color MetalSkinColor = new Color(0.42f, 0.435f, 0.46f);
 
-        // Each variant is a separate texture set (south + east) so the color lives in the
-        // PNG rather than in a shader parameter. RimWorld's texture loader caches by path, so
-        // the per-pawn texPath is the only thing that changes.
+        // Each variant has south and east textures with color in the PNG files.
+        // RimWorld caches textures by path. Select each pawn's variant through texPath.
         public enum EyeColor
         {
             Blue,
@@ -37,8 +36,8 @@ namespace SlopWorld
             { EyeColor.Missing, "SlopWorld/RobotFace_Missing" },
         };
 
-        // More common colors are weighted higher, so the colony's default palette reads as
-        // working machines. Missing is rare: a story beat rather than an everyday look.
+        // Give common eye colors greater selection weights.
+        // Keep the Missing variant rare.
         struct Weighted { public EyeColor Color; public float Weight; }
         static readonly Weighted[] ColorWeights =
         {
@@ -55,15 +54,15 @@ namespace SlopWorld
         // thingIDNumber because it survives a spawn cycle.
         static readonly Dictionary<int, EyeColor> _eyeColors = new Dictionary<int, EyeColor>();
 
-        // No _north: a faceplate has no back, and the node below hides on that facing. _west is
-        // Graphic_Multi's mirror of _east.
+        // Omit _north because the faceplate node is hidden when facing north.
+        // Graphic_Multi mirrors _east for the west view.
 
         // These scalp cuts are rerolled so every agent keeps a visible hair silhouette.
         static readonly HashSet<string> ScalpHair =
             new HashSet<string> { "Bald", "Shaved", "Mohawk" };
 
-        // Once at generation rather than from the reconcile: nothing takes an agent's hair away
-        // later, and a pawn whose every option is refused would be rerolled forever.
+        // Select hair during generation instead of reconciliation.
+        // Otherwise, a pawn with no acceptable style could trigger repeated selection attempts indefinitely.
         public static void FitHair(Pawn pawn)
         {
             if (pawn?.story == null) return;
@@ -76,20 +75,19 @@ namespace SlopWorld
                 pawn.story.hairDef = hair;
                 return;
             }
-            // Out of tries: a scalp is better than the null hair a blank would be.
+            // Keep the last style after exhausting attempts so hair remains non-null.
         }
 
         public static void RandomizeHairColor(Pawn pawn)
         {
             if (pawn?.story == null) return;
 
-            // Hair is part of the terminal's visual language: use the active ANSI palette so
-            // a theme change is reflected by new agents and explicit appearance rerolls.
+            // Use the active ANSI palette for hair color.
+            // Theme changes then affect new agents and explicit appearance changes.
             pawn.story.HairColor = TerminalTheme.Current.Ansi.RandomElement();
         }
 
-        // Assigns an eye color to the pawn, once. Called at generation time; the color is
-        // stable for the pawn's life.
+        // Assign an eye color during generation. Keep it until an explicit appearance change.
         public static void Assign(Pawn pawn)
         {
             if (pawn == null) return;
@@ -99,8 +97,8 @@ namespace SlopWorld
             _eyeColors[pawn.thingIDNumber] = color;
         }
 
-        // Give an existing agent a new face. Hair keeps the same no-scalp rule as generation,
-        // and one dirty rebuild picks up the plate texture, cut and color together.
+        // Select a new face and hair using the same hair restrictions as generation.
+        // Rebuild the render tree once for the new faceplate texture, hairstyle, and color.
         public static void Reroll(Pawn pawn)
         {
             if (pawn?.story == null) return;
@@ -134,8 +132,7 @@ namespace SlopWorld
             return TexPaths.TryGetValue(color, out var path) ? path : TexPaths[EyeColor.Blue];
         }
 
-        // The one thing that would draw over the plate - beards hang on a render node
-        // above the head, hair does not.
+        // Remove beards because their render nodes would cover the faceplate.
         public static void Apply(Pawn pawn)
         {
             if (pawn?.story == null) return;
@@ -175,23 +172,19 @@ namespace SlopWorld
 
             var props = new PawnRenderNodeProperties
             {
-                // AttachmentHead takes its mesh from GetHumanlikeHairSetForPawn, the mesh
-                // vanilla hair is drawn on, so the plate lands in the same frame as the hair
-                // for this head type and needs no size of its own.
+                // AttachmentHead uses the hair mesh from GetHumanlikeHairSetForPawn.
+                // This aligns the faceplate with this head type without a separate size setting.
                 nodeClass = typeof(PawnRenderNode_AttachmentHead),
                 texPath = RobotFace.TexPathFor(pawn),
                 parentTagDef = PawnRenderNodeTagDefOf.Head,
-                // The plate arrives painted; on the skin shader it would change color with
-                // the pawn under it.
+                // Preserve texture colors. The skin shader would tint the faceplate with the pawn's skin color.
                 shaderTypeDef = ShaderTypeDefOf.Cutout,
                 colorType = PawnRenderNodeProperties.AttachmentColorType.Custom,
                 color = Color.white,
-                // Read off the head node rather than written down: layers are absolute floats
-                // out of the humanlike render tree def. Half a layer, so the plate cannot tie
-                // with whatever the tree puts above.
+                // Derive the layer from the head node's absolute layer value.
+                // Add half a layer to avoid matching the next layer above it.
                 baseLayer = head.Props.baseLayer + 0.5f,
-                // Leaving north out shows the pawn's own head there rather than a plate on the
-                // back of it.
+                // Hide the faceplate when facing north to show the back of the pawn's head.
                 visibleFacing = new List<Rot4> { Rot4.South, Rot4.East, Rot4.West },
             };
 

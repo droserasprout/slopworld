@@ -20,8 +20,8 @@ namespace SlopWorld
             Save();
             Push();
             _openingSpotify = true;
-            // Update sends the selection on the same socket as Quit's stop. The audio
-            // reply supplies the terminal, so opening it needs no HTTP launch request.
+            // Update sends the selection through the same socket that Quit uses to stop playback.
+            // The audio reply identifies the terminal session, so no HTTP launch request is necessary.
         }
 
         static void ReportSpotify(string error, string source, string session)

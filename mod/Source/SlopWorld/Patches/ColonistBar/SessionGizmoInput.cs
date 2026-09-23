@@ -6,9 +6,8 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Map input is split around MapUIOnGUI: map components run before the gizmo grid, while
-    // selection and designator input run after it. Remember the actual action rects so both
-    // sides can use the same hit test instead of relying on a later Event.Use().
+    // Map components handle input before the action grid. Selection and designator input run after it.
+    // Store action rectangles so both stages use the same hit test.
     public static class SessionGizmoInput
     {
         const float GizmoH = 75f;
@@ -20,8 +19,7 @@ namespace SlopWorld
 
         public static void RememberActionRect(Rect rect)
         {
-            // A terminal owns the screen while it is open; its gizmos use window-local
-            // coordinates and must not become map hit regions.
+            // Terminal gizmos use window coordinates. Do not use their rectangles for map input.
             if (TerminalWindow.Covering) return;
 
             int frame = Time.frameCount;
@@ -48,9 +46,8 @@ namespace SlopWorld
                 foreach (var rect in ActionRects)
                     if (rect.Contains(e.mousePosition)) return true;
 
-                // The first event in a frame can arrive before the grid has recorded its
-                // rects. Protect the row until this frame's grid pass has run; subsequent
-                // events use the exact rects above, including wrapped rows.
+                // Protect the first row before this frame records its action rectangles.
+                // Later events use the recorded rectangles, including wrapped rows.
                 if (RectFrame == Time.frameCount) return false;
 
                 var content = WorkspaceLayout.Current.Content;
@@ -72,15 +69,15 @@ namespace SlopWorld
         }
     }
 
-    // MapInterface handles designators and targeters after the action gizmo pass.
+    // MapInterface handles designators and targeters after action gizmo drawing.
     [HarmonyPatch(typeof(MapInterface), nameof(MapInterface.HandleMapClicks))]
     public static class Patch_MapClicks_OverSessionGizmos
     {
         static bool Prefix() => !SessionGizmoInput.MouseOverActionGrid;
     }
 
-    // Selector handles pawn/map selection in the later low-priority pass. This also blocks
-    // the MouseUp half of a drag gesture, which a gizmo's MouseDown absorption cannot cover.
+    // Block map selection in the later input pass.
+    // This includes drag release events that a gizmo MouseDown handler cannot consume.
     [HarmonyPatch(typeof(Selector), "HandleMapClicks")]
     public static class Patch_SelectorClicks_OverSessionGizmos
     {

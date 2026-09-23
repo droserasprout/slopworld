@@ -71,7 +71,7 @@ namespace SlopWorld
             IsAlternate(unit) ? AlternateLabel : fallback;
     }
 
-    // Loading enables the mod unconditionally; settings cover daemon connection and UI
+    // Loading enables the mod unconditionally. Settings cover daemon connection and UI
     // appearance, with terminal values sharing this settings file and endpoint discovery.
     public class ModSettings
     {
@@ -104,7 +104,7 @@ namespace SlopWorld
         // normalized by Settings so older or hand-edited files remain safe.
         public string sidebarSide = NavigationSide.Left;
         public string uiDensity = UiDensityPreset.Default;
-        // One project name per line; deleted projects are ignored.
+        // Store one project name per line. The parser ignores deleted projects.
         public string foldedProjects = "";
         // Unknown tab names fall back to Agents.
         public string sidebarTab = "agents";
@@ -113,18 +113,19 @@ namespace SlopWorld
         // Agent-row visibility: all, or a comma-separated selection of active (working or
         // waiting), idle and down.
         public string sidebarAgentStatus = "all";
-        // One project name per line, blank for all. AgentSidebar defines `[none]` semantics.
+        // Store one project name per line. Leave the field blank to show all projects.
+        // AgentSidebar defines `[none]` semantics.
         public string sidebarFilter = "";
 
         // Command ids, newest first, one per line. The palette validates these against its
         // current catalogue when it opens, so removed commands do not become dead rows.
         public string commandPaletteHistory = "";
 
-        // Per-install quota icon overrides, one `key=defName` per line; missing rows/defs fall
+        // Per-install quota icon overrides, one `key=defName` per line. Missing rows/defs fall
         // back to UsageReadout's default.
         public string usageIcons = "";
         // Whether quota readouts lead with what is left or what has been spent. Left is the
-        // useful default for resources; spent matches the provider-facing convention.
+        // useful default for resources. Spent matches the provider-facing convention.
         public bool usageSpent;
 
         public int fontSize = 14;
@@ -133,11 +134,11 @@ namespace SlopWorld
         public int uiFontSize;
         public string uiFontName = "";
 
-        // Named chrome palette, separate from the terminal's `theme`; unknown schemes fall back
+        // Named chrome palette, separate from the terminal's `theme`. Unknown schemes fall back
         // through `UIScheme`.
         public string uiScheme = "slopworld-warm";
 
-        // Match UI follows the chrome palette; a named terminal palette is an override.
+        // Match UI follows the chrome palette. A named terminal palette is an override.
         public string theme = "match-ui";
         // "#rrggbb", or blank for the scheme's cursor color.
         public string cursorColor = "";
@@ -158,8 +159,8 @@ namespace SlopWorld
         public bool radioMute;
 
         // Which optional instruments are visible in the top statusbar. These are display
-        // preferences rather than the things' own switches: hiding the Computer Core does
-        // not remove it from the map, and hiding Usage does not stop the daemon polling.
+        // preferences rather than the things' own switches. Hiding the Computer Core does not
+        // remove it from the map, and hiding Usage does not stop the daemon polling.
         public bool statusbarUsage = true;
         public string statusbarSummaryPosition = StatusbarSummaryMode.Left;
         public string statusbarClockPosition = StatusbarClockMode.Right;
@@ -173,8 +174,9 @@ namespace SlopWorld
         // outlives the game and should carry the jukebox through a game restart.
         public bool radioStopOnExit;
 
-        // Grandma mode removes gore, harmful tips, and destructive/easter-egg effects; the
-        // background becomes sparkles/rainbows and plague arrivals grow flowers.
+        // Gentle mode hides gore and harmful tips.
+        // It also disables destructive and Easter egg effects.
+        // The background uses sparkles and rainbows. Plague arrivals use flowers.
         public bool grandmaMode;
 
         // Blank follows RimWorld's standard temperature preference. The custom unit is an

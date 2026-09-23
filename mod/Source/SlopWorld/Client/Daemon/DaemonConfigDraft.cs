@@ -5,9 +5,9 @@ using System.Linq;
 
 namespace SlopWorld
 {
-    // One editable text field owns the value the user sees and both snapshots used to merge
-    // reloads. Keeping the path and formatting policy beside the value prevents pages from
-    // maintaining parallel dictionaries that can drift during an in-flight request.
+    // Each editable text field stores its displayed value and both snapshots used to merge reloads.
+    // Keep the path and formatting rules with the value.
+    // Separate dictionaries could become inconsistent during a pending request.
     public sealed class DaemonConfigFieldState
     {
         public readonly string Key;
@@ -62,9 +62,9 @@ namespace SlopWorld
             string.Equals(left ?? "", right ?? "", StringComparison.Ordinal);
     }
 
-    // Game-free ownership for one daemon settings page. The page object may be discarded when
-    // Settings closes, but this record keeps the editable values, raw field text, and the
-    // server snapshot needed to merge a later reload.
+    // Store state for one daemon settings page without game dependencies.
+    // This record retains editable values, raw text, and the server snapshot after the page closes.
+    // A later reload uses this state to merge changes.
     public sealed class DaemonConfigDraft
     {
         readonly Dictionary<string, DaemonConfigFieldState> _fields =
@@ -84,7 +84,7 @@ namespace SlopWorld
 
         public string ConflictMessage => !HasConflicts ? null
             : "External changes on " + string.Join(", ", Conflicts.ToArray()) +
-              ". Save keeps this draft; Discard uses the server values.";
+              ". Save keeps this draft. Discard uses the server values.";
 
         public bool HasDraft => Loaded && Config != null;
 
@@ -163,8 +163,8 @@ namespace SlopWorld
                 if (!ProtoFields.Equal(ProtoFields.ValueAt(oldBaseline, pair.Key), ProtoFields.ValueAt(serverValue, pair.Key))) Conflicts.Add(pair.Key);
 
             var merged = ProtoFields.Apply(serverValue, dirty);
-            // Untouched fields should become clean against the new server snapshot. Keep the
-            // old baseline only at paths that the player is still editing.
+            // Fields without local edits should use the new server snapshot as their baseline.
+            // Keep the old baseline only for fields that the player is editing.
             var mergedBaseline = ProtoFields.Apply(serverValue, dirty.Keys.ToDictionary(k => k, k => ProtoFields.ValueAt(oldBaseline, k)));
             Config = DaemonConfig.FromSnapshot(merged);
             Config.CopyMetadataFrom(server);
@@ -174,8 +174,8 @@ namespace SlopWorld
             Error = null;
         }
 
-        // Page-specific defaults (for example Usage's visible provider rows) are not server
-        // changes. Call this after the page has materialized those defaults on its first load.
+        // Page defaults, such as visible provider rows on Usage, are not server changes.
+        // Call this after applying those defaults during the first page load.
         public void MarkCurrentClean()
         {
             if (!Loaded || Config == null) return;

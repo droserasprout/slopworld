@@ -7,75 +7,64 @@ using Verse.AI;
 
 namespace SlopWorld
 {
-    // Errands for agents whose process is busy. Everything finished emits plague
-    // (Plague.Bloom), and the ring of living ground the site works in is opened by its own
-    // work (Roam). The one system here that leaves its effects to the vanilla job driver;
-    // the map has no economy, so a frame arrives with its stone already in it (Fill).
+    // Assign construction errands while agents work. Completed errands expand the plague through Plague.Bloom.
+    // Roam uses plague growth to expand the construction area.
+    // The base game job driver performs construction. Fill supplies frame materials without hauling.
     public partial class Worksite : MapComponent
     {
-        // Four times a second, off AgentColony's own second so the reconcile and the
-        // errands never land on the same tick. A plate takes less than a tick to lay and
-        // the errand is the whole of what the pawn does next, so once a second is a
-        // clanker standing over a finished floor waiting for the next cell.
+        // Run every 15 game ticks. Offset the schedule from AgentColony reconciliation.
+        // Frequent assignment reduces delays between paving jobs.
         const int Interval = 15;
         const int Phase = 7;
 
-        // Darts at the circle rather than a search: most of the ground is fine.
+        // Try random positions within the construction area.
         const int Tries = 30;
 
-        // How long the site sits down after a round of darts found nowhere to build.
+        // Game ticks to wait after all floor placement attempts fail.
         const int BlockedFor = 300;
 
-        // Frames outlive the burst that opened them. Generous, a paving square being
-        // fifty frames on its own.
+        // Limit unfinished frames. A complete paving square needs 49 frames.
         const int MaxOpen = 96;
 
-        // What a tick of construction is worth to a middling clanker (the driver pays
-        // ConstructionSpeed * 1.7, stone knocks it back). Only here to turn the seconds
-        // below into a work figure; the pawn's own stat is what spends it.
+        // Estimate construction work per tick to convert configured seconds into work requirements.
+        // The pawn construction speed determines actual progress.
         const float WorkPerTick = 1.4f;
 
-        // Real seconds of an agent's *working* time. Paving is instant in the hand - the
-        // walk to the next cell is the whole cost.
+        // Target durations in real seconds of agent work.
+        // Paving requires little construction time compared with movement between cells.
         const float PavingSeconds = 0.1f;
         const float SmallSeconds = 4f;
         const float MediumSeconds = 8f;
         const float LargeSeconds = 15f;
         const float MonumentSeconds = 30f;
 
-        // Floors are laid a square at a time, or every errand is one cell and the agent
-        // spends the burst walking between them.
+        // Place floor frames in squares to keep paving jobs close together.
         const int PavingSide = 7;
 
-        // Graves come as a row: all facing the same way, a cell of grass between each. Any
-        // errand can ask for the same shape - see Run.
+        // Place graves in rows with a shared orientation and one cell between graves.
+        // Other errands can use the same Run structure.
         const int GraveRowLeast = 5;
         const int GraveRowMost = 10;
         const int GraveAisle = 1;
 
-        // How far from the pawn an errand may be opened. The near edge is not decoration:
-        // a pawn standing inside a frame *blocks* it, vanilla answers with a job to go and
-        // stand elsewhere, and this loop forces the errand back over the top a quarter
-        // second later - a clanker that re-paths forever. The pad in Fits is the other half.
+        // Select sites within this distance range from the pawn.
+        // The minimum distance helps prevent the pawn from blocking a new frame. Fits also checks clearance.
         const float SiteNear = 4f;
         const float SiteRadius = 12f;
 
-        // How hard a dart is pulled toward the core, so ground by the core fills first. A
-        // weight rather than a rule: when the inside is full the darts still have to reach
-        // the outside. Fades out on its own as the pawn nears the heart.
+        // Bias site directions toward the core while permitting sites farther away.
+        // Remove this bias within one cell of the center.
         const float SiteLean = 0.8f;
 
-        // The ring of living ground outside the plague, and where everything gets built.
-        // Cannot stall or run away: building blooms, blooming grows the plague, and the
-        // plague's girth is what this is measured off. Girth is a bulk rather than a
-        // furthest reach (see Plague.Girth), so the next ring costs ground that really died.
+        // Extend the construction radius beyond the plague area.
+        // Plague.Girth measures the affected area, so completed construction permits sites farther from the center.
         const float RoamMargin = 16f;
 
-        // Floor under Roam, so the plague's first seconds do not hem the agents into the core.
+        // Set a minimum construction radius so agents have space before the plague expands.
         const float MinCircle = 18f;
 
-        // Relative task weights; Pick normalizes them over work the current pawn can finish.
-        // Weight by item count, not work time, so large builds do not dominate every burst.
+        // Use relative selection weights for errands that the current pawn can complete.
+        // The weights control selection frequency, independent of work duration.
         const float PavingOdds = 10f;
 
         const float ColumnOdds = 2f;
@@ -84,8 +73,7 @@ namespace SlopWorld
         const float SteleLargeOdds = 1f;
         const float SteleGrandOdds = 1f;
 
-        // One lamp lights a good few cells and a field of them lights the same ground
-        // over and over, hence the lamppost's share.
+        // Select lamps more often than lampposts.
         const float LampOdds = 5f;
         const float LamppostOdds = 1f;
         const float RackOdds = 2f;
@@ -94,10 +82,8 @@ namespace SlopWorld
         const float GeneratorOdds = 3f;
         const float MachineOdds = 1f;
 
-        // How far the plague walks out of each thing once it stands, in cells - the other
-        // half of the tuning. Kept roughly flat per second of working time, so the map
-        // dies at the speed the sessions are busy rather than at the speed of whichever
-        // errand the darts favoured.
+        // Plague growth radius in cells for each completed item.
+        // Tune growth with work duration to limit differences in plague expansion between errand types.
         const float PavingBloom = 3f;
         const float SmallBloom = 4f;
         const float MediumBloom = 6f;
@@ -107,7 +93,7 @@ namespace SlopWorld
         readonly WorksiteRuntime _runtime = new WorksiteRuntime();
         int _laid;
 
-        // Keep the domain logic readable while the runtime cache owns transient state.
+        // Access temporary state through the runtime cache.
         ThingDef _blocks { get => _runtime.Blocks; set => _runtime.Blocks = value; }
         ThingDef _rock { get => _runtime.Rock; set => _runtime.Rock = value; }
         bool _quarried { get => _runtime.Quarried; set => _runtime.Quarried = value; }
@@ -118,7 +104,7 @@ namespace SlopWorld
         List<Frame> _frames => _runtime.Frames;
         List<Thing> _sweepDoomed => _runtime.SweepDoomed;
 
-        // Passes between sweeps - once a second.
+        // Worksite passes between frame sweeps.
         const int SweepEvery = 4;
 
         public Worksite(Map map) : base(map) { }
@@ -160,8 +146,8 @@ namespace SlopWorld
                 var state = hub.Get(kv.Key)?.State ?? AgentState.Down;
                 if (state != AgentState.Working) { Stop(pawn); continue; }
 
-                // Already at it. The top-up is not idle work: a failed construction empties
-                // the frame, and vanilla answers that with a hauler this map has not got.
+                // Replace missing materials during construction.
+                // A failed construction attempt can consume materials, and this map has no haulers to replace them.
                 if (pawn.CurJobDef == JobDefOf.FinishFrame)
                 {
                     Fill(pawn.CurJob?.targetA.Thing as Frame);
@@ -188,8 +174,8 @@ namespace SlopWorld
                 if (frame != null) return frame;
             }
 
-            // Only floor-placement failure blocks the site: a one-cell plate means no valid
-            // position exists nearby. Shaped runs can fail locally without stopping the site.
+            // Delay placement after all floor placement attempts fail.
+            // Failed building runs do not delay other attempts.
             if (errand.What is TerrainDef) _blocked = now + BlockedFor;
             return null;
         }
@@ -236,21 +222,18 @@ namespace SlopWorld
 
         public static int LaidOn(Map map) => map?.GetComponent<Worksite>()?._laid ?? 0;
 
-        // Footprint, so ground taken rather than work done: an hour on a grand stele is
-        // one cell.
+        // Count completed footprint cells, independent of construction time.
         void Count(int cells) => _laid += cells;
 
-        // Next to whoever is asking, so the ground fills the way the colony moves over it
-        // and the walk out is a few steps. A pawn past the leash is aimed back inside it,
-        // or it spends every look asking for ground it is not allowed.
-        // Round rather than truncate, or the sites lean half a cell in both axes.
+        // Choose a site near the pawn if it is within the permitted area.
+        // Otherwise, choose a site near the plague center.
+        // Round coordinates to avoid shifting sites by half a cell.
         IntVec3 Site(Pawn pawn)
         {
             bool home = Near(pawn.Position);
             var from = home ? pawn.Position : Heart();
 
-            // An annulus rather than a disc when aimed at the pawn: the middle of that
-            // disc is the cell the pawn is standing in.
+            // Choose sites in a ring around the pawn to avoid its occupied cell.
             var dir = Rand.InsideUnitCircleVec3.normalized;
             if (dir == Vector3.zero) dir = Vector3.forward;
 
@@ -264,17 +247,16 @@ namespace SlopWorld
             return from + new IntVec3(Mathf.RoundToInt(v.x), 0, Mathf.RoundToInt(v.z));
         }
 
-        // A bias on a direction, not a distance: a pawn far out pulls no harder than one
-        // nearby, and zero within a step of the heart so the pull never needs switching off.
+        // Bias the direction toward the center with a constant magnitude.
+        // Remove the bias within one cell of the center.
         Vector3 Pull(IntVec3 from)
         {
             var to = (Heart() - from).ToVector3();
             return to.magnitude < 1f ? Vector3.zero : to.normalized * SiteLean;
         }
 
-        // The plague as a circle plus the living ring outside it. A distance rather than the
-        // plague's own shape: the region is a union of thousands of stamps, and "within a
-        // few cells of somewhere dead" is hundreds of lookups per candidate where this is one.
+        // Approximate the plague area as a circle with an outer margin.
+        // A radius check avoids repeated lookups across the irregular plague boundary.
         float Roam() => _plague == null ? 0f : Mathf.Max(_plague.Girth + RoamMargin, MinCircle);
 
         IntVec3 Heart() => _plague == null ? map.Center : _plague.Heart;
@@ -282,8 +264,7 @@ namespace SlopWorld
         bool Near(IntVec3 cell) =>
             _plague != null && _plague.Active && cell.DistanceTo(_plague.Heart) <= Roam();
 
-        // Place one oriented run; skip members that do not fit so one blocked cell does not
-        // abort the rest of the run.
+        // Place one rotated run. Skip items that do not fit without stopping the run.
         Frame Lay(Errand errand, IntVec3 at, Pawn pawn)
         {
             var td = errand.What as ThingDef;
@@ -298,8 +279,7 @@ namespace SlopWorld
             int step = Reach(span, along) + run.Gap;
             int rank = Reach(span, across) + run.Gap;
 
-            // Centred, or a seven-by-seven patch would sit off the dart by half itself and
-            // the lean toward the core would read as a lean away from it.
+            // Center the run on the selected site to preserve the bias toward the core.
             var head = at - along * ((many - 1) * step / 2)
                           - across * ((run.Lines - 1) * rank / 2);
 
@@ -324,26 +304,26 @@ namespace SlopWorld
             return first;
         }
 
-        // How far a footprint stretches along one of the four directions. The rect is
-        // already rotated, so the direction only says which of its two sides to read.
+        // Return the footprint size along the specified direction.
+        // The footprint already includes rotation.
         static int Reach(IntVec2 span, IntVec3 dir) => dir.x != 0 ? span.x : span.z;
 
         bool Fits(BuildableDef what, IntVec3 at, Rot4 rot, Pawn pawn)
         {
             if (!at.InBounds(map) || at.Fogged(map)) return false;
 
-            // Near the middle, not *in* the plague: what the agents build is what kills the
-            // ground, so a site allowed only on ash could never lay its first plate.
+            // Permit sites outside the plague boundary but within the construction radius.
+            // Construction must start before it can expand the plague.
             if (!Near(at)) return false;
 
-            // A pad around anything with a shape, so a site never closes off a path or
-            // grows into one lump. Floors want none - paving up to a monument is the point.
+            // Reserve space around buildings to keep paths open.
+            // Floors need no margin and can reach a building edge.
             int pad = what is TerrainDef ? 0 : 1;
             bool floor = what is TerrainDef;
             var footprint = GenAdj.OccupiedRect(at, rot, what.Size);
 
-            // Read clearing flags from the blueprint: terrain blueprints disable both flags,
-            // allowing paving over grass and slag while harvestable plants still block it.
+            // Read clearing flags from the blueprint when available.
+            // Terrain blueprints permit paving over grass and slag. Rooted checks larger plants separately.
             var print = what.blueprintDef;
             bool clear = print != null ? print.clearBuildingArea : what.clearBuildingArea;
             bool tidy = clear || (print != null
@@ -353,7 +333,7 @@ namespace SlopWorld
             foreach (var c in footprint.ExpandedBy(pad))
             {
                 if (!c.InBounds(map)) return false;
-                // The hillside is scenery, not a building site.
+                // Preserve roofed areas as scenery.
                 if (map.roofGrid.Roofed(c)) return false;
 
                 var things = c.GetThingList(map);
@@ -361,10 +341,8 @@ namespace SlopWorld
                 {
                     var thing = things[i];
 
-                    // The rest of this sequence, already pitched. The pad is there to keep
-                    // the site from growing into one lump, and a run is a shape somebody
-                    // asked for - read as a stranger, a row of graves refuses its own
-                    // second grave and every row on the map is one grave long.
+                    // Ignore frames from this run when checking margins.
+                    // Otherwise, a placed frame can prevent placement of the next item in the run.
                     if (_mine.Contains(thing)) continue;
 
                     if (thing is Building || thing is Blueprint) return false;
@@ -373,16 +351,16 @@ namespace SlopWorld
                     if (clear && thing.def.category == ThingCategory.Plant) return false;
                     if (tidy && thing.def.category == ThingCategory.Item) return false;
 
-                    // The one thing a floor does have to have off the ground first.
+                    // Reject plants that require removal before paving.
                     if (floor && Rooted(thing)) return false;
 
-                    // A pawn standing there blocks the build: it is told to move, we tell it
-                    // to build, and neither wins. Nothing moves out of the way of a floor.
+                    // Reject occupied building sites to avoid repeated movement and construction assignments.
+                    // Pawns do not block floor placement.
                     if (!floor && thing is Pawn) return false;
                 }
             }
 
-            // Paving a paved cell builds nothing and the sweep returns to it forever.
+            // Reject cells that already have the requested terrain.
             if (what is TerrainDef terrain && map.terrainGrid.TerrainAt(at) == terrain) return false;
 
             if (!GenConstruct.CanPlaceBlueprintAt(what, at, rot, map, false, null, null, StuffFor(what))
@@ -391,8 +369,8 @@ namespace SlopWorld
             return pawn.CanReach(at, PathEndMode.Touch, Danger.Deadly);
         }
 
-        // Where GenConstruct.BlocksConstruction draws the line for a terrain frame: a
-        // dandelion's harvest work. Grass is paved over; a tree is not.
+        // Use the dandelion harvest work value as the plant clearance threshold.
+        // This matches the terrain frame check in GenConstruct.BlocksConstruction.
         static bool Rooted(Thing thing)
         {
             var plant = thing.def.category == ThingCategory.Plant ? thing.def.plant : null;
@@ -400,8 +378,7 @@ namespace SlopWorld
                    plant.harvestWork > ThingDefOf.Plant_Dandelion.plant.harvestWork;
         }
 
-        // Straight to the frame: a blueprint is a request for a hauler, and the only thing
-        // here that could answer it is the agent that would rather be building.
+        // Create and fill a frame directly so construction does not require hauling.
         Frame Pitch(BuildableDef what, IntVec3 at, Rot4 rot)
         {
             if (what.frameDef == null) return null;
@@ -416,8 +393,7 @@ namespace SlopWorld
             return frame;
         }
 
-        // A new map should carry nothing of this one, but the site is the only thing here
-        // leaving permanent marks on the board, so it is stated rather than assumed.
+        // Remove blueprints, frames, and completed errand buildings before discarding the map.
         public static void Wipe(Map map)
         {
             if (map == null) return;
@@ -450,8 +426,7 @@ namespace SlopWorld
                     var stack = ThingMaker.MakeThing(need.thingDef);
                     stack.stackCount = take;
 
-                    // Never twice: a container that will not take the stone would otherwise
-                    // be conjured into forever.
+                    // Stop if the container rejects a stack to prevent an infinite loop.
                     if (!frame.resourceContainer.TryAdd(stack, false)) return;
                     missing -= take;
                 }
@@ -468,8 +443,8 @@ namespace SlopWorld
             return GenStuff.DefaultStuffFor(td);
         }
 
-        // One rock for the colony, the tile's own - stable across a reload without being
-        // written down.
+        // Use the first natural rock type for the map tile.
+        // Derive the choice again after loading instead of saving it.
         ThingDef Blocks()
         {
             if (_quarried) return _blocks;

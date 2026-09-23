@@ -4,8 +4,8 @@ using System.Linq;
 
 namespace SlopWorld
 {
-    // Ok false means the last poll failed, in which case the windows are the previous
-    // good ones and Error says what went wrong.
+    // When the last poll fails, Ok is false and Error explains the failure.
+    // Keep the windows from the last successful poll.
     public class UsageInfo
     {
         public bool Ok;
@@ -15,11 +15,11 @@ namespace SlopWorld
         public List<UsageCatalogInfo> Catalog = new List<UsageCatalogInfo>();
         public List<UsageRow> Rows = new List<UsageRow>();
 
-        // The sellers the daemon is polling, answering or not. What the readout draws a row
-        // for, so a source that is down keeps its place on the line.
+        // Providers that the daemon polls, including providers that do not respond.
+        // Keep their display rows visible during failures.
         public List<string> Sources = new List<string>();
-        // The merged snapshot can be unhealthy because one seller failed while another is
-        // current. The readout uses this list to dim only rows belonging to the failed seller.
+        // A merged snapshot can include both failed and successful providers.
+        // Use this list to dim only rows from failed providers.
         public List<string> FailedSources = new List<string>();
 
         // Monotonic timestamp of the last good data. Failed polls retain it so stale snapshots
@@ -28,19 +28,19 @@ namespace SlopWorld
 
         public bool Any => Windows.Count > 0;
 
-        // The snapshot names the failed seller and leaves other providers live.
+        // Identify failed providers without marking other providers as failed.
         public bool SourceFailed(string source) => FailedSources.Contains(source);
 
         public UsageRow Row(string key) => Rows.FirstOrDefault(row => row.Key == key);
 
         public float Age => UnityEngine.Time.realtimeSinceStartup - Heard;
 
-        // Floored at zero: a spent window reads as due rather than as a negative number.
+        // Clamp remaining time to zero so an expired window shows that its reset is due.
         public long Remaining(UsageWindow w) =>
             w.ResetsIn < 0 ? -1 : Math.Max(0L, w.ResetsIn - (long)Age);
 
-        // `prev` is what is on screen now: a failed poll answers with the last good windows,
-        // and they are no fresher for having been sent again.
+        // prev contains the displayed snapshot.
+        // A failed poll returns previous values without making them current again.
         public static UsageInfo FromWire(Wire.UsageSnapshot j, UsageInfo prev = null)
         {
             bool ok = j.Ok;

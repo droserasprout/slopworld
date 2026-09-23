@@ -3,22 +3,21 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Require spawn candidates to be in a room connected to the map edge: vanilla's reachable
-    // test can accept a walkable pocket that the pawn cannot leave.
+    // Select spawn cells in a room that touches the map edge.
+    // The base game's reachability test can accept an isolated area that the pawn cannot leave.
     public static class SpawnSpot
     {
-        // How far out from the anchor to look before giving up on staying close.
+        // Search within this distance of the anchor before searching the full map.
         const float NearRadius = 30f;
 
-        // The radial pattern is ordered by distance, so picking among a handful keeps
-        // agents together without stacking every new one on the same cell.
+        // The radial pattern orders cells by distance.
+        // Select from nearby cells to keep agents together without placing them on the same cell.
         const int Candidates = 40;
 
-        // On a mountainous map the open ground can be most of the way across the map.
+        // On mountain maps, open ground can be far from the anchor.
         const int MapTries = 500;
 
-        // Always returns something spawnable: a colonist in a wall is bad, but a session
-        // with no colonist at all is worse.
+        // If both searches fail, use the base game's spawn search near the map center.
         public static IntVec3 Find(Map map, IntVec3 anchor)
         {
             if (map == null) return IntVec3.Invalid;
@@ -27,7 +26,7 @@ namespace SlopWorld
             if (TryNear(map, anchor, out var cell)) return cell;
             if (TryAnywhere(map, out cell)) return cell;
 
-            Log.Warning("[SlopWorld] no open spawn cell found; using the map centre");
+            Log.Warning("[SlopWorld] No open spawn cell found. Using the map centre.");
             return CellFinder.RandomSpawnCellForPawnNear(map.Center, map);
         }
 
@@ -46,8 +45,7 @@ namespace SlopWorld
             return found.Count > 0;
         }
 
-        // Probing beats widening the ring: the ring would spend its time re-testing the
-        // same rock, and there is no reason to prefer any particular direction.
+        // Sample random cells across the map instead of repeating the search near the anchor.
         static bool TryAnywhere(Map map, out IntVec3 cell)
         {
             var size = map.Size;
@@ -60,9 +58,8 @@ namespace SlopWorld
             return false;
         }
 
-        // The first three are vanilla's own conditions; the room is the one it leaves
-        // out. Fogged is kept because it is what confines spawns to the explored ground
-        // around the core.
+        // Require a standable, explored cell with no pawn.
+        // Also require a room that touches the map edge.
         static bool Open(Map map, IntVec3 c)
         {
             if (!c.InBounds(map)) return false;

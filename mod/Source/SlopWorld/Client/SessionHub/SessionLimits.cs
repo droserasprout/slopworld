@@ -2,7 +2,7 @@ using System.Collections.Generic;
 
 namespace SlopWorld
 {
-    // Per-agent resource caps, mirrored from the daemon's Limits. Every field is optional; a
+    // Per-agent resource caps, mirrored from the daemon's Limits. Every field is optional. A
     // missing one means that no cap is configured. Copies are by value.
     public struct SessionLimits
     {

@@ -5,7 +5,7 @@ using Verse;
 namespace SlopWorld
 {
     // Rendering for a row is fed by the sidebar's layout and session snapshots. It does not
-    // own selection, clicks, or geometry; those remain with AgentSidebar.
+    // own selection, clicks, or geometry. Those remain with AgentSidebar.
     static class SidebarRowRenderer
     {
         static readonly string[] ViewPrefixes = { "view-", "search-", "link-" };
@@ -323,8 +323,8 @@ namespace SlopWorld
             return project;
         }
 
-        // Host rows use foreground process state rather than pane output activity: a live
-        // process is white, an unchanged shell is grey, and a stopped tab is red.
+        // Host rows use foreground process state rather than pane output activity. A live process
+        // is white, an unchanged shell is grey, and a stopped tab is red.
         static Color HostTerminalColor(SessionInfo info)
         {
             if (info.State == AgentState.Down) return UiTheme.StateDown;
@@ -386,7 +386,7 @@ namespace SlopWorld
 
         // tmux can hand us zsh's width-limited cwd title ("..it/repo" or "..pository")
         // even though the durable host record carries the complete current directory.
-        // Rebuild only that suffix; commands and other application titles remain untouched.
+        // Rebuild only that suffix. Commands and other application titles remain untouched.
         static string RestoreHostPath(SessionInfo info, string title)
         {
             string dir = info?.Dir ?? "";

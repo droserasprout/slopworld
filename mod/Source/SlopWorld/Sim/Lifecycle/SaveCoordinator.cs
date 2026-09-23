@@ -3,8 +3,8 @@ using Exception = System.Exception;
 
 namespace SlopWorld
 {
-    // Shared save and shutdown state for the autosaver and the window-close path. Keeping this
-    // seam here lets either path request a save without knowing about the other.
+    // Share save and shutdown state between autosaving and window closure.
+    // Either caller can request a save without depending on the other.
     public static class SaveCoordinator
     {
         static bool _programmaticShutdown;
@@ -21,8 +21,8 @@ namespace SlopWorld
             return programmatic;
         }
 
-        // Save failures must not block shutdown, but skip colonies pending NextPlanet so
-        // AutoResume cannot restore a discarded map.
+        // Save failures must not block shutdown.
+        // Skip colonies with NextPlanet pending so AutoResume cannot restore a discarded map.
         public static void SaveNow()
         {
             try

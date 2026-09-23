@@ -7,8 +7,8 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Retain sections and simulation grids: arrivals still call MapMeshDirty while resting.
-    // Only audited vanilla layer types are released; derived/mod layers may own extra buffers.
+    // Retain sections and simulation grids because arrivals call MapMeshDirty during Eco rest.
+    // Release only the listed base game layer types. Derived types can own additional buffers.
     static class EcoMapMemory
     {
         static readonly Type[] Rebuildable =
@@ -46,7 +46,7 @@ namespace SlopWorld
             var state = States.GetValue(drawer, NewState);
             if (state.Released) return;
             var sections = (Section[,])Sections.GetValue(drawer);
-            // Initialization must finish before taking ownership of any layer geometry.
+            // Wait for all sections to initialize before releasing geometry.
             if (sections == null) return;
             foreach (var section in sections)
                 if (section == null) return;
@@ -63,8 +63,7 @@ namespace SlopWorld
                         meshes++;
                         buffers += BufferBytes(sub);
                     }
-                    // Things keeps a temporary list after gravship drawing. It must not
-                    // retain disposed submeshes and their managed geometry arrays.
+                    // Clear the temporary gravship drawing list so it does not retain disposed submeshes or geometry arrays.
                     if (layer is SectionLayer_Things things)
                         ((List<LayerSubMesh>)FormerlyEnabled.GetValue(things)).Clear();
                     layer.Dispose();
@@ -79,8 +78,8 @@ namespace SlopWorld
         internal static void Restore(MapDrawer drawer)
         {
             if (Eco.Resting || !States.TryGetValue(drawer, out var state) || !state.Released) return;
-            // Use vanilla's full regeneration to restore section bounds as well as meshes.
-            // This also handles colony changes made while simulation was paused.
+            // Regenerate all map geometry to restore section bounds and meshes.
+            // Include colony changes made during Eco rest.
             drawer.RegenerateEverythingNow();
             drawer.WholeMapChanged(ulong.MaxValue);
             var sections = (Section[,])Sections.GetValue(drawer);
@@ -95,7 +94,7 @@ namespace SlopWorld
             Log.Message("[SlopWorld] eco memory restored map geometry");
         }
 
-        // Capacity measures retained array payload, not object headers or Unity/GPU memory.
+        // Estimate array payload from capacity. Exclude object headers, Unity allocations, and GPU memory.
         static long BufferBytes(LayerSubMesh sub) =>
             12L * (sub.verts.Capacity + (long)sub.uvs.Capacity + sub.uvsChannelTwo.Capacity +
                 sub.normals.Capacity + sub.pollution.Capacity) +
@@ -104,7 +103,7 @@ namespace SlopWorld
         internal static bool CanRegenerate(SectionLayer layer) =>
             !Eco.Resting || !ReleasedLayers.TryGetValue(layer, out var state) || !state.Released;
 
-        // Direct regeneration (outside normal maintenance) must not refill released layers.
+        // Prevent direct regeneration from allocating released layer geometry during Eco rest.
         [HarmonyPatch]
         static class Regeneration
         {

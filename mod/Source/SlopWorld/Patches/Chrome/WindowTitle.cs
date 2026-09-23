@@ -11,8 +11,8 @@ namespace SlopWorld
         static string _applied;
         static float _nextTry;
 
-        // The capability arrives in the initial WebSocket snapshot, so the title follows the
-        // daemon this profile is actually connected to rather than the endpoint path's name.
+        // Use daemon capabilities from the initial WebSocket snapshot to select the title.
+        // The endpoint path does not determine the connected runtime.
         public static void Follow()
         {
             if (Application.platform != RuntimePlatform.LinuxPlayer) return;
@@ -29,7 +29,7 @@ namespace SlopWorld
                 return;
             }
 
-            // The player can spend its first frames before the X11 client is mapped.
+            // Retry because the X11 client window can be unavailable during startup.
             _nextTry = now + RetrySeconds;
         }
     }

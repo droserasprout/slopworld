@@ -148,7 +148,7 @@ namespace SlopWorld.Tests
 
         static void CombinedAttrs()
         {
-            // "1;31" = bold + red in a single escape.
+            // This escape sets bold text and the red color together.
             var runs = Sgr.ParseLine("\x1b[1;31mhi");
             AssertEx.Equal(1, runs.Count, "run count");
             AssertEx.True(runs[0].Bold, "bold");
@@ -163,7 +163,7 @@ namespace SlopWorld.Tests
 
         static void Color256ThenBold()
         {
-            // "38;5;196;1" — 256-color then bold in one sequence.
+            // This escape sets a 256-color value and then sets bold text.
             var runs = Sgr.ParseLine("\x1b[38;5;196;1mhi");
             AssertEx.Equal(1, runs.Count, "run count");
             AssertEx.True(runs[0].Bold, "bold set after 256-color");

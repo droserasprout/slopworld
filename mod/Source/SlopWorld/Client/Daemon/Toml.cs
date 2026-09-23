@@ -9,11 +9,10 @@ using TomlynToml = global::Tomlyn.Toml;
 
 namespace SlopWorld
 {
-    // Tomlyn owns TOML grammar and diagnostics. The mod's consumers intentionally use a
-    // smaller adapter: only top-level scalar entries are accepted, and their TOML types are
-    // retained until each settings field converts them. This prevents a table or array from
-    // becoming an accidental string, while ParseFlat keeps the old text-facing API for the
-    // endpoint and jukebox readers.
+    // Tomlyn handles TOML grammar and diagnostics.
+    // The settings adapter accepts only top-level scalar entries.
+    // Keep their TOML types until each settings field converts them, preventing accidental conversion of tables or arrays to strings.
+    // ParseFlat preserves the existing text API for endpoint and jukebox readers.
     public static class Toml
     {
         internal enum ScalarType
@@ -44,8 +43,8 @@ namespace SlopWorld
                 if (value is double) return new Scalar(ScalarType.Float, value);
                 if (value is TomlynDateTime) return new Scalar(ScalarType.DateTime, value);
 
-                // Tables, table arrays and arrays are deliberately not part of the flat
-                // application schema, even though Tomlyn can represent all of them.
+                // Reject tables, arrays of tables, and arrays from the flat application schema.
+                // Tomlyn supports these types, but this adapter does not.
                 throw new FormatException("TOML flat scalar schema rejects key '" + key +
                                           "': tables and arrays are not supported");
             }
@@ -120,8 +119,8 @@ namespace SlopWorld
             }
         }
 
-        // Compatibility facade for the existing endpoint and likes readers. Values are
-        // canonicalized from their parsed TOML types rather than copied from raw text.
+        // Preserve compatibility with endpoint and likes readers.
+        // Format values from their parsed TOML types instead of copying raw text.
         public static Dictionary<string, string> ParseFlat(string text)
         {
             var values = new Dictionary<string, string>(StringComparer.Ordinal);
@@ -138,9 +137,8 @@ namespace SlopWorld
             return values;
         }
 
-        // Structured catalogs have their own schema readers. Keep this separate from the
-        // settings facade so a table or array can be consumed deliberately rather than
-        // widening the flat settings format by accident.
+        // Structured catalogs use separate schema readers that accept tables and arrays.
+        // Keep this API separate to preserve the flat settings format.
         internal static TomlynTable ParseTable(string text) => ParseModel(text);
 
         public static string Quote(string value)

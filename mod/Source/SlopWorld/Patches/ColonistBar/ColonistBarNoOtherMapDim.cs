@@ -4,9 +4,8 @@ using Verse;
 
 namespace SlopWorld
 {
-    // The bar dims entries that are not on the map being viewed. There is one map
-    // here, but a downed agent's pawn counts as somewhere else for the bar's purposes
-    // and a stopped process ends up ghosted.
+    // Disable the base game opacity reduction for entries on other maps.
+    // This also prevents dimming stopped agents whose pawns the bar classifies as elsewhere.
     [HarmonyPatch(typeof(ColonistBarColonistDrawer), "ApplyEntryInAnotherMapAlphaFactor")]
     public static class Patch_ColonistBarNoOtherMapDim
     {

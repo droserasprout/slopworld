@@ -8,19 +8,15 @@ using Exception = System.Exception;
 
 namespace SlopWorld
 {
-    // `-popupwindow -screen-fullscreen 0` avoids Unity's Linux Alt+Tab freeze. Keep that
-    // client window and ask the X11 window manager for EWMH fullscreen, which changes the
-    // client geometry and input coordinates together without entering Unity's bad fullscreen
-    // surface path. The first request waits until RimWorld's long load event and its final
-    // Unity resize have both settled; sending it during loading leaves the top of the client
-    // drawing only the background until a fullscreen toggle forces another resize. Keep the
-    // client undecorated too: Mutter can restore Unity's titlebar when fullscreen is removed.
+    // Use -popupwindow -screen-fullscreen 0 to avoid the Unity Linux Alt+Tab freeze.
+    // Request fullscreen through the X11 window manager so geometry and input coordinates change together.
+    // Resize the Unity surface before the initial fullscreen request.
+    // Keep window decorations disabled because Mutter can restore the title bar after fullscreen ends.
     public static class WindowMaximizer
     {
         const float RetrySeconds = 1f;
         const float StartupSettleSeconds = 1.5f;
-        // Poll fast between the surface rebuild and the fullscreen request so the windowed
-        // resize has landed but the intermediate state is on screen only for a beat.
+        // Check frequently after resizing so the intermediate window state remains brief.
         const float ResyncPollSeconds = 0.05f;
         const float ResyncTimeoutSeconds = 0.5f;
         const int ClientMessage = 33;
@@ -30,9 +26,8 @@ namespace SlopWorld
         static bool? _applied;
         static float _nextTry;
         static float _readySince = -1f;
-        // When the initial surface rebuild was requested, or <0 before it has been. The
-        // fullscreen request is held back until the windowed resize it triggers has landed,
-        // so fullscreen is the last geometry change and the window never drops below it.
+        // Store the time of the initial surface resize request, or a negative value before that request.
+        // Wait for the resize or its timeout before requesting fullscreen.
         static float _resyncedAt = -1f;
         static bool _warned;
 
@@ -49,9 +44,7 @@ namespace SlopWorld
 
             bool done = TrySet(want);
             if (done) _applied = want;
-            // While the surface rebuild is settling between the two initial phases, poll
-            // fast so fullscreen lands the moment the windowed resize arrives rather than a
-            // full RetrySeconds later; otherwise back off to the slow retry.
+            // Use the short retry interval while waiting for the initial resize. Use the normal interval for other retries.
             bool resyncing = !done && _applied == null && _resyncedAt >= 0f;
             _nextTry = Time.realtimeSinceStartup + (resyncing ? ResyncPollSeconds : RetrySeconds);
         }
@@ -68,21 +61,16 @@ namespace SlopWorld
 
         public static void Toggle() => Set(!Settings.Fullscreen);
 
-        // Apply during the loading screen. The old gate waited for LongEventHandler to
-        // drain plus a settle, because a fullscreen request sent mid-load left the top of
-        // the client stale until a toggle forced another resize. ResyncSurface now induces
-        // that resize itself, so the only wait left is a short settle from the first frame
-        // to let the window get mapped and sized; FindGameWindow retries until it appears.
+        // Wait briefly after the first frame for initial window creation and sizing.
+        // FindGameWindow retries if the window is still unavailable. ResyncSurface permits fullscreen setup during loading.
         static bool Ready(float now)
         {
             if (_readySince < 0f) _readySince = now;
             return now - _readySince >= StartupSettleSeconds;
         }
 
-        // The game resetting its own geometry is what clears the stale upper client region
-        // after an external resize: Screen.SetResolution rebuilds Unity's render surface at
-        // the monitor size, so the EWMH fullscreen request lands on a correctly sized surface
-        // even mid-load. Windowed mode keeps this off Unity's frozen fullscreen path.
+        // Resize the Unity render surface to the monitor dimensions before requesting EWMH fullscreen.
+        // Keep Unity in windowed mode to avoid its fullscreen freeze.
         static void ResyncSurface()
         {
             int w = Display.main.systemWidth;
@@ -91,9 +79,7 @@ namespace SlopWorld
             Screen.SetResolution(w, h, FullScreenMode.Windowed);
         }
 
-        // True once the windowed resize ResyncSurface requested has taken effect, which
-        // Unity applies a frame later. Screen reaching the monitor size is the signal; a
-        // timeout covers the frame going unreported so fullscreen is never held back forever.
+        // Continue when screen dimensions reach the monitor dimensions or the resize timeout expires.
         static bool ResyncLanded(float now)
         {
             bool sized = Screen.width >= Display.main.systemWidth
@@ -101,8 +87,7 @@ namespace SlopWorld
             return sized || now - _resyncedAt >= ResyncTimeoutSeconds;
         }
 
-        // True means the request was sent or the platform cannot service it, false means the
-        // game window has not been mapped yet and Follow should try again.
+        // Return false when Follow must retry. Return true after success or an unsupported operation.
         static bool TrySet(bool fullscreen)
         {
             IntPtr display = IntPtr.Zero;
@@ -111,11 +96,8 @@ namespace SlopWorld
                 display = XOpenDisplay(null);
                 if (display == IntPtr.Zero)
                 {
-                    Warn("X11 display is unavailable; could not change the game window state");
-                    // The display/auth bind can become usable after the first loading frames,
-                    // especially when the game was launched from the debug sandbox. This is not
-                    // an applied window state: keep retrying instead of permanently suppressing
-                    // fullscreen after one failed connection.
+                    Warn("X11 display is unavailable. Could not change the game window state.");
+                    // Retry because X11 display access can become available after startup, particularly in the debug sandbox.
                     return false;
                 }
 
@@ -141,14 +123,10 @@ namespace SlopWorld
                 bool ok;
                 if (fullscreen)
                 {
-                    // Two phases on the first application. Phase one rebuilds Unity's surface
-                    // at monitor size and establishes maximize underneath; Mutter retains that
-                    // state under fullscreen, so later exit is one clean transition back to the
-                    // complete workarea instead of restoring Unity's old size. Fullscreen is
-                    // held for phase two, after the windowed resize from ResyncSurface has
-                    // landed, so it is the last geometry change and the window never flickers
-                    // down to the windowed size the resize passes through. RaiseAndActivate and
-                    // XFlush below still run in phase one, so the client is raised meanwhile.
+                    // Initialize fullscreen in two phases. First resize the surface and request maximization.
+                    // Raise the window and flush X11 requests during this phase.
+                    // Then request fullscreen after the resize completes or times out.
+                    // The retained maximized state restores the work area when fullscreen ends.
                     if (initial && _resyncedAt < 0f)
                     {
                         ResyncSurface();
@@ -164,9 +142,7 @@ namespace SlopWorld
                 }
                 else
                 {
-                    // Maximize is already underneath a fullscreen session. Removing only the
-                    // fullscreen state restores the complete workarea, like double-clicking
-                    // the titlebar, while leaving GNOME's top chrome visible.
+                    // Remove fullscreen while retaining maximization so the window fills the work area and leaves desktop controls visible.
                     ok = wasFullscreen
                         ? SendState(display, root, window, state, 0, fullscreenAtom, IntPtr.Zero)
                         : SendState(display, root, window, state, 1, horizontal, vertical);
@@ -187,8 +163,8 @@ namespace SlopWorld
             }
         }
 
-        // Unity's Linux player does not expose a managed window-title setter. Keep the title
-        // alongside the X11 fullscreen handling so the same PID-based lookup works for both.
+        // Use the same process ID window lookup for X11 titles and fullscreen changes.
+        // The Unity Linux player has no managed window title setter.
         public static bool TrySetTitle(string title)
         {
             if (Application.platform != RuntimePlatform.LinuxPlayer) return true;
@@ -293,7 +269,7 @@ namespace SlopWorld
                 return;
             }
 
-            // MWM_HINTS_DECORATIONS, followed by decorations=0: no frame or titlebar.
+            // Set MWM_HINTS_DECORATIONS with decorations=0 to remove the frame and title bar.
             int[] value = { 2, 0, 0, 0, 0 };
             GCHandle pinned = GCHandle.Alloc(value, GCHandleType.Pinned);
             try

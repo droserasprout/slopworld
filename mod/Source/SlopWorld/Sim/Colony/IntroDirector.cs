@@ -5,9 +5,9 @@ using Verse;
 
 namespace SlopWorld
 {
-    // One persisted cutscene per fresh colony: block map/UI input while placing the hillside,
-    // core, plague and clankers. ModScenario supplies no pawns; this scene adds everything.
-    // The phase persists but work lists do not, so a reload mid-intro skips ahead.
+    // Run one opening scene for each new colony. Block map and UI input during the scene.
+    // ModScenario supplies no starting pawns. This scene adds pawns, the core, and the plague.
+    // Save the phase, but keep work lists only in memory.
     public class IntroDirector : GameComponent
     {
         const int AnimalsMin = 50;
@@ -15,53 +15,49 @@ namespace SlopWorld
         const int HumansMin = 20;
         const int HumansMax = 30;
 
-        // Generating a pawn is expensive; a few per tick keeps the frame smooth.
+        // Limit pawn generation per tick to reduce frame delays.
         const int SpawnsPerTick = 6;
 
         const float FumeSeconds = 3f;
 
-        // Long enough that the clankers are seen landing *into* something.
+        // Allow the plague to start before agents land.
         const float SeedSeconds = 3f;
 
-        // Waiting on three things that are not this component's: the reconcile's second, the
-        // pods' fall, and the delay they take to open.
+        // Allow time for session reconciliation, pod descent, and pod opening.
         const float BloomSeconds = 6f;
 
-        // A fallback against a skyfaller that never landed, not a timer anything should hit.
+        // Place the core directly if its skyfaller does not land before this timeout.
         const float FallSeconds = 12f;
 
-        // Ticks between breaths of the core's vent.
+        // Game ticks between core vent effects.
         const int PuffInterval = 10;
 
-        // Tries at a random standable cell before a spawn gives up on the middle.
+        // Random placement attempts before using the map center as a fallback.
         const int PlacementTries = 30;
 
-        // A brand-new game is only a few ticks in; anything past this is a load.
+        // Treat a game beyond this tick count as a loaded colony.
         const int FreshGameTicks = 2000;
 
         enum Phase { Waiting, Populate, Core, Fume, Seed, Bloom, Done }
 
-        // Persisted: how far through the scene we are.
+        // Save the current scene phase.
         Phase _phase = Phase.Waiting;
 
         Map _map;
         List<PawnKindDef> _animalKinds;
         int _animalsLeft, _humansLeft;
 
-        // Both are cleared by every transition, so a phase reads them without caring what
-        // the last one left behind.
+        // Each phase transition resets the flag and timer.
         bool _armed;
         float _at;
 
-        // Runtime only: a save loaded mid-scene comes back with the UI on rather than stuck
-        // hidden.
+        // Keep this state only in memory so loading a save restores the UI.
         public static bool UiHidden { get; private set; }
 
-        // The reconcile holds off, so the agents come down on their cue.
+        // Hold session reconciliation until the scene permits agent arrivals.
         public static bool AgentsHeld { get; private set; }
 
-        // Both are static, so a colony discarded during its own intro must not hand the next
-        // one a hidden UI.
+        // Reset static state so a new colony does not inherit a hidden UI or suspended arrivals.
         public IntroDirector(Game game)
         {
             UiHidden = false;
@@ -72,8 +68,8 @@ namespace SlopWorld
 
         Map TheMap => _map ?? (_map = Find.CurrentMap);
 
-        // Phases that must advance while the game is paused: a new colony starts on a
-        // pause TimeKeeper has yet to lift, and the held beats burn in real time.
+        // Advance these phases even when the game is paused.
+        // A new colony starts paused until TimeKeeper resumes it. Scene delays use real time.
         public override void GameComponentUpdate()
         {
             switch (_phase)
@@ -85,7 +81,7 @@ namespace SlopWorld
             }
         }
 
-        // Pawns and buildings only stick once the map is live and ticking.
+        // Create pawns, buildings, and vent effects during game ticks.
         public override void GameComponentTick()
         {
             switch (_phase)
@@ -96,7 +92,7 @@ namespace SlopWorld
             }
         }
 
-        // So no phase inherits the last one's timer or its one-off flag.
+        // Reset the timer and flag for the new phase.
         void Go(Phase next, float hold = 0f)
         {
             _phase = next;
@@ -111,8 +107,7 @@ namespace SlopWorld
             var map = TheMap;
             if (map == null) return;
 
-            // A load. Finish rather than marking it done, so a colony abandoned mid-scene
-            // cannot leave the UI hidden or the agents held.
+            // Finish the scene for an existing colony. Restore the UI and permit agent arrivals.
             if (Find.TickManager.TicksGame > FreshGameTicks) { Finish(); return; }
 
             UiHidden = true;
@@ -132,9 +127,8 @@ namespace SlopWorld
             Go(Phase.Populate);
         }
 
-        // Alive and factionless: they wander, never join the colonist bar, and are here to die
-        // of the plague. The camera takes the middle now and keeps it, which is also what
-        // makes the fumes exist - flecks are not spawned off screen.
+        // Generate pawns without a faction as plague targets. They do not join the colonist bar.
+        // Center the camera so the core fumes remain on screen. Fleck generation excludes areas outside the screen.
         void StepPopulate()
         {
             var map = TheMap;
@@ -182,7 +176,7 @@ namespace SlopWorld
             }
         }
 
-        // Reuses a core already on the map, so a reload mid-scene never leaves two.
+        // Use an existing core if one is already on the map.
         void DropCore()
         {
             var map = TheMap;
@@ -199,17 +193,16 @@ namespace SlopWorld
             if (TheCore(map) == null)
             {
                 if (Held) return; // still on its way down
-                // The rest of the scene needs a core standing.
-                Log.Warning("[SlopWorld] persona core never landed; placing it");
+                // Place the core directly so the scene can continue.
+                Log.Warning("[SlopWorld] Persona core never landed. Placing it.");
                 Ground(map);
             }
 
             Go(Phase.Fume, FumeSeconds);
         }
 
-        // With no graphicData of its own a skyfaller draws its payload, so what falls is the
-        // core. ShipChunkIncoming is also the harmless one - the variant that blows a hole in
-        // the ground is a separate def, and the hillside is standing underneath.
+        // The skyfaller has no graphicData, so it draws the core that it carries.
+        // Use ShipChunkIncoming to avoid the ground damage from the explosive variant.
         void Fall(Map map)
         {
             var cell = map.Center;
@@ -241,7 +234,7 @@ namespace SlopWorld
             }
         }
 
-        // The core alone: nothing is marked yet and the plague is not armed.
+        // Show core fumes before starting the plague.
         void Vent()
         {
             if (Find.TickManager.TicksGame % PuffInterval != 0) return;
@@ -253,7 +246,7 @@ namespace SlopWorld
             if (!Held) Go(Phase.Seed);
         }
 
-        // The plague goes first, with a beat before the clankers come down into it.
+        // Start the plague before permitting agent arrivals.
         void SeedPlague()
         {
             var map = TheMap;
@@ -273,8 +266,8 @@ namespace SlopWorld
             Go(Phase.Bloom, BloomSeconds);
         }
 
-        // AgentColony drops the agents on its own second, so this is just a beat long enough
-        // for the pods to be worth looking at.
+        // Allow time to show arriving pods before restoring the UI.
+        // AgentColony controls the arrival schedule.
         void WaitOnBloom()
         {
             if (!Held) Finish();

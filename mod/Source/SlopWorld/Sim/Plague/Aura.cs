@@ -7,41 +7,39 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Pets.Poke reverses Plague locally; WaterBall uses the same pulse for a larger restorative
-    // spell. The pulse and grace tables are transient, while the terrain spell is saved by the map.
+    // Pets.Poke reverses local plague effects. WaterBall uses the same restorative pulse.
+    // Keep pulse and protection tables only in memory. The map saves terrain changes.
     public class Aura : MapComponent
     {
-        // Aimed: the handful of cells under the animal rather than a weather front.
+        // Affect nearby cells around the animal.
         const float Radius = 3.9f;
         const float RadiusSq = Radius * Radius;
 
-        // Every second or third pat, so the ones that land are worth watching for.
+        // Each pat has this chance to restore or plant vegetation.
         const float ReviveChance = 0.42f;
 
-        // An hour of colony time - a couple of dozen passes of the plague's sweep.
+        // Game ticks of protection after a pulse.
         const int GraceTicks = 2500;
 
         const int FilthPerPat = 6;
         const int PruneInterval = 60;
 
-        // Not full growth: restored to ripe reads as a cheat, most of the way reads as
-        // something that has been growing again.
+        // Restore partial growth so plants do not immediately appear mature.
         const float StuntedBelow = 0.55f;
         const float ReviveGrowth = 0.80f;
 
-        // It grows from there on its own, the sweep having been told to leave it alone.
+        // Start new plants at partial growth. Temporary protection permits further growth.
         const float SproutGrowth = 0.25f;
         const int SproutTries = 25;
 
-        // Verse.Plant.madeLeaflessTick is protected, and LeaflessNow is
-        // `TicksGame - madeLeaflessTick < 60000`, so pushing it into the past is the repair.
-        // Bound by name and allowed to fail.
+        // Plant.madeLeaflessTick is protected. LeaflessNow checks whether fewer than 60000 ticks have elapsed.
+        // Move the value into the past to restore leaves. Permit field binding to fail.
         static readonly AccessTools.FieldRef<Plant, int> LeaflessTick = BindLeafless();
 
-        // Read per cell by Patch_NoRegrowth, so it is a short list of cells.
+        // Patch_NoRegrowth checks this list for each cell.
         readonly List<Pulse> _pulses = new List<Pulse>();
 
-        // thingIDNumber -> the tick a pulse last had it.
+        // Map each thingIDNumber to the game tick of its most recent pulse.
         readonly Dictionary<int, int> _grace = new Dictionary<int, int>();
         readonly List<int> _stale = new List<int>();
 
@@ -55,8 +53,7 @@ namespace SlopWorld
 
         public static Aura Of(Map map) => map?.GetComponent<Aura>();
 
-        // Plain geometry: whether ground grows and whether a fire may creep both belong to
-        // the place rather than to what was standing in it.
+        // Check location and pulse age. Plant growth and fire spread depend on the affected cells.
         public bool Covers(IntVec3 cell)
         {
             if (_pulses.Count == 0) return false;
@@ -68,8 +65,7 @@ namespace SlopWorld
             return false;
         }
 
-        // The second half carries a revived tree past the sweep's next pass, and covers a
-        // thing that has wandered out of the circle it was blessed in.
+        // Also protect individual things after they leave the pulse area.
         public bool Spares(Thing t)
         {
             if (t == null || !t.Spawned) return false;
@@ -84,7 +80,7 @@ namespace SlopWorld
             Prune(Find.TickManager.TicksGame);
         }
 
-        // The cat first - that is what the click was aimed at - then one pulse on the ground.
+        // Heal the pet before applying a pulse to nearby cells.
         public void Pat(Pawn pet)
         {
             if (pet == null || pet.Dead || !pet.Spawned || pet.Map != map) return;
@@ -98,8 +94,8 @@ namespace SlopWorld
             if (Rand.Value < ReviveChance) Revive(pet.Position, now);
         }
 
-        // WaterBall uses the same restorative ground pulse as the pet aura, but without the
-        // aura's chance gate: nearby pawns and plants should all get the rejuvenation.
+        // Apply the WaterBall pulse without the random chance used for pet pats.
+        // Heal nearby pawns, restore existing plants, and try to add a new plant.
         public void Rejuvenate(IntVec3 centre)
         {
             if (!centre.InBounds(map)) return;
@@ -124,10 +120,8 @@ namespace SlopWorld
             Sow(centre, now);
         }
 
-        // Every bad hediff, injuries and pain included: with health ticks stripped nothing
-        // heals by itself, so a cat cut in the intro would carry it for the life of the
-        // colony. A mental state goes through vanilla's own recovery path, which puts the job
-        // tracker back the way it found it.
+        // Remove harmful health conditions because the game disables normal health ticks.
+        // Use the base game recovery method to end mental states and restore job tracking.
         static void Comfort(Pawn pet)
         {
             if (pet == null || pet.Dead || pet.health == null) return;
@@ -137,7 +131,7 @@ namespace SlopWorld
             var set = pet.health?.hediffSet;
             if (set != null)
             {
-                // Copied first: RemoveHediff writes to the very list being walked.
+                // Copy the conditions before RemoveHediff changes the list.
                 var bad = set.hediffs.Where(h => h?.def != null && h.def.isBad).ToList();
                 foreach (var h in bad) pet.health.RemoveHediff(h);
             }
@@ -145,7 +139,7 @@ namespace SlopWorld
             pet.mindState?.mentalStateHandler?.CurState?.RecoverFromState();
         }
 
-        // No haze: the only green smoke this map gets is the one plant.
+        // Apply nearby effects without a general smoke effect.
         void Sweep(IntVec3 centre, int now)
         {
             int cells = GenRadial.NumCellsInRadius(Radius);
@@ -157,7 +151,7 @@ namespace SlopWorld
                 if (!c.InBounds(map)) continue;
 
                 var things = c.GetThingList(map);
-                // Backwards, because destroying takes the thing out of this very list.
+                // Iterate backward because destruction removes items from this list.
                 for (int j = things.Count - 1; j >= 0; j--)
                 {
                     var t = things[j];
@@ -169,8 +163,7 @@ namespace SlopWorld
                     }
                     else if (t is Fire)
                     {
-                        // An attached fire is spawned in the cell like any other, so this is
-                        // also how a burning animal stops burning.
+                        // Attached fires also appear in the cell list. Remove them to extinguish burning animals.
                         t.Destroy(DestroyMode.Vanish);
                     }
                     else if (t is Plant plant) _grace[plant.thingIDNumber] = now;
@@ -183,7 +176,7 @@ namespace SlopWorld
             }
         }
 
-        // Recording the grace is most of it; neither half is worth a puff.
+        // Record temporary protection and remove the plague condition without a visual effect.
         void Unmark(Pawn pawn, int now)
         {
             if (pawn.Dead) return;
@@ -193,8 +186,7 @@ namespace SlopWorld
             if (mark != null) pawn.health.RemoveHediff(mark);
         }
 
-        // Something damaged first; where there is nothing left to repair - most of the certain
-        // core - a sprout comes up instead.
+        // Restore a damaged plant if one exists. Otherwise, try to add a new plant.
         void Revive(IntVec3 centre, int now)
         {
             var hurt = Damaged(centre);
@@ -202,8 +194,7 @@ namespace SlopWorld
             Sow(centre, now);
         }
 
-        // A bare tree first: that is unambiguously something the core did, where a plant short
-        // of full growth might only be young.
+        // Prefer leafless plants. Plants with low growth can be young rather than damaged.
         Plant Damaged(IntVec3 centre)
         {
             var bare = new List<Plant>();
@@ -233,13 +224,12 @@ namespace SlopWorld
             if (plant.LeaflessNow && LeaflessTick != null) LeaflessTick(plant) = -60000;
             if (plant.Growth < ReviveGrowth) plant.Growth = ReviveGrowth;
 
-            // Neither setter dirties the map mesh; see Plague.StepPlants.
+            // Neither setter invalidates the map mesh. See Plague.StepPlants.
             map.mapDrawer?.MapMeshDirty(plant.Position, MapMeshFlagDefOf.Things);
             Puff(plant);
         }
 
-        // CanEverPlantAt is the game's own answer to "may this stand here" - terrain, roof,
-        // what is already in the cell.
+        // Use CanEverPlantAt to check terrain, roofs, and existing cell contents.
         void Sow(IntVec3 centre, int now)
         {
             var biome = map.Biome;
@@ -261,7 +251,7 @@ namespace SlopWorld
                 if (plant == null) return;
 
                 plant.Growth = SproutGrowth;
-                // The spawn dirties the cell, but before the growth is written.
+                // Invalidate the mesh again after setting growth.
                 map.mapDrawer?.MapMeshDirty(c, MapMeshFlagDefOf.Things);
 
                 _grace[plant.thingIDNumber] = now;
@@ -282,8 +272,7 @@ namespace SlopWorld
             foreach (var id in _stale) _grace.Remove(id);
         }
 
-        // Small: it marks a single plant, and a cloud over its neighbours would say the pat
-        // mended the patch.
+        // Keep the effect small to identify the single restored plant.
         static void Puff(Thing t) =>
             PlagueFx.At(ModDefOf.SlopCleanAir, t, 10, 0.85f, 0.20f, 0.28f);
 

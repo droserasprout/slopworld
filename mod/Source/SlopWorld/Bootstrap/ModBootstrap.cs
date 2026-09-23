@@ -11,9 +11,8 @@ namespace SlopWorld
     {
         static ModBootstrap()
         {
-            // First, and before anything is patched: this mod is only ever run in a save
-            // folder of its own, and in anybody else's game it does nothing at all. See
-            // ModProfile.
+            // Check ModProfile before applying patches.
+            // Activate the mod only in its marked save data folder.
             if (!ModProfile.Ok)
             {
                 ModProfile.Complain();
@@ -32,28 +31,25 @@ namespace SlopWorld
             }
             catch (Exception e)
             {
-                // PatchAll aborts on the first bad one, and a mod with no patches at all is
-                // indistinguishable from a mod that isn't there. Log loud and keep whatever bound
-                // before the throw.
+                // PatchAll stops at the first failure.
+                // Log the error and retain patches applied before the exception.
                 Log.Error($"[SlopWorld] patching incomplete: {e}");
             }
-            // Not a patch: a preference this build insists on, which has to be put right once
-            // for a file that has it off.
+            // Enable the required background-run preference if the saved setting disables it.
             Patch_RunInBackground.Enforce();
-            // Nor is this one: a field moved on a def vanilla already reads, which is how a
-            // whole options category goes.
+            // Change the existing definition to hide the base-game options category.
             StripOptions.Hide();
-            // And this is the category that arrives in its place, added to the database
-            // rather than shipped as XML so a refusing mod leaves no empty tab behind.
+            // Add the replacement options category at runtime.
+            // An inactive mod then leaves no empty options tab.
             ModOptions.Install();
             // Intercepts Alt+F4 / window close to save and show a confirmation dialog.
             QuitInterceptor.Register();
-            Log.Message("[SlopWorld] patched; daemon at " + DaemonClient.BaseUrl);
+            Log.Message("[SlopWorld] Patched. Daemon at " + DaemonClient.BaseUrl);
             UiFont.Apply();
         }
     }
 
-    // Drives the hub. Root.Update runs on the menu and in-game alike.
+    // Update the hub from Root.Update, which runs both in menus and during play.
     [HarmonyPatch(typeof(Root), nameof(Root.Update))]
     public static class Patch_Root_Update
     {
@@ -61,23 +57,22 @@ namespace SlopWorld
 
         static void Postfix(long __state)
         {
-            // The jukebox has no MonoBehaviour of its own. Run it before the client's
-            // synchronous reconnect can block this frame while the daemon is restarting.
+            // The jukebox has no MonoBehaviour of its own.
+            // Update it before the client so connection work cannot delay audio updates within this frame.
             Radio.Update();
             SessionHub.Instance.Update();
             WindowTitle.Follow();
             // Intercepts Alt+F4 / window close: shows the confirmation dialog on the
             // frame after the save completes.
             QuitInterceptor.Check();
-            // Drops the framerate while the window is behind something else. Here because
-            // it has to hold on the menu too, and because focus is a per-frame question.
+            // Adjust the frame rate when the window loses focus.
+            // Check each frame, including frames in menus.
             BackgroundFrames.Follow();
             WindowMaximizer.Follow();
             ModEntry.Instance?.settings.FlushIfDue();
             DeadCursor.Tick();
-            // Update and not OnGUI, so it fires per frame rather than per event, and below
-            // HandleEventsHighPriority, where the clicks that count are used -
-            // GetMouseButtonDown still sees them, that flag being Input's own.
+            // Check clicks once per frame in Update instead of once per GUI event in OnGUI.
+            // GetMouseButtonDown retains Unity's input flag even after HandleEventsHighPriority consumes the GUI event.
             if (Input.GetMouseButtonDown(0) || Input.GetMouseButtonDown(1))
                 DeadCursor.Click();
         }

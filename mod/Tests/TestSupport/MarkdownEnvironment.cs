@@ -16,7 +16,7 @@ namespace Verse
 
 namespace SlopWorld
 {
-    // Only engine/resource boundaries are substituted; styles and block flow are production.
+    // Only engine/resource boundaries are substituted. Styles and block flow are production.
     static class TerminalFont
     {
         public static int Rev;

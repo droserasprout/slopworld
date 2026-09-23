@@ -9,7 +9,7 @@ using System.Runtime.InteropServices;
 namespace SlopWorld.Tests
 {
     // Uses the same linked production helpers as the tests. Reference cases model simple
-    // traversal/allocation patterns; neither path includes Unity drawing or event dispatch.
+    // traversal/allocation patterns. Neither path includes Unity drawing or event dispatch.
     static class Benchmarks
     {
         const int Samples = 50;
@@ -24,13 +24,13 @@ namespace SlopWorld.Tests
         {
             CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
             Console.WriteLine("SlopWorld game-free C# benchmarks");
-            Console.WriteLine($"{RuntimeInformation.FrameworkDescription}; {RuntimeInformation.OSArchitecture}");
+            Console.WriteLine($"{RuntimeInformation.FrameworkDescription}. {RuntimeInformation.OSArchitecture}.");
 #if DEBUG
             Console.WriteLine("Debug build: use make bench-mod BUILD=release for comparisons.");
 #else
-            Console.WriteLine("Release build; tiered compilation disabled by Make.");
+            Console.WriteLine("Release build. Make disabled tiered compilation.");
 #endif
-            Console.WriteLine("50 warmed batch samples; p50/p95 are microseconds per operation.");
+            Console.WriteLine("50 warmed batch samples. p50 and p95 are microseconds per operation.");
             Console.WriteLine("B/op counts managed allocations on this thread. References model simple baseline algorithms.");
             Console.WriteLine($"{"case",-48} {"p50 us",10} {"p95 us",10} {"B/op",12}");
             foreach (int count in new[] { 100, 10000, 100000 }) Viewports(count);

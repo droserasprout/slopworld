@@ -7,10 +7,9 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Most of the UI, stripped unconditionally. Kept: the colonist bar, the inspect pane, the
-    // Menu button and our own. 1.6 names.
+    // Hide base game UI elements while retaining colonist and terminal controls. Use RimWorld 1.6 patch targets.
 
-    // The target set is data, so a table and a manual patch rather than a class apiece.
+    // Apply one shared prefix to the target table.
     public static class Patch_HideGui
     {
         static readonly (Type Type, string Method)[] Targets =
@@ -35,8 +34,7 @@ namespace SlopWorld
         static bool Skip() => false;
     }
 
-    // The cell inspector, shown while Alt is held. Both the overlay draw and the
-    // Alt-hold bracket gate on ShouldShow, so forcing it false drops the whole thing.
+    // Hide the cell inspector and its Alt-key brackets through their shared ShouldShow check.
     [HarmonyPatch(typeof(CellInspectorDrawer), "ShouldShow")]
     public static class Patch_Hide_CellInspector
     {
@@ -47,8 +45,7 @@ namespace SlopWorld
         }
     }
 
-    // The beauty readout, on the same Alt key via CellInspectorDrawer.active but
-    // drawn by BeautyDrawer, so it needs its own.
+    // Hide the separate beauty display that also uses the Alt key.
     [HarmonyPatch(typeof(BeautyDrawer), "ShouldShow")]
     public static class Patch_Hide_Beauty
     {
@@ -59,16 +56,15 @@ namespace SlopWorld
         }
     }
 
-    // In 1.6 the forbidden overlay rides a persistent handle, enabled here whenever the thing
-    // is forbidden - and the mod loads before any map ticks, so skipping means never enabled.
+        // Patch before map ticks to prevent forbidden overlay handles from enabling.
     [HarmonyPatch(typeof(CompForbiddable), "UpdateOverlayHandle")]
     public static class Patch_Hide_ForbiddenOverlay
     {
         static bool Prefix() => false;
     }
 
-    // Info card, hostility response and rename. lineEndWidth is an accumulator the
-    // label sizing reads back, so zeroing it gives the name the pane's full width.
+    // Hide information, hostility, and rename buttons.
+    // Set lineEndWidth to zero so the name can use the full pane width.
     [HarmonyPatch(typeof(MainTabWindow_Inspect), "DoInspectPaneButtons")]
     public static class Patch_Hide_InspectButtons
     {
@@ -79,8 +75,8 @@ namespace SlopWorld
         }
     }
 
-    // The Health/Food/Mood bars and the area selectors. An agent's colonist keeps the
-    // inspect line alone; non-pawn selections still draw normally.
+    // Draw only the inspect string for agent pawns. Hide other pawn content.
+    // Keep normal drawing for selections that are not pawns.
     [HarmonyPatch(typeof(InspectPaneFiller), "DoPaneContentsFor")]
     public static class Patch_Hide_InspectContents
     {
@@ -89,8 +85,7 @@ namespace SlopWorld
             if (!(sel is Pawn pawn)) return true;
             if (AgentColony.Current?.SessionOf(pawn) == null) return false;
 
-            // Vanilla draws this line in a group at the content origin, below the widget row
-            // it just laid out; with no row, it starts at the top.
+            // Draw the inspect string at the content origin because the widget row is absent.
             Widgets.BeginGroup(rect);
             InspectPaneFiller.DrawInspectStringFor(sel, rect.AtZero());
             Widgets.EndGroup();
@@ -98,25 +93,24 @@ namespace SlopWorld
         }
     }
 
-    // Only colonists are selectable now, so cycling a cell's things is moot.
+    // Hide cell selection cycling because only colonists are selectable.
     [HarmonyPatch(typeof(MainTabWindow_Inspect), "ShouldShowSelectNextInCellButton", MethodType.Getter)]
     public static class Patch_Hide_SelectNextInCell
     {
         static void Postfix(ref bool __result) => __result = false;
     }
 
-    // Hidden for the opening scene, and while a terminal is open. The strip calls the same
-    // method from inside the window, and that call is the one this lets through.
+    // Hide the colonist bar during cutscenes or when ColonistBarStrip suppresses it.
     [HarmonyPatch(typeof(ColonistBar), nameof(ColonistBar.ColonistBarOnGUI))]
     public static class Patch_Hide_ColonistBar
     {
         static bool Prefix() => !Cutscene.Playing && !ColonistBarStrip.Suppressed;
     }
 
-    // Patch the base and reflected MainButtonWorker.Visible overrides; hidden buttons remain activatable through hotkeys unless InterfaceTryActivate is gated too.
+    // Patch MainButtonWorker.Visible and its overrides. Also block activation so hidden buttons cannot respond to shortcuts.
     public static class Patch_MainButtons
     {
-        // Every button this mod ships has to be named here; one missing does not appear at all.
+        // List every button that the mod permits. Omitted buttons remain hidden.
         static readonly HashSet<string> Keep = new HashSet<string>
         {
             "Menu", "Inspect",
@@ -151,13 +145,12 @@ namespace SlopWorld
             __result = false;
         }
 
-        // Both callers Use() the event before getting here, so the key and the click are
-        // swallowed either way.
+        // Callers consume the key or click event before this check.
         static bool OnlyIfShown(MainButtonWorker __instance) => __instance.Visible;
     }
 
-    // IsVisible is virtual: Health inherits the base getter while the others override without
-    // chaining up, so the base and each override are postfixed and forced false by type.
+    // Patch the base visibility getter and each override because overrides can omit the base call.
+    // Hide the listed tab types.
     public static class Patch_InspectTabs
     {
         static readonly HashSet<Type> Drop = new HashSet<Type>
@@ -174,10 +167,10 @@ namespace SlopWorld
             var post = new HarmonyMethod(
                 AccessTools.Method(typeof(Patch_InspectTabs), nameof(Hide)));
 
-            // Base getter covers tabs that don't override IsVisible (e.g. Health).
+            // Patch the base getter for tabs that inherit it, including Health.
             h.Patch(AccessTools.PropertyGetter(typeof(InspectTabBase), "IsVisible"), postfix: post);
 
-            // The overriders compute their own visibility and may not call base.
+            // Patch overrides that calculate visibility independently.
             foreach (var t in Drop)
             {
                 var g = AccessTools.DeclaredPropertyGetter(t, "IsVisible");
@@ -192,16 +185,14 @@ namespace SlopWorld
         }
     }
 
-    // The bottom buttons bar: the row of main buttons (Projects, Agents, Library, Config,
-    // Menu, Inspect) is now the sidebar's hamburger menu, so the bar itself is gone.
+    // Hide the bottom button bar. The sidebar menu provides these actions.
     [HarmonyPatch(typeof(MainButtonsRoot), nameof(MainButtonsRoot.MainButtonsOnGUI))]
     public static class Patch_Hide_BottomPanel
     {
         static bool Prefix() => false;
     }
 
-    // The Escape-key menu: pressing Esc with nothing else open used to open the main menu
-    // (MainTabWindow_Menu). Esc without an active window now does nothing.
+    // Disable the main menu shortcut when Escape has no active window to close.
     [HarmonyPatch(typeof(UIRoot_Play), "OpenMainMenuShortcut")]
     public static class Patch_NoEscMenu
     {

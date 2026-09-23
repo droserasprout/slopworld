@@ -5,7 +5,8 @@ using UnityEngine.Profiling;
 
 namespace SlopWorld
 {
-    // All calls are on the Unity main thread. No forced collection or terminal text is logged.
+    // All calls run on Unity's main thread.
+    // Do not force garbage collection or log terminal text.
     internal static class MemoryTrace
     {
         static float _next;

@@ -8,7 +8,7 @@ using Verse;
 namespace SlopWorld
 {
     // Redirect colonist-bar layout to AgentSidebar. Over a terminal, draw from the window after
-    // its opaque fill; suppress the map-layer copy to avoid drawing a buried duplicate.
+    // its opaque fill. Suppress the map-layer copy to avoid drawing a buried duplicate.
     public static class ColonistBarStrip
     {
         static readonly FieldInfo DrawLocsField =
@@ -22,7 +22,7 @@ namespace SlopWorld
         static bool Check()
         {
             if (DrawLocsField != null && ScaleField != null) return true;
-            Log.Error("[SlopWorld] colonist bar fields moved; sidebar layout disabled");
+            Log.Error("[SlopWorld] Colonist bar fields moved. SlopWorld disabled its sidebar layout.");
             return false;
         }
 
@@ -52,7 +52,7 @@ namespace SlopWorld
         // absorbing window.
         public static bool MouseOver(Rect r) => r.Contains(Event.current.mousePosition);
 
-        // Hover requires interactive chrome and no float menu; map-layer menus consume presses
+        // Hover requires interactive chrome and no float menu. Map-layer menus consume presses
         // without drawing hover, so the underlying list must not highlight.
         public static bool Hover(Rect r) =>
             Interactive && Find.WindowStack?.FloatMenu == null && MouseOver(r);
@@ -74,7 +74,7 @@ namespace SlopWorld
 
         // Whether the column's add strip has the foot of the panel, which is the same
         // question as whether the panel is on screen at all. The layout is told so it can
-        // keep the room off the rows; the button itself is drawn and answered by
+        // keep the room off the rows. The button itself is drawn and answered by
         // AgentSidebar, in every view rather than only this one.
         public static bool ShowAdd => BarShown && !Cutscene.Playing;
 
@@ -180,9 +180,9 @@ namespace SlopWorld
     [HarmonyPatch(typeof(ColonistBar), nameof(ColonistBar.ColonistBarOnGUI))]
     public static class Patch_ColonistBarStripLayout
     {
-        // The column's own chrome goes down around the bar's, from the same call, which is
-        // what puts it over a pane as well as on the map: the panel and the project headings
-        // under the portraits, the labels and their clicks over them.
+        // Draw the column chrome around the colonist bar in the same call.
+        // This puts the panel and project headings below the portraits.
+        // It puts labels and their pointer regions above the portraits.
         static void Prefix(out long __state)
         {
             __state = PerfTrace.Start();
@@ -192,9 +192,9 @@ namespace SlopWorld
 
         static void Postfix() => AgentSidebar.DrawFront();
 
-        // A postfix does not run when the original throws, and the flag the front pass clears
-        // is what stops every pawn label on the map being declined. So the finalizer clears
-        // it too, the same reason the layout is put back from here.
+        // A postfix does not run when the original throws. The flag the front pass clears is what
+        // stops every pawn label on the map being declined. So the finalizer clears it too, the
+        // same reason the layout is put back from here.
         static void Finalizer(long __state)
         {
             AgentSidebar.EndDraw();
@@ -214,8 +214,8 @@ namespace SlopWorld
             public bool Translated;
         }
 
-        // Only the outermost call owns the swap: the bar asks this of itself from inside its
-        // own OnGUI, and restoring there would undo the layout being drawn.
+        // Only the outermost call owns the swap. The bar asks this of itself from inside its own
+        // OnGUI, and restoring there would undo the layout being drawn.
         static void Prefix(out HitState __state)
         {
             __state = new HitState { Restore = !ColonistBarStrip.Applied };
@@ -231,19 +231,19 @@ namespace SlopWorld
         }
     }
 
-    // Vanilla's double-click jump and its right-click swallow stay out of the way
-    // underneath; only the strip's own clicks are taken.
+    // Let vanilla handle clicks that do not select a strip portrait.
+    // Consume clicks on interactive strip portraits.
     [HarmonyPatch(typeof(ColonistBarColonistDrawer), "HandleClicks")]
     public static class Patch_BarClickSwitchesTerminal
     {
         static bool Prefix(Rect rect, Pawn colonist)
         {
             if (!ColonistBarStrip.Drawing) return true;
-            // Something is stacked over the pane; the strip is scenery this frame.
+            // Something is stacked over the pane. The strip is scenery this frame.
             if (!ColonistBarStrip.Interactive) return false;
             if (Event.current.type != EventType.MouseDown || Event.current.button != 0)
                 return true;
-            if (!ColonistBarStrip.MouseOver(rect)) return true; // not this portrait; fall through
+            if (!ColonistBarStrip.MouseOver(rect)) return true; // not this portrait. Fall through
 
             var session = AgentColony.Current?.SessionOf(colonist);
             if (session == null) return true;

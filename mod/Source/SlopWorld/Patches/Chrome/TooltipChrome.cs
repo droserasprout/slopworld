@@ -4,10 +4,9 @@ using Verse;
 
 namespace SlopWorld
 {
-    // TipRegion is used throughout our chrome, but it only registers the text and delay;
-    // ActiveTip owns the bubble that eventually appears.  Styling at the registrations
-    // would therefore miss both lazy tips and the map's thing tips.  Keep vanilla's sizing,
-    // placement, delay and stacking and replace its tiled atlas at the final draw seam.
+    // TipRegion registers tooltip text and delay. ActiveTip draws the tooltip.
+    // Replace the background and text style during drawing to include deferred tooltips and map tooltips.
+    // Retain base game sizing, placement, delay, and stacking.
     [HarmonyPatch(typeof(ActiveTip), "DrawInner")]
     public static class Patch_TooltipChrome
     {

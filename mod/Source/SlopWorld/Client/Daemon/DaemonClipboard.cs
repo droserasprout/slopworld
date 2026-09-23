@@ -4,9 +4,8 @@ using UnityEngine;
 
 namespace SlopWorld
 {
-    // Sidecar playback and terminals stay in the container, but the clipboard belongs to the
-    // native game. Native Linux still mirrors through slopd because Unity's buffer is unreliable
-    // under some compositors.
+    // The native game manages the clipboard when playback and terminals run in the sidecar container.
+    // Native Linux synchronizes the clipboard through slopd because Unity's buffer is unreliable under some compositors.
     public static class DaemonClipboard
     {
         static readonly HashSet<string> Pending = new HashSet<string>();
@@ -32,8 +31,8 @@ namespace SlopWorld
                 return;
             }
 
-            // wl-copy can remain alive as the Wayland clipboard owner. Rapidly repeating the
-            // same selection must not create another owner (and another GNOME readiness popup).
+            // wl-copy can remain active as the Wayland clipboard owner.
+            // Repeated copies of the same text must not create another owner or GNOME readiness popup.
             if (text == _lastCopiedText || !Pending.Add(text))
             {
                 ok?.Invoke();
@@ -63,8 +62,8 @@ namespace SlopWorld
                 return;
             }
 
-            // PRIMARY has its own owner, independent of CLIPBOARD. Avoid replacing that owner
-            // when the same line is selected repeatedly, just as Copy does for CLIPBOARD.
+            // PRIMARY and CLIPBOARD have separate owners.
+            // Preserve the PRIMARY owner when the user repeatedly selects the same text, as Copy does for CLIPBOARD.
             if (text == _lastCopiedPrimaryText || !PendingPrimary.Add(text))
             {
                 ok?.Invoke();

@@ -8,8 +8,8 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Requests run on the thread pool; completions are queued and replayed on Unity's
-    // main thread, because callers touch game state and IMGUI from them.
+    // Run requests on the thread pool. Queue completion callbacks for Unity's main thread.
+    // Callbacks use game state and IMGUI, which require the main thread.
     public static class DaemonClient
     {
         const string GetMethod = "GET";
@@ -52,8 +52,8 @@ namespace SlopWorld
         public static void Delete(string path, IMessage body, Action<Wire.Ack> ok, Action<string> fail = null,
             string session = null) => Delete<Wire.Ack>(path, body, ok, fail, session);
 
-        // Background integrations use the same completion lane as HTTP so their callbacks
-        // can safely update Unity and RimWorld state.
+        // Queue background integration callbacks with HTTP callbacks.
+        // They can then update Unity and RimWorld state on the main thread.
         public static void OnMainThread(Action action)
         {
             if (action != null) Completions.Enqueue(action);
@@ -63,9 +63,8 @@ namespace SlopWorld
                                 Action<T> ok, Action<string> fail, string session = null,
                                 int timeoutMs = DefaultTimeoutMs) where T : IMessage<T>, new()
         {
-            // Only start a request trace when this route has a bucket. Starting traces for
-            // untracked routes leaves a null name, and the completion callback can fail in
-            // PerfTrace.End before the caller's clipboard/paste callback runs.
+            // Start a request trace only when the route has a trace category.
+            // Other routes leave a null name, which can cause PerfTrace.End to fail before the caller's callback runs.
             string trace = TraceName(path);
             long started = trace == null ? 0L : PerfTrace.Start();
             ThreadPool.QueueUserWorkItem(_ =>
@@ -74,8 +73,8 @@ namespace SlopWorld
                 {
                     var connection = Settings.Connection;
                     var req = (HttpWebRequest)WebRequest.Create(connection.BaseUrl + path);
-                    // Sidebar refreshes fan out over projects. The framework default can
-                    // leave fast status reads queued behind two slow workspace requests.
+                    // Sidebar refreshes send requests for multiple projects.
+                    // The default connection limit can delay status reads behind two slow workspace requests.
                     req.ServicePoint.ConnectionLimit = 16;
                     req.Method = method;
                     req.Accept = ContentType;
@@ -99,7 +98,7 @@ namespace SlopWorld
                     using (var resp = (HttpWebResponse)req.GetResponse())
                     using (var stream = resp.GetResponseStream() ?? Stream.Null)
                     {
-                        if (resp.ContentType != ContentType) throw new IOException("Expected Protobuf protocol 2 response; update the daemon and mod together.");
+                        if (resp.ContentType != ContentType) throw new IOException("Expected a Protobuf protocol 2 response. Update the daemon and mod together.");
                         var val = new MessageParser<T>(() => new T()).ParseFrom(ReadBounded(stream));
                         Completions.Enqueue(() =>
                         {
@@ -110,7 +109,7 @@ namespace SlopWorld
                 }
                 catch (WebException we)
                 {
-                    // slopd puts a human-readable reason in the error body; prefer it.
+                    // Prefer the explanation that slopd supplies in the error body.
                     string msg = we.Message;
                     if (we.Response is HttpWebResponse r)
                     {
@@ -168,9 +167,9 @@ namespace SlopWorld
             return null;
         }
 
-        // Drained once per frame from the main thread. HTTP callbacks are non-replaceable, so
-        // leave the remainder queued for a later frame instead of allowing a response burst to
-        // monopolize Unity's update loop.
+        // Process completion callbacks once per frame on the main thread.
+        // Keep remaining callbacks queued for a later frame to limit time in Unity's update loop.
+        // HTTP callbacks cannot replace one another.
         public static int PendingCompletions => Completions.Count;
 
         public static int PumpCompletions()
@@ -183,8 +182,8 @@ namespace SlopWorld
                 count++;
                 try { a(); }
                 catch (Exception e) { Log.Error($"[SlopWorld] completion: {e}"); }
-                // Always make progress, but yield after roughly 2 ms even when fewer than
-                // 32 expensive tree callbacks arrived. A single callback cannot be preempted.
+                // Process at least one callback. Then yield after approximately 2 ms, even before reaching 32 callbacks.
+                // The pump cannot interrupt a callback after it starts.
                 if (System.Diagnostics.Stopwatch.GetTimestamp() - budgetStarted >= CompletionBudgetTicks)
                     break;
             }

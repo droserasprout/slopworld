@@ -5,14 +5,12 @@ using Verse;
 
 namespace SlopWorld
 {
-    // The vegetation half of the plague: the sweep that withers or strips what the circle has
-    // reached, and the sweep that sows flowerbeds in grandma mode. Both are walked in slices
-    // because the field is the whole map; the growth model and clock live in Plague.cs.
+    // Apply plague effects to vegetation, or add flowers in Gentle mode.
+    // Process limited batches because the field covers the map. Plague.cs owns field growth and timing.
     public partial class Plague
     {
-        // Work from a copy: ThingsInGroup returns the lister's live list, and destroying a
-        // plant while walking it shifts the next entry and skips it. Rebuild after each
-        // slice so newly grown plants are included without restarting the sweep every tick.
+        // Copy the plant list before processing it. Destroying plants changes the live list from ThingsInGroup.
+        // Rebuild the copy after a complete sweep to include new plants.
         void StepPlants()
         {
             if (_runtime.PlantIndex >= _runtime.Plants.Count)
@@ -39,30 +37,26 @@ namespace SlopWorld
                 var dose = band == Band.Full ? Full : Weak;
                 bool tree = p.def.plant.IsTree;
 
-                // Every plant comes back round forever: without this a bare tree smokes again
-                // each pass and a plant already held back rolls for ignition until it catches.
+                // Skip plants that already have the required damage to avoid repeated smoke and ignition attempts.
                 bool todo = dose.Strips
                     ? !(tree && p.LeaflessNow)
                     : !tree && p.Growth > dose.StuntFrom;
                 if (!todo) continue;
 
-                // After the todo check: same answer, and in the steady state nearly every
-                // plant the sweep walks past is one the band has finished with.
+                // Check protection after checking for required changes to reduce work on later sweeps.
                 if (Spared(p)) continue;
 
-                // Before the strip: TryStartFireIn weighs what is flammable in the cell, and
-                // stripping the plant leaves nothing there to light.
+                // Try ignition before removing vegetation because TryStartFireIn checks flammable cell contents.
                 if (Rand.Value < dose.PlantIgnite &&
                     FireUtility.TryStartFireIn(p.Position, map, dose.FireSize, null))
                     continue;
 
                 if (!dose.Strips)
                 {
-                    // Trees are left alone here: a bare tree is the core's look, and giving the
-                    // falloff one made the two bands indistinguishable.
+                    // Leave trees unchanged in the weak band so it remains visually distinct from the full band.
                     PlagueFx.Wither(p);
                     p.Growth = dose.StuntTo;
-                    // Growth is printed into the map mesh and the setter does not dirty it.
+                    // The growth setter does not invalidate the map mesh. Request a mesh update.
                     map.mapDrawer?.MapMeshDirty(p.Position, MapMeshFlagDefOf.Things);
                 }
                 else if (tree)
@@ -78,10 +72,8 @@ namespace SlopWorld
             }
         }
 
-        // What StepPlants is for the other half: the pass that acts on the ground the circle has
-        // reached. Walked over the cell field rather than over the plants, because a flowerbed
-        // is a property of a cell and most of the ones wanted have nothing standing on them
-        // yet - and in slices for the same reason StepPlants is, the field being the whole map.
+        // Process map cells in limited batches to add flowers within the field.
+        // Use cells rather than existing plants because empty cells can receive flowers.
         void Sow()
         {
             var flowers = Flowers;
@@ -96,8 +88,7 @@ namespace SlopWorld
                 if (_runtime.SowIndex >= cells.Length) _runtime.SowIndex = 0;
                 int k = _runtime.SowIndex++;
 
-                // The cheapest of the three questions, and the one that is false for most of
-                // the map for most of a colony.
+                // Check whether the field reached this cell before the more expensive checks.
                 if (cells[k] == Never) continue;
 
                 var c = idx.IndexToCell(k);
@@ -109,26 +100,22 @@ namespace SlopWorld
                 if (plant == null) continue;
 
                 plant.Growth = Rand.Range(SowGrowthMin, SowGrowthMax);
-                // Growth is printed into the map mesh and the setter does not dirty it - the
-                // same thing the stunt in StepPlants has to do.
+                // The growth setter does not invalidate the map mesh. Request a mesh update.
                 map.mapDrawer?.MapMeshDirty(c, MapMeshFlagDefOf.Things);
                 PlagueFx.Sprout(plant);
             }
         }
 
-        // Deliberately short of everything CanEverPlantAt asks. Fertility carries most of it -
-        // it is zero on water, on rock and on every plate the agents lay, so the paving stays
-        // bare without being named here - and the rest is only that the cell is empty.
+        // Require fertile ground without plants, buildings, or other contents that fill the cell.
+        // This check is less restrictive than CanEverPlantAt.
         bool Plantable(IntVec3 c) =>
             c.GetTerrain(map)?.fertility > 0f &&
             c.GetPlant(map) == null &&
             c.GetEdifice(map) == null &&
             !c.Filled(map);
 
-        // Read off the database rather than named: a flower is whatever calls itself one, so
-        // anything a mod added turns up here too, and a build that shipped none grows nothing
-        // rather than throwing. Trees are out - purpose is Beauty on some of them, and a
-        // forest arriving one trunk at a time is not what was asked for.
+        // Select non-tree plants with the Beauty purpose from the definition database.
+        // This includes definitions from other mods. If no definitions match, sow no plants.
         static List<ThingDef> _flowers;
 
         static List<ThingDef> Flowers

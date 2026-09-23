@@ -497,7 +497,7 @@ namespace SlopWorld.Wire {
   }
   #region Messages
   /// <summary>
-  /// Field numbers are permanent. Reserve removed fields; never reuse their numbers.
+  /// Field numbers are permanent. Reserve each number when you remove its field. Never reuse a reserved number.
   /// </summary>
   [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
   public sealed partial class Daemon : pb::IMessage<Daemon>

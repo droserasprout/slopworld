@@ -9,8 +9,8 @@ namespace SlopWorld
     // Main-thread WebSocket pump with reconnect backoff. The coordinator dispatches its events.
     class HubTransport
     {
-        // Set by the coordinator after the services exist, so the transport can stay unaware
-        // of what a connect or a message means.
+        // The coordinator assigns callbacks after creating the services.
+        // These callbacks keep connection and message handling outside the transport.
         public Action OnConnected = null;
         public Action<Wire.Event> OnMessage = null;
 
@@ -42,8 +42,8 @@ namespace SlopWorld
             action => ThreadPool.QueueUserWorkItem(_ => action()))
         { }
 
-        // The game uses the default ThreadPool/ MiniWebSocket pair. Tests can provide a
-        // deterministic scheduler and socket while exercising the same result pump.
+        // The game uses ThreadPool and MiniWebSocket by default.
+        // Tests can supply a controlled scheduler and socket while using the same result processing code.
         internal HubTransport(System.Func<IHubSocket> socketFactory,
                              System.Action<System.Action> queueConnect)
         {
@@ -64,8 +64,7 @@ namespace SlopWorld
             _ws?.Dispose();
             _ws = null;
             _nextRetry = UnityEngine.Time.realtimeSinceStartup + _backoff;
-            // Capped low: the usual reason the socket dies is `make install-daemon`, which is
-            // over in about two seconds.
+            // Keep the maximum reconnect delay short so the client recovers promptly after daemon installation.
             _backoff = Math.Min(_backoff * 2, 5);
         }
 
@@ -79,8 +78,8 @@ namespace SlopWorld
             Status = "disconnected";
         }
 
-        // A guarded write: everything the hub sends over the socket goes through here, and a
-        // send while the socket is down is simply dropped.
+        // Send all hub socket messages through this method.
+        // Discard messages when the socket is disconnected.
         public void Send(Wire.ClientMessage message)
         {
             if (_ws == null || !_ws.Connected) return;
@@ -92,8 +91,8 @@ namespace SlopWorld
         {
             if (!Settings.AutoConnect)
             {
-                // Disabling auto-connect must invalidate an attempt even when no socket has
-                // been installed yet. Otherwise its eventual result leaves _connecting stuck.
+                // Disabling auto-connect must invalidate pending attempts, including attempts without an assigned socket.
+                // Otherwise, a delayed result can leave _connecting set indefinitely.
                 InvalidateConnectAttempt();
                 PumpConnectResults();
                 return;
@@ -105,7 +104,7 @@ namespace SlopWorld
             {
                 if (_ws != null && !_ws.Connected)
                 {
-                    // The reader thread noticed the socket die.
+                    // The reader thread detected disconnection.
                     ScheduleRetry(_ws.LastError ?? "closed");
                 }
                 if (!_connecting && UnityEngine.Time.realtimeSinceStartup >= _nextRetry)
@@ -176,9 +175,8 @@ namespace SlopWorld
             {
                 if (result.Serial != _connectSerial || !Settings.AutoConnect)
                 {
-                    // A stale completion belongs to an older serial and must not release a
-                    // newer attempt. The current completion is safe to settle, even when auto
-                    // connect was disabled after BeginConnect.
+                    // Ignore a completion with an older serial so it cannot release a newer attempt.
+                    // Complete the current attempt even if the user disables auto-connect after BeginConnect.
                     if (result.Serial == _connectSerial) _connecting = false;
                     result.Socket?.Dispose();
                     continue;

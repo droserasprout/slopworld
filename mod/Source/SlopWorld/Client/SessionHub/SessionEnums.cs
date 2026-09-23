@@ -9,8 +9,8 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Down is "the process is not running": the colonist is put on the floor rather than
-    // killed, the same process being able to get it back up.
+    // Down is "the process is not running". The colonist is put on the floor rather than killed,
+    // the same process being able to get it back up.
     public enum AgentState { Down, Working, Waiting, Idle }
 
     public enum LibraryItemKind { Prompt, Shell, Breadcrumb, FileAction }
@@ -42,6 +42,6 @@ namespace SlopWorld
             : mode == FileActionMode.Nothing ? "Nothing" : "Ask every time";
     }
 
-    // Temp is a fresh scratch directory per run; Ask is decided at the button.
+    // Temp is a fresh scratch directory per run. Ask is decided at the button.
     public enum LibraryItemLink { Project, Temp, Ask }
 }

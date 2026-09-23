@@ -5,31 +5,29 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Reproduce vanilla quick-start with `ModScenario`, but skip setup pages and starting pawns.
-    // The sequence is copied because scenario hooks are interleaved with setup; mark a real
-    // entry start and set `startingPawnCount` after those hooks run.
+    // Use the base game quick start sequence with ModScenario. Skip setup pages and starting pawns.
+    // Keep scenario hooks in their original order.
+    // Set startingPawnCount after the hooks run.
     public static class QuickStart
     {
-        // Vanilla's own quick-start size is 250; 200 generates faster and is more than
-        // enough for a colony that is only ever looked at.
+        // Use a smaller map than the base game quick start size of 250 to reduce generation time.
         const int MapSize = 200;
 
-        // Vanilla's quick-start figure. The colony occupies one tile, but LandingSite
-        // needs enough world to find a green lowland one in.
+        // Use the base game quick start coverage.
+        // LandingSite needs enough tiles to find a green lowland site.
         const float PlanetCoverage = 0.3f;
 
-        // In-game days between autosaves, if the player has them switched off.
+        // Game days between automatic saves when the player has disabled them.
         const float AutosaveDays = 1f;
 
-        // The two ways in are the same call: the player asking for a colony, and there
-        // being no colony to ask about. Queued rather than run, so both callers can be
-        // in the middle of drawing something. The exception handler is vanilla's.
+        // Both a player request and the absence of a saved colony use this method.
+        // Queue generation so callers can finish drawing. Use the base game exception handler.
         public static void Queue() =>
             LongEventHandler.QueueLongEvent(Begin, "GeneratingMap", true,
                 GameAndMapInitExceptionHandlers.ErrorWhileGeneratingMap);
 
-        // Runs off the main thread, like vanilla's own quick start: touch the game being
-        // built, nothing that belongs to the UI.
+        // This runs outside the main thread, like the base game quick start.
+        // Modify the new game only. Do not access the UI.
         static void Begin()
         {
             Current.ProgramState = ProgramState.Entry;
@@ -49,19 +47,17 @@ namespace SlopWorld
 
             Find.GameInitData.mapSize = MapSize;
             Find.GameInitData.startedFromEntry = true;
-            // Overwrites the tile just chosen, and needs it there to fall back on.
+            // Keep the random tile as a fallback if LandingSite finds no suitable tile.
             LandingSite.Choose();
 
-            // Last, as in vanilla: this is where a scenario generates its starting pawns.
-            // Ours has no part left that does, so it generates none.
+            // This hook normally generates starting pawns. ModScenario removes the parts that generate them.
             Find.Scenario.PostIdeoChosen();
 
-            // And this is what says so. Written after PostIdeoChosen rather than before,
-            // so it is the last word whatever the parts did; -1 is the field's own default
-            // and PrepForMapGen indexes the pawn list with it.
+            // Set the count after PostIdeoChosen so scenario hooks cannot override it.
+            // PrepForMapGen uses this count to index the pawn list. The default value is -1.
             Find.GameInitData.startingPawnCount = 0;
 
-            // Autosave off would mean a colony that can never be picked back up.
+            // Enable automatic saves so AutoResume can restore this colony.
             if (Prefs.AutosaveIntervalDays <= 0f) Prefs.AutosaveIntervalDays = AutosaveDays;
 
             Log.Message("[SlopWorld] scripted colony start");
@@ -69,9 +65,8 @@ namespace SlopWorld
         }
     }
 
-    // The player's own way in. PreOpen is the only opening hook Page_SelectScenario
-    // declares; the page itself is left alone, because Root.OnGUI skips the window
-    // stack while a long event is pending and so it never draws.
+    // PreOpen is the only opening hook that Page_SelectScenario declares.
+    // Root.OnGUI skips the window stack while a long event is pending, so this page does not draw.
     [HarmonyPatch(typeof(Page_SelectScenario), "PreOpen")]
     public static class Patch_QuickStart
     {

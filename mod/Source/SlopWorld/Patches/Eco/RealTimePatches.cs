@@ -4,12 +4,10 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Every duration RimWorld prints goes through one of the four GenDate helpers
-    // below, and every one speaks the game's calendar: 2500 ticks to the hour, 60000
-    // to the day. These rewrite the lot into the span a wall clock would have
-    // measured, so the board reads in the same units as the agents it is watching.
+    // Convert durations from these GenDate helpers to real time through RealClock.
+    // The base game helpers use calendar units of 2500 ticks per hour and 60000 ticks per day.
 
-    // The main one: "3 hours", "2 days", and the "5h" short form.
+    // Format the duration with normal or short unit names.
     [HarmonyPatch(typeof(GenDate), nameof(GenDate.ToStringTicksToPeriod))]
     public static class Patch_TicksToPeriod
     {
@@ -20,8 +18,7 @@ namespace SlopWorld
         }
     }
 
-    // Vanilla spells this one out down to the hour ("2 days 5 hours"). One real unit
-    // is plenty.
+    // Replace the verbose calendar duration with a real-time duration.
     [HarmonyPatch(typeof(GenDate), nameof(GenDate.ToStringTicksToPeriodVerbose))]
     public static class Patch_TicksToPeriodVerbose
     {
@@ -32,8 +29,7 @@ namespace SlopWorld
         }
     }
 
-    // Vanilla rounds this one off at both ends ("less than a day"). Vagueness pitched
-    // at a game day means nothing on a wall clock.
+    // Replace approximate calendar durations with real-time durations.
     [HarmonyPatch(typeof(GenDate), nameof(GenDate.ToStringTicksToPeriodVague))]
     public static class Patch_TicksToPeriodVague
     {
@@ -44,8 +40,7 @@ namespace SlopWorld
         }
     }
 
-    // The days-only form. Every caller slots it into a sentence as a plain span, so
-    // handing back the real unit reads fine.
+    // Replace the days-only format with the appropriate real-time unit.
     [HarmonyPatch(typeof(GenDate), nameof(GenDate.ToStringTicksToDays))]
     public static class Patch_TicksToDays
     {
@@ -56,7 +51,7 @@ namespace SlopWorld
         }
     }
 
-    // LogEntry tooltips use RealClock's game-clock adjustment; both vanilla overrides route here.
+    // Use RealClock timestamp conversion for log entry tooltips.
     [HarmonyPatch(typeof(LogEntry), nameof(LogEntry.GetTipString))]
     public static class Patch_LogEntryTip
     {

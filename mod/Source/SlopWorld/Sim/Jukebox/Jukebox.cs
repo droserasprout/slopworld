@@ -5,27 +5,27 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Map jukebox UI: Radio owns playback/catalog state; this owns menus, hover text, and input.
-    // Read clicks directly because StripInteraction makes only colonists selectable.
+    // Radio owns playback and catalog state. This component owns map menus, tooltips, and input.
+    // Read clicks directly because StripInteraction permits selection only for colonists.
     public class Jukebox : MapComponent
     {
         public Jukebox(Map map) : base(map) { }
 
-        // Keep one box on load; AgentColony's latch prevents new duplicates.
+        // Remove duplicate jukeboxes after loading. AgentColony prevents new duplicates.
         public override void FinalizeInit()
         {
             var boxes = map.listerThings.ThingsOfDef(ModDefOf.SlopJukebox);
             if (boxes.Count < 2) return;
 
             int extra = boxes.Count - 1;
-            // Vanish duplicates; destroying from the end avoids invalidating the lister walk.
+            // Remove items from the end because destruction changes the list.
             while (boxes.Count > 1) boxes[boxes.Count - 1].Destroy(DestroyMode.Vanish);
             Log.Message($"[SlopWorld] jukebox: removed {extra} duplicate(s)");
         }
 
         public override void MapComponentOnGUI()
         {
-            // Cutscenes, Eco's frame-only map, and an opaque terminal have no map box to click.
+            // Skip map input during cutscenes, Eco rest, or terminal coverage.
             if (Cutscene.Playing || Eco.Resting || TerminalWindow.Covering) return;
 
             var cell = UI.MouseCell();
@@ -41,8 +41,8 @@ namespace SlopWorld
             OpenMenu();
         }
 
-        // Both box and status-bar entry points open the same menu; use OpenOverPane for either
-        // map or terminal rendering.
+        // Open the same menu from the map jukebox and status bar.
+        // OpenOverPane supports both map and terminal display.
         public static void OpenMenu()
         {
             TerminalWindow.OpenOverPane(new UiMenu(MenuOptions()));
@@ -50,9 +50,7 @@ namespace SlopWorld
 
         static List<FloatMenuOption> MenuOptions()
         {
-            // The sidecar cannot play daemon audio, so the jukebox door becomes the native
-            // game's SlopWorld OST switch. Radio controls would only change settings that
-            // nothing can consume in this runtime.
+            // Sidecar mode uses native OST playback. Show only controls that this mode supports.
             if (!SessionHub.Instance.Capabilities.AudioPlayback)
             {
                 return new List<FloatMenuOption>
@@ -75,17 +73,16 @@ namespace SlopWorld
             };
         }
 
-        // While a lookup runs the row cancels it and names the input; otherwise it starts one,
-        // offering a retry when the last attempt left an error behind. A float menu is a
-        // snapshot, so this reflects the state at the moment the menu was opened.
+        // Show cancellation and the input label during recognition. Otherwise, offer recognition or retry.
+        // Menu rows reflect state when the menu opens.
         static FloatMenuOption RecognizeRow()
         {
             if (Radio.Recognizing)
             {
                 string input = Radio.RecognizingInput;
                 string label = string.IsNullOrEmpty(input)
-                    ? "Cancel recognizing\u2026"
-                    : "Cancel recognizing (" + input + ")";
+                    ? "Cancel recognition\u2026"
+                    : "Cancel recognition (" + input + ")";
                 return new FloatMenuOption(label, Radio.CancelRecognition);
             }
 
@@ -94,11 +91,11 @@ namespace SlopWorld
                 Radio.Recognize);
         }
 
-        // Hover text names the current track; empty/muted playback has no tooltip.
+        // Show the current track in hover text. Omit the tooltip when no track label is available.
         const string Note = "\u266A ";
 
-        // A `TipSignal` with no id of its own is keyed on its text, so the bubble would
-        // restart its fade every time the station moved on. The cell is the box.
+        // Use the cell hash as a stable tooltip identifier.
+        // An identifier based on text would restart the fade whenever the track title changes.
         void Tip(IntVec3 cell)
         {
             string now = Radio.CachedNowPlaying;
@@ -107,15 +104,15 @@ namespace SlopWorld
             TooltipHandler.TipRegion(CellRect(cell), new TipSignal(Note + now, cell.GetHashCode()));
         }
 
-        // The status-bar door uses the same current-track label.
+        // Use the same current track label for the status bar tooltip.
         public static string IconTip()
         {
             string now = Radio.CachedNowPlaying;
             return string.IsNullOrEmpty(now) ? "" : Note + now;
         }
 
-        // The cell in screen coordinates. Two opposite corners mapped and squared up, since
-        // which way round they come out is the camera's business rather than ours.
+        // Convert opposite cell corners to screen coordinates.
+        // Normalize their order because it depends on the camera.
         static Rect CellRect(IntVec3 cell)
         {
             var a = UI.MapToUIPosition(cell.ToVector3());
@@ -124,8 +121,7 @@ namespace SlopWorld
                 Mathf.Abs(b.x - a.x), Mathf.Abs(b.y - a.y));
         }
 
-        // The first row carries what is on, so the common question is answered without
-        // opening anything. Muted, nothing is on, and saying so is what the row is for.
+        // Show the current source or muted state in the first row.
         static string PlayRow() => "Play  -  " + (Radio.Muted ? "muted" : Playing());
 
         static string Playing()
@@ -135,10 +131,7 @@ namespace SlopWorld
             return on == null ? "OST" : $"{on.Name} {Radio.RateLabel(on.Rate)}";
         }
 
-        // The stations, one level down. Two of them were the whole of this menu until the
-        // box grew settings; they are behind a row of their own now so that what is played
-        // and how it is played are not one list. The OST leads because it is the one thing
-        // here that is not a station and needs no network to play.
+        // List music sources in a submenu. Place OST first because it requires no network connection.
         public static List<FloatMenuOption> StationOptions()
         {
             var options = new List<FloatMenuOption>();
@@ -155,14 +148,11 @@ namespace SlopWorld
             return options;
         }
 
-        // Show a station's active preset in its row; selecting the row opens that station's
-        // preset list rather than playing it directly.
+        // Show the selected station rate in its row. Open the rate list when the player selects the row.
         static string StationRow(Radio.Station s) =>
             Radio.Picked == s ? $"{s.Name}  -  {Radio.RateLabel(s.Rate)}" : s.Name;
 
-        // The second level: one row per quality that station serves. A station serving one
-        // quality gets a list of one rather than a special case; what it answers on is
-        // worth saying either way.
+        // Show one row per available rate, including stations with only one rate.
         static List<FloatMenuOption> Presets(Radio.Station s)
         {
             var options = new List<FloatMenuOption>();
@@ -176,14 +166,12 @@ namespace SlopWorld
             return options;
         }
 
-        // What is playing is marked rather than greyed out: a disabled row reads as
-        // broken, and picking the one already on does nothing anyway. Muted, nothing is
-        // playing and nothing is marked - the tick on the Mute row is where that is said.
+        // Mark the playing source without disabling its row.
+        // When muted, leave source rows unmarked and use the Mute toggle to show the state.
         static string Mark(string label, bool playing) =>
             playing && !Radio.Muted ? label + "  (playing)" : label;
 
-        // Whether the colony has its jukebox already. AgentColony asks before it packs
-        // another into a pod.
+        // Check for an existing jukebox before AgentColony adds another to a pod.
         public static bool On(Map map) =>
             map != null && map.listerThings.ThingsOfDef(ModDefOf.SlopJukebox).Count > 0;
     }

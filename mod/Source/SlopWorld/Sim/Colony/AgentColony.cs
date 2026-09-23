@@ -12,8 +12,7 @@ namespace SlopWorld
         // Reconciling is cheap but pointless every tick.
         const int Interval = 60;
 
-        // Shorter than vanilla's 110: the pod is theatre, and the agent is wanted on the
-        // colonist bar.
+        // Shorten the base game's 110-tick pod delay so the agent appears on the colonist bar sooner.
         const int PodOpenDelay = 60;
 
         Dictionary<string, Pawn> _pawns = new Dictionary<string, Pawn>();
@@ -22,22 +21,20 @@ namespace SlopWorld
         readonly List<string> _ordered = new List<string>();
         bool _orderDirty = true;
 
-        // An index rather than a convenience: IsAgent is asked on the way past by most of
-        // Patches/ - a validator inside BestAttackTarget, the IsIdle the bar reads per
-        // colonist per frame - and the answer used to be ContainsValue.
+        // Index pawns for frequent IsAgent calls from patches, including BestAttackTarget and colonist-bar IsIdle checks.
+        // This avoids repeated ContainsValue scans.
         readonly Dictionary<Pawn, string> _names = new Dictionary<Pawn, string>();
 
-        // Scribe hands back a whole new _pawns. Rebuilt on the next question rather than in
-        // ExposeData: references resolve in a later phase, so the pawns would still be null.
+        // Scribe replaces _pawns during loading.
+        // Rebuild the index on the next lookup because pawn references remain null until a later load phase.
         bool _reindex = true;
 
         // Last state each session was reconciled at. Saved with the colony so a game restart
         // does not turn an unchanged daemon state into a fresh transition.
         Dictionary<string, AgentState> _seen = new Dictionary<string, AgentState>();
 
-        // Agents still in the air. A pawn inside a pod is not spawned, so the haze waits on
-        // the pod opening - watched every tick rather than on the reconcile's second, a puff
-        // after the dust has settled reading as a second event.
+        // Track agents whose pods have not opened.
+        // Check every tick so the haze appears when the pawn spawns, without waiting for the next reconciliation.
         readonly List<Pawn> _landing = new List<Pawn>();
 
         // Whether this colony's one jukebox has been put in a pod. See Spawn.
@@ -47,9 +44,8 @@ namespace SlopWorld
 
         public AgentColony(Game game) { _game = game; }
 
-        // Held rather than looked up: Game.GetComponent walks the components with a type check
-        // each, and this is read several times a frame per pawn. Checked against the live game
-        // so a discarded colony cannot answer for the one that replaced it.
+        // Cache the component to avoid repeated Game.GetComponent scans for each pawn.
+        // Check the current game so the cache cannot return a discarded colony.
         static AgentColony _current;
 
         public static AgentColony Current
@@ -106,8 +102,8 @@ namespace SlopWorld
             return colony != null && colony.IsAgentPawn(p);
         }
 
-        // The reconcile knows sessions only by name, so without this a rename reads as
-        // one session gone and another arrived.
+        // Update the binding during a rename.
+        // Otherwise, reconciliation treats the old name as a removed session and the new name as an added session.
         public void Rename(string oldName, string newName)
         {
             if (!_pawns.TryGetValue(oldName, out var pawn)) return;
@@ -126,9 +122,8 @@ namespace SlopWorld
 
         public IEnumerable<KeyValuePair<string, Pawn>> All => _pawns;
 
-        // The order the column draws them in, so the numbered switch keys count the portraits
-        // the player is looking at. The column groups them by project and so draws them in an
-        // order of its own.
+        // Use the column's display order for numbered selection shortcuts.
+        // The column groups portraits by project.
         public static List<string> InBarOrder()
         {
             return AgentSidebar.Sessions();
@@ -138,7 +133,7 @@ namespace SlopWorld
         const float SweepSecs = 1f;
         static float _swept;
 
-        // Eco pauses game ticks, so run the full reconcile from wall time while resting; pod
+        // Eco pauses game ticks, so run the full reconcile from wall time while resting. Pod
         // arrivals are spawned directly because their open delay would otherwise never tick.
         public override void GameComponentUpdate()
         {
@@ -151,9 +146,9 @@ namespace SlopWorld
             Reconcile();
         }
 
-        // Colonists whose session is gone, and colonists gone some other way. False means the
-        // hub had nothing to say and the caller should stand down with it: a socket that has
-        // dropped is not every agent in the colony leaving at once.
+        // Reconcile missing sessions and missing colonists.
+        // Return false when the hub has no current data.
+        // A disconnected socket must not cause removal of every agent.
         bool Sweep(List<SessionInfo> sessions)
         {
             if (sessions.Count == 0 && !SessionHub.Instance.Online) return false;
@@ -161,15 +156,15 @@ namespace SlopWorld
             if (_membership.Refresh(sessions, SessionHub.Instance.SessionsVersion))
                 PerfTrace.Count("colony-membership-rebuilds");
 
-            // Keep the repair sweep even on unchanged snapshots; deaths/destruction need no
-            // daemon revision. Gather removals first so callbacks can safely change bindings.
+            // Check for dead or destroyed pawns even when the daemon snapshot has not changed.
+            // Collect removals first so callbacks can change bindings safely.
             _retiring.Clear();
             foreach (var pair in _pawns)
             {
                 var pawn = pair.Value;
                 // A rename briefly removes one name before the HTTP callback or its pushed
                 // snapshot supplies the other. Retain the binding only when that counterpart
-                // is in the current membership; an ordinary deletion still retires normally.
+                // is in the current membership. An ordinary deletion still retires normally.
                 bool member = _membership.Contains(pair.Key) || PendingRenameKeeps(pair.Key);
                 if (!member || pawn == null || pawn.Destroyed || pawn.Dead)
                     _retiring.Add(pair.Key);
@@ -198,9 +193,8 @@ namespace SlopWorld
             Reconcile();
         }
 
-        // The colony against the daemon's list of sessions, from the clock or - while eco
-        // rests - from wall time. One body, because "which colonists are there" is the same
-        // question whichever of the two asked it.
+        // Reconcile colony membership with daemon sessions.
+        // Use the same method for game-tick updates and wall-time updates during Eco.
         void Reconcile()
         {
             long started = PerfTrace.Start();
@@ -216,31 +210,28 @@ namespace SlopWorld
             var sessions = SessionHub.Instance.Sessions;
             if (!Sweep(sessions)) return;
 
-            // Every session gets a colonist, running or not. A stopped agent's is downed
-            // rather than removed, staying a live pawn its process can wake later.
+            // Keep colonists for eligible sessions even when their processes stop.
+            // Down the pawn without removing it so a restarted process can restore it.
             foreach (var s in sessions)
             {
-                // Workers already have a compact child row in AgentSidebar. They are task
-                // terminals, not colony agents, so never materialize them as pawns.
+                // Workers have child rows in AgentSidebar. Do not create colony pawns for them.
                 if (s.Ephemeral || s.Worker) continue;
                 if (_pawns.ContainsKey(s.Name)) continue;
-                // Do not mint a second pawn for the destination (or source) while the same
-                // pending rename is represented by the existing binding under its other name.
+                // Do not create a second pawn while a pending rename has an existing binding under the alternate name.
                 if (PendingRenameCovers(s.Name)) continue;
-                // The session->pawn map is saved with reference values, which RimWorld resolves
-                // in a later load phase and drops when they do not round-trip - without this
-                // the reconcile spawns a duplicate beside the loaded pawn.
+                // RimWorld resolves saved pawn references during a later load phase and can discard unresolved entries.
+                // Find an existing loaded pawn before creating one to prevent duplicates.
                 var pawn = FindExisting(s.Name) ?? Spawn(s.Name, map);
                 if (pawn == null) continue;
                 Bind(s.Name, pawn);
 
-                // Only now is this pawn an agent, and the faceplate hangs off that answer:
-                // RobotFaceRenderNodes asks IsAgent while the render tree is built, and a loaded
-                // colony builds every tree before this runs. Also the portrait cache.
+                // RobotFaceRenderNodes checks IsAgent when building the render tree.
+                // Loaded pawns already have render trees before this binding exists.
+                // Refresh the render tree and portrait cache after binding the pawn.
                 pawn.Drawer?.renderer?.SetAllGraphicsDirty();
             }
 
-            // A stopped process collapses it; anything else is left to get on with it.
+            // Down pawns for stopped processes and preserve activity for other states.
             foreach (var kv in _pawns)
             {
                 if (AgentLook.CapBodySize(kv.Value))
@@ -250,7 +241,7 @@ namespace SlopWorld
 
                 string sessionName = PendingRenameSession(kv.Key);
                 var state = SessionHub.Instance.Get(sessionName)?.State ?? AgentState.Down;
-                // A session with no saved history has not moved on its first sight.
+                // Do not treat the first observed state as a transition without saved history.
                 AgentState? was = _seen.TryGetValue(kv.Key, out var seen)
                     ? seen : (AgentState?)null;
                 _seen[kv.Key] = state;
@@ -327,9 +318,9 @@ namespace SlopWorld
             return string.CompareOrdinal(a, b);
         }
 
-        // The colonist goes down but stays a live pawn its process can get back up; killing it
-        // would mean a corpse and a fresh stranger on every restart. `was` is absent only for
-        // a new session or an old save, and only a state it *moved* into is worth a noise.
+        // Keep a stopped agent's pawn alive so a process restart can restore the same pawn.
+        // was is absent for new sessions or older saves.
+        // Play transition sounds only when the state changes.
         static void Reflect(Pawn pawn, AgentState state, AgentState? was)
         {
             if (pawn == null || !pawn.Spawned) return;
@@ -370,12 +361,12 @@ namespace SlopWorld
             var h = health.hediffSet.GetFirstHediffOfDef(ModDefOf.SlopOffline);
             if (h != null) health.RemoveHediff(h);
 
-            // For colonists already chewed on when NoHarmAgents arrived.
+            // Repair injuries from saves created before NoHarmAgents protected these pawns.
             if (pawn.Downed) Mend(pawn);
         }
 
-        // Blood loss is not an injury and outlives the wounds that caused it, so it goes
-        // separately or the pawn faints straight back down.
+        // Remove blood loss separately from injuries.
+        // Otherwise, it can persist after wound removal and down the pawn again.
         static void Mend(Pawn pawn)
         {
             HealthUtility.HealNonPermanentInjuriesAndRestoreLegs(pawn);
@@ -383,10 +374,10 @@ namespace SlopWorld
             var bleeding = pawn.health.hediffSet.GetFirstHediffOfDef(HediffDefOf.BloodLoss);
             if (bleeding != null) pawn.health.RemoveHediff(bleeding);
 
-            // Only once it worked: something this cannot mend would say so once a second
-            // forever, the reconcile coming back for as long as the pawn is down.
+            // Log only a successful recovery.
+            // Reconciliation retries while the pawn remains downed, so logging failures here would repeat every second.
             if (!pawn.Downed)
-                Log.Message($"[SlopWorld] colonist '{pawn.LabelShort}' patched up; agents take no damage");
+                Log.Message($"[SlopWorld] Colonist '{pawn.LabelShort}' patched up. Agents take no damage.");
         }
 
         Pawn FindExisting(string name)
@@ -408,8 +399,8 @@ namespace SlopWorld
             if (!p.Destroyed) p.Destroy();
         }
 
-        // Walked backwards so the list can be edited as it goes; a pawn retired mid-flight
-        // drops out.
+        // Traverse backward to permit removal during iteration.
+        // Remove pawns retired before their pods open.
         void Landed()
         {
             for (int i = _landing.Count - 1; i >= 0; i--)
@@ -442,13 +433,12 @@ namespace SlopWorld
             RobotFace.Assign(pawn);
             AgentLook.Roll(pawn);
 
-            // In a pod, always, and neither forbidden nor slagged: the pod is the arrival, not
-            // wreckage to clear. SpawnSpot picks the ground; DropCellFinder does the last few
-            // cells itself.
+            // Prepare arrival cargo for a pod, except when Eco requires direct placement.
+            // SpawnSpot selects the landing area. DropCellFinder selects the final pod position.
             var cargo = new List<Thing> { pawn };
 
-            // Put one jukebox in the first arrival; the saved latch prevents multiple pods in
-            // one reconcile or a reload with pods still in flight from adding duplicates.
+            // Include one jukebox in the first arrival.
+            // The saved flag prevents duplicates from concurrent arrivals or loading before pods open.
             if (!_jukeboxSent && !Jukebox.On(map))
             {
                 cargo.Add(ThingMaker.MakeThing(ModDefOf.SlopJukebox));
@@ -457,8 +447,8 @@ namespace SlopWorld
 
             var cell = SpawnSpot.Find(map, Anchor(map));
 
-            // While eco rests, bypass the pod so its ticked open delay cannot leave a duplicate
-            // ghost in the sidebar; place the pawn and cargo at the landing cell directly.
+            // During Eco, place the pawn and cargo directly at the landing cell.
+            // Paused game ticks would otherwise prevent the pod from opening and leave a duplicate sidebar row.
             if (Eco.Resting)
             {
                 GenSpawn.Spawn(pawn, cell, map);
@@ -466,7 +456,7 @@ namespace SlopWorld
                     if (thing != pawn)
                         GenPlace.TryPlaceThing(thing, cell, map, ThingPlaceMode.Near);
 
-                Log.Message($"[SlopWorld] colonist '{name}' set down; the clock is stopped");
+                Log.Message($"[SlopWorld] Colonist '{name}' set down. The game remains paused.");
                 return pawn;
             }
 
@@ -481,8 +471,8 @@ namespace SlopWorld
             return pawn;
         }
 
-        // Beside one already standing; failing that the core, which is on open ground by
-        // construction.
+        // Prefer a position beside an existing pawn.
+        // Otherwise, use the core, which map generation places on open ground.
         IntVec3 Anchor(Map map)
         {
             foreach (var p in _pawns.Values)
@@ -494,10 +484,9 @@ namespace SlopWorld
             return map.Center;
         }
 
-        // Scribe_Collections holds a dictionary's keys and values in two lists between the
-        // phase that reads the XML and the phase that resolves references, and will not supply
-        // them itself for a Reference side: the short overload logs "you need to provide
-        // working lists" and hands back an empty dictionary. Scratch space; nothing reads them.
+        // Supply working lists for Scribe_Collections to retain dictionary keys and values between XML loading and reference resolution.
+        // The short overload cannot supply these lists for Reference values and returns an empty dictionary with an error.
+        // Only Scribe uses these temporary lists.
         List<string> _pawnKeys;
         List<Pawn> _pawnBodies;
 

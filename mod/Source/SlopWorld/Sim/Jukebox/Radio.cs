@@ -9,13 +9,12 @@ using Verse;
 
 namespace SlopWorld
 {
-    // The mod selects an opaque station key; slopd owns the catalog and opens the URL because
-    // Unity/FMOD cannot reliably fetch HTTPS Icecast streams or decode their common responses.
-    // The station is a user setting, not colony state, so it survives loading another colony.
+    // The mod selects a station key. slopd owns the catalog and opens stream URLs.
+    // Unity and FMOD do not reliably support these HTTPS Icecast streams.
+    // Save station selection in user settings so it persists across colonies.
     public static partial class Radio
     {
-        // The daemon shuffles the files in this directory, so the mod selects the OST as one
-        // source instead of trying to track which file the host is currently feeding.
+        // The daemon shuffles OST files. The mod selects the directory as one source.
         static readonly System.Random Dice = new System.Random();
 
         static string OstPath()
@@ -26,7 +25,7 @@ namespace SlopWorld
                 : System.IO.Path.Combine(root, "Sounds", "SlopWorld", "OST");
         }
 
-        // A null station means OST unless Spotify is selected.
+        // A null station selects the OST unless Spotify is selected.
         static Station _station;
         static bool _spotify;
         static bool _openingSpotify;
@@ -35,38 +34,30 @@ namespace SlopWorld
         public const string OstSourceId = "ost";
         public const string SpotifySourceId = "spotify";
 
-        // Capability data defaults to the native daemon until the first snapshot arrives, so
-        // an older daemon keeps Spotify selectable during connection setup.
+        // Keep Spotify available until the daemon reports its capabilities.
         public static bool SpotifyAvailable => SessionHub.Instance == null
             || !SessionHub.Instance.Capabilities.Known
             || SessionHub.Instance.Capabilities.Ncspot;
         static bool _muted;
         static bool _stopOnExit;
 
-        // The settings string is read once, because the mod's settings are not loaded when
-        // this class is first touched.
+        // Read settings once after initialization. They are unavailable when this class first loads.
         static bool _read;
 
-        // What was last sent, so a reconnect re-sends it and a still frame does not. The
-        // flag beside it is not redundant: silence is a thing to send - muted, the source
-        // *is* null - so a null `_sent` cannot also stand for "not told yet".
+        // Retain the last selection to avoid repeated sends. Resend after reconnection.
+        // Use _told to distinguish a pending selection from one already sent.
         static string _sent;
         static bool _told;
         static float _sentVolume = -1f;
 
-        // What the daemon says came of it. Only the failure is acted on, and only once per
-        // pick: a station that will not play should say so and hand the OST back.
+        // Report a station failure once per selection, then return to the OST.
         static bool _blamed;
 
-        // The last word has been said. Root.Shutdown does not end the process where it is
-        // called - Application.Quit lets the frame finish, and there are more frames after
-        // it while the save is written - so Update runs on after Quit, and without this it
-        // put the station straight back on: the music stopped for a second and returned.
+        // Prevent Update from restarting playback after Quit.
+        // Root.Shutdown can return before the process exits because saving and application shutdown continue across frames.
         static bool _quit;
 
-        // The daemon's raw title. It is deliberately kept beside the recognized override so a
-        // like can record what the station actually sent, without regex normalization leaking
-        // into the history.
+        // Retain the raw daemon title separately from recognized values and formatted titles for the like history.
         static string _rawTitle;
         static bool _playing;
         static string _recognizedArtist;
@@ -75,12 +66,11 @@ namespace SlopWorld
         static double _cachedNowPlayingAt = double.NegativeInfinity;
         static int _cachedNowPlayingVersion = -1;
 
-        // A slider moved by a hair is not worth a packet.
+        // Send volume changes only when they meet this minimum difference.
         const float VolumeStep = 0.01f;
 
-        // Sidecar audio stays in the native game as SlopWorld SongDefs. The capability arrives
-        // before the rest of the socket snapshot, and an unknown/default capability keeps native
-        // daemon behavior.
+        // Use native SlopWorld SongDefs when the daemon cannot play audio.
+        // Until capabilities arrive, the default permits daemon playback.
         static bool SidecarAudio => SessionHub.Instance != null
             && !SessionHub.Instance.Capabilities.AudioPlayback;
 
@@ -90,8 +80,8 @@ namespace SlopWorld
             catch { return null; } // Root_Entry has no play music manager.
         }
 
-        // Sidecar playback is owned by RimWorld's native manager. The provider is kept as a
-        // seam for game-free tests and samples the manager once per action that needs a track.
+        // Use the native music manager for sidecar playback.
+        // The provider lets tests supply track snapshots without the game.
         internal static Func<NativeTrackSnapshot> NativeTrackProvider = ReadNativeTrack;
 
         static NativeTrackSnapshot ReadNativeTrack()
@@ -120,9 +110,8 @@ namespace SlopWorld
             if (muted && (changed || music.IsPlaying)) music.Stop();
         }
 
-        // Stop leaves the native manager with no current source. Clearing `disabled` only lets
-        // its regular transition timer notice that; start the next SlopWorld SongDef now so an
-        // unmute is audible immediately rather than after the timer's next transition.
+        // Start the next SlopWorld song immediately after unmuting.
+        // Clearing disabled alone waits for the native music transition timer.
         static void ResumeNativeMusic()
         {
             var music = NativeMusic();
@@ -132,8 +121,7 @@ namespace SlopWorld
             if (Current.ProgramState == ProgramState.Playing) music.StartNewSong();
         }
 
-        // Sidecar playback remains inside RimWorld, so its current SongDef is the metadata
-        // source that the daemon normally provides for a directory playlist.
+        // Read metadata from the current native SongDef during sidecar playback.
         static string NativeNowPlaying()
         {
             return SampleNativeTrack()?.Display;
@@ -145,24 +133,20 @@ namespace SlopWorld
             catch { return null; }
         }
 
-        // The selected station, or null for the OST, identifies the current music; menu rows
-        // and reports query it directly.
+        // Return the selected radio station. OST and Spotify selections have no station object.
         public static Station Picked
         {
             get { Read(); return _station; }
         }
 
-        // Native daemon mode stops the source rather than setting volume to zero, so a live
-        // stream is not downloaded for nobody. Sidecar mode applies this preference to the
-        // native game's music manager, which plays the SlopWorld OST because vanilla SongDefs
-        // were stripped by RemoveVanillaSongs.xml.
+        // Stop daemon playback when muted to avoid downloading an inaudible stream.
+        // For sidecar playback, mute the native music manager. RemoveVanillaSongs.xml limits its songs to the SlopWorld OST.
         public static bool Muted
         {
             get { Read(); return _muted; }
         }
 
-        // Whether the daemon is told to go quiet on the way out. It outlives the game, so
-        // without this the music is still playing when the window has gone.
+        // Control whether the daemon stops playback when the game exits. The daemon can continue after the game closes.
         public static bool StopOnExit
         {
             get { Read(); return _stopOnExit; }
@@ -201,9 +185,8 @@ namespace SlopWorld
             return result;
         }
 
-        // Called when the daemon's capability snapshot arrives. A saved Spotify selection is
-        // harmless while the connection is unknown, but it must fall back before the first
-        // sidecar/native update once the host says ncspot cannot exist here.
+        // Apply the daemon capability snapshot.
+        // Replace a saved Spotify selection with OST if the daemon does not support ncspot.
         public static void CapabilitiesChanged()
         {
             if (_quit) return;
@@ -216,11 +199,8 @@ namespace SlopWorld
             Push();
         }
 
-        // "Artist - Song", or null when there is nothing to say: muted, or a station that
-        // has not named itself yet - a title is spliced into the audio and so arrives a
-        // second or two behind the pick, and never at all if the host stops sending
-        // `icy-metaint`. A successful SongRec lookup temporarily supplies the artist/title
-        // pair; the station's raw title remains available to Like.
+        // Return the current track label, or null if playback is muted or unavailable.
+        // Prefer recognized artist and title values when available. Retain the raw station title for Like.
         public static string NowPlaying
         {
             get
@@ -234,10 +214,8 @@ namespace SlopWorld
             }
         }
 
-        // Tooltip draws can happen several times for one IMGUI event. Sidecar mode makes this
-        // especially costly because the uncached query reaches the native music manager; keep
-        // it on the same six-Hz cadence as steady radio work and refresh immediately on a new
-        // track version.
+        // Cache the track label because IMGUI can draw a tooltip repeatedly during one event.
+        // Refresh at the regular update interval or when the track revision changes.
         public static string CachedNowPlaying
         {
             get
@@ -255,8 +233,7 @@ namespace SlopWorld
             }
         }
 
-        // The station's own line, ignoring any recognition override, so the UI can show what
-        // the station reported beside what Shazam heard rather than silently replacing it.
+        // Format station metadata without recognition results so the UI can show both sources.
         static string StationNowPlaying()
         {
             if (_spotify) return _rawTitle;
@@ -281,8 +258,7 @@ namespace SlopWorld
             get { Read(); return SourceLabel(); }
         }
 
-        // Whether a Shazam lookup is currently overriding the station's line, and that line
-        // itself, so the UI can present the two provenances side by side.
+        // Expose recognized metadata separately so the UI can identify its source.
         public static bool Recognized
         {
             get { Read(); return HasRecognition(); }
@@ -302,9 +278,8 @@ namespace SlopWorld
             get { Read(); return _muted || SidecarAudio ? null : StationNowPlaying(); }
         }
 
-        // The like list is deliberately separate from profile settings: it belongs to the
-        // machine's music collection rather than to one RimWorld profile. One TOML table per
-        // action keeps the file append-friendly while remaining readable by other tools.
+        // Store likes separately from RimWorld profile settings.
+        // Append one TOML table per action so other tools can read the history.
         public static void Like()
         {
             if (SidecarAudio)
@@ -406,9 +381,8 @@ namespace SlopWorld
             title = string.IsNullOrEmpty(_rawTitle) ? "OST" : _rawTitle;
         }
 
-        // A station may provide metadata.title_regex with named `artist` and `title` groups.
-        // Keep the station-specific title shape in its TOML rather than in this list of
-        // stations, and leave an unmatched title untouched for diagnosis.
+        // Use metadata.title_regex with named artist and title groups for station-specific formatting.
+        // Retain unmatched titles for diagnosis.
         static string FormatTitle(Station station, string title)
         {
             return station == null ? title : station.FormatTitle(title);
@@ -427,9 +401,8 @@ namespace SlopWorld
             Push();
         }
 
-        // Pick one OST track or one station, with a station quality chosen independently.
-        // OST tracks are the only source without a meaningful quality, so their branch just
-        // chooses the track and lets Pick handle mute, persistence, and the daemon push.
+        // Select OST or a radio station at random. Select the station rate separately.
+        // Pick handles unmuting, saved settings, and the pending daemon update.
         public static void PickRandom()
         {
             Read();
@@ -439,7 +412,7 @@ namespace SlopWorld
                 if (SourceShown(candidate.Id) && (_muted || candidate != _station))
                     candidates.Add(candidate);
 
-            // The OST is one source candidate, but when it is active it is not picked again.
+            // Exclude OST if it is already playing.
             bool ostCurrent = !_spotify && !_muted && _station == null;
             bool canPickOst = SourceShown(OstSourceId) && !ostCurrent;
             int count = candidates.Count + (canPickOst ? 1 : 0);
@@ -473,7 +446,7 @@ namespace SlopWorld
             Push();
         }
 
-        // Nothing to push: it is a question asked once, on the way out.
+        // Save the preference now. Apply it when the game exits.
         public static void ToggleStopOnExit()
         {
             Read();
@@ -481,19 +454,16 @@ namespace SlopWorld
             Save();
         }
 
-        // A station and one of its rates, or null for the OST, whose rate is meaningless.
+        // Select a station and rate. A null station selects OST and ignores the rate.
         public static void Pick(Station s, int rate)
         {
             Read();
-            // Picking something is asking to hear it, which answers the mute as well - a
-            // menu row that does nothing because of a tick two rows down is a menu row
-            // nobody can explain.
+            // Selecting a source also unmutes playback. Skip only an identical selection that is already unmuted.
             if (!_spotify && _station == s && (s == null || s.Rate == rate) && !_muted) return;
 
             _spotify = false;
             _station = s;
-            // On the station rather than beside it, so the one being left keeps the quality
-            // it was left on. Picking the OST changes nobody's.
+            // Retain the selected rate on each station. Selecting OST does not change station rates.
             if (s != null) s.Rate = rate;
             _muted = false;
             _blamed = false;
@@ -501,9 +471,9 @@ namespace SlopWorld
             Push();
         }
 
-        // Every frame, menu and game alike, from Patch_Root_Update. Pending selections go out
-        // immediately; steady-state work runs six times per second regardless of display FPS.
-        // `Read()` stays above it, being the answer to what the daemon is playing.
+        // Patch_Root_Update calls Update every frame in menus and during play.
+        // Send pending selections immediately. Limit regular checks to six per second.
+        // Read settings before these checks.
         static PeriodicWork _steadyUpdate;
         const double UpdateInterval = 1.0 / 6.0;
 
@@ -513,8 +483,7 @@ namespace SlopWorld
             Read();
             var hub = SessionHub.Instance;
             if (hub == null) return;
-            // On macOS the first socket snapshot decides whether playback belongs to the daemon.
-            // Do not disable native music during the few frames before that snapshot arrives.
+            // On macOS, wait for daemon capabilities before disabling native music.
             if (!hub.Capabilities.Known && Application.platform == RuntimePlatform.OSXPlayer) return;
             if (!hub.Capabilities.AudioPlayback)
             {
@@ -522,8 +491,7 @@ namespace SlopWorld
                 return;
             }
 
-            // A fresh colony creates an enabled music manager, so stop vanilla music before
-            // the throttle gives it a chance to start an OST track.
+            // Disable native music before the update delay can let a new colony start an OST track.
             if (Current.ProgramState == ProgramState.Playing)
             {
                 try
@@ -538,12 +506,11 @@ namespace SlopWorld
                 catch { /* Root_Play castclass fails on menu */ }
             }
 
-            // A reconnect starts the daemon's socket over, and the mod is the only thing
-            // that knows what was playing.
+            // Reset sent state while offline so reconnection sends the selection again.
             if (!hub.Online) { _told = false; _sentVolume = -1f; return; }
 
-            // A pending selection is a control message, not steady-state work. In particular,
-            // send the muted stop on the first frame after a daemon restart.
+            // Send pending selections before the regular update delay.
+            // This includes a stop request on the first connected frame after a daemon restart.
             if (!_told)
             {
                 float pendingVolume = Volume();
@@ -556,7 +523,7 @@ namespace SlopWorld
                 return;
             }
 
-            // Throttle steady-state work: most frames change nothing.
+            // Limit regular checks because most frames do not change playback.
             if (!_steadyUpdate.Due(Time.realtimeSinceStartupAsDouble, UpdateInterval)) return;
 
             string want = Selection();
@@ -574,8 +541,7 @@ namespace SlopWorld
             _sentVolume = volume;
         }
 
-        // The game's own music slider. Master is left out because the daemon is not behind
-        // The daemon is outside the game's AudioListener, so apply both Unity volume preferences here.
+        // Apply both music and master volume because daemon playback bypasses the game AudioListener.
         static float Volume() => Mathf.Clamp01(Prefs.VolumeMusic * Prefs.VolumeMaster);
 
         static string Selection()
@@ -610,9 +576,8 @@ namespace SlopWorld
             hub.Audio.SendAudio(null, null, OstPath(), volume);
         }
 
-        // The daemon's answer to what was asked of it. A station that will not play is
-        // said once and handed back to the OST; the OST failing is not something to fall
-        // back from, so it is left to the log.
+        // Read the daemon playback report. Log failures once per selection.
+        // If a radio station fails, notify the player and select OST. OST failures have no fallback.
         public static void Report(bool playing, string error, string title, string source = null, string session = null)
         {
             ReportSpotify(error, source, session);
@@ -623,9 +588,7 @@ namespace SlopWorld
                 _recognizedArtist = null;
                 _recognizedTitle = null;
             }
-            // The station's own, spliced into its audio and unpicked out there: it arrives
-            // a second or so after a pick and changes on its own thereafter. Taken even
-            // while muted, the mute being about the speakers rather than about the wire.
+            // Accept raw titles even while muted. Station metadata can arrive after selection and change during playback.
             string raw = string.IsNullOrEmpty(title) ? null : title;
             if (_rawTitle != raw)
             {
@@ -636,8 +599,7 @@ namespace SlopWorld
             }
             _playing = playing;
 
-            // Muted, "not playing" is the answer that was asked for, and the error beside
-            // it is whatever last went wrong before the box was turned off.
+            // Muted playback stops audio, so ignore playback errors in that state.
             if (_muted) return;
             if (playing || string.IsNullOrEmpty(error)) { _blamed = false; return; }
             if (_blamed) return;
@@ -653,15 +615,13 @@ namespace SlopWorld
             Push();
         }
 
-        // Root.Shutdown sends the daemon's last selection before the socket closes; killed games require GET /api/audio or a daemon restart.
+        // Apply the exit preference before Root.Shutdown closes the socket. Forced process termination bypasses this method.
         public static void Quit()
         {
             Read();
-            // Whatever is on stays on or goes off here, and either way this is the end of
-            // the conversation: the frames that follow have nothing left to say.
+            // Prevent later frames from sending further playback updates.
             _quit = true;
-            // Mute is an explicit silence request, so it takes precedence over leaving
-            // active audio running on exit.
+            // Keep muted playback stopped even if the exit preference permits continued playback.
             if (!_stopOnExit && !_muted) return;
 
             var hub = SessionHub.Instance;
@@ -670,10 +630,8 @@ namespace SlopWorld
             hub.Audio.SendAudio(null, null, null, Volume());
         }
 
-        // Forces the next Update to send, rather than sending from here: one place puts
-        // things on the wire, and it is the one that knows whether the socket is up. The
-        // title goes with it - every caller is something about to change what is playing,
-        // and the old song's name on the new station is worse than no name at all.
+        // Mark the selection for the next Update, which checks connection state before sending.
+        // Clear old metadata so the new source does not display the previous track title.
         static void Push()
         {
             _selectionRevision++;
@@ -687,9 +645,8 @@ namespace SlopWorld
             RecognitionTrack.Advance();
         }
 
-        // Saved as "station-id:stream-key", "ncspot", or "ost". The stream key keeps the setting
-        // readable, while the id prevents two user stations serving the same path from
-        // stealing one another's selection.
+        // Save station-id:stream-key, ncspot, or ost.
+        // The station identifier distinguishes stations that use the same stream key.
         static void Save()
         {
             Settings.S.radio = _spotify ? "ncspot" : _station == null ? "ost" : _station.SelectionKey(_station.Rate);
@@ -706,17 +663,14 @@ namespace SlopWorld
             _muted = Settings.RadioMute;
             _stopOnExit = Settings.RadioStopOnExit;
 
-            // The catalog arrives over the socket. If it has not arrived yet, keep the saved
-            // key in Settings and SetStations will restore it when the daemon sends the list.
+            // Retain the saved key until the catalog arrives. SetStations restores the matching station.
             _spotify = Settings.Radio == "ncspot";
             _station = FindSelection(Settings.Radio);
         }
     }
 
-    // Told on the way out, in a prefix so the socket is still up. Its own patch beside the
-    // autosave's rather than a line inside it: two things happen on the way out and neither
-    // is the other's business. QuitInterceptor routes the window's close button through
-    // Root.Shutdown as well, so this prefix covers orderly exits.
+    // Run before Root.Shutdown closes the socket. Keep playback shutdown separate from saving.
+    // QuitInterceptor also routes the window close action through Root.Shutdown.
     [HarmonyPatch(typeof(Root), nameof(Root.Shutdown))]
     public static class Patch_RadioOnShutdown
     {

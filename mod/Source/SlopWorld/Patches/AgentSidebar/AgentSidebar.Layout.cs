@@ -197,7 +197,7 @@ namespace SlopWorld
                 y + (measure.RowH - measure.Cell) / 2f);
 
             // Keep the three text lines at the same gap from the portrait after the
-            // portrait column moves to the screen edge; headings and chrome retain
+            // portrait column moves to the screen edge. Headings and chrome retain
             // their CellX inset.
             float tx = PortraitX + measure.Face + TextGap;
             var line = new Rect(0f, y, width, measure.RowH);

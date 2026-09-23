@@ -9,8 +9,8 @@ namespace SlopWorld
     {
         public string Name = "";
         public string Description = "";
-        // Automatically included before this preset.  The daemon resolves the authoritative
-        // closure; the client keeps it to show why a checkbox is unavailable.
+        // Automatically included before this preset. The daemon resolves the authoritative closure.
+        // The client keeps it to show why a checkbox is unavailable.
         public List<string> Requires = new List<string>();
         // `system` is compiled into slopd, `user` exists only in the preset directory, and
         // `override` is a user definition replacing a system entry with the same name.

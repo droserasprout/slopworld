@@ -13,15 +13,15 @@ namespace SlopWorld
         Canceled,
     }
 
-    // The daemon's durable mailbox record. Task state is deliberately separate from a session's
-    // terminal state: a running agent can still have queued work, and a down agent can still be
-    // the recipient of work waiting for it to return.
+    // Persistent mailbox record from the daemon.
+    // Task state is separate from terminal state.
+    // Running agents can have queued work. Stopped agents can receive work for their next run.
     public sealed class TaskInfo
     {
         public const string Host = WireProtocol.HostIdentity;
-        // RimWorld's GenText.Truncate removes and remeasures one character at a time.
-        // Never hand a compact mailbox row an entire delegated prompt; the detail dialog
-        // remains the place for the complete body.
+        // RimWorld's GenText.Truncate removes and measures one character at a time.
+        // Limit text before supplying it to a compact mailbox row.
+        // Show the complete task body in the detail dialog.
         public const int SummaryChars = 160;
         static readonly DateTime Epoch = new DateTime(1970, 1, 1, 0, 0, 0,
             DateTimeKind.Utc);

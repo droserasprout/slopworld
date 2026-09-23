@@ -34,7 +34,8 @@ namespace SlopWorld
 
             Slab.Fill(r, over ? UiTheme.Hover : UiTheme.Panel);
             TooltipHandler.TipRegion(r,
-                "Add a project, agent, worker, task, library item, sandbox preset, command or host shell");
+                "Add projects, agents, workers, tasks, library items, presets, " +
+                "commands, and host shells.");
             Slab.Hairline(new Rect(r.x, r.y, r.width, 1f), UiTheme.Edge);
 
             float d = AddIcon;
@@ -107,10 +108,8 @@ namespace SlopWorld
             SetAllFolds(!AllFolded());
         }
 
-        // Where the filter button is. One rect, so the menu comes out under the button
-        // whether the button or the command palette opened it - and, being fixed rather
-        // than taken from the mouse, so a menu that reopens itself after each tick reopens
-        // in the place it was.
+        // This rect puts the menu below the filter button for pointer and keyboard actions.
+        // Its fixed position also keeps a menu in place when each selection opens it again.
         static Rect FilterRect =>
             new Rect(Panel.x + Width - CellX - TabIcon,
                 (TabRowH - TabIcon) / 2f, TabIcon, TabIcon);
@@ -124,9 +123,9 @@ namespace SlopWorld
                 OpenFilterMenu);
         }
 
-        // Ticks, not a pick: a tick closes the menu the way every option in one does, and
-        // opens it again where it was, so several can be set without hunting the button
-        // back down between them.
+        // Ticks, not a pick: a tick closes the menu the way every option in one does, and opens it
+        // again where it was. Therefore, several can be set without hunting the button back down
+        // between them.
 
         static void Tab(Rect r, Texture2D icon, bool on, string tip, System.Action go)
         {

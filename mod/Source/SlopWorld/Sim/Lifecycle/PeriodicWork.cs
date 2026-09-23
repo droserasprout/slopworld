@@ -1,6 +1,6 @@
 namespace SlopWorld
 {
-    // Wall-time housekeeping: one run after a stall, never a backlog of missed intervals.
+    // Schedule work by real time. After a delay, run once without repeating missed intervals.
     internal struct PeriodicWork
     {
         double _next, _last;

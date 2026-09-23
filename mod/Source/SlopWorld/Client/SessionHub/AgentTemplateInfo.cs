@@ -4,15 +4,15 @@ using System.Linq;
 
 namespace SlopWorld
 {
-    // A template's catalog projection. The daemon sends snapshots for creation, while
-    // the picker only needs the portable defaults to seed the existing agent form controls.
+    // Client representation of a catalog template.
+    // The daemon supplies snapshots for creation. The picker uses portable defaults to initialize the agent form.
     public class AgentTemplateInfo
     {
         public static readonly string[] FlagNames = { "persistent_tmp", "autostart", "auto_resume" };
         public HashSet<string> SpecifiedFlags = new HashSet<string>();
         public string Name = "";
-        // Versions are daemon-owned compare-and-swap tokens. Zero is reserved for a new
-        // definition, which lets the same wire model serve capture, duplicate, and edit.
+        // The daemon assigns version tokens for compare-and-swap updates.
+        // Zero identifies a new definition. This lets capture, duplication, and editing use the same wire model.
         public long Version;
         public string Description = "";
         public string Command = "";
@@ -26,9 +26,8 @@ namespace SlopWorld
         public SessionLimits Limits;
         public bool Autostart;
         public bool AutoResume;
-        // Keep the daemon's complete snapshots alongside the friendly projection. Editing a
-        // name or description must not discard captured preset definitions that are no
-        // longer present in the live catalogs.
+        // Keep complete daemon snapshots alongside the editor fields.
+        // Name or description edits must preserve captured preset definitions, including definitions absent from current catalogs.
         public Wire.AgentTemplateDefaults DefaultsSnapshot = new Wire.AgentTemplateDefaults();
 
         public string DisplayLabel
@@ -133,8 +132,8 @@ namespace SlopWorld
             };
         }
 
-        // Seed a new editor, leaving name and project to creation. Mounts and labels are
-        // deliberately not template fields; they are contextual or presentation choices.
+        // Initialize a new editor without setting the name or project.
+        // Templates exclude mounts and labels because these depend on the new agent's context and presentation.
         public void ApplyTo(SessionInfo s)
         {
             s.Command = Command ?? "";

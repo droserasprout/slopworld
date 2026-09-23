@@ -80,7 +80,7 @@ namespace SlopWorld
         }
 
         // SessionSelectable is the central source for agent selection, including map clicks,
-        // terminal opens and tab cycling. Keep only durable agent rows here; routed viewers,
+        // terminal opens and tab cycling. Keep only durable agent rows here. Routed viewers,
         // workers, host shells and one-shot errands have their own view location kinds.
         internal static void RememberAgent(string name)
         {
@@ -162,7 +162,7 @@ namespace SlopWorld
         public static SidebarTab CurrentTab => CurrentDefinition.Tab;
 
         // TaskStore is driven from Root.Update, not OnGUI. Poll only while the task list can
-        // actually be seen; tab entry/reselection still requests an immediate refresh.
+        // actually be seen. Tab entry/reselection still requests an immediate refresh.
         public static bool TasksVisible => Verse.Current.ProgramState == ProgramState.Playing &&
             ColonistBarStrip.BarShown && !Settings.SidebarHidden && !Cutscene.Playing &&
             CurrentTab == SidebarTab.Tasks;
@@ -171,7 +171,7 @@ namespace SlopWorld
         static bool HasActions => CurrentDefinition.HasActions;
 
         // Empty means all projects. Unknown project keys show no rows while the daemon list is
-        // incomplete; the no-project bucket is a normal filter key.
+        // incomplete. The no-project bucket is a normal filter key.
         public const string NoProject = SidebarProjectState.NoProject;
 
         public static bool Filtering => Projects.Filtering;
@@ -269,8 +269,8 @@ namespace SlopWorld
             }
         }
 
-        // A blank key clears the filter outright: "all projects" is no filter at all rather
-        // than every name ticked, so a project made later is in it too.
+        // A blank key clears the filter outright: "all projects" is no filter at all rather than
+        // every name ticked. Therefore, a project made later is in it too.
         public static void ToggleFilter(string key)
         {
             Projects.ToggleFilter(key);
@@ -345,7 +345,7 @@ namespace SlopWorld
 
         // Open beside follows the live sidebar, not the daemon's complete session inventory.
         // In particular, an unpinned diff's process remains queryable until it exits but has no
-        // routed row; a stopped agent likewise has a row for restart actions, not a usable pane.
+        // routed row. A stopped agent likewise has a row for restart actions, not a usable pane.
         internal static bool IsOpenBesideCandidate(SessionInfo info)
         {
             if (info == null || !info.Alive || !Passes(info.Project)) return false;
