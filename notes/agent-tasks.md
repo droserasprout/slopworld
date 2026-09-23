@@ -4,7 +4,10 @@ For commands and lifecycle, see [Using slopctl](../docs/src/guides/slopctl.md).
 For access rules, see [Agent collaboration](../docs/src/guides/agent-collaboration.md).
 
 `slopd` owns persistent `tasks.toml` beside `config.toml`.
-Sandboxes never edit it.
+Progress, summaries, and worker-failure updates append to `tasks.journal`; loading replays
+complete entries for the snapshot generation. Creation and removal write a new snapshot and
+retire older journal entries. Keep both files together when backing up or moving task state.
+Sandboxes never edit either file.
 Each task has one shared record. Participant removal affects both sides and is
 limited to tasks in terminal states. Root can remove unfinished work.
 

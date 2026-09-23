@@ -1,5 +1,7 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fs;
+use std::io::Write;
+use std::os::unix::fs::OpenOptionsExt;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -72,11 +74,20 @@ pub struct WorkerTask {
 #[derive(Default, Serialize, Deserialize)]
 struct File {
     #[serde(default)]
+    generation: u64,
+    #[serde(default)]
     tasks: Vec<Task>,
+}
+
+#[derive(Serialize, Deserialize)]
+struct JournalEntry {
+    generation: u64,
+    task: Task,
 }
 
 pub struct Tasks {
     path: PathBuf,
+    journal: PathBuf,
     file: File,
     sequence: u64,
 }
@@ -84,7 +95,7 @@ pub struct Tasks {
 impl Tasks {
     pub fn load(config: &Path) -> Result<Self> {
         let path = config.with_file_name("tasks.toml");
-        let file = match fs::read_to_string(&path) {
+        let mut file: File = match fs::read_to_string(&path) {
             Ok(s) => match toml::from_str(&s) {
                 Ok(file) => file,
                 Err(e) => {
@@ -98,6 +109,50 @@ impl Tasks {
                 File::default()
             }
         };
+        let journal = config.with_file_name("tasks.journal");
+        let positions: HashMap<String, usize> = file
+            .tasks
+            .iter()
+            .enumerate()
+            .map(|(index, task)| (task.id.clone(), index))
+            .collect();
+        // An incomplete final line can follow an interrupted write. A new snapshot
+        // changes generation before journal cleanup, so old updates cannot resurrect
+        // removed tasks after a crash between those two operations.
+        if let Ok(text) = fs::read_to_string(&journal) {
+            let mut valid_len = 0usize;
+            for line in text.split_inclusive('\n') {
+                if !line.ends_with('\n') {
+                    break;
+                }
+                let Ok(entry) = serde_json::from_str::<JournalEntry>(line) else {
+                    tracing::warn!(
+                        "stopping at invalid task journal entry in {}",
+                        journal.display()
+                    );
+                    break;
+                };
+                valid_len += line.len();
+                if entry.generation != file.generation {
+                    continue;
+                }
+                if let Some(&index) = positions.get(&entry.task.id) {
+                    file.tasks[index] = entry.task;
+                }
+            }
+            if valid_len < text.len() {
+                if let Err(error) = fs::OpenOptions::new()
+                    .write(true)
+                    .open(&journal)
+                    .and_then(|file| file.set_len(valid_len as u64))
+                {
+                    tracing::warn!(
+                        "could not truncate task journal {}: {error}",
+                        journal.display()
+                    );
+                }
+            }
+        }
         let sequence = file
             .tasks
             .iter()
@@ -107,6 +162,7 @@ impl Tasks {
             .unwrap_or(0);
         let tasks = Self {
             path,
+            journal,
             file,
             sequence,
         };
@@ -181,7 +237,7 @@ impl Tasks {
         task.note = Some(note);
         task.updated_ms = now_ms();
         let result = task.clone();
-        self.save()?;
+        self.append_update(&result)?;
         Ok(Some(result))
     }
 
@@ -229,7 +285,7 @@ impl Tasks {
         task.note = note;
         task.updated_ms = now_ms();
         let result = task.clone();
-        self.save()?;
+        self.append_update(&result)?;
         Ok(result)
     }
 
@@ -243,7 +299,7 @@ impl Tasks {
         }
         task.summary = Some(summary);
         let result = task.clone();
-        self.save()?;
+        self.append_update(&result)?;
         Ok(Some(result))
     }
 
@@ -355,8 +411,43 @@ impl Tasks {
         Ok(removed)
     }
 
-    fn save(&self) -> Result<()> {
-        crate::paths::write_private_toml(&self.path, &toml::to_string_pretty(&self.file)?)
+    fn append_update(&self, task: &Task) -> Result<()> {
+        let entry = JournalEntry {
+            generation: self.file.generation,
+            task: task.clone(),
+        };
+        let mut line = serde_json::to_vec(&entry)?;
+        line.push(b'\n');
+        let mut file = fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .mode(0o600)
+            .open(&self.journal)?;
+        let before = file.metadata()?.len();
+        if let Err(error) = file.write_all(&line) {
+            let _ = file.set_len(before);
+            return Err(error.into());
+        }
+        Ok(())
+    }
+
+    fn save(&mut self) -> Result<()> {
+        let previous = self.file.generation;
+        self.file.generation = previous.wrapping_add(1);
+        let result = toml::to_string_pretty(&self.file)
+            .map_err(Into::into)
+            .and_then(|text| crate::paths::write_private_toml(&self.path, &text));
+        if result.is_err() {
+            self.file.generation = previous;
+        } else if let Err(error) = fs::remove_file(&self.journal) {
+            if error.kind() != std::io::ErrorKind::NotFound {
+                tracing::warn!(
+                    "could not clear task journal {}: {error}",
+                    self.journal.display()
+                );
+            }
+        }
+        result
     }
 }
 

@@ -7,12 +7,15 @@
   from 6.39 ms to 0.97 µs per render on the same machine.
 - **Fixed 4:** session views retain an indexed worktree catalog. File stamps reload externally
   edited catalogs, including the legacy-to-current file transition.
+- **Improved 3:** progress and summary updates append one task record to a generation-tagged
+  journal. The 1,000-record update fell from 13.88 ms to 6.98 µs on this machine. Creation
+  and removal still write complete snapshots. The task HTTP request still holds the global
+  session boundary while it writes.
 - **Fixed 5:** sparse link edits rescan the edited row and connected wrapped-link region while
   retaining unrelated immutable spans. The 200-row URL fixture fell from 88.65 to 6.59 µs
   and from 56,504 to 8,640 B per update. Game-free link and snapshot tests pass.
-- **Open 1 and 3:** the global session boundary still covers worktree checkout and task writes;
-  task updates still rewrite the complete task history. Both require coordinated changes to
-  authorization lifetime and durable task storage before their latency can be removed safely.
+- **Open 1 and 3:** the global session boundary still covers worktree checkout and task writes.
+  Narrowing it requires coordinated changes to authorization lifetime and session identity.
 
 The measurements and source links below describe the original baseline, before these fixes.
 
