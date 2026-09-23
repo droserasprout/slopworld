@@ -49,8 +49,8 @@ namespace SlopWorld
                 defaultValue: _cfg.FactoryDefaults?.UsagePollSecs?.ToString());
             _configState.SetDraftText("usage.poll", "daemon.usage_poll_secs", pollSecs);
             UiLayout.Validation(l, PollError(pollSecs, false));
-            UiLayout.Note(l, "Every row uses this interval unless its interval is set below. " +
-                "A failed poll backs off on its own, doubling to half an hour.");
+            UiLayout.Note(l, "Every row uses this interval unless you set a separate interval below. " +
+                "When a poll fails, the daemon doubles the delay up to 30 minutes.");
         }
 
         protected override float DrawTrailingFields(Rect rect, float y)

@@ -79,7 +79,7 @@ namespace SlopWorld
 
             if (!_loaded && !DrawFieldsBeforeLoad && (!DrawFieldsWhenOffline || _cfg == null))
             {
-                UiText.StatusLabel(inner, _error ?? "Waiting for the daemon...",
+                UiText.StatusLabel(inner, _error ?? "Waiting for the daemon",
                     _error != null ? UiTheme.Bad : UiTheme.Dim);
             }
             else
@@ -105,8 +105,8 @@ namespace SlopWorld
         protected void DrawMetadataStatus(Listing_Standard l)
         {
             if (_loaded && _cfg != null && !_cfg.MetadataAvailable)
-                UiLayout.Note(l, "This daemon does not advertise policy metadata. Factory reset and " +
-                    "policy preview are unavailable until metadata is provided.");
+                UiLayout.Note(l, "This daemon does not provide policy metadata. The mod needs it to " +
+                    "reset factory settings or show a policy preview.");
         }
 
         protected void DrawConfigFooter(Rect bar)
@@ -129,7 +129,7 @@ namespace SlopWorld
             Color color = UiTheme.Bad;
             if (_saving)
             {
-                message = "Saving…";
+                message = "Saving";
                 color = UiTheme.Dim;
             }
             else if (string.IsNullOrEmpty(message)) message = _error ?? _configState.ConflictMessage;

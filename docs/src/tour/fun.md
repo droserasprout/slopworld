@@ -5,7 +5,7 @@
 Working agents build structures on the map: paving, graves, monuments, ancient buildings.
 Finished work spreads the plague, a ground effect that spreads outward from each completed site. Fire cannot spread into fully plagued cells, and plants do not regrow there.
 
-Gentle mode replaces plague damage with flowers.
+Grandma's visiting replaces plague damage with flowers.
 
 ## Skyfallers
 

@@ -28,8 +28,8 @@ namespace SlopWorld
         void DrawGeneral(Listing_Standard l)
         {
             if (_identity.IsNew && !EditingTemplate && !string.IsNullOrEmpty(_templateName))
-                UiLayout.Note(l, "Started from: " + _templateName +
-                    ". Settings were copied once; later template changes do not update this agent.");
+                UiLayout.Note(l, "Template: " + _templateName +
+                    ". This agent uses settings copied from the template. Later template edits do not change this agent.");
 
             l.Label(EditingTemplate ? "Template name" : "Name (also the colonist's name)");
             _s.Name = UiControls.Field(l, "agent.name", _s.Name);
@@ -38,17 +38,17 @@ namespace SlopWorld
             {
                 l.Label("Description");
                 _templateDraft.Description = UiControls.Area(l, 48f, "template.description", _templateDraft.Description);
-                UiLayout.Note(l, "Saved agent customizations. Copied once when creating an agent; project mounts are chosen separately.");
+                UiLayout.Note(l, "New agents copy these settings once. Select a project to provide the working directory and shared mounts.");
             }
             else
             {
                 var projectOptions = SessionHub.Instance.Projects
                     .Select(p => new SelectorOption($"{p.Name}  -  {p.Dir}",
                         () => { _s.Project = p.Name; _s.Worktree = ""; RefreshWorktreeChoices(); })).ToList();
-                projectOptions.Add(new SelectorOption("New project...",
+                projectOptions.Add(new SelectorOption("Create new project",
                     () => Find.WindowStack.Add(new EditProjectDialog(null))));
                 UiControls.Select(l, "Project (the directory and shared mounts it uses)",
-                    string.IsNullOrEmpty(_s.Project) ? "Pick a project..." : _s.Project,
+                    string.IsNullOrEmpty(_s.Project) ? "Select a project" : _s.Project,
                     projectOptions, out _);
 
                 if (_worktreeProject != _s.Project) RefreshWorktreeChoices();
@@ -62,7 +62,7 @@ namespace SlopWorld
                 l.Label(project != null
                     ? $"{project.Dir}  ({ProjectsView.Summary(project)})"
                     : SessionHub.Instance.Projects.Count == 0
-                        ? "No projects yet - make one in the Projects window first."
+                        ? "No projects exist. Add a project in the Projects window."
                         : "");
                 GUI.color = Color.white;
 
@@ -128,7 +128,7 @@ namespace SlopWorld
                 .Select(mode => new SelectorOption("Custom: " + NetworkModeText.Label(mode),
                     () => { _s.Network = mode; if (EditingTemplate) _templateDraft.NetworkSpecified = true; })));
             UiControls.Select(l, "Network", networkLabel, networkOptions, out _);
-            UiLayout.Note(l, "Owned by this agent and copied into templates; project changes do not alter it.");
+            UiLayout.Note(l, "This agent owns this setting. Templates copy it. Project changes do not alter it.");
 
             l.Gap(UiTheme.GapS);
             DnsForm.Draw(l, _s.Dns, "agent.dns", ref _dnsServers,
@@ -139,7 +139,7 @@ namespace SlopWorld
             float availableHeight)
         {
             UiLayout.SectionHeading(new Rect(rect.x, y, rect.width, UiTheme.RowH),
-                "Sandbox contributions");
+                "Additional sandbox presets");
             y += UiTheme.RowH + UiTheme.GapXS;
 
             var inheritedPresets = new List<string>();
@@ -160,12 +160,12 @@ namespace SlopWorld
             if (!EditingTemplate && !SessionHub.Instance.Capabilities.PerSessionLimits)
             {
                 UiLayout.Note(l,
-                    "slopcar has one outer CPU, memory and process budget. Per-agent limits " +
-                    "need delegated cgroups and are unavailable in this runtime.");
+                    "slopcar sets one CPU, memory, and process limit for the whole daemon. " +
+                    "This runtime does not support per-agent limits.");
                 return;
             }
 
-            UiLayout.Note(l, "Limits are owned by this agent. No cap leaves the field unset.");
+            UiLayout.Note(l, "These limits apply to this agent. Leave a field blank for no cap.");
             _s.Limits = _resourceLimits.Draw(l);
         }
 
@@ -185,14 +185,14 @@ namespace SlopWorld
                 string sandbox = preset.Sandbox.Count > 0
                     ? "  Sandbox: " + string.Join(", ", preset.Sandbox.ToArray()) + "."
                     : "";
-                return $"Blank runs '{preset.Cmd}'.{sandbox}";
+                return $"If blank, the daemon runs '{preset.Cmd}'.{sandbox}";
             }
             if (!string.IsNullOrEmpty((_s.Cmd ?? "").Trim()))
-                return "A command line of its own, so no agent's state directory comes with it.";
-            if (EditingTemplate) return "Blank uses the destination daemon’s default command.";
+                return "This custom command does not use an app preset or its sandbox settings.";
+            if (EditingTemplate) return "If blank, a new agent uses the destination daemon's default command.";
             return !string.IsNullOrEmpty(_s.Agent)
-                ? $"Blank runs the daemon's default, which is '{_s.Agent}'."
-                : "Blank runs the daemon's default agent.";
+                ? $"If blank, the daemon runs its default agent ('{_s.Agent}')."
+                : "If blank, the daemon runs its default agent.";
         }
 
         IEnumerable<SelectorOption> CommandOptions()
@@ -217,7 +217,7 @@ namespace SlopWorld
                     () => { _s.Command = pick.Name; _s.CommandPreset = pick.Name; }));
             }
 
-            options.Add(new SelectorOption("Command line...", () => { _s.Command = ""; _s.CommandPreset = ""; }));
+            options.Add(new SelectorOption("Custom command", () => { _s.Command = ""; _s.CommandPreset = ""; }));
             return options;
         }
 

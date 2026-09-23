@@ -10,7 +10,7 @@ namespace SlopWorld
     public sealed class WorkersPage : DaemonConfigPage
     {
         protected override bool ShowEditButton => true;
-        protected override string SavedMessage => "worker settings saved.";
+        protected override string SavedMessage => "Worker settings saved.";
 
         public WorkersPage()
         {
@@ -27,8 +27,8 @@ namespace SlopWorld
         protected override void DrawFields(Listing_Standard l)
         {
             UiLayout.SectionHeading(l, "Available worker templates");
-            UiLayout.Note(l, "Checked templates may be used by agents to create task workers. " +
-                "You can use any template from the Worker menu.");
+            UiLayout.Note(l, "Selected templates are available to agents that create task workers. " +
+                "You can use any catalog template from the Worker menu.");
 
             var templates = SessionHub.Instance.Templates
                 .Where(template => template != null)
@@ -41,7 +41,7 @@ namespace SlopWorld
             foreach (var template in templates)
             {
                 bool selected = _cfg.WorkerTemplates.Contains(template.Name);
-                string tip = "Template. Existing workers keep their captured settings.";
+                string tip = "Existing workers keep their saved settings.";
                 bool next = UiControls.Checkbox(l, template.DisplayLabel, selected, tip);
                 if (next == selected) continue;
                 if (next)
@@ -51,14 +51,14 @@ namespace SlopWorld
             }
 
             l.Gap(UiTheme.GapL);
-            UiLayout.SectionHeading(l, "Worker bootstrap");
-            UiLayout.Note(l, "This prompt is submitted to each worker spawned from a selected " +
-                "template. Task lifecycle commands infer the worker's exact mailbox task ID.");
+            UiLayout.SectionHeading(l, "Worker settings");
+            UiLayout.Note(l, "The daemon sends this prompt when it starts a worker from a selected template. " +
+                "Task commands use the worker's task ID when SLOPWORLD_TASK_ID is set.");
             l.Label("Worker prompt");
             _cfg.WorkerPrompt = UiControls.Area(l, 180f, "instructions.worker_prompt",
                 _cfg.WorkerPrompt, on: true, defaultValue: _cfg.FactoryDefaults?.WorkerPrompt);
-            UiLayout.Note(l, "The task body stays in the mailbox; this prompt tells the worker " +
-                "how to retrieve and finish it. Reset changes the form only; press Save to apply it.");
+            UiLayout.Note(l, "The daemon stores each task body in its mailbox. This prompt tells the worker " +
+                "how to retrieve and report on the task. Reset changes this form only. Select Save to apply changes.");
 
         }
     }

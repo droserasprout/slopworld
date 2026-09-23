@@ -38,5 +38,5 @@ tint in place, avoiding pooled materials for every frame/dimming combination. It
 fixed at the camera fit.
 Content that covers it completely also suppresses backdrop lookup. Only the current
 map submits it.
-Cancel pending destructive effects when Eco or Gentle mode disables them.
+Cancel pending destructive effects when Eco or Grandma's visiting disables them.
 Do not defer the strike until the user turns the mode off.

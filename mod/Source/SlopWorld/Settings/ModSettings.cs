@@ -174,7 +174,7 @@ namespace SlopWorld
         // outlives the game and should carry the jukebox through a game restart.
         public bool radioStopOnExit;
 
-        // Gentle mode hides gore and harmful tips.
+        // Grandma's visiting hides gore and harmful tips.
         // It also disables destructive and Easter egg effects.
         // The background uses sparkles and rainbows. Plague arrivals use flowers.
         public bool grandmaMode;

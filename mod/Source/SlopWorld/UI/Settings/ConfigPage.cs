@@ -23,7 +23,8 @@ namespace SlopWorld
             UiLayout.SectionHeading(l, "Game");
             var s = ModEntry.Instance.settings;
             bool eco = UiControls.Checkbox(l, "Eco mode", s.ecoMode,
-                "80% less CPU, 0.1% less guilt. You're welcome, Earth!");
+                "80% less CPU, 0.1% less guilt. You're welcome, Earth!\n\n" +
+                "Pauses the game simulation and map drawing. Terminal sessions continue to run.");
 
             // Show the dimming slider only when Eco mode draws the backdrop.
             // Use 0.05 steps because Eco.Shade uses the value as a material key.

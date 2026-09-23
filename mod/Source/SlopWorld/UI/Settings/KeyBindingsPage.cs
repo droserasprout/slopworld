@@ -171,7 +171,7 @@ namespace SlopWorld
                 if (_listening == binding)
                 {
                     // Listening state: show a primary-style button asking for input.
-                    UiButtons.Button(keyRect, "Press a key...", UiTheme.Btn.Primary);
+                    UiButtons.Button(keyRect, "Press a key", UiTheme.Btn.Primary);
                 }
                 else
                 {

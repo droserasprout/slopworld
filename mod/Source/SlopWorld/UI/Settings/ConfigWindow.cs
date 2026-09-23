@@ -8,7 +8,7 @@ namespace SlopWorld
     // typo cannot leave slopd with no config.
     public class ConfigWindow : UiWindow
     {
-        string _text = "loading...";
+        string _text = "Loading";
         string _path = "";
         string _error;
         bool _loaded;

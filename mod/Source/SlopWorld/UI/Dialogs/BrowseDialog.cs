@@ -75,7 +75,7 @@ namespace SlopWorld
 
         protected override void DoBody(Rect rect)
         {
-            UiLayout.PageCaption(TitleRect(rect), _path ?? (_pending ? "loading..." :
+            UiLayout.PageCaption(TitleRect(rect), _path ?? (_pending ? "Loading" :
                 _error ?? "no directory selected"));
 
             float top = rect.y + UiTheme.RowH + UiTheme.GapXS;

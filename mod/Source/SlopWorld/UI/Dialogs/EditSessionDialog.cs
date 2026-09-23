@@ -196,7 +196,7 @@ namespace SlopWorld
             _error = null;
             if (string.IsNullOrWhiteSpace(_s.Name) || (!EditingTemplate && string.IsNullOrEmpty(_s.Project)))
             {
-                _error = EditingTemplate ? "Template name is required" : "name and project are required";
+                _error = EditingTemplate ? "Enter a template name." : "Enter an agent name and project.";
                 return;
             }
 

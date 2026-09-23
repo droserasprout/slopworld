@@ -190,10 +190,10 @@ namespace SlopWorld
 
             _p.Temp = UiControls.Checkbox(l, "Temporary - scratch space under /tmp", _p.Temp,
                 _identity.IsNew
-                    ? "The directory is made for you under " + ProjectInfo.TempRoot + ", named after " +
-                      "this project, and it is there the first time an agent starts. Nothing " +
-                      "deletes it; the machine clears /tmp."
-                    : "Temporary mode is fixed when the project is created.",
+                    ? "SlopWorld creates the directory under " + ProjectInfo.TempRoot + ". It uses the project name. " +
+                      "The directory exists when the first agent starts. SlopWorld " +
+                      "does not delete it. The machine clears /tmp."
+                    : "You cannot change temporary mode after the daemon creates the project.",
                 locked: !_identity.IsNew);
 
             l.Label("Directory");
@@ -210,7 +210,7 @@ namespace SlopWorld
             {
                 _tempPreview.Cancel();
                 _p.Dir = UiControls.Field(l, "project.dir", _p.Dir);
-                if (UiLayout.Button(l, "Browse..."))
+                if (UiLayout.Button(l, "Choose directory"))
                     TerminalWindow.OpenOverPane(new BrowseDialog(_p.Dir, d => _p.Dir = d));
             }
 
@@ -219,7 +219,7 @@ namespace SlopWorld
         void DrawMounts(Rect rect)
         {
             UiText.RowLabel(new Rect(rect.x, rect.y, rect.width, UiTheme.LineH),
-                "Mounts apply at next start. Absolute paths stay absolute; relative paths start at the project directory.");
+                "Mounts apply at the next start. Absolute paths stay absolute. Relative paths start at the project directory.");
             float y = rect.y + UiTheme.LineH + UiTheme.GapS;
             if (UiButtons.Button(new Rect(rect.x, y, 110f, UiTheme.RowH), "Add path", UiTheme.Btn.Default))
                 _p.Mounts.Add(new MountEntry());
@@ -241,7 +241,7 @@ namespace SlopWorld
             float pathW = (width - modeW - removeW - gap * 3f) / 2f;
             UiText.RowLabel(new Rect(rect.x + UiTheme.ListInset, y, pathW, UiTheme.LineH), "From (blank = managed cache)");
             UiText.RowLabel(new Rect(rect.x + UiTheme.ListInset + pathW + gap, y, pathW, UiTheme.LineH),
-                "To (sandbox path; absolute or project-relative)");
+                "To (absolute or project-relative sandbox path)");
             y += UiTheme.LineH;
             var listRect = new Rect(rect.x, y, rect.width, Mathf.Max(0f, rect.yMax - y));
             Slab.Box(listRect, UiTheme.Well, UiTheme.Edge);

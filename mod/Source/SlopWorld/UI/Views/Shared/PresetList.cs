@@ -109,7 +109,7 @@ namespace SlopWorld
             string gives = string.Join("\n", p.Gives.ToArray());
             string why = forced ? "\n\nRequired by another selected preset or inherited by this entry." : "";
             // Show host access first so users see its cost before they read preset details.
-            string out_ = p.IsEscape ? $"Way out of the sandbox: {p.Escapes}.\n\n" : "";
+            string out_ = p.IsEscape ? $"Host access: {p.Escapes}.\n\n" : "";
             return $"{out_}{p.Description}\n\n{gives}{why}";
         }
     }

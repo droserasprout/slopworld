@@ -125,7 +125,7 @@ namespace SlopWorld
                 });
                 _rates.Add(rate.ToString(CultureInfo.InvariantCulture));
             }
-            UiLayout.Note(l, "User sources are stored in ~/.config/slopworld/jukebox/.");
+            UiLayout.Note(l, "SlopWorld stores user sources in ~/.config/slopworld/jukebox/.");
         }
 
         void Save()

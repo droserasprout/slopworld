@@ -25,7 +25,7 @@ namespace SlopWorld
             UiControls.CheckboxSetting(l, "Show Usage in statusbar", S, ref S.statusbarUsage,
                 "Show quota readouts in the top statusbar.");
             UiControls.CheckboxSetting(l, "Show spent instead of left", S, ref S.usageSpent,
-                "Applies to every provider. Left is the amount remaining; spent is the " +
+                "Applies to every provider. Left is the amount remaining. Spent is the " +
                 "provider-facing percentage or amount used.");
             string summaryPosition = StatusbarSummaryMode.Normalize(S.statusbarSummaryPosition);
             UiControls.Select(l, "Summary position", StatusbarSummaryMode.Label(summaryPosition),

@@ -215,7 +215,7 @@ namespace SlopWorld
                 if (result.Spec.Probe != ProbeKind.DaemonPath) continue;
                 if (_daemonLoading)
                 {
-                    result.SetStatus(false, "checking daemon...");
+                    result.SetStatus(false, "Checking daemon");
                     continue;
                 }
                 if (_daemonError != null)
@@ -240,7 +240,7 @@ namespace SlopWorld
             if (_scroll.HandleWheel(inner)) return;
             UpdateDaemonResults();
             string caption = "Commands used, integrated, or recommended by SlopWorld. " +
-                "Host rows check the game's PATH; daemon rows use the daemon's effective PATH.";
+                "Host rows check the game's PATH. Daemon rows use the daemon's effective PATH.";
             float width = UiScrollBody.Measure(inner, 0f,
                 UiScrollbarReservation.Always).ContentWidth;
             float captionH = UiText.StatusLabelHeight(caption, width);
@@ -259,7 +259,7 @@ namespace SlopWorld
                 {
                     UiText.StatusLabel(new Rect(0f, top, geometry.View.width,
                         Mathf.Max(UiTheme.LineH, geometry.View.height - top)),
-                        _error ?? (_loading ? "Checking host PATH..." : "No scan results."),
+                        _error ?? (_loading ? "Checking host PATH" : "No scan results."),
                         _error != null ? UiTheme.Bad : UiTheme.Dim);
                 }
                 else
@@ -270,7 +270,7 @@ namespace SlopWorld
 
             var foot = new UiLayout.Bar(SettingsPageLayout.Footer(rect));
             if (foot.Left("Refresh", UiTheme.Btn.Ghost, !_loading && !_daemonLoading)) Load();
-            string status = _results == null ? (_loading ? "Checking..." : "") :
+            string status = _results == null ? (_loading ? "Checking" : "") :
                 $"{_results.Count(result => result.Found)} of {_results.Count} found";
             GUI.color = _error != null ? UiTheme.Bad : UiTheme.Dim;
             UiText.RowLabel(foot.Rest(), _error ?? status, TextAnchor.MiddleRight);
@@ -345,7 +345,7 @@ namespace SlopWorld
             if (!result.Resolved)
             {
                 GUI.color = UiTheme.Dim;
-                UiText.RowLabel(path, "checking...");
+                UiText.RowLabel(path, "Checking");
             }
             else if (result.Found)
             {

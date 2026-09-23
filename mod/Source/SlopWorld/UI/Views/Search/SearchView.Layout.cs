@@ -21,7 +21,7 @@ namespace SlopWorld
                 Layout.Add(new LayoutRow
                 {
                     Kind = RowKind.Note,
-                    Text = _loading ? "Searching…" :
+                    Text = _loading ? "Searching" :
                         string.IsNullOrWhiteSpace(_query) ? "Type a query and press Enter."
                         : "No results.",
                     Color = UiTheme.Faint,
@@ -59,7 +59,7 @@ namespace SlopWorld
                     Layout.Add(new LayoutRow
                     {
                         Kind = RowKind.Note,
-                        Text = "… more matches",
+                        Text = "More matches are not listed.",
                         Color = UiTheme.Faint,
                     });
             }
@@ -70,7 +70,7 @@ namespace SlopWorld
                 Layout.Add(new LayoutRow
                 {
                     Kind = RowKind.Note,
-                    Text = "Searching…",
+                    Text = "Searching",
                     Color = UiTheme.Faint,
                 });
 

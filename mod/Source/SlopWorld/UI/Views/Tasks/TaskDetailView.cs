@@ -131,8 +131,8 @@ namespace SlopWorld
                 GUI.color = UiTheme.Dim;
                 UiText.RowLabel(new Rect(0f, y, width, UiTheme.TinyRowH),
                     _task.Direction + "  ·  " + TaskInfo.StatusText(_task.Status) +
-                    "  ·  created " + Timestamp(_task.CreatedMs) +
-                    "  ·  updated " + Timestamp(_task.UpdatedMs));
+                    "  ·  Created: " + Timestamp(_task.CreatedMs) +
+                    "  ·  Updated: " + Timestamp(_task.UpdatedMs));
                 GUI.color = Color.white;
                 y += UiTheme.TinyRowH + UiTheme.GapS;
 
@@ -151,11 +151,11 @@ namespace SlopWorld
             HandleSelectionInput(outer);
 
             var foot = new UiLayout.Bar(UiLayout.FooterBar(rect));
-            if (foot.Left("Copy all", UiTheme.Btn.Ghost))
+            if (foot.Left("Copy task text", UiTheme.Btn.Ghost))
                 DaemonClipboard.Copy(DialogueText());
 
             if (_task.Incoming && !_task.Terminal &&
-                foot.Left("Status", UiTheme.Btn.Default))
+                foot.Left("Change status", UiTheme.Btn.Default))
                 TaskActions.OpenMenu(_task, updated => _task = updated);
 
             if ((_task.Status == DelegatedTaskStatus.Queued ||
@@ -219,7 +219,7 @@ namespace SlopWorld
                     });
                     if (nameW > 0f)
                         TooltipHandler.TipRegion(name,
-                            "Focus " + sender + " in the agents sidebar");
+                            "Click to open " + sender + "'s terminal.");
                 }
 
                 if (prefixW + labelW + suffixW <= header.width)
@@ -276,7 +276,8 @@ namespace SlopWorld
             GUI.color = old;
 
             TooltipHandler.TipRegion(r, IsAgentSender(sender)
-                ? "Message from " + SenderLabel(sender) + "\nClick to focus in the agents sidebar"
+                ? "Message from " + SenderLabel(sender) +
+                    "\nClick to open this agent's terminal."
                 : "Message from " + SenderLabel(sender));
         }
 

@@ -120,7 +120,7 @@ namespace SlopWorld
         {
             if (_loading || _blocks == null)
             {
-                Status(body, _error ?? "Loading Markdown…", _error == null
+                Status(body, _error ?? "Loading Markdown", _error == null
                     ? UiTheme.Dim : UiTheme.Bad);
                 return;
             }
@@ -183,7 +183,7 @@ namespace SlopWorld
             catch (Exception e)
             {
                 _loading = false;
-                _error = "Markdown could not be parsed: " + e.Message;
+                _error = "Could not parse Markdown: " + e.Message;
             }
         }
 

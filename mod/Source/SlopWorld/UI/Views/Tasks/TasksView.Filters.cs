@@ -42,8 +42,8 @@ namespace SlopWorld
         public static void FilterButton(Rect r)
         {
             TooltipHandler.TipRegion(r, Filtering
-                ? "Task filters active. Click to change them."
-                : "All tasks. Click to filter by status, direction or agent.");
+                ? "Task filters are active. Click to change the filters."
+                : "Showing all tasks. Click to filter by status, direction, or agent.");
             if (UiLayout.IconButton(r, Icons.Filter,
                     Filtering ? UiTheme.Lead : UiTheme.Off))
                 OpenFilterMenu();
@@ -84,7 +84,7 @@ namespace SlopWorld
                     () => SetDirection(DirectionFilter.Incoming)),
                 UiLayout.MenuToggle("Sent by you", _direction == DirectionFilter.Outgoing,
                     () => SetDirection(DirectionFilter.Outgoing)),
-                UiLayout.MenuToggle("Agent to agent", _direction == DirectionFilter.AgentToAgent,
+                UiLayout.MenuToggle("Between agents", _direction == DirectionFilter.AgentToAgent,
                     () => SetDirection(DirectionFilter.AgentToAgent)),
             };
         }

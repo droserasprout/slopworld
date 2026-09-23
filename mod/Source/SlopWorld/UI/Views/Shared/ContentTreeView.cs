@@ -281,7 +281,7 @@ namespace SlopWorld
                 _items.Add(new Item
                 {
                     Kind = ItemKind.Note,
-                    Note = parent.Error ?? "...",
+                    Note = parent.Error ?? "Loading",
                     NoteColor = parent.Error != null ? UiTheme.Bad : UiTheme.Faint,
                     Depth = parent.Depth + 1,
                     Y = y,
@@ -302,7 +302,7 @@ namespace SlopWorld
                 _items.Add(new Item
                 {
                     Kind = ItemKind.Note,
-                    Note = "... more, not listed",
+                    Note = "More entries are not shown.",
                     NoteColor = UiTheme.Faint,
                     Depth = parent.Depth + 1,
                     Y = y,

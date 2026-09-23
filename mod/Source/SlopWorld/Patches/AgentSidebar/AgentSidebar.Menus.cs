@@ -229,15 +229,15 @@ namespace SlopWorld
 
             var opts = new List<FloatMenuOption>
             {
-                new FloatMenuOption("Create project", () =>
+                new FloatMenuOption("Project", () =>
                     TerminalWindow.OpenOverPane(new EditProjectDialog(null))),
                 new UiSubmenu("Agent", AgentCreationOptions),
                 new UiSubmenu("Worker", WorkerOptions),
-                new FloatMenuOption("Create task", () =>
+                new FloatMenuOption("Task", () =>
                     TerminalWindow.OpenOverPane(new DelegateTaskDialog(null))),
                 new UiSubmenu("Library", LibraryItemOptions),
-                new FloatMenuOption("New sandbox preset", ModOptions.OpenNewSandboxPreset),
-                new FloatMenuOption("New command preset", ModOptions.OpenNewCommand),
+                new FloatMenuOption("Sandbox preset", ModOptions.OpenNewSandboxPreset),
+                new FloatMenuOption("Command preset", ModOptions.OpenNewCommand),
                 new UiSubmenu("Host shell", HostShellOptions),
             };
             TerminalWindow.OpenOverPane(new UiMenu(opts));
@@ -255,7 +255,7 @@ namespace SlopWorld
                     TerminalWindow.OpenOverPane(EditSessionDialog.FromTemplate(captured))));
             }
             if (options.Count > 0) options.Add(UiMenu.Separator());
-            options.Add(new FloatMenuOption("Custom agent", () =>
+            options.Add(new FloatMenuOption("Custom", () =>
                 TerminalWindow.OpenOverPane(new EditSessionDialog(null))));
             return options;
         }
@@ -278,20 +278,20 @@ namespace SlopWorld
 
         static List<FloatMenuOption> LibraryItemOptions() => new List<FloatMenuOption>
         {
-            new FloatMenuOption("New agent template", () =>
+            new FloatMenuOption("Agent template", () =>
                 TerminalWindow.OpenOverPane(EditSessionDialog.EditTemplate())),
-            new FloatMenuOption("New prompt", () =>
+            new FloatMenuOption("Prompt", () =>
                 TerminalWindow.OpenOverPane(new EditPromptDialog(null))),
             BreadcrumbAddOption(),
-            new FloatMenuOption("New shell command", () =>
+            new FloatMenuOption("Shell script", () =>
                 TerminalWindow.OpenOverPane(new EditShellDialog(null))),
-            new FloatMenuOption("New file action", () =>
+            new FloatMenuOption("File action", () =>
                 TerminalWindow.OpenOverPane(new EditFileActionDialog(null))),
         };
 
         static FloatMenuOption BreadcrumbAddOption()
         {
-            var option = new FloatMenuOption("New breadcrumb", () =>
+            var option = new FloatMenuOption("Breadcrumb", () =>
                 TerminalWindow.OpenOverPane(new EditBreadcrumbDialog(null)));
             return option;
         }

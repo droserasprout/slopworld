@@ -306,7 +306,7 @@ namespace SlopWorld
             _query = UiText.Field(field, "library.query", _query);
             if (before != _query) _scroll.JumpTo(Vector2.zero);
             if (_query.Length == 0 && GUI.GetNameOfFocusedControl() != "library.query")
-                UiText.StatusLabel(field.ContractedBy(Pad, 0f), "Search library…", UiTheme.Faint, GameFont.Tiny);
+                UiText.StatusLabel(field.ContractedBy(Pad, 0f), "Search library", UiTheme.Faint, GameFont.Tiny);
             TooltipHandler.TipRegion(field, "Search library names and content");
             var filter = new Rect(field.x, field.yMax + Pad, field.width, UiTheme.FieldH);
             if (UiButtons.Button(filter, _kind.Length == 0 ? "All types ▾" : _kind + " ▾"))
@@ -577,11 +577,11 @@ namespace SlopWorld
         {
             var options = new List<FloatMenuOption>
             {
-                new FloatMenuOption("Edit...", () =>
+                new FloatMenuOption("Edit", () =>
                     TerminalWindow.OpenOverPane(new EditProjectDialog(project))),
-                new FloatMenuOption("Duplicate...", () =>
+                new FloatMenuOption("Duplicate", () =>
                     TerminalWindow.OpenOverPane(EditProjectDialog.Copy(project))),
-                new FloatMenuOption("Worktrees...", () => OpenProjectWorktrees(project.Name)),
+                new FloatMenuOption("Manage worktrees", () => OpenProjectWorktrees(project.Name)),
                 new FloatMenuOption("Terminal (host)", () =>
                     SessionHub.Instance.SessionStore.RunHostShell(project.Name,
                         name => TerminalWindow.Open(name), UiLayout.Fail)),
@@ -610,8 +610,8 @@ namespace SlopWorld
         {
             if (entry.Tree.Attachments.Count > 0) return;
             TerminalWindow.OpenOverPane(ConfirmDialog.Create(
-                "Remove worktree '" + entry.Tree.Name + "'? Managed files are removed; " +
-                "unmanaged files are only unregistered.",
+                "Remove worktree '" + entry.Tree.Name + "'? This removes managed files. " +
+                "It unregisters unmanaged files without deleting them.",
                 () =>
                 {
                     _worktreeRequestKey = null;
@@ -681,7 +681,9 @@ namespace SlopWorld
                 };
                 if (runnable)
                 {
-                    lines.Add("In: " + Where(item));
+                    lines.Add(item.Link == LibraryItemLink.Ask
+                        ? "Choose a project when you run this item."
+                        : "In: " + Where(item));
                     lines.Add("Runs with: " + (item.Host ? "Host" :
                         string.IsNullOrEmpty(item.AgentTemplate) ? "Not configured" : item.AgentTemplate));
                 }
@@ -699,8 +701,8 @@ namespace SlopWorld
             }
             if (r.height < actionsH + Pad * 2f) return;
             var primary = new Rect(r.x, r.yMax - actionsH - Pad, r.width, UiTheme.FieldH);
-            string label = template ? "Create agent…" : runnable
-                ? (item.Link == LibraryItemLink.Ask ? "Run in…" : "Run") : "Edit";
+            string label = template ? "Create agent" : runnable
+                ? (item.Link == LibraryItemLink.Ask ? "Choose a project" : "Run") : "Edit";
             if (UiButtons.Button(primary, label, UiTheme.Btn.Primary))
             {
                 if (template) TerminalWindow.OpenOverPane(EditSessionDialog.FromTemplate(definition));
@@ -1000,11 +1002,11 @@ namespace SlopWorld
         {
             var options = new List<FloatMenuOption>
             {
-                new FloatMenuOption("Create agent...", () => TerminalWindow.OpenOverPane(
+                new FloatMenuOption("Create agent", () => TerminalWindow.OpenOverPane(
                     EditSessionDialog.FromTemplate(template))),
-                new FloatMenuOption("Edit...", () =>
+                new FloatMenuOption("Edit", () =>
                     TerminalWindow.OpenOverPane(EditSessionDialog.EditTemplate(template))),
-                new FloatMenuOption("Duplicate...", () =>
+                new FloatMenuOption("Duplicate", () =>
                     TerminalWindow.OpenOverPane(EditSessionDialog.EditTemplate(template, true))),
                 new FloatMenuOption("Delete", () => TerminalWindow.OpenOverPane(
                     ConfirmDialog.Create("Remove template '" + template.Name + "'? Existing agents keep their snapshots.",
@@ -1023,13 +1025,13 @@ namespace SlopWorld
                 opts.Add(new FloatMenuOption("Run", () => Run(s)));
 
             if (Runnable(s) && s.Link == LibraryItemLink.Ask)
-                opts.Add(new UiSubmenu("Run in", () => WhereOptions(s)));
+                opts.Add(new UiSubmenu("Choose a project", () => WhereOptions(s)));
 
-            var edit = new FloatMenuOption("Edit...", () =>
+            var edit = new FloatMenuOption("Edit", () =>
                 TerminalWindow.OpenOverPane(EditLibraryItemDialog.ForEdit(s)));
             opts.Add(edit);
 
-            var duplicate = new FloatMenuOption("Duplicate...", () =>
+            var duplicate = new FloatMenuOption("Duplicate", () =>
                 TerminalWindow.OpenOverPane(EditLibraryItemDialog.Copy(s)));
             opts.Add(duplicate);
 
@@ -1093,7 +1095,7 @@ namespace SlopWorld
             switch (s.Link)
             {
                 case LibraryItemLink.Temp: return "a temporary project";
-                case LibraryItemLink.Ask: return "run in...";
+                case LibraryItemLink.Ask: return "a project you choose at run time";
                 default:
                     return string.IsNullOrEmpty(s.Project)
                         ? "no project"

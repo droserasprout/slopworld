@@ -65,8 +65,8 @@ namespace SlopWorld
         {
             var inner = SettingsPageLayout.Body(rect);
 
-            string caption = $"{Human(_entries.Sum(e => e.Bytes))} total. Configured agents are retained; " +
-                "deleted/reset state expires after 14 days. Shared caches are retained.";
+            string caption = $"{Human(_entries.Sum(e => e.Bytes))} total. Configured agents remain. " +
+                "State from deleted or reset agents expires after 14 days. Shared caches remain.";
             float width = UiScrollBody.Measure(inner, 0f,
                 UiScrollbarReservation.Always).ContentWidth;
             float captionH = UiText.StatusLabelHeight(caption, width);
@@ -89,7 +89,7 @@ namespace SlopWorld
             {
                 UiText.StatusLabel(new Rect(list.x, list.y + captionH + UiTheme.GapS,
                         list.width, Mathf.Max(0f, list.height - captionH - UiTheme.GapS)),
-                    _error ?? (_loading ? "Scanning..." : "No storage entries."),
+                    _error ?? (_loading ? "Scanning" : "No storage entries."),
                     _error != null ? UiTheme.Bad : UiTheme.Dim);
             }
 
@@ -211,8 +211,8 @@ namespace SlopWorld
         void ConfirmReset(Entry e)
         {
             Find.WindowStack.Add(ConfirmDialog.Create(
-                $"Reset private state for '{e.Session}'? The agent stops and this {Human(e.Bytes)} " +
-                "copy moves to recoverable trash for 14 days.",
+                $"Reset private state for '{e.Session}'? The daemon stops the agent and moves " +
+                $"{Human(e.Bytes)} of its state to recoverable trash for 14 days.",
                 () => DaemonClient.Post($"{WireProtocol.Routes.Sessions}/{Uri.EscapeDataString(e.Session)}/state/reset",
                     null, _ => { SessionHub.Instance.SessionStore.Refresh(); Load(); }, msg => _error = msg),
                 destructive: true));

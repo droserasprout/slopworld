@@ -147,7 +147,7 @@ namespace SlopWorld
                     ? "Temporary workspace (blank = plain agent settings)"
                     : "Project workspace (directory and shared mounts)",
                 string.IsNullOrEmpty(_s.Project)
-                    ? (_s.Link == LibraryItemLink.Temp ? "None" : "Pick a project...")
+                    ? (_s.Link == LibraryItemLink.Temp ? "None" : "Select a project")
                     : _s.Project,
                 ProjectOptions(), out _, openMenu: TerminalWindow.OpenOverPane);
         }
@@ -162,7 +162,7 @@ namespace SlopWorld
                 new SelectorOption("Agent template: " + t.Name,
                     () => { _s.Host = false; _s.AgentTemplate = t.Name; })));
             string label = _s.Host ? "Host" : string.IsNullOrEmpty(_s.AgentTemplate)
-                ? "Choose Host or an agent template..." : "Agent template: " + _s.AgentTemplate;
+                ? "Select Host or an agent template" : "Agent template: " + _s.AgentTemplate;
             UiControls.Select(l, "Run using", label, options, out _);
         }
 
@@ -244,14 +244,14 @@ namespace SlopWorld
                     return $"Each run gets an empty directory under {ProjectInfo.TempRoot}" +
                            (project != null
                                ? $", using '{project.Name}' as its workspace."
-                               : ". Nothing deletes it; the machine clears /tmp.");
+                               : ". SlopWorld does not delete it. The machine clears /tmp.");
                 case LibraryItemLink.Ask:
                     return "Running it opens a list of projects, plus a temporary one.";
                 default:
                     return project != null
                         ? $"{project.Dir}  ({ProjectsView.Summary(project)})"
                         : SessionHub.Instance.Projects.Count == 0
-                            ? "No projects yet - make one in the Projects window first."
+                            ? "No projects exist. Add a project in the Projects window."
                             : "";
             }
         }
@@ -293,7 +293,7 @@ namespace SlopWorld
                     () => _s.Project = p.Name)).ToList();
             if (_s.Link == LibraryItemLink.Temp)
                 options.Insert(0, new SelectorOption("None", () => _s.Project = ""));
-            options.Add(new SelectorOption("New project...",
+            options.Add(new SelectorOption("Create new project",
                 () => TerminalWindow.OpenOverPane(new EditProjectDialog(null))));
             return options;
         }

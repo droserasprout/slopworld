@@ -10,7 +10,7 @@ namespace SlopWorld
 {
     // Store the earliest arrival tick for each cell. BandAt uses arrival age to determine the local dose.
     // Apply effects directly because Patch_Health disables health ticks.
-    // Gentle mode keeps field timing and growth. It adds flowers instead of damage.
+    // Grandma's visiting keeps field timing and growth. It adds flowers instead of damage.
     public partial class Plague : MapComponent
     {
         // Game ticks between checks for pawns within the field.
@@ -287,7 +287,7 @@ namespace SlopWorld
         public float Girth => Mathf.Sqrt(_reached / Mathf.PI);
 
         // Log field coverage in five percent increments.
-        // Keep this separate from pawn effects so Gentle mode can report progress.
+        // Keep this separate from pawn effects so Grandma's visiting can report progress.
         void Progress()
         {
             int twentieth = _reached * 20 / Mathf.Max(map.Area, 1);

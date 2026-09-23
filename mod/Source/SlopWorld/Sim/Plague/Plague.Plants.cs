@@ -5,7 +5,7 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Apply plague effects to vegetation, or add flowers in Gentle mode.
+    // Apply plague effects to vegetation, or add flowers when Grandma's visiting.
     // Process limited batches because the field covers the map. Plague.cs owns field growth and timing.
     public partial class Plague
     {

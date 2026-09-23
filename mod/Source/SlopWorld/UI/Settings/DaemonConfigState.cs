@@ -54,7 +54,7 @@ namespace SlopWorld
             {
                 if (!HasConflicts) return null;
                 return "External changes on " + string.Join(", ", Draft.Conflicts.ToArray()) +
-                       ". Save keeps this draft; Discard uses the server values.";
+                       ". Save keeps this draft. Discard uses the server values.";
             }
         }
 

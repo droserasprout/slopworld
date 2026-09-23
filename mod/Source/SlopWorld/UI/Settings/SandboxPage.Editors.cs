@@ -129,7 +129,7 @@ namespace SlopWorld
             // Keep an escape warning above the identity so a long editor does not hide it.
             if (!string.IsNullOrEmpty(p.Escapes))
             {
-                string warning = $"Escape path: {p.Escapes}.";
+                string warning = $"Host access: {p.Escapes}.";
                 float warningH = UiText.StatusLabelHeight(warning, view.width);
                 if (draw) UiText.StatusLabel(new Rect(0f, y, view.width, warningH), warning,
                     UiTheme.Warn);
@@ -220,7 +220,7 @@ namespace SlopWorld
             {
                 GUI.color = UiTheme.Dim;
                 UiText.RowLabel(new Rect(0f, y, view.width, UiTheme.LineH),
-                    "These presets are added whenever this command runs.");
+                    "The daemon includes these presets whenever an agent uses this command.");
                 GUI.color = Color.white;
             }
             y += UiTheme.LineH + UiTheme.GapXS;

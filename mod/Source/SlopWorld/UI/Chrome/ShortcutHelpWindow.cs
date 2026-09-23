@@ -213,7 +213,7 @@ namespace SlopWorld
                 new ShortcutRow("Shift+Escape", "Close the terminal"),
                 new ShortcutRow("Alt+1..9, Alt+0", "Select an agent by sidebar position"),
                 new ShortcutRow("Shift+Enter", "Send a newline without submitting"),
-                new ShortcutRow("Ctrl+C", "Copy selected text; otherwise send SIGINT"),
+                new ShortcutRow("Ctrl+C", "Copy selected text. Without a selection, send SIGINT."),
                 new ShortcutRow("Ctrl+V", "Paste clipboard text or forward image data"),
                 new ShortcutRow("Middle-click", "Paste the host PRIMARY selection"),
                 new ShortcutRow("Shift+PgUp / Shift+PgDn", "Scroll terminal history on the primary screen"),

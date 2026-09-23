@@ -36,7 +36,7 @@ namespace SlopWorld
             string name = (_name ?? "").Trim();
             if (string.IsNullOrEmpty(name))
             {
-                _error = "Template name is required.";
+                _error = "Enter a template name.";
                 return;
             }
             SessionHub.Instance.SaveAgentTemplate(_source, name, "",
