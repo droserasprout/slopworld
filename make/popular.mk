@@ -4,13 +4,13 @@
 
 all: daemon mod   ## Build both halves
 
-format: format-daemon format-mod ## Format both halves
+format: format-daemon format-csharp ## Format both halves
 
 lint: lint-daemon lint-mod ## Lint both halves
 
 test: test-daemon test-mod test-tools test-pager ## Run all game-free tests (requires tmux and less)
 
-ci: coverage test-tools test-pager lint-daemon check-generated ## Run game-free CI checks with coverage
+ci: coverage test-tools test-pager lint-daemon check-format-csharp check-generated ## Run game-free CI checks with coverage
 
 bench: bench-build ## Run the game-free daemon, C# and IPC benchmarks
 	@bash tools/bench.sh run

@@ -10,6 +10,9 @@ contract/catalog and maintenance-script checks; language test targets only run t
 Make owns target dependencies and exports settings from `make/config.mk` to the
 maintenance scripts in `tools/`. Keep multi-step shell logic there.
 
+The shared C# formatter covers mod production, test and IPC benchmark sources; its
+game-free check runs in `make ci`. Generated client bindings and build output are excluded.
+
 The mod SDK project owns compiler settings, references and assembly metadata. Make
 passes the configuration, game assembly path and daemon version. NuGet restores
 locked .NET Framework reference assemblies; Mono is only needed for IPC benchmarks.
