@@ -1,4 +1,4 @@
-//! Project caches are shared by every checkout and never owned by a worker or worktree.
+//! All checkouts share project caches. Workers and worktrees do not own these caches.
 use std::path::{Path, PathBuf};
 
 use anyhow::{bail, Context, Result};
@@ -10,8 +10,8 @@ pub(crate) fn root() -> PathBuf {
     crate::paths::cache_root().join("mounts")
 }
 
-/// Managed storage follows the stable project identity. Relative destinations follow the
-/// selected checkout, while absolute destinations retain their ordinary mount semantics.
+/// Managed storage uses the stable project ID.
+/// Relative destinations use the selected checkout as their base. Absolute destinations specify the full mount path.
 pub(crate) fn source(project: &ProjectCfg, mount: &Mount) -> Result<PathBuf> {
     if !mount.from.trim().is_empty() {
         return Ok(PathBuf::from(expand(&mount.from)));
@@ -57,8 +57,9 @@ pub(crate) fn validate(project: &ProjectCfg, mount: &Mount) -> Result<PathBuf> {
     Ok(path)
 }
 
-/// Managed caches remain visible after removing mounts/projects. Explicit host directories
-/// are inventoried only while configured, and are never deleted by private-state controls.
+/// Keep managed caches in the inventory after removal of their mounts or projects.
+/// Include explicit host directories only while the configuration lists them.
+/// Private-state controls never delete these host directories.
 pub(crate) fn inventory(projects: &[ProjectCfg]) -> Vec<StoredState> {
     let mut out = Vec::new();
     let mut seen = std::collections::BTreeSet::new();
@@ -73,8 +74,8 @@ pub(crate) fn inventory(projects: &[ProjectCfg]) -> Vec<StoredState> {
             } else {
                 source
             };
-            // One managed entry covers every destination in the project. External sources
-            // shared by multiple rows/projects have one inventory entry per host directory.
+            // One managed entry includes every destination in the project.
+            // Each external host directory has one entry, even when multiple mounts or projects share it.
             let path = path.canonicalize().unwrap_or(path);
             if !seen.insert(path.clone()) {
                 continue;

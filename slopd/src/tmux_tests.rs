@@ -35,8 +35,8 @@ async fn paste_follows_the_current_application_mode() {
     };
     std::fs::create_dir(&fixture.dir).unwrap();
     let script = fixture.dir.join("receiver.py");
-    // Toggle on and then off in the same pane, as applications do when entered/exited.
-    // The raw receiver records every byte, including any unexpected extra markers.
+    // Enable and disable the mode in the same pane, as applications do on startup and exit.
+    // The raw receiver records every byte, including unexpected markers.
     std::fs::write(
         &script,
         r#"
@@ -119,7 +119,7 @@ for index, mode in enumerate((b'\x1b[?2004h', b'\x1b[?2004l')):
 
 #[test]
 fn a_title_cannot_carry_an_escape() {
-    // display-message ends its answer with one, and the title is the tail of that line.
+    // Remove the newline that display-message adds after the title.
     assert_eq!(clean_title("Add status labels\n"), "Add status labels");
     assert_eq!(clean_title("\x1b]0;other\x07here"), "]0;otherhere");
     assert_eq!(clean_title(""), "");
@@ -129,12 +129,12 @@ fn a_title_cannot_carry_an_escape() {
 fn the_alternate_screen_flag_is_a_digit_and_not_a_word() {
     assert_eq!(parse_pos("12 3 1 vim\n"), (12, 3, true, "vim".into()));
     assert_eq!(parse_pos("12 3 0 vim\n"), (12, 3, false, "vim".into()));
-    // A title has spaces in it and the flag is read from the field ahead of it.
+    // Preserve spaces in the title. Read the flag from the preceding field.
     assert_eq!(
         parse_pos("0 0 1 fix the thing\n"),
         (0, 0, true, "fix the thing".into())
     );
-    // No answer at all: the pane is gone, and none of this is worth failing over.
+    // Use default values when the pane returns no response.
     assert_eq!(parse_pos(""), (0, 0, false, String::new()));
 }
 

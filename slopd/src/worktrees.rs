@@ -29,8 +29,8 @@ impl Store {
     pub async fn load(config: &Path) -> Result<Self> {
         match tokio::fs::read_to_string(config.with_file_name("worktrees.toml")).await {
             Ok(text) => Ok(toml::from_str(&text)?),
-            // Keep WIP records usable after the terminology change. Once saved, the new
-            // store is authoritative; the old file is never automatically deleted.
+            // Read legacy records if the new store does not exist.
+            // After saving, use the new store. Do not automatically delete the old file.
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
                 match tokio::fs::read_to_string(config.with_file_name("workspaces.toml")).await {
                     Ok(text) => Ok(toml::from_str(&text)?),
@@ -51,7 +51,7 @@ impl Store {
     }
 }
 
-/// All host Git operations have bounded output/time and the inspection helper restrictions.
+/// Limit host Git output and execution time. Apply the repository inspection restrictions.
 pub(crate) async fn git(path: &Path, args: &[&str]) -> Result<String> {
     git_command(path, args, &[]).await
 }
@@ -92,8 +92,8 @@ async fn git_command(path: &Path, args: &[&str], writable: &[&Path]) -> Result<S
         .to_string())
 }
 
-/// `worktree add -b` forks Git helpers. Allocate without checkout, then invoke each builtin
-/// directly under the same no-child-process restriction used for repository inspection.
+/// Git's `worktree add -b` starts helper processes. Register the worktree without a checkout.
+/// Then run Git's built-in commands directly under the repository inspection restrictions.
 pub(crate) async fn allocate(root: &Path, path: &Path, branch: &str, base: &str) -> Result<()> {
     let target = path.to_str().context("worktree path is not UTF-8")?;
     let repository = PathBuf::from(
@@ -125,7 +125,7 @@ pub(crate) fn default_root() -> Result<PathBuf> {
         .join("slopworld/worktrees"))
 }
 
-/// Only metadata is mounted; mounting the main checkout would expose unrelated source files.
+/// Mount only Git metadata for linked worktrees. Mounting the main checkout would expose unrelated source files.
 pub(crate) fn metadata_paths(path: &Path) -> Result<Vec<PathBuf>> {
     let dot = path.join(".git");
     if !dot.is_file() {
@@ -160,9 +160,10 @@ pub(crate) fn metadata_paths(path: &Path) -> Result<Vec<PathBuf>> {
 #[path = "worktrees_tests.rs"]
 mod tests;
 
-/// Git removal forks its own status command. Run that command tree in a minimal namespace,
-/// with only this worktree's container and the shared Git metadata writable. Never mount the
-/// original source checkout or host home/config; repository helpers cannot reach host secrets.
+/// Git starts a status helper when it removes a worktree. Run removal in a minimal Bubblewrap namespace.
+/// Allow writes only to this worktree's container and shared Git metadata.
+/// Do not mount the original checkout, host home, or host configuration.
+/// These restrictions prevent Git helpers from accessing host secrets.
 pub(crate) async fn remove_tree(w: &Worktree) -> Result<()> {
     let checkout = Path::new(&w.path);
     let container = checkout.parent().context("missing worktree container")?;
@@ -255,13 +256,14 @@ pub(crate) async fn remove_tree(w: &Worktree) -> Result<()> {
     if checkout.exists() {
         bail!("Git reported removal but checkout still exists");
     }
-    // Only an empty, daemon-allocated container is discarded; unexpected data is retained.
+    // Delete the container only if the daemon allocated it and it is empty. Keep unexpected files.
     std::fs::remove_dir(container).context("removing empty worktree container")?;
     Ok(())
 }
 
-/// Retry a previously authorized removal whose checkout has already disappeared. Constrain
-/// writes to Git metadata so a concurrent recreation cannot turn this into file deletion.
+/// Retry an authorized removal after the checkout no longer exists.
+/// Restrict this command's writes to Git metadata.
+/// If another process recreates the checkout, Git cannot delete its files.
 pub(crate) async fn forget_missing(w: &Worktree) -> Result<()> {
     let repo = Path::new(&w.repository);
     git_command(repo, &["worktree", "remove", &w.path], &[repo]).await?;

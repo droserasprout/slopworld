@@ -1,6 +1,5 @@
 use super::*;
-/// The point of the host errand: no bwrap anywhere in it, and the shell at the end of it
-/// rather than behind a `--`.
+/// A host errand runs without bwrap. Its argument list ends with the shell command.
 #[test]
 fn a_host_errand_is_not_sandboxed() {
     let cfg = Config::default();
@@ -22,13 +21,13 @@ fn a_host_errand_is_not_sandboxed() {
     assert!(!a.iter().any(|x| x == "bwrap" || x == "--clearenv"));
     assert!(a.contains(&format!("TERM={PANE_TERM}")));
     assert!(a.contains(&"SLOPWORLD_PROJECT=p".to_string()));
-    // Whichever shell this machine answers with, it is the tail and nothing follows it.
+    // The selected shell command is last in the argument list.
     let want = shell_split(&host_command(&cfg, &s, host_shell().as_deref()));
     assert_eq!(a[a.len() - want.len()..], want[..]);
 }
 
-/// `[defaults] shell` answers for a shell inside bwrap and `$SHELL` for one beside it -
-/// unless the errand named a shell itself, which is taken at its word either side.
+/// Sandbox errands use `[defaults] shell`. Host errands use `$SHELL` when available.
+/// An explicit errand command overrides either default.
 #[test]
 fn a_host_errand_opens_the_login_shell_unless_it_named_one() {
     let cfg = Config::default();
@@ -40,10 +39,10 @@ fn a_host_errand_opens_the_login_shell_unless_it_named_one() {
         host_command(&cfg, &bare, Some("/usr/bin/zsh")),
         "/usr/bin/zsh"
     );
-    // Nothing in the environment to read: the preset is still there to answer.
+    // Use the configured command when no host shell is available.
     assert_eq!(host_command(&cfg, &bare, None), cfg.command_of(&bare));
 
-    // A preset by name, and a command line of its own: both are run as asked.
+    // Preserve explicit command presets and custom command lines.
     let named = SessionCfg {
         command: "zsh".into(),
         ..Default::default()
@@ -69,8 +68,8 @@ fn foreground_shell_commands_mean_an_idle_host_prompt() {
     assert!(!is_shell_command("codex"));
 }
 
-/// The name the sidebar shows, and the tmux target behind it: the project, then the
-/// shell. Not a constant either side - two projects open two differently named terminals.
+/// The session name includes the project name followed by the shell name.
+/// Different projects therefore use different terminal names.
 #[test]
 fn a_host_errand_is_named_for_its_project_and_its_shell() {
     assert_eq!(
@@ -84,8 +83,8 @@ fn a_host_errand_is_named_for_its_project_and_its_shell() {
     assert_eq!(session_name_for("tmp", None), "tmp-shell");
     assert_eq!(session_name_for("", Some("/usr/bin/zsh")), "zsh");
 }
-/// One copy per session, at the shape of the original, and never one directory for two
-/// paths that happen to share a basename.
+/// Each session has a separate private copy that preserves the source directory structure.
+/// Paths with the same basename use different destinations.
 #[test]
 fn a_private_path_is_per_session_and_keeps_its_shape() {
     let a = private_path("one", "/home/u/.config/opencode").unwrap();
@@ -100,7 +99,8 @@ fn a_private_path_is_per_session_and_keeps_its_shape() {
         .unwrap()
         .starts_with(state_root().join("one")));
 
-    // Under the home it keeps the relative path; outside it, the absolute one.
+    // Use the path relative to home for sources under home.
+    // For other sources, preserve the path from the filesystem root.
     if let Some(home) = dirs::home_dir() {
         let mine = private_path("one", &home.join(".claude").to_string_lossy()).unwrap();
         assert_eq!(mine, state_root().join("one/home/.claude"));
@@ -218,9 +218,8 @@ fn stored_state_keys_cannot_escape_or_name_the_trash_root() {
         assert!(direct_child(root, key).is_err(), "accepted {key:?}");
     }
 }
-/// Seeding, which is what decides whether an agent can log in at all: the files at the
-/// top come across unasked, a named subdirectory comes across whole, an unnamed one does
-/// not, and a second start does not tread on what the agent has written since.
+/// Initialization copies top-level files and the subdirectories that the preset specifies.
+/// It excludes other subdirectories. A second initialization preserves the agent's changes.
 #[test]
 fn a_private_tree_is_seeded_once_with_the_files_on_top_and_what_the_preset_names() {
     let root = std::env::temp_dir().join(format!("slopd-seed-{}", std::process::id()));
@@ -241,19 +240,19 @@ fn a_private_tree_is_seeded_once_with_the_files_on_top_and_what_the_preset_names
     let copy = root.join("copy");
     seed_into(&pr, &host.to_string_lossy(), &copy).unwrap();
 
-    // Credentials on top, without this file naming them.
+    // Copy top-level credentials without an explicit seed entry.
     assert_eq!(
         std::fs::read_to_string(copy.join("auth.json")).unwrap(),
         "secret"
     );
-    // What the preset named, and only that.
+    // Copy only the subdirectories that the preset specifies.
     assert_eq!(
         std::fs::read_to_string(copy.join("agents/one.md")).unwrap(),
         "mine"
     );
     assert!(!copy.join("projects").exists(), "unnamed bulk came across");
 
-    // Seeded once: what the agent wrote survives, and the host's later edit stays out.
+    // Preserve the agent's changes when the host source changes after initialization.
     std::fs::write(copy.join("auth.json"), "the agent's own").unwrap();
     std::fs::write(host.join("auth.json"), "changed since").unwrap();
     seed_into(&pr, &host.to_string_lossy(), &copy).unwrap();
@@ -265,10 +264,9 @@ fn a_private_tree_is_seeded_once_with_the_files_on_top_and_what_the_preset_names
     let _ = std::fs::remove_dir_all(&root);
 }
 
-/// `skip` reaches the files on top, not only the directories `seed` names. Two of them,
-/// for different reasons: the user's prompt history is theirs and no agent's, and a shared
-/// credential is bound from the host anyway - seeding it would leave a superseded token
-/// lying in the session directory for as long as the session exists.
+/// Exclude top-level files that `skip` or `shared` specifies.
+/// This keeps user prompt history out of the private copy.
+/// Shared credentials use host bind mounts. Copying them could leave obsolete tokens in the session directory.
 #[test]
 fn the_files_on_top_are_cut_back_by_skip_and_by_what_is_shared() {
     let root = std::env::temp_dir().join(format!("slopd-top-{}", std::process::id()));
@@ -308,9 +306,8 @@ fn the_files_on_top_are_cut_back_by_skip_and_by_what_is_shared() {
     let _ = std::fs::remove_dir_all(&root);
 }
 
-/// `skip` is what lets a preset name a whole directory. The shape is `~/.pi/agent`: the
-/// model selection and 21MB of transcripts in one place, and a seed list that named three
-/// subdirectories pi has never made brought across neither.
+/// Copy a complete seed directory except the paths that `skip` specifies.
+/// This permits model settings and nested configuration files without copying session transcripts.
 #[test]
 fn a_seeded_directory_comes_across_whole_bar_what_skip_names() {
     let root = std::env::temp_dir().join(format!("slopd-skip-{}", std::process::id()));
@@ -332,13 +329,13 @@ fn a_seeded_directory_comes_across_whole_bar_what_skip_names() {
     let copy = root.join("copy");
     seed_into(&pr, &host.to_string_lossy(), &copy).unwrap();
 
-    // What the agent needs to be itself, however deep it sits.
+    // Preserve settings and nested files outside excluded paths.
     assert_eq!(
         std::fs::read_to_string(copy.join("agent/models-store.json")).unwrap(),
         "opus"
     );
     assert!(copy.join("agent/nested/deep/kept.json").exists());
-    // And not the bulk, nor the directory that held it.
+    // Exclude the transcript directory and its contents.
     assert!(
         !copy.join("agent/sessions").exists(),
         "the transcripts came across"
@@ -378,7 +375,7 @@ fn agent_shell_presets_resolve_to_absolute_executables() {
     }
 }
 
-/// Tests inspect the lowered argv; production startup saves and executes the same launch plan.
+/// Tests inspect the generated argument list. Production startup saves and executes the same launch plan.
 pub(crate) fn build_argv(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result<Vec<String>> {
     build_plan(cfg, s, p).map(|plan| plan.lower())
 }

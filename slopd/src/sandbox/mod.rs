@@ -43,8 +43,8 @@ pub(crate) struct ResolvedMount {
     pub mode: MountMode,
 }
 
-/// Resolve configuration and build the complete structured sandbox command through the bind
-/// layer. The returned plan still owns raw values and must not cross an external boundary.
+/// Resolve configuration. Build the complete structured sandbox command through the bind layer.
+/// The returned plan contains raw values. Do not expose it outside the daemon.
 pub(crate) fn build_plan(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result<LaunchPlan> {
     crate::config::validate_project_names(&cfg.projects)?;
     crate::config::project_name_component(&p.name)?;
@@ -59,8 +59,8 @@ pub(crate) fn build_plan(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result
     let home = dirs::home_dir()
         .map(|path| path.to_string_lossy().into_owned())
         .unwrap_or_else(|| "/root".into());
-    // A containing project at its original path is safe because private overlays cover it.
-    // An alias (or a project inside private state) would expose originals elsewhere.
+    // Private overlays protect a containing project at its original path.
+    // An alias or a project inside private state could expose the original files at another path.
     for private in presets.iter().flat_map(|preset| &preset.private) {
         let private = expand(private);
         if !private.is_empty()
@@ -77,8 +77,8 @@ pub(crate) fn build_plan(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result
     }
     let mut mounts = vec![ResolvedMount {
         host_dir: dir.clone(),
-        // The primary project keeps the exact configured path inside the sandbox. This is
-        // important for tools whose trust/cache keys and diagnostics are path-sensitive.
+        // Preserve the configured project path inside the sandbox.
+        // Tools can use this exact path for trust decisions, cache keys, and diagnostics.
         guest_dir: dir.clone(),
         mode: MountMode::Rw,
     }];
@@ -162,9 +162,9 @@ pub(crate) fn build_plan(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result
     })
 }
 
-/// Resolve the configured agent-shell command to the absolute executable path expected by
-/// agent CLIs.  In particular, Codex accepts `$SHELL` only when it names an executable file;
-/// passing the preset name (`bash`) makes it fall back to the account's passwd shell.
+/// Resolve the configured agent shell to an absolute executable path for agent CLIs.
+/// Codex accepts `$SHELL` only if it identifies an executable file.
+/// A preset name such as `bash` makes Codex use the account's passwd shell instead.
 pub(crate) fn agent_shell_path(cfg: &Config) -> Result<String> {
     let configured = cfg.defaults.agent_shell.trim();
     if configured.is_empty() {
@@ -208,7 +208,7 @@ pub(crate) fn agent_shell_path(cfg: &Config) -> Result<String> {
         }
     }
 
-    bail!("agent shell {configured:?} executable {executable:?} was not found on the daemon PATH")
+    bail!("The daemon PATH does not contain executable {executable:?} for agent shell {configured:?}.")
 }
 
 fn is_executable_file(path: &Path) -> bool {
@@ -229,10 +229,9 @@ fn is_executable_file(path: &Path) -> bool {
     }
 }
 
-/// A name this build has no preset for is dropped with a warning rather than refused: the
-/// files outlive the binary, and one bad name is not grounds for an agent that will not
-/// start. A known preset with an unsafe definition is dropped by the same boundary after the
-/// complete dependency closure is validated.
+/// Omit unknown preset names with a warning so old configuration files do not prevent agent startup.
+/// Validate all dependencies before applying presets.
+/// The same check omits known presets with unsafe definitions.
 pub(crate) fn presets_for<'a>(
     cfg: &Config,
     s: &SessionCfg,
@@ -263,8 +262,8 @@ pub(crate) fn presets_for<'a>(
         .collect()
 }
 
-// Host-terminal behavior and shell argv parsing live in `host.rs`; these imports keep the
-// sandbox façade and its focused tests source-compatible.
+// host.rs owns host-terminal behavior and shell argument parsing.
+// These imports preserve the sandbox interface and its existing test imports.
 
 #[cfg(test)]
 #[path = "tests.rs"]

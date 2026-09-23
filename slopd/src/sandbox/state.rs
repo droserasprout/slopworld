@@ -11,16 +11,16 @@ use crate::config::SessionCfg;
 #[path = "state_tests.rs"]
 mod tests;
 
-/// Where a session keeps what is its own. Under `~/.local/share` rather than `TEMP_ROOT`,
-/// because what lives here is an agent's memory of itself and a reboot is not a reason to
-/// forget it. `SLOPD_STATE` moves it, which is what the tests use.
+/// Return the root directory for persistent session state.
+/// The default location is under the user data directory, outside `TEMP_ROOT`, so state remains after a restart.
+/// `SLOPD_STATE` overrides the location for tests.
 pub(crate) fn state_root() -> PathBuf {
     crate::paths::dir("SLOPD_STATE", dirs::data_dir(), "sessions")
 }
 
-/// The copy of `host` this session gets. The original's shape is kept rather than its
-/// basename, so `~/.config/opencode` and `~/.local/share/opencode` - one preset, two
-/// directories, one name - never land on each other.
+/// Return the path for this session's private copy of `host`.
+/// Preserve the source directory structure to keep paths with the same basename separate.
+/// For example, `~/.config/opencode` and `~/.local/share/opencode` use different destinations.
 pub(crate) fn private_path(state_id: &str, host: &str) -> Result<PathBuf> {
     let host = Path::new(host);
     let root = state_root().join(crate::config::state_id_component(state_id)?);
@@ -34,15 +34,15 @@ pub(crate) fn private_path(state_id: &str, host: &str) -> Result<PathBuf> {
         .join(host.strip_prefix("/").unwrap_or(host)))
 }
 
-/// The durable `/tmp` for an opted-in agent. It lives beside private preset copies so the
-/// whole tree follows the same identity through rename, reset, trash and restore.
+/// Return the persistent `/tmp` path for an agent that enables this option.
+/// This directory and private preset copies share one state identity during rename, reset, trash, and restore operations.
 pub(crate) fn persistent_tmp_path(s: &SessionCfg) -> Result<PathBuf> {
     Ok(state_dir(s)?.join("tmp"))
 }
 
-/// The durable, private directory for a configured agent. `state_id` is not supplied by
-/// clients; the manager assigns it, so a name reused after deletion cannot inherit another
-/// agent's transcripts or tool configuration.
+/// Return the persistent private directory for a configured agent.
+/// The manager assigns `state_id`. Clients do not supply it.
+/// An agent that reuses a deleted agent's name cannot inherit its transcripts or tool configuration.
 pub(crate) fn state_dir(s: &SessionCfg) -> Result<PathBuf> {
     Ok(state_root().join(crate::config::state_id_component(&s.state_id)?))
 }
@@ -102,8 +102,8 @@ pub(super) fn stored_entry(
     }
 }
 
-/// Inventory for the settings UI. Anything not claimed by a configured state id is orphaned
-/// state and requires an explicit delete.
+/// Return the state inventory for the settings UI.
+/// State without a configured state ID is orphaned state. Deletion requires an explicit request.
 pub(crate) fn stored_states(sessions: &[SessionCfg]) -> Vec<StoredState> {
     if let Err(e) = purge_trash() {
         tracing::warn!("purging private-state trash before inventory: {e:#}");
@@ -163,7 +163,7 @@ pub(crate) fn direct_child(root: &Path, key: &str) -> Result<PathBuf> {
 
 pub(crate) fn delete_stored_state(kind: &str, key: &str, sessions: &[SessionCfg]) -> Result<()> {
     if kind != "orphan" && kind != "trash" {
-        anyhow::bail!("only orphaned state or trash can be deleted here");
+        anyhow::bail!("This operation deletes only orphaned state or trash.");
     }
     let root = if kind == "trash" {
         trash_root()
@@ -192,8 +192,8 @@ fn remove_stored_path(path: &Path) -> Result<()> {
     .with_context(|| format!("removing {}", path.display()))
 }
 
-/// Permanently remove every entry in the daemon-owned trash. The trash root remains in place so
-/// future resets can move state there without another special case.
+/// Permanently remove every entry in the daemon's trash directory.
+/// Keep the trash directory for subsequent resets.
 pub(crate) fn empty_trash() -> Result<usize> {
     let root = trash_root();
     let entries = match std::fs::read_dir(&root) {
@@ -226,7 +226,7 @@ pub(crate) fn restore_stored_state(key: &str, sessions: &[SessionCfg]) -> Result
     let destination = state_dir(session)?;
     if destination.exists() {
         anyhow::bail!(
-            "agent {:?} already has fresh state; reset it before restoring this copy",
+            "Agent {:?} already has fresh state. Reset it before you restore this copy.",
             session.name
         );
     }
@@ -277,8 +277,8 @@ pub(crate) fn finish_restored_state(session: &SessionCfg) -> Result<()> {
     Ok(())
 }
 
-/// Move state out of the live namespace. The caller owns configuration consistency; the
-/// returned path lets it restore the tree if saving the corresponding config change fails.
+/// Move state to the trash directory. The caller must keep the configuration consistent.
+/// The returned path lets the caller restore the state if it cannot save the configuration change.
 pub(crate) fn trash_state(s: &SessionCfg, label: &str) -> Result<Option<PathBuf>> {
     let state_id = crate::config::state_id_component(&s.state_id)?;
     let source = state_dir(s)?;
@@ -309,7 +309,7 @@ pub(crate) fn trash_state(s: &SessionCfg, label: &str) -> Result<Option<PathBuf>
     if let Err(e) = std::fs::write(&metadata, text) {
         if let Err(restore) = std::fs::rename(&destination, &source) {
             tracing::error!(
-                "writing trash metadata failed: {e:#}; state restore also failed: {restore:#}"
+                "Writing trash metadata failed: {e:#}. Restoring the state also failed: {restore:#}."
             );
         }
         return Err(e).with_context(|| format!("writing {}", metadata.display()));
@@ -328,8 +328,8 @@ pub(crate) fn restore_trashed_state(s: &SessionCfg, trash: &Path) -> Result<()> 
     Ok(())
 }
 
-/// Temporary errands have no durable agent to restore this state to. Their ids are always
-/// daemon-minted, so this can remove exactly one leaf without ever falling back to a name.
+/// Temporary errands have no persistent agent that can use restored state.
+/// The daemon assigns their IDs. Use the ID to remove one state directory without a name-based fallback.
 pub(crate) fn remove_ephemeral_state(s: &SessionCfg) -> Result<()> {
     let path = state_dir(s)?;
     if !path.exists() {
@@ -338,8 +338,8 @@ pub(crate) fn remove_ephemeral_state(s: &SessionCfg) -> Result<()> {
     std::fs::remove_dir_all(&path).with_context(|| format!("removing {}", path.display()))
 }
 
-/// Only the daemon-owned trash is reclaimed automatically. Live and orphaned directories are
-/// never age-pruned: a stopped agent can still be deliberately dormant.
+/// Automatically remove expired entries only from the daemon's trash directory.
+/// Keep live and orphaned directories regardless of age. A stopped agent can need its state later.
 pub(crate) fn purge_trash() -> Result<usize> {
     const RETAIN: std::time::Duration = std::time::Duration::from_secs(14 * 24 * 60 * 60);
     let root = trash_root();
@@ -349,9 +349,8 @@ pub(crate) fn purge_trash() -> Result<usize> {
     let now = std::time::SystemTime::now();
     let mut purged = 0;
     for entry in entries.flatten() {
-        // Not `entry.metadata()`, which follows the link: a symlink here would be read as the
-        // directory it points at and then fail `remove_dir_all`, so it could never age out.
-        // The rest of this module stats trash the same way.
+        // Read symlink metadata without following the link, as elsewhere in this module.
+        // Treating a symlink as its target directory causes `remove_dir_all` to fail and prevents deletion.
         let Ok(meta) = std::fs::symlink_metadata(entry.path()) else {
             continue;
         };

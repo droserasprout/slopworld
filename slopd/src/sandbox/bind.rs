@@ -13,9 +13,9 @@ use policy::{paths, resolver_target, shared_binds};
 
 const BASE_ENV: &[&str] = &["PATH", "LANG", "USER", "LOGNAME", "SHELL"];
 
-// Private networking gets an address space that cannot collide with the host's real LAN.
-// pasta forwards DNS from this synthetic gateway to the host resolver, while the resolv.conf
-// bind below keeps the guest from seeing a host-loopback stub address.
+// Private networking uses a separate address range from the host LAN.
+// pasta forwards DNS from this synthetic gateway to the host resolver.
+// The resolv.conf mount prevents the guest from using a host loopback resolver address.
 const PRIVATE_ADDRESS: &str = "192.0.2.2";
 const PRIVATE_NETMASK: &str = "24";
 const PRIVATE_GATEWAY: &str = "192.0.2.1";
@@ -61,15 +61,15 @@ pub(super) fn assemble_plan(args: BuildArgs<'_>) -> Result<LaunchPlan> {
         home,
         mounts,
     } = args;
-    // Global first, then the resolved presets, so the most specific answer for a path is the
-    // last one bwrap sees.
+    // Apply global mounts before resolved presets.
+    // bwrap then receives the most specific definition for each path last.
     let ro = policy::paths(presets, |pr| &pr.ro);
     let rw = policy::paths(presets, |pr| &pr.rw);
     let dev = policy::paths(presets, |pr| &pr.dev);
     let tmux = presets.iter().any(|pr| pr.tmux);
-    // A worker may inherit a broad parent preset such as slopworld-debug. Its task credential
-    // is intentionally the only daemon access it receives, so no worker may mount the root
-    // config/endpoint exception through any preset.
+    // A worker can use a broad preset such as slopworld-debug.
+    // Its task credential must remain its only daemon access.
+    // Do not permit workers to mount root configuration or endpoint files through any preset.
     let daemon_config = !s.worker && presets.iter().any(|pr| pr.daemon_config);
 
     let resolv = mounts::resolver_bind(network, dns, &s.state_id);
@@ -130,8 +130,9 @@ pub(super) fn assemble_plan(args: BuildArgs<'_>) -> Result<LaunchPlan> {
     })
 }
 
-/// Declares the complete environment after all mounts. The sandbox starts with --clearenv, so
-/// machine basics are selected explicitly and preset literals are the final word.
+/// Define the complete environment after all mounts.
+/// The sandbox starts with --clearenv. Select required host variables explicitly.
+/// Literal preset values take precedence.
 struct EnvArgs<'a> {
     cfg: &'a Config,
     home: &'a str,

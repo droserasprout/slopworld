@@ -6,9 +6,9 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use anyhow::{bail, Context, Result};
 use serde::{Deserialize, Serialize};
 
-/// The user at the keyboard. Not a session and never one: `slopctl` run from the host states it
-/// as its identity, and the daemon accepts it only from the root token, so a grant cannot wear it
-/// however its grantor happens to be named.
+/// The user at the keyboard, never a session.
+/// Host `slopctl` uses this identity. The daemon accepts it only with the root token.
+/// A grant cannot use this identity, regardless of its grantor name.
 pub const HOST: &str = crate::shared::protocol::HOST_IDENTITY;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -31,7 +31,8 @@ crate::wire_enum!(Status, {
 });
 
 impl Status {
-    /// Where a task stops moving. What `prune` may drop, and what an inbox leaves out until asked.
+    /// Whether the task reached a final state.
+    /// `prune` may remove these tasks. An inbox excludes them unless requested.
     pub fn is_terminal(self) -> bool {
         matches!(self, Status::Done | Status::Failed | Status::Canceled)
     }
@@ -45,14 +46,16 @@ pub struct Task {
     pub body: String,
     pub status: Status,
     pub note: Option<String>,
-    /// Optional OpenRouter preview for the compact sidebar. The task body remains the source
-    /// of truth and older task files simply deserialize this as absent.
+    /// Optional OpenRouter summary for the compact sidebar.
+    /// The task body remains the source of truth.
+    /// Older task files can omit this field.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub summary: Option<String>,
     pub created_ms: u64,
     pub updated_ms: u64,
-    /// Present only for a task that owns a daemon-spawned worker. The task body remains the
-    /// single source of truth; the worker receives only this task's id at startup.
+    /// Present only when a task owns a worker that the daemon started.
+    /// The task body remains the source of truth.
+    /// The daemon gives the worker this task ID at startup.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub worker: Option<WorkerTask>,
 }
@@ -61,7 +64,7 @@ pub struct Task {
 pub struct WorkerTask {
     pub session: String,
     pub parent: String,
-    /// Durable workers remain in config.toml after their process exits; one-shot workers do not.
+    /// Persistent workers remain in config.toml after their process exits. One-shot workers do not.
     #[serde(default)]
     pub durable: bool,
 }
@@ -138,7 +141,7 @@ impl Tasks {
         worker: Option<WorkerTask>,
     ) -> Result<Task> {
         if body.trim().is_empty() {
-            bail!("a task body is required");
+            bail!("Provide a task body.");
         }
         let now = now_ms();
         self.sequence += 1;
@@ -159,9 +162,9 @@ impl Tasks {
         Ok(task)
     }
 
-    /// A worker exit is daemon-owned lifecycle bookkeeping, not a recipient update. Do not
-    /// overwrite a worker's explicit `finish`/`fail`, and keep a failed task after one-shot worker
-    /// cleanup so a lost process is still inspectable after a daemon restart.
+    /// The daemon owns worker-exit bookkeeping.
+    /// Do not overwrite a worker's explicit `finish` or `fail` result.
+    /// Keep a failed task after one-shot cleanup so it remains available after a daemon restart.
     pub fn fail_worker(&mut self, id: &str, note: String) -> Result<Option<Task>> {
         let Some(task) = self
             .file
@@ -215,12 +218,12 @@ impl Tasks {
             .tasks
             .iter_mut()
             .find(|t| t.id == id)
-            .with_context(|| format!("no such task: {id}"))?;
+            .with_context(|| format!("Task {id} does not exist."))?;
         if task.to != who {
-            bail!("only the task recipient may update it");
+            bail!("Only the recipient can update this task.");
         }
         if task.status == Status::Canceled {
-            bail!("a canceled task cannot be updated: {id}");
+            bail!("Task {id} is canceled. You cannot update it.");
         }
         task.status = status;
         task.note = note;
@@ -244,8 +247,9 @@ impl Tasks {
         Ok(Some(result))
     }
 
-    /// Cancel queued or accepted work. The recipient may cancel its own task; the root may
-    /// cancel any task so the host task board can stop work it sent before it was picked up.
+    /// Cancel queued or accepted work. The recipient may cancel its own task.
+    /// The root token can cancel any queued or accepted task.
+    /// This lets the host task board cancel work before the recipient starts it.
     pub fn cancel_many(&mut self, who: &str, ids: &[String], force: bool) -> Result<Vec<Task>> {
         let wanted: HashSet<String> = ids
             .iter()
@@ -262,12 +266,12 @@ impl Tasks {
                 .tasks
                 .iter()
                 .find(|t| t.id == *id)
-                .with_context(|| format!("no such task: {id}"))?;
+                .with_context(|| format!("Task {id} does not exist."))?;
             if !force && task.to != who {
-                bail!("only the task recipient may cancel it: {id}");
+                bail!("Only the recipient can cancel task {id}.");
             }
             if !matches!(task.status, Status::Queued | Status::Accepted) {
-                bail!("only queued or accepted tasks can be canceled: {id}");
+                bail!("Cancel task {id} only when it is queued or accepted.");
             }
         }
 
@@ -284,27 +288,27 @@ impl Tasks {
         Ok(canceled)
     }
 
-    /// Drop one task. The store holds a single copy of a task rather than one per side, so a
-    /// removal is not a participant hiding it from their own view - it is gone for both. A
-    /// participant may therefore only drop one that has already stopped moving; `force` is the
-    /// root's, and reaches a task still in flight.
+    /// Remove one task. The store keeps one copy for both participants.
+    /// Participants can remove only terminal tasks.
+    /// The root token can also remove an unfinished task.
     pub fn remove(&mut self, who: &str, id: &str, force: bool) -> Result<Task> {
         let at = self
             .file
             .tasks
             .iter()
             .position(|t| t.id == id && (force || t.from == who || t.to == who))
-            .with_context(|| format!("no such task: {id}"))?;
+            .with_context(|| format!("Task {id} does not exist."))?;
         if !force && !self.file.tasks[at].status.is_terminal() {
-            bail!("a task still in flight cannot be removed: {id}");
+            bail!("Task {id} is unfinished. Finish, fail, or cancel it before you remove it.");
         }
         let task = self.file.tasks.remove(at);
         self.save()?;
         Ok(task)
     }
 
-    /// Drop several tasks as one durable mutation. Validate the complete request before changing
-    /// the store so a stale selection cannot remove only part of what the user confirmed.
+    /// Remove several tasks in one saved change.
+    /// Check every ID before you remove any task.
+    /// This prevents a stale selection from causing a partial removal.
     pub fn remove_many(&mut self, who: &str, ids: &[String], force: bool) -> Result<usize> {
         let wanted: HashSet<String> = ids
             .iter()
@@ -321,9 +325,9 @@ impl Tasks {
                 .tasks
                 .iter()
                 .find(|t| t.id == *id && (force || t.from == who || t.to == who))
-                .with_context(|| format!("no such task: {id}"))?;
+                .with_context(|| format!("Task {id} does not exist."))?;
             if !force && !task.status.is_terminal() {
-                bail!("a task still in flight cannot be removed: {id}");
+                bail!("Task {id} is unfinished. Finish, fail, or cancel it before you remove it.");
             }
         }
 
@@ -336,8 +340,9 @@ impl Tasks {
         Ok(removed)
     }
 
-    /// Drop every finished task the caller can see - `all` widens that to the whole store and is
-    /// the root's. Without this the file is append-only and an inbox is a growing wall.
+    /// Remove every finished task visible to the caller.
+    /// The root token can set `all` to include tasks from every participant.
+    /// This keeps the store and inbox from growing indefinitely.
     pub fn prune(&mut self, who: &str, all: bool) -> Result<usize> {
         let before = self.file.tasks.len();
         self.file

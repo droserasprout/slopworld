@@ -9,8 +9,8 @@ pub fn strip_sgr(s: &str) -> String {
 
 /// Strip SGR and terminal control sequences from already separated screen rows.
 ///
-/// Keeping the row boundaries here avoids allocating a temporary joined screen in the frame
-/// path. The output is intentionally the same as `strip_sgr(&lines.join("\n"))`.
+/// Preserve row boundaries to avoid allocating a temporary string for the joined screen.
+/// The output equals `strip_sgr(&lines.join("\n"))`.
 pub(crate) fn strip_sgr_lines<S: AsRef<str>>(lines: &[S]) -> String {
     let capacity = lines
         .iter()
@@ -29,9 +29,8 @@ pub(crate) fn strip_sgr_lines<S: AsRef<str>>(lines: &[S]) -> String {
     out
 }
 
-/// Strip only the physical tail used by state classification. Trailing blank rows do not enter
-/// the result, while blank rows between the last non-blank row and the tail's upper edge remain
-/// physical separators and therefore still consume a classification slot.
+/// Remove control sequences only from the final rows used for state classification.
+/// Exclude trailing blank rows. Keep blank rows within the selected tail because they count toward the classification limit.
 pub(crate) fn strip_sgr_tail<S: AsRef<str>>(lines: &[S], tail_lines: usize) -> String {
     let _perf = crate::perf::timer("ansi-strip");
     let Some(last) = lines.iter().rposition(|line| {
@@ -72,7 +71,7 @@ where
             }
         }
 
-        // Most terminal output is ASCII; it needs no per-character UTF-8 validation.
+        // Most terminal output is ASCII and needs no UTF-8 validation for individual characters.
         if byte.is_ascii() {
             out.push(char::from(byte));
             continue;

@@ -1,14 +1,14 @@
 use super::*;
 use crate::sandbox::state_root;
 
-/// The guard, in both directions: a path *inside* what must stay out of reach, and a path
-/// *above* it. `~/.config` is as much a road to the token as the file itself.
+/// Reject protected paths, their ancestors, and their descendants.
+/// Mounting `~/.config` can expose the token just as mounting the token file can.
 #[test]
 fn no_bind_list_reaches_the_token_the_presets_or_another_session() {
     assert!(refused("/").is_some());
     if let Some(home) = dirs::home_dir() {
         assert!(refused(&home.to_string_lossy()).is_some());
-        // A directory *in* the home is ordinary; the home itself is not.
+        // Permit an unprotected directory under home, but reject home itself.
         assert!(refused(&home.join("src").to_string_lossy()).is_none());
     }
 
@@ -37,9 +37,9 @@ fn no_bind_list_reaches_the_token_the_presets_or_another_session() {
     assert!(refused("/etc").is_none());
 }
 
-/// The other side of the guard: nothing that ships is caught by it. A refusal is silent
-/// bar a log line, so a preset broken this way is a session that quietly cannot reach what
-/// it was ticked for - and `~/.local/share/pnpm` sits one directory from `state_root`.
+/// Check that the path guard permits preset paths.
+/// A rejected path produces a log message but can leave the session without required files.
+/// For example, `~/.local/share/pnpm` shares a parent directory with `state_root`.
 #[test]
 fn no_shipped_preset_asks_for_something_refused() {
     let t = Table::load();
@@ -112,7 +112,7 @@ fn preset_validation_rejects_protected_private_paths_and_dependency_cycles() {
         commands: Vec::new(),
     };
     let error = validate_preset(&p, &table).unwrap_err().to_string();
-    assert!(error.contains("reaches"), "{error}");
+    assert!(error.contains("exposes"), "{error}");
 
     let table = Table {
         sandbox: vec![

@@ -3,8 +3,8 @@ use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
 fn temp_path(path: &Path) -> PathBuf {
-    // Keep the established sidecar name: callers use it to make an installation failure
-    // deterministic in tests, and each store already owns the lock that protects its writes.
+    // Keep the established sidecar name. Tests use it to cause deterministic installation failures.
+    // Each store already owns the lock that protects its writes.
     path.with_extension("toml.tmp")
 }
 
@@ -26,8 +26,9 @@ fn set_private_mode(_path: &Path, _mode: Option<u32>) -> Result<()> {
     Ok(())
 }
 
-/// Replace a file through a same-directory temporary path. The caller chooses whether the
-/// destination has a private mode; ordinary catalogs pass `None` and retain their umask policy.
+/// Replace a file through a temporary path in the same directory.
+/// The caller chooses whether the destination has a private mode.
+/// Ordinary catalogs pass `None` and retain their umask policy.
 pub fn write_atomic(path: &Path, text: &str, mode: Option<u32>) -> Result<()> {
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)?;
@@ -44,8 +45,9 @@ pub fn write_atomic(path: &Path, text: &str, mode: Option<u32>) -> Result<()> {
     result
 }
 
-/// Async counterpart of [`write_atomic`]. All filesystem operations remain on Tokio's fs API;
-/// callers do not need to move an async store onto a blocking executor just to replace a file.
+/// Async counterpart of [`write_atomic`].
+/// All filesystem operations use Tokio's fs API.
+/// Callers do not need to move an async store to a blocking executor to replace a file.
 pub async fn write_atomic_async(path: &Path, text: &str, mode: Option<u32>) -> Result<()> {
     if let Some(parent) = path.parent() {
         tokio::fs::create_dir_all(parent).await?;
@@ -71,18 +73,17 @@ pub async fn write_atomic_async(path: &Path, text: &str, mode: Option<u32>) -> R
     result
 }
 
-/// The application directory below an XDG config or data root.
+/// Return the application directory below `base`, or `./slopworld` if `base` is missing.
 pub fn root(base: Option<PathBuf>) -> PathBuf {
     base.unwrap_or_else(|| PathBuf::from(".")).join("slopworld")
 }
 
-/// The daemon's user configuration root.
+/// Return the daemon's user configuration directory.
 pub fn config_root() -> PathBuf {
     root(dirs::config_dir())
 }
 
-/// The daemon's persistent cache root. `SLOPD_CACHE` is an alternate-instance/test override;
-/// ordinary installs follow XDG and keep disposable runtime history out of configuration.
+/// Return the daemon's cache directory. `SLOPD_CACHE` replaces the default path.
 pub fn cache_root() -> PathBuf {
     if let Ok(dir) = std::env::var("SLOPD_CACHE") {
         return PathBuf::from(dir);
@@ -90,7 +91,7 @@ pub fn cache_root() -> PathBuf {
     root(dirs::cache_dir())
 }
 
-/// A configurable application subdirectory below an XDG config or data root.
+/// Return an application subdirectory, or the path set by `variable`.
 pub fn dir(variable: &str, base: Option<PathBuf>, child: &str) -> PathBuf {
     if let Ok(dir) = std::env::var(variable) {
         return PathBuf::from(dir);
@@ -98,8 +99,7 @@ pub fn dir(variable: &str, base: Option<PathBuf>, child: &str) -> PathBuf {
     root(base).join(child)
 }
 
-/// The newest mtime in a user-owned directory, including the directory itself. A missing
-/// directory remains `None`, so callers do not reload a catalog that has nothing to watch.
+/// Return the latest readable modification time from the directory and its entries.
 pub fn dir_stamp(dir: &Path) -> Option<SystemTime> {
     let entries = std::fs::read_dir(dir).ok()?;
     let newest = entries
@@ -114,7 +114,7 @@ pub fn dir_stamp(dir: &Path) -> Option<SystemTime> {
     }
 }
 
-/// Atomically install a private TOML file with owner-only permissions.
+/// Write a TOML file atomically with mode `0600` on Unix.
 pub fn write_private_toml(path: &Path, text: &str) -> Result<()> {
     write_atomic(path, text, Some(0o600))
 }

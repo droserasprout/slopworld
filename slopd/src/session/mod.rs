@@ -69,11 +69,11 @@ const IDLE_MS: u64 = 10_000;
 // Limit stale prompts near the top of a screen from overriding newer status below them.
 const TAIL_LINES: usize = 12;
 
-// Unwatched panes still need classification, but not reader-rate rendering.
+// Classify panes without subscribers, but render them less often than reader updates.
 const UNWATCHED_MS: u64 = 200;
 
-// Host cwd/process metadata is display state, not frame classification. Keep it fresh with one
-// combined tmux query per host rather than two subprocess waves on every state tick.
+// Host directory and process metadata support the display, independently of frame classification.
+// Refresh both with one tmux query per host.
 const HOST_METADATA_POLL_MS: u64 = 2_000;
 
 const FILE_ACTION_TIMEOUT: Duration = Duration::from_secs(15);
@@ -178,7 +178,7 @@ pub(crate) enum AuthChange {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Ready {
     Settled,
-    // Startup continues in the background; only Gone cancels queued typing.
+    // Startup continues in the background. Only Gone cancels queued typing.
     Timeout,
     Gone,
 }
@@ -186,10 +186,10 @@ enum Ready {
 struct Live {
     cfg: SessionCfg,
     ephemeral: bool,
-    // Never persisted in config: host errands carry this through a private tmux option so the
-    // daemon can recover it when tmux outlives a daemon restart.
+    // Do not save this in configuration. Host errands store it in a private tmux option.
+    // The daemon can recover it after a restart if tmux continues running.
     host: bool,
-    // Only catalogued host shells survive exit; viewers and actions are disposable.
+    // Preserve only cataloged host shell records after exit. Remove viewer and action records.
     persistent_host: bool,
     // Host shells keep their last tmux cwd separately from the project's configured root.
     host_path: String,
@@ -197,14 +197,15 @@ struct Live {
     // Host-only: whether tmux currently has a foreground command other than the login shell.
     process_running: bool,
     seq: u64,
-    // Last sequence classified by retick; equal means only idle decay can change state.
+    // The last sequence classified by retick.
+    // If the sequence is unchanged, only elapsed idle time can change the state.
     retick_seq: u64,
     hash: u64,
     activity_hash: u64,
     last_change: u64,
     // State time is independent of pane redraws, which can continue several times a second.
     state_since: u64,
-    // Sticky until a client subscribes; the frame containing the bell is transient.
+    // Preserve the bell notification until a client subscribes. Its original frame is temporary.
     bell: bool,
     cols: u16,
     rows: u16,
@@ -216,18 +217,18 @@ struct Live {
     screen: Option<ScreenView>,
     emu: Option<Arc<Mutex<SessionEmu>>>,
     reader: Option<JoinHandle<()>>,
-    // Identifies the reader that owns the current emulator. A stale reader may finish while a
-    // replacement is starting; it must not tear down the replacement's state.
+    // Identify the reader that owns the current emulator.
+    // An old reader can finish while its replacement starts. It must not remove the replacement's state.
     reader_token: Option<Arc<()>>,
     input: Option<mpsc::UnboundedSender<Input>>,
-    // Spliced immediately before the first Enter after process start.
+    // Insert immediately before the first Enter after process startup.
     breadcrumbs: Vec<u8>,
     breadcrumbs_pending: bool,
     // Set while the startup auto-resume sequence is waiting or queued. The client uses this
     // to keep user keystrokes behind the sequence in the input queue.
     auto_resume_pending: bool,
-    // Distinguishes successive processes under the same durable session name. Startup input
-    // captured for an old process must not land in a quick stop/start replacement.
+    // Distinguish successive processes with the same persistent session name.
+    // Do not send startup input for an old process to its replacement.
     run_id: u64,
     title: TitleCapture,
 }
@@ -266,8 +267,8 @@ const BOOT_ROWS: u16 = 34;
 const READY_MS: u64 = 30_000;
 const SETTLE_MS: u64 = 750;
 const ENTER_GAP_MS: u64 = 150;
-// A bracketed paste changes the agent TUI's input state asynchronously. Give a cold or
-// backgrounded pane time to commit that state before the separate Enter reaches it.
+// A bracketed paste changes the agent terminal interface's input state asynchronously.
+// Let a newly started or background pane apply that change before sending Enter.
 pub(crate) const DELIVERY_ENTER_GAP_MS: u64 = 1_000;
 
 async fn disk_mtime(path: &std::path::Path) -> Option<SystemTime> {
@@ -282,9 +283,9 @@ fn now_ms() -> u64 {
 }
 
 fn match_rules(rules: &[(State, Regex)], text: &str) -> Option<State> {
-    // The lowest matching line wins; config order only breaks ties on that line. Skip only
-    // trailing blanks when finding the screen's end: blanks within the tail still consume one
-    // of its TAIL_LINES, just as the screen's physical rows do.
+    // Use the lowest matching line. Configuration order resolves ties on that line.
+    // Skip only trailing blank rows when locating the screen's end.
+    // Each blank row within the tail counts toward TAIL_LINES.
     let mut lines = text.lines().rev();
     let mut line = lines.find(|line| !line.trim().is_empty())?;
     for index in 0..TAIL_LINES {

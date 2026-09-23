@@ -31,7 +31,8 @@ impl std::fmt::Display for TimedOut {
 
 impl std::error::Error for TimedOut {}
 
-/// Spawn a child with isolated standard streams, drain both bounded outputs, and reap it.
+/// Start a child with isolated standard streams.
+/// Drain both bounded outputs. Reap the child.
 /// Callers decide what its exit status and truncation mean to their operation.
 pub(crate) async fn run_bounded(
     command: &mut Command,
@@ -41,9 +42,9 @@ pub(crate) async fn run_bounded(
     run_bounded_with_input(command, None, timeout, limits).await
 }
 
-/// Spawn a child with supplied stdin, drain both bounded outputs and reap it. Input is written
-/// concurrently with output draining so a producer that fills stdout cannot deadlock the
-/// caller while it is still consuming stdin.
+/// Start a child with supplied stdin. Drain both bounded outputs. Reap the child.
+/// Write input and drain output concurrently.
+/// This prevents deadlock when the child fills stdout while it still consumes stdin.
 pub(crate) async fn run_bounded_with_stdin(
     command: &mut Command,
     input: &[u8],
@@ -116,8 +117,9 @@ async fn run_bounded_with_input(
     }
 }
 
-/// Read to EOF while retaining only the configured prefix. Continuing to drain is important:
-/// stopping at the prefix can fill the child's pipe and deadlock it before `wait` completes.
+/// Read to EOF while retaining only the configured prefix.
+/// Continue draining after the prefix to prevent the child's pipe from filling.
+/// A full pipe can cause deadlock before `wait` completes.
 pub(crate) async fn read_bounded<R: AsyncRead + Unpin>(
     mut reader: R,
     limit: usize,

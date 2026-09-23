@@ -4,7 +4,7 @@ use super::*;
 
 pub(super) fn check_name(name: &str) -> Result<()> {
     if name.is_empty() || name.contains(|c: char| c.is_whitespace() || c == ':' || c == '.') {
-        bail!("session name must be non-empty and free of whitespace, ':' and '.'");
+        bail!("Enter a session name without whitespace, colon, or period.");
     }
     Ok(())
 }
@@ -47,11 +47,14 @@ pub(super) fn free_name(live: &HashMap<String, Live>, cfg: &Config, base: &str) 
 pub(super) fn check_project(p: &ProjectCfg) -> Result<()> {
     crate::config::project_name_component(&p.name)?;
     if p.dir.trim().is_empty() {
-        bail!("project {} needs a directory", p.name);
+        bail!("Set a directory for project {:?}.", p.name);
     }
     let dir = expand(&p.dir);
     if let Some(what) = crate::sandbox::refused(&dir) {
-        bail!("project {} cannot live at {dir}: it reaches {what}", p.name);
+        bail!(
+            "Project {:?} cannot use directory {dir}. The path overlaps a protected location: {what}.",
+            p.name
+        );
     }
     Ok(())
 }
@@ -60,7 +63,7 @@ pub(super) fn check_presets(names: &[String]) -> Result<()> {
     let t = crate::presets::table();
     for name in names {
         if t.sandbox(name).is_none() {
-            bail!("unknown sandbox preset: {name}");
+            bail!("Sandbox preset {name:?} does not exist.");
         }
     }
     Ok(())
@@ -68,17 +71,17 @@ pub(super) fn check_presets(names: &[String]) -> Result<()> {
 
 pub(crate) fn check_library_item(cfg: &Config, sc: &LibraryItemCfg) -> Result<()> {
     if sc.name.trim().is_empty() {
-        bail!("library item name must not be empty");
+        bail!("Enter a name for the library item.");
     }
     if sc.kind == LibraryItemKind::Breadcrumb {
         if sc.text.trim().is_empty() {
-            bail!("breadcrumb {} has no text", sc.name);
+            bail!("Enter text for breadcrumb {:?}.", sc.name);
         }
         return Ok(());
     }
     if sc.host && !sc.agent_template.trim().is_empty() {
         bail!(
-            "library item {} must choose Host or an agent template, not both",
+            "Choose either Host or an agent template for library item {:?}.",
             sc.name
         );
     }
@@ -90,21 +93,21 @@ pub(crate) fn check_library_item(cfg: &Config, sc: &LibraryItemCfg) -> Result<()
             .unwrap_or("")
             .is_empty()
         {
-            bail!("file action {} has no command", sc.name);
+            bail!("Enter a command for file action {:?}.", sc.name);
         }
         if !sc.text.trim().is_empty() {
-            bail!("file action {} has unexpected text", sc.name);
+            bail!("Remove text from file action {:?}.", sc.name);
         }
         return Ok(());
     }
     if sc.link == LibraryItemLink::Project && sc.project.trim().is_empty() {
-        bail!("library item {} must belong to a project", sc.name);
+        bail!("Choose a project for library item {:?}.", sc.name);
     }
     if !sc.project.trim().is_empty() && cfg.project(&sc.project).is_none() {
-        bail!("no such project: {}", sc.project);
+        bail!("Project {:?} does not exist.", sc.project);
     }
     if sc.text.trim().is_empty() {
-        bail!("library item {} has nothing to send", sc.name);
+        bail!("Enter text for library item {:?}.", sc.name);
     }
     Ok(())
 }
@@ -132,10 +135,10 @@ pub(super) fn free_project_name(
 
 pub(super) fn check_belongs(cfg: &Config, s: &SessionCfg) -> Result<()> {
     if s.project.trim().is_empty() {
-        bail!("session {} must belong to a project", s.name);
+        bail!("Choose a project for session {:?}.", s.name);
     }
     if cfg.project(&s.project).is_none() {
-        bail!("no such project: {}", s.project);
+        bail!("Project {:?} does not exist.", s.project);
     }
     s.dns.validate(&format!("agent {}", s.name))?;
     let live_presets: Vec<String> = s
@@ -178,7 +181,7 @@ pub(super) fn normalize_path(path: &Path) -> PathBuf {
 
 pub(super) fn absolute_path(raw: &str) -> Result<PathBuf> {
     if raw.trim().is_empty() {
-        bail!("no file action path");
+        bail!("Enter a path for the file action.");
     }
     let expanded = expand(raw);
     let path = Path::new(&expanded);
@@ -194,7 +197,10 @@ pub(super) fn project_action_path(project: &ProjectCfg, raw: &str) -> Result<Pat
     let root = absolute_path(&project.dir)?;
     let path = absolute_path(raw)?;
     if !path.starts_with(&root) {
-        bail!("file action path is outside project {}", project.name);
+        bail!(
+            "File action path must be inside project {:?}.",
+            project.name
+        );
     }
     Ok(path)
 }
@@ -220,7 +226,7 @@ pub(crate) fn validate_config(cfg: &Config) -> Result<()> {
     cfg.daemon
         .bind
         .parse::<std::net::SocketAddr>()
-        .with_context(|| format!("bad bind address {:?}", cfg.daemon.bind))?;
+        .with_context(|| format!("The daemon bind address {:?} is invalid.", cfg.daemon.bind))?;
     let table = crate::presets::table();
     for (field, name) in [
         ("agent", &cfg.defaults.agent),
@@ -228,10 +234,10 @@ pub(crate) fn validate_config(cfg: &Config) -> Result<()> {
     ] {
         let name = name.trim();
         if name.is_empty() {
-            bail!("the default {field} must name a command preset");
+            bail!("Set the default {field} to a command preset.");
         }
         if table.command(name).is_none() {
-            bail!("unknown command preset: {name}");
+            bail!("Command preset {name:?} does not exist.");
         }
     }
     for s in &cfg.sessions {
@@ -247,7 +253,7 @@ pub(crate) fn validate_config(cfg: &Config) -> Result<()> {
 
 pub(super) fn json_to_toml(value: Value) -> Result<toml::Value> {
     Ok(match value {
-        Value::Null => bail!("null is not a valid config patch value"),
+        Value::Null => bail!("The config patch cannot contain null values."),
         Value::Bool(v) => toml::Value::Boolean(v),
         Value::Number(v) => {
             if let Some(v) = v.as_i64() {
@@ -257,7 +263,7 @@ pub(super) fn json_to_toml(value: Value) -> Result<toml::Value> {
             } else if let Some(v) = v.as_f64() {
                 toml::Value::Float(v)
             } else {
-                bail!("invalid JSON number in config patch")
+                bail!("The config patch contains an invalid JSON number.")
             }
         }
         Value::String(v) => toml::Value::String(v),

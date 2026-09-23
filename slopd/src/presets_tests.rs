@@ -158,8 +158,8 @@ fn builtins_parse_and_name_themselves() {
         assert_eq!(t.sandbox(cache).unwrap().requires, vec![tool]);
     }
 
-    // Shell userdata is opt-in: the command only selects the executable, while the
-    // matching sandbox is a separate checkbox that brings in host dotfiles and history.
+    // The shell command selects only the executable.
+    // Users enable host dotfiles and history separately through the matching sandbox preset.
     for name in ["bash", "zsh", "fish", "nu", "pwsh"] {
         assert!(
             t.command(name).unwrap().sandbox.is_empty(),
@@ -186,16 +186,14 @@ fn unknown_preset_fields_are_rejected() {
     .is_err());
 }
 
-/// Every agent keeps its own state, and every way back out of the sandbox says so. Both
-/// are properties of the shipped files rather than of any code, so this is where they are
-/// held: a preset added without either is the mistake worth catching, since the whole
-/// point of both fields is that nobody has to remember them at the checkbox.
+/// Check that agent presets keep private state and host-access presets include warnings.
+/// These requirements depend on preset data. Test the supplied presets so the UI can show the correct warnings.
 #[test]
 fn the_agents_keep_their_state_and_the_ways_out_are_marked() {
     let t = Table::load();
 
-    // An agent's config directory is a command line the host runs later. Bound to a copy
-    // or not bound at all - never the user's own.
+    // Agent configuration can include commands that later run on the host.
+    // Use private copies instead of writable host configuration directories.
     for name in ["claude", "codex", "pi", "opencode"] {
         let p = t
             .sandbox(name)
@@ -209,10 +207,8 @@ fn the_agents_keep_their_state_and_the_ways_out_are_marked() {
             "{name} still binds {:?} read-write on the host's own copy",
             p.rw
         );
-        // `shared` is the one exception, and it is an exception *within* a copy: a hole cut
-        // in a private tree for a credential that rotates. One that fell outside every
-        // `private` path would be an ordinary read-write bind on the host wearing the name
-        // of a narrow one, which is exactly the thing the line above refuses.
+        // Permit shared credentials only inside private paths.
+        // A shared path outside these directories would provide unrestricted writable access to its host source.
         for s in &p.shared {
             assert!(
                 p.private.iter().any(|priv_| s.starts_with(priv_.as_str())),
@@ -227,7 +223,7 @@ fn the_agents_keep_their_state_and_the_ways_out_are_marked() {
         "Codex auth must remain shared so a host refresh reaches every session"
     );
 
-    // A socket whose far end runs on the host, or a display every window shares.
+    // Require warnings for access to host services or the shared display.
     for name in [
         "docker",
         "podman",
@@ -247,7 +243,7 @@ fn the_agents_keep_their_state_and_the_ways_out_are_marked() {
         );
     }
 
-    // And the ordinary ones are not crying wolf.
+    // These presets must not report host-service access.
     for name in [
         "rust",
         "rust-cache",
@@ -275,8 +271,8 @@ fn the_agents_keep_their_state_and_the_ways_out_are_marked() {
         assert!(p.escapes.is_empty(), "{name} is marked as a way out");
     }
 
-    // SSH configuration is safe to expose by itself; the agent socket is the explicit
-    // capability that lets a sandbox ask the host to sign.
+    // Keep SSH configuration separate from access to the SSH agent socket.
+    // The socket lets a sandbox request signatures from the host.
     assert!(t.sandbox("ssh").unwrap().rw.is_empty());
     assert_eq!(
         t.sandbox("ssh").unwrap().private,
@@ -285,8 +281,8 @@ fn the_agents_keep_their_state_and_the_ways_out_are_marked() {
     assert_eq!(t.sandbox("ssh-agent").unwrap().rw, vec!["$SSH_AUTH_SOCK"]);
     assert_eq!(t.sandbox("systemd").unwrap().requires, vec!["dbus"]);
 
-    // A config-root variable would bypass the private mount, so the shipped agent
-    // presets rely on their default paths under HOME instead of forwarding one.
+    // Configuration-root variables could bypass private mounts.
+    // Agent presets use default paths under HOME instead of forwarding these variables.
     for (name, forbidden) in [
         ("claude", "CLAUDE_CONFIG_DIR"),
         ("codex", "CODEX_HOME"),
@@ -506,8 +502,8 @@ fn user_only_sandbox_delete_checks_command_and_sandbox_dependencies() {
     .is_ok());
 }
 
-/// A user file replaces the builtin of the same name in place, and adds what it names
-/// that nothing shipped.
+/// User entries replace built-in entries with the same name.
+/// Entries with new names extend the preset table.
 #[test]
 fn user_files_override_by_name() {
     let mut t = Table::default();

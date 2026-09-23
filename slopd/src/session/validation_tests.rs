@@ -16,7 +16,7 @@ fn every_library_kind_requires_a_nonblank_name() {
             ..Default::default()
         };
         let error = check_library_item(&Config::default(), &item).unwrap_err();
-        assert_eq!(error.to_string(), "library item name must not be empty");
+        assert_eq!(error.to_string(), "Enter a name for the library item.");
     }
 }
 
@@ -33,7 +33,7 @@ fn breadcrumbs_require_text_but_no_execution_context() {
     item.text = " \n\t".into();
     assert_eq!(
         check_library_item(&cfg, &item).unwrap_err().to_string(),
-        "breadcrumb guidance has no text"
+        "Enter text for breadcrumb \"guidance\"."
     );
 }
 
@@ -55,7 +55,7 @@ fn runnable_library_items_cannot_choose_both_host_and_template() {
             check_library_item(&Config::default(), &item)
                 .unwrap_err()
                 .to_string(),
-            "library item run must choose Host or an agent template, not both"
+            "Choose either Host or an agent template for library item \"run\"."
         );
     }
 }
@@ -73,7 +73,7 @@ fn file_actions_require_a_command_instead_of_prompt_text() {
         item.command = command;
         assert_eq!(
             check_library_item(&cfg, &item).unwrap_err().to_string(),
-            "file action inspect has no command"
+            "Enter a command for file action \"inspect\"."
         );
     }
     item.command = Some("cat {{ absolute_path }}".into());
@@ -83,7 +83,7 @@ fn file_actions_require_a_command_instead_of_prompt_text() {
     item.text = "unexpected prompt".into();
     assert_eq!(
         check_library_item(&cfg, &item).unwrap_err().to_string(),
-        "file action inspect has unexpected text"
+        "Remove text from file action \"inspect\"."
     );
 }
 
@@ -101,7 +101,7 @@ fn deferred_library_destinations_allow_no_project_but_reject_unknown_projects() 
         item.project = "missing".into();
         assert_eq!(
             check_library_item(&cfg, &item).unwrap_err().to_string(),
-            "no such project: missing"
+            "Project \"missing\" does not exist."
         );
     }
 }
@@ -114,7 +114,7 @@ fn config_patches_reject_null_at_any_depth() {
     ] {
         assert_eq!(
             json_to_toml(patch).unwrap_err().to_string(),
-            "null is not a valid config patch value"
+            "The config patch cannot contain null values."
         );
     }
 }
@@ -178,12 +178,12 @@ fn file_action_paths_are_normalized_before_checking_project_containment() {
         project_action_path(&project, "/tmp/repo/../outside/file.rs")
             .unwrap_err()
             .to_string(),
-        "file action path is outside project repo"
+        "File action path must be inside project \"repo\"."
     );
     assert_eq!(
         project_action_path(&project, " \t")
             .unwrap_err()
             .to_string(),
-        "no file action path"
+        "Enter a path for the file action."
     );
 }

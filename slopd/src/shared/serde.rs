@@ -1,4 +1,4 @@
-// Serialization helpers for the shared protocol; tag mappings are generated.
+// Serialization helpers for the shared protocol. Generated code supplies tag mappings.
 
 #[macro_export]
 macro_rules! wire_enum {

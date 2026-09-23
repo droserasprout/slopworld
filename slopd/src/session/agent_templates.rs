@@ -1,9 +1,8 @@
 //! Personal agent templates and their immutable dependency snapshots.
 //!
-//! Templates intentionally live outside `config.toml`.  A template is a portable creation
-//! recipe, while a configured session owns the snapshots copied from that recipe.  This keeps
-//! changing a template, command preset, sandbox preset, or breadcrumb from changing an agent
-//! that was already created.
+//! Store templates separately from `config.toml`. A template contains portable settings for agent creation.
+//! Each configured session owns snapshots copied from its template.
+//! Later changes to templates, command presets, sandbox presets, or breadcrumbs do not change existing agents.
 
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
@@ -16,7 +15,7 @@ use crate::config::{Config, DnsConfig, Limits, NetworkMode, ProjectCfg, SessionC
 use crate::presets::{CommandPreset, SandboxPreset};
 
 const INDEX_FILE: &str = ".index.toml";
-// The mod JSON reader represents numbers as doubles; tokens must round-trip exactly.
+// The mod JSON reader uses double-precision numbers. Serialization and parsing must preserve token values exactly.
 const MAX_VERSION: u64 = (1 << 53) - 1;
 
 /// The daemon-owned personal template store. Each template is a direct TOML file, with the
@@ -24,9 +23,8 @@ const MAX_VERSION: u64 = (1 << 53) - 1;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct AgentTemplateStore {
-    /// A store-wide cursor makes a version unique across deletion, recreation, and daemon
-    /// restarts. It is deliberately persisted beside the definitions rather than derived from
-    /// the current list, which would make delete/recreate reuse a version.
+    /// A cursor for the entire store keeps versions unique after deletion, recreation, and daemon restarts.
+    /// Store it beside the definitions. Deriving it from the current list could reuse versions after deletion.
     #[serde(default = "first_version")]
     pub(crate) next_version: u64,
     #[serde(default, rename = "template")]
@@ -55,8 +53,8 @@ impl Default for AgentTemplateStore {
 #[serde(deny_unknown_fields)]
 pub(crate) struct AgentTemplate {
     pub(crate) name: String,
-    /// Monotonic daemon-owned identity for this definition. It is not a content hash: an edit
-    /// always receives a new value so a stale editor can never overwrite a later definition.
+    /// A version number that the daemon increases for each edit.
+    /// Each edit receives a new value to prevent an outdated editor from overwriting a later definition.
     #[serde(default)]
     pub(crate) version: u64,
     #[serde(default)]
@@ -203,16 +201,13 @@ impl AgentTemplateStore {
             }
             if !versions.insert(template.version) {
                 bail!(
-                    "agent template version {} is declared more than once",
+                    "Agent template version {} appears more than once.",
                     template.version
                 );
             }
             validate_template_name(&template.name)?;
             if !names.insert(template.name.clone()) {
-                bail!(
-                    "agent template {:?} is declared more than once",
-                    template.name
-                );
+                bail!("Agent template {:?} appears more than once.", template.name);
             }
             validate_definition(template)?;
         }
@@ -467,9 +462,9 @@ impl AgentTemplate {
         }
     }
 
-    /// Apply the form's portable fields. Identity, label, state, hierarchy, and project-owned
-    /// mount fields are ignored by construction. Matching template names retain snapshots;
-    /// changed dependencies fall back to the current catalog and are validated before saving.
+    /// Apply the form's portable fields. Exclude identity, label, state, hierarchy, and project mount fields.
+    /// Matching template names keep their snapshots. Changed dependencies use the current catalog.
+    /// Validate dependencies before saving.
     pub(crate) fn apply_overrides(&self, session: &mut SessionCfg, overrides: &SessionCfg) {
         let previous = session.clone();
 
