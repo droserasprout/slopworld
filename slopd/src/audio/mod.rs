@@ -1,4 +1,6 @@
-//! Host playback keeps station networking out of Unity because FMOD lacks TLS/AAC and requires Icecast's omitted `Content-Length`; a feeder decodes URLs/files into a callback-safe ring.
+//! Play audio on the host to keep station networking outside Unity.
+//! FMOD lacks TLS and AAC support and requires Content-Length, which Icecast omits.
+//! A feeder decodes URLs and files into a ring buffer suitable for audio callbacks.
 
 use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 use std::sync::mpsc::{Receiver, Sender};
@@ -13,12 +15,12 @@ mod station;
 use playback::{AudioOutput, OutputFactory, RodioOutputFactory};
 
 pub(crate) const CONNECT: Duration = Duration::from_secs(15);
-/// Header/decoder opening has its own bound. It is cleared after each response succeeds; the
-/// live body remains governed by `STREAM_IDLE` instead of inheriting this deadline.
+/// Limit the time to open headers and the decoder. Clear this deadline after each successful response.
+/// STREAM_IDLE controls the live response body separately.
 pub(crate) const OPEN: Duration = Duration::from_secs(10);
-// A live station should deliver encoded audio well inside this window. If the host changes
-// networks, the old TCP path can stay open without producing an error; the body timeout turns
-// that silent socket into the ordinary reconnect path without imposing a lifetime on the stream.
+// A live station should deliver encoded audio within this interval.
+// After a network change, the old TCP connection can remain open without delivering data or reporting an error.
+// The body timeout triggers reconnection without limiting the total stream duration.
 pub(crate) const STREAM_IDLE: Duration = Duration::from_secs(30);
 pub(crate) const REOPEN_PAUSE: Duration = Duration::from_secs(2);
 pub(crate) const QUEUE_POLL: Duration = Duration::from_millis(5);
@@ -121,7 +123,8 @@ impl Control {
     }
 }
 
-/// The handle. Cheap to clone and safe to call from anywhere; every method is a message.
+/// A shared player handle. Cloning has little cost, and callers can use it from any thread.
+/// Each method sends a message.
 #[derive(Clone)]
 pub struct Audio {
     tx: Sender<WorkerMsg>,
@@ -167,11 +170,11 @@ impl Audio {
         Audio { tx, state, control }
     }
 
-    /// `source` is a URL, file path, or directory; `volume` is 0..1.
+    /// `source` is a URL, file path, or directory. `volume` ranges from 0 to 1.
     pub fn play(&self, source: &str, volume: f32) {
         if crate::runtime::is_slopcar() {
             self.reject(
-                "audio playback is unavailable in slopcar; playback stays in the native game",
+                "Audio playback is unavailable in slopcar. Playback stays in the native game.",
             );
             return;
         }
@@ -248,7 +251,7 @@ pub fn spawn(m: std::sync::Arc<crate::session::Manager>) -> tokio::task::JoinHan
     })
 }
 
-/// Generation of the active source; stale feeders stop before writing to the new ring.
+/// The active source generation. Old feeders stop before writing to the new ring buffer.
 static GENERATION: AtomicU64 = AtomicU64::new(0);
 
 struct PendingOpen {

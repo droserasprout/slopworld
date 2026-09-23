@@ -13,7 +13,7 @@ use super::{err, ApiResult, Mgr};
 /// Mint a grant: let `grantor` watch or drive the named `sessions`. Root-only by the router,
 /// so only the mod asks. The daemon refuses a host session in the scope - the one line the
 /// whole scheme is for - and refuses a grantor or target that is not there. The token comes
-/// back once; the daemon keeps a private copy so the credential survives daemon restarts.
+/// back once. The daemon keeps a private copy so the credential survives daemon restarts.
 pub(crate) async fn mint_grant(
     State(m): State<Mgr>,
     Proto(q): Proto<wire::GrantReq>,

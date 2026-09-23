@@ -32,7 +32,7 @@ pub(crate) struct SpawnWorkerReq {
 
 #[derive(Debug, Deserialize, Default)]
 pub(crate) struct SpawnableTemplatesQuery {
-    /// Root callers may select a project context; agents default to their own project.
+    /// Root callers may select a project context. Agents default to their own project.
     #[serde(default)]
     pub(crate) project: String,
 }
@@ -97,15 +97,15 @@ pub(crate) struct CreateAgentTemplateReq {
     /// A complete form snapshot. The daemon copies only the documented portable fields.
     #[serde(default)]
     pub(crate) overrides: Option<serde_json::Value>,
-    /// When present, explicitly controls whether the resulting session starts. Omitted keeps
-    /// the template/override autostart value for the in-game editor.
+    /// If present, control whether the resulting session starts.
+    /// Otherwise, keep the template or override autostart value for the game editor.
     #[serde(default)]
     pub(crate) start: Option<bool>,
 }
 
-/// An errand nobody wrote down: the same temporary agent `/api/library/NAME/run` makes,
-/// spelled out in the body instead of looked up. `text` is optional here where it is
-/// required of an entry - `less` on a file is a command with nothing to type after it.
+/// An errand defined in the request body instead of a saved library entry.
+/// It creates the same temporary agent as `/api/library/NAME/run`.
+/// `text` is optional because commands such as `less` can run without additional input.
 #[derive(Deserialize)]
 pub(crate) struct RunReq {
     #[serde(default)]
@@ -116,7 +116,7 @@ pub(crate) struct RunReq {
     pub(crate) project: String,
     #[serde(default)]
     pub(crate) kind: crate::config::LibraryItemKind,
-    /// A preset name or a command line, read exactly as a library item's is.
+    /// A preset name or command line, interpreted as in a library entry.
     #[serde(default)]
     pub(crate) command: String,
     /// Raw selected Files-sidebar path. When present, the daemon expands it and replaces the
@@ -128,15 +128,14 @@ pub(crate) struct RunReq {
     pub(crate) hold: bool,
     #[serde(default)]
     pub(crate) text: String,
-    /// Names the session and, through `slug`, the tmux session behind it. The errand's own
-    /// word for itself, since there is no entry to take one from. Empty with `host` set is
-    /// the one case the daemon answers instead - see `sandbox::host_session_name`.
+    /// The session label. `slug` converts it to the tmux session name.
+    /// If empty with `host` set, the daemon generates a name. See `sandbox::host_session_name`.
     #[serde(default)]
     pub(crate) label: String,
     #[serde(default)]
     pub(crate) temp: bool,
-    /// The game supplies loading-screen tips for `{{ random_tip }}`, already distinct: one is
-    /// spent per mention, so a text with five bullets gets five different lines.
+    /// Distinct loading-screen tips supplied by the game for `{{ random_tip }}`.
+    /// Each occurrence consumes one tip, so five occurrences receive five different tips.
     #[serde(default)]
     pub(crate) random_tips: Vec<String>,
     /// Explicit unsandboxed errand execution.
@@ -192,10 +191,9 @@ pub(crate) struct ClipReq {
     pub(crate) text: String,
 }
 
-/// `?files=1` and `?files=true` are the same answer. serde's own bool takes only the
-/// second, and half of what this endpoint is for is being asked by hand from a shell.
-/// A word that is neither is refused rather than read as "on": a typo silently turning
-/// a switch on is worse than a 400 saying so.
+/// Accept numeric and textual Boolean flags for manual shell requests.
+/// For example, `?files=1` and `?files=true` have the same meaning.
+/// Reject unknown values with 400 to prevent typing errors from enabling a flag.
 fn flag<'de, D: serde::Deserializer<'de>>(d: D) -> Result<bool, D::Error> {
     use serde::de::Error;
     let s = String::deserialize(d)?;
@@ -212,8 +210,8 @@ fn flag<'de, D: serde::Deserializer<'de>>(d: D) -> Result<bool, D::Error> {
 pub(crate) struct BrowseReq {
     #[serde(default)]
     pub(crate) path: String,
-    /// Opt-in, so the project-dir picker - which wants directories and nothing else -
-    /// pays neither the read nor the wire for a directory full of files.
+    /// Include files only when requested.
+    /// Directory selectors do not need file entries or their transfer costs.
     #[serde(default, deserialize_with = "flag")]
     pub(crate) files: bool,
     #[serde(default, deserialize_with = "flag")]
@@ -292,8 +290,8 @@ pub(crate) enum ClientMsg {
     Audio(AudioReq),
 }
 
-/// The jukebox. `selection` is absent for a volume-only update, null for silence, a station
-/// id/stream key for a catalog entry, or a file/directory path for the mod's OST.
+/// A jukebox request. Omit `selection` to change only the volume. Use null to stop playback.
+/// Select a catalog entry with a station ID and stream key, or select soundtrack files with a file or directory path.
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct AudioReq {
@@ -314,8 +312,8 @@ pub(crate) struct AudioSelection {
     pub(crate) ncspot: bool,
 }
 
-/// Tells "the key was absent" from "the key was null", which is the difference between a
-/// volume change and a stop.
+/// Distinguish an absent selection from a null selection.
+/// An absent selection preserves playback. A null selection stops playback.
 fn some_option<'de, D, T>(d: D) -> Result<Option<Option<T>>, D::Error>
 where
     D: serde::Deserializer<'de>,
@@ -343,7 +341,7 @@ pub(crate) struct MouseReq {
     pub(crate) name: String,
     /// press | release | drag | wheelup | wheeldown
     pub(crate) action: String,
-    /// 0/1/2 = left/middle/right; ignored for the wheel.
+    /// 0/1/2 = left/middle/right. Ignored for the wheel.
     #[serde(default)]
     pub(crate) button: u8,
     pub(crate) col: u16,
@@ -357,7 +355,7 @@ pub(crate) struct MouseReq {
 #[derive(Deserialize)]
 pub(crate) struct ScrollReq {
     pub(crate) name: String,
-    /// Lines scrolled up into scrollback; 0 returns to the live bottom.
+    /// Lines scrolled up into scrollback. 0 returns to the live bottom.
     pub(crate) off: u32,
     /// Echoed back in the response so the mod can reject a stale reply to an older request.
     #[serde(default)]
@@ -371,8 +369,8 @@ pub(crate) struct KeysReq {
     pub(crate) keys: Vec<String>,
     #[serde(default)]
     pub(crate) literal: bool,
-    /// The game supplies loading-screen tips for `{{ random_tip }}`, already distinct: one is
-    /// spent per mention, so a text with five bullets gets five different lines.
+    /// Distinct loading-screen tips supplied by the game for `{{ random_tip }}`.
+    /// Each occurrence consumes one tip, so five occurrences receive five different tips.
     #[serde(default)]
     pub(crate) random_tips: Vec<String>,
 }

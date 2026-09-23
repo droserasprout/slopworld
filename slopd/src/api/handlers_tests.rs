@@ -26,8 +26,8 @@ pub(super) fn subdir(dir: &Path, name: &str) {
     std::fs::create_dir_all(dir.join(name)).unwrap();
 }
 
-/// The dir picker asked for none, so it is handed none, and a directory full of files
-/// is still just its directories - which is also what keeps the cap off it.
+/// The dir picker asked for none. Therefore, it is handed none, and a directory full of files is
+/// still just its directories - which is also what keeps the cap off it.
 #[tokio::test]
 pub(super) async fn files_are_opt_in() {
     let dir = fixture("optin");
@@ -226,9 +226,9 @@ pub(super) async fn gitignore_no_match_keeps_the_listing() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
-/// `DirEntry::file_type` does not follow a symlink, so without the stat behind it a
-/// linked directory is in neither list and the tree draws it as gone. A link to
-/// nowhere stays in neither, which is the one case where that is the right answer.
+/// `DirEntry::file_type` does not follow a symlink. Therefore, without the stat behind it a linked
+/// directory is in neither list and the tree draws it as gone. A link to nowhere stays in neither,
+/// which is the one case where that is the right answer.
 #[cfg(unix)]
 #[tokio::test]
 pub(super) async fn a_symlinked_directory_is_a_directory() {
@@ -247,8 +247,8 @@ pub(super) async fn a_symlinked_directory_is_a_directory() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
-/// The cap says so rather than lying about a short directory, and it is a cap on what
-/// was read - the answer is that many entries, not that many sorted ones.
+/// Report when the read limit truncates a directory.
+/// Apply the limit to entries before sorting them.
 #[tokio::test]
 pub(super) async fn a_long_directory_is_cut_short_and_says_so() {
     let dir = fixture("cap");

@@ -26,7 +26,7 @@ pub(crate) async fn one_project(
         .ok_or_else(|| {
             err(
                 axum::http::StatusCode::NOT_FOUND,
-                format!("no such project: {name}"),
+                format!("Project {name:?} does not exist."),
             )
         })?
 }
@@ -94,10 +94,10 @@ pub(crate) async fn destroy_library_item(
     super::ok_json(m.remove_library_item(&name).await)
 }
 
-/// Answers with the temporary agent's name as soon as it is up; the text lands well past the
-/// point this client would have given up waiting. The body says where to run -
-/// `{"project":"..."}` or `{"temp":true}` - and `Option<Json<_>>` is so a bodyless curl still
-/// runs the errands that already know.
+/// Return the temporary agent's name after startup, before delayed text delivery.
+/// This prevents the client from waiting for the text and reaching its timeout.
+/// The body selects the destination with `{"project":"..."}` or `{"temp":true}`.
+/// `Option<Json<_>>` permits requests without a body when the errand already specifies its destination.
 pub(crate) async fn run_library_item(
     State(m): State<Mgr>,
     Path(name): Path<String>,
@@ -140,27 +140,26 @@ pub(crate) async fn run(
     } else {
         command.to_string()
     };
-    // A shell errand with nothing to run is a shell - `[defaults] shell` inside the sandbox,
-    // `$SHELL` on the host - and saying so again here would be the caller guessing at this
-    // machine's answer. Every other kind has to say: a prompt with no command is an agent
-    // nobody named.
+    // A shell errand without a command opens the default shell.
+    // Use `[defaults] shell` in the sandbox or `$SHELL` on the host.
+    // Let the daemon resolve this default. Other errand types must specify a command.
     if command.is_empty() && q.kind != LibraryItemKind::Shell {
         return Err(err(
             axum::http::StatusCode::BAD_REQUEST,
-            "an errand must say what to run",
+            "Provide a command for this action.",
         ));
     }
     if project.is_empty() && !q.temp && !q.host {
         return Err(err(
             axum::http::StatusCode::BAD_REQUEST,
-            "an errand must name a project or ask for a temporary one",
+            "Choose a project or request a temporary project.",
         ));
     }
 
     let label = match q.label.trim() {
-        // A host errand names itself for the project it opened on and the shell it opens -
-        // `slopworld-zsh`. The game cannot know which shell that is, so it sends no label and
-        // reads the name back off the answer, the same as it does for the session itself.
+        // Name a host errand from its project and shell, for example `slopworld-zsh`.
+        // The game sends no label because the daemon selects the shell.
+        // The game reads the generated name from the response.
         "" if q.host => crate::sandbox::host_session_name(project),
         "" => "run".to_string(),
         l => l.to_string(),
@@ -171,8 +170,7 @@ pub(crate) async fn run(
         link: crate::config::LibraryItemLink::Project,
         project: project.to_string(),
         text: q.text,
-        // None rather than an empty string: `session_for` reads "no command of its own" off
-        // the Option, and that is what falls through to the preset.
+        // Use None to indicate no explicit command. `session_for` then uses the preset.
         command: (!command.is_empty()).then_some(command),
         mode: crate::config::FileActionMode::Ask,
         builtin: false,
@@ -180,16 +178,16 @@ pub(crate) async fn run(
         agent_template: q.agent_template,
     };
 
-    // The project is checked by `run_errand` itself, which is also where a temporary one is
-    // coined - so `temp` rides over as the override it already is rather than a second road.
+    // `run_errand` checks the project and creates temporary projects.
+    // Pass `temp` as an override to use that same path.
     let want = RunWhere {
         worktree: q.worktree,
         cols: q.cols,
         rows: q.rows,
         project: None,
-        // A host reader for a private-state directory has no project to attach to. Give it a
-        // disposable project only so the existing errand/session machinery can own its cwd;
-        // the command itself carries the selected absolute path.
+        // A host reader for private state has no associated project.
+        // Give it a temporary project so the errand and session code can manage its working directory.
+        // The command contains the selected absolute path.
         temp: q.temp || (q.host && project.is_empty()),
         random_tips: q.random_tips,
     };
@@ -214,10 +212,9 @@ pub(crate) async fn run(
     reply(json!({ "ok": true, "session": session }))
 }
 
-/// Run a non-interactive Files or Git action and return a small result for a game message. Project
-/// paths are validated against their project, but all file actions execute on the host.
-/// Interactive actions use `/api/run`, since their terminal needs a tmux session and a persistent
-/// screen.
+/// Run a non-interactive Files or Git action. Return a short result for a game message.
+/// Validate project paths against their project. All file actions execute on the host.
+/// Interactive actions use `/api/run` because their terminals need tmux sessions and persistent screens.
 pub(crate) async fn file_action(
     State(m): State<Mgr>,
     Proto(q): Proto<wire::FileActionReq>,
@@ -230,9 +227,8 @@ pub(crate) async fn file_action(
     reply(json!({ "ok": true, "output": output }))
 }
 
-/// List the host desktop applications associated with a file. This is root-only because the
-/// query runs outside every project sandbox, in the same desktop environment that will launch
-/// the selected application.
+/// List host desktop applications associated with a file. Only root can run this query.
+/// It runs outside project sandboxes, in the desktop environment that launches the selected application.
 pub(crate) async fn open_apps(
     State(m): State<Mgr>,
     Query(q): Query<OpenAppsQuery>,

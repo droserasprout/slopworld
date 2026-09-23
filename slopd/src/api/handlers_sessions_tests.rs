@@ -99,7 +99,7 @@ async fn replacing_session_configuration_is_root_only_and_root_can_change_sandbo
         assert_eq!(status, StatusCode::FORBIDDEN);
         assert_eq!(
             body,
-            json!({ "error": "only the daemon's own token may replace session configuration" })
+            json!({ "error": "Only the root token can replace session configuration." })
         );
         assert_eq!(
             serde_json::to_value(manager.config().await.sessions).unwrap(),

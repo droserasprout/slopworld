@@ -10,8 +10,8 @@ use serde_json::json;
 use super::super::{err, ApiResult, Mgr};
 
 pub(crate) async fn jukebox_presets() -> ApiResult<wire::JukeboxCatalog> {
-    // The regular catalog omits URLs before it reaches the mod. This separate editor road is
-    // root-only and intentionally returns the complete user definition for the form.
+    // The regular catalog omits URLs before sending data to the mod.
+    // This editor endpoint requires root and returns the complete user definition for the form.
     let stations = crate::jukebox::Catalog::user_presets()
         .into_iter()
         .map(|station| {
@@ -63,7 +63,7 @@ async fn save(m: Mgr, body: wire::Station, original_id: Option<String>) -> ApiRe
         if station.id != original_id {
             return Err(err(
                 StatusCode::BAD_REQUEST,
-                "jukebox preset id cannot change while editing",
+                "Keep the station ID unchanged when you edit it.",
             ));
         }
     }

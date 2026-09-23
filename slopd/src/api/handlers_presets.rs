@@ -11,10 +11,9 @@ use super::{err, ApiResult, Mgr};
 
 use crate::presets::PresetKind;
 
-/// So the GUI draws a checkbox per preset and a row per command rather than a list
-/// somebody keeps in step by hand. Both tables are files, so this is also how the mod
-/// learns about one that was added while it was running. `source` is explicit because a
-/// merged table alone cannot tell a built-in from a user override.
+/// Supply preset and command catalogs for the GUI.
+/// The mod can discover definitions added while it runs without maintaining a separate list.
+/// Include `source` to distinguish built-in definitions from user overrides.
 pub(crate) async fn presets(State(_m): State<Mgr>) -> ApiResult<wire::PresetsReply> {
     let effective = crate::presets::table();
     let builtins = crate::presets::Table::builtins();
@@ -118,7 +117,7 @@ pub(crate) async fn update_preset(
 ) -> ApiResult<wire::Ack> {
     let kind = parse_kind(&kind)?;
     if name.trim().is_empty() {
-        return Err(err(StatusCode::BAD_REQUEST, "preset name is empty"));
+        return Err(err(StatusCode::BAD_REQUEST, "Enter a preset name."));
     }
     let mut definition = match (kind, body.definition) {
         (PresetKind::SandboxPresets, Some(wire::preset_request::Definition::Sandbox(mut p))) => {
@@ -132,7 +131,7 @@ pub(crate) async fn update_preset(
         _ => {
             return Err(err(
                 StatusCode::BAD_REQUEST,
-                "preset kind does not match its definition",
+                "The kind field does not match the supplied definition.",
             ))
         }
     };

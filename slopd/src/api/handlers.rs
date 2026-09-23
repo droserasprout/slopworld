@@ -64,14 +64,14 @@ pub(super) async fn guard(
     }
 }
 
-/// Only root may create sessions.
+/// Only the root token can create sessions through this request.
 pub(super) fn guard_create(cap: &Cap) -> Result<(), crate::api::protobuf::ApiError> {
     if cap.may_create() {
         Ok(())
     } else {
         Err(err(
             StatusCode::FORBIDDEN,
-            "only the daemon's own token may create sessions",
+            "Only the root token can create sessions through this request.",
         ))
     }
 }
@@ -83,7 +83,7 @@ pub(super) fn guard_root(cap: &Cap) -> Result<(), crate::api::protobuf::ApiError
     } else {
         Err(err(
             StatusCode::FORBIDDEN,
-            "only the daemon's own token may replace session configuration",
+            "Only the root token can replace session configuration.",
         ))
     }
 }

@@ -13,8 +13,8 @@ use ureq::unversioned::transport::Connector;
 
 use super::{AudioState, CONNECT, GENERATION, OPEN, STREAM_IDLE};
 
-/// Receives delayed station metadata. The generation prevents an old station naming its
-/// replacement; `None` omits titles for files and tests.
+/// Receive delayed station metadata. The generation prevents old metadata from changing a replacement station's title.
+/// `None` omits titles for files and tests.
 #[derive(Clone)]
 pub(crate) struct TitleSink {
     pub(crate) state: Option<Arc<Mutex<AudioState>>>,
@@ -25,8 +25,8 @@ pub(crate) struct TitleSink {
     /// Shared with the HTTP transport so replacing a source closes a blocked open/read instead
     /// of merely abandoning the thread that owns it.
     pub(crate) cancelled: Arc<AtomicBool>,
-    /// Monotonic deadline for one header/open operation. Zero means the live body has no open
-    /// deadline; body lifetime remains governed only by the idle timeout.
+    /// Monotonic deadline for one header or open operation.
+    /// Zero removes this deadline from the live body. Only the idle timeout then limits body reads.
     pub(crate) opening_deadline: Arc<AtomicU64>,
     /// Metadata observed while a source is still being probed. It is applied only after commit,
     /// so a replacement can drop it without briefly naming the wrong station.
@@ -134,9 +134,8 @@ pub(crate) fn open_file(path: &Path) -> Result<Box<dyn Source + Send>> {
     Ok(Box::new(builder.build().context("decoding")?))
 }
 
-/// A directory selection is a non-repeating shuffled bag. It reshuffles only after every
-/// file has been used, and swaps the first entry when needed so a bag boundary cannot repeat
-/// the track that just ended.
+/// Play directory files in random order without repetition until every file has played.
+/// Then generate a new order. Change its first entry if necessary to avoid repeating the previous track.
 pub(crate) struct Playlist {
     pub(crate) files: Vec<PathBuf>,
     pub(crate) next: usize,
@@ -259,9 +258,8 @@ pub(crate) fn open_stream(url: &str, title: &TitleSink) -> Result<Box<dyn Source
 
 pub(crate) type StreamBody = Box<dyn Read + Send>;
 
-/// Makes one HTTP response reader. Reconnects reuse the same agent and must retain the MIME type
-/// the decoder was probed with. ICY state is per response because every response begins at a new
-/// metadata interval.
+/// Create one HTTP response reader. Reconnect with the same HTTP agent and retain the decoder's original MIME type.
+/// Each response has separate ICY state because its metadata interval starts again.
 pub(crate) struct StreamConnector {
     pub(crate) agent: ureq::Agent,
     url: String,
@@ -280,9 +278,9 @@ impl StreamConnector {
         body_timeout: std::time::Duration,
     ) -> Self {
         // A live response has no lifetime deadline, but it must not wait forever on a TCP path
-        // that went stale during a network change. In ureq 3.3, `RecvBody` checks the preceding
-        // `RecvResponse` timer too, despite the latter being documented as headers only; leave
-        // that one unset and use the body timer as an idle timeout instead. The cancellable
+        // that went stale during a network change. In ureq 3.3, `RecvBody` also checks the preceding
+        // `RecvResponse` timer. The docs describe that timer as headers-only. Leave it unset and use
+        // the body timer as an idle timeout instead. The cancellable
         // transport below polls the underlying socket without changing either lifetime.
         let config = ureq::Agent::config_builder()
             .timeout_connect(Some(CONNECT))
@@ -365,10 +363,10 @@ impl StreamConnector {
     }
 }
 
-/// ureq's ordinary transports apply the configured timeout to one blocking read. A source
-/// switch needs a stronger guarantee: the old socket must be released promptly even when a
-/// server withholds headers or body bytes. Poll the real transport in short slices while the
-/// cancellation flag is clear; this does not add a deadline to a healthy live response.
+/// Ordinary ureq transports apply the configured timeout to each blocking read.
+/// A source change must release the old socket promptly, even when the server sends no headers or body data.
+/// Poll the transport at short intervals while cancellation is inactive.
+/// This does not limit the total duration of an active response.
 #[derive(Debug)]
 struct CancelConnector {
     cancelled: Arc<AtomicBool>,
@@ -487,10 +485,11 @@ fn monotonic_millis() -> u64 {
         .unwrap_or(u64::MAX)
 }
 
-/// Keeps transport boundaries below the decoder. Rebuilding a decoder for every short HTTP body
-/// loses its compressed-audio history and can replay the relay's connection-opening buffer. A
-/// body that carried audio is replaced immediately; an empty/rejected response waits so a broken
-/// endpoint cannot be hammered. The decoded ring supplies headroom while this blocks.
+/// Preserve the decoder across HTTP response boundaries.
+/// Rebuilding it loses compressed-audio history and can repeat the relay's initial buffer.
+/// Replace a response immediately if it contained audio.
+/// Delay retries for empty or rejected responses to limit requests to a failing endpoint.
+/// The decoded ring buffer supplies audio during this wait.
 pub(crate) struct Reconnect<F> {
     pub(crate) inner: StreamBody,
     pub(crate) reopen: F,
@@ -504,7 +503,7 @@ where
     F: FnMut() -> io::Result<StreamBody>,
 {
     fn replace(&mut self, why: &str) -> io::Result<bool> {
-        tracing::info!("audio: stream body {why}; reconnecting {}", self.source);
+        tracing::info!("Audio stream body {why}. Reconnecting to {}.", self.source);
         let mut wait = !self.read_since_open;
 
         loop {
@@ -565,9 +564,9 @@ where
     }
 }
 
-/// Removes ICY metadata blocks from a station stream while passing audio bytes through.
-/// Each block has `icy-metaint` audio bytes, a 16-byte-unit length, and padded metadata;
-/// zero length means no title change.
+/// Remove ICY metadata blocks while passing audio bytes to the decoder.
+/// Each interval contains `icy-metaint` audio bytes, a length in 16-byte units, and padded metadata.
+/// A zero metadata length means no title change.
 pub(crate) struct Icy<R: Read> {
     pub(crate) inner: R,
     pub(crate) metaint: usize,
@@ -577,8 +576,8 @@ pub(crate) struct Icy<R: Read> {
 }
 
 impl<R: Read> Icy<R> {
-    /// One metadata block, read whole: it is at most 4080 bytes and it is in the way of the
-    /// audio behind it, so there is nothing to be gained by handing it back in pieces.
+    /// Read one complete metadata block, at most 4080 bytes.
+    /// Audio reading cannot continue until the block is complete.
     fn block(&mut self) -> io::Result<()> {
         let mut len = [0u8; 1];
         self.inner.read_exact(&mut len)?;
@@ -613,14 +612,13 @@ impl<R: Read> Read for Icy<R> {
     }
 }
 
-/// Extracts `StreamTitle`; `Some(None)` clears it, while `None` means no field was present.
+/// Extract `StreamTitle`. `Some(None)` clears the title. `None` means the field was absent.
 /// Decode lossily because streams use both Latin-1 and UTF-8 in practice.
 pub(crate) fn stream_title(raw: &[u8]) -> Option<Option<String>> {
     let text = String::from_utf8_lossy(raw);
     let rest = text.split("StreamTitle=").nth(1)?.strip_prefix('\'')?;
-    // `';` and not `'`, because an apostrophe in a song title is ordinary and a semicolon
-    // right behind one is not. The fallback is for a block where StreamTitle is the last
-    // field and the quote is followed by padding rather than by another key.
+    // Search for the semicolon-and-quote delimiter because song titles can contain apostrophes.
+    // If StreamTitle is the last field, padding follows a single quote instead of another key.
     let end = match rest.find("';") {
         Some(i) => i,
         None => rest.find('\'')?,
@@ -634,10 +632,9 @@ pub(crate) fn stream_title(raw: &[u8]) -> Option<Option<String>> {
     })
 }
 
-/// The decoder's input has to be `Read + Seek + Send + Sync`, and a live stream is
-/// neither seekable nor shared. The seek is a stub - the decoder is built with
-/// `is_seekable(false)` and never calls it - and the mutex is only there to make a `Send`
-/// reader `Sync`; nothing ever contends on it, because every use holds `&mut self`.
+/// The decoder requires `Read + Seek + Send + Sync`, but live streams do not support seeking or shared access.
+/// Provide a stub for Seek. The decoder uses `is_seekable(false)` and does not call it.
+/// The mutex makes the Send reader implement Sync. Access cannot overlap because each use requires `&mut self`.
 pub(crate) struct Feed<R: Read + Send>(pub(crate) Mutex<R>);
 
 impl<R: Read + Send> Read for Feed<R> {

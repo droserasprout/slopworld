@@ -10,7 +10,7 @@ async fn reader_metadata_distinguishes_missing_files_from_read_errors() {
     assert!(!reader_is_file(&file.join("child")).await.unwrap());
     tokio::fs::remove_file(&file).await.unwrap();
     assert!(!reader_is_file(&file).await.unwrap());
-    // A symlink loop is an I/O error, never evidence to dismiss a pinned tab.
+    // Report a symlink loop as an I/O error without closing the pinned tab.
     #[cfg(unix)]
     {
         std::os::unix::fs::symlink("loop", dir.join("loop")).unwrap();

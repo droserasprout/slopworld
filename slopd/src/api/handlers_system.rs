@@ -16,13 +16,13 @@ pub(crate) async fn audio(State(m): State<Mgr>) -> ApiResult<wire::AudioState> {
     reply(json!(m.music_state().await))
 }
 
-/// The station catalog for clients that draw the jukebox. URLs stay daemon-side; this carries
-/// only ids, stream keys, rates and the metadata a UI may render.
+/// Supply the station catalog for jukebox clients. Keep URLs in the daemon.
+/// Return only IDs, stream keys, rates, and display metadata.
 pub(crate) async fn jukebox() -> ApiResult<wire::JukeboxCatalog> {
     reply(json!(crate::jukebox::catalog()))
 }
 
-/// Open the daemon-owned Spotify terminal; playback uses the ordinary audio selection.
+/// Open the Spotify terminal owned by the daemon. Playback uses the ordinary audio selection.
 pub(crate) async fn ncspot(
     State(m): State<Mgr>,
     super::super::protobuf::Proto(q): super::super::protobuf::Proto<wire::RedrawReq>,

@@ -98,8 +98,7 @@ fn ring() -> (SyncSender<Vec<Sample>>, Ring) {
             at: 0,
             channels: ChannelCount::new(2).unwrap(),
             rate: SampleRate::new(44100).unwrap(),
-            // Whatever run the suite is on: only the ignored tests move it, and
-            // those do not run beside these.
+            // Use the current generation. Only ignored tests change it, and they run separately.
             generation: GENERATION.load(Ordering::SeqCst),
             ready: Arc::new(AtomicBool::new(true)),
             queued: Arc::new(AtomicUsize::new(0)),
@@ -108,12 +107,12 @@ fn ring() -> (SyncSender<Vec<Sample>>, Ring) {
     )
 }
 
-/// Exercises the real path: one player with differently shaped stations appended.
-/// A ramp exposes playback position directly without counting a converter tail, and
-/// needs neither network nor audio device.
+/// Append stations with different channel counts and sample rates to one player.
+/// A sample ramp measures playback position without counting trailing converter output.
+/// This test requires no network connection or audio device.
 #[test]
 fn a_station_of_any_shape_plays_at_its_own_speed() {
-    // Frames in, per station. The ramp runs 0.0 to 1.0 across them.
+    // Number of input frames for each station.
     const N: usize = 8192;
 
     let (mixer, mut out) = rodio::mixer::mixer(
@@ -122,8 +121,8 @@ fn a_station_of_any_shape_plays_at_its_own_speed() {
     );
     let player = rodio::Player::connect_new(&mixer);
 
-    // Exercise different source shapes - stereo first, so it is the one that would have
-    // done the latching. The final source is the only one that resamples *down*.
+    // Start with stereo to detect accidental reuse of the first source's channel count.
+    // Include sample rates below, above, and equal to the mixer rate.
     let stations = [
         (2u16, 44100u32),
         (1, 44100),
@@ -134,8 +133,8 @@ fn a_station_of_any_shape_plays_at_its_own_speed() {
 
     for (channels, rate) in stations {
         let (tx, rx) = sync_channel::<Vec<Sample>>(RING);
-        // The global generation is left alone: this runs beside the other ring tests,
-        // and a bump here would retire their rings out from under them.
+        // Preserve the global generation because other ring tests run concurrently.
+        // Changing it would stop their rings.
         player.append(Ring {
             rx,
             held: Vec::new(),
@@ -148,10 +147,8 @@ fn a_station_of_any_shape_plays_at_its_own_speed() {
             prefill_samples: 1,
         });
 
-        // The ramp starts at FLOOR rather than at zero, so its first sample can be told
-        // from the silence the mixer leads in with - which is what marks where the
-        // station begins. Position is then read off the value: FLOOR at the start,
-        // 1.0 at the end.
+        // Start the ramp at FLOOR to distinguish its first sample from initial mixer silence.
+        // Sample values indicate position, increasing from FLOOR toward 1.0.
         const FLOOR: Sample = 0.2;
         let mut ramp = Vec::with_capacity(N * channels as usize);
         for frame in 0..N {
@@ -159,16 +156,14 @@ fn a_station_of_any_shape_plays_at_its_own_speed() {
             ramp.extend(std::iter::repeat_n(at, channels as usize));
         }
         tx.send(ramp).unwrap();
-        // Ending it is what moves the player on to the next station.
+        // Close the sender so the player can advance to the next station.
         drop(tx);
 
-        // Long enough to drain this station and its tail, so the next one starts clean.
+        // Read enough samples to consume this station and trailing converter output.
         let got: Vec<Sample> = (&mut out).take(N * 8).collect();
 
-        // The distance between two points on the ramp, rather than the position of
-        // either: how much silence the mixer leads in with then does not matter, and
-        // neither does anything the tail does. A quarter of the way in to three
-        // quarters of the way in is half the station.
+        // Measure the distance between the 25% and 75% positions on the ramp.
+        // This measures half the station without including initial silence or trailing converter output.
         let crossing = |v: Sample| {
             got.iter()
                 .position(|s| *s > v)
@@ -180,7 +175,7 @@ fn a_station_of_any_shape_plays_at_its_own_speed() {
         let want = N / 2 * 44100 / rate as usize * 2;
         let ratio = want as f64 / half as f64;
 
-        // At 2x half the station goes by in half the samples; at 4x, a quarter of them.
+        // Double speed uses half the expected samples. Quadruple speed uses a quarter of them.
         assert!(
             (0.95..=1.05).contains(&ratio),
             "{channels}ch {rate}Hz: half the station took {half} samples where {want} \
@@ -189,14 +184,14 @@ fn a_station_of_any_shape_plays_at_its_own_speed() {
     }
 }
 
-/// The retirement that replaces `Player::clear`: a source whose run has been
-/// superseded ends, and the player moves on to the one appended behind it.
+/// End a source from an obsolete generation so the player advances to the next source.
+/// This replaces `Player::clear`.
 #[test]
 fn a_superseded_ring_ends() {
     let (tx, mut r) = ring();
     tx.send(vec![1.0, 1.0]).unwrap();
     assert_eq!(r.next(), Some(1.0));
-    // An older run. Wrapping because the suite may well be on run zero.
+    // Select an older generation with wrapping subtraction because the current generation can be zero.
     r.generation = r.generation.wrapping_sub(1);
     assert_eq!(r.next(), None);
 }
@@ -209,8 +204,8 @@ fn ring_hands_over_what_it_is_given() {
     assert_eq!(r.next(), Some(-0.5));
 }
 
-/// The callback is on a deadline the network is not: an empty ring is a moment of
-/// silence, never a stop. Ending the source here would end the music for good.
+/// Return silence when the ring is temporarily empty.
+/// Keep the source active so playback can resume when network data arrives.
 #[test]
 fn an_empty_ring_is_silence_and_not_the_end() {
     let (_tx, mut r) = ring();
@@ -446,8 +441,8 @@ fn a_stream_read_failure_is_hidden_from_its_consumer() {
     assert_eq!(&out, b"beforeafter");
 }
 
-/// This is the complete HTTP/ICY reconnect path, deliberately bound to loopback. Each finite
-/// response has its own metadata interval; the consumer sees one uninterrupted audio reader.
+/// Test HTTP/ICY reconnection through a loopback server.
+/// Each response has its own metadata interval. The consumer uses one continuous audio reader.
 #[test]
 fn loopback_http_responses_share_one_audio_reader() {
     let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
@@ -543,8 +538,8 @@ fn cancelling_an_active_body_terminates_read_exact() {
     reader.join().unwrap();
 }
 
-/// A body that stops producing bytes is treated like a broken network path. The short
-/// timeout is test-only; production uses STREAM_IDLE so ordinary live silence is tolerated.
+/// Reconnect when a response body stops supplying bytes.
+/// This test uses a short timeout. Production uses STREAM_IDLE to permit normal stream delays.
 #[test]
 fn an_idle_http_body_reconnects_without_rebuilding_the_reader() {
     let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
@@ -617,9 +612,9 @@ fn an_idle_http_body_reconnects_without_rebuilding_the_reader() {
     server.join().unwrap();
 }
 
-/// The transport fix is below the real decoder, not merely a byte-concatenation trick. Split
-/// a repository OGG at awkward offsets and require the decoder to produce the same number of
-/// samples as the uninterrupted file. This fixture and every reader above are local-only.
+/// Split a local OGG fixture into separate response bodies at arbitrary byte offsets.
+/// Require the decoder to produce the same sample count as the uninterrupted file.
+/// This checks transport recovery through the real decoder without network access.
 #[test]
 fn decoder_survives_synthetic_body_breaks() {
     let encoded = include_bytes!("../../../mod/Sounds/SlopWorld/silent.ogg");
@@ -656,7 +651,7 @@ fn decoder_survives_synthetic_body_breaks() {
     assert_eq!(decoded.take(uninterrupted).count(), uninterrupted);
 }
 
-/// A feeder that has gone is the one thing that does end it.
+/// End an empty source when its feeder disconnects.
 #[test]
 fn a_dropped_feeder_ends_the_source() {
     let (tx, mut r) = ring();
@@ -664,7 +659,7 @@ fn a_dropped_feeder_ends_the_source() {
     assert_eq!(r.next(), None);
 }
 
-/// Whatever is left in hand is played out before the feeder is missed.
+/// Play buffered samples before ending a source whose feeder has disconnected.
 #[test]
 fn held_samples_outlive_the_feeder() {
     let (tx, mut r) = ring();
@@ -707,8 +702,7 @@ fn supported_directory_extensions_are_limited_to_stream_codecs() {
     assert!(!supported_file(Path::new("notes.txt")));
 }
 
-/// The ordinary block, and the two shapes that used to be got wrong: an apostrophe in
-/// the title, and a block with nothing after the title but padding.
+/// Parse ordinary title blocks, titles with apostrophes, and titles followed only by padding.
 #[test]
 fn reads_a_stream_title() {
     let block = |s: &str| {
@@ -731,8 +725,7 @@ fn reads_a_stream_title() {
         stream_title(&block("StreamTitle='Alone At Last'")),
         Some(Some("Alone At Last".to_string()))
     );
-    // The station saying it is playing nothing in particular, which is not the same
-    // as a block that never mentioned a title.
+    // Distinguish an explicitly empty title from an absent title field.
     assert_eq!(
         stream_title(&block("StreamTitle='';StreamUrl='';")),
         Some(None)
@@ -741,8 +734,8 @@ fn reads_a_stream_title() {
     assert_eq!(stream_title(&[0u8; 16]), None);
 }
 
-/// The whole point of the reader: what comes out is the audio and nothing but, whatever
-/// size the reads happen to be. A byte of metadata handed to the decoder is a click.
+/// Return only audio bytes regardless of read size.
+/// Metadata must not reach the audio decoder.
 #[test]
 fn icy_keeps_the_metadata_out_of_the_audio() {
     // Two spans of audio with a titled block between them and an empty one behind it.
@@ -763,7 +756,7 @@ fn icy_keeps_the_metadata_out_of_the_audio() {
         title: TitleSink::new(Some(state.clone()), GENERATION.load(Ordering::SeqCst)),
     };
 
-    // Read in threes, so a block boundary lands mid-request rather than on one.
+    // Read three bytes at a time so a request can cross a block boundary.
     let mut out = Vec::new();
     let mut buf = [0u8; 3];
     loop {
@@ -777,8 +770,8 @@ fn icy_keeps_the_metadata_out_of_the_audio() {
     assert_eq!(state.lock().unwrap().title.as_deref(), Some("One - Two"));
 }
 
-/// A run that has been superseded says nothing: the feeder is still decoding the
-/// station that was switched away from, and its title is not the answer any more.
+/// Ignore title updates from an obsolete playback generation.
+/// A previous station's feeder must not replace the current title.
 #[test]
 fn a_superseded_title_is_dropped() {
     let state = Arc::new(Mutex::new(AudioState::default()));
@@ -945,10 +938,9 @@ fn ring_reports_frame_aligned_spans_and_its_audio_shape() {
     assert_eq!(ring.total_duration(), None);
 }
 
-/// What cpal can see, and which of them this would pick. Needs no network and makes
-/// no noise; it is the first thing to run when audio reports itself playing and
-/// nothing comes out, because the answer is usually that the chosen device is a card
-/// rather than the sound server.
+/// List available output devices and report the default selection.
+/// This diagnostic requires no network connection and produces no sound.
+/// Use it to investigate silent playback, including selection of a hardware device instead of the sound server.
 #[test]
 #[ignore]
 fn lists_output_devices() {

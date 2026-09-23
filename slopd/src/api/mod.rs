@@ -23,7 +23,7 @@ use crate::session::Manager;
 pub(super) type Mgr = Arc<Manager>;
 pub(super) type ApiResult<T = wire::Ack> = Result<Proto<T>, ApiError>;
 
-/// Request fields are an explicit allowlist; disk documents can retain unrelated extensions.
+/// Requests permit only listed fields. Disk documents can preserve unrelated extensions.
 fn parse_owned<T: DeserializeOwned>(value: Value, fields: &[&str]) -> Result<T, ApiError> {
     if let Some(object) = value.as_object() {
         if let Some(field) = object
@@ -86,9 +86,8 @@ pub(super) fn err(code: StatusCode, e: impl std::fmt::Display) -> ApiError {
     )
 }
 
-/// The token a request presents, if any. What `Manager::resolve_cap` weighs against the root
-/// and the live grants. Shared with the `/ws` upgrade, which reads it itself because the header
-/// rides only on the upgrade request.
+/// Read the request token, if present. `Manager::resolve_cap` checks it against root credentials and live grants.
+/// The `/ws` upgrade also uses this helper because the client sends the header only with the upgrade request.
 pub(crate) fn presented_token(headers: &HeaderMap) -> Option<String> {
     headers
         .get(TOKEN_HEADER)

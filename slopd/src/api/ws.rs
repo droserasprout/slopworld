@@ -27,17 +27,27 @@ pub(super) async fn ws_upgrade(
     headers: HeaderMap,
     ws: WebSocketUpgrade,
 ) -> impl IntoResponse {
-    // The header rides on the upgrade only, so the capability is resolved here and carried into
-    // the pump rather than read off a request per message. A grant drives what it may from the
-    // same socket the mod uses; a bad token never upgrades.
+    // The client sends the header only with the upgrade request.
+    // Resolve the capability here and pass it to the message loop.
+    // Grants use the same socket endpoint as the mod, with restricted access. Reject invalid tokens before upgrading.
     let generation_before = m.auth_generation();
     let cap = match m.resolve_cap(presented_token(&headers).as_deref()).await {
         Some(c) => c,
-        None => return err(StatusCode::UNAUTHORIZED, "bad token").into_response(),
+        None => {
+            return err(
+                StatusCode::UNAUTHORIZED,
+                "The authentication token is missing or invalid.",
+            )
+            .into_response()
+        }
     };
     let generation = m.auth_generation();
     if generation != generation_before {
-        return err(StatusCode::UNAUTHORIZED, "capability changed").into_response();
+        return err(
+            StatusCode::UNAUTHORIZED,
+            "The caller's permissions changed during this request.",
+        )
+        .into_response();
     }
     if !headers
         .get("sec-websocket-protocol")
@@ -46,7 +56,7 @@ pub(super) async fn ws_upgrade(
     {
         return err(
             StatusCode::BAD_REQUEST,
-            "expected slopworld.protobuf.v2 WebSocket subprotocol",
+            "Use the slopworld.protobuf.v2 WebSocket subprotocol.",
         )
         .into_response();
     }
@@ -55,8 +65,9 @@ pub(super) async fn ws_upgrade(
         .into_response()
 }
 
-/// Filters events for a socket capability. Root sees all; scoped grants see named sessions and
-/// screens, but not projects, library, usage, audio, or jukebox catalog data.
+/// Filter events by socket capability. Root receives all events.
+/// Scoped grants receive permitted sessions and screens.
+/// Exclude projects, library, usage, audio, and jukebox catalog data from scoped connections.
 fn scope_event(cap: &Cap, ev: Arc<EventMessage>) -> Option<Arc<EventMessage>> {
     if !cap.is_valid() {
         return None;
@@ -93,22 +104,21 @@ async fn ws_run(socket: WebSocket, m: Mgr, cap: Cap, generation: u64) {
     if m.auth_generation() != generation {
         return;
     }
-    // A `WatchGuard` apiece rather than bare names: the daemon renders a pane at a reader's
-    // rate only while somebody is holding one, and this socket has several ways out.
+    // Store a WatchGuard for each subscription.
+    // A guard enables rendering at the reader rate. Release it when the subscription ends.
     let subs: WsSubs = Arc::new(Mutex::new(HashMap::new()));
 
-    // Subscribe before sending the initial snapshot. A session can be created while the
-    // snapshot is being assembled; subscribing after it would lose that live update until
-    // the client reconnects.
+    // Subscribe before sending the initial snapshot.
+    // A session can start during snapshot preparation. Subscribing later could lose that update until the client reconnects.
     let events = m.events.subscribe();
     if !send_initial_snapshot(&tx, &m, &cap).await {
         return;
     }
 
     let pump = spawn_frame_pump(events, tx.clone(), subs.clone(), cap.clone());
-    // Scrollback is an emulator snapshot and can be expensive on a large pane. Keep a small
-    // bounded lane for it so one wheel request does not stop intake of keys, resize, or newer
-    // wheel requests. Results stay in request order below.
+    // Scrollback snapshots can take time for large panes.
+    // Limit concurrent captures without blocking receipt of keys, resize commands, or later wheel requests.
+    // Return results in request order.
     let scroll_slots = Arc::new(Semaphore::new(4));
     let mut pending_scrolls: VecDeque<JoinHandle<Option<ScreenView>>> = VecDeque::new();
 
@@ -172,9 +182,8 @@ async fn ws_run(socket: WebSocket, m: Mgr, cap: Cap, generation: u64) {
         pending.abort();
     }
 
-    // Explicitly, rather than with the table: the pump holds the other half of that `Arc` and
-    // an aborted task is dropped when the runtime gets round to it, which is not when the
-    // agent stopped being watched.
+    // Clear subscriptions immediately because the frame task also owns this Arc.
+    // Aborting the task does not guarantee immediate release of its watch guards.
     subs.lock().await.clear();
     pump.abort();
 }
@@ -197,10 +206,10 @@ async fn auth_invalidated(changes: &mut broadcast::Receiver<AuthChange>, cap: &C
     }
 }
 
-/// Usage, projects and library ride along because they speak only on a change: a mod
-/// attaching between polls would otherwise draw nothing for a minute. Each goes through the
-/// same scope filter the pump uses, so a grant's socket gets its filtered session list and
-/// none of the mod's wider view - `scope_event` drops what it may not see.
+/// Include usage, projects, and library in the initial snapshot because their updates occur only after changes.
+/// Otherwise, a newly connected mod could show no data until the next poll.
+/// Apply the same scope filter as the event loop.
+/// Scoped connections receive only permitted events and session names.
 async fn send_initial_snapshot(tx: &WsTx, m: &Mgr, cap: &Cap) -> bool {
     if let Some(ev) = scope_event(
         cap,
@@ -232,7 +241,7 @@ async fn send_initial_snapshot(tx: &WsTx, m: &Mgr, cap: &Cap) -> bool {
         EventMessage::new(Event::Library {
             library: m.library().await,
         }),
-        // On connect too, and for the same reason: a game that has just come up has to learn
+        // On connect too, and for the same reason. A game that has just come up has to learn
         // whether the music it asked for last time is playing.
         EventMessage::new(Event::Audio {
             audio: m.music_state().await,
@@ -248,8 +257,9 @@ async fn send_initial_snapshot(tx: &WsTx, m: &Mgr, cap: &Cap) -> bool {
     true
 }
 
-/// Coalesce screen frames per client to the monitor cadence: newest wins, and the pending
-/// frame flushes on the beat. Other event types remain uncoalesced.
+/// Combine screen updates for each client at the monitor interval.
+/// Keep only the latest pending frame for each pane. Send it at the next interval.
+/// Preserve individual events of other types.
 fn spawn_frame_pump(
     mut events: broadcast::Receiver<Arc<EventMessage>>,
     tx: WsTx,
@@ -262,12 +272,12 @@ fn spawn_frame_pump(
         use tokio::time::{sleep_until, Instant as TokioInstant};
 
         let mut last_screen = TokioInstant::now() - FRAME_COALESCE;
-        // One slot per pane, not one global slot: a socket can subscribe to several
-        // panes, and a frame for one must not overwrite a held frame for another.
+        // One slot per pane, not one global slot. A socket can subscribe to several panes, and a
+        // frame for one must not overwrite a held frame for another.
         let mut pending: HashMap<String, Arc<EventMessage>> = HashMap::new();
         loop {
-            // Only arm the beat when a frame is being held; otherwise the timer would
-            // fire on a past deadline and spin while nothing is pending.
+            // Start the timer only when a frame is pending.
+            // Otherwise, an expired deadline would cause repeated immediate wakeups.
             let flush = async {
                 if !pending.is_empty() {
                     sleep_until(last_screen + FRAME_COALESCE).await;
@@ -296,7 +306,7 @@ fn spawn_frame_pump(
                                 }
                                 last_screen = TokioInstant::now();
                             } else {
-                                // Newest wins for this pane; a still pane never reads stale.
+                                // Keep the latest frame for this pane.
                                 pending.insert(screen.name.clone(), ev);
                             }
                         } else {
@@ -315,7 +325,7 @@ fn spawn_frame_pump(
                             }
                         }
                     }
-                    // A slow client misses frames; the next capture resyncs it.
+                    // A slow client can miss frames. The next capture restores synchronization.
                     Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => continue,
                     Err(_) => break,
                 },
@@ -334,8 +344,8 @@ fn spawn_frame_pump(
     })
 }
 
-/// Handles one client message. Unauthorized messages are dropped silently; a failed direct
-/// response means the socket is gone and tells the caller to stop reading it.
+/// Handle one client message. Ignore unauthorized messages without a response.
+/// A failed direct response indicates a closed socket and tells the caller to stop reading.
 async fn handle_client_msg(cm: ClientMsg, m: &Mgr, cap: &Cap, tx: &WsTx, subs: &WsSubs) -> bool {
     if let ClientMsg::Sub { name } = cm {
         return handle_sub(name, m, cap, tx, subs).await;
@@ -437,8 +447,7 @@ async fn handle_paste(req: PasteReq, m: &Mgr, cap: &Cap) {
     if !m.cap_ok(cap, &req.name, Level::Rw).await {
         return;
     }
-    // A paste checks first, so anything left is a paste that did not land - and the only other
-    // sign of one is the operator noticing nothing arrived.
+    // Authorization is already complete. Report delivery errors so failed pastes are visible in the log.
     if let Err(e) = m.paste(&req.name, &req.text).await {
         tracing::warn!("paste to {}: {e:#}", req.name);
     }
@@ -471,7 +480,7 @@ async fn handle_audio(req: AudioReq, m: &Mgr, cap: &Cap) -> Option<crate::audio:
             if selection.station.is_some() || selection.stream.is_some() || selection.file.is_some()
             {
                 Err(anyhow::anyhow!(
-                    "ncspot cannot be combined with another audio source"
+                    "Select ncspot or another audio source, not both."
                 ))
             } else {
                 m.open_ncspot(None, None, Some(req.volume))
@@ -509,7 +518,7 @@ async fn handle_audio(req: AudioReq, m: &Mgr, cap: &Cap) -> Option<crate::audio:
         }
     }
     // Reply even when the player was already open and its broadcast state did not change.
-    // Launch and shutdown now use one ordered socket; no late HTTP launch can undo a stop.
+    // Launch and shutdown now use one ordered socket. No late HTTP launch can undo a stop.
     if spotify {
         Some(m.music_state().await)
     } else {
@@ -518,13 +527,16 @@ async fn handle_audio(req: AudioReq, m: &Mgr, cap: &Cap) -> Option<crate::audio:
 }
 
 fn resolve_audio_source(selection: AudioSelection) -> anyhow::Result<String> {
-    anyhow::ensure!(!selection.ncspot, "ncspot is not a decoded audio source");
+    anyhow::ensure!(
+        !selection.ncspot,
+        "The daemon does not decode audio from ncspot."
+    );
     match (selection.station, selection.stream, selection.file) {
         (Some(station), Some(stream), None) => crate::jukebox::catalog()
             .resolve(&station, &stream)
             .map_err(|e| anyhow::anyhow!("jukebox selection rejected: {e:#}")),
         (None, None, Some(file)) => Ok(file),
-        _ => bail!("jukebox selection must name a station/stream or file"),
+        _ => bail!("Select a station and stream, or select a file."),
     }
 }
 

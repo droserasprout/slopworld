@@ -159,15 +159,15 @@ async fn invalid_errands_and_file_actions_return_bad_request() {
     for (request, message) in [
         (
             json!({"kind":"prompt","command":" ","temp":true}),
-            "what to run",
+            "Provide a command",
         ),
         (
             json!({"kind":"shell","command":"echo test"}),
-            "name a project",
+            "Choose a project",
         ),
         (
             json!({"kind":"shell","project":"missing","path":"file","command":"cat"}),
-            "no such project",
+            "does not exist",
         ),
     ] {
         let (status, Proto(error)) = run(State(m.clone()), proto(request)).await.unwrap_err();
