@@ -20,6 +20,7 @@ under "Built with" and visual sources under "Assets".
 - RustAudio's Rodio/CPAL and Symphonia: playback and audio decoding.
 - tmux, bubblewrap and systemd: external session, isolation, and service foundations.
   Acknowledge them as system dependencies rather than bundled code.
+- Landlock: daemon crate for filesystem write restrictions during worktree allocation.
 
 ## Shipped art and sound
 
@@ -43,7 +44,7 @@ Name these direct crates on the human page:
 - Tokio, Axum, Tower HTTP, and Tracing.
 - Rodio, CPAL, and Symphonia.
 - Serde and ureq/rustls.
-- anyhow, futures, nix, regex, dirs, and toml.
+- anyhow, futures, nix, regex, dirs, landlock, and toml.
  The transitive graph includes Apache, MIT, MPL, BSD, ISC,
 Unicode and CDLA terms, so the curated page is not a replacement for
 `THIRD_PARTY_LICENSES`.
