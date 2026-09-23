@@ -14,9 +14,9 @@ namespace SlopWorld
         public string Unit = WireProtocol.UsageUnit.Pct;
         // -1 when the daemon sent no figure, which leaves the row a percentage.
         public float Amount = -1f;
-        // What Amount is out of; -1 if unsaid.
+        // What Amount is out of. -1 if unsaid.
         public float Limit = -1f;
-        // Seconds to the reset as of Heard; -1 if the daemon did not say.
+        // Seconds to the reset as of Heard. -1 if the daemon did not say.
         public long ResetsIn = -1;
 
         public static UsageWindow FromWire(Wire.UsageWindow w) => new UsageWindow

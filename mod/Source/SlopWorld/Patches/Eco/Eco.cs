@@ -6,26 +6,24 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Eco pauses and strips the board while leaving the terminal chrome alive. See mod-eco.md.
+    // Eco pauses and hides the map while retaining the terminal interface. See mod-eco.md.
     public static class Eco
     {
         public static bool Resting => Settings.EcoMode && !Cutscene.Playing;
 
-        // Hide map cosmetics during either stripped-board state.
+        // Hide map decorations during cutscenes and Eco rest.
         public static bool Bare => Cutscene.Playing || Resting;
 
-        // Draw the Loading-screen frames in world space where the map used to be.
+        // Draw loading screen frames in world space as the Eco background.
         [HarmonyPatch(typeof(Map), nameof(Map.MapUpdate))]
         public static class Patch_Board
         {
             static void Postfix(Map __instance)
             {
                 if (!Resting) return;
-                // MapUpdate runs for every loaded map. Only the displayed map submits a
-                // backdrop; frame lookup and drawing both stay behind the visibility gate.
+                // MapUpdate runs for each loaded map. Draw a background only for the displayed map.
                 if (__instance != Find.CurrentMap) return;
-                // TerminalWindow also hosts every maximized content view, including views
-                // opened without an agent. All of them cover the animated background.
+                // Maximized terminal content covers the background, including views opened without an agent.
                 if (TerminalWindow.Covering) return;
                 if (!WorldRendererUtility.DrawingMap) return;
 
@@ -33,14 +31,12 @@ namespace SlopWorld
             }
         }
 
-        // Keep the frame below any unexpected world draw regardless of its altitude.
+        // Draw the background before other world geometry, independent of altitude.
         const int Underneath = 1000;
 
-        // MapUpdate still runs while Eco is resting so the resident frame can be drawn. Keep the
-        // expensive, unchanged parts of that submission out of the frame: MenuBackground owns
-        // the animated texture choice, while this cache owns its material and the projection
-        // fit. Camera input is blocked in Eco, but transform and resolution keys still catch
-        // resize, map changes, and any external camera jump before the next draw.
+        // MapUpdate continues during Eco rest to draw the background.
+        // MenuBackground selects the animated texture. This cache owns its material and projection dimensions.
+        // Recalculate dimensions when the map, camera, or screen changes.
         static Texture2D _backdropTexture;
         static Material _backdropMaterial;
         static float _backdropDim = float.NaN;
@@ -68,7 +64,7 @@ namespace SlopWorld
             {
                 _backdropTexture = tex;
                 _backdropDim = dim;
-                // One owned material; pooling every (frame, dim) pair retains slider history.
+                // Reuse one material. Pooling each texture and dimming combination would retain materials from previous slider values.
                 if (_backdropMaterial == null)
                     _backdropMaterial = new Material(ShaderDatabase.Cutout)
                     {
@@ -108,13 +104,13 @@ namespace SlopWorld
 
             if (!changed) return true;
 
-            // Project the screen corners instead of assuming a top-down orthographic camera.
+            // Project screen corners to map coordinates without assuming an orthographic camera viewed from above.
             var a = UI.UIToMapPosition(0f, 0f);
             var b = UI.UIToMapPosition(UI.screenWidth, UI.screenHeight);
             float viewW = Mathf.Abs(b.x - a.x), viewH = Mathf.Abs(b.z - a.z);
             if (viewW <= 0f || viewH <= 0f) return false;
 
-            // Match vanilla's ScaleAndCrop fit; crop rather than letterbox.
+            // Match ScaleAndCrop by filling the view and cropping excess texture area.
             float w = viewW, h = viewH;
             float want = tex.width / (float)tex.height;
             if (want > w / h) w = h * want;
@@ -150,8 +146,7 @@ namespace SlopWorld
             return true;
         }
 
-        // ThingOverlays survives the disabled draw chain; suppress all map labels along with
-        // the pawns and other map things.
+        // Suppress pawn labels separately because the normal drawing restrictions do not cover this entry point.
         [HarmonyPatch(typeof(Pawn), nameof(Pawn.DrawGUIOverlay))]
         public static class Patch_PawnLabels
         {
@@ -160,7 +155,7 @@ namespace SlopWorld
 
         static bool _offered;
 
-        // Preserve resident expansion art; offer the planet once only when no frames exist.
+        // Use existing menu frames. Offer the planet texture once if no frames exist.
         static Texture2D Frame()
         {
             if (MenuBackground.HasFrames) return MenuBackground.Current(null);
@@ -171,29 +166,29 @@ namespace SlopWorld
                 ContentFinder<Texture2D>.Get("UI/HeroArt/BGPlanet", false));
         }
 
-        // Edge quads clip Eco's backdrop; an opaque terminal also makes them unnecessary.
+        // Hide map edge geometry while Eco or an opaque terminal covers the map.
         [HarmonyPatch(typeof(MapEdgeClipDrawer), nameof(MapEdgeClipDrawer.DrawClippers))]
         public static class Patch_Clippers
         {
             static bool Prefix() => !Resting && !TerminalWindow.Covering;
         }
 
-        // Weather draws from CameraDriver.OnPreCull, outside PaneOverDraw's gates.
-        // Keep weather updates and audio, but skip pixels hidden by the terminal or Eco.
+        // Weather draws through CameraDriver.OnPreCull, outside PaneOverDraw checks.
+        // Skip hidden weather graphics while retaining weather updates and audio.
         [HarmonyPatch(typeof(WeatherManager), nameof(WeatherManager.DrawAllWeather))]
         public static class Patch_Weather
         {
             static bool Prefix() => !Resting && !TerminalWindow.Covering;
         }
 
-        // Suppress world-space overlays; keep UI-space gizmos available.
+        // Suppress world overlays while retaining UI gizmos.
         [HarmonyPatch(typeof(MapInterface), nameof(MapInterface.MapInterfaceUpdate))]
         public static class Patch_WorldSpace
         {
             static bool Prefix() => !Resting;
         }
 
-        // Prevent clicks from selecting objects on the hidden board.
+        // Prevent map clicks while Eco hides the map.
         [HarmonyPatch(typeof(MapInterface), nameof(MapInterface.HandleMapClicks))]
         public static class Patch_MapClicks
         {

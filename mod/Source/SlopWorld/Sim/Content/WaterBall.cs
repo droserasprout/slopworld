@@ -21,9 +21,8 @@ namespace SlopWorld
             map.GetComponent<Plague>()?.Rejuvenate(pos, RestorationRadius);
         }
 
-        // Most impacts make rich soil; occasionally the rejuvenation overflows into a shallow
-        // freshwater body. Both terrain changes are saved by RimWorld, so this is the lasting
-        // part of the spell rather than another timed aura.
+        // Most impacts create rich soil. Some create shallow water.
+        // RimWorld saves these terrain changes, which continue after temporary aura protection ends.
         static void Terraform(Map map, IntVec3 centre, float radius)
         {
             var richSoil = TerrainDefOf.SoilRich;

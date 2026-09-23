@@ -2,7 +2,7 @@ using System;
 
 namespace SlopWorld
 {
-    // Apply Unity's VSync and target-FPS values together; unfocused windows always use 15 FPS.
+    // Apply Unity's VSync and target-FPS values together. Unfocused windows always use 15 FPS.
     public sealed class FramePolicy
     {
         public const string Sync = "sync", Limit = "limit";

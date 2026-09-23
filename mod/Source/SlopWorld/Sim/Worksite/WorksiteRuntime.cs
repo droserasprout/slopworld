@@ -4,8 +4,8 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Worksite's map-local caches and placement cursors. The only durable worksite value is
-    // the number of finished cells; everything here can be reacquired after a load.
+    // Store worksite caches and placement cursors for one map.
+    // Worksite saves only the number of completed cells. Rebuild this state after a load.
     sealed class WorksiteRuntime
     {
         public ThingDef Blocks;

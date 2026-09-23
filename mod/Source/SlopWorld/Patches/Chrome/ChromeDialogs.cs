@@ -3,8 +3,8 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Dialogs opened over fullscreen `Super` chrome otherwise land underneath it. Promote only
-    // ordinary dialog windows; `GameUI` and existing `Super` windows retain their layers.
+    // Place ordinary dialogs above an open terminal by assigning the Super layer.
+    // Keep other window layers unchanged.
     [HarmonyPatch(typeof(WindowStack), nameof(WindowStack.Add))]
     public static class Patch_DialogsOverChrome
     {

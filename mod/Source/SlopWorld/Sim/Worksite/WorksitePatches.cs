@@ -7,9 +7,8 @@ namespace SlopWorld
 {
     public partial class Worksite
     {
-        // Vanilla's figures are an economy's; the errand table states seconds of an agent's
-        // working time and this is where that lands. Anything off the table keeps vanilla's
-        // number, WorkFor answering zero for it.
+        // Use work requirements from the errand table for agent construction.
+        // Keep the base game value when WorkFor returns zero.
         [HarmonyPatch(typeof(Frame), nameof(Frame.WorkToBuild), MethodType.Getter)]
         public static class Patch_ErrandWork
         {
@@ -20,9 +19,8 @@ namespace SlopWorld
             }
         }
 
-        // Where a finished thing becomes plague. A prefix, because after CompleteConstruction
-        // the frame is despawned and has neither a map nor the footprint - and the footprint
-        // is the point, a five-by-three machine being a source that wide rather than a point.
+        // Add plague growth across the completed building footprint.
+        // Run before CompleteConstruction removes the frame and its map reference.
         [HarmonyPatch(typeof(Frame), nameof(Frame.CompleteConstruction))]
         public static class Patch_ErrandDone
         {
@@ -47,10 +45,9 @@ namespace SlopWorld
             }
         }
 
-        // A terrain frame draws four white corner brackets, and paving is queued a square at
-        // a time, so ahead of the agents that is a grid over most of the board saying
-        // nothing anybody can act on. Anything with a shape keeps its frame.
-        // By name: the override is not public, so nameof would not compile.
+        // Hide terrain frame brackets for worksite paving to reduce visual clutter.
+        // Keep building frames visible.
+        // Use the method name as a string because the override is not public.
         [HarmonyPatch(typeof(Frame), "DrawAt", new[] { typeof(Vector3), typeof(bool) })]
         public static class Patch_HideFloorFrames
         {

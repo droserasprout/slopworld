@@ -6,13 +6,12 @@ using Verse;
 
 namespace SlopWorld
 {
-    // MapInterface's click gate does not cover Selector or CameraDriver. Leave the
-    // selector's UI pass and gizmo grid alive for sidebar-selected agents.
+    // Block map selection and camera input separately from MapInterface clicks.
+    // Retain selector UI and gizmos for agents selected through the sidebar.
     static class EcoMapInput
     {
-        // CameraJumper is a programmatic camera path, so CameraDriver's Eco motion gate
-        // cannot stop it. Keep the agent selected for its sidebar actions, but leave the
-        // hidden board's camera alone while Eco is resting.
+        // CameraJumper bypasses the CameraDriver motion check.
+        // Select the agent without moving the camera while Eco is resting.
         public static void SelectAgent(Pawn pawn)
         {
             if (pawn == null) return;
@@ -25,8 +24,8 @@ namespace SlopWorld
             CameraJumper.TryJumpAndSelect(pawn);
         }
 
-        // The rectangle draws before Selector handles input, including the first event
-        // after Eco is enabled. Cancel it at that earlier draw entry as well.
+        // Cancel the drag rectangle before drawing because Selector handles input later.
+        // This also covers the first event after enabling Eco.
         [HarmonyPatch(typeof(DragBox), nameof(DragBox.DragBoxOnGUI))]
         static class SelectionRectangle
         {
@@ -44,8 +43,7 @@ namespace SlopWorld
             static bool Prefix(Selector __instance)
             {
                 if (!Eco.Resting) return true;
-                // Cancel gestures already in progress when Eco was enabled, without
-                // clearing the selected agent or its action buttons.
+                // Cancel active gestures without clearing the selected agent or its action buttons.
                 __instance.Notify_DialogOpened();
                 return false;
             }
@@ -60,9 +58,9 @@ namespace SlopWorld
             }
         }
 
-        // Edge scrolling is sampled before vanilla checks its motion gate. Clear pending
-        // drag input and inertia too, so neither moves the camera or survives leaving Eco.
-        // Keep CameraDriver.Update running for projection and resolution changes.
+        // Edge scrolling runs before the base game motion check.
+        // Clear pending drag input and camera velocity so movement does not continue after Eco ends.
+        // Keep CameraDriver.Update active for projection and resolution changes.
         [HarmonyPatch(typeof(CameraDriver), "CalculateCurInputDollyVect")]
         static class CameraDolly
         {

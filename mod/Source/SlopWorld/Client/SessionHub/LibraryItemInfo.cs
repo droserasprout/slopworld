@@ -9,16 +9,15 @@ using Verse;
 
 namespace SlopWorld
 {
-    // The agent it lands is temporary and never written to config.toml, so what is saved is
-    // the errand. Spelled out rather than pointing at an existing agent, which would stop
-    // working the day that agent was deleted.
+    // Save the errand definition in config.toml. Agents created for errands are temporary.
+    // Store the definition independently of existing agents so deleting an agent does not invalidate the errand.
     public class LibraryItemInfo
     {
         public string Name = "";
         public LibraryItemKind Kind = LibraryItemKind.Prompt;
         public LibraryItemLink Link = LibraryItemLink.Project;
-        // The project where it runs when Link is Project; temporary links create a fresh
-        // workspace, and ask links leave the destination to the caller.
+        // Destination project when Link is Project.
+        // Temporary links create a new workspace. Ask links let the caller select the destination.
         public string Project = "";
         // The prompt, or the command line. Sent once the pane is ready for it.
         public string Text = "";
@@ -26,12 +25,12 @@ namespace SlopWorld
         public string Command = "";
         public bool Host;
         public string AgentTemplate = "";
-        // What a file action does after selection. Ask preserves the original per-invocation menu.
+        // Action after file selection. Ask displays a menu for each invocation.
         public FileActionMode Mode = FileActionMode.Ask;
 
-        // Shipped with the daemon rather than written in config.toml: it cannot be edited or
-        // deleted, and the library table leaves it out. The breadcrumb lists still offer it,
-        // which is the only place a shipped entry is meant to be seen.
+        // The daemon supplies this entry without saving it in config.toml.
+        // Built-in entries do not permit editing or deletion.
+        // Omit them from the library table but include them in breadcrumb lists.
         public bool Builtin;
 
         public static LibraryItemInfo FromWire(Wire.LibraryItem j) => new LibraryItemInfo
@@ -50,8 +49,7 @@ namespace SlopWorld
             Builtin = j.Builtin,
         };
 
-        // An unknown link reads as Project, the way an unknown state reads as Down: a version
-        // skew has to stay survivable.
+        // Use Project for unknown link values to tolerate differences between client and daemon versions.
         public static LibraryItemLink ParseLink(string s)
         {
             switch (s)

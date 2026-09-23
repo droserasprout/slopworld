@@ -6,16 +6,14 @@ using Verse;
 namespace SlopWorld
 {
     /// <summary>
-    /// Replaces vanilla colonist cycling with terminal-tab cycling on the map layer; a pane
-    /// owns the same keys before this patch runs.
+    /// Cycle terminal tabs from the map. An open terminal handles these keys separately.
     /// </summary>
     [HarmonyPatch(typeof(ShortcutKeys), "ShortcutKeysOnGUI")]
     public static class Patch_ShortcutKeysOnGUI
     {
         static bool Prefix()
         {
-            // A pane owns all of its input, including comma and period; its chrome handles
-            // the hardcoded Alt+Z/Alt+X walk before forwarding other keys to the agent.
+            // Let an open terminal handle session navigation before forwarding input to the agent.
             if (Find.WindowStack?.WindowOfType<TerminalWindow>() != null) return true;
 
             if (TerminalWindow.TryTabWalkDirection(Event.current, out var tabDir))
@@ -25,12 +23,11 @@ namespace SlopWorld
                 return false;
             }
 
-            // Alt+Z/Alt+X are the mod's session walk. The old comma/period bindings are
-            // deliberately left to vanilla (and are stripped by StripKeys).
+            // Leave other keys to the base game. StripKeys disables the old comma and period bindings.
             return true; // fall through to vanilla for other keys (Accept/Cancel/camera)
         }
 
-        /// <summary>Walk the session list by <paramref name="dir"/> (-1 or 1).</summary>
+        /// <summary>Move through the session list by <paramref name="dir"/> (-1 or 1).</summary>
         static void Walk(int dir)
         {
             var order = TerminalWindow.TabOrder();
@@ -48,14 +45,13 @@ namespace SlopWorld
             string target = order[next];
             if (target == null) return;
 
-            // Set the current session and clear any old pawn selection. Without the clear,
-            // selecting a ghost would be undone by MapUIOnGUI's one-way pawn synchronization
-            // on the next frame.
+            // Clear the previous pawn selection after selecting a session.
+            // Otherwise, map synchronization can replace a selected session that has no pawn.
             SessionSelectable.Current = target;
             Find.Selector?.ClearSelection();
 
-            // If the session has a pawn, select it and normally jump the camera to it;
-            // ghost rows leave the camera where it is because there is nothing to look at.
+            // Select the session pawn if one exists. EcoMapInput also moves the camera outside Eco rest.
+            // Sessions without pawns leave the camera unchanged.
             var colony = AgentColony.Current;
             var pawn = colony?.PawnOf(target);
             if (pawn != null) EcoMapInput.SelectAgent(pawn);

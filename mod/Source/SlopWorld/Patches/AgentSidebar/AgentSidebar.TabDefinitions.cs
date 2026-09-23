@@ -17,7 +17,7 @@ namespace SlopWorld
             return new SidebarTabRegistry(
                 new SidebarTabDefinition(
                     SidebarTab.Agents, "agents", "agents",
-                    "Agents - every session, under the project it runs in",
+                    "Agents: view all sessions, grouped by project.",
                     true, true, false,
                     new SidebarTabHandlers
                     {
@@ -30,7 +30,7 @@ namespace SlopWorld
                     }),
                 new SidebarTabDefinition(
                     SidebarTab.Files, "files", "files",
-                    "Files - every project's directory, as a tree",
+                    "Files: browse each project's files in a tree.",
                     true, true, true,
                     new SidebarTabHandlers
                     {
@@ -59,7 +59,7 @@ namespace SlopWorld
                     }),
                 new SidebarTabDefinition(
                     SidebarTab.Git, "git", "git",
-                    "Git - what every working tree has that its last commit does not",
+                    "Git: view changes since the last commit in each working tree.",
                     true, true, false,
                     new SidebarTabHandlers
                     {
@@ -80,7 +80,7 @@ namespace SlopWorld
                     }),
                 new SidebarTabDefinition(
                     SidebarTab.Search, "search", "search",
-                    "Search - find text across every project",
+                    "Search: find text in any project.",
                     true, false, true,
                     new SidebarTabHandlers
                     {
@@ -94,7 +94,7 @@ namespace SlopWorld
                     }),
                 new SidebarTabDefinition(
                     SidebarTab.Tasks, "tasks", "tasks",
-                    "Tasks - delegate work and inspect the agent mailbox",
+                    "Tasks: view and manage delegated tasks.",
                     true, false, false,
                     new SidebarTabHandlers
                     {
@@ -107,7 +107,8 @@ namespace SlopWorld
                     }),
                 new SidebarTabDefinition(
                     SidebarTab.Library, "library", "library",
-                    "Library - templates, prompts, commands, breadcrumbs, file actions, projects and presets",
+                    "Library: manage saved items, projects, worktrees, and presets. " +
+                    "Saved items include templates, prompts, commands, breadcrumbs, and file actions.",
                     true, true, false,
                     new SidebarTabHandlers
                     {
@@ -191,8 +192,8 @@ namespace SlopWorld
             _agentVisibilityRect = r;
             Tab(r, Icons.Hidden, StatusFiltering,
                 StatusFiltering
-                    ? $"Showing {StatusFilterLabel} agents. Click to change the selection."
-                    : "All agents shown. Click to select statuses.",
+                    ? $"Showing {StatusFilterLabel} agents. Click to change the status filter."
+                    : "All agents shown. Click to choose agent statuses.",
                 OpenAgentVisibilityMenu);
         }
 
@@ -214,8 +215,8 @@ namespace SlopWorld
             _visibilityRect = r;
             Tab(r, Icons.Hidden, active,
                 active
-                    ? "Visibility filters active. Click to change."
-                    : "All files shown. Click to filter.",
+                    ? "Showing dotfiles or Git-ignored files. Click to change the filters."
+                    : "All files shown. Click to choose which files to show.",
                 OpenVisibilityMenu);
         }
 
@@ -224,7 +225,7 @@ namespace SlopWorld
             var r = ActionRect(context);
             DrawFoldAction(ref r);
             Tab(r, Icons.Refresh, false,
-                "Read every working tree again.", GitView.Refresh);
+                "Refresh Git status for every working tree.", GitView.Refresh);
         }
 
         static void DrawLibraryActions(SidebarTabActionContext context)
@@ -232,7 +233,7 @@ namespace SlopWorld
             var r = ActionRect(context);
             DrawFoldAction(ref r);
             DrawLibraryProjectFilterAction(ref r);
-            Tab(r, Icons.Refresh, false, "Reload Library and templates.",
+            Tab(r, Icons.Refresh, false, "Refresh the Library data.",
                 () => LibraryView.Refresh(UiLayout.Fail));
         }
 
@@ -241,8 +242,8 @@ namespace SlopWorld
             var anchor = r;
             Tab(r, Icons.Filter, LibraryView.ProjectFiltering,
                 LibraryView.ProjectFiltering
-                    ? $"Showing {LibraryView.ProjectFilterLabel} in Library. Click to change the selection."
-                    : "Every project in Library. Click to show only some of them.",
+                    ? $"Showing {LibraryView.ProjectFilterLabel} in Library. Click to change the project filter."
+                    : "Library shows every project. Click to filter the list.",
                 () => LibraryView.OpenProjectFilterMenu(anchor));
             r.x -= TabIcon + 3f;
         }
@@ -251,7 +252,7 @@ namespace SlopWorld
         {
             var r = ActionRect(context);
             Tab(r, Icons.Refresh, false,
-                "Read the task mailbox again.",
+                "Refresh the task list.",
                 () => SessionHub.Instance.TaskStore.Refresh(fail: UiLayout.Fail));
             r.x -= TabIcon + 3f;
             TasksView.FilterButton(r);

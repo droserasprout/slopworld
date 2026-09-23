@@ -7,10 +7,10 @@ using Verse;
 
 namespace SlopWorld
 {
-    // The two remaining ways to "play" a pawn: selecting scenery, and drafting.
+    // Limit pawn selection and direct player control.
 
-    // Gate Selector.Select so agent colonists remain selectable, the player pawn and colony
-    // animals are not selected, and cutscenes block all pawn selection.
+    // Permit selection of one colonist at a time. Exclude the player pawn and animals.
+    // Block all selection during cutscenes.
     [HarmonyPatch(typeof(Selector), nameof(Selector.Select))]
     public static class Patch_Selectable_ColonistsOnly
     {
@@ -32,8 +32,8 @@ namespace SlopWorld
         }
     }
 
-    // A drag box calls Select once per pawn. Reject the whole gesture when it contains more
-    // than one agent, instead of allowing the first pawn through and leaving a fake group.
+    // A drag box calls Select for each pawn. Reject drag selection when it contains multiple colonists.
+    // This prevents selecting only the first colonist from the group.
     [HarmonyPatch(typeof(Selector), "SelectInsideDragBox")]
     public static class Patch_No_Agent_Drag_Multiselect
     {
@@ -53,16 +53,15 @@ namespace SlopWorld
         }
     }
 
-    // Double-click is vanilla's other mouse multi-selection gesture. An agent is a terminal
-    // target, not a member of a controllable group, so the gesture does nothing.
+    // Disable double-click group selection because agents are individual terminal targets.
     [HarmonyPatch(typeof(Selector), "SelectAllMatchingObjectUnderMouseOnScreen")]
     public static class Patch_No_Agent_DoubleClick_Multiselect
     {
         static bool Prefix() => false;
     }
 
-    // Drafting would hand player control over a pawn the daemon owns. Pawn.GetGizmos
-    // pulls the draft command straight from here.
+    // Remove drafting controls because the daemon controls agent pawns.
+    // Pawn.GetGizmos obtains the draft command from this method.
     [HarmonyPatch(typeof(Pawn_DraftController), "GetGizmos")]
     public static class Patch_Hide_Draft
     {
@@ -73,9 +72,8 @@ namespace SlopWorld
         }
     }
 
-    // Every map right-click funnels through GetOptions, and Selector.HandleMapClicks
-    // skips both the menu and the single-option auto-order when that list comes back
-    // empty. Postfix rather than a skip, so the out FloatMenuContext still gets built.
+    // Clear map right-click options to suppress menus and automatic single-option orders.
+    // Use a postfix so GetOptions still initializes its output context.
     [HarmonyPatch(typeof(FloatMenuMakerMap), nameof(FloatMenuMakerMap.GetOptions))]
     public static class Patch_Hide_RightClickMenu
     {

@@ -5,8 +5,8 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Agents need Construction even when a generated backstory disables ManualSkilled.
-    // Remove only that cached work type; vanilla rebuilds the cache as needed.
+    // Permit agent construction even when a generated backstory disables ManualSkilled.
+    // Remove Construction from the disabled work types. The base game rebuilds this cache as necessary.
     [HarmonyPatch(typeof(Pawn), nameof(Pawn.GetDisabledWorkTypes))]
     public static class Patch_AgentsCanBuild
     {

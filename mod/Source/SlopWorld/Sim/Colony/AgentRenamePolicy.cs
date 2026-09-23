@@ -2,8 +2,8 @@ using System;
 
 namespace SlopWorld
 {
-    // The colony's name table and the daemon's session list can disagree for one rename. Keep
-    // this decision independent of Pawn so the transition can be exercised without RimWorld.
+    // The colony name table and daemon session list can differ during a rename.
+    // Keep this logic independent of Pawn so tests can run without RimWorld.
     internal static class AgentRenamePolicy
     {
         public static bool Keeps(string bindingName, Func<string, bool> member,

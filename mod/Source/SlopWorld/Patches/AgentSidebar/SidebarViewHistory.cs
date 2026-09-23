@@ -14,9 +14,9 @@ namespace SlopWorld
         Library,
     }
 
-    // A view location stores semantic identity rather than a row or view instance. The
-    // latter are rebuilt when daemon data arrives, while these values remain useful to the
-    // back/forward stack and to a later Ctrl+F tab focus.
+    // A view location stores semantic identity rather than a row or view instance. The latter are
+    // rebuilt when daemon data arrives. In contrast, These values remain useful to the back/forward
+    // stack and to a later Ctrl+F tab focus.
     public readonly struct SidebarViewLocation : IEquatable<SidebarViewLocation>
     {
         public readonly SidebarTab Tab;
@@ -87,9 +87,9 @@ namespace SlopWorld
             !left.Equals(right);
     }
 
-    // Process-local browser history for the shared sidebar. The latest target is retained per
-    // tab even when the user only switches tabs, while Back and Forward move through the
-    // actual locations visited in order.
+    // Process-local browser history for the shared sidebar. The latest target is retained per tab
+    // even when the user only switches tabs. In contrast, Back and Forward move through the actual
+    // locations visited in order.
     public sealed class SidebarViewHistory
     {
         const int MaxEntries = 64;

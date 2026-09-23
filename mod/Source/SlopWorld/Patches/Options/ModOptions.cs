@@ -8,15 +8,13 @@ using Verse.Sound;
 
 namespace SlopWorld
 {
-    // Options occupy the chrome's content area, with a width-capped page beside the
-    // category column. Vanilla positions categories from window coordinates
-    // (`Rect(0, i*50, 160, 48)`), so the centred band must be a GUI group; remapping its
-    // rect would not move them. See OptionsView and ChromeShift.
+    // Place options in the content area beside the category column. Limit page width.
+    // Base game categories use window coordinates, so center the content with a GUI group.
+    // See OptionsView and ChromeShift.
     public static partial class ModOptions
     {
-        // The band, its width and the row taken off the foot for the OK button are
-        // OptionsView's: they are about the shape the pages are drawn in, and this file is
-        // the column of categories and the pages themselves.
+        // OptionsView owns the content band, width, and button space.
+        // This file owns categories and pages.
 
         public enum PageId
         {
@@ -79,8 +77,8 @@ namespace SlopWorld
             }
         }
 
-        // Column order matches the visible category order. Synthetic categories and their
-        // pages are data here; the only special case is a vanilla category supplied by DefOf.
+        // Define categories and page factories in display order.
+        // Existing base game categories use their DefOf definitions.
         static readonly TabSpec[] TabSpecs =
         {
             new TabSpec(PageId.Config, "SlopWorld_Config", "General", () => Icons.Gear,
@@ -129,7 +127,7 @@ namespace SlopWorld
                 () => new AboutPage()),
         };
 
-        // A child row is indented and iconless; a page-less parent selects its first child.
+        // Indent child rows without icons. A parent without a page selects its first child.
         class Tab
         {
             public readonly PageId Key;
@@ -196,8 +194,7 @@ namespace SlopWorld
             }
         }
 
-        // Column order matches the visible category order, and synthetic entries are added
-        // at startup.
+        // Store categories in display order. Add generated definitions at startup.
         static readonly List<Tab> Column = new List<Tab>();
         static readonly Dictionary<PageId, Tab> Tabs = new Dictionary<PageId, Tab>();
 
@@ -212,9 +209,8 @@ namespace SlopWorld
 
         public static OptionCategoryDef CategoryFor(PageId key) => TabFor(key)?.Def;
 
-        // The in-game options view gives the terminal chrome first chance at key events.
-        // While the Keyboard page is waiting for a binding, that chance must be yielded so
-        // F-keys and other chrome bindings can reach KeyBindingsPage.CaptureKey().
+        // Let the Keyboard page capture input before terminal shortcuts when it waits for a binding.
+        // This permits function keys to reach KeyBindingsPage.CaptureKey().
         public static bool KeyboardCaptureActive
         {
             get
@@ -239,9 +235,8 @@ namespace SlopWorld
             foreach (var spec in TabSpecs)
                 Add(spec, general);
 
-            // Graphics, Interface and Controls are sections of the RimWorld page now, rather
-            // than destinations of their own. Keep the vanilla defs available to the renderer,
-            // but keep them out of Dialog_Options' category rail.
+            // Show Graphics, Interface, and Controls as sections of the RimWorld page.
+            // Retain their definitions for rendering but hide their separate category rows.
             HideMergedCategory(OptionCategoryDefOf.Graphics);
             HideMergedCategory(OptionCategoryDefOf.Interface);
             HideMergedCategory(OptionCategoryDefOf.Controls);
@@ -249,8 +244,7 @@ namespace SlopWorld
             foreach (var tab in Column)
                 if (tab.Synthetic) DefDatabase<OptionCategoryDef>.Add(tab.Def);
 
-            // Move column entries to the front of the database in column order; remaining
-            // game categories follow About.
+            // Move mod categories to the start of the database in display order. Leave other categories after them.
             var all = DefDatabase<OptionCategoryDef>.AllDefsListForReading;
             for (int i = 0; i < Column.Count; i++)
             {
@@ -258,8 +252,7 @@ namespace SlopWorld
                 all.Insert(i, Column[i].Def);
             }
 
-            // Its five controls live on our Audio page now. Keep the def in the database,
-            // as with Gameplay, but omit its duplicate row from the ordinary options list.
+            // Hide the duplicate Audio category because the mod Audio page provides its controls. Retain the definition.
             if (OptionCategoryDefOf.Audio != null) OptionCategoryDefOf.Audio.isDev = true;
         }
 
@@ -283,8 +276,8 @@ namespace SlopWorld
             return tab;
         }
 
-        // Reuse General's content pack so Dialog_Options accepts the synthetic category; rows
-        // and icons are drawn here, so `texPath` is unused.
+        // Reuse the General content pack so Dialog_Options accepts the generated category.
+        // Custom drawing supplies rows and icons without using texPath.
         static OptionCategoryDef MakeDef(string defName, string label, OptionCategoryDef general)
         {
             return new OptionCategoryDef
@@ -304,8 +297,7 @@ namespace SlopWorld
             return null;
         }
 
-        // Null is not a parent here: every top-level tab carries a null one, so an unmatched
-        // category asking for its children would be handed the head of the column.
+        // Return no child for a null parent. Otherwise, the search would match a top-level tab.
         static Tab FirstChild(Tab parent)
         {
             if (parent == null) return null;
@@ -320,12 +312,11 @@ namespace SlopWorld
             return Tabs.TryGetValue(key, out tab) ? tab : null;
         }
 
-        // What a press on a row selects. A tab with no page of its own is a heading with
-        // pages under it, so the press opens the first of them.
+        // Select the tab page, or its first child if the tab has no page.
         static Tab Target(Tab tab) =>
             tab == null || tab.HasPage ? tab : FirstChild(tab);
 
-        // ---------------------------------------------------------------- the pages
+        // Page navigation.
 
         public static void OpenNewSandboxPreset()
         {
@@ -363,26 +354,24 @@ namespace SlopWorld
             OpenCategory(tab.Def);
         }
 
-        // Preserve the last page because each toggle rebuilds the view and reloads config.
+        // Remember the last category because each toggle rebuilds the view and reloads configuration.
         static OptionCategoryDef _lastCategory;
 
-        // From OptionsView.Closed, which is the one road out of the view.
+        // OptionsView.Closed calls this before closing the view.
         public static void Remember(OptionCategoryDef category)
         {
             if (category != null) _lastCategory = category;
         }
 
-        // The `config` main button. Toggles rather than stacks, and opens on the page it was
-        // last left on - our own category the first time, rather than on General. Content
-        // rather than a window (see OptionsView): the menu is laid out inside the chrome, so
-        // being a window over it was what took every press off the column underneath.
+        // Toggle the options content view from the Config button.
+        // Reopen the last category, or Config on first use.
+        // Use a content view so the surrounding interface can still receive input.
         public static void Toggle() =>
             TerminalWindow.ToggleContent(() => new OptionsView(_lastCategory
                 ?? CategoryFor(PageId.Config)));
 
-        // A palette entry can name a page directly. Open the options view when it is not
-        // already up, or swap the category in the existing view - the same two roads as the
-        // gear and the page's own links, without making the palette know about content views.
+        // Open the category in the current options view, or create a view if necessary.
+        // Palette entries and page links use this method.
         public static void OpenCategory(OptionCategoryDef category)
         {
             if (category == null) return;
@@ -395,7 +384,7 @@ namespace SlopWorld
             else v.Category = category;
         }
 
-        // The jukebox menu's Settings row opens our mixer directly.
+        // Open the Audio page from the jukebox Settings action.
         public static void OpenAudioTab()
         {
             var category = CategoryFor(PageId.Audio);
@@ -408,7 +397,7 @@ namespace SlopWorld
             if (category != null) v.Category = category;
         }
 
-        // Drop page instances and persist settings when the view/window closes.
+        // Release page instances and save settings when the view or window closes.
         public static void Teardown()
         {
             foreach (var tab in Column) tab.Teardown();

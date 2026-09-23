@@ -1,6 +1,7 @@
 namespace SlopWorld
 {
-    // Hidden maintenance stays warm at a bounded cadence; reveal always runs immediately.
+    // Run hidden maintenance at limited intervals.
+    // Run immediately when the content becomes visible.
     internal sealed class HiddenWorkCadence
     {
         bool _hidden;

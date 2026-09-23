@@ -29,9 +29,8 @@ namespace SlopWorld
 
         public static bool AgentPawnSelected => SelectedPawn() != null;
 
-        // A sidebar/ghost selection has no pawn in Selector, but still owns the same
-        // action row. Keep the inspect window suppressed for that state too; Eco is
-        // especially likely to leave the map selector empty while the row is active.
+        // A sidebar selection can have an action row without a pawn in Selector.
+        // Suppress the inspect window for this state too, including during Eco rest.
         public static bool AgentSelectionActive =>
             Current.ProgramState == ProgramState.Playing
             && (AgentPawnSelected || SessionSelectable.HasCurrent);
@@ -43,9 +42,8 @@ namespace SlopWorld
                 !(__instance is MainTabWindow_Inspect && AgentSelectionActive);
         }
 
-        // WindowStack draws a window's shadow before it calls WindowOnGUI. Skipping the
-        // inspect window therefore removes its body but not the translucent shadow that was
-        // tinting the gizmo row underneath it.
+        // WindowStack draws the shadow before WindowOnGUI.
+        // Suppress the inspect window shadow separately so it does not cover the action row.
         [HarmonyPatch(typeof(WindowStack), "WindowStackOnGUI")]
         public static class Patch_HideInspectShadow
         {

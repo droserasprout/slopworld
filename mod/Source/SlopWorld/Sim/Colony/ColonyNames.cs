@@ -3,14 +3,14 @@ using Verse;
 
 namespace SlopWorld
 {
-    // FactionTick prompts for faction/settlement names when unset. FinalizeInit sets both
-    // before that prompt and also runs for loaded saves, unlike quick start.
+    // FactionTick requests faction and settlement names when they are absent.
+    // Set both in FinalizeInit before the prompt. FinalizeInit also runs for loaded saves.
     public class ColonyNames : GameComponent
     {
-        // As it reads in the colonist bar's tooltips and on the world map.
+        // Faction name for colonist-bar tooltips and the world map.
         public const string FactionName = "Clankers";
 
-        // The settlement, which is what the colony is called everywhere it is named.
+        // Settlement name used to identify the colony.
         public const string SettlementName = "SlopWorld";
 
         public ColonyNames(Game game) { }
@@ -20,9 +20,8 @@ namespace SlopWorld
             var player = Faction.OfPlayerSilentFail;
             if (player == null) return;
 
-            // The setter is a plain field write; NamePlayerFactionDialogUtility.Named is that
-            // plus a permadeath savefile rename, which is a long event queued for a mode this
-            // colony is never in.
+            // Set the name directly.
+            // NamePlayerFactionDialogUtility.Named also queues a permadeath save-file rename, which this colony does not need.
             if (player.Name != FactionName) player.Name = FactionName;
 
             var objects = Find.WorldObjects;
@@ -31,8 +30,8 @@ namespace SlopWorld
             foreach (var settlement in objects.Settlements)
             {
                 if (settlement.Faction != player) continue;
-                // Through the utility because namedByPlayer is the half that closes the dialog,
-                // and this is the one place vanilla says how both are set.
+                // Use the utility to set both the name and namedByPlayer.
+                // The namedByPlayer flag prevents the naming dialog.
                 NamePlayerSettlementDialogUtility.Named(settlement, SettlementName);
             }
         }

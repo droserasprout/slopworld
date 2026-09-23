@@ -5,9 +5,8 @@ using System.Threading.Tasks;
 
 namespace SlopWorld
 {
-    // Playback identity is deliberately independent from station metadata. A station may be
-    // audible while its ICY title is empty, and a late recognition result must still be rejected
-    // after a stop or source replacement.
+    // Track playback independently of station metadata. A station can play without an ICY title.
+    // Reject recognition results after playback stops or the source changes.
     public sealed class RecognitionTrackState
     {
         public bool Playing { get; private set; }
@@ -44,13 +43,10 @@ namespace SlopWorld
         RecognitionResult Recognize(AudioInput input, CancellationToken cancel);
     }
 
-    // The SongRec boundary, lifted out of Radio so playback state and this external lookup
-    // stop sharing one method. Everything here is deliberately free of Unity and Verse so the
-    // process spawning, device discovery, JSON parsing and timeout behaviour can be exercised
-    // with a fake runner in the game-free tests. Radio owns the "is this still the track we
-    // heard" question; this owns "what did SongRec say".
+    // Keep SongRec calls independent of Unity and Verse so tests can use a fake process runner.
+    // Radio checks whether results still match current playback. This module runs SongRec and reads its output.
 
-    // A single command invocation, described so a test can answer it without a real process.
+    // Describe one command so tests can supply a result without starting a process.
     public sealed class ProcessSpec
     {
         public string FileName;
@@ -58,8 +54,7 @@ namespace SlopWorld
         public int TimeoutMs;
     }
 
-    // What became of one invocation. `Started` is false when the executable is missing - the
-    // one failure a jukebox on a microphone-only or songrec-less box must survive quietly.
+    // Store the result of one process invocation. Started is false if the process cannot start.
     public sealed class ProcessRun
     {
         public bool Started;
@@ -70,15 +65,14 @@ namespace SlopWorld
         public string StandardError = "";
     }
 
-    // The seam the tests inject across. The real one spawns a child; a fake one answers from a
-    // table keyed on the command name.
+    // Use a process runner interface so tests can supply results without starting child processes.
     public interface IProcessRunner
     {
         ProcessRun Run(ProcessSpec spec, CancellationToken cancel);
     }
 
-    // The chosen capture source and a label the UI can show. A null device leaves SongRec on
-    // its own default input, which is what a box without pactl gets.
+    // Store the capture device and its display label.
+    // A null device lets SongRec use its default input when pactl cannot provide a sink.
     public sealed class AudioInput
     {
         public readonly string Device;
@@ -101,8 +95,7 @@ namespace SlopWorld
         Error,
     }
 
-    // A typed answer in place of the old three out-parameters. `Input` travels with every
-    // result, success or failure, so the UI can always name where it listened.
+    // Include the input label with each result so the UI can identify the capture source.
     public sealed class RecognitionResult
     {
         public RecognitionStatus Status;
@@ -116,8 +109,7 @@ namespace SlopWorld
 
     public sealed class SongRecognizer : IRecognitionService
     {
-        // Shazam over a full stream can take a while, so the lookup is patient; the sink probe
-        // is a local query that either answers at once or is not there at all.
+        // Allow more time for song recognition than for the local sink query.
         public const int DefaultTimeoutMs = 30_000;
         const int SinkTimeoutMs = 1000;
 
@@ -128,10 +120,8 @@ namespace SlopWorld
             _runner = runner ?? throw new ArgumentNullException(nameof(runner));
         }
 
-        // SongRec's bare command captures the default input source, usually a microphone or a
-        // loopback capture, while the useful signal is the monitor of the current speaker sink.
-        // PulseAudio's compatibility CLI is available on PipeWire too; when it is absent, leave
-        // the device unchosen so microphone-only setups still work.
+        // Select the monitor of the default speaker sink to capture playback.
+        // If pactl cannot provide a sink, let SongRec use its default input.
         public AudioInput SelectInput(CancellationToken cancel = default)
         {
             var run = _runner.Run(
@@ -150,15 +140,13 @@ namespace SlopWorld
             return new AudioInput(monitor, "monitor of " + sink);
         }
 
-        // Run one lookup end to end: pick the input, ask SongRec, and turn its output into a
-        // typed result. Cancellation short-circuits to a quiet Canceled the caller can drop.
+        // Select an input and run recognition. Return Canceled when the caller cancels the request.
         public RecognitionResult Recognize(CancellationToken cancel = default)
         {
             return Recognize(SelectInput(cancel), cancel);
         }
 
-        // The same, with the input already chosen - so a caller can surface which source it
-        // settled on before the slow Shazam call returns.
+        // Accept a selected input so the caller can display its label before recognition completes.
         public RecognitionResult Recognize(AudioInput input, CancellationToken cancel = default)
         {
             if (input == null) input = SelectInput(cancel);
@@ -210,9 +198,8 @@ namespace SlopWorld
             return result;
         }
 
-        // SongRec prints a JSON object to stdout; some builds precede it with progress lines,
-        // so take the outermost braces rather than the whole stream. Malformed JSON is not a
-        // crash - it is simply no match, and the caller falls back to stderr for a reason.
+        // Extract JSON between the outermost braces because SongRec can print progress lines before it.
+        // Treat invalid JSON as no match. The caller uses standard error for the failure message.
         internal static void ParseRecognition(string output, out string artist, out string title)
         {
             artist = null;
@@ -229,13 +216,12 @@ namespace SlopWorld
             }
             catch
             {
-                // Leave both null: an unparseable response is a failed lookup, not an error to
-                // surface to the player.
+                // Ignore parsing failures. The caller treats missing artist or title values as no match.
             }
         }
 
-        // The first line of stderr, trimmed and capped, gives a specific reason for a failed
-        // lookup - a missing device or a network error - without pasting a stack into a toast.
+        // Use at most 240 characters from the first nonempty line after trimming standard error.
+        // Use the fallback if no text remains.
         internal static string ShortError(string stderr, string fallback)
         {
             string text = (stderr ?? "").Trim();
@@ -252,10 +238,8 @@ namespace SlopWorld
         }
     }
 
-    // The real seam: a child process whose stdout/stderr are drained while it runs, killed on
-    // timeout or on cancellation. Kept beside the recognizer because it too avoids Unity, so
-    // the whole file compiles into the test assembly. Local helper commands exercise process
-    // output, timeout and cancellation without invoking audio capture or SongRec.
+    // Read standard output and standard error while the child process runs. Stop it on timeout or cancellation.
+    // Keep this implementation independent of Unity so tests can run local helper commands without audio capture.
     public sealed class SystemProcessRunner : IProcessRunner
     {
         public ProcessRun Run(ProcessSpec spec, CancellationToken cancel)
@@ -281,8 +265,7 @@ namespace SlopWorld
                     }
                     catch
                     {
-                        // A missing executable throws here (Win32Exception); report it as a
-                        // clean "did not start" rather than an error status.
+                        // Return Started as false if process startup throws an exception.
                         return run;
                     }
 

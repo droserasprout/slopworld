@@ -8,13 +8,11 @@ using Verse;
 
 namespace SlopWorld
 {
-    /// <summary>Supplies session gizmos for real pawns and sidebar ghost rows.</summary>
+    /// <summary>Supply session actions for pawns and sidebar sessions without pawns.</summary>
     public class SessionSelectable : ISelectable
     {
-        /// The one session the mod considers "current". Set by a sidebar row click,
-        /// comma/dot, Alt+Num, opening or switching a pane, and selecting an agent's
-        /// colonist on the map. Read by <see cref="SessionGizmoSelection"/> to include
-        /// it in the gizmo drawer's object list.
+        /// The current session from sidebar selection, keyboard navigation, terminal panes, or map selection.
+        /// <see cref="SessionGizmoSelection"/> adds this session to the action drawing list.
         public static string Current
         {
             get => _current;
@@ -23,8 +21,8 @@ namespace SlopWorld
                 _current = value;
                 AgentSidebar.RememberAgent(value);
 
-                // Map selection is authoritative each frame; clear it when another session
-                // becomes current, except while syncing from the map or when it already matches.
+                // Clear map selection when another session becomes current.
+                // Retain it during map synchronization or when it already matches the session.
                 if (Syncing) return;
 
                 var selector = Find.Selector;
@@ -40,7 +38,7 @@ namespace SlopWorld
 
         static string _current;
 
-        /// True for the length of <see cref="SessionGizmoSelection.SyncFromMapSelection"/>.
+        /// True while <see cref="SessionGizmoSelection.SyncFromMapSelection"/> runs.
         internal static bool Syncing;
 
         public static bool HasCurrent => Current != null
@@ -117,14 +115,13 @@ namespace SlopWorld
             return new UiCommandAction(UiTheme.Btn.Default)
             {
                 defaultLabel = "Stop",
-                defaultDesc = $"Stop '{Session}'. The colonist stays on the floor "
-                            + "until the process runs again.",
+                defaultDesc = $"Stop '{Session}'. The colonist remains downed "
+                            + "until the process starts again.",
                 icon = Icons.Stop,
                 defaultIconColor = UiTheme.Bad,
                 hotKey = ModDefOf.SlopToggleSession,
                 action = () => Find.WindowStack.Add(ConfirmDialog.Create(
-                    $"Stop '{Session}'? This kills the tmux session; whatever the agent "
-                  + "is in the middle of goes with it.",
+                    $"Stop '{Session}'? This terminates the tmux session and interrupts the agent's current work.",
                     () => SessionHub.Instance.SessionStore.Stop(Session, UiLayout.Fail),
                     destructive: true)),
             };
@@ -135,7 +132,7 @@ namespace SlopWorld
             return new UiCommandAction(UiTheme.Btn.Default)
             {
                 defaultLabel = "Start",
-                defaultDesc = $"Start '{Session}' and put its colonist back on its feet.",
+                defaultDesc = $"Start '{Session}'. Its colonist becomes active again.",
                 icon = Icons.Play,
                 defaultIconColor = UiTheme.Yes,
                 hotKey = ModDefOf.SlopToggleSession,
@@ -200,8 +197,8 @@ namespace SlopWorld
                 defaultIconColor = UiTheme.Bad,
                 hotKey = ModDefOf.SlopRemoveSession,
                 action = () => Find.WindowStack.Add(ConfirmDialog.Create(
-                    $"Remove session '{Session}'? This kills it, drops it from config.toml, and moves " +
-                    "its private state to recoverable trash for 14 days.",
+                    $"Remove session '{Session}'? This stops the session and removes it from config.toml. " +
+                    "Its private state moves to trash. You can recover it for 14 days.",
                     () => SessionHub.Instance.SessionStore.Remove(Session, UiLayout.Fail), destructive: true)),
             };
         }
@@ -212,7 +209,7 @@ namespace SlopWorld
             Enumerable.Empty<InspectTabBase>();
     }
 
-    /// <summary>Appends the current session to vanilla's temporary gizmo selection list.</summary>
+    /// <summary>Add the current session to the base game temporary gizmo selection list.</summary>
     public static class SessionGizmoSelection
     {
         static readonly FieldInfo ObjectsField =
@@ -239,9 +236,8 @@ namespace SlopWorld
                 var selected = selector.SingleSelectedThing;
                 if (selected == null)
                 {
-                    // A sidebar ghost click deliberately clears the pawn selection, leaving
-                    // the session selection as the only selection. A real multi-selection,
-                    // however, is vanilla selection and must not inherit a stale session.
+                    // A sidebar session without a pawn clears map selection but retains session selection.
+                    // Clear session selection if the map has multiple selected objects.
                     if (selector.SelectedObjects.Count > 0)
                         SessionSelectable.Current = null;
                     return;
@@ -249,8 +245,8 @@ namespace SlopWorld
 
                 var pawn = selected as Pawn;
                 var session = pawn == null ? null : AgentColony.Current?.SessionOf(pawn);
-                // Selecting anything outside the agent colony hands the inspect pane back to
-                // vanilla. An agent pawn is the one-way map -> session synchronization point.
+                // Synchronize session selection from the selected pawn.
+                // Clear it for other objects so the base game inspect pane can appear.
                 SessionSelectable.Current = session;
             }
             finally
@@ -271,29 +267,25 @@ namespace SlopWorld
             {
                 if (!code[i].Calls(clear)) continue;
 
-                // Vanilla clears the shared list before loading the selector into it. Add
-                // our object after the clear, while the evaluation stack is empty; the
-                // remaining vanilla instructions then AddRange the selected objects too.
+                // Add the session after the base game clears the shared list, while the evaluation stack is empty.
+                // The remaining instructions also add the map selection.
                 code.Insert(i + 1, new CodeInstruction(OpCodes.Call, append));
                 inserted = true;
                 break;
             }
 
             if (!inserted)
-                Log.Error("[SlopWorld] MapUIOnGUI changed; session gizmos were not inserted");
+                Log.Error("[SlopWorld] MapUIOnGUI changed. Session gizmos were not inserted.");
             return code;
         }
     }
 
-    /// The vanilla map call is tiny but has an important early-out: an empty selector still
-    /// needs to reach the gizmo drawer for a ghost session. Injecting into that call also
-    /// avoids a second DrawGizmoGridFor patch competing with GizmoGridShift's flag.
+    /// Include session actions even when map selection is empty.
+    /// Modify MapUIOnGUI to avoid another DrawGizmoGridFor patch that conflicts with the GizmoGridShift flag.
     [HarmonyPatch(typeof(MapGizmoUtility), nameof(MapGizmoUtility.MapUIOnGUI))]
     public static class Patch_MapUIOnGUI_SessionSelection
     {
-        // MapUIOnGUI owns the bottom action-button pass. The rest of the map chrome already
-        // follows Cutscene.Playing, so stop this pass too rather than leaving selected-session
-        // gizmos visible (and clickable) over a scene.
+        // Hide the bottom action buttons during cutscenes to prevent drawing and input over the scene.
         static bool Prefix() => !Cutscene.Playing;
 
         static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions) =>

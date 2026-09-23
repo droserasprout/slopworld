@@ -5,14 +5,13 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Derived from Crashlanded to retain the 1.6 surface/faction/drop-pod setup, but supplies
-    // no starting parts; IntroDirector owns the opening scene. Built once per process; saves
-    // retain their scenario.
+    // Use Crashlanded to retain the RimWorld 1.6 surface, faction, and drop pod setup.
+    // Remove its starting content. IntroDirector controls the opening scene.
+    // Create the scenario once per process. Saves retain their scenario.
     public static class ModScenario
     {
-        // Remove starting items, animals, mechs, dialog and pawns by assignability. Leaving
-        // the pawn part would preserve the -1 default that QuickStart indexes, so it writes
-        // zero instead.
+        // Remove these starting parts and their derived types.
+        // QuickStart sets startingPawnCount to zero after scenario hooks run.
         static readonly Type[] Dropped =
         {
             typeof(ScenPart_ThingCount),
@@ -22,17 +21,17 @@ namespace SlopWorld
             typeof(ScenPart_ConfigPage_ConfigureStartingPawnsBase),
         };
 
-        const string Summary = "Nothing here is yours to build.";
+        const string Summary = "Watch the colony. No construction is required.";
 
         const string Description =
-            "The persona core came down on an empty hillside and started venting. " +
-            "What the pods brought after that were not people, and what is left of " +
-            "the colony is a hillside, a cat, and however many agents are running." +
-            "\n\nYou brought no supplies. There would be nothing to do with them.";
+            "The persona core landed on an empty hillside and released fumes. " +
+            "The next pods brought robots. The colony now consists of a hillside, " +
+            "a cat, and your active agents." +
+            "\n\nYou have no supplies. This colony does not need them.";
 
         static Scenario _scen;
 
-        // The scenario a new colony starts under.
+        // The scenario for a new colony.
         public static Scenario Get()
         {
             if (_scen != null) return _scen;
@@ -48,21 +47,20 @@ namespace SlopWorld
             }
             catch (Exception e)
             {
-                // CopyForEditing dereferences playerFaction and surfaceLayer with no null
-                // check. Editing the def's own scenario instead costs a vanilla def changed in
-                // place, which costs nothing since the chooser it appears in is stripped.
-                Log.Warning($"[SlopWorld] cannot copy Crashlanded ({e.Message}); " +
-                            "stripping it in place instead");
+                // CopyForEditing reads playerFaction and surfaceLayer without null checks.
+                // If copying fails, modify the original scenario. The mod removes the scenario selection interface.
+                Log.Warning($"[SlopWorld] cannot copy Crashlanded ({e.Message}). " +
+                            "Removing parts from the original scenario.");
                 scen = basis;
             }
 
-            // AllParts and RemovePart rather than the parts list, which is internal. ToList
-            // first: AllParts is a live enumeration over the list being edited.
+            // Use AllParts and RemovePart because the parts list is internal.
+            // Copy the matching parts before removing them from the list.
             var dropped = scen.AllParts.Where(Drop).ToList();
             foreach (var part in dropped) scen.RemovePart(part);
 
-            Log.Message($"[SlopWorld] scenario from Crashlanded, {dropped.Count} " +
-                        $"part(s) dropped, {scen.AllParts.Count()} kept");
+            Log.Message($"[SlopWorld] scenario from Crashlanded: {dropped.Count} " +
+                        $"parts removed, {scen.AllParts.Count()} parts retained");
 
             _scen = scen;
             return _scen;

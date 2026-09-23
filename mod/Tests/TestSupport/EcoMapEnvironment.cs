@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-// Lifecycle doubles only. Production compilation checks these APIs against RimWorld;
+// Lifecycle doubles only. Production compilation checks these APIs against RimWorld.
 // Unity native destruction and visual regeneration require an in-game toggle check.
 namespace SlopWorld
 {

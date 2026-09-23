@@ -6,12 +6,11 @@ using Verse.AI;
 
 namespace SlopWorld
 {
-    // The symptoms half of the plague: the doses each band carries and the passes that act on
-    // the pawns standing in them. The growth field, the clock and the save live in Plague.cs;
-    // everything here reads the band and turns it into damage, fire, bleeding or a mark.
+    // Apply pawn effects according to the current plague band.
+    // Plague.cs owns the field, clock, and saved state.
     public partial class Plague
     {
-        // Probabilities are per roll and share one pass, so they add rather than compose.
+        // Use one random value per pawn to select at most one effect. Add the probabilities.
         struct Dose
         {
             public float PExplode, PIgnite, PBleed, PVomit;
@@ -19,17 +18,14 @@ namespace SlopWorld
             public float FireSize;
             public float PlantIgnite; // per plant, once, on the sweep that strips it
 
-            // The difference the eye reads: stripping both bands alike left nothing to tell
-            // them apart but pawn effects nobody watches.
+            // Strip plants only in the full band to distinguish it from the weak band.
             public bool Strips;
 
-            // What the weak band knocks a plant's growth back to.
+            // Reduce plant growth to this value in the weak band.
             public float StuntTo;
 
-            // The gap is load-bearing. Nothing stops a plant ticking here (the strip takes
-            // needs, health, age and the storyteller, not Plant.TickLong), so a test against
-            // StuntTo comes true again within a pass: every weak plant puffed, re-stunted by
-            // a fraction of a percent and re-rolled for ignition forever.
+            // Apply stunting only above this threshold. Plants continue to grow through Plant.TickLong.
+            // The gap above StuntTo prevents small growth increments from causing repeated smoke, stunting, and ignition attempts.
             public float StuntFrom;
         }
 
@@ -42,14 +38,12 @@ namespace SlopWorld
             BleedMin = 8f,
             BleedMax = 18f,
             FireSize = 1.0f,
-            // ~15k plants inside the circle on a default map, each rolled once: a handful of
-            // ignitions over the whole first sweep.
+            // Use a low ignition probability because the sweep can affect thousands of plants.
             PlantIgnite = 0.00025f,
             Strips = true,
         };
 
-        // Nothing detonates out here - there is no half of a blast - and plants are held
-        // back rather than taken, so the band reads as thin instead of as more dead ground.
+        // The weak band excludes explosions and limits plant growth instead of removing plants.
         static readonly Dose Weak = new Dose
         {
             PExplode = 0f,
@@ -81,8 +75,8 @@ namespace SlopWorld
             }
         }
 
-        // The dose comes from where the pawn is standing now, so the same mark means less at
-        // the edge and nothing past it.
+        // Use the pawn current position to select the dose.
+        // The weak band reduces effects, and positions outside the field receive none.
         void Effects()
         {
             int now = Find.TickManager.TicksGame;
@@ -95,8 +89,7 @@ namespace SlopWorld
 
                 var band = BandAt(pawn.Position, now);
                 if (band == Band.None) continue;
-                // A marked animal that walked into the aura is unmarked at the aura's next
-                // sweep and not before; a detonation in that half second is the cat failing.
+                // Check aura protection even if the pawn still has the plague condition.
                 if (Spared(pawn)) continue;
                 var dose = band == Band.Full ? Full : Weak;
 
@@ -110,7 +103,7 @@ namespace SlopWorld
 
         void Detonate(Pawn pawn, Dose dose)
         {
-            // The blast does not care who it is, and immunity has to mean immunity.
+            // Use cut damage instead of an explosion when an agent is nearby.
             if (AgentNear(pawn.Position, BlastSafeRadius)) { Bleed(pawn, dose); return; }
 
             PlagueFx.Burst(pawn);
@@ -118,10 +111,7 @@ namespace SlopWorld
                 null, damAmount: BlastDamage, ignoredThings: Untouchable());
         }
 
-        // The core stands in the middle of the band that detonates hardest, so at this radius
-        // it would eventually blow a hole in its own origin. Then everything the agents built,
-        // on the same grounds NoBurningTheColony spares the player faction: a monument is an
-        // hour of somebody's tokens.
+        // Exclude the core, pets, player buildings, and construction frames from explosion damage.
         List<Thing> Untouchable()
         {
             var spared = map.listerThings.ThingsOfDef(ModDefOf.Ship_ComputerCore).ToList();
@@ -131,15 +121,14 @@ namespace SlopWorld
             return spared;
         }
 
-        // The haze goes up first, so the tell is the plague's rather than an animal that
-        // happens to be on fire.
+        // Show plague gas before attaching fire to identify the cause.
         static void Ignite(Pawn pawn, Dose dose)
         {
             PlagueFx.Act(pawn);
             pawn.TryAttachFire(dose.FireSize, null);
         }
 
-        // No bleed-out without health ticks, so the damage is the death.
+        // The game disables health ticks, so direct damage causes death instead of continued blood loss.
         void Bleed(Pawn pawn, Dose dose)
         {
             var pos = pawn.Position;
@@ -155,8 +144,7 @@ namespace SlopWorld
             }
         }
 
-        // Checks it can land before it smokes: a puff over a pawn with no job tracker
-        // advertises an effect that never comes.
+        // Check the job tracker before showing the effect. Skip pawns that already have a vomiting job.
         static void Vomit(Pawn pawn)
         {
             if (pawn.jobs == null) return;
@@ -175,7 +163,7 @@ namespace SlopWorld
             if (pawn.RaceProps == null) return false;
             if (!pawn.RaceProps.Animal && !pawn.RaceProps.Humanlike) return false;
 
-            // Agents are immune by design and the pets fall out of the same check, meaning to.
+            // Exclude the player faction, including agents and pets.
             return pawn.Faction == null || !pawn.Faction.IsPlayer;
         }
 

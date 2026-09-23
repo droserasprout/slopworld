@@ -16,12 +16,13 @@ namespace SlopWorld
         Oversized,
     }
 
-    // A bounded, lossless queue for socket events. Live screens are replaceable while they are
-    // still waiting for the main thread; replies, history and control events wait for space.
+    // A bounded queue for socket events.
+    // New live screens can replace queued live screens before the main thread receives them.
+    // Replies, history, and control events wait for space without losing events.
     internal sealed class IncomingMessageQueue
     {
-        // These are UTF-8 payload budgets. The queue may retain at most 256 messages and 16 MiB;
-        // a single message above 8 MiB is rejected before it can occupy the queue.
+        // Limit the queue to 256 messages and 16 MiB of encoded payload data.
+        // Reject any single message above 8 MiB before adding it to the queue.
         internal const int MaxMessages = 256;
         internal const int MaxBytes = 16 * 1024 * 1024;
         internal const int MaxMessageBytes = 8 * 1024 * 1024;
@@ -64,8 +65,8 @@ namespace SlopWorld
             int bytes = payload.Length;
             if (bytes > MaxMessageBytes) return IncomingEnqueueResult.Oversized;
 
-            // Classification happens before the queue lock so a blocked producer never holds
-            // the lock while parsing. An ambiguous or malformed message is never coalesced.
+            // Parse and classify messages before acquiring the queue lock.
+            // Ambiguous or malformed messages never replace queued messages.
             var text = new ReceivedEvent(payload);
             var liveName = text.LiveName;
             lock (_gate)
@@ -86,8 +87,8 @@ namespace SlopWorld
                         return IncomingEnqueueResult.Accepted;
                     }
 
-                    // Lossless events apply backpressure to the websocket reader. Dispose and
-                    // connection failure pulse this wait, so a blocked producer can exit.
+                    // Wait for queue space without discarding events.
+                    // Disposal and connection failure wake this wait so a blocked producer can exit.
                     Monitor.Wait(_gate);
                 }
             }
@@ -124,8 +125,8 @@ namespace SlopWorld
             lock (_gate)
             {
                 _closed = true;
-                // A disconnected socket has no useful events left. Clearing here also releases
-                // the retained strings while waking any producer blocked on the budget.
+                // Discard queued events after disconnection to release their payload references.
+                // Wake producers that are waiting for queue space.
                 _queue.Clear();
                 _latestLive.Clear();
                 _bytes = 0;
@@ -144,9 +145,9 @@ namespace SlopWorld
         }
     }
 
-    // Binary Protobuf frames, ping/pong, close. ClientWebSocket is not dependable on Unity's
-    // mono and less so under Wine, so we speak the protocol over a plain TcpClient.
-    // Reads happen on a background thread; callers drain Incoming.
+    // Support binary Protobuf frames, ping/pong, and connection closure.
+    // Use TcpClient because ClientWebSocket is unreliable on Unity Mono and Wine.
+    // Read on a background thread. Callers retrieve queued events through Incoming.
     internal interface IHubSocket : IDisposable
     {
         bool Connected { get; }
@@ -161,11 +162,10 @@ namespace SlopWorld
         internal readonly IncomingMessageQueue Incoming = new IncomingMessageQueue();
         readonly ConcurrentQueue<byte[]> _outgoing = new ConcurrentQueue<byte[]>();
 
-        // A frame is one screen's worth of SGR text, and the daemon clamps a pane to 500x200,
-        // so the widest thing it can send is orders of magnitude under this.
+        // Limit frame allocations while allowing terminal screens with encoded SGR text.
         const long MaxFrame = 32L * 1024 * 1024;
-        // A peer can split one text message across arbitrarily many frames. Bound the message
-        // as well as each allocation so fragmentation cannot grow the buffer without limit.
+        // A peer can split one message across multiple frames.
+        // Limit the combined message size as well as individual frame allocations.
         const long MaxFragmentedMessage = 32L * 1024 * 1024;
 
         volatile bool _connected;
@@ -199,9 +199,9 @@ namespace SlopWorld
                     return false;
                 }
                 _tcp.EndConnect(ar);
-                // ConnectTimeout covers only the TCP handshake. The HTTP upgrade below is
-                // synchronous too, and runs on Unity's main thread, so a listener that accepts
-                // and then says nothing must not freeze the game forever.
+                // ConnectTimeout covers only the TCP handshake.
+                // The HTTP upgrade also runs synchronously on Unity's main thread.
+                // Limit its socket waits so an unresponsive server cannot block the game indefinitely.
                 _tcp.ReceiveTimeout = timeoutMs;
                 _tcp.SendTimeout = timeoutMs;
                 _net = _tcp.GetStream();
@@ -233,9 +233,9 @@ namespace SlopWorld
                     return false;
                 }
 
-                // An established websocket is expected to sit quiet indefinitely. Let the
-                // background reader wait for the next event without reconnecting every few
-                // seconds; the writer uses the same bounded socket timeout for queued frames.
+                // An established WebSocket can remain idle indefinitely.
+                // Let the background reader wait without reconnecting because of inactivity.
+                // Keep the socket send timeout for queued frames.
                 _tcp.ReceiveTimeout = 0;
                 _connected = true;
                 _writer = new Thread(WriteLoop)
@@ -256,7 +256,7 @@ namespace SlopWorld
             }
         }
 
-        // Byte by byte: we must not over-read into frame data.
+        // Read one byte at a time to avoid consuming frame data after the handshake.
         string ReadHandshake()
         {
             var sb = new StringBuilder();

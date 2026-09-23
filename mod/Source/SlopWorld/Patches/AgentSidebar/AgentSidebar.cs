@@ -38,12 +38,12 @@ namespace SlopWorld
 
         const float AddIcon = UiTheme.IconW;
         static float Pad => UiTheme.GapS;
-        // Portraits touch the screen edge; CellX remains the inset for labels and chrome.
+        // Portraits touch the screen edge. CellX remains the inset for labels and chrome.
         const float PortraitX = 0f;
         static float CellX => UiTheme.GapS;
         static float TextGap => UiTheme.GapS;
 
-        // The shared tabs/filter row is followed by an optional right-aligned view-action row;
+        // The shared tabs/filter row is followed by an optional right-aligned view-action row.
         // `TabH` includes both when present.
         static float TabRowH => TopBar.H;
         public static float TabH => TabRowH + (HasActions ? TabRowH : 0f);
@@ -65,9 +65,9 @@ namespace SlopWorld
 
         const float BellW = 13f;
 
-        // The state badge is a share of the portrait rather than a fixed size: the column
-        // shrinks to fit and a marker that did not would swallow a small face. Keep its own
-        // smaller floor so the circle does not dominate a compact portrait.
+        // The state badge is a share of the portrait rather than a fixed size. The column shrinks
+        // to fit and a marker that did not would swallow a small face. Keep its own smaller floor
+        // so the circle does not dominate a compact portrait.
         const float BadgeShare = 0.18f;
         const float BadgeMin = 6f;
         const float BadgeInset = 1f;
@@ -123,7 +123,7 @@ namespace SlopWorld
         }
 
         // The colonist bar asks the same questions from its layout, portrait, label and click
-        // passes. Keep one name-indexed view of the daemon list for that draw; the session
+        // passes. Keep one name-indexed view of the daemon list for that draw. The session
         // revision changes whenever the list is replaced, so this never mixes old and new
         // objects across a socket event.
         static void BeginSessionSnapshot()

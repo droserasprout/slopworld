@@ -5,8 +5,8 @@ namespace SlopWorld
 {
     public static partial class Patch_LoadingTips
     {
-        // ` (` tips are hidden in Grandma mode; ` )` tips are shown only there. Unmarked tips
-        // are always eligible, and Strip removes either marker before display.
+        // Gentle mode hides tips that end with ` (`. It shows tips that end with ` )`.
+        // Both modes show unmarked tips. Strip removes either marker before display.
         const string Sad = " (";
         const string Sweet = " )";
 

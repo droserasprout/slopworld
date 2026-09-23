@@ -70,7 +70,7 @@ namespace SlopWorld
             _ready = _deadColonistTex != null;
             if (!_ready)
                 Log.Error("[SlopWorld] Patch_SidebarPortraitDraw: one or more private " +
-                    "members not found; sidebar portraits will fall back to vanilla.");
+                    "members not found. Sidebar portraits will fall back to vanilla.");
         }
 
         // Keep callers anchored to the drawn portrait rather than duplicating its geometry.
@@ -101,8 +101,8 @@ namespace SlopWorld
             }
         }
 
-        // The sidebar lays its rows out from the font and asks this what the portrait may be,
-        // so the square pawn portrait fills the row it is in.
+        // The sidebar lays its rows out from the font and asks this what the portrait may be.
+        // Therefore, the square pawn portrait fills the row it is in.
         public static float FaceForHeight(float height) => height;
 
         static Rect FaceplateRect(Rect face)
@@ -133,7 +133,7 @@ namespace SlopWorld
             }
         }
 
-        // Use each pawn's scaled head offset; children and unusual body types frame themselves.
+        // Use each pawn's scaled head offset. Children and unusual body types frame themselves.
         static Vector3 FaceOffset(Pawn pawn)
         {
             float z = HeadFallbackZ;
@@ -169,13 +169,13 @@ namespace SlopWorld
             float alpha = bar.GetEntryRectAlpha(rect);
             if (reordering) alpha *= 0.5f;
 
-            // A session the hub has not answered for yet is Down to the sidebar's row, so it
-            // is Down here too: the alternative is a red badge over a fully lit face.
+            // A session the hub has not answered for yet is Down to the sidebar's row. Therefore,
+            // It is Down here too: the alternative is a red badge over a fully lit face.
             var session = AgentColony.Current?.SessionOf(colonist);
             bool isDown = session != null &&
                 (SessionHub.Instance.Get(session)?.State ?? AgentState.Down) == AgentState.Down;
 
-            // Render downed pawns upright; vanilla's 85-degree rotation misses this tight crop.
+            // Render downed pawns upright. Vanilla's 85-degree rotation misses this tight crop.
             PawnHealthState? healthOverride = colonist.Dead || colonist.health == null
                 ? (PawnHealthState?)null
                 : colonist.health.State == PawnHealthState.Down
@@ -192,9 +192,9 @@ namespace SlopWorld
             GUI.DrawTexture(PortraitRect(face), renderTexture);
             GUI.color = Color.white;
 
-            // Both marks go down after the opaque square portrait, the way vanilla ends its
-            // own draw: the corners so their inner arms remain visible, the hover box
-            // because the portrait covers the rect it is drawn on.
+            // Both marks go down after the opaque square portrait, the way vanilla ends its own
+            // draw. The corners so their inner arms remain visible, the hover box because the
+            // portrait covers the rect it is drawn on.
             if (highlight)
             {
                 int thickness = face.width <= 22f ? 2 : 3;

@@ -6,13 +6,11 @@ using Verse.AI;
 
 namespace SlopWorld
 {
-    // An agent's colonist is a status light, not a body in a fight. Both halves are needed:
-    // immunity alone leaves a boar chewing on a colonist forever, and refusing the attack
-    // alone leaves it mortal to everything else.
+    // Agent pawns represent session state. Prevent damage and animal attacks.
+    // Damage immunity alone permits repeated attacks. Blocking attacks alone does not prevent other damage.
 
-    // Every hit passes through Pawn.PreApplyDamage on its way from Thing.TakeDamage, which
-    // stops as soon as the hit reports itself absorbed. A colonist downed by injury is downed
-    // for reasons AgentColony knows nothing about, so it stays flat while its session works.
+    // Mark agent damage as absorbed before Pawn.PreApplyDamage runs.
+    // This prevents injuries from downing an agent independently of its session state.
     [HarmonyPatch(typeof(Pawn), nameof(Pawn.PreApplyDamage))]
     public static class Patch_AgentsInvulnerable
     {
@@ -24,8 +22,7 @@ namespace SlopWorld
         }
     }
 
-    // Predators pick prey through IsAcceptablePreyFor, which weighs a downed pawn as
-    // an easy meal - and every stopped agent is a downed pawn lying in the open.
+    // Exclude agents from predator prey selection, including downed agents.
     [HarmonyPatch(typeof(FoodUtility), nameof(FoodUtility.IsAcceptablePreyFor))]
     public static class Patch_NoPreyOnAgents
     {
@@ -35,13 +32,11 @@ namespace SlopWorld
         }
     }
 
-    // Hunting, revenge and manhunter rage all shop through BestAttackTarget, so folding agents
-    // into the caller's validator takes them off the list at source.
+    // Exclude agents from animal target selection through the caller validator.
     [HarmonyPatch(typeof(AttackTargetFinder), nameof(AttackTargetFinder.BestAttackTarget))]
     public static class Patch_NoTargetingAgents
     {
-        // Most callers hand over no validator, and that path gets this same delegate rather
-        // than a fresh closure per search.
+        // Reuse this delegate when the caller supplies no validator to avoid allocating a new closure.
         static readonly Predicate<Thing> NoAgents =
             t => !(t is Pawn p && AgentColony.IsAgent(p));
 
@@ -58,9 +53,7 @@ namespace SlopWorld
         }
     }
 
-    // The backstop: every melee swing goes through TryMeleeAttack. A colony pet's swing is
-    // traded for a nuzzle rather than ignored, the animal having already walked all the way
-    // over.
+    // Block animal melee attacks against agents. Replace pet attacks with nuzzling.
     [HarmonyPatch(typeof(Pawn_MeleeVerbs), nameof(Pawn_MeleeVerbs.TryMeleeAttack))]
     public static class Patch_NoMaulingAgents
     {
@@ -77,10 +70,8 @@ namespace SlopWorld
         }
     }
 
-    // Attachment and cell damage are separate roads: closing only the first lets a pet cook by
-    // walking into a fire, and closing only the second leaves an already-invulnerable agent
-    // wearing a flame that never goes out. The whole player faction, matching
-    // Plague.Infectable.
+    // Prevent fire attachment and fire damage for player faction pawns.
+    // Both checks are necessary because unattached fires can also damage pawns.
     public static class NoBurningTheColony
     {
         static bool Spared(Thing t) =>
@@ -95,7 +86,7 @@ namespace SlopWorld
             }
         }
 
-        // Private, so bound by name: every hit a Fire deals goes through here.
+        // Use the private method name to intercept fire damage.
         [HarmonyPatch(typeof(Fire), "DoFireDamage")]
         public static class Patch_NoFireDamage
         {

@@ -4,16 +4,16 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Skip map mesh, dynamic things, and flecks while a terminal covers the map or Eco replaces
-    // it. Eco releases audited geometry; ordinary terminal coverage keeps it warm.
+    // Skip map geometry, dynamic things, and flecks while the terminal or Eco covers the map.
+    // Eco releases selected geometry. Terminal coverage retains it.
     public static class PaneOverDraw
     {
-        // Prefixes return "run the original", so this is the sense the game wants.
+        // Wanted returns true when patch prefixes must permit normal drawing.
         internal static bool Hidden => TerminalWindow.Covering || Eco.Resting;
         static bool Wanted() => !Hidden;
 
-        // RimWorld 1.6 calls these from MapInterfaceOnGUI_BeforeMainTabs, outside
-        // MapUpdate. Gate the whole traversal, not each pawn's eventual label call.
+        // These GUI passes run outside MapUpdate in RimWorld 1.6.
+        // Skip the full traversal before individual label calls.
         [HarmonyPatch(typeof(ThingOverlays), nameof(ThingOverlays.ThingOverlaysOnGUI))]
         public static class Patch_ThingLabels
         {
@@ -26,35 +26,34 @@ namespace SlopWorld
             static bool Prefix() => Wanted();
         }
 
-        // OnGUI is separate from both FleckManagerDraw and real-time aging.
+        // Fleck GUI drawing is separate from normal fleck drawing and real-time aging.
         [HarmonyPatch(typeof(FleckManager), nameof(FleckManager.FleckManagerOnGUI))]
         public static class Patch_FleckGui
         {
             static bool Prefix() => Wanted();
         }
 
-        // Terrain, and everything printed into the mesh - here, every plant there is.
+        // Control drawing for terrain and objects printed into map meshes, including plants.
         [HarmonyPatch(typeof(MapDrawer), nameof(MapDrawer.DrawMapMesh))]
         public static class Patch_MapMesh
         {
             static bool Prefix(MapDrawer __instance)
             {
                 if (!Wanted()) return false;
-                // Draw can precede maintenance when a setting or cutscene reveals the board.
+                // Restore geometry before drawing because a setting or cutscene can reveal the map before maintenance runs.
                 EcoMapMemory.Restore(__instance);
                 return true;
             }
         }
 
-        // Pawns and fires: the render trees, the faceplate node with them.
+        // Control drawing for dynamic objects, including pawn render trees and fires.
         [HarmonyPatch(typeof(DynamicDrawManager), nameof(DynamicDrawManager.DrawDynamicThings))]
         public static class Patch_DynamicThings
         {
             static bool Prefix() => Wanted();
         }
 
-        // The haze. PlagueFx declines to make any behind a pane, so this is what was
-        // already in flight when it opened.
+        // Hide existing flecks. PlagueFx also prevents new effects behind a terminal pane.
         [HarmonyPatch(typeof(FleckManager), nameof(FleckManager.FleckManagerDraw))]
         public static class Patch_Flecks
         {
@@ -85,7 +84,7 @@ namespace SlopWorld
             static bool Prefix() => Wanted();
         }
 
-        // LordManagerUpdate also ages orphaned stencils, so gate only the drawing method.
+        // Keep LordManagerUpdate active to age unused stencils. Skip only stencil drawing.
         [HarmonyPatch(typeof(StencilDrawerForCells), nameof(StencilDrawerForCells.Draw))]
         public static class Patch_Stencils
         {

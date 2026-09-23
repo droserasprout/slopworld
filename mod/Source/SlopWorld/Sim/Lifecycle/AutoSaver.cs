@@ -4,14 +4,14 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Vanilla autosaves are too infrequent for process restarts; rotating autosave slots preserve rebuilds without replacing named saves.
+    // Save frequently to reduce lost progress during process restarts.
+    // Rotate autosave slots without replacing named saves.
     public class AutoSaver : GameComponent
     {
-        // Short enough that a crash costs a colony nothing worth mourning, long enough
-        // that the write is not what the player notices.
+        // Balance recovery frequency against the cost of writing saves.
         const float Minutes = 2f;
 
-        // Runtime only: a save is worth taking on the far side of a restart too.
+        // Keep the timer in memory so each process starts a new save interval.
         float _next;
 
         public AutoSaver(Game game) { }
@@ -19,8 +19,8 @@ namespace SlopWorld
         public override void GameComponentTick()
         {
             float now = Time.realtimeSinceStartup;
-            // First tick of a session: arm the timer rather than saving immediately, which
-            // would put a save between the load and the first frame.
+            // Start the timer on the first tick without saving immediately.
+            // This avoids a save between loading and the first frame.
             if (_next <= 0f)
             {
                 _next = now + Minutes * 60f;
@@ -33,23 +33,21 @@ namespace SlopWorld
         }
     }
 
-    // Covers the in-game restart and the ordinary quit alike, so "unsaved work will
-    // be lost" stops being true.
+    // Request a save for both in-game restart and ordinary shutdown.
     [HarmonyPatch(typeof(Root), nameof(Root.Shutdown))]
     public static class Patch_SaveOnShutdown
     {
         static void Prefix()
         {
-            // Tells the interceptor that this quit is programmatic (the profile's Quit
-            // button), so the wantsToQuit event that fires when
-            // Root.Shutdown calls Application.Quit is let through rather than intercepted.
+            // Mark this shutdown as programmatic.
+            // The interceptor then permits the wantsToQuit event from Root.Shutdown without starting another save sequence.
             SaveCoordinator.NoteProgrammaticShutdown();
             SaveCoordinator.SaveNow();
         }
     }
 
-    // Quitting to the main menu, which drops the game without touching the process. A
-    // colony on its way to the bin is refused by SaveNow itself.
+    // Save before returning to the main menu without ending the process.
+    // SaveNow excludes colonies that NextPlanet will discard.
     [HarmonyPatch(typeof(GenScene), nameof(GenScene.GoToMainMenu))]
     public static class Patch_SaveOnMainMenu
     {

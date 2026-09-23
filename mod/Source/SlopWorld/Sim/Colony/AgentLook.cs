@@ -3,9 +3,8 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Core-only outfits, kept away from headgear so the faceplate and hair remain the agent's
-    // identity. The ordinary shirt and pants underneath coats make each entry a complete look,
-    // while full-body garments stand alone.
+    // Use Core outfits without headgear so the faceplate and hair remain visible.
+    // Add shirts and pants under coats. Full-body garments do not need these additional layers.
     public static class AgentLook
     {
         static readonly string[][] Outfits =
@@ -44,9 +43,8 @@ namespace SlopWorld
             pawn.Drawer?.renderer?.SetAllGraphicsDirty();
         }
 
-        // Agents are machines wearing a human silhouette: keep the oversized vanilla Fat and
-        // Hulk bodies out of the colony, while leaving Thin and average silhouettes. Return
-        // whether the render tree needs rebuilding so callers can avoid dirtying unchanged pawns.
+        // Exclude the base game's Fat and Hulk body types while retaining Thin and average body types.
+        // Return whether the render tree needs rebuilding so callers can skip unchanged pawns.
         public static bool CapBodySize(Pawn pawn)
         {
             if (pawn?.story == null ||

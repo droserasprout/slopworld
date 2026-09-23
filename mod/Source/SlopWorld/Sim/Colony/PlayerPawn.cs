@@ -190,8 +190,8 @@ namespace SlopWorld
             var cat = Pets.On(map).FirstOrDefault();
             if (cat == null) return;
 
-            // Use the cat's own call rather than a generic UI sound: the species def owns the
-            // sound and callers are what vanilla uses for a tame animal's non-angry call.
+            // Use the call sound from the cat's species definition.
+            // The base game caller provides this sound when a tame animal is not angry.
             cat.caller?.DoCall();
 
             var job = JobMaker.MakeJob(JobDefOf.Goto, target);

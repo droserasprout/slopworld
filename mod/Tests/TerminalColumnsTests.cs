@@ -114,7 +114,7 @@ namespace SlopWorld.Tests
 
         // The bug: a wide glyph reserves two columns, so the daemon re-anchors the following
         // run at column 2 while the glyph is one string char. A packed concatenation would put
-        // 'a' at index 1; the real column of 'a' is 2.
+        // 'a' at index 1. The real column of 'a' is 2.
         static void WideCharNoDrift()
         {
             var cells = TerminalColumns.Cells(Sgr.ParseLine("\x1b[0m好\x1b[3Gabc"));
@@ -141,7 +141,7 @@ namespace SlopWorld.Tests
         static void ReservedColumnResolves()
         {
             var cells = TerminalColumns.Cells(Sgr.ParseLine("\x1b[0m好\x1b[3Gabc"));
-            // Column 1 is the wide glyph's reserved half; a click there selects the glyph.
+            // Column 1 is the wide glyph's reserved half. A click there selects the glyph.
             AssertEx.Equal('好', TerminalColumns.Glyph(cells, 1), "the reserved column reports 好");
         }
 

@@ -3,12 +3,13 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Persist the terminal session in the save and reopen only after the daemon reports it; mod settings would reconnect on every colonist switch.
+    // Save the selected terminal session with the colony. Reopen it after the daemon reports the session.
+    // Using mod settings would cause reconnection on each colonist switch.
     public class TerminalRecall : GameComponent
     {
         const float WaitSeconds = 30f;
 
-        // Persisted: the session whose pane was up.
+        // Save the session of the last open terminal pane.
         string _last = "";
 
         bool _done;
@@ -27,7 +28,7 @@ namespace SlopWorld
             }
         }
 
-        // Called by the terminal whenever it points at a session.
+        // The terminal calls this when it selects a session.
         public static void Remember(string name)
         {
             var c = Instance;
@@ -44,7 +45,7 @@ namespace SlopWorld
                 return;
             }
 
-            // The player got there first, or never left.
+            // Keep a terminal that is already open.
             if (TerminalWindow.CurrentName != null)
             {
                 _done = true;
@@ -64,7 +65,7 @@ namespace SlopWorld
 
             if (now >= _giveUpAt)
             {
-                Log.Message($"[SlopWorld] session {_last} never reported in; leaving the terminal closed");
+                Log.Message($"[SlopWorld] Session {_last} never connected. Leaving the terminal closed.");
                 _done = true;
             }
         }

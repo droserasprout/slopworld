@@ -5,18 +5,18 @@ using Exception = System.Exception;
 
 namespace SlopWorld
 {
-    // The runner marks its own `-savedatafolder=`. Refuse unmarked installs before Harmony,
-    // stat or XML work; this mod replaces the sim and adds defs, faction/calendar changes and
-    // music changes that must not touch a vanilla game.
+    // The launcher creates a marker in its save data folder.
+    // Require this marker before applying Harmony, stat, or XML changes.
+    // Simulation, definition, faction, calendar, and music changes must not affect an ordinary game profile.
     public static class ModProfile
     {
-        // Written by `slopworld`; see slopd/src/bin/slopworld.rs.
+        // Written by `slopworld`. See slopd/src/bin/slopworld.rs.
         public const string Marker = "slopworld.profile";
 
         static bool? _ok;
         static bool _complained;
 
-        /// Where the game is keeping its saves - the profile, if we are in one.
+        /// The current game save data folder.
         public static string Folder
         {
             get
@@ -26,8 +26,8 @@ namespace SlopWorld
             }
         }
 
-        // Asked at XML patch time, before defs exist, and again at every gate afterwards, so
-        // it is answered once and remembered.
+        // Cache the profile check for XML patches and later activation checks.
+        // XML patching occurs before definitions exist.
         public static bool Ok
         {
             get
@@ -46,38 +46,37 @@ namespace SlopWorld
             }
             catch (Exception e)
             {
-                // Unreadable is not a profile. Refusing is the safe way to be wrong.
+                // Reject the profile if SlopWorld cannot read the save data folder.
                 Log.Warning("[SlopWorld] could not read the save data folder: " + e.Message);
                 return false;
             }
         }
 
-        // The log line once, the dialog every time a door is tried: a button that silently
-        // does nothing is worse than the mod being absent. Queued rather than added, the first
-        // caller being a static constructor with no window stack yet.
+        // Log the error once and show a dialog for each rejected activation attempt.
+        // Queue the dialog because the first caller can be a static constructor before the window stack exists.
         public static void Complain()
         {
             if (!_complained)
             {
                 _complained = true;
                 Log.Error(
-                    "[SlopWorld] not a SlopWorld profile, so nothing has been patched. " +
-                    "The save data folder is " + Folder + " and it has no " + Marker + " in it. " +
-                    "Launch the game with the `slopworld` runner instead.");
+                    "[SlopWorld] this profile has no SlopWorld changes. " +
+                    "The save data folder " + Folder + " does not contain " + Marker + ". " +
+                    "Start the game with the `slopworld` launcher.");
             }
 
             LongEventHandler.ExecuteWhenFinished(() =>
             {
                 var text =
-                    "SlopWorld is loaded, but this is not a SlopWorld profile, so it has " +
-                    "patched nothing and your game is untouched.\n\n" +
-                    "This mod is not an addition to a colony. It removes the simulation, " +
-                    "the songs and the world's mountains, and its saves do not load without " +
-                    "it - so it keeps to a save folder of its own.\n\n" +
-                    "Launch it with the runner instead:\n\n    slopworld\n\n" +
-                    "which makes that folder, enables Core and SlopWorld alone in it, and " +
-                    "starts the game there. `make install` puts the runner on your PATH.\n\n" +
-                    "This folder: " + Folder;
+                    "The game loaded SlopWorld, but this profile lacks the required marker file. " +
+                    "SlopWorld has made no changes to your game.\n\n" +
+                    "SlopWorld uses a separate save folder. It removes the colony simulation, " +
+                    "the base game music, and the world's mountains. Its saves require SlopWorld.\n\n" +
+                    "Start the game with this command:\n\n    slopworld\n\n" +
+                    "The launcher creates the separate save folder and enables only Core and SlopWorld. " +
+                    "It then starts the game with that folder. " +
+                    "Run `make install` to add the launcher to your PATH.\n\n" +
+                    "Current save folder: " + Folder;
 
                 Find.WindowStack.Add(AlertDialog.Create(
                     "SlopWorld", text, "Quit", Root.Shutdown, "Close", null,
@@ -86,12 +85,12 @@ namespace SlopWorld
         }
     }
 
-    // The XML half of standing down: wraps every operation of ours that rewrites a def the
-    // base game shipped. Assemblies load before the XML is patched, which is the only reason
-    // this can exist; static constructors run after, which is why the C# gate is separate.
+    // Apply XML changes to base-game definitions only in a valid profile.
+    // Assemblies load before XML patching, so this operation is available during patching.
+    // Static constructors run later and require a separate C# activation check.
     public class PatchOperationInProfile : PatchOperationSequence
     {
-        // True either way - a false is what makes the game log a failed patch.
+        // An inactive profile counts as success. Returning false would log a patch failure.
         protected override bool ApplyWorker(XmlDocument xml) =>
             !ModProfile.Ok || base.ApplyWorker(xml);
     }

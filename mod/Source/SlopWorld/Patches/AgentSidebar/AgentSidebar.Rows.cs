@@ -121,7 +121,7 @@ namespace SlopWorld
                 {
                     RoutedClicks.Reset();
                     _routedClickSession = null;
-                    // Only view-owned previews are closable here; editor rows own live work.
+                    // Only view-owned previews are closable here. Editor rows own live work.
                     FileReaders.Close(row.Session);
                 }
                 else if (e.button == 1)
@@ -280,7 +280,7 @@ namespace SlopWorld
         }
 
         // Draw the status badge at the portrait's right edge, vertically aligned with the
-        // lower text band; the dark ring keeps it legible over hair and clothing.
+        // lower text band. The dark ring keeps it legible over hair and clothing.
         static void DrawStateBadge(Rect face, Rect text, AgentState state)
         {
             if (CompactView) return;

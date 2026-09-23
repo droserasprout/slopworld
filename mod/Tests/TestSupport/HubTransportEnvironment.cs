@@ -1,6 +1,6 @@
 namespace SlopWorld
 {
-    // The production tracer is game-bound; transport tests only need its call shape.
+    // The production tracer is game-bound. Transport tests only need its call shape.
     static class PerfTrace
     {
         public static long Start() => 0L;

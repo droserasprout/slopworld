@@ -6,9 +6,8 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Exclude agents from vanilla's relation candidates. Parent naming casts names to
-    // NameTriple, while agents use NameSingle; relations also do not belong in this sim.
-    // GenerationChance is virtual, so every declaring worker must be patched separately.
+    // Exclude agents from relation candidates. Parent naming expects NameTriple, but agents use NameSingle.
+    // Patch each worker that declares GenerationChance because the method is virtual.
     public static class Patch_NoRelateAgents
     {
         public static void Apply(Harmony h)
@@ -18,9 +17,8 @@ namespace SlopWorld
 
             foreach (var type in GenTypes.AllSubclassesNonAbstract(typeof(PawnRelationWorker)))
             {
-                // DeclaredMethod, so a worker that inherits the base implementation is patched
-                // once - on the base, below - rather than once per subclass, which Harmony would
-                // refuse the second time.
+                // Select only declared methods to avoid patching inherited implementations repeatedly.
+                // Patch the base implementation separately below.
                 var m = AccessTools.DeclaredMethod(type, "GenerationChance");
                 if (m != null) h.Patch(m, postfix: post);
             }

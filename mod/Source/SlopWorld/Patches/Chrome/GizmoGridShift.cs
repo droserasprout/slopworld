@@ -7,15 +7,13 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Keep the bottom gizmo grid one group gap beyond the sidebar, with its button bottoms
-    // aligned to the add strip's top. The vanilla vertical reserve is for the main-button bar.
-    // `Active` distinguishes `DrawGizmoGridFor` from the architect tab's designator grid.
+    // Place the bottom gizmo grid beside the sidebar and above the add bar.
+    // Active distinguishes this grid from the Architect designator grid.
 
     [HarmonyPatch(typeof(GizmoGridDrawer), "DrawGizmoGridFor")]
     public static class Patch_GizmoGridFlag
     {
-        // True while a DrawGizmoGridFor call is on the stack, meaning the next DrawGizmoGrid
-        // call is the bottom-of-screen gizmo grid rather than an architect designator list.
+        // Identify bottom gizmo drawing while DrawGizmoGridFor runs with the UI visible.
         public static bool Active;
 
         static void Prefix()
@@ -87,7 +85,7 @@ namespace SlopWorld
                 return code;
             }
 
-            Log.Error("[SlopWorld] GizmoGridDrawer.DrawGizmoGrid changed; action buttons keep the vanilla bottom margin");
+            Log.Error("[SlopWorld] GizmoGridDrawer.DrawGizmoGrid changed. Action buttons keep the vanilla bottom margin.");
             return code;
         }
 

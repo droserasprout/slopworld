@@ -5,8 +5,8 @@ using System.Text;
 
 namespace SlopWorld
 {
-    // One sample of the native music manager. Keeping the three fields together prevents a
-    // track transition between the text shown in the confirmation and the row written to disk.
+    // Capture one native music track.
+    // Keep its fields together so confirmation text and the saved record identify the same track.
     public sealed class NativeTrackSnapshot
     {
         public readonly string Artist;
@@ -50,8 +50,8 @@ namespace SlopWorld
         public string Display => Track.Display;
     }
 
-    // Game-free persistence for the sidecar path. It deliberately writes the existing [[like]]
-    // schema, including original_* fields, so native and daemon-backed history share one file.
+    // Write likes for native playback without game dependencies.
+    // Use the existing [[like]] schema, including original_* fields, to share the file with daemon playback.
     public static class JukeboxLikeWriter
     {
         public static bool TryAppend(string path, NativeTrackSnapshot track, DateTime utcNow,

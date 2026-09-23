@@ -67,7 +67,7 @@ namespace SlopWorld
         static float ActionIconScale(Texture tex)
         {
             // These values equalize the visible bounds of the six action glyphs at roughly
-            // 23px. They are intentionally local to these gizmos; the same icons elsewhere
+            // 23px. They are intentionally local to these gizmos. The same icons elsewhere
             // retain their existing inline sizing.
             if (tex == Icons.Terminal) return 0.92f;
             if (tex == Icons.Stop) return 1.05f;
@@ -116,7 +116,7 @@ namespace SlopWorld
                 return code;
             }
 
-            Log.Error("[SlopWorld] Command.GizmoOnGUIInt changed; action shortcut label keeps vanilla placement");
+            Log.Error("[SlopWorld] Command.GizmoOnGUIInt changed. Action shortcut labels keep vanilla placement.");
             return code;
         }
 

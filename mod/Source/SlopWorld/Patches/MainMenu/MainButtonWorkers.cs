@@ -2,10 +2,9 @@ using Verse;
 
 namespace SlopWorld
 {
-    // A def is the one thing a refusing mod cannot take back: these four buttons are
-    // added to the bar by XML, which is read whether we patched anything or not. So in
-    // somebody's ordinary game they are doors onto the explanation rather than onto a
-    // daemon we never dialled.
+    // A def is the one thing a refusing mod cannot take back. These four buttons are added to the
+    // bar by XML, which is read whether we patched anything or not. So in somebody's ordinary game
+    // they are doors onto the explanation rather than onto a daemon we never dialled.
     public abstract class MainButtonWorker_Slop : RimWorld.MainButtonWorker
     {
         public sealed override void Activate()

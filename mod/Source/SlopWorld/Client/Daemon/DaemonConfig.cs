@@ -147,12 +147,12 @@ namespace SlopWorld
         // Task summaries are generated once for each durable delegated task.
         public string TaskSummaries = "";
         public string WorkerPrompt = "";
-        // Qualified template identities selected in Settings > Workers. This is daemon policy,
-        // not part of any template definition or instantiated agent snapshot.
+        // Settings > Agents > Workers stores the selected qualified template identities.
+        // The daemon uses them as policy, not as part of templates or saved agent settings.
         public List<string> WorkerTemplates = new List<string>();
 
         // Agent and Shell name command presets. AgentShell is the shell advertised inside
-        // sandboxed agent sessions; it is separate from the shell errand preset.
+        // sandboxed agent sessions. It is separate from the shell errand preset.
         public string Agent = "";
         public string AgentShell = "";
         public string Shell = "";

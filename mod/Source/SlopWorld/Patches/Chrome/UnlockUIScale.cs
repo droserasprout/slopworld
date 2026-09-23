@@ -7,9 +7,8 @@ using Verse;
 
 namespace SlopWorld
 {
-    // ResolutionUtility.Update resets scales when the scaled screen is below 1024x768. Make
-    // vanilla's DevMode exemption unconditional, replacing only that getter so the rest of
-    // the method and its instruction anchors remain intact.
+    // ResolutionUtility.Update resets UI scale when the scaled screen is smaller than 1024 by 768.
+    // Always apply its DevMode exemption by replacing that getter. Retain the other instructions.
     [HarmonyPatch(typeof(ResolutionUtility), nameof(ResolutionUtility.Update))]
     public static class Patch_ResolutionUpdate_UIScale
     {
@@ -33,7 +32,7 @@ namespace SlopWorld
             }
 
             if (!swapped)
-                Log.Error("[SlopWorld] ResolutionUtility.Update changed; UI scale stays capped");
+                Log.Error("[SlopWorld] ResolutionUtility.Update changed. UI scale stays capped.");
             return code;
         }
     }

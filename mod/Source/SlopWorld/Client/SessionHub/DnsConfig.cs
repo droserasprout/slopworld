@@ -7,7 +7,7 @@ namespace SlopWorld
 {
     public enum DnsMode { Resolved, Servers }
 
-    // DNS is separate from network reach. Resolved follows the daemon's current resolv.conf;
+    // DNS is separate from network reach. Resolved follows the daemon's current resolv.conf.
     // Servers is an explicit list passed to pasta.
     public class DnsConfig
     {

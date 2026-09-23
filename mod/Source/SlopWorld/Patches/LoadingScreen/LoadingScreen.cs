@@ -30,7 +30,7 @@ namespace SlopWorld
         // Keep the typewriter tail visible: word n-1 is muted and word n is deepest.
         internal static readonly Color PreviousWordText = ScaleRgb(StreamText, 0.75f);
         internal static readonly Color LatestWordText = ScaleRgb(StreamText, 0.55f);
-        // The package name is the first lookup key; the embedded family name keeps the same
+        // The package name is the first lookup key. The embedded family name keeps the same
         // font working on platforms whose font APIs ignore the filename.
         static readonly string[] LoadingFontNames =
         {
@@ -58,7 +58,7 @@ namespace SlopWorld
         static int _loadingFontSize = -1;
 
         // Bumped per re-measure. A geometry change rewraps the existing stream rather than
-        // discarding it; only a new load or mode change starts a fresh stream.
+        // discarding it. Only a new load or mode change starts a fresh stream.
         internal static int Generation;
 
         internal static int Lines
@@ -140,8 +140,9 @@ namespace SlopWorld
                 float textWidth = Mathf.Max(1f, w - Margin.x * 2f);
                 float textHeight = Mathf.Max(1f, h - Margin.y * 2f);
 
-                // CalcHeight has a little font slack before the first line, so measure one line
-                // and the increment for subsequent lines instead of dividing by Text.LineHeight.
+                // CalcHeight has a little font slack before the first line. Therefore, measure one
+                // line and the increment for subsequent lines instead of dividing by
+                // Text.LineHeight.
                 float one = ProbeHeight(1, textWidth);
                 float step = Mathf.Max(1f, ProbeHeight(2, textWidth) - one);
                 _lineCount = Mathf.Max(1, Mathf.FloorToInt((textHeight - one) / step) + 1);
@@ -153,7 +154,7 @@ namespace SlopWorld
 
         // The visible stream is a line buffer, not a pre-wrapped wall. Keeping lines explicitly
         // lets a full panel scroll one row at a time while the newly exposed row is populated.
-        // Advance runs after the panel background is issued during Repaint, so a new stream
+        // Advance runs after the panel background is issued during Repaint. Therefore, a new stream
         // starts only with a visible container and fills naturally before scrolling begins.
         static readonly List<string> Stream = new List<string>();
         static readonly List<string> Tokens = new List<string>();
@@ -233,7 +234,7 @@ namespace SlopWorld
         }
 
         // One loading screen can move through several QueuedLongEvent objects. Keep one stream
-        // across those queue handoffs; null currentEvent is the boundary between load sessions.
+        // across those queue handoffs. Null currentEvent is the boundary between load sessions.
         internal static void Begin(object loadingEvent)
         {
             if (loadingEvent == null)
@@ -479,7 +480,7 @@ namespace SlopWorld
         }
     }
 
-    // Draw the stream and nothing else; the status box and mod summary are not useful while a
+    // Draw the stream and nothing else. The status box and mod summary are not useful while a
     // map is being generated. LongEventsOnGUI centres this full-height window horizontally.
     [HarmonyPatch(typeof(LongEventHandler), nameof(LongEventHandler.LongEventsOnGUI))]
     public static class Patch_LoadingLayout

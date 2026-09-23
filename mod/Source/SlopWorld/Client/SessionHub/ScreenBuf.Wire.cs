@@ -89,7 +89,7 @@ namespace SlopWorld
             LinksKnown = LinksKnown && !contentChanged;
             // A subscription replay can update the retained buffer without advancing the
             // daemon sequence. It is a new observation of the same live epoch, not rows that
-            // scrolled while this tab was away; only a strictly newer frame may move history.
+            // scrolled while this tab was away. Only a strictly newer frame may move history.
             bool newer = previousSeq >= 0 && Seq > previousSeq;
             int visibleShift = Off == 0 && newer &&
                 !previousAltScreen && !AltScreen
@@ -105,7 +105,7 @@ namespace SlopWorld
                 ? History - previousHistory : 0;
             // Visible-row overlap is precise for small shifts, but it cannot identify a
             // burst that scrolls an entire viewport. The daemon's live history extent supplies
-            // that missing signal while the buffer still has room to grow; once full, the
+            // that missing signal while the buffer still has room to grow. Once full, the
             // overlap detector remains the fallback.
             // Before the history limit, its extent is authoritative even when unchanged.
             // A TUI repaint can match a suffix of blank/prompt rows without scrolling.
@@ -123,7 +123,7 @@ namespace SlopWorld
                 return 0;
 
             // A real terminal scroll leaves the old tail at the new top. The incoming bottom
-            // must differ, and some row above it must move; otherwise an edit to a repeated
+            // must differ, and some row above it must move. Otherwise an edit to a repeated
             // line ("", for example) looks like a scroll.
             bool changedBeforeBottom = false;
             for (int row = 0; row < afterRows - 1; row++)

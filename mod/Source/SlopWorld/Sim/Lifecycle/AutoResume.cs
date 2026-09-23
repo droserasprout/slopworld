@@ -16,8 +16,8 @@ namespace SlopWorld
 
         static void Prefix()
         {
-            // The player is passing through the menu on their way to a new colony. Resuming
-            // here would race NextPlanet for the frame.
+            // NextPlanet is creating a new colony through the menu.
+            // Do not start a competing resume operation.
             if (NextPlanet.Pending) return;
 
             if (_tried) return;
@@ -30,23 +30,20 @@ namespace SlopWorld
                 var newest = GenFilePaths.AllSavedGameFiles.FirstOrDefault();
                 if (newest == null)
                 {
-                    // A fresh profile: no colony to come back to, and a main menu with
-                    // nothing on it worth reading. The same call the New colony button
-                    // makes, so the first launch and every one after it land in the same
-                    // place - which is the whole of what the profile is for.
-                    Log.Message("[SlopWorld] no colony here yet; starting one");
+                    // A new profile has no saved colony.
+                    // Use the New colony action to enter a colony on the first launch.
+                    Log.Message("[SlopWorld] No colony exists here yet. Starting one.");
                     QuickStart.Queue();
                     return;
                 }
 
                 Log.Message($"[SlopWorld] resuming {Path.GetFileNameWithoutExtension(newest.Name)}");
-                // LoadGame queues its own long event and does the scene change - the same call
-                // the Continue button makes.
+                // LoadGame queues the load operation and changes the scene, as for the Continue button.
                 GameDataSaveLoader.LoadGame(newest);
             }
             catch (Exception e)
             {
-                // A save that will not load is not a reason to lose the menu too.
+                // Keep the menu available if loading fails.
                 Log.Error($"[SlopWorld] resume failed: {e}");
             }
         }

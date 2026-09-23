@@ -73,8 +73,8 @@ namespace SlopWorld.Tests
             AssertEx.Throws<ArgumentNullException>(() => new SongRecognizer(null), "runner is required");
         }
 
-        // A runner that answers each command from a table keyed on the executable name and
-        // records the specs it was asked to run, so a test can also assert the argv.
+        // A runner that answers each command from a table keyed on the executable name and records
+        // the specs it was asked to run. Therefore, a test can also assert the argv.
         sealed class FakeRunner : IProcessRunner
         {
             readonly Dictionary<string, ProcessRun> _answers;

@@ -45,9 +45,8 @@ namespace SlopWorld
                     len = (len << 8) | (uint)ReadByteOrThrow();
             }
 
-            // The length arrives as 64 bits and is about to become an allocation
-            // size. Unchecked, a desynced or corrupt header asks for gigabytes, or
-            // casts negative and throws somewhere further from the cause than here.
+            // Validate the 64-bit length before using it for an allocation.
+            // An invalid header could request excessive memory or become negative during conversion.
             if (len < 0 || len > MaxFrame)
                 throw new IOException($"frame length out of range: {len}");
 

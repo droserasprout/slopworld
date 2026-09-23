@@ -3,19 +3,19 @@ using Verse;
 
 namespace SlopWorld
 {
-    // GameComponentOnGUI owns the map help shortcut and Alt+number paths. Interface function keys
-    // are dispatched by Patch_InterfaceFunctionKeys before this component or any widget runs.
+    // GameComponentOnGUI handles the map help shortcut and Alt+number shortcuts.
+    // Patch_InterfaceFunctionKeys handles interface function keys before components and widgets run.
     public class TerminalHotkeys : GameComponent
     {
         public TerminalHotkeys(Game game) { }
 
         public override void GameComponentOnGUI()
         {
-            // A scene hides the rest of the UI to read as a cutscene, and a fullscreen pane
-            // over it would be the loudest thing on screen.
+            // Disable these shortcuts while a cutscene hides the UI.
             if (Cutscene.Playing) return;
 
-            // Map-layer number keys mirror portrait selection because components run before the window stack; ask TerminalWindow first, then handle Alt+number with no pane.
+            // Components run before the window stack. If a terminal window exists, let it handle number keys.
+            // Otherwise, handle Alt+number for map selection.
             if (Find.WindowStack?.WindowOfType<TerminalWindow>() != null)
             {
                 if (ShortcutHelpWindow.HandleContentKey(Event.current)) return;
@@ -31,7 +31,7 @@ namespace SlopWorld
             FocusSlot(slot);
         }
 
-        // Zero is the tenth, the way a tabbed terminal counts.
+        // The zero key selects the tenth slot.
         public static int SlotKey(Event e)
         {
             var k = e.keyCode;
@@ -41,7 +41,7 @@ namespace SlopWorld
             return -1;
         }
 
-        // A slot past the end is a no-op rather than a wrap, the same as over a pane.
+        // Ignore slots beyond the end of the list.
         static void FocusSlot(int slot)
         {
             var order = AgentColony.InBarOrder();
@@ -51,12 +51,11 @@ namespace SlopWorld
             var pawn = AgentColony.Current?.PawnOf(session);
             if (pawn == null) return;
 
-            // The current session follows the number.
+            // Select the session for the requested slot.
             SessionSelectable.Current = session;
 
-            // Clear first: the selection brackets' jump-out is an animation off
-            // SelectionDrawer's select time, so a pawn already selected would never replay
-            // it. Same clear-then-select vanilla does for a bar click.
+            // Clear selection first to restart the selection bracket animation, even for an already selected pawn.
+            // The base game uses the same sequence for portrait clicks.
             Find.Selector.ClearSelection();
             EcoMapInput.SelectAgent(pawn);
         }
@@ -66,9 +65,8 @@ namespace SlopWorld
             var open = Find.WindowStack?.WindowOfType<TerminalWindow>();
             if (open != null)
             {
-                // Content views share the terminal window as their chrome. F12 means get to
-                // the terminal: reveal a pane behind the view, or leave a view opened from
-                // the map and continue below to open the selected live session.
+                // Content views use the terminal window. F12 returns to its terminal pane if one exists.
+                // Otherwise, leave the view and try to open a live session.
                 if (TerminalWindow.Showing != null)
                 {
                     bool hasPane = TerminalWindow.HasBackingPane;
@@ -87,9 +85,7 @@ namespace SlopWorld
             {
                 SessionSelectable.Current = session;
                 TerminalWindow.Open(session);
-                // F12 opened the terminal: drop the file viewer and show the agents
-                // view in the sidebar, so the portrait the terminal is looking at is
-                // visible.
+                // Show the selected session's portrait in the Agents sidebar.
                 AgentSidebar.ShowWithoutHistory(SidebarTab.Agents);
             }
         }
@@ -100,8 +96,7 @@ namespace SlopWorld
             return Live(session) ? session : null;
         }
 
-        // A stopped agent has no pane to open, so it counts as nothing selected and the
-        // key falls through to whoever is running.
+        // Skip stopped agents because they have no terminal pane. Try another live session.
         static string SelectedLive()
         {
             var colony = AgentColony.Current;
@@ -116,10 +111,8 @@ namespace SlopWorld
             return null;
         }
 
-        // Taken in colonist-bar order, so "any" is at least the leftmost portrait. Falling
-        // back to the hub is what keeps the key working when the column's order is empty
-        // because every project in it is folded away: a fold is about the column, and this
-        // is the last resort of a key that is meant to always open something.
+        // Check sessions in portrait order first, then check all sessions in the hub.
+        // The fallback includes sessions hidden by collapsed project groups.
         static string AnyLive()
         {
             foreach (var session in AgentColony.InBarOrder())

@@ -10,8 +10,7 @@ namespace SlopWorld
 {
     public static partial class ModOptions
     {
-        // The content view has no OK button; suppress only vanilla's translated OK button
-        // while the options view is active.
+        // Hide the translated OK button while the options content view is active.
         [HarmonyPatch(typeof(Widgets), nameof(Widgets.ButtonText),
             new[] { typeof(Rect), typeof(string), typeof(bool), typeof(bool), typeof(bool),
                     typeof(TextAnchor?) })]
@@ -19,7 +18,7 @@ namespace SlopWorld
         {
             static bool Prefix(string label, ref bool __result)
             {
-                // This prefix sees every button, so gate before translating the label.
+                // Check the active view before translating labels because this prefix receives every button.
                 if (!OptionsView.Anywhere) return true;
 
                 string ok = "OK".Translate();
@@ -30,21 +29,20 @@ namespace SlopWorld
             }
         }
 
-        // ---------------------------------------------------------------- the column
+        // Category column.
 
-        // Children omit the icon and indent their labels by ChildIndent.
+        // Omit icons for child rows. Indent their labels by ChildIndent.
         const float RowPadX = 10f;
         const float ChildIndent = 12f;
         const float IconGap = 10f;
 
-        // What vanilla lays a row out on: `Rect(0, i * 50, 160, 48)` contracted by 4, which
-        // is the only place the row's index is available to read back.
+        // Derive the base game row index from its rectangle position.
+        // Rows use a 50-unit pitch and a 4-unit inset.
         const float VanillaPitch = 50f;
         const float VanillaInset = 4f;
 
-        // Keep every label to one Small-font line so the complete Settings rail fits on
-        // ordinary-height screens. Icons use the same compact row rather than adding a
-        // separate top-level height.
+        // Use one Small-font line per label to keep the settings column compact.
+        // Use the same height for icons and labels.
         static float RowH => UiTheme.LineH;
         static float NestedRowH => UiTheme.LineH;
         static float Pitch => RowH + UiTheme.GapXS;
@@ -54,14 +52,13 @@ namespace SlopWorld
         static float IconBox => Mathf.Min(18f, RowH - 6f);
         static float LabelX => RowPadX + IconBox + IconGap;
 
-        // The vanilla dialog does not retain category scroll state. Content-view options
-        // therefore use this compact rail position; it is deliberately separate from every
-        // page's scroll lifetime and is clamped again whenever the viewport or font changes.
+        // Retain category column scroll state separately from page scroll state.
+        // Clamp it to the current viewport and font dimensions.
         static float _railScroll;
         static int _railControl;
         static float _railGrab;
 
-        // Recover the vanilla row index from r.y and recompute the compact row rectangle.
+        // Derive the original row index from r.y, then calculate the compact row rectangle.
         static Rect Slot(Rect r, Tab tab)
         {
             int i = Mathf.Max(0, Mathf.RoundToInt((r.y - VanillaInset) / VanillaPitch));
@@ -160,7 +157,7 @@ namespace SlopWorld
             GUIUtility.hotControl = _railControl;
         }
 
-        // Draw selected and hovered rows with the mod's colors.
+        // Use mod colors for selected rows and rows under the pointer.
         static void CategoryRow(Rect r, bool selected)
         {
             if (selected) Slab.Fill(r, UiTheme.Sel);
@@ -174,7 +171,7 @@ namespace SlopWorld
             SoundDefOf.Click.PlayOneShotOnCamera();
         }
 
-        // Draw vanilla categories here so nested game rows use the compact layout.
+        // Draw base game categories with the compact layout.
         [HarmonyPatch(typeof(Dialog_Options), "DoCategoryRow")]
         public static class Patch_OptionsRow
         {
@@ -238,10 +235,8 @@ namespace SlopWorld
             }
         }
 
-        // Vanilla's dispatch is a chain of comparisons against its own eight categories, so
-        // ours would fall through it and draw nothing. Taken before the chain rather than
-        // after: a page is two columns and its own scroll view, not rows on the
-        // Listing_Standard vanilla opens here.
+        // Draw mod pages before the base game category checks.
+        // Each page controls its columns and scroll view instead of using the base game Listing_Standard.
         [HarmonyPatch(typeof(Dialog_Options), "DoOptions")]
         public static class Patch_OptionsPage
         {
@@ -255,9 +250,8 @@ namespace SlopWorld
             }
         }
 
-        // Dialog_Options() opens vanilla General by default. That category is stripped, so
-        // the main menu road must not begin on a selected page with no row in the column.
-        // Explicit constructors for our content view already name their destination.
+        // Replace the default General selection with Config because General is hidden.
+        // Content view constructors already specify their destination.
         [HarmonyPatch(typeof(Dialog_Options), nameof(Dialog_Options.PostOpen))]
         public static class Patch_OptionsDefaultCategory
         {
@@ -272,10 +266,9 @@ namespace SlopWorld
         }
 
 
-        // ---------------------------------------------------------------- the main menu
-        // Main-menu options remain a real window; the content view applies the same layout itself.
+        // Options opened from the main menu use a window. The content view applies the same layout itself.
 
-        // Reserve chrome in-game; use the full screen on the main menu.
+        // Reserve interface space during play. Use the full screen in the main menu.
         static Rect Free()
         {
             bool playing = Current.ProgramState == ProgramState.Playing
@@ -295,7 +288,7 @@ namespace SlopWorld
             }
         }
 
-        // Override vanilla's centred placement with the chrome-aligned rect.
+        // Place the window within the available content rectangle.
         [HarmonyPatch(typeof(Window), "SetInitialSizeAndPosition")]
         public static class Patch_OptionsPlace
         {
@@ -305,7 +298,7 @@ namespace SlopWorld
             }
         }
 
-        // Apply the band only to vanilla's window path; OptionsView opens its own group.
+        // Apply the content band only to the base game window. OptionsView opens its own GUI group.
         [HarmonyPatch(typeof(Dialog_Options), nameof(Dialog_Options.DoWindowContents))]
         public static class Patch_OptionsBand
         {
@@ -329,8 +322,7 @@ namespace SlopWorld
             }
         }
 
-        // The pages the window built are dropped the way they always were; the view has its
-        // own road to the same teardown.
+        // Release page instances when the window closes. The content view calls the same cleanup separately.
         [HarmonyPatch(typeof(Dialog_Options), nameof(Dialog_Options.PreClose))]
         public static class Patch_OptionsClose
         {
@@ -338,40 +330,37 @@ namespace SlopWorld
         }
 
 
-        // -------------------------------------------------------- main menu
+        // Main menu.
 
-        // The version info corner is drawn by VersionControl on every menu frame.
-        // It moved to the About tab, so the corner is blank.
+        // Hide version information in the menu corner because the About tab provides it.
         [HarmonyPatch(typeof(VersionControl), nameof(VersionControl.DrawInfoInCorner))]
         public static class Patch_VersionCorner
         {
             static bool Prefix() => false;
         }
 
-        // Hide the main-menu web-link list; the About tab owns those links.
+        // Hide main menu web links because the About tab provides them.
         [HarmonyPatch(typeof(OptionListingUtility), nameof(OptionListingUtility.DrawOptionListing))]
         public static class Patch_WebLinks
         {
             static bool Prefix(List<ListableOption> optList)
             {
-                // Only suppress lists that are purely web links.
+                // Only suppress lists that contain web links exclusively.
                 if (optList.Count == 0) return true;
                 bool allLinks = true;
                 foreach (var o in optList)
                     if (!(o is ListableOption_WebLink)) { allLinks = false; break; }
                 if (!allLinks) return true;
 
-                // Don't suppress if we're in the options dialog (About page draws
-                // links there).
+                // Keep links in the options dialog for the About page.
                 if (OptionsView.Anywhere) return true;
 
-                // Suppress on the main menu.
+                // Clear the main menu link list.
                 optList.Clear();
                 return true;
             }
         }
 
-        // Expansion icons at the bottom of the main menu are left alone: the About
-        // tab no longer draws its own copy of them.
+        // Keep expansion icons in the main menu. The About tab does not duplicate them.
     }
 }

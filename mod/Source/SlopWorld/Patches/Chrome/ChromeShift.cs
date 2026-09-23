@@ -6,8 +6,8 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Map vanilla chrome into the workspace content region. Patch stable rectangle seams so
-    // the same bounds are used by drawing and input on either navigation side.
+    // Fit base game controls within the workspace content area.
+    // Patch rectangle calculations so drawing and input use the same bounds on either navigation side.
 
     [HarmonyPatch(typeof(MainButtonWorker), nameof(MainButtonWorker.DoButton))]
     public static class Patch_MainButtonShift
@@ -24,8 +24,8 @@ namespace SlopWorld
         }
     }
 
-    // `DoTabs` is drawn outside the pane's group, so shift it in a temporary GUI group and
-    // close that group from a finalizer even when the tab row throws.
+    // Draw DoTabs in a temporary GUI group because it runs outside the pane group.
+    // Close the group in a finalizer, including after exceptions.
     [HarmonyPatch(typeof(InspectPaneUtility), "DoTabs")]
     public static class Patch_InspectTabRowShift
     {
@@ -43,7 +43,7 @@ namespace SlopWorld
         }
     }
 
-    // Tab windows are registered separately from `DoTabs`' group, so shift their rect directly.
+    // Shift tab window rectangles directly because window registration is separate from the DoTabs GUI group.
     [HarmonyPatch(typeof(InspectTabBase), "TabRect", MethodType.Getter)]
     public static class Patch_InspectTabRectShift
     {
@@ -55,8 +55,8 @@ namespace SlopWorld
         }
     }
 
-    // Shift left-anchored inspect windows on open or layout changes; right-anchored tabs stay
-    // vanilla, and the window rect is not rewritten every frame.
+    // Fit left- and right-anchored windows within the content area when they open or the layout changes.
+    // Retain their original widths as limits.
     [HarmonyPatch(typeof(MainTabWindow), "SetInitialSizeAndPosition")]
     public static class Patch_MainTabWindowShift
     {
@@ -68,7 +68,7 @@ namespace SlopWorld
             ShiftPane(__instance);
         }
 
-        // Called when the layout changes, so the pane moves immediately.
+        // Move the open inspect pane immediately after a layout change.
         public static void Reposition()
         {
             var pane = Find.WindowStack?.WindowOfType<MainTabWindow_Inspect>();

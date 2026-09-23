@@ -4,9 +4,8 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Per-map caches and sweep cursors. None of this is part of the plague's save contract:
-    // rebuilding a plant list or reacquiring the core is cheaper and safer than serializing
-    // references into a changing map.
+    // Store caches and sweep cursors for one map. Do not save this state.
+    // Rebuild plant lists and find the core again after loading.
     sealed class PlagueRuntime
     {
         public readonly List<Plant> Plants = new List<Plant>();

@@ -8,10 +8,9 @@ namespace SlopWorld
     {
         static void Prefix(Window window)
         {
-            // Vanilla promotes a clicked non-modal window before closing menus above it.
-            // The fullscreen terminal then hides UiMenu without removing it, so sidebar
-            // hover stays blocked. Close menus before that promotion; clicks within the
-            // menu chain retain vanilla's child-dismissal behavior.
+            // The base game raises a clicked non-modal window before closing menus above it.
+            // A raised terminal can hide menus that still block sidebar input.
+            // Close menus first for clicks outside them. Retain normal submenu dismissal for clicks inside menus.
             if (!(window is UiMenu)) UiMenu.CloseAll();
         }
     }

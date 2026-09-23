@@ -20,7 +20,7 @@ namespace SlopWorld
 
         public Companion(Game game) { }
 
-        // Runtime-only state resets on load; activation also clears existing plague marks.
+        // Runtime-only state resets on load. Activation also clears existing plague marks.
         public static bool IsImmune(Pawn pawn) =>
             pawn != null && Verse.Current.Game?.GetComponent<Companion>()?._immune.Contains(pawn) == true;
 

@@ -188,8 +188,8 @@ namespace SlopWorld
         };
         internal JsonReader(string text) : base(new StringReader(text ?? ""))
         {
-            // Json.NET supplies the retained value tree, while the scanner below supplies the
-            // strict grammar that Json.NET's token stream does not expose (notably trailing
+            // Json.NET supplies the retained value tree. In contrast, The scanner below supplies
+            // the strict grammar that Json.NET's token stream does not expose (notably trailing
             // commas, comments and non-JSON whitespace).
             JsonScanner.Validate(text ?? "");
             CloseInput = true;

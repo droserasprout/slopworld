@@ -4,10 +4,9 @@ using System.Linq;
 
 namespace SlopWorld
 {
-    // The reference data the daemon keeps in TOML: the projects an agent can run in, the
-    // library items that launch them, and the sandbox presets and command templates. Projects and
-    // library items are pushed on connect and on any edit; presets and commands are fetched afresh
-    // for every dialog that draws them, so one can arrive without slopd being rebuilt.
+    // Catalog data includes projects, library items, sandbox presets, and command templates.
+    // The daemon pushes projects and library items on connection and after edits.
+    // Dialogs fetch presets and commands again so new definitions do not require rebuilding slopd.
     class HubCatalog
     {
         const string ProjectsPath = WireProtocol.Routes.Projects;
@@ -21,9 +20,8 @@ namespace SlopWorld
         public List<CommandInfo> Commands = new List<CommandInfo>();
         public List<AgentTemplateInfo> Templates = new List<AgentTemplateInfo>();
 
-        // A project list request can outlive the edit that started another one. Without a
-        // generation, a slow pre-edit GET can put the old network default back after a Host
-        // save has succeeded.
+        // A project list request can finish after a later edit.
+        // Use a generation number to prevent an old GET response from replacing successfully saved settings.
         readonly CatalogRequest _projects = new CatalogRequest();
         readonly CatalogRequest _library = new CatalogRequest();
         readonly CatalogRequest _presets = new CatalogRequest();
@@ -42,8 +40,8 @@ namespace SlopWorld
             _refreshSessions = refreshSessions;
         }
 
-        // The socket pushes these, and each also has an HTTP road below for a window opened
-        // while the socket is down.
+        // Receive pushed updates through the socket.
+        // Also provide HTTP requests for windows opened while the socket is disconnected.
         public void ApplyProjects(Wire.ProjectsReply ev) => _projects.Apply(ev, SetProjects);
         public void ApplyLibrary(Wire.LibraryReply ev) => _library.Apply(ev, SetLibrary);
 
@@ -55,8 +53,8 @@ namespace SlopWorld
         public ProjectInfo Project(string name) =>
             Projects.FirstOrDefault(p => p.Name == name);
 
-        // A window opened while the socket is down still has to draw something, and this road
-        // returns an error body.
+        // Fetch data through HTTP when the socket is disconnected.
+        // HTTP responses also supply error details.
         public void RefreshProjects(Action<string> fail = null) =>
             _projects.Refresh<Wire.ProjectsReply>(ProjectsPath, SetProjects, fail);
 
@@ -82,8 +80,8 @@ namespace SlopWorld
                 _ => RefreshLibrary(), fail);
         }
 
-        // The old lists stay up until the answer lands, so a dialog opened with the socket
-        // down draws what it knew rather than nothing.
+        // Keep cached lists until the response arrives.
+        // Dialogs can then display existing data while the socket is disconnected.
         public void LoadPresets(Action ok = null, Action<string> fail = null) =>
             _presets.Refresh<Wire.PresetsReply>(PresetsPath, j =>
             {
@@ -173,8 +171,8 @@ namespace SlopWorld
 
         Action<Wire.Ack> PresetsSaved(Action ok, Action<string> fail) => _ =>
         {
-            // The write completed even if another catalog GET supersedes this reload;
-            // do not make the caller's completion depend on which snapshot wins.
+            // The write succeeded even if a newer catalog GET replaces this reload.
+            // Complete the caller's operation regardless of which snapshot supplies the catalog.
             LoadPresets(fail: fail);
             ok?.Invoke();
         };
@@ -185,9 +183,9 @@ namespace SlopWorld
         public void SaveProject(ProjectInfo p, bool isNew, string origName,
                                 Action ok, Action<string> fail)
         {
-            // Invalidate every list request already in flight before the write starts. The
-            // successful write starts a fresh refresh below, and only that refresh may replace
-            // the catalog while this edit is settling.
+            // Invalidate pending list requests before starting the write.
+            // After a successful write, request a new catalog snapshot.
+            // Earlier responses must not replace the catalog.
             _projects.Invalidate();
             Action<Wire.Ack> done = _ => { RefreshProjects(); _refreshSessions(); ok?.Invoke(); };
             if (isNew) DaemonClient.Post(ProjectsPath, p.ToWire(), done, fail);

@@ -66,7 +66,7 @@ namespace SlopWorld
             if (!ColonistBarStrip.Interactive) return;
 
             var e = Event.current;
-            // Fixed chrome runs first. Respect a press it consumed; rawType intentionally
+            // Fixed chrome runs first. Respect a press it consumed. RawType intentionally
             // survives Use(), and could otherwise be reinterpreted after entering the
             // agent scroll group's local coordinate space.
             if (e.type != EventType.MouseDown) return;
@@ -93,8 +93,8 @@ namespace SlopWorld
                     if (info.Alive)
                     {
                         TerminalWindow.OpenOverPane(ConfirmDialog.Create(
-                            $"Stop '{row.Session}'? This kills the tmux session; whatever the agent " +
-                            "is in the middle of goes with it.",
+                            $"Stop '{row.Session}'? This closes the tmux session. " +
+                            "The current work in that session will end.",
                             () => SessionHub.Instance.SessionStore.Stop(row.Session, UiLayout.Fail),
                             destructive: true));
                     }
@@ -133,26 +133,26 @@ namespace SlopWorld
             opts.Add(term);
 
             if (info != null)
-                opts.Add(new FloatMenuOption("Label", () =>
+                opts.Add(new FloatMenuOption("Edit label", () =>
                 {
                     var current = hub.Get(name);
                     if (current != null) LabelDialog.Open(name, current.Label);
                 }));
 
             if (info != null && !info.Host)
-                opts.Add(new FloatMenuOption("Delegate task...", () =>
+                opts.Add(new FloatMenuOption("Delegate task", () =>
                     TerminalWindow.OpenOverPane(new DelegateTaskDialog(name))));
 
             if (info != null && !info.Host && !string.IsNullOrEmpty(info.Project))
-                opts.Add(new FloatMenuOption("Spawn worker...",
+                opts.Add(new FloatMenuOption("Spawn worker",
                     () => TerminalWindow.OpenOverPane(new SpawnWorkerDialog(name, info.Project))));
 
             if (info != null && !info.Ephemeral && !info.Host && !info.Worker)
-                opts.Add(new FloatMenuOption("Edit...", () =>
+                opts.Add(new FloatMenuOption("Edit", () =>
                     TerminalWindow.OpenOverPane(new EditSessionDialog(info))));
 
             if (info != null && !info.Host && !info.Worker && !string.IsNullOrEmpty(info.Project))
-                opts.Add(new FloatMenuOption("Duplicate...", () =>
+                opts.Add(new FloatMenuOption("Duplicate", () =>
                     TerminalWindow.OpenOverPane(EditSessionDialog.Copy(info))));
 
             if (info != null && !info.Host && !info.Worker && !string.IsNullOrEmpty(info.Project))
@@ -192,14 +192,14 @@ namespace SlopWorld
             string name = p.Name;
             var opts = new List<FloatMenuOption>
             {
-                new FloatMenuOption("Edit...", () =>
+                new FloatMenuOption("Edit", () =>
                     TerminalWindow.OpenOverPane(new EditProjectDialog(p))),
-                new FloatMenuOption("Duplicate...", () =>
+                new FloatMenuOption("Duplicate", () =>
                     TerminalWindow.OpenOverPane(EditProjectDialog.Copy(p))),
                 new FloatMenuOption("Terminal (host)", () =>
                     hub.SessionStore.RunHostShell(name, session => TerminalWindow.Open(session),
                         UiLayout.Fail)),
-                new FloatMenuOption("Spawn worker...",
+                new FloatMenuOption("Spawn worker",
                     () => TerminalWindow.OpenOverPane(new SpawnWorkerDialog(null, name))),
             };
 
@@ -208,7 +208,7 @@ namespace SlopWorld
                 if (s.Project == name) agents++;
 
             var del = new FloatMenuOption(
-                agents > 0 ? $"Delete ({agents} agent{(agents == 1 ? "" : "s")} in it)" : "Delete",
+                agents > 0 ? $"Delete ({agents} agent{(agents == 1 ? "" : "s")})" : "Delete",
                 () => TerminalWindow.OpenOverPane(CatalogActions.RemoveProject(name)));
             del.Disabled = agents > 0;
             opts.Add(del);
@@ -229,15 +229,15 @@ namespace SlopWorld
 
             var opts = new List<FloatMenuOption>
             {
-                new FloatMenuOption("Project...", () =>
+                new FloatMenuOption("Create project", () =>
                     TerminalWindow.OpenOverPane(new EditProjectDialog(null))),
                 new UiSubmenu("Agent", AgentCreationOptions),
                 new UiSubmenu("Worker", WorkerOptions),
-                new FloatMenuOption("Task", () =>
+                new FloatMenuOption("Create task", () =>
                     TerminalWindow.OpenOverPane(new DelegateTaskDialog(null))),
                 new UiSubmenu("Library", LibraryItemOptions),
-                new FloatMenuOption("Sandbox preset...", ModOptions.OpenNewSandboxPreset),
-                new FloatMenuOption("Command...", ModOptions.OpenNewCommand),
+                new FloatMenuOption("New sandbox preset", ModOptions.OpenNewSandboxPreset),
+                new FloatMenuOption("New command preset", ModOptions.OpenNewCommand),
                 new UiSubmenu("Host shell", HostShellOptions),
             };
             TerminalWindow.OpenOverPane(new UiMenu(opts));
@@ -255,7 +255,7 @@ namespace SlopWorld
                     TerminalWindow.OpenOverPane(EditSessionDialog.FromTemplate(captured))));
             }
             if (options.Count > 0) options.Add(UiMenu.Separator());
-            options.Add(new FloatMenuOption("Custom", () =>
+            options.Add(new FloatMenuOption("Custom agent", () =>
                 TerminalWindow.OpenOverPane(new EditSessionDialog(null))));
             return options;
         }
@@ -278,20 +278,20 @@ namespace SlopWorld
 
         static List<FloatMenuOption> LibraryItemOptions() => new List<FloatMenuOption>
         {
-            new FloatMenuOption("Agent template...", () =>
+            new FloatMenuOption("New agent template", () =>
                 TerminalWindow.OpenOverPane(EditSessionDialog.EditTemplate())),
-            new FloatMenuOption("Prompt...", () =>
+            new FloatMenuOption("New prompt", () =>
                 TerminalWindow.OpenOverPane(new EditPromptDialog(null))),
             BreadcrumbAddOption(),
-            new FloatMenuOption("Shell...", () =>
+            new FloatMenuOption("New shell command", () =>
                 TerminalWindow.OpenOverPane(new EditShellDialog(null))),
-            new FloatMenuOption("File Action...", () =>
+            new FloatMenuOption("New file action", () =>
                 TerminalWindow.OpenOverPane(new EditFileActionDialog(null))),
         };
 
         static FloatMenuOption BreadcrumbAddOption()
         {
-            var option = new FloatMenuOption("Breadcrumb...", () =>
+            var option = new FloatMenuOption("New breadcrumb", () =>
                 TerminalWindow.OpenOverPane(new EditBreadcrumbDialog(null)));
             return option;
         }
@@ -322,7 +322,7 @@ namespace SlopWorld
                 UiLayout.MenuToggle("All projects", !Filtering, () => Tick("")),
             };
 
-            // Ordered the way every view orders its headings, so the menu and the column
+            // Ordered the way every view orders its headings. Therefore, the menu and the column
             // under it read down in the same order - the loose one last.
             var names = new List<string>();
             foreach (var p in SessionHub.Instance.Projects) names.Add(p.Name);
