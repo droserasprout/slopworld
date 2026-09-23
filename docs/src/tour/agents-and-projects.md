@@ -2,29 +2,28 @@
 
 ## Projects
 
-A project is a directory and a set of shared project mounts. Projects are defined in the
-daemon's `config.toml` as `[[project]]` entries.
+A project is a directory and a set of shared project mounts. The daemon's `config.toml` defines projects as `[[project]]` entries.
 
 Each project names:
 
-- A working directory, mounted read-write in every agent sandbox.
-- Optional additional project directories and their read-only/read-write modes.
+- A working directory. The daemon mounts it read-write in every agent sandbox.
+- Optional additional directories, each with read-only or read-write access.
 
-Temporary projects (`temp = true`) have no directory; the daemon creates one under
-`/tmp/slopworld/` when the agent starts.
+Temporary projects (`temp = true`) have no directory initially.
+The daemon creates one under `/tmp/slopworld/` when the agent starts.
 
 ## Agents (sessions)
 
-An agent is a session inside a project. It has a name, a command preset for the software it
-runs, and agent-owned command-line, sandbox, network, DNS, resource-limit, and startup
-settings.
+An agent is a session inside a project. It has a name and a command preset for the software it runs.
+It also has its own command-line, sandbox, network, DNS, resource-limit, and startup settings.
 
-A command preset names a piece of software rather than a raw command. Knowing the preset
-lets the sandbox hand the agent the right configuration paths — for example, Claude gets
-`~/.claude` mounted privately.
+A command preset names software instead of a raw command. The sandbox uses the preset to mount
+the software's configuration paths. For example, the Claude preset mounts `~/.claude` as
+private storage.
 
-An agent's network mode is always direct. The documented default is `private`; DNS `resolved`
-follows the daemon's current resolver and an unset resource limit means no cap.
+Each agent specifies its network mode directly. The documented default is `private`.
+DNS `resolved` follows the daemon's current resolver.
+An unset resource limit means no limit.
 
 ## State
 
@@ -35,34 +34,35 @@ Each agent is in one of four states:
 - **Waiting** — a state rule matched the bottom of the screen (e.g. a prompt).
 - **Idle** — the screen has not changed for a while and no rule matched.
 
-State classification reads the last few non-blank lines of the terminal, walking upward.
-The lowest matching line wins; what scrolled out of view cannot keep a pane in `waiting`
-after the agent has moved on.
+The daemon checks the last few non-blank terminal lines from bottom to top.
+The lowest matching line determines the state.
+Text outside the view cannot keep an agent in `Waiting` after it sends new output.
 
-Two clocks track state independently: the pane's last-change time decides when a quiet
-pane goes idle, and the state-since time records how long the agent has been in its current
-state. Both survive daemon restarts through tmux session metadata.
+Two clocks track state independently.
+The pane's last-change time determines when a pane without changes becomes idle.
+The state-since time records when the current state started.
+Tmux session metadata preserves both times through daemon restarts.
 
 ## Lifecycle
 
-- **Start** spawns the tmux session inside a Bubblewrap sandbox.
-- **Stop** sends a signal to the session.
-- **Remove** stops the agent and drops its configuration.
+- **Start** creates the tmux session inside a Bubblewrap sandbox.
+- **Stop** sends a signal to the agent's session.
+- **Remove** stops the agent, then removes its configuration.
 - **Reset** removes the agent's private state (tool caches, conversation history) and
   moves it to a 14-day trash directory.
 
-Agents survive daemon restarts — tmux and the game run outside the daemon's process group.
-A stopped agent's state age is cached and restored when the daemon comes back.
+Tmux and RimWorld run outside the daemon's process group, so agents keep running through daemon restarts.
+The daemon caches a stopped agent's state age and restores it after restart.
 
 ## Ephemeral agents
 
-Library errands spawn ephemeral sessions that are never written to `config.toml`.
-When the process exits, the session is removed and cannot be restarted. Project host
-shells instead keep a durable tab; see [Host terminals](../reference/integrations.md#host-terminals).
+Library errands create temporary sessions. The daemon does not write them to `config.toml`.
+When the process exits, the daemon removes the session. You cannot restart it.
+Project host shells keep a persistent tab. See [Host terminals](../reference/integrations.md#host-terminals).
 
 ## Titles
 
-The daemon can generate short summaries of agent prompts using an OpenRouter model. Title
-policies for agent CLIs are `never`, `once` (first prompt only), or `always` (follows the
-current task). Host terminal titles come from the terminal application unless a fixed label is
-set. An agent title is a daemon-level override separate from the terminal's own OSC title.
+The daemon can use an OpenRouter model to summarize an agent's prompt. Agent title policies
+are `never`, `once` (first prompt only), or `always` (follows the current task). Host terminal
+titles come from the terminal application unless you set a fixed label. The daemon's agent
+title override is separate from the terminal's OSC title.

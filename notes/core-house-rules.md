@@ -1,11 +1,10 @@
 # House rules
 
 - **Commit on `main`.** This repository has one author and a linear history.
-  Use branches, including worker worktree branches, for work that will be merged back; pull requests are outside
-  the workflow.
-- **Keep `AGENTS.md` concise.** Keep topical facts in a file here, and update its
-  focused note when its ownership or behavior changes.
-- Notes here are **short**, one subject a file. Delete what goes stale rather than
-  keeping it hedged.
-- A note distills a source comment; it does not replace one. The comment stays
-  where the code is, because that is where it is read.
+  Use branches for work that you will merge into `main`. This rule also applies to worker worktree branches.
+  Do not use pull requests.
+- **Keep `AGENTS.md` short.** Put information about each subject in its own note in this directory.
+  When component responsibilities or behavior change, update the note for that component.
+- Keep notes **short**, with one subject in each file. Delete information that is no longer correct.
+- A note gives a summary of a source comment. It does not replace the comment.
+  Keep the comment with the code that it explains.

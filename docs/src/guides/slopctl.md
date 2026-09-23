@@ -1,7 +1,6 @@
 # Using slopctl
 
-`slopctl` is the host-side CLI for delegating tasks, reading logs, and inspecting the
-daemon.
+`slopctl` is the command-line tool for delegating tasks, reading logs, and inspecting the daemon.
 
 Use `slopctl sandbox inspect NAME` to view the sanitized launch plan and the live process tree
 for a session. The saved plan remains available after the process exits or a daemon restart.
@@ -14,62 +13,88 @@ sandbox sets this variable to its session name.
 
 ## Connection
 
-`slopctl` reads `endpoint.toml` for the daemon URL and token. `SLOPD_ENDPOINT` selects
-a different endpoint file; `SLOPD_URL` and `SLOPD_TOKEN` override it entirely.
+`slopctl` reads `endpoint.toml` for the daemon URL and token.
+`SLOPD_ENDPOINT` selects a different endpoint file.
+`SLOPD_URL` and `SLOPD_TOKEN` override it entirely.
 
 ## Task commands
 
-The canonical task command tree keeps delegation, discovery, lifecycle updates, and cleanup
-together. Send work once and keep its returned task ID:
+Use task commands to send work, find tasks, update status, and remove tasks.
+Send work once.
+Keep the returned task ID:
 
 ```sh
 slopctl task delegate AGENT "task description"
 slopctl task wait ID
 ```
 
-Recipients use `task show ID`, `task accept ID`, `task progress ID "note"`, then
-`task finish ID "result"` or `task fail ID "reason"`. Use `task list` to discover work,
-`task remove ID` to remove a terminal task, and `task prune` to remove terminal tasks in bulk.
-`task prune --include-active` is root-only and also removes unfinished tasks. CLI help lists the
-current filters and options.
+Recipients use this sequence:
 
-When `SLOPWORLD_TASK_ID` is set, worker lifecycle commands may omit `ID`; an explicit ID still
-takes precedence. For example, a worker can run `slopctl task show`, `slopctl task accept`, and
-`slopctl task finish`.
+1. Read the task with `task show ID`.
+2. Accept it with `task accept ID`.
+3. Report progress with `task progress ID "note"`.
+4. Report the result with `task finish ID "result"` or `task fail ID "reason"`.
 
-`task list` shows unfinished work in both directions, newest first. Cancellation marks queued or
-accepted work as `canceled`; removal is shared:
-the store holds one copy of a task, and a participant can only drop tasks that have
-stopped moving. The root token can remove tasks still in flight.
+Task statuses are `queued`, `accepted`, `working`, `done`, `failed`, or `canceled`.
+A task is terminal when its status is `done`, `failed`, or `canceled`.
+
+Use `task list` to find work.
+Use `task remove ID` to remove a terminal task.
+Use `task prune` to remove multiple terminal tasks.
+`task prune --include-active` requires the root token.
+It also removes unfinished tasks.
+CLI help lists the current filters and options.
+
+When `SLOPWORLD_TASK_ID` is set, you may omit `ID` from worker lifecycle commands.
+An explicit ID still takes precedence.
+For example, a worker can run `slopctl task show`, `slopctl task accept`, and `slopctl task finish`.
+
+`task list` shows unfinished tasks that you sent or received, newest first.
+The daemon sets a queued or accepted task's status to `canceled` when you cancel it.
+The daemon stores one task record for both participants.
+Participants can remove only terminal tasks.
+The root token can also remove unfinished tasks.
 
 `wait` blocks until `done`, `failed`, or `canceled`, then prints the final task.
-It polls internally; do not loop over `task show`, `task list`, or `status`.
+It polls internally.
+Do not repeatedly call `task show`, `task list`, or `status` to wait for completion.
 It prints the current state to stderr on the first pending response, on state changes,
-and every 30 seconds while waiting. Keep the same command running and read its output;
-stdout (including `--json`) contains only the final task result.
+and every 30 seconds while waiting. Keep the same command running.
+
+Read its output.
+Stdout (including `--json`) contains only the final task result.
 
 `worker spawn [--one-shot] --project PROJECT --template TEMPLATE "task description"` creates the
-task and child session in one daemon operation. Workers are
-instantiated from the selected, enabled template; an existing agent is never cloned. The caller
-named by `SLOPWORLD_SESSION` owns the task and sidebar child. `template list` lists the catalog,
-while an agent caller sees only templates
-enabled for worker spawning; `template show NAME` prints one accessible definition.
-Insert `--` before task text that begins with an option, for example
-`worker spawn --project repo --template review -- --durable` sends the literal task `--durable`.
-The worker receives its exact task id in `SLOPWORLD_TASK_ID`, and `slopctl` uses it when a lifecycle
-command omits `ID`. Workers are durable by default; `--one-shot` workers disappear
-on exit; durable workers remain as stopped, inspectable sessions. Exit, stop, removal, or startup
-failure marks an unfinished worker task failed, and retries require a new task or a manual
-durable start.
+task and child session in one daemon operation.
+The daemon uses the selected template. It never copies an existing agent.
 
-Create a normal agent from the same catalog with
-`agent create NAME --project PROJECT --template TEMPLATE`; creation does not start it unless
-`--start` is supplied. Both worker and ordinary-agent creation use the daemon's template
-validation and fresh private identity allocation.
-Use `template list` to discover available templates.
+The host user can select any template in the catalog.
+Scoped agents can select only templates that the daemon allows for worker creation.
 
-For independent checkout creation, worker worktree selection and manual teardown, see
-[Project worktrees](project-worktrees.md).
+The caller named by `SLOPWORLD_SESSION` owns the task and sidebar child.
+
+`template list` shows the templates available to the caller.
+`template show NAME` prints one template that the caller can use.
+
+Insert `--` before task text that has an option as its first item.
+For example, `worker spawn --project repo --template review -- --durable` sends the literal task
+`--durable`.
+
+The worker receives its exact task ID in `SLOPWORLD_TASK_ID`, and `slopctl` uses it when a lifecycle
+command omits `ID`. Workers are persistent by default.
+The daemon removes `--one-shot` worker sessions on exit.
+Persistent workers remain as stopped sessions that you can inspect.
+
+A worker exit, stop, removal, or startup failure marks its unfinished task as failed.
+To retry, create a new task or manually launch the persistent worker.
+
+Create a normal agent with `agent create NAME --project PROJECT --template TEMPLATE`.
+This command uses the same template catalog.
+It creates the agent but does not start it unless you add `--start`.
+The daemon checks the template and assigns a new private identity to each worker and agent.
+
+See [Project worktrees](project-worktrees.md) for independent checkouts, worker worktrees, and
+manual removal.
 
 ## Diagnostics
 
@@ -80,15 +105,17 @@ slopctl peers                                       # sessions visible to this c
 
 ## Logs
 
-`slopctl logs` shows the last 200 lines from the game and daemon. Select `game` or
-`daemon` to narrow the source; `--lines N` controls the count and `--follow` tails
-new output.
+`slopctl logs` shows the last 200 lines from the game and daemon.
+Select `game` or `daemon` to limit the source.
+Use `--lines N` to set the line count.
+Use `--follow` to show new output.
 
-The game source reads `Player.log` (override with `SLOPWORLD_GAME_LOG`). The daemon
-source reads the `slopd.service` user journal (override with `SLOPWORLD_DAEMON_UNIT`).
+For game logs, `slopctl` reads `Player.log`. Set `SLOPWORLD_GAME_LOG` to use another file.
+For daemon logs, it reads the `slopd.service` user journal.
+Set `SLOPWORLD_DAEMON_UNIT` to use another unit.
 
 ## Machine-readable output
 
-`--json` is accepted on any command and prints the answer as newline-delimited JSON
-instead of formatted text. It renders the shaped answer (filtered task list, name list,
-status object), so a script gets the same data the reader saw.
+Every command accepts `--json` to print newline-delimited JSON instead of formatted text.
+The JSON represents the result, such as a filtered task list, name list, or status object.
+A script gets the same data as the text output.

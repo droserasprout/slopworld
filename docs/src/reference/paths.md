@@ -1,7 +1,6 @@
 # Paths and files
 
-All paths follow XDG conventions and can be overridden with the noted environment
-variables. Paths marked `0600` are readable only by the owning user.
+These tables show default paths and supported overrides. Most Linux SlopWorld paths use XDG directories. Unity logs and the macOS profile use the locations shown. When an XDG variable is unset, SlopWorld uses the standard per-user directory. On Unix, mode `0600` gives read and write access only to the owner.
 
 ## Daemon configuration
 
@@ -18,21 +17,23 @@ variables. Paths marked `0600` are readable only by the owning user.
 | `~/.config/slopworld/sandbox_presets/<name>.toml` | `SLOPD_PRESETS` root | User sandbox definitions, one definition per file. |
 | `~/.config/slopworld/app_presets/<name>.toml` | `SLOPD_PRESETS` root | User app definitions, one definition per file. |
 | `~/.config/slopworld/tasks.toml` | beside `SLOPD_CONFIG` | Task mailbox state. |
-| `~/.cache/slopworld/mounts/<project-id>/` | `SLOPD_CACHE` | Shared managed cache mounts; retained independently of worktrees. |
-| `~/.cache/slopworld/prompt-summaries.toml` | `SLOPD_CACHE` | Cached prompt titles. Mode `0600`. |
-| `~/.cache/slopworld/session-activity.toml` | `SLOPD_CACHE` | Fallback state ages when tmux metadata is unavailable. Mode `0600`. |
-| `~/.cache/slopworld/.anthropic-usage-*.json` | `SLOPD_CACHE` | Short-lived usage responses and rate-limit backoff. Mode `0600`. |
+| `~/.config/slopworld/worktrees.toml` | beside `SLOPD_CONFIG` | Registered worktrees. |
+| `~/.cache/slopworld/mounts/<project-id>/` | under `SLOPD_CACHE` | Shared managed cache data. It remains after you remove a worktree. |
+| `~/.cache/slopworld/prompt-summaries.toml` | under `SLOPD_CACHE` | Cached prompt titles. Mode `0600`. |
+| `~/.cache/slopworld/session-activity.toml` | under `SLOPD_CACHE` | Fallback state ages when tmux metadata is unavailable. Mode `0600`. |
+| `~/.cache/slopworld/.anthropic-usage-*.json` | under `SLOPD_CACHE` | Short-lived usage responses and rate-limit backoff. Mode `0600`. |
 
 ## Data
 
 | Path | Override | Description |
 | --- | --- | --- |
-| `$XDG_DATA_HOME/slopworld/sessions/<state-id>/` | `SLOPD_STATE` | Per-agent private state. The daemon assigns the opaque state id at creation. |
-| `$XDG_DATA_HOME/slopworld/sessions/<state-id>/launch-plan.json` | under `SLOPD_STATE` | Sanitized latest sandbox launch plan. Mode `0600`; retained with durable state and never mounted into the guest. |
-| `$XDG_DATA_HOME/slopworld/sessions/.trash/` | under `SLOPD_STATE` | Deleted or reset state, reclaimed after 14 days. |
-| `~/.config/slopworld/jukebox/<name>.toml` | `SLOPD_JUKEBOX` | User-defined radio stations. No stations ship with SlopWorld. |
+| `$XDG_DATA_HOME/slopworld/sessions/<state-id>/` | `SLOPD_STATE` | Per-agent private state. The daemon assigns the opaque state ID at creation. |
+| `$XDG_DATA_HOME/slopworld/sessions/<state-id>/launch-plan.json` | under `SLOPD_STATE` | Sanitized latest sandbox launch plan. Mode `0600`. The daemon keeps it with persistent state and never mounts it into the guest. |
+| `$XDG_DATA_HOME/slopworld/sessions/.trash/` | under `SLOPD_STATE` | Removed or reset state, reclaimed after 14 days. |
+| `$XDG_DATA_HOME/slopworld/worktrees/<project-id>/<worktree-id>/checkout/` | `project.worktree_root` | Default checkout path for a managed worktree. Project settings can set a different root. |
+| `~/.config/slopworld/jukebox/<name>.toml` | `SLOPD_JUKEBOX` | User-defined radio stations. SlopWorld includes no stations. |
 | `$XDG_DATA_HOME/slopworld/jukebox.toml` | `XDG_DATA_HOME` | Jukebox likes (`[[like]]` tables). |
-| `$XDG_DATA_HOME/slopworld/profile` | `SLOPWORLD_PROFILE` | Game profile: saves, screenshots, `Config/`. |
+| `$XDG_DATA_HOME/slopworld/profile` | `--profile`, `SLOPCAR_PROFILE`, or `SLOPWORLD_PROFILE` | Game profile: saves, screenshots, and `Config/`. |
 
 ## Mod settings
 
@@ -43,10 +44,10 @@ variables. Paths marked `0600` are readable only by the owning user.
 
 ## Logs
 
-| Path | Description |
-| --- | --- |
-| `~/.config/unity3d/Ludeon Studios/RimWorld by Ludeon Studios/Player.log` | Unity game log. Harmony and mod exceptions land here, not in the launching terminal. |
-| `journalctl --user -u slopd` | Daemon log (when running as a systemd user service). |
+| Path | Used by | Override | Description |
+| --- | --- | --- | --- |
+| `~/.config/unity3d/Ludeon Studios/RimWorld by Ludeon Studios/Player.log` | Linux game | Use `SLOPWORLD_GAME_LOG` for `slopctl logs`. Use `LOG` for Makefile targets. | Unity writes Harmony and mod exceptions here. They do not appear in the terminal that launched the game. |
+| `journalctl --user -u slopd` | Daemon | `SLOPWORLD_DAEMON_UNIT` for `slopctl logs` | Daemon log when it runs as a systemd user service. |
 
 ## tmux
 
@@ -59,13 +60,18 @@ tmux -L slopworld attach -t SESSION_NAME
 
 ## Sidecar worker
 
-| Path | Override | Description |
-| --- | --- | --- |
-| `~/.config/slopworld-car/` | `SLOPCAR_CONFIG` in Makefile workflows; `SLOPCAR_CONFIG_DIR` in `slopcar` | Sidecar configuration and endpoint descriptor. |
-| `~/.local/share/slopworld-car/` | `SLOPCAR_DATA` in Makefile workflows; `SLOPCAR_DATA_DIR` in `slopcar` | Sidecar state. |
+Makefile targets use the `slopworld-car` paths. The `slopcar` script uses the `slopworld` paths. Both follow XDG variables when set.
+
+| Path | Used by | Override | Description |
+| --- | --- | --- | --- |
+| `~/.config/slopworld-car/` | Makefile targets | `SLOPCAR_CONFIG` | Sidecar configuration and endpoint descriptor. |
+| `~/.local/share/slopworld-car/` | Makefile targets | `SLOPCAR_DATA` | Sidecar state. |
+| `~/.local/share/slopworld-car/profile` | Makefile targets | `SLOPCAR_PROFILE` | Sidecar game profile. |
+| `~/.config/slopworld/` | `slopcar` script | `SLOPCAR_CONFIG_DIR` | Sidecar configuration and endpoint descriptor. |
+| `~/.local/share/slopworld/` | `slopcar` script | `SLOPCAR_DATA_DIR` | Sidecar state. |
 
 ## macOS game profile
 
-| Path | Override | Description |
-| --- | --- | --- |
-| `~/Library/Application Support/SlopWorld/sidecar-profile` | `MAC_PROFILE` | Separate profile used by the native macOS game. |
+| Path | Used by | Override | Description |
+| --- | --- | --- | --- |
+| `~/Library/Application Support/SlopWorld/sidecar-profile` | macOS Makefile targets | `MAC_PROFILE` | Separate profile used by the native macOS game. |

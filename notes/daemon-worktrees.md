@@ -1,40 +1,47 @@
 # Project worktrees
 
-`worktrees.rs` owns the independent `worktrees.toml` store and bounded Git helpers;
-`manager/worktrees.rs` owns allocation, selection, attachments, recovery and explicit teardown.
-The project keeps its original directory; its stable ID is allocated when saved or on first
-worktree creation.
-Session `worktree` is an ID, with empty or `main` selecting the original checkout. Branch names
-and HEAD are observed Git state, never worktree identity.
+`worktrees.rs` owns `worktrees.toml` and bounded Git operations.
+`manager/worktrees.rs` handles allocation, selection, attachments, recovery, and removal.
+The project keeps its original directory.
+The daemon assigns its stable ID when it saves the project or creates the first worktree.
+Session `worktree` is an ID, with empty or `main` selecting the original checkout.
+Git reports branch names and HEAD as state. Neither identifies the worktree.
 
-Task outcomes, worker exits, one-shot cleanup and last detachment never commit or delete a
-worktree. Project removal/config reconciliation cannot discard a project with worktree records.
-Worker tmux metadata preserves project/worktree selection independently of its parent.
+Task results, worker exits, one-shot cleanup, and final detachment never commit or delete a worktree.
+Project removal and configuration updates cannot discard a project with worktree records.
+Worker tmux metadata keeps project and worktree selection after its parent exits.
 
-Managed checkouts live in an opaque per-worktree container with a `checkout` child. This lets
-removal mount only that container and shared Git metadata in a minimal Bubblewrap namespace;
-Git can run its status helper and remove the checkout without exposing the original source tree
-or host home. Other host Git operations keep the no-child-process inspection restriction.
-Allocation uses detached/no-checkout registration, then direct Git builtins for branch/index setup.
-Landlock ABI 3 confines their writes to the allocated container and shared metadata, including
-when an agent changes metadata symlinks; unavailable enforcement fails allocation.
-Required filters can fail allocation; retain the record and partial tree for inspection.
+Each managed worktree has a dedicated container with a `checkout` directory.
+For removal, mount only that container and shared Git metadata in a minimal Bubblewrap namespace.
+Git can run its status helper and delete the checkout without access to the original source tree or host home.
+Host Git checks block repository helpers from launching child processes.
+Allocation registers the worktree without a checkout, then runs Git commands to create its branch and index.
+Landlock ABI 3 restricts writes to the container and shared metadata, even if an agent changes metadata symlinks.
+Allocation fails if the daemon cannot enforce this restriction.
+Required repository filters can also fail allocation. Keep the record and partial tree for inspection.
 
-Removal is manual and refuses attachments, changed/untracked/ignored files and HEAD without a
-retained local branch. External checkouts are only unregistered; `main` is never removable.
-No forced deletion or automatic commits. Interrupted operations stay visible; recovery recognizes
-completed allocation but never relaunches workers or automatically deletes files. Missing-checkout
-removal retries clean up only that Git registration and its empty owned container.
-Only ready worktrees with an existing checkout can be attached; interrupted and missing records
-remain available for inspection and explicit removal.
+Removal is explicit and always refuses attached sessions and host terminals.
+For an existing managed checkout, removal requires no tracked changes, untracked files, or ignored files.
+Its HEAD must belong to a retained local branch.
+Removal unregisters an external checkout without deleting its files.
+You cannot remove `main`.
+The daemon does not force deletion or commit automatically.
 
-Resolve worktree paths before sandbox construction and file actions. Linked worktrees mount
-metadata at real paths, checked against the registered repository. Literal mounts exposing the
-original checkout must be edited before selecting a different worktree; relative destinations
-follow the selected checkout. Cache mounts share project-owned storage independently of checkout lifetime;
-`sandbox/cache.rs` owns source resolution and the Settings Storage inventory. Blank sources
-use managed storage keyed by project identity and destination; explicit sources stay literal.
-Neither kind is deleted with a worktree. See [sandbox](sandbox-isolation.md) and [usage](../docs/src/guides/project-worktrees.md).
+Interrupted operations remain visible.
+Recovery recognizes completed allocation but never restarts workers or deletes files automatically.
+If a checkout is missing, retry removal to clean up only its Git registration and empty container.
+Sessions can attach only to ready worktrees with an existing checkout.
+Interrupted and missing records remain available for inspection and explicit removal.
 
-WIP `workspaces.toml` records and config field names remain readable; subsequent writes use
-the worktree names. The new store takes precedence and never deletes the old file.
+Resolve worktree paths before you build a sandbox or change files.
+Linked worktrees use Git metadata at real paths. Check each metadata path against the registered repository.
+Before selecting another worktree, edit literal mounts that expose the original checkout.
+Relative mount destinations follow the selected checkout.
+Cache mounts share project storage and outlive each checkout.
+`sandbox/cache.rs` resolves cache sources and builds the Settings Storage inventory.
+Blank sources use managed storage keyed by project ID and destination. Explicit sources remain literal paths.
+Removing a worktree does not delete managed or external cache storage.
+See [sandbox](sandbox-isolation.md) and [usage](../docs/src/guides/project-worktrees.md).
+
+The daemon can read legacy `workspaces.toml` records and field names.
+New writes use the worktree field names. `worktrees.toml` takes precedence and does not delete the old file.

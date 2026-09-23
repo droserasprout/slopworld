@@ -2,46 +2,54 @@
 
 ## Scoped grants
 
-A scoped grant lets one agent watch or drive another agent's terminal. The user
-creates grants through the root-only `/api/grants` route; agents cannot mint or
-delegate terminal access themselves.
+A scoped grant lets one agent watch or control selected agent sessions.
+Only the root token can create a grant through `/api/grants`.
 
 | Level | Permissions |
 | --- | --- |
-| `ro` | List, read, and watch a session (state, screen, `capture-pane`). |
-| `rw` | Everything in `ro`, plus input and lifecycle (keys, resize, start, stop, restart). |
+| `ro` | List, read, and watch sessions. This includes state, screen output, and `capture-pane`. |
+| `rw` | All `ro` permissions. Also send keys, resize, start, stop, or restart sessions. |
 
-Session creation is root-only (the mod's token). Host sessions are never in a grant's
-scope; only the root token can touch them.
+Only the root token can create agents directly.
+Scoped agents can create workers only from templates that the daemon allows.
+The daemon excludes host sessions from grants. The root token can access host sessions.
 
-Grants are persisted in a private file beside daemon configuration and restored after a daemon
-restart when the grantor and target session identities are still present. Removing or replacing
-one of those sessions revokes its grants. The daemon checks token capabilities on each request.
+The daemon saves grants in a private file beside its configuration.
+After a restart, the daemon restores a grant only if the grantor and target sessions keep the
+same identities.
+The daemon revokes a grant if the grantor or a target is removed, renamed, or replaced.
+The daemon checks token permissions on every request.
 
 ## Delivery
 
-For manually created grants, the caller must arrange delivery of the daemon URL and
-scoped token through `SLOPD_URL` and `SLOPD_TOKEN`. Workers created with `slopctl worker spawn`
-from an enabled template receive these automatically at startup. The host endpoint file contains the root token
-and must not be handed to a scoped agent.
+To use a manually created grant, set `SLOPD_URL` to the daemon URL and `SLOPD_TOKEN` to the
+scoped token.
+When you run `slopctl worker spawn`, the daemon sets both variables for the new worker.
+The host endpoint file contains the root token.
+Do not give it to an agent that uses a scoped token.
 
 ## Task mailboxes
 
-`slopctl` provides structured task delegation between agents. Every task has an opaque
-id, sender, recipient, state, body, optional note, and timestamps. Both participants
-can read a task; only the recipient changes its state.
+`slopctl` supports tasks between agents and the host.
+Every task has an opaque ID, sender, recipient, status, body, optional note, and timestamps.
+Both participants can read a task.
+Only the recipient can update tasks that are not `canceled`.
+The root token can also cancel queued or accepted tasks.
 
-Task states: `queued`, `accepted`, `working`, `done`, `failed`, `canceled`.
+The `host` identity represents the user at the keyboard.
+Only the root token can use `host` as the task sender.
+A session named `host` does not have this identity.
+Agents can send task reports to `host`.
 
-A scoped grant supplies the caller identity and must cover the recipient to delegate.
-Task authority is deliberately narrower than terminal authority; the grant's session
-scope serves as the delegation allowlist.
+A scoped grant identifies the sender.
+Its session scope defines which agents can receive tasks.
+Its `ro` or `rw` level controls terminal access.
 
-See [Using slopctl](slopctl.md) for the CLI reference.
+See [Using slopctl](slopctl.md) for task statuses, commands, and lifecycle.
 
 ## Current limits
 
-Using a grant requires the daemon's HTTP listener to be reachable from the sandbox.
-Agents with `network = "none"` cannot use grants or tasks. Agents with
-`network = "private"` can reach the listener if the daemon binds on a routable address.
-No Unix-socket transport is available.
+The sandbox needs network access to the daemon's HTTP listener to use a grant.
+Agents with `network = "none"` cannot use the grant or task APIs.
+Agents with `network = "private"` can reach the listener if the daemon binds on a routable address.
+The daemon does not support Unix-socket transport.

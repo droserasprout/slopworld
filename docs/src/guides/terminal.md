@@ -1,7 +1,7 @@
 # Attaching from a terminal
 
-The daemon runs tmux on a private socket named `slopworld`. Host terminals can attach
-to any agent's session directly.
+The daemon runs tmux on a private socket named `slopworld`.
+Use a host terminal to connect to an agent session.
 
 ## Listing sessions
 
@@ -9,8 +9,9 @@ to any agent's session directly.
 tmux -L slopworld list-sessions
 ```
 
-This shows all agent sessions managed by the daemon. Without `-L slopworld`, bare
-`tmux` uses the default socket and will not find any SlopWorld sessions.
+This command lists every agent session that the daemon manages.
+The `-L slopworld` option selects the SlopWorld socket. Bare `tmux` commands use the
+default socket and cannot find these sessions.
 
 ## Attaching
 
@@ -18,9 +19,9 @@ This shows all agent sessions managed by the daemon. Without `-L slopworld`, bar
 tmux -L slopworld attach -t SESSION_NAME
 ```
 
-This gives a raw terminal into the agent's tmux pane. Typing here is the same as
-typing in the mod's terminal view. Detach with the normal tmux prefix (Ctrl+B, D by
-default).
+This opens a host terminal connected to the agent's tmux pane.
+Input here goes to the same pane as input in the mod's terminal.
+Detach with the default tmux prefix, Ctrl+B, followed by D.
 
 ## Reading without attaching
 
@@ -29,20 +30,20 @@ tmux -L slopworld capture-pane -t SESSION_NAME: -p
 tmux -L slopworld capture-pane -t SESSION_NAME: -p -S -100   # last 100 lines
 ```
 
-`capture-pane -p` prints the pane contents to stdout without attaching. Add `-e` for
-ANSI escape sequences.
+`capture-pane -p` prints the pane contents to standard output without attaching.
+Add `-S -100` to show the last 100 lines. Add `-e` to include ANSI escape sequences.
 
 ## Target syntax
 
-Every window under the SlopWorld socket is named `bwrap`. tmux resolves window targets
-by window name before session name, so use `NAME:` or `NAME:.0` for window and pane
-targets. Bare names are safe only for `kill-session`, `rename-session`, and `attach`.
+SlopWorld names each window `bwrap`.
+Tmux checks window names before session names when it resolves a target.
+Use `NAME:` or `NAME:.0` to target a window or pane.
+Use bare names only with `kill-session`, `rename-session`, or `attach`.
 
 ## Safe interaction
 
-Avoid killing sessions with `tmux kill-session` while the daemon is running. Use the
-mod's stop action instead, so the daemon can clean up private state and
-update its session map.
+Do not run `tmux kill-session` while the daemon runs.
+Use the mod's Stop action to end an agent session. The daemon can then update its session map and remove private state.
 
 ## Logs
 

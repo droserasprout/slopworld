@@ -9,5 +9,5 @@ drawn options window must account for that embedded path. The main menu still us
 window, so placement patches must distinguish both paths. Both close paths persist settings
 and release page instances.
 
-Dialogs opened above fullscreen chrome need Super-layer promotion; otherwise the terminal
-paints over them. Views must claim their keys before forwarding to the backing agent.
+Dialogs opened above fullscreen chrome need Super-layer promotion.
+Otherwise, the terminal paints over them. Views must claim their keys before forwarding to the backing agent.

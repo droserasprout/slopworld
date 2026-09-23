@@ -1,7 +1,7 @@
 # Worksite constraints
 
-`Sim/Worksite/` turns agent Working time into construction and plague output. Progress must
-survive leaving Working; resource hauling and the vanilla economy are intentionally absent.
+`Sim/Worksite/` turns agent Working time into construction and plague output. Progress must remain after the agent leaves Working.
+The mod intentionally excludes resource hauling and the base game economy.
 
 Disabling the work override is insufficient: leaving Construction enabled lets vanilla jobs
 steal frames while the agent is idle. Preserve the work-sheet restoration boundary.
@@ -12,4 +12,5 @@ first blocking thing or impossible frames can exhaust the open-frame budget fore
 
 Tuning belongs beside the definitions/code, not in this note. Work duration and plague bloom
 must remain proportional when adding errands. Terrain frames and furniture have different
-clearance semantics; retain vanilla constructability checks before assignment.
+clearance requirements.
+Retain base game constructability checks before assignment.

@@ -1,7 +1,7 @@
 # Original palette references
 
 Non-SlopWorld schemes must preserve upstream colors, roles and
-opacity even if our contrast checks dislike them. SlopWorld Warm/Cold/Calm are house
+opacity even if they fail the mod's contrast checks. SlopWorld Warm/Cold/Calm are house
 schemes. This is reference data, not a claim that the current implementation matches.
 
 Hex values below are opaque unless an alpha is explicitly present. ANSI rows run
@@ -31,8 +31,8 @@ Source: [official specification](https://draculatheme.com/spec), including its
 | Background lighter | `#424450` |
 | Background dark / darker | `#21222c` / `#191a21` |
 
-Current-line token can be translucent; the specification supplies `#353747` as an
-opaque fallback. That does not make selection a generic accent wash.
+The current-line token can be translucent.
+The specification supplies `#353747` as an opaque fallback. That does not make selection a generic accent wash.
 
 ```text
 ANSI 0–7:  #21222c #ff5555 #50fa7b #f1fa8c #bd93f9 #ff79c6 #8be9fd #f8f8f2
@@ -85,9 +85,12 @@ nord7–10:  #8fbcbb #88c0d0 #81a1c1 #5e81ac
 nord11–15: #bf616a #d08770 #ebcb8b #a3be8c #b48ead
 ```
 
-Dark background uses nord0; elevated controls use nord1; nord2 supports selection;
-nord3 supports guides/comments. nord8 is the primary accent. Upstream role guidance
-is explicitly flexible; preserve the palette without claiming one universal widget map.
+The dark background uses nord0. Elevated controls use nord1.
+Selection uses nord2. Guides and comments use nord3.
+nord8 is the primary accent.
+
+Upstream role guidance explicitly permits flexibility.
+Preserve the palette without claiming one universal widget mapping.
 
 [Official GNOME Terminal port](https://github.com/nordtheme/gnome-terminal/blob/develop/src/nord.sh):
 
@@ -129,7 +132,8 @@ ANSI 8–15: #928374 #fb4934 #b8bb26 #fabd2f #83a598 #d3869b #8ec07c #ebdbb2
 Sources: Atom's original [syntax colors](https://github.com/atom/one-dark-syntax/blob/master/styles/colors.less),
 [UI roles](https://github.com/atom/one-dark-ui/blob/master/styles/ui-variables.less),
 and [dynamic UI color formulas](https://github.com/atom/one-dark-ui/blob/master/styles/ui-variables-custom.less).
-The UI derives colors from the syntax background; it is not a fixed syntax-palette copy.
+The UI derives colors from the syntax background.
+It is not a fixed copy of the syntax palette.
 
 Original syntax values (retain HSL to avoid rounding ambiguity):
 
@@ -146,8 +150,8 @@ Original syntax values (retain HSL to avoid rounding ambiguity):
 | Orange / yellow | `hsl(29, 54%, 61%)` / `hsl(39, 67%, 69%)` |
 | Syntax accent | `hsl(220, 100%, 66%)` |
 
-Original UI subtle text removes 40% opacity from UI text; selected text is white.
-Input background darkens base by 6%; selection lightens base by 8%. These are
+Original UI subtle text removes 40% opacity from UI text. Selected text is white.
+Input background darkens the base by 6%. Selection lightens the base by 8%. These are
 upstream formulas, unlike SlopWorld's generic adapter. Atom's syntax source does
 not define a canonical 16-slot terminal palette.
 
@@ -171,16 +175,16 @@ Tango 8–15: #555753 #ef2929 #8ae234 #fce94f #729fcf #ad7fa8 #34e2e2 #eeeeec
 ```
 
 The [GNOME HIG palette](https://developer.gnome.org/hig/reference/palette.html) is
-explicitly for icons/illustrations. Its Yellow 5 is `#e5a50a`; preserve that original
-hue when using that palette. Do not conflate HIG colors, terminal presets and Adwaita.
+explicitly for icons and illustrations. Its Yellow 5 is `#e5a50a`.
+Preserve that original hue when using that palette. Do not conflate HIG colors, terminal presets and Adwaita.
 
 ## Monokai: original provenance still unresolved
 
 [Author's history](https://monokai.pro/history) distinguishes original Monokai from
-Monokai Pro. No definitive original complete UI/ANSI table was verified in this audit.
+Monokai Pro. This audit did not check a definitive, complete original UI/ANSI table.
 
 [Microsoft's Monokai port](https://github.com/microsoft/vscode/blob/main/extensions/theme-monokai/themes/monokai-color-theme.json)
-identifies these original-derived colors; this is a port reference, not certification:
+identifies these colors derived from the original. This is a port reference, not certification:
 
 ```text
 editor background #272822; editor foreground #f8f8f2
@@ -196,8 +200,8 @@ between historical palette tokens and current port roles. Do not label our exist
 
 Sources: [Dark+](https://github.com/microsoft/vscode/blob/main/extensions/theme-defaults/themes/dark_plus.json)
 includes [Dark (Visual Studio)](https://github.com/microsoft/vscode/blob/main/extensions/theme-defaults/themes/dark_vs.json).
-Unspecified values inherit application color-registry defaults; the theme JSON alone
-is not the complete palette.
+Unspecified values inherit application color-registry defaults.
+The theme JSON alone is not the complete palette.
 
 | Explicit role | Hex |
 | --- | --- |
@@ -221,5 +225,5 @@ because both belong to Dark+. Pin an upstream release before implementing exact 
 Shipped role values now live in the [theme catalogs](mod-ui-identity.md).
 `UIScheme.Sel` remains 35% accent, and `TerminalTheme` multiplies selection alpha by
 0.35. These are local policies, not original palette definitions. Missing upstream
-roles need an explicit documented mapping; imported colors should not be adjusted
-to satisfy local contrast checks.
+roles need an explicit documented mapping.
+Do not adjust imported colors to satisfy local contrast checks.

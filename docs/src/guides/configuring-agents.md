@@ -2,29 +2,39 @@
 
 ## Projects
 
-A project owns a directory and the shared path mounts visible to its agents.
-Inside the sandbox, the project is mounted at its configured absolute path. Mount changes
-apply when agents start again, so running sandboxes are unchanged.
+A project defines a directory and shared path mounts for its agents.
+The sandbox mounts the project at its configured absolute path.
+Mount changes apply when agents start again. They do not change running sandboxes.
 
-Create a project in the sidebar's add strip or through the command palette. The project
-directory is mounted read-write by default. A row with the project directory in both
-**From** and **To** can make it read-only.
+Use **Add project** in the sidebar or choose the project command in the command palette.
+The sandbox mounts the project directory as read-write by default.
+
+To make the project directory read-only, add a mount row:
+
+1. Select **Add path**.
+2. Enter the project directory in **From** and **To**.
+3. Select `ro`.
 
 | Field | Description |
 | --- | --- |
 | `dir` | Project directory on the host. |
-| `mounts` | Host `from` path, sandbox `to` path, and access `mode` (`ro`, `rw`, or `cache`) for each shared bind. |
+| `mounts` | Host path, sandbox path, and mode (`ro`, `rw`, or `cache`) for each mount. |
 
-The project form has **General**, **Mounts**, and **Worktrees** tabs. **Mounts** has editable **From**, **To**, and access-mode columns. **Add path**
-adds a blank row. **Add project** copies the selected project's current directory into From
-and the selected project's configured directory into To. These are ordinary
-editable values: later project renames, directory edits, or deletion do not retarget the row.
-Remove a row with **×**. Sources must be absolute after daemon expansion; destinations can be
-absolute or relative to the selected checkout. Read-only/read-write sources may be files or
-directories and must exist at launch. **Cache** sources are shared writable directories created
-if missing; leave From blank for managed storage. Both managed and explicit caches appear in
-Settings → Storage. See [project worktrees and cache mounts](project-worktrees.md).
-Protected daemon and private-state paths remain blocked.
+The project form has **General**, **Mounts**, and **Worktrees** tabs. The **Mounts** tab shows
+**From**, **To**, and access mode. Select **Add path** to add a blank row.
+
+**Add project** copies the selected project's current directory into **From**. It copies that
+project's configured directory into **To**. You can edit both paths. Later renames, directory
+edits, or deletion do not change the copied paths. Select **×** to remove a row.
+
+The daemon expands variables in source paths. Each source must then be absolute. A destination
+can be absolute or relative to the selected checkout. For `ro` or `rw`, the source can be a
+file or directory. It must exist when the agent starts. For `cache`, the daemon creates a
+missing source as a shared writable directory.
+
+Leave **From** blank to use managed storage. **Settings > Storage** lists managed and external
+caches. See [project worktrees and cache mounts](project-worktrees.md). The daemon blocks paths
+that overlap protected files or private state.
 
 ## Agents
 
@@ -37,89 +47,95 @@ identifies the software so the sandbox can mount its configuration paths.
 | `cmd` | Optional raw command line, used instead of the preset's default. |
 | `sandbox` | Additional sandbox presets for this agent. |
 | `network` | Network mode for this agent: `none`, `private`, or `host`. |
-| `dns` | `resolved` to follow the daemon's current resolver, or up to two explicit IPv4 servers. |
-| `limits` | Final resource limits: `memory_mb`, `pids`, `nofile`, `cpu_pct`; an unset field means no cap. |
-| `persistent_tmp` | Keep a private `/tmp` for this agent across restarts. It lives in the agent's durable state and moves with reset/delete. |
+| `dns` | `resolved` to use the daemon's current resolver, or one or two explicit IPv4 server addresses. |
+| `limits` | Process limits: `memory_mb`, `pids`, `nofile`, `cpu_pct`. Unset means no cap. |
+| `persistent_tmp` | Keep a private `/tmp` across restarts. Reset and remove move it to the state trash. |
 | `autostart` | Start this agent automatically when the daemon starts. |
-| `auto_resume` | When enabled, the daemon pastes `/resume` and submits after the agent settles on startup. |
+| `auto_resume` | Send `/resume` after a fresh agent process reaches a settled prompt. |
 
-An agent with a raw `cmd` and no `command` gets the sandbox but none of the
-CLI-specific wiring.
+Without `command`, `cmd` does not inherit the command preset's sandbox dependencies.
 
 ## Agent templates
 
-Open **+ > Agent**, then choose a template or **Custom**. A template copies its
-customizations once before the editor opens; every copied setting remains editable. To make
-one, open an existing agent and choose **Save as template**. The daemon stores personal templates in
-`agent_templates/` beside its main configuration.
+Open **+ > Agent**. Select a template or **Custom**.
+The editor starts with a copy of the template settings. You can edit those settings.
+To make a template from an agent, open the agent. Select **Save as template**.
+The daemon stores personal templates in `agent_templates/` beside its main configuration.
 
-Templates appear in **Library** alongside prompts, errands, breadcrumbs, and file actions.
-Click a template to open the agent editor in template mode, or use
-**+ > Library > Agent template** to create one. General, Sandbox, Resource limits,
-and Preview use the same controls as agent editing; templates omit project,
-mounts, and private-state actions. Right-click a template to duplicate or delete it.
-Duplication opens a new personal draft; save it to add it to Library. Capture an existing
-agent with its editor's **Save as template** action. Capture copies the saved agent's own
-customizations and their dependencies, excluding project contributions. Unsaved editor changes
-are not captured. A failed save keeps the draft; use **Reload** only when you want to discard
-it and reconcile with a newer catalog revision. Existing agents
-are not changed when their source template is edited or deleted.
+Templates appear in **Library** with other entries. Click a template to open the agent editor
+in template mode. Use **+ > Library > Agent template** to create a template. The General,
+Sandbox, Resource limits, and Preview tabs use the agent editor's controls.
 
-Templates are one-time recipes. Applying one copies its specified choices into the new
-agent; later template edits or deletion do not change that agent. Command and sandbox
-snapshots remain stable, including when the live catalog changes. A template never captures
-mounts, labels, private state identity, or credentials.
+Templates do not store a project, mounts, or private-state identity. Right-click a template to
+duplicate or delete it. Duplication opens a personal draft. Save the draft to add it to Library.
+**Save as template** copies an agent's saved settings and dependencies. It does not copy project
+settings or unsaved editor changes.
 
-In a template, **Session default** leaves a startup choice unspecified. Network and DNS
-choices are agent settings; omitted values use the documented agent defaults (`private` and
-the system resolver). An unset limit means no cap. **Daemon default** selects the destination
-daemon's default command. **Custom** pins a value. Limits require a positive whole
-number; a blank field means no configured cap.
+A failed save keeps the draft. If the template still exists, select **Reload** to load its latest
+saved version. Reload discards the draft.
+Template edits and deletion do not change existing agents.
+
+A template supplies initial settings. Applying it copies its specified choices into the new agent.
+Later edits or deletion do not change that agent. The agent keeps command and sandbox snapshots
+when the live catalog changes. A template never captures project mounts, labels, private-state
+identity, or credentials.
+
+In a template, **Session default** leaves `persistent_tmp`, `autostart`, or `auto_resume`
+unspecified. New agents use the default value (`false`) for those flags. A template can also set
+network mode and DNS. If it omits them, the agent uses `private` networking and the daemon's
+current resolver. An unset limit means no limit. Limits must be positive whole numbers. A blank
+field means no configured limit.
+
+**Daemon default** uses the destination daemon's default command. Select **Custom command** to
+set a command line in the template.
 
 ## Ownership and previews
 
-Projects supply the workspace and shared mounts. Agents supply command, sandbox additions,
-network, DNS, resource limits, and startup/private-state behavior. Templates copy those agent
-settings and captured dependencies once; they do not remain attached to the source or
-destination project.
+Projects supply the workspace and shared mounts. Agents define the command, sandbox additions,
+network, DNS, resource limits, and startup and private-state behavior. Templates copy these agent
+settings and their dependencies once. They do not stay attached to either project.
 
 The agent editor's Preview tab shows direct agent settings, captured dependencies, and the
 selected project's mounts. The project editor's Mounts tab shows the shared list and warns that
-changes apply on the next start. Projects have no process-setting or breadcrumb defaults;
-their shared mounts are configured separately in the project editor.
+changes apply on the next start. Projects have no defaults for process settings or breadcrumbs.
+Configure their shared mounts separately in the project editor.
 
-Preview is calculated by the daemon from the unsaved form. It shows settings for the next
-start; saving a project or agent does not replace a running process's network or sandbox.
-Use **Refresh preview** after external file edits. Requested bindings still undergo path and
-sandbox validation at launch.
+The daemon calculates the preview from the unsaved form.
+It shows settings for the next start.
+Saving a project or agent does not replace a running process's network or sandbox.
+Use **Refresh preview** after external file edits. At startup, the daemon checks each requested
+bind against path safety and sandbox rules.
 
 ## Summaries
 
-Settings > Integrations > Summaries controls the title and delegated-task summary policies,
-model, minimum submitted-prompt length, and the shared `summary_prompt`. The configured
-instruction is sent before the submitted prompt; changing it also selects a separate summary
-cache entry.
+Settings > Agents > Summaries controls title and delegated-task summary policies, the
+model, minimum prompt length, and the shared `summary_prompt`.
+The daemon sends the configured instruction before each submitted prompt.
+Changing the instruction also selects a separate summary cache entry.
 
 ## Workers
 
-Settings > Integrations > Workers controls both the bootstrap prompt and the templates that
-agents may use to spawn workers. Check a template to add its name to the worker allowlist; new
-templates are unchecked. The user Worker menu can use any catalog template. The prompt can refer
-to `$SLOPWORLD_TASK_ID`; the default includes the
-worker task workflow. The setting lives under `[daemon.instructions]` as
-`worker_prompt`, with the allowlist under `[daemon] worker_templates`. See [Using slopctl](slopctl.md).
+**Settings > Agents > Workers** sets the worker prompt and selects templates that agents can use
+to create task workers. Select a template to add it to the allowlist. New templates do not enter
+the allowlist automatically. The human **Worker** menu can use any template in the catalog.
+
+The prompt can refer to `$SLOPWORLD_TASK_ID`. The default prompt includes the worker task
+procedure. In the config file, the prompt is `[daemon.instructions].worker_prompt`. The allowlist
+is `[daemon].worker_templates`.
+See [Using slopctl](slopctl.md).
 
 ## Command apps
 
-A command app names a piece of software and declares `kind = "agent"` or
-`kind = "shell"`. The Settings > Commands > Apps page uses that field to keep the Agent and
-Shell defaults separate while sourcing both lists from the live command catalog. User
-apps in `~/.config/slopworld/app_presets/*.toml` replace builtins by name; an omitted kind
-is treated as `agent`.
+A command app defines software and its sandbox dependencies. Set `kind` to `agent` or `shell`.
+The **Settings > Commands > Apps** page lists command definitions from the current catalog.
+In **Settings > Commands > Defaults**, agent apps appear in **Agent**. Shell apps appear in
+**Agent shell** and **Shell**. User apps in
+`~/.config/slopworld/app_presets/*.toml` replace supplied apps with the same name.
+If you omit `kind`, SlopWorld uses `agent`.
 
-A file in `app_presets` contains one direct app definition. The `global.toml` sandbox
+A file in `app_presets` contains one app definition. The `global.toml` sandbox
 preset is implicit and precedes all others. See
-[Configuring sandboxes](configuring-sandboxes.md) for the sandbox side.
+[Configuring sandboxes](configuring-sandboxes.md) for sandbox configuration.
 
 ## Network
 
@@ -127,47 +143,56 @@ Agents own their network mode:
 
 | Mode | Behavior |
 | --- | --- |
-| `none` | Private network namespace. No connectivity. |
-| `private` | `pasta` wraps the sandbox with synthetic DNS. No port forwarding. Blocks loopback but does not restrict egress. |
-| `host` | Full host networking, including local services. |
+| `none` | The agent has a private network namespace with no network access. |
+| `private` | `pasta` provides synthetic DNS. It forwards no ports. Outbound access is available. |
+| `host` | Uses the host network and can reach local services. |
 
-DNS `resolved` follows the daemon's current resolver. An explicit `dns` on the agent selects
-up to two IPv4 servers for `pasta`.
+With `private`, `pasta` routes DNS requests. `resolved` uses the daemon's current resolver.
+An explicit `dns` value supplies one or two IPv4 servers to `pasta`.
+
+With `host`, `resolved` uses the host resolver. The daemon writes explicit server addresses to a
+resolver file and mounts it in the sandbox. With `none`, the sandbox has no network access. DNS
+settings have no effect.
 Network and DNS changes take effect on the next agent start.
 
 ## When changes take effect
 
-Restart agents after changing their launch configuration, including commands, sandbox
-settings, and mounts. Project mount edits are read at each start and do not rebuild a running
-sandbox.
+Restart an agent after you change its command, sandbox settings, or mounts. The daemon reads
+project mount changes when an agent starts. It does not rebuild a running sandbox.
 
-Auto-resume runs only for a fresh agent process; a daemon restart that adopts an existing
-tmux pane does not submit `/resume` again.
+Auto-resume runs only for a new agent process.
+A daemon restart that adopts an existing tmux pane does not submit `/resume` again.
 
 ## Shell
 
-Right-click an agent and select **Shell** to open a shell inside the same sandbox.
-The shell inherits the agent's sandbox presets, network mode, DNS, resource limits,
-and selected project's mounts, so it sees the same filesystem the agent does. Host shells from
+Right-click an agent.
+Select **Shell** to open a shell inside the same sandbox.
+The shell inherits the agent's sandbox presets, network mode, DNS, resource limits, and
+selected project's mounts.
+It sees the same filesystem as the agent. Host shells from
 the project heading do not carry per-agent settings.
 
 Settings > Commands > Defaults > **Agent shell** controls the `SHELL` environment
 variable inside sandboxed agent sessions. It defaults to `bash`, independently of
 the **Shell** default used by shell errands. SlopWorld resolves the selected shell
-preset (or custom executable) to an absolute executable path before launch. This is
-important for clients such as Codex, which reject a bare `bash` value and otherwise
-fall back to the account's login shell; restart an agent after changing it. Explicit
+preset (or custom executable) to an absolute executable path before launch. Clients such as
+Codex reject a `bash` value without an absolute path. They use the account's login shell instead.
+After you change **Agent shell**, restart the agent. Explicit
 tool-call shell overrides, host panes, and shell errands are unaffected.
 
 ## Library errands
 
-Prompts and shell commands create temporary sessions. In their Library editor, choose
-**Run using > Host** for execution outside the sandbox, or **Agent template: …** to copy
-that template's command, sandbox additions, network, DNS, limits and private-state choices.
-The selected project supplies the working directory and mounts; a temporary project starts
-with an empty workspace. Shell errands retain their shell executable; prompt errands use
-the template's command unless a command override is supplied.
+Prompts and shell commands create temporary sessions.
+Their Library editor has these execution choices:
 
-Each run copies the current template once with a fresh private identity. Editing or deleting
-the template does not change an errand already created. Errands do not autostart or auto-resume.
-An execution choice is required before running an entry. File actions continue to execute on the daemon host.
+- **Run using > Host** runs the session outside the sandbox.
+- **Agent template: [name]** copies the template's command, sandbox additions, network, DNS,
+limits, and private-state choices.
+The selected project supplies the working directory and mounts.
+A temporary project starts with an empty workspace.
+Shell errands retain their shell executable.
+Prompt errands use the template's command unless you supply a command override.
+
+Each run copies the current template once and gets a fresh private identity. Editing or deleting
+the template does not change an errand that already exists. Errands do not autostart or auto-resume.
+Choose how to run an entry before you start it. File actions run on the daemon host.

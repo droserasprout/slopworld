@@ -2,7 +2,7 @@
 
 The compatibility model and sidecar contract are in
 [macOS compatibility](ops-macos-compatibility.md). This note tracks implementation
-order and what has been verified.
+order and verified results.
 
 ## Sidecar status
 
@@ -11,14 +11,19 @@ launcher, persistent config/state mounts, loopback-only publishing, runtime capa
 container-aware DNS, and a doctor that exercises pasta, Bubblewrap and tmux together. The proven
 Docker profile runs as uid 1000 with every capability dropped, a read-only root, the
 containers/common seccomp profile plus private-UTS hostname calls, `systempaths=unconfined`, and
-`/dev/net/tun`; it does not use `--privileged` or `CAP_SYS_ADMIN`. Bubblewrap cannot create
-the nested user namespace with Docker's `no-new-privileges`, so that flag is omitted.
+`/dev/net/tun`.
+It does not use `--privileged` or `CAP_SYS_ADMIN`. Bubblewrap cannot create
+the nested user namespace with Docker's `no-new-privileges`, so the profile omits that flag.
 
-Debian's official images publish both `linux/amd64` and `linux/arm64`; the launcher does not pin a
-platform, so Apple Silicon does not need emulation. Linux Docker amd64 is verified. The Makefile's
-native macOS workflow covers mod build/install and Rust-mediated profile launch; Docker Desktop inside
-a QEMU macOS guest, native input/fullscreen, desktop file opening, and container-replacement
-reconnect remain compatibility work rather than verified support.
+Debian's official images provide both `linux/amd64` and `linux/arm64`.
+The launcher does not fix the platform, so Apple Silicon does not need emulation. Linux Docker amd64 is verified. The Makefile's
+native macOS workflow covers mod build/install and profile launch through Rust.
+These areas still require compatibility work and verification:
+
+- Docker Desktop inside a QEMU macOS guest.
+- Native input and fullscreen.
+- Desktop file opening.
+- Reconnection after container replacement.
 
 ## Remaining validation
 

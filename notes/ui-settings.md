@@ -1,29 +1,31 @@
 # Settings apply boundaries
 
-Use Settings for the UI; Configuration names the raw daemon document/editor. Keep RimWorld
-API names such as `Dialog_Options` intact. `ModOptions` is the navigation source of truth.
+Use Settings for the UI.
+The Configuration page edits the raw daemon document. Keep RimWorld API names such as
+`Dialog_Options` intact. `ModOptions` owns navigation.
 
-Profile preferences apply live and persist on interaction or Settings close, with periodic
-dirty flushing. RimWorld preferences use its persistence lifecycle. UI scale applies on
-slider release because live scaling moves the input target. There is no per-field Cancel
-for local appearance previews.
+Profile preferences apply live. The mod saves them after an interaction and when Settings closes.
+The mod also saves dirty preferences on a timer. RimWorld saves its preferences through its own lifecycle.
+The mod applies UI scale on slider release. Live scaling moves the input target.
+Local appearance previews have no per-field Cancel.
 
-Daemon pages retain independent drafts per page and endpoint. Save sends only changed
-fields and acknowledges the submitted snapshot, preserving edits made during the request.
-Reload merges untouched fields and reports same-field conflicts; Discard uses the latest
-remote snapshot. A save must not reload unrelated pages. General's local controls remain
-usable when daemon loading fails. See [config ownership](daemon-config-stores.md).
+Daemon pages keep separate drafts for each page and endpoint. Save sends only changed fields.
+The mod acknowledges the submitted snapshot and preserves edits made during the request.
+Reload merges remote values into fields the user did not edit. It reports conflicts in those
+fields. Discard loads the latest remote snapshot. Do not reload unrelated pages when saving.
+General controls remain available when daemon loading fails. See
+[config ownership](daemon-config-stores.md).
 
-`DaemonConfigDraft` owns one field record per raw text key: the record keeps its path, local
-and remote baselines, blank-zero formatting policy, and pending post-save normalization. Pages
-read that record directly, so recreating a Settings page during an in-flight save does not lose
-typed numeric text or its normalization. Usage's live-only rows remain separate display state;
-they are promoted into configured overrides only when edited.
+`DaemonConfigDraft` keeps one record for each raw text key. Each record stores the key path,
+local and remote baselines, blank-as-zero formatting policy, and pending normalization.
+Pages read each record directly. This preserves typed numbers if Settings recreates a page
+during a save. Usage rows remain display-only until the user edits them. The mod saves them as
+overrides only after an edit.
 
-Objects such as agents/projects/presets have separate editor lifetimes. Updating defaults
-must not silently rebuild running agent processes. Confirmation is for consequential
-operations such as stopping/removing agents or destroying private state, not appearance toggles.
+Agent, project, and preset editors have separate lifetimes. Changes to defaults must not rebuild
+running agents. Ask for confirmation before stopping or removing an agent, or deleting private
+state. Do not ask before an appearance change.
 
-Experimental switches retain disabled preferences. Mount changes require agent restart;
-pending prompt delivery has separate cancellation rules. Worker bootstrap is unconditional
-although its editor is currently gated.
+Experimental switches retain their disabled preferences. Mount changes require an agent restart.
+Pending prompt delivery has separate cancellation rules. Worker bootstrap always runs, although its editor
+is currently gated.
