@@ -140,6 +140,8 @@ namespace SlopWorld
             new Credit("tmux", "sessions", "https://github.com/tmux/tmux/wiki"),
             new Credit("bubblewrap", "isolation",
                 "https://github.com/containers/bubblewrap"),
+            new Credit("Landlock", "filesystem isolation",
+                "https://github.com/landlock-lsm/rust-landlock"),
             new Credit("systemd", "service", "https://systemd.io/"),
             new Credit("passt", "networking", "https://passt.top/"),
             new Credit("anyhow / futures / nix / regex / dirs", "support", new[]
