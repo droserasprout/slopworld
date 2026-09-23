@@ -34,22 +34,20 @@ impl Manager {
             .await
     }
 
-    pub(crate) fn session_read_operation<'a, F: Future + 'a>(
+    pub(crate) async fn session_read_operation<'a, F: Future + 'a>(
         &'a self,
         operation: F,
-    ) -> impl Future<Output = F::Output> + 'a {
-        async move {
-            let owner = self as *const Self as usize;
-            if OWNER.try_with(|current| *current == owner).unwrap_or(false)
-                || READ_OWNER
-                    .try_with(|current| *current == owner)
-                    .unwrap_or(false)
-            {
-                return operation.await;
-            }
-            let _guard = self.session_boundary.read().await;
-            READ_OWNER.scope(owner, operation).await
+    ) -> F::Output {
+        let owner = self as *const Self as usize;
+        if OWNER.try_with(|current| *current == owner).unwrap_or(false)
+            || READ_OWNER
+                .try_with(|current| *current == owner)
+                .unwrap_or(false)
+        {
+            return operation.await;
         }
+        let _guard = self.session_boundary.read().await;
+        READ_OWNER.scope(owner, operation).await
     }
 
     /// Nested lifecycle calls share the boundary. Spawned tasks must acquire their own boundary.
