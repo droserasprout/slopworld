@@ -5,7 +5,7 @@ using UnityEngine;
 namespace SlopWorld
 {
     // Compact settings table chrome shared by Usage and other daemon-backed pages. Columns
-    // with Flexible set consume the space left by fixed-width columns; when the table is too
+    // with Flexible set consume the space left by fixed-width columns. When the table is too
     // narrow, fixed columns shrink together so every cell still ends at the table edge.
     public static class UiTable
     {

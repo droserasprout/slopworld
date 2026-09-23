@@ -106,7 +106,7 @@ namespace SlopWorld
             }
         }
 
-        // Strip URI suffixes before decoding; encoded delimiters belong to the filename.
+        // Strip URI suffixes before decoding. Encoded delimiters belong to the filename.
         static string UriPath(string source)
         {
             int query = source.IndexOf('?');

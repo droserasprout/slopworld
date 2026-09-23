@@ -45,7 +45,7 @@ namespace SlopWorld
         const float CloseSize = 22f;
 
         // Titles and captions share the close corner's horizontal lane. Keep their text out
-        // of that lane without narrowing the form below it; RowLabel then truncates long names
+        // of that lane without narrowing the form below it. RowLabel then truncates long names
         // at the edge where the close control begins.
         protected Rect TitleRect(Rect rect)
         {
@@ -65,7 +65,7 @@ namespace SlopWorld
             {
                 // RimWorld's Accept binding normally covers Return, but keypad Enter is not
                 // present in every platform's binding. Accepted dialogs should treat both keys
-                // alike; multiline editors leave closeOnAccept false so Enter remains a newline.
+                // alike. Multiline editors leave closeOnAccept false so Enter remains a newline.
                 var e = Event.current;
                 if (closeOnAccept && e != null && e.type == EventType.KeyDown &&
                     e.keyCode == KeyCode.KeypadEnter)

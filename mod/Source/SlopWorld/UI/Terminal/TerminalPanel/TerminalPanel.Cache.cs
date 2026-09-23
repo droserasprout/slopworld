@@ -16,7 +16,7 @@ namespace SlopWorld
         bool _noCache;
 
         // Cache the pane between screen frames: the daemon updates more slowly than the monitor.
-        // Use an opaque screen-sized target so GUI coordinates and glyph edges remain stable;
+        // Use an opaque screen-sized target so GUI coordinates and glyph edges remain stable.
         // disable the cache for the process after a render-target failure.
         bool Blit(Rect body, ScreenBuf buf, float cw, float ch)
         {
@@ -78,7 +78,7 @@ namespace SlopWorld
                 PerfTrace.Count("terminal-cache-misses");
                 PerfTrace.Count("terminal-cache-repaints");
                 // Keep the pre-paint revision. RequestCharactersInTexture can rebuild the
-                // atlas while Paint is running; retaining the old revision forces one clean
+                // atlas while Paint is running. Retaining the old revision forces one clean
                 // repaint after that rebuild instead of caching a half-drawn first frame.
                 var was = RenderTexture.active;
                 try
@@ -140,7 +140,7 @@ namespace SlopWorld
         }
 
         // Draw the last complete pane frame. During a session handoff the new reader can exist
-        // before its first screen arrives; keeping this frame avoids exposing that transport gap
+        // before its first screen arrives. Keeping this frame avoids exposing that transport gap
         // as a close-and-reopen of the terminal.
         bool BlitCached(Rect body)
         {
@@ -153,7 +153,7 @@ namespace SlopWorld
             if (_cache == null || !_cache.IsCreated()) return false;
             // The shared texture is only a valid fallback while this session remains active.
             // A switched tab must use its own displayed-frame snapshot or wait for its first
-            // screen; showing the previous tab for one frame reads as terminal flicker.
+            // screen. Showing the previous tab for one frame reads as terminal flicker.
             if (_cacheKey.Session != _state.Name) return false;
             if (Event.current.type != EventType.Repaint) return true;
 
@@ -171,14 +171,14 @@ namespace SlopWorld
             float y0 = source.y * _snapSy + _snapOy;
             float w = source.width * _snapSx;
             float h = (source.height + sourceExtraBottom) * _snapSy;
-            // A screen-sized cache has no texels outside the screen. Sampling beyond its
-            // edge makes the GPU repeat or clamp its last scanline, which turns the bottom
-            // terminal row into barcode-like vertical streaks during fractional scrolling.
+            // A screen-sized cache has no texels outside the screen. Sampling beyond its edge makes
+            // the GPU repeat or clamp its last scanline. This turns the bottom terminal row into
+            // barcode-like vertical streaks during fractional scrolling.
             if (x0 < 0f || y0 < 0f || x0 + w > pw || y0 + h > ph)
                 return false;
             float u0 = x0 / pw, u1 = (x0 + w) / pw;
 
-            // texCoords y counts from the destination's bottom either way; which end of
+            // texCoords y counts from the destination's bottom either way. Which end of
             // the texture that is, is where the API put the target's first row.
             float v0, v1;
             if (SystemInfo.graphicsUVStartsAtTop)

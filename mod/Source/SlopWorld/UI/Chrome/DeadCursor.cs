@@ -26,9 +26,9 @@ namespace SlopWorld
             }
         }
 
-        // These are the designs that read as pointers rather than as tiny UI buttons. The
-        // reverse flag preserves the useful orientation of each source icon: the hand and
-        // fists point the same way as the old cursor, while the tools stay as drawn.
+        // These are the designs that read as pointers rather than as tiny UI buttons. The reverse
+        // flag preserves the useful orientation of each source icon. The hand and fists point the
+        // same way as the old cursor, while the tools stay as drawn.
         static readonly Choice[] _choices =
         {
             new Choice("tame", "Tame", "UI/Designators/Tame", true),
@@ -46,15 +46,15 @@ namespace SlopWorld
         public static string CurrentKey =>
             ChoiceFor(Settings.Cursor) != null ? Settings.Cursor : _choices[0].Key;
 
-        // The vanilla arrow is 32, which is too polite to notice; X11 has no trouble with
+        // The vanilla arrow is 32, which is too polite to notice. X11 has no trouble with
         // a hardware cursor this size.
         const int N = 48;
         // The outline keeps its weight, the skin flattens out: grey, not pale.
         const float Floor = 0.20f;
         const float Range = 0.68f;
 
-        // A turned square is wider than the square: at the swing below it needs
-        // N*(cos+sin), a shade over 62, so the spun frames get a canvas of their own.
+        // A turned square is wider than the square: at the swing below it needs N*(cos+sin), a
+        // shade over 62. Therefore, the spun frames get a canvas of their own.
         const int M = 64;
 
         // Counter-clockwise and back rather than side to side: a hand that crosses
@@ -65,8 +65,8 @@ namespace SlopWorld
         // Twelve is smooth at this size, built the first time a cat is patted and kept.
         const int SpinSteps = 12;
 
-        // The click is the same swing with most of it taken away: one dip and back, a
-        // quarter of the pat's angle, because a click is a glance rather than a fuss.
+        // The click is the same swing with most of it taken away. One dip and back, a quarter of
+        // the pat's angle, because a click is a glance rather than a fuss.
         const int ClickStep = 3;
         const float ClickSeconds = 0.12f;
 
@@ -84,8 +84,8 @@ namespace SlopWorld
         static float _spinUntil = -1f;
         static int _shown;
 
-        // The two never run at once: a click during a pat is dropped, the pat being the
-        // bigger answer, and a pat cuts a click short.
+        // The two never run at once. A click during a pat is dropped, the pat being the bigger
+        // answer, and a pat cuts a click short.
         static float _clickUntil = -1f;
 
         static DeadCursor()
@@ -119,9 +119,9 @@ namespace SlopWorld
             Apply();
         }
 
-        // Cheap enough to call on every prefs change. Vanilla also calls the patched
-        // CustomCursor methods while changing cursor modes, so preserve an animation that
-        // is already running instead of briefly putting the resting cursor back on screen.
+        // Cheap enough to call on every prefs change. Vanilla also calls the patched CustomCursor
+        // methods while changing cursor modes. Therefore, preserve an animation that is already
+        // running instead of briefly putting the resting cursor back on screen.
         public static void Apply()
         {
             var choice = ChoiceFor(Settings.Cursor) ?? _choices[0];
@@ -215,7 +215,7 @@ namespace SlopWorld
             float rad = deg * Mathf.Deg2Rad;
             float cos = Mathf.Cos(rad), sin = Mathf.Sin(rad);
             // Pixels run bottom-up, which is also where a positive angle turns
-            // counter-clockwise; the hotspot is flipped back at the end.
+            // counter-clockwise. The hotspot is flipped back at the end.
             float c = (N - 1) * 0.5f;
             int o = (M - N) / 2;
 

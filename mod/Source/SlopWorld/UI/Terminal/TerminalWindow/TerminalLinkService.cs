@@ -4,7 +4,7 @@ using UnityEngine;
 namespace SlopWorld
 {
     // Link hit testing owns the row-spanning link state used by hover painting and clicks.
-    // TerminalWindow still owns pane geometry and input policy; this class only understands
+    // TerminalWindow still owns pane geometry and input policy. This class only understands
     // parsed terminal runs.
     internal sealed class TerminalLinkService
     {

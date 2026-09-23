@@ -4,29 +4,26 @@ using UnityEngine;
 
 namespace SlopWorld
 {
-    // Shared command/agent preset checkboxes group inherited command dependencies and local
-    // contributions; the implicit global preset is settings-only.
+    // Shared preset list for commands and agents. It shows inherited presets and extra selections.
+    // Edit the global preset in Settings, not in this list.
     public static class PresetList
     {
-        // The pitch of a row here, off the font like every other height in this mod.
+        // Use the shared row height for each preset.
         public static float RowH => UiTheme.RowH;
 
-        // Ticked and refused: what a preset is handed anyway, by its command or this agent.
-        // Drawn rather than hidden - "why is ~/.claude bound" is the question this answers.
+        // Show inherited or required presets as checked and locked. This explains why the sandbox mounts their paths.
         public static void Draw(Rect outer, List<string> chosen, SmoothScroll scroll,
                                 ICollection<string> implied = null,
                                 IEnumerable<PresetInfo> catalog = null,
                                 string additionsLabel = "Added by this agent")
         {
-            // The machine-wide base is implicit for every sandbox, so it is edited on the
-            // Settings > Sandbox page rather than offered as a project checkbox.
+            // The global preset applies to every sandbox. Edit it in Settings > Sandbox, not in this list.
             var allPresets = (catalog ?? SessionHub.Instance.Presets).ToList();
             var roots = new List<string>(chosen);
             if (implied != null) roots.AddRange(implied);
             var required = RequiredBy(roots, allPresets);
             var known = new HashSet<string>(allPresets.Select(p => p.Name));
-            // Persisted references can outlive catalog definitions. Keep those rows visible
-            // so direct references can be removed and inherited ones can be traced upstream.
+            // Keep unavailable presets visible so users can remove direct references or find which preset requires them.
             foreach (var name in roots.Concat(required).Distinct())
                 if (name != "global" && !known.Contains(name))
                     allPresets.Add(new PresetInfo { Name = name, Source = "missing" });
@@ -62,8 +59,7 @@ namespace SlopWorld
                         Locked = true,
                         Warn = pr.IsEscape || pr.Source == "missing",
                     });
-                    // An explicit selection may overlap with a project contribution. Keep its
-                    // own row editable so removing it does not discard the inherited entry.
+                    // A preset can be selected directly and inherited from the project. Keep the direct row editable so users can remove it separately.
                     if (!chosen.Contains(pr.Name)) continue;
                 }
                 choices.Add(new UiChoice<PresetInfo>
@@ -94,8 +90,7 @@ namespace SlopWorld
             var todo = new Queue<string>(chosen);
             while (todo.Count > 0)
             {
-                // `FirstOrDefault` calls its predicate once per row: take the work item
-                // first, rather than consuming the queue once per candidate.
+                // Dequeue each name before searching. This changes the queue once per preset, not once per candidate.
                 string wanted = todo.Dequeue();
                 var p = presets.FirstOrDefault(x => x.Name == wanted);
                 if (p == null) continue;
@@ -113,8 +108,7 @@ namespace SlopWorld
                         : " Uncheck it to remove this reference.");
             string gives = string.Join("\n", p.Gives.ToArray());
             string why = forced ? "\n\nRequired by another selected preset or inherited by this entry." : "";
-            // First, not last: what it costs is read before what it gives, because by the time
-            // the eye reaches a list of paths the decision has usually been made.
+            // Show host access first so users see its cost before they read preset details.
             string out_ = p.IsEscape ? $"Way out of the sandbox: {p.Escapes}.\n\n" : "";
             return $"{out_}{p.Description}\n\n{gives}{why}";
         }

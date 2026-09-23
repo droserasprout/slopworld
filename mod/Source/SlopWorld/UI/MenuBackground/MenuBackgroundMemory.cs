@@ -8,7 +8,7 @@ using Verse;
 namespace SlopWorld
 {
     // Once per resident-set replacement, not per frame. Working set includes the whole
-    // process and deferred destruction of retired textures; its delta is not texture cost.
+    // process and deferred destruction of retired textures. Its delta is not texture cost.
     internal static class MenuBackgroundMemory
     {
         internal static long WorkingSet()

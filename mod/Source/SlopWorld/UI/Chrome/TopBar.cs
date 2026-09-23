@@ -6,7 +6,7 @@ using Verse;
 namespace SlopWorld
 {
     // Draw the bar from the map layer so it stays behind windows and remains interactive over
-    // them. The readout itself is only the quota/clock renderer; keeping this component here
+    // them. The readout itself is only the quota/clock renderer. Keeping this component here
     // leaves the dependency pointing from the bar to the readout.
     public class TopBarMapComponent : MapComponent
     {
@@ -26,7 +26,7 @@ namespace SlopWorld
 
         static float Pad => UiTheme.GapS;
 
-        // Door icons use the shared glyph size; ThingIcon already fills its slot more densely.
+        // Door icons use the shared glyph size. ThingIcon already fills its slot more densely.
         const float IconW = UiTheme.IconW;
 
         // Give the jukebox tip a stable id so changing song text does not restart its fade.
@@ -85,7 +85,7 @@ namespace SlopWorld
             Text.Font = GameFont.Small;
             Text.Anchor = TextAnchor.MiddleLeft;
 
-            // Lay out fixed doors first; usage rows then consume the remaining width.
+            // Lay out fixed doors first. Usage rows then consume the remaining width.
             float right = Doors(r, interactive);
 
             string clockPosition = Settings.StatusbarClockPosition;
@@ -110,7 +110,7 @@ namespace SlopWorld
                 }
             }
 
-            // Omit usage when the doors leave no room. A centered clock owns its own gap;
+            // Omit usage when the doors leave no room. A centered clock owns its own gap.
             // right mode keeps the original quota-strip layout.
             float quota = right - resources;
             bool showResources = quota > 0f && (Settings.StatusbarUsage
@@ -124,14 +124,14 @@ namespace SlopWorld
             Status(new Rect(r.x + Pad, r.y, Mathf.Max(0f, statusRight - r.x - Pad), r.height),
                 centeredSummary, summaryRight);
 
-            // The line is drawn over the map, and the map takes whatever the buttons did not:
-            // without this a press here starts a drag-selection on the ground behind it. Last,
-            // so the buttons have already had their refusal.
+            // The line is drawn over the map, and the map takes whatever the buttons did not.
+            // Without this a press here starts a drag-selection on the ground behind it. Last, so
+            // the buttons have already had their refusal.
             if (interactive) Absorb(r);
 
         }
 
-        // Consume only the initial press; the drag and release belong to its original target.
+        // Consume only the initial press. The drag and release belong to its original target.
         static void Absorb(Rect r)
         {
             var e = Event.current;
@@ -140,7 +140,7 @@ namespace SlopWorld
             e.Use();
         }
 
-        // Place config and any map objects with menus right-to-left; return quota's limit.
+        // Place config and any map objects with menus right-to-left. Return quota's limit.
         // Map object lookup and geometry are shared by all IMGUI events in a frame. The door
         // draw still runs for every event below so hover, tooltips, and clicks remain live.
         static float Doors(Rect r, bool live)
@@ -169,7 +169,7 @@ namespace SlopWorld
             _doors = new DoorLayout();
             x -= UiTheme.GapS + IconW;
             _doors.Config = Slot(r, x, IconW);
-            // The settings cog is this interface's door; what is left of the line is the
+            // The settings cog is this interface's door. What is left of the line is the
             // colony's.
             float gap = UiTheme.GapM;
 
@@ -222,7 +222,7 @@ namespace SlopWorld
             Press(over, go, live);
         }
 
-        // ThingIcon supplies its own tint; this method adds hover, input, and optional tips.
+        // ThingIcon supplies its own tint. This method adds hover, input, and optional tips.
         static void Thing(Rect r, ThingDef def, TipSignal tip, System.Action go, bool live)
         {
             if (def == null) return;
@@ -232,9 +232,9 @@ namespace SlopWorld
             bool over = ColonistBarStrip.Hover(r);
             bool repaint = Event.current != null && Event.current.type == EventType.Repaint;
 
-            // Both of these read the ambient color and only one of them puts it back, so the
-            // pair is bracketed: the highlight would wear whatever the last thing on the line
-            // left behind, and ThingIcon hands back the def's own tint.
+            // Both of these read the ambient color and only one of them puts it back, so the pair
+            // is bracketed. The highlight would wear whatever the last thing on the line left
+            // behind, and ThingIcon hands back the def's own tint.
             var was = GUI.color;
             if (repaint)
             {
@@ -327,7 +327,7 @@ namespace SlopWorld
             GUI.color = Color.white;
         }
 
-        // Center only the dim summary; the colored marker and terminal name remain the
+        // Center only the dim summary. The colored marker and terminal name remain the
         // status anchor at the left edge of the bar.
         static void CenteredSummary(Rect r, string session, AgentState state, string tail,
                                     float summaryRight)

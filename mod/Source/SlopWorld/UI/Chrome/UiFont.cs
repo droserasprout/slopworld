@@ -11,9 +11,9 @@ namespace SlopWorld
     public static class UiFont
     {
         // Unity's text generator can report a line one or two pixels shorter than the
-        // dynamic font's actual ink. Keep that slack in the style so CalcSize/CalcHeight
-        // callers (notably ActiveTip) allocate it too, and do not clip a glyph that lands
-        // on the final pixel of an otherwise correctly measured rect.
+        // dynamic font's actual ink. Keep that slack in the style.
+        // CalcSize and CalcHeight callers, such as ActiveTip, then allocate the same space.
+        // This prevents clipping when glyph ink reaches the final pixel of a measured rect.
         const int BottomSafety = 2;
 
         // Default proportional faces for the "Automatic" fallback chain. Listed in
@@ -175,12 +175,12 @@ namespace SlopWorld
             ApplyToStyles(Text.textAreaStyles, fonts);
             ApplyToStyles(Text.textAreaReadOnlyStyles, fonts);
 
-            // The bundled Small face uses a -1 content offset; it is not part of measurement,
+            // The bundled Small face uses a -1 content offset. It is not part of measurement,
             // so clear it when replacing that face. Entry styles retain their skin offsets.
             for (int i = 0; i < Text.fontStyles.Length && i < 3; i++)
                 Text.fontStyles[i].contentOffset = Vector2.zero;
 
-            // Text.LineHeight reads this cache; keep spaceBetweenLines as extra leading, not line height.
+            // Text.LineHeight reads this cache. Keep spaceBetweenLines as extra leading, not line height.
             try
             {
                 var lhField = typeof(Text).GetField("lineHeights",
@@ -252,9 +252,9 @@ namespace SlopWorld
             }
             return 0f;
         }
-        // Size 0 is not "leave the size as it is" but "put the tier back to what RimWorld
-        // shipped": the slider can be dragged up and then back down again, and a style left
-        // at the size it was last given would keep 20pt text under a page saying 11/13/15.
+        // Size 0 is not "leave the size as it is" but "put the tier back to what RimWorld shipped".
+        // The user can move the slider up and then return it to zero.
+        // Reset the style so a page that shows 11, 13, or 15 points does not retain 20-point text.
         static void ApplyToStyles(GUIStyle[] styles, Font[] fonts)
         {
             if (styles == null || fonts == null) return;
@@ -266,7 +266,7 @@ namespace SlopWorld
 
                 // Keep one shared policy for labels, tooltips and vanilla controls. The
                 // padding is idempotent because Apply() also runs while the font picker is
-                // open; Overflow is what saves a final descender when a caller supplied a
+                // open. Overflow is what saves a final descender when a caller supplied a
                 // rect measured before the dynamic atlas finished warming up.
                 styles[i].clipping = TextClipping.Overflow;
                 var p = styles[i].padding;

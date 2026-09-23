@@ -23,8 +23,8 @@ namespace SlopWorld
                 reply => { if (_s.Project == project) _worktreeChoices = reply.Worktrees.ToList(); },
                 error => { if (_s.Project == project) _worktreeError = error; }, TaskInfo.Host, 60000);
         }
-        // The agent itself: what it is called, where it works and what it runs. Everything a
-        // new agent must have to start; the other tabs only refine it.
+        // This tab sets the agent name, workspace, and command required for startup.
+        // The other tabs provide additional settings.
         void DrawGeneral(Listing_Standard l)
         {
             if (_identity.IsNew && !EditingTemplate && !string.IsNullOrEmpty(_templateName))
@@ -74,8 +74,7 @@ namespace SlopWorld
             l.Gap(UiTheme.GapS);
             UiControls.Select(l, "Command", CommandLabel(preset), CommandOptions(), out _);
 
-            // Editable whichever it is: a preset says what an agent is, and this box says
-            // what this one runs, which is the same field either way.
+            // This field sets the raw command line. It can replace the selected preset or daemon default.
             _s.Cmd = UiControls.Field(l, "agent.cmd", _s.Cmd ?? "");
             GUI.color = UiTheme.Dim;
             l.Label(CommandNote(preset));
@@ -154,7 +153,7 @@ namespace SlopWorld
             return y + height;
         }
 
-        // Per-agent resource caps the daemon enforces with a systemd scope. Edited as strings;
+        // Per-agent resource caps the daemon enforces with a systemd scope. Edited as strings.
         // parsed on Save. ScrollableListing owns the tab's measured height.
         void DrawLimits(Listing_Standard l)
         {
@@ -170,8 +169,8 @@ namespace SlopWorld
             _s.Limits = _resourceLimits.Draw(l);
         }
 
-        // The three states this pair of fields can be in: a command preset, a command line
-        // of its own, or neither, which is whatever the daemon's `[defaults] agent` names.
+        // `command` selects an app preset. `cmd` can override its command line.
+        // If both fields are blank, the daemon default applies.
         string CommandLabel(CommandInfo preset)
         {
             if (preset != null) return preset.Name;
@@ -206,8 +205,7 @@ namespace SlopWorld
                 _s.Cmd = "";
             }));
 
-            // Named by the daemon rather than listed here, so a command file dropped in its
-            // preset directory is an entry in this menu and nothing to rebuild.
+            // The daemon reads command names from the catalog. A new command file appears here after refresh.
             IEnumerable<CommandInfo> commands = SessionHub.Instance.Commands;
             var captured = _templateSnapshot?.ResolveCommand(_templateSnapshot.Command);
             if (captured != null)

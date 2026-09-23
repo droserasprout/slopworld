@@ -41,7 +41,7 @@ namespace SlopWorld
 
         static double Now => (double)Stopwatch.GetTimestamp() / Stopwatch.Frequency;
 
-        // Logical fallback already moved the viewport; late native samples must not replay it.
+        // Logical fallback already moved the viewport. Late native samples must not replay it.
         public static void DiscardPendingMovement() => Motion.Discard(Now);
         static readonly ScrollSampleBudget SampleBudget = new ScrollSampleBudget();
         static bool _sampleUsable;
@@ -106,9 +106,9 @@ namespace SlopWorld
         }
 
         // True means a fresh background sample has a recent baseline and
-        // Unity's logical wheel packet can be suppressed. A first sample, or the first
-        // sample after no scroll view was drawn, deliberately falls back to Unity instead
-        // of applying stale movement collected while there was nowhere to put it.
+        // Unity's logical wheel packet can be suppressed.
+        // The first sample uses Unity input because it has no recent baseline.
+        // The first sample after a missing scroll view also uses Unity input to reject stale movement.
         public static bool TryRead(out Vector2 units, bool refresh = false)
         {
             units = Vector2.zero;

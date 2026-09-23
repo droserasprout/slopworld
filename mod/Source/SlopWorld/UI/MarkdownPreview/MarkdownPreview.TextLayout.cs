@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace SlopWorld
 {
-    // Converts inline runs into measurable lines. It knows nothing about blocks or drawing;
+    // Converts inline runs into measurable lines. It knows nothing about blocks or drawing.
     // the flow layout and renderer consume this same geometry.
     sealed class MarkdownTextLayout
     {

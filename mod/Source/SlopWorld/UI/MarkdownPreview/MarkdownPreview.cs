@@ -129,7 +129,7 @@ namespace SlopWorld
             _selection.AttachStyles(_layout.Styles);
 
             // A scrolling document normally keeps the narrower width from the prior frame.
-            // Renegotiate the scrollbar only when the document or viewport changed; otherwise
+            // Renegotiate the scrollbar only when the document or viewport changed. Otherwise
             // wheel movement does not remeasure the whole file.
             bool viewportChanged = !Mathf.Approximately(body.width, _viewportWidth) ||
                 !Mathf.Approximately(body.height, _viewportHeight);

@@ -7,13 +7,13 @@ namespace SlopWorld
     // so edges land on the screen pixel grid at non-integer UI scales.
     public static class Slab
     {
-        // A border is one screen pixel whatever the UI scale; a line that thickens with the
+        // A border is one screen pixel whatever the UI scale. A line that thickens with the
         // scale turns this deliberately light rectangular frame into a heavy box. Public
-        // because two boxes that mean to share an edge - a submenu against the menu it hangs
-        // off - have to overlap by exactly this much, or the seam is drawn twice.
+        // Two boxes that share an edge must overlap by this width.
+        // For example, this prevents a double seam between a menu and its submenu.
         public static float LineW => 1f / Prefs.UIScale;
 
-        // What a focus ring is worth: two screen pixels, outside the widget, so the control
+        // What a focus ring is worth: two screen pixels, outside the widget. Therefore, the control
         // keeps the rect it was handed and the ring is the only thing that grew.
         static float RingW => 2f / Prefs.UIScale;
 
@@ -45,9 +45,9 @@ namespace SlopWorld
             Outline(r, edge);
         }
 
-        // The keyboard's answer to hover: a ring hugging the outside of the control, in the
-        // accent. Drawn as four bands rather than as the outline of a larger rect, so it is
-        // exactly `RingW` on every side however the rect underneath it snapped.
+        // The keyboard's answer to hover: a ring hugging the outside of the control, in the accent.
+        // Drawn as four bands rather than as the outline of a larger rect. Therefore, it is exactly
+        // `RingW` on every side however the rect underneath it snapped.
         public static void Ring(Rect r, Color c)
         {
             if (!Paint(c)) return;
@@ -69,12 +69,12 @@ namespace SlopWorld
         public static void VHairline(Rect r, Color c) =>
             Flat(new Rect(r.x, r.y, LineW, r.height), c);
 
-        // Nothing to do for a color that is not there - a ghost at rest asks for all of this
-        // in nothing, and it is a bill for no box.
+        // Nothing to do for a color that is not there - a ghost at rest asks for all of this in
+        // nothing. It is a bill for no box.
         static bool Paint(Color c) =>
             Event.current.type == EventType.Repaint && c.a > 0f;
 
-        // Snap both edges of each axis in screen space; nested GUI groups make arithmetic
+        // Snap both edges of each axis in screen space. Nested GUI groups make arithmetic
         // inversion through ScreenToGUIPoint unreliable. TerminalWindow uses the same transform.
         static Rect Snap(Rect r)
         {

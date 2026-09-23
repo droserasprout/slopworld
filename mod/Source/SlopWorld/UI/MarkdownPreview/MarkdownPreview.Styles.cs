@@ -60,7 +60,7 @@ namespace SlopWorld
                     wordWrap = false,
                 };
                 // TerminalWindow reuses TerminalFont.Style and mutates its normal text
-                // color for every ANSI run. Do not inherit the last terminal foreground;
+                // color for every ANSI run. Do not inherit the last terminal foreground.
                 // MarkdownRenderer applies the scheme color through GUI.color.
                 Code.normal.textColor = Color.white;
                 var headings = new[] { H1, H2, H3, H4, H5, H6 };

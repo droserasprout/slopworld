@@ -6,7 +6,7 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Worktrees outlive agents and tasks. Only this explicit removal requests teardown.
+    // Worktrees outlive agents and tasks. Only the Remove action tears down a worktree.
     public sealed class ProjectWorktrees
     {
         readonly string _project;

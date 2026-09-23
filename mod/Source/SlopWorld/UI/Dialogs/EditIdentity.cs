@@ -9,7 +9,7 @@ namespace SlopWorld
         Copy,
     }
 
-    // Identity is the address and presentation of an editor; the edited model and its save
+    // Identity is the address and presentation of an editor. The edited model and its save
     // policy stay with the feature that owns them.
     public readonly struct EditIdentity
     {

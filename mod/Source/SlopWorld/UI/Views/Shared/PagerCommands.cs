@@ -12,8 +12,8 @@ namespace SlopWorld
             return path.StartsWith(prefix, StringComparison.Ordinal) ? path.Substring(prefix.Length) : path;
         }
 
-        // The daemon splits a command line into an argv the way a shell would, so a path with
-        // a space in it is two arguments unless it says otherwise. Both views build command
+        // The daemon splits a command line into an argv the way a shell would. Therefore, a path
+        // with a space in it is two arguments unless it says otherwise. Both views build command
         // lines out of paths they were handed, so the quoting lives here.
         public static string Quote(string s) => "'" + (s ?? "").Replace("'", "'\\''") + "'";
 

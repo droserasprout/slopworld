@@ -10,13 +10,13 @@ namespace SlopWorld
     public sealed class SmoothScroll
     {
         // Wheel passes only change the retained offset. Flat list owners can omit row
-        // work until repaint; retain normal passes for clicks, fields and scrollbar drags.
+        // work until repaint. Retain normal passes for clicks, fields and scrollbar drags.
         // Check rawType too because BeginInput consumes the event before drawing content.
         public static bool WheelOnly => Event.current.type == EventType.ScrollWheel ||
             (Event.current.type == EventType.Used &&
                 Event.current.rawType == EventType.ScrollWheel);
 
-        // Keeps the two GUI groups and input ownership exception-safe. Use in a using block;
+        // Keeps the two GUI groups and input ownership exception-safe. Use in a using block.
         // nested views remain well-formed even when a row renderer throws.
         public IDisposable Scope(Rect outer, Rect view, bool showScrollbars = true,
                                  bool preciseInput = true)
@@ -40,18 +40,17 @@ namespace SlopWorld
             }
         }
 
-        // Pixels per unit of wheel delta. Unity's own figure, and matching it is the point:
-        // a notch is meant to travel the distance it has always travelled, just not all at
-        // once.
+        // Pixels per unit of wheel delta. Unity's own figure, and matching it is the point. A notch
+        // is meant to travel the distance it has always travelled, just not all at once.
         const float Speed = 20f;
 
-        // XInput's increment is one wheel detent. Unity reports that detent as a delta of
-        // two on Linux, so this preserves the ordinary wheel's established travel while
-        // retaining every fractional touchpad movement inside the detent.
+        // XInput's increment is one wheel detent. Unity reports that detent as a delta of two on
+        // Linux. Therefore, this preserves the ordinary wheel's established travel while retaining
+        // every fractional touchpad movement inside the detent.
         const float X11Speed = Speed * 2f;
 
-        // The bar's own geometry, kept from `Begin` because it is drawn in `End` - outside
-        // the scroll view's group, which is the only place the outer rect means what it says.
+        // The bar's own geometry, kept from `Begin` because it is drawn in `End` - outside the
+        // scroll view's group. This is the only place the outer rect means what it says.
         Rect _outer;
         Rect _measuredOuter;
         float _contentHeight = -1f;
@@ -68,17 +67,17 @@ namespace SlopWorld
 
         public Vector2 Position => _pos;
 
-        // Put the list somewhere with no gesture behind it: a jump to a selected row is
-        // not a scroll and should not be animated into one.
+        // Put the list somewhere with no gesture behind it. A jump to a selected row is not a
+        // scroll and should not be animated into one.
         public void JumpTo(Vector2 pos)
         {
             _pos = pos;
         }
 
-        // The least travel that puts a row inside the viewport, and none at all if it is
-        // already there. A jump rather than an ease for the reason `JumpTo` is one: this is
-        // the keyboard moving a selection, and a highlight that arrives before the list it
-        // is on reads as the wrong row being lit.
+        // The least travel that puts a row inside the viewport, and none at all if it is already
+        // there. A jump rather than an ease for the reason `JumpTo` is one. This is the keyboard
+        // moving a selection, and a highlight that arrives before the list it is on reads as the
+        // wrong row being lit.
         public void Reveal(float top, float height, float viewport)
         {
             if (top < _pos.y) JumpTo(new Vector2(_pos.x, top));
@@ -109,9 +108,9 @@ namespace SlopWorld
             ScrollWheelRouter.Begin(this, outer, view, preciseInput, origin);
         }
 
-        // Terminal history has a moving window rather than a locally available document.
-        // It still needs this class's input ownership and fractional wheel decoding, but it
-        // draws its own frame and must not translate a GUI group around a synthetic document.
+        // Terminal history has a moving window rather than a locally available document. It still
+        // needs this class's input ownership and fractional wheel decoding. It draws its own
+        // frame and must not translate a GUI group around a synthetic document.
         public void BeginInput(Rect outer, Vector2 max, bool preciseInput = true)
         {
             // Content can shrink under a position that was valid on the previous frame.
@@ -130,7 +129,7 @@ namespace SlopWorld
         // Flat lists can route a wheel packet using the last measured extent. No row/model
         // traversal, GUI groups or control allocation is needed until the next normal pass.
         // Flat owners can use their last Begin measurement without maintaining a second
-        // extent cache. Resize falls back to measurement; the first wheel still warms it.
+        // extent cache. Resize falls back to measurement. The first wheel still warms it.
         public bool HandleWheel(Rect outer) =>
             outer.Equals(_measuredOuter) && HandleWheel(outer, _contentHeight);
 
@@ -209,7 +208,7 @@ namespace SlopWorld
             _pos.y = t * _max.y;
         }
 
-        // Nested scroll views register in draw order; the last Begin claim is the innermost
+        // Nested scroll views register in draw order. The last Begin claim is the innermost
         // box and receives the wheel. The event is muted before any content is drawn, so
         // no native widget can apply its own stepped wheel movement.
         static SmoothScroll _claim;
@@ -312,7 +311,7 @@ namespace SlopWorld
             {
                 // A zero XInput sample is common when IMGUI ran a layout pass before the
                 // actual wheel event arrived in this frame. Only suppress Unity when a
-                // scroll view really claimed a non-zero precise sample; otherwise the
+                // scroll view really claimed a non-zero precise sample. Otherwise the
                 // logical event is the input we have to spend.
                 if (PreciseHandled(e.delta))
                 {

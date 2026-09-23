@@ -7,7 +7,7 @@ namespace SlopWorld
     sealed partial class TerminalPanel
     {
         // A pane opened by tab navigation may intentionally point at a stopped agent. Keep
-        // that pane visible until its Start gizmo is pressed; an agent that exits during
+        // that pane visible until its Start gizmo is pressed. An agent that exits during
         // normal terminal use is held here too.
         internal StringBuilder Literal => _state.Literal;
 

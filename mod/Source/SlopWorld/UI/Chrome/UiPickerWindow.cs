@@ -5,7 +5,7 @@ using Verse;
 namespace SlopWorld
 {
     // Shared picker contract: placement, title/close chrome, and fixed-cell grid geometry
-    // belong to the popup; callers own choice lookup, selection, tooltips, and local hover.
+    // belong to the popup. Callers own choice lookup, selection, tooltips, and local hover.
     public static class UiPickerWindow
     {
         const float WindowTopOffset = 50f;
@@ -59,7 +59,7 @@ namespace SlopWorld
             float min = pageStart + UiTheme.GapS;
             float max = pageEnd - UiTheme.GapS - size;
             // A picker can be wider or taller than a narrow settings page. In that case no
-            // placement fits both edges; anchor it to the page's leading inset rather than
+            // placement fits both edges. Anchor it to the page's leading inset rather than
             // letting the ordinary clamp produce an inverted range.
             if (max < min) return min;
             return Mathf.Clamp(start, min, max);

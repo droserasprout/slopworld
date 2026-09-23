@@ -69,9 +69,9 @@ namespace SlopWorld
         }
     }
 
-    // What a row of a tree can be asked to do to the file it names. An enum of bits rather
-    // than a list, so a row states what it offers without allocating one a frame: the three
-    // are drawn in this order, left to right, wherever they are drawn.
+    // What a row of a tree can be asked to do to the file it names. An enum of bits rather than a
+    // list, so a row states what it offers without allocating one a frame. The three are drawn in
+    // this order, left to right, wherever they are drawn.
     [System.Flags]
     public enum RowAct
     {
@@ -113,7 +113,7 @@ namespace SlopWorld
             ActionStrip.Left(right, (int)acts, Order);
 
         // The strip drawn, and its left edge given back. `right` is the row's own right edge
-        // less whatever padding the tree uses; the row rect is here for the height alone,
+        // less whatever padding the tree uses. The row rect is here for the height alone,
         // every button being centred in it.
         public static float Draw(Rect row, float right, RowAct acts)
         {
@@ -125,9 +125,9 @@ namespace SlopWorld
             : (RowAct)flag == RowAct.Edit ? "Open this file in an editor."
             : "Show what this file has that the last commit does not.";
 
-        // Which button a press landed on, or None for a press anywhere else on the row. Read
-        // from the click pass with the row's rect in *its* coordinates - the geometry is the
-        // row's own, so the same call answers inside the scroll view's group and outside it.
+        // Which button a press landed on, or None for a press anywhere else on the row. Read from
+        // the click pass with the row's rect in *its* coordinates - the geometry is the row's own.
+        // Therefore, the same call answers inside the scroll view's group and outside it.
         public static RowAct Hit(Rect row, float right, RowAct acts)
         {
             return (RowAct)ActionStrip.Hit(row, right, (int)acts, Order);

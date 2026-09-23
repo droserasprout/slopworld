@@ -60,7 +60,7 @@ namespace SlopWorld
                     break;
 
                 case RowAct.Diff:
-                    // Git supplies the command; the shared collection owns its reader.
+                    // Git supplies the command. The shared collection owns its reader.
                     GitView.OpenDiff(node.Project, node.Path, "diff-" + node.Name);
                     break;
             }
@@ -193,7 +193,7 @@ namespace SlopWorld
         }
 
         // File actions run on the host. The project still scopes selected paths and supplies
-        // the working directory; private-state paths have no project.
+        // the working directory. Private-state paths have no project.
         public static void AddFileActions(List<FloatMenuOption> opts, string project, string path,
             string name, string relative = null)
         {
@@ -283,9 +283,9 @@ namespace SlopWorld
         static void OpenFileActionTerminal(string project, string path, string name,
             string command, bool host)
         {
-            // A terminal action can keep running after this callback, so refresh as soon as
-            // its session is launched rather than waiting for a completion that does not
-            // exist for an interactive command.
+            // A terminal action can keep running after this callback. Therefore, refresh as soon as
+            // its session is launched rather than waiting for a completion that does not exist for
+            // an interactive command.
             RefreshAfterFileAction();
             SessionHub.Instance.SessionStore.Run(project, command, "fa-" + name,
                 session => TerminalWindow.Open(session), UiLayout.Fail,
@@ -380,7 +380,7 @@ namespace SlopWorld
         static void Errand(Node node, string cmd, string label)
         {
             // The project this hangs off may have been renamed or deleted since the listing
-            // that put the row on screen; the daemon would refuse either way, but the reason
+            // that put the row on screen. The daemon would refuse either way, but the reason
             // is clearer said here.
             if (SessionHub.Instance.Project(node.Project) == null)
             {
@@ -394,7 +394,7 @@ namespace SlopWorld
         }
 
         // ------------------------------------------------------------------ viewer
-        // Markdown files use the native reader; other text files use the pager. The explicit
+        // Markdown files use the native reader. Other text files use the pager. The explicit
         // source action below keeps raw Markdown available without changing the default preview.
         static void View(Node node) => ViewFile(node.Project, node.Path, "view-" + node.Name);
 
@@ -457,8 +457,8 @@ namespace SlopWorld
             return MarkdownViewers.Reopen(project, path);
         }
 
-        // The native Markdown preview has no daemon session to appear in the routed list, so
-        // give it the same lightweight header identity as a pager tab.
+        // The native Markdown preview has no daemon session to appear in the routed list.
+        // Therefore, give it the same lightweight header identity as a pager tab.
         public static void AddRoutedPreviews(List<SessionInfo> result)
         {
             foreach (var tab in MarkdownViewers.All)
@@ -598,7 +598,7 @@ namespace SlopWorld
             if (MarkdownViewers.CloseTab(session)) return true;
 
             // PagerTabs is UI-lifetime state. A game restart leaves the daemon's ephemeral
-            // pager/editor session alive but loses that owner, so close the restored routed
+            // pager/editor session alive but loses that owner. Therefore, close the restored routed
             // tab directly through the session store. Durable agents are deliberately excluded.
             var info = SessionHub.Instance.Get(session);
             if (info == null || !info.Ephemeral) return false;

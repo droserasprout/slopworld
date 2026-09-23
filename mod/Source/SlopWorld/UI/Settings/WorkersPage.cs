@@ -6,7 +6,7 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Worker bootstrap text is independent of the removed generated project manifest.
+    // The daemon owns the worker prompt and template allowlist.
     public sealed class WorkersPage : DaemonConfigPage
     {
         protected override bool ShowEditButton => true;
@@ -19,8 +19,8 @@ namespace SlopWorld
 
         protected override void AfterLoad()
         {
-            // Refresh the user-level catalog when the page is opened/reloaded. New definitions
-            // intentionally start unchecked in daemon policy.
+            // Reload templates when this page opens or reloads.
+            // New templates start outside the worker allowlist.
             SessionHub.Instance.Catalog.RefreshTemplates();
         }
 

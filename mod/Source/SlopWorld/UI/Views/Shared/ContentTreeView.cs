@@ -7,7 +7,7 @@ namespace SlopWorld
 {
     // The files and git tabs are different answers laid out in the same instrument: a set of
     // project bands, followed by an indented tree. The source supplies the answer-specific
-    // rows and actions; this class owns the geometry, scroll view, selection and input pass.
+    // rows and actions. This class owns the geometry, scroll view, selection and input pass.
     public interface IContentTreeNode
     {
         string Name { get; }
@@ -69,7 +69,7 @@ namespace SlopWorld
     }
 
     // A view-specific source is deliberately about rows, not rendering the whole tree. The
-    // required contract covers structure and primary navigation; optional capabilities are
+    // required contract covers structure and primary navigation. Optional capabilities are
     // explicit so a source cannot silently advertise unsupported no-op behavior.
     public abstract class ContentTreeSource
     {
@@ -200,7 +200,7 @@ namespace SlopWorld
                 {
                     _visibleTop = _scroll.Position.y - RowH;
                     _visibleBottom = _scroll.Position.y + body.height + RowH;
-                    // Scroll events can arrive in a burst. They only need to update the offset;
+                    // Scroll events can arrive in a burst. They only need to update the offset.
                     // painting thousands of tree rows for each queued event makes the input queue
                     // take seconds to drain.
                     if (!SmoothScroll.WheelOnly)
@@ -507,7 +507,7 @@ namespace SlopWorld
                         ResetClicks();
                         _source.ToggleNode(line.Node);
                         ClearSelection();
-                        // Expanding or collapsing a directory only changes the tree shape;
+                        // Expanding or collapsing a directory only changes the tree shape.
                         // keep a file preview open while the user navigates around it.
                     }
                     else

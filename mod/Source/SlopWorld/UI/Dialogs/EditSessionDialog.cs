@@ -6,7 +6,7 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Project selection owns the working directory; network settings belong to the agent.
+    // Project selection owns the working directory. Network settings belong to the agent.
     public partial class EditSessionDialog : UiWindow
     {
         enum Tab { General, Sandbox, ResourceLimits, Preview }
@@ -25,8 +25,8 @@ namespace SlopWorld
         string _error;
         bool _saving;
 
-        // Limits are edited as raw strings so a half-typed number is not lost to a reparse each
-        // frame; they are parsed back into `_s.Limits` on Save.
+        // Keep limits as raw strings so a half-typed number survives each frame.
+        // On Save, parse the strings into `_s.Limits`.
         ResourceLimitsForm _resourceLimits;
         string _dnsServers;
 
@@ -122,7 +122,7 @@ namespace SlopWorld
         }
 
 
-        // A left rail of short pages rather than one long form: the agent, its sandbox, its
+        // A left rail of short pages rather than one long form. The agent, its sandbox, its
         // resource limits, and the preview each get their own tab.
         public override Vector2 InitialSize => new Vector2(660f, 800f);
 

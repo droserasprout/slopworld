@@ -126,7 +126,7 @@ namespace SlopWorld
             if (!_dragging) return;
             var up = PointAt(body, e.mousePosition, scroll);
             // Mouse selection belongs to the host PRIMARY surface. Ordinary drag selection
-            // must not overwrite CLIPBOARD; explicit Ctrl+C and the menu still use it.
+            // must not overwrite CLIPBOARD. Explicit Ctrl+C and the menu still use it.
             if (_lineDragging)
             {
                 SelectLineRange(_lineStart, up.y);

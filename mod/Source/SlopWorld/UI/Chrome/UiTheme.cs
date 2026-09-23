@@ -5,7 +5,7 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Shared scheme-driven opaque chrome; Slab owns fills/edges and fixed gaps keep controls
+    // Shared scheme-driven opaque chrome. Slab owns fills/edges and fixed gaps keep controls
     // on the screen pixel grid.
     public abstract class UiTheme
     {
@@ -76,10 +76,10 @@ namespace SlopWorld
             }
         }
 
-        // ---- Surfaces and semantic colors. These are named for SlopWorld's jobs rather
-        // than for a borrowed toolkit's widgets, and they are the only names anything else
-        // in the mod knows: the values behind them belong to the scheme the player picked,
-        // and are read through here so a scheme lands everywhere at once. See UIScheme.
+        // ---- Surfaces and semantic colors. These are named for SlopWorld's jobs rather than for a
+        // borrowed toolkit's widgets, and they are the only names anything else in the mod knows.
+        // The values behind them belong to the scheme the player picked, and are read through here
+        // so a scheme lands everywhere at once. See UIScheme.
 
         public static Color Accent => UIScheme.Current.Accent;
         public static Color Destructive => UIScheme.Current.Destructive;
@@ -118,7 +118,7 @@ namespace SlopWorld
 
         public static Color Well => UIScheme.Current.Well;
 
-        // One green for "this is up" and "this is on"; Yes is the name the forms ask for it
+        // One green for "this is up" and "this is on". Yes is the name the forms ask for it
         // by, and the status marker is the same color saying the same thing.
         public static Color Yes => UIScheme.Current.Yes;
 
@@ -143,11 +143,11 @@ namespace SlopWorld
                 Mathf.Lerp(c.b, to.b, t), c.a);
         }
 
-        // Opacity is used only for disabled or overlaid states; base surfaces stay opaque.
+        // Use opacity only for disabled or overlaid states. Keep base surfaces opaque.
         public static Color Fade(Color c, float by) =>
             new Color(c.r, c.g, c.b, c.a * by);
 
-        // Accent and destructive buttons use a lightness step; ordinary buttons use the
+        // Accent and destructive buttons use a lightness step. Ordinary buttons use the
         // same translucent white faces over every shared surface.
         protected static Color Step(Color c, bool over, bool held) =>
             held ? Lighten(c, -0.15f) : over ? Lighten(c, 0.10f) : c;
@@ -203,7 +203,7 @@ namespace SlopWorld
         {
             Default,   // the ordinary press: Reload, Browse, Edit.
             Primary,   // what the window was opened to do. One per bar, or it means nothing.
-            Danger,    // takes something away. Still asks first; this is so it is read first.
+            Danger,    // takes something away. Still asks first. This is so it is read first.
             Ghost,     // there, but not competing - a press beside a press that matters more.
         }
 
@@ -213,7 +213,7 @@ namespace SlopWorld
         protected static Color BtnHover => UIScheme.Current.BtnHover;
         protected static Color BtnDown => UIScheme.Current.BtnDown;
 
-        // A ghost button has no face at rest; its rectangular hit area appears on hover.
+        // A ghost button has no face at rest. Its rectangular hit area appears on hover.
         protected static Color GhostFace => Clear;
 
         protected static Color FocusRing => Accent;
@@ -247,15 +247,15 @@ namespace SlopWorld
         public const float MenuPadY = 0f;
         public const float StatusMarker = 8f;
 
-        // Single-line controls share one compact hit target. Menus, fields and small row
-        // buttons used to differ by a pixel, which was enough to make a form and the menu
-        // opened from it feel like two widget kits.
+        // Single-line controls share one compact hit target. Menus, fields and small row buttons
+        // used to differ by a pixel. This was enough to make a form and the menu opened from it
+        // feel like two widget kits.
         public static float CompactH => Mathf.Max(LineH + GapXS, UiMetrics.CompactMinH);
         public static float RowBtnH => CompactH;
 
-        // A dropdown's rows carry one line each and are read as a block, so they sit as close
-        // as the line will let them - a gap step tighter than the palette's, which is a list
-        // scrolled and stepped through with the keyboard and wants the hit target.
+        // A dropdown contains single-line rows that users read as one block.
+        // Use a smaller gap than the palette uses.
+        // The keyboard-controlled palette needs larger pointer regions.
         public static float MenuRowH => CompactH;
         public static float PaletteRowH => Mathf.Max(LineH + GapS, UiMetrics.PaletteMinH);
 

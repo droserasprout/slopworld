@@ -1,6 +1,6 @@
 namespace SlopWorld
 {
-    // A reader owns one ephemeral pager session. Files and Git share preview/pinned slots;
+    // A reader owns one ephemeral pager session. Files and Git share preview/pinned slots.
     // sidebar tab changes preserve them and explicit dismissal releases them.
     public class Pager : IPreviewTab
     {
@@ -20,7 +20,7 @@ namespace SlopWorld
         public string FilePath => _pendingCommand == null ? _key : _filePath;
 
         // A single-click preview is replaceable until its routed header is double-clicked.
-        // Locked previews deliberately remain ephemeral daemon sessions; "locked" is a UI
+        // Locked previews deliberately remain ephemeral daemon sessions. "locked" is a UI
         // lifetime choice, not a request to persist a generated session in config.toml.
         public bool Locked => _locked;
 
@@ -100,9 +100,9 @@ namespace SlopWorld
             // showing this file.
             if (_session != null && _project == project && _filePath == filePath && Alive)
             {
-                // The pane is all a reopen promises. Sending a less command here would need
-                // another quoting language for paths with spaces or apostrophes, and it would
-                // also flash the file again before the caller can read it.
+                // The pane is all a reopen promises. Sending a less command here would need another
+                // quoting language for paths with spaces or apostrophes. It would also flash the
+                // file again before the caller can read it.
                 TerminalWindow.Open(_session);
                 return;
             }
@@ -110,9 +110,9 @@ namespace SlopWorld
             // First time, or project changed, or session died: create a new one.
             int operation = ++_operation;
             string oldSession = _session;
-            // Keep the old session as the visible one until the replacement is ready. Git's
-            // sidebar uses this identity for its routed row, so clearing it here makes the old
-            // row disappear before the new one arrives and causes a layout jump.
+            // Keep the old session as the visible one until the replacement is ready. Git's sidebar
+            // uses this identity for its routed row. Therefore, clearing it here makes the old row
+            // disappear before the new one arrives and causes a layout jump.
             _project = null;
             _filePath = null;
             _openProject = project;
@@ -148,13 +148,13 @@ namespace SlopWorld
                 }, host: true);
         }
 
-        // Start a fresh pager at the requested line; less's `:e` cannot open at a line atomically.
+        // Start a fresh pager at the requested line. Less's `:e` cannot open at a line atomically.
         public void ViewFileAt(string project, string filePath, int line, string label)
         {
             Open(project, PagerCommand(filePath, line), label);
         }
 
-        // Run the pager on the host in the project directory; replacement closes its tmux session.
+        // Run the pager on the host in the project directory. Replacement closes its tmux session.
         public void Open(string project, string command, string label) =>
             Open(project, command, label, null);
 
@@ -165,7 +165,7 @@ namespace SlopWorld
             if (_opening && _openProject == project && _key == key &&
                 _pendingCommand == command) return;
             // The project may have been renamed or deleted since the listing that put the row
-            // on screen; the daemon would refuse either way, but the reason is clearer here.
+            // on screen. The daemon would refuse either way, but the reason is clearer here.
             if (SessionHub.Instance.Project(project) == null)
             {
                 Release();
@@ -177,7 +177,7 @@ namespace SlopWorld
             // has something to show — no blink of the game map between the two.
             int operation = ++_operation;
             string oldSession = _session;
-            // Keep the old session as the visible one until the replacement is ready; see the
+            // Keep the old session as the visible one until the replacement is ready. See the
             // matching handoff in ViewFile above.
             _project = null;
             _filePath = null;
@@ -221,7 +221,7 @@ namespace SlopWorld
             return true;
         }
 
-        // Stopping the owned session closes its process; the pane reacts to session removal.
+        // Stopping the owned session closes its process. The pane reacts to session removal.
         public void Release()
         {
             if (_locked) return;
@@ -261,7 +261,7 @@ namespace SlopWorld
         {
             if (session == null) return;
             // A superseded run is exactly the case where the latest session snapshot may not
-            // contain the returned name. Let the daemon answer an already-gone session; do not
+            // contain the returned name. Let the daemon answer an already-gone session. Do not
             // turn a missing local row into an orphaned tmux process.
             SessionHub.Instance.SessionStore.Stop(session);
         }

@@ -7,15 +7,15 @@ namespace SlopWorld
     {
         void DrawInput(Rect r)
         {
-            // One entry round the whole line, prompt included: in sub-mode the prompt is part
-            // of what is being typed into, not a label beside a second box.
+            // Draw one shared frame around the whole input row.
+            // In sub-mode, the prompt labels the filter field inside that frame.
             UiText.FieldFrame(r, GUI.GetNameOfFocusedControl() == "paletteInput");
             var inner = r.ContractedBy(UiTheme.FieldPadX, UiTheme.FieldPadY);
 
             var e = Event.current;
             bool isKeyDown = e.type == EventType.KeyDown;
 
-            // IMGUI emits Space as key and character events; consume both in checklist mode, but toggle only on the key event so Space is not typed into the filter.
+            // IMGUI emits Space as key and character events. Consume both in checklist mode, but toggle only on the key event so Space is not typed into the filter.
             if (isKeyDown && _mode == Mode.Sub && Checklist &&
                 (e.keyCode == KeyCode.Space || e.character == ' '))
             {
@@ -150,7 +150,7 @@ namespace SlopWorld
             }
 
             // Backspace on empty filter in sub-mode: go back to command list.
-            // The text field was empty so it didn't consume the key; ours to take.
+            // The text field was empty so it didn't consume the key. Ours to take.
             if (isKeyDown && e.keyCode == KeyCode.Backspace && !hadFilter)
             {
                 BackSub();
@@ -191,9 +191,8 @@ namespace SlopWorld
             Resize();
         }
 
-        // The box is as tall as what is in it: filtered down to one answer, a palette
-        // holding its opening height is mostly empty dark. Lands next frame, this one's
-        // window group having been opened already.
+        // Size the box to its contents so a short result list leaves no large empty area.
+        // Apply the new height next frame because this frame already opened the window group.
         void Resize()
         {
             float h = ContentHeight();

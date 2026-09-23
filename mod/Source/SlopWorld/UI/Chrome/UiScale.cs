@@ -9,7 +9,7 @@ namespace SlopWorld
         public const float Min = 0.5f;
         public const float Max = 4f;
 
-        // The slider snaps fine; the palette's zoom walks the coarse grid, which is vanilla's
+        // The slider snaps fine. The palette's zoom walks the coarse grid, which is vanilla's
         // own spacing over the range anyone steps through by hand.
         const float Fine = 0.05f;
         const float Coarse = 0.25f;

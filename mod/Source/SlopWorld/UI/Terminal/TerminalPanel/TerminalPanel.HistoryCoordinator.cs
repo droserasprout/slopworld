@@ -6,7 +6,7 @@ namespace SlopWorld
     sealed partial class TerminalPanel
     {
         // History owns daemon-offset translation and stale-reply decisions. Scrolling keeps the
-        // local fractional gesture; this owner decides which immutable frame represents it.
+        // local fractional gesture. This owner decides which immutable frame represents it.
         sealed class TerminalHistoryCoordinator
         {
             readonly TerminalPanel _panel;

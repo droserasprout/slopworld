@@ -4,9 +4,9 @@ using UnityEngine;
 
 namespace SlopWorld
 {
-    // TextEditor still owns drawing, caret movement, and ordinary click-drag selection. This
-    // layer owns the gestures that differ between Unity versions and the terminal: click-count
-    // recovery after an event was consumed, word/line selection, and dragging those selections.
+    // TextEditor still owns drawing, caret movement, and ordinary click-drag selection. This layer
+    // owns the gestures that differ between Unity versions and the terminal. Click-count recovery
+    // after an event was consumed, word/line selection, and dragging those selections.
     static class TextFieldSelection
     {
         internal enum PrepareResult
@@ -93,7 +93,7 @@ namespace SlopWorld
 
         // Run before GUI.TextField. Unity's TextEditor treats a drag that starts on a
         // selection as text drag-and-drop, which changes the value instead of extending the
-        // selection. Multi-clicks also need to be claimed before the native editor sees them;
+        // selection. Multi-clicks also need to be claimed before the native editor sees them.
         // otherwise its own click handling can replace the range on the next event.
         public static PrepareResult Prepare(Rect rect, string name, string text, GUIStyle style,
                                             TextEditor editor, FieldLifetime lifetime)
@@ -134,8 +134,8 @@ namespace SlopWorld
 
             if (type == EventType.MouseDrag || type == EventType.MouseUp)
             {
-                // Keep rawType intact so Handle can finish the gesture after the native field
-                // has drawn, but make the native field see Used and skip text drag-and-drop.
+                // Keep rawType intact so Handle can finish the gesture after the native field has
+                // drawn. However, Make the native field see Used and skip text drag-and-drop.
                 GUIUtility.hotControl = state.ControlId;
                 if (e.type != EventType.Used) e.Use();
                 return PrepareResult.SelectionDrag;
@@ -363,9 +363,9 @@ namespace SlopWorld
                 Select(editor, state.LineStart, state.LineEnd);
         }
 
-        // Use the shared text rule: Unicode letters/digits/marks and underscore words,
-        // otherwise a run of identical non-word code points. Keep indices on code-point
-        // boundaries so a supplementary character can never be split by a selection.
+        // Use the shared text rule. Unicode letters, digits, marks, and underscores form words.
+        // Other selections contain consecutive identical non-word code points.
+        // Keep indices on code-point boundaries to prevent selections from splitting supplementary characters.
         static void WordRange(string text, int index, out int start, out int end)
         {
             var range = TextSelectionRules.WordRange(text, index);

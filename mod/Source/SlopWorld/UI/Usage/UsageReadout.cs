@@ -7,7 +7,7 @@ using Verse;
 namespace SlopWorld
 {
     // TopBar quota readout. The daemon supplies the figures while this class computes remaining
-    // amounts and the off-frame countdown; TopBarMapComponent owns the map-layer draw call.
+    // amounts and the off-frame countdown. TopBarMapComponent owns the map-layer draw call.
     public static partial class UsageReadout
     {
         const float IconSize = 27f;
@@ -28,7 +28,7 @@ namespace SlopWorld
 
         // IMGUI can visit the top bar several times for one rendered frame. The displayed
         // clock has one-second resolution, so keep the wall-clock sample on that cadence too.
-        // Monotonic time drives the deadline; DateTime is sampled only when the text can change.
+        // Monotonic time drives the deadline. DateTime is sampled only when the text can change.
         internal static DateTime ClockNow()
         {
             if (ClockSample.Due(Time.realtimeSinceStartupAsDouble, 1.0))
@@ -60,10 +60,10 @@ namespace SlopWorld
                 0x51_0F_0001));
         }
 
-        // The same rows along a line instead of down a column, right-aligned in the room they
-        // are given and laid out from that end, so the first window keeps its place as later
-        // ones come and go. The clock owns the final slot beside the colony doors when it is
-        // in Right mode. Nothing is drawn where there is no room for it.
+        // The same rows along a line instead of down a column, right-aligned in the room they are
+        // given and laid out from that end. Therefore, the first window keeps its place as later
+        // ones come and go. The clock owns the final slot beside the colony doors when it is in
+        // Right mode. Nothing is drawn where there is no room for it.
         public static void DrawStrip(Rect area, bool showUsage, bool showClock)
         {
             long started = PerfTrace.Start();
@@ -106,9 +106,9 @@ namespace SlopWorld
                 x -= need;
                 var chip = new Rect(x, area.y, need, area.height);
 
-                // A row holding a place is fainter than a stale one, whatever the rest of the
-                // strip is doing: the icon is there to keep the line from re-flowing, and one
-                // drawn as live would be a number nobody sent.
+                // A row holding a place is fainter than a stale one, whatever the rest of the strip
+                // is doing. The icon is there to keep the line from re-flowing, and one drawn as
+                // live would be a number nobody sent.
                 bool stale = w != null && Stale(usage, key);
                 float a = w == null ? 0.4f : stale ? 0.55f : 1f;
 
@@ -147,7 +147,7 @@ namespace SlopWorld
         }
 
         // Left is the default because a number in this corner that grew as the colony worked
-        // would read as stock coming in. The daemon sends spent, so the subtraction is here;
+        // would read as stock coming in. The daemon sends spent, so the subtraction is here.
         // the global display setting can instead lead with the provider's spent figure.
         static string Count(UsageWindow w)
         {
@@ -194,9 +194,8 @@ namespace SlopWorld
             }
             else
             {
-                // Named even with nothing to say about it: an icon and three dots is a
-                // question, and the answer to "which one is this?" must not wait on a poll
-                // that is failing.
+                // Named even with nothing to say about it. An icon and three dots is a question,
+                // and the answer to "which one is this?" must not wait on a poll that is failing.
                 lines.Add(Label(usage, key) + ": nothing heard yet");
             }
 
@@ -301,9 +300,9 @@ namespace SlopWorld
             _next = 0;
         }
 
-        // One `key=defName` per line, the way the folded projects are. A key with no line and
-        // a line naming a def this build has not got both read as "no choice made", which
-        // hands the question back to Known and the pool.
+        // Store one `key=defName` pair per line, as for folded projects.
+        // Treat a missing key or unknown def as no selection.
+        // In that case, use Known and the pool to select a def.
         public static ThingDef Chosen(string key)
         {
             foreach (var line in Settings.UsageIcons.Split('\n'))
@@ -335,8 +334,8 @@ namespace SlopWorld
             if (def != null) kept.Add(key + "=" + def.defName);
 
             Settings.S.usageIcons = string.Join("\n", kept.ToArray());
-            // Written on the click rather than on the way out of a window, the way the
-            // column's own width and folds are: nothing here closes to save it.
+            // Written on the click rather than on the way out of a window, the way the column's own
+            // width and folds are. Nothing here closes to save it.
             Settings.S.Write();
             Invalidate();
         }
@@ -351,16 +350,16 @@ namespace SlopWorld
                 case "claude_week_sonnet": return ThingDefOf.ComponentIndustrial;
                 case "claude_week_cowork": return ThingDefOf.Jade;
                 case "claude_spend": return ThingDefOf.Silver;
-                // Money like the row above it, and the two are never the same coin: what is
-                // left of a budget and what is left of a wallet are different questions.
+                // Money like the row above it, and the two are never the same coin. What is left of
+                // a budget and what is left of a wallet are different questions.
                 case "openrouter_balance": return ThingDefOf.Gold;
                 default: return null;
             }
         }
 
         // Only so no two rows wear the same icon. Built on first use rather than in a field
-        // initialiser: ThingDefOf is filled during startup, and a static touched too early
-        // caches a row of nulls.
+        // initialiser. ThingDefOf is filled during startup, and a static touched too early caches a
+        // row of nulls.
         static ThingDef[] Pool => _pool ?? (_pool = new[]
         {
             ThingDefOf.Uranium,

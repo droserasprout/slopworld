@@ -6,8 +6,8 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Starts a task-owned worker from an allowlisted template. The caller/project fields are
-    // context only; no existing agent configuration is copied into the child.
+    // Starts a task-owned worker from an agent template.
+    // Caller and project fields provide context. The template supplies the child's settings.
     public sealed class SpawnWorkerDialog : UiWindow
     {
         static readonly Dictionary<string, (string Worktree, bool NewWorktree)> WorktreeChoices =

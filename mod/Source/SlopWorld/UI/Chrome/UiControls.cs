@@ -71,9 +71,9 @@ namespace SlopWorld
             ButtonBackground(r, kind, on, over, held, Well);
         }
 
-        // Session gizmos sit over the map beside the sidebar. Layer the hover wash over an
-        // opaque well: using BtnHover as the whole face would make the map show through as
-        // soon as the pointer entered the action strip.
+        // Session gizmos sit over the map beside the sidebar. Layer the hover wash over an opaque
+        // well. Using BtnHover as the whole face would make the map show through as soon as the
+        // pointer entered the action strip.
         public static void ActionButtonBackground(Rect r, Btn kind, bool on, bool over,
                                                   bool held)
         {
@@ -122,7 +122,7 @@ namespace SlopWorld
 
     public abstract class UiControls : UiButtons
     {
-        // Draw the checkbox indicator only; the row owns hit testing. Return its reserved width
+        // Draw the checkbox indicator only. The row owns hit testing. Return its reserved width
         // so callers can place the adjacent label.
         public static float TickW => Mathf.Round(LineH * 0.8f);
         public static float TickColW => TickW + GapS;
@@ -175,12 +175,12 @@ namespace SlopWorld
             return !on;
         }
 
-        // A caption and its field are separate listing rows. Keep the shared label-to-control
-        // gap here, and leave the same standard gap after every listing control, so forms do
+        // A caption and its field are separate listing rows. Keep the shared label-to-control gap
+        // here, and leave the same standard gap after every listing control. Therefore, forms do
         // not have to add either margin by hand.
         public static Rect FieldRect(Listing_Standard l)
         {
-            // Label already advanced by verticalSpacing; selectors draw caption and
+            // Label already advanced by verticalSpacing. Selectors draw caption and
             // control in one rect, so adding the full gap here makes fields looser.
             l.Gap(GapXS - l.verticalSpacing);
             return l.GetRect(FieldH);

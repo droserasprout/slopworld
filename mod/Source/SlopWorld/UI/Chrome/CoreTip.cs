@@ -5,10 +5,12 @@ using Verse;
 
 namespace SlopWorld
 {
-    // The persona core: LMB opens a context menu. "Hint" shows a tip bubble that
-    // fades after three seconds; "Kill something" strikes 5-10 lightnings at a
-    // random human, animal or tree on the map, and is not offered when grandma is
-    // visiting or eco mode is on; "Next planet" burns the map and lands a new colony.
+    // A left click on the persona core opens a context menu.
+    // "Hint" shows a tip bubble that fades after three seconds.
+    // "Kill something" sends 5 to 10 lightning strikes at a random person, animal,
+    // or tree on the map.
+    // Gentle mode and Eco mode hide this option.
+    // "Next planet" burns the map and lands a new colony.
     public class CoreTip : MapComponent
     {
         // How long the sticky hint stays up before dismissing itself.
@@ -87,18 +89,18 @@ namespace SlopWorld
                 Open(Event.current.mousePosition, cell);
             }
 
-            // Sticky hint: draw the tip bubble near the click position. Drawn from the map
-            // layer only when no terminal is up - a pane fills the screen opaque, so a bubble
-            // asked for over one would land behind it; TerminalWindow draws the same hint
-            // from its own contents, on top (see DrawHint).
+            // Sticky hint: draw the tip bubble near the click position. Drawn from the map layer
+            // only when no terminal is up - a pane fills the screen opaque. Therefore, a bubble
+            // asked for over one would land behind it. TerminalWindow draws the same hint from its
+            // own contents, on top (see DrawHint).
             if (Find.WindowStack?.WindowOfType<TerminalWindow>() == null)
                 DrawHint();
         }
 
-        // The sticky tip bubble, wherever it is asked for. Drawn from the map layer over the
-        // map and from TerminalWindow over an open pane, so a hint from the persona core's
-        // menu is not buried under the terminal that answered it. Returns when there is
-        // nothing to show or the hint has dismissed itself.
+        // The sticky tip bubble, wherever it is asked for. Drawn from the map layer over the map
+        // and from TerminalWindow over an open pane. Therefore, a hint from the persona core's menu
+        // is not buried under the terminal that answered it. Returns when there is nothing to show
+        // or the hint has dismissed itself.
         public void DrawHint()
         {
             if (!_sticky || _stickyTip == null) return;
@@ -127,7 +129,7 @@ namespace SlopWorld
             float h = Text.CalcHeight(_stickyTip, w - 16f) + 20f;
             float margin = 8f;
 
-            // Place above the click position; if it hits the top edge, place below.
+            // Place above the click position. If it hits the top edge, place below.
             float y = _stickyAt.y - h - 12f;
             if (y < margin) y = _stickyAt.y + 12f;
             // Clamp bottom edge too.
@@ -147,7 +149,7 @@ namespace SlopWorld
         }
 
         // The status-bar button resolves the core cell, anchors the hint to that cell and
-        // places the bubble at the pointer. Map drawing covers the map; TerminalWindow
+        // places the bubble at the pointer. Map drawing covers the map. TerminalWindow
         // repeats it over an opaque pane.
         public static void OpenMenu()
         {
@@ -201,15 +203,15 @@ namespace SlopWorld
                 new FloatMenuOption("Hint", HintAction),
                 new FloatMenuOption("Keyboard shortcuts", ShortcutHelpWindow.Toggle),
             };
-            // Grandma and eco modes: no destruction allowed.
+            // Gentle and Eco modes hide this option.
             if (!Settings.GrandmaMode && !Settings.EcoMode)
                 options.Add(new FloatMenuOption("Kill something", KillAction));
             options.Add(new FloatMenuOption("New look", NewLookAction));
             if (!Settings.EcoMode)
                 options.Add(new FloatMenuOption("Next planet", NextPlanet.Begin));
 
-            // OpenOverPane rather than a plain Add: the status bar is drawn over a terminal
-            // as well as over the map, and a menu opened from it belongs above both.
+            // OpenOverPane rather than a plain Add. The status bar is drawn over a terminal as well
+            // as over the map, and a menu opened from it belongs above both.
             TerminalWindow.OpenOverPane(new UiMenu(options));
         }
 

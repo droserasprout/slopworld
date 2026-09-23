@@ -6,20 +6,20 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Lists `StripKeys.Kept` as an options page; clicking a key cell opens the listener.
+    // Lists `StripKeys.Kept` as an options page. Clicking a key cell opens the listener.
     // It replaces vanilla's all-bindings Modify dialog, which would expose stripped keys.
     public class KeyBindingsPage : IOptionPage
     {
         public void Load() { }
 
-        // A row holds a button, so it is a button's height; the category band is a tiny line.
+        // A row holds a button, so it is a button's height. The category band is a tiny line.
         // Both off the font: written down, they crop their own labels on any face taller than
         // the one they were set against.
         static float RowH => UiTheme.BtnH;
         static float CatH => UiTheme.TinyRowH + UiTheme.GapXS;
         static float Gap => UiTheme.GapXS;
 
-        // Room for the longest bind there is, measured rather than guessed: a chord with two
+        // Room for the longest bind there is, measured rather than guessed. A chord with two
         // modifiers on it is what has to fit, and at a larger font 180 is not it.
         static float KeyW => Mathf.Max(UiTheme.Wide("Ctrl + Shift + Backspace") + 24f, 180f);
         const float Indent = 12f;
@@ -177,7 +177,7 @@ namespace SlopWorld
                 {
                     string keyLabel = ShortcutLabels.Binding(binding);
 
-                    // Click side selects the main/alternate slot; do not choose the first empty
+                    // Click side selects the main/alternate slot. Do not choose the first empty
                     // slot or a populated primary key could never be replaced.
                     var ev = Event.current;
                     if (Mouse.IsOver(keyRect) && ev.rawType == EventType.MouseDown
@@ -231,7 +231,7 @@ namespace SlopWorld
 
             // Unity emits a separate KeyDown for each modifier before the key at the end of
             // a chord. KeyPrefs stores only the key code, so modifiers are prefixes rather
-            // than bindings of their own; keep listening until the actual key arrives.
+            // than bindings of their own. Keep listening until the actual key arrives.
             if (IgnoredKeys.Contains(e.keyCode)) return;
 
             var data = KeyPrefs.KeyPrefsData;
@@ -254,7 +254,7 @@ namespace SlopWorld
             e.Use();
         }
 
-        // Return the first duplicate among kept bindings. Conflicts warn rather than refuse;
+        // Return the first duplicate among kept bindings. Conflicts warn rather than refuse.
         // dropped bindings are hidden and unbound, so reporting them would name an inactive row.
         static KeyBindingDef Conflict(KeyCode code, KeyBindingDef except)
         {

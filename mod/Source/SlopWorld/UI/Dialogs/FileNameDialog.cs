@@ -3,8 +3,7 @@ using UnityEngine;
 
 namespace SlopWorld
 {
-    // The file tree only needs one small form: a single path component, followed by an
-    // operation that is already named by the menu row which opened it.
+    // Use this dialog to accept one path component. The menu row determines the operation.
     public sealed class FileNameDialog : UiWindow
     {
         readonly string _title;

@@ -2,7 +2,7 @@ using System;
 
 namespace SlopWorld
 {
-    // Pure row/column sizing primitives. The math uses no Unity rectangles or IMGUI state;
+    // Pure row/column sizing primitives. The math uses no Unity rectangles or IMGUI state.
     // callers convert the resulting values to Rect only while drawing.
     public enum UiLayoutAxis
     {
@@ -117,8 +117,8 @@ namespace SlopWorld
 
     public static class UiComposition
     {
-        // Returns the minimum content size implied by the items. It intentionally does not
-        // clamp to available space: callers need the overflow amount to create a scroll body.
+        // Return the minimum content size that the items require. Do not limit it to the available space.
+        // Callers need the overflow amount to create a scroll body.
         public static float Measure(UiLayoutAxis axis, UiLayoutPadding padding, float gap,
                                     UiLayoutItem[] items)
         {
@@ -137,10 +137,10 @@ namespace SlopWorld
             return NonNegative(total);
         }
 
-        // Arrange a flat row or column into caller-owned output storage. Fixed and content
-        // items keep their preferred sizes; flexible items divide remaining space by weight.
-        // If minimums do not fit, later items may overflow the available edge, but every
-        // rectangle remains nonnegative and no item is silently assigned a negative size.
+        // Arrange a flat row or column into caller-owned output storage. Fixed and content items
+        // keep their preferred sizes. Flexible items divide remaining space by weight. If minimums
+        // do not fit, later items may extend beyond the available edge. Every rectangle remains
+        // nonnegative, and no item receives a negative size.
         public static float Arrange(UiLayoutAxis axis, UiLayoutRect available,
                                     UiLayoutPadding padding, float gap, UiLayoutItem[] items,
                                     UiLayoutRect[] output)

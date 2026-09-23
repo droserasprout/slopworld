@@ -16,7 +16,7 @@ namespace SlopWorld
 
             if (Mathf.Abs(shift) <= 0.01f)
             {
-                // The runs go down only on the frames they change; see Blit.
+                // The runs go down only on the frames they change. See Blit.
                 if (!Blit(body, buf, cw, ch))
                 {
                     // A frame can still have the old column count during resize. Clip the
@@ -125,7 +125,7 @@ namespace SlopWorld
         void DrawScrollLock(Rect body) => _renderer.DrawScrollLock(body);
 
         // A request is not evidence that history exists. Keep the bar and lock hidden until
-        // the first snapshot either assembles a view or reports a positive top offset; this
+        // the first snapshot either assembles a view or reports a positive top offset. This
         // prevents an empty terminal from flashing a one-line scrollbar while off=0 is being
         // confirmed.
         bool HistoryBarAvailable() => _scrollOff > 0 &&
@@ -217,7 +217,7 @@ namespace SlopWorld
         void PaintRows(Rect body, ScreenBuf buf, float cw, float ch, int[] rows,
                        float yShift = 0f) => _renderer.PaintRows(body, buf, cw, ch, rows, yShift);
 
-        // The GUI-to-screen transform, sampled once a draw; see SnapX.
+        // The GUI-to-screen transform, sampled once a draw. See SnapX.
         float _snapSx = 1f, _snapSy = 1f, _snapOx, _snapOy;
 
         float DisplayCellW() => TerminalFont.CellWAtScreenScale(_snapSx);
@@ -235,10 +235,10 @@ namespace SlopWorld
             _snapOy = p0.y;
         }
 
-        // The thin black line that ran through colored diff: a cell is 19 units tall and the
-        // UI runs at 1.75, so a row is 33.25 pixels, the shared edge sits on a pixel centre
-        // every fourth row, and a pixel split by two quads belongs to neither. It has to be
-        // the *screen* grid - a whole unit here is 1.75 pixels there.
+        // The thin black line that ran through colored diff: a cell is 19 units tall and the UI
+        // runs at 1.75. Therefore, a row is 33.25 pixels, the shared edge sits on a pixel centre
+        // every fourth row, and a pixel split by two quads belongs to neither. It has to be the
+        // *screen* grid - a whole unit here is 1.75 pixels there.
         float SnapX(float v) => (Mathf.Round(v * _snapSx + _snapOx) - _snapOx) / _snapSx;
 
         float SnapY(float v) => (Mathf.Round(v * _snapSy + _snapOy) - _snapOy) / _snapSy;

@@ -8,7 +8,7 @@ namespace SlopWorld
     // an OS font resolves against both the prefix's fonts and the host's.
     public static class TerminalFont
     {
-        // The first installed name becomes the face; the rest are per-glyph fallbacks.
+        // The first installed name becomes the face. The rest are per-glyph fallbacks.
         // The symbol faces at the tail are there for that alone - mono faces stop well
         // short of the arrows and chevrons Claude Code's whole UI is built out of.
         static readonly string[] Candidates =
@@ -46,9 +46,9 @@ namespace SlopWorld
         public static float CellH { get; private set; }
         public static int Rev => _rev;
 
-        // GUI text is rasterized after the UI matrix has scaled it, so a fractional logical
+        // GUI text is rasterized after the UI matrix has scaled it. Therefore, a fractional logical
         // advance can become a different integer number of screen pixels from the one CalcSize
-        // reports. Use the same pixel grid for the terminal cells; otherwise the cursor drifts
+        // reports. Use the same pixel grid for the terminal cells. Otherwise the cursor drifts
         // against a long run of text at non-1x UI scales.
         public static float CellWAtScreenScale(float screenScale)
         {
@@ -69,10 +69,10 @@ namespace SlopWorld
             get
             {
                 HookTextureRebuilds();
-                // A GUIStyle is not a UnityEngine.Object, so the font it holds is rooted by
-                // nothing Unity can see: the unload RimWorld runs on every map switch destroys it
-                // and leaves the style in the default proportional face. The null check catches a
-                // face lost some other way, a destroyed Font comparing equal to null.
+                // A GUIStyle is not a UnityEngine.Object, so the font it holds is rooted by nothing
+                // Unity can see. The unload RimWorld runs on every map switch destroys it and
+                // leaves the style in the default proportional face. The null check catches a face
+                // lost some other way, a destroyed Font comparing equal to null.
                 if (_style != null && _size == Settings.FontSize && _name == Settings.FontName &&
                     (_font != null || _fontless))
                     return _style;
@@ -81,9 +81,9 @@ namespace SlopWorld
                 _size = Mathf.Clamp(Settings.FontSize, 8, 28);
                 _name = Settings.FontName;
 
-                // The one it is replacing, dropped once nothing points at it. A dynamic font
-                // is an asset with a texture atlas behind it and this one is marked never to
-                // unload, so the size slider - which comes back through here on every step it
+                // The one it is replacing, dropped once nothing points at it. A dynamic font is an
+                // asset with a texture atlas behind it and this one is marked never to unload.
+                // Therefore, the size slider - which comes back through here on every step it
                 // passes - would otherwise pin one atlas per step for the rest of the process.
                 var old = _font;
                 _font = Font.CreateDynamicFontFromOSFont(Chain(_name), _size)
@@ -116,9 +116,9 @@ namespace SlopWorld
             }
         }
 
-        // A supplementary glyph may be the first character that asks Unity to rebuild the
-        // dynamic atlas. The pane is rendered into a RenderTexture, so that rebuild must be a
-        // cache key too or the first frame can preserve the pre-glyph (blank) texture forever.
+        // A supplementary glyph may be the first character that asks Unity to rebuild the dynamic
+        // atlas. The pane is rendered into a RenderTexture. Therefore, that rebuild must be a cache
+        // key too or the first frame can preserve the pre-glyph (blank) texture forever.
         static void HookTextureRebuilds()
         {
             if (_textureRebuildHooked) return;
@@ -197,7 +197,7 @@ namespace SlopWorld
             return found;
         }
 
-        // ASCII always does; a symbol from a fallback face carries that face's advance,
+        // ASCII always does. A symbol from a fallback face carries that face's advance,
         // and a glyph nobody has advances not at all - either would drag the rest of the
         // row off the grid.
         public static bool FitsCell(char c)

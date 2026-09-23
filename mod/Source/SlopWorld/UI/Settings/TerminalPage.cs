@@ -5,7 +5,7 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Terminal appearance page with a live preview; controls invalidate the pane theme and save
+    // Terminal appearance page with a live preview. Controls invalidate the pane theme and save
     // on dialog close. ModOptions hosts it as an `OptionCategoryDef` page.
     public class TerminalPage : IOptionPage
     {
@@ -150,8 +150,8 @@ namespace SlopWorld
 
         }
 
-        // The scheme, drawn rather than described: sixteen ANSI slots over the background
-        // they will be read on, then the cursor as it will be, override and all.
+        // The scheme, drawn rather than described. Sixteen ANSI slots over the background they will
+        // be read on, then the cursor as it will be, override and all.
         static void DrawSwatches(Rect r)
         {
             var theme = TerminalTheme.Current;
@@ -201,7 +201,7 @@ namespace SlopWorld
             DrawTextPreview(text, style, th);
         }
 
-        // Columns are foreground colors, rows are background colors; the letter in each cell
+        // Columns are foreground colors, rows are background colors. The letter in each cell
         // makes every pair visible even when the colors themselves are close.
         static void DrawAnsiMatrix(Rect r, TerminalTheme th, GUIStyle source, float cell)
         {
@@ -244,8 +244,8 @@ namespace SlopWorld
 
             int cols = Mathf.Max(1, Mathf.FloorToInt((r.width - PreviewPad * 2f) / cw));
 
-            // Clipped, so a font too big for the box runs off its edge the way it would run
-            // off the edge of a pane, rather than over the form above it.
+            // Clip the preview to its box.
+            // An oversized font then stops at the box edge instead of drawing over the form.
             GUI.BeginClip(r);
             try
             {
@@ -288,7 +288,7 @@ namespace SlopWorld
             }
         }
 
-        // Draws one run at a column and answers the column after it, so a line reads as the
+        // Draws one run at a column and answers the column after it. Therefore, a line reads as the
         // segments it is made of rather than as arithmetic.
         static int Run(GUIStyle style, string text, Color c, int col, float y, int cols,
                        float pad)

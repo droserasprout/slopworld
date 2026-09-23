@@ -3,9 +3,9 @@ using System.Collections.Generic;
 
 namespace SlopWorld
 {
-    // The link-detection half of Sgr, carved out because it is pure string work with no
-    // Unity or game types: scheme detection, trailing-punctuation trimming, and OSC 8
-    // parsing. Kept here so it can be unit-tested without a live terminal.
+    // The link-detection half of Sgr, carved out because it is pure string work with no Unity or
+    // game types. Scheme detection, trailing-punctuation trimming, and OSC 8 parsing. Kept here so
+    // it can be unit-tested without a live terminal.
     public static class UrlScan
     {
         public struct Span
@@ -21,9 +21,9 @@ namespace SlopWorld
             }
         }
 
-        // The empty URI is how OSC 8 closes a link, so "no link from here" and "this OSC
-        // was about something else" have to be different answers: the first is an empty
-        // string, the second null, which leaves the caller's link standing.
+        // The empty URI is how OSC 8 closes a link. Therefore, "No link from here" and "this OSC
+        // was about something else" have to be different answers. The first is an empty string, the
+        // second null, which leaves the caller's link standing.
         public static string Osc(string body)
         {
             if (body == null || !body.StartsWith("8;")) return null;

@@ -8,7 +8,7 @@ using Verse;
 namespace SlopWorld
 {
     // The kind is chosen by the window that was opened, not edited inside the form. Each
-    // concrete editor below owns one kind's fields; this base owns identity, shared chrome,
+    // concrete editor below owns one kind's fields. This base owns identity, shared chrome,
     // project pickers and persistence.
     public abstract class EditLibraryItemDialog : UiWindow
     {
@@ -25,8 +25,8 @@ namespace SlopWorld
         {
             if (copy && existing == null) throw new ArgumentNullException(nameof(existing));
 
-            // A duplicate is a new daemon entry: it must POST rather than PUT, and its
-            // name is suggested rather than copied so saving it cannot collide by default.
+            // A duplicate is a new daemon entry. It must POST rather than PUT, and its name is
+            // suggested rather than copied so saving it cannot collide by default.
             _identity = copy ? EditIdentity.ForCopy(existing.Name) :
                 existing == null ? EditIdentity.ForNew() : EditIdentity.ForEdit(existing.Name);
             _s = existing?.Copy() ?? new LibraryItemInfo();
@@ -87,8 +87,8 @@ namespace SlopWorld
             }
         }
 
-        // What is left at the bottom is the prompt box - the one field here somebody
-        // writes paragraphs in, and the one that gets squeezed when anything above grows.
+        // What is left at the bottom is the prompt box - the one field here somebody writes
+        // paragraphs in. The one that gets squeezed when anything above grows.
         public override Vector2 InitialSize => new Vector2(600f, 740f);
 
         protected abstract string TitleNoun { get; }
@@ -97,10 +97,10 @@ namespace SlopWorld
 
         protected override void DoBody(Rect rect)
         {
-            // One column, on the room it has: a Listing_Standard begun on a rect too short
-            // for its contents does not overflow, it breaks to a column off the right-hand
-            // edge and puts CurHeight back to nearly zero - and the prompt box below is
-            // placed and sized from that number. See EditProjectDialog.DoFields.
+            // Use one column within the available space.
+            // Listing_Standard creates an offscreen second column when its rect is too short.
+            // It also resets CurHeight, which would give the prompt box an incorrect position and size.
+            // See EditProjectDialog.DoFields.
             UiLayout.Title(TitleRect(rect), _identity.Title(TitleNoun));
 
             float head = UiTheme.HeaderH + UiTheme.GapS;

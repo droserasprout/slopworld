@@ -6,9 +6,7 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Owns terminal key and mouse policy. The panel supplies its geometry and the
-    // existing rendering/selection services, while this controller owns event ordering and
-    // terminal input policy.
+    // Handles terminal key and mouse input. The panel supplies layout, rendering, and selection services.
     sealed partial class TerminalInputController
     {
         readonly TerminalPanel _panel;
@@ -98,8 +96,8 @@ namespace SlopWorld
         public void Handle(Rect body)
         {
             var e = Event.current;
-            // WindowStack may consume semicolon before the window body runs. Replay that one
-            // character only; other Used events must not be replayed.
+            // WindowStack can consume the semicolon before the window draws. Replay that character only.
+            // Do not replay other Used events.
             if (e.type == EventType.Used && e.rawType == EventType.KeyDown &&
                 (e.character == ';' || IsSemicolonKey(e.keyCode)))
             {
@@ -133,8 +131,8 @@ namespace SlopWorld
             if (ShortcutHelpWindow.HandleContentKey(e)) return;
             if (e.type != EventType.KeyDown) return;
 
-            // A pending Keyboard-page binding owns the next key, including keys normally
-            // claimed by the sidebar or terminal chrome. Escape cancels capture in the page.
+            // A pending Keyboard-page binding captures the next key, including keys used by the sidebar or terminal.
+            // Escape cancels capture in the page.
             if (ModOptions.KeyboardCaptureActive) return;
 
             if (HandleFunctionKey(e)) { e.Use(); return; }
@@ -163,12 +161,11 @@ namespace SlopWorld
             return handlers.TryGetValue(e.keyCode, out var handler) && handler(e);
         }
 
-        // Handle interface keys bound to the chrome. Read KeyBindingDefs so option-menu
-        // rebindings apply; shifted/unbound keys pass to the agent. A chrome transition also
-        // explicitly closes menus because it may replace focus before their body runs.
+        // Handle keys assigned to workspace controls. Read KeyBindingDefs so option-menu changes apply.
+        // Send shifted and unbound keys to the agent. Close menus before a workspace transition.
         public static bool HandleFunctionKey(Event e)
         {
-            // Shift+key = pass through to the agent/tui.
+            // Send Shift+key to the agent or TUI.
             if (e.shift || e.keyCode == KeyCode.None) return false;
 
             if (Bound(ModDefOf.SlopCommandPalette, e) && e.control && !e.alt && !e.command)
@@ -186,9 +183,7 @@ namespace SlopWorld
             if (SidebarFunction(ModDefOf.SlopSidebarLibrary, SidebarTab.Library, e)) return true;
             if (Bound(ModDefOf.SlopQuickTerminal, e))
             {
-                // Use the same toggle as the map-layer component. In particular, a settings
-                // view is content inside this window, so F12 must reveal/open its terminal
-                // rather than close the host and stop there.
+                // Use the same toggle as TerminalHotkeys. Settings views share this window, so F12 must reveal the terminal.
                 UiMenu.CloseAll();
                 TerminalHotkeys.Toggle();
                 return true;
@@ -207,16 +202,13 @@ namespace SlopWorld
             if (!Bound(binding, e)) return false;
 
             UiMenu.CloseAll();
-            // Bare F1..F6 selects the tab. Ctrl+F1..F6 is the fast path back to the last
-            // target that was visible in that tab; Shift remains reserved for the terminal.
+            // Bare F1-F6 selects a tab. Ctrl+F1-F6 returns to its last target. Shift bypasses these tab shortcuts.
             if (e.control && !e.alt && !e.command) AgentSidebar.FocusLast(tab);
             else AgentSidebar.ShowTab(tab);
             return true;
         }
 
-        // Whether this event's key is either of the def's two slots. Asked of the event
-        // rather than through KeyBindingDef.KeyDownEvent, because the caller has already
-        // taken the event and needs to know whether to Use it.
+        // Check whether the key matches either binding slot. The caller needs this result after it takes the event.
         static bool Bound(KeyBindingDef def, Event e)
         {
             if (def == null) return false;
@@ -237,22 +229,17 @@ namespace SlopWorld
 
         internal void HandleKey(Event e)
         {
-            // Window actions run before the terminal's online check. A bare Escape or an
-            // ordinary Return returns false from the same handler and is dispatched below.
+            // Try workspace actions before checking the connection. Bare Escape and Return return false, then reach terminal dispatch.
             if (TryLocal(e)) return;
 
-            // Not in TerminalHotkeys: a window absorbing input makes
-            // WindowStack.HandleEventsHighPriority Use every KeyDown, and that runs earlier in
-            // UIRoot.UIRootOnGUI than any game component.
-            // All F-keys go through one gate: bare = ours, Shift+F = agent.
+            // WindowStack consumes KeyDown before game components run. Handle every function key here.
+            // Bare F-keys control SlopWorld. Shift+F sends the key to the agent.
             if (HandleFunctionKey(e)) { e.Use(); return; }
 
-            // Ahead of the offline check: switching is local and the subscription survives a
-            // dead socket, so a pane that will not change during a redeploy reads as hung.
+            // Handle local session changes before checking the connection. This keeps navigation available during redeploy.
             if (TryHandleSessionNavigation(e)) return;
 
-            // Offline the hub drops sends, so count them for the banner rather than letting
-            // the terminal silently eat what was typed.
+            // The hub drops sends while offline. Count keys so the status banner reports them.
             if (!SessionHub.Instance.Online)
             {
                 if (e.keyCode != KeyCode.None || e.character != '\0')
@@ -263,18 +250,15 @@ namespace SlopWorld
                 return;
             }
 
-            // Auto-resume is queued by the daemon after startup settles. Keep user input out
-            // of the resume picker; chrome and navigation above remain available so the user
-            // can leave this pane while it is being resumed.
+            // The daemon queues auto-resume after startup settles. Keep input out of the resume picker.
+            // Keep workspace controls available so the user can leave this pane.
             if (_panel.AutoResumePending)
             {
                 if (e.keyCode != KeyCode.None || e.character != '\0') e.Use();
                 return;
             }
 
-            // On this Unity player the literal semicolon arrives with a spurious modifier,
-            // so the ordinary printable-input guard below rejects it. The character is the
-            // layout-resolved answer; trust it instead of the broken modifier flags.
+            // Unity reports a semicolon with a spurious modifier on this player. The character event has the keyboard-layout result.
             if (e.character == ';')
             {
                 AppendSemicolon();
@@ -284,7 +268,7 @@ namespace SlopWorld
 
             if (TryTerminal(e)) return;
 
-            // Unity delivers printable input as a second event carrying only the character.
+            // Unity sends printable input in a second event that carries only the character.
             if (e.character != '\0' && e.character != '\n' &&
                 e.character != '\r' && e.character != '\t' && !e.control && !e.alt)
             {
@@ -295,11 +279,10 @@ namespace SlopWorld
             }
 
             if (e.keyCode != KeyCode.None)
-                e.Use(); // swallow it so RimWorld hotkeys don't fire behind us
+                e.Use(); // Keep RimWorld hotkeys from handling this key.
         }
 
-        // Session changes are local and remain available while the daemon is offline. Both the
-        // chrome and pane handlers call this only after their own distinct gates have run.
+        // Handle local session changes while the daemon is offline. Chrome and pane handlers call this after their own key checks.
         internal bool TryHandleSessionNavigation(Event e)
         {
             int slot = TerminalHotkeys.SlotKey(e);
@@ -321,7 +304,7 @@ namespace SlopWorld
 
         internal bool HandleEscapeKey(Event e)
         {
-            // Shift+Escape is the way out; a bare Escape must reach the agent.
+            // Use Shift+Escape to close the pane. Send bare Escape to the agent.
             if (!e.shift) return false;
             _panel.Close();
             e.Use();
@@ -330,9 +313,7 @@ namespace SlopWorld
 
         internal bool HandleReturnKey(Event e)
         {
-            // Shift+Enter: send the kitty keyboard protocol sequence for Shift+Enter
-            // (\e[13;2u) so apps like Claude Code can distinguish it from plain Enter
-            // and insert a newline rather than submitting.
+            // Send the Kitty sequence for Shift+Enter. Compatible apps can insert a newline instead of submitting.
             if (!e.shift) return false;
             _panel.JumpToLive();
             _panel.Flush();
@@ -348,8 +329,7 @@ namespace SlopWorld
                 return false;
 
             var live = SessionHub.Instance.Screen(_panel.SessionName);
-            // Alternate-screen applications own shifted page keys; the primary screen owns
-            // them for terminal scrollback, just like a normal terminal emulator.
+            // Let alternate-screen apps handle shifted page keys. On the primary screen, use them to scroll terminal history.
             if (_panel.ScrollOffset == 0 && live != null && live.AltScreen) return false;
 
             int page = _panel.Rows > 0 ? _panel.Rows : live != null ? live.Rows : 1;
@@ -366,17 +346,16 @@ namespace SlopWorld
 
         internal bool HandleControlC(Event e)
         {
-            // Not a Ctrl chord: still a key the mapper may forward (e.g. Alt+C -> M-c).
+            // Without Ctrl, pass the key to the mapper. For example, Alt+C becomes M-c.
             if (!e.control) return ForwardMappedKey(e);
-            // Terminal convention: Ctrl+Shift+C is always copy, and Ctrl+C copies
-            // when text is selected (otherwise it passes through as SIGINT).
+            // Both Ctrl+C and Ctrl+Shift+C copy selected text. Without a selection, Ctrl+C sends SIGINT.
             if (_panel.HasSelection)
             {
                 _panel.CopySelection();
                 e.Use();
                 return true;
             }
-            // No selection: Ctrl+Shift+C is a no-op; bare Ctrl+C falls through to MapKey.
+            // Without a selection, Ctrl+Shift+C does nothing. Send bare Ctrl+C to MapKey.
             if (e.shift)
             {
                 e.Use();
@@ -387,7 +366,7 @@ namespace SlopWorld
 
         internal bool HandleControlV(Event e)
         {
-            // Not a Ctrl chord: still a key the mapper may forward (e.g. Alt+V -> M-v).
+            // Without Ctrl, pass the key to the mapper. For example, Alt+V becomes M-v.
             if (!e.control) return ForwardMappedKey(e);
             _panel.JumpToLive();
             _panel.PasteClipboard();
@@ -397,8 +376,7 @@ namespace SlopWorld
 
         internal bool HandleSemicolonKey(Event e)
         {
-            // Some backends omit the character-only event. Preserve the keyboard layout's
-            // shifted form before the named key is swallowed below.
+            // Some backends omit the character-only event. Keep the shifted character before this handler consumes the key.
             if (e.character != '\0') return false;
             if (e.shift)
             {
@@ -424,10 +402,8 @@ namespace SlopWorld
             return true;
         }
 
-        // IMGUI loses semicolon's KeyDown before it reaches this window on this player, but
-        // Unity's text-input stream still carries it (which is why ordinary game fields work).
-        // DoWindowContents runs more than once per frame, and a surviving KeyDown may follow,
-        // so the frame marker makes the two roads one keystroke.
+        // IMGUI drops semicolon's KeyDown before it reaches this window on this player. Unity still sends the character event.
+        // DoWindowContents can run more than once per frame. The frame marker prevents duplicate input.
         internal void CaptureSemicolonInputCore()
         {
             if (_panel.AutoResumePending || _panel.SemicolonFrame == Time.frameCount ||
@@ -456,33 +432,29 @@ namespace SlopWorld
         internal static bool IsSemicolonKey(KeyCode key) =>
             key == KeyCode.Semicolon || key == KeyCode.Colon;
 
-        // A slot past the end is a no-op rather than a wrap: the keys are muscle memory for a
-        // fixed portrait. In terminal mode a down agent is shown with its action gizmos;
-        // starting it remains an explicit action.
+        // Ignore slots past the end of the portrait list. Show stopped agents with their action controls.
+        // Require an explicit action to start an agent.
         internal void SwitchToSlot(int slot)
         {
             var order = AgentColony.InBarOrder();
             if (slot >= order.Count) return;
 
             string name = order[slot];
-            // The same agent while a view has the body is still a request to see it: the
-            // number points the window at a portrait, and the pane is what a portrait is.
+            // Reopen the same agent's pane if a content view covers it.
             if (name == _panel.SessionName && _panel.Content == null) return;
 
             var info = SessionHub.Instance.Get(name);
             if (info == null) return;
 
-            // Alt+Num while the pane is open is about an agent: switch the sidebar to the
-            // agents view, which releases whatever the view being left was showing.
+            // Show the Agents tab when Alt+number selects an agent. This releases the content view being left.
             AgentSidebar.ShowWithoutHistory(SidebarTab.Agents);
             AgentSidebar.RememberAgent(name);
 
             _panel.SwitchTo(name);
         }
 
-        // Walk the session list by dir (-1 or 1). Used from Alt+Z/Alt+X in both ChromeKeys
-        // (content view up) and HandleKey (pane open). Sets the current session and switches
-        // the pane, including when the target has no process.
+        // Move through the session list with Alt+Z or Alt+X. Chrome and pane handlers call this method.
+        // Select sessions with no process too.
         internal static void WalkSession(int dir)
         {
             var order = TabOrder();
@@ -507,19 +479,15 @@ namespace SlopWorld
             var info = SessionHub.Instance.Get(target);
             if (info == null) return;
 
-            // The same agent while a pane is open is already on screen. A different agent
-            // switches the pane.
+            // Keep the current pane open when it already shows the target agent.
             var w = Find.WindowStack?.WindowOfType<TerminalWindow>();
             if (w != null && target == w.SessionName) return;
 
             TerminalWindow.Open(target);
         }
 
-        // The visible sidebar rows give the useful project-grouped order. Add sessions the
-        // current view does not render afterward: routed viewers/editors, folded agents, and
-        // host or other ephemeral tabs must still be reachable by tab cycling. Apply the
-        // sidebar's project filter to those appended sessions too. Alt+Num stays on
-        // AgentColony.InBarOrder and deliberately does not use this list.
+        // Start with visible sidebar rows in project order. Append hidden viewers, editors, folded agents, and temporary tabs.
+        // Apply the project filter to appended sessions. Alt+number uses AgentColony.InBarOrder.
         internal static List<string> TabOrder()
         {
             var order = AgentSidebar.WalkOrder();
@@ -534,9 +502,8 @@ namespace SlopWorld
             return order;
         }
 
-        // The split menu names sessions that are currently usable from the sidebar. Keep this
-        // separate from TabOrder: keyboard cycling deliberately reaches folded and ephemeral
-        // sessions, while an old diff process that is no longer a reader has no sidebar row.
+        // The split menu lists sessions that can open from the sidebar. Keep it separate from TabOrder.
+        // Tab reaches folded and temporary sessions. Exclude old diff processes without sidebar rows.
         internal static List<string> OpenBesideOrder()
         {
             var order = new List<string>();

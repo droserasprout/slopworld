@@ -5,9 +5,9 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Named palette for shared UI chrome. The packaged catalog is loaded at runtime; geometry
-    // stays fixed while selected colors propagate on the next frame. Hex values are persisted
-    // in settings, while catalog values remain editable content.
+    // Defines named palettes for shared UI chrome.
+    // The runtime loader reads the packaged catalog. Geometry stays fixed while selected colors take effect on the next frame.
+    // The game persists hex values in settings. Catalog values remain editable content.
     public class UIScheme
     {
         public readonly string Id, Label;
@@ -23,8 +23,8 @@ namespace SlopWorld
         public readonly Color StateWorking, StateWaiting, StateIdle, StateDown;
         public readonly Color BtnFace, BtnHover, BtnDown, Knob;
 
-        // These are derived roles, not catalog choices: Well is the view surface and Sel is
-        // the accent at the one strength that keeps the row under it readable.
+        // These are derived roles, not catalog choices. Well is the view surface and Sel is the
+        // accent at the one strength that keeps the row under it readable.
         public readonly Color Well, Sel;
         public readonly Color[] Swatches;
 
@@ -109,7 +109,7 @@ namespace SlopWorld
                    record.BtnFace, record.BtnHover, record.BtnDown, record.Knob)
         { }
 
-        // Six digits is opaque; eight carries alpha. Invalid values are magenta so a broken
+        // Six digits is opaque. Eight carries alpha. Invalid values are magenta so a broken
         // hand-edited catalog is visible during development instead of silently black.
         static Color Hex(string s) =>
             TerminalTheme.TryHex(s, out var c) ? c : Color.magenta;
@@ -190,7 +190,7 @@ namespace SlopWorld
         static string _id;
 
         // Resolve on each read because settings returns the same string reference and chrome
-        // colors are not cached; no revision invalidation is needed.
+        // colors are not cached. No revision invalidation is needed.
         public static UIScheme Current
         {
             get

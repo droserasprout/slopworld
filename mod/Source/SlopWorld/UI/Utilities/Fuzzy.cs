@@ -16,13 +16,13 @@ namespace SlopWorld
 
         // Per term.
         const int Verbatim = 60;    // the term is in there whole
-        const int AtWord = 40;      // ...and starts a word
+        const int AtWord = 40;      // and starts a word
         const int LeadMax = 12;     // most a late first character can cost
 
         const string Mark = "#7FC8FF";
 
         /// <summary>
-        /// Returns false if any query term is missing; otherwise fills sorted, deduplicated matched positions.
+        /// Returns false if any query term is missing. Otherwise fills sorted, deduplicated matched positions.
         /// </summary>
         public static bool Match(string text, string query, out int score, out List<int> hits)
         {
@@ -90,10 +90,10 @@ namespace SlopWorld
 
         // ---------------------------------------------------------------- one term
 
-        // Best subsequence placement of `term` in `text`, by dynamic programming over
-        // (term index, text index): exact under this scoring, and the strings here are
-        // short enough that being exact is free. Matched positions are appended to
-        // `hits`. int.MinValue means the term is not in there at all.
+        // Best subsequence placement of `term` in `text`, by dynamic programming over (term index,
+        // text index). Exact under this scoring, and the strings here are short enough that being
+        // exact is free. Matched positions are appended to `hits`. int.MinValue means the term is
+        // not in there at all.
         static int Term(string text, string lower, string term, List<int> hits)
         {
             int n = lower.Length, m = term.Length;

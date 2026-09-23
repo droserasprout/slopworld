@@ -9,8 +9,8 @@ namespace SlopWorld
 {
     public class UiSubmenu : FloatMenuOption
     {
-        // Asked when the pointer arrives rather than when the parent is built: a station's
-        // presets carry which one is playing, and a tree built up front would say so once.
+        // Asked when the pointer arrives rather than when the parent is built. A station's presets
+        // carry which one is playing, and a tree built up front would say so once.
         public readonly Func<List<FloatMenuOption>> Children;
 
         // FloatMenuOption treats a null action as disabled, even for submenu openers.
@@ -31,9 +31,9 @@ namespace SlopWorld
         readonly List<FloatMenuOption> _options;
         readonly SmoothScroll _scroll = new SmoothScroll();
 
-        // Where to put it, for a menu that does not belong at the mouse: one opened from a
-        // button the keyboard reached, or one that reopens itself a tick at a time and
-        // would otherwise walk across the screen behind the cursor. Null is the mouse.
+        // Where to put it, for a menu that does not belong at the mouse. One opened from a button
+        // the keyboard reached, or one that reopens itself a tick at a time and would otherwise
+        // walk across the screen behind the cursor. Null is the mouse.
         readonly Vector2? _at;
 
         // Selector menus own a control underneath them. Keep that distinction so the
@@ -56,9 +56,9 @@ namespace SlopWorld
         // the parent rather than kept from the moment it opened - see `Place`.
         float _anchor;
 
-        // What a submenu asked for before the screen had its say. Kept because `Place` runs
-        // every frame off it and `InitialSize` measures every label in the list to answer,
-        // and because a child narrowed to fit one side must widen again if the room returns.
+        // Keep the size that a submenu requested before placement.
+        // `Place` uses it each frame, and `InitialSize` measures all labels to calculate it.
+        // A submenu can then widen again after temporary screen limits no longer apply.
         Vector2 _want;
 
         const float MaxW = 300f;
@@ -97,7 +97,7 @@ namespace SlopWorld
             layer = WindowLayer.Super;
 
             // WindowStack removes same-type windows before PreOpen. Disable that behavior so
-            // nested menus survive; root PreOpen sweeps unrelated menus instead.
+            // nested menus survive. Root PreOpen sweeps unrelated menus instead.
             onlyOneOfTypeAllowed = false;
         }
 
@@ -134,7 +134,7 @@ namespace SlopWorld
             return false;
         }
 
-        // FloatMenuOption replaces empty labels with "(missing label)"; use a distinct row type.
+        // FloatMenuOption replaces empty labels with "(missing label)". Use a distinct row type.
         public static FloatMenuOption Separator() => new SeparatorOption();
 
         // The width a plain labelled picker gets when its menu contains the same labels. Keep
@@ -282,19 +282,18 @@ namespace SlopWorld
             var view = new Rect(0f, 0f, inner.width - (scrolls ? UiTheme.ScrollbarW : 0f),
                 ContentH - PadY * 2f);
 
-            // One hit test for the whole list, before the scroll view opens its group and
-            // while the viewport still means what it says. The rows tile it exactly, so which
-            // one the pointer is on is arithmetic, and the answer is wanted twice - for the
-            // row that lights and for the row whose list opens.
+            // Check the pointer position once for the list before the scroll view opens its group.
+            // The rows fill the viewport exactly, so calculate the row from the pointer position.
+            // Use the result to highlight the row and open its list.
             int hot = Hot(new Rect(inner.x, inner.y, view.width, inner.height));
 
             using (WidgetState.Save())
             using (_scroll.Scope(inner, view))
             {
                 Text.Font = GameFont.Small;
-                // Stops at the row that was pressed. The press closes the menu and may open
-                // another one, and drawing the rest of a list that is already gone is at best
-                // wasted and at worst a second option answering the same click.
+                // Stop after the selected row.
+                // The selection closes this menu and can open another menu.
+                // Continuing could let a second option process the same click.
                 float y = 0f;
                 for (int i = 0; i < _options.Count; i++)
                 {
@@ -344,9 +343,8 @@ namespace SlopWorld
                 return;
             }
 
-            // Already open: it is only being kept where its row is. The list that stands
-            // during the delay is the last one opened, which is steadier than shutting it the
-            // moment the pointer leaves its row and reopening a neighbour's a beat later.
+            // Keep an open submenu aligned with its row.
+            // During the delay, keep the last submenu open instead of changing it for brief pointer movement.
             if (_open == hot)
             {
                 if (_child != null) _child.Follow(RowTop(hot));
@@ -360,7 +358,7 @@ namespace SlopWorld
             _options[i].Disabled ? null : _options[i] as UiSubmenu;
 
         // The screen y a submenu opened from row `i` hangs at. Its first row begins at this
-        // same y because menus have no vertical inset; only this menu knows the scroll offset.
+        // same y because menus have no vertical inset. Only this menu knows the scroll offset.
         float RowTop(int i)
         {
             float y = windowRect.y - _scroll.Position.y;
@@ -436,9 +434,8 @@ namespace SlopWorld
             }
 
             SoundDefOf.Click.PlayOneShotOnCamera();
-            // The whole tree goes before the action runs: a row answers for the menu it is in
-            // and for every menu that led to it, and an action that opens a second menu or a
-            // dialog would otherwise arrive underneath the ones that asked for it.
+            // Close the complete menu tree before running the action.
+            // Otherwise, a new menu or dialog could open below the menus that started the action.
             _selected = i;
             CloseTree();
             if (o.action != null) o.action();
@@ -448,7 +445,7 @@ namespace SlopWorld
         void OpenChild(int i, UiSubmenu sub)
         {
             CloseChild();
-            // Claimed before the list is asked for, so a row that turns out to have nothing
+            // Claimed before the list is asked for. Therefore, a row that turns out to have nothing
             // under it is asked once rather than once a frame for as long as it is hovered.
             _open = i;
 
@@ -467,9 +464,9 @@ namespace SlopWorld
             if (c != null) c.CloseBranch();
         }
 
-        // This menu and everything it has open below it. The link upward is cut first: the
-        // parent is the one doing the closing in every path that reaches here, and the
-        // notification it would get back from `PostClose` is one it does not need.
+        // This menu and everything it has open below it. The link upward is cut first. The parent
+        // is the one doing the closing in every path that reaches here. The notification it would
+        // get back from `PostClose` is one it does not need.
         void CloseBranch()
         {
             _parent = null;
@@ -502,9 +499,9 @@ namespace SlopWorld
             CloseChild();
         }
 
-        // Escape puts the whole tree away rather than one level of it. The pointer is what
-        // walks back up a menu that opens on hover, so a level dismissed on its own would
-        // reopen as soon as the mouse moved.
+        // Escape puts the whole tree away rather than one level of it. The pointer is what walks
+        // back up a menu that opens on hover. Therefore, a level dismissed on its own would reopen
+        // as soon as the mouse moved.
         public override void OnCancelKeyPressed()
         {
             CloseTree();

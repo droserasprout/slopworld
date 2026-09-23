@@ -129,7 +129,7 @@ namespace SlopWorld
         }
 
         // Keep the cache in the newest live pane's coordinate space. A redraw that edits the
-        // visible rows leaves history coordinates intact; a terminal scroll moves every old
+        // visible rows leaves history coordinates intact. A terminal scroll moves every old
         // row down by the number of rows that entered at the bottom.
         public bool UpdateLive(ScreenBuf live, int shift)
         {
@@ -192,15 +192,15 @@ namespace SlopWorld
                 else SetTemplate(frame);
             }
 
-            // The overlap at global row zero belongs to the current live frame. An older
-            // response can still contribute its negative history rows, but must not overwrite
-            // newer content that was redrawn in place while the request was in flight.
+            // The overlap at global row zero belongs to the current live frame. An older response
+            // can still contribute its negative history rows. However, Must not overwrite newer
+            // content that was redrawn in place while the request was in flight.
             int off = Math.Max(0, frame.Off + CaptureShift(frame, live, coordinateShift));
             if (Index(frame, off, current)) Changed();
         }
 
         // Off belongs to the daemon's capture time, not the time we sent the request.
-        // Output before capture is already represented in the reply; translating it again
+        // Output before capture is already represented in the reply. Translating it again
         // overwrites neighboring cached rows and makes input/answer lines disappear.
         public static int CaptureShift(ScreenBuf frame, ScreenBuf live, int requestShift)
         {
@@ -290,7 +290,7 @@ namespace SlopWorld
         }
 
         // Cursor updates do not invalidate row textures. Translate only a visible live
-        // cursor; Cy == Rows is the daemon's hidden-cursor sentinel.
+        // cursor. Cy == Rows is the daemon's hidden-cursor sentinel.
         void SetViewCursor(ScreenBuf view)
         {
             view.Cx = _template.Cx;

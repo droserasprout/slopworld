@@ -64,8 +64,8 @@ namespace SlopWorld
                     });
             }
 
-            // A loading row is only needed after project groups have been created; with no
-            // projects the empty note above already says what is happening.
+            // Show a loading row only after the search creates project groups.
+            // Without projects, the empty note above explains the current state.
             if (_loading && Groups.Count > 0)
                 Layout.Add(new LayoutRow
                 {

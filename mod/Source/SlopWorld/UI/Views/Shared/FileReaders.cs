@@ -1,6 +1,6 @@
 namespace SlopWorld
 {
-    // Both filesystem trees feed one reader collection. Native rendering stays in Files;
+    // Both filesystem trees feed one reader collection. Native rendering stays in Files.
     // Git supplies diff commands. Editors are independent sessions, never preview slots.
     static class FileReaders
     {

@@ -7,7 +7,7 @@ namespace SlopWorld
     {
         // The selection endpoints belong to the displayed history offset. A live frame and a
         // historical frame use the same row coordinates, translated by this offset.
-        // Input controllers get only the selection state they need; panel partials use the
+        // Input controllers get only the selection state they need. Panel partials use the
         // owned state directly below.
         internal bool HasSelection
         {
@@ -84,11 +84,10 @@ namespace SlopWorld
             _historyLiveAltScreen = live.AltScreen;
             ScrollDebugLive(live);
 
-            // History offsets are measured from this live bottom. Once the pane changes
-            // (most visibly after a sidebar resize/redraw), snapshots captured for the old
-            // sequence describe a different coordinate space. New rows moving off the live
-            // pane extend the offset by the same amount, keeping the content under the user's
-            // eyes anchored instead of pulling the viewport toward new output.
+            // Measure history offsets from the bottom of this live pane.
+            // Pane changes, such as a sidebar resize or redraw, make old snapshots use a different coordinate space.
+            // Increase the offset by the number of rows that leave the live pane.
+            // This keeps the visible content in position when new output arrives.
             if (_scrollOff <= 0 && !_historyWarmed) return;
             if (_scrollOff > 0 && liveShift > 0)
             {
@@ -110,7 +109,7 @@ namespace SlopWorld
 
             // Keep history available while a watched agent redraws. In-place refreshes do not
             // change the scrollback coordinate, and detected terminal shifts are translated by
-            // TerminalHistory; throwing the cache away on every live frame starves active panes
+            // TerminalHistory. Throwing the cache away on every live frame starves active panes
             // because their next history response is almost always one sequence behind.
             float historyStarted = ScrollDebugTimer();
             bool retained = _history.UpdateLive(live, liveShift);
@@ -169,9 +168,9 @@ namespace SlopWorld
             return _selectionCoordinator.SelectionText(buf);
         }
 
-        // Colors are resolved into the runs at parse time, so a scheme change is a re-parse:
-        // without it an idle pane keeps the old palette until the agent next writes, which on
-        // an idle agent is never.
+        // Colors are resolved into the runs at parse time, so a scheme change is a re-parse.
+        // Without it an idle pane keeps the old palette until the agent next writes, which on an
+        // idle agent is never.
         void EnsureRuns(ScreenBuf buf)
             => _renderer.EnsureRuns(buf);
 

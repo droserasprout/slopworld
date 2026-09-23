@@ -4,7 +4,7 @@ using Verse;
 namespace SlopWorld
 {
     // Aggregate scroll timings for one terminal window. Enable with
-    // SLOPWORLD_DEBUG=1 in the game's environment; the normal path does no timing or
+    // SLOPWORLD_DEBUG=1 in the game's environment. The normal path does no timing or
     // string work beyond a few predictable branches.
     sealed partial class TerminalPanel
     {

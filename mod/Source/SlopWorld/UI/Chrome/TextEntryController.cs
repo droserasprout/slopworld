@@ -8,7 +8,7 @@ using Verse;
 namespace SlopWorld
 {
     // One owner for native text-entry identity and all edits that arrive after the IMGUI
-    // pass. UiText keeps the public field shapes and frame policy; this controller owns the
+    // pass. UiText keeps the public field shapes and frame policy. This controller owns the
     // Unity editor, clipboard requests and focus-sensitive event choreography.
     internal static class TextEntryController
     {
@@ -65,9 +65,8 @@ namespace SlopWorld
             string source = text ?? "";
             var wasColor = GUI.color;
             bool over = Mouse.IsOver(r);
-            // Most callers leave GUI.color white. Give ordinary entries the same quiet text
-            // ramp as menu and sidebar labels, while preserving deliberate placeholder/error
-            // tints supplied by a caller.
+            // Most callers leave GUI.color white. Use the menu and sidebar text colors for these entries.
+            // Preserve placeholder and error colors that the caller supplies.
             if (wasColor == Color.white)
                 GUI.color = focused || over ? UiText.Lead : UiText.Name;
 
@@ -155,7 +154,7 @@ namespace SlopWorld
             finally
             {
                 // A ContextClick that the native field did not consume still belongs to us.
-                // Restore only an event that is genuinely still live; a native Use() must stay
+                // Restore only an event that is genuinely still live. A native Use() must stay
                 // Used so lower layers do not interpret the same click a second time.
                 if (replay && e.type != EventType.Used) e.type = oldType;
                 GUI.color = wasColor;
@@ -179,7 +178,7 @@ namespace SlopWorld
         static bool MouseUp(Event e)
         {
             // A consumed IMGUI mouse-up can report button -1 while rawType still preserves
-            // the original left-button event. Do not lose PRIMARY publication in that case;
+            // the original left-button event. Do not lose PRIMARY publication in that case.
             // still reject the right/middle buttons when Unity leaves their button intact.
             if (e == null || e.button > 0) return false;
             return UiEvent.RawType(e) == EventType.MouseUp;
@@ -274,7 +273,7 @@ namespace SlopWorld
             {
                 if (!primary)
                 {
-                    // The daemon is unavailable in sidecar mode; Unity's local buffer is the
+                    // The daemon is unavailable in sidecar mode. Unity's local buffer is the
                     // only ordinary clipboard surface the game can access there.
                     QueuePaste(name, controlId, GUIUtility.systemCopyBuffer, area, owner);
                 }
@@ -365,7 +364,7 @@ namespace SlopWorld
             // field's exact geometry.
             style.clipping = TextClipping.Overflow;
 
-            // Let GUI.color carry the scheme ramp (and caller placeholder tints); a skin
+            // Let GUI.color carry the scheme ramp (and caller placeholder tints). A skin
             // with a dark-entry text color must not turn the same control black on a dark well.
             style.normal.textColor = Color.white;
             style.hover.textColor = Color.white;

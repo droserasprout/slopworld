@@ -27,9 +27,9 @@ namespace SlopWorld
                 SessionHub.Instance.Terminal.Resize(_state.Name, _state.Cols, _state.Rows);
         }
 
-        // A loop rather than a statement: a resize is one fire-and-forget message over a
-        // socket that may be down, and the daemon answers a size it already holds with a
-        // no-op. The frame carries the emulator's dimensions, so that closes the loop.
+        // A loop rather than a statement. A resize is one fire-and-forget message over a socket
+        // that may be down, and the daemon answers a size it already holds with a no-op. The frame
+        // carries the emulator's dimensions, so that closes the loop.
         void NegotiateSize(Rect body, ScreenBuf buf)
         {
             // The getter builds or refreshes the font and, as part of that, measures the

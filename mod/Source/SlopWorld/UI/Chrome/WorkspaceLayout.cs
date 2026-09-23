@@ -81,7 +81,7 @@ namespace SlopWorld
             {
                 // IMGUI can visit the same screen through several event passes. Hold one
                 // snapshot for the frame so a setting click cannot leave drawing and input
-                // using different rectangles; the new choice takes effect next frame.
+                // using different rectangles. The new choice takes effect next frame.
                 if (_hasCurrent && _currentFrame == Time.frameCount) return _current;
 
                 // Metrics and workspace bounds share the same event-pass boundary. A

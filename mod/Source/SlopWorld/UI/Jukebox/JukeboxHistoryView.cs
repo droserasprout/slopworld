@@ -8,10 +8,10 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Full-screen browsing surface for the likes file. The file parser lives in JukeboxHistory
-    // so this stays about rendering: search, selection, per-field copy, and a detail panel for
-    // the long original metadata that a table row can only hint at. The file remains editable
-    // through the button below; the table is read-only.
+    // Full-screen browsing surface for the likes file. The file parser lives in JukeboxHistory so
+    // this stays about rendering. Search, selection, per-field copy, and a detail panel for the
+    // long original metadata that a table row can only hint at. The file remains editable Use the
+    // button below to edit the file. The table is read-only.
     public sealed class JukeboxHistoryView : ContentView
     {
         struct Columns
@@ -200,7 +200,7 @@ namespace SlopWorld
             if (over)
                 TooltipHandler.TipRegion(r, DetailText(e) + "\n\nClick to inspect and copy.");
 
-            // Clicking a row opens its detail; clicking the open one closes it again.
+            // Clicking a row opens its detail. Clicking the open one closes it again.
             if (UiButtons.RowButton(r))
                 _selected = selected ? null : e;
         }
@@ -286,8 +286,8 @@ namespace SlopWorld
             return string.Join("\n", lines.ToArray());
         }
 
-        // Timestamps are stored as UTC ISO 8601; show them in local time so a browsing player
-        // reads familiar wall-clock values. Anything unparseable falls back to a tidied string.
+        // Read timestamps as UTC ISO 8601. Show them in local time so a browsing player
+        // sees familiar wall-clock values. Show unparseable timestamps as tidied strings.
         static string DisplayAt(string at)
         {
             if (string.IsNullOrEmpty(at)) return "-";

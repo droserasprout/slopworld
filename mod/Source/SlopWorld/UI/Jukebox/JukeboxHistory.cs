@@ -4,7 +4,7 @@ using System.Collections.Generic;
 namespace SlopWorld
 {
     // The likes-file reader, kept apart from the history view so the file format can be
-    // exercised without Unity. The daemon appends current TOML [[like]] tables; a malformed
+    // exercised without Unity. The daemon appends current TOML [[like]] tables. A malformed
     // table is dropped rather than shown as broken.
     public static class JukeboxHistory
     {
@@ -73,7 +73,7 @@ namespace SlopWorld
             }
             catch
             {
-                // A malformed table is dropped so one bad entry cannot take the history down;
+                // A malformed table is dropped so one bad entry cannot take the history down.
                 // the file stays append-only and the rest still reads.
             }
         }

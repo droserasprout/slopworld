@@ -29,10 +29,10 @@ namespace SlopWorld
         internal bool OwnsForwardedMouse(Event e) => _mouseFwd && e.button == _fwdButton &&
             (MouseType(e) == EventType.MouseDrag || MouseType(e) == EventType.MouseUp);
 
-        // An app in click-reporting mode (Claude Code is one) said nothing about motion, so a
-        // drag across its output was never its to receive - forwarded anyway, it left no way
-        // to select text short of holding Shift. The press goes over as a press, and the
-        // moment it turns into a drag that click is closed and the rest taken as a selection.
+        // An app in click-reporting mode (Claude Code is one) said nothing about motion. Therefore,
+        // A drag across its output was never its to receive - forwarded anyway, it left no way to
+        // select text short of holding Shift. The press goes over as a press. The moment it turns
+        // into a drag that click is closed and the rest taken as a selection.
         internal bool HandleMouseForward(Rect body, Event e)
         {
             int btn = Mathf.Clamp(e.button, 0, 2);
@@ -60,7 +60,7 @@ namespace SlopWorld
                         e.Use();
                         return true;
                     }
-                    // Only the left button selects; anything else is swallowed.
+                    // Only the left button selects. Anything else is swallowed.
                     SessionHub.Instance.Terminal.SendMouse(_state.Name, "release", btn, _fwdCell.x, _fwdCell.y);
                     _mouseFwd = false;
                     if (btn != 0) { e.Use(); return true; }

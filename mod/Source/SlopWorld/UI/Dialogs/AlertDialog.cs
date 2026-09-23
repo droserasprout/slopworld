@@ -4,7 +4,7 @@ using Verse;
 
 namespace SlopWorld
 {
-    // Informational messages use the same surface as confirmations; even the safety alert
+    // Informational messages use the same surface as confirmations. Even the safety alert
     // shown before the profile gate has finished must not fall back to RimWorld chrome.
     public sealed class AlertDialog : UiWindow
     {

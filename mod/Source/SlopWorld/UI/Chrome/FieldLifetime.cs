@@ -16,8 +16,9 @@ namespace SlopWorld
     }
 
     // IMGUI has no current Window argument while a control is being drawn. The window/content
-    // boundary pushes its token for the duration of the draw, so every field and every delayed
-    // clipboard operation below inherits the same owner without repeating it at each call site.
+    // boundary pushes its token for the duration of the draw. Therefore, every field and every
+    // delayed clipboard operation below inherits the same owner without repeating it at each call
+    // site.
     internal static class FieldLifetimeScope
     {
         static readonly FieldLifetime ProcessLifetime = new FieldLifetime();

@@ -82,9 +82,9 @@ namespace SlopWorld
             return list;
         }
 
-        // Duplicate is meaningful for any session with a project, including a temporary
-        // errand: the dialog copies that project's command and sandbox context, while a
-        // project-less session has nowhere useful to start from.
+        // Duplicate is meaningful for any session with a project, including a temporary errand. The
+        // dialog copies that project's command and sandbox context, while a project-less session
+        // has nowhere useful to start from.
         static List<SubOption> AgentsSubWithProject()
         {
             var list = SessionHub.Instance.Sessions
