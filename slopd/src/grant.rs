@@ -224,6 +224,7 @@ impl Grants {
     }
 
     /// Create an in-memory grant for callers that do not own a persistent store.
+    #[cfg(test)]
     pub fn mint(&mut self, grant: Grant) -> String {
         self.mint_with_identity(grant, String::new(), BTreeMap::new())
             .expect("in-memory grant cannot fail to persist")
@@ -269,6 +270,7 @@ impl Grants {
     }
 
     /// Revoke every grant that a session owns. Save the revocation before returning.
+    #[cfg(test)]
     pub fn revoke_grantor(&mut self, grantor: &str) {
         let _ = self.try_revoke_grantor(grantor);
     }
@@ -278,6 +280,7 @@ impl Grants {
     }
 
     /// Revoke the entire grant when any target or the grantor no longer exists, before session name reuse.
+    #[cfg(test)]
     pub fn invalidate_session(&mut self, name: &str) -> bool {
         self.try_invalidate_session(name).unwrap_or(false)
     }
