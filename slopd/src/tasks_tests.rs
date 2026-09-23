@@ -1,4 +1,46 @@
 use super::*;
+
+#[test]
+fn update_journal_replays_and_snapshot_generation_prevents_resurrection() {
+    let dir = std::env::temp_dir().join(format!("slopd-task-journal-{}", std::process::id()));
+    let _ = fs::remove_dir_all(&dir);
+    fs::create_dir_all(&dir).unwrap();
+    let config = dir.join("config.toml");
+    let mut tasks = Tasks::load(&config).unwrap();
+    let task = tasks
+        .create("alice".into(), "bob".into(), "work".into())
+        .unwrap();
+    tasks
+        .update("bob", &task.id, Status::Done, Some("done".into()))
+        .unwrap();
+    assert_eq!(
+        Tasks::load(&config)
+            .unwrap()
+            .get("alice", &task.id)
+            .unwrap()
+            .status,
+        Status::Done
+    );
+    let snapshot = fs::read_to_string(dir.join("tasks.toml")).unwrap();
+    assert!(
+        snapshot.contains("status = \"queued\""),
+        "progress updates avoid full snapshot writes"
+    );
+
+    fs::OpenOptions::new()
+        .append(true)
+        .open(dir.join("tasks.journal"))
+        .unwrap()
+        .write_all(b"incomplete")
+        .unwrap();
+    let mut loaded = Tasks::load(&config).unwrap();
+    let old_journal = fs::read(dir.join("tasks.journal")).unwrap();
+    loaded.remove("alice", &task.id, false).unwrap();
+    // Simulate a crash after replacing the snapshot but before retiring its old journal.
+    fs::write(dir.join("tasks.journal"), old_journal).unwrap();
+    assert!(Tasks::load(&config).unwrap().all().is_empty());
+    let _ = fs::remove_dir_all(dir);
+}
 #[test]
 fn visibility_updates_and_persistence() {
     let dir = std::env::temp_dir().join(format!("slopd-tasks-{}", std::process::id()));
