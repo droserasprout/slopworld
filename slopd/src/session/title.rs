@@ -7,8 +7,8 @@ pub(super) struct TitleCapture {
     pub(super) conversation: u64,
     pub(super) generation: u64,
     pub(super) pending: bool,
-    // Once mode counts the first request, not only a successful response. This keeps a
-    // transient OpenRouter failure from turning every later prompt into another billable try.
+    // Once mode counts the first request even if it fails.
+    // This prevents a temporary OpenRouter failure from causing repeated billable requests for later prompts.
     pub(super) once_requested: bool,
     pub(super) override_title: Option<String>,
 }
@@ -98,9 +98,9 @@ pub(super) enum Submission {
     New(Option<String>),
 }
 
-// Waiting screens normally consume a one-word approval or picker choice. Keep those out of
-// OpenRouter, but do not discard a real prompt just because the last captured frame still says
-// waiting while the agent's input line is active.
+// Waiting screens usually accept a one-word approval or selection. Do not send these answers to OpenRouter.
+// The last captured frame can still show a waiting state while the agent accepts prompt input.
+// Keep actual prompts in that case.
 pub(super) fn is_dialog_answer(prompt: &str) -> bool {
     matches!(
         prompt.trim().to_ascii_lowercase().as_str(),
@@ -121,8 +121,8 @@ impl Composer {
     }
 
     pub(super) fn literal(&mut self, text: &str) {
-        // The mod encodes Shift+Enter with kitty's keyboard protocol. Codex receives a
-        // multiline edit; keeping the escape bytes would poison the mirrored prompt.
+        // The mod encodes Shift+Enter with the kitty keyboard protocol.
+        // Codex inserts a newline. Remove the escape bytes to keep the mirrored prompt consistent.
         if text == "\x1b[13;2u" {
             self.text.insert(self.cursor, '\n');
             self.cursor += 1;
@@ -186,9 +186,9 @@ impl Composer {
             }
             // An interrupt cancels the input rather than making the next Enter submit stale text.
             "C-c" => *self = Self::ready(),
-            // History, completion, word-wise movement and TUI controls mean our mirror no
-            // longer proves what Codex will receive. Clear the stale mirror as well: if Escape
-            // cancelled the editor, the next prompt must not inherit the cancelled text.
+            // History, completion, word movement, and terminal controls can invalidate the mirrored input.
+            // Clear the mirror because it can no longer predict the text that Codex receives.
+            // If Escape canceled the edit, the next prompt must not include that text.
             _ => self.invalidate(),
         }
         None

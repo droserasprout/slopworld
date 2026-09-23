@@ -51,8 +51,8 @@ fn summary_round_trips_without_changing_task_age() {
     let _ = fs::remove_dir_all(dir);
 }
 
-/// Removal is shared, so it waits for the task to stop moving - unless the root asks. Pruning
-/// takes the finished ones the caller can see, and `all` the rest.
+/// Ordinary removal requires a terminal task. Root access permits removal of active tasks.
+/// Pruning removes terminal tasks visible to the caller. The `all` option removes the visibility restriction.
 #[test]
 fn removing_and_pruning_finished_work() {
     let dir = std::env::temp_dir().join(format!("slopd-rm-tasks-{}", std::process::id()));

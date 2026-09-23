@@ -7,9 +7,9 @@ use crate::presets::SandboxPreset;
 
 use super::{persistent_tmp_path, presets_for, private_path, state_root, PRIVATE_RESOLVER};
 
-/// Creates generated resolver files and seeds each private tree before argv construction;
-/// existing copies are preserved. The private resolver is always synthetic, while an explicit
-/// DNS list in host mode needs a generated `/etc/resolv.conf` source too.
+/// Create resolver files and initialize private copies before argument construction.
+/// Keep existing private copies. Private network mode always uses a generated resolver file.
+/// Host network mode also needs this file when the configuration specifies DNS servers.
 pub fn prepare_network(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result<()> {
     if s.persistent_tmp {
         let path = persistent_tmp_path(s)?;
@@ -30,9 +30,9 @@ pub fn prepare_network(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result<(
         NetworkMode::None | NetworkMode::Host => {}
     }
 
-    // Keep preparation on the same captured definitions as launch-plan construction. A live
-    // preset can change from seeded state to a shared bind (Codex auth did); mixing the tables
-    // leaves a snapshot session with neither the old seed nor the new mount.
+    // Use the same saved preset definitions for preparation and launch-plan construction.
+    // A preset can change from private copies to shared mounts.
+    // Different tables can leave a session without either the initial copy or the shared mount.
     let t = s.preset_table();
     for pr in presets_for(cfg, s, p, &t) {
         for path in &pr.private {
@@ -49,8 +49,8 @@ pub fn prepare_network(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result<(
                 tracing::info!("session {:?} gets its own {host}", s.name);
                 seed_into(pr, &host, &copy)?;
             } else if host.starts_with("/tmp/") {
-                // /tmp is a tmpfs in the skeleton, so the host path never exists. Create an
-                // empty session-state directory and let the bind land on the tmpfs mount point.
+                // The sandbox uses tmpfs for /tmp. This path has no host source.
+                // Create an empty session-state directory for the bind mount in /tmp.
                 tracing::info!("session {:?} gets a fresh {host}", s.name);
                 std::fs::create_dir_all(&copy)
                     .with_context(|| format!("making {}", copy.display()))?;
@@ -81,10 +81,9 @@ fn prepare_resolver(session: &str, servers: &[String]) -> Result<()> {
     Ok(())
 }
 
-/// One private path, made and seeded. Returns having done nothing if the copy is already
-/// there, which is what "once" means: what an agent has written is never trodden on by what
-/// the host has changed since. The tree is an ordinary directory - deleting a session's is
-/// how it is handed a fresh one.
+/// Create a private copy from the host source if the copy does not exist.
+/// Later host changes do not replace the agent's changes in an existing copy.
+/// Delete the private copy to initialize it again.
 pub(super) fn seed_into(pr: &SandboxPreset, host: &str, copy: &Path) -> Result<()> {
     if copy.exists() {
         return Ok(());
@@ -100,10 +99,8 @@ pub(super) fn seed_into(pr: &SandboxPreset, host: &str, copy: &Path) -> Result<(
     }
     std::fs::create_dir_all(copy).with_context(|| format!("making {}", copy.display()))?;
 
-    // `skip` is expanded once here rather than per directory walked: it is a handful of paths
-    // and the walk is not. A shared file is skipped too, and not because of its size: it is
-    // bound over from the host anyway, and seeding it would leave a superseded credential
-    // lying in the session directory for as long as that session exists.
+    // Expand `skip` once before traversal. Also exclude shared files, which use host bind mounts.
+    // Copying shared credentials here could leave obsolete credentials in the session directory.
     let skip: Vec<String> = pr
         .skip
         .iter()
@@ -112,8 +109,8 @@ pub(super) fn seed_into(pr: &SandboxPreset, host: &str, copy: &Path) -> Result<(
         .collect();
     let skipped = |p: &Path| skip.iter().any(|s| Path::new(s) == p);
 
-    // Copy top-level files generically for tool portability; `skip` also excludes sensitive
-    // history and shared files.
+    // Copy top-level files without tool-specific rules.
+    // `skip` excludes sensitive history and shared files.
     match std::fs::read_dir(host) {
         Ok(entries) => {
             for entry in entries.flatten() {
@@ -128,20 +125,16 @@ pub(super) fn seed_into(pr: &SandboxPreset, host: &str, copy: &Path) -> Result<(
         Err(e) => tracing::warn!("reading {host}: {e:#}"),
     }
 
-    // And the subdirectories asked for by name, which is where what the *user* wrote lives -
-    // agents, commands, plugins - as against what the tool wrote about them. The preset's list
-    // is what every session of that software wants; a user preset attached to one project or
-    // agent can carry any extra state that ground needs, without another override layer here.
+    // Copy the subdirectories that the preset names, such as agents, commands, and plugins.
+    // A user preset can specify additional state for one project or agent.
     for from in &pr.seed {
         let from = expand(from);
         let Ok(rel) = Path::new(&from).strip_prefix(host) else {
             continue; // a seed for some other private path, or for another preset's
         };
         let to = copy.join(rel);
-        // Said out loud, both ways. A seed path that is not there is *usually* honest - no two
-        // machines keep all of what a preset names - but it is also exactly how a typo looks,
-        // and `pi` shipped naming three directories it has never made without a word about it.
-        // Twice the answer was "seeding worked, look elsewhere" when nothing had been copied.
+        // Log missing sources and successful copies.
+        // A missing source can indicate optional software state or an incorrect preset path.
         if !Path::new(&from).exists() {
             tracing::info!("seed {from} is not on this machine, nothing copied");
             continue;
@@ -154,8 +147,8 @@ pub(super) fn seed_into(pr: &SandboxPreset, host: &str, copy: &Path) -> Result<(
     Ok(())
 }
 
-/// Recursively copies an existing seed entry, omitting paths in `skip`; missing sources are
-/// allowed because presets describe optional software state.
+/// Recursively copy an existing source entry, except paths in `skip`.
+/// Permit missing sources because presets describe optional software state.
 fn seed(from: &Path, to: &Path, skip: &[String]) -> Result<()> {
     if !from.exists() || skip.iter().any(|s| Path::new(s) == from) {
         return Ok(());

@@ -1,4 +1,4 @@
-//! Best-effort observation of the process tree behind a tmux pane.
+//! Process-tree inspection for a tmux pane when process data is available.
 
 use std::collections::HashSet;
 use std::path::Path;
@@ -20,9 +20,8 @@ struct Process {
     cgroup: Option<String>,
 }
 
-/// Return the saved intent and, when the pane still exists, a sanitized live process tree.
-/// `plan` remains useful after a process exits, but `comparison` never calls a saved plan proof
-/// of successful launch.
+/// Return the saved plan and, when available, a redacted view of the pane's live process tree.
+/// `plan` remains useful after a process exits. `comparison` does not treat a saved plan as proof of a successful launch.
 pub(crate) async fn inspect_session(
     tmux: &Tmux,
     name: &str,
@@ -65,8 +64,8 @@ pub(crate) async fn inspect_session(
                                 "pid": process.pid,
                                 "ppid": process.ppid,
                                 "argv": sanitize_process_argv(&process.argv),
-                                // The cgroup is used to include reparented descendants, but its
-                                // name is not an operator-safe process argument.
+                                // Use the cgroup to include descendants whose parent changed.
+                                // Do not expose its name as a process argument.
                                 "in_scope": scope.is_some_and(|scope| in_scope(process, scope)),
                             })
                         })
@@ -157,8 +156,9 @@ fn select_tree(root: u32, mut all: Vec<Process>, scope: Option<&str>) -> Vec<Pro
     let mut verified_scope = false;
     loop {
         let before = included.len();
-        // Only extend through cgroups after a pane descendant proves membership in the exact
-        // saved launch scope. Old plans without an explicit unit use ancestry alone.
+        // First confirm that an included process belongs to the saved launch scope.
+        // Then use cgroup membership to include other processes.
+        // Old plans without an explicit unit use process ancestry only.
         verified_scope |= scope.is_some_and(|scope| {
             all.iter()
                 .any(|process| included.contains(&process.pid) && in_scope(process, scope))

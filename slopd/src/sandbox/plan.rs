@@ -1,9 +1,9 @@
-//! Structured sandbox launch plans and their safe, operator-facing projections.
+//! Build sandbox launch plans and redacted operator views.
 //!
-//! A plan owns the raw arguments only until the launch call has consumed it.  Anything that can
-//! leave the daemon goes through `view`, which applies both known-secret and structural
-//! redaction.  In particular, the structural rules still protect a worker token after a daemon
-//! restart, when the value that was originally minted is no longer available to the process.
+//! Keep raw arguments in the plan until the daemon starts the session.
+//! Logs, API responses, and saved files use the redacted view.
+//! The view removes known secrets and sensitive values.
+//! After a restart, structural rules still hide worker tokens that the daemon no longer knows.
 
 use std::path::Path;
 
@@ -15,8 +15,8 @@ use crate::config::SessionCfg;
 pub(crate) const REDACTED: &str = "<redacted>";
 pub(crate) const UNKNOWN_ARG: &str = "<arg>";
 
-/// The six diagnostic sections are deliberately separate from the flattened argv.  The latter
-/// is produced once, immediately before tmux receives it, and is never used as a display string.
+/// Keep the six diagnostic sections separate from the argument list.
+/// Combine them immediately before sending them to tmux. Never display raw arguments.
 #[derive(Debug, Clone)]
 pub(crate) struct LaunchPlan {
     pub(crate) session: String,
@@ -29,8 +29,8 @@ pub(crate) struct LaunchPlan {
     pub(crate) known_secrets: Vec<String>,
 }
 
-/// This is the on-disk and API shape.  It contains only sanitized strings; deserializing it on a
-/// later daemon run cannot recover a worker credential that was used for the original launch.
+/// Define the fields for saved plans and API responses.
+/// The strings are sanitized before storage. A saved file cannot reveal a worker token after restart.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub(crate) struct PlanView {
     pub(crate) version: u8,
@@ -45,14 +45,14 @@ pub(crate) struct PlanView {
 }
 
 impl LaunchPlan {
-    /// Lower the sectioned plan to the exact argv passed to `tmux new-session`.
+    /// Convert the plan sections to the argument list for `tmux new-session`.
     pub(crate) fn lower(&self) -> Vec<String> {
         let mut argv = Vec::new();
         argv.extend(self.limits.iter().cloned());
         argv.extend(self.pasta.iter().cloned());
         argv.extend(self.bwrap.iter().cloned());
-        // bwrap's mount operations precede its environment operations.  They are kept as
-        // separate diagnostic sections even though this is the execution order between them.
+        // bwrap runs mount operations before environment operations.
+        // Keep these operations in separate diagnostic sections.
         argv.extend(self.mounts.iter().cloned());
         argv.extend(self.environment.iter().cloned());
         argv.push("--".into());
@@ -81,13 +81,13 @@ impl LaunchPlan {
         }
     }
 
-    /// Human output is intentionally made from the sanitized projection, never from raw argv.
+    /// Format operator output from the redacted view, never from raw arguments.
     pub(crate) fn render_human(&self) -> String {
         render_view_human(&self.view())
     }
 
-    /// Atomically save the sanitized projection beside the session's private state.  The plan is
-    /// not below any configured private bind, and therefore is not mounted into the guest.
+    /// Save the redacted view beside the session's private state.
+    /// Configured private mounts do not expose this file to the guest.
     pub(crate) fn save(&self, session: &SessionCfg) -> Result<()> {
         let dir = super::state_dir(session)?;
         std::fs::create_dir_all(&dir).with_context(|| format!("making {}", dir.display()))?;
@@ -117,8 +117,8 @@ pub(crate) fn read(session: &SessionCfg) -> Result<Option<PlanView>> {
     };
     let view: PlanView = serde_json::from_str(&text)
         .with_context(|| format!("parsing saved launch plan {}", path.display()))?;
-    // Treat even a hand-edited artifact as untrusted input.  This also makes the restart path
-    // obey the same policy as a freshly lowered plan.
+    // Treat saved files as untrusted input, including files with manual changes.
+    // Apply the same redaction policy after a restart as for a new plan.
     Ok(Some(sanitize_view(view)))
 }
 
@@ -158,19 +158,18 @@ pub(crate) fn shell_quote(value: &str) -> String {
     format!("'{}'", value.replace('\'', "'\\''"))
 }
 
-/// Used for subprocess errors that might have echoed the command line.  The useful operational
-/// fact is that tmux rejected the operation; retaining an unparseable error line is not worth a
-/// possible credential leak.
+/// Remove subprocess details that can include command-line credentials.
+/// The caller can still report that tmux rejected the operation.
 pub(crate) fn sanitize_diagnostic(_text: &str) -> String {
-    // tmux does not provide a structured error channel and some versions echo the complete
-    // `new-session -- argv` command.  There is no safe way to distinguish an echoed command from
-    // an ordinary error after the fact, so retain only the operation-level diagnostic.
+    // Some tmux versions include the full `new-session -- argv` command in errors.
+    // The error format does not separate arguments from other details.
+    // Keep only a fixed message about the failed operation.
     "details omitted by launch redaction policy".into()
 }
 
 pub(crate) fn sanitize_process_argv(argv: &[String]) -> Vec<String> {
-    // Process titles and argv[0] are writable by descendants, including in the ps fallback.
-    // No part of a live argument is trusted as a name (even an environment/option key).
+    // Child processes can change their titles and `argv[0]`.
+    // Treat live arguments as untrusted, including environment names and option keys.
     argv.iter()
         .map(|arg| {
             if safe_command_flag(arg) {

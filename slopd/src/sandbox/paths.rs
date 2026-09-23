@@ -8,8 +8,8 @@ use crate::presets::{SandboxPreset, Table};
 
 use super::state_root;
 
-/// Rejects paths reaching the daemon token/config, preset definitions, or another session's
-/// private state, including paths above or below those protected roots.
+/// Reject paths that expose daemon credentials, configuration, preset definitions, or private session state.
+/// Also reject ancestors and descendants of these protected paths.
 pub fn refused(path: &str) -> Option<String> {
     let path = safety_path(Path::new(path));
     if path == Path::new("/") {
@@ -20,16 +20,10 @@ pub fn refused(path: &str) -> Option<String> {
     }
 
     let keep = [
-        (
-            "the daemon's config, and the token in it",
-            Config::path_in_use(),
-        ),
-        (
-            "the daemon's endpoint descriptor, and its token",
-            crate::endpoint::path(),
-        ),
+        ("daemon configuration and token", Config::path_in_use()),
+        ("daemon endpoint file and token", crate::endpoint::path()),
         ("the preset files", Table::dir()),
-        ("what the sessions keep to themselves", state_root()),
+        ("session private state", state_root()),
     ];
     for (what, kept) in keep {
         let kept = safety_path(&kept);
@@ -47,9 +41,9 @@ pub(super) fn overlaps(left: &str, right: &str) -> bool {
     left.starts_with(&right) || right.starts_with(&left)
 }
 
-/// Resolve a path as far as the filesystem lets us, retaining any missing suffix. This keeps
-/// safety checks aware of symlinks in existing parents while still allowing portable presets to
-/// name software that is not installed on this machine yet.
+/// Resolve existing path components and keep the missing suffix.
+/// Safety checks then account for symlinks in existing parents.
+/// Presets can still specify paths for software that this machine does not have.
 fn safety_path(path: &Path) -> PathBuf {
     let mut missing: Vec<OsString> = Vec::new();
     let mut probe = path.to_path_buf();
@@ -71,8 +65,9 @@ fn safety_path(path: &Path) -> PathBuf {
     lexical_path(&out)
 }
 
-/// Normalize `.` and `..` without following symlinks. `safety_path` follows symlinks first where
-/// possible, then uses this only for the missing suffix or paths whose parents do not exist.
+/// Normalize `.` and `..` without following symlinks.
+/// `safety_path` first follows symlinks where possible.
+/// It uses this function for missing suffixes or paths without existing parents.
 fn lexical_path(path: &Path) -> PathBuf {
     let mut out = PathBuf::new();
     for component in path.components() {
@@ -87,9 +82,8 @@ fn lexical_path(path: &Path) -> PathBuf {
     out
 }
 
-/// Validate one effective sandbox preset before either exposing it to bwrap or saving it from
-/// the API. Keeping this beside argv construction prevents the API, hand-edited files and old
-/// config entries from growing subtly different safety rules.
+/// Validate a sandbox preset before bwrap uses it or the API saves it.
+/// This check keeps safety rules consistent for API requests, manual file changes, and old configuration entries.
 pub fn validate_preset(p: &SandboxPreset, table: &Table) -> Result<()> {
     validate_preset_fields(p, table)?;
     let mut visiting = vec![p.name.clone()];
@@ -99,20 +93,20 @@ pub fn validate_preset(p: &SandboxPreset, table: &Table) -> Result<()> {
     Ok(())
 }
 
-/// Validate a named preset and its complete dependency closure. A dependent preset is invalid
-/// when any required preset is invalid, so runtime selection cannot silently apply only half of
-/// a capability bundle.
+/// Validate a named preset and all its dependencies.
+/// Reject the preset if any dependency is invalid.
+/// This prevents runtime selection from applying an incomplete set of required presets.
 pub fn validate_preset_name(name: &str, table: &Table) -> Result<()> {
     validate_preset_name_inner(name, table, &mut Vec::new())
 }
 
 fn validate_preset_name_inner(name: &str, table: &Table, visiting: &mut Vec<String>) -> Result<()> {
     if visiting.iter().any(|seen| seen == name) {
-        anyhow::bail!("sandbox preset dependency cycle at {name:?}");
+        anyhow::bail!("Sandbox preset {name:?} has a dependency cycle.");
     }
     let p = table
         .sandbox(name)
-        .ok_or_else(|| anyhow::anyhow!("unknown sandbox preset: {name}"))?;
+        .ok_or_else(|| anyhow::anyhow!("Sandbox preset {name:?} does not exist."))?;
     validate_preset_fields(p, table)?;
     visiting.push(name.to_string());
     for required in &p.requires {
@@ -126,11 +120,11 @@ fn validate_preset_fields(p: &SandboxPreset, table: &Table) -> Result<()> {
     validate_preset_paths(p)?;
     for required in &p.requires {
         if required == &p.name {
-            anyhow::bail!("sandbox preset {:?} requires itself", p.name);
+            anyhow::bail!("Sandbox preset {:?} cannot require itself.", p.name);
         }
         if table.sandbox(required).is_none() {
             anyhow::bail!(
-                "sandbox preset {:?} requires unknown preset {:?}",
+                "Sandbox preset {:?} requires sandbox preset {:?}, but it does not exist.",
                 p.name,
                 required
             );
@@ -141,10 +135,10 @@ fn validate_preset_fields(p: &SandboxPreset, table: &Table) -> Result<()> {
 
 fn validate_preset_paths(p: &SandboxPreset) -> Result<()> {
     if p.name.trim().is_empty() {
-        anyhow::bail!("sandbox preset name is empty");
+        anyhow::bail!("Enter a sandbox preset name.");
     }
     if p.requires.iter().any(|name| name.trim().is_empty()) {
-        anyhow::bail!("sandbox preset {:?} has an empty dependency", p.name);
+        anyhow::bail!("Sandbox preset {:?} has a dependency with no name.", p.name);
     }
 
     for (kind, paths) in [
@@ -163,7 +157,7 @@ fn validate_preset_paths(p: &SandboxPreset) -> Result<()> {
             }
             if let Some(what) = refused(&expanded) {
                 anyhow::bail!(
-                    "sandbox preset {:?} {kind} path {raw:?} reaches {what}",
+                    "Sandbox preset {:?} {kind} path {raw:?} exposes {what}.",
                     p.name
                 );
             }
@@ -188,7 +182,7 @@ fn validate_preset_paths(p: &SandboxPreset) -> Result<()> {
             let path = safety_path(Path::new(&expanded));
             if !private.iter().any(|root| path.starts_with(root)) {
                 anyhow::bail!(
-                    "sandbox preset {:?} {kind} path {raw:?} is outside its private paths",
+                    "Sandbox preset {:?} {kind} path {raw:?} must be inside a private path.",
                     p.name
                 );
             }
@@ -199,20 +193,20 @@ fn validate_preset_paths(p: &SandboxPreset) -> Result<()> {
         let expanded = expand(raw);
         if expanded.is_empty() {
             anyhow::bail!(
-                "sandbox preset {:?} shared path {raw:?} contains an unset variable",
+                "Sandbox preset {:?} shared path {raw:?} contains an unset variable.",
                 p.name
             );
         }
         if Path::new(&expanded).exists() && !Path::new(&expanded).is_file() {
             anyhow::bail!(
-                "sandbox preset {:?} shared path {raw:?} is not a regular file",
+                "Sandbox preset {:?} shared path {raw:?} is not a regular file.",
                 p.name
             );
         }
         let path = safety_path(Path::new(&expanded));
         if !private.iter().any(|root| path.starts_with(root)) {
             anyhow::bail!(
-                "sandbox preset {:?} shared path {raw:?} must be inside a private path",
+                "Sandbox preset {:?} shared path {raw:?} must be inside a private path.",
                 p.name
             );
         }

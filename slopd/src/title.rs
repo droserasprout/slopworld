@@ -37,14 +37,14 @@ struct LatestEntry {
     title: String,
 }
 
-/// Persistent summaries are disposable runtime data and follow the XDG cache root.
+/// Store cached summaries under the XDG cache root. The daemon can recreate this runtime data.
 pub fn cache_path(_config: &Path) -> PathBuf {
     crate::paths::cache_root().join("prompt-summaries.toml")
 }
 
-/// A small, best-effort cache for successful prompt summaries. The prompt itself is never
-/// written: the key is a stable digest of the prompt and model, while the title is safe to
-/// reuse across daemon and game restarts.
+/// A small cache for successful prompt summaries. Cache failures do not prevent operation.
+/// Store a stable digest as the key instead of the prompt text.
+/// Reuse cached titles after daemon and game restarts.
 pub struct SummaryCache {
     path: PathBuf,
     state: Mutex<CacheState>,
@@ -136,9 +136,8 @@ impl SummaryCache {
         save_cache(&self.path, &state)
     }
 
-    /// Store a summary that belongs to a durable task rather than a live session. It shares the
-    /// prompt/instruction/model cache but deliberately does not add a session-title `latest`
-    /// entry.
+    /// Store a summary for a persistent task.
+    /// Use the shared prompt, instruction, and model cache without adding a session-title `latest` entry.
     pub fn insert_cached(
         &self,
         prompt: &str,
@@ -280,8 +279,9 @@ fn read_key(file: &str) -> Result<String> {
     Ok(key.to_string())
 }
 
-/// Run a summary off the async executor. Only join failures receive the caller's worker
-/// label; provider errors pass through unchanged. Cache and policy decisions stay with callers.
+/// Generate a summary outside the asynchronous executor.
+/// Add the caller's worker label only to join failures. Preserve provider errors unchanged.
+/// Callers control caching and policy.
 pub async fn summarize_async(
     prompt: &str,
     summary_prompt: &str,

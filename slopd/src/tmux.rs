@@ -26,7 +26,7 @@ struct RenameTestControls {
     pause: Option<(Arc<tokio::sync::Notify>, Arc<tokio::sync::Notify>)>,
 }
 
-/// Pinned to a private server socket, so it never collides with the user's tmux.
+/// Use a private server socket to keep daemon sessions separate from the user's tmux sessions.
 #[derive(Clone)]
 pub struct Tmux {
     socket: String,
@@ -54,14 +54,12 @@ pub struct Screen {
     pub lines: Vec<String>,
     pub cx: u16,
     pub cy: u16,
-    /// What the app last called itself. tmux parses OSC 0/2 for its own status line and the
-    /// server outlives us, so this is the one piece of a pane's state that survives our
-    /// restart without the app being asked to say it again.
+    /// The latest application title. tmux parses OSC 0/2 for its status line.
+    /// The tmux server preserves the title after a daemon restart without another title update from the application.
     pub title: String,
-    /// Whether the pane is on the alternate screen. tmux tracks this and we read it back so
-    /// the emulator seed can match the mode the app was in, without which the `alt_screen`
-    /// flag stays false after a daemon restart and wheel events go to history scrollback
-    /// instead of the app.
+    /// Whether the pane uses the alternate screen.
+    /// Read this state from tmux to restore the emulator mode after a daemon restart.
+    /// Otherwise, `alt_screen` remains false and wheel events scroll history instead of reaching the application.
     pub alt_screen: bool,
 }
 
@@ -108,8 +106,8 @@ impl Tmux {
         self.list().await.iter().any(|s| s == name)
     }
 
-    /// `list-sessions` exits non-zero both when the server is down and when it is up
-    /// with nothing in it; only the first says so on stderr.
+    /// `list-sessions` returns a nonzero exit code if the server is stopped or has no sessions.
+    /// Only a stopped server produces the corresponding stderr message.
     async fn server_running(&self) -> bool {
         match Command::new("tmux")
             .arg("-L")
@@ -126,9 +124,10 @@ impl Tmux {
         }
     }
 
-    /// tmux inherits the caller's cgroup unless launched in its own systemd user unit.
-    /// `tmux start-server` forks, so a scope exits before the server and gets torn down;
-    /// use a `Type=forking` unit, verify the socket, and fall back inline without systemd.
+    /// tmux inherits the caller's cgroup unless it starts in a separate systemd user unit.
+    /// `tmux start-server` forks, so a scope can terminate before the server.
+    /// Use a `Type=forking` unit. Verify the socket before proceeding.
+    /// If systemd is unavailable, start the server directly.
     pub async fn ensure_server(&self) {
         if self.server_running().await {
             return;
@@ -150,8 +149,7 @@ impl Tmux {
             .status()
             .await;
 
-        // systemd-run returns once the job is queued, so the socket is what says the
-        // server is up.
+        // systemd-run returns when it queues the job. Check the socket to confirm server startup.
         let mut up = false;
         if matches!(&unit, Ok(s) if s.success()) {
             for _ in 0..20 {
@@ -168,10 +166,12 @@ impl Tmux {
         } else {
             match unit {
                 Ok(s) if s.success() => {
-                    tracing::warn!("slopworld-tmux.service started no server; starting tmux inline")
+                    tracing::warn!("The slopworld-tmux.service unit started no server. slopd will start tmux inline.")
                 }
-                Ok(s) => tracing::warn!("systemd-run failed ({s}); starting tmux inline"),
-                Err(_) => tracing::warn!("systemd-run not available; starting tmux inline"),
+                Ok(s) => tracing::warn!("systemd-run failed ({s}). slopd will start tmux inline."),
+                Err(_) => {
+                    tracing::warn!("systemd-run is unavailable. slopd will start tmux inline.")
+                }
             }
             if let Err(e) = self.run(&["start-server"]).await {
                 tracing::error!("start tmux server: {e:#}");
@@ -255,17 +255,18 @@ impl Tmux {
         Ok(())
     }
 
-    /// Host-ness is runtime state, but the tmux server outlives slopd. Keep a private session
-    /// option so orphan adoption does not mistake a surviving host shell for an agent.
+    /// The tmux server can continue after slopd stops.
+    /// Keep the host flag in a private session option to distinguish host shells from agents during adoption.
     pub async fn is_host(&self, name: &str) -> bool {
         self.run(&["show-options", "-qv", "-t", name, "@slopworld_host"])
             .await
             .is_ok_and(|value| value.trim() == "1")
     }
 
-    /// Host tabs carry their project and last known working directory on the tmux server too.
-    /// The config copy covers a machine reboot; these options are authoritative while the
-    /// server survives a daemon redeploy and let adoption recover a shell that has `cd`'d.
+    /// Store each host tab's project and last known directory on the tmux server.
+    /// The configuration copy supports recovery after a machine restart.
+    /// These tmux options take precedence while the server continues across daemon deployment.
+    /// Adoption uses them to restore shell directory changes.
     pub async fn set_host_metadata(&self, name: &str, project: &str, path: &str) -> Result<()> {
         self.run(&["set-option", "-t", name, HOST_PROJECT, project])
             .await?;
@@ -530,8 +531,8 @@ impl Tmux {
         (started, release)
     }
 
-    /// `-e` keeps SGR escapes. The scrollback above the visible pane is the only way history
-    /// survives a daemon restart: tmux kept it and our emulator did not.
+    /// `-e` preserves SGR escape sequences.
+    /// Capture tmux scrollback to restore history that the emulator loses during a daemon restart.
     pub async fn capture(&self, name: &str, history: u32) -> Result<Screen> {
         let target = format!("{name}:.0");
         let start = format!("-{history}");
@@ -540,9 +541,8 @@ impl Tmux {
             args.extend(["-S", start.as_str()]);
         }
         let body = self.run(&args).await?;
-        // The title rides on the same question rather than a second one: a title with spaces
-        // in it is why the tail is taken whole instead of split like the two figures ahead of
-        // it, and it goes last for that reason.
+        // Request the title with the cursor position and alternate-screen flag.
+        // Put the title last so parsing preserves spaces within it.
         let pos = self
             .run(&[
                 "display-message",
@@ -556,10 +556,9 @@ impl Tmux {
 
         let (cx, cy, alt_screen, title) = parse_pos(&pos);
 
-        // `capture-pane` terminates its last row with a newline, so splitting on one coins a
-        // final empty line the pane does not have. The seed writes the lines and then places
-        // the cursor at an absolute row, so that phantom line scrolls the content up under it
-        // and the cursor comes back one row low.
+        // Remove the final newline from `capture-pane` before splitting rows.
+        // Otherwise, the extra empty row scrolls the restored content upward.
+        // The cursor then appears one row too low because restoration uses an absolute cursor position.
         let body = body.strip_suffix('\n').unwrap_or(&body);
 
         Ok(Screen {
@@ -571,9 +570,9 @@ impl Tmux {
         })
     }
 
-    /// A pty and not pipes: tmux detaches a control client whose stdio isn't a terminal, which
-    /// would orphan every live session as "down". Only `isatty` matters. The child is handed
-    /// back so the attach lives, and `kill_on_drop` ends it with the reader task.
+    /// Use a PTY so the control client's standard streams pass `isatty`.
+    /// tmux detaches clients whose streams are not terminals, which would make live sessions appear stopped.
+    /// Return the child to keep the connection active. `kill_on_drop` terminates it with the reader task.
     pub fn control_attach(
         &self,
         name: &str,
@@ -603,9 +602,9 @@ impl Tmux {
         Ok((child, std::fs::File::from(pty.master)))
     }
 
-    /// The colon in `name:` is load-bearing: this takes a *window* target, and tmux resolves
-    /// one by window name before session name - every window here is called `bwrap`, so a bare
-    /// `b` prefix-matched another session's `bwrap` and resized that instead.
+    /// Include the colon in `name:` to target the session's window.
+    /// tmux checks window names before session names. These windows all have the name `bwrap`.
+    /// Previously, a bare `b` matched another session's `bwrap` window and resized it.
     pub async fn resize(&self, name: &str, cols: u16, rows: u16) -> Result<()> {
         let target = format!("{name}:");
         let cols = cols.to_string();
@@ -615,8 +614,7 @@ impl Tmux {
         Ok(())
     }
 
-    /// A session that outlived the daemon is whatever size the last terminal window asked for,
-    /// and tmux is the only one left who remembers.
+    /// Read the terminal size that tmux preserves after the daemon stops.
     pub async fn size(&self, name: &str) -> Option<(u16, u16)> {
         // `name:` for the same reason `resize` needs it - see there.
         let target = format!("{name}:");
@@ -659,10 +657,12 @@ impl Tmux {
         Ok(())
     }
 
-    /// Use a per-session tmux buffer for large payloads; `send-keys -H` silently fails near
-    /// 996 bytes. Load from stdin, paste with `-r` to preserve newlines, and delete the buffer
-    /// after use. Bracketed mode makes a large paste one terminal event, which prevents Codex's
-    /// raw-input paste-burst heuristic from splitting it at PTY read pauses.
+    /// Use a separate tmux buffer for each session's large payloads.
+    /// `send-keys -H` fails without an error near 996 bytes.
+    /// Load from stdin. Paste with `-r` to preserve newlines. Delete the buffer after use.
+    ///
+    /// Bracketed paste mode groups a large paste into one terminal event.
+    /// This prevents Codex from splitting the paste when PTY reads pause.
     pub async fn paste_bytes(&self, name: &str, bytes: &[u8]) -> Result<()> {
         use tokio::io::AsyncWriteExt;
 
@@ -676,8 +676,7 @@ impl Tmux {
             .stderr(Stdio::piped())
             .spawn()?;
 
-        // Closed before the wait: tmux reads this to EOF, so holding it open is a hang
-        // rather than a slow paste.
+        // Close stdin before waiting. tmux waits for EOF, so an open stream would block completion.
         {
             let mut stdin = child.stdin.take().context("load-buffer stdin")?;
             stdin.write_all(bytes).await?;
@@ -701,9 +700,8 @@ impl Tmux {
     }
 }
 
-/// `display-message`'s one line: two figures, a flag, and the title as the whole tail.
-/// Anything missing reads as the boot answer rather than as a failure - the pane is asked
-/// about with `unwrap_or_default()`, so an empty line is what a dead session hands back.
+/// Parse a `display-message` line with two coordinates, an alternate-screen flag, and a title.
+/// Missing values use startup defaults. A failed pane query supplies an empty line through `unwrap_or_default()`.
 fn parse_pos(pos: &str) -> (u16, u16, bool, String) {
     let mut it = pos.splitn(4, ' ');
     let cx = it.next().and_then(|v| v.parse().ok()).unwrap_or(0);
@@ -711,15 +709,14 @@ fn parse_pos(pos: &str) -> (u16, u16, bool, String) {
         .next()
         .and_then(|v| v.trim_end().parse().ok())
         .unwrap_or(0);
-    // A tmux flag is `1` or `0`, which is not what `bool::from_str` reads - it takes `true`
-    // and `false` and nothing else, so parsing this would answer `false` on either flag.
+    // tmux flags use `1` and `0`. bool::from_str accepts only `true` and `false`.
+    // Compare the value directly to avoid treating both flags as false.
     let alt = it.next().map(|v| v.trim_end() == "1").unwrap_or(false);
     (cx, cy, alt, clean_title(it.next().unwrap_or("")))
 }
 
-/// The seed states this back to a fresh emulator as an OSC, so a control character in it
-/// would be an escape sequence somebody else's app got to write. Stripped rather than
-/// refused: a title is decoration, and the answer to an odd one is a plain one.
+/// Remove control characters from the title before sending it to a new emulator as an OSC sequence.
+/// This prevents application titles from inserting escape sequences.
 fn clean_title(s: &str) -> String {
     s.chars().filter(|c| !c.is_control()).take(512).collect()
 }

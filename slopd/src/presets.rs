@@ -39,51 +39,52 @@ impl std::str::FromStr for PresetKind {
     }
 }
 
-/// What a sandbox is handed. Every path is bound only if it exists, so a preset for
-/// something this host does not run costs nothing.
+/// Resources to supply to a sandbox. Bind each path only if it exists.
+/// Missing paths do not create mounts.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SandboxPreset {
     pub name: String,
     #[serde(default)]
     pub description: String,
-    /// Presets this one needs in order to function. Resolved before this preset so the
-    /// supporting capability is present whenever the dependent one is chosen.
+    /// Presets that this preset requires. Resolve them before this preset to supply its dependencies.
     #[serde(default)]
     pub requires: Vec<String>,
     #[serde(default)]
     pub ro: Vec<String>,
-    /// Sockets go here: a bus you cannot write to is a bus you cannot talk on.
+    /// Read-write paths. Include sockets here because bus communication requires write access.
     #[serde(default)]
     pub rw: Vec<String>,
-    /// Device nodes, which need `--dev-bind` to survive the `--dev` tmpfs.
+    /// Device nodes that need `--dev-bind` to remain accessible with the `--dev` tmpfs.
     #[serde(default)]
     pub dev: Vec<String>,
-    /// Per-session copies, so agent config writes do not become host state. See
-    /// `sandbox::private_binds`; Claude settings/MCP files are typical examples.
+    /// Private copies for each session, such as Claude settings and MCP files.
+    /// Agent writes to these copies do not change host state. See `sandbox::private_binds`.
     #[serde(default)]
     pub private: Vec<String>,
-    /// Paths copied into a new `private` directory. Top-level files are copied automatically
-    /// (credentials); this selects subdirectories, or a file directly.
+    /// Paths to copy into a new `private` directory.
+    /// The daemon copies top-level files, such as credentials, automatically.
+    /// This list selects subdirectories or individual files.
     #[serde(default)]
     pub seed: Vec<String>,
-    /// Excludes paths from `seed` and private top-level files; useful when a seeded directory
-    /// contains bulky or disposable state such as `~/.pi/agent` transcripts.
+    /// Paths to exclude from `seed` and private top-level files.
+    /// Use this list to exclude large or temporary data, such as `~/.pi/agent` transcripts.
     #[serde(default)]
     pub skip: Vec<String>,
-    /// Shared entries are host-owned regular files bound read-write inside private state; shared
-    /// directories could expose hooks or MCP configuration. This trades integrity, not execution.
+    /// Host-owned regular files to bind read-write inside private state.
+    /// Shared directories could expose hooks or MCP configuration.
+    /// Sharing these files permits changes to host data, but does not permit host execution.
     #[serde(default)]
     pub shared: Vec<String>,
-    /// Non-empty marks a host-reachable capability such as a socket or display; the GUI shows
-    /// the text as a warning. A secret-only bind is not an escape.
+    /// A nonempty value identifies host access through a capability such as a socket or display.
+    /// The GUI shows this text as a warning. A bind that exposes only a secret is not an escape.
     #[serde(default)]
     pub escapes: String,
-    /// Forwarded out of slopd's own environment.
+    /// Environment variables to forward from slopd.
     #[serde(default)]
     pub env: Vec<String>,
-    /// Set to a literal value, for what is true only *inside* the sandbox. Applied after
-    /// the forwarded ones, so the preset's answer beats how slopd was launched.
+    /// Literal environment values for the sandbox.
+    /// Apply these after forwarded variables so preset values take precedence over the slopd environment.
     #[serde(default)]
     pub setenv: BTreeMap<String, String>,
     /// Bind slopd's private tmux socket into the sandbox's uid-0 socket directory. This
@@ -105,8 +106,8 @@ pub enum CommandKind {
     Shell,
 }
 
-/// What a session runs, and the sandbox presets that come with it: knowing a session is
-/// Claude Code is what lets the sandbox hand it `~/.claude`.
+/// The session command and its sandbox presets.
+/// For example, the Claude Code preset supplies `~/.claude` to its sandbox.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CommandPreset {
@@ -142,8 +143,7 @@ impl PresetDefinition {
     }
 }
 
-/// One file is one piece of software: its sandbox preset and its command preset
-/// together, which is the pair anyone adding an agent writes.
+/// Each file defines the sandbox and command presets for one application.
 #[derive(Debug, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct PresetFile {
@@ -153,8 +153,7 @@ struct PresetFile {
     command: Vec<CommandPreset>,
 }
 
-/// Compiled in rather than installed: builtins that can be older than the binary reading
-/// them are builtins a redeploy silently disagrees with.
+/// Compile built-in presets into the binary to keep their versions consistent after deployment.
 const BUILTIN: &[(&str, &str)] = &[
     ("global", include_str!("../presets/global.toml")),
     ("claude", include_str!("../presets/claude.toml")),
@@ -263,9 +262,8 @@ impl PresetSource {
 }
 
 impl Table {
-    /// The root of the user-owned preset kinds. Builtins remain compiled into the daemon;
-    /// user definitions are direct one-definition files under `sandbox_presets/` and
-    /// `app_presets/`.
+    /// The root directory for user presets. Built-in presets remain compiled into the daemon.
+    /// Each file under `sandbox_presets/` or `app_presets/` contains one user definition.
     pub fn dir() -> PathBuf {
         crate::paths::dir("SLOPD_PRESETS", dirs::config_dir(), "")
     }
@@ -294,9 +292,9 @@ impl Table {
         Ok(t)
     }
 
-    /// The compiled table without user files. The settings page needs this distinction:
-    /// an effective entry can be a system preset, a user-only preset, or a user override of
-    /// one of these. Keeping the answer here avoids making the mod guess from filenames.
+    /// The compiled table without user files.
+    /// The settings page distinguishes system presets, user presets, and user overrides.
+    /// This table lets the mod identify each source without examining filenames.
     pub fn builtins() -> Self {
         let mut t = Self::default();
         for (name, text) in BUILTIN {
@@ -321,9 +319,9 @@ impl Table {
         }
     }
 
-    /// Read in filename order so a hand-edited duplicate settles deterministically. Each user
-    /// file is one direct sandbox or app definition; malformed files are skipped on startup so
-    /// the rest of the catalog remains usable.
+    /// Read files in filename order to resolve duplicate names consistently.
+    /// Each user file contains one sandbox or application definition.
+    /// Skip malformed files at startup so the rest of the catalog remains usable.
     fn merge_user_dir(&mut self, kind: PresetKind, dir: &Path) {
         let Ok(entries) = std::fs::read_dir(dir) else {
             return;
@@ -410,8 +408,8 @@ impl Table {
         Ok(())
     }
 
-    /// By name, in place: a user file naming `claude` replaces the builtin rather than
-    /// shadowing it from the end of a list, so the GUI never draws two of it.
+    /// Replace entries with matching names in place.
+    /// For example, a user file named `claude` replaces the built-in entry so the GUI shows only one entry.
     fn merge(&mut self, f: PresetFile) {
         for p in f.sandbox {
             match self.sandbox.iter_mut().find(|x| x.name == p.name) {
@@ -462,7 +460,7 @@ fn valid_name(name: &str) -> anyhow::Result<()> {
     let valid = chars.next().is_some_and(|c| c.is_ascii_alphanumeric())
         && chars.all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-');
     if !valid {
-        anyhow::bail!("invalid preset name {name:?}; use letters, numbers, '-' or '_'");
+        anyhow::bail!("Invalid preset name {name:?}. Use letters, numbers, '-' or '_'.");
     }
     Ok(())
 }
@@ -633,7 +631,7 @@ fn check_delete(
         for command in users.commands.iter().chain(builtins.commands.iter()) {
             if command.sandbox.iter().any(|dependency| dependency == name) {
                 return Err(PresetError::Invalid(format!(
-                    "sandbox {name:?} is required by command {:?}",
+                    "Command {:?} requires sandbox {name:?}.",
                     command.name
                 )));
             }
@@ -641,7 +639,7 @@ fn check_delete(
         for preset in users.sandbox.iter().chain(builtins.sandbox.iter()) {
             if preset.requires.iter().any(|dependency| dependency == name) {
                 return Err(PresetError::Invalid(format!(
-                    "sandbox {name:?} is required by sandbox {:?}",
+                    "Sandbox {:?} requires sandbox {name:?}.",
                     preset.name
                 )));
             }
@@ -665,8 +663,8 @@ fn cell() -> &'static RwLock<Arc<Table>> {
     TABLE.get_or_init(|| RwLock::new(Arc::new(Table::load())))
 }
 
-/// Held for the length of a call rather than borrowed: a reload behind a caller building
-/// an argv would otherwise pull the table out from under it.
+/// Keep a shared reference to this table during the call.
+/// This preserves the table if presets reload while a caller builds command arguments.
 pub fn table() -> Arc<Table> {
     cell().read().unwrap().clone()
 }

@@ -142,7 +142,7 @@ fn primary_aliases_cannot_expose_private_originals() {
             "{error}"
         );
     }
-    // A normal containing workspace remains usable; the private overlay covers originals.
+    // The containing workspace remains usable. Private mounts hide the original files.
     project.dir = root.to_string_lossy().into();
     let argv = build_argv(&Config::default(), &session, &project).unwrap();
     assert!(argv.windows(3).any(|w| w[0] == "--bind"
@@ -316,8 +316,8 @@ fn private_resolver_binds_to_the_canonical_target() {
         "private resolver still targets the symlink: {a:?}"
     );
 }
-/// Every bind lands after the tmpfs and devices that would otherwise be mounted
-/// over it - the bug that made the x11 preset a no-op.
+/// Apply bind mounts after tmpfs and device mounts so they remain accessible.
+/// This prevents /tmp from hiding the X11 socket.
 #[test]
 fn binds_come_after_the_skeleton() {
     let a = argv();
@@ -334,8 +334,8 @@ fn binds_come_after_the_skeleton() {
     assert!(at(&a, "--proc") < first_bind);
 }
 
-/// The command preset's own binds, whether or not the project selected another preset:
-/// knowing a session is Claude Code is what lets the sandbox hand it ~/.claude.
+/// Include the command's sandbox presets even when the project selects another preset.
+/// For example, the Claude Code command requires access to ~/.claude.
 #[test]
 fn a_command_brings_its_own_presets() {
     let cfg = Config::default();
@@ -394,7 +394,7 @@ fn worker_identity_is_exported_to_the_sandbox() {
     assert!(a.contains(&"--share-net".into()));
 }
 
-/// The guard is reached from the effective preset list, not only from the validator.
+/// Check protected paths when resolving preset mounts as well as during validation.
 #[test]
 fn a_preset_asking_for_the_world_does_not_get_it() {
     let home = dirs::home_dir().map(|h| h.to_string_lossy().into_owned());
@@ -409,8 +409,8 @@ fn a_preset_asking_for_the_world_does_not_get_it() {
     let out = paths(&[&preset], |pr| &pr.ro);
     assert_eq!(out, vec!["/usr".to_string()], "got {out:?}");
 }
-/// The point of a private path: whatever else asked for that path, the copy is what the
-/// sandbox gets, because it is bound last and bwrap mounts in order.
+/// Mount the private copy after ordinary preset mounts at the same target.
+/// bwrap applies mounts in order, so the sandbox uses the private copy.
 #[test]
 fn a_private_bind_is_last_and_beats_an_ordinary_preset_bind() {
     let Some(home) = dirs::home_dir() else { return };
@@ -439,14 +439,13 @@ fn a_private_bind_is_last_and_beats_an_ordinary_preset_bind() {
         .to_string_lossy()
         .into_owned();
     assert!(a.contains(&copy), "no private bind in {a:?}");
-    // Every mention of the host path is before the private one that lands on top.
+    // The last mount at the host path uses the private copy.
     let last = a.iter().rposition(|x| x == &claude).expect("the target");
     assert_eq!(a[last - 1], copy, "the copy is not what lands last");
 }
 
-/// A shared file is the hole in the copy, so it has to be mounted *after* the copy that
-/// would otherwise bury it. The credential is the case: bound over the private `~/.claude`
-/// rather than under it, or a refresh lands in the session directory and expires there.
+/// Mount shared credentials after the private directory so they remain accessible.
+/// Mounting them before private `~/.claude` would send credential updates to the session's copy instead of the host file.
 #[test]
 fn a_shared_file_lands_on_top_of_the_private_copy_it_sits_in() {
     let Some(home) = dirs::home_dir() else { return };
@@ -484,9 +483,9 @@ fn a_shared_file_lands_on_top_of_the_private_copy_it_sits_in() {
     );
 }
 
-/// Files only, and the guard every other bind list passes through. A shared *directory* is
-/// a sandbox that can write `settings.json`, and hooks are command lines the host runs -
-/// the narrowness is the whole of what makes this safe, so it is enforced and not asked for.
+/// Share only files that pass the path guard.
+/// A shared directory could let the sandbox change `settings.json`, including hooks that run commands on the host.
+/// Enforce the file restriction for all shared mounts.
 #[test]
 fn only_a_file_is_ever_shared() {
     let root = std::env::temp_dir().join(format!("slopd-shared-{}", std::process::id()));

@@ -1,4 +1,4 @@
-//! Ordered bwrap, environment, network and resource-limit argument emission.
+//! Build ordered arguments for Bubblewrap mounts, environment, network, and resource limits.
 
 use std::path::Path;
 
@@ -16,12 +16,11 @@ fn push_args(a: &mut Vec<String>, args: &[&str]) {
     a.extend(args.iter().map(|arg| (*arg).to_string()));
 }
 
-/// Builds the bwrap namespace before any bind. Each later mount covers what is under it, so
-/// usr-merge symlinks and the proc/dev/tmpfs skeleton have to be in place first.
+/// Create the Bubblewrap namespace before bind mounts.
+/// Create usr-merge symlinks and the `/proc`, `/dev`, and `/tmp` mounts first.
 pub(super) fn push_skeleton(a: &mut Vec<String>, network: NetworkMode) {
-    // Built back up rather than inherited: a variable naming a socket that is not there is
-    // worse than its absence, a program reading it as "this host has one" and failing at the
-    // far end of a connect().
+    // Clear inherited environment variables before adding sandbox values.
+    // Some socket variables point to paths that the sandbox cannot access.
     push_args(
         a,
         &["bwrap", "--die-with-parent", "--unshare-all", "--clearenv"],
@@ -30,12 +29,9 @@ pub(super) fn push_skeleton(a: &mut Vec<String>, network: NetworkMode) {
         push_args(a, &["--share-net"]);
     }
 
-    // Recreate the running system's own top-level lib/bin entries, or nothing resolves inside
-    // the namespace. This is read off the host rather than hardcoded because usr-merge layouts
-    // differ: Arch keeps every library flat in /usr/lib, while Debian's multiarch tree reaches
-    // the loader through /lib64 -> /usr/lib64 on amd64 and has no /lib64 at all on arm64. The
-    // sandbox always runs on the same system as slopd, so mirroring these keeps it correct on any
-    // of them.
+    // Recreate the host's library and executable paths inside the namespace.
+    // Read the paths from the host because usr-merge layouts differ between systems.
+    // The sandbox runs on the same system as slopd and needs the same layout.
     for link in ["/lib", "/lib64", "/bin", "/sbin"] {
         match std::fs::symlink_metadata(link) {
             Ok(meta) if meta.file_type().is_symlink() => {
@@ -45,31 +41,30 @@ pub(super) fn push_skeleton(a: &mut Vec<String>, network: NetworkMode) {
                     a.push(link.to_string());
                 }
             }
-            // A real directory on a system that never merged: bind it in as-is.
+            // If this system does not use usr-merge, bind the real directory.
             Ok(meta) if meta.is_dir() => push_args(a, &["--ro-bind", link, link]),
-            // Absent (e.g. no /lib64 on arm64): nothing to recreate.
+            // Skip paths that do not exist, such as `/lib64` on arm64.
             _ => {}
         }
     }
 
-    // The skeleton goes down before any bind: each of these covers what is under it and bwrap
-    // mounts in the order given. `x11` binds /tmp/.X11-unix, this tmpfs buried it, and the
-    // preset went on handing out a DISPLAY with no socket behind it.
+    // Bubblewrap applies mounts in argument order. Create these mounts before user binds.
+    // A later /tmp mount could hide /tmp/.X11-unix and block X11 access.
     push_args(a, &["--proc", "/proc"]);
     push_args(a, &["--dev", "/dev"]);
     push_args(a, &["--tmpfs", "/tmp"]);
-    // Explicit user mounts may target /mnt; create its parent before those binds are applied.
+    // Create /mnt before applying user mounts that need this directory.
     push_args(a, &["--dir", "/mnt"]);
 }
 
-/// Adds ordinary preset and host capability binds. These all precede private state, while the
-/// host resolver deliberately remains above ordinary read-only binds in host network mode.
+/// Add preset and host capability mounts before private state mounts.
+/// In host network mode, mount the resolver after ordinary read-only mounts.
 pub(super) fn push_ro_binds(a: &mut Vec<String>, bind: &BindContext<'_>) {
     for path in bind.ro {
         push_args(a, &["--ro-bind", path, path]);
     }
-    // Host mode keeps the old resolver ordering: it sits above the ordinary ro binds, while
-    // a preset that explicitly binds a larger tree still gets the final say.
+    // Mount the host resolver after ordinary read-only mounts.
+    // Later preset mounts can still replace it.
     if bind.network == NetworkMode::Host {
         if let Some((src, target)) = bind.resolv {
             push_args(a, &["--ro-bind", src, target]);
@@ -79,13 +74,13 @@ pub(super) fn push_ro_binds(a: &mut Vec<String>, bind: &BindContext<'_>) {
     for path in bind.rw {
         push_args(a, &["--bind", path, path]);
     }
-    // After the /dev tmpfs, or it would be mounted over.
+    // Mount devices after /dev so they remain accessible.
     for path in bind.dev {
         push_args(a, &["--dev-bind", path, path]);
     }
 
-    // The debug preset asks for this after the ordinary binds so a broad `/tmp` bind from
-    // another preset cannot bury the socket. Inside bwrap the guest uid is 0, hence the target.
+    // Mount the debug socket after ordinary mounts so another preset's /tmp mount cannot hide it.
+    // The target path uses guest UID 0.
     if bind.tmux {
         if let Some((source, target)) = tmux_socket_bind(crate::config::tmux_socket()) {
             push_args(a, &["--ro-bind", &source, &target]);
@@ -98,7 +93,7 @@ pub(super) fn push_ro_binds(a: &mut Vec<String>, bind: &BindContext<'_>) {
     }
 }
 
-/// Persistent tmp is the base beneath both workspace mounts and private preset paths.
+/// Mount persistent `/tmp` before project and private-preset mounts.
 pub(super) fn push_persistent_tmp(a: &mut Vec<String>, bind: &BindContext<'_>) {
     if bind.s.persistent_tmp {
         if let Ok(path) = persistent_tmp_path(bind.s) {
@@ -107,25 +102,22 @@ pub(super) fn push_persistent_tmp(a: &mut Vec<String>, bind: &BindContext<'_>) {
     }
 }
 
-/// Private state, explicit shared credential holes and DNS overlay all ordinary path mounts.
+/// Mount private state, shared credentials, and DNS files after ordinary paths.
 pub(super) fn push_private_binds(a: &mut Vec<String>, bind: &BindContext<'_>) {
-    // Last of the binds under $HOME, so the private copy wins over an ordinary preset bind:
-    // the point of a private path is that there is no way to ask for the original, and an
-    // earlier bind of the same target is one bwrap mounts over.
+    // Mount private copies after preset and project mounts.
+    // Each copy hides earlier mounts at the same target and blocks access to the original.
     for (copy, host) in private_bind_paths(bind.cfg, bind.s, bind.p, bind.table) {
         push_args(a, &["--bind", &copy, &host]);
     }
 
-    // After the private binds, and only ever inside one: a shared file is a hole cut in a
-    // copy, so it has to be mounted over the copy rather than under it. bwrap makes the
-    // mount point, which is why nothing seeds one.
+    // Mount shared files inside private copies.
+    // Bubblewrap creates the mount point without copying the host file first.
     for path in shared_binds(bind.cfg, bind.s, bind.p, bind.table) {
         push_args(a, &["--bind", &path, &path]);
     }
 
-    // Private mode's resolver must be the last bind at this target. A user preset or project
-    // directory may bind /etc or a file below it, but neither should restore a host-loopback
-    // resolver.
+    // In private network mode, mount the resolver last at this target.
+    // Preset or project mounts under /etc must not restore a resolver that uses host loopback.
     if bind.network == NetworkMode::Private {
         if let Some((src, target)) = bind.resolv {
             push_args(a, &["--ro-bind", src, target]);
@@ -133,8 +125,8 @@ pub(super) fn push_private_binds(a: &mut Vec<String>, bind: &BindContext<'_>) {
     }
 }
 
-/// Exposes the primary project at its configured path and binds literal source/destination
-/// pairs.
+/// Mount the primary project at its configured path.
+/// Apply the resolved project mounts.
 pub(super) fn push_mounts(a: &mut Vec<String>, mounts: &[ResolvedMount]) {
     for m in mounts {
         match m.mode {
@@ -166,13 +158,12 @@ pub(super) fn push_env(a: &mut Vec<String>, args: EnvArgs<'_>) {
     let cwd = mounts.first().map(|m| m.guest_dir.as_str()).unwrap_or("/");
     push_args(a, &["--chdir", cwd]);
 
-    // Stated rather than forwarded: the terminal is one slopd built, and a daemon has
-    // none of its own to inherit.
+    // Set terminal values explicitly because slopd does not inherit them from a terminal.
     push_args(a, &["--setenv", "TERM", PANE_TERM]);
     push_args(a, &["--setenv", "COLORTERM", "truecolor"]);
 
-    // Compiled in: a config written before --clearenv lists none of them, and an agent with
-    // no PATH is a session that starts and dies.
+    // Keep the standard host variables needed by existing configurations after --clearenv.
+    // Agents need PATH to find executables.
     let mut passed: Vec<String> = Vec::new();
     for (k, v) in std::env::vars() {
         if BASE_ENV.contains(&k.as_str()) || k.starts_with("LC_") {
@@ -196,24 +187,22 @@ pub(super) fn push_env(a: &mut Vec<String>, args: EnvArgs<'_>) {
         }
     }
 
-    // Last, so a preset that knows what a value must be inside the sandbox beats
-    // whatever slopd inherited for the same name.
+    // Apply preset values after inherited values so presets take precedence.
     for pr in presets {
         for (k, v) in &pr.setenv {
             push_args(a, &["--setenv", k.as_str(), v.as_str()]);
         }
     }
 
-    // Agents must not inherit the daemon's login shell: zsh's terminal behavior and startup
-    // files are not a reliable default for agent CLIs. The setting comes last so it wins over
-    // both the host environment and a preset literal; it is an absolute executable path because
-    // clients such as Codex reject a bare command name and then consult the passwd shell.
-    // Shell errands still execute the command selected by `[defaults] shell`.
+    // Give agent CLIs their configured shell, not the daemon's login shell.
+    // Apply it after host and preset values so it takes precedence.
+    // Use an absolute path because Codex rejects a bare name and falls back to the account shell.
+    // Shell errands still use `[defaults] shell`.
     push_args(a, &["--setenv", "SHELL", agent_shell]);
 
-    // slopd captures Pi prompts before tmux, just as it does Codex prompts. Disable the
-    // project-local extension in managed sessions so it cannot race the daemon or require
-    // project trust and a sandbox-visible OpenRouter key.
+    // slopd captures Pi and Codex prompts before they enter tmux.
+    // Disable the project's Pi title extension in managed sessions.
+    // This prevents duplicate title updates and removes the extension's project-trust and OpenRouter-key requirements.
     if agent_argv.first().is_some_and(|command| {
         Path::new(command)
             .file_name()
@@ -223,16 +212,16 @@ pub(super) fn push_env(a: &mut Vec<String>, args: EnvArgs<'_>) {
     }
 
     if let Some(token) = s.worker_token.as_deref() {
-        // Keep the worker credential last so an inherited preset cannot replace it with a root
-        // token. This also avoids mounting endpoint.toml, whose token is root-scoped.
+        // Set the worker token after preset values so a preset cannot replace it with the root token.
+        // This also removes the need to mount endpoint.toml, which contains the root token.
         let url = crate::endpoint::url_for(&cfg.daemon.bind);
         push_args(a, &["--setenv", "SLOPD_URL", &url]);
         push_args(a, &["--setenv", "SLOPD_TOKEN", token]);
     }
 }
 
-/// `/etc/resolv.conf` often points into unmounted /run; use resolved's stub when available so
-/// split-DNS routing is preserved.
+/// The host's `/etc/resolv.conf` often points to a file in `/run`, which the sandbox does not mount.
+/// Use the systemd-resolved stub when available so split-DNS routing works.
 pub(super) fn resolver_bind(
     network: NetworkMode,
     dns: &DnsConfig,
@@ -271,7 +260,7 @@ pub(super) fn resolver_bind(
     }
 }
 
-/// Pasta wraps bwrap for private networking; its prefix must be the outer command.
+/// For private networking, run `pasta` before `bwrap`.
 pub(super) fn pasta_prefix(dns: &DnsConfig, worker: bool, network: NetworkMode) -> Vec<String> {
     if network != NetworkMode::Private {
         return Vec::new();
@@ -279,7 +268,7 @@ pub(super) fn pasta_prefix(dns: &DnsConfig, worker: bool, network: NetworkMode) 
     pasta_prefix_args(dns, worker)
 }
 
-/// The scope goes outermost, so pasta, bwrap and the agent all count against the caps.
+/// Start the scope before pasta, bwrap, and the agent so resource limits apply to all three.
 pub(super) fn scope_prefix(limits: &Limits) -> Vec<String> {
     if limits.is_empty() {
         return Vec::new();
@@ -343,9 +332,9 @@ fn pasta_prefix_args(dns: &DnsConfig, worker: bool) -> Vec<String> {
         PRIVATE_RESOLVER.into(),
     ];
     if worker {
-        // Private sandboxes deliberately do not inherit host loopback. Workers still need the
-        // daemon API, whose default listener is on 127.0.0.1, so map only that address back to
-        // the host without restoring general host networking.
+        // Private sandboxes do not inherit host loopback.
+        // Workers need the daemon API, which listens on 127.0.0.1 by default.
+        // Map only that address to the host.
         out.push("--map-host-loopback".into());
         out.push("127.0.0.1".into());
     }

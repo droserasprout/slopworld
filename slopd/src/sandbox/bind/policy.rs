@@ -1,8 +1,8 @@
 //! Host-path policy used while assembling sandbox mounts.
 //!
-//! Every candidate path still passes through the central `refused` guard. This module only
-//! resolves effective preset paths and chooses existing host-side sources; it does not emit a
-//! bwrap argument or widen the set of paths that the guard permits.
+//! Check every candidate path with the central `refused` guard.
+//! Resolve effective preset paths and select existing host sources here.
+//! This module does not generate bwrap arguments or permit additional paths.
 
 use std::path::{Path, PathBuf};
 
@@ -74,10 +74,10 @@ pub(super) fn shared_binds(cfg: &Config, s: &SessionCfg, p: &ProjectCfg, t: &Tab
     out
 }
 
-/// The tmux server is outside bwrap and uses the host uid in its socket directory. A bwrap
-/// session is uid 0 in its user namespace, so a debug preset gets the host directory mounted at
-/// the path tmux will calculate inside the session. The bind is read-only: clients talk through
-/// the socket, while an absent or stale server costs the preset nothing.
+/// The host tmux server uses the host UID in its socket directory path.
+/// A bwrap session uses UID 0 in its user namespace.
+/// For debug presets, mount the host directory at the path that tmux expects inside the session.
+/// Use a read-only mount. Clients communicate through the socket.
 pub(super) fn tmux_socket_bind(socket: &str) -> Option<(String, String)> {
     if socket.trim().is_empty() {
         return None;
@@ -97,8 +97,8 @@ pub(super) fn tmux_socket_bind(socket: &str) -> Option<(String, String)> {
     Some((host_dir, "/tmp/tmux-0".into()))
 }
 
-/// The debug capability names these files structurally instead of putting their parent in an
-/// ordinary path list. That keeps presets and future config-directory contents out of reach.
+/// The debug capability selects individual files without mounting their parent directory.
+/// This prevents access to presets and other configuration files.
 pub(super) fn daemon_config_binds() -> Vec<String> {
     [Config::path_in_use(), crate::endpoint::path()]
         .into_iter()
@@ -116,9 +116,9 @@ pub(super) fn resolver_target() -> Option<String> {
         .filter(|target| target != "/etc/resolv.conf")
 }
 
-/// Expanded, dropped if they are not on this host, and deduplicated. The guard is deliberately
-/// kept here at the final resolution boundary as well as in preset validation: config and
-/// preset data can outlive the binary that first accepted them.
+/// Expand paths. Omit missing paths and remove duplicates.
+/// Apply the guard here as well as during preset validation.
+/// Configuration and preset data can remain after replacement of the binary that first accepted them.
 pub(super) fn paths(
     presets: &[&crate::presets::SandboxPreset],
     pick: fn(&crate::presets::SandboxPreset) -> &[String],
@@ -134,9 +134,8 @@ pub(super) fn paths(
         if path.is_empty() || out.contains(&path) {
             continue;
         }
-        // Warned about and dropped rather than refused, the way an unknown preset name is:
-        // the files outlive the binary, and a line somebody wrote a year ago is not grounds
-        // for an agent that will not start. It is still never bound.
+        // Warn and omit rejected paths, as for unknown preset names.
+        // Let the agent start with old configuration. Never mount paths that fail validation.
         if let Some(what) = refused(&path) {
             tracing::warn!("not binding {path}: it reaches {what}");
             continue;

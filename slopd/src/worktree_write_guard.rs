@@ -1,5 +1,5 @@
 //! Host Git mutations must not follow agent-controlled metadata symlinks outside their grant.
-//! Landlock confines filesystem writes; git_exec independently forbids repository helpers.
+//! Landlock confines filesystem writes. Git_exec independently forbids repository helpers.
 use std::io;
 use std::path::Path;
 use std::process::Command;
@@ -38,7 +38,7 @@ pub(super) fn restrict(command: &mut Command, paths: &[&Path]) -> io::Result<()>
     let rules = Ruleset {
         access: WRITE_ACCESS,
     };
-    // SAFETY: rules is the original 8-byte ruleset ABI; the returned descriptor is owned here.
+    // SAFETY: rules is the original 8-byte ruleset ABI. The returned descriptor is owned here.
     let raw = unsafe {
         libc::syscall(
             libc::SYS_landlock_create_ruleset,
@@ -69,7 +69,7 @@ pub(super) fn restrict(command: &mut Command, paths: &[&Path]) -> io::Result<()>
             },
             parent: file.as_raw_fd(),
         };
-        // SAFETY: the path rule has the kernel's packed layout; both descriptors are live.
+        // SAFETY: the path rule has the kernel's packed layout. Both descriptors are live.
         if unsafe {
             libc::syscall(
                 libc::SYS_landlock_add_rule,
@@ -83,8 +83,8 @@ pub(super) fn restrict(command: &mut Command, paths: &[&Path]) -> io::Result<()>
             return Err(io::Error::last_os_error());
         }
     }
-    // SAFETY: only prctl and landlock_restrict_self run between fork and exec. The ruleset
-    // descriptor is retained by the closure and CLOEXEC; no allocation or locks occur here.
+    // SAFETY: only prctl and landlock_restrict_self run between fork and exec. The closure retains
+    // the ruleset descriptor. CLOEXEC closes it on exec. This code allocates no memory and takes no locks.
     unsafe {
         command.pre_exec(move || {
             if libc::prctl(libc::PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) != 0

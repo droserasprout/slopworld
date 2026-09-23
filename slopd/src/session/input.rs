@@ -5,13 +5,13 @@ use super::*;
 pub(crate) enum Input {
     Keys { keys: Vec<String>, literal: bool },
     Bytes(Vec<u8>),
-    // Kept whole; tmux adds paste markers only when the receiving application requests them.
+    // Keep the paste intact. tmux adds paste markers only when the receiving application requests them.
     Paste { bytes: Vec<u8> },
     // Executed by the single consumer, preserving the pause relative to queued input.
     Gap(Duration),
 }
 
-// tmux -H spends one argv entry per byte and its command message is limited to about 1 KiB.
+// tmux -H uses one argument for each byte. Its command message has a limit of approximately 1 KiB.
 pub(super) const INPUT_BATCH: usize = 800;
 const INPUT_KEYS: usize = 100;
 

@@ -10,7 +10,7 @@ pub(crate) fn test_manager_with_socket(config: Config, socket: impl Into<String>
         std::process::id(),
         uuid::Uuid::new_v4()
     ));
-    // The task store is a sibling of config.toml; caches use the XDG cache root and are
+    // The task store is a sibling of config.toml. Caches use the XDG cache root and are
     // independently redirected by the test environment.
     std::fs::create_dir_all(&directory).expect("test manager directory");
     let cfg_path = directory.join("config.toml");

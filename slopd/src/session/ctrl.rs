@@ -16,9 +16,8 @@ pub struct Manager {
     pub(super) rules: RwLock<Vec<(State, Regex)>>,
     pub(super) rules_revision: AtomicU64,
     pub(super) config_state: super::manager::ConfigState,
-    /// Host panes need combined cwd/process refreshes, but not at the one-second
-    /// state-classification cadence. The timestamp is also a cheap guard if another maintenance
-    /// caller is added.
+    /// Refresh host pane directories and processes together, less often than the one-second state classification interval.
+    /// The timestamp also limits refresh frequency for any additional maintenance callers.
     pub(super) host_metadata_checked: AtomicU64,
     /// A slow tmux listing must not block classification or overlap the next listing.
     pub(super) host_metadata_poll: tokio::sync::Mutex<Option<JoinHandle<()>>>,
@@ -33,12 +32,12 @@ pub struct Manager {
     pub(super) auth_changes: broadcast::Sender<AuthChange>,
     pub(super) grants: RwLock<crate::grant::Grants>,
     pub(super) session_boundary: tokio::sync::Mutex<()>,
-    /// Serializes template read/compare/write/publish transactions. A version check made
-    /// outside this lock would let two editors both pass and lose one draft.
+    /// Serialize template transactions through reading, comparison, writing, and publication.
+    /// Checking versions outside this lock could let two editors pass and overwrite one draft.
     pub(super) template_mutation: tokio::sync::Mutex<()>,
     pub(crate) tasks: super::manager::TaskStore,
-    /// Serializes daemon-owned worker creation so two root requests cannot reserve one child name
-    /// or split task/session persistence between each other.
+    /// Serialize worker creation by the daemon.
+    /// This prevents root requests from reserving the same child name or interleaving task and session writes.
     pub(super) worker_spawn: tokio::sync::Mutex<()>,
     pub(super) worktree_mutation: tokio::sync::Mutex<()>,
     pub(super) title_cache: crate::title::SummaryCache,

@@ -710,7 +710,7 @@ fn file_actions_stay_inside_the_project_root() {
     let error = project_action_path(&project, "/tmp/slopworld-project-other/file")
         .unwrap_err()
         .to_string();
-    assert!(error.contains("outside project"), "{error}");
+    assert!(error.contains("inside project"), "{error}");
 }
 
 #[test]

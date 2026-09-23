@@ -4,9 +4,9 @@ use crate::config::{Config, ProjectCfg, SessionCfg};
 
 use super::PANE_TERM;
 
-/// Builds the unsandboxed "Terminal (host)" command. It inherits slopd's environment, keeps
-/// the same tmux working directory as sandboxed sessions. Library errands must explicitly
-/// choose host execution; ordinary agents remain sandboxed.
+/// Build the unsandboxed Terminal (host) command. Inherit the slopd environment.
+/// Use the same tmux working directory as sandboxed sessions.
+/// Library errands must explicitly select host execution. Ordinary agents remain sandboxed.
 pub fn host_argv(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Vec<String> {
     let mut a: Vec<String> = vec![
         "env".into(),
@@ -19,9 +19,8 @@ pub fn host_argv(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Vec<String> {
     a
 }
 
-/// `$SHELL`, the login shell of whoever slopd runs as, which is the shell a terminal on this
-/// machine opens. `None` when the environment does not say - a daemon started without one -
-/// and the preset answers instead.
+/// Read SHELL from the slopd environment to select the host user's shell.
+/// Return None if the variable is absent or empty. The caller then uses the preset.
 pub fn host_shell() -> Option<String> {
     std::env::var("SHELL")
         .ok()
@@ -29,9 +28,9 @@ pub fn host_shell() -> Option<String> {
         .filter(|s| !s.is_empty())
 }
 
-/// tmux reports the foreground command by name. Treat the login shell, and the common shell
-/// names it may exec into, as the idle prompt; every other foreground command is work even when
-/// it has not written anything recently.
+/// tmux reports the foreground command name.
+/// Treat the login shell and common replacement shells as idle prompts.
+/// Treat other foreground commands as active work, even without recent output.
 pub fn is_shell_command(command: &str) -> bool {
     let name = Path::new(command)
         .file_name()
@@ -64,7 +63,7 @@ pub fn is_shell_command(command: &str) -> bool {
     )
 }
 
-/// An unnamed host errand uses `$SHELL`; a preset or command line runs as configured.
+/// An unnamed host errand uses SHELL. An explicit preset or command line runs as configured.
 pub(super) fn host_command(cfg: &Config, s: &SessionCfg, shell: Option<&str>) -> String {
     let asked = s.cmd.is_some() || s.command.trim() != cfg.defaults.shell.trim();
     match shell {

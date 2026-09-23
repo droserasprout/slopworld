@@ -2,7 +2,7 @@
 ///
 /// A release tag is a `vMAJOR.MINOR.PATCH` (or unprefixed SemVer) tag. An ordinary checkout keeps
 /// the package version as its base and appends the UTC build date and short commit so builds remain
-/// distinguishable; a source tree without Git falls back to Cargo's package version.
+/// distinguishable. A source tree without Git falls back to Cargo's package version.
 pub fn resolve(fallback: &str, tag: Option<&str>, hash: Option<&str>, date: &str) -> String {
     if let Some(tag) = tag {
         if let Some(version) = release_version(tag) {

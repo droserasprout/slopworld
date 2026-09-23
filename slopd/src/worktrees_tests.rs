@@ -54,8 +54,8 @@ async fn restricted_worktree_creation() {
         ..Default::default()
     };
     if mismatched_proc_namespace() {
-        // The real command is unavailable in this test namespace; ordinary Git still verifies
-        // the worktree is complete and registered, and the removal preconditions are tested below.
+        // The sandbox command is unavailable in this test namespace.
+        // Use ordinary Git to verify worktree contents and registration. Later tests check removal requirements.
         assert_eq!(git(&root, &["rev-parse", "worker"]).await.unwrap(), base);
     } else {
         remove_tree(&w).await.unwrap();
@@ -99,7 +99,7 @@ async fn lifecycle_is_independent_and_removal_preserves_branches() {
     assert!(manager.tasks.all_tasks().is_empty());
     assert!(manager.config().await.sessions.is_empty());
     assert!(manager.remove_project("repo").await.is_err());
-    // Two stopped sessions are attachments too; removing either has no effect on the checkout.
+    // Stopped sessions also count as attachments. Removing either attachment preserves the checkout.
     for name in ["one", "two"] {
         manager
             .add(SessionCfg {
@@ -242,9 +242,9 @@ async fn ignored_data_detached_head_and_crash_records_are_preserved() {
     std::fs::remove_dir_all(root).unwrap();
 }
 
-// The development agent can itself run in a PID namespace with the host /proc overlaid.
-// Bubblewrap cannot create nested namespaces in that environment; exercise its failure path
-// without mistaking an unrelated removal failure for an unavailable sandbox.
+// The development agent can run in a PID namespace with the host /proc mounted over it.
+// Bubblewrap cannot create nested namespaces in that environment.
+// Check this specific failure without treating unrelated removal errors as sandbox unavailability.
 fn mismatched_proc_namespace() -> bool {
     std::fs::read_link("/proc/self")
         .is_ok_and(|p| p.to_string_lossy() != std::process::id().to_string())
@@ -295,8 +295,8 @@ async fn external_checkouts_and_interrupted_teardown_have_independent_records() 
             .unwrap(),
         w.id
     );
-    // Simulate Git removal completing immediately before daemon persistence; recovery itself
-    // never deletes anything, and retry can finish without a live checkout or nested sandbox.
+    // Simulate completed Git removal before the daemon saves the result.
+    // Recovery does not delete files. A retry can finish without an existing checkout or nested sandbox.
     assert!(std::process::Command::new("git")
         .arg("-C")
         .arg(&root)

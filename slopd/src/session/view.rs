@@ -36,7 +36,7 @@ pub struct SessionView {
     pub cmd: Option<String>,
     pub sandbox: Vec<String>,
     pub persistent_tmp: bool,
-    // Startup auto-resume is waiting or queued; clients must keep user input behind it.
+    // Startup auto-resume is waiting or queued. Clients must delay user input until it completes.
     pub auto_resume_pending: bool,
     pub agent: String,
     pub state: State,
@@ -58,8 +58,8 @@ pub struct SessionView {
     pub worker: bool,
     pub parent: String,
     pub task_id: String,
-    /// A worker in config.toml is durable; an ephemeral worker exists only until its process
-    /// exits. This is derived from the live session rather than another mutable config flag.
+    /// A worker in config.toml persists after its process exits. A temporary worker does not.
+    /// Derive this value from the live session, without a separate configuration flag.
     pub durable: bool,
     // Temporary sessions have no editable config entry. Durable host tabs also use the
     // ghost-row presentation, but are identified separately by `host`.
@@ -72,7 +72,7 @@ pub struct SessionView {
     // Separate from output activity so a continuously-redrawing worker can still age.
     pub state_since: u64,
     pub title: String,
-    // Sticky until someone subscribes, rather than tied to the frame that rang.
+    // Preserve the bell notification until a client subscribes.
     pub bell: bool,
     // Distinguishes successive processes under one durable session name. Clients use it to
     // reject cached terminal history from a previous run.
@@ -101,12 +101,12 @@ pub struct ScreenView {
     // Distinguishes application mouse drags from terminal text selection.
     #[serde(default)]
     pub app_drag: bool,
-    // Alternate screens have no scrollback; clients route wheel input differently.
+    // Alternate screens have no scrollback. Clients route wheel input according to this flag.
     #[serde(default)]
     pub alt_screen: bool,
     #[serde(default)]
     pub title: String,
-    // Echoes a one-off scroll request; live broadcasts use zero.
+    // Echo the scroll request ID. Live broadcasts use zero.
     #[serde(default)]
     pub request_id: u64,
     pub lines: Vec<Arc<str>>,

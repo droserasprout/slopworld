@@ -7,8 +7,8 @@ use crate::config::{Config, Limits};
 
 pub const SLOPCAR: &str = "slopcar";
 
-/// Runtime differences that affect controls in the native client. The default is the existing
-/// Linux host daemon; `SLOPD_RUNTIME=slopcar` is set only by the sidecar entrypoint.
+/// Runtime differences that affect native client controls. The default is the Linux host daemon.
+/// Only the sidecar entrypoint sets `SLOPD_RUNTIME=slopcar`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct Capabilities {
     pub runtime: &'static str,
@@ -22,9 +22,9 @@ pub struct Capabilities {
     pub terminal: TerminalCapabilities,
 }
 
-/// Limits that are observable at the daemon/client boundary. The daemon clamps allocations and
-/// scroll requests with these values; clients use them only to bound their own caches and UI
-/// calculations.
+/// Limits shared by the daemon and clients.
+/// The daemon uses these values to limit allocations and scroll requests.
+/// Clients use them to limit caches and UI calculations.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct TerminalCapabilities {
     pub scrollback_lines: u32,
@@ -59,9 +59,8 @@ pub fn capabilities() -> Capabilities {
     }
 }
 
-/// Whether the daemon can start the optional Spotify player. Keep this a capability rather
-/// than waiting for the first launch attempt: Settings and the jukebox need to make the
-/// unavailable source legible before a user clicks it.
+/// Check whether the daemon can start the optional Spotify player.
+/// Settings and the jukebox use this capability to show availability before the user selects the player.
 pub fn ncspot_available() -> bool {
     if !cfg!(target_os = "linux") || is_slopcar() {
         return false;
@@ -73,9 +72,9 @@ pub fn ncspot_available() -> bool {
     std::env::split_paths(&path).any(|dir| executable(dir.join("ncspot")))
 }
 
-/// Executables whose effective PATH belongs to the daemon rather than to the game process.
-/// Settings uses this snapshot for native and sidecar deployments alike; an empty path means
-/// the daemon cannot resolve the name in its own environment.
+/// Find executables through the daemon's PATH.
+/// Settings uses this snapshot for native and sidecar deployments.
+/// An empty path means the daemon cannot find the executable in its environment.
 pub fn whereis() -> Vec<BinaryLocation> {
     const NAMES: &[&str] = &[
         "tmux",
@@ -165,7 +164,7 @@ pub fn hostname() -> String {
 pub fn validate_runtime_name() -> Result<()> {
     match std::env::var("SLOPD_RUNTIME") {
         Ok(value) if value != SLOPCAR => {
-            bail!("unknown SLOPD_RUNTIME {value:?}; expected {SLOPCAR:?}")
+            bail!("Unknown SLOPD_RUNTIME value {value:?}. Expected {SLOPCAR:?}.")
         }
         _ => Ok(()),
     }
@@ -184,11 +183,11 @@ fn validate_slopcar_config(cfg: &Config) -> Result<()> {
         .bind
         .parse::<SocketAddr>()
         .with_context(|| format!("bad sidecar bind address {:?}", cfg.daemon.bind))?;
-    // The daemon must bind the IPv4 wildcard so Docker can publish it on the Mac's loopback; the
-    // port is chosen by `slopcar --port` (7718 by default) and carried into `endpoint.toml`.
+    // Bind the IPv4 wildcard so Docker can publish the port on the Mac loopback interface.
+    // `slopcar --port` selects the port, with 7718 as the default. Store that port in endpoint.toml.
     if bind.ip() != IpAddr::V4(Ipv4Addr::UNSPECIFIED) {
         bail!(
-            "slopcar requires [daemon] bind = \"0.0.0.0:<port>\"; Docker publishes it only on Mac loopback"
+            "slopcar requires `[daemon] bind = \"0.0.0.0:<port>\"`. Docker publishes this port on Mac loopback only."
         );
     }
     if cfg.daemon.token.trim().is_empty() {
@@ -210,7 +209,7 @@ pub fn validate_limits(limits: &Limits) -> Result<()> {
 fn validate_slopcar_limits(limits: &Limits) -> Result<()> {
     if !limits.is_empty() {
         bail!(
-            "per-agent resource limits are unavailable in slopcar; set the outer container budget instead"
+            "Per-agent resource limits are unavailable in slopcar. Set the outer container budget instead."
         );
     }
     Ok(())
