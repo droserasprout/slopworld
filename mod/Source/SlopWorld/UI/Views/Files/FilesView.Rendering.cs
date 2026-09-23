@@ -132,14 +132,14 @@ namespace SlopWorld
         public static void AddOpenIn(List<FloatMenuOption> opts, string path)
         {
             if (!SessionHub.Instance.Capabilities.DesktopOpen) return;
-            opts.Add(new UiSubmenu("Open in...", () => OpenInOptions(path)));
+            opts.Add(new UiSubmenu("Open in", () => OpenInOptions(path)));
         }
 
         static List<FloatMenuOption> OpenInOptions(string path)
         {
             var options = new List<FloatMenuOption>
             {
-                new FloatMenuOption("Loading applications...", null),
+                new FloatMenuOption("Loading applications", null),
             };
 
             DaemonClient.Get<Wire.AppsReply>(WireProtocol.Routes.OpenApps + "?path=" + System.Uri.EscapeDataString(path), j =>
@@ -161,14 +161,14 @@ namespace SlopWorld
                 if (options.Count == 0)
                     options.Add(new FloatMenuOption("No associated applications", null));
                 options.Add(UiMenu.Separator());
-                options.Add(new FloatMenuOption("Other...", () => OpenInOther(path)));
+                options.Add(new FloatMenuOption("Other", () => OpenInOther(path)));
             }, msg =>
             {
                 options.Clear();
-                UiLayout.Fail("Open in: " + msg);
+                UiLayout.Fail("Could not load applications: " + msg);
                 options.Add(new FloatMenuOption("Could not load applications", null));
                 options.Add(UiMenu.Separator());
-                options.Add(new FloatMenuOption("Other...", () => OpenInOther(path)));
+                options.Add(new FloatMenuOption("Other", () => OpenInOther(path)));
             });
             return options;
         }

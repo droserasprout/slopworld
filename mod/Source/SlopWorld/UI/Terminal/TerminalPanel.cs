@@ -129,12 +129,12 @@ namespace SlopWorld
                 // Switching a pager keeps this window alive, but the new session needs a
                 // round trip before it has a screen. Keep the last pane frame over that gap.
                 if (BlitCached(body)) return true;
-                DrawCentered(body, hub.Online ? "Waiting for output..." : $"Daemon {hub.Status}");
+                DrawCentered(body, hub.Online ? "Waiting for output" : $"Daemon {hub.Status}");
                 return false;
             }
             if (buf.Lines == null || buf.Lines.Length == 0)
             {
-                DrawCentered(body, hub.Online ? "Waiting for output..." : $"Daemon {hub.Status}");
+                DrawCentered(body, hub.Online ? "Waiting for output" : $"Daemon {hub.Status}");
                 return false;
             }
 

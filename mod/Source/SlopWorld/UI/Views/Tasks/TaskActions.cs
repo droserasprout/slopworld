@@ -70,7 +70,8 @@ namespace SlopWorld
         {
             if (task == null || !task.Terminal) return;
             TerminalWindow.OpenOverPane(ConfirmDialog.Create(
-                $"Remove task '{task.Id}'? It will disappear for both participants.",
+                $"Remove task '{task.Id}'? " +
+                    "The daemon will remove it from both participants' task lists.",
                 () => SessionHub.Instance.TaskStore.Remove(task.Id, null, UiLayout.Fail),
                 destructive: true));
         }
@@ -87,8 +88,9 @@ namespace SlopWorld
             if (tasks == null || tasks.Count == 0) return;
 
             string prompt = tasks.Count == 1
-                ? $"Cancel task '{tasks[0].Id}'? It will be marked canceled for both participants."
-                : $"Cancel {tasks.Count} selected tasks? They will be marked canceled.";
+                ? $"Cancel task '{tasks[0].Id}'? The daemon will cancel it for both participants."
+                : $"Cancel {tasks.Count} selected tasks? " +
+                    "The daemon will cancel them for both participants.";
             TerminalWindow.OpenOverPane(ConfirmDialog.Create(prompt, () =>
             {
                 Action done = null;
@@ -109,8 +111,10 @@ namespace SlopWorld
             if (tasks == null || tasks.Count == 0) return;
 
             string prompt = tasks.Count == 1
-                ? $"Remove task '{tasks[0].Id}'? It will disappear for both participants."
-                : $"Remove {tasks.Count} selected tasks? They will disappear for both participants.";
+                ? $"Remove task '{tasks[0].Id}'? " +
+                    "The daemon will remove it from both participants' task lists."
+                : $"Remove {tasks.Count} selected tasks? " +
+                    "The daemon will remove them from both participants' task lists.";
             TerminalWindow.OpenOverPane(ConfirmDialog.Create(prompt, () =>
             {
                 SessionHub.Instance.TaskStore.RemoveMany(tasks.Select(task => task.Id), null,

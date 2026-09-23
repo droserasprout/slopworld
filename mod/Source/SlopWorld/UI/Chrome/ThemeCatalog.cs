@@ -228,7 +228,7 @@ namespace SlopWorld
             catch (FormatException) { throw; }
             catch (Exception e)
             {
-                throw new FormatException(kind + " theme file could not be read at " + path, e);
+                throw new FormatException("Could not read " + kind + " theme file at " + path, e);
             }
         }
 

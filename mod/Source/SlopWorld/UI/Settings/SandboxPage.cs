@@ -145,7 +145,7 @@ namespace SlopWorld
 
             if (!_loaded)
             {
-                UiText.StatusLabel(inner, _error ?? "Waiting for the daemon...",
+                UiText.StatusLabel(inner, _error ?? "Waiting for the daemon",
                     _error != null ? UiTheme.Bad : UiTheme.Dim);
             }
             else
@@ -160,8 +160,8 @@ namespace SlopWorld
             bool presets = _section == Section.SandboxPresets;
             string heading = presets ? "Sandbox presets" : "Apps";
             string caption = presets
-                ? "System presets are supplied by slopd. Copy one to the user list to edit it; user presets can also be new entries."
-                : "Apps say what an agent runs and which sandbox capabilities it requires. Copy a system app to make a user override.";
+                ? "The daemon supplies system presets. Copy one to your list to edit it. You can also create user presets."
+                : "App presets define the command an agent runs and its sandbox presets. Copy a system app to create an editable user copy.";
             UiLayout.SectionHeading(new Rect(r.x, r.y, r.width, UiTheme.RowH), heading);
 
             float y = r.y + UiTheme.RowH + UiTheme.GapXS;

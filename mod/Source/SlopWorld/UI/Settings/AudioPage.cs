@@ -41,8 +41,9 @@ namespace SlopWorld
             if (!SessionHub.Instance.Capabilities.AudioPlayback)
             {
                 UiLayout.Note(l,
-                    "Jukebox playback is unavailable in slopcar. The native game keeps audio " +
-                    "on this Mac; radio streaming will return in a later compatibility release.");
+                    "Sidecar mode does not support jukebox playback. RimWorld plays the " +
+                    "SlopWorld OST locally on this Mac. Radio streaming will return in a later " +
+                    "compatibility release.");
                 return;
             }
 
@@ -102,7 +103,7 @@ namespace SlopWorld
             DrawSourceRow(l, "Spotify", Radio.SpotifySourceId, Radio.SpotifyAvailable, null);
 
             if (JukeboxPresetStore.Loading && JukeboxPresetStore.Items.Count == 0)
-                UiLayout.Note(l, "Loading user sources...");
+                UiLayout.Note(l, "Loading user sources");
             else if (!string.IsNullOrEmpty(JukeboxPresetStore.Error) &&
                      JukeboxPresetStore.Items.Count == 0)
                 UiLayout.Validation(l, JukeboxPresetStore.Error);
@@ -152,7 +153,7 @@ namespace SlopWorld
 
             bool shown = Radio.SourceShown(id);
             bool next = UiControls.Checkbox(showRect, "", shown,
-                available ? null : "ncspot is not available on the daemon host", !available);
+                available ? null : "The daemon host does not have ncspot", !available);
             if (available && next != shown) Radio.SetSourceShown(id, next);
 
             if (preset != null)
@@ -167,7 +168,7 @@ namespace SlopWorld
         static void ConfirmRemove(JukeboxPresetInfo preset)
         {
             Find.WindowStack.Add(ConfirmDialog.Create(
-                $"Remove source '{preset.Name}'? This deletes its user preset from the daemon.",
+                $"Remove source '{preset.Name}'? The daemon will delete the user preset.",
                 () => JukeboxPresetStore.Remove(preset.Id, null, UiLayout.Fail),
                 destructive: true));
         }
@@ -183,8 +184,8 @@ namespace SlopWorld
                     Radio.CancelRecognition();
                 string input = Radio.RecognizingInput;
                 UiLayout.Note(l, string.IsNullOrEmpty(input)
-                    ? "Recognizing…"
-                    : "Recognizing via " + input + "…");
+                    ? "Recognizing"
+                    : "Recognizing via " + input);
                 return;
             }
 

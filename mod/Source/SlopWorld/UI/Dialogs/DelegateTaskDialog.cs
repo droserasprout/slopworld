@@ -74,7 +74,7 @@ namespace SlopWorld
         string AgentLabel(string name)
         {
             var agent = _agents.FirstOrDefault(s => s.Name == name);
-            return AgentLabel(agent) ?? (string.IsNullOrEmpty(name) ? "Choose an agent..." : name);
+            return AgentLabel(agent) ?? (string.IsNullOrEmpty(name) ? "Select an agent" : name);
         }
 
         static string AgentLabel(SessionInfo agent)

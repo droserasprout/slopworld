@@ -19,7 +19,7 @@ namespace SlopWorld
             () => SessionHub.Instance.SessionStore.Remove(name, UiLayout.Fail), destructive: true);
 
         public static Verse.Window RemoveProject(string name) => ConfirmDialog.Create(
-            $"Remove project '{name}'? The directory is left alone; only the entry in config.toml goes.",
+            $"Remove project '{name}'? This keeps the directory. It removes only the entry in config.toml.",
             () => SessionHub.Instance.Catalog.RemoveProject(name, UiLayout.Fail), destructive: true);
     }
 }

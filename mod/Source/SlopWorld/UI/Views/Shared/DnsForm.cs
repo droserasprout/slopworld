@@ -27,13 +27,14 @@ namespace SlopWorld
             {
                 servers = UiControls.Field(l, fieldId, servers ?? "");
                 GUI.color = UiTheme.Dim;
-                l.Label("Comma-separated IPv4 addresses; maximum two. Changes apply on restart.");
+                l.Label("Enter one or two IPv4 server addresses, separated by commas or spaces. " +
+                    "This setting takes effect when the agent starts.");
                 GUI.color = Color.white;
             }
             else
             {
                 GUI.color = UiTheme.Dim;
-                l.Label("System resolver follows the daemon's current resolv.conf.");
+                l.Label("Uses the resolver that the daemon currently uses.");
                 GUI.color = Color.white;
             }
         }

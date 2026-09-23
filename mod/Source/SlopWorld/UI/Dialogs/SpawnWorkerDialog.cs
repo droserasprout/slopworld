@@ -68,8 +68,8 @@ namespace SlopWorld
             bool callerCanChoose = string.IsNullOrEmpty(_fixedCaller) && callerOptions.Count > 0;
             UiControls.Select(callerRect, "Caller", AgentLabel(_caller),
                 callerOptions, out _, callerCanChoose
-                    ? "Choose yourself or an agent to own the task and worker relationship."
-                    : "The selected agent owns the task and worker relationship.",
+                    ? "Choose yourself or an agent to own the task and worker."
+                    : "The selected caller owns the task and worker.",
                 callerCanChoose);
 
             y = callerRect.yMax + UiTheme.GapS;
@@ -86,7 +86,7 @@ namespace SlopWorld
             bool templateCanChoose = templateOptions.Count > 0;
             UiControls.Select(templateRect, "Template", TemplateLabel(_template),
                 templateOptions, out _, templateCanChoose
-                    ? "All agent templates are available to you. Settings > Workers controls agents."
+                    ? "All agent templates are available to you. Manage worker access in Settings > Agents > Workers."
                     : "No agent templates are available in the catalog.",
                 templateCanChoose);
 
@@ -101,7 +101,7 @@ namespace SlopWorld
             y = worktreeRect.yMax + UiTheme.GapS;
             if (_newWorktree)
             {
-                UiText.RowLabel(new Rect(rect.x, y, rect.width, UiTheme.LineH), "Base revision (empty uses caller HEAD)");
+                UiText.RowLabel(new Rect(rect.x, y, rect.width, UiTheme.LineH), "Base revision (blank uses caller's HEAD)");
                 y += UiTheme.LineH;
                 _baseRevision = UiText.Field(new Rect(rect.x, y, rect.width, UiTheme.CompactH), "spawn-worker.base", _baseRevision);
                 y += UiTheme.CompactH + UiTheme.GapS;
@@ -109,13 +109,16 @@ namespace SlopWorld
                 y += UiTheme.LineH;
                 _worktreeName = UiText.Field(new Rect(rect.x, y, rect.width, UiTheme.CompactH), "spawn-worker.worktree-name", _worktreeName);
                 y += UiTheme.CompactH + UiTheme.GapS;
-                UiText.RowLabel(new Rect(rect.x, y, rect.width, UiTheme.LineH), "Only committed files are copied; dirty caller files stay behind.");
+                UiText.RowLabel(new Rect(rect.x, y, rect.width, UiTheme.LineH),
+                    "The new worktree uses committed files. Uncommitted changes stay in the caller's checkout.");
                 y += UiTheme.LineH + UiTheme.GapS;
                 string previewKey = _caller + "\n" + _baseRevision;
                 if (previewKey != _previewKey) ResolveBase();
                 if (UiButtons.Button(new Rect(rect.x, y, 130f, UiTheme.BtnH), "Resolve base", on: !_sending)) ResolveBase();
                 UiText.RowLabel(new Rect(rect.x + 140f, y, rect.width - 140f, UiTheme.BtnH),
-                    _previewError ?? (string.IsNullOrEmpty(_baseCommit) ? "Resolve the committed base before spawning." : _baseCommit));
+                    _previewError ?? (string.IsNullOrEmpty(_baseCommit)
+                        ? "Resolve the base revision before you start the worker."
+                        : _baseCommit));
                 y += UiTheme.BtnH + UiTheme.GapS;
             }
             GUI.color = UiTheme.Name;
@@ -133,7 +136,7 @@ namespace SlopWorld
             y += areaH + UiTheme.GapS;
             _durable = UiControls.Checkbox(new Rect(rect.x, y, rect.width, UiTheme.RowH),
                 "Keep worker after exit", _durable,
-                "Durable workers remain as stopped sessions after their task finishes.");
+                "Keep this worker as a stopped session after its process exits.");
 
             if (!string.IsNullOrEmpty(_error))
             {
@@ -162,7 +165,7 @@ namespace SlopWorld
         {
             var template = AvailableTemplates().FirstOrDefault(t => t.Name == name);
             return template?.DisplayLabel ??
-                (string.IsNullOrEmpty(name) ? "Choose a template..." : name);
+                (string.IsNullOrEmpty(name) ? "Select a template" : name);
         }
 
         string AgentLabel(string name)
@@ -170,12 +173,12 @@ namespace SlopWorld
             if (name == TaskInfo.Host) return "You (host)";
             var agent = _agents.FirstOrDefault(s => s.Name == name);
             if (agent == null)
-                return string.IsNullOrEmpty(name) ? "Choose an agent..." : name;
+                return string.IsNullOrEmpty(name) ? "Select an agent" : name;
             return AgentLabel(agent);
         }
 
         static string AgentLabel(SessionInfo agent) =>
-            agent == null ? "Choose an agent..." : $"{agent.Name}  -  {agent.Project}";
+            agent == null ? "Select an agent" : $"{agent.Name}  -  {agent.Project}";
 
         void ResolveBase()
         {

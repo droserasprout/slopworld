@@ -11,7 +11,7 @@ namespace SlopWorld
     {
         static bool Prefix(IntVec3 c, Map ___map, ref bool __result)
         {
-            // Permit normal plant spawning in Gentle mode.
+            // Permit normal plant spawning when Grandma's visiting.
             if (Settings.GrandmaMode) return true;
 
             var plague = ___map?.GetComponent<Plague>();

@@ -17,7 +17,7 @@ namespace SlopWorld
         protected override void DrawKindFields(Listing_Standard listing)
         {
             DrawExplanation(listing,
-                "Insert this text manually from a terminal context menu; it is not runnable.");
+                "Insert this text manually from a terminal context menu. You cannot run it directly.");
         }
     }
 }

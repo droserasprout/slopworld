@@ -126,7 +126,7 @@ namespace SlopWorld
                 else
                 {
                     l.Label("Base revision"); _base = UiControls.Field(l, "worktree.base", _base);
-                    l.Label("Only committed files are copied. Remove the worktree manually when finished.");
+                    l.Label("Git creates this worktree from committed files. Remove it from the list when finished.");
                 }
                 if (!string.IsNullOrEmpty(_error)) l.Label(_error);
             });

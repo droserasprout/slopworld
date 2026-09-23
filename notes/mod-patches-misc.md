@@ -9,6 +9,6 @@ Long frame gaps do not accumulate simulation time indefinitely.
 The game uses loading tips before static startup constructors run. Replace the pool on first draw,
 not in a later initializer. Background map generation requires an independent RNG.
 
-Loading-wall caches depend on Gentle mode filtering and measured geometry.
+Loading-wall caches depend on Grandma's visiting filtering and measured geometry.
 Rebuild painted rows with the wrap and filter cache. Otherwise, excluded tips can remain visible.
 Hide vanilla loading panels in layout and drawing because the engine centers their combined dimensions.

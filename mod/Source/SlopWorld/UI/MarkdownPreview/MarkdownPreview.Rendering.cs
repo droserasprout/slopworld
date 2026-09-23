@@ -254,7 +254,7 @@ namespace SlopWorld
                             Text.Font = GameFont.Tiny;
                             Widgets.Label(new Rect(at + UiTheme.GapXS, pieceY,
                                 Mathf.Max(1f, piece.Width - UiTheme.GapXS * 2f), piece.Height),
-                                piece.Run.ImageFailed ? "image unavailable" : "image loading…");
+                                piece.Run.ImageFailed ? "image unavailable" : "Loading image");
                             GUI.color = Color.white;
                         }
                         at += piece.Width;
@@ -313,7 +313,7 @@ namespace SlopWorld
             GUI.color = UiTheme.Dim;
             Text.Font = GameFont.Tiny;
             Text.Anchor = TextAnchor.MiddleCenter;
-            Widgets.Label(rect, placement.Image.ImageFailed ? "image unavailable" : "image loading…");
+            Widgets.Label(rect, placement.Image.ImageFailed ? "image unavailable" : "Loading image");
             Text.Anchor = TextAnchor.UpperLeft;
             GUI.color = Color.white;
         }

@@ -41,7 +41,7 @@ namespace SlopWorld
             }
             l.Gap(UiTheme.GapM);
             UiLayout.Note(l, "Choose which submitted prompts or delegated tasks receive an " +
-                "OpenRouter summary. Task summaries are generated once per task.");
+                "OpenRouter summary. The daemon creates each task summary once.");
 
             l.Gap(UiTheme.GapL);
             l.Label("Minimum prompt length");
@@ -52,21 +52,21 @@ namespace SlopWorld
             _configState.SetDraftText("summaries.minimum", "daemon.title_min_chars",
                 minPromptChars);
             UiLayout.Validation(l, MinimumError(minPromptChars));
-            UiLayout.Note(l, "Prompts shorter than this many characters are not summarized. " +
-                "Short prompts do not use up a first-prompt title attempt.");
+            UiLayout.Note(l, "The daemon skips prompts shorter than this many characters. " +
+                "A short prompt does not count as the first title attempt.");
             l.Gap(UiTheme.GapM);
             l.Label("Model");
             _cfg.TitleModel = UiControls.Field(l, "usage.summary.model", _cfg.TitleModel,
                 defaultValue: _cfg.FactoryDefaults?.TitleModel);
-            UiLayout.Note(l, "Up to 2,000 characters of each prompt go to OpenRouter. " +
-                "Summaries do not depend on credit polling.");
+            UiLayout.Note(l, "The daemon sends up to 2,000 characters of each prompt to OpenRouter. " +
+                "Summary requests do not depend on usage polling.");
 
             l.Gap(UiTheme.GapM);
             l.Label("Summarizer prompt");
             _cfg.SummaryPrompt = UiControls.Area(l, 150f, "usage.summary.prompt",
                 _cfg.SummaryPrompt, defaultValue: _cfg.FactoryDefaults?.SummaryPrompt);
-            UiLayout.Note(l, "This instruction is sent before the submitted prompt for both " +
-                "session titles and task summaries. The submitted prompt is appended automatically.");
+            UiLayout.Note(l, "When this field has text, the daemon sends it before the submitted prompt " +
+                "for session titles and task summaries. The daemon adds the submitted prompt automatically.");
 
         }
 

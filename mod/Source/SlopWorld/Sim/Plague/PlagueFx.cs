@@ -35,7 +35,7 @@ namespace SlopWorld
         // Keep plant effects small but visible against grass.
         public static void Wither(Thing t) => At(Gas, t, 5, 1.3f, 0.14f, 0.3f);
 
-        // Use green effects for new flowers in Gentle mode.
+        // Use green effects for new flowers when Grandma's visiting.
         // Keep them small because a colony can contain thousands of flowers.
         public static void Sprout(Thing t) => At(ModDefOf.SlopCleanAir, t, 6, 1.3f, 0.16f, 0.3f);
 

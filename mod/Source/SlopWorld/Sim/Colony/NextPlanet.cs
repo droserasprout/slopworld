@@ -81,7 +81,7 @@ namespace SlopWorld
             Leaving = true;
             Pending = true;
 
-            // The code discards the colony without the fire scene in Gentle mode.
+            // The code discards the colony without the fire scene when Grandma's visiting.
             if (Settings.GrandmaMode) { Leave(); return; }
 
             // Cutscene.Playing hides the map interface. Close windows separately.

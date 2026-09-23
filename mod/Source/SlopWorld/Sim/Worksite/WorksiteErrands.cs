@@ -93,7 +93,7 @@ namespace SlopWorld
 
                 if (grandma)
                 {
-                    // Use furniture and flower pots in Gentle mode.
+                    // Use furniture and flower pots when Grandma's visiting.
                     Add(Named("FlowerPot"), SmallSeconds, 5f, SmallBloom,
                         new Run { Least = 3, Most = 6, Gap = 1 });
                     Add(Named("Chair"), SmallSeconds, 3f, SmallBloom,

@@ -9,7 +9,7 @@ namespace SlopWorld
     // "Hint" shows a tip bubble that fades after three seconds.
     // "Kill something" sends 5 to 10 lightning strikes at a random person, animal,
     // or tree on the map.
-    // Gentle mode and Eco mode hide this option.
+    // Grandma's visiting and Eco mode hide this option.
     // "Next planet" burns the map and lands a new colony.
     public class CoreTip : MapComponent
     {

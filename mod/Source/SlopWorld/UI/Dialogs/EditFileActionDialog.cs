@@ -18,7 +18,7 @@ namespace SlopWorld
         {
             DrawFileActionMode(listing);
             DrawExplanation(listing,
-                "This command is offered by the Files sidebar; use {{ absolute_path }} or {{ relative_path }}.");
+                "The Files sidebar offers this command. Use {{ absolute_path }} or {{ relative_path }}.");
             DrawCommand(listing, "Command (path is appended unless substituted)", _agentDefault);
         }
     }

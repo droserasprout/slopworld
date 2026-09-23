@@ -59,7 +59,7 @@ namespace SlopWorld
         internal static readonly Color Ember = new Color(1f, 0.24f, 0.05f, 1f);
         internal static readonly Color Flame = new Color(1f, 0.76f, 0.28f, 1f);
 
-        // ---- Gentle mode ----
+        // ---- Grandma's visiting ----
 
         // Non-integer diagonal hue period avoids a spatial seam while closing in time.
         internal const float SheenCycles = 1.6f;

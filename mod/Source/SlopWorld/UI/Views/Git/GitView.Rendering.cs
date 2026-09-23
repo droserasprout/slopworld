@@ -12,7 +12,7 @@ namespace SlopWorld
         static float Body(float width, float y, Repo repo)
         {
             if (repo.Loading && repo.Tree == null)
-                return ViewChrome.Note(width, y, 0, "...", UiTheme.Faint);
+                return ViewChrome.Note(width, y, 0, "Loading Git status", UiTheme.Faint);
             if (repo.Error != null)
                 return ViewChrome.Note(width, y, 0, repo.Error, UiTheme.Bad);
             if (!repo.Asked)
@@ -435,7 +435,7 @@ namespace SlopWorld
                 if (HasStaged(repo))
                 {
                     opts.Add(new FloatMenuOption("Unstage all", () => UnstageAll(repo)));
-                    opts.Add(new FloatMenuOption("Commit staged...",
+                    opts.Add(new FloatMenuOption("Commit staged changes",
                         () => GitCommitDialog.Open(project)));
                 }
 

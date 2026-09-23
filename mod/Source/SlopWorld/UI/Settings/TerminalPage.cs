@@ -134,7 +134,7 @@ namespace SlopWorld
 
         void DrawCursor(Listing_Standard l, ModSettings s)
         {
-            l.Label("Cursor color, #rrggbb (blank = the scheme's)");
+            l.Label("Cursor color (#rrggbb, blank uses theme)");
             UiControls.SetSetting(s, ref s.cursorColor,
                 UiControls.Field(l, "term.cursor", s.cursorColor ?? "", defaultValue: ""));
 
@@ -144,7 +144,7 @@ namespace SlopWorld
                 !TerminalTheme.TryHex(s.cursorColor, out _))
             {
                 GUI.color = UiTheme.Bad;
-                l.Label("Not a color - the scheme's own cursor is being used.");
+                l.Label("Enter a valid #rrggbb color, or leave the field blank to use the theme cursor color.");
                 GUI.color = Color.white;
             }
 

@@ -66,12 +66,12 @@ namespace SlopWorld
                 value => _highlighterCustom = value, defaultValue: _cfg.FactoryDefaults?.Highlighter);
 
             l.Gap(UiTheme.GapL);
-            UiLayout.SectionHeading(l, "Template legend");
-            UiLayout.Note(l, "{file} is replaced with a quoted file path; {line} with a search result " +
-                "line. Without {file}, file commands receive -- and the path.");
-            UiLayout.Note(l, "%s is less's filename placeholder for the syntax highlighter. A blank " +
-                "highlighter disables it.");
-            UiLayout.Note(l, "Templates are split into arguments without a shell.");
+            UiLayout.SectionHeading(l, "Template rules");
+            UiLayout.Note(l, "Use {file} to insert a quoted path. Use {line} to insert the line from a " +
+                "search result. If a template has no {file}, SlopWorld adds -- before the path.");
+            UiLayout.Note(l, "less replaces %s with the file path for the syntax highlighter. Leave the " +
+                "highlighter blank to disable it.");
+            UiLayout.Note(l, "SlopWorld splits each template into arguments. It does not use a shell.");
         }
 
         static List<Choice> Commands(string kind, string current)

@@ -147,8 +147,8 @@ namespace SlopWorld
             float shown = _scaleHeld ?? UiScale.Current;
             float scale = UiControls.Slider(l, "UI scale", shown,
                 UiScale.Min, UiScale.Max, UiScale.Readout(shown), out bool held,
-                out bool released, "Zooms the whole interface, ours and the game's. Vanilla's own row stops "
-                + "where the scaled screen would fall under 1024x768; this one does not.");
+                out bool released, "Scales the SlopWorld and game interfaces. The game's scale control stops "
+                + "when the scaled screen would be smaller than 1024x768. This control has no such limit.");
             if (held)
             {
                 _scaleHeld = scale;
@@ -183,8 +183,8 @@ namespace SlopWorld
                 S.MarkDirty();
                 AgentSidebar.LayoutChanged();
             }
-            UiLayout.Note(l, "Reset sidebar layout affects side, density, visibility, and width. "
-                + "The sidebar width is still resized from its edge.");
+            UiLayout.Note(l, "Reset sidebar layout restores the default side, density, visibility, and width. "
+                + "Drag the sidebar edge to resize it.");
 
         }
 
@@ -203,7 +203,7 @@ namespace SlopWorld
             int fps = FramePolicy.Clamp(S.foregroundFps);
             string framePacingLabel = mode == FramePolicy.Sync ? "VSync" : fps + " FPS";
             string framePacingTip = mode == FramePolicy.Limit
-                ? "Disables VSync. Lower limits save power; higher limits improve responsiveness."
+                ? "Disables VSync. Lower limits save power. Higher limits improve responsiveness."
                 : "VSync follows the display refresh rate for smooth presentation.";
             if (UiLayout.Button(l, "Frame pacing: " + framePacingLabel,
                     tip: framePacingTip))
@@ -280,8 +280,8 @@ namespace SlopWorld
             if (S.uiFontSize == 0)
             {
                 GUI.color = UiTheme.Faint;
-                l.Label("At 0pt the original per-tier sizes are kept (Tiny=11, Small=13, Medium=15); "
-                    + "only the face changes.");
+                l.Label("At 0pt, sizes remain Tiny=11, Small=13, and Medium=15. "
+                    + "Only the typeface changes.");
                 GUI.color = Color.white;
             }
 
