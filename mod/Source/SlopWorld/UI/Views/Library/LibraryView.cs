@@ -33,7 +33,8 @@ namespace SlopWorld
             _worktreeRequestKey = null;
         }
 
-        // Grouped by catalog kind; scope remains a separate sidebar filter.
+        // Grouped by catalog kind; the Library owns its project scope independently from the
+        // global sidebar filter.
         static readonly Dictionary<string, List<LibraryItemInfo>> Groups =
             new Dictionary<string, List<LibraryItemInfo>>();
         static readonly List<string> Order = new List<string>();
@@ -53,6 +54,7 @@ namespace SlopWorld
         static int _worktreeGeneration;
         static string _query = "";
         static string _kind = "";
+        static readonly HashSet<string> ProjectFilter = new HashSet<string>();
         static string _selection;
         static string _mainSelection;
         static bool _revealSelection;
@@ -144,6 +146,58 @@ namespace SlopWorld
         static readonly SmoothScroll _scroll = new SmoothScroll();
         static float _contentHeight;
 
+        public static bool ProjectFiltering => ProjectFilter.Count > 0;
+
+        public static string ProjectFilterLabel
+        {
+            get
+            {
+                if (ProjectFilter.Count != 1) return ProjectFilter.Count + " projects";
+                foreach (var key in ProjectFilter) return key;
+                return "";
+            }
+        }
+
+        public static bool PassesProject(string project)
+        {
+            string key = string.IsNullOrEmpty(project) ? AgentSidebar.NoProject : project;
+            return !ProjectFiltering || ProjectFilter.Contains(key);
+        }
+
+        public static void OpenProjectFilterMenu(Rect anchor)
+        {
+            var options = new List<FloatMenuOption>
+            {
+                UiLayout.MenuToggle("All projects", !ProjectFiltering,
+                    () => ToggleProjectFilter("", anchor)),
+            };
+            var names = SessionHub.Instance.Projects
+                .Select(project => project.Name)
+                .OrderBy(name => name, StringComparer.Ordinal)
+                .ToList();
+            foreach (var name in names)
+            {
+                var key = name;
+                options.Add(UiLayout.MenuToggle(key, ProjectFilter.Contains(key),
+                    () => ToggleProjectFilter(key, anchor)));
+            }
+            options.Add(UiLayout.MenuToggle(AgentSidebar.NoProject,
+                ProjectFilter.Contains(AgentSidebar.NoProject),
+                () => ToggleProjectFilter(AgentSidebar.NoProject, anchor)));
+            TerminalWindow.OpenOverPane(new UiMenu(options,
+                new Vector2(anchor.x, anchor.yMax)));
+        }
+
+        static void ToggleProjectFilter(string key, Rect anchor)
+        {
+            if (key.Length == 0)
+                ProjectFilter.Clear();
+            else if (!ProjectFilter.Remove(key))
+                ProjectFilter.Add(key);
+            ProjectFilterChanged();
+            OpenProjectFilterMenu(anchor);
+        }
+
         public static void Draw(Rect body)
         {
             Lines.Clear();
@@ -152,9 +206,9 @@ namespace SlopWorld
             using (WidgetState.Save())
             {
                 // Global definitions stay available while project-specific entries follow
-                // the shared filter. Builtins remain in their attached menus.
+                // the Library's own filter. Builtins remain in their attached menus.
                 _items = SessionHub.Instance.Library
-                    .Where(s => !s.Builtin && (string.IsNullOrEmpty(s.Project) || AgentSidebar.Passes(s.Project))).ToList();
+                    .Where(s => !s.Builtin && (string.IsNullOrEmpty(s.Project) || PassesProject(s.Project))).ToList();
                 Templates.Clear();
                 foreach (var template in SessionHub.Instance.Templates)
                 {
@@ -293,7 +347,7 @@ namespace SlopWorld
                 (value ?? "").IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0;
 
             var projects = SessionHub.Instance.Projects
-                .Where(project => AgentSidebar.Passes(project.Name))
+                .Where(project => PassesProject(project.Name))
                 .OrderBy(project => project.Name, StringComparer.OrdinalIgnoreCase)
                 .ToList();
 
@@ -836,8 +890,8 @@ namespace SlopWorld
                 ? $"daemon {SessionHub.Instance.Status}"
                 : _query.Length > 0 || _kind.Length > 0
                     ? "No matching entries."
-                    : AgentSidebar.Filtering
-                    ? $"No library entries in {AgentSidebar.FilterLabel}."
+                    : ProjectFiltering
+                    ? $"No library entries in {ProjectFilterLabel}."
                     : "No library entries yet. Press + at the foot of the panel.",
                 UiTheme.Faint, GameFont.Tiny);
         }
@@ -1071,7 +1125,7 @@ namespace SlopWorld
             return true;
         }
 
-        public static void FilterChanged()
+        static void ProjectFilterChanged()
         {
             _worktreeRequestKey = null;
             _mainSelection = null;

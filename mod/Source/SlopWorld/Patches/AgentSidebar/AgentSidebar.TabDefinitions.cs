@@ -116,7 +116,6 @@ namespace SlopWorld
                         Close = LibraryView.Closed,
                         DrawActions = DrawLibraryActions,
                         Refresh = () => LibraryView.Refresh(UiLayout.Fail),
-                        FilterChanged = LibraryView.FilterChanged,
                         // Fetch on entry as well, including when socket updates are unavailable.
                         Entered = () => LibraryView.Refresh(),
                         SetAllFolds = LibraryView.SetAllFolded,
@@ -232,8 +231,20 @@ namespace SlopWorld
         {
             var r = ActionRect(context);
             DrawFoldAction(ref r);
+            DrawLibraryProjectFilterAction(ref r);
             Tab(r, Icons.Refresh, false, "Reload Library and templates.",
                 () => LibraryView.Refresh(UiLayout.Fail));
+        }
+
+        static void DrawLibraryProjectFilterAction(ref Rect r)
+        {
+            var anchor = r;
+            Tab(r, Icons.Filter, LibraryView.ProjectFiltering,
+                LibraryView.ProjectFiltering
+                    ? $"Showing {LibraryView.ProjectFilterLabel} in Library. Click to change the selection."
+                    : "Every project in Library. Click to show only some of them.",
+                () => LibraryView.OpenProjectFilterMenu(anchor));
+            r.x -= TabIcon + 3f;
         }
 
         static void DrawTasksActions(SidebarTabActionContext context)
