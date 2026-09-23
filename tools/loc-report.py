@@ -46,7 +46,7 @@ def write_note(
         "",
         "Counts cover tracked Python, C#, and Rust files. Build output, ignored files, and "
         "Markdown are excluded. A line containing both code and a trailing comment is counted "
-        "as code; blank lines are separate.",
+        "as code. Blank lines are separate.",
         "",
         "| Language | Files | Lines | Blank | Comments | Code |",
         "| --- | ---: | ---: | ---: | ---: | ---: |",
@@ -61,7 +61,7 @@ def write_note(
         [
             f"| **Total** | **{total[0]}** | **{total[1]}** | **{total[2]}** | **{total[3]}** | **{total[4]}** |",
             "",
-            f"Code plus comment lines: **{total[3] + total[4]}**; code-only lines: **{total[4]}**.",
+            f"Code plus comment lines: **{total[3] + total[4]}**. Code-only lines: **{total[4]}**.",
             "",
         ]
     )

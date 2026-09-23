@@ -1,18 +1,17 @@
 # The mod's action icons, and which glyph each slot wears.
 #
-# The key is the slot - the name UI/Chrome/Icons.cs looks up and the name the bake writes -
-# and a row added here is a row added there and nowhere else.
+# The key is the slot that UI/Chrome/Icons.cs requests.
+# The tool also uses the key as the generated PNG name.
 #
-# Every glyph is a Codicon, VS Code's icon set, taken out of a Nerd Font. `glyph` is
-# the Nerd Fonts name and `code` is where that name sits in the private use area;
-# the name is documentation and the codepoint is what the bake actually reads, so
-# tools/icons.py is self-contained. The glyph names and codepoints come from the Nerd
-# Fonts cheat sheet: https://www.nerdfonts.com/cheat-sheet
+# Each glyph is a Codicon from a Nerd Font.
+# `glyph` is the Nerd Fonts name.
+# `code` is its code point in the private-use area.
+# tools/icons.py reads the code point and uses the name as documentation.
+# The Nerd Fonts cheat sheet supplies both values: https://www.nerdfonts.com/cheat-sheet
 #
-# One set on purpose. Codicons is drawn on a 16px grid for a code editor, so the
-# glyphs already agree about weight and size and the bake scales all of them by one
-# factor rather than fitting each to a box - the relative sizes here are the set's own
-# and are worth keeping. `note` is why this glyph and not the obvious one.
+# Use only Codicons so the glyphs have consistent weight and size.
+# The tool applies one scale factor to preserve the designed relative sizes.
+# `note` explains why the slot uses the selected glyph.
 
 [terminal]
 glyph = "cod-terminal"
@@ -53,7 +52,7 @@ note = "small on purpose - this is Codicons' inline status dot, and the sidebar'
 [agents]
 glyph = "cod-robot"
 code = "ec20"
-note = "an actual robot at last; RobotFace_south is a pawn's faceplate, colored, and a blob when tinted flat at this size"
+note = "An actual robot. RobotFace_south is a colored pawn faceplate. A flat tint makes it a blob at this size."
 
 [files]
 glyph = "cod-folder"
@@ -70,7 +69,7 @@ code = "ec6f"
 [library]
 glyph = "cod-symbol_event"
 code = "ea86"
-note = "Codicons draws symbol-event as the lightning bolt; there is no `zap` in the set the Nerd Font bundles"
+note = "Codicons draws symbol-event as the lightning bolt. The bundled Nerd Font set has no `zap` icon."
 
 [usage]
 glyph = "cod-credit_card"

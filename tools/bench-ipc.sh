@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Called by Make from the repository root; settings come from make/config.mk.
+# Called by Make from the repository root. Settings come from make/config.mk.
 set -euo pipefail
 
 configuration=Debug

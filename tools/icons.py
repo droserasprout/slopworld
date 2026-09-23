@@ -1,36 +1,33 @@
 #!/usr/bin/env python3
-"""Bakes the mod's action icons out of a Nerd Font's Codicons.
+"""Bake the mod action icons from a Nerd Font Codicons set.
 
 Usage: python3 tools/icons.py [--size N] [--margin N] [--font PATH] [--report]
-  --size    edge of the baked PNG, default 64
-  --margin  pixels of clear space around the largest glyph, default 2
-  --font    a Nerd Font .ttf, default the first of FONTS that exists
-  --report  print each glyph's drawn size and ink coverage instead of staying quiet
+  --size    Set the PNG edge length. The default is 64 pixels.
+  --margin  Set the clear margin. The default is 2 pixels.
+  --font    Select a Nerd Font TTF file. The default is the first available FONTS entry.
+  --report  Print the size and ink coverage of each glyph.
 
 Reads tools/icons/manifest.toml and writes mod/Textures/SlopWorld/Icons/<slot>.png.
-Needs pillow and a Nerd Font installed - on Arch that is one of the ttf-*-nerd
-packages. Unlike tools/fileicons.py this wants no rsvg-convert: the glyphs are
-outlines in a font and FreeType, which pillow already carries, is the rasterizer.
+The tool requires Pillow and an installed Nerd Font.
+On Arch Linux, install one of the ttf-*-nerd packages.
+Pillow uses its included FreeType library to render the font outlines.
 
-The font is NOT vendored the way tools/fileicons.py vendors its SVGs - it is four
-megabytes to hold twenty glyphs. The PNGs are committed instead, so a build never
-needs the font and only a rebake does.
+The repository does not include the font because it is approximately four megabytes.
+The repository includes the generated PNG files, so normal builds do not need the font.
 
-Codicons is VS Code's set, drawn on a 16px editor grid with consistent weight. The fixed
-set provides a common scale, while glyph sizes still vary by design. The
-glyphs are NOT all the same size and are not meant to be - `circle-filled` is an inline
-status dot and `terminal` fills its cell - so this scales every glyph by ONE factor,
-the one that fits the largest of them, rather than fitting each into the box
-separately. Fitting each would flatten exactly the relative sizing the set was drawn
-with, and is also the hand-tuning the nine procedural icon classes this replaced had to
-do by eye. --report prints the sizes so that agreement can be checked.
+The Codicons set uses a 16-pixel editor grid with a consistent stroke weight.
+The glyph sizes differ by design.
+For example, `circle-filled` is a small status dot, but `terminal` fills its cell.
+The tool applies one scale factor to all glyphs.
+It selects the factor that fits the largest glyph.
+This preserves the designed size differences between glyphs.
+Use --report to inspect the output sizes.
 
-Rendered several times larger than the final edge and box-filtered down rather than
-rasterized at 64 directly, the trick tools/fileicons.py explains: FreeType's own
-antialiasing at 64px drops the thin strokes these are mostly made of.
+The tool renders above the output size and then applies a box filter.
+This process preserves thin strokes that direct 64-pixel rendering can remove.
 
-The output is an alpha mask: RGB is white outright and the alpha is the shape, the way
-every icon in this mod is drawn, because the caller tints it with GUI.color.
+The output is an alpha mask with white RGB channels.
+The caller uses GUI.color to apply the required color.
 """
 
 import argparse
@@ -46,8 +43,8 @@ ROOT = os.path.dirname(HERE)
 MANIFEST = os.path.join(HERE, "icons", "manifest.toml")
 OUT = os.path.join(ROOT, "mod", "Textures", "SlopWorld", "Icons")
 
-# Any Nerd Font carries the same private use area, so this is only about finding one.
-# The Mono and Propo cuts of a face hold the same glyphs at the same outlines.
+# Each Nerd Font has the same private-use glyphs.
+# The Mono and Propo variants use the same glyph outlines.
 FONTS = [
     "/usr/share/fonts/TTF/FiraCodeNerdFont-Regular.ttf",
     "/usr/share/fonts/TTF/JetBrainsMonoNerdFont-Regular.ttf",
@@ -55,8 +52,8 @@ FONTS = [
     os.path.expanduser("~/.local/share/fonts/SymbolsNerdFont-Regular.ttf"),
 ]
 
-# The em to render a glyph at before it is fitted and downsampled. Large enough that the
-# fit is a shrink for every glyph in the manifest, so nothing is ever scaled up.
+# Render each glyph at this size before fitting and downsampling it.
+# This size lets the tool reduce every manifest glyph instead of enlarging it.
 EM = 256
 
 
@@ -66,15 +63,15 @@ def find_font(explicit):
     for p in FONTS:
         if os.path.exists(p):
             return p
-    print("no Nerd Font found; pass --font, or install one (Arch: ttf-firacode-nerd)",
+    print("No Nerd Font found. Use --font or install one (Arch: ttf-firacode-nerd).",
           file=sys.stderr)
     sys.exit(2)
 
 
 def ink(font, code):
-    """The glyph's pixels, cropped to what it actually draws. None if it draws nothing."""
-    # Three ems of canvas with the pen an em in, so a glyph that reaches outside its
-    # advance width - Codicons has several - is not clipped before it is measured.
+    """Return the cropped glyph pixels, or None if the glyph draws nothing."""
+    # Use a three-em canvas and put the pen one em from each leading edge.
+    # This prevents clipping for glyphs that extend beyond their advance width.
     img = Image.new("L", (EM * 3, EM * 3), 0)
     ImageDraw.Draw(img).text((EM, EM), chr(code), font=font, fill=255)
     a = np.asarray(img)

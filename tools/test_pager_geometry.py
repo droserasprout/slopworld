@@ -1,4 +1,4 @@
-"""Exercise pager startup and wheel input in an isolated tmux server; no game needed."""
+"""Exercise pager startup and wheel input in an isolated tmux server without the game."""
 
 import pathlib
 import subprocess

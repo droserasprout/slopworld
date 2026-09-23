@@ -1,22 +1,22 @@
 #!/usr/bin/env python3
-"""Bakes the files view's icons from the vendored SVGs.
+"""Bake the files view icons from vendored SVG files.
 
 Usage: python3 tools/fileicons.py [--fetch] [--size N]
-  --fetch   re-download the manifest's icons from upstream into tools/fileicons/svg
-  --size    edge of the baked PNG, default 32
+  --fetch   Download the manifest icons into tools/fileicons/svg again.
+  --size    Set the PNG edge length. The default is 32 pixels.
 
-Reads tools/fileicons/manifest.toml, rasterizes tools/fileicons/svg/<name>.svg and
-writes mod/Textures/SlopWorld/FileIcons/<name>.png. Needs rsvg-convert (librsvg) and
-pillow; cairosvg stands in for rsvg-convert if that is what the machine has.
+The tool reads tools/fileicons/manifest.toml.
+It converts each tools/fileicons/svg/<name>.svg file to a PNG file.
+It writes the PNG files to mod/Textures/SlopWorld/FileIcons.
+The tool requires Pillow and either rsvg-convert or CairoSVG.
 
-The SVGs are vendored rather than fetched at bake time, so a build is offline and a
-bake is the same on every machine whatever upstream did last week. --fetch is how the
-set is refreshed on purpose, which is also when the LICENSE beside them wants a look.
+The build uses vendored SVG files and does not require network access.
+Use --fetch to update the SVG files from upstream.
+Review the adjacent LICENSE file when you update the SVG files.
 
-Rendered at four times the final edge and box-filtered down rather than rasterized at
-32 directly: these are flat vector shapes with hairline detail (a keyhole, a chevron,
-lettering inside a page), and librsvg's own antialiasing at 32px drops it. The filter
-is the same trick tools/roboface.py plays for the same reason.
+The tool renders at four times the output size and then applies a box filter.
+This process preserves thin details that direct 32-pixel rendering can remove.
+tools/roboface.py uses the same process.
 """
 
 import argparse
@@ -41,8 +41,8 @@ UPSTREAM = (
     "vscode-material-icon-theme/main/icons/{}.svg"
 )
 
-# Four samples an edge. Past this the filter is averaging noise librsvg already
-# resolved, and the bake takes a minute for nothing.
+# Use four samples for each output pixel.
+# Larger values increase processing time without improving these SVG files.
 SUPER = 4
 
 
@@ -84,14 +84,13 @@ def render(path, edge):
 def bake(name, size):
     src = os.path.join(SRC, f"{name}.svg")
     if not os.path.exists(src):
-        print(f"  {name}: no svg; run with --fetch", file=sys.stderr)
+        print(f"  {name}: no SVG. Run with --fetch.", file=sys.stderr)
         return False
 
     big = render(src, size * SUPER)
 
-    # Premultiply before the filter. Averaging straight RGBA drags the color of a
-    # fully transparent pixel into its neighbours, which on these icons is black,
-    # and every edge comes out with a dark rind.
+    # Premultiply alpha before filtering.
+    # Direct RGBA averaging can add black edges from transparent pixels.
     a = np.asarray(big, dtype=np.float64) / 255.0
     a[..., :3] *= a[..., 3:4]
 

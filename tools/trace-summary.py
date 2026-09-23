@@ -28,7 +28,7 @@ def main():
                 previous = key
                 continue
             groups[key].append(lanes)
-        print(f"\nFile: {path} ({len(records)} records; first/transition records excluded)")
+        print(f"\nFile: {path} ({len(records)} records; first and transition records excluded)")
         for key, rows in groups.items():
             def total(lane, metric):
                 return sum(float(row.get(lane, {}).get(metric, 0)) for row in rows)
@@ -40,13 +40,13 @@ def main():
             print(f"sidebar presentation hits={hits:.0f}, rebuilds={misses:.0f}; solar samples={total('solar-clock-samples', 'calls'):.0f}")
             memory = [row["memory"] for row in rows if "memory" in row]
             if memory:
-                print(f"Memory samples={len(memory)} (MiB: first -> last; peak):")
+                print(f"Memory samples={len(memory)} (MiB: first -> last, then peak):")
                 for metric in ("rssBytes", "managedUsed", "managedHeap", "unityAllocated", "unityReserved", "unityUnusedReserved"):
                     values = [float(sample[metric]) / 1048576 for sample in memory
                               if metric in sample and float(sample[metric]) >= 0]
                     if values:
-                        print(f"  {metric}: {values[0]:.2f} -> {values[-1]:.2f}; {max(values):.2f}")
-            print("Mean lane ms per Root.Update call (overlapping lanes; do not sum):")
+                        print(f"  {metric}: {values[0]:.2f} -> {values[-1]:.2f} (peak {max(values):.2f})")
+            print("Mean lane ms per Root.Update call (lanes overlap, so do not sum):")
             if frames:
                 for lane in ("root-update", "ws-events", "colonist-bar", "sidebar", "topbar", "terminal-window"):
                     print(f"  {lane}: {total(lane, 'ms') / frames:.3f}")

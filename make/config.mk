@@ -23,7 +23,7 @@ PROFILE    ?=
 # `sidecar-run` wiring: the sidecar's config dir holds the endpoint descriptor its daemon
 # writes (url http://127.0.0.1:7718 + token, bind-mounted to the host), and the game runs into
 # a profile kept wholly apart from the native one. Point SLOPCAR_CONFIG at whatever
-# SLOPCAR_CONFIG_DIR the sidecar was started with; SLOPCAR_DATA keeps its session state separate
+# SLOPCAR_CONFIG_DIR the sidecar was started with. SLOPCAR_DATA keeps its session state separate
 # from a native daemon.
 SLOPCAR_CONFIG   ?= $(config_home)/slopworld-car
 SLOPCAR_ENDPOINT ?= $(SLOPCAR_CONFIG)/endpoint.toml
@@ -41,7 +41,7 @@ SLOPCAR_ENV = \
 	SLOPCAR_CONTAINER="$(SLOPCAR_CONTAINER)"
 
 # Native macOS RimWorld is an app bundle, so it needs its own references, mod destination and
-# direct game executable. The GOG path is the useful default; every value is overridable for a
+# direct game executable. The GOG path is the useful default. Every value is overridable for a
 # Steam or standalone install, or a friend whose home layout differs.
 MAC_RIMWORLD    ?= $(HOME)/Documents/RimWorld.app
 MAC_GAME        ?= $(MAC_RIMWORLD)/Contents/MacOS/RimWorld by Ludeon Studios
@@ -72,8 +72,8 @@ MOD_DLL      := mod/Assemblies/SlopWorld.dll
 TEST_PROJECT := mod/Tests/SlopWorld.Tests.csproj
 TEST_DLL     := mod/Tests/bin/Release/net8.0/SlopWorld.Tests.dll
 COVERAGE_DIR := coverage
-# Native llvm-cov file filter; test modules live in adjacent excluded files.
-RUST_COVERAGE_EXCLUDE ?= /tests/|/benches/|/(tests|test_support|benchmark|[^/]*_tests)\.rs$$|/shared/(http_wire|protocol)\.rs$$|/target/|/rustc[^/]*/library/
+# Native llvm-cov file filter. Test modules live in adjacent excluded files.
+RUST_COVERAGE_EXCLUDE ?= /tests/|/benches/|/benchmark/|/(tests|test_support|benchmark|[^/]*_tests)\.rs$$|/shared/(http_wire|protocol)\.rs$$|/target/|/rustc[^/]*/library/
 
 # Settings passed to maintenance scripts.
 export BUILD CARGO CARGOFLAGS COVERAGE_DIR DOTNET PYTHON

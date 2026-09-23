@@ -1,15 +1,17 @@
 #!/usr/bin/env python3
-"""Draws the app icon: the robot faceplate (south/head-on) with 🥀 (wilted rose,
-Noto Color Emoji) growing from the top of the skull, behind the faceplate.
+"""Draw the application icon with a robot faceplate and a wilted rose.
 
-Two-step process:
-  1. Render the rose emoji as a standalone PNG (SlopWorld_rose.png).
-  2. Composite: rose behind, robot face on top, stem tip slightly intersecting
-     the top of the skull for a "growing out of the head" effect.
+The tool gets the rose from Noto Color Emoji.
+It puts the rose behind the faceplate and above the skull.
+
+Process:
+  1. Render the rose as SlopWorld_rose.png.
+  2. Put the faceplate over the rose.
+  3. Move the stem tip slightly into the top of the skull.
 
 Output: mod/Textures/SlopWorld/SlopWorld_icon.png (128x128 RGBA).
 
-Needs numpy, pillow, pycairo and Pango (with Noto Color Emoji installed).
+The tool requires NumPy, Pillow, pycairo, Pango, and Noto Color Emoji.
 """
 import os
 import sys

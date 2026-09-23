@@ -34,7 +34,7 @@ mac-stop: mac-docker-check ## Stop the macOS sidecar without removing its state
 mac-status: mac-docker-check ## Show macOS sidecar status
 	$(SLOPCAR_ENV) $(SLOPCAR) status
 
-mac-logs: mac-docker-check ## Show macOS sidecar logs; pass LOG_ARGS='--tail 100'
+mac-logs: mac-docker-check ## Show macOS sidecar logs. Use LOG_ARGS='--tail 100' to limit output.
 	$(SLOPCAR_ENV) $(SLOPCAR) logs $(LOG_ARGS)
 
 mac-setup:        ## Install the macOS build tools and Docker Desktop with Homebrew
