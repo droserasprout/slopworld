@@ -1,5 +1,21 @@
 # Performance bottleneck investigation — 2026-09-22
 
+## Follow-up — 2026-09-23
+
+- **Fixed 2:** the emulator reuses the hidden-history extent across cursor-only renders and
+  invalidates it for operations that can change history. The 10,000-blank-row benchmark fell
+  from 6.39 ms to 0.97 µs per render on the same machine.
+- **Fixed 4:** session views retain an indexed worktree catalog. File stamps reload externally
+  edited catalogs, including the legacy-to-current file transition.
+- **Fixed 5:** sparse link edits rescan the edited row and connected wrapped-link region while
+  retaining unrelated immutable spans. The 200-row URL fixture fell from 88.65 to 6.59 µs
+  and from 56,504 to 8,640 B per update. Game-free link and snapshot tests pass.
+- **Open 1 and 3:** the global session boundary still covers worktree checkout and task writes;
+  task updates still rewrite the complete task history. Both require coordinated changes to
+  authorization lifetime and durable task storage before their latency can be removed safely.
+
+The measurements and source links below describe the original baseline, before these fixes.
+
 Measured in the current worktree based on `7b56915513d0f03e5300da582c9a014215f1bb95`, with pre-existing edits. Release build on AMD Ryzen 7 4800HS, Linux x86-64. These are warmed helper benchmarks, not a Unity profile or end-to-end latency measurements. No game was launched, and no screenshots or images were inspected.
 
 1. **One global session lock can delay terminal input during unrelated worktree operations.**

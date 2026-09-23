@@ -178,6 +178,7 @@ impl Manager {
             tasks: crate::session::manager::TaskStore::new(tasks),
             worker_spawn: tokio::sync::Mutex::new(()),
             worktree_mutation: tokio::sync::Mutex::new(()),
+            worktree_views: tokio::sync::Mutex::new(Default::default()),
             title_cache,
         });
         if let Ok(n) = crate::sandbox::purge_trash() {

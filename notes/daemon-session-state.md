@@ -50,6 +50,8 @@ The local VT mirror must ignore `PtyWrite`.
 Otherwise, duplicate replies appear in shell input as text such as `?6c`.
 Its erase and resize behavior matches tmux rather than every Alacritty default.
 Preserve real and styled history but exclude untouched leading padding.
+The emulator caches the hidden padding extent across cursor-only updates. Operations that can
+scroll, reset, switch screens, or resize invalidate it before the next render.
 Scroll snapshots must not consume bells.
 
 New sessions use this sequence:

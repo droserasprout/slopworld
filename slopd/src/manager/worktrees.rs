@@ -3,6 +3,27 @@ use super::super::*;
 use crate::worktrees::{git, Store, Worktree};
 use anyhow::anyhow;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::os::unix::fs::MetadataExt;
+use std::time::SystemTime;
+
+type FileStamp = (SystemTime, u64, u64, u64);
+
+#[derive(Default)]
+pub(crate) struct WorktreeViewCache {
+    stamp: Option<(Option<FileStamp>, Option<FileStamp>)>,
+    by_id: Arc<HashMap<String, Worktree>>,
+}
+
+async fn file_stamp(path: &Path) -> Option<FileStamp> {
+    let metadata = tokio::fs::metadata(path).await.ok()?;
+    Some((
+        metadata.modified().ok()?,
+        metadata.len(),
+        metadata.dev(),
+        metadata.ino(),
+    ))
+}
 
 #[derive(Clone, Default, Deserialize)]
 pub(crate) struct WorktreeRequest {
@@ -26,6 +47,27 @@ pub(crate) struct WorktreeView {
 }
 
 impl Manager {
+    /// The legacy file remains authoritative only until the new catalog exists.
+    /// Compare both stamps so external edits and the first new-format write reload the view.
+    pub(super) async fn worktree_view_index(&self) -> Arc<HashMap<String, Worktree>> {
+        let mut cache = self.worktree_views.lock().await;
+        let stamp = (
+            file_stamp(&self.cfg_path.with_file_name("worktrees.toml")).await,
+            file_stamp(&self.cfg_path.with_file_name("workspaces.toml")).await,
+        );
+        if cache.stamp.as_ref() != Some(&stamp) {
+            let store = Store::load(&self.cfg_path).await.unwrap_or_default();
+            cache.by_id = Arc::new(
+                store
+                    .worktrees
+                    .into_iter()
+                    .map(|w| (w.id.clone(), w))
+                    .collect(),
+            );
+            cache.stamp = Some(stamp);
+        }
+        cache.by_id.clone()
+    }
     pub(crate) async fn worktree_for_path(&self, project: &str, raw_path: &str) -> Result<String> {
         let cfg = self.config().await;
         let Some(p) = cfg.project(project) else {
@@ -515,3 +557,7 @@ impl Manager {
         }).await
     }
 }
+
+#[cfg(test)]
+#[path = "worktrees_tests.rs"]
+mod tests;

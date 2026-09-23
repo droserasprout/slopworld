@@ -45,3 +45,4 @@ See [sandbox](sandbox-isolation.md) and [usage](../docs/src/guides/project-workt
 
 The daemon can read legacy `workspaces.toml` records and field names.
 New writes use the worktree field names. `worktrees.toml` takes precedence and does not delete the old file.
+Session views retain a worktree index and reload it when either catalog file changes.

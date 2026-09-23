@@ -58,6 +58,11 @@ namespace SlopWorld
             bool reuseBase = screen?.BaseRuns != null && screen.BaseRuns.Length == lines.Length &&
                 screen.BaseRunsRev == themeRev && screen.Runs != null &&
                 screen.Runs.Length == lines.Length;
+            bool incrementalLinks = reuseBase && screen.AutoLinks != null &&
+                screen.RunsRev == themeRev;
+            var dirtyLinks = incrementalLinks ? new bool[lines.Length] : null;
+            if (dirtyLinks != null)
+                for (int i = 0; i < lines.Length; i++) dirtyLinks[i] = screen.Runs[i] == null;
             bool plainBase = reuseBase && screen.AutoLinks == null;
             var baseRows = plainBase ? screen.Runs :
                 reuseBase ? screen.BaseRuns : new List<SgrRun>[lines.Length];
@@ -101,7 +106,10 @@ namespace SlopWorld
             screen.BaseRuns = baseRows;
             screen.BaseRunsRev = themeRev;
             bool hasAutoLinks = screen.LinksKnown ? screen.HasLinks : Sgr.MayContainLink(lines);
-            var local = hasAutoLinks ? Sgr.AutoLinkSpans(baseRows, cols, ref _linkChars) : null;
+            var local = !hasAutoLinks ? null : incrementalLinks ?
+                Sgr.AutoLinkSpansIncremental(baseRows, cols, ref _linkChars,
+                    screen.AutoLinks, dirtyLinks) :
+                Sgr.AutoLinkSpans(baseRows, cols, ref _linkChars);
             bool reuseRuns = screen.Runs != null && screen.Runs.Length == lines.Length &&
                 screen.RunsRev == themeRev;
             // Without guessed links the base rows are already the final immutable result.

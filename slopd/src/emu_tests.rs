@@ -1,6 +1,22 @@
 use super::*;
 
 #[test]
+fn cursor_updates_reuse_blank_history_extent_until_history_can_change() {
+    let mut e = SessionEmu::new(20, 2);
+    e.feed(b"\r\n\r\n");
+    assert_eq!(e.render().history, 0);
+    assert_eq!(e.history_extent_cache, Some(0));
+    e.feed(b"\x1b[1;1H");
+    assert_eq!(e.history_extent_cache, Some(0));
+    assert_eq!(e.render().history, 0);
+    e.feed(b"content");
+    assert_eq!(e.history_extent_cache, None);
+    e.render();
+    e.resize(21, 2);
+    assert_eq!(e.history_extent_cache, None);
+}
+
+#[test]
 fn inline_header_insertion_does_not_expose_initial_blank_padding() {
     // Reduced from a recorded fresh Codex startup: insert a six-row header in
     // an eight-row scrolling region, with a blank row before and after it.

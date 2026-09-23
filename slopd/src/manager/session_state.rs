@@ -39,9 +39,7 @@ fn classify_match(matched: Option<State>, changed: bool, last_change: u64) -> St
 impl Manager {
     pub async fn views(&self) -> Vec<SessionView> {
         let cfg = self.config().await;
-        let worktrees = crate::worktrees::Store::load(&self.cfg_path)
-            .await
-            .unwrap_or_default();
+        let worktrees = self.worktree_view_index().await;
         let live = self.live.read().await;
         let temp = self.temp.read().await;
         let mut out: Vec<SessionView> = live
@@ -58,9 +56,7 @@ impl Manager {
                 SessionView {
                     worktree: l.cfg.worktree.clone(),
                     worktree_name: worktrees
-                        .worktrees
-                        .iter()
-                        .find(|w| w.id == l.cfg.worktree)
+                        .get(&l.cfg.worktree)
                         .map(|w| w.name.clone())
                         .unwrap_or_default(),
                     name: l.cfg.name.clone(),
@@ -70,12 +66,8 @@ impl Manager {
                         l.host_path.clone()
                     } else {
                         worktrees
-                            .worktrees
-                            .iter()
-                            .find(|w| {
-                                w.id == l.cfg.worktree
-                                    && p.is_some_and(|p| !p.id.is_empty() && w.project_id == p.id)
-                            })
+                            .get(&l.cfg.worktree)
+                            .filter(|w| p.is_some_and(|p| !p.id.is_empty() && w.project_id == p.id))
                             .map(|w| w.path.clone())
                             .unwrap_or_else(|| p.map(|p| p.dir.clone()).unwrap_or_default())
                     },
