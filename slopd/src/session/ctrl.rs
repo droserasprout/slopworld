@@ -40,6 +40,7 @@ pub struct Manager {
     /// This prevents root requests from reserving the same child name or interleaving task and session writes.
     pub(super) worker_spawn: tokio::sync::Mutex<()>,
     pub(super) worktree_mutation: tokio::sync::Mutex<()>,
+    pub(super) worktree_views: tokio::sync::Mutex<super::manager::WorktreeViewCache>,
     pub(super) title_cache: crate::title::SummaryCache,
 }
 

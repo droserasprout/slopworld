@@ -32,7 +32,7 @@ Autolinks may span physical rows and color runs. Explicit OSC 8 targets take pre
 A blank tail ends continuation. Compare link spans against the last parse, not the last received frame:
 multiple updates can arrive before a draw. Parsed rows and span metadata stay immutable
 when shared with snapshots. Link scans write column-indexed characters directly into
-reused storage.
+reused storage. Sparse edits scan only rows joined to the edit by full-width text or an old link.
 Do not create selection/copy cell strings on this frequently used path.
 
 File-link activation is deliberately lazy: recognize on Ctrl+left-click, then open a dedicated file menu.

@@ -88,21 +88,78 @@ namespace SlopWorld
                 foreach (var row in rows) width = Mathf.Max(width, RowWidth(row));
             if (width <= 0) return null;
 
-            if (scratch == null || scratch.Length != rows.Length * width)
+            if (scratch == null || scratch.Length < rows.Length * width)
                 scratch = new char[rows.Length * width];
             var chars = scratch;
             for (int row = 0; row < rows.Length; row++)
                 TerminalColumns.WriteScanLine(rows[row], chars, row * width, width);
 
-            var global = UrlScan.FindUrls(new string(chars));
-            if (global == null) return null;
-
             var local = new List<UrlSpan>[rows.Length];
+            ScanLinkRange(chars, width, 0, rows.Length, local);
+            return HasSpans(local) ? local : null;
+        }
+
+        // A received frame can edit one row while retaining every other parsed row. Rebuild
+        // only the group joined to that edit by a full-width row boundary. Old spans also join
+        // rows, so a deleted boundary cannot leave half of a former link in a snapshot.
+        internal static List<UrlSpan>[] AutoLinkSpansIncremental(List<SgrRun>[] rows, int cols,
+            ref char[] scratch, List<UrlSpan>[] previous, bool[] dirty)
+        {
+            if (previous == null || previous.Length != rows.Length || cols <= 0)
+                return AutoLinkSpans(rows, cols, ref scratch);
+            if (scratch == null || scratch.Length < rows.Length * cols)
+                scratch = new char[rows.Length * cols];
+
+            var local = (List<UrlSpan>[])previous.Clone();
+            for (int row = 0; row < rows.Length;)
+            {
+                if (!dirty[row]) { row++; continue; }
+                int first = row, last = row;
+                while (first > 0 && Joined(rows, scratch, cols, previous, first - 1)) first--;
+                while (last + 1 < rows.Length && Joined(rows, scratch, cols, previous, last)) last++;
+                for (int i = first; i <= last; i++) local[i] = null;
+                for (int i = first; i <= last; i++)
+                    TerminalColumns.WriteScanLine(rows[i], scratch, i * cols, cols);
+                ScanLinkRange(scratch, cols, first, last + 1, local);
+                row = last + 1;
+            }
+            return HasSpans(local) ? local : null;
+        }
+
+        static bool Joined(List<SgrRun>[] rows, char[] chars, int width,
+            List<UrlSpan>[] previous, int row)
+        {
+            TerminalColumns.WriteScanLine(rows[row], chars, row * width, width);
+            TerminalColumns.WriteScanLine(rows[row + 1], chars, (row + 1) * width, width);
+            if (chars[(row + 1) * width - 1] != ' ' && chars[(row + 1) * width] != ' ')
+                return true;
+            var left = previous[row];
+            var right = previous[row + 1];
+            if (left == null || right == null) return false;
+            foreach (var a in left)
+                if (a.End == width)
+                    foreach (var b in right)
+                        if (b.Start == 0 && b.Url == a.Url) return true;
+            return false;
+        }
+
+        static bool HasSpans(List<UrlSpan>[] rows)
+        {
+            foreach (var spans in rows) if (spans != null && spans.Count > 0) return true;
+            return false;
+        }
+
+        static void ScanLinkRange(char[] chars, int width, int firstRow, int endRow,
+            List<UrlSpan>[] local)
+        {
+            var global = UrlScan.FindUrls(new string(chars, firstRow * width,
+                (endRow - firstRow) * width));
+            if (global == null) return;
             foreach (var span in global)
             {
-                int first = span.Start / width;
-                int last = (span.End - 1) / width;
-                for (int row = first; row <= last && row < rows.Length; row++)
+                int first = firstRow + span.Start / width;
+                int last = firstRow + (span.End - 1) / width;
+                for (int row = first; row <= last && row < endRow; row++)
                 {
                     int start = row == first ? span.Start % width : 0;
                     int end = row == last ? (span.End - 1) % width + 1 : width;
@@ -110,7 +167,6 @@ namespace SlopWorld
                     local[row].Add(new UrlSpan(start, end, span.Url));
                 }
             }
-            return local;
         }
 
         // Apply only guessed links. Explicit OSC 8 runs remain authoritative in Split.

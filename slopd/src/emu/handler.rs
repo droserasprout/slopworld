@@ -9,6 +9,7 @@ use alacritty_terminal::vte::ansi::*;
 pub(super) struct Mirror<'a> {
     pub term: &'a mut Term<SideSink>,
     pub cache: &'a mut RenderCache,
+    pub history_dirty: &'a mut bool,
 }
 
 macro_rules! forward {
@@ -21,6 +22,7 @@ macro_rules! forward {
 
 impl Handler for Mirror<'_> {
     fn clear_screen(&mut self, mode: ClearMode) {
+        *self.history_dirty = true;
         match mode {
             // Alacritty preserves the erased viewport in scrollback. tmux erases it
             // in place. Preserving it here creates history on every TUI startup/redraw.
@@ -41,11 +43,55 @@ impl Handler for Mirror<'_> {
         }
     }
 
+    fn input(&mut self, c: char) {
+        *self.history_dirty = true;
+        self.term.input(c);
+    }
+    fn linefeed(&mut self) {
+        *self.history_dirty = true;
+        self.term.linefeed();
+    }
+    fn newline(&mut self) {
+        *self.history_dirty = true;
+        self.term.newline();
+    }
+    fn scroll_up(&mut self, count: usize) {
+        *self.history_dirty = true;
+        self.term.scroll_up(count);
+    }
+    fn scroll_down(&mut self, count: usize) {
+        *self.history_dirty = true;
+        self.term.scroll_down(count);
+    }
+    fn insert_blank_lines(&mut self, count: usize) {
+        *self.history_dirty = true;
+        self.term.insert_blank_lines(count);
+    }
+    fn delete_lines(&mut self, count: usize) {
+        *self.history_dirty = true;
+        self.term.delete_lines(count);
+    }
+    fn reverse_index(&mut self) {
+        *self.history_dirty = true;
+        self.term.reverse_index();
+    }
+    fn reset_state(&mut self) {
+        *self.history_dirty = true;
+        self.term.reset_state();
+    }
+    fn set_private_mode(&mut self, mode: PrivateMode) {
+        *self.history_dirty |= matches!(mode.raw(), 3 | 47 | 1047 | 1049);
+        self.term.set_private_mode(mode);
+    }
+    fn unset_private_mode(&mut self, mode: PrivateMode) {
+        *self.history_dirty |= matches!(mode.raw(), 3 | 47 | 1047 | 1049);
+        self.term.unset_private_mode(mode);
+    }
+
     forward! {
         set_title(title: Option<String>);
         set_cursor_style(style: Option<CursorStyle>);
         set_cursor_shape(shape: CursorShape);
-        input(c: char);
         goto(line: i32, col: usize);
         goto_line(line: i32);
         goto_col(col: usize);
@@ -61,15 +107,9 @@ impl Handler for Mirror<'_> {
         put_tab(count: u16);
         backspace();
         carriage_return();
-        linefeed();
         bell();
         substitute();
-        newline();
         set_horizontal_tabstop();
-        scroll_up(count: usize);
-        scroll_down(count: usize);
-        insert_blank_lines(count: usize);
-        delete_lines(count: usize);
         erase_chars(count: usize);
         delete_chars(count: usize);
         move_backward_tabs(count: u16);
@@ -79,14 +119,10 @@ impl Handler for Mirror<'_> {
         clear_line(mode: LineClearMode);
         clear_tabs(mode: TabulationClearMode);
         set_tabs(interval: u16);
-        reset_state();
-        reverse_index();
         terminal_attribute(attr: Attr);
         set_mode(mode: Mode);
         unset_mode(mode: Mode);
         report_mode(mode: Mode);
-        set_private_mode(mode: PrivateMode);
-        unset_private_mode(mode: PrivateMode);
         report_private_mode(mode: PrivateMode);
         set_scrolling_region(top: usize, bottom: Option<usize>);
         set_keypad_application_mode();

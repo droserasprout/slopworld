@@ -22,6 +22,7 @@ mod tasks;
 mod workers;
 mod worktrees;
 pub(crate) use worktrees::WorktreeRequest;
+pub(crate) use worktrees::WorktreeViewCache;
 
 pub(crate) use config_state::ConfigState;
 pub(crate) use signals::Signals;

@@ -148,6 +148,7 @@ pub struct SessionEmu {
     rows: u16,
     side: Arc<Mutex<Side>>,
     render_cache: RenderCache,
+    history_extent_cache: Option<u32>,
 }
 
 const TMUX_TITLE_MAX: usize = 512;
@@ -176,6 +177,7 @@ impl SessionEmu {
             rows,
             side,
             render_cache: RenderCache::new(),
+            history_extent_cache: None,
         }
     }
 
@@ -245,13 +247,18 @@ impl SessionEmu {
 
     fn feed_plain(&mut self, bytes: &[u8]) {
         if !bytes.is_empty() {
+            let mut history_dirty = false;
             self.parser.advance(
                 &mut handler::Mirror {
                     term: &mut self.term,
                     cache: &mut self.render_cache,
+                    history_dirty: &mut history_dirty,
                 },
                 bytes,
             );
+            if history_dirty {
+                self.history_extent_cache = None;
+            }
         }
     }
 
@@ -295,7 +302,10 @@ impl SessionEmu {
             .saturating_sub(self.term.screen_lines())
     }
 
-    fn history_extent(&self) -> u32 {
+    fn history_extent(&mut self) -> u32 {
+        if let Some(extent) = self.history_extent_cache {
+            return extent;
+        }
         // Inline TUIs can scroll untouched top padding into history while inserting
         // their first header (Codex uses a short DECSTBM region plus a leading LF).
         // Keep the VT grid intact, but don't offer that empty prefix as scrollback.
@@ -308,7 +318,9 @@ impl SessionEmu {
         {
             extent -= 1;
         }
-        extent.min(u32::MAX as usize) as u32
+        let extent = extent.min(u32::MAX as usize) as u32;
+        self.history_extent_cache = Some(extent);
+        extent
     }
 
     pub fn resize(&mut self, cols: u16, rows: u16) {
@@ -319,6 +331,7 @@ impl SessionEmu {
         self.cols = cols;
         self.rows = rows;
         self.render_cache.invalidate();
+        self.history_extent_cache = None;
         self.term.resize(Dims {
             cols: cols as usize,
             rows: rows as usize,
