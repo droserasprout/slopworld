@@ -60,7 +60,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY --from=build --chmod=755 /build/slopd/target/release/slopd /usr/local/bin/slopd
 COPY --from=build --chmod=755 /build/slopd/target/release/slopctl /usr/local/bin/slopctl
 
-# The node base ships its own uid-1000 `node` user; drop it so `slop` can claim uid 1000.
+# The node base contains a `node` user with UID 1000.
+# Remove that user so the `slop` user can use UID 1000.
 RUN userdel --remove node \
     && useradd --create-home --uid 1000 --shell /bin/bash slop \
     && install -d -o slop -g slop -m 0700 \

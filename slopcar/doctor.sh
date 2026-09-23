@@ -13,9 +13,9 @@ if [ -z "$resolver" ]; then
     exit 1
 fi
 
-# Recreate this system's own top-level lib/bin entries, matching slopd's sandbox skeleton. Read
-# from the host rather than hardcoded because Arch keeps libraries flat in /usr/lib while Debian's
-# multiarch tree reaches the loader through /lib64 on amd64 and has no /lib64 on arm64.
+# Recreate the host's top-level library and binary entries in the sandbox skeleton.
+# Read the entries from the host because Linux distributions use different library layouts.
+# For example, Arch uses /usr/lib. Debian can use /lib64 on amd64 but not on arm64.
 set --
 for link in /lib /lib64 /bin /sbin; do
     if [ -L "$link" ]; then
@@ -56,4 +56,4 @@ pasta \
 tmux -L "$socket" new-session -d -s doctor -- /usr/bin/sleep 5
 tmux -L "$socket" has-session -t doctor
 
-echo "slopcar doctor: bwrap + pasta + tmux passed; resolver $resolver"
+echo "slopcar doctor: bwrap + pasta + tmux passed. Resolver: $resolver"

@@ -2,7 +2,7 @@ syntax = "proto3";
 package slopworld;
 option csharp_namespace = "SlopWorld.Wire";
 
-// Field numbers are permanent. Reserve removed fields; never reuse their numbers.
+// Field numbers are permanent. Reserve each number when you remove its field. Never reuse a reserved number.
 message Daemon {
   string bind = 1;
   string token = 2;
