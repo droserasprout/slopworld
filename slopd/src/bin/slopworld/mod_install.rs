@@ -19,21 +19,21 @@ usage:
   slopworld mod install --source MOD_SOURCE --mods GAME_MODS
   slopworld mod uninstall --mods GAME_MODS
 
-The destination is always GAME_MODS/SlopWorld. Existing destination content is replaced
-only after the new copy has completed in a temporary sibling directory.
+The installer always writes to GAME_MODS/SlopWorld. It replaces existing content only
+after it completes a new copy in a temporary sibling directory.
 ";
 
 const INSTALL_USAGE: &str = "usage:
   slopworld mod install --source MOD_SOURCE --mods GAME_MODS
 
-The destination is always GAME_MODS/SlopWorld. Existing destination content is replaced
-only after the new copy has completed in a temporary sibling directory.
+The installer always writes to GAME_MODS/SlopWorld. It replaces existing content only
+after it completes a new copy in a temporary sibling directory.
 ";
 
 const UNINSTALL_USAGE: &str = "usage:
   slopworld mod uninstall --mods GAME_MODS
 
-The destination is always GAME_MODS/SlopWorld.
+The installer always writes to GAME_MODS/SlopWorld.
 ";
 
 pub(crate) fn try_run(args: &[String]) -> Result<Option<String>, String> {

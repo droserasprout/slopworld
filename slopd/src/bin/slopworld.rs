@@ -1,4 +1,6 @@
-//! Creates an isolated profile and waits for the game so slopd can track its argv[0] and lifetime; execing would evade restart detection and allow a second game.
+//! Create an isolated profile and wait for the game to exit.
+//! Keeping the launcher process lets slopd track its argv[0] and lifetime.
+//! Replacing the launcher with the game would prevent restart detection and could allow a second game process.
 
 use std::collections::hash_map::DefaultHasher;
 use std::ffi::OsStr;
@@ -14,8 +16,8 @@ use nix::fcntl::{Flock, FlockArg};
 #[path = "slopworld/mod_install.rs"]
 mod mod_install;
 
-/// Written by us, read by the mod. Its content is for a human reading the folder;
-/// only its existence is a promise.
+/// The launcher writes this marker for the mod to detect.
+/// Only the file's existence controls detection. Its contents explain the profile to users.
 const MARKER: &str = "slopworld.profile";
 
 /// The two mods a profile starts with, in load order.
@@ -23,8 +25,8 @@ const CORE: &str = "ludeon.rimworld";
 const SLOPWORLD: &str = "drsr.slopworld";
 const SIDECAR_UI_SETTINGS: &str = "uiScheme = \"slopworld-warm\"\n";
 
-/// Stated rather than discovered, so a DLC the player owns is *known* and the game never
-/// opens the "you have a new expansion" page over a colony of agents. 1.6's list.
+/// List RimWorld 1.6 expansions explicitly so the game treats owned DLC as known.
+/// This prevents the new-expansion dialog from interrupting an agent colony.
 const EXPANSIONS: [&str; 5] = [
     "ludeon.rimworld.royalty",
     "ludeon.rimworld.ideology",
@@ -35,8 +37,8 @@ const EXPANSIONS: [&str; 5] = [
 
 const EXE: &str = "RimWorldLinux";
 
-/// The popup/OpenGL combination lets the mod manage fullscreen through the X11 window
-/// manager instead of Unity's Linux fullscreen path, which can freeze during Alt+Tab.
+/// Use popup-window mode and OpenGL so the mod can manage fullscreen through the X11 window manager.
+/// Unity's Linux fullscreen mode can freeze during Alt+Tab.
 const DEFAULT_GAME_ARGS: &[&str] = &["-popupwindow", "-screen-fullscreen", "0", "-force-opengl"];
 
 const USAGE: &str = "\
@@ -103,8 +105,8 @@ fn run() -> Result<ExitCode, String> {
 
     let profile = profile_dir(args.profile.as_deref())?;
 
-    // The game splits this argument on `=` into exactly two halves, so a path with one in it
-    // arrives as a folder the game never heard of and a profile silently not used.
+    // The game expects exactly one `=` in this argument.
+    // An additional `=` in the path prevents the game from using the requested profile.
     if profile.to_string_lossy().contains('=') {
         return Err(format!(
             "the profile path contains '=', which the game's own -savedatafolder cannot carry: {}",
@@ -126,27 +128,26 @@ fn run() -> Result<ExitCode, String> {
         args.mods.as_deref(),
     )?;
 
-    // Listing a mod that is not on disk is how a profile comes up looking vanilla:
-    // the game drops the id, writes the shorter list back, and nothing says why.
+    // The game removes missing mods from the saved mod list without explaining the change.
+    // Check the installation before starting the game.
     let installed = mods.join("SlopWorld/About/About.xml");
     if !installed.is_file() {
         return Err(format!(
-            "the mod is not installed in this game: {} is missing (make install-mod)",
+            "SlopWorld is missing from this game's mod directory: {}. Run `make install-mod`.",
             installed.display()
         ));
     }
 
-    // One launcher owns a given SlopWorld profile and its daemon-facing game process. The lock
-    // is keyed on the profile, so a native game and a sidecar game — each with its own save
-    // folder — run side by side, while two launchers for the same profile still collide.
-    // Acquire this before checking/spawning so two of them cannot pass the process check at
-    // once. The kernel releases it if the owner crashes.
+    // One launcher owns each SlopWorld profile and its game process.
+    // A separate lock for each profile permits concurrent native and sidecar games with different save folders.
+    // Acquire the lock before checking or starting processes to prevent concurrent launches for the same profile.
+    // The kernel releases the lock if its owner crashes.
     let _instance = InstanceLock::acquire(&launcher_lock_path(&profile))?;
 
     if !args.print {
         if let Some(pid) = game_process_running(&profile)? {
             return Err(format!(
-                "the game is already running as PID {pid}; refusing to launch a second copy"
+                "The game is already running as PID {pid}. Refusing to launch a second copy."
             ));
         }
     }
@@ -176,8 +177,8 @@ fn run() -> Result<ExitCode, String> {
         command.current_dir(working_dir);
     }
     if let Some(sidecar) = &sidecar {
-        // The Makefile may receive a literal `~`; the game/mod does not perform shell
-        // expansion, so pass the resolved path to the child process.
+        // The Makefile can receive a literal `~`. Neither the game nor the mod expands shell paths.
+        // Pass the resolved path to the child process.
         command.env("SLOPD_ENDPOINT", &sidecar.endpoint);
     }
     let status = command
@@ -185,7 +186,7 @@ fn run() -> Result<ExitCode, String> {
         .status()
         .map_err(|e| format!("launching {}: {e}", argv[0]))?;
 
-    // A signalled game has no exit code; something died, so neither do we succeed.
+    // Report failure if a signal terminates the game without an exit code.
     Ok(match status.code() {
         Some(c) => ExitCode::from(c.clamp(0, 255) as u8),
         None => ExitCode::FAILURE,
@@ -236,9 +237,9 @@ impl InstanceLock {
     }
 }
 
-/// The launcher lock is keyed on the profile so a native game and a sidecar game — each pinned
-/// to its own `-savedatafolder` — never falsely block one another, while two launchers for the
-/// *same* profile still collide on one file.
+/// Use a separate launcher lock for each profile.
+/// Native and sidecar games with different save folders can run concurrently.
+/// Launchers for the same profile share one lock.
 fn launcher_lock_path(profile: &Path) -> PathBuf {
     let root = option_env_nonempty("XDG_RUNTIME_DIR")
         .map(PathBuf::from)
@@ -253,9 +254,9 @@ fn lock_file_name(profile: &Path) -> String {
     format!("launcher-{:016x}.lock", hasher.finish())
 }
 
-/// A stable key for a profile path. Canonicalize once the folder exists, so two spellings of one
-/// profile share a lock; before the profile is seeded that fails, so fall back to the absolute
-/// path `profile_dir` already produced.
+/// Return a stable key for a profile path.
+/// Resolve existing paths so aliases for one profile share a lock.
+/// Otherwise, normalize the absolute path from `profile_dir`.
 fn canonical_key(profile: &Path) -> String {
     std::fs::canonicalize(profile)
         .unwrap_or_else(|_| lexical_normalize(profile))
@@ -263,8 +264,8 @@ fn canonical_key(profile: &Path) -> String {
         .into_owned()
 }
 
-/// Normalize `.` and `..` without requiring the profile to exist. `profile_dir` makes this path
-/// absolute, so a leading parent can never escape beyond its root.
+/// Normalize `.` and `..` even when the profile does not exist.
+/// `profile_dir` supplies an absolute path, so parent components cannot escape the filesystem root.
 fn lexical_normalize(path: &Path) -> PathBuf {
     let mut out = PathBuf::new();
     for component in path.components() {
@@ -279,7 +280,7 @@ fn lexical_normalize(path: &Path) -> PathBuf {
     out
 }
 
-/// The save folder a RimWorld argv is pinned to, if it carries our `-savedatafolder=` flag.
+/// Return the save folder from the `-savedatafolder=` argument, if present.
 fn savedatafolder_of(cmdline: &[u8]) -> Option<PathBuf> {
     cmdline
         .split(|byte| *byte == 0)
@@ -287,8 +288,9 @@ fn savedatafolder_of(cmdline: &[u8]) -> Option<PathBuf> {
         .find_map(|arg| arg.strip_prefix("-savedatafolder=").map(PathBuf::from))
 }
 
-/// Whether two profile paths name the same save folder. Canonicalize when both resolve, so a
-/// symlinked or `..`-laden spelling still matches; otherwise compare the paths literally.
+/// Check whether two profile paths name the same save folder.
+/// Resolve both paths to account for symlinks and parent components.
+/// If either resolution fails, compare the original paths.
 fn same_profile(a: &Path, b: &Path) -> bool {
     match (std::fs::canonicalize(a), std::fs::canonicalize(b)) {
         (Ok(a), Ok(b)) => a == b,
@@ -296,11 +298,10 @@ fn same_profile(a: &Path, b: &Path) -> bool {
     }
 }
 
-/// The lock stops SlopWorld launchers racing each other. This second guard also covers a game
-/// started outside the launcher, which cannot hold our lock. It is scoped to our profile: a
-/// RimWorld pinned to a *different* `-savedatafolder` is another mode and may run beside us.
-/// Fail closed otherwise — an identified game whose folder we cannot read, like an unreadable
-/// `/proc`, is exactly the outside-the-launcher case, and a second copy is worse than a refusal.
+/// Check for games started outside the launcher, which do not hold the launcher lock.
+/// A game with a different save folder can run concurrently.
+/// Prevent another launch if an existing game's save folder is unknown or unreadable.
+/// Also prevent a launch if process inspection fails.
 #[cfg(target_os = "linux")]
 fn game_process_running(profile: &Path) -> Result<Option<u32>, String> {
     let entries = std::fs::read_dir("/proc")
@@ -330,8 +331,8 @@ fn game_process_running(profile: &Path) -> Result<Option<u32>, String> {
             continue;
         }
 
-        // Ours only if it is pinned to the same save folder. A different profile is another
-        // mode and may coexist; an absent or unreadable folder stays fail-closed.
+        // Permit concurrent games with different save folders.
+        // Prevent another launch if the save folder matches, is absent, or is unreadable.
         match std::fs::read(entry.path().join("cmdline")) {
             Ok(bytes) => match savedatafolder_of(&bytes) {
                 Some(other) if !same_profile(&other, profile) => continue,
@@ -345,8 +346,7 @@ fn game_process_running(profile: &Path) -> Result<Option<u32>, String> {
     Ok(None)
 }
 
-/// The exe name as the process itself reports it in argv[0], for when `/proc/<pid>/exe` is not
-/// readable but the command line is.
+/// Check the executable name in argv[0] when `/proc/<pid>/exe` is unreadable but the command line is available.
 #[cfg(target_os = "linux")]
 fn argv0_is_game(cmdline: &[u8]) -> bool {
     let argv0 = cmdline.split(|byte| *byte == 0).next().unwrap_or_default();
@@ -370,13 +370,13 @@ struct Args {
     reset: bool,
     print: bool,
     no_window_fix: bool,
-    /// Passed on untouched.
+    /// Game arguments to forward without changes.
     rest: Vec<String>,
 }
 
-/// `Ok(None)` is `--help`. Ours are all `--long` and the game's all `-single`, which is what
-/// makes an unknown `--word` a typo worth refusing rather than something to forward; a game
-/// argument that really is double-dashed goes after `--`.
+/// Return `Ok(None)` for a help request.
+/// Reject unknown options with two leading hyphens to detect incorrect launcher options.
+/// Put game arguments with two leading hyphens after `--` to forward them.
 fn parse(args: &[String]) -> Result<Option<Args>, String> {
     let mut out = Args::default();
     let mut it = args.iter();
@@ -420,8 +420,9 @@ fn parse(args: &[String]) -> Result<Option<Args>, String> {
     Ok(Some(out))
 }
 
-/// The named one first, then the places a Linux RimWorld is actually installed. A wrong
-/// `--game` or env var is an error naming it, where a guess that misses just moves on.
+/// Check an explicit game directory before standard Linux installation paths.
+/// Report an error for an invalid `--game` or environment value.
+/// Skip missing standard paths.
 fn game_dir(explicit: Option<&str>) -> Result<PathBuf, String> {
     if let Some(dir) = explicit.or(option_env_nonempty("SLOPWORLD_GAME").as_deref()) {
         let dir = PathBuf::from(expand(dir));
@@ -445,7 +446,7 @@ fn game_dir(explicit: Option<&str>) -> Result<PathBuf, String> {
         }
     }
     Err(format!(
-        "no RimWorld found; looked in {}. Pass --game DIR or set SLOPWORLD_GAME.",
+        "slopworld could not find RimWorld in {}. Pass --game DIR or set SLOPWORLD_GAME.",
         guesses.join(", ")
     ))
 }
@@ -495,8 +496,8 @@ fn game_target(
     Ok((executable, mods))
 }
 
-/// XDG, because a profile is state rather than config: it is saves, screenshots and
-/// a mod list, and none of it is worth backing up with your dotfiles.
+/// Use the XDG data directory by default for profile state.
+/// A profile contains saved games, screenshots, and a mod list.
 fn profile_dir(explicit: Option<&str>) -> Result<PathBuf, String> {
     profile_dir_from(
         explicit,
@@ -520,8 +521,8 @@ fn profile_dir_from(
             None => PathBuf::from(expand("~/.local/share/slopworld/profile")),
         },
     };
-    // The game resolves a relative path against its own working directory, so a profile named
-    // `./p` is a different folder depending on where you stood when you typed it.
+    // Resolve relative profile paths against the launcher's working directory.
+    // Otherwise, the game would resolve them against its own working directory.
     if dir.is_relative() {
         return std::env::current_dir()
             .map(|cwd| cwd.join(&dir))
@@ -534,9 +535,8 @@ struct SidecarPaths {
     endpoint: PathBuf,
 }
 
-/// `SLOPCAR_PROFILE` marks a launcher invocation as the native game's sidecar companion. Keep
-/// endpoint validation here with the profile setup so callers do not need shell glue before
-/// starting RimWorld.
+/// `SLOPCAR_PROFILE` selects sidecar integration for the native game.
+/// Validate the endpoint during profile setup so callers do not need a separate shell check.
 fn sidecar_paths() -> Result<Option<SidecarPaths>, String> {
     sidecar_paths_from(
         option_env_nonempty("SLOPCAR_PROFILE").as_deref(),
@@ -555,7 +555,7 @@ fn sidecar_paths_from(
     let endpoint = endpoint
         .map(|path| PathBuf::from(expand(path)))
         .ok_or_else(|| {
-            "SLOPCAR_PROFILE is set but SLOPD_ENDPOINT is missing; start the sidecar first"
+            "SLOPCAR_PROFILE is set, but SLOPD_ENDPOINT is missing. Start the sidecar first."
                 .to_string()
         })?;
     if !endpoint.is_file() {
@@ -568,8 +568,8 @@ fn sidecar_paths_from(
     Ok(Some(SidecarPaths { endpoint }))
 }
 
-/// Creates what is missing and leaves the rest, `--reset` being the one way to lose an edited
-/// mod list. The marker is restored either way.
+/// Create missing profile files. Preserve existing files unless `--reset` requests replacement of the mod list.
+/// Restore a missing marker with or without `--reset`.
 fn seed(profile: &Path, reset: bool, sidecar: bool) -> Result<(), String> {
     let config = profile.join("Config");
     std::fs::create_dir_all(&config).map_err(|e| format!("creating {}: {e}", config.display()))?;
@@ -609,9 +609,8 @@ fn marker_text(profile: &Path) -> String {
     )
 }
 
-/// No `<version>`: the game compares one only when the field is there, and a mismatch makes
-/// it throw the whole list away and start again with every expansion on. Absent, the list is
-/// taken as written and stamped the first time the game writes it back.
+/// Omit `<version>` to prevent a version mismatch from resetting the mod list and enabling every expansion.
+/// Without this field, the game uses the supplied list and adds the version when saving it.
 fn mods_config_xml() -> String {
     let mut s = String::from("<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<ModsConfigData>\n");
     s.push_str("  <activeMods>\n");
@@ -647,8 +646,8 @@ fn option_env_nonempty(key: &str) -> Option<String> {
     std::env::var(key).ok().filter(|v| !v.trim().is_empty())
 }
 
-/// The same leading `~/` a config path gets, because these arrive from a shell that
-/// may not have expanded them - an env var in a unit file never does.
+/// Expand a leading `~/` as for configuration paths.
+/// Shell expansion might not occur before these paths reach the launcher, such as in unit-file environment values.
 fn expand(path: &str) -> String {
     match path.strip_prefix("~/") {
         Some(rest) => match dirs::home_dir() {

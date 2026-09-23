@@ -22,7 +22,7 @@ fn a_value_comes_inline_or_after() {
     assert_eq!(parsed(&["--profile=/p"]).profile.as_deref(), Some("/p"));
 }
 
-/// The game's own flags are single-dashed, so they need no ceremony.
+/// Forward game flags with one leading hyphen without requiring a separator.
 #[test]
 fn the_games_arguments_are_passed_through() {
     let a = parsed(&["-popupwindow", "-force-opengl"]);
@@ -60,7 +60,7 @@ fn the_window_fix_can_be_disabled() {
     );
 }
 
-/// A typo forwarded to the game is a profile that silently was not used.
+/// Reject an incorrect launcher option instead of forwarding it to the game.
 #[test]
 fn an_unknown_long_option_is_a_mistake_rather_than_a_game_argument() {
     let owned = vec!["--profil".to_string(), "/p".to_string()];
@@ -158,8 +158,7 @@ fn seeding_writes_a_marker_and_a_mod_list() {
     std::fs::remove_dir_all(&p).ok();
 }
 
-/// The game throws a versioned list away when the version is not its own, and
-/// what it starts again with has every expansion in it.
+/// Omit the version to prevent the game from resetting a mismatched mod list and enabling every expansion.
 #[test]
 fn the_mod_list_states_no_version() {
     assert!(!mods_config_xml().contains("<version>"));
@@ -218,8 +217,7 @@ fn launcher_lock_rejects_a_second_owner_and_reopens_after_drop() {
     }
 }
 
-/// A profile made before the marker existed is still a profile, and the mod's
-/// whole check is that file being there.
+/// Restore a missing marker in an existing profile so the mod can detect the profile.
 #[test]
 fn a_missing_marker_is_put_back() {
     let p = scratch("marker");

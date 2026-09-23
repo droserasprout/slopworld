@@ -85,8 +85,8 @@ pub(crate) fn print_status(v: &Value) {
     }
 }
 
-/// How long ago, in the coarsest unit that still says something. An inbox is read to find what
-/// has been sitting, so hours and days are the answer; the exact second never is.
+/// Format the elapsed time since a timestamp for the inbox.
+/// Use the largest whole unit available: days, hours, minutes, or seconds.
 pub(crate) fn age(ms: u64) -> String {
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
