@@ -130,6 +130,7 @@ namespace UnityEngine
     public static class Time
     {
         public static float realtimeSinceStartup;
+        public static double realtimeSinceStartupAsDouble;
         public static int frameCount;
     }
 }

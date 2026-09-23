@@ -12,6 +12,7 @@ The project file lists linked sources and
 
 Coverage includes settings persistence and drafts, TOML and Protobuf wire models, terminal
 parsing/history, transport buffering and reconnects, session rename reconciliation,
+task-board polling, mutations and serialized cancellation/removal batches,
 pager lifecycle, and pure layout/repaint policies. The test project links `Pager` and `Sgr` directly.
 Their external dependencies use test substitutes. `HubCatalogTests` and transport tests
 control callback order to exercise stale replies and lifecycle changes.
