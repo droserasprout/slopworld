@@ -104,7 +104,7 @@ namespace SlopWorld
                 text.Append(';');
             }
             MemoryTrace.Append(text, now);
-            Log.Message(text.ToString());
+            TerminalLatencyFrame.WriteRecord(text.ToString());
             Samples.Clear();
         }
 

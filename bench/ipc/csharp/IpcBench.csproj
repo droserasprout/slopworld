@@ -8,4 +8,5 @@
     <Compile Include="../../../mod/Source/SlopWorld/Client/Transport/ReceivedEvent.cs" />
     <Compile Include="../../../mod/Source/SlopWorld/Client/SessionHub/HubEventBatch.cs" />
   </ItemGroup>
+  <ItemGroup><Compile Include="../../../mod/Source/SlopWorld/Client/Daemon/TerminalLatency.cs" /></ItemGroup>
 </Project>

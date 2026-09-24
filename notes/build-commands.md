@@ -11,13 +11,14 @@ Language test targets run only their own suite.
 Make owns target dependencies and exports settings from `make/config.mk` to the
 maintenance scripts in `tools/`. Keep multi-step shell logic there.
 
-The shared C# formatter covers mod production, test, and IPC benchmark sources.
+The shared C# formatter covers mod production and test sources plus C# benchmark
+sources under `bench/`.
 `make ci` runs this check without the game. The formatter excludes generated client bindings and build output.
 
 The mod SDK project owns compiler settings, references and assembly metadata. Make
 passes the configuration, game assembly path and daemon version. NuGet restores
 locked .NET Framework reference assemblies.
-Only IPC benchmarks need Mono.
+IPC benchmarks and the terminal-input HTTP regression need Mono.
 Game references must keep `Private=false`: RimWorld loads every DLL in `Assemblies/`.
 
 `test.yml` owns game-free checks for branch pushes, pull requests and manual runs.
@@ -48,9 +49,23 @@ Adding a shipped top-level directory requires updating
 
 The native daemon service prepends `~/.local/bin` to its inherited PATH so agents use the
 CLI installed by `make install-daemon`. Existing agents retain their launch environment.
-The installer compares both the running binary and installed unit before skipping restart.
+The installer compares both the running binary and effective installed unit before skipping restart.
+Tracing stays opt-in: prefix `make devloop` with `SLOPWORLD_DEBUG=1 SLOPWORLD_LATENCY=1`
+for a capture. The installer materializes explicit values in the service unit because
+systemd does not inherit the installing shell environment; later installs without
+overrides restore the shipped unit.
 
 `make bench-report` records three-run medians and between-run ranges, including Mono/CoreCLR/Rust IPC metrics.
 Use `BENCH_REPORT_OUTPUT=notes/perf-suite-comparison.md` to retain an existing report during comparisons.
 Raw runs remain local and ignored. Commit only processed reports supporting a concrete comparison.
 `python3 tools/loc-report.py` creates a count snapshot on request. Keep reports only when they support a concrete comparison.
+
+The terminal-input benchmark runner, helpers, tests and reports live under
+`../bench/terminal-input/`. The runner uses its default suite and artifact paths when
+invoked directly. See [terminal latency tracing](terminal-latency.md) for the workflow.
+
+History preparation checks the pane limit against `SCROLLBACK_LINES`, then emits
+that many rows plus the viewport and settles outside the measured interval. tmux
+can trim history in chunks; its current retained-row count is not the emulator's
+history capacity. The fixture targets capacity by emitted lines, not by polling
+Unity's view. Its private completion file requires a local host shell.

@@ -82,6 +82,7 @@ pub struct SessionView {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct ScreenView {
+    pub input_timings: Vec<crate::shared::wire::InputTiming>,
     pub name: String,
     pub seq: u64,
     pub cols: u16,
@@ -134,6 +135,7 @@ impl ScreenView {
             request_id,
         } = args;
         Self {
+            input_timings: Vec::new(),
             name: name.to_string(),
             seq,
             cols,

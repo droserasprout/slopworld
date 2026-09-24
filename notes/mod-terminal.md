@@ -28,3 +28,16 @@ It sends Shift+semicolon as a colon. Flush ordinary text before it sends semicol
 See [history](mod-terminal-history-warmup.md) for scroll-cache requirements.
 See [rendering](mod-terminal-rendering.md) for damage, fonts, and links.
 See [daemon capture](daemon-session-state.md) for terminal bytes and query responses.
+
+With latency tracing enabled, SmoothScroll's movement observer timestamps consumed
+history input before position changes, including precise input on non-wheel passes.
+Only a ready view repaint completes it; replaced movement is superseded, clamped
+movement is no-motion, and legacy wheel duplicates are deduplicated without
+cancelling precise samples. Panel release cancels pending observations. Precise
+X11 movement is accumulated per frame, not correlated per physical wheel notch.
+These are local client measurements, not tmux or presentation timestamps.
+
+On GNOME with `DISPLAY`, daemon clipboard operations use `xclip`/`xsel` through
+XWayland's clipboard bridge. They must not fall back to `wl-clipboard`: its
+focus-acquiring helper surface can interrupt paste input. Missing X11 tools are
+reported as a dependency error. Other desktops retain the Wayland-first order.

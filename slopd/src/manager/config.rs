@@ -111,6 +111,7 @@ impl Live {
             reader: None,
             reader_token: None,
             input: None,
+            input_traces: Default::default(),
             breadcrumbs: Vec::new(),
             breadcrumbs_pending: false,
             auto_resume_pending: false,

@@ -1,4 +1,4 @@
-"""Capture future PerfTrace records without changing the running game's state."""
+"""Capture future performance and latency records without changing the running game's state."""
 
 import argparse
 import datetime
@@ -36,13 +36,13 @@ def main():
                     raise RuntimeError("The game log was replaced or truncated. Repeat the capture after startup.")
                 time.sleep(0.1)
                 continue
-            if "[SlopWorld] perf " in line:
+            if "[SlopWorld] perf " in line or "[SlopWorld] latency " in line:
                 output.write(line)
                 output.flush()
                 count += 1
-    print(f"Captured {count} perf records to {args.output}")
+    print(f"Captured {count} trace records to {args.output}")
     if count == 0:
-        print("No trace data: restart the game with SLOPWORLD_DEBUG=1 and repeat.")
+        print("No trace data: start with SLOPWORLD_DEBUG=1 or SLOPWORLD_LATENCY=1 and repeat.")
         return 1
     return 0
 

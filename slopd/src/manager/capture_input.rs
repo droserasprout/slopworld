@@ -8,10 +8,25 @@ impl Manager {
     pub(crate) async fn queue_input(self: &Arc<Self>, name: &str, item: Input) {
         // One consumer preserves ordering across keys, mouse reports, and paste.
         let mut spawn_rx = None;
-        let mut item = Some(item);
+        let trace = crate::latency::CURRENT
+            .try_with(Clone::clone)
+            .ok()
+            .flatten();
+        let mut item = Some(if let Some(trace) = &trace {
+            if matches!(item, Input::Gap(_)) {
+                item
+            } else {
+                Input::Traced(Box::new(item), vec![trace.clone()])
+            }
+        } else {
+            item
+        });
         {
             let mut live = self.live.write().await;
             if let Some(l) = live.get_mut(name) {
+                if let Some(trace) = trace {
+                    l.input_traces.add(l.run_id, trace);
+                }
                 if l.input.as_ref().is_some_and(|tx| tx.is_closed()) {
                     l.input = None;
                 }
@@ -82,7 +97,17 @@ impl Manager {
     }
 
     pub(crate) async fn send_input(tmux: &Tmux, name: &str, item: Input) {
+        let (item, trace) = match item {
+            Input::Traced(item, traces) => {
+                for trace in &traces {
+                    trace.dispatch();
+                }
+                (*item, traces)
+            }
+            other => (other, Vec::new()),
+        };
         let (what, res) = match item {
+            Input::Traced(..) => unreachable!("trace wrappers are never nested"),
             Input::Keys { keys, literal } => ("keys", tmux.send_keys(name, &keys, literal).await),
             Input::Bytes(b) => ("bytes", tmux.send_bytes(name, &b).await),
             Input::Paste { bytes } => ("paste", tmux.paste_bytes(name, &bytes).await),
@@ -91,6 +116,9 @@ impl Manager {
                 return;
             }
         };
+        for trace in trace {
+            trace.done(res.is_ok());
+        }
         if let Err(e) = res {
             if what == "paste" {
                 tracing::warn!("paste to {name}: {e:#}");

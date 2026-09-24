@@ -176,6 +176,7 @@ fn a_scoped_grant_with_no_matches_gets_an_empty_list() {
 fn screens_require_a_live_grant_for_the_named_session() {
     let cap = scoped(&["a"], Level::Ro);
     let screen = ScreenView {
+        input_timings: Vec::new(),
         name: "a".to_string(),
         seq: 1,
         cols: 80,
@@ -338,6 +339,7 @@ async fn receive(client: &mut ClientSocket) -> crate::shared::wire::event::Paylo
 
 fn screen(name: &str, seq: u64) -> ScreenView {
     ScreenView {
+        input_timings: Vec::new(),
         name: name.into(),
         seq,
         cols: 80,
@@ -582,4 +584,33 @@ async fn auth_changes_ignore_unrelated_credentials_but_close_on_revocation_or_lo
     drop(events);
     while rx.try_recv().is_ok() {}
     assert!(auth_invalidated(&mut rx, &Cap::Root).await); // closed
+}
+
+#[tokio::test]
+async fn latency_stamp_is_per_send_without_mutating_shared_frame() {
+    use crate::shared::wire::event::Payload;
+    let mut socket = socket_pair().await;
+    let mut frame = screen("a", 3);
+    frame.input_timings.push(crate::shared::wire::InputTiming {
+        id: "0123456789abcdef0123456789abcdef".into(),
+        received_us: 1,
+        tmux_us: 1,
+        first_capture_us: 1,
+        capture_us: 1,
+        first_seq: 2,
+        ..Default::default()
+    });
+    let event = EventMessage::new(Event::Screen { screen: frame });
+    let cached = event.encoded().unwrap();
+    send(&socket.tx, &Cap::Root, &event).await.unwrap();
+    let Payload::Screen(sent) = receive(&mut socket.client).await else {
+        panic!("screen")
+    };
+    assert!(sent.input_timings[0].send_us >= sent.input_timings[0].capture_us);
+    assert_eq!(sent.input_timings[0].first_seq, 2);
+    assert_eq!(event.encoded().unwrap().as_ref(), cached.as_ref());
+    let Event::Screen { screen } = event.event() else {
+        panic!("screen")
+    };
+    assert_eq!(screen.input_timings[0].send_us, 0);
 }

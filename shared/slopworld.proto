@@ -157,6 +157,19 @@ message SessionView {
   string worktree_name = 36;
 }
 
+// Diagnostic timestamps use the daemon monotonic clock, never the client clock.
+message InputTiming {
+  string id = 1;
+  uint64 run_id = 2;
+  uint64 received_us = 3;
+  uint64 tmux_us = 4;
+  uint64 tmux_done_us = 5;
+  uint64 first_capture_us = 6;
+  uint64 first_seq = 7;
+  uint64 capture_us = 8;
+  uint64 send_us = 9;
+}
+
 message ScreenView {
   string name = 1;
   uint64 seq = 2;
@@ -174,6 +187,7 @@ message ScreenView {
   string title = 14;
   uint64 request_id = 15;
   repeated string lines = 16;
+  repeated InputTiming input_timings = 17;
 }
 
 message SandboxPreset {
@@ -460,6 +474,7 @@ message AudioSelection {
 message PasteReq {
   optional string name = 1;
   optional string text = 2;
+  optional string trace_id = 3;
 }
 
 message BreadcrumbReq {
@@ -475,6 +490,7 @@ message MouseReq {
   optional uint32 col = 4;
   optional uint32 row = 5;
   optional uint32 count = 6;
+  optional string trace_id = 7;
 }
 
 message ScrollReq {
@@ -488,6 +504,7 @@ message KeysReq {
   repeated string keys = 2;
   optional bool literal = 3;
   repeated string random_tips = 4;
+  optional string trace_id = 5;
 }
 
 message ResizeReq {

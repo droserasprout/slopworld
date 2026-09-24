@@ -410,6 +410,7 @@ async fn retick_moves_a_quiet_working_session_to_idle() {
     live.last_change = 0;
     live.seq = 1;
     live.screen = Some(ScreenView {
+        input_timings: Vec::new(),
         name: "agent".into(),
         seq: 1,
         cols: 80,

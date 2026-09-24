@@ -37,6 +37,10 @@ namespace SlopWorld
             _historyCoordinator = new TerminalHistoryCoordinator(this);
             _input = new TerminalInputController(this);
             _selectionInput = new TerminalSelectionInput(this);
+            if (TerminalLatency.Enabled)
+                _historyScroll.ObserveInput = (before, after, source) =>
+                    TerminalLatency.Timeline.Scroll(this, TerminalLatency.Now(),
+                        Mathf.Abs(after.y - before.y) > 0.01f, source);
         }
 
         public override string Title => _state.Name ?? "Terminal";

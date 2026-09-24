@@ -3,6 +3,7 @@ use crate::shared::wire;
 impl From<&ScreenView> for wire::ScreenView {
     fn from(s: &ScreenView) -> Self {
         Self {
+            input_timings: s.input_timings.clone(),
             name: s.name.clone(),
             seq: s.seq,
             cols: Some(s.cols.into()),

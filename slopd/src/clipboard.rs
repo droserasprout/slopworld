@@ -24,10 +24,9 @@ struct Tool {
     primary_text: &'static [&'static str],
 }
 
-/// Try Wayland first because Xwayland clients also read the compositor clipboard.
-/// X11 tools can access only the Xwayland clipboard.
-/// Do not filter tools by DISPLAY or WAYLAND_DISPLAY.
-/// These variables can be absent in the slopd service even when tools can use platform defaults.
+/// Tool definitions are separate from desktop policy below. GNOME/XWayland
+/// uses its clipboard bridge: wl-clipboard's fallback maps a temporary surface
+/// to obtain focus, interrupting the very terminal receiving the paste.
 const TOOLS: &[Tool] = &[
     Tool {
         copy: &["wl-copy"],
@@ -68,6 +67,22 @@ const TOOLS: &[Tool] = &[
         primary_text: &["xsel", "--primary", "--output"],
     },
 ];
+
+// Keep pure desktop selection testable without mutating process environment.
+fn xwayland_clipboard(desktop: &str, display: &str) -> bool {
+    !display.is_empty()
+        && desktop
+            .split(':')
+            .any(|name| name.eq_ignore_ascii_case("gnome"))
+}
+
+fn tool_order(xwayland: bool) -> &'static [usize] {
+    if xwayland {
+        &[1, 2]
+    } else {
+        &[0, 1, 2]
+    }
+}
 
 /// Check whether a missing executable caused the error.
 /// If so, try the next tool because a host might have only some clipboard tools.
@@ -111,8 +126,13 @@ pub async fn read_primary_text() -> Result<String> {
 /// Send `text` to the tool's stdin for a copy. Use `None` for a paste.
 async fn run(text: Option<&str>, pick: fn(&Tool) -> &'static [&'static str]) -> Result<String> {
     let mut last: Option<anyhow::Error> = None;
-    for tool in TOOLS {
-        let argv = pick(tool);
+    let xwayland = xwayland_clipboard(
+        &std::env::var("XDG_CURRENT_DESKTOP").unwrap_or_default(),
+        &std::env::var("DISPLAY").unwrap_or_default(),
+    );
+    // Never fall back to the focus-stealing Wayland helper on this path.
+    for &index in tool_order(xwayland) {
+        let argv = pick(&TOOLS[index]);
         match tokio::time::timeout(TIMEOUT, one(argv, text)).await {
             Err(_) => last = Some(anyhow::anyhow!("{} timed out", argv[0])),
             Ok(Ok(out)) => return Ok(out),
@@ -125,6 +145,7 @@ async fn run(text: Option<&str>, pick: fn(&Tool) -> &'static [&'static str]) -> 
     }
     match last {
         Some(e) => Err(e),
+        None if xwayland => bail!("GNOME/XWayland clipboard requires xclip or xsel; wl-clipboard can steal terminal focus"),
         None => bail!("no clipboard tool on this host (wl-copy, xclip or xsel)"),
     }
 }

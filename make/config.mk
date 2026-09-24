@@ -19,6 +19,9 @@ FONT_DEST  := $(FONT_DIR)/$(notdir $(FONT_SOURCE))
 LOG        ?= $(HOME)/.config/unity3d/Ludeon Studios/RimWorld by Ludeon Studios/Player.log
 # Save data folder, defaults to `$XDG_DATA_HOME/slopworld/profile`.
 PROFILE    ?=
+# Capture launcher environment overrides before the sidecar Make defaults below.
+trace_profile_env := $(or $(SLOPCAR_PROFILE),$(SLOPWORLD_PROFILE))
+TRACE_LOG ?= $(or $(PROFILE),$(trace_profile_env),$(data_home)/slopworld/profile)/SlopWorld-trace.log
 
 # `sidecar-run` wiring: the sidecar's config dir holds the endpoint descriptor its daemon
 # writes (url http://127.0.0.1:7718 + token, bind-mounted to the host), and the game runs into

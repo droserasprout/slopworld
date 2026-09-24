@@ -67,6 +67,11 @@ namespace SlopWorld
 
         public Vector2 Position => _pos;
 
+        // Observe actual consumed movement, including precise samples consumed on
+        // non-wheel GUI passes. Legacy wheel duplicates must not look like clamps.
+        internal Action<Vector2, Vector2, string> ObserveInput;
+        static bool _claimDuplicate;
+
         // Put the list somewhere with no gesture behind it. A jump to a selected row is not a
         // scroll and should not be animated into one.
         public void JumpTo(Vector2 pos)
@@ -313,7 +318,8 @@ namespace SlopWorld
                 // actual wheel event arrived in this frame. Only suppress Unity when a
                 // scroll view really claimed a non-zero precise sample. Otherwise the
                 // logical event is the input we have to spend.
-                if (PreciseHandled(e.delta))
+                _claimDuplicate = PreciseHandled(e.delta);
+                if (_claimDuplicate)
                 {
                     // XInput already supplied this packet, including any sub-step parts.
                     _claimAmount = Vector2.zero;
@@ -338,9 +344,11 @@ namespace SlopWorld
             _preciseClaim = null;
             _lastPreciseSpentFrame = Time.frameCount;
             _lastPreciseSpentAmount = _preciseAmount;
-            _pos = new Vector2(
+            var next = new Vector2(
                 Mathf.Clamp(_pos.x + _preciseAmount.x, 0f, _max.x),
                 Mathf.Clamp(_pos.y + _preciseAmount.y, 0f, _max.y));
+            ObserveInput?.Invoke(_pos, next, "precise");
+            _pos = next;
             return true;
         }
 
@@ -365,9 +373,11 @@ namespace SlopWorld
             _claim = null;
             _claimHasAmount = false;
             _wheelEvent = null;
-            _pos = new Vector2(
+            var next = new Vector2(
                 Mathf.Clamp(_pos.x + _claimAmount.x, 0f, _max.x),
                 Mathf.Clamp(_pos.y + _claimAmount.y, 0f, _max.y));
+            ObserveInput?.Invoke(_pos, next, _claimDuplicate ? "duplicate" : "wheel");
+            _pos = next;
             e.Use();
             return true;
         }
