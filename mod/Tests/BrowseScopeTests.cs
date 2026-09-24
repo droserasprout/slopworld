@@ -14,18 +14,91 @@ namespace SlopWorld.Tests
             public int ProjectsRevision;
             public readonly List<ProjectInfo> Projects = new List<ProjectInfo> {
                 new ProjectInfo { Id = "p-id", Name = "p", Dir = "/p" } };
-            public readonly List<(string Project, Action<List<BrowseScope>> Reply)> Requests = new List<(string, Action<List<BrowseScope>>)>();
+            public readonly List<(string Project, Action<List<BrowseScope>, string> Reply)> Requests = new List<(string, Action<List<BrowseScope>, string>)>();
             public readonly BrowseScopeCatalog Catalog;
             public Fixture() => Catalog = new BrowseScopeCatalog(p => Filter.Length == 0 || Filter == p,
                 () => Now, (p, done) => Requests.Add((p, done)));
-            public void Update() => Catalog.Update(Projects, ProjectsRevision, Filter, Saved, true, saved => Saved = saved);
+            public void Update(bool menu = false) => Catalog.Update(Projects, ProjectsRevision, Filter, Saved, true, saved => Saved = saved, menu);
             public void Toggle(BrowseScope scope) => Catalog.Toggle(scope, saved => Saved = saved);
-            public void Reply(int index, params BrowseScope[] scopes) => Requests[index].Reply(scopes.ToList());
+            public void Reply(int index, params BrowseScope[] scopes) => Requests[index].Reply(scopes.ToList(), null);
             public void Refresh() { Now += 6; Update(); }
         }
         static BrowseScope Scope(string worktree = "main", string phase = "ready", string path = null) =>
             new BrowseScope { ProjectId = "p-id", Project = "p", Worktree = worktree, Name = worktree,
                 Phase = phase, Path = path ?? "/p/" + worktree };
+
+        public static void SidebarCatalogRequestsIdentifyTheHostCaller()
+        {
+            DaemonClient.Requests.Clear();
+            try
+            {
+                List<BrowseScope> result = null;
+                string error = null;
+                SidebarScopes.Load("project name", (scopes, failure) => { result = scopes; error = failure; });
+                var request = DaemonClient.Requests.Single();
+                Assert.That(request.Session, Is.EqualTo(TaskInfo.Host));
+                Assert.That(request.Path, Is.EqualTo(WireProtocol.Routes.Worktrees + "?project=project%20name"));
+                request.Ok(JVal.Parse("{\"worktrees\":[{\"id\":\"main\",\"name\":\"main\",\"path\":\"/p\",\"phase\":\"ready\"}]}"));
+                Assert.That(result.Single().Ready, Is.True);
+                Assert.That(error, Is.Null);
+                request.Fail("Unavailable");
+                Assert.That(result, Is.Null);
+                Assert.That(error, Is.EqualTo("Unavailable"));
+            }
+            finally { DaemonClient.Requests.Clear(); }
+        }
+
+        public static void OnlyProjectsWithWorktreesHaveNestedChoices()
+        {
+            var f = new Fixture(); f.Update();
+            Assert.That(f.Catalog.HasWorktrees("p-id"), Is.False, "loading placeholders do not create a submenu");
+            f.Reply(0, Scope());
+            Assert.That(f.Catalog.HasWorktrees("p-id"), Is.False, "Main alone remains a project checkbox");
+            f.Refresh(); f.Reply(1, Scope(), Scope("one"), Scope("missing", "error"));
+            Assert.That(f.Catalog.HasWorktrees("p-id"), Is.True);
+            f.Refresh(); f.Reply(2, Scope(), Scope("missing", "error"));
+            Assert.That(f.Catalog.HasWorktrees("p-id"), Is.True, "unavailable worktrees remain discoverable");
+            f.Refresh(); f.Reply(3, Scope());
+            Assert.That(f.Catalog.HasWorktrees("p-id"), Is.False, "removing the last worktree restores the checkbox");
+        }
+
+        public static void OpenFilterDiscoversHiddenProjectsWithoutEnablingThem()
+        {
+            var f = new Fixture { Filter = "other" }; f.Update();
+            Assert.That(f.Requests, Is.Empty);
+            f.Update(menu: true);
+            Assert.That(f.Requests.Count, Is.EqualTo(1));
+            f.Reply(0, Scope(), Scope("one"));
+            Assert.That(f.Catalog.HasWorktrees("p-id"), Is.True);
+            Assert.That(f.Catalog.EnabledScopes(), Is.Empty);
+            f.Now += 6; f.Update();
+            Assert.That(f.Requests.Count, Is.EqualTo(1), "closed menu does not poll a hidden project");
+        }
+
+        public static void InitialCatalogFailureIsVisibleAndRetryClearsIt()
+        {
+            var f = new Fixture(); f.Update();
+            int revision = f.Catalog.Revision;
+            f.Requests[0].Reply(null, "Caller identity is missing");
+            Assert.That(f.Catalog.Error("p-id"), Is.EqualTo("Caller identity is missing"));
+            Assert.That(f.Catalog.Revision, Is.GreaterThan(revision));
+            Assert.That(f.Catalog.EnabledScopes(), Is.Empty);
+            f.Update();
+            Assert.That(f.Requests.Count, Is.EqualTo(1), "failed requests retain the retry delay");
+            f.Refresh(); f.Reply(1, Scope(), Scope("one"));
+            Assert.That(f.Catalog.Error("p-id"), Is.Null);
+            Assert.That(f.Catalog.HasWorktrees("p-id"), Is.True);
+            f.Toggle(f.Catalog.All("p-id")[1]);
+            string saved = f.Saved;
+            f.Refresh(); f.Requests[2].Reply(null, "Timed out");
+            Assert.That(f.Catalog.HasWorktrees("p-id"), Is.True);
+            Assert.That(f.Catalog.EnabledScopes().Count, Is.EqualTo(2));
+            Assert.That(f.Saved, Is.EqualTo(saved));
+            revision = f.Catalog.Revision;
+            f.Refresh(); f.Reply(3, Scope(), Scope("one"));
+            Assert.That(f.Catalog.Error("p-id"), Is.Null);
+            Assert.That(f.Catalog.Revision, Is.GreaterThan(revision), "clear the error even when catalog contents match");
+        }
 
         public static void DefaultsMigrationAndProjectVisibility()
         {
@@ -64,7 +137,7 @@ namespace SlopWorld.Tests
             f.Reply(0, Scope(), Scope("one"));
             string key = f.Catalog.All("p-id")[1].Key;
             f.Toggle(f.Catalog.Find(key));
-            f.Refresh(); f.Requests[1].Reply(null);
+            f.Refresh(); f.Requests[1].Reply(null, "Request failed");
             Assert.That(f.Catalog.Enabled(key), Is.True, "transient catalog failure retains scope");
             f.Refresh(); f.Reply(2, Scope(), Scope("one", "error"));
             Assert.That(f.Catalog.Enabled(key), Is.False);

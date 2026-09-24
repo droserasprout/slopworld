@@ -14,6 +14,7 @@
 
   <ItemGroup>
     <Compile Include="../Source/SlopWorld/UI/Views/Shared/BrowseScopeCatalog.cs" Link="Source/BrowseScopeCatalog.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Views/Shared/SidebarScopes.Transport.cs" Link="Source/SidebarScopes.Transport.cs" />
     <Compile Include="../Source/SlopWorld/UI/Views/Shared/BrowseScope.cs" Link="Source/BrowseScope.cs" />
     <Compile Include="../Source/SlopWorld/UI/Views/Shared/BoundedWork.cs" Link="Source/BoundedWork.cs" />
     <Compile Include="../Source/SlopWorld/UI/Views/Search/SearchSubmission.cs" Link="Source/SearchSubmission.cs" />

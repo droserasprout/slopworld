@@ -9,7 +9,7 @@ namespace SlopWorld
         const int DefaultTimeoutMs = 5000;
         internal sealed class Request
         {
-            public string Method, Path;
+            public string Method, Path, Session;
             public IMessage Body;
             public Action<JVal> Ok;
             public Action<string> Fail;
@@ -17,7 +17,7 @@ namespace SlopWorld
         public static readonly List<Request> Requests = new List<Request>();
         static void Send<T>(string method, string path, IMessage body, Action<T> ok, Action<string> fail,
             string session = null, int timeoutMs = DefaultTimeoutMs) where T : IMessage<T>, new() =>
-            Requests.Add(new Request { Method = method, Path = path, Body = body,
+            Requests.Add(new Request { Method = method, Path = path, Body = body, Session = session,
                 Ok = value => ok?.Invoke(ProtobufFixtures.Read<T>(value)), Fail = fail });
         public static void Get<T>(string path, Action<T> ok, Action<string> fail = null,
             string session = null, int timeoutMs = DefaultTimeoutMs) where T : IMessage<T>, new() =>

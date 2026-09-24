@@ -6,15 +6,13 @@ using UnityEngine;
 namespace SlopWorld
 {
     // Runtime adapter for the shared catalog. Project names remain the Agents filter contract.
-    static class SidebarScopes
+    static partial class SidebarScopes
     {
         static readonly BrowseScopeCatalog Catalog = new BrowseScopeCatalog(AgentSidebar.Passes,
-            () => Time.realtimeSinceStartup, (project, done) =>
-                DaemonClient.Get<Wire.WorktreesReply>(WireProtocol.Routes.Worktrees + "?project=" + Uri.EscapeDataString(project),
-                    reply => done(reply.Worktrees.Select(w => new BrowseScope { Worktree = w.Id, Name = w.Name,
-                        Path = w.Path, Phase = w.Phase, Branch = w.Branch, Error = w.Error }).ToList()), error => done(null)));
+            () => Time.realtimeSinceStartup, Load);
         public static event Action Changed { add { Catalog.Changed += value; } remove { Catalog.Changed -= value; } }
         public static int Revision { get { Update(); return Catalog.Revision; } }
+        public static int MenuRevision { get { Update(true); return Catalog.Revision; } }
         public static ProjectInfo Project(string key) => BrowseScope.ProjectOf(key, SessionHub.Instance.Projects);
         public static string ProjectName(string key) => Project(key)?.Name ?? key;
         public static string Label(string key)
@@ -36,6 +34,16 @@ namespace SlopWorld
             All(project).FirstOrDefault(s => s.Worktree == "main")?.Key ?? project;
         public static bool Enabled(string key) => Catalog.Enabled(key);
         public static bool Chosen(BrowseScope scope) => Catalog.Chosen(scope);
+        public static bool HasWorktrees(string project)
+        {
+            var p = Project(project);
+            return p != null && Catalog.HasWorktrees(BrowseScope.ProjectIdOf(p));
+        }
+        public static string Error(string project)
+        {
+            var p = Project(project);
+            return p == null ? null : Catalog.Error(BrowseScope.ProjectIdOf(p));
+        }
         public static List<BrowseScope> All(string project)
         {
             Update();
@@ -50,8 +58,9 @@ namespace SlopWorld
             Settings.S.Write();
         }
         public static void Invalidate() { Catalog.Invalidate(); Update(); }
-        public static void Update() => Catalog.Update(SessionHub.Instance.Projects,
+        public static void Update() => Update(false);
+        static void Update(bool includeHidden) => Catalog.Update(SessionHub.Instance.Projects,
             SessionHub.Instance.ProjectsRevision, Settings.SidebarFilter, Settings.S.sidebarWorktrees ?? "", SessionHub.Instance.Online,
-            saved => { Settings.S.sidebarWorktrees = saved; Settings.S.Write(); });
+            saved => { Settings.S.sidebarWorktrees = saved; Settings.S.Write(); }, includeHidden);
     }
 }

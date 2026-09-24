@@ -43,8 +43,10 @@ Older ID-based paths can be moved by running `slopctl worktree rename ID --proje
 
 ## Browse several checkouts
 
-Use the sidebar's global **Project** filter to enable **Main checkout** and selected worktrees
-beneath a project. Files and Git show each enabled, ready checkout under its own fold. Search
+In the sidebar's global **Project** filter, a project without registered worktrees has a single
+checkbox. A project with worktrees opens a submenu with checkboxes for **main** and each worktree.
+Selecting a checkout in a hidden project restores the project and its saved choices.
+Files and Git show each enabled, ready checkout under its own fold. Search
 queries those checkouts and separates their results. You can disable every checkout for a
 project while keeping its agents visible. Hiding and restoring a project preserves its choices.
 Worktree names and status update from the catalog; a temporarily unavailable checkout keeps

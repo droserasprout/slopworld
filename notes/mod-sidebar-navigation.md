@@ -35,4 +35,8 @@ project-name filter and default to Main only. Internal navigation keys contain s
 and worktree IDs; never send these keys as project names to the daemon. `SessionStore` resolves
 them at the request boundary. Catalog failures retain the previous choices and records, while
 successful removal drops tree nodes. Catalog reads are limited to two; generation checks reject
-replies for replaced projects. The menu observes the same revision as the trees.
+replies for replaced projects. The menu observes the same revision as the trees. While open,
+it also requests hidden projects' catalogs to distinguish plain project checkboxes from
+worktree submenus, without enabling their browsing scopes. Root-token catalog requests carry
+the host caller identity. Failures appear on the project row instead of leaving loading
+placeholders; saved scope choices survive retries.
