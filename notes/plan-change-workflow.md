@@ -1,6 +1,8 @@
 # Release change workflow
 
-Status: reviewed
+Status: human approved
+Approved by: user (requested landing on `main`)
+Revision: bfec8656
 
 Introduce a worktree based path for every repository change before the first
 public release. The original checkout is the integration checkout. Commits are

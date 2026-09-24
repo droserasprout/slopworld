@@ -1,6 +1,8 @@
 # Private-network daemon access
 
-Status: reviewed
+Status: human approved
+Approved by: user (requested landing on `main`)
+Revision: bfec8656
 
 Private-network sessions resolve `127.0.0.1` inside their own namespace. The
 existing worker `--map-host-loopback 127.0.0.1` option does not make the host's
