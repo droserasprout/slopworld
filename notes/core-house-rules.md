@@ -3,7 +3,6 @@
 - **Do not commit on `main`.** Create each change in a dedicated worktree through
   `slopctl`. Commit on its branch, then fast-forward `main` only after human approval.
   This applies to human work and worker work. Do not use pull requests.
-- Follow the [change workflow](../docs/src/guides/change-workflow.md) for plan
   status, review, and merge. A task finishing does not approve its work.
 - **Keep `AGENTS.md` short.** Put information about each subject in its own note in this directory.
   When component responsibilities or behavior change, update the note for that component.
