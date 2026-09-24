@@ -1,4 +1,5 @@
 # UI redraw debug overlay
+Status: proposed
 
 ## Problem and scope
 
@@ -8,9 +9,9 @@ layout and render updates where their owners can report meaningful events.
 An idle view should become quiet after the last flash expires.
 
 Use the Broadway convention supplied in the discussion as the reference:
-green means an existing node and texture were reused; magenta means a node was
-received again with a cached texture (also solid-color nodes); red means fresh
-texture pixels were uploaded. The supplied reference is
+Green means the renderer reused an existing node and texture. Magenta means the
+renderer received a node again and used a cached texture. This includes solid-color
+nodes. Red means the renderer uploaded new texture pixels. The supplied reference is
 `gtk/gdk/broadway/broadway.js:1593`, with 100 ms flashes and at most 200 overlays
 per update. This is a design reference, not a verified dependency of the mod.
 
@@ -34,8 +35,8 @@ Include a short reason and distinguish row updates from full-panel rebuilds.
 
 The terminal paints changed content into a RenderTexture. GPU drawing into that
 texture is not a CPU-to-GPU pixel upload. Report this separately as a pixel-cache
-repaint, with affected rows/area and its reason; settle its distinct visual marker
-during implementation without labeling it as a red upload. Do not infer uploads
+repaint. Include the affected rows or area and the reason. Define a separate visual
+marker during implementation. Do not label this work as a red upload. Do not infer uploads
 from font requests when Unity's actual upload boundary is unobservable.
 State instrumentation coverage in the legend so absence of red is not evidence
 that Unity performed no uploads.
@@ -56,7 +57,7 @@ rebuild counts, and pixel-cache repaint counts remain separate diagnostics.
   outside terminal pixel caches. The overlay must neither invalidate observed
   content nor report its own drawing as work. Preserve input and control IDs.
 - Resolve regions through current panel geometry and clipping. Clear events when
-  their owner closes or changes identity; hidden panels must not leave stale marks.
+  their owner closes or changes identity. Hidden panels must not leave stale marks.
 - Keep overlay overhead bounded. Do not rebuild reason strings on each draw or
   retain session contents for diagnostics. Optional counters and reasons should
   use stable categories.
@@ -66,7 +67,7 @@ rebuild counts, and pixel-cache repaint counts remain separate diagnostics.
 Test expiration, coalescing, frame/active caps, disabled behavior, and owner cleanup
 with game-free tests where practical. Run `make test-mod` and `make lint-mod` for
 the implementation. Use the [trace workflow](ops-diagnostics.md) to compare overlay
-overhead under matching conditions; collection counts are not allocated bytes.
+overhead under matching conditions. Collection counts are not allocated bytes.
 
 In-game checks require a separate user request. Verify idle terminals settle,
 sparse edits mark the affected rows, and full invalidations report their cause.

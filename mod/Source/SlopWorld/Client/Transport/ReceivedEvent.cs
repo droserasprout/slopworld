@@ -44,7 +44,7 @@ namespace SlopWorld
     }
 
     // A conservative validator for the flat ScreenView schema. No row strings are allocated.
-    // Any encoding outside this subset falls back to the generated parser, preserving wire
+    // Use the generated parser for any encoding outside this subset. It preserves wire
     // compatibility and its malformed-message behavior. Keep schema field numbers here explicit.
     internal static class ValidatedLiveScreen
     {

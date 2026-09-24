@@ -7,7 +7,7 @@ correlation without injecting desktop input. Add a deterministic reproduction of
 pre-dispatch eviction and an opt-in isolated tmux capacity diagnostic. Record
 what these tests establish and what still needs a live queue measurement.
 
-Findings: both correlation caches retain 128 IDs; the daemon cache starts at
+Findings: both correlation caches retain 128 IDs. The daemon cache starts retention at
 queue admission. A deterministic test confirms pending arrivals can evict an
 older request before dispatch, so continued changed frames cannot correlate it.
 An isolated production-batcher/tmux diagnostic processed 600 mixed events as 400

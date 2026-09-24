@@ -13,6 +13,6 @@ Settings → Storage currently shows agent state and shared caches in one flat l
 
 ## Decisions
 
-- Group state and cache entries by project name; no protocol field is needed because the stored-state wire type already carries the project name for cache entries.
+- Group state and cache entries by project name. The stored-state wire type already carries the project name for cache entries. No new protocol field is needed.
 - Keep fold state for the lifetime of the Storage page.
-- Include recoverable state in its known project group when its saved session metadata provides the project; otherwise place it in "Other storage".
+- If saved session metadata identifies the project, put recoverable state in that project group. Otherwise, put it in "Other storage".

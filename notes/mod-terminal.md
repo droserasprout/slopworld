@@ -31,8 +31,8 @@ See [daemon capture](daemon-session-state.md) for terminal bytes and query respo
 
 With latency tracing enabled, SmoothScroll's movement observer timestamps consumed
 history input before position changes, including precise input on non-wheel passes.
-Only a ready view repaint completes it; replaced movement is superseded, clamped
-movement is no-motion, and legacy wheel duplicates are deduplicated without
+Only a ready view repaint completes it. Replaced movement is superseded. Clamped
+movement records no motion. The client deduplicates legacy wheel events without
 cancelling precise samples. Panel release cancels pending observations. Precise
 X11 movement is accumulated per frame, not correlated per physical wheel notch.
 These are local client measurements, not tmux or presentation timestamps.

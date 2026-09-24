@@ -83,7 +83,7 @@ class SuiteTests(unittest.TestCase):
                 info = json.loads(status.read_text())
                 self.assertEqual(info['status'], 'complete')
                 self.assertEqual(info['target_history_lines'], 128)
-                # tmux trims history in chunks when the limit is exceeded; the
+                # tmux trims history in chunks when the limit is exceeded. The
                 # emitter must displace the viewport and fill at least one limit.
                 history = int(tmux('display-message', '-p', '-t', 'fixture', '#{history_size}').strip())
                 self.assertGreaterEqual(history, 115)

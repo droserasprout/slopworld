@@ -30,20 +30,20 @@ Compare settled memory samples across Eco transitions.
 Restore lines identify when the game rebuilt map geometry.
 
 Correlated input timelines use the separate `SLOPWORLD_LATENCY=1` flag on both peers.
-The client owns request IDs and completion; the daemon carries bounded run-scoped
+The client owns request IDs and completion. The daemon carries bounded run-scoped
 observations through screen coalescing. Never subtract clocks across processes.
 Unity frame end is a pre-presentation proxy, and next-frame correlation does not prove
 an application echoed input. See [terminal latency](terminal-latency.md).
 
 Terminal performance and latency diagnostics share a dedicated per-game
 `SlopWorld-trace.log` in the save-data folder. The main-thread frame hook owns its
-writer and flushes after the latency endpoint; do not route high-volume records
+writer and flushes after the latency endpoint. Do not route high-volume records
 through Verse's capped logger. The guided host input runner and measurement limits
 are documented in [terminal latency](terminal-latency.md).
 
 At high input rates, the 128-entry client and daemon trace limits can censor
-requests before dispatch/capture. The daemon starts retention at queue admission;
-continued screen updates do not restore evicted IDs. `complete_with_slip` is an
+requests before dispatch or capture. The daemon starts retention at queue admission.
+Later screen updates do not restore evicted IDs. `complete_with_slip` is an
 injector outcome, not proof of a representative latency distribution. For mixed
 mouse/key dispatch capacity, run the opt-in isolated diagnostic with
 `make test-daemon TEST_ARGS='benchmark_mixed_input_dispatch -- --ignored --nocapture'`.

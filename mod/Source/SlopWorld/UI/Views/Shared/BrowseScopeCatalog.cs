@@ -4,8 +4,8 @@ using System.Linq;
 
 namespace SlopWorld
 {
-    // Game-free catalog owner. Transport, clock and project visibility are injected; a late
-    // reply must still match both the project identity and its request generation.
+    // Game-free catalog owner. Inject transport, clock, and project visibility.
+    // A late reply must match the project identity and its request generation.
     public sealed class BrowseScopeCatalog
     {
         sealed class Catalog

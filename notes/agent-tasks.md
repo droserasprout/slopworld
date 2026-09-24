@@ -4,12 +4,14 @@ For commands and lifecycle, see [Using slopctl](../docs/src/guides/slopctl.md).
 For access rules, see [Agent collaboration](../docs/src/guides/agent-collaboration.md).
 
 `slopd` owns persistent `tasks.toml` beside `config.toml`.
-Creation appends full records to `tasks.journal`; progress, summaries and worker-failure updates
-append only mutable fields. Loading accepts legacy full updates and replays complete entries for
-the snapshot generation, truncating an incomplete/invalid tail. At 1 MiB the next successful append
-compacts into a snapshot; failed compaction logs and retries on the next append. Removal, prune
-and bulk cancellation still write snapshots. Snapshot replacement advances generation before
-retiring the journal, preventing stale creation/update replay after interrupted cleanup.
+Creation appends full records to `tasks.journal`. Progress, summaries, and worker-failure
+updates append only mutable fields. Loading accepts legacy full updates. It replays complete
+entries for the snapshot generation and truncates an incomplete or invalid tail. After the
+journal reaches 1 MiB, the next successful append compacts it into a snapshot. If compaction
+fails, the daemon logs the error and retries on the next append. Removal, prune, and bulk
+cancellation still write snapshots. Snapshot replacement advances the generation before
+the daemon retires the journal. This prevents stale creation or update replay after
+interrupted cleanup.
 Keep both files together when backing up or moving task state. This is process-crash recovery,
 not an fsync-backed power-loss guarantee. Older daemon versions cannot read the new journal operations.
 Sandboxes never edit either file.

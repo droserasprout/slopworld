@@ -20,9 +20,9 @@ Install RimWorld so the mod can link against assemblies in `Managed/`.
 ## Targets
 
 Run `make` to list targets. Make defines dependencies and shared settings.
-Scripts in `tools/` support maintenance, platform checks and the existing IPC suite.
-Terminal-input benchmark code, tests, reports and local runs live under
-`bench/terminal-input/`.
+Scripts in `tools/` support maintenance, platform checks, and IPC benchmarks.
+`bench/terminal-input/` contains the terminal input benchmark code, tests, reports,
+and local runs.
 `mod/Source/SlopWorld/SlopWorld.csproj` owns C# compiler settings and references.
 Build with `make all`, `make daemon`, or `make mod`.
 Component checks also have `-daemon` and `-mod` targets.
@@ -109,10 +109,9 @@ Tracing is opt-in. To collect performance and latency records while using
 SLOPWORLD_DEBUG=1 SLOPWORLD_LATENCY=1 make devloop
 ```
 
-The installer includes explicitly supplied tracing values in the service unit and
-restarts the daemon when they change. A later installation without these values
-restores the shipped unit. Capture and reporting instructions live in
-`notes/terminal-latency.md` in the repository.
+The installer writes the supplied tracing values to the service unit. It restarts
+the daemon if those values change. A later installation without them restores the
+shipped unit. See `notes/terminal-latency.md` for capture and reporting instructions.
 
 Unity writes Harmony and mod exceptions to `Player.log`, the game log.
 These exceptions do not appear in the terminal that started the game.

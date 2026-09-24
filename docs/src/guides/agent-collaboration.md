@@ -55,5 +55,5 @@ For agents with `network = "private"`, SlopWorld forwards the daemon's TCP port
 into the namespace when the listener uses `127.0.0.1` or all IPv4 interfaces.
 A listener bound to a routable address is reached through ordinary outbound
 networking. A private agent still needs a scoped grant and `SLOPD_URL` and
-`SLOPD_TOKEN` to authenticate; workers receive these at startup.
+`SLOPD_TOKEN` to authenticate. Workers receive these at startup.
 The daemon does not support Unix-socket transport.

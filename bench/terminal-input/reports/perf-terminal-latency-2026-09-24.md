@@ -8,7 +8,7 @@ native-terminal comparison or evidence of current performance after later change
 - Instrumented revision: `43d4a045676a7d5c5b6990690d83314769b70990`.
 - Host inspection confirmed `SLOPWORLD_DEBUG=1` and `SLOPWORLD_LATENCY=1` in both
   daemon PID 787570 and RimWorld PID 788986 after the user restarted devloop.
-- Linux, RimWorld 1.6.4850, Unity 2022.3.35f1, OpenGL; game startup reported an
+- Linux, RimWorld 1.6.4850, Unity 2022.3.35f1, OpenGL. Game startup reported an
   AMD Radeon Graphics renderer and a 3072×1728 desktop at 60 Hz.
 - Captured performance context: Eco enabled, terminal covering the workspace,
   51 sessions, reported UI dimensions 1499×812.
@@ -120,7 +120,7 @@ Quiet typing's repeatable ~53 ms median is useful evidence. Its largest measured
 median intervals were tmux dispatch → capture (22.7 ms), receive → dispatch
 (11.8 ms), and dispatch → draw (16.3 ms). Investigate capture scheduling and client
 frame scheduling before prioritizing microsecond-level codec work. The capture
-interval includes application response time; this experiment does not isolate that
+interval includes application response time. This experiment does not isolate that
 from daemon scheduling.
 
 The event flood exposed diagnostic capacity limits. It does not establish reliable
@@ -139,4 +139,4 @@ Raw captures and machine-readable summaries remain local and ignored under
 `bench/terminal-input/runs/perf-suite-terminal-latency-2026-09-24.raw/`:
 `quiet-typing.log`, `scrolling.log`, `active-output.log`, and `summary.json`.
 Only this processed report is committed. Raw captures are not durable repository
-artifacts; preserve them separately if needed for future reanalysis.
+artifacts. Preserve them separately if needed for future reanalysis.

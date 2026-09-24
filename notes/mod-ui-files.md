@@ -8,7 +8,7 @@ points, not another state owner. All filesystem reads use daemon APIs. Viewers, 
 host without private agent state. The selected registered worktree validates action paths and supplies
 the working directory. Host reader sessions are disposable, not saved host-shell tabs.
 
-Roots use the shared browsing scope key; relative paths identify selections and history.
+Roots use the shared browsing scope key. Relative paths identify selections and history.
 Project and checkout folds are independent. A checkout rename relocates cached nodes without
 forgetting expansion. Refresh merges by path/type to preserve expansion and selection. Bound concurrency so
 background refresh cannot starve foreground opens. Use layout geometry for both hit tests
@@ -49,5 +49,5 @@ opens the desktop portal. The chooser runs outside the timed file action, so the
 does not cause a timeout.
 
 Reader identity retains its source scope independently of filter choices. Native Markdown
-readers snapshot their root and origin label; terminal readers carry the worktree ID in the
+readers snapshot their root and origin label. Terminal readers carry the worktree ID in the
 run request. Refreshing and folding never release pinned readers.

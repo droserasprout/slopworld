@@ -506,7 +506,7 @@ impl Tasks {
         }
         if before + line.len() as u64 >= MAX_JOURNAL_BYTES {
             // The append already succeeded. Failure to compact must not turn a committed
-            // mutation into an API failure; retry compaction after the next append.
+            // mutation into an API failure. Retry compaction after the next append.
             if let Err(error) = self.save() {
                 tracing::warn!(%error, "could not compact task journal");
             }

@@ -11,13 +11,14 @@ Task results, worker exits, one-shot cleanup, and final detachment never commit 
 Project removal and configuration updates cannot discard a project with worktree records.
 Worker tmux metadata keeps project and worktree selection after its parent exits.
 
-Managed worktrees default to `<project_path>/.worktrees/<worktree-name>`; explicit roots retain
+Managed worktrees default to `<project_path>/.worktrees/<worktree-name>`. Explicit roots use
 `<root>/<project-name>/<worktree-name>`. The shared path resolver also guards cache sources.
 New managed branches use the worktree name, including generated names. Validate branch names and
-collisions before creating the checkout; allocation still atomically refuses to overwrite an existing branch.
+collisions before creating the checkout. Allocation also refuses to overwrite an existing branch
+as one atomic operation.
 For removal, mount the project worktree directory and shared Git metadata in a minimal Bubblewrap namespace.
 Git can run its status helper and delete the checkout without access to the original source tree or host home.
-Removal can see sibling checkouts in the same project directory; the Git inspection guard blocks repository helpers.
+Removal can see sibling checkouts in the same project directory. The Git inspection guard blocks repository helpers.
 Host Git checks block repository helpers from launching child processes.
 Allocation registers the worktree without a checkout, then runs Git commands to create its branch and index.
 The shared session boundary protects authorization and project identity through direct allocation
@@ -37,8 +38,8 @@ Interrupted operations remain visible.
 Recovery recognizes completed allocation but never restarts workers or deletes files automatically.
 If a checkout is missing, retry removal to clean up only its Git registration and empty container.
 Worktree renames move managed checkouts beside their original path and repair Git's linked-worktree
-pointers without renaming branches. Project renames leave local `.worktrees` checkouts in place;
-named directories under custom roots follow the project name. Moves refuse attached sessions.
+pointers without renaming branches. Project renames leave local `.worktrees` checkouts in place.
+Named directories under custom roots follow the project name. Moves refuse attached sessions.
 Older ID-based checkouts remain usable and can be migrated with a worktree rename.
 Sessions can attach only to ready worktrees with an existing checkout.
 Interrupted and missing records remain available for inspection and explicit removal.
@@ -57,7 +58,8 @@ Removing a worktree does not delete managed or external cache storage.
 See [sandbox](sandbox-isolation.md) and [usage](../docs/src/guides/project-worktrees.md).
 
 The daemon reads and writes only `worktrees.toml` with `worktrees` records.
-Config fields are `project.worktree_root` and `session.worktree`; removed workspace names fail config loading.
+Config fields are `project.worktree_root` and `session.worktree`. Removed workspace names fail config loading.
 Session views retain a file-stamped worktree index and reload it when the catalog changes,
-including external edits. TOML parsing and serialization run on the blocking executor; atomic replacement retains
-the async file helper. The existing mutation lock retains write ordering; unchanged views avoid parsing.
+including external edits. TOML parsing and serialization run on the blocking executor.
+The async file helper still replaces files atomically. The mutation lock preserves write order.
+Unchanged views do not parse the catalog again.

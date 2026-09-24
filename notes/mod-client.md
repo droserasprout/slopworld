@@ -5,9 +5,9 @@ Use the responsible services for session, catalog, task, terminal, and audio ope
 and rename handoffs stay on the hub. `DaemonClient` replays HTTP callbacks on the main thread.
 HTTP I/O awaits completion and admits at most eight active requests. Blocking
 `HttpWebRequest` calls on Mono workers can starve the network completions those
-same workers need; unbounded async startup also stalls the constrained-pool test.
+same workers need. Unbounded async startup also stalls the constrained-pool test.
 An explicit cancellation deadline includes admission, upload, response and error-body
-reads; it aborts the request because asynchronous Mono HTTP does not reliably honor
+reads. It aborts the request because asynchronous Mono HTTP does not reliably honor
 `Timeout`. Keep the 32 MiB response bound and release admission on every outcome.
 `python3 bench/terminal-input/test_http_transport_mono.py` exercises the production
 transport on system Mono without Unity.
@@ -26,7 +26,8 @@ callback must not redirect the rest of an old batch into the new connection. Clo
 blocked readers and drops queued payload references. `ReceivedEvent` validates canonical live screens before the queue lock without allocating row
 strings. The queue owns the encoded payload until lazy decode on dispatch. Unknown fields,
 noncanonical envelopes, history and replies use the generated parser immediately.
-Keep the conservative validator aligned with `ScreenView`; fallback preserves wire compatibility.
+Keep the conservative validator aligned with `ScreenView`. The generated-parser fallback
+preserves wire compatibility.
 Malformed messages reach the main-thread error callback without replacing queued live screens. Queue budgets count encoded bytes. `HubEventBatch` dispatches
 generated messages. HTTP decodes bounded Protobuf responses before main-thread callbacks.
 

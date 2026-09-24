@@ -178,7 +178,7 @@ def write_note(
         "variation. It is not a confidence interval. Units are microseconds per operation.",
         "B/op is the median managed allocation per operation. A range appears when runs differ.",
         "Creation probes time individual operations with setup excluded. Other p50/p95 values describe batch averages, not individual-operation tail latency. Burst8 is eight "
-        "live frames including coalescing; wire bytes count the whole burst. Codec/queue measurements "
+        "live frames including coalescing. Wire bytes count the whole burst. Codec and queue measurements "
         "exclude network and rendering. Mono and CoreCLR (.NET 8) are reported separately.",
         f"Raw run logs and IPC CSV files are stored in the ignored local directory `{output_path.with_suffix('.raw').name}/`.",
         "",

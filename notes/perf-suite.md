@@ -9,7 +9,7 @@
 Build once. Then measure three complete suite runs.
 For each metric, this report shows the median of the three run percentiles. Brackets show the minimum and maximum values across runs. The range shows run-to-run variation. It is not a confidence interval. Units are microseconds per operation.
 B/op is the median managed allocation per operation. A range appears when runs differ.
-All p50/p95 values describe batch averages, not individual-operation tail latency. Burst8 is eight live frames including coalescing; wire bytes count the whole burst. Codec/queue measurements exclude network and rendering. Mono and CoreCLR (.NET 8) are reported separately.
+All p50/p95 values describe batch averages, not individual-operation tail latency. Burst8 is eight live frames including coalescing. Wire bytes count the whole burst. Codec and queue measurements exclude network and rendering. Mono and CoreCLR (.NET 8) are reported separately.
 Raw run logs and IPC CSV files are stored in the ignored local directory `perf-suite.raw/`.
 
 | Benchmark | p50 median [range] (µs) | p95 median [range] (µs) | B/op | Wire bytes |

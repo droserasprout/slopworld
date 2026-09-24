@@ -74,8 +74,8 @@ def write_note(directory, output):
         info = json.loads(setup.read_text())
         lines += ['', '## Preparation', '',
                   f'Status: **{cell(info.get("status", "unknown"))}**. '
-                  f'Target history: {info.get("target_history_lines", "?")} lines; '
-                  f'generated: {info.get("generated_lines", "?")} lines × '
+                  f'Target history: {info.get("target_history_lines", "?")} lines. '
+                  f'Generated: {info.get("generated_lines", "?")} lines × '
                   f'{info.get("line_width", "?")} alphanumeric columns.',
                   'The bounded /dev/urandom fixture emits only ASCII letters, digits and line separators. '
                   'Preparation and settling are excluded from phase measurements. '
@@ -103,8 +103,8 @@ def write_note(directory, output):
     lines += ['', '## Outcomes and artifacts', '']
     for phase, metadata, result, _ in results:
         lines += [f'### {phase}', '',
-                  f'- Started: {cell(metadata.get("started", "unknown"))}; backend: '
-                  f'{cell(metadata.get("backend", "unknown"))}; rate: {metadata.get("rate", "?")}/s.',
+                  f'- Started: {cell(metadata.get("started", "unknown"))}. Backend: '
+                  f'{cell(metadata.get("backend", "unknown"))}. Rate: {metadata.get("rate", "?")}/s.',
                   f'- Runner revision: `{cell(metadata.get("runner_revision", "not recorded"))}` '
                   '(not proof of the running mod/daemon revision).',
                   '- Outcomes: ' + ', '.join(f'{cell(k)}={v}' for k, v in result.get('counts', {}).items()) + '.',
@@ -114,18 +114,18 @@ def write_note(directory, output):
                       if (directory / (phase + suffix)).exists()) + '.', '']
         jitter = metadata.get('injection_lateness_us', {})
         lines += ['Injector lateness p50/p95/p99 (µs): ' + '/'.join(str(jitter.get(k, '—')) for k in ('p50', 'p95', 'p99')) +
-                  f'; deadline rebases: {metadata.get("rebased_deadlines", "—")}.', '']
+                  f'. Deadline rebases: {metadata.get("rebased_deadlines", "—")}.', '']
         if metadata.get('text_fixture'):
-            lines += [f'Append fixture: `{cell(metadata["text_fixture"])}`; observed paste requests: {metadata.get("observed_paste_requests", "—")}.', '']
+            lines += [f'Append fixture: `{cell(metadata["text_fixture"])}`. Observed paste requests: {metadata.get("observed_paste_requests", "—")}.', '']
         if metadata.get('error'):
             lines += [f'Error: {cell(metadata["error"])}', '']
     lines += ['## Interpretation limits', '',
               '- Typing starts at client socket handoff, after clipboard retrieval, and ends at Unity frame end before physical presentation.',
               '- History latency covers consumed accumulated movements that changed position, not each injected wheel tick. Deduplicated and no-motion events are not latency samples.',
               '- Input correlation observes the next eligible changed frame, not verified causal echo. Injected events are not individually paired with trace IDs.',
-              '- Overflow and timeout censor the distribution; zero logging drops does not make the surviving percentiles representative.',
-              '- Coalesced samples and captures without an observed tmux acknowledgement are reported separately; neither alone proves input loss.',
-              '- FPS is an average of reported windows, not a frame-time percentile. Context transitions are excluded by trace-summary; work lanes overlap.', '']
+              '- Overflow and timeout censor the distribution. Zero logging drops do not make the surviving percentiles representative.',
+              '- The report lists coalesced samples and captures without an observed tmux acknowledgement separately. Neither alone proves input loss.',
+              '- FPS averages reported windows. It is not a frame-time percentile. Trace-summary excludes context transitions. Work lanes overlap.', '']
     temporary = output.with_name(output.name + '.tmp')
     temporary.write_text('\n'.join(lines), encoding='utf-8')
     temporary.replace(output)

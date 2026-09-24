@@ -19,7 +19,7 @@ handoffs change routed rows locally. `RoutedSessionRows` caches scan/sort result
 session version, project-filter revision, pager/editor command settings and explicit local reader
 invalidation. Config-only command changes must reclassify routed membership. Pager session
 handoffs, native preview identity/content changes and reader collection mutations invalidate it.
-Frame geometry resets preserve routed membership; changing row height does not require a scan.
+Frame geometry resets preserve routed membership. Changing row height does not require a scan.
 Routed headers and tree viewports must share clipping.
 The shared draggable split for Files and Git retains independent scroll owners and a stable tree boundary when headers change. See [Files](mod-ui-files.md).
 

@@ -2,7 +2,7 @@
 
 `GitStore` owns repository snapshots keyed by the shared project/worktree scope identity.
 Project folds hide checkout folds without changing their state. Disabled scopes invalidate
-status/count generations; the bounded request queue discards stale work before dispatch.
+status and count generations. The bounded request queue discards stale work before dispatch.
 `FileReaders` shares reader ownership with Files. Git shares
 Files' tree geometry and semantic selection helpers, but is not lazy: status supplies a
 flat changed-path set from which the tree is rebuilt. All Git access happens in the daemon.
