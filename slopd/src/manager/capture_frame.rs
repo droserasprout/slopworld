@@ -219,12 +219,14 @@ impl Manager {
                 l.plain = delta.plain.clone();
             }
 
-            if let Some((state, state_since)) = activity {
-                self.persist_activity(name, state, state_since).await;
-            }
             if let Some(screen) = screen {
                 crate::perf::count("frame-screen-events", 1);
                 self.emit(Event::Screen { screen });
+            }
+            // Publish the frame before waiting for tmux's activity metadata round trip.
+            // The disk fallback uses its own ordered writer and never waits here for I/O.
+            if let Some((state, state_since)) = activity {
+                self.persist_activity(name, state, state_since).await;
             }
             if dirty_list {
                 self.announce_sessions().await;

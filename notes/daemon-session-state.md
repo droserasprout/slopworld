@@ -38,7 +38,12 @@ Stop and reset advance the run identity so an old reader cannot restore a down r
 
 On adoption, existing tmux activity options take precedence over the disk fallback.
 Explicit stop/start must clear that history.
-Persisted activity remains epoch milliseconds.
+Persisted activity remains epoch milliseconds. `ActivityCache` applies mutations immediately
+in memory and uses one background writer for ordered, coalesced snapshots. Rename and clear
+share that order. Drop drains the writer; abrupt termination can lose the latest pending fallback
+snapshot, while tmux metadata remains the primary recovery source. Capture publishes screens
+before awaiting the tmux activity write. `flush` is a blocking durability barrier for tests/shutdown,
+never for a Tokio worker.
 An adopted Working row uses the adoption sample as its runtime decay clock until its first frame.
 The `state_since` value retains the restored age shown to the user.
 See [redeploy](daemon-redeploy.md).

@@ -198,8 +198,18 @@ namespace SlopWorld
         // identity and focus operations to the same preview/pinned lifecycle as Pager.
         sealed class MarkdownTab : IPreviewTab
         {
-            public MarkdownPreview View;
-            public string Header;
+            MarkdownPreview _view;
+            string _header;
+            public MarkdownPreview View
+            {
+                get => _view;
+                set { _view = value; RoutedSessionRows.Invalidate(); }
+            }
+            public string Header
+            {
+                get => _header;
+                set { _header = value; RoutedSessionRows.Invalidate(); }
+            }
             public bool Locked { get; private set; }
 
             public string Session => Header;

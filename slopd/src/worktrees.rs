@@ -20,7 +20,7 @@ pub(crate) struct Worktree {
     pub error: String,
 }
 
-#[derive(Default, Serialize, Deserialize)]
+#[derive(Clone, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct Store {
     #[serde(default)]
@@ -29,15 +29,21 @@ pub(crate) struct Store {
 impl Store {
     pub async fn load(config: &Path) -> Result<Self> {
         match tokio::fs::read_to_string(config.with_file_name("worktrees.toml")).await {
-            Ok(text) => Ok(toml::from_str(&text)?),
+            Ok(text) => tokio::task::spawn_blocking(move || toml::from_str(&text))
+                .await?
+                .map_err(Into::into),
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(Self::default()),
             Err(e) => Err(e.into()),
         }
     }
     pub async fn save(&self, config: &Path) -> Result<()> {
+        let store = self.clone();
+        // Only CPU-heavy serialization leaves the async owner. A canceled serializer cannot
+        // later overwrite a newer catalog after the owner's mutation lock has been released.
+        let text = tokio::task::spawn_blocking(move || toml::to_string(&store)).await??;
         crate::paths::write_atomic_async(
             &config.with_file_name("worktrees.toml"),
-            &toml::to_string(self)?,
+            &text,
             Some(0o600),
         )
         .await

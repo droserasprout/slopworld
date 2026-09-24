@@ -65,9 +65,10 @@ namespace SlopWorld
             int bytes = payload.Length;
             if (bytes > MaxMessageBytes) return IncomingEnqueueResult.Oversized;
 
-            // Parse and classify messages before acquiring the queue lock.
+            // Validate and classify before acquiring the queue lock; decode retained live frames lazily.
+            // Ownership of the payload transfers to the queue. Callers must not mutate it.
             // Ambiguous or malformed messages never replace queued messages.
-            var text = new ReceivedEvent(payload);
+            var text = new ReceivedEvent(payload, deferLive: true);
             var liveName = text.LiveName;
             lock (_gate)
             {

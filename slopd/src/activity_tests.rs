@@ -20,6 +20,7 @@ fn activity_cache_round_trips_and_clears() {
     assert_eq!(cache.get("agent").unwrap().state, State::Waiting);
     assert_eq!(cache.get("agent").unwrap().state_since, 123);
 
+    cache.flush().unwrap();
     let restored = ActivityCache::load(path.clone());
     assert_eq!(restored.get("agent"), cache.get("agent"));
 
@@ -27,6 +28,7 @@ fn activity_cache_round_trips_and_clears() {
     assert!(restored.get("agent").is_none());
     assert!(restored.get("renamed").is_some());
     restored.clear("renamed").unwrap();
+    restored.flush().unwrap();
     assert!(ActivityCache::load(path.clone()).get("renamed").is_none());
     let _ = std::fs::remove_file(path);
 }
@@ -86,6 +88,7 @@ fn down_clears_an_entry_and_rename_replaces_the_destination() {
     assert_eq!(cache.get("new").unwrap().state_since, 10);
     cache.remember("new", State::Down, 30).unwrap();
     assert!(cache.get("new").is_none());
+    cache.flush().unwrap();
     assert!(ActivityCache::load(path.clone()).get("new").is_none());
 
     let _ = std::fs::remove_file(path);
@@ -105,4 +108,46 @@ fn invalid_and_future_cache_files_are_ignored() {
     assert!(ActivityCache::load(path.clone()).get("agent").is_none());
 
     let _ = std::fs::remove_file(path);
+}
+
+#[test]
+fn burst_writer_keeps_latest_rename_clear_and_flushes_on_drop() {
+    let path = test_path();
+    {
+        let cache = ActivityCache::load(path.clone());
+        for n in 1..2000 {
+            cache.remember("agent", State::Working, n).unwrap();
+            cache.remember("removed", State::Waiting, n).unwrap();
+        }
+        cache.rename("agent", "final").unwrap();
+        cache.clear("removed").unwrap();
+    }
+    let restored = ActivityCache::load(path.clone());
+    assert!(restored.get("agent").is_none());
+    assert!(restored.get("removed").is_none());
+    assert_eq!(restored.get("final").unwrap().state_since, 1999);
+    drop(restored);
+    let _ = std::fs::remove_file(path);
+}
+
+#[test]
+fn background_write_error_is_reported_and_next_mutation_retries() {
+    let root = test_path();
+    std::fs::write(&root, "not a directory").unwrap();
+    let cache = ActivityCache::load(root.join("activity.toml"));
+    cache.remember("agent", State::Working, 10).unwrap();
+    assert!(cache.flush().is_err());
+    std::fs::remove_file(&root).unwrap();
+    std::fs::create_dir(&root).unwrap();
+    cache.remember("agent", State::Waiting, 20).unwrap();
+    cache.flush().unwrap();
+    assert_eq!(
+        ActivityCache::load(root.join("activity.toml"))
+            .get("agent")
+            .unwrap()
+            .state_since,
+        20
+    );
+    drop(cache);
+    std::fs::remove_dir_all(root).unwrap();
 }

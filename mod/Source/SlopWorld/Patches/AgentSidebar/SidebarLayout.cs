@@ -110,7 +110,7 @@ namespace SlopWorld
                 Heads.Clear();
                 Faces.Clear();
                 ViewRows.Clear();
-                Routed.Clear();
+                // Routed membership has its own session/filter/reader revision cache.
 
                 foreach (var list in Buckets.Values) list.Clear();
                 foreach (var list in Ghosts.Values) list.Clear();

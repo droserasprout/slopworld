@@ -352,11 +352,13 @@ namespace SlopWorld
             return RoutedAction(info) != RowAct.Diff || FileReaders.IsSession(info.Name);
         }
 
+        static readonly RoutedSessionRows RoutedCache = new RoutedSessionRows();
+
         static void PrepareRouted(SidebarTab tab)
         {
-            PerfTrace.Count("sidebar-routed-rebuilds");
             Layout.ViewRows.Clear();
-            RoutedSessionRows.Rebuild(Layout.Routed, SessionHub.Instance.Sessions,
+            RoutedCache.Ensure(Layout.Routed, SessionHub.Instance.Sessions,
+                SessionHub.Instance.SessionsVersion, Projects.Revision,
                 info => IsRouted(info) && Passes(info.Project) &&
                     ((RoutedAction(info) & RowAct.Diff) == 0 || FileReaders.Tabs.IsSession(info.Name)),
                 FilesView.AddRoutedPreviews, GhostH);

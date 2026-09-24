@@ -50,6 +50,10 @@ class Program
                 foreach (var line in value.Value.Screen.Lines) sink += line.Length;
             });
             var queue = new IncomingMessageQueue(); var batch = new HubEventBatch();
+            Measure(kind, "protobuf-queue1", binary.Length, 500, () => {
+                queue.Enqueue(binary);
+                batch.Read(queue, e => { throw e; }); sink += batch.Count; batch.Clear();
+            });
             Measure(kind, "protobuf-burst8", binary.Length * 8, 150, () => {
                 for (int i = 0; i < 8; i++) queue.Enqueue(binary);
                 batch.Read(queue, e => { throw e; }); sink += batch.Count; batch.Clear();
