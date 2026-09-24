@@ -97,6 +97,7 @@ fn cache_paths_reject_checkout_sources_traversal_and_metadata_destinations() {
         ("".into(), "../outside"),
         ("".into(), ".git/objects"),
         (format!("{}/target", p.dir), "target"),
+        (format!("{}/.worktrees/feature", p.dir), "target"),
         ("/".into(), "target"),
         (
             crate::config::Config::path_in_use()
@@ -126,4 +127,18 @@ fn cache_paths_reject_checkout_sources_traversal_and_metadata_destinations() {
     assert_eq!(wire["mode"], "cache");
     let mount: Mount = serde_json::from_value(wire).unwrap();
     assert_eq!(mount.mode, MountMode::Cache);
+    p.worktree_root = temp.join("custom-trees").to_string_lossy().into_owned();
+    for path in [&p.worktree_root, &format!("{}/p/feature", p.worktree_root)] {
+        assert!(validate(
+            &p,
+            &Mount {
+                from: path.clone(),
+                to: "target".into(),
+                mode: MountMode::Cache,
+            }
+        )
+        .unwrap_err()
+        .to_string()
+        .contains("managed worktree storage"));
+    }
 }

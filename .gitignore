@@ -1,4 +1,5 @@
 slopd/target/
+/.worktrees/
 coverage/
 mod/Source/SlopWorld/obj/
 mod/Source/SlopWorld/bin/

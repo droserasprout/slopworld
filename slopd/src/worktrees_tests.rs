@@ -278,6 +278,136 @@ async fn ignored_data_detached_head_and_crash_records_are_preserved() {
     std::fs::remove_dir_all(root).unwrap();
 }
 
+#[tokio::test]
+async fn managed_worktree_branches_match_names_and_validate_before_allocation() {
+    use crate::config::{Config, ProjectCfg};
+    use crate::session::{test_manager, WorktreeRequest};
+    let root = repo();
+    let manager = test_manager(Config {
+        projects: vec![ProjectCfg {
+            name: "repo".into(),
+            dir: root.to_string_lossy().into_owned(),
+            ..Default::default()
+        }],
+        ..Default::default()
+    });
+
+    for name in ["invalid name", "bad..name", "HEAD", "-option", "@{-1}"] {
+        let invalid = manager
+            .create_worktree(WorktreeRequest {
+                project: "repo".into(),
+                name: name.into(),
+                ..Default::default()
+            })
+            .await
+            .unwrap_err();
+        assert!(invalid.to_string().contains("invalid Git branch name"));
+        assert!(!root.join(".worktrees").exists());
+    }
+
+    assert!(std::process::Command::new("git")
+        .arg("-C")
+        .arg(&root)
+        .args(["branch", "already-exists"])
+        .status()
+        .unwrap()
+        .success());
+    let collision = manager
+        .create_worktree(WorktreeRequest {
+            project: "repo".into(),
+            name: "already-exists".into(),
+            ..Default::default()
+        })
+        .await
+        .unwrap_err();
+    assert!(collision.to_string().contains("already exists"));
+    assert!(!root.join(".worktrees").exists());
+    assert!(Store::load(&manager.cfg_path)
+        .await
+        .unwrap()
+        .worktrees
+        .is_empty());
+
+    let named = manager
+        .create_worktree(WorktreeRequest {
+            project: "repo".into(),
+            name: "feature-branch".into(),
+            ..Default::default()
+        })
+        .await
+        .unwrap();
+    assert_eq!(named.initial_branch, named.name);
+    assert_eq!(
+        Path::new(&named.path),
+        root.join(".worktrees/feature-branch")
+    );
+    assert_eq!(
+        git(Path::new(&named.path), &["symbolic-ref", "--short", "HEAD"])
+            .await
+            .unwrap(),
+        "feature-branch"
+    );
+
+    let generated = manager
+        .create_worktree(WorktreeRequest {
+            project: "repo".into(),
+            ..Default::default()
+        })
+        .await
+        .unwrap();
+    assert_eq!(generated.initial_branch, generated.name);
+    assert_eq!(
+        Path::new(&generated.path),
+        root.join(".worktrees").join(&generated.name)
+    );
+    assert_eq!(
+        git(
+            Path::new(&generated.path),
+            &["symbolic-ref", "--short", "HEAD"]
+        )
+        .await
+        .unwrap(),
+        generated.name
+    );
+
+    // A display-name change must not relocate project-local checkouts.
+    let mut project = manager.config().await.projects[0].clone();
+    project.name = "renamed".into();
+    manager.update_project("repo", project).await.unwrap();
+    assert_eq!(
+        manager.worktree_list("renamed").await.unwrap()[1]
+            .worktree
+            .path,
+        named.path
+    );
+    let renamed = manager
+        .rename_worktree("renamed".into(), named.id, "new-name".into())
+        .await
+        .unwrap();
+    assert_eq!(Path::new(&renamed.path), root.join(".worktrees/new-name"));
+    assert!(!Path::new(&named.path).exists());
+    assert_eq!(
+        git(
+            Path::new(&renamed.path),
+            &["symbolic-ref", "--short", "HEAD"]
+        )
+        .await
+        .unwrap(),
+        "feature-branch"
+    );
+    if !mismatched_proc_namespace() {
+        manager
+            .remove_worktree("renamed".into(), renamed.id)
+            .await
+            .unwrap();
+        assert!(!Path::new(&renamed.path).exists());
+        assert!(root.join("file").exists());
+        assert!(Path::new(&generated.path).join("file").exists());
+    }
+
+    std::fs::remove_dir_all(root).unwrap();
+}
+
 // The development agent can run in a PID namespace with the host /proc mounted over it.
 // Bubblewrap cannot create nested namespaces in that environment.
 // Check this specific failure without treating unrelated removal errors as sandbox unavailability.
@@ -365,6 +495,13 @@ async fn external_checkouts_and_interrupted_teardown_have_independent_records() 
         .await
         .unwrap();
     assert!(!w.managed);
+    assert!(w.initial_branch.is_empty());
+    assert_eq!(
+        git(&external, &["symbolic-ref", "--short", "HEAD"])
+            .await
+            .unwrap(),
+        "external"
+    );
     manager
         .remove_worktree("renamed".into(), w.id)
         .await

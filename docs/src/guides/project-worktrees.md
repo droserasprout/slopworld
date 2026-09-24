@@ -20,6 +20,9 @@ The worker uses committed files from the base revision. Uncommitted changes stay
 For an agent caller, a blank base uses the agent's current worktree HEAD.
 For a host caller, a blank base uses the project's HEAD.
 Stop an agent before you change its worktree in agent settings.
+Managed worktrees start on a local branch with the same name as the worktree.
+The name must be valid for a Git branch, and creation fails if that local branch
+already exists. A generated worktree name is used as its branch name too.
 
 Agents can commit, switch branches, or detach HEAD. These actions do not change the worktree's ID or path.
 Select **Terminal** in the worktree list to inspect it.
@@ -28,11 +31,13 @@ Select **Refresh** to update Git state and attachments.
 On Linux, the daemon requires Landlock ABI 3 or newer to create managed worktrees.
 It requires Bubblewrap to remove managed worktrees.
 
-Managed worktrees default to `$XDG_DATA_HOME/slopworld/worktrees/<project-name>/<worktree-name>`.
-The daemon uses `~/.local/share` when `$XDG_DATA_HOME` is unset.
-Project settings can set the managed root for new worktrees.
-Renaming a project or managed worktree moves its checkout directory and repairs Git's registration.
-Move or remove attached sessions before renaming. A worktree without a supplied name uses a short generated name.
+Managed worktrees default to `<project_path>/.worktrees/<worktree-name>`.
+Ignore `.worktrees/` in the project's Git ignore rules to keep nested checkouts out of commits.
+Project settings can set a custom root; those checkouts use `<custom-root>/<project-name>/<worktree-name>`.
+Renaming a project leaves its local `.worktrees` checkouts in place. Checkouts under a custom root
+follow the project name. Renaming a managed worktree moves its checkout directory and repairs
+Git's registration; it does not rename its branch.
+Move or remove attached sessions before renaming a checkout. A worktree without a supplied name uses a short generated name.
 Use **Rename** in the worktree list or the CLI command below.
 Older ID-based paths can be moved by running `slopctl worktree rename ID --project PROJECT --name NAME` after detaching sessions.
 

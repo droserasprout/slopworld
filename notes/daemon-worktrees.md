@@ -11,7 +11,10 @@ Task results, worker exits, one-shot cleanup, and final detachment never commit 
 Project removal and configuration updates cannot discard a project with worktree records.
 Worker tmux metadata keeps project and worktree selection after its parent exits.
 
-Each managed worktree is a dedicated directory under the named project directory.
+Managed worktrees default to `<project_path>/.worktrees/<worktree-name>`; explicit roots retain
+`<root>/<project-name>/<worktree-name>`. The shared path resolver also guards cache sources.
+New managed branches use the worktree name, including generated names. Validate branch names and
+collisions before creating the checkout; allocation still atomically refuses to overwrite an existing branch.
 For removal, mount the project worktree directory and shared Git metadata in a minimal Bubblewrap namespace.
 Git can run its status helper and delete the checkout without access to the original source tree or host home.
 Removal can see sibling checkouts in the same project directory; the Git inspection guard blocks repository helpers.
@@ -33,8 +36,10 @@ The daemon does not force deletion or commit automatically.
 Interrupted operations remain visible.
 Recovery recognizes completed allocation but never restarts workers or deletes files automatically.
 If a checkout is missing, retry removal to clean up only its Git registration and empty container.
-Project and worktree renames move managed checkouts on disk and repair Git's linked-worktree pointers.
-Renames refuse attached sessions. Older ID-based checkouts remain usable and can be migrated with a worktree rename.
+Worktree renames move managed checkouts beside their original path and repair Git's linked-worktree
+pointers without renaming branches. Project renames leave local `.worktrees` checkouts in place;
+named directories under custom roots follow the project name. Moves refuse attached sessions.
+Older ID-based checkouts remain usable and can be migrated with a worktree rename.
 Sessions can attach only to ready worktrees with an existing checkout.
 Interrupted and missing records remain available for inspection and explicit removal.
 
