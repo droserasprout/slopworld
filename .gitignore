@@ -22,6 +22,7 @@ packaging/arch/*.pkg.tar.*
 mod/Dependencies/bin/
 mod/Dependencies/obj/
 
-# Local benchmark diagnostics; commit only the processed report.
+# Benchmark raw artifacts and generated CSV reports remain local.
 /notes/perf-suite*.raw/
 /bench/terminal-input/runs/
+/bench/results/

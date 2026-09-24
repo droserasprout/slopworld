@@ -6,7 +6,8 @@ Use `slopctl status` for API health. Service active status alone does not prove 
 bound.
 [Sandbox diagnostics](ops-debug-from-sandbox.md) explains misleading host observations.
 
-`SLOPWORLD_DEBUG=1` enables aggregate counters in daemon and game. Counters exclude terminal contents.
+`SLOPWORLD_DEBUG=1` enables aggregate counters and correlated input timelines in
+daemon and game. Counters and timelines exclude terminal contents.
 Start captures after loading and warmup.
 Use `make trace-mod` with distinct labels.
 Then use `make trace-summary`. Game startup or image inspection still requires an explicit request.
@@ -29,7 +30,7 @@ can occur later.
 Compare settled memory samples across Eco transitions.
 Restore lines identify when the game rebuilt map geometry.
 
-Correlated input timelines use the separate `SLOPWORLD_LATENCY=1` flag on both peers.
+Correlated input timelines use `SLOPWORLD_DEBUG=1` on both peers.
 The client owns request IDs and completion. The daemon carries bounded run-scoped
 observations through screen coalescing. Never subtract clocks across processes.
 Unity frame end is a pre-presentation proxy, and next-frame correlation does not prove

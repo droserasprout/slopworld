@@ -8,12 +8,11 @@ use crate::shared::wire::InputTiming;
 
 const LIMIT: usize = 128;
 const TTL_US: u64 = 10_000_000;
-static ENABLED: OnceLock<bool> = OnceLock::new();
 static EPOCH: OnceLock<Instant> = OnceLock::new();
 tokio::task_local! { pub(crate) static CURRENT: Option<Arc<InputTrace>>; }
 
 pub(crate) fn enabled() -> bool {
-    *ENABLED.get_or_init(|| std::env::var("SLOPWORLD_LATENCY").is_ok_and(|v| v == "1"))
+    crate::perf::enabled()
 }
 pub(crate) fn now() -> u64 {
     EPOCH.get_or_init(Instant::now).elapsed().as_micros() as u64 + 1

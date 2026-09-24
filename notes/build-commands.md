@@ -50,19 +50,36 @@ Adding a shipped top-level directory requires updating
 The native daemon service prepends `~/.local/bin` to its inherited PATH so agents use the
 CLI installed by `make install-daemon`. Existing agents retain their launch environment.
 The installer compares both the running binary and effective installed unit before skipping restart.
-Tracing stays opt-in: prefix `make devloop` with `SLOPWORLD_DEBUG=1 SLOPWORLD_LATENCY=1`
+Tracing stays opt-in: prefix `make devloop` with `SLOPWORLD_DEBUG=1`
 for a capture. The installer materializes explicit values in the service unit because
 systemd does not inherit the installing shell environment. Later installs without
 overrides restore the shipped unit.
 
-`make bench-report` records three-run medians and between-run ranges, including Mono/CoreCLR/Rust IPC metrics.
-Use `BENCH_REPORT_OUTPUT=notes/perf-suite-comparison.md` to retain an existing report during comparisons.
-Raw runs remain local and ignored. Commit only processed reports supporting a concrete comparison.
+`make BUILD=release bench BENCH_RUN=<name>` builds once and records three runs of
+daemon, C#, and IPC metrics. Focused `bench-daemon`, `bench-mod`, and `bench-ipc`
+targets record one run. `make bench-terminal BENCH_RUN=<name> BENCH_PHASE=typing`
+records the interactive terminal workload on the graphical host. Reuse a run name
+to combine game-free and terminal phases; each phase refuses to overwrite its own
+measurements. Each writes CSV measurements, outcomes, and metadata under ignored
+`bench/results/<name>/`, with auditable logs and traces under `raw/`. History
+setup uses that run's `tmp/`.
+Daemon storage probes and IPC fixture encoding use a per-repetition `tmp/` under
+the same results filesystem, removed after success. Compare runs on the same
+filesystem when judging storage lanes.
+
+`make bench-report BENCH_RUN=<name>` reads the CSVs without running benchmarks.
+Add `BENCH_BASELINE=<older> BENCH_MODE=relative` for percentage changes, or use
+the default absolute values and ranges. `BENCH_REPORT_OUTPUT=<path>` exports a
+Markdown report elsewhere. Game-free comparisons require matching recorded build
+and host details; a missing or different environment withholds the percentage.
+The committable report is a single stable snapshot under `bench/`; local runs
+and their CSVs remain ignored.
+For an empty-shell history run, pass `BENCH_PHASE=history BENCH_FILL_HISTORY=1`.
 `python3 tools/loc-report.py` creates a count snapshot on request. Keep reports only when they support a concrete comparison.
 
-The terminal-input benchmark runner, helpers, tests and reports live under
-`../bench/terminal-input/`. The runner uses its default suite and artifact paths when
-invoked directly. See [terminal latency tracing](terminal-latency.md) for the workflow.
+The terminal-input runner and helpers live under `../bench/terminal-input/`.
+Its default results path is also `bench/results/<UTC timestamp>/`.
+See [terminal latency tracing](terminal-latency.md) for the workflow.
 
 History preparation checks the pane limit against `SCROLLBACK_LINES`, then emits
 that many rows plus the viewport and settles outside the measured interval. tmux

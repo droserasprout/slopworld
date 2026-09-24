@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
-"""Run the complete game-free benchmark suite three times and report medians and between-run ranges."""
+"""Collect game-free benchmarks in shared CSVs or render a saved run."""
 
 from __future__ import annotations
 
 import argparse
 import os
+import platform
+import shutil
 from statistics import median
 import csv
-import shutil
 import datetime as dt
 import re
 import subprocess
@@ -18,6 +19,8 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "bench"))
+import results_data as data
 RUNS = 3
 
 DAEMON_LINE = re.compile(
@@ -56,35 +59,45 @@ def parse_samples(output: str) -> OrderedDict[str, Sample]:
     return samples
 
 
-def run_bench(build: str, run_number: int, raw_path: Path) -> OrderedDict[str, Sample]:
-    command = ["bash", "tools/bench.sh", "run"]
-    print(f"\n=== performance run {run_number}/{RUNS}: {' '.join(command)} ===", flush=True)
-    process = subprocess.Popen(
-        command,
-        cwd=ROOT,
-        env={**os.environ, "BUILD": build, "DOTNET": os.environ.get("DOTNET", "dotnet")},
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True,
-        bufsize=1,
-    )
-    assert process.stdout is not None
+def run_bench(build: str, run_number: int, raw_path: Path, suite="gamefree") -> OrderedDict[str, Sample]:
+    command = ["bash", "tools/bench.sh", "run", suite]
+    print(f"\n=== performance run {run_number}: {' '.join(command)} ===", flush=True)
+    repeat_path = raw_path / f"repeat-{run_number}"
+    temporary = repeat_path / "tmp"
+    temporary.mkdir(parents=True, exist_ok=True)
+    # The Rust storage probes use std::env::temp_dir(). Keep their scratch
+    # files inside this run, and retain them only if a benchmark fails.
     output: list[str] = []
-    for line in process.stdout:
-        print(line, end="", flush=True)
-        output.append(line)
-    result = process.wait()
+    log_path = repeat_path / "gamefree.log"
+    with log_path.open("x", encoding="utf-8") as log:
+        process = subprocess.Popen(
+            command,
+            cwd=ROOT,
+            env={**os.environ, "BUILD": build, "DOTNET": os.environ.get("DOTNET", "dotnet"),
+                 "BENCH_IPC_OUTPUT": str(repeat_path / "ipc"), "TMPDIR": str(temporary)},
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1,
+        )
+        assert process.stdout is not None
+        for line in process.stdout:
+            print(line, end="", flush=True)
+            log.write(line)
+            log.flush()
+            output.append(line)
+        result = process.wait()
     if result != 0:
-        raise RuntimeError(f"benchmark run {run_number} failed with exit status {result}")
+        raise RuntimeError(f"benchmark run {run_number} failed with exit status {result}; see {log_path}")
 
-    raw_path.mkdir(parents=True, exist_ok=True)
-    (raw_path / f"run-{run_number}.log").write_text("".join(output))
     samples = parse_samples("".join(output))
-    if not samples:
+    if not samples and suite != "ipc":
         raise RuntimeError(f"benchmark run {run_number} produced no daemon/C# measurements")
+    if suite not in ("gamefree", "ipc"):
+        shutil.rmtree(temporary)
+        return samples
     for runtime in ("mono", "net8", "rust"):
-        path = ROOT / "bench/ipc/results" / f"{runtime}.csv"
-        shutil.copyfile(path, raw_path / f"{runtime}-{run_number}.csv")
+        path = repeat_path / "ipc" / f"{runtime}.csv"
         with path.open() as stream:
             rows = list(csv.DictReader(stream))
         lanes = ("protobuf-encode", "protobuf-decode") if runtime == "rust" else ("protobuf-receive", "protobuf-queue1", "protobuf-burst8")
@@ -103,6 +116,7 @@ def run_bench(build: str, run_number: int, raw_path: Path) -> OrderedDict[str, S
             samples[name] = Sample(float(row["p50_us"]), float(row["p95_us"]),
                 float(row["allocated_bytes"]) if "allocated_bytes" in row else None,
                 float(row["wire_bytes"]))
+    shutil.rmtree(temporary)
     return samples
 
 
@@ -148,56 +162,15 @@ def commit_hash() -> str:
     ).strip()
 
 
-def format_timing(value: float) -> str:
-    return f"{value:.3f}" if value < 0.1 else f"{value:.2f}"
-
-
-def format_timing_range(value: float, limits: tuple[float, float]) -> str:
-    return f"{format_timing(value)} [{format_timing(limits[0])}–{format_timing(limits[1])}]"
-
-
-def write_note(
-    output_path: Path,
-    build: str,
-    revision: str,
-    generated: dt.datetime,
-    results: OrderedDict[str, Sample],
-) -> None:
-    lines = [
-        "# Performance suite",
-        "",
-        f"- Generated: {generated.isoformat(timespec='seconds')}",
-        f"- Commit: `{revision}`",
-        f"- Build: `{build}`",
-        f"- Runs: {RUNS}",
-        f"- Command: `make BUILD={build} bench-report`",
-        "",
-        "Build once. Then measure three complete suite runs.",
-        "For each metric, this report shows the median of the three run percentiles. "
-        "Brackets show the minimum and maximum values across runs. The range shows run-to-run "
-        "variation. It is not a confidence interval. Units are microseconds per operation.",
-        "B/op is the median managed allocation per operation. A range appears when runs differ.",
-        "Creation probes time individual operations with setup excluded. Other p50/p95 values describe batch averages, not individual-operation tail latency. Burst8 is eight "
-        "live frames including coalescing. Wire bytes count the whole burst. Codec and queue measurements "
-        "exclude network and rendering. Mono and CoreCLR (.NET 8) are reported separately.",
-        f"Raw run logs and IPC CSV files are stored in the ignored local directory `{output_path.with_suffix('.raw').name}/`.",
-        "",
-        "| Benchmark | p50 median [range] (µs) | p95 median [range] (µs) | B/op | Wire bytes |",
-        "| --- | ---: | ---: | ---: | ---: |",
-    ]
-    for name, sample in results.items():
-        escaped_name = name.replace("|", "\\|")
-        bytes_value = f"{sample.bytes_per_op:.0f}" if sample.bytes_per_op is not None else "n/a"
-        if sample.bytes_range is not None and sample.bytes_range[0] != sample.bytes_range[1]:
-            bytes_value += f" [{sample.bytes_range[0]:.0f}–{sample.bytes_range[1]:.0f}]"
-        wire_value = f"{sample.wire_bytes:.0f}" if sample.wire_bytes is not None else "n/a"
-        lines.append(f"| {escaped_name} | {format_timing_range(sample.p50, sample.p50_range)} | {format_timing_range(sample.p95, sample.p95_range)} | {bytes_value} | {wire_value} |")
-    lines.append("")
-    output_path.write_text("\n".join(lines), encoding="utf-8")
-
-
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("action", choices=("run", "report"))
+    parser.add_argument("--suite", choices=("gamefree", "daemon", "mod", "ipc"), default="gamefree")
+    parser.add_argument("--run", help="directory name under bench/results (default: UTC timestamp for run)")
+    parser.add_argument("--baseline", help="run name for a comparison report")
+    parser.add_argument("--mode", choices=("absolute", "relative"), default="absolute")
+    parser.add_argument("--latest", action="store_true", help="write a stable, dateless report at bench/latest-report.md")
+    parser.add_argument("--repeats", type=int)
     parser.add_argument(
         "--build",
         choices=("debug", "release"),
@@ -207,28 +180,52 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--output",
         type=Path,
-        help="note path (default: notes/perf-suite.md, replaced on each run)",
+        help="Markdown path (default: bench/results/<run>/report.md)",
     )
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
-    revision = commit_hash()
-    generated = dt.datetime.now(dt.timezone.utc)
-    output_path = args.output or ROOT / "notes" / "perf-suite.md"
-    if not output_path.is_absolute():
-        output_path = ROOT / output_path
-    if args.output and output_path.exists():
-        print(f"refusing to overwrite existing note: {output_path}", file=sys.stderr)
-        return 2
-
     try:
-        subprocess.run([os.environ.get("MAKE_CMD", "make"), f"BUILD={args.build}", "bench-build"], cwd=ROOT, check=True)
-        runs = [run_bench(args.build, run_number, output_path.with_suffix(".raw")) for run_number in range(1, RUNS + 1)]
-        results = summarize_runs(runs)
-        write_note(output_path, args.build, revision, generated, results)
-    except (OSError, RuntimeError, subprocess.CalledProcessError) as error:
+        run_name = args.run or (data.default_run() if args.action == "run" else None)
+        if not run_name:
+            raise ValueError("--run is required for reports")
+        if args.latest and (args.action != "report" or args.output or args.baseline or args.mode != "absolute"):
+            raise ValueError("--latest requires a plain report action without output, baseline, or relative mode")
+        directory = data.run_directory(run_name)
+        if args.action == "run":
+            if (directory / "raw" / "repeat-1").exists() or any(
+                    row["suite"] != "terminal" for row in data.read(directory / "metrics.csv")):
+                raise ValueError(f"run already has game-free measurements: {directory}")
+            repeats = args.repeats or (RUNS if args.suite == "gamefree" else 1)
+            if repeats < 1:
+                raise ValueError("repeats must be positive")
+            subprocess.run([os.environ.get("MAKE_CMD", "make"), f"BUILD={args.build}", "bench-build"], cwd=ROOT, check=True)
+            directory.mkdir(parents=True, exist_ok=True)
+            data.add_metadata(directory, "gamefree", "", {"revision": commit_hash(), "build": args.build,
+                "started": dt.datetime.now(dt.timezone.utc).isoformat(), "suite": args.suite,
+                "repeats": repeats, "system": platform.system(), "machine": platform.machine(),
+                "host": platform.node(),
+                "cpu_count": os.cpu_count()})
+            runs = [run_bench(args.build, number, directory / "raw", args.suite)
+                    for number in range(1, repeats + 1)]
+            if repeats > 1:
+                summarize_runs(runs)
+            for number, samples in enumerate(runs, start=1):
+                for name, sample in samples.items():
+                    suite = "ipc" if name.startswith("IPC/") else ("mod" if sample.bytes_per_op is not None else "daemon")
+                    for stat, value in (("p50", sample.p50), ("p95", sample.p95)):
+                        data.add_metric(directory, suite, "", name, "duration", stat, "us", number, value)
+                    if sample.bytes_per_op is not None:
+                        data.add_metric(directory, suite, "", name, "allocation", "mean", "B/op", number, sample.bytes_per_op)
+                    if sample.wire_bytes is not None:
+                        data.add_metric(directory, suite, "", name, "wire_size", "total", "B", number, sample.wire_bytes)
+            print(f"Results: {directory}")
+        baseline = data.run_directory(args.baseline) if args.baseline else None
+        output_path = ROOT / "bench/latest-report.md" if args.latest else args.output or directory / "report.md"
+        data.write_report(directory, output_path, baseline, args.mode, latest=args.latest)
+    except (OSError, RuntimeError, ValueError, subprocess.CalledProcessError) as error:
         print(f"bench-report: {error}", file=sys.stderr)
         return 1
 
@@ -236,7 +233,7 @@ def main() -> int:
         display_path = output_path.relative_to(ROOT)
     except ValueError:
         display_path = output_path
-    print(f"\nWrote performance note: {display_path}", flush=True)
+    print(f"\nWrote benchmark report: {display_path}", flush=True)
     return 0
 
 

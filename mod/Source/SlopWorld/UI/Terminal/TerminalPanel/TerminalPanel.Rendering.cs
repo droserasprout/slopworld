@@ -25,7 +25,9 @@ namespace SlopWorld
                     try
                     {
                         SyncSnap();
+                        long paintStarted = PerfTrace.Start();
                         Paint(new Rect(0f, 0f, body.width, body.height), buf, cw, ch);
+                        PerfTrace.End("terminal-direct-paint", paintStarted, 1);
                     }
                     finally { GUI.EndGroup(); }
                 }
@@ -67,7 +69,9 @@ namespace SlopWorld
                     GUI.BeginGroup(body);
                     SyncSnap();
                     var localBody = new Rect(0f, 0f, body.width, body.height);
+                    long paintStarted = PerfTrace.Start();
                     Paint(localBody, buf, cw, ch, shift);
+                    PerfTrace.End("terminal-direct-paint", paintStarted, 1);
                     GUI.EndGroup();
                 }
             }

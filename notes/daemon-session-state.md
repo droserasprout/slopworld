@@ -51,7 +51,9 @@ See [redeploy](daemon-redeploy.md).
 Clean readers have no recurring timer.
 Output, subscription changes, and completed clipboard writes wake readers as necessary.
 Subscription changes remain pending while readers wait for rendering.
-Watched output retains the 16 ms flush interval. Unwatched output retains the 200 ms render limit.
+Watched output uses the last draw as its 16 ms rate limit. Output after an idle
+period can capture immediately; output arriving within that interval waits only
+until the next allowed draw. Unwatched output retains the 200 ms render limit.
 Daemon maintenance uses independent monotonic deadlines for configuration, presets, jukebox, host metadata, and idle classification.
 
 Tmux answers terminal queries.
@@ -78,6 +80,13 @@ Terminal bytes remain complete under backpressure.
 A bounded queue of byte chunks must still reassemble long control lines after dequeue.
 Dropping its receiver must wake the blocking reader.
 Child cleanup must kill and reap the child before session removal.
+
+Paste admission checks the tracked live session under the session boundary; the
+ordered input consumer checks identity again before delivery. Avoid a tmux session
+listing on every paste. An attached reader also admits paste before the first
+frame changes the newly started session's Down state. The load-buffer and
+paste-buffer commands share one tmux client invocation, preserving current
+application bracketed-paste mode.
 
 Titles and bells invalidate session metadata even without visible text changes.
 Inactive tabs depend on those events.

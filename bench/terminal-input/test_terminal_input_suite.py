@@ -17,7 +17,7 @@ from test_terminal_input_bench import bench, Clock
 from test_latency_summary import record
 from terminal_input_backend import TEXT, key_events
 from terminal_input_history import fill_history, command
-from terminal_input_report import write_note, measurement_status
+from terminal_input_metrics import measurement_status
 
 
 class SuiteTests(unittest.TestCase):
@@ -173,6 +173,8 @@ class SuiteTests(unittest.TestCase):
             self.assertIn('history / history_scroll', report)
             self.assertIn('typing / paste', report)
             self.assertIn('same history-filled tab', report)
+            self.assertTrue((root / 'out' / 'metrics.csv').exists())
+            self.assertTrue((root / 'out' / 'outcomes.csv').exists())
 
     def test_censored_survivors_are_withheld_and_contexts_kept_separate(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -186,11 +188,14 @@ class SuiteTests(unittest.TestCase):
                 'eco=0 terminal=1 sessions=38 size=100x100 windows=2\n'
                 'mean reported FPS=30.00; gen0 collections=5\n  terminal-window: 16.000\n')
             output = root / 'report.md'
-            write_note(root, output)
+            bench.record_phase(root, 'htop', json.loads((root / 'htop-events.json').read_text()),
+                               json.loads((root / 'htop-latency.json').read_text()),
+                               (root / 'htop-performance.txt').read_text())
+            bench.data.write_report(root, output)
             report = output.read_text()
-            self.assertIn('censored; percentiles withheld', report)
+            self.assertIn('withheld', report)
             self.assertNotIn('99999.999', report)
-            self.assertIn('overflow=35803', report)
+            self.assertIn('| overflow | 35803 |', report)
             self.assertIn('59.43', report)
             self.assertIn('30.00', report)
             self.assertIn('sessions=37', report)
@@ -214,11 +219,50 @@ class SuiteTests(unittest.TestCase):
 
     def test_report_only_never_connects_backend(self):
         with tempfile.TemporaryDirectory() as directory:
+            bench.data.add_metadata(Path(directory), 'terminal', 'setup', {'status': 'complete'})
             with patch.object(bench, 'Backend') as backend, patch('sys.stdout', new_callable=io.StringIO), \
                     patch.object(bench.sys, 'argv', ['bench', '--report-only', '--output', directory]):
                 bench.main()
             backend.assert_not_called()
             Path(directory).with_suffix('.md').unlink()
+
+    def test_history_only_can_fill_an_empty_shell(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            log = root / 'trace.log'
+            log.write_text('')
+            backend = Mock()
+            with patch.object(bench, 'Backend', return_value=backend), \
+                    patch.object(bench, 'prepare_history') as prepare, \
+                    patch.object(bench, 'run_phase') as run_phase, \
+                    patch.object(bench, 'show_report', return_value=root / 'out.md'), \
+                    patch('builtins.input') as prompt, patch('sys.stdout', new_callable=io.StringIO), \
+                    patch.object(bench.sys, 'argv', ['bench', '--phase', 'history', '--fill-history',
+                                                    '--log', str(log), '--output', str(root / 'out')]):
+                bench.main()
+            prepare.assert_called_once()
+            self.assertEqual(run_phase.call_args.args[1], 'history')
+            self.assertTrue(run_phase.call_args.kwargs['close_backend'] is False)
+            prompt.assert_not_called()
+            backend.close.assert_called_once()
+            self.assertFalse((root / 'out' / 'typing.log').exists())
+
+    def test_report_only_repairs_empty_performance_summary(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            line = ('[SlopWorld] perf context eco=1 terminal=1 sessions=1 width=800 '
+                    'height=600 fps=60 gc0=0; root-update calls=60 work=60 ms=3; '
+                    'terminal-window calls=60 work=60 ms=30;\n')
+            (root / 'typing.log').write_text(line * 2)
+            performance = root / 'typing-performance.txt'
+            performance.write_text('')
+            bench.data.add_metadata(root, 'terminal', 'typing', {'status': 'complete'})
+            with patch.object(bench, 'Backend') as backend, patch('sys.stdout', new_callable=io.StringIO), \
+                    patch.object(bench.sys, 'argv', ['bench', '--report-only', '--output', directory,
+                                                    '--report', str(root / 'report.md')]):
+                bench.main()
+            backend.assert_not_called()
+            self.assertIn('terminal-window: 0.500', performance.read_text())
 
     def test_invalid_phase_never_becomes_usable_from_survivors(self):
         self.assertEqual(measurement_status({'status': 'invalid'}, {'counts': {'samples': 100}}), 'invalid')

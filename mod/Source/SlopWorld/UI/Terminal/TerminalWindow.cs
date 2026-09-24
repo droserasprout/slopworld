@@ -66,6 +66,7 @@ namespace SlopWorld
         public override void DoWindowContents(Rect rect)
         {
             long started = PerfTrace.Start();
+            EventType eventType = Event.current.type;
             try
             {
                 using (FieldLifetimeScope.Push(_fieldLifetime))
@@ -86,6 +87,9 @@ namespace SlopWorld
             finally
             {
                 PerfTrace.End("terminal-window", started, 1);
+                PerfTrace.End(eventType == EventType.Repaint ? "terminal-window-repaint" :
+                    eventType == EventType.Layout ? "terminal-window-layout" :
+                    "terminal-window-input", started, 1);
             }
         }
 

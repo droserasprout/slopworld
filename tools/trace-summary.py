@@ -50,6 +50,38 @@ def main():
             if frames:
                 for lane in ("root-update", "ws-events", "colonist-bar", "sidebar", "topbar", "terminal-window"):
                     print(f"  {lane}: {total(lane, 'ms') / frames:.3f}")
+            detail = (
+                "terminal-window-repaint", "terminal-window-layout", "terminal-window-input",
+                "terminal-parse", "terminal-cache-full-paint", "terminal-cache-scroll-paint",
+                "terminal-cache-row-paint",
+                "terminal-direct-paint", "terminal-cache-blit",
+            )
+            if any(total(lane, "calls") for lane in detail):
+                print("Terminal detail (calls, mean ms per call; lanes may overlap):")
+                for lane in detail:
+                    calls = total(lane, "calls")
+                    if calls:
+                        peak = max(float(row.get(lane, {}).get("max", 0)) for row in rows)
+                        tail = f", max {peak:.3f} ms" if peak else ""
+                        print(f"  {lane}: {calls:.0f} calls, {total(lane, 'ms') / calls:.3f} ms/call{tail}")
+            for lane in ("terminal-cache-edge-clamps", "terminal-cache-out-of-bounds",
+                         "terminal-cache-missing", "terminal-cache-session-mismatch",
+                         "terminal-cache-size-mismatch"):
+                calls = total(lane, "calls")
+                if calls:
+                    print(f"  {lane}: {calls:.0f} calls")
+            shifts = total("terminal-cache-scroll-shifts", "calls")
+            if shifts:
+                overlap = total("terminal-cache-scroll-overlap", "calls")
+                copyable = total("terminal-cache-scroll-copyable", "calls")
+                copyable_rows = total("terminal-cache-scroll-copyable", "work")
+                print("History pixel-reuse opportunity: "
+                      f"{shifts:.0f} anchor shifts, {overlap:.0f} matching overlaps, "
+                      f"{copyable:.0f} whole-pixel shifts covering {copyable_rows:.0f} rows")
+            reused = total("terminal-cache-scroll-rows-reused", "work")
+            if reused:
+                print(f"  terminal-cache-scroll-rows-reused: {reused:.0f} rows across "
+                      f"{total('terminal-cache-scroll-rows-reused', 'calls'):.0f} paints")
 
 
 if __name__ == "__main__":

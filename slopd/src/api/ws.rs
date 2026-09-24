@@ -387,9 +387,13 @@ async fn handle_client_msg(cm: ClientMsg, m: &Mgr, cap: &Cap, tx: &WsTx, subs: &
         }
         true
     };
-    let operation = crate::latency::CURRENT.scope(trace, operation);
     if shared {
-        m.session_read_operation(operation).await
+        if let Some(trace) = trace {
+            m.session_read_operation(crate::latency::CURRENT.scope(Some(trace), operation))
+                .await
+        } else {
+            m.session_read_operation(operation).await
+        }
     } else {
         m.session_operation(operation).await
     }

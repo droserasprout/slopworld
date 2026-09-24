@@ -42,7 +42,7 @@ def main():
                 count += 1
     print(f"Captured {count} trace records to {args.output}")
     if count == 0:
-        print("No trace data: start with SLOPWORLD_DEBUG=1 or SLOPWORLD_LATENCY=1 and repeat.")
+        print("No trace data: start with SLOPWORLD_DEBUG=1 and repeat.")
         return 1
     return 0
 

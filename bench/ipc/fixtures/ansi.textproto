@@ -1,0 +1,52 @@
+screen {
+  name: "bench"
+  seq: 42
+  cols: 120
+  rows: 40
+  cx: 3
+  cy: 2
+  history: 900
+  cursor_shape: 1
+  cursor_blink: true
+  title: "terminal"
+  lines: "0 \033[32mlet result = compute(input);\033[0m \033[32mlet result = compute(input);\033[0m \033[32mlet result = compute(input);\033[0m "
+  lines: "1 \033[32mlet result = compute(input);\033[0m \033[32mlet result = compute(input);\033[0m \033[32mlet result = compute(input);\033[0m "
+  lines: "2 \033[32mlet result = compute(input);\033[0m \033[32mlet result = compute(input);\033[0m \033[32mlet result = compute(input);\033[0m "
+  lines: "3 \033[32mlet result = compute(input);\033[0m \033[32mlet result = compute(input);\033[0m \033[32mlet result = compute(input);\033[0m "
+  lines: "4 \033[32mlet result = compute(input);\033[0m \033[32mlet result = compute(input);\033[0m \033[32mlet result = compute(input);\033[0m "
+  lines: "5 \033[32mlet result = compute(input);\033[0m \033[32mlet result = compute(input);\033[0m \033[32mlet result = compute(input);\033[0m "
+  lines: "6 \033[32mlet result = compute(input);\033[0m \033[32mlet result = compute(input);\033[0m \033[32mlet result = compute(input);\033[0m "
+  lines: "7 \033[32mlet result = compute(input);\033[0m \033[32mlet result = compute(input);\033[0m \033[32mlet result = compute(input);\033[0m "
+  lines: "8 \033[32mlet result = compute(input);\033[0m \033[32mlet result = compute(input);\033[0m \033[32mlet result = compute(input);\033[0m "
+  lines: "9 \033[32mlet result = compute(input);\033[0m \033[32mlet result = compute(input);\033[0m \033[32mlet result = compute(input);\033[0m "
+  lines: "10 \033[32mlet result = compute(input);\033[0m \033[32mlet result = compute(input);\033[0m \033[32mlet result = compute(input);\033[0m "
+  lines: "11 \033[32mlet result = compute(input);\033[0m \033[32mlet result = compute(input);\033[0m \033[32mlet result = compute(input);\033[0m "
+  lines: "12 \033[32mlet result = compute(input);\033[0m \033[32mlet result = compute(input);\033[0m \033[32mlet result = compute(input);\033[0m "
+  lines: "13 \033[32mlet result = compute(input);\033[0m \033[32mlet result = compute(input);\033[0m \033[32mlet result = compute(input);\033[0m "
+  lines: "14 \033[32mlet result = compute(input);\033[0m \033[32mlet result = compute(input);\033[0m \033[32mlet result = compute(input);\033[0m "
+  lines: "15 \033[32mlet result = compute(input);\033[0m \033[32mlet result = compute(input);\033[0m \033[32mlet result = compute(input);\033[0m "
+  lines: "16 \033[32mlet result = compute(input);\033[0m \033[32mlet result = compute(input);\033[0m \033[32mlet result = compute(input);\033[0m "
+  lines: "17 \033[32mlet result = compute(input);\033[0m \033[32mlet result = compute(input);\033[0m \033[32mlet result = compute(input);\033[0m "
+  lines: "18 \033[32mlet result = compute(input);\033[0m \033[32mlet result = compute(input);\033[0m \033[32mlet result = compute(input);\033[0m "
+  lines: "19 \033[32mlet result = compute(input);\033[0m \033[32mlet result = compute(input);\033[0m \033[32mlet result = compute(input);\033[0m "
+  lines: "20 \033[32mlet result = compute(input);\033[0m \033[32mlet result = compute(input);\033[0m \033[32mlet result = compute(input);\033[0m "
+  lines: "21 \033[32mlet result = compute(input);\033[0m \033[32mlet result = compute(input);\033[0m \033[32mlet result = compute(input);\033[0m "
+  lines: "22 \033[32mlet result = compute(input);\033[0m \033[32mlet result = compute(input);\033[0m \033[32mlet result = compute(input);\033[0m "
+  lines: "23 \033[32mlet result = compute(input);\033[0m \033[32mlet result = compute(input);\033[0m \033[32mlet result = compute(input);\033[0m "
+  lines: "24 \033[32mlet result = compute(input);\033[0m \033[32mlet result = compute(input);\033[0m \033[32mlet result = compute(input);\033[0m "
+  lines: "25 \033[32mlet result = compute(input);\033[0m \033[32mlet result = compute(input);\033[0m \033[32mlet result = compute(input);\033[0m "
+  lines: "26 \033[32mlet result = compute(input);\033[0m \033[32mlet result = compute(input);\033[0m \033[32mlet result = compute(input);\033[0m "
+  lines: "27 \033[32mlet result = compute(input);\033[0m \033[32mlet result = compute(input);\033[0m \033[32mlet result = compute(input);\033[0m "
+  lines: "28 \033[32mlet result = compute(input);\033[0m \033[32mlet result = compute(input);\033[0m \033[32mlet result = compute(input);\033[0m "
+  lines: "29 \033[32mlet result = compute(input);\033[0m \033[32mlet result = compute(input);\033[0m \033[32mlet result = compute(input);\033[0m "
+  lines: "30 \033[32mlet result = compute(input);\033[0m \033[32mlet result = compute(input);\033[0m \033[32mlet result = compute(input);\033[0m "
+  lines: "31 \033[32mlet result = compute(input);\033[0m \033[32mlet result = compute(input);\033[0m \033[32mlet result = compute(input);\033[0m "
+  lines: "32 \033[32mlet result = compute(input);\033[0m \033[32mlet result = compute(input);\033[0m \033[32mlet result = compute(input);\033[0m "
+  lines: "33 \033[32mlet result = compute(input);\033[0m \033[32mlet result = compute(input);\033[0m \033[32mlet result = compute(input);\033[0m "
+  lines: "34 \033[32mlet result = compute(input);\033[0m \033[32mlet result = compute(input);\033[0m \033[32mlet result = compute(input);\033[0m "
+  lines: "35 \033[32mlet result = compute(input);\033[0m \033[32mlet result = compute(input);\033[0m \033[32mlet result = compute(input);\033[0m "
+  lines: "36 \033[32mlet result = compute(input);\033[0m \033[32mlet result = compute(input);\033[0m \033[32mlet result = compute(input);\033[0m "
+  lines: "37 \033[32mlet result = compute(input);\033[0m \033[32mlet result = compute(input);\033[0m \033[32mlet result = compute(input);\033[0m "
+  lines: "38 \033[32mlet result = compute(input);\033[0m \033[32mlet result = compute(input);\033[0m \033[32mlet result = compute(input);\033[0m "
+  lines: "39 \033[32mlet result = compute(input);\033[0m \033[32mlet result = compute(input);\033[0m \033[32mlet result = compute(input);\033[0m "
+}

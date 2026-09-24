@@ -12,8 +12,8 @@ test: test-daemon test-mod test-tools test-pager ## Run all game-free tests (req
 
 ci: coverage test-tools test-pager lint-daemon check-format-csharp check-generated ## Run game-free CI checks with coverage
 
-bench: bench-build ## Run the game-free daemon, C# and IPC benchmarks
-	@bash tools/bench.sh run
+bench: ## Run the game-free daemon, C# and IPC benchmarks into shared CSV results
+	@MAKE_CMD="$(MAKE_BIN)" $(PYTHON) tools/bench-report.py run --suite gamefree --build "$(BUILD)" $(if $(BENCH_RUN),--run "$(BENCH_RUN)")
 
 install: install-daemon install-runner install-mod install-font ## Install the daemon, runner, mod and bundled font
 
