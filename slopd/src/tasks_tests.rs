@@ -21,10 +21,9 @@ fn update_journal_replays_and_snapshot_generation_prevents_resurrection() {
             .status,
         Status::Done
     );
-    let snapshot = fs::read_to_string(dir.join("tasks.toml")).unwrap();
     assert!(
-        snapshot.contains("status = \"queued\""),
-        "progress updates avoid full snapshot writes"
+        !dir.join("tasks.toml").exists(),
+        "creation and progress append without rewriting snapshots"
     );
 
     fs::OpenOptions::new()
@@ -34,6 +33,23 @@ fn update_journal_replays_and_snapshot_generation_prevents_resurrection() {
         .write_all(b"incomplete")
         .unwrap();
     let mut loaded = Tasks::load(&config).unwrap();
+    loaded
+        .update(
+            "bob",
+            &task.id,
+            Status::Done,
+            Some("after partial tail".into()),
+        )
+        .unwrap();
+    assert_eq!(
+        Tasks::load(&config)
+            .unwrap()
+            .get("bob", &task.id)
+            .unwrap()
+            .note
+            .as_deref(),
+        Some("after partial tail")
+    );
     let old_journal = fs::read(dir.join("tasks.journal")).unwrap();
     loaded.remove("alice", &task.id, false).unwrap();
     // Simulate a crash after replacing the snapshot but before retiring its old journal.
@@ -222,4 +238,75 @@ fn worker_task_metadata_and_daemon_failure_survive_reload() {
         .unwrap();
     assert_eq!(unchanged.note.as_deref(), Some("worker exited"));
     let _ = fs::remove_dir_all(dir);
+}
+
+#[test]
+fn compact_journal_preserves_creations_updates_and_legacy_entries() {
+    let dir = std::env::temp_dir().join(format!("slopd-task-compact-{}", uuid::Uuid::new_v4()));
+    fs::create_dir_all(&dir).unwrap();
+    let config = dir.join("config.toml");
+    let mut tasks = Tasks::load(&config).unwrap();
+    let task = tasks
+        .create("alice".into(), "bob".into(), "large body".repeat(1000))
+        .unwrap();
+    tasks.save().unwrap();
+    let mut legacy = task.clone();
+    legacy.note = Some("legacy".into());
+    let mut line = serde_json::to_vec(
+        &serde_json::json!({"generation": tasks.file.generation, "task": legacy}),
+    )
+    .unwrap();
+    line.push(b'\n');
+    fs::write(&tasks.journal, line).unwrap();
+    let mut tasks = Tasks::load(&config).unwrap();
+    assert_eq!(
+        tasks.get("bob", &task.id).unwrap().note.as_deref(),
+        Some("legacy")
+    );
+    let generation = tasks.file.generation;
+    for n in 0..140 {
+        tasks
+            .update(
+                "bob",
+                &task.id,
+                Status::Working,
+                Some(format!("{n}{}", "x".repeat(8192))),
+            )
+            .unwrap();
+    }
+    assert!(
+        tasks.file.generation > generation,
+        "size threshold compacts automatically"
+    );
+    assert!(fs::metadata(&tasks.journal).unwrap().len() < MAX_JOURNAL_BYTES);
+    tasks.set_summary(&task.id, "summary".into()).unwrap();
+    tasks.update("bob", &task.id, Status::Done, None).unwrap();
+    let loaded = Tasks::load(&config).unwrap().get("bob", &task.id).unwrap();
+    assert_eq!(loaded.body, task.body);
+    assert_eq!(loaded.status, Status::Done);
+    assert_eq!(loaded.note, None);
+    assert_eq!(loaded.summary.as_deref(), Some("summary"));
+    assert!(!fs::read_to_string(&tasks.journal)
+        .unwrap()
+        .contains("large body"));
+    let _ = fs::remove_dir_all(dir);
+}
+
+#[test]
+fn first_creation_creates_missing_store_directory() {
+    let dir = std::env::temp_dir().join(format!("slopd-task-new-{}", uuid::Uuid::new_v4()));
+    let config = dir.join("nested/config.toml");
+    let mut tasks = Tasks::load(&config).unwrap();
+    let task = tasks
+        .create("alice".into(), "bob".into(), "first".into())
+        .unwrap();
+    assert_eq!(
+        Tasks::load(&config)
+            .unwrap()
+            .get("bob", &task.id)
+            .unwrap()
+            .body,
+        "first"
+    );
+    fs::remove_dir_all(dir).unwrap();
 }

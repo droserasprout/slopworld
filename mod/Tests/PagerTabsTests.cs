@@ -4,6 +4,25 @@ namespace SlopWorld.Tests
 {
     static class PagerTabsTests
     {
+        public static void ReaderHandoffsInvalidateRoutingWithoutSessionRevision()
+        {
+            SessionHub.Instance = new SessionHub();
+            var store = SessionHub.Instance.SessionStore;
+            var tabs = new PagerTabs();
+            tabs.ForPreview().Open("p", "first", "first", "one");
+            long revision = RoutedSessionRows.LocalRevision;
+            store.Complete("one");
+            AssertEx.True(RoutedSessionRows.LocalRevision > revision, "completion invalidates membership");
+            tabs.Preview.Open("p", "second", "second", "two");
+            revision = RoutedSessionRows.LocalRevision;
+            store.Complete("two");
+            AssertEx.True(RoutedSessionRows.LocalRevision > revision, "handoff invalidates without another snapshot");
+            AssertEx.False(tabs.IsSession("one"), "handoff removes old reader");
+            revision = RoutedSessionRows.LocalRevision;
+            tabs.CloseTab("two");
+            AssertEx.True(RoutedSessionRows.LocalRevision > revision, "closing invalidates before process exit");
+        }
+
         public static void RoutedReadersReopenAndPinWithoutStartingProcesses()
         {
             SessionHub.Instance = new SessionHub();

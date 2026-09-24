@@ -57,6 +57,7 @@ and do not run during `make test`.
 
 JSON fixtures live only in test support. Production socket tests exercise
 binary fragmentation, ping/pong and masked writes without the game. `make bench-ipc` adds
-Mono measurements and C#/Rust binary fixture roundtrips. Process-runner tests use `/bin/sh`
+Mono measurements (eager receive, queued single frames, and coalesced eight-frame bursts) and
+C#/Rust binary fixture roundtrips. Process-runner tests use `/bin/sh`
 and `/bin/sleep` to check pipe draining, exit codes, cancellation, and timeout cleanup.
 They do not invoke SongRec or capture audio.

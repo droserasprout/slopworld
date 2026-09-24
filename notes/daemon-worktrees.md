@@ -47,4 +47,6 @@ See [sandbox](sandbox-isolation.md) and [usage](../docs/src/guides/project-workt
 
 The daemon reads and writes only `worktrees.toml` with `worktrees` records.
 Config fields are `project.worktree_root` and `session.worktree`; removed workspace names fail config loading.
-Session views retain a worktree index and reload it when the catalog changes.
+Session views retain a file-stamped worktree index and reload it when the catalog changes,
+including external edits. TOML parsing and serialization run on the blocking executor; atomic replacement retains
+the async file helper. The existing mutation lock retains write ordering; unchanged views avoid parsing.

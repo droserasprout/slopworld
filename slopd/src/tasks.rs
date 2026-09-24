@@ -82,8 +82,26 @@ struct File {
 #[derive(Serialize, Deserialize)]
 struct JournalEntry {
     generation: u64,
-    task: Task,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    task: Option<Task>, // Backward-compatible full update entries.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    create: Option<Task>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    update: Option<TaskUpdate>,
 }
+
+#[derive(Serialize, Deserialize)]
+struct TaskUpdate {
+    id: String,
+    status: Status,
+    note: Option<String>,
+    summary: Option<String>,
+    updated_ms: u64,
+}
+
+// Bound replay work without putting task bodies in every progress entry. Snapshot replacement
+// advances generation before cleanup, so an interrupted compaction cannot replay stale entries.
+const MAX_JOURNAL_BYTES: u64 = 1024 * 1024;
 
 pub struct Tasks {
     path: PathBuf,
@@ -110,7 +128,7 @@ impl Tasks {
             }
         };
         let journal = config.with_file_name("tasks.journal");
-        let positions: HashMap<String, usize> = file
+        let mut positions: HashMap<String, usize> = file
             .tasks
             .iter()
             .enumerate()
@@ -132,12 +150,40 @@ impl Tasks {
                     );
                     break;
                 };
+                if usize::from(entry.task.is_some())
+                    + usize::from(entry.create.is_some())
+                    + usize::from(entry.update.is_some())
+                    != 1
+                {
+                    tracing::warn!(
+                        "stopping at ambiguous task journal entry in {}",
+                        journal.display()
+                    );
+                    break;
+                }
                 valid_len += line.len();
                 if entry.generation != file.generation {
                     continue;
                 }
-                if let Some(&index) = positions.get(&entry.task.id) {
-                    file.tasks[index] = entry.task;
+                if let Some(task) = entry.create {
+                    if !positions.contains_key(&task.id) {
+                        positions.insert(task.id.clone(), file.tasks.len());
+                        file.tasks.push(task);
+                    }
+                }
+                if let Some(task) = entry.task {
+                    if let Some(&index) = positions.get(&task.id) {
+                        file.tasks[index] = task;
+                    }
+                }
+                if let Some(update) = entry.update {
+                    if let Some(&index) = positions.get(&update.id) {
+                        let task = &mut file.tasks[index];
+                        task.status = update.status;
+                        task.note = update.note;
+                        task.summary = update.summary;
+                        task.updated_ms = update.updated_ms;
+                    }
                 }
             }
             if valid_len < text.len() {
@@ -214,7 +260,15 @@ impl Tasks {
             worker,
         };
         self.file.tasks.push(task.clone());
-        self.save()?;
+        if let Err(error) = self.append_entry(JournalEntry {
+            generation: self.file.generation,
+            task: None,
+            create: Some(task.clone()),
+            update: None,
+        }) {
+            self.file.tasks.pop();
+            return Err(error);
+        }
         Ok(task)
     }
 
@@ -411,22 +465,51 @@ impl Tasks {
         Ok(removed)
     }
 
-    fn append_update(&self, task: &Task) -> Result<()> {
-        let entry = JournalEntry {
+    fn append_update(&mut self, task: &Task) -> Result<()> {
+        self.append_entry(JournalEntry {
             generation: self.file.generation,
-            task: task.clone(),
-        };
+            task: None,
+            create: None,
+            update: Some(TaskUpdate {
+                id: task.id.clone(),
+                status: task.status,
+                note: task.note.clone(),
+                summary: task.summary.clone(),
+                updated_ms: task.updated_ms,
+            }),
+        })
+    }
+
+    fn append_entry(&mut self, entry: JournalEntry) -> Result<()> {
         let mut line = serde_json::to_vec(&entry)?;
         line.push(b'\n');
-        let mut file = fs::OpenOptions::new()
-            .create(true)
-            .append(true)
-            .mode(0o600)
-            .open(&self.journal)?;
+        let open = || {
+            fs::OpenOptions::new()
+                .create(true)
+                .append(true)
+                .mode(0o600)
+                .open(&self.journal)
+        };
+        let mut file = match open() {
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                if let Some(parent) = self.journal.parent() {
+                    fs::create_dir_all(parent)?;
+                }
+                open()?
+            }
+            result => result?,
+        };
         let before = file.metadata()?.len();
         if let Err(error) = file.write_all(&line) {
             let _ = file.set_len(before);
             return Err(error.into());
+        }
+        if before + line.len() as u64 >= MAX_JOURNAL_BYTES {
+            // The append already succeeded. Failure to compact must not turn a committed
+            // mutation into an API failure; retry compaction after the next append.
+            if let Err(error) = self.save() {
+                tracing::warn!(%error, "could not compact task journal");
+            }
         }
         Ok(())
     }

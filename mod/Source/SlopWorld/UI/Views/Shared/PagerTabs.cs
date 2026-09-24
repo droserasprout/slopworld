@@ -74,6 +74,7 @@ namespace SlopWorld
             if (_preview.Locked)
             {
                 _locked.Add(_preview);
+                RoutedSessionRows.Invalidate();
                 _preview = _create();
             }
             return _preview;
@@ -212,7 +213,7 @@ namespace SlopWorld
         {
             if (_preview == null) _preview = _create();
             for (int i = _locked.Count - 1; i >= 0; i--)
-                if (!_locked[i].Alive) _locked.RemoveAt(i);
+                if (!_locked[i].Alive) { _locked.RemoveAt(i); RoutedSessionRows.Invalidate(); }
         }
     }
 

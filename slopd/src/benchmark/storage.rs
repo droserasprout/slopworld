@@ -37,6 +37,10 @@ fn benchmark_tasks(scratch: &Scratch) -> Result<()> {
         tasks: Vec<Task>,
     }
 
+    #[derive(Serialize)]
+    struct FixtureRef<'a> {
+        tasks: &'a [Task],
+    }
     let config = scratch.0.join("config.toml");
     for count in [10, 100, 1_000] {
         // Seed in one write, outside measurement, so setup is not itself quadratic.
@@ -45,7 +49,7 @@ fn benchmark_tasks(scratch: &Scratch) -> Result<()> {
                 .map(|index| Task {
                     id: format!("bench-{index:x}"),
                     from: crate::tasks::HOST.into(),
-                    to: "worker".into(),
+                    to: if index % 10 == 0 { "worker" } else { "other" }.into(),
                     body: "x".repeat(1_024),
                     status: Status::Working,
                     note: None,
@@ -60,11 +64,46 @@ fn benchmark_tasks(scratch: &Scratch) -> Result<()> {
             config.with_file_name("tasks.toml"),
             toml::to_string_pretty(&fixture)?,
         )?;
+        let _ = std::fs::remove_file(config.with_file_name("tasks.journal"));
+        let snapshot = std::fs::read(config.with_file_name("tasks.toml"))?;
         let mut tasks = Tasks::load(&config)?;
         assert_eq!(tasks.all().len(), count);
         measure(&format!("task list clone {count} records"), |_| {
             std::hint::black_box(tasks.all()).len()
         });
+        measure(&format!("task visible 10 percent {count} records"), |_| {
+            std::hint::black_box(tasks.visible("worker")).len()
+        });
+        measure_prepared(
+            &format!("task create journal {count} records"),
+            || {
+                std::fs::write(config.with_file_name("tasks.toml"), &snapshot).unwrap();
+                let _ = std::fs::remove_file(config.with_file_name("tasks.journal"));
+                Tasks::load(&config).unwrap()
+            },
+            |tasks| {
+                tasks
+                    .create("host".into(), "worker".into(), "x".repeat(1024))
+                    .unwrap();
+            },
+        );
+        measure_prepared(
+            &format!("task create snapshot reference {count} records"),
+            || fixture.tasks.clone(),
+            |tasks| {
+                let mut task = tasks[0].clone();
+                task.id = "new-task".into();
+                tasks.push(task);
+                crate::paths::write_private_toml(
+                    &config.with_file_name("reference.toml"),
+                    &toml::to_string_pretty(&FixtureRef { tasks }).unwrap(),
+                )
+                .unwrap();
+            },
+        );
+        // Restore the fixture after the independent creation probes.
+        std::fs::write(config.with_file_name("tasks.toml"), &snapshot)?;
+        let _ = std::fs::remove_file(config.with_file_name("tasks.journal"));
         measure(&format!("task update+save {count} records"), |sample| {
             // Update the first record: history serialization dominates without a long lookup.
             tasks
@@ -79,7 +118,70 @@ fn benchmark_tasks(scratch: &Scratch) -> Result<()> {
                 .len()
         });
     }
+    // Compare the legacy full-body journal with bounded production updates, same task bodies and progress notes.
+    let initial = Tasks::load(&config)?;
+    std::fs::write(
+        config.with_file_name("tasks.toml"),
+        toml::to_string(&Fixture {
+            tasks: initial.all(),
+        })?,
+    )?;
+    let _ = std::fs::remove_file(config.with_file_name("tasks.journal"));
+    let mut tasks = Tasks::load(&config)?;
+    let mut legacy = String::new();
+    let task = tasks.get("worker", "bench-0").unwrap();
+    for sample in 0..10_000 {
+        let mut changed = task.clone();
+        changed.note = Some(format!("restart {sample}"));
+        legacy.push_str(&serde_json::to_string(
+            &serde_json::json!({"generation": 0, "task": changed}),
+        )?);
+        legacy.push('\n');
+        tasks.update(
+            "worker",
+            "bench-0",
+            Status::Working,
+            Some(format!("restart {sample}")),
+        )?;
+    }
+    measure("task restart bounded 10000 updates", |_| {
+        Tasks::load(&config).unwrap().all().len()
+    });
+    let legacy_dir = scratch.0.join("legacy");
+    std::fs::create_dir(&legacy_dir)?;
+    // A generation-zero snapshot supports the legacy reference replay independently of compaction.
+    #[derive(Serialize)]
+    struct LegacyFixture {
+        tasks: Vec<Task>,
+    }
+    std::fs::write(
+        legacy_dir.join("tasks.toml"),
+        toml::to_string(&LegacyFixture { tasks: tasks.all() })?,
+    )?;
+    std::fs::write(legacy_dir.join("tasks.journal"), legacy)?;
+    measure("task restart full-body 10000 updates reference", |_| {
+        Tasks::load(&legacy_dir.join("config.toml"))
+            .unwrap()
+            .all()
+            .len()
+    });
     Ok(())
+}
+
+// Fixed single-operation samples allow seeding outside the timer without growing the catalog
+// throughout calibration. These creation percentiles are per operation, unlike batch probes.
+fn measure_prepared<T>(name: &str, mut prepare: impl FnMut() -> T, mut action: impl FnMut(&mut T)) {
+    let mut timings = Vec::new();
+    for sample in 0..60 {
+        let mut value = prepare();
+        let start = std::time::Instant::now();
+        action(&mut value);
+        if sample >= 10 {
+            timings.push(start.elapsed().as_secs_f64() * 1e6);
+        }
+    }
+    timings.sort_by(f64::total_cmp);
+    println!("{name:<44} p50={:.3} p95={:.3}", timings[24], timings[46]);
 }
 
 fn benchmark_activity(scratch: &Scratch) -> Result<()> {
@@ -90,11 +192,38 @@ fn benchmark_activity(scratch: &Scratch) -> Result<()> {
             cache.remember(&format!("agent-{index}"), State::Working, 1)?;
         }
         measure(
-            &format!("activity remember+save {count} records"),
+            &format!("activity remember+queue {count} records"),
             |sample| {
                 cache
                     .remember("agent-0", State::Working, sample as u64 + 2)
                     .expect("benchmark activity update");
+                sample
+            },
+        );
+        cache.flush()?;
+        measure(
+            &format!("activity remember+flush {count} records"),
+            |sample| {
+                cache
+                    .remember("agent-0", State::Working, sample as u64 + 1_000_000)
+                    .unwrap();
+                cache.flush().unwrap();
+                sample
+            },
+        );
+        measure(
+            &format!("activity burst32+flush {count} records"),
+            |sample| {
+                for update in 0..32 {
+                    cache
+                        .remember(
+                            "agent-0",
+                            State::Working,
+                            (sample * 32 + update) as u64 + 2_000_000,
+                        )
+                        .unwrap();
+                }
+                cache.flush().unwrap();
                 sample
             },
         );

@@ -4,7 +4,17 @@ namespace SlopWorld
     // sidebar tab changes preserve them and explicit dismissal releases them.
     public class Pager : IPreviewTab
     {
-        string _session;
+        string _sessionValue;
+        string _session
+        {
+            get => _sessionValue;
+            set
+            {
+                if (_sessionValue == value) return;
+                _sessionValue = value;
+                RoutedSessionRows.Invalidate();
+            }
+        }
         string _project;      // which project the persistent session serves
         string _filePath;     // the file named by the persistent viewer
         string _openProject;  // project for the current one-off command

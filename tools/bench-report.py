@@ -87,7 +87,7 @@ def run_bench(build: str, run_number: int, raw_path: Path) -> OrderedDict[str, S
         shutil.copyfile(path, raw_path / f"{runtime}-{run_number}.csv")
         with path.open() as stream:
             rows = list(csv.DictReader(stream))
-        lanes = ("protobuf-encode", "protobuf-decode") if runtime == "rust" else ("protobuf-receive", "protobuf-burst8")
+        lanes = ("protobuf-encode", "protobuf-decode") if runtime == "rust" else ("protobuf-receive", "protobuf-queue1", "protobuf-burst8")
         expected = {(fixture, lane) for fixture in ("plain", "ansi", "unicode", "large") for lane in lanes}
         actual = {(row["fixture"], row["lane"]) for row in rows}
         if len(rows) != len(expected) or actual != expected:
@@ -176,7 +176,7 @@ def write_note(
         "Brackets show the minimum and maximum values across runs. The range shows run-to-run "
         "variation. It is not a confidence interval. Units are microseconds per operation.",
         "B/op is the median managed allocation per operation. A range appears when runs differ.",
-        "All p50/p95 values describe batch averages, not individual-operation tail latency. Burst8 is eight "
+        "Creation probes time individual operations with setup excluded. Other p50/p95 values describe batch averages, not individual-operation tail latency. Burst8 is eight "
         "live frames including coalescing; wire bytes count the whole burst. Codec/queue measurements "
         "exclude network and rendering. Mono and .NET 8 are reported separately.",
         f"Raw run logs and IPC CSV files are stored in the ignored local directory `{output_path.with_suffix('.raw').name}/`.",

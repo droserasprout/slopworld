@@ -313,13 +313,19 @@ namespace SlopWorld.Tests
             }).ToList();
             var rows = new List<SessionInfo>();
             Predicate<SessionInfo> include = s => s.Project == "visible";
+            var routed = new RoutedSessionRows();
             Compare("routing 10000 sessions / 2500 visible", () =>
             {
                 float height = 0;
                 for (int i = 0; i < 3; i++)
                     height = RoutedSessionRows.Rebuild(rows, sessions, include, null, 20);
                 return (long)height;
-            }, () => (long)RoutedSessionRows.Rebuild(rows, sessions, include, null, 20));
+            }, () => (long)routed.Ensure(rows, sessions, 1, 1, include, null, 20));
+            Measure("routing changed revision", () =>
+            {
+                RoutedSessionRows.Invalidate();
+                return (long)routed.Ensure(rows, sessions, 1, 1, include, null, 20);
+            });
         }
 
         static void Terminal()

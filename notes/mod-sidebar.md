@@ -15,7 +15,11 @@ clear temporary drawing state on exceptions. Portrait selection corners need the
 scroll group and coordinate transform as the portrait, including multi-selection.
 
 Layout caches cannot depend solely on daemon revisions: native previews and pending viewer
-handoffs change routed rows locally. Routed headers and tree viewports must share clipping.
+handoffs change routed rows locally. `RoutedSessionRows` caches scan/sort results using the
+session version, project-filter revision and explicit local reader invalidation. Pager session
+handoffs, native preview identity/content changes and reader collection mutations invalidate it.
+Frame geometry resets preserve routed membership; changing row height does not require a scan.
+Routed headers and tree viewports must share clipping.
 The shared draggable split for Files and Git retains independent scroll owners and a stable tree boundary when headers change. See [Files](mod-ui-files.md).
 
 Worker hierarchy comes from explicit daemon metadata, never names. The plus menu's Worker action

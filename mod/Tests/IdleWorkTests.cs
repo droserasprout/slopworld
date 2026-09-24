@@ -57,6 +57,43 @@ namespace SlopWorld.Tests
             AssertEx.Equal(0, overloaded.Count, "close drops queue references");
         }
 
+        public static void DeferredScreensValidateBeforeReplacement()
+        {
+            var frame = new Wire.Event { Screen = new Wire.ScreenView {
+                Name = "agent", Seq = ulong.MaxValue, Cols = 120, Rows = 34,
+                Title = "title 🦀", Lines = { "hello", "世界", "\x1b[31mred" } } };
+            var binary = frame.ToByteArray();
+            AssertEx.True(ValidatedLiveScreen.TryName(binary, out var name), "ordinary screen uses deferred decode");
+            AssertEx.Equal("agent", name, "validated identity");
+            AssertEx.True(frame.Equals(new ReceivedEvent(binary, true).Value), "lazy decode retains every field");
+            // Mutation differential: anything accepted by the fast validator must also parse
+            // as precisely the same unsolicited live screen under the generated parser.
+            var random = new Random(1934);
+            for (int i = 0; i < 5000; i++)
+            {
+                var changed = (byte[])binary.Clone();
+                changed[random.Next(changed.Length)] = (byte)random.Next(256);
+                if (!ValidatedLiveScreen.TryName(changed, out var live)) continue;
+                var eager = new ReceivedEvent(changed);
+                AssertEx.True(eager.Error == null, "accepted subset must parse");
+                AssertEx.Equal(eager.LiveName, live, "classification agrees");
+                AssertEx.True(eager.Value.Equals(new ReceivedEvent(changed, true).Value), "decode agrees");
+            }
+            var queue = new IncomingMessageQueue();
+            queue.Enqueue(binary);
+            // Valid name followed by a truncated line, with a correct outer envelope length.
+            queue.Enqueue(new byte[] { 42, 12, 10, 5, 97, 103, 101, 110, 116, 130, 1, 5, 120, 120 });
+            AssertEx.Equal(2, queue.Count, "malformed row cannot evict a valid screen");
+            queue.TryDequeue(out var retained);
+            AssertEx.True(frame.Equals(retained.Value), "retained screen intact");
+            queue.TryDequeue(out var invalid);
+            AssertEx.True(invalid.Error != null, "malformed row delivered as error");
+            var reply = frame.Clone(); reply.Screen.RequestId = 9;
+            AssertEx.False(ValidatedLiveScreen.TryName(reply.ToByteArray(), out _), "reply uses eager path");
+            reply.Screen.RequestId = 0; reply.Screen.Off = 1;
+            AssertEx.False(ValidatedLiveScreen.TryName(reply.ToByteArray(), out _), "history uses eager path");
+        }
+
         public static void Scheduling()
         {
             foreach (int fps in new[] { 15, 60, 144, 360 })

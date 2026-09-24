@@ -16,4 +16,4 @@ bench-build: api-contract protobuf-deps
 
 bench-report: BUILD := release
 bench-report:        ## Run the full performance suite three times and write medians and ranges
-	@MAKE_CMD="$(MAKE_BIN)" $(PYTHON) tools/bench-report.py --build "$(BUILD)"
+	@MAKE_CMD="$(MAKE_BIN)" $(PYTHON) tools/bench-report.py --build "$(BUILD)" $(if $(BENCH_REPORT_OUTPUT),--output "$(BENCH_REPORT_OUTPUT)")
