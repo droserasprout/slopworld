@@ -113,6 +113,17 @@ namespace SlopWorld
         public static void Open(List<FloatMenuOption> options) =>
             Find.WindowStack.Add(new UiMenu(options));
 
+        // A catalog update can replace a submenu with a plain row or remove its anchor.
+        // Close the old child before replacing rows so it cannot keep stale actions alive.
+        protected void ReplaceOptions(List<FloatMenuOption> options)
+        {
+            CloseChild();
+            _options.Clear();
+            _options.AddRange(options);
+            _hot = _selected = -1;
+            _keyboardSelection = false;
+        }
+
         // Focus changes can happen before the window stack gets a chance to dismiss a menu.
         // Callers that replace the screen explicitly close the whole chain rather than
         // leaving a menu owned by the old focus standing behind it.

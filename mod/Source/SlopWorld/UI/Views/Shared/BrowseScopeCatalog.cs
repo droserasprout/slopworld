@@ -10,7 +10,7 @@ namespace SlopWorld
     {
         sealed class Catalog
         {
-            public string Name, Path;
+            public string Name, Path, Error;
             public bool Loading;
             public float Next;
             public int Token;
@@ -20,7 +20,7 @@ namespace SlopWorld
         readonly Dictionary<string, BrowseScope> _scopes = new Dictionary<string, BrowseScope>();
         readonly Func<string, bool> _passes;
         readonly Func<float> _now;
-        readonly Action<string, Action<List<BrowseScope>>> _load;
+        readonly Action<string, Action<List<BrowseScope>, string>> _load;
         int _inFlight, _projects = -1;
         string _filter, _saved;
         bool _updating;
@@ -28,7 +28,7 @@ namespace SlopWorld
         public int Revision { get; private set; }
         public event Action Changed;
         public BrowseScopeCatalog(Func<string, bool> passes, Func<float> now,
-            Action<string, Action<List<BrowseScope>>> load)
+            Action<string, Action<List<BrowseScope>, string>> load)
         { _passes = passes; _now = now; _load = load; }
         void Bump()
         {
@@ -45,6 +45,8 @@ namespace SlopWorld
         }
         public bool Chosen(BrowseScope scope) => _choices.Chosen(scope);
         public List<BrowseScope> All(string projectId) => _catalogs.TryGetValue(projectId, out var c) ? c.Scopes : new List<BrowseScope>();
+        public bool HasWorktrees(string projectId) => All(projectId).Any(s => s.Worktree != "main");
+        public string Error(string projectId) => _catalogs.TryGetValue(projectId, out var c) ? c.Error : null;
         public List<BrowseScope> EnabledScopes() => _catalogs.Values.SelectMany(c => c.Scopes)
             .Where(s => s.Ready && _choices.Chosen(s) && _passes(s.Project))
             .OrderBy(s => s.Project, StringComparer.Ordinal).ThenBy(s => s.Worktree == "main" ? 0 : 1)
@@ -65,7 +67,7 @@ namespace SlopWorld
         {
             foreach (var c in _catalogs.Values) { c.Next = 0; c.Token++; }
         }
-        public void Update(IEnumerable<ProjectInfo> projects, int projectRevision, string filter, string saved, bool online, Action<string> persist = null)
+        public void Update(IEnumerable<ProjectInfo> projects, int projectRevision, string filter, string saved, bool online, Action<string> persist = null, bool includeHidden = false)
         {
             if (_updating) return;
             _updating = true;
@@ -93,7 +95,7 @@ namespace SlopWorld
                         string id = BrowseScope.ProjectIdOf(p);
                         if (!_catalogs.TryGetValue(id, out var c)) _catalogs[id] = c = new Catalog();
                         if (c.Name == p.Name && c.Path == p.ExpandedDir) continue;
-                        c.Name = p.Name; c.Path = p.ExpandedDir; c.Token++; c.Next = 0;
+                        c.Name = p.Name; c.Path = p.ExpandedDir; c.Error = null; c.Token++; c.Next = 0;
                         // Replace descriptors, never mutate a scope captured by a Search request.
                         c.Scopes = c.Scopes.Select(s => new BrowseScope { ProjectId = id, Project = p.Name,
                             Worktree = s.Worktree, Name = s.Name, Path = s.Path, Phase = s.Phase, Branch = s.Branch, Error = s.Error }).ToList();
@@ -110,25 +112,35 @@ namespace SlopWorld
                 {
                     var c = entry.Value;
                     if (_inFlight >= 2) break;
-                    if (c.Loading || !_passes(c.Name) || _now() < c.Next) continue;
+                    // The open filter menu needs catalog metadata for hidden projects too,
+                    // so it can distinguish a plain checkbox from a worktree submenu.
+                    if (c.Loading || (!includeHidden && !_passes(c.Name)) || _now() < c.Next) continue;
                     c.Loading = true; _inFlight++;
                     string id = entry.Key;
                     int token = c.Token;
-                    _load(c.Name, reply => Complete(id, c, token, reply));
+                    _load(c.Name, (reply, error) => Complete(id, c, token, reply, error));
                 }
             }
             finally { _updating = false; }
         }
         static string Stamp(IEnumerable<BrowseScope> scopes) => string.Join("\n", scopes.Select(s =>
             string.Join("\t", s.Key, s.Name, s.Path, s.Phase, s.Branch, s.Error)));
-        void Complete(string id, Catalog c, int token, List<BrowseScope> reply)
+        void Complete(string id, Catalog c, int token, List<BrowseScope> reply, string error)
         {
             _inFlight--; c.Loading = false;
             if (token != c.Token || !_catalogs.TryGetValue(id, out var current) || !ReferenceEquals(current, c)) return;
             c.Next = _now() + 5f;
-            if (reply == null) return; // a transient error never clears saved choices or catalog
+            string nextError = reply == null ? error ?? "Unable to load worktrees." : null;
+            bool errorChanged = c.Error != nextError;
+            c.Error = nextError;
+            if (reply == null)
+            {
+                // Preserve known checkouts and choices, but surface the failure to the menu.
+                if (errorChanged) Bump();
+                return;
+            }
             foreach (var scope in reply) { scope.ProjectId = id; scope.Project = c.Name; }
-            if (Stamp(reply) == Stamp(c.Scopes)) return;
+            if (!errorChanged && Stamp(reply) == Stamp(c.Scopes)) return;
             c.Scopes = reply;
             Bump();
         }

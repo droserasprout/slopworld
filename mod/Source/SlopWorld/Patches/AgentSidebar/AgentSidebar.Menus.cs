@@ -317,18 +317,16 @@ namespace SlopWorld
 
         sealed class ProjectFilterMenu : UiMenu
         {
-            readonly List<FloatMenuOption> _rows;
             int _revision;
             public ProjectFilterMenu(List<FloatMenuOption> rows, Vector2 at) : base(rows, at)
-            { _rows = rows; _revision = SidebarScopes.Revision; }
+            { _revision = SidebarScopes.MenuRevision; }
             public override void DoWindowContents(Rect rect)
             {
-                int revision = SidebarScopes.Revision;
+                int revision = SidebarScopes.MenuRevision;
                 if (revision != _revision)
                 {
                     _revision = revision;
-                    _rows.Clear();
-                    _rows.AddRange(FilterOptions());
+                    ReplaceOptions(FilterOptions());
                     var size = InitialSize;
                     windowRect.width = size.x;
                     windowRect.height = size.y;
@@ -344,6 +342,7 @@ namespace SlopWorld
 
         static List<FloatMenuOption> FilterOptions()
         {
+            _ = SidebarScopes.MenuRevision;
             var opts = new List<FloatMenuOption>
             {
                 UiLayout.MenuToggle("All projects", !Filtering, () => Tick("")),
@@ -357,18 +356,16 @@ namespace SlopWorld
             foreach (var name in names)
             {
                 var key = name;
-                opts.Add(UiLayout.MenuToggle(key, Ticked(key), () => Tick(key)));
-                foreach (var scope in SidebarScopes.All(key))
+                FloatMenuOption option = SidebarScopes.HasWorktrees(key)
+                    ? new UiSubmenu(key, () => WorktreeFilterOptions(key))
+                    : UiLayout.MenuToggle(key, Ticked(key), () => Tick(key));
+                string error = SidebarScopes.Error(key);
+                if (!string.IsNullOrEmpty(error))
                 {
-                    var child = scope;
-                    string status = (child.Error ?? "").Contains("missing") ? "missing" : child.Phase;
-                    string label = "    " + child.Label + " (" + status + ")";
-                    opts.Add(child.Ready ? UiLayout.MenuToggle(label, SidebarScopes.Chosen(child), () =>
-                    {
-                        SidebarScopes.Toggle(child);
-                        OpenFilterMenu();
-                    }) : UiLayout.MenuToggle(label, SidebarScopes.Chosen(child), null));
+                    option.Label += " (unavailable)";
+                    option.tooltip = error;
                 }
+                opts.Add(option);
             }
 
             opts.Add(UiLayout.MenuToggle(NoProject, Ticked(NoProject),
@@ -377,9 +374,38 @@ namespace SlopWorld
             return opts;
         }
 
+        static List<FloatMenuOption> WorktreeFilterOptions(string project)
+        {
+            var opts = new List<FloatMenuOption>();
+            foreach (var scope in SidebarScopes.All(project).OrderBy(s => s.Worktree == "main" ? 0 : 1)
+                .ThenBy(s => s.Name, StringComparer.Ordinal))
+            {
+                var child = scope;
+                string label = child.Worktree == "main" ? "main" : child.Name;
+                if (!child.Ready) label += " (" + ((child.Error ?? "").Contains("missing") ? "missing" : child.Phase) + ")";
+                var option = UiLayout.MenuToggle(label, Passes(project) && SidebarScopes.Chosen(child), child.Ready ? (Action)(() =>
+                {
+                    // Selecting a hidden project's checkout restores that project and its saved choices.
+                    bool hidden = !Passes(project);
+                    if (hidden) ToggleFilter(project);
+                    if (!hidden || !SidebarScopes.Chosen(child)) SidebarScopes.Toggle(child);
+                    OpenFilterMenu();
+                }) : null);
+                option.tooltip = child.Path + (string.IsNullOrEmpty(child.Branch) ? "" : "\n" + child.Branch) +
+                    (string.IsNullOrEmpty(child.Error) ? "" : "\n" + child.Error);
+                opts.Add(option);
+            }
+            return opts;
+        }
+
         static void Tick(string key)
         {
             ToggleFilter(key);
+            if (key.Length > 0 && key != NoProject && Passes(key) && !SidebarScopes.HasWorktrees(key))
+            {
+                var main = SidebarScopes.All(key).FirstOrDefault(s => s.Worktree == "main");
+                if (main != null && main.Ready && !SidebarScopes.Chosen(main)) SidebarScopes.Toggle(main);
+            }
             OpenFilterMenu();
         }
     }

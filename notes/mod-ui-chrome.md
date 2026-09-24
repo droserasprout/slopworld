@@ -43,6 +43,8 @@ Menus need independent window instances per submenu level. Vanilla same-type rep
 and promotion of a clicked outside window can destroy or bury a chain. Close menus before
 promoting the fullscreen host. `FloatMenuOption.Disabled` is inferred from a null action,
 so a submenu opener needs an action even if its work happens elsewhere.
+Menus that replace their option list after an asynchronous catalog update must close the
+old submenu and reset its row indices through `UiMenu.ReplaceOptions`.
 
 The top bar has both map and terminal draw paths, but only one may handle input. It can lie
 outside the active window: use its own rectangles rather than window-relative hover helpers.

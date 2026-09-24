@@ -1,7 +1,7 @@
 # Worktrees in the sidebar project filter
 
-Status: implemented
-Approved by: user (requested implementation on 2026-09-24)
+Status: human approved
+Approved by: user (requested committing the main-tree changes)
 
 ## Problem and outcome
 
@@ -17,11 +17,11 @@ Follow [sidebar navigation](mod-sidebar-navigation.md), [Files](mod-ui-files.md)
 
 ## Interaction contract
 
-- Keep the project checkbox in the global filter. Nest a Main checkout choice and
-  the project's registered worktrees beneath it, using worktree names and status.
-  The project checkbox controls project visibility in every existing tab; its
-  worktree choices control Files, Git, and Search only. Hiding and restoring a
-  project preserves its child choices. The no-project option has no children.
+- A project without registered worktrees keeps one checkbox in the global filter.
+  A project with worktrees opens a submenu with checkboxes for `main` and its
+  registered worktrees. Checkout choices control Files, Git, and Search; selecting
+  a hidden project's checkout restores project visibility and its saved choices.
+  The no-project option has no children.
 - Existing settings show each project's main checkout. New worktrees are opt-in.
   An unfiltered project list still respects the saved worktree choices. Selecting
   all projects changes project visibility without silently enabling every
@@ -101,4 +101,4 @@ Regression coverage includes defaults and migration, project hide/restore, multi
 readiness/failure/rename/removal, late catalog replies, independent folds, bounded stale work,
 Search history identity, pinned reader retention, explicit run targets, and registered-path,
 sibling-checkout and symlink authorization. Game launch, screenshots and visual inspection
-were not performed. This implementation still requires review and human approval before merge.
+were not performed.
