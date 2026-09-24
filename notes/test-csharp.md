@@ -2,7 +2,7 @@
 
 `make test-mod` runs the C# suite without the game.
 `make test` includes this suite, daemon tests, supporting-tool tests, and pager checks. `mod/Tests/SlopWorld.Tests.csproj` links selected production files
-into a .NET 8 executable using NUnit and NUnitLite instead of loading the game-bound mod assembly.
+into a .NET 8 executable running on CoreCLR, using NUnit and NUnitLite instead of loading the game-bound mod assembly.
 `NUnitTestHarness.cs` discovers static test classes by their `Tests` suffix, exposing their
 `Cases()` entries and public parameterless void methods as individually named NUnit cases.
 The fixture runs without parallel execution.
@@ -50,7 +50,7 @@ code generation. Reference cases check matching results before timing.
 They omit offscreen GUI drawing and therefore do not predict Unity repaint cost.
 
 Use the same machine, build mode, and quiet host for comparisons. Timing includes delegate and
-loop overhead, and allocation counts cover the current thread. These .NET 8 helper timings do
+loop overhead, and allocation counts cover the current thread. These CoreCLR helper timings do
 not predict Unity/Mono frame time or texture performance. Benchmarks have no timing thresholds
 and do not run during `make test`.
 `make bench` runs both language suites.

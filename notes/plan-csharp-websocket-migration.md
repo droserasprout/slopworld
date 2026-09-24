@@ -26,6 +26,6 @@ and runtime behavior before selecting a version or fork.
 First build a bounded transport adapter and exercise it against a controllable local peer:
 fragmented/oversized messages, handshake stalls, disconnects and congested queues. Run
 `make test-mod` and `make lint-mod`.
-Tests with .NET 8 and without the game are necessary but insufficient runtime evidence. Retain the current transport if the candidate cannot meet these constraints.
+Tests on CoreCLR (.NET 8) and without the game are necessary but insufficient runtime evidence. Retain the current transport if the candidate cannot meet these constraints.
 Record the selected transport's constraints in `mod-client.md`.
 Delete this plan when you resolve the work.

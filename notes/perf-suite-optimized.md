@@ -9,7 +9,7 @@
 Build once. Then measure three complete suite runs.
 For each metric, this report shows the median of the three run percentiles. Brackets show the minimum and maximum values across runs. The range shows run-to-run variation. It is not a confidence interval. Units are microseconds per operation.
 B/op is the median managed allocation per operation. A range appears when runs differ.
-Creation probes time individual operations with setup excluded. Other p50/p95 values describe batch averages, not individual-operation tail latency. Burst8 is eight live frames including coalescing; wire bytes count the whole burst. Codec/queue measurements exclude network and rendering. Mono and .NET 8 are reported separately.
+Creation probes time individual operations with setup excluded. Other p50/p95 values describe batch averages, not individual-operation tail latency. Burst8 is eight live frames including coalescing; wire bytes count the whole burst. Codec/queue measurements exclude network and rendering. Mono and CoreCLR (.NET 8) are reported separately.
 Raw run logs and IPC CSV files are stored in the ignored local directory `perf-suite-optimized.raw/`.
 
 
@@ -22,12 +22,12 @@ on `dc8c7cd`. Both reports use three release runs on this host. The implementati
 | 32 large live frames, one session | 894.92 | 232.17 |
 | One large live frame | 28.61 | 34.17 |
 | Mono large IPC burst8 | 360.12 | 136.89 |
-| .NET large IPC burst8 | 151.84 | 60.24 |
+| CoreCLR large IPC burst8 | 151.84 | 60.24 |
 | Routed 10000 sessions, unchanged | 726.44 | 0.004 |
 | Task update, 1000 records | 6.53 | 4.96 |
 
 The 32-frame allocation falls from 2,351,360 to 78,728 B/op (96.7% less). Mono large
-burst8 falls from 402,368 to 51,512 B/op; .NET falls from 401,920 to 51,456 B/op.
+burst8 falls from 402,368 to 51,512 B/op; CoreCLR falls from 401,920 to 51,456 B/op.
 The queue validates every frame before replacement and decodes retained screens on dispatch.
 This adds a validation pass for isolated frames and moves retained live decoding onto the
 consumer thread. Unusual Protobuf encodings use the generated parser; wire bytes are unchanged.
@@ -173,18 +173,18 @@ CLI parser tests, which otherwise interpret commands as having an implicit task 
 | IPC/mono/large/protobuf-receive | 45.73 [44.59–46.39] | 46.97 [45.30–49.48] | 50256 | 21379 |
 | IPC/mono/large/protobuf-queue1 | 55.74 [54.50–55.74] | 58.12 [55.45–59.44] | 50336 | 21379 |
 | IPC/mono/large/protobuf-burst8 | 136.89 [135.34–137.01] | 140.53 [136.42–142.01] | 51512 | 171032 |
-| IPC/net8/plain/protobuf-receive | 5.94 [5.42–6.34] | 7.01 [5.92–7.23] | 13640 | 5707 |
-| IPC/net8/plain/protobuf-queue1 | 7.89 [7.41–8.20] | 9.73 [7.50–10.80] | 13720 | 5707 |
-| IPC/net8/plain/protobuf-burst8 | 21.03 [20.48–23.13] | 22.52 [20.94–28.52] | 14896 | 45656 |
-| IPC/net8/ansi/protobuf-receive | 5.11 [4.81–5.29] | 6.22 [4.96–8.28] | 11800 | 4827 |
-| IPC/net8/ansi/protobuf-queue1 | 7.05 [6.45–7.07] | 7.51 [6.61–9.82] | 11880 | 4827 |
-| IPC/net8/ansi/protobuf-burst8 | 18.25 [17.79–18.47] | 24.20 [18.10–26.32] | 13056 | 38616 |
-| IPC/net8/unicode/protobuf-receive | 10.11 [9.67–10.63] | 11.85 [9.99–13.61] | 6040 | 3147 |
-| IPC/net8/unicode/protobuf-queue1 | 13.67 [13.32–14.27] | 14.02 [13.65–17.37] | 6120 | 3147 |
-| IPC/net8/unicode/protobuf-burst8 | 39.03 [38.63–39.17] | 39.86 [39.84–49.03] | 7296 | 25176 |
-| IPC/net8/large/protobuf-receive | 18.97 [18.13–19.94] | 21.64 [18.51–21.66] | 50200 | 21379 |
-| IPC/net8/large/protobuf-queue1 | 23.82 [23.34–26.13] | 25.38 [24.16–30.73] | 50280 | 21379 |
-| IPC/net8/large/protobuf-burst8 | 60.24 [59.50–63.06] | 66.70 [61.62–76.53] | 51456 | 171032 |
+| IPC/coreclr/plain/protobuf-receive | 5.94 [5.42–6.34] | 7.01 [5.92–7.23] | 13640 | 5707 |
+| IPC/coreclr/plain/protobuf-queue1 | 7.89 [7.41–8.20] | 9.73 [7.50–10.80] | 13720 | 5707 |
+| IPC/coreclr/plain/protobuf-burst8 | 21.03 [20.48–23.13] | 22.52 [20.94–28.52] | 14896 | 45656 |
+| IPC/coreclr/ansi/protobuf-receive | 5.11 [4.81–5.29] | 6.22 [4.96–8.28] | 11800 | 4827 |
+| IPC/coreclr/ansi/protobuf-queue1 | 7.05 [6.45–7.07] | 7.51 [6.61–9.82] | 11880 | 4827 |
+| IPC/coreclr/ansi/protobuf-burst8 | 18.25 [17.79–18.47] | 24.20 [18.10–26.32] | 13056 | 38616 |
+| IPC/coreclr/unicode/protobuf-receive | 10.11 [9.67–10.63] | 11.85 [9.99–13.61] | 6040 | 3147 |
+| IPC/coreclr/unicode/protobuf-queue1 | 13.67 [13.32–14.27] | 14.02 [13.65–17.37] | 6120 | 3147 |
+| IPC/coreclr/unicode/protobuf-burst8 | 39.03 [38.63–39.17] | 39.86 [39.84–49.03] | 7296 | 25176 |
+| IPC/coreclr/large/protobuf-receive | 18.97 [18.13–19.94] | 21.64 [18.51–21.66] | 50200 | 21379 |
+| IPC/coreclr/large/protobuf-queue1 | 23.82 [23.34–26.13] | 25.38 [24.16–30.73] | 50280 | 21379 |
+| IPC/coreclr/large/protobuf-burst8 | 60.24 [59.50–63.06] | 66.70 [61.62–76.53] | 51456 | 171032 |
 | IPC/rust/plain/protobuf-encode | 1.04 [1.03–2.14] | 2.16 [1.81–2.30] | n/a | 5707 |
 | IPC/rust/plain/protobuf-decode | 3.99 [3.88–4.04] | 4.03 [3.91–4.09] | n/a | 5707 |
 | IPC/rust/ansi/protobuf-encode | 0.81 [0.80–0.81] | 0.82 [0.81–0.85] | n/a | 4827 |
