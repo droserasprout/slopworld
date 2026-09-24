@@ -116,6 +116,7 @@ namespace SlopWorld
         // Store one project name per line. Leave the field blank to show all projects.
         // AgentSidebar defines `[none]` semantics.
         public string sidebarFilter = "";
+        public string sidebarWorktrees = "";
 
         // Command ids, newest first, one per line. The palette validates these against its
         // current catalogue when it opens, so removed commands do not become dead rows.
@@ -251,6 +252,7 @@ namespace SlopWorld
             Field("sidebarShowHidden", (ModSettings s) => ref s.sidebarShowHidden, Bool, String),
             Field("sidebarShowGitignored", (ModSettings s) => ref s.sidebarShowGitignored, Bool, String),
             Field("sidebarAgentStatus", (ModSettings s) => ref s.sidebarAgentStatus, Text, String),
+            Field("sidebarWorktrees", (ModSettings s) => ref s.sidebarWorktrees, Text, String),
             Field("sidebarFilter", (ModSettings s) => ref s.sidebarFilter, Text, String),
             Field("commandPaletteHistory", (ModSettings s) => ref s.commandPaletteHistory, Text, String),
             Field("usageIcons", (ModSettings s) => ref s.usageIcons, Text, String),

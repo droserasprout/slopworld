@@ -196,7 +196,24 @@ pub(super) fn absolute_path(raw: &str) -> Result<PathBuf> {
 pub(super) fn project_action_path(project: &ProjectCfg, raw: &str) -> Result<PathBuf> {
     let root = absolute_path(&project.dir)?;
     let path = absolute_path(raw)?;
-    if !path.starts_with(&root) {
+    // Resolve existing ancestors as well as the leaf: new-file actions must not follow
+    // a directory symlink out of the selected checkout.
+    fn resolved(path: &Path) -> Result<PathBuf> {
+        match path.canonicalize() {
+            Ok(path) => Ok(path),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                if path.is_symlink() {
+                    return Err(error.into());
+                }
+                match (path.parent(), path.file_name()) {
+                    (Some(parent), Some(name)) => Ok(resolved(parent)?.join(name)),
+                    _ => Ok(path.to_path_buf()),
+                }
+            }
+            Err(error) => Err(error.into()),
+        }
+    }
+    if !resolved(&path)?.starts_with(resolved(&root)?) {
         bail!(
             "File action path must be inside project {:?}.",
             project.name

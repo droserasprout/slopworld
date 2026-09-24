@@ -117,8 +117,10 @@ namespace SlopWorld
                 return;
             }
 
+            // A project may point below the repository root. Validate its selected checkout
+            // directory while Git uses the repository root returned by the daemon.
             string full = "git -C " + Pager.Quote(repo.Root) + " " + command;
-            DaemonClient.Post<Wire.OutputResult>(WireProtocol.Routes.FileAction, new Wire.FileActionReq { Path = repo.Root, Command = full, Host = true },
+            DaemonClient.Post<Wire.OutputResult>(WireProtocol.Routes.FileAction, FilesView.ScopeAction(repo.Project, repo.Dir, full),
                 _ =>
                 {
                     Messages.Message("SlopWorld: " + notice,
@@ -322,9 +324,12 @@ namespace SlopWorld
 
         public static bool FocusLocation(string project, string rel)
         {
+            project = SidebarScopes.Key(project);
             var repo = Known(project);
             if (repo == null || string.IsNullOrEmpty(rel) || !repo.Changes.ContainsKey(rel))
                 return false;
+            TreeController.SetGroupCollapsed(project, false);
+            TreeController.SetGroupCollapsed(SidebarScopes.Find(project)?.ProjectKey, false);
             Tree.RevealKey(ContentTreeView.SelectionKey(project, rel));
             return true;
         }
@@ -367,7 +372,8 @@ namespace SlopWorld
         static Repo Known(string project)
         {
             if (string.IsNullOrEmpty(project)) return null;
-            var dir = SessionHub.Instance.Project(project)?.ExpandedDir ?? "";
+            project = SidebarScopes.Key(project);
+            var dir = SidebarScopes.Directory(project);
             if (!Repos.TryGetValue(project, out var repo)) return null;
             return repo.Dir == dir && repo.IsRepo && repo.Error == null ? repo : null;
         }
@@ -401,6 +407,7 @@ namespace SlopWorld
 
         public static void DiffAll(string project)
         {
+            project = SidebarScopes.Key(project);
             CancelPendingDiff();
             int request = _diffRequest;
             Fetch(project, () =>
@@ -413,7 +420,7 @@ namespace SlopWorld
                     return;
                 }
                 ClearSelection();
-                Viewers.ForPreview().Open(project, DiffCmd(repo, null, null), "diff-" + project);
+                Viewers.ForPreview().Open(project, DiffCmd(repo, null, null), FilesView.ReaderLabel(project, "diff"));
             });
         }
 
@@ -445,7 +452,7 @@ namespace SlopWorld
                     opts.Add(new FloatMenuOption("Diff all", () => DiffAll(project)));
             }
 
-            FilesView.AddFileActions(opts, project, repo.Dir, project);
+            FilesView.AddFileActions(opts, project, repo.Dir, SidebarScopes.Label(project));
 
             opts.Add(new FloatMenuOption("Terminal (host)", () =>
                 SessionHub.Instance.SessionStore.RunHostShell(project,
@@ -465,7 +472,7 @@ namespace SlopWorld
             };
 
             FilesView.AddFileActions(opts, project, abs, node.Name);
-            FilesView.AddOpenIn(opts, abs);
+            FilesView.AddOpenIn(opts, abs, project);
 
             bool canStage = Any(node, NeedsStage);
             bool canUnstage = Any(node, IsStaged);
@@ -515,6 +522,7 @@ namespace SlopWorld
 
         static void OpenDiff(string project, string abs, string label, bool directory)
         {
+            project = SidebarScopes.Key(project);
             CancelPendingDiff();
             int request = _diffRequest;
             _pendingDiffProject = project;
@@ -542,7 +550,7 @@ namespace SlopWorld
                 if (directory) ClearSelection();
                 else Tree.SelectKey(ContentTreeView.SelectionKey(project, rel));
                 AgentSidebar.RememberGit(project, rel);
-                Viewers.OpenFresh(project, DiffCmd(repo, rel, status), label, DiffKey(rel));
+                Viewers.OpenFresh(project, DiffCmd(repo, rel, status), FilesView.ReaderLabel(project, label), DiffKey(rel));
                 if (pin) Viewers.LockPreview(project, DiffKey(rel));
             });
         }

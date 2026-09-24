@@ -1,6 +1,8 @@
 # Git view
 
-`GitStore` owns repository snapshots.
+`GitStore` owns repository snapshots keyed by the shared project/worktree scope identity.
+Project folds hide checkout folds without changing their state. Disabled scopes invalidate
+status/count generations; the bounded request queue discards stale work before dispatch.
 `FileReaders` shares reader ownership with Files. Git shares
 Files' tree geometry and semantic selection helpers, but is not lazy: status supplies a
 flat changed-path set from which the tree is rebuilt. All Git access happens in the daemon.
@@ -20,7 +22,7 @@ The daemon limits line counting across repositories separately from status reads
 for a count slot consumes the optional-count timeout.
 Under load, paths can arrive without line counts until a later refresh.
 
-Diffs run on the daemon host in the project's working directory, without private agent state. Untracked
+Diffs run on the daemon host in the selected worktree's working directory, without private agent state. Untracked
 files need individual no-index diffs against `/dev/null`.
 A repository diff omits them.
 Git/delta/less paging flags must keep short output open and preserve alternate-screen wheel

@@ -57,10 +57,11 @@ Its selected project supplies mounts. An empty shell command uses the daemon's `
 Host commands are temporary.
 
 `POST /api/file-action` and `/api/run` requests with `path` execute file actions on the
-daemon host without private agent state. Their `host` flag selects path scope.
-With false, the daemon checks the path against the named project.
-With true, it accepts an absolute host path. Project actions retain
-the project's working directory.
+daemon host without private agent state. A named project scopes the path and working
+directory. The optional `worktree` ID selects a registered, ready checkout; an explicit ID
+rejects paths in other checkouts, including checkouts nested under Main. Symlink escapes
+are rejected. Without a worktree ID, legacy requests infer a registered checkout from the path.
+`host: true` with no project accepts an absolute host path.
 
 `GET /api/config` returns effective `values` plus response-only
 `metadata` containing factory defaults, usage catalog entries, temporary-root policy and

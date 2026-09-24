@@ -88,7 +88,7 @@ namespace SlopWorld
                         Click = SearchView.Clicks,
                         DrawActions = DrawSearchActions,
                         Refresh = SearchView.Search,
-                        FilterChanged = SearchView.Search,
+                        FilterChanged = SidebarScopes.Update,
                         Close = SearchView.Closed,
                         Entered = SearchView.Entered,
                     }),

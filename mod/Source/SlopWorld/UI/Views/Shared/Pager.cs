@@ -99,10 +99,10 @@ namespace SlopWorld
         {
             if (_opening && _pendingCommand == null && _openProject == project && _key == filePath) return;
             bool host = string.IsNullOrEmpty(project);
-            if (!host && SessionHub.Instance.Project(project) == null)
+            if (!host && BrowseScope.ProjectOf(project, SessionHub.Instance.Projects) == null)
             {
                 Release();
-                UiLayout.Fail($"project '{project}' has gone");
+                UiLayout.Fail("This reader's project is no longer available.");
                 return;
             }
 
@@ -155,13 +155,13 @@ namespace SlopWorld
                     _filePath = null;
                     StopIf(oldSession);
                     UiLayout.Fail(msg);
-                }, host: true);
+                }, host: true, path: filePath);
         }
 
         // Start a fresh pager at the requested line. Less's `:e` cannot open at a line atomically.
         public void ViewFileAt(string project, string filePath, int line, string label)
         {
-            Open(project, PagerCommand(filePath, line), label);
+            Open(project, PagerCommand(filePath, line), label, filePath, filePath);
         }
 
         // Run the pager on the host in the project directory. Replacement closes its tmux session.
@@ -170,16 +170,16 @@ namespace SlopWorld
 
         // Open a one-off command and retain a caller-supplied identity so a click on a pinned
         // routed header can focus that exact diff instead of creating a second tab.
-        public void Open(string project, string command, string label, string key)
+        public void Open(string project, string command, string label, string key, string sourcePath = "")
         {
             if (_opening && _openProject == project && _key == key &&
                 _pendingCommand == command) return;
             // The project may have been renamed or deleted since the listing that put the row
             // on screen. The daemon would refuse either way, but the reason is clearer here.
-            if (SessionHub.Instance.Project(project) == null)
+            if (BrowseScope.ProjectOf(project, SessionHub.Instance.Projects) == null)
             {
                 Release();
-                UiLayout.Fail($"project '{project}' has gone");
+                UiLayout.Fail("This reader's project is no longer available.");
                 return;
             }
 
@@ -206,6 +206,7 @@ namespace SlopWorld
                     }
                     _session = session;
                     _opening = false;
+                    _filePath = string.IsNullOrEmpty(sourcePath) ? null : sourcePath;
                     // Don't set _project — this is a one-off command, not the persistent
                     // pager, so the next ViewFile will create its own session.
                     TerminalWindow.Open(session);
@@ -219,7 +220,7 @@ namespace SlopWorld
                     _filePath = null;
                     StopIf(oldSession);
                     UiLayout.Fail(msg);
-                }, host: true);
+                }, host: true, path: sourcePath);
         }
 
         // Bring the open one back, for a reader who clicked the row that is already showing.

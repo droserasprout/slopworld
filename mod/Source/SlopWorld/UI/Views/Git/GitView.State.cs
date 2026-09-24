@@ -11,6 +11,7 @@ namespace SlopWorld
     // the daemon runs `git` outside the sessions' mount namespaces.
     public static partial class GitView
     {
+        static readonly BoundedWork Requests = new BoundedWork(4);
         const int GitRequestTimeoutMs = 15_000;
 
         // A directory holds children. A file holds the daemon's row.
@@ -30,7 +31,7 @@ namespace SlopWorld
 
             string IContentTreeNode.Name => Name;
             string IContentTreeNode.Key => Rel;
-            string IContentTreeNode.Project => Project;
+            string IContentTreeNode.ScopeKey => Project;
             bool IContentTreeNode.IsDirectory => IsDir;
             int IContentTreeNode.Depth => Depth;
             bool IContentTreeNode.CanExpand => IsDir;
@@ -40,12 +41,10 @@ namespace SlopWorld
             IEnumerable<IContentTreeNode> IContentTreeNode.Children => Kids;
         }
 
-        // One project's answer, as it stands. Keyed by project name for the reason the files view
-        // keys its roots that way. Two projects on one directory are two headings, and renaming a
-        // project is a heading that has gone.
+        // One checkout snapshot, keyed by stable project/worktree scope identity.
         class Repo
         {
-            public string Project;      // whose heading this is, so a row can name it in an errand
+            public string Project;      // stable browsing scope key, not a project-name filter value
             public string Dir;          // the project's directory, which is what was asked about
             public string Root;         // the repository's, which may be above it
             public string Branch;
@@ -74,6 +73,24 @@ namespace SlopWorld
         }
 
         static readonly GitStore Store = new GitStore();
+        static GitView()
+        {
+            SidebarScopes.Changed += () =>
+            {
+                foreach (var key in Repos.Keys.ToList())
+                {
+                    var repo = Repos[key];
+                    repo.Operations.Invalidate();
+                    repo.Refreshes.Reset();
+                    repo.NextRefresh = 0f;
+                    if (SidebarScopes.Find(key) == null) Repos.Remove(key);
+                }
+                CancelPendingDiff();
+                BumpTree();
+            };
+        }
+        static bool ScopeUnfolded(string key) => !TreeController.IsGroupCollapsed(key) &&
+            !TreeController.IsGroupCollapsed(SidebarScopes.Find(key)?.ProjectKey);
         static Dictionary<string, Repo> Repos => Store.Repos;
         static PagerTabs Viewers => FileReaders.Tabs;
 
@@ -89,6 +106,7 @@ namespace SlopWorld
             foreach (var group in groups)
             {
                 var repo = (Repo)group.Value;
+                if (repo == null) continue;
                 repo.Shut.Clear();
                 if (folded && repo.Tree != null) FoldDirectories(repo.Tree, repo.Shut);
             }
@@ -105,13 +123,18 @@ namespace SlopWorld
         static IList<ContentTreeGroup> BuildGroups()
         {
             var groups = new List<ContentTreeGroup>();
-            foreach (var project in ViewChrome.Projects())
+            foreach (var project in SidebarScopes.EnabledScopes().GroupBy(s => s.ProjectKey))
             {
-                var repo = Get(project);
-                groups.Add(new ContentTreeGroup(project, project, repo.Dir, repo, repo.Tree));
+                var first = project.First();
+                groups.Add(new ContentTreeGroup(first.ProjectKey, first.Project, "", null, null));
+                foreach (var scope in project)
+                {
+                    var repo = Get(scope.Key);
+                    groups.Add(new ContentTreeGroup(scope.Key, scope.Label, scope.Path, repo, repo.Tree)
+                    { ParentKey = scope.ProjectKey });
+                }
             }
-            // Filtering hides headings temporarily. Only catalog removal forgets a fold.
-            TreeController.SyncGroups(SessionHub.Instance.Projects.Select(p => p.Name));
+            TreeController.SyncGroups(SidebarScopes.GroupKeys);
             return groups;
         }
 
@@ -135,7 +158,7 @@ namespace SlopWorld
 
             public override int Revision => unchecked(TreeController.Revision * 397
                 ^ (int)SessionHub.Instance.SessionsVersion
-                ^ SessionHub.Instance.ProjectsRevision);
+                ^ SessionHub.Instance.ProjectsRevision ^ SidebarScopes.Revision);
 
             public override IList<ContentTreeGroup> Groups() => TreeController.Groups();
 
@@ -144,7 +167,9 @@ namespace SlopWorld
 
             public override void ToggleGroup(ContentTreeGroup group)
             {
-                TreeController.ToggleGroup(group);
+                if (TreeController.ToggleGroup(group))
+                    foreach (var scope in SidebarScopes.EnabledScopes())
+                        if ((scope.Key == group.Key || scope.ProjectKey == group.Key) && ScopeUnfolded(scope.Key)) Fetch(scope.Key);
             }
 
             public override string GroupTooltip(ContentTreeGroup group) => group.Path;
@@ -152,7 +177,7 @@ namespace SlopWorld
             public float DrawGroupTail(Rect row, ContentTreeGroup group, float right)
             {
                 var repo = (Repo)group.Value;
-                if (TreeController.IsGroupCollapsed(group) && repo.IsRepo && repo.Changed > 0)
+                if (repo != null && TreeController.IsGroupCollapsed(group) && repo.IsRepo && repo.Changed > 0)
                 {
                     GUI.color = UiTheme.Dim;
                     var count = new Rect(row.width * 0.5f, row.y,
@@ -165,7 +190,7 @@ namespace SlopWorld
             }
 
             public float GroupBodyHeight(ContentTreeGroup group) =>
-                UiTheme.TinyRowH;
+                group.Value == null ? 0f : UiTheme.TinyRowH;
 
             public float DrawGroupBody(float width, float y, ContentTreeGroup group) =>
                 Body(width, y, (Repo)group.Value);
@@ -173,6 +198,7 @@ namespace SlopWorld
             public GroupAct GroupActions(ContentTreeGroup group)
             {
                 var repo = (Repo)group.Value;
+                if (repo == null) return GroupAct.None;
                 var acts = GroupAct.Refresh;
                 if (repo.IsRepo && repo.Error == null && repo.Changed > 0)
                     acts |= GroupAct.Diff;
@@ -220,7 +246,7 @@ namespace SlopWorld
             public void Action(IContentTreeNode node, RowAct action) =>
                 GitView.Act((Node)node, ((Node)node).Owner, action);
             public override List<FloatMenuOption> GroupMenu(ContentTreeGroup group) =>
-                HeadMenu(group.Key, (Repo)group.Value);
+                group.Value == null ? null : HeadMenu(group.Key, (Repo)group.Value);
             public override List<FloatMenuOption> RowMenu(IContentTreeNode node) =>
                 GitView.RowMenu((Node)node, ((Node)node).Owner);
         }
@@ -231,7 +257,8 @@ namespace SlopWorld
         // Agents can change a working tree without sending a change notification to this view.
         public static void Refresh()
         {
-            foreach (var name in ViewChrome.Projects()) Fetch(name);
+            foreach (var name in SidebarScopes.EnabledScopes().Select(s => s.Key))
+                if (ScopeUnfolded(name)) Fetch(name);
         }
 
         // Files also consumes this cache for its Diff actions.
@@ -240,22 +267,23 @@ namespace SlopWorld
         internal static void RefreshIfDue()
         {
             if (!SessionHub.Instance.Online) return;
-            foreach (var name in ViewChrome.Projects())
+            foreach (var name in SidebarScopes.EnabledScopes().Select(s => s.Key))
             {
                 var repo = Get(name);
-                if (!repo.Loading && Time.realtimeSinceStartup >= repo.NextRefresh) Fetch(name);
+                if (ScopeUnfolded(name) && !repo.Loading && Time.realtimeSinceStartup >= repo.NextRefresh) Fetch(name);
             }
         }
 
         static Repo Get(string project)
         {
-            var dir = SessionHub.Instance.Project(project)?.ExpandedDir ?? "";
+            project = SidebarScopes.Key(project);
+            var dir = SidebarScopes.Directory(project);
 
             // A project whose directory moved is a different repository under the same
             // heading, and what was known about the old one is not about this one.
             if (Repos.TryGetValue(project, out var repo) && repo.Dir == dir) return repo;
 
-            repo = new Repo { Project = project, Dir = dir };
+            repo = new Repo { Project = project, Dir = dir, Shut = repo?.Shut ?? new HashSet<string>() };
             Repos[project] = repo;
             BumpTree();
             return repo;
@@ -263,6 +291,8 @@ namespace SlopWorld
 
         static void Fetch(string project, System.Action refreshed = null)
         {
+            project = SidebarScopes.Key(project);
+            if (!SidebarScopes.Enabled(project)) return;
             var repo = Get(project);
             if (string.IsNullOrEmpty(repo.Dir)) { refreshed?.Invoke(); return; }
             if (!repo.Refreshes.Request(refreshed)) return;
@@ -273,7 +303,7 @@ namespace SlopWorld
 
             string dir = repo.Dir;
             int generation = repo.Operations.Begin();
-            DaemonClient.Get<Wire.GitResult>(WireProtocol.Routes.Git + "?counts=false&path=" + System.Uri.EscapeDataString(dir),
+            GetGit(repo, generation, WireProtocol.Routes.Git + "?counts=false&path=" + System.Uri.EscapeDataString(dir),
                 j =>
                 {
                     if (!repo.Operations.IsCurrent(generation) || repo.Dir != dir) return;
@@ -333,7 +363,16 @@ namespace SlopWorld
                     repo.CountsComplete = false;
                     BumpTree();
                     FinishFetch(project, repo);
-                }, null, GitRequestTimeoutMs);
+                });
+        }
+
+        static void GetGit(Repo repo, int generation, string url, System.Action<Wire.GitResult> success,
+            System.Action<string> fail)
+        {
+            Requests.Add(() => repo.Operations.IsCurrent(generation) && SidebarScopes.Enabled(repo.Project), done =>
+                DaemonClient.Get<Wire.GitResult>(url,
+                    result => { try { success(result); } finally { done(); } },
+                    error => { try { fail?.Invoke(error); } finally { done(); } }, null, GitRequestTimeoutMs));
         }
 
         // The status request intentionally omits line counts. Keep the existing tree when its
@@ -373,7 +412,7 @@ namespace SlopWorld
         // generation, and expanding/collapsing rows while counts arrive must survive.
         static void FetchCounts(Repo repo, int generation)
         {
-            DaemonClient.Get<Wire.GitResult>(WireProtocol.Routes.Git + "?path=" + System.Uri.EscapeDataString(repo.Dir),
+            GetGit(repo, generation, WireProtocol.Routes.Git + "?path=" + System.Uri.EscapeDataString(repo.Dir),
                 j =>
                 {
                     if (!repo.Operations.IsCurrent(generation) ||
@@ -396,7 +435,7 @@ namespace SlopWorld
                     repo.Deleted = deleted;
                     repo.CountsComplete = true;
                     if (changed) BumpTree();
-                }, null, null, GitRequestTimeoutMs);
+                }, null);
         }
 
         static bool ApplyCounts(Node node, Dictionary<string, Wire.GitFile> files)

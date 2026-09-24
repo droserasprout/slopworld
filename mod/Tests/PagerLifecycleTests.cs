@@ -11,6 +11,7 @@ namespace SlopWorld
         public readonly PagerTestStore SessionStore = new PagerTestStore();
         public readonly Dictionary<string, SessionInfo> Sessions = new Dictionary<string, SessionInfo>();
         public SessionInfo Get(string name) => Sessions.TryGetValue(name, out var info) ? info : null;
+        public List<ProjectInfo> Projects = new List<ProjectInfo> { new ProjectInfo { Name = "p" } };
         public ProjectInfo Project(string name) => new ProjectInfo();
     }
 
@@ -22,7 +23,7 @@ namespace SlopWorld
         public bool Host, Temp;
         public string Project;
         public void Run(string project, string command, string label, Action<string> started,
-                        Action<string> fail, bool host = false, bool temp = false)
+                        Action<string> fail, bool host = false, bool temp = false, string path = "")
         {
             Starts++;
             Host = host;

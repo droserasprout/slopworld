@@ -28,3 +28,11 @@ part of keyboard order as well as drawing: excluded agents must not reappear in 
 Vanilla main buttons, inspect panes, gizmos and colonist hit tests use different coordinate
 paths. `ChromeShift` and the colonist-bar patches must all use the workspace inset.
 Changing only the drawn sidebar leaves invisible hit targets in old positions.
+
+`SidebarScopes` adapts the game-free `BrowseScopeCatalog` into one catalog/selection owner for
+Files, Git, Search and the global filter menu. Child preferences are independent of the
+project-name filter and default to Main only. Internal navigation keys contain stable project
+and worktree IDs; never send these keys as project names to the daemon. `SessionStore` resolves
+them at the request boundary. Catalog failures retain the previous choices and records, while
+successful removal drops tree nodes. Catalog reads are limited to two; generation checks reject
+replies for replaced projects. The menu observes the same revision as the trees.

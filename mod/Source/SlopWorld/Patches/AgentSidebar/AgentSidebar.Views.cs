@@ -93,7 +93,7 @@ namespace SlopWorld
         internal static void RememberFile(string project, string path)
         {
             if (_restoringView || CurrentTab != SidebarTab.Files || string.IsNullOrEmpty(path)) return;
-            ViewHistory.Visit(SidebarViewLocation.File(project, path));
+            ViewHistory.Visit(SidebarViewLocation.File(SidebarScopes.Key(project), SidebarScopes.Relative(project, path)));
         }
 
         internal static void RememberSearch(string project, string path, int line)
@@ -105,7 +105,7 @@ namespace SlopWorld
         internal static void RememberGit(string project, string path)
         {
             if (_restoringView || CurrentTab != SidebarTab.Git || string.IsNullOrEmpty(path)) return;
-            ViewHistory.Visit(SidebarViewLocation.Git(project, path));
+            ViewHistory.Visit(SidebarViewLocation.Git(SidebarScopes.Key(project), path));
         }
 
         internal static void RememberTask(string id)
@@ -274,6 +274,7 @@ namespace SlopWorld
         public static void ToggleFilter(string key)
         {
             Projects.ToggleFilter(key);
+            SidebarScopes.Update();
 
             // The agents, files and Library views read the filter as they draw. The other
             // two hold what they asked the daemon for, and a filter that widened is a

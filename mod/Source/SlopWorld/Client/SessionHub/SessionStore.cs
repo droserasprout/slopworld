@@ -239,10 +239,18 @@ namespace SlopWorld
         public void Run(string project, string command, string label,
                         Action<string> started, Action<string> fail = null,
                         bool shell = true, string text = "", bool host = false, bool temp = false,
-                        string path = "", bool hold = false, string like = "", string agentTemplate = "")
+                        string path = "", bool hold = false, string like = "", string agentTemplate = "", string worktree = "")
         {
+            if (BrowseScope.IsKey(project))
+            {
+                var selected = BrowseScope.ProjectOf(project, SessionHub.Instance.Projects);
+                if (selected == null) { fail?.Invoke("The reader's project has gone."); return; }
+                worktree = BrowseScope.WorktreeOf(project);
+                project = selected.Name;
+            }
             var request = new Wire.RunReq
             {
+                Worktree = worktree ?? "",
                 Project = project ?? "",
                 Kind = shell ? "shell" : "prompt",
                 Command = command ?? "",
@@ -264,6 +272,13 @@ namespace SlopWorld
         public void RunHostShell(string project, Action<string> started,
                                  Action<string> fail = null, string worktree = "")
         {
+            if (BrowseScope.IsKey(project))
+            {
+                var selected = BrowseScope.ProjectOf(project, SessionHub.Instance.Projects);
+                if (selected == null) { fail?.Invoke("The reader's project has gone."); return; }
+                worktree = BrowseScope.WorktreeOf(project);
+                project = selected.Name;
+            }
             DaemonClient.Post<Wire.SessionResult>(RunPath, new Wire.RunReq { Project = project ?? "", Worktree = worktree ?? "", Kind = "shell", Host = true },
                 j => Started(j, started, fail), fail);
         }

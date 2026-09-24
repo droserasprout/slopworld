@@ -21,7 +21,7 @@ namespace SlopWorld
 
         protected override void DoBody(Rect rect)
         {
-            _message = TextDialog.Draw(rect, $"Commit '{_project}'",
+            _message = TextDialog.Draw(rect, $"Commit '{SidebarScopes.Label(_project)}'",
                 "Only staged changes will be committed.", "git.commit.message", _message,
                 _error, titleRect: TitleRect(rect));
 

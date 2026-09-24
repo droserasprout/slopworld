@@ -152,6 +152,8 @@ pub(crate) struct RunReq {
 #[derive(Deserialize)]
 pub(crate) struct FileActionReq {
     #[serde(default)]
+    pub(crate) worktree: String,
+    #[serde(default)]
     pub(crate) project: String,
     pub(crate) path: String,
     pub(crate) command: String,
