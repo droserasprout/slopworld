@@ -580,6 +580,7 @@ impl Limits {
 pub struct ProjectCfg {
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub id: String,
+    /// Empty uses `<dir>/.worktrees`; explicit roots contain project-name subdirectories.
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub worktree_root: String,
     pub name: String,

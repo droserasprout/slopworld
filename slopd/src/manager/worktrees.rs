@@ -86,16 +86,16 @@ impl Manager {
                         .and_then(|s| s.file_name())
                         .and_then(|s| s.to_str())
                         == Some(&old.id);
-                let root = if legacy {
+                let project_dir = if legacy {
                     old_path
                         .parent()
                         .and_then(Path::parent)
                         .and_then(Path::parent)
+                        .context("worktree root")?
+                        .join(&p.name)
                 } else {
-                    old_path.parent().and_then(Path::parent)
-                }
-                .context("worktree root")?;
-                let project_dir = root.join(&p.name);
+                    old_path.parent().context("worktree root")?.to_path_buf()
+                };
                 tokio::fs::create_dir_all(&project_dir).await?;
                 if tokio::fs::symlink_metadata(&project_dir)
                     .await?
@@ -477,7 +477,11 @@ impl Manager {
                     q.name.clone()
                 };
                 crate::config::project_name_component(&name).context("invalid worktree name")?;
-                let branch = format!("slopworld/{id}");
+                let managed = q.path.is_empty();
+                if managed {
+                    crate::worktrees::validate_new_branch(&root, &name).await?;
+                }
+                let branch = name.clone();
                 let base = git(
                     &root,
                     &[
@@ -491,17 +495,12 @@ impl Manager {
                     ],
                 )
                 .await?;
-                let managed = q.path.is_empty();
                 let path = if managed {
-                    let parent = if p.worktree_root.is_empty() {
-                        crate::worktrees::default_root()?
-                    } else {
-                        PathBuf::from(expand(&p.worktree_root))
-                    };
+                    let parent = crate::worktrees::project_root(&p);
                     if !parent.is_absolute() {
                         bail!("worktree root must be absolute");
                     }
-                    parent.join(&p.name).join(&name)
+                    parent.join(&name)
                 } else {
                     PathBuf::from(expand(&q.path)).canonicalize()?
                 };

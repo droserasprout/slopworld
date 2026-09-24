@@ -55,6 +55,25 @@ pub(crate) async fn git(path: &Path, args: &[&str]) -> Result<String> {
     git_command(path, args, &[]).await
 }
 
+/// Check a new managed worktree branch before registering or creating its checkout.
+/// `allocate` still uses `update-ref` with an empty old value, so a branch created
+/// concurrently cannot be reused or overwritten after this preflight check.
+pub(crate) async fn validate_new_branch(root: &Path, branch: &str) -> Result<()> {
+    let reference = format!("refs/heads/{branch}");
+    if branch.starts_with('-')
+        || branch == "HEAD"
+        || git(root, &["check-ref-format", &reference]).await.is_err()
+    {
+        bail!("invalid Git branch name {branch:?}");
+    }
+
+    let refs = git(root, &["for-each-ref", "--format=%(refname)", &reference]).await?;
+    if refs.lines().any(|existing| existing == reference) {
+        bail!("local branch {branch:?} already exists");
+    }
+    Ok(())
+}
+
 async fn git_command(path: &Path, args: &[&str], writable: &[&Path]) -> Result<String> {
     let mut command = crate::git::inspection_std_command(path);
     if !writable.is_empty() {
@@ -119,10 +138,14 @@ pub(crate) async fn allocate(root: &Path, path: &Path, branch: &str, base: &str)
     Ok(())
 }
 
-pub(crate) fn default_root() -> Result<PathBuf> {
-    Ok(dirs::data_dir()
-        .context("no user data directory")?
-        .join("slopworld/worktrees"))
+/// Default checkouts belong to the project directory, independent of its display name.
+/// Explicit roots retain their project-name subdivision for shared storage.
+pub(crate) fn project_root(project: &crate::config::ProjectCfg) -> PathBuf {
+    if project.worktree_root.is_empty() {
+        PathBuf::from(crate::config::expand(&project.dir)).join(".worktrees")
+    } else {
+        PathBuf::from(crate::config::expand(&project.worktree_root)).join(&project.name)
+    }
 }
 
 /// Rename the checkout on disk, then repair Git's linked-worktree pointers.

@@ -82,6 +82,8 @@ impl Manager {
             if self.config().await.project(&p.name).is_some() {
                 bail!("project {} already exists", p.name);
             }
+            let local_root = PathBuf::from(expand(&old_project.dir)).join(".worktrees");
+            let local_root = local_root.canonicalize().unwrap_or(local_root);
             let mut planned = Vec::new();
             for (i, w) in store
                 .worktrees
@@ -89,6 +91,10 @@ impl Manager {
                 .enumerate()
                 .filter(|(_, w)| w.managed && w.project_id == old_project.id)
             {
+                // Project-local worktrees do not depend on the project's display name.
+                if Path::new(&w.path).parent() == Some(local_root.as_path()) {
+                    continue;
+                }
                 if w.phase != "ready" {
                     bail!(
                         "finish worktree {} recovery before renaming the project",

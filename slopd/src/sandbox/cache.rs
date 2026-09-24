@@ -47,7 +47,7 @@ pub(crate) fn validate(project: &ProjectCfg, mount: &Mount) -> Result<PathBuf> {
         bail!("cache source must be outside the project checkout");
     }
     let worktrees = if project.worktree_root.is_empty() {
-        crate::worktrees::default_root()?
+        crate::worktrees::project_root(project)
     } else {
         PathBuf::from(expand(&project.worktree_root))
     };
