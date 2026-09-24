@@ -11,8 +11,9 @@ generated messages, `ReceivedEvent`, queue, and event batch. `Google.Protobuf` i
 Rust uses prost 0.14.4. This repository checks in package lockfiles.
 
 C# measures binary receive/parse/line traversal and eight unsolicited live screens for one
-session (enqueue, coalesce, drain), plus queued single frames. Canonical live frames are
-validated before coalescing and decoded when retained; other encodings use the generated parser. Queue
+session (enqueue, coalesce, drain), plus queued single frames. The receiver validates
+canonical live frames before coalescing. It decodes retained frames. Other encodings use
+the generated parser. Queue
 limits, error handling, and WebSocket framing have separate tests. Fixtures cover plain text,
 ANSI escape sequences, Unicode, and a larger viewport. Both languages assert decoded data.
 Rust re-encodes fixtures. Mono checks them.
@@ -21,7 +22,7 @@ Each lane warms up for 300 operations, then records 21 batches. C# uses 500 oper
 per receive batch or 150 per burst. Rust uses 1,000 operations per batch. p50/p95 are percentiles of batch
 averages, not individual-message tail latency. C# allocations use the runtime's thread
 allocation counter. Fixture construction and forced GC are outside timed regions.
-CoreCLR (.NET 8) runs without tiered compilation. The main report builds once, then reports the median and min–max range of three run p50s/p95s.
+CoreCLR (.NET 8) runs without tiered compilation. The main report builds once. It reports the median and min–max range of three run p50s/p95s.
 
 These are codec/queue measurements. They exclude kernel IPC, WebSocket framing, HTTP,
 terminal capture/rendering and cold configuration projection costs. They establish neither

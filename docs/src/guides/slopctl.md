@@ -1,7 +1,6 @@
 # Using slopctl
 
 `slopctl` is the command-line tool for delegating tasks, reading logs, and inspecting the daemon.
-For repository changes, use the [change workflow](change-workflow.md).
 
 Use `slopctl sandbox inspect NAME` to view the sanitized launch plan and the live process tree
 for a session. The saved plan remains available after the process exits or a daemon restart.

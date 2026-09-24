@@ -12,7 +12,7 @@ namespace SlopWorld
         static bool _failed;
 
         // Dedicated file avoids Verse's global message cap during input storms.
-        // Single main-thread writer; flush once per frame after the timed endpoint.
+        // One main-thread writer flushes once per frame after the timed endpoint.
         internal static void WriteRecord(string line)
         {
             if (_failed || _output == null) return;

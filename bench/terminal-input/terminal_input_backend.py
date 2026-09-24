@@ -1,4 +1,4 @@
-"""Persistent Linux desktop injection transports; no event injection on connect."""
+"""Persistent Linux desktop input transports. Connecting does not inject events."""
 import ctypes as C
 import ctypes.util
 import os
@@ -71,7 +71,7 @@ class Backend:
 
     def prepare_text(self, text=TEXT):
         # Fixed public fixture, no newline/Enter and no destructive editing.
-        # This deliberately replaces the clipboard; don't read or save private contents.
+        # Replace the clipboard with the public fixture. Do not read or save its old contents.
         wayland = use_wayland_clipboard(self.name)
         command = (['wl-copy', '--type', 'text/plain;charset=utf-8', text]
                    if wayland else ['xclip', '-selection', 'clipboard'])
@@ -82,7 +82,7 @@ class Backend:
                 result = subprocess.run(command, input=None if wayland else text.encode(),
                                         stdout=subprocess.DEVNULL, stderr=errors, timeout=10)
             except subprocess.TimeoutExpired as error:
-                raise RuntimeError('Clipboard setup did not finish; check compositor clipboard access. '
+                raise RuntimeError('Clipboard setup did not finish. Check compositor clipboard access. '
                                    'The focus countdown has not started.') from error
             if result.returncode:
                 errors.seek(0)
@@ -93,7 +93,7 @@ class Backend:
                   else ['xclip', '-selection', 'clipboard', '-out'])
         for _ in range(2):
             if run_command(verify) != text.strip():
-                raise RuntimeError('Clipboard does not repeatedly return the benchmark fixture; no input sent')
+                raise RuntimeError('The clipboard did not return the benchmark fixture twice. No input was sent.')
 
     def connect(self):
         self.close()
@@ -105,7 +105,7 @@ class Backend:
             path = os.environ.get('YDOTOOL_SOCKET') or os.path.join(os.environ.get('XDG_RUNTIME_DIR', '/tmp'), '.ydotool_socket')
             self.sock.connect(path)
         # The launcher uses X11/XWayland even on Wayland. Guard that window
-        # for both transports; fail closed if no target can be verified.
+        # for both transports. Stop if the target cannot be verified.
         self.open_display()
         self.verify_target()
 
@@ -115,7 +115,7 @@ class Backend:
         executable = Path('/proc') / pid / 'exe'
         if not executable.resolve().name.startswith('RimWorld'):
             self.close()
-            raise RuntimeError('Focused window is not RimWorld; no input sent')
+            raise RuntimeError('The focused window is not RimWorld. No input was sent.')
 
     def open_display(self):
         self.x = C.CDLL(ctypes.util.find_library('X11'))

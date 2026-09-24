@@ -24,7 +24,6 @@
 - [Configuring sandboxes](./guides/configuring-sandboxes.md)
 - [Agent collaboration](./guides/agent-collaboration.md)
 - [Project worktrees](./guides/project-worktrees.md)
-- [Change workflow](./guides/change-workflow.md)
 - [Using slopctl](./guides/slopctl.md)
 - [Attaching from a terminal](./guides/terminal.md)
 - [Backup and recovery](./guides/backup-and-recovery.md)

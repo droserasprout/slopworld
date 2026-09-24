@@ -96,8 +96,8 @@ impl ActivityCache {
             Condvar::new(),
         ));
         let pending = shared.clone();
-        // One writer serializes snapshots. Mutations only update bounded memory and notify;
-        // revisions arriving during a write coalesce into the next latest-state snapshot.
+        // One writer serializes snapshots. Mutations update bounded memory and notify it.
+        // Revisions that arrive during a write coalesce into the next latest-state snapshot.
         let writer = std::thread::spawn(move || {
             let (mutex, wake) = &*pending;
             loop {
@@ -203,7 +203,7 @@ impl ActivityCache {
     }
 
     /// Blocking durability barrier for shutdown, tests and callers that require a saved age.
-    /// Never call on a Tokio worker; capture deliberately publishes without waiting for disk.
+    /// Never call this on a Tokio worker. Capture publishes without waiting for disk.
     pub fn flush(&self) -> Result<()> {
         let (mutex, wake) = &*self.shared;
         let mut state = mutex.lock().unwrap_or_else(|e| e.into_inner());

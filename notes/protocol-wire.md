@@ -63,6 +63,6 @@ counts as totals or treat missing optional metadata as failure of the whole view
 
 Optional diagnostic input IDs and screen timings carry no terminal contents. IDs repeat
 on bounded subsequent live screens so coalescing preserves correlation. Daemon timings
-share a monotonic epoch; only daemon-local differences are meaningful to a client.
+share a monotonic epoch. Only daemon-local differences are meaningful to a client.
 Per-socket send timestamps must not mutate the shared encoded event cache. Extended
 screens deliberately use the conservative client's generated-parser fallback.

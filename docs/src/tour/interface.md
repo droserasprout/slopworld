@@ -39,13 +39,13 @@ Six tabs share the panel:
 
 A project filter at the top of the tab strip limits every view to the selected projects.
 Under each project, choose **Main checkout** and any registered worktrees to browse in Files,
-Git, and Search. Main is enabled initially; new worktrees are opt-in. These choices remain
-saved when you hide a project or choose **All projects**. They do not change an agent's checkout.
+Git, and Search. Main is enabled initially. New worktrees start disabled. SlopWorld saves
+these choices when you hide a project or choose **All projects**. They do not change an agent's checkout.
 Unavailable worktrees show their status and cannot be enabled until ready.
 
 Files and Git let you fold projects and individual checkouts independently. Search groups
-matches by project and checkout; changing the filter reruns your last submitted search while
-keeping any draft text. Pinned readers survive filtering, folding, refreshes, and tab changes.
+matches by project and checkout. Changing the filter repeats your last submitted search
+and keeps any draft text. Pinned readers survive filtering, folding, refreshes, and tab changes.
 Reader labels include their checkout, and actions use that reader's original scope.
 
 The add strip at the bottom offers new projects, agents, sandbox presets, commands, and

@@ -40,7 +40,7 @@ On adoption, existing tmux activity options take precedence over the disk fallba
 Explicit stop/start must clear that history.
 Persisted activity remains epoch milliseconds. `ActivityCache` applies mutations immediately
 in memory and uses one background writer for ordered, coalesced snapshots. Rename and clear
-share that order. Drop drains the writer; abrupt termination can lose the latest pending fallback
+share that order. Drop drains the writer. Abrupt termination can lose the latest pending fallback
 snapshot, while tmux metadata remains the primary recovery source. Capture publishes screens
 before awaiting the tmux activity write. `flush` is a blocking durability barrier for tests/shutdown,
 never for a Tokio worker.

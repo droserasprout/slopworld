@@ -15,7 +15,7 @@ def history_limit():
 
 
 def fill_history(status_path, expected_limit):
-    # This function is copied into a standalone command; keep its imports local.
+    # This function is copied into a standalone command. Keep its imports local.
     import json
     import os
     import subprocess
@@ -43,7 +43,7 @@ def fill_history(status_path, expected_limit):
         lines = limit + rows + 1
         alphabet = b'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
         table = bytes(alphabet[index % len(alphabet)] for index in range(256))
-        # Exactly bounded reads; never emit raw random bytes, escapes, or controls
+        # Bound each read. Never emit raw random bytes, escapes, or controls
         # other than line separators. Modulo bias is irrelevant to a render fixture.
         with open('/dev/urandom', 'rb') as random:
             for first in range(0, lines, 128):

@@ -57,7 +57,7 @@ class Capture:
         current = self.path.stat()
         if ((current.st_dev, current.st_ino) != (self.original.st_dev, self.original.st_ino)
                 or current.st_size < self.source.tell()):
-            raise RuntimeError("Trace file replaced/truncated; game restart invalidates this phase")
+            raise RuntimeError("The trace file was replaced or truncated. A game restart invalidates this phase.")
         data = self.partial + self.source.read()
         lines = data.split("\n")
         self.partial = lines.pop()
@@ -85,7 +85,7 @@ def drive(phase, rate, send, pump, records, clock=time.monotonic, sleep=time.sle
         records.append(row)
         # Preserve event count and spacing across occasional OS scheduling stalls.
         # Rebase future deadlines instead of catching up. Duration drift is explicit
-        # and bounded to 1% of the nominal window; large stalls still invalidate it.
+        # and bounded to 1% of the nominal window. Large stalls still invalidate it.
         if late >= 1 / rate:
             if late > 0.1 or slip + late > SECONDS * 0.01:
                 row["status"] = "not_sent_deadline"
@@ -140,7 +140,7 @@ def run_phase(args, phase, rate, backend, reporter, close_backend=True):
         def pump():
             capture.pump()
             if phase == "typing" and time.monotonic() - (capture.last_paste_at or started) > 1:
-                raise RuntimeError("No new SlopWorld paste requests for one second; stopping injection")
+                raise RuntimeError("No new SlopWorld paste requests arrived for one second. Stopping injection.")
         try:
             print(f"Running {phase} for 60 seconds", flush=True)
             metadata.update(drive(phase, rate, backend.send, pump, rows, time.monotonic, time.sleep))
@@ -177,7 +177,7 @@ def run_phase(args, phase, rate, backend, reporter, close_backend=True):
     if not error and phase == "typing" and metadata["observed_paste_requests"] < metadata["sent_events"] * 0.9:
         error = RuntimeError("Fewer than 90% of injected pastes reached the client; this is not a valid text workload")
     if not error and not result["counts"].get("samples"):
-        error = RuntimeError("No completed input traces; verify updated mod, focus and daemon connection")
+        error = RuntimeError("No input traces completed. Check the mod version, focus, and daemon connection.")
     if not error and phase == "history" and "history_scroll" not in result["metrics"]:
         error = RuntimeError("Missing history_scroll measurements; restart the updated mod and select history")
     if error:
@@ -276,7 +276,7 @@ def main():
             if (args.output / (phase + suffix)).exists():
                 parser.error(f'{phase} already has artifacts in {args.output}; use a new directory to repeat it')
     if automatic and any((args.output / name).exists() for name in ('setup.log', 'setup.json')):
-        parser.error('Preparation artifacts already exist; use a new results directory')
+        parser.error('Preparation artifacts already exist. Use a new results directory.')
     if not args.log or not args.log.is_file():
         parser.error('trace file missing; restart updated game with SLOPWORLD_LATENCY=1 and SLOPWORLD_DEBUG=1')
     name = args.backend
@@ -287,7 +287,7 @@ def main():
     args.output.mkdir(parents=True, exist_ok=True)
     reporter = load_reporter()
     print(f'Backend: {name}. {len(phases)} phases, 60 seconds each plus an 11-second drain.')
-    print('Keep SlopWorld focused and the pointer over terminal text throughout. Switching windows aborts input.')
+    print('Keep SlopWorld focused. Keep the pointer over terminal text. Switching windows stops input.')
     print('Clipboard is replaced. Measured typing appends Unicode without deletion or Enter.')
     try:
         if automatic:

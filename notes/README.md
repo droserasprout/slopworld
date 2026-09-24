@@ -8,8 +8,8 @@ Put operating instructions in `docs/`. Link to those instructions instead of rep
 Start each filename with its subject area. Use one subject in each note.
 Use the `plan-` prefix for changes that have not completed the review and merge
 cycle.
-Give each plan a `Status:` line with one of the values in the
-[change workflow](../docs/src/guides/change-workflow.md).
+Give each plan a `Status:` line: `proposed`, `approved`, `wip`, `implemented`,
+`reviewed`, or `human approved`.
 Record the problem and the requirements for completion.
 Keep the plan through review and merge. Later, move any lasting ownership
 guidance to a focused note and delete the plan in a worktree.

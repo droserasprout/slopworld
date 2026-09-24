@@ -32,11 +32,11 @@ Changing only the drawn sidebar leaves invisible hit targets in old positions.
 `SidebarScopes` adapts the game-free `BrowseScopeCatalog` into one catalog/selection owner for
 Files, Git, Search and the global filter menu. Child preferences are independent of the
 project-name filter and default to Main only. Internal navigation keys contain stable project
-and worktree IDs; never send these keys as project names to the daemon. `SessionStore` resolves
+and worktree IDs. Never send these keys as project names to the daemon. `SessionStore` resolves
 them at the request boundary. Catalog failures retain the previous choices and records, while
-successful removal drops tree nodes. Catalog reads are limited to two; generation checks reject
+successful removal drops tree nodes. At most two catalog reads run at once. Generation checks reject
 replies for replaced projects. The menu observes the same revision as the trees. While open,
 it also requests hidden projects' catalogs to distinguish plain project checkboxes from
 worktree submenus, without enabling their browsing scopes. Root-token catalog requests carry
 the host caller identity. Failures appear on the project row instead of leaving loading
-placeholders; saved scope choices survive retries.
+placeholders. Saved scope choices survive retries.

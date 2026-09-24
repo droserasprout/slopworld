@@ -23,7 +23,7 @@ Game references must keep `Private=false`: RimWorld loads every DLL in `Assembli
 
 `test.yml` owns game-free checks for branch pushes, pull requests and manual runs.
 `test-tools` checks plan status headers. `make install-git-hooks` configures the
-local pre-commit guard against commits on `main`; it does not protect remote pushes.
+local pre-commit guard against commits on `main`. It does not protect remote pushes.
 Release CI calls it and packages the exact tested commit.
 CI calls `make ci`, writes coverage rates to the job summary,
 and uploads Cobertura reports as the `coverage` artifact. Supporting-tool and pager
@@ -52,7 +52,7 @@ CLI installed by `make install-daemon`. Existing agents retain their launch envi
 The installer compares both the running binary and effective installed unit before skipping restart.
 Tracing stays opt-in: prefix `make devloop` with `SLOPWORLD_DEBUG=1 SLOPWORLD_LATENCY=1`
 for a capture. The installer materializes explicit values in the service unit because
-systemd does not inherit the installing shell environment; later installs without
+systemd does not inherit the installing shell environment. Later installs without
 overrides restore the shipped unit.
 
 `make bench-report` records three-run medians and between-run ranges, including Mono/CoreCLR/Rust IPC metrics.
@@ -66,6 +66,6 @@ invoked directly. See [terminal latency tracing](terminal-latency.md) for the wo
 
 History preparation checks the pane limit against `SCROLLBACK_LINES`, then emits
 that many rows plus the viewport and settles outside the measured interval. tmux
-can trim history in chunks; its current retained-row count is not the emulator's
+can trim history in chunks. Its current retained-row count is not the emulator's
 history capacity. The fixture targets capacity by emitted lines, not by polling
 Unity's view. Its private completion file requires a local host shell.

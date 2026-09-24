@@ -182,8 +182,8 @@ impl Manager {
         Ok(cfg)
     }
 
-    // Explicit scope wins over path inference. Resolve registration/readiness first; the
-    // action path validator then rejects sibling checkouts and symlink escapes.
+    // Explicit scope takes priority over path inference. Check registration and readiness first.
+    // The action path validator then rejects sibling checkouts and symlink escapes.
     pub(super) async fn config_for_action_scope(
         &self,
         project: &str,

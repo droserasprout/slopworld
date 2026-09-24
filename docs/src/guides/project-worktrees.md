@@ -3,9 +3,6 @@
 Several checkouts can belong to one project. Agents can attach to and share a worktree.
 Tasks, workers, and worktrees have independent lifetimes. Completing a task or removing its worker does not commit or remove a worktree.
 By default, the daemon keeps each worker after its process exits.
-For repository changes, follow the [change workflow](change-workflow.md): create
-the worktree with `slopctl`, commit on its branch, and obtain human approval
-before merging to `main`.
 
 ## Create and use a worktree
 
@@ -33,11 +30,12 @@ It requires Bubblewrap to remove managed worktrees.
 
 Managed worktrees default to `<project_path>/.worktrees/<worktree-name>`.
 Ignore `.worktrees/` in the project's Git ignore rules to keep nested checkouts out of commits.
-Project settings can set a custom root; those checkouts use `<custom-root>/<project-name>/<worktree-name>`.
-Renaming a project leaves its local `.worktrees` checkouts in place. Checkouts under a custom root
-follow the project name. Renaming a managed worktree moves its checkout directory and repairs
-Git's registration; it does not rename its branch.
-Move or remove attached sessions before renaming a checkout. A worktree without a supplied name uses a short generated name.
+Project settings can set a custom root. Those checkouts use
+`<custom-root>/<project-name>/<worktree-name>`. Renaming a project leaves its local
+`.worktrees` checkouts in place. Checkouts under a custom root follow the project name.
+Renaming a managed worktree moves its checkout directory and repairs Git's registration.
+Its branch keeps its name. Move or remove attached sessions before renaming a checkout.
+A worktree without a supplied name uses a short generated name.
 Use **Rename** in the worktree list or the CLI command below.
 Older ID-based paths can be moved by running `slopctl worktree rename ID --project PROJECT --name NAME` after detaching sessions.
 
@@ -49,7 +47,7 @@ Selecting a checkout in a hidden project restores the project and its saved choi
 Files and Git show each enabled, ready checkout under its own fold. Search
 queries those checkouts and separates their results. You can disable every checkout for a
 project while keeping its agents visible. Hiding and restoring a project preserves its choices.
-Worktree names and status update from the catalog; a temporarily unavailable checkout keeps
+The catalog updates worktree names and status. A temporarily unavailable checkout keeps
 its saved choice and returns when ready. New worktrees start disabled.
 
 Editors, diffs, file actions and host terminals opened from a checkout use that checkout.

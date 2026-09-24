@@ -102,8 +102,8 @@ namespace SlopWorld
                         // Mono's synchronous HttpWebRequest blocks workers that its
                         // own network completion path needs. A burst of clipboard
                         // reads can starve the entire pool. Await every I/O boundary.
-                        // Async HttpWebRequest does not honor Timeout consistently;
-                        // abort the whole operation after the explicit deadline.
+                        // Async HttpWebRequest does not honor Timeout consistently.
+                        // Abort the whole operation after the explicit deadline.
                         deadline.Token.ThrowIfCancellationRequested();
                         if (body != null)
                         {

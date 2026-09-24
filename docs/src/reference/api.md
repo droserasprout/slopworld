@@ -58,7 +58,7 @@ Host commands are temporary.
 
 `POST /api/file-action` and `/api/run` requests with `path` execute file actions on the
 daemon host without private agent state. A named project scopes the path and working
-directory. The optional `worktree` ID selects a registered, ready checkout; an explicit ID
+directory. The optional `worktree` ID selects a registered, ready checkout. An explicit ID
 rejects paths in other checkouts, including checkouts nested under Main. Symlink escapes
 are rejected. Without a worktree ID, legacy requests infer a registered checkout from the path.
 `host: true` with no project accepts an absolute host path.

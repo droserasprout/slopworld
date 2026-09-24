@@ -9,13 +9,13 @@
 Build once. Then measure three complete suite runs.
 For each metric, this report shows the median of the three run percentiles. Brackets show the minimum and maximum values across runs. The range shows run-to-run variation. It is not a confidence interval. Units are microseconds per operation.
 B/op is the median managed allocation per operation. A range appears when runs differ.
-Creation probes time individual operations with setup excluded. Other p50/p95 values describe batch averages, not individual-operation tail latency. Burst8 is eight live frames including coalescing; wire bytes count the whole burst. Codec/queue measurements exclude network and rendering. Mono and CoreCLR (.NET 8) are reported separately.
+Creation probes time individual operations with setup excluded. Other p50/p95 values describe batch averages, not individual-operation tail latency. Burst8 is eight live frames including coalescing. Wire bytes count the whole burst. Codec and queue measurements exclude network and rendering. Mono and CoreCLR (.NET 8) are reported separately.
 Raw run logs and IPC CSV files are stored in the ignored local directory `perf-suite-optimized.raw/`.
 
 
 Comparison with the preserved `perf-suite.md` report generated at 2026-09-24T00:08:32Z
 on `dc8c7cd`. Both reports use three release runs on this host. The implementation is
-`c65c933b`; these measurements exclude game rendering, network latency and cold disks.
+`c65c933b`. These measurements exclude game rendering, network latency, and cold disks.
 
 | Selected p50 comparison | Before (µs) | After (µs) |
 | --- | ---: | ---: |
@@ -27,11 +27,11 @@ on `dc8c7cd`. Both reports use three release runs on this host. The implementati
 | Task update, 1000 records | 6.53 | 4.96 |
 
 The 32-frame allocation falls from 2,351,360 to 78,728 B/op (96.7% less). Mono large
-burst8 falls from 402,368 to 51,512 B/op; CoreCLR falls from 401,920 to 51,456 B/op.
+burst8 falls from 402,368 to 51,512 B/op. CoreCLR falls from 401,920 to 51,456 B/op.
 The queue validates every frame before replacement and decodes retained screens on dispatch.
 This adds a validation pass for isolated frames and moves retained live decoding onto the
-consumer thread. Unusual Protobuf encodings use the generated parser; wire bytes are unchanged.
-The routed cache hit avoids enumeration, sorting and allocation; invalidated rebuilds still take
+consumer thread. Unusual Protobuf encodings use the generated parser. Wire bytes are unchanged.
+The routed cache hit avoids enumeration, sorting, and allocation. Invalidated rebuilds still take
 717 µs. Explicit local reader invalidation complements daemon and project-filter revisions.
 
 New storage probes compare reference algorithms in the same run, not historical binaries.
@@ -39,17 +39,17 @@ At 1000 tasks, snapshot-based creation takes 11,367 µs versus 36.67 µs for jou
 Restart after 10000 updates takes 24.48 ms with full-body entries versus 10.75 ms with bounded
 mutable-field entries. Compaction triggers at 1 MiB and still serializes a full snapshot under
 the synchronous task-store mutex. Removal, prune and bulk cancellation retain generation-based
-snapshots; they remain proportional to catalog size. Visibility listing retains its scan and
-owned records (27.16 µs for 100 matching tasks out of 1000); no new index or API contract was added.
+snapshots. They remain proportional to catalog size. Visibility listing retains its scan and
+owned records (27.16 µs for 100 matching tasks out of 1000). This change added no index or API contract.
 Legacy journals remain readable, but older daemons cannot read the new journal operations.
 
 Activity enqueue at 128 records takes 0.30 µs versus the former 394.23 µs synchronous save.
 These are different completion guarantees: a new single-update durability barrier takes
 452.41 µs, and 32 updates followed by one barrier take 868.04 µs. One background writer coalesces
-snapshots and preserves rename/clear order. Drop drains it; abrupt termination can lose pending
+snapshots and preserves rename and clear order. Drop drains it. Abrupt termination can lose pending
 fallback updates. Tmux activity metadata remains the primary restart source. No fsync-backed
 power-loss durability is claimed. Worktree parsing remains approximately 8.88 ms for 1000
-records; parsing and serialization now run off Tokio workers, while unchanged views retain
+records. Parsing and serialization now run off Tokio workers. Unchanged views retain
 the file-stamp cache and external-edit detection. The parser itself is not faster.
 
 Validation passed: `env -u SLOPWORLD_TASK_ID make ci`, `make lint-mod`, 663 C# tests,
