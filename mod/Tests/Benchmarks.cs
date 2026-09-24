@@ -24,7 +24,7 @@ namespace SlopWorld.Tests
         {
             CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
             Console.WriteLine("SlopWorld game-free C# benchmarks");
-            Console.WriteLine($"{RuntimeInformation.FrameworkDescription}. {RuntimeInformation.OSArchitecture}.");
+            Console.WriteLine($"CoreCLR ({RuntimeInformation.FrameworkDescription}). {RuntimeInformation.OSArchitecture}.");
 #if DEBUG
             Console.WriteLine("Debug build: use make bench-mod BUILD=release for comparisons.");
 #else

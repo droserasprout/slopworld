@@ -118,7 +118,7 @@ Brackets show the minimum and maximum across runs.
 These ranges show variation between runs. They are not confidence intervals.
 Daemon measurements use calibrated batches of operations.
 Raw logs and CSVs stay local and ignored.
-`make BUILD=release bench-ipc` measures Protobuf on Mono, .NET 8, and Rust.
+`make BUILD=release bench-ipc` measures Protobuf on Mono, CoreCLR (.NET 8), and Rust.
 See [the benchmark suite](../../bench/ipc/README.md) for scope and recorded results.
 
 ## Occasional maintenance

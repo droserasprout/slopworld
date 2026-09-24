@@ -48,7 +48,7 @@ The native daemon service prepends `~/.local/bin` to its inherited PATH so agent
 CLI installed by `make install-daemon`. Existing agents retain their launch environment.
 The installer compares both the running binary and installed unit before skipping restart.
 
-`make bench-report` records three-run medians and between-run ranges, including Mono/.NET/Rust IPC metrics.
+`make bench-report` records three-run medians and between-run ranges, including Mono/CoreCLR/Rust IPC metrics.
 Use `BENCH_REPORT_OUTPUT=notes/perf-suite-comparison.md` to retain an existing report during comparisons.
 Raw runs remain local and ignored. Commit only processed reports supporting a concrete comparison.
 `python3 tools/loc-report.py` creates a count snapshot on request. Keep reports only when they support a concrete comparison.

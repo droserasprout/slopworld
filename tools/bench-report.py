@@ -96,7 +96,8 @@ def run_bench(build: str, run_number: int, raw_path: Path) -> OrderedDict[str, S
                 f"missing: {sorted(expected - actual)}; unexpected: {sorted(actual - expected)}"
             )
         for row in rows:
-            name = f"IPC/{runtime}/{row['fixture']}/{row['lane']}"
+            runtime_label = "coreclr" if runtime == "net8" else runtime
+            name = f"IPC/{runtime_label}/{row['fixture']}/{row['lane']}"
             if name in samples:
                 raise RuntimeError(f"duplicate benchmark: {name}")
             samples[name] = Sample(float(row["p50_us"]), float(row["p95_us"]),
@@ -178,7 +179,7 @@ def write_note(
         "B/op is the median managed allocation per operation. A range appears when runs differ.",
         "Creation probes time individual operations with setup excluded. Other p50/p95 values describe batch averages, not individual-operation tail latency. Burst8 is eight "
         "live frames including coalescing; wire bytes count the whole burst. Codec/queue measurements "
-        "exclude network and rendering. Mono and .NET 8 are reported separately.",
+        "exclude network and rendering. Mono and CoreCLR (.NET 8) are reported separately.",
         f"Raw run logs and IPC CSV files are stored in the ignored local directory `{output_path.with_suffix('.raw').name}/`.",
         "",
         "| Benchmark | p50 median [range] (µs) | p95 median [range] (µs) | B/op | Wire bytes |",
