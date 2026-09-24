@@ -6,6 +6,38 @@ namespace SlopWorld.Tests
 {
     static class RepaintTests
     {
+        public static void RoutedCacheTracksCommandSettingsWithoutSessionChanges()
+        {
+            var cache = new RoutedSessionRows();
+            var sessions = new List<SessionInfo> {
+                new SessionInfo { Name = "reader", Cmd = "less file" },
+                new SessionInfo { Name = "editor", Cmd = "micro file" } };
+            var rows = new List<SessionInfo>();
+            string pager = "less", editor = "micro";
+            int visits = 0;
+            Predicate<SessionInfo> include = info =>
+            {
+                visits++;
+                return PagerCommands.IsPagerCommand(pager, info.Cmd) ||
+                    PagerCommands.IsEditorCommand(editor, info.Cmd);
+            };
+            cache.Ensure(rows, sessions, 1, 1, pager, editor, include, null, 20);
+            AssertEx.Equal(2, rows.Count, "initial commands route both sessions");
+            pager = "most";
+            cache.Ensure(rows, sessions, 1, 1, pager, editor, include, null, 20);
+            AssertEx.Equal(1, rows.Count, "pager change removes old reader");
+            AssertEx.Equal("editor", rows[0].Name, "editor remains routed");
+            editor = "vim";
+            cache.Ensure(rows, sessions, 1, 1, pager, editor, include, null, 20);
+            AssertEx.Equal(0, rows.Count, "editor change removes old editor");
+            pager = "less";
+            cache.Ensure(rows, sessions, 1, 1, pager, editor, include, null, 20);
+            AssertEx.Equal("reader", rows[0].Name, "restored command restores reader");
+            int before = visits;
+            cache.Ensure(rows, sessions, 1, 1, pager, editor, include, null, 20);
+            AssertEx.Equal(before, visits, "unchanged settings retain cache hit");
+        }
+
         public static void RoutedCacheTracksAllMembershipOwners()
         {
             var cache = new RoutedSessionRows();
@@ -14,21 +46,21 @@ namespace SlopWorld.Tests
             int visits = 0;
             string project = "a";
             Predicate<SessionInfo> include = info => { visits++; return info.Project == project; };
-            cache.Ensure(rows, sessions, 1, 1, include, null, 12);
-            cache.Ensure(rows, sessions, 1, 1, include, null, 18);
+            cache.Ensure(rows, sessions, 1, 1, "less", "micro", include, null, 12);
+            cache.Ensure(rows, sessions, 1, 1, "less", "micro", include, null, 18);
             AssertEx.Equal(1, visits, "unchanged pass does not scan");
             sessions[0] = new SessionInfo { Name = "new", Project = "a" };
-            cache.Ensure(rows, sessions, 2, 1, include, null, 18);
+            cache.Ensure(rows, sessions, 2, 1, "less", "micro", include, null, 18);
             AssertEx.Equal("new", rows[0].Name, "session snapshot invalidates");
             project = "b";
-            cache.Ensure(rows, sessions, 2, 2, include, null, 18);
+            cache.Ensure(rows, sessions, 2, 2, "less", "micro", include, null, 18);
             AssertEx.Equal(0, rows.Count, "project filter invalidates");
             RoutedSessionRows.Invalidate();
-            cache.Ensure(rows, sessions, 2, 2, include,
+            cache.Ensure(rows, sessions, 2, 2, "less", "micro", include,
                 result => result.Add(new SessionInfo { Name = "native" }), 18);
             AssertEx.Equal("native", rows[0].Name, "native preview invalidates without daemon revision");
             RoutedSessionRows.Invalidate();
-            cache.Ensure(rows, sessions, 2, 2, include, null, 18);
+            cache.Ensure(rows, sessions, 2, 2, "less", "micro", include, null, 18);
             AssertEx.Equal(0, rows.Count, "reader dismissal invalidates");
         }
 

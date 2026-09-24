@@ -16,7 +16,8 @@ scroll group and coordinate transform as the portrait, including multi-selection
 
 Layout caches cannot depend solely on daemon revisions: native previews and pending viewer
 handoffs change routed rows locally. `RoutedSessionRows` caches scan/sort results using the
-session version, project-filter revision and explicit local reader invalidation. Pager session
+session version, project-filter revision, pager/editor command settings and explicit local reader
+invalidation. Config-only command changes must reclassify routed membership. Pager session
 handoffs, native preview identity/content changes and reader collection mutations invalidate it.
 Frame geometry resets preserve routed membership; changing row height does not require a scan.
 Routed headers and tree viewports must share clipping.

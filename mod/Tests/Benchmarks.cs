@@ -320,11 +320,11 @@ namespace SlopWorld.Tests
                 for (int i = 0; i < 3; i++)
                     height = RoutedSessionRows.Rebuild(rows, sessions, include, null, 20);
                 return (long)height;
-            }, () => (long)routed.Ensure(rows, sessions, 1, 1, include, null, 20));
+            }, () => (long)routed.Ensure(rows, sessions, 1, 1, "less", "micro", include, null, 20));
             Measure("routing changed revision", () =>
             {
                 RoutedSessionRows.Invalidate();
-                return (long)routed.Ensure(rows, sessions, 1, 1, include, null, 20);
+                return (long)routed.Ensure(rows, sessions, 1, 1, "less", "micro", include, null, 20);
             });
         }
 
