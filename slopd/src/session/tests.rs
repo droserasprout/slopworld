@@ -32,6 +32,7 @@ fn event_message_reuses_its_encoded_protobuf() {
 #[test]
 fn every_event_uses_its_contract_tag_and_payload_name() {
     let screen = ScreenView {
+        input_timings: Vec::new(),
         name: String::new(),
         seq: 0,
         cols: 0,
@@ -465,6 +466,7 @@ fn placeholder() -> Live {
         reader: None,
         reader_token: None,
         input: None,
+        input_traces: Default::default(),
         breadcrumbs: Vec::new(),
         breadcrumbs_pending: false,
         auto_resume_pending: false,
@@ -759,3 +761,26 @@ crate::wire_event_serialize!(Event, {
     Audio { audio },
     Jukebox { jukebox },
 });
+
+#[test]
+fn input_tracing_preserves_merging_and_each_request_identity() {
+    let first = Arc::new(crate::latency::InputTrace::new("a", 1));
+    let second = Arc::new(crate::latency::InputTrace::new("b", 2));
+    let result = merge_input(vec![
+        Input::Bytes(vec![1]),
+        Input::Traced(Box::new(Input::Bytes(vec![2])), vec![first.clone()]),
+        Input::Traced(Box::new(Input::Bytes(vec![3])), vec![second.clone()]),
+        Input::Bytes(vec![4]),
+        Input::Gap(std::time::Duration::from_millis(1)),
+        Input::Bytes(vec![5]),
+    ]);
+    assert_eq!(result.len(), 3);
+    let Input::Traced(item, traces) = &result[0] else {
+        panic!("missing trace")
+    };
+    assert!(matches!(item.as_ref(), Input::Bytes(bytes) if bytes == &[1, 2, 3, 4]));
+    assert_eq!(traces.len(), 2);
+    assert!(Arc::ptr_eq(&traces[0], &first));
+    assert!(Arc::ptr_eq(&traces[1], &second));
+    assert!(matches!(result[1], Input::Gap(_)));
+}

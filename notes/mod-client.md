@@ -3,6 +3,14 @@
 `SessionHub` coordinates the main-thread services under `Client/SessionHub/`.
 Use the responsible services for session, catalog, task, terminal, and audio operations. Cross-service subscription
 and rename handoffs stay on the hub. `DaemonClient` replays HTTP callbacks on the main thread.
+HTTP I/O awaits completion and admits at most eight active requests. Blocking
+`HttpWebRequest` calls on Mono workers can starve the network completions those
+same workers need; unbounded async startup also stalls the constrained-pool test.
+An explicit cancellation deadline includes admission, upload, response and error-body
+reads; it aborts the request because asynchronous Mono HTTP does not reliably honor
+`Timeout`. Keep the 32 MiB response bound and release admission on every outcome.
+`python3 bench/terminal-input/test_http_transport_mono.py` exercises the production
+transport on system Mono without Unity.
 Its completion pump yields after 32 callbacks or approximately 2 ms.
 Individual callbacks remain indivisible, so large result handlers still need bounded work.
 

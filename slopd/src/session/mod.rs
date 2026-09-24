@@ -221,6 +221,7 @@ struct Live {
     // An old reader can finish while its replacement starts. It must not remove the replacement's state.
     reader_token: Option<Arc<()>>,
     input: Option<mpsc::UnboundedSender<Input>>,
+    input_traces: crate::latency::Pending,
     // Insert immediately before the first Enter after process startup.
     breadcrumbs: Vec<u8>,
     breadcrumbs_pending: bool,

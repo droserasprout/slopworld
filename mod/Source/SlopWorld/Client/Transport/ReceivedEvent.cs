@@ -17,6 +17,7 @@ namespace SlopWorld
                 return _value;
             }
         }
+        public readonly long ReceivedAt = TerminalLatency.Enabled ? TerminalLatency.Now() : 0;
         public readonly Exception Error;
         public readonly string LiveName;
         public ReceivedEvent(byte[] payload, bool deferLive = false)

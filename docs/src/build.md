@@ -5,7 +5,7 @@
 - **Rust** stable toolchain — builds the daemon and launcher.
 - **.NET SDK** — builds the `net472` mod and runs C# tests and formatting.
   NuGet restores framework reference assemblies.
-  Only the Mono IPC benchmark requires Mono.
+  The IPC benchmarks and terminal-input HTTP regression require Mono.
 - **Protobuf compiler (`protoc`)** — Rust builds and `make api-contract` require this compiler.
   Install `protobuf-compiler` on Debian/Ubuntu or `protobuf` on Arch.
   On macOS, run `brew install protobuf`.
@@ -20,7 +20,9 @@ Install RimWorld so the mod can link against assemblies in `Managed/`.
 ## Targets
 
 Run `make` to list targets. Make defines dependencies and shared settings.
-Scripts in `tools/` control coverage, IPC benchmarks, and platform checks.
+Scripts in `tools/` support maintenance, platform checks and the existing IPC suite.
+Terminal-input benchmark code, tests, reports and local runs live under
+`bench/terminal-input/`.
 `mod/Source/SlopWorld/SlopWorld.csproj` owns C# compiler settings and references.
 Build with `make all`, `make daemon`, or `make mod`.
 Component checks also have `-daemon` and `-mod` targets.
@@ -46,8 +48,8 @@ Source installations and Arch packages build the mod against the target RimWorld
 
 ## Formatting
 
-C# formatting uses `dotnet format` in folder mode for production code, tests, and IPC
-benchmark sources.
+C# formatting uses `dotnet format` in folder mode for production code, tests, and
+benchmark sources under `bench/`.
 It excludes generated client bindings and build output.
 `.editorconfig` preserves single-line statements.
 `make check-format-csharp` checks this scope without game assemblies.
@@ -99,6 +101,18 @@ Then it runs the daemon, C#, and IPC suites in sequence.
 Use `BUILD=release` for comparisons.
 
 ## Logs and diagnostics
+
+Tracing is opt-in. To collect performance and latency records while using
+`devloop`, pass the flags in the process environment:
+
+```sh
+SLOPWORLD_DEBUG=1 SLOPWORLD_LATENCY=1 make devloop
+```
+
+The installer includes explicitly supplied tracing values in the service unit and
+restarts the daemon when they change. A later installation without these values
+restores the shipped unit. Capture and reporting instructions live in
+`notes/terminal-latency.md` in the repository.
 
 Unity writes Harmony and mod exceptions to `Player.log`, the game log.
 These exceptions do not appear in the terminal that started the game.

@@ -12,6 +12,7 @@ namespace SlopWorld
 
         internal void ReleasePanelInput()
         {
+            if (TerminalLatency.Enabled) TerminalLatency.Timeline.CancelScroll(this);
             Flush();
             if (_mouseFwd && _state.Name != null)
                 SessionHub.Instance.Terminal.SendMouse(_state.Name, "release", _fwdButton,

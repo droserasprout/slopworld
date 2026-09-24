@@ -1,6 +1,6 @@
 .PHONY: format-daemon format-csharp format-mod check-format-csharp lint-daemon lint-mod
 
-CSHARP_FORMAT_INCLUDE := mod/Source/SlopWorld mod/Tests bench/ipc/csharp
+CSHARP_FORMAT_INCLUDE := mod/Source/SlopWorld mod/Tests bench/ipc/csharp bench/terminal-input/tests/http_transport/Probe.cs
 CSHARP_FORMAT_EXCLUDE := \
 	mod/Source/SlopWorld/obj \
 	mod/Tests/obj \

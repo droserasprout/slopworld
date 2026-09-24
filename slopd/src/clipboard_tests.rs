@@ -123,3 +123,19 @@ async fn paste_process_reports_stderr_on_failure() {
         .to_string();
     assert!(error.contains("clipboard unavailable"), "{error}");
 }
+
+#[test]
+fn gnome_xwayland_avoids_focus_stealing_helpers() {
+    for desktop in ["GNOME", "ubuntu:GNOME", "gnome"] {
+        assert!(xwayland_clipboard(desktop, ":0"));
+    }
+    assert!(!xwayland_clipboard("GNOME", ""));
+    assert!(!xwayland_clipboard("KDE", ":0"));
+    assert!(!xwayland_clipboard("", ""));
+    assert_eq!(tool_order(true), &[1, 2]);
+    assert_eq!(tool_order(false), &[0, 1, 2]);
+    for &index in tool_order(true) {
+        assert!(!TOOLS[index].paste[0].starts_with("wl-"));
+        assert!(!TOOLS[index].copy[0].starts_with("wl-"));
+    }
+}

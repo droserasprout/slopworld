@@ -60,6 +60,7 @@ namespace SlopWorld
 
         void ScheduleRetry(string error)
         {
+            if (TerminalLatency.Enabled) TerminalLatency.Timeline.Reset();
             Status = $"offline: {error}";
             _ws?.Dispose();
             _ws = null;
@@ -70,6 +71,7 @@ namespace SlopWorld
 
         public void Disconnect()
         {
+            if (TerminalLatency.Enabled) TerminalLatency.Timeline.Reset();
             _connectSerial++;
             _connecting = false;
             _ws?.Dispose();
@@ -83,6 +85,7 @@ namespace SlopWorld
         public void Send(Wire.ClientMessage message)
         {
             if (_ws == null || !_ws.Connected) return;
+            TerminalLatency.Begin(message);
             _ws.SendBinary(message.ToByteArray());
         }
 
@@ -121,7 +124,11 @@ namespace SlopWorld
                 for (int i = 0; i < _batch.Count; i++)
                 {
                     if (!_batch.ShouldDispatch(i)) continue;
-                    try { OnMessage?.Invoke(_batch[i]); }
+                    try
+                    {
+                        if (TerminalLatency.Enabled) TerminalLatency.Timeline.Dispatch(_batch[i].Screen, _batch.ReceivedAt(i));
+                        OnMessage?.Invoke(_batch[i]);
+                    }
                     catch (Exception e) { BadEvent(e); }
                 }
             }

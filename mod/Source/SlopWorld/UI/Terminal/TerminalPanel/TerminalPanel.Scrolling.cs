@@ -70,6 +70,7 @@ namespace SlopWorld
 
         internal void JumpToLive()
         {
+            if (TerminalLatency.Enabled) TerminalLatency.Timeline.CancelScroll(this);
             _scrollOff = 0;
             _wantedScrollOff = 0;
             _scrollPending = false;

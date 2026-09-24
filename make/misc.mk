@@ -12,8 +12,8 @@ logs:              ## Show new entries in the game's Player.log
 TRACE_SECONDS ?= 30
 TRACE_LABEL ?= current
 TRACE_OUT ?= notes/trace-$(TRACE_LABEL).log
-trace-mod:         ## Capture new performance log entries. First launch with SLOPWORLD_DEBUG=1.
-	@$(PYTHON) tools/trace-mod.py --log "$(LOG)" --seconds "$(TRACE_SECONDS)" --label "$(TRACE_LABEL)" --output "$(TRACE_OUT)"
+trace-mod:         ## Capture new performance/latency log entries (requires tracing enabled)
+	@$(PYTHON) tools/trace-mod.py --log "$(TRACE_LOG)" --seconds "$(TRACE_SECONDS)" --label "$(TRACE_LABEL)" --output "$(TRACE_OUT)"
 
 .PHONY: trace-summary
 TRACE_FILES ?= notes/trace-*.log

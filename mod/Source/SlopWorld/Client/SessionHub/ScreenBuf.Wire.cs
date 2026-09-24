@@ -22,6 +22,8 @@ namespace SlopWorld
             bool previousHasLinks = HasLinks;
 
             Seq = (int)s.Seq;
+            WireSeq = s.Seq;
+            InputTimings = s.InputTimings.Count == 0 ? null : s.InputTimings;
             Cols = Math.Max(TerminalLimits.ClientMinCols,
                 Math.Min(TerminalLimits.ClientMaxCols, (s.HasCols ? (int)s.Cols : 80)));
             Rows = Math.Max(TerminalLimits.ClientMinRows,

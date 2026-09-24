@@ -87,6 +87,13 @@ namespace SlopWorld
                 GUI.EndGroup();
                 SyncSnap();
             }
+            if (TerminalLatency.Enabled && Event.current.type == EventType.Repaint &&
+                buf.Off == 0 && buf.ScrollRequestId == 0)
+                TerminalLatency.Timeline.Draw(_state.Name, buf.WireSeq, buf.InputTimings, Time.frameCount);
+            if (TerminalLatency.Enabled && Event.current.type == EventType.Repaint)
+                TerminalLatency.Timeline.DrawScroll(this,
+                    _scrollOff > 0 ? _historyViewReady : buf.Off == 0 && buf.ScrollRequestId == 0,
+                    Time.frameCount);
             ScrollDebugFrame(buf, shift);
 
             GUI.color = Color.white;

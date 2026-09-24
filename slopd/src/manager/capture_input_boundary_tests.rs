@@ -182,3 +182,72 @@ async fn stale_input_queues_exit_without_draining_into_replacements() {
         assert!(tx.is_closed());
     }
 }
+
+// Explicit diagnostic: production batching and tmux dispatch, isolated from the
+// user's server and desktop. No timing assertion: report capacity, not a flaky test.
+#[tokio::test]
+#[ignore = "isolated tmux throughput diagnostic"]
+async fn benchmark_mixed_input_dispatch() {
+    struct Server(String);
+    impl Drop for Server {
+        fn drop(&mut self) {
+            let _ = std::process::Command::new("tmux")
+                .args(["-L", &self.0, "kill-server"])
+                .output();
+        }
+    }
+    let server = Server(format!("slopd-input-bench-{}", uuid::Uuid::new_v4()));
+    let output = tokio::process::Command::new("tmux")
+        .args([
+            "-L",
+            &server.0,
+            "-f",
+            "/dev/null",
+            "new-session",
+            "-d",
+            "-s",
+            "sink",
+            "stty raw -echo; cat >/dev/null",
+        ])
+        .output()
+        .await
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let tmux = Tmux::new(&server.0);
+    for label in ["mixed", "keys"] {
+        let events = (0..600)
+            .map(|index| {
+                if label == "mixed" && index % 3 != 2 {
+                    Input::Bytes(b"\x1b[<64;10;10M".to_vec())
+                } else {
+                    Input::Keys {
+                        keys: vec!["Up".into()],
+                        literal: false,
+                    }
+                }
+            })
+            .collect();
+        // Give the batcher the entire workload at once: this is its best-case
+        // command reduction, not a recreation of arrival/frame scheduling.
+        let batch = merge_input(events);
+        let commands = batch.len();
+        let start = std::time::Instant::now();
+        for item in batch {
+            // Use the production tmux operations, but propagate failures instead
+            // of reporting rejected commands as successful throughput.
+            match item {
+                Input::Bytes(bytes) => tmux.send_bytes("sink", &bytes).await.unwrap(),
+                Input::Keys { keys, literal } => {
+                    tmux.send_keys("sink", &keys, literal).await.unwrap()
+                }
+                _ => unreachable!("diagnostic only creates bytes and keys"),
+            }
+        }
+        println!("input dispatch {label}: events=600 commands={commands} elapsed_ms={:.3} events_per_second={:.1}",
+            start.elapsed().as_secs_f64() * 1000.0, 600.0 / start.elapsed().as_secs_f64());
+    }
+}

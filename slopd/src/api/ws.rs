@@ -350,6 +350,12 @@ async fn handle_client_msg(cm: ClientMsg, m: &Mgr, cap: &Cap, tx: &WsTx, subs: &
     if let ClientMsg::Sub { name } = cm {
         return handle_sub(name, m, cap, tx, subs).await;
     }
+    let trace = match &cm {
+        ClientMsg::Keys(r) => crate::latency::InputTrace::begin(&r.trace_id),
+        ClientMsg::Mouse(r) => crate::latency::InputTrace::begin(&r.trace_id),
+        ClientMsg::Paste(r) => crate::latency::InputTrace::begin(&r.trace_id),
+        _ => None,
+    };
     let shared = matches!(
         &cm,
         ClientMsg::Keys(_)
@@ -381,6 +387,7 @@ async fn handle_client_msg(cm: ClientMsg, m: &Mgr, cap: &Cap, tx: &WsTx, subs: &
         }
         true
     };
+    let operation = crate::latency::CURRENT.scope(trace, operation);
     if shared {
         m.session_read_operation(operation).await
     } else {
@@ -555,17 +562,33 @@ fn resolve_audio_source(selection: AudioSelection) -> anyhow::Result<String> {
 async fn send(tx: &WsTx, cap: &Cap, ev: &EventMessage) -> Result<(), axum::Error> {
     let _perf = crate::perf::timer("websocket-send");
     let started = crate::perf::enabled().then(std::time::Instant::now);
-    let text = ev
+    let mut text = ev
         .encoded()
         .map_err(|e| axum::Error::new(std::io::Error::other(e)))?
         .to_vec();
-    crate::perf::count("websocket-bytes", text.len() as u64);
     let mut tx = tx.lock().await;
     if !cap.is_valid() {
         return Err(axum::Error::new(std::io::Error::other(
             "capability revoked",
         )));
     }
+    if let Event::Screen { screen } = ev.event() {
+        if !screen.input_timings.is_empty() {
+            use prost::Message as _;
+            let mut message = ev
+                .event()
+                .to_protobuf()
+                .map_err(|e| axum::Error::new(std::io::Error::other(e.to_string())))?;
+            if let Some(crate::shared::wire::event::Payload::Screen(s)) = &mut message.payload {
+                let at = crate::latency::now();
+                for t in &mut s.input_timings {
+                    t.send_us = at;
+                }
+            }
+            text = message.encode_to_vec();
+        }
+    }
+    crate::perf::count("websocket-bytes", text.len() as u64);
     let result = tx.send(Message::Binary(text)).await;
     if let Some(started) = started {
         tracing::debug!(

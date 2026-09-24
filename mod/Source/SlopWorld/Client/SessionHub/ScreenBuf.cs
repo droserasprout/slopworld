@@ -7,6 +7,8 @@ namespace SlopWorld
         static readonly int[] NoChangedRows = new int[0];
 
         public int Seq = -1;
+        internal ulong WireSeq;
+        internal Google.Protobuf.Collections.RepeatedField<Wire.InputTiming> InputTimings;
         public int Cols, Rows, Cx, Cy;
         // Change ContentRevision only when visible row text or terminal dimensions change.
         // Frames with only cursor changes can reuse the cached rendering surface.

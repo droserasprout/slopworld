@@ -22,11 +22,12 @@ impl Manager {
     pub(crate) async fn render_and_broadcast(&self, name: &str, emu: &Mutex<SessionEmu>) {
         let _perf = crate::perf::timer("frame");
         let started = crate::perf::enabled().then(std::time::Instant::now);
+        let captured_at = crate::latency::enabled().then(crate::latency::now);
         let frame = match emu.lock() {
             Ok(mut e) => e.render(),
             Err(_) => return,
         };
-        self.apply_frame(name, frame).await;
+        self.apply_frame_timed(name, frame, captured_at).await;
         if let Some(started) = started {
             tracing::debug!(
                 target: "slopd::perf",
@@ -116,7 +117,12 @@ impl Manager {
         }
     }
 
+    #[cfg(test)]
     pub(crate) async fn apply_frame(&self, name: &str, frame: Frame) {
+        self.apply_frame_timed(name, frame, None).await;
+    }
+
+    async fn apply_frame_timed(&self, name: &str, frame: Frame, captured_at: Option<u64>) {
         loop {
             let previous = {
                 let live = self.live.read().await;
@@ -182,7 +188,7 @@ impl Manager {
                             now_ms()
                         };
                     }
-                    let view = ScreenView::from_frame(
+                    let mut view = ScreenView::from_frame(
                         FrameViewArgs {
                             name,
                             seq: l.seq,
@@ -194,6 +200,9 @@ impl Manager {
                         },
                         frame.clone(),
                     );
+                    if let Some(at) = captured_at {
+                        view.input_timings = l.input_traces.capture(l.run_id, l.seq, at);
+                    }
                     l.screen = Some(view.clone());
                     screen = Some(view);
                 }

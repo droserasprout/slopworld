@@ -9,6 +9,7 @@ mod endpoint;
 mod git;
 mod grant;
 mod jukebox;
+mod latency;
 mod paths;
 mod perf;
 mod presets;

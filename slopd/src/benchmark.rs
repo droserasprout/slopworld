@@ -272,6 +272,7 @@ fn full_redraw(first: bool) -> Vec<u8> {
 
 fn screen_view(name: &str, frame: &Frame) -> ScreenView {
     ScreenView {
+        input_timings: Vec::new(),
         name: name.to_string(),
         seq: 1,
         cols: COLS,

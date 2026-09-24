@@ -326,6 +326,8 @@ where
 
 #[derive(Deserialize)]
 pub(crate) struct PasteReq {
+    #[serde(default)]
+    pub(crate) trace_id: String,
     pub(crate) name: String,
     pub(crate) text: String,
 }
@@ -340,6 +342,8 @@ pub(crate) struct BreadcrumbReq {
 
 #[derive(Deserialize)]
 pub(crate) struct MouseReq {
+    #[serde(default)]
+    pub(crate) trace_id: String,
     pub(crate) name: String,
     /// press | release | drag | wheelup | wheeldown
     pub(crate) action: String,
@@ -366,6 +370,8 @@ pub(crate) struct ScrollReq {
 
 #[derive(Deserialize)]
 pub(crate) struct KeysReq {
+    #[serde(default)]
+    pub(crate) trace_id: String,
     pub(crate) name: String,
     /// tmux key names (Enter, C-c, Up) unless `literal`, in which case raw text.
     pub(crate) keys: Vec<String>,

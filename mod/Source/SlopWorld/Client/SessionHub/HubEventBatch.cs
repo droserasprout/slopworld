@@ -5,6 +5,8 @@ namespace SlopWorld
     internal sealed class HubEventBatch
     {
         public const int Limit = 32;
+        readonly List<long> _received = new List<long>(Limit);
+        public long ReceivedAt(int index) => _received[index];
         readonly List<Wire.Event> _events = new List<Wire.Event>(Limit);
         readonly Dictionary<string, int> _latest = new Dictionary<string, int>(StringComparer.Ordinal);
         public int Count => _events.Count;
@@ -17,6 +19,7 @@ namespace SlopWorld
             while (read < Limit && incoming.TryDequeue(out var entry))
             {
                 read++;
+                _received.Add(entry.ReceivedAt);
                 if (entry.Error != null) { onError(entry.Error); _events.Add(null); continue; }
                 if (entry.LiveName != null)
                 {
@@ -27,6 +30,6 @@ namespace SlopWorld
             }
             return read;
         }
-        public void Clear() { _events.Clear(); _latest.Clear(); }
+        public void Clear() { _events.Clear(); _latest.Clear(); _received.Clear(); }
     }
 }
