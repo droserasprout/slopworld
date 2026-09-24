@@ -1,5 +1,7 @@
 # Form Tab traversal
 
+Status: proposed
+
 ## Outcome and scope
 
 Make Tab and Shift+Tab move between enabled editable fields in Settings, shared

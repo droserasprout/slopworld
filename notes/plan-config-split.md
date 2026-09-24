@@ -1,5 +1,7 @@
 # Split daemon configuration records
 
+Status: proposed
+
 Move repeated project, agent and host-terminal records out of `config.toml` into one TOML
 file per record.
 Keep the existing in-memory `Config` and API value model.

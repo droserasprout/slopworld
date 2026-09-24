@@ -1,5 +1,7 @@
 # C# WebSocket library evaluation and migration
 
+Status: proposed
+
 Proposed: replace protocol mechanics in `Client/Transport/MiniWebSocket*.cs` with a library.
 [websocket-sharp](https://github.com/sta/websocket-sharp) documents Mono/Unity support and is
 an evaluation candidate, not an approved dependency. Owners: [mod client](mod-client.md)

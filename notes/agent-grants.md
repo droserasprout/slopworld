@@ -41,7 +41,10 @@ the bearer token once. `GET /api/grants` returns the active count, and
 
 Workers receive a new scoped credential through `SLOPD_URL` and `SLOPD_TOKEN` at startup.
 See [daemon-workers](daemon-workers.md). For manually created grants, callers arrange delivery
-of the daemon URL and token. The sandbox must reach the configured HTTP listener.
+of the daemon URL and token. Private networking forwards only the daemon TCP port
+from the namespace when the listener uses `127.0.0.1` or all IPv4 interfaces;
+it does not expose other host loopback services. A routable listener needs no
+forward. The sandbox must still be able to reach the listener.
 Sessions with `network = "none"` therefore cannot use grants.
 No Unix-socket transport is available.
 `endpoint.toml` remains the root mod and `slopctl` URL-token handoff, not grant injection.

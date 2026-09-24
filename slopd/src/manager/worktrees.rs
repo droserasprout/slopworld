@@ -47,6 +47,89 @@ pub(crate) struct WorktreeView {
 }
 
 impl Manager {
+    pub(crate) async fn rename_worktree(
+        self: &Arc<Self>,
+        project: String,
+        id: String,
+        name: String,
+    ) -> Result<Worktree> {
+        crate::config::project_name_component(&name).context("invalid worktree name")?;
+        let manager = self.clone();
+        manager
+            .session_operation(async {
+                let _lock = manager.worktree_mutation.lock().await;
+                let cfg = manager.config().await;
+                let p = cfg
+                    .project(&project)
+                    .ok_or_else(|| anyhow!("no project {project}"))?;
+                let mut store = Store::load(&manager.cfg_path).await?;
+                let index = store
+                    .worktrees
+                    .iter()
+                    .position(|w| w.id == id && w.project_id == p.id)
+                    .ok_or_else(|| anyhow!("no worktree {id}"))?;
+                let old = store.worktrees[index].clone();
+                if !old.managed || old.phase != "ready" {
+                    bail!("only ready managed worktrees can be renamed");
+                }
+                let users = manager.worktree_attachments(&old).await;
+                if !users.is_empty() {
+                    bail!(
+                        "Worktree remains attached to {}. Remove or move these sessions first.",
+                        users.join(", ")
+                    );
+                }
+                let old_path = Path::new(&old.path);
+                let legacy = old_path.file_name().and_then(|s| s.to_str()) == Some("checkout")
+                    && old_path
+                        .parent()
+                        .and_then(|s| s.file_name())
+                        .and_then(|s| s.to_str())
+                        == Some(&old.id);
+                let root = if legacy {
+                    old_path
+                        .parent()
+                        .and_then(Path::parent)
+                        .and_then(Path::parent)
+                } else {
+                    old_path.parent().and_then(Path::parent)
+                }
+                .context("worktree root")?;
+                let project_dir = root.join(&p.name);
+                tokio::fs::create_dir_all(&project_dir).await?;
+                if tokio::fs::symlink_metadata(&project_dir)
+                    .await?
+                    .file_type()
+                    .is_symlink()
+                {
+                    bail!("worktree project directory cannot be a symlink");
+                }
+                let destination = project_dir.canonicalize()?.join(&name);
+                if let Some(why) = crate::sandbox::refused(&destination.to_string_lossy()) {
+                    bail!("worktree reaches {why}");
+                }
+                if Path::new(&old.path) != destination {
+                    crate::worktrees::relocate_tree(&old, &destination).await?;
+                }
+                let mut updated = old.clone();
+                updated.name = name;
+                updated.path = destination.to_string_lossy().into_owned();
+                store.worktrees[index] = updated.clone();
+                if let Err(error) = store.save(&manager.cfg_path).await {
+                    if old.path != updated.path {
+                        crate::worktrees::relocate_tree(&updated, Path::new(&old.path)).await?;
+                    }
+                    return Err(error);
+                }
+                if legacy {
+                    let legacy_parent = Path::new(&old.path).parent().unwrap();
+                    let _ = std::fs::remove_dir(legacy_parent);
+                    let _ = std::fs::remove_dir(legacy_parent.parent().unwrap());
+                }
+                Ok(updated)
+            })
+            .await
+    }
     /// Reload the index when the catalog is replaced or edited externally.
     pub(super) async fn worktree_view_index(&self) -> Arc<HashMap<String, Worktree>> {
         let mut cache = self.worktree_views.lock().await;
@@ -276,7 +359,7 @@ impl Manager {
         Ok(resolved)
     }
 
-    async fn worktree_attachments(&self, w: &Worktree) -> Vec<String> {
+    pub(super) async fn worktree_attachments(&self, w: &Worktree) -> Vec<String> {
         let cfg = self.config().await;
         let live = self.live.read().await;
         let mut users: Vec<String> = cfg
@@ -388,6 +471,12 @@ impl Manager {
                 )
                 .await?;
                 let id = uuid::Uuid::new_v4().to_string();
+                let name = if q.name.is_empty() {
+                    id[..8].to_string()
+                } else {
+                    q.name.clone()
+                };
+                crate::config::project_name_component(&name).context("invalid worktree name")?;
                 let branch = format!("slopworld/{id}");
                 let base = git(
                     &root,
@@ -412,7 +501,7 @@ impl Manager {
                     if !parent.is_absolute() {
                         bail!("worktree root must be absolute");
                     }
-                    parent.join(&p.id).join(&id).join("checkout")
+                    parent.join(&p.name).join(&name)
                 } else {
                     PathBuf::from(expand(&q.path)).canonicalize()?
                 };
@@ -439,13 +528,25 @@ impl Manager {
                     }
                 }
                 let path = if managed {
-                    let container = path.parent().context("worktree container")?;
-                    tokio::fs::create_dir_all(
-                        container.parent().context("worktree project directory")?,
-                    )
-                    .await?;
-                    tokio::fs::create_dir(container).await?;
-                    container.canonicalize()?.join("checkout")
+                    let project_dir = path.parent().context("worktree project directory")?;
+                    tokio::fs::create_dir_all(project_dir).await?;
+                    if tokio::fs::symlink_metadata(project_dir)
+                        .await?
+                        .file_type()
+                        .is_symlink()
+                    {
+                        bail!("worktree project directory cannot be a symlink");
+                    }
+                    let project_dir = project_dir.canonicalize()?;
+                    let path = project_dir.join(&name);
+                    if let Some(why) = crate::sandbox::refused(&path.to_string_lossy()) {
+                        bail!("worktree reaches {why}");
+                    }
+                    if path.exists() {
+                        bail!("worktree path {} already exists", path.display());
+                    }
+                    tokio::fs::create_dir(&path).await?;
+                    path
                 } else {
                     path
                 };
@@ -456,7 +557,7 @@ impl Manager {
                 let mut w = Worktree {
                     id,
                     project_id: p.id,
-                    name: q.name,
+                    name,
                     path: path.to_string_lossy().into_owned(),
                     repository,
                     managed,
@@ -469,15 +570,10 @@ impl Manager {
                     phase: "allocating".into(),
                     error: String::new(),
                 };
-                if w.name.is_empty() {
-                    w.name = w.id.chars().take(8).collect();
-                }
                 store.worktrees.push(w.clone());
                 store.save(&manager.cfg_path).await?;
                 let result = if managed {
                     async {
-                        tokio::fs::create_dir_all(path.parent().context("worktree parent")?)
-                            .await?;
                         crate::worktrees::allocate(&root, &path, &branch, &base).await?;
                         Ok::<_, anyhow::Error>(())
                     }
@@ -540,9 +636,11 @@ impl Manager {
                     if listing.split('\0').any(|line| line == format!("worktree {}", w.path)) {
                         crate::worktrees::forget_missing(&w).await?;
                     }
-                    let container = path.parent().context("worktree container")?;
-                    if container.file_name().and_then(|s| s.to_str()) != Some(&w.id) { bail!("worktree container identity changed"); }
-                    if container.exists() { std::fs::remove_dir(container).context("worktree container is not empty")?; }
+                    let parent = path.parent().context("worktree parent")?;
+                    if path.file_name().and_then(|s| s.to_str()) == Some("checkout") && parent.file_name().and_then(|s| s.to_str()) == Some(&w.id) && parent.exists() {
+                        std::fs::remove_dir(parent).context("legacy worktree container is not empty")?;
+                        let _ = std::fs::remove_dir(parent.parent().context("legacy project directory")?);
+                    }
                 }
                 Ok::<_, anyhow::Error>(())
             }.await;

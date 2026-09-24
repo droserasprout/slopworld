@@ -16,7 +16,8 @@ communicate through HTTP and WebSocket. `slopcar/` packages the Linux daemon for
 
 Start with the relevant map. Follow its focused links. Then read the source and tests.
 Do not read every note. User workflows live in the [book index](docs/src/SUMMARY.md).
-A `notes/plan-*` file records unfinished work. It does not describe implemented behavior.
+A `notes/plan-*` file tracks a change through review and merge.
+It does not describe current behavior.
 
 | Area | Starting points |
 | --- | --- |

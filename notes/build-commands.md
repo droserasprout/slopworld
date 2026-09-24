@@ -21,6 +21,8 @@ Only IPC benchmarks need Mono.
 Game references must keep `Private=false`: RimWorld loads every DLL in `Assemblies/`.
 
 `test.yml` owns game-free checks for branch pushes, pull requests and manual runs.
+`test-tools` checks plan status headers. `make install-git-hooks` configures the
+local pre-commit guard against commits on `main`; it does not protect remote pushes.
 Release CI calls it and packages the exact tested commit.
 CI calls `make ci`, writes coverage rates to the job summary,
 and uploads Cobertura reports as the `coverage` artifact. Supporting-tool and pager

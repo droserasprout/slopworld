@@ -144,7 +144,7 @@ Agents own their network mode:
 | Mode | Behavior |
 | --- | --- |
 | `none` | The agent has a private network namespace with no network access. |
-| `private` | `pasta` provides synthetic DNS. It forwards no ports. Outbound access is available. |
+| `private` | `pasta` provides synthetic DNS and outbound access. It forwards only the daemon TCP port back to the host when the daemon listens on `127.0.0.1` or all IPv4 interfaces. |
 | `host` | Uses the host network and can reach local services. |
 
 With `private`, `pasta` routes DNS requests. `resolved` uses the daemon's current resolver.

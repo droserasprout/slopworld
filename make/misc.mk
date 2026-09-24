@@ -1,6 +1,9 @@
-.PHONY: logs check-reqs pkg-arch docs docs-serve devloop
+.PHONY: logs check-reqs pkg-arch docs docs-serve devloop install-git-hooks
 
 ## Development tools
+
+install-git-hooks: ## Block local commits on main and check plan headers
+	@git config core.hooksPath tools/git-hooks
 
 logs:              ## Show new entries in the game's Player.log
 	@tail -f "$(LOG)"

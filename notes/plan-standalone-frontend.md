@@ -1,5 +1,7 @@
 # Standalone frontend scope
 
+Status: proposed
+
 Scope for a standalone Unity/C# SlopWorld frontend with the non-game workspace
 available permanently.
 Retain the Rust daemon and its protocol.

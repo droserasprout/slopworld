@@ -3,6 +3,9 @@
 Several checkouts can belong to one project. Agents can attach to and share a worktree.
 Tasks, workers, and worktrees have independent lifetimes. Completing a task or removing its worker does not commit or remove a worktree.
 By default, the daemon keeps each worker after its process exits.
+For repository changes, follow the [change workflow](change-workflow.md): create
+the worktree with `slopctl`, commit on its branch, and obtain human approval
+before merging to `main`.
 
 ## Create and use a worktree
 
@@ -25,10 +28,13 @@ Select **Refresh** to update Git state and attachments.
 On Linux, the daemon requires Landlock ABI 3 or newer to create managed worktrees.
 It requires Bubblewrap to remove managed worktrees.
 
-Managed worktrees default to `$XDG_DATA_HOME/slopworld/worktrees/<project-id>/<worktree-id>/checkout`.
+Managed worktrees default to `$XDG_DATA_HOME/slopworld/worktrees/<project-name>/<worktree-name>`.
 The daemon uses `~/.local/share` when `$XDG_DATA_HOME` is unset.
 Project settings can set the managed root for new worktrees.
-Stable IDs determine worktree paths. Branch names and labels do not change existing paths.
+Renaming a project or managed worktree moves its checkout directory and repairs Git's registration.
+Move or remove attached sessions before renaming. A worktree without a supplied name uses a short generated name.
+Use **Rename** in the worktree list or the CLI command below.
+Older ID-based paths can be moved by running `slopctl worktree rename ID --project PROJECT --name NAME` after detaching sessions.
 
 ## Remove a worktree
 
@@ -54,6 +60,7 @@ slopctl worktree create --project repo --name feature --base HEAD
 slopctl worker spawn --project repo --template codex --worktree WORKTREE_ID "Implement feature"
 slopctl worker spawn --project repo --template codex --new-worktree "Independent task"
 slopctl worktree remove WORKTREE_ID --project repo
+slopctl worktree rename WORKTREE_ID --project repo --name clearer-name
 ```
 
 Use the root token to remove a worktree or register an external checkout.

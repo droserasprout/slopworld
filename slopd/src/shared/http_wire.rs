@@ -248,6 +248,9 @@ pub(crate) fn encode_request(method: &str, path: &str, value: Value) -> anyhow::
     if method == "DELETE" && matches("/api/worktrees/:id", path) {
         return Ok(serde_json::from_value::<wire::Empty>(value)?.encode_to_vec());
     }
+    if method == "PUT" && matches("/api/worktrees/:id", path) {
+        return Ok(serde_json::from_value::<wire::CreateWorktreeReq>(value)?.encode_to_vec());
+    }
     if method == "DELETE" && matches("/api/grants/:grantor", path) {
         return Ok(serde_json::from_value::<wire::Empty>(value)?.encode_to_vec());
     }
@@ -513,6 +516,9 @@ pub(crate) fn decode_response(method: &str, path: &str, value: &[u8]) -> anyhow:
     }
     if method == "DELETE" && matches("/api/worktrees/:id", path) {
         return Ok(serde_json::to_value(wire::Ack::decode(value)?)?);
+    }
+    if method == "PUT" && matches("/api/worktrees/:id", path) {
+        return Ok(serde_json::to_value(wire::Worktree::decode(value)?)?);
     }
     if method == "DELETE" && matches("/api/grants/:grantor", path) {
         return Ok(serde_json::to_value(wire::Ack::decode(value)?)?);
@@ -793,6 +799,11 @@ pub(crate) fn decode_request(method: &str, path: &str, value: &[u8]) -> anyhow::
     if method == "DELETE" && matches("/api/worktrees/:id", path) {
         return Ok(serde_json::to_value(wire::Empty::decode(value)?)?);
     }
+    if method == "PUT" && matches("/api/worktrees/:id", path) {
+        return Ok(serde_json::to_value(wire::CreateWorktreeReq::decode(
+            value,
+        )?)?);
+    }
     if method == "DELETE" && matches("/api/grants/:grantor", path) {
         return Ok(serde_json::to_value(wire::Empty::decode(value)?)?);
     }
@@ -1057,6 +1068,9 @@ pub(crate) fn encode_response(method: &str, path: &str, value: Value) -> anyhow:
     }
     if method == "DELETE" && matches("/api/worktrees/:id", path) {
         return Ok(serde_json::from_value::<wire::Ack>(value)?.encode_to_vec());
+    }
+    if method == "PUT" && matches("/api/worktrees/:id", path) {
+        return Ok(serde_json::from_value::<wire::Worktree>(value)?.encode_to_vec());
     }
     if method == "DELETE" && matches("/api/grants/:grantor", path) {
         return Ok(serde_json::from_value::<wire::Ack>(value)?.encode_to_vec());

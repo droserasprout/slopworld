@@ -92,5 +92,6 @@ scoped grants can access. Handlers can require additional access.
 | `GET` | `/api/worktrees` | `scoped` | `list_worktrees` | `Empty` → `WorktreesReply` |
 | `POST` | `/api/worktrees` | `scoped` | `create_worktree` | `CreateWorktreeReq` → `Worktree` |
 | `DELETE` | `/api/worktrees/:id` | `root-only` | `remove_worktree` | `Empty` → `Ack` |
+| `PUT` | `/api/worktrees/:id` | `root-only` | `rename_worktree` | `CreateWorktreeReq` → `Worktree` |
 | `POST` | `/api/worktrees/preview` | `scoped` | `preview_worktree` | `CreateWorktreeReq` → `WorktreeBase` |
 | `GET` | `/ws` | `scoped` | `ws_upgrade` | `ClientMessage` → `Event` |

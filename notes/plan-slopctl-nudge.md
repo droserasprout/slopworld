@@ -1,5 +1,7 @@
 # Send a prompt to an existing session
 
+Status: proposed
+
 ## Problem and scope
 
 Following up with a live worker currently requires a custom WebSocket client to

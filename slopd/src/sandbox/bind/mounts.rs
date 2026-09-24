@@ -261,11 +261,11 @@ pub(super) fn resolver_bind(
 }
 
 /// For private networking, run `pasta` before `bwrap`.
-pub(super) fn pasta_prefix(dns: &DnsConfig, worker: bool, network: NetworkMode) -> Vec<String> {
+pub(super) fn pasta_prefix(dns: &DnsConfig, bind: &str, network: NetworkMode) -> Vec<String> {
     if network != NetworkMode::Private {
         return Vec::new();
     }
-    pasta_prefix_args(dns, worker)
+    pasta_prefix_args(dns, bind)
 }
 
 /// Start the scope before pasta, bwrap, and the agent so resource limits apply to all three.
@@ -306,7 +306,7 @@ fn scope_prefix_args(limits: &Limits) -> Vec<String> {
     out
 }
 
-fn pasta_prefix_args(dns: &DnsConfig, worker: bool) -> Vec<String> {
+fn pasta_prefix_args(dns: &DnsConfig, bind: &str) -> Vec<String> {
     let mut out = vec![
         "pasta".into(),
         "--foreground".into(),
@@ -317,8 +317,6 @@ fn pasta_prefix_args(dns: &DnsConfig, worker: bool) -> Vec<String> {
         "--tcp-ports".into(),
         "none".into(),
         "--udp-ports".into(),
-        "none".into(),
-        "--tcp-ns".into(),
         "none".into(),
         "--udp-ns".into(),
         "none".into(),
@@ -331,13 +329,23 @@ fn pasta_prefix_args(dns: &DnsConfig, worker: bool) -> Vec<String> {
         "--dns-forward".into(),
         PRIVATE_RESOLVER.into(),
     ];
-    if worker {
-        // Private sandboxes do not inherit host loopback.
-        // Workers need the daemon API, which listens on 127.0.0.1 by default.
-        // Map only that address to the host.
-        out.push("--map-host-loopback".into());
-        out.push("127.0.0.1".into());
-    }
+    // Forward only the daemon TCP port into the private namespace when the
+    // daemon listens on 127.0.0.1 (or all IPv4 interfaces). A broad host
+    // loopback mapping would also expose unrelated host services.
+    let daemon_port = bind
+        .parse::<std::net::SocketAddr>()
+        .ok()
+        .and_then(|addr| match addr {
+            std::net::SocketAddr::V4(addr)
+                if *addr.ip() == std::net::Ipv4Addr::LOCALHOST || addr.ip().is_unspecified() =>
+            {
+                Some(addr.port().to_string())
+            }
+            _ => None,
+        })
+        .unwrap_or_else(|| "none".into());
+    out.push("--tcp-ns".into());
+    out.push(daemon_port);
     for server in dns.servers() {
         out.push("--dns-host".into());
         out.push(server.to_string());

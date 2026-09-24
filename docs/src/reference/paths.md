@@ -30,7 +30,7 @@ These tables show default paths and supported overrides. Most Linux SlopWorld pa
 | `$XDG_DATA_HOME/slopworld/sessions/<state-id>/` | `SLOPD_STATE` | Per-agent private state. The daemon assigns the opaque state ID at creation. |
 | `$XDG_DATA_HOME/slopworld/sessions/<state-id>/launch-plan.json` | under `SLOPD_STATE` | Sanitized latest sandbox launch plan. Mode `0600`. The daemon keeps it with persistent state and never mounts it into the guest. |
 | `$XDG_DATA_HOME/slopworld/sessions/.trash/` | under `SLOPD_STATE` | Removed or reset state, reclaimed after 14 days. |
-| `$XDG_DATA_HOME/slopworld/worktrees/<project-id>/<worktree-id>/checkout/` | `project.worktree_root` | Default checkout path for a managed worktree. Project settings can set a different root. |
+| `$XDG_DATA_HOME/slopworld/worktrees/<project-name>/<worktree-name>/` | `project.worktree_root` | Default checkout path for a managed worktree. Project settings can set a different root. |
 | `~/.config/slopworld/jukebox/<name>.toml` | `SLOPD_JUKEBOX` | User-defined radio stations. SlopWorld includes no stations. |
 | `$XDG_DATA_HOME/slopworld/jukebox.toml` | `XDG_DATA_HOME` | Jukebox likes (`[[like]]` tables). |
 | `$XDG_DATA_HOME/slopworld/profile` | `--profile`, `SLOPCAR_PROFILE`, or `SLOPWORLD_PROFILE` | Game profile: saves, screenshots, and `Config/`. |
