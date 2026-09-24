@@ -88,6 +88,7 @@ namespace SlopWorld
 
     public class ProjectInfo
     {
+        public string Id = "";
         public string Name = "";
         public string WorktreeRoot = "";
         string _dir = "";
@@ -157,6 +158,7 @@ namespace SlopWorld
 
         public static ProjectInfo FromWire(Wire.Project j) => new ProjectInfo
         {
+            Id = j.Id,
             Name = j.Name,
             WorktreeRoot = j.WorktreeRoot,
             Dir = j.Dir,
@@ -167,6 +169,7 @@ namespace SlopWorld
 
         public Wire.Project ToWire() => new Wire.Project
         {
+            Id = Id,
             Name = Name,
             WorktreeRoot = WorktreeRoot,
             Dir = Dir,
@@ -176,6 +179,7 @@ namespace SlopWorld
 
         public ProjectInfo Copy() => new ProjectInfo
         {
+            Id = Id,
             Name = Name,
             WorktreeRoot = WorktreeRoot,
             Dir = Dir,

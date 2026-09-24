@@ -130,7 +130,7 @@ pub(crate) async fn run(
     let command = if q.path.trim().is_empty() {
         q.command.trim().to_string()
     } else {
-        m.file_action_command(project, &q.path, q.command.trim(), q.host)
+        m.file_action_command(project, &q.worktree, &q.path, q.command.trim(), q.host)
             .await
             .map_err(|e| err(axum::http::StatusCode::BAD_REQUEST, e))?
     };
@@ -221,7 +221,7 @@ pub(crate) async fn file_action(
 ) -> ApiResult<wire::OutputResult> {
     let q: FileActionReq = domain(q)?;
     let output = m
-        .file_action(&q.project, &q.path, &q.command, q.host)
+        .file_action(&q.project, &q.worktree, &q.path, &q.command, q.host)
         .await
         .map_err(|e| err(axum::http::StatusCode::BAD_REQUEST, e))?;
     reply(json!({ "ok": true, "output": output }))

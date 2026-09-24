@@ -13,6 +13,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="../Source/SlopWorld/UI/Views/Shared/BrowseScopeCatalog.cs" Link="Source/BrowseScopeCatalog.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Views/Shared/BrowseScope.cs" Link="Source/BrowseScope.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Views/Shared/BoundedWork.cs" Link="Source/BoundedWork.cs" />
+    <Compile Include="../Source/SlopWorld/UI/Views/Search/SearchSubmission.cs" Link="Source/SearchSubmission.cs" />
     <PackageReference Include="NUnit" Version="4.6.1" />
     <PackageReference Include="NUnitLite" Version="4.6.1" />
   </ItemGroup>

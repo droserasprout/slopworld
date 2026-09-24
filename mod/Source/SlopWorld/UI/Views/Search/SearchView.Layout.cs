@@ -27,9 +27,15 @@ namespace SlopWorld
                     Color = UiTheme.Faint,
                 });
 
+            string project = null;
             foreach (var group in Groups)
             {
                 if (group.Matches.Count == 0 && group.Error == null && !_loading) continue;
+                if (project != group.Project)
+                {
+                    project = group.Project;
+                    Layout.Add(new LayoutRow { Kind = RowKind.ProjectHeading, Text = project });
+                }
                 Layout.Add(new LayoutRow { Kind = RowKind.Heading, Group = group });
                 if (group.Error != null)
                     Layout.Add(new LayoutRow

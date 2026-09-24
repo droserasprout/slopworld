@@ -29,6 +29,7 @@ namespace SlopWorld
         sealed class Group
         {
             public string Project;
+            public string Worktree;
             public string Error;
             public bool Truncated;
             public readonly List<Match> Matches = new List<Match>();
@@ -42,6 +43,7 @@ namespace SlopWorld
 
         enum RowKind
         {
+            ProjectHeading,
             Heading,
             File,
             Match,
@@ -64,6 +66,10 @@ namespace SlopWorld
         static readonly Pager Viewer = new Pager();
         static FieldLifetime _fieldLifetime = new FieldLifetime();
 
+        static SearchSubmission _submitted;
+        static readonly BoundedWork Requests = new BoundedWork(4);
+        static SearchView() { SidebarScopes.Changed += FilterChanged; }
+        public static void FilterChanged() { if (_submitted != null) RunSearch(); }
         static string _query = "";
         static bool _regex;
         static bool _case;
@@ -87,6 +93,7 @@ namespace SlopWorld
 
         public static void Draw(Rect body)
         {
+            SidebarScopes.Update();
             using (FieldLifetimeScope.Push(_fieldLifetime))
             {
                 var tools = new Rect(body.x + CellX, body.y + Pad,
@@ -177,13 +184,17 @@ namespace SlopWorld
 
         public static void Search()
         {
-            string query = (_query ?? "").Trim();
-            if (query.Length == 0)
-            {
-                ResetToEmpty();
-                return;
-            }
+            _submitted = new SearchSubmission(_query, _regex, _case, _word, _includeIgnored);
+            RunSearch();
+        }
 
+        static void RunSearch()
+        {
+            var submitted = _submitted;
+            string query = submitted.Query;
+            if (query.Length == 0) { ResetToEmpty(); return; }
+
+            var projects = SidebarScopes.EnabledScopes();
             ReleaseViewer();
             Groups.Clear();
             DirtyLayout();
@@ -192,23 +203,24 @@ namespace SlopWorld
             Scroll.JumpTo(Vector2.zero);
             int generation = Operations.Begin();
 
-            var projects = SearchProjects();
             _pending = projects.Count;
             if (_pending == 0) { _loading = false; return; }
 
             foreach (var p in projects)
             {
-                var group = new Group { Project = p.Name };
+                var group = new Group { Project = p.Project, Worktree = p.Label };
                 Groups.Add(group);
-                string url = WireProtocol.Routes.Search + "?path=" + Uri.EscapeDataString(p.Dir) +
+                string url = WireProtocol.Routes.Search + "?path=" + Uri.EscapeDataString(p.Path) +
                     "&q=" + Uri.EscapeDataString(query) +
-                    "&regex=" + (_regex ? "1" : "0") +
-                    "&case=" + (_case ? "1" : "0") +
-                    "&word=" + (_word ? "1" : "0") +
-                    "&gitignore=" + (_includeIgnored ? "0" : "1") +
+                    "&regex=" + (submitted.Regex ? "1" : "0") +
+                    "&case=" + (submitted.Case ? "1" : "0") +
+                    "&word=" + (submitted.Word ? "1" : "0") +
+                    "&gitignore=" + (submitted.IncludeIgnored ? "0" : "1") +
                     "&hidden=" + (Settings.SidebarShowHidden ? "1" : "0");
-                DaemonClient.Get<Wire.SearchResult>(url, j => OnResults(group, p, generation, j),
-                    msg => OnError(group, generation, msg));
+                Requests.Add(() => Operations.IsCurrent(generation) && SidebarScopes.Enabled(p.Key), done =>
+                    DaemonClient.Get<Wire.SearchResult>(url,
+                        j => { try { OnResults(group, p, generation, j); } finally { done(); } },
+                        msg => { try { OnError(group, generation, msg); } finally { done(); } }));
             }
         }
 
@@ -225,24 +237,14 @@ namespace SlopWorld
             ReleaseViewer();
         }
 
-        static List<ProjectInfo> SearchProjects()
-        {
-            var projects = new List<ProjectInfo>();
-            foreach (var p in SessionHub.Instance.Projects)
-                if (!string.IsNullOrEmpty(p.Dir) && AgentSidebar.Passes(p.Name))
-                    projects.Add(p);
-            projects.Sort((a, b) => string.CompareOrdinal(a.Name, b.Name));
-            return projects;
-        }
-
-        static void OnResults(Group group, ProjectInfo project, int generation, Wire.SearchResult j)
+        static void OnResults(Group group, BrowseScope project, int generation, Wire.SearchResult j)
         {
             if (!Operations.IsCurrent(generation)) return;
             foreach (var row in j.Matches)
                 group.Matches.Add(new Match
                 {
-                    Project = project.Name,
-                    Root = project.ExpandedDir,
+                    Project = project.Key,
+                    Root = project.Path,
                     Path = row.Path,
                     Line = (int)row.Line,
                     Column = (int)row.Column,
@@ -306,6 +308,9 @@ namespace SlopWorld
         {
             switch (row.Kind)
             {
+                case RowKind.ProjectHeading:
+                    Note(width, ref y, row.Text, UiTheme.Lead);
+                    break;
                 case RowKind.Heading:
                     Heading(width, ref y, row.Group);
                     break;
@@ -328,7 +333,7 @@ namespace SlopWorld
             Text.Font = GameFont.Tiny;
             Text.Anchor = TextAnchor.MiddleLeft;
             UiText.RowLabel(new Rect(CellX, y, width - CellX * 2f, RowH),
-                $"{group.Project}  {group.Matches.Count}");
+                $"    {group.Worktree}  {group.Matches.Count}");
             GUI.color = Color.white;
             y += RowH;
         }
@@ -475,7 +480,7 @@ namespace SlopWorld
                 return;
             }
             _showing = match;
-            Viewer.ViewFileAt(match.Project, path, match.Line, "search-" + Leaf(match.Path));
+            Viewer.ViewFileAt(match.Project, path, match.Line, FilesView.ReaderLabel(match.Project, "search-" + Leaf(match.Path)));
         }
 
         static void Act(Match match, RowAct act)

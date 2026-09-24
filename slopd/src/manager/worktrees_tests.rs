@@ -28,3 +28,131 @@ async fn view_index_reloads_external_catalog_edits() {
         "external edit"
     );
 }
+
+#[tokio::test]
+async fn explicit_action_scope_checks_registration_readiness_and_checkout_path() {
+    use crate::config::ProjectCfg;
+    let root = std::env::temp_dir().join(format!("slopd-action-scope-{}", uuid::Uuid::new_v4()));
+    std::fs::create_dir_all(&root).unwrap();
+    let main = root.join("main");
+    std::fs::create_dir(&main).unwrap();
+    assert!(std::process::Command::new("git")
+        .args(["init", "-q"])
+        .arg(&main)
+        .status()
+        .unwrap()
+        .success());
+    assert!(std::process::Command::new("git")
+        .arg("-C")
+        .arg(&main)
+        .args([
+            "-c",
+            "user.name=Test",
+            "-c",
+            "user.email=test@example.invalid",
+            "commit",
+            "-q",
+            "--allow-empty",
+            "-m",
+            "initial"
+        ])
+        .status()
+        .unwrap()
+        .success());
+    // A registered child checkout must not be authorized as part of Main just because
+    // its absolute path has Main's prefix.
+    let tree = main.join("checkouts/one");
+    assert!(std::process::Command::new("git")
+        .arg("-C")
+        .arg(&main)
+        .args(["worktree", "add", "-q", "-b", "one"])
+        .arg(&tree)
+        .status()
+        .unwrap()
+        .success());
+    let manager = crate::session::test_manager(Config {
+        projects: vec![ProjectCfg {
+            id: "p-id".into(),
+            name: "p".into(),
+            dir: main.to_string_lossy().into(),
+            ..Default::default()
+        }],
+        ..Default::default()
+    });
+    let mut store = Store {
+        worktrees: vec![Worktree {
+            id: "one".into(),
+            project_id: "p-id".into(),
+            name: "one".into(),
+            path: tree.to_string_lossy().into(),
+            repository: main.join(".git").to_string_lossy().into(),
+            phase: "ready".into(),
+            ..Default::default()
+        }],
+    };
+    store.save(&manager.cfg_path).await.unwrap();
+    let file = tree.join("file").to_string_lossy().into_owned();
+    let cfg = manager
+        .config_for_action_scope("p", "one", &file)
+        .await
+        .unwrap();
+    assert_eq!(Path::new(&cfg.projects[0].dir), tree);
+    assert!(manager
+        .file_action_command("p", "one", &file, "cat {{ absolute_path }}", true)
+        .await
+        .is_ok());
+    assert!(manager
+        .file_action_command("p", "main", &file, "pwd", true)
+        .await
+        .is_err());
+    assert!(manager
+        .file_action_command(
+            "p",
+            "one",
+            &main.join("file").to_string_lossy(),
+            "pwd",
+            true
+        )
+        .await
+        .is_err());
+    assert!(manager
+        .file_action_command("p", "unregistered", &file, "pwd", true)
+        .await
+        .is_err());
+    assert!(manager
+        .file_action_command("wrong-project", "one", &file, "pwd", true)
+        .await
+        .is_err());
+    let output = manager
+        .file_action("p", "one", &file, "pwd", false)
+        .await
+        .unwrap();
+    assert_eq!(Path::new(output.trim()), tree);
+    let outside = root.join("outside");
+    std::fs::create_dir(&outside).unwrap();
+    std::os::unix::fs::symlink(&outside, tree.join("escape")).unwrap();
+    assert!(manager
+        .file_action_command(
+            "p",
+            "one",
+            &tree.join("escape/new").to_string_lossy(),
+            "pwd",
+            true
+        )
+        .await
+        .is_err());
+    store.worktrees[0].phase = "removing".into();
+    store.save(&manager.cfg_path).await.unwrap();
+    assert!(manager
+        .file_action_command("p", "one", &file, "pwd", true)
+        .await
+        .is_err());
+    store.worktrees[0].phase = "ready".into();
+    store.save(&manager.cfg_path).await.unwrap();
+    std::fs::remove_dir_all(&tree).unwrap();
+    assert!(manager
+        .file_action_command("p", "one", &file, "pwd", true)
+        .await
+        .is_err());
+    std::fs::remove_dir_all(root).unwrap();
+}

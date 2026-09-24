@@ -182,6 +182,38 @@ impl Manager {
         Ok(cfg)
     }
 
+    // Explicit scope wins over path inference. Resolve registration/readiness first; the
+    // action path validator then rejects sibling checkouts and symlink escapes.
+    pub(super) async fn config_for_action_scope(
+        &self,
+        project: &str,
+        worktree: &str,
+        path: &str,
+    ) -> Result<Config> {
+        if worktree.is_empty() {
+            return self.config_for_worktree_path(project, path).await;
+        }
+        if !path.trim().is_empty() {
+            let inferred = self.worktree_for_path(project, path).await?;
+            let inferred = if inferred.is_empty() {
+                "main"
+            } else {
+                &inferred
+            };
+            if inferred != worktree {
+                bail!("File action path belongs to a different worktree");
+            }
+        }
+        let mut cfg = self.config().await;
+        let p = cfg
+            .projects
+            .iter_mut()
+            .find(|p| p.name == project)
+            .context("worktree project")?;
+        *p = self.resolve_worktree(p, worktree).await?;
+        Ok(cfg)
+    }
+
     pub(crate) async fn worktree_base(
         &self,
         caller: &str,

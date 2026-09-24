@@ -30,15 +30,15 @@ namespace SlopWorld
             public bool HasChildren;
             public bool Gitignored;
             public string Root;        // the project dir this hangs off, for a relative path
-            public string Project;     // and the project that owns it, for an errand
+            public string Project;     // stable browsing scope key, resolved to project/worktree at the request boundary
             public int Depth;
             // Invalidates a listing already in flight when Reload forgets this node.
             public int ListingVersion;
             public List<System.Action> Loaded;
 
             string IContentTreeNode.Name => Name;
-            string IContentTreeNode.Key => Path;
-            string IContentTreeNode.Project => Project;
+            string IContentTreeNode.Key => Relative(this) ?? "";
+            string IContentTreeNode.ScopeKey => Project;
             bool IContentTreeNode.IsDirectory => IsDir;
             int IContentTreeNode.Depth => Depth;
             bool IContentTreeNode.CanExpand => IsDir && HasChildren;
@@ -89,7 +89,7 @@ namespace SlopWorld
 
             public override int Revision => unchecked(TreeController.Revision * 397
                 ^ (int)SessionHub.Instance.SessionsVersion
-                ^ SessionHub.Instance.ProjectsRevision);
+                ^ SessionHub.Instance.ProjectsRevision ^ SidebarScopes.Revision);
 
             public override IList<ContentTreeGroup> Groups() => TreeController.Groups();
 
@@ -99,7 +99,12 @@ namespace SlopWorld
             public override void ToggleGroup(ContentTreeGroup group)
             {
                 bool unfolding = TreeController.ToggleGroup(group);
-                if (unfolding) RefreshLoaded((Node)group.Root);
+                if (unfolding)
+                {
+                    if (group.Root != null) RefreshLoaded((Node)group.Root);
+                    else foreach (var scope in SidebarScopes.EnabledScopes().Where(s => s.ProjectKey == group.Key))
+                        if (!TreeController.IsGroupCollapsed(scope.Key)) RefreshLoaded(Root(scope.Key));
+                }
             }
 
             public override string GroupTooltip(ContentTreeGroup group) => group.Path;
@@ -136,17 +141,31 @@ namespace SlopWorld
                 FilesView.Act((Node)node, action);
 
             public override List<FloatMenuOption> GroupMenu(ContentTreeGroup group) =>
-                Menu((Node)group.Root, group.Value as string);
+                group.Root == null ? null : Menu((Node)group.Root, group.Value as string);
 
             public override List<FloatMenuOption> RowMenu(IContentTreeNode node) =>
                 Menu((Node)node);
         }
 
-        // Keyed by project name rather than by directory. Two projects on one directory are two
-        // headings, and renaming a project is a heading that has gone.
+        // Roots use stable project/worktree scope keys; labels and paths may change independently.
         static readonly FilesStore Store = new FilesStore();
         static readonly FilesViewerController Viewer = new FilesViewerController();
 
+        static FilesView()
+        {
+            SidebarScopes.Changed += () =>
+            {
+                CancelQueuedBrowse();
+                foreach (var key in Roots.Keys.ToList())
+                {
+                    Forget(Roots[key]);
+                    if (SidebarScopes.Find(key) == null) Roots.Remove(key);
+                }
+                _focusVersion++;
+                _nextAutoRefresh = 0f;
+                BumpTree();
+            };
+        }
         static Dictionary<string, Node> Roots => Store.Roots;
         static Node _focusedRoot
         {
@@ -175,7 +194,7 @@ namespace SlopWorld
             // before their old children are trusted. Unopened directories remain lazy.
             if (!folded)
             {
-                foreach (var project in ViewChrome.Projects())
+                foreach (var project in SidebarScopes.EnabledScopes().Select(s => s.Key))
                     RefreshLoaded(Root(project));
                 if (_focusedRoot != null) RefreshLoaded(_focusedRoot);
             }
@@ -200,6 +219,7 @@ namespace SlopWorld
         {
             MarkdownPreview _view;
             string _header;
+            public string OriginLabel, OriginProject;
             public MarkdownPreview View
             {
                 get => _view;
@@ -271,8 +291,8 @@ namespace SlopWorld
                 return new SessionInfo
                 {
                     Name = Header,
-                    Project = View.Project,
-                    Label = "view-" + System.IO.Path.GetFileName(View.Path),
+                    Project = SidebarScopes.Project(View.Project)?.Name ?? OriginProject,
+                    Label = OriginLabel,
                     Ephemeral = true,
                     Alive = true,
                 };
@@ -341,15 +361,20 @@ namespace SlopWorld
                 };
 
             var groups = new List<ContentTreeGroup>();
-            foreach (var project in ViewChrome.Projects())
+            foreach (var project in SidebarScopes.EnabledScopes().GroupBy(s => s.ProjectKey))
             {
-                var root = Root(project);
-                groups.Add(new ContentTreeGroup(project, project, root.Path, project, root));
+                var first = project.First();
+                groups.Add(new ContentTreeGroup(first.ProjectKey, first.Project, "", null, null));
+                foreach (var scope in project)
+                    groups.Add(new ContentTreeGroup(scope.Key, ScopeLabel(scope), scope.Path, scope.Key, Root(scope.Key))
+                    { ParentKey = scope.ProjectKey });
             }
-            // Filtering hides headings temporarily. Only catalog removal forgets a fold.
-            TreeController.SyncGroups(SessionHub.Instance.Projects.Select(p => p.Name));
+            TreeController.SyncGroups(SidebarScopes.GroupKeys);
             return groups;
         }
+
+        static string ScopeLabel(BrowseScope scope) => scope.Label +
+            (string.IsNullOrEmpty(scope.Branch) ? "" : "  · " + scope.Branch);
 
         static readonly ContentTreeController TreeController =
             new ContentTreeController(BuildGroups);
@@ -378,9 +403,18 @@ namespace SlopWorld
 
         static bool FocusPath(string project, string path, bool remember)
         {
-            var info = SessionHub.Instance.Project(project);
+            var info = SidebarScopes.Project(project);
             if (info == null || string.IsNullOrEmpty(info.Dir)) return false;
-            string relative = ToProjectRelative(info.ExpandedDir, path);
+            project = SidebarScopes.Key(project);
+            var targetScope = SidebarScopes.Find(project);
+            if (targetScope == null || !targetScope.Ready) return false;
+            if (remember)
+            {
+                if (!SidebarScopes.Chosen(targetScope)) SidebarScopes.Toggle(targetScope);
+                if (!AgentSidebar.Passes(info.Name)) AgentSidebar.ToggleFilter(info.Name);
+            }
+            if (!SidebarScopes.Enabled(project)) return false;
+            string relative = ToProjectRelative(SidebarScopes.Directory(project), path);
             if (relative == null) return false;
             var parts = NormalizeRelative(relative);
             if (parts == null || parts.Count == 0) return false;
@@ -390,8 +424,10 @@ namespace SlopWorld
             if (remember) AgentSidebar.RememberFile(project, path);
             // A focused reveal needs the project heading open in the shared group state.
             TreeController.SetGroupCollapsed(project, false);
-            if (AgentSidebar.Filtering && !AgentSidebar.Ticked(project))
-                AgentSidebar.ToggleFilter(project);
+            var scope = SidebarScopes.Find(project);
+            if (scope != null) TreeController.SetGroupCollapsed(scope.ProjectKey, false);
+            if (AgentSidebar.Filtering && !AgentSidebar.Ticked(info.Name))
+                AgentSidebar.ToggleFilter(info.Name);
             AgentSidebar.ShowWithoutHistory(SidebarTab.Files);
 
             int version = ++_focusVersion;
@@ -421,10 +457,10 @@ namespace SlopWorld
         // `cwd` is supplied by tmux. Null keeps the project-root behavior for other callers.
         public static string ResolveProjectPath(string project, string path, string cwd = null)
         {
-            var info = SessionHub.Instance.Project(project);
+            var info = SidebarScopes.Project(project);
             if (info == null || string.IsNullOrEmpty(info.Dir) || string.IsNullOrEmpty(path))
                 return null;
-            return PathScan.ResolveProjectPath(info.ExpandedDir, cwd, path);
+            return PathScan.ResolveProjectPath(SidebarScopes.Directory(project), cwd, path);
         }
 
         static List<string> NormalizeRelative(string path)
@@ -458,7 +494,7 @@ namespace SlopWorld
                     Reveal(child, parts, at + 1, version);
                     return;
                 }
-                Tree.RevealKey(ContentTreeView.SelectionKey(project: child.Project, path: child.Path));
+                Tree.RevealKey(ContentTreeView.SelectionKey(project: child.Project, path: Relative(child)));
             });
         }
 
@@ -469,8 +505,6 @@ namespace SlopWorld
         {
             CancelQueuedBrowse();
             _nextAutoRefresh = 0f;
-            ReleaseViewer();
-            ClearSelection();
             foreach (var root in Roots.Values) Forget(root);
             if (_focusedRoot != null) Forget(_focusedRoot);
             BumpTree();
@@ -501,9 +535,12 @@ namespace SlopWorld
                 if (!TreeController.IsGroupCollapsed(_focusedKey)) RefreshLoaded(_focusedRoot);
                 return;
             }
-            foreach (var project in ViewChrome.Projects())
-                if (!TreeController.IsGroupCollapsed(project)) RefreshLoaded(Root(project));
+            foreach (var project in SidebarScopes.EnabledScopes().Select(s => s.Key))
+                if (ScopeUnfolded(project)) RefreshLoaded(Root(project));
         }
+
+        static bool ScopeUnfolded(string key) => !TreeController.IsGroupCollapsed(key) &&
+            !TreeController.IsGroupCollapsed(SidebarScopes.Find(key)?.ProjectKey);
 
         static void RefreshLoaded(Node node, bool descend = true)
         {
@@ -572,15 +609,26 @@ namespace SlopWorld
 
         static Node Root(string project)
         {
-            var dir = SessionHub.Instance.Project(project)?.ExpandedDir ?? "";
+            project = SidebarScopes.Key(project);
+            var dir = SidebarScopes.Directory(project);
 
-            // A project whose directory moved is a different tree under the same heading.
-            if (Roots.TryGetValue(project, out var root) && root.Path == dir) return root;
+            // A renamed checkout keeps its semantic tree state; refresh reconciles the relocated paths.
+            if (Roots.TryGetValue(project, out var root))
+            {
+                if (root.Path != dir)
+                {
+                    Forget(root);
+                    Relocate(root, dir, dir);
+                    BumpTree();
+                }
+                root.Name = SidebarScopes.Find(project)?.Label ?? SidebarScopes.ProjectName(project);
+                return root;
+            }
 
             root = new Node
             {
                 Path = dir,
-                Name = project,
+                Name = SidebarScopes.Find(project)?.Label ?? SidebarScopes.ProjectName(project),
                 IsDir = true,
                 // Project headings own folding. The root must stay expanded to request its listing.
                 Expanded = true,
@@ -591,6 +639,14 @@ namespace SlopWorld
             Roots[project] = root;
             BumpTree();
             return root;
+        }
+
+        static void Relocate(Node node, string path, string root)
+        {
+            node.Path = path;
+            node.Root = root;
+            if (node.Children != null)
+                foreach (var child in node.Children) Relocate(child, path.TrimEnd('/') + "/" + child.Name, root);
         }
 
         // Text files offer View/Edit. Changed files additionally offer Diff. Directories and
@@ -653,6 +709,7 @@ namespace SlopWorld
         }
 
         static bool Current(BrowseRequest request) =>
+            (request.Node.Project == null || SidebarScopes.Enabled(request.Node.Project)) &&
             request.Node.Loading && request.Node.Path == request.Path &&
             request.Node.ListingVersion == request.Version;
 

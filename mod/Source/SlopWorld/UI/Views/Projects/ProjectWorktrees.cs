@@ -24,6 +24,7 @@ namespace SlopWorld
 
         public void Refresh()
         {
+            SidebarScopes.Invalidate();
             _busy = true;
             DaemonClient.Get<Wire.WorktreesReply>(WireProtocol.Routes.Worktrees + "?project=" + Uri.EscapeDataString(_project),
                 reply => { _rows = reply.Worktrees.OrderBy(w => w.Id == "main" ? 0 : 1).ToList(); _busy = false; _error = null; },

@@ -48,7 +48,8 @@ namespace SlopWorld
             _path = path ?? "";
             _name = name;
             _inlineText = inlineText;
-            _paths = new MarkdownPathResolver(_project, _path);
+            var originRoot = SidebarScopes.Directory(project);
+            _paths = new MarkdownPathResolver(_project, _path, () => originRoot);
             _parser = new MarkdownDocumentParser(_paths);
             _resources = new MarkdownResourceStore(_paths);
             _layout = new MarkdownLayoutEngine(_resources);

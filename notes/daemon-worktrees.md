@@ -43,7 +43,10 @@ Older ID-based checkouts remain usable and can be migrated with a worktree renam
 Sessions can attach only to ready worktrees with an existing checkout.
 Interrupted and missing records remain available for inspection and explicit removal.
 
-Resolve worktree paths before you build a sandbox or change files.
+Resolve worktree paths before you build a sandbox or change files. Sidebar run and file-action
+requests carry the selected worktree ID. An explicit selection overrides legacy path inference:
+reject a path belonging to another registered checkout, even a checkout nested under Main.
+Project action validation resolves symlinks and existing ancestors before accepting a path.
 Linked worktrees use Git metadata at real paths. Check each metadata path against the registered repository.
 Before selecting another worktree, edit literal mounts that expose the original checkout.
 Relative mount destinations follow the selected checkout.

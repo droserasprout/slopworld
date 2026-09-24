@@ -5,10 +5,12 @@ shared with Git.
 `FilesViewerController` controls native Markdown lifetimes.
 `ContentTreeController` owns semantic selection/folds. Static `FilesView` methods are entry
 points, not another state owner. All filesystem reads use daemon APIs. Viewers, editors and file actions run on the daemon
-host without private agent state. Project scope still validates action paths and supplies
+host without private agent state. The selected registered worktree validates action paths and supplies
 the working directory. Host reader sessions are disposable, not saved host-shell tabs.
 
-Refresh merges by path/type to preserve expansion and selection. Bound concurrency so
+Roots use the shared browsing scope key; relative paths identify selections and history.
+Project and checkout folds are independent. A checkout rename relocates cached nodes without
+forgetting expansion. Refresh merges by path/type to preserve expansion and selection. Bound concurrency so
 background refresh cannot starve foreground opens. Use layout geometry for both hit tests
 and scrolling.
 Clipped rows must never receive clicks outside their pane.
@@ -45,3 +47,7 @@ FilesView adds a “Choose an application” submenu. It lists associated apps a
 Python 3, PyGObject, and GTK 3. The chooser lists all installed apps. Otherwise, the daemon
 opens the desktop portal. The chooser runs outside the timed file action, so the user's wait
 does not cause a timeout.
+
+Reader identity retains its source scope independently of filter choices. Native Markdown
+readers snapshot their root and origin label; terminal readers carry the worktree ID in the
+run request. Refreshing and folding never release pinned readers.

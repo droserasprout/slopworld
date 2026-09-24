@@ -13,7 +13,7 @@ Six tabs share the panel:
   terminal, edit, duplicate, shell, remove).
   Drag the grip to resize the panel.
   Shell opens a shell errand inside the same sandbox as the agent.
-- **Files** — a tree of the selected project directory. Right-click for view, edit, diff,
+- **Files** — foldable trees for the selected projects and checkouts. Right-click for view, edit, diff,
   and File Action entries.
 - **Search** — workspace text search with a result pager.
 - **Git** — browse changes, stage and unstage files, commit staged changes, and view diffs.
@@ -38,6 +38,15 @@ Six tabs share the panel:
   The menu also lets you cancel queued or accepted tasks and remove selected tasks in a terminal state.
 
 A project filter at the top of the tab strip limits every view to the selected projects.
+Under each project, choose **Main checkout** and any registered worktrees to browse in Files,
+Git, and Search. Main is enabled initially; new worktrees are opt-in. These choices remain
+saved when you hide a project or choose **All projects**. They do not change an agent's checkout.
+Unavailable worktrees show their status and cannot be enabled until ready.
+
+Files and Git let you fold projects and individual checkouts independently. Search groups
+matches by project and checkout; changing the filter reruns your last submitted search while
+keeping any draft text. Pinned readers survive filtering, folding, refreshes, and tab changes.
+Reader labels include their checkout, and actions use that reader's original scope.
 
 The add strip at the bottom offers new projects, agents, sandbox presets, commands, and
 host shells. Use **View: Toggle Sidebar** in the command palette to hide the sidebar.

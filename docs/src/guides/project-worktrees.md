@@ -41,6 +41,18 @@ Move or remove attached sessions before renaming a checkout. A worktree without 
 Use **Rename** in the worktree list or the CLI command below.
 Older ID-based paths can be moved by running `slopctl worktree rename ID --project PROJECT --name NAME` after detaching sessions.
 
+## Browse several checkouts
+
+Use the sidebar's global **Project** filter to enable **Main checkout** and selected worktrees
+beneath a project. Files and Git show each enabled, ready checkout under its own fold. Search
+queries those checkouts and separates their results. You can disable every checkout for a
+project while keeping its agents visible. Hiding and restoring a project preserves its choices.
+Worktree names and status update from the catalog; a temporarily unavailable checkout keeps
+its saved choice and returns when ready. New worktrees start disabled.
+
+Editors, diffs, file actions and host terminals opened from a checkout use that checkout.
+These browsing choices do not move agents between worktrees.
+
 ## Remove a worktree
 
 Remove or move every attached session, including stopped workers and host terminal tabs.

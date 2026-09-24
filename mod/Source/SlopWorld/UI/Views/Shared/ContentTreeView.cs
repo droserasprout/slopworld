@@ -12,7 +12,7 @@ namespace SlopWorld
     {
         string Name { get; }
         string Key { get; }
-        string Project { get; }
+        string ScopeKey { get; }
         bool IsDirectory { get; }
         int Depth { get; }
         bool CanExpand { get; }
@@ -25,6 +25,7 @@ namespace SlopWorld
     public sealed class ContentTreeGroup
     {
         public readonly string Key;
+        public string ParentKey;
         public readonly string Label;
         public readonly string Path;
         public readonly object Value;
@@ -240,6 +241,7 @@ namespace SlopWorld
             float y = Pad;
             foreach (var group in groups)
             {
+                if (group.ParentKey != null && _controller.IsGroupCollapsed(group.ParentKey)) continue;
                 _items.Add(new Item { Kind = ItemKind.Group, Group = group, Y = y });
                 y += RowH;
                 if (_source.IsGroupCollapsed(group)) continue;
@@ -252,7 +254,7 @@ namespace SlopWorld
                     y += bodyHeight;
                 }
 
-                if (group.Root != null) BuildRows(group.Root, ref y);
+                if (group.Root != null) BuildRows(group.Root, ref y, group.ParentKey == null ? 0 : 1 - group.Root.Depth);
             }
 
             _contentHeight = y + Pad;
@@ -269,7 +271,7 @@ namespace SlopWorld
             _workspaceRevision = workspaceRevision;
         }
 
-        void BuildRows(IContentTreeNode parent, ref float y)
+        void BuildRows(IContentTreeNode parent, ref float y, int indent)
         {
             var loader = _source as IContentTreeLoader;
             if (loader != null) loader.EnsureLoaded(parent);
@@ -283,7 +285,7 @@ namespace SlopWorld
                     Kind = ItemKind.Note,
                     Note = parent.Error ?? "Loading",
                     NoteColor = parent.Error != null ? UiTheme.Bad : UiTheme.Faint,
-                    Depth = parent.Depth + 1,
+                    Depth = parent.Depth + 1 + indent,
                     Y = y,
                 });
                 y += RowH;
@@ -292,9 +294,9 @@ namespace SlopWorld
 
             foreach (var child in children)
             {
-                _items.Add(new Item { Kind = ItemKind.Node, Node = child, Y = y });
+                _items.Add(new Item { Kind = ItemKind.Node, Node = child, Depth = child.Depth + indent, Y = y });
                 y += RowH;
-                if (child.IsDirectory) BuildRows(child, ref y);
+                if (child.IsDirectory) BuildRows(child, ref y, indent);
             }
 
             if (parent.More)
@@ -304,7 +306,7 @@ namespace SlopWorld
                     Kind = ItemKind.Note,
                     Note = "More entries are not shown.",
                     NoteColor = UiTheme.Faint,
-                    Depth = parent.Depth + 1,
+                    Depth = parent.Depth + 1 + indent,
                     Y = y,
                 });
                 y += RowH;
@@ -345,7 +347,7 @@ namespace SlopWorld
             if (Visible(item.Y))
             {
                 PerfTrace.Count("content-tree-rows-drawn");
-                DrawRow(width, item.Y, item.Node);
+                DrawRow(width, item.Y, item.Node, item.Depth);
             }
         }
 
@@ -358,7 +360,7 @@ namespace SlopWorld
 
                 bool over = RowChrome.Hover(row, false, true, RowHoverPolicy.OverlayAware);
                 GUI.color = UiTheme.Faint;
-                var arrow = new Rect(CellX, row.y + (RowH - ArrowW) / 2f, ArrowW, ArrowW);
+                var arrow = new Rect(CellX + (group.ParentKey == null ? 0f : Indent), row.y + (RowH - ArrowW) / 2f, ArrowW, ArrowW);
                 GUI.DrawTexture(arrow, collapsed ? TexButton.Reveal : TexButton.Collapse);
 
                 Text.Font = GameFont.Tiny;
@@ -388,7 +390,7 @@ namespace SlopWorld
 
         bool Visible(float y) => y + RowH > _visibleTop && y < _visibleBottom;
 
-        float DrawRow(float width, float y, IContentTreeNode node)
+        float DrawRow(float width, float y, IContentTreeNode node, int depth)
         {
             using (WidgetState.Save())
             {
@@ -396,7 +398,7 @@ namespace SlopWorld
                 bool over = RowChrome.Hover(row, IsSelected(node), true,
                     RowHoverPolicy.OverlayAware, RowSelectionStyle.Hover);
 
-                float x = CellX + node.Depth * Indent;
+                float x = CellX + depth * Indent;
                 if (node.IsDirectory && node.CanExpand)
                 {
                     GUI.color = UiTheme.Faint;
@@ -435,7 +437,7 @@ namespace SlopWorld
         }
 
         string SelectionKey(IContentTreeNode node) =>
-            SelectionKey(node.Project, node.Key);
+            SelectionKey(node.ScopeKey, node.Key);
 
         public bool IsSelected(IContentTreeNode node) =>
             _controller.IsSelected(SelectionKey(node));
@@ -484,7 +486,7 @@ namespace SlopWorld
                     }
                     else OpenMenu(_source.GroupMenu(line.Group));
                     ClearSelection();
-                    releaseViewer?.Invoke();
+                    // Folding preserves the shared reader pane.
                 }
                 else if (e.button == 1)
                 {

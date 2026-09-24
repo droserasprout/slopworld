@@ -356,7 +356,7 @@ impl Manager {
         command: &str,
         host: bool,
     ) -> Result<(ProjectCfg, SessionCfg)> {
-        let (p, path) = if host {
+        let (p, path) = if host && project.trim().is_empty() {
             (ProjectCfg::default(), absolute_path(raw_path)?)
         } else {
             let p = cfg
@@ -451,12 +451,15 @@ impl Manager {
     pub async fn file_action(
         self: &Arc<Self>,
         project: &str,
+        worktree: &str,
         raw_path: &str,
         command: &str,
         host: bool,
     ) -> Result<String> {
         self.reload_if_changed().await;
-        let cfg = self.config_for_worktree_path(project, raw_path).await?;
+        let cfg = self
+            .config_for_action_scope(project, worktree, raw_path)
+            .await?;
         let (p, s) = Self::resolve_file_action(&cfg, project, raw_path, command, host)?;
         Self::execute_file_action(&cfg, &s, &p).await
     }
@@ -464,13 +467,16 @@ impl Manager {
     pub async fn file_action_command(
         self: &Arc<Self>,
         project: &str,
+        worktree: &str,
         raw_path: &str,
         command: &str,
         host: bool,
     ) -> Result<String> {
         self.reload_if_changed().await;
-        let cfg = self.config_for_worktree_path(project, raw_path).await?;
-        let path = if host {
+        let cfg = self
+            .config_for_action_scope(project, worktree, raw_path)
+            .await?;
+        let path = if host && project.trim().is_empty() {
             absolute_path(raw_path)?
         } else {
             let p = cfg

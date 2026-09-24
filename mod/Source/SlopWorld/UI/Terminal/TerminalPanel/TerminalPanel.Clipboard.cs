@@ -120,11 +120,18 @@ namespace SlopWorld
         // available without a project, including paths outside the project's file tree.
         internal void OpenPathMenu(string path, int line)
         {
-            string project = SessionHub.Instance.Get(_state.Name)?.Project;
+            var info = SessionHub.Instance.Get(_state.Name);
+            string project = info?.Project;
             if (string.IsNullOrEmpty(project))
             {
                 ShowPathMenu(null, path, null, line);
                 return;
+            }
+            var owner = SessionHub.Instance.Project(project);
+            if (owner != null)
+            {
+                SidebarScopes.Update();
+                project = BrowseScope.Identity(BrowseScope.ProjectIdOf(owner), string.IsNullOrEmpty(info.Worktree) ? "main" : info.Worktree);
             }
             SessionHub.Instance.SessionStore.CurrentPath(_state.Name, cwd =>
                 LoadPathMenu(project, path, FilesView.ResolveProjectPath(project, path, cwd), line),
@@ -167,7 +174,7 @@ namespace SlopWorld
                     options.Add(new FloatMenuOption("Edit", () =>
                         FilesView.EditFile(project, absolute, "edit-" + name, line)));
                 }
-                FilesView.AddOpenIn(options, absolute);
+                FilesView.AddOpenIn(options, absolute, project);
                 FilesView.AddFileActions(options, project, absolute, name);
             }
             options.Add(new FloatMenuOption("Copy path", () => CopyText(absolute ?? path)));

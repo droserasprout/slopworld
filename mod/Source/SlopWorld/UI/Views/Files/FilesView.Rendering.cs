@@ -87,7 +87,7 @@ namespace SlopWorld
                 if (rel != null)
                     opts.Add(new FloatMenuOption("Copy relative path", () => FilesView.Copy(rel)));
 
-                if (project != null && SessionHub.Instance.Project(project) != null)
+                if (project != null && SidebarScopes.Project(project) != null)
                     opts.Add(new FloatMenuOption("Terminal (host)", () =>
                         SessionHub.Instance.SessionStore.RunHostShell(project,
                         session => TerminalWindow.Open(session), UiLayout.Fail)));
@@ -112,7 +112,7 @@ namespace SlopWorld
                 }
 
                 // The desktop MIME database resolves directory paths to file managers.
-                FilesView.AddOpenIn(opts, node.Path);
+                FilesView.AddOpenIn(opts, node.Path, node.Project);
 
                 if (node.IsDir)
                 {
@@ -129,13 +129,13 @@ namespace SlopWorld
         // Host application selection is shared by every sidebar tree that names a path.
         // Keep the submenu here so Files and Git use the same asynchronous MIME lookup and
         // portal fallback.
-        public static void AddOpenIn(List<FloatMenuOption> opts, string path)
+        public static void AddOpenIn(List<FloatMenuOption> opts, string path, string project = null)
         {
             if (!SessionHub.Instance.Capabilities.DesktopOpen) return;
-            opts.Add(new UiSubmenu("Open in", () => OpenInOptions(path)));
+            opts.Add(new UiSubmenu("Open in", () => OpenInOptions(path, project)));
         }
 
-        static List<FloatMenuOption> OpenInOptions(string path)
+        static List<FloatMenuOption> OpenInOptions(string path, string project)
         {
             var options = new List<FloatMenuOption>
             {
@@ -155,41 +155,45 @@ namespace SlopWorld
                     string desktopFile = app.DesktopFile;
                     if (string.IsNullOrEmpty(id) || string.IsNullOrEmpty(desktopFile)) continue;
                     string launchFile = desktopFile;
-                    options.Add(new FloatMenuOption(name, () => OpenInApp(path, launchFile)));
+                    options.Add(new FloatMenuOption(name, () => OpenInApp(path, launchFile, project)));
                 }
 
                 if (options.Count == 0)
                     options.Add(new FloatMenuOption("No associated applications", null));
                 options.Add(UiMenu.Separator());
-                options.Add(new FloatMenuOption("Other", () => OpenInOther(path)));
+                options.Add(new FloatMenuOption("Other", () => OpenInOther(path, project)));
             }, msg =>
             {
                 options.Clear();
                 UiLayout.Fail("Could not load applications: " + msg);
                 options.Add(new FloatMenuOption("Could not load applications", null));
                 options.Add(UiMenu.Separator());
-                options.Add(new FloatMenuOption("Other", () => OpenInOther(path)));
+                options.Add(new FloatMenuOption("Other", () => OpenInOther(path, project)));
             });
             return options;
         }
 
-        static void OpenInApp(string path, string desktopFile)
+        static void OpenInApp(string path, string desktopFile, string project)
         {
             if (string.IsNullOrEmpty(path) || string.IsNullOrEmpty(desktopFile)) return;
             string command = PagerCommands.FileActionCommand(
                 "gio launch " + Pager.Quote(desktopFile) + " {{ absolute_path }}", path, null);
-            HostFileAction(path, command);
+            HostFileAction(path, command, project);
         }
 
-        static void OpenInOther(string path)
+        static void OpenInOther(string path, string project)
         {
             if (string.IsNullOrEmpty(path)) return;
-            HostFileAction(path, NativeAppPicker.Command(path));
+            HostFileAction(path, NativeAppPicker.Command(path), project);
         }
 
-        static void HostFileAction(string path, string command)
+        internal static Wire.FileActionReq ScopeAction(string scope, string path, string command, bool host = false) =>
+            new Wire.FileActionReq { Project = SidebarScopes.ProjectName(scope) ?? "", Worktree = SidebarScopes.Worktree(scope),
+                Path = path, Command = command, Host = host };
+
+        static void HostFileAction(string path, string command, string project)
         {
-            DaemonClient.Post<Wire.OutputResult>(WireProtocol.Routes.FileAction, new Wire.FileActionReq { Path = path, Command = command, Host = true }, null, UiLayout.Fail);
+            DaemonClient.Post<Wire.OutputResult>(WireProtocol.Routes.FileAction, ScopeAction(project, path, command, string.IsNullOrEmpty(project)), null, UiLayout.Fail);
         }
 
         // File actions run on the host. The project still scopes selected paths and supplies
@@ -247,7 +251,7 @@ namespace SlopWorld
         static void ShowFileActionResult(string project, string path, string command, bool host,
             string actionName)
         {
-            DaemonClient.Post<Wire.OutputResult>(WireProtocol.Routes.FileAction, new Wire.FileActionReq { Project = project, Path = path, Command = command, Host = host }, j =>
+            DaemonClient.Post<Wire.OutputResult>(WireProtocol.Routes.FileAction, ScopeAction(project, path, command, host), j =>
                 {
                     RefreshAfterFileAction();
                     string output = j.Output;
@@ -264,7 +268,7 @@ namespace SlopWorld
 
         static void RunFileActionSilently(string project, string path, string command, bool host)
         {
-            DaemonClient.Post<Wire.OutputResult>(WireProtocol.Routes.FileAction, new Wire.FileActionReq { Project = project, Path = path, Command = command, Host = host }, _ => RefreshAfterFileAction(), msg =>
+            DaemonClient.Post<Wire.OutputResult>(WireProtocol.Routes.FileAction, ScopeAction(project, path, command, host), _ => RefreshAfterFileAction(), msg =>
                 {
                     RefreshAfterFileAction();
                     UiLayout.Fail("File action: " + msg);
@@ -294,7 +298,7 @@ namespace SlopWorld
 
         static string ProjectRelative(string project, string path)
         {
-            string root = SessionHub.Instance.Project(project)?.ExpandedDir;
+            string root = SidebarScopes.Directory(project);
             if (string.IsNullOrEmpty(root) || string.IsNullOrEmpty(path)) return null;
             if (root == "/")
                 return path.StartsWith("/") && path.Length > 1 ? path.Substring(1) : null;
@@ -351,10 +355,10 @@ namespace SlopWorld
             string script = "cd -- " + Pager.Quote(node.Path) +
                 " && exec \"${SHELL:-bash}\"";
             string command = "bash -lc " + Pager.Quote(script);
-            SessionHub.Instance.SessionStore.Run("", command,
+            SessionHub.Instance.SessionStore.Run(node.Project ?? "", command,
                 "shell-" + node.Name,
                 session => TerminalWindow.Open(session), UiLayout.Fail,
-                host: true, temp: true);
+                host: true, temp: string.IsNullOrEmpty(node.Project), path: node.Path);
         }
 
         // Against the project's own directory. Null for the root itself, which has no relative
@@ -382,9 +386,9 @@ namespace SlopWorld
             // The project this hangs off may have been renamed or deleted since the listing
             // that put the row on screen. The daemon would refuse either way, but the reason
             // is clearer said here.
-            if (SessionHub.Instance.Project(node.Project) == null)
+            if (SidebarScopes.Project(node.Project) == null)
             {
-                UiLayout.Fail($"project '{node.Project}' has gone");
+                UiLayout.Fail("This checkout's project is no longer available.");
                 return;
             }
 
@@ -408,14 +412,16 @@ namespace SlopWorld
         // which tree supplied the click. Opening it preserves the active sidebar tab.
         public static void ViewFile(string project, string path, string label, int line = 0)
         {
+            if (!string.IsNullOrEmpty(project)) project = SidebarScopes.Key(project);
+            label = ReaderLabel(project, label);
             GitView.CancelPendingDiff();
             // A project that has gone takes the mark with it: the tree would otherwise
             // highlight a row nobody is reading.
-            if (!string.IsNullOrEmpty(project) && SessionHub.Instance.Project(project) == null)
+            if (!string.IsNullOrEmpty(project) && SidebarScopes.Project(project) == null)
                 ClearSelection();
             else
             {
-                Tree.SelectKey(ContentTreeView.SelectionKey(project, path));
+                Tree.SelectKey(ContentTreeView.SelectionKey(project, SidebarScopes.Relative(project, path)));
                 if (!string.IsNullOrEmpty(project)) AgentSidebar.RememberFile(project, path);
             }
             if (line > 0)
@@ -436,12 +442,20 @@ namespace SlopWorld
             Viewers.ForPreview().ViewFile(project, path, label);
         }
 
+        internal static string ReaderLabel(string scope, string label)
+        {
+            var origin = SidebarScopes.Find(scope);
+            return origin == null ? label : label + " [" + origin.Project + " / " + origin.Label + "]";
+        }
+
         static bool Showing(MarkdownTab tab) => tab != null &&
             ReferenceEquals(TerminalWindow.ShowingAs<MarkdownPreview>(), tab.View);
 
         static void OpenMarkdown(string project, string path, string name)
         {
             var tab = MarkdownViewers.ForPreview();
+            tab.OriginLabel = ReaderLabel(project, "view-" + name);
+            tab.OriginProject = SidebarScopes.ProjectName(project);
             tab.View = new MarkdownPreview(project, path, name);
             tab.Header = "view-markdown-" + (++Viewer.MarkdownHeader);
             ShowMarkdown(tab);
@@ -462,7 +476,7 @@ namespace SlopWorld
         public static void AddRoutedPreviews(List<SessionInfo> result)
         {
             foreach (var tab in MarkdownViewers.All)
-                if (AgentSidebar.Passes(tab.View.Project)) result.Add(tab.HeaderInfo());
+                if (AgentSidebar.Passes(tab.HeaderInfo().Project)) result.Add(tab.HeaderInfo());
         }
 
         public static bool OpenViewerHeader(string session)
@@ -478,14 +492,15 @@ namespace SlopWorld
         static void ViewSourceFile(string project, string path, string label)
         {
             GitView.CancelPendingDiff();
-            Tree.SelectKey(ContentTreeView.SelectionKey(project, path));
+            Tree.SelectKey(ContentTreeView.SelectionKey(project, SidebarScopes.Relative(project, path)));
             if (!string.IsNullOrEmpty(project)) AgentSidebar.RememberFile(project, path);
             if (Viewers.Reopen(project, path)) return;
-            Viewers.ForPreview().ViewFile(project, path, label);
+            Viewers.ForPreview().ViewFile(project, path, ReaderLabel(project, label));
         }
 
         public static void EditFile(string project, string path, string label, int line = 0)
         {
+            if (!string.IsNullOrEmpty(project)) project = SidebarScopes.Key(project);
             GitView.CancelPendingDiff();
             if (!string.IsNullOrEmpty(project)) AgentSidebar.RememberFile(project, path);
             if (string.IsNullOrEmpty(project))
@@ -495,13 +510,13 @@ namespace SlopWorld
                     host: true, temp: true);
                 return;
             }
-            if (SessionHub.Instance.Project(project) == null)
+            if (SidebarScopes.Project(project) == null)
             {
-                UiLayout.Fail($"project '{project}' has gone");
+                UiLayout.Fail("This reader's project is no longer available.");
                 return;
             }
             SessionHub.Instance.SessionStore.Run(project, Pager.EditorCommand(path, line), label,
-                session => TerminalWindow.Open(session), UiLayout.Fail, host: true);
+                session => TerminalWindow.Open(session), UiLayout.Fail, host: true, path: path);
         }
 
         public static string ViewerPath(string session) => Viewers.FilePath(session);

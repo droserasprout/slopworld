@@ -11,6 +11,8 @@ namespace SlopWorld
         public bool Loading { get; private set; }
         public bool Pending { get; private set; }
 
+        public void Reset() { Loading = Pending = false; _callbacks.Clear(); }
+
         public bool Request(Action refreshed = null)
         {
             if (refreshed != null) _callbacks.Add(refreshed);

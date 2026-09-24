@@ -315,7 +315,34 @@ namespace SlopWorld
             return options;
         }
 
-        public static void OpenFilterMenu()
+        sealed class ProjectFilterMenu : UiMenu
+        {
+            readonly List<FloatMenuOption> _rows;
+            int _revision;
+            public ProjectFilterMenu(List<FloatMenuOption> rows, Vector2 at) : base(rows, at)
+            { _rows = rows; _revision = SidebarScopes.Revision; }
+            public override void DoWindowContents(Rect rect)
+            {
+                int revision = SidebarScopes.Revision;
+                if (revision != _revision)
+                {
+                    _revision = revision;
+                    _rows.Clear();
+                    _rows.AddRange(FilterOptions());
+                    var size = InitialSize;
+                    windowRect.width = size.x;
+                    windowRect.height = size.y;
+                    windowRect.x = Mathf.Clamp(windowRect.x, 0f, Mathf.Max(0f, UI.screenWidth - size.x));
+                    windowRect.y = Mathf.Clamp(windowRect.y, 0f, Mathf.Max(0f, UI.screenHeight - size.y));
+                }
+                base.DoWindowContents(rect);
+            }
+        }
+
+        public static void OpenFilterMenu() => TerminalWindow.OpenOverPane(
+            new ProjectFilterMenu(FilterOptions(), new Vector2(FilterRect.x, FilterRect.yMax)));
+
+        static List<FloatMenuOption> FilterOptions()
         {
             var opts = new List<FloatMenuOption>
             {
@@ -331,13 +358,23 @@ namespace SlopWorld
             {
                 var key = name;
                 opts.Add(UiLayout.MenuToggle(key, Ticked(key), () => Tick(key)));
+                foreach (var scope in SidebarScopes.All(key))
+                {
+                    var child = scope;
+                    string status = (child.Error ?? "").Contains("missing") ? "missing" : child.Phase;
+                    string label = "    " + child.Label + " (" + status + ")";
+                    opts.Add(child.Ready ? UiLayout.MenuToggle(label, SidebarScopes.Chosen(child), () =>
+                    {
+                        SidebarScopes.Toggle(child);
+                        OpenFilterMenu();
+                    }) : UiLayout.MenuToggle(label, SidebarScopes.Chosen(child), null));
+                }
             }
 
             opts.Add(UiLayout.MenuToggle(NoProject, Ticked(NoProject),
                 () => Tick(NoProject)));
 
-            TerminalWindow.OpenOverPane(
-                new UiMenu(opts, new Vector2(FilterRect.x, FilterRect.yMax)));
+            return opts;
         }
 
         static void Tick(string key)

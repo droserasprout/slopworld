@@ -400,6 +400,7 @@ message RunReq {
 }
 
 message FileActionReq {
+  optional string worktree = 5;
   optional string project = 1;
   optional string path = 2;
   optional string command = 3;
