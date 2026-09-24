@@ -1,6 +1,8 @@
 # Readable managed worktree paths
 
-Status: reviewed
+Status: human approved
+Approved by: user (requested landing on `main`)
+Revision: bfec8656
 
 Managed checkouts currently use project and worktree UUIDs plus a `checkout` suffix. Paths are difficult to recognize in terminals, external editors, and devloop.
 
