@@ -21,8 +21,8 @@ Install RimWorld so the mod can link against assemblies in `Managed/`.
 
 Run `make` to list targets. Make defines dependencies and shared settings.
 Scripts in `tools/` support maintenance, platform checks, and IPC benchmarks.
-`bench/terminal-input/` contains the terminal input benchmark code, tests, reports,
-and local runs.
+`bench/terminal-input/` contains the terminal input runner and tests. New reports
+and local runs go to the ignored `bench/results/` directory.
 `mod/Source/SlopWorld/SlopWorld.csproj` owns C# compiler settings and references.
 Build with `make all`, `make daemon`, or `make mod`.
 Component checks also have `-daemon` and `-mod` targets.
@@ -96,9 +96,12 @@ Small test hooks embedded in production code remain measured by the file-based f
 `make coverage-summary` prints both rates. File paths shared by multiple binaries may appear
 more than once in LLVM reports.
 
-`make bench` first builds all benchmark binaries.
-Then it runs the daemon, C#, and IPC suites in sequence.
-Use `BUILD=release` for comparisons.
+`make BUILD=release bench BENCH_RUN=<name>` builds once and measures the daemon,
+C#, and IPC suites three times. Results and reports go to the ignored
+`bench/results/<name>/` directory. `make bench-report BENCH_RUN=<name>` regenerates
+the report from saved CSVs; `BENCH_BASELINE=<older> BENCH_MODE=relative` shows
+percentage changes. Desktop terminal measurements use `make bench-terminal` on
+the graphical host. See [terminal latency](../../notes/terminal-latency.md).
 
 ## Logs and diagnostics
 
@@ -106,7 +109,7 @@ Tracing is opt-in. To collect performance and latency records while using
 `devloop`, pass the flags in the process environment:
 
 ```sh
-SLOPWORLD_DEBUG=1 SLOPWORLD_LATENCY=1 make devloop
+SLOPWORLD_DEBUG=1 make devloop
 ```
 
 The installer writes the supplied tracing values to the service unit. It restarts
@@ -123,15 +126,19 @@ slopctl logs --follow                        # combined game + daemon
 ```
 
 `make protobuf-deps` restores the locked Google.Protobuf runtime and its Mono dependencies.
-`make bench-report` replaces `notes/perf-suite.md` with its latest report.
-The report includes IPC timings, allocations, and wire sizes.
-The command builds once before all three measurement runs.
+`make BUILD=release bench BENCH_RUN=<name>` builds once before three measurement runs.
+`make bench-report BENCH_RUN=<name>` reads their saved CSVs and writes
+`bench/results/<name>/report.md`. The report includes IPC timings, allocations,
+and wire sizes.
+`make bench-latest BENCH_RUN=<name>` refreshes the single committable
+`bench/latest-report.md` snapshot without a dated run name or capture timestamps.
 Each timing shows the median p50 or p95 across runs.
 Brackets show the minimum and maximum across runs.
 These ranges show variation between runs. They are not confidence intervals.
 Daemon measurements use calibrated batches of operations.
 Raw logs and CSVs stay local and ignored.
-`make BUILD=release bench-ipc` measures Protobuf on Mono, CoreCLR (.NET 8), and Rust.
+`make BUILD=release bench-ipc BENCH_RUN=<name>` measures Protobuf on Mono,
+CoreCLR (.NET 8), and Rust.
 See [the benchmark suite](../../bench/ipc/README.md) for scope and recorded results.
 
 ## Occasional maintenance

@@ -5,6 +5,13 @@ The panel owns rendered text.
 Cursor/selection overlays
 must not force text repaint. Row damage describes one received revision: if painting skipped
 that predecessor, use a full repaint rather than applying incomplete damage.
+Debug performance records count history anchor shifts with unchanged cache geometry,
+matching nonlinked row overlap, and shifts that land on whole screen pixels. These
+measure reuse opportunities. History viewport changes still repaint the pane.
+The screen-sized texture may receive a source rectangle that exceeds its edge by
+less than one physical pixel because RimWorld rounds UI dimensions at noninteger
+scale. Clamp that small sampling overrun; larger excursions still use direct paint
+to avoid repeating the texture edge during fractional scrolling.
 
 Parsed runs contain resolved colors. Theme revision must invalidate both parsed and rendered
 caches.

@@ -19,6 +19,34 @@ async fn queued_manager() -> (Arc<Manager>, mpsc::UnboundedReceiver<Input>) {
 }
 
 #[tokio::test]
+async fn paste_queues_for_a_live_session_without_listing_tmux_sessions() {
+    let (manager, mut rx) = queued_manager().await;
+    manager.live.write().await.get_mut("target").unwrap().state = State::Working;
+
+    manager.paste("target", "hello λ").await.unwrap();
+
+    assert!(
+        matches!(rx.try_recv().unwrap(), Input::Paste { bytes } if bytes == "hello λ".as_bytes())
+    );
+}
+
+#[tokio::test]
+async fn paste_queues_after_reader_attachment_before_first_frame() {
+    let (manager, mut rx) = queued_manager().await;
+    manager
+        .live
+        .write()
+        .await
+        .get_mut("target")
+        .unwrap()
+        .reader_token = Some(Arc::new(()));
+
+    manager.paste("target", "early").await.unwrap();
+
+    assert!(matches!(rx.try_recv().unwrap(), Input::Paste { bytes } if bytes == b"early"));
+}
+
+#[tokio::test]
 async fn enter_injects_breadcrumbs_once_between_preceding_keys_and_submission() {
     let (manager, mut rx) = queued_manager().await;
     {

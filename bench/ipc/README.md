@@ -1,10 +1,12 @@
 # IPC codec benchmark
 
-Run `make BUILD=release bench-ipc` for one focused run. `make bench-report` includes all
-IPC metrics in the main three-run median/range performance report, alongside daemon and C#
-benchmarks. Each run replaces the current [processed report](../../notes/perf-suite.md).
-Keep raw per-run logs and IPC CSVs local. Git ignores them. The benchmark starts no game or daemon service. You need Mono, .NET 8,
-Rust and protoc, plus the normal repository build dependencies.
+Run `make BUILD=release bench-ipc BENCH_RUN=<name>` for one focused run.
+`make BUILD=release bench BENCH_RUN=<name>` includes IPC, daemon, and C# helpers
+in one three-run result. `make bench-report BENCH_RUN=<name>` renders saved CSVs;
+`BENCH_BASELINE=<older> BENCH_MODE=relative` compares them. Raw IPC CSVs and the
+normalized metrics live under ignored `bench/results/<name>/`. The benchmark
+starts no game or daemon service. You need Mono, .NET 8, Rust and protoc, plus
+the normal repository build dependencies.
 
 The benchmark measures the production Protobuf transport. Its C# lane links production
 generated messages, `ReceivedEvent`, queue, and event batch. `Google.Protobuf` is pinned to 3.36.1.
@@ -17,6 +19,10 @@ the generated parser. Queue
 limits, error handling, and WebSocket framing have separate tests. Fixtures cover plain text,
 ANSI escape sequences, Unicode, and a larger viewport. Both languages assert decoded data.
 Rust re-encodes fixtures. Mono checks them.
+The four tracked `.textproto` fixtures are encoded with protoc into the run's
+temporary directory. They reproduce the previous binary fixtures byte for byte;
+Rust's round-trip files are written there too. Successful runs remove that scratch
+directory.
 
 Each lane warms up for 300 operations, then records 21 batches. C# uses 500 operations
 per receive batch or 150 per burst. Rust uses 1,000 operations per batch. p50/p95 are percentiles of batch
@@ -26,7 +32,7 @@ CoreCLR (.NET 8) runs without tiered compilation. The main report builds once. I
 
 These are codec/queue measurements. They exclude kernel IPC, WebSocket framing, HTTP,
 terminal capture/rendering and cold configuration projection costs. They establish neither
-an FPS improvement nor an end-to-end latency claim. Git ignores raw CSV files under `results/`, generated fixtures, and compiler output.
+an FPS improvement nor an end-to-end latency claim. Git ignores the shared results directory, generated fixtures, and compiler output.
 
 ## Maintenance cost
 

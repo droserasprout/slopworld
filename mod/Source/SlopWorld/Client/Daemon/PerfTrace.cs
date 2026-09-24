@@ -26,6 +26,7 @@ namespace SlopWorld
             public int Work;
             public int PeakBacklog;
             public long Ticks;
+            public long MaxTicks;
             public List<long> Durations;
         }
 
@@ -46,6 +47,7 @@ namespace SlopWorld
             sample.PeakBacklog = Math.Max(sample.PeakBacklog, backlog);
             long elapsed = Stopwatch.GetTimestamp() - started;
             sample.Ticks += elapsed;
+            sample.MaxTicks = Math.Max(sample.MaxTicks, elapsed);
             if (sample.Durations == null) sample.Durations = new List<long>();
             if (sample.Durations.Count < MaxSamples) sample.Durations.Add(elapsed);
             Samples[name] = sample;
@@ -97,6 +99,10 @@ namespace SlopWorld
                     text.Append(" p50=").Append(Millis(sample.Durations, 50)
                         .ToString("0.###", System.Globalization.CultureInfo.InvariantCulture));
                     text.Append(" p95=").Append(Millis(sample.Durations, 95)
+                        .ToString("0.###", System.Globalization.CultureInfo.InvariantCulture));
+                    text.Append(" p99=").Append(Millis(sample.Durations, 99)
+                        .ToString("0.###", System.Globalization.CultureInfo.InvariantCulture));
+                    text.Append(" max=").Append((sample.MaxTicks * 1000.0 / Stopwatch.Frequency)
                         .ToString("0.###", System.Globalization.CultureInfo.InvariantCulture));
                 }
                 if (sample.PeakBacklog > 0)

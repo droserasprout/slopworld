@@ -27,7 +27,8 @@ impl DrawSchedule {
     fn output(&mut self, now: Instant, watched: bool) {
         self.dirty = true;
         let deadline = if watched {
-            now + FAST_TICK
+            self.last_drawn
+                .map_or(now + FAST_TICK, |last| (last + FAST_TICK).max(now))
         } else if let Some(last_drawn) = self.last_drawn {
             last_drawn + SLOW_TICK
         } else {

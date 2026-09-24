@@ -1,8 +1,8 @@
 # Terminal latency tracing
 
-Set `SLOPWORLD_LATENCY=1` in **both the daemon and game process environments** before
+Set `SLOPWORLD_DEBUG=1` in **both the daemon and game process environments** before
 starting them. Both peers must use builds supporting this diagnostic extension.
-Tracing is off by default and independent of `SLOPWORLD_DEBUG`.
+Performance and latency tracing share this switch and are off by default.
 A shell export does not change the environment of an already running service.
 Use the normal service/launcher configuration for your installation.
 
@@ -89,6 +89,12 @@ unchanged when tracing is off. Log writes are buffered until after the measured
 frame-end timestamp. A bounded log buffer reports dropped records explicitly.
 Performance and latency records share `SlopWorld-trace.log` in the game save-data
 folder. This bypasses Verse's global message limit. The game replaces the file at startup.
+With `SLOPWORLD_DEBUG=1`, performance records split terminal-window work by GUI
+event type and time terminal parse, cache full/row paint, direct paint and cached blit separately.
+The daemon reports paste admission and tmux paste-command timings. Performance
+lane totals can overlap. C# lane p50/p95/p99 use at most the first 512 calls in
+each reporting interval, while their maximum covers every call. Daemon lane
+p50/p95 likewise sample at most the first 512 calls.
 Copy captures before restarting. Writes flush after each frame. Disk errors disable
 this sink and emit one game-log error. Missing records invalidate a comparison.
 `TRACE_LOG=/path/to/SlopWorld-trace.log` overrides the capture source; `PROFILE`
@@ -102,15 +108,13 @@ The game log announces the actual path.
 Start one **empty local host-shell tab** in SlopWorld, with the cursor at the
 prompt and no selection. The automatic suite runs history, then Unicode typing,
 then writes a Markdown report. It does not include htop by default. Restart the
-updated game and daemon with both tracing flags enabled. For `devloop`, run
-`SLOPWORLD_DEBUG=1 SLOPWORLD_LATENCY=1 make devloop`. Run on the **graphical host**:
+updated game and daemon with debugging enabled. For `devloop`, run
+`SLOPWORLD_DEBUG=1 make devloop`. Run on the **graphical host**:
 
 ```sh
-python3 bench/terminal-input/terminal-input-bench.py
+make bench-terminal BENCH_RUN=terminal-baseline
 # Double the default event rate, allow 20 seconds to focus, and retain a separate run:
-python3 bench/terminal-input/terminal-input-bench.py --multiplier 10 --prepare-seconds 20 \
-  --output bench/terminal-input/runs/perf-suite-terminal-input-next.raw \
-  --report bench/terminal-input/reports/perf-suite-terminal-input-next.md
+make bench-terminal BENCH_RUN=terminal-next BENCH_MULTIPLIER=10 BENCH_PREPARE_SECONDS=20
 ```
 
 Press Enter once in the runner, then focus the empty shell and put the pointer
@@ -135,29 +139,34 @@ the same tab that contains the filled history. Its first Ctrl+V returns the pane
 No history or typed text is deleted. Keep geometry, game state and session count
 constant. Allow roughly three minutes including setup and settling.
 
-By default, artifacts go to `bench/terminal-input/runs/perf-suite-terminal-input.raw`
-and the report goes to `bench/terminal-input/reports/perf-suite-terminal-input.md`.
-Use `--output` and `--report` to choose other paths. The report is regenerated, but
-existing selected-phase artifacts are refused. Use a new directory to repeat a run.
-Raw traces and JSON retain all outcomes, including censored measurements. The report
-withholds headline latency percentiles for invalid/censored runs.
+Results go to ignored `bench/results/<run>/`: `metrics.csv`, `outcomes.csv`,
+`run.csv`, and `report.md`. Raw traces and JSON stay in `raw/terminal/` and retain
+all outcomes, including censored measurements. History setup uses `tmp/` under
+the same run. The report reads CSVs and withholds latency percentiles for
+invalid or censored phases. Existing selected-phase artifacts are refused; use
+a new run name to repeat a phase.
 
-Generate a report from existing artifacts without injecting input:
+Regenerate an absolute or relative report without injecting input:
 
 ```sh
-python3 bench/terminal-input/terminal-input-bench.py --report-only \
-  --output bench/terminal-input/runs/slopworld-input-run-5 \
-  --report bench/terminal-input/reports/perf-terminal-input-run-5.md
+make bench-report BENCH_RUN=terminal-next
+make bench-report BENCH_RUN=terminal-next BENCH_BASELINE=terminal-baseline BENCH_MODE=relative
 ```
 
-`--phase suite` is the automatic default. `history`, `typing`, and `htop` keep
-the manually prepared individual-phase workflow, each with a prompt and countdown.
+The runner still accepts `--output` and `--report-only` to import older raw JSON
+artifacts into shared CSVs. Those legacy paths are not used for new runs.
+
+`--phase suite` is the automatic default. For a history-only run from one empty
+local host-shell tab, use `--phase history --fill-history`; it runs the same
+bounded filler and settling period, then measures only scrolling. Without
+`--fill-history`, `history`, `typing`, and `htop` keep the manually prepared
+individual-phase workflow, each with a prompt and countdown.
 `all` retains the legacy three-tab workflow. This allows adding a missing phase to
 an existing directory without overwriting other phases. For example:
 
 ```sh
-python3 bench/terminal-input/terminal-input-bench.py --phase htop --multiplier 10 \
-  --prepare-seconds 20 --output bench/terminal-input/runs/slopworld-input-run-5
+make bench-terminal BENCH_RUN=terminal-htop BENCH_PHASE=htop BENCH_MULTIPLIER=10 \
+  BENCH_PREPARE_SECONDS=20
 ```
 
 | Phase | Default 5× pace / total | 10× pace / total | Pattern |
@@ -231,6 +240,9 @@ input→frame-end distributions without inventing daemon timing stages.
 If another wheel event replaces the target before it is drawn, the earlier event
 is `superseded`, not a fast success. Events that cannot move the position are
 `no_motion`. Legacy duplicates are `deduplicated`. Panel release is `cancelled`.
+The 60 Hz `ScrollBeat` throttles daemon history requests, not local movement
+through rows already in `TerminalHistory`. At a 60 FPS display, a movement consumed
+after its drawable pass can wait roughly one frame for the next repaint.
 Duplicates do not cancel the original precise movement. Timeouts and other censoring still
 apply. Inspect these counts alongside completed percentiles, especially at 300–600
 injected events/s on a 60 Hz display. A low completed p99 with many superseded

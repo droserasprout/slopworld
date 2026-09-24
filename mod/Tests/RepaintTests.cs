@@ -80,6 +80,8 @@ namespace SlopWorld.Tests
             yield return ("terminal repaints damage from frames skipped between paints", TerminalSkippedFrames);
             yield return ("terminal invalidation overrides unchanged content", TerminalInvalidation);
             yield return ("terminal cache key checks every pixel dependency", TerminalKeys);
+            yield return ("terminal scroll reuse requires matching rows and pixels", TerminalScrollReuseOpportunity);
+            yield return ("terminal cache clamps only subpixel viewport overflow", TerminalSampling);
         }
 
         static void Range(int count, float top, float height, int first, int end)
@@ -318,6 +320,56 @@ namespace SlopWorld.Tests
             };
             foreach (var change in changes)
                 AssertEx.False(key.Matches(change(key)), "pixel dependency invalidates cache");
+        }
+
+        static void TerminalScrollReuseOpportunity()
+        {
+            TerminalCacheKey Key(int offset, params string[] lines) =>
+                new TerminalCacheKey
+                {
+                    Buffer = new ScreenBuf { Off = offset, Lines = lines, LinksKnown = true },
+                    Session = "reader", Offset = offset, CellH = 19f, Width = 100f,
+                };
+
+            var before = Key(10, "a", "b", "c", "d");
+            var up = Key(11, "new", "a", "b", "c");
+            var down = Key(9, "b", "c", "d", "new");
+            AssertEx.Equal(3, TerminalScrollReuse.MatchingRows(before, up),
+                "higher anchor preserves three rows at shifted indexes");
+            AssertEx.Equal(3, TerminalScrollReuse.MatchingRows(before, down),
+                "lower anchor preserves three rows at shifted indexes");
+            AssertEx.Equal(0, TerminalScrollReuse.MatchingRows(before,
+                Key(11, "new", "a", "changed", "c")),
+                "one changed overlapping row disqualifies a whole-surface copy");
+            up.Buffer.HasLinks = true;
+            AssertEx.Equal(0, TerminalScrollReuse.MatchingRows(before, up),
+                "link decoration may differ across row boundaries");
+            up.Buffer.HasLinks = false;
+            up.Theme++;
+            AssertEx.Equal(0, TerminalScrollReuse.MatchingRows(before, up),
+                "theme change invalidates old pixels");
+            AssertEx.False(TerminalScrollReuse.PixelAligned(10, 11, 19f, 1.75f),
+                "one row is 33.25 physical pixels");
+            AssertEx.True(TerminalScrollReuse.PixelAligned(10, 14, 19f, 1.75f),
+                "four rows move an integer number of physical pixels");
+        }
+
+        static void TerminalSampling()
+        {
+            float x0 = 0f, y0 = 0f, x1 = 1429f * 2.15f, y1 = 774f * 2.15f;
+            AssertEx.True(TerminalCacheSampling.TryClamp(3072, 1664,
+                ref x0, ref y0, ref x1, ref y1), "rounded UI viewport remains cacheable");
+            AssertEx.Equal(3072f, x1, "right edge stays inside the texture");
+            AssertEx.Equal(1664f, y1, "bottom edge stays inside the texture");
+
+            x0 = 0f; y0 = 0f; x1 = 3074f; y1 = 1664f;
+            AssertEx.False(TerminalCacheSampling.TryClamp(3072, 1664,
+                ref x0, ref y0, ref x1, ref y1), "larger overflow still needs a fallback");
+            x0 = -0.25f; y0 = -0.5f; x1 = 100f; y1 = 100f;
+            AssertEx.True(TerminalCacheSampling.TryClamp(3072, 1664,
+                ref x0, ref y0, ref x1, ref y1), "small negative edges clamp too");
+            AssertEx.Equal(0f, x0, "left edge stays inside the texture");
+            AssertEx.Equal(0f, y0, "top edge stays inside the texture");
         }
 
         sealed class CountingEnds : IList<float>

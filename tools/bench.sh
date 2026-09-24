@@ -3,6 +3,7 @@
 set -euo pipefail
 configuration=Debug
 [[ "$BUILD" != release ]] || configuration=Release
+suite=${2:-gamefree}
 case "${1:-}" in
 build)
     # CARGOFLAGS is empty in debug builds.
@@ -12,9 +13,15 @@ build)
     bash tools/bench-ipc.sh build
     ;;
 run)
-    (cd slopd && "${CARGO_TARGET_DIR:-target}/${BUILD}/slopd" --perf-bench)
-    DOTNET_TieredCompilation=0 ${DOTNET} "mod/Tests/bin/$configuration/net8.0/SlopWorld.Tests.dll" --perf-bench
-    bash tools/bench-ipc.sh run
+    if [[ "$suite" == gamefree || "$suite" == daemon ]]; then
+        (cd slopd && "${CARGO_TARGET_DIR:-target}/${BUILD}/slopd" --perf-bench)
+    fi
+    if [[ "$suite" == gamefree || "$suite" == mod ]]; then
+        DOTNET_TieredCompilation=0 ${DOTNET} "mod/Tests/bin/$configuration/net8.0/SlopWorld.Tests.dll" --perf-bench
+    fi
+    if [[ "$suite" == gamefree || "$suite" == ipc ]]; then
+        bash tools/bench-ipc.sh run
+    fi
     ;;
-*) echo "usage: $0 {build|run}" >&2; exit 2 ;;
+*) echo "usage: $0 {build|run} [gamefree|daemon|mod|ipc]" >&2; exit 2 ;;
 esac

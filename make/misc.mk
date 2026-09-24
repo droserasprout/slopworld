@@ -11,12 +11,12 @@ logs:              ## Show new entries in the game's Player.log
 .PHONY: trace-mod
 TRACE_SECONDS ?= 30
 TRACE_LABEL ?= current
-TRACE_OUT ?= notes/trace-$(TRACE_LABEL).log
+TRACE_OUT ?= bench/results/$(or $(BENCH_RUN),current)/raw/trace/$(TRACE_LABEL).log
 trace-mod:         ## Capture new performance/latency log entries (requires tracing enabled)
 	@$(PYTHON) tools/trace-mod.py --log "$(TRACE_LOG)" --seconds "$(TRACE_SECONDS)" --label "$(TRACE_LABEL)" --output "$(TRACE_OUT)"
 
 .PHONY: trace-summary
-TRACE_FILES ?= notes/trace-*.log
+TRACE_FILES ?= bench/results/*/raw/trace/*.log
 trace-summary:     ## Summarize captured windows by observed Eco/terminal/session/size state
 	@$(PYTHON) tools/trace-summary.py $(TRACE_FILES)
 

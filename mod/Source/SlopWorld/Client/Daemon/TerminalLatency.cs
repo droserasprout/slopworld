@@ -9,23 +9,35 @@ namespace SlopWorld
     // only differences within one clock domain may be reported.
     internal static class TerminalLatency
     {
-        internal static readonly bool Enabled = Environment.GetEnvironmentVariable("SLOPWORLD_LATENCY") == "1";
+        // Match the daemon's SLOPWORLD_DEBUG switch. No trace IDs or timeline work
+        // are added to ordinary session traffic.
+        internal static readonly bool Enabled = DebugEnabled();
+        static bool DebugEnabled()
+        {
+            string value = Environment.GetEnvironmentVariable("SLOPWORLD_DEBUG");
+            return value == "1" || string.Equals(value, "true", StringComparison.OrdinalIgnoreCase);
+        }
         internal static Action<string> Write = _ => { };
         internal static long Now() => (long)(Stopwatch.GetTimestamp() * (1000000.0 / Stopwatch.Frequency));
-        // Flush outside the timed frame endpoint. Logging itself must not block SendBinary.
-        static readonly Queue<string> Logs = new Queue<string>();
-        static int _droppedLogs;
-        internal static readonly LatencyTimeline Timeline = new LatencyTimeline(Now, line =>
+        // The timeline and log buffer are never allocated in an ordinary session.
+        static class TraceState
         {
-            if (Logs.Count < 1024) Logs.Enqueue(line);
-            else _droppedLogs++;
-        });
+            internal static readonly Queue<string> Logs = new Queue<string>();
+            internal static int DroppedLogs;
+            internal static readonly LatencyTimeline Timeline = new LatencyTimeline(Now, line =>
+            {
+                if (Logs.Count < 1024) Logs.Enqueue(line);
+                else DroppedLogs++;
+            });
+        }
+        internal static LatencyTimeline Timeline => TraceState.Timeline;
+        // Flush outside the timed frame endpoint. Logging itself must not block SendBinary.
         internal static void Flush()
         {
-            while (Logs.Count > 0) Write(Logs.Dequeue());
-            if (_droppedLogs == 0) return;
-            Write("[SlopWorld] latency dropped_records=" + _droppedLogs);
-            _droppedLogs = 0;
+            while (TraceState.Logs.Count > 0) Write(TraceState.Logs.Dequeue());
+            if (TraceState.DroppedLogs == 0) return;
+            Write("[SlopWorld] latency dropped_records=" + TraceState.DroppedLogs);
+            TraceState.DroppedLogs = 0;
         }
         internal static void Begin(Wire.ClientMessage message)
         {

@@ -120,6 +120,28 @@ fn continuous_output_does_not_postpone_the_first_draw() {
 }
 
 #[test]
+fn watched_output_uses_the_existing_draw_beat() {
+    let now = Instant::now();
+    let mut schedule = DrawSchedule::default();
+    schedule.output(now, true);
+    assert_eq!(schedule.deadline(), Some(now + FAST_TICK));
+    assert!(schedule.fire(now + FAST_TICK, true));
+
+    // Output arriving near the next beat should not start a fresh 16 ms wait.
+    let nearly_due = now + FAST_TICK + Duration::from_millis(14);
+    schedule.output(nearly_due, true);
+    assert_eq!(schedule.deadline(), Some(now + FAST_TICK * 2));
+    assert!(schedule.fire(now + FAST_TICK * 2, true));
+
+    // A quiet pane is ready for an immediate capture without a recurring timer.
+    let after_idle = now + Duration::from_millis(100);
+    schedule.output(after_idle, true);
+    assert_eq!(schedule.deadline(), Some(after_idle));
+    assert!(schedule.fire(after_idle, true));
+    assert_eq!(schedule.deadline(), None);
+}
+
+#[test]
 fn clean_reader_has_no_recurring_deadline() {
     let now = Instant::now();
     let mut schedule = DrawSchedule::default();

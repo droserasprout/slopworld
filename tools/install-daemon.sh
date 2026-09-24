@@ -13,7 +13,7 @@ repo=$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)
 service_source=$(mktemp)
 trap 'rm -f "$service_source"' EXIT
 cat "$repo/slopd/slopd.service" > "$service_source"
-for flag in SLOPWORLD_DEBUG SLOPWORLD_LATENCY; do
+for flag in SLOPWORLD_DEBUG; do
 	if [[ -v "$flag" ]]; then
 		value=${!flag}
 		case "${value,,}" in

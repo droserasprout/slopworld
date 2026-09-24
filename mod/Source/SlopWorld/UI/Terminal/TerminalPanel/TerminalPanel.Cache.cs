@@ -75,8 +75,23 @@ namespace SlopWorld
             if (repaint == TerminalRepaint.None) PerfTrace.Count("terminal-cache-hits");
             if (repaintAll)
             {
+                if (PerfTrace.Enabled && _cacheKey.Buffer != null &&
+                    _cacheKey.Offset > 0 && key.Offset > 0 &&
+                    _cacheKey.Offset != key.Offset && _cacheKey.SameSurface(key))
+                {
+                    PerfTrace.Count("terminal-cache-scroll-shifts");
+                    int rows = TerminalScrollReuse.MatchingRows(_cacheKey, key);
+                    if (rows > 0)
+                    {
+                        PerfTrace.Count("terminal-cache-scroll-overlap", rows);
+                        if (TerminalScrollReuse.PixelAligned(_cacheKey.Offset, key.Offset,
+                                                             ch, _snapSy))
+                            PerfTrace.Count("terminal-cache-scroll-copyable", rows);
+                    }
+                }
                 PerfTrace.Count("terminal-cache-misses");
                 PerfTrace.Count("terminal-cache-repaints");
+                long paintStarted = PerfTrace.Start();
                 // Keep the pre-paint revision. RequestCharactersInTexture can rebuild the
                 // atlas while Paint is running. Retaining the old revision forces one clean
                 // repaint after that rebuild instead of caching a half-drawn first frame.
@@ -92,6 +107,7 @@ namespace SlopWorld
                 finally
                 {
                     RenderTexture.active = was;
+                    PerfTrace.End("terminal-cache-full-paint", paintStarted, 1);
                 }
 
                 _cacheKey = key;
@@ -102,6 +118,7 @@ namespace SlopWorld
                 // Small live edits only invalidate their rows. A broad terminal scroll changes
                 // most rows, where one full paint is cheaper and avoids many GUI draw calls.
                 bool broad = repaint == TerminalRepaint.Full;
+                long paintStarted = PerfTrace.Start();
                 var was = RenderTexture.active;
                 try
                 {
@@ -124,6 +141,8 @@ namespace SlopWorld
                 finally
                 {
                     RenderTexture.active = was;
+                    PerfTrace.End(broad ? "terminal-cache-full-paint" :
+                        "terminal-cache-row-paint", paintStarted, 1);
                 }
             }
 
@@ -150,45 +169,60 @@ namespace SlopWorld
 
         bool DrawCached(Rect destination, Rect source, float sourceExtraBottom)
         {
-            if (_cache == null || !_cache.IsCreated()) return false;
+            if (_cache == null || !_cache.IsCreated())
+            {
+                PerfTrace.Count("terminal-cache-missing");
+                return false;
+            }
             // The shared texture is only a valid fallback while this session remains active.
             // A switched tab must use its own displayed-frame snapshot or wait for its first
             // screen. Showing the previous tab for one frame reads as terminal flicker.
-            if (_cacheKey.Session != _state.Name) return false;
+            if (_cacheKey.Session != _state.Name)
+            {
+                PerfTrace.Count("terminal-cache-session-mismatch");
+                return false;
+            }
             if (Event.current.type != EventType.Repaint) return true;
 
             float debugStarted = ScrollDebugTimer();
+            long blitStarted = PerfTrace.Start();
             bool drawn = false;
 
             int pw = Screen.width, ph = Screen.height;
             if (pw <= 0 || ph <= 0 || _cache.width != pw || _cache.height != ph)
             {
+                PerfTrace.Count("terminal-cache-size-mismatch");
                 Drop();
                 return false;
             }
 
             float x0 = source.x * _snapSx + _snapOx;
             float y0 = source.y * _snapSy + _snapOy;
-            float w = source.width * _snapSx;
-            float h = (source.height + sourceExtraBottom) * _snapSy;
+            float x1 = x0 + source.width * _snapSx;
+            float y1 = y0 + (source.height + sourceExtraBottom) * _snapSy;
             // A screen-sized cache has no texels outside the screen. Sampling beyond its edge makes
             // the GPU repeat or clamp its last scanline. This turns the bottom terminal row into
             // barcode-like vertical streaks during fractional scrolling.
-            if (x0 < 0f || y0 < 0f || x0 + w > pw || y0 + h > ph)
+            bool edgeOverrun = x0 < 0f || y0 < 0f || x1 > pw || y1 > ph;
+            if (!TerminalCacheSampling.TryClamp(pw, ph, ref x0, ref y0, ref x1, ref y1))
+            {
+                PerfTrace.Count("terminal-cache-out-of-bounds");
                 return false;
-            float u0 = x0 / pw, u1 = (x0 + w) / pw;
+            }
+            if (edgeOverrun) PerfTrace.Count("terminal-cache-edge-clamps");
+            float u0 = x0 / pw, u1 = x1 / pw;
 
             // texCoords y counts from the destination's bottom either way. Which end of
             // the texture that is, is where the API put the target's first row.
             float v0, v1;
             if (SystemInfo.graphicsUVStartsAtTop)
             {
-                v0 = (y0 + h) / ph;
+                v0 = y1 / ph;
                 v1 = y0 / ph;
             }
             else
             {
-                v0 = 1f - (y0 + h) / ph;
+                v0 = 1f - y1 / ph;
                 v1 = 1f - y0 / ph;
             }
 
@@ -199,6 +233,7 @@ namespace SlopWorld
             GUI.color = tint;
             drawn = true;
             ScrollDebugBlit(debugStarted, drawn);
+            PerfTrace.End("terminal-cache-blit", blitStarted, 1);
             return true;
         }
 

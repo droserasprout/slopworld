@@ -5,13 +5,23 @@ use crate::emu::MouseInput;
 use anyhow::anyhow;
 
 impl Manager {
+    fn paste_ready(live: &Live) -> bool {
+        // A new reader can be attached before its first frame classifies the pane.
+        // Teardown clears the reader token along with the running state.
+        live.state != State::Down || live.reader_token.is_some()
+    }
+
     pub(crate) async fn queue_input(self: &Arc<Self>, name: &str, item: Input) {
         // One consumer preserves ordering across keys, mouse reports, and paste.
         let mut spawn_rx = None;
-        let trace = crate::latency::CURRENT
-            .try_with(Clone::clone)
-            .ok()
-            .flatten();
+        let trace = if crate::latency::enabled() {
+            crate::latency::CURRENT
+                .try_with(Clone::clone)
+                .ok()
+                .flatten()
+        } else {
+            None
+        };
         let mut item = Some(if let Some(trace) = &trace {
             if matches!(item, Input::Gap(_)) {
                 item
@@ -197,7 +207,17 @@ impl Manager {
     }
 
     pub async fn paste(self: &Arc<Self>, name: &str, text: &str) -> Result<()> {
-        if !self.tmux.exists(name).await {
+        let _perf = crate::perf::timer("input-paste-admission");
+        // The live row is updated by start/stop and reader teardown under the session
+        // boundary held by the socket handler. Listing every tmux session for each paste
+        // adds a separate process to the input path.
+        if !self
+            .live
+            .read()
+            .await
+            .get(name)
+            .is_some_and(Self::paste_ready)
+        {
             bail!("session {name} is not running");
         }
 
@@ -256,7 +276,13 @@ impl Manager {
         };
         let text = render_template_with(&b.text, &random_tips, Some(&vars));
         drop(cfg);
-        if !self.tmux.exists(name).await {
+        if !self
+            .live
+            .read()
+            .await
+            .get(name)
+            .is_some_and(Self::paste_ready)
+        {
             bail!("session {name} is not running");
         }
         self.queue_paste(name, text.into_bytes()).await;

@@ -25,8 +25,10 @@ namespace SlopWorld
                 if (buf.Runs != null && buf.RunsRev == TerminalTheme.Rev && buf.RunsComplete)
                     return;
                 float debugStarted = _panel.ScrollDebugTimer();
+                long parseStarted = PerfTrace.Start();
                 buf.Runs = _runCache.Parse(buf, TerminalTheme.Rev, TerminalFont.Rev,
                                            out int hits, out int misses);
+                PerfTrace.End("terminal-parse", parseStarted, buf.Runs.Length);
                 buf.RunsRev = TerminalTheme.Rev;
                 buf.RunsComplete = true;
                 _panel.ScrollDebugParse(debugStarted, hits, misses);

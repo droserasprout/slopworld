@@ -1,19 +1,25 @@
-.PHONY: bench-daemon bench-mod bench-ipc bench-build bench-report
+.PHONY: bench-daemon bench-mod bench-ipc bench-build bench-report bench-latest
 
 ## Benchmarks
 
-bench-daemon: api-contract ## Run the game-free daemon performance benchmark
-	@cd slopd && $(CARGO) run --quiet --bin slopd $(CARGOFLAGS) -- --perf-bench
+bench-daemon: ## Run the daemon benchmark into shared CSV results
+	@MAKE_CMD="$(MAKE_BIN)" $(PYTHON) tools/bench-report.py run --suite daemon --build "$(BUILD)" $(if $(BENCH_RUN),--run "$(BENCH_RUN)")
 
-bench-mod: protobuf-deps api-contract ## Benchmark C# helpers without RimWorld or Unity
-	@DOTNET_TieredCompilation=0 $(DOTNET) run --project "$(TEST_PROJECT)" --configuration $(if $(filter release,$(BUILD)),Release,Debug) -- --perf-bench
+bench-mod: ## Run the C# helper benchmark into shared CSV results
+	@MAKE_CMD="$(MAKE_BIN)" $(PYTHON) tools/bench-report.py run --suite mod --build "$(BUILD)" $(if $(BENCH_RUN),--run "$(BENCH_RUN)")
 
-bench-ipc: protobuf-deps api-contract ## Measure production Protobuf IPC without the game
-	@bash tools/bench-ipc.sh
+bench-ipc: ## Run production Protobuf IPC into shared CSV results
+	@MAKE_CMD="$(MAKE_BIN)" $(PYTHON) tools/bench-report.py run --suite ipc --build "$(BUILD)" $(if $(BENCH_RUN),--run "$(BENCH_RUN)")
 
 bench-build: api-contract protobuf-deps
 	@bash tools/bench.sh build
 
-bench-report: BUILD := release
-bench-report:        ## Run the full performance suite three times and write medians and ranges
-	@MAKE_CMD="$(MAKE_BIN)" $(PYTHON) tools/bench-report.py --build "$(BUILD)" $(if $(BENCH_REPORT_OUTPUT),--output "$(BENCH_REPORT_OUTPUT)")
+bench-report: ## Render saved CSV results; BENCH_BASELINE and BENCH_MODE=relative compare runs
+	@$(PYTHON) tools/bench-report.py report --run "$(BENCH_RUN)" $(if $(BENCH_BASELINE),--baseline "$(BENCH_BASELINE)") $(if $(BENCH_MODE),--mode "$(BENCH_MODE)") $(if $(BENCH_REPORT_OUTPUT),--output "$(BENCH_REPORT_OUTPUT)")
+
+bench-latest: ## Refresh the single committable benchmark report from BENCH_RUN
+	@$(PYTHON) tools/bench-report.py report --run "$(BENCH_RUN)" --latest
+
+.PHONY: bench-terminal
+bench-terminal: ## Run focused desktop terminal input into shared CSV results
+	@$(PYTHON) bench/terminal-input/terminal-input-bench.py $(if $(BENCH_RUN),--run "$(BENCH_RUN)") $(if $(BENCH_PHASE),--phase "$(BENCH_PHASE)") $(if $(filter 1 true,$(BENCH_FILL_HISTORY)),--fill-history) $(if $(BENCH_MULTIPLIER),--multiplier "$(BENCH_MULTIPLIER)") $(if $(BENCH_PREPARE_SECONDS),--prepare-seconds "$(BENCH_PREPARE_SECONDS)") $(if $(BENCH_BACKEND),--backend "$(BENCH_BACKEND)") $(if $(BENCH_TRACE_LOG),--log "$(BENCH_TRACE_LOG)")

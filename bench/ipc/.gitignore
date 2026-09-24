@@ -1,5 +1,5 @@
 csharp/bin/
 csharp/obj/
 rust/target/
-fixtures/
+fixtures/*.pb
 results/

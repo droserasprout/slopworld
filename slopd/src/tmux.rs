@@ -659,18 +659,24 @@ impl Tmux {
 
     /// Use a separate tmux buffer for each session's large payloads.
     /// `send-keys -H` fails without an error near 996 bytes.
-    /// Load from stdin. Paste with `-r` to preserve newlines. Delete the buffer after use.
+    /// Load from stdin and paste in one ordered tmux command list. Paste with `-r`
+    /// to preserve newlines. Delete the buffer after use.
     ///
     /// Bracketed paste mode groups a large paste into one terminal event.
     /// This prevents Codex from splitting the paste when PTY reads pause.
     pub async fn paste_bytes(&self, name: &str, bytes: &[u8]) -> Result<()> {
         use tokio::io::AsyncWriteExt;
 
+        let _perf = crate::perf::timer("input-paste-tmux");
+
         let buf = format!("slopworld-{name}");
+        let target = format!("{name}:.0");
         let mut child = Command::new("tmux")
             .arg("-L")
             .arg(&self.socket)
             .args(["load-buffer", "-b", buf.as_str(), "-"])
+            .arg(";")
+            .args(["paste-buffer", "-d", "-r", "-p", "-b", &buf, "-t", &target])
             .stdin(Stdio::piped())
             .stdout(Stdio::null())
             .stderr(Stdio::piped())
@@ -685,17 +691,10 @@ impl Tmux {
         let out = child.wait_with_output().await?;
         if !out.status.success() {
             bail!(
-                "tmux load-buffer failed: {}",
+                "tmux paste failed: {}",
                 crate::sandbox::sanitize_diagnostic(&String::from_utf8_lossy(&out.stderr))
             );
         }
-
-        let target = format!("{name}:.0");
-        // tmux checks the pane's current mode at delivery, including apps launched inside
-        // host shells. Do not infer this capability from a configured command or preset.
-        let mut args = vec!["paste-buffer", "-d", "-r", "-p"];
-        args.extend(["-b", &buf, "-t", &target]);
-        self.run(&args).await?;
         Ok(())
     }
 }

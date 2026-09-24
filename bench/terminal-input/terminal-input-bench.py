@@ -9,16 +9,16 @@ import subprocess
 import sys
 import tempfile
 import time
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+import results_data as data
 from terminal_input_backend import Backend, TEXT
 from terminal_input_history import command as history_command, history_limit
-from terminal_input_report import write_note, measurement_status
+from terminal_input_metrics import measurement_status, performance as parse_performance
 
 PHASES = (("history", 60, "Big history tab: place the pointer over terminal text"),
           ("typing", 10, "Text tab: empty prompt, cursor at end, no selection; focus terminal text"),
           ("htop", 60, "htop tab: focus terminal text and leave the pointer over it"))
 SECONDS = 60
-DEFAULT_OUTPUT = Path(__file__).resolve().parent / "runs" / "perf-suite-terminal-input.raw"
-DEFAULT_REPORT = Path(__file__).resolve().parent / "reports" / "perf-suite-terminal-input.md"
 
 
 def default_trace_log():
@@ -115,10 +115,62 @@ def load_reporter():
     return module
 
 
+def write_performance_summary(log, output, mode='x'):
+    # The benchmark lives under bench/terminal-input; the shared summary tool is under tools/.
+    summary = Path(__file__).resolve().parents[2] / 'tools' / 'trace-summary.py'
+    with output.open(mode) as report:
+        subprocess.run([sys.executable, str(summary), str(log)], stdout=report, check=True)
+
+
 def revision():
     result = subprocess.run(['git', 'rev-parse', '--short', 'HEAD'],
                             capture_output=True, text=True, check=False)
     return result.stdout.strip() if result.returncode == 0 else 'unknown'
+
+
+def record_phase(directory, phase, metadata, result, performance_text):
+    """Save derived CSV rows while retaining the raw trace and JSON for audit."""
+    state = measurement_status(metadata, result)
+    contexts = parse_performance(performance_text)
+    data.add_metadata(directory, 'terminal', phase, {
+        key: metadata.get(key) for key in ('runner_revision', 'backend', 'rate', 'multiplier',
+            'started', 'status', 'measurement_status', 'sent_events', 'expected_events',
+            'actual_seconds', 'schedule_slip_seconds', 'rebased_deadlines',
+            'observed_paste_requests', 'text_fixture', 'transport', 'window', 'error')}
+        | {'observed_contexts': ';'.join(sorted({context.split(' windows=', 1)[0]
+             for context, _, _, _ in contexts}))})
+    data.add_outcomes(directory, 'terminal', phase, '', 1, result.get('counts', {}))
+    for kind, lanes in result.get('metrics', {}).items():
+        for lane, stats in lanes.items():
+            for stat in ('n', 'p50', 'p95', 'p99', 'max'):
+                if stat in stats:
+                    data.add_metric(directory, 'terminal', phase, kind, 'latency/' + lane,
+                                    stat, 'count' if stat == 'n' else 'us', 1, stats[stat], state)
+    perf_status = 'complete' if metadata.get('status') in ('complete', 'complete_with_slip') else 'invalid'
+    for context, fps, gc, terminal in contexts:
+        context = context.split(' windows=', 1)[0]
+        for name, value, unit in (('fps', fps, 'frames/s'), ('gc0', gc, 'count'),
+                                  ('terminal_work', terminal, 'ms/update')):
+            if value != '—':
+                data.add_metric(directory, 'terminal', phase, context, name, 'mean', unit, 1, value,
+                                perf_status)
+
+
+def export_existing(args):
+    if (args.results / 'run.csv').exists():
+        return
+    for phase, _, _ in PHASES:
+        meta = args.output / f'{phase}-events.json'
+        result = args.output / f'{phase}-latency.json'
+        if meta.exists() and result.exists():
+            summary = args.output / f'{phase}-performance.txt'
+            record_phase(args.results, phase, json.loads(meta.read_text()),
+                         json.loads(result.read_text()), summary.read_text() if summary.exists() else '')
+
+
+def show_report(args):
+    export_existing(args)
+    return data.write_report(args.results, args.report)
 
 
 def run_phase(args, phase, rate, backend, reporter, close_backend=True):
@@ -170,8 +222,7 @@ def run_phase(args, phase, rate, backend, reporter, close_backend=True):
             (args.output / f"{phase}-events.json").write_text(json.dumps(metadata, indent=2) + "\n")
     result = reporter.summarize(log.read_text().splitlines())
     (args.output / f"{phase}-latency.json").write_text(json.dumps(result, indent=2) + "\n")
-    with (args.output / f"{phase}-performance.txt").open("x") as report:
-        subprocess.run([sys.executable, str(Path(__file__).with_name("trace-summary.py")), str(log)], stdout=report, check=True)
+    write_performance_summary(log, args.output / f"{phase}-performance.txt")
     if not error and "[SlopWorld] perf " not in log.read_text():
         error = RuntimeError("No performance records; enable SLOPWORLD_DEBUG=1 before repeating")
     if not error and phase == "typing" and metadata["observed_paste_requests"] < metadata["sent_events"] * 0.9:
@@ -184,6 +235,8 @@ def run_phase(args, phase, rate, backend, reporter, close_backend=True):
         metadata.update(status="invalid", error=str(error) or "interrupted")
     metadata["measurement_status"] = measurement_status(metadata, result)
     (args.output / f"{phase}-events.json").write_text(json.dumps(metadata, indent=2) + "\n")
+    record_phase(getattr(args, 'results', args.output), phase, metadata, result,
+                 (args.output / f"{phase}-performance.txt").read_text())
     print(f"{phase}: {metadata['status']}, measurement={metadata['measurement_status']}, {metadata['sent_events']} sent; trace outcomes: {result['counts']}")
     if error:
         raise RuntimeError(f"Phase invalid: {metadata.get('error')}. Partial results saved in {args.output}") from error
@@ -209,12 +262,15 @@ def wait_until(predicate, backend, timeout, message, pump=lambda: None):
 
 def prepare_history(args, backend):
     info = {'status': 'incomplete', 'target_history_lines': history_limit()}
+    temporary = getattr(args, 'results', args.output) / 'tmp'
+    temporary.mkdir(parents=True, exist_ok=True)
     try:
-        with tempfile.TemporaryDirectory(prefix='slopworld-history-') as directory:
+        with tempfile.TemporaryDirectory(prefix='slopworld-history-', dir=temporary) as directory:
             status = Path(directory) / 'done.json'
             backend.prepare_text(history_command(status, info['target_history_lines']))
+            work = 'scroll' if getattr(args, 'fill_history', False) else 'scroll and append Unicode'
             input('Open an EMPTY LOCAL HOST SHELL prompt in SlopWorld, with no selection. '
-                  'The tool will execute a bounded history filler, then scroll and append Unicode. '
+                  f'The tool will execute a bounded history filler, then {work}. '
                   'Press Enter here, then focus terminal text and keep the pointer over it: ')
             countdown(args.prepare_seconds)
             backend.connect()
@@ -246,31 +302,57 @@ def prepare_history(args, backend):
         raise
     finally:
         (args.output / 'setup.json').write_text(json.dumps(info, indent=2) + '\n')
+        data.add_metadata(getattr(args, 'results', args.output), 'terminal', 'setup',
+                          {**{key: value for key, value in info.items() if key != 'bytes_written'},
+                           'workflow': 'typing appends in the same history-filled tab'})
+        try:
+            temporary.rmdir()
+        except OSError:
+            pass
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--backend', choices=('auto', 'xdotool', 'ydotool'), default='auto')
     parser.add_argument('--phase', choices=('suite', 'all', 'history', 'typing', 'htop'), default='suite',
-                        help='suite: one empty host shell, automatic history then typing; other modes are manually prepared')
+                        help='suite: one empty host shell, automatic history then typing; individual phases are manually prepared unless history uses --fill-history')
+    parser.add_argument('--fill-history', action='store_true',
+                        help='with --phase history, fill scrollback in one empty local host shell before measuring')
     parser.add_argument('--prepare-seconds', type=int, default=10)
     parser.add_argument('--multiplier', type=int, choices=(5, 10), default=5)
     parser.add_argument('--log', type=Path, default=default_trace_log(),
                         help='SlopWorld-trace.log (defaults to the launcher profile path)')
-    parser.add_argument('--output', type=Path, default=DEFAULT_OUTPUT)
-    parser.add_argument('--report', type=Path, help='Markdown report (defaults under bench/ for the standard run)')
+    parser.add_argument('--run', help='directory name under bench/results (default: UTC timestamp)')
+    parser.add_argument('--output', type=Path, help='legacy raw directory override')
+    parser.add_argument('--report', type=Path, help='Markdown report path (default: run/report.md)')
     parser.add_argument('--report-only', action='store_true', help='Summarize saved artifacts without injecting input')
     args = parser.parse_args()
-    args.report = args.report or (DEFAULT_REPORT if args.output == DEFAULT_OUTPUT else args.output.with_suffix('.md'))
+    if args.run and args.output:
+        parser.error('--run and --output are alternatives')
+    if args.output is None:
+        args.results = data.run_directory(args.run or data.default_run())
+        args.output = args.results / 'raw' / 'terminal'
+        args.report = args.report or args.results / 'report.md'
+    else:
+        args.results = args.output
+        args.report = args.report or args.output.with_suffix('.md')
     if args.report.suffix != '.md':
         parser.error('--report must end in .md')
     if args.report_only:
-        print(f'Report: {write_note(args.output, args.report)}')
+        for phase, _, _ in PHASES:
+            log = args.output / f'{phase}.log'
+            performance = args.output / f'{phase}-performance.txt'
+            if log.is_file() and (not performance.exists() or performance.stat().st_size == 0):
+                write_performance_summary(log, performance, mode='w')
+        print(f'Report: {show_report(args)}')
         return
     if args.prepare_seconds < 1:
         parser.error('prepare-seconds must be positive')
-    automatic = args.phase == 'suite'
-    phases = [p for p in PHASES if (p[0] != 'htop' if automatic else args.phase in ('all', p[0]))]
+    if args.fill_history and args.phase != 'history':
+        parser.error('--fill-history requires --phase history')
+    automatic = args.phase == 'suite' or args.fill_history
+    phases = [p for p in PHASES if args.phase in ('all', p[0]) or
+              (args.phase == 'suite' and p[0] != 'htop')]
     for phase, _, _ in phases:
         for suffix in ('.log', '-events.json', '-latency.json', '-performance.txt'):
             if (args.output / (phase + suffix)).exists():
@@ -278,7 +360,7 @@ def main():
     if automatic and any((args.output / name).exists() for name in ('setup.log', 'setup.json')):
         parser.error('Preparation artifacts already exist. Use a new results directory.')
     if not args.log or not args.log.is_file():
-        parser.error('trace file missing; restart updated game with SLOPWORLD_LATENCY=1 and SLOPWORLD_DEBUG=1')
+        parser.error('trace file missing; restart updated game with SLOPWORLD_DEBUG=1')
     name = args.backend
     if name == 'auto':
         name = 'ydotool' if os.environ.get('WAYLAND_DISPLAY') or os.environ.get('XDG_SESSION_TYPE') == 'wayland' else 'xdotool'
@@ -288,7 +370,10 @@ def main():
     reporter = load_reporter()
     print(f'Backend: {name}. {len(phases)} phases, 60 seconds each plus an 11-second drain.')
     print('Keep SlopWorld focused. Keep the pointer over terminal text. Switching windows stops input.')
-    print('Clipboard is replaced. Measured typing appends Unicode without deletion or Enter.')
+    if any(p[0] == 'typing' for p in phases):
+        print('Clipboard is replaced. Measured typing appends Unicode without deletion or Enter.')
+    elif automatic:
+        print('Clipboard is replaced with the bounded history filler command.')
     try:
         if automatic:
             prepare_history(args, backend)
@@ -305,7 +390,7 @@ def main():
     finally:
         if automatic:
             backend.close()
-        print(f'Report: {write_note(args.output, args.report)}')
+        print(f'Report: {show_report(args)}')
     print(f'Results: {args.output}. Latency ends before presentation; see the report for measurement validity.')
 
 
