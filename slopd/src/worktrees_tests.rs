@@ -37,9 +37,8 @@ fn repo() -> PathBuf {
 async fn restricted_worktree_creation() {
     let root = repo();
     let id = uuid::Uuid::new_v4().to_string();
-    let container = root.join(&id);
-    std::fs::create_dir(&container).unwrap();
-    let path = container.join("checkout");
+    let path = root.join(&id);
+    std::fs::create_dir(&path).unwrap();
     let base = git(&root, &["rev-parse", "HEAD"]).await.unwrap();
     let result = allocate(&root, &path, "worker", &base).await;
     assert!(result.is_ok(), "{result:?}");
@@ -49,6 +48,7 @@ async fn restricted_worktree_creation() {
     );
     let w = Worktree {
         id,
+        name: path.file_name().unwrap().to_string_lossy().into_owned(),
         path: path.to_string_lossy().into_owned(),
         repository: root.join(".git").to_string_lossy().into_owned(),
         ..Default::default()
@@ -88,6 +88,38 @@ async fn lifecycle_is_independent_and_removal_preserves_branches() {
         })
         .await
         .unwrap();
+    assert_eq!(Path::new(&w.path).file_name().unwrap(), "parallel");
+    assert_eq!(
+        Path::new(&w.path).parent().unwrap().file_name().unwrap(),
+        "repo"
+    );
+    assert!(manager
+        .rename_worktree("repo".into(), w.id.clone(), "../escape".into())
+        .await
+        .is_err());
+    let occupied = Path::new(&w.path).parent().unwrap().join("occupied");
+    std::fs::create_dir(&occupied).unwrap();
+    assert!(manager
+        .rename_worktree("repo".into(), w.id.clone(), "occupied".into())
+        .await
+        .is_err());
+    assert!(Path::new(&w.path).exists());
+    let renamed = manager
+        .rename_worktree("repo".into(), w.id.clone(), "feature name".into())
+        .await
+        .unwrap();
+    assert_eq!(
+        Path::new(&renamed.path).file_name().unwrap(),
+        "feature name"
+    );
+    assert!(!Path::new(&w.path).exists());
+    assert_eq!(
+        git(Path::new(&renamed.path), &["rev-parse", "--show-toplevel"])
+            .await
+            .unwrap(),
+        renamed.path
+    );
+    let w = renamed;
     assert_eq!(
         std::fs::read_to_string(Path::new(&w.path).join("file")).unwrap(),
         "base\n"
@@ -118,6 +150,10 @@ async fn lifecycle_is_independent_and_removal_preserves_branches() {
             .len(),
         2
     );
+    assert!(manager
+        .rename_worktree("repo".into(), w.id.clone(), "blocked".into())
+        .await
+        .is_err());
     assert!(manager
         .remove_worktree("repo".into(), w.id.clone())
         .await
@@ -282,15 +318,22 @@ async fn external_checkouts_and_interrupted_teardown_have_independent_records() 
     let mut project = manager.config().await.projects[0].clone();
     project.name = "renamed".into();
     manager.update_project("repo", project).await.unwrap();
+    let renamed_path = manager.worktree_list("renamed").await.unwrap()[1]
+        .worktree
+        .path
+        .clone();
     assert_eq!(
-        manager.worktree_list("renamed").await.unwrap()[1]
-            .worktree
-            .path,
-        w.path
+        Path::new(&renamed_path)
+            .parent()
+            .unwrap()
+            .file_name()
+            .unwrap(),
+        "renamed"
     );
+    assert!(Path::new(&renamed_path).exists());
     assert_eq!(
         manager
-            .worktree_for_path("renamed", &format!("{}/file", w.path))
+            .worktree_for_path("renamed", &format!("{}/file", renamed_path))
             .await
             .unwrap(),
         w.id
@@ -300,7 +343,7 @@ async fn external_checkouts_and_interrupted_teardown_have_independent_records() 
     assert!(std::process::Command::new("git")
         .arg("-C")
         .arg(&root)
-        .args(["worktree", "remove", &w.path])
+        .args(["worktree", "remove", &renamed_path])
         .status()
         .unwrap()
         .success());
@@ -310,6 +353,7 @@ async fn external_checkouts_and_interrupted_teardown_have_independent_records() 
         .unwrap();
     assert_eq!(manager.worktree_list("renamed").await.unwrap().len(), 1);
     let external = root.join("external checkout");
+    std::fs::create_dir(&external).unwrap();
     let base = git(&root, &["rev-parse", "HEAD"]).await.unwrap();
     allocate(&root, &external, "external", &base).await.unwrap();
     let w = manager
@@ -330,6 +374,62 @@ async fn external_checkouts_and_interrupted_teardown_have_independent_records() 
         .remove_worktree("renamed".into(), "main".into())
         .await
         .is_err());
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[tokio::test]
+async fn rename_migrates_an_existing_id_based_checkout() {
+    use crate::config::{Config, ProjectCfg};
+    use crate::session::{test_manager, WorktreeRequest};
+    let root = repo();
+    let manager = test_manager(Config {
+        projects: vec![ProjectCfg {
+            name: "repo".into(),
+            dir: root.to_string_lossy().into_owned(),
+            worktree_root: root.join("trees").to_string_lossy().into_owned(),
+            ..Default::default()
+        }],
+        ..Default::default()
+    });
+    let w = manager
+        .create_worktree(WorktreeRequest {
+            project: "repo".into(),
+            name: "feature".into(),
+            ..Default::default()
+        })
+        .await
+        .unwrap();
+    let legacy = root
+        .join("trees")
+        .join(&w.project_id)
+        .join(&w.id)
+        .join("checkout");
+    std::fs::create_dir_all(legacy.parent().unwrap()).unwrap();
+    relocate_tree(&w, &legacy).await.unwrap();
+    let mut store = Store::load(&manager.cfg_path).await.unwrap();
+    store.worktrees[0].path = legacy.to_string_lossy().into_owned();
+    store.save(&manager.cfg_path).await.unwrap();
+    let moved = manager
+        .rename_worktree("repo".into(), w.id, "feature".into())
+        .await
+        .unwrap();
+    assert_eq!(Path::new(&moved.path).file_name().unwrap(), "feature");
+    assert_eq!(
+        Path::new(&moved.path)
+            .parent()
+            .unwrap()
+            .file_name()
+            .unwrap(),
+        "repo"
+    );
+    assert!(!legacy.exists());
+    assert!(Path::new(&moved.path).join("file").exists());
+    assert_eq!(
+        git(Path::new(&moved.path), &["rev-parse", "--show-toplevel"])
+            .await
+            .unwrap(),
+        moved.path
+    );
     std::fs::remove_dir_all(root).unwrap();
 }
 

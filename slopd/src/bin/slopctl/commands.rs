@@ -203,6 +203,7 @@ usage:
   slopctl worktree list --project PROJECT
   slopctl worktree create --project PROJECT [--name NAME] [--base REV] [--path CHECKOUT]
   slopctl worktree remove ID --project PROJECT
+  slopctl worktree rename ID --project PROJECT --name NAME
   slopctl sandbox inspect NAME
   slopctl peers
   slopctl status
@@ -224,7 +225,7 @@ pub(crate) struct WorktreeChoice {
     pub worktree_name: String,
 }
 
-pub(crate) const WORKTREE_USAGE: &str = "usage:\n  slopctl worktree list --project PROJECT\n  slopctl worktree create --project PROJECT [--name NAME] [--base REV] [--path EXISTING_CHECKOUT]\n  slopctl worktree remove ID --project PROJECT\n\nYou need the root token to remove a worktree.\nThe daemon unregisters external checkouts and keeps their files.\n";
+pub(crate) const WORKTREE_USAGE: &str = "usage:\n  slopctl worktree list --project PROJECT\n  slopctl worktree create --project PROJECT [--name NAME] [--base REV] [--path EXISTING_CHECKOUT]\n  slopctl worktree rename ID --project PROJECT --name NAME\n  slopctl worktree remove ID --project PROJECT\n\nYou need the root token to rename or remove a worktree.\nThe daemon unregisters external checkouts and keeps their files.\n";
 
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) enum Command {
@@ -774,7 +775,7 @@ impl Command {
                 path,
                 id,
             } => {
-                let url = if action == "remove" {
+                let url = if action == "remove" || action == "rename" {
                     format!(
                         "{}/{}?project={}",
                         routes::WORKTREES,
@@ -794,6 +795,7 @@ impl Command {
                         Some(json!({"project":project,"name":name,"base":base,"path":path})),
                     ),
                     "remove" => ("DELETE", None),
+                    "rename" => ("PUT", Some(json!({"name":name}))),
                     _ => ("GET", None),
                 };
                 let value = request(endpoint, session, method, &url, body)?;
@@ -1456,7 +1458,7 @@ fn only(args: &[String], at: usize) -> Result<(), String> {
 
 fn parse_worktree(args: &[String]) -> Result<Command, String> {
     let action = args.get(1).ok_or(WORKTREE_USAGE)?.clone();
-    if !["list", "create", "remove"].contains(&action.as_str()) {
+    if !["list", "create", "remove", "rename"].contains(&action.as_str()) {
         return Err(WORKTREE_USAGE.into());
     }
     let mut project = String::new();
@@ -1465,7 +1467,7 @@ fn parse_worktree(args: &[String]) -> Result<Command, String> {
     let mut path = String::new();
     let mut id = String::new();
     let mut i = 2;
-    if action == "remove" {
+    if action == "remove" || action == "rename" {
         id = args.get(i).ok_or(WORKTREE_USAGE)?.clone();
         i += 1;
     }
@@ -1476,7 +1478,7 @@ fn parse_worktree(args: &[String]) -> Result<Command, String> {
         i += 1;
         match flag.as_str() {
             "--project" => project = value,
-            "--name" if action == "create" => name = value,
+            "--name" if action == "create" || action == "rename" => name = value,
             "--base" if action == "create" => base = value,
             "--path" if action == "create" => path = value,
             _ => return Err(WORKTREE_USAGE.into()),

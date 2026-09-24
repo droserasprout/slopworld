@@ -208,8 +208,9 @@ http:
     worktree:
       protobuf:
         DELETE: [Empty, Ack]
+        PUT: [CreateWorktreeReq, Worktree]
       path: "/api/worktrees/:id"
-      methods: [DELETE]
+      methods: [DELETE, PUT]
       scope: root
     workers:
       protobuf:

@@ -1020,4 +1020,15 @@ fn worktree_options_preserve_selection_and_reject_ambiguous_requests() {
             path: String::new()
         })
     );
+    assert_eq!(
+        parse_command(&words("worktree rename abc --project repo --name feature")),
+        Ok(Command::Worktree {
+            action: "rename".into(),
+            project: "repo".into(),
+            id: "abc".into(),
+            name: "feature".into(),
+            base: String::new(),
+            path: String::new()
+        })
+    );
 }

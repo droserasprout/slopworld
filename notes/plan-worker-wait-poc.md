@@ -1,5 +1,7 @@
 # Worker tools with a silent wait: proof of concept
 
+Status: proposed
+
 ## Problem and decision
 
 `slopctl task wait` blocks its process, but Codex's shell executor can yield a handle

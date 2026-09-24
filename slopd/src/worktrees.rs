@@ -103,8 +103,9 @@ pub(crate) async fn allocate(root: &Path, path: &Path, branch: &str, base: &str)
         .await?,
     )
     .canonicalize()?;
-    let container = path.parent().context("worktree container")?;
-    let writable = [repository.as_path(), container];
+    // The empty checkout directory already exists. Grant writes to this checkout only,
+    // never to its parent (which may contain sibling worktrees).
+    let writable = [repository.as_path(), path];
     git_command(
         root,
         &["worktree", "add", "--detach", "--no-checkout", target, base],
@@ -122,6 +123,48 @@ pub(crate) fn default_root() -> Result<PathBuf> {
     Ok(dirs::data_dir()
         .context("no user data directory")?
         .join("slopworld/worktrees"))
+}
+
+/// Rename the checkout on disk, then repair Git's linked-worktree pointers.
+/// A failed repair puts the directory back at its original path.
+pub(crate) async fn relocate_tree(w: &Worktree, destination: &Path) -> Result<()> {
+    let source = Path::new(&w.path);
+    if !std::fs::symlink_metadata(source)?.file_type().is_dir() || source.canonicalize()? != source
+    {
+        bail!("worktree source path changed");
+    }
+    if std::fs::symlink_metadata(destination).is_ok() {
+        bail!("destination {} already exists", destination.display());
+    }
+    let repo = Path::new(&w.repository).canonicalize()?;
+    let common = git(
+        source,
+        &["rev-parse", "--path-format=absolute", "--git-common-dir"],
+    )
+    .await?;
+    if Path::new(&common).canonicalize()? != repo {
+        bail!("worktree repository identity changed");
+    }
+    std::fs::rename(source, destination)?;
+    let repair = git_command(
+        &repo,
+        &[
+            "worktree",
+            "repair",
+            destination.to_str().context("non-UTF-8 worktree path")?,
+        ],
+        &[&repo, destination],
+    )
+    .await;
+    if let Err(error) = repair {
+        std::fs::rename(destination, source)
+            .context("restoring checkout after failed Git repair")?;
+        git_command(&repo, &["worktree", "repair", &w.path], &[&repo, source])
+            .await
+            .context("repairing original Git worktree after failed move")?;
+        return Err(error);
+    }
+    Ok(())
 }
 
 /// Mount only Git metadata for linked worktrees. Mounting the main checkout would expose unrelated source files.
@@ -160,24 +203,21 @@ pub(crate) fn metadata_paths(path: &Path) -> Result<Vec<PathBuf>> {
 mod tests;
 
 /// Git starts a status helper when it removes a worktree. Run removal in a minimal Bubblewrap namespace.
-/// Allow writes only to this worktree's container and shared Git metadata.
+/// Mount the named project's worktree directory and shared Git metadata.
 /// Do not mount the original checkout, host home, or host configuration.
 /// These restrictions prevent Git helpers from accessing host secrets.
 pub(crate) async fn remove_tree(w: &Worktree) -> Result<()> {
     let checkout = Path::new(&w.path);
-    let container = checkout.parent().context("missing worktree container")?;
-    if checkout.file_name().and_then(|s| s.to_str()) != Some("checkout")
-        || container.file_name().and_then(|s| s.to_str()) != Some(&w.id)
-    {
-        bail!("worktree has no recorded managed container");
+    let parent = checkout
+        .parent()
+        .context("missing worktree project directory")?;
+    let legacy = checkout.file_name().and_then(|s| s.to_str()) == Some("checkout")
+        && parent.file_name().and_then(|s| s.to_str()) == Some(&w.id);
+    if !legacy && checkout.file_name().and_then(|s| s.to_str()) != Some(&w.name) {
+        bail!("worktree path does not match its recorded name");
     }
-    if container.canonicalize()? != container {
-        bail!("worktree container path changed");
-    }
-    for entry in std::fs::read_dir(container)? {
-        if entry?.path() != checkout {
-            bail!("worktree container has unexpected files");
-        }
+    if parent.canonicalize()? != parent || checkout.canonicalize()? != checkout {
+        bail!("worktree path changed");
     }
     let repo = Path::new(&w.repository).canonicalize()?;
     if let Some(reason) = crate::sandbox::refused(&repo.to_string_lossy()) {
@@ -209,8 +249,8 @@ pub(crate) async fn remove_tree(w: &Worktree) -> Result<()> {
         .arg(&repo)
         .arg(&repo)
         .arg("--bind")
-        .arg(container)
-        .arg(container)
+        .arg(parent)
+        .arg(parent)
         .args([
             "--setenv",
             "PATH",
@@ -255,8 +295,10 @@ pub(crate) async fn remove_tree(w: &Worktree) -> Result<()> {
     if checkout.exists() {
         bail!("Git reported removal but checkout still exists");
     }
-    // Delete the container only if the daemon allocated it and it is empty. Keep unexpected files.
-    std::fs::remove_dir(container).context("removing empty worktree container")?;
+    if legacy {
+        std::fs::remove_dir(parent).context("removing empty legacy worktree container")?;
+        let _ = std::fs::remove_dir(parent.parent().context("legacy project directory")?);
+    }
     Ok(())
 }
 

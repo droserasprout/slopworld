@@ -1,5 +1,7 @@
 # Human docs gaps
 
+Status: proposed
+
 Scope: README, `docs/src/`, sidecar README, and generated references.
 Check descriptions against source. [Documentation ownership](docs-human-docs.md) applies.
 

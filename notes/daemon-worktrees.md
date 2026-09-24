@@ -11,14 +11,15 @@ Task results, worker exits, one-shot cleanup, and final detachment never commit 
 Project removal and configuration updates cannot discard a project with worktree records.
 Worker tmux metadata keeps project and worktree selection after its parent exits.
 
-Each managed worktree has a dedicated container with a `checkout` directory.
-For removal, mount only that container and shared Git metadata in a minimal Bubblewrap namespace.
+Each managed worktree is a dedicated directory under the named project directory.
+For removal, mount the project worktree directory and shared Git metadata in a minimal Bubblewrap namespace.
 Git can run its status helper and delete the checkout without access to the original source tree or host home.
+Removal can see sibling checkouts in the same project directory; the Git inspection guard blocks repository helpers.
 Host Git checks block repository helpers from launching child processes.
 Allocation registers the worktree without a checkout, then runs Git commands to create its branch and index.
 The shared session boundary protects authorization and project identity through direct allocation
 while allowing terminal input. The worktree mutation lock serializes catalog writes and Git work.
-Landlock ABI 3 restricts writes to the container and shared metadata, even if an agent changes metadata symlinks.
+Landlock ABI 3 restricts allocation writes to the checkout and shared metadata, even if an agent changes metadata symlinks.
 Allocation fails if the daemon cannot enforce this restriction.
 Required repository filters can also fail allocation. Keep the record and partial tree for inspection.
 
@@ -32,6 +33,8 @@ The daemon does not force deletion or commit automatically.
 Interrupted operations remain visible.
 Recovery recognizes completed allocation but never restarts workers or deletes files automatically.
 If a checkout is missing, retry removal to clean up only its Git registration and empty container.
+Project and worktree renames move managed checkouts on disk and repair Git's linked-worktree pointers.
+Renames refuse attached sessions. Older ID-based checkouts remain usable and can be migrated with a worktree rename.
 Sessions can attach only to ready worktrees with an existing checkout.
 Interrupted and missing records remain available for inspection and explicit removal.
 

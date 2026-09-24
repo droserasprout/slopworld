@@ -1,5 +1,7 @@
 # UI color review
 
+Status: proposed
+
 Remeasure layout and contrast before applying fixes. Paths below are relative to `mod/Source/SlopWorld/`.
 
 ## High priority

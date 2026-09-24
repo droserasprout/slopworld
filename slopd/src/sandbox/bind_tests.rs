@@ -185,6 +185,10 @@ fn network_mode_selects_the_expected_namespace() {
     assert!(private.contains(&PRIVATE_ADDRESS.into()));
     assert!(private
         .windows(2)
+        .any(|w| w[0] == "--tcp-ns" && w[1] == "7717"));
+    assert!(!private.contains(&"--map-host-loopback".into()));
+    assert!(private
+        .windows(2)
         .any(|w| w[0] == "--netmask" && w[1] == PRIVATE_NETMASK));
     let resolved: Vec<_> = private
         .windows(2)
@@ -203,6 +207,39 @@ fn network_mode_selects_the_expected_namespace() {
         .map(|w| w[1].as_str())
         .collect();
     assert_eq!(hosts, vec!["10.0.0.53", "10.0.0.54"]);
+}
+
+#[test]
+fn private_network_forwards_only_a_local_daemon_port() {
+    let mut cfg = Config::default();
+    let s = SessionCfg {
+        name: "a".into(),
+        project: "p".into(),
+        network: NetworkMode::Private,
+        ..Default::default()
+    };
+    let p = ProjectCfg {
+        name: "p".into(),
+        dir: "/tmp".into(),
+        ..Default::default()
+    };
+    cfg.daemon.bind = "127.0.0.1:8899".into();
+    let local = build_argv(&cfg, &s, &p).unwrap();
+    assert!(local
+        .windows(2)
+        .any(|w| w[0] == "--tcp-ns" && w[1] == "8899"));
+
+    cfg.daemon.bind = "10.0.0.5:8899".into();
+    let remote = build_argv(&cfg, &s, &p).unwrap();
+    assert!(remote
+        .windows(2)
+        .any(|w| w[0] == "--tcp-ns" && w[1] == "none"));
+
+    cfg.daemon.bind = "127.0.0.2:8899".into();
+    let other_loopback = build_argv(&cfg, &s, &p).unwrap();
+    assert!(other_loopback
+        .windows(2)
+        .any(|w| w[0] == "--tcp-ns" && w[1] == "none"));
 }
 
 #[test]
@@ -388,9 +425,8 @@ fn worker_identity_is_exported_to_the_sandbox() {
     assert!(a
         .windows(3)
         .any(|w| { w[0] == "--setenv" && w[1] == "SLOPD_URL" && w[2] == "http://127.0.0.1:7717" }));
-    assert!(a
-        .windows(2)
-        .any(|w| w[0] == "--map-host-loopback" && w[1] == "127.0.0.1"));
+    assert!(a.windows(2).any(|w| w[0] == "--tcp-ns" && w[1] == "7717"));
+    assert!(!a.contains(&"--map-host-loopback".into()));
     assert!(a.contains(&"--share-net".into()));
 }
 

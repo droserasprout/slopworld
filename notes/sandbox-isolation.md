@@ -23,6 +23,9 @@ See [blast radius](sandbox-blast-radius.md).
 Network, DNS, and resource limits are direct agent settings. Private DNS must follow the
 actual host/container resolver. Resource limits wrap the full process tree. When an agent
 requests them, the daemon must enforce them or fail launch. Resource limits are optional.
+Private networking forwards only the daemon TCP port to the host for the default
+IPv4 listener. Scoped grants still decide API access; no other host loopback
+service is mapped.
 There is no disk quota or general seccomp policy. At launch, the daemon resolves the
 agent-shell setting from its command preset or custom command to an absolute executable path.
 It sets sandbox `SHELL` to that path.

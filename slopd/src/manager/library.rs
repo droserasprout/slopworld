@@ -53,36 +53,166 @@ impl Manager {
     pub async fn update_project(self: &Arc<Self>, name: &str, mut p: ProjectCfg) -> Result<()> {
         self.reload_if_changed().await;
         settle(&mut p);
-        self.update_cfg(|cfg| {
-            let idx = cfg
-                .projects
-                .iter()
-                .position(|x| x.name == name)
-                .ok_or_else(|| anyhow!("Project {name:?} does not exist."))?;
-            if cfg.projects[idx].temp != p.temp {
-                bail!("The daemon cannot change project temporary mode after creation.");
-            }
-            p.id = cfg.projects[idx].id.clone();
-            if p.id.is_empty() {
-                p.id = uuid::Uuid::new_v4().to_string();
-            }
-            check_project(&p)?;
-            check_project_mounts(cfg, &p)?;
-            if p.name != name && cfg.project(&p.name).is_some() {
-                bail!("project {} already exists", p.name);
-            }
-            let renamed = p.name.clone();
-            cfg.projects[idx] = p;
-            if renamed != name {
-                for s in cfg.sessions.iter_mut().filter(|s| s.project == name) {
-                    s.project = renamed.clone();
-                }
-            }
-            Ok(())
-        })
-        .await?;
+        self.session_operation(self.update_project_inner(name, p))
+            .await?;
         self.announce_projects().await;
         self.announce_sessions().await;
+        Ok(())
+    }
+
+    async fn update_project_inner(&self, name: &str, mut p: ProjectCfg) -> Result<()> {
+        let _lock = self.worktree_mutation.lock().await;
+        let old_project = self
+            .config()
+            .await
+            .project(name)
+            .cloned()
+            .ok_or_else(|| anyhow!("Project {name:?} does not exist."))?;
+        if old_project.temp != p.temp {
+            bail!("The daemon cannot change project temporary mode after creation.");
+        }
+        p.id = old_project.id.clone();
+        check_project(&p)?;
+        check_project_mounts(&self.config().await, &p)?;
+        let mut store = crate::worktrees::Store::load(&self.cfg_path).await?;
+        let original = store.clone();
+        let mut moves: Vec<(usize, String)> = Vec::new();
+        if p.name != name {
+            crate::config::project_name_component(&p.name)?;
+            if self.config().await.project(&p.name).is_some() {
+                bail!("project {} already exists", p.name);
+            }
+            let mut planned = Vec::new();
+            for (i, w) in store
+                .worktrees
+                .iter()
+                .enumerate()
+                .filter(|(_, w)| w.managed && w.project_id == old_project.id)
+            {
+                if w.phase != "ready" {
+                    bail!(
+                        "finish worktree {} recovery before renaming the project",
+                        w.id
+                    );
+                }
+                let users = self.worktree_attachments(w).await;
+                if !users.is_empty() {
+                    bail!(
+                        "Worktree {} remains attached to {}. Remove or move these sessions first.",
+                        w.name,
+                        users.join(", ")
+                    );
+                }
+                let old_path = Path::new(&w.path);
+                let legacy = old_path.file_name().and_then(|s| s.to_str()) == Some("checkout")
+                    && old_path
+                        .parent()
+                        .and_then(|s| s.file_name())
+                        .and_then(|s| s.to_str())
+                        == Some(&w.id);
+                let root = if legacy {
+                    old_path
+                        .parent()
+                        .and_then(Path::parent)
+                        .and_then(Path::parent)
+                } else {
+                    old_path.parent().and_then(Path::parent)
+                }
+                .context("worktree root")?;
+                let project_dir = root.join(&p.name);
+                std::fs::create_dir_all(&project_dir)?;
+                if std::fs::symlink_metadata(&project_dir)?
+                    .file_type()
+                    .is_symlink()
+                {
+                    bail!("worktree project directory cannot be a symlink");
+                }
+                let dest = project_dir.canonicalize()?.join(&w.name);
+                if let Some(why) = crate::sandbox::refused(&dest.to_string_lossy()) {
+                    bail!("worktree reaches {why}");
+                }
+                if std::fs::symlink_metadata(&dest).is_ok() {
+                    bail!("destination {} already exists", dest.display());
+                }
+                planned.push((i, dest));
+            }
+            for (i, dest) in planned {
+                let w = store.worktrees[i].clone();
+                if let Err(error) = crate::worktrees::relocate_tree(&w, &dest).await {
+                    for (j, source) in moves.iter().rev() {
+                        crate::worktrees::relocate_tree(&store.worktrees[*j], Path::new(source))
+                            .await
+                            .context("restoring a worktree after project rename failed")?;
+                    }
+                    return Err(error);
+                }
+                moves.push((i, w.path));
+                store.worktrees[i].path = dest.to_string_lossy().into_owned();
+            }
+            if !moves.is_empty() {
+                if let Err(error) = store.save(&self.cfg_path).await {
+                    for (i, source) in moves.iter().rev() {
+                        crate::worktrees::relocate_tree(&store.worktrees[*i], Path::new(source))
+                            .await
+                            .context("restoring a worktree after catalog save failed")?;
+                    }
+                    return Err(error);
+                }
+            }
+        }
+        let result = self
+            .update_cfg_if_changed_within_boundary(|cfg| {
+                let idx = cfg
+                    .projects
+                    .iter()
+                    .position(|x| x.name == name)
+                    .ok_or_else(|| anyhow!("Project {name:?} does not exist."))?;
+                if cfg.projects[idx].temp != p.temp {
+                    bail!("The daemon cannot change project temporary mode after creation.");
+                }
+                p.id = cfg.projects[idx].id.clone();
+                if p.id.is_empty() {
+                    p.id = uuid::Uuid::new_v4().to_string();
+                }
+                check_project(&p)?;
+                check_project_mounts(cfg, &p)?;
+                if p.name != name && cfg.project(&p.name).is_some() {
+                    bail!("project {} already exists", p.name);
+                }
+                let renamed = p.name.clone();
+                cfg.projects[idx] = p;
+                if renamed != name {
+                    for s in cfg.sessions.iter_mut().filter(|s| s.project == name) {
+                        s.project = renamed.clone();
+                    }
+                }
+                Ok(((), true))
+            })
+            .await;
+        if let Err(error) = result {
+            for (i, source) in moves.iter().rev() {
+                crate::worktrees::relocate_tree(&store.worktrees[*i], Path::new(source)).await?;
+            }
+            if !moves.is_empty() {
+                original.save(&self.cfg_path).await?;
+            }
+            return Err(error);
+        }
+        for (_, source) in moves {
+            let path = Path::new(&source);
+            if path.file_name().and_then(|s| s.to_str()) == Some("checkout")
+                && path
+                    .parent()
+                    .and_then(|p| p.file_name())
+                    .and_then(|s| s.to_str())
+                    .is_some_and(|id| uuid::Uuid::parse_str(id).is_ok())
+            {
+                let _ = std::fs::remove_dir(path.parent().unwrap());
+                let _ = std::fs::remove_dir(path.parent().unwrap().parent().unwrap());
+            } else {
+                let _ = std::fs::remove_dir(path.parent().unwrap());
+            }
+        }
         Ok(())
     }
 

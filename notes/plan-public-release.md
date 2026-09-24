@@ -1,5 +1,7 @@
 # Public alpha readiness
 
+Status: proposed
+
 This plan proposes requirements for an initial Linux release. It does not certify a release.
 Before tagging:
 

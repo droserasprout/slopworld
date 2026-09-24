@@ -64,6 +64,20 @@ pub(crate) async fn remove_worktree(
     super::ok_json(m.remove_worktree(q.project, id).await)
 }
 
+pub(crate) async fn rename_worktree(
+    State(m): State<Mgr>,
+    Path(id): Path<String>,
+    Query(q): Query<WorktreeQuery>,
+    Proto(req): Proto<wire::CreateWorktreeReq>,
+) -> ApiResult<wire::Worktree> {
+    let req: crate::session::WorktreeRequest = domain(req)?;
+    reply(
+        m.rename_worktree(q.project, id, req.name)
+            .await
+            .map_err(|e| err(StatusCode::BAD_REQUEST, e))?,
+    )
+}
+
 pub(crate) async fn preview_worktree(
     State(m): State<Mgr>,
     Extension(cap): Extension<Cap>,

@@ -110,7 +110,7 @@ pub(super) fn assemble_plan(args: BuildArgs<'_>) -> Result<LaunchPlan> {
     );
 
     let limits = cfg.limits_of(s, p);
-    let pasta = mounts::pasta_prefix(dns, s.worker, network);
+    let pasta = mounts::pasta_prefix(dns, &cfg.daemon.bind, network);
     let limits = mounts::scope_prefix(&limits);
     Ok(LaunchPlan {
         session: s.name.clone(),
