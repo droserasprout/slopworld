@@ -30,6 +30,8 @@ A CHA immediately after a wide glyph supplies its occupied end, including at the
 
 Live screens may coalesce.
 History, request replies, and control events preserve ordering.
+The per-client screen pump uses an 8 ms coalescing interval; capture has a
+separate 16 ms rate limit.
 History extent and echoed request identity are necessary to translate delayed snapshots.
 Metadata/title/bell changes must still reach inactive tabs without a text redraw.
 

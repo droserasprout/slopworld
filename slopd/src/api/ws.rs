@@ -266,7 +266,9 @@ fn spawn_frame_pump(
     subs: WsSubs,
     cap: Cap,
 ) -> JoinHandle<()> {
-    const FRAME_COALESCE: Duration = Duration::from_millis(16);
+    // A half-frame hold reduces capture-to-send delay while the reader's
+    // separate 16 ms limit still controls the rate of captured frames.
+    const FRAME_COALESCE: Duration = Duration::from_millis(8);
 
     tokio::spawn(async move {
         use tokio::time::{sleep_until, Instant as TokioInstant};

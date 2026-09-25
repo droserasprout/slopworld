@@ -28,8 +28,11 @@ def performance(text):
         fps = re.search(r'mean reported FPS=([\d.]+)', chunk)
         gc = re.search(r'gen0 collections=(\d+)', chunk)
         terminal = re.search(r'^  terminal-window: ([\d.]+)', chunk, re.M)
+        ws = re.search(r'^  ws-events: ([\d.]+)', chunk, re.M)
+        messages = re.search(r'^Client WebSocket messages: (\d+)$', chunk, re.M)
         rows.append((context, fps[1] if fps else '—', gc[1] if gc else '—',
-                     terminal[1] if terminal else '—'))
+                     terminal[1] if terminal else '—', ws[1] if ws else '—',
+                     messages[1] if messages else '—'))
     return rows
 
 

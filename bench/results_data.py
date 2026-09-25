@@ -100,9 +100,23 @@ def combined_run(directory, fallback):
 def workload(directory):
     fields = {}
     for row in read(directory / "run.csv"):
-        if row["suite"] == "terminal" and row["key"] in ("backend", "rate", "multiplier", "observed_contexts"):
+        if row["suite"] == "terminal" and row["key"] in (
+                "backend", "rate", "multiplier", "observed_contexts", "scroll_sources"):
             fields[(row["phase"], row["key"])] = row["value"]
     return fields
+
+
+def terminal_workloads_match(current, old, phase):
+    if any(current.get((phase, field)) != old.get((phase, field))
+           for field in ("backend", "rate", "multiplier")):
+        return False
+    if (terminal_context_without_session_count(current.get((phase, "observed_contexts"), "")) !=
+            terminal_context_without_session_count(old.get((phase, "observed_contexts"), ""))):
+        return False
+    if phase == "history":
+        sources = current.get((phase, "scroll_sources"))
+        return bool(sources) and sources == old.get((phase, "scroll_sources"))
+    return True
 
 
 def terminal_context_without_session_count(value):
@@ -230,11 +244,7 @@ def render(directory, baseline=None, mode="absolute", latest=False, fallback=Non
         shown = metric_display(item, suite, metric, stat, unit)
         if baseline:
             if suite == "terminal":
-                compatible = all(
-                    current_workload.get((phase, field)) == old_workload.get((phase, field))
-                    for field in ("backend", "rate", "multiplier")) and (
-                    terminal_context_without_session_count(current_workload.get((phase, "observed_contexts"), "")) ==
-                    terminal_context_without_session_count(old_workload.get((phase, "observed_contexts"), "")))
+                compatible = terminal_workloads_match(current_workload, old_workload, phase)
             else:
                 compatible = all(
                     current_environment.get(field) and
