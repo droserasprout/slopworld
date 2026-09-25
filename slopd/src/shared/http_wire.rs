@@ -10,1091 +10,578 @@ fn matches(pattern: &str, path: &str) -> bool {
     let b: Vec<_> = path.split('/').collect();
     a.len() == b.len() && a.iter().zip(b).all(|(a, b)| a.starts_with(':') || *a == b)
 }
+#[derive(Clone, Copy)]
+enum RequestKind {
+    AgentTemplate,
+    ClipReq,
+    ConfigPatch,
+    CopyPresetReq,
+    CreateAgentTemplateReq,
+    CreateTaskReq,
+    CreateWorktreeReq,
+    Empty,
+    FileActionReq,
+    FileReq,
+    GrantReq,
+    HighlightReq,
+    LabelReq,
+    LibraryItem,
+    PresetRequest,
+    Project,
+    ProjectPreviewReq,
+    RedrawReq,
+    RemoveTasksReq,
+    ReplaceConfigRequest,
+    RunReq,
+    RunWhere,
+    SaveTemplateRequest,
+    SessionConfig,
+    SettingsPreviewRequest,
+    SpawnWorkerReq,
+    Station,
+    UpdateTaskReq,
+}
+#[derive(Clone, Copy)]
+enum ResponseKind {
+    Ack,
+    AppsReply,
+    AudioState,
+    BrowseResult,
+    Capabilities,
+    ConfigResult,
+    FileStatResult,
+    GitResult,
+    GrantResult,
+    GrantsReply,
+    Health,
+    ImageResult,
+    JukeboxCatalog,
+    LibraryReply,
+    OutputResult,
+    PathResult,
+    PresetsReply,
+    Project,
+    ProjectPreviewResult,
+    ProjectsReply,
+    Removed,
+    SandboxReport,
+    SearchResult,
+    SessionResult,
+    SessionView,
+    SessionsReply,
+    SettingsPreview,
+    StoredStates,
+    TaskResult,
+    TasksReply,
+    TemplateResult,
+    TemplatesReply,
+    TextResult,
+    UsageSnapshot,
+    WhereIsReply,
+    WorkerResult,
+    Worktree,
+    WorktreeBase,
+    WorktreesReply,
+}
+use RequestKind as Req;
+use ResponseKind as Resp;
+type Route = (&'static str, RequestKind, ResponseKind);
+const ROUTES: &[Route] = &[
+    ("GET /api/health", Req::Empty, Resp::Health),
+    ("GET /api/sessions", Req::Empty, Resp::SessionsReply),
+    ("POST /api/sessions", Req::SessionConfig, Resp::Ack),
+    (
+        "POST /api/settings/preview",
+        Req::SettingsPreviewRequest,
+        Resp::SettingsPreview,
+    ),
+    ("GET /api/templates", Req::Empty, Resp::TemplatesReply),
+    (
+        "POST /api/templates",
+        Req::SaveTemplateRequest,
+        Resp::TemplateResult,
+    ),
+    (
+        "GET /api/templates/spawnable",
+        Req::Empty,
+        Resp::TemplatesReply,
+    ),
+    ("GET /api/tasks", Req::Empty, Resp::TasksReply),
+    ("POST /api/tasks", Req::CreateTaskReq, Resp::TaskResult),
+    ("DELETE /api/tasks", Req::Empty, Resp::Removed),
+    (
+        "POST /api/tasks/cancel",
+        Req::RemoveTasksReq,
+        Resp::TasksReply,
+    ),
+    ("POST /api/tasks/remove", Req::RemoveTasksReq, Resp::Removed),
+    ("GET /api/capabilities", Req::Empty, Resp::Capabilities),
+    ("GET /api/whereis", Req::Empty, Resp::WhereIsReply),
+    ("GET /api/projects", Req::Empty, Resp::ProjectsReply),
+    ("POST /api/projects", Req::Project, Resp::Ack),
+    (
+        "POST /api/projects/preview",
+        Req::ProjectPreviewReq,
+        Resp::ProjectPreviewResult,
+    ),
+    ("GET /api/library", Req::Empty, Resp::LibraryReply),
+    ("POST /api/library", Req::LibraryItem, Resp::Ack),
+    ("POST /api/run", Req::RunReq, Resp::SessionResult),
+    ("GET /api/worktrees", Req::Empty, Resp::WorktreesReply),
+    (
+        "POST /api/worktrees",
+        Req::CreateWorktreeReq,
+        Resp::Worktree,
+    ),
+    (
+        "POST /api/worktrees/preview",
+        Req::CreateWorktreeReq,
+        Resp::WorktreeBase,
+    ),
+    ("POST /api/workers", Req::SpawnWorkerReq, Resp::WorkerResult),
+    (
+        "POST /api/file-action",
+        Req::FileActionReq,
+        Resp::OutputResult,
+    ),
+    ("GET /api/open-apps", Req::Empty, Resp::AppsReply),
+    ("GET /api/grants", Req::Empty, Resp::GrantsReply),
+    ("POST /api/grants", Req::GrantReq, Resp::GrantResult),
+    ("GET /api/state", Req::Empty, Resp::StoredStates),
+    ("DELETE /api/state/trash", Req::Empty, Resp::Ack),
+    ("GET /api/presets", Req::Empty, Resp::PresetsReply),
+    ("GET /api/config", Req::Empty, Resp::ConfigResult),
+    ("PUT /api/config", Req::ReplaceConfigRequest, Resp::Ack),
+    ("PUT /api/config/patch", Req::ConfigPatch, Resp::Ack),
+    ("GET /api/clipboard", Req::Empty, Resp::TextResult),
+    ("POST /api/clipboard", Req::ClipReq, Resp::Ack),
+    ("GET /api/clipboard/text", Req::Empty, Resp::TextResult),
+    ("GET /api/clipboard/primary", Req::Empty, Resp::TextResult),
+    ("POST /api/clipboard/primary", Req::ClipReq, Resp::Ack),
+    (
+        "GET /api/clipboard/primary/text",
+        Req::Empty,
+        Resp::TextResult,
+    ),
+    ("GET /api/usage", Req::Empty, Resp::UsageSnapshot),
+    ("GET /api/audio", Req::Empty, Resp::AudioState),
+    ("POST /api/ncspot", Req::RedrawReq, Resp::SessionResult),
+    ("GET /api/jukebox", Req::Empty, Resp::JukeboxCatalog),
+    ("GET /api/jukebox/presets", Req::Empty, Resp::JukeboxCatalog),
+    ("POST /api/jukebox/presets", Req::Station, Resp::Ack),
+    ("GET /api/browse", Req::Empty, Resp::BrowseResult),
+    ("GET /api/files/stat", Req::Empty, Resp::FileStatResult),
+    ("GET /api/read", Req::Empty, Resp::TextResult),
+    ("POST /api/highlight", Req::HighlightReq, Resp::TextResult),
+    ("GET /api/image", Req::Empty, Resp::ImageResult),
+    ("POST /api/files", Req::FileReq, Resp::Ack),
+    ("PUT /api/files", Req::FileReq, Resp::Ack),
+    ("DELETE /api/files", Req::FileReq, Resp::Ack),
+    ("GET /api/search", Req::Empty, Resp::SearchResult),
+    ("GET /api/git", Req::Empty, Resp::GitResult),
+    ("GET /api/sessions/:name", Req::Empty, Resp::SessionView),
+    ("DELETE /api/sessions/:name", Req::Empty, Resp::Ack),
+    ("PUT /api/sessions/:name", Req::SessionConfig, Resp::Ack),
+    ("GET /api/sessions/:name/cwd", Req::Empty, Resp::PathResult),
+    (
+        "GET /api/sessions/:name/sandbox",
+        Req::Empty,
+        Resp::SandboxReport,
+    ),
+    ("POST /api/sessions/:name/start", Req::Empty, Resp::Ack),
+    ("POST /api/sessions/:name/stop", Req::Empty, Resp::Ack),
+    ("POST /api/sessions/:name/restart", Req::Empty, Resp::Ack),
+    ("PUT /api/sessions/:name/label", Req::LabelReq, Resp::Ack),
+    (
+        "POST /api/sessions/:name/state/reset",
+        Req::Empty,
+        Resp::Ack,
+    ),
+    (
+        "PUT /api/templates/:name",
+        Req::AgentTemplate,
+        Resp::TemplateResult,
+    ),
+    ("DELETE /api/templates/:name", Req::Empty, Resp::Ack),
+    (
+        "POST /api/templates/:name/create",
+        Req::CreateAgentTemplateReq,
+        Resp::SessionResult,
+    ),
+    ("GET /api/tasks/:id", Req::Empty, Resp::TaskResult),
+    ("POST /api/tasks/:id", Req::UpdateTaskReq, Resp::TaskResult),
+    ("DELETE /api/tasks/:id", Req::Empty, Resp::TaskResult),
+    ("GET /api/projects/:name", Req::Empty, Resp::Project),
+    ("PUT /api/projects/:name", Req::Project, Resp::Ack),
+    ("DELETE /api/projects/:name", Req::Empty, Resp::Ack),
+    ("PUT /api/library/:name", Req::LibraryItem, Resp::Ack),
+    ("DELETE /api/library/:name", Req::Empty, Resp::Ack),
+    (
+        "POST /api/library/:name/run",
+        Req::RunWhere,
+        Resp::SessionResult,
+    ),
+    ("DELETE /api/worktrees/:id", Req::Empty, Resp::Ack),
+    (
+        "PUT /api/worktrees/:id",
+        Req::CreateWorktreeReq,
+        Resp::Worktree,
+    ),
+    ("DELETE /api/grants/:grantor", Req::Empty, Resp::Ack),
+    (
+        "POST /api/state/trash/:key/restore",
+        Req::Empty,
+        Resp::SessionResult,
+    ),
+    ("PUT /api/jukebox/presets/:id", Req::Station, Resp::Ack),
+    ("DELETE /api/jukebox/presets/:id", Req::Empty, Resp::Ack),
+    ("DELETE /api/state/:kind/:key", Req::Empty, Resp::Ack),
+    (
+        "PUT /api/presets/:kind/:name",
+        Req::PresetRequest,
+        Resp::Ack,
+    ),
+    ("DELETE /api/presets/:kind/:name", Req::Empty, Resp::Ack),
+    (
+        "POST /api/presets/:kind/:name/copy",
+        Req::CopyPresetReq,
+        Resp::Ack,
+    ),
+];
+fn route(method: &str, path: &str) -> anyhow::Result<&'static Route> {
+    ROUTES
+        .iter()
+        .find(|route| match route.0.split_once(' ') {
+            Some((route_method, route_path)) => route_method == method && matches(route_path, path),
+            None => false,
+        })
+        .ok_or_else(|| anyhow::anyhow!("unknown Protobuf route: {method} {path}"))
+}
 pub(crate) fn encode_request(method: &str, path: &str, value: Value) -> anyhow::Result<Vec<u8>> {
-    if method == "GET" && matches("/api/health", path) {
-        return Ok(serde_json::from_value::<wire::Empty>(value)?.encode_to_vec());
+    let route = route(method, path)?;
+    match route.1 {
+        RequestKind::AgentTemplate => {
+            Ok(serde_json::from_value::<wire::AgentTemplate>(value)?.encode_to_vec())
+        }
+        RequestKind::ClipReq => Ok(serde_json::from_value::<wire::ClipReq>(value)?.encode_to_vec()),
+        RequestKind::ConfigPatch => {
+            Ok(serde_json::from_value::<wire::ConfigPatch>(value)?.encode_to_vec())
+        }
+        RequestKind::CopyPresetReq => {
+            Ok(serde_json::from_value::<wire::CopyPresetReq>(value)?.encode_to_vec())
+        }
+        RequestKind::CreateAgentTemplateReq => {
+            Ok(serde_json::from_value::<wire::CreateAgentTemplateReq>(value)?.encode_to_vec())
+        }
+        RequestKind::CreateTaskReq => {
+            Ok(serde_json::from_value::<wire::CreateTaskReq>(value)?.encode_to_vec())
+        }
+        RequestKind::CreateWorktreeReq => {
+            Ok(serde_json::from_value::<wire::CreateWorktreeReq>(value)?.encode_to_vec())
+        }
+        RequestKind::Empty => Ok(serde_json::from_value::<wire::Empty>(value)?.encode_to_vec()),
+        RequestKind::FileActionReq => {
+            Ok(serde_json::from_value::<wire::FileActionReq>(value)?.encode_to_vec())
+        }
+        RequestKind::FileReq => Ok(serde_json::from_value::<wire::FileReq>(value)?.encode_to_vec()),
+        RequestKind::GrantReq => {
+            Ok(serde_json::from_value::<wire::GrantReq>(value)?.encode_to_vec())
+        }
+        RequestKind::HighlightReq => {
+            Ok(serde_json::from_value::<wire::HighlightReq>(value)?.encode_to_vec())
+        }
+        RequestKind::LabelReq => {
+            Ok(serde_json::from_value::<wire::LabelReq>(value)?.encode_to_vec())
+        }
+        RequestKind::LibraryItem => {
+            Ok(serde_json::from_value::<wire::LibraryItem>(value)?.encode_to_vec())
+        }
+        RequestKind::PresetRequest => {
+            Ok(serde_json::from_value::<wire::PresetRequest>(value)?.encode_to_vec())
+        }
+        RequestKind::Project => Ok(serde_json::from_value::<wire::Project>(value)?.encode_to_vec()),
+        RequestKind::ProjectPreviewReq => {
+            Ok(serde_json::from_value::<wire::ProjectPreviewReq>(value)?.encode_to_vec())
+        }
+        RequestKind::RedrawReq => {
+            Ok(serde_json::from_value::<wire::RedrawReq>(value)?.encode_to_vec())
+        }
+        RequestKind::RemoveTasksReq => {
+            Ok(serde_json::from_value::<wire::RemoveTasksReq>(value)?.encode_to_vec())
+        }
+        RequestKind::ReplaceConfigRequest => {
+            Ok(serde_json::from_value::<wire::ReplaceConfigRequest>(value)?.encode_to_vec())
+        }
+        RequestKind::RunReq => Ok(serde_json::from_value::<wire::RunReq>(value)?.encode_to_vec()),
+        RequestKind::RunWhere => {
+            Ok(serde_json::from_value::<wire::RunWhere>(value)?.encode_to_vec())
+        }
+        RequestKind::SaveTemplateRequest => {
+            Ok(serde_json::from_value::<wire::SaveTemplateRequest>(value)?.encode_to_vec())
+        }
+        RequestKind::SessionConfig => {
+            Ok(serde_json::from_value::<wire::SessionConfig>(value)?.encode_to_vec())
+        }
+        RequestKind::SettingsPreviewRequest => {
+            Ok(serde_json::from_value::<wire::SettingsPreviewRequest>(value)?.encode_to_vec())
+        }
+        RequestKind::SpawnWorkerReq => {
+            Ok(serde_json::from_value::<wire::SpawnWorkerReq>(value)?.encode_to_vec())
+        }
+        RequestKind::Station => Ok(serde_json::from_value::<wire::Station>(value)?.encode_to_vec()),
+        RequestKind::UpdateTaskReq => {
+            Ok(serde_json::from_value::<wire::UpdateTaskReq>(value)?.encode_to_vec())
+        }
     }
-    if method == "GET" && matches("/api/sessions", path) {
-        return Ok(serde_json::from_value::<wire::Empty>(value)?.encode_to_vec());
-    }
-    if method == "POST" && matches("/api/sessions", path) {
-        return Ok(serde_json::from_value::<wire::SessionConfig>(value)?.encode_to_vec());
-    }
-    if method == "POST" && matches("/api/settings/preview", path) {
-        return Ok(serde_json::from_value::<wire::SettingsPreviewRequest>(value)?.encode_to_vec());
-    }
-    if method == "GET" && matches("/api/templates", path) {
-        return Ok(serde_json::from_value::<wire::Empty>(value)?.encode_to_vec());
-    }
-    if method == "POST" && matches("/api/templates", path) {
-        return Ok(serde_json::from_value::<wire::SaveTemplateRequest>(value)?.encode_to_vec());
-    }
-    if method == "GET" && matches("/api/templates/spawnable", path) {
-        return Ok(serde_json::from_value::<wire::Empty>(value)?.encode_to_vec());
-    }
-    if method == "GET" && matches("/api/tasks", path) {
-        return Ok(serde_json::from_value::<wire::Empty>(value)?.encode_to_vec());
-    }
-    if method == "POST" && matches("/api/tasks", path) {
-        return Ok(serde_json::from_value::<wire::CreateTaskReq>(value)?.encode_to_vec());
-    }
-    if method == "DELETE" && matches("/api/tasks", path) {
-        return Ok(serde_json::from_value::<wire::Empty>(value)?.encode_to_vec());
-    }
-    if method == "POST" && matches("/api/tasks/cancel", path) {
-        return Ok(serde_json::from_value::<wire::RemoveTasksReq>(value)?.encode_to_vec());
-    }
-    if method == "POST" && matches("/api/tasks/remove", path) {
-        return Ok(serde_json::from_value::<wire::RemoveTasksReq>(value)?.encode_to_vec());
-    }
-    if method == "GET" && matches("/api/capabilities", path) {
-        return Ok(serde_json::from_value::<wire::Empty>(value)?.encode_to_vec());
-    }
-    if method == "GET" && matches("/api/whereis", path) {
-        return Ok(serde_json::from_value::<wire::Empty>(value)?.encode_to_vec());
-    }
-    if method == "GET" && matches("/api/projects", path) {
-        return Ok(serde_json::from_value::<wire::Empty>(value)?.encode_to_vec());
-    }
-    if method == "POST" && matches("/api/projects", path) {
-        return Ok(serde_json::from_value::<wire::Project>(value)?.encode_to_vec());
-    }
-    if method == "POST" && matches("/api/projects/preview", path) {
-        return Ok(serde_json::from_value::<wire::ProjectPreviewReq>(value)?.encode_to_vec());
-    }
-    if method == "GET" && matches("/api/library", path) {
-        return Ok(serde_json::from_value::<wire::Empty>(value)?.encode_to_vec());
-    }
-    if method == "POST" && matches("/api/library", path) {
-        return Ok(serde_json::from_value::<wire::LibraryItem>(value)?.encode_to_vec());
-    }
-    if method == "POST" && matches("/api/run", path) {
-        return Ok(serde_json::from_value::<wire::RunReq>(value)?.encode_to_vec());
-    }
-    if method == "GET" && matches("/api/worktrees", path) {
-        return Ok(serde_json::from_value::<wire::Empty>(value)?.encode_to_vec());
-    }
-    if method == "POST" && matches("/api/worktrees", path) {
-        return Ok(serde_json::from_value::<wire::CreateWorktreeReq>(value)?.encode_to_vec());
-    }
-    if method == "POST" && matches("/api/worktrees/preview", path) {
-        return Ok(serde_json::from_value::<wire::CreateWorktreeReq>(value)?.encode_to_vec());
-    }
-    if method == "POST" && matches("/api/workers", path) {
-        return Ok(serde_json::from_value::<wire::SpawnWorkerReq>(value)?.encode_to_vec());
-    }
-    if method == "POST" && matches("/api/file-action", path) {
-        return Ok(serde_json::from_value::<wire::FileActionReq>(value)?.encode_to_vec());
-    }
-    if method == "GET" && matches("/api/open-apps", path) {
-        return Ok(serde_json::from_value::<wire::Empty>(value)?.encode_to_vec());
-    }
-    if method == "GET" && matches("/api/grants", path) {
-        return Ok(serde_json::from_value::<wire::Empty>(value)?.encode_to_vec());
-    }
-    if method == "POST" && matches("/api/grants", path) {
-        return Ok(serde_json::from_value::<wire::GrantReq>(value)?.encode_to_vec());
-    }
-    if method == "GET" && matches("/api/state", path) {
-        return Ok(serde_json::from_value::<wire::Empty>(value)?.encode_to_vec());
-    }
-    if method == "DELETE" && matches("/api/state/trash", path) {
-        return Ok(serde_json::from_value::<wire::Empty>(value)?.encode_to_vec());
-    }
-    if method == "GET" && matches("/api/presets", path) {
-        return Ok(serde_json::from_value::<wire::Empty>(value)?.encode_to_vec());
-    }
-    if method == "GET" && matches("/api/config", path) {
-        return Ok(serde_json::from_value::<wire::Empty>(value)?.encode_to_vec());
-    }
-    if method == "PUT" && matches("/api/config", path) {
-        return Ok(serde_json::from_value::<wire::ReplaceConfigRequest>(value)?.encode_to_vec());
-    }
-    if method == "PUT" && matches("/api/config/patch", path) {
-        return Ok(serde_json::from_value::<wire::ConfigPatch>(value)?.encode_to_vec());
-    }
-    if method == "GET" && matches("/api/clipboard", path) {
-        return Ok(serde_json::from_value::<wire::Empty>(value)?.encode_to_vec());
-    }
-    if method == "POST" && matches("/api/clipboard", path) {
-        return Ok(serde_json::from_value::<wire::ClipReq>(value)?.encode_to_vec());
-    }
-    if method == "GET" && matches("/api/clipboard/text", path) {
-        return Ok(serde_json::from_value::<wire::Empty>(value)?.encode_to_vec());
-    }
-    if method == "GET" && matches("/api/clipboard/primary", path) {
-        return Ok(serde_json::from_value::<wire::Empty>(value)?.encode_to_vec());
-    }
-    if method == "POST" && matches("/api/clipboard/primary", path) {
-        return Ok(serde_json::from_value::<wire::ClipReq>(value)?.encode_to_vec());
-    }
-    if method == "GET" && matches("/api/clipboard/primary/text", path) {
-        return Ok(serde_json::from_value::<wire::Empty>(value)?.encode_to_vec());
-    }
-    if method == "GET" && matches("/api/usage", path) {
-        return Ok(serde_json::from_value::<wire::Empty>(value)?.encode_to_vec());
-    }
-    if method == "GET" && matches("/api/audio", path) {
-        return Ok(serde_json::from_value::<wire::Empty>(value)?.encode_to_vec());
-    }
-    if method == "POST" && matches("/api/ncspot", path) {
-        return Ok(serde_json::from_value::<wire::RedrawReq>(value)?.encode_to_vec());
-    }
-    if method == "GET" && matches("/api/jukebox", path) {
-        return Ok(serde_json::from_value::<wire::Empty>(value)?.encode_to_vec());
-    }
-    if method == "GET" && matches("/api/jukebox/presets", path) {
-        return Ok(serde_json::from_value::<wire::Empty>(value)?.encode_to_vec());
-    }
-    if method == "POST" && matches("/api/jukebox/presets", path) {
-        return Ok(serde_json::from_value::<wire::Station>(value)?.encode_to_vec());
-    }
-    if method == "GET" && matches("/api/browse", path) {
-        return Ok(serde_json::from_value::<wire::Empty>(value)?.encode_to_vec());
-    }
-    if method == "GET" && matches("/api/files/stat", path) {
-        return Ok(serde_json::from_value::<wire::Empty>(value)?.encode_to_vec());
-    }
-    if method == "GET" && matches("/api/read", path) {
-        return Ok(serde_json::from_value::<wire::Empty>(value)?.encode_to_vec());
-    }
-    if method == "POST" && matches("/api/highlight", path) {
-        return Ok(serde_json::from_value::<wire::HighlightReq>(value)?.encode_to_vec());
-    }
-    if method == "GET" && matches("/api/image", path) {
-        return Ok(serde_json::from_value::<wire::Empty>(value)?.encode_to_vec());
-    }
-    if method == "POST" && matches("/api/files", path) {
-        return Ok(serde_json::from_value::<wire::FileReq>(value)?.encode_to_vec());
-    }
-    if method == "PUT" && matches("/api/files", path) {
-        return Ok(serde_json::from_value::<wire::FileReq>(value)?.encode_to_vec());
-    }
-    if method == "DELETE" && matches("/api/files", path) {
-        return Ok(serde_json::from_value::<wire::FileReq>(value)?.encode_to_vec());
-    }
-    if method == "GET" && matches("/api/search", path) {
-        return Ok(serde_json::from_value::<wire::Empty>(value)?.encode_to_vec());
-    }
-    if method == "GET" && matches("/api/git", path) {
-        return Ok(serde_json::from_value::<wire::Empty>(value)?.encode_to_vec());
-    }
-    if method == "GET" && matches("/api/sessions/:name", path) {
-        return Ok(serde_json::from_value::<wire::Empty>(value)?.encode_to_vec());
-    }
-    if method == "DELETE" && matches("/api/sessions/:name", path) {
-        return Ok(serde_json::from_value::<wire::Empty>(value)?.encode_to_vec());
-    }
-    if method == "PUT" && matches("/api/sessions/:name", path) {
-        return Ok(serde_json::from_value::<wire::SessionConfig>(value)?.encode_to_vec());
-    }
-    if method == "GET" && matches("/api/sessions/:name/cwd", path) {
-        return Ok(serde_json::from_value::<wire::Empty>(value)?.encode_to_vec());
-    }
-    if method == "GET" && matches("/api/sessions/:name/sandbox", path) {
-        return Ok(serde_json::from_value::<wire::Empty>(value)?.encode_to_vec());
-    }
-    if method == "POST" && matches("/api/sessions/:name/start", path) {
-        return Ok(serde_json::from_value::<wire::Empty>(value)?.encode_to_vec());
-    }
-    if method == "POST" && matches("/api/sessions/:name/stop", path) {
-        return Ok(serde_json::from_value::<wire::Empty>(value)?.encode_to_vec());
-    }
-    if method == "POST" && matches("/api/sessions/:name/restart", path) {
-        return Ok(serde_json::from_value::<wire::Empty>(value)?.encode_to_vec());
-    }
-    if method == "PUT" && matches("/api/sessions/:name/label", path) {
-        return Ok(serde_json::from_value::<wire::LabelReq>(value)?.encode_to_vec());
-    }
-    if method == "POST" && matches("/api/sessions/:name/state/reset", path) {
-        return Ok(serde_json::from_value::<wire::Empty>(value)?.encode_to_vec());
-    }
-    if method == "PUT" && matches("/api/templates/:name", path) {
-        return Ok(serde_json::from_value::<wire::AgentTemplate>(value)?.encode_to_vec());
-    }
-    if method == "DELETE" && matches("/api/templates/:name", path) {
-        return Ok(serde_json::from_value::<wire::Empty>(value)?.encode_to_vec());
-    }
-    if method == "POST" && matches("/api/templates/:name/create", path) {
-        return Ok(serde_json::from_value::<wire::CreateAgentTemplateReq>(value)?.encode_to_vec());
-    }
-    if method == "GET" && matches("/api/tasks/:id", path) {
-        return Ok(serde_json::from_value::<wire::Empty>(value)?.encode_to_vec());
-    }
-    if method == "POST" && matches("/api/tasks/:id", path) {
-        return Ok(serde_json::from_value::<wire::UpdateTaskReq>(value)?.encode_to_vec());
-    }
-    if method == "DELETE" && matches("/api/tasks/:id", path) {
-        return Ok(serde_json::from_value::<wire::Empty>(value)?.encode_to_vec());
-    }
-    if method == "GET" && matches("/api/projects/:name", path) {
-        return Ok(serde_json::from_value::<wire::Empty>(value)?.encode_to_vec());
-    }
-    if method == "PUT" && matches("/api/projects/:name", path) {
-        return Ok(serde_json::from_value::<wire::Project>(value)?.encode_to_vec());
-    }
-    if method == "DELETE" && matches("/api/projects/:name", path) {
-        return Ok(serde_json::from_value::<wire::Empty>(value)?.encode_to_vec());
-    }
-    if method == "PUT" && matches("/api/library/:name", path) {
-        return Ok(serde_json::from_value::<wire::LibraryItem>(value)?.encode_to_vec());
-    }
-    if method == "DELETE" && matches("/api/library/:name", path) {
-        return Ok(serde_json::from_value::<wire::Empty>(value)?.encode_to_vec());
-    }
-    if method == "POST" && matches("/api/library/:name/run", path) {
-        return Ok(serde_json::from_value::<wire::RunWhere>(value)?.encode_to_vec());
-    }
-    if method == "DELETE" && matches("/api/worktrees/:id", path) {
-        return Ok(serde_json::from_value::<wire::Empty>(value)?.encode_to_vec());
-    }
-    if method == "PUT" && matches("/api/worktrees/:id", path) {
-        return Ok(serde_json::from_value::<wire::CreateWorktreeReq>(value)?.encode_to_vec());
-    }
-    if method == "DELETE" && matches("/api/grants/:grantor", path) {
-        return Ok(serde_json::from_value::<wire::Empty>(value)?.encode_to_vec());
-    }
-    if method == "POST" && matches("/api/state/trash/:key/restore", path) {
-        return Ok(serde_json::from_value::<wire::Empty>(value)?.encode_to_vec());
-    }
-    if method == "PUT" && matches("/api/jukebox/presets/:id", path) {
-        return Ok(serde_json::from_value::<wire::Station>(value)?.encode_to_vec());
-    }
-    if method == "DELETE" && matches("/api/jukebox/presets/:id", path) {
-        return Ok(serde_json::from_value::<wire::Empty>(value)?.encode_to_vec());
-    }
-    if method == "DELETE" && matches("/api/state/:kind/:key", path) {
-        return Ok(serde_json::from_value::<wire::Empty>(value)?.encode_to_vec());
-    }
-    if method == "PUT" && matches("/api/presets/:kind/:name", path) {
-        return Ok(serde_json::from_value::<wire::PresetRequest>(value)?.encode_to_vec());
-    }
-    if method == "DELETE" && matches("/api/presets/:kind/:name", path) {
-        return Ok(serde_json::from_value::<wire::Empty>(value)?.encode_to_vec());
-    }
-    if method == "POST" && matches("/api/presets/:kind/:name/copy", path) {
-        return Ok(serde_json::from_value::<wire::CopyPresetReq>(value)?.encode_to_vec());
-    }
-    anyhow::bail!("unknown Protobuf route: {method} {path}")
 }
 pub(crate) fn decode_response(method: &str, path: &str, value: &[u8]) -> anyhow::Result<Value> {
-    if method == "GET" && matches("/api/health", path) {
-        return Ok(serde_json::to_value(wire::Health::decode(value)?)?);
+    let route = route(method, path)?;
+    match route.2 {
+        ResponseKind::Ack => Ok(serde_json::to_value(wire::Ack::decode(value)?)?),
+        ResponseKind::AppsReply => Ok(serde_json::to_value(wire::AppsReply::decode(value)?)?),
+        ResponseKind::AudioState => Ok(serde_json::to_value(wire::AudioState::decode(value)?)?),
+        ResponseKind::BrowseResult => Ok(serde_json::to_value(wire::BrowseResult::decode(value)?)?),
+        ResponseKind::Capabilities => Ok(serde_json::to_value(wire::Capabilities::decode(value)?)?),
+        ResponseKind::ConfigResult => Ok(serde_json::to_value(wire::ConfigResult::decode(value)?)?),
+        ResponseKind::FileStatResult => {
+            Ok(serde_json::to_value(wire::FileStatResult::decode(value)?)?)
+        }
+        ResponseKind::GitResult => Ok(serde_json::to_value(wire::GitResult::decode(value)?)?),
+        ResponseKind::GrantResult => Ok(serde_json::to_value(wire::GrantResult::decode(value)?)?),
+        ResponseKind::GrantsReply => Ok(serde_json::to_value(wire::GrantsReply::decode(value)?)?),
+        ResponseKind::Health => Ok(serde_json::to_value(wire::Health::decode(value)?)?),
+        ResponseKind::ImageResult => Ok(serde_json::to_value(wire::ImageResult::decode(value)?)?),
+        ResponseKind::JukeboxCatalog => {
+            Ok(serde_json::to_value(wire::JukeboxCatalog::decode(value)?)?)
+        }
+        ResponseKind::LibraryReply => Ok(serde_json::to_value(wire::LibraryReply::decode(value)?)?),
+        ResponseKind::OutputResult => Ok(serde_json::to_value(wire::OutputResult::decode(value)?)?),
+        ResponseKind::PathResult => Ok(serde_json::to_value(wire::PathResult::decode(value)?)?),
+        ResponseKind::PresetsReply => Ok(serde_json::to_value(wire::PresetsReply::decode(value)?)?),
+        ResponseKind::Project => Ok(serde_json::to_value(wire::Project::decode(value)?)?),
+        ResponseKind::ProjectPreviewResult => Ok(serde_json::to_value(
+            wire::ProjectPreviewResult::decode(value)?,
+        )?),
+        ResponseKind::ProjectsReply => {
+            Ok(serde_json::to_value(wire::ProjectsReply::decode(value)?)?)
+        }
+        ResponseKind::Removed => Ok(serde_json::to_value(wire::Removed::decode(value)?)?),
+        ResponseKind::SandboxReport => {
+            Ok(serde_json::to_value(wire::SandboxReport::decode(value)?)?)
+        }
+        ResponseKind::SearchResult => Ok(serde_json::to_value(wire::SearchResult::decode(value)?)?),
+        ResponseKind::SessionResult => {
+            Ok(serde_json::to_value(wire::SessionResult::decode(value)?)?)
+        }
+        ResponseKind::SessionView => Ok(serde_json::to_value(wire::SessionView::decode(value)?)?),
+        ResponseKind::SessionsReply => {
+            Ok(serde_json::to_value(wire::SessionsReply::decode(value)?)?)
+        }
+        ResponseKind::SettingsPreview => {
+            Ok(serde_json::to_value(wire::SettingsPreview::decode(value)?)?)
+        }
+        ResponseKind::StoredStates => Ok(serde_json::to_value(wire::StoredStates::decode(value)?)?),
+        ResponseKind::TaskResult => Ok(serde_json::to_value(wire::TaskResult::decode(value)?)?),
+        ResponseKind::TasksReply => Ok(serde_json::to_value(wire::TasksReply::decode(value)?)?),
+        ResponseKind::TemplateResult => {
+            Ok(serde_json::to_value(wire::TemplateResult::decode(value)?)?)
+        }
+        ResponseKind::TemplatesReply => {
+            Ok(serde_json::to_value(wire::TemplatesReply::decode(value)?)?)
+        }
+        ResponseKind::TextResult => Ok(serde_json::to_value(wire::TextResult::decode(value)?)?),
+        ResponseKind::UsageSnapshot => {
+            Ok(serde_json::to_value(wire::UsageSnapshot::decode(value)?)?)
+        }
+        ResponseKind::WhereIsReply => Ok(serde_json::to_value(wire::WhereIsReply::decode(value)?)?),
+        ResponseKind::WorkerResult => Ok(serde_json::to_value(wire::WorkerResult::decode(value)?)?),
+        ResponseKind::Worktree => Ok(serde_json::to_value(wire::Worktree::decode(value)?)?),
+        ResponseKind::WorktreeBase => Ok(serde_json::to_value(wire::WorktreeBase::decode(value)?)?),
+        ResponseKind::WorktreesReply => {
+            Ok(serde_json::to_value(wire::WorktreesReply::decode(value)?)?)
+        }
     }
-    if method == "GET" && matches("/api/sessions", path) {
-        return Ok(serde_json::to_value(wire::SessionsReply::decode(value)?)?);
-    }
-    if method == "POST" && matches("/api/sessions", path) {
-        return Ok(serde_json::to_value(wire::Ack::decode(value)?)?);
-    }
-    if method == "POST" && matches("/api/settings/preview", path) {
-        return Ok(serde_json::to_value(wire::SettingsPreview::decode(value)?)?);
-    }
-    if method == "GET" && matches("/api/templates", path) {
-        return Ok(serde_json::to_value(wire::TemplatesReply::decode(value)?)?);
-    }
-    if method == "POST" && matches("/api/templates", path) {
-        return Ok(serde_json::to_value(wire::TemplateResult::decode(value)?)?);
-    }
-    if method == "GET" && matches("/api/templates/spawnable", path) {
-        return Ok(serde_json::to_value(wire::TemplatesReply::decode(value)?)?);
-    }
-    if method == "GET" && matches("/api/tasks", path) {
-        return Ok(serde_json::to_value(wire::TasksReply::decode(value)?)?);
-    }
-    if method == "POST" && matches("/api/tasks", path) {
-        return Ok(serde_json::to_value(wire::TaskResult::decode(value)?)?);
-    }
-    if method == "DELETE" && matches("/api/tasks", path) {
-        return Ok(serde_json::to_value(wire::Removed::decode(value)?)?);
-    }
-    if method == "POST" && matches("/api/tasks/cancel", path) {
-        return Ok(serde_json::to_value(wire::TasksReply::decode(value)?)?);
-    }
-    if method == "POST" && matches("/api/tasks/remove", path) {
-        return Ok(serde_json::to_value(wire::Removed::decode(value)?)?);
-    }
-    if method == "GET" && matches("/api/capabilities", path) {
-        return Ok(serde_json::to_value(wire::Capabilities::decode(value)?)?);
-    }
-    if method == "GET" && matches("/api/whereis", path) {
-        return Ok(serde_json::to_value(wire::WhereIsReply::decode(value)?)?);
-    }
-    if method == "GET" && matches("/api/projects", path) {
-        return Ok(serde_json::to_value(wire::ProjectsReply::decode(value)?)?);
-    }
-    if method == "POST" && matches("/api/projects", path) {
-        return Ok(serde_json::to_value(wire::Ack::decode(value)?)?);
-    }
-    if method == "POST" && matches("/api/projects/preview", path) {
-        return Ok(serde_json::to_value(wire::ProjectPreviewResult::decode(
-            value,
-        )?)?);
-    }
-    if method == "GET" && matches("/api/library", path) {
-        return Ok(serde_json::to_value(wire::LibraryReply::decode(value)?)?);
-    }
-    if method == "POST" && matches("/api/library", path) {
-        return Ok(serde_json::to_value(wire::Ack::decode(value)?)?);
-    }
-    if method == "POST" && matches("/api/run", path) {
-        return Ok(serde_json::to_value(wire::SessionResult::decode(value)?)?);
-    }
-    if method == "GET" && matches("/api/worktrees", path) {
-        return Ok(serde_json::to_value(wire::WorktreesReply::decode(value)?)?);
-    }
-    if method == "POST" && matches("/api/worktrees", path) {
-        return Ok(serde_json::to_value(wire::Worktree::decode(value)?)?);
-    }
-    if method == "POST" && matches("/api/worktrees/preview", path) {
-        return Ok(serde_json::to_value(wire::WorktreeBase::decode(value)?)?);
-    }
-    if method == "POST" && matches("/api/workers", path) {
-        return Ok(serde_json::to_value(wire::WorkerResult::decode(value)?)?);
-    }
-    if method == "POST" && matches("/api/file-action", path) {
-        return Ok(serde_json::to_value(wire::OutputResult::decode(value)?)?);
-    }
-    if method == "GET" && matches("/api/open-apps", path) {
-        return Ok(serde_json::to_value(wire::AppsReply::decode(value)?)?);
-    }
-    if method == "GET" && matches("/api/grants", path) {
-        return Ok(serde_json::to_value(wire::GrantsReply::decode(value)?)?);
-    }
-    if method == "POST" && matches("/api/grants", path) {
-        return Ok(serde_json::to_value(wire::GrantResult::decode(value)?)?);
-    }
-    if method == "GET" && matches("/api/state", path) {
-        return Ok(serde_json::to_value(wire::StoredStates::decode(value)?)?);
-    }
-    if method == "DELETE" && matches("/api/state/trash", path) {
-        return Ok(serde_json::to_value(wire::Ack::decode(value)?)?);
-    }
-    if method == "GET" && matches("/api/presets", path) {
-        return Ok(serde_json::to_value(wire::PresetsReply::decode(value)?)?);
-    }
-    if method == "GET" && matches("/api/config", path) {
-        return Ok(serde_json::to_value(wire::ConfigResult::decode(value)?)?);
-    }
-    if method == "PUT" && matches("/api/config", path) {
-        return Ok(serde_json::to_value(wire::Ack::decode(value)?)?);
-    }
-    if method == "PUT" && matches("/api/config/patch", path) {
-        return Ok(serde_json::to_value(wire::Ack::decode(value)?)?);
-    }
-    if method == "GET" && matches("/api/clipboard", path) {
-        return Ok(serde_json::to_value(wire::TextResult::decode(value)?)?);
-    }
-    if method == "POST" && matches("/api/clipboard", path) {
-        return Ok(serde_json::to_value(wire::Ack::decode(value)?)?);
-    }
-    if method == "GET" && matches("/api/clipboard/text", path) {
-        return Ok(serde_json::to_value(wire::TextResult::decode(value)?)?);
-    }
-    if method == "GET" && matches("/api/clipboard/primary", path) {
-        return Ok(serde_json::to_value(wire::TextResult::decode(value)?)?);
-    }
-    if method == "POST" && matches("/api/clipboard/primary", path) {
-        return Ok(serde_json::to_value(wire::Ack::decode(value)?)?);
-    }
-    if method == "GET" && matches("/api/clipboard/primary/text", path) {
-        return Ok(serde_json::to_value(wire::TextResult::decode(value)?)?);
-    }
-    if method == "GET" && matches("/api/usage", path) {
-        return Ok(serde_json::to_value(wire::UsageSnapshot::decode(value)?)?);
-    }
-    if method == "GET" && matches("/api/audio", path) {
-        return Ok(serde_json::to_value(wire::AudioState::decode(value)?)?);
-    }
-    if method == "POST" && matches("/api/ncspot", path) {
-        return Ok(serde_json::to_value(wire::SessionResult::decode(value)?)?);
-    }
-    if method == "GET" && matches("/api/jukebox", path) {
-        return Ok(serde_json::to_value(wire::JukeboxCatalog::decode(value)?)?);
-    }
-    if method == "GET" && matches("/api/jukebox/presets", path) {
-        return Ok(serde_json::to_value(wire::JukeboxCatalog::decode(value)?)?);
-    }
-    if method == "POST" && matches("/api/jukebox/presets", path) {
-        return Ok(serde_json::to_value(wire::Ack::decode(value)?)?);
-    }
-    if method == "GET" && matches("/api/browse", path) {
-        return Ok(serde_json::to_value(wire::BrowseResult::decode(value)?)?);
-    }
-    if method == "GET" && matches("/api/files/stat", path) {
-        return Ok(serde_json::to_value(wire::FileStatResult::decode(value)?)?);
-    }
-    if method == "GET" && matches("/api/read", path) {
-        return Ok(serde_json::to_value(wire::TextResult::decode(value)?)?);
-    }
-    if method == "POST" && matches("/api/highlight", path) {
-        return Ok(serde_json::to_value(wire::TextResult::decode(value)?)?);
-    }
-    if method == "GET" && matches("/api/image", path) {
-        return Ok(serde_json::to_value(wire::ImageResult::decode(value)?)?);
-    }
-    if method == "POST" && matches("/api/files", path) {
-        return Ok(serde_json::to_value(wire::Ack::decode(value)?)?);
-    }
-    if method == "PUT" && matches("/api/files", path) {
-        return Ok(serde_json::to_value(wire::Ack::decode(value)?)?);
-    }
-    if method == "DELETE" && matches("/api/files", path) {
-        return Ok(serde_json::to_value(wire::Ack::decode(value)?)?);
-    }
-    if method == "GET" && matches("/api/search", path) {
-        return Ok(serde_json::to_value(wire::SearchResult::decode(value)?)?);
-    }
-    if method == "GET" && matches("/api/git", path) {
-        return Ok(serde_json::to_value(wire::GitResult::decode(value)?)?);
-    }
-    if method == "GET" && matches("/api/sessions/:name", path) {
-        return Ok(serde_json::to_value(wire::SessionView::decode(value)?)?);
-    }
-    if method == "DELETE" && matches("/api/sessions/:name", path) {
-        return Ok(serde_json::to_value(wire::Ack::decode(value)?)?);
-    }
-    if method == "PUT" && matches("/api/sessions/:name", path) {
-        return Ok(serde_json::to_value(wire::Ack::decode(value)?)?);
-    }
-    if method == "GET" && matches("/api/sessions/:name/cwd", path) {
-        return Ok(serde_json::to_value(wire::PathResult::decode(value)?)?);
-    }
-    if method == "GET" && matches("/api/sessions/:name/sandbox", path) {
-        return Ok(serde_json::to_value(wire::SandboxReport::decode(value)?)?);
-    }
-    if method == "POST" && matches("/api/sessions/:name/start", path) {
-        return Ok(serde_json::to_value(wire::Ack::decode(value)?)?);
-    }
-    if method == "POST" && matches("/api/sessions/:name/stop", path) {
-        return Ok(serde_json::to_value(wire::Ack::decode(value)?)?);
-    }
-    if method == "POST" && matches("/api/sessions/:name/restart", path) {
-        return Ok(serde_json::to_value(wire::Ack::decode(value)?)?);
-    }
-    if method == "PUT" && matches("/api/sessions/:name/label", path) {
-        return Ok(serde_json::to_value(wire::Ack::decode(value)?)?);
-    }
-    if method == "POST" && matches("/api/sessions/:name/state/reset", path) {
-        return Ok(serde_json::to_value(wire::Ack::decode(value)?)?);
-    }
-    if method == "PUT" && matches("/api/templates/:name", path) {
-        return Ok(serde_json::to_value(wire::TemplateResult::decode(value)?)?);
-    }
-    if method == "DELETE" && matches("/api/templates/:name", path) {
-        return Ok(serde_json::to_value(wire::Ack::decode(value)?)?);
-    }
-    if method == "POST" && matches("/api/templates/:name/create", path) {
-        return Ok(serde_json::to_value(wire::SessionResult::decode(value)?)?);
-    }
-    if method == "GET" && matches("/api/tasks/:id", path) {
-        return Ok(serde_json::to_value(wire::TaskResult::decode(value)?)?);
-    }
-    if method == "POST" && matches("/api/tasks/:id", path) {
-        return Ok(serde_json::to_value(wire::TaskResult::decode(value)?)?);
-    }
-    if method == "DELETE" && matches("/api/tasks/:id", path) {
-        return Ok(serde_json::to_value(wire::TaskResult::decode(value)?)?);
-    }
-    if method == "GET" && matches("/api/projects/:name", path) {
-        return Ok(serde_json::to_value(wire::Project::decode(value)?)?);
-    }
-    if method == "PUT" && matches("/api/projects/:name", path) {
-        return Ok(serde_json::to_value(wire::Ack::decode(value)?)?);
-    }
-    if method == "DELETE" && matches("/api/projects/:name", path) {
-        return Ok(serde_json::to_value(wire::Ack::decode(value)?)?);
-    }
-    if method == "PUT" && matches("/api/library/:name", path) {
-        return Ok(serde_json::to_value(wire::Ack::decode(value)?)?);
-    }
-    if method == "DELETE" && matches("/api/library/:name", path) {
-        return Ok(serde_json::to_value(wire::Ack::decode(value)?)?);
-    }
-    if method == "POST" && matches("/api/library/:name/run", path) {
-        return Ok(serde_json::to_value(wire::SessionResult::decode(value)?)?);
-    }
-    if method == "DELETE" && matches("/api/worktrees/:id", path) {
-        return Ok(serde_json::to_value(wire::Ack::decode(value)?)?);
-    }
-    if method == "PUT" && matches("/api/worktrees/:id", path) {
-        return Ok(serde_json::to_value(wire::Worktree::decode(value)?)?);
-    }
-    if method == "DELETE" && matches("/api/grants/:grantor", path) {
-        return Ok(serde_json::to_value(wire::Ack::decode(value)?)?);
-    }
-    if method == "POST" && matches("/api/state/trash/:key/restore", path) {
-        return Ok(serde_json::to_value(wire::SessionResult::decode(value)?)?);
-    }
-    if method == "PUT" && matches("/api/jukebox/presets/:id", path) {
-        return Ok(serde_json::to_value(wire::Ack::decode(value)?)?);
-    }
-    if method == "DELETE" && matches("/api/jukebox/presets/:id", path) {
-        return Ok(serde_json::to_value(wire::Ack::decode(value)?)?);
-    }
-    if method == "DELETE" && matches("/api/state/:kind/:key", path) {
-        return Ok(serde_json::to_value(wire::Ack::decode(value)?)?);
-    }
-    if method == "PUT" && matches("/api/presets/:kind/:name", path) {
-        return Ok(serde_json::to_value(wire::Ack::decode(value)?)?);
-    }
-    if method == "DELETE" && matches("/api/presets/:kind/:name", path) {
-        return Ok(serde_json::to_value(wire::Ack::decode(value)?)?);
-    }
-    if method == "POST" && matches("/api/presets/:kind/:name/copy", path) {
-        return Ok(serde_json::to_value(wire::Ack::decode(value)?)?);
-    }
-    anyhow::bail!("unknown Protobuf route: {method} {path}")
 }
 #[cfg(test)]
 pub(crate) fn decode_request(method: &str, path: &str, value: &[u8]) -> anyhow::Result<Value> {
-    if method == "GET" && matches("/api/health", path) {
-        return Ok(serde_json::to_value(wire::Empty::decode(value)?)?);
+    let route = route(method, path)?;
+    match route.1 {
+        RequestKind::AgentTemplate => {
+            Ok(serde_json::to_value(wire::AgentTemplate::decode(value)?)?)
+        }
+        RequestKind::ClipReq => Ok(serde_json::to_value(wire::ClipReq::decode(value)?)?),
+        RequestKind::ConfigPatch => Ok(serde_json::to_value(wire::ConfigPatch::decode(value)?)?),
+        RequestKind::CopyPresetReq => {
+            Ok(serde_json::to_value(wire::CopyPresetReq::decode(value)?)?)
+        }
+        RequestKind::CreateAgentTemplateReq => Ok(serde_json::to_value(
+            wire::CreateAgentTemplateReq::decode(value)?,
+        )?),
+        RequestKind::CreateTaskReq => {
+            Ok(serde_json::to_value(wire::CreateTaskReq::decode(value)?)?)
+        }
+        RequestKind::CreateWorktreeReq => Ok(serde_json::to_value(
+            wire::CreateWorktreeReq::decode(value)?,
+        )?),
+        RequestKind::Empty => Ok(serde_json::to_value(wire::Empty::decode(value)?)?),
+        RequestKind::FileActionReq => {
+            Ok(serde_json::to_value(wire::FileActionReq::decode(value)?)?)
+        }
+        RequestKind::FileReq => Ok(serde_json::to_value(wire::FileReq::decode(value)?)?),
+        RequestKind::GrantReq => Ok(serde_json::to_value(wire::GrantReq::decode(value)?)?),
+        RequestKind::HighlightReq => Ok(serde_json::to_value(wire::HighlightReq::decode(value)?)?),
+        RequestKind::LabelReq => Ok(serde_json::to_value(wire::LabelReq::decode(value)?)?),
+        RequestKind::LibraryItem => Ok(serde_json::to_value(wire::LibraryItem::decode(value)?)?),
+        RequestKind::PresetRequest => {
+            Ok(serde_json::to_value(wire::PresetRequest::decode(value)?)?)
+        }
+        RequestKind::Project => Ok(serde_json::to_value(wire::Project::decode(value)?)?),
+        RequestKind::ProjectPreviewReq => Ok(serde_json::to_value(
+            wire::ProjectPreviewReq::decode(value)?,
+        )?),
+        RequestKind::RedrawReq => Ok(serde_json::to_value(wire::RedrawReq::decode(value)?)?),
+        RequestKind::RemoveTasksReq => {
+            Ok(serde_json::to_value(wire::RemoveTasksReq::decode(value)?)?)
+        }
+        RequestKind::ReplaceConfigRequest => Ok(serde_json::to_value(
+            wire::ReplaceConfigRequest::decode(value)?,
+        )?),
+        RequestKind::RunReq => Ok(serde_json::to_value(wire::RunReq::decode(value)?)?),
+        RequestKind::RunWhere => Ok(serde_json::to_value(wire::RunWhere::decode(value)?)?),
+        RequestKind::SaveTemplateRequest => Ok(serde_json::to_value(
+            wire::SaveTemplateRequest::decode(value)?,
+        )?),
+        RequestKind::SessionConfig => {
+            Ok(serde_json::to_value(wire::SessionConfig::decode(value)?)?)
+        }
+        RequestKind::SettingsPreviewRequest => Ok(serde_json::to_value(
+            wire::SettingsPreviewRequest::decode(value)?,
+        )?),
+        RequestKind::SpawnWorkerReq => {
+            Ok(serde_json::to_value(wire::SpawnWorkerReq::decode(value)?)?)
+        }
+        RequestKind::Station => Ok(serde_json::to_value(wire::Station::decode(value)?)?),
+        RequestKind::UpdateTaskReq => {
+            Ok(serde_json::to_value(wire::UpdateTaskReq::decode(value)?)?)
+        }
     }
-    if method == "GET" && matches("/api/sessions", path) {
-        return Ok(serde_json::to_value(wire::Empty::decode(value)?)?);
-    }
-    if method == "POST" && matches("/api/sessions", path) {
-        return Ok(serde_json::to_value(wire::SessionConfig::decode(value)?)?);
-    }
-    if method == "POST" && matches("/api/settings/preview", path) {
-        return Ok(serde_json::to_value(wire::SettingsPreviewRequest::decode(
-            value,
-        )?)?);
-    }
-    if method == "GET" && matches("/api/templates", path) {
-        return Ok(serde_json::to_value(wire::Empty::decode(value)?)?);
-    }
-    if method == "POST" && matches("/api/templates", path) {
-        return Ok(serde_json::to_value(wire::SaveTemplateRequest::decode(
-            value,
-        )?)?);
-    }
-    if method == "GET" && matches("/api/templates/spawnable", path) {
-        return Ok(serde_json::to_value(wire::Empty::decode(value)?)?);
-    }
-    if method == "GET" && matches("/api/tasks", path) {
-        return Ok(serde_json::to_value(wire::Empty::decode(value)?)?);
-    }
-    if method == "POST" && matches("/api/tasks", path) {
-        return Ok(serde_json::to_value(wire::CreateTaskReq::decode(value)?)?);
-    }
-    if method == "DELETE" && matches("/api/tasks", path) {
-        return Ok(serde_json::to_value(wire::Empty::decode(value)?)?);
-    }
-    if method == "POST" && matches("/api/tasks/cancel", path) {
-        return Ok(serde_json::to_value(wire::RemoveTasksReq::decode(value)?)?);
-    }
-    if method == "POST" && matches("/api/tasks/remove", path) {
-        return Ok(serde_json::to_value(wire::RemoveTasksReq::decode(value)?)?);
-    }
-    if method == "GET" && matches("/api/capabilities", path) {
-        return Ok(serde_json::to_value(wire::Empty::decode(value)?)?);
-    }
-    if method == "GET" && matches("/api/whereis", path) {
-        return Ok(serde_json::to_value(wire::Empty::decode(value)?)?);
-    }
-    if method == "GET" && matches("/api/projects", path) {
-        return Ok(serde_json::to_value(wire::Empty::decode(value)?)?);
-    }
-    if method == "POST" && matches("/api/projects", path) {
-        return Ok(serde_json::to_value(wire::Project::decode(value)?)?);
-    }
-    if method == "POST" && matches("/api/projects/preview", path) {
-        return Ok(serde_json::to_value(wire::ProjectPreviewReq::decode(
-            value,
-        )?)?);
-    }
-    if method == "GET" && matches("/api/library", path) {
-        return Ok(serde_json::to_value(wire::Empty::decode(value)?)?);
-    }
-    if method == "POST" && matches("/api/library", path) {
-        return Ok(serde_json::to_value(wire::LibraryItem::decode(value)?)?);
-    }
-    if method == "POST" && matches("/api/run", path) {
-        return Ok(serde_json::to_value(wire::RunReq::decode(value)?)?);
-    }
-    if method == "GET" && matches("/api/worktrees", path) {
-        return Ok(serde_json::to_value(wire::Empty::decode(value)?)?);
-    }
-    if method == "POST" && matches("/api/worktrees", path) {
-        return Ok(serde_json::to_value(wire::CreateWorktreeReq::decode(
-            value,
-        )?)?);
-    }
-    if method == "POST" && matches("/api/worktrees/preview", path) {
-        return Ok(serde_json::to_value(wire::CreateWorktreeReq::decode(
-            value,
-        )?)?);
-    }
-    if method == "POST" && matches("/api/workers", path) {
-        return Ok(serde_json::to_value(wire::SpawnWorkerReq::decode(value)?)?);
-    }
-    if method == "POST" && matches("/api/file-action", path) {
-        return Ok(serde_json::to_value(wire::FileActionReq::decode(value)?)?);
-    }
-    if method == "GET" && matches("/api/open-apps", path) {
-        return Ok(serde_json::to_value(wire::Empty::decode(value)?)?);
-    }
-    if method == "GET" && matches("/api/grants", path) {
-        return Ok(serde_json::to_value(wire::Empty::decode(value)?)?);
-    }
-    if method == "POST" && matches("/api/grants", path) {
-        return Ok(serde_json::to_value(wire::GrantReq::decode(value)?)?);
-    }
-    if method == "GET" && matches("/api/state", path) {
-        return Ok(serde_json::to_value(wire::Empty::decode(value)?)?);
-    }
-    if method == "DELETE" && matches("/api/state/trash", path) {
-        return Ok(serde_json::to_value(wire::Empty::decode(value)?)?);
-    }
-    if method == "GET" && matches("/api/presets", path) {
-        return Ok(serde_json::to_value(wire::Empty::decode(value)?)?);
-    }
-    if method == "GET" && matches("/api/config", path) {
-        return Ok(serde_json::to_value(wire::Empty::decode(value)?)?);
-    }
-    if method == "PUT" && matches("/api/config", path) {
-        return Ok(serde_json::to_value(wire::ReplaceConfigRequest::decode(
-            value,
-        )?)?);
-    }
-    if method == "PUT" && matches("/api/config/patch", path) {
-        return Ok(serde_json::to_value(wire::ConfigPatch::decode(value)?)?);
-    }
-    if method == "GET" && matches("/api/clipboard", path) {
-        return Ok(serde_json::to_value(wire::Empty::decode(value)?)?);
-    }
-    if method == "POST" && matches("/api/clipboard", path) {
-        return Ok(serde_json::to_value(wire::ClipReq::decode(value)?)?);
-    }
-    if method == "GET" && matches("/api/clipboard/text", path) {
-        return Ok(serde_json::to_value(wire::Empty::decode(value)?)?);
-    }
-    if method == "GET" && matches("/api/clipboard/primary", path) {
-        return Ok(serde_json::to_value(wire::Empty::decode(value)?)?);
-    }
-    if method == "POST" && matches("/api/clipboard/primary", path) {
-        return Ok(serde_json::to_value(wire::ClipReq::decode(value)?)?);
-    }
-    if method == "GET" && matches("/api/clipboard/primary/text", path) {
-        return Ok(serde_json::to_value(wire::Empty::decode(value)?)?);
-    }
-    if method == "GET" && matches("/api/usage", path) {
-        return Ok(serde_json::to_value(wire::Empty::decode(value)?)?);
-    }
-    if method == "GET" && matches("/api/audio", path) {
-        return Ok(serde_json::to_value(wire::Empty::decode(value)?)?);
-    }
-    if method == "POST" && matches("/api/ncspot", path) {
-        return Ok(serde_json::to_value(wire::RedrawReq::decode(value)?)?);
-    }
-    if method == "GET" && matches("/api/jukebox", path) {
-        return Ok(serde_json::to_value(wire::Empty::decode(value)?)?);
-    }
-    if method == "GET" && matches("/api/jukebox/presets", path) {
-        return Ok(serde_json::to_value(wire::Empty::decode(value)?)?);
-    }
-    if method == "POST" && matches("/api/jukebox/presets", path) {
-        return Ok(serde_json::to_value(wire::Station::decode(value)?)?);
-    }
-    if method == "GET" && matches("/api/browse", path) {
-        return Ok(serde_json::to_value(wire::Empty::decode(value)?)?);
-    }
-    if method == "GET" && matches("/api/files/stat", path) {
-        return Ok(serde_json::to_value(wire::Empty::decode(value)?)?);
-    }
-    if method == "GET" && matches("/api/read", path) {
-        return Ok(serde_json::to_value(wire::Empty::decode(value)?)?);
-    }
-    if method == "POST" && matches("/api/highlight", path) {
-        return Ok(serde_json::to_value(wire::HighlightReq::decode(value)?)?);
-    }
-    if method == "GET" && matches("/api/image", path) {
-        return Ok(serde_json::to_value(wire::Empty::decode(value)?)?);
-    }
-    if method == "POST" && matches("/api/files", path) {
-        return Ok(serde_json::to_value(wire::FileReq::decode(value)?)?);
-    }
-    if method == "PUT" && matches("/api/files", path) {
-        return Ok(serde_json::to_value(wire::FileReq::decode(value)?)?);
-    }
-    if method == "DELETE" && matches("/api/files", path) {
-        return Ok(serde_json::to_value(wire::FileReq::decode(value)?)?);
-    }
-    if method == "GET" && matches("/api/search", path) {
-        return Ok(serde_json::to_value(wire::Empty::decode(value)?)?);
-    }
-    if method == "GET" && matches("/api/git", path) {
-        return Ok(serde_json::to_value(wire::Empty::decode(value)?)?);
-    }
-    if method == "GET" && matches("/api/sessions/:name", path) {
-        return Ok(serde_json::to_value(wire::Empty::decode(value)?)?);
-    }
-    if method == "DELETE" && matches("/api/sessions/:name", path) {
-        return Ok(serde_json::to_value(wire::Empty::decode(value)?)?);
-    }
-    if method == "PUT" && matches("/api/sessions/:name", path) {
-        return Ok(serde_json::to_value(wire::SessionConfig::decode(value)?)?);
-    }
-    if method == "GET" && matches("/api/sessions/:name/cwd", path) {
-        return Ok(serde_json::to_value(wire::Empty::decode(value)?)?);
-    }
-    if method == "GET" && matches("/api/sessions/:name/sandbox", path) {
-        return Ok(serde_json::to_value(wire::Empty::decode(value)?)?);
-    }
-    if method == "POST" && matches("/api/sessions/:name/start", path) {
-        return Ok(serde_json::to_value(wire::Empty::decode(value)?)?);
-    }
-    if method == "POST" && matches("/api/sessions/:name/stop", path) {
-        return Ok(serde_json::to_value(wire::Empty::decode(value)?)?);
-    }
-    if method == "POST" && matches("/api/sessions/:name/restart", path) {
-        return Ok(serde_json::to_value(wire::Empty::decode(value)?)?);
-    }
-    if method == "PUT" && matches("/api/sessions/:name/label", path) {
-        return Ok(serde_json::to_value(wire::LabelReq::decode(value)?)?);
-    }
-    if method == "POST" && matches("/api/sessions/:name/state/reset", path) {
-        return Ok(serde_json::to_value(wire::Empty::decode(value)?)?);
-    }
-    if method == "PUT" && matches("/api/templates/:name", path) {
-        return Ok(serde_json::to_value(wire::AgentTemplate::decode(value)?)?);
-    }
-    if method == "DELETE" && matches("/api/templates/:name", path) {
-        return Ok(serde_json::to_value(wire::Empty::decode(value)?)?);
-    }
-    if method == "POST" && matches("/api/templates/:name/create", path) {
-        return Ok(serde_json::to_value(wire::CreateAgentTemplateReq::decode(
-            value,
-        )?)?);
-    }
-    if method == "GET" && matches("/api/tasks/:id", path) {
-        return Ok(serde_json::to_value(wire::Empty::decode(value)?)?);
-    }
-    if method == "POST" && matches("/api/tasks/:id", path) {
-        return Ok(serde_json::to_value(wire::UpdateTaskReq::decode(value)?)?);
-    }
-    if method == "DELETE" && matches("/api/tasks/:id", path) {
-        return Ok(serde_json::to_value(wire::Empty::decode(value)?)?);
-    }
-    if method == "GET" && matches("/api/projects/:name", path) {
-        return Ok(serde_json::to_value(wire::Empty::decode(value)?)?);
-    }
-    if method == "PUT" && matches("/api/projects/:name", path) {
-        return Ok(serde_json::to_value(wire::Project::decode(value)?)?);
-    }
-    if method == "DELETE" && matches("/api/projects/:name", path) {
-        return Ok(serde_json::to_value(wire::Empty::decode(value)?)?);
-    }
-    if method == "PUT" && matches("/api/library/:name", path) {
-        return Ok(serde_json::to_value(wire::LibraryItem::decode(value)?)?);
-    }
-    if method == "DELETE" && matches("/api/library/:name", path) {
-        return Ok(serde_json::to_value(wire::Empty::decode(value)?)?);
-    }
-    if method == "POST" && matches("/api/library/:name/run", path) {
-        return Ok(serde_json::to_value(wire::RunWhere::decode(value)?)?);
-    }
-    if method == "DELETE" && matches("/api/worktrees/:id", path) {
-        return Ok(serde_json::to_value(wire::Empty::decode(value)?)?);
-    }
-    if method == "PUT" && matches("/api/worktrees/:id", path) {
-        return Ok(serde_json::to_value(wire::CreateWorktreeReq::decode(
-            value,
-        )?)?);
-    }
-    if method == "DELETE" && matches("/api/grants/:grantor", path) {
-        return Ok(serde_json::to_value(wire::Empty::decode(value)?)?);
-    }
-    if method == "POST" && matches("/api/state/trash/:key/restore", path) {
-        return Ok(serde_json::to_value(wire::Empty::decode(value)?)?);
-    }
-    if method == "PUT" && matches("/api/jukebox/presets/:id", path) {
-        return Ok(serde_json::to_value(wire::Station::decode(value)?)?);
-    }
-    if method == "DELETE" && matches("/api/jukebox/presets/:id", path) {
-        return Ok(serde_json::to_value(wire::Empty::decode(value)?)?);
-    }
-    if method == "DELETE" && matches("/api/state/:kind/:key", path) {
-        return Ok(serde_json::to_value(wire::Empty::decode(value)?)?);
-    }
-    if method == "PUT" && matches("/api/presets/:kind/:name", path) {
-        return Ok(serde_json::to_value(wire::PresetRequest::decode(value)?)?);
-    }
-    if method == "DELETE" && matches("/api/presets/:kind/:name", path) {
-        return Ok(serde_json::to_value(wire::Empty::decode(value)?)?);
-    }
-    if method == "POST" && matches("/api/presets/:kind/:name/copy", path) {
-        return Ok(serde_json::to_value(wire::CopyPresetReq::decode(value)?)?);
-    }
-    anyhow::bail!("unknown Protobuf route: {method} {path}")
 }
 #[cfg(test)]
 pub(crate) fn encode_response(method: &str, path: &str, value: Value) -> anyhow::Result<Vec<u8>> {
-    if method == "GET" && matches("/api/health", path) {
-        return Ok(serde_json::from_value::<wire::Health>(value)?.encode_to_vec());
+    let route = route(method, path)?;
+    match route.2 {
+        ResponseKind::Ack => Ok(serde_json::from_value::<wire::Ack>(value)?.encode_to_vec()),
+        ResponseKind::AppsReply => {
+            Ok(serde_json::from_value::<wire::AppsReply>(value)?.encode_to_vec())
+        }
+        ResponseKind::AudioState => {
+            Ok(serde_json::from_value::<wire::AudioState>(value)?.encode_to_vec())
+        }
+        ResponseKind::BrowseResult => {
+            Ok(serde_json::from_value::<wire::BrowseResult>(value)?.encode_to_vec())
+        }
+        ResponseKind::Capabilities => {
+            Ok(serde_json::from_value::<wire::Capabilities>(value)?.encode_to_vec())
+        }
+        ResponseKind::ConfigResult => {
+            Ok(serde_json::from_value::<wire::ConfigResult>(value)?.encode_to_vec())
+        }
+        ResponseKind::FileStatResult => {
+            Ok(serde_json::from_value::<wire::FileStatResult>(value)?.encode_to_vec())
+        }
+        ResponseKind::GitResult => {
+            Ok(serde_json::from_value::<wire::GitResult>(value)?.encode_to_vec())
+        }
+        ResponseKind::GrantResult => {
+            Ok(serde_json::from_value::<wire::GrantResult>(value)?.encode_to_vec())
+        }
+        ResponseKind::GrantsReply => {
+            Ok(serde_json::from_value::<wire::GrantsReply>(value)?.encode_to_vec())
+        }
+        ResponseKind::Health => Ok(serde_json::from_value::<wire::Health>(value)?.encode_to_vec()),
+        ResponseKind::ImageResult => {
+            Ok(serde_json::from_value::<wire::ImageResult>(value)?.encode_to_vec())
+        }
+        ResponseKind::JukeboxCatalog => {
+            Ok(serde_json::from_value::<wire::JukeboxCatalog>(value)?.encode_to_vec())
+        }
+        ResponseKind::LibraryReply => {
+            Ok(serde_json::from_value::<wire::LibraryReply>(value)?.encode_to_vec())
+        }
+        ResponseKind::OutputResult => {
+            Ok(serde_json::from_value::<wire::OutputResult>(value)?.encode_to_vec())
+        }
+        ResponseKind::PathResult => {
+            Ok(serde_json::from_value::<wire::PathResult>(value)?.encode_to_vec())
+        }
+        ResponseKind::PresetsReply => {
+            Ok(serde_json::from_value::<wire::PresetsReply>(value)?.encode_to_vec())
+        }
+        ResponseKind::Project => {
+            Ok(serde_json::from_value::<wire::Project>(value)?.encode_to_vec())
+        }
+        ResponseKind::ProjectPreviewResult => {
+            Ok(serde_json::from_value::<wire::ProjectPreviewResult>(value)?.encode_to_vec())
+        }
+        ResponseKind::ProjectsReply => {
+            Ok(serde_json::from_value::<wire::ProjectsReply>(value)?.encode_to_vec())
+        }
+        ResponseKind::Removed => {
+            Ok(serde_json::from_value::<wire::Removed>(value)?.encode_to_vec())
+        }
+        ResponseKind::SandboxReport => {
+            Ok(serde_json::from_value::<wire::SandboxReport>(value)?.encode_to_vec())
+        }
+        ResponseKind::SearchResult => {
+            Ok(serde_json::from_value::<wire::SearchResult>(value)?.encode_to_vec())
+        }
+        ResponseKind::SessionResult => {
+            Ok(serde_json::from_value::<wire::SessionResult>(value)?.encode_to_vec())
+        }
+        ResponseKind::SessionView => {
+            Ok(serde_json::from_value::<wire::SessionView>(value)?.encode_to_vec())
+        }
+        ResponseKind::SessionsReply => {
+            Ok(serde_json::from_value::<wire::SessionsReply>(value)?.encode_to_vec())
+        }
+        ResponseKind::SettingsPreview => {
+            Ok(serde_json::from_value::<wire::SettingsPreview>(value)?.encode_to_vec())
+        }
+        ResponseKind::StoredStates => {
+            Ok(serde_json::from_value::<wire::StoredStates>(value)?.encode_to_vec())
+        }
+        ResponseKind::TaskResult => {
+            Ok(serde_json::from_value::<wire::TaskResult>(value)?.encode_to_vec())
+        }
+        ResponseKind::TasksReply => {
+            Ok(serde_json::from_value::<wire::TasksReply>(value)?.encode_to_vec())
+        }
+        ResponseKind::TemplateResult => {
+            Ok(serde_json::from_value::<wire::TemplateResult>(value)?.encode_to_vec())
+        }
+        ResponseKind::TemplatesReply => {
+            Ok(serde_json::from_value::<wire::TemplatesReply>(value)?.encode_to_vec())
+        }
+        ResponseKind::TextResult => {
+            Ok(serde_json::from_value::<wire::TextResult>(value)?.encode_to_vec())
+        }
+        ResponseKind::UsageSnapshot => {
+            Ok(serde_json::from_value::<wire::UsageSnapshot>(value)?.encode_to_vec())
+        }
+        ResponseKind::WhereIsReply => {
+            Ok(serde_json::from_value::<wire::WhereIsReply>(value)?.encode_to_vec())
+        }
+        ResponseKind::WorkerResult => {
+            Ok(serde_json::from_value::<wire::WorkerResult>(value)?.encode_to_vec())
+        }
+        ResponseKind::Worktree => {
+            Ok(serde_json::from_value::<wire::Worktree>(value)?.encode_to_vec())
+        }
+        ResponseKind::WorktreeBase => {
+            Ok(serde_json::from_value::<wire::WorktreeBase>(value)?.encode_to_vec())
+        }
+        ResponseKind::WorktreesReply => {
+            Ok(serde_json::from_value::<wire::WorktreesReply>(value)?.encode_to_vec())
+        }
     }
-    if method == "GET" && matches("/api/sessions", path) {
-        return Ok(serde_json::from_value::<wire::SessionsReply>(value)?.encode_to_vec());
-    }
-    if method == "POST" && matches("/api/sessions", path) {
-        return Ok(serde_json::from_value::<wire::Ack>(value)?.encode_to_vec());
-    }
-    if method == "POST" && matches("/api/settings/preview", path) {
-        return Ok(serde_json::from_value::<wire::SettingsPreview>(value)?.encode_to_vec());
-    }
-    if method == "GET" && matches("/api/templates", path) {
-        return Ok(serde_json::from_value::<wire::TemplatesReply>(value)?.encode_to_vec());
-    }
-    if method == "POST" && matches("/api/templates", path) {
-        return Ok(serde_json::from_value::<wire::TemplateResult>(value)?.encode_to_vec());
-    }
-    if method == "GET" && matches("/api/templates/spawnable", path) {
-        return Ok(serde_json::from_value::<wire::TemplatesReply>(value)?.encode_to_vec());
-    }
-    if method == "GET" && matches("/api/tasks", path) {
-        return Ok(serde_json::from_value::<wire::TasksReply>(value)?.encode_to_vec());
-    }
-    if method == "POST" && matches("/api/tasks", path) {
-        return Ok(serde_json::from_value::<wire::TaskResult>(value)?.encode_to_vec());
-    }
-    if method == "DELETE" && matches("/api/tasks", path) {
-        return Ok(serde_json::from_value::<wire::Removed>(value)?.encode_to_vec());
-    }
-    if method == "POST" && matches("/api/tasks/cancel", path) {
-        return Ok(serde_json::from_value::<wire::TasksReply>(value)?.encode_to_vec());
-    }
-    if method == "POST" && matches("/api/tasks/remove", path) {
-        return Ok(serde_json::from_value::<wire::Removed>(value)?.encode_to_vec());
-    }
-    if method == "GET" && matches("/api/capabilities", path) {
-        return Ok(serde_json::from_value::<wire::Capabilities>(value)?.encode_to_vec());
-    }
-    if method == "GET" && matches("/api/whereis", path) {
-        return Ok(serde_json::from_value::<wire::WhereIsReply>(value)?.encode_to_vec());
-    }
-    if method == "GET" && matches("/api/projects", path) {
-        return Ok(serde_json::from_value::<wire::ProjectsReply>(value)?.encode_to_vec());
-    }
-    if method == "POST" && matches("/api/projects", path) {
-        return Ok(serde_json::from_value::<wire::Ack>(value)?.encode_to_vec());
-    }
-    if method == "POST" && matches("/api/projects/preview", path) {
-        return Ok(serde_json::from_value::<wire::ProjectPreviewResult>(value)?.encode_to_vec());
-    }
-    if method == "GET" && matches("/api/library", path) {
-        return Ok(serde_json::from_value::<wire::LibraryReply>(value)?.encode_to_vec());
-    }
-    if method == "POST" && matches("/api/library", path) {
-        return Ok(serde_json::from_value::<wire::Ack>(value)?.encode_to_vec());
-    }
-    if method == "POST" && matches("/api/run", path) {
-        return Ok(serde_json::from_value::<wire::SessionResult>(value)?.encode_to_vec());
-    }
-    if method == "GET" && matches("/api/worktrees", path) {
-        return Ok(serde_json::from_value::<wire::WorktreesReply>(value)?.encode_to_vec());
-    }
-    if method == "POST" && matches("/api/worktrees", path) {
-        return Ok(serde_json::from_value::<wire::Worktree>(value)?.encode_to_vec());
-    }
-    if method == "POST" && matches("/api/worktrees/preview", path) {
-        return Ok(serde_json::from_value::<wire::WorktreeBase>(value)?.encode_to_vec());
-    }
-    if method == "POST" && matches("/api/workers", path) {
-        return Ok(serde_json::from_value::<wire::WorkerResult>(value)?.encode_to_vec());
-    }
-    if method == "POST" && matches("/api/file-action", path) {
-        return Ok(serde_json::from_value::<wire::OutputResult>(value)?.encode_to_vec());
-    }
-    if method == "GET" && matches("/api/open-apps", path) {
-        return Ok(serde_json::from_value::<wire::AppsReply>(value)?.encode_to_vec());
-    }
-    if method == "GET" && matches("/api/grants", path) {
-        return Ok(serde_json::from_value::<wire::GrantsReply>(value)?.encode_to_vec());
-    }
-    if method == "POST" && matches("/api/grants", path) {
-        return Ok(serde_json::from_value::<wire::GrantResult>(value)?.encode_to_vec());
-    }
-    if method == "GET" && matches("/api/state", path) {
-        return Ok(serde_json::from_value::<wire::StoredStates>(value)?.encode_to_vec());
-    }
-    if method == "DELETE" && matches("/api/state/trash", path) {
-        return Ok(serde_json::from_value::<wire::Ack>(value)?.encode_to_vec());
-    }
-    if method == "GET" && matches("/api/presets", path) {
-        return Ok(serde_json::from_value::<wire::PresetsReply>(value)?.encode_to_vec());
-    }
-    if method == "GET" && matches("/api/config", path) {
-        return Ok(serde_json::from_value::<wire::ConfigResult>(value)?.encode_to_vec());
-    }
-    if method == "PUT" && matches("/api/config", path) {
-        return Ok(serde_json::from_value::<wire::Ack>(value)?.encode_to_vec());
-    }
-    if method == "PUT" && matches("/api/config/patch", path) {
-        return Ok(serde_json::from_value::<wire::Ack>(value)?.encode_to_vec());
-    }
-    if method == "GET" && matches("/api/clipboard", path) {
-        return Ok(serde_json::from_value::<wire::TextResult>(value)?.encode_to_vec());
-    }
-    if method == "POST" && matches("/api/clipboard", path) {
-        return Ok(serde_json::from_value::<wire::Ack>(value)?.encode_to_vec());
-    }
-    if method == "GET" && matches("/api/clipboard/text", path) {
-        return Ok(serde_json::from_value::<wire::TextResult>(value)?.encode_to_vec());
-    }
-    if method == "GET" && matches("/api/clipboard/primary", path) {
-        return Ok(serde_json::from_value::<wire::TextResult>(value)?.encode_to_vec());
-    }
-    if method == "POST" && matches("/api/clipboard/primary", path) {
-        return Ok(serde_json::from_value::<wire::Ack>(value)?.encode_to_vec());
-    }
-    if method == "GET" && matches("/api/clipboard/primary/text", path) {
-        return Ok(serde_json::from_value::<wire::TextResult>(value)?.encode_to_vec());
-    }
-    if method == "GET" && matches("/api/usage", path) {
-        return Ok(serde_json::from_value::<wire::UsageSnapshot>(value)?.encode_to_vec());
-    }
-    if method == "GET" && matches("/api/audio", path) {
-        return Ok(serde_json::from_value::<wire::AudioState>(value)?.encode_to_vec());
-    }
-    if method == "POST" && matches("/api/ncspot", path) {
-        return Ok(serde_json::from_value::<wire::SessionResult>(value)?.encode_to_vec());
-    }
-    if method == "GET" && matches("/api/jukebox", path) {
-        return Ok(serde_json::from_value::<wire::JukeboxCatalog>(value)?.encode_to_vec());
-    }
-    if method == "GET" && matches("/api/jukebox/presets", path) {
-        return Ok(serde_json::from_value::<wire::JukeboxCatalog>(value)?.encode_to_vec());
-    }
-    if method == "POST" && matches("/api/jukebox/presets", path) {
-        return Ok(serde_json::from_value::<wire::Ack>(value)?.encode_to_vec());
-    }
-    if method == "GET" && matches("/api/browse", path) {
-        return Ok(serde_json::from_value::<wire::BrowseResult>(value)?.encode_to_vec());
-    }
-    if method == "GET" && matches("/api/files/stat", path) {
-        return Ok(serde_json::from_value::<wire::FileStatResult>(value)?.encode_to_vec());
-    }
-    if method == "GET" && matches("/api/read", path) {
-        return Ok(serde_json::from_value::<wire::TextResult>(value)?.encode_to_vec());
-    }
-    if method == "POST" && matches("/api/highlight", path) {
-        return Ok(serde_json::from_value::<wire::TextResult>(value)?.encode_to_vec());
-    }
-    if method == "GET" && matches("/api/image", path) {
-        return Ok(serde_json::from_value::<wire::ImageResult>(value)?.encode_to_vec());
-    }
-    if method == "POST" && matches("/api/files", path) {
-        return Ok(serde_json::from_value::<wire::Ack>(value)?.encode_to_vec());
-    }
-    if method == "PUT" && matches("/api/files", path) {
-        return Ok(serde_json::from_value::<wire::Ack>(value)?.encode_to_vec());
-    }
-    if method == "DELETE" && matches("/api/files", path) {
-        return Ok(serde_json::from_value::<wire::Ack>(value)?.encode_to_vec());
-    }
-    if method == "GET" && matches("/api/search", path) {
-        return Ok(serde_json::from_value::<wire::SearchResult>(value)?.encode_to_vec());
-    }
-    if method == "GET" && matches("/api/git", path) {
-        return Ok(serde_json::from_value::<wire::GitResult>(value)?.encode_to_vec());
-    }
-    if method == "GET" && matches("/api/sessions/:name", path) {
-        return Ok(serde_json::from_value::<wire::SessionView>(value)?.encode_to_vec());
-    }
-    if method == "DELETE" && matches("/api/sessions/:name", path) {
-        return Ok(serde_json::from_value::<wire::Ack>(value)?.encode_to_vec());
-    }
-    if method == "PUT" && matches("/api/sessions/:name", path) {
-        return Ok(serde_json::from_value::<wire::Ack>(value)?.encode_to_vec());
-    }
-    if method == "GET" && matches("/api/sessions/:name/cwd", path) {
-        return Ok(serde_json::from_value::<wire::PathResult>(value)?.encode_to_vec());
-    }
-    if method == "GET" && matches("/api/sessions/:name/sandbox", path) {
-        return Ok(serde_json::from_value::<wire::SandboxReport>(value)?.encode_to_vec());
-    }
-    if method == "POST" && matches("/api/sessions/:name/start", path) {
-        return Ok(serde_json::from_value::<wire::Ack>(value)?.encode_to_vec());
-    }
-    if method == "POST" && matches("/api/sessions/:name/stop", path) {
-        return Ok(serde_json::from_value::<wire::Ack>(value)?.encode_to_vec());
-    }
-    if method == "POST" && matches("/api/sessions/:name/restart", path) {
-        return Ok(serde_json::from_value::<wire::Ack>(value)?.encode_to_vec());
-    }
-    if method == "PUT" && matches("/api/sessions/:name/label", path) {
-        return Ok(serde_json::from_value::<wire::Ack>(value)?.encode_to_vec());
-    }
-    if method == "POST" && matches("/api/sessions/:name/state/reset", path) {
-        return Ok(serde_json::from_value::<wire::Ack>(value)?.encode_to_vec());
-    }
-    if method == "PUT" && matches("/api/templates/:name", path) {
-        return Ok(serde_json::from_value::<wire::TemplateResult>(value)?.encode_to_vec());
-    }
-    if method == "DELETE" && matches("/api/templates/:name", path) {
-        return Ok(serde_json::from_value::<wire::Ack>(value)?.encode_to_vec());
-    }
-    if method == "POST" && matches("/api/templates/:name/create", path) {
-        return Ok(serde_json::from_value::<wire::SessionResult>(value)?.encode_to_vec());
-    }
-    if method == "GET" && matches("/api/tasks/:id", path) {
-        return Ok(serde_json::from_value::<wire::TaskResult>(value)?.encode_to_vec());
-    }
-    if method == "POST" && matches("/api/tasks/:id", path) {
-        return Ok(serde_json::from_value::<wire::TaskResult>(value)?.encode_to_vec());
-    }
-    if method == "DELETE" && matches("/api/tasks/:id", path) {
-        return Ok(serde_json::from_value::<wire::TaskResult>(value)?.encode_to_vec());
-    }
-    if method == "GET" && matches("/api/projects/:name", path) {
-        return Ok(serde_json::from_value::<wire::Project>(value)?.encode_to_vec());
-    }
-    if method == "PUT" && matches("/api/projects/:name", path) {
-        return Ok(serde_json::from_value::<wire::Ack>(value)?.encode_to_vec());
-    }
-    if method == "DELETE" && matches("/api/projects/:name", path) {
-        return Ok(serde_json::from_value::<wire::Ack>(value)?.encode_to_vec());
-    }
-    if method == "PUT" && matches("/api/library/:name", path) {
-        return Ok(serde_json::from_value::<wire::Ack>(value)?.encode_to_vec());
-    }
-    if method == "DELETE" && matches("/api/library/:name", path) {
-        return Ok(serde_json::from_value::<wire::Ack>(value)?.encode_to_vec());
-    }
-    if method == "POST" && matches("/api/library/:name/run", path) {
-        return Ok(serde_json::from_value::<wire::SessionResult>(value)?.encode_to_vec());
-    }
-    if method == "DELETE" && matches("/api/worktrees/:id", path) {
-        return Ok(serde_json::from_value::<wire::Ack>(value)?.encode_to_vec());
-    }
-    if method == "PUT" && matches("/api/worktrees/:id", path) {
-        return Ok(serde_json::from_value::<wire::Worktree>(value)?.encode_to_vec());
-    }
-    if method == "DELETE" && matches("/api/grants/:grantor", path) {
-        return Ok(serde_json::from_value::<wire::Ack>(value)?.encode_to_vec());
-    }
-    if method == "POST" && matches("/api/state/trash/:key/restore", path) {
-        return Ok(serde_json::from_value::<wire::SessionResult>(value)?.encode_to_vec());
-    }
-    if method == "PUT" && matches("/api/jukebox/presets/:id", path) {
-        return Ok(serde_json::from_value::<wire::Ack>(value)?.encode_to_vec());
-    }
-    if method == "DELETE" && matches("/api/jukebox/presets/:id", path) {
-        return Ok(serde_json::from_value::<wire::Ack>(value)?.encode_to_vec());
-    }
-    if method == "DELETE" && matches("/api/state/:kind/:key", path) {
-        return Ok(serde_json::from_value::<wire::Ack>(value)?.encode_to_vec());
-    }
-    if method == "PUT" && matches("/api/presets/:kind/:name", path) {
-        return Ok(serde_json::from_value::<wire::Ack>(value)?.encode_to_vec());
-    }
-    if method == "DELETE" && matches("/api/presets/:kind/:name", path) {
-        return Ok(serde_json::from_value::<wire::Ack>(value)?.encode_to_vec());
-    }
-    if method == "POST" && matches("/api/presets/:kind/:name/copy", path) {
-        return Ok(serde_json::from_value::<wire::Ack>(value)?.encode_to_vec());
-    }
-    anyhow::bail!("unknown Protobuf route: {method} {path}")
 }
