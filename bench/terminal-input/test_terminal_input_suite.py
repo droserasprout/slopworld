@@ -224,15 +224,6 @@ class SuiteTests(unittest.TestCase):
             backend.close.assert_called_once()
             self.assertIn('clipboard unavailable', (root / 'out.md').read_text())
 
-    def test_report_only_never_connects_backend(self):
-        with tempfile.TemporaryDirectory() as directory:
-            bench.data.add_metadata(Path(directory), 'terminal', 'setup', {'status': 'complete'})
-            with patch.object(bench, 'Backend') as backend, patch('sys.stdout', new_callable=io.StringIO), \
-                    patch.object(bench.sys, 'argv', ['bench', '--report-only', '--output', directory]):
-                bench.main()
-            backend.assert_not_called()
-            Path(directory).with_suffix('.md').unlink()
-
     def test_history_only_can_fill_an_empty_shell(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -275,25 +266,6 @@ class SuiteTests(unittest.TestCase):
             prompt.assert_not_called()
             backend.close.assert_called_once()
             self.assertFalse((root / 'out' / 'history.log').exists())
-
-    def test_report_only_repairs_empty_performance_summary(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            line = ('[SlopWorld] perf context eco=1 terminal=1 sessions=1 width=800 '
-                    'height=600 fps=60 gc0=0; root-update calls=60 work=60 ms=3; '
-                    'terminal-window calls=60 work=60 ms=30; '
-                    'ws-events calls=60 work=24 ms=6;\n')
-            (root / 'typing.log').write_text(line * 2)
-            performance = root / 'typing-performance.txt'
-            performance.write_text('')
-            bench.data.add_metadata(root, 'terminal', 'typing', {'status': 'complete'})
-            with patch.object(bench, 'Backend') as backend, patch('sys.stdout', new_callable=io.StringIO), \
-                    patch.object(bench.sys, 'argv', ['bench', '--report-only', '--output', directory,
-                                                    '--report', str(root / 'report.md')]):
-                bench.main()
-            backend.assert_not_called()
-            self.assertIn('terminal-window: 0.500', performance.read_text())
-            self.assertIn('ws_messages | total | 24 count', (root / 'report.md').read_text())
 
     def test_paint_reason_counts_backfill_once_and_report_zeros(self):
         with tempfile.TemporaryDirectory() as directory:

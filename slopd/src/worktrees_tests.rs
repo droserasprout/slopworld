@@ -515,62 +515,6 @@ async fn external_checkouts_and_interrupted_teardown_have_independent_records() 
 }
 
 #[tokio::test]
-async fn rename_migrates_an_existing_id_based_checkout() {
-    use crate::config::{Config, ProjectCfg};
-    use crate::session::{test_manager, WorktreeRequest};
-    let root = repo();
-    let manager = test_manager(Config {
-        projects: vec![ProjectCfg {
-            name: "repo".into(),
-            dir: root.to_string_lossy().into_owned(),
-            worktree_root: root.join("trees").to_string_lossy().into_owned(),
-            ..Default::default()
-        }],
-        ..Default::default()
-    });
-    let w = manager
-        .create_worktree(WorktreeRequest {
-            project: "repo".into(),
-            name: "feature".into(),
-            ..Default::default()
-        })
-        .await
-        .unwrap();
-    let legacy = root
-        .join("trees")
-        .join(&w.project_id)
-        .join(&w.id)
-        .join("checkout");
-    std::fs::create_dir_all(legacy.parent().unwrap()).unwrap();
-    relocate_tree(&w, &legacy).await.unwrap();
-    let mut store = Store::load(&manager.cfg_path).await.unwrap();
-    store.worktrees[0].path = legacy.to_string_lossy().into_owned();
-    store.save(&manager.cfg_path).await.unwrap();
-    let moved = manager
-        .rename_worktree("repo".into(), w.id, "feature".into())
-        .await
-        .unwrap();
-    assert_eq!(Path::new(&moved.path).file_name().unwrap(), "feature");
-    assert_eq!(
-        Path::new(&moved.path)
-            .parent()
-            .unwrap()
-            .file_name()
-            .unwrap(),
-        "repo"
-    );
-    assert!(!legacy.exists());
-    assert!(Path::new(&moved.path).join("file").exists());
-    assert_eq!(
-        git(Path::new(&moved.path), &["rev-parse", "--show-toplevel"])
-            .await
-            .unwrap(),
-        moved.path
-    );
-    std::fs::remove_dir_all(root).unwrap();
-}
-
-#[tokio::test]
 async fn git_mutations_cannot_follow_metadata_symlinks_outside_the_worktree_grant() {
     let root = repo();
     let outside = root.join("outside");

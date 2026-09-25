@@ -42,7 +42,12 @@ impl SessionCfg {
 }
 
 impl Config {
-    pub(crate) fn settings_preview(&self, s: &SessionCfg, p: &ProjectCfg, recipe: bool) -> Value {
+    pub(crate) fn settings_preview(
+        &self,
+        s: &SessionCfg,
+        p: &ProjectCfg,
+        recipe: bool,
+    ) -> anyhow::Result<Value> {
         let mut fields = Vec::new();
         let mut field = |label: &str, values: Vec<String>| {
             fields.push(json!({"label": label, "values": values}))
@@ -105,7 +110,7 @@ impl Config {
         }
         field("Resource limits", caps);
         let table = s.preset_table();
-        let effective = crate::sandbox::presets_for(self, s, p, &table);
+        let effective = crate::sandbox::presets_for(self, s, p, &table)?;
         let command_presets = s
             .command_snapshot
             .as_ref()
@@ -136,12 +141,7 @@ impl Config {
             } else {
                 "live definition"
             };
-            let status = if effective.iter().any(|v| v.name == name) {
-                definition
-            } else {
-                "This setting is missing or invalid. The daemon ignores it at launch."
-            };
-            selections.push(format!("{name} — {} — {status}", owners.join(" + ")));
+            selections.push(format!("{name} — {} — {definition}", owners.join(" + ")));
         }
         field("Sandbox contributions", selections);
         field(
@@ -225,10 +225,12 @@ impl Config {
                 .map(|(key, value)| format!("{key}={value}"))
                 .collect(),
         );
-        json!({"title": if recipe { "Template recipe" } else { "Effective settings for next start" },
+        Ok(
+            json!({"title": if recipe { "Template recipe" } else { "Effective settings for next start" },
             "subtitle": if recipe { "Portable agent settings. The destination project applies project mounts.".to_string() } else { format!("Project: {} — {}", p.name, p.dir) },
             "notes": ["This is saved or draft configuration. It does not describe a running process. The daemon checks mount existence and protected paths at launch."],
-            "fields": fields})
+            "fields": fields}),
+        )
     }
 }
 

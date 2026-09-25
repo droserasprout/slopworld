@@ -364,9 +364,8 @@ def main():
     parser.add_argument('--log', type=Path, default=default_trace_log(),
                         help='SlopWorld-trace.log (defaults to the launcher profile path)')
     parser.add_argument('--run', help='directory name under bench/results (default: UTC timestamp)')
-    parser.add_argument('--output', type=Path, help='legacy raw directory override')
+    parser.add_argument('--output', type=Path, help='raw directory override')
     parser.add_argument('--report', type=Path, help='Markdown report path (default: run/report.md)')
-    parser.add_argument('--report-only', action='store_true', help='Summarize saved artifacts without injecting input')
     args = parser.parse_args()
     if args.run and args.output:
         parser.error('--run and --output are alternatives')
@@ -379,30 +378,6 @@ def main():
         args.report = args.report or args.output.with_suffix('.md')
     if args.report.suffix != '.md':
         parser.error('--report must end in .md')
-    if args.report_only:
-        run_rows = data.read(args.results / 'run.csv')
-        for phase, _, _ in PHASES:
-            log = args.output / f'{phase}.log'
-            performance = args.output / f'{phase}-performance.txt'
-            if log.is_file() and (not performance.exists() or performance.stat().st_size == 0):
-                write_performance_summary(log, performance, mode='w')
-            if performance.is_file():
-                summary = performance.read_text()
-                phase_status = next((row['value'] for row in reversed(run_rows)
-                                     if row['suite'] == 'terminal' and row['phase'] == phase
-                                     and row['key'] == 'status'), 'invalid')
-                perf_status = 'complete' if phase_status in ('complete', 'complete_with_slip') else 'invalid'
-                record_performance_metrics(args.results, phase, parse_performance(summary), perf_status)
-                record_paint_reasons(args.results, phase, summary, perf_status)
-            latency = args.output / f'{phase}-latency.json'
-            if phase == 'history' and latency.is_file() and not any(
-                    row['suite'] == 'terminal' and row['phase'] == phase and
-                    row['key'] == 'scroll_sources' for row in run_rows):
-                sources = ','.join(sorted(json.loads(latency.read_text()).get('scroll_sources', {})))
-                if sources:
-                    data.add_metadata(args.results, 'terminal', phase, {'scroll_sources': sources})
-        print(f'Report: {show_report(args)}')
-        return
     if args.prepare_seconds < 1:
         parser.error('prepare-seconds must be positive')
     if args.fill_history and args.phase not in ('history', 'typing'):

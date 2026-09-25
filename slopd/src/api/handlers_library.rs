@@ -119,13 +119,7 @@ pub(crate) async fn run(
     State(m): State<Mgr>,
     Proto(q): Proto<wire::RunReq>,
 ) -> ApiResult<wire::SessionResult> {
-    let mut q: RunReq = domain(q)?;
-    if q.worktree.is_empty() && !q.path.is_empty() {
-        q.worktree = m
-            .worktree_for_path(&q.project, &q.path)
-            .await
-            .map_err(|e| err(axum::http::StatusCode::BAD_REQUEST, e))?;
-    }
+    let q: RunReq = domain(q)?;
     let project = q.project.trim();
     let command = if q.path.trim().is_empty() {
         q.command.trim().to_string()

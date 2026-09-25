@@ -34,7 +34,7 @@ pub fn prepare_network(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result<(
     // A preset can change from private copies to shared mounts.
     // Different tables can leave a session without either the initial copy or the shared mount.
     let t = s.preset_table();
-    for pr in presets_for(cfg, s, p, &t) {
+    for pr in presets_for(cfg, s, p, &t)? {
         for path in &pr.private {
             let host = expand(path);
             if host.is_empty() {

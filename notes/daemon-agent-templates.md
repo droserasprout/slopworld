@@ -16,8 +16,8 @@ Omitted fields use these defaults:
 - Startup flags use session defaults.
  Existing explicit stored
 values stay explicit. Capture copies agent choices and their dependency snapshots.
-It excludes project settings and mounts. Missing/invalid sandbox
-references ignored at launch cannot block capture. Names, labels, mounts,
+It excludes project settings and mounts. Invalid sandbox references reject capture and launch.
+Names, labels, mounts,
 state IDs, worker hierarchy, runtime state, and daemon or worker credentials are not template
 fields. Templates retain no source-agent or source-project relationship.
 

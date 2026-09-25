@@ -4,14 +4,13 @@ The daemon owns machine configuration.
 The mod owns profile preferences that remain available offline.
 The mod uses daemon APIs and reads `endpoint.toml` for connection credentials.
 It must not read or rewrite daemon TOML directly. Locations and overrides: [paths](ops-paths.md).
-The proposed per-record split of projects, agents and host terminals is scoped in the
-[config split plan](plan-config-split.md).
 
 Personal agent templates are a separate daemon-owned `agent_templates/` store beside
 the main config. `session/agent_templates.rs` defines its types and snapshot rules.
 The manager loads the store at startup and serializes mutations atomically. Templates retain no parent
 agent or project metadata. Library items are one file per kind in `prompts/`, `breadcrumbs/`,
 `file_actions/`, and `shell_scripts/`.
+Each library item must set its `link` explicitly to `project`, `temp`, or `ask`.
 Sandboxes, apps, and jukebox stations use `sandbox_presets/`, `app_presets/`, and `jukebox/`, respectively.
 
 Config patches deep-merge the original TOML document, preserving omitted and unknown fields.

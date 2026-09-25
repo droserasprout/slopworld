@@ -10,7 +10,7 @@ Shipped palettes live one theme per file under `mod/Themes/UI/` and `mod/Themes/
 Optional contiguous `order` fields place the three SlopWorld themes first.
 All other IDs sort alphabetically. Run `make validate-themes` before you build the mod.
 The target rejects duplicate IDs, missing roles, invalid colors, and ANSI rows other than 16.
-`Well` and `Sel` remain derived roles, and the solarized Match UI alias remains in code.
+`Well` and `Sel` remain derived roles. UI and terminal theme IDs match so Match UI needs no aliases.
 
 Named upstream palettes must preserve their values and roles. Adapt missing widget roles
 explicitly rather than silently altering upstream colors to satisfy contrast checks.

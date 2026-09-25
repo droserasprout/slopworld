@@ -136,7 +136,7 @@ namespace SlopWorld
                 icon = Icons.Play,
                 defaultIconColor = UiTheme.Yes,
                 hotKey = ModDefOf.SlopToggleSession,
-                action = () => SessionHub.Instance.SessionStore.Start(Session, UiLayout.Fail),
+                action = () => CatalogActions.Start(Session),
             };
         }
 

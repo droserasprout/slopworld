@@ -103,16 +103,19 @@ pub(super) fn push_persistent_tmp(a: &mut Vec<String>, bind: &BindContext<'_>) {
 }
 
 /// Mount private state, shared credentials, and DNS files after ordinary paths.
-pub(super) fn push_private_binds(a: &mut Vec<String>, bind: &BindContext<'_>) {
+pub(super) fn push_private_binds(
+    a: &mut Vec<String>,
+    bind: &BindContext<'_>,
+) -> anyhow::Result<()> {
     // Mount private copies after preset and project mounts.
     // Each copy hides earlier mounts at the same target and blocks access to the original.
-    for (copy, host) in private_bind_paths(bind.cfg, bind.s, bind.p, bind.table) {
+    for (copy, host) in private_bind_paths(bind.cfg, bind.s, bind.p, bind.table)? {
         push_args(a, &["--bind", &copy, &host]);
     }
 
     // Mount shared files inside private copies.
     // Bubblewrap creates the mount point without copying the host file first.
-    for path in shared_binds(bind.cfg, bind.s, bind.p, bind.table) {
+    for path in shared_binds(bind.cfg, bind.s, bind.p, bind.table)? {
         push_args(a, &["--bind", &path, &path]);
     }
 
@@ -123,6 +126,7 @@ pub(super) fn push_private_binds(a: &mut Vec<String>, bind: &BindContext<'_>) {
             push_args(a, &["--ro-bind", src, target]);
         }
     }
+    Ok(())
 }
 
 /// Mount the primary project at its configured path.

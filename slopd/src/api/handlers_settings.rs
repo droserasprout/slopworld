@@ -81,7 +81,9 @@ pub(crate) async fn settings_preview(
         "command": session.command_snapshot,
         "sandbox_presets": session.sandbox_snapshots,
     }});
-    let mut result = cfg.settings_preview(&session, &project, req.recipe);
+    let mut result = cfg
+        .settings_preview(&session, &project, req.recipe)
+        .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
     result["definitions"] = definitions;
     reply(result)
 }

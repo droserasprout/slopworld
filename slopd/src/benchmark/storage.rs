@@ -118,7 +118,6 @@ fn benchmark_tasks(scratch: &Scratch) -> Result<()> {
                 .len()
         });
     }
-    // Compare the legacy full-body journal with bounded production updates, same task bodies and progress notes.
     let initial = Tasks::load(&config)?;
     std::fs::write(
         config.with_file_name("tasks.toml"),
@@ -128,15 +127,7 @@ fn benchmark_tasks(scratch: &Scratch) -> Result<()> {
     )?;
     let _ = std::fs::remove_file(config.with_file_name("tasks.journal"));
     let mut tasks = Tasks::load(&config)?;
-    let mut legacy = String::new();
-    let task = tasks.get("worker", "bench-0").unwrap();
     for sample in 0..10_000 {
-        let mut changed = task.clone();
-        changed.note = Some(format!("restart {sample}"));
-        legacy.push_str(&serde_json::to_string(
-            &serde_json::json!({"generation": 0, "task": changed}),
-        )?);
-        legacy.push('\n');
         tasks.update(
             "worker",
             "bench-0",
@@ -146,24 +137,6 @@ fn benchmark_tasks(scratch: &Scratch) -> Result<()> {
     }
     measure("task restart bounded 10000 updates", |_| {
         Tasks::load(&config).unwrap().all().len()
-    });
-    let legacy_dir = scratch.0.join("legacy");
-    std::fs::create_dir(&legacy_dir)?;
-    // A generation-zero snapshot supports the legacy reference replay independently of compaction.
-    #[derive(Serialize)]
-    struct LegacyFixture {
-        tasks: Vec<Task>,
-    }
-    std::fs::write(
-        legacy_dir.join("tasks.toml"),
-        toml::to_string(&LegacyFixture { tasks: tasks.all() })?,
-    )?;
-    std::fs::write(legacy_dir.join("tasks.journal"), legacy)?;
-    measure("task restart full-body 10000 updates reference", |_| {
-        Tasks::load(&legacy_dir.join("config.toml"))
-            .unwrap()
-            .all()
-            .len()
     });
     Ok(())
 }

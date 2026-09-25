@@ -22,7 +22,7 @@ namespace SlopWorld.Tests
                           "alphabetical UI theme is not pinned");
             AssertEx.Equal("onedark", catalog.UISchemes[9].Id, "alphabetical UI theme");
             AssertEx.Equal("vscode-dark", catalog.UISchemes.Last().Id, "last UI theme");
-            AssertEx.Equal("solarized", catalog.TerminalThemes[10].Id, "solarized terminal id");
+            AssertEx.Equal("solarized-dark", catalog.TerminalThemes[10].Id, "solarized terminal id");
             AssertEx.Equal(16, catalog.TerminalThemes[0].Ansi.Length, "ANSI slot count");
             AssertEx.Equal("#2b2014f5", catalog.UISchemes[0].Panel, "UI alpha preserved");
             AssertEx.Equal("#3d4c64", catalog.TerminalThemes[0].Selection,

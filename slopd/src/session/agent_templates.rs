@@ -384,8 +384,7 @@ impl AgentTemplate {
                 .map(Some)?
         };
 
-        // Capture the same effective definitions the launcher uses. Stale or invalid
-        // references already have no effect at launch and must not prevent a snapshot.
+        // Capture the same validated definitions the launcher uses.
         let effective_table = source.preset_table();
         let mut selected = source.sandbox.clone();
         if let Some(command) = &command {
@@ -403,7 +402,7 @@ impl AgentTemplate {
             index += 1;
         }
         let sandbox_presets: Vec<_> =
-            crate::sandbox::presets_for(cfg, source, project, &effective_table)
+            crate::sandbox::presets_for(cfg, source, project, &effective_table)?
                 .into_iter()
                 .filter(|preset| selected.contains(&preset.name))
                 .cloned()

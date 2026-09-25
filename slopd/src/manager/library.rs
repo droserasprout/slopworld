@@ -110,21 +110,13 @@ impl Manager {
                     );
                 }
                 let old_path = Path::new(&w.path);
-                let legacy = old_path.file_name().and_then(|s| s.to_str()) == Some("checkout")
-                    && old_path
-                        .parent()
-                        .and_then(|s| s.file_name())
-                        .and_then(|s| s.to_str())
-                        == Some(&w.id);
-                let root = if legacy {
-                    old_path
-                        .parent()
-                        .and_then(Path::parent)
-                        .and_then(Path::parent)
-                } else {
-                    old_path.parent().and_then(Path::parent)
+                if old_path.file_name().and_then(|s| s.to_str()) != Some(&w.name) {
+                    bail!("worktree path does not match its recorded name");
                 }
-                .context("worktree root")?;
+                let root = old_path
+                    .parent()
+                    .and_then(Path::parent)
+                    .context("worktree root")?;
                 let project_dir = root.join(&p.name);
                 std::fs::create_dir_all(&project_dir)?;
                 if std::fs::symlink_metadata(&project_dir)?
@@ -206,18 +198,7 @@ impl Manager {
         }
         for (_, source) in moves {
             let path = Path::new(&source);
-            if path.file_name().and_then(|s| s.to_str()) == Some("checkout")
-                && path
-                    .parent()
-                    .and_then(|p| p.file_name())
-                    .and_then(|s| s.to_str())
-                    .is_some_and(|id| uuid::Uuid::parse_str(id).is_ok())
-            {
-                let _ = std::fs::remove_dir(path.parent().unwrap());
-                let _ = std::fs::remove_dir(path.parent().unwrap().parent().unwrap());
-            } else {
-                let _ = std::fs::remove_dir(path.parent().unwrap());
-            }
+            let _ = std::fs::remove_dir(path.parent().unwrap());
         }
         Ok(())
     }

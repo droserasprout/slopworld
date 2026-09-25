@@ -80,22 +80,10 @@ impl Manager {
                     );
                 }
                 let old_path = Path::new(&old.path);
-                let legacy = old_path.file_name().and_then(|s| s.to_str()) == Some("checkout")
-                    && old_path
-                        .parent()
-                        .and_then(|s| s.file_name())
-                        .and_then(|s| s.to_str())
-                        == Some(&old.id);
-                let project_dir = if legacy {
-                    old_path
-                        .parent()
-                        .and_then(Path::parent)
-                        .and_then(Path::parent)
-                        .context("worktree root")?
-                        .join(&p.name)
-                } else {
-                    old_path.parent().context("worktree root")?.to_path_buf()
-                };
+                if old_path.file_name().and_then(|s| s.to_str()) != Some(&old.name) {
+                    bail!("worktree path does not match its recorded name");
+                }
+                let project_dir = old_path.parent().context("worktree root")?.to_path_buf();
                 tokio::fs::create_dir_all(&project_dir).await?;
                 if tokio::fs::symlink_metadata(&project_dir)
                     .await?
@@ -120,11 +108,6 @@ impl Manager {
                         crate::worktrees::relocate_tree(&updated, Path::new(&old.path)).await?;
                     }
                     return Err(error);
-                }
-                if legacy {
-                    let legacy_parent = Path::new(&old.path).parent().unwrap();
-                    let _ = std::fs::remove_dir(legacy_parent);
-                    let _ = std::fs::remove_dir(legacy_parent.parent().unwrap());
                 }
                 Ok(updated)
             })
@@ -164,34 +147,24 @@ impl Manager {
             .unwrap_or_default())
     }
 
-    pub(super) async fn config_for_worktree_path(
-        &self,
-        project: &str,
-        path: &str,
-    ) -> Result<Config> {
-        let mut cfg = self.config().await;
-        let selected = self.worktree_for_path(project, path).await?;
-        if !selected.is_empty() {
-            let p = cfg
-                .projects
-                .iter_mut()
-                .find(|p| p.name == project)
-                .context("worktree project")?;
-            *p = self.resolve_worktree(p, &selected).await?;
-        }
-        Ok(cfg)
-    }
-
-    // Explicit scope takes priority over path inference. Check registration and readiness first.
-    // The action path validator then rejects sibling checkouts and symlink escapes.
+    // Empty worktree selects Main. A supplied path must belong to that exact checkout.
+    // The action path validator also rejects symlink escapes.
     pub(super) async fn config_for_action_scope(
         &self,
         project: &str,
         worktree: &str,
         path: &str,
     ) -> Result<Config> {
-        if worktree.is_empty() {
-            return self.config_for_worktree_path(project, path).await;
+        let worktree = if worktree.is_empty() {
+            "main"
+        } else {
+            worktree
+        };
+        if project.trim().is_empty() {
+            if worktree != "main" {
+                bail!("a project is required to select a worktree");
+            }
+            return Ok(self.config().await);
         }
         if !path.trim().is_empty() {
             let inferred = self.worktree_for_path(project, path).await?;
@@ -209,7 +182,7 @@ impl Manager {
             .projects
             .iter_mut()
             .find(|p| p.name == project)
-            .context("worktree project")?;
+            .ok_or_else(|| anyhow!("Project {project:?} does not exist."))?;
         *p = self.resolve_worktree(p, worktree).await?;
         Ok(cfg)
     }
@@ -355,6 +328,9 @@ impl Manager {
             bail!("worktree {id} is not ready (phase {})", w.phase);
         }
         let checkout = Path::new(&w.path);
+        if w.managed && checkout.file_name().and_then(|s| s.to_str()) != Some(&w.name) {
+            bail!("managed worktree {id} path does not match its recorded name");
+        }
         if checkout.is_symlink() || !checkout.is_dir() {
             bail!("worktree {id} checkout is missing or is not a directory");
         }
@@ -455,6 +431,9 @@ impl Manager {
                 w.error =
                     "The checkout directory is missing. Retry manual removal to reconcile its record."
                         .into();
+            } else if w.managed && path.file_name().and_then(|s| s.to_str()) != Some(&w.name) {
+                w.phase = "error".into();
+                w.error = "The managed checkout path does not match its recorded name.".into();
             }
             let mut attachments = self.worktree_attachments(&w).await;
             if w.id == "main" {
@@ -666,11 +645,6 @@ impl Manager {
                     let listing = git(Path::new(&w.repository), &["worktree", "list", "--porcelain", "-z"]).await?;
                     if listing.split('\0').any(|line| line == format!("worktree {}", w.path)) {
                         crate::worktrees::forget_missing(&w).await?;
-                    }
-                    let parent = path.parent().context("worktree parent")?;
-                    if path.file_name().and_then(|s| s.to_str()) == Some("checkout") && parent.file_name().and_then(|s| s.to_str()) == Some(&w.id) && parent.exists() {
-                        std::fs::remove_dir(parent).context("legacy worktree container is not empty")?;
-                        let _ = std::fs::remove_dir(parent.parent().context("legacy project directory")?);
                     }
                 }
                 Ok::<_, anyhow::Error>(())

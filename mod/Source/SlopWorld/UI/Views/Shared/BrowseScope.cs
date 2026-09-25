@@ -17,7 +17,7 @@ namespace SlopWorld
             "scope/" + Uri.EscapeDataString(projectId ?? "") + "/" + Uri.EscapeDataString(worktree ?? "main");
         public static bool IsKey(string value) => value != null && value.StartsWith("scope/", StringComparison.Ordinal);
         public static string WorktreeOf(string value) => IsKey(value) ? Uri.UnescapeDataString(value.Substring(value.LastIndexOf('/') + 1)) : "";
-        public static string ProjectIdOf(ProjectInfo project) => string.IsNullOrEmpty(project.Id) ? "legacy:" + project.Name : project.Id;
+        public static string ProjectIdOf(ProjectInfo project) => string.IsNullOrEmpty(project.Id) ? "name:" + project.Name : project.Id;
         public static ProjectInfo ProjectOf(string value, IEnumerable<ProjectInfo> projects)
         {
             if (!IsKey(value)) return projects.FirstOrDefault(p => p.Name == value);
@@ -40,17 +40,6 @@ namespace SlopWorld
         {
             if (!scope.Ready) return;
             if (!_exceptions.Remove(scope.Key)) _exceptions.Add(scope.Key);
-        }
-        public bool MigrateProject(string oldId, string newId)
-        {
-            string prefix = BrowseScope.Identity(oldId, "");
-            var keys = _exceptions.Where(k => k.StartsWith(prefix, StringComparison.Ordinal)).ToList();
-            foreach (var key in keys)
-            {
-                _exceptions.Remove(key);
-                _exceptions.Add(BrowseScope.Identity(newId, BrowseScope.WorktreeOf(key)));
-            }
-            return keys.Count > 0;
         }
         public string Save() => string.Join("\n", _exceptions.OrderBy(s => s, StringComparer.Ordinal).ToArray());
     }

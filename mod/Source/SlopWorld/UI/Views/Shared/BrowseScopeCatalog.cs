@@ -80,14 +80,6 @@ namespace SlopWorld
                 {
                     _projects = projectRevision;
                     var list = projects.ToList();
-                    bool migrated = false;
-                    foreach (var p in list)
-                        if (!string.IsNullOrEmpty(p.Id)) migrated |= _choices.MigrateProject("legacy:" + p.Name, p.Id);
-                    if (migrated)
-                    {
-                        _saved = _choices.Save();
-                        persist?.Invoke(_saved);
-                    }
                     var ids = new HashSet<string>(list.Select(BrowseScope.ProjectIdOf));
                     foreach (var id in _catalogs.Keys.Where(k => !ids.Contains(k)).ToList()) _catalogs.Remove(id);
                     foreach (var p in list)
