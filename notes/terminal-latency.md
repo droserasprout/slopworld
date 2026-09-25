@@ -91,6 +91,8 @@ Performance and latency records share `SlopWorld-trace.log` in the game save-dat
 folder. This bypasses Verse's global message limit. The game replaces the file at startup.
 With `SLOPWORLD_DEBUG=1`, performance records split terminal-window work by GUI
 event type and time terminal parse, cache full/row paint, direct paint and cached blit separately.
+The terminal benchmark also records main-thread WebSocket message count and work to
+check whether shorter screen coalescing increases client load.
 The daemon reports paste admission and tmux paste-command timings. Performance
 lane totals can overlap. C# lane p50/p95/p99 use at most the first 512 calls in
 each reporting interval, while their maximum covers every call. Daemon lane
@@ -242,6 +244,8 @@ input→frame-end distributions without inventing daemon timing stages.
 If another wheel event replaces the target before it is drawn, the earlier event
 is `superseded`, not a fast success. Events that cannot move the position are
 `no_motion`. Legacy duplicates are `deduplicated`. Panel release is `cancelled`.
+History reports record observed scroll input sources. Compare runs only when those
+sources match; a legacy wheel sample is not equivalent to a precise X11 movement.
 The 60 Hz `ScrollBeat` throttles daemon history requests, not local movement
 through rows already in `TerminalHistory`. At a 60 FPS display, a movement consumed
 after its drawable pass can wait roughly one frame for the next repaint.

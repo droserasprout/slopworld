@@ -184,9 +184,11 @@ class SuiteTests(unittest.TestCase):
             (root / 'htop-latency.json').write_text(json.dumps({'counts': {'samples': 48, 'overflow': 35803},
                 'metrics': {'keys': {'input_to_frame_end': {'n': 48, 'p50': 99999999}}}}))
             (root / 'htop-performance.txt').write_text('eco=1 terminal=1 sessions=37 size=100x100 windows=4\n'
-                'mean reported FPS=59.43; gen0 collections=24\n  terminal-window: 8.020\n'
+                'mean reported FPS=59.43; gen0 collections=24\n  ws-events: 0.113\n'
+                'Client WebSocket messages: 1200\n  terminal-window: 8.020\n'
                 'eco=0 terminal=1 sessions=38 size=100x100 windows=2\n'
-                'mean reported FPS=30.00; gen0 collections=5\n  terminal-window: 16.000\n')
+                'mean reported FPS=30.00; gen0 collections=5\n  ws-events: 0.250\n'
+                'Client WebSocket messages: 300\n  terminal-window: 16.000\n')
             output = root / 'report.md'
             bench.record_phase(root, 'htop', json.loads((root / 'htop-events.json').read_text()),
                                json.loads((root / 'htop-latency.json').read_text()),
@@ -203,6 +205,8 @@ class SuiteTests(unittest.TestCase):
             self.assertNotIn('sessions=', report)
             self.assertIn('sessions=37', (root / 'metrics.csv').read_text())
             self.assertIn('sessions=38', (root / 'metrics.csv').read_text())
+            self.assertIn('ws_messages | total | 1200 count', report)
+            self.assertIn('ws_work | mean | 0.113 ms/update', report)
 
     def test_preparation_failure_still_writes_report_without_injection(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -277,7 +281,8 @@ class SuiteTests(unittest.TestCase):
             root = Path(directory)
             line = ('[SlopWorld] perf context eco=1 terminal=1 sessions=1 width=800 '
                     'height=600 fps=60 gc0=0; root-update calls=60 work=60 ms=3; '
-                    'terminal-window calls=60 work=60 ms=30;\n')
+                    'terminal-window calls=60 work=60 ms=30; '
+                    'ws-events calls=60 work=24 ms=6;\n')
             (root / 'typing.log').write_text(line * 2)
             performance = root / 'typing-performance.txt'
             performance.write_text('')
@@ -288,6 +293,7 @@ class SuiteTests(unittest.TestCase):
                 bench.main()
             backend.assert_not_called()
             self.assertIn('terminal-window: 0.500', performance.read_text())
+            self.assertIn('ws_messages | total | 24 count', (root / 'report.md').read_text())
 
     def test_paint_reason_counts_backfill_once_and_report_zeros(self):
         with tempfile.TemporaryDirectory() as directory:

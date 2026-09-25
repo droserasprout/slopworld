@@ -182,6 +182,21 @@ class BenchReportTests(unittest.TestCase):
                                        "latency/input_to_frame_end", "p50", "us", 1, 50000)
             self.assertIn("incompatible workload", report.data.render(new, old, "relative"))
 
+    def test_history_comparison_requires_the_same_scroll_input_source(self):
+        with tempfile.TemporaryDirectory() as directory:
+            new, old = Path(directory) / "new", Path(directory) / "old"
+            for target, source in ((old, "duplicate,precise"), (new, "wheel")):
+                report.data.add_metadata(target, "terminal", "history", {
+                    "backend": "ydotool", "rate": 300, "multiplier": 5,
+                    "observed_contexts": "eco=1 terminal=1 size=1429x774",
+                    "scroll_sources": source})
+                report.data.add_metric(target, "terminal", "history", "pane",
+                                       "terminal_work", "mean", "ms/update", 1, 5)
+            self.assertIn("incompatible workload", report.data.render(new, old, "relative"))
+            report.data.add_metadata(new, "terminal", "history", {
+                "scroll_sources": "duplicate,precise"})
+            self.assertIn("+0.00%", report.data.render(new, old, "relative"))
+
     def test_outlier_changes_range_not_median(self):
         sample = report.summarize_runs([run(1, 4, 10), run(100, 200, 1000), run(2, 3, 20)])["case"]
         self.assertEqual((2, 4, 20), (sample.p50, sample.p95, sample.bytes_per_op))

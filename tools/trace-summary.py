@@ -50,6 +50,8 @@ def main():
             if frames:
                 for lane in ("root-update", "ws-events", "colonist-bar", "sidebar", "topbar", "terminal-window"):
                     print(f"  {lane}: {total(lane, 'ms') / frames:.3f}")
+            if total("ws-events", "calls"):
+                print(f"Client WebSocket messages: {total('ws-events', 'work'):.0f}")
             detail = (
                 "terminal-window-repaint", "terminal-window-layout", "terminal-window-input",
                 "terminal-parse", "terminal-cache-full-paint", "terminal-cache-scroll-paint",

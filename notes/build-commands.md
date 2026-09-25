@@ -76,7 +76,7 @@ the default absolute medians with sample standard deviation when repeated.
 Markdown report elsewhere. Game-free comparisons require matching recorded build
 and host details; a missing or different environment withholds the percentage.
 Terminal comparisons match backend, input rate, speed multiplier, and viewport
-context. The session inventory count stays in raw CSVs but is omitted from reports
+context. History also requires the same observed scroll input sources. The session inventory count stays in raw CSVs but is omitted from reports
 and ignored when pairing otherwise identical active-terminal measurements. Keep
 background load comparable.
 The committable report is a single stable snapshot under `bench/`; local runs

@@ -138,7 +138,8 @@ def record_phase(directory, phase, metadata, result, performance_text):
             'actual_seconds', 'schedule_slip_seconds', 'rebased_deadlines',
             'observed_paste_requests', 'text_fixture', 'transport', 'window', 'error')}
         | {'observed_contexts': ';'.join(sorted({context.split(' windows=', 1)[0]
-             for context, _, _, _ in contexts}))})
+             for context, *_ in contexts})),
+           'scroll_sources': ','.join(sorted(result.get('scroll_sources', {}))) if phase == 'history' else None})
     data.add_outcomes(directory, 'terminal', phase, '', 1, result.get('counts', {}))
     for kind, lanes in result.get('metrics', {}).items():
         for lane, stats in lanes.items():
@@ -147,14 +148,25 @@ def record_phase(directory, phase, metadata, result, performance_text):
                     data.add_metric(directory, 'terminal', phase, kind, 'latency/' + lane,
                                     stat, 'count' if stat == 'n' else 'us', 1, stats[stat], state)
     perf_status = 'complete' if metadata.get('status') in ('complete', 'complete_with_slip') else 'invalid'
-    for context, fps, gc, terminal in contexts:
-        context = context.split(' windows=', 1)[0]
-        for name, value, unit in (('fps', fps, 'frames/s'), ('gc0', gc, 'count'),
-                                  ('terminal_work', terminal, 'ms/update')):
-            if value != '—':
-                data.add_metric(directory, 'terminal', phase, context, name, 'mean', unit, 1, value,
-                                perf_status)
+    record_performance_metrics(directory, phase, contexts, perf_status)
     record_paint_reasons(directory, phase, performance_text, perf_status)
+
+
+def record_performance_metrics(directory, phase, contexts, status='complete'):
+    """Add available client work counters, including those added after a saved run."""
+    existing = {(row['case'], row['metric']) for row in data.read(directory / 'metrics.csv')
+                if row['suite'] == 'terminal' and row['phase'] == phase}
+    for context, fps, gc, terminal, ws, messages in contexts:
+        context = context.split(' windows=', 1)[0]
+        for name, value, unit, stat in (('fps', fps, 'frames/s', 'mean'),
+                                        ('gc0', gc, 'count', 'mean'),
+                                        ('terminal_work', terminal, 'ms/update', 'mean'),
+                                        ('ws_work', ws, 'ms/update', 'mean'),
+                                        ('ws_messages', messages, 'count', 'total')):
+            if value != '—' and (context, name) not in existing:
+                data.add_metric(directory, 'terminal', phase, context, name, stat, unit, 1, value,
+                                status)
+                existing.add((context, name))
 
 
 def record_paint_reasons(directory, phase, performance_text, status='complete'):
@@ -361,13 +373,27 @@ def main():
     if args.report.suffix != '.md':
         parser.error('--report must end in .md')
     if args.report_only:
+        run_rows = data.read(args.results / 'run.csv')
         for phase, _, _ in PHASES:
             log = args.output / f'{phase}.log'
             performance = args.output / f'{phase}-performance.txt'
             if log.is_file() and (not performance.exists() or performance.stat().st_size == 0):
                 write_performance_summary(log, performance, mode='w')
             if performance.is_file():
-                record_paint_reasons(args.results, phase, performance.read_text())
+                summary = performance.read_text()
+                phase_status = next((row['value'] for row in reversed(run_rows)
+                                     if row['suite'] == 'terminal' and row['phase'] == phase
+                                     and row['key'] == 'status'), 'invalid')
+                perf_status = 'complete' if phase_status in ('complete', 'complete_with_slip') else 'invalid'
+                record_performance_metrics(args.results, phase, parse_performance(summary), perf_status)
+                record_paint_reasons(args.results, phase, summary, perf_status)
+            latency = args.output / f'{phase}-latency.json'
+            if phase == 'history' and latency.is_file() and not any(
+                    row['suite'] == 'terminal' and row['phase'] == phase and
+                    row['key'] == 'scroll_sources' for row in run_rows):
+                sources = ','.join(sorted(json.loads(latency.read_text()).get('scroll_sources', {})))
+                if sources:
+                    data.add_metadata(args.results, 'terminal', phase, {'scroll_sources': sources})
         print(f'Report: {show_report(args)}')
         return
     if args.prepare_seconds < 1:
