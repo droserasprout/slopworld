@@ -35,9 +35,9 @@ namespace SlopWorld
 
         // Grouped by catalog kind. The Library owns its project scope independently from the
         // global sidebar filter.
-        static readonly Dictionary<string, List<LibraryItemInfo>> Groups =
-            new Dictionary<string, List<LibraryItemInfo>>();
-        static readonly List<string> Order = new List<string>();
+        static readonly Dictionary<string, Section> SectionsByKey =
+            new Dictionary<string, Section>();
+        static readonly List<Section> Sections = new List<Section>();
         static readonly string[] Kinds =
         {
             "Agent templates", "Prompts", "Shell commands", "Breadcrumbs", "File actions",
@@ -45,9 +45,6 @@ namespace SlopWorld
         };
         static readonly string[] MainCategoryOrder =
             { "Projects", "Worktrees", "Sandbox presets", "App presets" };
-        static readonly Dictionary<string, List<MainCategoryAction>> MainCategories =
-            new Dictionary<string, List<MainCategoryAction>>();
-        static readonly List<string> VisibleMainCategories = new List<string>();
         static readonly Dictionary<string, List<WorktreeEntry>> WorktreesByProject =
             new Dictionary<string, List<WorktreeEntry>>();
         static string _worktreeRequestKey;
@@ -56,7 +53,6 @@ namespace SlopWorld
         static string _kind = "";
         static readonly HashSet<string> ProjectFilter = new HashSet<string>();
         static string _selection;
-        static string _mainSelection;
         static bool _revealSelection;
         static Rect _list;
         static FieldLifetime _fieldLifetime = new FieldLifetime();
@@ -80,31 +76,46 @@ namespace SlopWorld
         // Like folds in other views, this state belongs to the view and not to the saved colony.
         static readonly HashSet<string> Folded = new HashSet<string>();
 
-        public static bool AllFolded => Order.Count + VisibleMainCategories.Count > 0 &&
-            Order.All(Folded.Contains) && VisibleMainCategories.All(Folded.Contains);
+        public static bool AllFolded => Sections.Count > 0 &&
+            Sections.All(section => Folded.Contains(section.Key));
 
         public static void SetAllFolded(bool folded)
         {
             Folded.Clear();
             if (folded)
             {
-                foreach (var key in Order) Folded.Add(key);
+                foreach (var section in Sections) Folded.Add(section.Key);
                 foreach (var key in MainCategoryOrder) Folded.Add(key);
             }
         }
-
-        // Resolve selection by catalog identity after each refresh.
-        static LibraryItemInfo _selected;
 
         // The drawn lines, rebuilt each frame so clicks and drawing agree. Rects are in
         // screen space - see Screen - because Clicks runs outside the scroll view.
         struct Line
         {
-            public LibraryItemInfo Item;
-            public MainCategoryAction MainAction;
+            public Row Row;
             public bool Head;    // true on a heading, false on a row
-            public string Key;   // kind heading
+            public string Key;   // section heading
             public Rect Rect;
+        }
+
+        sealed class Section
+        {
+            public string Key;
+            public readonly List<Row> Rows = new List<Row>();
+        }
+
+        // Item and action rows share identity, geometry, drawing, and hit testing. Their
+        // payloads retain the different details and actions each kind of row owns.
+        sealed class Row
+        {
+            public LibraryItemInfo Item;
+            public MainCategoryAction Action;
+
+            public string Key => Item != null ? Identity(Item) : "action:" + Action.Key;
+
+            public static Row ForItem(LibraryItemInfo item) => new Row { Item = item };
+            public static Row ForAction(MainCategoryAction action) => new Row { Action = action };
         }
 
         sealed class MainCategoryAction
@@ -224,24 +235,18 @@ namespace SlopWorld
                 _items = _items.Where(item => (_kind.Length == 0 || GroupKey(item) == _kind) &&
                     (item.Name.IndexOf(_query, StringComparison.OrdinalIgnoreCase) >= 0 ||
                      (item.Text ?? "").IndexOf(_query, StringComparison.OrdinalIgnoreCase) >= 0)).ToList();
-                BuildMainCategories();
-                _selected = _items.FirstOrDefault(item => Identity(item) == _selection);
-                var selectedMain = FindMainAction(_mainSelection);
-                if (selectedMain == null) _mainSelection = null;
+                BuildSections();
+                var selected = FindSelectedRow();
                 float top = body.y + 2f * (UiTheme.FieldH + Pad) + Pad;
                 float available = Mathf.Max(0f, body.yMax - top);
-                float detailHeight = _selected == null && selectedMain == null ? 0f :
+                float detailHeight = selected == null ? 0f :
                     Mathf.Min(RowH * 5f + UiTheme.FieldH * 2f + Pad * 4f,
                         Mathf.Max(0f, available - RowH * 2f));
                 _list = new Rect(body.x, top, body.width, Mathf.Max(0f, available - detailHeight));
-                if (_selected != null && detailHeight > 0f)
+                if (selected != null && detailHeight > 0f)
                     DrawDetails(new Rect(body.x + CellX, _list.yMax,
-                        body.width - CellX * 2f, detailHeight), _selected);
-                else if (selectedMain != null && detailHeight > 0f)
-                    DrawMainDetails(new Rect(body.x + CellX, _list.yMax,
-                        body.width - CellX * 2f, detailHeight), selectedMain);
-                Group();
-                if (_items.Count == 0 && VisibleMainCategories.Count == 0)
+                        body.width - CellX * 2f, detailHeight), selected);
+                if (Sections.Count == 0)
                 {
                     _contentHeight = 0f;
                     Empty(_list);
@@ -251,24 +256,13 @@ namespace SlopWorld
                 if (_revealSelection)
                 {
                     float y = Pad;
-                    foreach (var key in Order)
+                    foreach (var section in Sections)
                     {
                         y += HeadH;
-                        if (Folded.Contains(key)) continue;
-                        foreach (var item in Groups[key])
+                        if (Folded.Contains(section.Key)) continue;
+                        foreach (var row in section.Rows)
                         {
-                            if (Identity(item) == _selection)
-                                _scroll.Reveal(y, RowH, list.height);
-                            y += RowH;
-                        }
-                    }
-                    foreach (var key in VisibleMainCategories)
-                    {
-                        y += HeadH;
-                        if (Folded.Contains(key)) continue;
-                        foreach (var action in MainCategories[key])
-                        {
-                            if (action.Key == _mainSelection)
+                            if (row.Key == _selection)
                                 _scroll.Reveal(y, RowH, list.height);
                             y += RowH;
                         }
@@ -285,11 +279,8 @@ namespace SlopWorld
                 using (_scroll.Scope(list, view))
                 {
                     float y = Pad;
-
-                    foreach (var key in Order)
-                        y += DrawGroup(view, y, key, Groups[key]);
-                    foreach (var key in VisibleMainCategories)
-                        y += DrawMainCategory(view, y, key, MainCategories[key]);
+                    foreach (var section in Sections)
+                        y += DrawSection(view, y, section);
                 }
             }
         }
@@ -334,13 +325,48 @@ namespace SlopWorld
             !Templates.ContainsKey(item) &&
             (item.Kind == LibraryItemKind.Prompt || item.Kind == LibraryItemKind.Shell);
 
+        static Section EnsureSection(string key)
+        {
+            if (!SectionsByKey.TryGetValue(key, out var section))
+                SectionsByKey[key] = section = new Section { Key = key };
+            return section;
+        }
+
+        static void BuildSections()
+        {
+            foreach (var section in SectionsByKey.Values) section.Rows.Clear();
+            foreach (var item in _items)
+                EnsureSection(GroupKey(item)).Rows.Add(Row.ForItem(item));
+
+            BuildMainCategories();
+
+            Sections.Clear();
+            foreach (var key in Kinds)
+            {
+                if (!SectionsByKey.TryGetValue(key, out var section) || section.Rows.Count == 0)
+                    continue;
+                if (section.Rows[0].Item != null)
+                    section.Rows.Sort((a, b) => string.CompareOrdinal(
+                        a.Item?.Name ?? "", b.Item?.Name ?? ""));
+                Sections.Add(section);
+            }
+        }
+
+        static Row FindSelectedRow()
+        {
+            if (string.IsNullOrEmpty(_selection)) return null;
+            foreach (var section in Sections)
+            foreach (var row in section.Rows)
+                if (row.Key == _selection) return row;
+
+            // Action selections are valid only while their category row remains visible.
+            // Item identities survive filtering so the selection can return with its row.
+            if (_selection.StartsWith("action:", StringComparison.Ordinal)) _selection = null;
+            return null;
+        }
+
         static void BuildMainCategories()
         {
-            MainCategories.Clear();
-            VisibleMainCategories.Clear();
-            foreach (var key in MainCategoryOrder)
-                MainCategories[key] = new List<MainCategoryAction>();
-
             string query = _query.Trim();
             bool Matches(string value) => query.Length == 0 ||
                 (value ?? "").IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0;
@@ -355,7 +381,7 @@ namespace SlopWorld
                 foreach (var project in projects)
                 {
                     var captured = project;
-                    AddMainAction(MainCategories["Projects"], "project:" + captured.Name,
+                    AddMainAction("Projects", "project:" + captured.Name,
                         captured.Name, captured.Name + "  -  " + captured.Dir, Icons.Files,
                         new[] { captured.Name, "Project", captured.Dir, ProjectsView.Summary(captured) },
                         "Edit", () => TerminalWindow.OpenOverPane(new EditProjectDialog(captured)),
@@ -378,7 +404,7 @@ namespace SlopWorld
                         string treeName = tree.Id == "main" ? "main" :
                             string.IsNullOrEmpty(tree.Name) ? tree.Id : tree.Name;
                         string label = captured.Project + "  ·  " + treeName;
-                        AddMainAction(MainCategories["Worktrees"],
+                        AddMainAction("Worktrees",
                             "worktree:" + captured.Project + ":" + tree.Id, label,
                             label + "  -  " + tree.Path, Icons.Git,
                             WorktreeDetails(captured), "Terminal",
@@ -400,7 +426,7 @@ namespace SlopWorld
                 {
                     var captured = preset;
                     string label = PresetLabel(captured.Name, captured.Source);
-                    AddMainAction(MainCategories["Sandbox presets"],
+                    AddMainAction("Sandbox presets",
                         "sandbox:" + captured.Name, label, captured.Description, Icons.Shield,
                         SandboxDetails(captured), "Edit",
                         () => ModOptions.OpenSandboxPreset(captured.Name),
@@ -419,7 +445,7 @@ namespace SlopWorld
                 {
                     var captured = command;
                     string label = PresetLabel(captured.Name, captured.Source);
-                    AddMainAction(MainCategories["App presets"],
+                    AddMainAction("App presets",
                         "app:" + captured.Name, label, captured.Description, Icons.Terminal,
                         AppPresetDetails(captured), "Edit",
                         () => ModOptions.OpenAppPreset(captured.Name),
@@ -429,19 +455,16 @@ namespace SlopWorld
                         Matches(captured.Description) || Matches(captured.Cmd));
                 }
             }
-
-            foreach (var key in MainCategoryOrder)
-                if (MainCategories[key].Count > 0) VisibleMainCategories.Add(key);
         }
 
         static bool MainCategoryEnabled(string key) => _kind.Length == 0 || _kind == key;
 
-        static void AddMainAction(List<MainCategoryAction> items, string key, string label,
+        static void AddMainAction(string sectionKey, string key, string label,
             string tooltip, Texture2D icon, IEnumerable<string> details, string primaryLabel,
             Action primary, string secondaryLabel, Action secondary, Action more, bool include)
         {
             if (!include) return;
-            items.Add(new MainCategoryAction
+            EnsureSection(sectionKey).Rows.Add(Row.ForAction(new MainCategoryAction
             {
                 Key = key,
                 Label = label,
@@ -453,7 +476,7 @@ namespace SlopWorld
                 SecondaryLabel = secondaryLabel,
                 Secondary = secondary,
                 More = more,
-            });
+            }));
         }
 
         static void EnsureWorktrees(List<ProjectInfo> projects)
@@ -500,17 +523,6 @@ namespace SlopWorld
                             WorktreesByProject[captured.Name] = new List<WorktreeEntry>();
                     }, TaskInfo.Host, 60000);
             }
-        }
-
-        static MainCategoryAction FindMainAction(string key)
-        {
-            if (string.IsNullOrEmpty(key)) return null;
-            foreach (var category in VisibleMainCategories)
-            {
-                var action = MainCategories[category].FirstOrDefault(item => item.Key == key);
-                if (action != null) return action;
-            }
-            return null;
         }
 
         static string PresetLabel(string name, string source) =>
@@ -630,7 +642,7 @@ namespace SlopWorld
             TerminalWindow.OpenOverPane(ConfirmDialog.Create(message, () =>
                 SessionHub.Instance.Catalog.RemovePreset(kind, preset.Name, () =>
                 {
-                    _mainSelection = null;
+                    ClearActionSelection();
                 }, UiLayout.Fail), destructive: true));
         }
 
@@ -642,7 +654,7 @@ namespace SlopWorld
             TerminalWindow.OpenOverPane(ConfirmDialog.Create(message, () =>
                 SessionHub.Instance.Catalog.RemovePreset(kind, command.Name, () =>
                 {
-                    _mainSelection = null;
+                    ClearActionSelection();
                 }, UiLayout.Fail), destructive: true));
         }
 
@@ -660,25 +672,29 @@ namespace SlopWorld
             else RowMenu(item);
         }
 
-        static void DrawDetails(Rect r, LibraryItemInfo item)
+        static void DrawDetails(Rect r, Row row)
         {
             Slab.Hairline(new Rect(r.x, r.y, r.width, 1f), UiTheme.Edge);
-            bool template = Templates.TryGetValue(item, out var definition);
-            bool runnable = Runnable(item);
-            // Two stacked action rows also fit the sidebar's minimum width.
-            float actionsH = UiTheme.FieldH * 2f + Pad;
-            float y = r.y + Pad;
-            float textBottom = r.yMax - actionsH - Pad;
-            using (WidgetState.Save())
+            var item = row.Item;
+            var action = row.Action;
+            bool isItem = item != null;
+            AgentTemplateInfo definition = null;
+            bool template = isItem && Templates.TryGetValue(item, out definition);
+            bool runnable = isItem && Runnable(item);
+
+            var lines = new List<string>();
+            string tooltip;
+            Action primaryClick;
+            Action secondaryClick = null;
+            Action moreClick;
+            string primaryLabel;
+            string secondaryLabel = null;
+
+            if (isItem)
             {
-                Text.Font = GameFont.Tiny;
-                Text.Anchor = TextAnchor.MiddleLeft;
                 string scope = string.IsNullOrEmpty(item.Project) ? "Global" : item.Project;
-                var lines = new List<string>
-                {
-                    item.Name,
-                    (template ? "Agent template" : KindName(item.Kind)) + " · " + scope
-                };
+                lines.Add(item.Name);
+                lines.Add((template ? "Agent template" : KindName(item.Kind)) + " · " + scope);
                 if (runnable)
                 {
                     lines.Add(item.Link == LibraryItemLink.Ask
@@ -690,43 +706,41 @@ namespace SlopWorld
                 else if (item.Kind == LibraryItemKind.FileAction && !template)
                     lines.Add("Host · " + FileActionModeText.Name(item.Mode));
                 lines.Add(OneLine(item.Text));
-                foreach (var line in lines)
-                {
-                    if (y + RowH > textBottom) break;
-                    UiText.RowLabel(new Rect(r.x, y, r.width, RowH), line);
-                    y += RowH;
-                }
-                TooltipHandler.TipRegion(new Rect(r.x, r.y, r.width,
-                    Mathf.Max(0f, textBottom - r.y)), string.Join("\n", lines) + "\n\n" + item.Text);
-            }
-            if (r.height < actionsH + Pad * 2f) return;
-            var primary = new Rect(r.x, r.yMax - actionsH - Pad, r.width, UiTheme.FieldH);
-            string label = template ? "Create agent" : runnable
-                ? (item.Link == LibraryItemLink.Ask ? "Choose a project" : "Run") : "Edit";
-            if (UiButtons.Button(primary, label, UiTheme.Btn.Primary))
-            {
-                if (template) TerminalWindow.OpenOverPane(EditSessionDialog.FromTemplate(definition));
-                else if (runnable) Run(item);
-                else Edit(item);
-            }
-            float moreW = UiTheme.FieldH;
-            var secondary = new Rect(r.x, primary.yMax + Pad,
-                Mathf.Max(0f, r.width - moreW - Pad), UiTheme.FieldH);
-            if (template || runnable)
-            {
-                if (UiButtons.Button(secondary, "Edit")) Edit(item);
-            }
-            else if (item.Kind == LibraryItemKind.Breadcrumb)
-            {
-                if (UiButtons.Button(secondary, "Copy text")) GUIUtility.systemCopyBuffer = item.Text ?? "";
-            }
-            if (UiButtons.Button(new Rect(r.xMax - moreW, secondary.y, moreW, secondary.height), "…"))
-                Menu(item);
-        }
+                tooltip = string.Join("\n", lines) + "\n\n" + item.Text;
 
-        static void DrawMainDetails(Rect r, MainCategoryAction action)
-        {
-            Slab.Hairline(new Rect(r.x, r.y, r.width, 1f), UiTheme.Edge);
+                primaryLabel = template ? "Create agent" : runnable
+                    ? (item.Link == LibraryItemLink.Ask ? "Choose a project" : "Run") : "Edit";
+                if (template)
+                    primaryClick = () => TerminalWindow.OpenOverPane(EditSessionDialog.FromTemplate(definition));
+                else if (runnable)
+                    primaryClick = () => Run(item);
+                else
+                    primaryClick = () => Edit(item);
+
+                if (template || runnable)
+                {
+                    secondaryLabel = "Edit";
+                    secondaryClick = () => Edit(item);
+                }
+                else if (item.Kind == LibraryItemKind.Breadcrumb)
+                {
+                    secondaryLabel = "Copy text";
+                    secondaryClick = () => GUIUtility.systemCopyBuffer = item.Text ?? "";
+                }
+                moreClick = () => Menu(item);
+            }
+            else
+            {
+                lines.AddRange(action.Details);
+                tooltip = string.Join("\n", action.Details.ToArray());
+                primaryLabel = action.PrimaryLabel ?? "Open";
+                primaryClick = action.Primary;
+                secondaryLabel = action.SecondaryLabel ?? "More";
+                secondaryClick = action.Secondary;
+                moreClick = action.More;
+            }
+
+            // Two stacked action rows also fit the sidebar's minimum width.
             float actionsH = UiTheme.FieldH * 2f + Pad;
             float y = r.y + Pad;
             float textBottom = r.yMax - actionsH - Pad;
@@ -734,60 +748,45 @@ namespace SlopWorld
             {
                 Text.Font = GameFont.Tiny;
                 Text.Anchor = TextAnchor.MiddleLeft;
-                foreach (var line in action.Details)
+                foreach (var line in lines)
                 {
                     if (y + RowH > textBottom) break;
-                    UiText.RowLabel(new Rect(r.x, y, r.width, RowH), OneLine(line));
+                    UiText.RowLabel(new Rect(r.x, y, r.width, RowH),
+                        isItem ? line : OneLine(line));
                     y += RowH;
                 }
                 TooltipHandler.TipRegion(new Rect(r.x, r.y, r.width,
-                    Mathf.Max(0f, textBottom - r.y)), string.Join("\n", action.Details.ToArray()));
+                    Mathf.Max(0f, textBottom - r.y)), tooltip);
             }
             if (r.height < actionsH + Pad * 2f) return;
-
-            float moreW = action.More == null ? 0f : UiTheme.FieldH;
-            float secondaryW = Mathf.Max(0f, r.width - moreW - (moreW > 0f ? Pad : 0f));
             var primary = new Rect(r.x, r.yMax - actionsH - Pad, r.width, UiTheme.FieldH);
-            if (UiButtons.Button(primary, action.PrimaryLabel ?? "Open", UiTheme.Btn.Primary))
-                action.Primary?.Invoke();
-
+            if (UiButtons.Button(primary, primaryLabel, UiTheme.Btn.Primary)) primaryClick?.Invoke();
+            float moreW = moreClick == null ? 0f : UiTheme.FieldH;
+            float secondaryW = Mathf.Max(0f, r.width - moreW - (moreW > 0f ? Pad : 0f));
             var secondary = new Rect(r.x, primary.yMax + Pad, secondaryW, UiTheme.FieldH);
-            if (action.Secondary != null && UiButtons.Button(secondary,
-                    action.SecondaryLabel ?? "More", UiTheme.Btn.Ghost))
-                action.Secondary();
-            if (action.More != null && UiButtons.Button(
+            if (secondaryClick != null)
+            {
+                bool clicked = isItem
+                    ? UiButtons.Button(secondary, secondaryLabel)
+                    : UiButtons.Button(secondary, secondaryLabel, UiTheme.Btn.Ghost);
+                if (clicked) secondaryClick();
+            }
+            if (moreClick != null && UiButtons.Button(
                     new Rect(r.xMax - moreW, secondary.y, moreW, secondary.height), "…"))
-                action.More();
+                moreClick();
         }
 
-        static float DrawGroup(Rect view, float y, string key, List<LibraryItemInfo> bucket)
+        static float DrawSection(Rect view, float y, Section section)
         {
             float start = y;
-            bool folded = Folded.Contains(key);
-            string label = key;
+            bool folded = Folded.Contains(section.Key);
             var headRect = new Rect(0f, y, view.width, HeadH);
-            y += DrawHeading(view, headRect, key, label, bucket.Count, folded);
+            y += DrawHeading(view, headRect, section.Key, section.Key, section.Rows.Count, folded);
             if (!folded)
-                foreach (var item in bucket)
+                foreach (var rowData in section.Rows)
                 {
                     var row = new Rect(0f, y, view.width, RowH);
-                    y += DrawLibraryRow(view, row, item);
-                }
-            return y - start;
-        }
-
-        static float DrawMainCategory(Rect view, float y, string key,
-            List<MainCategoryAction> actions)
-        {
-            float start = y;
-            bool folded = Folded.Contains(key);
-            var headRect = new Rect(0f, y, view.width, HeadH);
-            y += DrawHeading(view, headRect, key, key, actions.Count, folded);
-            if (!folded)
-                foreach (var action in actions)
-                {
-                    var row = new Rect(0f, y, view.width, RowH);
-                    y += DrawMainActionRow(view, row, action);
+                    y += DrawRow(view, row, rowData);
                 }
             return y - start;
         }
@@ -823,47 +822,35 @@ namespace SlopWorld
             return HeadH;
         }
 
-        static float DrawLibraryRow(Rect view, Rect r, LibraryItemInfo item)
+        static float DrawRow(Rect view, Rect r, Row row)
         {
-            RowChrome.Hover(r, Identity(item) == _selection, true, RowHoverPolicy.OverlayAware);
+            var item = row.Item;
+            var action = row.Action;
+            bool muted = action != null && action.Primary == null;
+            RowChrome.Hover(r, row.Key == _selection, true, RowHoverPolicy.OverlayAware);
             using (WidgetState.Save())
             {
                 Text.Font = GameFont.Tiny;
                 Text.Anchor = TextAnchor.MiddleLeft;
-                GUI.color = UiTheme.Dim;
-                var icon = Templates.ContainsKey(item) ? Icons.Agents :
-                    item.Kind == LibraryItemKind.Shell ? Icons.Terminal :
-                    item.Kind == LibraryItemKind.FileAction ? Icons.Files :
-                    item.Kind == LibraryItemKind.Breadcrumb ? Icons.Keyboard : Icons.Library;
+                GUI.color = muted ? UiTheme.Faint : UiTheme.Dim;
+                var icon = item != null ?
+                    (Templates.ContainsKey(item) ? Icons.Agents :
+                     item.Kind == LibraryItemKind.Shell ? Icons.Terminal :
+                     item.Kind == LibraryItemKind.FileAction ? Icons.Files :
+                     item.Kind == LibraryItemKind.Breadcrumb ? Icons.Keyboard : Icons.Library)
+                    : action.Icon;
                 GUI.DrawTexture(new Rect(CellX, r.y + (RowH - ArrowW) / 2f, ArrowW, ArrowW), icon);
-                GUI.color = UiTheme.Lead;
+                GUI.color = muted ? UiTheme.Faint : UiTheme.Lead;
                 UiText.RowLabel(new Rect(CellX + ArrowW + Pad, r.y,
-                    Mathf.Max(0f, r.width - CellX * 2f - ArrowW - Pad), RowH), item.Name);
+                    Mathf.Max(0f, r.width - CellX * 2f - ArrowW - Pad), RowH),
+                    item != null ? item.Name : action.Label);
             }
-            TooltipHandler.TipRegion(r, item.Name + "\n" +
-                (string.IsNullOrEmpty(item.Project) ? "Global" : item.Project) +
-                "\n" + OneLine(item.Text));
-
-            Lines.Add(new Line { Item = item, Rect = Screen(r) });
-            return RowH;
-        }
-
-        static float DrawMainActionRow(Rect view, Rect r, MainCategoryAction action)
-        {
-            RowChrome.Hover(r, action.Key == _mainSelection, true, RowHoverPolicy.OverlayAware);
-            using (WidgetState.Save())
-            {
-                Text.Font = GameFont.Tiny;
-                Text.Anchor = TextAnchor.MiddleLeft;
-                GUI.color = action.Primary == null ? UiTheme.Faint : UiTheme.Dim;
-                GUI.DrawTexture(new Rect(CellX, r.y + (RowH - ArrowW) / 2f, ArrowW, ArrowW),
-                    action.Icon);
-                GUI.color = action.Primary == null ? UiTheme.Faint : UiTheme.Lead;
-                UiText.RowLabel(new Rect(CellX + ArrowW + Pad, r.y,
-                    Mathf.Max(0f, r.width - CellX * 2f - ArrowW - Pad), RowH), action.Label);
-            }
-            TooltipHandler.TipRegion(r, action.Tooltip);
-            Lines.Add(new Line { MainAction = action, Rect = Screen(r) });
+            string tooltip = item != null
+                ? item.Name + "\n" + (string.IsNullOrEmpty(item.Project) ? "Global" : item.Project) +
+                    "\n" + OneLine(item.Text)
+                : action.Tooltip;
+            TooltipHandler.TipRegion(r, tooltip);
+            Lines.Add(new Line { Row = row, Rect = Screen(r) });
             return RowH;
         }
 
@@ -871,15 +858,10 @@ namespace SlopWorld
         static float Measure()
         {
             float h = Pad;
-            foreach (var key in Order)
+            foreach (var section in Sections)
             {
                 h += HeadH;
-                if (!Folded.Contains(key)) h += Groups[key].Count * RowH;
-            }
-            foreach (var key in VisibleMainCategories)
-            {
-                h += HeadH;
-                if (!Folded.Contains(key)) h += MainCategories[key].Count * RowH;
+                if (!Folded.Contains(section.Key)) h += section.Rows.Count * RowH;
             }
             return h + Pad;
         }
@@ -908,30 +890,6 @@ namespace SlopWorld
             }
         }
 
-        // Type order is stable across filtering and catalog refreshes.
-        static void Group()
-        {
-            foreach (var list in Groups.Values) list.Clear();
-            Order.Clear();
-
-            foreach (var item in _items)
-            {
-                string key = GroupKey(item);
-                if (!Groups.TryGetValue(key, out var list))
-                    Groups[key] = list = new List<LibraryItemInfo>();
-                list.Add(item);
-            }
-
-            foreach (var kv in Groups)
-                if (kv.Value.Count > 0) Order.Add(kv.Key);
-
-            Order.Sort((a, b) => Array.IndexOf(Kinds, a).CompareTo(Array.IndexOf(Kinds, b)));
-
-            foreach (var list in Groups.Values) list.Sort((a, b) =>
-                string.CompareOrdinal(a?.Name ?? "", b?.Name ?? ""));
-        }
-
-
         // ------------------------------------------------------------------ clicks
         //
         // Called from AgentSidebar's back pass where Menus is in the agents view and
@@ -955,7 +913,7 @@ namespace SlopWorld
 
                 if (line.Head)
                 {
-                    // Headings only fold. Item actions belong to their own rows.
+                    // Headings only fold; row variants own their actions.
                     if (e.button == 0)
                     {
                         if (!Folded.Remove(line.Key)) Folded.Add(line.Key);
@@ -964,33 +922,21 @@ namespace SlopWorld
                     return;
                 }
 
-                if (line.Item == null)
+                var row = line.Row;
+                if (row == null) continue;
+                bool select = row.Item != null || e.button == 0 || row.Action.More != null;
+                if (select)
                 {
-                    if (e.button == 0 && line.MainAction != null)
-                    {
-                        _mainSelection = line.MainAction.Key;
-                        _selection = null;
-                        _selected = null;
-                        _revealSelection = true;
-                    }
-                    if (e.button == 1 && line.MainAction?.More != null)
-                    {
-                        _mainSelection = line.MainAction.Key;
-                        _selection = null;
-                        _selected = null;
-                        _revealSelection = true;
-                        line.MainAction.More();
-                    }
-                    e.Use();
-                    return;
+                    _selection = row.Key;
+                    _revealSelection = true;
                 }
-
-                _selected = line.Item;
-                _selection = Identity(line.Item);
-                _mainSelection = null;
-                _revealSelection = true;
-                AgentSidebar.RememberLibrary(line.Item.Name, Templates.ContainsKey(line.Item));
-                if (e.button == 1) Menu(line.Item);
+                if (row.Item != null)
+                {
+                    AgentSidebar.RememberLibrary(row.Item.Name, Templates.ContainsKey(row.Item));
+                    if (e.button == 1) Menu(row.Item);
+                }
+                else if (e.button == 1)
+                    row.Action.More?.Invoke();
                 e.Use();
                 return;
             }
@@ -1118,7 +1064,6 @@ namespace SlopWorld
                 : SessionHub.Instance.Library.Any(candidate => candidate.Name == name && !candidate.Builtin);
             if (!exists) return false;
             _selection = (template ? "template:" : "item:") + name;
-            _mainSelection = null;
             _revealSelection = true;
             _query = "";
             _kind = "";
@@ -1129,8 +1074,14 @@ namespace SlopWorld
         static void ProjectFilterChanged()
         {
             _worktreeRequestKey = null;
-            _mainSelection = null;
+            ClearActionSelection();
             _scroll.JumpTo(Vector2.zero);
+        }
+
+        static void ClearActionSelection()
+        {
+            if (_selection != null && _selection.StartsWith("action:", StringComparison.Ordinal))
+                _selection = null;
         }
     }
 }
