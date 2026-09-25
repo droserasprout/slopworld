@@ -11,7 +11,7 @@ RIMWORLD=/path/to/RimWorld/game make install
 ```
 
 `make install` rebuilds and installs the daemon, runner, and mod.
-It also installs the supplied UI font.
+The loading screen's ASCII atlas ships with the mod, so this does not install an OS font.
 It restarts the systemd service only when the daemon binary changed.
 
 Tmux sessions and the game continue after a daemon restart.
@@ -70,7 +70,8 @@ the image does not remove the configured data or endpoint directories.
 make uninstall
 ```
 
-This removes the daemon binary, systemd unit, runner, and supplied UI font.
+This removes the daemon binary, systemd unit, runner, and any per-user loading font left by an
+older version.
 It also removes the mod from the game's Mods folder.
 It preserves configuration and profile data.
 

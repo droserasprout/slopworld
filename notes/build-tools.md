@@ -7,6 +7,8 @@ Committed icon/emoji assets keep ordinary builds independent of local bake fonts
 `python3 tools/emoji_atlas.py` generates the shared text sprite texture and `UI/Text/TextSpriteData.cs`
 together. Optional `--sequences /path/to/keys.txt` adds literal UTF-8
 text keys, one per line.
+`make bake-loading-font` generates the loading screen's ASCII PNG atlas from
+`assets/fonts/clacon2.ttf`; it is a build-time input, not an installed runtime font.
 At runtime, the renderer matches the longest generated key. Metadata order is atlas slot
 order, so never sort or extend the generated keys without rebaking their artwork.
 Action icons, file icons, and terminal emoji have different manifests and loaders.

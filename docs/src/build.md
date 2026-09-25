@@ -43,8 +43,9 @@ The build produces the mod assembly locally. Git does not track it.
 The release workflow publishes the daemon archive.
 Source installations and Arch packages build the mod against the target RimWorld installation.
 
-`make install` installs the supplied `assets/fonts/clacon2.ttf` in the current user's
-`$XDG_DATA_HOME/fonts` directory (`~/.local/share/fonts` by default).
+The loading screen uses a committed ASCII glyph atlas, so installing an operating-system
+font is not part of the build or install. `make bake-loading-font` regenerates the atlas
+from `assets/fonts/clacon2.ttf` when its artwork changes.
 
 ## Formatting
 

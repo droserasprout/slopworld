@@ -30,16 +30,6 @@ namespace SlopWorld
         // Keep the typewriter tail visible: word n-1 is muted and word n is deepest.
         internal static readonly Color PreviousWordText = ScaleRgb(StreamText, 0.75f);
         internal static readonly Color LatestWordText = ScaleRgb(StreamText, 0.55f);
-        // The package name is the first lookup key. The embedded family name keeps the same
-        // font working on platforms whose font APIs ignore the filename.
-        static readonly string[] LoadingFontNames =
-        {
-            "slopworld_clacon2",
-            "Classic Console Neue",
-            "Classic Console",
-            "Courier New",
-        };
-
         // Not Verse.Rand: this screen is up during map generation, so drawing a tip must not
         // consume the game's deterministic sequence for terrain and pawns.
         static readonly System.Random Dice = new System.Random();
@@ -53,9 +43,63 @@ namespace SlopWorld
         static int _measuredFontSize = -1;
         static Vector2 _box;
         static int _lineCount;
-        static GUIStyle _loadingStyle;
-        static Font _loadingFont;
-        static int _loadingFontSize = -1;
+        static int FontSize => Mathf.Clamp(Settings.FontSize + LoadingFontBump, 8, 32);
+
+        // Keep this grid in sync with tools/loading_font_atlas.py.
+        const string GlyphAtlasPath = "SlopWorld/LoadingFont";
+        const int GlyphFirst = 32, GlyphLast = 126;
+        const int GlyphSource = 64, GlyphWidth = 32, GlyphHeight = 64;
+        const int GlyphLineHeight = 60;
+        const int GlyphColumns = 16, GlyphRows = 6;
+        const int GlyphGutter = 1;
+        const int GlyphPitchWidth = GlyphWidth + GlyphGutter * 2;
+        const int GlyphPitchHeight = GlyphHeight + GlyphGutter * 2;
+        const int GlyphAtlasWidth = GlyphColumns * GlyphPitchWidth;
+        const int GlyphAtlasHeight = GlyphRows * GlyphPitchHeight;
+        const float GlyphScale = 0.80f;
+        static Texture2D _glyphAtlas;
+        static bool _glyphAtlasLooked;
+
+        static Texture2D GlyphAtlas
+        {
+            get
+            {
+                if (_glyphAtlasLooked) return _glyphAtlas;
+                _glyphAtlasLooked = true;
+                _glyphAtlas = ContentFinder<Texture2D>.Get(GlyphAtlasPath, false);
+                if (_glyphAtlas == BaseContent.BadTex) _glyphAtlas = null;
+                if (_glyphAtlas == null) Log.Warning("[SlopWorld] loading screen font atlas is missing");
+                return _glyphAtlas;
+            }
+        }
+
+        static float TextWidth(string text, int fontSize) =>
+            text.Length * fontSize * GlyphScale * GlyphWidth / GlyphSource;
+
+        static void DrawGlyphs(string text, float x, float y, int fontSize)
+        {
+            Texture2D atlas = GlyphAtlas;
+            if (atlas == null || string.IsNullOrEmpty(text)) return;
+
+            float scale = fontSize * GlyphScale / GlyphSource;
+            float width = GlyphWidth * scale, height = GlyphHeight * scale;
+            for (int i = 0; i < text.Length; i++)
+            {
+                int code = text[i];
+                if (code < GlyphFirst || code > GlyphLast) code = '?';
+                if (code == ' ') continue;
+
+                int slot = code - GlyphFirst;
+                int row = slot / GlyphColumns, column = slot % GlyphColumns;
+                var uv = new Rect(
+                    (column * GlyphPitchWidth + GlyphGutter) / (float)GlyphAtlasWidth,
+                    ((GlyphRows - row - 1) * GlyphPitchHeight + GlyphGutter) / (float)GlyphAtlasHeight,
+                    GlyphWidth / (float)GlyphAtlasWidth,
+                    GlyphHeight / (float)GlyphAtlasHeight);
+                GUI.DrawTextureWithTexCoords(
+                    new Rect(x + i * width, y, width, height), atlas, uv);
+            }
+        }
 
         // Bumped per re-measure. A geometry change rewraps the existing stream rather than
         // discarding it. Only a new load or mode change starts a fresh stream.
@@ -66,65 +110,11 @@ namespace SlopWorld
             get { var _ = Box; return _lineCount; }
         }
 
-        static float ProbeHeight(int lines, float width)
-        {
-            var probe = new System.Text.StringBuilder();
-            for (int i = 0; i < lines; i++)
-            {
-                if (i > 0) probe.Append('\n');
-                probe.Append('A');
-            }
-
-            return LoadingStyle.CalcHeight(new GUIContent(probe.ToString()), width);
-        }
-
-        internal static GUIStyle LoadingStyle
-        {
-            get
-            {
-                int size = Mathf.Clamp(Settings.FontSize + LoadingFontBump, 8, 32);
-                if (_loadingStyle != null && _loadingFont != null && _loadingFontSize == size)
-                    return _loadingStyle;
-
-                Font old = _loadingFont;
-                _loadingFont = CreateLoadingFont(size);
-                if (_loadingFont == null)
-                {
-                    Log.Warning("[SlopWorld] loading screen font unavailable: " +
-                        string.Join(", ", LoadingFontNames));
-                    _loadingFont = Font.CreateDynamicFontFromOSFont("Courier New", size);
-                }
-
-                if (_loadingFont != null)
-                    _loadingFont.hideFlags = HideFlags.DontUnloadUnusedAsset;
-                _loadingFontSize = size;
-                _loadingStyle = new GUIStyle
-                {
-                    font = _loadingFont,
-                    fontSize = size,
-                    fontStyle = FontStyle.Normal,
-                    richText = false,
-                    wordWrap = false,
-                    clipping = TextClipping.Overflow,
-                    alignment = TextAnchor.UpperLeft,
-                    normal = new GUIStyleState { textColor = Color.white },
-                    padding = new RectOffset(0, 0, 0, 0),
-                    margin = new RectOffset(0, 0, 0, 0),
-                };
-
-                if (old != null && old != _loadingFont) UnityEngine.Object.Destroy(old);
-                return _loadingStyle;
-            }
-        }
-
-        static Font CreateLoadingFont(int size)
-            => Font.CreateDynamicFontFromOSFont(LoadingFontNames, size);
-
         internal static Vector2 Box
         {
             get
             {
-                int fontSize = Mathf.Clamp(Settings.FontSize + LoadingFontBump, 8, 32);
+                int fontSize = FontSize;
                 if (_measuredW == UI.screenWidth && _measuredH == UI.screenHeight
                     && _measuredFontSize == fontSize)
                     return _box;
@@ -137,15 +127,10 @@ namespace SlopWorld
                 float w = Mathf.Min(MaxWidth, Mathf.Max(MinWidth, UI.screenWidth * WidthRatio));
                 w = Mathf.Min(w, Mathf.Max(120f, UI.screenWidth - 40f));
                 float h = Mathf.Max(1f, UI.screenHeight);
-                float textWidth = Mathf.Max(1f, w - Margin.x * 2f);
                 float textHeight = Mathf.Max(1f, h - Margin.y * 2f);
 
-                // CalcHeight has a little font slack before the first line. Therefore, measure one
-                // line and the increment for subsequent lines instead of dividing by
-                // Text.LineHeight.
-                float one = ProbeHeight(1, textWidth);
-                float step = Mathf.Max(1f, ProbeHeight(2, textWidth) - one);
-                _lineCount = Mathf.Max(1, Mathf.FloorToInt((textHeight - one) / step) + 1);
+                float lineHeight = fontSize * GlyphScale * GlyphLineHeight / GlyphSource;
+                _lineCount = Mathf.Max(1, Mathf.FloorToInt(textHeight / lineHeight));
                 _box = new Vector2(w, h);
 
                 return _box;
@@ -182,13 +167,13 @@ namespace SlopWorld
             return count;
         }
 
-        internal static void DrawStream(Rect rect)
+        internal static void DrawStream()
         {
-            GUIStyle style = LoadingStyle;
             int wordCount = WordCount();
             if (wordCount == 0) return;
 
-            float lineHeight = Mathf.Max(1f, style.lineHeight);
+            int fontSize = FontSize;
+            float lineHeight = fontSize * GlyphScale * GlyphLineHeight / GlyphSource;
             int wordAt = 0;
             Color oldGuiColor = GUI.color;
 
@@ -206,12 +191,11 @@ namespace SlopWorld
                     {
                         string word = words[i];
                         string segment = i + 1 < words.Length ? word + " " : word;
-                        float width = style.CalcSize(new GUIContent(segment)).x;
+                        float width = TextWidth(segment, fontSize);
                         GUI.color = wordAt == wordCount - 1
                             ? LatestWordText
                             : wordAt == wordCount - 2 ? PreviousWordText : StreamText;
-                        GUI.Label(new Rect(x, y, Mathf.Max(1f, width + 2f), lineHeight),
-                            segment, style);
+                        DrawGlyphs(segment, x, y, fontSize);
                         x += width;
                         wordAt++;
                     }
@@ -304,7 +288,7 @@ namespace SlopWorld
             }
 
             string candidate = current + " " + token;
-            if (LoadingStyle.CalcSize(new GUIContent(candidate)).x <= width)
+            if (TextWidth(candidate, FontSize) <= width)
             {
                 Stream[Stream.Count - 1] = candidate;
                 return;
@@ -347,7 +331,7 @@ namespace SlopWorld
                     }
 
                     string candidate = line + " " + word;
-                    if (LoadingStyle.CalcSize(new GUIContent(candidate)).x <= width)
+                    if (TextWidth(candidate, FontSize) <= width)
                     {
                         line = candidate;
                         continue;
@@ -469,7 +453,7 @@ namespace SlopWorld
             Widgets.BeginGroup(inner);
             try
             {
-                Patch_LoadingTips.DrawStream(inner);
+                Patch_LoadingTips.DrawStream();
             }
             finally
             {

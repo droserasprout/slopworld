@@ -30,7 +30,8 @@ under "Built with" and visual sources under "Assets".
 - Material Icon Theme, Material Extensions: the vendored file-icon SVGs, MIT,
   copyright 2025 Material Extensions. The notice is `tools/fileicons/LICENSE`.
 - Noto Color Emoji, Google: the rasterized radio and wilted-rose glyph artwork.
-- Classic Console Neue, DeeJayy: bundled loading-screen font (`assets/fonts/clacon2.ttf`).
+- Classic Console Neue, DeeJayy: baked loading-screen glyph atlas. The bundled TTF is only
+  read by the atlas generator; the game does not install or load it.
 - Terry Fail: `pace`, `dive`, `hime` and `dawn` soundtrack export.
 - User-provided jukebox stations are not shipped or named by SlopWorld.
 

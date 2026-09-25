@@ -20,7 +20,7 @@ optdepends=(
   'xclip: clipboard and PRIMARY selection under X11'
   'xsel: clipboard and PRIMARY selection under X11 (fallback)'
 )
-provides=('slopworld' 'slopd' 'ttf-clacon2')
+provides=('slopworld' 'slopd')
 conflicts=('slopworld')
 options=('!strip' '!debug')
 source=("$pkgname::git+https://github.com/droserasprout/slopworld.git#branch=main")
@@ -80,9 +80,6 @@ package() {
   cp -r mod/{About,Defs,Patches,Sounds,Textures,Assemblies} "$_mod/"
   find "$_mod" -type d -exec chmod 755 {} +
   find "$_mod" -type f -exec chmod 644 {} +
-
-  install -Dm644 assets/fonts/clacon2.ttf \
-    "$pkgdir/usr/share/fonts/TTF/slopworld_clacon2.ttf"
 
   install -Dm644 packaging/slopworld.desktop \
     "$pkgdir/usr/share/applications/slopworld.desktop"
