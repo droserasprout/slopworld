@@ -9,8 +9,10 @@ flat changed-path set from which the tree is rebuilt. All Git access happens in 
 
 Visible Files/Git views poll status on a five-second deadline after each completed read.
 Refreshes during a read combine into one subsequent request.
-Diff selections wait for that new snapshot and restart the matching pager while retaining its pin. Routed headers only focus
-existing readers. Navigation cancels pending diff selections.
+Diff selections use the visible status snapshot to start the pager immediately; Git reads
+current file contents when that command runs. A cold cache fetches the repository root first.
+Restarting a matching pager retains its pin. Routed headers only focus existing readers.
+Navigation cancels pending cold-cache selections.
 
 Status arrives before line counts. Both requests share an operation token.
 Late counts must not overwrite newer paths or statuses, or discard expansion. Failure leaves the status usable.
