@@ -26,6 +26,30 @@ namespace SlopWorld
 
         // Bounds are the caller's actual clipping rectangle. Glyph overhang never changes
         // advance. UI passes its label box, terminal runs remain inside the pane's clip.
+        public static void DrawTerminalRun(InlineTextLayout layout, Rect bounds,
+                                           float lineHeight, GUIStyle style, float overhang)
+        {
+            if (bounds.width <= 0f || bounds.height <= 0f) return;
+            // A single font span can use the label's own clipping rectangle. This avoids
+            // an IMGUI group for each scalar separated by terminal column markers. Keep
+            // mixed text/sprite runs on the grouped path so every span retains its clip.
+            if (layout.Spans.Length == 1 && layout.Spans[0].Sprite < 0 &&
+                layout.Spans[0].X == 0f && layout.Spans[0].Width == layout.Width)
+            {
+                var previous = style.clipping;
+                style.clipping = TextClipping.Clip;
+                try
+                {
+                    string text = layout.Spans[0].Text;
+                    Prepare(text, style);
+                    GUI.Label(bounds, text, style);
+                }
+                finally { style.clipping = previous; }
+                return;
+            }
+            Draw(layout, bounds, lineHeight, style, overhang: overhang);
+        }
+
         public static void Draw(InlineTextLayout layout, Rect bounds, float lineHeight,
                                 GUIStyle style, float offsetX = 0f, float overhang = 1f)
         {

@@ -14,6 +14,9 @@ namespace SlopWorld
         }
 
         readonly Node _root = new Node();
+        // The terminal's common printable-ASCII rows can skip trie lookups when no
+        // catalog key can begin with one of those characters.
+        internal readonly bool HasPrintableAsciiPrefix;
         public static readonly TextSpriteCatalog Shared = new TextSpriteCatalog(TextSpriteData.Keys);
 
         public TextSpriteCatalog(IEnumerable<string> keys)
@@ -22,6 +25,7 @@ namespace SlopWorld
             foreach (string key in keys)
             {
                 if (string.IsNullOrEmpty(key)) throw new ArgumentException("Empty sprite key");
+                if (key[0] >= ' ' && key[0] <= '~') HasPrintableAsciiPrefix = true;
                 var node = _root;
                 foreach (char c in key)
                 {

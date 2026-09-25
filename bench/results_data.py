@@ -146,7 +146,8 @@ def metric_display(item, suite, metric, stat, unit):
         return "withheld"
     converted = (lambda number: number / 1000) if suite == "terminal" and metric.startswith("latency/") and unit == "us" else (lambda number: number)
     shown_unit = "ms" if suite == "terminal" and metric.startswith("latency/") and unit == "us" else unit
-    precision = 0 if unit == "count" or metric == "wire_size" else 3
+    precision = 0 if unit == "count" or metric == "wire_size" else (
+        6 if metric in ("paint/text-layout-time", "paint/text-draw-time") else 3)
     shown = f"{converted(value):.{precision}f}"
     if deviation is not None:
         # Count deviations retain a decimal even when their median is integral.

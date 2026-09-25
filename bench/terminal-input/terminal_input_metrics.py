@@ -63,3 +63,20 @@ def paint_damage(text):
                               r': (\d+) calls, (\d+) rows$', chunk, re.M)
             if match:
                 yield context, band, int(match[1]), int(match[2])
+
+
+def paint_timings(text):
+    """Yield measured paint-stage mean times from the debug summary."""
+    lanes = {
+        'full': 'terminal-cache-full-paint',
+        'row': 'terminal-cache-row-paint',
+        'text-layout': 'terminal-text-layout',
+        'text-draw': 'terminal-text-draw',
+    }
+    for chunk in re.split(r'(?=eco=)', text)[1:]:
+        context = chunk.splitlines()[0].split(' windows=', 1)[0]
+        for name, lane in lanes.items():
+            match = re.search(r'^  ' + lane +
+                              r': (\d+) calls, ([\d.]+) ms/call', chunk, re.M)
+            if match:
+                yield context, name, int(match[1]), float(match[2])

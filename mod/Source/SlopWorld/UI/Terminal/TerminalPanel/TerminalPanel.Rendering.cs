@@ -260,10 +260,25 @@ namespace SlopWorld
         internal static void DrawRun(string text, float x, float y, float cw, float ch,
                                      GUIStyle style, int columns)
         {
+            // This runs for every painted terminal run. Keep the unflagged path free of
+            // profiling calls, even when their sink would discard the measurement.
+            if (!PerfTrace.Enabled)
+            {
+                var plainLayout = InlineTextLayout.Cells(text, columns, cw,
+                    TextSpriteCatalog.Shared, TerminalFont.FitsCell);
+                SharedTextRenderer.DrawTerminalRun(plainLayout,
+                    new Rect(x, y, plainLayout.Width + cw, ch), ch, style, overhang: cw);
+                return;
+            }
+
+            long layoutStarted = PerfTrace.Start();
             var layout = InlineTextLayout.Cells(text, columns, cw, TextSpriteCatalog.Shared,
-                                          TerminalFont.FitsCell);
-            SharedTextRenderer.Draw(layout, new Rect(x, y, layout.Width + cw, ch),
-                                    ch, style, overhang: cw);
+                                               TerminalFont.FitsCell);
+            PerfTrace.End("terminal-text-layout", layoutStarted, 1);
+            long drawStarted = PerfTrace.Start();
+            SharedTextRenderer.DrawTerminalRun(layout, new Rect(x, y, layout.Width + cw, ch),
+                                               ch, style, overhang: cw);
+            PerfTrace.End("terminal-text-draw", drawStarted, 1);
         }
 
 

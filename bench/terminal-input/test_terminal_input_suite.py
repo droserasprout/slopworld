@@ -303,17 +303,23 @@ class SuiteTests(unittest.TestCase):
                        '  terminal-cache-broad-rows: 501 calls\n'
                        '  terminal-cache-damage-50-74: 12 calls, 340 rows\n'
                        '  terminal-cache-damage-75-99: 0 calls, 0 rows\n'
-                       '  terminal-cache-damage-100: 489 calls, 23961 rows\n')
+                       '  terminal-cache-damage-100: 489 calls, 23961 rows\n'
+                       '  terminal-cache-full-paint: 501 calls, 18.125 ms/call\n'
+                       '  terminal-text-layout: 24000 calls, 0.002 ms/call\n'
+                       '  terminal-text-draw: 24000 calls, 0.351 ms/call\n')
             bench.record_paint_reasons(root, 'typing', summary)
             bench.record_paint_reasons(root, 'typing', summary)
             rows = bench.data.read(root / 'metrics.csv')
-            self.assertEqual(len(rows), 10)
+            self.assertEqual(len(rows), 16)
             self.assertEqual({row['metric']: row['value'] for row in rows}, {
                 'paint/broad-repaints': '501', 'paint/broad-rows': '501',
                 'paint/skipped-revisions': '0', 'paint/missing-damage': '0',
                 'paint/damage-50-74-frames': '12', 'paint/damage-50-74-rows': '340',
                 'paint/damage-75-99-frames': '0', 'paint/damage-75-99-rows': '0',
-                'paint/damage-100-frames': '489', 'paint/damage-100-rows': '23961'})
+                'paint/damage-100-frames': '489', 'paint/damage-100-rows': '23961',
+                'paint/full-calls': '501', 'paint/full-time': '18.125',
+                'paint/text-layout-calls': '24000', 'paint/text-layout-time': '0.002',
+                'paint/text-draw-calls': '24000', 'paint/text-draw-time': '0.351'})
             report = bench.data.render(root, latest=True)
             self.assertIn('terminal / typing / eco=1 terminal=1 size=800x600 / paint/broad-rows', report)
             self.assertIn('paint/skipped-revisions | total | 0 count', report)

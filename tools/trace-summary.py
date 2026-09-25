@@ -54,7 +54,8 @@ def main():
                 print(f"Client WebSocket messages: {total('ws-events', 'work'):.0f}")
             detail = (
                 "terminal-window-repaint", "terminal-window-layout", "terminal-window-input",
-                "terminal-parse", "terminal-cache-full-paint", "terminal-cache-scroll-paint",
+                "terminal-parse", "terminal-text-layout", "terminal-text-draw",
+                "terminal-cache-full-paint", "terminal-cache-scroll-paint",
                 "terminal-cache-row-paint",
                 "terminal-direct-paint", "terminal-cache-blit",
             )
@@ -65,7 +66,8 @@ def main():
                     if calls:
                         peak = max(float(row.get(lane, {}).get("max", 0)) for row in rows)
                         tail = f", max {peak:.3f} ms" if peak else ""
-                        print(f"  {lane}: {calls:.0f} calls, {total(lane, 'ms') / calls:.3f} ms/call{tail}")
+                        precision = 6 if lane in ("terminal-text-layout", "terminal-text-draw") else 3
+                        print(f"  {lane}: {calls:.0f} calls, {total(lane, 'ms') / calls:.{precision}f} ms/call{tail}")
             for lane in ("terminal-cache-broad-repaints", "terminal-cache-skipped-revisions",
                          "terminal-cache-broad-rows", "terminal-cache-missing-damage",
                          "terminal-cache-edge-clamps", "terminal-cache-out-of-bounds",

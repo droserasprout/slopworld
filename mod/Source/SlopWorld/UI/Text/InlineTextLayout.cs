@@ -21,6 +21,7 @@ namespace SlopWorld
         public readonly Span[] Spans;
         public readonly float Width;
         InlineTextLayout(List<Span> spans, float width) { Spans = spans.ToArray(); Width = width; }
+        InlineTextLayout(Span[] spans, float width) { Spans = spans; Width = width; }
 
         readonly struct Token
         {
@@ -109,6 +110,19 @@ namespace SlopWorld
                                       TextSpriteCatalog catalog, Func<char, bool> fitsCell)
         {
             text = text ?? "";
+            // Full terminal paints revisit many ordinary rows. Keep them as one font
+            // span without allocating tokens or probing the sprite trie per character.
+            if (text.Length > 0 && columns == text.Length &&
+                !catalog.HasPrintableAsciiPrefix)
+            {
+                int i = 0;
+                while (i < text.Length && text[i] >= ' ' && text[i] <= '~' &&
+                       fitsCell(text[i])) i++;
+                if (i == text.Length)
+                    return new InlineTextLayout(new[] {
+                        new Span(text, -1, 0f, text.Length * cellWidth)
+                    }, columns * cellWidth);
+            }
             var spans = new List<Span>();
             int col = 0, plainStart = 0, plainCol = 0;
             for (int i = 0; i < text.Length;)
