@@ -1,0 +1,127 @@
+use super::super::format::print_json;
+use super::super::http::{request, Endpoint};
+use super::common::encode_component;
+use super::Command;
+use crate::shared::protocol::routes;
+use serde_json::{json, Value};
+
+pub(crate) const WORKTREE_USAGE: &str = "usage:\n  slopctl worktree list --project PROJECT\n  slopctl worktree create --project PROJECT [--name NAME] [--base REV] [--path EXISTING_CHECKOUT]\n  slopctl worktree rename ID --project PROJECT --name NAME\n  slopctl worktree remove ID --project PROJECT\n\nYou need the root token to rename or remove a worktree.\nThe daemon unregisters external checkouts and keeps their files.\n";
+pub(super) fn parse_worktree(args: &[String]) -> Result<Command, String> {
+    let action = args.get(1).ok_or(WORKTREE_USAGE)?.clone();
+    if !["list", "create", "remove", "rename"].contains(&action.as_str()) {
+        return Err(WORKTREE_USAGE.into());
+    }
+    let mut project = String::new();
+    let mut name = String::new();
+    let mut base = String::new();
+    let mut path = String::new();
+    let mut id = String::new();
+    let mut i = 2;
+    if action == "remove" || action == "rename" {
+        id = args.get(i).ok_or(WORKTREE_USAGE)?.clone();
+        i += 1;
+    }
+    while i < args.len() {
+        let flag = &args[i];
+        i += 1;
+        let value = args.get(i).ok_or(WORKTREE_USAGE)?.clone();
+        i += 1;
+        match flag.as_str() {
+            "--project" => project = value,
+            "--name" if action == "create" || action == "rename" => name = value,
+            "--base" if action == "create" => base = value,
+            "--path" if action == "create" => path = value,
+            _ => return Err(WORKTREE_USAGE.into()),
+        }
+    }
+    Ok(Command::Worktree {
+        action,
+        project,
+        name,
+        base,
+        path,
+        id,
+    })
+}
+
+pub(super) struct WorktreeArgs {
+    pub(super) action: String,
+    pub(super) project: String,
+    pub(super) name: String,
+    pub(super) base: String,
+    pub(super) path: String,
+    pub(super) id: String,
+}
+
+pub(super) fn run(
+    endpoint: &Endpoint,
+    session: &str,
+    json_output: bool,
+    args: WorktreeArgs,
+) -> Result<(), String> {
+    let WorktreeArgs {
+        action,
+        project,
+        name,
+        base,
+        path,
+        id,
+    } = args;
+    let url = if action == "remove" || action == "rename" {
+        format!(
+            "{}/{}?project={}",
+            routes::WORKTREES,
+            encode_component(&id),
+            encode_component(&project)
+        )
+    } else {
+        format!(
+            "{}?project={}",
+            routes::WORKTREES,
+            encode_component(&project)
+        )
+    };
+    let (method, body) = match action.as_str() {
+        "create" => (
+            "POST",
+            Some(json!({"project":project,"name":name,"base":base,"path":path})),
+        ),
+        "remove" => ("DELETE", None),
+        "rename" => ("PUT", Some(json!({"name":name}))),
+        _ => ("GET", None),
+    };
+    let value = request(endpoint, session, method, &url, body)?;
+    if json_output {
+        print_json(&value);
+    } else if action == "remove" {
+        println!("Worktree removed. Branches retained.");
+    } else {
+        let rows: Vec<&Value> = value["worktrees"]
+            .as_array()
+            .map(|v| v.iter().collect())
+            .unwrap_or_else(|| vec![&value]);
+        for w in rows {
+            println!(
+                "{}  {}  {}\n  {}",
+                w["id"].as_str().unwrap_or(""),
+                w["name"].as_str().unwrap_or(""),
+                w["branch"].as_str().unwrap_or(""),
+                w["path"].as_str().unwrap_or("")
+            );
+            if let Some(error) = w["error"].as_str().filter(|s| !s.is_empty()) {
+                println!("  {error}");
+            }
+            if let Some(attachments) = w["attachments"].as_array().filter(|v| !v.is_empty()) {
+                println!(
+                    "  attached: {}",
+                    attachments
+                        .iter()
+                        .filter_map(Value::as_str)
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                );
+            }
+        }
+    }
+    Ok(())
+}
