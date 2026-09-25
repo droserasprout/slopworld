@@ -791,7 +791,10 @@ namespace SlopWorld
                 child.Root = parent.Root;
                 child.Project = parent.Project;
                 child.Depth = parent.Depth + 1;
-                child.HasChildren = hasChildren;
+                // The parent's empty check ignores gitignore; prefer a cached filtered listing.
+                child.HasChildren = dir && child.Children != null
+                    ? child.Children.Count > 0 || child.More
+                    : hasChildren;
                 child.Gitignored = gitignored;
                 if (dir && !hasChildren)
                 {
@@ -799,6 +802,7 @@ namespace SlopWorld
                     // emptied. Drop its old rows immediately instead of waiting for a click.
                     child.Children = new List<Node>();
                     child.More = false;
+                    child.HasChildren = false;
                 }
                 return child;
             }
