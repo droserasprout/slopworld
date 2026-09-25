@@ -71,7 +71,8 @@ filesystem when judging storage lanes.
 
 `make bench-report BENCH_RUN=<name>` reads the CSVs without running benchmarks.
 Add `BENCH_BASELINE=<older> BENCH_MODE=relative` for percentage changes, or use
-the default absolute values and ranges. `BENCH_REPORT_OUTPUT=<path>` exports a
+the default absolute medians with sample standard deviation when repeated.
+`BENCH_REPORT_OUTPUT=<path>` exports a
 Markdown report elsewhere. Game-free comparisons require matching recorded build
 and host details; a missing or different environment withholds the percentage.
 Terminal comparisons match backend, input rate, speed multiplier, and viewport

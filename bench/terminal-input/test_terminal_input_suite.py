@@ -198,8 +198,11 @@ class SuiteTests(unittest.TestCase):
             self.assertIn('| overflow | 35803 |', report)
             self.assertIn('59.43', report)
             self.assertIn('30.00', report)
-            self.assertIn('sessions=37', report)
-            self.assertIn('sessions=38', report)
+            self.assertIn('eco=1 terminal=1 size=100x100', report)
+            self.assertIn('eco=0 terminal=1 size=100x100', report)
+            self.assertNotIn('sessions=', report)
+            self.assertIn('sessions=37', (root / 'metrics.csv').read_text())
+            self.assertIn('sessions=38', (root / 'metrics.csv').read_text())
 
     def test_preparation_failure_still_writes_report_without_injection(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -291,17 +294,23 @@ class SuiteTests(unittest.TestCase):
             root = Path(directory)
             summary = ('eco=1 terminal=1 sessions=1 size=800x600 windows=58\n'
                        '  terminal-cache-broad-repaints: 501 calls\n'
-                       '  terminal-cache-broad-rows: 501 calls\n')
+                       '  terminal-cache-broad-rows: 501 calls\n'
+                       '  terminal-cache-damage-50-74: 12 calls, 340 rows\n'
+                       '  terminal-cache-damage-75-99: 0 calls, 0 rows\n'
+                       '  terminal-cache-damage-100: 489 calls, 23961 rows\n')
             bench.record_paint_reasons(root, 'typing', summary)
             bench.record_paint_reasons(root, 'typing', summary)
             rows = bench.data.read(root / 'metrics.csv')
-            self.assertEqual(len(rows), 4)
+            self.assertEqual(len(rows), 10)
             self.assertEqual({row['metric']: row['value'] for row in rows}, {
                 'paint/broad-repaints': '501', 'paint/broad-rows': '501',
-                'paint/skipped-revisions': '0', 'paint/missing-damage': '0'})
+                'paint/skipped-revisions': '0', 'paint/missing-damage': '0',
+                'paint/damage-50-74-frames': '12', 'paint/damage-50-74-rows': '340',
+                'paint/damage-75-99-frames': '0', 'paint/damage-75-99-rows': '0',
+                'paint/damage-100-frames': '489', 'paint/damage-100-rows': '23961'})
             report = bench.data.render(root, latest=True)
-            self.assertIn('terminal / typing / eco=1 terminal=1 sessions=1 size=800x600 / paint/broad-rows', report)
-            self.assertIn('paint/skipped-revisions | total | 0 [0–0] count', report)
+            self.assertIn('terminal / typing / eco=1 terminal=1 size=800x600 / paint/broad-rows', report)
+            self.assertIn('paint/skipped-revisions | total | 0 count', report)
 
     def test_invalid_phase_never_becomes_usable_from_survivors(self):
         self.assertEqual(measurement_status({'status': 'invalid'}, {'counts': {'samples': 100}}), 'invalid')

@@ -6,7 +6,9 @@ Cursor/selection overlays
 must not force text repaint. Row damage describes one received revision: if painting skipped
 that predecessor, use a full repaint rather than applying incomplete damage.
 Debug counters split broad full paints into skipped revisions, changed rows covering
-at least half the pane, and missing damage metadata.
+at least half the pane, and missing damage metadata. Debug damage bands count both
+frames and changed rows; a 75% cutoff experiment had no 50–74% paints in the typing
+workload, so it did not change the repaint decision.
 Debug performance records count history anchor shifts with unchanged cache geometry,
 matching nonlinked row overlap, and shifts that land on whole screen pixels. These
 measure reuse opportunities. History viewport changes still repaint the pane.

@@ -31,10 +31,10 @@ class BenchReportTests(unittest.TestCase):
                     report.data.add_metric(target, "daemon", "", "render", "duration", "p50", "us", index, value)
             absolute = report.data.render(new, old)
             relative = report.data.render(new, old, "relative")
-            self.assertIn("9.000 [8.000–10.000] us", absolute)
+            self.assertIn("9.000 ± 1.000 us", absolute)
             self.assertIn("-18.18%", absolute)
             self.assertIn("-18.18%", relative)
-            self.assertNotIn("[8.000–10.000]", relative)
+            self.assertNotIn("±", relative.split("| daemon / render / duration", 1)[1])
 
     def test_latest_report_has_stable_name_and_no_capture_dates(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -68,8 +68,8 @@ class BenchReportTests(unittest.TestCase):
             self.assertIn("| terminal / typing | current |", combined)
             self.assertIn("| terminal / htop | saved fallback |", combined)
             self.assertIn("daemon / render / duration", combined)
-            self.assertIn("50.000 [50.000–50.000] ms", combined)
-            self.assertNotIn("90.000 [90.000–90.000] ms", combined)
+            self.assertIn("50.000 ms", combined)
+            self.assertNotIn("90.000 ms", combined)
             self.assertIn("| terminal / typing | 1 | frame_end | 3000 |", combined)
             self.assertNotIn("| terminal / typing | 1 | overflow | 7 |", combined)
             self.assertNotIn("2026", combined)
@@ -217,9 +217,23 @@ class BenchReportTests(unittest.TestCase):
                 self.assertEqual(0, report.main())
             self.assertEqual(["build", 1, 2, 3], events)
             self.assertEqual(["BUILD=release", "bench-build"], build.call_args.args[0][-2:])
-            self.assertIn("2.000 [1.000–3.000]", output.read_text())
+            self.assertIn("2.000 ± 1.000", output.read_text())
             self.assertIn("terminal / typing / paste", output.read_text())
             self.assertTrue((Path(directory) / "results" / "trial" / "metrics.csv").exists())
+
+    def test_deviation_is_optional_and_latency_units_are_converted(self):
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory)
+            report.data.add_metric(target, "terminal", "typing", "paste",
+                                   "latency/input_to_frame_end", "p50", "us", 1, 1000)
+            report.data.add_metric(target, "terminal", "typing", "paste",
+                                   "latency/input_to_frame_end", "p50", "us", 2, 3000)
+            report.data.add_metric(target, "terminal", "typing", "pane",
+                                   "paint/damage-50-74-frames", "total", "count", 1, 7)
+            shown = report.data.render(target)
+            self.assertIn("2.000 ± 1.414 ms", shown)
+            self.assertIn("7 count", shown)
+            self.assertNotIn("7 ±", shown)
 
 
 if __name__ == "__main__":

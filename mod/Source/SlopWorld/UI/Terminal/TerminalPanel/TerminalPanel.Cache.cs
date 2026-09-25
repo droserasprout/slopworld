@@ -73,6 +73,16 @@ namespace SlopWorld
             bool repaintAll = fresh || !_cacheKey.Matches(key);
             var repaint = TerminalRepaintPolicy.Choose(repaintAll, _cacheContentRevision, buf,
                                                        out var repaintReason);
+            if (PerfTrace.Enabled && !repaintAll &&
+                buf.ContentRevision == unchecked(_cacheContentRevision + 1) &&
+                buf.ChangedRows != null && buf.ChangedRows.Length > 0)
+            {
+                int changed = buf.ChangedRows.Length;
+                int total = System.Math.Max(1, buf.Lines?.Length ?? 0);
+                string band = changed == total ? "100" : changed * 4 >= total * 3 ? "75-99" :
+                    changed * 2 >= total ? "50-74" : "0-49";
+                PerfTrace.Count("terminal-cache-damage-" + band, changed);
+            }
             if (repaint == TerminalRepaint.None) PerfTrace.Count("terminal-cache-hits");
             if (repaintAll)
             {
