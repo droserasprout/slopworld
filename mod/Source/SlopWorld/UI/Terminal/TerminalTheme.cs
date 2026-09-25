@@ -131,10 +131,7 @@ namespace SlopWorld
         {
             string name = Settings.Theme;
             if (name == MatchUI)
-            {
                 name = UIScheme.Current.Id;
-                if (name == "solarized-dark") name = "solarized";
-            }
             string hex = Settings.CursorColor;
             if (_current != null && _name == name && _cursorHex == hex) return;
             _current = Get(name);

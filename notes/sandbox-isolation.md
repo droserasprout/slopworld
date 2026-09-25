@@ -9,6 +9,8 @@ The daemon must reject ordinary binds to protected paths and their ancestors, in
 endpoint, preset and state roots. Apply private overlays last so another bind cannot recover
 the host original. An invalid project root stops startup.
 Silently removing it would change what the agent edits.
+Launch and settings preview reject unknown or invalid selected sandbox presets. Stale names are
+not silently omitted.
 
 Private state uses opaque IDs that the daemon assigns.
 Display-name changes preserve these IDs, so reused names do not cause collisions.

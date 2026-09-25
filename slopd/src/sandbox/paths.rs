@@ -83,7 +83,7 @@ fn lexical_path(path: &Path) -> PathBuf {
 }
 
 /// Validate a sandbox preset before bwrap uses it or the API saves it.
-/// This check keeps safety rules consistent for API requests, manual file changes, and old configuration entries.
+/// This check keeps safety rules consistent for API requests and manual file changes.
 pub fn validate_preset(p: &SandboxPreset, table: &Table) -> Result<()> {
     validate_preset_fields(p, table)?;
     let mut visiting = vec![p.name.clone()];

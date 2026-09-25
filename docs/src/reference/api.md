@@ -60,7 +60,7 @@ Host commands are temporary.
 daemon host without private agent state. A named project scopes the path and working
 directory. The optional `worktree` ID selects a registered, ready checkout. An explicit ID
 rejects paths in other checkouts, including checkouts nested under Main. Symlink escapes
-are rejected. Without a worktree ID, legacy requests infer a registered checkout from the path.
+are rejected. An empty worktree ID selects Main; requests must name another registered checkout explicitly.
 `host: true` with no project accepts an absolute host path.
 
 `GET /api/config` returns effective `values` plus response-only

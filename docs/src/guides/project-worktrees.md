@@ -37,7 +37,6 @@ Renaming a managed worktree moves its checkout directory and repairs Git's regis
 Its branch keeps its name. Move or remove attached sessions before renaming a checkout.
 A worktree without a supplied name uses a short generated name.
 Use **Rename** in the worktree list or the CLI command below.
-Older ID-based paths can be moved by running `slopctl worktree rename ID --project PROJECT --name NAME` after detaching sessions.
 
 ## Browse several checkouts
 

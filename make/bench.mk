@@ -17,7 +17,7 @@ bench-build: api-contract protobuf-deps
 bench-report: ## Render saved CSV results; BENCH_BASELINE and BENCH_MODE=relative compare runs
 	@$(PYTHON) tools/bench-report.py report --run "$(BENCH_RUN)" $(if $(BENCH_BASELINE),--baseline "$(BENCH_BASELINE)") $(if $(BENCH_MODE),--mode "$(BENCH_MODE)") $(if $(BENCH_REPORT_OUTPUT),--output "$(BENCH_REPORT_OUTPUT)")
 
-bench-latest: ## Refresh the single committable benchmark report from BENCH_RUN
+bench-latest: ## Write the latest benchmark report from BENCH_RUN
 	@$(PYTHON) tools/bench-report.py report --run "$(BENCH_RUN)" --latest $(if $(BENCH_FALLBACK_RUN),--fallback-run "$(BENCH_FALLBACK_RUN)")
 
 .PHONY: bench-terminal bench-terminal-typing

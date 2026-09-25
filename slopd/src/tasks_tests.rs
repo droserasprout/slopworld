@@ -241,7 +241,7 @@ fn worker_task_metadata_and_daemon_failure_survive_reload() {
 }
 
 #[test]
-fn compact_journal_preserves_creations_updates_and_legacy_entries() {
+fn compact_journal_preserves_creations_and_updates() {
     let dir = std::env::temp_dir().join(format!("slopd-task-compact-{}", uuid::Uuid::new_v4()));
     fs::create_dir_all(&dir).unwrap();
     let config = dir.join("config.toml");
@@ -250,19 +250,6 @@ fn compact_journal_preserves_creations_updates_and_legacy_entries() {
         .create("alice".into(), "bob".into(), "large body".repeat(1000))
         .unwrap();
     tasks.save().unwrap();
-    let mut legacy = task.clone();
-    legacy.note = Some("legacy".into());
-    let mut line = serde_json::to_vec(
-        &serde_json::json!({"generation": tasks.file.generation, "task": legacy}),
-    )
-    .unwrap();
-    line.push(b'\n');
-    fs::write(&tasks.journal, line).unwrap();
-    let mut tasks = Tasks::load(&config).unwrap();
-    assert_eq!(
-        tasks.get("bob", &task.id).unwrap().note.as_deref(),
-        Some("legacy")
-    );
     let generation = tasks.file.generation;
     for n in 0..140 {
         tasks

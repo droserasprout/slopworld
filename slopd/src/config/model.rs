@@ -801,7 +801,6 @@ pub struct LibraryItemCfg {
     pub name: String,
     #[serde(default)]
     pub kind: LibraryItemKind,
-    #[serde(default)]
     pub link: LibraryItemLink,
     /// The project to use when `link` is `project`.
     /// Temporary links create a new workspace. Ask links let the caller select the destination.

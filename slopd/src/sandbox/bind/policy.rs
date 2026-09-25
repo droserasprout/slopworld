@@ -16,9 +16,9 @@ pub(super) fn private_bind_paths(
     s: &SessionCfg,
     p: &ProjectCfg,
     t: &Table,
-) -> Vec<(String, String)> {
+) -> anyhow::Result<Vec<(String, String)>> {
     let mut out: Vec<(String, String)> = Vec::new();
-    for pr in presets_for(cfg, s, p, t) {
+    for pr in presets_for(cfg, s, p, t)? {
         for path in &pr.private {
             let host = expand(path);
             if host.is_empty() {
@@ -43,15 +43,20 @@ pub(super) fn private_bind_paths(
             out.push((copy.to_string_lossy().into_owned(), host));
         }
     }
-    out
+    Ok(out)
 }
 
 /// Returns existing regular files that presets may share read-write into private state.
 /// Refused paths and directories are excluded so shared state cannot grant execution or reach
 /// another session's secrets.
-pub(super) fn shared_binds(cfg: &Config, s: &SessionCfg, p: &ProjectCfg, t: &Table) -> Vec<String> {
+pub(super) fn shared_binds(
+    cfg: &Config,
+    s: &SessionCfg,
+    p: &ProjectCfg,
+    t: &Table,
+) -> anyhow::Result<Vec<String>> {
     let mut out: Vec<String> = Vec::new();
-    for pr in presets_for(cfg, s, p, t) {
+    for pr in presets_for(cfg, s, p, t)? {
         for path in &pr.shared {
             let host = expand(path);
             if host.is_empty() || out.contains(&host) {
@@ -71,7 +76,7 @@ pub(super) fn shared_binds(cfg: &Config, s: &SessionCfg, p: &ProjectCfg, t: &Tab
             out.push(host);
         }
     }
-    out
+    Ok(out)
 }
 
 /// The host tmux server uses the host UID in its socket directory path.
@@ -134,8 +139,7 @@ pub(super) fn paths(
         if path.is_empty() || out.contains(&path) {
             continue;
         }
-        // Warn and omit rejected paths, as for unknown preset names.
-        // Let the agent start with old configuration. Never mount paths that fail validation.
+        // Never mount paths that fail validation.
         if let Some(what) = refused(&path) {
             tracing::warn!("not binding {path}: it reaches {what}");
             continue;

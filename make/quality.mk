@@ -1,4 +1,4 @@
-.PHONY: format-daemon format-csharp format-mod check-format-csharp lint-daemon lint-mod
+.PHONY: format-daemon format-csharp check-format-csharp lint-daemon lint-mod
 
 CSHARP_FORMAT_INCLUDE := mod/Source/SlopWorld mod/Tests bench/ipc/csharp bench/terminal-input/tests/http_transport/Probe.cs
 CSHARP_FORMAT_EXCLUDE := \
@@ -17,8 +17,6 @@ format-daemon: ## Format Rust sources
 
 format-csharp: ## Format C# production, test and benchmark sources
 	@$(CSHARP_FORMAT_COMMAND)
-
-format-mod: format-csharp ## Alias for formatting all C# sources
 
 check-format-csharp: ## Check formatting across C# production, tests and benchmarks
 	@$(CSHARP_FORMAT_COMMAND) --verify-no-changes

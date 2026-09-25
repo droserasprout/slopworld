@@ -25,6 +25,8 @@ The shared draggable split for Files and Git retains independent scroll owners a
 
 Worker hierarchy comes from explicit daemon metadata, never names. The plus menu's Worker action
 opens the Spawn Worker dialog for a project, with template selection.
+Manual agent start and restart failures open an OK dialog with the daemon error, including starts
+from routed rows, gizmos, the session list, and the command palette.
 Project and agent context menus keep their worker actions. A project action uses the host session by default. The user can select an agent.
 An agent action uses that agent as context. Host, ephemeral, and worker rows are not ordinary colonists or
 part of project agent counts. A temporary session rename mapping preserves membership until the HTTP and WebSocket handoff completes.

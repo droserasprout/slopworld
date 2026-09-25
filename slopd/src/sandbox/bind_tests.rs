@@ -390,6 +390,7 @@ fn a_command_brings_its_own_presets() {
     };
     let t = crate::presets::table();
     let names: Vec<&str> = presets_for(&cfg, &s, &p, &t)
+        .unwrap()
         .iter()
         .map(|pr| pr.name.as_str())
         .collect();
@@ -530,15 +531,13 @@ fn only_a_file_is_ever_shared() {
     std::fs::write(root.join("creds.json"), "token").unwrap();
 
     let file = root.join("creds.json").to_string_lossy().into_owned();
-    let t = Table {
-        sandbox: vec![SandboxPreset {
-            name: "t".into(),
-            private: vec![root.to_string_lossy().into_owned()],
-            shared: vec![file.clone()],
-            ..Default::default()
-        }],
-        commands: Vec::new(),
-    };
+    let mut t = Table::builtins();
+    t.sandbox.push(SandboxPreset {
+        name: "t".into(),
+        private: vec![root.to_string_lossy().into_owned()],
+        shared: vec![file.clone()],
+        ..Default::default()
+    });
 
     let p = ProjectCfg {
         name: "p".into(),
@@ -552,7 +551,7 @@ fn only_a_file_is_ever_shared() {
         ..Default::default()
     };
     assert_eq!(
-        shared_binds(&Config::default(), &s, &p, &t),
+        shared_binds(&Config::default(), &s, &p, &t).unwrap(),
         vec![file],
         "the valid shared file did not get through"
     );

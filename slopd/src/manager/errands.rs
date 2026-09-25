@@ -203,7 +203,7 @@ impl Manager {
                 let table = source.preset_table();
                 session.sandbox = cfg.sandbox_of(source, project);
                 session.sandbox_snapshots =
-                    crate::sandbox::presets_for(cfg, source, project, &table)
+                    crate::sandbox::presets_for(cfg, source, project, &table)?
                         .into_iter()
                         .cloned()
                         .collect();

@@ -168,7 +168,10 @@ fn editing_and_preview_keep_command_wiring_and_transitive_snapshots() {
         }],
         ..Default::default()
     };
-    let result = cfg.settings_preview(&edit, &project, false).to_string();
+    let result = cfg
+        .settings_preview(&edit, &project, false)
+        .unwrap()
+        .to_string();
     assert!(result.contains("Project mounts"));
     assert!(result.contains("Project: repo"));
     assert!(result.contains("captured copy"));

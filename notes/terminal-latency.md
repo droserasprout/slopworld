@@ -155,9 +155,6 @@ make bench-report BENCH_RUN=terminal-next
 make bench-report BENCH_RUN=terminal-next BENCH_BASELINE=terminal-baseline BENCH_MODE=relative
 ```
 
-The runner still accepts `--output` and `--report-only` to import older raw JSON
-artifacts into shared CSVs. Those legacy paths are not used for new runs.
-
 `--phase suite` is the automatic default. From one empty local host-shell tab,
 `make bench-terminal-typing` runs the bounded filler and settling period, then
 measures typing only. Use a new `BENCH_RUN` name when repeating it. For a
@@ -165,8 +162,8 @@ history-only run, use `--phase history --fill-history`; it uses the same setup
 and measures only scrolling. Without
 `--fill-history`, `history`, `typing`, and `htop` keep the manually prepared
 individual-phase workflow, each with a prompt and countdown.
-`all` retains the legacy three-tab workflow. This allows adding a missing phase to
-an existing directory without overwriting other phases. For example:
+`all` runs each phase separately with its own prompt. This allows adding a missing
+phase to an existing directory without overwriting other phases. For example:
 
 ```sh
 make bench-terminal BENCH_RUN=terminal-htop BENCH_PHASE=htop BENCH_MULTIPLIER=10 \

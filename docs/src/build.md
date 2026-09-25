@@ -130,8 +130,8 @@ slopctl logs --follow                        # combined game + daemon
 `make bench-report BENCH_RUN=<name>` reads their saved CSVs and writes
 `bench/results/<name>/report.md`. The report includes IPC timings, allocations,
 and wire sizes.
-`make bench-latest BENCH_RUN=<name>` refreshes the single committable
-`bench/latest-report.md` snapshot without a dated run name or capture timestamps.
+`make bench-latest BENCH_RUN=<name>` writes `bench/latest-report.md` without a dated run name
+or capture timestamps. The repository does not keep a checked-in latest snapshot.
 For a focused run, set `BENCH_FALLBACK_RUN=<full-run>` to carry forward suites
 and phases absent from that run. The report labels which source supplied each phase.
 Each timing shows the median p50 or p95 across runs.

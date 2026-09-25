@@ -155,7 +155,7 @@ namespace SlopWorld
             else if (UiButtons.Button(new Rect(x, bottom, runW, UiTheme.RowBtnH), "Start",
                          UiTheme.Btn.Primary))
             {
-                SessionHub.Instance.SessionStore.Start(s.Name, UiLayout.Fail);
+                CatalogActions.Start(s.Name);
             }
 
             // Stop is Del for a temporary agent: killing the process is what removes it.

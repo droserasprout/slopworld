@@ -9,7 +9,7 @@ mod state;
 
 use std::path::Path;
 
-use anyhow::{bail, Result};
+use anyhow::{anyhow, bail, Context, Result};
 
 use crate::config::{expand, mount_target, Config, MountMode, ProjectCfg, SessionCfg};
 use crate::presets::{SandboxPreset, Table};
@@ -55,7 +55,7 @@ pub(crate) fn build_plan(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result
     let agent_argv = shell_split(&cfg.command_of(s));
     let dir = expand(&p.dir);
     let table = s.preset_table();
-    let presets = presets_for(cfg, s, p, &table);
+    let presets = presets_for(cfg, s, p, &table)?;
     let home = dirs::home_dir()
         .map(|path| path.to_string_lossy().into_owned())
         .unwrap_or_else(|| "/root".into());
@@ -229,37 +229,31 @@ fn is_executable_file(path: &Path) -> bool {
     }
 }
 
-/// Omit unknown preset names with a warning so old configuration files do not prevent agent startup.
-/// Validate all dependencies before applying presets.
-/// The same check omits known presets with unsafe definitions.
+/// Resolve selected presets and fail explicitly for missing or invalid definitions.
 pub(crate) fn presets_for<'a>(
     cfg: &Config,
     s: &SessionCfg,
     p: &ProjectCfg,
     t: &'a Table,
-) -> Vec<&'a SandboxPreset> {
-    cfg.sandbox_of(s, p)
-        .into_iter()
-        .filter_map(|n| {
-            let Some(hit) = t.sandbox(&n) else {
-                tracing::warn!(
-                    "session {:?} in project {:?} names unknown sandbox preset {n:?}, ignoring",
-                    s.name,
-                    p.name
-                );
-                return None;
-            };
-            if let Err(e) = validate_preset_name(&n, t) {
-                tracing::warn!(
-                    "session {:?} in project {:?} names invalid sandbox preset {n:?}: {e:#}, ignoring",
-                    s.name,
-                    p.name
-                );
-                return None;
-            }
-            Some(hit)
-        })
-        .collect()
+) -> Result<Vec<&'a SandboxPreset>> {
+    let mut resolved = Vec::new();
+    for name in cfg.sandbox_of(s, p) {
+        let preset = t.sandbox(&name).ok_or_else(|| {
+            anyhow!(
+                "session {:?} in project {:?} names unknown sandbox preset {name:?}",
+                s.name,
+                p.name
+            )
+        })?;
+        validate_preset_name(&name, t).with_context(|| {
+            format!(
+                "session {:?} in project {:?} names invalid sandbox preset {name:?}",
+                s.name, p.name
+            )
+        })?;
+        resolved.push(preset);
+    }
+    Ok(resolved)
 }
 
 // host.rs owns host-terminal behavior and shell argument parsing.

@@ -100,7 +100,7 @@ namespace SlopWorld.Tests
             Assert.That(f.Catalog.Revision, Is.GreaterThan(revision), "clear the error even when catalog contents match");
         }
 
-        public static void DefaultsMigrationAndProjectVisibility()
+        public static void DefaultsAndProjectVisibility()
         {
             var f = new Fixture(); f.Update();
             f.Reply(0, Scope(), Scope("one"), Scope("two"));
@@ -118,17 +118,16 @@ namespace SlopWorld.Tests
             Assert.That(saved.Chosen(Scope("new")), Is.False, "new worktrees stay opt-in under All projects");
         }
 
-        public static void LegacyMainChoiceMigratesWhenDaemonAssignsId()
+        public static void UnassignedProjectChoiceExpiresWhenDaemonAssignsId()
         {
             var f = new Fixture(); f.Projects[0].Id = ""; f.Update();
             f.Reply(0, Scope());
-            f.Toggle(f.Catalog.All("legacy:p")[0]);
+            f.Toggle(f.Catalog.All("name:p")[0]);
             Assert.That(f.Catalog.EnabledScopes(), Is.Empty);
             f.Projects[0].Id = "p-id"; f.ProjectsRevision++; f.Update();
             f.Reply(1, Scope(), Scope("new"));
-            Assert.That(f.Catalog.EnabledScopes(), Is.Empty, "disabled Main survives first worktree creation");
-            Assert.That(f.Saved, Does.Contain(BrowseScope.Identity("p-id", "main")));
-            Assert.That(f.Saved, Does.Not.Contain("legacy"));
+            Assert.That(f.Catalog.EnabledScopes().Select(s => s.Worktree), Is.EqualTo(new[] { "main" }));
+            Assert.That(f.Saved, Does.Not.Contain(BrowseScope.Identity("p-id", "main")));
         }
 
         public static void RenameReadinessFailureAndRemoval()
@@ -173,7 +172,7 @@ namespace SlopWorld.Tests
             Assert.That(f.Requests.Last().Project, Is.EqualTo("r"));
         }
 
-        public static void StableIdsResolveRenamedProjectsAndLegacyMain()
+        public static void StableIdsResolveRenamedProjectsAndUnassignedProjects()
         {
             var p = new ProjectInfo { Id = "stable", Name = "old" };
             string key = BrowseScope.Identity(p.Id, "tree");

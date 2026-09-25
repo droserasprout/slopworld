@@ -56,10 +56,16 @@ async fn library_load_ignores_missing_directories_and_non_toml_files() {
     assert!(load_library(&fixture.dirs()).await.unwrap().is_empty());
     fixture.write("prompts/notes.txt", "not TOML").await;
     fixture
-        .write("prompts/z.toml", "name = 'z'\ntext = 'last'")
+        .write(
+            "prompts/z.toml",
+            "name = 'z'\nlink = 'project'\ntext = 'last'",
+        )
         .await;
     fixture
-        .write("prompts/a.toml", "name = 'a'\ntext = 'first'")
+        .write(
+            "prompts/a.toml",
+            "name = 'a'\nlink = 'project'\ntext = 'first'",
+        )
         .await;
     let loaded = load_library(&fixture.dirs()).await.unwrap();
     assert_eq!(
@@ -76,9 +82,12 @@ async fn library_load_ignores_missing_directories_and_non_toml_files() {
 async fn library_load_rejects_invalid_catalog_files_with_path_context() {
     for (text, expected) in [
         ("not valid TOML", "parsing library item"),
-        ("name = 'entry'\nkind = 'breadcrumb'", "belongs in"),
-        ("name = 'different'", "expected \"entry\""),
-        ("name = '../escape'", "one safe file name"),
+        (
+            "name = 'entry'\nlink = 'project'\nkind = 'breadcrumb'",
+            "belongs in",
+        ),
+        ("name = 'different'\nlink = 'project'", "expected \"entry\""),
+        ("name = '../escape'\nlink = 'project'", "one safe file name"),
     ] {
         let fixture = LibraryFixture::new();
         fixture.write("prompts/entry.toml", text).await;
@@ -92,12 +101,12 @@ async fn library_load_rejects_invalid_catalog_files_with_path_context() {
 async fn library_load_rejects_duplicate_names_across_kinds() {
     let fixture = LibraryFixture::new();
     fixture
-        .write("prompts/shared.toml", "name = 'shared'")
+        .write("prompts/shared.toml", "name = 'shared'\nlink = 'project'")
         .await;
     fixture
         .write(
             "breadcrumbs/shared.toml",
-            "name = 'shared'\nkind = 'breadcrumb'",
+            "name = 'shared'\nlink = 'project'\nkind = 'breadcrumb'",
         )
         .await;
     let error = load_library(&fixture.dirs()).await.unwrap_err();
@@ -110,7 +119,7 @@ async fn library_load_rejects_duplicate_names_across_kinds() {
 #[tokio::test]
 async fn invalid_library_saves_leave_existing_catalog_files_untouched() {
     let fixture = LibraryFixture::new();
-    let original = "name = 'keep'\ntext = 'original'";
+    let original = "name = 'keep'\nlink = 'project'\ntext = 'original'";
     fixture.write("prompts/keep.toml", original).await;
     let item = LibraryItemCfg {
         name: "duplicate".into(),
@@ -144,9 +153,11 @@ async fn invalid_library_saves_leave_existing_catalog_files_untouched() {
 #[tokio::test]
 async fn library_save_moves_kinds_and_removes_stale_toml_only() {
     let fixture = LibraryFixture::new();
-    fixture.write("prompts/moved.toml", "name = 'moved'").await;
     fixture
-        .write("prompts/deleted.toml", "name = 'deleted'")
+        .write("prompts/moved.toml", "name = 'moved'\nlink = 'project'")
+        .await;
+    fixture
+        .write("prompts/deleted.toml", "name = 'deleted'\nlink = 'project'")
         .await;
     fixture.write("prompts/notes.txt", "keep me").await;
     let item = LibraryItemCfg {

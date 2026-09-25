@@ -146,10 +146,9 @@ def load_catalog() -> tuple[list[dict], list[dict]]:
 
     terminal_ids = {theme["id"] for theme in terminal}
     for scheme in ui:
-        terminal_id = "solarized" if scheme["id"] == "solarized-dark" else scheme["id"]
-        if terminal_id not in terminal_ids:
+        if scheme["id"] not in terminal_ids:
             raise ValueError(
-                f"UI scheme {scheme['id']} has no terminal theme for Match UI ({terminal_id})"
+                f"UI scheme {scheme['id']} has no terminal theme for Match UI"
             )
     return ui, terminal
 

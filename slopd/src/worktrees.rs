@@ -234,9 +234,7 @@ pub(crate) async fn remove_tree(w: &Worktree) -> Result<()> {
     let parent = checkout
         .parent()
         .context("missing worktree project directory")?;
-    let legacy = checkout.file_name().and_then(|s| s.to_str()) == Some("checkout")
-        && parent.file_name().and_then(|s| s.to_str()) == Some(&w.id);
-    if !legacy && checkout.file_name().and_then(|s| s.to_str()) != Some(&w.name) {
+    if checkout.file_name().and_then(|s| s.to_str()) != Some(&w.name) {
         bail!("worktree path does not match its recorded name");
     }
     if parent.canonicalize()? != parent || checkout.canonicalize()? != checkout {
@@ -317,10 +315,6 @@ pub(crate) async fn remove_tree(w: &Worktree) -> Result<()> {
     }
     if checkout.exists() {
         bail!("Git reported removal but checkout still exists");
-    }
-    if legacy {
-        std::fs::remove_dir(parent).context("removing empty legacy worktree container")?;
-        let _ = std::fs::remove_dir(parent.parent().context("legacy project directory")?);
     }
     Ok(())
 }

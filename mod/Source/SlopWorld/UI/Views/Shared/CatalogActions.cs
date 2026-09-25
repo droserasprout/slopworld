@@ -1,8 +1,19 @@
 namespace SlopWorld
 {
-    // Callers retain visibility rules and window placement. Confirmations share the action.
+    // Callers retain visibility rules and window placement. Shared actions own their failure UI.
     static class CatalogActions
     {
+        static void StartFailed(string name, string message) =>
+            TerminalWindow.OpenOverPane(AlertDialog.Create("Agent failed to start",
+                $"Could not start '{name}':\n{message}", "OK", null,
+                primaryKind: UiTheme.Btn.Danger));
+
+        public static void Start(string name) =>
+            SessionHub.Instance.SessionStore.Start(name, message => StartFailed(name, message));
+
+        public static void Restart(string name) =>
+            SessionHub.Instance.SessionStore.Restart(name, message => StartFailed(name, message));
+
         public static Verse.Window ResetState(string name) => ConfirmDialog.Create(
             $"Reset private state for '{name}'? This stops the agent and gives its tools " +
             "a fresh state on next start. The old state stays recoverable for 14 days.",

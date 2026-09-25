@@ -94,7 +94,7 @@ pub(super) fn assemble_plan(args: BuildArgs<'_>) -> Result<LaunchPlan> {
     mounts::push_ro_binds(&mut mounts_args, &bind);
     mounts::push_persistent_tmp(&mut mounts_args, &bind);
     mounts::push_mounts(&mut mounts_args, mounts);
-    mounts::push_private_binds(&mut mounts_args, &bind);
+    mounts::push_private_binds(&mut mounts_args, &bind)?;
     mounts::push_env(
         &mut environment,
         EnvArgs {

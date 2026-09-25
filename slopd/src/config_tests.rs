@@ -217,17 +217,20 @@ fn library_become_sessions() {
 
             [[library]]
             name = "review diff"
+            link = "project"
             project = "slopworld"
             text = "review the working diff"
 
             [[library]]
             name = "tests"
+            link = "project"
             kind = "shell"
             project = "slopworld"
             text = "make test"
 
             [[library]]
             name = "codex"
+            link = "project"
             project = "slopworld"
             text = "have a look"
             command = "codex --yolo"
@@ -285,14 +288,13 @@ fn preset_dependencies_arrive_before_the_preset_that_needs_them() {
     );
 }
 
-/// Preserve compatibility with library entries saved before explicit links existed.
-/// An entry that names a project defaults to a project link.
 #[test]
-fn library_item_links_round_trip_and_default_to_the_project() {
+fn library_item_links_round_trip() {
     let cfg = Config::parse(
         r#"
             [[library]]
-            name = "old"
+            name = "project"
+            link = "project"
             project = "slopworld"
             text = "carry on"
 
@@ -310,7 +312,7 @@ fn library_item_links_round_trip_and_default_to_the_project() {
     .expect("links should parse");
 
     assert_eq!(
-        cfg.library_item("old").unwrap().link,
+        cfg.library_item("project").unwrap().link,
         LibraryItemLink::Project
     );
     assert_eq!(
@@ -339,23 +341,27 @@ fn file_action_modes_round_trip_and_default_to_the_menu() {
         r#"
             [[library]]
             name = "old"
+            link = "project"
             kind = "fa"
             command = "du -sh"
 
             [[library]]
             name = "report"
+            link = "project"
             kind = "fa"
             command = "file"
             mode = "show_result"
 
             [[library]]
             name = "shell"
+            link = "project"
             kind = "fa"
             command = "bash"
             mode = "open_terminal"
 
             [[library]]
             name = "quiet"
+            link = "project"
             kind = "fa"
             command = "touch"
             mode = "nothing"

@@ -83,8 +83,6 @@ struct File {
 struct JournalEntry {
     generation: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    task: Option<Task>, // Backward-compatible full update entries.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     create: Option<Task>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     update: Option<TaskUpdate>,
@@ -150,13 +148,9 @@ impl Tasks {
                     );
                     break;
                 };
-                if usize::from(entry.task.is_some())
-                    + usize::from(entry.create.is_some())
-                    + usize::from(entry.update.is_some())
-                    != 1
-                {
+                if usize::from(entry.create.is_some()) + usize::from(entry.update.is_some()) != 1 {
                     tracing::warn!(
-                        "stopping at ambiguous task journal entry in {}",
+                        "stopping at unsupported task journal entry in {}",
                         journal.display()
                     );
                     break;
@@ -169,11 +163,6 @@ impl Tasks {
                     if !positions.contains_key(&task.id) {
                         positions.insert(task.id.clone(), file.tasks.len());
                         file.tasks.push(task);
-                    }
-                }
-                if let Some(task) = entry.task {
-                    if let Some(&index) = positions.get(&task.id) {
-                        file.tasks[index] = task;
                     }
                 }
                 if let Some(update) = entry.update {
@@ -262,7 +251,6 @@ impl Tasks {
         self.file.tasks.push(task.clone());
         if let Err(error) = self.append_entry(JournalEntry {
             generation: self.file.generation,
-            task: None,
             create: Some(task.clone()),
             update: None,
         }) {
@@ -468,7 +456,6 @@ impl Tasks {
     fn append_update(&mut self, task: &Task) -> Result<()> {
         self.append_entry(JournalEntry {
             generation: self.file.generation,
-            task: None,
             create: None,
             update: Some(TaskUpdate {
                 id: task.id.clone(),

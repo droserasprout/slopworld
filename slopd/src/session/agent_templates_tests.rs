@@ -216,7 +216,7 @@ fn an_instance_keeps_captured_behavior_when_live_entries_change() {
 }
 
 #[test]
-fn capture_ignores_inactive_sandbox_references_and_keeps_snapshots() {
+fn capture_rejects_stale_sandbox_references() {
     let mut command = command();
     command.sandbox = vec!["missing-command-preset".into(), "captured".into()];
     let source = SessionCfg {
@@ -238,20 +238,14 @@ fn capture_ignores_inactive_sandbox_references_and_keeps_snapshots() {
         name: "slopworld".into(),
         ..Default::default()
     };
-    let saved = AgentTemplate::from_session(
+    let result = AgentTemplate::from_session(
         "copy".into(),
         String::new(),
         &source,
         &project,
         &Config::default(),
-    )
-    .unwrap();
-    assert_eq!(saved.defaults.command.unwrap().sandbox, vec!["captured"]);
-    assert_eq!(saved.defaults.sandbox, vec!["captured"]);
-    assert_eq!(
-        saved.defaults.sandbox_presets[0].description,
-        "Captured sandbox"
     );
-    // Capturing must not silently rewrite the source or its project.
+    assert!(result.is_err());
+    // A rejected capture leaves the source settings intact.
     assert!(source.sandbox.contains(&"missing-agent-preset".into()));
 }

@@ -125,7 +125,7 @@ namespace SlopWorld
             opts.Add(new FloatMenuOption(alive ? "Stop" : "Start", () =>
             {
                 if (alive) hub.SessionStore.Stop(name, UiLayout.Fail);
-                else hub.SessionStore.Start(name, UiLayout.Fail);
+                else CatalogActions.Start(name);
             }));
 
             var term = new FloatMenuOption("Terminal", () => TerminalWindow.Open(name));

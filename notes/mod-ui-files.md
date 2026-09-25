@@ -9,6 +9,8 @@ host without private agent state. The selected registered worktree validates act
 the working directory. Host reader sessions are disposable, not saved host-shell tabs.
 
 Roots use the shared browsing scope key. Relative paths identify selections and history.
+Scope keys use daemon project IDs, or a `name:` key until a project has an ID. Assigning an ID
+does not migrate saved choices from the name key.
 Project and checkout folds are independent. A checkout rename relocates cached nodes without
 forgetting expansion. Refresh merges by path/type to preserve expansion and selection. Bound concurrency so
 background refresh cannot starve foreground opens. Use layout geometry for both hit tests

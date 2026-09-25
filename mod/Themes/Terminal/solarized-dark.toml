@@ -1,5 +1,5 @@
 version = 1
-id = "solarized"
+id = "solarized-dark"
 label = "Solarized Dark"
 fg = "#839496"
 bg = "#002b36"
