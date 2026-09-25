@@ -1,180 +1,38 @@
-use super::format::{emit, print_json, print_status, print_task};
-use super::http::{request, status_value, Endpoint};
+#[path = "commands/agent.rs"]
+mod agent;
+#[path = "commands/common.rs"]
+mod common;
+#[path = "commands/diagnostics.rs"]
+mod diagnostics;
+#[path = "commands/task.rs"]
+mod task;
+#[path = "commands/templates.rs"]
+mod templates;
+#[path = "commands/worker.rs"]
+mod worker;
+#[path = "commands/worktree.rs"]
+mod worktree;
+
+use super::http::Endpoint;
 use super::logs::LOGS_USAGE;
-use super::{HOST, TASK_WAIT_INTERVAL};
-use crate::shared::protocol::{enums::task_status, routes};
-use serde_json::{json, Value};
-use std::thread;
-use std::time::{Duration, Instant};
 
-pub(crate) const TASK_ID_ENV: &str = "SLOPWORLD_TASK_ID";
+pub(crate) use task::{InboxFilter, UpdateAction};
+pub(crate) use worker::{SpawnArgs, WorktreeChoice};
 
-pub(crate) const DELEGATE_USAGE: &str = "usage:
-  slopctl task delegate AGENT TASK...
-
-Send TASK to AGENT.
-";
-
-pub(crate) const SPAWN_USAGE: &str = "usage:
-  slopctl worker spawn [--one-shot] [--worktree ID | --new-worktree] [--base REV] --project PROJECT --template TEMPLATE [--] TASK...
-
-Create a task-owned worker from an agent template. Scoped callers may use only
-templates that worker policy allows. The worker receives the task body and its exact task ID.
-By default, the daemon keeps worker sessions after they exit.
-Use --one-shot to remove a session on exit.
-The worktree stays until you remove it.
-Use --worktree-name to name a new worktree.
-Options end before TASK. Put -- before task text that starts with an option, such as --durable.
-
-The project and template are required. The old parent/clone syntax is unsupported.
-";
-
-pub(crate) const WORKER_USAGE: &str = "usage:
-  slopctl worker spawn [--one-shot] [--worktree ID | --new-worktree] [--base REV] --project PROJECT --template TEMPLATE [--] TASK...
-
-Create a task-owned worker from an agent template.
-";
-
-pub(crate) const TEMPLATES_USAGE: &str = "usage:
-  slopctl template list [--project PROJECT]
-
-List agent templates. Root callers see the complete catalog. Agents see only
-templates that worker policy enables for their project. For a root caller, --project
-selects the worker project.
-";
-
-pub(crate) const TEMPLATE_USAGE: &str = "usage:
-  slopctl template list [--project PROJECT]
-  slopctl template show NAME [--project PROJECT]
-
-discover and inspect agent templates. Use `template list` or `template show`.
-";
-
-pub(crate) const TEMPLATE_SHOW_USAGE: &str = "usage:
-  slopctl template show NAME [--project PROJECT]
-
-Show one agent template. Agent callers may inspect only templates enabled for
-worker spawning. For a root caller, --project selects the worker project.
-";
-
-pub(crate) const AGENT_USAGE: &str = "usage:
-  slopctl agent create NAME --project PROJECT --template TEMPLATE [--start]
-
-Create and manage agents from the daemon's template catalog.
-";
-
-pub(crate) const AGENT_CREATE_USAGE: &str = "usage:
-  slopctl agent create NAME --project PROJECT --template TEMPLATE [--start]
-
-Create an agent from a daemon catalog template. The daemon does not start the
-agent unless you use --start. The daemon returns the new identity.
-";
-
-pub(crate) const TASK_USAGE: &str = "usage:
-  slopctl task delegate AGENT TASK...
-  slopctl task list [--all] [--sent] [--received] [--status STATUS]
-  slopctl task show [ID]
-  slopctl task wait [ID]
-  slopctl task accept [ID] [NOTE...]
-  slopctl task progress [ID] [NOTE...]
-  slopctl task finish [ID] [RESULT...]
-  slopctl task fail [ID] [ERROR...]
-  slopctl task remove [ID]
-  slopctl task prune [--include-active]
-
-Manage delegated tasks. Omit ID when SLOPWORLD_TASK_ID is set.
-";
-
-pub(crate) const TASK_LIST_USAGE: &str = "usage:
-  slopctl task list [--all] [--sent] [--received] [--status STATUS]
-
-List unfinished tasks that involve the current caller. The list shows the newest
-tasks first. Done, failed, and canceled tasks stay hidden unless you use --all
-or --status.
-
-options:
-  --all             include done, failed and canceled tasks
-  --sent            show only tasks sent by you
-  --received        show only tasks sent to you
-  --status STATUS   show only tasks with this status
-";
-
-pub(crate) const TASK_SHOW_USAGE: &str = "usage:
-  slopctl task show [ID]
-
-Show one task by its exact ID. Omit ID when SLOPWORLD_TASK_ID is set.
-";
-
-pub(crate) const WAIT_USAGE: &str = "usage:
-  slopctl task wait [ID]
-
-Wait until one task reaches a terminal state. Then show the task. The command checks
-task status internally. Do not use a status loop or a short timeout.
-The command writes status changes and a 30-second heartbeat to stderr.
-It writes the final result to stdout. Omit ID when SLOPWORLD_TASK_ID is set.
-";
-
-pub(crate) const ACCEPT_USAGE: &str = "usage:
-  slopctl task accept [ID] [NOTE...]
-
-Accept a queued task. Add an optional note. When SLOPWORLD_TASK_ID is set, omit ID.
-";
-
-pub(crate) const PROGRESS_USAGE: &str = "usage:
-  slopctl task progress [ID] [NOTE...]
-
-Set an accepted task to working. Add an optional note. When SLOPWORLD_TASK_ID is set, omit ID.
-";
-
-pub(crate) const FINISH_USAGE: &str = "usage:
-  slopctl task finish [ID] [RESULT...]
-
-Mark a task as done. Add an optional result. When SLOPWORLD_TASK_ID is set, omit ID.
-";
-
-pub(crate) const FAIL_USAGE: &str = "usage:
-  slopctl task fail [ID] [ERROR...]
-
-Mark a task as failed. Add an optional reason. When SLOPWORLD_TASK_ID is set, omit ID.
-";
-
-pub(crate) const REMOVE_USAGE: &str = "usage:
-  slopctl task remove [ID]
-
-Remove one task that is done, failed, or canceled. When SLOPWORLD_TASK_ID is set, omit ID.
-";
-
-pub(crate) const PRUNE_USAGE: &str = "usage:
-  slopctl task prune [--include-active]
-
-Remove terminal tasks that you sent or received. Add --include-active to remove every task.
-This option requires the root token.
-";
-
-pub(crate) const PEERS_USAGE: &str = "usage:
-  slopctl peers
-
-List sessions visible to the current caller, including host.
-";
-
-pub(crate) const STATUS_USAGE: &str = "usage:
-  slopctl status
-
-show the current caller, endpoint, daemon reachability, and pending task counts.
-";
-
-pub(crate) const SANDBOX_USAGE: &str = "usage:
-  slopctl sandbox inspect NAME
-
-inspect a session's sanitized sandbox launch plan and live process tree.
-";
-
-pub(crate) const SANDBOX_INSPECT_USAGE: &str = "usage:
-  slopctl sandbox inspect NAME
-
-show the sanitized launch plan and, when available, the live process tree for NAME.
-The saved plan remains available after a process exits or a daemon restart.
-";
+#[cfg(test)]
+pub(crate) use agent::{run_agent_create, AGENT_CREATE_USAGE, AGENT_USAGE};
+#[cfg(test)]
+pub(crate) use diagnostics::{
+    peer_names, PEERS_USAGE, SANDBOX_INSPECT_USAGE, SANDBOX_USAGE, STATUS_USAGE,
+};
+#[cfg(test)]
+pub(crate) use task::{
+    task_is_terminal, wait_for_task, TASK_LIST_USAGE, TASK_SHOW_USAGE, TASK_USAGE,
+};
+#[cfg(test)]
+pub(crate) use templates::{TEMPLATES_USAGE, TEMPLATE_SHOW_USAGE, TEMPLATE_USAGE};
+#[cfg(test)]
+pub(crate) use worker::{run_spawn, SPAWN_USAGE, WORKER_USAGE};
 
 pub(crate) const USAGE: &str = "slopctl - delegate work and inspect SlopWorld diagnostics
 
@@ -216,16 +74,6 @@ keyboard. The daemon accepts `host` only with the root token. When
 SLOPWORLD_TASK_ID is set, omit IDs from task lifecycle commands.
 SLOPD_ENDPOINT selects endpoint.toml. SLOPD_URL and SLOPD_TOKEN override it.
 ";
-
-#[derive(Debug, Default, PartialEq, Eq)]
-pub(crate) struct WorktreeChoice {
-    pub worktree: String,
-    pub new_worktree: bool,
-    pub base: String,
-    pub worktree_name: String,
-}
-
-pub(crate) const WORKTREE_USAGE: &str = "usage:\n  slopctl worktree list --project PROJECT\n  slopctl worktree create --project PROJECT [--name NAME] [--base REV] [--path EXISTING_CHECKOUT]\n  slopctl worktree rename ID --project PROJECT --name NAME\n  slopctl worktree remove ID --project PROJECT\n\nYou need the root token to rename or remove a worktree.\nThe daemon unregisters external checkouts and keeps their files.\n";
 
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) enum Command {
@@ -294,43 +142,22 @@ pub(crate) enum Command {
     },
 }
 
-#[derive(Debug, PartialEq, Eq)]
-pub(crate) enum UpdateAction {
-    Accept,
-    Progress,
-    Finish,
-    Fail,
-}
-
-impl UpdateAction {
-    fn status(&self) -> &'static str {
-        match self {
-            Self::Accept => "accepted",
-            Self::Progress => "working",
-            Self::Finish => "done",
-            Self::Fail => "failed",
-        }
-    }
-}
-
 pub(crate) fn command_help(command: &str) -> Option<&'static str> {
     Some(match command {
-        "worker" => WORKER_USAGE,
-        "worktree" => WORKTREE_USAGE,
-        "template" => TEMPLATE_USAGE,
-        "agent" => AGENT_USAGE,
-        "task" => TASK_USAGE,
-        "peers" => PEERS_USAGE,
-        "status" => STATUS_USAGE,
-        "sandbox" => SANDBOX_USAGE,
+        "worker" => worker::WORKER_USAGE,
+        "worktree" => worktree::WORKTREE_USAGE,
+        "template" => templates::TEMPLATE_USAGE,
+        "agent" => agent::AGENT_USAGE,
+        "task" => task::TASK_USAGE,
+        "peers" => diagnostics::PEERS_USAGE,
+        "status" => diagnostics::STATUS_USAGE,
+        "sandbox" => diagnostics::SANDBOX_USAGE,
         "logs" => LOGS_USAGE,
         _ => return None,
     })
 }
 
 fn has_help(args: &[String]) -> bool {
-    // Recognize help immediately after a command name.
-    // Arguments after a task recipient or ID can be task text or notes, including help words.
     matches!(
         args.first().map(String::as_str),
         Some("-h" | "--help" | "help")
@@ -338,7 +165,7 @@ fn has_help(args: &[String]) -> bool {
 }
 
 pub(crate) fn parse_command(args: &[String]) -> Result<Command, String> {
-    let task_id = task_id_from_env();
+    let task_id = task::task_id_from_env();
     parse_command_with_task_id(args, task_id.as_deref())
 }
 
@@ -359,413 +186,31 @@ pub(crate) fn parse_command_with_task_id(
         "logs" => Ok(Command::Logs {
             args: args[1..].to_vec(),
         }),
-        "worker" => parse_worker_command(args),
-        "worktree" => parse_worktree(args),
-        "template" => parse_template_command(args),
-        "agent" => parse_agent_command(args),
-        "task" => parse_task_command(args, task_id),
+        "worker" => worker::parse_worker_command(args),
+        "worktree" => worktree::parse_worktree(args),
+        "template" => templates::parse_template_command(args),
+        "agent" => agent::parse_agent_command(args),
+        "task" => task::parse_task_command(args, task_id),
         "peers" => {
-            only(args, 1)?;
+            common::only(args, 1)?;
             Ok(Command::Peers)
         }
         "status" => {
-            only(args, 1)?;
+            common::only(args, 1)?;
             Ok(Command::Status)
         }
-        "sandbox" => parse_sandbox(args),
+        "sandbox" => diagnostics::parse_sandbox(args),
         command => Err(format!("unknown command: {command}\n\n{USAGE}")),
     }
 }
 
-fn parse_task_command(args: &[String], task_id: Option<&str>) -> Result<Command, String> {
-    if matches!(
-        args.get(1).map(String::as_str),
-        Some("-h" | "--help" | "help")
-    ) {
-        return Ok(Command::Help { usage: TASK_USAGE });
-    }
-
-    match args.get(1).map(String::as_str) {
-        Some("delegate") => {
-            if matches!(
-                args.get(2).map(String::as_str),
-                Some("-h" | "--help" | "help")
-            ) {
-                return Ok(Command::Help {
-                    usage: DELEGATE_USAGE,
-                });
-            }
-            parse_delegate(args, 2)
-        }
-        Some("list") => {
-            if matches!(
-                args.get(2).map(String::as_str),
-                Some("-h" | "--help" | "help")
-            ) {
-                return Ok(Command::Help {
-                    usage: TASK_LIST_USAGE,
-                });
-            }
-            Ok(Command::Inbox {
-                filter: InboxFilter::parse(&args[2..])?,
-            })
-        }
-        Some("show") => parse_task_show(args, task_id),
-        Some("wait") => parse_task_wait(args, task_id),
-        Some("accept") => parse_task_update(args, UpdateAction::Accept, task_id),
-        Some("progress") => parse_task_update(args, UpdateAction::Progress, task_id),
-        Some("finish") => parse_task_update(args, UpdateAction::Finish, task_id),
-        Some("fail") => parse_task_update(args, UpdateAction::Fail, task_id),
-        Some("remove") => parse_task_remove(args, task_id),
-        Some("prune") => parse_task_prune(args),
-        Some(subcommand) => Err(format!(
-            "unknown task subcommand: {subcommand}\n\n{TASK_USAGE}"
-        )),
-        None => Err(format!("task needs a subcommand\n\n{TASK_USAGE}")),
-    }
-}
-
-fn parse_delegate(args: &[String], recipient_at: usize) -> Result<Command, String> {
-    Ok(Command::Delegate {
-        to: arg(args, recipient_at, "delegate needs the agent to send to")?.to_string(),
-        body: rest(args, recipient_at + 1, "delegate needs a task body")?,
-    })
-}
-
-fn parse_task_show(args: &[String], task_id: Option<&str>) -> Result<Command, String> {
-    if matches!(
-        args.get(2).map(String::as_str),
-        Some("-h" | "--help" | "help")
-    ) {
-        return Ok(Command::Help {
-            usage: TASK_SHOW_USAGE,
-        });
-    }
-    let id = task_id_arg(args, 2, "task show needs a task id", task_id)?;
-    only(args, 3)?;
-    Ok(Command::Task { id })
-}
-
-fn parse_task_wait(args: &[String], task_id: Option<&str>) -> Result<Command, String> {
-    if matches!(
-        args.get(2).map(String::as_str),
-        Some("-h" | "--help" | "help")
-    ) {
-        return Ok(Command::Help { usage: WAIT_USAGE });
-    }
-    let id = task_id_arg(args, 2, "task wait needs a task id", task_id)?;
-    only(args, 3)?;
-    Ok(Command::Wait { id })
-}
-
-fn parse_task_update(
-    args: &[String],
-    action: UpdateAction,
-    task_id: Option<&str>,
-) -> Result<Command, String> {
-    let (name, usage) = match &action {
-        UpdateAction::Accept => ("task accept", ACCEPT_USAGE),
-        UpdateAction::Progress => ("task progress", PROGRESS_USAGE),
-        UpdateAction::Finish => ("task finish", FINISH_USAGE),
-        UpdateAction::Fail => ("task fail", FAIL_USAGE),
-    };
-    if matches!(
-        args.get(2).map(String::as_str),
-        Some("-h" | "--help" | "help")
-    ) {
-        return Ok(Command::Help { usage });
-    }
-    let id = task_id_arg(args, 2, &format!("{name} needs a task id"), task_id)?;
-    let note = (args.len() > 3).then(|| args[3..].join(" "));
-    Ok(Command::Update { action, id, note })
-}
-
-fn parse_task_remove(args: &[String], task_id: Option<&str>) -> Result<Command, String> {
-    if matches!(
-        args.get(2).map(String::as_str),
-        Some("-h" | "--help" | "help")
-    ) {
-        return Ok(Command::Help {
-            usage: REMOVE_USAGE,
-        });
-    }
-    let id = task_id_arg(args, 2, "task remove needs a task id", task_id)?;
-    only(args, 3)?;
-    Ok(Command::Remove { id })
-}
-
-fn parse_task_prune(args: &[String]) -> Result<Command, String> {
-    if matches!(
-        args.get(2).map(String::as_str),
-        Some("-h" | "--help" | "help")
-    ) {
-        return Ok(Command::Help { usage: PRUNE_USAGE });
-    }
-    let all = match args.get(2).map(String::as_str) {
-        None => false,
-        Some("--include-active") => true,
-        Some(flag) => return Err(format!("unknown flag: {flag}\n\n{TASK_USAGE}")),
-    };
-    only(args, 3)?;
-    Ok(Command::Prune { all })
-}
-
-fn parse_worker_command(args: &[String]) -> Result<Command, String> {
-    if matches!(
-        args.get(1).map(String::as_str),
-        Some("-h" | "--help" | "help")
-    ) {
-        return Ok(Command::Help {
-            usage: WORKER_USAGE,
-        });
-    }
-    if args.get(1).map(String::as_str) == Some("spawn") {
-        if matches!(
-            args.get(2).map(String::as_str),
-            Some("-h" | "--help" | "help")
-        ) {
-            return Ok(Command::Help { usage: SPAWN_USAGE });
-        }
-        return parse_spawn(args, 2);
-    }
-    Err(format!(
-        "worker needs the spawn subcommand\n\n{WORKER_USAGE}"
-    ))
-}
-
-fn parse_sandbox(args: &[String]) -> Result<Command, String> {
-    if matches!(
-        args.get(1).map(String::as_str),
-        Some("-h" | "--help" | "help")
-    ) {
-        return Ok(Command::Help {
-            usage: SANDBOX_USAGE,
-        });
-    }
-    if args.get(1).map(String::as_str) != Some("inspect") {
-        return Err(format!(
-            "sandbox needs the inspect subcommand\n\n{SANDBOX_USAGE}"
-        ));
-    }
-    if matches!(
-        args.get(2).map(String::as_str),
-        Some("-h" | "--help" | "help")
-    ) {
-        return Ok(Command::Help {
-            usage: SANDBOX_INSPECT_USAGE,
-        });
-    }
-    let name = arg(args, 2, "sandbox inspect needs a session name")?.to_string();
-    only(args, 3)?;
-    Ok(Command::SandboxInspect { name })
-}
-
-fn parse_spawn(args: &[String], options_at: usize) -> Result<Command, String> {
-    let mut durable = true;
-    let mut worktree = WorktreeChoice::default();
-    let mut project = None;
-    let mut template = None;
-    let mut i = options_at;
-    while i < args.len() {
-        match args[i].as_str() {
-            "--" => {
-                i += 1;
-                break;
-            }
-            "--durable" => durable = true,
-            "--one-shot" => durable = false,
-            "--new-worktree" => worktree.new_worktree = true,
-            "--worktree" | "--base" | "--worktree-name" => {
-                let flag = args[i].clone();
-                i += 1;
-                let value = args
-                    .get(i)
-                    .ok_or_else(|| format!("{flag} needs a value"))?
-                    .clone();
-                match flag.as_str() {
-                    "--worktree" => worktree.worktree = value,
-                    "--base" => worktree.base = value,
-                    _ => worktree.worktree_name = value,
-                }
-            }
-            "--project" => {
-                i += 1;
-                project = Some(
-                    args.get(i)
-                        .ok_or_else(|| format!("spawn --project needs a value\n\n{SPAWN_USAGE}"))?
-                        .clone(),
-                );
-            }
-            "--template" => {
-                i += 1;
-                template = Some(
-                    args.get(i)
-                        .ok_or_else(|| format!("spawn --template needs a value\n\n{SPAWN_USAGE}"))?
-                        .clone(),
-                );
-            }
-            // The first argument that is not an option starts the task body.
-            // Treat all subsequent arguments as task text, including words that resemble flags.
-            _ => break,
-        }
-        i += 1;
-    }
-    let Some(project) = project else {
-        return Err(format!(
-            "spawn requires --project PROJECT and --template TEMPLATE.\n\n{SPAWN_USAGE}"
-        ));
-    };
-    let Some(template) = template else {
-        return Err(format!(
-            "spawn requires --project PROJECT and --template TEMPLATE.\n\n{SPAWN_USAGE}"
-        ));
-    };
-    if args.len() <= i {
-        return Err(format!("spawn needs a task body\n\n{SPAWN_USAGE}"));
-    }
-    if worktree.new_worktree && !worktree.worktree.is_empty() {
-        return Err("choose --worktree or --new-worktree".into());
-    }
-    if !worktree.new_worktree && (!worktree.base.is_empty() || !worktree.worktree_name.is_empty()) {
-        return Err("--base and --worktree-name require --new-worktree".into());
-    }
-    Ok(Command::Spawn {
-        project,
-        template,
-        durable,
-        worktree,
-        body: args[i..].join(" "),
-    })
-}
-
-fn parse_template_command(args: &[String]) -> Result<Command, String> {
-    if matches!(
-        args.get(1).map(String::as_str),
-        Some("-h" | "--help" | "help")
-    ) {
-        return Ok(Command::Help {
-            usage: TEMPLATE_USAGE,
-        });
-    }
-    if args.get(1).map(String::as_str) != Some("show") {
-        if args.get(1).map(String::as_str) == Some("list") {
-            if matches!(
-                args.get(2).map(String::as_str),
-                Some("-h" | "--help" | "help")
-            ) {
-                return Ok(Command::Help {
-                    usage: TEMPLATES_USAGE,
-                });
-            }
-            let project = optional_project(args, 2, TEMPLATES_USAGE)?;
-            return Ok(Command::Templates { project });
-        }
-        return Err(format!(
-            "template needs the list or show subcommand\n\n{TEMPLATE_USAGE}"
-        ));
-    }
-    if matches!(
-        args.get(2).map(String::as_str),
-        Some("-h" | "--help" | "help")
-    ) {
-        return Ok(Command::Help {
-            usage: TEMPLATE_SHOW_USAGE,
-        });
-    }
-    let name = arg(args, 2, "template show needs a template name")?.to_string();
-    let project = optional_project(args, 3, TEMPLATE_SHOW_USAGE)?;
-    Ok(Command::TemplateShow { name, project })
-}
-
-fn optional_project(
-    args: &[String],
-    at: usize,
-    usage: &'static str,
-) -> Result<Option<String>, String> {
-    match args.get(at).map(String::as_str) {
-        None => Ok(None),
-        Some("--project") => {
-            let project = args
-                .get(at + 1)
-                .ok_or_else(|| format!("--project needs a value\n\n{usage}"))?
-                .clone();
-            only(args, at + 2)?;
-            Ok(Some(project))
-        }
-        Some(flag) => Err(format!("unexpected argument: {flag}\n\n{usage}")),
-    }
-}
-
-fn parse_agent_command(args: &[String]) -> Result<Command, String> {
-    if matches!(
-        args.get(1).map(String::as_str),
-        Some("-h" | "--help" | "help")
-    ) {
-        return Ok(Command::Help { usage: AGENT_USAGE });
-    }
-    if args.get(1).map(String::as_str) != Some("create") {
-        return Err(format!(
-            "agent needs the create subcommand\n\n{AGENT_USAGE}"
-        ));
-    }
-    if matches!(
-        args.get(2).map(String::as_str),
-        Some("-h" | "--help" | "help")
-    ) {
-        return Ok(Command::Help {
-            usage: AGENT_CREATE_USAGE,
-        });
-    }
-    let name = arg(args, 2, "agent create needs a name")?.to_string();
-    let mut project = None;
-    let mut template = None;
-    let mut start = false;
-    let mut i = 3;
-    while i < args.len() {
-        match args[i].as_str() {
-            "--project" => {
-                i += 1;
-                project = Some(
-                    args.get(i)
-                        .ok_or_else(|| {
-                            format!("agent create --project needs a value\n\n{AGENT_CREATE_USAGE}")
-                        })?
-                        .clone(),
-                );
-            }
-            "--template" => {
-                i += 1;
-                template = Some(
-                    args.get(i)
-                        .ok_or_else(|| {
-                            format!("agent create --template needs a value\n\n{AGENT_CREATE_USAGE}")
-                        })?
-                        .clone(),
-                );
-            }
-            "--start" => start = true,
-            flag => {
-                return Err(format!(
-                    "unknown agent create option: {flag}\n\n{AGENT_CREATE_USAGE}"
-                ))
-            }
-        }
-        i += 1;
-    }
-    let project = project
-        .ok_or_else(|| format!("agent create needs --project PROJECT\n\n{AGENT_CREATE_USAGE}"))?;
-    let template = template
-        .ok_or_else(|| format!("agent create needs --template TEMPLATE\n\n{AGENT_CREATE_USAGE}"))?;
-    Ok(Command::AgentCreate {
-        name,
-        project,
-        template,
-        start,
-    })
-}
-
 impl Command {
-    pub(crate) fn run(self, endpoint: &Endpoint, session: &str, json: bool) -> Result<(), String> {
+    pub(crate) fn run(
+        self,
+        endpoint: &Endpoint,
+        session: &str,
+        json_output: bool,
+    ) -> Result<(), String> {
         match self {
             Self::Worktree {
                 action,
@@ -774,80 +219,34 @@ impl Command {
                 base,
                 path,
                 id,
-            } => {
-                let url = if action == "remove" || action == "rename" {
-                    format!(
-                        "{}/{}?project={}",
-                        routes::WORKTREES,
-                        encode_component(&id),
-                        encode_component(&project)
-                    )
-                } else {
-                    format!(
-                        "{}?project={}",
-                        routes::WORKTREES,
-                        encode_component(&project)
-                    )
-                };
-                let (method, body) = match action.as_str() {
-                    "create" => (
-                        "POST",
-                        Some(json!({"project":project,"name":name,"base":base,"path":path})),
-                    ),
-                    "remove" => ("DELETE", None),
-                    "rename" => ("PUT", Some(json!({"name":name}))),
-                    _ => ("GET", None),
-                };
-                let value = request(endpoint, session, method, &url, body)?;
-                if json {
-                    print_json(&value);
-                } else if action == "remove" {
-                    println!("Worktree removed. Branches retained.");
-                } else {
-                    let rows: Vec<&Value> = value["worktrees"]
-                        .as_array()
-                        .map(|v| v.iter().collect())
-                        .unwrap_or_else(|| vec![&value]);
-                    for w in rows {
-                        println!(
-                            "{}  {}  {}\n  {}",
-                            w["id"].as_str().unwrap_or(""),
-                            w["name"].as_str().unwrap_or(""),
-                            w["branch"].as_str().unwrap_or(""),
-                            w["path"].as_str().unwrap_or("")
-                        );
-                        if let Some(error) = w["error"].as_str().filter(|s| !s.is_empty()) {
-                            println!("  {error}");
-                        }
-                        if let Some(attachments) =
-                            w["attachments"].as_array().filter(|v| !v.is_empty())
-                        {
-                            println!(
-                                "  attached: {}",
-                                attachments
-                                    .iter()
-                                    .filter_map(Value::as_str)
-                                    .collect::<Vec<_>>()
-                                    .join(", ")
-                            );
-                        }
-                    }
-                }
-                Ok(())
-            }
+            } => worktree::run(
+                endpoint,
+                session,
+                json_output,
+                worktree::WorktreeArgs {
+                    action,
+                    project,
+                    name,
+                    base,
+                    path,
+                    id,
+                },
+            ),
             Self::Help { .. } => unreachable!("help is handled before endpoint load"),
             Self::Logs { .. } => unreachable!("local commands are dispatched before endpoint load"),
-            Self::Delegate { to, body } => run_delegate(endpoint, session, json, &to, &body),
+            Self::Delegate { to, body } => {
+                task::run_delegate(endpoint, session, json_output, &to, &body)
+            }
             Self::Spawn {
                 project,
                 template,
                 durable,
                 worktree,
                 body,
-            } => run_spawn(
+            } => worker::run_spawn(
                 endpoint,
                 session,
-                json,
+                json_output,
                 SpawnArgs {
                     project: &project,
                     template: &template,
@@ -857,639 +256,47 @@ impl Command {
                 },
             ),
             Self::Templates { project } => {
-                run_templates(endpoint, session, json, project.as_deref())
+                templates::run_templates(endpoint, session, json_output, project.as_deref())
             }
-            Self::TemplateShow { name, project } => {
-                run_template_show(endpoint, session, json, &name, project.as_deref())
-            }
+            Self::TemplateShow { name, project } => templates::run_template_show(
+                endpoint,
+                session,
+                json_output,
+                &name,
+                project.as_deref(),
+            ),
             Self::AgentCreate {
                 name,
                 project,
                 template,
                 start,
-            } => run_agent_create(endpoint, session, json, &name, &project, &template, start),
-            Self::Inbox { filter } => run_inbox(endpoint, session, json, filter),
-            Self::Task { id } => run_task(endpoint, session, json, &id),
-            Self::Wait { id } => run_wait(endpoint, session, json, &id),
-            Self::Update { action, id, note } => {
-                run_update(endpoint, session, json, &action, &id, note.as_deref())
-            }
-            Self::Remove { id } => run_remove(endpoint, session, json, &id),
-            Self::Prune { all } => run_prune(endpoint, session, json, all),
-            Self::Peers => run_peers(endpoint, session, json),
-            Self::Status => run_status(endpoint, session, json),
-            Self::SandboxInspect { name } => run_sandbox_inspect(endpoint, session, json, &name),
-        }
-    }
-}
-
-fn run_delegate(
-    endpoint: &Endpoint,
-    session: &str,
-    json: bool,
-    to: &str,
-    body: &str,
-) -> Result<(), String> {
-    let v = request(
-        endpoint,
-        session,
-        "POST",
-        routes::TASKS,
-        Some(json!({ "to": to, "body": body })),
-    )?;
-    emit(&v, json);
-    print_wait_hint(&v, json);
-    Ok(())
-}
-
-pub(crate) struct SpawnArgs<'a> {
-    pub(crate) project: &'a str,
-    pub(crate) template: &'a str,
-    pub(crate) durable: bool,
-    pub(crate) worktree: &'a WorktreeChoice,
-    pub(crate) body: &'a str,
-}
-
-pub(crate) fn run_spawn(
-    endpoint: &Endpoint,
-    session: &str,
-    json: bool,
-    args: SpawnArgs<'_>,
-) -> Result<(), String> {
-    let v = request(
-        endpoint,
-        session,
-        "POST",
-        routes::WORKERS,
-        Some(json!({
-            "project": args.project,
-            "template": args.template,
-            "body": args.body,
-            "durable": args.durable,
-            "worktree": args.worktree.worktree,
-            "new_worktree": args.worktree.new_worktree,
-            "base": args.worktree.base,
-            "worktree_name": args.worktree.worktree_name,
-        })),
-    )?;
-    emit(&v, json);
-    print_wait_hint(&v, json);
-    Ok(())
-}
-
-fn template_catalog_path(session: &str, project: Option<&str>) -> String {
-    let path = if session == HOST {
-        routes::TEMPLATES.to_string()
-    } else {
-        routes::SPAWNABLE_TEMPLATES.to_string()
-    };
-    match project {
-        Some(project) => format!("{path}?project={}", encode_component(project)),
-        None => path,
-    }
-}
-
-fn encode_component(value: &str) -> String {
-    let mut encoded = String::with_capacity(value.len());
-    for byte in value.bytes() {
-        if byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.' | b'~') {
-            encoded.push(byte as char);
-        } else {
-            encoded.push_str(&format!("%{byte:02X}"));
-        }
-    }
-    encoded
-}
-
-fn run_templates(
-    endpoint: &Endpoint,
-    session: &str,
-    json: bool,
-    project: Option<&str>,
-) -> Result<(), String> {
-    let path = template_catalog_path(session, project);
-    let v = request(endpoint, session, "GET", &path, None)?;
-    if json {
-        print_json(&v);
-    } else {
-        print_templates(&v);
-    }
-    Ok(())
-}
-
-fn run_template_show(
-    endpoint: &Endpoint,
-    session: &str,
-    json: bool,
-    name: &str,
-    project: Option<&str>,
-) -> Result<(), String> {
-    let path = template_catalog_path(session, project);
-    let v = request(endpoint, session, "GET", &path, None)?;
-    let template = v
-        .get("templates")
-        .and_then(Value::as_array)
-        .and_then(|templates| templates.iter().find(|template| template["name"] == name))
-        .ok_or_else(|| format!("no accessible agent template: {name}"))?;
-    if json {
-        print_json(&json!({ "template": template }));
-    } else {
-        print_template_details(template);
-    }
-    Ok(())
-}
-
-fn print_templates(v: &Value) {
-    let Some(templates) = v.get("templates").and_then(Value::as_array) else {
-        println!("no templates");
-        return;
-    };
-    if templates.is_empty() {
-        println!("no templates");
-        return;
-    }
-    for template in templates {
-        print_template(template);
-    }
-}
-
-fn print_template(template: &Value) {
-    let name = template["name"].as_str().unwrap_or("?");
-    let description = template["description"].as_str().unwrap_or("");
-    if description.is_empty() {
-        println!("{name}");
-    } else {
-        println!("{name}  -  {description}");
-    }
-}
-
-fn print_template_details(template: &Value) {
-    print_template(template);
-    println!("version  {}", template["version"].as_u64().unwrap_or(0));
-    let defaults = &template["defaults"];
-    let command = defaults["command"]["name"].as_str().unwrap_or("");
-    let cmd = defaults["cmd"].as_str().unwrap_or("");
-    if !command.is_empty() {
-        println!("command  {command}");
-    }
-    if !cmd.is_empty() {
-        println!("cmd      {cmd}");
-    }
-    if let Some(sandbox) = defaults["sandbox"].as_array() {
-        println!(
-            "sandbox  {}",
-            if sandbox.is_empty() {
-                "(none)".into()
-            } else {
-                sandbox
-                    .iter()
-                    .filter_map(Value::as_str)
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            }
-        );
-    }
-    println!(
-        "network  {}",
-        defaults["network"].as_str().unwrap_or("private")
-    );
-    println!(
-        "autostart {}",
-        defaults["autostart"].as_bool().unwrap_or(false)
-    );
-}
-
-pub(crate) fn run_agent_create(
-    endpoint: &Endpoint,
-    session: &str,
-    json_output: bool,
-    name: &str,
-    project: &str,
-    template: &str,
-    start: bool,
-) -> Result<(), String> {
-    let mut v = request(
-        endpoint,
-        session,
-        "POST",
-        &format!(
-            "{}/{}/create",
-            routes::TEMPLATES,
-            encode_component(template)
-        ),
-        Some(json!({ "name": name, "project": project, "start": start })),
-    )?;
-    v["started"] = json!(start);
-    if json_output {
-        print_json(&v);
-    } else {
-        println!(
-            "agent    {}\nproject  {}\ntemplate {}\nstarted  {}",
-            name,
-            project,
-            template,
-            if start { "yes" } else { "no" }
-        );
-    }
-    Ok(())
-}
-
-fn print_wait_hint(v: &Value, json: bool) {
-    if json {
-        return;
-    }
-    if let Some(id) = v
-        .get("task")
-        .and_then(|task| task.get("id"))
-        .and_then(Value::as_str)
-    {
-        println!("next     slopctl task wait {id}");
-    }
-}
-
-fn run_inbox(
-    endpoint: &Endpoint,
-    session: &str,
-    json: bool,
-    filter: InboxFilter,
-) -> Result<(), String> {
-    let v = request(endpoint, session, "GET", routes::TASKS, None)?;
-    let tasks = filter.apply(&v, session);
-    if json {
-        print_json(&Value::Array(tasks.into_iter().cloned().collect()));
-    } else if tasks.is_empty() {
-        // Use stderr so an empty inbox produces no stdout content.
-        eprintln!("no tasks");
-    } else {
-        tasks.iter().for_each(|t| print_task(t));
-    }
-    Ok(())
-}
-
-fn run_task(endpoint: &Endpoint, session: &str, json: bool, id: &str) -> Result<(), String> {
-    let v = request(
-        endpoint,
-        session,
-        "GET",
-        &format!("{}/{id}", routes::TASKS),
-        None,
-    )?;
-    emit(&v, json);
-    Ok(())
-}
-
-fn run_wait(endpoint: &Endpoint, session: &str, json: bool, id: &str) -> Result<(), String> {
-    let v = wait_for_task(endpoint, session, id, TASK_WAIT_INTERVAL)?;
-    emit(&v, json);
-    Ok(())
-}
-
-pub(crate) fn wait_for_task(
-    endpoint: &Endpoint,
-    session: &str,
-    id: &str,
-    interval: Duration,
-) -> Result<Value, String> {
-    let started = Instant::now();
-    let mut reported_status = String::new();
-    let mut reported_at = started;
-    loop {
-        let v = request(
-            endpoint,
-            session,
-            "GET",
-            &format!("{}/{id}", routes::TASKS),
-            None,
-        )?;
-        if task_is_terminal(&v)? {
-            return Ok(v);
-        }
-        // Show progress during long waits without adding diagnostics to the final JSON.
-        // Reuse the response instead of making a separate status request.
-        let status = v["task"]["status"].as_str().unwrap();
-        if status != reported_status || reported_at.elapsed() >= Duration::from_secs(30) {
-            eprintln!(
-                "Waiting for task {id}: {status} ({} s elapsed). The wait is active. Do not poll status separately.",
-                started.elapsed().as_secs()
-            );
-            reported_status = status.to_owned();
-            reported_at = Instant::now();
-        }
-        thread::sleep(interval);
-    }
-}
-
-pub(crate) fn task_is_terminal(v: &Value) -> Result<bool, String> {
-    let task = v
-        .get("task")
-        .ok_or_else(|| "response is missing task".to_string())?;
-    let status = task
-        .get("status")
-        .and_then(Value::as_str)
-        .ok_or_else(|| "response task is missing status".to_string())?;
-    match status {
-        "queued" | "accepted" | "working" => Ok(false),
-        task_status::DONE | task_status::FAILED | task_status::CANCELED => Ok(true),
-        status => Err(format!("unknown task status: {status}")),
-    }
-}
-
-fn run_update(
-    endpoint: &Endpoint,
-    session: &str,
-    json: bool,
-    action: &UpdateAction,
-    id: &str,
-    note: Option<&str>,
-) -> Result<(), String> {
-    let v = request(
-        endpoint,
-        session,
-        "POST",
-        &format!("{}/{id}", routes::TASKS),
-        Some(json!({ "status": action.status(), "note": note })),
-    )?;
-    emit(&v, json);
-    Ok(())
-}
-
-fn run_remove(endpoint: &Endpoint, session: &str, json: bool, id: &str) -> Result<(), String> {
-    let v = request(
-        endpoint,
-        session,
-        "DELETE",
-        &format!("{}/{id}", routes::TASKS),
-        None,
-    )?;
-    emit(&v, json);
-    Ok(())
-}
-
-fn run_prune(endpoint: &Endpoint, session: &str, json: bool, all: bool) -> Result<(), String> {
-    let path = if all {
-        format!("{}?all=true", routes::TASKS)
-    } else {
-        routes::TASKS.to_string()
-    };
-    let v = request(endpoint, session, "DELETE", &path, None)?;
-    if json {
-        print_json(&v);
-    } else {
-        println!("removed {}", v["removed"].as_u64().unwrap_or(0));
-    }
-    Ok(())
-}
-
-fn run_peers(endpoint: &Endpoint, session: &str, json: bool) -> Result<(), String> {
-    let v = request(endpoint, session, "GET", routes::SESSIONS, None)?;
-    let names = peer_names(&v);
-    if json {
-        print_json(&json!(names));
-    } else {
-        for name in names {
-            let mark = if name == session { " (you)" } else { "" };
-            println!("{name}{mark}");
-        }
-    }
-    Ok(())
-}
-
-fn run_status(endpoint: &Endpoint, session: &str, json: bool) -> Result<(), String> {
-    let v = status_value(endpoint, session);
-    if json {
-        print_json(&v);
-    } else {
-        print_status(&v);
-    }
-    Ok(())
-}
-
-fn run_sandbox_inspect(
-    endpoint: &Endpoint,
-    session: &str,
-    json: bool,
-    name: &str,
-) -> Result<(), String> {
-    let v = request(
-        endpoint,
-        session,
-        "GET",
-        &format!("{}/{name}/sandbox", routes::SESSIONS),
-        None,
-    )?;
-    if json {
-        print_json(&v);
-    } else {
-        print_sandbox(&v);
-    }
-    Ok(())
-}
-
-fn print_sandbox(v: &Value) {
-    println!("session   {}", v["session"].as_str().unwrap_or("?"));
-    if v["host"].as_bool().unwrap_or(false) {
-        println!("sandbox   not applicable (host terminal)");
-        return;
-    }
-    if let Some(plan) = v.get("plan").filter(|plan| !plan.is_null()) {
-        for section in [
-            "limits",
-            "pasta",
-            "bwrap",
-            "environment",
-            "mounts",
-            "command",
-        ] {
-            println!("{section}:");
-            if let Some(args) = plan[section].as_array() {
-                if args.is_empty() {
-                    println!("  (none)");
-                } else {
-                    for arg in args {
-                        println!("  {}", shell_quote(arg.as_str().unwrap_or("<arg>")));
-                    }
-                }
-            }
-        }
-    } else {
-        println!("plan      no saved sandbox launch");
-    }
-    let live = &v["live"];
-    println!("live      {}", live["status"].as_str().unwrap_or("unknown"));
-    if let Some(pid) = live["pane_pid"].as_u64() {
-        println!("pane pid  {pid}");
-    }
-    println!(
-        "compare   {}",
-        v["comparison"].as_str().unwrap_or("unknown")
-    );
-    if let Some(processes) = live["processes"].as_array() {
-        for process in processes {
-            let pid = process["pid"].as_u64().unwrap_or(0);
-            let ppid = process["ppid"].as_u64().unwrap_or(0);
-            println!("process   {pid} (parent {ppid})");
-            if let Some(argv) = process["argv"].as_array() {
-                for arg in argv {
-                    println!("  {}", shell_quote(arg.as_str().unwrap_or("<arg>")));
-                }
+            } => agent::run_agent_create(
+                endpoint,
+                session,
+                json_output,
+                &name,
+                &project,
+                &template,
+                start,
+            ),
+            Self::Inbox { filter } => task::run_inbox(endpoint, session, json_output, filter),
+            Self::Task { id } => task::run_task(endpoint, session, json_output, &id),
+            Self::Wait { id } => task::run_wait(endpoint, session, json_output, &id),
+            Self::Update { action, id, note } => task::run_update(
+                endpoint,
+                session,
+                json_output,
+                &action,
+                &id,
+                note.as_deref(),
+            ),
+            Self::Remove { id } => task::run_remove(endpoint, session, json_output, &id),
+            Self::Prune { all } => task::run_prune(endpoint, session, json_output, all),
+            Self::Peers => diagnostics::run_peers(endpoint, session, json_output),
+            Self::Status => diagnostics::run_status(endpoint, session, json_output),
+            Self::SandboxInspect { name } => {
+                diagnostics::run_sandbox_inspect(endpoint, session, json_output, &name)
             }
         }
     }
-}
-
-fn shell_quote(value: &str) -> String {
-    if !value.is_empty()
-        && value
-            .bytes()
-            .all(|byte| byte.is_ascii_alphanumeric() || b"_./:@%+=,-".contains(&byte))
-    {
-        return value.to_string();
-    }
-    format!("'{}'", value.replace('\'', "'\\''"))
-}
-
-/// Filters for the inbox display.
-/// The store returns all tasks involving the caller in storage order.
-/// The CLI filters and sorts these tasks for display.
-#[derive(Debug, Default, PartialEq, Eq)]
-pub(crate) struct InboxFilter {
-    pub(crate) all: bool,
-    pub(crate) sent: bool,
-    pub(crate) received: bool,
-    pub(crate) status: Option<String>,
-}
-
-impl InboxFilter {
-    pub(crate) fn parse(args: &[String]) -> Result<Self, String> {
-        let mut f = Self::default();
-        let mut rest = args.iter();
-        while let Some(arg) = rest.next() {
-            match arg.as_str() {
-                "--all" => f.all = true,
-                "--sent" => f.sent = true,
-                "--received" => f.received = true,
-                "--status" => {
-                    let s = rest.next().ok_or("--status needs a value")?;
-                    f.status = Some(s.to_string());
-                }
-                flag => return Err(format!("unknown flag: {flag}\n\n{USAGE}")),
-            }
-        }
-        Ok(f)
-    }
-
-    fn keeps(&self, task: &Value, me: &str) -> bool {
-        let status = task["status"].as_str().unwrap_or("");
-        let from_me = task["from"].as_str() == Some(me);
-        let to_me = task["to"].as_str() == Some(me);
-        // Include both directions when neither flag is set or both flags are set.
-        if self.sent != self.received && ((self.sent && !from_me) || (self.received && !to_me)) {
-            return false;
-        }
-        match &self.status {
-            Some(want) => status == want,
-            // Omit terminal tasks by default. They remain available by ID.
-            None => self.all || !matches!(status, "done" | "failed" | "canceled"),
-        }
-    }
-
-    /// Filter tasks and sort them from newest to oldest.
-    pub(crate) fn apply<'a>(&self, v: &'a Value, me: &str) -> Vec<&'a Value> {
-        let mut tasks: Vec<&Value> = v
-            .get("tasks")
-            .and_then(Value::as_array)
-            .map(|t| t.iter().filter(|t| self.keeps(t, me)).collect())
-            .unwrap_or_default();
-        tasks.sort_by_key(|t| std::cmp::Reverse(t["created_ms"].as_u64().unwrap_or(0)));
-        tasks
-    }
-}
-
-pub(crate) fn peer_names(v: &Value) -> Vec<&str> {
-    let mut names: Vec<&str> = v
-        .get("sessions")
-        .and_then(Value::as_array)
-        .map(|s| s.iter().filter_map(|s| s["name"].as_str()).collect())
-        .unwrap_or_default();
-    // Add the host mailbox explicitly because it has no session entry.
-    names.push(HOST);
-    names.sort_unstable();
-    names.dedup();
-    names
-}
-
-fn arg<'a>(args: &'a [String], at: usize, missing: &str) -> Result<&'a str, String> {
-    args.get(at)
-        .map(String::as_str)
-        .ok_or_else(|| missing.to_string())
-}
-
-fn task_id_from_env() -> Option<String> {
-    std::env::var(TASK_ID_ENV)
-        .ok()
-        .filter(|id| !id.trim().is_empty())
-}
-
-fn task_id_arg(
-    args: &[String],
-    at: usize,
-    missing: &str,
-    task_id: Option<&str>,
-) -> Result<String, String> {
-    args.get(at)
-        .cloned()
-        .or_else(|| task_id.map(str::to_owned))
-        .ok_or_else(|| missing.to_string())
-}
-
-fn rest(args: &[String], from: usize, missing: &str) -> Result<String, String> {
-    if args.len() <= from {
-        return Err(missing.to_string());
-    }
-    Ok(args[from..].join(" "))
-}
-
-fn only(args: &[String], at: usize) -> Result<(), String> {
-    match args.get(at) {
-        None => Ok(()),
-        Some(extra) => Err(format!("unexpected argument: {extra}\n\n{USAGE}")),
-    }
-}
-
-fn parse_worktree(args: &[String]) -> Result<Command, String> {
-    let action = args.get(1).ok_or(WORKTREE_USAGE)?.clone();
-    if !["list", "create", "remove", "rename"].contains(&action.as_str()) {
-        return Err(WORKTREE_USAGE.into());
-    }
-    let mut project = String::new();
-    let mut name = String::new();
-    let mut base = String::new();
-    let mut path = String::new();
-    let mut id = String::new();
-    let mut i = 2;
-    if action == "remove" || action == "rename" {
-        id = args.get(i).ok_or(WORKTREE_USAGE)?.clone();
-        i += 1;
-    }
-    while i < args.len() {
-        let flag = &args[i];
-        i += 1;
-        let value = args.get(i).ok_or(WORKTREE_USAGE)?.clone();
-        i += 1;
-        match flag.as_str() {
-            "--project" => project = value,
-            "--name" if action == "create" || action == "rename" => name = value,
-            "--base" if action == "create" => base = value,
-            "--path" if action == "create" => path = value,
-            _ => return Err(WORKTREE_USAGE.into()),
-        }
-    }
-    Ok(Command::Worktree {
-        action,
-        project,
-        name,
-        base,
-        path,
-        id,
-    })
 }
