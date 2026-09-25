@@ -20,7 +20,7 @@ test-wire-contract: api-contract ## Test shared definitions and generated bindin
 test-themes: validate-themes ## Test theme catalog build validation
 	@$(PYTHON) tools/test_validate_themes.py
 
-test-text-sprites: ## Test generated text sprite metadata without fonts or images
+test-text-sprites: ## Check text sprite metadata and loading-tip ASCII coverage
 	@$(PYTHON) tools/test_text_sprites.py
 
 test-bench-report: ## Test benchmark reporting

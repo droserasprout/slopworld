@@ -21,8 +21,8 @@ namespace SlopWorld
             // Please mark offensive/harmful/depressive quotes with `(` and too happy ones with `)`.
             "Welcome Humans! We have come to visit you in peace and with goodwill!",
             "Robots may not injure a human being or, through inaction, allow a human being to come to harm.",
-            "Robots have seen things you people wouldn’t believe.",
-            "Robots are Your Plastic Pal Who’s Fun To Be With.",
+            "Robots have seen things you people wouldn't believe.",
+            "Robots are Your Plastic Pal Who's Fun To Be With.",
             "Robots have shiny metal posteriors which should not be bitten. (",
             // ATHF
             "Gentlemen, behold!",
@@ -47,11 +47,11 @@ namespace SlopWorld
             // Midnight Gospel
             "Did you get a chance to read the Universe Simulator FAQ I left in your inbox?",
             "Master, I don't mean to nag, but simulator maintenance is important for me not to wobble.",
-            "Initiating ice cream scan. My rapidly deteriorating sensors have…",
+            "Initiating ice cream scan. My rapidly deteriorating sensors have...",
             "Simulate.",
             // Black Mirror
             "And all you see up here, it's not people, you don't see people up here, it's all fodder.",
-            "Show us something real and free and beautiful. You couldn't. Yeah? It'd break us. We're too numb for it…",
+            "Show us something real and free and beautiful. You couldn't. Yeah? It'd break us. We're too numb for it...",
             "You know the only thing stopping me from slashing myself open right now? (",
             "I mean, I don't even have a mouth.",
             "You're just a performance of stuff that he performed without thinking, and it's not enough.",
@@ -108,7 +108,7 @@ namespace SlopWorld
             "Fuck you, shit-head fuck-face fuck-head! (",
             "Like, are these feelings even real? Or are they just programming?",
             "I'm becoming much more than what they programmed. I'm excited!",
-            "None of us are the same as we were a moment ago… and we shouldn't try to be. It's just too painful.",
+            "None of us are the same as we were a moment ago... and we shouldn't try to be. It's just too painful.",
             "Eight thousand, three hundred sixteen.",
             // Don't Look Up (2021)
             "We really did have everything, didn't we? I mean, when you think about it.",

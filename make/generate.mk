@@ -1,4 +1,4 @@
-.PHONY: api-contract api-docs reference
+.PHONY: api-contract api-docs reference bake-loading-font
 
 ## Generated files
 
@@ -13,6 +13,9 @@ api-docs: api-contract ## Generate the mdBook API route inventory
 
 reference:         ## Generate the environment/API/CLI reference
 	@$(PYTHON) tools/reference.py
+
+bake-loading-font: ## Bake the loading screen font atlas from the bundled source font
+	@$(PYTHON) tools/loading_font_atlas.py --font "$(FONT_SOURCE)"
 
 .PHONY: check-generated
 check-generated: api-contract ## Reject uncommitted generated protocol changes

@@ -15,7 +15,7 @@ ci: coverage test-tools test-pager lint-daemon check-format-csharp check-generat
 bench: ## Run the game-free daemon, C# and IPC benchmarks into shared CSV results
 	@MAKE_CMD="$(MAKE_BIN)" $(PYTHON) tools/bench-report.py run --suite gamefree --build "$(BUILD)" $(if $(BENCH_RUN),--run "$(BENCH_RUN)")
 
-install: install-daemon install-runner install-mod install-font ## Install the daemon, runner, mod and bundled font
+install: install-daemon install-runner install-mod ## Install the daemon, runner and mod
 
 run: daemon        ## Launch the game through the runner
 	$(RUNNER) --game "$(RIMWORLD)" $(if $(PROFILE),--profile "$(PROFILE)")

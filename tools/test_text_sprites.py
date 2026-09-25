@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check sprite catalog generation without loading fonts or image assets."""
+"""Check text asset metadata and loading-tip glyph coverage without image assets."""
 import pathlib
 import re
 import tempfile
@@ -28,6 +28,33 @@ class TextSpriteMetadataTests(unittest.TestCase):
             emoji_atlas.write_data(str(output), ["👩‍💻", "❤️", "😀"], 1)
             source = output.read_text(encoding="utf-8")
             self.assertIn(r'"\U0001F469\U0000200D\U0001F4BB", "\U00002764\U0000FE0F", "\U0001F600"', source)
+
+    def test_loading_tips_use_ascii_glyphs(self):
+        path = (pathlib.Path(__file__).parent.parent /
+                "mod/Source/SlopWorld/Patches/LoadingScreen/LoadingScreen.Tips.cs")
+        source = path.read_text(encoding="utf-8")
+        lines = source.splitlines()
+        start = next(i for i, line in enumerate(lines) if "static readonly List<string> Tips" in line)
+        for offset, line in enumerate(lines[start + 1:], start + 2):
+            if line.strip() == "};":
+                break
+            stripped = line.strip()
+            if not stripped or stripped == "{" or stripped.startswith("//"):
+                continue
+            match = re.match(
+                r'\s*"((?:\\.|[^"\\])*)"\s*,?\s*(?://.*)?$', line)
+            self.assertIsNotNone(match, f"unrecognized loading tip literal at {path}:{offset}")
+            literal = match.group(1)
+            unsupported = {char for char in literal if ord(char) > 127}
+            escaped_values = r"(?:u([0-9a-fA-F]{4})|U([0-9a-fA-F]{8})|x([0-9a-fA-F]{1,4}))"
+            for escaped in re.finditer(r"(\\+)" + escaped_values, literal):
+                if len(escaped.group(1)) % 2 == 0:
+                    continue
+                codepoint = int(next(value for value in escaped.groups()[1:] if value), 16)
+                if codepoint > 127:
+                    unsupported.add(f"\\u{codepoint:04X}")
+            self.assertFalse(unsupported,
+                             f"non-ASCII loading tip at {path}:{offset}: {sorted(unsupported)!r}")
 
 
 if __name__ == "__main__":

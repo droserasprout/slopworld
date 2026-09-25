@@ -15,3 +15,5 @@ Directories describe component responsibilities. They do not create assembly bou
 
 Use the [shared chrome](mod-ui-chrome.md) helpers for new controls and
 [focus lifetimes](ui-focus.md) for editable forms.
+See [loading screen](mod-loading-screen.md) for ownership of the loading-time tip stream and
+its glyph atlas.

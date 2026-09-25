@@ -176,7 +176,7 @@ namespace SlopWorld
                 "https://www.nerdfonts.com/"),
             new Credit("Material Icon Theme", "file icons",
                 "https://github.com/material-extensions/vscode-material-icon-theme"),
-            new Credit("Classic Console Neue", "loading font",
+            new Credit("Classic Console Neue", "loading glyph atlas",
                 "https://webdraft.hu/fonts/classic-console/"),
             new Credit("Noto Color Emoji", "emojis",
                 "https://github.com/googlefonts/noto-emoji"),

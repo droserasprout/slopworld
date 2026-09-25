@@ -1,4 +1,4 @@
-.PHONY: install-daemon install-runner install-mod install-font \
+.PHONY: install-daemon install-runner install-mod \
 	uninstall uninstall-daemon uninstall-runner uninstall-mod uninstall-font
 
 ## Installation
@@ -13,12 +13,6 @@ install-runner: daemon ## Install the launcher beside the daemon
 
 install-mod: mod       ## Install the mod into the game's Mods folder
 	"$(RUNNER)" mod install --source mod --mods "$(MODS)"
-
-install-font:           ## Install the bundled UI font into the current user's font directory
-	@test -f "$(FONT_SOURCE)" || { echo "missing bundled font: $(FONT_SOURCE)" >&2; exit 1; }
-	install -Dm644 "$(FONT_SOURCE)" "$(FONT_DEST)"
-	@if command -v fc-cache >/dev/null 2>&1; then fc-cache -f "$(FONT_DIR)"; fi
-	@echo "installed font to $(FONT_DEST)"
 
 ##
 
@@ -41,7 +35,7 @@ uninstall-runner:  ## Remove the launcher
 uninstall-mod: daemon ## Remove the installed mod folder
 	"$(RUNNER)" mod uninstall --mods "$(MODS)"
 
-uninstall-font:        ## Remove the bundled UI font from the current user's font directory
+uninstall-font:        ## Remove a legacy per-user copy of the loading font
 	rm -f "$(FONT_DEST)"
 	@if command -v fc-cache >/dev/null 2>&1; then fc-cache -f "$(FONT_DIR)"; fi
 	@echo "removed font $(FONT_DEST)"

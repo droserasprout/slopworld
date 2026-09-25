@@ -13,6 +13,8 @@ MANAGED    ?= $(RIMWORLD)/RimWorldLinux_Data/Managed
 MODS       ?= $(RIMWORLD)/Mods
 BIN        ?= $(HOME)/.local/bin
 UNITS      ?= $(HOME)/.config/systemd/user
+# The source font is only used to regenerate the loading atlas; destination paths support
+# uninstalling a per-user copy installed by an older SlopWorld release.
 FONT_SOURCE ?= assets/fonts/clacon2.ttf
 FONT_DIR   ?= $(data_home)/fonts
 FONT_DEST  := $(FONT_DIR)/$(notdir $(FONT_SOURCE))
