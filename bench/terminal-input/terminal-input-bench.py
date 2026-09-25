@@ -13,7 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import results_data as data
 from terminal_input_backend import Backend, TEXT
 from terminal_input_history import command as history_command, history_limit
-from terminal_input_metrics import measurement_status, performance as parse_performance
+from terminal_input_metrics import measurement_status, paint_reasons, performance as parse_performance
 
 PHASES = (("history", 60, "Big history tab: place the pointer over terminal text"),
           ("typing", 10, "Text tab: empty prompt, cursor at end, no selection; focus terminal text"),
@@ -154,6 +154,19 @@ def record_phase(directory, phase, metadata, result, performance_text):
             if value != '—':
                 data.add_metric(directory, 'terminal', phase, context, name, 'mean', unit, 1, value,
                                 perf_status)
+    record_paint_reasons(directory, phase, performance_text, perf_status)
+
+
+def record_paint_reasons(directory, phase, performance_text, status='complete'):
+    """Backfill paint counts in older runs without duplicating CSV measurements."""
+    existing = {(row['case'], row['metric']) for row in data.read(directory / 'metrics.csv')
+                if row['suite'] == 'terminal' and row['phase'] == phase}
+    for context, name, count in paint_reasons(performance_text):
+        metric = 'paint/' + name
+        if (context, metric) not in existing:
+            data.add_metric(directory, 'terminal', phase, context, metric, 'total', 'count',
+                            1, count, status)
+            existing.add((context, metric))
 
 
 def export_existing(args):
@@ -268,7 +281,9 @@ def prepare_history(args, backend):
         with tempfile.TemporaryDirectory(prefix='slopworld-history-', dir=temporary) as directory:
             status = Path(directory) / 'done.json'
             backend.prepare_text(history_command(status, info['target_history_lines']))
-            work = 'scroll' if getattr(args, 'fill_history', False) else 'scroll and append Unicode'
+            phase = getattr(args, 'phase', 'suite')
+            work = ('scroll' if phase == 'history' else
+                    'append Unicode' if phase == 'typing' else 'scroll and append Unicode')
             input('Open an EMPTY LOCAL HOST SHELL prompt in SlopWorld, with no selection. '
                   f'The tool will execute a bounded history filler, then {work}. '
                   'Press Enter here, then focus terminal text and keep the pointer over it: ')
@@ -315,9 +330,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--backend', choices=('auto', 'xdotool', 'ydotool'), default='auto')
     parser.add_argument('--phase', choices=('suite', 'all', 'history', 'typing', 'htop'), default='suite',
-                        help='suite: one empty host shell, automatic history then typing; individual phases are manually prepared unless history uses --fill-history')
+                        help='suite: one empty host shell, automatic history then typing; individual phases are manually prepared unless history or typing uses --fill-history')
     parser.add_argument('--fill-history', action='store_true',
-                        help='with --phase history, fill scrollback in one empty local host shell before measuring')
+                        help='with --phase history or typing, fill scrollback in one empty local host shell before measuring')
     parser.add_argument('--prepare-seconds', type=int, default=10)
     parser.add_argument('--multiplier', type=int, choices=(5, 10), default=5)
     parser.add_argument('--log', type=Path, default=default_trace_log(),
@@ -344,12 +359,14 @@ def main():
             performance = args.output / f'{phase}-performance.txt'
             if log.is_file() and (not performance.exists() or performance.stat().st_size == 0):
                 write_performance_summary(log, performance, mode='w')
+            if performance.is_file():
+                record_paint_reasons(args.results, phase, performance.read_text())
         print(f'Report: {show_report(args)}')
         return
     if args.prepare_seconds < 1:
         parser.error('prepare-seconds must be positive')
-    if args.fill_history and args.phase != 'history':
-        parser.error('--fill-history requires --phase history')
+    if args.fill_history and args.phase not in ('history', 'typing'):
+        parser.error('--fill-history requires --phase history or typing')
     automatic = args.phase == 'suite' or args.fill_history
     phases = [p for p in PHASES if args.phase in ('all', p[0]) or
               (args.phase == 'suite' and p[0] != 'htop')]

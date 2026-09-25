@@ -18,8 +18,12 @@ bench-report: ## Render saved CSV results; BENCH_BASELINE and BENCH_MODE=relativ
 	@$(PYTHON) tools/bench-report.py report --run "$(BENCH_RUN)" $(if $(BENCH_BASELINE),--baseline "$(BENCH_BASELINE)") $(if $(BENCH_MODE),--mode "$(BENCH_MODE)") $(if $(BENCH_REPORT_OUTPUT),--output "$(BENCH_REPORT_OUTPUT)")
 
 bench-latest: ## Refresh the single committable benchmark report from BENCH_RUN
-	@$(PYTHON) tools/bench-report.py report --run "$(BENCH_RUN)" --latest
+	@$(PYTHON) tools/bench-report.py report --run "$(BENCH_RUN)" --latest $(if $(BENCH_FALLBACK_RUN),--fallback-run "$(BENCH_FALLBACK_RUN)")
 
-.PHONY: bench-terminal
+.PHONY: bench-terminal bench-terminal-typing
 bench-terminal: ## Run focused desktop terminal input into shared CSV results
 	@$(PYTHON) bench/terminal-input/terminal-input-bench.py $(if $(BENCH_RUN),--run "$(BENCH_RUN)") $(if $(BENCH_PHASE),--phase "$(BENCH_PHASE)") $(if $(filter 1 true,$(BENCH_FILL_HISTORY)),--fill-history) $(if $(BENCH_MULTIPLIER),--multiplier "$(BENCH_MULTIPLIER)") $(if $(BENCH_PREPARE_SECONDS),--prepare-seconds "$(BENCH_PREPARE_SECONDS)") $(if $(BENCH_BACKEND),--backend "$(BENCH_BACKEND)") $(if $(BENCH_TRACE_LOG),--log "$(BENCH_TRACE_LOG)")
+
+bench-terminal-typing: override BENCH_PHASE := typing
+bench-terminal-typing: override BENCH_FILL_HISTORY := 1
+bench-terminal-typing: bench-terminal ## Fill an empty host tab, then measure typing repaint reasons

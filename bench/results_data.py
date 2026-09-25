@@ -60,9 +60,9 @@ def add_metadata(directory, suite, phase, values):
             for key, value in values.items() if value is not None))
 
 
-def aggregates(directory):
+def aggregates_rows(rows):
     grouped = {}
-    for row in read(directory / "metrics.csv"):
+    for row in rows:
         key = tuple(row[field] for field in ("suite", "phase", "case", "metric", "stat", "unit"))
         entry = grouped.setdefault(key, {"values": [], "statuses": set()})
         entry["statuses"].add(row["status"])
@@ -75,12 +75,50 @@ def aggregates(directory):
     return result
 
 
+def aggregates(directory):
+    return aggregates_rows(read(directory / "metrics.csv"))
+
+
+def combined_run(directory, fallback):
+    """Use each current suite/phase as a unit; fill only absent phases from fallback."""
+    filenames = ("metrics.csv", "outcomes.csv", "run.csv")
+    current = {name: read(directory / name) for name in filenames}
+    prior = {name: read(fallback / name) for name in filenames}
+    if not any(prior.values()):
+        raise ValueError(f"no benchmark CSV data in fallback {fallback}")
+    owned = {(row["suite"], row["phase"]) for rows in current.values() for row in rows}
+    records = {name: [row for row in prior[name]
+                      if (row["suite"], row["phase"]) not in owned] + current[name]
+               for name in filenames}
+    sources = {(row["suite"], row["phase"]): "current" for rows in current.values() for row in rows}
+    for rows in prior.values():
+        for row in rows:
+            sources.setdefault((row["suite"], row["phase"]), "saved fallback")
+    return records, sources
+
+
 def workload(directory):
     fields = {}
     for row in read(directory / "run.csv"):
         if row["suite"] == "terminal" and row["key"] in ("backend", "rate", "multiplier", "observed_contexts"):
             fields[(row["phase"], row["key"])] = row["value"]
     return fields
+
+
+def terminal_context_without_session_count(value):
+    """Session inventory is recorded, but is not part of the active-pane workload."""
+    return re.sub(r"(?<!\S)sessions=\d+\b", "sessions=*", value)
+
+
+def terminal_context_display(value):
+    return re.sub(r"(?<!\S)sessions=\d+\s*", "", value).strip()
+
+
+def comparison_key(key):
+    suite, phase, case, metric, stat, unit = key
+    if suite == "terminal":
+        case = terminal_context_without_session_count(case)
+    return suite, phase, case, metric, stat, unit
 
 
 def gamefree_environment(directory):
@@ -102,12 +140,30 @@ def baseline_display(item, suite, metric, stat, unit):
     return display(item[0], unit, suite, metric)
 
 
-def render(directory, baseline=None, mode="absolute", latest=False):
+def metadata_display(key, raw):
+    # Keep exact CSV values for auditing; only the report rounds elapsed seconds.
+    if key in ("actual_seconds", "schedule_slip_seconds"):
+        try:
+            return f"{float(raw):.3f}"
+        except ValueError:
+            pass
+    return raw.replace("|", "\\|").replace("\n", " ")
+
+
+def render(directory, baseline=None, mode="absolute", latest=False, fallback=None):
     if mode not in ("absolute", "relative"):
         raise ValueError("report mode must be absolute or relative")
-    data = aggregates(directory)
-    outcomes = read(directory / "outcomes.csv")
-    metadata = read(directory / "run.csv")
+    if fallback and (not latest or baseline or mode != "absolute"):
+        raise ValueError("fallback requires a latest absolute report without a baseline")
+    if fallback:
+        records, sources = combined_run(directory, fallback)
+        data = aggregates_rows(records["metrics.csv"])
+        outcomes = records["outcomes.csv"]
+        metadata = records["run.csv"]
+    else:
+        data = aggregates(directory)
+        outcomes = read(directory / "outcomes.csv")
+        metadata = read(directory / "run.csv")
     if not data and not outcomes and not metadata:
         raise ValueError(f"no benchmark CSV data in {directory}")
     old = aggregates(baseline) if baseline else {}
@@ -117,6 +173,10 @@ def render(directory, baseline=None, mode="absolute", latest=False):
         raise ValueError(f"no metrics.csv measurements in baseline {baseline}")
     current_workload = workload(directory)
     old_workload = workload(baseline) if baseline else {}
+    old_by_comparison = {}
+    for key in old:
+        old_by_comparison.setdefault(comparison_key(key), []).append(key)
+    current_comparison_keys = {comparison_key(key) for key in data}
     current_environment = gamefree_environment(directory)
     old_environment = gamefree_environment(baseline) if baseline else {}
     lines = ["# Latest benchmark report" if latest else "# Benchmark report"]
@@ -130,8 +190,17 @@ def render(directory, baseline=None, mode="absolute", latest=False):
               "Terminal latency percentiles with partial or censored observations are withheld.", ""]
     if any(key[0] == "terminal" for key in data):
         lines.insert(-1, "Terminal latency ends at Unity frame end before presentation; it correlates the next changed frame, not verified echo. History samples are consumed movements, not injected wheel ticks.")
+        if baseline:
+            lines.insert(-1, "Terminal comparisons use the active viewport context and input settings. Background session load can still affect results.")
     if any(key[0] in ("daemon", "mod", "ipc") for key in data):
         lines.insert(-1, "Game-free p50/p95 values describe warmed benchmark batches. They do not measure game FPS or input-to-display latency.")
+    if fallback:
+        lines += ["This snapshot combines separately captured phases. Each metric uses one source; current phases replace the same phases in the saved fallback run.",
+                  "", "| Suite / phase | Source |", "| --- | --- |"]
+        for suite, phase in sorted(sources):
+            label = " / ".join(part for part in (suite, phase) if part)
+            lines.append(f"| {label} | {sources[(suite, phase)]} |")
+        lines.append("")
     header = "| Suite / phase / case / metric | Statistic | Value [range] | n | Status |"
     separator = "| --- | --- | ---: | ---: | --- |"
     if baseline and mode == "absolute":
@@ -141,11 +210,13 @@ def render(directory, baseline=None, mode="absolute", latest=False):
         header = "| Suite / phase / case / metric | Statistic | Change | n | Status |"
         separator = "| --- | --- | ---: | ---: | --- |"
     lines += [header, separator]
-    for key in sorted(set(data) | set(old)):
+    keys = set(data) | {key for key in old if comparison_key(key) not in current_comparison_keys}
+    for key in sorted(keys):
         suite, phase, case, metric, stat, unit = key
         item = data.get(key)
         if item is None:
-            label = " / ".join(part for part in (suite, phase, case, metric) if part).replace("|", "\\|")
+            shown_case = terminal_context_display(case) if suite == "terminal" else case
+            label = " / ".join(part for part in (suite, phase, shown_case, metric) if part).replace("|", "\\|")
             prior = old[key]
             if mode == "relative":
                 lines.append(f"| {label} | {stat} | missing | 0 | missing |")
@@ -153,7 +224,8 @@ def render(directory, baseline=None, mode="absolute", latest=False):
                 lines.append(f"| {label} | {stat} | {baseline_display(prior, suite, metric, stat, unit)} | — | — | 0 | missing |")
             continue
         value, low, high, count, status = item
-        label = " / ".join(part for part in (suite, phase, case, metric) if part).replace("|", "\\|")
+        shown_case = terminal_context_display(case) if suite == "terminal" else case
+        label = " / ".join(part for part in (suite, phase, shown_case, metric) if part).replace("|", "\\|")
         converted = (lambda number: number / 1000) if suite == "terminal" and metric.startswith("latency/") and unit == "us" else (lambda number: number)
         display_unit = "ms" if suite == "terminal" and metric.startswith("latency/") and unit == "us" else unit
         precision = 0 if unit == "count" or metric == "wire_size" else 3
@@ -164,13 +236,16 @@ def render(directory, baseline=None, mode="absolute", latest=False):
             if suite == "terminal":
                 compatible = all(
                     current_workload.get((phase, field)) == old_workload.get((phase, field))
-                    for field in ("backend", "rate", "multiplier", "observed_contexts"))
+                    for field in ("backend", "rate", "multiplier")) and (
+                    terminal_context_without_session_count(current_workload.get((phase, "observed_contexts"), "")) ==
+                    terminal_context_without_session_count(old_workload.get((phase, "observed_contexts"), "")))
             else:
                 compatible = all(
                     current_environment.get(field) and
                     current_environment[field] == old_environment.get(field)
                     for field in ("build", "system", "machine", "cpu_count", "host"))
-            prior = old.get(key) if compatible else None
+            matches = old_by_comparison.get(comparison_key(key), [])
+            prior = old[matches[0]] if compatible and len(matches) == 1 else None
             prior_shown = "—" if prior is None else baseline_display(prior, suite, metric, stat, unit)
             change = "incompatible workload" if not compatible else (
                 "—" if prior is None or prior[0] == 0 or shown == "withheld" or
@@ -185,7 +260,8 @@ def render(directory, baseline=None, mode="absolute", latest=False):
     if outcomes:
         lines += ["", "## Outcomes", "", "| Suite / phase / case | Repeat | Outcome | Count |", "| --- | ---: | --- | ---: |"]
         for row in sorted(outcomes, key=lambda r: (r["suite"], r["phase"], r["case"], r["outcome"])):
-            label = " / ".join(part for part in (row["suite"], row["phase"], row["case"]) if part)
+            case = terminal_context_display(row["case"]) if row["suite"] == "terminal" else row["case"]
+            label = " / ".join(part for part in (row["suite"], row["phase"], case) if part)
             lines.append(f"| {label} | {row['repeat']} | {row['outcome']} | {row['count']} |")
     if metadata:
         lines += ["", "## Run details", "", "| Suite / phase | Field | Value |", "| --- | --- | --- |"]
@@ -193,15 +269,16 @@ def render(directory, baseline=None, mode="absolute", latest=False):
             if latest and row["key"] == "started":
                 continue
             label = " / ".join(part for part in (row["suite"], row["phase"]) if part)
-            value = row["value"].replace("|", "\\|").replace("\n", " ")
+            raw = terminal_context_display(row["value"]) if row["suite"] == "terminal" and row["key"] == "observed_contexts" else row["value"]
+            value = metadata_display(row["key"], raw)
             lines.append(f"| {label} | {row['key']} | {value} |")
     lines.append("")
     return "\n".join(lines)
 
 
-def write_report(directory, output, baseline=None, mode="absolute", latest=False):
+def write_report(directory, output, baseline=None, mode="absolute", latest=False, fallback=None):
     output.parent.mkdir(parents=True, exist_ok=True)
     temporary = output.with_name(output.name + ".tmp")
-    temporary.write_text(render(directory, baseline, mode, latest), encoding="utf-8")
+    temporary.write_text(render(directory, baseline, mode, latest, fallback), encoding="utf-8")
     temporary.replace(output)
     return output

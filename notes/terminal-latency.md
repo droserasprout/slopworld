@@ -156,9 +156,11 @@ make bench-report BENCH_RUN=terminal-next BENCH_BASELINE=terminal-baseline BENCH
 The runner still accepts `--output` and `--report-only` to import older raw JSON
 artifacts into shared CSVs. Those legacy paths are not used for new runs.
 
-`--phase suite` is the automatic default. For a history-only run from one empty
-local host-shell tab, use `--phase history --fill-history`; it runs the same
-bounded filler and settling period, then measures only scrolling. Without
+`--phase suite` is the automatic default. From one empty local host-shell tab,
+`make bench-terminal-typing` runs the bounded filler and settling period, then
+measures typing only. Use a new `BENCH_RUN` name when repeating it. For a
+history-only run, use `--phase history --fill-history`; it uses the same setup
+and measures only scrolling. Without
 `--fill-history`, `history`, `typing`, and `htop` keep the manually prepared
 individual-phase workflow, each with a prompt and countdown.
 `all` retains the legacy three-tab workflow. This allows adding a missing phase to

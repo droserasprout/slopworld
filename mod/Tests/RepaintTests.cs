@@ -273,8 +273,10 @@ namespace SlopWorld.Tests
                 "{\"seq\":3,\"rows\":4,\"lines\":[\"new\",\"pasted\",\"\",\"\"]}")));
 
             AssertEx.Equal(TerminalRepaint.Full,
-                TerminalRepaintPolicy.Choose(false, painted, screen),
+                TerminalRepaintPolicy.Choose(false, painted, screen, out var reason),
                 "latest row damage omits the unpainted change to row zero");
+            AssertEx.Equal(TerminalRepaintReason.SkippedRevisions, reason,
+                "skipped revision has a distinct full-paint reason");
             AssertEx.Equal(TerminalRepaint.Rows,
                 TerminalRepaintPolicy.Choose(false, screen.ContentRevision - 1, screen),
                 "damage is sufficient when the immediately preceding revision was painted");
@@ -283,9 +285,14 @@ namespace SlopWorld.Tests
         static void TerminalFallback()
         {
             foreach (var changed in new[] { new[] { 0, 1 }, Array.Empty<int>(), null })
+            {
                 AssertEx.Equal(TerminalRepaint.Full,
-                    TerminalRepaintPolicy.Choose(false, 1, Screen(changed)),
+                    TerminalRepaintPolicy.Choose(false, 1, Screen(changed), out var reason),
                     "half the rows or unknown damage repaints the whole pane");
+                AssertEx.Equal(changed != null && changed.Length > 0
+                        ? TerminalRepaintReason.BroadRows : TerminalRepaintReason.MissingDamage,
+                    reason, "full-paint counter identifies broad rows or missing damage");
+            }
         }
 
         static void TerminalInvalidation()

@@ -132,6 +132,8 @@ slopctl logs --follow                        # combined game + daemon
 and wire sizes.
 `make bench-latest BENCH_RUN=<name>` refreshes the single committable
 `bench/latest-report.md` snapshot without a dated run name or capture timestamps.
+For a focused run, set `BENCH_FALLBACK_RUN=<full-run>` to carry forward suites
+and phases absent from that run. The report labels which source supplied each phase.
 Each timing shows the median p50 or p95 across runs.
 Brackets show the minimum and maximum across runs.
 These ranges show variation between runs. They are not confidence intervals.

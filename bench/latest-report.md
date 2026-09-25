@@ -5,6 +5,19 @@ Terminal latency percentiles with partial or censored observations are withheld.
 Terminal latency ends at Unity frame end before presentation; it correlates the next changed frame, not verified echo. History samples are consumed movements, not injected wheel ticks.
 Game-free p50/p95 values describe warmed benchmark batches. They do not measure game FPS or input-to-display latency.
 
+This snapshot combines separately captured phases. Each metric uses one source; current phases replace the same phases in the saved fallback run.
+
+| Suite / phase | Source |
+| --- | --- |
+| daemon | saved fallback |
+| gamefree | saved fallback |
+| ipc | saved fallback |
+| mod | saved fallback |
+| terminal / history | current |
+| terminal / htop | saved fallback |
+| terminal / setup | current |
+| terminal / typing | current |
+
 | Suite / phase / case / metric | Statistic | Value [range] | n | Status |
 | --- | --- | ---: | ---: | --- |
 | daemon / activity burst32+flush 1 records / duration | p50 | 170.921 [160.977–174.986] us | 3 | complete |
@@ -377,27 +390,27 @@ Game-free p50/p95 values describe warmed benchmark batches. They do not measure 
 | mod / tree 100000 rows reference / allocation | mean | 0.000 [0.000–0.000] B/op | 3 | complete |
 | mod / tree 100000 rows reference / duration | p50 | 130.334 [130.307–131.602] us | 3 | complete |
 | mod / tree 100000 rows reference / duration | p95 | 133.722 [131.311–136.569] us | 3 | complete |
-| terminal / history / eco=1 terminal=1 sessions=42 size=1429x774 / fps | mean | 59.600 [59.600–59.600] frames/s | 1 | complete |
-| terminal / history / eco=1 terminal=1 sessions=42 size=1429x774 / gc0 | mean | 4 [4–4] count | 1 | complete |
-| terminal / history / eco=1 terminal=1 sessions=42 size=1429x774 / terminal_work | mean | 4.970 [4.970–4.970] ms/update | 1 | complete |
-| terminal / history / history_scroll / latency/draw_to_frame_end | max | 0.826 [0.826–0.826] ms | 1 | complete |
-| terminal / history / history_scroll / latency/draw_to_frame_end | n | 3576 [3576–3576] count | 1 | complete |
-| terminal / history / history_scroll / latency/draw_to_frame_end | p50 | 0.092 [0.092–0.092] ms | 1 | complete |
-| terminal / history / history_scroll / latency/draw_to_frame_end | p95 | 0.117 [0.117–0.117] ms | 1 | complete |
-| terminal / history / history_scroll / latency/draw_to_frame_end | p99 | 0.159 [0.159–0.159] ms | 1 | complete |
-| terminal / history / history_scroll / latency/input_to_draw | max | 47.510 [47.510–47.510] ms | 1 | complete |
-| terminal / history / history_scroll / latency/input_to_draw | n | 3576 [3576–3576] count | 1 | complete |
-| terminal / history / history_scroll / latency/input_to_draw | p50 | 16.111 [16.111–16.111] ms | 1 | complete |
-| terminal / history / history_scroll / latency/input_to_draw | p95 | 18.222 [18.222–18.222] ms | 1 | complete |
-| terminal / history / history_scroll / latency/input_to_draw | p99 | 19.002 [19.002–19.002] ms | 1 | complete |
-| terminal / history / history_scroll / latency/input_to_frame_end | max | 47.572 [47.572–47.572] ms | 1 | complete |
-| terminal / history / history_scroll / latency/input_to_frame_end | n | 3576 [3576–3576] count | 1 | complete |
-| terminal / history / history_scroll / latency/input_to_frame_end | p50 | 16.202 [16.202–16.202] ms | 1 | complete |
-| terminal / history / history_scroll / latency/input_to_frame_end | p95 | 18.324 [18.324–18.324] ms | 1 | complete |
-| terminal / history / history_scroll / latency/input_to_frame_end | p99 | 19.144 [19.144–19.144] ms | 1 | complete |
-| terminal / htop / eco=1 terminal=1 sessions=42 size=1429x774 / fps | mean | 59.680 [59.680–59.680] frames/s | 1 | complete |
-| terminal / htop / eco=1 terminal=1 sessions=42 size=1429x774 / gc0 | mean | 7 [7–7] count | 1 | complete |
-| terminal / htop / eco=1 terminal=1 sessions=42 size=1429x774 / terminal_work | mean | 4.091 [4.091–4.091] ms/update | 1 | complete |
+| terminal / history / eco=1 terminal=1 size=1429x774 / fps | mean | 59.460 [59.460–59.460] frames/s | 1 | complete |
+| terminal / history / eco=1 terminal=1 size=1429x774 / gc0 | mean | 6 [6–6] count | 1 | complete |
+| terminal / history / eco=1 terminal=1 size=1429x774 / terminal_work | mean | 5.259 [5.259–5.259] ms/update | 1 | complete |
+| terminal / history / history_scroll / latency/draw_to_frame_end | max | 1.416 [1.416–1.416] ms | 1 | complete |
+| terminal / history / history_scroll / latency/draw_to_frame_end | n | 3565 [3565–3565] count | 1 | complete |
+| terminal / history / history_scroll / latency/draw_to_frame_end | p50 | 0.089 [0.089–0.089] ms | 1 | complete |
+| terminal / history / history_scroll / latency/draw_to_frame_end | p95 | 0.113 [0.113–0.113] ms | 1 | complete |
+| terminal / history / history_scroll / latency/draw_to_frame_end | p99 | 0.136 [0.136–0.136] ms | 1 | complete |
+| terminal / history / history_scroll / latency/input_to_draw | max | 47.397 [47.397–47.397] ms | 1 | complete |
+| terminal / history / history_scroll / latency/input_to_draw | n | 3565 [3565–3565] count | 1 | complete |
+| terminal / history / history_scroll / latency/input_to_draw | p50 | 16.122 [16.122–16.122] ms | 1 | complete |
+| terminal / history / history_scroll / latency/input_to_draw | p95 | 18.283 [18.283–18.283] ms | 1 | complete |
+| terminal / history / history_scroll / latency/input_to_draw | p99 | 24.568 [24.568–24.568] ms | 1 | complete |
+| terminal / history / history_scroll / latency/input_to_frame_end | max | 47.493 [47.493–47.493] ms | 1 | complete |
+| terminal / history / history_scroll / latency/input_to_frame_end | n | 3565 [3565–3565] count | 1 | complete |
+| terminal / history / history_scroll / latency/input_to_frame_end | p50 | 16.208 [16.208–16.208] ms | 1 | complete |
+| terminal / history / history_scroll / latency/input_to_frame_end | p95 | 18.392 [18.392–18.392] ms | 1 | complete |
+| terminal / history / history_scroll / latency/input_to_frame_end | p99 | 24.671 [24.671–24.671] ms | 1 | complete |
+| terminal / htop / eco=1 terminal=1 size=1429x774 / fps | mean | 59.680 [59.680–59.680] frames/s | 1 | complete |
+| terminal / htop / eco=1 terminal=1 size=1429x774 / gc0 | mean | 7 [7–7] count | 1 | complete |
+| terminal / htop / eco=1 terminal=1 size=1429x774 / terminal_work | mean | 4.091 [4.091–4.091] ms/update | 1 | complete |
 | terminal / htop / keys / latency/daemon_input_to_tmux_dispatch | max | withheld | 1 | censored |
 | terminal / htop / keys / latency/daemon_input_to_tmux_dispatch | n | 4754 [4754–4754] count | 1 | censored |
 | terminal / htop / keys / latency/daemon_input_to_tmux_dispatch | p50 | withheld | 1 | censored |
@@ -518,69 +531,73 @@ Game-free p50/p95 values describe warmed benchmark batches. They do not measure 
 | terminal / htop / mouse / latency/visible_capture_to_ws_send | p50 | withheld | 1 | censored |
 | terminal / htop / mouse / latency/visible_capture_to_ws_send | p95 | withheld | 1 | censored |
 | terminal / htop / mouse / latency/visible_capture_to_ws_send | p99 | withheld | 1 | censored |
-| terminal / typing / eco=1 terminal=1 sessions=42 size=1429x774 / fps | mean | 59.540 [59.540–59.540] frames/s | 1 | complete |
-| terminal / typing / eco=1 terminal=1 sessions=42 size=1429x774 / gc0 | mean | 20 [20–20] count | 1 | complete |
-| terminal / typing / eco=1 terminal=1 sessions=42 size=1429x774 / terminal_work | mean | 4.934 [4.934–4.934] ms/update | 1 | complete |
-| terminal / typing / paste / latency/daemon_input_to_tmux_dispatch | max | 26.800 [26.800–26.800] ms | 1 | complete |
+| terminal / typing / eco=1 terminal=1 size=1429x774 / fps | mean | 59.210 [59.210–59.210] frames/s | 1 | complete |
+| terminal / typing / eco=1 terminal=1 size=1429x774 / gc0 | mean | 19 [19–19] count | 1 | complete |
+| terminal / typing / eco=1 terminal=1 size=1429x774 / paint/broad-repaints | total | 501 [501–501] count | 1 | complete |
+| terminal / typing / eco=1 terminal=1 size=1429x774 / paint/broad-rows | total | 501 [501–501] count | 1 | complete |
+| terminal / typing / eco=1 terminal=1 size=1429x774 / paint/missing-damage | total | 0 [0–0] count | 1 | complete |
+| terminal / typing / eco=1 terminal=1 size=1429x774 / paint/skipped-revisions | total | 0 [0–0] count | 1 | complete |
+| terminal / typing / eco=1 terminal=1 size=1429x774 / terminal_work | mean | 5.221 [5.221–5.221] ms/update | 1 | complete |
+| terminal / typing / paste / latency/daemon_input_to_tmux_dispatch | max | 21.511 [21.511–21.511] ms | 1 | complete |
 | terminal / typing / paste / latency/daemon_input_to_tmux_dispatch | n | 3000 [3000–3000] count | 1 | complete |
-| terminal / typing / paste / latency/daemon_input_to_tmux_dispatch | p50 | 0.665 [0.665–0.665] ms | 1 | complete |
-| terminal / typing / paste / latency/daemon_input_to_tmux_dispatch | p95 | 5.411 [5.411–5.411] ms | 1 | complete |
-| terminal / typing / paste / latency/daemon_input_to_tmux_dispatch | p99 | 7.028 [7.028–7.028] ms | 1 | complete |
-| terminal / typing / paste / latency/daemon_span | max | 71.220 [71.220–71.220] ms | 1 | complete |
+| terminal / typing / paste / latency/daemon_input_to_tmux_dispatch | p50 | 0.694 [0.694–0.694] ms | 1 | complete |
+| terminal / typing / paste / latency/daemon_input_to_tmux_dispatch | p95 | 5.597 [5.597–5.597] ms | 1 | complete |
+| terminal / typing / paste / latency/daemon_input_to_tmux_dispatch | p99 | 8.617 [8.617–8.617] ms | 1 | complete |
+| terminal / typing / paste / latency/daemon_span | max | 69.523 [69.523–69.523] ms | 1 | complete |
 | terminal / typing / paste / latency/daemon_span | n | 3000 [3000–3000] count | 1 | complete |
-| terminal / typing / paste / latency/daemon_span | p50 | 16.812 [16.812–16.812] ms | 1 | complete |
-| terminal / typing / paste / latency/daemon_span | p95 | 29.083 [29.083–29.083] ms | 1 | complete |
-| terminal / typing / paste / latency/daemon_span | p99 | 40.618 [40.618–40.618] ms | 1 | complete |
-| terminal / typing / paste / latency/dispatch_to_draw | max | 72.263 [72.263–72.263] ms | 1 | complete |
+| terminal / typing / paste / latency/daemon_span | p50 | 17.115 [17.115–17.115] ms | 1 | complete |
+| terminal / typing / paste / latency/daemon_span | p95 | 30.906 [30.906–30.906] ms | 1 | complete |
+| terminal / typing / paste / latency/daemon_span | p99 | 48.218 [48.218–48.218] ms | 1 | complete |
+| terminal / typing / paste / latency/dispatch_to_draw | max | 56.880 [56.880–56.880] ms | 1 | complete |
 | terminal / typing / paste / latency/dispatch_to_draw | n | 3000 [3000–3000] count | 1 | complete |
-| terminal / typing / paste / latency/dispatch_to_draw | p50 | 14.720 [14.720–14.720] ms | 1 | complete |
-| terminal / typing / paste / latency/dispatch_to_draw | p95 | 36.183 [36.183–36.183] ms | 1 | complete |
-| terminal / typing / paste / latency/dispatch_to_draw | p99 | 43.274 [43.274–43.274] ms | 1 | complete |
-| terminal / typing / paste / latency/draw_to_frame_end | max | 0.182 [0.182–0.182] ms | 1 | complete |
+| terminal / typing / paste / latency/dispatch_to_draw | p50 | 14.467 [14.467–14.467] ms | 1 | complete |
+| terminal / typing / paste / latency/dispatch_to_draw | p95 | 34.597 [34.597–34.597] ms | 1 | complete |
+| terminal / typing / paste / latency/dispatch_to_draw | p99 | 42.405 [42.405–42.405] ms | 1 | complete |
+| terminal / typing / paste / latency/draw_to_frame_end | max | 0.296 [0.296–0.296] ms | 1 | complete |
 | terminal / typing / paste / latency/draw_to_frame_end | n | 3000 [3000–3000] count | 1 | complete |
-| terminal / typing / paste / latency/draw_to_frame_end | p50 | 0.057 [0.057–0.057] ms | 1 | complete |
-| terminal / typing / paste / latency/draw_to_frame_end | p95 | 0.101 [0.101–0.101] ms | 1 | complete |
-| terminal / typing / paste / latency/draw_to_frame_end | p99 | 0.122 [0.122–0.122] ms | 1 | complete |
-| terminal / typing / paste / latency/input_to_frame_end | max | 104.833 [104.833–104.833] ms | 1 | complete |
+| terminal / typing / paste / latency/draw_to_frame_end | p50 | 0.063 [0.063–0.063] ms | 1 | complete |
+| terminal / typing / paste / latency/draw_to_frame_end | p95 | 0.107 [0.107–0.107] ms | 1 | complete |
+| terminal / typing / paste / latency/draw_to_frame_end | p99 | 0.152 [0.152–0.152] ms | 1 | complete |
+| terminal / typing / paste / latency/input_to_frame_end | max | 99.842 [99.842–99.842] ms | 1 | complete |
 | terminal / typing / paste / latency/input_to_frame_end | n | 3000 [3000–3000] count | 1 | complete |
-| terminal / typing / paste / latency/input_to_frame_end | p50 | 48.337 [48.337–48.337] ms | 1 | complete |
-| terminal / typing / paste / latency/input_to_frame_end | p95 | 75.873 [75.873–75.873] ms | 1 | complete |
-| terminal / typing / paste / latency/input_to_frame_end | p99 | 88.142 [88.142–88.142] ms | 1 | complete |
-| terminal / typing / paste / latency/input_to_receive | max | 73.795 [73.795–73.795] ms | 1 | complete |
+| terminal / typing / paste / latency/input_to_frame_end | p50 | 48.782 [48.782–48.782] ms | 1 | complete |
+| terminal / typing / paste / latency/input_to_frame_end | p95 | 76.366 [76.366–76.366] ms | 1 | complete |
+| terminal / typing / paste / latency/input_to_frame_end | p99 | 88.817 [88.817–88.817] ms | 1 | complete |
+| terminal / typing / paste / latency/input_to_receive | max | 76.989 [76.989–76.989] ms | 1 | complete |
 | terminal / typing / paste / latency/input_to_receive | n | 3000 [3000–3000] count | 1 | complete |
-| terminal / typing / paste / latency/input_to_receive | p50 | 19.427 [19.427–19.427] ms | 1 | complete |
-| terminal / typing / paste / latency/input_to_receive | p95 | 44.560 [44.560–44.560] ms | 1 | complete |
-| terminal / typing / paste / latency/input_to_receive | p99 | 54.696 [54.696–54.696] ms | 1 | complete |
-| terminal / typing / paste / latency/receive_to_dispatch | max | 46.881 [46.881–46.881] ms | 1 | complete |
+| terminal / typing / paste / latency/input_to_receive | p50 | 19.885 [19.885–19.885] ms | 1 | complete |
+| terminal / typing / paste / latency/input_to_receive | p95 | 47.065 [47.065–47.065] ms | 1 | complete |
+| terminal / typing / paste / latency/input_to_receive | p99 | 59.742 [59.742–59.742] ms | 1 | complete |
+| terminal / typing / paste / latency/receive_to_dispatch | max | 41.599 [41.599–41.599] ms | 1 | complete |
 | terminal / typing / paste / latency/receive_to_dispatch | n | 3000 [3000–3000] count | 1 | complete |
-| terminal / typing / paste / latency/receive_to_dispatch | p50 | 11.213 [11.213–11.213] ms | 1 | complete |
-| terminal / typing / paste / latency/receive_to_dispatch | p95 | 29.534 [29.534–29.534] ms | 1 | complete |
-| terminal / typing / paste / latency/receive_to_dispatch | p99 | 37.410 [37.410–37.410] ms | 1 | complete |
-| terminal / typing / paste / latency/tmux_dispatch_to_first_capture | max | 18.017 [18.017–18.017] ms | 1 | complete |
+| terminal / typing / paste / latency/receive_to_dispatch | p50 | 12.043 [12.043–12.043] ms | 1 | complete |
+| terminal / typing / paste / latency/receive_to_dispatch | p95 | 29.482 [29.482–29.482] ms | 1 | complete |
+| terminal / typing / paste / latency/receive_to_dispatch | p99 | 37.771 [37.771–37.771] ms | 1 | complete |
+| terminal / typing / paste / latency/tmux_dispatch_to_first_capture | max | 23.301 [23.301–23.301] ms | 1 | complete |
 | terminal / typing / paste / latency/tmux_dispatch_to_first_capture | n | 3000 [3000–3000] count | 1 | complete |
-| terminal / typing / paste / latency/tmux_dispatch_to_first_capture | p50 | 10.343 [10.343–10.343] ms | 1 | complete |
-| terminal / typing / paste / latency/tmux_dispatch_to_first_capture | p95 | 15.959 [15.959–15.959] ms | 1 | complete |
-| terminal / typing / paste / latency/tmux_dispatch_to_first_capture | p99 | 17.037 [17.037–17.037] ms | 1 | complete |
-| terminal / typing / paste / latency/tmux_dispatch_to_observed_ack | max | 7.872 [7.872–7.872] ms | 1 | complete |
-| terminal / typing / paste / latency/tmux_dispatch_to_observed_ack | n | 2755 [2755–2755] count | 1 | complete |
-| terminal / typing / paste / latency/tmux_dispatch_to_observed_ack | p50 | 4.248 [4.248–4.248] ms | 1 | complete |
-| terminal / typing / paste / latency/tmux_dispatch_to_observed_ack | p95 | 5.777 [5.777–5.777] ms | 1 | complete |
-| terminal / typing / paste / latency/tmux_dispatch_to_observed_ack | p99 | 6.401 [6.401–6.401] ms | 1 | complete |
-| terminal / typing / paste / latency/tmux_dispatch_to_visible_capture | max | 55.887 [55.887–55.887] ms | 1 | complete |
+| terminal / typing / paste / latency/tmux_dispatch_to_first_capture | p50 | 10.642 [10.642–10.642] ms | 1 | complete |
+| terminal / typing / paste / latency/tmux_dispatch_to_first_capture | p95 | 15.799 [15.799–15.799] ms | 1 | complete |
+| terminal / typing / paste / latency/tmux_dispatch_to_first_capture | p99 | 16.959 [16.959–16.959] ms | 1 | complete |
+| terminal / typing / paste / latency/tmux_dispatch_to_observed_ack | max | 8.590 [8.590–8.590] ms | 1 | complete |
+| terminal / typing / paste / latency/tmux_dispatch_to_observed_ack | n | 2728 [2728–2728] count | 1 | complete |
+| terminal / typing / paste / latency/tmux_dispatch_to_observed_ack | p50 | 4.485 [4.485–4.485] ms | 1 | complete |
+| terminal / typing / paste / latency/tmux_dispatch_to_observed_ack | p95 | 5.750 [5.750–5.750] ms | 1 | complete |
+| terminal / typing / paste / latency/tmux_dispatch_to_observed_ack | p99 | 6.251 [6.251–6.251] ms | 1 | complete |
+| terminal / typing / paste / latency/tmux_dispatch_to_visible_capture | max | 62.434 [62.434–62.434] ms | 1 | complete |
 | terminal / typing / paste / latency/tmux_dispatch_to_visible_capture | n | 3000 [3000–3000] count | 1 | complete |
-| terminal / typing / paste / latency/tmux_dispatch_to_visible_capture | p50 | 10.458 [10.458–10.458] ms | 1 | complete |
-| terminal / typing / paste / latency/tmux_dispatch_to_visible_capture | p95 | 16.598 [16.598–16.598] ms | 1 | complete |
-| terminal / typing / paste / latency/tmux_dispatch_to_visible_capture | p99 | 29.739 [29.739–29.739] ms | 1 | complete |
-| terminal / typing / paste / latency/transport_and_client_send_residual | max | 37.679 [37.679–37.679] ms | 1 | complete |
+| terminal / typing / paste / latency/tmux_dispatch_to_visible_capture | p50 | 10.848 [10.848–10.848] ms | 1 | complete |
+| terminal / typing / paste / latency/tmux_dispatch_to_visible_capture | p95 | 17.230 [17.230–17.230] ms | 1 | complete |
+| terminal / typing / paste / latency/tmux_dispatch_to_visible_capture | p99 | 36.545 [36.545–36.545] ms | 1 | complete |
+| terminal / typing / paste / latency/transport_and_client_send_residual | max | 35.984 [35.984–35.984] ms | 1 | complete |
 | terminal / typing / paste / latency/transport_and_client_send_residual | n | 3000 [3000–3000] count | 1 | complete |
-| terminal / typing / paste / latency/transport_and_client_send_residual | p50 | 2.108 [2.108–2.108] ms | 1 | complete |
-| terminal / typing / paste / latency/transport_and_client_send_residual | p95 | 21.259 [21.259–21.259] ms | 1 | complete |
-| terminal / typing / paste / latency/transport_and_client_send_residual | p99 | 30.278 [30.278–30.278] ms | 1 | complete |
-| terminal / typing / paste / latency/visible_capture_to_ws_send | max | 21.341 [21.341–21.341] ms | 1 | complete |
+| terminal / typing / paste / latency/transport_and_client_send_residual | p50 | 2.024 [2.024–2.024] ms | 1 | complete |
+| terminal / typing / paste / latency/transport_and_client_send_residual | p95 | 22.399 [22.399–22.399] ms | 1 | complete |
+| terminal / typing / paste / latency/transport_and_client_send_residual | p99 | 32.278 [32.278–32.278] ms | 1 | complete |
+| terminal / typing / paste / latency/visible_capture_to_ws_send | max | 20.195 [20.195–20.195] ms | 1 | complete |
 | terminal / typing / paste / latency/visible_capture_to_ws_send | n | 3000 [3000–3000] count | 1 | complete |
-| terminal / typing / paste / latency/visible_capture_to_ws_send | p50 | 5.046 [5.046–5.046] ms | 1 | complete |
-| terminal / typing / paste / latency/visible_capture_to_ws_send | p95 | 12.847 [12.847–12.847] ms | 1 | complete |
-| terminal / typing / paste / latency/visible_capture_to_ws_send | p99 | 16.291 [16.291–16.291] ms | 1 | complete |
+| terminal / typing / paste / latency/visible_capture_to_ws_send | p50 | 4.576 [4.576–4.576] ms | 1 | complete |
+| terminal / typing / paste / latency/visible_capture_to_ws_send | p95 | 12.849 [12.849–12.849] ms | 1 | complete |
+| terminal / typing / paste / latency/visible_capture_to_ws_send | p99 | 16.926 [16.926–16.926] ms | 1 | complete |
 
 ## Outcomes
 
@@ -589,9 +606,9 @@ Game-free p50/p95 values describe warmed benchmark batches. They do not measure 
 | terminal / history | 1 | completion_without_start | 0 |
 | terminal / history | 1 | deduplicated | 18000 |
 | terminal / history | 1 | dropped_records | 0 |
-| terminal / history | 1 | frame_end | 3576 |
+| terminal / history | 1 | frame_end | 3565 |
 | terminal / history | 1 | malformed | 0 |
-| terminal / history | 1 | samples | 3576 |
+| terminal / history | 1 | samples | 3565 |
 | terminal / history | 1 | unfinished | 0 |
 | terminal / htop | 1 | coalesced_samples | 1482 |
 | terminal / htop | 1 | completion_without_start | 0 |
@@ -602,13 +619,13 @@ Game-free p50/p95 values describe warmed benchmark batches. They do not measure 
 | terminal / htop | 1 | samples | 14241 |
 | terminal / htop | 1 | unacknowledged_at_capture | 235 |
 | terminal / htop | 1 | unfinished | 0 |
-| terminal / typing | 1 | coalesced_samples | 83 |
+| terminal / typing | 1 | coalesced_samples | 142 |
 | terminal / typing | 1 | completion_without_start | 0 |
 | terminal / typing | 1 | dropped_records | 0 |
 | terminal / typing | 1 | frame_end | 3000 |
 | terminal / typing | 1 | malformed | 0 |
 | terminal / typing | 1 | samples | 3000 |
-| terminal / typing | 1 | unacknowledged_at_capture | 245 |
+| terminal / typing | 1 | unacknowledged_at_capture | 272 |
 | terminal / typing | 1 | unfinished | 0 |
 
 ## Run details
@@ -623,47 +640,6 @@ Game-free p50/p95 values describe warmed benchmark batches. They do not measure 
 | gamefree | machine | x86_64 |
 | gamefree | host | g14 |
 | gamefree | cpu_count | 16 |
-| terminal / setup | status | complete |
-| terminal / setup | target_history_lines | 10000 |
-| terminal / setup | generated_lines | 10050 |
-| terminal / setup | line_width | 120 |
-| terminal / setup | pane_columns | 152 |
-| terminal / setup | pane_rows | 49 |
-| terminal / setup | pane | %191 |
-| terminal / setup | random_source | /dev/urandom |
-| terminal / setup | alphabet | ASCII A-Z a-z 0-9 |
-| terminal / setup | workflow | typing appends in the same history-filled tab |
-| terminal / history | runner_revision | 48b87622 |
-| terminal / history | backend | ydotool |
-| terminal / history | rate | 300 |
-| terminal / history | multiplier | 5 |
-| terminal / history | status | complete |
-| terminal / history | measurement_status | complete |
-| terminal / history | sent_events | 18000 |
-| terminal / history | expected_events | 18000 |
-| terminal / history | actual_seconds | 60.00007641399861 |
-| terminal / history | schedule_slip_seconds | 0.0 |
-| terminal / history | rebased_deadlines | 0 |
-| terminal / history | observed_paste_requests | 0 |
-| terminal / history | transport | persistent_ydotool_socket |
-| terminal / history | window | 12582920 |
-| terminal / history | observed_contexts | eco=1 terminal=1 sessions=42 size=1429x774 |
-| terminal / typing | runner_revision | 48b87622 |
-| terminal / typing | backend | ydotool |
-| terminal / typing | rate | 50 |
-| terminal / typing | multiplier | 5 |
-| terminal / typing | status | complete |
-| terminal / typing | measurement_status | complete |
-| terminal / typing | sent_events | 3000 |
-| terminal / typing | expected_events | 3000 |
-| terminal / typing | actual_seconds | 60.000074757997936 |
-| terminal / typing | schedule_slip_seconds | 0.0 |
-| terminal / typing | rebased_deadlines | 0 |
-| terminal / typing | observed_paste_requests | 3000 |
-| terminal / typing | text_fixture | Az漢字かな한글🙂🚀é  |
-| terminal / typing | transport | persistent_ydotool_socket |
-| terminal / typing | window | 12582920 |
-| terminal / typing | observed_contexts | eco=1 terminal=1 sessions=42 size=1429x774 |
 | terminal / htop | runner_revision | 48b87622 |
 | terminal / htop | backend | ydotool |
 | terminal / htop | rate | 300 |
@@ -672,10 +648,51 @@ Game-free p50/p95 values describe warmed benchmark batches. They do not measure 
 | terminal / htop | measurement_status | censored |
 | terminal / htop | sent_events | 18000 |
 | terminal / htop | expected_events | 18000 |
-| terminal / htop | actual_seconds | 60.00006743499762 |
-| terminal / htop | schedule_slip_seconds | 0.0 |
+| terminal / htop | actual_seconds | 60.000 |
+| terminal / htop | schedule_slip_seconds | 0.000 |
 | terminal / htop | rebased_deadlines | 0 |
 | terminal / htop | observed_paste_requests | 0 |
 | terminal / htop | transport | persistent_ydotool_socket |
 | terminal / htop | window | 12582920 |
-| terminal / htop | observed_contexts | eco=1 terminal=1 sessions=42 size=1429x774 |
+| terminal / htop | observed_contexts | eco=1 terminal=1 size=1429x774 |
+| terminal / setup | status | complete |
+| terminal / setup | target_history_lines | 10000 |
+| terminal / setup | generated_lines | 10050 |
+| terminal / setup | line_width | 120 |
+| terminal / setup | pane_columns | 152 |
+| terminal / setup | pane_rows | 49 |
+| terminal / setup | pane | %134 |
+| terminal / setup | random_source | /dev/urandom |
+| terminal / setup | alphabet | ASCII A-Z a-z 0-9 |
+| terminal / setup | workflow | typing appends in the same history-filled tab |
+| terminal / typing | runner_revision | 9d316de8 |
+| terminal / typing | backend | ydotool |
+| terminal / typing | rate | 50 |
+| terminal / typing | multiplier | 5 |
+| terminal / typing | status | complete |
+| terminal / typing | measurement_status | complete |
+| terminal / typing | sent_events | 3000 |
+| terminal / typing | expected_events | 3000 |
+| terminal / typing | actual_seconds | 60.000 |
+| terminal / typing | schedule_slip_seconds | 0.000 |
+| terminal / typing | rebased_deadlines | 0 |
+| terminal / typing | observed_paste_requests | 3000 |
+| terminal / typing | text_fixture | Az漢字かな한글🙂🚀é  |
+| terminal / typing | transport | persistent_ydotool_socket |
+| terminal / typing | window | 12582920 |
+| terminal / typing | observed_contexts | eco=1 terminal=1 size=1429x774 |
+| terminal / history | runner_revision | 9d316de8 |
+| terminal / history | backend | ydotool |
+| terminal / history | rate | 300 |
+| terminal / history | multiplier | 5 |
+| terminal / history | status | complete |
+| terminal / history | measurement_status | complete |
+| terminal / history | sent_events | 18000 |
+| terminal / history | expected_events | 18000 |
+| terminal / history | actual_seconds | 60.000 |
+| terminal / history | schedule_slip_seconds | 0.000 |
+| terminal / history | rebased_deadlines | 0 |
+| terminal / history | observed_paste_requests | 0 |
+| terminal / history | transport | persistent_ydotool_socket |
+| terminal / history | window | 12582920 |
+| terminal / history | observed_contexts | eco=1 terminal=1 size=1429x774 |

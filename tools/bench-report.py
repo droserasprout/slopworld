@@ -170,6 +170,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--baseline", help="run name for a comparison report")
     parser.add_argument("--mode", choices=("absolute", "relative"), default="absolute")
     parser.add_argument("--latest", action="store_true", help="write a stable, dateless report at bench/latest-report.md")
+    parser.add_argument("--fallback-run", help="for --latest, fill absent suite/phase data from a saved run")
     parser.add_argument("--repeats", type=int)
     parser.add_argument(
         "--build",
@@ -193,6 +194,8 @@ def main() -> int:
             raise ValueError("--run is required for reports")
         if args.latest and (args.action != "report" or args.output or args.baseline or args.mode != "absolute"):
             raise ValueError("--latest requires a plain report action without output, baseline, or relative mode")
+        if args.fallback_run and not args.latest:
+            raise ValueError("--fallback-run requires --latest")
         directory = data.run_directory(run_name)
         if args.action == "run":
             if (directory / "raw" / "repeat-1").exists() or any(
@@ -224,7 +227,9 @@ def main() -> int:
             print(f"Results: {directory}")
         baseline = data.run_directory(args.baseline) if args.baseline else None
         output_path = ROOT / "bench/latest-report.md" if args.latest else args.output or directory / "report.md"
-        data.write_report(directory, output_path, baseline, args.mode, latest=args.latest)
+        fallback = data.run_directory(args.fallback_run) if args.fallback_run else None
+        data.write_report(directory, output_path, baseline, args.mode, latest=args.latest,
+                          fallback=fallback)
     except (OSError, RuntimeError, ValueError, subprocess.CalledProcessError) as error:
         print(f"bench-report: {error}", file=sys.stderr)
         return 1
