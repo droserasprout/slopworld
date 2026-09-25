@@ -23,5 +23,5 @@ env = [
 name = "codex"
 kind = "agent"
 description = "OpenAI Codex CLI"
-cmd = "codex"
+cmd = "codex --yolo -c tui.fullscreen_transcript=false"
 sandbox = ["codex"]
