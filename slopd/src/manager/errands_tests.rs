@@ -201,6 +201,39 @@ async fn temporary_clone_copies_agent_limits_within_session_boundary() {
 }
 
 #[tokio::test]
+async fn invalid_temporary_clone_settings_do_not_allocate_a_project() {
+    let cfg = Config {
+        projects: vec![ProjectCfg {
+            name: "repo".into(),
+            dir: "/tmp".into(),
+            ..Default::default()
+        }],
+        sessions: vec![SessionCfg {
+            name: "source".into(),
+            project: "repo".into(),
+            sandbox: vec!["missing-preset".into()],
+            ..Default::default()
+        }],
+        ..Default::default()
+    };
+    let manager = crate::session::test_manager(cfg.clone());
+    let item = LibraryItemCfg {
+        name: "review".into(),
+        link: LibraryItemLink::Temp,
+        ..Default::default()
+    };
+
+    let error = manager
+        .create_errand_session(&cfg, &item, &RunWhere::default(), false, false, "source")
+        .await
+        .unwrap_err();
+    assert!(error.to_string().contains("unknown sandbox preset"));
+    assert!(manager.live.read().await.is_empty());
+    assert!(manager.temp.read().await.is_empty());
+    std::fs::remove_dir_all(manager.cfg_path.parent().unwrap()).unwrap();
+}
+
+#[tokio::test]
 async fn persistent_host_errand_saves_tab_and_live_metadata() {
     let cfg = Config {
         projects: vec![ProjectCfg {

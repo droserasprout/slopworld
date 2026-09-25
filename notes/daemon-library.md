@@ -3,6 +3,7 @@
 Library presents agent templates, prompts, shell errands, breadcrumbs, and file actions.
 Start in `manager/library.rs`, `manager/errands.rs`, and `config.rs`.
 Put user instructions in the book. Runnable entries choose explicit host execution or an agent template. Template errands copy settings and snapshots once.
+Source-agent settings and sandbox snapshots resolve before a live row or temporary project is created.
 They use the selected project's mounts.
 Missing execution choices cause failure before session allocation. Agent-shell requests can still clone a
 source agent via `like`. File actions execute on the daemon host. They do not participate in
