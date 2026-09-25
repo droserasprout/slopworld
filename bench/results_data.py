@@ -4,7 +4,7 @@ import csv
 import datetime as dt
 from pathlib import Path
 import re
-from statistics import median
+from statistics import median, stdev
 
 ROOT = Path(__file__).resolve().parent / "results"
 METRIC_FIELDS = ("suite", "phase", "case", "metric", "stat", "unit", "repeat", "value", "status")
@@ -70,8 +70,8 @@ def aggregates_rows(rows):
     result = {}
     for key, entry in grouped.items():
         values = entry["values"]
-        result[key] = (median(values), min(values), max(values), len(values),
-                       ", ".join(sorted(entry["statuses"])))
+        result[key] = (median(values), stdev(values) if len(values) > 1 else None,
+                       len(values), ", ".join(sorted(entry["statuses"])))
     return result
 
 
@@ -126,18 +126,19 @@ def gamefree_environment(directory):
             if row["suite"] == "gamefree" and row["phase"] == ""}
 
 
-def display(value, unit, suite, metric):
-    if unit == "count" or metric == "wire_size":
-        return f"{value:.0f} {unit}"
-    if suite == "terminal" and metric.startswith("latency/") and unit == "us":
-        return f"{value / 1000:.3f} ms"
-    return f"{value:.3f} {unit}"
-
-
-def baseline_display(item, suite, metric, stat, unit):
-    if suite == "terminal" and metric.startswith("latency/") and stat != "n" and item[4] != "complete":
+def metric_display(item, suite, metric, stat, unit):
+    value, deviation, _, status = item
+    if suite == "terminal" and metric.startswith("latency/") and stat != "n" and status != "complete":
         return "withheld"
-    return display(item[0], unit, suite, metric)
+    converted = (lambda number: number / 1000) if suite == "terminal" and metric.startswith("latency/") and unit == "us" else (lambda number: number)
+    shown_unit = "ms" if suite == "terminal" and metric.startswith("latency/") and unit == "us" else unit
+    precision = 0 if unit == "count" or metric == "wire_size" else 3
+    shown = f"{converted(value):.{precision}f}"
+    if deviation is not None:
+        # Count deviations retain a decimal even when their median is integral.
+        deviation_precision = max(1, precision)
+        shown += f" ± {converted(deviation):.{deviation_precision}f}"
+    return f"{shown} {shown_unit}"
 
 
 def metadata_display(key, raw):
@@ -186,7 +187,7 @@ def render(directory, baseline=None, mode="absolute", latest=False, fallback=Non
         lines.append(f"Baseline: `{baseline.name}`. Change is (run / baseline − 1) × 100%; negative means a smaller value.")
     elif baseline:
         lines.append("Change is (run / baseline − 1) × 100%; negative means a smaller value.")
-    lines += ["", "Median is across repetitions of each reported statistic; brackets are the min–max repetition range.",
+    lines += ["", "Median is across repetitions of each reported statistic; ± is sample standard deviation when n > 1.",
               "Terminal latency percentiles with partial or censored observations are withheld.", ""]
     if any(key[0] == "terminal" for key in data):
         lines.insert(-1, "Terminal latency ends at Unity frame end before presentation; it correlates the next changed frame, not verified echo. History samples are consumed movements, not injected wheel ticks.")
@@ -201,7 +202,7 @@ def render(directory, baseline=None, mode="absolute", latest=False, fallback=Non
             label = " / ".join(part for part in (suite, phase) if part)
             lines.append(f"| {label} | {sources[(suite, phase)]} |")
         lines.append("")
-    header = "| Suite / phase / case / metric | Statistic | Value [range] | n | Status |"
+    header = "| Suite / phase / case / metric | Statistic | Value ± SD | n | Status |"
     separator = "| --- | --- | ---: | ---: | --- |"
     if baseline and mode == "absolute":
         header = "| Suite / phase / case / metric | Statistic | Baseline | Run | Change | n | Status |"
@@ -221,17 +222,12 @@ def render(directory, baseline=None, mode="absolute", latest=False, fallback=Non
             if mode == "relative":
                 lines.append(f"| {label} | {stat} | missing | 0 | missing |")
             else:
-                lines.append(f"| {label} | {stat} | {baseline_display(prior, suite, metric, stat, unit)} | — | — | 0 | missing |")
+                lines.append(f"| {label} | {stat} | {metric_display(prior, suite, metric, stat, unit)} | — | — | 0 | missing |")
             continue
-        value, low, high, count, status = item
+        value, _, count, status = item
         shown_case = terminal_context_display(case) if suite == "terminal" else case
         label = " / ".join(part for part in (suite, phase, shown_case, metric) if part).replace("|", "\\|")
-        converted = (lambda number: number / 1000) if suite == "terminal" and metric.startswith("latency/") and unit == "us" else (lambda number: number)
-        display_unit = "ms" if suite == "terminal" and metric.startswith("latency/") and unit == "us" else unit
-        precision = 0 if unit == "count" or metric == "wire_size" else 3
-        shown = f"{converted(value):.{precision}f} [{converted(low):.{precision}f}–{converted(high):.{precision}f}] {display_unit}"
-        if suite == "terminal" and metric.startswith("latency/") and stat != "n" and status != "complete":
-            shown = "withheld"
+        shown = metric_display(item, suite, metric, stat, unit)
         if baseline:
             if suite == "terminal":
                 compatible = all(
@@ -246,10 +242,10 @@ def render(directory, baseline=None, mode="absolute", latest=False, fallback=Non
                     for field in ("build", "system", "machine", "cpu_count", "host"))
             matches = old_by_comparison.get(comparison_key(key), [])
             prior = old[matches[0]] if compatible and len(matches) == 1 else None
-            prior_shown = "—" if prior is None else baseline_display(prior, suite, metric, stat, unit)
+            prior_shown = "—" if prior is None else metric_display(prior, suite, metric, stat, unit)
             change = "incompatible workload" if not compatible else (
                 "—" if prior is None or prior[0] == 0 or shown == "withheld" or
-                prior[4] != "complete" or status != "complete"
+                prior[3] != "complete" or status != "complete"
                 else f"{(value / prior[0] - 1) * 100:+.2f}%")
             if mode == "relative":
                 lines.append(f"| {label} | {stat} | {change} | {count} | {status} |")

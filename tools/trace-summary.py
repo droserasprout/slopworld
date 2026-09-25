@@ -72,6 +72,11 @@ def main():
                 calls = total(lane, "calls")
                 if calls:
                     print(f"  {lane}: {calls:.0f} calls")
+            bands = ("0-49", "50-74", "75-99", "100")
+            if any(total(f"terminal-cache-damage-{band}", "calls") for band in bands):
+                for band in bands:
+                    lane = f"terminal-cache-damage-{band}"
+                    print(f"  {lane}: {total(lane, 'calls'):.0f} calls, {total(lane, 'work'):.0f} rows")
             shifts = total("terminal-cache-scroll-shifts", "calls")
             if shifts:
                 overlap = total("terminal-cache-scroll-overlap", "calls")

@@ -49,3 +49,14 @@ def paint_reasons(text):
                 counts.setdefault(name, 0)
         for name, count in counts.items():
             yield context, name, count
+
+
+def paint_damage(text):
+    """Yield frame and changed-row totals for each measured damage band."""
+    for chunk in re.split(r'(?=eco=)', text)[1:]:
+        context = chunk.splitlines()[0].split(' windows=', 1)[0]
+        for band in ('0-49', '50-74', '75-99', '100'):
+            match = re.search(r'^  terminal-cache-damage-' + band +
+                              r': (\d+) calls, (\d+) rows$', chunk, re.M)
+            if match:
+                yield context, band, int(match[1]), int(match[2])
