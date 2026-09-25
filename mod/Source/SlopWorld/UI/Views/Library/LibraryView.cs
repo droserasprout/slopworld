@@ -38,13 +38,27 @@ namespace SlopWorld
         static readonly Dictionary<string, Section> SectionsByKey =
             new Dictionary<string, Section>();
         static readonly List<Section> Sections = new List<Section>();
-        static readonly string[] Kinds =
+        static class Category
         {
-            "Agent templates", "Prompts", "Shell commands", "Breadcrumbs", "File actions",
-            "Projects", "Worktrees", "Sandbox presets", "App presets"
-        };
-        static readonly string[] MainCategoryOrder =
-            { "Projects", "Worktrees", "Sandbox presets", "App presets" };
+            public const string Templates = "Agent templates";
+            public const string Prompts = "Prompts";
+            public const string Shell = "Shell commands";
+            public const string Breadcrumbs = "Breadcrumbs";
+            public const string FileActions = "File actions";
+            public const string Projects = "Projects";
+            public const string Worktrees = "Worktrees";
+            public const string SandboxPresets = "Sandbox presets";
+            public const string AppPresets = "App presets";
+
+            public static readonly string[] Order =
+            {
+                Templates, Prompts, Shell, Breadcrumbs, FileActions,
+                Projects, Worktrees, SandboxPresets, AppPresets
+            };
+
+            public static readonly string[] Main =
+                { Projects, Worktrees, SandboxPresets, AppPresets };
+        }
         static readonly Dictionary<string, List<WorktreeEntry>> WorktreesByProject =
             new Dictionary<string, List<WorktreeEntry>>();
         static string _worktreeRequestKey;
@@ -58,9 +72,9 @@ namespace SlopWorld
         static FieldLifetime _fieldLifetime = new FieldLifetime();
 
         static string GroupKey(LibraryItemInfo item) => Templates.ContainsKey(item)
-            ? Kinds[0] : item.Kind == LibraryItemKind.Shell ? Kinds[2]
-            : item.Kind == LibraryItemKind.Breadcrumb ? Kinds[3]
-            : item.Kind == LibraryItemKind.FileAction ? Kinds[4] : Kinds[1];
+            ? Category.Templates : item.Kind == LibraryItemKind.Shell ? Category.Shell
+            : item.Kind == LibraryItemKind.Breadcrumb ? Category.Breadcrumbs
+            : item.Kind == LibraryItemKind.FileAction ? Category.FileActions : Category.Prompts;
 
         static string Identity(LibraryItemInfo item) =>
             (Templates.ContainsKey(item) ? "template:" : "item:") + item.Name;
@@ -85,7 +99,7 @@ namespace SlopWorld
             if (folded)
             {
                 foreach (var section in Sections) Folded.Add(section.Key);
-                foreach (var key in MainCategoryOrder) Folded.Add(key);
+                foreach (var key in Category.Main) Folded.Add(key);
             }
         }
 
@@ -105,26 +119,30 @@ namespace SlopWorld
             public readonly List<Row> Rows = new List<Row>();
         }
 
-        // Item and action rows share identity, geometry, drawing, and hit testing. Their
-        // payloads retain the different details and actions each kind of row owns.
+        enum MainRowKind { Project, Worktree, SandboxPreset, AppPreset }
+
+        // Keep list data small. Detail text and actions are built only for the selected row;
+        // row tooltip text is formatted only while a visible row is drawn.
         sealed class Row
         {
             public LibraryItemInfo Item;
-            public MainCategoryAction Action;
-
-            public string Key => Item != null ? Identity(Item) : "action:" + Action.Key;
-
-            public static Row ForItem(LibraryItemInfo item) => new Row { Item = item };
-            public static Row ForAction(MainCategoryAction action) => new Row { Action = action };
-        }
-
-        sealed class MainCategoryAction
-        {
+            public MainRowKind MainKind;
+            public object Model;
             public string Key;
             public string Label;
-            public string Tooltip;
             public Texture2D Icon;
-            public List<string> Details = new List<string>();
+            public string Tooltip;
+            public string TooltipTail;
+            public bool TooltipJoinsPath;
+
+            public static Row ForItem(LibraryItemInfo item) => PrepareItemRow(item);
+        }
+
+        sealed class RowDetails
+        {
+            public bool IsItem;
+            public List<string> Lines = new List<string>();
+            public string Tooltip;
             public string PrimaryLabel;
             public Action Primary;
             public string SecondaryLabel;
@@ -242,10 +260,12 @@ namespace SlopWorld
                 float detailHeight = selected == null ? 0f :
                     Mathf.Min(RowH * 5f + UiTheme.FieldH * 2f + Pad * 4f,
                         Mathf.Max(0f, available - RowH * 2f));
+                var selectedDetails = selected != null && detailHeight > 0f
+                    ? PrepareDetails(selected) : null;
                 _list = new Rect(body.x, top, body.width, Mathf.Max(0f, available - detailHeight));
                 if (selected != null && detailHeight > 0f)
                     DrawDetails(new Rect(body.x + CellX, _list.yMax,
-                        body.width - CellX * 2f, detailHeight), selected);
+                        body.width - CellX * 2f, detailHeight), selectedDetails);
                 if (Sections.Count == 0)
                 {
                     _contentHeight = 0f;
@@ -306,7 +326,7 @@ namespace SlopWorld
                 {
                     new FloatMenuOption("All types", () => SetKind(""))
                 };
-                foreach (var kind in Kinds)
+                foreach (var kind in Category.Order)
                 {
                     string value = kind;
                     options.Add(new FloatMenuOption(value, () => SetKind(value)));
@@ -325,6 +345,145 @@ namespace SlopWorld
             !Templates.ContainsKey(item) &&
             (item.Kind == LibraryItemKind.Prompt || item.Kind == LibraryItemKind.Shell);
 
+        static Row PrepareItemRow(LibraryItemInfo item)
+        {
+            bool template = Templates.ContainsKey(item);
+            return new Row
+            {
+                Item = item,
+                Key = Identity(item),
+                Label = item.Name,
+                Icon = template ? Icons.Agents :
+                    item.Kind == LibraryItemKind.Shell ? Icons.Terminal :
+                    item.Kind == LibraryItemKind.FileAction ? Icons.Files :
+                    item.Kind == LibraryItemKind.Breadcrumb ? Icons.Keyboard : Icons.Library,
+            };
+        }
+
+        static RowDetails PrepareItemDetails(LibraryItemInfo item)
+        {
+            bool template = Templates.TryGetValue(item, out var definition);
+            bool runnable = Runnable(item);
+            string scope = string.IsNullOrEmpty(item.Project) ? "Global" : item.Project;
+            string label = template ? "Create agent" : runnable
+                ? (item.Link == LibraryItemLink.Ask ? "Choose a project" : "Run") : "Edit";
+            var lines = new List<string>
+            {
+                item.Name,
+                (template ? "Agent template" : KindName(item.Kind)) + " · " + scope,
+            };
+            if (runnable)
+            {
+                lines.Add(item.Link == LibraryItemLink.Ask
+                    ? "Choose a project when you run this item."
+                    : "In: " + Where(item));
+                lines.Add("Runs with: " + (item.Host ? "Host" :
+                    string.IsNullOrEmpty(item.AgentTemplate) ? "Not configured" : item.AgentTemplate));
+            }
+            else if (item.Kind == LibraryItemKind.FileAction && !template)
+                lines.Add("Host · " + FileActionModeText.Name(item.Mode));
+            lines.Add(OneLine(item.Text));
+
+            Action primary;
+            if (template)
+            {
+                var captured = definition;
+                primary = () => TerminalWindow.OpenOverPane(EditSessionDialog.FromTemplate(captured));
+            }
+            else if (runnable)
+                primary = () => Run(item);
+            else
+                primary = () => Edit(item);
+
+            string secondaryLabel = null;
+            Action secondary = null;
+            if (template || runnable)
+            {
+                secondaryLabel = "Edit";
+                secondary = () => Edit(item);
+            }
+            else if (item.Kind == LibraryItemKind.Breadcrumb)
+            {
+                secondaryLabel = "Copy text";
+                secondary = () => GUIUtility.systemCopyBuffer = item.Text ?? "";
+            }
+
+            return new RowDetails
+            {
+                IsItem = true,
+                Lines = lines,
+                Tooltip = string.Join("\n", lines) + "\n\n" + item.Text,
+                PrimaryLabel = label,
+                Primary = primary,
+                SecondaryLabel = secondaryLabel,
+                Secondary = secondary,
+                More = () => Menu(item),
+            };
+        }
+
+        static RowDetails PrepareDetails(Row row)
+        {
+            if (row.Item != null) return PrepareItemDetails(row.Item);
+
+            switch (row.MainKind)
+            {
+                case MainRowKind.Project:
+                    return PrepareProjectDetails((ProjectInfo)row.Model);
+                case MainRowKind.Worktree:
+                    return PrepareWorktreeDetails((WorktreeEntry)row.Model);
+                case MainRowKind.SandboxPreset:
+                    return PrepareSandboxPresetDetails((PresetInfo)row.Model);
+                case MainRowKind.AppPreset:
+                    return PrepareAppPresetDetails((CommandInfo)row.Model);
+                default:
+                    throw new ArgumentOutOfRangeException();
+            }
+        }
+
+        static RowDetails PrepareProjectDetails(ProjectInfo project) => ActionDetails(
+            new List<string> { project.Name, "Project", project.Dir, ProjectsView.Summary(project) },
+            "Edit", () => TerminalWindow.OpenOverPane(new EditProjectDialog(project)),
+            "Worktrees", () => TerminalWindow.OpenOverPane(EditProjectDialog.ForWorktrees(project)),
+            () => ProjectMenu(project));
+
+        static RowDetails PrepareWorktreeDetails(WorktreeEntry entry)
+        {
+            var tree = entry.Tree;
+            return ActionDetails(WorktreeDetails(entry), "Terminal",
+                () => SessionHub.Instance.SessionStore.RunHostShell(entry.Project,
+                    name => TerminalWindow.Open(name), UiLayout.Fail, tree.Id),
+                "Project", () => OpenProjectWorktrees(entry.Project),
+                () => WorktreeMenu(entry));
+        }
+
+        static RowDetails PrepareSandboxPresetDetails(PresetInfo preset) => ActionDetails(
+            SandboxDetails(preset), "Edit",
+            () => ModOptions.OpenSandboxPreset(preset.Name),
+            preset.Source == "override" ? "Reset" : "Remove",
+            () => RemovePreset("sandbox_presets", preset), null);
+
+        static RowDetails PrepareAppPresetDetails(CommandInfo command) => ActionDetails(
+            AppPresetDetails(command), "Edit",
+            () => ModOptions.OpenAppPreset(command.Name),
+            command.Source == "override" ? "Reset" : "Remove",
+            () => RemovePreset("app_presets", command), null);
+
+        static RowDetails ActionDetails(List<string> lines, string primaryLabel,
+            Action primary, string secondaryLabel, Action secondary, Action more)
+        {
+            var visibleLines = lines.Where(line => !string.IsNullOrEmpty(line)).ToList();
+            return new RowDetails
+            {
+                Lines = visibleLines,
+                Tooltip = string.Join("\n", visibleLines.ToArray()),
+                PrimaryLabel = primaryLabel,
+                Primary = primary,
+                SecondaryLabel = secondaryLabel,
+                Secondary = secondary,
+                More = more,
+            };
+        }
+
         static Section EnsureSection(string key)
         {
             if (!SectionsByKey.TryGetValue(key, out var section))
@@ -341,7 +500,7 @@ namespace SlopWorld
             BuildMainCategories();
 
             Sections.Clear();
-            foreach (var key in Kinds)
+            foreach (var key in Category.Order)
             {
                 if (!SectionsByKey.TryGetValue(key, out var section) || section.Rows.Count == 0)
                     continue;
@@ -368,115 +527,112 @@ namespace SlopWorld
         static void BuildMainCategories()
         {
             string query = _query.Trim();
-            bool Matches(string value) => query.Length == 0 ||
-                (value ?? "").IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0;
-
             var projects = SessionHub.Instance.Projects
                 .Where(project => PassesProject(project.Name))
                 .OrderBy(project => project.Name, StringComparer.OrdinalIgnoreCase)
                 .ToList();
 
-            if (MainCategoryEnabled("Projects"))
-            {
-                foreach (var project in projects)
-                {
-                    var captured = project;
-                    AddMainAction("Projects", "project:" + captured.Name,
-                        captured.Name, captured.Name + "  -  " + captured.Dir, Icons.Files,
-                        new[] { captured.Name, "Project", captured.Dir, ProjectsView.Summary(captured) },
-                        "Edit", () => TerminalWindow.OpenOverPane(new EditProjectDialog(captured)),
-                        "Worktrees", () => TerminalWindow.OpenOverPane(EditProjectDialog.ForWorktrees(captured)),
-                        () => ProjectMenu(captured),
-                        Matches("Projects") || Matches(captured.Name) || Matches(captured.Dir));
-                }
-            }
+            BuildProjectRows(projects, query);
+            BuildWorktreeRows(projects, query);
+            BuildSandboxPresetRows(query);
+            BuildAppPresetRows(query);
+        }
 
-            if (MainCategoryEnabled("Worktrees"))
+        static void BuildProjectRows(List<ProjectInfo> projects, string query)
+        {
+            if (!MainCategoryEnabled(Category.Projects)) return;
+            foreach (var project in projects)
             {
-                EnsureWorktrees(projects);
-                foreach (var project in projects)
-                {
-                    if (!WorktreesByProject.TryGetValue(project.Name, out var worktrees)) continue;
-                    foreach (var worktree in worktrees)
-                    {
-                        var captured = worktree;
-                        var tree = captured.Tree;
-                        string treeName = tree.Id == "main" ? "main" :
-                            string.IsNullOrEmpty(tree.Name) ? tree.Id : tree.Name;
-                        string label = captured.Project + "  ·  " + treeName;
-                        AddMainAction("Worktrees",
-                            "worktree:" + captured.Project + ":" + tree.Id, label,
-                            label + "  -  " + tree.Path, Icons.Git,
-                            WorktreeDetails(captured), "Terminal",
-                            () => SessionHub.Instance.SessionStore.RunHostShell(captured.Project,
-                                name => TerminalWindow.Open(name), UiLayout.Fail, tree.Id),
-                            "Project", () => OpenProjectWorktrees(captured.Project),
-                            () => WorktreeMenu(captured),
-                            Matches("Worktrees") || Matches(captured.Project) ||
-                            Matches(treeName) || Matches(tree.Path) || Matches(tree.Branch));
-                    }
-                }
+                var captured = project;
+                AddMainRow(Category.Projects, "project:" + captured.Name,
+                    captured.Name, Icons.Files, captured.Name, captured.Dir, true,
+                    MainRowKind.Project, captured,
+                    MatchesAny(query, Category.Projects, captured.Name, captured.Dir));
             }
+        }
 
-            if (MainCategoryEnabled("Sandbox presets"))
+        static void BuildWorktreeRows(List<ProjectInfo> projects, string query)
+        {
+            if (!MainCategoryEnabled(Category.Worktrees)) return;
+            EnsureWorktrees(projects);
+            foreach (var project in projects)
             {
-                foreach (var preset in SessionHub.Instance.Presets
-                    .Where(preset => preset.Source != "system")
-                    .OrderBy(preset => preset.Name, StringComparer.OrdinalIgnoreCase))
+                if (!WorktreesByProject.TryGetValue(project.Name, out var worktrees)) continue;
+                foreach (var worktree in worktrees)
                 {
-                    var captured = preset;
-                    string label = PresetLabel(captured.Name, captured.Source);
-                    AddMainAction("Sandbox presets",
-                        "sandbox:" + captured.Name, label, captured.Description, Icons.Shield,
-                        SandboxDetails(captured), "Edit",
-                        () => ModOptions.OpenSandboxPreset(captured.Name),
-                        captured.Source == "override" ? "Reset" : "Remove",
-                        () => RemovePreset("sandbox_presets", captured), null,
-                        Matches("Sandbox presets") || Matches(captured.Name) ||
-                        Matches(captured.Description));
-                }
-            }
-
-            if (MainCategoryEnabled("App presets"))
-            {
-                foreach (var command in SessionHub.Instance.Commands
-                    .Where(command => command.Source != "system")
-                    .OrderBy(command => command.Name, StringComparer.OrdinalIgnoreCase))
-                {
-                    var captured = command;
-                    string label = PresetLabel(captured.Name, captured.Source);
-                    AddMainAction("App presets",
-                        "app:" + captured.Name, label, captured.Description, Icons.Terminal,
-                        AppPresetDetails(captured), "Edit",
-                        () => ModOptions.OpenAppPreset(captured.Name),
-                        captured.Source == "override" ? "Reset" : "Remove",
-                        () => RemovePreset("app_presets", captured), null,
-                        Matches("App presets") || Matches(captured.Name) ||
-                        Matches(captured.Description) || Matches(captured.Cmd));
+                    var captured = worktree;
+                    var tree = captured.Tree;
+                    string treeName = tree.Id == "main" ? "main" :
+                        string.IsNullOrEmpty(tree.Name) ? tree.Id : tree.Name;
+                    string label = captured.Project + "  ·  " + treeName;
+                    AddMainRow(Category.Worktrees,
+                        "worktree:" + captured.Project + ":" + tree.Id, label,
+                        Icons.Git, label, tree.Path, true, MainRowKind.Worktree, captured,
+                        MatchesAny(query, Category.Worktrees, captured.Project,
+                            treeName, tree.Path, tree.Branch));
                 }
             }
         }
 
+        static void BuildSandboxPresetRows(string query)
+        {
+            if (!MainCategoryEnabled(Category.SandboxPresets)) return;
+            foreach (var preset in SessionHub.Instance.Presets
+                .Where(preset => preset.Source != "system")
+                .OrderBy(preset => preset.Name, StringComparer.OrdinalIgnoreCase))
+            {
+                var captured = preset;
+                string label = PresetLabel(captured.Name, captured.Source);
+                AddMainRow(Category.SandboxPresets,
+                    "sandbox:" + captured.Name, label, Icons.Shield,
+                    captured.Description, null, false, MainRowKind.SandboxPreset, captured,
+                    MatchesAny(query, Category.SandboxPresets, captured.Name, captured.Description));
+            }
+        }
+
+        static void BuildAppPresetRows(string query)
+        {
+            if (!MainCategoryEnabled(Category.AppPresets)) return;
+            foreach (var command in SessionHub.Instance.Commands
+                .Where(command => command.Source != "system")
+                .OrderBy(command => command.Name, StringComparer.OrdinalIgnoreCase))
+            {
+                var captured = command;
+                string label = PresetLabel(captured.Name, captured.Source);
+                AddMainRow(Category.AppPresets,
+                    "app:" + captured.Name, label, Icons.Terminal,
+                    captured.Description, null, false, MainRowKind.AppPreset, captured,
+                    MatchesAny(query, Category.AppPresets, captured.Name,
+                        captured.Description, captured.Cmd));
+            }
+        }
+
+        static bool MatchesAny(string query, string first, string second,
+            string third = null, string fourth = null, string fifth = null) =>
+            query.Length == 0 || Matches(query, first) || Matches(query, second) ||
+            Matches(query, third) || Matches(query, fourth) || Matches(query, fifth);
+
+        static bool Matches(string query, string value) =>
+            (value ?? "").IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0;
+
         static bool MainCategoryEnabled(string key) => _kind.Length == 0 || _kind == key;
 
-        static void AddMainAction(string sectionKey, string key, string label,
-            string tooltip, Texture2D icon, IEnumerable<string> details, string primaryLabel,
-            Action primary, string secondaryLabel, Action secondary, Action more, bool include)
+        static void AddMainRow(string sectionKey, string key, string label, Texture2D icon,
+            string tooltip, string tooltipTail, bool tooltipJoinsPath,
+            MainRowKind kind, object model, bool include)
         {
             if (!include) return;
-            EnsureSection(sectionKey).Rows.Add(Row.ForAction(new MainCategoryAction
+            EnsureSection(sectionKey).Rows.Add(new Row
             {
-                Key = key,
+                Key = "action:" + key,
                 Label = label,
                 Tooltip = tooltip,
+                TooltipTail = tooltipTail,
+                TooltipJoinsPath = tooltipJoinsPath,
                 Icon = icon,
-                Details = details.Where(detail => !string.IsNullOrEmpty(detail)).ToList(),
-                PrimaryLabel = primaryLabel,
-                Primary = primary,
-                SecondaryLabel = secondaryLabel,
-                Secondary = secondary,
-                More = more,
-            }));
+                MainKind = kind,
+                Model = model,
+            });
         }
 
         static void EnsureWorktrees(List<ProjectInfo> projects)
@@ -672,73 +828,9 @@ namespace SlopWorld
             else RowMenu(item);
         }
 
-        static void DrawDetails(Rect r, Row row)
+        static void DrawDetails(Rect r, RowDetails details)
         {
             Slab.Hairline(new Rect(r.x, r.y, r.width, 1f), UiTheme.Edge);
-            var item = row.Item;
-            var action = row.Action;
-            bool isItem = item != null;
-            AgentTemplateInfo definition = null;
-            bool template = isItem && Templates.TryGetValue(item, out definition);
-            bool runnable = isItem && Runnable(item);
-
-            var lines = new List<string>();
-            string tooltip;
-            Action primaryClick;
-            Action secondaryClick = null;
-            Action moreClick;
-            string primaryLabel;
-            string secondaryLabel = null;
-
-            if (isItem)
-            {
-                string scope = string.IsNullOrEmpty(item.Project) ? "Global" : item.Project;
-                lines.Add(item.Name);
-                lines.Add((template ? "Agent template" : KindName(item.Kind)) + " · " + scope);
-                if (runnable)
-                {
-                    lines.Add(item.Link == LibraryItemLink.Ask
-                        ? "Choose a project when you run this item."
-                        : "In: " + Where(item));
-                    lines.Add("Runs with: " + (item.Host ? "Host" :
-                        string.IsNullOrEmpty(item.AgentTemplate) ? "Not configured" : item.AgentTemplate));
-                }
-                else if (item.Kind == LibraryItemKind.FileAction && !template)
-                    lines.Add("Host · " + FileActionModeText.Name(item.Mode));
-                lines.Add(OneLine(item.Text));
-                tooltip = string.Join("\n", lines) + "\n\n" + item.Text;
-
-                primaryLabel = template ? "Create agent" : runnable
-                    ? (item.Link == LibraryItemLink.Ask ? "Choose a project" : "Run") : "Edit";
-                if (template)
-                    primaryClick = () => TerminalWindow.OpenOverPane(EditSessionDialog.FromTemplate(definition));
-                else if (runnable)
-                    primaryClick = () => Run(item);
-                else
-                    primaryClick = () => Edit(item);
-
-                if (template || runnable)
-                {
-                    secondaryLabel = "Edit";
-                    secondaryClick = () => Edit(item);
-                }
-                else if (item.Kind == LibraryItemKind.Breadcrumb)
-                {
-                    secondaryLabel = "Copy text";
-                    secondaryClick = () => GUIUtility.systemCopyBuffer = item.Text ?? "";
-                }
-                moreClick = () => Menu(item);
-            }
-            else
-            {
-                lines.AddRange(action.Details);
-                tooltip = string.Join("\n", action.Details.ToArray());
-                primaryLabel = action.PrimaryLabel ?? "Open";
-                primaryClick = action.Primary;
-                secondaryLabel = action.SecondaryLabel ?? "More";
-                secondaryClick = action.Secondary;
-                moreClick = action.More;
-            }
 
             // Two stacked action rows also fit the sidebar's minimum width.
             float actionsH = UiTheme.FieldH * 2f + Pad;
@@ -748,32 +840,33 @@ namespace SlopWorld
             {
                 Text.Font = GameFont.Tiny;
                 Text.Anchor = TextAnchor.MiddleLeft;
-                foreach (var line in lines)
+                foreach (var line in details.Lines)
                 {
                     if (y + RowH > textBottom) break;
                     UiText.RowLabel(new Rect(r.x, y, r.width, RowH),
-                        isItem ? line : OneLine(line));
+                        details.IsItem ? line : OneLine(line));
                     y += RowH;
                 }
                 TooltipHandler.TipRegion(new Rect(r.x, r.y, r.width,
-                    Mathf.Max(0f, textBottom - r.y)), tooltip);
+                    Mathf.Max(0f, textBottom - r.y)), details.Tooltip);
             }
             if (r.height < actionsH + Pad * 2f) return;
             var primary = new Rect(r.x, r.yMax - actionsH - Pad, r.width, UiTheme.FieldH);
-            if (UiButtons.Button(primary, primaryLabel, UiTheme.Btn.Primary)) primaryClick?.Invoke();
-            float moreW = moreClick == null ? 0f : UiTheme.FieldH;
+            if (UiButtons.Button(primary, details.PrimaryLabel ?? "Open", UiTheme.Btn.Primary))
+                details.Primary?.Invoke();
+            float moreW = details.More == null ? 0f : UiTheme.FieldH;
             float secondaryW = Mathf.Max(0f, r.width - moreW - (moreW > 0f ? Pad : 0f));
             var secondary = new Rect(r.x, primary.yMax + Pad, secondaryW, UiTheme.FieldH);
-            if (secondaryClick != null)
+            if (details.Secondary != null)
             {
-                bool clicked = isItem
-                    ? UiButtons.Button(secondary, secondaryLabel)
-                    : UiButtons.Button(secondary, secondaryLabel, UiTheme.Btn.Ghost);
-                if (clicked) secondaryClick();
+                bool clicked = details.IsItem
+                    ? UiButtons.Button(secondary, details.SecondaryLabel)
+                    : UiButtons.Button(secondary, details.SecondaryLabel, UiTheme.Btn.Ghost);
+                if (clicked) details.Secondary();
             }
-            if (moreClick != null && UiButtons.Button(
+            if (details.More != null && UiButtons.Button(
                     new Rect(r.xMax - moreW, secondary.y, moreW, secondary.height), "…"))
-                moreClick();
+                details.More();
         }
 
         static float DrawSection(Rect view, float y, Section section)
@@ -824,34 +917,37 @@ namespace SlopWorld
 
         static float DrawRow(Rect view, Rect r, Row row)
         {
-            var item = row.Item;
-            var action = row.Action;
-            bool muted = action != null && action.Primary == null;
+            var hitRect = Screen(r);
             RowChrome.Hover(r, row.Key == _selection, true, RowHoverPolicy.OverlayAware);
             using (WidgetState.Save())
             {
                 Text.Font = GameFont.Tiny;
                 Text.Anchor = TextAnchor.MiddleLeft;
-                GUI.color = muted ? UiTheme.Faint : UiTheme.Dim;
-                var icon = item != null ?
-                    (Templates.ContainsKey(item) ? Icons.Agents :
-                     item.Kind == LibraryItemKind.Shell ? Icons.Terminal :
-                     item.Kind == LibraryItemKind.FileAction ? Icons.Files :
-                     item.Kind == LibraryItemKind.Breadcrumb ? Icons.Keyboard : Icons.Library)
-                    : action.Icon;
-                GUI.DrawTexture(new Rect(CellX, r.y + (RowH - ArrowW) / 2f, ArrowW, ArrowW), icon);
-                GUI.color = muted ? UiTheme.Faint : UiTheme.Lead;
+                GUI.color = UiTheme.Dim;
+                GUI.DrawTexture(new Rect(CellX, r.y + (RowH - ArrowW) / 2f, ArrowW, ArrowW), row.Icon);
+                GUI.color = UiTheme.Lead;
                 UiText.RowLabel(new Rect(CellX + ArrowW + Pad, r.y,
                     Mathf.Max(0f, r.width - CellX * 2f - ArrowW - Pad), RowH),
-                    item != null ? item.Name : action.Label);
+                    row.Label);
             }
-            string tooltip = item != null
-                ? item.Name + "\n" + (string.IsNullOrEmpty(item.Project) ? "Global" : item.Project) +
-                    "\n" + OneLine(item.Text)
-                : action.Tooltip;
-            TooltipHandler.TipRegion(r, tooltip);
-            Lines.Add(new Line { Row = row, Rect = Screen(r) });
+            if (hitRect.width > 0f && hitRect.height > 0f)
+            {
+                TooltipHandler.TipRegion(r, RowTooltip(row));
+                Lines.Add(new Line { Row = row, Rect = hitRect });
+            }
             return RowH;
+        }
+
+        static string RowTooltip(Row row)
+        {
+            if (row.Item != null)
+            {
+                string scope = string.IsNullOrEmpty(row.Item.Project) ? "Global" : row.Item.Project;
+                return row.Item.Name + "\n" + scope + "\n" + OneLine(row.Item.Text);
+            }
+            return row.TooltipJoinsPath
+                ? row.Tooltip + "  -  " + row.TooltipTail
+                : row.Tooltip;
         }
 
         // The height the rows want, measured off the same folds the draw reads.
@@ -924,7 +1020,7 @@ namespace SlopWorld
 
                 var row = line.Row;
                 if (row == null) continue;
-                bool select = row.Item != null || e.button == 0 || row.Action.More != null;
+                bool select = row.Item != null || e.button == 0 || HasMainMenu(row);
                 if (select)
                 {
                     _selection = row.Key;
@@ -936,10 +1032,21 @@ namespace SlopWorld
                     if (e.button == 1) Menu(row.Item);
                 }
                 else if (e.button == 1)
-                    row.Action.More?.Invoke();
+                    OpenMainMenu(row);
                 e.Use();
                 return;
             }
+        }
+
+        static bool HasMainMenu(Row row) =>
+            row.MainKind == MainRowKind.Project || row.MainKind == MainRowKind.Worktree;
+
+        static void OpenMainMenu(Row row)
+        {
+            if (row.MainKind == MainRowKind.Project)
+                ProjectMenu((ProjectInfo)row.Model);
+            else if (row.MainKind == MainRowKind.Worktree)
+                WorktreeMenu((WorktreeEntry)row.Model);
         }
 
         // ------------------------------------------------------------------ menus
