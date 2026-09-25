@@ -410,7 +410,7 @@ namespace SlopWorld
             project = SidebarScopes.Key(project);
             CancelPendingDiff();
             int request = _diffRequest;
-            Fetch(project, () =>
+            void OpenCurrent()
             {
                 if (request != _diffRequest) return;
                 var repo = Known(project);
@@ -421,7 +421,13 @@ namespace SlopWorld
                 }
                 ClearSelection();
                 Viewers.ForPreview().Open(project, DiffCmd(repo, null, null), FilesView.ReaderLabel(project, "diff"));
-            });
+            }
+
+            // The visible tree already has a status snapshot. Start its pager now; Git reads
+            // the actual diff when the command runs. A cold cache still needs the root first.
+            var known = Known(project);
+            if (known != null && !string.IsNullOrEmpty(known.Root)) OpenCurrent();
+            else Fetch(project, OpenCurrent);
         }
 
         // ------------------------------------------------------------------ menus
@@ -528,7 +534,7 @@ namespace SlopWorld
             _pendingDiffProject = project;
             var known = Known(project);
             _pendingDiffRel = known == null ? null : RelOf(known, abs);
-            Fetch(project, () =>
+            void OpenCurrent()
             {
                 if (request != _diffRequest) return;
                 bool pin = _pinPendingDiff;
@@ -552,7 +558,12 @@ namespace SlopWorld
                 AgentSidebar.RememberGit(project, rel);
                 Viewers.OpenFresh(project, DiffCmd(repo, rel, status), FilesView.ReaderLabel(project, label), DiffKey(rel));
                 if (pin) Viewers.LockPreview(project, DiffKey(rel));
-            });
+            }
+
+            // The row came from this snapshot. Avoid a second status HTTP round trip before
+            // starting its pager; only a cold cache needs to discover the repository root.
+            if (known != null && !string.IsNullOrEmpty(known.Root)) OpenCurrent();
+            else Fetch(project, OpenCurrent);
         }
 
         static void Diff(Node node, Repo repo) =>
