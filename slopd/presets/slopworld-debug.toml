@@ -2,19 +2,15 @@
 name = "slopworld-debug"
 description = "Full SlopWorld game and mod development: game files, profile, displays, devices, desktop services, diagnostics and build caches"
 requires = [
-    "systemd",
-    "x11",
-    "wayland",
-    "gpu",
-    "audio",
-    "git",
-    "rust-cache",
-    "nuget-cache",
     "ccache",
-    "python",
-    # The macOS sidecar (slopcar) is a Docker container. Debugging it means building, running and
-    # exec-ing into it, which needs the host Docker socket.
     "docker",
+    "git",
+    "nuget-cache",
+    "python",
+    "rust-cache",
+    "systemd",
+    "wayland",
+    "x11",
 ]
 # These paths are writable so the debug agent can build and install the mod, run the game, and edit the profile.
 # The project directory has separate write access.
