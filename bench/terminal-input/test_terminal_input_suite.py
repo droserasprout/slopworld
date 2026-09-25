@@ -247,6 +247,28 @@ class SuiteTests(unittest.TestCase):
             backend.close.assert_called_once()
             self.assertFalse((root / 'out' / 'typing.log').exists())
 
+    def test_typing_only_can_fill_an_empty_shell(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            log = root / 'trace.log'
+            log.write_text('')
+            backend = Mock()
+            with patch.object(bench, 'Backend', return_value=backend), \
+                    patch.object(bench, 'prepare_history') as prepare, \
+                    patch.object(bench, 'run_phase') as run_phase, \
+                    patch.object(bench, 'show_report', return_value=root / 'out.md'), \
+                    patch('builtins.input') as prompt, patch('sys.stdout', new_callable=io.StringIO), \
+                    patch.object(bench.sys, 'argv', ['bench', '--phase', 'typing', '--fill-history',
+                                                    '--log', str(log), '--output', str(root / 'out')]):
+                bench.main()
+            prepare.assert_called_once()
+            self.assertEqual(run_phase.call_args.args[1], 'typing')
+            self.assertFalse(run_phase.call_args.kwargs['close_backend'])
+            backend.prepare_text.assert_called_once_with()
+            prompt.assert_not_called()
+            backend.close.assert_called_once()
+            self.assertFalse((root / 'out' / 'history.log').exists())
+
     def test_report_only_repairs_empty_performance_summary(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -263,6 +285,23 @@ class SuiteTests(unittest.TestCase):
                 bench.main()
             backend.assert_not_called()
             self.assertIn('terminal-window: 0.500', performance.read_text())
+
+    def test_paint_reason_counts_backfill_once_and_report_zeros(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            summary = ('eco=1 terminal=1 sessions=1 size=800x600 windows=58\n'
+                       '  terminal-cache-broad-repaints: 501 calls\n'
+                       '  terminal-cache-broad-rows: 501 calls\n')
+            bench.record_paint_reasons(root, 'typing', summary)
+            bench.record_paint_reasons(root, 'typing', summary)
+            rows = bench.data.read(root / 'metrics.csv')
+            self.assertEqual(len(rows), 4)
+            self.assertEqual({row['metric']: row['value'] for row in rows}, {
+                'paint/broad-repaints': '501', 'paint/broad-rows': '501',
+                'paint/skipped-revisions': '0', 'paint/missing-damage': '0'})
+            report = bench.data.render(root, latest=True)
+            self.assertIn('terminal / typing / eco=1 terminal=1 sessions=1 size=800x600 / paint/broad-rows', report)
+            self.assertIn('paint/skipped-revisions | total | 0 [0–0] count', report)
 
     def test_invalid_phase_never_becomes_usable_from_survivors(self):
         self.assertEqual(measurement_status({'status': 'invalid'}, {'counts': {'samples': 100}}), 'invalid')

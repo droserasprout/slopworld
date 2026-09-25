@@ -31,3 +31,21 @@ def performance(text):
         rows.append((context, fps[1] if fps else '—', gc[1] if gc else '—',
                      terminal[1] if terminal else '—'))
     return rows
+
+
+def paint_reasons(text):
+    """Read debug paint counts from each context in a trace-summary output."""
+    names = ('broad-repaints', 'skipped-revisions', 'broad-rows', 'missing-damage')
+    for chunk in re.split(r'(?=eco=)', text)[1:]:
+        context = chunk.splitlines()[0].split(' windows=', 1)[0]
+        counts = {}
+        for name in names:
+            match = re.search(r'^  terminal-cache-' + name + r': (\d+) calls$', chunk, re.M)
+            if match:
+                counts[name] = int(match[1])
+        # Older captures had only the broad total; do not invent reason zeros for them.
+        if any(name in counts for name in names[1:]):
+            for name in names[1:]:
+                counts.setdefault(name, 0)
+        for name, count in counts.items():
+            yield context, name, count

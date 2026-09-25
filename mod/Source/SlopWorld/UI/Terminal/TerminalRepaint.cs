@@ -3,6 +3,10 @@ using System;
 namespace SlopWorld
 {
     internal enum TerminalRepaint { None, Rows, Full }
+    internal enum TerminalRepaintReason
+    {
+        None, Invalidated, Unchanged, SkippedRevisions, MissingDamage, BroadRows, SparseRows,
+    }
 
     internal static class TerminalCacheSampling
     {
@@ -84,17 +88,41 @@ namespace SlopWorld
     internal static class TerminalRepaintPolicy
     {
         public static TerminalRepaint Choose(bool invalidated, int previousRevision, ScreenBuf screen)
+            => Choose(invalidated, previousRevision, screen, out _);
+
+        public static TerminalRepaint Choose(bool invalidated, int previousRevision,
+                                             ScreenBuf screen, out TerminalRepaintReason reason)
         {
-            if (invalidated) return TerminalRepaint.Full;
-            if (previousRevision == screen.ContentRevision) return TerminalRepaint.None;
+            if (invalidated)
+            {
+                reason = TerminalRepaintReason.Invalidated;
+                return TerminalRepaint.Full;
+            }
+            if (previousRevision == screen.ContentRevision)
+            {
+                reason = TerminalRepaintReason.Unchanged;
+                return TerminalRepaint.None;
+            }
             // ChangedRows describes only the latest received frame. If painting skipped a
             // content revision, earlier damage is no longer represented by that row list.
             if (screen.ContentRevision != unchecked(previousRevision + 1))
+            {
+                reason = TerminalRepaintReason.SkippedRevisions;
                 return TerminalRepaint.Full;
+            }
             // Missing damage metadata cannot establish which pixels are still valid.
             int changed = screen.ChangedRows?.Length ?? 0;
-            if (changed == 0 || changed * 2 >= Math.Max(1, screen.Lines?.Length ?? 0))
+            if (changed == 0)
+            {
+                reason = TerminalRepaintReason.MissingDamage;
                 return TerminalRepaint.Full;
+            }
+            if (changed * 2 >= Math.Max(1, screen.Lines?.Length ?? 0))
+            {
+                reason = TerminalRepaintReason.BroadRows;
+                return TerminalRepaint.Full;
+            }
+            reason = TerminalRepaintReason.SparseRows;
             return TerminalRepaint.Rows;
         }
     }

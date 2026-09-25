@@ -50,6 +50,46 @@ class BenchReportTests(unittest.TestCase):
             self.assertNotIn("20260924", latest)
             self.assertNotIn("| started |", latest)
 
+    def test_latest_can_fill_missing_phases_without_mixing_old_phase_rows(self):
+        with tempfile.TemporaryDirectory() as directory:
+            current = Path(directory) / "terminal-current"
+            fallback = Path(directory) / "full-20260924T230211Z"
+            for target, phase, value in ((fallback, "typing", 90000),
+                                         (fallback, "htop", 40000),
+                                         (current, "typing", 50000)):
+                report.data.add_metric(target, "terminal", phase, "paste", "latency/input_to_frame_end",
+                                       "p50", "us", 1, value)
+                report.data.add_metadata(target, "terminal", phase,
+                                         {"started": "2026-09-24T23:02:11Z", "runner_revision": "abc"})
+            report.data.add_metric(fallback, "daemon", "", "render", "duration", "p50", "us", 1, 10)
+            report.data.add_outcomes(fallback, "terminal", "typing", "", 1, {"overflow": 7})
+            report.data.add_outcomes(current, "terminal", "typing", "", 1, {"frame_end": 3000})
+            combined = report.data.render(current, latest=True, fallback=fallback)
+            self.assertIn("| terminal / typing | current |", combined)
+            self.assertIn("| terminal / htop | saved fallback |", combined)
+            self.assertIn("daemon / render / duration", combined)
+            self.assertIn("50.000 [50.000–50.000] ms", combined)
+            self.assertNotIn("90.000 [90.000–90.000] ms", combined)
+            self.assertIn("| terminal / typing | 1 | frame_end | 3000 |", combined)
+            self.assertNotIn("| terminal / typing | 1 | overflow | 7 |", combined)
+            self.assertNotIn("2026", combined)
+
+    def test_report_rounds_elapsed_metadata_but_keeps_csv_exact(self):
+        with tempfile.TemporaryDirectory() as directory:
+            run = Path(directory) / "trial"
+            report.data.add_metadata(run, "terminal", "typing", {
+                "actual_seconds": "60.00008285899821",
+                "schedule_slip_seconds": "0.00006743499762",
+                "sent_events": "3000",
+                "runner_revision": "48b87622",
+            })
+            shown = report.data.render(run, latest=True)
+            self.assertIn("| terminal / typing | actual_seconds | 60.000 |", shown)
+            self.assertIn("| terminal / typing | schedule_slip_seconds | 0.000 |", shown)
+            self.assertIn("| terminal / typing | sent_events | 3000 |", shown)
+            self.assertIn("| terminal / typing | runner_revision | 48b87622 |", shown)
+            self.assertEqual(report.data.read(run / "run.csv")[0]["value"], "60.00008285899821")
+
     def test_gamefree_comparison_requires_matching_build_and_host(self):
         with tempfile.TemporaryDirectory() as directory:
             new, old = Path(directory) / "new", Path(directory) / "old"
@@ -107,6 +147,39 @@ class BenchReportTests(unittest.TestCase):
                 report.data.add_metadata(target, "terminal", "typing", {"rate": rate, "backend": "xdotool"})
                 report.data.add_metric(target, "terminal", "typing", "paste", "latency/input_to_frame_end",
                                        "p50", "us", 1, 50000)
+            self.assertIn("incompatible workload", report.data.render(new, old, "relative"))
+
+    def test_terminal_comparison_ignores_session_inventory_only(self):
+        with tempfile.TemporaryDirectory() as directory:
+            new, old = Path(directory) / "new", Path(directory) / "old"
+            for target, sessions, value in ((old, 42, 50), (new, 43, 55)):
+                context = f"eco=1 terminal=1 sessions={sessions} size=1429x774"
+                report.data.add_metadata(target, "terminal", "typing", {
+                    "backend": "xdotool", "rate": 100, "multiplier": 1,
+                    "observed_contexts": context})
+                report.data.add_metric(target, "terminal", "typing", context,
+                                       "terminal_work", "mean", "ms/update", 1, value)
+                report.data.add_metric(target, "terminal", "typing", "paste",
+                                       "latency/input_to_frame_end", "p50", "us", 1, value * 1000)
+            compared = report.data.render(new, old, "relative")
+            self.assertIn("eco=1 terminal=1 size=1429x774 / terminal_work | mean | +10.00%", compared)
+            self.assertIn("typing / paste / latency/input_to_frame_end | p50 | +10.00%", compared)
+            self.assertNotIn("sessions=", compared)
+            self.assertNotIn("missing", compared)
+            self.assertIn("sessions=43", (new / "run.csv").read_text())
+            absolute = report.data.render(new)
+            self.assertIn("| terminal / typing | observed_contexts | eco=1 terminal=1 size=1429x774 |", absolute)
+            self.assertNotIn("sessions=", absolute)
+
+    def test_terminal_comparison_still_checks_viewport_geometry(self):
+        with tempfile.TemporaryDirectory() as directory:
+            new, old = Path(directory) / "new", Path(directory) / "old"
+            for target, size in ((old, "1429x774"), (new, "1400x774")):
+                context = f"eco=1 terminal=1 sessions=42 size={size}"
+                report.data.add_metadata(target, "terminal", "typing", {
+                    "backend": "xdotool", "rate": 100, "observed_contexts": context})
+                report.data.add_metric(target, "terminal", "typing", "paste",
+                                       "latency/input_to_frame_end", "p50", "us", 1, 50000)
             self.assertIn("incompatible workload", report.data.render(new, old, "relative"))
 
     def test_outlier_changes_range_not_median(self):

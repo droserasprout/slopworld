@@ -71,7 +71,8 @@ namespace SlopWorld
                 Font = TerminalFont.Rev,
             };
             bool repaintAll = fresh || !_cacheKey.Matches(key);
-            var repaint = TerminalRepaintPolicy.Choose(repaintAll, _cacheContentRevision, buf);
+            var repaint = TerminalRepaintPolicy.Choose(repaintAll, _cacheContentRevision, buf,
+                                                       out var repaintReason);
             if (repaint == TerminalRepaint.None) PerfTrace.Count("terminal-cache-hits");
             if (repaintAll)
             {
@@ -126,6 +127,15 @@ namespace SlopWorld
                     if (broad)
                     {
                         PerfTrace.Count("terminal-cache-broad-repaints");
+                        if (PerfTrace.Enabled)
+                        {
+                            if (repaintReason == TerminalRepaintReason.SkippedRevisions)
+                                PerfTrace.Count("terminal-cache-skipped-revisions");
+                            else if (repaintReason == TerminalRepaintReason.BroadRows)
+                                PerfTrace.Count("terminal-cache-broad-rows");
+                            else if (repaintReason == TerminalRepaintReason.MissingDamage)
+                                PerfTrace.Count("terminal-cache-missing-damage");
+                        }
                         GL.Clear(false, true, SolidTerminalBackground);
                         Paint(new Rect(body.x, body.y - _cacheLead, body.width,
                                        body.height + _cacheLead), buf, cw, ch);

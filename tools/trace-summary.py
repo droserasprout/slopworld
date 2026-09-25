@@ -64,7 +64,9 @@ def main():
                         peak = max(float(row.get(lane, {}).get("max", 0)) for row in rows)
                         tail = f", max {peak:.3f} ms" if peak else ""
                         print(f"  {lane}: {calls:.0f} calls, {total(lane, 'ms') / calls:.3f} ms/call{tail}")
-            for lane in ("terminal-cache-edge-clamps", "terminal-cache-out-of-bounds",
+            for lane in ("terminal-cache-broad-repaints", "terminal-cache-skipped-revisions",
+                         "terminal-cache-broad-rows", "terminal-cache-missing-damage",
+                         "terminal-cache-edge-clamps", "terminal-cache-out-of-bounds",
                          "terminal-cache-missing", "terminal-cache-session-mismatch",
                          "terminal-cache-size-mismatch"):
                 calls = total(lane, "calls")
