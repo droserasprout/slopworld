@@ -4,9 +4,8 @@
 [[sandbox]]
 name = "codex"
 description = "Private OpenAI Codex CLI state and configuration with shared credentials"
-# Codex reads the desktop clipboard for Ctrl+V image attachments in its terminal interface.
-# These display presets create no mounts for missing paths.
-requires = ["x11", "wayland"]
+# Codex reads the desktop clipboard for Ctrl+V image attachments in its terminal interface, add x11/wayland if needed.
+requires = []
 private = ["~/.codex"]
 # Codex saves refreshed tokens in this file. Sharing it gives the host and all sandboxes the same tokens.
 # Configuration and MCP definitions remain private.
