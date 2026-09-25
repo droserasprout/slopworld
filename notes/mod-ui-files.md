@@ -14,7 +14,8 @@ does not migrate saved choices from the name key.
 Project and checkout folds are independent. A checkout rename relocates cached nodes without
 forgetting expansion. Refresh merges by path/type to preserve expansion and selection. Bound concurrency so
 background refresh cannot starve foreground opens. Use layout geometry for both hit tests
-and scrolling.
+and scrolling. Loaded directories keep expandability from their own filtered listing; the
+parent empty-directory check does not account for gitignored entries.
 Clipped rows must never receive clicks outside their pane.
 
 A viewer has one replaceable preview and independently pinned readers. Reopening the same
