@@ -70,6 +70,29 @@ namespace SlopWorld.Tests
             AssertEx.Equal(14f, layout.Spans[0].Width, "daemon width survives fallback");
         }
 
+        public static void PlainAsciiFastPathPreservesColumnsAndCatalogMatches()
+        {
+            AssertEx.Equal(0, InlineTextLayout.Cells("", 0, 7f, Catalog, c => true).Spans.Length,
+                "empty text does not acquire a paint span");
+            var plain = InlineTextLayout.Cells("abc", 3, 7f, Catalog, c => true);
+            AssertEx.Equal(21f, plain.Width, "plain ASCII uses its cell width");
+            AssertEx.Equal(21f, plain.Spans[0].Width, "plain span covers the text cells");
+            AssertEx.Equal("abc", plain.Spans[0].Text, "plain text remains one span");
+
+            var widened = InlineTextLayout.Cells("abc", 5, 7f, Catalog, c => true);
+            AssertEx.Equal(35f, widened.Width, "daemon columns remain authoritative");
+            AssertEx.Equal(2, widened.Spans.Length, "final scalar can consume extra cells");
+            AssertEx.Equal(21f, widened.Spans[1].Width, "final scalar retains its supplied width");
+
+            var asciiCatalog = new TextSpriteCatalog(new[] { "bc" });
+            var sprite = InlineTextLayout.Cells("abc", 3, 7f, asciiCatalog, c => true);
+            AssertEx.Equal(2, sprite.Spans.Length, "printable catalog prefix disables fast path");
+            AssertEx.Equal(0, sprite.Spans[1].Sprite, "ASCII catalog key remains a sprite");
+
+            var fallback = InlineTextLayout.Cells("abc", 3, 7f, Catalog, c => c != 'b');
+            AssertEx.Equal(3, fallback.Spans.Length, "font-fit exceptions still split spans");
+        }
+
         public static void GeneratedCatalogSlotsAreStable()
         {
             AssertEx.True(TextSpriteData.Keys.Length <= TextSpriteData.AtlasColumns * TextSpriteData.AtlasRows,

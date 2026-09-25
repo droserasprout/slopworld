@@ -72,6 +72,15 @@ namespace SlopWorld.Tests
 
         static void TerminalHotspots()
         {
+            string plain = new string('a', 120);
+            var asciiKeyCatalog = new TextSpriteCatalog(new[] { "~sprite" });
+            Measure("terminal cell layout plain 120 reference", () =>
+                InlineTextLayout.Cells(plain, 120, 8f, asciiKeyCatalog,
+                    c => c >= ' ' && c <= '~').Spans.Length);
+            Measure("terminal cell layout plain 120 columns", () =>
+                InlineTextLayout.Cells(plain, 120, 8f, TextSpriteCatalog.Shared,
+                    c => c >= ' ' && c <= '~').Spans.Length);
+
             foreach (int rows in new[] { 34, 200 })
             {
                 foreach (bool link in new[] { false, true })

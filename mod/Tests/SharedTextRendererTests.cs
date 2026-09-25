@@ -16,9 +16,28 @@ namespace SlopWorld.Tests
             ContentFinder<Texture2D>.Result = atlas;
             GUI.TextGroups.Clear();
             GUI.TextLabels.Clear();
+            GUI.LabelClippings.Clear();
             GUI.SpriteColors.Clear();
             GUI.TextGroupDepth = 0;
             GUI.FailSprite = false;
+        }
+
+        public static void PlainTerminalRunUsesLabelClippingWithoutGroup()
+        {
+            Reset(null);
+            var style = new GUIStyle { clipping = TextClipping.Overflow };
+            var layout = InlineTextLayout.Cells("abc", 3, 6f, TextSpriteCatalog.Shared, c => true);
+            var bounds = new Rect(10, 20, 24, 12);
+            SharedTextRenderer.DrawTerminalRun(layout, bounds, 12f, style, 6f);
+            AssertEx.Equal(0, GUI.TextGroups.Count, "single plain span skips the group");
+            AssertEx.Equal(bounds, GUI.TextLabels[0].Box, "label retains the old clip bounds");
+            AssertEx.Equal(TextClipping.Clip, GUI.LabelClippings[0], "text clips within those bounds");
+            AssertEx.Equal(TextClipping.Overflow, style.clipping, "shared style is restored");
+
+            Reset(new Texture2D());
+            var sprite = InlineTextLayout.Cells("😀", 2, 6f, TextSpriteCatalog.Shared, c => true);
+            SharedTextRenderer.DrawTerminalRun(sprite, bounds, 12f, style, 6f);
+            AssertEx.Equal(1, GUI.TextGroups.Count, "sprites retain the group clip");
         }
 
         public static void MissingAtlasKeepsMeasuredPositions()

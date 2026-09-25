@@ -13,7 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import results_data as data
 from terminal_input_backend import Backend, TEXT
 from terminal_input_history import command as history_command, history_limit
-from terminal_input_metrics import measurement_status, paint_damage, paint_reasons, performance as parse_performance
+from terminal_input_metrics import measurement_status, paint_damage, paint_reasons, paint_timings, performance as parse_performance
 
 PHASES = (("history", 60, "Big history tab: place the pointer over terminal text"),
           ("typing", 10, "Text tab: empty prompt, cursor at end, no selection; focus terminal text"),
@@ -184,6 +184,13 @@ def record_paint_reasons(directory, phase, performance_text, status='complete'):
                               (f'paint/damage-{band}-rows', rows)):
             if (context, metric) not in existing:
                 data.add_metric(directory, 'terminal', phase, context, metric, 'total', 'count',
+                                1, value, status)
+                existing.add((context, metric))
+    for context, name, calls, mean_ms in paint_timings(performance_text):
+        for metric, stat, unit, value in ((f'paint/{name}-calls', 'total', 'count', calls),
+                                          (f'paint/{name}-time', 'mean', 'ms/call', mean_ms)):
+            if (context, metric) not in existing:
+                data.add_metric(directory, 'terminal', phase, context, metric, stat, unit,
                                 1, value, status)
                 existing.add((context, metric))
 

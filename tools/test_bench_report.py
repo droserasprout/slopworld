@@ -90,6 +90,13 @@ class BenchReportTests(unittest.TestCase):
             self.assertIn("| terminal / typing | runner_revision | 48b87622 |", shown)
             self.assertEqual(report.data.read(run / "run.csv")[0]["value"], "60.00008285899821")
 
+    def test_small_paint_timings_keep_microsecond_precision(self):
+        with tempfile.TemporaryDirectory() as directory:
+            run_dir = Path(directory) / "trial"
+            report.data.add_metric(run_dir, "terminal", "typing", "pane",
+                                   "paint/text-draw-time", "mean", "ms/call", 1, 0.004977)
+            self.assertIn("0.004977 ms/call", report.data.render(run_dir))
+
     def test_gamefree_comparison_requires_matching_build_and_host(self):
         with tempfile.TemporaryDirectory() as directory:
             new, old = Path(directory) / "new", Path(directory) / "old"

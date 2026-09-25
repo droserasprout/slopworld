@@ -12,6 +12,10 @@ workload, so it did not change the repaint decision.
 Debug performance records count history anchor shifts with unchanged cache geometry,
 matching nonlinked row overlap, and shifts that land on whole screen pixels. These
 measure reuse opportunities. History viewport changes still repaint the pane.
+Debug records split terminal run layout from its Unity text draw calls so broad
+paint cost can be attributed. Profiling calls are skipped without the debug flag.
+Single plain text spans use a clipped label directly; mixed text and sprite spans
+still use a GUI group to preserve their shared clip.
 The screen-sized texture may receive a source rectangle that exceeds its edge by
 less than one physical pixel because RimWorld rounds UI dimensions at noninteger
 scale. Clamp that small sampling overrun; larger excursions still use direct paint
@@ -32,6 +36,9 @@ boundaries.
 The cache keeps complete scalar strings separate from continuation cells.
 
 `UI/Text/InlineTextLayout` positions both font spans and catalog sprites.
+Its printable ASCII shortcut applies only when the sprite catalog has no key
+starting with a printable ASCII character and the daemon's column count equals
+the text length; font-fit exceptions still use the general layout path.
 `SharedTextRenderer` controls their clipped drawing for terminal runs and UI labels. Terminal layout consumes daemon
 columns, while UI layout measures plain spans and reserves a line-height box for sprites.
 The generated catalog matches text keys, including baked sequences, without width tables.
