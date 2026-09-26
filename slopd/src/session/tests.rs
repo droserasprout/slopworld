@@ -652,3 +652,30 @@ fn input_tracing_preserves_merging_and_each_request_identity() {
     assert!(Arc::ptr_eq(&traces[1], &second));
     assert!(matches!(result[1], Input::Gap(_)));
 }
+
+#[test]
+fn new_live_starts_as_a_boot_placeholder() {
+    let cfg = SessionCfg {
+        name: "agent".into(),
+        project: "project".into(),
+        ..Default::default()
+    };
+    let live = Live::new(cfg.clone(), TitleCapture::default());
+
+    assert_eq!(live.cfg.name, cfg.name);
+    assert_eq!(live.cfg.project, cfg.project);
+    assert!(!live.ephemeral);
+    assert!(!live.host);
+    assert!(live.host_path.is_empty());
+    assert_eq!(live.state, State::Down);
+    assert_eq!((live.cols, live.rows), (Live::BOOT_COLS, Live::BOOT_ROWS));
+    assert_eq!(live.seq, 0);
+    assert_eq!(live.state_since, 0);
+    assert!(!live.bell);
+    assert!(live.screen.is_none());
+    assert!(live.capture.emu.is_none());
+    assert!(live.capture.reader.is_none());
+    assert!(live.input.sender.is_none());
+    assert!(live.input.breadcrumbs.is_empty());
+    assert!(!live.input.breadcrumbs_pending);
+}

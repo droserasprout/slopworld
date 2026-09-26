@@ -1,7 +1,6 @@
-//! Shared configuration resolution for editor previews.
-//! Launch uses the same scalar and dependency resolvers.
-//! Previews do not prepare private state or start a process.
-use super::{Config, DnsConfig, ProjectCfg, SessionCfg};
+//! Effective launch settings, captured presets, and editor previews.
+//! Resolution does not prepare private state or start processes.
+use super::{default_agent, Config, DnsConfig, Limits, NetworkMode, ProjectCfg, SessionCfg};
 use serde_json::{json, Value};
 
 impl SessionCfg {
@@ -42,6 +41,115 @@ impl SessionCfg {
 }
 
 impl Config {
+    // Shared launch and preview resolvers.
+
+    /// Agent-owned policy; the project argument keeps resolver signatures consistent.
+    pub fn network_of(&self, s: &SessionCfg, _p: &ProjectCfg) -> NetworkMode {
+        s.network
+    }
+
+    pub fn dns_of(&self, s: &SessionCfg, _p: &ProjectCfg) -> DnsConfig {
+        s.dns.clone()
+    }
+
+    /// Resource limits are final agent settings. They do not provide an isolation boundary.
+    pub fn limits_of(&self, s: &SessionCfg, _p: &ProjectCfg) -> Limits {
+        s.limits
+    }
+
+    /// Resolve the command preset; a standalone command line inherits no preset mounts.
+    pub fn command_name(&self, s: &SessionCfg) -> String {
+        if let Some(snapshot) = &s.command_snapshot {
+            return snapshot.name.clone();
+        }
+        let own = s.command.trim();
+        if !own.is_empty() {
+            return own.to_string();
+        }
+        if s.cmd
+            .as_deref()
+            .map(str::trim)
+            .is_some_and(|c| !c.is_empty())
+        {
+            return String::new();
+        }
+        match self.defaults.agent.trim() {
+            "" => default_agent(),
+            a => a.to_string(),
+        }
+    }
+
+    /// Return the command to execute: the explicit command line, the snapshot, or the command preset.
+    /// A missing preset gives an empty command, which `start` rejects.
+    pub fn command_of(&self, s: &SessionCfg) -> String {
+        if let Some(c) = s.cmd.as_deref().map(str::trim).filter(|c| !c.is_empty()) {
+            return c.to_string();
+        }
+        if let Some(snapshot) = &s.command_snapshot {
+            return snapshot.cmd.clone();
+        }
+        crate::presets::table()
+            .command(&self.command_name(s))
+            .map(|c| c.cmd.clone())
+            .unwrap_or_default()
+    }
+
+    /// Resolve global, command, then agent presets, deduplicated with dependencies first.
+    pub fn sandbox_of(&self, s: &SessionCfg, _p: &ProjectCfg) -> Vec<String> {
+        let t = crate::presets::table();
+        let command_sandbox = s
+            .command_snapshot
+            .as_ref()
+            .map(|c| c.sandbox.clone())
+            .or_else(|| t.command(&self.command_name(s)).map(|c| c.sandbox.clone()))
+            .unwrap_or_default();
+        let asked: Vec<String> = std::iter::once("global".to_string())
+            .chain(command_sandbox)
+            .chain(s.sandbox.iter().cloned())
+            .collect();
+
+        fn add(
+            name: &str,
+            table: &crate::presets::Table,
+            snapshots: &[crate::presets::SandboxPreset],
+            out: &mut Vec<String>,
+            visiting: &mut Vec<String>,
+        ) {
+            if out.iter().any(|seen| seen == name) {
+                return;
+            }
+            if visiting.iter().any(|seen| seen == name) {
+                tracing::warn!(
+                    "sandbox preset dependency cycle at {name:?}, ignoring its back-edge"
+                );
+                return;
+            }
+            visiting.push(name.to_string());
+            // Resolve the graph from the same definitions used to build the launch plan.
+            if let Some(preset) = snapshots
+                .iter()
+                .find(|preset| preset.name == name)
+                .or_else(|| table.sandbox(name))
+            {
+                for required in &preset.requires {
+                    add(required, table, snapshots, out, visiting);
+                }
+            }
+            visiting.pop();
+            if !out.iter().any(|seen| seen == name) {
+                out.push(name.to_string());
+            }
+        }
+
+        let mut names = Vec::new();
+        for name in asked {
+            add(&name, &t, &s.sandbox_snapshots, &mut names, &mut Vec::new());
+        }
+        names
+    }
+
+    // Editor projection of the resolved settings.
+
     pub(crate) fn settings_preview(
         &self,
         s: &SessionCfg,

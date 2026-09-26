@@ -1,3 +1,5 @@
+//! Configuration module, lookups, library expansion, and path helpers.
+
 mod model;
 mod persistence;
 mod resolution;
@@ -89,116 +91,6 @@ impl Config {
     /// Session startup reports an error. Session lists show an empty directory.
     pub fn project_of(&self, s: &SessionCfg) -> Option<&ProjectCfg> {
         self.project(&s.project)
-    }
-
-    /// The agent owns the network launch setting.
-    /// Keep the project argument so launch and preview callers use the same resolver.
-    pub fn network_of(&self, s: &SessionCfg, _p: &ProjectCfg) -> NetworkMode {
-        s.network
-    }
-
-    pub fn dns_of(&self, s: &SessionCfg, _p: &ProjectCfg) -> DnsConfig {
-        s.dns.clone()
-    }
-
-    /// Resource limits are final agent settings. They do not provide an isolation boundary.
-    pub fn limits_of(&self, s: &SessionCfg, _p: &ProjectCfg) -> Limits {
-        s.limits
-    }
-
-    /// Return the session's command preset name.
-    /// An explicit command line without a preset gives an empty name.
-    /// This prevents unrelated sessions from receiving preset mounts such as `~/.claude`.
-    pub fn command_name(&self, s: &SessionCfg) -> String {
-        if let Some(snapshot) = &s.command_snapshot {
-            return snapshot.name.clone();
-        }
-        let own = s.command.trim();
-        if !own.is_empty() {
-            return own.to_string();
-        }
-        if s.cmd
-            .as_deref()
-            .map(str::trim)
-            .is_some_and(|c| !c.is_empty())
-        {
-            return String::new();
-        }
-        match self.defaults.agent.trim() {
-            "" => default_agent(),
-            a => a.to_string(),
-        }
-    }
-
-    /// Return the command to execute: the explicit command line, the snapshot, or the command preset.
-    /// A missing preset gives an empty command, which `start` rejects.
-    pub fn command_of(&self, s: &SessionCfg) -> String {
-        if let Some(c) = s.cmd.as_deref().map(str::trim).filter(|c| !c.is_empty()) {
-            return c.to_string();
-        }
-        if let Some(snapshot) = &s.command_snapshot {
-            return snapshot.cmd.clone();
-        }
-        crate::presets::table()
-            .command(&self.command_name(s))
-            .map(|c| c.cmd.clone())
-            .unwrap_or_default()
-    }
-
-    /// Resolve sandbox presets in this order: global, command preset, then agent additions.
-    /// Each dependency precedes the preset that requires it.
-    /// Use the first occurrence of each preset, as in `paths()`.
-    pub fn sandbox_of(&self, s: &SessionCfg, _p: &ProjectCfg) -> Vec<String> {
-        let t = crate::presets::table();
-        let command_sandbox = s
-            .command_snapshot
-            .as_ref()
-            .map(|c| c.sandbox.clone())
-            .or_else(|| t.command(&self.command_name(s)).map(|c| c.sandbox.clone()))
-            .unwrap_or_default();
-        let asked: Vec<String> = std::iter::once("global".to_string())
-            .chain(command_sandbox)
-            .chain(s.sandbox.iter().cloned())
-            .collect();
-
-        fn add(
-            name: &str,
-            table: &crate::presets::Table,
-            snapshots: &[crate::presets::SandboxPreset],
-            out: &mut Vec<String>,
-            visiting: &mut Vec<String>,
-        ) {
-            if out.iter().any(|seen| seen == name) {
-                return;
-            }
-            if visiting.iter().any(|seen| seen == name) {
-                tracing::warn!(
-                    "sandbox preset dependency cycle at {name:?}, ignoring its back-edge"
-                );
-                return;
-            }
-            visiting.push(name.to_string());
-            // Resolve the graph from the same definitions used to build the launch plan.
-            if let Some(preset) = snapshots
-                .iter()
-                .find(|preset| preset.name == name)
-                .or_else(|| table.sandbox(name))
-            {
-                for required in &preset.requires {
-                    add(required, table, snapshots, out, visiting);
-                }
-            }
-            visiting.pop();
-            if !out.iter().any(|seen| seen == name) {
-                out.push(name.to_string());
-            }
-        }
-
-        let mut names = Vec::new();
-        for name in asked {
-            add(&name, &t, &s.sandbox_snapshots, &mut names, &mut Vec::new());
-        }
-        names
     }
 }
 

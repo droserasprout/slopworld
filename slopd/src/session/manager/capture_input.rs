@@ -1,4 +1,4 @@
-//! Ordered terminal input and terminal sizing.
+//! Ordered terminal input, sizing, and repaint requests.
 
 use super::*;
 use crate::emu::MouseInput;
@@ -336,3 +336,76 @@ impl Manager {
 #[cfg(test)]
 #[path = "capture_input_boundary_tests.rs"]
 mod boundary_tests;
+
+impl Manager {
+    // Terminal repaint helpers.
+
+    /// Repaint all live panes asynchronously after a sidebar layout change.
+    pub fn request_redraw(self: &Arc<Self>, shape: Option<(u16, u16)>) {
+        let shape = shape.map(|(cols, rows)| {
+            (
+                cols.clamp(
+                    crate::shared::protocol::TERMINAL_MIN_COLS,
+                    crate::shared::protocol::TERMINAL_MAX_COLS,
+                ),
+                rows.clamp(
+                    crate::shared::protocol::TERMINAL_MIN_ROWS,
+                    crate::shared::protocol::TERMINAL_MAX_ROWS,
+                ),
+            )
+        });
+        let m = self.clone();
+        tokio::spawn(async move {
+            // Queue redraws so the final sidebar shape survives an earlier nudge.
+            let Ok(permit) = m.signals.redraw_nudge.clone().acquire_owned().await else {
+                return;
+            };
+            let _permit = permit;
+            let names = {
+                let live = m.live.read().await;
+                live.iter()
+                    .filter(|(_, l)| l.capture.emu.is_some() || l.state != State::Down)
+                    .map(|(name, _)| name.clone())
+                    .collect::<Vec<_>>()
+            };
+            let jobs = names.into_iter().map(|name| {
+                let m = m.clone();
+                async move {
+                    if let Some((cols, rows)) = shape {
+                        if let Err(e) = m.resize(&name, cols, rows).await {
+                            tracing::debug!("redraw resize {name}: {e:#}");
+                            return;
+                        }
+                    }
+                    m.nudge_redraw(&name).await;
+                }
+            });
+            futures::future::join_all(jobs).await;
+        });
+    }
+
+    pub(in crate::session::manager) async fn nudge_redraw(self: &Arc<Self>, name: &str) {
+        // A capture cannot restore terminal modes. SIGWINCH makes terminal applications set them again.
+        let Some((cols, rows)) = self.size_of(name).await else {
+            return;
+        };
+        if cols < 2 {
+            return;
+        }
+        if let Err(e) = self.tmux.resize(name, cols - 1, rows).await {
+            tracing::debug!("redraw nudge {name}: {e:#}");
+            return;
+        }
+        tokio::time::sleep(Duration::from_millis(60)).await;
+        let Some((cols, rows)) = self.size_of(name).await else {
+            return;
+        };
+        if let Err(e) = self.tmux.resize(name, cols, rows).await {
+            tracing::debug!("redraw nudge {name}: {e:#}");
+        }
+    }
+
+    pub(in crate::session::manager) async fn size_of(&self, name: &str) -> Option<(u16, u16)> {
+        self.live.read().await.get(name).map(|l| (l.cols, l.rows))
+    }
+}

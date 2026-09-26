@@ -154,3 +154,14 @@ impl Manager {
 #[cfg(test)]
 #[path = "reconcile_tests.rs"]
 mod tests;
+
+impl Manager {
+    pub async fn sync_from_config(self: &Arc<Self>) {
+        self.session_operation(self.sync_from_config_within_boundary())
+            .await
+    }
+
+    async fn sync_from_config_within_boundary(self: &Arc<Self>) {
+        ConfigReconciler::sync(self).await;
+    }
+}
