@@ -21,7 +21,7 @@ namespace SlopWorld
         public readonly List<Action<string>> Failures = new List<Action<string>>();
         public int Starts, Stops;
         public bool Host, Temp;
-        public string Project;
+        public string Project, Command;
         public void Run(string project, string command, string label, Action<string> started,
                         Action<string> fail, bool host = false, bool temp = false, string path = "")
         {
@@ -29,6 +29,7 @@ namespace SlopWorld
             Host = host;
             Temp = temp;
             Project = project;
+            Command = command;
             Pending.Enqueue(started);
             Failures.Add(fail);
         }
@@ -49,6 +50,10 @@ namespace SlopWorld
     {
         public static string Current;
         public static void Open(string name) { Current = name; }
+        public static void ReplaceReader(string oldName, string newName)
+        {
+            if (Current == oldName) Current = newName;
+        }
         public static bool TryPanelShape(out int cols, out int rows)
         {
             cols = rows = 0;
@@ -68,6 +73,12 @@ namespace SlopWorld.Tests
     {
         public static IEnumerable<(string Name, Action Body)> Cases()
         {
+            yield return ("changed file refresh keeps its pinned tab and active pane", RefreshActive);
+            yield return ("background refresh does not steal terminal focus", RefreshBackground);
+            yield return ("failed refresh retains the reader and retries", RefreshFailure);
+            yield return ("stale refresh completion cannot replace a newer preview", RefreshSuperseded);
+            yield return ("diffs and editor commands do not auto refresh", RefreshExclusions);
+            yield return ("file-at-line previews refresh with the same command", RefreshAtLine);
             yield return ("fresh diff replaces a pinned reader without duplicating it", FreshDiff);
             yield return ("deleted readers close pinned and pending sessions", DeletedReaders);
             yield return ("late file metadata cannot close a replacement reader", LateMetadata);
@@ -86,6 +97,113 @@ namespace SlopWorld.Tests
                 yield return (kind + " close cancels pending replacement", () => ClosePending(file));
                 yield return (kind + " dead reader can be replaced", () => DeadReader(file));
             }
+        }
+
+        static Pager WatchedFile()
+        {
+            SessionHub.Instance = new SessionHub();
+            var pager = new Pager();
+            pager.ViewFile("p", "/file", "file");
+            SessionHub.Instance.SessionStore.Complete("original");
+            new ReaderProbe(pager).Apply(true, "first");
+            return pager;
+        }
+
+        static void RefreshActive()
+        {
+            var pager = WatchedFile();
+            var store = SessionHub.Instance.SessionStore;
+            pager.Lock();
+            new ReaderProbe(pager).Apply(true, "first");
+            new ReaderProbe(pager).Apply(true, "");
+            AssertEx.Equal(1, store.Starts, "same or unavailable stamp does not restart");
+            var stale = new ReaderProbe(pager);
+            stale.Apply(true, "second");
+            new ReaderProbe(pager).Apply(true, "third");
+            AssertEx.Equal(2, store.Starts, "one refresh at a time");
+            AssertEx.Equal("original", pager.Session, "old reader survives until handoff");
+            store.Complete("refreshed");
+            AssertEx.Equal("refreshed", TerminalWindow.Current, "visible pane follows replacement");
+            AssertEx.True(pager.Locked, "pin survives refresh");
+            AssertEx.False(SessionHub.Instance.Get("original").Alive, "old process retired");
+            stale.Apply(false);
+            AssertEx.True(pager.Alive, "stale metadata cannot close refreshed reader");
+            new ReaderProbe(pager).Apply(true, "third");
+            AssertEx.Equal(3, store.Starts, "edits during refresh are detected next time");
+        }
+
+        static void RefreshBackground()
+        {
+            var pager = WatchedFile();
+            new ReaderProbe(pager).Apply(true, "second");
+            TerminalWindow.Open("another-session");
+            SessionHub.Instance.SessionStore.Complete("refreshed");
+            AssertEx.Equal("another-session", TerminalWindow.Current, "focus is unchanged");
+            AssertEx.Equal("refreshed", pager.Session, "hidden reader is still updated");
+        }
+
+        static void RefreshFailure()
+        {
+            var pager = WatchedFile();
+            var store = SessionHub.Instance.SessionStore;
+            new ReaderProbe(pager).Apply(true, "second");
+            store.Pending.Dequeue();
+            store.Failures[1]("temporary failure");
+            AssertEx.Equal("original", pager.Session, "failure keeps original reader");
+            AssertEx.True(pager.Alive, "failure does not stop the preview");
+            new ReaderProbe(pager).Apply(true, "second");
+            AssertEx.Equal(3, store.Starts, "unchanged failed stamp is retried");
+            store.Complete("retry");
+            AssertEx.Equal("retry", pager.Session, "retry handoff succeeds");
+        }
+
+        static void RefreshSuperseded()
+        {
+            var pager = WatchedFile();
+            var store = SessionHub.Instance.SessionStore;
+            new ReaderProbe(pager).Apply(true, "second");
+            pager.ViewFile("p", "/other", "other");
+            store.Complete("obsolete-refresh");
+            AssertEx.False(SessionHub.Instance.Get("obsolete-refresh").Alive, "late result stopped");
+            store.Complete("other");
+            AssertEx.Equal("other", pager.Session, "new preview wins");
+            new ReaderProbe(pager).Apply(true, "other-first");
+            AssertEx.Equal(3, store.Starts, "replacement starts with its own baseline");
+
+            new ReaderProbe(pager).Apply(true, "other-second");
+            pager.Invalidate();
+            store.Complete("closed-refresh");
+            AssertEx.False(SessionHub.Instance.Get("closed-refresh").Alive, "closed reader stays closed");
+        }
+
+        static void RefreshExclusions()
+        {
+            foreach (bool editor in new[] { true, false })
+            {
+                SessionHub.Instance = new SessionHub();
+                var pager = new Pager();
+                string command = editor ? Pager.EditorCommand("/file") : "git diff | less";
+                pager.Open("p", command, "file", editor ? "/file" : "diff:/file", "/file");
+                var store = SessionHub.Instance.SessionStore;
+                store.Complete("reader");
+                new ReaderProbe(pager).Apply(true, "first");
+                new ReaderProbe(pager).Apply(true, "second");
+                AssertEx.Equal(1, store.Starts, "only source-file pagers restart");
+            }
+        }
+
+        static void RefreshAtLine()
+        {
+            SessionHub.Instance = new SessionHub();
+            var pager = new Pager();
+            pager.ViewFileAt("p", "/file", 42, "file");
+            var store = SessionHub.Instance.SessionStore;
+            store.Complete("reader");
+            string command = store.Command;
+            new ReaderProbe(pager).Apply(true, "first");
+            new ReaderProbe(pager).Apply(true, "second");
+            AssertEx.Equal(2, store.Starts, "line-targeted file refreshes");
+            AssertEx.Equal(command, store.Command, "original line and command retained");
         }
 
         static void Start(Pager pager, bool file, string key)

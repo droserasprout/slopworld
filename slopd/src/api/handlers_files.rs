@@ -257,16 +257,35 @@ pub(crate) async fn browse(
 // Do not infer file deletion from filtered or truncated directory listings.
 // Close a reader only when its path is missing or is not a file.
 // Retry after permission and I/O errors.
-async fn reader_is_file(path: &Path) -> std::io::Result<bool> {
+async fn reader_stat(path: &Path) -> std::io::Result<wire::FileStatResult> {
     match tokio::fs::metadata(path).await {
-        Ok(metadata) => Ok(metadata.is_file()),
+        Ok(metadata) => {
+            use std::os::unix::fs::MetadataExt;
+            let is_file = metadata.is_file();
+            // Include inode and change time to catch atomic saves and same-size rewrites.
+            let stamp = if is_file {
+                format!(
+                    "{}:{}:{}:{}:{}:{}:{}",
+                    metadata.dev(),
+                    metadata.ino(),
+                    metadata.len(),
+                    metadata.mtime(),
+                    metadata.mtime_nsec(),
+                    metadata.ctime(),
+                    metadata.ctime_nsec()
+                )
+            } else {
+                String::new()
+            };
+            Ok(wire::FileStatResult { is_file, stamp })
+        }
         Err(error)
             if matches!(
                 error.kind(),
                 std::io::ErrorKind::NotFound | std::io::ErrorKind::NotADirectory
             ) =>
         {
-            Ok(false)
+            Ok(wire::FileStatResult::default())
         }
         Err(error) => Err(error),
     }
@@ -281,10 +300,10 @@ pub(crate) async fn file_stat(
         return Err(err(StatusCode::BAD_REQUEST, "A path is required."));
     }
     let path = std::path::PathBuf::from(crate::config::expand(path));
-    let is_file = reader_is_file(&path)
+    let stat = reader_stat(&path)
         .await
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
-    reply(json!({ "is_file": is_file }))
+    Ok(crate::api::protobuf::Proto(stat))
 }
 
 pub(crate) async fn read_file(

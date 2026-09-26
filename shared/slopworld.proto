@@ -645,6 +645,8 @@ message StoredStates {
 
 message FileStatResult {
   bool is_file = 1;
+  // Opaque identity/content metadata; empty when no file stamp is available.
+  string stamp = 2;
 }
 
 message BrowseResult {

@@ -25,6 +25,13 @@ Tab changes preserve readers. Explicit dismissal and validated file removal may 
 pinned reader. Ordinary focus changes must not close one. While Files or Git is visible, serialized
 `/api/files/stat` probes reconcile source readers independently of tree filters, folds and
 listing caps. Failed probes preserve readers. The controller ignores replies for replaced readers.
+After the first successful probe establishes a baseline, changed file stamps refresh source-file
+pagers on the five-second polling cycle. A replacement starts before the old session stops;
+only panes still showing that reader rebind, preserving pins, split selection, and focus.
+Refresh failures retain the old reader for retry. Pager scroll/search state resets; line-targeted
+opens retain their original launch line. Editors and Git diff commands are excluded.
+The daemon's opaque stamp includes file identity, size, and modification/change timestamps;
+empty stamps from older daemons leave previews unchanged.
 Create/rename/remove refresh both trees, and rename/remove dismiss affected source readers.
 Files supplies view/edit and Git supplies diffs without changing the active tree.
 Both tabs show the same routed headers, upper scroll position and saved splitter fraction.
