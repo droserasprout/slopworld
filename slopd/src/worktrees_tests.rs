@@ -601,7 +601,11 @@ async fn worktree_resolution_mounts_metadata_and_keeps_project_scope() {
         .any(|v| v[0] == "--bind" && v[1] == w.repository && v[2] == w.repository));
     assert!(args.windows(3).any(|v| v[0] == "--bind"
         && v[1] == cache.to_string_lossy()
-        && v[2] == format!("{}/target", w.path)));
+        && v[2] == cache.to_string_lossy()));
+    assert_eq!(
+        std::fs::read_link(Path::new(&w.path).join("target")).unwrap(),
+        cache
+    );
     assert!(!args.iter().any(|v| v == root.to_str().unwrap()));
     let mut other = project.clone();
     other.id = uuid::Uuid::new_v4().to_string();
@@ -617,6 +621,23 @@ async fn worktree_resolution_mounts_metadata_and_keeps_project_scope() {
         .await
         .is_err());
     assert!(cache.exists());
+    std::fs::write(cache.join("artifact"), "kept").unwrap();
+    match manager.remove_worktree("repo".into(), w.id).await {
+        Ok(()) => assert!(!Path::new(&w.path).exists()),
+        Err(error) => {
+            // Some CI hosts cannot create Bubblewrap user namespaces. Git removal must
+            // restore the link before leaving the checkout available for inspection.
+            assert!(error.to_string().contains("Git worktree removal"));
+            assert_eq!(
+                std::fs::read_link(Path::new(&w.path).join("target")).unwrap(),
+                cache
+            );
+        }
+    }
+    assert_eq!(
+        std::fs::read_to_string(cache.join("artifact")).unwrap(),
+        "kept"
+    );
     std::fs::remove_dir_all(root).unwrap();
     std::fs::remove_dir_all(cache).unwrap();
 }

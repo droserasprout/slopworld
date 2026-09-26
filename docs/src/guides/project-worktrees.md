@@ -58,6 +58,8 @@ Remove or move every attached session, including stopped workers and host termin
 Then select **×** on the worktree row in project settings.
 This action removes a worktree. It does not remove a worker.
 For an existing managed checkout, tracked changes, untracked files, and ignored files block removal.
+The daemon removes its unchanged cache links before checking cleanliness and restores them if removal fails.
+A changed cache link blocks removal. Cache contents remain in shared storage.
 It must also have a retained local branch that contains HEAD.
 Resolve the reported condition and try again.
 The daemon does not commit changes or force removal.
@@ -93,7 +95,9 @@ If a mount exposes the original checkout, edit it before you launch in another w
 Open the project's **Mounts** tab and add a row.
 Select **Cache** as the mode. The other modes are **Read-only** and **Read-write**.
 Set **To** to a relative path, such as `target` or `node_modules`.
-The daemon mounts the same writable cache in every checkout, including **main**.
+The daemon creates a link to the same writable cache in every checkout, including **main**.
+Host builds and agents in another checkout follow the same link. The cache source is bound at
+its own path inside agent sandboxes.
 You can also set an absolute destination.
 Keep absolute destinations outside the original checkout when you use other worktrees.
 Restart agents after you change mounts.
@@ -101,8 +105,18 @@ Restart agents after you change mounts.
 Leave **From** blank to use managed storage under `$XDG_CACHE_HOME/slopworld/mounts/<project-id>`.
 The daemon uses `~/.cache` when `$XDG_CACHE_HOME` is unset.
 If you set `$SLOPD_CACHE`, managed caches use `$SLOPD_CACHE/mounts`.
+Each relative destination has its own readable `link-...` directory beneath the project ID.
+The daemon moves data from the previous managed cache layout when it creates the link.
 Set **From** to an absolute host directory to use external storage.
-The daemon creates missing cache directories when it launches an agent.
+Saving the mounts creates missing cache directories and links. New worktrees get links when they
+are registered. If a destination already contains build output, move its contents into the cache
+source shown in the error, remove the old destination, then save the mounts again. The daemon
+never replaces an existing file, directory, or changed link. A missing or changed link blocks agent
+launch until you restore it or save the mounts to recreate a missing link.
+Removing a cache row removes only its unchanged checkout links. Its cache data remains in storage.
+In sidecar mode, relative cache links are unavailable until the host and container use the same
+absolute cache path; configuration reports this limitation. Absolute cache destinations retain
+their existing sandbox mount behavior.
 Keep cache sources outside the checkout and managed worktree storage.
 A cache mount cannot replace the checkout root or Git metadata.
 

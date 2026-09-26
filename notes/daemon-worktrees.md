@@ -52,9 +52,15 @@ Project action validation resolves symlinks and existing ancestors before accept
 Linked worktrees use Git metadata at real paths. Check each metadata path against the registered repository.
 Before selecting another worktree, edit literal mounts that expose the original checkout.
 Relative mount destinations follow the selected checkout.
-Cache mounts share project storage and outlive each checkout.
+Relative cache mounts install checkout links to project storage that outlives each checkout.
+Worktree creation reconciles links; managed removal temporarily removes only unchanged links
+before Git cleanliness inspection and restores them on failure. A project rename leaves the
+stable cache source unchanged.
+Configuration reconciliation removes unchanged links for deleted cache rows, then installs
+current links. A changed link or occupied destination requires manual recovery.
 `sandbox/cache.rs` resolves cache sources and builds the Settings Storage inventory.
 Blank sources use managed storage keyed by project ID and destination. Explicit sources remain literal paths.
+Legacy managed cache directories move into the flat destination-key layout when links are reconciled.
 Removing a worktree does not delete managed or external cache storage.
 See [sandbox](sandbox-isolation.md) and [usage](../docs/src/guides/project-worktrees.md).
 

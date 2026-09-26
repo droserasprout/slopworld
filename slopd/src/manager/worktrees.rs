@@ -566,7 +566,7 @@ impl Manager {
                 }
                 let mut w = Worktree {
                     id,
-                    project_id: p.id,
+                    project_id: p.id.clone(),
                     name,
                     path: path.to_string_lossy().into_owned(),
                     repository,
@@ -591,6 +591,7 @@ impl Manager {
                 } else {
                     Ok(())
                 };
+                let result = result.and_then(|()| crate::sandbox::cache::reconcile(&p, &path));
                 w.phase = if result.is_ok() { "ready" } else { "error" }.into();
                 w.error = result.err().map(|e| format!("{e:#}")).unwrap_or_default();
                 *store.worktrees.last_mut().unwrap() = w.clone();
@@ -632,6 +633,8 @@ impl Manager {
                     if path.is_symlink() { bail!("A symlink replaced the worktree path."); }
                     let common = git(path, &["rev-parse", "--path-format=absolute", "--git-common-dir"]).await?;
                     if Path::new(&common).canonicalize()? != Path::new(&w.repository).canonicalize()? { bail!("worktree repository identity changed"); }
+                    let links = crate::sandbox::cache::remove_links(p, path)?;
+                    let removal = async {
                     let status = git(path, &["status", "--porcelain=v1", "--untracked-files=all", "--ignored", "--ignore-submodules=none"]).await?;
                     if !status.is_empty() { bail!("The worktree has tracked changes, untracked files, or ignored files. Resolve them before removal."); }
                     let head = git(path, &["rev-parse", "--verify", "HEAD"]).await?;
@@ -639,6 +642,12 @@ impl Manager {
                         bail!("HEAD has no retained local branch. Create one before you remove the worktree.");
                     }
                     crate::worktrees::remove_tree(&w).await?;
+                    Ok::<_, anyhow::Error>(())
+                    }.await;
+                    if removal.is_err() && path.is_dir() {
+                        crate::sandbox::cache::restore_links(&links)?;
+                    }
+                    removal?;
                 } else {
                     // Git can remove the checkout before the daemon saves the record.
                     // Remove only this Git registration. Do not prune other worktrees.

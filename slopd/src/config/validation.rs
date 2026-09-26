@@ -105,6 +105,7 @@ pub(super) fn validate_loaded(cfg: &Config) -> Result<()> {
 /// Check whether paths exist at launch so configuration can include disconnected disks.
 pub(crate) fn validate_mount_paths(project: &ProjectCfg) -> Result<()> {
     let mut targets = HashSet::new();
+    let mut relative_cache_targets: Vec<std::path::PathBuf> = Vec::new();
     for mount in &project.mounts {
         let cache = mount.mode == super::MountMode::Cache;
         let source = if cache && mount.from.trim().is_empty() {
@@ -169,6 +170,21 @@ pub(crate) fn validate_mount_paths(project: &ProjectCfg) -> Result<()> {
                 project.name,
                 target.display()
             );
+        }
+        if relative_cache_targets
+            .iter()
+            .any(|prior| target.starts_with(prior) || prior.starts_with(target))
+        {
+            bail!("Relative cache destinations cannot overlap another mount destination.");
+        }
+        if cache && crate::sandbox::cache::relative(mount) {
+            if targets.iter().any(|prior| {
+                prior.as_path() != target
+                    && (target.starts_with(prior) || prior.starts_with(target))
+            }) {
+                bail!("Relative cache destinations cannot overlap another mount destination.");
+            }
+            relative_cache_targets.push(target.to_path_buf());
         }
         let primary = std::path::PathBuf::from(super::expand(&project.dir));
         if cache {
