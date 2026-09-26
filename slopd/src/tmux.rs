@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::process::Stdio;
+use std::sync::OnceLock;
 #[cfg(test)]
 use std::sync::{Arc, Mutex};
 
@@ -7,6 +8,22 @@ use anyhow::{bail, Context, Result};
 use tokio::process::{Child, Command};
 
 use crate::session::State;
+
+/// History retained by tmux and requested when attaching a terminal reader.
+pub const SCROLLBACK_LINES: u32 = 10_000;
+
+/// Private socket name, cached for the daemon lifetime.
+/// `SLOPD_TMUX_SOCKET` overrides `slopworld` for isolated daemon instances.
+pub fn tmux_socket() -> &'static str {
+    static SOCKET: OnceLock<String> = OnceLock::new();
+    SOCKET.get_or_init(|| {
+        std::env::var("SLOPD_TMUX_SOCKET")
+            .ok()
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| "slopworld".to_string())
+    })
+}
 
 const ACTIVITY_STATE: &str = "@slopworld_state";
 const ACTIVITY_SINCE: &str = "@slopworld_state_since";
@@ -181,7 +198,7 @@ impl Tmux {
 
         // Panes inherit this at creation, so it has to be in place before the first
         // session is spawned.
-        let limit = crate::config::SCROLLBACK_LINES.to_string();
+        let limit = crate::tmux::SCROLLBACK_LINES.to_string();
         self.run(&["set-option", "-g", "history-limit", &limit])
             .await
             .ok();
@@ -202,7 +219,7 @@ impl Tmux {
 
         // Again here rather than only in ensure_server, which is a no-op against a server
         // someone else already started.
-        let limit = crate::config::SCROLLBACK_LINES.to_string();
+        let limit = crate::tmux::SCROLLBACK_LINES.to_string();
         self.run(&["set-option", "-g", "history-limit", &limit])
             .await
             .ok();

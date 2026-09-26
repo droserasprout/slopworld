@@ -15,7 +15,7 @@ pub(crate) async fn health(State(_m): State<Mgr>) -> ApiResult<wire::Health> {
         "protocol_version": 2,
         "version": env!("SLOPWORLD_VERSION"),
         "hostname": crate::runtime::hostname(),
-        "tmux_socket": crate::config::tmux_socket(),
+        "tmux_socket": crate::tmux::tmux_socket(),
     }))
 }
 

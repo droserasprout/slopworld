@@ -37,7 +37,7 @@ impl Manager {
         let jukebox_loaded = crate::jukebox::reload();
 
         let m = Arc::new(Self {
-            tmux: Tmux::new(crate::config::tmux_socket()),
+            tmux: Tmux::new(crate::tmux::tmux_socket()),
             cfg_path,
             endpoint_path: crate::endpoint::path(),
             rules: ActivityRules::new(compile_rules(&cfg)),

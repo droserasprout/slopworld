@@ -88,11 +88,7 @@ impl Manager {
         }
 
         let mut e = SessionEmu::new(cols, rows);
-        if let Ok(cap) = self
-            .tmux
-            .capture(name, crate::config::SCROLLBACK_LINES)
-            .await
-        {
+        if let Ok(cap) = self.tmux.capture(name, crate::tmux::SCROLLBACK_LINES).await {
             let mut seed = String::new();
             // tmux returns primary history with the alternate screen. Initialize each buffer separately.
             let visible = if cap.alt_screen {

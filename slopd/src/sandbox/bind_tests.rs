@@ -195,7 +195,7 @@ fn network_mode_selects_the_expected_namespace() {
         .filter(|w| w[0] == "--dns-host")
         .map(|w| w[1].as_str())
         .collect();
-    assert_eq!(resolved, DnsConfig::Resolved.servers());
+    assert_eq!(resolved, crate::sandbox::dns_servers(&DnsConfig::Resolved));
 
     s.dns = DnsConfig::Servers {
         servers: vec!["10.0.0.53".parse().unwrap(), "10.0.0.54".parse().unwrap()],

@@ -31,7 +31,7 @@ pub(crate) async fn get_config(State(m): State<Mgr>) -> ApiResult<wire::ConfigRe
             // accepted as a client patch and contain no secrets.
             "defaults": factory,
             "usage_catalog": crate::usage::catalog(),
-            "temporary_root": crate::config::TEMP_ROOT,
+            "temporary_root": crate::paths::TEMP_ROOT,
             "terminal": caps.terminal,
         },
     }))

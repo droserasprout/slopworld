@@ -352,7 +352,7 @@ async fn highlight_text(command: &str, language: &str, text: &str) -> anyhow::Re
         bail!("The syntax highlighter is disabled.");
     }
 
-    let dir = std::path::PathBuf::from(crate::config::temp_dir("highlight"));
+    let dir = std::path::PathBuf::from(crate::paths::temp_dir("highlight"));
     tokio::fs::create_dir_all(&dir).await?;
     let extension: String = language
         .trim()

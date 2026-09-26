@@ -8,6 +8,39 @@ use anyhow::{bail, Context, Result};
 
 use super::*;
 
+/// Protocol sentinel for a redacted token. Writing this value preserves the token.
+/// Writing a new value or an empty string changes the token.
+pub const TOKEN_REDACTED: &str = "<redacted>";
+
+/// Redact a nonempty `[daemon] token` in configuration text. Preserve comments and blank lines.
+/// `Manager::replace_config` restores the real value when a client writes the sentinel.
+pub fn redact_token_text(text: &str) -> String {
+    let mut out = String::with_capacity(text.len() + TOKEN_REDACTED.len());
+    let mut in_daemon = false;
+    for line in text.lines() {
+        let t = line.trim_start();
+        if t.starts_with('[') {
+            // A different table, such as `[daemon.x]`, ends the daemon section.
+            in_daemon = t.starts_with("[daemon]");
+        }
+        let redacted = in_daemon
+            .then(|| {
+                t.strip_prefix("token")
+                    .and_then(|r| r.trim_start().strip_prefix('='))
+            })
+            .flatten()
+            .map(str::trim)
+            .filter(|v| !v.is_empty() && *v != "\"\"")
+            .map(|_| {
+                let indent = &line[..line.len() - t.len()];
+                format!("{indent}token = \"{TOKEN_REDACTED}\"")
+            });
+        out.push_str(redacted.as_deref().unwrap_or(line));
+        out.push('\n');
+    }
+    out
+}
+
 impl Config {
     pub fn path() -> PathBuf {
         crate::paths::config_root().join("config.toml")

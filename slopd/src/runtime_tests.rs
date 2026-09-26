@@ -64,7 +64,7 @@ fn native_capabilities_keep_host_integrations() {
         host_network_is_container: false,
         host_terminals_are_container: false,
         terminal: TerminalCapabilities {
-            scrollback_lines: crate::config::SCROLLBACK_LINES,
+            scrollback_lines: crate::tmux::SCROLLBACK_LINES,
             min_cols: crate::shared::protocol::TERMINAL_MIN_COLS,
             max_cols: crate::shared::protocol::TERMINAL_MAX_COLS,
             min_rows: crate::shared::protocol::TERMINAL_MIN_ROWS,

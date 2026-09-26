@@ -2,6 +2,11 @@
 
 The daemon owns machine configuration.
 `config/` owns its model, resolution, validation, and persistence.
+The root records live in `model.rs`; daemon settings, sandbox policy types, and
+library definitions have separate modules. Library lookups and supplied content live
+with the library types. Token redaction belongs to configuration persistence.
+Runtime DNS resolution belongs to `sandbox/network.rs`, temporary project paths to
+`paths.rs`, and tmux socket identity and history limits to `tmux.rs`.
 `session/manager/config.rs` serializes runtime changes and publication;
 `manager/reconcile.rs` applies accepted configuration to live sessions.
 `manager/config_cache.rs` coordinates cache links across projects and worktrees, returning
