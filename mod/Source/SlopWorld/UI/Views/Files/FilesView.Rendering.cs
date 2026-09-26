@@ -547,7 +547,7 @@ namespace SlopWorld
             DaemonClient.Get<Wire.FileStatResult>(WireProtocol.Routes.FileStat +
                 "?path=" + System.Uri.EscapeDataString(probe.Path), result =>
                 {
-                    probe.Apply(result.IsFile);
+                    probe.Apply(result.IsFile, result.Stamp);
                     CheckNextReader(readers);
                 }, _ => CheckNextReader(readers));
         }

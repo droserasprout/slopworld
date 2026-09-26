@@ -26,19 +26,24 @@ namespace SlopWorld
     {
         readonly IPreviewTab _tab;
         readonly string _session;
+        readonly int _operation;
         public readonly string Path;
 
         public ReaderProbe(IPreviewTab tab)
         {
             _tab = tab;
             _session = tab.Session;
+            _operation = (tab as Pager)?.Operation ?? 0;
             Path = tab.FilePath;
         }
 
-        public void Apply(bool isFile)
+        public void Apply(bool isFile, string stamp = null)
         {
-            if (!isFile && _tab.FilePath == Path && _tab.Session == _session)
-                _tab.Invalidate();
+            if (_tab.FilePath != Path || _tab.Session != _session) return;
+            var pager = _tab as Pager;
+            if (pager != null && pager.Operation != _operation) return;
+            if (!isFile) _tab.Invalidate();
+            else pager?.RefreshIfChanged(stamp);
         }
     }
 

@@ -23,6 +23,9 @@ namespace SlopWorld
         bool _locked;
         bool _opening;
         string _pendingCommand;
+        string _sourceCommand, _sourceLabel, _fileStamp;
+        bool _refreshing;
+        internal int Operation => _operation;
 
         // Who is showing, or null. Read rather than acted on - the two views use it to tell
         // "click the row that is already open" from "click a different one".
@@ -118,6 +121,8 @@ namespace SlopWorld
             }
 
             // First time, or project changed, or session died: create a new one.
+            _fileStamp = null;
+            _refreshing = false;
             int operation = ++_operation;
             string oldSession = _session;
             // Keep the old session as the visible one until the replacement is ready. Git's sidebar
@@ -131,6 +136,8 @@ namespace SlopWorld
             _opening = true;
 
             string cmd = PagerCommand(filePath);
+            _sourceCommand = cmd;
+            _sourceLabel = label;
             SessionHub.Instance.SessionStore.Run(project, cmd, label,
                 session =>
                 {
@@ -185,6 +192,8 @@ namespace SlopWorld
 
             // Start the new session *before* killing the old one so the terminal pane always
             // has something to show — no blink of the game map between the two.
+            _fileStamp = null;
+            _refreshing = false;
             int operation = ++_operation;
             string oldSession = _session;
             // Keep the old session as the visible one until the replacement is ready. See the
@@ -195,6 +204,10 @@ namespace SlopWorld
             _key = key;
             _opening = true;
             _pendingCommand = command;
+            // Only file pagers are refreshed. Diff commands and editors own their own behavior.
+            _sourceCommand = !string.IsNullOrEmpty(sourcePath) && key == sourcePath &&
+                IsPagerCommand(command) && !IsEditorCommand(command) ? command : null;
+            _sourceLabel = label;
 
             SessionHub.Instance.SessionStore.Run(project, command, label,
                 session =>
@@ -223,6 +236,36 @@ namespace SlopWorld
                 }, host: true, path: sourcePath);
         }
 
+        // The first successful probe establishes a baseline. Missing stamps support older daemons.
+        internal void RefreshIfChanged(string stamp)
+        {
+            if (string.IsNullOrEmpty(stamp) || _sourceCommand == null || _opening ||
+                _refreshing || !Alive || string.IsNullOrEmpty(FilePath)) return;
+            if (_fileStamp == null) { _fileStamp = stamp; return; }
+            if (_fileStamp == stamp) return;
+
+            int operation = ++_operation;
+            string oldSession = _session;
+            _refreshing = true;
+            SessionHub.Instance.SessionStore.Run(_openProject, _sourceCommand, _sourceLabel,
+                session =>
+                {
+                    if (operation != _operation) { StopIf(session); return; }
+                    _refreshing = false;
+                    _fileStamp = stamp;
+                    _session = session;
+                    // Rebind only the pane that still shows this reader; never open or focus a window.
+                    TerminalWindow.ReplaceReader(oldSession, session);
+                    StopIf(oldSession);
+                },
+                _ =>
+                {
+                    if (operation != _operation) return;
+                    // Keep the old reader and stamp so a later probe retries the refresh.
+                    _refreshing = false;
+                }, host: true, path: FilePath);
+        }
+
         // Bring the open one back, for a reader who clicked the row that is already showing.
         // False where there is nothing to bring back, which is the caller's cue to open one.
         public bool Reopen()
@@ -237,6 +280,9 @@ namespace SlopWorld
         {
             if (_locked) return;
             ++_operation;
+            _refreshing = false;
+            _fileStamp = null;
+            _sourceCommand = null;
             _opening = false;
             string s = _session;
             _session = null;
