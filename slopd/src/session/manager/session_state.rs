@@ -190,11 +190,13 @@ impl Manager {
             .any(|l| l.host && l.state != State::Down);
         let host_poll_due = has_hosts
             && now.saturating_sub(
-                self.host_metadata_checked
+                self.host_metadata
+                    .checked
                     .load(std::sync::atomic::Ordering::Acquire),
             ) >= HOST_METADATA_POLL_MS;
         if host_poll_due {
-            self.host_metadata_checked
+            self.host_metadata
+                .checked
                 .store(now, std::sync::atomic::Ordering::Release);
             self.start_host_metadata_poll().await;
         }

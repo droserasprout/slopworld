@@ -15,20 +15,18 @@ pub(crate) fn test_manager_with_socket(config: Config, socket: impl Into<String>
     std::fs::create_dir_all(&directory).expect("test manager directory");
     let cfg_path = directory.join("config.toml");
     let (events, _) = broadcast::channel(16);
-    let (auth_changes, _) = broadcast::channel(16);
     Arc::new(Manager {
         tmux: Tmux::new(socket),
         cfg_path: cfg_path.clone(),
         endpoint_path: cfg_path.with_extension("endpoint.toml"),
         cfg: RwLock::new(config),
-        templates: RwLock::new(AgentTemplateStore::default()),
+        templates: TemplateStore::new(AgentTemplateStore::default()),
         live: RwLock::new(HashMap::new()),
         temp: RwLock::new(HashMap::new()),
         rules: RwLock::new(Vec::new()),
         rules_revision: AtomicU64::new(0),
         config_state: super::ConfigState::new(None, None, None, None),
-        host_metadata_checked: AtomicU64::new(0),
-        host_metadata_poll: tokio::sync::Mutex::new(None),
+        host_metadata: HostMetadataPoll::default(),
         signals: super::Signals::new(),
         scroll_cache: Mutex::new(HashMap::new()),
         activity_cache: crate::activity::ActivityCache::load(crate::activity::cache_path(
@@ -38,12 +36,9 @@ pub(crate) fn test_manager_with_socket(config: Config, socket: impl Into<String>
         music_transition: tokio::sync::Mutex::new(()),
         ncspot: tokio::sync::Mutex::new(Default::default()),
         events,
-        auth_generation: AtomicU64::new(0),
-        auth_changes,
-        grants: RwLock::new(crate::grant::Grants::default()),
+        auth: Authorization::new(crate::grant::Grants::default()),
         session_boundary: tokio::sync::RwLock::new(()),
         resize_mutation: tokio::sync::Mutex::new(()),
-        template_mutation: tokio::sync::Mutex::new(()),
         tasks: super::TaskStore::new(
             crate::tasks::Tasks::load(&cfg_path).expect("test task store"),
         ),

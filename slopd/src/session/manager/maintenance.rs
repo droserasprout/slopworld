@@ -70,7 +70,7 @@ impl Manager {
         let live = self.live.read().await;
         if live.values().any(|l| l.host && l.state != State::Down) {
             deadline = deadline.min(next_periodic_deadline(
-                self.host_metadata_checked.load(Ordering::Acquire),
+                self.host_metadata.checked.load(Ordering::Acquire),
                 HOST_METADATA_POLL_MS,
                 now,
             ));

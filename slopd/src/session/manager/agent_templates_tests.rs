@@ -44,7 +44,7 @@ async fn template_creation_uses_destination_project_mounts() {
         manager.config().await.project("repo").unwrap().mounts.len(),
         1
     );
-    manager.templates.write().await.templates[0]
+    manager.templates.store.write().await.templates[0]
         .defaults
         .autostart = Some(true);
     manager

@@ -51,7 +51,8 @@ async fn worker_policy_keeps_template_names_distinct() {
         }],
         ..Default::default()
     });
-    manager.templates.write().await.templates = vec![template("review"), template("team-review")];
+    manager.templates.store.write().await.templates =
+        vec![template("review"), template("team-review")];
 
     assert_eq!(
         manager
@@ -70,6 +71,7 @@ async fn worker_policy_keeps_template_names_distinct() {
 
     manager
         .templates
+        .store
         .write()
         .await
         .templates

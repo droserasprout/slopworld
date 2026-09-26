@@ -26,7 +26,10 @@ mod worktrees;
 pub(crate) use worktrees::WorktreeRequest;
 pub(crate) use worktrees::WorktreeViewCache;
 
+pub(crate) use agent_templates::TemplateStore;
+pub(crate) use caps::Authorization;
 pub(crate) use config_state::ConfigState;
+pub(crate) use sessions::HostMetadataPoll;
 pub(crate) use signals::Signals;
 pub(crate) use tasks::TaskStore;
 
@@ -42,17 +45,13 @@ pub struct Manager {
     pub cfg_path: PathBuf,
     pub(super) endpoint_path: PathBuf,
     pub(super) cfg: RwLock<Config>,
-    pub(super) templates: RwLock<AgentTemplateStore>,
+    pub(super) templates: TemplateStore,
     pub(super) live: RwLock<HashMap<String, Live>>,
     pub(super) temp: RwLock<HashMap<String, ProjectCfg>>,
     pub(super) rules: RwLock<Vec<(State, Regex)>>,
     pub(super) rules_revision: AtomicU64,
     pub(super) config_state: ConfigState,
-    /// Refresh host pane directories and processes together, less often than the one-second state classification interval.
-    /// The timestamp also limits refresh frequency for any additional maintenance callers.
-    pub(super) host_metadata_checked: AtomicU64,
-    /// A slow tmux listing must not block classification or overlap the next listing.
-    pub(super) host_metadata_poll: tokio::sync::Mutex<Option<JoinHandle<()>>>,
+    pub(super) host_metadata: HostMetadataPoll,
     pub(super) signals: Signals,
     pub(super) scroll_cache: Mutex<HashMap<String, CachedScroll>>,
     pub(super) activity_cache: crate::activity::ActivityCache,
@@ -60,14 +59,9 @@ pub struct Manager {
     pub(crate) music_transition: tokio::sync::Mutex<()>,
     pub(crate) ncspot: tokio::sync::Mutex<ncspot::Player>,
     pub events: broadcast::Sender<Arc<EventMessage>>,
-    pub(super) auth_generation: AtomicU64,
-    pub(super) auth_changes: broadcast::Sender<AuthChange>,
-    pub(super) grants: RwLock<crate::grant::Grants>,
+    pub(super) auth: Authorization,
     pub(super) session_boundary: tokio::sync::RwLock<()>,
     pub(super) resize_mutation: tokio::sync::Mutex<()>,
-    /// Serialize template transactions through reading, comparison, writing, and publication.
-    /// Checking versions outside this lock could let two editors pass and overwrite one draft.
-    pub(super) template_mutation: tokio::sync::Mutex<()>,
     pub(crate) tasks: TaskStore,
     /// Serialize worker creation by the daemon.
     /// This prevents root requests from reserving the same child name or interleaving task and session writes.
@@ -113,19 +107,6 @@ impl Drop for WatchGuard {
 impl Manager {
     pub(crate) fn emit(&self, event: Event) {
         let _ = self.events.send(EventMessage::new(event));
-    }
-
-    pub(crate) fn auth_generation(&self) -> u64 {
-        self.auth_generation.load(Ordering::Acquire)
-    }
-
-    pub(crate) fn auth_changes(&self) -> broadcast::Receiver<AuthChange> {
-        self.auth_changes.subscribe()
-    }
-
-    pub(crate) fn invalidate_auth(&self, change: AuthChange) {
-        self.auth_generation.fetch_add(1, Ordering::AcqRel);
-        let _ = self.auth_changes.send(change);
     }
 }
 
