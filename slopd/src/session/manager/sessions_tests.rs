@@ -1,3 +1,4 @@
+use super::super::start::prepare_project_dir;
 use super::*;
 use crate::clock::unix_ms;
 
@@ -119,13 +120,13 @@ fn project_directory_must_exist_unless_it_is_temporary() {
     ));
     let missing = root.join("missing");
 
-    let error = Manager::validate_dir(&project("ordinary", &missing, false))
+    let error = prepare_project_dir(&project("ordinary", &missing, false))
         .unwrap_err()
         .to_string();
     assert!(error.contains("is not a directory"), "{error}");
 
     assert_eq!(
-        Manager::validate_dir(&project("temporary", &missing, true)).unwrap(),
+        prepare_project_dir(&project("temporary", &missing, true)).unwrap(),
         missing.to_string_lossy()
     );
     assert!(missing.is_dir());
@@ -134,7 +135,7 @@ fn project_directory_must_exist_unless_it_is_temporary() {
 
 #[test]
 fn project_directory_rejects_a_protected_ancestor() {
-    let error = Manager::validate_dir(&project("world", std::path::Path::new("/"), false))
+    let error = prepare_project_dir(&project("world", std::path::Path::new("/"), false))
         .unwrap_err()
         .to_string();
     assert!(error.contains("the whole filesystem"), "{error}");

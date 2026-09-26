@@ -1,4 +1,7 @@
 //! Session target preparation and process startup.
+//!
+//! Resolve a StartPlan, create a silent tmux pane, attach its reader, then run the command.
+//! The plan carries the same launch inputs through each stage and its failure cleanup.
 
 use super::super::*;
 use super::session_lifecycle::{
@@ -7,13 +10,17 @@ use super::session_lifecycle::{
 use crate::sandbox::{build_plan, LaunchPlan};
 use anyhow::{anyhow, Context};
 
+/// Resolved inputs for one start attempt, including host terminals and workers.
+/// LaunchPlan describes sandbox execution; this also carries tmux and session setup.
 struct StartPlan {
     session: SessionCfg,
     cols: u16,
     rows: u16,
     host: bool,
     dir: String,
+    /// Sandbox details retained for redacted diagnostics; absent for host terminals.
     launch: Option<LaunchPlan>,
+    /// Executable arguments for either launch mode. May contain credentials; never log directly.
     argv: Vec<String>,
 }
 
@@ -49,24 +56,8 @@ impl Manager {
         Ok((session, project))
     }
 
-    pub(super) fn validate_dir(project: &ProjectCfg) -> Result<String> {
-        let dir = expand(&project.dir);
-        if project.temp {
-            std::fs::create_dir_all(&dir)
-                .with_context(|| format!("The daemon could not create project directory {dir}."))?;
-        }
-        if !std::path::Path::new(&dir).is_dir() {
-            bail!("The working directory is not a directory: {dir}.");
-        }
-        if let Some(what) = crate::sandbox::refused(&dir) {
-            bail!(
-                "Project {:?} cannot use directory {dir}. The path overlaps a protected location: {what}.",
-                project.name
-            );
-        }
-        Ok(dir)
-    }
-
+    /// Resolve launch inputs before creating the pane. Preparation may create directories
+    /// and worker credentials; a failed start must clean up those owned resources.
     async fn prepare_start(&self, name: &str) -> Result<StartPlan> {
         let cfg = self.config().await;
         let (mut session, project) = self.resolve_target(&cfg, name).await?;
@@ -93,10 +84,10 @@ impl Manager {
             if std::path::Path::new(&remembered).is_dir() {
                 remembered
             } else {
-                Self::validate_dir(&project)?
+                prepare_project_dir(&project)?
             }
         } else {
-            Self::validate_dir(&project)?
+            prepare_project_dir(&project)?
         };
         if !std::path::Path::new(&dir).is_dir() {
             bail!("The working directory is not a directory: {dir}.");
@@ -114,7 +105,7 @@ impl Manager {
             session.worker_token = Some(token);
         }
 
-        let launch = match self.build_start_plan(&cfg, &session, &project, host).await {
+        let launch = match build_start_plan(&cfg, &session, &project, host) {
             Ok(launch) => launch,
             Err(error) => {
                 if session.worker {
@@ -138,21 +129,6 @@ impl Manager {
             launch,
             argv,
         })
-    }
-
-    async fn build_start_plan(
-        &self,
-        cfg: &Config,
-        session: &SessionCfg,
-        project: &ProjectCfg,
-        host: bool,
-    ) -> Result<Option<LaunchPlan>> {
-        if host {
-            return Ok(None);
-        }
-
-        crate::sandbox::prepare_network(cfg, session, project)?;
-        build_plan(cfg, session, project).map(Some)
     }
 
     async fn launch_tmux(&self, name: &str, plan: &StartPlan) -> Result<()> {
@@ -234,25 +210,7 @@ impl Manager {
 
         self.clear_activity(name).await;
         let auto_resume_pending = !plan.host && plan.session.auto_resume && !plan.is_worker();
-        let (title_was_cleared, run_id, replaced_reader) = {
-            let mut live = self.live.write().await;
-            if let Some(live) = live.get_mut(name) {
-                let had_title = live.title.override_title.is_some();
-                let replaced_reader = take_reader_for_abort(live);
-                reset_process_state(live);
-                live.last_change = 0;
-                live.state_since = 0;
-                live.input.auto_resume_pending = auto_resume_pending;
-                (had_title, live.run_id, replaced_reader)
-            } else {
-                (false, 0, ReaderDisposition::None)
-            }
-        };
-        finish_reader(replaced_reader);
-        self.clear_latest_title(name);
-        if title_was_cleared || auto_resume_pending {
-            self.announce_sessions().await;
-        }
+        let run_id = self.reset_live_for_start(name, auto_resume_pending).await;
 
         match self.spawn_reader(name).await {
             Ok(true) => {}
@@ -274,11 +232,35 @@ impl Manager {
             }
             return Err(error.context(format!("starting session {name} command")));
         }
-        self.wire_live_state(name).await;
+        self.clear_startup_breadcrumbs(name).await;
         if auto_resume_pending {
             self.queue_auto_resume(name, run_id);
         }
         Ok(())
+    }
+
+    /// Reset the previous run before attaching a new reader; return the new run identity.
+    async fn reset_live_for_start(&self, name: &str, auto_resume_pending: bool) -> u64 {
+        let (title_was_cleared, run_id, replaced_reader) = {
+            let mut live = self.live.write().await;
+            if let Some(live) = live.get_mut(name) {
+                let had_title = live.title.override_title.is_some();
+                let replaced_reader = take_reader_for_abort(live);
+                reset_process_state(live);
+                live.last_change = 0;
+                live.state_since = 0;
+                live.input.auto_resume_pending = auto_resume_pending;
+                (had_title, live.run_id, replaced_reader)
+            } else {
+                (false, 0, ReaderDisposition::None)
+            }
+        };
+        finish_reader(replaced_reader);
+        self.clear_latest_title(name);
+        if title_was_cleared || auto_resume_pending {
+            self.announce_sessions().await;
+        }
+        run_id
     }
 
     async fn cleanup_failed_start(&self, name: &str, worker: bool) {
@@ -306,13 +288,47 @@ impl Manager {
         }
     }
 
-    pub(super) async fn wire_live_state(&self, name: &str) {
+    async fn clear_startup_breadcrumbs(&self, name: &str) {
         let mut live = self.live.write().await;
         if let Some(live) = live.get_mut(name) {
             live.input.breadcrumbs.clear();
             live.input.breadcrumbs_pending = false;
         }
     }
+}
+
+/// Create temporary project directories and check the launch path.
+pub(super) fn prepare_project_dir(project: &ProjectCfg) -> Result<String> {
+    let dir = expand(&project.dir);
+    if project.temp {
+        std::fs::create_dir_all(&dir)
+            .with_context(|| format!("The daemon could not create project directory {dir}."))?;
+    }
+    if !std::path::Path::new(&dir).is_dir() {
+        bail!("The working directory is not a directory: {dir}.");
+    }
+    if let Some(what) = crate::sandbox::refused(&dir) {
+        bail!(
+            "Project {:?} cannot use directory {dir}. The path overlaps a protected location: {what}.",
+            project.name
+        );
+    }
+    Ok(dir)
+}
+
+/// Prepare sandbox resources and arguments; host terminals need no sandbox plan.
+fn build_start_plan(
+    cfg: &Config,
+    session: &SessionCfg,
+    project: &ProjectCfg,
+    host: bool,
+) -> Result<Option<LaunchPlan>> {
+    if host {
+        return Ok(None);
+    }
+
+    crate::sandbox::prepare_network(cfg, session, project)?;
+    build_plan(cfg, session, project).map(Some)
 }
 
 #[cfg(test)]
