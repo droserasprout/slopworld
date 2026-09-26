@@ -81,7 +81,7 @@ impl Manager {
                     cmd: l.cfg.cmd.clone(),
                     sandbox: l.cfg.sandbox.clone(),
                     persistent_tmp: l.cfg.persistent_tmp,
-                    auto_resume_pending: l.auto_resume_pending,
+                    auto_resume_pending: l.input.auto_resume_pending,
                     agent: cfg.command_of(&l.cfg),
                     state: l.state,
                     alive: l.state != State::Down,

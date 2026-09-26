@@ -139,28 +139,39 @@ struct Live {
     state_since: u64,
     // Preserve the bell notification until a client subscribes. Its original frame is temporary.
     bell: bool,
-    // Terminal snapshot and its capture task.
+    // Terminal snapshot.
     cols: u16,
     rows: u16,
     plain: Arc<String>,
     // Cache regex results by visible text and rules revision; idle decay is separate.
     rule_cache: Option<RuleCache>,
     screen: Option<ScreenView>,
+    capture: LiveCapture,
+    input: LiveInput,
+    // Prevent stale startup input from reaching a replacement process with the same name.
+    run_id: u64,
+    title: TitleCapture,
+}
+
+/// Emulator and the reader task that owns it.
+#[derive(Default)]
+struct LiveCapture {
     emu: Option<Arc<Mutex<SessionEmu>>>,
     reader: Option<JoinHandle<()>>,
     // Prevent a replaced reader from clearing its successor’s emulator.
     reader_token: Option<Arc<()>>,
-    // Queued input and startup sequencing for the current process.
-    input: Option<mpsc::UnboundedSender<Input>>,
-    input_traces: crate::latency::Pending,
+}
+
+/// Queued input and startup sequencing for the current process.
+#[derive(Default)]
+struct LiveInput {
+    sender: Option<mpsc::UnboundedSender<Input>>,
+    traces: crate::latency::Pending,
     // Insert immediately before the first Enter after process startup.
     breadcrumbs: Vec<u8>,
     breadcrumbs_pending: bool,
     // Keep user keystrokes behind the pending startup auto-resume sequence.
     auto_resume_pending: bool,
-    // Prevent stale startup input from reaching a replacement process with the same name.
-    run_id: u64,
-    title: TitleCapture,
 }
 
 #[derive(Clone)]

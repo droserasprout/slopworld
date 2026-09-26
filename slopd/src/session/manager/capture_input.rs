@@ -9,7 +9,7 @@ impl Manager {
     fn paste_ready(live: &Live) -> bool {
         // A new reader can be attached before its first frame classifies the pane.
         // Teardown clears the reader token along with the running state.
-        live.state != State::Down || live.reader_token.is_some()
+        live.state != State::Down || live.capture.reader_token.is_some()
     }
 
     pub(crate) async fn queue_input(self: &Arc<Self>, name: &str, item: Input) {
@@ -36,17 +36,17 @@ impl Manager {
             let mut live = self.live.write().await;
             if let Some(l) = live.get_mut(name) {
                 if let Some(trace) = trace {
-                    l.input_traces.add(l.run_id, trace);
+                    l.input.traces.add(l.run_id, trace);
                 }
-                if l.input.as_ref().is_some_and(|tx| tx.is_closed()) {
-                    l.input = None;
+                if l.input.sender.as_ref().is_some_and(|tx| tx.is_closed()) {
+                    l.input.sender = None;
                 }
-                if l.input.is_none() {
+                if l.input.sender.is_none() {
                     let (tx, rx) = mpsc::unbounded_channel();
-                    l.input = Some(tx);
+                    l.input.sender = Some(tx);
                     spawn_rx = Some((rx, l.cfg.state_id.clone(), l.run_id));
                 }
-                if let Some(tx) = l.input.as_ref() {
+                if let Some(tx) = l.input.sender.as_ref() {
                     if let Some(i) = item.take() {
                         if let Err(e) = tx.send(i) {
                             item = Some(e.0);
@@ -92,7 +92,7 @@ impl Manager {
                         if !manager.live.read().await.get(&name).is_some_and(|live| {
                             live.cfg.state_id == identity
                                 && live.run_id == run_id
-                                && live.input.is_some()
+                                && live.input.sender.is_some()
                         }) {
                             return false;
                         }
@@ -193,7 +193,7 @@ impl Manager {
         let single = {
             let live = self.live.read().await;
             live.get(name)
-                .and_then(|l| l.emu.clone())
+                .and_then(|l| l.capture.emu.clone())
                 .and_then(|e| e.lock().ok().and_then(|g| g.mouse_report(&ev)))
         };
         if let Some(single) = single {
@@ -237,12 +237,12 @@ impl Manager {
     ) -> Option<Vec<u8>> {
         let mut live = self.live.write().await;
         let session = live.get_mut(name)?;
-        if !session.breadcrumbs_pending {
+        if !session.input.breadcrumbs_pending {
             return None;
         }
 
-        session.breadcrumbs_pending = false;
-        let text = String::from_utf8_lossy(&session.breadcrumbs);
+        session.input.breadcrumbs_pending = false;
+        let text = String::from_utf8_lossy(&session.input.breadcrumbs);
         Some(render_template(&text, random_tips).into_bytes())
     }
 
@@ -322,7 +322,7 @@ impl Manager {
                 .ok_or_else(|| anyhow!("no such session: {name}"))?;
             l.cols = cols;
             l.rows = rows;
-            l.emu.clone()
+            l.capture.emu.clone()
         };
         if let Some(emu) = emu {
             if let Ok(mut e) = emu.lock() {

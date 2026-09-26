@@ -14,7 +14,7 @@ async fn fixture(bytes: &[u8]) -> Arc<Manager> {
     );
     live.cols = 12;
     live.rows = 3;
-    live.emu = Some(Arc::new(Mutex::new(emu)));
+    live.capture.emu = Some(Arc::new(Mutex::new(emu)));
     manager.live.write().await.insert("agent".into(), live);
     manager.apply_frame("agent", frame).await;
     manager
@@ -85,7 +85,7 @@ async fn live_and_empty_history_requests_preserve_the_live_frame() {
     assert!(m.scroll_cache.lock().unwrap().is_empty());
     assert!(m.scroll_capture("missing", 0, 1).await.is_none());
     assert!(m.scroll_capture("missing", 1, 1).await.is_none());
-    m.live.write().await.get_mut("agent").unwrap().emu = None;
+    m.live.write().await.get_mut("agent").unwrap().capture.emu = None;
     assert!(m.scroll_capture("agent", 1, 1).await.is_none());
     assert!(m.scroll_capture("agent", 0, 1).await.is_some());
 }

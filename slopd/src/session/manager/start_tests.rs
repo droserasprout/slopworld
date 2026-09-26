@@ -207,7 +207,13 @@ async fn command_waits_for_reader_and_first_screen_is_complete() {
             loop {
                 let complete = {
                     let live = manager.live.read().await;
-                    let mut emu = live["preview"].emu.as_ref().unwrap().lock().unwrap();
+                    let mut emu = live["preview"]
+                        .capture
+                        .emu
+                        .as_ref()
+                        .unwrap()
+                        .lock()
+                        .unwrap();
                     let frame = emu.render();
                     frame.alt_screen
                         && frame.lines[0].contains("first row")

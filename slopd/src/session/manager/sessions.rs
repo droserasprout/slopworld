@@ -527,9 +527,9 @@ impl Manager {
             // The input consumer captures its tmux target at startup.
             // Drop its sender so the next key creates a consumer for the new name.
             // Otherwise, later keys would target the old session name.
-            l.input = None;
-            let running = l.emu.take().is_some();
-            l.reader_token = None;
+            l.input.sender = None;
+            let running = l.capture.emu.take().is_some();
+            l.capture.reader_token = None;
             let title = l.title.override_title.clone();
             l.cfg.name = new.to_string();
             live.insert(new.to_string(), l);

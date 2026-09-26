@@ -13,7 +13,7 @@ async fn cancelling_batch_cleanup_aborts_all_removed_readers() {
             },
             TitleCapture::default(),
         );
-        live.reader = Some(tokio::spawn(async move {
+        live.capture.reader = Some(tokio::spawn(async move {
             let _done = done;
             std::future::pending::<()>().await;
         }));

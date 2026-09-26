@@ -13,7 +13,7 @@ async fn queued_manager() -> (Arc<Manager>, mpsc::UnboundedReceiver<Input>) {
         },
         TitleCapture::default(),
     );
-    live.input = Some(tx);
+    live.input.sender = Some(tx);
     manager.live.write().await.insert("target".into(), live);
     (manager, rx)
 }
@@ -39,6 +39,7 @@ async fn paste_queues_after_reader_attachment_before_first_frame() {
         .await
         .get_mut("target")
         .unwrap()
+        .capture
         .reader_token = Some(Arc::new(()));
 
     manager.paste("target", "early").await.unwrap();
@@ -52,8 +53,8 @@ async fn enter_injects_breadcrumbs_once_between_preceding_keys_and_submission() 
     {
         let mut live = manager.live.write().await;
         let live = live.get_mut("target").unwrap();
-        live.breadcrumbs = b"remember {{ random_tip }}".to_vec();
-        live.breadcrumbs_pending = true;
+        live.input.breadcrumbs = b"remember {{ random_tip }}".to_vec();
+        live.input.breadcrumbs_pending = true;
     }
     manager
         .send_keys(
@@ -79,7 +80,11 @@ async fn enter_injects_breadcrumbs_once_between_preceding_keys_and_submission() 
         .await;
     assert!(matches!(rx.try_recv().unwrap(), Input::Keys { keys, .. } if keys == ["Enter"]));
     assert!(rx.try_recv().is_err());
-    assert!(!manager.live.read().await["target"].breadcrumbs_pending);
+    assert!(
+        !manager.live.read().await["target"]
+            .input
+            .breadcrumbs_pending
+    );
 }
 
 #[tokio::test]
@@ -91,6 +96,7 @@ async fn literal_enter_and_other_keys_leave_breadcrumbs_pending() {
         .await
         .get_mut("target")
         .unwrap()
+        .input
         .breadcrumbs_pending = true;
     for (key, literal) in [("Enter", true), ("Left", false)] {
         manager
@@ -99,7 +105,11 @@ async fn literal_enter_and_other_keys_leave_breadcrumbs_pending() {
         assert!(
             matches!(rx.try_recv().unwrap(), Input::Keys { keys, literal: actual } if keys == [key] && actual == literal)
         );
-        assert!(manager.live.read().await["target"].breadcrumbs_pending);
+        assert!(
+            manager.live.read().await["target"]
+                .input
+                .breadcrumbs_pending
+        );
     }
     // An empty pending breadcrumb is consumed without adding a paste or a delay.
     manager
@@ -107,7 +117,11 @@ async fn literal_enter_and_other_keys_leave_breadcrumbs_pending() {
         .await;
     assert!(matches!(rx.try_recv().unwrap(), Input::Keys { .. }));
     assert!(rx.try_recv().is_err());
-    assert!(!manager.live.read().await["target"].breadcrumbs_pending);
+    assert!(
+        !manager.live.read().await["target"]
+            .input
+            .breadcrumbs_pending
+    );
     assert!(manager.consume_breadcrumbs("missing", &[]).await.is_none());
 }
 
@@ -115,7 +129,14 @@ async fn literal_enter_and_other_keys_leave_breadcrumbs_pending() {
 async fn mouse_input_requires_reporting_and_repeats_at_least_once() {
     let (manager, mut rx) = queued_manager().await;
     let emu = Arc::new(std::sync::Mutex::new(crate::emu::SessionEmu::new(80, 24)));
-    manager.live.write().await.get_mut("target").unwrap().emu = Some(emu.clone());
+    manager
+        .live
+        .write()
+        .await
+        .get_mut("target")
+        .unwrap()
+        .capture
+        .emu = Some(emu.clone());
     let event = || MouseInput {
         action: crate::emu::MouseAction::Press,
         button: 0,
@@ -141,7 +162,14 @@ async fn stopped_session_resize_clamps_dimensions_and_updates_the_mirror() {
     };
     let (manager, _) = queued_manager().await;
     let emu = Arc::new(std::sync::Mutex::new(crate::emu::SessionEmu::new(80, 24)));
-    manager.live.write().await.get_mut("target").unwrap().emu = Some(emu.clone());
+    manager
+        .live
+        .write()
+        .await
+        .get_mut("target")
+        .unwrap()
+        .capture
+        .emu = Some(emu.clone());
     assert!(manager
         .resize("missing", 80, 24)
         .await
@@ -186,7 +214,7 @@ async fn stale_input_queues_exit_without_draining_into_replacements() {
         } else {
             live.run_id = 1;
         }
-        live.input = Some(tx.clone());
+        live.input.sender = Some(tx.clone());
         manager.live.write().await.insert("target".into(), live);
         tx.send(Input::Keys {
             keys: vec!["Enter".into()],

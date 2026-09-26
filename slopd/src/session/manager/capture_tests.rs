@@ -32,16 +32,16 @@ async fn pending_instruction_discovery_is_consumed_once() {
         },
         TitleCapture::default(),
     );
-    live.breadcrumbs = b"previously armed prompt".to_vec();
-    live.breadcrumbs_pending = true;
+    live.input.breadcrumbs = b"previously armed prompt".to_vec();
+    live.input.breadcrumbs_pending = true;
     manager.live.write().await.insert("agent".into(), live);
     assert_eq!(
         manager.consume_breadcrumbs("agent", &[]).await.as_deref(),
         Some(b"previously armed prompt".as_slice())
     );
     let live = manager.live.read().await;
-    assert!(!live["agent"].breadcrumbs_pending);
-    assert_eq!(live["agent"].breadcrumbs, b"previously armed prompt");
+    assert!(!live["agent"].input.breadcrumbs_pending);
+    assert_eq!(live["agent"].input.breadcrumbs, b"previously armed prompt");
 }
 
 #[tokio::test]
@@ -55,8 +55,8 @@ async fn breadcrumbs_are_consumed_once_for_a_delivered_prompt() {
         },
         TitleCapture::default(),
     );
-    live.breadcrumbs = b"{{ random_tip }}".to_vec();
-    live.breadcrumbs_pending = true;
+    live.input.breadcrumbs = b"{{ random_tip }}".to_vec();
+    live.input.breadcrumbs_pending = true;
     manager.live.write().await.insert("agent".into(), live);
 
     assert_eq!(
@@ -179,16 +179,17 @@ async fn stale_reader_cannot_mark_a_replacement_down() {
         TitleCapture::default(),
     );
     live.state = State::Working;
-    live.reader_token = Some(current.clone());
-    live.emu = Some(Arc::new(Mutex::new(SessionEmu::new(80, 24))));
+    live.capture.reader_token = Some(current.clone());
+    live.capture.emu = Some(Arc::new(Mutex::new(SessionEmu::new(80, 24))));
     manager.live.write().await.insert("agent".into(), live);
 
     manager.mark_down("agent", &stale).await;
 
     let live = manager.live.read().await;
     assert_eq!(live["agent"].state, State::Working);
-    assert!(live["agent"].emu.is_some());
+    assert!(live["agent"].capture.emu.is_some());
     assert!(live["agent"]
+        .capture
         .reader_token
         .as_ref()
         .is_some_and(|token| Arc::ptr_eq(token, &current)));
@@ -207,11 +208,11 @@ async fn current_reader_exit_resets_durable_process_state_once() {
     );
     live.state = State::Working;
     live.bell = true;
-    live.auto_resume_pending = true;
-    live.emu = Some(Arc::new(Mutex::new(SessionEmu::new(80, 24))));
-    live.reader_token = Some(reader_token.clone());
-    live.reader = Some(tokio::spawn(std::future::pending()));
-    live.input = Some(mpsc::unbounded_channel().0);
+    live.input.auto_resume_pending = true;
+    live.capture.emu = Some(Arc::new(Mutex::new(SessionEmu::new(80, 24))));
+    live.capture.reader_token = Some(reader_token.clone());
+    live.capture.reader = Some(tokio::spawn(std::future::pending()));
+    live.input.sender = Some(mpsc::unbounded_channel().0);
     manager.live.write().await.insert("agent".into(), live);
 
     let plan = {
@@ -232,10 +233,10 @@ async fn current_reader_exit_resets_durable_process_state_once() {
         let live = &live["agent"];
         assert_eq!(live.state, State::Down);
         assert!(!live.bell);
-        assert!(!live.auto_resume_pending);
-        assert!(live.emu.is_none());
-        assert!(live.reader_token.is_none());
-        assert!(live.input.is_none());
+        assert!(!live.input.auto_resume_pending);
+        assert!(live.capture.emu.is_none());
+        assert!(live.capture.reader_token.is_none());
+        assert!(live.input.sender.is_none());
     }
 
     manager.execute_cleanup(plan.unwrap()).await;

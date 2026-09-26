@@ -77,16 +77,16 @@ async fn stale_reader_exit_cannot_detach_a_replacement_and_current_exit_does_not
     row.run_id = 42;
     row.set_state(State::Working);
     row.process_running = true;
-    row.auto_resume_pending = true;
+    row.input.auto_resume_pending = true;
     row.bell = true;
-    row.emu = Some(Arc::new(Mutex::new(SessionEmu::new(80, 24))));
-    row.reader_token = Some(token.clone());
-    row.reader = Some(tokio::spawn(async move {
+    row.capture.emu = Some(Arc::new(Mutex::new(SessionEmu::new(80, 24))));
+    row.capture.reader_token = Some(token.clone());
+    row.capture.reader = Some(tokio::spawn(async move {
         wait.await.unwrap();
         completed.send(()).unwrap();
     }));
     let (input, mut received) = mpsc::unbounded_channel();
-    row.input = Some(input);
+    row.input.sender = Some(input);
     live.insert("agent".into(), row);
     assert!(manager
         .detach_live_locked(
@@ -100,8 +100,8 @@ async fn stale_reader_exit_cannot_detach_a_replacement_and_current_exit_does_not
     let row = &live["agent"];
     assert_eq!(row.run_id, 42);
     assert_eq!(row.state, State::Working);
-    assert!(row.reader.is_some());
-    assert!(row.input.is_some());
+    assert!(row.capture.reader.is_some());
+    assert!(row.input.sender.is_some());
     let plan = manager
         .detach_live_locked(
             &mut live,
@@ -120,9 +120,13 @@ async fn stale_reader_exit_cannot_detach_a_replacement_and_current_exit_does_not
     assert_eq!(row.run_id, 43);
     assert_eq!(row.state, State::Down);
     assert!(!row.process_running);
-    assert!(!row.auto_resume_pending);
+    assert!(!row.input.auto_resume_pending);
     assert!(!row.bell);
-    assert!(row.emu.is_none() && row.reader_token.is_none() && row.reader.is_none());
+    assert!(
+        row.capture.emu.is_none()
+            && row.capture.reader_token.is_none()
+            && row.capture.reader.is_none()
+    );
     assert!(received.recv().await.is_none());
     finish_reader(plan.reader);
     release.send(()).unwrap();
@@ -176,7 +180,7 @@ async fn stopping_a_temporary_worker_revokes_authority_and_cleans_owned_state() 
     row.set_state(State::Working);
     let (started, running) = tokio::sync::oneshot::channel();
     let (cancelled, cancellation) = tokio::sync::oneshot::channel::<()>();
-    row.reader = Some(tokio::spawn(async move {
+    row.capture.reader = Some(tokio::spawn(async move {
         let _cancelled = cancelled;
         started.send(()).unwrap();
         std::future::pending::<()>().await;

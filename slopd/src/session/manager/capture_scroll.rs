@@ -22,7 +22,7 @@ impl Manager {
         let (emu, seq, cols, rows) = {
             let live = self.live.read().await;
             let l = live.get(name)?;
-            (l.emu.clone()?, l.seq, l.cols, l.rows)
+            (l.capture.emu.clone()?, l.seq, l.cols, l.rows)
         };
 
         if let Ok(c) = self.scroll_cache.lock() {

@@ -201,7 +201,7 @@ impl Manager {
                         frame.clone(),
                     );
                     if let Some(at) = captured_at {
-                        view.input_timings = l.input_traces.capture(l.run_id, l.seq, at);
+                        view.input_timings = l.input.traces.capture(l.run_id, l.seq, at);
                     }
                     l.screen = Some(view.clone());
                     screen = Some(view);
