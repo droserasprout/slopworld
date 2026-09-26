@@ -2,6 +2,7 @@ use super::*;
 
 fn manager_for_start() -> Arc<Manager> {
     let mut cfg = Config::default();
+    cfg.daemon.token = "test-root-token".into();
     cfg.projects.push(ProjectCfg {
         name: "project".into(),
         dir: std::env::temp_dir().to_string_lossy().into_owned(),
@@ -237,4 +238,76 @@ async fn command_waits_for_reader_and_first_screen_is_complete() {
         .await;
     std::fs::remove_dir_all(root).unwrap();
     result.unwrap();
+}
+
+#[tokio::test]
+async fn host_start_rejects_duplicate_without_replacing_the_running_pane() {
+    let manager = manager_for_start();
+    let cfg = manager.config().await;
+    let mut row = Live::new(cfg.sessions[0].clone(), TitleCapture::default());
+    row.host = true;
+    row.run_id = 7;
+    row.input.breadcrumbs_pending = true;
+    manager.live.write().await.insert("agent".into(), row);
+    manager.cfg.write().await.sessions[0].cmd = Some("/bin/sleep 60".into());
+
+    let result: Result<()> = async {
+        manager.start("agent").await?;
+        let run_id = {
+            let live = manager.live.read().await;
+            let row = &live["agent"];
+            assert!(row.run_id > 7);
+            assert!(row.capture.reader.is_some());
+            assert!(!row.input.auto_resume_pending);
+            assert!(!row.input.breadcrumbs_pending);
+            row.run_id
+        };
+        let error = manager.start("agent").await.unwrap_err();
+        assert!(error.to_string().contains("already running"));
+        assert!(manager.tmux.exists("agent").await);
+        assert_eq!(manager.live.read().await["agent"].run_id, run_id);
+        Ok(())
+    }
+    .await;
+
+    manager.stop("agent").await.unwrap();
+    std::fs::remove_dir_all(manager.cfg_path.parent().unwrap()).unwrap();
+    result.unwrap();
+}
+
+#[tokio::test]
+async fn failed_worker_start_removes_owned_state_and_revokes_credentials() {
+    let Some(root) = crate::test_support::isolated() else {
+        return;
+    };
+    let manager = manager_for_start();
+    let mut session = manager.config().await.sessions[0].clone();
+    session.state_id = uuid::Uuid::new_v4().to_string();
+    let private = root.join("state").join(&session.state_id);
+    std::fs::create_dir_all(&private).unwrap();
+    let unrelated = root.join("state/unrelated");
+    std::fs::create_dir_all(&unrelated).unwrap();
+    let mut row = Live::new(session, TitleCapture::default());
+    row.ephemeral = true;
+    manager.live.write().await.insert("agent".into(), row);
+    let token = manager
+        .mint_grant(
+            "agent".into(),
+            vec!["agent".into()],
+            crate::grant::Level::Rw,
+        )
+        .await
+        .unwrap();
+    let cap = manager.resolve_cap(Some(&token)).await.unwrap();
+
+    manager.cleanup_failed_start("agent", true).await;
+
+    assert!(!cap.is_valid());
+    assert!(manager.resolve_cap(Some(&token)).await.is_none());
+    assert!(!private.exists());
+    assert!(unrelated.exists());
+    assert!(!manager.tmux.exists("agent").await);
+    // Cleanup can repeat after a partially completed failure path.
+    manager.cleanup_failed_start("agent", true).await;
+    std::fs::remove_dir_all(manager.cfg_path.parent().unwrap()).unwrap();
 }

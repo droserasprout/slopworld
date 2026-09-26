@@ -110,3 +110,7 @@ impl Manager {
         m
     }
 }
+
+#[cfg(test)]
+#[path = "init_tests.rs"]
+mod tests;
