@@ -1,5 +1,6 @@
 //! Provider response parsing.
 
+use crate::clock::unix_ms;
 use serde_json::Value;
 
 use super::{
@@ -43,7 +44,7 @@ pub(super) fn parse_openai(v: &Value) -> Snapshot {
             ok: false,
             error: Some("OpenAI answered in a shape slopd does not know".into()),
             plan,
-            fetched_ms: super::now_ms(),
+            fetched_ms: unix_ms(),
             ..Default::default()
         };
     }
@@ -51,7 +52,7 @@ pub(super) fn parse_openai(v: &Value) -> Snapshot {
     Snapshot {
         ok: true,
         plan,
-        fetched_ms: super::now_ms(),
+        fetched_ms: unix_ms(),
         windows,
         ..Default::default()
     }
@@ -95,7 +96,7 @@ pub(super) fn parse_credits(v: &Value) -> Snapshot {
         ok: true,
         error: None,
         plan: String::new(),
-        fetched_ms: super::now_ms(),
+        fetched_ms: unix_ms(),
         windows: vec![Window {
             key: OPENROUTER_BALANCE.into(),
             label: "balance".into(),
@@ -153,7 +154,7 @@ pub(super) fn parse(v: &Value, plan: String) -> Snapshot {
             ok: false,
             error: Some("Anthropic answered in a shape slopd does not know".into()),
             plan,
-            fetched_ms: super::now_ms(),
+            fetched_ms: unix_ms(),
             windows,
             ..Default::default()
         };
@@ -167,7 +168,7 @@ pub(super) fn parse(v: &Value, plan: String) -> Snapshot {
         ok: true,
         error: None,
         plan,
-        fetched_ms: super::now_ms(),
+        fetched_ms: unix_ms(),
         windows,
         ..Default::default()
     }
@@ -269,12 +270,12 @@ fn resets_in(w: &Value) -> Option<u64> {
     for k in ["resets_at", "resetsAt", "reset_at"] {
         // Epoch seconds.
         if let Some(at) = w[k].as_u64() {
-            return Some(at.saturating_sub(super::now_ms() / 1000));
+            return Some(at.saturating_sub(unix_ms() / 1000));
         }
         // RFC3339, parsed by hand rather than pulling in chrono for one field.
         if let Some(s) = w[k].as_str() {
             if let Some(at) = epoch_from_rfc3339(s) {
-                return Some(at.saturating_sub(super::now_ms() / 1000));
+                return Some(at.saturating_sub(unix_ms() / 1000));
             }
         }
     }

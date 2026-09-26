@@ -1,6 +1,6 @@
 # Session state and terminal capture
 
-`session/manager/session_state.rs` owns classification and activity persistence.
+`session/manager/session_state.rs` owns rule compilation, matching, classification, and activity persistence.
 `ActivityRules` keeps compiled rules with their cache revision, retaining separate synchronization.
 `maintenance.rs` schedules polls and state refreshes; `signals.rs` tracks clients and usage.
 `capture_input.rs` owns terminal sizing and repaint requests; `capture_scroll.rs` owns cached scroll views.

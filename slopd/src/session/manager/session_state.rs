@@ -1,6 +1,7 @@
 //! Session views, activity classification and persistence, and the retick loop.
 
 use super::super::*;
+use crate::clock::unix_ms;
 
 // Working sessions become idle after this long without meaningful activity.
 pub(super) const IDLE_MS: u64 = 10_000;
@@ -20,6 +21,56 @@ impl ActivityRules {
             revision: AtomicU64::new(0),
         }
     }
+}
+
+// Limit classification to the tail ending at the last nonblank terminal line.
+pub(super) const TAIL_LINES: usize = 12;
+
+fn match_rules(rules: &[(State, Regex)], text: &str) -> Option<State> {
+    // Use the lowest matching line. Configuration order resolves ties on that line.
+    // Skip only trailing blank rows when locating the screen's end.
+    // Each blank row within the tail counts toward TAIL_LINES.
+    let mut lines = text.lines().rev();
+    let mut line = lines.find(|line| !line.trim().is_empty())?;
+    for index in 0..TAIL_LINES {
+        for (state, re) in rules {
+            if re.is_match(line) {
+                return Some(*state);
+            }
+        }
+        if index + 1 == TAIL_LINES {
+            break;
+        }
+        let Some(next) = lines.next() else {
+            break;
+        };
+        line = next;
+    }
+    None
+}
+
+pub(super) fn compile_rules(cfg: &Config) -> Vec<(State, Regex)> {
+    cfg.state_rules
+        .iter()
+        .filter_map(|r| {
+            let state = match r.state.as_str() {
+                "waiting" => State::Waiting,
+                "working" => State::Working,
+                "idle" => State::Idle,
+                other => {
+                    tracing::warn!("state_rule has unknown state {other:?}, ignoring");
+                    return None;
+                }
+            };
+            match Regex::new(&r.pattern) {
+                Ok(re) => Some((state, re)),
+                Err(e) => {
+                    tracing::warn!("bad state_rule pattern {:?}: {e}", r.pattern);
+                    None
+                }
+            }
+        })
+        .collect()
 }
 
 struct RetickSnapshot {
@@ -42,14 +93,14 @@ fn classify_match(matched: Option<State>, changed: bool, last_change: u64) -> St
             // Some agent interfaces retain a working status line after output stops.
             // Apply the fallback classifier's activity timeout to these matches.
             // Otherwise, the agent could remain in Working state indefinitely.
-            State::Working if !changed && now_ms().saturating_sub(last_change) >= IDLE_MS => {
+            State::Working if !changed && unix_ms().saturating_sub(last_change) >= IDLE_MS => {
                 return State::Idle;
             }
             State::Working => return State::Working,
             State::Down => {}
         }
     }
-    if changed || now_ms().saturating_sub(last_change) < IDLE_MS {
+    if changed || unix_ms().saturating_sub(last_change) < IDLE_MS {
         State::Working
     } else {
         State::Idle
@@ -197,7 +248,7 @@ impl Manager {
         let started = crate::perf::enabled().then(std::time::Instant::now);
         self.reload_if_due().await;
 
-        let now = now_ms();
+        let now = unix_ms();
         let has_hosts = self
             .live
             .read()

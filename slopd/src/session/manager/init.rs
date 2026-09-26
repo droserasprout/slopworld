@@ -1,10 +1,12 @@
 //! Manager construction and startup recovery.
 
 use super::super::*;
+use super::session_state::compile_rules;
 use super::{
     ActivityRules, Authorization, ConfigState, HostMetadataPoll, MusicState, Signals,
     TemplateStore, WorktreeState,
 };
+use crate::paths::disk_mtime;
 
 impl Manager {
     /// Load stores, recover worktrees, and reconcile configured sessions.

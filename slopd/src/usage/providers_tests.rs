@@ -1,4 +1,5 @@
 use super::*;
+use crate::clock::unix_ms;
 use serde_json::json;
 use std::io::{Read, Write};
 use std::net::TcpListener;
@@ -351,16 +352,16 @@ fn anthropic_cache_rejects_stale_future_unknown_and_corrupt_entries() {
     assert!(fresh_anthropic_cache(&path).is_none());
     assert!(cached_anthropic_retry(&path).is_none());
     for (version, fetched_ms, body) in [
-        (2, super::super::now_ms(), json!({"test":1})),
-        (1, super::super::now_ms() + 60_000, json!({"test":1})),
-        (1, super::super::now_ms() - 600_000, json!({"test":1})),
-        (1, super::super::now_ms(), Value::Null),
+        (2, unix_ms(), json!({"test":1})),
+        (1, unix_ms() + 60_000, json!({"test":1})),
+        (1, unix_ms() - 600_000, json!({"test":1})),
+        (1, unix_ms(), Value::Null),
     ] {
         let cache = AnthropicUsageCache {
             version,
             fetched_ms,
             body,
-            retry_until_ms: Some(super::super::now_ms() - 1000),
+            retry_until_ms: Some(unix_ms() - 1000),
         };
         std::fs::write(&path, serde_json::to_string(&cache).unwrap()).unwrap();
         assert!(fresh_anthropic_cache(&path).is_none());

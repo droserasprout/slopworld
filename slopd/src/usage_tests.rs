@@ -1,4 +1,6 @@
 use super::*;
+use crate::clock::unix_ms;
+use std::time::UNIX_EPOCH;
 
 const REAL: &str = r#"{
         "five_hour": {"utilization": 52.0, "resets_at": "2100-07-26T09:59:59.621619+00:00",
@@ -80,7 +82,7 @@ fn anthropic_cache_shares_successes_and_rate_limit_backoff() {
     let path = std::env::temp_dir().join(format!(
         "slopd-anthropic-cache-{}-{}.json",
         std::process::id(),
-        now_ms()
+        unix_ms()
     ));
     let body = serde_json::json!({"five_hour": {"utilization": 12}});
 

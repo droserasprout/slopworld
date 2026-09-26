@@ -2,6 +2,11 @@ use anyhow::{Context, Result};
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
+/// Last modification time, or none when metadata or its timestamp is unavailable.
+pub(crate) async fn disk_mtime(path: &Path) -> Option<SystemTime> {
+    tokio::fs::metadata(path).await.ok()?.modified().ok()
+}
+
 fn temp_path(path: &Path) -> PathBuf {
     // Keep the established sidecar name. Tests use it to cause deterministic installation failures.
     // Each store already owns the lock that protects its writes.

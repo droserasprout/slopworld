@@ -1,6 +1,7 @@
 //! Projects, library, file actions and errands.
 
 use super::super::*;
+use crate::clock::unix_ms;
 
 use crate::process::{self, CaptureLimits};
 use crate::session::input::ENTER_GAP;
@@ -638,7 +639,7 @@ impl Manager {
     }
 
     async fn wait_ready_for(&self, name: &str, run_id: Option<u64>) -> Ready {
-        let started = now_ms();
+        let started = unix_ms();
         let mut last_seq = u64::MAX;
         let mut still_since = 0u64;
 
@@ -661,7 +662,7 @@ impl Manager {
                 return Ready::Gone;
             }
 
-            let now = now_ms();
+            let now = unix_ms();
             if !printed {
                 still_since = 0;
             } else if seq != last_seq {
