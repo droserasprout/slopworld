@@ -2,6 +2,7 @@
 
 use super::*;
 use crate::emu::MouseInput;
+use crate::session::input::ENTER_GAP;
 use anyhow::anyhow;
 
 impl Manager {
@@ -170,8 +171,7 @@ impl Manager {
                     .await;
                 }
                 self.queue_paste(name, text).await;
-                self.queue_input(name, Input::Gap(Duration::from_millis(ENTER_GAP_MS)))
-                    .await;
+                self.queue_input(name, Input::Gap(ENTER_GAP)).await;
                 if pos < keys.len() {
                     self.queue_input(
                         name,

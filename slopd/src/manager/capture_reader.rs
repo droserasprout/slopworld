@@ -10,8 +10,10 @@ use tokio::time::Instant;
 use crate::emu::parse_output;
 use anyhow::anyhow;
 
+// Limit watched terminal redraws to roughly one per display frame.
 const FAST_TICK: Duration = Duration::from_millis(16);
-const SLOW_TICK: Duration = Duration::from_millis(UNWATCHED_MS);
+// Capture unwatched panes less often while still tracking activity.
+const SLOW_TICK: Duration = Duration::from_millis(200);
 
 /// Schedule reader work for changed frames, new subscriptions, and completed clipboard writes.
 /// Use Tokio's monotonic clock so tests and production calculate deadlines consistently.

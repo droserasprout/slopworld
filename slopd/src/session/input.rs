@@ -2,6 +2,9 @@
 
 use super::*;
 
+// Let the terminal application process typed input before the next Enter.
+pub(super) const ENTER_GAP: Duration = Duration::from_millis(150);
+
 pub(crate) enum Input {
     Traced(Box<Input>, Vec<Arc<crate::latency::InputTrace>>),
     Keys { keys: Vec<String>, literal: bool },

@@ -1,9 +1,8 @@
 mod protobuf;
-use prost::Message;
 use std::collections::HashMap;
 use std::path::{Component, Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Arc, Mutex, OnceLock};
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use anyhow::{bail, Context, Result};
@@ -15,6 +14,7 @@ use tokio::task::JoinHandle;
 
 mod agent_templates;
 mod ctrl;
+mod events;
 mod input;
 mod template;
 mod text;
@@ -33,6 +33,8 @@ pub(super) use ctrl::CachedScroll;
 #[cfg(test)]
 pub(crate) use ctrl::{test_manager, test_manager_with_socket};
 pub use ctrl::{ClientGuard, Manager, WatchGuard};
+pub use events::Event;
+pub(crate) use events::EventMessage;
 pub(crate) use view::FrameViewArgs;
 pub use view::{ProjectView, ScreenView, SessionView};
 
@@ -64,21 +66,8 @@ use crate::config::{
 use crate::emu::{Frame, SessionEmu};
 use crate::tmux::Tmux;
 
-const IDLE_MS: u64 = 10_000;
-
-// Limit stale prompts near the top of a screen from overriding newer status below them.
+// Limit classification to the tail ending at the last nonblank terminal line.
 const TAIL_LINES: usize = 12;
-
-// Classify panes without subscribers, but render them less often than reader updates.
-const UNWATCHED_MS: u64 = 200;
-
-// Host directory and process metadata support the display, independently of frame classification.
-// Refresh both with one tmux query per host.
-const HOST_METADATA_POLL_MS: u64 = 2_000;
-
-const FILE_ACTION_TIMEOUT: Duration = Duration::from_secs(15);
-const FILE_ACTION_STREAM_LIMIT: usize = 4096;
-const MAX_MANUAL_LABEL_CHARS: usize = 60;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum State {
@@ -107,66 +96,6 @@ pub struct RunWhere {
     pub temp: bool,
     #[serde(default)]
     pub random_tips: Vec<String>,
-}
-
-#[derive(Debug, Clone)]
-pub enum Event {
-    Capabilities {
-        capabilities: crate::runtime::Capabilities,
-    },
-    Sessions {
-        sessions: Vec<SessionView>,
-    },
-    Projects {
-        projects: Vec<ProjectView>,
-    },
-    Library {
-        library: Vec<LibraryItemCfg>,
-    },
-    Screen {
-        screen: ScreenView,
-    },
-    Usage {
-        usage: crate::usage::Snapshot,
-    },
-    Audio {
-        audio: crate::audio::AudioState,
-    },
-    Jukebox {
-        jukebox: crate::jukebox::Catalog,
-    },
-}
-
-/// One immutable event shared by all WebSocket pumps. The event itself remains separate from
-/// its cached wire representation because scoped session lists may need a filtered envelope.
-pub(crate) struct EventMessage {
-    event: Event,
-    encoded: OnceLock<Result<Arc<[u8]>, String>>,
-}
-
-impl EventMessage {
-    pub(crate) fn new(event: Event) -> Arc<Self> {
-        Arc::new(Self {
-            event,
-            encoded: OnceLock::new(),
-        })
-    }
-
-    pub(crate) fn event(&self) -> &Event {
-        &self.event
-    }
-
-    pub(crate) fn encoded(&self) -> Result<Arc<[u8]>, String> {
-        self.encoded
-            .get_or_init(|| {
-                let _perf = crate::perf::timer("websocket-serialize");
-                self.event
-                    .to_protobuf()
-                    .map(|e| Arc::from(e.encode_to_vec()))
-                    .map_err(|e| e.to_string())
-            })
-            .clone()
-    }
 }
 
 #[derive(Debug, Clone)]
@@ -248,6 +177,11 @@ struct Classification {
 }
 
 impl Live {
+    // Initial grid until a client supplies its panel dimensions.
+    const BOOT_COLS: u16 = 120;
+    // Initial row count until a client supplies its panel height.
+    const BOOT_ROWS: u16 = 34;
+
     fn set_state(&mut self, s: State) -> bool {
         if self.state == s {
             return false;
@@ -257,20 +191,6 @@ impl Live {
         true
     }
 }
-
-const CFG_CHECK_MS: u64 = 2_000;
-const PRESETS_CHECK_MS: u64 = 2_000;
-const JUKEBOX_CHECK_MS: u64 = 2_000;
-
-const BOOT_COLS: u16 = 120;
-const BOOT_ROWS: u16 = 34;
-
-const READY_MS: u64 = 30_000;
-const SETTLE_MS: u64 = 750;
-const ENTER_GAP_MS: u64 = 150;
-// A bracketed paste changes the agent terminal interface's input state asynchronously.
-// Let a newly started or background pane apply that change before sending Enter.
-pub(crate) const DELIVERY_ENTER_GAP_MS: u64 = 1_000;
 
 async fn disk_mtime(path: &std::path::Path) -> Option<SystemTime> {
     tokio::fs::metadata(path).await.ok()?.modified().ok()

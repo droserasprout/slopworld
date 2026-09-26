@@ -86,7 +86,7 @@ impl Manager {
         }
         let (cols, rows, host, host_path) = match self.live.read().await.get(name) {
             Some(live) => (live.cols, live.rows, live.host, live.host_path.clone()),
-            None => (BOOT_COLS, BOOT_ROWS, false, String::new()),
+            None => (Live::BOOT_COLS, Live::BOOT_ROWS, false, String::new()),
         };
         let dir = if host && !host_path.trim().is_empty() {
             let remembered = expand(&host_path);

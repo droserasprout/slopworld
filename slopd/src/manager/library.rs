@@ -3,9 +3,21 @@
 use super::super::*;
 
 use crate::process::{self, CaptureLimits};
+use crate::session::input::ENTER_GAP;
 use crate::session::validation::check_project_mounts;
 use anyhow::anyhow;
 use tokio::process::Command;
+
+// Bound host file-action execution time.
+const FILE_ACTION_TIMEOUT: Duration = Duration::from_secs(15);
+// Bound captured output from each file-action stream.
+const FILE_ACTION_STREAM_LIMIT: usize = 4096;
+// Stop waiting for a startup prompt after this interval.
+const READY_TIMEOUT: Duration = Duration::from_secs(30);
+// Require a stable, nonblank screen before delivering startup input.
+const SETTLE_TIME: Duration = Duration::from_millis(750);
+// Let bracketed paste update the agent interface before submitting it.
+const DELIVERY_ENTER_GAP: Duration = Duration::from_secs(1);
 
 pub(super) fn routed_action_label(name: &str) -> Option<String> {
     ["view-", "search-", "link-", "edit-", "diff-"]
@@ -542,7 +554,7 @@ impl Manager {
             }
             Ready::Timeout => tracing::warn!(
                 "{name} did not become idle within {} ms. Sending its library item text anyway.",
-                READY_MS
+                READY_TIMEOUT.as_millis()
             ),
             Ready::Settled => {}
         }
@@ -556,21 +568,13 @@ impl Manager {
         if let Some(breadcrumbs) = self.consume_breadcrumbs(name, &random_tips).await {
             if !breadcrumbs.is_empty() {
                 self.queue_paste(name, breadcrumbs).await;
-                self.queue_input(
-                    name,
-                    Input::Gap(Duration::from_millis(DELIVERY_ENTER_GAP_MS)),
-                )
-                .await;
+                self.queue_input(name, Input::Gap(DELIVERY_ENTER_GAP)).await;
             }
             self.announce_sessions().await;
         }
         let enter = vec!["Enter".into()];
         self.capture_title_keys(name, &enter, false).await;
-        self.queue_input(
-            name,
-            Input::Gap(Duration::from_millis(DELIVERY_ENTER_GAP_MS)),
-        )
-        .await;
+        self.queue_input(name, Input::Gap(DELIVERY_ENTER_GAP)).await;
         self.queue_input(
             name,
             Input::Keys {
@@ -596,7 +600,7 @@ impl Manager {
             Ready::Timeout => {
                 tracing::warn!(
                     "{name} did not become idle within {} ms. Skipping auto-resume.",
-                    READY_MS
+                    READY_TIMEOUT.as_millis()
                 );
                 self.finish_auto_resume(name, run_id).await;
                 return;
@@ -634,7 +638,7 @@ impl Manager {
     }
 
     async fn wait_ready_for(&self, name: &str, run_id: Option<u64>) -> Ready {
-        let deadline = now_ms() + READY_MS;
+        let started = now_ms();
         let mut last_seq = u64::MAX;
         let mut still_since = 0u64;
 
@@ -663,11 +667,13 @@ impl Manager {
             } else if seq != last_seq {
                 last_seq = seq;
                 still_since = now;
-            } else if still_since > 0 && now.saturating_sub(still_since) >= SETTLE_MS {
+            } else if still_since > 0
+                && Duration::from_millis(now.saturating_sub(still_since)) >= SETTLE_TIME
+            {
                 return Ready::Settled;
             }
 
-            if now >= deadline {
+            if Duration::from_millis(now.saturating_sub(started)) >= READY_TIMEOUT {
                 return Ready::Timeout;
             }
             tokio::time::sleep(Duration::from_millis(100)).await;
@@ -678,12 +684,12 @@ impl Manager {
 fn auto_resume_inputs() -> Vec<Input> {
     vec![
         Input::Bytes(b"/resume".to_vec()),
-        Input::Gap(Duration::from_millis(ENTER_GAP_MS)),
+        Input::Gap(ENTER_GAP),
         Input::Keys {
             keys: vec!["Enter".into()],
             literal: false,
         },
-        Input::Gap(Duration::from_millis(ENTER_GAP_MS)),
+        Input::Gap(ENTER_GAP),
         Input::Keys {
             keys: vec!["Enter".into()],
             literal: false,

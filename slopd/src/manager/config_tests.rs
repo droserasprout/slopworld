@@ -61,7 +61,7 @@ fn new_live_starts_as_a_boot_placeholder() {
     assert!(!live.host);
     assert!(live.host_path.is_empty());
     assert_eq!(live.state, State::Down);
-    assert_eq!((live.cols, live.rows), (BOOT_COLS, BOOT_ROWS));
+    assert_eq!((live.cols, live.rows), (Live::BOOT_COLS, Live::BOOT_ROWS));
     assert_eq!(live.seq, 0);
     assert_eq!(live.state_since, 0);
     assert!(!live.bell);
