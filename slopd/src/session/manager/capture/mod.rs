@@ -102,17 +102,12 @@ struct FrameDelta {
     bell: bool,
 }
 
-#[path = "capture_frame.rs"]
-mod capture_frame;
-#[path = "capture_input.rs"]
-mod capture_input;
-#[path = "capture_reader.rs"]
-mod capture_reader;
-#[path = "capture_scroll.rs"]
-mod capture_scroll;
-pub(super) use capture_scroll::CachedScroll;
-#[path = "capture_title.rs"]
-mod capture_title;
+mod frame;
+mod input;
+mod reader;
+mod scroll;
+pub(super) use scroll::CachedScroll;
+mod title;
 
 fn title_capture_action(
     live: &mut Live,
@@ -328,5 +323,4 @@ fn spawn_control_reader(master: std::fs::File) -> ControlLineReceiver {
 }
 
 #[cfg(test)]
-#[path = "capture_tests.rs"]
 mod tests;

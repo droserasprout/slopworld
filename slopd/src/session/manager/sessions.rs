@@ -1,7 +1,7 @@
 //! Session targets, lifecycle, stored state and views.
 
 use super::super::*;
-use super::session_lifecycle::{finish_reader, take_reader_for_abort};
+use super::lifecycle::stop::{finish_reader, take_reader_for_abort};
 use anyhow::anyhow;
 // Bound user labels shown in session lists.
 const MAX_MANUAL_LABEL_CHARS: usize = 60;

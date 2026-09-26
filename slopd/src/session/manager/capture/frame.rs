@@ -1,6 +1,6 @@
 //! Emulator frames, state transitions, and session-down cleanup.
 
-use super::super::session_lifecycle::DetachCause;
+use super::super::lifecycle::stop::DetachCause;
 use super::*;
 use crate::clock::unix_ms;
 use crate::session::manager::session_state::TAIL_LINES;

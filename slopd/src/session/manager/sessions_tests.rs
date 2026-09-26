@@ -1,4 +1,4 @@
-use super::super::start::prepare_project_dir;
+use super::super::lifecycle::start::prepare_project_dir;
 use super::*;
 use crate::clock::unix_ms;
 

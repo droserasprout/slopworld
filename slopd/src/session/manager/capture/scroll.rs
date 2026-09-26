@@ -89,5 +89,5 @@ impl Manager {
 }
 
 #[cfg(test)]
-#[path = "capture_scroll_tests.rs"]
+#[path = "scroll_tests.rs"]
 mod tests;

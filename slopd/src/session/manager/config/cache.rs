@@ -1,8 +1,8 @@
 //! Cache-link changes across project configuration and its worktrees.
 
-use super::super::*;
 use crate::config::{Mount, MountMode};
 use crate::sandbox::cache;
+use crate::session::*;
 use crate::worktrees::Store;
 
 /// Return removed links so the caller can restore them if configuration saving fails.
@@ -96,5 +96,5 @@ fn reconcile_project_links(cfg: &Config, store: &Store) -> Result<()> {
 }
 
 #[cfg(test)]
-#[path = "config_cache_tests.rs"]
+#[path = "cache_tests.rs"]
 mod tests;

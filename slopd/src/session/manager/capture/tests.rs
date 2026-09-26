@@ -1,4 +1,4 @@
-use super::super::session_lifecycle::{reset_process_state, DetachCause, ReaderDisposition};
+use super::super::lifecycle::stop::{reset_process_state, DetachCause, ReaderDisposition};
 use super::*;
 use std::io::Write;
 use std::os::fd::OwnedFd;

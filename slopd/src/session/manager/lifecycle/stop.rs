@@ -1,6 +1,6 @@
 //! Stopping, forgetting, and restarting live sessions.
 
-use super::super::*;
+use crate::session::*;
 
 pub(crate) enum DetachCause {
     Stop,
@@ -89,7 +89,7 @@ impl Manager {
     /// Determine ownership while holding the map lock. Keep or remove the live row as required.
     /// The returned plan contains only owned values.
     /// Its executor can release the live lock before filesystem, tmux, task, grant, or event operations.
-    pub(super) fn detach_live_locked(
+    pub(in crate::session::manager) fn detach_live_locked(
         &self,
         live: &mut HashMap<String, Live>,
         name: &str,
@@ -156,7 +156,7 @@ impl Manager {
         Some(plan)
     }
 
-    pub(super) async fn execute_cleanup(self: &Arc<Self>, plan: CleanupPlan) {
+    pub(in crate::session::manager) async fn execute_cleanup(self: &Arc<Self>, plan: CleanupPlan) {
         if plan.revoke_grants {
             // The session boundary prevents name reuse until cleanup finishes.
             self.invalidate_session(&plan.name).await;
@@ -186,7 +186,7 @@ impl Manager {
         }
     }
 
-    pub(super) fn clear_latest_title(&self, name: &str) {
+    pub(in crate::session::manager) fn clear_latest_title(&self, name: &str) {
         if let Err(error) = self.title_cache.clear_latest(name) {
             tracing::warn!(
                 target: "slopd::titles",
@@ -223,7 +223,7 @@ impl Manager {
         Ok(())
     }
 
-    pub(super) async fn forget(self: &Arc<Self>, name: &str) {
+    pub(in crate::session::manager) async fn forget(self: &Arc<Self>, name: &str) {
         self.session_operation(self.forget_inner(name)).await
     }
 
@@ -248,5 +248,5 @@ impl Manager {
 }
 
 #[cfg(test)]
-#[path = "session_lifecycle_tests.rs"]
+#[path = "stop_tests.rs"]
 mod tests;

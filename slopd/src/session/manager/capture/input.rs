@@ -334,7 +334,7 @@ impl Manager {
 }
 
 #[cfg(test)]
-#[path = "capture_input_boundary_tests.rs"]
+#[path = "input_boundary_tests.rs"]
 mod boundary_tests;
 
 impl Manager {

@@ -264,5 +264,5 @@ impl Manager {
 }
 
 #[cfg(test)]
-#[path = "capture_title_tests.rs"]
+#[path = "title_tests.rs"]
 mod tests;

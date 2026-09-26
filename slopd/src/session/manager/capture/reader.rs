@@ -1,6 +1,6 @@
 //! tmux control-mode reader lifecycle.
 
-use super::super::session_lifecycle::{
+use super::super::lifecycle::stop::{
     finish_reader, reader_owned_by, replace_reader, ReaderDisposition,
 };
 use super::*;
@@ -394,5 +394,5 @@ impl Manager {
 }
 
 #[cfg(test)]
-#[path = "capture_reader_tests.rs"]
+#[path = "reader_tests.rs"]
 mod tests;
