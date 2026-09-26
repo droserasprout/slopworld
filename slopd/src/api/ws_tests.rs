@@ -1,6 +1,6 @@
 use super::*;
 use crate::grant::Grant;
-use crate::session::{ScreenView, SessionView, State};
+use crate::session::{ScreenView, SessionLaunchView, SessionView, SessionWorkerView, State};
 use std::collections::HashSet;
 
 #[tokio::test]
@@ -60,27 +60,31 @@ fn view(name: &str) -> SessionView {
         label: String::new(),
         project: String::new(),
         dir: String::new(),
-        command: String::new(),
-        command_preset: String::new(),
-        cmd: None,
-        sandbox: Vec::new(),
-        persistent_tmp: false,
+        launch: SessionLaunchView {
+            command: String::new(),
+            command_preset: String::new(),
+            cmd: None,
+            sandbox: Vec::new(),
+            persistent_tmp: false,
+            agent: String::new(),
+            network: Default::default(),
+            dns: Default::default(),
+            limits: Default::default(),
+            mounts: Vec::new(),
+            autostart: false,
+            auto_resume: false,
+        },
+        worker: SessionWorkerView {
+            worker: false,
+            parent: String::new(),
+            task_id: String::new(),
+            durable: false,
+        },
         auto_resume_pending: false,
-        agent: String::new(),
         state: State::Idle,
         alive: true,
         cols: 80,
         rows: 24,
-        network: Default::default(),
-        dns: Default::default(),
-        limits: Default::default(),
-        mounts: Vec::new(),
-        autostart: false,
-        auto_resume: false,
-        worker: false,
-        parent: String::new(),
-        task_id: String::new(),
-        durable: false,
         ephemeral: false,
         host: false,
         process_running: false,
@@ -91,6 +95,51 @@ fn view(name: &str) -> SessionView {
         run_id: 0,
         seq: 0,
     }
+}
+
+#[test]
+fn session_groups_preserve_flat_wire_fields() {
+    let mut session = view("agent");
+    session.launch.command = "custom".into();
+    session.launch.command_preset = "shell".into();
+    session.launch.cmd = Some("echo hello".into());
+    session.launch.agent = "sh".into();
+    session.launch.sandbox = vec!["git".into()];
+    session.launch.persistent_tmp = true;
+    session.launch.autostart = true;
+    session.launch.auto_resume = true;
+    session.worker = SessionWorkerView {
+        worker: true,
+        parent: "parent".into(),
+        task_id: "task-7".into(),
+        durable: true,
+    };
+    let json = serde_json::to_value(&session).unwrap();
+    assert!(json.get("launch").is_none());
+    assert_eq!(json["worker"], true);
+    assert_eq!(json["command"], "custom");
+    assert_eq!(json["parent"], "parent");
+    assert_eq!(json["task_id"], "task-7");
+    assert_eq!(json["durable"], true);
+
+    let event = Event::Sessions {
+        sessions: vec![session],
+    }
+    .to_protobuf()
+    .unwrap();
+    let Some(crate::shared::wire::event::Payload::Sessions(reply)) = event.payload else {
+        panic!("expected sessions payload");
+    };
+    let wire = &reply.sessions[0];
+    assert_eq!(wire.command, "custom");
+    assert_eq!(wire.command_preset, "shell");
+    assert_eq!(wire.cmd.as_deref(), Some("echo hello"));
+    assert_eq!(wire.agent, "sh");
+    assert_eq!(wire.sandbox, ["git"]);
+    assert!(wire.persistent_tmp && wire.autostart && wire.auto_resume);
+    assert!(wire.worker && wire.durable);
+    assert_eq!(wire.parent, "parent");
+    assert_eq!(wire.task_id, "task-7");
 }
 
 fn scoped(sessions: &[&str], level: Level) -> Cap {

@@ -36,7 +36,7 @@ pub(super) use manager::CachedScroll;
 pub(crate) use manager::{test_manager, test_manager_with_socket};
 pub use manager::{ClientGuard, Manager, WatchGuard};
 pub(crate) use view::FrameViewArgs;
-pub use view::{ProjectView, ScreenView, SessionView};
+pub use view::{ProjectView, ScreenView, SessionLaunchView, SessionView, SessionWorkerView};
 
 use input::{merge_input, Input};
 use template::{render_template, render_template_with, TemplateVars};
