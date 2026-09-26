@@ -55,34 +55,34 @@ async fn target_resolution_reports_missing_sessions_and_projects() {
 }
 
 #[test]
-fn directory_validation_creates_only_temporary_projects_and_rejects_files() {
+fn directory_preparation_creates_only_temporary_projects_and_rejects_files() {
     let root = std::env::temp_dir().join(format!("slopd-start-dir-{}", uuid::Uuid::new_v4()));
     let mut project = ProjectCfg {
         name: "project".into(),
         dir: root.join("nested").to_string_lossy().into_owned(),
         ..Default::default()
     };
-    assert!(Manager::validate_dir(&project)
+    assert!(prepare_project_dir(&project)
         .unwrap_err()
         .to_string()
         .contains("not a directory"));
     assert!(!root.exists());
     project.temp = true;
-    assert_eq!(Manager::validate_dir(&project).unwrap(), project.dir);
+    assert_eq!(prepare_project_dir(&project).unwrap(), project.dir);
     project.temp = false;
-    assert_eq!(Manager::validate_dir(&project).unwrap(), project.dir);
+    assert_eq!(prepare_project_dir(&project).unwrap(), project.dir);
     let file = root.join("file");
     std::fs::write(&file, "occupied").unwrap();
     project.dir = file.to_string_lossy().into_owned();
-    assert!(Manager::validate_dir(&project).is_err());
+    assert!(prepare_project_dir(&project).is_err());
     project.temp = true;
-    assert!(Manager::validate_dir(&project)
+    assert!(prepare_project_dir(&project)
         .unwrap_err()
         .to_string()
         .contains("could not create project directory"));
     project.dir = "/".into();
     project.temp = false;
-    assert!(Manager::validate_dir(&project)
+    assert!(prepare_project_dir(&project)
         .unwrap_err()
         .to_string()
         .contains("overlaps a protected location"));
