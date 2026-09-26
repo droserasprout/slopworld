@@ -2,6 +2,7 @@
 
 use super::super::*;
 use super::session_state::{HOST_METADATA_POLL_MS, IDLE_MS};
+use crate::clock::unix_ms;
 
 // Check external configuration edits on the maintenance clock.
 const CFG_CHECK_MS: u64 = 2_000;
@@ -34,7 +35,7 @@ fn next_periodic_deadline(last: u64, period: u64, now: u64) -> u64 {
 
 impl Manager {
     pub(super) async fn reload_if_due(self: &Arc<Self>) {
-        let now = now_ms();
+        let now = unix_ms();
         if claim_due(&self.config_state.config_checked, now, CFG_CHECK_MS) {
             self.reload_if_changed().await;
         }
@@ -49,7 +50,7 @@ impl Manager {
     /// Delay until the next poll or activity transition; zero when work is already due.
     /// Convert epoch timestamps to a duration for the maintenance timer.
     pub(crate) async fn maintenance_delay(&self) -> Duration {
-        let now = now_ms();
+        let now = unix_ms();
         let mut deadline = next_periodic_deadline(
             self.config_state.config_checked.load(Ordering::Acquire),
             CFG_CHECK_MS,

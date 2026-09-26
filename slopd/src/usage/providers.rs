@@ -1,5 +1,6 @@
 //! Provider credentials, HTTP requests, rate-limit handling, and shared Anthropic cache.
 
+use crate::clock::unix_ms;
 use std::fs::{File, OpenOptions};
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant, SystemTime};
@@ -86,7 +87,7 @@ pub(super) fn read_creds_once(path: &PathBuf) -> anyhow::Result<Creds> {
     if let Some(why) = expiry_error(
         o["expiresAt"].as_u64(),
         o["refreshTokenExpiresAt"].as_u64(),
-        super::now_ms(),
+        unix_ms(),
     ) {
         anyhow::bail!("{why}");
     }
@@ -159,14 +160,14 @@ pub(super) fn fresh_anthropic_cache(path: &Path) -> Option<Value> {
     if cache.body.is_null() {
         return None;
     }
-    let age = super::now_ms().checked_sub(cache.fetched_ms)?;
+    let age = unix_ms().checked_sub(cache.fetched_ms)?;
     (age < USAGE_CACHE_TTL.as_millis() as u64).then_some(cache.body)
 }
 
 pub(super) fn cached_anthropic_retry(path: &Path) -> Option<u64> {
     let text = std::fs::read_to_string(path).ok()?;
     let cache = serde_json::from_str::<AnthropicUsageCache>(&text).ok()?;
-    let remaining_ms = cache.retry_until_ms?.checked_sub(super::now_ms())?;
+    let remaining_ms = cache.retry_until_ms?.checked_sub(unix_ms())?;
     (remaining_ms > 0).then(|| remaining_ms.saturating_add(999) / 1000)
 }
 
@@ -193,7 +194,7 @@ pub(super) fn save_anthropic_cache(path: &Path, body: &Value, retry_until_ms: Op
     let tmp = path.with_extension("json.tmp");
     let cache = AnthropicUsageCache {
         version: USAGE_CACHE_VERSION,
-        fetched_ms: super::now_ms(),
+        fetched_ms: unix_ms(),
         body: body.clone(),
         retry_until_ms,
     };
@@ -216,7 +217,7 @@ pub(super) fn save_anthropic_rate_limit(path: &Path, delay: u64) {
     save_anthropic_cache(
         path,
         &Value::Null,
-        Some(super::now_ms().saturating_add(delay.saturating_mul(1_000))),
+        Some(unix_ms().saturating_add(delay.saturating_mul(1_000))),
     );
 }
 

@@ -2,6 +2,8 @@
 
 use super::super::session_lifecycle::DetachCause;
 use super::*;
+use crate::clock::unix_ms;
+use crate::session::manager::session_state::TAIL_LINES;
 
 impl Manager {
     pub async fn screen(&self, name: &str) -> Option<ScreenView> {
@@ -180,14 +182,14 @@ impl Manager {
                     l.activity_hash = delta.activity_hash;
                     l.seq += 1;
                     if delta.activity_changed && !previous.initial {
-                        l.last_change = now_ms();
+                        l.last_change = unix_ms();
                     } else if previous.initial {
                         // The first capture shows existing content. Preserve the cached state age.
                         // Start a new activity timeout for working classification because a restart leaves no previous frame for comparison.
                         l.last_change = if delta.next_state == State::Idle {
                             0
                         } else {
-                            now_ms()
+                            unix_ms()
                         };
                     }
                     let mut view = ScreenView::from_frame(

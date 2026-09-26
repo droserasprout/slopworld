@@ -1,4 +1,5 @@
 use super::*;
+use crate::clock::unix_ms;
 
 async fn rename_fixture(running: bool) -> (Arc<Manager>, std::path::PathBuf, String) {
     let root = std::env::temp_dir().join(format!(
@@ -385,7 +386,7 @@ async fn stale_working_rule_matches_decay_to_idle() {
     );
     assert_eq!(
         manager
-            .classify(false, now_ms(), "* Thinking... (esc to interrupt)")
+            .classify(false, unix_ms(), "* Thinking... (esc to interrupt)")
             .await,
         State::Working
     );

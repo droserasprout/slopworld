@@ -1,4 +1,5 @@
 use super::*;
+use crate::clock::unix_ms;
 
 async fn quiet_session() -> (Arc<Manager>, crate::emu::SessionEmu) {
     let manager = crate::session::test_manager(Config::default());
@@ -99,7 +100,7 @@ async fn retick_does_not_classify_a_replacement_run_with_the_same_sequence() {
         let mut live = manager.live.write().await;
         let live = live.get_mut("agent").unwrap();
         live.run_id += 1;
-        live.last_change = now_ms();
+        live.last_change = unix_ms();
     }
     drop(rules);
     tick.await;
@@ -127,4 +128,78 @@ async fn retick_rejects_a_classification_from_before_rules_reload() {
     let live = manager.live.read().await;
     assert_eq!(live["agent"].state, State::Waiting);
     assert_eq!(live["agent"].retick_seq, live["agent"].seq);
+}
+
+fn seeded_rules() -> Vec<(State, regex::Regex)> {
+    let cfg = Config::parse(
+        r#"
+[[state_rule]]
+state = "waiting"
+pattern = '(?i)(do you want|❯\s*1\.|yes, and don.t ask again|press enter to continue)'
+
+[[state_rule]]
+state = "working"
+pattern = '(?i)(esc to interrupt|to interrupt\))'
+"#,
+    )
+    .expect("config parses");
+    compile_rules(&cfg)
+}
+
+#[test]
+fn work_started_beats_the_question_that_started_it() {
+    let screen = "\
+> fix the parser
+
+  Do you want to make this edit to lexer.rs?
+  ❯ 1. Yes
+    2. No
+
+  Updated lexer.rs with 3 additions
+
+* Thinking… (12s · esc to interrupt)
+";
+    assert_eq!(match_rules(&seeded_rules(), screen), Some(State::Working));
+}
+
+#[test]
+fn a_question_with_nothing_under_it_is_waiting() {
+    let screen = "\
+  Updated lexer.rs with 3 additions
+
+  Do you want to make this edit to parser.rs?
+  ❯ 1. Yes
+    2. No
+";
+    assert_eq!(match_rules(&seeded_rules(), screen), Some(State::Waiting));
+}
+
+#[test]
+fn trailing_blanks_do_not_spend_the_tail() {
+    let mut screen = String::from("* Working… (esc to interrupt)\n");
+    screen.push_str(&"\n".repeat(30));
+    assert_eq!(match_rules(&seeded_rules(), &screen), Some(State::Working));
+}
+
+#[test]
+fn a_rule_out_of_reach_of_the_tail_says_nothing() {
+    let mut screen = String::from("  Do you want to make this edit?\n");
+    for i in 0..20 {
+        screen.push_str(&format!("  line {i}\n"));
+    }
+    screen.push_str("> \n");
+    assert_eq!(match_rules(&seeded_rules(), &screen), None);
+}
+
+#[test]
+fn blank_rows_inside_the_tail_count_toward_its_limit() {
+    let mut screen = String::from("  Do you want to make this edit?\n");
+    screen.push_str(&"\n".repeat(TAIL_LINES - 1));
+    screen.push_str("ordinary output\n");
+    assert_eq!(match_rules(&seeded_rules(), &screen), None);
+}
+
+#[test]
+fn an_all_blank_screen_has_no_rule_match() {
+    assert_eq!(match_rules(&seeded_rules(), "\n\n\n"), None);
 }

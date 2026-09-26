@@ -1,11 +1,12 @@
 //! Shared session state; manager/ owns lifecycle and events.rs owns publication.
 
+use crate::clock::unix_ms;
 mod protobuf;
 use std::collections::HashMap;
 use std::path::{Component, Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::Duration;
 
 use anyhow::{bail, Context, Result};
 use regex::Regex;
@@ -64,9 +65,6 @@ use crate::config::{
 };
 use crate::emu::{Frame, SessionEmu};
 use crate::tmux::Tmux;
-
-// Limit classification to the tail ending at the last nonblank terminal line.
-const TAIL_LINES: usize = 12;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum State {
@@ -225,67 +223,9 @@ impl Live {
             return false;
         }
         self.state = s;
-        self.state_since = now_ms();
+        self.state_since = unix_ms();
         true
     }
-}
-
-async fn disk_mtime(path: &std::path::Path) -> Option<SystemTime> {
-    tokio::fs::metadata(path).await.ok()?.modified().ok()
-}
-
-fn now_ms() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|d| d.as_millis() as u64)
-        .unwrap_or(0)
-}
-
-fn match_rules(rules: &[(State, Regex)], text: &str) -> Option<State> {
-    // Use the lowest matching line. Configuration order resolves ties on that line.
-    // Skip only trailing blank rows when locating the screen's end.
-    // Each blank row within the tail counts toward TAIL_LINES.
-    let mut lines = text.lines().rev();
-    let mut line = lines.find(|line| !line.trim().is_empty())?;
-    for index in 0..TAIL_LINES {
-        for (state, re) in rules {
-            if re.is_match(line) {
-                return Some(*state);
-            }
-        }
-        if index + 1 == TAIL_LINES {
-            break;
-        }
-        let Some(next) = lines.next() else {
-            break;
-        };
-        line = next;
-    }
-    None
-}
-
-fn compile_rules(cfg: &Config) -> Vec<(State, Regex)> {
-    cfg.state_rules
-        .iter()
-        .filter_map(|r| {
-            let state = match r.state.as_str() {
-                "waiting" => State::Waiting,
-                "working" => State::Working,
-                "idle" => State::Idle,
-                other => {
-                    tracing::warn!("state_rule has unknown state {other:?}, ignoring");
-                    return None;
-                }
-            };
-            match Regex::new(&r.pattern) {
-                Ok(re) => Some((state, re)),
-                Err(e) => {
-                    tracing::warn!("bad state_rule pattern {:?}: {e}", r.pattern);
-                    None
-                }
-            }
-        })
-        .collect()
 }
 
 #[cfg(test)]

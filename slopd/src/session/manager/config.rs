@@ -2,6 +2,8 @@
 
 use super::super::*;
 use super::config_cache::reconcile_cache_links;
+use super::session_state::compile_rules;
+use crate::paths::disk_mtime;
 
 /// Changes whose callers need automatic reconciliation after publication.
 enum ConfigRefresh {

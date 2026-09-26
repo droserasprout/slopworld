@@ -1,6 +1,7 @@
 //! Manager-owned publication and subscription bookkeeping.
 
-use super::super::{now_ms, Event, Manager};
+use super::super::{Event, Manager};
+use crate::clock::unix_ms;
 use std::sync::atomic::Ordering;
 
 use std::collections::HashMap;
@@ -70,7 +71,7 @@ impl Manager {
         if self.signals.clients.fetch_add(1, Ordering::Relaxed) == 0 {
             self.signals
                 .clients_since
-                .store(now_ms(), Ordering::Relaxed);
+                .store(unix_ms(), Ordering::Relaxed);
         }
         ClientGuard(self.clone())
     }

@@ -1,6 +1,7 @@
 //! Recovery of tmux sessions that outlived the daemon configuration.
 
 use super::super::*;
+use crate::clock::unix_ms;
 use crate::config::HostTerminalCfg;
 
 struct AdoptionProbe {
@@ -137,7 +138,7 @@ impl Manager {
                     "adopting tmux session {name} as a temporary {}",
                     if host { "host terminal" } else { "agent" }
                 );
-                let now = now_ms();
+                let now = unix_ms();
                 let mut l = Live::new(
                     worker_session.clone().unwrap_or_else(|| SessionCfg {
                         name: name.clone(),
@@ -240,7 +241,7 @@ impl Manager {
         // Establish a new last-change sample through the first live frame or the ten-second activity timeout.
         // Preserve the displayed state age set above.
         l.last_change = if activity.state == State::Working {
-            now_ms()
+            unix_ms()
         } else {
             0
         };

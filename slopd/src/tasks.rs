@@ -1,9 +1,9 @@
+use crate::clock::unix_ms;
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::io::Write;
 use std::os::unix::fs::OpenOptionsExt;
 use std::path::{Path, PathBuf};
-use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::{bail, Context, Result};
 use serde::{Deserialize, Serialize};
@@ -234,7 +234,7 @@ impl Tasks {
         if body.trim().is_empty() {
             bail!("Provide a task body.");
         }
-        let now = now_ms();
+        let now = unix_ms();
         self.sequence += 1;
         let task = Task {
             id: format!("{now:013x}-{:04x}", self.sequence),
@@ -277,7 +277,7 @@ impl Tasks {
         }
         task.status = Status::Failed;
         task.note = Some(note);
-        task.updated_ms = now_ms();
+        task.updated_ms = unix_ms();
         let result = task.clone();
         self.append_update(&result)?;
         Ok(Some(result))
@@ -325,7 +325,7 @@ impl Tasks {
         }
         task.status = status;
         task.note = note;
-        task.updated_ms = now_ms();
+        task.updated_ms = unix_ms();
         let result = task.clone();
         self.append_update(&result)?;
         Ok(result)
@@ -373,7 +373,7 @@ impl Tasks {
             }
         }
 
-        let now = now_ms();
+        let now = unix_ms();
         let mut canceled = Vec::new();
         for task in &mut self.file.tasks {
             if wanted.contains(&task.id) {
@@ -519,13 +519,6 @@ impl Tasks {
         }
         result
     }
-}
-
-fn now_ms() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_millis() as u64
 }
 
 #[cfg(test)]

@@ -5,6 +5,7 @@ mod api;
 mod audio;
 mod benchmark;
 mod clipboard;
+mod clock;
 mod config;
 mod emu;
 mod endpoint;
