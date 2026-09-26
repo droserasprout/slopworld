@@ -10,9 +10,11 @@ fn stopping_host_viewers_forgets_them_but_keeps_saved_shells() {
         row.host = true;
         row.persistent_host = persistent;
         live.insert("host".into(), row);
+
         let plan = manager
             .detach_live_locked(&mut live, "host", DetachCause::Stop)
             .unwrap();
+
         assert_eq!(live.contains_key("host"), persistent);
         assert!(!plan.remove_ephemeral_state);
     }
@@ -60,6 +62,7 @@ fn config_removal_deletes_ephemeral_private_state() {
 
     assert!(plan.remove_ephemeral_state);
 }
+
 #[tokio::test]
 async fn stale_reader_exit_cannot_detach_a_replacement_and_current_exit_does_not_abort_itself() {
     let manager = crate::session::test_manager(Config::default());
@@ -88,6 +91,7 @@ async fn stale_reader_exit_cannot_detach_a_replacement_and_current_exit_does_not
     let (input, mut received) = mpsc::unbounded_channel();
     row.input.sender = Some(input);
     live.insert("agent".into(), row);
+
     assert!(manager
         .detach_live_locked(
             &mut live,
@@ -102,6 +106,7 @@ async fn stale_reader_exit_cannot_detach_a_replacement_and_current_exit_does_not
     assert_eq!(row.state, State::Working);
     assert!(row.capture.reader.is_some());
     assert!(row.input.sender.is_some());
+
     let plan = manager
         .detach_live_locked(
             &mut live,
@@ -111,6 +116,7 @@ async fn stale_reader_exit_cannot_detach_a_replacement_and_current_exit_does_not
             },
         )
         .unwrap();
+
     assert!(matches!(
         plan.reader,
         ReaderDisposition::CompletingCurrent(_)
@@ -128,6 +134,7 @@ async fn stale_reader_exit_cannot_detach_a_replacement_and_current_exit_does_not
             && row.capture.reader.is_none()
     );
     assert!(received.recv().await.is_none());
+
     finish_reader(plan.reader);
     release.send(()).unwrap();
     tokio::time::timeout(Duration::from_secs(2), completion)
@@ -173,8 +180,10 @@ async fn stopping_a_temporary_worker_revokes_authority_and_cleans_owned_state() 
     let private = root.join("state").join(&session.state_id);
     std::fs::create_dir_all(&private).unwrap();
     std::fs::write(private.join("memory"), "worker state").unwrap();
+
     let unrelated = root.join("state/unrelated");
     std::fs::create_dir_all(&unrelated).unwrap();
+
     let mut row = Live::new(session, TitleCapture::default());
     row.ephemeral = true;
     row.set_state(State::Working);
@@ -195,6 +204,7 @@ async fn stopping_a_temporary_worker_revokes_authority_and_cleans_owned_state() 
             ..Default::default()
         },
     );
+
     let token = manager
         .mint_grant(
             "child".into(),
@@ -205,7 +215,9 @@ async fn stopping_a_temporary_worker_revokes_authority_and_cleans_owned_state() 
         .unwrap();
     let cap = manager.resolve_cap(Some(&token)).await.unwrap();
     let mut events = manager.events.subscribe();
+
     manager.stop("child").await.unwrap();
+
     assert!(!cap.is_valid());
     assert!(manager.resolve_cap(Some(&token)).await.is_none());
     assert!(!manager.live.read().await.contains_key("child"));
@@ -216,9 +228,11 @@ async fn stopping_a_temporary_worker_revokes_authority_and_cleans_owned_state() 
         .await
         .unwrap()
         .is_err());
-    assert!(
-        matches!(events.try_recv().unwrap().event(), Event::Sessions { sessions } if sessions.is_empty())
-    );
+    assert!(matches!(
+        events.try_recv().unwrap().event(),
+        Event::Sessions { sessions } if sessions.is_empty()
+    ));
+
     let saved = crate::tasks::Tasks::load(&manager.cfg_path)
         .unwrap()
         .get("host", &task.id)
@@ -228,6 +242,7 @@ async fn stopping_a_temporary_worker_revokes_authority_and_cleans_owned_state() 
         saved.note.as_deref(),
         Some("The daemon stopped worker session child.")
     );
+
     // Cleanup remains safe after the row, process and private directory have gone.
     manager.stop("child").await.unwrap();
     manager.forget("child").await;

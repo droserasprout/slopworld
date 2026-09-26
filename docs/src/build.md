@@ -6,7 +6,8 @@
 - **.NET SDK** — builds the `net472` mod and runs C# tests and formatting.
   NuGet restores framework reference assemblies.
   The IPC benchmarks and terminal-input HTTP regression require Mono.
-- **Protobuf compiler (`protoc`)** — Rust builds and `make api-contract` require this compiler.
+- **Protobuf compiler (`protoc`)** — Rust builds require this compiler. Use **36.1**
+  for `make api-contract`; CI pins this version to keep generated C# output stable.
   Install `protobuf-compiler` on Debian/Ubuntu or `protobuf` on Arch.
   On macOS, run `brew install protobuf`.
 - **GNU Make** — the Makefile defines all targets.
