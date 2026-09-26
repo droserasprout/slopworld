@@ -121,12 +121,19 @@ fn builtins_parse_and_name_themselves() {
         debug.env.iter().any(|seen| seen == "SLOPCAR_PROFILE"),
         "debug does not forward SLOPCAR_PROFILE"
     );
-    for path in ["/proc", "/sys", "/run/udev", "~/.local/share/applications"] {
+    for path in ["/sys", "/run/udev", "~/.local/share/applications"] {
         assert!(
             debug.ro.iter().any(|seen| seen == path),
             "debug lacks {path}"
         );
     }
+    // The launcher mounts procfs for the private PID namespace.
+    assert!(!debug
+        .ro
+        .iter()
+        .chain(&debug.rw)
+        .chain(&debug.dev)
+        .any(|path| path == "/proc"));
     assert_eq!(
         t.sandbox("global").unwrap().ro,
         vec!["/usr", "/etc", "/opt", "~/.local/bin"]

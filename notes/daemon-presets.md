@@ -28,7 +28,7 @@ expand to `/`. Device binds and socket-directory binds are not interchangeable w
 The environment is empty at launch.
 Configuration-root overrides such as `CODEX_HOME` must not redirect a tool away from its private default state.
 
-`slopworld-debug` is an intentional host escape, including host processes, tmux, Docker,
+`slopworld-debug` is an intentional host escape, including tmux, Docker,
 desktop services and writable development/install paths. Its `daemon_config` capability is
 a narrow read-only exception for config and endpoint files, not permission for ordinary
 preset bind lists to reach protected state.

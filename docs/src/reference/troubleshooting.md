@@ -117,8 +117,12 @@ use different signatures. Harmony patch failures appear in `Player.log` as
 ### Debug preset exposure {#debug-preset}
 
 The `slopworld-debug` preset is an intentionally broad host escape for game
-development. It mounts the game install, profile, tmux socket, `/proc`, `/sys`,
-X11/Wayland devices, and several development caches read-write.
+development. It exposes writable game/profile paths and development caches, host tmux,
+Docker and desktop services, plus read-only `/sys` diagnostics.
+
+It keeps a private `/proc` matching the sandbox PID namespace. A personal preset
+override that binds host `/proc` can cause “lookup self” errors and hang nested
+Bubblewrap tests. Remove that bind and launch a session with the updated preset.
 
 ## Diagnostics
 

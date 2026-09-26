@@ -38,9 +38,9 @@ rw = [
     "~/.local/share/slopworld-car",
 ]
 # Desktop metadata lets gio and GTK use host application associations and the file chooser.
-# /proc and /sys provide host diagnostics. /run/udev supports graphics and device enumeration.
+# /sys provides host diagnostics; /run/udev supports device enumeration.
+# Keep the launcher's private /proc: host PIDs break process tools and nested Bubblewrap.
 ro = [
-    "/proc",
     "/sys",
     "/run/udev",
     # Journal files + machine-id let `journalctl` read the daemon unit's own startup/exit logs.
@@ -63,7 +63,7 @@ tmux = true
 # Bind config.toml and endpoint.toml read-only for connection diagnostics.
 # This generated mount is an exception to the ordinary preset path restriction.
 daemon_config = true
-escapes = "The sandbox can modify host game files and profiles, read and control host terminals, and access displays, devices, and host processes. It can also control the host Docker daemon and communicate with desktop and systemd services"
+escapes = "The sandbox can modify host game files and profiles, read and control host terminals, and access displays and devices. It can also control the host Docker daemon and communicate with desktop and systemd services"
 env = [
     "SLOPWORLD_PROFILE",
     "SLOPWORLD_GAME",
