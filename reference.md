@@ -28,7 +28,7 @@ It does not read or write environment values.
 | `OPENROUTER_API_KEY` | [`slopd/src/title.rs:270`](./slopd/src/title.rs#L270), [`slopd/src/usage/providers.rs:334`](./slopd/src/usage/providers.rs#L334) |
 | `OUT_DIR` | [`bench/ipc/rust/src/main.rs:3`](./bench/ipc/rust/src/main.rs#L3), [`slopd/src/shared/mod.rs:7`](./slopd/src/shared/mod.rs#L7) |
 | `PATH` | [`slopd/src/sandbox/bind.rs:14`](./slopd/src/sandbox/bind.rs#L14), [`slopd/src/worktrees.rs:216`](./slopd/src/worktrees.rs#L216), [`slopd/tests/slopctl_logs.rs:28`](./slopd/tests/slopctl_logs.rs#L28) |
-| `PULSE_SERVER` | [`slopd/src/manager/ncspot.rs:27`](./slopd/src/manager/ncspot.rs#L27) |
+| `PULSE_SERVER` | [`slopd/src/session/manager/ncspot.rs:27`](./slopd/src/session/manager/ncspot.rs#L27) |
 | `RIMWORLD` | [`notes/core-gotchas.md:7`](./notes/core-gotchas.md#L7), [`notes/core-gotchas.md:8`](./notes/core-gotchas.md#L8) |
 | `SHELL` | [`docs/src/reference/api.md:56`](./docs/src/reference/api.md#L56), [`slopd/src/sandbox/bind/mounts.rs:203`](./slopd/src/sandbox/bind/mounts.rs#L203), [`slopd/src/sandbox/bind.rs:14`](./slopd/src/sandbox/bind.rs#L14), [`slopd/src/sandbox/host.rs:25`](./slopd/src/sandbox/host.rs#L25) |
 | `SLOPD_CACHE` | [`docs/src/guides/project-worktrees.md:67`](./docs/src/guides/project-worktrees.md#L67), [`slopd/src/paths.rs:90`](./slopd/src/paths.rs#L90), [`slopd/src/test_support.rs:17`](./slopd/src/test_support.rs#L17) |
@@ -64,7 +64,7 @@ It does not read or write environment values.
 | `WAYLAND_DISPLAY` | [`notes/core-gotchas.md:58`](./notes/core-gotchas.md#L58), [`slopd/presets/wayland.toml:4`](./slopd/presets/wayland.toml#L4) |
 | `XAUTHORITY` | [`slopd/presets/x11.toml:1`](./slopd/presets/x11.toml#L1), [`slopd/presets/x11.toml:7`](./slopd/presets/x11.toml#L7) |
 | `XDG_CACHE_HOME` | [`docs/src/guides/project-worktrees.md:66`](./docs/src/guides/project-worktrees.md#L66) |
-| `XDG_DATA_DIRS` | [`slopd/src/manager/desktop.rs:191`](./slopd/src/manager/desktop.rs#L191) |
+| `XDG_DATA_DIRS` | [`slopd/src/session/manager/desktop.rs:191`](./slopd/src/session/manager/desktop.rs#L191) |
 | `XDG_DATA_HOME` | [`docs/src/build.md:39`](./docs/src/build.md#L39), [`docs/src/guides/project-worktrees.md:26`](./docs/src/guides/project-worktrees.md#L26), [`docs/src/install.md:17`](./docs/src/install.md#L17), [`docs/src/reference/paths.md:30`](./docs/src/reference/paths.md#L30), [`docs/src/reference/paths.md:31`](./docs/src/reference/paths.md#L31), [`docs/src/reference/paths.md:32`](./docs/src/reference/paths.md#L32), [`docs/src/reference/paths.md:34`](./docs/src/reference/paths.md#L34), [`docs/src/reference/paths.md:35`](./docs/src/reference/paths.md#L35) (+6 more) |
 | `XDG_RUNTIME_DIR` | [`notes/core-gotchas.md:58`](./notes/core-gotchas.md#L58), [`slopd/presets/audio.toml:4`](./slopd/presets/audio.toml#L4), [`slopd/presets/dbus.toml:6`](./slopd/presets/dbus.toml#L6), [`slopd/presets/podman.toml:5`](./slopd/presets/podman.toml#L5), [`slopd/presets/systemd.toml:7`](./slopd/presets/systemd.toml#L7), [`slopd/presets/systemd.toml:10`](./slopd/presets/systemd.toml#L10), [`slopd/presets/wayland.toml:4`](./slopd/presets/wayland.toml#L4), [`slopd/presets/x11.toml:1`](./slopd/presets/x11.toml#L1) |
 

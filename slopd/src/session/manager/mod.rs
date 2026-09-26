@@ -1,3 +1,33 @@
+//! Session manager state and focused implementation modules.
+
+mod adoption;
+mod agent_templates;
+mod boundary;
+mod caps;
+mod capture;
+mod config;
+mod config_state;
+mod desktop;
+mod errands;
+mod library;
+pub(crate) mod ncspot;
+mod reconcile;
+mod session_lifecycle;
+mod session_state;
+mod sessions;
+mod signals;
+mod start;
+mod task_summary;
+mod tasks;
+mod workers;
+mod worktrees;
+pub(crate) use worktrees::WorktreeRequest;
+pub(crate) use worktrees::WorktreeViewCache;
+
+pub(crate) use config_state::ConfigState;
+pub(crate) use signals::Signals;
+pub(crate) use tasks::TaskStore;
+
 use super::*;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -15,18 +45,18 @@ pub struct Manager {
     pub(super) temp: RwLock<HashMap<String, ProjectCfg>>,
     pub(super) rules: RwLock<Vec<(State, Regex)>>,
     pub(super) rules_revision: AtomicU64,
-    pub(super) config_state: super::manager::ConfigState,
+    pub(super) config_state: ConfigState,
     /// Refresh host pane directories and processes together, less often than the one-second state classification interval.
     /// The timestamp also limits refresh frequency for any additional maintenance callers.
     pub(super) host_metadata_checked: AtomicU64,
     /// A slow tmux listing must not block classification or overlap the next listing.
     pub(super) host_metadata_poll: tokio::sync::Mutex<Option<JoinHandle<()>>>,
-    pub(super) signals: super::manager::Signals,
+    pub(super) signals: Signals,
     pub(super) scroll_cache: Mutex<HashMap<String, CachedScroll>>,
     pub(super) activity_cache: crate::activity::ActivityCache,
     pub audio: crate::audio::Audio,
     pub(crate) music_transition: tokio::sync::Mutex<()>,
-    pub(crate) ncspot: tokio::sync::Mutex<super::manager::ncspot::Player>,
+    pub(crate) ncspot: tokio::sync::Mutex<ncspot::Player>,
     pub events: broadcast::Sender<Arc<EventMessage>>,
     pub(super) auth_generation: AtomicU64,
     pub(super) auth_changes: broadcast::Sender<AuthChange>,
@@ -36,12 +66,12 @@ pub struct Manager {
     /// Serialize template transactions through reading, comparison, writing, and publication.
     /// Checking versions outside this lock could let two editors pass and overwrite one draft.
     pub(super) template_mutation: tokio::sync::Mutex<()>,
-    pub(crate) tasks: super::manager::TaskStore,
+    pub(crate) tasks: TaskStore,
     /// Serialize worker creation by the daemon.
     /// This prevents root requests from reserving the same child name or interleaving task and session writes.
     pub(super) worker_spawn: tokio::sync::Mutex<()>,
     pub(super) worktree_mutation: tokio::sync::Mutex<()>,
-    pub(super) worktree_views: tokio::sync::Mutex<super::manager::WorktreeViewCache>,
+    pub(super) worktree_views: tokio::sync::Mutex<WorktreeViewCache>,
     pub(super) title_cache: crate::title::SummaryCache,
 }
 
@@ -98,7 +128,7 @@ impl Manager {
 }
 
 #[cfg(test)]
-#[path = "ctrl_tests.rs"]
+#[path = "tests.rs"]
 mod tests;
 #[cfg(test)]
 pub(crate) use tests::{test_manager, test_manager_with_socket};
