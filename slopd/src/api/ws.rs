@@ -94,10 +94,6 @@ fn scope_event(cap: &Cap, ev: Arc<EventMessage>) -> Option<Arc<EventMessage>> {
 }
 
 async fn ws_run(socket: WebSocket, m: Mgr, cap: Cap, generation: u64) {
-    // Held for the life of the pump so the manager knows how many clients are
-    // attached.
-    let _client = m.client_joined();
-
     let (tx, mut rx) = socket.split();
     let tx = Arc::new(Mutex::new(tx));
     let mut auth_changes = m.auth_changes();
