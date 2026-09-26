@@ -1,4 +1,4 @@
-//! Session views, state classification, and the manager retick loop.
+//! Session views, activity classification and persistence, and the retick loop.
 
 use super::super::*;
 
@@ -295,6 +295,48 @@ impl Manager {
         }
         drop(_perf);
         crate::perf::maybe_report();
+    }
+}
+
+impl Manager {
+    // Activity persistence in the daemon cache and tmux.
+
+    pub(super) async fn clear_activity(&self, name: &str) {
+        if let Err(error) = self.activity_cache.clear(name) {
+            tracing::warn!(
+                target: "slopd::activity",
+                session = %name,
+                %error,
+                "could not clear session activity cache"
+            );
+        }
+        if let Err(error) = self.tmux.clear_activity(name).await {
+            tracing::debug!(
+                target: "slopd::activity",
+                session = %name,
+                %error,
+                "could not clear tmux session activity"
+            );
+        }
+    }
+
+    pub(super) async fn persist_activity(&self, name: &str, state: State, state_since: u64) {
+        if let Err(error) = self.activity_cache.remember(name, state, state_since) {
+            tracing::warn!(
+                target: "slopd::activity",
+                session = %name,
+                %error,
+                "could not persist session activity"
+            );
+        }
+        if let Err(error) = self.tmux.set_activity(name, state, state_since).await {
+            tracing::warn!(
+                target: "slopd::activity",
+                session = %name,
+                %error,
+                "could not persist tmux session activity"
+            );
+        }
     }
 }
 

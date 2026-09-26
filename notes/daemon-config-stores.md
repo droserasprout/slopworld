@@ -1,6 +1,10 @@
 # Configuration ownership
 
 The daemon owns machine configuration.
+`config/` owns its model, resolution, validation, and persistence.
+`session/manager/config.rs` serializes runtime changes and publication;
+`manager/reconcile.rs` applies accepted configuration to live sessions.
+Startup lives in `manager/init.rs`, and polling in `manager/maintenance.rs`.
 The mod owns profile preferences that remain available offline.
 The mod uses daemon APIs and reads `endpoint.toml` for connection credentials.
 It must not read or rewrite daemon TOML directly. Locations and overrides: [paths](ops-paths.md).
@@ -46,7 +50,7 @@ The daemon does not select or insert them automatically at agent startup.
 See [Settings behavior](ui-settings.md) for draft and save ownership, and
 [sandbox isolation](sandbox-isolation.md) for private-state boundaries.
 
-`config/resolution.rs` supplies editor settings previews through `/api/settings/preview`,
+`config/resolution.rs` owns effective launch resolvers and supplies editor settings previews through `/api/settings/preview`,
 using the same scalar and dependency resolvers as startup. The response labels direct agent
 settings, project mounts, and captured dependencies and describes the next start, not an
 existing process's actual sandbox. Snapshot metadata for editor pickers stays on this root-only

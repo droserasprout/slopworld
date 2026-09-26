@@ -188,6 +188,34 @@ struct Classification {
 }
 
 impl Live {
+    /// A configured session before any process or terminal reader is attached.
+    fn new(cfg: SessionCfg, title: TitleCapture) -> Self {
+        Self {
+            cfg,
+            ephemeral: false,
+            host: false,
+            persistent_host: false,
+            host_path: String::new(),
+            state: State::Down,
+            process_running: false,
+            seq: 0,
+            retick_seq: 0,
+            hash: 0,
+            activity_hash: 0,
+            last_change: 0,
+            rule_cache: None,
+            state_since: 0,
+            bell: false,
+            cols: Live::BOOT_COLS,
+            rows: Live::BOOT_ROWS,
+            plain: Arc::new(String::new()),
+            screen: None,
+            capture: LiveCapture::default(),
+            input: LiveInput::default(),
+            run_id: 0,
+            title,
+        }
+    }
     // Initial grid until a client supplies its panel dimensions.
     const BOOT_COLS: u16 = 120;
     // Initial row count until a client supplies its panel height.
