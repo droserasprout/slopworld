@@ -5,8 +5,9 @@ missing host resources. Preset changes take effect only after the agent restarts
 
 - In private network mode, `127.0.0.1` belongs to the sandbox. A failed connection there
   does not establish that the host daemon is down. Use the configured API URL when reachable.
-- Ordinary private PID/proc views do not describe host processes. The `slopworld-debug`
-  preset explicitly binds host `/proc` and `/sys`, so it has different diagnostic visibility.
+- `/proc` must match the sandbox PID namespace, including with `slopworld-debug`.
+  Binding host `/proc` over it breaks process lookups and nested Bubblewrap startup.
+  The debug preset exposes host `/sys`, but retains the launcher's private `/proc`.
 - The debug preset binds daemon config/endpoint and journal files read-only and shares
   the session bus.
   `systemctl --user` therefore reaches host services. It is a host action.
