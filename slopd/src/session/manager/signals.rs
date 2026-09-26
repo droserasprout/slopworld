@@ -1,11 +1,8 @@
 //! Manager-owned publication and subscription bookkeeping.
 
 use super::super::{Event, Manager};
-use crate::clock::unix_ms;
-use std::sync::atomic::Ordering;
 
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicU64, AtomicUsize};
 use std::sync::{Arc, Mutex};
 
 use tokio::sync::RwLock;
@@ -14,8 +11,6 @@ use tokio::sync::RwLock;
 /// Keep it separate from persistent configuration and live pane state.
 pub(crate) struct Signals {
     pub(crate) usage: RwLock<crate::usage::Snapshot>,
-    pub(crate) clients: AtomicUsize,
-    pub(crate) clients_since: AtomicU64,
     pub(crate) watchers: Mutex<HashMap<String, usize>>,
     // Watch receivers retain changes while readers await frame publication.
     pub(crate) watchers_changed: tokio::sync::watch::Sender<()>,
@@ -27,22 +22,11 @@ impl Signals {
     pub(crate) fn new() -> Self {
         Self {
             usage: RwLock::new(crate::usage::Snapshot::default()),
-            clients: AtomicUsize::new(0),
-            clients_since: AtomicU64::new(0),
             watchers: Mutex::new(HashMap::new()),
             watchers_changed: tokio::sync::watch::channel(()).0,
             maintenance_wake: Arc::new(tokio::sync::Notify::new()),
             redraw_nudge: Arc::new(tokio::sync::Semaphore::new(1)),
         }
-    }
-}
-
-/// Tracks a connected client until dropped.
-pub struct ClientGuard(pub(super) Arc<Manager>);
-
-impl Drop for ClientGuard {
-    fn drop(&mut self) {
-        self.0.signals.clients.fetch_sub(1, Ordering::Relaxed);
     }
 }
 
@@ -65,17 +49,6 @@ impl Drop for WatchGuard {
 }
 
 impl Manager {
-    // Client lifetimes and shared snapshots.
-
-    pub fn client_joined(self: &Arc<Self>) -> ClientGuard {
-        if self.signals.clients.fetch_add(1, Ordering::Relaxed) == 0 {
-            self.signals
-                .clients_since
-                .store(unix_ms(), Ordering::Relaxed);
-        }
-        ClientGuard(self.clone())
-    }
-
     pub fn watching(self: &Arc<Self>, name: &str) -> WatchGuard {
         if let Ok(mut w) = self.signals.watchers.lock() {
             *w.entry(name.to_string()).or_insert(0) += 1;
