@@ -1,6 +1,8 @@
 # Daemon agent templates
 
 `Manager` loads personal templates from `agent_templates/`, beside `config.toml`.
+Its `TemplateStore` in `session/manager/agent_templates.rs` pairs the catalog with the
+transaction lock held through version checks, persistence, and publication.
 Each file contains one template. The root-only `/api/templates` catalog and creation routes are the only client
 boundary. The mod never reads these files directly. Every definition has a persisted monotonic
 `version`, allocated from the store-wide cursor so deletion/recreation and daemon restarts do

@@ -3,6 +3,8 @@
 `session/manager/session_state.rs` owns classification and activity persistence.
 `maintenance.rs` schedules polls and state refreshes; `signals.rs` tracks clients and usage.
 `capture_input.rs` owns terminal sizing and repaint requests.
+Manager authorization lives in `caps.rs`: `Authorization` groups grants and credential invalidation.
+`HostMetadataPoll` in `sessions.rs` groups the poll timestamp and outstanding tmux job.
 `capture_reader.rs` and `capture_frame.rs` connect tmux output to the emulator and session events.
 
 `LiveInput` groups queued input and startup sequencing; `LiveCapture` groups the emulator and reader ownership.

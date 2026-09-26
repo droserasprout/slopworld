@@ -15,6 +15,15 @@ fn update_host_process(l: &mut Live, command: &str) -> bool {
     true
 }
 
+/// Poll timing and the outstanding tmux metadata job.
+#[derive(Default)]
+pub(crate) struct HostMetadataPoll {
+    // Epoch milliseconds; limits polling across maintenance callers.
+    pub(super) checked: AtomicU64,
+    // A slow listing must not overlap another or block activity classification.
+    task: tokio::sync::Mutex<Option<JoinHandle<()>>>,
+}
+
 impl Manager {
     /// Return a sanitized launch report for an authorized diagnostic request.
     /// The sandbox module owns artifact parsing and process observation.
@@ -217,7 +226,7 @@ impl Manager {
     }
 
     pub(super) async fn start_host_metadata_poll(self: &Arc<Self>) {
-        let mut poll = self.host_metadata_poll.lock().await;
+        let mut poll = self.host_metadata.task.lock().await;
         if let Some(task) = poll.as_ref() {
             if !task.is_finished() {
                 return;

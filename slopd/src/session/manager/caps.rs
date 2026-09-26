@@ -1,11 +1,42 @@
-//! Capability and grant checks.
+//! Authorization state, credential invalidation, and capability checks.
 
 use super::super::*;
 
+/// Grants and the generation and notifications used to invalidate client credentials.
+pub(crate) struct Authorization {
+    pub(super) grants: RwLock<crate::grant::Grants>,
+    generation: AtomicU64,
+    changes: broadcast::Sender<AuthChange>,
+}
+
+impl Authorization {
+    pub(super) fn new(grants: crate::grant::Grants) -> Self {
+        let (changes, _) = broadcast::channel(16);
+        Self {
+            grants: RwLock::new(grants),
+            generation: AtomicU64::new(0),
+            changes,
+        }
+    }
+}
+
 impl Manager {
+    pub(crate) fn auth_generation(&self) -> u64 {
+        self.auth.generation.load(Ordering::Acquire)
+    }
+
+    pub(crate) fn auth_changes(&self) -> broadcast::Receiver<AuthChange> {
+        self.auth.changes.subscribe()
+    }
+
+    pub(crate) fn invalidate_auth(&self, change: AuthChange) {
+        self.auth.generation.fetch_add(1, Ordering::AcqRel);
+        let _ = self.auth.changes.send(change);
+    }
+
     pub async fn resolve_cap(&self, presented: Option<&str>) -> Option<crate::grant::Cap> {
         let root = self.cfg.read().await.daemon.token.clone();
-        self.grants.read().await.resolve(presented, &root)
+        self.auth.grants.read().await.resolve(presented, &root)
     }
 
     pub async fn cap_ok(
@@ -76,7 +107,7 @@ impl Manager {
             scope.insert(s);
         }
         drop(live);
-        self.grants.write().await.mint_persisted(
+        self.auth.grants.write().await.mint_persisted(
             crate::grant::Grant {
                 grantor,
                 sessions: scope,
@@ -94,7 +125,7 @@ impl Manager {
     }
 
     async fn revoke_grants_within_boundary(&self, grantor: &str) -> Result<()> {
-        let mut grants = self.grants.write().await;
+        let mut grants = self.auth.grants.write().await;
         let count = grants.count();
         let result = grants.try_revoke_grantor(grantor);
         let changed = grants.count() < count;
@@ -112,7 +143,7 @@ impl Manager {
     }
 
     async fn invalidate_session_within_boundary(&self, name: &str) {
-        let mut grants = self.grants.write().await;
+        let mut grants = self.auth.grants.write().await;
         let count = grants.count();
         if let Err(error) = grants.try_invalidate_session(name) {
             tracing::error!("persisting grants invalidated with session {name}: {error:#}");
@@ -125,7 +156,7 @@ impl Manager {
     }
 
     pub async fn grant_count(&self) -> usize {
-        self.grants.read().await.count()
+        self.auth.grants.read().await.count()
     }
 }
 

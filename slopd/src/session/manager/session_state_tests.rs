@@ -34,7 +34,8 @@ async fn quiet_session() -> (Arc<Manager>, crate::emu::SessionEmu) {
         .jukebox_checked
         .store(u64::MAX, Ordering::Relaxed);
     manager
-        .host_metadata_checked
+        .host_metadata
+        .checked
         .store(u64::MAX, Ordering::Relaxed);
     (manager, emu)
 }

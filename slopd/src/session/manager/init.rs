@@ -1,13 +1,12 @@
 //! Manager construction and startup recovery.
 
 use super::super::*;
-use super::{ConfigState, Signals};
+use super::{Authorization, ConfigState, HostMetadataPoll, Signals, TemplateStore};
 
 impl Manager {
     /// Load stores, recover worktrees, and reconcile configured sessions.
     pub async fn new(cfg: Config, cfg_path: PathBuf) -> Arc<Self> {
         let (events, _) = broadcast::channel(256);
-        let (auth_changes, _) = broadcast::channel(16);
         let mtime = disk_mtime(&cfg_path).await;
         let library_mtime = Config::library_stamp_for(&cfg_path);
         let presets_mtime = crate::presets::Table::stamp();
@@ -35,15 +34,14 @@ impl Manager {
             live: RwLock::new(HashMap::new()),
             temp: RwLock::new(HashMap::new()),
             cfg: RwLock::new(cfg),
-            templates: RwLock::new(templates),
+            templates: TemplateStore::new(templates),
             config_state: ConfigState::new(
                 mtime,
                 library_mtime,
                 presets_loaded.then_some(presets_mtime).flatten(),
                 jukebox_loaded.then_some(jukebox_mtime).flatten(),
             ),
-            host_metadata_checked: AtomicU64::new(0),
-            host_metadata_poll: tokio::sync::Mutex::new(None),
+            host_metadata: HostMetadataPoll::default(),
             signals: Signals::new(),
             scroll_cache: Mutex::new(HashMap::new()),
             activity_cache,
@@ -51,12 +49,9 @@ impl Manager {
             music_transition: tokio::sync::Mutex::new(()),
             ncspot: tokio::sync::Mutex::new(Default::default()),
             events,
-            auth_generation: AtomicU64::new(0),
-            auth_changes,
-            grants: RwLock::new(grants),
+            auth: Authorization::new(grants),
             session_boundary: tokio::sync::RwLock::new(()),
             resize_mutation: tokio::sync::Mutex::new(()),
-            template_mutation: tokio::sync::Mutex::new(()),
             tasks: crate::session::manager::TaskStore::new(tasks),
             worker_spawn: tokio::sync::Mutex::new(()),
             worktree_mutation: tokio::sync::Mutex::new(()),
@@ -87,6 +82,7 @@ impl Manager {
             (state_ids, host_sessions)
         };
         if let Err(error) = m
+            .auth
             .grants
             .write()
             .await

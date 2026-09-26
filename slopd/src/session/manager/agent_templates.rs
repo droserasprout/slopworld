@@ -6,9 +6,25 @@ use anyhow::{bail, Result};
 
 use super::super::*;
 
+/// Personal catalog and its transaction gate; readers can continue while a draft saves.
+pub(crate) struct TemplateStore {
+    pub(super) store: RwLock<AgentTemplateStore>,
+    // Hold through version checks, persistence, and publication to prevent lost edits.
+    mutation: tokio::sync::Mutex<()>,
+}
+
+impl TemplateStore {
+    pub(super) fn new(store: AgentTemplateStore) -> Self {
+        Self {
+            store: RwLock::new(store),
+            mutation: tokio::sync::Mutex::new(()),
+        }
+    }
+}
+
 impl Manager {
     pub(crate) async fn agent_templates(&self) -> Vec<AgentTemplate> {
-        self.templates.read().await.templates.clone()
+        self.templates.store.read().await.templates.clone()
     }
 
     /// Copy a configured agent into the personal catalog immediately.
@@ -149,13 +165,13 @@ impl Manager {
         &self,
         mutation: impl FnOnce(&mut AgentTemplateStore) -> Result<T>,
     ) -> Result<T> {
-        let _mutation = self.template_mutation.lock().await;
-        let mut store = self.templates.read().await.clone();
+        let _mutation = self.templates.mutation.lock().await;
+        let mut store = self.templates.store.read().await.clone();
         let result = mutation(&mut store)?;
         store
             .save(&AgentTemplateStore::path_for(&self.cfg_path))
             .await?;
-        *self.templates.write().await = store;
+        *self.templates.store.write().await = store;
         Ok(result)
     }
 }

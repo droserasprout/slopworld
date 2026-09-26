@@ -29,7 +29,13 @@ async fn errands_require_host_or_settings_before_allocating_and_copy_template_on
                 "autostart":true,"auto_resume":true,"persistent_tmp":true,
                 "sandbox":["captured"], "sandbox_presets":[{"name":"captured","ro":["/usr"]}]}
         })).unwrap();
-    manager.templates.write().await.create(template).unwrap();
+    manager
+        .templates
+        .store
+        .write()
+        .await
+        .create(template)
+        .unwrap();
     item.agent_template = "offline".into();
     let name = manager
         .create_errand_session(&cfg, &item, &want, false, false, "")
@@ -45,7 +51,7 @@ async fn errands_require_host_or_settings_before_allocating_and_copy_template_on
         assert!(session.persistent_tmp);
         assert!(!session.autostart && !session.auto_resume);
     }
-    manager.templates.write().await.templates.clear();
+    manager.templates.store.write().await.templates.clear();
     assert_eq!(
         manager.live.read().await[&name].cfg.limits.memory_mb,
         Some(256)
