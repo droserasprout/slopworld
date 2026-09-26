@@ -500,7 +500,7 @@ impl Manager {
         sc: &LibraryItemCfg,
         want: &RunWhere,
     ) {
-        let text = render_template(&sc.text, &want.random_tips);
+        let text = render_prompt(&sc.text, &want.random_tips);
         if text.trim().is_empty() {
             return;
         }

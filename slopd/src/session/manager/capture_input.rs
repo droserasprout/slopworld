@@ -243,7 +243,7 @@ impl Manager {
 
         session.input.breadcrumbs_pending = false;
         let text = String::from_utf8_lossy(&session.input.breadcrumbs);
-        Some(render_template(&text, random_tips).into_bytes())
+        Some(render_prompt(&text, random_tips).into_bytes())
     }
 
     /// Render a breadcrumb and paste it into this agent without submitting.
@@ -268,13 +268,13 @@ impl Manager {
             .ok_or_else(|| anyhow!("no such breadcrumb: {breadcrumb}"))?;
         let command = cfg.command_of(&s);
         let directory = expand(&p.dir);
-        let vars = TemplateVars {
+        let vars = PromptVars {
             agent: &s.name,
             project: &p.name,
             directory: &directory,
             command: &command,
         };
-        let text = render_template_with(&b.text, &random_tips, Some(&vars));
+        let text = render_prompt_with(&b.text, &random_tips, Some(&vars));
         drop(cfg);
         if !self
             .live

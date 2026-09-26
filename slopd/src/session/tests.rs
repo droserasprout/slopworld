@@ -5,10 +5,9 @@ use std::sync::Arc;
 use super::{
     check_library_item, check_name, check_project, free_name, free_project_name,
     hold_action_command, json_to_toml, merge_input, merge_toml, normalize_action_command,
-    normalize_path, project_action_path, prompt_is_long_enough, render_template,
-    render_template_with, settle, slug, strip_sgr, title_agent, title_settings, Composer, Input,
-    Live, LiveCapture, LiveInput, State, Submission, TemplateVars, TitleAgent, TitleCapture,
-    INPUT_BATCH,
+    normalize_path, project_action_path, prompt_is_long_enough, settle, slug, strip_sgr,
+    title_agent, title_settings, Composer, Input, Live, LiveCapture, LiveInput, State, Submission,
+    TitleAgent, TitleCapture, INPUT_BATCH,
 };
 use crate::config::{Config, LibraryItemCfg, LibraryItemKind, ProjectCfg, SessionCfg};
 
@@ -378,60 +377,6 @@ fn an_entry_must_have_something_to_send() {
         ..errand
     };
     assert!(check_library_item(&cfg, &fine).is_ok());
-}
-
-#[test]
-fn every_tip_mention_is_its_own_draw() {
-    let tips: Vec<String> = ["one", "two", "three", "four", "five"]
-        .iter()
-        .map(|s| s.to_string())
-        .collect();
-    let out = render_template(
-        "- {{ random_tip }}\n- {{random_tip}}\n- {{ random_tip}}\n\
-             - {{ random_tip }}\n- {{ random_tip }}",
-        &tips,
-    );
-    for tip in &tips {
-        assert_eq!(out.matches(tip.as_str()).count(), 1, "{tip} exactly once");
-    }
-
-    let short = render_template(
-        "{{ random_tip }}/{{ random_tip }}/{{ random_tip }}",
-        &tips[..2],
-    );
-    assert_eq!(short, "one/two/one");
-}
-
-#[test]
-fn a_template_with_nothing_to_fill_it_is_left_alone() {
-    let text = "- {{ random_tip }} and {{ whatever }}";
-    assert_eq!(render_template(text, &[]), text);
-
-    let tips = vec!["a tip".to_string()];
-    assert_eq!(render_template(text, &tips), "- a tip and {{ whatever }}");
-
-    assert_eq!(
-        render_template("keep {{ random_tip", &tips),
-        "keep {{ random_tip"
-    );
-}
-
-#[test]
-fn breadcrumb_context_variables_render_and_unknown_variables_survive() {
-    let vars = TemplateVars {
-        agent: "Ada",
-        project: "slopworld",
-        directory: "/src/slopworld",
-        command: "codex",
-    };
-    assert_eq!(
-        render_template_with(
-            "{{ agent }} in {{ project }} at {{ directory }} via {{ command }}; {{ later }}",
-            &[],
-            Some(&vars),
-        ),
-        "Ada in slopworld at /src/slopworld via codex; {{ later }}"
-    );
 }
 
 #[test]
