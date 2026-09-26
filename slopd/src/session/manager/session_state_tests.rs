@@ -43,7 +43,7 @@ async fn quiet_session() -> (Arc<Manager>, crate::emu::SessionEmu) {
 #[tokio::test]
 async fn retick_does_not_overwrite_fresh_terminal_activity() {
     let (manager, mut emu) = quiet_session().await;
-    let rules = manager.rules.write().await;
+    let rules = manager.rules.compiled.write().await;
     let mut tick = Box::pin(manager.retick());
     assert!(futures::poll!(tick.as_mut()).is_pending());
     drop(rules);
@@ -71,7 +71,7 @@ async fn retick_does_not_overwrite_fresh_terminal_activity() {
 #[tokio::test]
 async fn retick_does_not_revive_a_stopped_session() {
     let (manager, _) = quiet_session().await;
-    let rules = manager.rules.write().await;
+    let rules = manager.rules.compiled.write().await;
     let mut tick = Box::pin(manager.retick());
     assert!(futures::poll!(tick.as_mut()).is_pending());
     manager
@@ -92,7 +92,7 @@ async fn retick_does_not_revive_a_stopped_session() {
 #[tokio::test]
 async fn retick_does_not_classify_a_replacement_run_with_the_same_sequence() {
     let (manager, _) = quiet_session().await;
-    let rules = manager.rules.write().await;
+    let rules = manager.rules.compiled.write().await;
     let mut tick = Box::pin(manager.retick());
     assert!(futures::poll!(tick.as_mut()).is_pending());
     {
@@ -112,11 +112,11 @@ async fn retick_does_not_classify_a_replacement_run_with_the_same_sequence() {
 #[tokio::test]
 async fn retick_rejects_a_classification_from_before_rules_reload() {
     let (manager, _) = quiet_session().await;
-    let mut rules = manager.rules.write().await;
+    let mut rules = manager.rules.compiled.write().await;
     let mut tick = Box::pin(manager.retick());
     assert!(futures::poll!(tick.as_mut()).is_pending());
     *rules = vec![(State::Waiting, regex::Regex::new("old output").unwrap())];
-    manager.rules_revision.fetch_add(1, Ordering::AcqRel);
+    manager.rules.revision.fetch_add(1, Ordering::AcqRel);
     drop(rules);
     tick.await;
 

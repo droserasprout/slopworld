@@ -127,7 +127,8 @@ impl Manager {
             let previous = {
                 let live = self.live.read().await;
                 let rules_revision = self
-                    .rules_revision
+                    .rules
+                    .revision
                     .load(std::sync::atomic::Ordering::Acquire);
                 live.get(name)
                     .map(|live| FrameSnapshot::from_live(live, rules_revision))
@@ -165,7 +166,8 @@ impl Manager {
                     continue;
                 }
                 if self
-                    .rules_revision
+                    .rules
+                    .revision
                     .load(std::sync::atomic::Ordering::Acquire)
                     != delta.rules_revision
                     || delta.rules_revision != previous.rules_revision

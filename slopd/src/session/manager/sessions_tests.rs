@@ -344,7 +344,7 @@ async fn session_and_project_targets_resolve_from_config_temp_and_host_state() {
 #[tokio::test]
 async fn state_classification_prefers_rules_then_activity_age() {
     let manager = crate::session::test_manager(Config::default());
-    *manager.rules.write().await = vec![(
+    *manager.rules.compiled.write().await = vec![(
         State::Waiting,
         regex::Regex::new("choose an option").unwrap(),
     )];
@@ -353,7 +353,7 @@ async fn state_classification_prefers_rules_then_activity_age() {
         State::Waiting
     );
 
-    manager.rules.write().await.clear();
+    manager.rules.compiled.write().await.clear();
     assert_eq!(
         manager.classify(true, u64::MAX, "changed").await,
         State::Working
@@ -372,7 +372,7 @@ async fn state_classification_prefers_rules_then_activity_age() {
 #[tokio::test]
 async fn stale_working_rule_matches_decay_to_idle() {
     let manager = crate::session::test_manager(Config::default());
-    *manager.rules.write().await = vec![(
+    *manager.rules.compiled.write().await = vec![(
         State::Working,
         regex::Regex::new("esc to interrupt").unwrap(),
     )];
@@ -394,7 +394,7 @@ async fn stale_working_rule_matches_decay_to_idle() {
 #[tokio::test]
 async fn retick_moves_a_quiet_working_session_to_idle() {
     let manager = crate::session::test_manager(Config::default());
-    *manager.rules.write().await = vec![(
+    *manager.rules.compiled.write().await = vec![(
         State::Working,
         regex::Regex::new("esc to interrupt").unwrap(),
     )];

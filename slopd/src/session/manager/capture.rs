@@ -110,6 +110,7 @@ mod capture_input;
 mod capture_reader;
 #[path = "capture_scroll.rs"]
 mod capture_scroll;
+pub(super) use capture_scroll::CachedScroll;
 #[path = "capture_title.rs"]
 mod capture_title;
 

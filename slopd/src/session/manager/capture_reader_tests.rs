@@ -69,7 +69,7 @@ async fn subscription_during_render_leaves_a_clean_tick_pending_for_each_reader(
     let copying = Arc::new(AtomicBool::new(false));
     let clipboard_wake = Arc::new(tokio::sync::Notify::new());
 
-    let rules = manager.rules.write().await;
+    let rules = manager.rules.compiled.write().await;
     let mut tick = Box::pin(manager.handle_control_tick(
         "agent",
         &emu,

@@ -448,7 +448,7 @@ async fn faint_prompt_particles_do_not_keep_a_quiet_session_working() {
     );
     live.ephemeral = true;
     manager.live.write().await.insert("agent".into(), live);
-    *manager.rules.write().await = vec![(
+    *manager.rules.compiled.write().await = vec![(
         State::Working,
         regex::Regex::new("esc to interrupt").unwrap(),
     )];
@@ -571,7 +571,7 @@ async fn capture_does_not_commit_after_run_replacement() {
             TitleCapture::default(),
         ),
     );
-    let rules = manager.rules.write().await;
+    let rules = manager.rules.compiled.write().await;
     let task = tokio::spawn({
         let manager = manager.clone();
         async move { manager.apply_frame("agent", test_frame("old", 1)).await }
@@ -601,7 +601,7 @@ async fn capture_does_not_revive_a_stopped_session() {
     );
     manager.apply_frame("agent", test_frame("old", 1)).await;
 
-    let rules = manager.rules.write().await;
+    let rules = manager.rules.compiled.write().await;
     let task = tokio::spawn({
         let manager = manager.clone();
         async move { manager.apply_frame("agent", test_frame("stale", 2)).await }
@@ -632,7 +632,7 @@ async fn capture_retries_after_competing_idle_decay() {
     manager.apply_frame("agent", test_frame("old", 1)).await;
     let mut events = manager.events.subscribe();
 
-    let rules = manager.rules.write().await;
+    let rules = manager.rules.compiled.write().await;
     let mut capture = Box::pin(manager.apply_frame("agent", test_frame("new", 2)));
     assert!(futures::poll!(capture.as_mut()).is_pending());
     manager
@@ -667,7 +667,8 @@ async fn rule_cache_is_reused_by_text_and_invalidated_by_revision() {
             TitleCapture::default(),
         ),
     );
-    *manager.rules.write().await = vec![(State::Waiting, regex::Regex::new("same").unwrap())];
+    *manager.rules.compiled.write().await =
+        vec![(State::Waiting, regex::Regex::new("same").unwrap())];
     manager.apply_frame("agent", test_frame("same", 1)).await;
     {
         let live = manager.live.read().await;
@@ -678,9 +679,11 @@ async fn rule_cache_is_reused_by_text_and_invalidated_by_revision() {
         );
     }
 
-    *manager.rules.write().await = vec![(State::Working, regex::Regex::new("same").unwrap())];
+    *manager.rules.compiled.write().await =
+        vec![(State::Working, regex::Regex::new("same").unwrap())];
     manager
-        .rules_revision
+        .rules
+        .revision
         .fetch_add(1, std::sync::atomic::Ordering::AcqRel);
     manager.apply_frame("agent", test_frame("same", 1)).await;
 
@@ -706,11 +709,12 @@ async fn capture_retries_when_rules_reload_wins_before_commit() {
             TitleCapture::default(),
         ),
     );
-    *manager.rules.write().await = vec![(State::Waiting, regex::Regex::new("same").unwrap())];
+    *manager.rules.compiled.write().await =
+        vec![(State::Waiting, regex::Regex::new("same").unwrap())];
 
     // Keep the snapshot's locks occupied while the frame finishes its old classification.
     // The reload then wins the commit boundary deterministically.
-    let old_rules = manager.rules.read().await;
+    let old_rules = manager.rules.compiled.read().await;
     let live_read = manager.live.read().await;
     let task = tokio::spawn({
         let manager = manager.clone();
@@ -724,10 +728,11 @@ async fn capture_retries_when_rules_reload_wins_before_commit() {
     let reload = tokio::spawn({
         let manager = manager.clone();
         async move {
-            let mut rules = manager.rules.write().await;
+            let mut rules = manager.rules.compiled.write().await;
             *rules = vec![(State::Working, regex::Regex::new("same").unwrap())];
             manager
-                .rules_revision
+                .rules
+                .revision
                 .fetch_add(1, std::sync::atomic::Ordering::AcqRel);
             let _ = ready_tx.send(());
         }

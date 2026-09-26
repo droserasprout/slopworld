@@ -27,7 +27,7 @@ pub(crate) async fn ncspot(
     State(m): State<Mgr>,
     super::super::protobuf::Proto(q): super::super::protobuf::Proto<wire::RedrawReq>,
 ) -> ApiResult<wire::SessionResult> {
-    let _transition = m.music_transition.lock().await;
+    let _transition = m.music.transition.lock().await;
     let session = m
         .open_ncspot(
             q.cols.map(|n| n.clamp(1, u16::MAX as u32) as u16),
