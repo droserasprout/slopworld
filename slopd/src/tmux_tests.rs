@@ -36,6 +36,7 @@ async fn paste_follows_the_current_application_mode() {
     std::fs::create_dir(&fixture.dir).unwrap();
     let script = fixture.dir.join("receiver.py");
     // Enable and disable the mode in the same pane, as applications do on startup and exit.
+    // A title marker after each mode sequence confirms tmux processed it (including on 3.4).
     // The raw receiver records every byte, including unexpected markers.
     std::fs::write(
         &script,
@@ -44,7 +45,8 @@ import os, pathlib, select, time, tty
 root = pathlib.Path(__file__).parent
 tty.setraw(0)
 for index, mode in enumerate((b'\x1b[?2004h', b'\x1b[?2004l')):
-    os.write(1, mode)
+    ready = f"paste-ready-{index}".encode()
+    os.write(1, mode + b"\x1b]2;" + ready + b"\x07")
     data = bytearray()
     while True:
         if select.select([0], [], [], 0.2)[0]:
@@ -76,17 +78,11 @@ for index, mode in enumerate((b'\x1b[?2004h', b'\x1b[?2004l')):
     for (index, enabled) in [true, false].into_iter().enumerate() {
         tokio::time::timeout(Duration::from_secs(5), async {
             loop {
-                let mode = tmux
-                    .run(&[
-                        "display-message",
-                        "-p",
-                        "-t",
-                        "paste:.0",
-                        "#{bracket_paste_flag}",
-                    ])
+                let title = tmux
+                    .run(&["display-message", "-p", "-t", "paste:.0", "#{pane_title}"])
                     .await
                     .unwrap();
-                if mode.trim() == if enabled { "1" } else { "0" } {
+                if title.trim() == format!("paste-ready-{index}") {
                     break;
                 }
                 tokio::time::sleep(Duration::from_millis(10)).await;
