@@ -1,8 +1,8 @@
 //! Recovery of tmux sessions that outlived the daemon configuration.
 
-use super::super::*;
 use crate::clock::unix_ms;
 use crate::config::HostTerminalCfg;
+use crate::session::*;
 
 struct AdoptionProbe {
     name: String,
@@ -100,7 +100,7 @@ impl Manager {
     /// Workers use tmux metadata owned by the daemon. Host shells use their host marker and catalog entry.
     /// Attach the reader after reconstructing the live row.
     /// Recovered panes then use the normal session state and resize operations.
-    pub(super) async fn adopt_orphans(self: &Arc<Self>, cfg: &Config) -> bool {
+    pub(in crate::session::manager) async fn adopt_orphans(self: &Arc<Self>, cfg: &Config) -> bool {
         // Reconciliation calls this within session_operation. Probes can yield.
         // Keep decisions, live-row changes, and reader attachment ordered within the same session boundary.
         let names = self.tmux.list().await;
@@ -259,7 +259,7 @@ impl Manager {
     }
 }
 
-pub(super) fn recovered_worker_cfg(
+pub(in crate::session::manager) fn recovered_worker_cfg(
     cfg: &Config,
     name: &str,
     metadata: &crate::tmux::WorkerMetadata,

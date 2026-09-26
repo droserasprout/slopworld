@@ -1,9 +1,15 @@
 //! Serialized configuration edits, disk reloads, and runtime publication.
+//! crate::config owns data types and persistence; this module coordinates runtime changes.
+
+mod cache;
+mod state;
+
+pub(crate) use state::ConfigState;
 
 use super::super::*;
-use super::config_cache::reconcile_cache_links;
 use super::session_state::compile_rules;
 use crate::paths::disk_mtime;
+use cache::reconcile_cache_links;
 
 /// Changes whose callers need automatic reconciliation after publication.
 enum ConfigRefresh {
@@ -349,5 +355,4 @@ fn restore_redacted_document_token(old: &Config, document: &mut toml::Value) {
 }
 
 #[cfg(test)]
-#[path = "config_tests.rs"]
 mod tests;

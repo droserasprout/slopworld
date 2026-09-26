@@ -1,14 +1,14 @@
 //! Configuration-to-live reconciliation.
 
-use super::super::*;
-use super::session_lifecycle::{finish_reader, DetachCause, ReaderDisposition};
+use super::stop::{finish_reader, DetachCause, ReaderDisposition};
+use crate::session::*;
 
 /// Control the order of persistent configuration reconciliation in one component.
 /// Callers use the manager interface so they cannot skip pruning or change autostart order.
-pub(super) struct ConfigReconciler;
+pub(in crate::session::manager) struct ConfigReconciler;
 
 impl ConfigReconciler {
-    pub(super) async fn sync(manager: &Arc<Manager>) {
+    pub(in crate::session::manager) async fn sync(manager: &Arc<Manager>) {
         let cfg = manager.config().await;
         manager.prune_removed(&cfg).await;
 
@@ -26,7 +26,7 @@ impl ConfigReconciler {
 }
 
 impl Manager {
-    pub(super) async fn prune_removed(self: &Arc<Self>, cfg: &Config) {
+    pub(in crate::session::manager) async fn prune_removed(self: &Arc<Self>, cfg: &Config) {
         let mut plans = {
             let mut live = self.live.write().await;
             let names: Vec<String> = live
@@ -61,7 +61,7 @@ impl Manager {
         }
     }
 
-    pub(super) async fn upsert_sessions(&self, cfg: &Config) {
+    pub(in crate::session::manager) async fn upsert_sessions(&self, cfg: &Config) {
         let mut live = self.live.write().await;
         for s in &cfg.sessions {
             let mut title = TitleCapture::default();
@@ -79,7 +79,7 @@ impl Manager {
         }
     }
 
-    pub(super) async fn upsert_host_terminals(&self, cfg: &Config) {
+    pub(in crate::session::manager) async fn upsert_host_terminals(&self, cfg: &Config) {
         let mut live = self.live.write().await;
         for tab in &cfg.host_terminals {
             if let Err(error) = crate::session::check_name(&tab.name) {
@@ -128,7 +128,7 @@ impl Manager {
         }
     }
 
-    pub(super) async fn autostart(self: &Arc<Self>, cfg: &Config) {
+    pub(in crate::session::manager) async fn autostart(self: &Arc<Self>, cfg: &Config) {
         // Task workers run only when explicitly requested.
         // Old autostart flags must not restart them.
         for s in cfg.sessions.iter().filter(|s| s.autostart && !s.worker) {
@@ -140,7 +140,10 @@ impl Manager {
         }
     }
 
-    pub(super) async fn autostart_host_terminals(self: &Arc<Self>, cfg: &Config) {
+    pub(in crate::session::manager) async fn autostart_host_terminals(
+        self: &Arc<Self>,
+        cfg: &Config,
+    ) {
         for tab in cfg.host_terminals.iter().filter(|tab| tab.autostart) {
             if !self.tmux.exists(&tab.name).await {
                 if let Err(error) = self.start(&tab.name).await {

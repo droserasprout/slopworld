@@ -3,11 +3,9 @@
 //! Resolve a StartPlan, create a silent tmux pane, attach its reader, then run the command.
 //! The plan carries the same launch inputs through each stage and its failure cleanup.
 
-use super::super::*;
-use super::session_lifecycle::{
-    finish_reader, reset_process_state, take_reader_for_abort, ReaderDisposition,
-};
+use super::stop::{finish_reader, reset_process_state, take_reader_for_abort, ReaderDisposition};
 use crate::sandbox::{build_plan, LaunchPlan};
+use crate::session::*;
 use anyhow::{anyhow, Context};
 
 /// Resolved inputs for one start attempt, including host terminals and workers.
@@ -298,7 +296,7 @@ impl Manager {
 }
 
 /// Create temporary project directories and check the launch path.
-pub(super) fn prepare_project_dir(project: &ProjectCfg) -> Result<String> {
+pub(in crate::session::manager) fn prepare_project_dir(project: &ProjectCfg) -> Result<String> {
     let dir = expand(&project.dir);
     if project.temp {
         std::fs::create_dir_all(&dir)

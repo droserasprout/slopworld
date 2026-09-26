@@ -1,7 +1,7 @@
 # Task-owned workers
 
 `manager/workers.rs` constructs workers.
-`manager/start.rs` supplies runtime credentials.
+`manager/lifecycle/start.rs` supplies runtime credentials.
 See [slopctl](../docs/src/guides/slopctl.md) for commands.
 
 The selected template supplies the worker configuration. The caller owns its task and appears as

@@ -17,7 +17,9 @@ coverage scope.
 | `api/` | Router, HTTP guards and handlers, WebSocket transport. |
 | `session/` | Session types, agent-template definitions, input, validation, wire views. `events.rs` owns published events and their shared encoding cache; `protobuf.rs` owns wire conversion. |
 | `session/manager/` | `Manager` and its guards, configuration synchronization, session lifecycle, capture, task-store ownership, workers. |
-| `session/manager/init.rs`, `maintenance.rs` | Startup recovery and maintenance scheduling. Configuration transactions stay in `manager/config.rs`; `reconcile.rs` applies them to live sessions. |
+| `session/manager/lifecycle/` | Start, stop, adoption, and reconciliation of configured sessions. |
+| `session/manager/capture/` | Terminal readers, input, frames, scrollback, and title capture. |
+| `session/manager/init.rs`, `maintenance.rs` | Startup recovery and maintenance scheduling. Configuration transactions stay in `manager/config/mod.rs`; `lifecycle/reconcile.rs` applies them to live sessions. |
 | `clock.rs`, `paths.rs` | Unix-millisecond timestamps, filesystem metadata, and atomic file writes. Latency measurements use their own monotonic clock in `latency.rs`. |
 | `process.rs` | Shared bounded child capture, timeout, kill, and reap mechanics. |
 | `emu.rs`, `tmux.rs` | Terminal mirror and tmux transport. |

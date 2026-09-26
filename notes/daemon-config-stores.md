@@ -7,9 +7,9 @@ library definitions have separate modules. Library lookups and supplied content 
 with the library types. Token redaction belongs to configuration persistence.
 Runtime DNS resolution belongs to `sandbox/network.rs`, temporary project paths to
 `paths.rs`, and tmux socket identity and history limits to `tmux.rs`.
-`session/manager/config.rs` serializes runtime changes and publication;
-`manager/reconcile.rs` applies accepted configuration to live sessions.
-`manager/config_cache.rs` coordinates cache links across projects and worktrees, returning
+`session/manager/config/mod.rs` serializes runtime changes and publication;
+`manager/lifecycle/reconcile.rs` applies accepted configuration to live sessions.
+`manager/config/cache.rs` coordinates cache links across projects and worktrees, returning
 removed links for restoration if saving fails. Patch and replacement share document preparation
 and commit helpers; callers retain the persistence gate until publication and endpoint updates finish.
 Startup lives in `manager/init.rs`, and polling in `manager/maintenance.rs`.

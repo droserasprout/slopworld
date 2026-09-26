@@ -1,27 +1,22 @@
 //! Session manager state and focused implementation modules.
-//! Start at init.rs for construction, boundary.rs for concurrency, and start.rs for launch.
+//! Start at init.rs for construction, boundary.rs for concurrency, and lifecycle/start.rs for launch.
 
-mod adoption;
 mod agent_templates;
 mod boundary;
 mod caps;
 mod capture;
 mod config;
-mod config_cache;
-mod config_state;
 mod desktop;
 mod errands;
 mod init;
 mod library;
+mod lifecycle;
 mod maintenance;
 mod music;
 pub(crate) mod ncspot;
-mod reconcile;
-mod session_lifecycle;
 mod session_state;
 mod sessions;
 mod signals;
-mod start;
 mod task_summary;
 mod tasks;
 mod workers;
@@ -32,7 +27,7 @@ pub(crate) use worktrees::WorktreeState;
 pub(crate) use agent_templates::TemplateStore;
 pub(crate) use caps::Authorization;
 use capture::CachedScroll;
-pub(crate) use config_state::ConfigState;
+pub(crate) use config::ConfigState;
 pub(crate) use music::MusicState;
 pub(crate) use session_state::ActivityRules;
 pub(crate) use sessions::HostMetadataPoll;
@@ -51,7 +46,7 @@ pub struct Manager {
     // Configuration and saved definitions.
     pub cfg_path: PathBuf,
     pub(super) endpoint_path: PathBuf,
-    // Accepted configuration; config.rs serializes persistence and publication.
+    // Accepted configuration; config/mod.rs serializes persistence and publication.
     pub(super) cfg: RwLock<Config>,
     pub(super) config_state: ConfigState,
     pub(super) templates: TemplateStore,
