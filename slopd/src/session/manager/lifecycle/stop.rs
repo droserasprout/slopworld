@@ -1,7 +1,11 @@
 //! Stopping, forgetting, and restarting live sessions.
+//!
+//! Detach under the live-map lock, then execute the owned cleanup plan after releasing it.
+//! Explicit stops, reader exits, and configuration removal share this cleanup policy.
 
 use crate::session::*;
 
+/// Why a row is being detached; controls retention, cleanup, and notifications.
 pub(crate) enum DetachCause {
     Stop,
     ProcessExit { reader_token: Arc<()> },
@@ -9,24 +13,35 @@ pub(crate) enum DetachCause {
     Forget,
 }
 
+/// Reader handle taken under the live lock and handled after releasing it.
 pub(crate) enum ReaderDisposition {
     Abort(JoinHandle<()>),
+    /// The exiting reader must finish its own cleanup rather than abort itself.
     CompletingCurrent(JoinHandle<()>),
     None,
 }
 
+/// Owned teardown decisions; carries no live-map references into asynchronous cleanup.
 pub(crate) struct CleanupPlan {
+    // Detached session identity.
     pub(crate) name: String,
     session: SessionCfg,
     project: String,
+
+    // Resources and authority to release.
     pub(crate) reader: ReaderDisposition,
     remove_ephemeral_state: bool,
     remove_temp_project: bool,
     revoke_grants: bool,
+
+    // Task outcome and client publication.
     worker_failure: Option<(String, String)>,
     announce_sessions: bool,
 }
 
+// Reader ownership and handoff, shared with startup and capture.
+
+/// Match the reader instance, so an old exit cannot detach a replacement with the same name.
 pub(crate) fn reader_owned_by(live: &Live, reader_token: &Arc<()>) -> bool {
     live.capture
         .reader_token
@@ -66,16 +81,14 @@ pub(crate) fn finish_reader(reader: ReaderDisposition) {
     }
 }
 
-/// Clear the process state in a live row while holding the lock.
-/// After releasing the lock, `execute_cleanup` updates caches, tasks, grants, and events.
+/// Invalidate a process run while holding the live lock.
+/// Preserve breadcrumbs and traces; callers handle the reader separately.
 pub(crate) fn reset_process_state(live: &mut Live) {
-    // A stop or replacement invalidates captures that were classified before the process
-    // teardown. The next process receives a distinct identity even when the durable name is
-    // reused immediately.
-    // Preserve breadcrumbs and traces; handle reader disposition separately.
+    // Reject captures from the old run even if its session name is reused immediately.
     live.run_id = live.run_id.wrapping_add(1);
     live.set_state(State::Down);
     live.process_running = false;
+
     live.input.auto_resume_pending = false;
     live.bell = false;
     live.screen = None;
@@ -86,9 +99,8 @@ pub(crate) fn reset_process_state(live: &mut Live) {
 }
 
 impl Manager {
-    /// Determine ownership while holding the map lock. Keep or remove the live row as required.
-    /// The returned plan contains only owned values.
-    /// Its executor can release the live lock before filesystem, tmux, task, grant, or event operations.
+    /// Retain or remove the row under the map lock and return its deferred cleanup.
+    /// Missing rows and exits from replaced readers require no action.
     pub(in crate::session::manager) fn detach_live_locked(
         &self,
         live: &mut HashMap<String, Live>,
@@ -106,6 +118,7 @@ impl Manager {
             _ => false,
         };
 
+        // Saved sessions stay available to restart; disposable sessions are forgotten.
         let forget_live = match &cause {
             DetachCause::Stop | DetachCause::ProcessExit { .. } => {
                 current.ephemeral && !current.persistent_host
@@ -119,6 +132,7 @@ impl Manager {
         } else {
             take_reader_for_abort(&mut current)
         };
+
         let session = current.cfg.clone();
         let project = session.project.clone();
         let worker_failure = session.worker.then(|| {
@@ -132,6 +146,7 @@ impl Manager {
             };
             (session.task_id.clone(), note)
         });
+
         let plan = CleanupPlan {
             name: name.to_string(),
             session,
@@ -156,6 +171,7 @@ impl Manager {
         Some(plan)
     }
 
+    /// Release resources and publish the outcome after the live-map lock is released.
     pub(in crate::session::manager) async fn execute_cleanup(self: &Arc<Self>, plan: CleanupPlan) {
         if plan.revoke_grants {
             // The session boundary prevents name reuse until cleanup finishes.
@@ -163,16 +179,19 @@ impl Manager {
         }
         finish_reader(plan.reader);
         self.forget_scroll(&plan.name);
+
         if plan.announce_sessions {
-            // Announce the state change before cleanup.
-            // Cleanup can query a tmux session that no longer exists. It must not delay the next session snapshot.
+            // Publish the new session list before persistence and filesystem cleanup.
             self.announce_sessions().await;
         }
+
         self.clear_activity(&plan.name).await;
         self.clear_latest_title(&plan.name);
         if let Some((task_id, note)) = plan.worker_failure {
             self.fail_worker_task(&task_id, note);
         }
+
+        // Only disposable sandbox state is deleted; durable private state survives.
         if plan.remove_ephemeral_state {
             if let Err(error) = crate::sandbox::remove_ephemeral_state(&plan.session) {
                 tracing::warn!(
@@ -199,6 +218,7 @@ impl Manager {
     }
 }
 
+// Explicit lifecycle requests share the session-operation boundary.
 impl Manager {
     pub async fn stop(self: &Arc<Self>, name: &str) -> Result<()> {
         self.session_operation(self.stop_inner(name)).await
@@ -208,6 +228,7 @@ impl Manager {
         if self.tmux.exists(name).await {
             self.tmux.kill(name).await?;
         }
+
         let plan = {
             let mut live = self.live.write().await;
             self.detach_live_locked(&mut live, name, DetachCause::Stop)
@@ -215,6 +236,7 @@ impl Manager {
         if let Some(plan) = plan {
             self.execute_cleanup(plan).await;
         } else {
+            // Repeated stops still clear stale caches after the live row is gone.
             self.forget_scroll(name);
             self.announce_sessions().await;
             self.clear_activity(name).await;
@@ -223,6 +245,7 @@ impl Manager {
         Ok(())
     }
 
+    /// Drop daemon state without issuing a tmux kill.
     pub(in crate::session::manager) async fn forget(self: &Arc<Self>, name: &str) {
         self.session_operation(self.forget_inner(name)).await
     }
