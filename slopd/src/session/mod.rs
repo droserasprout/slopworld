@@ -25,6 +25,7 @@ mod validation;
 mod view;
 
 mod manager;
+mod prompt;
 pub(crate) use manager::WorktreeRequest;
 
 #[cfg(test)]
@@ -39,7 +40,7 @@ pub(crate) use view::FrameViewArgs;
 pub use view::{ProjectView, ScreenView, SessionLaunchView, SessionView, SessionWorkerView};
 
 use input::{merge_input, Input};
-use template::{render_template, render_template_with, TemplateVars};
+use prompt::{render_prompt, render_prompt_with, PromptVars};
 pub use text::strip_sgr;
 pub(crate) use text::strip_sgr_tail;
 use title::{

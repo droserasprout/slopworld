@@ -46,6 +46,10 @@ terminal limits. The mod must use those values for field initialization/reset an
 them from generated constants. Missing metadata makes reset and policy-preview controls unavailable.
 It does not define a new default.
 
+`session/template.rs` scans placeholders and preserves unresolved text.
+`session/prompt.rs` supplies prompt and breadcrumb values, including cycling through
+tips selected by the client. Replacement text is inserted literally, without another scan.
+
 Library breadcrumbs are independent reusable content.
 Users insert them manually.
 The daemon does not select or insert them automatically at agent startup.

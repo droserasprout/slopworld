@@ -1,18 +1,7 @@
-//! Prompt and breadcrumb template rendering.
+//! Single-pass scanning and substitution of `{{key}}` placeholders.
 
-pub(super) struct TemplateVars<'a> {
-    pub(super) agent: &'a str,
-    pub(super) project: &'a str,
-    pub(super) directory: &'a str,
-    pub(super) command: &'a str,
-}
-
-pub(super) fn render_template_with(
-    text: &str,
-    random_tips: &[String],
-    vars: Option<&TemplateVars>,
-) -> String {
-    let mut next = 0usize;
+/// Preserve unresolved placeholders verbatim; replacement text is not scanned again.
+pub(super) fn render<'a>(text: &str, mut resolve: impl FnMut(&str) -> Option<&'a str>) -> String {
     let mut out = String::with_capacity(text.len());
     let mut rest = text;
     while let Some(start) = rest.find("{{") {
@@ -22,18 +11,7 @@ pub(super) fn render_template_with(
         let end = start + 2 + end_rel;
         out.push_str(&rest[..start]);
         let key = rest[start + 2..end].trim();
-        let value = match (key, vars) {
-            ("random_tip", _) if !random_tips.is_empty() => {
-                let value = &random_tips[next % random_tips.len()];
-                next += 1;
-                Some(value.as_str())
-            }
-            ("agent", Some(v)) => Some(v.agent),
-            ("project", Some(v)) => Some(v.project),
-            ("directory", Some(v)) => Some(v.directory),
-            ("command", Some(v)) => Some(v.command),
-            _ => None,
-        };
+        let value = resolve(key);
         if let Some(value) = value {
             out.push_str(value);
         } else {
@@ -45,6 +23,6 @@ pub(super) fn render_template_with(
     out
 }
 
-pub(super) fn render_template(text: &str, random_tips: &[String]) -> String {
-    render_template_with(text, random_tips, None)
-}
+#[cfg(test)]
+#[path = "template_tests.rs"]
+mod tests;
