@@ -13,7 +13,6 @@ use tokio::sync::{broadcast, mpsc, RwLock};
 use tokio::task::JoinHandle;
 
 mod agent_templates;
-mod ctrl;
 mod events;
 mod input;
 mod template;
@@ -22,19 +21,18 @@ mod title;
 mod validation;
 mod view;
 
-#[path = "../manager/mod.rs"]
 mod manager;
 pub(crate) use manager::WorktreeRequest;
 
 #[cfg(test)]
 pub(crate) use agent_templates::validate_definition as validate_template_definition;
 pub(crate) use agent_templates::{AgentTemplate, AgentTemplateError, AgentTemplateStore};
-pub(super) use ctrl::CachedScroll;
-#[cfg(test)]
-pub(crate) use ctrl::{test_manager, test_manager_with_socket};
-pub use ctrl::{ClientGuard, Manager, WatchGuard};
 pub use events::Event;
 pub(crate) use events::EventMessage;
+pub(super) use manager::CachedScroll;
+#[cfg(test)]
+pub(crate) use manager::{test_manager, test_manager_with_socket};
+pub use manager::{ClientGuard, Manager, WatchGuard};
 pub(crate) use view::FrameViewArgs;
 pub use view::{ProjectView, ScreenView, SessionView};
 
