@@ -168,5 +168,5 @@ pub(crate) async fn create_from_template(
 }
 
 #[cfg(test)]
-#[path = "handlers_templates_tests.rs"]
+#[path = "templates_tests.rs"]
 mod tests;

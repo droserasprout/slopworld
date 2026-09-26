@@ -235,5 +235,5 @@ pub(crate) async fn open_apps(
 }
 
 #[cfg(test)]
-#[path = "handlers_library_tests.rs"]
+#[path = "library_tests.rs"]
 mod tests;

@@ -315,5 +315,5 @@ pub(crate) async fn remove_tasks(
 }
 
 #[cfg(test)]
-#[path = "handlers_tasks_tests.rs"]
+#[path = "tasks_tests.rs"]
 mod tests;

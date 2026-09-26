@@ -1,6 +1,6 @@
 # Project worktrees
 
-`worktrees.rs` owns `worktrees.toml` and bounded Git operations.
+`worktrees/mod.rs` owns `worktrees.toml` and bounded Git operations.
 `manager/worktrees.rs` handles allocation, selection, attachments, recovery, and removal.
 The project keeps its original directory.
 The daemon assigns its stable ID when it saves the project or creates the first worktree.

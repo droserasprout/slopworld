@@ -14,7 +14,7 @@ coverage scope.
 | --- | --- |
 | `main.rs` | Startup, retick loop, token middleware. |
 | `shared/` | Generated protocol, defaults and usage bindings, plus serialization helpers. |
-| `api/` | Router, HTTP guards and handlers, WebSocket transport. |
+| `api/` | Routing, HTTP/Protobuf boundaries, and WebSocket transport. HTTP operations live in `api/handlers/`. |
 | `session/` | Session types, agent-template definitions, input, validation, wire views. `events.rs` owns published events and their shared encoding cache; `protobuf.rs` owns wire conversion. |
 | `session/manager/` | `Manager` and its guards, configuration synchronization, session lifecycle, capture, task-store ownership, workers. |
 | `session/manager/lifecycle/` | Start, stop, adoption, and reconciliation of configured sessions. |
@@ -22,13 +22,14 @@ coverage scope.
 | `session/manager/init.rs`, `maintenance.rs` | Startup recovery and maintenance scheduling. Configuration transactions stay in `manager/config/mod.rs`; `lifecycle/reconcile.rs` applies them to live sessions. |
 | `clock.rs`, `paths.rs` | Unix-millisecond timestamps, filesystem metadata, and atomic file writes. Latency measurements use their own monotonic clock in `latency.rs`. |
 | `process.rs` | Shared bounded child capture, timeout, kill, and reap mechanics. |
-| `emu.rs`, `tmux.rs` | Terminal mirror and tmux transport. |
+| `emu/`, `tmux.rs` | Terminal mirror and tmux transport. |
 | `sandbox/`, `presets.rs` | Sandbox construction and preset resolution. |
-| `config/`, `config.rs` | Configuration model, persistence, validation, ownership and resolution. |
-| `worktrees.rs` | Independent worktree records and bounded Git operations. See [worktree ownership](daemon-worktrees.md). |
+| `config/` | Configuration model, persistence, validation, ownership and resolution. |
+| `git/` | Git inspection and restricted command execution. |
+| `worktrees/` | Independent worktree records and bounded Git operations. See [worktree ownership](daemon-worktrees.md). |
 | `tasks.rs`, `grant.rs` | Durable mailboxes and scoped authority. |
 | `audio/`, `jukebox.rs` | Playback and station catalog. `session/manager/music.rs` groups radio audio, ncspot state, and the playback transition lock. |
-| `usage/`, `usage.rs` | Provider polling and quota normalization. |
+| `usage/` | Provider polling and quota normalization. |
 | `bin/` | Launcher, installer, and `slopctl` CLI. |
 
 See [session state](daemon-session-state.md), [sandbox isolation](sandbox-isolation.md),

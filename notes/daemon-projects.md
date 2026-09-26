@@ -1,7 +1,7 @@
 # Projects and sessions
 
 Projects supply working directories and shared mounts. Sessions add command, sandbox additions,
-network/DNS, limits, private identity and startup behavior. Start in `config.rs` for resolution
+network/DNS, limits, private identity and startup behavior. Start in `config/mod.rs` for resolution
 and `manager/sessions.rs` for mutations.
 [Configuration stores](daemon-config-stores.md) explains effective and saved values.
 

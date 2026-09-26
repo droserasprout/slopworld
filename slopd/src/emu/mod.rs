@@ -957,5 +957,4 @@ pub fn unescape(b: &[u8]) -> Vec<u8> {
 }
 
 #[cfg(test)]
-#[path = "emu_tests.rs"]
 mod tests;

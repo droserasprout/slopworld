@@ -89,5 +89,5 @@ pub(crate) async fn settings_preview(
 }
 
 #[cfg(test)]
-#[path = "handlers_settings_tests.rs"]
+#[path = "settings_tests.rs"]
 mod tests;

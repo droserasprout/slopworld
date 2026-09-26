@@ -113,7 +113,6 @@ fn normalize_path(path: std::path::PathBuf) -> std::path::PathBuf {
 }
 
 #[cfg(test)]
-#[path = "config_tests.rs"]
 mod tests;
 
 // Serde defaults and omission predicates shared by configuration types.

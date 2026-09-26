@@ -820,9 +820,9 @@ pub(crate) async fn git_status(
 }
 
 #[cfg(test)]
-#[path = "handlers_files_tests.rs"]
+#[path = "files_tests.rs"]
 mod mutation_tests;
 
 #[cfg(test)]
-#[path = "handlers_files_reader_tests.rs"]
+#[path = "files_reader_tests.rs"]
 mod reader_tests;

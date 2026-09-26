@@ -3,7 +3,6 @@ use anyhow::{bail, Context, Result};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
-#[path = "worktree_write_guard.rs"]
 mod write_guard;
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -222,7 +221,6 @@ pub(crate) fn metadata_paths(path: &Path) -> Result<Vec<PathBuf>> {
 }
 
 #[cfg(test)]
-#[path = "worktrees_tests.rs"]
 mod tests;
 
 /// Git starts a status helper when it removes a worktree. Run removal in a minimal Bubblewrap namespace.
