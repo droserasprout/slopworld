@@ -621,8 +621,8 @@ impl Manager {
         let changed = {
             let mut live = self.live.write().await;
             match live.get_mut(name) {
-                Some(l) if l.run_id == run_id && l.auto_resume_pending => {
-                    l.auto_resume_pending = false;
+                Some(l) if l.run_id == run_id && l.input.auto_resume_pending => {
+                    l.input.auto_resume_pending = false;
                     true
                 }
                 _ => false,

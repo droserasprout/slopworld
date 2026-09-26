@@ -1,7 +1,10 @@
 # Session state and terminal capture
 
-`manager/session_state.rs` controls classification.
+`session/manager/session_state.rs` controls classification.
 `capture_reader.rs` and `capture_frame.rs` connect tmux output to the emulator and session events.
+
+`LiveInput` groups queued input and startup sequencing; `LiveCapture` groups the emulator and reader ownership.
+Run identity stays on `Live`. Teardown resets individual fields and handles reader disposition separately.
 
 Session edits check a complete candidate configuration before renaming tmux.
 The session boundary and configuration persistence gate protect the operation from preparation through commit.

@@ -72,8 +72,8 @@ impl Manager {
                     l.cfg = s.clone();
                     // Enable discovery only when the next process starts.
                     // Do not automatically copy named breadcrumbs into live state.
-                    l.breadcrumbs_pending = false;
-                    l.breadcrumbs.clear();
+                    l.input.breadcrumbs_pending = false;
+                    l.input.breadcrumbs.clear();
                 })
                 .or_insert(Live::new(s.clone(), title));
         }

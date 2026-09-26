@@ -243,7 +243,7 @@ impl Manager {
                 reset_process_state(live);
                 live.last_change = 0;
                 live.state_since = 0;
-                live.auto_resume_pending = auto_resume_pending;
+                live.input.auto_resume_pending = auto_resume_pending;
                 (had_title, live.run_id, replaced_reader)
             } else {
                 (false, 0, ReaderDisposition::None)
@@ -310,8 +310,8 @@ impl Manager {
     pub(super) async fn wire_live_state(&self, name: &str) {
         let mut live = self.live.write().await;
         if let Some(live) = live.get_mut(name) {
-            live.breadcrumbs.clear();
-            live.breadcrumbs_pending = false;
+            live.input.breadcrumbs.clear();
+            live.input.breadcrumbs_pending = false;
         }
     }
 }

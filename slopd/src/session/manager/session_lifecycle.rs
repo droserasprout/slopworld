@@ -28,27 +28,31 @@ pub(crate) struct CleanupPlan {
 }
 
 pub(crate) fn reader_owned_by(live: &Live, reader_token: &Arc<()>) -> bool {
-    live.reader_token
+    live.capture
+        .reader_token
         .as_ref()
         .is_some_and(|current| Arc::ptr_eq(current, reader_token))
 }
 
 pub(crate) fn take_reader_for_abort(live: &mut Live) -> ReaderDisposition {
-    live.reader
+    live.capture
+        .reader
         .take()
         .map(ReaderDisposition::Abort)
         .unwrap_or(ReaderDisposition::None)
 }
 
 fn take_reader_for_completion(live: &mut Live) -> ReaderDisposition {
-    live.reader
+    live.capture
+        .reader
         .take()
         .map(ReaderDisposition::CompletingCurrent)
         .unwrap_or(ReaderDisposition::None)
 }
 
 pub(crate) fn replace_reader(live: &mut Live, reader: JoinHandle<()>) -> ReaderDisposition {
-    live.reader
+    live.capture
+        .reader
         .replace(reader)
         .map(ReaderDisposition::Abort)
         .unwrap_or(ReaderDisposition::None)
@@ -68,16 +72,17 @@ pub(crate) fn reset_process_state(live: &mut Live) {
     // A stop or replacement invalidates captures that were classified before the process
     // teardown. The next process receives a distinct identity even when the durable name is
     // reused immediately.
+    // Preserve breadcrumbs and traces; handle reader disposition separately.
     live.run_id = live.run_id.wrapping_add(1);
     live.set_state(State::Down);
     live.process_running = false;
-    live.auto_resume_pending = false;
+    live.input.auto_resume_pending = false;
     live.bell = false;
     live.screen = None;
-    live.emu = None;
+    live.capture.emu = None;
     live.title = TitleCapture::default();
-    live.reader_token = None;
-    live.input = None;
+    live.capture.reader_token = None;
+    live.input.sender = None;
 }
 
 impl Manager {

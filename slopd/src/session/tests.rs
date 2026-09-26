@@ -7,8 +7,8 @@ use super::{
     hold_action_command, json_to_toml, match_rules, merge_input, merge_toml,
     normalize_action_command, normalize_path, project_action_path, prompt_is_long_enough,
     render_template, render_template_with, settle, slug, strip_sgr, title_agent, title_settings,
-    Composer, Input, Live, State, Submission, TemplateVars, TitleAgent, TitleCapture, INPUT_BATCH,
-    TAIL_LINES,
+    Composer, Input, Live, LiveCapture, LiveInput, State, Submission, TemplateVars, TitleAgent,
+    TitleCapture, INPUT_BATCH, TAIL_LINES,
 };
 use crate::config::{Config, LibraryItemCfg, LibraryItemKind, ProjectCfg, SessionCfg};
 
@@ -347,14 +347,8 @@ fn placeholder() -> Live {
         rows: Live::BOOT_ROWS,
         plain: Arc::new(String::new()),
         screen: None,
-        emu: None,
-        reader: None,
-        reader_token: None,
-        input: None,
-        input_traces: Default::default(),
-        breadcrumbs: Vec::new(),
-        breadcrumbs_pending: false,
-        auto_resume_pending: false,
+        capture: LiveCapture::default(),
+        input: LiveInput::default(),
         run_id: 0,
         title: TitleCapture::default(),
     }

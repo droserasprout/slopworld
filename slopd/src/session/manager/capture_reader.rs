@@ -79,7 +79,7 @@ impl Manager {
         let (cols, rows, has_emu) = {
             let live = self.live.read().await;
             match live.get(name) {
-                Some(l) => (l.cols, l.rows, l.emu.is_some()),
+                Some(l) => (l.cols, l.rows, l.capture.emu.is_some()),
                 None => return Ok(false),
             }
         };
@@ -138,9 +138,9 @@ impl Manager {
                 // Recheck under the write lock because capture can yield.
                 // Cancel this attachment if another caller installed the reader.
                 // The startup gate prevents run_control cleanup before installation of its handle and ownership token.
-                Some(l) if l.emu.is_none() => {
-                    l.emu = Some(emu.clone());
-                    l.reader_token = Some(reader_token.clone());
+                Some(l) if l.capture.emu.is_none() => {
+                    l.capture.emu = Some(emu.clone());
+                    l.capture.reader_token = Some(reader_token.clone());
                     replace_reader(l, handle)
                 }
                 _ => {

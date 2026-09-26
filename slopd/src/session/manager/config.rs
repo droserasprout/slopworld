@@ -190,14 +190,8 @@ impl Live {
             rows: Live::BOOT_ROWS,
             plain: Arc::new(String::new()),
             screen: None,
-            emu: None,
-            reader: None,
-            reader_token: None,
-            input: None,
-            input_traces: Default::default(),
-            breadcrumbs: Vec::new(),
-            breadcrumbs_pending: false,
-            auto_resume_pending: false,
+            capture: LiveCapture::default(),
+            input: LiveInput::default(),
             run_id: 0,
             title,
         }
@@ -740,7 +734,7 @@ impl Manager {
             let names = {
                 let live = m.live.read().await;
                 live.iter()
-                    .filter(|(_, l)| l.emu.is_some() || l.state != State::Down)
+                    .filter(|(_, l)| l.capture.emu.is_some() || l.state != State::Down)
                     .map(|(name, _)| name.clone())
                     .collect::<Vec<_>>()
             };

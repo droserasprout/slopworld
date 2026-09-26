@@ -198,7 +198,7 @@ impl Manager {
                 }
                 self.restore_activity(l, activity);
             }
-            live.get(&name).is_some_and(|l| l.emu.is_none())
+            live.get(&name).is_some_and(|l| l.capture.emu.is_none())
         };
 
         // An established reader already has its dimensions.
@@ -251,7 +251,7 @@ impl Manager {
             return;
         };
         let mut live = self.live.write().await;
-        if let Some(l) = live.get_mut(name).filter(|l| l.emu.is_none()) {
+        if let Some(l) = live.get_mut(name).filter(|l| l.capture.emu.is_none()) {
             l.cols = cols;
             l.rows = rows;
         }
