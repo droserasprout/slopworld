@@ -38,6 +38,7 @@ fn every_event_uses_its_contract_tag_and_payload_name() {
         request_id: 0,
         lines: Vec::new(),
     };
+    // Each case pairs an event with its wire tag and payload key.
     let events = [
         (
             Event::Capabilities {

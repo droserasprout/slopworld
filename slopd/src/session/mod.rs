@@ -1,3 +1,5 @@
+//! Shared session state; manager/ owns lifecycle and events.rs owns publication.
+
 mod protobuf;
 use std::collections::HashMap;
 use std::path::{Component, Path, PathBuf};
@@ -82,6 +84,7 @@ crate::wire_enum!(State, {
     State::Idle => crate::shared::protocol::enums::agent_state::IDLE,
 });
 
+/// Launch overrides supplied by the caller.
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct RunWhere {
     #[serde(default)]
@@ -96,6 +99,7 @@ pub struct RunWhere {
     pub random_tips: Vec<String>,
 }
 
+/// Internal notifications for rechecking connected clients’ credentials.
 #[derive(Debug, Clone)]
 pub(crate) enum AuthChange {
     GrantsRevoked,
@@ -110,22 +114,23 @@ enum Ready {
     Gone,
 }
 
+/// Mutable runtime state for one session, owned by Manager.
 struct Live {
+    // Configuration and host-shell identity.
     cfg: SessionCfg,
     ephemeral: bool,
-    // Do not save this in configuration. Host errands store it in a private tmux option.
-    // The daemon can recover it after a restart if tmux continues running.
+    // Recovered from a private tmux option after daemon restart; never saved in config.
     host: bool,
     // Preserve only cataloged host shell records after exit. Remove viewer and action records.
     persistent_host: bool,
     // Host shells keep their last tmux cwd separately from the project's configured root.
     host_path: String,
+    // Activity classification and terminal revisions.
     state: State,
     // Host-only: whether tmux currently has a foreground command other than the login shell.
     process_running: bool,
     seq: u64,
-    // The last sequence classified by retick.
-    // If the sequence is unchanged, only elapsed idle time can change the state.
+    // Last classified sequence; unchanged output only needs idle-time decay.
     retick_seq: u64,
     hash: u64,
     activity_hash: u64,
@@ -134,29 +139,26 @@ struct Live {
     state_since: u64,
     // Preserve the bell notification until a client subscribes. Its original frame is temporary.
     bell: bool,
+    // Terminal snapshot and its capture task.
     cols: u16,
     rows: u16,
     plain: Arc<String>,
-    // Regex matching is keyed by the stripped visible text and the accepted rules revision.
-    // Activity decay is sampled separately, so a quiet pane can age without rescanning its
-    // unchanged tail.
+    // Cache regex results by visible text and rules revision; idle decay is separate.
     rule_cache: Option<RuleCache>,
     screen: Option<ScreenView>,
     emu: Option<Arc<Mutex<SessionEmu>>>,
     reader: Option<JoinHandle<()>>,
-    // Identify the reader that owns the current emulator.
-    // An old reader can finish while its replacement starts. It must not remove the replacement's state.
+    // Prevent a replaced reader from clearing its successor’s emulator.
     reader_token: Option<Arc<()>>,
+    // Queued input and startup sequencing for the current process.
     input: Option<mpsc::UnboundedSender<Input>>,
     input_traces: crate::latency::Pending,
     // Insert immediately before the first Enter after process startup.
     breadcrumbs: Vec<u8>,
     breadcrumbs_pending: bool,
-    // Set while the startup auto-resume sequence is waiting or queued. The client uses this
-    // to keep user keystrokes behind the sequence in the input queue.
+    // Keep user keystrokes behind the pending startup auto-resume sequence.
     auto_resume_pending: bool,
-    // Distinguish successive processes with the same persistent session name.
-    // Do not send startup input for an old process to its replacement.
+    // Prevent stale startup input from reaching a replacement process with the same name.
     run_id: u64,
     title: TitleCapture,
 }

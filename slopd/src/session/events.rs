@@ -33,8 +33,7 @@ pub enum Event {
     },
 }
 
-/// One immutable event shared by all WebSocket pumps. The event itself remains separate from
-/// its cached wire representation because scoped session lists may need a filtered envelope.
+/// Shared event with lazy wire encoding. Keep the payload available for per-client filtering.
 pub(crate) struct EventMessage {
     event: Event,
     encoded: OnceLock<Result<Arc<[u8]>, String>>,
