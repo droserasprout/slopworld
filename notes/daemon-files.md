@@ -24,7 +24,7 @@ coverage scope.
 | `config/`, `config.rs` | Configuration model, persistence, validation, ownership and resolution. |
 | `worktrees.rs` | Independent worktree records and bounded Git operations. See [worktree ownership](daemon-worktrees.md). |
 | `tasks.rs`, `grant.rs` | Durable mailboxes and scoped authority. |
-| `audio/`, `jukebox.rs` | Playback and station catalog. |
+| `audio/`, `jukebox.rs` | Playback and station catalog. `session/manager/music.rs` groups radio audio, ncspot state, and the playback transition lock. |
 | `usage/`, `usage.rs` | Provider polling and quota normalization. |
 | `bin/` | Launcher, installer, and `slopctl` CLI. |
 

@@ -1,4 +1,5 @@
 //! Session manager state and focused implementation modules.
+//! Start at init.rs for construction, boundary.rs for concurrency, and start.rs for launch.
 
 mod adoption;
 mod agent_templates;
@@ -12,6 +13,7 @@ mod errands;
 mod init;
 mod library;
 mod maintenance;
+mod music;
 pub(crate) mod ncspot;
 mod reconcile;
 mod session_lifecycle;
@@ -24,87 +26,67 @@ mod tasks;
 mod workers;
 mod worktrees;
 pub(crate) use worktrees::WorktreeRequest;
-pub(crate) use worktrees::WorktreeViewCache;
+pub(crate) use worktrees::WorktreeState;
 
 pub(crate) use agent_templates::TemplateStore;
 pub(crate) use caps::Authorization;
+use capture::CachedScroll;
 pub(crate) use config_state::ConfigState;
+pub(crate) use music::MusicState;
+pub(crate) use session_state::ActivityRules;
 pub(crate) use sessions::HostMetadataPoll;
 pub(crate) use signals::Signals;
+pub use signals::WatchGuard;
 pub(crate) use tasks::TaskStore;
 
 use super::*;
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use tokio::sync::{broadcast, RwLock};
 
+/// Shared daemon coordinator; each subsystem keeps its own state and locks.
 pub struct Manager {
-    pub tmux: Tmux,
+    // Configuration and saved definitions.
     pub cfg_path: PathBuf,
     pub(super) endpoint_path: PathBuf,
+    // Accepted configuration; config.rs serializes persistence and publication.
     pub(super) cfg: RwLock<Config>,
+    pub(super) config_state: ConfigState,
     pub(super) templates: TemplateStore,
+
+    // Live sessions, terminal capture, and activity.
+    pub tmux: Tmux,
+    // Includes stopped sessions as well as attached processes.
     pub(super) live: RwLock<HashMap<String, Live>>,
     pub(super) temp: RwLock<HashMap<String, ProjectCfg>>,
-    pub(super) rules: RwLock<Vec<(State, Regex)>>,
-    pub(super) rules_revision: AtomicU64,
-    pub(super) config_state: ConfigState,
+    pub(super) rules: ActivityRules,
     pub(super) host_metadata: HostMetadataPoll,
-    pub(super) signals: Signals,
     pub(super) scroll_cache: Mutex<HashMap<String, CachedScroll>>,
     pub(super) activity_cache: crate::activity::ActivityCache,
-    pub audio: crate::audio::Audio,
-    pub(crate) music_transition: tokio::sync::Mutex<()>,
-    pub(crate) ncspot: tokio::sync::Mutex<ncspot::Player>,
-    pub events: broadcast::Sender<Arc<EventMessage>>,
-    pub(super) auth: Authorization,
-    pub(super) session_boundary: tokio::sync::RwLock<()>,
-    pub(super) resize_mutation: tokio::sync::Mutex<()>,
-    pub(crate) tasks: TaskStore,
-    /// Serialize worker creation by the daemon.
-    /// This prevents root requests from reserving the same child name or interleaving task and session writes.
-    pub(super) worker_spawn: tokio::sync::Mutex<()>,
-    pub(super) worktree_mutation: tokio::sync::Mutex<()>,
-    pub(super) worktree_views: tokio::sync::Mutex<WorktreeViewCache>,
     pub(super) title_cache: crate::title::SummaryCache,
-}
 
-pub(crate) struct CachedScroll {
-    pub(super) live_seq: u64,
-    pub(super) off: u32,
-    pub(super) cols: u16,
-    pub(super) rows: u16,
-    pub(super) view: ScreenView,
-}
+    // Client communication and authorization.
+    pub events: broadcast::Sender<Arc<EventMessage>>,
+    pub(super) signals: Signals,
+    pub(super) auth: Authorization,
 
-pub struct ClientGuard(pub(super) Arc<Manager>);
+    // Supporting services.
+    pub(crate) tasks: TaskStore,
+    pub(super) worktrees: WorktreeState,
+    pub(crate) music: MusicState,
 
-impl Drop for ClientGuard {
-    fn drop(&mut self) {
-        self.0.signals.clients.fetch_sub(1, Ordering::Relaxed);
-    }
-}
-
-pub struct WatchGuard(pub(super) Arc<Manager>, pub(super) String);
-
-impl Drop for WatchGuard {
-    fn drop(&mut self) {
-        let Ok(mut w) = self.0.signals.watchers.lock() else {
-            return;
-        };
-        if let Some(n) = w.get_mut(&self.1) {
-            *n -= 1;
-            if *n == 0 {
-                w.remove(&self.1);
-            }
-        }
-        self.0.signals.watchers_changed.send_replace(());
-    }
+    // Operation locks spanning multiple owners.
+    // Shared for ordinary requests, exclusive for session identity and lifecycle changes.
+    pub(super) session_boundary: tokio::sync::RwLock<()>,
+    // Keep tmux resize acceptance and published dimensions in request order.
+    pub(super) resize_mutation: tokio::sync::Mutex<()>,
+    // Prevent child-name collisions and interleaved task/session writes.
+    pub(super) worker_spawn: tokio::sync::Mutex<()>,
 }
 
 impl Manager {
+    /// Publish one event with encoding shared across subscribers.
     pub(crate) fn emit(&self, event: Event) {
         let _ = self.events.send(EventMessage::new(event));
     }

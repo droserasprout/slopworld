@@ -7,6 +7,21 @@ pub(super) const IDLE_MS: u64 = 10_000;
 // Refresh host cwd/process metadata independently of frame classification.
 pub(super) const HOST_METADATA_POLL_MS: u64 = 2_000;
 
+/// Compiled activity rules and the revision used to invalidate classification caches.
+pub(crate) struct ActivityRules {
+    pub(super) compiled: RwLock<Vec<(State, Regex)>>,
+    pub(super) revision: AtomicU64,
+}
+
+impl ActivityRules {
+    pub(super) fn new(compiled: Vec<(State, Regex)>) -> Self {
+        Self {
+            compiled: RwLock::new(compiled),
+            revision: AtomicU64::new(0),
+        }
+    }
+}
+
 struct RetickSnapshot {
     name: String,
     run_id: u64,
@@ -142,9 +157,10 @@ impl Manager {
         // Hold the rules read lock even for cache hits to keep the revision and cached result consistent.
         // Reuse cached results for unchanged text to avoid regex processing.
         // Configuration publication replaces both values together under the write lock.
-        let rules = self.rules.read().await;
+        let rules = self.rules.compiled.read().await;
         let current_revision = self
-            .rules_revision
+            .rules
+            .revision
             .load(std::sync::atomic::Ordering::Acquire);
         let matched = cache
             .filter(|cache| cache.revision == current_revision && cache.text.as_str() == text)
@@ -204,7 +220,7 @@ impl Manager {
         // Classification awaits the rules lock, so snapshot before releasing the live lock.
         let snapshot: Vec<RetickSnapshot> = {
             let live = self.live.read().await;
-            let rules_revision = self.rules_revision.load(Ordering::Acquire);
+            let rules_revision = self.rules.revision.load(Ordering::Acquire);
             live.iter()
                 .filter(|(_, l)| l.state != State::Down)
                 .filter_map(|(n, l)| {
@@ -254,7 +270,8 @@ impl Manager {
                     || l.seq != previous.seq
                     || l.state != previous.state
                     || self
-                        .rules_revision
+                        .rules
+                        .revision
                         .load(std::sync::atomic::Ordering::Acquire)
                         != previous.rules_revision
                     || classification.rules_revision != previous.rules_revision

@@ -1,6 +1,6 @@
 //! Manager-owned publication and subscription bookkeeping.
 
-use super::super::{now_ms, ClientGuard, Event, Manager, WatchGuard};
+use super::super::{now_ms, Event, Manager};
 use std::sync::atomic::Ordering;
 
 use std::collections::HashMap;
@@ -33,6 +33,33 @@ impl Signals {
             maintenance_wake: Arc::new(tokio::sync::Notify::new()),
             redraw_nudge: Arc::new(tokio::sync::Semaphore::new(1)),
         }
+    }
+}
+
+/// Tracks a connected client until dropped.
+pub struct ClientGuard(pub(super) Arc<Manager>);
+
+impl Drop for ClientGuard {
+    fn drop(&mut self) {
+        self.0.signals.clients.fetch_sub(1, Ordering::Relaxed);
+    }
+}
+
+/// Keeps a session watched until the subscription is dropped.
+pub struct WatchGuard(pub(super) Arc<Manager>, pub(super) String);
+
+impl Drop for WatchGuard {
+    fn drop(&mut self) {
+        let Ok(mut w) = self.0.signals.watchers.lock() else {
+            return;
+        };
+        if let Some(n) = w.get_mut(&self.1) {
+            *n -= 1;
+            if *n == 0 {
+                w.remove(&self.1);
+            }
+        }
+        self.0.signals.watchers_changed.send_replace(());
     }
 }
 

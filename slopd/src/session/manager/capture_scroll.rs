@@ -2,6 +2,15 @@
 
 use super::*;
 
+/// Scrollback view keyed by the live frame, offset, and grid size.
+pub(crate) struct CachedScroll {
+    pub(in crate::session::manager) live_seq: u64,
+    pub(in crate::session::manager) off: u32,
+    pub(in crate::session::manager) cols: u16,
+    pub(in crate::session::manager) rows: u16,
+    pub(in crate::session::manager) view: ScreenView,
+}
+
 impl Manager {
     pub(crate) fn forget_scroll(&self, name: &str) {
         if let Ok(mut c) = self.scroll_cache.lock() {

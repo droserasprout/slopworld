@@ -1,7 +1,10 @@
 //! Manager construction and startup recovery.
 
 use super::super::*;
-use super::{Authorization, ConfigState, HostMetadataPoll, Signals, TemplateStore};
+use super::{
+    ActivityRules, Authorization, ConfigState, HostMetadataPoll, MusicState, Signals,
+    TemplateStore, WorktreeState,
+};
 
 impl Manager {
     /// Load stores, recover worktrees, and reconcile configured sessions.
@@ -29,8 +32,7 @@ impl Manager {
             tmux: Tmux::new(crate::config::tmux_socket()),
             cfg_path,
             endpoint_path: crate::endpoint::path(),
-            rules: RwLock::new(compile_rules(&cfg)),
-            rules_revision: AtomicU64::new(0),
+            rules: ActivityRules::new(compile_rules(&cfg)),
             live: RwLock::new(HashMap::new()),
             temp: RwLock::new(HashMap::new()),
             cfg: RwLock::new(cfg),
@@ -45,17 +47,14 @@ impl Manager {
             signals: Signals::new(),
             scroll_cache: Mutex::new(HashMap::new()),
             activity_cache,
-            audio: crate::audio::Audio::new(),
-            music_transition: tokio::sync::Mutex::new(()),
-            ncspot: tokio::sync::Mutex::new(Default::default()),
+            music: MusicState::new(),
             events,
             auth: Authorization::new(grants),
             session_boundary: tokio::sync::RwLock::new(()),
             resize_mutation: tokio::sync::Mutex::new(()),
             tasks: crate::session::manager::TaskStore::new(tasks),
             worker_spawn: tokio::sync::Mutex::new(()),
-            worktree_mutation: tokio::sync::Mutex::new(()),
-            worktree_views: tokio::sync::Mutex::new(Default::default()),
+            worktrees: WorktreeState::default(),
             title_cache,
         });
         if let Ok(n) = crate::sandbox::purge_trash() {

@@ -499,7 +499,7 @@ async fn handle_audio(req: AudioReq, m: &Mgr, cap: &Cap) -> Option<crate::audio:
         .as_ref()
         .and_then(Option::as_ref)
         .is_some_and(|s| s.ncspot);
-    let _transition = m.music_transition.lock().await;
+    let _transition = m.music.transition.lock().await;
     let result = match req.selection {
         Some(Some(selection)) if selection.ncspot => {
             if selection.station.is_some() || selection.stream.is_some() || selection.file.is_some()
@@ -518,13 +518,13 @@ async fn handle_audio(req: AudioReq, m: &Mgr, cap: &Cap) -> Option<crate::audio:
             Ok(()) => match selection {
                 Some(s) => match resolve_audio_source(s) {
                     Ok(source) => {
-                        m.audio.play(&source, req.volume);
+                        m.music.audio.play(&source, req.volume);
                         Ok(())
                     }
                     Err(e) => Err(e),
                 },
                 None => {
-                    m.audio.stop();
+                    m.music.audio.stop();
                     Ok(())
                 }
             },
@@ -533,7 +533,7 @@ async fn handle_audio(req: AudioReq, m: &Mgr, cap: &Cap) -> Option<crate::audio:
     };
     if let Err(e) = result {
         let error = format!("{e:#}");
-        m.audio.reject(error.clone());
+        m.music.audio.reject(error.clone());
         if spotify {
             return Some(crate::audio::AudioState {
                 source: Some("ncspot".into()),

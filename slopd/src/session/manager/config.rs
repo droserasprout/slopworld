@@ -178,9 +178,10 @@ impl Manager {
             }
         }
 
-        let mut rules = self.rules.write().await;
+        let mut rules = self.rules.compiled.write().await;
         *rules = change.rules;
-        self.rules_revision
+        self.rules
+            .revision
             .fetch_add(1, std::sync::atomic::Ordering::AcqRel);
         drop(rules);
         *self.cfg.write().await = change.new;

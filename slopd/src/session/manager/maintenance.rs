@@ -66,7 +66,7 @@ impl Manager {
             now,
         ));
 
-        let rules_revision = self.rules_revision.load(Ordering::Acquire);
+        let rules_revision = self.rules.revision.load(Ordering::Acquire);
         let live = self.live.read().await;
         if live.values().any(|l| l.host && l.state != State::Down) {
             deadline = deadline.min(next_periodic_deadline(

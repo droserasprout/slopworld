@@ -31,10 +31,9 @@ pub(crate) use agent_templates::validate_definition as validate_template_definit
 pub(crate) use agent_templates::{AgentTemplate, AgentTemplateError, AgentTemplateStore};
 pub use events::Event;
 pub(crate) use events::EventMessage;
-pub(super) use manager::CachedScroll;
 #[cfg(test)]
 pub(crate) use manager::{test_manager, test_manager_with_socket};
-pub use manager::{ClientGuard, Manager, WatchGuard};
+pub use manager::{Manager, WatchGuard};
 pub(crate) use view::FrameViewArgs;
 pub use view::{ProjectView, ScreenView, SessionLaunchView, SessionView, SessionWorkerView};
 

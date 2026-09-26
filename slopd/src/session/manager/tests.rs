@@ -23,8 +23,7 @@ pub(crate) fn test_manager_with_socket(config: Config, socket: impl Into<String>
         templates: TemplateStore::new(AgentTemplateStore::default()),
         live: RwLock::new(HashMap::new()),
         temp: RwLock::new(HashMap::new()),
-        rules: RwLock::new(Vec::new()),
-        rules_revision: AtomicU64::new(0),
+        rules: ActivityRules::new(Vec::new()),
         config_state: super::ConfigState::new(None, None, None, None),
         host_metadata: HostMetadataPoll::default(),
         signals: super::Signals::new(),
@@ -32,9 +31,7 @@ pub(crate) fn test_manager_with_socket(config: Config, socket: impl Into<String>
         activity_cache: crate::activity::ActivityCache::load(crate::activity::cache_path(
             &cfg_path,
         )),
-        audio: crate::audio::Audio::new(),
-        music_transition: tokio::sync::Mutex::new(()),
-        ncspot: tokio::sync::Mutex::new(Default::default()),
+        music: MusicState::new(),
         events,
         auth: Authorization::new(crate::grant::Grants::default()),
         session_boundary: tokio::sync::RwLock::new(()),
@@ -43,8 +40,7 @@ pub(crate) fn test_manager_with_socket(config: Config, socket: impl Into<String>
             crate::tasks::Tasks::load(&cfg_path).expect("test task store"),
         ),
         worker_spawn: tokio::sync::Mutex::new(()),
-        worktree_mutation: tokio::sync::Mutex::new(()),
-        worktree_views: tokio::sync::Mutex::new(Default::default()),
+        worktrees: WorktreeState::default(),
         title_cache: crate::title::SummaryCache::load(crate::title::cache_path(&cfg_path)),
     })
 }

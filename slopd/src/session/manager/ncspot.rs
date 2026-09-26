@@ -39,7 +39,7 @@ impl Manager {
     // a default volume to a player with a saved applied volume. A missing marker means
     // IPC may never have become ready before shutdown, so volume still needs applying.
     pub(super) async fn recover_ncspot(&self, root: &Path) {
-        let mut player = self.ncspot.lock().await;
+        let mut player = self.music.ncspot.lock().await;
         if player.session.is_some() {
             return;
         }
@@ -79,7 +79,7 @@ impl Manager {
         volume: Option<f32>,
     ) -> Result<String> {
         let root = runtime()?;
-        let mut player = self.ncspot.lock().await;
+        let mut player = self.music.ncspot.lock().await;
         let command = launch_command(&root);
         // The explicit tmux marker survives daemon deployment. Labels and reconstructed commands do not.
         if player.session.is_none() {
@@ -91,7 +91,7 @@ impl Manager {
                     player.volume = volume.clamp(0.0, 1.0);
                 }
                 player.socket = Some(root.join("slopworld-ncspot/ncspot/ncspot.sock"));
-                self.audio.stop();
+                self.music.audio.stop();
                 return Ok(name);
             }
             player.session = None;
@@ -116,7 +116,7 @@ impl Manager {
             tokio::net::UnixStream::connect(&socket).await.is_err(),
             "An unmanaged ncspot uses the SlopWorld socket. Close it before opening this player."
         );
-        self.audio.stop();
+        self.music.audio.stop();
         let session = self
             .run_errand(
                 LibraryItemCfg {
@@ -149,7 +149,7 @@ impl Manager {
     }
 
     pub(crate) async fn stop_ncspot(self: &Arc<Self>) -> Result<()> {
-        let mut player = self.ncspot.lock().await;
+        let mut player = self.music.ncspot.lock().await;
         if player.session.is_none() {
             player.session = self.adopted_ncspot().await;
         }
@@ -163,19 +163,19 @@ impl Manager {
     }
 
     pub(crate) async fn music_volume(&self, volume: f32) -> Result<()> {
-        let mut player = self.ncspot.lock().await;
+        let mut player = self.music.ncspot.lock().await;
         if player.session.is_some() {
             player.volume = volume.clamp(0.0, 1.0);
         } else {
-            self.audio.set_volume(volume);
+            self.music.audio.set_volume(volume);
         }
         Ok(())
     }
 
     pub(crate) async fn music_state(&self) -> crate::audio::AudioState {
-        let mut player = self.ncspot.lock().await;
+        let mut player = self.music.ncspot.lock().await;
         let Some(name) = player.session.as_ref() else {
-            return self.audio.state();
+            return self.music.audio.state();
         };
         let mut state = crate::audio::AudioState {
             source: Some("ncspot".into()),

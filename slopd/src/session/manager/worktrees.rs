@@ -7,10 +7,17 @@ use std::collections::HashMap;
 use std::os::unix::fs::MetadataExt;
 use std::time::SystemTime;
 
+/// Worktree mutation serialization and cached disk records.
+#[derive(Default)]
+pub(crate) struct WorktreeState {
+    pub(super) mutation: tokio::sync::Mutex<()>,
+    views: tokio::sync::Mutex<WorktreeViewCache>,
+}
+
 type FileStamp = (SystemTime, u64, u64, u64);
 
 #[derive(Default)]
-pub(crate) struct WorktreeViewCache {
+struct WorktreeViewCache {
     stamp: Option<Option<FileStamp>>,
     by_id: Arc<HashMap<String, Worktree>>,
 }
@@ -57,7 +64,7 @@ impl Manager {
         let manager = self.clone();
         manager
             .session_operation(async {
-                let _lock = manager.worktree_mutation.lock().await;
+                let _lock = manager.worktrees.mutation.lock().await;
                 let cfg = manager.config().await;
                 let p = cfg
                     .project(&project)
@@ -115,7 +122,7 @@ impl Manager {
     }
     /// Reload the index when the catalog is replaced or edited externally.
     pub(super) async fn worktree_view_index(&self) -> Arc<HashMap<String, Worktree>> {
-        let mut cache = self.worktree_views.lock().await;
+        let mut cache = self.worktrees.views.lock().await;
         let stamp = file_stamp(&self.cfg_path.with_file_name("worktrees.toml")).await;
         if cache.stamp.as_ref() != Some(&stamp) {
             let store = Store::load(&self.cfg_path).await.unwrap_or_default();
@@ -226,7 +233,7 @@ impl Manager {
     }
 
     pub(crate) async fn recover_worktrees(&self) -> Result<()> {
-        let _lock = self.worktree_mutation.lock().await;
+        let _lock = self.worktrees.mutation.lock().await;
         let mut store = Store::load(&self.cfg_path).await?;
         let mut changed = false;
         for w in &mut store.worktrees {
@@ -460,7 +467,7 @@ impl Manager {
         let manager = self.clone();
         manager
             .session_read_operation(async {
-                let _lock = manager.worktree_mutation.lock().await;
+                let _lock = manager.worktrees.mutation.lock().await;
                 let p = manager
                     .update_cfg_if_changed_within_boundary(|cfg| {
                         let p = cfg
@@ -616,7 +623,7 @@ impl Manager {
     ) -> Result<()> {
         let manager = self.clone();
         manager.session_operation(async {
-            let _lock = manager.worktree_mutation.lock().await;
+            let _lock = manager.worktrees.mutation.lock().await;
             let cfg = manager.config().await;
             let p = cfg.project(&project).ok_or_else(|| anyhow!("no project {project}"))?;
             let mut store = Store::load(&manager.cfg_path).await?;

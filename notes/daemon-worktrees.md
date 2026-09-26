@@ -70,3 +70,6 @@ Session views retain a file-stamped worktree index and reload it when the catalo
 including external edits. TOML parsing and serialization run on the blocking executor.
 The async file helper still replaces files atomically. The mutation lock preserves write order.
 Unchanged views do not parse the catalog again.
+
+`WorktreeState` in `session/manager/worktrees.rs` groups the mutation gate and cached disk records.
+The locks remain separate so reading cached views does not acquire the mutation gate.
