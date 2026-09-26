@@ -3,6 +3,9 @@
 use super::super::*;
 use super::session_lifecycle::{finish_reader, take_reader_for_abort};
 use anyhow::anyhow;
+// Bound user labels shown in session lists.
+const MAX_MANUAL_LABEL_CHARS: usize = 60;
+
 fn update_host_process(l: &mut Live, command: &str) -> bool {
     let process_running = !crate::sandbox::is_shell_command(command);
     if l.process_running == process_running {

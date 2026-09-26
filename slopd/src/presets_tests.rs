@@ -38,7 +38,8 @@ fn builtins_parse_and_name_themselves() {
     for name in ["bash", "zsh", "fish", "nu", "pwsh", "sh"] {
         assert_eq!(t.command(name).unwrap().kind, CommandKind::Shell);
     }
-    assert_eq!(t.sandbox("codex").unwrap().requires, vec!["x11", "wayland"]);
+    // Desktop access is opt-in for clipboard image paste.
+    assert!(t.sandbox("codex").unwrap().requires.is_empty());
     assert_eq!(
         t.sandbox("systemd").unwrap().setenv["SYSTEMCTL_FORCE_BUS"],
         "1"
@@ -86,17 +87,15 @@ fn builtins_parse_and_name_themselves() {
     assert_eq!(
         t.sandbox("slopworld-debug").unwrap().requires,
         vec![
-            "systemd",
-            "x11",
-            "wayland",
-            "gpu",
-            "audio",
-            "git",
-            "rust-cache",
-            "nuget-cache",
             "ccache",
+            "docker",
+            "git",
+            "nuget-cache",
             "python",
-            "docker"
+            "rust-cache",
+            "systemd",
+            "wayland",
+            "x11",
         ]
     );
     assert_eq!(

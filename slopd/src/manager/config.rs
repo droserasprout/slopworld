@@ -1,7 +1,15 @@
 //! Manager construction and configuration synchronization.
 
 use super::super::*;
+use super::session_state::{HOST_METADATA_POLL_MS, IDLE_MS};
 use super::{reconcile::ConfigReconciler, ConfigState, Signals};
+
+// Check external configuration edits on the maintenance clock.
+const CFG_CHECK_MS: u64 = 2_000;
+// Check preset files independently of configuration changes.
+const PRESETS_CHECK_MS: u64 = 2_000;
+// Check station catalog edits without restarting playback.
+const JUKEBOX_CHECK_MS: u64 = 2_000;
 
 enum ConfigOrigin {
     StructuredMutation,
@@ -178,8 +186,8 @@ impl Live {
             rule_cache: None,
             state_since: 0,
             bell: false,
-            cols: BOOT_COLS,
-            rows: BOOT_ROWS,
+            cols: Live::BOOT_COLS,
+            rows: Live::BOOT_ROWS,
             plain: Arc::new(String::new()),
             screen: None,
             emu: None,

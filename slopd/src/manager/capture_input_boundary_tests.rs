@@ -69,9 +69,7 @@ async fn enter_injects_breadcrumbs_once_between_preceding_keys_and_submission() 
     assert!(
         matches!(rx.try_recv().unwrap(), Input::Paste { bytes } if bytes == b"remember the tests")
     );
-    assert!(
-        matches!(rx.try_recv().unwrap(), Input::Gap(delay) if delay == Duration::from_millis(ENTER_GAP_MS))
-    );
+    assert!(matches!(rx.try_recv().unwrap(), Input::Gap(delay) if delay == ENTER_GAP));
     assert!(
         matches!(rx.try_recv().unwrap(), Input::Keys { keys, literal: false } if keys == ["Enter", "Right"])
     );

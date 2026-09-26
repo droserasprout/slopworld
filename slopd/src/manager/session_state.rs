@@ -2,6 +2,11 @@
 
 use super::super::*;
 
+// Working sessions become idle after this long without meaningful activity.
+pub(super) const IDLE_MS: u64 = 10_000;
+// Refresh host cwd/process metadata independently of frame classification.
+pub(super) const HOST_METADATA_POLL_MS: u64 = 2_000;
+
 struct RetickSnapshot {
     name: String,
     run_id: u64,
