@@ -21,10 +21,13 @@ locked .NET Framework reference assemblies.
 IPC benchmarks and the terminal-input HTTP regression need Mono.
 Game references must keep `Private=false`: RimWorld loads every DLL in `Assemblies/`.
 
-`test.yml` owns game-free checks for branch pushes, pull requests and manual runs.
+`test.yml` owns game-free checks for branch pushes and manual runs. It has no
+pull-request trigger, so an open PR does not duplicate each push's checks.
 `test-tools` checks plan status headers. `make install-git-hooks` configures the
 local pre-commit guard against commits on `main`. It does not protect remote pushes.
 Release CI calls it and packages the exact tested commit.
+The Ubuntu CI runner grants bubblewrap user namespaces through an AppArmor profile
+and probes sandbox startup before testing. Worktree cleanup needs network isolation.
 CI calls `make ci`, writes coverage rates to the job summary,
 and uploads Cobertura reports as the `coverage` artifact. Supporting-tool and pager
 tests run separately.

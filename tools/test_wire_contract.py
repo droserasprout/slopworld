@@ -40,16 +40,22 @@ class WireContractTests(unittest.TestCase):
         from reference import api_routes, read_files
         root = Path(__file__).resolve().parents[1]
         source = "\n".join(p.read_text().split("#[cfg(test)]")[0]
-                           for p in (root / "slopd/src/api").glob("handlers*.rs"))
+                           for p in sorted((root / "slopd/src/api/handlers").rglob("*.rs")))
         signatures = {m[1]: (m[2], m[3] or "Ack") for m in re.finditer(
             r"pub\(crate\) async fn (\w+)\(([^{}]*?)\) -> ApiResult(?:<wire::(\w+)>)?\s*\{", source)}
+        # Session actions share a body-free request and an acknowledgement response.
+        for actions in re.findall(r"session_action!\(([^)]+)\)", source):
+            for action in actions.split(","):
+                if action.strip():
+                    signatures[action.strip()] = ("", "Ack")
         declared = {(method, route["path"]): types
                     for route in self.data["http"]["routes"].values()
                     for method, types in route["protobuf"].items()}
         for route in api_routes(read_files()):
             if route.path == "/ws":
                 continue
-            body, response = signatures.get(route.handler, ("", "Ack"))
+            self.assertIn(route.handler, signatures, f"missing handler signature: {route.handler}")
+            body, response = signatures[route.handler]
             request = re.search(r"Proto<wire::(\w+)>", body)
             self.assertEqual(declared[(route.method, route.path)],
                              [request[1] if request else "Empty", response], route.handler)
