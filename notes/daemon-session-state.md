@@ -12,6 +12,9 @@ Manager authorization lives in `caps.rs`: `Authorization` groups grants and cred
 `LiveInput` groups queued input and startup sequencing; `LiveCapture` groups the emulator and reader ownership.
 Run identity stays on `Live`. Teardown resets individual fields and handles reader disposition separately.
 
+Session operation wrappers acquire the boundary and delegate to `_inner` helpers.
+`detach_live_locked` instead requires the caller to pass the locked live-session map.
+
 Session edits check a complete candidate configuration before renaming tmux.
 The session boundary and configuration persistence gate protect the operation from preparation through commit.
 Session identity and grant changes take the exclusive boundary. Terminal input, task routes,

@@ -60,11 +60,11 @@ impl Manager {
         sessions: Vec<String>,
         level: crate::grant::Level,
     ) -> Result<String> {
-        self.session_operation(self.mint_grant_within_boundary(grantor, sessions, level))
+        self.session_operation(self.mint_grant_inner(grantor, sessions, level))
             .await
     }
 
-    async fn mint_grant_within_boundary(
+    async fn mint_grant_inner(
         &self,
         grantor: String,
         sessions: Vec<String>,
@@ -120,11 +120,11 @@ impl Manager {
     }
 
     pub async fn revoke_grants(&self, grantor: &str) -> Result<()> {
-        self.session_operation(self.revoke_grants_within_boundary(grantor))
+        self.session_operation(self.revoke_grants_inner(grantor))
             .await
     }
 
-    async fn revoke_grants_within_boundary(&self, grantor: &str) -> Result<()> {
+    async fn revoke_grants_inner(&self, grantor: &str) -> Result<()> {
         let mut grants = self.auth.grants.write().await;
         let count = grants.count();
         let result = grants.try_revoke_grantor(grantor);
@@ -138,11 +138,11 @@ impl Manager {
 
     /// Revoke whole grants owned by or targeting a disappearing session.
     pub async fn invalidate_session(&self, name: &str) {
-        self.session_operation(self.invalidate_session_within_boundary(name))
+        self.session_operation(self.invalidate_session_inner(name))
             .await
     }
 
-    async fn invalidate_session_within_boundary(&self, name: &str) {
+    async fn invalidate_session_inner(&self, name: &str) {
         let mut grants = self.auth.grants.write().await;
         let count = grants.count();
         if let Err(error) = grants.try_invalidate_session(name) {

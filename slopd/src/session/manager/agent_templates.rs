@@ -47,7 +47,7 @@ impl Manager {
         description: String,
     ) -> Result<AgentTemplate> {
         self.reload_if_changed().await;
-        self.session_operation(self.save_agent_template_within_boundary(
+        self.session_operation(self.save_agent_template_inner(
             source_name,
             template_name,
             description,
@@ -55,7 +55,7 @@ impl Manager {
         .await
     }
 
-    async fn save_agent_template_within_boundary(
+    async fn save_agent_template_inner(
         &self,
         source_name: &str,
         template_name: String,

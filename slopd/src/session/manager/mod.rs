@@ -7,6 +7,7 @@ mod boundary;
 mod caps;
 mod capture;
 mod config;
+mod config_cache;
 mod config_state;
 mod desktop;
 mod errands;

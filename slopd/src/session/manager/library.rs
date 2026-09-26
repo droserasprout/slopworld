@@ -171,7 +171,7 @@ impl Manager {
             }
         }
         let result = self
-            .update_cfg_if_changed_within_boundary(|cfg| {
+            .update_cfg_if_changed_inner(|cfg| {
                 let idx = cfg
                     .projects
                     .iter()

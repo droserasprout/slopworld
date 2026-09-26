@@ -157,11 +157,10 @@ mod tests;
 
 impl Manager {
     pub async fn sync_from_config(self: &Arc<Self>) {
-        self.session_operation(self.sync_from_config_within_boundary())
-            .await
+        self.session_operation(self.sync_from_config_inner()).await
     }
 
-    async fn sync_from_config_within_boundary(self: &Arc<Self>) {
+    async fn sync_from_config_inner(self: &Arc<Self>) {
         ConfigReconciler::sync(self).await;
     }
 }

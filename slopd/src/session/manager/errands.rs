@@ -35,7 +35,7 @@ impl Manager {
         persistent_host: bool,
         like: &str,
     ) -> Result<String> {
-        self.session_operation(self.create_errand_session_within_boundary(
+        self.session_operation(self.create_errand_session_inner(
             cfg,
             sc,
             want,
@@ -46,7 +46,7 @@ impl Manager {
         .await
     }
 
-    async fn create_errand_session_within_boundary(
+    async fn create_errand_session_inner(
         &self,
         cfg: &Config,
         sc: &LibraryItemCfg,

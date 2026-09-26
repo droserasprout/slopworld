@@ -201,11 +201,10 @@ impl Manager {
 
 impl Manager {
     pub async fn stop(self: &Arc<Self>, name: &str) -> Result<()> {
-        self.session_operation(self.stop_within_boundary(name))
-            .await
+        self.session_operation(self.stop_inner(name)).await
     }
 
-    async fn stop_within_boundary(self: &Arc<Self>, name: &str) -> Result<()> {
+    async fn stop_inner(self: &Arc<Self>, name: &str) -> Result<()> {
         if self.tmux.exists(name).await {
             self.tmux.kill(name).await?;
         }
@@ -225,11 +224,10 @@ impl Manager {
     }
 
     pub(super) async fn forget(self: &Arc<Self>, name: &str) {
-        self.session_operation(self.forget_within_boundary(name))
-            .await
+        self.session_operation(self.forget_inner(name)).await
     }
 
-    async fn forget_within_boundary(self: &Arc<Self>, name: &str) {
+    async fn forget_inner(self: &Arc<Self>, name: &str) {
         let plan = {
             let mut live = self.live.write().await;
             self.detach_live_locked(&mut live, name, DetachCause::Forget)
@@ -240,11 +238,10 @@ impl Manager {
     }
 
     pub async fn restart(self: &Arc<Self>, name: &str) -> Result<()> {
-        self.session_operation(self.restart_within_boundary(name))
-            .await
+        self.session_operation(self.restart_inner(name)).await
     }
 
-    async fn restart_within_boundary(self: &Arc<Self>, name: &str) -> Result<()> {
+    async fn restart_inner(self: &Arc<Self>, name: &str) -> Result<()> {
         self.stop(name).await?;
         self.start(name).await
     }

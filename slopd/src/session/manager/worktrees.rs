@@ -469,7 +469,7 @@ impl Manager {
             .session_read_operation(async {
                 let _lock = manager.worktrees.mutation.lock().await;
                 let p = manager
-                    .update_cfg_if_changed_within_boundary(|cfg| {
+                    .update_cfg_if_changed_inner(|cfg| {
                         let p = cfg
                             .projects
                             .iter_mut()
