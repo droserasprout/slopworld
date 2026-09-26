@@ -1,3 +1,5 @@
+//! Daemon startup, background services, HTTP authentication, and shutdown.
+
 mod activity;
 mod api;
 mod audio;
@@ -52,6 +54,7 @@ async fn main() -> Result<()> {
         )
         .init();
 
+    // Load and validate configuration before starting services.
     let cfg_path = Config::path_in_use();
     let cfg = Config::load(&cfg_path).await?;
     runtime::validate_runtime_name()?;
@@ -85,11 +88,10 @@ async fn main() -> Result<()> {
     let bind = cfg.daemon.bind.clone();
     let m = Manager::new(cfg, cfg_path).await;
 
-    // Scan tracked files before the player opens the Git sidebar.
-    // Initialize Git's filesystem and untracked caches before publishing the daemon endpoint.
-    // The next status request can use these caches for an incremental scan.
+    // Warm Git caches before publishing the endpoint so initial status reads are incremental.
     git::warm_projects(git_dirs).await;
 
+    // Background maintenance and media services share the manager.
     let poller = {
         let m: Arc<Manager> = m.clone();
         tokio::spawn(async move {
@@ -104,12 +106,13 @@ async fn main() -> Result<()> {
         })
     };
 
-    // The usage task waits while polling is disabled. Users can enable polling without restarting the daemon.
+    // Spawn even when disabled so polling can be enabled without a restart.
     let usage = usage::spawn(m.clone());
 
     // Monitor the jukebox. The mod selects what to play.
     let audio = audio::spawn(m.clone());
 
+    // Publish discovery information only after the listener is bound.
     let app = api::router(m.clone())
         .layer(middleware::from_fn_with_state(m.clone(), auth))
         .layer(middleware::from_fn(api::protobuf::normalize_errors));
@@ -133,8 +136,7 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-/// Handle SIGTERM so daemon installation can restart the unit while the game runs.
-/// Close sockets cleanly to avoid interrupting a frame.
+/// Wait for Ctrl+C or SIGTERM to begin graceful HTTP shutdown.
 async fn shutdown() {
     use tokio::signal::unix::{signal, SignalKind};
     let mut term = match signal(SignalKind::terminate()) {
@@ -151,10 +153,7 @@ async fn shutdown() {
     }
 }
 
-/// Resolve the request token to a capability and attach it to the request.
-/// Handlers use this capability to check access without reading the header.
-/// Permit root credentials and grants. Return 401 for other credentials before calling a handler.
-/// The /ws route resolves credentials again because the mod sends the header only with the upgrade request.
+/// Attach the token’s capability for handlers, or reject unauthorized requests.
 async fn auth(
     State(m): State<Arc<Manager>>,
     mut req: Request,
