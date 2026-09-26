@@ -268,16 +268,14 @@ impl Manager {
     }
 
     pub async fn add(self: &Arc<Self>, s: SessionCfg) -> Result<()> {
-        self.session_operation(self.add_within_boundary(s, false))
-            .await
+        self.session_operation(self.add_inner(s, false)).await
     }
 
     pub(super) async fn add_template_session(self: &Arc<Self>, s: SessionCfg) -> Result<()> {
-        self.session_operation(self.add_within_boundary(s, true))
-            .await
+        self.session_operation(self.add_inner(s, true)).await
     }
 
-    async fn add_within_boundary(
+    async fn add_inner(
         self: &Arc<Self>,
         mut s: SessionCfg,
         preserve_snapshots: bool,
@@ -332,14 +330,14 @@ impl Manager {
         let name = name.to_string();
         tokio::spawn(async move {
             manager
-                .session_operation(manager.update_within_boundary(&name, s))
+                .session_operation(manager.update_inner(&name, s))
                 .await
         })
         .await
         .map_err(|error| anyhow!("session update task failed: {error}"))?
     }
 
-    async fn update_within_boundary(self: &Arc<Self>, name: &str, mut s: SessionCfg) -> Result<()> {
+    async fn update_inner(self: &Arc<Self>, name: &str, mut s: SessionCfg) -> Result<()> {
         self.reload_if_changed().await;
         if let Some(p) = self.config().await.project(&s.project) {
             self.resolve_worktree(p, &s.worktree).await?;
@@ -576,11 +574,10 @@ impl Manager {
     }
 
     pub async fn remove(self: &Arc<Self>, name: &str) -> Result<()> {
-        self.session_operation(self.remove_within_boundary(name))
-            .await
+        self.session_operation(self.remove_inner(name)).await
     }
 
-    async fn remove_within_boundary(self: &Arc<Self>, name: &str) -> Result<()> {
+    async fn remove_inner(self: &Arc<Self>, name: &str) -> Result<()> {
         self.reload_if_changed().await;
         if self.is_host(name).await {
             self.stop(name).await?;
@@ -641,11 +638,10 @@ impl Manager {
     /// Stop the agent. Move its private tool state to the daemon trash for two weeks of recovery.
     /// Keep the configured agent. Initialize new private state when it starts again.
     pub async fn reset_state(self: &Arc<Self>, name: &str) -> Result<()> {
-        self.session_operation(self.reset_state_within_boundary(name))
-            .await
+        self.session_operation(self.reset_state_inner(name)).await
     }
 
-    async fn reset_state_within_boundary(self: &Arc<Self>, name: &str) -> Result<()> {
+    async fn reset_state_inner(self: &Arc<Self>, name: &str) -> Result<()> {
         self.reload_if_changed().await;
         if self.is_ephemeral(name).await {
             bail!("temporary session {name} has no resettable private state");
@@ -694,11 +690,11 @@ impl Manager {
     }
 
     pub async fn restore_stored_state(self: &Arc<Self>, key: &str) -> Result<String> {
-        self.session_operation(self.restore_stored_state_within_boundary(key))
+        self.session_operation(self.restore_stored_state_inner(key))
             .await
     }
 
-    async fn restore_stored_state_within_boundary(self: &Arc<Self>, key: &str) -> Result<String> {
+    async fn restore_stored_state_inner(self: &Arc<Self>, key: &str) -> Result<String> {
         self.reload_if_changed().await;
         let archived = crate::sandbox::trashed_session(key)?;
         let cfg = self.config().await;

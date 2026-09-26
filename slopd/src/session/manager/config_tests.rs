@@ -4,49 +4,6 @@ use crate::session::test_manager;
 use std::time::{Duration, UNIX_EPOCH};
 
 #[tokio::test]
-async fn cache_configuration_removes_only_owned_links() {
-    let Some(temp) = crate::test_support::isolated() else {
-        return;
-    };
-    let checkout = temp.join("repo");
-    std::fs::create_dir_all(&checkout).unwrap();
-    let project = ProjectCfg {
-        id: uuid::Uuid::new_v4().to_string(),
-        name: "repo".into(),
-        dir: checkout.to_string_lossy().into_owned(),
-        mounts: vec![crate::config::Mount {
-            from: temp.join("shared").to_string_lossy().into_owned(),
-            to: "target".into(),
-            mode: crate::config::MountMode::Cache,
-        }],
-        ..Default::default()
-    };
-    let configured = Config {
-        projects: vec![project.clone()],
-        ..Default::default()
-    };
-    let path = temp.join("config.toml");
-    reconcile_cache_links(&path, &Config::default(), &configured)
-        .await
-        .unwrap();
-    let link = checkout.join("target");
-    let source = temp.join("shared");
-    assert_eq!(std::fs::read_link(&link).unwrap(), source);
-    let mut changed = configured.clone();
-    changed.projects[0].mounts.clear();
-    reconcile_cache_links(&path, &configured, &changed)
-        .await
-        .unwrap();
-    assert!(std::fs::symlink_metadata(&link).is_err());
-    assert!(source.is_dir());
-    std::os::unix::fs::symlink(temp.join("different"), &link).unwrap();
-    assert!(reconcile_cache_links(&path, &configured, &changed)
-        .await
-        .is_err());
-    assert_eq!(std::fs::read_link(&link).unwrap(), temp.join("different"));
-}
-
-#[tokio::test]
 async fn persisted_root_token_changes_invalidate_existing_auth() {
     let manager = test_manager(Config::default());
     let mut changes = manager.auth_changes();
@@ -228,4 +185,49 @@ async fn invalid_config_does_not_consume_its_disk_stamp() {
     );
 
     let _ = std::fs::remove_file(path);
+}
+
+#[tokio::test]
+async fn configuration_entry_points_preserve_notification_scope() {
+    let manager = crate::session::test_manager_with_socket(
+        Config::default(),
+        format!("slopworld-config-events-{}", uuid::Uuid::new_v4()),
+    );
+    let mut events = manager.events.subscribe();
+
+    // Structured edits leave announcements to the operation that requested the edit.
+    manager.update_cfg(|_| Ok(())).await.unwrap();
+    assert!(events.try_recv().is_err());
+
+    let text = toml::to_string_pretty(&manager.config().await).unwrap();
+    manager.replace_config(&text).await.unwrap();
+    assert!(matches!(
+        events.try_recv().unwrap().event(),
+        Event::Projects { .. }
+    ));
+    assert!(matches!(
+        events.try_recv().unwrap().event(),
+        Event::Library { .. }
+    ));
+    assert!(events.try_recv().is_err());
+
+    // An external reload also announces the authoritative session list.
+    std::fs::File::open(&manager.cfg_path)
+        .unwrap()
+        .set_modified(UNIX_EPOCH + Duration::from_secs(1))
+        .unwrap();
+    assert!(manager.reload_if_changed().await);
+    assert!(matches!(
+        events.try_recv().unwrap().event(),
+        Event::Sessions { .. }
+    ));
+    assert!(matches!(
+        events.try_recv().unwrap().event(),
+        Event::Projects { .. }
+    ));
+    assert!(matches!(
+        events.try_recv().unwrap().event(),
+        Event::Library { .. }
+    ));
+    assert!(events.try_recv().is_err());
 }

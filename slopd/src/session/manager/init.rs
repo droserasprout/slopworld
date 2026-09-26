@@ -10,11 +10,15 @@ impl Manager {
     /// Load stores, recover worktrees, and reconcile configured sessions.
     pub async fn new(cfg: Config, cfg_path: PathBuf) -> Arc<Self> {
         let (events, _) = broadcast::channel(256);
+
+        // Catalog stamps seed the maintenance reload checks.
         let mtime = disk_mtime(&cfg_path).await;
         let library_mtime = Config::library_stamp_for(&cfg_path);
         let presets_mtime = crate::presets::Table::stamp();
         let presets_loaded = crate::presets::reload();
         let jukebox_mtime = crate::paths::dir_stamp(&crate::jukebox::Catalog::dir());
+
+        // Load persisted stores before constructing shared state.
         let grants = crate::grant::Grants::load(&cfg_path)
             .unwrap_or_else(|error| panic!("grant store for {}: {error:#}", cfg_path.display()));
         let tasks = crate::tasks::Tasks::load(&cfg_path)
@@ -26,8 +30,10 @@ impl Manager {
             .unwrap_or_else(|e| panic!("agent template store {}: {e:#}", template_path.display()));
         let activity_cache =
             crate::activity::ActivityCache::load(crate::activity::cache_path(&cfg_path));
+
         // Refresh after main's catalog read; record stamps only on success so failures retry.
         let jukebox_loaded = crate::jukebox::reload();
+
         let m = Arc::new(Self {
             tmux: Tmux::new(crate::config::tmux_socket()),
             cfg_path,
@@ -57,6 +63,8 @@ impl Manager {
             worktrees: WorktreeState::default(),
             title_cache,
         });
+
+        // Recover filesystem state before reconciling sessions.
         if let Ok(n) = crate::sandbox::purge_trash() {
             if n > 0 {
                 tracing::info!("purged {n} expired private-state trash entries");
@@ -65,8 +73,11 @@ impl Manager {
         if let Err(error) = m.recover_worktrees().await {
             tracing::error!("Worktree recovery failed. Records remain: {error:#}");
         }
+
         m.tmux.ensure_server().await;
         m.sync_from_config().await;
+
+        // Prune credentials against the reconciled session identities.
         let (state_ids, host_sessions) = {
             let live = m.live.read().await;
             let mut state_ids = HashMap::new();
@@ -89,9 +100,11 @@ impl Manager {
         {
             tracing::error!("could not prune stale persisted grants: {error:#}");
         }
+
         if let Ok(root) = super::ncspot::runtime() {
             m.recover_ncspot(&root).await;
         }
+
         m
     }
 }

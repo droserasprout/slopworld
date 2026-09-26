@@ -39,12 +39,12 @@ impl Manager {
         worktree: String,
     ) -> Result<WorkerSpawn> {
         self.session_operation(
-            self.spawn_worker_within_boundary(caller, project, template, body, durable, worktree),
+            self.spawn_worker_inner(caller, project, template, body, durable, worktree),
         )
         .await
     }
 
-    async fn spawn_worker_within_boundary(
+    async fn spawn_worker_inner(
         self: &Arc<Self>,
         caller: String,
         project: String,

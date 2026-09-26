@@ -1,4 +1,6 @@
 //! Serializes authorization/use with session identity changes.
+//! Boundary wrappers acquire the session lock; their `_inner` helpers run with it held.
+//! Other `_inner` helpers are ordinary implementation details, not a locking guarantee.
 
 use crate::session::Manager;
 use std::future::Future;

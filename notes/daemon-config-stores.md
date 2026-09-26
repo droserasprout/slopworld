@@ -4,6 +4,9 @@ The daemon owns machine configuration.
 `config/` owns its model, resolution, validation, and persistence.
 `session/manager/config.rs` serializes runtime changes and publication;
 `manager/reconcile.rs` applies accepted configuration to live sessions.
+`manager/config_cache.rs` coordinates cache links across projects and worktrees, returning
+removed links for restoration if saving fails. Patch and replacement share document preparation
+and commit helpers; callers retain the persistence gate until publication and endpoint updates finish.
 Startup lives in `manager/init.rs`, and polling in `manager/maintenance.rs`.
 The mod owns profile preferences that remain available offline.
 The mod uses daemon APIs and reads `endpoint.toml` for connection credentials.

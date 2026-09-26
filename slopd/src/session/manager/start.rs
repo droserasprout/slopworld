@@ -212,11 +212,10 @@ impl Manager {
     }
 
     pub async fn start(self: &Arc<Self>, name: &str) -> Result<()> {
-        self.session_operation(self.start_within_boundary(name))
-            .await
+        self.session_operation(self.start_inner(name)).await
     }
 
-    async fn start_within_boundary(self: &Arc<Self>, name: &str) -> Result<()> {
+    async fn start_inner(self: &Arc<Self>, name: &str) -> Result<()> {
         let plan = self.prepare_start(name).await?;
         if let Some(launch) = &plan.launch {
             // Save before tmux receives the command so a rejected launch remains inspectable.
