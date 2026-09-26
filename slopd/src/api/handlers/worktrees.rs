@@ -97,5 +97,5 @@ pub(crate) async fn preview_worktree(
 }
 
 #[cfg(test)]
-#[path = "handlers_worktrees_tests.rs"]
+#[path = "worktrees_tests.rs"]
 mod tests;

@@ -5,8 +5,7 @@ use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
 
-#[path = "git_exec.rs"]
-mod git_exec;
+mod exec;
 
 use futures::stream::{self, StreamExt};
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, BufReader};
@@ -83,7 +82,7 @@ pub(crate) fn inspection_std_command(root: &Path) -> std::process::Command {
         .env("GIT_PAGER", "cat")
         .env("GIT_TERMINAL_PROMPT", "0")
         .env("LC_ALL", "C");
-    git_exec::restrict(&mut command);
+    exec::restrict(&mut command);
     command
 }
 
@@ -550,5 +549,4 @@ fn parse_numstat(out: &str) -> HashMap<String, (Option<u32>, Option<u32>)> {
 }
 
 #[cfg(test)]
-#[path = "git_tests.rs"]
 mod tests;

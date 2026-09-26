@@ -848,5 +848,4 @@ pub fn spawn(m: Arc<Manager>) -> tokio::task::JoinHandle<()> {
 }
 
 #[cfg(test)]
-#[path = "usage_tests.rs"]
 mod tests;

@@ -163,5 +163,5 @@ pub(crate) async fn set_label(
 }
 
 #[cfg(test)]
-#[path = "handlers_sessions_tests.rs"]
+#[path = "sessions_tests.rs"]
 mod tests;

@@ -101,5 +101,5 @@ fn station_from_wire(
 }
 
 #[cfg(test)]
-#[path = "handlers_jukebox_tests.rs"]
+#[path = "jukebox_tests.rs"]
 mod tests;

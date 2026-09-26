@@ -47,7 +47,7 @@ Project mount sources remain absolute host paths.
 Sandbox destinations may be relative to the expanded project directory.
 The daemon resolves them before checking paths and constructing bwrap arguments. A same-path
 mount row can override the primary project bind with read-only access. Host Git inspection uses
-`git.rs` and `git_exec.rs`. The daemon disables known helpers. Linux
+`git/mod.rs` and `git/exec.rs`. The daemon disables known helpers. Linux
 seccomp blocks child processes while allowing index threads. This also blocks clean/process
 filters without racing repository configuration edits. Required filters or unavailable seccomp
 can make inspection fail.

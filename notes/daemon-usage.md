@@ -1,6 +1,6 @@
 # Usage polling
 
-Start in `usage/` for provider adapters and `usage.rs` for scheduling/aggregation. Provider
+Start in `usage/` for provider adapters and `usage/mod.rs` for scheduling/aggregation. Provider
 response fixtures and config definitions own field names, units and defaults.
 
 Each provider has independent failure/backoff state. Failed polls retain the provider's last successful values.

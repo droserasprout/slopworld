@@ -106,5 +106,5 @@ fn install() -> std::io::Result<()> {
     target_os = "linux",
     any(target_arch = "x86_64", target_arch = "aarch64")
 ))]
-#[path = "git_exec_tests.rs"]
+#[path = "exec_tests.rs"]
 mod tests;

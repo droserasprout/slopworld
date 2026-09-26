@@ -7,44 +7,32 @@ use crate::grant::{Cap, Level};
 
 use super::{err, ApiResult, Mgr};
 
-#[path = "handlers_settings.rs"]
-mod handlers_settings;
-pub(crate) use handlers_settings::*;
+mod settings;
+pub(crate) use settings::*;
 
-#[path = "handlers_clipboard.rs"]
-mod handlers_clipboard;
-#[path = "handlers_config.rs"]
-mod handlers_config;
-#[path = "handlers_files.rs"]
-mod handlers_files;
-#[path = "handlers_grants.rs"]
-mod handlers_grants;
-#[path = "handlers_jukebox.rs"]
-mod handlers_jukebox;
-#[path = "handlers_library.rs"]
-mod handlers_library;
-#[path = "handlers_presets.rs"]
-mod handlers_presets;
-#[path = "handlers_sessions.rs"]
-mod handlers_sessions;
-#[path = "handlers_system.rs"]
-mod handlers_system;
-#[path = "handlers_tasks.rs"]
-mod handlers_tasks;
-#[path = "handlers_templates.rs"]
-mod handlers_templates;
+mod clipboard;
+mod config;
+mod files;
+mod grants;
+mod jukebox;
+mod library;
+mod presets;
+mod sessions;
+mod system;
+mod tasks;
+mod templates;
 
-pub(crate) use handlers_clipboard::*;
-pub(crate) use handlers_config::*;
-pub(crate) use handlers_files::*;
-pub(crate) use handlers_grants::*;
-pub(crate) use handlers_jukebox::*;
-pub(crate) use handlers_library::*;
-pub(crate) use handlers_presets::*;
-pub(crate) use handlers_sessions::*;
-pub(crate) use handlers_system::*;
-pub(crate) use handlers_tasks::*;
-pub(crate) use handlers_templates::*;
+pub(crate) use clipboard::*;
+pub(crate) use config::*;
+pub(crate) use files::*;
+pub(crate) use grants::*;
+pub(crate) use jukebox::*;
+pub(crate) use library::*;
+pub(crate) use presets::*;
+pub(crate) use sessions::*;
+pub(crate) use system::*;
+pub(crate) use tasks::*;
+pub(crate) use templates::*;
 fn ok_json(r: anyhow::Result<()>) -> ApiResult {
     r.map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
     reply(json!({ "ok": true }))
@@ -91,9 +79,7 @@ pub(super) fn guard_root(cap: &Cap) -> Result<(), crate::api::protobuf::ApiError
 /// Text for the raw editor, parsed for the settings GUI, so a mod can offer either
 /// without parsing TOML.
 #[cfg(test)]
-#[path = "handlers_tests.rs"]
 mod tests;
 
-#[path = "handlers_worktrees.rs"]
-mod handlers_worktrees;
-pub(crate) use handlers_worktrees::*;
+mod worktrees;
+pub(crate) use worktrees::*;
