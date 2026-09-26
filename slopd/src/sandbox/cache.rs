@@ -1,4 +1,5 @@
 //! All checkouts share project caches. Workers and worktrees do not own these caches.
+use std::os::unix::fs::symlink;
 use std::path::{Path, PathBuf};
 
 use anyhow::{bail, Context, Result};
@@ -27,14 +28,191 @@ pub(crate) fn source(project: &ProjectCfg, mount: &Mount) -> Result<PathBuf> {
     {
         bail!("cache destination must be a path without parent traversal");
     }
-    Ok(root()
-        .join(id.to_string())
-        .join(if target.is_absolute() {
-            "absolute"
-        } else {
-            "relative"
+    if target.is_absolute() {
+        return Ok(root()
+            .join(id.to_string())
+            .join("absolute")
+            .join(target.strip_prefix("/")?));
+    }
+    // Escape separators as well as '%' so every relative path has a distinct, readable key.
+    let key = target
+        .to_string_lossy()
+        .bytes()
+        .map(|byte| match byte {
+            b'/' | b'%' | b'\\' => format!("%{byte:02X}"),
+            _ => (byte as char).to_string(),
         })
-        .join(target.strip_prefix("/").unwrap_or(target)))
+        .collect::<String>();
+    Ok(root().join(id.to_string()).join(format!("link-{key}")))
+}
+
+pub(crate) fn relative(mount: &Mount) -> bool {
+    !Path::new(&expand(&mount.to)).is_absolute()
+}
+
+fn check_parent(checkout: &Path, target: &Path) -> Result<()> {
+    let parent = target.parent().context("cache destination parent")?;
+    let ancestor = parent
+        .ancestors()
+        .find(|path| path.exists())
+        .context("cache destination ancestor")?;
+    let root = checkout.canonicalize()?;
+    if !ancestor.canonicalize()?.starts_with(&root) {
+        bail!(
+            "cache destination {} escapes the checkout",
+            target.display()
+        );
+    }
+    Ok(())
+}
+
+/// Install only an absent link. A changed link or build output needs an explicit user migration.
+pub(crate) fn reconcile(project: &ProjectCfg, checkout: &Path) -> Result<()> {
+    if project
+        .mounts
+        .iter()
+        .all(|m| m.mode != MountMode::Cache || !relative(m))
+    {
+        return Ok(());
+    }
+    if crate::runtime::is_slopcar() {
+        bail!("relative cache links are unavailable in sidecar mode until host and container cache paths are mapped identically");
+    }
+    for mount in project
+        .mounts
+        .iter()
+        .filter(|m| m.mode == MountMode::Cache && relative(m))
+    {
+        let source = validate(project, mount)?;
+        if super::paths::overlaps(&source.to_string_lossy(), &checkout.to_string_lossy()) {
+            bail!("cache source must be outside the selected worktree");
+        }
+        let target = checkout.join(expand(&mount.to));
+        check_parent(checkout, &target)?;
+        if target.components().any(|c| c.as_os_str() == ".git") {
+            bail!("cache link cannot replace Git metadata");
+        }
+        // Move the old managed layout only when the new location is still absent.
+        if mount.from.trim().is_empty() {
+            let old = root()
+                .join(&project.id)
+                .join("relative")
+                .join(expand(&mount.to));
+            if old.exists() {
+                if old.is_symlink() || source.is_symlink() || !old.is_dir() {
+                    bail!(
+                        "legacy cache {} must be a directory without symlinks",
+                        old.display()
+                    );
+                }
+                if source.is_dir() {
+                    if std::fs::read_dir(&source)?.next().is_some() {
+                        bail!("legacy cache {} and new cache {} both contain data; merge them manually", old.display(), source.display());
+                    }
+                    std::fs::remove_dir(&source)?;
+                }
+                std::fs::create_dir_all(source.parent().context("cache parent")?)?;
+                std::fs::rename(&old, &source)
+                    .with_context(|| format!("migrating cache {}", old.display()))?;
+            }
+        }
+        std::fs::create_dir_all(&source)?;
+        validate(project, mount)?;
+        if !source.is_dir() {
+            bail!("cache source {} is not a directory", source.display());
+        }
+        match std::fs::symlink_metadata(&target) {
+            Ok(meta) if meta.file_type().is_symlink() && std::fs::read_link(&target)? == source => continue,
+            Ok(_) => bail!("cache destination {} already exists; move its contents into {} and remove it before retrying", target.display(), source.display()),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {},
+            Err(error) => return Err(error.into()),
+        }
+        let parent = target.parent().context("cache destination parent")?;
+        std::fs::create_dir_all(parent)?;
+        check_parent(checkout, &target)?;
+        symlink(&source, &target).with_context(|| format!("linking cache {}", target.display()))?;
+    }
+    Ok(())
+}
+
+pub(crate) fn require_links(project: &ProjectCfg, checkout: &Path) -> Result<()> {
+    if crate::runtime::is_slopcar()
+        && project
+            .mounts
+            .iter()
+            .any(|m| m.mode == MountMode::Cache && relative(m))
+    {
+        bail!("relative cache links are unavailable in sidecar mode until host and container cache paths are mapped identically");
+    }
+    for mount in project
+        .mounts
+        .iter()
+        .filter(|m| m.mode == MountMode::Cache && relative(m))
+    {
+        let target = checkout.join(expand(&mount.to));
+        check_parent(checkout, &target)?;
+        let expected = validate(project, mount)?;
+        let actual = std::fs::read_link(&target).with_context(|| {
+            format!(
+                "cache link {} is missing or changed; save project mounts to reconcile it",
+                target.display()
+            )
+        })?;
+        if actual != expected {
+            bail!(
+                "cache link {} points to {} instead of {}",
+                target.display(),
+                actual.display(),
+                expected.display()
+            );
+        }
+    }
+    Ok(())
+}
+
+pub(crate) fn remove_links(
+    project: &ProjectCfg,
+    checkout: &Path,
+) -> Result<Vec<(PathBuf, PathBuf)>> {
+    let mut links = Vec::new();
+    let result = (|| -> Result<()> {
+        for mount in project
+            .mounts
+            .iter()
+            .filter(|m| m.mode == MountMode::Cache && relative(m))
+        {
+            let target = checkout.join(expand(&mount.to));
+            check_parent(checkout, &target)?;
+            let source = validate(project, mount)?;
+            match std::fs::read_link(&target) {
+                Ok(actual) if actual == source => {
+                    std::fs::remove_file(&target)?;
+                    links.push((target, source));
+                }
+                Ok(_) => bail!(
+                    "cache link {} changed; resolve it before removal",
+                    target.display()
+                ),
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+                Err(error) => return Err(error.into()),
+            }
+        }
+        Ok(())
+    })();
+    if let Err(error) = result {
+        restore_links(&links)?;
+        return Err(error);
+    }
+    Ok(links)
+}
+
+pub(crate) fn restore_links(links: &[(PathBuf, PathBuf)]) -> Result<()> {
+    for (target, source) in links {
+        if !target.exists() && std::fs::symlink_metadata(target).is_err() {
+            symlink(source, target)?;
+        }
+    }
+    Ok(())
 }
 
 pub(crate) fn validate(project: &ProjectCfg, mount: &Mount) -> Result<PathBuf> {

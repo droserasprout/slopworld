@@ -33,7 +33,10 @@ agent-shell setting from its command preset or custom command to an absolute exe
 It sets sandbox `SHELL` to that path.
 A missing or non-executable selection causes the launch to fail. Project mounts are literal source/destination paths applied at each
 start with their saved access mode. Check both paths.
-Missing literal ro/rw sources cause the launch to fail. Cache mounts create missing directories and bind them writable across worktrees.
+Missing literal ro/rw sources cause the launch to fail. Relative cache destinations are host-visible
+checkout links to writable shared storage. Launch requires the expected link and binds the source
+at its own absolute path so the link resolves in the sandbox. Absolute cache destinations keep
+their direct writable bind behavior. Private overlays cannot cover the cache source.
 Blank cache sources use project storage outside checkouts.
 Explicit sources remain literal paths. Workspace
 binds precede private state and DNS overlays, and source aliases cannot expose effective private

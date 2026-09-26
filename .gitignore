@@ -1,4 +1,4 @@
-slopd/target/
+/slopd/target
 /.worktrees/
 coverage/
 mod/Source/SlopWorld/obj/

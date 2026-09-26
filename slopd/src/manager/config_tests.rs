@@ -3,6 +3,49 @@ use crate::config::{HostTerminalCfg, StateRule};
 use crate::session::test_manager;
 use std::time::{Duration, UNIX_EPOCH};
 
+#[tokio::test]
+async fn cache_configuration_removes_only_owned_links() {
+    let Some(temp) = crate::test_support::isolated() else {
+        return;
+    };
+    let checkout = temp.join("repo");
+    std::fs::create_dir_all(&checkout).unwrap();
+    let project = ProjectCfg {
+        id: uuid::Uuid::new_v4().to_string(),
+        name: "repo".into(),
+        dir: checkout.to_string_lossy().into_owned(),
+        mounts: vec![crate::config::Mount {
+            from: temp.join("shared").to_string_lossy().into_owned(),
+            to: "target".into(),
+            mode: crate::config::MountMode::Cache,
+        }],
+        ..Default::default()
+    };
+    let configured = Config {
+        projects: vec![project.clone()],
+        ..Default::default()
+    };
+    let path = temp.join("config.toml");
+    reconcile_cache_links(&path, &Config::default(), &configured)
+        .await
+        .unwrap();
+    let link = checkout.join("target");
+    let source = temp.join("shared");
+    assert_eq!(std::fs::read_link(&link).unwrap(), source);
+    let mut changed = configured.clone();
+    changed.projects[0].mounts.clear();
+    reconcile_cache_links(&path, &configured, &changed)
+        .await
+        .unwrap();
+    assert!(std::fs::symlink_metadata(&link).is_err());
+    assert!(source.is_dir());
+    std::os::unix::fs::symlink(temp.join("different"), &link).unwrap();
+    assert!(reconcile_cache_links(&path, &configured, &changed)
+        .await
+        .is_err());
+    assert_eq!(std::fs::read_link(&link).unwrap(), temp.join("different"));
+}
+
 #[test]
 fn new_live_starts_as_a_boot_placeholder() {
     let cfg = SessionCfg {

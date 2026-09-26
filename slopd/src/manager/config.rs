@@ -44,6 +44,81 @@ fn prepare_candidate(old: &Config, mut new: Config) -> Result<ConfigChange> {
     })
 }
 
+async fn reconcile_cache_links(
+    config_path: &Path,
+    old: &Config,
+    cfg: &Config,
+) -> Result<Vec<(PathBuf, PathBuf)>> {
+    let store = crate::worktrees::Store::load(config_path).await?;
+    let mut removed = Vec::new();
+    let result = (|| -> Result<()> {
+        for project in &old.projects {
+            let next = cfg
+                .projects
+                .iter()
+                .find(|p| p.id == project.id && !p.id.is_empty());
+            let obsolete = project
+                .mounts
+                .iter()
+                .filter(|mount| {
+                    mount.mode == crate::config::MountMode::Cache
+                        && crate::sandbox::cache::relative(mount)
+                        && !next.is_some_and(|p| {
+                            p.dir == project.dir
+                                && p.mounts.iter().any(|m| {
+                                    m.mode == crate::config::MountMode::Cache
+                                        && crate::sandbox::cache::relative(m)
+                                        && expand(&m.to) == expand(&mount.to)
+                                })
+                        })
+                })
+                .cloned()
+                .collect::<Vec<_>>();
+            if obsolete.is_empty() {
+                continue;
+            }
+            let mut retired = project.clone();
+            retired.mounts = obsolete;
+            let main = PathBuf::from(expand(&project.dir));
+            if main.is_dir() {
+                removed.extend(crate::sandbox::cache::remove_links(&retired, &main)?);
+            }
+            for worktree in store
+                .worktrees
+                .iter()
+                .filter(|w| w.project_id == project.id && Path::new(&w.path).is_dir())
+            {
+                removed.extend(crate::sandbox::cache::remove_links(
+                    &retired,
+                    Path::new(&worktree.path),
+                )?);
+            }
+        }
+        for project in &cfg.projects {
+            if project.mounts.iter().all(|m| {
+                m.mode != crate::config::MountMode::Cache || !crate::sandbox::cache::relative(m)
+            }) {
+                continue;
+            }
+            let main = PathBuf::from(expand(&project.dir));
+            crate::sandbox::cache::reconcile(project, &main)?;
+            for worktree in store
+                .worktrees
+                .iter()
+                .filter(|w| w.project_id == project.id && Path::new(&w.path).is_dir())
+            {
+                crate::sandbox::cache::reconcile(project, Path::new(&worktree.path))?;
+            }
+        }
+        Ok(())
+    })();
+    if let Err(error) = result {
+        crate::sandbox::cache::restore_links(&removed)?;
+        return Err(error);
+    }
+    Ok(removed)
+}
+
 fn restore_redacted_document_token(old: &Config, document: &mut toml::Value) {
     if let Some(daemon) = document
         .get_mut("daemon")
@@ -344,7 +419,12 @@ impl Manager {
 
     pub(super) async fn commit_prepared_cfg(&self, prepared: PreparedConfigChange) -> Result<()> {
         let PreparedConfigChange { change, _persist } = prepared;
-        self.persist_cfg(&change.new).await?;
+        let old = self.cfg.read().await.clone();
+        let removed = reconcile_cache_links(&self.cfg_path, &old, &change.new).await?;
+        if let Err(error) = self.persist_cfg(&change.new).await {
+            crate::sandbox::cache::restore_links(&removed)?;
+            return Err(error);
+        }
         let effects = self
             .publish_config(change, ConfigOrigin::StructuredMutation)
             .await;
@@ -407,6 +487,10 @@ impl Manager {
                 return false;
             }
         };
+        if let Err(error) = reconcile_cache_links(&self.cfg_path, &old, &change.new).await {
+            tracing::warn!("config cache links could not be reconciled: {error:#}");
+            return false;
+        }
         tracing::info!("config changed on disk, reloading");
         let effects = self
             .publish_config(change, ConfigOrigin::DiskReload { mtime: disk })
@@ -724,9 +808,13 @@ impl Manager {
         }
         self.validate_worktree_config(&old, &parsed).await?;
         let change = prepare_candidate(&old, parsed)?;
+        let removed = reconcile_cache_links(&self.cfg_path, &old, &change.new).await?;
 
         let text = toml::to_string_pretty(&document)?;
-        self.persist_cfg_text(&text).await?;
+        if let Err(error) = self.persist_cfg_text(&text).await {
+            crate::sandbox::cache::restore_links(&removed)?;
+            return Err(error);
+        }
         let effects = self.publish_config(change, ConfigOrigin::FileUpdate).await;
         self.update_endpoint(&effects.endpoint_token).await;
         drop(persist);
@@ -752,8 +840,14 @@ impl Manager {
         }
         self.validate_worktree_config(&old, &parsed).await?;
         let change = prepare_candidate(&old, parsed)?;
-        self.persist_cfg_text(&toml::to_string_pretty(&document)?)
-            .await?;
+        let removed = reconcile_cache_links(&self.cfg_path, &old, &change.new).await?;
+        if let Err(error) = self
+            .persist_cfg_text(&toml::to_string_pretty(&document)?)
+            .await
+        {
+            crate::sandbox::cache::restore_links(&removed)?;
+            return Err(error);
+        }
         let effects = self.publish_config(change, ConfigOrigin::FileUpdate).await;
         self.update_endpoint(&effects.endpoint_token).await;
         drop(persist);

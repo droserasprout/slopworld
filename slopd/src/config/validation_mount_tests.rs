@@ -45,3 +45,33 @@ fn path_mounts_reject_empty_relative_protected_and_duplicate_targets() {
     });
     assert!(validate_mount_paths(&p).is_err());
 }
+
+#[test]
+fn relative_cache_links_cannot_nest_mount_destinations() {
+    let mut p = ProjectCfg {
+        name: "repo".into(),
+        dir: "/work/repo".into(),
+        mounts: vec![
+            Mount {
+                from: "/work/cache".into(),
+                to: "build".into(),
+                mode: MountMode::Cache,
+            },
+            Mount {
+                from: "/work/other".into(),
+                to: "build/output".into(),
+                mode: MountMode::Rw,
+            },
+        ],
+        ..Default::default()
+    };
+    assert!(validate_mount_paths(&p)
+        .unwrap_err()
+        .to_string()
+        .contains("cannot overlap"));
+    p.mounts.reverse();
+    assert!(validate_mount_paths(&p)
+        .unwrap_err()
+        .to_string()
+        .contains("cannot overlap"));
+}

@@ -98,6 +98,7 @@ pub(crate) fn build_plan(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result
     }
     crate::config::validate_mount_paths(p)?;
     for m in &p.mounts {
+        let relative_cache = m.mode == MountMode::Cache && cache::relative(m);
         let source = if m.mode == MountMode::Cache {
             let owner = cfg
                 .projects
@@ -128,7 +129,16 @@ pub(crate) fn build_plan(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result
             }
         }
         if m.mode == MountMode::Cache {
-            std::fs::create_dir_all(&source)?;
+            if relative_cache {
+                let owner = cfg
+                    .projects
+                    .iter()
+                    .find(|original| original.name == p.name)
+                    .unwrap_or(p);
+                cache::require_links(owner, Path::new(&dir))?;
+            } else {
+                std::fs::create_dir_all(&source)?;
+            }
             if !Path::new(&source).is_dir() {
                 bail!("cache source must be a directory");
             }
@@ -136,7 +146,13 @@ pub(crate) fn build_plan(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result
         if !Path::new(&source).exists() {
             anyhow::bail!("project {} mount source does not exist: {}", p.name, source);
         }
-        if Path::new(&target) == Path::new(&dir) {
+        if relative_cache {
+            mounts.push(ResolvedMount {
+                host_dir: source.clone(),
+                guest_dir: source,
+                mode: MountMode::Cache,
+            });
+        } else if Path::new(&target) == Path::new(&dir) {
             mounts[0].mode = m.mode;
         } else {
             mounts.push(ResolvedMount {
