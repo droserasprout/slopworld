@@ -283,10 +283,10 @@ async fn durable_worker_parent_survives_a_daemon_restart() {
         .find(|session| session.name == "caller-worker")
         .expect("worker restored after restart");
 
-    assert!(child.worker);
-    assert!(child.durable);
-    assert_eq!(child.parent, "caller");
-    assert_eq!(child.task_id, "task-7");
+    assert!(child.worker.worker);
+    assert!(child.worker.durable);
+    assert_eq!(child.worker.parent, "caller");
+    assert_eq!(child.worker.task_id, "task-7");
     let _ = std::fs::remove_dir_all(dir);
 }
 

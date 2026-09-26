@@ -26,3 +26,5 @@ mod/Dependencies/obj/
 /notes/perf-suite*.raw/
 /bench/terminal-input/runs/
 /bench/results/
+
+BIG_REVIEW.md
