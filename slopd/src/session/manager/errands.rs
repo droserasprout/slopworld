@@ -136,7 +136,7 @@ impl Manager {
                 project_name.clone(),
                 ProjectCfg {
                     name: project_name.clone(),
-                    dir: crate::config::temp_dir(&project_name),
+                    dir: crate::paths::temp_dir(&project_name),
                     temp: true,
                     mounts: Vec::new(),
                     ..Default::default()

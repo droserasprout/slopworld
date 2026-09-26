@@ -82,7 +82,7 @@ pub(super) fn push_ro_binds(a: &mut Vec<String>, bind: &BindContext<'_>) {
     // Mount the debug socket after ordinary mounts so another preset's /tmp mount cannot hide it.
     // The target path uses guest UID 0.
     if bind.tmux {
-        if let Some((source, target)) = tmux_socket_bind(crate::config::tmux_socket()) {
+        if let Some((source, target)) = tmux_socket_bind(crate::tmux::tmux_socket()) {
             push_args(a, &["--ro-bind", &source, &target]);
         }
     }
@@ -350,7 +350,7 @@ fn pasta_prefix_args(dns: &DnsConfig, bind: &str) -> Vec<String> {
         .unwrap_or_else(|| "none".into());
     out.push("--tcp-ns".into());
     out.push(daemon_port);
-    for server in dns.servers() {
+    for server in crate::sandbox::dns_servers(dns) {
         out.push("--dns-host".into());
         out.push(server.to_string());
     }

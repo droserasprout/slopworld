@@ -1,3 +1,4 @@
+use std::net::Ipv4Addr;
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
@@ -25,7 +26,7 @@ pub fn prepare_network(cfg: &Config, s: &SessionCfg, p: &ProjectCfg) -> Result<(
     match network {
         NetworkMode::Private => prepare_resolver(&s.state_id, &[PRIVATE_RESOLVER.into()])?,
         NetworkMode::Host if matches!(dns, DnsConfig::Servers { .. }) => {
-            prepare_resolver(&s.state_id, &dns.servers())?
+            prepare_resolver(&s.state_id, &dns_servers(&dns))?
         }
         NetworkMode::None | NetworkMode::Host => {}
     }
@@ -167,3 +168,48 @@ fn seed(from: &Path, to: &Path, skip: &[String]) -> Result<()> {
     }
     Ok(())
 }
+
+/// Resolve configured DNS servers against the host resolver at launch time.
+pub(crate) fn dns_servers(dns: &DnsConfig) -> Vec<String> {
+    match dns {
+        DnsConfig::Resolved => system_resolvers(),
+        DnsConfig::Servers { servers } => servers.iter().map(ToString::to_string).collect(),
+    }
+}
+
+fn system_resolvers() -> Vec<String> {
+    std::fs::read_to_string("/etc/resolv.conf")
+        .ok()
+        .map(|text| resolvers_from(&text))
+        .filter(|servers| !servers.is_empty())
+        .unwrap_or_else(|| vec!["127.0.0.53".into()])
+}
+
+fn resolvers_from(text: &str) -> Vec<String> {
+    let mut out = Vec::new();
+    for line in text.lines() {
+        let mut fields = line.split_whitespace();
+        if fields.next() != Some("nameserver") {
+            continue;
+        }
+        let Some(value) = fields.next() else { continue };
+        let Ok(server) = value.parse::<Ipv4Addr>() else {
+            continue;
+        };
+        if server.is_unspecified() || server.is_multicast() {
+            continue;
+        }
+        let server = server.to_string();
+        if !out.contains(&server) {
+            out.push(server);
+        }
+        if out.len() == 2 {
+            break;
+        }
+    }
+    out
+}
+
+#[cfg(test)]
+#[path = "network_tests.rs"]
+mod tests;

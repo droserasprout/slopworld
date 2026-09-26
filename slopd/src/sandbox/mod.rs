@@ -18,9 +18,9 @@ pub use host::{host_argv, host_session_name, is_shell_command, shell_split};
 #[cfg(test)]
 use host::{host_command, host_shell, session_name_for};
 pub use network::prepare_network;
-pub(crate) use network::private_resolver_path;
 #[cfg(test)]
 use network::seed_into;
+pub(crate) use network::{dns_servers, private_resolver_path};
 pub(crate) use observe::inspect_session;
 pub use paths::{refused, validate_preset, validate_preset_name};
 pub(crate) use plan::{read as read_launch_plan, LaunchPlan, PlanView};

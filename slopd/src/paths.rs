@@ -7,6 +7,34 @@ pub(crate) async fn disk_mtime(path: &Path) -> Option<SystemTime> {
     tokio::fs::metadata(path).await.ok()?.modified().ok()
 }
 
+/// Store temporary work under `/tmp` so the host controls its removal.
+pub const TEMP_ROOT: &str = "/tmp/slopworld";
+
+/// Generate the temporary directory path from the project name.
+pub fn temp_dir(name: &str) -> String {
+    format!("{TEMP_ROOT}/{}", temp_slug(name))
+}
+
+/// Shared name normalization for temporary project previews and creation.
+pub fn temp_slug(name: &str) -> String {
+    let mut out = String::with_capacity(name.len());
+    for ch in name.trim().chars() {
+        if ch.is_whitespace() || matches!(ch, ':' | '.' | '/') {
+            if !out.ends_with('-') {
+                out.push('-');
+            }
+        } else {
+            out.push(ch);
+        }
+    }
+    let out = out.trim_matches('-');
+    if out.is_empty() {
+        "library".into()
+    } else {
+        out.to_string()
+    }
+}
+
 fn temp_path(path: &Path) -> PathBuf {
     // Keep the established sidecar name. Tests use it to cause deterministic installation failures.
     // Each store already owns the lock that protects its writes.

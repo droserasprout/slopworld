@@ -46,7 +46,7 @@ pub(crate) async fn project_preview(
     reply(json!({
         "name": req.name,
         "temp": req.temp,
-        "dir": if req.temp { crate::config::temp_dir(&req.name) } else { String::new() },
+        "dir": if req.temp { crate::paths::temp_dir(&req.name) } else { String::new() },
     }))
 }
 

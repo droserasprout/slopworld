@@ -208,7 +208,7 @@ async fn preview_only_allocates_a_directory_for_temporary_projects() {
         assert_eq!(
             preview.dir,
             if temp {
-                crate::config::temp_dir("preview-project")
+                crate::paths::temp_dir("preview-project")
             } else {
                 String::new()
             }
