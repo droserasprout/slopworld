@@ -4,10 +4,26 @@ Use Settings for the UI.
 The Configuration page edits the raw daemon document. Keep RimWorld API names such as
 `Dialog_Options` intact. `ModOptions` owns navigation.
 
-Profile preferences apply live. The mod saves them after an interaction and when Settings closes.
+Most profile preferences apply live. The mod saves them after an interaction and when Settings closes.
 The mod also saves dirty preferences on a timer. RimWorld saves its preferences through its own lifecycle.
 The mod applies UI scale on slider release. Live scaling moves the input target.
-Local appearance previews have no per-field Cancel.
+Most appearance controls apply live. Code appearance is a draft with Save and Discard.
+
+Appearance → Code owns pager and highlighter command controls (daemon configuration) and
+per-highlighter themes (local profile). Commands → Defaults keeps agent, shell, and editor
+choices. The daemon lists installed themes through `GET /api/highlight/themes`; code-block
+requests carry an engine and theme without changing daemon defaults. Selecting a highlighter
+loads its themes and preview using the unsaved command; Save applies it to readers. Applied reader settings
+and saved code appearance changes offer a Yes/No restart of active pager and diff tabs.
+Theme and line-number edits affect only the preview until Save. Their profile-local draft survives
+page closure; Discard restores applied values. Theme-only saves do not write daemon configuration.
+When saving commands too, profile changes commit only after the daemon accepts the submitted patch;
+edits made during that request remain unsaved. Restarts retain
+pins and pane bindings without opening or focusing a window; failed starts keep the old reader.
+Custom wrappers keep their configured styling. Diff syntax coloring remains owned by delta,
+which receives the configured pager through `DELTA_PAGER`. The profile-local Line numbers
+checkbox controls less/bat file numbering and delta's source-line numbers. The outer diff pager
+suppresses output-line numbering; bat also preserves delta's styling without adding decorations.
 
 Daemon pages keep separate drafts for each page and endpoint. Save sends only changed fields.
 The mod acknowledges the submitted snapshot and preserves edits made during the request.

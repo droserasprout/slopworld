@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Text.RegularExpressions;
 
 namespace SlopWorld
 {
@@ -79,8 +80,50 @@ namespace SlopWorld
 
         // Git feeds its diff to the pager on stdin, so it needs the configured command
         // without file/line placeholders or the normal file argument.
-        public static string PipePager(string pager) =>
-            App(pager, "less").Replace("{file}", "").Replace("{line}", "").Trim();
+        public static string PipePager(string pager)
+        {
+            string command = App(pager, "less").Replace("{file}", "").Replace("{line}", "").Trim();
+            switch (Path.GetFileName(Executable(command, "less")))
+            {
+                case "bat":
+                    return Options(command, "--style=plain --decorations=never --color=never --language=txt --strip-ansi=never");
+                case "less": return Options(command, "-+N");
+                default: return command;
+            }
+        }
+
+        // File numbering belongs to the pager; diff numbering belongs to delta.
+        public static string FilePager(string pager, bool lineNumbers)
+        {
+            string command = App(pager, "less");
+            switch (Path.GetFileName(Executable(command, "less")))
+            {
+                case "bat": return Options(command, lineNumbers ? "--style=numbers --decorations=always" : "--style=plain --decorations=never");
+                case "less": return Options(command, lineNumbers ? "-N" : "-+N");
+                default: return command;
+            }
+        }
+
+        static string Options(string command, string options)
+        {
+            int at = command.IndexOf(" -- ", StringComparison.Ordinal);
+            if (at < 0 && command.EndsWith(" --", StringComparison.Ordinal)) at = command.Length - 3;
+            if (at < 0) at = command.IndexOf(" {file}", StringComparison.Ordinal);
+            return at < 0 ? command + " " + options : command.Insert(at, " " + options);
+        }
+
+        static readonly Regex DeltaPagerPrefix = new Regex(@"^env DELTA_PAGER='(?:[^']|'\\'')*' ");
+        static readonly Regex DeltaNumbersPrefix = new Regex(@"^git -c delta\.line-numbers=(?:true|false) ");
+
+        // Replace our launch overrides when recovering or restarting a diff session.
+        public static string DiffCommand(string command, string pager, bool lineNumbers = true)
+        {
+            string git = DeltaPagerPrefix.Replace(command ?? "", "", 1);
+            git = DeltaNumbersPrefix.Replace(git, "git ", 1);
+            if (git.StartsWith("git ", StringComparison.Ordinal))
+                git = "git -c delta.line-numbers=" + (lineNumbers ? "true" : "false") + git.Substring(3);
+            return "env DELTA_PAGER=" + Quote(PipePager(pager)) + " " + git;
+        }
 
         public static bool IsPagerCommand(string pager, string command)
         {

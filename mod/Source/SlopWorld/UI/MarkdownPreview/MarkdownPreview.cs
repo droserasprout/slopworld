@@ -21,6 +21,7 @@ namespace SlopWorld
         readonly MarkdownScrollView _scroll;
         readonly MarkdownInputController _input;
         string _inlineText;
+        string _highlightRevision;
         List<MarkdownBlock> _blocks;
         string _error;
         bool _loading;
@@ -126,6 +127,11 @@ namespace SlopWorld
                 return;
             }
 
+            if (_highlightRevision != CodeHighlight.Revision)
+            {
+                _highlightRevision = CodeHighlight.Revision;
+                _resources.RefreshHighlight(_blocks, _request, IsCurrent, _layout.Invalidate);
+            }
             _layout.EnsureStyles();
             _selection.AttachStyles(_layout.Styles);
 
@@ -176,6 +182,7 @@ namespace SlopWorld
             try
             {
                 _blocks = _parser.Parse(text);
+                _highlightRevision = CodeHighlight.Revision;
                 _resources.Request(_blocks, request, IsCurrent, _layout.Invalidate);
                 _loading = false;
                 _error = null;

@@ -393,6 +393,12 @@ http:
       path: "/api/highlight"
       methods: [POST]
       scope: root
+    highlight_themes:
+      protobuf:
+        GET: [Empty, HighlightThemes]
+      path: "/api/highlight/themes"
+      methods: [GET]
+      scope: root
     image:
       protobuf:
         GET: [Empty, ImageResult]

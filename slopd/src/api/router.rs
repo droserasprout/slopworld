@@ -115,6 +115,7 @@ pub(crate) fn router(m: Mgr) -> Router {
         .route(routes::READ, get(read_file))
         .route(routes::FILE_STAT, get(file_stat))
         .route(routes::HIGHLIGHT, post(highlight))
+        .route(routes::HIGHLIGHT_THEMES, get(highlight_themes))
         .route(routes::IMAGE, get(read_image))
         .route(
             routes::FILES,

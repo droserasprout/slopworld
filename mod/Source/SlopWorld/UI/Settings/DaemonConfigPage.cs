@@ -23,7 +23,7 @@ namespace SlopWorld
         protected string _error { get => _configState.Error; set => _configState.Error = value; }
         protected bool _loaded => _configState.Loaded;
         protected bool _saving => _configState.Saving;
-        protected bool _dirty => _configState.Dirty;
+        protected bool _dirty => _configState.Dirty || LocalDirty;
 
         readonly ScrollableListing _listing = new ScrollableListing();
 
@@ -34,6 +34,8 @@ namespace SlopWorld
         protected virtual bool ShowSaveButton => true;
         protected virtual string SavedMessage => null;
         protected virtual string SaveScope => null;
+        protected virtual bool LocalDirty => false;
+        protected virtual Action CaptureLocalSave() => null;
 
         protected abstract void DrawFields(Listing_Standard l);
 
@@ -118,7 +120,7 @@ namespace SlopWorld
                 FilesView.EditFile(null, _path, "edit-config.toml");
 
             if (ShowSaveButton && foot.Right("Discard", UiTheme.Btn.Ghost,
-                    _loaded && _dirty && !_saving)) DiscardConfig();
+                    (_loaded || LocalDirty) && _dirty && !_saving)) DiscardConfig();
             if (ShowSaveButton && foot.Right("Save", UiTheme.Btn.Primary, CanSave)) SaveConfig();
             DrawConfigStatus(foot);
         }
@@ -133,7 +135,7 @@ namespace SlopWorld
                 color = UiTheme.Dim;
             }
             else if (string.IsNullOrEmpty(message)) message = _error ?? _configState.ConflictMessage;
-            if (string.IsNullOrEmpty(message) && _loaded && _dirty)
+            if (string.IsNullOrEmpty(message) && _dirty)
             {
                 message = "Unsaved changes";
                 color = UiTheme.Warn;
@@ -153,12 +155,12 @@ namespace SlopWorld
             GUI.color = Color.white;
         }
 
-        protected bool CanSave => _loaded && !_saving && _dirty &&
+        protected bool CanSave => (_loaded || LocalDirty) && !_saving && _dirty &&
             string.IsNullOrEmpty(ValidationError);
 
         protected void SaveConfig(Action saved = null)
         {
-            if (!_loaded || _saving) return;
+            if ((!_loaded && !LocalDirty) || _saving) return;
             if (!PrepareSave(out string preparationError))
             {
                 _error = preparationError;
@@ -166,20 +168,28 @@ namespace SlopWorld
             }
             if (!string.IsNullOrEmpty(ValidationError)) return;
 
-            _configState.Save(() =>
+            var saveLocal = CaptureLocalSave();
+            void Complete()
             {
+                // Submitted local changes still commit if the page closes during the request.
+                try { saveLocal?.Invoke(); }
+                catch (Exception e) { _error = "Could not save appearance: " + e.Message; return; }
+                _error = null;
                 if (_disposed) return;
                 AfterSave();
                 saved?.Invoke();
                 if (!string.IsNullOrEmpty(SavedMessage))
                     Messages.Message("SlopWorld: " + SavedMessage,
                         MessageTypeDefOf.TaskCompletion, false);
-            });
+            }
+            // Theme-only saves never write or reload daemon configuration.
+            if (_configState.Dirty) _configState.Save(Complete);
+            else Complete();
         }
 
         protected void DiscardConfig()
         {
-            if (!_loaded || _saving) return;
+            if ((!_loaded && !LocalDirty) || _saving) return;
             _configState.Discard();
             AfterDiscard();
             _configState.MarkCurrentClean();

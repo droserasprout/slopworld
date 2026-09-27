@@ -340,7 +340,9 @@ pub(crate) async fn highlight(
             "The code is larger than the preview limit.",
         ));
     }
-    let command = m.config().await.commands.highlighter;
+    let command = q.command.unwrap_or(m.config().await.commands.highlighter);
+    let command = super::highlighting::themed_command(&command, &q.engine, &q.theme)
+        .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
     let text = highlight_text(&command, &q.language, &q.text)
         .await
         .map_err(|e| err(StatusCode::BAD_REQUEST, e))?;
@@ -400,6 +402,10 @@ pub(crate) fn highlighter_argv(
 
 async fn run_highlighter(command: &str, path: &std::path::Path) -> anyhow::Result<String> {
     let argv = highlighter_argv(command, path)?;
+    run_highlighter_argv(&argv).await
+}
+
+pub(super) async fn run_highlighter_argv(argv: &[String]) -> anyhow::Result<String> {
     let mut process = Command::new(&argv[0]);
     process.args(&argv[1..]);
     let output = crate::process::run_bounded(

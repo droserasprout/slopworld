@@ -64,6 +64,7 @@ namespace SlopWorld
         static readonly List<LayoutRow> Layout = new List<LayoutRow>();
         static readonly SmoothScroll Scroll = new SmoothScroll();
         static readonly Pager Viewer = new Pager();
+        internal static Pager ActivePager => Viewer;
         static FieldLifetime _fieldLifetime = new FieldLifetime();
 
         static SearchSubmission _submitted;

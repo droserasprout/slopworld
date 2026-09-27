@@ -55,6 +55,7 @@ enum ResponseKind {
     GrantResult,
     GrantsReply,
     Health,
+    HighlightThemes,
     ImageResult,
     JukeboxCatalog,
     LibraryReply,
@@ -174,6 +175,11 @@ const ROUTES: &[Route] = &[
     ("GET /api/files/stat", Req::Empty, Resp::FileStatResult),
     ("GET /api/read", Req::Empty, Resp::TextResult),
     ("POST /api/highlight", Req::HighlightReq, Resp::TextResult),
+    (
+        "GET /api/highlight/themes",
+        Req::Empty,
+        Resp::HighlightThemes,
+    ),
     ("GET /api/image", Req::Empty, Resp::ImageResult),
     ("POST /api/files", Req::FileReq, Resp::Ack),
     ("PUT /api/files", Req::FileReq, Resp::Ack),
@@ -359,6 +365,9 @@ pub(crate) fn decode_response(method: &str, path: &str, value: &[u8]) -> anyhow:
         ResponseKind::GrantResult => Ok(serde_json::to_value(wire::GrantResult::decode(value)?)?),
         ResponseKind::GrantsReply => Ok(serde_json::to_value(wire::GrantsReply::decode(value)?)?),
         ResponseKind::Health => Ok(serde_json::to_value(wire::Health::decode(value)?)?),
+        ResponseKind::HighlightThemes => {
+            Ok(serde_json::to_value(wire::HighlightThemes::decode(value)?)?)
+        }
         ResponseKind::ImageResult => Ok(serde_json::to_value(wire::ImageResult::decode(value)?)?),
         ResponseKind::JukeboxCatalog => {
             Ok(serde_json::to_value(wire::JukeboxCatalog::decode(value)?)?)
@@ -511,6 +520,9 @@ pub(crate) fn encode_response(method: &str, path: &str, value: Value) -> anyhow:
             Ok(serde_json::from_value::<wire::GrantsReply>(value)?.encode_to_vec())
         }
         ResponseKind::Health => Ok(serde_json::from_value::<wire::Health>(value)?.encode_to_vec()),
+        ResponseKind::HighlightThemes => {
+            Ok(serde_json::from_value::<wire::HighlightThemes>(value)?.encode_to_vec())
+        }
         ResponseKind::ImageResult => {
             Ok(serde_json::from_value::<wire::ImageResult>(value)?.encode_to_vec())
         }
