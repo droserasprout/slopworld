@@ -108,6 +108,7 @@ namespace SlopWorld
             new BinarySpec("Command tools", "more", "alternate pager", ProbeKind.DaemonPath),
             new BinarySpec("Command tools", "bat", "pager or syntax highlighter", ProbeKind.DaemonPath),
             new BinarySpec("Command tools", "highlight", "syntax highlighter", ProbeKind.DaemonPath),
+            new BinarySpec("Command tools", "pygmentize", "Pygments syntax highlighter", ProbeKind.DaemonPath),
             new BinarySpec("Command tools", "micro", "default editor", ProbeKind.DaemonPath),
             new BinarySpec("Command tools", "vim", "alternate editor", ProbeKind.DaemonPath),
             new BinarySpec("Command tools", "nvim", "Neovim editor", ProbeKind.DaemonPath),

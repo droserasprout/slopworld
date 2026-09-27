@@ -141,6 +141,11 @@ namespace SlopWorld
 
         // Match UI follows the chrome palette. A named terminal palette is an override.
         public string theme = "match-ui";
+        // Code themes belong to this profile, independently for each daemon highlighter.
+        public string codeHighlightTheme = "";
+        public string codePygmentsTheme = "";
+        public string codeBatTheme = "";
+        public bool codeLineNumbers = true;
         // "#rrggbb", or blank for the scheme's cursor color.
         public string cursorColor = "";
 
@@ -262,6 +267,10 @@ namespace SlopWorld
             Field("uiFontSize", (ModSettings s) => ref s.uiFontSize, Int, Number),
             Field("uiFontName", (ModSettings s) => ref s.uiFontName, Text, String),
             Field("uiScheme", (ModSettings s) => ref s.uiScheme, Text, String),
+            Field("codeHighlightTheme", (ModSettings s) => ref s.codeHighlightTheme, Text, String),
+            Field("codePygmentsTheme", (ModSettings s) => ref s.codePygmentsTheme, Text, String),
+            Field("codeBatTheme", (ModSettings s) => ref s.codeBatTheme, Text, String),
+            Field("codeLineNumbers", (ModSettings s) => ref s.codeLineNumbers, Bool, String),
             Field("theme", (ModSettings s) => ref s.theme, Text, String),
             Field("cursorColor", (ModSettings s) => ref s.cursorColor, Text, String),
             Field("cursor", (ModSettings s) => ref s.cursor, Text, String),

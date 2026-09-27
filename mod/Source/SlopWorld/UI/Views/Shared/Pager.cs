@@ -25,6 +25,7 @@ namespace SlopWorld
         string _pendingCommand;
         string _sourceCommand, _sourceLabel, _fileStamp;
         int _readerLine;
+        string _readerIntent = "view", _readerCommand;
         bool _refreshing;
         internal int Operation => _operation;
 
@@ -54,6 +55,8 @@ namespace SlopWorld
                 ? PagerCommand(info.ReaderPath, info.ReaderLine) : null;
             _sourceLabel = info.Label;
             _readerLine = info.ReaderLine;
+            _readerIntent = info.Intent;
+            _readerCommand = info.Cmd;
         }
 
         public bool Alive
@@ -113,7 +116,8 @@ namespace SlopWorld
 
         public static string PagerCommand(string file, int line = 0) =>
             PagerCommands.PagerCommand(
-                SessionHub.Instance.Config.Pager, SessionHub.Instance.Config.Highlighter, file, line);
+                PagerCommands.FilePager(SessionHub.Instance.Config.Pager, ModEntry.Instance.settings.codeLineNumbers), CodeHighlight.Command(
+                    SessionHub.Instance.Config.Highlighter, ModEntry.Instance.settings), file, line);
 
         public static string EditorCommand(string file, int line = 0) =>
             PagerCommands.EditorCommand(SessionHub.Instance.Config.Editor, file, line);
@@ -160,6 +164,8 @@ namespace SlopWorld
 
             string cmd = PagerCommand(filePath);
             _sourceCommand = cmd;
+            _readerIntent = "view";
+            _readerCommand = cmd;
             _sourceLabel = label;
             _readerLine = 0;
             SessionHub.Instance.SessionStore.Run(project, cmd, label,
@@ -236,6 +242,9 @@ namespace SlopWorld
                 IsPagerCommand(command) && !IsEditorCommand(command) ? command : null;
             _sourceLabel = label;
             _readerLine = line;
+            _readerIntent = intent;
+            _readerCommand = command;
+            if (intent == "diff") command = PagerCommands.DiffCommand(command, SessionHub.Instance.Config.Pager, ModEntry.Instance.settings.codeLineNumbers);
 
             SessionHub.Instance.SessionStore.Run(project, command, label,
                 session =>
@@ -297,6 +306,39 @@ namespace SlopWorld
                 }, host: true, path: FilePath, intent: "view", readerPath: FilePath,
                 readerKey: _key, readerScope: _openProject, readerLine: _readerLine,
                 readerPinned: _locked);
+        }
+
+        internal bool CanRestartForAppearance => Alive && !_opening && !_refreshing &&
+            (_readerIntent == "diff" ? !string.IsNullOrEmpty(_readerCommand)
+                : _sourceCommand != null && !string.IsNullOrEmpty(_filePath));
+
+        // Replace only this reader's process after confirmation, retaining its tab and pin.
+        internal void RestartForAppearance(string expectedSession, int expectedOperation)
+        {
+            if (_session != expectedSession || _operation != expectedOperation || !CanRestartForAppearance) return;
+            string command = _readerIntent == "diff"
+                ? PagerCommands.DiffCommand(_readerCommand, SessionHub.Instance.Config.Pager, ModEntry.Instance.settings.codeLineNumbers)
+                : PagerCommand(_filePath, _readerLine);
+            int operation = ++_operation;
+            string oldSession = _session;
+            _refreshing = true;
+            SessionHub.Instance.SessionStore.Run(_openProject, command, _sourceLabel, session =>
+            {
+                if (operation != _operation) { StopIf(session); return; }
+                _refreshing = false;
+                _session = session;
+                if (_readerIntent == "view") _sourceCommand = command;
+                if (_locked) SessionHub.Instance.SessionStore.SetReaderPinned(session, true);
+                TerminalWindow.ReplaceReader(oldSession, session);
+                StopIf(oldSession);
+            }, error =>
+            {
+                if (operation != _operation) return;
+                _refreshing = false;
+                UiLayout.Fail(error);
+            }, host: true, path: _filePath ?? "", intent: _readerIntent,
+                readerPath: _filePath ?? "", readerKey: _key, readerScope: _openProject,
+                readerLine: _readerLine, readerPinned: _locked);
         }
 
         // Bring the open one back, for a reader who clicked the row that is already showing.

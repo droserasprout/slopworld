@@ -703,7 +703,8 @@ impl Tmux {
     }
 
     /// Use a separate tmux buffer for each session's large payloads.
-    /// `send-keys -H` fails without an error near 996 bytes.
+    /// Measured with a raw-mode reader on tmux 3.7c: `send-keys -t probe:.0 -H`
+    /// delivered 996 bytes; 997 delivered none and failed with "command too long".
     /// Load from stdin and paste in one ordered tmux command list. Paste with `-r`
     /// to preserve newlines. Delete the buffer after use.
     ///

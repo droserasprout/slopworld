@@ -29,6 +29,7 @@ scoped grants can access. Handlers can require additional access.
 | `DELETE` | `/api/grants/:grantor` | `root-only` | `revoke_grants` | `Empty` → `Ack` |
 | `GET` | `/api/health` | `scoped` | `health` | `Empty` → `Health` |
 | `POST` | `/api/highlight` | `root-only` | `highlight` | `HighlightReq` → `TextResult` |
+| `GET` | `/api/highlight/themes` | `root-only` | `highlight_themes` | `Empty` → `HighlightThemes` |
 | `GET` | `/api/image` | `root-only` | `read_image` | `Empty` → `ImageResult` |
 | `GET` | `/api/jukebox` | `root-only` | `jukebox` | `Empty` → `JukeboxCatalog` |
 | `GET` | `/api/jukebox/presets` | `root-only` | `jukebox_presets` | `Empty` → `JukeboxCatalog` |

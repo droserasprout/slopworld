@@ -18,6 +18,7 @@ namespace SlopWorld
         readonly Dictionary<string, ImageResource> _images =
             new Dictionary<string, ImageResource>();
         int _generation;
+        int _highlightGeneration;
 
         public MarkdownResourceStore(MarkdownPathResolver paths)
         {
@@ -38,8 +39,16 @@ namespace SlopWorld
         {
             foreach (var block in blocks ?? new List<MarkdownBlock>())
                 RequestImages(block, request, isCurrent, invalidate);
+            RefreshHighlight(blocks, request, isCurrent, invalidate);
+        }
+
+        public void RefreshHighlight(List<MarkdownBlock> blocks, int request,
+            Func<int, bool> isCurrent, Action invalidate)
+        {
+            int generation = ++_highlightGeneration;
             foreach (var block in blocks ?? new List<MarkdownBlock>())
-                RequestHighlight(block, request, isCurrent, invalidate);
+                RequestHighlight(block, request, isCurrent, invalidate, generation);
+            invalidate();
         }
 
         public void Clear()
@@ -48,19 +57,21 @@ namespace SlopWorld
                 if (texture.Texture != null) UnityEngine.Object.Destroy(texture.Texture);
             _images.Clear();
             _generation++;
+            _highlightGeneration++;
         }
 
         void RequestHighlight(MarkdownBlock block, int request,
-                              Func<int, bool> isCurrent, Action invalidate)
+                              Func<int, bool> isCurrent, Action invalidate, int generation)
         {
             if (block == null) return;
             if (block.Kind == BlockKind.Code && !string.IsNullOrWhiteSpace(block.Info))
             {
-                var body = new Wire.HighlightReq { Text = block.Code ?? "", Language = block.Info };
+                block.Highlighted = null;
+                var body = CodeHighlight.Request(block.Code ?? "", block.Info);
                 DaemonClient.Post<Wire.TextResult>(WireProtocol.Routes.Highlight, body,
                     j =>
                     {
-                        if (!isCurrent(request)) return;
+                        if (!isCurrent(request) || generation != _highlightGeneration) return;
                         block.Highlighted = j.Text;
                         invalidate();
                     },
@@ -68,7 +79,7 @@ namespace SlopWorld
             }
             if (block.Children != null)
                 foreach (var child in block.Children)
-                    RequestHighlight(child, request, isCurrent, invalidate);
+                    RequestHighlight(child, request, isCurrent, invalidate, generation);
         }
 
         void RequestImages(MarkdownBlock block, int request,

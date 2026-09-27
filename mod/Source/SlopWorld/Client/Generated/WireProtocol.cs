@@ -71,6 +71,7 @@ namespace SlopWorld
             public const string FileStat = "/api/files/stat";
             public const string Read = "/api/read";
             public const string Highlight = "/api/highlight";
+            public const string HighlightThemes = "/api/highlight/themes";
             public const string Image = "/api/image";
             public const string Files = "/api/files";
             public const string Search = "/api/search";

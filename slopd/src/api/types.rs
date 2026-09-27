@@ -251,6 +251,12 @@ pub(crate) struct HighlightReq {
     pub(crate) text: String,
     #[serde(default)]
     pub(crate) language: String,
+    #[serde(default)]
+    pub(crate) engine: String,
+    #[serde(default)]
+    pub(crate) theme: String,
+    #[serde(default)]
+    pub(crate) command: Option<String>,
 }
 
 #[derive(Deserialize)]

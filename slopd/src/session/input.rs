@@ -15,7 +15,7 @@ pub(crate) enum Input {
     Gap(Duration),
 }
 
-// tmux -H uses one argument for each byte. Its command message has a limit of approximately 1 KiB.
+// Leave headroom: tmux 3.7c send-keys -H delivered 996 bytes but rejected 997.
 pub(super) const INPUT_BATCH: usize = 800;
 const INPUT_KEYS: usize = 100;
 

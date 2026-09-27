@@ -130,6 +130,7 @@ pub(crate) mod routes {
     pub(crate) const FILE_STAT: &str = "/api/files/stat";
     pub(crate) const READ: &str = "/api/read";
     pub(crate) const HIGHLIGHT: &str = "/api/highlight";
+    pub(crate) const HIGHLIGHT_THEMES: &str = "/api/highlight/themes";
     pub(crate) const IMAGE: &str = "/api/image";
     pub(crate) const FILES: &str = "/api/files";
     pub(crate) const SEARCH: &str = "/api/search";

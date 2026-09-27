@@ -76,6 +76,10 @@ namespace SlopWorld.Tests
     {
         public static IEnumerable<(string Name, Action Body)> Cases()
         {
+            yield return ("reader settings restart preserves pin and background focus", AppearanceRestart);
+            yield return ("reader settings restart ignores stale confirmation", AppearanceStale);
+            yield return ("failed reader settings restart keeps old process", AppearanceFailure);
+            yield return ("restored diff restart uses current pager", AppearanceDiff);
             yield return ("changed file refresh keeps its pinned tab and active pane", RefreshActive);
             yield return ("background refresh does not steal terminal focus", RefreshBackground);
             yield return ("failed refresh retains the reader and retries", RefreshFailure);
@@ -101,6 +105,65 @@ namespace SlopWorld.Tests
                 yield return (kind + " close cancels pending replacement", () => ClosePending(file));
                 yield return (kind + " dead reader can be replaced", () => DeadReader(file));
             }
+        }
+
+        static void AppearanceRestart()
+        {
+            var pager = WatchedFile();
+            var store = SessionHub.Instance.SessionStore;
+            pager.Lock();
+            TerminalWindow.Current = "settings-backing-session";
+            SessionHub.Instance.Config.Pager = "less -N";
+            pager.RestartForAppearance(pager.Session, pager.Operation);
+            AssertEx.True(store.Command.Contains("less -N"), "current pager command is rebuilt");
+            AssertEx.Equal("original", pager.Session, "old session retained until ready");
+            AssertEx.Equal(0, store.Stops, "old process stays alive during restart");
+            store.Complete("restyled");
+            AssertEx.Equal("restyled", pager.Session, "same tab receives replacement");
+            AssertEx.True(pager.Locked, "pin retained");
+            AssertEx.Equal("settings-backing-session", TerminalWindow.Current, "settings focus retained");
+            AssertEx.Equal(1, store.Stops, "old process stopped after replacement is ready");
+        }
+
+        static void AppearanceStale()
+        {
+            var pager = WatchedFile();
+            string session = pager.Session;
+            int operation = pager.Operation;
+            pager.ViewFile("p", "/other", "other");
+            var store = SessionHub.Instance.SessionStore;
+            int starts = store.Starts;
+            pager.RestartForAppearance(session, operation);
+            AssertEx.Equal(starts, store.Starts, "approval cannot restart a different reader");
+        }
+
+        static void AppearanceFailure()
+        {
+            var pager = WatchedFile();
+            var store = SessionHub.Instance.SessionStore;
+            pager.RestartForAppearance(pager.Session, pager.Operation);
+            AssertEx.Throws<Exception>(() => store.Failures[1]("cannot restart"), "failure reported");
+            store.Pending.Dequeue();
+            AssertEx.Equal("original", pager.Session, "failed replacement keeps original");
+            AssertEx.Equal(0, store.Stops, "original process survives");
+            AssertEx.True(pager.CanRestartForAppearance, "retry remains possible");
+        }
+
+        static void AppearanceDiff()
+        {
+            SessionHub.Instance = new SessionHub();
+            var info = new SessionInfo { Name = "diff", Alive = true, Intent = "diff",
+                ReaderScope = "p", ReaderKey = "diff:file", ReaderPinned = true,
+                Cmd = PagerCommands.DiffCommand("git diff HEAD", "less") };
+            SessionHub.Instance.Sessions[info.Name] = info;
+            var pager = new Pager();
+            pager.AttachRestored(info);
+            SessionHub.Instance.Config.Pager = "less -N";
+            pager.RestartForAppearance(pager.Session, pager.Operation);
+            AssertEx.Equal("env DELTA_PAGER='less -N -+N' git -c delta.line-numbers=true diff HEAD",
+                SessionHub.Instance.SessionStore.Command, "recovered diff replaces old pager override");
+            SessionHub.Instance.SessionStore.Complete("new-diff");
+            AssertEx.True(pager.Locked, "restored diff pin retained");
         }
 
         static Pager WatchedFile()

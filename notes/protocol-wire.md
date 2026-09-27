@@ -57,6 +57,12 @@ Keep only independent client safety bounds local. Check advertised terminal rang
 `GET /api/whereis` is a root-only snapshot of the daemon environment for Settings.
 It reports resolved executable paths from slopd's effective `PATH`.
 This can differ from the game process PATH in native service and sidecar deployments.
+`GET /api/highlight/themes` lists themes for the configured highlighter on that same daemon.
+Its optional `command` query selects an unsaved highlighter; `POST /api/highlight` accepts the
+same optional command in its body for previews. Omission uses the daemon default; an empty
+command means Off. Neither request changes configuration.
+`POST /api/highlight` accepts optional profile-local `engine` and `theme` overrides; a themed
+request for a different engine is rejected instead of applying its theme to the new tool.
 
 Worker template source and caller/task parent are distinct. Use explicit worker metadata,
 never name parsing. Host errands run without a sandbox.
