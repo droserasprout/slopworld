@@ -239,7 +239,9 @@ namespace SlopWorld
         public void Run(string project, string command, string label,
                         Action<string> started, Action<string> fail = null,
                         bool shell = true, string text = "", bool host = false, bool temp = false,
-                        string path = "", bool hold = false, string like = "", string agentTemplate = "", string worktree = "")
+                        string path = "", bool hold = false, string like = "", string agentTemplate = "", string worktree = "",
+                        string intent = "", string readerPath = "", string readerKey = "", string readerScope = "", int readerLine = 0,
+                        bool readerPinned = false)
         {
             if (BrowseScope.IsKey(project))
             {
@@ -256,6 +258,12 @@ namespace SlopWorld
                 Command = command ?? "",
                 Path = path ?? "",
                 Label = label ?? "",
+                Intent = intent ?? "",
+                ReaderPath = readerPath ?? "",
+                ReaderKey = readerKey ?? "",
+                ReaderScope = readerScope ?? "",
+                ReaderLine = (uint)System.Math.Max(0, readerLine),
+                ReaderPinned = readerPinned,
                 Text = text ?? "",
                 Host = host,
                 Temp = temp,
@@ -322,6 +330,10 @@ namespace SlopWorld
                 new Wire.LabelReq { Label = label ?? "" },
                 _ => { Refresh(); ok?.Invoke(); }, fail);
         }
+
+        public void SetReaderPinned(string name, bool pinned) =>
+            DaemonClient.Put($"{SessionsPath}/{HubWire.Esc(name)}/reader-pinned",
+                new Wire.ReaderPinnedReq { Pinned = pinned }, _ => Refresh());
 
         public void Remove(string name, Action<string> fail = null) =>
             DaemonClient.Delete($"{SessionsPath}/{HubWire.Esc(name)}", _ => Refresh(), fail);

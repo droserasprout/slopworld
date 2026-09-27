@@ -507,7 +507,7 @@ namespace SlopWorld
             {
                 SessionHub.Instance.SessionStore.Run("", Pager.EditorCommand(path, line), label,
                     session => TerminalWindow.Open(session), UiLayout.Fail,
-                    host: true, temp: true);
+                    host: true, temp: true, intent: "edit", readerPath: path);
                 return;
             }
             if (SidebarScopes.Project(project) == null)
@@ -516,7 +516,8 @@ namespace SlopWorld
                 return;
             }
             SessionHub.Instance.SessionStore.Run(project, Pager.EditorCommand(path, line), label,
-                session => TerminalWindow.Open(session), UiLayout.Fail, host: true, path: path);
+                session => TerminalWindow.Open(session), UiLayout.Fail, host: true, path: path,
+                intent: "edit", readerPath: path, readerScope: project);
         }
 
         public static string ViewerPath(string session) => Viewers.FilePath(session);

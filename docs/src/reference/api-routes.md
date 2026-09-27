@@ -62,6 +62,7 @@ scoped grants can access. Handlers can require additional access.
 | `PUT` | `/api/sessions/:name` | `root-only` | `update` | `SessionConfig` → `Ack` |
 | `GET` | `/api/sessions/:name/cwd` | `scoped` | `cwd` | `Empty` → `PathResult` |
 | `PUT` | `/api/sessions/:name/label` | `scoped` | `set_label` | `LabelReq` → `Ack` |
+| `PUT` | `/api/sessions/:name/reader-pinned` | `scoped` | `set_reader_pinned` | `ReaderPinnedReq` → `Ack` |
 | `POST` | `/api/sessions/:name/restart` | `scoped` | `restart` | `Empty` → `Ack` |
 | `GET` | `/api/sessions/:name/sandbox` | `scoped` | `sandbox` | `Empty` → `SandboxReport` |
 | `POST` | `/api/sessions/:name/start` | `scoped` | `start` | `Empty` → `Ack` |

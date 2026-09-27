@@ -12,6 +12,7 @@ struct AdoptionProbe {
     tmux_host: Option<(String, String)>,
     activity: Option<crate::activity::Activity>,
     current_path: Option<String>,
+    reader: Option<crate::tmux::ReaderMetadata>,
 }
 
 struct AdoptionDecision {
@@ -24,6 +25,7 @@ struct AdoptionDecision {
     host_path: String,
     activity: Option<crate::activity::Activity>,
     current_path: Option<String>,
+    reader: Option<crate::tmux::ReaderMetadata>,
 }
 
 impl Manager {
@@ -36,8 +38,11 @@ impl Manager {
 
         // Worker identity and cached activity are independent observations. Keep the tmux
         // calls concurrent, but make host metadata conditional on the worker/host decision.
-        let (worker, activity) =
-            tokio::join!(self.tmux.worker_metadata(&name), self.tmux.activity(&name),);
+        let (worker, activity, reader) = tokio::join!(
+            self.tmux.worker_metadata(&name),
+            self.tmux.activity(&name),
+            self.tmux.reader_metadata(&name),
+        );
         let host = worker.is_none() && (self.tmux.is_host(&name).await || saved_host.is_some());
         let (tmux_host, current_path) = if host {
             tokio::join!(
@@ -57,6 +62,7 @@ impl Manager {
             activity: activity
                 .map(|(state, state_since)| crate::activity::Activity { state, state_since }),
             current_path,
+            reader,
         }
     }
 
@@ -93,6 +99,7 @@ impl Manager {
             host_path,
             activity,
             current_path: probe.current_path,
+            reader: probe.reader,
         }
     }
 
@@ -129,6 +136,7 @@ impl Manager {
             host_path,
             activity,
             current_path,
+            reader,
         } = decision;
         let mut created = false;
         let needs_size = {
@@ -140,16 +148,35 @@ impl Manager {
                 );
                 let now = unix_ms();
                 let mut l = Live::new(
-                    worker_session.clone().unwrap_or_else(|| SessionCfg {
-                        name: name.clone(),
-                        label: saved_host.as_ref().and_then(|tab| tab.label.clone()),
-                        project: host_project.clone(),
-                        command: if host {
-                            cfg.defaults.shell.clone()
-                        } else {
-                            String::new()
-                        },
-                        ..Default::default()
+                    worker_session.clone().unwrap_or_else(|| {
+                        let mut session = SessionCfg {
+                            name: name.clone(),
+                            label: saved_host.as_ref().and_then(|tab| tab.label.clone()),
+                            project: host_project.clone(),
+                            command: if host {
+                                cfg.defaults.shell.clone()
+                            } else {
+                                String::new()
+                            },
+                            ..Default::default()
+                        };
+                        if let Some(reader) = &reader {
+                            session.label = Some(reader.label.clone());
+                            session.reader_label = if reader.original_label.is_empty() {
+                                reader.label.clone()
+                            } else {
+                                reader.original_label.clone()
+                            };
+                            session.project = reader.project.clone();
+                            session.worktree = reader.worktree.clone();
+                            session.intent = reader.intent.clone();
+                            session.reader_path = reader.path.clone();
+                            session.reader_key = reader.key.clone();
+                            session.reader_scope = reader.scope.clone();
+                            session.reader_pinned = reader.pinned;
+                            session.reader_line = reader.line;
+                        }
+                        session
                     }),
                     TitleCapture::default(),
                 );

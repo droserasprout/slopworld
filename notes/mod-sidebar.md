@@ -32,5 +32,10 @@ An agent action uses that agent as context. Host, ephemeral, and worker rows are
 part of project agent counts. A temporary session rename mapping preserves membership until the HTTP and WebSocket handoff completes.
 See [client](mod-client.md).
 
+Files/Git terminal readers route by daemon intent. New reader names are opaque; snapshots carry
+their label, source path, browse scope, key, line and pin. `FileReaders` reattaches surviving
+pagers when Files or Git prepares routed rows. Search reattaches its own terminal reader on entry.
+Legacy sessions still use command/name classification.
+
 Resizing must renegotiate each visible terminal's assigned slot. Moving navigation between
 left and right changes geometry, not view identity, focus, or scroll ownership.

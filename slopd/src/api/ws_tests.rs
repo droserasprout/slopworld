@@ -58,6 +58,12 @@ fn view(name: &str) -> SessionView {
         worktree_name: String::new(),
         name: name.to_string(),
         label: String::new(),
+        intent: String::new(),
+        reader_path: String::new(),
+        reader_key: String::new(),
+        reader_scope: String::new(),
+        reader_pinned: false,
+        reader_line: 0,
         project: String::new(),
         dir: String::new(),
         launch: SessionLaunchView {

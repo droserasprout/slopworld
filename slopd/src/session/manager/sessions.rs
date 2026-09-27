@@ -482,7 +482,16 @@ impl Manager {
             bail!("label must be at most {MAX_MANUAL_LABEL_CHARS} characters");
         }
 
-        let saved = (!label.is_empty()).then_some(label.clone());
+        let saved = if label.is_empty() {
+            self.live
+                .read()
+                .await
+                .get(name)
+                .filter(|row| !row.cfg.intent.is_empty() && !row.cfg.reader_label.is_empty())
+                .map(|row| row.cfg.reader_label.clone())
+        } else {
+            Some(label.clone())
+        };
         let host = self.is_host(name).await;
         if host || !self.is_ephemeral(name).await {
             self.update_cfg(|cfg| {
@@ -518,8 +527,52 @@ impl Manager {
                 live.title.override_title = None;
             }
         }
+        self.persist_reader_metadata(name).await?;
         self.announce_sessions().await;
         Ok(())
+    }
+
+    pub async fn set_reader_pinned(self: &Arc<Self>, name: &str, pinned: bool) -> Result<()> {
+        self.session_operation(async {
+            {
+                let mut live = self.live.write().await;
+                let row = live
+                    .get_mut(name)
+                    .ok_or_else(|| anyhow!("no such session: {name}"))?;
+                if row.cfg.intent != "view" && row.cfg.intent != "diff" {
+                    bail!("session {name} is not a pinnable reader");
+                }
+                row.cfg.reader_pinned = pinned;
+            }
+            self.persist_reader_metadata(name).await?;
+            self.announce_sessions().await;
+            Ok(())
+        })
+        .await
+    }
+
+    async fn persist_reader_metadata(&self, name: &str) -> Result<()> {
+        let live = self.live.read().await;
+        let row = live
+            .get(name)
+            .ok_or_else(|| anyhow!("no such session: {name}"))?;
+        if row.cfg.intent.is_empty() {
+            return Ok(());
+        }
+        let value = crate::tmux::ReaderMetadata {
+            intent: row.cfg.intent.clone(),
+            label: row.cfg.label.clone().unwrap_or_default(),
+            original_label: row.cfg.reader_label.clone(),
+            project: row.cfg.project.clone(),
+            worktree: row.cfg.worktree.clone(),
+            path: row.cfg.reader_path.clone(),
+            key: row.cfg.reader_key.clone(),
+            scope: row.cfg.reader_scope.clone(),
+            pinned: row.cfg.reader_pinned,
+            line: row.cfg.reader_line,
+        };
+        drop(live);
+        self.tmux.set_reader_metadata(name, &value).await
     }
 
     pub(super) async fn readopt(self: &Arc<Self>, old: &str, new: &str) {

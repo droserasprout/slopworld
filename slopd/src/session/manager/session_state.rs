@@ -132,6 +132,12 @@ impl Manager {
                         .unwrap_or_default(),
                     name: l.cfg.name.clone(),
                     label: l.cfg.label.clone().unwrap_or_default(),
+                    intent: l.cfg.intent.clone(),
+                    reader_path: l.cfg.reader_path.clone(),
+                    reader_key: l.cfg.reader_key.clone(),
+                    reader_scope: l.cfg.reader_scope.clone(),
+                    reader_pinned: l.cfg.reader_pinned,
+                    reader_line: l.cfg.reader_line,
                     project: display_project,
                     dir: if l.host && !l.host_path.trim().is_empty() {
                         l.host_path.clone()

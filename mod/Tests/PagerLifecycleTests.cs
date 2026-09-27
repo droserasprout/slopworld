@@ -23,7 +23,9 @@ namespace SlopWorld
         public bool Host, Temp;
         public string Project, Command;
         public void Run(string project, string command, string label, Action<string> started,
-                        Action<string> fail, bool host = false, bool temp = false, string path = "")
+                        Action<string> fail, bool host = false, bool temp = false, string path = "",
+                        string intent = "", string readerPath = "", string readerKey = "",
+                        string readerScope = "", int readerLine = 0, bool readerPinned = false)
         {
             Starts++;
             Host = host;
@@ -44,6 +46,7 @@ namespace SlopWorld
             Stops++;
             if (SessionHub.Instance.Sessions.TryGetValue(name, out var info)) info.Alive = false;
         }
+        public void SetReaderPinned(string name, bool pinned) { }
     }
 
     static class TerminalWindow
@@ -83,6 +86,7 @@ namespace SlopWorld.Tests
             yield return ("deleted readers close pinned and pending sessions", DeletedReaders);
             yield return ("late file metadata cannot close a replacement reader", LateMetadata);
             yield return ("fresh reader collection has no viewer path", FreshPaths);
+            yield return ("restored reader keeps path and pin without starting a process", RestoredReader);
             yield return ("pending file clicks share one start", Pending);
             yield return ("pinned files reopen without a new preview", Pinned);
             yield return ("shared file and diff preview replacement preserves pinned readers", SharedReaders);
@@ -107,6 +111,27 @@ namespace SlopWorld.Tests
             SessionHub.Instance.SessionStore.Complete("original");
             new ReaderProbe(pager).Apply(true, "first");
             return pager;
+        }
+
+        static void RestoredReader()
+        {
+            SessionHub.Instance = new SessionHub();
+            var info = new SessionInfo
+            {
+                Name = "tab-recovered", Alive = true, Intent = "view", Label = "file.rs",
+                ReaderPath = "/repo/file.rs", ReaderKey = "/repo/file.rs",
+                ReaderScope = "p", ReaderPinned = true
+            };
+            SessionHub.Instance.Sessions[info.Name] = info;
+            var tabs = new PagerTabs();
+            tabs.AttachRestored(info);
+            AssertEx.True(tabs.IsSession(info.Name), "restored reader is routed");
+            AssertEx.True(tabs.IsLocked(info.Name), "restored pin survives");
+            AssertEx.Equal("/repo/file.rs", tabs.FilePath(info.Name), "source path survives");
+            AssertEx.True(tabs.Reopen("p", "/repo/file.rs"), "path lookup reuses reader");
+            AssertEx.Equal(0, SessionHub.Instance.SessionStore.Starts, "recovery does not launch");
+            tabs.ReleasePreview();
+            AssertEx.True(tabs.IsSession(info.Name), "preview release preserves the pin");
         }
 
         static void RefreshActive()

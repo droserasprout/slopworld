@@ -357,6 +357,7 @@ namespace SlopWorld
 
         static void PrepareRouted(SidebarTab tab)
         {
+            FileReaders.Restore();
             Layout.ViewRows.Clear();
             RoutedCache.Ensure(Layout.Routed, SessionHub.Instance.Sessions,
                 SessionHub.Instance.SessionsVersion, Projects.Revision,

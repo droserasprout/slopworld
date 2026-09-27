@@ -120,6 +120,18 @@ pub(crate) async fn run(
     Proto(q): Proto<wire::RunReq>,
 ) -> ApiResult<wire::SessionResult> {
     let q: RunReq = domain(q)?;
+    if !matches!(q.intent.as_str(), "" | "view" | "edit" | "diff" | "search") {
+        return Err(err(
+            axum::http::StatusCode::BAD_REQUEST,
+            "Unknown terminal intent.",
+        ));
+    }
+    if matches!(q.intent.as_str(), "view" | "edit" | "search") && q.reader_path.is_empty() {
+        return Err(err(
+            axum::http::StatusCode::BAD_REQUEST,
+            "A file reader needs a path.",
+        ));
+    }
     let project = q.project.trim();
     let command = if q.path.trim().is_empty() {
         q.command.trim().to_string()
@@ -176,6 +188,12 @@ pub(crate) async fn run(
     // Pass `temp` as an override to use that same path.
     let want = RunWhere {
         worktree: q.worktree,
+        intent: q.intent,
+        reader_path: q.reader_path,
+        reader_key: q.reader_key,
+        reader_scope: q.reader_scope,
+        reader_line: q.reader_line,
+        reader_pinned: q.reader_pinned,
         cols: q.cols,
         rows: q.rows,
         project: None,

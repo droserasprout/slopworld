@@ -67,6 +67,21 @@ pub struct SessionCfg {
     /// A non-empty manual sidebar label disables automatic title summaries for this agent.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub label: Option<String>,
+    /// UI purpose and reader identity survive while a temporary tmux session is adopted.
+    #[serde(skip)]
+    pub intent: String,
+    #[serde(skip)]
+    pub reader_label: String,
+    #[serde(skip)]
+    pub reader_path: String,
+    #[serde(skip)]
+    pub reader_key: String,
+    #[serde(skip)]
+    pub reader_scope: String,
+    #[serde(skip)]
+    pub reader_pinned: bool,
+    #[serde(skip)]
+    pub reader_line: u32,
     /// Stable private-state UUID, independent of renames or reused session names.
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub state_id: String,
@@ -160,6 +175,13 @@ impl Default for SessionCfg {
             worktree: String::new(),
             name: String::new(),
             label: None,
+            intent: String::new(),
+            reader_label: String::new(),
+            reader_path: String::new(),
+            reader_key: String::new(),
+            reader_scope: String::new(),
+            reader_pinned: false,
+            reader_line: 0,
             state_id: uuid::Uuid::new_v4().to_string(),
             project: String::new(),
             command: String::new(),

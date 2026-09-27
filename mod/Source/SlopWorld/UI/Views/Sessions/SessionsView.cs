@@ -66,7 +66,8 @@ namespace SlopWorld
             float stateX = r.x + 24f + nameW + UiTheme.GapM;
 
             GUI.color = UiTheme.Lead;
-            UiText.RowLabel(new Rect(r.x + 24f, l1, nameW, UiTheme.LineH), s.Name);
+            UiText.RowLabel(new Rect(r.x + 24f, l1, nameW, UiTheme.LineH),
+                !string.IsNullOrEmpty(s.Intent) && !string.IsNullOrEmpty(s.Label) ? s.Label : s.Name);
 
             // The state in words next to the name, so the row scans without decoding the
             // color of the chip beside it.

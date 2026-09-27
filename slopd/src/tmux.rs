@@ -34,6 +34,22 @@ const WORKER_PARENT: &str = "@slopworld_worker_parent";
 const WORKER_TASK: &str = "@slopworld_worker_task";
 const WORKER_DURABLE: &str = "@slopworld_worker_durable";
 const WORKER_STATE: &str = "@slopworld_worker_state";
+const READER_METADATA: &str = "@slopworld_reader";
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct ReaderMetadata {
+    pub intent: String,
+    pub label: String,
+    #[serde(default)]
+    pub original_label: String,
+    pub project: String,
+    pub worktree: String,
+    pub path: String,
+    pub key: String,
+    pub scope: String,
+    pub pinned: bool,
+    pub line: u32,
+}
 
 #[cfg(test)]
 #[derive(Default)]
@@ -296,6 +312,18 @@ impl Tmux {
         let project = self.option(name, HOST_PROJECT).await?;
         let path = self.option(name, HOST_PATH).await?;
         Some((project, path))
+    }
+
+    /// Reader identity belongs to the tmux session so it survives a daemon redeploy.
+    pub async fn set_reader_metadata(&self, name: &str, value: &ReaderMetadata) -> Result<()> {
+        let encoded = serde_json::to_string(value)?;
+        self.run(&["set-option", "-t", name, READER_METADATA, &encoded])
+            .await?;
+        Ok(())
+    }
+
+    pub async fn reader_metadata(&self, name: &str) -> Option<ReaderMetadata> {
+        serde_json::from_str(&self.option(name, READER_METADATA).await?).ok()
     }
 
     /// Task-owned worker identity survives a daemon redeploy with the tmux session.
