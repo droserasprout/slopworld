@@ -8,6 +8,7 @@ Most profile preferences apply live. The mod saves them after an interaction and
 The mod also saves dirty preferences on a timer. RimWorld saves its preferences through its own lifecycle.
 The mod applies UI scale on slider release. Live scaling moves the input target.
 Most appearance controls apply live. Code appearance is a draft with Save and Discard.
+Appearance → Workspace groups statusbar and sidebar preferences in one scrolling form.
 
 Appearance → Code owns pager and highlighter command controls (daemon configuration) and
 per-highlighter themes (local profile). Commands → Defaults keeps agent, shell, and editor

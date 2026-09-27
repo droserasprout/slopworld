@@ -4,10 +4,12 @@ Open Settings with the gear icon in the top bar or the **Settings** command in t
 Settings opens as tabs over the terminal pane.
 
 Settings groups controls by function: general game and daemon controls, appearance and
-terminal presentation, sandbox and command definitions, integrations, keyboard, storage,
+terminal presentation, integrations, agents, sandbox, storage, commands, keyboard,
 audio, RimWorld options, and credits. The [agent configuration guide](../guides/configuring-agents.md),
 [sandbox guide](../guides/configuring-sandboxes.md), and
 [integration reference](integrations.md) describe the fields managed by those groups.
+
+**Appearance > Workspace** contains statusbar and sidebar controls.
 
 The **Storage** page lists private agent state and shared caches. Use it to reset an agent,
 restore state from trash, delete orphaned or trashed state, or empty the trash.
