@@ -72,6 +72,11 @@ pub(crate) struct LabelReq {
 }
 
 #[derive(Debug, Deserialize)]
+pub(crate) struct ReaderPinnedReq {
+    pub(crate) pinned: bool,
+}
+
+#[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct SaveAgentTemplateReq {
     pub(crate) name: String,
@@ -132,6 +137,18 @@ pub(crate) struct RunReq {
     /// If empty with `host` set, the daemon generates a name. See `sandbox::host_session_name`.
     #[serde(default)]
     pub(crate) label: String,
+    #[serde(default)]
+    pub(crate) intent: String,
+    #[serde(default)]
+    pub(crate) reader_path: String,
+    #[serde(default)]
+    pub(crate) reader_key: String,
+    #[serde(default)]
+    pub(crate) reader_scope: String,
+    #[serde(default)]
+    pub(crate) reader_line: u32,
+    #[serde(default)]
+    pub(crate) reader_pinned: bool,
     #[serde(default)]
     pub(crate) temp: bool,
     /// Distinct loading-screen tips supplied by the game for `{{ random_tip }}`.

@@ -138,6 +138,12 @@ namespace SlopWorld
         // view/edit/diff name prefixes are the fallback for routing them to Files/Git.
         public static RowAct Of(SessionInfo info)
         {
+            switch (info?.Intent)
+            {
+                case "view": case "search": return RowAct.View;
+                case "edit": return RowAct.Edit;
+                case "diff": return RowAct.Diff;
+            }
             // An adopted ephemeral session has no saved command, so the daemon resolves its
             // blank config through the default agent command. Its generated action prefix is
             // the authoritative identity in that case, and must win before that fallback.
@@ -167,7 +173,8 @@ namespace SlopWorld
         {
             name = (name ?? "").TrimStart();
             if (name.StartsWith("view-", System.StringComparison.Ordinal)
-                || name.StartsWith("search-", System.StringComparison.Ordinal))
+                || name.StartsWith("search-", System.StringComparison.Ordinal)
+                || name.StartsWith("link-", System.StringComparison.Ordinal))
                 return RowAct.View;
             if (name.StartsWith("edit-", System.StringComparison.Ordinal)) return RowAct.Edit;
             if (name.StartsWith("diff-", System.StringComparison.Ordinal)) return RowAct.Diff;

@@ -87,6 +87,10 @@ namespace SlopWorld
 
         public static void Entered()
         {
+            if (Viewer.Session == null || !Viewer.Alive)
+                foreach (var info in SessionHub.Instance.Sessions)
+                    if (info != null && info.Alive && info.Intent == "search")
+                        Viewer.AttachRestored(info);
             ResetFieldLifetime();
             _focus = true;
         }
@@ -480,7 +484,7 @@ namespace SlopWorld
                 return;
             }
             _showing = match;
-            Viewer.ViewFileAt(match.Project, path, match.Line, FilesView.ReaderLabel(match.Project, "search-" + Leaf(match.Path)));
+            Viewer.ViewFileAt(match.Project, path, match.Line, FilesView.ReaderLabel(match.Project, "search-" + Leaf(match.Path)), "search");
         }
 
         static void Act(Match match, RowAct act)

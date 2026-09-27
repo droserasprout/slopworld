@@ -49,6 +49,10 @@ It discards captures that a newer run or frame replaces.
 Stop and reset advance the run identity so an old reader cannot restore a down row.
 
 On adoption, existing tmux activity options take precedence over the disk fallback.
+Temporary terminal readers store intent, display label, project/worktree, source identity and pin
+state in a tmux session option. Adoption restores these into live state; session views pass them
+to game clients. Pin and manual-label changes update the tmux copy. They are runtime fields,
+not agent configuration. Native Markdown previews have no tmux session.
 Explicit stop/start must clear that history.
 Persisted activity remains epoch milliseconds. `ActivityCache` applies mutations immediately
 in memory and uses one background writer for ordered, coalesced snapshots. Rename and clear

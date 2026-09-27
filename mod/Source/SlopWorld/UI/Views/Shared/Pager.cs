@@ -24,6 +24,7 @@ namespace SlopWorld
         bool _opening;
         string _pendingCommand;
         string _sourceCommand, _sourceLabel, _fileStamp;
+        int _readerLine;
         bool _refreshing;
         internal int Operation => _operation;
 
@@ -37,6 +38,24 @@ namespace SlopWorld
         // lifetime choice, not a request to persist a generated session in config.toml.
         public bool Locked => _locked;
 
+        // Rebind a live daemon reader after a game restart without launching or focusing it.
+        public void AttachRestored(SessionInfo info)
+        {
+            if (info == null || !info.Alive || string.IsNullOrEmpty(info.Intent)) return;
+            _session = info.Name;
+            _openProject = string.IsNullOrEmpty(info.ReaderScope) ? info.Project : info.ReaderScope;
+            _key = info.ReaderKey;
+            _locked = info.ReaderPinned;
+            _opening = false;
+            _project = info.Intent == "view" ? _openProject : null;
+            _filePath = info.ReaderPath;
+            _pendingCommand = info.Intent == "diff" ? "restored-diff" : null;
+            _sourceCommand = info.Intent == "view" && !string.IsNullOrEmpty(info.ReaderPath)
+                ? PagerCommand(info.ReaderPath, info.ReaderLine) : null;
+            _sourceLabel = info.Label;
+            _readerLine = info.ReaderLine;
+        }
+
         public bool Alive
         {
             get
@@ -48,6 +67,8 @@ namespace SlopWorld
 
         public bool Owns(string project, string key) =>
             (_opening || Alive) && _openProject == project && _key == key;
+        public bool Pending(string project, string key) =>
+            _opening && _openProject == project && _key == key;
 
         public void Invalidate()
         {
@@ -64,6 +85,7 @@ namespace SlopWorld
         {
             if (_openProject != project || _key != key) return false;
             _locked = true;
+            if (_session != null) SessionHub.Instance.SessionStore.SetReaderPinned(_session, true);
             return true;
         }
 
@@ -71,6 +93,7 @@ namespace SlopWorld
         {
             if (!Alive) return false;
             _locked = true;
+            SessionHub.Instance.SessionStore.SetReaderPinned(_session, true);
             return true;
         }
 
@@ -138,6 +161,7 @@ namespace SlopWorld
             string cmd = PagerCommand(filePath);
             _sourceCommand = cmd;
             _sourceLabel = label;
+            _readerLine = 0;
             SessionHub.Instance.SessionStore.Run(project, cmd, label,
                 session =>
                 {
@@ -147,6 +171,7 @@ namespace SlopWorld
                         return;
                     }
                     _session = session;
+                    if (_locked) SessionHub.Instance.SessionStore.SetReaderPinned(session, true);
                     _opening = false;
                     _project = project;
                     _filePath = filePath;
@@ -162,13 +187,14 @@ namespace SlopWorld
                     _filePath = null;
                     StopIf(oldSession);
                     UiLayout.Fail(msg);
-                }, host: true, path: filePath);
+                }, host: true, path: filePath, intent: "view", readerPath: filePath,
+                readerKey: filePath, readerScope: project, readerPinned: _locked);
         }
 
         // Start a fresh pager at the requested line. Less's `:e` cannot open at a line atomically.
-        public void ViewFileAt(string project, string filePath, int line, string label)
+        public void ViewFileAt(string project, string filePath, int line, string label, string intent = "view")
         {
-            Open(project, PagerCommand(filePath, line), label, filePath, filePath);
+            Open(project, PagerCommand(filePath, line), label, filePath, filePath, intent, line);
         }
 
         // Run the pager on the host in the project directory. Replacement closes its tmux session.
@@ -177,7 +203,8 @@ namespace SlopWorld
 
         // Open a one-off command and retain a caller-supplied identity so a click on a pinned
         // routed header can focus that exact diff instead of creating a second tab.
-        public void Open(string project, string command, string label, string key, string sourcePath = "")
+        public void Open(string project, string command, string label, string key, string sourcePath = "",
+                         string intent = "view", int line = 0)
         {
             if (_opening && _openProject == project && _key == key &&
                 _pendingCommand == command) return;
@@ -208,6 +235,7 @@ namespace SlopWorld
             _sourceCommand = !string.IsNullOrEmpty(sourcePath) && key == sourcePath &&
                 IsPagerCommand(command) && !IsEditorCommand(command) ? command : null;
             _sourceLabel = label;
+            _readerLine = line;
 
             SessionHub.Instance.SessionStore.Run(project, command, label,
                 session =>
@@ -218,6 +246,7 @@ namespace SlopWorld
                         return;
                     }
                     _session = session;
+                    if (_locked) SessionHub.Instance.SessionStore.SetReaderPinned(session, true);
                     _opening = false;
                     _filePath = string.IsNullOrEmpty(sourcePath) ? null : sourcePath;
                     // Don't set _project — this is a one-off command, not the persistent
@@ -233,7 +262,8 @@ namespace SlopWorld
                     _filePath = null;
                     StopIf(oldSession);
                     UiLayout.Fail(msg);
-                }, host: true, path: sourcePath);
+                }, host: true, path: sourcePath, intent: intent, readerPath: sourcePath,
+                readerKey: key, readerScope: project, readerLine: line, readerPinned: _locked);
         }
 
         // The first successful probe establishes a baseline. Missing stamps support older daemons.
@@ -254,6 +284,7 @@ namespace SlopWorld
                     _refreshing = false;
                     _fileStamp = stamp;
                     _session = session;
+                    if (_locked) SessionHub.Instance.SessionStore.SetReaderPinned(session, true);
                     // Rebind only the pane that still shows this reader; never open or focus a window.
                     TerminalWindow.ReplaceReader(oldSession, session);
                     StopIf(oldSession);
@@ -263,7 +294,9 @@ namespace SlopWorld
                     if (operation != _operation) return;
                     // Keep the old reader and stamp so a later probe retries the refresh.
                     _refreshing = false;
-                }, host: true, path: FilePath);
+                }, host: true, path: FilePath, intent: "view", readerPath: FilePath,
+                readerKey: _key, readerScope: _openProject, readerLine: _readerLine,
+                readerPinned: _locked);
         }
 
         // Bring the open one back, for a reader who clicked the row that is already showing.

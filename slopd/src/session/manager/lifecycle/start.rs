@@ -182,6 +182,25 @@ impl Manager {
             }
             self.remember_host_path(name, &plan.dir).await;
         }
+        if !plan.session.intent.is_empty() {
+            self.tmux
+                .set_reader_metadata(
+                    name,
+                    &crate::tmux::ReaderMetadata {
+                        intent: plan.session.intent.clone(),
+                        label: plan.session.label.clone().unwrap_or_default(),
+                        original_label: plan.session.reader_label.clone(),
+                        project: plan.session.project.clone(),
+                        worktree: plan.session.worktree.clone(),
+                        path: plan.session.reader_path.clone(),
+                        key: plan.session.reader_key.clone(),
+                        scope: plan.session.reader_scope.clone(),
+                        pinned: plan.session.reader_pinned,
+                        line: plan.session.reader_line,
+                    },
+                )
+                .await?;
+        }
         Ok(())
     }
 

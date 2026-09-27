@@ -31,6 +31,12 @@ pub struct SessionView {
     pub worktree_name: String,
     pub name: String,
     pub label: String,
+    pub intent: String,
+    pub reader_path: String,
+    pub reader_key: String,
+    pub reader_scope: String,
+    pub reader_pinned: bool,
+    pub reader_line: u32,
     pub project: String,
     pub dir: String,
     // Launch policy and task ownership; preserve the flat wire contract.

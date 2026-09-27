@@ -24,6 +24,7 @@ pub(crate) fn router(m: Mgr) -> Router {
         .route(routes::SESSION_STOP, post(stop))
         .route(routes::SESSION_RESTART, post(restart))
         .route(routes::SESSION_LABEL, put(set_label))
+        .route(routes::SESSION_READER_PINNED, put(set_reader_pinned))
         .route(routes::SESSION_STATE_RESET, post(reset_state))
         .route(routes::SPAWNABLE_TEMPLATES, get(list_spawnable_templates))
         .route(routes::WORKERS, post(spawn_worker))

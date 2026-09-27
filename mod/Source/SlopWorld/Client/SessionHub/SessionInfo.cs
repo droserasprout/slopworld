@@ -69,6 +69,13 @@ namespace SlopWorld
         // A non-empty manual label is shown in place of the generated title and disables
         // daemon-side title summaries for this session.
         public string Label = "";
+        // Explicit routing and recovery identity for session-backed readers.
+        public string Intent = "";
+        public string ReaderPath = "";
+        public string ReaderKey = "";
+        public string ReaderScope = "";
+        public bool ReaderPinned;
+        public int ReaderLine;
 
         // The application sent a bell that the user has not acknowledged.
         // The daemon clears it when the client subscribes to the pane on opening the terminal.

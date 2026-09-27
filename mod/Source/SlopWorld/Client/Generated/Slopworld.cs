@@ -78,7 +78,7 @@ namespace SlopWorld.Wire {
             "AQFCBwoFX25hbWVCBwoFX2tpbmRCBwoFX2xpbmtCCgoIX3Byb2plY3RCBwoF",
             "X3RleHRCCgoIX2NvbW1hbmRCBwoFX2hvc3RCEQoPX2FnZW50X3RlbXBsYXRl",
             "QgcKBV9tb2RlQgoKCF9idWlsdGluIisKCVN0YXRlUnVsZRINCgVzdGF0ZRgB",
-            "IAEoCRIPCgdwYXR0ZXJuGAIgASgJIsQFCgtTZXNzaW9uVmlldxIMCgRuYW1l",
+            "IAEoCRIPCgdwYXR0ZXJuGAIgASgJIr8GCgtTZXNzaW9uVmlldxIMCgRuYW1l",
             "GAEgASgJEg0KBWxhYmVsGAIgASgJEg8KB3Byb2plY3QYAyABKAkSCwoDZGly",
             "GAQgASgJEg8KB2NvbW1hbmQYBSABKAkSFgoOY29tbWFuZF9wcmVzZXQYBiAB",
             "KAkSEAoDY21kGAcgASgJSACIAQESDwoHc2FuZGJveBgIIAMoCRIWCg5wZXJz",
@@ -94,293 +94,302 @@ namespace SlopWorld.Wire {
             "CgtsYXN0X2NoYW5nZRgdIAEoBBITCgtzdGF0ZV9zaW5jZRgeIAEoBBINCgV0",
             "aXRsZRgfIAEoCRIMCgRiZWxsGCAgASgIEg4KBnJ1bl9pZBghIAEoBBILCgNz",
             "ZXEYIiABKAQSEAoId29ya3RyZWUYIyABKAkSFQoNd29ya3RyZWVfbmFtZRgk",
-            "IAEoCUIGCgRfY21kIrcBCgtJbnB1dFRpbWluZxIKCgJpZBgBIAEoCRIOCgZy",
-            "dW5faWQYAiABKAQSEwoLcmVjZWl2ZWRfdXMYAyABKAQSDwoHdG11eF91cxgE",
-            "IAEoBBIUCgx0bXV4X2RvbmVfdXMYBSABKAQSGAoQZmlyc3RfY2FwdHVyZV91",
-            "cxgGIAEoBBIRCglmaXJzdF9zZXEYByABKAQSEgoKY2FwdHVyZV91cxgIIAEo",
-            "BBIPCgdzZW5kX3VzGAkgASgEIoIDCgpTY3JlZW5WaWV3EgwKBG5hbWUYASAB",
-            "KAkSCwoDc2VxGAIgASgEEhEKBGNvbHMYAyABKA1IAIgBARIRCgRyb3dzGAQg",
-            "ASgNSAGIAQESCgoCY3gYBSABKA0SCgoCY3kYBiABKA0SCwoDb2ZmGAcgASgN",
-            "EhQKB2hpc3RvcnkYCCABKA1IAogBARIUCgxjdXJzb3Jfc2hhcGUYCSABKA0S",
-            "GQoMY3Vyc29yX2JsaW5rGAogASgISAOIAQESEQoJYXBwX21vdXNlGAsgASgI",
-            "EhAKCGFwcF9kcmFnGAwgASgIEhIKCmFsdF9zY3JlZW4YDSABKAgSDQoFdGl0",
-            "bGUYDiABKAkSEgoKcmVxdWVzdF9pZBgPIAEoBBINCgVsaW5lcxgQIAMoCRIt",
-            "Cg1pbnB1dF90aW1pbmdzGBEgAygLMhYuc2xvcHdvcmxkLklucHV0VGltaW5n",
-            "QgcKBV9jb2xzQgcKBV9yb3dzQgoKCF9oaXN0b3J5Qg8KDV9jdXJzb3JfYmxp",
-            "bmsixwMKDVNhbmRib3hQcmVzZXQSEQoEbmFtZRgBIAEoCUgAiAEBEhgKC2Rl",
-            "c2NyaXB0aW9uGAIgASgJSAGIAQESEAoIcmVxdWlyZXMYAyADKAkSCgoCcm8Y",
-            "BCADKAkSCgoCcncYBSADKAkSCwoDZGV2GAYgAygJEg8KB3ByaXZhdGUYByAD",
-            "KAkSDAoEc2VlZBgIIAMoCRIMCgRza2lwGAkgAygJEg4KBnNoYXJlZBgKIAMo",
-            "CRIUCgdlc2NhcGVzGAsgASgJSAKIAQESCwoDZW52GAwgAygJEjQKBnNldGVu",
-            "dhgNIAMoCzIkLnNsb3B3b3JsZC5TYW5kYm94UHJlc2V0LlNldGVudkVudHJ5",
-            "EhEKBHRtdXgYDiABKAhIA4gBARIaCg1kYWVtb25fY29uZmlnGA8gASgISASI",
-            "AQESEwoGc291cmNlGBAgASgJSAWIAQEaLQoLU2V0ZW52RW50cnkSCwoDa2V5",
-            "GAEgASgJEg0KBXZhbHVlGAIgASgJOgI4AUIHCgVfbmFtZUIOCgxfZGVzY3Jp",
-            "cHRpb25CCgoIX2VzY2FwZXNCBwoFX3RtdXhCEAoOX2RhZW1vbl9jb25maWdC",
-            "CQoHX3NvdXJjZSK8AQoNQ29tbWFuZFByZXNldBIRCgRuYW1lGAEgASgJSACI",
-            "AQESEQoEa2luZBgCIAEoCUgBiAEBEhgKC2Rlc2NyaXB0aW9uGAMgASgJSAKI",
-            "AQESEAoDY21kGAQgASgJSAOIAQESDwoHc2FuZGJveBgFIAMoCRITCgZzb3Vy",
-            "Y2UYBiABKAlIBIgBAUIHCgVfbmFtZUIHCgVfa2luZEIOCgxfZGVzY3JpcHRp",
-            "b25CBgoEX2NtZEIJCgdfc291cmNlIn0KDUFnZW50VGVtcGxhdGUSDAoEbmFt",
-            "ZRgBIAEoCRIPCgd2ZXJzaW9uGAIgASgEEhMKC2Rlc2NyaXB0aW9uGAMgASgJ",
-            "EjIKCGRlZmF1bHRzGAUgASgLMiAuc2xvcHdvcmxkLkFnZW50VGVtcGxhdGVE",
-            "ZWZhdWx0c0oECAQQBSKmAwoVQWdlbnRUZW1wbGF0ZURlZmF1bHRzEi4KB2Nv",
-            "bW1hbmQYASABKAsyGC5zbG9wd29ybGQuQ29tbWFuZFByZXNldEgAiAEBEhAK",
-            "A2NtZBgCIAEoCUgBiAEBEg8KB3NhbmRib3gYAyADKAkSMQoPc2FuZGJveF9w",
-            "cmVzZXRzGAQgAygLMhguc2xvcHdvcmxkLlNhbmRib3hQcmVzZXQSGwoOcGVy",
-            "c2lzdGVudF90bXAYBSABKAhIAogBARIUCgduZXR3b3JrGAYgASgJSAOIAQES",
-            "JgoDZG5zGAcgASgLMhQuc2xvcHdvcmxkLkRuc0NvbmZpZ0gEiAEBEiEKBmxp",
-            "bWl0cxgIIAEoCzIRLnNsb3B3b3JsZC5MaW1pdHMSFgoJYXV0b3N0YXJ0GAkg",
-            "ASgISAWIAQESGAoLYXV0b19yZXN1bWUYCiABKAhIBogBAUIKCghfY29tbWFu",
-            "ZEIGCgRfY21kQhEKD19wZXJzaXN0ZW50X3RtcEIKCghfbmV0d29ya0IGCgRf",
-            "ZG5zQgwKCl9hdXRvc3RhcnRCDgoMX2F1dG9fcmVzdW1lIqgBCgtVc2FnZVdp",
-            "bmRvdxILCgNrZXkYASABKAkSDQoFbGFiZWwYAiABKAkSCwoDcGN0GAMgASgC",
-            "EgwKBHVuaXQYBCABKAkSEwoGYW1vdW50GAUgASgCSACIAQESEgoFbGltaXQY",
-            "BiABKAJIAYgBARIWCglyZXNldHNfaW4YByABKARIAogBAUIJCgdfYW1vdW50",
-            "QggKBl9saW1pdEIMCgpfcmVzZXRzX2luInMKEVVzYWdlQ2F0YWxvZ0VudHJ5",
-            "EgsKA2tleRgBIAEoCRINCgVsYWJlbBgCIAEoCRIQCghwcm92aWRlchgDIAEo",
-            "CRIMCgR1bml0GAQgASgJEgwKBHJhbmsYBSABKAUSFAoMZGVmYXVsdF9wb2xs",
-            "GAYgASgIIqkBCghVc2FnZVJvdxILCgNrZXkYASABKAkSDQoFbGFiZWwYAiAB",
-            "KAkSEAoIcHJvdmlkZXIYAyABKAkSDAoEdW5pdBgEIAEoCRIMCgRyYW5rGAUg",
-            "ASgFEgwKBHBvbGwYBiABKAgSDQoFc3RhbGUYByABKAgSKwoGd2luZG93GAgg",
-            "ASgLMhYuc2xvcHdvcmxkLlVzYWdlV2luZG93SACIAQFCCQoHX3dpbmRvdyL/",
-            "AQoNVXNhZ2VTbmFwc2hvdBIKCgJvaxgBIAEoCBISCgVlcnJvchgCIAEoCUgA",
-            "iAEBEgwKBHBsYW4YAyABKAkSEgoKZmV0Y2hlZF9tcxgEIAEoBBIPCgdzb3Vy",
-            "Y2VzGAUgAygJEhYKDmZhaWxlZF9zb3VyY2VzGAYgAygJEicKB3dpbmRvd3MY",
-            "ByADKAsyFi5zbG9wd29ybGQuVXNhZ2VXaW5kb3cSLQoHY2F0YWxvZxgIIAMo",
-            "CzIcLnNsb3B3b3JsZC5Vc2FnZUNhdGFsb2dFbnRyeRIhCgRyb3dzGAkgAygL",
-            "MhMuc2xvcHdvcmxkLlVzYWdlUm93QggKBl9lcnJvciKIAgoMQ2FwYWJpbGl0",
-            "aWVzEg8KB3J1bnRpbWUYASABKAkSFgoOYXVkaW9fcGxheWJhY2sYAiABKAgS",
-            "EQoJY2xpcGJvYXJkGAMgASgIEhQKDGRlc2t0b3Bfb3BlbhgEIAEoCBIaChJw",
-            "ZXJfc2Vzc2lvbl9saW1pdHMYBSABKAgSIQoZaG9zdF9uZXR3b3JrX2lzX2Nv",
-            "bnRhaW5lchgGIAEoCBIkChxob3N0X3Rlcm1pbmFsc19hcmVfY29udGFpbmVy",
-            "GAcgASgIEjEKCHRlcm1pbmFsGAggASgLMh8uc2xvcHdvcmxkLlRlcm1pbmFs",
-            "Q2FwYWJpbGl0aWVzEg4KBm5jc3BvdBgJIAEoCCJ4ChRUZXJtaW5hbENhcGFi",
-            "aWxpdGllcxIYChBzY3JvbGxiYWNrX2xpbmVzGAEgASgNEhAKCG1pbl9jb2xz",
-            "GAIgASgNEhAKCG1heF9jb2xzGAMgASgNEhAKCG1pbl9yb3dzGAQgASgNEhAK",
-            "CG1heF9yb3dzGAUgASgNIucBCgRUYXNrEgoKAmlkGAEgASgJEgwKBGZyb20Y",
-            "AiABKAkSCgoCdG8YAyABKAkSDAoEYm9keRgEIAEoCRIOCgZzdGF0dXMYBSAB",
-            "KAkSEQoEbm90ZRgGIAEoCUgAiAEBEhQKB3N1bW1hcnkYByABKAlIAYgBARIS",
-            "CgpjcmVhdGVkX21zGAggASgEEhIKCnVwZGF0ZWRfbXMYCSABKAQSKgoGd29y",
-            "a2VyGAogASgLMhUuc2xvcHdvcmxkLldvcmtlclRhc2tIAogBAUIHCgVfbm90",
-            "ZUIKCghfc3VtbWFyeUIJCgdfd29ya2VyIj4KCldvcmtlclRhc2sSDwoHc2Vz",
-            "c2lvbhgBIAEoCRIOCgZwYXJlbnQYAiABKAkSDwoHZHVyYWJsZRgDIAEoCCKr",
-            "AQoKQXVkaW9TdGF0ZRIPCgdwbGF5aW5nGAEgASgIEhMKBnNvdXJjZRgCIAEo",
-            "CUgAiAEBEg4KBnZvbHVtZRgDIAEoAhISCgVlcnJvchgEIAEoCUgBiAEBEhIK",
-            "BXRpdGxlGAUgASgJSAKIAQESFAoHc2Vzc2lvbhgGIAEoCUgDiAEBQgkKB19z",
-            "b3VyY2VCCAoGX2Vycm9yQggKBl90aXRsZUIKCghfc2Vzc2lvbiJECg9TdGF0",
-            "aW9uTWV0YWRhdGESDAoEbmFtZRgBIAEoCRIOCgZkb25hdGUYAiABKAkSEwoL",
-            "dGl0bGVfcmVnZXgYAyABKAkiNwoNU3RhdGlvblN0cmVhbRIMCgRyYXRlGAEg",
-            "ASgNEgsKA2tleRgCIAEoCRILCgN1cmwYAyABKAkihAEKB1N0YXRpb24SCgoC",
-            "aWQYASABKAkSFAoMZGVmYXVsdF9yYXRlGAIgASgNEiwKCG1ldGFkYXRhGAMg",
-            "ASgLMhouc2xvcHdvcmxkLlN0YXRpb25NZXRhZGF0YRIpCgdzdHJlYW1zGAQg",
-            "AygLMhguc2xvcHdvcmxkLlN0YXRpb25TdHJlYW0iNgoOSnVrZWJveENhdGFs",
-            "b2cSJAoIc3RhdGlvbnMYASADKAsyEi5zbG9wd29ybGQuU3RhdGlvbiJDCg1D",
-            "cmVhdGVUYXNrUmVxEg8KAnRvGAEgASgJSACIAQESEQoEYm9keRgCIAEoCUgB",
-            "iAEBQgUKA190b0IHCgVfYm9keSKuAgoOU3Bhd25Xb3JrZXJSZXESFAoHcHJv",
-            "amVjdBgBIAEoCUgAiAEBEhUKCHRlbXBsYXRlGAIgASgJSAGIAQESEQoEYm9k",
-            "eRgDIAEoCUgCiAEBEhQKB2R1cmFibGUYBCABKAhIA4gBARIVCgh3b3JrdHJl",
-            "ZRgFIAEoCUgEiAEBEhkKDG5ld193b3JrdHJlZRgGIAEoCEgFiAEBEhEKBGJh",
-            "c2UYByABKAlIBogBARIaCg13b3JrdHJlZV9uYW1lGAggASgJSAeIAQFCCgoI",
-            "X3Byb2plY3RCCwoJX3RlbXBsYXRlQgcKBV9ib2R5QgoKCF9kdXJhYmxlQgsK",
-            "CV93b3JrdHJlZUIPCg1fbmV3X3dvcmt0cmVlQgcKBV9iYXNlQhAKDl93b3Jr",
-            "dHJlZV9uYW1lIksKDVVwZGF0ZVRhc2tSZXESEwoGc3RhdHVzGAEgASgJSACI",
-            "AQESEQoEbm90ZRgCIAEoCUgBiAEBQgkKB19zdGF0dXNCBwoFX25vdGUiHQoO",
-            "UmVtb3ZlVGFza3NSZXESCwoDaWRzGAEgAygJIigKCExhYmVsUmVxEhIKBWxh",
-            "YmVsGAEgASgJSACIAQFCCAoGX2xhYmVsIqIBChRTYXZlQWdlbnRUZW1wbGF0",
-            "ZVJlcRIRCgRuYW1lGAEgASgJSACIAQESGAoLZGVzY3JpcHRpb24YAiABKAlI",
-            "AYgBARITCgZzb3VyY2UYAyABKAlIAogBARIWCglkdXBsaWNhdGUYBCABKAlI",
-            "A4gBAUIHCgVfbmFtZUIOCgxfZGVzY3JpcHRpb25CCQoHX3NvdXJjZUIMCgpf",
-            "ZHVwbGljYXRlIrQBChZDcmVhdGVBZ2VudFRlbXBsYXRlUmVxEhEKBG5hbWUY",
-            "ASABKAlIAIgBARIUCgdwcm9qZWN0GAIgASgJSAGIAQESMAoJb3ZlcnJpZGVz",
-            "GAMgASgLMhguc2xvcHdvcmxkLlNlc3Npb25Db25maWdIAogBARISCgVzdGFy",
-            "dBgEIAEoCEgDiAEBQgcKBV9uYW1lQgoKCF9wcm9qZWN0QgwKCl9vdmVycmlk",
-            "ZXNCCAoGX3N0YXJ0Is8DCgZSdW5SZXESEQoEY29scxgBIAEoDUgAiAEBEhEK",
-            "BHJvd3MYAiABKA1IAYgBARIUCgdwcm9qZWN0GAMgASgJSAKIAQESEQoEa2lu",
-            "ZBgEIAEoCUgDiAEBEhQKB2NvbW1hbmQYBSABKAlIBIgBARIRCgRwYXRoGAYg",
-            "ASgJSAWIAQESEQoEaG9sZBgHIAEoCEgGiAEBEhEKBHRleHQYCCABKAlIB4gB",
-            "ARISCgVsYWJlbBgJIAEoCUgIiAEBEhEKBHRlbXAYCiABKAhICYgBARITCgty",
-            "YW5kb21fdGlwcxgLIAMoCRIRCgRob3N0GAwgASgISAqIAQESGwoOYWdlbnRf",
-            "dGVtcGxhdGUYDSABKAlIC4gBARIRCgRsaWtlGA4gASgJSAyIAQESFQoId29y",
-            "a3RyZWUYDyABKAlIDYgBAUIHCgVfY29sc0IHCgVfcm93c0IKCghfcHJvamVj",
-            "dEIHCgVfa2luZEIKCghfY29tbWFuZEIHCgVfcGF0aEIHCgVfaG9sZEIHCgVf",
-            "dGV4dEIICgZfbGFiZWxCBwoFX3RlbXBCBwoFX2hvc3RCEQoPX2FnZW50X3Rl",
-            "bXBsYXRlQgcKBV9saWtlQgsKCV93b3JrdHJlZSKvAQoNRmlsZUFjdGlvblJl",
-            "cRIVCgh3b3JrdHJlZRgFIAEoCUgAiAEBEhQKB3Byb2plY3QYASABKAlIAYgB",
-            "ARIRCgRwYXRoGAIgASgJSAKIAQESFAoHY29tbWFuZBgDIAEoCUgDiAEBEhEK",
-            "BGhvc3QYBCABKAhIBIgBAUILCglfd29ya3RyZWVCCgoIX3Byb2plY3RCBwoF",
-            "X3BhdGhCCgoIX2NvbW1hbmRCBwoFX2hvc3QiXAoIR3JhbnRSZXESFAoHZ3Jh",
-            "bnRvchgBIAEoCUgAiAEBEhAKCHNlc3Npb25zGAIgAygJEhIKBWxldmVsGAMg",
-            "ASgJSAGIAQFCCgoIX2dyYW50b3JCCAoGX2xldmVsIisKDUNvcHlQcmVzZXRS",
-            "ZXESEQoEbmFtZRgBIAEoCUgAiAEBQgcKBV9uYW1lIiQKFFJlcGxhY2VDb25m",
-            "aWdSZXF1ZXN0EgwKBHRleHQYASABKAkiSwoRUHJvamVjdFByZXZpZXdSZXES",
-            "EQoEbmFtZRgBIAEoCUgAiAEBEhEKBHRlbXAYAiABKAhIAYgBAUIHCgVfbmFt",
-            "ZUIHCgVfdGVtcCIlCgdDbGlwUmVxEhEKBHRleHQYASABKAlIAIgBAUIHCgVf",
-            "dGV4dCJOCgxIaWdobGlnaHRSZXESEQoEdGV4dBgBIAEoCUgAiAEBEhUKCGxh",
-            "bmd1YWdlGAIgASgJSAGIAQFCBwoFX3RleHRCCwoJX2xhbmd1YWdlIl0KB0Zp",
-            "bGVSZXESEQoEcGF0aBgBIAEoCUgAiAEBEhEKBG5hbWUYAiABKAlIAYgBARIR",
-            "CgRraW5kGAMgASgJSAKIAQFCBwoFX3BhdGhCBwoFX25hbWVCBwoFX2tpbmQi",
-            "JQoHTmFtZVJlcRIRCgRuYW1lGAEgASgJSACIAQFCBwoFX25hbWUiQwoJUmVk",
-            "cmF3UmVxEhEKBGNvbHMYASABKA1IAIgBARIRCgRyb3dzGAIgASgNSAGIAQFC",
-            "BwoFX2NvbHNCBwoFX3Jvd3MifgoOQXVkaW9TZWxlY3Rpb24SFAoHc3RhdGlv",
-            "bhgBIAEoCUgAiAEBEhMKBnN0cmVhbRgCIAEoCUgBiAEBEhEKBGZpbGUYAyAB",
-            "KAlIAogBARIOCgZuY3Nwb3QYBCABKAhCCgoIX3N0YXRpb25CCQoHX3N0cmVh",
-            "bUIHCgVfZmlsZSJmCghQYXN0ZVJlcRIRCgRuYW1lGAEgASgJSACIAQESEQoE",
-            "dGV4dBgCIAEoCUgBiAEBEhUKCHRyYWNlX2lkGAMgASgJSAKIAQFCBwoFX25h",
-            "bWVCBwoFX3RleHRCCwoJX3RyYWNlX2lkImgKDUJyZWFkY3J1bWJSZXESEQoE",
-            "bmFtZRgBIAEoCUgAiAEBEhcKCmJyZWFkY3J1bWIYAiABKAlIAYgBARITCgty",
-            "YW5kb21fdGlwcxgDIAMoCUIHCgVfbmFtZUINCgtfYnJlYWRjcnVtYiLcAQoI",
-            "TW91c2VSZXESEQoEbmFtZRgBIAEoCUgAiAEBEhMKBmFjdGlvbhgCIAEoCUgB",
-            "iAEBEhMKBmJ1dHRvbhgDIAEoDUgCiAEBEhAKA2NvbBgEIAEoDUgDiAEBEhAK",
-            "A3JvdxgFIAEoDUgEiAEBEhIKBWNvdW50GAYgASgNSAWIAQESFQoIdHJhY2Vf",
-            "aWQYByABKAlIBogBAUIHCgVfbmFtZUIJCgdfYWN0aW9uQgkKB19idXR0b25C",
-            "BgoEX2NvbEIGCgRfcm93QggKBl9jb3VudEILCglfdHJhY2VfaWQiaQoJU2Ny",
-            "b2xsUmVxEhEKBG5hbWUYASABKAlIAIgBARIQCgNvZmYYAiABKA1IAYgBARIX",
-            "CgpyZXF1ZXN0X2lkGAMgASgESAKIAQFCBwoFX25hbWVCBgoEX29mZkINCgtf",
-            "cmVxdWVzdF9pZCKOAQoHS2V5c1JlcRIRCgRuYW1lGAEgASgJSACIAQESDAoE",
-            "a2V5cxgCIAMoCRIUCgdsaXRlcmFsGAMgASgISAGIAQESEwoLcmFuZG9tX3Rp",
-            "cHMYBCADKAkSFQoIdHJhY2VfaWQYBSABKAlIAogBAUIHCgVfbmFtZUIKCghf",
-            "bGl0ZXJhbEILCglfdHJhY2VfaWQiXwoJUmVzaXplUmVxEhEKBG5hbWUYASAB",
-            "KAlIAIgBARIRCgRjb2xzGAIgASgNSAGIAQESEQoEcm93cxgDIAEoDUgCiAEB",
-            "QgcKBV9uYW1lQgcKBV9jb2xzQgcKBV9yb3dzIgcKBUVtcHR5IhYKBUVycm9y",
-            "Eg0KBWVycm9yGAEgASgJIhEKA0FjaxIKCgJvaxgBIAEoCCJmCgZIZWFsdGgS",
-            "CgoCb2sYASABKAgSDwoHdmVyc2lvbhgCIAEoCRIQCghob3N0bmFtZRgDIAEo",
-            "CRITCgt0bXV4X3NvY2tldBgEIAEoCRIYChBwcm90b2NvbF92ZXJzaW9uGAUg",
-            "ASgNIjkKDVNlc3Npb25zUmVwbHkSKAoIc2Vzc2lvbnMYASADKAsyFi5zbG9w",
-            "d29ybGQuU2Vzc2lvblZpZXciNQoNUHJvamVjdHNSZXBseRIkCghwcm9qZWN0",
-            "cxgBIAMoCzISLnNsb3B3b3JsZC5Qcm9qZWN0IjcKDExpYnJhcnlSZXBseRIn",
-            "CgdsaWJyYXJ5GAEgAygLMhYuc2xvcHdvcmxkLkxpYnJhcnlJdGVtIl8KDlRl",
-            "bXBsYXRlc1JlcGx5EisKCXRlbXBsYXRlcxgBIAMoCzIYLnNsb3B3b3JsZC5B",
-            "Z2VudFRlbXBsYXRlEhQKB3Byb2plY3QYAiABKAlIAIgBAUIKCghfcHJvamVj",
-            "dCJICg5UZW1wbGF0ZVJlc3VsdBIKCgJvaxgBIAEoCBIqCgh0ZW1wbGF0ZRgC",
-            "IAEoCzIYLnNsb3B3b3JsZC5BZ2VudFRlbXBsYXRlIiwKDVNlc3Npb25SZXN1",
-            "bHQSCgoCb2sYASABKAgSDwoHc2Vzc2lvbhgCIAEoCSIrCgpUYXNrUmVzdWx0",
-            "Eh0KBHRhc2sYASABKAsyDy5zbG9wd29ybGQuVGFzayIsCgpUYXNrc1JlcGx5",
-            "Eh4KBXRhc2tzGAEgAygLMg8uc2xvcHdvcmxkLlRhc2siGgoHUmVtb3ZlZBIP",
-            "CgdyZW1vdmVkGAEgASgEIlgKDFdvcmtlclJlc3VsdBIdCgR0YXNrGAEgASgL",
-            "Mg8uc2xvcHdvcmxkLlRhc2sSKQoGd29ya2VyGAIgASgLMhkuc2xvcHdvcmxk",
-            "LldvcmtlcklkZW50aXR5IlAKDldvcmtlcklkZW50aXR5EgwKBG5hbWUYASAB",
-            "KAkSDwoHc2Vzc2lvbhgCIAEoCRIOCgZwYXJlbnQYAyABKAkSDwoHZHVyYWJs",
-            "ZRgEIAEoCCIaCgpQYXRoUmVzdWx0EgwKBHBhdGgYASABKAkiNwoKVGV4dFJl",
-            "c3VsdBIMCgR0ZXh0GAEgASgJEgwKBHBhdGgYAiABKAkSDQoFYnl0ZXMYAyAB",
-            "KAQiOAoLSW1hZ2VSZXN1bHQSDAoEcGF0aBgBIAEoCRIMCgRkYXRhGAIgASgM",
-            "Eg0KBWJ5dGVzGAMgASgEIioKDE91dHB1dFJlc3VsdBIKCgJvaxgBIAEoCBIO",
-            "CgZvdXRwdXQYAiABKAkiKAoLR3JhbnRSZXN1bHQSCgoCb2sYASABKAgSDQoF",
-            "dG9rZW4YAiABKAkiHQoLR3JhbnRzUmVwbHkSDgoGZ3JhbnRzGAEgASgEInIK",
-            "DFByZXNldHNSZXBseRILCgNkaXIYAyABKAkSKQoHcHJlc2V0cxgBIAMoCzIY",
-            "LnNsb3B3b3JsZC5TYW5kYm94UHJlc2V0EioKCGNvbW1hbmRzGAIgAygLMhgu",
-            "c2xvcHdvcmxkLkNvbW1hbmRQcmVzZXQiUgoKRGVza3RvcEFwcBIKCgJpZBgB",
-            "IAEoCRIMCgRuYW1lGAIgASgJEhkKDGRlc2t0b3BfZmlsZRgDIAEoCUgAiAEB",
-            "Qg8KDV9kZXNrdG9wX2ZpbGUiMAoJQXBwc1JlcGx5EiMKBGFwcHMYASADKAsy",
-            "FS5zbG9wd29ybGQuRGVza3RvcEFwcCKbAQoLU3RvcmVkU3RhdGUSDAoEa2lu",
-            "ZBgBIAEoCRILCgNrZXkYAiABKAkSFAoHc2Vzc2lvbhgDIAEoCUgAiAEBEgwK",
-            "BHBhdGgYBCABKAkSDQoFYnl0ZXMYBSABKAQSEAoIbW9kaWZpZWQYBiABKAQS",
-            "FAoHcHJvamVjdBgHIAEoCUgBiAEBQgoKCF9zZXNzaW9uQgoKCF9wcm9qZWN0",
-            "IjcKDFN0b3JlZFN0YXRlcxInCgdlbnRyaWVzGAEgAygLMhYuc2xvcHdvcmxk",
-            "LlN0b3JlZFN0YXRlIjAKDkZpbGVTdGF0UmVzdWx0Eg8KB2lzX2ZpbGUYASAB",
-            "KAgSDQoFc3RhbXAYAiABKAkiswEKDEJyb3dzZVJlc3VsdBIMCgRwYXRoGAEg",
-            "ASgJEhMKBnBhcmVudBgCIAEoCUgAiAEBEgwKBGRpcnMYAyADKAkSEgoKZW1w",
-            "dHlfZGlycxgEIAMoCRIXCg9naXRpZ25vcmVkX2RpcnMYBSADKAkSDQoFZmls",
-            "ZXMYBiADKAkSGAoQZ2l0aWdub3JlZF9maWxlcxgHIAMoCRIRCgl0cnVuY2F0",
-            "ZWQYCCABKAhCCQoHX3BhcmVudCJHCgtTZWFyY2hNYXRjaBIMCgRwYXRoGAEg",
-            "ASgJEgwKBGxpbmUYAiABKAQSDgoGY29sdW1uGAMgASgEEgwKBHRleHQYBCAB",
-            "KAkiWAoMU2VhcmNoUmVzdWx0EgwKBHBhdGgYASABKAkSJwoHbWF0Y2hlcxgC",
-            "IAMoCzIWLnNsb3B3b3JsZC5TZWFyY2hNYXRjaBIRCgl0cnVuY2F0ZWQYAyAB",
-            "KAgiZwoHR2l0RmlsZRIMCgRwYXRoGAEgASgJEg4KBnN0YXR1cxgCIAEoCRIS",
-            "CgVhZGRlZBgDIAEoBEgAiAEBEhQKB2RlbGV0ZWQYBCABKARIAYgBAUIICgZf",
-            "YWRkZWRCCgoIX2RlbGV0ZWQi5QEKCUdpdFJlc3VsdBIMCgRyZXBvGAEgASgI",
-            "EgwKBHBhdGgYAiABKAkSDAoEcm9vdBgDIAEoCRIOCgZicmFuY2gYBCABKAkS",
-            "DwoHY2hhbmdlZBgFIAEoBBISCgVhZGRlZBgGIAEoBEgAiAEBEhQKB2RlbGV0",
-            "ZWQYByABKARIAYgBARIRCgl0cnVuY2F0ZWQYCCABKAgSFwoPY291bnRzX2Nv",
-            "bXBsZXRlGAkgASgIEiEKBWZpbGVzGAogAygLMhIuc2xvcHdvcmxkLkdpdEZp",
-            "bGVCCAoGX2FkZGVkQgoKCF9kZWxldGVkIq0CCgZDb25maWcSIQoGZGFlbW9u",
-            "GAEgASgLMhEuc2xvcHdvcmxkLkRhZW1vbhIlCghkZWZhdWx0cxgCIAEoCzIT",
-            "LnNsb3B3b3JsZC5EZWZhdWx0cxIsCghjb21tYW5kcxgDIAEoCzIaLnNsb3B3",
-            "b3JsZC5Db21tYW5kRGVmYXVsdHMSIwoHcHJvamVjdBgEIAMoCzISLnNsb3B3",
-            "b3JsZC5Qcm9qZWN0EikKB3Nlc3Npb24YBSADKAsyGC5zbG9wd29ybGQuU2Vz",
-            "c2lvbkNvbmZpZxIxCg1ob3N0X3Rlcm1pbmFsGAYgAygLMhouc2xvcHdvcmxk",
-            "Lkhvc3RUZXJtaW5hbENmZxIoCgpzdGF0ZV9ydWxlGAcgAygLMhQuc2xvcHdv",
-            "cmxkLlN0YXRlUnVsZSK1AQoOQ29uZmlnTWV0YWRhdGESIwoIZGVmYXVsdHMY",
-            "ASABKAsyES5zbG9wd29ybGQuQ29uZmlnEjMKDXVzYWdlX2NhdGFsb2cYAiAD",
-            "KAsyHC5zbG9wd29ybGQuVXNhZ2VDYXRhbG9nRW50cnkSFgoOdGVtcG9yYXJ5",
-            "X3Jvb3QYAyABKAkSMQoIdGVybWluYWwYBCABKAsyHy5zbG9wd29ybGQuVGVy",
-            "bWluYWxDYXBhYmlsaXRpZXMiegoMQ29uZmlnUmVzdWx0EgwKBHBhdGgYASAB",
-            "KAkSDAoEdGV4dBgCIAEoCRIhCgZ2YWx1ZXMYAyABKAsyES5zbG9wd29ybGQu",
-            "Q29uZmlnEisKCG1ldGFkYXRhGAQgASgLMhkuc2xvcHdvcmxkLkNvbmZpZ01l",
-            "dGFkYXRhIkcKC0NvbmZpZ1BhdGNoEikKBnZhbHVlcxgBIAEoCzIZLnNsb3B3",
-            "b3JsZC5FZGl0YWJsZUNvbmZpZxINCgVwYXRocxgCIAMoCSL9AQoTU2F2ZVRl",
-            "bXBsYXRlUmVxdWVzdBIRCgRuYW1lGAEgASgJSACIAQESGAoLZGVzY3JpcHRp",
-            "b24YAiABKAlIAYgBARITCgZzb3VyY2UYAyABKAlIAogBARIWCglkdXBsaWNh",
-            "dGUYBCABKAlIA4gBARIUCgd2ZXJzaW9uGAUgASgESASIAQESMgoIZGVmYXVs",
-            "dHMYByABKAsyIC5zbG9wd29ybGQuQWdlbnRUZW1wbGF0ZURlZmF1bHRzQgcK",
-            "BV9uYW1lQg4KDF9kZXNjcmlwdGlvbkIJCgdfc291cmNlQgwKCl9kdXBsaWNh",
-            "dGVCCgoIX3ZlcnNpb25KBAgGEAciqwEKCFJ1bldoZXJlEhEKBGNvbHMYASAB",
-            "KA1IAIgBARIRCgRyb3dzGAIgASgNSAGIAQESFAoHcHJvamVjdBgDIAEoCUgC",
-            "iAEBEgwKBHRlbXAYBCABKAgSEwoLcmFuZG9tX3RpcHMYBSADKAkSFQoId29y",
-            "a3RyZWUYBiABKAlIA4gBAUIHCgVfY29sc0IHCgVfcm93c0IKCghfcHJvamVj",
-            "dEILCglfd29ya3RyZWUitgEKFlNldHRpbmdzUHJldmlld1JlcXVlc3QSEAoI",
-            "ZXhpc3RpbmcYASABKAkSKQoHc2Vzc2lvbhgCIAEoCzIYLnNsb3B3b3JsZC5T",
-            "ZXNzaW9uQ29uZmlnEiMKB3Byb2plY3QYAyABKAsyEi5zbG9wd29ybGQuUHJv",
-            "amVjdBIqCgh0ZW1wbGF0ZRgEIAEoCzIYLnNsb3B3b3JsZC5BZ2VudFRlbXBs",
-            "YXRlEg4KBnJlY2lwZRgFIAEoCCItCgxQcmV2aWV3RmllbGQSDQoFbGFiZWwY",
-            "ASABKAkSDgoGdmFsdWVzGAIgAygJIkgKElByZXZpZXdEZWZpbml0aW9ucxIy",
-            "CghkZWZhdWx0cxgBIAEoCzIgLnNsb3B3b3JsZC5BZ2VudFRlbXBsYXRlRGVm",
-            "YXVsdHMingEKD1NldHRpbmdzUHJldmlldxINCgV0aXRsZRgBIAEoCRIQCghz",
-            "dWJ0aXRsZRgCIAEoCRINCgVub3RlcxgDIAMoCRInCgZmaWVsZHMYBCADKAsy",
-            "Fy5zbG9wd29ybGQuUHJldmlld0ZpZWxkEjIKC2RlZmluaXRpb25zGAUgASgL",
-            "Mh0uc2xvcHdvcmxkLlByZXZpZXdEZWZpbml0aW9ucyKgAQoKTGF1bmNoUGxh",
-            "bhIPCgd2ZXJzaW9uGAEgASgNEg8KB3Nlc3Npb24YAiABKAkSDgoGbGltaXRz",
-            "GAMgAygJEg0KBXBhc3RhGAQgAygJEg0KBWJ3cmFwGAUgAygJEhMKC2Vudmly",
-            "b25tZW50GAYgAygJEg4KBm1vdW50cxgHIAMoCRIPCgdjb21tYW5kGAggAygJ",
-            "EgwKBGFyZ3YYCSADKAkiSAoLUHJvY2Vzc1ZpZXcSCwoDcGlkGAEgASgNEgwK",
-            "BHBwaWQYAiABKA0SDAoEYXJndhgDIAMoCRIQCghpbl9zY29wZRgEIAEoCCJ+",
-            "Cg1MaXZlUHJvY2Vzc2VzEg4KBnN0YXR1cxgBIAEoCRIVCghwYW5lX3BpZBgC",
-            "IAEoDUgAiAEBEg4KBnNvdXJjZRgDIAEoCRIpCglwcm9jZXNzZXMYBCADKAsy",
-            "Fi5zbG9wd29ybGQuUHJvY2Vzc1ZpZXdCCwoJX3BhbmVfcGlkIo8BCg1TYW5k",
-            "Ym94UmVwb3J0Eg8KB3Nlc3Npb24YASABKAkSDAoEaG9zdBgCIAEoCBIjCgRw",
-            "bGFuGAMgASgLMhUuc2xvcHdvcmxkLkxhdW5jaFBsYW4SJgoEbGl2ZRgEIAEo",
-            "CzIYLnNsb3B3b3JsZC5MaXZlUHJvY2Vzc2VzEhIKCmNvbXBhcmlzb24YBSAB",
-            "KAkiegoMQXVkaW9SZXF1ZXN0Eg4KBnZvbHVtZRgDIAEoAhIuCglzZWxlY3Rp",
-            "b24YASABKAsyGS5zbG9wd29ybGQuQXVkaW9TZWxlY3Rpb25IABIgCgRzdG9w",
-            "GAIgASgLMhAuc2xvcHdvcmxkLkVtcHR5SABCCAoGY2hhbmdlIqQDCg1DbGll",
-            "bnRNZXNzYWdlEiYKBnJlZHJhdxgBIAEoCzIULnNsb3B3b3JsZC5SZWRyYXdS",
-            "ZXFIABIhCgNzdWIYAiABKAsyEi5zbG9wd29ybGQuTmFtZVJlcUgAEiMKBXVu",
-            "c3ViGAMgASgLMhIuc2xvcHdvcmxkLk5hbWVSZXFIABIiCgRrZXlzGAQgASgL",
-            "MhIuc2xvcHdvcmxkLktleXNSZXFIABImCgZyZXNpemUYBSABKAsyFC5zbG9w",
-            "d29ybGQuUmVzaXplUmVxSAASJgoGc2Nyb2xsGAYgASgLMhQuc2xvcHdvcmxk",
-            "LlNjcm9sbFJlcUgAEiQKBW1vdXNlGAcgASgLMhMuc2xvcHdvcmxkLk1vdXNl",
-            "UmVxSAASJAoFcGFzdGUYCCABKAsyEy5zbG9wd29ybGQuUGFzdGVSZXFIABIu",
-            "CgpicmVhZGNydW1iGAkgASgLMhguc2xvcHdvcmxkLkJyZWFkY3J1bWJSZXFI",
-            "ABIoCgVhdWRpbxgKIAEoCzIXLnNsb3B3b3JsZC5BdWRpb1JlcXVlc3RIAEIJ",
-            "CgdwYXlsb2FkIvUCCgVFdmVudBIvCgxjYXBhYmlsaXRpZXMYASABKAsyFy5z",
-            "bG9wd29ybGQuQ2FwYWJpbGl0aWVzSAASLAoIc2Vzc2lvbnMYAiABKAsyGC5z",
-            "bG9wd29ybGQuU2Vzc2lvbnNSZXBseUgAEiwKCHByb2plY3RzGAMgASgLMhgu",
-            "c2xvcHdvcmxkLlByb2plY3RzUmVwbHlIABIqCgdsaWJyYXJ5GAQgASgLMhcu",
-            "c2xvcHdvcmxkLkxpYnJhcnlSZXBseUgAEicKBnNjcmVlbhgFIAEoCzIVLnNs",
-            "b3B3b3JsZC5TY3JlZW5WaWV3SAASKQoFdXNhZ2UYBiABKAsyGC5zbG9wd29y",
-            "bGQuVXNhZ2VTbmFwc2hvdEgAEiYKBWF1ZGlvGAcgASgLMhUuc2xvcHdvcmxk",
-            "LkF1ZGlvU3RhdGVIABIsCgdqdWtlYm94GAggASgLMhkuc2xvcHdvcmxkLkp1",
-            "a2Vib3hDYXRhbG9nSABCCQoHcGF5bG9hZCJ3Cg1QcmVzZXRSZXF1ZXN0EisK",
-            "B3NhbmRib3gYASABKAsyGC5zbG9wd29ybGQuU2FuZGJveFByZXNldEgAEisK",
-            "B2NvbW1hbmQYAiABKAsyGC5zbG9wd29ybGQuQ29tbWFuZFByZXNldEgAQgwK",
-            "CmRlZmluaXRpb24iPwoUUHJvamVjdFByZXZpZXdSZXN1bHQSDAoEbmFtZRgB",
-            "IAEoCRIMCgR0ZW1wGAIgASgIEgsKA2RpchgDIAEoCSKIAQoORWRpdGFibGVD",
-            "b25maWcSIQoGZGFlbW9uGAEgASgLMhEuc2xvcHdvcmxkLkRhZW1vbhIlCghk",
-            "ZWZhdWx0cxgCIAEoCzITLnNsb3B3b3JsZC5EZWZhdWx0cxIsCghjb21tYW5k",
-            "cxgDIAEoCzIaLnNsb3B3b3JsZC5Db21tYW5kRGVmYXVsdHMiLAoOQmluYXJ5",
-            "TG9jYXRpb24SDAoEbmFtZRgBIAEoCRIMCgRwYXRoGAIgASgJIjsKDFdoZXJl",
-            "SXNSZXBseRIrCghiaW5hcmllcxgBIAMoCzIZLnNsb3B3b3JsZC5CaW5hcnlM",
-            "b2NhdGlvbiLiAQoIV29ya3RyZWUSCgoCaWQYASABKAkSEgoKcHJvamVjdF9p",
-            "ZBgCIAEoCRIMCgRuYW1lGAMgASgJEgwKBHBhdGgYBCABKAkSEgoKcmVwb3Np",
-            "dG9yeRgFIAEoCRIPCgdtYW5hZ2VkGAYgASgIEhYKDmluaXRpYWxfYnJhbmNo",
-            "GAcgASgJEgwKBGJhc2UYCCABKAkSDQoFcGhhc2UYCSABKAkSDQoFZXJyb3IY",
-            "CiABKAkSDgoGYnJhbmNoGAsgASgJEgwKBGhlYWQYDCABKAkSEwoLYXR0YWNo",
-            "bWVudHMYDSADKAkiOAoOV29ya3RyZWVzUmVwbHkSJgoJd29ya3RyZWVzGAEg",
-            "AygLMhMuc2xvcHdvcmxkLldvcmt0cmVlIngKEUNyZWF0ZVdvcmt0cmVlUmVx",
-            "Eg8KB3Byb2plY3QYASABKAkSEQoEbmFtZRgCIAEoCUgAiAEBEhEKBGJhc2UY",
-            "AyABKAlIAYgBARIRCgRwYXRoGAQgASgJSAKIAQFCBwoFX25hbWVCBwoFX2Jh",
-            "c2VCBwoFX3BhdGgiHgoMV29ya3RyZWVCYXNlEg4KBmNvbW1pdBgBIAEoCUIR",
-            "qgIOU2xvcFdvcmxkLldpcmViBnByb3RvMw=="));
+            "IAEoCRIOCgZpbnRlbnQYJSABKAkSEwoLcmVhZGVyX3BhdGgYJiABKAkSEgoK",
+            "cmVhZGVyX2tleRgnIAEoCRIUCgxyZWFkZXJfc2NvcGUYKCABKAkSFQoNcmVh",
+            "ZGVyX3Bpbm5lZBgpIAEoCBITCgtyZWFkZXJfbGluZRgqIAEoDUIGCgRfY21k",
+            "IrcBCgtJbnB1dFRpbWluZxIKCgJpZBgBIAEoCRIOCgZydW5faWQYAiABKAQS",
+            "EwoLcmVjZWl2ZWRfdXMYAyABKAQSDwoHdG11eF91cxgEIAEoBBIUCgx0bXV4",
+            "X2RvbmVfdXMYBSABKAQSGAoQZmlyc3RfY2FwdHVyZV91cxgGIAEoBBIRCglm",
+            "aXJzdF9zZXEYByABKAQSEgoKY2FwdHVyZV91cxgIIAEoBBIPCgdzZW5kX3Vz",
+            "GAkgASgEIoIDCgpTY3JlZW5WaWV3EgwKBG5hbWUYASABKAkSCwoDc2VxGAIg",
+            "ASgEEhEKBGNvbHMYAyABKA1IAIgBARIRCgRyb3dzGAQgASgNSAGIAQESCgoC",
+            "Y3gYBSABKA0SCgoCY3kYBiABKA0SCwoDb2ZmGAcgASgNEhQKB2hpc3RvcnkY",
+            "CCABKA1IAogBARIUCgxjdXJzb3Jfc2hhcGUYCSABKA0SGQoMY3Vyc29yX2Js",
+            "aW5rGAogASgISAOIAQESEQoJYXBwX21vdXNlGAsgASgIEhAKCGFwcF9kcmFn",
+            "GAwgASgIEhIKCmFsdF9zY3JlZW4YDSABKAgSDQoFdGl0bGUYDiABKAkSEgoK",
+            "cmVxdWVzdF9pZBgPIAEoBBINCgVsaW5lcxgQIAMoCRItCg1pbnB1dF90aW1p",
+            "bmdzGBEgAygLMhYuc2xvcHdvcmxkLklucHV0VGltaW5nQgcKBV9jb2xzQgcK",
+            "BV9yb3dzQgoKCF9oaXN0b3J5Qg8KDV9jdXJzb3JfYmxpbmsixwMKDVNhbmRi",
+            "b3hQcmVzZXQSEQoEbmFtZRgBIAEoCUgAiAEBEhgKC2Rlc2NyaXB0aW9uGAIg",
+            "ASgJSAGIAQESEAoIcmVxdWlyZXMYAyADKAkSCgoCcm8YBCADKAkSCgoCcncY",
+            "BSADKAkSCwoDZGV2GAYgAygJEg8KB3ByaXZhdGUYByADKAkSDAoEc2VlZBgI",
+            "IAMoCRIMCgRza2lwGAkgAygJEg4KBnNoYXJlZBgKIAMoCRIUCgdlc2NhcGVz",
+            "GAsgASgJSAKIAQESCwoDZW52GAwgAygJEjQKBnNldGVudhgNIAMoCzIkLnNs",
+            "b3B3b3JsZC5TYW5kYm94UHJlc2V0LlNldGVudkVudHJ5EhEKBHRtdXgYDiAB",
+            "KAhIA4gBARIaCg1kYWVtb25fY29uZmlnGA8gASgISASIAQESEwoGc291cmNl",
+            "GBAgASgJSAWIAQEaLQoLU2V0ZW52RW50cnkSCwoDa2V5GAEgASgJEg0KBXZh",
+            "bHVlGAIgASgJOgI4AUIHCgVfbmFtZUIOCgxfZGVzY3JpcHRpb25CCgoIX2Vz",
+            "Y2FwZXNCBwoFX3RtdXhCEAoOX2RhZW1vbl9jb25maWdCCQoHX3NvdXJjZSK8",
+            "AQoNQ29tbWFuZFByZXNldBIRCgRuYW1lGAEgASgJSACIAQESEQoEa2luZBgC",
+            "IAEoCUgBiAEBEhgKC2Rlc2NyaXB0aW9uGAMgASgJSAKIAQESEAoDY21kGAQg",
+            "ASgJSAOIAQESDwoHc2FuZGJveBgFIAMoCRITCgZzb3VyY2UYBiABKAlIBIgB",
+            "AUIHCgVfbmFtZUIHCgVfa2luZEIOCgxfZGVzY3JpcHRpb25CBgoEX2NtZEIJ",
+            "Cgdfc291cmNlIn0KDUFnZW50VGVtcGxhdGUSDAoEbmFtZRgBIAEoCRIPCgd2",
+            "ZXJzaW9uGAIgASgEEhMKC2Rlc2NyaXB0aW9uGAMgASgJEjIKCGRlZmF1bHRz",
+            "GAUgASgLMiAuc2xvcHdvcmxkLkFnZW50VGVtcGxhdGVEZWZhdWx0c0oECAQQ",
+            "BSKmAwoVQWdlbnRUZW1wbGF0ZURlZmF1bHRzEi4KB2NvbW1hbmQYASABKAsy",
+            "GC5zbG9wd29ybGQuQ29tbWFuZFByZXNldEgAiAEBEhAKA2NtZBgCIAEoCUgB",
+            "iAEBEg8KB3NhbmRib3gYAyADKAkSMQoPc2FuZGJveF9wcmVzZXRzGAQgAygL",
+            "Mhguc2xvcHdvcmxkLlNhbmRib3hQcmVzZXQSGwoOcGVyc2lzdGVudF90bXAY",
+            "BSABKAhIAogBARIUCgduZXR3b3JrGAYgASgJSAOIAQESJgoDZG5zGAcgASgL",
+            "MhQuc2xvcHdvcmxkLkRuc0NvbmZpZ0gEiAEBEiEKBmxpbWl0cxgIIAEoCzIR",
+            "LnNsb3B3b3JsZC5MaW1pdHMSFgoJYXV0b3N0YXJ0GAkgASgISAWIAQESGAoL",
+            "YXV0b19yZXN1bWUYCiABKAhIBogBAUIKCghfY29tbWFuZEIGCgRfY21kQhEK",
+            "D19wZXJzaXN0ZW50X3RtcEIKCghfbmV0d29ya0IGCgRfZG5zQgwKCl9hdXRv",
+            "c3RhcnRCDgoMX2F1dG9fcmVzdW1lIqgBCgtVc2FnZVdpbmRvdxILCgNrZXkY",
+            "ASABKAkSDQoFbGFiZWwYAiABKAkSCwoDcGN0GAMgASgCEgwKBHVuaXQYBCAB",
+            "KAkSEwoGYW1vdW50GAUgASgCSACIAQESEgoFbGltaXQYBiABKAJIAYgBARIW",
+            "CglyZXNldHNfaW4YByABKARIAogBAUIJCgdfYW1vdW50QggKBl9saW1pdEIM",
+            "CgpfcmVzZXRzX2luInMKEVVzYWdlQ2F0YWxvZ0VudHJ5EgsKA2tleRgBIAEo",
+            "CRINCgVsYWJlbBgCIAEoCRIQCghwcm92aWRlchgDIAEoCRIMCgR1bml0GAQg",
+            "ASgJEgwKBHJhbmsYBSABKAUSFAoMZGVmYXVsdF9wb2xsGAYgASgIIqkBCghV",
+            "c2FnZVJvdxILCgNrZXkYASABKAkSDQoFbGFiZWwYAiABKAkSEAoIcHJvdmlk",
+            "ZXIYAyABKAkSDAoEdW5pdBgEIAEoCRIMCgRyYW5rGAUgASgFEgwKBHBvbGwY",
+            "BiABKAgSDQoFc3RhbGUYByABKAgSKwoGd2luZG93GAggASgLMhYuc2xvcHdv",
+            "cmxkLlVzYWdlV2luZG93SACIAQFCCQoHX3dpbmRvdyL/AQoNVXNhZ2VTbmFw",
+            "c2hvdBIKCgJvaxgBIAEoCBISCgVlcnJvchgCIAEoCUgAiAEBEgwKBHBsYW4Y",
+            "AyABKAkSEgoKZmV0Y2hlZF9tcxgEIAEoBBIPCgdzb3VyY2VzGAUgAygJEhYK",
+            "DmZhaWxlZF9zb3VyY2VzGAYgAygJEicKB3dpbmRvd3MYByADKAsyFi5zbG9w",
+            "d29ybGQuVXNhZ2VXaW5kb3cSLQoHY2F0YWxvZxgIIAMoCzIcLnNsb3B3b3Js",
+            "ZC5Vc2FnZUNhdGFsb2dFbnRyeRIhCgRyb3dzGAkgAygLMhMuc2xvcHdvcmxk",
+            "LlVzYWdlUm93QggKBl9lcnJvciKIAgoMQ2FwYWJpbGl0aWVzEg8KB3J1bnRp",
+            "bWUYASABKAkSFgoOYXVkaW9fcGxheWJhY2sYAiABKAgSEQoJY2xpcGJvYXJk",
+            "GAMgASgIEhQKDGRlc2t0b3Bfb3BlbhgEIAEoCBIaChJwZXJfc2Vzc2lvbl9s",
+            "aW1pdHMYBSABKAgSIQoZaG9zdF9uZXR3b3JrX2lzX2NvbnRhaW5lchgGIAEo",
+            "CBIkChxob3N0X3Rlcm1pbmFsc19hcmVfY29udGFpbmVyGAcgASgIEjEKCHRl",
+            "cm1pbmFsGAggASgLMh8uc2xvcHdvcmxkLlRlcm1pbmFsQ2FwYWJpbGl0aWVz",
+            "Eg4KBm5jc3BvdBgJIAEoCCJ4ChRUZXJtaW5hbENhcGFiaWxpdGllcxIYChBz",
+            "Y3JvbGxiYWNrX2xpbmVzGAEgASgNEhAKCG1pbl9jb2xzGAIgASgNEhAKCG1h",
+            "eF9jb2xzGAMgASgNEhAKCG1pbl9yb3dzGAQgASgNEhAKCG1heF9yb3dzGAUg",
+            "ASgNIucBCgRUYXNrEgoKAmlkGAEgASgJEgwKBGZyb20YAiABKAkSCgoCdG8Y",
+            "AyABKAkSDAoEYm9keRgEIAEoCRIOCgZzdGF0dXMYBSABKAkSEQoEbm90ZRgG",
+            "IAEoCUgAiAEBEhQKB3N1bW1hcnkYByABKAlIAYgBARISCgpjcmVhdGVkX21z",
+            "GAggASgEEhIKCnVwZGF0ZWRfbXMYCSABKAQSKgoGd29ya2VyGAogASgLMhUu",
+            "c2xvcHdvcmxkLldvcmtlclRhc2tIAogBAUIHCgVfbm90ZUIKCghfc3VtbWFy",
+            "eUIJCgdfd29ya2VyIj4KCldvcmtlclRhc2sSDwoHc2Vzc2lvbhgBIAEoCRIO",
+            "CgZwYXJlbnQYAiABKAkSDwoHZHVyYWJsZRgDIAEoCCKrAQoKQXVkaW9TdGF0",
+            "ZRIPCgdwbGF5aW5nGAEgASgIEhMKBnNvdXJjZRgCIAEoCUgAiAEBEg4KBnZv",
+            "bHVtZRgDIAEoAhISCgVlcnJvchgEIAEoCUgBiAEBEhIKBXRpdGxlGAUgASgJ",
+            "SAKIAQESFAoHc2Vzc2lvbhgGIAEoCUgDiAEBQgkKB19zb3VyY2VCCAoGX2Vy",
+            "cm9yQggKBl90aXRsZUIKCghfc2Vzc2lvbiJECg9TdGF0aW9uTWV0YWRhdGES",
+            "DAoEbmFtZRgBIAEoCRIOCgZkb25hdGUYAiABKAkSEwoLdGl0bGVfcmVnZXgY",
+            "AyABKAkiNwoNU3RhdGlvblN0cmVhbRIMCgRyYXRlGAEgASgNEgsKA2tleRgC",
+            "IAEoCRILCgN1cmwYAyABKAkihAEKB1N0YXRpb24SCgoCaWQYASABKAkSFAoM",
+            "ZGVmYXVsdF9yYXRlGAIgASgNEiwKCG1ldGFkYXRhGAMgASgLMhouc2xvcHdv",
+            "cmxkLlN0YXRpb25NZXRhZGF0YRIpCgdzdHJlYW1zGAQgAygLMhguc2xvcHdv",
+            "cmxkLlN0YXRpb25TdHJlYW0iNgoOSnVrZWJveENhdGFsb2cSJAoIc3RhdGlv",
+            "bnMYASADKAsyEi5zbG9wd29ybGQuU3RhdGlvbiJDCg1DcmVhdGVUYXNrUmVx",
+            "Eg8KAnRvGAEgASgJSACIAQESEQoEYm9keRgCIAEoCUgBiAEBQgUKA190b0IH",
+            "CgVfYm9keSKuAgoOU3Bhd25Xb3JrZXJSZXESFAoHcHJvamVjdBgBIAEoCUgA",
+            "iAEBEhUKCHRlbXBsYXRlGAIgASgJSAGIAQESEQoEYm9keRgDIAEoCUgCiAEB",
+            "EhQKB2R1cmFibGUYBCABKAhIA4gBARIVCgh3b3JrdHJlZRgFIAEoCUgEiAEB",
+            "EhkKDG5ld193b3JrdHJlZRgGIAEoCEgFiAEBEhEKBGJhc2UYByABKAlIBogB",
+            "ARIaCg13b3JrdHJlZV9uYW1lGAggASgJSAeIAQFCCgoIX3Byb2plY3RCCwoJ",
+            "X3RlbXBsYXRlQgcKBV9ib2R5QgoKCF9kdXJhYmxlQgsKCV93b3JrdHJlZUIP",
+            "Cg1fbmV3X3dvcmt0cmVlQgcKBV9iYXNlQhAKDl93b3JrdHJlZV9uYW1lIksK",
+            "DVVwZGF0ZVRhc2tSZXESEwoGc3RhdHVzGAEgASgJSACIAQESEQoEbm90ZRgC",
+            "IAEoCUgBiAEBQgkKB19zdGF0dXNCBwoFX25vdGUiHQoOUmVtb3ZlVGFza3NS",
+            "ZXESCwoDaWRzGAEgAygJIigKCExhYmVsUmVxEhIKBWxhYmVsGAEgASgJSACI",
+            "AQFCCAoGX2xhYmVsIqIBChRTYXZlQWdlbnRUZW1wbGF0ZVJlcRIRCgRuYW1l",
+            "GAEgASgJSACIAQESGAoLZGVzY3JpcHRpb24YAiABKAlIAYgBARITCgZzb3Vy",
+            "Y2UYAyABKAlIAogBARIWCglkdXBsaWNhdGUYBCABKAlIA4gBAUIHCgVfbmFt",
+            "ZUIOCgxfZGVzY3JpcHRpb25CCQoHX3NvdXJjZUIMCgpfZHVwbGljYXRlIrQB",
+            "ChZDcmVhdGVBZ2VudFRlbXBsYXRlUmVxEhEKBG5hbWUYASABKAlIAIgBARIU",
+            "Cgdwcm9qZWN0GAIgASgJSAGIAQESMAoJb3ZlcnJpZGVzGAMgASgLMhguc2xv",
+            "cHdvcmxkLlNlc3Npb25Db25maWdIAogBARISCgVzdGFydBgEIAEoCEgDiAEB",
+            "QgcKBV9uYW1lQgoKCF9wcm9qZWN0QgwKCl9vdmVycmlkZXNCCAoGX3N0YXJ0",
+            "Iq4FCgZSdW5SZXESEQoEY29scxgBIAEoDUgAiAEBEhEKBHJvd3MYAiABKA1I",
+            "AYgBARIUCgdwcm9qZWN0GAMgASgJSAKIAQESEQoEa2luZBgEIAEoCUgDiAEB",
+            "EhQKB2NvbW1hbmQYBSABKAlIBIgBARIRCgRwYXRoGAYgASgJSAWIAQESEQoE",
+            "aG9sZBgHIAEoCEgGiAEBEhEKBHRleHQYCCABKAlIB4gBARISCgVsYWJlbBgJ",
+            "IAEoCUgIiAEBEhEKBHRlbXAYCiABKAhICYgBARITCgtyYW5kb21fdGlwcxgL",
+            "IAMoCRIRCgRob3N0GAwgASgISAqIAQESGwoOYWdlbnRfdGVtcGxhdGUYDSAB",
+            "KAlIC4gBARIRCgRsaWtlGA4gASgJSAyIAQESFQoId29ya3RyZWUYDyABKAlI",
+            "DYgBARITCgZpbnRlbnQYECABKAlIDogBARIYCgtyZWFkZXJfcGF0aBgRIAEo",
+            "CUgPiAEBEhcKCnJlYWRlcl9rZXkYEiABKAlIEIgBARIZCgxyZWFkZXJfc2Nv",
+            "cGUYEyABKAlIEYgBARIYCgtyZWFkZXJfbGluZRgUIAEoDUgSiAEBEhUKDXJl",
+            "YWRlcl9waW5uZWQYFSABKAhCBwoFX2NvbHNCBwoFX3Jvd3NCCgoIX3Byb2pl",
+            "Y3RCBwoFX2tpbmRCCgoIX2NvbW1hbmRCBwoFX3BhdGhCBwoFX2hvbGRCBwoF",
+            "X3RleHRCCAoGX2xhYmVsQgcKBV90ZW1wQgcKBV9ob3N0QhEKD19hZ2VudF90",
+            "ZW1wbGF0ZUIHCgVfbGlrZUILCglfd29ya3RyZWVCCQoHX2ludGVudEIOCgxf",
+            "cmVhZGVyX3BhdGhCDQoLX3JlYWRlcl9rZXlCDwoNX3JlYWRlcl9zY29wZUIO",
+            "CgxfcmVhZGVyX2xpbmUiIQoPUmVhZGVyUGlubmVkUmVxEg4KBnBpbm5lZBgB",
+            "IAEoCCKvAQoNRmlsZUFjdGlvblJlcRIVCgh3b3JrdHJlZRgFIAEoCUgAiAEB",
+            "EhQKB3Byb2plY3QYASABKAlIAYgBARIRCgRwYXRoGAIgASgJSAKIAQESFAoH",
+            "Y29tbWFuZBgDIAEoCUgDiAEBEhEKBGhvc3QYBCABKAhIBIgBAUILCglfd29y",
+            "a3RyZWVCCgoIX3Byb2plY3RCBwoFX3BhdGhCCgoIX2NvbW1hbmRCBwoFX2hv",
+            "c3QiXAoIR3JhbnRSZXESFAoHZ3JhbnRvchgBIAEoCUgAiAEBEhAKCHNlc3Np",
+            "b25zGAIgAygJEhIKBWxldmVsGAMgASgJSAGIAQFCCgoIX2dyYW50b3JCCAoG",
+            "X2xldmVsIisKDUNvcHlQcmVzZXRSZXESEQoEbmFtZRgBIAEoCUgAiAEBQgcK",
+            "BV9uYW1lIiQKFFJlcGxhY2VDb25maWdSZXF1ZXN0EgwKBHRleHQYASABKAki",
+            "SwoRUHJvamVjdFByZXZpZXdSZXESEQoEbmFtZRgBIAEoCUgAiAEBEhEKBHRl",
+            "bXAYAiABKAhIAYgBAUIHCgVfbmFtZUIHCgVfdGVtcCIlCgdDbGlwUmVxEhEK",
+            "BHRleHQYASABKAlIAIgBAUIHCgVfdGV4dCJOCgxIaWdobGlnaHRSZXESEQoE",
+            "dGV4dBgBIAEoCUgAiAEBEhUKCGxhbmd1YWdlGAIgASgJSAGIAQFCBwoFX3Rl",
+            "eHRCCwoJX2xhbmd1YWdlIl0KB0ZpbGVSZXESEQoEcGF0aBgBIAEoCUgAiAEB",
+            "EhEKBG5hbWUYAiABKAlIAYgBARIRCgRraW5kGAMgASgJSAKIAQFCBwoFX3Bh",
+            "dGhCBwoFX25hbWVCBwoFX2tpbmQiJQoHTmFtZVJlcRIRCgRuYW1lGAEgASgJ",
+            "SACIAQFCBwoFX25hbWUiQwoJUmVkcmF3UmVxEhEKBGNvbHMYASABKA1IAIgB",
+            "ARIRCgRyb3dzGAIgASgNSAGIAQFCBwoFX2NvbHNCBwoFX3Jvd3MifgoOQXVk",
+            "aW9TZWxlY3Rpb24SFAoHc3RhdGlvbhgBIAEoCUgAiAEBEhMKBnN0cmVhbRgC",
+            "IAEoCUgBiAEBEhEKBGZpbGUYAyABKAlIAogBARIOCgZuY3Nwb3QYBCABKAhC",
+            "CgoIX3N0YXRpb25CCQoHX3N0cmVhbUIHCgVfZmlsZSJmCghQYXN0ZVJlcRIR",
+            "CgRuYW1lGAEgASgJSACIAQESEQoEdGV4dBgCIAEoCUgBiAEBEhUKCHRyYWNl",
+            "X2lkGAMgASgJSAKIAQFCBwoFX25hbWVCBwoFX3RleHRCCwoJX3RyYWNlX2lk",
+            "ImgKDUJyZWFkY3J1bWJSZXESEQoEbmFtZRgBIAEoCUgAiAEBEhcKCmJyZWFk",
+            "Y3J1bWIYAiABKAlIAYgBARITCgtyYW5kb21fdGlwcxgDIAMoCUIHCgVfbmFt",
+            "ZUINCgtfYnJlYWRjcnVtYiLcAQoITW91c2VSZXESEQoEbmFtZRgBIAEoCUgA",
+            "iAEBEhMKBmFjdGlvbhgCIAEoCUgBiAEBEhMKBmJ1dHRvbhgDIAEoDUgCiAEB",
+            "EhAKA2NvbBgEIAEoDUgDiAEBEhAKA3JvdxgFIAEoDUgEiAEBEhIKBWNvdW50",
+            "GAYgASgNSAWIAQESFQoIdHJhY2VfaWQYByABKAlIBogBAUIHCgVfbmFtZUIJ",
+            "CgdfYWN0aW9uQgkKB19idXR0b25CBgoEX2NvbEIGCgRfcm93QggKBl9jb3Vu",
+            "dEILCglfdHJhY2VfaWQiaQoJU2Nyb2xsUmVxEhEKBG5hbWUYASABKAlIAIgB",
+            "ARIQCgNvZmYYAiABKA1IAYgBARIXCgpyZXF1ZXN0X2lkGAMgASgESAKIAQFC",
+            "BwoFX25hbWVCBgoEX29mZkINCgtfcmVxdWVzdF9pZCKOAQoHS2V5c1JlcRIR",
+            "CgRuYW1lGAEgASgJSACIAQESDAoEa2V5cxgCIAMoCRIUCgdsaXRlcmFsGAMg",
+            "ASgISAGIAQESEwoLcmFuZG9tX3RpcHMYBCADKAkSFQoIdHJhY2VfaWQYBSAB",
+            "KAlIAogBAUIHCgVfbmFtZUIKCghfbGl0ZXJhbEILCglfdHJhY2VfaWQiXwoJ",
+            "UmVzaXplUmVxEhEKBG5hbWUYASABKAlIAIgBARIRCgRjb2xzGAIgASgNSAGI",
+            "AQESEQoEcm93cxgDIAEoDUgCiAEBQgcKBV9uYW1lQgcKBV9jb2xzQgcKBV9y",
+            "b3dzIgcKBUVtcHR5IhYKBUVycm9yEg0KBWVycm9yGAEgASgJIhEKA0FjaxIK",
+            "CgJvaxgBIAEoCCJmCgZIZWFsdGgSCgoCb2sYASABKAgSDwoHdmVyc2lvbhgC",
+            "IAEoCRIQCghob3N0bmFtZRgDIAEoCRITCgt0bXV4X3NvY2tldBgEIAEoCRIY",
+            "ChBwcm90b2NvbF92ZXJzaW9uGAUgASgNIjkKDVNlc3Npb25zUmVwbHkSKAoI",
+            "c2Vzc2lvbnMYASADKAsyFi5zbG9wd29ybGQuU2Vzc2lvblZpZXciNQoNUHJv",
+            "amVjdHNSZXBseRIkCghwcm9qZWN0cxgBIAMoCzISLnNsb3B3b3JsZC5Qcm9q",
+            "ZWN0IjcKDExpYnJhcnlSZXBseRInCgdsaWJyYXJ5GAEgAygLMhYuc2xvcHdv",
+            "cmxkLkxpYnJhcnlJdGVtIl8KDlRlbXBsYXRlc1JlcGx5EisKCXRlbXBsYXRl",
+            "cxgBIAMoCzIYLnNsb3B3b3JsZC5BZ2VudFRlbXBsYXRlEhQKB3Byb2plY3QY",
+            "AiABKAlIAIgBAUIKCghfcHJvamVjdCJICg5UZW1wbGF0ZVJlc3VsdBIKCgJv",
+            "axgBIAEoCBIqCgh0ZW1wbGF0ZRgCIAEoCzIYLnNsb3B3b3JsZC5BZ2VudFRl",
+            "bXBsYXRlIiwKDVNlc3Npb25SZXN1bHQSCgoCb2sYASABKAgSDwoHc2Vzc2lv",
+            "bhgCIAEoCSIrCgpUYXNrUmVzdWx0Eh0KBHRhc2sYASABKAsyDy5zbG9wd29y",
+            "bGQuVGFzayIsCgpUYXNrc1JlcGx5Eh4KBXRhc2tzGAEgAygLMg8uc2xvcHdv",
+            "cmxkLlRhc2siGgoHUmVtb3ZlZBIPCgdyZW1vdmVkGAEgASgEIlgKDFdvcmtl",
+            "clJlc3VsdBIdCgR0YXNrGAEgASgLMg8uc2xvcHdvcmxkLlRhc2sSKQoGd29y",
+            "a2VyGAIgASgLMhkuc2xvcHdvcmxkLldvcmtlcklkZW50aXR5IlAKDldvcmtl",
+            "cklkZW50aXR5EgwKBG5hbWUYASABKAkSDwoHc2Vzc2lvbhgCIAEoCRIOCgZw",
+            "YXJlbnQYAyABKAkSDwoHZHVyYWJsZRgEIAEoCCIaCgpQYXRoUmVzdWx0EgwK",
+            "BHBhdGgYASABKAkiNwoKVGV4dFJlc3VsdBIMCgR0ZXh0GAEgASgJEgwKBHBh",
+            "dGgYAiABKAkSDQoFYnl0ZXMYAyABKAQiOAoLSW1hZ2VSZXN1bHQSDAoEcGF0",
+            "aBgBIAEoCRIMCgRkYXRhGAIgASgMEg0KBWJ5dGVzGAMgASgEIioKDE91dHB1",
+            "dFJlc3VsdBIKCgJvaxgBIAEoCBIOCgZvdXRwdXQYAiABKAkiKAoLR3JhbnRS",
+            "ZXN1bHQSCgoCb2sYASABKAgSDQoFdG9rZW4YAiABKAkiHQoLR3JhbnRzUmVw",
+            "bHkSDgoGZ3JhbnRzGAEgASgEInIKDFByZXNldHNSZXBseRILCgNkaXIYAyAB",
+            "KAkSKQoHcHJlc2V0cxgBIAMoCzIYLnNsb3B3b3JsZC5TYW5kYm94UHJlc2V0",
+            "EioKCGNvbW1hbmRzGAIgAygLMhguc2xvcHdvcmxkLkNvbW1hbmRQcmVzZXQi",
+            "UgoKRGVza3RvcEFwcBIKCgJpZBgBIAEoCRIMCgRuYW1lGAIgASgJEhkKDGRl",
+            "c2t0b3BfZmlsZRgDIAEoCUgAiAEBQg8KDV9kZXNrdG9wX2ZpbGUiMAoJQXBw",
+            "c1JlcGx5EiMKBGFwcHMYASADKAsyFS5zbG9wd29ybGQuRGVza3RvcEFwcCKb",
+            "AQoLU3RvcmVkU3RhdGUSDAoEa2luZBgBIAEoCRILCgNrZXkYAiABKAkSFAoH",
+            "c2Vzc2lvbhgDIAEoCUgAiAEBEgwKBHBhdGgYBCABKAkSDQoFYnl0ZXMYBSAB",
+            "KAQSEAoIbW9kaWZpZWQYBiABKAQSFAoHcHJvamVjdBgHIAEoCUgBiAEBQgoK",
+            "CF9zZXNzaW9uQgoKCF9wcm9qZWN0IjcKDFN0b3JlZFN0YXRlcxInCgdlbnRy",
+            "aWVzGAEgAygLMhYuc2xvcHdvcmxkLlN0b3JlZFN0YXRlIjAKDkZpbGVTdGF0",
+            "UmVzdWx0Eg8KB2lzX2ZpbGUYASABKAgSDQoFc3RhbXAYAiABKAkiswEKDEJy",
+            "b3dzZVJlc3VsdBIMCgRwYXRoGAEgASgJEhMKBnBhcmVudBgCIAEoCUgAiAEB",
+            "EgwKBGRpcnMYAyADKAkSEgoKZW1wdHlfZGlycxgEIAMoCRIXCg9naXRpZ25v",
+            "cmVkX2RpcnMYBSADKAkSDQoFZmlsZXMYBiADKAkSGAoQZ2l0aWdub3JlZF9m",
+            "aWxlcxgHIAMoCRIRCgl0cnVuY2F0ZWQYCCABKAhCCQoHX3BhcmVudCJHCgtT",
+            "ZWFyY2hNYXRjaBIMCgRwYXRoGAEgASgJEgwKBGxpbmUYAiABKAQSDgoGY29s",
+            "dW1uGAMgASgEEgwKBHRleHQYBCABKAkiWAoMU2VhcmNoUmVzdWx0EgwKBHBh",
+            "dGgYASABKAkSJwoHbWF0Y2hlcxgCIAMoCzIWLnNsb3B3b3JsZC5TZWFyY2hN",
+            "YXRjaBIRCgl0cnVuY2F0ZWQYAyABKAgiZwoHR2l0RmlsZRIMCgRwYXRoGAEg",
+            "ASgJEg4KBnN0YXR1cxgCIAEoCRISCgVhZGRlZBgDIAEoBEgAiAEBEhQKB2Rl",
+            "bGV0ZWQYBCABKARIAYgBAUIICgZfYWRkZWRCCgoIX2RlbGV0ZWQi5QEKCUdp",
+            "dFJlc3VsdBIMCgRyZXBvGAEgASgIEgwKBHBhdGgYAiABKAkSDAoEcm9vdBgD",
+            "IAEoCRIOCgZicmFuY2gYBCABKAkSDwoHY2hhbmdlZBgFIAEoBBISCgVhZGRl",
+            "ZBgGIAEoBEgAiAEBEhQKB2RlbGV0ZWQYByABKARIAYgBARIRCgl0cnVuY2F0",
+            "ZWQYCCABKAgSFwoPY291bnRzX2NvbXBsZXRlGAkgASgIEiEKBWZpbGVzGAog",
+            "AygLMhIuc2xvcHdvcmxkLkdpdEZpbGVCCAoGX2FkZGVkQgoKCF9kZWxldGVk",
+            "Iq0CCgZDb25maWcSIQoGZGFlbW9uGAEgASgLMhEuc2xvcHdvcmxkLkRhZW1v",
+            "bhIlCghkZWZhdWx0cxgCIAEoCzITLnNsb3B3b3JsZC5EZWZhdWx0cxIsCghj",
+            "b21tYW5kcxgDIAEoCzIaLnNsb3B3b3JsZC5Db21tYW5kRGVmYXVsdHMSIwoH",
+            "cHJvamVjdBgEIAMoCzISLnNsb3B3b3JsZC5Qcm9qZWN0EikKB3Nlc3Npb24Y",
+            "BSADKAsyGC5zbG9wd29ybGQuU2Vzc2lvbkNvbmZpZxIxCg1ob3N0X3Rlcm1p",
+            "bmFsGAYgAygLMhouc2xvcHdvcmxkLkhvc3RUZXJtaW5hbENmZxIoCgpzdGF0",
+            "ZV9ydWxlGAcgAygLMhQuc2xvcHdvcmxkLlN0YXRlUnVsZSK1AQoOQ29uZmln",
+            "TWV0YWRhdGESIwoIZGVmYXVsdHMYASABKAsyES5zbG9wd29ybGQuQ29uZmln",
+            "EjMKDXVzYWdlX2NhdGFsb2cYAiADKAsyHC5zbG9wd29ybGQuVXNhZ2VDYXRh",
+            "bG9nRW50cnkSFgoOdGVtcG9yYXJ5X3Jvb3QYAyABKAkSMQoIdGVybWluYWwY",
+            "BCABKAsyHy5zbG9wd29ybGQuVGVybWluYWxDYXBhYmlsaXRpZXMiegoMQ29u",
+            "ZmlnUmVzdWx0EgwKBHBhdGgYASABKAkSDAoEdGV4dBgCIAEoCRIhCgZ2YWx1",
+            "ZXMYAyABKAsyES5zbG9wd29ybGQuQ29uZmlnEisKCG1ldGFkYXRhGAQgASgL",
+            "Mhkuc2xvcHdvcmxkLkNvbmZpZ01ldGFkYXRhIkcKC0NvbmZpZ1BhdGNoEikK",
+            "BnZhbHVlcxgBIAEoCzIZLnNsb3B3b3JsZC5FZGl0YWJsZUNvbmZpZxINCgVw",
+            "YXRocxgCIAMoCSL9AQoTU2F2ZVRlbXBsYXRlUmVxdWVzdBIRCgRuYW1lGAEg",
+            "ASgJSACIAQESGAoLZGVzY3JpcHRpb24YAiABKAlIAYgBARITCgZzb3VyY2UY",
+            "AyABKAlIAogBARIWCglkdXBsaWNhdGUYBCABKAlIA4gBARIUCgd2ZXJzaW9u",
+            "GAUgASgESASIAQESMgoIZGVmYXVsdHMYByABKAsyIC5zbG9wd29ybGQuQWdl",
+            "bnRUZW1wbGF0ZURlZmF1bHRzQgcKBV9uYW1lQg4KDF9kZXNjcmlwdGlvbkIJ",
+            "Cgdfc291cmNlQgwKCl9kdXBsaWNhdGVCCgoIX3ZlcnNpb25KBAgGEAciqwEK",
+            "CFJ1bldoZXJlEhEKBGNvbHMYASABKA1IAIgBARIRCgRyb3dzGAIgASgNSAGI",
+            "AQESFAoHcHJvamVjdBgDIAEoCUgCiAEBEgwKBHRlbXAYBCABKAgSEwoLcmFu",
+            "ZG9tX3RpcHMYBSADKAkSFQoId29ya3RyZWUYBiABKAlIA4gBAUIHCgVfY29s",
+            "c0IHCgVfcm93c0IKCghfcHJvamVjdEILCglfd29ya3RyZWUitgEKFlNldHRp",
+            "bmdzUHJldmlld1JlcXVlc3QSEAoIZXhpc3RpbmcYASABKAkSKQoHc2Vzc2lv",
+            "bhgCIAEoCzIYLnNsb3B3b3JsZC5TZXNzaW9uQ29uZmlnEiMKB3Byb2plY3QY",
+            "AyABKAsyEi5zbG9wd29ybGQuUHJvamVjdBIqCgh0ZW1wbGF0ZRgEIAEoCzIY",
+            "LnNsb3B3b3JsZC5BZ2VudFRlbXBsYXRlEg4KBnJlY2lwZRgFIAEoCCItCgxQ",
+            "cmV2aWV3RmllbGQSDQoFbGFiZWwYASABKAkSDgoGdmFsdWVzGAIgAygJIkgK",
+            "ElByZXZpZXdEZWZpbml0aW9ucxIyCghkZWZhdWx0cxgBIAEoCzIgLnNsb3B3",
+            "b3JsZC5BZ2VudFRlbXBsYXRlRGVmYXVsdHMingEKD1NldHRpbmdzUHJldmll",
+            "dxINCgV0aXRsZRgBIAEoCRIQCghzdWJ0aXRsZRgCIAEoCRINCgVub3RlcxgD",
+            "IAMoCRInCgZmaWVsZHMYBCADKAsyFy5zbG9wd29ybGQuUHJldmlld0ZpZWxk",
+            "EjIKC2RlZmluaXRpb25zGAUgASgLMh0uc2xvcHdvcmxkLlByZXZpZXdEZWZp",
+            "bml0aW9ucyKgAQoKTGF1bmNoUGxhbhIPCgd2ZXJzaW9uGAEgASgNEg8KB3Nl",
+            "c3Npb24YAiABKAkSDgoGbGltaXRzGAMgAygJEg0KBXBhc3RhGAQgAygJEg0K",
+            "BWJ3cmFwGAUgAygJEhMKC2Vudmlyb25tZW50GAYgAygJEg4KBm1vdW50cxgH",
+            "IAMoCRIPCgdjb21tYW5kGAggAygJEgwKBGFyZ3YYCSADKAkiSAoLUHJvY2Vz",
+            "c1ZpZXcSCwoDcGlkGAEgASgNEgwKBHBwaWQYAiABKA0SDAoEYXJndhgDIAMo",
+            "CRIQCghpbl9zY29wZRgEIAEoCCJ+Cg1MaXZlUHJvY2Vzc2VzEg4KBnN0YXR1",
+            "cxgBIAEoCRIVCghwYW5lX3BpZBgCIAEoDUgAiAEBEg4KBnNvdXJjZRgDIAEo",
+            "CRIpCglwcm9jZXNzZXMYBCADKAsyFi5zbG9wd29ybGQuUHJvY2Vzc1ZpZXdC",
+            "CwoJX3BhbmVfcGlkIo8BCg1TYW5kYm94UmVwb3J0Eg8KB3Nlc3Npb24YASAB",
+            "KAkSDAoEaG9zdBgCIAEoCBIjCgRwbGFuGAMgASgLMhUuc2xvcHdvcmxkLkxh",
+            "dW5jaFBsYW4SJgoEbGl2ZRgEIAEoCzIYLnNsb3B3b3JsZC5MaXZlUHJvY2Vz",
+            "c2VzEhIKCmNvbXBhcmlzb24YBSABKAkiegoMQXVkaW9SZXF1ZXN0Eg4KBnZv",
+            "bHVtZRgDIAEoAhIuCglzZWxlY3Rpb24YASABKAsyGS5zbG9wd29ybGQuQXVk",
+            "aW9TZWxlY3Rpb25IABIgCgRzdG9wGAIgASgLMhAuc2xvcHdvcmxkLkVtcHR5",
+            "SABCCAoGY2hhbmdlIqQDCg1DbGllbnRNZXNzYWdlEiYKBnJlZHJhdxgBIAEo",
+            "CzIULnNsb3B3b3JsZC5SZWRyYXdSZXFIABIhCgNzdWIYAiABKAsyEi5zbG9w",
+            "d29ybGQuTmFtZVJlcUgAEiMKBXVuc3ViGAMgASgLMhIuc2xvcHdvcmxkLk5h",
+            "bWVSZXFIABIiCgRrZXlzGAQgASgLMhIuc2xvcHdvcmxkLktleXNSZXFIABIm",
+            "CgZyZXNpemUYBSABKAsyFC5zbG9wd29ybGQuUmVzaXplUmVxSAASJgoGc2Ny",
+            "b2xsGAYgASgLMhQuc2xvcHdvcmxkLlNjcm9sbFJlcUgAEiQKBW1vdXNlGAcg",
+            "ASgLMhMuc2xvcHdvcmxkLk1vdXNlUmVxSAASJAoFcGFzdGUYCCABKAsyEy5z",
+            "bG9wd29ybGQuUGFzdGVSZXFIABIuCgpicmVhZGNydW1iGAkgASgLMhguc2xv",
+            "cHdvcmxkLkJyZWFkY3J1bWJSZXFIABIoCgVhdWRpbxgKIAEoCzIXLnNsb3B3",
+            "b3JsZC5BdWRpb1JlcXVlc3RIAEIJCgdwYXlsb2FkIvUCCgVFdmVudBIvCgxj",
+            "YXBhYmlsaXRpZXMYASABKAsyFy5zbG9wd29ybGQuQ2FwYWJpbGl0aWVzSAAS",
+            "LAoIc2Vzc2lvbnMYAiABKAsyGC5zbG9wd29ybGQuU2Vzc2lvbnNSZXBseUgA",
+            "EiwKCHByb2plY3RzGAMgASgLMhguc2xvcHdvcmxkLlByb2plY3RzUmVwbHlI",
+            "ABIqCgdsaWJyYXJ5GAQgASgLMhcuc2xvcHdvcmxkLkxpYnJhcnlSZXBseUgA",
+            "EicKBnNjcmVlbhgFIAEoCzIVLnNsb3B3b3JsZC5TY3JlZW5WaWV3SAASKQoF",
+            "dXNhZ2UYBiABKAsyGC5zbG9wd29ybGQuVXNhZ2VTbmFwc2hvdEgAEiYKBWF1",
+            "ZGlvGAcgASgLMhUuc2xvcHdvcmxkLkF1ZGlvU3RhdGVIABIsCgdqdWtlYm94",
+            "GAggASgLMhkuc2xvcHdvcmxkLkp1a2Vib3hDYXRhbG9nSABCCQoHcGF5bG9h",
+            "ZCJ3Cg1QcmVzZXRSZXF1ZXN0EisKB3NhbmRib3gYASABKAsyGC5zbG9wd29y",
+            "bGQuU2FuZGJveFByZXNldEgAEisKB2NvbW1hbmQYAiABKAsyGC5zbG9wd29y",
+            "bGQuQ29tbWFuZFByZXNldEgAQgwKCmRlZmluaXRpb24iPwoUUHJvamVjdFBy",
+            "ZXZpZXdSZXN1bHQSDAoEbmFtZRgBIAEoCRIMCgR0ZW1wGAIgASgIEgsKA2Rp",
+            "chgDIAEoCSKIAQoORWRpdGFibGVDb25maWcSIQoGZGFlbW9uGAEgASgLMhEu",
+            "c2xvcHdvcmxkLkRhZW1vbhIlCghkZWZhdWx0cxgCIAEoCzITLnNsb3B3b3Js",
+            "ZC5EZWZhdWx0cxIsCghjb21tYW5kcxgDIAEoCzIaLnNsb3B3b3JsZC5Db21t",
+            "YW5kRGVmYXVsdHMiLAoOQmluYXJ5TG9jYXRpb24SDAoEbmFtZRgBIAEoCRIM",
+            "CgRwYXRoGAIgASgJIjsKDFdoZXJlSXNSZXBseRIrCghiaW5hcmllcxgBIAMo",
+            "CzIZLnNsb3B3b3JsZC5CaW5hcnlMb2NhdGlvbiLiAQoIV29ya3RyZWUSCgoC",
+            "aWQYASABKAkSEgoKcHJvamVjdF9pZBgCIAEoCRIMCgRuYW1lGAMgASgJEgwK",
+            "BHBhdGgYBCABKAkSEgoKcmVwb3NpdG9yeRgFIAEoCRIPCgdtYW5hZ2VkGAYg",
+            "ASgIEhYKDmluaXRpYWxfYnJhbmNoGAcgASgJEgwKBGJhc2UYCCABKAkSDQoF",
+            "cGhhc2UYCSABKAkSDQoFZXJyb3IYCiABKAkSDgoGYnJhbmNoGAsgASgJEgwK",
+            "BGhlYWQYDCABKAkSEwoLYXR0YWNobWVudHMYDSADKAkiOAoOV29ya3RyZWVz",
+            "UmVwbHkSJgoJd29ya3RyZWVzGAEgAygLMhMuc2xvcHdvcmxkLldvcmt0cmVl",
+            "IngKEUNyZWF0ZVdvcmt0cmVlUmVxEg8KB3Byb2plY3QYASABKAkSEQoEbmFt",
+            "ZRgCIAEoCUgAiAEBEhEKBGJhc2UYAyABKAlIAYgBARIRCgRwYXRoGAQgASgJ",
+            "SAKIAQFCBwoFX25hbWVCBwoFX2Jhc2VCBwoFX3BhdGgiHgoMV29ya3RyZWVC",
+            "YXNlEg4KBmNvbW1pdBgBIAEoCUIRqgIOU2xvcFdvcmxkLldpcmViBnByb3Rv",
+            "Mw=="));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
           new pbr::FileDescriptor[] { },
           new pbr::GeneratedClrTypeInfo(null, null, new pbr::GeneratedClrTypeInfo[] {
@@ -397,7 +406,7 @@ namespace SlopWorld.Wire {
             new pbr::GeneratedClrTypeInfo(typeof(global::SlopWorld.Wire.HostTerminalCfg), global::SlopWorld.Wire.HostTerminalCfg.Parser, new[]{ "Name", "Label", "Project", "Path", "Autostart" }, new[]{ "Label" }, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::SlopWorld.Wire.LibraryItem), global::SlopWorld.Wire.LibraryItem.Parser, new[]{ "Name", "Kind", "Link", "Project", "Text", "Command", "Host", "AgentTemplate", "Mode", "Builtin" }, new[]{ "Name", "Kind", "Link", "Project", "Text", "Command", "Host", "AgentTemplate", "Mode", "Builtin" }, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::SlopWorld.Wire.StateRule), global::SlopWorld.Wire.StateRule.Parser, new[]{ "State", "Pattern" }, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::SlopWorld.Wire.SessionView), global::SlopWorld.Wire.SessionView.Parser, new[]{ "Name", "Label", "Project", "Dir", "Command", "CommandPreset", "Cmd", "Sandbox", "PersistentTmp", "AutoResumePending", "Agent", "State", "Alive", "Cols", "Rows", "Network", "Dns", "Limits", "Mounts", "Autostart", "AutoResume", "Worker", "Parent", "TaskId", "Durable", "Ephemeral", "Host", "ProcessRunning", "LastChange", "StateSince", "Title", "Bell", "RunId", "Seq", "Worktree", "WorktreeName" }, new[]{ "Cmd" }, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::SlopWorld.Wire.SessionView), global::SlopWorld.Wire.SessionView.Parser, new[]{ "Name", "Label", "Project", "Dir", "Command", "CommandPreset", "Cmd", "Sandbox", "PersistentTmp", "AutoResumePending", "Agent", "State", "Alive", "Cols", "Rows", "Network", "Dns", "Limits", "Mounts", "Autostart", "AutoResume", "Worker", "Parent", "TaskId", "Durable", "Ephemeral", "Host", "ProcessRunning", "LastChange", "StateSince", "Title", "Bell", "RunId", "Seq", "Worktree", "WorktreeName", "Intent", "ReaderPath", "ReaderKey", "ReaderScope", "ReaderPinned", "ReaderLine" }, new[]{ "Cmd" }, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::SlopWorld.Wire.InputTiming), global::SlopWorld.Wire.InputTiming.Parser, new[]{ "Id", "RunId", "ReceivedUs", "TmuxUs", "TmuxDoneUs", "FirstCaptureUs", "FirstSeq", "CaptureUs", "SendUs" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::SlopWorld.Wire.ScreenView), global::SlopWorld.Wire.ScreenView.Parser, new[]{ "Name", "Seq", "Cols", "Rows", "Cx", "Cy", "Off", "History", "CursorShape", "CursorBlink", "AppMouse", "AppDrag", "AltScreen", "Title", "RequestId", "Lines", "InputTimings" }, new[]{ "Cols", "Rows", "History", "CursorBlink" }, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::SlopWorld.Wire.SandboxPreset), global::SlopWorld.Wire.SandboxPreset.Parser, new[]{ "Name", "Description", "Requires", "Ro", "Rw", "Dev", "Private", "Seed", "Skip", "Shared", "Escapes", "Env", "Setenv", "Tmux", "DaemonConfig", "Source" }, new[]{ "Name", "Description", "Escapes", "Tmux", "DaemonConfig", "Source" }, null, null, new pbr::GeneratedClrTypeInfo[] { null, }),
@@ -424,7 +433,8 @@ namespace SlopWorld.Wire {
             new pbr::GeneratedClrTypeInfo(typeof(global::SlopWorld.Wire.LabelReq), global::SlopWorld.Wire.LabelReq.Parser, new[]{ "Label" }, new[]{ "Label" }, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::SlopWorld.Wire.SaveAgentTemplateReq), global::SlopWorld.Wire.SaveAgentTemplateReq.Parser, new[]{ "Name", "Description", "Source", "Duplicate" }, new[]{ "Name", "Description", "Source", "Duplicate" }, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::SlopWorld.Wire.CreateAgentTemplateReq), global::SlopWorld.Wire.CreateAgentTemplateReq.Parser, new[]{ "Name", "Project", "Overrides", "Start" }, new[]{ "Name", "Project", "Overrides", "Start" }, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::SlopWorld.Wire.RunReq), global::SlopWorld.Wire.RunReq.Parser, new[]{ "Cols", "Rows", "Project", "Kind", "Command", "Path", "Hold", "Text", "Label", "Temp", "RandomTips", "Host", "AgentTemplate", "Like", "Worktree" }, new[]{ "Cols", "Rows", "Project", "Kind", "Command", "Path", "Hold", "Text", "Label", "Temp", "Host", "AgentTemplate", "Like", "Worktree" }, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::SlopWorld.Wire.RunReq), global::SlopWorld.Wire.RunReq.Parser, new[]{ "Cols", "Rows", "Project", "Kind", "Command", "Path", "Hold", "Text", "Label", "Temp", "RandomTips", "Host", "AgentTemplate", "Like", "Worktree", "Intent", "ReaderPath", "ReaderKey", "ReaderScope", "ReaderLine", "ReaderPinned" }, new[]{ "Cols", "Rows", "Project", "Kind", "Command", "Path", "Hold", "Text", "Label", "Temp", "Host", "AgentTemplate", "Like", "Worktree", "Intent", "ReaderPath", "ReaderKey", "ReaderScope", "ReaderLine" }, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::SlopWorld.Wire.ReaderPinnedReq), global::SlopWorld.Wire.ReaderPinnedReq.Parser, new[]{ "Pinned" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::SlopWorld.Wire.FileActionReq), global::SlopWorld.Wire.FileActionReq.Parser, new[]{ "Worktree", "Project", "Path", "Command", "Host" }, new[]{ "Worktree", "Project", "Path", "Command", "Host" }, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::SlopWorld.Wire.GrantReq), global::SlopWorld.Wire.GrantReq.Parser, new[]{ "Grantor", "Sessions", "Level" }, new[]{ "Grantor", "Level" }, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::SlopWorld.Wire.CopyPresetReq), global::SlopWorld.Wire.CopyPresetReq.Parser, new[]{ "Name" }, new[]{ "Name" }, null, null, null),
@@ -5981,6 +5991,12 @@ namespace SlopWorld.Wire {
       seq_ = other.seq_;
       worktree_ = other.worktree_;
       worktreeName_ = other.worktreeName_;
+      intent_ = other.intent_;
+      readerPath_ = other.readerPath_;
+      readerKey_ = other.readerKey_;
+      readerScope_ = other.readerScope_;
+      readerPinned_ = other.readerPinned_;
+      readerLine_ = other.readerLine_;
       _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
     }
 
@@ -6434,6 +6450,78 @@ namespace SlopWorld.Wire {
       }
     }
 
+    /// <summary>Field number for the "intent" field.</summary>
+    public const int IntentFieldNumber = 37;
+    private string intent_ = "";
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string Intent {
+      get { return intent_; }
+      set {
+        intent_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
+    /// <summary>Field number for the "reader_path" field.</summary>
+    public const int ReaderPathFieldNumber = 38;
+    private string readerPath_ = "";
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string ReaderPath {
+      get { return readerPath_; }
+      set {
+        readerPath_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
+    /// <summary>Field number for the "reader_key" field.</summary>
+    public const int ReaderKeyFieldNumber = 39;
+    private string readerKey_ = "";
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string ReaderKey {
+      get { return readerKey_; }
+      set {
+        readerKey_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
+    /// <summary>Field number for the "reader_scope" field.</summary>
+    public const int ReaderScopeFieldNumber = 40;
+    private string readerScope_ = "";
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string ReaderScope {
+      get { return readerScope_; }
+      set {
+        readerScope_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
+    /// <summary>Field number for the "reader_pinned" field.</summary>
+    public const int ReaderPinnedFieldNumber = 41;
+    private bool readerPinned_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool ReaderPinned {
+      get { return readerPinned_; }
+      set {
+        readerPinned_ = value;
+      }
+    }
+
+    /// <summary>Field number for the "reader_line" field.</summary>
+    public const int ReaderLineFieldNumber = 42;
+    private uint readerLine_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public uint ReaderLine {
+      get { return readerLine_; }
+      set {
+        readerLine_ = value;
+      }
+    }
+
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public override bool Equals(object other) {
@@ -6485,6 +6573,12 @@ namespace SlopWorld.Wire {
       if (Seq != other.Seq) return false;
       if (Worktree != other.Worktree) return false;
       if (WorktreeName != other.WorktreeName) return false;
+      if (Intent != other.Intent) return false;
+      if (ReaderPath != other.ReaderPath) return false;
+      if (ReaderKey != other.ReaderKey) return false;
+      if (ReaderScope != other.ReaderScope) return false;
+      if (ReaderPinned != other.ReaderPinned) return false;
+      if (ReaderLine != other.ReaderLine) return false;
       return Equals(_unknownFields, other._unknownFields);
     }
 
@@ -6528,6 +6622,12 @@ namespace SlopWorld.Wire {
       if (Seq != 0UL) hash ^= Seq.GetHashCode();
       if (Worktree.Length != 0) hash ^= Worktree.GetHashCode();
       if (WorktreeName.Length != 0) hash ^= WorktreeName.GetHashCode();
+      if (Intent.Length != 0) hash ^= Intent.GetHashCode();
+      if (ReaderPath.Length != 0) hash ^= ReaderPath.GetHashCode();
+      if (ReaderKey.Length != 0) hash ^= ReaderKey.GetHashCode();
+      if (ReaderScope.Length != 0) hash ^= ReaderScope.GetHashCode();
+      if (ReaderPinned != false) hash ^= ReaderPinned.GetHashCode();
+      if (ReaderLine != 0) hash ^= ReaderLine.GetHashCode();
       if (_unknownFields != null) {
         hash ^= _unknownFields.GetHashCode();
       }
@@ -6684,6 +6784,30 @@ namespace SlopWorld.Wire {
         output.WriteRawTag(162, 2);
         output.WriteString(WorktreeName);
       }
+      if (Intent.Length != 0) {
+        output.WriteRawTag(170, 2);
+        output.WriteString(Intent);
+      }
+      if (ReaderPath.Length != 0) {
+        output.WriteRawTag(178, 2);
+        output.WriteString(ReaderPath);
+      }
+      if (ReaderKey.Length != 0) {
+        output.WriteRawTag(186, 2);
+        output.WriteString(ReaderKey);
+      }
+      if (ReaderScope.Length != 0) {
+        output.WriteRawTag(194, 2);
+        output.WriteString(ReaderScope);
+      }
+      if (ReaderPinned != false) {
+        output.WriteRawTag(200, 2);
+        output.WriteBool(ReaderPinned);
+      }
+      if (ReaderLine != 0) {
+        output.WriteRawTag(208, 2);
+        output.WriteUInt32(ReaderLine);
+      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(output);
       }
@@ -6832,6 +6956,30 @@ namespace SlopWorld.Wire {
         output.WriteRawTag(162, 2);
         output.WriteString(WorktreeName);
       }
+      if (Intent.Length != 0) {
+        output.WriteRawTag(170, 2);
+        output.WriteString(Intent);
+      }
+      if (ReaderPath.Length != 0) {
+        output.WriteRawTag(178, 2);
+        output.WriteString(ReaderPath);
+      }
+      if (ReaderKey.Length != 0) {
+        output.WriteRawTag(186, 2);
+        output.WriteString(ReaderKey);
+      }
+      if (ReaderScope.Length != 0) {
+        output.WriteRawTag(194, 2);
+        output.WriteString(ReaderScope);
+      }
+      if (ReaderPinned != false) {
+        output.WriteRawTag(200, 2);
+        output.WriteBool(ReaderPinned);
+      }
+      if (ReaderLine != 0) {
+        output.WriteRawTag(208, 2);
+        output.WriteUInt32(ReaderLine);
+      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(ref output);
       }
@@ -6945,6 +7093,24 @@ namespace SlopWorld.Wire {
       }
       if (WorktreeName.Length != 0) {
         size += 2 + pb::CodedOutputStream.ComputeStringSize(WorktreeName);
+      }
+      if (Intent.Length != 0) {
+        size += 2 + pb::CodedOutputStream.ComputeStringSize(Intent);
+      }
+      if (ReaderPath.Length != 0) {
+        size += 2 + pb::CodedOutputStream.ComputeStringSize(ReaderPath);
+      }
+      if (ReaderKey.Length != 0) {
+        size += 2 + pb::CodedOutputStream.ComputeStringSize(ReaderKey);
+      }
+      if (ReaderScope.Length != 0) {
+        size += 2 + pb::CodedOutputStream.ComputeStringSize(ReaderScope);
+      }
+      if (ReaderPinned != false) {
+        size += 2 + 1;
+      }
+      if (ReaderLine != 0) {
+        size += 2 + pb::CodedOutputStream.ComputeUInt32Size(ReaderLine);
       }
       if (_unknownFields != null) {
         size += _unknownFields.CalculateSize();
@@ -7067,6 +7233,24 @@ namespace SlopWorld.Wire {
       }
       if (other.WorktreeName.Length != 0) {
         WorktreeName = other.WorktreeName;
+      }
+      if (other.Intent.Length != 0) {
+        Intent = other.Intent;
+      }
+      if (other.ReaderPath.Length != 0) {
+        ReaderPath = other.ReaderPath;
+      }
+      if (other.ReaderKey.Length != 0) {
+        ReaderKey = other.ReaderKey;
+      }
+      if (other.ReaderScope.Length != 0) {
+        ReaderScope = other.ReaderScope;
+      }
+      if (other.ReaderPinned != false) {
+        ReaderPinned = other.ReaderPinned;
+      }
+      if (other.ReaderLine != 0) {
+        ReaderLine = other.ReaderLine;
       }
       _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
     }
@@ -7237,6 +7421,30 @@ namespace SlopWorld.Wire {
             WorktreeName = input.ReadString();
             break;
           }
+          case 298: {
+            Intent = input.ReadString();
+            break;
+          }
+          case 306: {
+            ReaderPath = input.ReadString();
+            break;
+          }
+          case 314: {
+            ReaderKey = input.ReadString();
+            break;
+          }
+          case 322: {
+            ReaderScope = input.ReadString();
+            break;
+          }
+          case 328: {
+            ReaderPinned = input.ReadBool();
+            break;
+          }
+          case 336: {
+            ReaderLine = input.ReadUInt32();
+            break;
+          }
         }
       }
     #endif
@@ -7404,6 +7612,30 @@ namespace SlopWorld.Wire {
           }
           case 290: {
             WorktreeName = input.ReadString();
+            break;
+          }
+          case 298: {
+            Intent = input.ReadString();
+            break;
+          }
+          case 306: {
+            ReaderPath = input.ReadString();
+            break;
+          }
+          case 314: {
+            ReaderKey = input.ReadString();
+            break;
+          }
+          case 322: {
+            ReaderScope = input.ReadString();
+            break;
+          }
+          case 328: {
+            ReaderPinned = input.ReadBool();
+            break;
+          }
+          case 336: {
+            ReaderLine = input.ReadUInt32();
             break;
           }
         }
@@ -18055,6 +18287,12 @@ namespace SlopWorld.Wire {
       agentTemplate_ = other.agentTemplate_;
       like_ = other.like_;
       worktree_ = other.worktree_;
+      intent_ = other.intent_;
+      readerPath_ = other.readerPath_;
+      readerKey_ = other.readerKey_;
+      readerScope_ = other.readerScope_;
+      readerLine_ = other.readerLine_;
+      readerPinned_ = other.readerPinned_;
       _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
     }
 
@@ -18444,6 +18682,149 @@ namespace SlopWorld.Wire {
       worktree_ = null;
     }
 
+    /// <summary>Field number for the "intent" field.</summary>
+    public const int IntentFieldNumber = 16;
+    private readonly static string IntentDefaultValue = "";
+
+    private string intent_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string Intent {
+      get { return intent_ ?? IntentDefaultValue; }
+      set {
+        intent_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+    /// <summary>Gets whether the "intent" field is set</summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool HasIntent {
+      get { return intent_ != null; }
+    }
+    /// <summary>Clears the value of the "intent" field</summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void ClearIntent() {
+      intent_ = null;
+    }
+
+    /// <summary>Field number for the "reader_path" field.</summary>
+    public const int ReaderPathFieldNumber = 17;
+    private readonly static string ReaderPathDefaultValue = "";
+
+    private string readerPath_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string ReaderPath {
+      get { return readerPath_ ?? ReaderPathDefaultValue; }
+      set {
+        readerPath_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+    /// <summary>Gets whether the "reader_path" field is set</summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool HasReaderPath {
+      get { return readerPath_ != null; }
+    }
+    /// <summary>Clears the value of the "reader_path" field</summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void ClearReaderPath() {
+      readerPath_ = null;
+    }
+
+    /// <summary>Field number for the "reader_key" field.</summary>
+    public const int ReaderKeyFieldNumber = 18;
+    private readonly static string ReaderKeyDefaultValue = "";
+
+    private string readerKey_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string ReaderKey {
+      get { return readerKey_ ?? ReaderKeyDefaultValue; }
+      set {
+        readerKey_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+    /// <summary>Gets whether the "reader_key" field is set</summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool HasReaderKey {
+      get { return readerKey_ != null; }
+    }
+    /// <summary>Clears the value of the "reader_key" field</summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void ClearReaderKey() {
+      readerKey_ = null;
+    }
+
+    /// <summary>Field number for the "reader_scope" field.</summary>
+    public const int ReaderScopeFieldNumber = 19;
+    private readonly static string ReaderScopeDefaultValue = "";
+
+    private string readerScope_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string ReaderScope {
+      get { return readerScope_ ?? ReaderScopeDefaultValue; }
+      set {
+        readerScope_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+    /// <summary>Gets whether the "reader_scope" field is set</summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool HasReaderScope {
+      get { return readerScope_ != null; }
+    }
+    /// <summary>Clears the value of the "reader_scope" field</summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void ClearReaderScope() {
+      readerScope_ = null;
+    }
+
+    /// <summary>Field number for the "reader_line" field.</summary>
+    public const int ReaderLineFieldNumber = 20;
+    private readonly static uint ReaderLineDefaultValue = 0;
+
+    private uint readerLine_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public uint ReaderLine {
+      get { if ((_hasBits0 & 32) != 0) { return readerLine_; } else { return ReaderLineDefaultValue; } }
+      set {
+        _hasBits0 |= 32;
+        readerLine_ = value;
+      }
+    }
+    /// <summary>Gets whether the "reader_line" field is set</summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool HasReaderLine {
+      get { return (_hasBits0 & 32) != 0; }
+    }
+    /// <summary>Clears the value of the "reader_line" field</summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void ClearReaderLine() {
+      _hasBits0 &= ~32;
+    }
+
+    /// <summary>Field number for the "reader_pinned" field.</summary>
+    public const int ReaderPinnedFieldNumber = 21;
+    private bool readerPinned_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool ReaderPinned {
+      get { return readerPinned_; }
+      set {
+        readerPinned_ = value;
+      }
+    }
+
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public override bool Equals(object other) {
@@ -18474,6 +18855,12 @@ namespace SlopWorld.Wire {
       if (AgentTemplate != other.AgentTemplate) return false;
       if (Like != other.Like) return false;
       if (Worktree != other.Worktree) return false;
+      if (Intent != other.Intent) return false;
+      if (ReaderPath != other.ReaderPath) return false;
+      if (ReaderKey != other.ReaderKey) return false;
+      if (ReaderScope != other.ReaderScope) return false;
+      if (ReaderLine != other.ReaderLine) return false;
+      if (ReaderPinned != other.ReaderPinned) return false;
       return Equals(_unknownFields, other._unknownFields);
     }
 
@@ -18496,6 +18883,12 @@ namespace SlopWorld.Wire {
       if (HasAgentTemplate) hash ^= AgentTemplate.GetHashCode();
       if (HasLike) hash ^= Like.GetHashCode();
       if (HasWorktree) hash ^= Worktree.GetHashCode();
+      if (HasIntent) hash ^= Intent.GetHashCode();
+      if (HasReaderPath) hash ^= ReaderPath.GetHashCode();
+      if (HasReaderKey) hash ^= ReaderKey.GetHashCode();
+      if (HasReaderScope) hash ^= ReaderScope.GetHashCode();
+      if (HasReaderLine) hash ^= ReaderLine.GetHashCode();
+      if (ReaderPinned != false) hash ^= ReaderPinned.GetHashCode();
       if (_unknownFields != null) {
         hash ^= _unknownFields.GetHashCode();
       }
@@ -18571,6 +18964,30 @@ namespace SlopWorld.Wire {
         output.WriteRawTag(122);
         output.WriteString(Worktree);
       }
+      if (HasIntent) {
+        output.WriteRawTag(130, 1);
+        output.WriteString(Intent);
+      }
+      if (HasReaderPath) {
+        output.WriteRawTag(138, 1);
+        output.WriteString(ReaderPath);
+      }
+      if (HasReaderKey) {
+        output.WriteRawTag(146, 1);
+        output.WriteString(ReaderKey);
+      }
+      if (HasReaderScope) {
+        output.WriteRawTag(154, 1);
+        output.WriteString(ReaderScope);
+      }
+      if (HasReaderLine) {
+        output.WriteRawTag(160, 1);
+        output.WriteUInt32(ReaderLine);
+      }
+      if (ReaderPinned != false) {
+        output.WriteRawTag(168, 1);
+        output.WriteBool(ReaderPinned);
+      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(output);
       }
@@ -18638,6 +19055,30 @@ namespace SlopWorld.Wire {
         output.WriteRawTag(122);
         output.WriteString(Worktree);
       }
+      if (HasIntent) {
+        output.WriteRawTag(130, 1);
+        output.WriteString(Intent);
+      }
+      if (HasReaderPath) {
+        output.WriteRawTag(138, 1);
+        output.WriteString(ReaderPath);
+      }
+      if (HasReaderKey) {
+        output.WriteRawTag(146, 1);
+        output.WriteString(ReaderKey);
+      }
+      if (HasReaderScope) {
+        output.WriteRawTag(154, 1);
+        output.WriteString(ReaderScope);
+      }
+      if (HasReaderLine) {
+        output.WriteRawTag(160, 1);
+        output.WriteUInt32(ReaderLine);
+      }
+      if (ReaderPinned != false) {
+        output.WriteRawTag(168, 1);
+        output.WriteBool(ReaderPinned);
+      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(ref output);
       }
@@ -18690,6 +19131,24 @@ namespace SlopWorld.Wire {
       }
       if (HasWorktree) {
         size += 1 + pb::CodedOutputStream.ComputeStringSize(Worktree);
+      }
+      if (HasIntent) {
+        size += 2 + pb::CodedOutputStream.ComputeStringSize(Intent);
+      }
+      if (HasReaderPath) {
+        size += 2 + pb::CodedOutputStream.ComputeStringSize(ReaderPath);
+      }
+      if (HasReaderKey) {
+        size += 2 + pb::CodedOutputStream.ComputeStringSize(ReaderKey);
+      }
+      if (HasReaderScope) {
+        size += 2 + pb::CodedOutputStream.ComputeStringSize(ReaderScope);
+      }
+      if (HasReaderLine) {
+        size += 2 + pb::CodedOutputStream.ComputeUInt32Size(ReaderLine);
+      }
+      if (ReaderPinned != false) {
+        size += 2 + 1;
       }
       if (_unknownFields != null) {
         size += _unknownFields.CalculateSize();
@@ -18745,6 +19204,24 @@ namespace SlopWorld.Wire {
       }
       if (other.HasWorktree) {
         Worktree = other.Worktree;
+      }
+      if (other.HasIntent) {
+        Intent = other.Intent;
+      }
+      if (other.HasReaderPath) {
+        ReaderPath = other.ReaderPath;
+      }
+      if (other.HasReaderKey) {
+        ReaderKey = other.ReaderKey;
+      }
+      if (other.HasReaderScope) {
+        ReaderScope = other.ReaderScope;
+      }
+      if (other.HasReaderLine) {
+        ReaderLine = other.ReaderLine;
+      }
+      if (other.ReaderPinned != false) {
+        ReaderPinned = other.ReaderPinned;
       }
       _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
     }
@@ -18823,6 +19300,30 @@ namespace SlopWorld.Wire {
           }
           case 122: {
             Worktree = input.ReadString();
+            break;
+          }
+          case 130: {
+            Intent = input.ReadString();
+            break;
+          }
+          case 138: {
+            ReaderPath = input.ReadString();
+            break;
+          }
+          case 146: {
+            ReaderKey = input.ReadString();
+            break;
+          }
+          case 154: {
+            ReaderScope = input.ReadString();
+            break;
+          }
+          case 160: {
+            ReaderLine = input.ReadUInt32();
+            break;
+          }
+          case 168: {
+            ReaderPinned = input.ReadBool();
             break;
           }
         }
@@ -18904,6 +19405,228 @@ namespace SlopWorld.Wire {
             Worktree = input.ReadString();
             break;
           }
+          case 130: {
+            Intent = input.ReadString();
+            break;
+          }
+          case 138: {
+            ReaderPath = input.ReadString();
+            break;
+          }
+          case 146: {
+            ReaderKey = input.ReadString();
+            break;
+          }
+          case 154: {
+            ReaderScope = input.ReadString();
+            break;
+          }
+          case 160: {
+            ReaderLine = input.ReadUInt32();
+            break;
+          }
+          case 168: {
+            ReaderPinned = input.ReadBool();
+            break;
+          }
+        }
+      }
+    }
+    #endif
+
+  }
+
+  [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
+  public sealed partial class ReaderPinnedReq : pb::IMessage<ReaderPinnedReq>
+  #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      , pb::IBufferMessage
+  #endif
+  {
+    private static readonly pb::MessageParser<ReaderPinnedReq> _parser = new pb::MessageParser<ReaderPinnedReq>(() => new ReaderPinnedReq());
+    private pb::UnknownFieldSet _unknownFields;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pb::MessageParser<ReaderPinnedReq> Parser { get { return _parser; } }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pbr::MessageDescriptor Descriptor {
+      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[41]; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    pbr::MessageDescriptor pb::IMessage.Descriptor {
+      get { return Descriptor; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public ReaderPinnedReq() {
+      OnConstruction();
+    }
+
+    partial void OnConstruction();
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public ReaderPinnedReq(ReaderPinnedReq other) : this() {
+      pinned_ = other.pinned_;
+      _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public ReaderPinnedReq Clone() {
+      return new ReaderPinnedReq(this);
+    }
+
+    /// <summary>Field number for the "pinned" field.</summary>
+    public const int PinnedFieldNumber = 1;
+    private bool pinned_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool Pinned {
+      get { return pinned_; }
+      set {
+        pinned_ = value;
+      }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override bool Equals(object other) {
+      return Equals(other as ReaderPinnedReq);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool Equals(ReaderPinnedReq other) {
+      if (ReferenceEquals(other, null)) {
+        return false;
+      }
+      if (ReferenceEquals(other, this)) {
+        return true;
+      }
+      if (Pinned != other.Pinned) return false;
+      return Equals(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override int GetHashCode() {
+      int hash = 1;
+      if (Pinned != false) hash ^= Pinned.GetHashCode();
+      if (_unknownFields != null) {
+        hash ^= _unknownFields.GetHashCode();
+      }
+      return hash;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override string ToString() {
+      return pb::JsonFormatter.ToDiagnosticString(this);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void WriteTo(pb::CodedOutputStream output) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      output.WriteRawMessage(this);
+    #else
+      if (Pinned != false) {
+        output.WriteRawTag(8);
+        output.WriteBool(Pinned);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(output);
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalWriteTo(ref pb::WriteContext output) {
+      if (Pinned != false) {
+        output.WriteRawTag(8);
+        output.WriteBool(Pinned);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(ref output);
+      }
+    }
+    #endif
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int CalculateSize() {
+      int size = 0;
+      if (Pinned != false) {
+        size += 1 + 1;
+      }
+      if (_unknownFields != null) {
+        size += _unknownFields.CalculateSize();
+      }
+      return size;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(ReaderPinnedReq other) {
+      if (other == null) {
+        return;
+      }
+      if (other.Pinned != false) {
+        Pinned = other.Pinned;
+      }
+      _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(pb::CodedInputStream input) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      input.ReadRawMessage(this);
+    #else
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, input);
+            break;
+          case 8: {
+            Pinned = input.ReadBool();
+            break;
+          }
+        }
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalMergeFrom(ref pb::ParseContext input) {
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, ref input);
+            break;
+          case 8: {
+            Pinned = input.ReadBool();
+            break;
+          }
         }
       }
     }
@@ -18927,7 +19650,7 @@ namespace SlopWorld.Wire {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[41]; }
+      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[42]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -19345,7 +20068,7 @@ namespace SlopWorld.Wire {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[42]; }
+      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[43]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -19634,7 +20357,7 @@ namespace SlopWorld.Wire {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[43]; }
+      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[44]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -19846,7 +20569,7 @@ namespace SlopWorld.Wire {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[44]; }
+      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[45]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -20045,7 +20768,7 @@ namespace SlopWorld.Wire {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[45]; }
+      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[46]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -20310,7 +21033,7 @@ namespace SlopWorld.Wire {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[46]; }
+      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[47]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -20522,7 +21245,7 @@ namespace SlopWorld.Wire {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[47]; }
+      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[48]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -20785,7 +21508,7 @@ namespace SlopWorld.Wire {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[48]; }
+      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[49]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -21099,7 +21822,7 @@ namespace SlopWorld.Wire {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[49]; }
+      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[50]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -21312,7 +22035,7 @@ namespace SlopWorld.Wire {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[50]; }
+      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[51]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -21578,7 +22301,7 @@ namespace SlopWorld.Wire {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[51]; }
+      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[52]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -21929,7 +22652,7 @@ namespace SlopWorld.Wire {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[52]; }
+      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[53]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -22243,7 +22966,7 @@ namespace SlopWorld.Wire {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[53]; }
+      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[54]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -22533,7 +23256,7 @@ namespace SlopWorld.Wire {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[54]; }
+      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[55]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -23057,7 +23780,7 @@ namespace SlopWorld.Wire {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[55]; }
+      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[56]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -23375,7 +24098,7 @@ namespace SlopWorld.Wire {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[56]; }
+      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[57]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -23744,7 +24467,7 @@ namespace SlopWorld.Wire {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[57]; }
+      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[58]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -24061,7 +24784,7 @@ namespace SlopWorld.Wire {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[58]; }
+      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[59]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -24222,7 +24945,7 @@ namespace SlopWorld.Wire {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[59]; }
+      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[60]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -24420,7 +25143,7 @@ namespace SlopWorld.Wire {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[60]; }
+      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[61]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -24618,7 +25341,7 @@ namespace SlopWorld.Wire {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[61]; }
+      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[62]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -24964,7 +25687,7 @@ namespace SlopWorld.Wire {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[62]; }
+      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[63]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -25151,7 +25874,7 @@ namespace SlopWorld.Wire {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[63]; }
+      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[64]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -25338,7 +26061,7 @@ namespace SlopWorld.Wire {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[64]; }
+      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[65]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -25525,7 +26248,7 @@ namespace SlopWorld.Wire {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[65]; }
+      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[66]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -25763,7 +26486,7 @@ namespace SlopWorld.Wire {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[66]; }
+      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[67]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -26007,7 +26730,7 @@ namespace SlopWorld.Wire {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[67]; }
+      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[68]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -26242,7 +26965,7 @@ namespace SlopWorld.Wire {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[68]; }
+      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[69]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -26449,7 +27172,7 @@ namespace SlopWorld.Wire {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[69]; }
+      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[70]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -26636,7 +27359,7 @@ namespace SlopWorld.Wire {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[70]; }
+      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[71]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -26834,7 +27557,7 @@ namespace SlopWorld.Wire {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[71]; }
+      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[72]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -27087,7 +27810,7 @@ namespace SlopWorld.Wire {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[72]; }
+      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[73]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -27396,7 +28119,7 @@ namespace SlopWorld.Wire {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[73]; }
+      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[74]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -27594,7 +28317,7 @@ namespace SlopWorld.Wire {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[74]; }
+      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[75]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -27866,7 +28589,7 @@ namespace SlopWorld.Wire {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[75]; }
+      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[76]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -28138,7 +28861,7 @@ namespace SlopWorld.Wire {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[76]; }
+      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[77]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -28373,7 +29096,7 @@ namespace SlopWorld.Wire {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[77]; }
+      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[78]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -28608,7 +29331,7 @@ namespace SlopWorld.Wire {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[78]; }
+      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[79]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -28806,7 +29529,7 @@ namespace SlopWorld.Wire {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[79]; }
+      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[80]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -29056,7 +29779,7 @@ namespace SlopWorld.Wire {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[80]; }
+      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[81]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -29342,7 +30065,7 @@ namespace SlopWorld.Wire {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[81]; }
+      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[82]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -29529,7 +30252,7 @@ namespace SlopWorld.Wire {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[82]; }
+      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[83]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -29977,7 +30700,7 @@ namespace SlopWorld.Wire {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[83]; }
+      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[84]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -30164,7 +30887,7 @@ namespace SlopWorld.Wire {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[84]; }
+      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[85]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -30402,7 +31125,7 @@ namespace SlopWorld.Wire {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[85]; }
+      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[86]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -30818,7 +31541,7 @@ namespace SlopWorld.Wire {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[86]; }
+      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[87]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -31127,7 +31850,7 @@ namespace SlopWorld.Wire {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[87]; }
+      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[88]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -31389,7 +32112,7 @@ namespace SlopWorld.Wire {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[88]; }
+      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[89]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -31730,7 +32453,7 @@ namespace SlopWorld.Wire {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[89]; }
+      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[90]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -32281,7 +33004,7 @@ namespace SlopWorld.Wire {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[90]; }
+      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[91]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -32684,7 +33407,7 @@ namespace SlopWorld.Wire {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[91]; }
+      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[92]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -33000,7 +33723,7 @@ namespace SlopWorld.Wire {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[92]; }
+      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[93]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -33327,7 +34050,7 @@ namespace SlopWorld.Wire {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[93]; }
+      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[94]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -33561,7 +34284,7 @@ namespace SlopWorld.Wire {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[94]; }
+      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[95]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -34026,7 +34749,7 @@ namespace SlopWorld.Wire {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[95]; }
+      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[96]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -34457,7 +35180,7 @@ namespace SlopWorld.Wire {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[96]; }
+      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[97]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -34830,7 +35553,7 @@ namespace SlopWorld.Wire {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[97]; }
+      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[98]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -35054,7 +35777,7 @@ namespace SlopWorld.Wire {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[98]; }
+      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[99]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -35261,7 +35984,7 @@ namespace SlopWorld.Wire {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[99]; }
+      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[100]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -35594,7 +36317,7 @@ namespace SlopWorld.Wire {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[100]; }
+      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[101]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -36011,7 +36734,7 @@ namespace SlopWorld.Wire {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[101]; }
+      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[102]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -36310,7 +37033,7 @@ namespace SlopWorld.Wire {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[102]; }
+      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[103]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -36624,7 +37347,7 @@ namespace SlopWorld.Wire {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[103]; }
+      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[104]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -36988,7 +37711,7 @@ namespace SlopWorld.Wire {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[104]; }
+      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[105]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -37319,7 +38042,7 @@ namespace SlopWorld.Wire {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[105]; }
+      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[106]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -38037,7 +38760,7 @@ namespace SlopWorld.Wire {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[106]; }
+      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[107]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -38649,7 +39372,7 @@ namespace SlopWorld.Wire {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[107]; }
+      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[108]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -38943,7 +39666,7 @@ namespace SlopWorld.Wire {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[108]; }
+      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[109]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -39215,7 +39938,7 @@ namespace SlopWorld.Wire {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[109]; }
+      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[110]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -39514,7 +40237,7 @@ namespace SlopWorld.Wire {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[110]; }
+      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[111]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -39749,7 +40472,7 @@ namespace SlopWorld.Wire {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[111]; }
+      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[112]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -39936,7 +40659,7 @@ namespace SlopWorld.Wire {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[112]; }
+      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[113]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -40567,7 +41290,7 @@ namespace SlopWorld.Wire {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[113]; }
+      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[114]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -40754,7 +41477,7 @@ namespace SlopWorld.Wire {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[114]; }
+      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[115]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -41105,7 +41828,7 @@ namespace SlopWorld.Wire {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[115]; }
+      get { return global::SlopWorld.Wire.SlopworldReflection.Descriptor.MessageTypes[116]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]

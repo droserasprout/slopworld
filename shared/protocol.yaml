@@ -67,6 +67,12 @@ http:
       path: "/api/sessions/:name/label"
       methods: [PUT]
       scope: scoped
+    session_reader_pinned:
+      protobuf:
+        PUT: [ReaderPinnedReq, Ack]
+      path: "/api/sessions/:name/reader-pinned"
+      methods: [PUT]
+      scope: scoped
     session_state_reset:
       protobuf:
         POST: [Empty, Ack]

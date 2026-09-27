@@ -79,6 +79,7 @@ pub(crate) mod routes {
     pub(crate) const SESSION_STOP: &str = "/api/sessions/:name/stop";
     pub(crate) const SESSION_RESTART: &str = "/api/sessions/:name/restart";
     pub(crate) const SESSION_LABEL: &str = "/api/sessions/:name/label";
+    pub(crate) const SESSION_READER_PINNED: &str = "/api/sessions/:name/reader-pinned";
     pub(crate) const SESSION_STATE_RESET: &str = "/api/sessions/:name/state/reset";
     pub(crate) const SETTINGS_PREVIEW: &str = "/api/settings/preview";
     pub(crate) const TEMPLATES: &str = "/api/templates";

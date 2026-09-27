@@ -290,6 +290,8 @@ namespace SlopWorld
 
         static string GhostTitle(SessionInfo info, string fallback, RowAct act)
         {
+            if (!string.IsNullOrEmpty(info?.Intent) && !string.IsNullOrEmpty(info.Label))
+                return info.Label;
             if (act != RowAct.None)
             {
                 string name = info?.Name ?? fallback;
@@ -308,6 +310,7 @@ namespace SlopWorld
         static string GhostContext(SessionInfo info, string title, RowAct act)
         {
             string project = info?.Project ?? "";
+            if (!string.IsNullOrEmpty(info?.Intent) && title.Contains(" [")) return "";
             if (act != RowAct.None) return project;
 
             string name = info?.Name ?? "";

@@ -49,7 +49,7 @@ namespace SlopWorld
 
     class PreviewTabs<T> where T : class, IPreviewTab
     {
-        readonly System.Func<T> _create;
+        protected readonly System.Func<T> _create;
         readonly System.Action _beforePreview;
 
         public PreviewTabs(System.Func<T> create, System.Action beforePreview = null)
@@ -58,8 +58,8 @@ namespace SlopWorld
             _beforePreview = beforePreview;
         }
 
-        T _preview;
-        readonly List<T> _locked = new List<T>();
+        protected T _preview;
+        protected readonly List<T> _locked = new List<T>();
 
         public T Preview
         {
@@ -214,7 +214,7 @@ namespace SlopWorld
             return closed;
         }
 
-        void RetireDead()
+        protected void RetireDead()
         {
             if (_preview == null) _preview = _create();
             for (int i = _locked.Count - 1; i >= 0; i--)
@@ -226,11 +226,27 @@ namespace SlopWorld
     // routed header. Files and Git share a collection. Search retains its own readers.
     sealed class PagerTabs : PreviewTabs<Pager>
     {
+        public void AttachRestored(SessionInfo info)
+        {
+            RetireDead();
+            if (ContainsSession(info.Name)) return;
+            string scope = string.IsNullOrEmpty(info.ReaderScope) ? info.Project : info.ReaderScope;
+            if (Find(tab => tab != null && tab.Pending(scope, info.ReaderKey)) != null) return;
+            var pager = _create();
+            pager.AttachRestored(info);
+            if (info.ReaderPinned || _preview.Alive)
+            {
+                if (!info.ReaderPinned) pager.Lock();
+                _locked.Add(pager);
+            }
+            else _preview = pager;
+            RoutedSessionRows.Invalidate();
+        }
         public void OpenFresh(string project, string command, string label, string key)
         {
             // Replace the process inside the existing tab, retaining its pin and identity.
             var pager = Find(tab => tab.Owns(project, key)) ?? ForPreview();
-            pager.Open(project, command, label, key);
+            pager.Open(project, command, label, key, "", "diff");
         }
 
         public PagerTabs(System.Action beforePreview = null)

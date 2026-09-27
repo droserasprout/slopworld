@@ -1,6 +1,50 @@
 use super::*;
 
 #[tokio::test]
+async fn reader_intent_keeps_display_and_scope_without_encoding_them_in_name() {
+    let cfg = Config {
+        projects: vec![ProjectCfg {
+            name: "repo".into(),
+            dir: "/tmp".into(),
+            ..Default::default()
+        }],
+        ..Default::default()
+    };
+    let manager = crate::session::test_manager(cfg.clone());
+    let item = LibraryItemCfg {
+        name: "link-file.rs [repo / Main checkout]".into(),
+        project: "repo".into(),
+        host: true,
+        kind: LibraryItemKind::Shell,
+        command: Some("less /tmp/file.rs".into()),
+        ..Default::default()
+    };
+    let want = RunWhere {
+        intent: "view".into(),
+        reader_path: "/tmp/file.rs".into(),
+        reader_key: "/tmp/file.rs".into(),
+        reader_scope: "scope/id/main".into(),
+        reader_pinned: true,
+        reader_line: 8,
+        ..Default::default()
+    };
+    let name = manager
+        .create_errand_session(&cfg, &item, &want, true, false, "")
+        .await
+        .unwrap();
+    assert!(name.starts_with("tab-"));
+    assert!(!name.contains("link"));
+    let live = manager.live.read().await;
+    let row = &live[&name].cfg;
+    assert_eq!(row.label.as_deref(), Some("file.rs [repo / Main checkout]"));
+    assert_eq!(row.intent, "view");
+    assert_eq!(row.reader_scope, "scope/id/main");
+    assert_eq!(row.reader_path, "/tmp/file.rs");
+    assert!(row.reader_pinned);
+    assert_eq!(row.reader_line, 8);
+}
+
+#[tokio::test]
 async fn errands_require_host_or_settings_before_allocating_and_copy_template_once() {
     let cfg = Config {
         projects: vec![ProjectCfg {

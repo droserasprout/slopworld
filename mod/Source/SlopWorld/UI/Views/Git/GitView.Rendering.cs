@@ -420,7 +420,8 @@ namespace SlopWorld
                     return;
                 }
                 ClearSelection();
-                Viewers.ForPreview().Open(project, DiffCmd(repo, null, null), FilesView.ReaderLabel(project, "diff"));
+                Viewers.ForPreview().Open(project, DiffCmd(repo, null, null), FilesView.ReaderLabel(project, "diff"),
+                    null, "", "diff");
             }
 
             // The visible tree already has a status snapshot. Start its pager now; Git reads

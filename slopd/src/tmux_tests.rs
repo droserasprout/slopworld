@@ -1,6 +1,59 @@
 use super::{
     clean_title, parse_host_metadata_rows, parse_length_framed_field, parse_pos, HostMetadata,
+    ReaderMetadata,
 };
+
+#[tokio::test]
+async fn reader_identity_survives_a_new_daemon_tmux_handle() {
+    let socket = format!("slop-reader-{}", uuid::Uuid::new_v4());
+    struct Cleanup(String);
+    impl Drop for Cleanup {
+        fn drop(&mut self) {
+            let _ = std::process::Command::new("tmux")
+                .args(["-L", &self.0, "kill-server"])
+                .output();
+        }
+    }
+    let _cleanup = Cleanup(socket.clone());
+    let tmux = super::Tmux::new(&socket);
+    tmux.run(&[
+        "-f",
+        "/dev/null",
+        "new-session",
+        "-d",
+        "-s",
+        "tab",
+        "--",
+        "sleep",
+        "60",
+    ])
+    .await
+    .unwrap();
+    let value = ReaderMetadata {
+        intent: "view".into(),
+        label: "file.rs [repo / Main checkout]".into(),
+        original_label: "file.rs [repo / Main checkout]".into(),
+        project: "repo".into(),
+        worktree: "main".into(),
+        path: "/repo/file.rs".into(),
+        key: "/repo/file.rs".into(),
+        scope: "scope/id/main".into(),
+        pinned: true,
+        line: 12,
+    };
+    tmux.set_reader_metadata("tab", &value).await.unwrap();
+    let restored = super::Tmux::new(&socket)
+        .reader_metadata("tab")
+        .await
+        .unwrap();
+    assert_eq!(restored.intent, value.intent);
+    assert_eq!(restored.label, value.label);
+    assert_eq!(restored.original_label, value.original_label);
+    assert_eq!(restored.scope, value.scope);
+    assert_eq!(restored.path, value.path);
+    assert!(restored.pinned);
+    assert_eq!(restored.line, 12);
+}
 
 // Exercise the real transport against an isolated server, without starting the game.
 #[tokio::test]

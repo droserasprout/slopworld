@@ -162,6 +162,17 @@ pub(crate) async fn set_label(
     super::ok_json(m.set_label(&name, q.label).await)
 }
 
+pub(crate) async fn set_reader_pinned(
+    State(m): State<Mgr>,
+    Extension(cap): Extension<Cap>,
+    Path(name): Path<String>,
+    Proto(q): Proto<wire::ReaderPinnedReq>,
+) -> ApiResult<wire::Ack> {
+    let q: super::super::types::ReaderPinnedReq = domain(q)?;
+    super::guard(&m, &cap, &name, Level::Rw).await?;
+    super::ok_json(m.set_reader_pinned(&name, q.pinned).await)
+}
+
 #[cfg(test)]
 #[path = "sessions_tests.rs"]
 mod tests;

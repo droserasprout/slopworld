@@ -29,6 +29,7 @@ enum RequestKind {
     PresetRequest,
     Project,
     ProjectPreviewReq,
+    ReaderPinnedReq,
     RedrawReq,
     RemoveTasksReq,
     ReplaceConfigRequest,
@@ -193,6 +194,11 @@ const ROUTES: &[Route] = &[
     ("POST /api/sessions/:name/restart", Req::Empty, Resp::Ack),
     ("PUT /api/sessions/:name/label", Req::LabelReq, Resp::Ack),
     (
+        "PUT /api/sessions/:name/reader-pinned",
+        Req::ReaderPinnedReq,
+        Resp::Ack,
+    ),
+    (
         "POST /api/sessions/:name/state/reset",
         Req::Empty,
         Resp::Ack,
@@ -302,6 +308,9 @@ pub(crate) fn encode_request(method: &str, path: &str, value: Value) -> anyhow::
         RequestKind::Project => Ok(serde_json::from_value::<wire::Project>(value)?.encode_to_vec()),
         RequestKind::ProjectPreviewReq => {
             Ok(serde_json::from_value::<wire::ProjectPreviewReq>(value)?.encode_to_vec())
+        }
+        RequestKind::ReaderPinnedReq => {
+            Ok(serde_json::from_value::<wire::ReaderPinnedReq>(value)?.encode_to_vec())
         }
         RequestKind::RedrawReq => {
             Ok(serde_json::from_value::<wire::RedrawReq>(value)?.encode_to_vec())
@@ -439,6 +448,9 @@ pub(crate) fn decode_request(method: &str, path: &str, value: &[u8]) -> anyhow::
         RequestKind::ProjectPreviewReq => Ok(serde_json::to_value(
             wire::ProjectPreviewReq::decode(value)?,
         )?),
+        RequestKind::ReaderPinnedReq => {
+            Ok(serde_json::to_value(wire::ReaderPinnedReq::decode(value)?)?)
+        }
         RequestKind::RedrawReq => Ok(serde_json::to_value(wire::RedrawReq::decode(value)?)?),
         RequestKind::RemoveTasksReq => {
             Ok(serde_json::to_value(wire::RemoveTasksReq::decode(value)?)?)

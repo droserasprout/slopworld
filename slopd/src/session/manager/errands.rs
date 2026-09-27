@@ -65,6 +65,13 @@ impl Manager {
                 cfg,
                 &crate::sandbox::host_session_name(&preparation.project_name),
             )
+        } else if !want.intent.is_empty() {
+            let live = self.live.read().await;
+            free_name(
+                &live,
+                cfg,
+                &format!("tab-{}", uuid::Uuid::new_v4().simple()),
+            )
         } else {
             let live = self.live.read().await;
             free_name(&live, cfg, &slug(&sc.name))
@@ -174,6 +181,21 @@ impl Manager {
         // Preserve the original tab label in temporary session metadata.
         // The client can then display the exact filename supplied by Files.
         session.label = super::library::routed_action_label(&sc.name);
+        if !want.intent.is_empty() {
+            // The action is explicit metadata. Keep the display label human-readable.
+            let display = ["view-", "search-", "link-", "edit-", "diff-"]
+                .iter()
+                .find_map(|prefix| sc.name.strip_prefix(prefix))
+                .unwrap_or(&sc.name);
+            session.label = Some(display.to_string());
+            session.reader_label = display.to_string();
+            session.intent = want.intent.clone();
+            session.reader_path = want.reader_path.clone();
+            session.reader_key = want.reader_key.clone();
+            session.reader_scope = want.reader_scope.clone();
+            session.reader_pinned = want.reader_pinned;
+            session.reader_line = want.reader_line;
+        }
         if let Some(source) = preparation.source_settings {
             session.sandbox = source.sandbox;
             session.sandbox_snapshots = source.sandbox_snapshots;

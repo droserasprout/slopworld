@@ -20,6 +20,10 @@ directly and cache encoded bytes for fanout. Persisted TOML and external-provide
 separate formats. C# uses generated messages throughout the client, with no custom JSON parser.
 
 Session rename, process replacement and transport reconnect are different identities.
+Session views carry reader intent and restoration metadata. `/api/run` accepts these fields for
+new terminal readers; a scoped pin update keeps tmux recovery metadata current. New reader names
+are opaque handles, while labels are presentation data. Older sessions without intent retain the
+client's legacy classification fallback.
 `run_id` invalidates history from the old process.
 Connection generations invalidate old subscriptions.
 HTTP mutation responses can trail socket snapshots, requiring a temporary rename handoff in

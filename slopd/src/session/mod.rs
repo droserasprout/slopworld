@@ -87,6 +87,18 @@ crate::wire_enum!(State, {
 pub struct RunWhere {
     #[serde(default)]
     pub worktree: String,
+    #[serde(default)]
+    pub intent: String,
+    #[serde(default)]
+    pub reader_path: String,
+    #[serde(default)]
+    pub reader_key: String,
+    #[serde(default)]
+    pub reader_scope: String,
+    #[serde(default)]
+    pub reader_pinned: bool,
+    #[serde(default)]
+    pub reader_line: u32,
     pub cols: Option<u16>,
     pub rows: Option<u16>,
     #[serde(default)]
