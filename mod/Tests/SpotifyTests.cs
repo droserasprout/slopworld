@@ -2,6 +2,30 @@ namespace SlopWorld.Tests
 {
     static class SpotifyTests
     {
+        public static void MissingCapabilityFallsBackAndRejectsLateTerminalOpen()
+        {
+            Radio.ResetSpotifyTest();
+            Radio.OpenSpotify();
+            Radio.ReportSpotifyTest("player");
+            SessionHub.Instance.Capabilities.Known = true;
+            SessionHub.Instance.Capabilities.Ncspot = false;
+            Radio.CapabilitiesChanged();
+            AssertEx.True(!Radio.Spotify, "unavailable saved selection falls back to OST");
+            SessionHub.Instance.SessionStore.Refreshed();
+            AssertEx.Equal(null, TerminalWindow.Current, "capability fallback invalidates pending terminal refresh");
+        }
+
+        public static void UnknownCapabilitiesKeepSpotifyAvailable()
+        {
+            Radio.ResetSpotifyTest();
+            SessionHub.Instance.Capabilities.Ncspot = false;
+            AssertEx.True(Radio.SpotifyAvailable, "wait for the capability snapshot");
+            SessionHub.Instance.Capabilities.Known = true;
+            AssertEx.True(!Radio.SpotifyAvailable, "known missing player disables Spotify");
+            AssertEx.Throws<System.Exception>(() => Radio.OpenSpotify(), "unavailable player cannot launch");
+            AssertEx.True(!Radio.Spotify, "rejected launch preserves selection");
+        }
+
         public static void LaunchWaitsForAudioReply()
         {
             Radio.ResetSpotifyTest();

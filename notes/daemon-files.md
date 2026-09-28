@@ -28,7 +28,7 @@ coverage scope.
 | `git/` | Git inspection and restricted command execution. |
 | `worktrees/` | Independent worktree records and bounded Git operations. See [worktree ownership](daemon-worktrees.md). |
 | `tasks.rs`, `grant.rs` | Durable mailboxes and scoped authority. |
-| `audio/`, `jukebox.rs` | Playback and station catalog. `session/manager/music.rs` groups radio audio, ncspot state, and the playback transition lock. |
+| `audio/`, `jukebox.rs` | Playback and station catalog. `session/manager/music.rs` owns playback selection and serialization for every transport; its private `music/ncspot.rs` owns the Spotify terminal, IPC and recovery metadata. |
 | `usage/` | Provider polling and quota normalization. |
 | `bin/` | Launcher, installer, and `slopctl` CLI. |
 

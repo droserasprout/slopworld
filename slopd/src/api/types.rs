@@ -318,37 +318,9 @@ pub(crate) enum ClientMsg {
     Audio(AudioReq),
 }
 
-/// A jukebox request. Omit `selection` to change only the volume. Use null to stop playback.
-/// Select a catalog entry with a station ID and stream key, or select soundtrack files with a file or directory path.
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-pub(crate) struct AudioReq {
-    #[serde(default, deserialize_with = "some_option")]
-    pub(crate) selection: Option<Option<AudioSelection>>,
-    pub(crate) volume: f32,
-}
-
-#[derive(Deserialize)]
-pub(crate) struct AudioSelection {
-    #[serde(default)]
-    pub(crate) station: Option<String>,
-    #[serde(default)]
-    pub(crate) stream: Option<String>,
-    #[serde(default)]
-    pub(crate) file: Option<String>,
-    #[serde(default)]
-    pub(crate) ncspot: bool,
-}
-
-/// Distinguish an absent selection from a null selection.
-/// An absent selection preserves playback. A null selection stops playback.
-fn some_option<'de, D, T>(d: D) -> Result<Option<Option<T>>, D::Error>
-where
-    D: serde::Deserializer<'de>,
-    T: Deserialize<'de>,
-{
-    Option::deserialize(d).map(Some)
-}
+pub(crate) use crate::session::AudioReq;
+#[cfg(test)]
+pub(crate) use crate::session::AudioSelection;
 
 #[derive(Deserialize)]
 pub(crate) struct PasteReq {

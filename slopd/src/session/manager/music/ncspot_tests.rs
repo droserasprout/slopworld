@@ -119,6 +119,7 @@ async fn check_recovery(saved_volume: Option<f32>) {
     assert_eq!(state.volume, saved_volume.unwrap_or(1.0));
     server.await.unwrap();
     manager.stop_ncspot().await.unwrap();
+    manager.stop_ncspot().await.unwrap();
     assert!(!manager.tmux.exists("player").await);
     assert!(manager.music_state().await.session.is_none());
 }
@@ -191,4 +192,46 @@ async fn missing_socket_is_a_bounded_error() {
             .await
             .is_err()
     );
+}
+
+#[tokio::test]
+async fn ncspot_marker_survives_new_handle_and_does_not_mark_other_tabs() {
+    let socket = format!("slop-ncspot-{}", uuid::Uuid::new_v4());
+    let tmux = crate::tmux::Tmux::new(&socket);
+    struct Cleanup(String);
+    impl Drop for Cleanup {
+        fn drop(&mut self) {
+            let _ = std::process::Command::new("tmux")
+                .args(["-L", &self.0, "kill-server"])
+                .output();
+        }
+    }
+    let _cleanup = Cleanup(socket.clone());
+    for name in ["player", "other"] {
+        let output = tokio::process::Command::new("tmux")
+            .args([
+                "-L",
+                &socket,
+                "-f",
+                "/dev/null",
+                "new-session",
+                "-d",
+                "-s",
+                name,
+                "--",
+                "sleep",
+                "60",
+            ])
+            .output()
+            .await
+            .unwrap();
+        assert!(output.status.success());
+    }
+    tmux.mark_ncspot("player").await.unwrap();
+    let adopted = crate::tmux::Tmux::new(&socket);
+    assert!(adopted.is_ncspot("player").await);
+    assert!(!adopted.is_ncspot("other").await);
+    adopted.kill("player").await.unwrap();
+    assert!(!adopted.exists("player").await);
+    assert!(adopted.exists("other").await);
 }

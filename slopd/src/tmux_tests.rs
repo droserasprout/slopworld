@@ -281,45 +281,6 @@ fn host_metadata_keeps_fields_independent_and_rejects_empty_answers() {
 }
 
 #[tokio::test]
-async fn ncspot_marker_survives_new_handle_and_does_not_mark_other_tabs() {
-    let socket = format!("slop-ncspot-{}", uuid::Uuid::new_v4());
-    let tmux = super::Tmux::new(&socket);
-    struct Cleanup(String);
-    impl Drop for Cleanup {
-        fn drop(&mut self) {
-            let _ = std::process::Command::new("tmux")
-                .args(["-L", &self.0, "kill-server"])
-                .output();
-        }
-    }
-    let _cleanup = Cleanup(socket.clone());
-    for name in ["player", "other"] {
-        tmux.run(&[
-            "-f",
-            "/dev/null",
-            "new-session",
-            "-d",
-            "-s",
-            name,
-            "-c",
-            "/",
-            "--",
-            "sleep",
-            "60",
-        ])
-        .await
-        .unwrap();
-    }
-    tmux.mark_ncspot("player").await.unwrap();
-    let adopted = super::Tmux::new(&socket);
-    assert!(adopted.is_ncspot("player").await);
-    assert!(!adopted.is_ncspot("other").await);
-    adopted.kill("player").await.unwrap();
-    assert!(!adopted.exists("player").await);
-    assert!(adopted.exists("other").await);
-}
-
-#[tokio::test]
 async fn host_metadata_batch_matches_target_panes_across_windows() {
     let tmux = super::Tmux::new(format!("slop-metadata-{}", uuid::Uuid::new_v4()));
     struct Cleanup(super::Tmux);

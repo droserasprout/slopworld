@@ -1,4 +1,4 @@
-use super::commands::{handle_audio, resolve_audio_source};
+use super::commands::handle_audio;
 use super::outbound::scope_event;
 use super::*;
 use crate::api::types::{AudioReq, AudioSelection};
@@ -360,42 +360,6 @@ fn a_scoped_grant_is_denied_host_wide_categories() {
     }
 }
 
-/// A jukebox pick names a station and a stream together, or names a plain file, and nothing
-/// in between. A plain file passes straight through.
-#[test]
-fn resolve_audio_accepts_a_plain_file() {
-    let selection = AudioSelection {
-        station: None,
-        stream: None,
-        file: Some("/tmp/song.mp3".to_string()),
-        ncspot: false,
-    };
-    assert_eq!(resolve_audio_source(selection).unwrap(), "/tmp/song.mp3");
-}
-
-/// Every half-formed or contradictory combination is refused before it can reach a source.
-#[test]
-fn resolve_audio_rejects_malformed_selections() {
-    let cases = [
-        (None, None, None),
-        (Some("s"), None, None),
-        (None, Some("t"), None),
-        (Some("s"), Some("t"), Some("f")),
-        (None, Some("t"), Some("f")),
-    ];
-    for (station, stream, file) in cases {
-        let selection = AudioSelection {
-            station: station.map(str::to_string),
-            stream: stream.map(str::to_string),
-            file: file.map(str::to_string),
-            ncspot: false,
-        };
-        assert!(
-            resolve_audio_source(selection).is_err(),
-            "expected {station:?}/{stream:?}/{file:?} to be rejected"
-        );
-    }
-}
 type ClientSocket =
     tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>;
 
