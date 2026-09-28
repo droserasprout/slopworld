@@ -3,7 +3,9 @@
 `session/manager/session_state.rs` owns rule compilation, matching, classification, and activity persistence.
 `ActivityRules` keeps compiled rules with their cache revision, retaining separate synchronization.
 `maintenance.rs` schedules polls and state refreshes; `signals.rs` tracks subscriptions and usage.
-`capture/input.rs` owns terminal sizing and repaint requests; `capture/scroll.rs` owns cached scroll views.
+`capture/input.rs` owns ordered input delivery, paste admission, sizing, and repaint requests.
+`capture/breadcrumbs.rs` owns pending context consumption and library breadcrumb rendering;
+it delegates admission and delivery to input. `capture/scroll.rs` owns cached scroll views.
 Watch guards live beside their subscription bookkeeping in `signals.rs`.
 Manager authorization lives in `caps.rs`: `Authorization` groups grants and credential invalidation.
 `HostMetadataPoll` in `sessions.rs` groups the poll timestamp and outstanding tmux job.
