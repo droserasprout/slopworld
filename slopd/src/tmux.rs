@@ -454,17 +454,22 @@ impl Tmux {
     }
 
     pub async fn current_path(&self, name: &str) -> Option<String> {
-        self.run(&[
-            "display-message",
-            "-p",
-            "-t",
-            &format!("{name}:.0"),
-            "#{pane_current_path}",
-        ])
-        .await
-        .ok()
-        .map(|path| path.trim().to_string())
-        .filter(|path| !path.is_empty())
+        let target = format!("{name}:.0");
+        // tmux cannot always inspect the cwd of a sandboxed pane whose immediate
+        // process is pasta/bwrap. The launch directory is still useful for links
+        // printed by agents started at the project root.
+        for format in ["#{pane_current_path}", "#{pane_start_path}"] {
+            if let Some(path) = self
+                .run(&["display-message", "-p", "-t", &target, format])
+                .await
+                .ok()
+                .map(|path| path.trim().to_string())
+                .filter(|path| !path.is_empty())
+            {
+                return Some(path);
+            }
+        }
+        None
     }
 
     pub(crate) async fn mark_ncspot(&self, name: &str) -> Result<()> {
