@@ -67,6 +67,10 @@ An adopted Working row uses the adoption sample as its runtime decay clock until
 The `state_since` value retains the restored age shown to the user.
 See [redeploy](daemon-redeploy.md).
 
+The reader scheduler owns dirty-state consumption and draw timestamps; rendering executes
+its selected action. Snapshot seeding adapts tmux captures in the capture layer.
+Clipboard writes remain detached from reader lifetime.
+
 Clean readers have no recurring timer.
 Output, subscription changes, and completed clipboard writes wake readers as necessary.
 Subscription changes remain pending while readers wait for rendering.
