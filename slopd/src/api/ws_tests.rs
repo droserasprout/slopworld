@@ -1,6 +1,9 @@
 use super::*;
 use crate::grant::Grant;
-use crate::session::{ScreenView, SessionLaunchView, SessionView, SessionWorkerView, State};
+use crate::session::{
+    ScreenView, SessionLaunchView, SessionReaderView, SessionRuntimeView, SessionView,
+    SessionWorkerView, State,
+};
 use std::collections::HashSet;
 
 #[tokio::test]
@@ -59,11 +62,13 @@ fn view(name: &str) -> SessionView {
         name: name.to_string(),
         label: String::new(),
         intent: String::new(),
-        reader_path: String::new(),
-        reader_key: String::new(),
-        reader_scope: String::new(),
-        reader_pinned: false,
-        reader_line: 0,
+        reader: SessionReaderView {
+            path: String::new(),
+            key: String::new(),
+            scope: String::new(),
+            pinned: false,
+            line: 0,
+        },
         project: String::new(),
         dir: String::new(),
         launch: SessionLaunchView {
@@ -86,25 +91,27 @@ fn view(name: &str) -> SessionView {
             task_id: String::new(),
             durable: false,
         },
-        auto_resume_pending: false,
-        state: State::Idle,
-        alive: true,
-        cols: 80,
-        rows: 24,
         ephemeral: false,
         host: false,
-        process_running: false,
-        last_change: 0,
-        state_since: 0,
-        title: String::new(),
-        bell: false,
-        run_id: 0,
-        seq: 0,
+        runtime: SessionRuntimeView {
+            auto_resume_pending: false,
+            state: State::Idle,
+            alive: true,
+            cols: 80,
+            rows: 24,
+            process_running: false,
+            last_change: 0,
+            state_since: 0,
+            title: String::new(),
+            bell: false,
+            run_id: 0,
+            seq: 0,
+        },
     }
 }
 
 #[test]
-fn session_groups_preserve_flat_wire_fields() {
+fn session_groups_match_wire_schema() {
     let mut session = view("agent");
     session.launch.command = "custom".into();
     session.launch.command_preset = "shell".into();
@@ -120,8 +127,58 @@ fn session_groups_preserve_flat_wire_fields() {
         task_id: "task-7".into(),
         durable: true,
     };
+    session.reader = SessionReaderView {
+        path: "/tmp/file.rs".into(),
+        key: "file-key".into(),
+        scope: "project/main".into(),
+        pinned: true,
+        line: 17,
+    };
+    session.runtime = SessionRuntimeView {
+        auto_resume_pending: true,
+        state: State::Working,
+        alive: true,
+        cols: 120,
+        rows: 40,
+        process_running: true,
+        last_change: 123,
+        state_since: 100,
+        title: "editor".into(),
+        bell: true,
+        run_id: 7,
+        seq: 19,
+    };
+    let expected = serde_json::json!({
+        "reader_path": "/tmp/file.rs",
+        "reader_key": "file-key",
+        "reader_scope": "project/main",
+        "reader_pinned": true,
+        "reader_line": 17,
+        "auto_resume_pending": true,
+        "state": "working",
+        "alive": true,
+        "cols": 120,
+        "rows": 40,
+        "process_running": true,
+        "last_change": 123,
+        "state_since": 100,
+        "title": "editor",
+        "bell": true,
+        "run_id": 7,
+        "seq": 19,
+    });
     let json = serde_json::to_value(&session).unwrap();
     assert!(json.get("launch").is_none());
+
+    for (field, value) in expected.as_object().unwrap() {
+        let actual = if let Some(field) = field.strip_prefix("reader_") {
+            &json["reader"][field]
+        } else {
+            &json["runtime"][field]
+        };
+        assert_eq!(actual, value, "JSON field {field}");
+        assert!(json.get(field).is_none(), "unexpected flat field {field}");
+    }
     assert_eq!(json["worker"], true);
     assert_eq!(json["command"], "custom");
     assert_eq!(json["parent"], "parent");
@@ -146,6 +203,15 @@ fn session_groups_preserve_flat_wire_fields() {
     assert!(wire.worker && wire.durable);
     assert_eq!(wire.parent, "parent");
     assert_eq!(wire.task_id, "task-7");
+    let wire_json = serde_json::to_value(wire).unwrap();
+    for (field, value) in expected.as_object().unwrap() {
+        let actual = if let Some(field) = field.strip_prefix("reader_") {
+            &wire_json["reader"][field]
+        } else {
+            &wire_json["runtime"][field]
+        };
+        assert_eq!(actual, value, "Protobuf field {field}");
+    }
 }
 
 fn scoped(sessions: &[&str], level: Level) -> Cap {

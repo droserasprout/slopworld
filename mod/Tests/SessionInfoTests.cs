@@ -16,21 +16,27 @@ namespace SlopWorld.Tests
         static void ReadsCompleteWireShape()
         {
             var session = SessionInfo.FromWire(ProtobufFixtures.Read<Wire.SessionView>(JVal.Parse(
-                "{" +
-                "\"name\":\"agent\",\"project\":\"proj\",\"dir\":\"/work\", " +
-                "\"command\":\"claude\",\"command_preset\":\"claude\", " +
-                "\"cmd\":\"run --x\",\"sandbox\":[\"home\",\"net\"], " +
-                "\"persistent_tmp\":true, " +
-                "\"agent\":\"/usr/bin/claude\",\"state\":\"working\",\"alive\":true, " +
-                "\"network\":\"host\", " +
-                "\"dns\":{\"mode\":\"servers\",\"servers\":[\"8.8.8.8\"]}, " +
-                "\"limits\":{\"memory_mb\":1024,\"pids\":64}, " +
-                "\"autostart\":true,\"auto_resume\":true,\"auto_resume_pending\":true, " +
-                "\"worker\":true,\"parent\":\"caller\",\"task_id\":\"task-7\",\"durable\":true, " +
-                "\"ephemeral\":true,\"host\":true,\"process_running\":true,\"cols\":120,\"rows\":40, " +
-                "\"title\":\"working title\",\"label\":\"manual label\",\"bell\":true, " +
-                "\"run_id\":9, " +
-                "\"last_change\":123,\"state_since\":456}")));
+                """
+                {
+                    "name": "agent", "project": "proj", "dir": "/work",
+                    "command": "claude", "command_preset": "claude",
+                    "cmd": "run --x", "sandbox": ["home", "net"], "persistent_tmp": true,
+                    "agent": "/usr/bin/claude", "network": "host",
+                    "dns": {"mode": "servers", "servers": ["8.8.8.8"]},
+                    "limits": {"memory_mb": 1024, "pids": 64},
+                    "autostart": true, "auto_resume": true,
+                    "worker": true, "parent": "caller", "task_id": "task-7", "durable": true,
+                    "ephemeral": true, "host": true, "label": "manual label",
+                    "reader": {"path": "/work/file.rs", "key": "file-key", "scope": "proj/main",
+                               "pinned": true, "line": 17},
+                    "runtime": {
+                        "state": "working", "alive": true, "auto_resume_pending": true,
+                        "process_running": true, "cols": 120, "rows": 40,
+                        "title": "working title", "bell": true, "run_id": 9,
+                        "last_change": 123, "state_since": 456
+                    }
+                }
+                """)));
 
             AssertEx.Equal("agent", session.Name, "name");
             AssertEx.Equal("proj", session.Project, "project");
@@ -66,6 +72,11 @@ namespace SlopWorld.Tests
             AssertEx.Equal(9L, session.RunId, "run identity");
             AssertEx.Equal(123L, session.LastChange, "last change");
             AssertEx.Equal(456L, session.StateSince, "state since");
+            AssertEx.Equal("/work/file.rs", session.ReaderPath, "reader path");
+            AssertEx.Equal("file-key", session.ReaderKey, "reader key");
+            AssertEx.Equal("proj/main", session.ReaderScope, "reader scope");
+            AssertEx.True(session.ReaderPinned, "reader pinned");
+            AssertEx.Equal(17, session.ReaderLine, "reader line");
             AssertEx.False(session.Gone, "alive session is not gone");
         }
 
@@ -112,7 +123,7 @@ namespace SlopWorld.Tests
         static void ParsesUnknownStateAsDown()
         {
             var session = SessionInfo.FromWire(ProtobufFixtures.Read<Wire.SessionView>(JVal.Parse(
-                "{\"state\":\"future-state\",\"alive\":false}")));
+                "{\"reader\":{},\"runtime\":{\"state\":\"future-state\",\"alive\":false}}")));
 
             AssertEx.Equal(AgentState.Down, session.State, "unknown state fallback");
             AssertEx.True(session.Gone, "dead session is gone");

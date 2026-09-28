@@ -479,7 +479,7 @@ async fn faint_prompt_particles_do_not_keep_a_quiet_session_working() {
             Event::Sessions { sessions } => {
                 idle_announced |= sessions
                     .iter()
-                    .any(|s| s.name == "agent" && s.state == State::Idle);
+                    .any(|s| s.name == "agent" && s.runtime.state == State::Idle);
             }
             Event::Screen { .. } => screens += 1,
             _ => {}

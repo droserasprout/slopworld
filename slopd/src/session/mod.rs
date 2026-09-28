@@ -37,7 +37,10 @@ pub(crate) use events::EventMessage;
 pub(crate) use manager::{test_manager, test_manager_with_socket};
 pub use manager::{Manager, WatchGuard};
 pub(crate) use view::FrameViewArgs;
-pub use view::{ProjectView, ScreenView, SessionLaunchView, SessionView, SessionWorkerView};
+pub use view::{
+    ProjectView, ScreenView, SessionLaunchView, SessionReaderView, SessionRuntimeView, SessionView,
+    SessionWorkerView,
+};
 
 use input::{merge_input, Input};
 use prompt::{render_prompt, render_prompt_with, PromptVars};

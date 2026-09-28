@@ -11,8 +11,8 @@ namespace SlopWorld.Tests
         static byte[] Screen(string name, ulong seq, uint off = 0, ulong request = 0) =>
             new Wire.Event { Screen = new Wire.ScreenView { Name = name, Seq = seq, Off = off, RequestId = request } }.ToByteArray();
         static byte[] Control(ulong seq) => new Wire.Event { Sessions = new Wire.SessionsReply {
-            Sessions = { new Wire.SessionView { Seq = seq } } } }.ToByteArray();
-        static ulong Identity(Wire.Event value) => value.Screen?.Seq ?? value.Sessions.Sessions[0].Seq;
+            Sessions = { new Wire.SessionView { Runtime = new Wire.SessionRuntimeView { Seq = seq } } } } }.ToByteArray();
+        static ulong Identity(Wire.Event value) => value.Screen?.Seq ?? value.Sessions.Sessions[0].Runtime.Seq;
         public static void Messages()
         {
             var queue = new IncomingMessageQueue();

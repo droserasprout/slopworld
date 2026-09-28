@@ -1,4 +1,4 @@
-//! Client snapshots. Launch and worker groups serialize as flat session fields.
+//! Client snapshots. Reader and runtime snapshots are nested; launch and worker fields remain flat.
 
 use super::State;
 use crate::config::{DnsConfig, Limits, Mount, NetworkMode};
@@ -32,11 +32,6 @@ pub struct SessionView {
     pub name: String,
     pub label: String,
     pub intent: String,
-    pub reader_path: String,
-    pub reader_key: String,
-    pub reader_scope: String,
-    pub reader_pinned: bool,
-    pub reader_line: u32,
     pub project: String,
     pub dir: String,
     // Launch policy and task ownership; preserve the flat wire contract.
@@ -44,16 +39,33 @@ pub struct SessionView {
     pub launch: SessionLaunchView,
     #[serde(flatten)]
     pub worker: SessionWorkerView,
+    // No editable config entry; host tabs are identified separately by `host`.
+    pub ephemeral: bool,
+    // Backed by a host-terminal record rather than a sandboxed agent.
+    pub host: bool,
+    pub reader: SessionReaderView,
+    pub runtime: SessionRuntimeView,
+}
+
+/// Source location and pin state for a temporary terminal reader.
+#[derive(Debug, Clone, Serialize)]
+pub struct SessionReaderView {
+    pub path: String,
+    pub key: String,
+    pub scope: String,
+    pub pinned: bool,
+    pub line: u32,
+}
+
+/// Current process, activity, and terminal status.
+#[derive(Debug, Clone, Serialize)]
+pub struct SessionRuntimeView {
     // Runtime status. Delay user input while startup auto-resume is pending.
     pub auto_resume_pending: bool,
     pub state: State,
     pub alive: bool,
     pub cols: u16,
     pub rows: u16,
-    // No editable config entry; host tabs are identified separately by `host`.
-    pub ephemeral: bool,
-    // Backed by a host-terminal record rather than a sandboxed agent.
-    pub host: bool,
     // Foreground job in a host shell; false for ordinary agents.
     pub process_running: bool,
     // Activity and state-transition times are independent epoch milliseconds.

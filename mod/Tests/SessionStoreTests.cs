@@ -7,7 +7,9 @@ namespace SlopWorld.Tests
     static class SessionStoreTests
     {
         static Wire.SessionsReply Sessions(string name) =>
-            ProtobufFixtures.Read<Wire.SessionsReply>(JVal.Parse("{\"sessions\":[{\"name\":\"" + name + "\"}]}"));
+            new Wire.SessionsReply { Sessions = { new Wire.SessionView {
+                Name = name, Reader = new Wire.SessionReaderView(), Runtime = new Wire.SessionRuntimeView()
+            } } };
 
         public static void RefreshRejectsSupersededSnapshots()
         {
