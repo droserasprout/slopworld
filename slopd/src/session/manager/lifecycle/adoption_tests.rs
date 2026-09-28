@@ -37,3 +37,50 @@ fn recovered_worker_uses_parent_settings_and_task_identity() {
     assert!(!worker.autostart);
     assert!(!worker.auto_resume);
 }
+
+#[test]
+fn recovered_activity_is_kept_only_for_durable_workers() {
+    use super::{AdoptionDecision, AdoptionProbe, Manager, State};
+
+    let cfg = Config::default();
+    for durable in [false, true] {
+        let metadata = crate::tmux::WorkerMetadata {
+            project: None,
+            worktree: None,
+            parent: "parent".into(),
+            task_id: "task-7".into(),
+            durable,
+            state_id: Some("11111111-1111-4111-8111-111111111111".into()),
+        };
+        let decision = AdoptionDecision {
+            worker_session: Some(recovered_worker_cfg(&cfg, "worker", &metadata)),
+            probe: AdoptionProbe {
+                name: "worker".into(),
+                worker: Some(metadata),
+                saved_host: None,
+                host: false,
+                tmux_host: None,
+                activity: None,
+                current_path: None,
+                reader: None,
+            },
+            host_project: String::new(),
+            host_path: String::new(),
+            activity: Some(crate::activity::Activity {
+                state: State::Waiting,
+                state_since: 123,
+            }),
+        };
+        let live = Manager::new_adopted_live(&cfg, &decision);
+        assert_eq!(live.ephemeral, !durable);
+        if durable {
+            assert_eq!(live.state, State::Waiting);
+            assert_eq!(live.state_since, 123);
+            assert_eq!(live.last_change, 0);
+        } else {
+            assert_eq!(live.state, State::Working);
+            assert!(live.state_since > 123);
+            assert_eq!(live.last_change, live.state_since);
+        }
+    }
+}

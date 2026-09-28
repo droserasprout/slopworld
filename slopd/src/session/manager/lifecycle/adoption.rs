@@ -1,9 +1,10 @@
-//! Recovery of tmux sessions that outlived the daemon configuration.
+//! Recover surviving tmux panes: probe metadata, resolve fallbacks, then attach readers.
 
 use crate::clock::unix_ms;
 use crate::config::HostTerminalCfg;
 use crate::session::*;
 
+/// Raw tmux observations and the matching saved host entry.
 struct AdoptionProbe {
     name: String,
     worker: Option<crate::tmux::WorkerMetadata>,
@@ -15,20 +16,17 @@ struct AdoptionProbe {
     reader: Option<crate::tmux::ReaderMetadata>,
 }
 
+/// Original observations plus resolved recovery inputs for the live table.
 struct AdoptionDecision {
-    name: String,
-    worker: Option<crate::tmux::WorkerMetadata>,
-    saved_host: Option<HostTerminalCfg>,
+    probe: AdoptionProbe,
     worker_session: Option<SessionCfg>,
-    host: bool,
     host_project: String,
     host_path: String,
     activity: Option<crate::activity::Activity>,
-    current_path: Option<String>,
-    reader: Option<crate::tmux::ReaderMetadata>,
 }
 
 impl Manager {
+    /// Read pane metadata, querying host details only for non-worker host panes.
     async fn probe_orphan(&self, cfg: &Config, name: String) -> AdoptionProbe {
         let saved_host = cfg
             .host_terminals
@@ -36,8 +34,7 @@ impl Manager {
             .find(|tab| tab.name == name)
             .cloned();
 
-        // Worker identity and cached activity are independent observations. Keep the tmux
-        // calls concurrent, but make host metadata conditional on the worker/host decision.
+        // Fetch independent metadata together; worker identity takes precedence over host markers.
         let (worker, activity, reader) = tokio::join!(
             self.tmux.worker_metadata(&name),
             self.tmux.activity(&name),
@@ -66,6 +63,7 @@ impl Manager {
         }
     }
 
+    /// Prefer tmux metadata, falling back to saved host entries and disk activity.
     fn decide_orphan(
         cfg: &Config,
         probe: AdoptionProbe,
@@ -90,26 +88,17 @@ impl Manager {
         let activity = probe.activity.or_else(|| activity_cache.get(&probe.name));
 
         AdoptionDecision {
-            name: probe.name,
-            worker: probe.worker,
-            saved_host: probe.saved_host,
+            probe,
             worker_session,
-            host: probe.host,
             host_project,
             host_path,
             activity,
-            current_path: probe.current_path,
-            reader: probe.reader,
         }
     }
 
-    /// Reconstruct each tmux session missing from the current configuration.
-    /// Workers use tmux metadata owned by the daemon. Host shells use their host marker and catalog entry.
-    /// Attach the reader after reconstructing the live row.
-    /// Recovered panes then use the normal session state and resize operations.
+    /// Recover missing live rows and attach readers to surviving tmux panes.
     pub(in crate::session::manager) async fn adopt_orphans(self: &Arc<Self>, cfg: &Config) -> bool {
-        // Reconciliation calls this within session_operation. Probes can yield.
-        // Keep decisions, live-row changes, and reader attachment ordered within the same session boundary.
+        // Caller holds the session boundary across probing, live updates, and attachment.
         let names = self.tmux.list().await;
         let probes =
             futures::future::join_all(names.into_iter().map(|name| self.probe_orphan(cfg, name)))
@@ -125,120 +114,151 @@ impl Manager {
         adopted
     }
 
+    /// Create or repair the live row before restoring dimensions and capture.
     async fn commit_adoption(self: &Arc<Self>, cfg: &Config, decision: AdoptionDecision) -> bool {
-        let AdoptionDecision {
-            name,
-            worker,
-            saved_host,
-            worker_session,
-            host,
-            host_project,
-            host_path,
-            activity,
-            current_path,
-            reader,
-        } = decision;
-        let mut created = false;
-        let needs_size = {
+        let name = &decision.probe.name;
+        let (created, needs_size) = {
             let mut live = self.live.write().await;
-            if !live.contains_key(&name) {
-                tracing::info!(
-                    "adopting tmux session {name} as a temporary {}",
-                    if host { "host terminal" } else { "agent" }
-                );
-                let now = unix_ms();
-                let mut l = Live::new(
-                    worker_session.clone().unwrap_or_else(|| {
-                        let mut session = SessionCfg {
-                            name: name.clone(),
-                            label: saved_host.as_ref().and_then(|tab| tab.label.clone()),
-                            project: host_project.clone(),
-                            command: if host {
-                                cfg.defaults.shell.clone()
-                            } else {
-                                String::new()
-                            },
-                            ..Default::default()
-                        };
-                        if let Some(reader) = &reader {
-                            session.label = Some(reader.label.clone());
-                            session.reader_label = if reader.original_label.is_empty() {
-                                reader.label.clone()
-                            } else {
-                                reader.original_label.clone()
-                            };
-                            session.project = reader.project.clone();
-                            session.worktree = reader.worktree.clone();
-                            session.intent = reader.intent.clone();
-                            session.reader_path = reader.path.clone();
-                            session.reader_key = reader.key.clone();
-                            session.reader_scope = reader.scope.clone();
-                            session.reader_pinned = reader.pinned;
-                            session.reader_line = reader.line;
-                        }
-                        session
-                    }),
-                    TitleCapture::default(),
-                );
-                l.ephemeral = worker
-                    .as_ref()
-                    .map(|metadata| !metadata.durable)
-                    .unwrap_or(true);
-                l.host = host;
-                l.persistent_host = host && saved_host.is_some();
-                l.host_path = host_path.clone();
-                l.state = State::Working;
-                l.last_change = now;
-                l.state_since = now;
-                if !l.ephemeral {
-                    if let Some(activity) = activity {
-                        l.state = activity.state;
-                        l.state_since = activity.state_since;
-                        // Persisted timestamps remain epoch milliseconds. Runtime decay
-                        // starts from the adoption sample because no pre-restart frame can
-                        // prove that the restored pane changed after the timestamp.
-                        l.last_change = if activity.state == State::Working {
-                            now
+            let (row, created) = match live.entry(name.clone()) {
+                std::collections::hash_map::Entry::Vacant(entry) => {
+                    tracing::info!(
+                        "adopting tmux session {name} as a temporary {}",
+                        if decision.probe.host {
+                            "host terminal"
                         } else {
-                            0
-                        };
-                    }
+                            "agent"
+                        }
+                    );
+                    (entry.insert(Self::new_adopted_live(cfg, &decision)), true)
                 }
-                live.insert(name.clone(), l);
-                created = true;
-            } else if let Some(l) = live.get_mut(&name) {
-                if let (Some(metadata), Some(session)) = (worker.as_ref(), worker_session.clone()) {
-                    // A stale in-memory host row can exist when a daemon reload adopts a
-                    // worker name that was also present in an old host-terminal catalog.
-                    l.cfg = session;
-                    l.ephemeral = !metadata.durable;
-                    l.host = false;
-                    l.persistent_host = false;
-                    l.host_path.clear();
+                std::collections::hash_map::Entry::Occupied(entry) => {
+                    let row = entry.into_mut();
+                    self.repair_adopted_live(row, &decision);
+                    (row, false)
                 }
-                if host && l.host {
-                    if !host_project.is_empty() {
-                        l.cfg.project = host_project.clone();
-                    }
-                    if !host_path.is_empty() {
-                        l.host_path = host_path.clone();
-                    }
-                }
-                self.restore_activity(l, activity);
-            }
-            live.get(&name).is_some_and(|l| l.capture.emu.is_none())
+            };
+            (created, row.capture.emu.is_none())
         };
 
-        // An established reader already has its dimensions.
-        // Query tmux only for a newly adopted session or one without a reader.
-        // Release the live-table lock before awaiting the result.
+        // Recover missing dimensions outside the live lock, then attach and request a redraw.
         if needs_size {
-            self.refresh_readerless_size(&name).await;
+            self.refresh_readerless_size(name).await;
         }
-        match self.spawn_reader(&name).await {
+        self.attach_adopted_reader(name).await;
+        if decision.probe.host {
+            // The saved host catalog alone owns persistence; a viewer stays temporary.
+            if let Some(path) = &decision.probe.current_path {
+                self.remember_host_path(name, path).await;
+            }
+        }
+        created
+    }
+
+    /// Build worker settings or reconstruct a host/viewer session from saved metadata.
+    fn adopted_session_cfg(cfg: &Config, decision: &AdoptionDecision) -> SessionCfg {
+        if let Some(session) = &decision.worker_session {
+            return session.clone();
+        }
+
+        let mut session = SessionCfg {
+            name: decision.probe.name.clone(),
+            label: decision
+                .probe
+                .saved_host
+                .as_ref()
+                .and_then(|tab| tab.label.clone()),
+            project: decision.host_project.clone(),
+            command: if decision.probe.host {
+                cfg.defaults.shell.clone()
+            } else {
+                String::new()
+            },
+            ..Default::default()
+        };
+        // Viewer metadata restores its label, source, and pin state.
+        if let Some(reader) = &decision.probe.reader {
+            session.label = Some(reader.label.clone());
+            session.reader_label = if reader.original_label.is_empty() {
+                reader.label.clone()
+            } else {
+                reader.original_label.clone()
+            };
+            session.project = reader.project.clone();
+            session.worktree = reader.worktree.clone();
+            session.intent = reader.intent.clone();
+            session.reader_path = reader.path.clone();
+            session.reader_key = reader.key.clone();
+            session.reader_scope = reader.scope.clone();
+            session.reader_pinned = reader.pinned;
+            session.reader_line = reader.line;
+        }
+        session
+    }
+
+    /// Initialize a recovered row, preserving durable activity age.
+    fn new_adopted_live(cfg: &Config, decision: &AdoptionDecision) -> Live {
+        let now = unix_ms();
+        let mut l = Live::new(
+            Self::adopted_session_cfg(cfg, decision),
+            TitleCapture::default(),
+        );
+        l.ephemeral = decision
+            .probe
+            .worker
+            .as_ref()
+            .map(|metadata| !metadata.durable)
+            .unwrap_or(true);
+        l.host = decision.probe.host;
+        l.persistent_host = decision.probe.host && decision.probe.saved_host.is_some();
+        l.host_path = decision.host_path.clone();
+        l.state = State::Working;
+        l.last_change = now;
+        l.state_since = now;
+        if !l.ephemeral {
+            if let Some(activity) = decision.activity {
+                l.state = activity.state;
+                l.state_since = activity.state_since;
+                // Preserve displayed age; restart Working decay without a prior frame.
+                l.last_change = if activity.state == State::Working {
+                    now
+                } else {
+                    0
+                };
+            }
+        }
+        l
+    }
+
+    /// Repair worker/host identity, then restore activity for a durable Down row.
+    fn repair_adopted_live(&self, l: &mut Live, decision: &AdoptionDecision) {
+        if let (Some(metadata), Some(session)) = (
+            decision.probe.worker.as_ref(),
+            decision.worker_session.clone(),
+        ) {
+            // Worker metadata overrides a stale host-catalog identity.
+            l.cfg = session;
+            l.ephemeral = !metadata.durable;
+            l.host = false;
+            l.persistent_host = false;
+            l.host_path.clear();
+        }
+        if decision.probe.host && l.host {
+            if !decision.host_project.is_empty() {
+                l.cfg.project = decision.host_project.clone();
+            }
+            if !decision.host_path.is_empty() {
+                l.host_path = decision.host_path.clone();
+            }
+        }
+        self.restore_activity(l, decision.activity);
+    }
+
+    /// Attach capture and request a redraw only when a new reader starts.
+    async fn attach_adopted_reader(self: &Arc<Self>, name: &str) {
+        match self.spawn_reader(name).await {
             Ok(true) => {
                 let m = self.clone();
-                let name = name.clone();
+                let name = name.to_owned();
                 tokio::spawn(async move { m.nudge_redraw(&name).await });
             }
             Ok(false) => {}
@@ -246,16 +266,9 @@ impl Manager {
                 tracing::warn!("could not attach reader for adopted session {name}: {error:#}")
             }
         }
-        if host {
-            // Only the saved catalog owns durable host tabs. Adopting a viewer must not turn
-            // its project association into persistence.
-            if let Some(path) = current_path {
-                self.remember_host_path(&name, &path).await;
-            }
-        }
-        created
     }
 
+    /// Restore saved activity only for durable rows still marked Down.
     fn restore_activity(&self, l: &mut Live, activity: Option<crate::activity::Activity>) {
         if l.ephemeral || l.state != State::Down {
             return;
@@ -263,10 +276,7 @@ impl Manager {
         let Some(activity) = activity else { return };
         l.state = activity.state;
         l.state_since = activity.state_since;
-        // Working classification uses elapsed time since pane activity.
-        // After a restart, the daemon has no previous frame for comparison.
-        // Establish a new last-change sample through the first live frame or the ten-second activity timeout.
-        // Preserve the displayed state age set above.
+        // Restart Working decay from now while preserving the displayed state age.
         l.last_change = if activity.state == State::Working {
             unix_ms()
         } else {
@@ -274,6 +284,7 @@ impl Manager {
         };
     }
 
+    /// Sample tmux dimensions; apply only if a reader has not appeared while awaiting.
     async fn refresh_readerless_size(&self, name: &str) {
         let Some((cols, rows)) = self.tmux.size(name).await else {
             return;
@@ -286,6 +297,7 @@ impl Manager {
     }
 }
 
+/// Inherit parent settings, then restore worker identity without reusing credentials.
 pub(in crate::session::manager) fn recovered_worker_cfg(
     cfg: &Config,
     name: &str,
