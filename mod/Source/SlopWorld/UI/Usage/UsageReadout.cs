@@ -137,7 +137,7 @@ namespace SlopWorld
 
         // What a row draws where the daemon has sent no figure for it. Not "0" and not "-":
         // one reads as a spent window and the other as a row that has been switched off.
-        const string Unsaid = "Not reported";
+        const string Unsaid = "...";
 
         static UsageWindow Window(UsageInfo usage, string key)
         {
