@@ -15,14 +15,21 @@ const FAST_TICK: Duration = Duration::from_millis(16);
 // Capture unwatched panes less often while still tracking activity.
 const SLOW_TICK: Duration = Duration::from_millis(200);
 
-/// Schedule reader work for changed frames, new subscriptions, and completed clipboard writes.
-/// Use Tokio's monotonic clock so tests and production calculate deadlines consistently.
-/// Do not use wall-clock activity timestamps to schedule rendering.
+/// Schedule output, subscription, and clipboard work on Tokio's monotonic clock.
+/// Wall-clock activity timestamps must not affect draw deadlines.
 #[derive(Default)]
 struct DrawSchedule {
     dirty: bool,
     last_drawn: Option<Instant>,
     deadline: Option<Instant>,
+}
+
+// A watched clean pane may need clipboard delivery without a redraw.
+#[derive(Debug, PartialEq, Eq)]
+enum TickAction {
+    Idle,
+    ClipboardOnly,
+    Render { clipboard: bool },
 }
 
 impl DrawSchedule {
@@ -51,27 +58,122 @@ impl DrawSchedule {
         }
     }
 
-    fn fire(&mut self, now: Instant, watched: bool) -> bool {
+    fn fire(&mut self, now: Instant, watched: bool) -> TickAction {
         if !self.dirty {
             self.deadline = None;
             // A newly watched pane may already have an OSC 52 value waiting in the emulator.
             // Give the tick a chance to take it even when no screen redraw is pending.
-            return watched;
+            return if watched {
+                TickAction::ClipboardOnly
+            } else {
+                TickAction::Idle
+            };
         }
         if watched || self.last_drawn.is_none_or(|last| now >= last + SLOW_TICK) {
-            // The tick consumes dirty only when it hands the frame to the renderer.
+            // Commit before rendering awaits; the loop cannot feed new output during the draw.
+            self.dirty = false;
             self.last_drawn = Some(now);
             self.deadline = None;
-            true
+            TickAction::Render { clipboard: watched }
         } else {
             self.deadline = self.last_drawn.map(|last| last + SLOW_TICK);
-            false
+            TickAction::Idle
         }
     }
 
     fn deadline(&self) -> Option<Instant> {
         self.deadline
     }
+}
+
+// Adapt tmux's combined history/viewport snapshot to the emulator's separate buffers.
+fn seed_emulator(e: &mut SessionEmu, cap: &crate::tmux::Screen, rows: u16) {
+    let mut seed = String::new();
+    // tmux returns primary history with the alternate screen. Initialize each buffer separately.
+    let visible = if cap.alt_screen {
+        let split = cap.lines.len().saturating_sub(rows as usize);
+        if split > 0 {
+            // CUP homes the cursor; SGR 0 resets text attributes before replaying history.
+            seed.push_str("\x1b[H\x1b[0m");
+            // CRLF starts each captured line in column zero, advancing or scrolling the grid.
+            seed.push_str(&cap.lines[..split].join("\r\n"));
+            seed.push_str("\r\n");
+        }
+        // DECSET 1049 saves the primary cursor and enters a cleared alternate screen.
+        seed.push_str("\x1b[?1049h");
+        &cap.lines[split..]
+    } else {
+        &cap.lines[..]
+    };
+    // Start the visible content at home with default text attributes.
+    seed.push_str("\x1b[H\x1b[0m");
+    // CRLF preserves captured line boundaries without carrying the previous column.
+    seed.push_str(&visible.join("\r\n"));
+    // CUP restores the cursor using one-based row and column coordinates.
+    seed.push_str(&format!("\x1b[{};{}H", cap.cy + 1, cap.cx + 1));
+    if !cap.title.is_empty() {
+        // OSC 0 restores the window/icon title; BEL terminates the sequence.
+        seed.push_str(&format!("\x1b]0;{}\x07", cap.title));
+    }
+    e.feed(seed.as_bytes());
+}
+
+#[derive(Default)]
+struct ClipboardPump {
+    copying: Arc<AtomicBool>,
+    wake: Arc<tokio::sync::Notify>,
+}
+
+impl ClipboardPump {
+    fn start_if_idle(&self, name: &str, emu: &Mutex<SessionEmu>) {
+        // Only the reader starts writes; the detached task only clears this flag.
+        if self.copying.load(Ordering::Relaxed) {
+            return;
+        }
+        let clip = emu.lock().ok().and_then(|mut e| e.take_clip());
+        if let Some(text) = clip {
+            self.copying.store(true, Ordering::Relaxed);
+            let done = self.copying.clone();
+            let wake = self.wake.clone();
+            let who = name.to_string();
+            // Keep writes detached from reader lifetime, and wake even after failure.
+            tokio::spawn(async move {
+                if let Err(e) = crate::clipboard::write(&text).await {
+                    tracing::debug!("osc52 clipboard {who}: {e:#}");
+                }
+                done.store(false, Ordering::Relaxed);
+                wake.notify_one();
+            });
+        }
+    }
+}
+
+fn handle_control_line(emu: &Mutex<SessionEmu>, line: &[u8]) -> ControlLine {
+    if let Some(bytes) = parse_output(line) {
+        if let Ok(mut e) = emu.lock() {
+            e.feed(&bytes);
+        }
+        ControlLine::Output
+    } else if line.starts_with(b"%exit") {
+        ControlLine::Exit
+    } else {
+        ControlLine::Ignore
+    }
+}
+
+// Return false on exit so buffered and newly received lines stop the reader identically.
+fn process_control_line(
+    emu: &Mutex<SessionEmu>,
+    line: &[u8],
+    schedule: &mut DrawSchedule,
+    watched: bool,
+) -> bool {
+    match handle_control_line(emu, line) {
+        ControlLine::Output => schedule.output(Instant::now(), watched),
+        ControlLine::Exit => return false,
+        ControlLine::Ignore => {}
+    }
+    true
 }
 
 impl Manager {
@@ -89,27 +191,7 @@ impl Manager {
 
         let mut e = SessionEmu::new(cols, rows);
         if let Ok(cap) = self.tmux.capture(name, crate::tmux::SCROLLBACK_LINES).await {
-            let mut seed = String::new();
-            // tmux returns primary history with the alternate screen. Initialize each buffer separately.
-            let visible = if cap.alt_screen {
-                let split = cap.lines.len().saturating_sub(rows as usize);
-                if split > 0 {
-                    seed.push_str("\x1b[H\x1b[0m");
-                    seed.push_str(&cap.lines[..split].join("\r\n"));
-                    seed.push_str("\r\n");
-                }
-                seed.push_str("\x1b[?1049h");
-                &cap.lines[split..]
-            } else {
-                &cap.lines[..]
-            };
-            seed.push_str("\x1b[H\x1b[0m");
-            seed.push_str(&visible.join("\r\n"));
-            seed.push_str(&format!("\x1b[{};{}H", cap.cy + 1, cap.cx + 1));
-            if !cap.title.is_empty() {
-                seed.push_str(&format!("\x1b]0;{}\x07", cap.title));
-            }
-            e.feed(seed.as_bytes());
+            seed_emulator(&mut e, &cap, rows);
         }
         let emu = Arc::new(Mutex::new(e));
         let reader_token = Arc::new(());
@@ -122,6 +204,7 @@ impl Manager {
             let emu = emu.clone();
             let reader_token = reader_token.clone();
             tokio::spawn(async move {
+                // Wait until the handle and token are installed before allowing cleanup.
                 if start_rx.await.is_ok() {
                     m.run_control(name, emu, reader_token, ready_tx).await;
                 }
@@ -131,9 +214,7 @@ impl Manager {
         let replaced_reader = {
             let mut live = self.live.write().await;
             match live.get_mut(name) {
-                // Recheck under the write lock because capture can yield.
-                // Cancel this attachment if another caller installed the reader.
-                // The startup gate prevents run_control cleanup before installation of its handle and ownership token.
+                // Capture yielded; another caller may have installed a reader meanwhile.
                 Some(l) if l.capture.emu.is_none() => {
                     l.capture.emu = Some(emu.clone());
                     l.capture.reader_token = Some(reader_token.clone());
@@ -221,47 +302,39 @@ impl Manager {
         };
 
         let mut rx = spawn_control_reader(master);
-        let pending =
+        let attached =
             match tokio::time::timeout(CONTROL_ATTACH_TIMEOUT, wait_for_control_attach(&mut rx))
                 .await
             {
-                Ok(Ok(pending)) => pending,
-                Ok(Err(error)) => {
-                    let error = format!(
+                Ok(result) => result.map_err(|error| {
+                    format!(
                         "control attach {name}: {}",
-                        crate::sandbox::sanitize_diagnostic(&error.to_string())
-                    );
-                    tracing::error!("{error}");
-                    if let Err(kill_error) = child.kill().await {
-                        tracing::debug!("stopping failed control client for {name}: {kill_error}");
-                    }
-                    self.fail_reader_start(&name, &reader_token, ready_tx, error)
-                        .await;
-                    return;
-                }
-                Err(_) => {
-                    let error = format!(
+                        crate::sandbox::sanitize_diagnostic(&error.to_string()),
+                    )
+                }),
+                Err(_) => Err(format!(
                     "control attach {name} did not become ready within {CONTROL_ATTACH_TIMEOUT:?}"
-                );
-                    tracing::error!("{error}");
-                    if let Err(kill_error) = child.kill().await {
-                        tracing::debug!(
-                            "stopping timed-out control client for {name}: {kill_error}"
-                        );
-                    }
-                    self.fail_reader_start(&name, &reader_token, ready_tx, error)
-                        .await;
-                    return;
-                }
+                )),
             };
+        let pending = match attached {
+            Ok(pending) => pending,
+            Err(error) => {
+                tracing::error!("{error}");
+                // Both handshake errors and timeouts must reap before releasing startup.
+                if let Err(kill_error) = child.kill().await {
+                    tracing::debug!("stopping failed control client for {name}: {kill_error}");
+                }
+                self.fail_reader_start(&name, &reader_token, ready_tx, error)
+                    .await;
+                return;
+            }
+        };
 
         let _ = ready_tx.send(Ok(()));
         self.run_control_loop(&name, emu, rx, pending).await;
 
-        // Stop and reap the control client before mark_down changes the session.
-        // The child owns the PTY slave. kill_on_drop starts termination but does not wait for completion.
-        // Dropping the child alone can let cleanup overlap the client that reported %exit.
-        // That race can delay shell exit after Ctrl+D until the tmux client timeout.
+        // Reap before mark_down so the client releases the PTY slave.
+        // kill_on_drop does not wait; cleanup can race and stall Ctrl+D exit.
         if let Err(error) = child.kill().await {
             tracing::debug!("stopping control client for {name}: {error}");
         }
@@ -278,37 +351,21 @@ impl Manager {
         let mut watchers_changed = self.signals.watchers_changed.subscribe();
         let mut schedule = DrawSchedule::default();
         schedule.wake(Instant::now(), self.watched(name));
-        let copying = Arc::new(AtomicBool::new(false));
-        let clipboard_wake = Arc::new(tokio::sync::Notify::new());
+        let clipboard = ClipboardPump::default();
 
-        let mut exited = false;
+        // Replay handshake output before reading newer bytes from the transport.
         for line in pending {
-            match self.handle_control_line(&emu, line).await {
-                ControlLine::Output => {
-                    schedule.output(Instant::now(), self.watched(name));
-                }
-                ControlLine::Exit => {
-                    exited = true;
-                    break;
-                }
-                ControlLine::Ignore => {}
+            if !process_control_line(&emu, &line, &mut schedule, self.watched(name)) {
+                return;
             }
-        }
-
-        if exited {
-            return;
         }
 
         loop {
             tokio::select! {
                 line = rx.recv() => match line {
                     Some(line) => {
-                        match self.handle_control_line(&emu, line).await {
-                            ControlLine::Output => {
-                                schedule.output(Instant::now(), self.watched(name));
-                            }
-                            ControlLine::Exit => break,
-                            ControlLine::Ignore => {}
+                        if !process_control_line(&emu, &line, &mut schedule, self.watched(name)) {
+                            break;
                         }
                     }
                     None => break,
@@ -321,74 +378,34 @@ impl Manager {
                 } => {
                     let watched = self.watched(name);
                     let now = Instant::now();
-                    if schedule.fire(now, watched) {
-                        self.handle_control_tick(
-                            name,
-                            &emu,
-                            watched,
-                            &mut schedule,
-                            &copying,
-                            &clipboard_wake,
-                        )
-                        .await;
-                    }
+                    let action = schedule.fire(now, watched);
+                    self.handle_control_tick(name, &emu, action, &clipboard).await;
                 },
                 _ = watchers_changed.changed() => {
                     schedule.wake(Instant::now(), self.watched(name));
                 },
-                _ = clipboard_wake.notified() => {
+                _ = clipboard.wake.notified() => {
                     schedule.wake(Instant::now(), self.watched(name));
                 }
             }
         }
     }
 
-    async fn handle_control_line(
-        &self,
-        emu: &Arc<Mutex<SessionEmu>>,
-        line: Vec<u8>,
-    ) -> ControlLine {
-        if let Some(bytes) = parse_output(&line) {
-            if let Ok(mut e) = emu.lock() {
-                e.feed(&bytes);
-            }
-            ControlLine::Output
-        } else if line.starts_with(b"%exit") {
-            ControlLine::Exit
-        } else {
-            ControlLine::Ignore
-        }
-    }
-
     async fn handle_control_tick(
         &self,
         name: &str,
-        emu: &Arc<Mutex<SessionEmu>>,
-        watched: bool,
-        schedule: &mut DrawSchedule,
-        copying: &Arc<AtomicBool>,
-        clipboard_wake: &Arc<tokio::sync::Notify>,
+        emu: &Mutex<SessionEmu>,
+        action: TickAction,
+        clipboard: &ClipboardPump,
     ) {
-        if schedule.dirty {
-            schedule.dirty = false;
-            schedule.last_drawn = Some(Instant::now());
+        if matches!(action, TickAction::Render { .. }) {
             self.render_and_broadcast(name, emu).await;
         }
-        if watched && !copying.load(Ordering::Relaxed) {
-            let clip = emu.lock().ok().and_then(|mut e| e.take_clip());
-            if let Some(text) = clip {
-                copying.store(true, Ordering::Relaxed);
-                let done = copying.clone();
-                let wake = clipboard_wake.clone();
-                let who = name.to_string();
-                tokio::spawn(async move {
-                    if let Err(e) = crate::clipboard::write(&text).await {
-                        tracing::debug!("osc52 clipboard {who}: {e:#}");
-                    }
-                    done.store(false, Ordering::Relaxed);
-                    wake.notify_one();
-                });
-            }
+        if matches!(
+            action,
+            TickAction::ClipboardOnly | TickAction::Render { clipboard: true }
+        ) {
+            clipboard.start_if_idle(name, emu);
         }
     }
 }

@@ -17,23 +17,15 @@ async fn due_output_reaches_the_screen_for_watched_and_unwatched_panes() {
         let mut events = manager.events.subscribe();
         let mut schedule = DrawSchedule::default();
         assert!(matches!(
-            manager
-                .handle_control_line(&emu, b"%output %1 hello".to_vec())
-                .await,
+            handle_control_line(&emu, b"%output %1 hello"),
             ControlLine::Output
         ));
         let now = Instant::now();
         schedule.output(now, watched);
-        assert!(schedule.fire(now + FAST_TICK, watched));
+        let action = schedule.fire(now + FAST_TICK, watched);
+        assert_eq!(action, TickAction::Render { clipboard: watched });
         manager
-            .handle_control_tick(
-                "agent",
-                &emu,
-                watched,
-                &mut schedule,
-                &Arc::new(AtomicBool::new(false)),
-                &Arc::new(tokio::sync::Notify::new()),
-            )
+            .handle_control_tick("agent", &emu, action, &ClipboardPump::default())
             .await;
 
         assert!(manager.screen("agent").await.is_some());
@@ -65,19 +57,12 @@ async fn subscription_during_render_leaves_a_clean_tick_pending_for_each_reader(
     let mut schedule = DrawSchedule::default();
     let now = Instant::now();
     schedule.output(now, false);
-    assert!(schedule.fire(now + FAST_TICK, false));
-    let copying = Arc::new(AtomicBool::new(false));
-    let clipboard_wake = Arc::new(tokio::sync::Notify::new());
+    let action = schedule.fire(now + FAST_TICK, false);
+    assert_eq!(action, TickAction::Render { clipboard: false });
+    let clipboard = ClipboardPump::default();
 
     let rules = manager.rules.compiled.write().await;
-    let mut tick = Box::pin(manager.handle_control_tick(
-        "agent",
-        &emu,
-        false,
-        &mut schedule,
-        &copying,
-        &clipboard_wake,
-    ));
+    let mut tick = Box::pin(manager.handle_control_tick("agent", &emu, action, &clipboard));
     assert!(futures::poll!(tick.as_mut()).is_pending());
     // No receiver is waiting on changed() while frame publication is suspended.
     let watch = manager.watching("agent");
@@ -96,7 +81,10 @@ async fn subscription_during_render_leaves_a_clean_tick_pending_for_each_reader(
         std::task::Poll::Ready(Ok(()))
     ));
     schedule.wake(Instant::now(), manager.watched("agent"));
-    assert!(schedule.fire(Instant::now(), manager.watched("agent")));
+    assert_eq!(
+        schedule.fire(Instant::now(), manager.watched("agent")),
+        TickAction::ClipboardOnly
+    );
 
     drop(watch);
     assert!(matches!(
@@ -125,19 +113,28 @@ fn watched_output_uses_the_existing_draw_beat() {
     let mut schedule = DrawSchedule::default();
     schedule.output(now, true);
     assert_eq!(schedule.deadline(), Some(now + FAST_TICK));
-    assert!(schedule.fire(now + FAST_TICK, true));
+    assert_eq!(
+        schedule.fire(now + FAST_TICK, true),
+        TickAction::Render { clipboard: true }
+    );
 
     // Output arriving near the next beat should not start a fresh 16 ms wait.
     let nearly_due = now + FAST_TICK + Duration::from_millis(14);
     schedule.output(nearly_due, true);
     assert_eq!(schedule.deadline(), Some(now + FAST_TICK * 2));
-    assert!(schedule.fire(now + FAST_TICK * 2, true));
+    assert_eq!(
+        schedule.fire(now + FAST_TICK * 2, true),
+        TickAction::Render { clipboard: true }
+    );
 
     // A quiet pane is ready for an immediate capture without a recurring timer.
     let after_idle = now + Duration::from_millis(100);
     schedule.output(after_idle, true);
     assert_eq!(schedule.deadline(), Some(after_idle));
-    assert!(schedule.fire(after_idle, true));
+    assert_eq!(
+        schedule.fire(after_idle, true),
+        TickAction::Render { clipboard: true }
+    );
     assert_eq!(schedule.deadline(), None);
 }
 
@@ -149,7 +146,10 @@ fn clean_reader_has_no_recurring_deadline() {
 
     schedule.output(now, false);
     assert_eq!(schedule.deadline(), Some(now + FAST_TICK));
-    assert!(schedule.fire(now + FAST_TICK, false));
+    assert_eq!(
+        schedule.fire(now + FAST_TICK, false),
+        TickAction::Render { clipboard: false }
+    );
     assert_eq!(schedule.deadline(), None);
 }
 
@@ -158,14 +158,23 @@ fn unwatched_output_keeps_the_render_limit_without_polling_clean_panes() {
     let now = Instant::now();
     let mut schedule = DrawSchedule::default();
     schedule.output(now, false);
-    assert!(schedule.fire(now + FAST_TICK, false));
+    assert_eq!(
+        schedule.fire(now + FAST_TICK, false),
+        TickAction::Render { clipboard: false }
+    );
 
     let next = now + Duration::from_millis(20);
     schedule.output(next, false);
     assert_eq!(schedule.deadline(), Some(now + FAST_TICK + SLOW_TICK));
-    assert!(!schedule.fire(now + Duration::from_millis(100), false));
+    assert_eq!(
+        schedule.fire(now + Duration::from_millis(100), false),
+        TickAction::Idle
+    );
     assert_eq!(schedule.deadline(), Some(now + FAST_TICK + SLOW_TICK));
-    assert!(schedule.fire(now + FAST_TICK + SLOW_TICK, false));
+    assert_eq!(
+        schedule.fire(now + FAST_TICK + SLOW_TICK, false),
+        TickAction::Render { clipboard: false }
+    );
     assert_eq!(schedule.deadline(), None);
 }
 
@@ -174,10 +183,86 @@ fn a_new_subscription_wakes_dirty_or_pending_work() {
     let now = Instant::now();
     let mut schedule = DrawSchedule::default();
     schedule.wake(now, true);
-    assert!(schedule.fire(now, true));
+    assert_eq!(schedule.fire(now, true), TickAction::ClipboardOnly);
 
     schedule.output(now, false);
     schedule.wake(now + Duration::from_millis(1), true);
     assert_eq!(schedule.deadline(), Some(now + Duration::from_millis(1)));
-    assert!(schedule.fire(now + Duration::from_millis(1), true));
+    assert_eq!(
+        schedule.fire(now + Duration::from_millis(1), true),
+        TickAction::Render { clipboard: true }
+    );
+}
+
+#[test]
+fn rendering_consumes_output_but_clipboard_wakes_do_not_advance_draw_time() {
+    let now = Instant::now();
+    let mut schedule = DrawSchedule::default();
+    schedule.output(now, true);
+    assert_eq!(
+        schedule.fire(now + FAST_TICK, true),
+        TickAction::Render { clipboard: true }
+    );
+    assert!(!schedule.dirty);
+    schedule.wake(now + FAST_TICK + Duration::from_millis(1), true);
+    assert_eq!(
+        schedule.fire(now + FAST_TICK + Duration::from_millis(1), true),
+        TickAction::ClipboardOnly
+    );
+    assert_eq!(schedule.last_drawn, Some(now + FAST_TICK));
+    assert_eq!(schedule.deadline(), None);
+    assert_eq!(schedule.fire(now + SLOW_TICK, false), TickAction::Idle);
+}
+
+#[test]
+fn snapshot_seed_restores_primary_history_cursor_and_title() {
+    let mut emu = SessionEmu::new(20, 2);
+    seed_emulator(
+        &mut emu,
+        &crate::tmux::Screen {
+            lines: vec!["history".into(), "first".into(), "second".into()],
+            cx: 3,
+            cy: 1,
+            title: "restored title".into(),
+            alt_screen: false,
+        },
+        2,
+    );
+    let frame = emu.render();
+    assert!(!frame.alt_screen);
+    assert_eq!((frame.cx, frame.cy), (3, 1));
+    assert_eq!(frame.title, "restored title");
+    assert!(frame.lines.join("\n").contains("first"));
+    assert!(frame.lines.join("\n").contains("second"));
+    let (grid, achieved, _, title) = emu.scroll_snapshot(1);
+    assert_eq!(achieved, 1);
+    let history = SessionEmu::frame_from_grid(grid, 20, 2, title);
+    assert!(history.lines[0].contains("history"));
+}
+
+#[test]
+fn snapshot_seed_keeps_primary_history_out_of_alternate_screen() {
+    let mut emu = SessionEmu::new(20, 2);
+    seed_emulator(
+        &mut emu,
+        &crate::tmux::Screen {
+            lines: vec!["history".into(), "alt first".into(), "alt second".into()],
+            cx: 2,
+            cy: 0,
+            title: String::new(),
+            alt_screen: true,
+        },
+        2,
+    );
+    let frame = emu.render();
+    assert!(frame.alt_screen);
+    assert_eq!((frame.cx, frame.cy), (2, 0));
+    assert!(frame.lines.join("\n").contains("alt first"));
+    assert!(frame.lines.join("\n").contains("alt second"));
+    assert!(!frame.lines.join("\n").contains("history"));
+    emu.feed(b"\x1b[?1049l");
+    let primary = emu.render();
+    assert!(!primary.alt_screen);
+    assert!(primary.lines.join("\n").contains("history"));
+    assert!(!primary.lines.join("\n").contains("alt first"));
 }
