@@ -29,6 +29,7 @@ impl StartPlan {
 }
 
 impl Manager {
+    /// Find the configured or runtime session and resolve its project/worktree.
     async fn resolve_target(&self, cfg: &Config, name: &str) -> Result<(SessionCfg, ProjectCfg)> {
         let session = match cfg.session(name) {
             Some(session) => session.clone(),
@@ -54,8 +55,7 @@ impl Manager {
         Ok((session, project))
     }
 
-    /// Resolve launch inputs before creating the pane. Preparation may create directories
-    /// and worker credentials; a failed start must clean up those owned resources.
+    /// Resolve launch inputs, preparing directories and worker credentials for this attempt.
     async fn prepare_start(&self, name: &str) -> Result<StartPlan> {
         let cfg = self.config().await;
         let (mut session, project) = self.resolve_target(&cfg, name).await?;
@@ -73,6 +73,7 @@ impl Manager {
                 bail!("Worker {name} needs network access to use the task API.");
             }
         }
+        // Reuse terminal dimensions and a valid remembered host directory.
         let (cols, rows, host, host_path) = match self.live.read().await.get(name) {
             Some(live) => (live.cols, live.rows, live.host, live.host_path.clone()),
             None => (Live::BOOT_COLS, Live::BOOT_ROWS, false, String::new()),
@@ -91,6 +92,7 @@ impl Manager {
             bail!("The working directory is not a directory: {dir}.");
         }
 
+        // Mint worker authority before building arguments; revoke it if planning fails.
         if session.worker {
             let token = self
                 .mint_grant(
@@ -129,11 +131,11 @@ impl Manager {
         })
     }
 
+    /// Create the placeholder pane and persist metadata needed for adoption.
     async fn launch_tmux(&self, name: &str, plan: &StartPlan) -> Result<()> {
+        // Keep the pane silent until reader attachment to avoid losing early output.
         if let Err(error) = self
             .tmux
-            // Keep the pane silent until the control reader attaches.
-            // Capturing a running command before attachment can lose output produced between these operations.
             .spawn(
                 name,
                 &plan.dir,
@@ -145,8 +147,7 @@ impl Manager {
             .await
         {
             if plan.is_worker() {
-                // tmux command errors include all arguments.
-                // Do not expose the worker bearer credential in saved task errors or daemon logs.
+                // tmux errors include arguments; keep worker credentials out of errors and logs.
                 tracing::warn!("could not create worker session {name}: tmux spawn failed");
                 return Err(anyhow!("could not create worker session {name}"));
             }
@@ -204,10 +205,12 @@ impl Manager {
         Ok(())
     }
 
+    /// Serialize startup with other session mutations.
     pub async fn start(self: &Arc<Self>, name: &str) -> Result<()> {
         self.session_operation(self.start_inner(name)).await
     }
 
+    /// Prepare, create, attach, then launch; unwind resources on failure.
     async fn start_inner(self: &Arc<Self>, name: &str) -> Result<()> {
         let plan = self.prepare_start(name).await?;
         if let Some(launch) = &plan.launch {
@@ -225,10 +228,12 @@ impl Manager {
             return Err(error);
         }
 
+        // Give the new reader a fresh run identity and activity history.
         self.clear_activity(name).await;
         let auto_resume_pending = !plan.host && plan.session.auto_resume && !plan.is_worker();
         let run_id = self.reset_live_for_start(name, auto_resume_pending).await;
 
+        // Attachment must succeed before the real command can produce output.
         match self.spawn_reader(name).await {
             Ok(true) => {}
             Ok(false) => {
@@ -280,9 +285,8 @@ impl Manager {
         run_id
     }
 
+    /// Remove the failed pane, worker authority, and temporary sandbox state.
     async fn cleanup_failed_start(&self, name: &str, worker: bool) {
-        // The new session requires a new control reader.
-        // Treat failed attachment as failed startup so an old reader cannot imply successful startup.
         let ephemeral = self
             .live
             .read()
@@ -305,6 +309,7 @@ impl Manager {
         }
     }
 
+    /// Discard queued startup context once the command is running.
     async fn clear_startup_breadcrumbs(&self, name: &str) {
         let mut live = self.live.write().await;
         if let Some(live) = live.get_mut(name) {
